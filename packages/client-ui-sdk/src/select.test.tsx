@@ -65,6 +65,7 @@ describe("Select", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the axe Promise.
 	it("passes an axe pass with its options modal open", async () => {
 		render(<LanguageSelect />);
 		openOptions();

@@ -29,6 +29,7 @@ const deferredUpload = () => {
 	const settlers: ((outcome: SchemaFileUploadOutcome) => void)[] = [];
 	const uploadFile: SchemaFileUpload = (request) => {
 		requests.push({ fileName: request.fileName });
+		// oxlint-disable-next-line effecttsgo/new-promise -- Test gate controls upload completion.
 		return new Promise((resolve) => {
 			settlers.push(resolve);
 		});
@@ -63,6 +64,7 @@ function FileFieldHarness(props: {
 }
 
 describe("SchemaFileField", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React test updates.
 	it("uploads a chosen file and reports the token once the upload completes", async () => {
 		const upload = deferredUpload();
 		const tokens: (string | undefined)[] = [];
@@ -89,6 +91,7 @@ describe("SchemaFileField", () => {
 		expect(tokens).toEqual([undefined, "token-1"]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React test updates.
 	it("clears the value and explains a failed upload", async () => {
 		const tokens: (string | undefined)[] = [];
 		const upload = deferredUpload();
@@ -110,6 +113,7 @@ describe("SchemaFileField", () => {
 		expect(tokens).toEqual([undefined, undefined]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React test updates.
 	it("rejects a wrong extension before uploading anything", async () => {
 		const upload = deferredUpload();
 		render(
@@ -127,6 +131,7 @@ describe("SchemaFileField", () => {
 		expect(upload.requests).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React test updates.
 	it("clears the value when the uploaded file is removed", async () => {
 		const tokens: (string | undefined)[] = [];
 		const upload = deferredUpload();
@@ -148,6 +153,7 @@ describe("SchemaFileField", () => {
 		expect(tokens).toEqual([undefined, "token-1", undefined]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React test updates.
 	it("ignores a stale attempt's completion after a replacement selection", async () => {
 		const tokens: (string | undefined)[] = [];
 		const upload = deferredUpload();
@@ -180,13 +186,18 @@ describe("SchemaFileField", () => {
 		expect(tokens).toEqual([undefined, undefined, undefined, "current-token"]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React test updates.
 	it("lets only the latest overlapping picker result start an upload", async () => {
 		const picks: ((outcome: Awaited<ReturnType<SchemaFilePicker>>) => void)[] = [];
 		const uploaded: string[] = [];
+		const pickFile: SchemaFilePicker = () => {
+			// oxlint-disable-next-line effecttsgo/new-promise -- Test gate controls the browser picker response.
+			return new Promise((resolve) => picks.push(resolve));
+		};
 		render(
 			<FileFieldHarness
+				pickFile={pickFile}
 				onChange={() => undefined}
-				pickFile={() => new Promise((resolve) => picks.push(resolve))}
 				uploadFile={(request) => {
 					uploaded.push(request.fileName);
 					return Promise.resolve({ kind: "uploaded", token: request.fileName });
@@ -204,6 +215,7 @@ describe("SchemaFileField", () => {
 		expect(uploaded).toEqual(["latest.zip"]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React test updates.
 	it("does not publish upload completion after unmount", async () => {
 		const tokens: (string | undefined)[] = [];
 		const upload = deferredUpload();

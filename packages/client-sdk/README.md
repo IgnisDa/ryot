@@ -29,6 +29,15 @@ registrations.
 preserve these reasons; callers must not infer failures from message text or expect capability-specific
 reasons outside this set.
 
+Asynchronous client capabilities and `RyotClientAdapter` operations return `Effect` with
+`RyotClientError` in the failure channel. Client-only plugin code imports `Effect` from
+`@ryot-app/client-sdk/effect`; the neutral shared-code `@ryot-app/plugin-kit/effect` surface
+does not export it. Interruption cancels an in-flight RyotQL or asset request over its existing
+bridge cancel message. Other capability requests have no per-request cancel message; interruption
+still removes their local pending completion. React query and mutation definitions return Effects,
+which Atom runs directly; `mutateAsync` and storage hook methods return Promises at the React
+integration boundary.
+
 `uploads` is one capability on every adapter that hides intent creation, byte transfer, and
 completion. Bridge payloads are structured-clone values, so a plugin sends a `Blob` or `File` with a
 file name and content type, and the host keeps the intent, upload URL, headers, and credential. A
@@ -76,23 +85,45 @@ the same registry/query atom share one watch. Updates and document-foreground hi
 ms; an in-flight request finishes before one queued refresh. Hidden retained screens withdraw demand,
 and reactivation requests catch-up without discarding cached data.
 
+## Entity Presentations
+
+`defineEntityPresentation` accepts an Effect-returning loader. Its context has only `client` and
+`references`; cancellation interrupts the loader fiber rather than passing an `AbortSignal`:
+
+```ts
+loader: ({ client, references }) =>
+	Effect.gen(function* () {
+		// Load and return a record indexed by reference.entityId.
+		return yield* client.data.query(recipeFor(references));
+	}),
+```
+
+The loader returns `Effect.Effect<Readonly<Record<string, Data>>, RyotClientError>`.
+Presentation batches contain up to 100 sorted references and at most four loaders run at once.
+Interrupted queued work is removed, and completed or interrupted work releases its slot. The
+registry's `load()` still returns a Promise because React's dynamic module import is a framework
+boundary. Batch drain delays continue to use `RyotSchedule` and its TestClock-backed test runtime.
+
 ## Scheduling
 
 Every SDK delay goes through `RyotSchedule` (`now`, `after`), built by `RyotScheduleService` from
 the Effect `Clock` in its layer, and distributed to components by `RyotProvider` alongside the
 client. `makeRyotRuntime(client)` assembles the live runtime; `createTestRyotClock` from
 `./testing` assembles a `TestClock`-backed one, so tests advance time with `advance(ms)` instead of
-faking timers. The plugin-facing shape stays plain callbacks because plugin bundles have no Effect
-barrel. `after` forks its sleep on the layer's captured clock and returns a synchronous cancel; a
-throw inside the callback is rethrown on a microtask so the plugin fatal path still sees it.
+faking timers. `RyotSchedule` keeps synchronous callback registration for React and router code;
+client-only plugin code can also use the SDK Effect barrel. `after` forks its sleep on the layer's
+captured clock and returns a synchronous cancel; a throw inside the callback is rethrown on a
+microtask so the plugin fatal path still sees it. `run` executes refresh Effects on that same scoped
+runtime and returns an interrupt function. Disposing a refresh interrupts in-flight work.
 
 The test clock governs SDK scheduling only. It does **not** drive `AtomRegistry` idle-TTL sweeps
 (raw `setTimeout`, 5 min default TTL) or `Atom.swr` staleness (`Date.now()` against a 30 s
 `staleTime`), and interested queries never get `Atom.swr` at all. Advancing the test clock past
-those thresholds will not expire an atom.
+those thresholds will not expire an atom. Cancel-on-unmount queries, including presentation and
+managed-asset batches, also skip `Atom.swr`; their refreshes are explicitly requested or scheduled.
 
-`useEntityRefresh` supports controller-owned data and passes a deduplicated batch of updates to
-`onRefresh`. `useEntitySettle` provides the same staging for query-owned screens. Both reveal settle
+`useEntityRefresh` supports controller-owned data and passes a deduplicated batch of updates to its
+Effect-returning `onRefresh`. `useEntitySettle` provides the same staging for query-owned screens. Both reveal settle
 marks only on `commit()`, after refreshed values are rendered, and expire marks automatically.
 Identity changes and unmount discard queued work. Transient transport and disposal failures do not
 crash a screen; invalid input and unsupported capabilities remain explicit.

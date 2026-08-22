@@ -167,12 +167,14 @@ describe("useDismissOnOutside", () => {
 });
 
 describe("useRestoreFocus", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React test updates.
 	it("returns focus to the trigger on unmount", async () => {
 		const { last, first, container } = mountContainer();
 		const view = renderHook(() => useRestoreFocus({ current: first }));
 		last.focus();
 
 		view.unmount();
+		// oxlint-disable-next-line effecttsgo/async-function -- React act requires a Promise callback.
 		await act(async () => {});
 
 		expect(document.activeElement).toBe(first);

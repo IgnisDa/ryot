@@ -1,4 +1,5 @@
 import clsx from "clsx";
+import * as Effect from "effect/Effect";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 import { FieldMessage } from "../../text-field";
@@ -108,44 +109,48 @@ export function SchemaFileField(props: {
 		props.onChange(undefined);
 	};
 
-	const selectFile = async (file: SchemaFileCandidate, token = ++attempt.current) => {
-		if (!isAllowedUploadFileName(file.name, props.allowedFileExtensions)) {
-			fail(token, unsupportedFileExtensionMessage(props.allowedFileExtensions));
-			return;
-		}
-		const contentType = normalizeUploadContentType(file.name, file.contentType);
-		if (contentType === undefined) {
-			fail(token, unsupportedFileExtensionMessage(props.allowedFileExtensions));
-			return;
-		}
-		if (!isCurrent(token)) {
-			return;
-		}
-		setState({ name: file.name, size: file.size, status: "uploading" });
-		props.onChange(undefined);
-		const outcome = await props.uploadFile({
-			contentType,
-			fileName: file.name,
-			source: file.source,
+	const selectFile = (file: SchemaFileCandidate, token = ++attempt.current) =>
+		Effect.gen(function* () {
+			if (!isAllowedUploadFileName(file.name, props.allowedFileExtensions)) {
+				fail(token, unsupportedFileExtensionMessage(props.allowedFileExtensions));
+				return;
+			}
+			const contentType = normalizeUploadContentType(file.name, file.contentType);
+			if (contentType === undefined) {
+				fail(token, unsupportedFileExtensionMessage(props.allowedFileExtensions));
+				return;
+			}
+			if (!isCurrent(token)) {
+				return;
+			}
+			setState({ name: file.name, size: file.size, status: "uploading" });
+			props.onChange(undefined);
+			const outcome = yield* Effect.promise(() =>
+				props.uploadFile({ contentType, fileName: file.name, source: file.source }),
+			);
+			if (!isCurrent(token)) {
+				return;
+			}
+			if (outcome.kind === "failed") {
+				fail(token, outcome.message);
+				return;
+			}
+			setState({ name: file.name, size: file.size, status: "uploaded" });
+			props.onChange(outcome.token);
 		});
-		if (!isCurrent(token)) {
-			return;
-		}
-		if (outcome.kind === "failed") {
-			fail(token, outcome.message);
-			return;
-		}
-		setState({ name: file.name, size: file.size, status: "uploaded" });
-		props.onChange(outcome.token);
-	};
 
-	const chooseFile = async () => {
-		const token = ++attempt.current;
-		const outcome = await props.pickFile({ allowedFileExtensions: props.allowedFileExtensions });
-		if (isCurrent(token) && outcome.kind === "picked") {
-			await selectFile(outcome.file, token);
-		}
-	};
+	const chooseFile = () =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				const token = ++attempt.current;
+				const outcome = yield* Effect.promise(() =>
+					props.pickFile({ allowedFileExtensions: props.allowedFileExtensions }),
+				);
+				if (isCurrent(token) && outcome.kind === "picked") {
+					yield* selectFile(outcome.file, token);
+				}
+			}),
+		);
 
 	const removeFile = () => {
 		attempt.current = attempt.current + 1;
@@ -156,7 +161,7 @@ export function SchemaFileField(props: {
 	const attached = attachedFile(state, props.value);
 
 	return (
-		<FileDropZone onFileDropped={(file) => void selectFile(file)}>
+		<FileDropZone onFileDropped={(file) => void Effect.runPromise(selectFile(file))}>
 			<div className="flex flex-col gap-1.5">
 				{attached === undefined ? (
 					<button

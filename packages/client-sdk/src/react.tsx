@@ -11,6 +11,7 @@ import { MANAGED_ASSET_RESOLUTION_MAX_ASSETS } from "@ryot-app/contract/modules/
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult";
@@ -32,6 +33,7 @@ import {
 import { ActiveScreenContext } from "./active-screen";
 import { createEntityRefresh, entityTransport } from "./entity-refresh";
 import type {
+	RyotClientError,
 	EntityInterest,
 	EntityInterestSubscription,
 	EntityUpdate,
@@ -55,7 +57,7 @@ const staleTime = 30 * 1_000;
 const idleTTL = 5 * 60 * 1_000;
 const queryTypeId = Symbol("@ryot-app/client-sdk/react/query");
 const mutationTypeId = Symbol("@ryot-app/client-sdk/react/mutation");
-type PageRefreshHandle = () => void | Promise<void>;
+type PageRefreshHandle = () => void | Promise<void> | Effect.Effect<void>;
 type PageRefreshRegistry = {
 	readonly generation: () => number;
 	readonly hint: () => void;
@@ -79,25 +81,36 @@ const RyotContext = createContext<
 type QueryContext<Input, HostServices> = {
 	readonly input: Input;
 	readonly client: RyotClient;
-	readonly signal: AbortSignal;
 	readonly hostServices: HostServices;
 };
 
 type MutationContext<Input, HostServices> = QueryContext<Input, HostServices>;
 
-export interface RyotQuery<Input, Data, HostServices = undefined> {
+export interface RyotQuery<
+	Input,
+	Data,
+	HostServices = undefined,
+	Failure extends Error = RyotClientError,
+> {
 	readonly [queryTypeId]: {
 		readonly data?: Data;
 		readonly input?: Input;
 		readonly hostServices?: HostServices;
+		readonly failure?: Failure;
 	};
 }
 
-export interface RyotMutation<Input, Data, HostServices = undefined> {
+export interface RyotMutation<
+	Input,
+	Data,
+	HostServices = undefined,
+	Failure extends Error = RyotClientError,
+> {
 	readonly [mutationTypeId]: {
 		readonly data?: Data;
 		readonly input?: Input;
 		readonly hostServices?: HostServices;
+		readonly failure?: Failure;
 	};
 }
 
@@ -155,42 +168,38 @@ type RyotQueryOptions<Input, Data> = {
 	}) => EntityInterest;
 };
 
-const makeQueryAtom = <Data,>(
-	run: (signal: AbortSignal) => Promise<Data>,
+const makeQueryAtom = <Data, Failure extends Error>(
+	run: Effect.Effect<Data, Failure>,
 	initialData?: Data,
 	cancelOnUnmount = false,
 	interested = false,
 ) => {
-	const request = Effect.tryPromise({
-		try: run,
-		catch: (error) => (error instanceof Error ? error : new Error(String(error))),
-	});
 	const hydrated = new WeakSet<AtomRegistry.AtomRegistry>();
 	const effect = Effect.flatMap(AtomRegistry.AtomRegistry, (registry) => {
 		if (initialData !== undefined && !hydrated.has(registry)) {
 			hydrated.add(registry);
-			return Effect.promise(() => Promise.resolve(initialData));
+			return Effect.succeed(initialData);
 		}
-		return request;
+		return run;
 	});
 	const source =
-		initialData === undefined
-			? Atom.make(request)
-			: Atom.make(effect, { initialValue: initialData });
+		initialData === undefined ? Atom.make(run) : Atom.make(effect, { initialValue: initialData });
 	const requestSource = cancelOnUnmount ? source.pipe(Atom.setIdleTTL(0)) : source;
 	if (interested) {
 		return requestSource.pipe(Atom.setIdleTTL(cancelOnUnmount ? 0 : idleTTL));
 	}
-	if (initialData !== undefined) {
+	if (initialData !== undefined || cancelOnUnmount) {
 		return requestSource;
 	}
-	return requestSource.pipe(
-		Atom.swr({ staleTime }),
-		Atom.setIdleTTL(cancelOnUnmount ? 0 : idleTTL),
-	);
+	return requestSource.pipe(Atom.swr({ staleTime }), Atom.setIdleTTL(idleTTL));
 };
 
-class QueryDefinition<Input, Data, HostServices> implements RyotQuery<Input, Data, HostServices> {
+class QueryDefinition<Input, Data, HostServices, Failure extends Error> implements RyotQuery<
+	Input,
+	Data,
+	HostServices,
+	Failure
+> {
 	readonly [queryTypeId] = {};
 
 	constructor(
@@ -199,76 +208,103 @@ class QueryDefinition<Input, Data, HostServices> implements RyotQuery<Input, Dat
 			client: RyotClient,
 			hostServices: HostServices,
 			input: Input,
-		) => ReturnType<typeof makeQueryAtom<Data>>,
+		) => ReturnType<typeof makeQueryAtom<Data, Failure>>,
 		readonly entityInterest?: RyotQueryOptions<Input, Data>["entityInterest"],
 	) {}
 }
 
-class MutationDefinition<Input, Data, HostServices> implements RyotMutation<
+class MutationDefinition<Input, Data, HostServices, Failure extends Error> implements RyotMutation<
 	Input,
 	Data,
-	HostServices
+	HostServices,
+	Failure
 > {
 	readonly [mutationTypeId] = {};
 
-	constructor(readonly run: (context: MutationContext<Input, HostServices>) => Promise<Data>) {}
+	constructor(
+		readonly run: (context: MutationContext<Input, HostServices>) => Effect.Effect<Data, Failure>,
+	) {}
 }
 
-export function createRyotQuery<Data>(
-	query: (context: Omit<QueryContext<void, undefined>, "input">) => Promise<Data>,
+export function createRyotQuery<Data, Failure extends Error = RyotClientError>(
+	query: (context: Omit<QueryContext<void, undefined>, "input">) => Effect.Effect<Data, Failure>,
 	options?: RyotQueryOptions<void, Data>,
-): RyotQuery<void, Data>;
-export function createRyotQuery<Input, Data, HostServices = undefined>(
-	query: (context: QueryContext<Input, HostServices>) => Promise<Data>,
+): RyotQuery<void, Data, undefined, Failure>;
+export function createRyotQuery<
+	Input,
+	Data,
+	HostServices = undefined,
+	Failure extends Error = RyotClientError,
+>(
+	query: (context: QueryContext<Input, HostServices>) => Effect.Effect<Data, Failure>,
 	options?: RyotQueryOptions<Input, Data>,
-): RyotQuery<Input, Data, HostServices>;
-export function createRyotQuery<Input, Data, HostServices = undefined>(
-	query: (context: QueryContext<Input, HostServices>) => Promise<Data>,
+): RyotQuery<Input, Data, HostServices, Failure>;
+export function createRyotQuery<
+	Input,
+	Data,
+	HostServices = undefined,
+	Failure extends Error = RyotClientError,
+>(
+	query: (context: QueryContext<Input, HostServices>) => Effect.Effect<Data, Failure>,
 	options?: RyotQueryOptions<Input, Data>,
 ) {
 	type ClientQueries = {
 		hostServices: HostServices;
-		readonly inputs: (input: Input) => ReturnType<typeof makeQueryAtom<Data>>;
+		readonly inputs: (input: Input) => ReturnType<typeof makeQueryAtom<Data, Failure>>;
 	};
 	const registries = new WeakMap<AtomRegistry.AtomRegistry, WeakMap<RyotClient, ClientQueries>>();
-	return new QueryDefinition<Input, Data, HostServices>((registry, client, hostServices, input) => {
-		let clients = registries.get(registry);
-		if (!clients) {
-			clients = new WeakMap();
-			registries.set(registry, clients);
-		}
-		let clientQueries = clients.get(client);
-		if (!clientQueries) {
-			const current: ClientQueries = {
-				hostServices,
-				inputs: Atom.family((familyInput: Input) =>
-					makeQueryAtom<Data>(
-						(signal) =>
-							query({ client, signal, input: familyInput, hostServices: current.hostServices }),
-						options?.initialData?.(familyInput),
-						options?.cancelOnUnmount,
-						options?.entityInterest !== undefined,
+	return new QueryDefinition<Input, Data, HostServices, Failure>(
+		(registry, client, hostServices, input) => {
+			let clients = registries.get(registry);
+			if (!clients) {
+				clients = new WeakMap();
+				registries.set(registry, clients);
+			}
+			let clientQueries = clients.get(client);
+			if (!clientQueries) {
+				const current: ClientQueries = {
+					hostServices,
+					inputs: Atom.family((familyInput: Input) =>
+						makeQueryAtom<Data, Failure>(
+							Effect.suspend(() =>
+								query({ client, input: familyInput, hostServices: current.hostServices }),
+							),
+							options?.initialData?.(familyInput),
+							options?.cancelOnUnmount,
+							options?.entityInterest !== undefined,
+						),
 					),
-				),
-			};
-			clientQueries = current;
-			clients.set(client, clientQueries);
-		}
-		clientQueries.hostServices = hostServices;
-		return clientQueries.inputs(input);
-	}, options?.entityInterest);
+				};
+				clientQueries = current;
+				clients.set(client, clientQueries);
+			}
+			clientQueries.hostServices = hostServices;
+			return clientQueries.inputs(input);
+		},
+		options?.entityInterest,
+	);
 }
 
-export function createRyotMutation<Data>(
-	mutation: (context: Omit<MutationContext<void, undefined>, "input">) => Promise<Data>,
-): RyotMutation<void, Data>;
-export function createRyotMutation<Input, Data, HostServices = undefined>(
-	mutation: (context: MutationContext<Input, HostServices>) => Promise<Data>,
-): RyotMutation<Input, Data, HostServices>;
-export function createRyotMutation<Input, Data, HostServices = undefined>(
-	mutation: (context: MutationContext<Input, HostServices>) => Promise<Data>,
-) {
-	return new MutationDefinition(mutation);
+export function createRyotMutation<Data, Failure extends Error = RyotClientError>(
+	mutation: (
+		context: Omit<MutationContext<void, undefined>, "input">,
+	) => Effect.Effect<Data, Failure>,
+): RyotMutation<void, Data, undefined, Failure>;
+export function createRyotMutation<
+	Input,
+	Data,
+	HostServices = undefined,
+	Failure extends Error = RyotClientError,
+>(
+	mutation: (context: MutationContext<Input, HostServices>) => Effect.Effect<Data, Failure>,
+): RyotMutation<Input, Data, HostServices, Failure>;
+export function createRyotMutation<
+	Input,
+	Data,
+	HostServices = undefined,
+	Failure extends Error = RyotClientError,
+>(mutation: (context: MutationContext<Input, HostServices>) => Effect.Effect<Data, Failure>) {
+	return new MutationDefinition<Input, Data, HostServices, Failure>(mutation);
 }
 
 const createPageRefreshRegistry = (schedule: RyotSchedule): ManagedPageRefreshRegistry => {
@@ -276,13 +312,24 @@ const createPageRefreshRegistry = (schedule: RyotSchedule): ManagedPageRefreshRe
 	const catchUps = new Set<PageRefreshHandle>();
 	let generation = 0;
 	let refreshAll = false;
-	const run = async () => {
+	const run = () => {
 		const selected = refreshAll
 			? [...handles]
 			: [...catchUps].filter((handle) => handles.has(handle));
 		refreshAll = false;
 		catchUps.clear();
-		await Promise.all(selected.map((handle) => Promise.resolve().then(handle)));
+		return Effect.forEach(
+			selected,
+			(handle) =>
+				Effect.suspend(() => {
+					const work = handle();
+					if (Effect.isEffect(work)) {
+						return work;
+					}
+					return Effect.promise(() => Promise.resolve(work));
+				}),
+			{ discard: true, concurrency: "unbounded" },
+		);
 	};
 	let refresh = createEntityRefresh(schedule, run);
 	let disposed = false;
@@ -474,31 +521,34 @@ export const usePluginStorage = <A,>(options: {
 		value === null ? null : Option.getOrNull(Schema.decodeUnknownOption(schema)(value)),
 	);
 	useEffect(() => {
-		let active = true;
-		void client.storage
-			.get(pluginSlug, key)
-			.then(decode, () => null)
-			.then((value) => {
-				if (active) {
-					setStored((current) => (current?.identity === identity ? current : { value, identity }));
-				}
-				return undefined;
-			});
+		const fiber = Effect.runFork(
+			client.storage.get(pluginSlug, key).pipe(
+				Effect.map(decode),
+				Effect.orElseSucceed(() => null),
+				Effect.tap((value) =>
+					Effect.sync(() => {
+						setStored((current) =>
+							current?.identity === identity ? current : { value, identity },
+						);
+					}),
+				),
+			),
+		);
 		return () => {
-			active = false;
+			Effect.runFork(Fiber.interrupt(fiber));
 		};
 	}, [client, identity, key, pluginSlug]);
 	const set = useCallback(
-		async (value: A) => {
+		(value: A) => {
 			const encoded = Schema.encodeSync(schema)(value);
 			setStored({ value, identity });
-			await client.storage.set(pluginSlug, key, encoded);
+			return Effect.runPromise(client.storage.set(pluginSlug, key, encoded));
 		},
 		[client, identity, key, pluginSlug, schema],
 	);
-	const remove = useCallback(async () => {
+	const remove = useCallback(() => {
 		setStored({ identity, value: null });
-		await client.storage.remove(pluginSlug, key);
+		return Effect.runPromise(client.storage.remove(pluginSlug, key));
 	}, [client, identity, key, pluginSlug]);
 	return stored?.identity === identity
 		? { set, remove, status: "ready", value: stored.value }
@@ -526,8 +576,8 @@ const pageQueryGenerations = new WeakMap<
 	WeakMap<object, { registry: PageRefreshRegistry; generation: number }>
 >();
 
-const useQueryPageRefresh = <Data,>(
-	atom: ReturnType<typeof makeQueryAtom<Data>>,
+const useQueryPageRefresh = <Data, Failure extends Error>(
+	atom: ReturnType<typeof makeQueryAtom<Data, Failure>>,
 	refreshOnMutation: boolean,
 	catchUp: boolean,
 ) => {
@@ -601,10 +651,10 @@ const useQueryPageRefresh = <Data,>(
 	}, [active, atom, catchUp, pageRegistry, refreshOnMutation, registry]);
 };
 
-const useQueryInterest = <Data,>(
+const useQueryInterest = <Data, Failure extends Error>(
 	client: RyotClient,
 	schedule: RyotSchedule,
-	atom: ReturnType<typeof makeQueryAtom<Data>>,
+	atom: ReturnType<typeof makeQueryAtom<Data, Failure>>,
 	input: unknown,
 	interest?: RyotQueryOptions<unknown, Data>["entityInterest"],
 ) => {
@@ -635,16 +685,17 @@ const useQueryInterest = <Data,>(
 				!reattach && controllers.has(atom) && !AsyncResult.isInitial(registry.get(atom));
 			let data: Data | undefined;
 			let subscription: EntityInterestSubscription | undefined;
-			const refresh = createEntityRefresh(schedule, () => {
-				if (registry.get(atom).waiting) {
-					refresh.block(true);
-					refresh.hint();
-				} else {
-					registry.refresh(atom);
-					refresh.block(registry.get(atom).waiting);
-				}
-				return Promise.resolve();
-			});
+			const refresh = createEntityRefresh(schedule, () =>
+				Effect.sync(() => {
+					if (registry.get(atom).waiting) {
+						refresh.block(true);
+						refresh.hint();
+					} else {
+						registry.refresh(atom);
+						refresh.block(registry.get(atom).waiting);
+					}
+				}),
+			);
 			const sync = () => {
 				const result = registry.get(atom);
 				if (AsyncResult.isSuccess(result)) {
@@ -734,7 +785,7 @@ export const useEntityRefresh = (options: {
 	readonly blocked: boolean;
 	readonly identity: string;
 	readonly interest: EntityInterest;
-	readonly onRefresh: (updates: readonly EntityUpdate[]) => Promise<void>;
+	readonly onRefresh: (updates: readonly EntityUpdate[]) => Effect.Effect<void>;
 }) => {
 	const client = useRyot();
 	const schedule = useRyotSchedule();
@@ -755,12 +806,13 @@ export const useEntityRefresh = (options: {
 		latest.current = options;
 	});
 	useEffect(() => {
-		const refresh = createEntityRefresh(schedule, async (updates) => {
+		const refresh = createEntityRefresh(schedule, (updates) => {
 			for (const update of updates) {
 				tracker.stage(update);
 			}
-			await latest.current.onRefresh(updates);
-			tracker.commit();
+			return Effect.tap(latest.current.onRefresh(updates), () =>
+				Effect.sync(() => tracker.commit()),
+			);
 		});
 		controller.current = { client, refresh, subscription: undefined, identity: options.identity };
 		return () => {
@@ -796,18 +848,18 @@ export const useEntityRefresh = (options: {
 	return { settled };
 };
 
-export function useRyotQuery<Data, HostServices>(
-	query: RyotQuery<void, Data, HostServices>,
+export function useRyotQuery<Data, HostServices, Failure extends Error>(
+	query: RyotQuery<void, Data, HostServices, Failure>,
 	input?: void,
 	options?: RyotQueryHookOptions,
 ): RyotQueryResult<Data>;
-export function useRyotQuery<Input, Data, HostServices>(
-	query: RyotQuery<Input, Data, HostServices>,
+export function useRyotQuery<Input, Data, HostServices, Failure extends Error>(
+	query: RyotQuery<Input, Data, HostServices, Failure>,
 	input: Input,
 	options?: RyotQueryHookOptions,
 ): RyotQueryResult<Data>;
-export function useRyotQuery<Data, HostServices>(
-	query: RyotQuery<unknown, Data, HostServices>,
+export function useRyotQuery<Data, HostServices, Failure extends Error>(
+	query: RyotQuery<unknown, Data, HostServices, Failure>,
 	input?: unknown,
 	options?: RyotQueryHookOptions,
 ): RyotQueryResult<Data> {
@@ -856,8 +908,8 @@ export function useRyotQuery<Data, HostServices>(
 	};
 }
 
-export const useRyotMutation = <Input, Data, HostServices>(
-	mutation: RyotMutation<Input, Data, HostServices>,
+export const useRyotMutation = <Input, Data, HostServices, Failure extends Error>(
+	mutation: RyotMutation<Input, Data, HostServices, Failure>,
 ): RyotMutationResult<Input, Data> => {
 	const context = useContext(RyotContext);
 	if (!context) {
@@ -870,15 +922,14 @@ export const useRyotMutation = <Input, Data, HostServices>(
 	if (!(mutation instanceof MutationDefinition)) {
 		throw new Error("useRyotMutation requires a mutation created by createRyotMutation");
 	}
+	const run: (context: MutationContext<Input, HostServices>) => Effect.Effect<Data, Failure> =
+		mutation.run;
 	const atom = useMemo(
 		() =>
-			Atom.fn<Input>()<Error, Data>((input) =>
-				Effect.tryPromise({
-					catch: (error) => (error instanceof Error ? error : new Error(String(error))),
-					try: (signal) => mutation.run({ input, client, signal, hostServices: typedHostServices }),
-				}),
+			Atom.fn<Input>()<Failure, Data>((input) =>
+				Effect.suspend(() => run({ input, client, hostServices: typedHostServices })),
 			),
-		[client, mutation, typedHostServices],
+		[client, run, typedHostServices],
 	);
 	const result = useAtomValue(atom);
 	const set = useAtomSet(atom);
@@ -945,10 +996,10 @@ const useStableManagedAssetLocators = (locators: readonly ManagedAssetLocator[])
 };
 
 const managedAssetBatchQuery = createRyotQuery<string, readonly ManagedAssetResolution[]>(
-	({ input, client, signal }) => {
+	({ input, client }) => {
 		// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- The key is created only from schema-validated locator values.
 		const locators = JSON.parse(input) as readonly ManagedAssetLocator[];
-		return client.assets.resolve(locators, { signal });
+		return client.assets.resolve(locators);
 	},
 	{ cancelOnUnmount: true },
 );

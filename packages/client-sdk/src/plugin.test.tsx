@@ -12,7 +12,7 @@ import {
 import { Modal } from "@ryot-app/client-ui-sdk";
 import { EntityId, EntitySchemaSlug, PluginSlug } from "@ryot-app/contract/schema/brands";
 import { fireEvent, waitFor } from "@testing-library/dom";
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 import { useEffect, useState } from "react";
 import { afterEach, assert, describe, expect, it } from "vitest";
 
@@ -72,9 +72,14 @@ const Home = () => {
 	const ryotTheme = useRyotTheme();
 	const [result, setResult] = useState("pending");
 	useEffect(() => {
-		void ryot.operations
-			.invoke({ input: {}, slug: "greet", pluginSlug: "fixture", output: Schema.String })
-			.then(setResult);
+		void Effect.runPromise(
+			ryot.operations.invoke({
+				input: {},
+				slug: "greet",
+				pluginSlug: "fixture",
+				output: Schema.String,
+			}),
+		).then(setResult);
 	}, [ryot]);
 	return <p>{`${ryotTheme.resolvedMode}:${result}`}</p>;
 };
@@ -184,6 +189,7 @@ describe("bootstrapClientPlugin", () => {
 		expect(pluginSurface).not.toHaveProperty("usePluginNavigation");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React bridge updates.
 	it("does not register a session without valid embedded metadata", async () => {
 		document.body.innerHTML = '<div id="app"></div>';
 		bootstraps.push(bootstrapClientPlugin({ home: { component: Home } }));
@@ -195,10 +201,12 @@ describe("bootstrapClientPlugin", () => {
 		window.dispatchEvent(
 			new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
 		);
+		// oxlint-disable-next-line effecttsgo/new-promise -- Test waits for MessagePort delivery.
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		expect(messages).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React bridge updates.
 	it("creates one session client and supplies it through RyotProvider", async () => {
 		document.body.innerHTML = '<div id="app"></div>';
 		embedMetadata();
@@ -236,6 +244,7 @@ describe("bootstrapClientPlugin", () => {
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("dark:Hello"));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React bridge updates.
 	it("supplies plugin-route page context through the shared page hook", async () => {
 		document.body.innerHTML = '<div id="app"></div>';
 		embedMetadata();
@@ -280,6 +289,7 @@ describe("bootstrapClientPlugin", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React bridge updates.
 	it("renders a selected dynamic page at its logical route with prepared params", async () => {
 		mountSelectedPage(
 			{
@@ -303,6 +313,7 @@ describe("bootstrapClientPlugin", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React bridge updates.
 	it("replaces page context and remounts page state while keeping the runtime client", async () => {
 		const clients: unknown[] = [];
 		const Counter = () => {
@@ -358,6 +369,7 @@ describe("bootstrapClientPlugin", () => {
 		expect(clients[1]).toBe(clients[0]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React bridge updates.
 	it("renders an already-selected not-found page at the unmatched logical route", async () => {
 		mountSelectedPage(
 			{
@@ -381,6 +393,7 @@ describe("bootstrapClientPlugin", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React bridge updates.
 	it("renders a selected entity page with entity renderer props", async () => {
 		const channel = mountSelectedPage(
 			{
@@ -444,6 +457,7 @@ describe("bootstrapClientPlugin", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React bridge updates.
 	it("forwards root kernel shortcuts, gates the workspace switcher, and respects overlays", async () => {
 		document.body.innerHTML = '<div id="app"></div>';
 		embedMetadata();
@@ -476,6 +490,7 @@ describe("bootstrapClientPlugin", () => {
 			);
 		locate(false);
 		await waitFor(() => expect(document.querySelector("button")?.textContent).toBe("Open"));
+		// oxlint-disable-next-line effecttsgo/new-promise -- Test waits for MessagePort delivery.
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		pressMod("k");
 		pressMod(" ", { code: "Space", shiftKey: true });
@@ -483,6 +498,7 @@ describe("bootstrapClientPlugin", () => {
 
 		locate(true);
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toContain("Open"));
+		// oxlint-disable-next-line effecttsgo/new-promise -- Test waits for MessagePort delivery.
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		pressMod("k");
 		pressMod(" ", { code: "Space", shiftKey: true });
@@ -493,12 +509,15 @@ describe("bootstrapClientPlugin", () => {
 		assert(open instanceof HTMLButtonElement);
 		fireEvent.click(open);
 		await waitFor(() => expect(document.querySelector('[role="dialog"]')).not.toBeNull());
+		// oxlint-disable-next-line effecttsgo/new-promise -- Test waits for MessagePort delivery.
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		pressMod("k");
+		// oxlint-disable-next-line effecttsgo/new-promise -- Test waits for MessagePort delivery.
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		expect(shortcuts()).toHaveLength(3);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React bridge updates.
 	it("accepts entity renderer registrations during bootstrap", async () => {
 		document.body.innerHTML = '<div id="app"></div>';
 		embedMetadata();
@@ -534,6 +553,7 @@ describe("bootstrapClientPlugin", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React bridge updates.
 	it("publishes the active screen's own title, including after a pop", async () => {
 		document.body.innerHTML = '<div id="app"></div>';
 		embedMetadata();
@@ -559,6 +579,7 @@ describe("bootstrapClientPlugin", () => {
 					"type" in message &&
 					message.type === "header",
 			);
+		// oxlint-disable-next-line effecttsgo/async-function -- Test helper awaits React navigation.
 		const goTo = async (index: number, key: string, path: string) => {
 			channel.port1.postMessage({
 				key,
@@ -600,6 +621,7 @@ describe("bootstrapClientPlugin", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React bridge updates.
 	it("does not mount plugin React before the initial location", async () => {
 		document.body.innerHTML = '<div id="app"></div>';
 		embedMetadata();
@@ -610,9 +632,11 @@ describe("bootstrapClientPlugin", () => {
 		window.dispatchEvent(
 			new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
 		);
+		// oxlint-disable-next-line effecttsgo/new-promise -- Test waits for MessagePort delivery.
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		expect(document.getElementById("app")?.textContent).toBe("");
 
+		// oxlint-disable-next-line effecttsgo/new-promise -- Test waits for MessagePort delivery.
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		expect(document.getElementById("app")?.textContent).toBe("");
 
@@ -628,6 +652,7 @@ describe("bootstrapClientPlugin", () => {
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted"));
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React bridge updates.
 	it("contains fatal window errors before activation", async () => {
 		document.body.innerHTML = '<div id="app"></div>';
 		embedMetadata();
@@ -650,6 +675,7 @@ describe("bootstrapClientPlugin", () => {
 		expect(document.getElementById("app")?.textContent).toBe("");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React bridge updates.
 	it("contains fatal React render errors", async () => {
 		document.body.innerHTML = '<div id="app"></div>';
 		embedMetadata();
@@ -681,6 +707,7 @@ describe("bootstrapClientPlugin", () => {
 		expect(error.defaultPrevented).toBe(false);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React bridge updates.
 	it("reports uncaught window errors through the active session", async () => {
 		document.body.innerHTML = '<div id="app"></div>';
 		embedMetadata();
@@ -712,6 +739,7 @@ describe("bootstrapClientPlugin", () => {
 		expect(error.defaultPrevented).toBe(true);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React bridge updates.
 	it("reports unhandled rejections and removes session listeners after failure", async () => {
 		document.body.innerHTML = '<div id="app"></div>';
 		embedMetadata();
@@ -752,6 +780,7 @@ describe("bootstrapClientPlugin", () => {
 		expect(lateRejection.defaultPrevented).toBe(false);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React bridge updates.
 	it("removes session listeners on normal disposal", async () => {
 		document.body.innerHTML = '<div id="app"></div>';
 		embedMetadata();
@@ -783,6 +812,7 @@ describe("bootstrapClientPlugin", () => {
 		expect(rejection.defaultPrevented).toBe(false);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React bridge updates.
 	it("removes its window listener when disposed before initialization", async () => {
 		document.body.innerHTML = '<div id="app"></div>';
 		embedMetadata();
@@ -797,11 +827,13 @@ describe("bootstrapClientPlugin", () => {
 		window.dispatchEvent(
 			new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
 		);
+		// oxlint-disable-next-line effecttsgo/new-promise -- Test waits for MessagePort delivery.
 		await new Promise((resolve) => setTimeout(resolve, 0));
 
 		expect(messages).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React bridge updates.
 	it("unmounts the React root when the host disposes the runtime", async () => {
 		document.body.innerHTML = '<div id="app"></div>';
 		embedMetadata();

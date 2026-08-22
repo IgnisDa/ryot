@@ -100,6 +100,7 @@ describe("RadioGroup", () => {
 		expect(checked().map((radio) => radio.getAttribute("aria-label"))).toEqual(["System"]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the axe Promise.
 	it("passes an axe pass on the rendered group", async () => {
 		const view = render(<ThemeChoice initial="dark" />);
 

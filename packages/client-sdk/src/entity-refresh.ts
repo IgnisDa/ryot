@@ -1,3 +1,5 @@
+import * as Effect from "effect/Effect";
+
 import { RyotClientError, type EntityUpdate } from "./index";
 import type { RyotSchedule } from "./schedule";
 
@@ -15,14 +17,15 @@ export const entityTransport = <A>(run: () => A) => {
 	}
 };
 
-export const createEntityRefresh = (
+export const createEntityRefresh = <E>(
 	schedule: RyotSchedule,
-	refresh: (updates: readonly EntityUpdate[]) => Promise<void>,
+	refresh: (updates: readonly EntityUpdate[]) => Effect.Effect<void, E>,
 ) => {
 	let running = false;
 	let blocked = false;
 	let disposed = false;
 	let cancel: (() => void) | undefined;
+	let interrupt: (() => void) | undefined;
 	let queued: Map<string, EntityUpdate> | undefined;
 	const requeue = (batch: readonly EntityUpdate[]) => {
 		const restored = new Map(batch.map((update) => [update.entityId, update]));
@@ -43,22 +46,27 @@ export const createEntityRefresh = (
 			const batch = [...queued.values()];
 			queued = undefined;
 			running = true;
-			void Promise.resolve()
-				.then(() => {
-					if (disposed) {
-						return undefined;
-					}
-					if (blocked) {
-						requeue(batch);
-						return undefined;
-					}
-					return refresh(batch);
-				})
-				.catch(() => undefined)
-				.finally(() => {
+			interrupt = schedule.run(
+				Effect.asVoid(
+					Effect.exit(
+						Effect.suspend(() => {
+							if (disposed) {
+								return Effect.void;
+							}
+							if (blocked) {
+								requeue(batch);
+								return Effect.void;
+							}
+							return refresh(batch);
+						}),
+					),
+				),
+				() => {
+					interrupt = undefined;
 					running = false;
 					arm();
-				});
+				},
+			);
 		});
 	};
 	return {
@@ -70,6 +78,7 @@ export const createEntityRefresh = (
 			disposed = true;
 			queued = undefined;
 			cancel?.();
+			interrupt?.();
 		},
 		hint: (update?: EntityUpdate) => {
 			queued ??= new Map();

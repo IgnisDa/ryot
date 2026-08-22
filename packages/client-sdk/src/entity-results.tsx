@@ -8,6 +8,7 @@ import {
 	type EntitySyncState,
 } from "@ryot-app/client-ui-sdk/sync";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import {
 	Component,
@@ -23,7 +24,7 @@ import {
 	type ReactNode,
 } from "react";
 
-import type { RyotClient } from "./index";
+import { RyotClientError, type RyotClient } from "./index";
 import {
 	createRyotQuery,
 	useEntityRefresh,
@@ -52,9 +53,8 @@ export type EntityPresentationComponentProps<Data> = {
 
 export type EntityPresentationLoader<Data = unknown> = (context: {
 	readonly client: RyotClient;
-	readonly signal: AbortSignal;
 	readonly references: readonly EntityReference[];
-}) => Promise<Readonly<Record<string, Data>>>;
+}) => Effect.Effect<Readonly<Record<string, Data>>, RyotClientError>;
 
 export type EntityPresentationDefinition = {
 	readonly loader: EntityPresentationLoader;
@@ -90,15 +90,7 @@ type PresentationEntry = {
 	readonly getRuntime: () => PresentationRuntime | undefined;
 };
 
-type ScheduledTask = {
-	started: boolean;
-	readonly signal: AbortSignal;
-	readonly run: () => Promise<void>;
-	readonly rejectQueued: () => void;
-};
-
-const abortReason = (signal: AbortSignal) =>
-	signal.reason ?? new DOMException("The presentation batch was aborted", "AbortError");
+type ScheduledTask = { readonly start: () => void; readonly fail: () => void };
 
 const createBatchScheduler = (schedule: RyotSchedule) => {
 	let active = 0;
@@ -115,16 +107,8 @@ const createBatchScheduler = (schedule: RyotSchedule) => {
 			if (!task) {
 				return;
 			}
-			if (task.signal.aborted) {
-				task.rejectQueued();
-				continue;
-			}
-			task.started = true;
 			active++;
-			void task.run().finally(() => {
-				active--;
-				scheduleDrain();
-			});
+			task.start();
 		}
 	};
 	const scheduleDrain = () => {
@@ -138,30 +122,53 @@ const createBatchScheduler = (schedule: RyotSchedule) => {
 			scheduled?.();
 			scheduled = undefined;
 			for (const task of queue.splice(0)) {
-				task.rejectQueued();
+				task.fail();
 			}
 		},
-		run: <Data,>(signal: AbortSignal, run: () => Promise<Data>) =>
-			new Promise<Data>((resolve, reject) => {
-				const task: ScheduledTask = {
-					signal,
-					started: false,
-					rejectQueued: () => reject(abortReason(signal)),
-					run: () => Promise.resolve().then(run).then(resolve, reject),
-				};
-				const onAbort = () => {
-					if (!task.started) {
-						const index = queue.indexOf(task);
-						if (index >= 0) {
-							queue.splice(index, 1);
-						}
-						task.rejectQueued();
-					}
-				};
-				signal.addEventListener("abort", onAbort, { once: true });
-				queue.push(task);
-				drain();
-			}),
+		run: <Data,>(load: () => Effect.Effect<Data, RyotClientError>) =>
+			Effect.uninterruptibleMask((restore) =>
+				Effect.flatMap(
+					restore(
+						Effect.callback<void, RyotClientError>((resume) => {
+							if (disposed) {
+								resume(Effect.fail(new RyotClientError("disposed")));
+								return Effect.void;
+							}
+							let started = false;
+							const task: ScheduledTask = {
+								fail: () => resume(Effect.fail(new RyotClientError("disposed"))),
+								start: () => {
+									started = true;
+									resume(Effect.void);
+								},
+							};
+							queue.push(task);
+							drain();
+							return Effect.sync(() => {
+								if (!started) {
+									const index = queue.indexOf(task);
+									if (index !== -1) {
+										queue.splice(index, 1);
+									}
+								}
+							});
+						}),
+					),
+					() =>
+						Effect.ensuring(
+							restore(
+								Effect.flatMap(
+									Effect.try({ try: load, catch: () => new RyotClientError("transport") }),
+									(effect) => effect,
+								),
+							),
+							Effect.sync(() => {
+								active--;
+								scheduleDrain();
+							}),
+						),
+				),
+			),
 	};
 };
 
@@ -254,20 +261,21 @@ const createPresentationRuntime = (
 								throw new Error("Invalid entity presentation definition");
 							}
 							const query = createRyotQuery<BatchInput, Readonly<Record<string, unknown>>>(
-								async ({ input, client, signal }) => {
-									const references = referencesFromBatchInput(input);
-									const requested = new Set(references.map(({ entityId }) => entityId));
-									const batch = (scheduler ??= createBatchScheduler(schedule));
-									const result = await batch.run(signal, () =>
-										definition.loader({ client, signal, references }),
-									);
-									for (const entityId of Object.keys(result)) {
-										if (!requested.has(entityId)) {
-											throw new Error(`Presentation returned unrequested entity "${entityId}"`);
+								({ input, client }) =>
+									Effect.gen(function* () {
+										const references = referencesFromBatchInput(input);
+										const requested = new Set(references.map(({ entityId }) => entityId));
+										const batch = (scheduler ??= createBatchScheduler(schedule));
+										const result = yield* batch.run(() =>
+											definition.loader({ client, references }),
+										);
+										for (const entityId of Object.keys(result)) {
+											if (!requested.has(entityId)) {
+												return yield* new RyotClientError("malformed-result");
+											}
 										}
-									}
-									return result;
-								},
+										return result;
+									}),
 								{ cancelOnUnmount: true },
 							);
 							presentation = { query, definition };
@@ -677,10 +685,7 @@ export const EntityResults = ({
 		interest,
 		blocked: false,
 		identity: refreshIdentity,
-		onRefresh: () => {
-			requestPageRefresh();
-			return Promise.resolve();
-		},
+		onRefresh: () => Effect.sync(requestPageRefresh),
 	});
 	const items = useMemo(() => {
 		const grouped = new Map<PresentationRuntime, EntityReference[]>();

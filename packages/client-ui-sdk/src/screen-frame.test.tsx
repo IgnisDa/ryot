@@ -238,6 +238,7 @@ describe("ScreenFrame", () => {
 		expect(disconnects).toBe(1);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the axe Promise.
 	it("passes an axe pass on the compact bar", async () => {
 		render(<Harness compact />);
 
