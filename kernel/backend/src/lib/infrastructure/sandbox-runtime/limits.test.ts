@@ -99,11 +99,22 @@ describe("sandbox limits", () => {
 		expect(
 			sandboxRunnerRequestError("🙂".repeat(SANDBOX_LIMITS.execution.requestBytes / 4 + 1)),
 		).toContain("2097152 UTF-8 bytes");
-		expect(sandboxContextError("a".repeat(SANDBOX_LIMITS.execution.contextBytes - 2))).toBeNull();
+		const exactContext = "a".repeat(SANDBOX_LIMITS.execution.contextBytes - 2);
+		const oversizedContext = `${exactContext}a`;
+		expect(jsonByteLength(exactContext)).toBe(65_536);
+		expect(sandboxContextError(exactContext)).toBeNull();
+		expect(jsonByteLength(oversizedContext)).toBe(65_537);
+		expect(sandboxContextError(oversizedContext)).toBe(
+			"Sandbox definition context is 65537 UTF-8 bytes and exceeds 65536 UTF-8 bytes",
+		);
 		expect(sandboxContextError("🙂".repeat(SANDBOX_LIMITS.execution.contextBytes / 4))).toContain(
 			"65536 UTF-8 bytes",
 		);
 		expect(sandboxContextError(circular)).toContain("must be JSON");
+		expect(sandboxContextError(circular)).not.toContain("65536");
+		expect(sandboxContextError("🙂".repeat(SANDBOX_LIMITS.execution.contextBytes / 4))).toBe(
+			"Sandbox definition context is 65538 UTF-8 bytes and exceeds 65536 UTF-8 bytes",
+		);
 	});
 
 	it("counts every host and HTTP call attempt against both budgets", () => {

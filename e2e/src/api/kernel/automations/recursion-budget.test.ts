@@ -26,15 +26,18 @@ import { requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 type PluginScript = PluginManifest["scripts"][number];
+type AutomationScript = Extract<PluginScript, { kind: "automation"; automationType: "automation" }>;
 
 const automationScript = (
 	slug: string,
 	name: string,
-	capabilities: Extract<PluginScript, { kind: "automation" }>["capabilities"],
-): Extract<PluginScript, { kind: "automation" }> => ({
+	capabilities: AutomationScript["capabilities"],
+	inputProjection: AutomationScript["inputProjection"],
+): AutomationScript => ({
 	slug,
 	name,
 	capabilities,
+	inputProjection,
 	kind: "automation",
 	automationType: "automation",
 	requiredPluginConfigKeys: [],
@@ -42,12 +45,12 @@ const automationScript = (
 	entry: `backend/scripts/${slug}.sandbox.ts`,
 });
 
-const sandboxManifest = (script: Extract<PluginScript, { kind: "automation" }>) => {
+const sandboxManifest = (script: AutomationScript) => {
 	const { entry: _entry, ...manifest } = script;
 	return manifest;
 };
 
-const noOpAutomationSource = (script: Extract<PluginScript, { kind: "automation" }>) => `
+const noOpAutomationSource = (script: AutomationScript) => `
 import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
@@ -63,7 +66,7 @@ export default defineAutomation({
 const recursionRootSource = (input: {
 	readonly childEventSchemaSlug: string;
 	readonly relationshipSchemaSlug: string;
-	readonly script: Extract<PluginScript, { kind: "automation" }>;
+	readonly script: AutomationScript;
 }) => `
 import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
@@ -107,7 +110,7 @@ export default defineAutomation({
 });
 `;
 
-const recursiveSignalSource = (script: Extract<PluginScript, { kind: "automation" }>) => `
+const recursiveSignalSource = (script: AutomationScript) => `
 import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
@@ -136,7 +139,7 @@ export default defineAutomation({
 
 const fanoutRootSource = (input: {
 	readonly childEventSchemaSlug: string;
-	readonly script: Extract<PluginScript, { kind: "automation" }>;
+	readonly script: AutomationScript;
 }) => `
 import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
@@ -181,14 +184,18 @@ describe("automation recursion budgets", () => {
 			const relationshipSchemaSlug = `recursion-relationship-${suffix}`;
 			const rootHookSlug = AutomationHookSlug.make(`recursion-root-${suffix}`);
 			const recursiveHookSlug = AutomationHookSlug.make(`recursion-signal-${suffix}`);
-			const rootScript = automationScript(rootHookSlug, "E2E recursion root", [
-				"createEvents",
-				"changeUserRelationships",
-				"emitSignal",
-			]);
-			const recursiveScript = automationScript(recursiveHookSlug, "E2E recursive signal", [
-				"emitSignal",
-			]);
+			const rootScript = automationScript(
+				rootHookSlug,
+				"E2E recursion root",
+				["createEvents", "changeUserRelationships", "emitSignal"],
+				{ event: { compareProperties: [], properties: ["chainId", "targetEntityId"] } },
+			);
+			const recursiveScript = automationScript(
+				recursiveHookSlug,
+				"E2E recursive signal",
+				["emitSignal"],
+				{ signal: { properties: ["integrationId"] } },
+			);
 			const plugin = yield* Effect.acquireRelease(
 				installTestPluginBundle({
 					pluginSlug,
@@ -457,8 +464,12 @@ describe("automation recursion budgets", () => {
 			const childEventSchemaSlug = EventSchemaSlug.make(`fanout-child-${suffix}`);
 			const rootHookSlug = AutomationHookSlug.make(`fanout-root-${suffix}`);
 			const noOpScriptSlug = `fanout-noop-${suffix}`;
-			const rootScript = automationScript(rootHookSlug, "E2E fanout root", ["createEvents"]);
-			const noOpScript = automationScript(noOpScriptSlug, "E2E fanout no-op", []);
+			const rootScript = automationScript(rootHookSlug, "E2E fanout root", ["createEvents"], {
+				event: { properties: [], compareProperties: [] },
+			});
+			const noOpScript = automationScript(noOpScriptSlug, "E2E fanout no-op", [], {
+				event: { properties: [], compareProperties: [] },
+			});
 			const fanoutHookSlugs = Array.from(
 				{ length: 51 },
 				(_, index) => `fanout-child-${index}-${suffix}`,

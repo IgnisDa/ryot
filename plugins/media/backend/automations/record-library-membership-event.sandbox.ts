@@ -14,6 +14,9 @@ export const manifest = defineManifest({
 	name: "Record media library membership event",
 	slug: "automation.record-library-membership-event",
 	capabilities: ["executeRyotql", "createEvents", "listEventSchemas"],
+	inputProjection: {
+		relationship: { properties: [], compareProperties: [], parentEntityProperties: [] },
+	},
 });
 
 const libraryMemberEntitySchemaSlugs = new Set<string>(mediaLibraryMemberEntitySchemaSlugs);

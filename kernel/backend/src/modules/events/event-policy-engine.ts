@@ -1,6 +1,7 @@
 import {
 	AutomationEventDraft,
 	AutomationRequestPayload,
+	type AutomationPolicyPatch,
 	type AutomationRun,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { EventCreateItemError } from "@ryot-app/contract/modules/events/schemas";
@@ -10,6 +11,10 @@ import { Effect, Schema } from "effect";
 
 import type { LifecyclePlan } from "#lib/domain/lifecycle";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
+import {
+	applyLifecyclePolicyPatch,
+	canonicalLifecyclePolicyPatch,
+} from "#lib/domain/lifecycle-policy-patch";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { makeActivity } from "#lib/infrastructure/workflow-scope";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
@@ -61,6 +66,7 @@ export const runEventCreatePolicies = Effect.fn("runEventCreatePolicies")(functi
 	const skipQueuedPolicies = execution.skipQueuedPolicies({ triggerId: plan.trigger.id });
 	const reached: PolicyIdentity[] = [];
 	let request: EventRequest = source;
+	const acceptedPatches: AutomationPolicyPatch[] = [];
 	const outcome = yield* Effect.gen(function* () {
 		if (plan.trigger.blockedReason) {
 			return yield* new EventCreateItemError({
@@ -83,7 +89,7 @@ export const runEventCreatePolicies = Effect.fn("runEventCreatePolicies")(functi
 		);
 		for (const policy of ordered) {
 			const output = yield* execution
-				.executePolicy({ payload: request, runId: policy.runId })
+				.executePolicy({ runId: policy.runId, acceptedPatches: [...acceptedPatches] })
 				.pipe(
 					Effect.mapError(
 						(error) =>
@@ -99,18 +105,43 @@ export const runEventCreatePolicies = Effect.fn("runEventCreatePolicies")(functi
 				return { processed: reached, reason: output.reason, _tag: "Skipped" as const };
 			}
 			if (output.action === "transform") {
-				if (output.payload.resource !== "event" || output.payload.operation !== "create") {
+				const patched = applyLifecyclePolicyPatch(request, output.patch);
+				if (!patched.ok) {
 					return yield* new EventCreateItemError({
 						reason: { runId: policy.runId, code: "policy-execution-failed" },
 					});
 				}
-				request = Object.assign({}, request, {
-					draft: {
-						...request.draft,
-						properties: output.payload.draft.properties,
-						sessionEntityId: output.payload.draft.sessionEntityId,
+				const scope = yield* resolveEventCreateItemScopes({
+					userId: payload.userId,
+					item: {
+						...patched.request.draft,
+						sessionEntityId: patched.request.draft.sessionEntityId ?? undefined,
 					},
 				});
+				const properties = yield* parseAppSchemaProperties({
+					kind: "Event",
+					propertiesSchema,
+					properties: patched.request.draft.properties,
+				}).pipe(
+					Effect.mapError(
+						() => new EventCreateItemError({ reason: { code: "invalid-properties" } }),
+					),
+				);
+				const draft = yield* Schema.decodeUnknownEffect(AutomationEventDraft)({
+					...patched.request.draft,
+					properties,
+					sessionEntityId: scope.sessionEntityId ?? null,
+				}).pipe(
+					Effect.mapError(
+						() => new EventCreateItemError({ reason: { code: "invalid-properties" } }),
+					),
+				);
+				const successor = { ...patched.request, draft };
+				const acceptedPatch = canonicalLifecyclePolicyPatch(request, successor);
+				request = successor;
+				if (acceptedPatch) {
+					acceptedPatches.push(acceptedPatch);
+				}
 			}
 		}
 		return { request, processed: reached, _tag: "Accepted" as const };

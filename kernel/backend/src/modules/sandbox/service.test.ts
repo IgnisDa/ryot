@@ -7,6 +7,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { jsonByteLength } from "@ryot-app/sandbox-compiler/limits";
 import { Effect, Exit, Layer, Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
@@ -379,10 +380,15 @@ it.effect("rejects workflow input above the workflow limit before dispatch", () 
 
 	return Effect.gen(function* () {
 		const service = yield* SandboxExecutionService;
+		const oversizedInput = "a".repeat(80 * 1024);
+		const oversizedInputBytes = jsonByteLength(oversizedInput);
+		if (oversizedInputBytes === null) {
+			throw new Error("Expected oversized input to be JSON");
+		}
 		const exit = yield* Effect.exit(
 			service.executeWorkflow({
 				scriptId,
-				input: "a".repeat(80 * 1024),
+				input: oversizedInput,
 				executionId: "oversized-workflow",
 				subject: { type: "user", userId: executingUserId },
 			}),
@@ -392,7 +398,7 @@ it.effect("rejects workflow input above the workflow limit before dispatch", () 
 			exit,
 			new SandboxRunError({
 				kind: "invalid-input",
-				message: "Sandbox definition context must be JSON and no larger than 65536 UTF-8 bytes",
+				message: `Sandbox definition context is ${oversizedInputBytes} UTF-8 bytes and exceeds 65536 UTF-8 bytes`,
 			}),
 		);
 		expect(executionCount).toBe(0);

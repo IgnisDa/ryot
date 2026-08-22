@@ -25,6 +25,7 @@ export const manifest = defineManifest({
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
 	slug: "trigger.jellyfin-push",
+	inputProjection: { event: { properties: [], compareProperties: [] } },
 	capabilities: [
 		"log",
 		"httpCall",
@@ -153,7 +154,11 @@ export default defineAutomation({
 	manifest,
 	run: ({ automation }, host) => {
 		const payload = automation.payload;
-		if (payload.resource !== "event" || payload.operation !== "create") {
+		if (
+			payload.category !== "change" ||
+			payload.resource !== "event" ||
+			payload.operation !== "create"
+		) {
 			return Effect.succeed(null);
 		}
 

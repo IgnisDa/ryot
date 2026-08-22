@@ -125,6 +125,17 @@ const hookPackage = (version = "v1") => {
 	assert(script?.kind === "automation");
 	const compiledScript = value.scripts[0];
 	assert(compiledScript);
+	const policyScript = {
+		...script,
+		capabilities: [],
+		slug: "fixture.policy",
+		automationType: "policy" as const,
+		inputProjection: {
+			event: { properties: [] },
+			entity: { properties: [] },
+			relationship: { properties: [] },
+		},
+	};
 	const targets = (["create", "update", "delete"] as const).map((operation) => ({
 		operation,
 		resource: "entity" as const,
@@ -137,16 +148,13 @@ const hookPackage = (version = "v1") => {
 			{
 				...compiledScript,
 				slug: "fixture.policy",
+				metadata: policyScript,
 				contentHash: `policy-${version}`,
-				metadata: { ...script, slug: "fixture.policy", automationType: "policy" as const },
 			},
 		],
 		manifest: {
 			...value.manifest,
-			scripts: [
-				...value.manifest.scripts,
-				{ ...script, slug: "fixture.policy", automationType: "policy" as const },
-			],
+			scripts: [...value.manifest.scripts, policyScript],
 			hooks: [
 				...value.manifest.hooks,
 				{
@@ -889,6 +897,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 							requiredSystemConfigKeys: [],
 							slug: "automation.notification",
 							automationType: "automation" as const,
+							inputProjection: { signal: { properties: ["providerName"] } },
 						},
 					};
 					yield* plugins.persistKernelScript(script);
