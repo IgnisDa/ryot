@@ -1,5 +1,4 @@
 import { apiKey } from "@better-auth/api-key";
-import { expo } from "@better-auth/expo";
 import { redisStorage } from "@better-auth/redis-storage";
 import {
 	AdminAccess,
@@ -214,7 +213,6 @@ const makeAuthInstance = (args: {
 			},
 		},
 		plugins: [
-			expo(),
 			twoFactor({ allowPasswordless: true }),
 			apiKey({
 				fallbackToDatabase: true,
