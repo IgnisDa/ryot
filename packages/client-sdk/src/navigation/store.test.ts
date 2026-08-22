@@ -4,6 +4,7 @@ import {
 	type PluginRouteLocation,
 } from "@ryot-app/contract/modules/plugins/client";
 import { Schema } from "effect";
+import { createElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { createPluginNavigationStore } from "./store";
@@ -12,7 +13,7 @@ const Home = () => null;
 const Detail = () => null;
 const resolve = (location: PluginLogicalLocation) => ({
 	params: {},
-	component: location.kind === "route" && location.path === "/" ? Home : Detail,
+	element: createElement(location.kind === "route" && location.path === "/" ? Home : Detail),
 });
 const routeLocation = (path: string, search = ""): PluginRouteLocation => ({
 	path,
@@ -54,7 +55,7 @@ describe("plugin navigation store", () => {
 		const store = createPluginNavigationStore(resolve);
 		store.setLocation(location(0, "/"));
 
-		expect(store.getSnapshot().screens.at(-1)?.component).toBe(Home);
+		expect(store.getSnapshot().screens.at(-1)?.element.type).toBe(Home);
 	});
 
 	it("restores the retained screen instance on pop", () => {

@@ -12,7 +12,12 @@ import { Schema } from "effect";
 import { useEffect, useState } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { bootstrapClientPlugin, usePluginParams, usePluginTitle } from "./plugin";
+import {
+	bootstrapClientPlugin,
+	usePluginParams,
+	usePluginTitle,
+	type EntityRendererProps,
+} from "./plugin";
 import * as pluginSurface from "./plugin";
 import { useRyot, useRyotTheme } from "./react";
 
@@ -54,6 +59,10 @@ const Home = () => {
 };
 
 const StaticHome = () => <p>Mounted</p>;
+
+const MovieRenderer = ({ entityId, entitySchemaSlug }: EntityRendererProps) => (
+	<p>{`${entityId}:${entitySchemaSlug}`}</p>
+);
 
 const TitledHome = () => {
 	usePluginTitle("Home");
@@ -147,6 +156,36 @@ describe("bootstrapClientPlugin", () => {
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("light:Hello"));
 		channel.port1.postMessage({ mode: "dark", type: "theme" });
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("dark:Hello"));
+	});
+
+	it("accepts entity renderer registrations during bootstrap", async () => {
+		document.body.innerHTML = '<div id="app"></div>';
+		embedMetadata();
+		bootstraps.push(
+			bootstrapClientPlugin({
+				home: { component: StaticHome },
+				entities: { "media-movie": { component: MovieRenderer } },
+			}),
+		);
+		const channel = new MessageChannel();
+		channels.push(channel);
+		channel.port1.start();
+		window.dispatchEvent(
+			new MessageEvent("message", { data: init, ports: [channel.port2], source: window.parent }),
+		);
+		channel.port1.postMessage({
+			index: 0,
+			key: "movie",
+			compact: false,
+			edgeBack: false,
+			type: "location",
+			leading: "drawer",
+			location: { entityId: "movie-1", entitySchemaSlug: "media-movie", kind: "entity" },
+		});
+
+		await waitFor(() =>
+			expect(document.getElementById("app")?.textContent).toBe("movie-1:media-movie"),
+		);
 	});
 
 	it("publishes the active screen's own title, including after a pop", async () => {
