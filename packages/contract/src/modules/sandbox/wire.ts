@@ -1,8 +1,5 @@
-import { Schema } from "effect";
-
-import type { JsonValue } from "../ryotql/language";
-
-export type { JsonValue };
+export { JsonValue as jsonValueSchema } from "../../schema/json";
+export type { JsonPrimitive, JsonValue } from "../../schema/json";
 
 export const SANDBOX_HOST_CAPABILITIES = [
 	"log",
@@ -31,16 +28,3 @@ export const SANDBOX_HOST_CAPABILITIES = [
 ] as const;
 
 export type SandboxHostCapability = (typeof SANDBOX_HOST_CAPABILITIES)[number];
-
-export type JsonPrimitive = boolean | number | string | null;
-
-export const jsonValueSchema: Schema.Codec<JsonValue, JsonValue> = Schema.suspend(() =>
-	Schema.Union([
-		Schema.Null,
-		Schema.String,
-		Schema.Finite,
-		Schema.Boolean,
-		Schema.Array(jsonValueSchema),
-		Schema.Record(Schema.String, jsonValueSchema),
-	]),
-).pipe(Schema.annotate({ identifier: "JsonValue" }));

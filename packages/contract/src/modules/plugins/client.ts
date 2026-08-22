@@ -1,5 +1,6 @@
 import { Schema } from "effect";
 
+import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
 import { RyotQLDocument, RyotQLResponse } from "../ryotql/language";
 
@@ -105,9 +106,9 @@ export const PluginOperationFailureReason = Schema.Literals(["transport", "opera
 export type PluginOperationFailureReason = Schema.Schema.Type<typeof PluginOperationFailureReason>;
 
 export const PluginBridgeOperationRequest = strictStruct({
+	input: JsonValue,
 	requestId: Schema.String,
 	operationSlug: Schema.String,
-	input: Schema.optional(Schema.Unknown),
 	type: Schema.Literal("operation-request"),
 });
 
@@ -116,7 +117,7 @@ export type PluginBridgeOperationRequest = Schema.Schema.Type<typeof PluginBridg
 export type PluginOperationRequest = Pick<PluginBridgeOperationRequest, "input" | "operationSlug">;
 
 const pluginOperationSuccessFields = {
-	value: Schema.Unknown,
+	value: JsonValue,
 	outcome: Schema.Literal("success"),
 };
 

@@ -20,8 +20,9 @@ type BundleResult =
 	| { readonly javascript: string };
 
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const externalDependencyImports = [...SANDBOX_RUNTIME_SDK_IMPORTS, "effect"] as const;
 const dependencyImportPattern = new RegExp(
-	`^(?:${SANDBOX_RUNTIME_SDK_IMPORTS.map(escapeRegExp).join("|")})$`,
+	`^(?:${externalDependencyImports.map(escapeRegExp).join("|")})$`,
 );
 const bundledSdkImports = new Set([
 	SANDBOX_SDK_ROOT_IMPORT,

@@ -10,6 +10,7 @@ import {
 	type SandboxScriptId,
 	type UserId,
 } from "@ryot/contract/schema/brands";
+import { isJsonValue, type JsonValue } from "@ryot/contract/schema/json";
 import { generateId } from "better-auth";
 import { Context, Effect, Layer, Option, Result } from "effect";
 import type { Headers as PlatformHeaders } from "effect/unstable/http";
@@ -36,7 +37,7 @@ export class IntegrationOperationScopeResolver extends Context.Service<
 
 type DispatchInput = {
 	readonly userId: UserId;
-	readonly payload: unknown;
+	readonly payload: JsonValue;
 	readonly pluginSlug: string;
 	readonly operationSlug: string;
 	readonly scriptId: SandboxScriptId;
@@ -83,11 +84,26 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 					},
 				});
 			}
+			if (!isJsonValue(result.value)) {
+				return yield* new PluginInvocationError({
+					reason: {
+						code: "runtime-failed",
+						diagnostics: [
+							{
+								phase: "output",
+								severity: "error",
+								code: "sandbox-runtime-error",
+								message: "Sandbox operation result must be JSON",
+							},
+						],
+					},
+				});
+			}
 			return result.value;
 		});
 
 		const invoke = Effect.fn("OperationsService.invoke")(function* (input: {
-			readonly payload: unknown;
+			readonly payload: JsonValue;
 			readonly pluginSlug: string;
 			readonly operationSlug: string;
 			readonly headers: PlatformHeaders.Headers;

@@ -1,6 +1,7 @@
 import { Schema } from "effect";
 
 import { PluginSlug } from "../../schema/brands";
+import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
 import { SandboxCompilationDiagnostic, SandboxExecutionError } from "../sandbox/schemas";
 import { PluginConfigSchema, PluginManifest } from "./manifest";
@@ -234,10 +235,10 @@ export type PluginInstallationItem = Schema.Schema.Type<typeof PluginInstallatio
 
 export const PluginInstallationList = Schema.Array(PluginInstallationItem);
 
-export const PluginInvokeBody = Schema.Struct({ payload: Schema.Unknown });
+export const PluginInvokeBody = Schema.Struct({ payload: JsonValue });
 
 export type PluginInvokeBody = Schema.Schema.Type<typeof PluginInvokeBody>;
 
-export const PluginInvokeResult = Schema.Struct({ result: Schema.Unknown });
+export const PluginInvokeResult = Schema.Struct({ result: JsonValue });
 
 export type PluginInvokeResult = Schema.Schema.Type<typeof PluginInvokeResult>;
