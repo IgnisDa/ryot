@@ -522,6 +522,13 @@ describe("plugin client bridge contract", () => {
 		expect(Result.isSuccess(decodeTarget(pluginRoute))).toBe(true);
 		expect(Result.isSuccess(decodeTarget(savedView))).toBe(true);
 		expect(Result.isSuccess(decodeTarget(targetEntity))).toBe(true);
+		expect(Result.isSuccess(decodeTarget({ kind: "kernel-page", page: "import-data" }))).toBe(true);
+		expect(Result.isFailure(decodeTarget({ page: "settings", kind: "kernel-page" }))).toBe(true);
+		expect(
+			Result.isFailure(
+				decodeTarget({ path: "/settings", kind: "kernel-page", page: "import-data" }),
+			),
+		).toBe(true);
 		expect(Result.isFailure(decodeTarget(route))).toBe(true);
 		expect(Result.isFailure(decodeTarget({ path: route.path, search: route.search }))).toBe(true);
 		expect(Result.isFailure(decodeTarget({ ...pluginRoute, extra: true }))).toBe(true);
