@@ -1,0 +1,65 @@
+@utility ui-stack {
+	@apply grid gap-4.5;
+}
+
+@utility ui-subtitle {
+	@apply mt-3 text-text-muted;
+}
+
+@utility ui-overline {
+	@apply mb-2 text-[11px] font-semibold tracking-[0.08em] text-accent-text uppercase;
+}
+
+@utility ui-heading {
+	@apply font-display text-[clamp(30px,7vw,42px)] leading-[1.18] font-semibold tracking-tight;
+}
+
+@utility ui-page {
+	@apply grid min-h-screen content-center gap-8 px-5;
+	@apply pt-[max(72px,calc(env(safe-area-inset-top)+56px))] pb-[max(32px,env(safe-area-inset-bottom))];
+}
+
+@utility ui-card {
+	@apply rounded-xl border border-border bg-surface p-5 shadow-card md:p-6;
+}
+
+@utility ui-button-primary {
+	@apply min-h-11 cursor-pointer rounded-lg border border-accent bg-accent px-4 py-2.5;
+	@apply font-semibold text-accent-ink;
+}
+
+@utility ui-button-secondary {
+	@apply min-h-11 cursor-pointer rounded-lg border border-border-strong px-4 py-2.5;
+	@apply font-semibold text-text;
+}
+
+@utility ui-button-text {
+	@apply min-h-10 cursor-pointer font-semibold text-text-muted;
+}
+
+@utility ui-button-switch {
+	@apply min-h-9.5 cursor-pointer rounded-md font-semibold text-text-muted;
+	@apply aria-pressed:bg-raised aria-pressed:text-text aria-pressed:shadow-sm;
+}
+
+@utility ui-field-label {
+	@apply grid gap-1.5 text-[13px] font-semibold text-text-muted;
+}
+
+@utility ui-field-caption {
+	@apply mb-2.5 text-[13px] font-semibold;
+}
+
+@utility ui-field-input {
+	@apply min-h-12 w-full rounded-lg border border-border-strong bg-raised px-3.5 py-2.75;
+	@apply text-base font-normal text-text placeholder:text-text-subtle;
+	@apply aria-invalid:border-danger;
+}
+
+@utility ui-field-error {
+	@apply text-sm font-normal text-danger;
+}
+
+@utility ui-form-status {
+	@apply mt-2.5 mb-1.5 text-sm;
+}
