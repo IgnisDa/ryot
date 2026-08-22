@@ -3,6 +3,7 @@ import { UserId } from "@ryot-app/contract/schema/brands";
 import PurchaseCompleteEmail from "@ryot-app/transactional/emails/purchase-complete";
 import dayjs from "dayjs";
 import { eq } from "drizzle-orm";
+import { Effect, Stream } from "effect";
 import { useEffect, useState } from "react";
 import { data, Form, redirect, useFetcher, useLoaderData } from "react-router";
 import { toast } from "sonner";
@@ -32,6 +33,7 @@ import {
 	type PaddleCustomData,
 	websiteAuthCookie,
 } from "~/lib/config.server";
+import { fromPromise, WebsiteFailure } from "~/lib/effect.server";
 import { initializePaddleForApplication, startUrl } from "~/lib/general";
 import {
 	createUnkeyKey,
@@ -44,211 +46,238 @@ import { changeCase } from "~/lib/utils";
 
 import type { Route } from "./+types/me";
 
-export const loader = async ({ request }: Route.LoaderArgs) => {
-	const customerDetails = await getCustomerWithActivePurchase(request);
-	if (!customerDetails) {
-		return redirect(startUrl);
-	}
+export const loader = ({ request }: Route.LoaderArgs) =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			const customerDetails = yield* getCustomerWithActivePurchase(request);
+			if (!customerDetails) {
+				return redirect(startUrl);
+			}
 
-	const serverVariables = getServerVariables();
-	const isCancelling = getCancellation(customerDetails.id);
-	const isPurchaseInProgress = getPurchaseInProgress(customerDetails.id);
-	return {
-		isCancelling,
-		customerDetails,
-		prices: getPrices(),
-		isPurchaseInProgress,
-		renewOn: customerDetails.renewOn,
-		isSandbox: !!serverVariables.PADDLE_SANDBOX,
-		clientToken: serverVariables.PADDLE_CLIENT_TOKEN,
-		paymentProvider: customerDetails.paymentProvider,
-	};
-};
+			const serverVariables = getServerVariables();
+			const isCancelling = getCancellation(customerDetails.id);
+			const isPurchaseInProgress = getPurchaseInProgress(customerDetails.id);
+			return {
+				isCancelling,
+				customerDetails,
+				prices: getPrices(),
+				isPurchaseInProgress,
+				renewOn: customerDetails.renewOn,
+				isSandbox: !!serverVariables.PADDLE_SANDBOX,
+				clientToken: serverVariables.PADDLE_CLIENT_TOKEN,
+				paymentProvider: customerDetails.paymentProvider,
+			};
+		}),
+	);
 
 export const meta = () => {
 	return [{ title: "My account | Ryot" }];
 };
 
-const getAllSubscriptionsForCustomer = async (customerId: string) => {
+const getAllSubscriptionsForCustomer = (customerId: string) => {
 	const paddleClient = getPaddleServerClient();
-	const allSubscriptions = [];
 	const subscriptionsQuery = paddleClient.subscriptions.list({ customerId: [customerId] });
-
-	for await (const subscription of subscriptionsQuery) {
-		allSubscriptions.push(subscription);
-	}
-
-	return allSubscriptions;
+	return Stream.fromAsyncIterable(
+		subscriptionsQuery,
+		(cause) => new WebsiteFailure({ cause }),
+	).pipe(Stream.runCollect);
 };
 
-const getAllPolarSubscriptionsForCustomer = async (customerId: string) => {
-	const allSubscriptions = [];
-	const polar = getPolarClient();
-	const subscriptionsIterator = await polar.subscriptions.list({ externalCustomerId: customerId });
+const getAllPolarSubscriptionsForCustomer = (customerId: string) =>
+	Effect.gen(function* () {
+		const polar = getPolarClient();
+		const subscriptionsIterator = yield* fromPromise(() =>
+			polar.subscriptions.list({ externalCustomerId: customerId }),
+		);
+		const pages = yield* Stream.fromAsyncIterable(
+			subscriptionsIterator,
+			(cause) => new WebsiteFailure({ cause }),
+		).pipe(Stream.runCollect);
+		return pages.flatMap((page) => page.result.items);
+	});
 
-	for await (const page of subscriptionsIterator) {
-		allSubscriptions.push(...page.result.items);
-	}
+export const action = ({ request }: Route.ActionArgs) =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			const intent = getActionIntent(request);
+			const customer = yield* getCustomerWithActivePurchase(request);
+			const serverVariables = getServerVariables();
+			return yield* match(intent)
+				.with("regenerateUnkeyKey", () =>
+					Effect.gen(function* () {
+						if (!customer?.planType) {
+							throw new Error("No customer found");
+						}
+						if (!customer.unkeyKeyId) {
+							throw new Error("No unkey key found");
+						}
+						const keyId = customer.unkeyKeyId;
+						const unkey = getUnkeyClient();
+						yield* fromPromise(() => unkey.keys.updateKey({ keyId, enabled: false }));
+						const renewOnDayjs = customer.renewOn ? dayjs(customer.renewOn) : undefined;
+						const created = yield* createUnkeyKey(
+							customer,
+							renewOnDayjs ? renewOnDayjs.add(GRACE_PERIOD, "days") : undefined,
+						);
+						yield* fromPromise(() =>
+							getDb()
+								.update(schema.customer)
+								.set({ unkeyKeyId: created.keyId })
+								.where(eq(schema.customer.id, customer.id)),
+						);
+						const emailElement = PurchaseCompleteEmail({
+							planType: customer.planType,
+							renewOn: customer.renewOn ?? undefined,
+							details: { key: created.key, kind: "self_hosted" },
+						});
+						if (!emailElement) {
+							throw new Error("Failed to create email element");
+						}
+						yield* sendEmail({
+							element: emailElement,
+							recipient: customer.email,
+							subject: PurchaseCompleteEmail.subject,
+						});
+						return data({});
+					}),
+				)
+				.with("cancelSubscription", () =>
+					Effect.gen(function* () {
+						if (!customer) {
+							throw new Error("No customer found");
+						}
 
-	return allSubscriptions;
-};
+						if (customer.paymentProvider === "polar") {
+							if (!customer.polarCustomerId) {
+								throw new Error("No Polar customer ID found");
+							}
 
-export const action = async ({ request }: Route.ActionArgs) => {
-	const intent = getActionIntent(request);
-	const customer = await getCustomerWithActivePurchase(request);
-	const serverVariables = getServerVariables();
-	return await match(intent)
-		.with("regenerateUnkeyKey", async () => {
-			if (!customer?.planType) {
-				throw new Error("No customer found");
-			}
-			if (!customer.unkeyKeyId) {
-				throw new Error("No unkey key found");
-			}
-			const unkey = getUnkeyClient();
-			await unkey.keys.updateKey({ enabled: false, keyId: customer.unkeyKeyId });
-			const renewOnDayjs = customer.renewOn ? dayjs(customer.renewOn) : undefined;
-			const created = await createUnkeyKey(
-				customer,
-				renewOnDayjs ? renewOnDayjs.add(GRACE_PERIOD, "days") : undefined,
-			);
-			await getDb()
-				.update(schema.customer)
-				.set({ unkeyKeyId: created.keyId })
-				.where(eq(schema.customer.id, customer.id));
-			const emailElement = PurchaseCompleteEmail({
-				planType: customer.planType,
-				renewOn: customer.renewOn ?? undefined,
-				details: { key: created.key, kind: "self_hosted" },
-			});
-			if (!emailElement) {
-				throw new Error("Failed to create email element");
-			}
-			await sendEmail({
-				element: emailElement,
-				recipient: customer.email,
-				subject: PurchaseCompleteEmail.subject,
-			});
-			return data({});
-		})
-		.with("cancelSubscription", async () => {
-			if (!customer) {
-				throw new Error("No customer found");
-			}
+							const subscriptionsResponse = yield* getAllPolarSubscriptionsForCustomer(customer.id);
 
-			if (customer.paymentProvider === "polar") {
-				if (!customer.polarCustomerId) {
-					throw new Error("No Polar customer ID found");
-				}
+							const activeSubscription = subscriptionsResponse.find((sub) =>
+								["active", "trialing"].includes(sub.status),
+							);
 
-				const subscriptionsResponse = await getAllPolarSubscriptionsForCustomer(customer.id);
+							if (!activeSubscription) {
+								throw new Error("No active subscription found");
+							}
 
-				const activeSubscription = subscriptionsResponse.find((sub) =>
-					["active", "trialing"].includes(sub.status),
-				);
+							yield* Effect.log("Active Polar Subscription:", {
+								customerId: customer.id,
+								activeSubscription: activeSubscription.id,
+							});
 
-				if (!activeSubscription) {
-					throw new Error("No active subscription found");
-				}
+							const polar = getPolarClient();
+							yield* fromPromise(() => polar.subscriptions.revoke({ id: activeSubscription.id }));
+							setCancellation(customer.id);
 
-				console.log("Active Polar Subscription:", {
-					customerId: customer.id,
-					activeSubscription: activeSubscription.id,
-				});
+							return data({ success: true, message: "Subscription cancelled successfully" });
+						}
 
-				const polar = getPolarClient();
-				await polar.subscriptions.revoke({ id: activeSubscription.id });
-				setCancellation(customer.id);
+						if (!customer.paddleCustomerId) {
+							throw new Error("No Paddle customer ID found");
+						}
+						const paddleClient = getPaddleServerClient();
 
-				return data({ success: true, message: "Subscription cancelled successfully" });
-			}
+						const subscriptionsResponse = yield* getAllSubscriptionsForCustomer(
+							customer.paddleCustomerId,
+						);
 
-			if (!customer.paddleCustomerId) {
-				throw new Error("No Paddle customer ID found");
-			}
-			const paddleClient = getPaddleServerClient();
+						const activeSubscription = subscriptionsResponse.find((sub) =>
+							["active", "trialing"].includes(sub.status),
+						);
 
-			const subscriptionsResponse = await getAllSubscriptionsForCustomer(customer.paddleCustomerId);
+						if (!activeSubscription) {
+							throw new Error("No active subscription found");
+						}
 
-			const activeSubscription = subscriptionsResponse.find((sub) =>
-				["active", "trialing"].includes(sub.status),
-			);
+						yield* Effect.log("Active Paddle Subscription:", {
+							customerId: customer.id,
+							activeSubscription: activeSubscription.id,
+						});
 
-			if (!activeSubscription) {
-				throw new Error("No active subscription found");
-			}
+						yield* fromPromise(() =>
+							paddleClient.subscriptions.cancel(activeSubscription.id, {
+								effectiveFrom: "immediately",
+							}),
+						);
+						setCancellation(customer.id);
 
-			console.log("Active Paddle Subscription:", {
-				customerId: customer.id,
-				activeSubscription: activeSubscription.id,
-			});
+						return data({ success: true, message: "Subscription cancelled successfully" });
+					}),
+				)
+				.with("checkoutPolar", () =>
+					Effect.gen(function* () {
+						if (!customer) {
+							throw new Error("No customer found");
+						}
+						if (customer.paymentProvider !== "polar") {
+							throw new Error("Customer is not on Polar");
+						}
 
-			await paddleClient.subscriptions.cancel(activeSubscription.id, {
-				effectiveFrom: "immediately",
-			});
-			setCancellation(customer.id);
+						const formData = yield* fromPromise(() => request.formData());
+						const productType = schema.ProductTypes.parse(formData.get("productType"));
+						const planType = schema.PlanTypes.parse(formData.get("planType"));
 
-			return data({ success: true, message: "Subscription cancelled successfully" });
-		})
-		.with("checkoutPolar", async () => {
-			if (!customer) {
-				throw new Error("No customer found");
-			}
-			if (customer.paymentProvider !== "polar") {
-				throw new Error("Customer is not on Polar");
-			}
+						const productId = findPolarProductId(productType, planType);
 
-			const formData = await request.formData();
-			const productType = schema.ProductTypes.parse(formData.get("productType"));
-			const planType = schema.PlanTypes.parse(formData.get("planType"));
+						if (!productId) {
+							throw new Error("Polar product not found");
+						}
 
-			const productId = findPolarProductId(productType, planType);
+						setPurchaseInProgress(customer.id);
 
-			if (!productId) {
-				throw new Error("Polar product not found");
-			}
+						const polar = getPolarClient();
+						const frontendUrl = serverVariables.FRONTEND_URL;
+						const checkout = yield* fromPromise(() =>
+							polar.checkouts.create({
+								products: [productId],
+								customerEmail: customer.email,
+								successUrl: `${frontendUrl}/me`,
+								externalCustomerId: customer.id,
+							}),
+						);
 
-			setPurchaseInProgress(customer.id);
+						return redirect(checkout.url);
+					}),
+				)
+				.with("checkoutPaddle", () =>
+					Effect.sync(() => {
+						if (!customer) {
+							throw new Error("No customer found");
+						}
+						setPurchaseInProgress(customer.id);
+						return data({});
+					}),
+				)
+				.with("generateResetLink", () =>
+					Effect.gen(function* () {
+						if (!customer?.ryotUserId) {
+							return data({ error: "No associated app user found" });
+						}
+						if (customer.oidcIssuerId) {
+							return data({ error: "Password reset is not available for OIDC accounts" });
+						}
 
-			const polar = getPolarClient();
-			const frontendUrl = serverVariables.FRONTEND_URL;
-			const checkout = await polar.checkouts.create({
-				products: [productId],
-				customerEmail: customer.email,
-				successUrl: `${frontendUrl}/me`,
-				externalCustomerId: customer.id,
-			});
-
-			return redirect(checkout.url);
-		})
-		.with("checkoutPaddle", () => {
-			if (!customer) {
-				throw new Error("No customer found");
-			}
-			setPurchaseInProgress(customer.id);
-			return data({});
-		})
-		.with("generateResetLink", async () => {
-			if (!customer?.ryotUserId) {
-				return data({ error: "No associated app user found" });
-			}
-			if (customer.oidcIssuerId) {
-				return data({ error: "Password reset is not available for OIDC accounts" });
-			}
-
-			try {
-				const reset = await resetUserPassword(UserId.make(customer.ryotUserId));
-				return data({ email: reset.email, resetUrl: reset.resetUrl });
-			} catch {
-				return data({ error: "Failed to reach the backend server" });
-			}
-		})
-		.with("logout", async () => {
-			const cookies = await websiteAuthCookie.serialize("", { expires: new Date(0) });
-			return data({}, { headers: { "set-cookie": cookies } });
-		})
-		.run();
-};
+						return yield* resetUserPassword(UserId.make(customer.ryotUserId)).pipe(
+							Effect.map((reset) => data({ email: reset.email, resetUrl: reset.resetUrl })),
+							Effect.catchCause(() =>
+								Effect.succeed(data({ error: "Failed to reach the backend server" })),
+							),
+						);
+					}),
+				)
+				.with("logout", () =>
+					Effect.gen(function* () {
+						const cookies = yield* fromPromise(() =>
+							websiteAuthCookie.serialize("", { expires: new Date(0) }),
+						);
+						return data({}, { headers: { "set-cookie": cookies } });
+					}),
+				)
+				.run();
+		}),
+	);
 
 export default function Index() {
 	const fetcher = useFetcher();

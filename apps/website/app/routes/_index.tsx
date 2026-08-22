@@ -1,6 +1,7 @@
 import ContactSubmissionEmail from "@ryot-app/transactional/emails/contact-submission";
 import LoginCodeEmail from "@ryot-app/transactional/emails/login-code";
 import { sql } from "drizzle-orm";
+import { Effect } from "effect";
 import * as openidClient from "openid-client";
 import { useState } from "react";
 import { redirect, useSearchParams } from "react-router";
@@ -26,6 +27,7 @@ import {
 	IS_DEVELOPMENT_ENV,
 	websiteAuthCookie,
 } from "~/lib/config.server";
+import { fromPromise } from "~/lib/effect.server";
 import { contactEmail, startUrl } from "~/lib/general";
 import { usePaddleInitialization } from "~/lib/hooks/usePaddleInitialization";
 import {
@@ -38,92 +40,118 @@ import {
 
 import type { Route } from "./+types/_index";
 
-export const action = async ({ request }: Route.ActionArgs) => {
-	const formData = await request.clone().formData();
-	const intent = getActionIntent(request);
-	return await match(intent)
-		.with("sendLoginCode", async () => {
-			const submission = processSubmission(formData, sendLoginCodeSchema);
-			await validateTurnstile(request, submission.turnstileToken);
+export const action = ({ request }: Route.ActionArgs) =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			const formData = yield* fromPromise(() => request.clone().formData());
+			const intent = getActionIntent(request);
+			return yield* match(intent)
+				.with("sendLoginCode", () =>
+					Effect.gen(function* () {
+						const submission = processSubmission(formData, sendLoginCodeSchema);
+						yield* validateTurnstile(request, submission.turnstileToken);
 
-			const otpCode = setOtpCode(submission.email);
-			if (IS_DEVELOPMENT_ENV) {
-				console.log("Generated OTP code for login:", { otpCode, email: submission.email });
-			}
-			await sendEmail({
-				recipient: submission.email,
-				subject: LoginCodeEmail.subject,
-				element: LoginCodeEmail({ code: otpCode }),
-			});
-			return redirect(withQuery(startUrl, { email: submission.email }));
-		})
-		.with("registerWithEmail", async () => {
-			const submission = processSubmission(formData, registerSchema);
-			const otpCode = getOtpCode(submission.email);
-			if (otpCode !== submission.otpCode) {
-				throw new Error("Invalid OTP code.");
-			}
-
-			revokeOtpCode(submission.email);
-			const paymentProvider = assignPaymentProvider(submission.email);
-			const dbCustomer = await getDb()
-				.insert(customer)
-				.values({ paymentProvider, email: submission.email })
-				.returning({ id: customer.id })
-				.onConflictDoUpdate({ target: customer.email, set: { email: submission.email } });
-			const customerId = dbCustomer.at(0)?.id;
-			if (!customerId) {
-				throw new Error("There was an error registering the user.");
-			}
-			console.log("Customer login successful:", { customerId });
-			return redirect($path("/me"), {
-				headers: { "set-cookie": await websiteAuthCookie.serialize(customerId) },
-			});
-		})
-		.with("registerWithOidc", async () => {
-			const config = await oauthConfig();
-			const redirectUrl = openidClient.buildAuthorizationUrl(config, {
-				scope: "openid email",
-				redirect_uri: getOauthCallbackUrl(),
-			});
-			return redirect(redirectUrl.href);
-		})
-		.with("contactSubmission", async () => {
-			// DEV: https://github.com/edmundhung/conform/issues/854
-			const submission = contactSubmissionSchema.parse(Object.fromEntries(formData.entries()));
-
-			await validateTurnstile(request, submission.turnstileToken);
-
-			const result = await getDb()
-				.insert(contactSubmission)
-				.values({
-					isSpam: false,
-					email: submission.email,
-					message: submission.message,
-					ticketNumber: sql`nextval('ticket_number_seq')`,
-				})
-				.returning({
-					email: contactSubmission.email,
-					message: contactSubmission.message,
-					ticketNumber: contactSubmission.ticketNumber,
-				});
-
-			if (result[0]?.ticketNumber) {
-				const insertedSubmission = result[0];
-				await sendEmail({
-					cc: contactEmail,
-					recipient: insertedSubmission.email,
-					subject: ContactSubmissionEmail.subject,
-					element: ContactSubmissionEmail({
-						message: insertedSubmission.message,
-						ticketNumber: Number(insertedSubmission.ticketNumber),
+						const otpCode = setOtpCode(submission.email);
+						if (IS_DEVELOPMENT_ENV) {
+							yield* Effect.log("Generated OTP code for login:", {
+								otpCode,
+								email: submission.email,
+							});
+						}
+						yield* sendEmail({
+							recipient: submission.email,
+							subject: LoginCodeEmail.subject,
+							element: LoginCodeEmail({ code: otpCode }),
+						});
+						return redirect(withQuery(startUrl, { email: submission.email }));
 					}),
-				});
-			}
-			return redirect(withQuery(withFragment(".", "contact"), { contactSubmission: true }));
-		})
-		.run();
-};
+				)
+				.with("registerWithEmail", () =>
+					Effect.gen(function* () {
+						const submission = processSubmission(formData, registerSchema);
+						const otpCode = getOtpCode(submission.email);
+						if (otpCode !== submission.otpCode) {
+							throw new Error("Invalid OTP code.");
+						}
+
+						revokeOtpCode(submission.email);
+						const paymentProvider = assignPaymentProvider(submission.email);
+						const dbCustomer = yield* fromPromise(() =>
+							getDb()
+								.insert(customer)
+								.values({ paymentProvider, email: submission.email })
+								.returning({ id: customer.id })
+								.onConflictDoUpdate({ target: customer.email, set: { email: submission.email } }),
+						);
+						const customerId = dbCustomer.at(0)?.id;
+						if (!customerId) {
+							throw new Error("There was an error registering the user.");
+						}
+						yield* Effect.log("Customer login successful:", { customerId });
+						return redirect($path("/me"), {
+							headers: {
+								"set-cookie": yield* fromPromise(() => websiteAuthCookie.serialize(customerId)),
+							},
+						});
+					}),
+				)
+				.with("registerWithOidc", () =>
+					Effect.gen(function* () {
+						const config = yield* oauthConfig;
+						const redirectUrl = openidClient.buildAuthorizationUrl(config, {
+							scope: "openid email",
+							redirect_uri: getOauthCallbackUrl(),
+						});
+						return redirect(redirectUrl.href);
+					}),
+				)
+				.with("contactSubmission", () =>
+					Effect.gen(function* () {
+						// DEV: https://github.com/edmundhung/conform/issues/854
+						const submission = contactSubmissionSchema.parse(
+							Object.fromEntries(formData.entries()),
+						);
+
+						yield* validateTurnstile(request, submission.turnstileToken);
+
+						const result = yield* fromPromise(() =>
+							getDb()
+								.insert(contactSubmission)
+								.values({
+									isSpam: false,
+									email: submission.email,
+									message: submission.message,
+									ticketNumber: sql`nextval('ticket_number_seq')`,
+								})
+								.returning({
+									email: contactSubmission.email,
+									message: contactSubmission.message,
+									ticketNumber: contactSubmission.ticketNumber,
+								}),
+						);
+
+						if (result[0]?.ticketNumber) {
+							const insertedSubmission = result[0];
+							yield* sendEmail({
+								cc: contactEmail,
+								recipient: insertedSubmission.email,
+								subject: ContactSubmissionEmail.subject,
+								element: ContactSubmissionEmail({
+									message: insertedSubmission.message,
+									ticketNumber: Number(insertedSubmission.ticketNumber),
+								}),
+							});
+						}
+						return redirect(withQuery(withFragment(".", "contact"), { contactSubmission: true }));
+					}),
+				)
+				.run();
+		}).pipe(
+			Effect.catchDefect((defect) =>
+				defect instanceof Response ? Effect.succeed(defect) : Effect.die(defect),
+			),
+		),
+	);
 
 const turnstileTokenSchema = z.object({ turnstileToken: z.string() });
 

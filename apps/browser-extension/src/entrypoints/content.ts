@@ -1,5 +1,6 @@
 import type { MetadataLookupResult } from "@ryot-app/media-plugin/contracts/operations";
 import { debounce, throttle } from "@ryot-app/ts-utils/lodash";
+import { Effect, Fiber } from "effect";
 
 import { storage } from "#imports";
 
@@ -9,22 +10,18 @@ import { ExtensionStatus } from "../lib/extension-types";
 import { logger } from "../lib/logger";
 import { MetadataCache } from "../lib/metadata-cache";
 import { extractMetadataTitle } from "../lib/metadata-extractor";
+import { fromPlatform, run } from "../lib/platform";
 
-async function getHasFoundVideo(): Promise<boolean> {
-	return (await storage.getItem<boolean>(STORAGE_KEYS.HAS_FOUND_VIDEO)) ?? false;
-}
+const getHasFoundVideo = () =>
+	fromPlatform(() => storage.getItem<boolean>(STORAGE_KEYS.HAS_FOUND_VIDEO)).pipe(
+		Effect.map((value) => value ?? false),
+	);
 
-async function setHasFoundVideo(value: boolean): Promise<void> {
-	await storage.setItem(STORAGE_KEYS.HAS_FOUND_VIDEO, value);
-}
+const setHasFoundVideo = (value: boolean) =>
+	fromPlatform(() => storage.setItem(STORAGE_KEYS.HAS_FOUND_VIDEO, value));
 
-function sleep(ms: number): Promise<void> {
-	return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function updateExtensionStatus(status: ExtensionStatus) {
-	await storage.setItem(STORAGE_KEYS.EXTENSION_STATUS, status);
-}
+const updateExtensionStatus = (status: ExtensionStatus) =>
+	fromPlatform(() => storage.setItem(STORAGE_KEYS.EXTENSION_STATUS, status));
 
 function findBestVideo(): HTMLVideoElement | null {
 	const videos = document.querySelectorAll("video");
@@ -65,16 +62,19 @@ function extractProgressData(video: HTMLVideoElement): RawMediaData | null {
 	return { title, progress: (video.currentTime / video.duration) * 100 };
 }
 
-async function sendProgressUpdate(progressData: RawMediaData, metadata: MetadataLookupResult) {
-	try {
-		await browser.runtime.sendMessage({
+const sendProgressUpdate = (progressData: RawMediaData, metadata: MetadataLookupResult) =>
+	fromPlatform(() =>
+		browser.runtime.sendMessage({
 			type: MESSAGE_TYPES.SEND_PROGRESS_DATA,
 			data: { metadata, rawData: progressData },
-		});
-	} catch (error) {
-		logger.error("Failed to send progress update", { error });
-	}
-}
+		}),
+	).pipe(
+		Effect.catch((error) =>
+			Effect.sync(() => {
+				logger.error("Failed to send progress update", { error });
+			}),
+		),
+	);
 
 export default defineContentScript({
 	allFrames: true,
@@ -89,23 +89,26 @@ export default defineContentScript({
 		let retryAttempts = 0;
 		const MAX_RETRY_ATTEMPTS = 10;
 		const RETRY_INTERVALS = [2000, 3000, 4000, 5000, 6000, 8000, 10000, 12000, 15000, 20000];
-		let retryTimeoutId: ReturnType<typeof setTimeout> | null = null;
+		let retryFiber: Fiber.Fiber<void> | null = null;
 
 		const cleanup = {
 			abortController: new AbortController(),
 
-			async cleanupAll() {
-				this.abortController.abort();
-				clearRetryTimeout();
-				isRunning = false;
-				await setHasFoundVideo(false);
-				retryAttempts = 0;
-				logger.cleanup();
-				logger.debug("All resources cleaned up");
+			cleanupAll() {
+				const controller = this.abortController;
+				return Effect.gen(function* () {
+					controller.abort();
+					clearRetry();
+					isRunning = false;
+					yield* setHasFoundVideo(false);
+					retryAttempts = 0;
+					logger.cleanup();
+					logger.debug("All resources cleaned up");
+				});
 			},
 		};
 
-		async function getOrLookupMetadata(): Promise<MetadataLookupResult | null> {
+		const getOrLookupMetadata = Effect.fn("getOrLookupMetadata")(function* () {
 			const title = extractMetadataTitle();
 			if (!title) {
 				return null;
@@ -115,27 +118,27 @@ export default defineContentScript({
 				return null;
 			}
 
-			let metadata = await metadataCache.getMetadataForCurrentPage();
+			let metadata = yield* metadataCache.getMetadataForCurrentPage();
 
 			if (!metadata) {
-				await updateExtensionStatus(ExtensionStatus.LookupInProgress);
+				yield* updateExtensionStatus(ExtensionStatus.LookupInProgress);
 
-				metadata = await metadataCache.lookupAndCacheMetadata();
+				metadata = yield* metadataCache.lookupAndCacheMetadata();
 
 				if (!metadata) {
-					await updateExtensionStatus(ExtensionStatus.LookupFailed);
+					yield* updateExtensionStatus(ExtensionStatus.LookupFailed);
 					return null;
 				}
 			}
 
 			return metadata;
-		}
+		});
 
 		function startTrackingWithMetadataAndVideo(
 			metadata: MetadataLookupResult,
 			video: HTMLVideoElement,
 		) {
-			void updateExtensionStatus(ExtensionStatus.TrackingActive);
+			run(updateExtensionStatus(ExtensionStatus.TrackingActive));
 
 			const sendProgress = () => {
 				if (!document.contains(video) || !isRunning || currentUrl !== window.location.href) {
@@ -149,7 +152,7 @@ export default defineContentScript({
 						progress: `${progressData.progress || 0}%`,
 						showInformation: metadata.status === "notFound" ? null : metadata.showInformation,
 					});
-					void sendProgressUpdate(progressData, metadata);
+					run(sendProgressUpdate(progressData, metadata));
 				}
 			};
 
@@ -172,13 +175,13 @@ export default defineContentScript({
 			sendProgress();
 		}
 
-		async function detectVideoWithRetry() {
-			const hasFoundVideo = await getHasFoundVideo();
+		const detectVideoWithRetry = Effect.fn("detectVideoWithRetry")(function* () {
+			const hasFoundVideo = yield* getHasFoundVideo();
 			if (hasFoundVideo || retryAttempts >= MAX_RETRY_ATTEMPTS) {
 				return;
 			}
 
-			const metadata = await getOrLookupMetadata();
+			const metadata = yield* getOrLookupMetadata();
 			if (!metadata) {
 				scheduleRetry();
 				return;
@@ -190,12 +193,12 @@ export default defineContentScript({
 				return;
 			}
 
-			await setHasFoundVideo(true);
-			clearRetryTimeout();
+			yield* setHasFoundVideo(true);
+			clearRetry();
 			logger.debug(`Video detected after ${retryAttempts} attempts`);
-			await updateExtensionStatus(ExtensionStatus.VideoDetected);
+			yield* updateExtensionStatus(ExtensionStatus.VideoDetected);
 			startTrackingWithMetadataAndVideo(metadata, video);
-		}
+		});
 
 		function scheduleRetry() {
 			if (retryAttempts >= MAX_RETRY_ATTEMPTS) {
@@ -208,15 +211,15 @@ export default defineContentScript({
 
 			logger.debug(`Scheduling retry attempt ${retryAttempts} in ${delay}ms`);
 
-			retryTimeoutId = setTimeout(() => {
-				void detectVideoWithRetry();
-			}, delay);
+			retryFiber = Effect.runFork(
+				Effect.sleep(delay).pipe(Effect.tap(() => Effect.sync(() => run(detectVideoWithRetry())))),
+			);
 		}
 
-		function clearRetryTimeout() {
-			if (retryTimeoutId) {
-				clearTimeout(retryTimeoutId);
-				retryTimeoutId = null;
+		function clearRetry() {
+			if (retryFiber) {
+				Effect.runFork(Fiber.interrupt(retryFiber));
+				retryFiber = null;
 			}
 		}
 
@@ -228,20 +231,20 @@ export default defineContentScript({
 		}
 
 		function attachVideoReadinessListeners(video: HTMLVideoElement) {
-			const checkVideoReady = async () => {
-				const hasFoundVideo = await getHasFoundVideo();
+			const checkVideoReady = Effect.fn("checkVideoReady")(function* () {
+				const hasFoundVideo = yield* getHasFoundVideo();
 				if (
 					!hasFoundVideo &&
 					video.readyState > 0 &&
 					video.duration >= MIN_VIDEO_DURATION_SECONDS
 				) {
 					logger.debug("Video became ready, triggering detection");
-					void detectVideoWithRetry();
+					run(detectVideoWithRetry());
 				}
-			};
+			});
 
 			const handleVideoReady = () => {
-				void checkVideoReady();
+				run(checkVideoReady());
 			};
 
 			video.addEventListener("loadedmetadata", handleVideoReady, {
@@ -255,26 +258,32 @@ export default defineContentScript({
 			});
 		}
 
-		async function startMainLoop() {
+		const startMainLoop = Effect.fn("startMainLoop")(function* () {
 			isRunning = true;
 			logger.debug("Starting video detection");
 
-			await updateExtensionStatus(ExtensionStatus.Idle);
+			yield* updateExtensionStatus(ExtensionStatus.Idle);
 
 			setupVideoDetection();
-		}
+		});
 
 		function setupVideoDetection() {
-			void detectVideoWithRetry();
+			run(detectVideoWithRetry());
 			setupVideoElementListeners();
 
-			const checkForVideos = debounce(async () => {
-				const hasFoundVideo = await getHasFoundVideo();
-				if (!isRunning || currentUrl !== window.location.href || hasFoundVideo) {
-					return;
-				}
-				void detectVideoWithRetry();
-			}, 500);
+			const checkForVideos = debounce(
+				() =>
+					run(
+						Effect.gen(function* () {
+							const hasFoundVideo = yield* getHasFoundVideo();
+							if (!isRunning || currentUrl !== window.location.href || hasFoundVideo) {
+								return;
+							}
+							run(detectVideoWithRetry());
+						}),
+					),
+				500,
+			);
 
 			const observer = new MutationObserver((mutations) => {
 				for (const mutation of mutations) {
@@ -298,7 +307,7 @@ export default defineContentScript({
 										'[class*="video"], [class*="player"], [id*="video"], [id*="player"]',
 									)
 								) {
-									void checkForVideos();
+									checkForVideos();
 									return;
 								}
 							}
@@ -308,7 +317,7 @@ export default defineContentScript({
 						mutation.target instanceof HTMLVideoElement
 					) {
 						if (mutation.attributeName === "src" || mutation.attributeName === "currentSrc") {
-							void checkForVideos();
+							checkForVideos();
 						}
 					}
 				}
@@ -326,10 +335,10 @@ export default defineContentScript({
 
 			cleanup.abortController.signal.addEventListener("abort", () => {
 				observer.disconnect();
-				clearRetryTimeout();
+				clearRetry();
 			});
 
-			void checkForVideos();
+			checkForVideos();
 		}
 
 		function stopMainLoop() {
@@ -337,19 +346,19 @@ export default defineContentScript({
 			logger.debug("Stopping main monitoring loop");
 		}
 
-		async function handleUrlChange() {
+		const handleUrlChange = Effect.fn("handleUrlChange")(function* () {
 			logger.debug("URL changed, resetting video detection");
 			stopMainLoop();
-			clearRetryTimeout();
+			clearRetry();
 
 			retryAttempts = 0;
-			await setHasFoundVideo(false);
+			yield* setHasFoundVideo(false);
 
 			currentUrl = window.location.href;
-			await updateExtensionStatus(ExtensionStatus.Idle);
-			await sleep(1000);
-			await init();
-		}
+			yield* updateExtensionStatus(ExtensionStatus.Idle);
+			yield* Effect.sleep("1 second");
+			yield* init();
+		});
 
 		function setupNavigationListeners() {
 			if (navigationListenersAttached) {
@@ -361,18 +370,18 @@ export default defineContentScript({
 			const originalPushState = history.pushState.bind(history);
 			const originalReplaceState = history.replaceState.bind(history);
 
-			window.addEventListener("popstate", () => void handleUrlChange(), {
+			window.addEventListener("popstate", () => run(handleUrlChange()), {
 				signal: cleanup.abortController.signal,
 			});
 
 			history.pushState = function (...args) {
 				originalPushState(...args);
-				void handleUrlChange();
+				run(handleUrlChange());
 			};
 
 			history.replaceState = function (...args) {
 				originalReplaceState(...args);
-				void handleUrlChange();
+				run(handleUrlChange());
 			};
 
 			cleanup.abortController.signal.addEventListener("abort", () => {
@@ -382,30 +391,32 @@ export default defineContentScript({
 			});
 		}
 
-		const handleVisibilityChange = async () => {
+		const handleVisibilityChange = Effect.fn("handleVisibilityChange")(function* () {
 			if (document.hidden) {
 				logger.debug("Page hidden, stopping loop");
 				stopMainLoop();
-				clearRetryTimeout();
-				await setHasFoundVideo(false);
+				clearRetry();
+				yield* setHasFoundVideo(false);
 				retryAttempts = 0;
 				return;
 			}
 
 			logger.debug("Page visible, restarting loop");
 			if (!isRunning) {
-				await startMainLoop();
+				yield* startMainLoop();
 			}
-		};
+		});
 
 		function setupVisibilityListener() {
-			document.addEventListener("visibilitychange", () => void handleVisibilityChange(), {
+			document.addEventListener("visibilitychange", () => run(handleVisibilityChange()), {
 				signal: cleanup.abortController.signal,
 			});
 		}
 
-		async function init() {
-			const integrationUrl = await storage.getItem<string>(STORAGE_KEYS.INTEGRATION_URL);
+		const init = Effect.fn("init")(function* () {
+			const integrationUrl = yield* fromPlatform(() =>
+				storage.getItem<string>(STORAGE_KEYS.INTEGRATION_URL),
+			);
 
 			if (!integrationUrl) {
 				logger.info("Integration URL not set, monitoring disabled");
@@ -419,13 +430,13 @@ export default defineContentScript({
 			setupNavigationListeners();
 			setupVisibilityListener();
 
-			await startMainLoop();
-		}
+			yield* startMainLoop();
+		});
 
 		window.addEventListener(
 			"beforeunload",
 			() => {
-				void cleanup.cleanupAll();
+				run(cleanup.cleanupAll());
 			},
 			{ signal: cleanup.abortController.signal },
 		);
@@ -434,12 +445,12 @@ export default defineContentScript({
 			document.addEventListener(
 				"DOMContentLoaded",
 				() => {
-					void init();
+					run(init());
 				},
 				{ signal: cleanup.abortController.signal },
 			);
 		} else {
-			void init();
+			run(init());
 		}
 	},
 });
