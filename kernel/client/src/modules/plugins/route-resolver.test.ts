@@ -30,6 +30,23 @@ describe("plugin route resolver", () => {
 		});
 	});
 
+	it("prefers a compatible installation when duplicate slugs include an incompatible installation", () => {
+		const incompatible = { ...installation, health: "incompatible" as const };
+
+		expect(resolveRouteTarget([incompatible, installation], "fixture")).toEqual({
+			installation,
+			owner: "plugin",
+			surface: { kind: "home" },
+		});
+	});
+
+	it("does not resolve a slug with only an incompatible installation", () => {
+		expect(resolveRouteTarget([{ ...installation, health: "incompatible" }], "fixture")).toEqual({
+			owner: "kernel",
+			surface: { kind: "not-found" },
+		});
+	});
+
 	it("never resolves a reserved slug to a plugin", () => {
 		expect(resolveRouteTarget([{ ...installation, slug: "settings" }], "settings")).toEqual({
 			owner: "kernel",

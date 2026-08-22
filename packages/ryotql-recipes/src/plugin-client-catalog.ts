@@ -1,4 +1,3 @@
-import { CLIENT_API_VERSION } from "@ryot/contract/modules/plugins/client";
 import { PluginInstallationHealth } from "@ryot/contract/modules/plugins/schemas";
 import {
 	ascending,
@@ -39,7 +38,7 @@ export const pluginClientCatalogRecipe = defineRecipe(
 					),
 					clientApiVersion: selectedField(
 						column(plugin, "clientApiVersion"),
-						Schema.NullOr(Schema.Literal(CLIENT_API_VERSION)),
+						Schema.NullOr(Schema.Number),
 					),
 				},
 			}),
