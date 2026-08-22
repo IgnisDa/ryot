@@ -16,6 +16,15 @@ import {
 	UpdatePrivatePluginBody,
 } from "./schemas";
 
+export const PluginArtifactsGroup = HttpApiGroup.make("pluginArtifacts")
+	.annotate(OpenApi.Description, "Serves public plugin client artifacts.")
+	.add(
+		HttpApiEndpoint.get("artifact", "/plugins/artifacts/:artifactHash/:fileName", {
+			success: HttpApiSchema.StreamUint8Array(),
+			params: { artifactHash: Schema.String, fileName: Schema.String },
+		}).annotate(OpenApi.Description, "Serves a plugin client artifact file."),
+	);
+
 export const PluginsGroup = HttpApiGroup.make("plugins")
 	.annotate(OpenApi.Description, "Manages installed plugins for this instance.")
 	.add(
