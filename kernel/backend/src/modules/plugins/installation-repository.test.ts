@@ -55,6 +55,36 @@ const clientProjection = (id: string) =>
 	});
 
 describe("installation revision persistence", () => {
+	it.effect("locks kernel and plugin saved-view renderers without custom renderer state", () =>
+		withRevisionDatabase(
+			Effect.gen(function* () {
+				const repository = yield* PluginInstallationRepository;
+				const db = yield* Database;
+				const renderers = [
+					{ kind: "kernel", name: "entity-browser" },
+					{ kind: "plugin", exportName: "home", pluginId: "plugin-id" },
+				] as const;
+				for (const [index, renderer] of renderers.entries()) {
+					const id = `saved-view-${index}`;
+					yield* db
+						.insert(tables.savedView)
+						.values({
+							id,
+							slug: id,
+							name: id,
+							renderer,
+							icon: "view",
+							settings: {},
+							userId: owner,
+						});
+					expect(yield* repository.lockHomeSavedView(owner, id)).toEqual({
+						view: { renderer, isDisabled: false },
+					});
+				}
+			}),
+		),
+	);
+
 	it.effect("scopes home-view writes to the owning user", () =>
 		withRevisionDatabase(
 			Effect.gen(function* () {
@@ -150,7 +180,6 @@ describe("installation revision persistence", () => {
 						updatedAt: timestamp,
 						pluginId: installed.pluginId,
 						preserveExistingConfig: true,
-						id: installed.installation.id,
 						config: { token: "archive-secret" },
 					});
 					expect(restored?.config).toEqual({});

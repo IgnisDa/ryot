@@ -12,9 +12,11 @@ const resolve = (url: string, method = "GET") =>
 
 it.effect("uses route templates for every request method on protected paths", () =>
 	Effect.gen(function* () {
-		const url = "http://server.test/api/client-pages/artifacts/private-token/index.html";
-		expect(yield* resolve(url)).toBe("/api/client-pages/artifacts/:token/:fileName");
-		expect(yield* resolve(url, "OPTIONS")).toBe("/api/client-pages/artifacts/:token/:fileName");
+		for (const fileName of ["index.html", "plugins/media/module.js"]) {
+			const url = `http://server.test/api/client-pages/artifacts/private-token/${fileName}`;
+			expect(yield* resolve(url)).toBe("/api/client-pages/artifacts/:token/*");
+			expect(yield* resolve(url, "OPTIONS")).toBe("/api/client-pages/artifacts/:token/*");
+		}
 	}),
 );
 

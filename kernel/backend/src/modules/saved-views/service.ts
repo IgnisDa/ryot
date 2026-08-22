@@ -14,7 +14,6 @@ import { Context, Effect, Layer } from "effect";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { slugify } from "#lib/shared/slug";
 import { trimToNull } from "#lib/shared/validation";
-import { ClientPagesRepository } from "#modules/client-pages/repository";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { PluginCatalogInvalidator } from "#modules/plugins/catalog-events";
 import { ClientSurfaceMaterializer } from "#modules/plugins/client-surface-materializer";
@@ -28,7 +27,6 @@ import { SavedViewsRepository } from "./repository";
 export class SavedViewsService extends Context.Service<SavedViewsService>()("SavedViewsService", {
 	make: Effect.gen(function* () {
 		const repository = yield* SavedViewsRepository;
-		const clientPages = yield* ClientPagesRepository;
 		const pluginRuntime = yield* PluginRuntimeResolver;
 		const definitions = yield* DefinitionRepository;
 		const invalidator = yield* PluginCatalogInvalidator;
@@ -85,10 +83,6 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			settings: Readonly<Record<string, unknown>>,
 			dataSources: Extract<CreateSavedViewBody, { renderer: unknown }>["dataSources"],
 		) {
-			const record =
-				renderer.kind === "custom"
-					? yield* clientPages.lockRenderer(userId, renderer.rendererId)
-					: null;
 			const pluginPage =
 				renderer.kind === "plugin"
 					? (yield* pluginRuntime.listPluginsAvailableToUser(userId)).find(
@@ -99,7 +93,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 				renderer,
 				settings,
 				dataSources,
-				record,
+				null,
 				pluginPage?.kind === "page" ? pluginPage : null,
 			);
 		});
@@ -138,7 +132,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			const created = yield* mapDatabaseErrors(
 				database.transaction((transaction) =>
 					Effect.gen(function* () {
-						const rendererId = yield* validateRendererSettings(
+						yield* validateRendererSettings(
 							user.id,
 							payload.renderer,
 							payload.settings,
@@ -151,7 +145,6 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 							icon: payload.icon,
 							renderer: payload.renderer,
 							settings: payload.settings,
-							clientRendererId: rendererId,
 							dataSources: payload.dataSources,
 							pluginInstallationId: payload.workspacePluginSlug
 								? yield* resolvePluginInstallation(user.id, payload.workspacePluginSlug)
@@ -194,13 +187,8 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 					reason: { field: "name", code: "required-field" },
 				});
 			}
-			let rendererId = null;
-			if (current.isBuiltin) {
-				if (current.renderer.kind === "custom") {
-					rendererId = current.renderer.rendererId;
-				}
-			} else {
-				rendererId = yield* validateRendererSettings(user.id, renderer, settings, dataSources);
+			if (!current.isBuiltin) {
+				yield* validateRendererSettings(user.id, renderer, settings, dataSources);
 			}
 			let pluginInstallationId = current.pluginInstallationId;
 			if (payload.workspacePluginSlug === null) {
@@ -221,7 +209,6 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 					dataSources,
 					icon: payload.icon,
 					pluginInstallationId,
-					clientRendererId: rendererId,
 					sortOrder: payload.sortOrder,
 					isDisabled: payload.isDisabled,
 				},

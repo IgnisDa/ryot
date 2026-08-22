@@ -12,6 +12,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "../../schema/brands";
+import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
 import { PluginManifest } from "../plugins/manifest";
 import { EnqueueSandboxBody } from "../sandbox/schemas";
@@ -40,9 +41,18 @@ export class TestSupportOperationFailure extends Schema.TaggedError<TestSupportO
 	{ reason: TestSupportDiagnosticReason },
 ) {}
 
+export const TestSupportPluginCompiledScript = strictStruct({
+	entry: Schema.String,
+	source: Schema.String,
+	javascript: Schema.String,
+	format: Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(1))),
+});
+
 export const TestSupportInstallSystemPluginBodyBase64 = Schema.Struct({
 	manifest: PluginManifest,
 	files: Schema.Record(Schema.String, CanonicalBase64),
+	compiledScripts: Schema.Array(TestSupportPluginCompiledScript),
+	compiledClient: Schema.optional(Schema.Record(Schema.String, JsonValue)),
 });
 
 export type TestSupportInstallSystemPluginBodyBase64 =

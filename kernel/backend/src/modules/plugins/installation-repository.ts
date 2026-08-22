@@ -42,6 +42,7 @@ export type PluginInstallationHydratedState = PluginInstallationState &
 
 type RestoreInstallationInput = Omit<
 	PluginInstallationRow,
+	| "id"
 	| "userId"
 	| "healthReason"
 	| "homeSavedViewId"
@@ -387,18 +388,8 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 									renderer: schema.savedView.renderer,
 									isDisabled: schema.savedView.isDisabled,
 								},
-								renderer: {
-									userId: schema.clientRenderer.userId,
-									publishedHash: schema.clientRenderer.publishedHash,
-									publishedRevision: schema.clientRenderer.publishedRevision,
-									publishedDefinition: schema.clientRenderer.publishedDefinition,
-								},
 							})
 							.from(schema.savedView)
-							.leftJoin(
-								schema.clientRenderer,
-								eq(schema.savedView.clientRendererId, schema.clientRenderer.id),
-							)
 							.where(and(eq(schema.savedView.id, savedViewId), eq(schema.savedView.userId, userId)))
 							.for("update", { of: schema.savedView })
 							.limit(1),

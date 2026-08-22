@@ -15,7 +15,6 @@ import { assertExitFails } from "#lib/test-utils/assertions";
 import { databaseLayer } from "#lib/test-utils/effect";
 import { AuthRepository } from "#modules/auth/repository";
 import { AutomationsRepository } from "#modules/automations/repository";
-import { ClientPagesRepository } from "#modules/client-pages/repository";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { buildDefinitionSnapshot } from "#modules/definition-registry/snapshot";
 import { mergeManifestDefinitions } from "#modules/definition-registry/source";
@@ -295,7 +294,8 @@ it.effect(
 				},
 			},
 		};
-		const privateSourceHash = pluginSourceHash(privateManifest, {});
+		const privateSourceFiles = { "client/asset.png": new Uint8Array([0x00, 0xff, 0x80, 0x41]) };
+		const privateSourceHash = pluginSourceHash(privateManifest, privateSourceFiles, []);
 		const differentOwnerManifest = {
 			...privateManifest,
 			entitySchemas: privateManifest.entitySchemas.map((definition) => ({
@@ -341,7 +341,6 @@ it.effect(
 				Layer.mergeAll(
 					databaseLayer,
 					BunFileSystem.layer,
-					Layer.mock(ClientPagesRepository, { listRenderers: () => Effect.succeed([]) }),
 					Layer.mock(DefinitionRepository, {
 						getUserSnapshot: (_userId, options) =>
 							Effect.sync(() => {
@@ -455,8 +454,8 @@ it.effect(
 						verifyManagedAssetOwnership: () => Effect.succeed([]),
 					}),
 					Layer.mock(PluginRepository, {
-						listSourceFiles: () =>
-							Effect.succeed({ "client/asset.png": new Uint8Array([0x00, 0xff, 0x80, 0x41]) }),
+						listSourceFiles: () => Effect.succeed(privateSourceFiles),
+						listCompiledPackageArtifacts: () => Effect.succeed({ compiledScripts: [] }),
 						listPrivateForUser: () =>
 							Effect.succeed([
 								{
@@ -551,6 +550,7 @@ it.effect(
 			]);
 			expect(prepared.records.privatePlugins).toEqual([
 				expect.objectContaining({
+					compiledScripts: [],
 					slug: "private-plugin",
 					sourceHash: privateSourceHash,
 					files: { "client/asset.png": "AP+AQQ==" },
@@ -665,7 +665,7 @@ it.effect("reuses one export context across every event page", () => {
 			},
 		],
 	};
-	const sourceHash = pluginSourceHash(manifest, {});
+	const sourceHash = pluginSourceHash(manifest, {}, []);
 	const eventRow = (id: string, note: string) => ({
 		id,
 		note,
@@ -691,7 +691,6 @@ it.effect("reuses one export context across every event page", () => {
 			Layer.mergeAll(
 				databaseLayer,
 				BunFileSystem.layer,
-				Layer.mock(ClientPagesRepository, { listRenderers: () => Effect.succeed([]) }),
 				Layer.mock(DefinitionRepository, {
 					getUserSnapshot: () =>
 						Effect.succeed(
@@ -761,6 +760,7 @@ it.effect("reuses one export context across every event page", () => {
 				}),
 				Layer.mock(PluginRepository, {
 					listSourceFiles: () => Effect.succeed({}),
+					listCompiledPackageArtifacts: () => Effect.succeed({ compiledScripts: [] }),
 					listPortablePluginMetadata: () =>
 						Effect.sync(() => {
 							portableReads += 1;
