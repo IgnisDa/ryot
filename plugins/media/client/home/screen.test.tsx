@@ -60,7 +60,10 @@ const homeAdapter = (input: {
 };
 
 const mountHome = (adapter: Partial<RyotClientAdapter>) =>
-	mountRyotClient(adapter, <HomeBody compact scrollRootRef={{ current: null }} />);
+	mountRyotClient(
+		adapter,
+		<HomeBody compact pluginId="media-installation" scrollRootRef={{ current: null }} />,
+	);
 
 const observers: RecordingIntersectionObserver[] = [];
 
@@ -197,7 +200,9 @@ describe("home sections", () => {
 		const home = homeAdapter({ gate: 1 });
 		const view = mountRyotClient(home.adapter, null);
 		await view.setTime(new Date(2026, 8, 25, 23, 30).getTime());
-		view.rerender(<HomeBody compact scrollRootRef={{ current: null }} />);
+		view.rerender(
+			<HomeBody compact pluginId="media-installation" scrollRootRef={{ current: null }} />,
+		);
 		await flushRyotClient();
 		const continueRequests = () =>
 			home.requested.filter((names) => names.includes("flat.items") && names.includes("show.items"))
@@ -224,7 +229,7 @@ describe("first run", () => {
 		clickRyotElement(getByRole(view.container, "button", { name: "Add a title" }));
 		clickRyotElement(getByRole(document.body, "menuitem", { name: "Comic book" }));
 		expect(home.providerSearches).toEqual([
-			{ ownerPluginId: "media", entitySchemaSlug: "comic-book" },
+			{ entitySchemaSlug: "comic-book", ownerPluginId: "media-installation" },
 		]);
 		expect(document.body.querySelector('[role="menu"]')).toBeNull();
 		view.unmount();
