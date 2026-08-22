@@ -10,7 +10,12 @@ import {
 	IntegrationRequestError,
 	type IntegrationRequestFailureReason,
 } from "@ryot-app/contract/modules/integrations/schemas";
-import type { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
+import type {
+	ImportRunId,
+	IntegrationId,
+	IntegrationWebhookToken,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { generateId } from "better-auth";
 import { Context, Effect, Result, Layer } from "effect";
@@ -345,15 +350,15 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 			const handleWebhook = Effect.fn("IntegrationsService.handleWebhook")(function* (input: {
 				rawBody: string;
 				contentType: string;
-				integrationId: IntegrationId;
+				webhookToken: IntegrationWebhookToken;
 			}) {
-				const { integrationId } = input;
-				const integration = yield* repository.getByIdAnyUser({ integrationId });
+				const integration = yield* repository.getByWebhookToken(input.webhookToken);
 				if (!integration) {
 					return yield* new IntegrationNotFoundError({
-						reason: { integrationId, code: "integration-not-found" },
+						reason: { code: "integration-webhook-not-found" },
 					});
 				}
+				const integrationId = integration.id;
 				const registered = yield* providerCatalog.findOwnedForUser(
 					integration.userId,
 					integration.provider,

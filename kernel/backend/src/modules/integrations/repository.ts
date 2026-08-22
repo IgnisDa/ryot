@@ -6,7 +6,7 @@ import type {
 } from "@ryot-app/contract/modules/integrations/schemas";
 import type { IntegrationLot } from "@ryot-app/contract/modules/integrations/types";
 import type { ImportRunId } from "@ryot-app/contract/schema/brands";
-import { IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
+import { IntegrationId, IntegrationWebhookToken, UserId } from "@ryot-app/contract/schema/brands";
 import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
@@ -32,6 +32,7 @@ const integrationSelection = {
 	createdAt: schema.integration.createdAt,
 	updatedAt: schema.integration.updatedAt,
 	isDisabled: schema.integration.isDisabled,
+	webhookToken: schema.integration.webhookToken,
 	extraSettings: schema.integration.extraSettings,
 	syncOwnership: schema.integration.syncOwnership,
 	lastFinishedAt: schema.integration.lastFinishedAt,
@@ -47,28 +48,38 @@ const integrationSelection = {
 	)`,
 };
 
+const { webhookToken: _webhookToken, ...integrationBackupSelection } = integrationSelection;
+
 const normalizeIntegration = (
 	frontendUrl: string,
 	row: SelectedIntegrationRow,
-): IntegrationRecord => ({
-	lot: row.lot,
-	name: row.name,
-	provider: row.provider,
-	pluginSlug: row.pluginSlug,
-	isDisabled: row.isDisabled,
-	id: IntegrationId.make(row.id),
-	userId: UserId.make(row.userId),
-	syncOwnership: row.syncOwnership,
-	extraSettings: row.extraSettings,
-	createdAt: row.createdAt.toISOString(),
-	updatedAt: row.updatedAt.toISOString(),
-	providerSpecifics: row.providerSpecifics,
-	pluginInstallationId: row.pluginInstallationId,
-	minimumProgress: Number.parseFloat(row.minimumProgress),
-	maximumProgress: Number.parseFloat(row.maximumProgress),
-	lastFinishedAt: row.lastFinishedAt?.toISOString() ?? null,
-	...(row.lot === "sink" ? { webhookUrl: `${frontendUrl}/_i/${row.id}` } : {}),
-});
+): IntegrationRecord => {
+	if (row.lot === "sink" && row.webhookToken === null) {
+		throw new Error(`Sink integration '${row.id}' has no webhook token`);
+	}
+	return {
+		lot: row.lot,
+		name: row.name,
+		provider: row.provider,
+		pluginSlug: row.pluginSlug,
+		isDisabled: row.isDisabled,
+		id: IntegrationId.make(row.id),
+		userId: UserId.make(row.userId),
+		syncOwnership: row.syncOwnership,
+		extraSettings: row.extraSettings,
+		createdAt: row.createdAt.toISOString(),
+		updatedAt: row.updatedAt.toISOString(),
+		providerSpecifics: row.providerSpecifics,
+		pluginInstallationId: row.pluginInstallationId,
+		minimumProgress: Number.parseFloat(row.minimumProgress),
+		maximumProgress: Number.parseFloat(row.maximumProgress),
+		lastFinishedAt: row.lastFinishedAt?.toISOString() ?? null,
+		...(row.webhookToken === null ? {} : { webhookUrl: `${frontendUrl}/_i/${row.webhookToken}` }),
+	};
+};
+
+const webhookTokenForLot = (lot: IntegrationLot) =>
+	lot === "sink" ? IntegrationWebhookToken.make(crypto.randomUUID()) : null;
 
 const ownedIntegrationWhere = (input: { integrationId: IntegrationId; userId: UserId }) =>
 	and(eq(schema.integration.id, input.integrationId), eq(schema.integration.userId, input.userId));
@@ -120,6 +131,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 							minimumProgress: input.minimumProgress,
 							maximumProgress: input.maximumProgress,
 							providerSpecifics: input.providerSpecifics,
+							webhookToken: webhookTokenForLot(input.lot),
 							pluginInstallationId: input.pluginInstallationId,
 						})
 						.returning(integrationSelection),
@@ -139,6 +151,26 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 						.select(integrationSelection)
 						.from(schema.integration)
 						.where(eq(schema.integration.id, input.integrationId))
+						.limit(1),
+				);
+
+				return row ? normalizeIntegration(frontendUrl, row) : null;
+			});
+
+			const getByWebhookToken = Effect.fn("IntegrationsRepository.getByWebhookToken")(function* (
+				webhookToken: IntegrationWebhookToken,
+			) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.select(integrationSelection)
+						.from(schema.integration)
+						.where(
+							and(
+								eq(schema.integration.webhookToken, webhookToken),
+								eq(schema.integration.lot, "sink"),
+							),
+						)
 						.limit(1),
 				);
 
@@ -229,7 +261,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				const db = yield* Database;
 				return yield* mapDatabaseErrors(
 					db
-						.select(integrationSelection)
+						.select(integrationBackupSelection)
 						.from(schema.integration)
 						.where(eq(schema.integration.userId, userId))
 						.orderBy(asc(schema.integration.id)),
@@ -254,7 +286,11 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				readonly providerSpecifics: IntegrationProviderSettings;
 			}) {
 				const db = yield* Database;
-				yield* mapDatabaseErrors(db.insert(schema.integration).values(input));
+				yield* mapDatabaseErrors(
+					db
+						.insert(schema.integration)
+						.values({ ...input, webhookToken: webhookTokenForLot(input.lot) }),
+				);
 			});
 
 			const updateForUser = Effect.fn("IntegrationsRepository.updateForUser")(function* (input: {
@@ -374,6 +410,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				deleteForUser,
 				restoreForUser,
 				getByIdAnyUser,
+				getByWebhookToken,
 				hasAutoDisableClaim,
 				insertAutoDisableClaim,
 				disableForUserIfEnabled,

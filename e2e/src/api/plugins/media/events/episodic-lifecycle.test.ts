@@ -195,12 +195,12 @@ describe("Episodic lifecycle sessions", () => {
 	it.live("assigns the parent show session to integration-origin episode progress", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { id } = yield* createKodiIntegration(client);
+			const integration = yield* createKodiIntegration(client);
 			const { tmdbId, showId, episodeId } = yield* seedGlobalShowEpisodeTree(client, {
 				showName: "Integration Episode Session Show",
 			});
 
-			const { run } = yield* postIntegrationWebhookAndWait(client, id, {
+			const { run } = yield* postIntegrationWebhookAndWait(client, integration, {
 				lot: "show",
 				progress: 45,
 				identifier: tmdbId,

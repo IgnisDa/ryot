@@ -12,6 +12,7 @@ export const IntegrationRequestFailureReason = Schema.Union([
 	Schema.Struct({ operation: Schema.String, code: Schema.Literal("queue-unavailable") }),
 	Schema.Struct({ provider: Schema.String, code: Schema.Literal("invalid-provider-settings") }),
 	Schema.Struct({ integrationId: IntegrationId, code: Schema.Literal("integration-not-found") }),
+	Schema.Struct({ code: Schema.Literal("integration-webhook-not-found") }),
 	Schema.Struct({
 		value: Schema.Number,
 		code: Schema.Literal("progress-out-of-range"),
