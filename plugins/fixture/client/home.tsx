@@ -1,9 +1,9 @@
 import { RyotClientError } from "@ryot/client-sdk";
 import { Schema } from "@ryot/client-sdk/effect";
 import { PluginLink } from "@ryot/client-sdk/plugin";
-import { useRyot } from "@ryot/client-sdk/react";
+import { useRyot, useRyotTheme } from "@ryot/client-sdk/react";
 import { Button, StatusMessage } from "@ryot/client-ui-sdk";
-import { useState, useSyncExternalStore } from "react";
+import { useState } from "react";
 
 import logo from "./logo.svg";
 
@@ -34,11 +34,7 @@ type GreetingState =
 
 export const Home = () => {
 	const ryot = useRyot();
-	const theme = useSyncExternalStore(
-		ryot.theme.subscribe,
-		ryot.theme.getSnapshot,
-		ryot.theme.getSnapshot,
-	);
+	const theme = useRyotTheme();
 	const [greetings, setGreetings] = useState(0);
 	const [requested, setRequested] = useState("Ryot");
 	const [greeting, setGreeting] = useState<GreetingState>({ status: "idle" });

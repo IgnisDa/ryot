@@ -14,7 +14,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { bootstrapClientPlugin, defineClientPlugin } from "./plugin";
 import * as pluginSurface from "./plugin";
-import { useRyot } from "./react";
+import { useRyot, useRyotTheme } from "./react";
 
 const metadata = {
 	hash: "artifact-hash",
@@ -38,13 +38,14 @@ let bootstraps: Array<{ dispose: () => void }> = [];
 
 const Home = () => {
 	const ryot = useRyot();
+	const ryotTheme = useRyotTheme();
 	const [result, setResult] = useState("pending");
 	useEffect(() => {
 		void ryot.operations
 			.invoke({ slug: "greet", input: {}, output: Schema.String })
 			.then(setResult);
 	}, [ryot]);
-	return <p>{result}</p>;
+	return <p>{`${ryotTheme.resolvedMode}:${result}`}</p>;
 };
 
 const StaticHome = () => <p>Mounted</p>;
@@ -116,7 +117,13 @@ describe("bootstrapClientPlugin", () => {
 			type: "operation-result",
 			requestId: "operation-1",
 		});
-		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Hello"));
+		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("light:Hello"));
+		channel.port1.postMessage({
+			type: "theme",
+			generation: 2,
+			theme: { resolvedMode: "dark", tokens },
+		});
+		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("dark:Hello"));
 	});
 
 	it("does not mount plugin React before initial location and theme", async () => {
