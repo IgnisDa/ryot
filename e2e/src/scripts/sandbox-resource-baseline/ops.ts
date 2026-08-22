@@ -20,7 +20,7 @@ export const BENCHMARK_ENVIRONMENT = {
 	applicationDatabase: "postgres",
 	serviceUuid: "a2dt5g6dbmpwqwllnzsho8jc",
 	toolsDirectory: "/root/ryot-benchmark-tools",
-	containerProfileRoot: "/home/ryot/tmp/benchmark-profiles",
+	containerProfileRoot: "/home/ryot/work/benchmark-profiles",
 	serviceDirectory: "/data/coolify/services/a2dt5g6dbmpwqwllnzsho8jc",
 } as const;
 
