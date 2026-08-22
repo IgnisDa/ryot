@@ -4,7 +4,13 @@
   "schemaVersion": 2,
   "prNumber": 1832,
   "branch": "ultra-rewrite",
-  "deviations": [],
+  "deviations": [
+    "soak-live-details was not run. It submits live-details, which executes synchronously and cannot reach the stalling durable-queue path, so it would have measured YouTube Music latency rather than anything the decisions need. soak-control already provides the non-import soak baseline.",
+    "The live phase required six attempts. Attempts 1 through 5 aborted and their artifacts are not in this run directory; attempt 6 completed all 12 units and is the live evidence here.",
+    "The harness was changed mid-run, after the profiles phase and before soak-control, to stop losing progress to stale watchdog triggers and a dead backend, to stop profiling concurrent soak waves, and to retry idempotent admin calls on transport reset. Scenarios before and after that change ran on different harness revisions. Commits carry the [resource-data-gathering] tag.",
+    "soak-hermetic-import stalled 171 of its 200 imports above 600 s on Effect 4.0.0-rc.116, upstream issue 8312. Its latency, throughput and retention figures measure the defect, not the sandbox. See effect-workflow-stall.md.",
+    "This manifest was completed by hand. The soak-hermetic-import run exited 1 when its final updateManifest hit EPERM opening this file during a host filesystem fault; the scenario itself had already completed all 10 waves and written its artifact."
+  ],
   "completedAtUtc": null,
   "invocations": [
     {
