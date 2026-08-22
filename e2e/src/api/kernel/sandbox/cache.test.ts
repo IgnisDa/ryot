@@ -61,8 +61,8 @@ const installCacheProviderScoped = (client: Client, key: string, value: string) 
 	const entitySchemaSlug = `${providerSlug}-entity`;
 	const writerSlug = `${providerSlug}.details`;
 	const readerSlug = `${providerSlug}.search`;
-	const writerEntry = `api/scripts/${writerSlug}.sandbox.ts`;
-	const readerEntry = `api/scripts/${readerSlug}.sandbox.ts`;
+	const writerEntry = `backend/scripts/${writerSlug}.sandbox.ts`;
+	const readerEntry = `backend/scripts/${readerSlug}.sandbox.ts`;
 	return Effect.acquireRelease(
 		installTestPluginBundle({
 			client,
