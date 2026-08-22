@@ -314,6 +314,17 @@ const isTransientApiFailure = (error: unknown) =>
 	"_tag" in error &&
 	error._tag === "HttpClientError";
 
+/**
+ * Every poll failure is treated as transient, so without a cap a stopped backend keeps the wave
+ * polling forever instead of ending the scenario. Each failing poll already spends its transport
+ * retries, which puts the cap several minutes past any legitimate restart.
+ */
+const MAX_CONSECUTIVE_POLL_FAILURES = 60;
+
+export class ScenarioRequestError extends Data.TaggedError("ScenarioRequestError")<{
+	readonly message: string;
+}> {}
+
 const importRequest = (
 	context: RunContext,
 	input: {
@@ -339,6 +350,7 @@ const importRequest = (
 			failureStage: null,
 			submittedAtMs: startedAtMs,
 		} as ImportRecord);
+		let consecutiveFailures = 0;
 		for (;;) {
 			const result = yield* context.session
 				.call((client) => client.providerEntities.getImportResult({ params: { jobId } }))
@@ -346,6 +358,16 @@ const importRequest = (
 					Effect.map((value) => ({ value })),
 					Effect.catchIf(isTransientApiFailure, () => Effect.succeed(null)),
 				);
+			if (result === null) {
+				consecutiveFailures += 1;
+				if (consecutiveFailures >= MAX_CONSECUTIVE_POLL_FAILURES) {
+					return yield* new ScenarioRequestError({
+						message: `import ${jobId} failed ${consecutiveFailures} consecutive result polls`,
+					});
+				}
+			} else {
+				consecutiveFailures = 0;
+			}
 			if (result !== null && result.value.status !== "pending") {
 				const terminalAtMs = yield* Clock.currentTimeMillis;
 				const completed = result.value.status === "completed";
@@ -654,7 +676,14 @@ export const captureRepetition = (
 			(yield* readSources(remote, { appOffset: input.appOffset, hostOffset: input.hostOffset }));
 		const containersAfter = yield* remote.metadata.pipe(Effect.map(({ containers }) => containers));
 		const journal = yield* remote.journal(input.startedAtMs, input.completedAtMs);
-		const triggers = yield* remote.watchdogTriggers;
+		/**
+		 * The watchdog appends to one trigger file for the whole run, so an unfiltered read makes every
+		 * later repetition inherit an earlier scenario's trigger, report `aborted`, and stop the
+		 * remaining matrix units. Only triggers inside this repetition's window belong to it.
+		 */
+		const triggers = yield* Effect.map(remote.watchdogTriggers, (lines) =>
+			lines.filter(({ timestampMs }) => timestampMs >= input.startedAtMs),
+		);
 		const segments = yield* listPhaseSegments(input.phaseSequence);
 		const records = sources.records;
 		const pre =
