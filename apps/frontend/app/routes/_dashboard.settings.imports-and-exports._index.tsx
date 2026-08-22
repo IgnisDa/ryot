@@ -157,8 +157,11 @@ export const action = async ({ request }: Route.ActionArgs) => {
 		.run();
 };
 
+const exportPathImportFormSchema = z.object({ exportPath: z.string() });
+
 const traktImportFormSchema = z.object({
 	user: z.string().optional(),
+	export: exportPathImportFormSchema.optional(),
 	list: z.object({ url: z.string(), collection: z.string() }).optional(),
 });
 
@@ -198,8 +201,6 @@ const movaryImportFormSchema = z.object({
 	history: z.string(),
 	watchlist: z.string(),
 });
-
-const exportPathImportFormSchema = z.object({ exportPath: z.string() });
 
 const netflixImportFormSchema = z.object({
 	input: exportPathImportFormSchema,
@@ -346,6 +347,7 @@ export default function Page() {
 														<Tabs.List>
 															<Tabs.Tab value="user">User</Tabs.Tab>
 															<Tabs.Tab value="list">List</Tabs.Tab>
+															<Tabs.Tab value="export">Export ZIP</Tabs.Tab>
 														</Tabs.List>
 														<Tabs.Panel value="user" mt="xs">
 															<TextInput
@@ -369,6 +371,14 @@ export default function Page() {
 																	data={userCollections.map((c) => c.name)}
 																/>
 															</Stack>
+														</Tabs.Panel>
+														<Tabs.Panel value="export" mt="xs">
+															<FileInput
+																required
+																accept=".zip"
+																name="export.exportPath"
+																label="Trakt ZIP export file"
+															/>
 														</Tabs.Panel>
 													</Tabs>
 												))
