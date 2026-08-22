@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Effect, Match } from "effect";
 
-import { EntitiesService, EntityRouteLoadError } from "#/modules/entities/service";
+import { EntitiesService } from "#/modules/entities/service";
 import { AppScreen } from "#/modules/navigation/app-screen";
 import { usePluginCatalog } from "#/modules/plugins/catalog-provider";
 import { resolveEntityRouteTarget } from "#/modules/plugins/route-resolver";
@@ -10,17 +10,10 @@ export const Route = createFileRoute("/_authenticated/e/$entityId")({
 	component: EntityPage,
 	errorComponent: EntityError,
 	pendingComponent: EntityPending,
-	loader: async ({ abortController, context, params, parentMatchPromise }) => {
-		const parentMatch = await parentMatchPromise;
-		const parentData = parentMatch.loaderData;
-		if (parentData === undefined) {
-			throw new EntityRouteLoadError({
-				cause: new Error("Authenticated route data is unavailable"),
-			});
-		}
+	loader: async ({ abortController, context, params }) => {
 		const provenance = await context.runtime.runPromise(
 			Effect.flatMap(EntitiesService, (service) =>
-				service.loadRouteProvenance(parentData.ryot, params.entityId),
+				service.loadRouteProvenance(context.ryot, params.entityId),
 			),
 			{ signal: abortController.signal },
 		);

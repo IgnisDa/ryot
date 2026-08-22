@@ -55,6 +55,32 @@ CREATE TABLE "backup_run" (
 	"id" text PRIMARY KEY
 );
 --> statement-breakpoint
+CREATE TABLE "client_page_build" (
+	"published_hash" text NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"id" text PRIMARY KEY,
+	"renderer_id" text NOT NULL,
+	"user_id" text NOT NULL,
+	"artifact_hash" text NOT NULL,
+	CONSTRAINT "client_page_build_renderer_publication_unique" UNIQUE("renderer_id","published_hash")
+);
+--> statement-breakpoint
+CREATE TABLE "client_renderer" (
+	"published_hash" text,
+	"slug" text NOT NULL,
+	"name" text NOT NULL,
+	"published_revision" integer,
+	"draft_revision" integer DEFAULT 1 NOT NULL,
+	"published_definition" jsonb,
+	"draft_definition" jsonb NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"published_artifact_hash" text,
+	"id" text PRIMARY KEY,
+	"user_id" text NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "client_renderer_user_slug_unique" UNIQUE("user_id","slug")
+);
+--> statement-breakpoint
 CREATE TABLE "entity" (
 	"external_id" text,
 	"name" text NOT NULL,
@@ -446,12 +472,17 @@ CREATE TABLE "saved_view" (
 	"name" text NOT NULL,
 	"icon" text NOT NULL,
 	"entity_schema_slug" text,
+	"layouts" jsonb,
+	"data_sources" jsonb,
+	"renderer" jsonb,
+	"revision" integer DEFAULT 1 NOT NULL,
 	"sort_order" integer DEFAULT 0 NOT NULL,
 	"is_builtin" boolean DEFAULT false NOT NULL,
-	"layouts" jsonb NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
+	"settings" jsonb,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"entity_schema_plugin_id" text,
+	"client_renderer_id" text,
 	"plugin_installation_id" text,
 	"id" text PRIMARY KEY,
 	"user_id" text NOT NULL,
@@ -574,6 +605,8 @@ CREATE INDEX "backup_run_user_id_idx" ON "backup_run" ("user_id");--> statement-
 CREATE INDEX "backup_run_status_idx" ON "backup_run" ("status");--> statement-breakpoint
 CREATE INDEX "backup_run_expires_at_idx" ON "backup_run" ("expires_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "backup_run_user_active_unique" ON "backup_run" ("user_id") WHERE "status" in ('pending', 'running');--> statement-breakpoint
+CREATE INDEX "client_page_build_user_id_idx" ON "client_page_build" ("user_id");--> statement-breakpoint
+CREATE INDEX "client_renderer_user_id_idx" ON "client_renderer" ("user_id");--> statement-breakpoint
 CREATE INDEX "entity_user_id_idx" ON "entity" ("user_id");--> statement-breakpoint
 CREATE INDEX "entity_external_id_idx" ON "entity" ("external_id");--> statement-breakpoint
 CREATE INDEX "entity_provider_id_idx" ON "entity" ("provider_id");--> statement-breakpoint
@@ -650,6 +683,7 @@ CREATE INDEX "sandbox_workflow_reference_plugin_installation_id_idx" ON "sandbox
 CREATE INDEX "saved_view_user_id_idx" ON "saved_view" ("user_id");--> statement-breakpoint
 CREATE INDEX "saved_view_entity_schema_plugin_id_idx" ON "saved_view" ("entity_schema_plugin_id");--> statement-breakpoint
 CREATE INDEX "saved_view_plugin_installation_id_idx" ON "saved_view" ("plugin_installation_id");--> statement-breakpoint
+CREATE INDEX "saved_view_client_renderer_id_idx" ON "saved_view" ("client_renderer_id");--> statement-breakpoint
 CREATE INDEX "session_userId_idx" ON "session" ("user_id");--> statement-breakpoint
 CREATE INDEX "signal_actor_user_id_idx" ON "signal" ("actor_user_id");--> statement-breakpoint
 CREATE INDEX "signal_signal_schema_slug_idx" ON "signal" ("signal_schema_slug");--> statement-breakpoint
@@ -665,6 +699,11 @@ CREATE INDEX "verification_identifier_idx" ON "verification" ("identifier");--> 
 ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "apikey" ADD CONSTRAINT "apikey_reference_id_user_id_fkey" FOREIGN KEY ("reference_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "backup_run" ADD CONSTRAINT "backup_run_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "client_page_build" ADD CONSTRAINT "client_page_build_renderer_id_client_renderer_id_fkey" FOREIGN KEY ("renderer_id") REFERENCES "client_renderer"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "client_page_build" ADD CONSTRAINT "client_page_build_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "client_page_build" ADD CONSTRAINT "client_page_build_h5bSY8fiMNIQ_fkey" FOREIGN KEY ("artifact_hash") REFERENCES "plugin_client_artifact"("hash") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "client_renderer" ADD CONSTRAINT "client_renderer_2daUrxvoruES_fkey" FOREIGN KEY ("published_artifact_hash") REFERENCES "plugin_client_artifact"("hash") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "client_renderer" ADD CONSTRAINT "client_renderer_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_provider_id_sandbox_provider_id_fkey" FOREIGN KEY ("provider_id") REFERENCES "sandbox_provider"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_entity_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("entity_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
@@ -715,6 +754,7 @@ ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_refere
 ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_reference_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_reference_script_id_sandbox_script_id_fkey" FOREIGN KEY ("script_id") REFERENCES "sandbox_script"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_entity_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("entity_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_client_renderer_id_client_renderer_id_fkey" FOREIGN KEY ("client_renderer_id") REFERENCES "client_renderer"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_plugin_installation_owner_fk" FOREIGN KEY ("plugin_installation_id","user_id") REFERENCES "plugin_installation"("id","user_id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint

@@ -42,6 +42,8 @@ import {
 	makeWorkspaceRecorder,
 	makeUserSettingsStub,
 	stubDesktopMatchMedia,
+	ClientPagesApiRouteStubs,
+	ClientPageSessionsRouteStubs,
 } from "#/routes/-route-fixtures";
 
 const AuthStub = makeAuthStub();
@@ -72,6 +74,8 @@ const mountView = (
 			EntityRouteStubs,
 			publicLayer,
 			KernelApiTestLayer,
+			ClientPagesApiRouteStubs,
+			ClientPageSessionsRouteStubs,
 			makeEntityInterestService({
 				acquire: () => {
 					interestEvents.push("acquire");

@@ -58,7 +58,11 @@ describe("Saved views lifecycle E2E", () => {
 				isBuiltin: true,
 				name: "All Collections",
 			});
-			expect(collectionsView?.layouts.grid.queryDocument).toMatchObject({
+			const collectionsViewLayouts = requirePresent(
+				collectionsView?.layouts,
+				"All Collections saved view has no layouts",
+			);
+			expect(collectionsViewLayouts.grid.queryDocument).toMatchObject({
 				queries: {
 					savedView: {
 						where: {
@@ -75,17 +79,21 @@ describe("Saved views lifecycle E2E", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const builtinView = yield* findBuiltinSavedView(client);
+			const builtinViewLayouts = requirePresent(
+				builtinView.layouts,
+				"Built-in saved view has no layouts",
+			);
 
 			yield* Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 100)));
 			const updatedView = yield* client.call((c) =>
 				c.savedViews.update({
 					params: { viewSlug: builtinView.slug },
 					payload: {
-						entitySchemaSlug: builtinView.entitySchemaSlug,
 						isDisabled: true,
 						icon: builtinView.icon,
 						name: builtinView.name,
-						layouts: builtinView.layouts,
+						layouts: builtinViewLayouts,
+						entitySchemaSlug: builtinView.entitySchemaSlug,
 						...(builtinView.pluginSlug ? { pluginSlug: builtinView.pluginSlug } : {}),
 					},
 				}),
@@ -176,6 +184,10 @@ describe("Saved views lifecycle E2E", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const builtinView = yield* findBuiltinSavedView(client);
+			const builtinViewLayouts = requirePresent(
+				builtinView.layouts,
+				"Built-in saved view has no layouts",
+			);
 
 			const invalidUpdateError = yield* Effect.flip(
 				client.call((c) =>
@@ -196,11 +208,11 @@ describe("Saved views lifecycle E2E", () => {
 				c.savedViews.update({
 					params: { viewSlug: builtinView.slug },
 					payload: {
-						entitySchemaSlug: builtinView.entitySchemaSlug,
 						isDisabled: true,
 						icon: builtinView.icon,
 						name: builtinView.name,
-						layouts: builtinView.layouts,
+						layouts: builtinViewLayouts,
+						entitySchemaSlug: builtinView.entitySchemaSlug,
 						...(builtinView.pluginSlug ? { pluginSlug: builtinView.pluginSlug } : {}),
 					},
 				}),
@@ -212,11 +224,11 @@ describe("Saved views lifecycle E2E", () => {
 				c.savedViews.update({
 					params: { viewSlug: builtinView.slug },
 					payload: {
-						entitySchemaSlug: builtinView.entitySchemaSlug,
 						isDisabled: false,
 						icon: builtinView.icon,
 						name: builtinView.name,
-						layouts: builtinView.layouts,
+						layouts: builtinViewLayouts,
+						entitySchemaSlug: builtinView.entitySchemaSlug,
 						...(builtinView.pluginSlug ? { pluginSlug: builtinView.pluginSlug } : {}),
 					},
 				}),

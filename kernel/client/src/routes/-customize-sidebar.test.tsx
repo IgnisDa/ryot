@@ -30,6 +30,8 @@ import {
 	ProviderAddRouteStubs,
 	ImportsRouteStubs,
 	IntegrationRouteStubs,
+	ClientPagesApiRouteStubs,
+	ClientPageSessionsRouteStubs,
 	NotificationChannelRouteStubs,
 } from "#/routes/-route-fixtures";
 
@@ -55,6 +57,8 @@ const mountView = (
 			EntityRouteStubs,
 			makePublicApiStub(),
 			KernelApiTestLayer,
+			ClientPagesApiRouteStubs,
+			ClientPageSessionsRouteStubs,
 			events.layer,
 			Layer.succeed(ArtifactSessions, {
 				renew: () => Effect.die("not used"),

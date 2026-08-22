@@ -10,6 +10,7 @@ import {
 	PluginOperationBridgeErrorReason,
 	PluginBridgeReady,
 	type KernelShortcut,
+	type ClientPageContext,
 	type PluginAssetOutcome,
 	type PluginAssetRequest,
 	type PluginBridgeAssetCancel,
@@ -72,6 +73,7 @@ type PluginBridgeOptions = {
 	readonly onReady: () => void;
 	readonly artifactHash: string;
 	readonly onFailure: () => void;
+	readonly page?: ClientPageContext;
 	readonly onOpenDrawer: () => void;
 	readonly theme: PluginThemeSnapshot;
 	readonly target: PluginBridgeTarget;
@@ -121,6 +123,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		safeAreaTop: options.viewport.safeAreaTop,
 		bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 		safeAreaBottom: options.viewport.safeAreaBottom,
+		...(options.page === undefined ? {} : { page: options.page }),
 	};
 
 	let viewport = options.viewport;

@@ -69,6 +69,7 @@ export const createPluginRuntime = (
 	onActive?: () => void,
 	onTerminal?: () => void,
 ) => {
+	const page = init.page;
 	let hasLocation = false;
 	let theme: PluginThemeSnapshot = { resolvedMode: init.mode };
 	let nextRequestId = 0;
@@ -532,6 +533,7 @@ export const createPluginRuntime = (
 	}
 
 	return {
+		page,
 		fatal,
 		client,
 		navigation,

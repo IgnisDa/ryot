@@ -14,6 +14,7 @@ export const ClientCompilerWorkerRequestBase64 = Schema.Struct({
 	entry: Schema.String,
 	apiVersion: Schema.Literal(CLIENT_API_VERSION),
 	files: Schema.Record(Schema.String, CanonicalBase64),
+	application: Schema.optional(Schema.Literals(["page", "plugin"])),
 });
 
 export type ClientCompilerWorkerRequestBase64 = Schema.Schema.Type<
@@ -23,11 +24,7 @@ export type ClientCompilerWorkerRequestBase64 = Schema.Schema.Type<
 const ClientCompilerWorkerArtifactBase64 = Schema.Struct({
 	...PluginClientArtifactMetadata.fields,
 	files: Schema.Array(
-		Schema.Struct({
-			name: Schema.String,
-			contents: CanonicalBase64,
-			contentType: Schema.String,
-		}),
+		Schema.Struct({ name: Schema.String, contents: CanonicalBase64, contentType: Schema.String }),
 	),
 });
 
@@ -52,10 +49,7 @@ export type ClientCompilerWorkerResponseBase64 = Schema.Schema.Type<
 
 export type ClientCompilerResponse =
 	| { readonly error: ClientPluginCompilerFailure; readonly success: false }
-	| {
-			readonly success: true;
-			readonly value: { readonly artifact: PluginClientArtifact };
-	  };
+	| { readonly success: true; readonly value: { readonly artifact: PluginClientArtifact } };
 
 const decodeBase64 = Schema.decodeUnknownSync(Schema.Uint8ArrayFromBase64);
 
@@ -74,7 +68,10 @@ export const decodeClientCompilerWorkerRequest = (input: string) =>
 	Schema.decodeUnknownEffect(Schema.fromJsonString(ClientCompilerWorkerRequestBase64))(input).pipe(
 		Effect.map(
 			(request): ClientPluginCompilerInput => ({
-				...request,
+				name: request.name,
+				entry: request.entry,
+				apiVersion: request.apiVersion,
+				...(request.application === undefined ? {} : { application: request.application }),
 				files: Object.fromEntries(
 					Object.entries(request.files).map(([path, contents]) => [path, decodeBase64(contents)]),
 				),
