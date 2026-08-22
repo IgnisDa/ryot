@@ -398,7 +398,7 @@ The image build invokes `dist/smoke-compiler-workers.js` with the absolute path 
 
 The client artifact is an independently loadable web application.
 
-The artifact is a flat set of files with single-segment names: `index.html`, `plugin.js`, `plugin.css`, and content-hashed assets named `asset-<first 8 hex of sha256>.<ext>`. `index.html` references the other files with relative URLs (`./plugin.js`, `./plugin.css`, `./asset-<hash>.<ext>`).
+The artifact is a flat set of files with unique single-segment names: `index.html`, `plugin.js`, `plugin.css`, and content-hashed assets named `asset-<sha256>.<ext>`. Identical assets with the same extension share one emitted file. `index.html` references the other files with relative URLs (`./plugin.js`, `./plugin.css`, `./asset-<hash>.<ext>`).
 
 The important invariants are:
 
