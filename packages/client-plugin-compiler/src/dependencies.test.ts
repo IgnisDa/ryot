@@ -22,6 +22,7 @@ it("derives the exact trusted and neutral client import policies from the regist
 		"@ryot-app/client-ui-sdk/sync",
 		"@ryot-app/client-ui-sdk/tint",
 		"@ryot-app/client-ui-sdk/table",
+		"@ryot-app/client-ui-sdk/charts",
 		"@ryot-app/client-ui-sdk/schema-form",
 	];
 	const neutral = [
@@ -42,6 +43,8 @@ it("derives the exact trusted and neutral client import policies from the regist
 		"@ryot-app/client-sdk/unknown",
 		"@ryot-app/client-ui-sdk/unknown",
 		"@tanstack/react-table",
+		"@tanstack/charts",
+		"@tanstack/charts/react",
 	]) {
 		expect(isTrustedClientModule(specifier)).toBe(false);
 		expect(isNeutralPluginModule(specifier)).toBe(false);
