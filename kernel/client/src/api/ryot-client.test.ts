@@ -1,6 +1,6 @@
+import type { PluginThemeSnapshot } from "@ryot-app/client-plugin-contract";
 import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import type { ContractSuccess } from "@ryot-app/contract/client";
-import type { PluginThemeSnapshot } from "@ryot-app/contract/modules/plugins/client";
 import { RyotQLBadRequest, RyotQLInternalError } from "@ryot-app/contract/modules/ryotql/contract";
 import {
 	UploadBadRequest,

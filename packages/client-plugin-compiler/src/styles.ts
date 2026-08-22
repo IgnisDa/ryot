@@ -1,4 +1,4 @@
-import { pluginClientAssetMimeType } from "@ryot-app/contract/modules/plugins/client";
+import { pluginClientAssetMimeType } from "@ryot-app/client-plugin-contract";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
 import { Scanner } from "@tailwindcss/oxide";
