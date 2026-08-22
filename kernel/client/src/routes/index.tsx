@@ -5,76 +5,42 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import type { ServerOrigin } from "../api/origin";
 import type { ApiScope } from "../api/scope";
-import { decideProtectedRoute, type AuthSessionState } from "../modules/auth/route-gates";
-import { AuthService } from "../modules/auth/service";
+import { decideProtectedRoute } from "../modules/auth/route-gates";
+import { AuthService, toAuthSessionState } from "../modules/auth/service";
 import { ServerService } from "../modules/server/service";
 
 export const Route = createFileRoute("/")({
 	component: KernelDestination,
-	beforeLoad: ({ context }) => {
+	beforeLoad: async ({ context }) => {
 		const server = context.runtime.runSync(
 			Effect.flatMap(ServerService, (service) => service.selected),
 		);
 		if (server === null) {
-			return redirect({ to: "/onboarding", search: { redirect: "/" } });
+			// oxlint-disable-next-line typescript/only-throw-error
+			throw redirect({ replace: true, to: "/onboarding", search: { redirect: "/" } });
 		}
-		return undefined;
+		const session = await context.runtime.runPromise(
+			Effect.flatMap(AuthService, (service) => service.settledSession(server)),
+		);
+		const decision = decideProtectedRoute(server, toAuthSessionState(session), "/");
+		if (decision.action === "redirect") {
+			// oxlint-disable-next-line typescript/only-throw-error
+			throw redirect({ replace: true, to: decision.to, search: { redirect: decision.redirectTo } });
+		}
+		if (decision.action === "wait") {
+			throw new Error("Unreachable: settledSession never resolves a pending session.");
+		}
+		return { server, scope: decision.scope };
 	},
 });
 
 function KernelDestination() {
-	const { runtime } = Route.useRouteContext();
-	const server = runtime.runSync(Effect.flatMap(ServerService, (service) => service.selected));
-	return server === null ? null : <ConnectedKernel server={server} />;
-}
-
-function ConnectedKernel(props: { server: ServerOrigin }) {
-	const { runtime } = Route.useRouteContext();
-	const navigate = Route.useNavigate();
+	const { runtime, server, scope } = Route.useRouteContext();
 	const auth = runtime.runSync(AuthService);
-	const store = auth.session(props.server);
+	const store = auth.session(server);
 	const session = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
-	let sessionState: AuthSessionState = { status: "missing" };
-	if (session.status === "pending") {
-		sessionState = { status: "pending" };
-	} else if (session.status === "authenticated") {
-		sessionState = { status: "authenticated", userId: session.user.id };
-	}
-	const decision = decideProtectedRoute(props.server, sessionState, "/");
-
-	useEffect(() => {
-		if (decision.action === "redirect") {
-			void navigate({ replace: true, to: decision.to, search: { redirect: decision.redirectTo } });
-		}
-	}, [decision, navigate]);
-
-	if (decision.action !== "allow") {
-		return (
-			<main className="ui-page">
-				<section
-					aria-labelledby="session-title"
-					className="ui-stack ui-card mx-auto w-[min(100%,480px)]"
-				>
-					<div>
-						<h1 id="session-title" className="ui-heading">
-							Restoring your session
-						</h1>
-						<p role="status" className="ui-subtitle">
-							Checking your signed-in state...
-						</p>
-					</div>
-				</section>
-			</main>
-		);
-	}
-
-	return (
-		<KernelShell
-			server={props.server}
-			scope={decision.scope}
-			email={session.status === "authenticated" ? session.user.email : "Signed-in user"}
-		/>
-	);
+	const email = session.status === "authenticated" ? session.user.email : "Signed-in user";
+	return <KernelShell server={server} scope={scope} email={email} />;
 }
 
 function KernelShell(props: { email: string; scope: ApiScope; server: ServerOrigin }) {
