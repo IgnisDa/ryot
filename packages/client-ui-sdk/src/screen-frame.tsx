@@ -108,8 +108,8 @@ export function ScreenFrame({
 			);
 		return (
 			<>
-				{hero}
-				<div className="px-8 pt-8">
+				{hero === undefined ? null : <div className="relative">{hero}</div>}
+				<div className="relative px-8 pt-8">
 					<div className={column}>
 						{titleRow === undefined ? null : (
 							<header className="mb-5 flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
@@ -157,9 +157,11 @@ export function ScreenFrame({
 				</div>
 			</div>
 			{hero !== undefined && (
-				<div style={{ marginTop: -(safeAreaTop + SCREEN_BAR_HEIGHT) }}>{hero}</div>
+				<div className="relative" style={{ marginTop: -(safeAreaTop + SCREEN_BAR_HEIGHT) }}>
+					{hero}
+				</div>
 			)}
-			<div className={column}>
+			<div className={clsx("relative", column)}>
 				{hasTitleBlock && (
 					<div className="grid gap-1 px-4 pb-4">
 						{heading}
