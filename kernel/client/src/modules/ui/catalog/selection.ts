@@ -1,28 +1,29 @@
 /**
- * Both catalogs list services contributed by server-side plugins, grouped by the plugin that
- * contributes them. Features map their own row type onto `CatalogEntry` and share the grouping,
- * searching and availability presentation from here.
+ * Catalogs list the choices a wizard opens with, arranged under headings. Features map their own
+ * row type onto `CatalogEntry` and share the grouping, searching and availability presentation from
+ * here. Each entry names the group it belongs to, so what a heading means is the feature's business:
+ * plugin-contributed catalogs group by contributing plugin, kernel-owned ones group by category.
  */
+export type CatalogEntryGroup = {
+	readonly key: string;
+	readonly heading: string;
+};
+
 export type CatalogEntry = {
 	readonly slug: string;
 	readonly name: string;
 	readonly badge: string;
 	readonly description: string;
 	readonly isAvailable: boolean;
+	readonly group: CatalogEntryGroup;
 	readonly requirement: string | undefined;
 };
 
-export type CatalogGroup = {
-	readonly heading: string;
-	readonly pluginSlug: string;
+export type CatalogGroup = CatalogEntryGroup & {
 	readonly entries: readonly CatalogEntry[];
 };
 
-type CatalogSource = {
-	readonly name: string;
-	readonly pluginSlug: string;
-	readonly description: string;
-};
+type CatalogSource = { readonly name: string; readonly description: string };
 
 const UNTITLED_PLUGIN_HEADING = "Other";
 
@@ -33,6 +34,11 @@ export const pluginHeading = (pluginSlug: string) => {
 		.map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`);
 	return words.length === 0 ? UNTITLED_PLUGIN_HEADING : words.join(" ");
 };
+
+export const pluginCatalogGroup = (pluginSlug: string): CatalogEntryGroup => ({
+	key: pluginSlug,
+	heading: pluginHeading(pluginSlug),
+});
 
 const matchesCatalogQuery = (source: CatalogSource, query: string) => {
 	const needle = query.trim().toLowerCase();
@@ -48,15 +54,14 @@ export const groupCatalogEntries = <Source extends CatalogSource>(
 	query: string,
 	toEntry: (source: Source) => CatalogEntry,
 ): readonly CatalogGroup[] => {
-	const matched = sources.filter((source) => matchesCatalogQuery(source, query));
-	return [...new Set(matched.map((source) => source.pluginSlug))].map((pluginSlug) => ({
-		pluginSlug,
-		heading: pluginHeading(pluginSlug),
-		entries: matched
-			.filter((source) => source.pluginSlug === pluginSlug)
-			.map(toEntry)
-			.sort((left, right) => left.name.localeCompare(right.name)),
-	}));
+	const matched = sources.filter((source) => matchesCatalogQuery(source, query)).map(toEntry);
+	return [...new Set(matched.map((entry) => entry.group.key))].flatMap((key) => {
+		const entries = matched
+			.filter((entry) => entry.group.key === key)
+			.sort((left, right) => left.name.localeCompare(right.name));
+		const heading = entries.at(0)?.group.heading;
+		return heading === undefined ? [] : [{ key, heading, entries }];
+	});
 };
 
 export const availableCatalogEntries = (groups: readonly CatalogGroup[]) =>

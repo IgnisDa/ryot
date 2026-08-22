@@ -33,6 +33,7 @@ import {
 	NavigationRouteStubs,
 	ProviderAddRouteStubs,
 	IntegrationRouteStubs,
+	NotificationChannelRouteStubs,
 	makeUserSettingsStub,
 } from "#/routes/-route-fixtures";
 
@@ -94,6 +95,8 @@ const mountView = (
 			ProviderAddRouteStubs,
 			ImportsRouteStubs,
 			IntegrationRouteStubs,
+			NotificationChannelRouteStubs,
+			NotificationChannelRouteStubs,
 			AuthStub,
 			GodModeRouteStubs,
 			ServerStub,

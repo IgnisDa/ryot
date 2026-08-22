@@ -28,6 +28,7 @@ import {
 	ProviderAddRouteStubs,
 	ImportsRouteStubs,
 	IntegrationRouteStubs,
+	NotificationChannelRouteStubs,
 } from "#/routes/-route-fixtures";
 
 const systemConfig = (
@@ -62,6 +63,8 @@ const mountLogin = (config: ReturnType<typeof systemConfig>) => {
 			ProviderAddRouteStubs,
 			ImportsRouteStubs,
 			IntegrationRouteStubs,
+			NotificationChannelRouteStubs,
+			NotificationChannelRouteStubs,
 			makeAuthStub(),
 			GodModeRouteStubs,
 			ServerStub,
