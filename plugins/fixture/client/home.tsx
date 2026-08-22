@@ -1,10 +1,7 @@
-import {
-	PluginLink,
-	PluginOperationError,
-	ryot,
-	usePluginNavigation,
-} from "@ryot/client-plugin-sdk";
-import { Schema } from "@ryot/client-plugin-sdk/effect";
+import { PluginOperationError } from "@ryot/client-sdk";
+import { Schema } from "@ryot/client-sdk/effect";
+import { PluginLink, usePluginNavigation } from "@ryot/client-sdk/plugin";
+import { useRyot } from "@ryot/client-sdk/react";
 import { Button, StatusMessage } from "@ryot/client-ui-sdk";
 import { useState } from "react";
 
@@ -36,6 +33,7 @@ type GreetingState =
 	| { readonly status: "ready"; readonly greeting: string };
 
 export const Home = () => {
+	const ryot = useRyot();
 	const { push } = usePluginNavigation();
 	const [greetings, setGreetings] = useState(0);
 	const [requested, setRequested] = useState("Ryot");

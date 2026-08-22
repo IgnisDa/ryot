@@ -1,11 +1,13 @@
 import { createFileRoute, notFound, useLocation, useNavigate } from "@tanstack/react-router";
 import { Effect } from "effect";
 
+import { createKernelRyotClient } from "../api/ryot-client";
 import { protectedRouteGuard } from "../modules/auth/route-gates";
 import { PluginCatalogService } from "../modules/plugins/catalog";
 import { PluginOperationsService } from "../modules/plugins/operations";
 import { PluginHost } from "../modules/plugins/plugin-host";
 import { toPluginLocation } from "../modules/plugins/plugin-location";
+import { PluginQueriesService } from "../modules/plugins/queries";
 import { resolveRouteTarget } from "../modules/plugins/route-resolver";
 
 export const Route = createFileRoute("/$pluginSlug")({
@@ -15,8 +17,9 @@ export const Route = createFileRoute("/$pluginSlug")({
 	notFoundComponent: PluginNotFound,
 	beforeLoad: ({ context, location }) => protectedRouteGuard(context, location.href),
 	loader: async ({ context, params }) => {
+		const ryot = createKernelRyotClient(context.runtime, context.scope);
 		const catalog = await context.runtime.runPromise(
-			Effect.flatMap(PluginCatalogService, (service) => service.load(context.scope)),
+			Effect.flatMap(PluginCatalogService, (service) => service.load(ryot)),
 		);
 		const target = resolveRouteTarget(catalog, params.pluginSlug);
 		if (target.owner === "kernel") {
@@ -42,6 +45,12 @@ function PluginDestination() {
 			onNavigate={(request) => {
 				void navigate({ href: request.href, replace: request.replace });
 			}}
+			onQuery={(request, signal) =>
+				runtime.runPromise(
+					Effect.flatMap(PluginQueriesService, (service) => service.query({ scope, request })),
+					{ signal },
+				)
+			}
 			onInvokeOperation={(request, signal) =>
 				runtime.runPromise(
 					Effect.flatMap(PluginOperationsService, (service) =>
