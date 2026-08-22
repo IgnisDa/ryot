@@ -482,6 +482,7 @@ export const mediaFlatConsumptionTotals = (input: {
 };
 
 export const mediaActivityParentSlugs = [
+	"add-to-library",
 	"backlog",
 	"on_hold",
 	"dropped",
@@ -507,6 +508,11 @@ export const mediaReviewEventSelection = (event: Table) => ({
 	text: selectedField(propertyText(event, "text"), Schema.NullOr(Schema.String)),
 	rating: selectedField(propertyNumber(event, "rating"), Schema.NullOr(Schema.Number)),
 	isSpoiler: selectedField(propertyBoolean(event, "isSpoiler"), Schema.NullOr(Schema.Boolean)),
+});
+
+export const mediaReviewActivityEventSelection = (event: Table) => ({
+	...mediaReviewEventSelection(event),
+	eventSchemaSlug: selectedField(column(event, "eventSchemaSlug"), Schema.String),
 });
 
 export const mediaActivityEventSelection = (event: Table) => ({
@@ -658,7 +664,9 @@ export type MediaFlatActivityEvent<Extra = unknown> =
 	| MediaFlatActivityMediaEvent<Extra>
 	| MediaFlatActivityCollectionEvent;
 
-type MediaReviewActivityParentRow = SelectedRow<ReturnType<typeof mediaReviewEventSelection>>;
+type MediaReviewActivityParentRow = SelectedRow<
+	ReturnType<typeof mediaReviewActivityEventSelection>
+>;
 
 export type MediaReviewActivityEvent = ReturnType<
 	typeof mergeMediaActivityEvents<MediaReviewActivityParentRow, MediaActivityCollectionRow>
@@ -670,7 +678,7 @@ export type MediaReviewActivityResult = {
 	readonly events: readonly MediaReviewActivityEvent[];
 };
 
-/** Reviews and collection changes of an entity whose only own event is `review`. */
+/** Reviews, library changes, and collection changes of an entity without media lifecycle events. */
 export const mediaReviewActivityRecipe = (config: {
 	readonly slug: string;
 	readonly alias: string;
@@ -699,11 +707,11 @@ export const mediaReviewActivityRecipe = (config: {
 						limit: input.collectionEventLimit,
 					}),
 					events: mediaEntityEventsQuery({
-						slugs: ["review"],
 						limit: input.eventLimit,
 						entityId: input.entityId,
 						alias: `${config.alias}Event`,
-						selection: mediaReviewEventSelection,
+						slugs: ["review", "add-to-library"],
+						selection: mediaReviewActivityEventSelection,
 					}),
 					totals: selectedOptionalRow(entity, {
 						orderBy: [ascending(column(entity, "id"))],

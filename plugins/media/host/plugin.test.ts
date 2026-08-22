@@ -681,12 +681,14 @@ it("uses one required library hook for eligible creates, provider completion, an
 				{ entitySchemaSlug, operation: "complete", resource: "provider-entity-import" },
 			]),
 			...mediaPlugin.entitySchemas.flatMap((schema) =>
-				schema.eventSchemas.map(({ slug }) => ({
-					resource: "event",
-					operation: "create",
-					eventSchemaSlug: slug,
-					entitySchemaSlug: schema.slug,
-				})),
+				schema.eventSchemas
+					.filter(({ slug }) => slug !== "add-to-library")
+					.map(({ slug }) => ({
+						resource: "event",
+						operation: "create",
+						eventSchemaSlug: slug,
+						entitySchemaSlug: schema.slug,
+					})),
 			),
 			{
 				resource: "event",
@@ -696,6 +698,25 @@ it("uses one required library hook for eligible creates, provider completion, an
 			},
 		],
 	});
+});
+
+it("records newly-created media library memberships as events", () => {
+	const hooks = mediaPlugin.hooks.filter(
+		({ slug }) => slug === "media.record-library-membership-event",
+	);
+
+	expect(hooks).toEqual([
+		{
+			stage: "after",
+			delivery: "required",
+			slug: "media.record-library-membership-event",
+			name: "Record media library membership event",
+			scriptSlug: "automation.record-library-membership-event",
+			targets: [
+				{ operation: "create", resource: "relationship", relationshipSchemaSlug: "in-library" },
+			],
+		},
+	]);
 });
 
 it("binds deterministic episodic sessions at policy position 200", () => {
