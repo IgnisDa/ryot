@@ -218,6 +218,12 @@ whose `isNsfw` is unknown. `shared/airing-recipes.ts` returns one tile per show 
 unwatched regular episode in a local date window and how many unwatched episodes share that date,
 and anime whose airing schedule has an entry before an instant bound. Airing candidates are in the
 library and either in progress (or caught up, for shows) or monitored through `media-monitoring`.
+`shared/activity-recipes.ts` reads the activity section between two instants the client derives
+from local midnights of the last 52 Monday-start weeks: completions of builtin media (episodes
+excluded), their minutes from the event's `timeSpent` or else the entity's `runtime`, reviews, daily
+counts of `progress` and `complete` events bucketed in the viewer's IANA time zone (`UTC` when `Intl`
+reports none), and the same events per builtin media type, where an episode counts toward its
+episodic parent through the `EpisodicKindConfig`s and the label is the entity schema's name.
 
 Detail queries declare entity interest only for loaded recipe results: the subject entity and, for
 Show, the selected season are foreground, while displayed related entities - collections, credits,
