@@ -265,7 +265,7 @@ export const seedMediaEntity = (input: {
 								externalId: input.externalId,
 							},
 						}),
-					adminHeaders,
+					adminHeaders(),
 				);
 
 		return {
@@ -340,7 +340,7 @@ export const seedGlobalShowEpisodeTree = (
 							providerId: SandboxProviderId.make(tmdbProvider.providerId),
 						},
 					}),
-				adminHeaders,
+				adminHeaders(),
 			);
 		const show = yield* createGlobalEntity({
 			name: options.showName,
@@ -369,7 +369,7 @@ export const seedGlobalShowEpisodeTree = (
 						relationshipSchemaSlug: RelationshipSchemaSlug.make(showToSeason.id),
 					},
 				}),
-			adminHeaders,
+			adminHeaders(),
 		);
 		yield* api.call(
 			(c) =>
@@ -380,7 +380,7 @@ export const seedGlobalShowEpisodeTree = (
 						relationshipSchemaSlug: RelationshipSchemaSlug.make(seasonToEpisode.id),
 					},
 				}),
-			adminHeaders,
+			adminHeaders(),
 		);
 
 		return { tmdbId, showId: show.id, seasonId: season.id, episodeId: episode.id };

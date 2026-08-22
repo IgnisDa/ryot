@@ -8,9 +8,9 @@ import {
 	signInWithPassword,
 	verifyBackupCodeForSession,
 } from "~/fixtures/kernel";
-import { getApiUrl } from "~/support/api";
 import { requireNonEmptyArray, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
+import { getApiUrl } from "~/support/harness-target";
 
 const pluginListQuery = { includeDisabled: false };
 

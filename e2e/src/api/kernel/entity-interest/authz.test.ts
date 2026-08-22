@@ -14,9 +14,9 @@ import {
 	type Client,
 } from "~/fixtures/kernel";
 import { seedMediaEntity } from "~/fixtures/plugins/media";
-import { getApiUrl } from "~/support/api";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
+import { getApiUrl } from "~/support/harness-target";
 
 type SocketClose = { code: number; reason: string };
 

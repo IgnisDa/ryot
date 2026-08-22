@@ -227,7 +227,7 @@ describe("dual-writer canonical identity", () => {
 							params: { entityId: EntityId.make(person.id) },
 							payload: { populatedAt: new Date().toISOString() },
 						}),
-					adminHeaders,
+					adminHeaders(),
 				);
 
 				const personMonitor = yield* createAuthenticatedClient();
@@ -359,7 +359,7 @@ describe("association lifecycle via cron refresh", () => {
 						params: { entityId: EntityId.make(person.id) },
 						payload: { populatedAt: new Date().toISOString() },
 					}),
-				adminHeaders,
+				adminHeaders(),
 			);
 
 			const personMonitor = yield* createAuthenticatedClient();

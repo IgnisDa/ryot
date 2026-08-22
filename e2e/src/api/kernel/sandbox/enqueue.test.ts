@@ -11,16 +11,16 @@ import {
 	runtimeManifestMismatchSandboxSource,
 } from "~/fixtures/kernel";
 import { findBuiltinSchemaWithProviders } from "~/fixtures/plugins/media";
-import { getApiUrl } from "~/support/api";
 import { assertCompleted, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
+import { getApiUrl } from "~/support/harness-target";
 
 const postEnqueue = (body: unknown) =>
 	Effect.promise(() =>
 		fetch(`${getApiUrl()}/test-support/sandbox/enqueue`, {
 			method: "POST",
 			body: JSON.stringify(body),
-			headers: { ...adminHeaders, "Content-Type": "application/json" },
+			headers: { ...adminHeaders(), "Content-Type": "application/json" },
 		}),
 	);
 

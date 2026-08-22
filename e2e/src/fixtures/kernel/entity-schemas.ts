@@ -62,7 +62,7 @@ export const listEntitySchemas = (
 	Effect.gen(function* () {
 		const [schemas, scripts] = yield* Effect.all([
 			client.call((c) => c.definitions.listEntities({})),
-			getApiClient().call((c) => c.testSupport.listSandboxScripts({ query: {} }), adminHeaders),
+			getApiClient().call((c) => c.testSupport.listSandboxScripts({ query: {} }), adminHeaders()),
 		]);
 		const providers = new Map<
 			string,
@@ -143,7 +143,7 @@ export const getBuiltinEntitySchemaSlug = (slug: string) =>
 	Effect.gen(function* () {
 		const result = yield* getApiClient().call(
 			(c) => c.testSupport.getBuiltinEntitySchema({ params: { slug } }),
-			adminHeaders,
+			adminHeaders(),
 		);
 		assertPresent(result, `Expected builtin entity schema '${slug}'`);
 		return result.id;

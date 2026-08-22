@@ -195,7 +195,7 @@ export default defineAutomation({
 										c.testSupport.deleteGlobalEntities({
 											payload: { ids: [EntityId.make(cleanupEntityId)] },
 										}),
-									adminHeaders,
+									adminHeaders(),
 								)
 								.pipe(
 									Effect.catch((error) =>
@@ -209,7 +209,7 @@ export default defineAutomation({
 			const { client: installedClient } = yield* createAuthenticatedClient();
 			const listed = yield* getApiClient().call(
 				(c) => c.testSupport.listSystemPlugins({}),
-				adminHeaders,
+				adminHeaders(),
 			);
 			const activePlugin = listed.find(({ slug }) => slug === provider.pluginSlug);
 			assertPresent(activePlugin, "Missing hot-installed lifecycle plugin");
@@ -231,7 +231,7 @@ export default defineAutomation({
 			assertPresent(originalSearchScriptId, "Missing hot-installed provider search script");
 			const storedDetailsScript = yield* getApiClient().call(
 				(c) => c.testSupport.getSandboxScript({ params: { scriptId: originalDetailsScriptId } }),
-				adminHeaders,
+				adminHeaders(),
 			);
 			assertPresent(storedDetailsScript.providerId, "Missing hot-installed provider ID");
 			const providerId = storedDetailsScript.providerId;
@@ -264,11 +264,11 @@ export default defineAutomation({
 				getApiClient().call(
 					(c) =>
 						c.testSupport.getSandboxScript({ params: { scriptId: reingestedDetailsScriptId } }),
-					adminHeaders,
+					adminHeaders(),
 				),
 				getApiClient().call(
 					(c) => c.testSupport.getSandboxScript({ params: { scriptId: reingestedSearchScriptId } }),
-					adminHeaders,
+					adminHeaders(),
 				),
 			]);
 			expect(reingestedDetailsScriptId).not.toBe(originalDetailsScriptId);
@@ -344,7 +344,7 @@ export default defineAutomation({
 			});
 			const reingestedPlugin = (yield* getApiClient().call(
 				(c) => c.testSupport.listSystemPlugins({}),
-				adminHeaders,
+				adminHeaders(),
 			)).find(({ slug }) => slug === provider.pluginSlug);
 			assertPresent(reingestedPlugin, "Missing reingested lifecycle plugin");
 			expect(reingestedPlugin.sourceHash).not.toBe(activePlugin.sourceHash);
@@ -353,7 +353,7 @@ export default defineAutomation({
 				getApiClient().call(
 					(c) =>
 						c.testSupport.uninstallSystemPlugin({ params: { pluginSlug: provider.pluginSlug } }),
-					adminHeaders,
+					adminHeaders(),
 				),
 			);
 			assertTaggedError(refusal, "PluginConflictError");
@@ -364,7 +364,7 @@ export default defineAutomation({
 					c.testSupport.deleteGlobalEntities({
 						payload: { ids: [EntityId.make(importResult.data.id)] },
 					}),
-				adminHeaders,
+				adminHeaders(),
 			);
 			expect(deleted).toEqual({ deleted: 1 });
 			entityId = null;
@@ -374,7 +374,7 @@ export default defineAutomation({
 					.call(
 						(c) =>
 							c.testSupport.uninstallSystemPlugin({ params: { pluginSlug: provider.pluginSlug } }),
-						adminHeaders,
+						adminHeaders(),
 					)
 					.pipe(
 						Effect.catchTag("PluginConflictError", (error) =>
@@ -388,7 +388,7 @@ export default defineAutomation({
 			expect(uninstalled).toEqual(reingestedPlugin);
 			const after = yield* getApiClient().call(
 				(c) => c.testSupport.listSystemPlugins({}),
-				adminHeaders,
+				adminHeaders(),
 			);
 			expect(after.some(({ slug }) => slug === provider.pluginSlug)).toBe(false);
 			expect(

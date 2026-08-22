@@ -142,7 +142,7 @@ const findInstalledScriptId = (scriptSlug: string, source: string, baseUrl?: str
 	Effect.gen(function* () {
 		const scripts = yield* getApiClient(baseUrl).call(
 			(c) => c.testSupport.listSandboxScripts({ query: {} }),
-			adminHeaders,
+			adminHeaders(),
 		);
 		const script = scripts.find(
 			(candidate) => candidate.slug === scriptSlug && candidate.source === source,
@@ -194,7 +194,7 @@ export const installTestPlugin = (
 					c.testSupport.installSystemPlugin({
 						payload: { manifest, files: encodeTestSupportPluginFiles(files) },
 					}),
-				adminHeaders,
+				adminHeaders(),
 			);
 		} else {
 			const uploadToken = yield* uploadPrivatePluginPackage(input.client, { files, manifest });
@@ -278,7 +278,7 @@ export const installTestPluginBundle = (
 					c.testSupport.installSystemPlugin({
 						payload: { manifest, files: encodeTestSupportPluginFiles(files) },
 					}),
-				adminHeaders,
+				adminHeaders(),
 			);
 		} else {
 			const uploadToken = yield* uploadPrivatePluginPackage(
@@ -416,7 +416,7 @@ export const reinstallTestPluginScript = (
 					c.testSupport.installSystemPlugin({
 						payload: { manifest, files: encodeTestSupportPluginFiles(files) },
 					}),
-				adminHeaders,
+				adminHeaders(),
 			);
 		} else {
 			const client = requirePresent(installed.client, "User test plugin has no client");
@@ -451,7 +451,7 @@ export const uninstallTestPluginStrict = (installed: InstalledTestPlugin) =>
 			yield* getApiClient().call(
 				(c) =>
 					c.testSupport.uninstallSystemPlugin({ params: { pluginSlug: installed.pluginSlug } }),
-				adminHeaders,
+				adminHeaders(),
 			);
 		} else {
 			const client = requirePresent(installed.client, "User test plugin has no client");

@@ -110,7 +110,7 @@ export const insertGlobalRelationship = (input: {
 					relationshipSchemaSlug: RelationshipSchemaSlug.make(input.relationshipSchemaSlug),
 				},
 			}),
-		adminHeaders,
+		adminHeaders(),
 	);
 
 export const createCourseLessonFilterFixture = Effect.gen(function* () {

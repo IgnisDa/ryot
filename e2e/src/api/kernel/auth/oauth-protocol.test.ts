@@ -17,9 +17,9 @@ import {
 	refreshOAuthTokens,
 	type PendingOAuth,
 } from "~/fixtures/kernel";
-import { getApiUrl } from "~/support/api";
 import { requirePresent } from "~/support/assertions";
 import { beforeAll, describe, expect, it } from "~/support/effect-test";
+import { getApiUrl } from "~/support/harness-target";
 
 const OAUTH_REGISTER_PATH = "/api/auth/oauth2/register";
 const PLUGIN_LIST_PATH = "/definitions/plugins?includeDisabled=false";

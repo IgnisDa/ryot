@@ -1,7 +1,7 @@
 import { writePluginArchive, type PluginArchivePackage } from "@ryot-app/plugin-archive";
 import { Effect } from "effect";
 
-import { getApiUrl } from "~/support/api";
+import { getApiUrl } from "~/support/harness-target";
 
 import type { Client } from "./auth";
 

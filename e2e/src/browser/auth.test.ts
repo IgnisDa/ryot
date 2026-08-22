@@ -4,7 +4,7 @@ import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import { browserLayer } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
-import { getFrontendUrl } from "~/support/frontend";
+import { getFrontendUrl } from "~/support/harness-target";
 
 it.live("signs up through the hosted OAuth flow", () =>
 	Effect.gen(function* () {

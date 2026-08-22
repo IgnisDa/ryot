@@ -38,7 +38,7 @@ export const triggerCronAndWaitForEntity = (auth: { client: Client }, entityId: 
 							entityIds: [EntityId.make(entityId)],
 						},
 					}),
-				adminHeaders,
+				adminHeaders(),
 			);
 			const cron = yield* getApiClient().call(
 				(c) =>
@@ -48,7 +48,7 @@ export const triggerCronAndWaitForEntity = (auth: { client: Client }, entityId: 
 							pluginSlug: PluginSlug.make("media"),
 						},
 					}),
-				adminHeaders,
+				adminHeaders(),
 			);
 			assertCondition(
 				cron.status === "executed",
