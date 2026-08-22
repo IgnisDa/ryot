@@ -1,4 +1,3 @@
-import { PgClient } from "@effect/sql-pg";
 import { assert, describe, expect, it } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import { DEFAULT_AUTOMATION_RETRY_POLICY } from "@ryot-app/contract/modules/automations/lifecycle";
@@ -11,7 +10,7 @@ import {
 	EventSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { DateTime, Effect, Layer, Option, Redacted } from "effect";
+import { DateTime, Effect, Layer, Redacted } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 import { Client } from "pg";
@@ -20,7 +19,8 @@ import { LifecyclePlanner } from "#lib/domain/lifecycle";
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, DatabaseLive, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import {
@@ -55,7 +55,12 @@ const command = (id: string) =>
 		executionId: AutomationExecutionId.make(id),
 	});
 
-const withDatabase = <E, R>(test: (observer: Client) => Effect.Effect<void, E, R>) =>
+const withDatabase = <E, R>(
+	test: (
+		observer: Client,
+		plannerLayer: (failChange?: boolean) => ReturnType<typeof planner>,
+	) => Effect.Effect<void, E, R>,
+) =>
 	Effect.scoped(
 		Effect.gen(function* () {
 			assert(url);
@@ -106,71 +111,81 @@ const withDatabase = <E, R>(test: (observer: Client) => Effect.Effect<void, E, R
 					`INSERT INTO sandbox_script (id,slug,name,source,content_hash,compiled_code,metadata) VALUES ('script','fixture','Fixture','','hash','','{}')`,
 				),
 			);
-			const layer = Layer.mergeAll(DatabaseLive, EventsRepository.layer).pipe(
+			const config = makeAppConfigLayer({ database: { url: Redacted.make(scoped.toString()) } });
+			const plannerLayer = (failChange = false) => planner(failChange).pipe(Layer.provide(config));
+			const layer = EventsService.layer.pipe(
 				Layer.provideMerge(
-					makeAppConfigLayer({ database: { url: Redacted.make(scoped.toString()) } }),
+					Layer.mergeAll(
+						EventsRepository.layer.pipe(Layer.provideMerge(DatabaseSession.layer)),
+						plannerLayer().pipe(Layer.provide(DatabaseSession.layer)),
+						execution,
+						Layer.succeed(WorkflowEngine, engine),
+					),
 				),
+				Layer.provideMerge(config),
 				Layer.provideMerge(makeConfigProviderLayer()),
 			);
-			yield* test(observer).pipe(Effect.provide(layer));
+			yield* test(observer, plannerLayer).pipe(Effect.provide(layer));
 		}),
 	);
 
 const planner = (failChange = false) =>
-	Layer.succeed(
+	Layer.effect(
 		LifecyclePlanner,
-		withLifecycleBatchPlanning({
-			plan: ({ trigger }) =>
-				Effect.gen(function* () {
-					const db = yield* Database;
-					const { kind, causation } = trigger;
-					yield* mapDatabaseErrors(
-						db
-							.insert(tables.automationTrigger)
-							.values({
-								id: trigger.id,
-								depth: causation.depth,
-								category: kind.category,
-								payload: trigger.payload,
-								source: causation.source,
-								operation: kind.operation,
-								resourceKind: kind.resource,
-								scopeUserId: trigger.scopeUserId,
-								executionId: causation.executionId,
-								parentRunId: causation.parentRunId,
-								initiatorId: causation.initiator.id,
-								initiatorKind: causation.initiator.kind,
-								rootExecutionId: causation.rootExecutionId,
-								parentTriggerId: causation.parentTriggerId,
-								createdAt: DateTime.toDate(DateTime.makeUnsafe(trigger.createdAt)),
-								occurredAt: DateTime.toDate(DateTime.makeUnsafe(trigger.occurredAt)),
-							}),
-					);
-					if (kind.category === "change") {
+		Effect.map(DatabaseSession, (session) =>
+			withLifecycleBatchPlanning({
+				plan: ({ trigger }) =>
+					Effect.gen(function* () {
+						const db = yield* session.current;
+						const { kind, causation } = trigger;
 						yield* mapDatabaseErrors(
 							db
-								.insert(tables.automationRun)
+								.insert(tables.automationTrigger)
 								.values({
-									stage: "after",
-									delivery: "async",
-									hookSlug: "fixture",
-									hookName: "Fixture",
-									triggerId: trigger.id,
-									scriptSlug: "fixture",
-									id: `run-${trigger.id}`,
-									sandboxScriptId: "script",
-									scriptContentHash: "hash",
-									retryPolicy: DEFAULT_AUTOMATION_RETRY_POLICY,
-									artifactsExpireAt: DateTime.toDate(DateTime.makeUnsafe(now)),
+									id: trigger.id,
+									depth: causation.depth,
+									category: kind.category,
+									payload: trigger.payload,
+									source: causation.source,
+									operation: kind.operation,
+									resourceKind: kind.resource,
+									scopeUserId: trigger.scopeUserId,
+									executionId: causation.executionId,
+									parentRunId: causation.parentRunId,
+									initiatorId: causation.initiator.id,
+									initiatorKind: causation.initiator.kind,
+									rootExecutionId: causation.rootExecutionId,
+									parentTriggerId: causation.parentTriggerId,
+									createdAt: DateTime.toDate(DateTime.makeUnsafe(trigger.createdAt)),
+									occurredAt: DateTime.toDate(DateTime.makeUnsafe(trigger.occurredAt)),
 								}),
 						);
-						if (failChange) {
-							return yield* new DbError({ message: "planning failed after run insertion" });
+						if (kind.category === "change") {
+							yield* mapDatabaseErrors(
+								db
+									.insert(tables.automationRun)
+									.values({
+										stage: "after",
+										delivery: "async",
+										hookSlug: "fixture",
+										hookName: "Fixture",
+										triggerId: trigger.id,
+										scriptSlug: "fixture",
+										id: `run-${trigger.id}`,
+										sandboxScriptId: "script",
+										scriptContentHash: "hash",
+										retryPolicy: DEFAULT_AUTOMATION_RETRY_POLICY,
+										artifactsExpireAt: DateTime.toDate(DateTime.makeUnsafe(now)),
+									}),
+							);
+							if (failChange) {
+								return yield* new DbError({ message: "planning failed after run insertion" });
+							}
 						}
-					}
-					return { trigger, runs: [], policies: [], wasCreated: true };
-				}),
-		}),
+						return { trigger, runs: [], policies: [], wasCreated: true };
+					}),
+			}),
+		),
 	);
 
 const workflowLayer = Layer.mergeAll(
@@ -214,7 +229,7 @@ const execution = Layer.succeed(
 
 describe("Event lifecycle PostgreSQL", () => {
 	it.effect("event, change trigger and queued runs commit together and roll back together", () =>
-		withDatabase((observer) => {
+		withDatabase((observer, plannerLayer) => {
 			const run = (id: string, fail: boolean) => {
 				let dispatched = 0;
 				return runEventCreateWorkflow(
@@ -225,7 +240,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					},
 					id,
 				).pipe(
-					Effect.provide(Layer.mergeAll(workflowLayer, planner(fail))),
+					Effect.provide(Layer.mergeAll(workflowLayer, plannerLayer(fail))),
 					Effect.provideService(WorkflowEngine, engine),
 					Effect.provideService(
 						WorkflowInstance,
@@ -275,6 +290,22 @@ describe("Event lifecycle PostgreSQL", () => {
 			Effect.gen(function* () {
 				const repository = yield* EventsRepository;
 				const service = yield* EventsService;
+				const currentPlanner = yield* LifecyclePlanner;
+				const failingService = yield* EventsService.make.pipe(
+					Effect.provideService(LifecyclePlanner, {
+						...currentPlanner,
+						plan: (input) =>
+							currentPlanner
+								.plan(input)
+								.pipe(
+									Effect.flatMap((planned) =>
+										input.trigger.kind.category === "change"
+											? Effect.fail(new DbError({ message: "planning failed after run insertion" }))
+											: Effect.succeed(planned),
+									),
+								),
+					}),
+				);
 				const eventId = EventId.make("event");
 				const beforeTime = DateTime.toDate(DateTime.makeUnsafe("2025-01-01T00:00:00.000Z"));
 				const created = yield* repository.createEvent({
@@ -317,21 +348,13 @@ describe("Event lifecycle PostgreSQL", () => {
 					new DbError({ message: "Conflicting event command identity" }),
 				);
 				const move = { userId, eventId, mergeInto: movedId, mergeFrom: entityId };
-				const database = yield* Database;
+				const session = yield* DatabaseSession;
 				assertExitFails(
-					yield* Effect.exit(
-						mapDatabaseErrors(
-							database.transaction((tx) =>
-								service.update(move, command("nested")).pipe(Effect.provideService(Database, tx)),
-							),
-						),
-					),
+					yield* Effect.exit(session.transaction(service.update(move, command("nested")))),
 					new DbError({ message: "Event lifecycle mutations require a root transaction boundary" }),
 				);
 				assertExitFails(
-					yield* Effect.exit(
-						service.update(move, command("failed-move")).pipe(Effect.provide(planner(true))),
-					),
+					yield* Effect.exit(failingService.update(move, command("failed-move"))),
 					new DbError({ message: "planning failed after run insertion" }),
 				);
 				expect(yield* repository.getEventSnapshot({ userId, eventId })).toMatchObject({
@@ -360,11 +383,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					eventId: null,
 				});
 				assertExitFails(
-					yield* Effect.exit(
-						service
-							.delete({ userId, eventId }, command("failed-delete"))
-							.pipe(Effect.provide(planner(true))),
-					),
+					yield* Effect.exit(failingService.delete({ userId, eventId }, command("failed-delete"))),
 					new DbError({ message: "planning failed after run insertion" }),
 				);
 				expect(yield* repository.getEventSnapshot({ userId, eventId })).toEqual(snapshot);
@@ -403,25 +422,13 @@ describe("Event lifecycle PostgreSQL", () => {
 					operation: "delete",
 				});
 			}),
-		).pipe(
-			Effect.provide(
-				Layer.mergeAll(
-					EventsService.layer.pipe(
-						Layer.provideMerge(EventsRepository.layer),
-						Layer.provideMerge(Layer.succeed(WorkflowEngine, engine)),
-					),
-					planner(),
-					execution,
-				),
-			),
 		),
 	);
 
 	it.effect("persists prepared event mutations only in the caller transaction", () =>
 		withDatabase((observer) =>
 			Effect.gen(function* () {
-				const db = yield* Database;
-				const client = yield* PgClient.PgClient;
+				const session = yield* DatabaseSession;
 				const service = yield* EventsService;
 				const repository = yield* EventsRepository;
 				const lifecyclePlanner = yield* LifecyclePlanner;
@@ -456,10 +463,8 @@ describe("Event lifecycle PostgreSQL", () => {
 					mergeFrom: entityId,
 					updatedAt: DateTime.toDate(DateTime.makeUnsafe("2026-09-15T00:00:01.000Z")),
 				});
-				const staleError = yield* db
-					.transaction((tx) =>
-						service.persistPreparedUpdate(stale).pipe(Effect.provideService(Database, tx)),
-					)
+				const staleError = yield* session
+					.transaction(service.persistPreparedUpdate(stale))
 					.pipe(Effect.flip);
 				expect(staleError).toMatchObject({ message: "Event changed while lifecycle policies ran" });
 
@@ -478,9 +483,10 @@ describe("Event lifecycle PostgreSQL", () => {
 				assert(update);
 				assert(deletion);
 				expect(
-					yield* db
-						.transaction((tx) =>
+					yield* session
+						.transaction(
 							Effect.gen(function* () {
+								const tx = yield* session.current;
 								yield* service.persistPreparedUpdate(update);
 								yield* service.persistPreparedDelete(deletion);
 								const changes = (yield* tx.select().from(tables.automationTrigger)).filter(
@@ -489,7 +495,7 @@ describe("Event lifecycle PostgreSQL", () => {
 								expect(changes).toHaveLength(2);
 								expect(yield* tx.select().from(tables.automationRun)).toHaveLength(2);
 								return yield* new DbError({ message: "Rollback prepared events" });
-							}).pipe(Effect.provideService(Database, tx)),
+							}),
 						)
 						.pipe(Effect.flip),
 				).toMatchObject({ message: "Rollback prepared events" });
@@ -511,56 +517,41 @@ describe("Event lifecycle PostgreSQL", () => {
 					command("prepared-commit"),
 				);
 				assert(committedDelete);
-				const work = yield* db.transaction((tx) =>
-					service.persistPreparedDelete(committedDelete).pipe(Effect.provideService(Database, tx)),
-				);
+				const work = yield* session.transaction(service.persistPreparedDelete(committedDelete));
 				expect(work.plans).toHaveLength(1);
 
 				const rejectedId = EventId.make("prepared-rejected");
 				yield* seed(rejectedId);
-				const rejected = yield* service
-					.prepareDelete({ userId, eventId: rejectedId }, command("prepared-rejected"))
-					.pipe(
-						Effect.provideService(
-							LifecyclePlanner,
-							withLifecycleBatchPlanning({
-								plan: (input) =>
-									lifecyclePlanner
-										.plan(input)
-										.pipe(
-											Effect.map((plan) => ({
-												...plan,
-												policies: [{ position: 1, runId: AutomationRunId.make("reject-event") }],
-											})),
-										),
-							}),
-						),
-						Effect.provideService(LifecycleExecution, {
-							...lifecycleExecution,
-							executePolicy: () =>
-								Effect.gen(function* () {
-									expect(
-										Option.isNone(yield* Effect.serviceOption(client.transactionService)),
-									).toBe(true);
-									return { reason: "Rejected", action: "reject" as const };
-								}),
+				const rejectingService = yield* EventsService.make.pipe(
+					Effect.provideService(
+						LifecyclePlanner,
+						withLifecycleBatchPlanning({
+							plan: (input) =>
+								lifecyclePlanner
+									.plan(input)
+									.pipe(
+										Effect.map((plan) => ({
+											...plan,
+											policies: [{ position: 1, runId: AutomationRunId.make("reject-event") }],
+										})),
+									),
 						}),
-						Effect.flip,
-					);
+					),
+					Effect.provideService(LifecycleExecution, {
+						...lifecycleExecution,
+						executePolicy: () =>
+							Effect.gen(function* () {
+								expect(!(yield* session.isTransactionActive)).toBe(true);
+								return { reason: "Rejected", action: "reject" as const };
+							}),
+					}),
+				);
+				const rejected = yield* rejectingService
+					.prepareDelete({ userId, eventId: rejectedId }, command("prepared-rejected"))
+					.pipe(Effect.flip);
 				expect(rejected.message).toContain("Event policy rejected mutation");
 				expect(yield* repository.getEventSnapshot({ userId, eventId: rejectedId })).not.toBeNull();
 			}),
-		).pipe(
-			Effect.provide(
-				Layer.mergeAll(
-					EventsService.layer.pipe(
-						Layer.provideMerge(EventsRepository.layer),
-						Layer.provideMerge(Layer.succeed(WorkflowEngine, engine)),
-					),
-					planner(),
-					execution,
-				),
-			),
 		),
 	);
 });

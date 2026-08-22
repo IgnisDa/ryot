@@ -4,7 +4,8 @@ import { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { Database } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
 import { ClientSurfaceMaterializer } from "#modules/plugins/client-surface-materializer";
 import { PluginInstallationService } from "#modules/plugins/installation-service";
@@ -54,14 +55,10 @@ const makeLayer = (options: {
 }) => {
 	const db = options.db ?? makeBootstrapDb();
 	return Layer.mergeAll(
-		Layer.succeed(
-			Database,
-			Database.of(
-				Object.assign(Object.create(null), {
-					transaction: ((callback) => callback(db)) satisfies Database["Service"]["transaction"],
-				}),
-			),
-		),
+		Layer.mock(DatabaseSession)({
+			current: Effect.succeed(db),
+			transaction: (work) => mapDatabaseErrors(work),
+		}),
 		Layer.mock(PluginUserBootstrapDispatcher)({ dispatchAll: options.dispatch }),
 		Layer.mock(PluginInstallationService)({
 			provisionSystemInstallations: (inputUserId) =>

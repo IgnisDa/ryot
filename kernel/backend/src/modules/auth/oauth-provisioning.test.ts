@@ -9,8 +9,7 @@ import {
 } from "@ryot-app/contract/oauth";
 import { Effect, Layer, Option } from "effect";
 
-import { Database } from "#lib/infrastructure/db/service";
-import { makeAppConfigLayer } from "#lib/test-utils/effect";
+import { databaseLayer, makeAppConfigLayer } from "#lib/test-utils/effect";
 
 import { internalOAuthRecords, OAuthProvisioningService } from "./oauth-provisioning";
 import {
@@ -111,7 +110,6 @@ it.effect("reprovisions the same records and updates origin-owned values", () =>
 	const repository = AuthRepository.of({
 		getPortableProfile: () => Effect.die("unused"),
 		revokeUserOAuthTokens: () => Effect.die("unused"),
-		restorePortableProfile: () => Effect.die("unused"),
 		upsertInternalOAuthClient: (client) => Effect.sync(() => clients.set(client.clientId, client)),
 		upsertInternalOAuthResource: (resource) =>
 			Effect.sync(() => resources.set(resource.id, resource)),
@@ -126,11 +124,6 @@ it.effect("reprovisions the same records and updates origin-owned values", () =>
 				}
 			}),
 	});
-	const database = Database.of(
-		Object.assign(Object.create(null), {
-			transaction: ((run) => run(Object.create(null))) satisfies Database["Service"]["transaction"],
-		}),
-	);
 	const provision = (frontendUrl: string, demoAccountId: Option.Option<string>) =>
 		Effect.gen(function* () {
 			const service = yield* OAuthProvisioningService;
@@ -140,7 +133,7 @@ it.effect("reprovisions the same records and updates origin-owned values", () =>
 				OAuthProvisioningService.layer.pipe(
 					Layer.provide([
 						makeAppConfigLayer({ frontendUrl, users: { demoAccountId } }),
-						Layer.succeed(Database, database),
+						databaseLayer,
 						Layer.succeed(AuthRepository, repository),
 					]),
 				),

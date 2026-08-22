@@ -1,5 +1,6 @@
 import { it } from "@effect/vitest";
-import { hostSuccess } from "@ryot-app/sandbox-sdk/wire";
+import { hostSuccess, type SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
+import type { Schema } from "effect";
 import {
 	Clock,
 	Deferred,
@@ -24,7 +25,7 @@ import { BridgeService, withSandboxHostCallPermit } from "./runtime";
 const addSession = Effect.fnUntraced(function* (
 	bridge: BridgeService["Service"],
 	executionId: string,
-	host: () => Effect.Effect<unknown, unknown>,
+	host: () => Effect.Effect<unknown, Schema.SchemaError | SandboxHostError>,
 	options: { readonly token?: string; readonly expiresAt?: number } = {},
 ) {
 	const parentSpan = yield* Effect.currentSpan;

@@ -27,7 +27,8 @@ import { Context, Effect, Layer, Schema } from "effect";
 
 import { PLUGIN_INGESTION_ADVISORY_LOCK_KEY } from "#lib/infrastructure/db/advisory-locks";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { ClientArtifactsRepository } from "#modules/client-artifacts/repository";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { revisionDefinitions } from "#modules/definition-registry/source";
@@ -141,44 +142,44 @@ const toLoadedRevision = Effect.fn(function* (
 	} satisfies LoadedPluginRevision;
 });
 
-const loadRevisions = Effect.fn("PluginRepository.loadRevisions")(function* (
-	ids: ReadonlyArray<string>,
-) {
-	const db = yield* Database;
-	const rows = yield* mapDatabaseErrors(
-		db
-			.select(revisionFields)
-			.from(schema.pluginRevision)
-			.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginRevision.pluginId))
-			.where(inArray(schema.pluginRevision.id, ids)),
-	);
-	const scripts = yield* mapDatabaseErrors(
-		db
-			.select({
-				slug: schema.sandboxScript.slug,
-				contentHash: schema.sandboxScript.contentHash,
-				pluginRevisionId: schema.sandboxScript.pluginRevisionId,
-			})
-			.from(schema.sandboxScript)
-			.where(inArray(schema.sandboxScript.pluginRevisionId, ids)),
-	);
-	return yield* Effect.forEach(rows, (row) =>
-		toLoadedRevision(
-			row,
-			scripts.filter(({ pluginRevisionId }) => pluginRevisionId === row.id),
-		),
-	);
-});
+const loadRevisionsForSession = (database: DatabaseSession["Service"]) =>
+	Effect.fn("PluginRepository.loadRevisions")(function* (ids: ReadonlyArray<string>) {
+		const db = yield* database.current;
+		const rows = yield* mapDatabaseErrors(
+			db
+				.select(revisionFields)
+				.from(schema.pluginRevision)
+				.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginRevision.pluginId))
+				.where(inArray(schema.pluginRevision.id, ids)),
+		);
+		const scripts = yield* mapDatabaseErrors(
+			db
+				.select({
+					slug: schema.sandboxScript.slug,
+					contentHash: schema.sandboxScript.contentHash,
+					pluginRevisionId: schema.sandboxScript.pluginRevisionId,
+				})
+				.from(schema.sandboxScript)
+				.where(inArray(schema.sandboxScript.pluginRevisionId, ids)),
+		);
+		return yield* Effect.forEach(rows, (row) =>
+			toLoadedRevision(
+				row,
+				scripts.filter(({ pluginRevisionId }) => pluginRevisionId === row.id),
+			),
+		);
+	});
 
-const lookupRevision = Effect.fn("PluginRepository.lookupRevision")(function* (
-	pluginRevisionId: string,
-) {
-	const [revision] = yield* loadRevisions([pluginRevisionId]);
-	if (!revision) {
-		return yield* new DbError({ message: `Plugin revision ${pluginRevisionId} is not persisted` });
-	}
-	return revision;
-});
+const lookupRevisionForSession = (loadRevisions: ReturnType<typeof loadRevisionsForSession>) =>
+	Effect.fn("PluginRepository.lookupRevision")(function* (pluginRevisionId: string) {
+		const [revision] = yield* loadRevisions([pluginRevisionId]);
+		if (!revision) {
+			return yield* new DbError({
+				message: `Plugin revision ${pluginRevisionId} is not persisted`,
+			});
+		}
+		return revision;
+	});
 
 const toStoredPlugin = Effect.fn(function* (
 	pointer: PluginPointerRow,
@@ -204,11 +205,14 @@ const toStoredPlugin = Effect.fn(function* (
 
 export class PluginRepository extends Context.Service<PluginRepository>()("PluginRepository", {
 	make: Effect.gen(function* () {
+		const database = yield* DatabaseSession;
+		const loadRevisions = loadRevisionsForSession(database);
+		const lookupRevision = lookupRevisionForSession(loadRevisions);
 		const configs = yield* PluginConfigRevisions;
 		const definitions = yield* DefinitionRepository;
 		const artifacts = yield* ClientArtifactsRepository;
 		const lockIngestion = Effect.fn("PluginRepository.lockIngestion")(function* () {
-			const db = yield* Database;
+			const db = yield* database.current;
 			yield* mapDatabaseErrors(
 				db.execute(
 					sql`select pg_advisory_xact_lock(hashtext(${PLUGIN_INGESTION_ADVISORY_LOCK_KEY}))`,
@@ -217,7 +221,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 		});
 
 		const lockIngestionShared = Effect.fn("PluginRepository.lockIngestionShared")(function* () {
-			const db = yield* Database;
+			const db = yield* database.current;
 			yield* mapDatabaseErrors(
 				db.execute(
 					sql`select pg_advisory_xact_lock_shared(hashtext(${PLUGIN_INGESTION_ADVISORY_LOCK_KEY}))`,
@@ -242,7 +246,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 
 		const listActiveSystemPlugins = Effect.fn("PluginRepository.listActiveSystemPlugins")(
 			function* () {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const rows = yield* mapDatabaseErrors(
 					db
 						.select(pluginPointerFields)
@@ -257,7 +261,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 		const findActiveSystemPlugin = Effect.fn("PluginRepository.findActiveSystemPlugin")(function* (
 			slug: string,
 		) {
-			const db = yield* Database;
+			const db = yield* database.current;
 			const rows = yield* mapDatabaseErrors(
 				db
 					.select(pluginPointerFields)
@@ -270,7 +274,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 		});
 
 		const listActiveSystemSlugs = Effect.fn("PluginRepository.listActiveSystemSlugs")(function* () {
-			const db = yield* Database;
+			const db = yield* database.current;
 			const rows = yield* mapDatabaseErrors(
 				db
 					.select({ slug: schema.plugin.slug })
@@ -283,7 +287,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 
 		const listActiveHttpRateLimits = Effect.fn("PluginRepository.listActiveHttpRateLimits")(
 			function* () {
-				const db = yield* Database;
+				const db = yield* database.current;
 				return yield* mapDatabaseErrors(
 					db
 						.select({
@@ -306,7 +310,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 		const findKernelScript = Effect.fn("PluginRepository.findKernelScript")(function* (
 			slug: string,
 		) {
-			const db = yield* Database;
+			const db = yield* database.current;
 			const [row] = yield* mapDatabaseErrors(
 				db
 					.select(storedScriptFields)
@@ -324,7 +328,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 		const listPrivateForUser = Effect.fn("PluginRepository.listPrivateForUser")(function* (
 			userId: string,
 		) {
-			const db = yield* Database;
+			const db = yield* database.current;
 			const rows = yield* mapDatabaseErrors(
 				db
 					.select(pluginPointerFields)
@@ -344,7 +348,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			pluginId: string,
 			userId: string,
 		) {
-			const db = yield* Database;
+			const db = yield* database.current;
 			const [row] = yield* mapDatabaseErrors(
 				db
 					.select(pluginPointerFields)
@@ -367,7 +371,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 
 		const listPortablePluginMetadata = Effect.fn("PluginRepository.listPortablePluginMetadata")(
 			function* () {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const rows = yield* mapDatabaseErrors(
 					db
 						.select({
@@ -414,7 +418,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 
 		const resolveProviderBySlugs = Effect.fn("PluginRepository.resolveProviderBySlugs")(
 			function* (input: { pluginId: string; providerSlug: string }) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({
@@ -438,7 +442,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 
 		const hasEntityReferences = Effect.fn("PluginRepository.hasEntityReferences")(
 			function* (input: { pluginId: string; entitySchemaSlugs: ReadonlyArray<string> }) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({ id: schema.entity.id })
@@ -461,7 +465,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 
 		const hasIntegrationReferences = Effect.fn("PluginRepository.hasIntegrationReferences")(
 			function* (input: { pluginId: string; pluginInstallationId?: string }) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({ id: schema.integration.id })
@@ -486,7 +490,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 
 		const hasDefinitionReferences = Effect.fn("PluginRepository.hasDefinitionReferences")(
 			function* (pluginId: string) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [relationship] = yield* mapDatabaseErrors(
 					db
 						.select({ id: schema.relationship.id })
@@ -515,7 +519,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 		const findBySourceHash = Effect.fn("PluginRepository.findBySourceHash")(function* (
 			input: PluginPersistenceIdentity & { readonly sourceHash: string },
 		) {
-			const db = yield* Database;
+			const db = yield* database.current;
 			const [row] = yield* mapDatabaseErrors(
 				db
 					.select(pluginPointerFields)
@@ -550,7 +554,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				| PluginPersistenceIdentity
 				| { readonly pluginId: string; readonly ownerId: string; readonly scope: "user" },
 		) {
-			const db = yield* Database;
+			const db = yield* database.current;
 			const [plugin] = yield* mapDatabaseErrors(
 				db
 					.select({ id: schema.plugin.id, activeRevisionId: schema.plugin.activeRevisionId })
@@ -621,7 +625,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			readonly pluginId: string;
 			readonly sourceHash: string;
 		}) {
-			const db = yield* Database;
+			const db = yield* database.current;
 			const [row] = yield* mapDatabaseErrors(
 				db
 					.select({ id: schema.plugin.id })
@@ -645,7 +649,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 		const listSourceFiles = Effect.fn("PluginRepository.listSourceFiles")(function* (
 			pluginId: string,
 		) {
-			const db = yield* Database;
+			const db = yield* database.current;
 			const rows = yield* mapDatabaseErrors(
 				db
 					.select({
@@ -664,7 +668,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 		});
 		const listRevisionSourceFiles = Effect.fn("PluginRepository.listRevisionSourceFiles")(
 			function* (revisionId: string) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const rows = yield* mapDatabaseErrors(
 					db
 						.select({
@@ -682,7 +686,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 		);
 		const listCompiledPackageArtifacts = Effect.fn("PluginRepository.listCompiledPackageArtifacts")(
 			function* (pluginId: string) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [revision] = yield* mapDatabaseErrors(
 					db
 						.select({
@@ -794,7 +798,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 		);
 		const findRevisionClientArtifact = Effect.fn("PluginRepository.findRevisionClientArtifact")(
 			function* (revisionId: string) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [revision] = yield* mapDatabaseErrors(
 					db
 						.select({
@@ -827,7 +831,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 		);
 		const findClientArtifactForSource = Effect.fn("PluginRepository.findClientArtifactForSource")(
 			function* (input: { readonly pluginId: string; readonly sourceHash: string }) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [revision] = yield* mapDatabaseErrors(
 					db
 						.select({ id: schema.pluginRevision.id })
@@ -851,7 +855,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				readonly sourceHash: string;
 				readonly installationId: string;
 			}) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [authorized] = yield* mapDatabaseErrors(
 					db
 						.select({ id: schema.plugin.id })
@@ -880,7 +884,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 		const persistKernelScript = Effect.fn("PluginRepository.persistKernelScript")(function* (
 			script: PersistedScript,
 		) {
-			const db = yield* Database;
+			const db = yield* database.current;
 			yield* mapDatabaseErrors(
 				db
 					.insert(schema.sandboxScript)
@@ -925,7 +929,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			plugin: NormalizedPlugin,
 			identity: PluginPersistenceIdentity,
 		) {
-			const db = yield* Database;
+			const db = yield* database.current;
 			const slug = identity.slug;
 			const mutation = { status: "installing" } as const;
 			const conflict =
@@ -1248,7 +1252,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 
 		const setEnvironmentConfigRevision = Effect.fn("PluginRepository.setEnvironmentConfigRevision")(
 			function* (pluginId: string, configRevisionId: string) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				yield* mapDatabaseErrors(
 					db
 						.update(schema.plugin)
@@ -1260,7 +1264,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 
 		const resolveEnvironmentConfig = Effect.fn("PluginRepository.resolveEnvironmentConfig")(
 			function* (plugin: Pick<StoredPlugin, "id" | "manifest" | "slug">) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({ activeRevisionId: schema.plugin.activeRevisionId })
@@ -1286,7 +1290,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 		);
 
 		const deactivate = Effect.fn("PluginRepository.deactivate")(function* (pluginId: string) {
-			const db = yield* Database;
+			const db = yield* database.current;
 			yield* mapDatabaseErrors(
 				db.update(schema.plugin).set({ status: "inactive" }).where(eq(schema.plugin.id, pluginId)),
 			);
@@ -1295,7 +1299,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 		const deleteInactiveUnreferencedPlugins = Effect.fn(
 			"PluginRepository.deleteInactiveUnreferencedPlugins",
 		)(function* (limit: number) {
-			const db = yield* Database;
+			const db = yield* database.current;
 			const candidates = db
 				.select({ id: schema.plugin.id })
 				.from(schema.plugin)
@@ -1369,7 +1373,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 
 		const deleteUnreferencedScripts = Effect.fn("PluginRepository.deleteUnreferencedScripts")(
 			function* (liveContentHashes: ReadonlySet<string>, input: { now: Date; limit: number }) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const executionReference = retainedScriptExecution(input.now);
 				const candidates = db
 					.select({ id: schema.sandboxScript.id })
@@ -1421,7 +1425,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 		const listPersistedLivenessContentHashes = Effect.fn(
 			"PluginRepository.listPersistedLivenessContentHashes",
 		)(function* (now: Date) {
-			const db = yield* Database;
+			const db = yield* database.current;
 			const rows = yield* mapDatabaseErrors(
 				db
 					.select({ contentHash: schema.sandboxScript.contentHash })
@@ -1495,7 +1499,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			),
 			pruneRevisionArtifacts: Effect.fn("PluginRepository.pruneRevisionArtifacts")(
 				function* (input: { now: Date; limit: number; retryWindowDays: number }) {
-					const db = yield* Database;
+					const db = yield* database.current;
 					yield* mapDatabaseErrors(
 						db.execute(sql`with candidates as (
 					select i.id from plugin_installation i where i.uninstalled_at <= ${input.now} - ${input.retryWindowDays} * interval '1 day'

@@ -61,7 +61,8 @@ import { pluginClientCatalogRecipe } from "@ryot-app/ryotql-recipes/plugin-clien
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer, Result, Schema } from "effect";
 
-import { Database } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 import { RyotQLService } from "./service";
 
@@ -93,14 +94,10 @@ const makeServiceLayer = (
 	});
 	return RyotQLService.layer.pipe(
 		Layer.provide(
-			Layer.succeed(
-				Database,
-				Database.of(
-					Object.assign(Object.create(null), {
-						transaction: ((callback) => callback(db)) satisfies Database["Service"]["transaction"],
-					}),
-				),
-			),
+			Layer.mock(DatabaseSession)({
+				current: Effect.succeed(db),
+				transaction: (work) => mapDatabaseErrors(work),
+			}),
 		),
 	);
 };
@@ -1483,14 +1480,10 @@ it.effect("maps statement timeouts to a bad request", () => {
 	});
 	const layer = RyotQLService.layer.pipe(
 		Layer.provide(
-			Layer.succeed(
-				Database,
-				Database.of(
-					Object.assign(Object.create(null), {
-						transaction: ((callback) => callback(db)) satisfies Database["Service"]["transaction"],
-					}),
-				),
-			),
+			Layer.mock(DatabaseSession)({
+				current: Effect.succeed(db),
+				transaction: (work) => mapDatabaseErrors(work),
+			}),
 		),
 	);
 

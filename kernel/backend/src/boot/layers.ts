@@ -8,13 +8,13 @@ import { FetchHttpClient } from "effect/unstable/http";
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { MigrationsComplete } from "#lib/infrastructure/db/migrate";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, DatabaseLive } from "#lib/infrastructure/db/service";
+import { PgClientLive } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { LocalStorageService } from "#lib/infrastructure/local-storage";
 import { ObservabilityLive } from "#lib/infrastructure/observability";
 import { ProKeyService } from "#lib/infrastructure/pro-key";
 import { ProviderHttpAdmissionService } from "#lib/infrastructure/provider-http-admission";
 import { RedisService, redisKeys } from "#lib/infrastructure/redis";
-import { ReusableCapabilityGrantStore } from "#lib/infrastructure/reusable-capability-grants";
 import { S3Service } from "#lib/infrastructure/s3";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import { makeAutomationSandboxApiFunctions } from "#lib/infrastructure/sandbox-runtime/automation-host-functions";
@@ -40,14 +40,11 @@ import {
 import { AuthRepository } from "#modules/auth/repository";
 import { AuthService } from "#modules/auth/service";
 import { AutomationAttemptRepository } from "#modules/automations/attempt-repository";
-import {
-	AutomationExecutionOperationsLive,
-	LifecycleExecutionLive,
-} from "#modules/automations/execution";
+import { AutomationExecutionOperationsLive } from "#modules/automations/execution";
 import { AutomationHistoryRepository } from "#modules/automations/history-repository";
 import { AutomationHistoryService } from "#modules/automations/history-service";
+import { LifecycleServicesLive, MigrationLifecycleServicesLive } from "#modules/automations/layer";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
-import { LifecyclePlannerLive } from "#modules/automations/planner";
 import {
 	AutomationReconciliation,
 	AutomationReconciliationOperationsLive,
@@ -74,12 +71,16 @@ import {
 import { BackupRestoreWriter } from "#modules/backups/restore/writer";
 import { BackupsRepository } from "#modules/backups/runs/repository";
 import { BackupsService } from "#modules/backups/service";
-import { ClientArtifactGrantService } from "#modules/client-artifacts/grant-service";
-import { ImageClientArtifacts } from "#modules/client-artifacts/image-artifacts";
+import {
+	ClientArtifactGrantServiceLive,
+	ClientArtifactStoreLive,
+} from "#modules/client-artifacts/layer";
 import { ClientArtifactsRepository } from "#modules/client-artifacts/repository";
-import { ClientArtifactStore } from "#modules/client-artifacts/store";
-import { ClientPageCompositionService } from "#modules/client-pages/composition-service";
-import { ClientDocumentGrantService } from "#modules/client-pages/grant-service";
+import {
+	ClientDocumentGrantServiceLive,
+	ClientPagesServiceLive,
+	ClientSurfaceMaterializerLive,
+} from "#modules/client-pages/layer";
 import { ClientPagesRepository } from "#modules/client-pages/repository";
 import { ClientPagesService } from "#modules/client-pages/service";
 import {
@@ -136,21 +137,21 @@ import {
 	PluginInvalidationSubscriber,
 } from "#modules/plugins/catalog-events";
 import { publishAfterCatalogMaterialization } from "#modules/plugins/catalog-materialization";
-import { ClientSurfaceMaterializer } from "#modules/plugins/client-surface-materializer";
 import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
 import { PluginHttpRateLimitAuthority } from "#modules/plugins/http-rate-limit-authority";
 import { ImportSourceCatalog } from "#modules/plugins/import-source-catalog";
-import { PluginIngestionLock } from "#modules/plugins/ingestion-lock";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
-import { PluginInstallationService } from "#modules/plugins/installation-service";
 import { PluginInstallationSweepDispatcherLive } from "#modules/plugins/installation-sweep";
 import {
-	PluginInstallationLifecycleDispatcher,
-	PluginInstallationLifecycleDispatcherLive,
 	PluginInstallationWorkflowDefinitionsLive,
 	PluginInstallationWorkflowOperationsLive,
 } from "#modules/plugins/installation-workflow";
 import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
+import {
+	PluginIngestionLockLive,
+	PluginInstallationMigrationLive,
+	PluginInstallationRuntimeLive,
+} from "#modules/plugins/layer";
 import { OperationsService } from "#modules/plugins/operations-service";
 import { PluginRepository } from "#modules/plugins/repository";
 import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
@@ -205,7 +206,8 @@ const ConfigLive = Layer.mergeAll(AppConfig.layer, BunServices.layer);
 const BaseInfrastructureServicesLive = Layer.provideMerge(
 	SandboxArtifactStore.layer,
 	Layer.mergeAll(
-		DatabaseLive,
+		PgClientLive,
+		DatabaseSession.layer,
 		RedisService.layer,
 		LocalStorageService.layer,
 		ServerRun.layer,
@@ -258,77 +260,16 @@ const SandboxPluginScriptResolverLive = Layer.provideMerge(
 	PluginSandboxScriptResolverLive,
 	PluginRuntimeResolverLive,
 );
+const PluginRevisionActivationLive = IntegrationPluginRevisionActivationLive.pipe(
+	Layer.provide(IntegrationsRepository.layer),
+);
+const PluginIngestionLockProvidedLive = PluginIngestionLockLive.pipe(
+	Layer.provide(PluginRevisionActivationLive),
+);
 const ScriptGarbageCollectorLive = Layer.provide(
 	ScriptGarbageCollector.layer,
 	Layer.mergeAll(PluginRepository.layer, PackageCacheManager.layer),
 );
-const PluginRevisionActivationLive = IntegrationPluginRevisionActivationLive.pipe(
-	Layer.provide(IntegrationsRepository.layer),
-);
-const ReusableCapabilityGrantStoreLive = ReusableCapabilityGrantStore.layer.pipe(
-	Layer.provide(RedisService.layer),
-);
-const ClientArtifactGrantServiceLive = ClientArtifactGrantService.layer.pipe(
-	Layer.provide(ReusableCapabilityGrantStoreLive),
-);
-const ClientDocumentGrantServiceLive = ClientDocumentGrantService.layer.pipe(
-	Layer.provide(ReusableCapabilityGrantStoreLive),
-);
-const ClientArtifactStoreLive = ClientArtifactStore.layer.pipe(
-	Layer.provide(Layer.mergeAll(ClientArtifactsRepository.layer, ImageClientArtifacts.layer)),
-);
-const ClientPageCompositionServiceLive = ClientPageCompositionService.layer.pipe(
-	Layer.provide(
-		Layer.mergeAll(
-			ClientPagesRepository.layer,
-			ClientArtifactStoreLive,
-			ImageClientArtifacts.layer,
-		),
-	),
-);
-const ClientPagesServiceLive = ClientPagesService.layer.pipe(
-	Layer.provide(
-		Layer.mergeAll(
-			ClientPagesRepository.layer,
-			EntitiesRepository.layer.pipe(Layer.provide(PluginRuntimeResolverLive)),
-			ClientPageCompositionServiceLive,
-			ClientDocumentGrantServiceLive,
-			ImageClientArtifacts.layer,
-			PluginCatalogInvalidatorLive,
-			PluginRepository.layer.pipe(Layer.provide(ClientArtifactsRepository.layer)),
-			PluginRuntimeResolverLive,
-		),
-	),
-	Layer.provide(DefinitionRepository.layer),
-);
-const ClientSurfaceMaterializerLive = Layer.effect(
-	ClientSurfaceMaterializer,
-	Effect.gen(function* () {
-		const pages = yield* ClientPagesService;
-		const db = yield* Database;
-		return {
-			materializeSystemCompositions: pages
-				.materializeSystemCompositions()
-				.pipe(Effect.provideService(Database, db), Effect.orDie),
-			assertUserCompositions: (userId) =>
-				pages
-					.assertUserCompositions(userId)
-					.pipe(Effect.provideService(Database, db), Effect.orDie),
-			materializeUserCompositions: (userId) =>
-				pages
-					.materializeUserCompositions(userId)
-					.pipe(Effect.provideService(Database, db), Effect.orDie),
-			materializeRenderer: (userId, renderer) =>
-				pages
-					.materializeRenderer(userId, renderer)
-					.pipe(Effect.provideService(Database, db), Effect.orDie),
-			materializePendingInstallation: (userId, installationId) =>
-				pages
-					.materializePendingInstallation(userId, installationId)
-					.pipe(Effect.provideService(Database, db), Effect.orDie),
-		};
-	}),
-).pipe(Layer.provide(ClientPagesServiceLive));
 const PluginInvalidationSubscriberLive = PluginInvalidationSubscriber.layer.pipe(
 	Layer.provide(PluginCatalogHub.layer),
 );
@@ -372,21 +313,8 @@ const ApplicationInfrastructureLive = CoreInfrastructureServicesLive.pipe(
 
 const PluginConfigEncryptionKeyLive = PluginConfigEncryptionKey.layer;
 
-const LifecyclePlannerServiceLive = LifecyclePlannerLive.pipe(
-	Layer.provide(DefinitionRepository.layer),
-);
 const AutomationExecutionOperationsServiceLive = AutomationExecutionOperationsLive.pipe(
 	Layer.provide(AutomationRunRepository.layer),
-);
-const LifecycleExecutionServiceLive = LifecycleExecutionLive.pipe(
-	Layer.provide(AutomationExecutionOperationsServiceLive),
-);
-const LifecycleServicesLive = Layer.mergeAll(
-	LifecyclePlannerServiceLive,
-	LifecycleExecutionServiceLive,
-);
-const MigrationLifecycleServicesLive = LifecycleServicesLive.pipe(
-	Layer.provide(WorkflowEngineLive),
 );
 
 const RyotQLServiceLive = RyotQLService.layer;
@@ -402,7 +330,7 @@ const NotificationSubscriptionsServiceLive = NotificationSubscriptionsService.la
 	Layer.provide(PluginRuntimeResolverLive),
 );
 
-const EntitiesServiceLive = EntitiesService.layer.pipe(Layer.provide(LifecycleServicesLive));
+const EntitiesServiceLive = EntitiesService.layerRuntime.pipe(Layer.provide(LifecycleServicesLive));
 
 const SavedViewsServiceLive = SavedViewsService.layer.pipe(
 	Layer.provide(
@@ -424,9 +352,11 @@ const MaterializingPluginCatalogInvalidatorLive = Layer.effect(
 	Effect.gen(function* () {
 		const pages = yield* ClientPagesService;
 		const redis = yield* RedisService;
-		const db = yield* Database;
+		const session = yield* DatabaseSession;
 		const materialize = (userId: UserId) =>
-			pages.materializeUserCompositions(userId).pipe(Effect.provideService(Database, db));
+			pages
+				.materializeUserCompositions(userId)
+				.pipe(Effect.provideService(DatabaseSession, session));
 		return {
 			user: (userId: UserId) =>
 				publishAfterCatalogMaterialization(
@@ -438,16 +368,18 @@ const MaterializingPluginCatalogInvalidatorLive = Layer.effect(
 					),
 				).pipe(Effect.asVoid, Effect.orDie),
 			all: publishAfterCatalogMaterialization(
-				db
-					.select({ id: schema.user.id })
-					.from(schema.user)
-					.where(isNotNull(schema.user.bootstrapCompletedAt))
-					.pipe(Effect.map((users) => users.map((user) => UserId.make(user.id)))),
+				Effect.flatMap(session.current, (db) =>
+					db
+						.select({ id: schema.user.id })
+						.from(schema.user)
+						.where(isNotNull(schema.user.bootstrapCompletedAt))
+						.pipe(Effect.map((users) => users.map((user) => UserId.make(user.id)))),
+				),
 				materialize,
 				redis
 					.publish(redisKeys.pluginCatalogChannel, "plugin-catalog-invalidated")
 					.pipe(Effect.asVoid),
-			).pipe(Effect.provideService(Database, db), Effect.orDie),
+			).pipe(Effect.provideService(DatabaseSession, session), Effect.orDie),
 		};
 	}),
 ).pipe(Layer.provide(ClientPagesServiceLive), Layer.provide(RedisService.layer));
@@ -465,15 +397,6 @@ const PluginCatalogStateLive = Layer.mergeAll(PluginCatalogHub.layer, PluginInge
 const PluginSavedViewReferencesLive = SavedViewPluginReferencesLive.pipe(
 	Layer.provide(SavedViewsServiceLive),
 );
-const PluginIngestionLockLive = PluginIngestionLock.layer.pipe(
-	Layer.provide(
-		Layer.mergeAll(
-			PluginRepository.layer,
-			PluginRevisionActivationLive,
-			PluginInstallationRepository.layer,
-		),
-	),
-);
 const BackupExportSnapshotLive = BackupExportSnapshot.layer.pipe(
 	Layer.provide(Layer.mergeAll(UploadServicesLive, PluginRuntimeResolverLive)),
 );
@@ -482,43 +405,23 @@ const BackupAccountCleanlinessLive = BackupAccountCleanliness.layer.pipe(
 );
 const BackupServicesLive = Layer.mergeAll(
 	BackupRestoreWriter.layer,
-	PluginBackupRestore.layer.pipe(Layer.provide(PluginIngestionLockLive)),
+	PluginBackupRestore.layer.pipe(Layer.provide(PluginIngestionLockProvidedLive)),
 	BackupExportSnapshotLive,
 	BackupAccountCleanlinessLive,
 	BackupsService.layer.pipe(Layer.provide([BackupAccountCleanlinessLive, UploadServicesLive])),
 );
-const pluginInstallationServiceDependencies = Layer.mergeAll(
-	DefinitionRepository.layer,
+const PluginInstallationDependenciesLive = Layer.mergeAll(
 	UploadServicesLive,
 	ObjectStorageServiceLive,
-	PluginRepository.layer,
-	PluginIngestionLockLive,
+	PluginIngestionLockProvidedLive,
 	PluginSavedViewReferencesLive,
-	PluginInstallationRepository.layer,
-	SandboxWorkflowReferenceRepository.layer,
 );
-
-// Migration and shipped-system ingestion never install a private plugin, so they keep the no-op
-// lifecycle dispatcher and stay free of any `WorkflowEngine` requirement.
-const PluginInstallationServiceLive = Layer.provide(
-	PluginInstallationService.layer,
-	Layer.mergeAll(
-		pluginInstallationServiceDependencies,
-		PluginCatalogInvalidator.layer,
-		PluginInstallationLifecycleDispatcher.layer,
-	),
+const PluginInstallationServiceLive = PluginInstallationMigrationLive.pipe(
+	Layer.provide(PluginInstallationDependenciesLive),
 );
-
-// `Layer.fresh` is load-bearing. Both variants wrap the same `PluginInstallationService.layer`
-// object, and layers memoize by object identity, so without it `RuntimeAfterMigrationsLive` would
-// build the migration variant first and hand the runtime its no-op dispatcher, stranding every
-// private installation in `installing` forever.
-const RuntimePluginInstallationServiceLive = Layer.provide(
-	Layer.fresh(PluginInstallationService.layer),
-	Layer.mergeAll(
-		pluginInstallationServiceDependencies,
-		MaterializingPluginCatalogInvalidatorLive,
-		PluginInstallationLifecycleDispatcherLive,
+const RuntimePluginInstallationServiceLive = PluginInstallationRuntimeLive.pipe(
+	Layer.provide(
+		Layer.merge(PluginInstallationDependenciesLive, MaterializingPluginCatalogInvalidatorLive),
 	),
 );
 
@@ -636,10 +539,17 @@ const SandboxServicesLive = Layer.mergeAll(
 
 const ImportWorkflowPinningLive = Layer.effect(
 	ImportWorkflowPinning,
-	Effect.map(SandboxExecutionService, (sandbox) => ({
-		release: sandbox.releaseWorkflowRegistration,
-		preRegister: sandbox.preRegisterPluginWorkflow,
-	})),
+	Effect.gen(function* () {
+		const sandbox = yield* SandboxExecutionService;
+		const session = yield* DatabaseSession;
+		return {
+			release: sandbox.releaseWorkflowRegistration,
+			preRegister: (input) =>
+				sandbox
+					.preRegisterPluginWorkflow(input)
+					.pipe(Effect.provideService(DatabaseSession, session)),
+		};
+	}),
 ).pipe(Layer.provide(SandboxExecutionServiceLive));
 
 const AutomationRunWorkflowOperationsServiceLive = AutomationRunWorkflowOperationsLive.pipe(
@@ -824,7 +734,7 @@ const MigrationBootstrapDependenciesLive = MigrationBootstrapRepositoriesLive.pi
 const MigrationBootstrapServicesLive = Layer.mergeAll(
 	NotificationSubscriptionsService.layer,
 	SavedViewsServiceLive,
-	Layer.fresh(EntitiesService.layer).pipe(Layer.provide(MigrationLifecycleServicesLive)),
+	EntitiesService.layerMigration.pipe(Layer.provide(MigrationLifecycleServicesLive)),
 	SignalSchemasService.layer,
 ).pipe(
 	Layer.provideMerge(Layer.merge(DefinitionRepository.layer, PluginRepository.layer)),
@@ -844,11 +754,12 @@ export const MigrationInfrastructureLive = Layer.mergeAll(
 	IntegrationsRepository.layer,
 ).pipe(
 	Layer.provideMerge(ClientSurfaceMaterializerLive),
-	Layer.provideMerge(DatabaseLive),
+	Layer.provideMerge(PgClientLive),
 	Layer.provideMerge(ManagedAssetsRepository.layer),
 	Layer.provideMerge(RedisService.layer),
 	Layer.provideMerge(LocalStorageService.layer),
 	Layer.provideMerge(S3Service.layer),
+	Layer.provideMerge(DatabaseSession.layer),
 	Layer.provideMerge(ConfigLive),
 );
 

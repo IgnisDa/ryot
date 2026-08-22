@@ -1,4 +1,3 @@
-import { PgClient } from "@effect/sql-pg";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { DbError } from "@ryot-app/contract/errors";
 import type {
@@ -21,7 +20,8 @@ import {
 } from "#lib/domain/lifecycle";
 import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { trimToNull } from "#lib/shared/validation";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -53,8 +53,9 @@ const relationshipFailure =
 
 export class UserStateService extends Context.Service<UserStateService>()("UserStateService", {
 	make: Effect.gen(function* () {
-		const database = yield* Database;
-		const sqlClient = yield* PgClient.PgClient;
+		const database = yield* DatabaseSession;
+		const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
+			database.transaction(work).pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 		const planner = yield* LifecyclePlanner;
 		const lifecycleExecution = yield* LifecycleExecution;
 		const eventsRepository = yield* EventsRepository;
@@ -63,20 +64,6 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 		const definitions = yield* DefinitionRepository;
 		const entitiesRepository = yield* EntitiesRepository;
 		const relationshipsRepository = yield* RelationshipsRepository;
-		const provideMutation = <A, E>(
-			effect: Effect.Effect<
-				A,
-				E,
-				Database | EntitiesRepository | LifecycleExecution | LifecyclePlanner | PgClient.PgClient
-			>,
-		) =>
-			effect.pipe(
-				Effect.provideService(Database, database),
-				Effect.provideService(PgClient.PgClient, sqlClient),
-				Effect.provideService(LifecyclePlanner, planner),
-				Effect.provideService(LifecycleExecution, lifecycleExecution),
-				Effect.provideService(EntitiesRepository, entitiesRepository),
-			);
 		type RelationshipRow = Effect.Success<
 			ReturnType<typeof relationshipsRepository.listUserRelationshipsForEntityWithProvenance>
 		>[number];
@@ -233,7 +220,7 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 			}
 
 			const committed = yield* mapDatabaseErrors(
-				database.transaction((transaction) =>
+				transaction(
 					Effect.gen(function* () {
 						const eventPlans: LifecyclePlan[] = [];
 						for (const prepared of preparedEvents) {
@@ -248,7 +235,7 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 						}
 
 						return yield* withBatches(command, eventPlans, relationshipPlans);
-					}).pipe(Effect.provideService(Database, transaction)),
+					}),
 				),
 			);
 			const warnings = yield* lifecycleExecution.dispatch(committed.map(toLifecycleDispatchPlan));
@@ -356,7 +343,7 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 			}
 
 			const committed = yield* mapDatabaseErrors(
-				database.transaction((transaction) =>
+				transaction(
 					Effect.gen(function* () {
 						const eventPlans: LifecyclePlan[] = [];
 						for (const prepared of preparedEvents) {
@@ -384,7 +371,7 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 							movedRelationshipsCount,
 							plans: yield* withBatches(command, eventPlans, relationshipPlans),
 						};
-					}).pipe(Effect.provideService(Database, transaction)),
+					}),
 				),
 			);
 			const warnings = yield* lifecycleExecution.dispatch(
@@ -401,7 +388,7 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 
 		return {
 			clearUserState: (user: CurrentUserValue, entityId: EntityId, command: LifecycleCommand) =>
-				provideMutation(clearUserState(user, entityId, command)).pipe(
+				clearUserState(user, entityId, command).pipe(
 					Effect.catchTag("LifecyclePersistenceError", lifecyclePersistenceFailure),
 				),
 			mergeUserState: (
@@ -409,7 +396,7 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 				payload: MergeUserStateBody,
 				command: LifecycleCommand,
 			) =>
-				provideMutation(mergeUserState(user, payload, command)).pipe(
+				mergeUserState(user, payload, command).pipe(
 					Effect.catchTag("LifecyclePersistenceError", lifecyclePersistenceFailure),
 				),
 		};

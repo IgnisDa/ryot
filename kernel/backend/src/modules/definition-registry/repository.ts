@@ -16,7 +16,8 @@ import type { PgColumn } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 import type {
 	DefinitionSnapshot,
@@ -194,38 +195,38 @@ const userWhere = (
 
 const effective = { listed: false } as const;
 
-const pruneKernelRows = Effect.fn(function* (
-	table:
-		| typeof schema.definitionEntitySchema
-		| typeof schema.definitionRelationshipSchema
-		| typeof schema.definitionSignalSchema
-		| typeof schema.definitionSavedView,
-	slugs: ReadonlyArray<string>,
-) {
-	const db = yield* Database;
-	yield* mapDatabaseErrors(
-		db
-			.delete(table)
-			.where(
-				and(
-					isNull(table.pluginRevisionId),
-					slugs.length > 0 ? notInArray(table.slug, [...slugs]) : undefined,
-				),
-			),
-	);
-});
-
 export class DefinitionRepository extends Context.Service<DefinitionRepository>()(
 	"DefinitionRepository",
 	{
-		make: Effect.sync(() => {
+		make: Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const pruneKernelRows = Effect.fn(function* (
+				table:
+					| typeof schema.definitionEntitySchema
+					| typeof schema.definitionRelationshipSchema
+					| typeof schema.definitionSignalSchema
+					| typeof schema.definitionSavedView,
+				slugs: ReadonlyArray<string>,
+			) {
+				const db = yield* session.current;
+				yield* mapDatabaseErrors(
+					db
+						.delete(table)
+						.where(
+							and(
+								isNull(table.pluginRevisionId),
+								slugs.length > 0 ? notInArray(table.slug, [...slugs]) : undefined,
+							),
+						),
+				);
+			});
 			const writeRevisionDefinitions = Effect.fn("DefinitionRepository.writeRevisionDefinitions")(
 				function* (input: {
 					readonly pluginId: string;
 					readonly pluginRevisionId: string;
 					readonly definitions: RevisionDefinitions;
 				}) {
-					const db = yield* Database;
+					const db = yield* session.current;
 					const { pluginId, definitions, pluginRevisionId } = input;
 					if (definitions.entitySchemas.length > 0) {
 						const entities = yield* mapDatabaseErrors(
@@ -368,7 +369,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 
 			const replaceKernelDefinitions = Effect.fn("DefinitionRepository.replaceKernelDefinitions")(
 				function* (source: DefinitionSource) {
-					const db = yield* Database;
+					const db = yield* session.current;
 					const entities =
 						source.entitySchemas.length > 0
 							? yield* mapDatabaseErrors(
@@ -574,7 +575,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 				userId: UserId,
 				options: ListedOption,
 			) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const entitySchemas = yield* mapDatabaseErrors(
 					db
 						.select()
@@ -614,7 +615,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 			});
 
 			const readGlobalRows = Effect.fn("DefinitionRepository.readGlobalRows")(function* () {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const entitySchemas = yield* mapDatabaseErrors(
 					db
 						.select()
@@ -649,7 +650,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 			});
 
 			const readKernelRows = Effect.fn("DefinitionRepository.readKernelRows")(function* () {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const entitySchemas = yield* mapDatabaseErrors(
 					db
 						.select({
@@ -717,7 +718,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 					if (slugs.length === 0) {
 						return {};
 					}
-					const db = yield* Database;
+					const db = yield* session.current;
 					const entitySchemas = yield* mapDatabaseErrors(
 						db
 							.select()
@@ -756,7 +757,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 
 			const listUserEventSchemas = Effect.fn("DefinitionRepository.listUserEventSchemas")(
 				function* (userId: UserId, entitySchemaSlug: string) {
-					const db = yield* Database;
+					const db = yield* session.current;
 					const rows = yield* mapDatabaseErrors(
 						db
 							.select()
@@ -781,7 +782,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 				if (slugs.length === 0) {
 					return {};
 				}
-				const db = yield* Database;
+				const db = yield* session.current;
 				const rows = yield* mapDatabaseErrors(
 					db
 						.select()
@@ -800,7 +801,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 
 			const listUserSignalSchemas = Effect.fn("DefinitionRepository.listUserSignalSchemas")(
 				function* (userId: UserId, options: ListedOption = effective) {
-					const db = yield* Database;
+					const db = yield* session.current;
 					const rows = yield* mapDatabaseErrors(
 						db
 							.select()
@@ -814,7 +815,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 
 			const findUserSignalSchema = Effect.fn("DefinitionRepository.findUserSignalSchema")(
 				function* (userId: UserId, slug: string, options: ListedOption = effective) {
-					const db = yield* Database;
+					const db = yield* session.current;
 					const rows = yield* mapDatabaseErrors(
 						db
 							.select()
@@ -836,7 +837,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 				userId: UserId,
 				options: ListedOption,
 			) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const rows = yield* mapDatabaseErrors(
 					db
 						.select()
@@ -849,7 +850,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 
 			const findGlobalEntitySchema = Effect.fn("DefinitionRepository.findGlobalEntitySchema")(
 				function* (slug: string) {
-					const db = yield* Database;
+					const db = yield* session.current;
 					const rows = yield* mapDatabaseErrors(
 						db
 							.select()
@@ -873,7 +874,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 
 			const findGlobalEventSchema = Effect.fn("DefinitionRepository.findGlobalEventSchema")(
 				function* (entitySchemaSlug: string, slug: string) {
-					const db = yield* Database;
+					const db = yield* session.current;
 					const [row] = yield* mapDatabaseErrors(
 						db
 							.select()
@@ -893,7 +894,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 			const findGlobalRelationshipSchema = Effect.fn(
 				"DefinitionRepository.findGlobalRelationshipSchema",
 			)(function* (slug: string) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const rows = yield* mapDatabaseErrors(
 					db
 						.select()
@@ -907,7 +908,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 
 			const findGlobalSignalSchema = Effect.fn("DefinitionRepository.findGlobalSignalSchema")(
 				function* (slug: string) {
-					const db = yield* Database;
+					const db = yield* session.current;
 					const rows = yield* mapDatabaseErrors(
 						db
 							.select()
@@ -920,7 +921,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 
 			const listGlobalSignalSchemas = Effect.fn("DefinitionRepository.listGlobalSignalSchemas")(
 				function* () {
-					const db = yield* Database;
+					const db = yield* session.current;
 					const rows = yield* mapDatabaseErrors(
 						db
 							.select()

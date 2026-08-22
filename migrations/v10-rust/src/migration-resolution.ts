@@ -3,10 +3,8 @@ import type {
 	PluginManifest,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import * as schema from "@ryot-app/kernel-backend/lib/infrastructure/db/schema/tables/combined";
-import {
-	Database,
-	mapDatabaseErrors,
-} from "@ryot-app/kernel-backend/lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "@ryot-app/kernel-backend/lib/infrastructure/db/service";
+import { DatabaseSession } from "@ryot-app/kernel-backend/lib/infrastructure/db/session";
 import { DefinitionRepository } from "@ryot-app/kernel-backend/modules/definition-registry/repository";
 import type { DefinitionSnapshot } from "@ryot-app/kernel-backend/modules/definition-registry/snapshot";
 import { PluginRepository } from "@ryot-app/kernel-backend/modules/plugins/repository";
@@ -113,7 +111,7 @@ const buildSchemaMaps = (definitions: DefinitionSnapshot) => {
 export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolution")(function* (
 	userIds: ReadonlyArray<string>,
 ) {
-	const database = yield* Database;
+	const database = yield* (yield* DatabaseSession).current;
 	const definitions = yield* (yield* DefinitionRepository).getGlobalSnapshot;
 	const media = yield* requireSystemPlugin("media");
 	const fitness = yield* requireSystemPlugin("fitness");

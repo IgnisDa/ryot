@@ -1,4 +1,3 @@
-import { PgClient } from "@effect/sql-pg";
 import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
@@ -22,7 +21,6 @@ import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/Workf
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
 import { rootLifecycleCommand, type LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { Database } from "#lib/infrastructure/db/service";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import {
 	databaseLayer,
@@ -139,19 +137,13 @@ const mockRelationshipSchemas = Layer.mock(RelationshipSchemasRepository);
 
 const makeServiceLayer = (
 	options: {
-		readonly database?: Database["Service"];
 		readonly entities?: MockOverrides<typeof mockEntities>;
 		readonly events?: MockOverrides<typeof mockEvents>;
 		readonly relationships?: MockOverrides<typeof mockRelationships>;
 		readonly collections?: MockOverrides<typeof mockCollections>;
 	} = {},
 ) => {
-	const selectedDatabaseLayer = options.database
-		? Layer.succeed(Database, options.database)
-		: databaseLayer;
 	const dependencies = Layer.mergeAll(
-		selectedDatabaseLayer,
-		Layer.succeed(PgClient.PgClient, Object.create(null)),
 		Layer.mock(LifecyclePlanner)({ plan: () => Effect.die("unused") }),
 		Layer.mock(LifecycleExecution)({
 			after: () => Effect.die("unused"),
@@ -188,9 +180,9 @@ const makeServiceLayer = (
 		mockRelationshipSchemas({ findBuiltinBySlug: () => Effect.succeed(memberOfSchema) }),
 		Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
 	);
-	return Layer.merge(
-		selectedDatabaseLayer,
-		CollectionsService.layer.pipe(Layer.provide(dependencies)),
+	return CollectionsService.layer.pipe(
+		Layer.provideMerge(dependencies),
+		Layer.provideMerge(databaseLayer),
 	);
 };
 
@@ -240,10 +232,7 @@ const runAddWorkflow = (input: {
 				}),
 		}),
 		Effect.provide(
-			Layer.merge(
-				databaseLayer,
-				AddEntityToCollectionWorkflowOperationsLive.pipe(Layer.provide(input.layer)),
-			),
+			AddEntityToCollectionWorkflowOperationsLive.pipe(Layer.provideMerge(input.layer)),
 		),
 	);
 };
@@ -281,28 +270,6 @@ it.effect("creates a collection with one API root command and propagates warning
 		});
 		expect(input?.lifecycle.itemIdentity).toBe("collection:create");
 	}).pipe(Effect.provide(layer));
-});
-
-it.effect("does not wrap relationship lifecycle ownership in a collection transaction", () => {
-	let transactions = 0;
-	const database = Database.of(
-		Object.assign(Object.create(null), {
-			transaction: ((callback) => {
-				transactions += 1;
-				return callback(Object.create(null));
-			}) satisfies Database["Service"]["transaction"],
-		}),
-	);
-	return Effect.gen(function* () {
-		const service = yield* CollectionsService;
-		yield* service.prepareMembership({
-			entityId,
-			collectionId,
-			userId: user.id,
-			command: command("membership"),
-		});
-		expect(transactions).toBe(0);
-	}).pipe(Effect.provide(makeServiceLayer({ database })));
 });
 
 it.effect("propagates membership and event warnings with a derived event identity", () => {

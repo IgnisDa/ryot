@@ -1,10 +1,10 @@
 import { expect, it } from "@effect/vitest";
 import { APIError } from "better-auth/api";
 import type { Result } from "effect";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 import { describe } from "vitest";
 
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 import { gateSessionCreation } from "./session-gate";
 
@@ -22,21 +22,19 @@ const makeMockDb = (
 	active = false,
 ) => {
 	let selection = 0;
-	return Database.of(
-		Object.assign(Object.create(null), {
-			select: () => ({
-				from: () => ({
-					where: () => ({
-						limit: () => {
-							const activeRows = active ? [{ id: "op-1" }] : [];
-							const selected = selection++ === 0 ? activeRows : rows;
-							return Effect.succeed(selected);
-						},
-					}),
+	return Object.assign(Object.create(null), {
+		select: () => ({
+			from: () => ({
+				where: () => ({
+					limit: () => {
+						const activeRows = active ? [{ id: "op-1" }] : [];
+						const selected = selection++ === 0 ? activeRows : rows;
+						return Effect.succeed(selected);
+					},
 				}),
 			}),
 		}),
-	);
+	});
 };
 
 const makeDeps = (
@@ -46,7 +44,7 @@ const makeDeps = (
 
 const runGate = (deps: ReturnType<typeof makeDeps>, userId: string) =>
 	gateSessionCreation(userId, deps[1]).pipe(
-		Effect.provideService(Database, deps[0]),
+		Effect.provide(Layer.mock(DatabaseSession)({ current: Effect.succeed(deps[0]) })),
 		Effect.result,
 	);
 

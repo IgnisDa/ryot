@@ -10,7 +10,7 @@ import type {
 import { SignalSchemaSlug as SignalSchemaSlugBrand } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 
 import { AutomationsRepository, type StoredNotificationSubscription } from "./repository";
@@ -19,6 +19,7 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 	"NotificationSubscriptionsService",
 	{
 		make: Effect.gen(function* () {
+			const session = yield* DatabaseSession;
 			const repository = yield* AutomationsRepository;
 			const definitions = yield* DefinitionRepository;
 			const listActiveSignalSchemas = (userId: UserId) =>
@@ -62,9 +63,8 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 
 			const installRule = Effect.fn("NotificationSubscriptionsService.installRule")(
 				function* (input: { userId: UserId; signalSchemaSlug: SignalSchemaSlug }) {
-					const database = yield* Database;
-					return yield* mapDatabaseErrors(
-						database.transaction((transaction) =>
+					return yield* session
+						.transaction(
 							Effect.gen(function* () {
 								const signalSchema = yield* definitions.findUserSignalSchema(
 									input.userId,
@@ -93,26 +93,24 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 												signalSchemaSlug: input.signalSchemaSlug,
 											},
 										});
-							}).pipe(Effect.provideService(Database, transaction)),
-						),
-					);
+							}),
+						)
+						.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 				},
 			);
 
 			const ensureDefaultRules = Effect.fn("NotificationSubscriptionsService.ensureDefaultRules")(
 				function* (userId: UserId) {
-					return yield* Effect.gen(function* () {
-						const schemas = yield* listActiveSignalSchemas(userId);
-						for (const signalSchema of schemas) {
-							yield* repository.insertNotificationSubscription({
-								userId,
-								metadata: null,
-								isActive: true,
-								signalSchemaPluginId: signalSchema.pluginId ?? null,
-								signalSchemaSlug: SignalSchemaSlugBrand.make(signalSchema.slug),
-							});
-						}
-					});
+					const schemas = yield* listActiveSignalSchemas(userId);
+					for (const signalSchema of schemas) {
+						yield* repository.insertNotificationSubscription({
+							userId,
+							metadata: null,
+							isActive: true,
+							signalSchemaPluginId: signalSchema.pluginId ?? null,
+							signalSchemaSlug: SignalSchemaSlugBrand.make(signalSchema.slug),
+						});
+					}
 				},
 			);
 
@@ -122,9 +120,8 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 					isActive: boolean;
 					ruleId: NotificationSubscriptionId;
 				}) {
-					const database = yield* Database;
-					return yield* mapDatabaseErrors(
-						database.transaction((transaction) =>
+					return yield* session
+						.transaction(
 							Effect.gen(function* () {
 								yield* loadRule(input);
 								const state = yield* repository.setNotificationSubscriptionActive(input);
@@ -134,22 +131,17 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 									});
 								}
 								return { id: state.id };
-							}).pipe(Effect.provideService(Database, transaction)),
-						),
-					);
+							}),
+						)
+						.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 				},
 			);
 
 			const deleteRule = Effect.fn("NotificationSubscriptionsService.deleteRule")(
 				function* (input: { userId: UserId; ruleId: NotificationSubscriptionId }) {
-					const database = yield* Database;
-					const deleted = yield* mapDatabaseErrors(
-						database.transaction((transaction) =>
-							repository
-								.deleteNotificationSubscription(input)
-								.pipe(Effect.provideService(Database, transaction)),
-						),
-					);
+					const deleted = yield* session
+						.transaction(repository.deleteNotificationSubscription(input))
+						.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 					return (
 						deleted ??
 						(yield* new AutomationNotFoundError({

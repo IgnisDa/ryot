@@ -1,19 +1,26 @@
 import { CurrentUser } from "@ryot-app/contract/auth-middleware";
 import { AppContract } from "@ryot-app/contract/contract";
-import type { DbError } from "@ryot-app/contract/errors";
+import { DbError } from "@ryot-app/contract/errors";
 import { ProviderEntityInternalError } from "@ryot-app/contract/modules/provider-entities/schemas";
 import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
 
+import { DatabaseSessionStateError } from "#lib/infrastructure/db/session";
+
 import { ProviderEntitySearchService } from "./search-service";
 import { EntityImportService } from "./service";
 
-const mapProviderEntityDbError = <A, E, R>(effect: Effect.Effect<A, E | DbError, R>) =>
+const mapProviderEntityDbError = <A, E, R>(
+	effect: Effect.Effect<A, E | DbError | DatabaseSessionStateError, R>,
+) =>
 	effect.pipe(
-		Effect.catchTag("DbError", (error) =>
-			Effect.logError("provider entity request failed", error).pipe(
-				Effect.andThen(new ProviderEntityInternalError({ reason: { code: "unexpected-error" } })),
-			),
+		Effect.catchIf(
+			(error): error is DbError | DatabaseSessionStateError =>
+				error instanceof DbError || error instanceof DatabaseSessionStateError,
+			(error) =>
+				Effect.logError("provider entity request failed", error).pipe(
+					Effect.andThen(new ProviderEntityInternalError({ reason: { code: "unexpected-error" } })),
+				),
 		),
 	);
 

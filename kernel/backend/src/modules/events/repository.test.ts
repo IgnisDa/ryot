@@ -2,7 +2,9 @@ import { expect, it } from "@effect/vitest";
 import { EntityId, EventId, EventSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { BackupRestorePersistence } from "#modules/backups/restore/persistence";
+import { restorePersistenceWithDatabase } from "#modules/backups/restore/persistence.test-support";
 
 import { BACKUP_EVENT_PAGE_SIZE, EventsRepository } from "./repository";
 
@@ -31,18 +33,11 @@ it.effect("restores archived events as one batched insert and skips empty batche
 	const batch = [restoreEventInput("event-1"), restoreEventInput("event-2")];
 
 	return Effect.gen(function* () {
-		const repository = yield* EventsRepository;
-		yield* repository.restoreEvents(batch);
-		yield* repository.restoreEvents([]);
+		const persistence = yield* BackupRestorePersistence;
+		yield* persistence.restoreEvents(batch);
+		yield* persistence.restoreEvents([]);
 		expect(inserts).toEqual([batch]);
-	}).pipe(
-		Effect.provide(
-			Layer.mergeAll(
-				EventsRepository.layer,
-				Layer.succeed(Database, Object.assign(Object.create(null), db)),
-			),
-		),
-	);
+	}).pipe(Effect.provide(restorePersistenceWithDatabase(db)));
 });
 
 it.effect("pages backup history by ID with a fixed bounded query size", () => {
@@ -84,9 +79,12 @@ it.effect("pages backup history by ID with a fixed bounded query size", () => {
 		expect(limits).toEqual(Array.from({ length: 20 }, () => BACKUP_EVENT_PAGE_SIZE));
 	}).pipe(
 		Effect.provide(
-			Layer.mergeAll(
-				EventsRepository.layer,
-				Layer.succeed(Database, Object.assign(Object.create(null), db)),
+			EventsRepository.layer.pipe(
+				Layer.provide(
+					Layer.mock(DatabaseSession)({
+						current: Effect.succeed(Object.assign(Object.create(null), db)),
+					}),
+				),
 			),
 		),
 	);

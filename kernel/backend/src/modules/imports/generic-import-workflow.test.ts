@@ -26,7 +26,6 @@ import { assert } from "vitest";
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
 import { rootLifecycleCommand, LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { Database } from "#lib/infrastructure/db/service";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
 import {
 	databaseLayer,
@@ -80,15 +79,7 @@ const providerOperationsLayer = Layer.mock(EntityImportWorkflowOperations)({
 	processProviderResolve: () => Effect.die("unexpected provider resolve"),
 	completeProviderEntityImport: () => Effect.die("unexpected provider completion"),
 });
-const transactionDatabaseLayer = Layer.succeed(
-	Database,
-	Database.of(
-		Object.assign(Object.create(null), {
-			transaction: ((callback) =>
-				callback(Object.create(null))) satisfies Database["Service"]["transaction"],
-		}),
-	),
-);
+const transactionDatabaseLayer = databaseLayer;
 const dispatchPlan = (triggerId: string) => ({
 	runs: [],
 	blockedReason: null,

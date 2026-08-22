@@ -25,7 +25,8 @@ import {
 import { lifecycleBatchTriggers } from "#lib/domain/lifecycle-batch";
 import { AppConfig } from "#lib/infrastructure/config/service";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 import { AutomationPlannerResolver } from "./planner-resolver";
 import { AutomationRunRepository } from "./run-repository";
@@ -65,12 +66,13 @@ const normalizeExclusions = (
 export const LifecyclePlannerLive = Layer.effect(
 	LifecyclePlanner,
 	Effect.gen(function* () {
+		const session = yield* DatabaseSession;
 		const resolver = yield* AutomationPlannerResolver;
 		const triggers = yield* AutomationTriggerRepository;
 		const runs = yield* AutomationRunRepository;
 		const { automations: limits } = yield* AppConfig;
 		const orderedRuns = Effect.fn(function* (values: ReadonlyArray<AutomationRun>) {
-			const db = yield* Database;
+			const db = yield* session.current;
 			const ids = [
 				...new Set(
 					values.flatMap((run) =>
@@ -121,7 +123,7 @@ export const LifecyclePlannerLive = Layer.effect(
 			trigger: AutomationTrigger;
 			recipients?: ReadonlyArray<UserId>;
 			excludedOncePerSubjectPolicies?: ReadonlyArray<Pick<AutomationRun, "pluginId" | "hookSlug">>;
-		}): Effect.fn.Return<LifecyclePlan, DbError, Database> {
+		}): Effect.fn.Return<LifecyclePlan, DbError> {
 			const suppliedTrigger = yield* decodeStoredSchema(
 				input.trigger,
 				AutomationTrigger,
@@ -182,7 +184,7 @@ export const LifecyclePlannerLive = Layer.effect(
 			}
 			const payload = trigger.payload;
 			yield* resolver.lockCatalog(signal ? recipients : [trigger.scopeUserId]);
-			const db = yield* Database;
+			const db = yield* session.current;
 			yield* mapDatabaseErrors(
 				db.execute(
 					sql`select pg_advisory_xact_lock(hashtext(${"automation-root:" + trigger.causation.rootExecutionId}))`,

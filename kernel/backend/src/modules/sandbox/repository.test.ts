@@ -7,7 +7,7 @@ import { Effect, Layer, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { SandboxPluginRevision } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 
 import { isWorkflowCallTargetKind, SandboxRepository } from "./repository";
@@ -104,15 +104,16 @@ const getPin = (
 		Effect.provide(
 			SandboxRepository.layer.pipe(
 				Layer.provideMerge(
-					Layer.succeed(
-						Database,
-						pinDatabase((table) => {
-							if (table === tables.pluginConfigRevision) {
-								return [storedConfig];
-							}
-							return row ? [row] : [];
-						}),
-					),
+					Layer.mock(DatabaseSession)({
+						current: Effect.succeed(
+							pinDatabase((table) => {
+								if (table === tables.pluginConfigRevision) {
+									return [storedConfig];
+								}
+								return row ? [row] : [];
+							}),
+						),
+					}),
 				),
 			),
 		),
@@ -231,7 +232,9 @@ effectIt.effect("resolves first-observed children from the pinned plugin revisio
 		}
 		return [selectedPinRow];
 	});
-	const layer = SandboxRepository.layer.pipe(Layer.provideMerge(Layer.succeed(Database, database)));
+	const layer = SandboxRepository.layer.pipe(
+		Layer.provideMerge(Layer.mock(DatabaseSession)({ current: Effect.succeed(database) })),
+	);
 
 	return Effect.gen(function* () {
 		const repository = yield* SandboxRepository;

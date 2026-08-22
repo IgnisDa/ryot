@@ -2,7 +2,6 @@ import type { DbError } from "@ryot-app/contract/errors";
 import type { AutomationRun } from "@ryot-app/contract/modules/automations/lifecycle";
 import { Context, DateTime, Effect, Layer } from "effect";
 
-import { Database } from "#lib/infrastructure/db/service";
 import type { CronTask } from "#modules/scheduler/types";
 
 import {
@@ -29,12 +28,10 @@ export const AutomationReconciliationOperationsLive = Layer.effect(
 	AutomationReconciliationOperations,
 	Effect.gen(function* () {
 		const repository = yield* AutomationRunRepository;
-		const database = yield* Database;
 		const execution = yield* AutomationExecutionOperations;
 		return AutomationReconciliationOperations.of({
 			submit: execution.submit,
-			listQueuedCandidates: (input) =>
-				repository.listQueuedCandidates(input).pipe(Effect.provideService(Database, database)),
+			listQueuedCandidates: (input) => repository.listQueuedCandidates(input),
 		});
 	}),
 );

@@ -1,4 +1,3 @@
-import { PgClient } from "@effect/sql-pg";
 import { DbError } from "@ryot-app/contract/errors";
 import {
 	AutomationEventDraft,
@@ -9,7 +8,7 @@ import {
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { CreateEventItem } from "@ryot-app/contract/modules/events/schemas";
 import type { EventId, UserId } from "@ryot-app/contract/schema/brands";
-import { Cause, Context, DateTime, Effect, Layer, Option, Schema } from "effect";
+import { Cause, Context, DateTime, Effect, Layer, Schema } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import {
@@ -21,7 +20,8 @@ import {
 } from "#lib/domain/lifecycle";
 import { lifecycleTrigger, LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { Database, mapDatabaseErrors, retryOnDeadlock } from "#lib/infrastructure/db/service";
+import { retryOnDeadlock } from "#lib/infrastructure/db/service";
+import { DatabaseSession, DatabaseSessionStateError } from "#lib/infrastructure/db/session";
 
 import { enqueueEventCreate } from "./event-create-workflow";
 import {
@@ -52,15 +52,6 @@ export type PreparedEventDelete = {
 	readonly [preparedEventDelete]: Extract<PreparedEventMutationData, { operation: "delete" }>;
 };
 
-const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
-	Effect.gen(function* () {
-		const database = yield* Database;
-		return yield* retryOnDeadlock(
-			mapDatabaseErrors(
-				database.transaction((tx) => work.pipe(Effect.provideService(Database, tx))),
-			),
-		);
-	});
 const eventDraft = ({
 	id: _id,
 	createdAt: _createdAt,
@@ -72,22 +63,32 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 	make: Effect.gen(function* () {
 		const engine = yield* WorkflowEngine;
 		const repository = yield* EventsRepository;
-		const assertRootTransaction = Effect.gen(function* () {
-			const client = yield* PgClient.PgClient;
-			if (Option.isSome(yield* Effect.serviceOption(client.transactionService))) {
-				return yield* new DbError({
-					message: "Event lifecycle mutations require a root transaction boundary",
-				});
-			}
-			return undefined;
-		});
-		const assertActiveTransaction = Effect.gen(function* () {
-			const client = yield* PgClient.PgClient;
-			if (Option.isNone(yield* Effect.serviceOption(client.transactionService))) {
-				return yield* new LifecyclePersistenceError({ code: "active-transaction-required" });
-			}
-			return undefined;
-		});
+		const session = yield* DatabaseSession;
+		const planner = yield* LifecyclePlanner;
+		const execution = yield* LifecycleExecution;
+		const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
+			retryOnDeadlock(
+				session
+					.transaction(work)
+					.pipe(
+						Effect.mapError((error) =>
+							error instanceof DatabaseSessionStateError
+								? new DbError({
+										message: "Event lifecycle mutations require a root transaction boundary",
+									})
+								: error,
+						),
+					),
+			);
+		const assertRootTransaction = session.requireRoot.pipe(
+			Effect.mapError(
+				() =>
+					new DbError({ message: "Event lifecycle mutations require a root transaction boundary" }),
+			),
+		);
+		const assertActiveTransaction = session.requireTransaction.pipe(
+			Effect.mapError(() => new LifecyclePersistenceError({ code: "active-transaction-required" })),
+		);
 		const create = Effect.fn("EventsService.create")(function* (
 			input: { readonly userId: UserId; readonly payload: ReadonlyArray<CreateEventItem> },
 			command: LifecycleCommand,
@@ -106,8 +107,6 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			move?: UpdateEventEntityReferencesInput,
 		) {
 			yield* assertRootTransaction;
-			const planner = yield* LifecyclePlanner;
-			const execution = yield* LifecycleExecution;
 			const command = yield* Schema.decodeEffect(LifecycleCommand)(commandInput).pipe(
 				Effect.mapError(() => new DbError({ message: "Invalid event lifecycle command" })),
 			);
@@ -216,7 +215,6 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 
 		const persist = Effect.fnUntraced(function* (prepared: PreparedEventMutationData) {
 			yield* assertActiveTransaction;
-			const planner = yield* LifecyclePlanner;
 			let eventId: EventId;
 			let change: AutomationEventChangePayload;
 			if (prepared.operation === "update") {
@@ -283,11 +281,9 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			command: LifecycleCommand,
 			persisted: Effect.Effect<
 				CommittedLifecycleWork<EventId>,
-				Effect.Error<ReturnType<typeof persist>>,
-				Effect.Services<ReturnType<typeof persist>>
+				Effect.Error<ReturnType<typeof persist>>
 			>,
 		) {
-			const planner = yield* LifecyclePlanner;
 			const work = yield* persisted;
 			const batch = yield* planner.planBatch({
 				command,
@@ -302,23 +298,21 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			command: LifecycleCommand,
 			move?: UpdateEventEntityReferencesInput,
 		) {
-			const work = move
-				? yield* Effect.gen(function* () {
-						const prepared = yield* prepareUpdate(move, command);
-						return prepared
-							? yield* transaction(withBatch(command, persistPreparedUpdate(prepared)))
-							: null;
-					})
-				: yield* Effect.gen(function* () {
-						const prepared = yield* prepareDelete(input, command);
-						return prepared
-							? yield* transaction(withBatch(command, persistPreparedDelete(prepared)))
-							: null;
-					});
+			let work: CommittedLifecycleWork<EventId> | null;
+			if (move) {
+				const prepared = yield* prepareUpdate(move, command);
+				work = prepared
+					? yield* transaction(withBatch(command, persistPreparedUpdate(prepared)))
+					: null;
+			} else {
+				const prepared = yield* prepareDelete(input, command);
+				work = prepared
+					? yield* transaction(withBatch(command, persistPreparedDelete(prepared)))
+					: null;
+			}
 			if (!work) {
 				return { eventId: null, warnings: [] as AutomationWarning[] };
 			}
-			const execution = yield* LifecycleExecution;
 			return {
 				eventId: work.result,
 				warnings: yield* execution.dispatch(work.plans.map(toLifecycleDispatchPlan)),

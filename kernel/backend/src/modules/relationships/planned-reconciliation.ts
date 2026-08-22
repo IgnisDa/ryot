@@ -40,13 +40,13 @@ import {
 
 /** Provider population reconciliation, persisted inside the caller's active transaction. */
 export const makePlannedRelationshipReconciliation = ({
-	client,
+	session,
 	planner,
 	runtime,
 	repository,
 	definitions,
 }: Omit<RelationshipMutationDependencies, "execution">) => {
-	const assertActiveTransaction = activeTransactionGuard(client);
+	const assertActiveTransaction = activeTransactionGuard(session);
 	const persistPlannedReconciliation = Effect.fn(
 		"RelationshipsService.persistPlannedReconciliation",
 	)(function* (

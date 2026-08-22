@@ -1,18 +1,14 @@
 import type { ListedSavedView } from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginSlug, SavedViewId, type UserId } from "@ryot-app/contract/schema/brands";
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 
-type SavedViewRow = typeof schema.savedView.$inferSelect;
 type ListedSavedViewRow = typeof schema.userSavedViewEffective.$inferSelect;
-
-type RestoreCustomSavedViewInput = Omit<
-	SavedViewRow,
-	"userId" | "revision" | "pluginInstallationId"
-> & { readonly userId: UserId; readonly pluginInstallationId?: string | null | undefined };
 
 type CreateSavedViewInput = {
 	readonly slug: string;
@@ -71,11 +67,12 @@ const withSavedViewScope = (pluginInstallationId?: string) =>
 export class SavedViewsRepository extends Context.Service<SavedViewsRepository>()(
 	"SavedViewsRepository",
 	{
-		make: Effect.sync(() => {
+		make: Effect.gen(function* () {
+			const session = yield* DatabaseSession;
 			const hasCustomInstallationReferences = Effect.fn(
 				"SavedViewsRepository.hasCustomInstallationReferences",
 			)(function* (userId: UserId, pluginInstallationId: string) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({ id: schema.savedView.id })
@@ -94,7 +91,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 			const listForBackup = Effect.fn("SavedViewsRepository.listForBackup")(function* (
 				userId: UserId,
 			) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const rows = yield* mapDatabaseErrors(
 					db
 						.select()
@@ -107,21 +104,11 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				);
 			});
 
-			const restoreCustomView = Effect.fn("SavedViewsRepository.restoreCustomView")(function* (
-				input: RestoreCustomSavedViewInput,
-			) {
-				const db = yield* Database;
-				const [row] = yield* mapDatabaseErrors(
-					db.insert(schema.savedView).values(input).returning({ slug: schema.savedView.slug }),
-				);
-				return row ? yield* findBySlug(input.userId, row.slug) : null;
-			});
-
 			const listByUser = Effect.fn("SavedViewsRepository.listByUser")(function* (
 				userId: UserId,
 				input: { pluginInstallationId?: string | undefined; includeDisabled: boolean },
 			) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const clauses = [eq(schema.userSavedViewEffective.userId, userId)];
 
 				if (!input.includeDisabled) {
@@ -153,7 +140,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				userId: UserId,
 				viewSlug: string,
 			) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select()
@@ -179,7 +166,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				userId: UserId,
 				viewSlug: string,
 			) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({ id: schema.savedView.id })
@@ -196,7 +183,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				userId: UserId,
 				input: CreateSavedViewInput,
 			) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const [orderRow] = yield* mapDatabaseErrors(
 					db
 						.select({ maxSortOrder: sql<number>`coalesce(max(${schema.savedView.sortOrder}), -1)` })
@@ -236,10 +223,10 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				data: UpdateSavedViewData,
 				currentPluginInstallationId: string | null,
 			) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				let sortOrder = data.sortOrder;
 				if (sortOrder === undefined && currentPluginInstallationId !== data.pluginInstallationId) {
-					sortOrder = yield* getNextSortOrder(userId, data.pluginInstallationId);
+					sortOrder = yield* getNextSortOrder(db, userId, data.pluginInstallationId);
 				}
 
 				const [row] = yield* mapDatabaseErrors(
@@ -269,7 +256,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				isDisabled: boolean,
 				sortOrder: number,
 			) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const current = yield* findBySlug(userId, viewSlug);
 				if (!current?.isBuiltin) {
 					return null;
@@ -324,7 +311,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				pluginInstallationId: string | null,
 				viewSlugs: ReadonlyArray<string>,
 			) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				let updated = 0;
 				for (const [sortOrder, slug] of viewSlugs.entries()) {
 					const view = yield* findBySlug(userId, slug);
@@ -359,7 +346,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				userId: UserId,
 				viewSlug: string,
 			) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.delete(schema.savedView)
@@ -380,7 +367,6 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				listForBackup,
 				reorderBySlugs,
 				setBuiltinState,
-				restoreCustomView,
 				hasCustomInstallationReferences,
 			};
 		}),
@@ -389,8 +375,11 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 	static readonly layer = Layer.effect(this, this.make);
 }
 
-const getNextSortOrder = Effect.fn(function* (userId: UserId, pluginInstallationId: string | null) {
-	const db = yield* Database;
+const getNextSortOrder = Effect.fn(function* (
+	db: EffectPgDatabase,
+	userId: UserId,
+	pluginInstallationId: string | null,
+) {
 	const [orderRow] = yield* mapDatabaseErrors(
 		db
 			.select({

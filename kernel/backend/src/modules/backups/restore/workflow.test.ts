@@ -3,11 +3,13 @@ import { expect, it } from "@effect/vitest";
 import { BadRequest } from "@ryot-app/contract/errors";
 import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { CryptoHasher } from "bun";
+import { sql } from "drizzle-orm";
 import { Effect, FileSystem, Layer, Stream } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import {
+	databaseLayer,
 	makeAppConfigLayer,
 	makeWorkflowActivityEngine,
 	type MockOverrides,
@@ -56,7 +58,6 @@ const mockObjectStorage = Layer.mock(ObjectStorageService);
 const mockCleanliness = Layer.mock(BackupAccountCleanliness);
 
 const makeLayer = (input: {
-	database?: object;
 	writer?: MockOverrides<typeof mockWriter>;
 	fileSystem?: Layer.Layer<FileSystem.FileSystem>;
 	repository: MockOverrides<typeof mockRepository>;
@@ -67,11 +68,11 @@ const makeLayer = (input: {
 	objectStorage?: MockOverrides<typeof mockObjectStorage>;
 }) =>
 	RestoreBackupWorkflowOperationsLive.pipe(
-		Layer.provide(
+		Layer.provideMerge(
 			Layer.mergeAll(
 				input.fileSystem ?? BunFileSystem.layer,
 				makeAppConfigLayer({ fileStorage: { localTempDir } }),
-				Layer.succeed(Database, Object.assign(Object.create(null), input.database ?? {})),
+				databaseLayer,
 				mockRepository(input.repository),
 				mockWriter(input.writer ?? {}),
 				mockCleanliness(input.cleanliness ?? {}),
@@ -199,7 +200,6 @@ it.effect("completes before best-effort temporary cleanup", () => {
 });
 
 it.effect("keeps a committed restore successful when spool cleanup fails", () => {
-	let committed = false;
 	const archive = createArchiveStream({
 		assets: [],
 		redactions: [],
@@ -234,7 +234,6 @@ it.effect("keeps a committed restore successful when spool cleanup fails", () =>
 			intentId: "intent-id",
 			key: "temporary/archive.zip",
 		});
-		expect(committed).toBe(true);
 	}).pipe(
 		Effect.provide(
 			makeLayer({
@@ -255,12 +254,6 @@ it.effect("keeps a committed restore successful when spool cleanup fails", () =>
 							archive.pipe(
 								Stream.mapError(() => new BadRequest({ message: "archive stream failed" })),
 							),
-						),
-				},
-				database: {
-					transaction: (run: (transaction: object) => Effect.Effect<void, unknown, unknown>) =>
-						run(Object.assign(Object.create(null), { execute: () => Effect.void })).pipe(
-							Effect.tap(() => Effect.sync(() => void (committed = true))),
 						),
 				},
 			}),
@@ -315,7 +308,6 @@ it.effect("stops before plugin persistence and asset staging when package prefli
 			makeLayer({
 				repository: { getRunById: () => Effect.succeed(runningRun) },
 				writer: { assertRequiredPlugins: () => Effect.succeed(new Map()) },
-				database: { transaction: () => Effect.die("preflight failure reached persistence") },
 				objectStorage: {
 					openObject: () =>
 						Effect.succeed(
@@ -386,8 +378,8 @@ it.effect("rolls back managed assets and domain rows and removes newly staged ob
 	const asset = new TextEncoder().encode("restore asset");
 	const sha256 = new CryptoHasher("sha256").update(asset).digest("hex");
 	const objects = new Set<string>();
-	const managedAssets = new Set<string>();
-	const domainRows = new Set<string>();
+	const schema = `restore_rollback_${crypto.randomUUID().replaceAll("-", "")}`;
+	let transactionSession: DatabaseSession["Service"];
 	const createdAt = new Date(0);
 	const archive = createArchiveStream({
 		redactions: [],
@@ -419,40 +411,37 @@ it.effect("rolls back managed assets and domain rows and removes newly staged ob
 			profile: { image: null, name: "User", preferences: {} },
 		},
 	});
-	const database = {
-		transaction: (run: (transaction: object) => Effect.Effect<unknown, unknown, unknown>) => {
-			const managedSnapshot = new Set(managedAssets);
-			const domainSnapshot = new Set(domainRows);
-			return run(Object.assign(Object.create(null), { execute: () => Effect.void })).pipe(
-				Effect.tapError(() =>
-					Effect.sync(() => {
-						managedAssets.clear();
-						domainRows.clear();
-						for (const value of managedSnapshot) {
-							managedAssets.add(value);
-						}
-						for (const value of domainSnapshot) {
-							domainRows.add(value);
-						}
-					}),
-				),
-			);
-		},
-	};
 
 	return Effect.gen(function* () {
+		const session = yield* DatabaseSession;
+		transactionSession = session;
+		const db = yield* session.current;
+		yield* db.execute(sql`create schema ${sql.identifier(schema)}`);
+		yield* db.execute(
+			sql`create table ${sql.identifier(schema)}.restore_row (id text primary key)`,
+		);
 		const operations = yield* RestoreBackupWorkflowOperations;
 		const error = yield* operations
 			.restore(payload, { provider: "local", intentId: "intent-id", key: "temporary/archive.zip" })
 			.pipe(Effect.flip);
 		expect(error.failure).toEqual({ issue: "invalid-entry", code: "archive-invalid" });
-		expect([...managedAssets]).toEqual([]);
-		expect([...domainRows]).toEqual([]);
+		const rows = yield* db
+			.select({ id: sql<string>`id` })
+			.from(sql`${sql.identifier(schema)}.restore_row`);
+		expect(rows).toHaveLength(0);
 		expect([...objects]).toEqual([]);
 	}).pipe(
+		Effect.ensuring(
+			Effect.flatMap(DatabaseSession, (session) =>
+				Effect.flatMap(session.current, (db) =>
+					db
+						.execute(sql`drop schema if exists ${sql.identifier(schema)} cascade`)
+						.pipe(Effect.orDie),
+				),
+			),
+		),
 		Effect.provide(
 			makeLayer({
-				database,
 				cleanliness: { assertAccountIsClean: () => Effect.void.pipe(Effect.as(undefined)) },
 				repository: {
 					getRunById: () => Effect.succeed(runningRun),
@@ -470,28 +459,46 @@ it.effect("rolls back managed assets and domain rows and removes newly staged ob
 				writer: {
 					assertRequiredPlugins: () => Effect.succeed(new Map()),
 					restoreRecords: () =>
-						Effect.sync(() => domainRows.add("domain-row")).pipe(
-							Effect.andThen(
-								Effect.fail(new BadRequest({ message: "Crafted restore row is invalid" })),
-							),
-						),
+						Effect.gen(function* () {
+							const db = yield* transactionSession.current;
+							yield* db
+								.execute(
+									sql`insert into ${sql.identifier(schema)}.restore_row (id) values ('domain-row')`,
+								)
+								.pipe(Effect.orDie);
+							return yield* new BadRequest({ message: "Crafted restore row is invalid" });
+						}),
 				},
 				managedAssets: {
 					registerManagedAssetInLockedTransaction: (metadata) =>
-						Effect.sync(() => {
-							managedAssets.add(metadata.key);
+						Effect.gen(function* () {
+							const db = yield* transactionSession.current;
+							yield* db
+								.execute(
+									sql`insert into ${sql.identifier(schema)}.restore_row (id) values ('managed-asset')`,
+								)
+								.pipe(Effect.orDie);
 							return { ...metadata, createdAt };
 						}),
 					cleanupStagedPermanentAsset: (staged) =>
-						Effect.sync(() => {
-							if (!managedAssets.has(staged.locator.key)) {
+						Effect.gen(function* () {
+							const db = yield* transactionSession.current;
+							const rows = yield* db
+								.select({ id: sql<string>`id` })
+								.from(sql`${sql.identifier(schema)}.restore_row`)
+								.where(sql`id = 'managed-asset'`)
+								.pipe(Effect.orDie);
+							if (rows.length === 0) {
 								objects.delete(staged.locator.key);
 							}
 						}),
 					stageContentAddressedPermanentAsset: (input) => {
 						const { stream, ...metadata } = input;
-						return Stream.runDrain(stream).pipe(
-							Effect.mapError(() => new BadRequest({ message: "asset stream failed" })),
+						return Stream.runDrain(
+							stream.pipe(
+								Stream.mapError(() => new BadRequest({ message: "asset stream failed" })),
+							),
+						).pipe(
 							Effect.as({
 								created: true,
 								metadata: { ...metadata, key: `permanent/${input.sha256}.bin` },

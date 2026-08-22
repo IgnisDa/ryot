@@ -2,7 +2,7 @@ import { DbError } from "@ryot-app/contract/errors";
 import { Context, DateTime, Duration, Effect, Layer } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { ScriptGarbageCollector } from "#modules/plugins/script-garbage-collector";
 
 import { AutomationAttemptRepository } from "./attempt-repository";
@@ -13,6 +13,7 @@ export class AutomationRetention extends Context.Service<AutomationRetention>()(
 	"AutomationRetention",
 	{
 		make: Effect.gen(function* () {
+			const session = yield* DatabaseSession;
 			const config = yield* AppConfig;
 			const runs = yield* AutomationRunRepository;
 			const attempts = yield* AutomationAttemptRepository;
@@ -34,9 +35,8 @@ export class AutomationRetention extends Context.Service<AutomationRetention>()(
 						Duration.days(config.automations.historyRetentionDays),
 					),
 				);
-				const database = yield* Database;
-				const prunedTriggers = yield* mapDatabaseErrors(
-					database.transaction((transaction) =>
+				const prunedTriggers = yield* session
+					.transaction(
 						Effect.gen(function* () {
 							const pruned = yield* triggers.prunePayloads({
 								limit,
@@ -45,9 +45,17 @@ export class AutomationRetention extends Context.Service<AutomationRetention>()(
 							});
 							yield* runs.clearHistoryPayloads(pruned.map(({ id }) => id));
 							return pruned;
-						}).pipe(Effect.provideService(Database, transaction)),
-					),
-				);
+						}),
+					)
+					.pipe(
+						Effect.catchTag(
+							"DatabaseSessionStateError",
+							(error) =>
+								new DbError({
+									message: `Automation retention requires a root transaction: ${error.reason}`,
+								}),
+						),
+					);
 				const prunedAttempts = yield* attempts.pruneArtifacts({
 					limit,
 					prunedAt: now,

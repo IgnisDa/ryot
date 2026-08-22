@@ -439,15 +439,15 @@ const validateGenericItem = (
 		}).pipe(Effect.mapError(toWorkflowError)),
 	});
 
-const runImportWriteStep = <Result, Pending, R1, R2, R3>(options: {
+const runImportWriteStep = <Result, Pending, E1, E2, E3, R1, R2, R3>(options: {
 	readonly name: string;
 	readonly result: Schema.Codec<Result, unknown>;
 	readonly pending: Schema.Codec<Pending, unknown>;
-	readonly prepare: Effect.Effect<LifecyclePreparedStep<Result, Pending>, unknown, R1>;
-	readonly applyPolicies: (pending: Pending) => Effect.Effect<Pending, unknown, R2>;
+	readonly prepare: Effect.Effect<LifecyclePreparedStep<Result, Pending>, E1, R1>;
+	readonly applyPolicies: (pending: Pending) => Effect.Effect<Pending, E2, R2>;
 	readonly commit: (
 		pending: Pending,
-	) => Effect.Effect<LifecyclePreparedStep<Result, Pending>, unknown, R3>;
+	) => Effect.Effect<LifecyclePreparedStep<Result, Pending>, E3, R3>;
 }) =>
 	runLifecycleWriteStep({
 		name: options.name,

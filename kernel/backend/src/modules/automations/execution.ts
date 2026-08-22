@@ -1,7 +1,6 @@
-import { PgClient } from "@effect/sql-pg";
 import type { DbError } from "@ryot-app/contract/errors";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
-import { Cause, Clock, Context, Duration, Effect, Layer, Option } from "effect";
+import { Cause, Clock, Context, Duration, Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { LifecyclePersistenceError } from "#lib/domain/lifecycle";
@@ -9,7 +8,7 @@ import {
 	AutomationPolicyExecutionError,
 	LifecycleExecution,
 } from "#lib/domain/lifecycle-execution";
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import { ActivityBody } from "#lib/infrastructure/workflow-scope";
 
@@ -40,10 +39,8 @@ export const AutomationExecutionOperationsLive = Layer.effect(
 	Effect.gen(function* () {
 		const engine = yield* WorkflowEngine;
 		const runs = yield* AutomationRunRepository;
-		const database = yield* Database;
 		return AutomationExecutionOperations.of({
-			skipQueuedPolicies: (input) =>
-				runs.skipQueuedPolicies(input).pipe(Effect.provideService(Database, database)),
+			skipQueuedPolicies: (input) => runs.skipQueuedPolicies(input),
 			execute: (payload) =>
 				engine.execute(AutomationRunWorkflow, {
 					payload,
@@ -72,7 +69,7 @@ export const LifecycleExecutionLive = Layer.effect(
 	LifecycleExecution,
 	Effect.gen(function* () {
 		const operations = yield* AutomationExecutionOperations;
-		const sqlClient = yield* PgClient.PgClient;
+		const session = yield* DatabaseSession;
 		const after: LifecycleExecution["Service"]["after"] = ({ runs, triggerId }) =>
 			Effect.gen(function* () {
 				yield* requireWorkflowBody("after");
@@ -141,9 +138,11 @@ export const LifecycleExecutionLive = Layer.effect(
 			skipQueuedPolicies: operations.skipQueuedPolicies,
 			dispatch: (plans) =>
 				Effect.gen(function* () {
-					if (Option.isSome(yield* Effect.serviceOption(sqlClient.transactionService))) {
-						return yield* new LifecyclePersistenceError({ code: "postcommit-requires-root" });
-					}
+					yield* session.requireRoot.pipe(
+						Effect.mapError(
+							() => new LifecyclePersistenceError({ code: "postcommit-requires-root" }),
+						),
+					);
 					const warnings: AutomationWarning[] = [];
 					for (const plan of plans) {
 						if (plan.blockedReason?.hasRequiredHooks) {

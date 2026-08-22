@@ -9,7 +9,8 @@ import { and, eq, isNull, or } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 
 type CollectionRow = Pick<
@@ -50,6 +51,7 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 	"CollectionsRepository",
 	{
 		make: Effect.gen(function* () {
+			const session = yield* DatabaseSession;
 			const definitions = yield* DefinitionRepository;
 			const getBuiltinCollectionSchema = Effect.fn(
 				"CollectionsRepository.getBuiltinCollectionSchema",
@@ -67,7 +69,7 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 			const findCollectionByNameForUser = Effect.fn(
 				"CollectionsRepository.findCollectionByNameForUser",
 			)(function* (input: { name: string; userId: UserId; entitySchemaSlug: EntitySchemaSlug }) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select(collectionSelection)
@@ -91,7 +93,7 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 				collectionId: EntityId,
 				userId: UserId,
 			) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select(collectionSelection)
@@ -111,7 +113,7 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 
 			const getEntityForMembership = Effect.fn("CollectionsRepository.getEntityForMembership")(
 				function* (entityId: EntityId, userId: UserId) {
-					const db = yield* Database;
+					const db = yield* session.current;
 					const [row] = yield* mapDatabaseErrors(
 						db
 							.select({

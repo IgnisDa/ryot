@@ -17,7 +17,8 @@ import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/Workf
 import type { LifecyclePlan } from "#lib/domain/lifecycle";
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { Database } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { RedisService } from "#lib/infrastructure/redis";
 import {
 	makeMemoizingWorkflowEngine,
@@ -113,15 +114,10 @@ const payload = {
 	entityScope: { userId, type: "global" as const },
 };
 
-const passthroughDatabase = Layer.succeed(
-	Database,
-	Database.of(
-		Object.assign(Object.create(null), {
-			transaction: ((body) =>
-				body(Object.create(null))) satisfies Database["Service"]["transaction"],
-		}),
-	),
-);
+const passthroughDatabase = Layer.mock(DatabaseSession)({
+	current: Effect.succeed(Object.create(null)),
+	transaction: (work) => mapDatabaseErrors(work),
+});
 
 const sandboxResult = {
 	logs: [],

@@ -1,4 +1,3 @@
-import { PgClient } from "@effect/sql-pg";
 import {
 	AutomationExecutionId,
 	EntityId,
@@ -15,7 +14,7 @@ import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import type { AppConfig } from "#lib/infrastructure/config/service";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, DatabaseLive } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
 import { withLifecycleDispatch } from "#modules/automations/lifecycle.test-support";
@@ -67,8 +66,7 @@ export const command = (id: string) =>
 	});
 
 type Services =
-	| Database
-	| PgClient.PgClient
+	| DatabaseSession
 	| RelationshipsService
 	| EntitiesService
 	| RelationshipsRepository
@@ -120,15 +118,13 @@ export const withRelationshipDatabase = <E>(
 				}),
 				(client) => Effect.promise(() => client.end()),
 			);
-			yield* Effect.gen(function* () {
-				const directory = new URL("../../drizzle/", import.meta.url).pathname;
-				const paths = [...new Bun.Glob("*/migration.sql").scanSync({ cwd: directory })];
-				assert(paths.length === 1);
-				const ddl = yield* Effect.tryPromise(() => Bun.file(directory + paths[0]).text());
-				for (const statement of ddl.split("--> statement-breakpoint")) {
-					yield* Effect.tryPromise(() => observer.query(statement));
-				}
-			});
+			const directory = new URL("../../drizzle/", import.meta.url).pathname;
+			const paths = [...new Bun.Glob("*/migration.sql").scanSync({ cwd: directory })];
+			assert(paths.length === 1);
+			const ddl = yield* Effect.tryPromise(() => Bun.file(directory + paths[0]).text());
+			for (const statement of ddl.split("--> statement-breakpoint")) {
+				yield* Effect.tryPromise(() => observer.query(statement));
+			}
 			const config = makeAppConfigLayer({ database: { url: Redacted.make(scopedUrl.toString()) } });
 			const relationshipSchema = {
 				name: "Link",
@@ -214,17 +210,15 @@ export const withRelationshipDatabase = <E>(
 					Layer.effect(
 						LifecycleExecution,
 						Effect.gen(function* () {
-							const database = yield* Database;
-							const client = yield* PgClient.PgClient;
+							const session = yield* DatabaseSession;
 							const runs = yield* AutomationRunRepository.make;
 							return withLifecycleDispatch(
 								{
 									after: () => Effect.succeed([]),
+									skipQueuedPolicies: (input) => runs.skipQueuedPolicies(input),
 									executePolicy: () => Effect.die("Unexpected policy in relationship fixture"),
-									skipQueuedPolicies: (input) =>
-										runs.skipQueuedPolicies(input).pipe(Effect.provideService(Database, database)),
 								},
-								client,
+								session,
 							);
 						}),
 					),
@@ -232,11 +226,11 @@ export const withRelationshipDatabase = <E>(
 			);
 			const services = Layer.mergeAll(RelationshipsService.layer, EntitiesService.layer).pipe(
 				Layer.provideMerge(ownerDependencies),
-				Layer.provideMerge(DatabaseLive),
+				Layer.provideMerge(DatabaseSession.layer),
 				Layer.provideMerge(config),
 			);
 			yield* Effect.gen(function* () {
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				yield* (yield* DefinitionRepository.make).replaceKernelDefinitions(source);
 				yield* db
 					.insert(tables.user)

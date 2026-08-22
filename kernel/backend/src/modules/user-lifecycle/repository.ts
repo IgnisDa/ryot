@@ -16,7 +16,8 @@ import * as backupSchema from "#lib/infrastructure/db/schema/tables/backups";
 import * as coreSchema from "#lib/infrastructure/db/schema/tables/core";
 import * as uploadSchema from "#lib/infrastructure/db/schema/tables/uploads";
 import * as lifecycleSchema from "#lib/infrastructure/db/schema/tables/user-lifecycle";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { acquireUserWriteLock } from "#lib/infrastructure/db/user-write-lock";
 
 const LifecycleMetadata = Schema.Struct({
@@ -70,108 +71,107 @@ const activeStatus = inArray(lifecycleSchema.userLifecycleOperation.status, ["pe
 export class UserLifecycleRepository extends Context.Service<UserLifecycleRepository>()(
 	"UserLifecycleRepository",
 	{
-		make: Effect.sync(() => {
+		make: Effect.gen(function* () {
+			const database = yield* DatabaseSession;
 			const deleteUserData = Effect.fn("UserLifecycleRepository.deleteUserData")(function* (
 				userId: UserId,
 			) {
-				const database = yield* Database;
-				yield* mapDatabaseErrors(
-					database.transaction((db) =>
-						Effect.gen(function* () {
-							const privatePluginIds = db
-								.select({ id: coreSchema.plugin.id })
-								.from(coreSchema.plugin)
-								.where(eq(coreSchema.plugin.ownerId, userId));
-							const ownedRun = or(
-								eq(automationSchema.automationRun.executionUserId, userId),
-								inArray(automationSchema.automationRun.pluginId, privatePluginIds),
-							);
-							const [scopedTriggers, recipientTriggers, runTriggers] = yield* Effect.all([
-								db
-									.select({ id: automationSchema.automationTrigger.id })
-									.from(automationSchema.automationTrigger)
-									.where(eq(automationSchema.automationTrigger.scopeUserId, userId)),
-								db
-									.select({ id: automationSchema.automationTriggerRecipient.triggerId })
-									.from(automationSchema.automationTriggerRecipient)
-									.where(eq(automationSchema.automationTriggerRecipient.userId, userId)),
-								db
-									.select({ id: automationSchema.automationRun.triggerId })
-									.from(automationSchema.automationRun)
-									.where(ownedRun),
-							]);
-							const triggerIds = [
-								...new Set(
-									[...scopedTriggers, ...recipientTriggers, ...runTriggers].map(({ id }) => id),
+				yield* database.transaction(
+					Effect.gen(function* () {
+						const db = yield* database.current;
+						const privatePluginIds = db
+							.select({ id: coreSchema.plugin.id })
+							.from(coreSchema.plugin)
+							.where(eq(coreSchema.plugin.ownerId, userId));
+						const ownedRun = or(
+							eq(automationSchema.automationRun.executionUserId, userId),
+							inArray(automationSchema.automationRun.pluginId, privatePluginIds),
+						);
+						const [scopedTriggers, recipientTriggers, runTriggers] = yield* Effect.all([
+							db
+								.select({ id: automationSchema.automationTrigger.id })
+								.from(automationSchema.automationTrigger)
+								.where(eq(automationSchema.automationTrigger.scopeUserId, userId)),
+							db
+								.select({ id: automationSchema.automationTriggerRecipient.triggerId })
+								.from(automationSchema.automationTriggerRecipient)
+								.where(eq(automationSchema.automationTriggerRecipient.userId, userId)),
+							db
+								.select({ id: automationSchema.automationRun.triggerId })
+								.from(automationSchema.automationRun)
+								.where(ownedRun),
+						]);
+						const triggerIds = [
+							...new Set(
+								[...scopedTriggers, ...recipientTriggers, ...runTriggers].map(({ id }) => id),
+							),
+						];
+
+						yield* db.delete(automationSchema.automationRun).where(ownedRun);
+						yield* db
+							.delete(automationSchema.automationTriggerRecipient)
+							.where(eq(automationSchema.automationTriggerRecipient.userId, userId));
+						yield* db
+							.update(automationSchema.automationTrigger)
+							.set({ scopeUserId: null })
+							.where(eq(automationSchema.automationTrigger.scopeUserId, userId));
+
+						const installationIds = db
+							.select({ id: coreSchema.pluginInstallation.id })
+							.from(coreSchema.pluginInstallation)
+							.where(eq(coreSchema.pluginInstallation.userId, userId));
+						yield* db
+							.delete(coreSchema.sandboxWorkflowReference)
+							.where(
+								or(
+									inArray(coreSchema.sandboxWorkflowReference.pluginId, privatePluginIds),
+									inArray(
+										coreSchema.sandboxWorkflowReference.pluginInstallationId,
+										installationIds,
+									),
 								),
-							];
+							);
+						yield* db.delete(authSchema.user).where(eq(authSchema.user.id, userId));
 
-							yield* db.delete(automationSchema.automationRun).where(ownedRun);
+						if (triggerIds.length > 0) {
 							yield* db
-								.delete(automationSchema.automationTriggerRecipient)
-								.where(eq(automationSchema.automationTriggerRecipient.userId, userId));
-							yield* db
-								.update(automationSchema.automationTrigger)
-								.set({ scopeUserId: null })
-								.where(eq(automationSchema.automationTrigger.scopeUserId, userId));
-
-							const installationIds = db
-								.select({ id: coreSchema.pluginInstallation.id })
-								.from(coreSchema.pluginInstallation)
-								.where(eq(coreSchema.pluginInstallation.userId, userId));
-							yield* db
-								.delete(coreSchema.sandboxWorkflowReference)
+								.delete(automationSchema.automationTrigger)
 								.where(
-									or(
-										inArray(coreSchema.sandboxWorkflowReference.pluginId, privatePluginIds),
-										inArray(
-											coreSchema.sandboxWorkflowReference.pluginInstallationId,
-											installationIds,
+									and(
+										inArray(automationSchema.automationTrigger.id, triggerIds),
+										notExists(
+											db
+												.select({ id: automationSchema.automationRun.id })
+												.from(automationSchema.automationRun)
+												.where(
+													eq(
+														automationSchema.automationRun.triggerId,
+														automationSchema.automationTrigger.id,
+													),
+												),
+										),
+										notExists(
+											db
+												.select({ userId: automationSchema.automationTriggerRecipient.userId })
+												.from(automationSchema.automationTriggerRecipient)
+												.where(
+													eq(
+														automationSchema.automationTriggerRecipient.triggerId,
+														automationSchema.automationTrigger.id,
+													),
+												),
 										),
 									),
 								);
-							yield* db.delete(authSchema.user).where(eq(authSchema.user.id, userId));
-
-							if (triggerIds.length > 0) {
-								yield* db
-									.delete(automationSchema.automationTrigger)
-									.where(
-										and(
-											inArray(automationSchema.automationTrigger.id, triggerIds),
-											notExists(
-												db
-													.select({ id: automationSchema.automationRun.id })
-													.from(automationSchema.automationRun)
-													.where(
-														eq(
-															automationSchema.automationRun.triggerId,
-															automationSchema.automationTrigger.id,
-														),
-													),
-											),
-											notExists(
-												db
-													.select({ userId: automationSchema.automationTriggerRecipient.userId })
-													.from(automationSchema.automationTriggerRecipient)
-													.where(
-														eq(
-															automationSchema.automationTriggerRecipient.triggerId,
-															automationSchema.automationTrigger.id,
-														),
-													),
-											),
-										),
-									);
-							}
-						}),
-					),
+						}
+					}),
 				);
 			});
 
 			const getActiveByUserId = Effect.fn("UserLifecycleRepository.getActiveByUserId")(function* (
 				userId: UserId,
 			) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select()
@@ -185,7 +185,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 			const getInternalById = Effect.fn("UserLifecycleRepository.getInternalById")(function* (
 				operationId: string,
 			) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select()
@@ -205,7 +205,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 					return { active, retryable: null, metadata: active.metadata };
 				}
 
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [failed] = yield* mapDatabaseErrors(
 					db
 						.select()
@@ -314,7 +314,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 				metadata: LifecycleMetadata;
 				kind: UserLifecycleOperationKind;
 			}) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.insert(lifecycleSchema.userLifecycleOperation)
@@ -329,7 +329,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 			const reactivateFailed = Effect.fn("UserLifecycleRepository.reactivateFailed")(function* (
 				operationId: string,
 			) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.update(lifecycleSchema.userLifecycleOperation)
@@ -352,7 +352,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 			const listPending = Effect.fn("UserLifecycleRepository.listPending")(function* (
 				limit: number,
 			) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const rows = yield* mapDatabaseErrors(
 					db
 						.select()
@@ -366,7 +366,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 
 			const claimAccessRevocation = Effect.fn("UserLifecycleRepository.claimAccessRevocation")(
 				function* (operationId: string, staleBefore: Date) {
-					const db = yield* Database;
+					const db = yield* database.current;
 					const now = yield* DateTime.nowAsDate;
 					const [row] = yield* mapDatabaseErrors(
 						db
@@ -394,7 +394,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 
 			const releaseAccessRevocation = Effect.fn("UserLifecycleRepository.releaseAccessRevocation")(
 				function* (operationId: string) {
-					const db = yield* Database;
+					const db = yield* database.current;
 					yield* mapDatabaseErrors(
 						db
 							.update(lifecycleSchema.userLifecycleOperation)
@@ -416,7 +416,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 				if (operation?.accessRevokedAt !== null) {
 					return operation;
 				}
-				const db = yield* Database;
+				const db = yield* database.current;
 				const now = yield* DateTime.nowAsDate;
 				const [row] = yield* mapDatabaseErrors(
 					db
@@ -435,7 +435,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 			const markRunning = Effect.fn("UserLifecycleRepository.markRunning")(function* (
 				operationId: string,
 			) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const now = yield* DateTime.nowAsDate;
 				yield* mapDatabaseErrors(
 					db
@@ -454,7 +454,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 			const markDatabaseCleanupCompleted = Effect.fn(
 				"UserLifecycleRepository.markDatabaseCleanupCompleted",
 			)(function* (operationId: string) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const now = yield* DateTime.nowAsDate;
 				yield* mapDatabaseErrors(
 					db
@@ -473,7 +473,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 				operationId: string,
 				resetResult: UserResetResult | null,
 			) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const now = yield* DateTime.nowAsDate;
 				const [completed] = yield* mapDatabaseErrors(
 					db
@@ -511,7 +511,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 				operationId: string,
 				failure: UserLifecycleOperationFailure,
 			) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const now = yield* DateTime.nowAsDate;
 				yield* mapDatabaseErrors(
 					db
@@ -529,7 +529,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 			const userExists = Effect.fn("UserLifecycleRepository.userExists")(function* (
 				userId: UserId,
 			) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({ id: authSchema.user.id })
@@ -542,7 +542,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 
 			const loadRecreatedIdentity = Effect.fn("UserLifecycleRepository.loadRecreatedIdentity")(
 				function* (userId: UserId) {
-					const db = yield* Database;
+					const db = yield* database.current;
 					const [user] = yield* mapDatabaseErrors(
 						db
 							.select({ id: authSchema.user.id, email: authSchema.user.email })

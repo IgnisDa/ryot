@@ -5,9 +5,10 @@ import { Deferred, Effect, Fiber, Layer, Redacted } from "effect";
 import { assert, describe } from "vitest";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, DatabaseLive } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
+import { BackupRestorePersistence } from "#modules/backups/restore/persistence";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
 import { PluginConfigRevisions } from "#modules/plugins/config-revisions";
@@ -19,6 +20,7 @@ import {
 	revisionPackage,
 	withRevisionDatabase,
 } from "#modules/plugins/revision.test-support";
+import { SavedViewsRepository } from "#modules/saved-views/repository";
 
 import { IntegrationPluginRevisionActivationLive, IntegrationsRepository } from "./repository";
 
@@ -69,7 +71,7 @@ const withCommittedDatabase = <E>(
 	test: Effect.Effect<
 		void,
 		E,
-		| Database
+		| DatabaseSession
 		| IntegrationsRepository
 		| PluginIngestionLock
 		| PluginRepository
@@ -78,11 +80,11 @@ const withCommittedDatabase = <E>(
 ) => {
 	const name = `integration_race_${crypto.randomUUID().replaceAll("-", "")}`;
 	const url = testDatabaseUrl();
-	const root = DatabaseLive.pipe(
+	const root = DatabaseSession.layer.pipe(
 		Layer.provide(makeAppConfigLayer({ database: { url: Redacted.make(url) } })),
 	);
 	return Effect.gen(function* () {
-		const admin = yield* Database;
+		const admin = yield* (yield* DatabaseSession).current;
 		const directory = new URL("../../drizzle/", import.meta.url).pathname;
 		const paths = [...new Bun.Glob("*/migration.sql").scanSync({ cwd: directory })];
 		assert(paths.length === 1);
@@ -91,7 +93,7 @@ const withCommittedDatabase = <E>(
 		const scopedUrl = new URL(url);
 		scopedUrl.pathname = `/${name}`;
 		const config = makeAppConfigLayer({ database: { url: Redacted.make(scopedUrl.toString()) } });
-		const database = DatabaseLive.pipe(Layer.provide(config), Layer.fresh);
+		const database = DatabaseSession.layer.pipe(Layer.provide(config), Layer.fresh);
 		const repositories = Layer.mergeAll(
 			PluginRepository.layer,
 			PluginInstallationRepository.layer,
@@ -112,7 +114,7 @@ const withCommittedDatabase = <E>(
 			Layer.provideMerge(database),
 		);
 		yield* Effect.gen(function* () {
-			const db = yield* Database;
+			const db = yield* (yield* DatabaseSession).current;
 			for (const statement of ddl.split("--> statement-breakpoint")) {
 				yield* db.execute(sql.raw(statement));
 			}
@@ -128,7 +130,7 @@ const withCommittedDatabase = <E>(
 };
 
 const waitForLockedTransaction = Effect.fn(function* (attempts = 2_000) {
-	const db = yield* Database;
+	const db = yield* (yield* DatabaseSession).current;
 	for (let attempt = 0; attempt < attempts; attempt += 1) {
 		const [waiting] = yield* db.execute<{ readonly count: number }>(
 			sql`select count(*)::int as count from pg_stat_activity where datname = current_database() and wait_event_type = 'Lock'`,
@@ -190,8 +192,9 @@ describe("integration client settings projection", () => {
 			Effect.gen(function* () {
 				const installed = yield* installRevisionPackage(providerPackage("v1", false), owner);
 				const integrations = yield* IntegrationsRepository;
+				const persistence = yield* BackupRestorePersistence;
 				const restore = (id: string, provider: string) =>
-					integrations.restoreForUser({
+					persistence.restoreForUser({
 						...integration,
 						id,
 						provider,
@@ -214,7 +217,14 @@ describe("integration client settings projection", () => {
 					endpoint: "https://notes.test",
 				});
 				expect(yield* client("undeclared")).toEqual({ kind: "notes" });
-			}).pipe(Effect.provide(repositoryLayer)),
+			}).pipe(
+				Effect.provide(
+					Layer.merge(
+						repositoryLayer,
+						BackupRestorePersistence.layer.pipe(Layer.provide(SavedViewsRepository.layer)),
+					),
+				),
+			),
 		),
 	);
 
@@ -223,12 +233,10 @@ describe("integration client settings projection", () => {
 		() =>
 			withCommittedDatabase(
 				Effect.gen(function* () {
-					const db = yield* Database;
+					const session = yield* DatabaseSession;
 					const integrations = yield* IntegrationsRepository;
 					const inTransaction = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-						db.transaction((transaction) =>
-							effect.pipe(Effect.provideService(Database, transaction)),
-						);
+						session.transaction(effect);
 					const installed = yield* inTransaction(
 						installRevisionPackage(providerPackage("v1", false), owner),
 					);
