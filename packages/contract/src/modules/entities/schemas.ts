@@ -88,7 +88,8 @@ export type EntitySyncState = typeof EntitySyncState.Type;
 
 const RequiredEntitySchemaSlug = Schema.Trim.pipe(
 	Schema.check(Schema.makeFilter((value) => value.length > 0)),
-).pipe(Schema.decodeTo(EntitySchemaSlug));
+	Schema.decodeTo(EntitySchemaSlug),
+);
 
 const OptionalExternalId = Schema.String.pipe(
 	Schema.decodeTo(Schema.UndefinedOr(Schema.String), {

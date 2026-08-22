@@ -23,7 +23,7 @@ describe("OAuth access and client classes", () => {
 
 	it("distinguishes web clients from the native client", () => {
 		expect(OAUTH_WEB_CLIENT_IDS).toEqual(["ryot-web", OAUTH_DEMO_WEB_CLIENT_ID]);
-		expect(Schema.decodeUnknownSync(WebOAuthClientId)(OAUTH_DEMO_WEB_CLIENT_ID)).toBe(
+		expect(Schema.decodeSync(WebOAuthClientId)(OAUTH_DEMO_WEB_CLIENT_ID)).toBe(
 			OAUTH_DEMO_WEB_CLIENT_ID,
 		);
 		expect(() => Schema.decodeUnknownSync(WebOAuthClientId)("ryot-native")).toThrow();
@@ -37,7 +37,7 @@ describe("NativeOAuthApplicationId", () => {
 	});
 
 	it.each(OAUTH_NATIVE_APPLICATION_IDS)("accepts %s", (applicationId) => {
-		expect(Schema.decodeUnknownSync(NativeOAuthApplicationId)(applicationId)).toBe(applicationId);
+		expect(Schema.decodeSync(NativeOAuthApplicationId)(applicationId)).toBe(applicationId);
 	});
 
 	it("rejects an unknown application ID", () => {

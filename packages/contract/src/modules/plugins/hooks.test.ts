@@ -75,7 +75,7 @@ const manifest = { ...authored, scripts: [script] };
 
 describe("lifecycle hook declarations", () => {
 	it("keeps authored identity independent of target, script, metadata, and ordering", () => {
-		const decoded = Schema.decodeUnknownSync(PluginManifest)({
+		const decoded = Schema.decodeSync(PluginManifest)({
 			...manifest,
 			hooks: [
 				{
@@ -92,7 +92,7 @@ describe("lifecycle hook declarations", () => {
 		});
 		expect(decoded.hooks[0]).toMatchObject({ position: 25, slug: "item.policy" });
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				hooks: [hook, { ...hook, position: 99, targets: [{ ...target, operation: "delete" }] }],
 			}),
@@ -100,7 +100,7 @@ describe("lifecycle hook declarations", () => {
 	});
 
 	it("validates declared targets in both authored and archive manifests", () => {
-		expect(Schema.decodeUnknownSync(AuthoredPluginManifest)(authored).hooks).toHaveLength(1);
+		expect(Schema.decodeSync(AuthoredPluginManifest)(authored).hooks).toHaveLength(1);
 		for (const targets of [
 			[],
 			[{ ...target, eventSchemaSlug: "absent" }],
@@ -174,7 +174,7 @@ describe("lifecycle hook declarations", () => {
 			expect(() => Schema.decodeUnknownSync(PluginManifest)({ ...manifest, scripts })).toThrow();
 		}
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				hooks: [{ ...hook, stage: "after", delivery: "required" }],
 			}),
@@ -199,10 +199,7 @@ describe("lifecycle hook declarations", () => {
 			{ position: 1.5 },
 		]) {
 			expect(() =>
-				Schema.decodeUnknownSync(PluginManifest)({
-					...manifest,
-					hooks: [{ ...hook, ...addition }],
-				}),
+				Schema.decodeSync(PluginManifest)({ ...manifest, hooks: [{ ...hook, ...addition }] }),
 			).toThrow();
 		}
 		const after = {
@@ -227,7 +224,7 @@ describe("lifecycle hook declarations", () => {
 
 	it("permits subject batching only for before-event targets and validates source filters", () => {
 		expect(
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				hooks: [
 					{
@@ -271,10 +268,7 @@ describe("lifecycle hook declarations", () => {
 				}).hooks,
 			).toHaveLength(1);
 			expect(() =>
-				Schema.decodeUnknownSync(PluginManifest)({
-					...manifest,
-					hooks: [{ ...hook, ...addition }],
-				}),
+				Schema.decodeSync(PluginManifest)({ ...manifest, hooks: [{ ...hook, ...addition }] }),
 			).toThrow();
 		}
 		const nonBatchable = [

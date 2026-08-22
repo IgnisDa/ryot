@@ -52,7 +52,7 @@ export const SavedViewDisplayValue = Schema.Union([
 	strictStruct({ value: JsonValue, displayKind: Schema.Literal("json") }),
 	strictStruct({ value: Schema.NullOr(Schema.String), displayKind: Schema.Literal("text") }),
 	strictStruct({ value: Schema.NullOr(Schema.String), displayKind: Schema.Literal("date") }),
-	strictStruct({ value: Schema.NullOr(Schema.Number), displayKind: Schema.Literal("number") }),
+	strictStruct({ value: Schema.NullOr(Schema.Finite), displayKind: Schema.Literal("number") }),
 	strictStruct({ value: Schema.NullOr(Schema.Boolean), displayKind: Schema.Literal("boolean") }),
 	strictStruct({
 		value: Schema.NullOr(AssetLocator),
@@ -140,7 +140,7 @@ const ListedSavedViewBase = {
 	slug: Schema.String,
 	name: Schema.String,
 	icon: Schema.String,
-	sortOrder: Schema.Number,
+	sortOrder: Schema.Finite,
 	isDisabled: Schema.Boolean,
 	pluginSlug: Schema.NullOr(PluginSlug),
 };

@@ -11,7 +11,7 @@ const nonNegativeInteger = Schema.Number.pipe(
 	Schema.check(Schema.isGreaterThanOrEqualTo(0)),
 );
 
-const positiveNumber = Schema.Number.pipe(Schema.check(Schema.isGreaterThan(0)));
+const positiveNumber = Schema.Finite.pipe(Schema.check(Schema.isGreaterThan(0)));
 
 export const createPropertySchemaMessage = (label: string) =>
 	`${label} must contain at least one property`;
@@ -235,12 +235,12 @@ const hasValidNumericBounds = (value: {
 };
 
 const numberValidationSchema = strictStruct({
-	maximum: Schema.optional(Schema.Number),
-	minimum: Schema.optional(Schema.Number),
+	maximum: Schema.optional(Schema.Finite),
+	minimum: Schema.optional(Schema.Finite),
 	multipleOf: Schema.optional(positiveNumber),
 	required: Schema.optional(Schema.Literal(true)),
-	exclusiveMaximum: Schema.optional(Schema.Number),
-	exclusiveMinimum: Schema.optional(Schema.Number),
+	exclusiveMaximum: Schema.optional(Schema.Finite),
+	exclusiveMinimum: Schema.optional(Schema.Finite),
 }).pipe(
 	Schema.check(
 		Schema.makeFilter(
@@ -297,7 +297,7 @@ const rulePathSchema = Schema.Array(nonEmptyTrimmedString).pipe(
 	Schema.check(Schema.isMinLength(1)),
 );
 
-const ruleValueSchema = Schema.Union([Schema.Boolean, Schema.Null, Schema.Number, Schema.String]);
+const ruleValueSchema = Schema.Union([Schema.Boolean, Schema.Null, Schema.Finite, Schema.String]);
 
 const propertyBaseFields = {
 	label: nonEmptyTrimmedString,
@@ -421,7 +421,7 @@ const materializePropertyChoices = (
 			);
 			return property;
 		}
-		const decoded = Schema.decodeUnknownResult(staticAppChoicesSchema)({
+		const decoded = Schema.decodeResult(staticAppChoicesSchema)({
 			kind: "static",
 			values: sourceValues,
 		});
@@ -521,7 +521,7 @@ const stringPropertySchema = strictStruct({
 const numberPropertySchema = strictStruct({
 	...propertyBaseFields,
 	type: Schema.Literal("number"),
-	defaultValue: Schema.optional(Schema.Number),
+	defaultValue: Schema.optional(Schema.Finite),
 	validation: Schema.optional(numberValidationSchema),
 	normalize: Schema.optional(numberNormalizationSchema),
 });

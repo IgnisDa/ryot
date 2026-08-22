@@ -33,7 +33,7 @@ const makeDocument = (expr: unknown) => ({
 
 describe("RyotQLDocument", () => {
 	it("decodes a named rows document", () => {
-		expect(Schema.decodeUnknownSync(RyotQLDocument)(document)).toEqual(document);
+		expect(Schema.decodeSync(RyotQLDocument)(document)).toEqual(document);
 	});
 
 	it("decodes wildcard row selections", () => {
@@ -49,7 +49,7 @@ describe("RyotQLDocument", () => {
 				},
 			},
 		} as const;
-		expect(Schema.decodeUnknownSync(RyotQLDocument)(wildcard)).toEqual(wildcard);
+		expect(Schema.decodeSync(RyotQLDocument)(wildcard)).toEqual(wildcard);
 	});
 
 	it("rejects unknown keys throughout the document", () => {
@@ -63,7 +63,7 @@ describe("RyotQLDocument", () => {
 
 	it("rejects invalid pagination", () => {
 		expect(() =>
-			Schema.decodeUnknownSync(RyotQLDocument)({
+			Schema.decodeSync(RyotQLDocument)({
 				queries: {
 					collections: {
 						...document.queries.collections,
@@ -115,7 +115,7 @@ describe("RyotQLDocument", () => {
 			},
 		} as const;
 
-		expect(Schema.decodeUnknownSync(RyotQLDocument)(complex)).toEqual(complex);
+		expect(Schema.decodeSync(RyotQLDocument)(complex)).toEqual(complex);
 	});
 
 	it("decodes correlated query and arithmetic expressions", () => {
@@ -171,7 +171,7 @@ describe("RyotQLDocument", () => {
 			},
 		} as const;
 
-		expect(Schema.decodeUnknownSync(RyotQLDocument)(correlated)).toEqual(correlated);
+		expect(Schema.decodeSync(RyotQLDocument)(correlated)).toEqual(correlated);
 	});
 
 	it("decodes scalar operations with recursive expressions and predicates", () => {
@@ -202,13 +202,13 @@ describe("RyotQLDocument", () => {
 	});
 
 	it("exports positive cursor pagination and non-empty output field-key schemas", () => {
-		expect(Schema.decodeUnknownSync(Pagination)({ limit: 20, after: "cursor" })).toEqual({
+		expect(Schema.decodeSync(Pagination)({ limit: 20, after: "cursor" })).toEqual({
 			limit: 20,
 			after: "cursor",
 		});
-		expect(Schema.decodeUnknownSync(OutputFieldKey)("value")).toBe("value");
+		expect(Schema.decodeSync(OutputFieldKey)("value")).toBe("value");
 		for (const value of [""]) {
-			expect(() => Schema.decodeUnknownSync(OutputFieldKey)(value)).toThrow();
+			expect(() => Schema.decodeSync(OutputFieldKey)(value)).toThrow();
 		}
 	});
 
@@ -263,8 +263,8 @@ describe("RyotQLDocument", () => {
 			},
 		} as const;
 
-		expect(Schema.decodeUnknownSync(RyotQLDocument)(aggregate)).toEqual(aggregate);
-		expect(Schema.decodeUnknownSync(RyotQLResponse)(response)).toEqual(response);
+		expect(Schema.decodeSync(RyotQLDocument)(aggregate)).toEqual(aggregate);
+		expect(Schema.decodeSync(RyotQLResponse)(response)).toEqual(response);
 	});
 
 	it("rejects invalid aggregate output shapes", () => {
@@ -317,8 +317,8 @@ describe("RyotQLDocument", () => {
 			},
 		} as const;
 
-		expect(Schema.decodeUnknownSync(RyotQLDocument)(timeSeries)).toEqual(timeSeries);
-		expect(Schema.decodeUnknownSync(RyotQLResponse)(response)).toEqual(response);
+		expect(Schema.decodeSync(RyotQLDocument)(timeSeries)).toEqual(timeSeries);
+		expect(Schema.decodeSync(RyotQLResponse)(response)).toEqual(response);
 	});
 
 	it("rejects invalid time-series output shapes", () => {
@@ -417,7 +417,7 @@ describe("RyotQLDocument", () => {
 				},
 			},
 		} as const;
-		expect(Schema.decodeUnknownSync(RyotQLDocument)(withInclude)).toEqual(withInclude);
+		expect(Schema.decodeSync(RyotQLDocument)(withInclude)).toEqual(withInclude);
 
 		const response = {
 			data: {
@@ -437,7 +437,7 @@ describe("RyotQLDocument", () => {
 				},
 			},
 		} as const;
-		expect(Schema.decodeUnknownSync(RyotQLResponse)(response)).toEqual(response);
+		expect(Schema.decodeSync(RyotQLResponse)(response)).toEqual(response);
 	});
 
 	it("rejects present empty join and include collections", () => {
@@ -463,7 +463,7 @@ describe("RyotQLDocument", () => {
 			{ ...nested, include: [] },
 		]) {
 			expect(() =>
-				Schema.decodeUnknownSync(RyotQLDocument)({
+				Schema.decodeSync(RyotQLDocument)({
 					queries: {
 						query: {
 							...document.queries.collections,

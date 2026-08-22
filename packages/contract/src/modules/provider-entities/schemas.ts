@@ -99,7 +99,7 @@ export const SearchProviderEntitiesResponse = strictStruct({
 	providerId: ProviderEntityReference.fields.providerId,
 	rootEntitySchemaSlug: ProviderEntityReference.fields.entitySchemaSlug,
 	details: Schema.optional(
-		strictStruct({ totalItems: Schema.Number, nextPage: Schema.NullOr(Schema.Number) }),
+		strictStruct({ totalItems: Schema.Finite, nextPage: Schema.NullOr(Schema.Finite) }),
 	),
 });
 export type SearchProviderEntitiesResponse = typeof SearchProviderEntitiesResponse.Type;

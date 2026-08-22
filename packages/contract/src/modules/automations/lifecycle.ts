@@ -26,7 +26,7 @@ import { JsonValue } from "../../schema/json";
 import { IsoUtcString, strictStruct } from "../../schema/utils";
 
 const nonEmpty = Schema.String.pipe(Schema.check(Schema.isMinLength(1)));
-const natural = Schema.Number.pipe(
+const natural = Schema.Finite.pipe(
 	Schema.check(Schema.makeFilter((n) => Number.isSafeInteger(n) && n >= 0)),
 );
 const positive = natural.pipe(Schema.check(Schema.isGreaterThan(0)));

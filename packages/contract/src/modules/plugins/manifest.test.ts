@@ -330,8 +330,8 @@ describe("definePlugin", () => {
 	});
 
 	it("decodes the manifest with the canonical Effect schema", () => {
-		expect(Schema.decodeUnknownSync(PluginManifest)(manifest)).toEqual(manifest);
-		expect(Schema.decodeUnknownSync(PluginManifest)(manifest).scripts[3]).toMatchObject({
+		expect(Schema.decodeSync(PluginManifest)(manifest)).toEqual(manifest);
+		expect(Schema.decodeSync(PluginManifest)(manifest).scripts[3]).toMatchObject({
 			searchOptionsSchema: { unknownKeys: "strict" },
 		});
 	});
@@ -349,7 +349,7 @@ describe("definePlugin", () => {
 				},
 			},
 		};
-		const decoded = Schema.decodeUnknownSync(PluginManifest)({ ...manifest, client });
+		const decoded = Schema.decodeSync(PluginManifest)({ ...manifest, client });
 
 		expect(decoded.client).toEqual(client);
 	});
@@ -398,9 +398,9 @@ describe("definePlugin", () => {
 				},
 			],
 		};
-		expect(
-			Schema.decodeUnknownSync(PluginManifest)({ ...manifestWithEntity, client }).client,
-		).toEqual(client);
+		expect(Schema.decodeSync(PluginManifest)({ ...manifestWithEntity, client }).client).toEqual(
+			client,
+		);
 		const invalidClients = [
 			{ ...client, entry: "client/index.tsx" },
 			{ ...client, homeView: "missing-view" },
@@ -454,7 +454,7 @@ describe("definePlugin", () => {
 		};
 
 		expect(
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				client,
 				savedViews: [...manifest.savedViews, pluginView],
@@ -485,7 +485,7 @@ describe("definePlugin", () => {
 			"client\\index.tsx",
 		]) {
 			expect(() =>
-				Schema.decodeUnknownSync(PluginManifest)({
+				Schema.decodeSync(PluginManifest)({
 					...manifest,
 					client: {
 						homeView: null,
@@ -525,14 +525,14 @@ describe("definePlugin", () => {
 	});
 
 	it("keeps backend-only manifests valid", () => {
-		expect(Schema.decodeUnknownSync(PluginManifest)(manifest)).toEqual(manifest);
+		expect(Schema.decodeSync(PluginManifest)(manifest)).toEqual(manifest);
 	});
 
 	it("accepts import upload extensions from the supported upload policy", () => {
 		const [source] = manifest.importSources;
 		assert(source);
 		const extensions = [...new Set(Object.values(uploadContentTypeExtensions).flat())];
-		const decoded = Schema.decodeUnknownSync(PluginManifest)({
+		const decoded = Schema.decodeSync(PluginManifest)({
 			...manifest,
 			importSources: [
 				{
@@ -559,7 +559,7 @@ describe("definePlugin", () => {
 		const [source] = manifest.importSources;
 		assert(source);
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				importSources: [
 					{
@@ -580,7 +580,7 @@ describe("definePlugin", () => {
 	});
 
 	it("requires and decodes saved-view renderer settings and data sources", () => {
-		const [savedView] = Schema.decodeUnknownSync(PluginManifest)(manifest).savedViews;
+		const [savedView] = Schema.decodeSync(PluginManifest)(manifest).savedViews;
 		assert(savedView);
 
 		expect(savedView.renderer).toEqual({ kind: "kernel", name: "results-table" });
@@ -611,7 +611,7 @@ describe("definePlugin", () => {
 	});
 
 	it("normalizes strict HTTP rate limit declarations", () => {
-		const decoded = Schema.decodeUnknownSync(PluginManifest)({
+		const decoded = Schema.decodeSync(PluginManifest)({
 			...manifest,
 			httpRateLimits: [
 				{
@@ -670,7 +670,7 @@ describe("definePlugin", () => {
 			{ ...declaration, origins: ["https://*.example.com"] },
 		]) {
 			expect(() =>
-				Schema.decodeUnknownSync(PluginManifest)({ ...manifest, httpRateLimits: [candidate] }),
+				Schema.decodeSync(PluginManifest)({ ...manifest, httpRateLimits: [candidate] }),
 			).toThrow();
 		}
 		expect(() => {
@@ -694,9 +694,7 @@ describe("definePlugin", () => {
 			],
 			[{ ...declaration, origins: ["https://example.com", "HTTPS://EXAMPLE.COM:443/"] }],
 		]) {
-			expect(() =>
-				Schema.decodeUnknownSync(PluginManifest)({ ...manifest, httpRateLimits }),
-			).toThrow();
+			expect(() => Schema.decodeSync(PluginManifest)({ ...manifest, httpRateLimits })).toThrow();
 		}
 	});
 
@@ -721,7 +719,7 @@ describe("definePlugin", () => {
 	});
 
 	it("decodes optional entity merge identity properties", () => {
-		const decoded = Schema.decodeUnknownSync(PluginManifest)({
+		const decoded = Schema.decodeSync(PluginManifest)({
 			...manifest,
 			entitySchemas: [
 				{
@@ -741,7 +739,7 @@ describe("definePlugin", () => {
 	});
 
 	it("decodes optional entity user-state restrictions with permissive absence", () => {
-		const decoded = Schema.decodeUnknownSync(PluginManifest)({
+		const decoded = Schema.decodeSync(PluginManifest)({
 			...manifest,
 			entitySchemas: [
 				{
@@ -779,7 +777,7 @@ describe("definePlugin", () => {
 	it("rejects notification references that do not name a declared signal hook", () => {
 		const signalSchema = manifest.signalSchemas[0];
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				signalSchemas: [{ ...signalSchema, notificationHookSlug: "automation.test" }],
 			}),
@@ -787,7 +785,7 @@ describe("definePlugin", () => {
 	});
 
 	it("accepts direct scripts and rejects kinds outside the v1 contract", () => {
-		const customScript = Schema.decodeUnknownSync(PluginManifest)(manifest).scripts[4];
+		const customScript = Schema.decodeSync(PluginManifest)(manifest).scripts[4];
 		assert(customScript);
 		expect(customScript).toMatchObject({
 			kind: "script",
@@ -808,21 +806,19 @@ describe("definePlugin", () => {
 	it("requires unique user bootstrap entries targeting direct scripts in the same package", () => {
 		const entry = manifest.userBootstrap[0];
 		assert(entry);
-		expect(Schema.decodeUnknownSync(PluginManifest)(manifest).userBootstrap).toEqual([entry]);
+		expect(Schema.decodeSync(PluginManifest)(manifest).userBootstrap).toEqual([entry]);
 		for (const userBootstrap of [
 			[{ ...entry }, { ...entry }],
 			[{ ...entry, scriptSlug: "missing.script" }],
 			[{ ...entry, scriptSlug: "automation.test" }],
 		]) {
-			expect(() =>
-				Schema.decodeUnknownSync(PluginManifest)({ ...manifest, userBootstrap }),
-			).toThrow();
+			expect(() => Schema.decodeSync(PluginManifest)({ ...manifest, userBootstrap })).toThrow();
 		}
 	});
 
 	it("accepts operation scripts and validates operation declarations", () => {
 		const operation = manifest.operations[0];
-		const operationScript = Schema.decodeUnknownSync(PluginManifest)(manifest).scripts[1];
+		const operationScript = Schema.decodeSync(PluginManifest)(manifest).scripts[1];
 		assert(operationScript);
 		expect(operationScript.kind).toBe("operation");
 		expect(operation).toMatchObject({ auth: "user", demoAccess: "allowed" });
@@ -845,7 +841,7 @@ describe("definePlugin", () => {
 			}),
 		).toThrow();
 		expect(
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				operations: [
 					{
@@ -858,7 +854,7 @@ describe("definePlugin", () => {
 			}).operations[0],
 		).not.toHaveProperty("demoAccess");
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				operations: [{ ...operation, slug: "Invalid/Slug" }],
 			}),
@@ -870,7 +866,7 @@ describe("definePlugin", () => {
 			}),
 		).toThrow();
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				operations: [{ ...operation, description: "" }],
 			}),
@@ -882,7 +878,7 @@ describe("definePlugin", () => {
 		const workflowScript = manifest.scripts[5];
 		expect(workflowScript.kind).toBe("workflow");
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				workflows: [{ ...workflow, scriptSlug: manifest.scripts[1].slug }],
 			}),
@@ -897,7 +893,7 @@ describe("definePlugin", () => {
 			}),
 		).toThrow();
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				workflows: [...manifest.workflows, { ...workflow }],
 			}),
@@ -906,13 +902,13 @@ describe("definePlugin", () => {
 
 	it("enforces sandbox script manifest constraints", () => {
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				scripts: [{ ...manifest.scripts[0], slug: "Invalid/Slug" }],
 			}),
 		).toThrow();
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				scripts: [{ ...manifest.scripts[0], requiredPluginConfigKeys: [""] }],
 			}),
@@ -984,7 +980,7 @@ describe("definePlugin", () => {
 
 	it("requires declared plugin config keys to exist in the config schema", () => {
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				scripts: [
 					{ ...manifest.scripts[0], requiredPluginConfigKeys: ["MISSING_KEY"] },
@@ -993,7 +989,7 @@ describe("definePlugin", () => {
 			}),
 		).toThrow();
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				importSources: [
 					{ ...manifest.importSources[0], requiredPluginConfigKeys: ["MISSING_KEY"] },
@@ -1004,7 +1000,7 @@ describe("definePlugin", () => {
 
 	it("rejects plugin config keys that normalize to the same environment variable", () => {
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				importSources: [],
 				scripts: manifest.scripts.map((script) => ({ ...script, requiredPluginConfigKeys: [] })),
@@ -1021,13 +1017,13 @@ describe("definePlugin", () => {
 
 	it("rejects duplicate script slugs within and across script kinds", () => {
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				scripts: [...manifest.scripts, { ...manifest.scripts[0] }],
 			}),
 		).toThrow();
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				scripts: [...manifest.scripts, { ...manifest.scripts[1], slug: manifest.scripts[0].slug }],
 			}),
@@ -1073,15 +1069,15 @@ describe("definePlugin", () => {
 			],
 		};
 
-		expect(Schema.decodeUnknownSync(PluginManifest)(dynamicManifest)).toBeTruthy();
+		expect(Schema.decodeSync(PluginManifest)(dynamicManifest)).toBeTruthy();
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...dynamicManifest,
 				providers: [{ ...provider, operations: provider.operations }],
 			}),
 		).toThrow();
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				providers: [
 					{ ...provider, operations: { ...provider.operations, searchOptions: "missing.script" } },
@@ -1089,7 +1085,7 @@ describe("definePlugin", () => {
 			}),
 		).toThrow();
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				scripts: [...manifest.scripts, searchOptions],
 			}),
@@ -1132,19 +1128,19 @@ describe("definePlugin", () => {
 			}),
 		).toThrow();
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				providers: [...manifest.providers, provider],
 			}),
 		).toThrow();
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				providers: [{ ...provider, operations: { details: "missing.script" } }],
 			}),
 		).toThrow();
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				providers: [
 					{
@@ -1155,7 +1151,7 @@ describe("definePlugin", () => {
 			}),
 		).toThrow();
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				scripts: [
 					...manifest.scripts.slice(0, 2),
@@ -1165,7 +1161,7 @@ describe("definePlugin", () => {
 			}),
 		).toThrow();
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				scripts: [
 					...manifest.scripts.slice(0, 2),
@@ -1175,7 +1171,7 @@ describe("definePlugin", () => {
 			}),
 		).toThrow();
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				scripts: [
 					...manifest.scripts.slice(0, 4),
@@ -1184,7 +1180,7 @@ describe("definePlugin", () => {
 			}),
 		).toThrow();
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				providers: [{ ...provider, operations: { details: preloadScript.slug } }],
 			}),
@@ -1196,7 +1192,7 @@ describe("definePlugin", () => {
 			}),
 		).toThrow();
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				scripts: [
 					...manifest.scripts,
@@ -1243,13 +1239,13 @@ describe("definePlugin", () => {
 
 	it("requires hooks to reference existing automation scripts", () => {
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				hooks: [{ ...manifest.hooks[0], scriptSlug: "missing.script" }],
 			}),
 		).toThrow();
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				hooks: [{ ...manifest.hooks[0], scriptSlug: "provider.test.details" }],
 			}),
@@ -1271,13 +1267,13 @@ describe("definePlugin", () => {
 	it("strictly validates cron declarations", () => {
 		const cron = manifest.crons[0];
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				crons: [{ ...cron, slug: "Invalid/Slug" }],
 			}),
 		).toThrow();
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				crons: [
 					{
@@ -1290,22 +1286,19 @@ describe("definePlugin", () => {
 			}),
 		).toThrow();
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				crons: [{ ...cron, schedule: { cron: "" } }],
 			}),
 		).toThrow();
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				crons: [{ ...cron, scriptSlug: "Invalid/Slug" }],
 			}),
 		).toThrow();
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
-				...manifest,
-				crons: [{ ...cron, description: " " }],
-			}),
+			Schema.decodeSync(PluginManifest)({ ...manifest, crons: [{ ...cron, description: " " }] }),
 		).toThrow();
 		expect(() =>
 			Schema.decodeUnknownSync(PluginManifest)({
@@ -1317,7 +1310,7 @@ describe("definePlugin", () => {
 
 	it("discriminates integration providers on their lot", () => {
 		const [yank, push] = manifest.integrationProviders;
-		const decoded = Schema.decodeUnknownSync(PluginManifest)({
+		const decoded = Schema.decodeSync(PluginManifest)({
 			...manifest,
 			integrationProviders: [{ ...yank, lot: "sink", slug: "integration.sink" }, push],
 		});
@@ -1350,19 +1343,19 @@ describe("definePlugin", () => {
 	it("strictly validates integration provider declarations", () => {
 		const [yank, push] = manifest.integrationProviders;
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				integrationProviders: [yank, push, { ...push }],
 			}),
 		).toThrow();
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				integrationProviders: [{ ...yank, scriptSlug: "missing.script" }, push],
 			}),
 		).toThrow();
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				integrationProviders: [{ ...yank, description: " " }, push],
 			}),
@@ -1377,7 +1370,7 @@ describe("definePlugin", () => {
 
 	it("strictly validates schema-driven import source declarations", () => {
 		const importSource = manifest.importSources[0];
-		const decoded = Schema.decodeUnknownSync(PluginManifest)(manifest);
+		const decoded = Schema.decodeSync(PluginManifest)(manifest);
 		expect(decoded.importSources[0]).toMatchObject({
 			slug: "import.test",
 			workflowSlug: "refresh.workflow",
@@ -1398,12 +1391,12 @@ describe("definePlugin", () => {
 			{ ...importSource, maxFileSizeBytes: 1024 },
 		]) {
 			expect(() =>
-				Schema.decodeUnknownSync(PluginManifest)({ ...manifest, importSources: [source] }),
+				Schema.decodeSync(PluginManifest)({ ...manifest, importSources: [source] }),
 			).toThrow();
 		}
 
 		expect(() =>
-			Schema.decodeUnknownSync(PluginManifest)({
+			Schema.decodeSync(PluginManifest)({
 				...manifest,
 				importSources: [importSource, { ...importSource }],
 			}),

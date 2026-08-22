@@ -31,7 +31,7 @@ describe("provider entity boundary schemas", () => {
 			],
 		};
 
-		expect(Schema.decodeUnknownSync(SearchProviderEntitiesBody)(body)).toEqual(body);
+		expect(Schema.decodeSync(SearchProviderEntitiesBody)(body)).toEqual(body);
 		expect(Schema.decodeUnknownSync(SearchProviderEntitiesResponse)(response)).toEqual(response);
 	});
 
@@ -79,7 +79,7 @@ describe("provider entity boundary schemas", () => {
 	it("accepts only the provider id and external id for imports", () => {
 		const body = { externalId: "book_1", providerId: "provider_1" };
 
-		expect(Schema.decodeUnknownSync(ImportEntityBody)(body)).toEqual(body);
+		expect(Schema.decodeSync(ImportEntityBody)(body)).toEqual(body);
 		expect(() =>
 			Schema.decodeUnknownSync(ImportEntityBody)({ ...body, entitySchemaSlug: "book" }),
 		).toThrow();
