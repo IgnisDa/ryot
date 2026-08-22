@@ -20,7 +20,7 @@ export default defineScript({
 	input: IgdbImportParserInput,
 	output: MediaImportAdapterBatch,
 	run: (input) =>
-		readImportArtifactText().pipe(
+		readImportArtifactText.pipe(
 			Effect.map((text) =>
 				batchMediaImportResult(
 					adaptIgdbCsv(text, { collection: input.collection }),

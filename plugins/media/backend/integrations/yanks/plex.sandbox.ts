@@ -17,14 +17,14 @@ export const manifest = defineManifest({
 
 const Input = Schema.Struct({});
 
-const StringOrNumber = Schema.Union([Schema.String, Schema.Number]);
+const StringOrNumber = Schema.Union([Schema.String, Schema.Finite]);
 
 const Item = Schema.Struct({
 	title: Schema.String,
 	key: Schema.optional(Schema.String),
-	index: Schema.optional(Schema.Number),
+	index: Schema.optional(Schema.Finite),
 	ratingKey: Schema.optional(StringOrNumber),
-	parentIndex: Schema.optional(Schema.Number),
+	parentIndex: Schema.optional(Schema.Finite),
 	lastViewedAt: Schema.optional(StringOrNumber),
 	Guid: Schema.optional(Schema.Array(Schema.Struct({ id: Schema.String }))),
 });

@@ -139,11 +139,11 @@ export const mediaSummarySelection = (entity: Table, provider: Table) => ({
 	...mediaEntitySummarySelection(entity, provider),
 	owned: selectedField(libraryOwnership(entity), Schema.NullOr(Schema.Boolean)),
 	publishDate: selectedField(propertyText(entity, "publishDate"), Schema.NullOr(Schema.String)),
-	publishYear: selectedField(propertyNumber(entity, "publishYear"), Schema.NullOr(Schema.Number)),
+	publishYear: selectedField(propertyNumber(entity, "publishYear"), Schema.NullOr(Schema.Finite)),
 	genres: selectedField(propertyJson(entity, "genres"), Schema.NullOr(Schema.Array(Schema.String))),
 	providerRating: selectedField(
 		propertyNumber(entity, "providerRating"),
-		Schema.NullOr(Schema.Number),
+		Schema.NullOr(Schema.Finite),
 	),
 	productionStatus: selectedField(
 		propertyText(entity, "productionStatus"),
@@ -196,7 +196,7 @@ export const mediaWatchProviderSelection = (entity: Table) => ({
 });
 
 const nullableNumberField = (entity: Table, key: string) =>
-	selectedField(propertyNumber(entity, key), Schema.NullOr(Schema.Number));
+	selectedField(propertyNumber(entity, key), Schema.NullOr(Schema.Finite));
 
 export const mediaNumberSelection =
 	<const Keys extends readonly string[]>(...keys: Keys) =>
@@ -221,7 +221,7 @@ export const creditSelection = (credit: Table, relationship: Table) => ({
 	id: selectedField(column(credit, "id"), EntityId),
 	name: selectedField(column(credit, "name"), Schema.String),
 	images: selectedField(propertyJson(credit, "images"), MediaImageListSchema),
-	order: selectedField(propertyNumber(relationship, "order"), Schema.NullOr(Schema.Number)),
+	order: selectedField(propertyNumber(relationship, "order"), Schema.NullOr(Schema.Finite)),
 	roles: selectedField(
 		propertyJson(relationship, "roles"),
 		Schema.NullOr(Schema.Array(Schema.String)),
@@ -428,9 +428,9 @@ const mediaFlatPresentationSelection = <Duration extends SelectedSelection>(
 	state: selectedField(lifecycle.state, MediaLifecycleStateSchema),
 	images: selectedField(propertyJson(entity, "images"), MediaImageListSchema),
 	...duration,
-	progressPercent: selectedField(lifecycle.progressPercent, Schema.NullOr(Schema.Number)),
+	progressPercent: selectedField(lifecycle.progressPercent, Schema.NullOr(Schema.Finite)),
 	publishDate: selectedField(propertyText(entity, "publishDate"), Schema.NullOr(Schema.String)),
-	publishYear: selectedField(propertyNumber(entity, "publishYear"), Schema.NullOr(Schema.Number)),
+	publishYear: selectedField(propertyNumber(entity, "publishYear"), Schema.NullOr(Schema.Finite)),
 	productionStatus: selectedField(
 		propertyText(entity, "productionStatus"),
 		Schema.NullOr(Schema.String),
@@ -476,11 +476,11 @@ export const mediaFlatConsumptionTotals = (input: {
 	return {
 		completionCount: selectedField(
 			count(completion, { where: isCompletionOf(completion) }),
-			Schema.Number,
+			Schema.Finite,
 		),
 		unknownAmountCount: selectedField(
 			count(unknown, { where: and(isCompletionOf(unknown), measure(unknown).isUnknown) }),
-			Schema.Number,
+			Schema.Finite,
 		),
 		consumedAmount: selectedField(
 			sum(
@@ -489,7 +489,7 @@ export const mediaFlatConsumptionTotals = (input: {
 				conditional(isNotNull(column(amount, "id")), measure(amount).amount, literal(null)),
 				{ where: isCompletionOf(amount) },
 			),
-			Schema.NullOr(Schema.Number),
+			Schema.NullOr(Schema.Finite),
 		),
 	};
 };
@@ -519,7 +519,7 @@ export const mediaReviewEventSelection = (event: Table) => ({
 	createdAt: selectedField(column(event, "createdAt"), IsoDateString),
 	occurredAt: selectedField(column(event, "occurredAt"), IsoDateString),
 	text: selectedField(propertyText(event, "text"), Schema.NullOr(Schema.String)),
-	rating: selectedField(propertyNumber(event, "rating"), Schema.NullOr(Schema.Number)),
+	rating: selectedField(propertyNumber(event, "rating"), Schema.NullOr(Schema.Finite)),
 	isSpoiler: selectedField(propertyBoolean(event, "isSpoiler"), Schema.NullOr(Schema.Boolean)),
 });
 
@@ -530,7 +530,7 @@ export const mediaReviewActivityEventSelection = (event: Table) => ({
 
 export const mediaActivityEventSelection = (event: Table) => ({
 	...mediaReviewEventSelection(event),
-	timeSpent: selectedField(propertyNumber(event, "timeSpent"), Schema.NullOr(Schema.Number)),
+	timeSpent: selectedField(propertyNumber(event, "timeSpent"), Schema.NullOr(Schema.Finite)),
 	consumedOn: selectedField(propertyText(event, "consumedOn"), Schema.NullOr(Schema.String)),
 });
 
@@ -577,7 +577,7 @@ const mediaFlatActivityEventSelection = (event: Table) => ({
 	completedOn: selectedField(propertyText(event, "completedOn"), Schema.NullOr(IsoDateString)),
 	progressPercent: selectedField(
 		propertyNumber(event, "progressPercent"),
-		Schema.NullOr(Schema.Number),
+		Schema.NullOr(Schema.Finite),
 	),
 	eventSchemaSlug: selectedField(
 		column(event, "eventSchemaSlug"),
@@ -737,7 +737,7 @@ export const mediaReviewActivityRecipe = (config: {
 										eq(column(review, "eventSchemaSlug"), literal("review")),
 									),
 								}),
-								Schema.Number,
+								Schema.Finite,
 							),
 						},
 					}),
@@ -832,7 +832,7 @@ export const mediaFlatRecipes = <
 					return {
 						...mediaSummarySelection(entity, provider),
 						state: selectedField(lifecycle.state, MediaLifecycleStateSchema),
-						progressPercent: selectedField(lifecycle.progressPercent, Schema.NullOr(Schema.Number)),
+						progressPercent: selectedField(lifecycle.progressPercent, Schema.NullOr(Schema.Finite)),
 						...config.summaryFields(entity),
 					};
 				},

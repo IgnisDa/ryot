@@ -105,7 +105,7 @@ export const episodicByLifecycleStateRecipe = defineRecipe(
 								input.config.kind === "show"
 									? propertyNumber(episode, "seasonNumber")
 									: literal(null),
-								Schema.NullOr(Schema.Number),
+								Schema.NullOr(Schema.Finite),
 							),
 						})),
 					},
@@ -136,7 +136,7 @@ export const flatByLifecycleStateRecipe = defineRecipe(
 						eq(column(progress, "eventSchemaSlug"), literal("progress")),
 					),
 				}),
-				Schema.NullOr(Schema.Number),
+				Schema.NullOr(Schema.Finite),
 			);
 		return {
 			map: ({ items }) => Result.succeed(items),
@@ -156,7 +156,7 @@ export const flatByLifecycleStateRecipe = defineRecipe(
 						mangaChapter: latestProgressPosition("mangaChapter"),
 						state: selectedField(lifecycle.state, MediaLifecycleStateSchema),
 						latestActivityAt: selectedField(latestActivityAt, Schema.NullOr(IsoDateString)),
-						progressPercent: selectedField(lifecycle.progressPercent, Schema.NullOr(Schema.Number)),
+						progressPercent: selectedField(lifecycle.progressPercent, Schema.NullOr(Schema.Finite)),
 					},
 				}),
 			},
@@ -173,7 +173,7 @@ export const libraryMediaCountRecipe = defineRecipe(() => {
 		map: ({ library }) => Result.succeed(library.count),
 		queries: {
 			library: selectedAggregate(entity, {
-				measures: { count: selectedMeasure({ function: "count" }, Schema.Number) },
+				measures: { count: selectedMeasure({ function: "count" }, Schema.Finite) },
 				where: and(
 					isOneOf(column(entity, "entitySchemaSlug"), builtinMediaEntitySchemaSlugs),
 					libraryLinkExists(entity, "countLibrary", "in-media-library"),

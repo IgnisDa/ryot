@@ -193,11 +193,9 @@ const loadSearchOptions = (
 			].join("\n");
 			const { data } = yield* makeIgdbRequest(host, source.path, body);
 			if (!Array.isArray(data)) {
-				return yield* Effect.fail(
-					new MediaSandboxError({
-						message: `IGDB ${source.path} returned unexpected response format`,
-					}),
-				);
+				return yield* new MediaSandboxError({
+					message: `IGDB ${source.path} returned unexpected response format`,
+				});
 			}
 			for (const item of data) {
 				const record = asRecord(item);
@@ -225,9 +223,7 @@ export const search = defineProvider({
 	operation: "search",
 	run: (input, host) =>
 		Effect.gen(function* () {
-			const options = yield* Schema.decodeUnknownEffect(igdbSearchOptionsSchema)(
-				input.options ?? {},
-			);
+			const options = yield* Schema.decodeEffect(igdbSearchOptionsSchema)(input.options ?? {});
 			const conditions = options.allowGamesWithParent ? [] : ["version_parent = null"];
 			for (const [ids, field] of [
 				[options.themeIds, "themes"],
@@ -329,16 +325,14 @@ export const details = defineProvider({
 				Effect.gen(function* () {
 					const gameList = gameResult.data;
 					if (!Array.isArray(gameList) || gameList.length === 0) {
-						return yield* Effect.fail(
-							new MediaSandboxError({ message: "IGDB returned no game data for this externalId" }),
-						);
+						return yield* new MediaSandboxError({
+							message: "IGDB returned no game data for this externalId",
+						});
 					}
 					const game = asRecord(gameList[0]);
 					const name = stringValue(game?.["name"]);
 					if (!name) {
-						return yield* Effect.fail(
-							new MediaSandboxError({ message: "IGDB game payload is missing name" }),
-						);
+						return yield* new MediaSandboxError({ message: "IGDB game payload is missing name" });
 					}
 					const images: Array<{ type: "remote"; url: string; purpose: string }> = [];
 					const coverImageId = stringValue(asRecord(game?.["cover"])?.["image_id"]);

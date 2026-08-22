@@ -10,7 +10,7 @@ import populationWorkflow from "./media-import-population.sandbox";
 import resolutionWorkflow from "./media-import-resolution.sandbox";
 
 const importCommand = (runId: string) =>
-	Schema.decodeUnknownSync(LifecycleCommand)({
+	Schema.decodeSync(LifecycleCommand)({
 		occurredAt: "2026-09-16T00:00:00.000Z",
 		itemIdentity: JSON.stringify(["import-run", runId]),
 		causation: {

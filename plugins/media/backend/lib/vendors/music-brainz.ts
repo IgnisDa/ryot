@@ -58,7 +58,7 @@ export const fetchCoverArtUrl = (
 				stringValue(front["image"])
 			);
 		}),
-		Effect.catch(() => Effect.succeed(null)),
+		Effect.orElseSucceed(() => null),
 	);
 };
 
@@ -79,7 +79,10 @@ export const findCoverArtFromReleases = (
 		}
 		seen.add(releaseGroupId);
 		return fetchCoverArtUrl(host, "release-group", releaseGroupId).pipe(
-			Effect.flatMap((url) => (url ? Effect.succeed(url) : tryGroups(index + 1, seen))),
+			Effect.filterOrElse(
+				(url): url is string => Boolean(url),
+				() => tryGroups(index + 1, seen),
+			),
 		);
 	};
 	const tryReleases = (index: number): Effect.Effect<string | null> => {
@@ -91,7 +94,10 @@ export const findCoverArtFromReleases = (
 			return tryReleases(index + 1);
 		}
 		return fetchCoverArtUrl(host, "release", releaseId).pipe(
-			Effect.flatMap((url) => (url ? Effect.succeed(url) : tryReleases(index + 1))),
+			Effect.filterOrElse(
+				(url): url is string => Boolean(url),
+				() => tryReleases(index + 1),
+			),
 		);
 	};
 	return tryReleases(0);

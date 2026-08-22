@@ -42,7 +42,7 @@ const WatcharrActivityData = Schema.Struct({
 });
 
 const WatcharrItem = Schema.Struct({
-	rating: Schema.Number,
+	rating: Schema.Finite,
 	status: Schema.String,
 	pinned: Schema.Boolean,
 	thoughts: Schema.String,

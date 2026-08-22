@@ -36,7 +36,7 @@ const sessionPolicyResult = (payload: EventPayload, resolution: EpisodeParentRes
 	if (resolution === null) {
 		return { action: "reject", reason: "episodic_parent_not_found" } as const;
 	}
-	return Schema.decodeUnknownSync(automationPolicyResultSchema)({
+	return Schema.decodeSync(automationPolicyResultSchema)({
 		action: "transform",
 		patch: {
 			resource: "event",

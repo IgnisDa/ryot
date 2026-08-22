@@ -42,9 +42,9 @@ export const search = defineProvider({
 			].join("\n");
 			const { headers, data: results } = yield* makeIgdbRequest(host, "collections", body);
 			if (!Array.isArray(results)) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "IGDB search returned unexpected response format" }),
-				);
+				return yield* new MediaSandboxError({
+					message: "IGDB search returned unexpected response format",
+				});
 			}
 			const totalItems = readTotalItems(headers, results.length, offset);
 			const items = results.flatMap((collection) => {
@@ -79,25 +79,21 @@ export const details = defineProvider({
 	run: (input, host) =>
 		Effect.gen(function* () {
 			if (!/^\d+$/.test(input.externalId)) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "externalId must be a numeric IGDB collection ID" }),
-				);
+				return yield* new MediaSandboxError({
+					message: "externalId must be a numeric IGDB collection ID",
+				});
 			}
 			const body = [COLLECTION_FIELDS, `where id = ${input.externalId};`].join("\n");
 			const { data: results } = yield* makeIgdbRequest(host, "collections", body);
 			if (!Array.isArray(results) || results.length === 0) {
-				return yield* Effect.fail(
-					new MediaSandboxError({
-						message: "IGDB returned no collection data for this externalId",
-					}),
-				);
+				return yield* new MediaSandboxError({
+					message: "IGDB returned no collection data for this externalId",
+				});
 			}
 			const collection = asRecord(results[0]);
 			const title = stringValue(collection?.["name"]);
 			if (!title) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "IGDB collection payload is missing name" }),
-				);
+				return yield* new MediaSandboxError({ message: "IGDB collection payload is missing name" });
 			}
 
 			const games = (Array.isArray(collection?.["games"]) ? collection["games"] : []).filter(

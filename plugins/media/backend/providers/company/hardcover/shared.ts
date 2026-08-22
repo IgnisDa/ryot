@@ -95,65 +95,62 @@ query GetHardcoverPublisherDetails($id: Int!) {
   }
 }
 `;
-		return getHardcoverApiKey(host)
-			.pipe(
-				Effect.flatMap((apiKey) =>
-					hardcoverGql(
-						host,
-						{ query: graphqlQuery, variables: { id: publisherId } },
-						apiKey,
-						"Hardcover publisher details request failed",
-					),
+		return getHardcoverApiKey(host).pipe(
+			Effect.flatMap((apiKey) =>
+				hardcoverGql(
+					host,
+					{ query: graphqlQuery, variables: { id: publisherId } },
+					apiKey,
+					"Hardcover publisher details request failed",
 				),
-			)
-			.pipe(
-				Effect.map((payloadValue) => {
-					const payload = asRecord(payloadValue);
-					const errorMessage = firstGraphqlErrorMessage(payload);
-					if (errorMessage) {
-						throw new Error(`Hardcover publisher details GraphQL error: ${errorMessage}`);
+			),
+			Effect.map((payloadValue) => {
+				const payload = asRecord(payloadValue);
+				const errorMessage = firstGraphqlErrorMessage(payload);
+				if (errorMessage) {
+					throw new Error(`Hardcover publisher details GraphQL error: ${errorMessage}`);
+				}
+				const publisherData = asRecord(asRecord(payload?.["data"])?.["publishers_by_pk"]);
+				if (!publisherData) {
+					throw new Error("Hardcover returned no publisher data");
+				}
+				const name = stringValue(publisherData["name"]);
+				if (!name) {
+					throw new Error("Hardcover publisher data is missing name");
+				}
+				const editions = publisherData["editions"];
+				const mediaEntities = (Array.isArray(editions) ? editions : []).flatMap((edition) => {
+					const book = asRecord(asRecord(edition)?.["book"]);
+					const bookId = idValue(book?.["id"]);
+					if (!bookId) {
+						return [];
 					}
-					const publisherData = asRecord(asRecord(payload?.["data"])?.["publishers_by_pk"]);
-					if (!publisherData) {
-						throw new Error("Hardcover returned no publisher data");
-					}
-					const name = stringValue(publisherData["name"]);
-					if (!name) {
-						throw new Error("Hardcover publisher data is missing name");
-					}
-					const editions = publisherData["editions"];
-					const mediaEntities = (Array.isArray(editions) ? editions : []).flatMap((edition) => {
-						const book = asRecord(asRecord(edition)?.["book"]);
-						const bookId = idValue(book?.["id"]);
-						if (!bookId) {
-							return [];
-						}
-						return [
-							{
-								externalId: bookId,
-								providerSlug: "book.hardcover",
-								relationshipProperties: { roles: ["Publisher"] },
-								name: stringValue(book?.["title"]) ?? "Loading...",
-							},
-						];
-					});
-					return {
-						name,
-						properties: {
-							images: [],
-							alternateNames: [],
-							website: stringValue(publisherData["url"]),
+					return [
+						{
+							externalId: bookId,
+							providerSlug: "book.hardcover",
+							relationshipProperties: { roles: ["Publisher"] },
+							name: stringValue(book?.["title"]) ?? "Loading...",
 						},
-						relatedEntityGroups: [
-							{
-								entities: mediaEntities,
-								direction: "outgoing" as const,
-								synchronization: "authoritative" as const,
-								relationshipSchemaSlug: "company-to-book",
-							},
-						],
-					};
-				}),
-			);
+					];
+				});
+				return {
+					name,
+					properties: {
+						images: [],
+						alternateNames: [],
+						website: stringValue(publisherData["url"]),
+					},
+					relatedEntityGroups: [
+						{
+							entities: mediaEntities,
+							direction: "outgoing" as const,
+							synchronization: "authoritative" as const,
+							relationshipSchemaSlug: "company-to-book",
+						},
+					],
+				};
+			}),
+		);
 	},
 });

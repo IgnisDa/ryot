@@ -78,17 +78,13 @@ export const details = defineProvider({
 			});
 			const data = asRecord(dataValue);
 			if (!data) {
-				return yield* Effect.fail(
-					new MediaSandboxError({
-						message: `MusicBrainz recording not found: ${input.externalId}`,
-					}),
-				);
+				return yield* new MediaSandboxError({
+					message: `MusicBrainz recording not found: ${input.externalId}`,
+				});
 			}
 			const title = stringValue(data["title"]);
 			if (!title) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "MusicBrainz recording is missing title" }),
-				);
+				return yield* new MediaSandboxError({ message: "MusicBrainz recording is missing title" });
 			}
 
 			const publishYear = getPublishYear(data["first-release-date"]);

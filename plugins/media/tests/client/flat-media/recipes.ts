@@ -27,7 +27,7 @@ export const flatUngroupedFixtureRecipes = mediaFlatRecipes({
 	activityEventFields: (event) => ({
 		fixtureChapter: selectedField(
 			propertyNumber(event, "fixtureChapter"),
-			Schema.NullOr(Schema.Number),
+			Schema.NullOr(Schema.Finite),
 		),
 	}),
 });

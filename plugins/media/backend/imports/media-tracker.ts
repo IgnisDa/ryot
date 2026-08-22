@@ -45,7 +45,7 @@ const Season = Schema.Struct({
 const SeenHistory = Schema.Struct({
 	id: Schema.Int,
 	episodeId: Schema.optional(Schema.NullOr(Schema.Int)),
-	date: Schema.optional(Schema.NullOr(Schema.Union([Schema.Number, Schema.String]))),
+	date: Schema.optional(Schema.NullOr(Schema.Union([Schema.Finite, Schema.String]))),
 });
 const Details = Schema.Struct({
 	id: Schema.Int,
@@ -69,9 +69,9 @@ const Details = Schema.Struct({
 		Schema.NullOr(
 			Schema.Struct({
 				id: Schema.Int,
-				rating: Schema.optional(Schema.NullOr(Schema.Number)),
+				rating: Schema.optional(Schema.NullOr(Schema.Finite)),
 				review: Schema.optional(Schema.NullOr(Schema.String)),
-				date: Schema.optional(Schema.NullOr(Schema.Union([Schema.Number, Schema.String]))),
+				date: Schema.optional(Schema.NullOr(Schema.Union([Schema.Finite, Schema.String]))),
 			}),
 		),
 	),

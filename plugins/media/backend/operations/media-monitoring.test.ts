@@ -101,9 +101,9 @@ describe("media monitoring operations", () => {
 					return [{ created: 2, deleted: 0 }];
 				}),
 			executeRyotql: (document) =>
-				Effect.sync(() => {
+				Effect.gen(function* () {
 					documents.push(document);
-					const query = Schema.decodeUnknownSync(RyotQLDocument)(document);
+					const query = yield* Schema.decodeEffect(RyotQLDocument)(document).pipe(Effect.orDie);
 					return "mediaLibrary" in query.queries
 						? libraryRows([{ entityId: "library-1" }])
 						: rows([target("entity-a")]);
@@ -200,14 +200,14 @@ describe("media monitoring operations", () => {
 	});
 
 	it("bounds operation batches and validates aligned result variants", () => {
-		expect(() => Schema.decodeUnknownSync(MediaMonitoringEnableInput)({ entityIds: [] })).toThrow();
+		expect(() => Schema.decodeSync(MediaMonitoringEnableInput)({ entityIds: [] })).toThrow();
 		expect(() =>
-			Schema.decodeUnknownSync(MediaMonitoringEnableInput)({
+			Schema.decodeSync(MediaMonitoringEnableInput)({
 				entityIds: Array.from({ length: 51 }, (_, index) => `entity-${index}`),
 			}),
 		).toThrow();
 		expect(
-			Schema.decodeUnknownSync(MediaMonitoringOutput)({
+			Schema.decodeSync(MediaMonitoringOutput)({
 				results: [
 					{ status: "found", entityId: "entity-a", isMediaMonitored: true },
 					{ status: "notFound", entityId: "missing" },

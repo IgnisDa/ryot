@@ -117,14 +117,13 @@ export const details = defineProvider({
 								name: albumName.length > 0 ? albumName : albumId,
 							};
 						});
-						return spotifyGet(host, `/artists/${encodeURIComponent(input.externalId)}/top-tracks`, {
-							market: "US",
-						}).pipe(
-							Effect.catch((error) =>
-								getSpotifyErrorStatus(error) === 403
-									? Effect.succeed({ tracks: [] })
-									: Effect.fail(error),
-							),
+						return Effect.catchIf(
+							spotifyGet(host, `/artists/${encodeURIComponent(input.externalId)}/top-tracks`, {
+								market: "US",
+							}),
+							(error) => getSpotifyErrorStatus(error) === 403,
+							() => Effect.succeed({ tracks: [] }),
+						).pipe(
 							Effect.map((topTracksValue) => {
 								const tracks = asRecord(topTracksValue)?.["tracks"];
 								const mediaEntities = (Array.isArray(tracks) ? tracks : []).flatMap((track) => {

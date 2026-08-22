@@ -137,13 +137,14 @@ it("clamps above maximum to completion while preserving unmodified numeric repre
 		properties: { consumedOn: "Plex", progressPercent: 100 },
 	});
 	await Effect.runPromise(
-		Effect.all(
-			[95, "35.555", 35.555].map((progressPercent) => {
+		Effect.forEach(
+			[95, "35.555", 35.555],
+			(progressPercent) => {
 				const original = input({ progressPercent });
 				return admitIntegrationProgress(original, host).pipe(
 					Effect.map((admitted) => expect(admitted).toEqual(original)),
 				);
-			}),
+			},
 			{ concurrency: "unbounded" },
 		),
 	);
@@ -183,8 +184,9 @@ it("compares the latest matching consumption/subitem identity and suppresses dup
 		{ mangaVolume: 1, mangaChapter: 1, consumedOn: "Plex", progressPercent: 35 },
 	];
 	await Effect.runPromise(
-		Effect.all(
-			distinctProperties.map((properties) => {
+		Effect.forEach(
+			distinctProperties,
+			(properties) => {
 				const original = input(properties, { occurredAt: "2026-01-03T00:00:00.000Z" });
 				const repeated = {
 					...original,
@@ -196,7 +198,7 @@ it("compares the latest matching consumption/subitem identity and suppresses dup
 				return admitIntegrationProgress(repeated, host).pipe(
 					Effect.map((admitted) => expect(admitted).toEqual(original)),
 				);
-			}),
+			},
 			{ concurrency: "unbounded" },
 		),
 	);

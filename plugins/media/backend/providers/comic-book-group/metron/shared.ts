@@ -76,17 +76,15 @@ export const details = defineProvider({
 	run: (input, host) =>
 		Effect.gen(function* () {
 			if (!/^\d+$/.test(input.externalId)) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "externalId must be a numeric Metron series ID" }),
-				);
+				return yield* new MediaSandboxError({
+					message: "externalId must be a numeric Metron series ID",
+				});
 			}
 			const seriesValue = yield* metronGet(host, `/series/${input.externalId}/`);
 			const series = asRecord(seriesValue);
 			const title = stringValue(series?.["name"]);
 			if (!title) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "Metron series is missing name" }),
-				);
+				return yield* new MediaSandboxError({ message: "Metron series is missing name" });
 			}
 			const description = stringValue(series?.["desc"]);
 			const issueCount = series?.["issue_count"];

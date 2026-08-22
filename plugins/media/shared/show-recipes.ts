@@ -45,7 +45,7 @@ const SHOW_SEASON_RELATIONSHIP = "show-to-show-season";
 const SHOW_EPISODE_RELATIONSHIP = "show-season-to-show-episode";
 
 const showSeasonNumber = (entity: Table) => ({
-	seasonNumber: selectedField(propertyNumber(entity, "seasonNumber"), Schema.Number),
+	seasonNumber: selectedField(propertyNumber(entity, "seasonNumber"), Schema.Finite),
 });
 
 const showSeasonCount = (show: Table) => {
@@ -101,7 +101,7 @@ export const showRecipes = mediaEpisodicRecipes({
 	orderProperties: ["seasonNumber"],
 	coverageQuery: showSeasonCoverageQuery,
 	presentationFields: (entity) => ({
-		storedSeasons: selectedField(showSeasonCount(entity), Schema.Number),
+		storedSeasons: selectedField(showSeasonCount(entity), Schema.Finite),
 	}),
 	activityEpisode: (row) => ({
 		id: row.episodeId,
@@ -114,7 +114,7 @@ export const showRecipes = mediaEpisodicRecipes({
 		...mediaWatchProviderSelection(entity),
 		totalSeasons: selectedField(
 			propertyNumber(entity, "totalSeasons"),
-			Schema.NullOr(Schema.Number),
+			Schema.NullOr(Schema.Finite),
 		),
 	}),
 });
@@ -149,7 +149,7 @@ const showSeasonInclude = (show: Table, seasonLimit: number) => {
 		],
 		selection: {
 			...entityIdentitySelection(season),
-			seasonNumber: selectedField(seasonNumber, Schema.Number),
+			seasonNumber: selectedField(seasonNumber, Schema.Finite),
 			images: selectedField(propertyJson(season, "images"), MediaImageListSchema),
 			releaseDate: selectedField(propertyText(season, "releaseDate"), Schema.NullOr(Schema.String)),
 			description: selectedField(propertyText(season, "description"), Schema.NullOr(Schema.String)),

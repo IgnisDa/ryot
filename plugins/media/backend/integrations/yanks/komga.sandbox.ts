@@ -20,7 +20,7 @@ const Link = Schema.Struct({ url: Schema.String, label: Schema.String });
 
 const Book = Schema.Struct({
 	id: Schema.optional(Schema.String),
-	media: Schema.optional(Schema.Struct({ pagesCount: Schema.optional(Schema.Number) })),
+	media: Schema.optional(Schema.Struct({ pagesCount: Schema.optional(Schema.Finite) })),
 	metadata: Schema.optional(
 		Schema.Struct({
 			title: Schema.optional(Schema.String),
@@ -30,7 +30,7 @@ const Book = Schema.Struct({
 	readProgress: Schema.optional(
 		Schema.NullOr(
 			Schema.Struct({
-				page: Schema.optional(Schema.Number),
+				page: Schema.optional(Schema.Finite),
 				completed: Schema.optional(Schema.Boolean),
 			}),
 		),
@@ -38,7 +38,7 @@ const Book = Schema.Struct({
 });
 
 const BooksResponse = Schema.Struct({
-	totalPages: Schema.optional(Schema.Number),
+	totalPages: Schema.optional(Schema.Finite),
 	content: Schema.optional(Schema.Array(Book)),
 });
 

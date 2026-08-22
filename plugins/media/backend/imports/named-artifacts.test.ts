@@ -27,7 +27,7 @@ it("reads a single upload by the schema field key", async () => {
 		},
 	});
 
-	await expect(Effect.runPromise(readImportArtifactText())).resolves.toBe("export");
+	await expect(Effect.runPromise(readImportArtifactText)).resolves.toBe("export");
 	expect(keys).toEqual(["uploadToken"]);
 });
 

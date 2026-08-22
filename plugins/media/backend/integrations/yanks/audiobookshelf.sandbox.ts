@@ -26,11 +26,11 @@ const Metadata = Schema.Struct({
 
 const Episode = Schema.Struct({
 	id: Schema.optional(Schema.String),
-	index: Schema.optional(Schema.NullOr(Schema.Number)),
-	number: Schema.optional(Schema.NullOr(Schema.Number)),
-	sequence: Schema.optional(Schema.NullOr(Schema.Number)),
-	episodeNumber: Schema.optional(Schema.NullOr(Schema.Number)),
-	episode: Schema.optional(Schema.NullOr(Schema.Union([Schema.Number, Schema.String]))),
+	index: Schema.optional(Schema.NullOr(Schema.Finite)),
+	number: Schema.optional(Schema.NullOr(Schema.Finite)),
+	sequence: Schema.optional(Schema.NullOr(Schema.Finite)),
+	episodeNumber: Schema.optional(Schema.NullOr(Schema.Finite)),
+	episode: Schema.optional(Schema.NullOr(Schema.Union([Schema.Finite, Schema.String]))),
 });
 
 const MediaProgress = Schema.Struct({

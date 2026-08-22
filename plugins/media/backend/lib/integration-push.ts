@@ -60,7 +60,7 @@ export const logPushFailure = (
 			},
 		])
 		.pipe(
-			Effect.catch(() => Effect.succeed(null)),
+			Effect.orElseSucceed(() => null),
 			Effect.asVoid,
 		);
 

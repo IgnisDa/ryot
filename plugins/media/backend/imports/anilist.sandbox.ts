@@ -21,7 +21,7 @@ export default defineScript({
 	output: MediaImportAdapterBatch,
 	run: (input, host) =>
 		Effect.gen(function* () {
-			const text = yield* readImportArtifactText();
+			const text = yield* readImportArtifactText;
 			const { timezone } = yield* host.getSystemConfig(["timezone"]);
 			if (typeof timezone !== "string") {
 				throw new Error("App timezone is unavailable");

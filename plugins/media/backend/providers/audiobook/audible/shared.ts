@@ -219,15 +219,11 @@ export const details = defineProvider({
 			);
 			const product = asRecord(asRecord(payloadValue)?.["product"]);
 			if (!product) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "Audible returned no product data" }),
-				);
+				return yield* new MediaSandboxError({ message: "Audible returned no product data" });
 			}
 			const title = stringValue(product["title"]);
 			if (!title) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "Audible product is missing title" }),
-				);
+				return yield* new MediaSandboxError({ message: "Audible product is missing title" });
 			}
 
 			const imageUrl = productImageUrl(product, ["2400", "500"]);

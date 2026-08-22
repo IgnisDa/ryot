@@ -125,15 +125,13 @@ export const details = defineProvider({
 			const [first] = readResults(payload);
 			const vn = asRecord(first);
 			if (!vn) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "VNDB returned no data for this externalId" }),
-				);
+				return yield* new MediaSandboxError({
+					message: "VNDB returned no data for this externalId",
+				});
 			}
 			const name = stringValue(vn["title"]);
 			if (!name) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "VNDB VN payload is missing title" }),
-				);
+				return yield* new MediaSandboxError({ message: "VNDB VN payload is missing title" });
 			}
 
 			const images: Array<{ type: "remote"; url: string; purpose: string }> = [];
