@@ -10,6 +10,7 @@ import type { ClientPluginCompilerInput } from "./compile";
 import { ClientPluginCompilerFailure } from "./diagnostics";
 
 export const ClientCompilerWorkerRequestBase64 = Schema.Struct({
+	name: Schema.String,
 	entry: Schema.String,
 	apiVersion: Schema.Literal(CLIENT_API_VERSION),
 	files: Schema.Record(Schema.String, CanonicalBase64),

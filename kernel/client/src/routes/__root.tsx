@@ -3,6 +3,8 @@ import "#/styles/index.css";
 import { Outlet, createRootRouteWithContext } from "@tanstack/react-router";
 
 import type { BackInterceptors } from "#/modules/navigation/back-interceptors";
+import { PageTitleProvider } from "#/modules/navigation/page-title";
+import { SkipToContentLink } from "#/modules/navigation/skip-link";
 import { ThemeController } from "#/modules/theme/controller";
 import type { ThemeStore } from "#/modules/theme/store";
 import type { ClientRuntime } from "#/runtime";
@@ -18,9 +20,10 @@ export const Route = createRootRouteWithContext<RouterContext>()({ component: Ro
 function RootComponent() {
 	const { runtime, theme } = Route.useRouteContext();
 	return (
-		<>
+		<PageTitleProvider>
+			<SkipToContentLink />
 			<ThemeController runtime={runtime} theme={theme} />
 			<Outlet />
-		</>
+		</PageTitleProvider>
 	);
 }
