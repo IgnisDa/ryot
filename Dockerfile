@@ -59,8 +59,7 @@ COPY --from=backend-builder --chown=ryot:ryot /app/apps/server/plugins ./plugins
 COPY --from=runtime-deps --chown=ryot:ryot /app/node_modules ./node_modules
 COPY --from=runtime-deps --chown=ryot:ryot /app/packages ./packages
 USER ryot
-# Build the read-only sandbox dependency runtime so startup requires no registry access.
-RUN bun run dist/warm-sandbox-runtime-cache.js
-RUN bun run dist/smoke-sandbox-runtime.js
+# Materialize and smoke-check the read-only sandbox runtime before startup.
+RUN bun run dist/sandbox-runtime-image.js
 ENV NODE_ENV=production
 CMD ["bun", "run", "dist/main.js"]

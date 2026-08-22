@@ -1,24 +1,27 @@
 import { BunServices } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { Effect, FileSystem, Path } from "effect";
+import type { PlatformError } from "effect/PlatformError";
 
-import { sandboxRuntimeInputs } from "./sandbox-runtime-inputs";
+import { sandboxRuntimeInputs } from "./inputs";
 
 it.effect("covers deterministic sandbox runtime preparation inputs", () =>
 	Effect.gen(function* () {
 		const path = yield* Path.Path;
-		const scriptsDirectory = path.dirname(Bun.fileURLToPath(import.meta.url));
-		const kernelDirectory = path.resolve(scriptsDirectory, "..");
+		const compilerDirectory = path.dirname(Bun.fileURLToPath(import.meta.url));
+		const kernelDirectory = path.resolve(compilerDirectory, "../../../../kernel/backend");
 		const runtimeDirectory = path.join(kernelDirectory, "src/lib/infrastructure/sandbox-runtime");
 		const inputs = yield* sandboxRuntimeInputs(kernelDirectory, runtimeDirectory);
 		for (const expected of [
 			"bun.lock",
 			"package.json",
 			"kernel/backend/package.json",
-			"kernel/backend/scripts/generate-sandbox-runtime.ts",
-			"kernel/backend/scripts/sandbox-runtime-payload.ts",
-			"kernel/backend/scripts/sandbox-runtime-inputs.ts",
-			"kernel/backend/scripts/sandbox-runtime-registry.ts",
+			"kernel/backend/tooling/sandbox-runtime.ts",
+			"packages/sandbox-compiler/package.json",
+			"packages/sandbox-compiler/src/runtime-build/payload.ts",
+			"packages/sandbox-compiler/src/runtime-build/inputs.ts",
+			"packages/sandbox-compiler/src/runtime-build/registry.ts",
+			"packages/sandbox-compiler/src/runtime-build/source-tree.ts",
 			"kernel/backend/src/lib/infrastructure/sandbox-runtime/payload.ts",
 			"kernel/backend/src/lib/infrastructure/sandbox-runtime/runner-source.sandbox.ts",
 			"packages/contract/src/modules/ryotql/language.ts",
@@ -44,7 +47,7 @@ const limitedPreparation = (
 	fixture: (
 		root: string,
 		runtimeDirectory: string,
-	) => Effect.Effect<void, unknown, FileSystem.FileSystem>,
+	) => Effect.Effect<void, PlatformError, FileSystem.FileSystem>,
 	limits: Parameters<typeof sandboxRuntimeInputs>[2],
 ) =>
 	Effect.gen(function* () {

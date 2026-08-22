@@ -2,14 +2,15 @@
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { compilePluginSandboxSourceEntries } from "@ryot-app/sandbox-compiler/plugins";
+import { sandboxRuntimeInputs } from "@ryot-app/sandbox-compiler/runtime-build/inputs";
+import { buildSandboxRuntimePayload } from "@ryot-app/sandbox-compiler/runtime-build/payload";
+import { walkSourceFiles } from "@ryot-app/sandbox-compiler/runtime-build/source-tree";
 import { canonicalFileSetHash } from "@ryot-app/ts-utils/crypto";
 import { buildDenoEsm, ViteBuildService } from "@ryot-app/vite-compiler";
 import { Data, Effect, FileSystem, Layer, Path, Ref, Schema } from "effect";
 
+import type { SandboxRuntimePayload } from "../src/lib/infrastructure/sandbox-runtime/payload";
 import { kernelScripts } from "../src/modules/definition-registry/kernel-source";
-import { sandboxRuntimeInputs } from "./sandbox-runtime-inputs";
-import { buildSandboxRuntimePayload } from "./sandbox-runtime-payload";
-import { walkSourceFiles } from "./walk-source-tree";
 
 class RunnerGenerationError extends Data.TaggedError("RunnerGenerationError")<{
 	message: string;
@@ -93,7 +94,7 @@ const compileRunner = (sandboxRuntimeDirectory: string) =>
 const compileRuntimePayload = (kernelDirectory: string, sandboxRuntimeDirectory: string) =>
 	Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
-		const payload = yield* buildSandboxRuntimePayload(kernelDirectory).pipe(
+		const payload: SandboxRuntimePayload = yield* buildSandboxRuntimePayload(kernelDirectory).pipe(
 			Effect.mapError(
 				(error) =>
 					new RunnerGenerationError({

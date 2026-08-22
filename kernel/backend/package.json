@@ -8,10 +8,9 @@
 	},
 	"scripts": {
 		"test": "bun --bun run vitest run",
+		"build": "bun run tooling/sandbox-runtime.ts",
 		"db:generate": "bun --bun drizzle-kit generate",
-		"build": "bun run scripts/generate-sandbox-runtime.ts",
-		"architecture:check": "bun run scripts/check-architecture.ts",
-		"check": "bun run architecture:check && bun run sandbox:check-runner && tsc && oxfmt . --write && oxlint . --type-aware --fix",
+		"check": "bun run sandbox:check-runner && tsc && oxfmt . --write && oxlint . --type-aware --fix",
 		"sandbox:check-runner": "deno check --config src/lib/infrastructure/sandbox-runtime/deno.json src/lib/infrastructure/sandbox-runtime/runner-source.sandbox.ts"
 	},
 	"dependencies": {
