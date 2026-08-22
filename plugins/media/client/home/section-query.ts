@@ -53,7 +53,6 @@ const sectionRecipe = <Recipes extends SectionRecipes>(
 	},
 });
 
-/** A home section's query: one document, and every entity it returns is visible interest. */
 export const createHomeSectionQuery = <Input, Recipes extends SectionRecipes>(
 	recipes: (input: Input) => Recipes,
 	visible: (data: SectionData<Recipes>) => readonly string[],
