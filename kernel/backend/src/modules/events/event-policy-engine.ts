@@ -1,16 +1,17 @@
 import {
 	AutomationEventDraft,
-	type AutomationRequestPayload,
+	AutomationRequestPayload,
 	type AutomationRun,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { EventCreateItemError } from "@ryot-app/contract/modules/events/schemas";
+import { AutomationHookSlug, PluginId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Effect, Schema } from "effect";
-import { Activity } from "effect/unstable/workflow";
 
 import type { LifecyclePlan } from "#lib/domain/lifecycle";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
+import { makeActivity } from "#lib/infrastructure/workflow-scope";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 
 import { EventCreateWorkflowError, type EventCreateWorkflowPayload } from "./event-create-workflow";
@@ -21,6 +22,25 @@ export type EventRequest = Extract<
 	{ resource: "event"; operation: "create" }
 >;
 export type PolicyIdentity = Pick<AutomationRun, "pluginId" | "hookSlug">;
+
+const PolicyIdentity = Schema.Struct({
+	hookSlug: AutomationHookSlug,
+	pluginId: Schema.NullOr(PluginId),
+});
+const EventPolicyOutcome = Schema.Union([
+	Schema.TaggedStruct("Accepted", {
+		processed: Schema.Array(PolicyIdentity),
+		request: AutomationRequestPayload.members[3],
+	}),
+	Schema.TaggedStruct("Skipped", {
+		reason: Schema.String,
+		processed: Schema.Array(PolicyIdentity),
+	}),
+	Schema.TaggedStruct("Failed", {
+		error: EventCreateItemError,
+		processed: Schema.Array(PolicyIdentity),
+	}),
+]);
 
 export const runEventCreatePolicies = Effect.fn("runEventCreatePolicies")(function* (
 	payload: EventCreateWorkflowPayload,
@@ -38,8 +58,10 @@ export const runEventCreatePolicies = Effect.fn("runEventCreatePolicies")(functi
 	) {
 		return yield* Effect.die("Expected event-create request trigger");
 	}
+	const skipQueuedPolicies = execution.skipQueuedPolicies({ triggerId: plan.trigger.id });
+	const reached: PolicyIdentity[] = [];
 	let request: EventRequest = source;
-	return yield* Effect.gen(function* () {
+	const outcome = yield* Effect.gen(function* () {
 		if (plan.trigger.blockedReason) {
 			return yield* new EventCreateItemError({
 				reason: { triggerId: plan.trigger.id, code: "automation-limit-reached" },
@@ -55,7 +77,7 @@ export const runEventCreatePolicies = Effect.fn("runEventCreatePolicies")(functi
 		});
 		ordered.sort(
 			(a, b) =>
-				(a.position ?? 1000) - (b.position ?? 1000) ||
+				a.position - b.position ||
 				(a.run.pluginId ?? "").localeCompare(b.run.pluginId ?? "") ||
 				a.run.hookSlug.localeCompare(b.run.hookSlug),
 		);
@@ -71,11 +93,10 @@ export const runEventCreatePolicies = Effect.fn("runEventCreatePolicies")(functi
 					),
 				);
 			if (policy.batchFrequency === "once-per-subject") {
-				processed.push({ pluginId: policy.run.pluginId, hookSlug: policy.run.hookSlug });
+				reached.push({ pluginId: policy.run.pluginId, hookSlug: policy.run.hookSlug });
 			}
 			if (output.action === "reject") {
-				yield* execution.skipQueuedPolicies({ triggerId: plan.trigger.id });
-				return { reason: output.reason, kind: "skipped" as const };
+				return { processed: reached, reason: output.reason, _tag: "Skipped" as const };
 			}
 			if (output.action === "transform") {
 				if (output.payload.resource !== "event" || output.payload.operation !== "create") {
@@ -92,26 +113,47 @@ export const runEventCreatePolicies = Effect.fn("runEventCreatePolicies")(functi
 				});
 			}
 		}
-		const draft = yield* Activity.make({
+		return { request, processed: reached, _tag: "Accepted" as const };
+	}).pipe(
+		Effect.catchTag("EventCreateItemError", (error) =>
+			Effect.succeed({ error, processed: reached, _tag: "Failed" as const }),
+		),
+	);
+	const recorded = yield* makeActivity({
+		success: EventPolicyOutcome,
+		execute: Effect.succeed(outcome),
+		name: `policy-outcome-${itemIndex}`,
+	});
+	processed.push(...recorded.processed);
+	if (recorded._tag === "Failed") {
+		return yield* skipQueuedPolicies.pipe(Effect.andThen(Effect.fail(recorded.error)));
+	}
+	if (recorded._tag === "Skipped") {
+		yield* skipQueuedPolicies;
+		return { reason: recorded.reason, kind: "skipped" as const };
+	}
+	const accepted = recorded.request;
+	return yield* Effect.gen(function* () {
+		const draft = yield* makeActivity({
 			name: `validate-event-${itemIndex}`,
 			success: AutomationEventDraft satisfies DurableSchema,
 			error: EventCreateWorkflowError satisfies DurableSchema,
 			execute: Effect.gen(function* () {
 				const scope = yield* resolveEventCreateItemScopes({
 					userId: payload.userId,
-					item: { ...request.draft, sessionEntityId: request.draft.sessionEntityId ?? undefined },
+					item: { ...accepted.draft, sessionEntityId: accepted.draft.sessionEntityId ?? undefined },
 				});
 				const properties = yield* parseAppSchemaProperties({
 					kind: "Event",
 					propertiesSchema,
-					properties: request.draft.properties,
+					properties: accepted.draft.properties,
 				}).pipe(
 					Effect.mapError(
 						() => new EventCreateItemError({ reason: { code: "invalid-properties" } }),
 					),
 				);
 				return yield* Schema.decodeUnknownEffect(AutomationEventDraft)({
-					...request.draft,
+					...accepted.draft,
 					properties,
 					sessionEntityId: scope.sessionEntityId ?? null,
 				}).pipe(
@@ -122,5 +164,5 @@ export const runEventCreatePolicies = Effect.fn("runEventCreatePolicies")(functi
 			}),
 		});
 		return { draft, kind: "ready" as const };
-	}).pipe(Effect.tapError(() => execution.skipQueuedPolicies({ triggerId: plan.trigger.id })));
+	}).pipe(Effect.tapError(() => skipQueuedPolicies));
 });

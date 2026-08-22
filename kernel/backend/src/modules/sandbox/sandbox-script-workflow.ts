@@ -13,7 +13,7 @@ import {
 } from "@ryot-app/sandbox-sdk/workflow";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Cause, Clock, DateTime, Duration, Effect, Schema } from "effect";
-import { Activity, DurableClock, Workflow } from "effect/unstable/workflow";
+import { DurableClock, Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
@@ -35,6 +35,7 @@ import {
 	projectWorkflowJournal,
 } from "#lib/infrastructure/sandbox-runtime/workflow-journal";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
+import { makeActivity } from "#lib/infrastructure/workflow-scope";
 
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
 import {
@@ -329,7 +330,7 @@ const observeWorkflowReplay = (
 	pluginRevision: SandboxExecutionPrincipal["pluginRevision"],
 	step: number,
 ) =>
-	Activity.make({
+	makeActivity({
 		error: SandboxRunError,
 		success: ObservedWorkflowReplay,
 		name: `observe-sandbox-workflow-replay-${step}`,
@@ -450,7 +451,7 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 		!kernel || request.args.workflowSlug === KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW;
 	const dispatchReferenceExecutionId = `${childExecutionId}-artifact-dispatch`;
 	const artifactReference = (operation: "release" | "retain") =>
-		Activity.make({
+		makeActivity({
 			error: SandboxRunError,
 			name: `${operation}-sandbox-child-artifacts-${request.index}`,
 			execute: Effect.gen(function* () {
@@ -510,7 +511,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 		payload: SandboxExecutionQueuePayload,
 	) => Effect.Effect<SandboxExecutionResult, SandboxRunError, R>,
 ) {
-	const pin = yield* Activity.make({
+	const pin = yield* makeActivity({
 		error: SandboxRunError,
 		success: SandboxWorkflowPin,
 		name: "pin-sandbox-workflow-script",
@@ -523,7 +524,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 		}).pipe(Effect.mapError(rethrowSandboxFailure("infrastructure"))),
 	});
 
-	const releaseReference = Activity.make({
+	const releaseReference = makeActivity({
 		error: SandboxRunError,
 		name: "release-sandbox-workflow-reference",
 		execute: Effect.gen(function* () {

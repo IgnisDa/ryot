@@ -1,11 +1,11 @@
 import { SandboxRunError, toSandboxRunError } from "@ryot-app/contract/errors";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
-import { Activity } from "effect/unstable/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { Database } from "#lib/infrastructure/db/service";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
+import { makeActivity } from "#lib/infrastructure/workflow-scope";
 import {
 	PluginRuntimeResolver,
 	type UnsupportedProviderOperationError,
@@ -21,7 +21,7 @@ const processSandboxTranslation = Effect.fn("processSandboxTranslation")(functio
 ) {
 	const sandbox = yield* SandboxExecutionService;
 	const pluginRuntime = yield* PluginRuntimeResolver;
-	const scriptId = yield* Activity.make({
+	const scriptId = yield* makeActivity({
 		error: SandboxRunError,
 		success: SandboxScriptId satisfies DurableSchema,
 		name: `resolve-provider-translate-script-${executionId}`,

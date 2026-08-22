@@ -1,4 +1,4 @@
-import type { PgClient } from "@effect/sql-pg";
+import { PgClient } from "@effect/sql-pg";
 import {
 	AutomationExecutionId,
 	EntityId,
@@ -19,6 +19,7 @@ import { Database, DatabaseLive } from "#lib/infrastructure/db/service";
 import { PluginEnvironmentConfig } from "#lib/infrastructure/plugin-environment-config";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
+import { withLifecycleDispatch } from "#modules/automations/lifecycle.test-support";
 import { LifecyclePlannerLive } from "#modules/automations/planner";
 import { AutomationRunRepository } from "#modules/automations/run-repository";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
@@ -217,13 +218,17 @@ export const withRelationshipDatabase = <E>(
 						LifecycleExecution,
 						Effect.gen(function* () {
 							const database = yield* Database;
+							const client = yield* PgClient.PgClient;
 							const runs = yield* AutomationRunRepository.make;
-							return {
-								after: () => Effect.succeed([]),
-								executePolicy: () => Effect.die("Unexpected policy in relationship fixture"),
-								skipQueuedPolicies: (input) =>
-									runs.skipQueuedPolicies(input).pipe(Effect.provideService(Database, database)),
-							};
+							return withLifecycleDispatch(
+								{
+									after: () => Effect.succeed([]),
+									executePolicy: () => Effect.die("Unexpected policy in relationship fixture"),
+									skipQueuedPolicies: (input) =>
+										runs.skipQueuedPolicies(input).pipe(Effect.provideService(Database, database)),
+								},
+								client,
+							);
 						}),
 					),
 				),

@@ -18,7 +18,10 @@ import {
 	SandboxDurableHostDispatcherLive,
 	SandboxDurableHostServiceWorkflowLive,
 } from "#lib/infrastructure/sandbox-runtime/durable-host-dispatcher";
-import { makeAdditionalSandboxApiFunctions } from "#lib/infrastructure/sandbox-runtime/host-functions";
+import {
+	makeAdditionalSandboxApiFunctions,
+	makeSandboxLifecycleHostApi,
+} from "#lib/infrastructure/sandbox-runtime/host-functions";
 import { SandboxHostImplementations } from "#lib/infrastructure/sandbox-runtime/host-implementations";
 import { PackageCacheManager } from "#lib/infrastructure/sandbox-runtime/runtime";
 import { makeRuntimeSandboxApiFunctions } from "#lib/infrastructure/sandbox-runtime/runtime-host-functions";
@@ -482,6 +485,7 @@ const SignalEmissionServiceLive = SignalEmissionService.layer.pipe(
 export const SandboxHostImplementationsLive = Layer.effect(
 	SandboxHostImplementations,
 	Effect.all({
+		lifecycle: makeSandboxLifecycleHostApi,
 		runtime: makeRuntimeSandboxApiFunctions,
 		additional: makeAdditionalSandboxApiFunctions,
 		automation: makeAutomationSandboxApiFunctions,

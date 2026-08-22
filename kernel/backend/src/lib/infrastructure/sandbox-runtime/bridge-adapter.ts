@@ -47,12 +47,13 @@ const formatSchemaError = (error: Schema.SchemaError) =>
 		})
 		.join("; ") || "Invalid arguments";
 
+const invalidArgumentsMessage = (fnName: string, error: Schema.SchemaError) =>
+	hasInvalidArgumentCount(error)
+		? `${fnName} received an invalid number of arguments`
+		: formatSchemaError(error);
+
 const invalidArguments = (fnName: string, error: Schema.SchemaError) =>
-	hostFailure(
-		hasInvalidArgumentCount(error)
-			? `${fnName} received an invalid number of arguments`
-			: formatSchemaError(error),
-	);
+	hostFailure(invalidArgumentsMessage(fnName, error));
 
 const normalizeOptionalNull = (args: ReadonlyArray<unknown>, index: number) => {
 	if (args[index] !== null) {
@@ -71,6 +72,16 @@ type HostContract<Args extends ReadonlyArray<unknown>, Result> = {
 	readonly args: Schema.ConstraintCodec<Readonly<Args>, unknown>;
 	readonly result: Schema.ConstraintCodec<Result, unknown>;
 };
+
+export const decodeSandboxHostArguments =
+	<Args extends ReadonlyArray<unknown>, Result>(
+		fnName: string,
+		contract: HostContract<Args, Result>,
+	) =>
+	(args: ReadonlyArray<unknown>) =>
+		Schema.decodeEffect(contract.args)(args).pipe(
+			Effect.mapError((error) => ({ message: invalidArgumentsMessage(fnName, error) })),
+		);
 
 const bindHostFunction =
 	<Args extends ReadonlyArray<unknown>, Result, Success>(

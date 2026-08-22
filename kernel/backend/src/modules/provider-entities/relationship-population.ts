@@ -14,7 +14,7 @@ import type {
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect } from "effect";
 
-import type { LifecyclePlan } from "#lib/domain/lifecycle";
+import { type LifecyclePlan, toLifecycleDispatchPlan } from "#lib/domain/lifecycle";
 import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { Database, mapDatabaseErrors, retryOnDeadlock } from "#lib/infrastructure/db/service";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
@@ -22,7 +22,6 @@ import type { DefinitionSnapshot } from "#modules/definition-registry/service";
 import { EntitiesRepository, providerEntityMutationLockKey } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import { RelationshipsService } from "#modules/relationships/service";
 
 import { persistPlannedRelationshipSynchronization } from "./relationship-synchronization";
 
@@ -49,7 +48,6 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 	const database = yield* Database;
 	const entities = yield* EntitiesService;
 	const repository = yield* EntitiesRepository;
-	const relationships = yield* RelationshipsService;
 	const pluginRuntime = yield* PluginRuntimeResolver;
 	const relationshipDefinition =
 		input.definitions.relationshipSchemas[input.group.relationshipSchemaSlug];
@@ -223,20 +221,10 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 			),
 		),
 	).pipe(mapDbErrorToSandbox);
-	const warnings = [
-		...(yield* entities.executeCommittedPlans(committed.entityPlans).pipe(mapDbErrorToSandbox)),
-		...(yield* relationships
-			.executeCommittedPlans(committed.relationshipPlans)
-			.pipe(mapDbErrorToSandbox)),
-	];
-	if (warnings.length > 0) {
-		yield* Effect.logWarning("provider related population completed with automation warnings").pipe(
-			Effect.annotateLogs({
-				warnings,
-				warningCount: warnings.length,
-				relationshipSchemaSlug: input.group.relationshipSchemaSlug,
-			}),
-		);
-	}
-	return committed.result;
+	return {
+		result: committed.result,
+		dispatch: [...committed.entityPlans, ...committed.relationshipPlans].map(
+			toLifecycleDispatchPlan,
+		),
+	};
 });

@@ -27,6 +27,7 @@ import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { Database } from "#lib/infrastructure/db/service";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { AutomationAttemptRepository } from "#modules/automations/attempt-repository";
+import { withLifecycleDispatch } from "#modules/automations/lifecycle.test-support";
 import { LifecyclePlannerLive } from "#modules/automations/planner";
 import { EntitiesService } from "#modules/entities/service";
 import { installRevisionPackage, revisionPackage } from "#modules/plugins/revision.test-support";
@@ -54,6 +55,67 @@ describe("Relationships lifecycle owner", () => {
 						.create({ ...baseInput, properties: { rank: "invalid" } }, command("active-schema"))
 						.pipe(Effect.flip),
 				).toMatchObject({ reason: { code: "invalid-properties" } });
+			}),
+		),
+	);
+
+	it.effect("commits relationship writes in prepare and after policies with the same rows", () =>
+		withRelationshipDatabase(() =>
+			Effect.gen(function* () {
+				const service = yield* RelationshipsService;
+				const planner = yield* LifecyclePlanner;
+				const execution = yield* LifecycleExecution;
+				const db = yield* Database;
+				const fast = yield* service.prepareCreate(baseInput, command("step-fast"));
+				assert(fast._tag === "Committed");
+				expect(fast.result.relationship?.wasInserted).toBe(true);
+				expect(fast.dispatch).toHaveLength(1);
+				expect(yield* db.select().from(tables.relationship)).toHaveLength(1);
+
+				const policyRunId = AutomationRunId.make("step-policy");
+				const withPolicies = Effect.provideService(LifecyclePlanner, {
+					plan: (input) =>
+						planner
+							.plan(input)
+							.pipe(
+								Effect.map((plan) => ({
+									...plan,
+									policies:
+										plan.trigger.kind.category === "request"
+											? [{ position: 1, runId: policyRunId }]
+											: [],
+								})),
+							),
+				});
+				const executed: string[] = [];
+				const withPolicyExecution = Effect.provideService(
+					LifecycleExecution,
+					withLifecycleDispatch({
+						...execution,
+						executePolicy: ({ runId }) =>
+							Effect.sync(() => {
+								executed.push(runId);
+								return { action: "allow" as const };
+							}),
+					}),
+				);
+				const prepared = yield* service
+					.prepareCreate({ ...baseInput, properties: { rank: 5 } }, command("step-policies"))
+					.pipe(withPolicies, withPolicyExecution);
+				assert(prepared._tag === "PoliciesRequired");
+				expect(executed).toEqual([]);
+				const accepted = yield* service
+					.applyPolicies(prepared.pending)
+					.pipe(withPolicies, withPolicyExecution);
+				expect(executed).toEqual([policyRunId]);
+				const committed = yield* service
+					.commitSingle(accepted)
+					.pipe(withPolicies, withPolicyExecution);
+				assert(committed._tag === "Committed");
+				expect(committed.result.relationship?.properties).toEqual({ rank: 5 });
+				expect(
+					(yield* db.select().from(tables.relationship)).map(({ properties }) => properties),
+				).toEqual([{ rank: 5 }]);
 			}),
 		),
 	);
@@ -198,10 +260,10 @@ describe("Relationships lifecycle owner", () => {
 							"update",
 						]);
 					}).pipe(
-						Effect.provideService(LifecycleExecution, {
-							...execution,
-							after: () => Effect.succeed([warning]),
-						}),
+						Effect.provideService(
+							LifecycleExecution,
+							withLifecycleDispatch({ ...execution, after: () => Effect.succeed([warning]) }),
+						),
 					);
 				}),
 			),
@@ -289,70 +351,73 @@ describe("Relationships lifecycle owner", () => {
 							],
 							command(`policy-batch-${mode}`),
 						).pipe(
-							Effect.provideService(LifecycleExecution, {
-								...execution,
-								after: () => Effect.die("A rejected batch cannot dispatch after runs"),
-								skipQueuedPolicies: (input) =>
-									Effect.gen(function* () {
-										expect(
-											Option.isNone(yield* Effect.serviceOption(client.transactionService)),
-										).toBe(true);
-										cleanup.push(input.triggerId);
-										yield* execution.skipQueuedPolicies(input);
-									}),
-								executePolicy: ({ runId }) =>
-									Effect.gen(function* () {
-										expect(
-											Option.isNone(yield* Effect.serviceOption(client.transactionService)),
-										).toBe(true);
-										invoked.push(runId);
-										const now = DateTime.toDate(DateTime.makeUnsafe("2026-09-15T00:00:01.000Z"));
-										yield* attempts
-											.claimNextAttempt({ now, runId, attemptNumber: 1 })
-											.pipe(Effect.provideService(Database, db), Effect.orDie);
-										if (invoked.length === 2 && mode === "failure") {
+							Effect.provideService(
+								LifecycleExecution,
+								withLifecycleDispatch({
+									...execution,
+									after: () => Effect.die("A rejected batch cannot dispatch after runs"),
+									skipQueuedPolicies: (input) =>
+										Effect.gen(function* () {
+											expect(
+												Option.isNone(yield* Effect.serviceOption(client.transactionService)),
+											).toBe(true);
+											cleanup.push(input.triggerId);
+											yield* execution.skipQueuedPolicies(input);
+										}),
+									executePolicy: ({ runId }) =>
+										Effect.gen(function* () {
+											expect(
+												Option.isNone(yield* Effect.serviceOption(client.transactionService)),
+											).toBe(true);
+											invoked.push(runId);
+											const now = DateTime.toDate(DateTime.makeUnsafe("2026-09-15T00:00:01.000Z"));
+											yield* attempts
+												.claimNextAttempt({ now, runId, attemptNumber: 1 })
+												.pipe(Effect.provideService(Database, db), Effect.orDie);
+											if (invoked.length === 2 && mode === "failure") {
+												yield* attempts
+													.finalizeAttempt(
+														{
+															runId,
+															logs: null,
+															timing: null,
+															attemptNumber: 1,
+															status: "failed",
+															returnedValue: null,
+															failureKind: "sandbox-infrastructure",
+															error: { message: "Policy failed", code: "policy-test-failure" },
+														},
+														now,
+													)
+													.pipe(Effect.provideService(Database, db), Effect.orDie);
+												return yield* new AutomationPolicyExecutionError({
+													runId,
+													code: "policy-execution-failed",
+												});
+											}
+											const output =
+												invoked.length === 2
+													? { reason: "Rejected", action: "reject" as const }
+													: { action: "allow" as const };
 											yield* attempts
 												.finalizeAttempt(
 													{
 														runId,
 														logs: null,
+														error: null,
 														timing: null,
 														attemptNumber: 1,
-														status: "failed",
-														returnedValue: null,
-														failureKind: "sandbox-infrastructure",
-														error: { message: "Policy failed", code: "policy-test-failure" },
+														failureKind: null,
+														status: "succeeded",
+														returnedValue: output,
 													},
 													now,
 												)
 												.pipe(Effect.provideService(Database, db), Effect.orDie);
-											return yield* new AutomationPolicyExecutionError({
-												runId,
-												code: "policy-execution-failed",
-											});
-										}
-										const output =
-											invoked.length === 2
-												? { reason: "Rejected", action: "reject" as const }
-												: { action: "allow" as const };
-										yield* attempts
-											.finalizeAttempt(
-												{
-													runId,
-													logs: null,
-													error: null,
-													timing: null,
-													attemptNumber: 1,
-													failureKind: null,
-													status: "succeeded",
-													returnedValue: output,
-												},
-												now,
-											)
-											.pipe(Effect.provideService(Database, db), Effect.orDie);
-										return output;
-									}),
-							}),
+											return output;
+										}),
+								}),
+							),
 						),
 					);
 					const rejectingRunId = invoked[1];
@@ -499,25 +564,28 @@ describe("Relationships lifecycle owner", () => {
 					expect(yield* db.select().from(tables.relationship)).toEqual([]);
 					expect(yield* db.select().from(tables.automationRun)).toEqual([]);
 					yield* service.create(input, command("runs")).pipe(
-						Effect.provideService(LifecycleExecution, {
-							...execution,
-							executePolicy: () => Effect.die("Unexpected policy"),
-							after: ({ runs, triggerId }) =>
-								Effect.gen(function* () {
-									expect(runs.map(({ pluginRevisionId }) => pluginRevisionId)).toEqual([
-										installed.revisionId,
-										installed.revisionId,
-									]);
-									const rows = yield* Effect.tryPromise(() =>
-										observer.query(
-											"select count(*)::int as count from automation_run where trigger_id = $1",
-											[triggerId],
-										),
-									).pipe(Effect.mapError(() => new DbError({ message: "Observer failed" })));
-									expect(rows.rows).toEqual([{ count: 2 }]);
-									return [];
-								}),
-						}),
+						Effect.provideService(
+							LifecycleExecution,
+							withLifecycleDispatch({
+								...execution,
+								executePolicy: () => Effect.die("Unexpected policy"),
+								after: ({ runs, triggerId }) =>
+									Effect.gen(function* () {
+										expect(runs).toHaveLength(2);
+										const rows = yield* Effect.tryPromise(() =>
+											observer.query(
+												"select plugin_revision_id as revision from automation_run where trigger_id = $1",
+												[triggerId],
+											),
+										).pipe(Effect.mapError(() => new DbError({ message: "Observer failed" })));
+										expect(rows.rows).toEqual([
+											{ revision: installed.revisionId },
+											{ revision: installed.revisionId },
+										]);
+										return [];
+									}),
+							}),
+						),
 					);
 					expect(yield* db.select().from(tables.relationship)).toHaveLength(1);
 					expect(yield* db.select().from(tables.automationRun)).toHaveLength(2);
@@ -706,25 +774,28 @@ describe("Relationships lifecycle owner", () => {
 					const calls: string[] = [];
 					const execution = yield* LifecycleExecution;
 					yield* service.create(baseInput, command("commit")).pipe(
-						Effect.provideService(LifecycleExecution, {
-							...execution,
-							executePolicy: () => Effect.die("Unexpected policy"),
-							after: ({ triggerId }) =>
-								Effect.gen(function* () {
-									expect(
-										Option.isNone(yield* Effect.serviceOption(client.transactionService)),
-									).toBe(true);
-									const observed = yield* Effect.tryPromise(() =>
-										observer.query(
-											"select (select count(*)::int from relationship) as relationships, (select count(*)::int from automation_trigger where id = $1) as triggers",
-											[triggerId],
-										),
-									).pipe(Effect.mapError(() => new DbError({ message: "Observer failed" })));
-									expect(observed.rows).toEqual([{ triggers: 1, relationships: 1 }]);
-									calls.push(triggerId);
-									return [];
-								}),
-						}),
+						Effect.provideService(
+							LifecycleExecution,
+							withLifecycleDispatch({
+								...execution,
+								executePolicy: () => Effect.die("Unexpected policy"),
+								after: ({ triggerId }) =>
+									Effect.gen(function* () {
+										expect(
+											Option.isNone(yield* Effect.serviceOption(client.transactionService)),
+										).toBe(true);
+										const observed = yield* Effect.tryPromise(() =>
+											observer.query(
+												"select (select count(*)::int from relationship) as relationships, (select count(*)::int from automation_trigger where id = $1) as triggers",
+												[triggerId],
+											),
+										).pipe(Effect.mapError(() => new DbError({ message: "Observer failed" })));
+										expect(observed.rows).toEqual([{ triggers: 1, relationships: 1 }]);
+										calls.push(triggerId);
+										return [];
+									}),
+							}),
+						),
 					);
 					expect(calls).toHaveLength(1);
 					const db = yield* Database;
@@ -773,29 +844,32 @@ describe("Relationships lifecycle owner", () => {
 									),
 								),
 						}),
-						Effect.provideService(LifecycleExecution, {
-							...execution,
-							after: () => Effect.succeed([]),
-							executePolicy: ({ runId, payload }) =>
-								Effect.gen(function* () {
-									expect(
-										Option.isNone(yield* Effect.serviceOption(client.transactionService)),
-									).toBe(true);
-									assert(payload.resource === "relationship" && payload.operation === "create");
-									seen.push(payload.draft);
-									return {
-										action: "transform" as const,
-										payload: {
-											...payload,
-											draft: {
-												...payload.draft,
-												sourceEntityId: EntityId.make("untrusted"),
-												properties: { rank: runId === "first" ? 2 : 3 },
+						Effect.provideService(
+							LifecycleExecution,
+							withLifecycleDispatch({
+								...execution,
+								after: () => Effect.succeed([]),
+								executePolicy: ({ runId, payload }) =>
+									Effect.gen(function* () {
+										expect(
+											Option.isNone(yield* Effect.serviceOption(client.transactionService)),
+										).toBe(true);
+										assert(payload.resource === "relationship" && payload.operation === "create");
+										seen.push(payload.draft);
+										return {
+											action: "transform" as const,
+											payload: {
+												...payload,
+												draft: {
+													...payload.draft,
+													sourceEntityId: EntityId.make("untrusted"),
+													properties: { rank: runId === "first" ? 2 : 3 },
+												},
 											},
-										},
-									};
-								}),
-						}),
+										};
+									}),
+							}),
+						),
 					);
 					expect(seen).toEqual([
 						{ sourceEntityId, targetEntityId, relationshipSchemaSlug, properties: { rank: 1 } },
@@ -840,18 +914,21 @@ describe("Relationships lifecycle owner", () => {
 											),
 										),
 							}),
-							Effect.provideService(LifecycleExecution, {
-								...execution,
-								after: () => Effect.succeed([]),
-								executePolicy: () =>
-									repository
-										.updateRelationship({ ...baseInput, properties: { rank: 9 } })
-										.pipe(
-											Effect.provideService(Database, database),
-											Effect.as({ action: "allow" as const }),
-											Effect.orDie,
-										),
-							}),
+							Effect.provideService(
+								LifecycleExecution,
+								withLifecycleDispatch({
+									...execution,
+									after: () => Effect.succeed([]),
+									executePolicy: () =>
+										repository
+											.updateRelationship({ ...baseInput, properties: { rank: 9 } })
+											.pipe(
+												Effect.provideService(Database, database),
+												Effect.as({ action: "allow" as const }),
+												Effect.orDie,
+											),
+								}),
+							),
 						),
 				);
 				assertExitFails(
@@ -897,21 +974,24 @@ describe("Relationships lifecycle owner", () => {
 					},
 				];
 				const result = yield* changeUserRelationships(userId, batches, child).pipe(
-					Effect.provideService(LifecycleExecution, {
-						...execution,
-						after: () => Effect.succeed([warning]),
-						executePolicy: () => Effect.die("Unexpected policy"),
-					}),
+					Effect.provideService(
+						LifecycleExecution,
+						withLifecycleDispatch({
+							...execution,
+							after: () => Effect.succeed([warning]),
+							executePolicy: () => Effect.die("Unexpected policy"),
+						}),
+					),
 				);
 				expect(result).toEqual([
 					{ created: 1, updated: 1, deleted: 0, warnings: [warning, warning] },
 				]);
 				expect(
 					yield* changeUserRelationships(userId, batches, child).pipe(
-						Effect.provideService(LifecycleExecution, {
-							...execution,
-							after: () => Effect.succeed([warning]),
-						}),
+						Effect.provideService(
+							LifecycleExecution,
+							withLifecycleDispatch({ ...execution, after: () => Effect.succeed([warning]) }),
+						),
 					),
 				).toEqual([{ created: 0, updated: 0, deleted: 0, warnings: [warning, warning] }]);
 				const changes = yield* db
@@ -1008,24 +1088,27 @@ describe("Relationships lifecycle owner", () => {
 												})),
 											),
 								}),
-								Effect.provideService(LifecycleExecution, {
-									...execution,
-									after: () => Effect.die("A rejected write cannot dispatch"),
-									executePolicy: ({ payload }) => {
-										assert(payload.resource === "relationship" && payload.operation === "create");
-										return Effect.succeed(
-											mode === "reject"
-												? { reason: "Rejected", action: "reject" as const }
-												: {
-														action: "transform" as const,
-														payload: {
-															...payload,
-															draft: { ...payload.draft, properties: { rank: "invalid" } },
+								Effect.provideService(
+									LifecycleExecution,
+									withLifecycleDispatch({
+										...execution,
+										after: () => Effect.die("A rejected write cannot dispatch"),
+										executePolicy: ({ payload }) => {
+											assert(payload.resource === "relationship" && payload.operation === "create");
+											return Effect.succeed(
+												mode === "reject"
+													? { reason: "Rejected", action: "reject" as const }
+													: {
+															action: "transform" as const,
+															payload: {
+																...payload,
+																draft: { ...payload.draft, properties: { rank: "invalid" } },
+															},
 														},
-													},
-										);
-									},
-								}),
+											);
+										},
+									}),
+								),
 							),
 						);
 						switch (mode) {
@@ -1198,7 +1281,6 @@ describe("Relationships lifecycle owner", () => {
 					const db = yield* Database;
 					const entities = yield* EntitiesService;
 					const relationships = yield* RelationshipsService;
-					const execution = yield* LifecycleExecution;
 					const providerId = SandboxProviderId.make("group-provider");
 					const groupRelationshipSchemaSlug = RelationshipSchemaSlug.make("group-link");
 					const fixture = revisionPackage("group-lifecycle", "v1", "group-fixture");
@@ -1331,26 +1413,7 @@ describe("Relationships lifecycle owner", () => {
 						),
 					).pipe(Effect.mapError(() => new DbError({ message: "Observer failed" })));
 					expect(visible.rows).toEqual([{ runs: 2, entities: 3, triggers: 4, relationships: 1 }]);
-					let afterCalls = 0;
-					const recordingExecution = {
-						...execution,
-						after: () =>
-							Effect.sync(() => {
-								afterCalls += 1;
-								return [];
-							}),
-					};
-					const executingEntities = yield* EntitiesService.make.pipe(
-						Effect.provideService(LifecycleExecution, recordingExecution),
-					);
-					const executingRelationships = yield* RelationshipsService.make.pipe(
-						Effect.provideService(LifecycleExecution, recordingExecution),
-					);
-					expect(yield* executingEntities.executeCommittedPlans(work.entityPlans)).toEqual([]);
-					expect(
-						yield* executingRelationships.executeCommittedPlans(work.relationshipPlans),
-					).toEqual([]);
-					expect(afterCalls).toBe(2);
+					expect([...work.entityPlans, ...work.relationshipPlans]).toHaveLength(2);
 				}),
 			),
 	);
@@ -1359,10 +1422,8 @@ describe("Relationships lifecycle owner", () => {
 		withRelationshipDatabase(() =>
 			Effect.gen(function* () {
 				const db = yield* Database;
-				const client = yield* PgClient.PgClient;
 				const repository = yield* RelationshipsRepository;
 				const relationships = yield* RelationshipsService;
-				const execution = yield* LifecycleExecution;
 				const otherUserId = UserId.make("other-relationship-owner");
 				const foreignEntityId = EntityId.make("foreign-user-entity");
 				const privateSchemaSlug = RelationshipSchemaSlug.make("private-reconciliation-link");
@@ -1498,24 +1559,6 @@ describe("Relationships lifecycle owner", () => {
 						({ executionUserId }) => executionUserId,
 					),
 				).toEqual([userId]);
-				let executed = 0;
-				const executingRelationships = yield* RelationshipsService.make.pipe(
-					Effect.provideService(LifecycleExecution, {
-						...execution,
-						after: ({ runs }) =>
-							Effect.gen(function* () {
-								expect(Option.isNone(yield* Effect.serviceOption(client.transactionService))).toBe(
-									true,
-								);
-								expect(runs.map(({ executionUserId }) => executionUserId)).toEqual([userId]);
-								executed += 1;
-								return [];
-							}),
-					}),
-				);
-				expect(yield* executingRelationships.executeCommittedPlans(work.plans)).toEqual([]);
-				expect(executed).toBe(1);
-
 				const foreignOwner = yield* db
 					.transaction((tx) =>
 						relationships
@@ -1613,26 +1656,7 @@ describe("Relationships lifecycle owner", () => {
 				const work = yield* db.transaction((tx) =>
 					service.persistPreparedUserCreate(creation).pipe(Effect.provideService(Database, tx)),
 				);
-				expect(
-					yield* db
-						.transaction((tx) =>
-							service.executeCommittedPlans(work.plans).pipe(Effect.provideService(Database, tx)),
-						)
-						.pipe(Effect.flip),
-				).toMatchObject({ code: "postcommit-requires-root" });
-				let afterCalls = 0;
-				const executingService = yield* RelationshipsService.make.pipe(
-					Effect.provideService(LifecycleExecution, {
-						...execution,
-						after: () =>
-							Effect.sync(() => {
-								afterCalls += 1;
-								return [];
-							}),
-					}),
-				);
-				yield* executingService.executeCommittedPlans(work.plans);
-				expect(afterCalls).toBe(1);
+				expect(work.plans).toHaveLength(1);
 
 				const rejectedInput = { ...baseInput, targetEntityId, sourceEntityId: targetEntityId };
 				yield* repository.createRelationship(rejectedInput);
@@ -1648,16 +1672,19 @@ describe("Relationships lifecycle owner", () => {
 									})),
 								),
 					}),
-					Effect.provideService(LifecycleExecution, {
-						...execution,
-						executePolicy: () =>
-							Effect.gen(function* () {
-								expect(Option.isNone(yield* Effect.serviceOption(client.transactionService))).toBe(
-									true,
-								);
-								return { reason: "Rejected", action: "reject" as const };
-							}),
-					}),
+					Effect.provideService(
+						LifecycleExecution,
+						withLifecycleDispatch({
+							...execution,
+							executePolicy: () =>
+								Effect.gen(function* () {
+									expect(
+										Option.isNone(yield* Effect.serviceOption(client.transactionService)),
+									).toBe(true);
+									return { reason: "Rejected", action: "reject" as const };
+								}),
+						}),
+					),
 				);
 				const rejected = yield* rejectingService
 					.prepareUserDelete(rejectedInput, command("prepared-rejected"))

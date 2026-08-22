@@ -23,6 +23,7 @@ import { RelationshipSchemasRepository } from "#modules/relationship-schemas/rep
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SignalSchemasRepository } from "#modules/signals/signal-schemas-repository";
 
+import { withLifecycleDispatch } from "./lifecycle.test-support";
 import { LifecyclePlannerLive } from "./planner";
 import { SignalEmissionService } from "./signal-service";
 import { AutomationTriggerRepository } from "./trigger-repository";
@@ -153,15 +154,18 @@ const dependencies = Layer.mergeAll(
 );
 const plannerLayer = LifecyclePlannerLive.pipe(Layer.provide(makeAppConfigLayer()));
 const executionLayer = (started: string[]) =>
-	Layer.succeed(LifecycleExecution, {
-		executePolicy: () => Effect.die("Signals cannot execute policies"),
-		skipQueuedPolicies: () => Effect.die("Signals cannot skip policies"),
-		after: ({ triggerId }) =>
-			Effect.sync(() => {
-				started.push(triggerId);
-				return [];
-			}),
-	});
+	Layer.succeed(
+		LifecycleExecution,
+		withLifecycleDispatch({
+			executePolicy: () => Effect.die("Signals cannot execute policies"),
+			skipQueuedPolicies: () => Effect.die("Signals cannot skip policies"),
+			after: ({ triggerId }) =>
+				Effect.sync(() => {
+					started.push(triggerId);
+					return [];
+				}),
+		}),
+	);
 
 describe("Signal emission PostgreSQL", () => {
 	it.effect(

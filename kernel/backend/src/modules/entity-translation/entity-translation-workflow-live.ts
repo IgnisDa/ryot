@@ -5,10 +5,10 @@ import {
 	type ProviderTranslateResult,
 } from "@ryot-app/sandbox-sdk/provider";
 import { DateTime, Effect, Schema } from "effect";
-import { Activity } from "effect/unstable/workflow";
 
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
+import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 
 import {
 	TranslateEntityWorkflow,
@@ -26,7 +26,7 @@ const writeTranslationOverlay = Effect.fn("writeTranslationOverlay")(function* (
 	const redis = yield* RedisService;
 	const translations = yield* TranslationsService;
 
-	return yield* Activity.make({
+	return yield* makeActivity({
 		name: "write-translation-overlay",
 		success: Schema.Void satisfies DurableSchema,
 		error: SandboxRunError satisfies DurableSchema,
@@ -84,6 +84,9 @@ export const runTranslateEntityWorkflow = Effect.fn("TranslateEntityWorkflow")(
 		Effect.annotateLogs(effect, { executionId, workflow: "TranslateEntityWorkflow" }),
 );
 
-const TranslateEntityWorkflowLive = TranslateEntityWorkflow.toLayer(runTranslateEntityWorkflow);
+const TranslateEntityWorkflowLive = implementWorkflow(
+	TranslateEntityWorkflow,
+	runTranslateEntityWorkflow,
+);
 
 export const TranslateEntityWorkflowDefinitionsLive = TranslateEntityWorkflowLive;
