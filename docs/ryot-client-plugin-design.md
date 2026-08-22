@@ -776,19 +776,29 @@ route to a plugin-owned renderer, so a hero that bleeds behind the status bar ne
 plugin was told rather than one it can measure.
 
 The bar is `sticky`, transparent at rest, and turns opaque once a zero-height sentinel passes under
-it — one `IntersectionObserver` and a CSS transition, not scroll-linked progress, because
+it — placed after the title block, or at the declared hero height on a hero screen — one
+`IntersectionObserver` and a CSS transition, not scroll-linked progress, because
 `animation-timeline: scroll()` is unavailable on the iOS baseline and the alternative is a per-frame
 scroll listener in both documents. The frame creates no scroll container; it sticks against the one
 its caller owns, which is the plugin's per-screen scroll div here and the route's `<main>` in the
 kernel.
 
-The frame emits `hero` inside its own positioned zero-height block above the padded content column,
-and positions that column too. Hero art is absolutely positioned, so this gives it a containing box
-that spans the frame's full width and starts at the top of the scroll content: it bleeds past the
-column padding without negative margins, and the content paints over it instead of under it. Without
-the wrapper the art resolves against whatever ancestor happens to be positioned — the plugin's scroll
-div — where negative margins overflow it horizontally and, being positioned, it hides every static
-part of the page below it.
+The frame takes `hero` as `{ height, node }`, and emits the node inside its own positioned
+zero-height block above the padded content column, positioning that column too. Hero art is
+absolutely positioned, so this gives it a containing box that spans the frame's full width and starts
+at the top of the scroll content: it bleeds past the column padding without negative margins, and the
+content paints over it instead of under it. Without the wrapper the art resolves against whatever
+ancestor happens to be positioned — the plugin's scroll div — where negative margins overflow it
+horizontally and, being positioned, it hides every static part of the page below it.
+
+`height` is that screen's collapse threshold, and the two travel in one slot because they are
+meaningless apart. A hero screen draws its own name and so has no title block for the sentinel to
+trail; the frame places the sentinel inside the hero block instead, and the bar stays clear until
+that much art has scrolled away. `height` counts only the art below the bar — the frame adds
+`safeAreaTop` and its own bar height when it places the sentinel — so it stays a design number the
+caller can write down rather than a device measurement. Accepting a bare node would let a caller
+mount art with no threshold, which renders as a bar that is opaque from the first pixel with the top
+of the art hidden behind it.
 
 ### Current data, operations, and assets API
 
@@ -1622,7 +1632,9 @@ from `usePluginLocation`; `usePluginParams` returns `{}` and `usePluginSearch` r
 The Media plugin registers `show`. The page reads five client-owned RyotQL recipes — summary,
 overview, seasons, season episodes, and activity — each behind its own `useRyotQuery` and its own
 loading/error/empty state. A hero renders a backdrop with a CSS scrim and a best-effort tint sampled
-from the poster; a summary header renders the poster, title, identity line (type, provider, release
+from the poster, sized from `safeAreaTop` plus the bar height so the art fills the band the sticky bar
+overlays and the bar stays clear until it scrolls away; a summary header renders the poster, title,
+identity line (type, provider, release
 year), genres, a fact row (rating, production status, season/episode counts), an expandable
 description, and a status rail (current lifecycle state, monitoring, library membership, ownership,
 collections). Three tabs follow: Overview (image gallery, cast & crew, production companies,

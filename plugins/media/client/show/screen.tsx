@@ -5,7 +5,7 @@ import { useState, type ReactNode } from "react";
 
 import { ShowActivityTab } from "./activity";
 import { ShowEpisodesTab } from "./episodes";
-import { ShowBackdrop, ShowHero, ShowTint } from "./hero";
+import { SHOW_ART_HEIGHT, ShowBackdrop, ShowHero, ShowTint } from "./hero";
 import { ManagedAssetProvider } from "./managed-assets";
 import { ShowOverview } from "./overview";
 import {
@@ -61,11 +61,11 @@ export function ShowScreenBody(props: {
 		),
 	};
 	return (
-		<>
+		<div className="flex flex-col gap-4">
 			<ShowSummaryHeader show={state.show} />
 			<ShowTabBar activeTab={activeTab} onSelect={setActiveTab} />
 			{tabContent[activeTab]}
-		</>
+		</div>
 	);
 }
 
@@ -83,13 +83,18 @@ export function ShowScreen(props: EntityRendererProps) {
 				hideTitle
 				title={state.status === "ready" ? state.show.name : null}
 				hero={
-					state.status === "ready" ? (
-						<>
-							<ShowTint show={state.show} />
-							<ShowHero show={state.show} />
-							<ShowBackdrop show={state.show} />
-						</>
-					) : undefined
+					state.status === "ready"
+						? {
+								height: SHOW_ART_HEIGHT,
+								node: (
+									<>
+										<ShowTint show={state.show} />
+										<ShowHero show={state.show} />
+										<ShowBackdrop show={state.show} />
+									</>
+								),
+							}
+						: undefined
 				}
 			>
 				<ManagedAssetProvider assets={overviewAssets}>

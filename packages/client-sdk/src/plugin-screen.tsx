@@ -1,13 +1,12 @@
 import { ScreenBarButton, ScreenFrame } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { Match } from "effect";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 
 import { usePluginChrome, usePluginScreenSurface, usePluginTitle } from "./routing";
 
 type PluginScreenFrameProps = {
 	readonly meta?: ReactNode;
-	readonly hero?: ReactNode;
 	readonly backLabel?: string;
 	readonly menuLabel?: string;
 	readonly children: ReactNode;
@@ -17,6 +16,7 @@ type PluginScreenFrameProps = {
 	readonly searchRow?: ReactNode;
 	readonly barActions?: ReactNode;
 	readonly hideTitle?: boolean | undefined;
+	readonly hero?: ComponentProps<typeof ScreenFrame>["hero"];
 };
 
 const control = "text-text hover:bg-surface-2";
