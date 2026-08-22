@@ -69,7 +69,7 @@ export class SystemPluginBootstrap extends Context.Service<SystemPluginBootstrap
 				yield* ingestion.rebuild();
 				yield* ingestKernelScripts();
 				for (const source of systemPlugins.sources) {
-					yield* ingestion.ingestTrustedPlugin(source);
+					yield* ingestion.ingestSystemPlugin(source);
 				}
 				yield* installations.reconcileSystemInstallations();
 				yield* scriptGarbageCollector.collect();

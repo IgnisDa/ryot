@@ -233,7 +233,8 @@ const server = group(
 			defaultValue: "./plugins",
 			label: "System plugin directory",
 			envKey: "SERVER_PLUGINS_SYSTEM_DIR",
-			description: "Directory containing trusted system plugin bundles",
+			description:
+				"Directory containing deployment-controlled system plugin archives; archives are not cryptographically authenticated",
 		}),
 		logLevel: stringField({
 			label: "Log level",

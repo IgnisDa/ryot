@@ -56,7 +56,7 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 				executionId,
 				input: input.payload,
 				scriptId: input.scriptId,
-				authority: {
+				subject: {
 					type: "user",
 					userId: input.userId,
 					...(input.integrationId ? { integrationId: input.integrationId } : {}),

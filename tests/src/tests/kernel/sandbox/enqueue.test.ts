@@ -59,18 +59,18 @@ describe("sandbox enqueue by script ID", () => {
 		}),
 	);
 
-	it.live("rejects caller-forged authority", () =>
+	it.live("rejects caller-forged subject", () =>
 		Effect.gen(function* () {
 			const { userId } = yield* createAuthenticatedClient();
 			const scriptId = crypto.randomUUID();
 
-			const authorityResponse = yield* postEnqueue({
+			const subjectResponse = yield* postEnqueue({
 				scriptId,
 				executingUserId: userId,
-				authority: { type: "system" },
+				subject: { type: "system" },
 			});
 
-			expect(authorityResponse.status).toBe(400);
+			expect(subjectResponse.status).toBe(400);
 		}),
 	);
 

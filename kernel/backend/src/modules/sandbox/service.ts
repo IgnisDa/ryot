@@ -2,7 +2,7 @@ import { badRequest, notFound, SandboxRunError } from "@ryot/contract/errors";
 import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
 import type {
 	EnqueueSandboxBody,
-	ExecutionAuthority,
+	SandboxExecutionSubject,
 	SandboxExecutionGrants,
 } from "@ryot/contract/modules/sandbox/schemas";
 import { SandboxScriptId, type UserId } from "@ryot/contract/schema/brands";
@@ -101,9 +101,9 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 				const resolvedPayload = yield* resolveSandboxExecutionPayload(
 					{
 						context,
-						authority: { type: "user", userId: executingUserId },
 						executionId,
 						scriptId: script.id,
+						subject: { type: "user", userId: executingUserId },
 					},
 					"active",
 				).pipe(
@@ -120,8 +120,8 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 							executionId,
 							resultMode: "execution",
 							resolutionMode: "exact",
+							subject: resolvedPayload.subject,
 							scriptId: resolvedPayload.scriptId,
-							authority: resolvedPayload.authority,
 						},
 					})
 					.pipe(Effect.orDie);
@@ -206,8 +206,8 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 					input: JsonValue;
 					executionId: string;
 					scriptId: SandboxScriptId;
-					authority: ExecutionAuthority;
 					grants?: SandboxExecutionGrants;
+					subject: SandboxExecutionSubject;
 				}) {
 					const contextError = sandboxContextError(input.input);
 					if (contextError) {
@@ -217,9 +217,9 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 						executionId: input.executionId,
 						payload: {
 							input: input.input,
+							subject: input.subject,
 							resolutionMode: "exact",
 							scriptId: input.scriptId,
-							authority: input.authority,
 							executionId: input.executionId,
 							...(input.grants ? { grants: input.grants } : {}),
 						},
@@ -231,8 +231,8 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 				input: unknown;
 				executionId: string;
 				scriptId: SandboxScriptId;
-				authority: ExecutionAuthority;
 				grants?: SandboxExecutionGrants;
+				subject: SandboxExecutionSubject;
 			}) {
 				return yield* Effect.gen(function* () {
 					const contextError = sandboxContextError(input.input);
@@ -246,10 +246,10 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 					);
 					return yield* executeSandboxScriptWorkflow({
 						input: scriptInput,
+						subject: input.subject,
 						resolutionMode: "exact",
 						resultMode: "execution",
 						scriptId: input.scriptId,
-						authority: input.authority,
 						executionId: input.executionId,
 						...(input.grants ? { grants: input.grants } : {}),
 					}).pipe(Effect.provideService(WorkflowEngine, engine));
@@ -274,7 +274,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 						resolutionMode: "exact",
 						scriptId: input.scriptId,
 						executionId: input.executionId,
-						authority: { type: "user", userId: input.executingUserId },
+						subject: { type: "user", userId: input.executingUserId },
 					},
 					input.executionId,
 					input.pluginId,
@@ -315,7 +315,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 						scriptId: script.id,
 						executionId: input.executionId,
 						resolutionMode: "active" as const,
-						authority: { type: "user" as const, userId: input.executingUserId },
+						subject: { type: "user" as const, userId: input.executingUserId },
 					};
 					const pin = yield* establishSandboxWorkflowPin(
 						payload,
@@ -334,7 +334,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 						.execute(SandboxScriptWorkflow, {
 							discard: true,
 							executionId: input.executionId,
-							payload: { ...payload, scriptId: pin.scriptId, resolutionMode: "exact" },
+							payload: { ...payload, resolutionMode: "exact", scriptId: pin.principal.scriptId },
 						})
 						.pipe(
 							Effect.matchCauseEffect({

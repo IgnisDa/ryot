@@ -24,7 +24,7 @@ type ResolvedBootstrap = Effect.Success<
 	ReturnType<PluginRuntimeResolver["Service"]["resolveInstallationBootstrap"]>
 >;
 
-type Execution = { executionId: string; scriptId: string; authority: unknown };
+type Execution = { executionId: string; scriptId: string; subject: unknown };
 
 type HealthUpdate = Parameters<PluginInstallationRepository["Service"]["updateHealth"]>[0];
 
@@ -72,8 +72,8 @@ const runWorkflow = (input: {
 					executeScript: (payload) =>
 						Effect.sync(() => {
 							input.executions.push({
+								subject: payload.subject,
 								scriptId: payload.scriptId,
-								authority: payload.authority,
 								executionId: payload.executionId,
 							});
 							const message = input.scriptErrors?.[payload.scriptId];
@@ -99,7 +99,7 @@ const runWorkflow = (input: {
 	);
 };
 
-it.effect("runs bootstrap entries in declared order with owner authority and stable ids", () => {
+it.effect("runs bootstrap entries in declared order with owner subject and stable ids", () => {
 	const executions: Array<Execution> = [];
 	const healthUpdates: Array<HealthUpdate> = [];
 	return Effect.gen(function* () {
@@ -107,12 +107,12 @@ it.effect("runs bootstrap entries in declared order with owner authority and sta
 		expect(executions).toEqual([
 			{
 				scriptId: "first-id",
-				authority: { type: "user", userId },
+				subject: { type: "user", userId },
 				executionId: pluginInstallationBootstrapExecutionId(installationId, "first"),
 			},
 			{
 				scriptId: "second-id",
-				authority: { type: "user", userId },
+				subject: { type: "user", userId },
 				executionId: pluginInstallationBootstrapExecutionId(installationId, "second"),
 			},
 		]);
