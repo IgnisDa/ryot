@@ -3,7 +3,7 @@ import { mkdir, readFile } from "node:fs/promises";
 import { join } from "node:path";
 
 import { SandboxProviderId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
-import { Clock, Effect, Schema } from "effect";
+import { Clock, Data, Effect, Schema } from "effect";
 
 import { adminHeaders, createAuthenticatedClient, getApiClient } from "~/fixtures/kernel";
 import { requirePresent } from "~/support/assertions";
@@ -27,6 +27,7 @@ import {
 	resilientSession,
 	type RunContext,
 	runFreshRepetition,
+	sampleRuntime,
 	searchYoutubeMusic,
 } from "./scenario-runner";
 import {
@@ -275,6 +276,17 @@ const matrixPlan = (
 	);
 };
 
+class DeploymentMismatchError extends Data.TaggedError("DeploymentMismatchError")<{
+	readonly expected: string;
+	readonly actual: string | null;
+}> {}
+
+const optionalEnv = (name: string) => {
+	const value = process.env[name];
+	return value === undefined || value.trim() === "" ? null : value.trim();
+};
+
+const prNumber = optionalEnv("BENCHMARK_PR_NUMBER");
 const command = process.argv[2] ?? "help";
 const config = readDriverConfig(process.env);
 process.env["E2E_API_URL"] = config.apiUrl;
@@ -335,6 +347,53 @@ const program = Effect.gen(function* () {
 					hostGate: { ...HOST_CADENCE_GATE },
 					applicationGate: { ...APPLICATION_CADENCE_GATE },
 				},
+			});
+			break;
+		}
+		case "provenance": {
+			const remote = makeRemote(config.serverIp);
+			const [deployment, sample] = yield* Effect.all([
+				remote.deploymentProvenance,
+				sampleRuntime(),
+			]);
+			if (config.imageDigest !== null && deployment.image.digest !== config.imageDigest) {
+				return yield* new DeploymentMismatchError({
+					expected: config.imageDigest,
+					actual: deployment.image.digest,
+				});
+			}
+			yield* updateManifest(config, (manifest) => ({
+				...manifest,
+				image: deployment.image,
+				branch: optionalEnv("BENCHMARK_BRANCH"),
+				host: { ...manifest.host, ...deployment.resourceSettings },
+				prNumber: prNumber === null ? null : Number.parseInt(prNumber, 10),
+				runtime: {
+					bunVersion: sample.runtime.bunVersion,
+					denoVersion: sample.runtime.denoVersion,
+					effectVersion: optionalEnv("BENCHMARK_EFFECT_VERSION"),
+				},
+				commits: {
+					ciTrigger: optionalEnv("BENCHMARK_CI_TRIGGER_COMMIT"),
+					workflowRunUrl: optionalEnv("BENCHMARK_WORKFLOW_RUN_URL"),
+					implementation: optionalEnv("BENCHMARK_IMPLEMENTATION_COMMIT"),
+				},
+				deployment: {
+					redactedComposeSha256: deployment.composeSha256,
+					otelCollectorImage: deployment.otelCollectorImage,
+					resourceSettings: {
+						...deployment.resourceSettings,
+						processMode: sample.configuration.processMode,
+						workerConcurrency: String(sample.configuration.workerConcurrency),
+						benchmarkProfilingEnabled: String(sample.configuration.benchmarkProfilingEnabled),
+						schedulerDispatchersDisabled: String(sample.configuration.schedulerDispatchersDisabled),
+					},
+				},
+			}));
+			yield* Effect.log("sandbox-resource-baseline.provenance", {
+				image: deployment.image,
+				composeSha256: deployment.composeSha256,
+				profiling: sample.configuration.benchmarkProfilingEnabled,
 			});
 			break;
 		}
@@ -433,6 +492,7 @@ const program = Effect.gen(function* () {
 				commands: [
 					"init",
 					"setup",
+					"provenance",
 					"capture-live-results",
 					"preflight",
 					"idle",
