@@ -66,6 +66,13 @@ Search takes the compact bar over, and the title block goes with it. The `<h1>` 
 in the document as a visually hidden heading, so the screen still names itself exactly once while
 the bar is a search field.
 
+That field mounts focused, so one tap opens the row and raises the keyboard. React focuses an
+`autoFocus` input during the commit, and a click is a discrete event React flushes inside the
+gesture, which is what keeps iOS willing to raise the keyboard for a focus the user did not make
+directly. Exiting hands focus back to the bar's search control, and since that control is unmounted
+while the row is open, the close is flushed before the focus so the ref points at the button that
+came back rather than at the one that left.
+
 The safe-area inset reaches the plugin as a discrete `safeAreaTop` on init and a `viewport` message
 on change, measured in the kernel from a probe element. `env(safe-area-inset-top)` is zero inside an
 iframe, and `/e/:entityId` resolves to a plugin-owned renderer, so a hero that bleeds behind the
