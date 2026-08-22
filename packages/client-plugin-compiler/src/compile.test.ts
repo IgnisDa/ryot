@@ -242,6 +242,104 @@ it.effect("rejects invalid UTF-8 in text sources", () =>
 	}),
 );
 
+it.effect("reports exact structured TypeScript assignment diagnostics", () =>
+	Effect.gen(function* () {
+		const failure = yield* compileFixture({
+			"client/index.tsx": bytes("\nconst value: string = 1;\nconsole.log(value);"),
+		}).pipe(Effect.flip);
+
+		expect(failure.diagnostics).toEqual([
+			expect.objectContaining({
+				line: 2,
+				column: 7,
+				length: 5,
+				code: "TS2322",
+				severity: "error",
+				file: "client/index.tsx",
+			}),
+		]);
+	}),
+);
+
+it.effect("checks unreachable archived TypeScript sources but excludes test sources", () =>
+	Effect.gen(function* () {
+		const failure = yield* compileFixture({
+			"client/index.tsx": bytes("export {};"),
+			"client/ignored.test.ts": bytes("const ignored: string = 1;"),
+			"client/unreachable.ts": bytes("const unreachable: string = 1;"),
+		}).pipe(Effect.flip);
+
+		expect(failure.diagnostics).toHaveLength(1);
+		expect(failure.diagnostics[0]).toMatchObject({
+			code: "TS2322",
+			severity: "error",
+			file: "client/unreachable.ts",
+		});
+	}),
+);
+
+it.effect("checks archived TypeScript declaration sources", () =>
+	Effect.gen(function* () {
+		const failure = yield* compileFixture({
+			"client/index.tsx": bytes("export {};"),
+			"client/types.d.ts": bytes("interface Invalid { value: string; value: number; }"),
+		}).pipe(Effect.flip);
+
+		expect(failure.diagnostics).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					code: "TS2717",
+					severity: "error",
+					file: "client/types.d.ts",
+				}),
+			]),
+		);
+	}),
+);
+
+it.effect("rejects invalid trusted UI SDK JSX props", () =>
+	Effect.gen(function* () {
+		const failure = yield* compileFixture({
+			"client/index.tsx": bytes(
+				'import { Button } from "@ryot/client-ui-sdk";\nexport const View = () => <Button variant="invalid">Invalid</Button>;',
+			),
+		}).pipe(Effect.flip);
+
+		expect(
+			failure.diagnostics.some(
+				({ code, file }) => code === "TS2322" && file === "client/index.tsx",
+			),
+		).toBe(true);
+	}),
+);
+
+it.effect(
+	"type-checks valid TSX with React, SDK, UI, CSS, and asset imports",
+	() =>
+		Effect.gen(function* () {
+			const { artifact } = yield* compileFixture({
+				"client/index.tsx": bytes(`
+import "./styles.css";
+import { bootstrapClientPlugin } from "@ryot/client-sdk/plugin";
+import { Button } from "@ryot/client-ui-sdk";
+import { useState } from "react";
+import logo from "./logo.svg";
+
+const Home = () => {
+	const [count, setCount] = useState(0);
+	return <Button onClick={() => setCount(count + 1)}><img alt="" src={logo} />{count}</Button>;
+};
+bootstrapClientPlugin({ home: Home });
+`),
+				"client/styles.css": bytes(".logo { display: block; }"),
+				"client/logo.svg": bytes('<svg xmlns="http://www.w3.org/2000/svg" />'),
+			});
+
+			expect(artifact.files.some(({ name }) => name.endsWith(".svg"))).toBe(true);
+		}),
+	30_000,
+);
+
 it.effect(
 	"rewrites CSS assets relative to root and nested stylesheets",
 	() =>

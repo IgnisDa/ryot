@@ -11,9 +11,11 @@ import {
 	FIXTURE_CLIENT_REVISION_MARKERS,
 	installFixtureClientPlugin,
 	makeSession,
+	pollUntil,
 	renewClientArtifactSession,
 	revokeClientArtifactSession,
 	updateFixtureClientPlugin,
+	updateFixtureClientPluginWithArchivedSemanticFailure,
 	updateFixtureClientPluginWithCompileFailure,
 } from "~/fixtures/kernel";
 import { getApiLogFile, getApiUrl } from "~/support/api";
@@ -173,18 +175,17 @@ describe("client plugin artifacts", () => {
 			const stylesheet = yield* fetchTokenFile(token, "plugin.css");
 
 			expect(document.status).toBe(200);
-			yield* Effect.promise(async () => {
-				let logs = "";
-				for (let attempt = 0; attempt < 100; attempt += 1) {
-					logs = await Bun.file(getApiLogFile()).text();
-					if (logs.includes("/api/plugin-artifact-sessions/<redacted>/index.html")) {
-						break;
-					}
-					await Bun.sleep(20);
-				}
-				expect(logs.includes("/api/plugin-artifact-sessions/<redacted>/index.html")).toBe(true);
-				expect(logs.includes(token)).toBe(false);
-			});
+			const logs = yield* pollUntil(
+				"redacted client artifact request log",
+				Effect.promise(() => Bun.file(getApiLogFile()).text()).pipe(
+					Effect.map((contents) =>
+						contents.includes("/api/plugin-artifact-sessions/<redacted>/index.html")
+							? contents
+							: null,
+					),
+				),
+			);
+			expect(logs.includes(token)).toBe(false);
 			assertArtifactHeaders(document, "text/html; charset=utf-8", true);
 			assertArtifactHeaders(script, "text/javascript; charset=utf-8");
 			assertArtifactHeaders(stylesheet, "text/css; charset=utf-8");
@@ -298,5 +299,40 @@ describe("client plugin artifacts", () => {
 			expect(yield* fetchTokenFileBytes(sessionA.token, "plugin.js")).toEqual(bytesA);
 			expect(new TextDecoder().decode(bytesA)).toContain(FIXTURE_CLIENT_REVISION_MARKERS.A);
 		}),
+	);
+
+	it.live(
+		"preserves revision A when an unreachable archived client file has a semantic error",
+		() =>
+			Effect.gen(function* () {
+				const { client } = yield* createAuthenticatedClient();
+				yield* installFixtureClientPlugin(client, "A");
+				const before = yield* fixtureCatalogEntry(client);
+				const sessionA = yield* createSession(client, before);
+				const bytesA = yield* fetchTokenFileBytes(sessionA.token, "plugin.js");
+
+				const failure = yield* Effect.flip(
+					updateFixtureClientPluginWithArchivedSemanticFailure(client),
+				);
+				assertTaggedError(failure, "PluginRequestError");
+				expect(failure).toMatchObject({
+					reason: {
+						code: "compilation-failed",
+						diagnostics: [
+							{
+								line: 1,
+								code: "TS2322",
+								phase: "compile",
+								severity: "error",
+								file: "client/unreachable.ts",
+							},
+						],
+					},
+				});
+
+				expect(yield* fixtureCatalogEntry(client)).toEqual(before);
+				expect(yield* fetchTokenFileBytes(sessionA.token, "plugin.js")).toEqual(bytesA);
+				expect(new TextDecoder().decode(bytesA)).toContain(FIXTURE_CLIENT_REVISION_MARKERS.A);
+			}),
 	);
 });
