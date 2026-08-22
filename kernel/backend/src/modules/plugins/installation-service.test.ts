@@ -1363,6 +1363,7 @@ it.effect("updates source while retaining plugin, installation, and omitted secr
 			{
 				auth: "user",
 				slug: "run.fixture",
+				demoAccess: "allowed",
 				description: "Run fixture",
 				scriptSlug: operationScript.slug,
 			},
@@ -1641,6 +1642,7 @@ it.effect("rejects an operation referencing an undeclared script slug", () => {
 						{
 							auth: "user",
 							slug: "run.fixture",
+							demoAccess: "allowed",
 							description: "Run fixture",
 							scriptSlug: "does-not-exist",
 						},
@@ -1661,6 +1663,7 @@ it.effect("rejects duplicate operation slugs before compiling the package", () =
 		slug: "run.fixture",
 		auth: "user" as const,
 		description: "Run fixture",
+		demoAccess: "allowed" as const,
 		scriptSlug: operationScript.slug,
 	};
 	return Effect.gen(function* () {
@@ -1692,6 +1695,7 @@ const operationManifest = privateManifest({
 		{
 			auth: "user",
 			slug: "run.fixture",
+			demoAccess: "allowed",
 			description: "Run fixture",
 			scriptSlug: operationScript.slug,
 		},

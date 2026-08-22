@@ -1,3 +1,4 @@
+import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import type { BadRequest, DbError, NotFound } from "@ryot-app/contract/errors";
 import {
 	PluginConflictError,
@@ -149,17 +150,27 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 				.resolve(input.payload)
 				.pipe(Effect.catchTag("NotFound", () => scopeNotFound));
 
-			const authenticated = yield* auth.currentUser(new Headers(input.headers)).pipe(
-				Effect.map((user) => Result.succeed(user.id)),
+			const authenticated = yield* auth.resolveRequestCredential(new Headers(input.headers)).pipe(
+				Effect.map(Result.succeed),
 				Effect.catchTag("AuthUnauthorized", (error) => Effect.succeed(Result.fail(error))),
 			);
 
 			const resolveAuthorized = () =>
 				Effect.gen(function* () {
 					if (Result.isSuccess(authenticated)) {
-						const userId = authenticated.success;
+						const { user, authorization } = authenticated.success;
+						const userId = user.id;
 						const resolved = yield* resolveOperation(userId);
 						if (resolved?.operation.auth === "user") {
+							if (
+								authorization.accessClass === "demo" &&
+								(resolved.plugin.scope !== "system" ||
+									resolved.operation.demoAccess === "protected")
+							) {
+								return yield* new DemoOperationProtected({
+									reason: { code: "demo-operation-protected" },
+								});
+							}
 							return {
 								userId,
 								payload: input.payload,

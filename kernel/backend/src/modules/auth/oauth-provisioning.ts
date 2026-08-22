@@ -4,6 +4,7 @@ import {
 	getWebOAuthLogoutRedirectUris,
 	getWebOAuthRedirectUris,
 	OAUTH_ACCESS_TOKEN_TTL_SECONDS,
+	OAUTH_DEMO_WEB_CLIENT_ID,
 	OAUTH_NATIVE_CALLBACK_URIS,
 	OAUTH_NATIVE_CLIENT_ID,
 	OAUTH_NATIVE_LOGOUT_CALLBACK_URIS,
@@ -11,7 +12,7 @@ import {
 	OAUTH_SCOPES,
 	OAUTH_WEB_CLIENT_ID,
 } from "@ryot-app/contract/oauth";
-import { Context, DateTime, Effect, Layer } from "effect";
+import { Context, DateTime, Effect, Layer, Option } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
@@ -25,21 +26,25 @@ import {
 
 const INTERNAL_OAUTH_RESOURCE_ID = "ryot-api";
 
-export const internalOAuthRecords = (frontendOrigin: string, now: Date) => {
+export const internalOAuthRecords = (frontendOrigin: string, now: Date, demoEnabled: boolean) => {
 	const resourceIdentifier = getOAuthResource(frontendOrigin);
 	const webRedirectUris = getWebOAuthRedirectUris(frontendOrigin);
 	const webLogoutRedirectUris = getWebOAuthLogoutRedirectUris(frontendOrigin);
 	const client = (
-		clientId: typeof OAUTH_WEB_CLIENT_ID | typeof OAUTH_NATIVE_CLIENT_ID,
+		clientId:
+			| typeof OAUTH_WEB_CLIENT_ID
+			| typeof OAUTH_DEMO_WEB_CLIENT_ID
+			| typeof OAUTH_NATIVE_CLIENT_ID,
 		applicationType: "web" | "native",
 		redirectUris: readonly string[],
 		postLogoutRedirectUris: readonly string[],
+		disabled = false,
 	): InternalOAuthClient => ({
 		clientId,
+		disabled,
 		updatedAt: now,
 		createdAt: now,
 		applicationType,
-		disabled: false,
 		requirePKCE: true,
 		skipConsent: true,
 		clientSecret: null,
@@ -54,13 +59,20 @@ export const internalOAuthRecords = (frontendOrigin: string, now: Date) => {
 		grantTypes: ["authorization_code", "refresh_token"],
 	});
 	const webClient = client(OAUTH_WEB_CLIENT_ID, "web", webRedirectUris, webLogoutRedirectUris);
+	const demoWebClient = client(
+		OAUTH_DEMO_WEB_CLIENT_ID,
+		"web",
+		webRedirectUris,
+		webLogoutRedirectUris,
+		!demoEnabled,
+	);
 	const nativeClient = client(
 		OAUTH_NATIVE_CLIENT_ID,
 		"native",
 		OAUTH_NATIVE_CALLBACK_URIS,
 		OAUTH_NATIVE_LOGOUT_CALLBACK_URIS,
 	);
-	const clients = [webClient, nativeClient] as const;
+	const clients = [webClient, nativeClient, demoWebClient] as const;
 	const resource = {
 		createdAt: now,
 		updatedAt: now,
@@ -92,7 +104,11 @@ export class OAuthProvisioningService extends Context.Service<OAuthProvisioningS
 			const repository = yield* AuthRepository;
 			const provision = Effect.fn("OAuthProvisioningService.provision")(function* () {
 				const now = yield* DateTime.nowAsDate;
-				const records = internalOAuthRecords(config.frontendUrl, now);
+				const records = internalOAuthRecords(
+					config.frontendUrl,
+					now,
+					Option.isSome(config.users.demoAccountId),
+				);
 				yield* mapDatabaseErrors(
 					database.transaction((transaction) =>
 						Effect.gen(function* () {

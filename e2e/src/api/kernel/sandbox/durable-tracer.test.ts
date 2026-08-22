@@ -150,6 +150,7 @@ describe("universal durable sandbox tracer", () => {
 					operations: [
 						{
 							auth: "user",
+							demoAccess: "allowed",
 							slug: "durable-tracer",
 							scriptSlug: operationSlug,
 							description: "Exercises the universal durable host protocol",

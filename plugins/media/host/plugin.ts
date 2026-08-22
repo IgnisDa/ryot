@@ -595,18 +595,21 @@ export const mediaPlugin = definePlugin({
 	operations: [
 		{
 			auth: "user",
+			demoAccess: "allowed",
 			slug: "media-monitoring-status",
 			description: "Read media monitoring status",
 			scriptSlug: "operation.media-monitoring-status",
 		},
 		{
 			auth: "user",
+			demoAccess: "protected",
 			slug: "media-monitoring-enable",
 			description: "Enable media monitoring",
 			scriptSlug: "operation.media-monitoring-enable",
 		},
 		{
 			auth: "user",
+			demoAccess: "protected",
 			slug: "media-monitoring-disable",
 			description: "Disable media monitoring",
 			scriptSlug: "operation.media-monitoring-disable",
@@ -619,6 +622,7 @@ export const mediaPlugin = definePlugin({
 		},
 		{
 			auth: "user",
+			demoAccess: "allowed",
 			slug: "resolve-episodes",
 			scriptSlug: "operation.resolve-episodes",
 			description: "Resolve show and podcast episode references to entity ids",

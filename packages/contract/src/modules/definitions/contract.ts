@@ -2,6 +2,7 @@ import { Schema, Effect, SchemaGetter } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
+import { DemoAccessPolicy } from "../../http-annotations";
 import { PluginSlug } from "../../schema/brands";
 import {
 	PluginConflictError,
@@ -55,6 +56,8 @@ export const DefinitionsGroup = HttpApiGroup.make("definitions")
 				PluginNotFoundError.pipe(HttpApiSchema.status(404)),
 				PluginConflictError.pipe(HttpApiSchema.status(409)),
 			],
-		}).annotate(OpenApi.Description, "Update the caller's plugin installation."),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Update the caller's plugin installation."),
 	)
 	.middleware(AuthMiddleware);
