@@ -1,18 +1,10 @@
-import {
-	runContract,
-	type ContractProgram,
-	type RunContractOptions,
-} from "@ryot-app/contract/client";
+import { makeContractClient, type ContractProgram } from "@ryot-app/contract/client";
 import { Context, Data, Effect, Layer } from "effect";
+import { HttpClient } from "effect/unstable/http";
 
 import { serverApiUrl, type ServerOrigin } from "#/api/origin";
 
 export class AdminApiError extends Data.TaggedError("AdminApiError")<{ readonly cause: unknown }> {}
-
-type ContractRunner = <A, E>(
-	program: ContractProgram<A, E>,
-	options: RunContractOptions,
-) => Promise<A>;
 
 export type AdminApiService = {
 	readonly run: <A, E>(
@@ -22,21 +14,17 @@ export type AdminApiService = {
 	) => Effect.Effect<A, AdminApiError>;
 };
 
-export const makeAdminApi = (runner: ContractRunner = runContract): AdminApiService => ({
+export const makeAdminApi = (http: HttpClient.HttpClient): AdminApiService => ({
 	run: <A, E>(origin: ServerOrigin, token: string, program: ContractProgram<A, E>) =>
-		Effect.tryPromise({
-			catch: (cause) => new AdminApiError({ cause }),
-			try: (signal) =>
-				runner(program, {
-					signal,
-					baseUrl: serverApiUrl(origin),
-					headers: { "Admin-Access-Token": token },
-				}),
-		}),
+		makeContractClient(serverApiUrl(origin), { "Admin-Access-Token": token }).pipe(
+			Effect.flatMap(program),
+			Effect.provideService(HttpClient.HttpClient, http),
+			Effect.mapError((cause) => new AdminApiError({ cause })),
+		),
 });
 
 export class AdminApi extends Context.Service<AdminApi, AdminApiService>()("AdminApi", {
-	make: Effect.succeed(makeAdminApi()),
+	make: Effect.map(HttpClient.HttpClient, makeAdminApi),
 }) {
 	static readonly layer = Layer.effect(this, this.make);
 }

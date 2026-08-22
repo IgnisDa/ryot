@@ -4,6 +4,7 @@ import PurchaseCompleteEmail, {
 } from "@ryot-app/transactional/emails/purchase-complete";
 import { and, eq, type InferSelectModel, isNull } from "drizzle-orm";
 import { Effect } from "effect";
+import type { HttpClient } from "effect/unstable/http";
 
 import * as schema from "~/drizzle/schema.server";
 import type { TPaymentProviders, TPlanTypes, TProductTypes } from "~/drizzle/schema.server";
@@ -35,7 +36,7 @@ function getCloudAuthDetails(
 	userId: string,
 	email: string,
 	oidcIssuerId: string | null,
-): Effect.Effect<CloudAuthDetails, WebsiteFailure> {
+): Effect.Effect<CloudAuthDetails, WebsiteFailure, HttpClient.HttpClient> {
 	return Effect.gen(function* () {
 		if (oidcIssuerId) {
 			return { email, provider: "google" };
@@ -51,7 +52,8 @@ function handleCloudPurchase(
 	customer: Customer,
 ): Effect.Effect<
 	{ ryotUserId: string; unkeyKeyId: null; details: PurchaseCompleteEmailProps["details"] },
-	WebsiteFailure
+	WebsiteFailure,
+	HttpClient.HttpClient
 > {
 	return Effect.gen(function* () {
 		const { email, oidcIssuerId } = customer;

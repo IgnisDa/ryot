@@ -1,15 +1,15 @@
-import { BunServices } from "@effect/platform-bun";
 import { sql } from "drizzle-orm";
 import { Effect, FileSystem, Schema } from "effect";
 
 import { getDb, getServerVariables, TEMP_DIRECTORY } from "~/lib/config.server";
 import { fromPromise } from "~/lib/effect.server";
 import { runMigrations } from "~/lib/migrations.server";
+import { runPromise } from "~/lib/runtime.server";
 
 let hasRunStartup = false;
 
 export const loader = () =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			if (!hasRunStartup) {
 				yield* runMigrations();
@@ -29,7 +29,5 @@ export const loader = () =>
 					return new Response("Database connection failed", { status: 503 });
 				}),
 			),
-			// oxlint-disable-next-line effecttsgo/strict-effect-provide -- React Router loader is the runtime entrypoint for the platform filesystem
-			Effect.provide(BunServices.layer),
 		),
 	);

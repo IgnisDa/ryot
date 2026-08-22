@@ -30,6 +30,7 @@ import {
 import { fromPromise } from "~/lib/effect.server";
 import { contactEmail, startUrl } from "~/lib/general";
 import { usePaddleInitialization } from "~/lib/hooks/usePaddleInitialization";
+import { runPromise } from "~/lib/runtime.server";
 import {
 	getActionIntent,
 	oauthConfig,
@@ -41,7 +42,7 @@ import {
 import type { Route } from "./+types/_index";
 
 export const action = ({ request }: Route.ActionArgs) =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			const formData = yield* fromPromise(() => request.clone().formData());
 			const intent = getActionIntent(request);
