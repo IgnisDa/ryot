@@ -3,8 +3,8 @@ import { Effect, Metric } from "effect";
 
 import {
 	getSandboxReplayCounters,
-	recordProviderImportSettled,
-	recordProviderImportStarted,
+	recordProviderImportBodySettled,
+	recordProviderImportBodyStarted,
 	recordSandboxExecution,
 	recordSandboxHostCall,
 	recordSandboxWorkflowReplayFinished,
@@ -100,13 +100,13 @@ describe("sandbox runtime metrics", () => {
 		),
 	);
 
-	it.effect("never reports a negative number of active imports", () =>
+	it.effect("never reports a negative number of executing import bodies", () =>
 		withIsolatedRegistry(
 			Effect.gen(function* () {
-				yield* recordProviderImportStarted;
-				yield* recordProviderImportSettled;
-				yield* recordProviderImportSettled;
-				const snapshot = yield* findSnapshot("ryot.provider_import.active", {});
+				yield* recordProviderImportBodyStarted;
+				yield* recordProviderImportBodySettled;
+				yield* recordProviderImportBodySettled;
+				const snapshot = yield* findSnapshot("ryot.provider_import.executing_bodies", {});
 				expect(snapshot?.state).toMatchObject({ value: 0 });
 			}),
 		),

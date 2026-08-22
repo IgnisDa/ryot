@@ -18,6 +18,7 @@ import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/Workf
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import {
+	recordSandboxDurableRequests,
 	recordSandboxWorkflowReplayFinished,
 	recordSandboxWorkflowReplayStarted,
 	sandboxMetricKind,
@@ -638,6 +639,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 				continue;
 			}
 			yield* finishReplay("pending");
+			yield* recordSandboxDurableRequests(observed.requests.length);
 			if (journal.length + observed.requests.length > SANDBOX_WORKFLOW_MAX_STEPS) {
 				break;
 			}
