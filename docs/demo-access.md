@@ -1117,7 +1117,7 @@ DELETE /integrations/:integrationId
 POST   /integrations/sync
 ```
 
-`GET /integrations/:integrationId` is intentionally protected even though provider secrets are already redacted. `ListedIntegration` can expose `webhookUrl`, which is reusable external-control authority because the corresponding webhook is not authenticated through ordinary user middleware.
+`GET /integrations/:integrationId` is intentionally protected even though provider secrets are already redacted. `ListedIntegration` can expose `webhookUrl`, which contains a separate random capability token and is reusable external-control authority because the corresponding webhook is not authenticated through ordinary user middleware. Integration IDs remain visible through RyotQL but cannot reconstruct this token.
 
 Allowed:
 
@@ -1130,10 +1130,10 @@ The integration summaries currently used by the list screen come through RyotQL 
 The external:
 
 ```text
-POST /webhooks/integrations/:integrationId
+POST /webhooks/integrations/:webhookToken
 ```
 
-is not an AuthMiddleware endpoint. Leave it unchanged.
+is not an AuthMiddleware endpoint. It resolves only the random sink capability token and never falls back to the integration ID.
 
 ## Notifications
 
@@ -1651,7 +1651,7 @@ Current route:
 kernel/client/src/routes/_authenticated/settings/integrations/$integrationId.tsx
 ```
 
-`GET /integrations/:integrationId` is protected because it can contain a reusable webhook URL.
+`GET /integrations/:integrationId` is protected because it can contain a reusable webhook URL with a secret capability token. The integration ID exposed by the list remains non-authoritative.
 
 For demo sessions:
 
@@ -2245,6 +2245,7 @@ Implemented on 2026-09-20.
 - Added the `/demo` client route, demo-aware OAuth token lifecycle, authenticated session access class, typed protected-operation handling, and deliberate restricted states for currently exposed protected controls.
 - Updated the public website, README, and generated configuration documentation.
 - Added focused backend, client, contract, architecture, plugin, and E2E coverage.
+- Separated sink webhook authority from integration identity with an unqueryable random capability token; demo-visible integration IDs cannot reconstruct webhook URLs.
 
 ## 26.2 Practical deviations
 

@@ -61,7 +61,7 @@ export const IntegrationsRoutesLive = HttpApiBuilder.group(
 					return yield* service
 						.handleWebhook({
 							rawBody: payload,
-							integrationId: params.integrationId,
+							webhookToken: params.webhookToken,
 							contentType: request.headers["content-type"] ?? "application/json",
 						})
 						.pipe(dieOnDbError);

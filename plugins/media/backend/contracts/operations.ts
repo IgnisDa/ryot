@@ -25,7 +25,7 @@ export const MetadataLookupResult = Schema.Union([MetadataLookupFound, MetadataL
 export type MetadataLookupResult = Schema.Schema.Type<typeof MetadataLookupResult>;
 
 export const MetadataLookupInput = Schema.Struct({
-	integrationId: Schema.String,
+	webhookToken: Schema.String,
 	titles: Schema.Array(Schema.String),
 });
 

@@ -39,7 +39,7 @@ describe("integration auto-disable on continuous errors", () => {
 					channelSpecifics: { key: "disabled", kind: "apprise", baseUrl: fakeApprise.url },
 				});
 
-				const { id } = yield* createIntegration(client, {
+				const integration = yield* createIntegration(client, {
 					provider: "kodi",
 					providerSpecifics: { kind: "kodi" },
 					extraSettings: { disableOnContinuousErrors: true },
@@ -49,18 +49,18 @@ describe("integration auto-disable on continuous errors", () => {
 				// producing a genuinely failed run on an enabled integration. The runs must be
 				// sequential so the recent-status window sees 5 consecutive failures.
 				for (let attempt = 0; attempt < 5; attempt++) {
-					const { run } = yield* postIntegrationWebhookAndWait(client, id, {});
+					const { run } = yield* postIntegrationWebhookAndWait(client, integration, {});
 					expect(run.status).toBe("failed");
 				}
 
 				const disabled = yield* pollUntil(
 					"integration auto-disable",
 					Effect.gen(function* () {
-						const integration = yield* getIntegration(client, id);
-						if (!integration?.isDisabled) {
+						const current = yield* getIntegration(client, integration.id);
+						if (!current?.isDisabled) {
 							return null;
 						}
-						return integration;
+						return current;
 					}),
 				);
 				expect(disabled.isDisabled).toBe(true);
@@ -84,7 +84,11 @@ describe("integration auto-disable on continuous errors", () => {
 
 				// A further webhook fails fast at the disabled-integration guard without
 				// running the workflow, so no duplicate notification is produced.
-				const { run: afterDisableRun } = yield* postIntegrationWebhookAndWait(client, id, {});
+				const { run: afterDisableRun } = yield* postIntegrationWebhookAndWait(
+					client,
+					integration,
+					{},
+				);
 				expect(afterDisableRun.status).toBe("failed");
 
 				yield* Effect.sleep(Duration.millis(3000));

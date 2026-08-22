@@ -46,7 +46,7 @@ const runLookup = (titles: string[], integration?: ReturnType<typeof integration
 		queries,
 		result: runSandboxTestScript(
 			definition,
-			{ titles, integrationId: "integration-1" },
+			{ titles, webhookToken: "webhook-token-1" },
 			host,
 			execution,
 		),

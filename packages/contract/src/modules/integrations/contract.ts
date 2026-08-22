@@ -3,7 +3,7 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/un
 
 import { AuthMiddleware } from "../../auth-middleware";
 import { DemoAccessPolicy } from "../../http-annotations";
-import { ImportRunId, IntegrationId } from "../../schema/brands";
+import { ImportRunId, IntegrationId, IntegrationWebhookToken } from "../../schema/brands";
 import {
 	CreateIntegrationBody,
 	IntegrationNotFoundError,
@@ -72,8 +72,8 @@ export const IntegrationsGroup = HttpApiGroup.make("integrations")
 	)
 	.middleware(AuthMiddleware)
 	.add(
-		HttpApiEndpoint.post("webhook", "/webhooks/integrations/:integrationId", {
-			params: { integrationId: IntegrationId },
+		HttpApiEndpoint.post("webhook", "/webhooks/integrations/:webhookToken", {
+			params: { webhookToken: IntegrationWebhookToken },
 			success: Schema.Struct({ runId: ImportRunId }).pipe(HttpApiSchema.status(202)),
 			error: [
 				IntegrationRequestError.pipe(HttpApiSchema.status(400)),
@@ -82,5 +82,8 @@ export const IntegrationsGroup = HttpApiGroup.make("integrations")
 			payload: integrationWebhookContentTypes.map((contentType) =>
 				IntegrationWebhookBody.pipe(HttpApiSchema.asText({ contentType })),
 			),
-		}).annotate(OpenApi.Description, "Receive a webhook payload for an integration."),
+		}).annotate(
+			OpenApi.Description,
+			"Receive an integration webhook payload using its secret capability token.",
+		),
 	);
