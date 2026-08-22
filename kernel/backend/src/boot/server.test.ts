@@ -10,7 +10,11 @@ it.effect(
 		Effect.acquireUseRelease(
 			Effect.sync(() => {
 				const inner = Effect.map(HttpServerRequest.HttpServerRequest, (request) =>
-					HttpServerResponse.text(`api:${request.url}`),
+					HttpServerResponse.text(`api:${request.url}`, {
+						headers: request.url.startsWith("/plugins/artifacts/")
+							? { "access-control-allow-origin": "*" }
+							: undefined,
+					}),
 				);
 				const RootLive = HttpRouter.use((router) =>
 					registerRootRoutes(
@@ -56,6 +60,16 @@ it.effect(
 					expect(preflight.headers.get("access-control-allow-origin")).toBe("http://client.test");
 					expect(preflight.headers.get("access-control-allow-credentials")).toBe("true");
 					expect(preflight.headers.get("access-control-allow-headers")).toBe("b3,traceparent");
+
+					const artifact = yield* Effect.promise(() =>
+						handler(
+							new Request("http://server.test/api/plugins/artifacts/hash/plugin.js", {
+								headers: { Origin: "null" },
+							}),
+						),
+					);
+					expect(artifact.headers.get("access-control-allow-origin")).toBe("*");
+					expect(artifact.headers.has("access-control-allow-credentials")).toBe(false);
 				}),
 			({ dispose }) => Effect.promise(dispose),
 		),

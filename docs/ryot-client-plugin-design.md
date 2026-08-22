@@ -756,7 +756,7 @@ The target model is an isolated iframe/document with:
 
 The kernel renders the plugin document in `<iframe sandbox="allow-scripts" referrerPolicy="no-referrer">`. This gives the plugin document an opaque origin: no kernel DOM access, no same-origin storage, and no readable Ryot credentials.
 
-The kernel serves artifact files from a public, unauthenticated, content-addressed route: `GET /api/plugins/artifacts/:artifactHash/:fileName`. The unguessable sha256 path means the sandboxed document never needs credentials to load. An unknown hash or file name returns 404. Every response carries its correct content type, `x-content-type-options: nosniff`, and `cache-control: public, max-age=31536000, immutable`; artifact routes do not emit an ETag. `index.html` additionally carries `content-security-policy: sandbox allow-scripts` as defence in depth.
+The kernel serves artifact files from a public, unauthenticated, content-addressed route: `GET /api/plugins/artifacts/:artifactHash/:fileName`. The unguessable sha256 path means the sandboxed document never needs credentials to load. An unknown hash or file name returns 404. Every response carries its correct content type, `x-content-type-options: nosniff`, and `cache-control: public, max-age=31536000, immutable`; artifact routes do not emit an ETag. Artifact responses use wildcard, non-credentialed CORS because sandboxed documents have the opaque `null` origin, and the server's credentialed API CORS middleware does not overwrite that route policy. `index.html` additionally carries `content-security-policy: sandbox allow-scripts` as defence in depth.
 
 The invariant is more important than the mechanism:
 
@@ -1263,6 +1263,8 @@ The kernel may discard inactive plugin iframes under memory pressure.
 The initial implementation can keep only the active plugin alive and add an LRU/warm-cache policy later if measurements justify it.
 
 A package update is the exception to route-stable iframe reuse. The iframe session is keyed by installation ID, package source hash, and client artifact hash. When either revision hash changes, the kernel destroys the existing iframe and mounts a fresh document and bridge session.
+
+The mounted plugin route keeps one credentialed EventSource for catalog changes. The backend publishes user-scoped invalidations through Redis and routes them into the same process-local catalog hub used by authenticated SSE responses. Both the initial `connected` event and later `catalog-invalidated` events are named, standards-valid SSE messages with a `data:` field. They refresh the route-scoped catalog atom through the existing `RyotClient` recipe path; they do not carry catalog rows or add a second plugin transport. Browser reconnection remains native EventSource behavior, and ordinary route or catalog renders must not recreate the subscription.
 
 ---
 
