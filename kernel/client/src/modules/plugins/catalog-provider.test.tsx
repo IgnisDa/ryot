@@ -29,7 +29,6 @@ const catalog: PluginClientCatalog = [
 		homeSavedViewId: null,
 		sourceHash: "source-hash",
 		installationId: "installation-1",
-		clientArtifactHash: "artifact-hash",
 	},
 ];
 const ryot = createTestRyotClock();

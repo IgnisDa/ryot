@@ -1,16 +1,16 @@
 # Backups
 
-Account export and restore use deterministic V2 archives. `archive-v2/` owns the wire format, `export/` builds it, and `restore/` writes it into a clean account.
+Account export and restore use the deterministic `ryot-backup` version 1 archive. `archive/` owns the wire format, `export/` builds it, and `restore/` writes it into a clean account.
 
 ## Archive Contract
 
 A backup is a non-Zip64 ZIP with entries in this order:
 
 1. `manifest.json` at entry 0.
-2. `profile.json`, then `private-plugins.ndjson`, `installations.ndjson`, `entities.ndjson`, `entity-dependencies.ndjson`, `relationships.ndjson`, `events.ndjson`, `saved-views.ndjson`, `integrations.ndjson`, and `notification-subscriptions.ndjson`.
+2. `profile.json`, then `private-plugins.ndjson`, `client-renderers.ndjson`, `installations.ndjson`, `entities.ndjson`, `entity-dependencies.ndjson`, `relationships.ndjson`, `events.ndjson`, `saved-views.ndjson`, `integrations.ndjson`, and `notification-subscriptions.ndjson`.
 3. Uncompressed content-addressed assets at `assets/<sha256>`.
 
-The manifest contains `format: "ryot-backup"`, version 2, archive/application identity, creation time, redaction paths, required plugins, ordered section `{ path, count, sha256 }` records, and asset `{ path, size, sha256, contentType }` records. Schemas, paths, digests, ID rewrites, and ordering are compatibility surfaces.
+The manifest contains `format: "ryot-backup"`, version 1, archive/application identity, creation time, redaction paths, required plugins, ordered section `{ path, count, sha256 }` records, and asset `{ path, size, sha256, contentType }` records. Other versions are rejected as unsupported. Schemas, paths, digests, ID rewrites, and ordering are compatibility surfaces.
 
 ## Streaming
 
@@ -40,6 +40,8 @@ Restore validation spools events and assets into the caller's scoped temp direct
 All database writes occur in one transaction: restore is atomic. Local event-file reads and batched inserts occur inside it. Temp deletion failure is logged and swallowed so it cannot turn a committed restore into a failed run.
 
 Private packages and exact installation identities are restored without lifecycle dispatch. Complete installations retain archived disabled intent; missing redacted required secrets produce `needs-configuration`. Integrations missing required secrets are disabled. Integration and custom-view provenance resolves to the exact installation.
+
+Custom renderer draft and published source state is archived before the saved views that reference it. Client page builds and compiled artifacts are derived and are rebuilt from restored source. Installation home saved-view IDs are mapped after built-in and custom views are restored.
 
 Source files are user-authored and may contain credentials, so they are not redacted. Only manifest configuration and integration settings fields may be redacted. Managed assets use content-addressed locators.
 

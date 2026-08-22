@@ -61,8 +61,8 @@ CREATE TABLE "client_page_build" (
 	"published_hash" text NOT NULL,
 	"graph_identity" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"id" text PRIMARY KEY,
 	"renderer_id" text,
+	"id" text PRIMARY KEY,
 	"user_id" text NOT NULL,
 	"artifact_hash" text NOT NULL,
 	CONSTRAINT "client_page_build_graph_unique" UNIQUE("renderer_id","published_hash","graph_hash"),
@@ -367,7 +367,6 @@ CREATE TABLE "plugin" (
 	"scope" text NOT NULL,
 	"manifest" jsonb NOT NULL,
 	"compiled_hashes" jsonb NOT NULL,
-	"client_artifact_hash" text,
 	"ingested_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"owner_id" text,
 	"id" text PRIMARY KEY,
@@ -476,17 +475,14 @@ CREATE TABLE "saved_view" (
 	"slug" text NOT NULL,
 	"name" text NOT NULL,
 	"icon" text NOT NULL,
-	"entity_schema_slug" text,
-	"layouts" jsonb,
 	"data_sources" jsonb,
-	"renderer" jsonb,
 	"revision" integer DEFAULT 1 NOT NULL,
 	"sort_order" integer DEFAULT 0 NOT NULL,
 	"is_builtin" boolean DEFAULT false NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
-	"settings" jsonb,
+	"renderer" jsonb NOT NULL,
+	"settings" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"entity_schema_plugin_id" text,
 	"client_renderer_id" text,
 	"plugin_installation_id" text,
 	"id" text PRIMARY KEY,
@@ -665,7 +661,6 @@ CREATE INDEX "oauth_refresh_token_sessionId_idx" ON "oauth_refresh_token" ("sess
 CREATE INDEX "oauth_refresh_token_userId_idx" ON "oauth_refresh_token" ("user_id");--> statement-breakpoint
 CREATE INDEX "oauth_refresh_token_authorizationCodeId_idx" ON "oauth_refresh_token" ("authorization_code_id");--> statement-breakpoint
 CREATE INDEX "plugin_owner_id_idx" ON "plugin" ("owner_id");--> statement-breakpoint
-CREATE INDEX "plugin_client_artifact_hash_idx" ON "plugin" ("client_artifact_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "plugin_system_slug_unique" ON "plugin" ("slug") WHERE "scope" = 'system';--> statement-breakpoint
 CREATE UNIQUE INDEX "plugin_owner_slug_unique" ON "plugin" ("owner_id","slug") WHERE "scope" = 'user';--> statement-breakpoint
 CREATE INDEX "plugin_installation_user_id_idx" ON "plugin_installation" ("user_id");--> statement-breakpoint
@@ -686,7 +681,6 @@ CREATE INDEX "sandbox_workflow_reference_plugin_id_idx" ON "sandbox_workflow_ref
 CREATE INDEX "sandbox_workflow_reference_script_id_idx" ON "sandbox_workflow_reference" ("script_id");--> statement-breakpoint
 CREATE INDEX "sandbox_workflow_reference_plugin_installation_id_idx" ON "sandbox_workflow_reference" ("plugin_installation_id");--> statement-breakpoint
 CREATE INDEX "saved_view_user_id_idx" ON "saved_view" ("user_id");--> statement-breakpoint
-CREATE INDEX "saved_view_entity_schema_plugin_id_idx" ON "saved_view" ("entity_schema_plugin_id");--> statement-breakpoint
 CREATE INDEX "saved_view_plugin_installation_id_idx" ON "saved_view" ("plugin_installation_id");--> statement-breakpoint
 CREATE INDEX "saved_view_client_renderer_id_idx" ON "saved_view" ("client_renderer_id");--> statement-breakpoint
 CREATE INDEX "session_userId_idx" ON "session" ("user_id");--> statement-breakpoint
@@ -740,7 +734,6 @@ ALTER TABLE "oauth_consent" ADD CONSTRAINT "oauth_consent_client_id_oauth_client
 ALTER TABLE "oauth_refresh_token" ADD CONSTRAINT "oauth_refresh_token_session_id_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "session"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "oauth_refresh_token" ADD CONSTRAINT "oauth_refresh_token_client_id_oauth_client_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "oauth_client"("client_id");--> statement-breakpoint
 ALTER TABLE "oauth_refresh_token" ADD CONSTRAINT "oauth_refresh_token_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "plugin" ADD CONSTRAINT "plugin_client_artifact_hash_plugin_client_artifact_hash_fkey" FOREIGN KEY ("client_artifact_hash") REFERENCES "plugin_client_artifact"("hash");--> statement-breakpoint
 ALTER TABLE "plugin" ADD CONSTRAINT "plugin_owner_id_user_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "plugin_client_artifact_file" ADD CONSTRAINT "plugin_client_artifact_file_vYqlZNnp2DwH_fkey" FOREIGN KEY ("artifact_hash") REFERENCES "plugin_client_artifact"("hash");--> statement-breakpoint
 ALTER TABLE "plugin_installation" ADD CONSTRAINT "plugin_installation_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -758,7 +751,6 @@ ALTER TABLE "sandbox_script" ADD CONSTRAINT "sandbox_script_provider_id_sandbox_
 ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_reference_NZbiTLiwtL2v_fkey" FOREIGN KEY ("plugin_installation_id") REFERENCES "plugin_installation"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_reference_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_reference_script_id_sandbox_script_id_fkey" FOREIGN KEY ("script_id") REFERENCES "sandbox_script"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_entity_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("entity_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_client_renderer_id_client_renderer_id_fkey" FOREIGN KEY ("client_renderer_id") REFERENCES "client_renderer"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_plugin_installation_owner_fk" FOREIGN KEY ("plugin_installation_id","user_id") REFERENCES "plugin_installation"("id","user_id") ON DELETE RESTRICT;--> statement-breakpoint

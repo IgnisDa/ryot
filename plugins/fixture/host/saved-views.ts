@@ -1,4 +1,4 @@
-import { ascending, castJson, castNumber, column, jsonPath, table } from "@ryot-app/ryotql";
+import { ascending, castJson, castNumber, column, field, jsonPath, table } from "@ryot-app/ryotql";
 import {
 	buildSavedViewLayoutProjections,
 	savedViewRecipe,
@@ -11,28 +11,40 @@ const json = (key: string) => ({ expression: property(key), displayKind: "json" 
 const text = (key: string) => ({ expression: property(key), displayKind: "text" as const });
 const number = (key: string) => ({ expression: property(key), displayKind: "number" as const });
 
-const buildLayouts = (
+const buildDefinition = (
 	entitySchemaSlug: string,
 	orderBy: ReturnType<typeof ascending>,
 	projections: ReturnType<typeof buildSavedViewLayoutProjections>,
 ) => {
-	const document = (layout: "grid" | "list" | "table") =>
-		savedViewRecipe({
-			source: {
-				type: "generated",
-				orderBy: [orderBy],
-				fields: projections[layout].fields,
-				entitySchemaSlugs: [entitySchemaSlug],
-			},
-			layout:
-				layout === "table"
-					? { type: "table", mapping: projections.table.mappings }
-					: { type: "card", mapping: projections[layout].mappings },
-		}).document;
+	const dataSources = savedViewRecipe({
+		source: {
+			type: "generated",
+			orderBy: [orderBy],
+			fields: [
+				...projections.table.fields,
+				field("ownerPluginId", column(entity, "entitySchemaPluginId")),
+				field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
+			],
+			entitySchemaSlugs: [entitySchemaSlug],
+		},
+		layout: { type: "table", mapping: projections.table.mappings },
+	}).document;
 	return {
-		grid: { ...projections.grid.mappings, queryDocument: document("grid") },
-		list: { ...projections.list.mappings, queryDocument: document("list") },
-		table: { ...projections.table.mappings, queryDocument: document("table") },
+		renderer: { kind: "kernel", name: "entity-browser" } as const,
+		dataSources,
+		settings: {
+			pageSize: 20,
+			sourceName: "savedView",
+			defaultLayout: "grid" as const,
+			layouts: ["grid", "list", "table"] as const,
+			entityIdField: "entityId",
+			ownerPluginIdField: "ownerPluginId",
+			entitySchemaSlugField: "entitySchemaSlug",
+			searchFields: ["column0"],
+			sortChoices: [],
+			tableColumns: projections.table.mappings.columns,
+			addAction: { type: "provider-search" as const, ownerPluginId: "fixture", entitySchemaSlug },
+		},
 	};
 };
 
@@ -98,8 +110,7 @@ export const fixtureSavedViews = [
 		name: "All Pokemon",
 		slug: "all-pokemon",
 		pluginSlug: "fixture",
-		entitySchemaSlug: "pokemon",
-		layouts: buildLayouts(
+		...buildDefinition(
 			"pokemon",
 			ascending(castNumber(property("pokedexNumber"))),
 			pokemonProjections,
@@ -111,7 +122,6 @@ export const fixtureSavedViews = [
 		name: "All Moves",
 		slug: "all-moves",
 		pluginSlug: "fixture",
-		entitySchemaSlug: "move",
-		layouts: buildLayouts("move", ascending(name), moveProjections),
+		...buildDefinition("move", ascending(name), moveProjections),
 	},
 ] as const;

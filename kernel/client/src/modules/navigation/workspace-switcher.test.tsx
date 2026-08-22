@@ -33,7 +33,6 @@ const workspace = (
 	pluginId: "plugin-media",
 	sourceHash: "source-media",
 	installationId: "installation-media",
-	clientArtifactHash: "artifact-media",
 	...overrides,
 	homeSavedViewId: overrides.homeSavedViewId ?? null,
 });
@@ -74,14 +73,6 @@ describe("workspace switcher", () => {
 				health: "incompatible",
 				installationId: "installation-incompatible",
 			}),
-			workspace({
-				sortOrder: 1,
-				name: "Clientless",
-				slug: "clientless",
-				clientApiVersion: null,
-				clientArtifactHash: null,
-				installationId: "installation-clientless",
-			}),
 			current,
 		];
 		render(
@@ -104,7 +95,6 @@ describe("workspace switcher", () => {
 				.map((item) => item.getAttribute("aria-label")),
 		).toEqual([
 			"Switch to Media workspace",
-			"Switch to Clientless workspace",
 			"Switch to Incompatible workspace",
 			"Switch to Failed workspace",
 		]);

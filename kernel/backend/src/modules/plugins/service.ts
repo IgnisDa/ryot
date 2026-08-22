@@ -158,7 +158,6 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 					scripts: [],
 					ownerId: null,
 					scope: "system" as const,
-					clientArtifactHash: null,
 					id: existing?.id ?? `pending:${slug}`,
 				} satisfies PluginRegistryEntry;
 				const prospectiveSnapshot = yield* Effect.try({
@@ -224,14 +223,13 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 									ownerId: null,
 									scope: "system",
 								});
-								const { clientArtifact, files: _files, ...revision } = normalized;
+								const { files: _files, ...revision } = normalized;
 								const entry = {
 									...revision,
 									slug,
 									id: pluginId,
 									ownerId: null,
 									scope: "system" as const,
-									clientArtifactHash: clientArtifact?.hash ?? null,
 								} satisfies PluginRegistryEntry;
 								const nextInstalled = [
 									...installed.filter((plugin) => plugin.slug !== slug),

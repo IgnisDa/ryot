@@ -23,15 +23,6 @@ const queryDocument = {
 	},
 } as const;
 
-const cardMapping = {
-	imageField: null,
-	callout: null,
-	titleField: "title",
-	overline: null,
-	primaryMetadata: null,
-	secondaryMetadata: null,
-} as const;
-
 const authoredManifest = definePlugin({
 	entitySchemas: [],
 	httpRateLimits: [],
@@ -55,16 +46,14 @@ const authoredManifest = definePlugin({
 			pluginSlug: "test",
 			name: "All entities",
 			slug: "all-entities",
-			entitySchemaSlug: null,
-			layouts: {
-				grid: { queryDocument, ...cardMapping, entityIdField: "entityId" },
-				list: { queryDocument, ...cardMapping, entityIdField: "entityId" },
-				table: {
-					queryDocument,
-					imageField: null,
-					entityIdField: "entityId",
-					columns: [{ label: "Title", field: "title", displayKind: "text" }],
-				},
+			renderer: { kind: "kernel", name: "results-table" },
+			dataSources: queryDocument,
+			settings: {
+				pageSize: 20,
+				sourceName: "entities",
+				rowKeyFields: ["entityId"],
+				entityLink: { entityIdField: "entityId" },
+				columns: [{ label: "Title", field: "title", displayKind: "text" }],
 			},
 		},
 	],
@@ -298,8 +287,19 @@ describe("definePlugin", () => {
 		});
 	});
 
-	it("accepts a canonical client entry under client/", () => {
-		const client = { entry: "client/pages/index.tsx", apiVersion: CLIENT_API_VERSION };
+	it("accepts a declarative client manifest", () => {
+		const client = {
+			homeView: null,
+			apiVersion: CLIENT_API_VERSION,
+			exports: {
+				page: {
+					kind: "page" as const,
+					entry: "client/pages/index.tsx",
+					settingsSchema: { fields: {} },
+					automaticEntityPresentations: false,
+				},
+			},
+		};
 		const decoded = Schema.decodeUnknownSync(PluginManifest)({ ...manifest, client });
 
 		expect(decoded.client).toEqual(client);
@@ -308,7 +308,7 @@ describe("definePlugin", () => {
 	it("decodes declarative public client exports by kind", () => {
 		const client = {
 			apiVersion: CLIENT_API_VERSION,
-			entry: "client/index.tsx",
+			homeView: null,
 			notFoundPage: "dashboard",
 			pluginDependencies: ["media", "private-fixture"],
 			routes: { "/": "dashboard", "/things/$thingId": "dashboard" },
@@ -353,6 +353,8 @@ describe("definePlugin", () => {
 			Schema.decodeUnknownSync(PluginManifest)({ ...manifestWithEntity, client }).client,
 		).toEqual(client);
 		const invalidClients = [
+			{ ...client, entry: "client/index.tsx" },
+			{ ...client, homeView: "missing-view" },
 			{
 				...client,
 				exports: { dashboard: { ...client.exports.dashboard, settingsSchema: undefined } },
@@ -375,10 +377,55 @@ describe("definePlugin", () => {
 					}),
 				),
 			),
-		).toEqual([true, true, true, true, true, true, true, true, true]);
+		).toEqual([true, true, true, true, true, true, true, true, true, true, true]);
 	});
 
-	it("rejects non-TypeScript client entries outside client/ or with noncanonical paths", () => {
+	it("accepts plugin-owned default homes and portable plugin renderers", () => {
+		const client = {
+			homeView: "plugin-page",
+			apiVersion: CLIENT_API_VERSION,
+			exports: {
+				page: {
+					kind: "page" as const,
+					entry: "client/page.tsx",
+					settingsSchema: { fields: {} },
+					automaticEntityPresentations: false,
+				},
+			},
+		};
+		const pluginView = {
+			icon: "box",
+			name: "Plugin page",
+			slug: "plugin-page",
+			sortOrder: 1,
+			pluginSlug: "test",
+			dataSources: null,
+			settings: {},
+			renderer: { kind: "plugin" as const, exportName: "page" },
+		};
+
+		expect(
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				client,
+				savedViews: [...manifest.savedViews, pluginView],
+			}).savedViews[1]?.renderer,
+		).toEqual({ kind: "plugin", exportName: "page" });
+		for (const renderer of [
+			{ kind: "custom", rendererId: "runtime-id" },
+			{ kind: "plugin", pluginId: "runtime-plugin-id", exportName: "page" },
+		]) {
+			expect(() =>
+				Schema.decodeUnknownSync(PluginManifest)({
+					...manifest,
+					client,
+					savedViews: [{ ...pluginView, renderer }],
+				}),
+			).toThrow();
+		}
+	});
+
+	it("rejects non-TypeScript export entries outside client/ or with noncanonical paths", () => {
 		for (const entry of [
 			"index.tsx",
 			"backend/index.ts",
@@ -391,7 +438,18 @@ describe("definePlugin", () => {
 			expect(() =>
 				Schema.decodeUnknownSync(PluginManifest)({
 					...manifest,
-					client: { entry, apiVersion: CLIENT_API_VERSION },
+					client: {
+						homeView: null,
+						apiVersion: CLIENT_API_VERSION,
+						exports: {
+							page: {
+								entry,
+								kind: "page",
+								settingsSchema: { fields: {} },
+								automaticEntityPresentations: false,
+							},
+						},
+					},
 				}),
 			).toThrow();
 		}
@@ -401,7 +459,18 @@ describe("definePlugin", () => {
 		expect(() =>
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
-				client: { entry: "client/index.tsx", apiVersion: CLIENT_API_VERSION, capabilities: [] },
+				client: {
+					homeView: null,
+					capabilities: [],
+					apiVersion: CLIENT_API_VERSION,
+					exports: {
+						card: {
+							kind: "component",
+							entry: "client/card.tsx",
+							automaticEntityPresentations: false,
+						},
+					},
+				},
 			}),
 		).toThrow();
 	});
@@ -485,25 +554,22 @@ describe("definePlugin", () => {
 		).toThrow();
 	});
 
-	it("requires and decodes every saved-view layout", () => {
+	it("requires and decodes saved-view renderer settings and data sources", () => {
 		const [savedView] = Schema.decodeUnknownSync(PluginManifest)(manifest).savedViews;
 		assert(savedView);
 
-		expect(Object.keys(savedView.layouts)).toEqual(["grid", "list", "table"]);
-		expect(savedView.entitySchemaSlug).toBeNull();
-		for (const layout of ["grid", "list", "table"] as const) {
-			expect(savedView.layouts[layout].queryDocument).toEqual(queryDocument);
-			expect(savedView.layouts[layout].entityIdField).toBe("entityId");
-		}
+		expect(savedView.renderer).toEqual({ kind: "kernel", name: "results-table" });
+		expect(savedView.dataSources).toEqual(queryDocument);
+		expect(savedView.settings["sourceName"]).toBe("entities");
 	});
 
-	it("requires saved-view entity schema provenance", () => {
+	it("requires saved-view renderer settings", () => {
 		const [savedView] = manifest.savedViews;
 		assert(savedView);
 		expect(() =>
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
-				savedViews: [{ ...savedView, entitySchemaSlug: undefined }],
+				savedViews: [{ ...savedView, settings: undefined }],
 			}),
 		).toThrow();
 	});

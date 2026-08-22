@@ -8,8 +8,8 @@ import { Clock, Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import {
 	ClientPageSessionPayloadFromJson,
-	hashPluginClientArtifactSessionToken,
-	PLUGIN_CLIENT_ARTIFACT_SESSION_TTL_SECONDS,
+	hashClientPageSessionToken,
+	CLIENT_PAGE_SESSION_TTL_SECONDS,
 	RedisService,
 	redisKeys,
 } from "#lib/infrastructure/redis";
@@ -25,7 +25,7 @@ const stale = () => new ClientPageStalePreparation({ reason: { code: "stale-prep
 const makeToken = () =>
 	Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url");
 const expiresAt = (now: number) =>
-	DateTime.formatIso(DateTime.makeUnsafe(now + PLUGIN_CLIENT_ARTIFACT_SESSION_TTL_SECONDS * 1_000));
+	DateTime.formatIso(DateTime.makeUnsafe(now + CLIENT_PAGE_SESSION_TTL_SECONDS * 1_000));
 
 export class ClientPageSessionService extends Context.Service<ClientPageSessionService>()(
 	"ClientPageSessionService",
@@ -68,7 +68,7 @@ export class ClientPageSessionService extends Context.Service<ClientPageSessionS
 			) {
 				yield* current(userId, identity);
 				const token = makeToken();
-				const sessionId = hashPluginClientArtifactSessionToken(token);
+				const sessionId = hashClientPageSessionToken(token);
 				const value = yield* Schema.encodeUnknownEffect(ClientPageSessionPayloadFromJson)({
 					userId,
 					identity,
@@ -78,7 +78,7 @@ export class ClientPageSessionService extends Context.Service<ClientPageSessionS
 						redisKeys.clientPageSession(sessionId),
 						value,
 						"EX",
-						PLUGIN_CLIENT_ARTIFACT_SESSION_TTL_SECONDS,
+						CLIENT_PAGE_SESSION_TTL_SECONDS,
 						"NX",
 					),
 				).pipe(Effect.mapError(stale));
@@ -104,7 +104,7 @@ export class ClientPageSessionService extends Context.Service<ClientPageSessionS
 				const renewed = yield* redis.renewLease(
 					redisKeys.clientPageSession(sessionId),
 					loaded.raw,
-					PLUGIN_CLIENT_ARTIFACT_SESSION_TTL_SECONDS,
+					CLIENT_PAGE_SESSION_TTL_SECONDS,
 				);
 				if (!renewed) {
 					return yield* notFound();
@@ -126,7 +126,7 @@ export class ClientPageSessionService extends Context.Service<ClientPageSessionS
 				if (!TOKEN_PATTERN.test(token)) {
 					return yield* notFound();
 				}
-				const sessionId = hashPluginClientArtifactSessionToken(token);
+				const sessionId = hashClientPageSessionToken(token);
 				const loaded = yield* load(sessionId);
 				yield* current(loaded.payload.userId, loaded.payload.identity).pipe(
 					Effect.mapError(notFound),

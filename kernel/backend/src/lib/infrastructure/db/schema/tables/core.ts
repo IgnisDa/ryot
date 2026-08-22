@@ -58,7 +58,6 @@ export const plugin = snakeCase.table(
 		scope: text().$type<"system" | "user">().notNull(),
 		manifest: jsonb().$type<PluginManifest>().notNull(),
 		compiledHashes: jsonb().$type<Record<string, string>>().notNull(),
-		clientArtifactHash: text().references(() => pluginClientArtifact.hash),
 		ingestedAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		ownerId: text().references(() => user.id, { onDelete: "cascade" }),
 		id: text()
@@ -68,7 +67,6 @@ export const plugin = snakeCase.table(
 	},
 	(table) => [
 		index("plugin_owner_id_idx").on(table.ownerId),
-		index("plugin_client_artifact_hash_idx").on(table.clientArtifactHash),
 		uniqueIndex("plugin_system_slug_unique")
 			.on(table.slug)
 			.where(sql`${table.scope} = 'system'`),

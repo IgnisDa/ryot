@@ -68,68 +68,81 @@ describe("Measurements E2E", () => {
 				});
 				const allMeasurementsView = views.find((view) => view.name === "All Measurements");
 				assertPresent(allMeasurementsView, "Expected the built-in All Measurements saved view");
-				const allMeasurementsLayouts = requirePresent(
-					allMeasurementsView.layouts,
-					"All Measurements saved view has no layouts",
+				const dataSources = requirePresent(
+					allMeasurementsView.dataSources,
+					"All Measurements saved view has no data sources",
 				);
-				const savedViewQuery = allMeasurementsLayouts.grid.queryDocument.queries.savedView;
-				assertPresent(savedViewQuery, "Expected the All Measurements saved-view query");
+				const savedViewSource = dataSources.queries.savedView;
+				assertPresent(savedViewSource, "Expected the All Measurements named source");
 				assertCondition(
-					savedViewQuery.output.type === "rows",
-					"Expected the All Measurements saved-view query to use rows output",
+					savedViewSource.output.type === "rows",
+					"Expected the All Measurements named source to use rows output",
 				);
 
 				expect(allMeasurementsView).toMatchObject({
 					isBuiltin: true,
 					name: "All Measurements",
 					pluginSlug: fitnessPlugin.slug,
-					layouts: {
-						grid: {
-							imageField: null,
-							titleField: "title",
-							entityIdField: "entityId",
-							callout: null,
-							overline: { field: "overline", displayKind: "text" },
-							primaryMetadata: { field: "primaryMetadata", displayKind: "date" },
-							secondaryMetadata: { field: "secondaryMetadata", displayKind: "text" },
+					renderer: { kind: "kernel", name: "entity-browser" },
+					settings: {
+						defaultLayout: "grid",
+						sourceName: "savedView",
+						entityIdField: "entityId",
+						searchFields: ["column0"],
+						layouts: ["grid", "list", "table"],
+						ownerPluginIdField: "ownerPluginId",
+						entitySchemaSlugField: "entitySchemaSlug",
+						addAction: {
+							type: "provider-search",
+							entitySchemaSlug: "measurement",
+							ownerPluginId: expect.any(String),
 						},
-						list: {
-							imageField: null,
-							titleField: "title",
-							entityIdField: "entityId",
-							callout: null,
-							overline: { field: "overline", displayKind: "text" },
-							primaryMetadata: { field: "primaryMetadata", displayKind: "date" },
-							secondaryMetadata: { field: "secondaryMetadata", displayKind: "text" },
-						},
-						table: {
-							imageField: null,
-							entityIdField: "entityId",
-							columns: [
-								{ label: "Name", field: "column0", displayKind: "text" },
-								{ label: "Comment", field: "column1", displayKind: "text" },
-								{ label: "Recorded At", field: "column2", displayKind: "date" },
-							],
-						},
+						tableColumns: [
+							{ label: "Name", field: "column0", displayKind: "text" },
+							{ label: "Comment", field: "column1", displayKind: "text" },
+							{ label: "Recorded At", field: "column2", displayKind: "date" },
+						],
 					},
 				});
-				expect(savedViewQuery).toMatchObject({
+				expect(savedViewSource.output.fields).toEqual(
+					expect.arrayContaining([
+						expect.objectContaining({
+							key: "entityId",
+							expr: { type: "column", field: "id", tableAlias: "entity" },
+						}),
+						expect.objectContaining({
+							key: "ownerPluginId",
+							expr: { type: "column", field: "entitySchemaPluginId", tableAlias: "entity" },
+						}),
+						expect.objectContaining({
+							key: "entitySchemaSlug",
+							expr: { type: "column", field: "entitySchemaSlug", tableAlias: "entity" },
+						}),
+					]),
+				);
+				expect(savedViewSource).toMatchObject({
 					output: { orderBy: [{ direction: "desc", expr: { type: "cast", target: "date" } }] },
 					where: {
-						right: { value: "measurement" },
-						left: { field: "entitySchemaSlug", tableAlias: "entity" },
+						type: "and",
+						predicates: expect.arrayContaining([
+							expect.objectContaining({
+								right: { type: "literal", value: "measurement" },
+								left: { field: "entitySchemaSlug", tableAlias: "entity", type: "column" },
+							}),
+						]),
 					},
 				});
 				expect(
-					savedViewQuery.output.fields.map((selection) => "key" in selection && selection.key),
+					savedViewSource.output.fields.map((selection) => "key" in selection && selection.key),
 				).toEqual([
 					"entityId",
-					"title",
-					"overline",
-					"primaryMetadata",
-					"secondaryMetadata",
+					"column0",
+					"column1",
+					"column2",
 					"populationStatus",
 					"translationStatus",
+					"ownerPluginId",
+					"entitySchemaSlug",
 				]);
 			}),
 	);

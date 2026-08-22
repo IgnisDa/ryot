@@ -26,7 +26,6 @@ const workspace = (
 	pluginId: "plugin-media",
 	sourceHash: "source-media",
 	installationId: "installation-media",
-	clientArtifactHash: "artifact-media",
 	...overrides,
 	homeSavedViewId: overrides.homeSavedViewId ?? null,
 });
@@ -213,7 +212,6 @@ describe("mobile drawer", () => {
 			pluginId: "plugin-journal",
 			sourceHash: "source-journal",
 			installationId: "installation-journal",
-			clientArtifactHash: "artifact-journal",
 		});
 		render(
 			<Harness

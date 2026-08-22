@@ -4,43 +4,10 @@ import { describe, expect, it } from "vitest";
 import { savedViewRecordRecipe, savedViewRecordsRecipe } from "./saved-view-records";
 import { requireRowsQuery, rowsResult } from "./test-utils";
 
-const queryDocument = {
-	queries: {
-		entities: {
-			from: { alias: "entity", table: "entity" },
-			output: {
-				orderBy: [],
-				type: "rows",
-				pagination: { limit: 1 },
-				fields: [{ key: "id", expr: { field: "id", tableAlias: "entity", type: "column" } }],
-			},
-		},
-	},
-} as const;
-const card = {
-	imageField: null,
-	callout: null,
-	titleField: "title",
-	overline: null,
-	primaryMetadata: null,
-	secondaryMetadata: null,
-} as const;
-const layouts = {
-	grid: { ...card, entityIdField: "entityId", queryDocument },
-	list: { ...card, entityIdField: "entityId", queryDocument },
-	table: {
-		queryDocument,
-		imageField: null,
-		entityIdField: "entityId",
-		columns: [{ label: "Title", field: "title", displayKind: "text" }],
-	},
-} as const;
 const item = {
-	layouts,
 	id: "view-1",
 	sortOrder: 2,
-	renderer: null,
-	settings: null,
+	settings: {},
 	slug: "view-one",
 	name: "View One",
 	icon: "bookmark",
@@ -48,9 +15,9 @@ const item = {
 	dataSources: null,
 	isDisabled: false,
 	pluginSlug: "media",
-	entitySchemaSlug: "book",
 	createdAt: "2026-01-01T01:00:00+02:00",
 	updatedAt: "2026-01-02T01:00:00+02:00",
+	renderer: { kind: "kernel", name: "entity-browser" },
 };
 const pageInfo = { hasMore: true, limit: 2, nextCursor: "next" };
 const rows = (items: readonly unknown[], limit = 2) => rowsResult(items, { ...pageInfo, limit });
@@ -72,7 +39,6 @@ describe("saved-view record recipes", () => {
 			"slug",
 			"name",
 			"icon",
-			"layouts",
 			"renderer",
 			"settings",
 			"dataSources",
@@ -82,7 +48,6 @@ describe("saved-view record recipes", () => {
 			"isBuiltin",
 			"isDisabled",
 			"pluginSlug",
-			"entitySchemaSlug",
 		]);
 		expect(query.where).toMatchObject({
 			predicates: [
@@ -120,11 +85,11 @@ describe("saved-view record recipes", () => {
 			Result.getOrThrow(
 				savedViewRecordsRecipe({ limit: 2 }).decode({
 					data: {
-						savedViews: rows([{ ...item, pluginSlug: null, entitySchemaSlug: null }]),
+						savedViews: rows([{ ...item, pluginSlug: null }]),
 					},
 				}),
 			).items[0],
-		).toMatchObject({ pluginSlug: null, entitySchemaSlug: null });
+		).toMatchObject({ pluginSlug: null });
 	});
 
 	it("decodes optional detail and rejects excess cardinality", () => {
@@ -140,7 +105,9 @@ describe("saved-view record recipes", () => {
 		const recipe = savedViewRecordsRecipe({ limit: 2 });
 
 		for (const malformed of [
-			{ ...item, layouts: "not-json" },
+			{ ...item, renderer: "not-json" },
+			{ ...item, settings: "not-json" },
+			{ ...item, dataSources: "not-json" },
 			{ ...item, createdAt: "not-a-date" },
 			{ ...item, updatedAt: "not-a-date" },
 		]) {

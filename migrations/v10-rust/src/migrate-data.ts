@@ -62,7 +62,10 @@ import {
 	personEntityTargets,
 } from "./person-mapping";
 import { buildReviewMigrationSql } from "./review-mapping";
-import { buildLegacySavedViewStateMigrationSql } from "./saved-view-mapping";
+import {
+	buildLegacySavedViewStateMigrationSql,
+	legacySavedViewTargets,
+} from "./saved-view-mapping";
 import { buildSeenEpisodicCompletionMigrationSql } from "./seen-completion-mapping";
 import { buildSeenMigrationSql } from "./seen-mapping";
 import {
@@ -174,12 +177,15 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	const libraryEntitySchema = entitySchema(mediaPluginId, "library");
 	const memberOfRelationshipSchema = relationshipSchema(null, "member-of");
 	const inLibraryRelationshipSchema = relationshipSchema(mediaPluginId, "in-library");
-	const collectionsSavedView = requireSchema(
-		resolution.savedViews,
-		null,
-		"collections",
-		"saved view",
-	);
+	for (const slug of legacySavedViewTargets.kernel) {
+		requireSchema(resolution.savedViews, null, slug, "saved view");
+	}
+	for (const slug of legacySavedViewTargets.media) {
+		requireSchema(resolution.savedViews, mediaPluginId, slug, "saved view");
+	}
+	for (const slug of legacySavedViewTargets.fitness) {
+		requireSchema(resolution.savedViews, fitnessPluginId, slug, "saved view");
+	}
 	const addEntityToCollectionEventSchema = requireEventSchema(
 		resolution,
 		null,
@@ -360,10 +366,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 			fitnessInstallationId: requireInstallation(resolution, userId, fitnessPluginId),
 		}));
 		yield* withReservedConnection((connection) =>
-			connection.executeRaw(
-				buildLegacySavedViewStateMigrationSql(savedViewInstallations, collectionsSavedView.slug),
-				[],
-			),
+			connection.executeRaw(buildLegacySavedViewStateMigrationSql(savedViewInstallations), []),
 		);
 
 		yield* Effect.logInfo("legacy user bootstrap backfill finished").pipe(

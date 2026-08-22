@@ -1,6 +1,7 @@
 import { badRequest, DbError } from "@ryot-app/contract/errors";
 import type { AssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import {
+	ClientRendererId,
 	EntityId,
 	EntitySchemaSlug,
 	SignalSchemaSlug,
@@ -12,11 +13,8 @@ import { Context, Data, Effect, Layer, Stream } from "effect";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { AuthRepository } from "#modules/auth/repository";
 import { AutomationsRepository } from "#modules/automations/repository";
-import {
-	type DefinitionSnapshot,
-	formatSavedViewValidationIssue,
-	validateSavedViewLayouts,
-} from "#modules/definition-registry/service";
+import { ClientPagesRepository } from "#modules/client-pages/repository";
+import type { DefinitionSnapshot } from "#modules/definition-registry/service";
 import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities/repository";
 import { TranslationsRepository } from "#modules/entity-translation/repository";
 import { EventsRepository, RESTORE_EVENT_BATCH_SIZE } from "#modules/events/repository";
@@ -24,29 +22,30 @@ import { IntegrationsRepository } from "#modules/integrations/repository";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginRepository } from "#modules/plugins/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
+import { validateSavedViewDefinition } from "#modules/saved-views/definition-validation";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 
-import type { ValidatedV2Events } from "../archive-v2/archive";
-import { archiveError } from "../archive-v2/error";
+import type { ValidatedArchiveEvents } from "../archive/archive";
+import { archiveError } from "../archive/error";
 import {
-	rewriteV2EventReferences,
-	rewriteV2ManagedAssetLocators,
-	rewriteV2PropertyReferences,
-	rewriteV2RelationshipReferences,
-} from "../archive-v2/references";
+	rewriteEventReferences,
+	rewriteManagedAssetLocators,
+	rewritePropertyReferences,
+	rewriteRelationshipReferences,
+} from "../archive/references";
 import {
-	decodeV2JsonObject,
-	isV2JsonObject,
-	type V2ArchiveRecords,
-	type V2EntityDependency,
-	type V2Installation,
-} from "../archive-v2/schemas";
+	decodeArchiveJsonObject,
+	isArchiveJsonObject,
+	type ArchiveRecords,
+	type ArchiveEntityDependency,
+	type ArchiveInstallation,
+} from "../archive/schemas";
 
 export class RequiredBackupPluginUnavailable extends Data.TaggedError(
 	"RequiredBackupPluginUnavailable",
 )<{ readonly pluginSlug: string; readonly requiredVersion: string }> {}
 
-export const resolveV2RequiredPluginIds = Effect.fn(function* (
+export const resolveRequiredPluginIds = Effect.fn(function* (
 	required: ReadonlyArray<{
 		readonly slug: string;
 		readonly version: string;
@@ -78,7 +77,7 @@ const parseDate = (value: string) => new Date(value);
 
 const decodePointerSegment = (value: string) => value.replaceAll("~1", "/").replaceAll("~0", "~");
 
-export const isV2RequiredSecretPath = (path: string, schema: AppSchema) => {
+export const isRequiredSecretPath = (path: string, schema: AppSchema) => {
 	const segments = path.startsWith("/") ? path.slice(1).split("/").map(decodePointerSegment) : [];
 	let definition: AppPropertyDefinition | undefined = segments[0]
 		? schema.fields[segments[0]]
@@ -95,20 +94,20 @@ export const isV2RequiredSecretPath = (path: string, schema: AppSchema) => {
 	return definition?.secret === true && definition.validation?.required === true;
 };
 
-export const resolveV2RestoredInstallationLifecycle = (
-	state: Pick<V2Installation, "configuredSecretPaths" | "disabledIntent" | "lifecycleIntent">,
+export const resolveRestoredInstallationLifecycle = (
+	state: Pick<ArchiveInstallation, "configuredSecretPaths" | "disabledIntent" | "lifecycleIntent">,
 	schema: AppSchema,
 ) => {
 	const missingRequiredSecret =
 		state.lifecycleIntent === "needs-configuration" ||
-		state.configuredSecretPaths.some((path) => isV2RequiredSecretPath(path, schema));
+		state.configuredSecretPaths.some((path) => isRequiredSecretPath(path, schema));
 	return {
 		isDisabled: missingRequiredSecret ? true : state.disabledIntent,
 		health: missingRequiredSecret ? ("needs-configuration" as const) : ("ready" as const),
 	};
 };
 
-export const resolveV2RestoredIntegrationDisabled = (
+export const resolveRestoredIntegrationDisabled = (
 	integration: {
 		readonly isDisabled: boolean;
 		readonly configuredSecretPaths: ReadonlyArray<string>;
@@ -116,7 +115,7 @@ export const resolveV2RestoredIntegrationDisabled = (
 	schema: AppSchema,
 ) =>
 	integration.isDisabled ||
-	integration.configuredSecretPaths.some((path) => isV2RequiredSecretPath(path, schema));
+	integration.configuredSecretPaths.some((path) => isRequiredSecretPath(path, schema));
 
 const validateProperties = (properties: unknown, propertiesSchema: AppSchema, kind: string) =>
 	parseAppSchemaProperties({ properties, propertiesSchema, kind }).pipe(
@@ -127,7 +126,7 @@ const bootstrapSchemaIdentity = (entitySchemaSlug: string, entitySchemaPluginId:
 	JSON.stringify([entitySchemaSlug, entitySchemaPluginId]);
 
 type ArchivedBootstrapEntity = Pick<
-	V2ArchiveRecords["entities"][number],
+	ArchiveRecords["entities"][number],
 	"id" | "origin" | "entitySchemaSlug" | "entitySchemaPluginKey"
 >;
 type TargetBootstrapEntity = Pick<
@@ -135,7 +134,7 @@ type TargetBootstrapEntity = Pick<
 	"id" | "origin" | "entitySchemaSlug" | "entitySchemaPluginId"
 >;
 
-export const resolveV2BootstrapEntityMappings = Effect.fn(function* (
+export const resolveBootstrapEntityMappings = Effect.fn(function* (
 	archived: ReadonlyArray<ArchivedBootstrapEntity>,
 	target: ReadonlyArray<TargetBootstrapEntity>,
 	pluginIdByKey: ReadonlyMap<string, string>,
@@ -196,8 +195,8 @@ export const resolveV2BootstrapEntityMappings = Effect.fn(function* (
 	return mappings;
 });
 
-export const assertV2DependencySchemaOwnership = Effect.fn(function* (
-	dependency: V2EntityDependency,
+export const assertDependencySchemaOwnership = Effect.fn(function* (
+	dependency: ArchiveEntityDependency,
 	schemaPluginKey: string | null,
 ) {
 	if (
@@ -209,14 +208,14 @@ export const assertV2DependencySchemaOwnership = Effect.fn(function* (
 	return yield* Effect.void;
 });
 
-export const selectV2TranslationsForRestore = (
+export const selectTranslationsForRestore = (
 	inserted: boolean,
-	translations: V2EntityDependency["translations"],
+	translations: ArchiveEntityDependency["translations"],
 ) => (inserted ? translations : []);
 
-export const preflightV2Provenance = Effect.fn(function* (
-	records: V2ArchiveRecords,
-	archivedEvents: ValidatedV2Events,
+export const preflightProvenance = Effect.fn(function* (
+	records: ArchiveRecords,
+	archivedEvents: ValidatedArchiveEvents,
 	pluginIdByKey: ReadonlyMap<string, string>,
 	definitions: DefinitionSnapshot,
 ) {
@@ -284,14 +283,8 @@ export const preflightV2Provenance = Effect.fn(function* (
 		} else if (view.pluginKey !== null) {
 			yield* mappedPluginId(view.pluginKey);
 		}
-		if (view.entitySchemaSlug !== null) {
-			yield* assertOwner(
-				view.entitySchemaPluginKey,
-				definitions.entitySchemas[view.entitySchemaSlug],
-				"saved view entity schema",
-			);
-		} else if (view.entitySchemaPluginKey !== null) {
-			return yield* badRequest("Backup saved view entity schema provenance is inconsistent");
+		if (view.renderer.kind === "plugin") {
+			yield* mappedPluginId(view.renderer.pluginKey);
 		}
 	}
 	for (const subscription of records.notificationSubscriptions) {
@@ -324,6 +317,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 	{
 		make: Effect.gen(function* () {
 			const auth = yield* AuthRepository;
+			const clientPages = yield* ClientPagesRepository;
 			const events = yield* EventsRepository;
 			const plugins = yield* PluginRepository;
 			const entities = yield* EntitiesRepository;
@@ -342,7 +336,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						readonly sourceHash: string;
 					}>,
 				) {
-					return yield* resolveV2RequiredPluginIds(
+					return yield* resolveRequiredPluginIds(
 						required,
 						yield* plugins.listPortablePluginMetadata(),
 					);
@@ -382,24 +376,28 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 
 			const restoreRecords = Effect.fn("BackupRestoreWriter.restoreRecords")(function* (
 				userId: UserId,
-				records: V2ArchiveRecords,
+				records: ArchiveRecords,
 				assetLocators: ReadonlyMap<string, AssetLocator>,
-				archivedEvents: ValidatedV2Events,
+				archivedEvents: ValidatedArchiveEvents,
 				pluginIdByKey: ReadonlyMap<string, string>,
 				definitions: DefinitionSnapshot,
 			) {
+				const privatePlugins = yield* plugins.listPrivateForUser(userId);
 				const installedPlugins = new Map(
 					[
 						...(yield* plugins.listPortablePluginMetadata()),
-						...(yield* plugins.listPrivateForUser(userId)).map((plugin) => ({
+						...privatePlugins.map((plugin) => ({
 							id: plugin.id,
 							slug: plugin.slug,
+							client: plugin.manifest.client,
 							configSchema: plugin.manifest.configSchema,
 							integrationProviders: plugin.manifest.integrationProviders,
 						})),
 					].map((plugin) => [plugin.id, plugin]),
 				);
 				const installationIdByKey = new Map<string, string>();
+				const clientRendererIdMap = new Map<string, ClientRendererId>();
+				const savedViewIdMap = new Map<string, string>();
 				const installationActivations: Array<{
 					readonly id: string;
 					readonly updatedAt: Date;
@@ -413,7 +411,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					if (!pluginId || !installedPlugin || installationIdByKey.has(state.packageKey)) {
 						return yield* badRequest("Backup plugin installation mapping is invalid");
 					}
-					const lifecycle = resolveV2RestoredInstallationLifecycle(
+					const lifecycle = resolveRestoredInstallationLifecycle(
 						state,
 						installedPlugin.configSchema,
 					);
@@ -427,8 +425,8 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						preserveExistingConfig: state.packageKey.startsWith("system:"),
 						createdAt: parseDate(state.createdAt),
 						updatedAt: parseDate(state.updatedAt),
-						config: yield* rewriteV2ManagedAssetLocators(
-							decodeV2JsonObject(state.config),
+						config: yield* rewriteManagedAssetLocators(
+							decodeArchiveJsonObject(state.config),
 							installedPlugin.configSchema,
 							assetLocators,
 						),
@@ -446,6 +444,20 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				}
 				const getEntitySchema = (slug: string) => definitions.entitySchemas[slug];
 				const getRelationshipSchema = (slug: string) => definitions.relationshipSchemas[slug];
+				for (const renderer of records.clientRenderers) {
+					const id = ClientRendererId.make(crypto.randomUUID());
+					const restored = yield* clientPages.restoreRenderer({
+						...renderer,
+						id,
+						userId,
+						createdAt: parseDate(renderer.createdAt),
+						updatedAt: parseDate(renderer.updatedAt),
+					});
+					if (!restored) {
+						return yield* badRequest("Backup client renderer could not be restored");
+					}
+					clientRendererIdMap.set(renderer.id, id);
+				}
 				yield* savedViews.restoreBuiltinViews(
 					userId,
 					Object.values(definitions.savedViews)
@@ -455,18 +467,16 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 								pluginId !== undefined &&
 								pluginKeyById.get(pluginId)?.startsWith("user:") === true,
 						)
-						.map(({ slug, name, icon, layouts, sortOrder, pluginId, entitySchemaSlug }) => ({
+						.map(({ slug, name, icon, renderer, settings, dataSources, sortOrder, pluginId }) => ({
 							slug,
 							name,
 							icon,
-							layouts,
+							renderer,
+							settings,
+							dataSources,
 							sortOrder,
-							entitySchemaSlug: entitySchemaSlug ? EntitySchemaSlug.make(entitySchemaSlug) : null,
 							pluginInstallationId: pluginId
 								? (installationIdByKey.get(pluginKeyById.get(pluginId) ?? "") ?? null)
-								: null,
-							entitySchemaPluginId: entitySchemaSlug
-								? (definitions.entitySchemas[entitySchemaSlug]?.pluginId ?? null)
 								: null,
 						})),
 				);
@@ -481,8 +491,8 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					if (!plugin || !provider || !pluginInstallationId) {
 						return yield* badRequest("Backup integration mapping is invalid");
 					}
-					const providerSpecifics = yield* rewriteV2ManagedAssetLocators(
-						decodeV2JsonObject(integration.providerSpecifics),
+					const providerSpecifics = yield* rewriteManagedAssetLocators(
+						decodeArchiveJsonObject(integration.providerSpecifics),
 						provider.settingsSchema,
 						assetLocators,
 					);
@@ -500,7 +510,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						maximumProgress: integration.maximumProgress,
 						createdAt: parseDate(integration.createdAt),
 						updatedAt: parseDate(integration.updatedAt),
-						isDisabled: resolveV2RestoredIntegrationDisabled(integration, provider.settingsSchema),
+						isDisabled: resolveRestoredIntegrationDisabled(integration, provider.settingsSchema),
 						lastFinishedAt: integration.lastFinishedAt
 							? parseDate(integration.lastFinishedAt)
 							: null,
@@ -514,24 +524,20 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					propertiesSchema: AppSchema,
 				) =>
 					Effect.gen(function* () {
-						const references = yield* rewriteV2PropertyReferences(
-							decodeV2JsonObject(properties),
+						const references = yield* rewritePropertyReferences(
+							decodeArchiveJsonObject(properties),
 							propertiesSchema,
 							entityIdMap,
 							relationshipIdMap,
 						);
-						return yield* rewriteV2ManagedAssetLocators(
-							references,
-							propertiesSchema,
-							assetLocators,
-						);
+						return yield* rewriteManagedAssetLocators(references, propertiesSchema, assetLocators);
 					});
 				for (const dependency of records.entityDependencies) {
 					const schemaDefinition = getEntitySchema(dependency.entitySchemaSlug);
 					if (!schemaDefinition) {
 						return yield* badRequest("Backup references an unavailable entity schema");
 					}
-					yield* assertV2DependencySchemaOwnership(
+					yield* assertDependencySchemaOwnership(
 						dependency,
 						schemaDefinition.pluginId
 							? (pluginKeyById.get(schemaDefinition.pluginId) ?? null)
@@ -636,7 +642,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					}
 					entityIdMap.set(dependency.id, target.id);
 					entitySchemaById.set(target.id, target.entitySchemaSlug);
-					for (const translation of selectV2TranslationsForRestore(
+					for (const translation of selectTranslationsForRestore(
 						inserted,
 						dependency.translations,
 					)) {
@@ -659,7 +665,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					}
 				}
 
-				const bootstrapMappings = yield* resolveV2BootstrapEntityMappings(
+				const bootstrapMappings = yield* resolveBootstrapEntityMappings(
 					records.entities,
 					yield* entities.listUserEntitiesForBackup(userId),
 					pluginIdByKey,
@@ -707,7 +713,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					if (relationship.scope !== "user") {
 						return yield* badRequest("Backup contains a non-user relationship");
 					}
-					const rewritten = yield* rewriteV2RelationshipReferences(relationship, entityIdMap);
+					const rewritten = yield* rewriteRelationshipReferences(relationship, entityIdMap);
 					const sourceEntityId = EntityId.make(rewritten.sourceEntityId);
 					const targetEntityId = EntityId.make(rewritten.targetEntityId);
 					const propertiesSchema = getRelationshipSchema(
@@ -750,7 +756,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						if (!propertiesSchema) {
 							return yield* badRequest("Backup references an unavailable event schema");
 						}
-						const rewritten = yield* rewriteV2EventReferences(
+						const rewritten = yield* rewriteEventReferences(
 							event,
 							propertiesSchema,
 							entityIdMap,
@@ -759,7 +765,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						const sessionEntityId = rewritten.sessionEntityId
 							? EntityId.make(rewritten.sessionEntityId)
 							: null;
-						const properties = yield* rewriteV2ManagedAssetLocators(
+						const properties = yield* rewriteManagedAssetLocators(
 							rewritten.properties,
 							propertiesSchema,
 							assetLocators,
@@ -794,7 +800,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						if (!definitions.savedViews[view.slug]) {
 							return yield* badRequest("Backup references an unavailable built-in saved view");
 						}
-						const restored = yield* savedViews.updateBuiltinStateBySlug(
+						const restored = yield* savedViews.restoreBuiltinStateBySlug(
 							userId,
 							view.slug,
 							view.isDisabled,
@@ -803,14 +809,8 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						if (!restored) {
 							return yield* badRequest("Backup target is missing a built-in saved view");
 						}
+						savedViewIdMap.set(view.id, restored.id);
 						continue;
-					}
-					if (!getEntitySchema(view.entitySchemaSlug ?? "") && view.entitySchemaSlug) {
-						return yield* badRequest("Backup saved view references an unavailable entity schema");
-					}
-					const validationIssue = validateSavedViewLayouts(view);
-					if (validationIssue) {
-						return yield* badRequest(formatSavedViewValidationIssue(validationIssue));
 					}
 					const pluginInstallationId = view.pluginKey
 						? installationIdByKey.get(view.pluginKey)
@@ -818,27 +818,77 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					if (view.pluginKey && !pluginInstallationId) {
 						return yield* badRequest("Backup saved view installation mapping is invalid");
 					}
+					let renderer;
+					if (view.renderer.kind === "plugin") {
+						const pluginId = pluginIdByKey.get(view.renderer.pluginKey);
+						if (!pluginId) {
+							return yield* badRequest("Backup saved view renderer mapping is invalid");
+						}
+						renderer = {
+							exportName: view.renderer.exportName,
+							kind: "plugin" as const,
+							pluginId,
+						};
+					} else if (view.renderer.kind === "custom") {
+						const rendererId = clientRendererIdMap.get(view.renderer.rendererId);
+						if (!rendererId) {
+							return yield* badRequest("Backup saved view renderer mapping is invalid");
+						}
+						renderer = {
+							...view.renderer,
+							rendererId,
+						};
+					} else {
+						renderer = view.renderer;
+					}
+					const clientRenderer =
+						renderer.kind === "custom"
+							? yield* clientPages.lockRenderer(userId, renderer.rendererId)
+							: null;
+					const pluginPage =
+						renderer.kind === "plugin"
+							? installedPlugins.get(renderer.pluginId)?.client?.exports?.[renderer.exportName]
+							: undefined;
+					const clientRendererId = yield* validateSavedViewDefinition(
+						renderer,
+						view.settings,
+						view.dataSources,
+						clientRenderer,
+						pluginPage?.kind === "page" ? pluginPage : null,
+					).pipe(Effect.mapError(() => badRequest("Backup saved view definition is invalid")));
 					const restored = yield* savedViews.restoreCustomView({
 						userId,
-						id: view.id,
+						id: crypto.randomUUID(),
 						slug: view.slug,
 						name: view.name,
 						icon: view.icon,
-						layouts: view.layouts,
+						renderer,
+						settings: view.settings,
+						dataSources: view.dataSources,
+						clientRendererId,
 						sortOrder: view.sortOrder,
 						isDisabled: view.isDisabled,
 						createdAt: parseDate(view.createdAt),
 						updatedAt: parseDate(view.updatedAt),
 						pluginInstallationId,
-						entitySchemaPluginId: view.entitySchemaPluginKey
-							? (pluginIdByKey.get(view.entitySchemaPluginKey) ?? null)
-							: null,
-						entitySchemaSlug: view.entitySchemaSlug
-							? EntitySchemaSlug.make(view.entitySchemaSlug)
-							: null,
 					});
 					if (!restored) {
 						return yield* badRequest("Backup saved view could not be restored");
+					}
+					savedViewIdMap.set(view.id, restored.id);
+				}
+				for (const state of records.installations) {
+					if (state.homeSavedViewId === null) {
+						continue;
+					}
+					const installationId = installationIdByKey.get(state.packageKey);
+					const homeSavedViewId = savedViewIdMap.get(state.homeSavedViewId);
+					if (
+						!installationId ||
+						!homeSavedViewId ||
+						!(yield* installations.setHomeSavedView(userId, installationId, homeSavedViewId))
+					) {
+						return yield* badRequest("Backup installation home saved view could not be restored");
 					}
 				}
 				for (const subscription of records.notificationSubscriptions) {
@@ -854,7 +904,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 							? (pluginIdByKey.get(subscription.signalSchemaPluginKey) ?? null)
 							: null,
 						metadata:
-							subscription.metadata && isV2JsonObject(subscription.metadata)
+							subscription.metadata && isArchiveJsonObject(subscription.metadata)
 								? yield* rewriteProperties(subscription.metadata, definition.propertiesSchema)
 								: subscription.metadata,
 					});

@@ -122,30 +122,6 @@ const collectSources = Effect.fn("collectSources")(function* (cwd: string) {
 	return sources.sort((left, right) => left.path.localeCompare(right.path));
 });
 
-const validateClientEntry = Effect.fn("validateClientEntry")(function* (
-	manifest: AuthoredPluginManifest,
-	sources: ReadonlyArray<SourceFile>,
-	cwd: string,
-) {
-	const path = yield* Path.Path;
-	if (manifest.client === undefined) {
-		return yield* Effect.void;
-	}
-	const entry = manifest.client.entry;
-	const entryPath = path.resolve(cwd, entry);
-	if (!entry.startsWith("client/") || !isWithin(path, path.resolve(cwd, "client"), entryPath)) {
-		return yield* new BuildError({
-			message: `Client entry must stay within client: ${entry}`,
-		});
-	}
-	if (!sources.some(({ path: sourcePath }) => sourcePath === path.relative(cwd, entryPath))) {
-		return yield* new BuildError({
-			message: `Client entry was not found in client sources: ${entry}`,
-		});
-	}
-	return yield* Effect.void;
-});
-
 const backendDecoder = new TextDecoder("utf-8", { fatal: true });
 
 const formatDiagnostic = (diagnostic: SandboxCompilerDiagnostic) =>
@@ -197,7 +173,6 @@ const compileClientArtifact = Effect.fn("compileClientArtifact")(function* (
 	);
 	return yield* compileClientPlugin({
 		files,
-		entry: manifest.client.entry,
 		name: manifest.metadata.name,
 		apiVersion: manifest.client.apiVersion,
 		pluginDependencies: manifest.client.pluginDependencies ?? [],
@@ -247,7 +222,6 @@ const buildPlugin = Effect.fn("buildPlugin")(function* ({ cwd, output }: BuildOp
 	const path = yield* Path.Path;
 	const authored = yield* loadManifest(cwd);
 	const sources = yield* collectSources(cwd);
-	yield* validateClientEntry(authored, sources, cwd);
 	const scripts = yield* deriveManifestScripts(sources);
 	yield* compileClientArtifact(authored, sources);
 	const manifest = yield* Schema.decodeUnknownEffect(PluginManifestSchema)({

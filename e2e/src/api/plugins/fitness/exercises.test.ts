@@ -5,8 +5,8 @@ import {
 	type Client,
 	createEntity,
 	createAuthenticatedClient,
-	executeRyotQLRecipe,
 	executeRyotQL,
+	executeRyotQLRecipe,
 	findBuiltinPluginBySlug,
 	findBuiltinSchemaBySlug,
 	getSavedView,
@@ -101,62 +101,81 @@ describe("Exercises E2E", () => {
 			});
 			const allExercisesView = views.find((view) => view.name === "All Exercises");
 			assertPresent(allExercisesView, "Expected the built-in All Exercises saved view");
-			const allExercisesLayouts = requirePresent(
-				allExercisesView.layouts,
-				"All Exercises saved view has no layouts",
+			const dataSources = requirePresent(
+				allExercisesView.dataSources,
+				"All Exercises saved view has no data sources",
 			);
-			const savedViewQuery = allExercisesLayouts.grid.queryDocument.queries.savedView;
-			assertPresent(savedViewQuery, "Expected the All Exercises saved-view query");
+			const savedViewSource = dataSources.queries.savedView;
+			assertPresent(savedViewSource, "Expected the All Exercises named source");
 			assertCondition(
-				savedViewQuery.output.type === "rows",
-				"Expected the All Exercises saved-view query to use rows output",
+				savedViewSource.output.type === "rows",
+				"Expected the All Exercises named source to use rows output",
 			);
 
 			expect(allExercisesView).toMatchObject({
 				isBuiltin: true,
 				name: "All Exercises",
 				pluginSlug: fitnessPlugin.slug,
-				layouts: {
-					grid: {
-						queryDocument: {
-							queries: {
-								savedView: {
-									where: {
-										right: { value: "exercise" },
-										left: { field: "entitySchemaSlug", tableAlias: "entity" },
-									},
-								},
-							},
-						},
-					},
-				},
-			});
-			expect(
-				savedViewQuery.output.fields.map((selection) => "key" in selection && selection.key),
-			).toEqual([
-				"entityId",
-				"title",
-				"image",
-				"overline",
-				"callout",
-				"primaryMetadata",
-				"secondaryMetadata",
-				"populationStatus",
-				"translationStatus",
-			]);
-			expect(allExercisesLayouts).toMatchObject({
-				grid: { entityIdField: "entityId", titleField: "title", imageField: "image" },
-				list: { entityIdField: "entityId", titleField: "title", imageField: "image" },
-				table: {
-					imageField: "image",
+				renderer: { kind: "kernel", name: "entity-browser" },
+				settings: {
+					pageSize: 20,
+					defaultLayout: "grid",
+					sourceName: "savedView",
 					entityIdField: "entityId",
-					columns: [
+					searchFields: ["column0"],
+					layouts: ["grid", "list", "table"],
+					ownerPluginIdField: "ownerPluginId",
+					entitySchemaSlugField: "entitySchemaSlug",
+					addAction: {
+						type: "provider-search",
+						entitySchemaSlug: "exercise",
+						ownerPluginId: expect.any(String),
+					},
+					tableColumns: [
 						{ label: "Name", field: "column0" },
 						{ label: "Level", field: "column1" },
 						{ label: "Equipment", field: "column2" },
 					],
 				},
 			});
+			expect(savedViewSource.output.fields).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						key: "entityId",
+						expr: { type: "column", field: "id", tableAlias: "entity" },
+					}),
+					expect.objectContaining({
+						key: "ownerPluginId",
+						expr: { type: "column", field: "entitySchemaPluginId", tableAlias: "entity" },
+					}),
+					expect.objectContaining({
+						key: "entitySchemaSlug",
+						expr: { type: "column", field: "entitySchemaSlug", tableAlias: "entity" },
+					}),
+				]),
+			);
+			expect(savedViewSource.where).toMatchObject({
+				type: "and",
+				predicates: expect.arrayContaining([
+					expect.objectContaining({
+						right: { type: "literal", value: "exercise" },
+						left: { field: "entitySchemaSlug", tableAlias: "entity", type: "column" },
+					}),
+				]),
+			});
+			expect(
+				savedViewSource.output.fields.map((selection) => "key" in selection && selection.key),
+			).toEqual([
+				"entityId",
+				"image",
+				"column0",
+				"column1",
+				"column2",
+				"populationStatus",
+				"translationStatus",
+				"ownerPluginId",
+				"entitySchemaSlug",
+			]);
 		}),
 	);
 
@@ -172,16 +191,18 @@ describe("Exercises E2E", () => {
 			expect(exercise.equipment).toBe("body_only");
 
 			const savedView = yield* getSavedView(client, "all-exercises");
-			const savedViewLayouts = requirePresent(
-				savedView.layouts,
-				"All Exercises saved view has no layouts",
+			const dataSources = requirePresent(
+				savedView.dataSources,
+				"All Exercises saved view has no data sources",
 			);
+			const sourceName = savedView.settings["sourceName"];
+			assertCondition(typeof sourceName === "string", "Expected a named saved-view source");
 			const savedViewResult = requireRows(
-				(yield* executeRyotQL(client, savedViewLayouts.grid.queryDocument)).data.savedView,
-				"savedView",
+				(yield* executeRyotQL(client, dataSources)).data[sourceName],
+				sourceName,
 			);
 			const savedViewExercise = savedViewResult.items.find(
-				(item) => requireRyotQLValue(item, "title") === seededExerciseName,
+				(item) => requireRyotQLValue(item, "column0") === seededExerciseName,
 			);
 			assertPresent(savedViewExercise, "Expected the seeded exercise in the built-in saved view");
 			expect(requireRyotQLValue(savedViewExercise, "image")).toEqual({

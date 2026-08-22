@@ -1,11 +1,12 @@
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
 import { Result, Schema, SchemaGetter } from "effect";
 
+import { JsonValue } from "../../schema/json";
 import { AppSchema, type AppPropertyDefinition } from "../../schema/property-schema";
 import { HttpUrl, strictStruct } from "../../schema/utils";
-import { OutputFieldKey, RyotQLDocument } from "../ryotql/language";
+import { RyotQLDocument } from "../ryotql/language";
 import { SANDBOX_HOST_CAPABILITIES } from "../sandbox/wire";
-import { SavedViewCardMapping, SavedViewTableMapping } from "../saved-views/schemas";
+import { AuthoredSavedViewRenderer } from "../saved-views/schemas";
 import { isSupportedUploadFileExtension } from "../uploads/upload-policy";
 import { pluginConfigEnvironmentKey } from "./plugin-config";
 
@@ -148,7 +149,7 @@ const PluginClientDependencies = Schema.Array(pluginManifestSlug).pipe(
 );
 
 export const PluginClientEntry = strictStruct({
-	entry: PluginClientSourceEntry,
+	homeView: Schema.NullOr(pluginManifestSlug),
 	exports: Schema.optional(PluginClientExports),
 	apiVersion: Schema.Literal(CLIENT_API_VERSION),
 	notFoundPage: Schema.optional(pluginManifestSlug),
@@ -238,30 +239,15 @@ export const PluginSignalSchema = strictStruct({
 
 export type PluginSignalSchema = Schema.Schema.Type<typeof PluginSignalSchema>;
 
-const PluginSavedViewCardLayout = strictStruct({
-	...SavedViewCardMapping.fields,
-	entityIdField: OutputFieldKey,
-	queryDocument: PluginQueryDocument,
-});
-
-const PluginSavedViewTableLayout = strictStruct({
-	...SavedViewTableMapping.fields,
-	entityIdField: OutputFieldKey,
-	queryDocument: PluginQueryDocument,
-});
-
 export const PluginSavedView = strictStruct({
 	icon: Schema.String,
 	name: Schema.String,
 	slug: Schema.String,
 	sortOrder: Schema.Number,
+	renderer: AuthoredSavedViewRenderer,
 	pluginSlug: Schema.NullOr(Schema.String),
-	entitySchemaSlug: Schema.NullOr(Schema.String),
-	layouts: strictStruct({
-		grid: PluginSavedViewCardLayout,
-		list: PluginSavedViewCardLayout,
-		table: PluginSavedViewTableLayout,
-	}),
+	dataSources: Schema.NullOr(PluginQueryDocument),
+	settings: Schema.Record(Schema.String, JsonValue),
 });
 
 export type PluginSavedView = Schema.Schema.Type<typeof PluginSavedView>;
@@ -680,9 +666,15 @@ const PluginManifestFields = strictStruct({
 });
 
 const hasValidClientManifestReferences = (
-	manifest: Pick<typeof AuthoredPluginManifestFields.Type, "client" | "entitySchemas">,
+	manifest: Pick<
+		typeof AuthoredPluginManifestFields.Type,
+		"client" | "entitySchemas" | "metadata" | "savedViews"
+	>,
 ) => {
 	const clientExports = manifest.client?.exports ?? {};
+	if (manifest.client !== undefined && Object.keys(clientExports).length === 0) {
+		return false;
+	}
 	const entitySchemaSlugs = new Set(manifest.entitySchemas.map(({ slug }) => slug));
 	for (const [entitySchemaSlug, registrations] of Object.entries(manifest.client?.entities ?? {})) {
 		if (!entitySchemaSlugs.has(entitySchemaSlug)) {
@@ -705,6 +697,24 @@ const hasValidClientManifestReferences = (
 		...(manifest.client?.notFoundPage === undefined ? [] : [manifest.client.notFoundPage]),
 	]) {
 		if (clientExports[exportName]?.kind !== "page") {
+			return false;
+		}
+	}
+	if (
+		manifest.client !== undefined &&
+		manifest.client.homeView !== null &&
+		!manifest.savedViews.some(
+			(view) =>
+				view.slug === manifest.client?.homeView && view.pluginSlug === manifest.metadata.slug,
+		)
+	) {
+		return false;
+	}
+	for (const view of manifest.savedViews) {
+		if (
+			view.renderer.kind === "plugin" &&
+			clientExports[view.renderer.exportName]?.kind !== "page"
+		) {
 			return false;
 		}
 	}

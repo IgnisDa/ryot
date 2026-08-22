@@ -38,7 +38,6 @@ const entry = {
 	homeSavedViewId: null,
 	sourceHash: "source-hash",
 	installationId: "installation-1",
-	clientArtifactHash: "artifact-hash",
 } as const;
 
 const makeCatalogRuntime = (responses: ReadonlyArray<ContractSuccess<"ryotql", "execute">>) => {
