@@ -6,12 +6,19 @@
 
 ## Workspace Map
 
-- `kernel/backend` is the domain-agnostic backend; `kernel/client` is the client kernel.
-- `apps/server` assembles the backend kernel, migrations, and shipped plugin archives.
-- `plugins/*` own first-party plugins, each split into host-side `host/`, archived `backend/`, and archived `client/`.
+Workspaces are `apps/*`, `kernel/*`, `migrations/*`, `packages/*`, `plugins/*`, and `e2e`.
+
+- `kernel/backend` is the domain-agnostic backend; `kernel/client` is the React DOM client kernel, which also ships as the Capacitor native app.
+- `apps/server` assembles the backend kernel, migrations, and shipped plugin archives. `apps/website`, `apps/docs`, and `apps/browser-extension` are the marketing site, the user documentation, and the browser extension.
+- `plugins/*` own first-party plugins (`media`, `fitness`, `fixture`), each split into host-side `host/`, archived `backend/`, and archived `client/`.
 - `migrations/*` own one-time migrations that depend on the kernel.
-- `packages/cli` builds canonical plugin archives for first-party and third-party plugins.
-- `packages/plugin-archive` owns the shared deterministic plugin archive reader and writer.
+- `packages/contract` owns the client-safe HTTP boundary; `packages/plugin-kit` documents the plugin authoring surface.
+- `packages/client-sdk` and `packages/client-ui-sdk` are the environment-neutral plugin-facing client surfaces; `packages/sandbox-sdk` is their backend counterpart.
+- `packages/sandbox-compiler` and `packages/client-plugin-compiler` are independent engines sharing generic infrastructure from `packages/typescript-compiler`.
+- `packages/cli` builds canonical plugin archives for first-party and third-party plugins; `packages/plugin-archive` owns the shared deterministic archive reader and writer.
+- `packages/ryotql` builds query documents and `packages/ryotql-recipes` owns the named recipes.
+- `packages/config`, `packages/testing`, `packages/transactional`, and `packages/ts-utils` are shared internals.
+- `e2e` owns the end-to-end suite. `ci/` holds deployment assets (Helm chart, Fly, Caddy) and is not a workspace.
 
 ## Tools
 
@@ -35,6 +42,7 @@
 
 ## Testing
 
+- Do not add tautological tests.
 - Test app-owned behavior and branching, not library behavior.
 - Keep assertions inline; extract duplicated setup, not test intent.
 - Use assertion functions from the package's test surface for test-only narrowing.

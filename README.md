@@ -66,26 +66,6 @@ volumes:
 
 Then run `docker compose up -d` and visit `http://localhost:8000`. For production setups, see the [installation guide](https://docs.ryot.io).
 
-## Production compiler architecture
-
-The production image contains separate sandbox and client plugin compiler engines with two worker artifacts:
-`dist/sandbox-compiler-worker.js*` and `dist/client-plugin-compiler-worker.js*`. The private
-`@ryot-app/typescript-compiler` package shares generic TypeScript 7 native compiler resolution, virtual
-project lifecycle, diagnostic collection, and diagnostic normalization; the engines retain independent
-import policies, limits, protocols, output models, and public APIs. There is no shared compiler mode,
-bridge, or fallback.
-
-During client installation, every archived non-test client `.ts`/`.tsx` file is semantically checked
-against compiler-owned trusted React and Ryot SDK types. Type errors are fatal and include TypeScript
-diagnostics. Bun bundles only `manifest.client.entry` and its reachable graph, while Tailwind scans all
-archived client TypeScript sources. Bun import/asset/CSS validation and runtime schemas remain
-authoritative; semantic typing is not a security boundary. Backend semantic checking uses
-manifest-declared entries and their reachable module graph.
-
-Compiler dependencies are installed from their owning packages, and both workers use the server-owned
-process supervision boundary. The image smoke step invokes both workers with absolute paths and
-requires successful smoke compilation before image assembly completes.
-
 ## What is Ryot?
 
 Ryot (**R**oll **Y**our **O**wn **T**racker), pronounced "riot", is a self-hosted tracker for your media consumption and fitness activities. Track the books you read, shows you watch, games you play, and workouts you complete - all in one place with a clean interface and insightful statistics.
