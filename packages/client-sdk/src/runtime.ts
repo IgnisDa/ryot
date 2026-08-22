@@ -350,8 +350,8 @@ export const createPluginRuntime = (
 					hasLocation = true;
 					activate();
 				}),
-				Match.when({ type: "viewport" }, ({ safeAreaTop }) =>
-					navigationStore.setViewport(safeAreaTop),
+				Match.when({ type: "viewport" }, ({ safeAreaBottom, safeAreaTop }) =>
+					navigationStore.setViewport({ safeAreaTop, safeAreaBottom }),
 				),
 				Match.when({ type: "theme" }, ({ mode }) => {
 					applyThemeMode(mode);
@@ -408,7 +408,10 @@ export const createPluginRuntime = (
 		signal: listeners.signal,
 	});
 	applyThemeMode(init.mode);
-	navigationStore.setViewport(init.safeAreaTop);
+	navigationStore.setViewport({
+		safeAreaTop: init.safeAreaTop,
+		safeAreaBottom: init.safeAreaBottom,
+	});
 
 	try {
 		port.start();

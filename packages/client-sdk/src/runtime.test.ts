@@ -31,6 +31,7 @@ const metadata: PluginClientArtifactMetadata = {
 const init: PluginBridgeInit = {
 	mode: "light",
 	safeAreaTop: 0,
+	safeAreaBottom: 0,
 	format: metadata.format,
 	sessionId: "session-id",
 	artifactHash: metadata.hash,
@@ -297,15 +298,21 @@ describe("plugin runtime", () => {
 		expect(screenStatesIn(messages)).toEqual([]);
 	});
 
-	it("tracks the safe-area inset from init and from a viewport message", async () => {
+	it("tracks the safe-area insets from init and from a viewport message", async () => {
 		const { channel, runtime } = openRuntime();
 
-		expect(runtime.navigation.getSnapshot().safeAreaTop).toBe(0);
+		expect(runtime.navigation.getSnapshot()).toMatchObject({
+			safeAreaTop: 0,
+			safeAreaBottom: 0,
+		});
 
-		channel.port1.postMessage({ safeAreaTop: 59, type: "viewport" });
+		channel.port1.postMessage({ safeAreaTop: 59, safeAreaBottom: 34, type: "viewport" });
 		await delay();
 
-		expect(runtime.navigation.getSnapshot().safeAreaTop).toBe(59);
+		expect(runtime.navigation.getSnapshot()).toMatchObject({
+			safeAreaTop: 59,
+			safeAreaBottom: 34,
+		});
 	});
 
 	it("owns handshake, activation, dispatch, and correlated calls", async () => {

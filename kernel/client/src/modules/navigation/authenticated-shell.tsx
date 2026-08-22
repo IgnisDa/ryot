@@ -44,7 +44,7 @@ import {
 import { impactLight } from "#/modules/navigation/haptics";
 import { historyEntry } from "#/modules/navigation/history-entry";
 import { MobileDrawer } from "#/modules/navigation/mobile-drawer";
-import { useSafeAreaTop } from "#/modules/navigation/safe-area";
+import { useSafeAreaInsets } from "#/modules/navigation/safe-area";
 import {
 	activeSidebarKey,
 	sidebarSections,
@@ -72,7 +72,7 @@ export function AuthenticatedShell(props: {
 	const router = useRouter();
 	const navigate = useNavigate();
 	const isDesktop = useIsDesktop();
-	const safeAreaTop = useSafeAreaTop();
+	const safeAreaInsets = useSafeAreaInsets();
 	const { catalog } = usePluginCatalog();
 	const progress = useMotionValue(0);
 	const activePluginDestination = useActivePluginDestination();
@@ -242,12 +242,12 @@ export function AuthenticatedShell(props: {
 		() => ({
 			drawerId,
 			triggerRef,
-			safeAreaTop,
 			onBack: goBack,
+			...safeAreaInsets,
 			isDrawerOpen: drawerOpen,
 			onOpenDrawer: () => setDrawerOpen(true),
 		}),
-		[drawerId, drawerOpen, safeAreaTop],
+		[drawerId, drawerOpen, safeAreaInsets],
 	);
 	const publishPluginScreenState = useCallback(
 		(publication: PluginDestinationScreenState | null) => setPluginScreenState(publication),

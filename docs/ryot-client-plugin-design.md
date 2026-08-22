@@ -770,10 +770,14 @@ The visible leading control and interactive edge ownership are separate. The plu
 kernel chrome is not a capability a plugin may call. The cost is that closing the drawer can only
 return focus to the iframe element, not the button inside it.
 
-The safe-area inset travels as a discrete number: `safeAreaTop` on init, and a `viewport` message
-when it changes. `env(safe-area-inset-top)` is zero inside an iframe, and §19 resolves an entity
-route to a plugin-owned renderer, so a hero that bleeds behind the status bar needs a value the
-plugin was told rather than one it can measure.
+The safe-area insets travel as discrete numbers: `safeAreaTop` and `safeAreaBottom` on init, and a
+`viewport` message when either changes. `env(safe-area-inset-*)` is zero inside an iframe, and §19
+resolves an entity route to a plugin-owned renderer, so a hero that bleeds behind the status bar
+needs values the plugin was told rather than ones it can measure. The kernel measures both from one
+probe element and the per-screen scroll div carries the bottom one as its padding, so a screen that
+renders no frame at all still clears the home indicator. `useRyotViewport` reports both alongside
+`compact`, and a screen that draws through `PluginScreenFrame` needs neither number: the frame owns
+every offset its own chrome introduces.
 
 The bar is `sticky`, transparent at rest, and turns opaque once a zero-height sentinel passes under
 it — placed after the title block, or at the declared hero height on a hero screen — one
@@ -783,22 +787,30 @@ scroll listener in both documents. The frame creates no scroll container; it sti
 its caller owns, which is the plugin's per-screen scroll div here and the route's `<main>` in the
 kernel.
 
-The frame takes `hero` as `{ height, node }`, and emits the node inside its own positioned
-zero-height block above the padded content column, positioning that column too. Hero art is
-absolutely positioned, so this gives it a containing box that spans the frame's full width and starts
-at the top of the scroll content: it bleeds past the column padding without negative margins, and the
-content paints over it instead of under it. Without the wrapper the art resolves against whatever
-ancestor happens to be positioned — the plugin's scroll div — where negative margins overflow it
-horizontally and, being positioned, it hides every static part of the page below it.
+The frame takes `hero` as `{ height, node }` and emits the node into a box it sizes and positions
+itself: a zero-height block in flow, holding one absolutely positioned child that climbs back to the
+top of the scroll content and runs down to `safeAreaTop + bar height + height`. Being out of flow is
+the load-bearing part. The block sits above the padded content column, and art that displaces that
+column is the same defect as art the bar hides: a compact hero screen that lifts its own content
+draws the first line of it under the status bar. The box also gives absolutely positioned art a
+containing box spanning the frame's full width, so it bleeds past the column padding without negative
+margins, and the content paints over it rather than under it. Without the box the art resolves
+against whatever ancestor happens to be positioned — the plugin's scroll div — where negative margins
+overflow it horizontally and, being positioned, it hides every static part of the page below it.
 
-`height` is that screen's collapse threshold, and the two travel in one slot because they are
+`height` is the art below the bar, and the box is the coordinate space the node fills with
+`absolute inset-0`. The chrome above it is the frame's to add: `safeAreaTop` plus its own bar height
+on a compact screen, nothing on a wide one, so the caller writes a design number and never a device
+measurement. Because the number is a JavaScript one, a screen whose art differs by breakpoint reads
+`compact` from `useRyotViewport` and passes the height for the breakpoint the kernel resolved, rather
+than switching art with a media query the iframe would answer wrongly.
+
+`height` is also that screen's collapse threshold, and the two travel in one slot because they are
 meaningless apart. A hero screen draws its own name and so has no title block for the sentinel to
-trail; the frame places the sentinel inside the hero block instead, and the bar stays clear until
-that much art has scrolled away. `height` counts only the art below the bar — the frame adds
-`safeAreaTop` and its own bar height when it places the sentinel — so it stays a design number the
-caller can write down rather than a device measurement. Accepting a bare node would let a caller
-mount art with no threshold, which renders as a bar that is opaque from the first pixel with the top
-of the art hidden behind it.
+trail; the frame places the sentinel at the bottom of the hero box instead, and the bar stays clear
+until that much art has scrolled away. Accepting a bare node would let a caller mount art with no
+threshold, which renders as a bar that is opaque from the first pixel with the top of the art hidden
+behind it.
 
 ### Current data, operations, and assets API
 
@@ -1632,8 +1644,9 @@ from `usePluginLocation`; `usePluginParams` returns `{}` and `usePluginSearch` r
 The Media plugin registers `show`. The page reads five client-owned RyotQL recipes — summary,
 overview, seasons, season episodes, and activity — each behind its own `useRyotQuery` and its own
 loading/error/empty state. A hero renders a backdrop with a CSS scrim and a best-effort tint sampled
-from the poster, sized from `safeAreaTop` plus the bar height so the art fills the band the sticky bar
-overlays and the bar stays clear until it scrolls away; a summary header renders the poster, title,
+from the poster, filling the box the frame sizes from the declared art height so the art also covers
+the band the sticky bar overlays and the bar stays clear until it scrolls away; a summary header
+renders the poster, title,
 identity line (type, provider, release
 year), genres, a fact row (rating, production status, season/episode counts), an expandable
 description, and a status rail (current lifecycle state, monitoring, library membership, ownership,

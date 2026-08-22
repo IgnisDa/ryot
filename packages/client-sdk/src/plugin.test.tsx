@@ -32,6 +32,7 @@ const metadata = {
 const init: PluginBridgeInit = {
 	mode: "light",
 	safeAreaTop: 0,
+	safeAreaBottom: 0,
 	format: metadata.format,
 	sessionId: "session-id",
 	artifactHash: metadata.hash,

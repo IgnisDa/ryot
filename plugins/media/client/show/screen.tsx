@@ -1,11 +1,11 @@
-import type { EntityRendererProps } from "@ryot-app/client-sdk/plugin";
+import { useRyotViewport, type EntityRendererProps } from "@ryot-app/client-sdk/plugin";
 import { useRyotQuery } from "@ryot-app/client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
 import { useState, type ReactNode } from "react";
 
 import { ShowActivityTab } from "./activity";
 import { ShowEpisodesTab } from "./episodes";
-import { SHOW_ART_HEIGHT, ShowBackdrop, ShowHero, ShowTint } from "./hero";
+import { SHOW_ART_HEIGHT, SHOW_BACKDROP_HEIGHT, ShowHero } from "./hero";
 import { ManagedAssetProvider } from "./managed-assets";
 import { ShowOverview } from "./overview";
 import {
@@ -26,6 +26,7 @@ import {
 import { ShowTabBar, type ShowTabKey } from "./tabs";
 
 export function ShowScreenBody(props: {
+	readonly compact: boolean;
 	readonly refresh: () => void;
 	readonly episodes: ReactNode;
 	readonly activity: ReactNode;
@@ -55,6 +56,7 @@ export function ShowScreenBody(props: {
 		overview: (
 			<ShowOverview
 				show={state.show}
+				compact={props.compact}
 				overview={props.overview}
 				refreshOverview={props.refreshOverview}
 			/>
@@ -62,14 +64,15 @@ export function ShowScreenBody(props: {
 	};
 	return (
 		<div className="flex flex-col gap-4">
-			<ShowSummaryHeader show={state.show} />
-			<ShowTabBar activeTab={activeTab} onSelect={setActiveTab} />
+			<ShowSummaryHeader show={state.show} compact={props.compact} />
+			<ShowTabBar activeTab={activeTab} compact={props.compact} onSelect={setActiveTab} />
 			{tabContent[activeTab]}
 		</div>
 	);
 }
 
 export function ShowScreen(props: EntityRendererProps) {
+	const { compact } = useRyotViewport();
 	const summaryResult = useRyotQuery(showSummaryQuery, { entityId: props.entityId });
 	const overviewResult = useRyotQuery(showOverviewQuery, { entityId: props.entityId });
 	const state = mapShowSummary(summaryResult);
@@ -85,14 +88,8 @@ export function ShowScreen(props: EntityRendererProps) {
 				hero={
 					state.status === "ready"
 						? {
-								height: SHOW_ART_HEIGHT,
-								node: (
-									<>
-										<ShowTint show={state.show} />
-										<ShowHero show={state.show} />
-										<ShowBackdrop show={state.show} />
-									</>
-								),
+								node: <ShowHero compact={compact} show={state.show} />,
+								height: compact ? SHOW_ART_HEIGHT : SHOW_BACKDROP_HEIGHT,
 							}
 						: undefined
 				}
@@ -100,11 +97,12 @@ export function ShowScreen(props: EntityRendererProps) {
 				<ManagedAssetProvider assets={overviewAssets}>
 					<ShowScreenBody
 						state={state}
+						compact={compact}
 						overview={overview}
 						refresh={summaryResult.refetch}
 						refreshOverview={overviewResult.refetch}
-						episodes={<ShowEpisodesTab entityId={props.entityId} />}
-						activity={<ShowActivityTab entityId={props.entityId} />}
+						episodes={<ShowEpisodesTab compact={compact} entityId={props.entityId} />}
+						activity={<ShowActivityTab compact={compact} entityId={props.entityId} />}
 					/>
 				</ManagedAssetProvider>
 			</PluginScreenFrame>

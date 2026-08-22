@@ -179,8 +179,8 @@ function renderHost(
 	const host = (state: HostState) => (
 		<PluginHost
 			theme={theme}
-			safeAreaTop={0}
 			chromeLeading={null}
+			viewport={{ safeAreaTop: 0, safeAreaBottom: 0 }}
 			chromeTriggerRef={chromeTrigger}
 			navigation={navigationFor(state)}
 			onOpenDrawer={() => drawers.push(null)}
@@ -252,7 +252,12 @@ function connectFrame(frame: HTMLIFrameElement) {
 	if (init === undefined || pluginPort === undefined) {
 		throw new Error("Plugin bridge did not connect");
 	}
-	const { mode: _mode, safeAreaTop: _safeAreaTop, ...ready } = init;
+	const {
+		mode: _mode,
+		safeAreaTop: _safeAreaTop,
+		safeAreaBottom: _safeAreaBottom,
+		...ready
+	} = init;
 	return { init, ready, messages, pluginPort };
 }
 
@@ -474,9 +479,9 @@ describe("plugin artifact session lifecycle", () => {
 			<StrictMode>
 				<PluginHost
 					theme={theme}
-					safeAreaTop={0}
 					onHeader={() => {}}
 					chromeLeading={null}
+					viewport={{ safeAreaTop: 0, safeAreaBottom: 0 }}
 					installation={installation}
 					onNavigate={() => undefined}
 					onOpenDrawer={() => undefined}
