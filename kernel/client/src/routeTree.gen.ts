@@ -18,6 +18,7 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedPluginSlugIndexRouteImport } from './routes/_authenticated.$pluginSlug.index'
 import { Route as AuthenticatedPluginSlugSplatRouteImport } from './routes/_authenticated.$pluginSlug.$'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated.settings.index'
+import { Route as AuthenticatedSettingsSplatRouteImport } from './routes/_authenticated.settings.$'
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated.settings.account'
 import { Route as AuthenticatedSettingsPreferencesRouteImport } from './routes/_authenticated.settings.preferences'
 
@@ -68,6 +69,12 @@ const AuthenticatedSettingsIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
+const AuthenticatedSettingsSplatRoute =
+  AuthenticatedSettingsSplatRouteImport.update({
+    id: '/$',
+    path: '/$',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const AuthenticatedSettingsAccountRoute =
   AuthenticatedSettingsAccountRouteImport.update({
     id: '/account',
@@ -88,6 +95,7 @@ export interface FileRoutesByFullPath {
   '/$pluginSlug': typeof AuthenticatedPluginSlugRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/$pluginSlug/$': typeof AuthenticatedPluginSlugSplatRoute
+  '/settings/$': typeof AuthenticatedSettingsSplatRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
   '/$pluginSlug/': typeof AuthenticatedPluginSlugIndexRoute
@@ -98,6 +106,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingRoute
   '/': typeof AuthenticatedIndexRoute
   '/$pluginSlug/$': typeof AuthenticatedPluginSlugSplatRoute
+  '/settings/$': typeof AuthenticatedSettingsSplatRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
   '/$pluginSlug': typeof AuthenticatedPluginSlugIndexRoute
@@ -112,6 +121,7 @@ export interface FileRoutesById {
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/_authenticated/$pluginSlug/$': typeof AuthenticatedPluginSlugSplatRoute
+  '/_authenticated/settings/$': typeof AuthenticatedSettingsSplatRoute
   '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/_authenticated/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
   '/_authenticated/$pluginSlug/': typeof AuthenticatedPluginSlugIndexRoute
@@ -126,6 +136,7 @@ export interface FileRouteTypes {
     | '/$pluginSlug'
     | '/settings'
     | '/$pluginSlug/$'
+    | '/settings/$'
     | '/settings/account'
     | '/settings/preferences'
     | '/$pluginSlug/'
@@ -136,6 +147,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/'
     | '/$pluginSlug/$'
+    | '/settings/$'
     | '/settings/account'
     | '/settings/preferences'
     | '/$pluginSlug'
@@ -149,6 +161,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings'
     | '/_authenticated/'
     | '/_authenticated/$pluginSlug/$'
+    | '/_authenticated/settings/$'
     | '/_authenticated/settings/account'
     | '/_authenticated/settings/preferences'
     | '/_authenticated/$pluginSlug/'
@@ -226,6 +239,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsIndexRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
+    '/_authenticated/settings/$': {
+      id: '/_authenticated/settings/$'
+      path: '/$'
+      fullPath: '/settings/$'
+      preLoaderRoute: typeof AuthenticatedSettingsSplatRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
     '/_authenticated/settings/account': {
       id: '/_authenticated/settings/account'
       path: '/account'
@@ -260,12 +280,14 @@ const AuthenticatedPluginSlugRouteWithChildren =
   )
 
 interface AuthenticatedSettingsRouteChildren {
+  AuthenticatedSettingsSplatRoute: typeof AuthenticatedSettingsSplatRoute
   AuthenticatedSettingsAccountRoute: typeof AuthenticatedSettingsAccountRoute
   AuthenticatedSettingsPreferencesRoute: typeof AuthenticatedSettingsPreferencesRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
 }
 
 const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
+  AuthenticatedSettingsSplatRoute: AuthenticatedSettingsSplatRoute,
   AuthenticatedSettingsAccountRoute: AuthenticatedSettingsAccountRoute,
   AuthenticatedSettingsPreferencesRoute: AuthenticatedSettingsPreferencesRoute,
   AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
