@@ -98,7 +98,7 @@ stall evidence along with everything else.
 
 **Status:** open. The detector built on it has been retracted.
 
-`GET /api/test-support/provider-imports/phase-segments` records only the *active* execution of a
+`GET /api/test-support/provider-imports/phase-segments` records only the _active_ execution of a
 phase. The suspension on the durable queue — which is the entire defect — falls outside every
 recorded segment, so a merged per-execution duration is roughly the same whether or not the import
 stalled.
@@ -173,6 +173,13 @@ timeline, and the reconstruction is recorded as a manifest deviation. Start and 
 scenario work rather than the process lifetime. `preflight`, `teardown` and `watchdogDrill` are still
 null for the same reason.
 
+The later `soak-control-extended` invocation did reach the manifest, start and completion both, so
+the symptom is intermittent rather than total — which makes it worse to rely on, not better. That
+record also arrived with `scenarioIds` empty, so the manifest said a soak ran without saying which
+scenario it ran; the artifact carries the id, and the field was filled by hand. `summarize-run.ts`
+validates artifact provenance against these records but does not reject an empty `scenarioIds`,
+which is why the omission is silent.
+
 ### 12. The final manifest write is unguarded and fails the process after the work is done
 
 **Status:** open.
@@ -237,7 +244,7 @@ Three separate fixes were needed:
 - `fix(e2e): [resource-data-gathering] keep the benchmark session alive` — a single high-concurrency
   repetition outlives it, so an unauthorized request is retried once against a fresh session.
 - `fix(observability): [resource-data-gathering] refresh the benchmark session once per token
-  expiry` — live scenarios poll import results with unbounded concurrency, so on expiry every
+expiry` — live scenarios poll import results with unbounded concurrency, so on expiry every
   in-flight poll received 401 together and each started its own sign-in. The burst tripped the auth
   rate limiter, and the 429 from the authorize step was thrown rather than returned, escaping the
   retry and aborting the phase. Refreshes now run under a single permit.
@@ -294,6 +301,32 @@ are embedded instead.
 canonical run is collected across several driver invocations, so the rebuilt manifest listed only the
 last invocation's scenarios and kept health facts that are only known once the run has ended.
 
+## Operator errors
+
+### 25. The complete `soak-control-extended` artifact was destroyed after the run
+
+**Status:** the scenario is being re-run; the trimmed copy is committed as an interim record.
+
+`bunx oxfmt` was run over the run directory to format the edited Markdown. It also reformatted all 50
+committed scenario artifacts, converting two-space indentation to tabs. `git checkout` reverted
+those, but the newly written `soak-control-extended.1.json` was untracked and had no committed state
+to revert to. It was then "restored" from `~/.ryot-benchmark-raw/`, on the assumption that the raw
+directory holds the same file. It does not: the raw copy carries only `metrics`, `requests`,
+`repetition` and `scenarioId`, while the run directory holds the complete artifact. 8.8 MB was
+overwritten with 278 KB. There was no snapshot and the file was untracked, so it was unrecoverable.
+
+**Effect:** `series` (200 ms application and 1 s host samples), `waves`, `timeline`, `containers`,
+`phases`, `workers`, `journal`, `watchdog` and `configuration` were lost for that scenario.
+`summarize-run.ts` fails schema decode against the trimmed artifact, so `summary.json` could no
+longer be regenerated from the committed artifacts. The 143 metrics and 1 000 request records
+survived, so every figure quoted in `report.md` remained sourced.
+
+**Two things made this possible and both are worth fixing.** The run directory is the only home for a
+complete artifact, and a fresh one is untracked until committed, so there is a window where normal
+tooling can destroy it with no recovery path — artifacts should be committed as soon as they are
+written. And `oxfmt` should not be run across a directory of generated evidence; it has no reason to
+touch scenario artifacts, and its reformatting of 50 committed files was itself a near-miss.
+
 ## Deviations from the plan
 
 Recorded in `manifest.json`; summarized here.
@@ -303,8 +336,7 @@ Recorded in `manifest.json`; summarized here.
    questions ask. `soak-control` provides the non-import soak baseline.
 2. The live phase required six attempts. Attempts 1–5 aborted and their artifacts are not in this
    directory; their stall counts survive only in `../effect-workflow-stall.md`.
-3. The harness changed mid-run, between the profiles phase and `soak-control`, for defects 20, 21 and
-   22. Scenarios before and after that point ran on different harness revisions.
+3. The harness changed mid-run, between the profiles phase and `soak-control`, for defects 20, 21 and 22. Scenarios before and after that point ran on different harness revisions.
 4. `soak-hermetic-import` measures Effect #8312, not the sandbox.
 5. The manifest was completed by hand after defect 12.
 6. The seven phase invocation records were reconstructed from the artifacts, per defect 11.
@@ -319,5 +351,7 @@ When Effect publishes a release that fixes #8312:
 2. Deploy to the benchmark service and pass sampling preflight.
 3. Rerun the Phase 12 live concurrency matrix **and** `soak-hermetic-import` into a new run
    directory. The soak is required for a retention figure; the one in this run accrued under stall.
-4. Consider a longer `soak-control` at a higher operation count, to separate a slow leak from
-   allocator high-water (see `report.md`, Bun retention).
+4. ~~Consider a longer `soak-control` at a higher operation count, to separate a slow leak from
+   allocator high-water.~~ Done. `soak-control-extended` ran 1 000 direct executions on
+   2026-09-20 and returned a fitted slope of 38.5 MiB per 1 000 operations, under the plan's 100 MiB
+   ceiling, classifying as allocator-high-water (see `report.md`, Bun retention).
