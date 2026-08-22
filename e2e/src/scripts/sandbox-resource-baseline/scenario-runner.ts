@@ -3,7 +3,7 @@ import {
 	type SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { Clock, Data, Effect } from "effect";
+import { Clock, Data, Effect, Schedule } from "effect";
 
 import type { ContractSession } from "~/fixtures/kernel";
 import { adminHeaders, getApiClient, makeSession, signInWithPassword } from "~/fixtures/kernel";
@@ -78,13 +78,29 @@ const isUnauthorized = (error: unknown) =>
 	"_tag" in error &&
 	error._tag === "AuthUnauthorized";
 
+/**
+ * Recreating Ryot between repetitions leaves a window where sign-in reaches a stopped process, so
+ * the attempt is retried and the server-reported failure is kept for the message.
+ */
+const signInToken = (email: string, password: string) =>
+	Effect.retry(
+		Effect.flatMap(signInWithPassword(email, password), (signIn) =>
+			signIn.token === undefined
+				? Effect.fail(
+						new ScenarioPreparationError({
+							message: `benchmark sign-in failed with status ${signIn.error?.status ?? "unknown"}: ${signIn.error?.message ?? "no token returned"}`,
+						}),
+					)
+				: Effect.succeed(signIn.token),
+		),
+		{ times: 12, schedule: Schedule.spaced("5 seconds") },
+	).pipe(Effect.orDie);
+
 /** The OAuth access token expires inside long scenarios, so an unauthorized call signs in again. */
 export const resilientSession = (email: string, password: string) =>
 	Effect.map(
-		Effect.map(signInWithPassword(email, password), (signIn) =>
-			makeSession(undefined, {
-				Authorization: `Bearer ${requirePresent(signIn.token, "benchmark sign-in returned no token")}`,
-			}),
+		Effect.map(signInToken(email, password), (token) =>
+			makeSession(undefined, { Authorization: `Bearer ${token}` }),
 		),
 		(initial): ContractSession => {
 			let session = initial;
