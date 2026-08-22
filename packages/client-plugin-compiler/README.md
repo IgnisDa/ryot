@@ -20,6 +20,20 @@ a concrete path instead of declined, which for `lucide-react` also picks its ES 
 the CommonJS one Bun's own resolution prefers. A bundling test cannot catch this class of failure;
 only running the emitted `plugin.js` can.
 
+Plain `effect` imports resolve to a narrow shim re-exporting only `DateTime`, `Match`, `Option`,
+`Result`, `Schema`, and `SchemaGetter`. The shim's export list and the resolver's list of pinned
+`effect/*` submodules it forwards to a concrete path are two separate places in `bundle.ts` — adding a
+namespace to one without the other leaves it resolving from the wrong root instead of failing loudly.
+
+A plugin archive may also carry a `shared/**` root of environment-neutral `.ts` sources, reachable
+from `client/**` as well as from `@ryot-app/sandbox-compiler`. A `shared/**` file's bare imports are
+restricted further, to `@ryot-app/plugin-kit/{effect,ryotql,schema}` only — the same trusted-module
+check that reaches `client/**` files rejects any other bare import from a `shared/**` one, and an
+explicit root rule rejects a relative import that would escape `shared/`. This engine and
+`@ryot-app/sandbox-compiler` resolve the same three plugin-kit files, so a `shared/**` file cannot be
+accepted by one engine's import policy and rejected by the other's. See `@ryot-app/plugin-kit`'s
+README for the shared-source contract and its known coverage gap for a plugin with no client entry.
+
 ## Stylesheet Composition
 
 The Tailwind entry is injected into the generated stylesheet rather than left to the plugin to
