@@ -16,10 +16,13 @@ import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
 import {
 	ServerStub,
+	authenticated,
 	catalog,
 	makeAuthStub,
 	makePublicApiStub,
 	makeStorageStub,
+	makeWorkspaceRecorder,
+	server,
 	theme,
 	unauthenticated,
 } from "#/routes/-route-fixtures";
@@ -32,6 +35,7 @@ const mountView = (
 	entries: PluginClientCatalog = catalog,
 	authLayer: Layer.Layer<AuthService> = AuthStub,
 	publicLayer = makePublicApiStub(),
+	storage: ClientStorage["Service"] = makeStorageStub(rememberedSlug),
 ) => {
 	const events = makePluginCatalogEventsTestLayer();
 	const runtime = ManagedRuntime.make(
@@ -45,7 +49,7 @@ const mountView = (
 			Layer.succeed(PluginCatalogService, { load: () => Effect.succeed(entries) }),
 			Layer.succeed(PluginOperationsService, { invoke: () => Effect.die("not used") }),
 			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
-		).pipe(Layer.provideMerge(Layer.succeed(ClientStorage, makeStorageStub(rememberedSlug)))),
+		).pipe(Layer.provideMerge(Layer.succeed(ClientStorage, storage))),
 	);
 	const initialEntries = typeof initialEntry === "string" ? [initialEntry] : initialEntry;
 	const router = getRouter({ runtime, theme }, createMemoryHistory({ initialEntries }));
@@ -185,6 +189,43 @@ describe("settings navigation", () => {
 
 		fireEvent.click(screen.getByRole("button", { name: "Go back" }));
 		await waitFor(() => expect(view.router.state.location.pathname).toBe("/fixture"));
+		expect(view.router.history.canGoBack()).toBe(false);
+	});
+
+	it("falls back to a workspace remembered during the current shell lifetime", async () => {
+		const recorder = makeWorkspaceRecorder();
+		const entries: PluginClientCatalog = [
+			catalog[0],
+			{
+				...catalog[0],
+				sortOrder: 1,
+				name: "Journal",
+				slug: "journal",
+				pluginId: "plugin-2",
+				installationId: "installation-2",
+			},
+		];
+		const view = mountView(
+			"/fixture",
+			"fixture",
+			entries,
+			undefined,
+			undefined,
+			makeStorageStub("fixture", recorder),
+		);
+		await screen.findByTitle("fixture plugin");
+
+		await view.router.navigate({ href: "/journal", replace: true });
+		await waitFor(() =>
+			expect(recorder.setCalls).toEqual([
+				{ slug: "journal", scope: { serverUrl: server, userId: authenticated.user.id } },
+			]),
+		);
+		await view.router.navigate({ href: "/settings", replace: true });
+		await screen.findByRole("heading", { level: 1, name: "Settings" });
+
+		fireEvent.click(screen.getByRole("button", { name: "Go back" }));
+		await waitFor(() => expect(view.router.state.location.pathname).toBe("/journal"));
 		expect(view.router.history.canGoBack()).toBe(false);
 	});
 });
