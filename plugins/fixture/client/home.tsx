@@ -79,7 +79,7 @@ export const Home = () => {
 	};
 
 	return (
-		<PluginScreenFrame title="Fixture plugin" contentClassName="px-4 pb-8 md:px-0">
+		<PluginScreenFrame title="Fixture plugin">
 			<div className="flex w-full flex-col items-center gap-4 text-text">
 				<img alt="" src={logo} className="plugin-logo" />
 				<section

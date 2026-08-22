@@ -8,6 +8,9 @@ Rationale for these rules lives in `README.md`.
 - Style components with base Tailwind and theme tokens only. The kernel's `ui-*` utilities are not available in a plugin document.
 - Keep a focusable text input at 16px or larger on the touch layout (`text-base`, with a smaller `md:` size when the design wants one).
 - Keep `ScreenFrame` free of a scroll container: it sticks against the scroller its caller owns and takes that element as `scrollRootRef`. Drive its collapse from the sentinel's one `IntersectionObserver`, never a scroll listener, and take the safe-area inset as the `safeAreaTop` number rather than reading `env()`.
+- Keep every gutter and gap inside that scroller in `ScreenFrame`, branched from the `compact` boolean. It accepts no class-name prop and writes no `md:` or `lg:` variant, because a media query in a plugin document measures the iframe rather than the viewport the kernel resolved `compact` from. A narrower column is `width="readable"`.
+- Key the collapse observer to the sentinel node itself, so the sentinel a search row removes is observed again when it returns. A bar carrying a search row is opaque outright, and the `<h1>` stays in the document, visually hidden, whenever the title block is not drawn.
+- Draw a bar control with `ScreenBarButton`, and keep colour out of its own class string. A caller's utility cannot override one baked into a component: the cascade orders utilities by the stylesheet, not by `clsx` argument order.
 - Guard `ScreenFrame`'s transitions with `motion-reduce:` in the component itself. A plugin document receives only `theme.css` and `palette.css`, never the kernel's reduced-motion base layer.
 - Add a runtime dependency only when the behaviour is genuinely shared, and prefer the root export; a new subpath must also be registered in the plugin compiler's trusted-module list.
 - Keep the `AppSchema` form on the `./schema-form` subpath and never re-export it from the root barrel.
