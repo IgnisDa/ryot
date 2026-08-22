@@ -1,3 +1,5 @@
+// Vite output MIME inference uses the emitted file's native extension synchronously.
+// oxlint-disable-next-line effecttsgo/node-builtin-import
 import { extname } from "node:path";
 
 import { Predicate, Result } from "effect";
