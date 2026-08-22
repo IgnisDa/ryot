@@ -52,6 +52,17 @@ export const TranslationStatus = Schema.Literals(["pending", "ready", "none"]);
 
 export type TranslationStatus = typeof TranslationStatus.Type;
 
+export const PopulationStatus = Schema.Literals(["pending", "ready", "none"]);
+
+export type PopulationStatus = typeof PopulationStatus.Type;
+
+export const EntitySyncState = Schema.Struct({
+	populationStatus: PopulationStatus,
+	translationStatus: TranslationStatus,
+});
+
+export type EntitySyncState = typeof EntitySyncState.Type;
+
 const RequiredEntitySchemaSlug = Schema.Trim.pipe(
 	Schema.check(Schema.makeFilter((value) => value.length > 0)),
 ).pipe(Schema.decodeTo(EntitySchemaSlug));

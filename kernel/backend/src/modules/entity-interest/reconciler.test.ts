@@ -18,7 +18,7 @@ type InterestItem = {
 	readonly providerId: string;
 	readonly properties: object;
 	readonly entitySchemaSlug: string;
-	readonly populatedAt: string | null;
+	readonly populationStatus: "none" | "pending" | "ready";
 	readonly translationStatus: "none" | "pending" | "ready";
 };
 
@@ -35,12 +35,12 @@ const responseWithItems = (items: readonly InterestItem[]) =>
 
 const row = (id: string, overrides: Partial<InterestItem> = {}): InterestItem => ({
 	id,
-	entitySchemaSlug: "record",
 	providerId: "provider-1",
 	properties: { title: id },
+	populationStatus: "ready",
+	entitySchemaSlug: "record",
 	translationStatus: "ready",
 	externalId: `external-${id}`,
-	populatedAt: "2026-08-14T00:00:00.000Z",
 	...overrides,
 });
 
@@ -53,7 +53,7 @@ it.effect("omits IDs filtered from the visible rows", () => {
 					executeForUser: () =>
 						Effect.succeed(
 							responseWithItems([
-								row("entity-1", { populatedAt: null, translationStatus: "none" }),
+								row("entity-1", { populationStatus: "pending", translationStatus: "none" }),
 							]),
 						),
 				}),

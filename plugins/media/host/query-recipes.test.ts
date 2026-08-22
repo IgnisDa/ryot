@@ -21,13 +21,23 @@ describe("media query recipes", () => {
 			"id",
 			"name",
 			"schemaSlug",
+			"populationStatus",
+			"translationStatus",
 			"state",
 		]);
 		expect(
 			episodes && "fields" in episodes
 				? episodes.fields.map((field) => ("key" in field ? field.key : null))
 				: [],
-		).toEqual(["id", "name", "schemaSlug", "state", "episodeNumber"]);
+		).toEqual([
+			"id",
+			"name",
+			"schemaSlug",
+			"populationStatus",
+			"translationStatus",
+			"state",
+			"episodeNumber",
+		]);
 	});
 
 	it("filters lifecycle state before paginating show results", () => {
@@ -48,6 +58,8 @@ describe("media query recipes", () => {
 			"id",
 			"name",
 			"schemaSlug",
+			"populationStatus",
+			"translationStatus",
 			"state",
 		]);
 		expect(lifecyclePredicates).toMatchObject({
@@ -75,6 +87,8 @@ describe("media query recipes", () => {
 			"id",
 			"name",
 			"schemaSlug",
+			"populationStatus",
+			"translationStatus",
 			"state",
 		]);
 		expect(podcasts.where.predicates[1]).toMatchObject({
@@ -97,6 +111,8 @@ describe("media query recipes", () => {
 			"id",
 			"name",
 			"schemaSlug",
+			"populationStatus",
+			"translationStatus",
 		]);
 		expect(recommendations.output.measures[0]).toMatchObject({
 			key: "recommendingSourceCount",
@@ -150,6 +166,8 @@ describe("media query recipes", () => {
 								id: "book-1",
 								name: "Book",
 								schemaSlug: "book",
+								populationStatus: "ready",
+								translationStatus: "none",
 								fetchedAt: "2024-01-02T00:00:00.000Z",
 							},
 						],

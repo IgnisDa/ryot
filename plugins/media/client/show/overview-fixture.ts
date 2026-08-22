@@ -15,6 +15,8 @@ export const showPersonRow = {
 	id: "person-1",
 	character: "Jamie",
 	name: "Owen Cooper",
+	populationStatus: "ready",
+	translationStatus: "none",
 	roles: ["Actor", "Guest Star"],
 	images: [{ type: "remote", url: "https://images.test/owen.jpg", purpose: "profile" }],
 };
@@ -23,6 +25,8 @@ export const showCompanyRow = {
 	order: 1,
 	id: "company-1",
 	name: "Warp Films",
+	populationStatus: "ready",
+	translationStatus: "none",
 	roles: ["Production Company"],
 	images: [{ type: "remote", url: "https://images.test/warp.png", purpose: "logo" }],
 };
@@ -30,6 +34,8 @@ export const showCompanyRow = {
 export const showRecommendationRow = {
 	id: "show-2",
 	name: "Bad Girls",
+	populationStatus: "ready",
+	translationStatus: "none",
 	images: [{ type: "remote", url: "https://images.test/bad-girls.jpg", purpose: "cover" }],
 };
 

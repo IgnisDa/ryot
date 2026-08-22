@@ -1,4 +1,4 @@
-import { RyotClientError } from "./index";
+import { RyotClientError, type EntityUpdate } from "./index";
 
 export const entityTransport = <A>(run: () => A) => {
 	try {
@@ -14,22 +14,32 @@ export const entityTransport = <A>(run: () => A) => {
 	}
 };
 
-export const createEntityRefresh = (refresh: () => Promise<void>) => {
-	let dirty = false;
+export const createEntityRefresh = (
+	refresh: (updates: readonly EntityUpdate[]) => Promise<void>,
+) => {
 	let running = false;
 	let blocked = false;
 	let disposed = false;
+	let queued: Map<string, EntityUpdate> | undefined;
 	let timer: ReturnType<typeof setTimeout> | undefined;
+	const requeue = (batch: readonly EntityUpdate[]) => {
+		const restored = new Map(batch.map((update) => [update.entityId, update]));
+		for (const [entityId, update] of queued ?? []) {
+			restored.set(entityId, update);
+		}
+		queued = restored;
+	};
 	const schedule = () => {
-		if (disposed || !dirty || blocked || running || timer !== undefined) {
+		if (disposed || queued === undefined || blocked || running || timer !== undefined) {
 			return;
 		}
 		timer = setTimeout(() => {
 			timer = undefined;
-			if (disposed || blocked || running || !dirty) {
+			if (disposed || blocked || running || queued === undefined) {
 				return;
 			}
-			dirty = false;
+			const batch = [...queued.values()];
+			queued = undefined;
 			running = true;
 			void Promise.resolve()
 				.then(() => {
@@ -37,10 +47,10 @@ export const createEntityRefresh = (refresh: () => Promise<void>) => {
 						return undefined;
 					}
 					if (blocked) {
-						dirty = true;
+						requeue(batch);
 						return undefined;
 					}
-					return refresh();
+					return refresh(batch);
 				})
 				.catch(() => undefined)
 				.finally(() => {
@@ -50,18 +60,21 @@ export const createEntityRefresh = (refresh: () => Promise<void>) => {
 		}, 250);
 	};
 	return {
-		hint: () => {
-			dirty = true;
-			schedule();
-		},
 		block: (value: boolean) => {
 			blocked = value;
 			schedule();
 		},
 		dispose: () => {
 			disposed = true;
-			dirty = false;
+			queued = undefined;
 			clearTimeout(timer);
+		},
+		hint: (update?: EntityUpdate) => {
+			queued ??= new Map();
+			if (update !== undefined) {
+				queued.set(update.entityId, update);
+			}
+			schedule();
 		},
 	};
 };

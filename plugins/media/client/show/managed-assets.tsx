@@ -1,7 +1,6 @@
 import type { ManagedAssetLocator, ManagedAssetResolution } from "@ryot-app/client-sdk";
 import { createRyotQuery, useRyotQuery } from "@ryot-app/client-sdk/react";
-import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
-import clsx from "clsx";
+import { EntityArtWell, type FieldSyncState } from "@ryot-app/client-ui-sdk/sync";
 import {
 	createContext,
 	useCallback,
@@ -156,61 +155,21 @@ export function useManagedAssetUrl(asset: ShowImageAsset | undefined) {
 
 type AssetShape = "rounded" | "circle";
 
-const shapeClassName = (shape: AssetShape | undefined) =>
-	shape === "circle" ? "rounded-full" : "rounded-lg";
-
-function MissingManagedAsset(props: {
-	readonly className: string;
-	readonly shape?: AssetShape | undefined;
-}) {
-	return (
-		<div
-			aria-hidden="true"
-			className={clsx(
-				props.className,
-				"flex items-center justify-center overflow-hidden bg-surface-2",
-				shapeClassName(props.shape),
-			)}
-		>
-			<AppIcon className="text-text-subtle" name="image" size={22} />
-		</div>
-	);
-}
-
-function ResolvedManagedAsset(props: {
-	readonly url: string;
-	readonly className: string;
-	readonly shape?: AssetShape | undefined;
-}) {
-	const [failedUrl, setFailedUrl] = useState<string>();
-	if (failedUrl === props.url) {
-		return <MissingManagedAsset className={props.className} shape={props.shape} />;
-	}
-	return (
-		<img
-			alt=""
-			loading="lazy"
-			key={props.url}
-			src={props.url}
-			onError={() => setFailedUrl(props.url)}
-			className={clsx(
-				props.className,
-				"overflow-hidden bg-surface-2 object-cover",
-				shapeClassName(props.shape),
-			)}
-		/>
-	);
-}
-
 export function ManagedAssetImage(props: {
+	readonly monogram: string;
 	readonly className: string;
+	readonly state: FieldSyncState;
 	readonly shape?: AssetShape | undefined;
 	readonly asset: ShowImageAsset | undefined;
 }) {
 	const url = useManagedAssetUrl(props.asset);
-	return url === undefined ? (
-		<MissingManagedAsset className={props.className} shape={props.shape} />
-	) : (
-		<ResolvedManagedAsset url={url} className={props.className} shape={props.shape} />
+	return (
+		<EntityArtWell
+			url={url}
+			state={props.state}
+			monogram={props.monogram}
+			className={props.className}
+			shape={props.shape ?? "rounded"}
+		/>
 	);
 }

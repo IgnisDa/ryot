@@ -152,11 +152,17 @@ it.live("opens a Media Show entity from the canonical saved-view route", () =>
 		yield* expectVisibleText(media.locator("body"), "TV Show • TMDB • 2025");
 		yield* expectVisibleText(media.locator("body"), "Returning Series");
 		yield* expectVisibleText(
-			media.locator("p").filter({ hasText: /^Seasons$/ }).locator(".."),
+			media
+				.locator("p")
+				.filter({ hasText: /^Seasons$/ })
+				.locator(".."),
 			"2",
 		);
 		yield* expectVisibleText(
-			media.locator("p").filter({ hasText: /^Episodes$/ }).locator(".."),
+			media
+				.locator("p")
+				.filter({ hasText: /^Episodes$/ })
+				.locator(".."),
 			"12",
 		);
 		yield* expectVisibleText(media.locator("body"), "A deterministic browser tracer show.");

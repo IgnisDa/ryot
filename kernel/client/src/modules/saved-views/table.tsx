@@ -1,3 +1,5 @@
+import type { EntitySettle } from "@ryot-app/client-sdk";
+import { isTitleProvisional, SettleHighlight, SyncPip } from "@ryot-app/client-ui-sdk/sync";
 import { DataTable, type DataTableColumn } from "@ryot-app/client-ui-sdk/table";
 import type { SavedViewTableMapping } from "@ryot-app/contract/modules/saved-views/schemas";
 import type { SavedViewTableResultItem } from "@ryot-app/ryotql-recipes/saved-views";
@@ -6,12 +8,14 @@ import { useMemo } from "react";
 
 import { ManagedImage } from "#/modules/assets/managed-image";
 import { formatSavedViewValue } from "#/modules/saved-views/display-value";
+import { tableImageSyncState } from "#/modules/saved-views/sync-summary";
 
 const savedViewColumns = (
-	columns: SavedViewTableMapping["columns"],
+	mapping: SavedViewTableMapping,
+	settled: EntitySettle,
 	managedUrls: ReadonlyMap<string, string>,
 ): readonly DataTableColumn<SavedViewTableResultItem>[] =>
-	columns.map((column, index) => ({
+	mapping.columns.map((column, index) => ({
 		header: column.label,
 		id: `${column.field}:${index}`,
 		headerClassName:
@@ -28,33 +32,40 @@ const savedViewColumns = (
 			if (index !== 0) {
 				return content;
 			}
+			const label = typeof content === "string" ? content : "";
 			return (
-				<Link
-					to="/e/$entityId"
-					params={{ entityId: item.entityId }}
-					className="flex h-13 min-w-0 items-center gap-3 rounded outline-none focus-visible:ring-2 focus-visible:ring-focus"
-				>
-					{item.image !== undefined && (
-						<ManagedImage
-							asset={item.image}
-							urls={managedUrls}
-							className="h-13 w-9 shrink-0 rounded-sm bg-surface-2 object-cover"
-						/>
-					)}
-					<span className="truncate text-[15px] text-text">{content}</span>
-				</Link>
+				<SettleHighlight className="rounded" reason={settled.get(item.entityId)}>
+					<Link
+						to="/e/$entityId"
+						params={{ entityId: item.entityId }}
+						className="flex h-13 min-w-0 items-center gap-3 rounded outline-none focus-visible:ring-2 focus-visible:ring-focus"
+					>
+						{item.image !== undefined && (
+							<ManagedImage
+								monogram={label}
+								asset={item.image}
+								urls={managedUrls}
+								className="h-13 w-9 shrink-0 rounded-sm"
+								state={tableImageSyncState(item, mapping)}
+							/>
+						)}
+						<span className="truncate text-[15px] text-text">{content}</span>
+						{isTitleProvisional(item.sync) && <SyncPip reason="translating" />}
+					</Link>
+				</SettleHighlight>
 			);
 		},
 	}));
 
 export function SavedViewTable(props: {
+	readonly settled: EntitySettle;
+	readonly mapping: SavedViewTableMapping;
 	readonly managedUrls: ReadonlyMap<string, string>;
-	readonly columns: SavedViewTableMapping["columns"];
 	readonly items: readonly SavedViewTableResultItem[];
 }) {
 	const columns: readonly DataTableColumn<SavedViewTableResultItem>[] = useMemo(
-		() => savedViewColumns(props.columns, props.managedUrls),
-		[props.columns, props.managedUrls],
+		() => savedViewColumns(props.mapping, props.settled, props.managedUrls),
+		[props.mapping, props.settled, props.managedUrls],
 	);
 	return (
 		<div className="w-full max-w-6xl overflow-x-auto">

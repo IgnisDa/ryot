@@ -6,7 +6,6 @@ import {
 
 const entity = table("entity", "entity");
 const name = column(entity, "name");
-const entityId = column(entity, "id");
 const property = (key: string) => jsonPath(column(entity, "properties"), key);
 const json = (key: string) => ({ expression: property(key), displayKind: "json" as const });
 const text = (key: string) => ({ expression: property(key), displayKind: "text" as const });
@@ -47,10 +46,10 @@ const pokemonCard = {
 };
 
 const pokemonProjections = buildSavedViewLayoutProjections({
-	grid: { entityId, card: pokemonCard },
-	list: { entityId, card: pokemonCard },
+	grid: { entity, card: pokemonCard },
+	list: { entity, card: pokemonCard },
 	table: {
-		entityId,
+		entity,
 		image: pokemonCard.image,
 		columns: [
 			{ label: "Name", expression: name, displayKind: "text" },
@@ -74,10 +73,10 @@ const moveCard = {
 };
 
 const moveProjections = buildSavedViewLayoutProjections({
-	grid: { entityId, card: moveCard },
-	list: { entityId, card: moveCard },
+	grid: { entity, card: moveCard },
+	list: { entity, card: moveCard },
 	table: {
-		entityId,
+		entity,
 		image: null,
 		columns: [
 			{ label: "Name", expression: name, displayKind: "text" },

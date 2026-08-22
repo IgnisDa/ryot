@@ -45,6 +45,7 @@ describe("show refresh failures", () => {
 					episodes={null}
 					activity={null}
 					refresh={retry}
+					settled={undefined}
 					refreshOverview={retry}
 					state={mapShowSummary(summary)}
 					overview={mapShowOverview(overview)}

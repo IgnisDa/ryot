@@ -21,6 +21,8 @@ export const showSummaryRow = {
 	name: "Adolescence",
 	providerName: "TMDB",
 	providerRating: 78.25,
+	populationStatus: "ready",
+	translationStatus: "none",
 	productionStatus: "Ended",
 	publishDate: "2025-03-13",
 	genres: ["Drama", "Crime"],

@@ -1,5 +1,12 @@
+import type { EntitySettleReason } from "@ryot-app/client-sdk";
 import { Switch } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+import {
+	fieldSyncState,
+	isTitleProvisional,
+	SettleHighlight,
+	TranslationChip,
+} from "@ryot-app/client-ui-sdk/sync";
 import clsx from "clsx";
 import { useState, type ReactNode } from "react";
 
@@ -140,13 +147,15 @@ function ShowIdentity(props: {
 	readonly compact: boolean;
 	readonly show: ShowSummary;
 	readonly description: ReactNode;
+	readonly settled: EntitySettleReason | undefined;
 }) {
 	const { compact, show } = props;
 	return (
 		<div className={clsx("flex min-w-0 flex-col", compact ? "gap-4" : "flex-1 gap-2.5")}>
-			<div
+			<SettleHighlight
+				reason={props.settled}
 				className={clsx(
-					"flex flex-col gap-2.5",
+					"flex flex-col gap-2.5 rounded-lg",
 					compact ? "min-h-48 justify-end pl-36" : "min-h-0 justify-start pl-0",
 				)}
 			>
@@ -166,9 +175,14 @@ function ShowIdentity(props: {
 						))}
 					</div>
 				)}
-			</div>
+			</SettleHighlight>
 			<ShowFactRow show={show} compact={compact} />
 			{props.description}
+			{isTitleProvisional(show) && (
+				<div className="flex items-start">
+					<TranslationChip icon={<AppIcon name="globe" size={13} />} />
+				</div>
+			)}
 		</div>
 	);
 }
@@ -264,6 +278,7 @@ function ShowStatusRail(props: { readonly compact: boolean; readonly show: ShowS
 export function ShowSummaryHeader(props: {
 	readonly compact: boolean;
 	readonly show: ShowSummary;
+	readonly settled: EntitySettleReason | undefined;
 }) {
 	const { compact } = props;
 	const { description } = props.show;
@@ -282,13 +297,20 @@ export function ShowSummaryHeader(props: {
 				className={clsx("relative flex min-w-0", compact ? "flex-col" : "flex-1 flex-row gap-8")}
 			>
 				<ManagedAssetImage
+					monogram={props.show.name}
 					asset={showPosterAsset(props.show)}
+					state={fieldSyncState(showPosterAsset(props.show), props.show)}
 					className={clsx(
 						"aspect-2/3",
 						compact ? "absolute top-0 left-0 w-32" : "relative w-60 shrink-0",
 					)}
 				/>
-				<ShowIdentity show={props.show} compact={compact} description={descriptionNode} />
+				<ShowIdentity
+					compact={compact}
+					show={props.show}
+					settled={props.settled}
+					description={descriptionNode}
+				/>
 			</div>
 			<ShowStatusRail show={props.show} compact={compact} />
 		</div>

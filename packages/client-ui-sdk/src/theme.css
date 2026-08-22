@@ -12,6 +12,7 @@
 	--color-success: var(--success);
 	--color-surface: var(--surface);
 	--color-surface-2: var(--surface-2);
+	--color-translate: var(--translate);
 	--color-text-muted: var(--text-muted);
 	--color-accent-ink: var(--accent-ink);
 	--color-danger-ink: var(--danger-ink);
@@ -32,6 +33,40 @@
 	--radius-pill: var(--r-pill);
 	--shadow-sm: var(--shadow-small);
 	--shadow-card: var(--shadow-raised);
+	--animate-sync-pulse: sync-pulse 1.4s ease-in-out infinite;
+	--animate-settle-ring: settle-ring 900ms ease-out forwards;
+	--animate-sync-sweep: sync-sweep 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes sync-pulse {
+	0%,
+	100% {
+		opacity: 1;
+	}
+
+	50% {
+		opacity: 0.3;
+	}
+}
+
+@keyframes sync-sweep {
+	from {
+		transform: translateX(-100%);
+	}
+
+	to {
+		transform: translateX(100%);
+	}
+}
+
+@keyframes settle-ring {
+	from {
+		box-shadow: 0 0 0 2px var(--settle-ring-color);
+	}
+
+	to {
+		box-shadow: 0 0 0 7px transparent;
+	}
 }
 
 @layer base {
