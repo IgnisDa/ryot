@@ -1,4 +1,5 @@
 import { DbError } from "@ryot/contract/errors";
+import type { PluginClientArtifact } from "@ryot/contract/modules/plugins/client";
 import type { PluginProviderOperation } from "@ryot/contract/modules/plugins/manifest";
 import { SandboxProviderId } from "@ryot/contract/schema/brands";
 import { and, asc, eq, exists, inArray, isNull, notExists, notInArray, or, sql } from "drizzle-orm";
@@ -18,8 +19,30 @@ import type {
 
 type PluginRow = typeof schema.plugin.$inferSelect;
 type ScriptRow = typeof schema.sandboxScript.$inferSelect;
+type ClientArtifactRow = typeof schema.pluginClientArtifact.$inferSelect;
+type ClientArtifactFileRow = typeof schema.pluginClientArtifactFile.$inferSelect;
 
 type PersistedScript = Omit<NormalizedPluginScript, "entry">;
+
+const artifactMatches = (
+	artifact: PluginClientArtifact,
+	metadata: ClientArtifactRow,
+	files: ReadonlyArray<ClientArtifactFileRow>,
+) =>
+	metadata.hash === artifact.hash &&
+	metadata.format === artifact.format &&
+	metadata.apiVersion === artifact.apiVersion &&
+	metadata.bridgeVersion === artifact.bridgeVersion &&
+	metadata.compilerVersion === artifact.compilerVersion &&
+	files.length === artifact.files.length &&
+	artifact.files.every((file) =>
+		files.some(
+			(stored) =>
+				stored.name === file.name &&
+				stored.contents === file.contents &&
+				stored.contentType === file.contentType,
+		),
+	);
 
 const toProviderOperation = (operation: string): PluginProviderOperation | undefined => {
 	if (operation === "searchOptions") {
@@ -80,7 +103,6 @@ const toStoredPlugin = Effect.fn(function* (row: PluginRow, scripts: ReadonlyArr
 		scripts: currentScripts,
 		sourceHash: row.sourceHash,
 		sourceFiles: row.sourceFiles,
-		clientArtifact: row.clientArtifact,
 		clientArtifactHash: row.clientArtifactHash,
 	} satisfies StoredPlugin;
 });
@@ -397,19 +419,76 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			return row !== undefined;
 		});
 
-		const findClientArtifactByHash = Effect.fn("PluginRepository.findClientArtifactByHash")(
-			function* (clientArtifactHash: string) {
-				const db = yield* Database;
-				const [row] = yield* mapDatabaseErrors(
-					db
-						.select({ clientArtifact: schema.plugin.clientArtifact })
-						.from(schema.plugin)
-						.where(eq(schema.plugin.clientArtifactHash, clientArtifactHash))
-						.limit(1),
-				);
-				return row?.clientArtifact ?? null;
-			},
-		);
+		const findClientArtifactFile = Effect.fn("PluginRepository.findClientArtifactFile")(function* (
+			artifactHash: string,
+			fileName: string,
+		) {
+			const db = yield* Database;
+			const [row] = yield* mapDatabaseErrors(
+				db
+					.select({
+						name: schema.pluginClientArtifactFile.name,
+						contents: schema.pluginClientArtifactFile.contents,
+						contentType: schema.pluginClientArtifactFile.contentType,
+					})
+					.from(schema.pluginClientArtifactFile)
+					.where(
+						and(
+							eq(schema.pluginClientArtifactFile.artifactHash, artifactHash),
+							eq(schema.pluginClientArtifactFile.name, fileName),
+						),
+					)
+					.limit(1),
+			);
+			return row ?? null;
+		});
+
+		const persistClientArtifact = Effect.fn("PluginRepository.persistClientArtifact")(function* (
+			artifact: PluginClientArtifact,
+		) {
+			const db = yield* Database;
+			const [inserted] = yield* mapDatabaseErrors(
+				db
+					.insert(schema.pluginClientArtifact)
+					.values({
+						hash: artifact.hash,
+						format: artifact.format,
+						apiVersion: artifact.apiVersion,
+						bridgeVersion: artifact.bridgeVersion,
+						compilerVersion: artifact.compilerVersion,
+					})
+					.onConflictDoNothing()
+					.returning({ hash: schema.pluginClientArtifact.hash }),
+			);
+			if (inserted) {
+				if (artifact.files.length > 0) {
+					yield* mapDatabaseErrors(
+						db
+							.insert(schema.pluginClientArtifactFile)
+							.values(artifact.files.map((file) => ({ ...file, artifactHash: artifact.hash }))),
+					);
+				}
+				return;
+			}
+			const [metadata] = yield* mapDatabaseErrors(
+				db
+					.select()
+					.from(schema.pluginClientArtifact)
+					.where(eq(schema.pluginClientArtifact.hash, artifact.hash))
+					.limit(1),
+			);
+			const files = yield* mapDatabaseErrors(
+				db
+					.select()
+					.from(schema.pluginClientArtifactFile)
+					.where(eq(schema.pluginClientArtifactFile.artifactHash, artifact.hash)),
+			);
+			if (!metadata || !artifactMatches(artifact, metadata, files)) {
+				return yield* new DbError({
+					message: `Client artifact ${artifact.hash} conflicts with immutable stored data`,
+				});
+			}
+		});
 
 		const persistKernelScript = Effect.fn("PluginRepository.persistKernelScript")(function* (
 			script: PersistedScript,
@@ -463,15 +542,17 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			const compiledHashes = Object.fromEntries(
 				plugin.scripts.map((script) => [script.slug, script.contentHash]),
 			);
+			if (plugin.clientArtifact) {
+				yield* persistClientArtifact(plugin.clientArtifact);
+			}
 			const mutation = {
 				compiledHashes,
 				status: "active",
 				manifest: plugin.manifest,
 				sourceHash: plugin.sourceHash,
 				sourceFiles: plugin.sourceFiles,
-				clientArtifact: plugin.clientArtifact,
 				version: plugin.manifest.metadata.version,
-				clientArtifactHash: plugin.clientArtifactHash,
+				clientArtifactHash: plugin.clientArtifact?.hash ?? null,
 			} as const;
 			const conflict =
 				identity.scope === "system"
@@ -839,10 +920,10 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			hasEntityReferences,
 			listActiveManifests,
 			resolveProviderBySlugs,
+			findClientArtifactFile,
 			findPrivateByIdForUser,
 			hasDefinitionReferences,
 			hasIntegrationReferences,
-			findClientArtifactByHash,
 			deleteUnreferencedScripts,
 			listPortablePluginMetadata,
 			deleteInactiveUnreferencedPlugins,
