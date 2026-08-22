@@ -205,9 +205,23 @@ Managed artwork uses `ManagedAssetProvider` and `useManagedAssetUrl` from
 resolved URLs while refreshing, and renews them before expiry. Media code only collects domain image
 locators and adapts remote images, which load directly.
 
+The workspace home reads cross-schema recipes from `shared/`. `shared/lifecycle-list-recipes.ts`
+lists in-library media by lifecycle state, most recent lifecycle activity first:
+`episodicByLifecycleStateRecipe` takes a show or podcast `EpisodicKindConfig` and carries the same
+`nextUp` the summary resolves, and `flatByLifecycleStateRecipe` covers every flat builtin schema in
+one query with its progress percent and the latest progress event's anime or manga position.
+`shared/discovery-recipes.ts` holds `latestCompletionSuggestionsRecipe` - suggestions not yet in the
+library from the latest completion that still has any, so an exhausted completion falls back to an
+earlier one - and `trendingLatestMediaRecipe`, which reads each schema's own latest trending batch
+and orders by rank then schema so the schemas interleave. Both drop NSFW titles but keep entities
+whose `isNsfw` is unknown. `shared/airing-recipes.ts` returns one tile per show with its soonest
+unwatched regular episode in a local date window and how many unwatched episodes share that date,
+and anime whose airing schedule has an entry before an instant bound. Airing candidates are in the
+library and either in progress (or caught up, for shows) or monitored through `media-monitoring`.
+
 Detail queries declare entity interest only for loaded recipe results: the subject entity and, for
 Show, the selected season are foreground, while displayed related entities - collections, credits,
-recommendations, and group siblings - are visible. Activity declares entity IDs referenced by
+recommendations, group siblings, and an episodic parent's next-up episode - are visible. Activity declares entity IDs referenced by
 events, not event IDs. Update hints refresh active queries without promising general realtime updates
 for unloaded data or arbitrary mutations.
 
