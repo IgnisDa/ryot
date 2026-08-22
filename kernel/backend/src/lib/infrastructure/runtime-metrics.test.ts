@@ -2,13 +2,11 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect, Metric } from "effect";
 
 import {
-	getSandboxReplayCounters,
 	recordProviderImportBodySettled,
 	recordProviderImportBodyStarted,
 	recordSandboxExecution,
 	recordSandboxHostCall,
 	recordSandboxWorkflowReplayFinished,
-	recordSandboxWorkflowReplayStarted,
 	sandboxMetricHostFunction,
 	sandboxMetricKind,
 } from "./runtime-metrics";
@@ -71,11 +69,9 @@ describe("sandbox runtime metrics", () => {
 		),
 	);
 
-	it.effect("keeps replay counters monotonic across outcomes", () =>
+	it.effect("records a replay outcome and journal size", () =>
 		withIsolatedRegistry(
 			Effect.gen(function* () {
-				const before = getSandboxReplayCounters();
-				yield* recordSandboxWorkflowReplayStarted;
 				yield* recordSandboxWorkflowReplayFinished({
 					durationMs: 12,
 					kind: "workflow",
@@ -83,19 +79,15 @@ describe("sandbox runtime metrics", () => {
 					journalBytes: 512,
 					outcome: "pending",
 				});
-				yield* recordSandboxWorkflowReplayStarted;
-				yield* recordSandboxWorkflowReplayFinished({
-					durationMs: 20,
+				const replays = yield* findSnapshot("ryot.sandbox.workflow_replays", {
 					kind: "workflow",
-					journalEntries: 2,
-					journalBytes: 1_024,
-					outcome: "completed",
+					outcome: "pending",
 				});
-				const after = getSandboxReplayCounters();
-				expect(after.totalStarted - before.totalStarted).toBe(2);
-				expect(after.totalCompleted - before.totalCompleted).toBe(1);
-				expect(after.totalFailed - before.totalFailed).toBe(0);
-				expect(after.totalJournalBytes - before.totalJournalBytes).toBe(1_536);
+				const journal = yield* findSnapshot("ryot.sandbox.workflow_journal_size", {
+					kind: "workflow",
+				});
+				expect(replays?.state).toMatchObject({ count: 1 });
+				expect(journal?.state).toMatchObject({ count: 1, sum: 512 });
 			}),
 		),
 	);
