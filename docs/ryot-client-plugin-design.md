@@ -523,15 +523,17 @@ font-ui
 font-display
 ```
 
-The kernel supplies the current theme to the plugin runtime. The plugin runtime applies corresponding CSS variables inside the iframe.
+The compiler inlines `client-ui-sdk/palette.css` into every plugin stylesheet, so a plugin document defines the same token values as the kernel document and resolves them at first paint. Token values never cross the bridge. The kernel sends only the resolved mode: `mode` on the bridge `init` message, and a `{ "type": "theme", "mode": ... }` message if the user changes the preference while a plugin is open. The plugin runtime applies it by setting `data-theme` on its own root element.
 
-A plugin document never loads the kernel's `palette.css`. It receives raw values pushed over the bridge, enumerated by `REQUIRED_THEME_TOKEN_NAMES` in `@ryot-app/contract`, and the schema requires a non-empty string for every listed name. That makes the token list, the `@theme inline` map in `client-ui-sdk/theme.css`, and every `palette.css` block one coupled set: a token present in one and absent from another either resolves to an undefined variable inside plugins or throws when the kernel's theme store decodes its snapshot at construction. Add and remove tokens in all three places together.
+That works because the server compiles a plugin's client sources at install time against its own `client-ui-sdk`, so an artifact and the kernel client hosting it are always the same build. There is no author-compiled artifact that could drift from the running palette.
+
+`prefers-color-scheme` already resolves natively inside the iframe, so only an explicit light or dark override needs the mode at all. The `@theme inline` map in `client-ui-sdk/theme.css` and the blocks in `client-ui-sdk/palette.css` remain one coupled set — a token in the map with no value in the palette resolves to an undefined variable in both documents — but `@ryot-app/contract` no longer enumerates token names, so adding a token does not touch the contract.
 
 Two tokens carry roles worth stating, because the split is not obvious from their names. `--accent` is a *fill*: it is paired with `--accent-ink` for text drawn on it, and it is deliberately too light to serve as a boundary. `--accent-deep` is the *boundary and selection* colour — selected cards, checked controls, the filled button's edge — because WCAG 1.4.11 requires 3:1 for anything that identifies a control or its state, and `--accent` is 2.30:1 against the page in the light theme. `--danger-solid`/`--danger-ink` mirror the same fill-plus-ink pairing for destructive buttons; `--danger` on its own is a text colour and is not a fill.
 
 The font-family tokens name the compiler-owned `Outfit Variable` and `Lora Variable` faces. Their `@font-face` declarations and content-addressed files are emitted into every plugin artifact, because an iframe cannot inherit the kernel document's font declarations. The compiler also sets the artifact body's `font-family` to `var(--font-family-ui)` as its default typography; plugins use `font-display` where display typography is required. Font availability and default typography therefore do not depend on device-installed fonts or kernel CSS.
 
-Theme changes do not require recompiling a plugin.
+Switching between light and dark does not require recompiling a plugin. Changing a palette *value* does, because the values are compiled into the artifact: bump `CLIENT_COMPILER_VERSION` so the server recompiles installed plugins whose recorded compiler version no longer matches.
 
 `theme.css` also carries one `@layer base` block of accessibility primitives — the pointer and not-allowed cursors and the `:focus-visible` outline. It lives there because that file is the only stylesheet loaded by both the kernel document and every plugin iframe, so it is the single place a base rule can reach both. The compiler injects the Tailwind entry itself rather than relying on a plugin to import it, since a plugin may ship no stylesheet at all and would otherwise get neither Preflight nor a registered `@layer` order. Note that cascade layer order precedes specificity, so a Tailwind utility always outranks this layer: a component that sets `outline-none` removes its own focus indicator and must supply a replacement.
 
@@ -1933,7 +1935,7 @@ Plugin applications are first-class accessible web applications, and the kernel 
 
 ### What the palette guarantees
 
-`kernel/client/src/styles/palette-contrast.test.ts` parses `palette.css` and fails CI on a regression, asserting **4.5:1** for text pairs and **3:1** for boundary and state pairs, in both themes. `--border-strong` is the only visible edge on inputs, secondary buttons, and the desktop segmented control, so it is held to the boundary threshold; `--border` is decorative and is not.
+`packages/client-ui-sdk/src/palette-contrast.test.ts` parses `palette.css` and fails CI on a regression, asserting **4.5:1** for text pairs and **3:1** for boundary and state pairs, in both themes. `--border-strong` is the only visible edge on inputs, secondary buttons, and the desktop segmented control, so it is held to the boundary threshold; `--border` is decorative and is not.
 
 Automated checks cannot cover this: axe cannot evaluate contrast under jsdom, which is why the palette is tested from the stylesheet rather than the rendered DOM.
 

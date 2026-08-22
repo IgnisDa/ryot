@@ -1,9 +1,5 @@
-import {
-	PluginThemeSnapshot,
-	REQUIRED_THEME_TOKEN_NAMES,
-} from "@ryot-app/contract/modules/plugins/client";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
-import { Effect, Layer, Schema } from "effect";
+import { Effect, Layer } from "effect";
 
 import { AdminApi } from "#/api/admin";
 import { decodeServerOrigin } from "#/api/origin";
@@ -31,11 +27,7 @@ export const theme: ThemeStore = {
 	getPreference: () => "system",
 	setPreference: () => undefined,
 	subscribe: () => () => undefined,
-	getSnapshot: () =>
-		Schema.decodeUnknownSync(PluginThemeSnapshot)({
-			resolvedMode: "light",
-			tokens: Object.fromEntries(REQUIRED_THEME_TOKEN_NAMES.map((name) => [name, name])),
-		}),
+	getSnapshot: () => ({ resolvedMode: "light" }),
 };
 
 export const catalog: PluginClientCatalog = [
