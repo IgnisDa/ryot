@@ -4,6 +4,7 @@ import { BackupsApi } from "#/api/backups";
 import { GodModeApi } from "#/api/god-mode";
 import { ImportsApi } from "#/api/imports";
 import { IntegrationsApi } from "#/api/integrations";
+import { PluginInstallationsApi } from "#/api/plugin-installations";
 import { PluginsApi } from "#/api/plugins";
 import { ProviderEntitiesApi } from "#/api/provider-entities";
 import { RyotQLApi } from "#/api/ryotql";
@@ -18,6 +19,10 @@ export const makeRyotQLApi = (overrides: Partial<RyotQLApi["Service"]> = {}) =>
 
 export const makeSavedViewsApi = (overrides: Partial<SavedViewsApi["Service"]> = {}) =>
 	Layer.succeed(SavedViewsApi, { update: unused, reorder: unused, ...overrides });
+
+export const makePluginInstallationsApi = (
+	overrides: Partial<PluginInstallationsApi["Service"]> = {},
+) => Layer.succeed(PluginInstallationsApi, { update: unused, ...overrides });
 
 export const makeUploadsApi = (overrides: Partial<UploadsApi["Service"]> = {}) =>
 	Layer.succeed(UploadsApi, {
@@ -104,4 +109,5 @@ export const KernelApiTestLayer = Layer.mergeAll(
 	makeUserSettingsApi(),
 	makeIntegrationsApi(),
 	makeProviderEntitiesApi(),
+	makePluginInstallationsApi(),
 );
