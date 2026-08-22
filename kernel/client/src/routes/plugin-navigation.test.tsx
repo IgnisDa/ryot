@@ -1,7 +1,11 @@
+import {
+	PluginThemeSnapshot,
+	REQUIRED_THEME_TOKEN_NAMES,
+} from "@ryot/contract/modules/plugins/client";
 import type { PluginClientCatalog } from "@ryot/ryotql-recipes/plugin-client-catalog";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { render, screen, waitFor } from "@testing-library/react";
-import { Effect, Layer, ManagedRuntime } from "effect";
+import { Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { AuthenticatedApi } from "../api/authenticated";
@@ -12,10 +16,22 @@ import { PluginCatalogService } from "../modules/plugins/catalog";
 import { PluginOperationsService } from "../modules/plugins/operations";
 import { PluginQueriesService } from "../modules/plugins/queries";
 import { ServerService } from "../modules/server/service";
+import type { ThemeStore } from "../modules/theme/store";
 import { ClientStorage } from "../persistence/storage";
 import { getRouter } from "../router";
 
 const server = "https://ryot.example";
+const theme: ThemeStore = {
+	destroy: () => undefined,
+	getPreference: () => "system",
+	setPreference: () => undefined,
+	subscribe: () => () => undefined,
+	getSnapshot: () =>
+		Schema.decodeUnknownSync(PluginThemeSnapshot)({
+			resolvedMode: "light",
+			tokens: Object.fromEntries(REQUIRED_THEME_TOKEN_NAMES.map((name) => [name, name])),
+		}),
+};
 
 const catalog: PluginClientCatalog = [
 	{
@@ -74,7 +90,7 @@ const mount = (initialEntry: string, entries: PluginClientCatalog = catalog) => 
 		).pipe(Layer.provideMerge(StorageStub)),
 	);
 	const router = getRouter(
-		{ runtime, initialThemePreference: "system" },
+		{ runtime, theme },
 		createMemoryHistory({ initialEntries: [initialEntry] }),
 	);
 	render(<RouterProvider router={router} />);

@@ -8,7 +8,7 @@ export const Details = () => {
 	const tab = usePluginSearch().get("tab");
 
 	return (
-		<main className="flex flex-col items-center gap-4 p-8 text-text">
+		<main className="flex min-h-screen w-full flex-col items-center gap-4 bg-bg p-8 text-text">
 			<h1 className="font-display text-2xl">Item details</h1>
 			<p className="text-text-muted">
 				Item {itemId}, tab {tab}.
