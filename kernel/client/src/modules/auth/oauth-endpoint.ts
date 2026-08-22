@@ -58,7 +58,7 @@ export const postOAuthFormRequest = (
 		if (response.ok) {
 			return response;
 		}
-		const payload = yield* readJson(response).pipe(Effect.catch(() => Effect.succeed(undefined)));
+		const payload = yield* readJson(response).pipe(Effect.orElseSucceed(() => undefined));
 		return yield* endpointError(response.status, payload);
 	});
 

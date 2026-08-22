@@ -10,9 +10,7 @@ export const useSchemaFileUpload = (): SchemaFileUpload => {
 		Effect.runPromise(
 			ryot.uploads.uploadTemporary(request).pipe(
 				Effect.map((uploaded) => ({ kind: "uploaded", token: uploaded.token }) as const),
-				Effect.catch(() =>
-					Effect.succeed({ kind: "failed", message: UPLOAD_FAILURE_MESSAGE } as const),
-				),
+				Effect.orElseSucceed(() => ({ kind: "failed", message: UPLOAD_FAILURE_MESSAGE }) as const),
 			),
 		);
 };

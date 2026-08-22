@@ -161,7 +161,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			if (client.nativeApplicationId !== null) {
 				return yield* Effect.tryPromise(() => Browser.open({ url: endSessionUrl })).pipe(
 					Effect.as(true),
-					Effect.catch(() => Effect.succeed(false)),
+					Effect.orElseSucceed(() => false),
 				);
 			}
 			yield* Effect.sync(() => window.location.assign(endSessionUrl));

@@ -9,7 +9,8 @@ import {
 	type AutomationHistoryRunDetail,
 	type AutomationHistoryRunsPage,
 } from "@ryot-app/ryotql-recipes/automation-history";
-import { Effect, Option } from "effect";
+import type { Option } from "effect";
+import { Effect } from "effect";
 
 import type { AuthenticatedApiError } from "#/api/authenticated";
 import { AutomationHistoryApi } from "#/api/automation-history";
@@ -59,13 +60,7 @@ export const automationHistoryDetailQuery = createRyotQuery<
 >(({ input, client }) =>
 	client.data
 		.query(automationHistoryRunRecipe({ id: input }))
-		.pipe(
-			Effect.flatMap((result) =>
-				Option.isNone(result)
-					? Effect.fail(new RyotClientError("malformed-result"))
-					: Effect.succeed(result.value),
-			),
-		),
+		.pipe(Effect.flatMap(Effect.fromOption(() => new RyotClientError("malformed-result")))),
 );
 
 export const retryAutomationRunMutation = createRyotMutation<
