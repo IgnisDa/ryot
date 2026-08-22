@@ -202,17 +202,32 @@ CREATE TABLE "plugin" (
 	"slug" text NOT NULL,
 	"status" text NOT NULL,
 	"version" text NOT NULL,
-	"client_artifact_hash" text,
 	"source_hash" text NOT NULL,
 	"scope" text NOT NULL,
 	"manifest" jsonb NOT NULL,
-	"client_artifact" jsonb,
 	"source_files" jsonb NOT NULL,
 	"compiled_hashes" jsonb NOT NULL,
+	"client_artifact_hash" text,
 	"ingested_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"owner_id" text,
 	"id" text PRIMARY KEY,
 	CONSTRAINT "plugin_scope_owner_check" CHECK (("scope" = 'system' and "owner_id" is null) or ("scope" = 'user' and "owner_id" is not null))
+);
+--> statement-breakpoint
+CREATE TABLE "plugin_client_artifact" (
+	"format" smallint NOT NULL,
+	"api_version" smallint NOT NULL,
+	"hash" text PRIMARY KEY,
+	"bridge_version" smallint NOT NULL,
+	"compiler_version" smallint NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "plugin_client_artifact_file" (
+	"name" text,
+	"contents" text NOT NULL,
+	"content_type" text NOT NULL,
+	"artifact_hash" text,
+	CONSTRAINT "plugin_client_artifact_file_pkey" PRIMARY KEY("artifact_hash","name")
 );
 --> statement-breakpoint
 CREATE TABLE "plugin_installation" (
@@ -517,7 +532,9 @@ ALTER TABLE "managed_asset" ADD CONSTRAINT "managed_asset_owner_user_id_user_id_
 ALTER TABLE "notification_channel" ADD CONSTRAINT "notification_channel_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "notification_subscription_state" ADD CONSTRAINT "notification_subscription_state_6cYqs9dCUQns_fkey" FOREIGN KEY ("signal_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "notification_subscription_state" ADD CONSTRAINT "notification_subscription_state_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "plugin" ADD CONSTRAINT "plugin_client_artifact_hash_plugin_client_artifact_hash_fkey" FOREIGN KEY ("client_artifact_hash") REFERENCES "plugin_client_artifact"("hash");--> statement-breakpoint
 ALTER TABLE "plugin" ADD CONSTRAINT "plugin_owner_id_user_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "plugin_client_artifact_file" ADD CONSTRAINT "plugin_client_artifact_file_vYqlZNnp2DwH_fkey" FOREIGN KEY ("artifact_hash") REFERENCES "plugin_client_artifact"("hash");--> statement-breakpoint
 ALTER TABLE "plugin_installation" ADD CONSTRAINT "plugin_installation_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "plugin_installation" ADD CONSTRAINT "plugin_installation_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint

@@ -12,11 +12,7 @@ export class PluginClientArtifactService extends Context.Service<PluginClientArt
 				artifactHash: string,
 				fileName: string,
 			) {
-				const artifact = yield* repository.findClientArtifactByHash(artifactHash);
-				if (!artifact) {
-					return null;
-				}
-				return artifact.files.find((file) => file.name === fileName) ?? null;
+				return yield* repository.findClientArtifactFile(artifactHash, fileName);
 			});
 
 			return { findArtifactFile };
