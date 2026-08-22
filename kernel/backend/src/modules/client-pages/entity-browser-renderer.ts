@@ -43,11 +43,19 @@ type BrowserPage = {
 };
 type BrowserState = {
   readonly identity: string;
+  readonly depth: number;
   readonly items: EntityBrowserResult["items"];
   readonly pageInfo: EntityBrowserResult["pageInfo"] | null;
 };
+type RefreshReplay = {
+  readonly identity: string;
+  readonly generation: number;
+  readonly targetDepth: number;
+  readonly pages: readonly EntityBrowserResult[];
+  readonly complete: () => void;
+};
 
-let retained: { readonly state: BrowserState; readonly pages: ReadonlySet<string> } | undefined;
+let retained: BrowserState | undefined;
 
 const controlIcon = (value: string) => <span aria-hidden="true">{value}</span>;
 
@@ -162,26 +170,38 @@ const Browser = ({ input }: { readonly input: typeof EntityBrowserPageInput.Type
   const [cursor, setCursor] = useState<string | null>(null);
   const [showCount, setShowCount] = useState(false);
   const [refreshGeneration, setRefreshGeneration] = useState(0);
-  const identity = JSON.stringify([searchText, sortChoice, refreshGeneration]);
+  const refreshGenerationRef = useRef(0);
+  const identity = JSON.stringify([searchText, sortChoice]);
   const [state, setState] = useState<BrowserState>(() =>
-    retained?.state.identity === identity ? retained.state : { identity, items: [], pageInfo: null },
+    retained?.identity === identity ? retained : { identity, depth: 0, items: [], pageInfo: null },
   );
-  const appliedPages = useRef(
-    new Set(retained?.state.identity === identity ? retained.pages : undefined),
-  );
+  const stateRef = useRef(state);
+  const appliedPages = useRef(new Set<string>());
+  const refreshReplay = useRef<RefreshReplay | undefined>(undefined);
   const activeIdentity = useRef(identity);
-  const refresh = useEffectEvent(() => setRefreshGeneration((current) => {
-    const next = current + 1;
+  const refresh = useEffectEvent(() => new Promise<void>((complete) => {
+    refreshReplay.current?.complete();
+    const next = ++refreshGenerationRef.current;
+    refreshReplay.current = {
+      complete,
+      identity,
+      generation: next,
+      pages: [],
+      targetDepth: Math.max(1, stateRef.current.identity === identity ? stateRef.current.depth : 1),
+    };
+    appliedPages.current.clear();
+    setCursor(null);
+    setRefreshGeneration(next);
     const pending = pendingSearch.current;
     if (pending) {
       pendingSearch.current = {
         ...pending,
-        identity: JSON.stringify([controlsRef.current.search, controlsRef.current.sort, next]),
+        identity: JSON.stringify([controlsRef.current.search, controlsRef.current.sort]),
       };
     }
-    return next;
   }));
   usePageRefresh(refresh);
+  useEffect(() => () => refreshReplay.current?.complete(), []);
   const [query] = useState(() => createRyotQuery<string, BrowserPage>(
     async ({ client, input: serialized, signal }) => {
       const [search, sort, after] = JSON.parse(serialized) as [string, string, string | null, number];
@@ -200,7 +220,7 @@ const Browser = ({ input }: { readonly input: typeof EntityBrowserPageInput.Type
     { cancelOnUnmount: true },
   ));
   const queryInput = JSON.stringify([searchText, sortChoice, cursor, refreshGeneration]);
-  const result = useRyotQuery(query, queryInput);
+  const result = useRyotQuery(query, queryInput, { refreshOnMutation: false });
 
   useEffect(() => {
     if (pendingSearch.current) return;
@@ -211,9 +231,12 @@ const Browser = ({ input }: { readonly input: typeof EntityBrowserPageInput.Type
   useEffect(() => {
     if (activeIdentity.current === identity) return;
     activeIdentity.current = identity;
+    refreshReplay.current?.complete();
+    refreshReplay.current = undefined;
     appliedPages.current.clear();
     setCursor(null);
-    setState({ identity, items: [], pageInfo: null });
+    setShowCount(false);
+    setState({ identity, depth: 0, items: [], pageInfo: null });
   }, [identity]);
 
   useEffect(() => {
@@ -222,6 +245,26 @@ const Browser = ({ input }: { readonly input: typeof EntityBrowserPageInput.Type
     const pageKey = page.input;
     if (appliedPages.current.has(pageKey)) return;
     appliedPages.current.add(pageKey);
+    const replay = refreshReplay.current;
+    if (replay?.identity === identity && replay.generation === refreshGeneration) {
+      const pages = [...replay.pages, page.result];
+      if (pages.length < replay.targetDepth && page.result.pageInfo.hasMore) {
+        refreshReplay.current = { ...replay, pages };
+        setCursor(page.result.pageInfo.nextCursor);
+        return;
+      }
+      const items = pages.flatMap(({ items: pageItems }) => pageItems);
+      const deduped = [...new Map(items.map((item) => [item.entityId, item])).values()];
+      replay.complete();
+      refreshReplay.current = undefined;
+      setState({
+        identity,
+        items: deduped,
+        depth: pages.length,
+        pageInfo: page.result.pageInfo,
+      });
+      return;
+    }
     setState((current) => {
       if (current.identity !== identity) return current;
       const seen = new Set(current.items.map(({ entityId }) => entityId));
@@ -232,12 +275,21 @@ const Browser = ({ input }: { readonly input: typeof EntityBrowserPageInput.Type
           items.push(item);
         }
       }
-      return { identity, items, pageInfo: page.result.pageInfo };
+      return { identity, items, depth: current.depth + 1, pageInfo: page.result.pageInfo };
     });
-  }, [identity, queryInput, result.data]);
+  }, [identity, queryInput, refreshGeneration, result.data]);
 
   useEffect(() => {
-    retained = { state, pages: new Set(appliedPages.current) };
+    const replay = refreshReplay.current;
+    if (result.isError && replay?.identity === identity && replay.generation === refreshGeneration) {
+      replay.complete();
+      refreshReplay.current = { ...replay, complete: () => undefined };
+    }
+  }, [identity, refreshGeneration, result.isError]);
+
+  useEffect(() => {
+    stateRef.current = state;
+    retained = state;
   }, [state]);
 
   useEffect(() => {
@@ -271,7 +323,7 @@ const Browser = ({ input }: { readonly input: typeof EntityBrowserPageInput.Type
     const next = { ...controlsRef.current, ...update };
     controlsRef.current = next;
     pendingSearch.current = {
-      identity: JSON.stringify([next.search, next.sort, refreshGeneration]),
+      identity: JSON.stringify([next.search, next.sort]),
       update: { search: next.search || null, sort: next.sort || null },
     };
     setControls(next);

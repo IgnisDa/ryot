@@ -1,6 +1,7 @@
 import { Effect, Layer } from "effect";
 
 import { BackupsApi } from "#/api/backups";
+import { CollectionsApi } from "#/api/collections";
 import { EntityInterestApi } from "#/api/entity-interest";
 import { GodModeApi } from "#/api/god-mode";
 import { ImportsApi } from "#/api/imports";
@@ -32,6 +33,14 @@ export const makeEntityInterestService = (
 
 export const makeRyotQLApi = (overrides: Partial<RyotQLApi["Service"]> = {}) =>
 	Layer.succeed(RyotQLApi, { execute: unused, ...overrides });
+
+export const makeCollectionsApi = (overrides: Partial<CollectionsApi["Service"]> = {}) =>
+	Layer.succeed(CollectionsApi, {
+		create: unused,
+		createMembership: unused,
+		deleteMembership: unused,
+		...overrides,
+	});
 
 export const makeSavedViewsApi = (overrides: Partial<SavedViewsApi["Service"]> = {}) =>
 	Layer.succeed(SavedViewsApi, { update: unused, reorder: unused, ...overrides });
@@ -126,6 +135,7 @@ export const makeGodModeApi = (overrides: Partial<GodModeApi["Service"]> = {}) =
 
 export const KernelApiTestLayer = Layer.mergeAll(
 	makeRyotQLApi(),
+	makeCollectionsApi(),
 	makeImportsApi(),
 	makeBackupsApi(),
 	makeUploadsApi(),

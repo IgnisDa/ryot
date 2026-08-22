@@ -13,13 +13,17 @@ describe("active client document owner", () => {
 		const activeOwner = { current: null as string | null };
 		let title: PluginHeaderState | null = null;
 		let readiness: ClientPageScreenState | null = null;
-		const { header, screen } = createClientDocumentControllers(
+		let overlays = 0;
+		const { header, overlay, screen } = createClientDocumentControllers(
 			activeOwner,
 			(state) => {
 				title = state;
 			},
 			(state) => {
 				readiness = state;
+			},
+			(count) => {
+				overlays = count;
 			},
 		);
 		const publication = { title: "Owner B", index: 2, key: "entry-b" };
@@ -29,18 +33,23 @@ describe("active client document owner", () => {
 		screen.activate(ownerB);
 		header.publish(ownerB, publication);
 		screen.publish(ownerB, ready);
+		overlay.publish(ownerB, 2);
 		header.publish(ownerA, { ...publication, title: "Owner A" });
 		screen.publish(ownerA, { ...ready, hasPreviousScreen: false });
+		overlay.publish(ownerA, 1);
 		screen.clear(ownerA);
 		header.clear(ownerA);
 
 		expect(title).toEqual({ owner: ownerB, ...publication });
 		expect(readiness).toEqual({ owner: ownerB, ...ready });
+		expect(overlays).toBe(2);
 
 		screen.clear(ownerB);
+		overlay.clear(ownerB);
 		header.clear(ownerB);
 
 		expect(title).toBeNull();
 		expect(readiness).toBeNull();
+		expect(overlays).toBe(0);
 	});
 });

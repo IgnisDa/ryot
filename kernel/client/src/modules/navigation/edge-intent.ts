@@ -1,6 +1,6 @@
 import type { PluginLeadingIntent } from "@ryot-app/client-plugin-contract";
 
-export type EdgeOwner = "kernel" | "plugin";
+export type EdgeOwner = "iframe-overlay" | "kernel" | "plugin";
 export type EdgeIntent = PluginLeadingIntent;
 
 export type EdgeResolution = {
@@ -24,12 +24,18 @@ export function resolveEdge(input: {
 	readonly pathname: string;
 	readonly canGoBack: boolean;
 	readonly isDesktop: boolean;
+	readonly hasIframeOverlay: boolean;
 	readonly hasPluginBackScreen: boolean;
 }): EdgeResolution {
 	const compact = !input.isDesktop;
 	const hasDrawer = hasWorkspaceChrome(input.pathname);
 	const intent = resolveIntent(input, hasDrawer);
-	const owner = intent === "back" && input.hasPluginBackScreen && compact ? "plugin" : "kernel";
+	let owner: EdgeOwner = "kernel";
+	if (intent === "back" && input.hasIframeOverlay) {
+		owner = "iframe-overlay";
+	} else if (intent === "back" && input.hasPluginBackScreen && compact) {
+		owner = "plugin";
+	}
 	return { owner, compact, intent };
 }
 

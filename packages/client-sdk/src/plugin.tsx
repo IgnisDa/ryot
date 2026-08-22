@@ -8,13 +8,7 @@ import {
 } from "@ryot-app/client-plugin-contract";
 import { useShortcut } from "@ryot-app/client-ui-sdk";
 import { Result, Schema } from "effect";
-import {
-	createContext,
-	useContext,
-	useEffect,
-	useSyncExternalStore,
-	type ComponentType,
-} from "react";
+import { createContext, useContext, useSyncExternalStore, type ComponentType } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
 import {
@@ -23,7 +17,7 @@ import {
 } from "./entity-results";
 import type { ResolvePluginScreen } from "./navigation/stack";
 import { createPluginNavigationStore } from "./navigation/store";
-import { RyotProvider } from "./react";
+import { RyotProvider, usePageRefresh } from "./react";
 import {
 	createClientPageRouteResolver,
 	createPluginRouteResolver,
@@ -36,9 +30,6 @@ import { createBootstrapRyotRuntime, type RyotPluginRuntime } from "./schedule";
 type ClientPluginDefinition = PluginRouterDefinition;
 
 const PageContext = createContext<ClientPageContext | undefined>(undefined);
-const PageRefreshContext = createContext<
-	ReturnType<typeof createPluginRuntime>["pageRefresh"] | undefined
->(undefined);
 
 export const usePageContext = () => {
 	const context = useContext(PageContext);
@@ -48,15 +39,7 @@ export const usePageContext = () => {
 	return context;
 };
 
-export const usePageRefresh = (refresh: () => void) => {
-	const source = useContext(PageRefreshContext);
-	useEffect(() => {
-		const unsubscribe = source?.subscribe(refresh);
-		return () => {
-			unsubscribe?.();
-		};
-	}, [refresh, source]);
-};
+export { usePageRefresh };
 
 const decodeArtifactMetadata = Schema.decodeUnknownResult(
 	Schema.fromJsonString(PluginClientArtifactMetadata),
@@ -109,12 +92,10 @@ const bootstrapClientApplication = (
 				root.render(
 					<RyotProvider runtime={sdkRuntime}>
 						<EntityPresentationRegistryProvider registrations={registrations}>
-							<PageRefreshContext.Provider value={runtime.pageRefresh}>
-								<PageContext.Provider value={runtime.page}>
-									<KernelShortcutForwarder runtime={runtime} />
-									<PluginRouter />
-								</PageContext.Provider>
-							</PageRefreshContext.Provider>
+							<PageContext.Provider value={runtime.page}>
+								<KernelShortcutForwarder runtime={runtime} />
+								<PluginRouter />
+							</PageContext.Provider>
 						</EntityPresentationRegistryProvider>
 					</RyotProvider>,
 				);

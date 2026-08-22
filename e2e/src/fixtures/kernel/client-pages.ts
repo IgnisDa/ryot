@@ -135,6 +135,231 @@ export default function Page() {
 }
 `;
 
+export const collectionWorkflowRendererSource = `
+import { Result, Schema } from "@ryot-app/client-sdk/effect";
+import { EntityResults, usePageContext, usePageRefresh } from "@ryot-app/client-sdk/plugin";
+import { createRyotMutation, createRyotQuery, useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
+import { and, ascending, column, defineRecipe, eq, groupAscending, join, literal, selectedAggregate, selectedField, selectedMeasure, selectedRows, table, type Recipe } from "@ryot-app/client-sdk/ryotql";
+import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
+import { Button, StatusMessage } from "@ryot-app/client-ui-sdk";
+import PokemonPicker from "@ryot-app/plugins/fixture/pokemon-picker";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
+
+const Settings = Schema.Struct({ collectionId: Schema.String, pageSize: Schema.Number });
+const Greeting = Schema.Struct({ greeting: Schema.String });
+type CollectionPageInput = {
+  readonly collectionId: string;
+  readonly pageSize: number;
+  readonly after: string | undefined;
+};
+type CollectionState = {
+  readonly depth: number;
+  readonly grouped: CollectionPageData["grouped"];
+  readonly items: CollectionPageData["members"]["items"];
+  readonly pageInfo: CollectionPageData["members"]["pageInfo"];
+};
+type RefreshReplay = {
+  readonly generation: number;
+  readonly targetDepth: number;
+  readonly pages: readonly CollectionPageData[];
+  readonly complete: () => void;
+};
+const syncStatus = (status: string): "pending" | "ready" | "none" =>
+  status === "pending" || status === "ready" ? status : "none";
+
+const collectionPageRecipe = defineRecipe((input: CollectionPageInput) => {
+  const membership = table("relationship", "collectionMembership");
+  const entity = table("entity", "collectionEntity");
+  const ownerPlugin = table("plugin", "ownerPlugin");
+  const joins = [
+    join("inner", entity, eq(column(membership, "sourceEntityId"), column(entity, "id"))),
+    join("left", ownerPlugin, eq(column(entity, "entitySchemaPluginId"), column(ownerPlugin, "id"))),
+  ];
+  const where = and(
+    eq(column(membership, "targetEntityId"), literal(input.collectionId)),
+    eq(column(membership, "relationshipSchemaSlug"), literal("member-of")),
+  );
+  return {
+    queries: {
+      members: selectedRows(membership, {
+        after: input.after,
+        joins,
+        where,
+        limit: input.pageSize,
+        orderBy: [ascending(column(entity, "name")), ascending(column(entity, "id"))],
+        selection: {
+          entityId: selectedField(column(entity, "id"), Schema.String),
+          name: selectedField(column(entity, "name"), Schema.NullOr(Schema.String)),
+          ownerPluginId: selectedField(column(entity, "entitySchemaPluginId"), Schema.NullOr(Schema.String)),
+          entitySchemaSlug: selectedField(column(entity, "entitySchemaSlug"), Schema.String),
+          populationStatus: selectedField(column(entity, "populationStatus"), Schema.String),
+          translationStatus: selectedField(column(entity, "translationStatus"), Schema.String),
+        },
+      }),
+      grouped: selectedAggregate(membership, {
+        joins,
+        where,
+        groupBy: {
+          ownerPluginId: selectedField(column(entity, "entitySchemaPluginId"), Schema.NullOr(Schema.String)),
+          ownerPluginName: selectedField(column(ownerPlugin, "name"), Schema.NullOr(Schema.String)),
+          ownerPluginSlug: selectedField(column(ownerPlugin, "slug"), Schema.NullOr(Schema.String)),
+          schemaSlug: selectedField(column(entity, "entitySchemaSlug"), Schema.String),
+        },
+        measures: { count: selectedMeasure({ function: "count" }, Schema.Number) },
+        orderBy: [groupAscending("ownerPluginId"), groupAscending("schemaSlug")],
+        limit: 100,
+      }),
+    },
+    map: ({ members, grouped }) => Result.succeed({
+      grouped: grouped.items,
+      members: {
+        ...members,
+        items: members.items.map((member) => ({
+          ...member,
+          populationStatus: syncStatus(member.populationStatus),
+          translationStatus: syncStatus(member.translationStatus),
+        })),
+      },
+    }),
+  };
+});
+
+type CollectionPageData = Recipe.Success<typeof collectionPageRecipe>;
+type CollectionQueryPage = { readonly input: string; readonly result: CollectionPageData };
+const collectionPageQuery = createRyotQuery<string, CollectionQueryPage>(async ({ client, input, signal }) => {
+  const [collectionId, pageSize, after] = JSON.parse(input) as [string, number, string | null, number];
+  return {
+    input,
+    result: await client.data.query(
+      collectionPageRecipe({ collectionId, pageSize, after: after ?? undefined }),
+      { signal },
+    ),
+  };
+});
+
+const schemaLabel = (group: CollectionPageData["grouped"][number]) => {
+  if (group.ownerPluginSlug === "fixture" && group.schemaSlug === "pokemon") return "Pokemon";
+  if (group.ownerPluginId === null && group.schemaSlug === "collection") return "Collections";
+  return group.ownerPluginName === null ? group.schemaSlug : group.ownerPluginName + " / " + group.schemaSlug;
+};
+
+const greetingMutation = createRyotMutation(({ client }) => client.operations.invoke({
+  slug: "greet",
+  input: { name: "Media collection page" },
+  output: Greeting,
+  pluginSlug: "fixture",
+}));
+
+const CollectionPage = ({ collectionId, pageSize }: typeof Settings.Type) => {
+  const [cursor, setCursor] = useState<string | undefined>(undefined);
+  const [generation, setGeneration] = useState(0);
+  const generationRef = useRef(0);
+  const [state, setState] = useState<CollectionState | undefined>(undefined);
+  const stateRef = useRef(state);
+  const appliedPages = useRef(new Set<string>());
+  const replay = useRef<RefreshReplay | undefined>(undefined);
+  const refresh = useEffectEvent(() => new Promise<void>((complete) => {
+    replay.current?.complete();
+    const next = ++generationRef.current;
+    replay.current = {
+      complete,
+      generation: next,
+      pages: [],
+      targetDepth: Math.max(1, stateRef.current?.depth ?? 1),
+    };
+    appliedPages.current.clear();
+    setCursor(undefined);
+    setGeneration(next);
+  }));
+  usePageRefresh(refresh);
+  useEffect(() => () => replay.current?.complete(), []);
+  const queryInput = JSON.stringify([collectionId, pageSize, cursor, generation]);
+  const page = useRyotQuery(collectionPageQuery, queryInput, { refreshOnMutation: false });
+  const greeting = useRyotMutation(greetingMutation);
+  useEffect(() => {
+    const response = page.data;
+    if (!response || response.input !== queryInput || appliedPages.current.has(response.input)) return;
+    appliedPages.current.add(response.input);
+    const currentReplay = replay.current;
+    if (currentReplay?.generation === generation) {
+      const pages = [...currentReplay.pages, response.result];
+      if (pages.length < currentReplay.targetDepth && response.result.members.pageInfo.hasMore) {
+        replay.current = { ...currentReplay, pages };
+        setCursor(response.result.members.pageInfo.nextCursor ?? undefined);
+        return;
+      }
+      const items = pages.flatMap(({ members }) => members.items);
+      currentReplay.complete();
+      replay.current = undefined;
+      setState({
+        depth: pages.length,
+        grouped: response.result.grouped,
+        items: [...new Map(items.map((item) => [item.entityId, item])).values()],
+        pageInfo: response.result.members.pageInfo,
+      });
+      return;
+    }
+    setState((current) => {
+      const items = current?.items ?? [];
+      const merged = [...new Map([...items, ...response.result.members.items].map((item) => [item.entityId, item])).values()];
+      return {
+        items: merged,
+        grouped: response.result.grouped,
+        pageInfo: response.result.members.pageInfo,
+        depth: (current?.depth ?? 0) + 1,
+      };
+    });
+  }, [generation, page.data, queryInput]);
+  useEffect(() => {
+    if (!page.isError || replay.current?.generation !== generation) return;
+    replay.current.complete();
+    replay.current = undefined;
+  }, [generation, page.isError]);
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+  const total = state?.grouped.reduce((sum, group) => sum + group.count, 0) ?? 0;
+  return (
+    <PluginScreenFrame title="Task 07 collection workflow">
+      <div className="flex flex-col gap-5 text-text">
+        <section aria-labelledby="collection-summary">
+          <h2 id="collection-summary" className="font-display text-xl">Collection summary</h2>
+          <p>{total} total</p>
+          {state?.grouped.map((group) => (
+            <p key={JSON.stringify([group.ownerPluginId, group.schemaSlug])}>{group.count} {schemaLabel(group)}</p>
+          ))}
+        </section>
+        {!state && page.status === "pending" ? <StatusMessage tone="pending">Loading collection...</StatusMessage> : null}
+        {page.status === "error" ? <StatusMessage tone="error">Collection failed to load.</StatusMessage> : null}
+        {state ? (
+          <>
+            <EntityResults layout="list" references={state.items} viewContext={{ collectionId }} />
+            {state.pageInfo.hasMore && state.pageInfo.nextCursor ? (
+              <Button type="button" variant="secondary" onClick={() => setCursor(state.pageInfo.nextCursor ?? undefined)}>
+                Load next page
+              </Button>
+            ) : null}
+          </>
+        ) : null}
+        <PokemonPicker />
+        <section aria-labelledby="fixture-greeting">
+          <h2 id="fixture-greeting" className="font-display text-lg">Fixture operation</h2>
+          <Button type="button" onClick={() => greeting.mutate()}>Invoke fixture greeting</Button>
+          {greeting.data ? <StatusMessage tone="success">{greeting.data.greeting}</StatusMessage> : null}
+        </section>
+      </div>
+    </PluginScreenFrame>
+  );
+};
+
+export default function Page() {
+  const decoded = Schema.decodeUnknownResult(Settings)(usePageContext().settings);
+  return Result.isFailure(decoded)
+    ? <StatusMessage tone="error">Invalid collection workflow settings.</StatusMessage>
+    : <CollectionPage {...decoded.success} />;
+}
+`;
+
 export const clientRendererSettingsSchema = {
 	unknownKeys: "strict",
 	fields: {
@@ -176,6 +401,35 @@ export const buildNamedDataSourcesRendererDefinition = () =>
 			{
 				path: "client/page.tsx",
 				content: encodeClientRendererSource(namedDataSourcesRendererSource),
+			},
+		],
+	});
+
+export const buildCollectionWorkflowRendererDefinition = () =>
+	buildClientRendererDefinition({
+		automaticEntityPresentations: true,
+		pluginDependencies: [PluginSlug.make("fixture")],
+		settingsSchema: {
+			unknownKeys: "strict",
+			fields: {
+				collectionId: {
+					type: "string",
+					label: "Collection ID",
+					validation: { minLength: 1, required: true },
+					description: "Collection displayed by the renderer",
+				},
+				pageSize: {
+					type: "integer",
+					label: "Page size",
+					description: "Collection entities displayed per page",
+					validation: { minimum: 1, maximum: 100, required: true },
+				},
+			},
+		},
+		files: [
+			{
+				path: "client/page.tsx",
+				content: encodeClientRendererSource(collectionWorkflowRendererSource),
 			},
 		],
 	});

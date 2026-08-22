@@ -1,4 +1,11 @@
 import {
+	CollectionResponse,
+	CreateCollectionBody,
+	CreateMembershipBody,
+	DeleteMembershipBody,
+	MembershipResponse,
+} from "@ryot-app/contract/modules/collections/schemas";
+import {
 	EntityUpdatedMessage,
 	MAX_INTEREST_ENTITY_IDS,
 } from "@ryot-app/contract/modules/entity-interest/messages";
@@ -23,9 +30,9 @@ import { Schema } from "effect";
 
 export { CLIENT_API_VERSION };
 export const CLIENT_ARTIFACT_FORMAT = 1 as const;
-export const CLIENT_COMPILER_VERSION = 4 as const;
+export const CLIENT_COMPILER_VERSION = 1 as const;
 export const CLIENT_BRIDGE_MAX_PENDING_REQUESTS = 64;
-export const CLIENT_BRIDGE_PROTOCOL_VERSION = 3 as const;
+export const CLIENT_BRIDGE_PROTOCOL_VERSION = 1 as const;
 
 export const KERNEL_SHORTCUTS = {
 	commandCenter: "Mod+K",
@@ -255,6 +262,30 @@ export const PluginBridgeNavigateBack = strictStruct({ type: Schema.Literal("nav
 
 export type PluginBridgeNavigateBack = Schema.Schema.Type<typeof PluginBridgeNavigateBack>;
 
+export const PluginBridgeOverlayState = strictStruct({
+	type: Schema.Literal("overlay-state"),
+	count: Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0))),
+});
+
+export type PluginBridgeOverlayState = Schema.Schema.Type<typeof PluginBridgeOverlayState>;
+
+export const PluginBridgeDismissOverlay = strictStruct({
+	requestId: Schema.String,
+	type: Schema.Literal("dismiss-overlay"),
+});
+
+export type PluginBridgeDismissOverlay = Schema.Schema.Type<typeof PluginBridgeDismissOverlay>;
+
+export const PluginBridgeDismissOverlayResult = strictStruct({
+	dismissed: Schema.Boolean,
+	requestId: Schema.String,
+	type: Schema.Literal("dismiss-overlay-result"),
+});
+
+export type PluginBridgeDismissOverlayResult = Schema.Schema.Type<
+	typeof PluginBridgeDismissOverlayResult
+>;
+
 export const PluginBridgeOpenDrawer = strictStruct({ type: Schema.Literal("open-drawer") });
 
 export type PluginBridgeOpenDrawer = Schema.Schema.Type<typeof PluginBridgeOpenDrawer>;
@@ -392,6 +423,7 @@ export const RyotClientErrorReason = Schema.Literals([
 	"protocol",
 	"transport",
 	"asset-failed",
+	"collection-failed",
 	"query-failed",
 	"invalid-input",
 	"operation-failed",
@@ -400,6 +432,69 @@ export const RyotClientErrorReason = Schema.Literals([
 ]);
 
 export type RyotClientErrorReason = Schema.Schema.Type<typeof RyotClientErrorReason>;
+
+export const PluginCollectionBridgeErrorReason = Schema.Literals([
+	"transport",
+	"collection-failed",
+	"malformed-result",
+]);
+
+export type PluginCollectionBridgeErrorReason = Schema.Schema.Type<
+	typeof PluginCollectionBridgeErrorReason
+>;
+
+const collectionRequestVariants = [
+	strictStruct({ action: Schema.Literal("create"), input: CreateCollectionBody }),
+	strictStruct({ action: Schema.Literal("upsert-membership"), input: CreateMembershipBody }),
+	strictStruct({ action: Schema.Literal("remove-membership"), input: DeleteMembershipBody }),
+] as const;
+
+export const PluginCollectionRequest = Schema.Union(collectionRequestVariants);
+
+export type PluginCollectionRequest = Schema.Schema.Type<typeof PluginCollectionRequest>;
+
+export const PluginBridgeCollectionRequest = Schema.Union(
+	collectionRequestVariants.map((variant) =>
+		strictStruct({
+			...variant.fields,
+			requestId: Schema.String,
+			type: Schema.Literal("collection-request"),
+		}),
+	),
+);
+
+export type PluginBridgeCollectionRequest = Schema.Schema.Type<
+	typeof PluginBridgeCollectionRequest
+>;
+
+const pluginCollectionSuccessFields = {
+	outcome: Schema.Literal("success"),
+	response: Schema.Union([CollectionResponse, MembershipResponse]),
+};
+
+const pluginCollectionFailureFields = {
+	reason: PluginCollectionBridgeErrorReason,
+	outcome: Schema.Literal("failure"),
+};
+
+const pluginBridgeCollectionResultFields = {
+	requestId: Schema.String,
+	type: Schema.Literal("collection-result"),
+};
+
+export const PluginCollectionOutcome = Schema.Union([
+	strictStruct(pluginCollectionSuccessFields),
+	strictStruct(pluginCollectionFailureFields),
+]);
+
+export type PluginCollectionOutcome = Schema.Schema.Type<typeof PluginCollectionOutcome>;
+
+export const PluginBridgeCollectionResult = Schema.Union([
+	strictStruct({ ...pluginCollectionSuccessFields, ...pluginBridgeCollectionResultFields }),
+	strictStruct({ ...pluginCollectionFailureFields, ...pluginBridgeCollectionResultFields }),
+]);
+
+export type PluginBridgeCollectionResult = Schema.Schema.Type<typeof PluginBridgeCollectionResult>;
 
 export const PluginManagedAssetResolution = strictStruct({
 	url: HttpUrl,
@@ -635,6 +730,7 @@ export type PluginBridgeEntityUpdated = Schema.Schema.Type<typeof PluginBridgeEn
 
 export const PluginBridgeClientMessage = Schema.Union([
 	PluginBridgeHeader,
+	PluginBridgeCollectionRequest,
 	PluginBridgeNavigate,
 	PluginBridgePageSearch,
 	PluginBridgeOpenDrawer,
@@ -643,12 +739,14 @@ export const PluginBridgeClientMessage = Schema.Union([
 	PluginBridgeAssetRequest,
 	PluginBridgeRyotQLCancel,
 	PluginBridgeNavigateBack,
+	PluginBridgeOverlayState,
 	PluginBridgeRyotQLRequest,
 	PluginBridgeUploadRequest,
 	PluginBridgeLifecycleClose,
 	PluginBridgeKernelShortcut,
 	PluginBridgeEntityInterest,
 	PluginBridgeOperationRequest,
+	PluginBridgeDismissOverlayResult,
 	PluginBridgeProviderSearchScreen,
 ]);
 
@@ -664,7 +762,9 @@ export const PluginBridgeHostMessage = Schema.Union([
 	PluginBridgeUploadResult,
 	PluginBridgeEntityUpdated,
 	PluginBridgeLifecycleClose,
+	PluginBridgeDismissOverlay,
 	PluginBridgeOperationResult,
+	PluginBridgeCollectionResult,
 ]);
 
 export type PluginBridgeHostMessage = Schema.Schema.Type<typeof PluginBridgeHostMessage>;

@@ -3,6 +3,7 @@ import type {
 	PluginPageSearchUpdate,
 	PluginBridgeProviderSearchScreen,
 } from "@ryot-app/client-plugin-contract";
+import { RyotClientError } from "@ryot-app/client-sdk";
 import { useRyot } from "@ryot-app/client-sdk/react";
 import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
 import { useNavigate, useRouteContext, useRouter, useRouterState } from "@tanstack/react-router";
@@ -15,6 +16,7 @@ import { ClientPageSessions, ClientPageSessionStale } from "#/modules/client-pag
 import { useScreenLeadingControl } from "#/modules/navigation/app-screen";
 import {
 	useClientPageScreen,
+	useClientPageOverlay,
 	useEdge,
 	usePluginHeader,
 	usePluginTitle,
@@ -44,7 +46,6 @@ export function mergePageSearch(current: string, update: PluginPageSearchUpdate)
 export function ClientPageHost(props: {
 	readonly title: string;
 	readonly inert?: boolean;
-	readonly pageRefreshToken?: number;
 	readonly prepared: PreparedClientPage;
 	readonly onProviderSearch?: (request: PluginBridgeProviderSearchScreen) => void;
 }) {
@@ -55,9 +56,10 @@ export function ClientPageHost(props: {
 	const chrome = useShellChrome();
 	const header = usePluginHeader();
 	const screen = useClientPageScreen();
+	const overlay = useClientPageOverlay();
 	const publishedTitle = usePluginTitle();
 	const chromeLeading = useScreenLeadingControl();
-	const { runtime, scope, theme } = useRouteContext({ from: "/_authenticated" });
+	const { backInterceptors, runtime, scope, theme } = useRouteContext({ from: "/_authenticated" });
 	const location = useRouterState({
 		select: (current) => current.resolvedLocation ?? current.location,
 	});
@@ -134,10 +136,11 @@ export function ClientPageHost(props: {
 		header.activate(owner);
 		screen.activate(owner);
 		return () => {
+			overlay.clear(owner);
 			screen.clear(owner);
 			header.clear(owner);
 		};
-	}, [header, owner, screen]);
+	}, [header, overlay, owner, screen]);
 
 	return (
 		<PluginFrame
@@ -150,17 +153,19 @@ export function ClientPageHost(props: {
 			sourceHash={identity.graphHash}
 			installationId={identity.buildId}
 			onOpenDrawer={chrome.onOpenDrawer}
+			backInterceptors={backInterceptors}
 			watchEntities={ryot.entities.watch}
 			artifactHash={identity.artifactHash}
 			chromeTriggerRef={chrome.triggerRef}
 			onRenewArtifactSession={renewSession}
 			onCreateArtifactSession={createSession}
 			onRevokeArtifactSession={revokeSession}
-			pageRefreshToken={props.pageRefreshToken}
+			mutationCompleted={ryot.mutationCompleted}
 			onKernelShortcut={chrome.onKernelShortcut}
 			onNavigateBack={() => router.history.back()}
 			onStaleSession={() => void router.invalidate()}
 			onScreenState={(state) => screen.publish(owner, state)}
+			onOverlayState={(count) => overlay.publish(owner, count)}
 			onHeader={(publication) => header.publish(owner, publication)}
 			artifactSessionScopeKey={`${scope.serverUrl}\0${scope.userId}`}
 			onProviderSearch={(request) => props.onProviderSearch?.(request)}
@@ -206,6 +211,27 @@ export function ClientPageHost(props: {
 					),
 					{ signal },
 				);
+			}}
+			onCollection={async (request) => {
+				try {
+					let response;
+					if (request.action === "create") {
+						response = await ryot.collections.create(request.input);
+					} else if (request.action === "upsert-membership") {
+						response = await ryot.collections.upsertMembership(request.input);
+					} else {
+						response = await ryot.collections.removeMembership(request.input);
+					}
+					return { outcome: "success" as const, response };
+				} catch (error) {
+					return {
+						outcome: "failure" as const,
+						reason:
+							error instanceof RyotClientError && error.reason === "collection-failed"
+								? "collection-failed"
+								: "transport",
+					};
+				}
 			}}
 		/>
 	);
