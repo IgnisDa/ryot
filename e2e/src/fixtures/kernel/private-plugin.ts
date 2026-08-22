@@ -7,6 +7,7 @@ import type { PluginArchivePackage } from "@ryot-app/plugin-archive";
 import { Effect } from "effect";
 
 import type { Client } from "./auth";
+import type { PluginPackageInput } from "./compiled-package";
 import { listInstalledPlugins } from "./plugins";
 import { pollUntil } from "./polling";
 import {
@@ -24,11 +25,9 @@ type UpdatePluginPayload = ContractPayload<"plugins", "update">;
 type PrivatePluginManifest = PluginManifest;
 const encoder = new TextEncoder();
 
-export type PrivatePluginPackage = {
+export type PrivatePluginPackage = PluginPackageInput & {
 	readonly operationSlug: string;
 	readonly pluginSlug: PluginSlug;
-	readonly manifest: PrivatePluginManifest;
-	readonly files: PluginArchivePackage["files"];
 };
 
 type PrivatePluginPackageInput = {
@@ -124,7 +123,7 @@ export const settledPrivateInstallation = (client: Client, pluginSlug: PluginSlu
 export const installPrivatePluginPackage = (input: {
 	readonly client: Client;
 	readonly baseUrl?: string;
-	readonly pluginPackage: PluginArchivePackage;
+	readonly pluginPackage: PluginPackageInput;
 	readonly config: InstallPluginPayload["config"];
 }) =>
 	Effect.gen(function* () {
@@ -161,9 +160,7 @@ export type PrivateBootstrapPluginPackage = {
 	readonly bootstrapSlug: string;
 	readonly operationSlug: string;
 	readonly pluginSlug: PluginSlug;
-	readonly manifest: PrivatePluginManifest;
-	readonly files: PluginArchivePackage["files"];
-};
+} & PluginPackageInput;
 
 export const privateBootstrapPluginPackage = (): PrivateBootstrapPluginPackage => {
 	const suffix = randomUUID();
@@ -242,13 +239,18 @@ export const updatePrivatePlugin = (input: {
 	readonly client: Client;
 	readonly baseUrl?: string;
 	readonly pluginSlug: PluginSlug;
-	readonly payload: Omit<UpdatePluginPayload, "uploadToken"> & PluginArchivePackage;
+	readonly payload: Omit<UpdatePluginPayload, "uploadToken"> & PluginPackageInput;
 }) =>
 	Effect.gen(function* () {
-		const { files, manifest, ...payload } = input.payload;
+		const { files, manifest, compiledClient, compiledScripts, ...payload } = input.payload;
 		const uploadToken = yield* uploadPrivatePluginPackage(
 			input.client,
-			{ files, manifest },
+			{
+				files,
+				manifest,
+				...(compiledScripts === undefined ? {} : { compiledScripts }),
+				...(compiledClient === undefined ? {} : { compiledClient }),
+			},
 			input.baseUrl,
 		);
 		return yield* input.client.call((c) =>

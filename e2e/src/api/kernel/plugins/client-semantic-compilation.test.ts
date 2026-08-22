@@ -1,60 +1,25 @@
 import { PluginSlug } from "@ryot-app/contract/schema/brands";
-import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { Effect } from "effect";
 
 import {
-	collectRyotQLRecipeItems,
 	createAuthenticatedClient,
 	fixtureClientPluginPackage,
-	fixtureClientPluginPackageWithSemanticFailure,
 	installPrivatePluginPackage,
 	settledPrivateInstallation,
 } from "~/fixtures/kernel";
-import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const uniquePluginSlug = (purpose: string) =>
 	PluginSlug.make(`e2e-client-${purpose}-${crypto.randomUUID()}`);
 
-describe("client plugin semantic compilation", () => {
-	it.live("rejects a fresh private plugin with semantically invalid client TSX", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const pluginSlug = uniquePluginSlug("semantic-invalid");
-			const pluginPackage = yield* fixtureClientPluginPackageWithSemanticFailure(pluginSlug);
-
-			const failure = yield* Effect.flip(
-				installPrivatePluginPackage({ client, config: {}, pluginPackage }),
-			);
-
-			assertTaggedError(failure, "PluginRequestError");
-			expect(failure).toMatchObject({
-				reason: {
-					code: "compilation-failed",
-					diagnostics: [
-						{
-							line: 1,
-							code: "TS2322",
-							phase: "compile",
-							severity: "error",
-							file: "client/index.tsx",
-						},
-					],
-				},
-			});
-			expect(
-				(yield* collectRyotQLRecipeItems(client, (after) =>
-					pluginInstallationsRecipe({ after, limit: 100 }),
-				)).map(({ slug }) => slug),
-			).not.toContain(pluginSlug);
-		}),
-	);
-
+describe("precompiled client plugin artifacts", () => {
 	it.live("installs a valid typed private client plugin through the upload path", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const pluginSlug = uniquePluginSlug("typed-valid");
 			const pluginPackage = yield* fixtureClientPluginPackage("A", "", pluginSlug);
+			expect(pluginPackage.compiledScripts.length).toBeGreaterThan(0);
+			expect(pluginPackage.compiledClient).toBeDefined();
 
 			yield* installPrivatePluginPackage({ client, config: {}, pluginPackage });
 			const installation = yield* settledPrivateInstallation(client, pluginSlug);

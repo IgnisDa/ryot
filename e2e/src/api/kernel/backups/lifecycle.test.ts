@@ -105,7 +105,7 @@ describe("backup lifecycle", () => {
 			const pluginSlug = createPluginScope(`backup-assets-${crypto.randomUUID()}`);
 			const schemaSlug = `backup-asset-${crypto.randomUUID()}`;
 			const scriptSlug = `${pluginSlug}.fixture`;
-			const entry = "scripts/fixture.sandbox.ts";
+			const entry = "backend/scripts/fixture.sandbox.ts";
 			const propertiesSchema = {
 				fields: {
 					title: { label: "Title", description: "Title", type: "string" as const },
