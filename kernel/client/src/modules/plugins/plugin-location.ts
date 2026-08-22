@@ -1,12 +1,9 @@
 import type {
 	PluginBridgeNavigate,
-	PluginLogicalLocation,
+	PluginRouteLocation,
 } from "@ryot-app/contract/modules/plugins/client";
 
-export type PluginNavigationRequest = {
-	readonly href: string;
-	readonly replace: boolean;
-};
+export type PluginNavigationRequest = { readonly href: string; readonly replace: boolean };
 
 const dotSegment = /^(?:\.|%2e)(?:\.|%2e)?$/i;
 const safeSearch = /^[\w\-.~!$&'()*+,;=:@%/?]*$/;
@@ -19,18 +16,22 @@ export function toPluginLocation(
 	pluginSlug: string,
 	pathname: string,
 	searchStr: string,
-): PluginLogicalLocation {
+): PluginRouteLocation {
 	const remainder = pathname.slice(`/${pluginSlug}`.length);
 	const path = remainder.startsWith("/") ? dropTrailingSlash(remainder) : "/";
-	return { path, search: searchStr.startsWith("?") ? searchStr.slice(1) : searchStr };
+	return {
+		path,
+		kind: "route",
+		search: searchStr.startsWith("?") ? searchStr.slice(1) : searchStr,
+	};
 }
 
-export function toGlobalHref(pluginSlug: string, location: PluginLogicalLocation) {
+export function toGlobalHref(pluginSlug: string, location: PluginRouteLocation) {
 	const search = location.search === "" ? "" : `?${location.search}`;
 	return `/${pluginSlug}${location.path === "/" ? "" : location.path}${search}`;
 }
 
-export function validatePluginLocation(location: PluginLogicalLocation) {
+export function validatePluginLocation(location: PluginRouteLocation) {
 	const path = dropTrailingSlash(location.path);
 	if (path.startsWith("//") || !safePath.test(path) || !safeSearch.test(location.search)) {
 		return undefined;
@@ -38,7 +39,7 @@ export function validatePluginLocation(location: PluginLogicalLocation) {
 	if (path.split("/").some((segment) => dotSegment.test(segment))) {
 		return undefined;
 	}
-	return { path, search: location.search } satisfies PluginLogicalLocation;
+	return { kind: "route", path, search: location.search } satisfies PluginRouteLocation;
 }
 
 export function toNavigationRequest(
