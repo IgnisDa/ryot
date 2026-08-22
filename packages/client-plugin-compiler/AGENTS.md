@@ -8,5 +8,5 @@ Rationale lives in `README.md`.
 - Restrict `shared/**` bare imports to the three plugin-kit neutral shims and relative imports to `shared/`. Keep this policy aligned with the sandbox compiler.
 - Inject the Tailwind entry once. Emit plugin CSS before inlined `theme.css` and `palette.css`, and leave shared cursor and focus rules to `theme.css`.
 - Keep `CLIENT_COMPILER_VERSION` at 1 unless format, client API, bridge, compiler, cache, and runtime consumers change together.
-- Hash `plugin.js`, `plugin.css`, and assets. Emit `index.html` last and exclude it from the hash it embeds.
+- Hash `plugin.js`, `plugin.css`, assets, and every variable `index.html` input, including the plugin name. Emit `index.html` last and exclude it from the hash it embeds.
 - Embed artifact identity in the compiler, never plugin source. Reuse cache only when all current artifact metadata matches; do not add stale fallback.
