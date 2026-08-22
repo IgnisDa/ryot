@@ -3,7 +3,7 @@ import { Schema } from "@ryot/client-sdk/effect";
 import { PluginLink } from "@ryot/client-sdk/plugin";
 import { useRyot } from "@ryot/client-sdk/react";
 import { Button, StatusMessage } from "@ryot/client-ui-sdk";
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 
 import logo from "./logo.svg";
 
@@ -34,6 +34,11 @@ type GreetingState =
 
 export const Home = () => {
 	const ryot = useRyot();
+	const theme = useSyncExternalStore(
+		ryot.theme.subscribe,
+		ryot.theme.getSnapshot,
+		ryot.theme.getSnapshot,
+	);
 	const [greetings, setGreetings] = useState(0);
 	const [requested, setRequested] = useState("Ryot");
 	const [greeting, setGreeting] = useState<GreetingState>({ status: "idle" });
@@ -56,11 +61,28 @@ export const Home = () => {
 	};
 
 	return (
-		<main className="flex flex-col items-center gap-4 p-8 text-text">
+		<main className="flex min-h-screen w-full flex-col items-center gap-4 bg-bg p-8 text-text">
 			<img alt="" src={logo} className="plugin-logo" />
 			<h1 className="font-display text-2xl">Fixture plugin</h1>
 			<p className="text-text-muted">Greeted {greetings} times.</p>
 			<Button onClick={() => setGreetings((count) => count + 1)}>Greet</Button>
+			<section
+				aria-labelledby="fixture-theme-title"
+				className="w-full max-w-md rounded-lg border border-border bg-surface p-4"
+			>
+				<h2 id="fixture-theme-title" className="font-display text-lg text-accent-text">
+					Theme snapshot
+				</h2>
+				<p role="status" aria-live="polite" className="text-sm text-text-muted">
+					Resolved mode: <strong className="text-accent-text">{theme.resolvedMode}</strong>
+				</p>
+				<StatusMessage className="mt-2" tone="success">
+					Semantic theme tokens synchronized.
+				</StatusMessage>
+				<div className="mt-3 rounded-md border border-accent bg-accent-soft p-3 text-sm text-text">
+					Accent surface with semantic border and primary text
+				</div>
+			</section>
 			<section
 				aria-labelledby="fixture-greeting-title"
 				className="flex flex-col items-center gap-2"

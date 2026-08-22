@@ -1,18 +1,54 @@
-import type {
-	PluginLogicalLocation,
-	PluginOperationOutcome,
-	PluginRyotQLOutcome,
+import {
+	PluginBridgeInit,
+	PluginThemeSnapshot,
+	REQUIRED_THEME_TOKEN_NAMES,
+	type PluginLogicalLocation,
+	type PluginOperationOutcome,
+	type PluginRyotQLOutcome,
 } from "@ryot/contract/modules/plugins/client";
 import type { PluginClientCatalogEntry } from "@ryot/ryotql-recipes/plugin-client-catalog";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
+import type { ThemeStore } from "../theme/store";
 import { PluginHost } from "./plugin-host";
 import type { PluginNavigationRequest } from "./plugin-location";
 
 const server = "https://ryot.example";
 const home: PluginLogicalLocation = { path: "/", search: "" };
 const artifactUrl = `${server}/api/plugins/artifacts/artifact-hash/index.html`;
+const themeSnapshot = (resolvedMode: "light" | "dark") =>
+	Schema.decodeUnknownSync(PluginThemeSnapshot)({
+		resolvedMode,
+		tokens: Object.fromEntries(
+			REQUIRED_THEME_TOKEN_NAMES.map((name) => [name, `${resolvedMode}-${name}`]),
+		),
+	});
+
+function createTheme() {
+	const listeners = new Set<() => void>();
+	let snapshot = themeSnapshot("light");
+	const theme: ThemeStore = {
+		destroy: () => undefined,
+		getSnapshot: () => snapshot,
+		getPreference: () => "light",
+		setPreference: () => undefined,
+		subscribe: (listener) => {
+			listeners.add(listener);
+			return () => listeners.delete(listener);
+		},
+	};
+	return {
+		theme,
+		setMode: (mode: "light" | "dark") => {
+			snapshot = themeSnapshot(mode);
+			for (const listener of listeners) {
+				listener();
+			}
+		},
+	};
+}
 
 const installation = {
 	slug: "fixture",
@@ -33,9 +69,11 @@ type HostState = {
 
 const renderHost = (overrides: Partial<PluginClientCatalogEntry> = {}, location = home) => {
 	const navigations: PluginNavigationRequest[] = [];
+	const { setMode, theme } = createTheme();
 	const host = (state: HostState) => (
 		<PluginHost
 			server={server}
+			theme={theme}
 			location={state.location}
 			installation={{ ...installation, ...state.overrides }}
 			onNavigate={(request) => navigations.push(request)}
@@ -48,7 +86,7 @@ const renderHost = (overrides: Partial<PluginClientCatalogEntry> = {}, location 
 		/>
 	);
 	const view = render(host({ location, overrides }));
-	return { navigations, moveTo: (next: HostState) => view.rerender(host(next)) };
+	return { setMode, navigations, moveTo: (next: HostState) => view.rerender(host(next)) };
 };
 
 describe("plugin host", () => {
@@ -59,7 +97,48 @@ describe("plugin host", () => {
 		expect(frame.getAttribute("src")).toBe(artifactUrl);
 		expect(frame.getAttribute("sandbox")).toBe("allow-scripts");
 		expect(frame.getAttribute("referrerpolicy")).toBe("no-referrer");
+		expect(frame.getAttribute("class")).toContain("hidden");
 		expect(screen.getByRole("status").textContent).toBe("Preparing this plugin...");
+	});
+
+	it("reveals after initial theme application and keeps the active frame for updates", async () => {
+		const { setMode } = renderHost();
+		const messages: unknown[] = [];
+		const frame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
+		let init: unknown;
+		let port: MessagePort | undefined;
+		Object.defineProperty(frame, "contentWindow", {
+			configurable: true,
+			value: {
+				postMessage: (message: unknown, _origin: string, transfer: Transferable[]) => {
+					init = message;
+					const [transferred] = transfer;
+					if (!(transferred instanceof MessagePort)) {
+						throw new Error("Missing plugin port");
+					}
+					port = transferred;
+					transferred.addEventListener("message", (event) => messages.push(event.data));
+					transferred.start();
+				},
+			},
+		});
+
+		fireEvent.load(frame);
+		if (!port) {
+			throw new Error("Plugin bridge did not connect");
+		}
+		port.postMessage(Schema.decodeUnknownSync(PluginBridgeInit)(init));
+		await waitFor(() => expect(messages).toHaveLength(1));
+		expect(frame.getAttribute("class")).toContain("hidden");
+
+		port.postMessage({ generation: 1, type: "theme-applied" });
+		await waitFor(() => expect(frame.getAttribute("class")).not.toContain("hidden"));
+		expect(screen.queryByRole("status")).toBeNull();
+
+		setMode("dark");
+		await waitFor(() => expect(messages).toHaveLength(3));
+		expect(messages[2]).toEqual({ generation: 2, type: "theme", theme: themeSnapshot("dark") });
+		expect(screen.getByTitle("fixture plugin")).toBe(frame);
 	});
 
 	it("keeps one iframe across logical location changes", () => {
