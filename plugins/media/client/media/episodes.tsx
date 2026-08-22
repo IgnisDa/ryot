@@ -18,7 +18,7 @@ import {
 } from "./episodes-state";
 import { ManagedAssetImage } from "./managed-assets";
 
-export type MediaEpisodeArtworkAspect = Extract<MediaArtworkAspect, "still" | "square">;
+type MediaEpisodeArtworkAspect = Extract<MediaArtworkAspect, "still" | "square">;
 
 export type MediaEpisodeRender<Episode extends MediaEpisode> = {
 	readonly aspect: MediaEpisodeArtworkAspect;

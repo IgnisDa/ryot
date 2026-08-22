@@ -68,7 +68,7 @@ export function MediaEntityTile(props: {
 	);
 }
 
-export function MediaRailFrame(props: {
+type MediaSectionFrameProps = {
 	readonly title: string;
 	readonly compact: boolean;
 	readonly divided?: boolean;
@@ -76,7 +76,11 @@ export function MediaRailFrame(props: {
 	readonly status: MediaRailStatus;
 	readonly children?: ReactNode;
 	readonly sync?: MediaSyncCounts | undefined;
-}) {
+};
+
+export function MediaSectionFrame(
+	props: MediaSectionFrameProps & { readonly placeholder: ReactNode },
+) {
 	const { status } = props;
 	return (
 		<MediaOverviewSection
@@ -86,22 +90,10 @@ export function MediaRailFrame(props: {
 			compact={props.compact}
 			divided={props.divided ?? false}
 		>
-			{status.kind === "ready" ? (
-				<MediaRail compact={props.compact}>{props.children}</MediaRail>
-			) : null}
+			{status.kind === "ready" ? props.children : null}
 			{status.kind === "pending" ? (
 				<div role="status" aria-label={`Loading ${props.title}`}>
-					<MediaRail compact={props.compact}>
-						{Array.from({ length: PENDING_TILE_COUNT }, (_, index) => (
-							<div
-								key={index}
-								className={clsx(
-									"animate-pulse rounded-lg bg-surface-2",
-									mediaArtworkClass({ layout: "rail", aspect: "poster", compact: props.compact }),
-								)}
-							/>
-						))}
-					</MediaRail>
+					{props.placeholder}
 				</div>
 			) : null}
 			{status.kind === "error" ? (
@@ -111,6 +103,29 @@ export function MediaRailFrame(props: {
 				</div>
 			) : null}
 		</MediaOverviewSection>
+	);
+}
+
+export function MediaRailFrame(props: MediaSectionFrameProps) {
+	return (
+		<MediaSectionFrame
+			{...props}
+			placeholder={
+				<MediaRail compact={props.compact}>
+					{Array.from({ length: PENDING_TILE_COUNT }, (_, index) => (
+						<div
+							key={index}
+							className={clsx(
+								"animate-pulse rounded-lg bg-surface-2",
+								mediaArtworkClass({ layout: "rail", aspect: "poster", compact: props.compact }),
+							)}
+						/>
+					))}
+				</MediaRail>
+			}
+		>
+			<MediaRail compact={props.compact}>{props.children}</MediaRail>
+		</MediaSectionFrame>
 	);
 }
 
