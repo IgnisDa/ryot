@@ -91,3 +91,54 @@ export const PluginBridgeNavigate = strictStruct({
 });
 
 export type PluginBridgeNavigate = Schema.Schema.Type<typeof PluginBridgeNavigate>;
+
+export const PluginOperationFailureReason = Schema.Literals(["transport", "operation-failed"]);
+
+export type PluginOperationFailureReason = Schema.Schema.Type<typeof PluginOperationFailureReason>;
+
+export const PluginBridgeOperationRequest = strictStruct({
+	requestId: Schema.String,
+	operationSlug: Schema.String,
+	input: Schema.optional(Schema.Unknown),
+	type: Schema.Literal("operation-request"),
+});
+
+export type PluginBridgeOperationRequest = Schema.Schema.Type<typeof PluginBridgeOperationRequest>;
+
+export type PluginOperationRequest = Pick<PluginBridgeOperationRequest, "input" | "operationSlug">;
+
+const pluginOperationSuccessFields = {
+	value: Schema.Unknown,
+	outcome: Schema.Literal("success"),
+};
+
+const pluginOperationFailureFields = {
+	reason: PluginOperationFailureReason,
+	outcome: Schema.Literal("failure"),
+};
+
+const pluginBridgeOperationResultFields = {
+	requestId: Schema.String,
+	type: Schema.Literal("operation-result"),
+};
+
+export const PluginOperationOutcome = Schema.Union([
+	strictStruct(pluginOperationSuccessFields),
+	strictStruct(pluginOperationFailureFields),
+]);
+
+export type PluginOperationOutcome = Schema.Schema.Type<typeof PluginOperationOutcome>;
+
+export const PluginBridgeOperationResult = Schema.Union([
+	strictStruct({ ...pluginOperationSuccessFields, ...pluginBridgeOperationResultFields }),
+	strictStruct({ ...pluginOperationFailureFields, ...pluginBridgeOperationResultFields }),
+]);
+
+export type PluginBridgeOperationResult = Schema.Schema.Type<typeof PluginBridgeOperationResult>;
+
+export const PluginBridgeClientMessage = Schema.Union([
+	PluginBridgeNavigate,
+	PluginBridgeOperationRequest,
+]);
+
+export type PluginBridgeClientMessage = Schema.Schema.Type<typeof PluginBridgeClientMessage>;
