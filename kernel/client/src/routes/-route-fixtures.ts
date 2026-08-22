@@ -18,6 +18,7 @@ import { AuthService } from "#/modules/auth/service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 import { GodModeService } from "#/modules/god-mode/service";
 import { GodModeSessionService, makeGodModeSessionService } from "#/modules/god-mode/session";
+import { ProviderAddService } from "#/modules/provider-add/service";
 import { SavedViewsService } from "#/modules/saved-views/service";
 import { ServerService } from "#/modules/server/service";
 import type { ThemeStore } from "#/modules/theme/store";
@@ -171,6 +172,15 @@ export const SavedViewRouteStubs = Layer.mergeAll(
 	}),
 );
 
+export const ProviderAddRouteStubs = Layer.succeed(ProviderAddService, {
+	search: () => Effect.die("not used"),
+	pollImport: () => Effect.die("not used"),
+	startImport: () => Effect.die("not used"),
+	loadProviders: () => Effect.die("not used"),
+	loadEntityLinks: () => Effect.die("not used"),
+	loadSearchOptions: () => Effect.die("not used"),
+});
+
 export type WorkspaceStorageRecorder = {
 	readonly getScopes: ApiScope[];
 	readonly popupOpenWhenSet: boolean[];
@@ -194,8 +204,10 @@ export const makeStorageStub = (
 		setServerSelection: () => Effect.void,
 		setSavedViewLayout: () => Effect.void,
 		setThemePreference: () => Effect.void,
+		setRememberedProvider: () => Effect.void,
 		getServerSelection: Effect.succeed(server),
 		getThemePreference: Effect.succeed("system" as const),
+		getRememberedProvider: () => Effect.succeed(null),
 		getSavedViewLayout: () => Effect.succeed("grid" as const),
 		getLastWorkspace: (scope) =>
 			Effect.sync(() => {
