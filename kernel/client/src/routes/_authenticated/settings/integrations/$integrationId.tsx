@@ -2,7 +2,10 @@ import { useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
 import { Button, Menu, type MenuItem } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { useSchemaForm, type SchemaFormValues } from "@ryot-app/client-ui-sdk/schema-form";
-import { IntegrationNotFoundError } from "@ryot-app/contract/modules/integrations/schemas";
+import {
+	IntegrationNotFoundError,
+	type ListedIntegration,
+} from "@ryot-app/contract/modules/integrations/schemas";
 import { IntegrationId } from "@ryot-app/contract/schema/brands";
 import { createFileRoute, notFound, useRouter } from "@tanstack/react-router";
 import { Effect } from "effect";
@@ -10,6 +13,8 @@ import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "rea
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { IntegrationsApi } from "#/api/integrations";
+import { AuthService } from "#/modules/auth/service";
+import { DEMO_PROTECTION_MESSAGE } from "#/modules/demo-protection";
 import { IntegrationDetailView } from "#/modules/integrations/integration-detail-view";
 import { storedIntegrationFormValues, updateIntegrationBody } from "#/modules/integrations/payload";
 import {
@@ -51,6 +56,10 @@ export const Route = createFileRoute("/_authenticated/settings/integrations/$int
 			// oxlint-disable-next-line typescript/only-throw-error
 			throw notFound();
 		}
+		const session = context.runtime.runSync(AuthService).session(context.server).getSnapshot();
+		if (session.status === "authenticated" && session.accessClass === "demo") {
+			return { access: "demo" as const };
+		}
 		const outcome = await context.runtime.runPromise(
 			Effect.flatMap(IntegrationsApi, (api) =>
 				api.get(context.scope, { params: { integrationId: IntegrationId.make(trimmed) } }),
@@ -66,7 +75,7 @@ export const Route = createFileRoute("/_authenticated/settings/integrations/$int
 			// oxlint-disable-next-line typescript/only-throw-error
 			throw isNotFound(outcome.failure) ? notFound() : outcome.failure;
 		}
-		return { integration: outcome.integration };
+		return { access: "standard" as const, integration: outcome.integration };
 	},
 });
 
@@ -89,18 +98,37 @@ function IntegrationFrame(props: {
 }
 
 function IntegrationDetailRoute() {
+	const loaded = Route.useLoaderData();
+	if (loaded.access === "demo") {
+		return <DemoIntegrationDetail />;
+	}
+	return <StandardIntegrationDetail integration={loaded.integration} />;
+}
+
+function DemoIntegrationDetail() {
+	return (
+		<IntegrationFrame title="Integration">
+			<StatusState
+				detail={DEMO_PROTECTION_MESSAGE}
+				title="Integration configuration unavailable"
+				className="rounded-xl border border-border bg-surface p-6"
+			/>
+		</IntegrationFrame>
+	);
+}
+
+function StandardIntegrationDetail(props: { readonly integration: ListedIntegration }) {
 	const router = useRouter();
 	const navigate = Route.useNavigate();
-	const loaded = Route.useLoaderData();
 	const uploadFile = useSchemaFileUpload();
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [activeIndex, setActiveIndex] = useState(0);
 	const menuTrigger = useRef<HTMLButtonElement>(null);
 	const [isConfirming, setIsConfirming] = useState(false);
 	const [deleteFailed, setDeleteFailed] = useState(false);
-	const detail = useRyotQuery(integrationDetailQuery, loaded.integration.id);
+	const detail = useRyotQuery(integrationDetailQuery, props.integration.id);
 	const providers = useRyotQuery(integrationProvidersQuery);
-	const integration = detail.data ?? loaded.integration;
+	const integration = detail.data ?? props.integration;
 	const runs = useRyotQuery(integrationRunsQuery, integration.id);
 	const update = useRyotMutation(updateIntegrationMutation);
 	const remove = useRyotMutation(deleteIntegrationMutation);

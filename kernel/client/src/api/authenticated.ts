@@ -1,15 +1,19 @@
-import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
+import { AuthUnauthorized, DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import { runContract, type ContractProgram } from "@ryot-app/contract/client";
 import { Context, Data, Effect, Layer } from "effect";
 
 import { serverApiUrl } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
-import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 
 export class AuthenticatedApiError extends Data.TaggedError("AuthenticatedApiError")<{
 	readonly cause: unknown;
 }> {}
+
+export const isDemoOperationProtectedError = (
+	error: unknown,
+): error is AuthenticatedApiError & { readonly cause: DemoOperationProtected } =>
+	error instanceof AuthenticatedApiError && error.cause instanceof DemoOperationProtected;
 
 export type AuthenticatedApiService = {
 	readonly run: <A, E>(
@@ -23,12 +27,10 @@ export type AuthenticatedApiService = {
 
 export const makeAuthenticatedApi = (
 	tokens: OAuthTokenService["Service"],
-	runtimeClient: RuntimeOAuthClientService["Service"],
 ): AuthenticatedApiService => ({
 	authorization: (scope: ApiScope) =>
 		Effect.gen(function* () {
-			const { clientId } = yield* runtimeClient.forServer(scope.serverUrl);
-			const token = yield* tokens.accessToken(scope.serverUrl, clientId);
+			const token = yield* tokens.accessToken(scope.serverUrl);
 			const headers: Record<string, string> = {};
 			if (token !== null) {
 				headers.Authorization = `Bearer ${token}`;
@@ -37,12 +39,9 @@ export const makeAuthenticatedApi = (
 		}).pipe(Effect.mapError((cause) => new AuthenticatedApiError({ cause }))),
 	run: <A, E>(scope: ApiScope, program: ContractProgram<A, E>) =>
 		Effect.gen(function* () {
-			const { clientId } = yield* runtimeClient
-				.forServer(scope.serverUrl)
-				.pipe(Effect.mapError((cause) => new AuthenticatedApiError({ cause })));
 			const attempt = (forceRefresh: boolean) =>
 				Effect.gen(function* () {
-					const token = yield* tokens.accessToken(scope.serverUrl, clientId, forceRefresh);
+					const token = yield* tokens.accessToken(scope.serverUrl, forceRefresh);
 					return yield* Effect.tryPromise({
 						catch: (cause) => new AuthenticatedApiError({ cause }),
 						try: (signal) =>
@@ -72,7 +71,7 @@ export class AuthenticatedApi extends Context.Service<AuthenticatedApi, Authenti
 	"AuthenticatedApi",
 	{
 		make: Effect.gen(function* () {
-			return makeAuthenticatedApi(yield* OAuthTokenService, yield* RuntimeOAuthClientService);
+			return makeAuthenticatedApi(yield* OAuthTokenService);
 		}),
 	},
 ) {

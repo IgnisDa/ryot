@@ -43,20 +43,21 @@ const authoredManifest = definePlugin({
 			scriptSlug: "provider.test.preload",
 		},
 	],
-	operations: [
-		{
-			auth: "user",
-			slug: "resolve.test",
-			scriptSlug: "operation.test",
-			description: "Resolve test references",
-		},
-	],
 	crons: [
 		{
 			slug: "refresh.test",
 			scriptSlug: "automation.test",
 			schedule: { cron: "0 * * * *" },
 			description: "Refresh test data",
+		},
+	],
+	operations: [
+		{
+			auth: "user",
+			slug: "resolve.test",
+			demoAccess: "allowed",
+			scriptSlug: "operation.test",
+			description: "Resolve test references",
 		},
 	],
 	signalSchemas: [
@@ -853,6 +854,38 @@ describe("definePlugin", () => {
 		const operationScript = Schema.decodeUnknownSync(PluginManifest)(manifest).scripts[1];
 		assert(operationScript);
 		expect(operationScript.kind).toBe("operation");
+		expect(operation).toMatchObject({ auth: "user", demoAccess: "allowed" });
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				operations: [{ ...operation, demoAccess: undefined }],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				operations: [{ ...operation, demoAccess: "invalid" }],
+			}),
+		).toThrow();
+		expect(() =>
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				operations: [{ ...operation, auth: "integration", demoAccess: "allowed" }],
+			}),
+		).toThrow();
+		expect(
+			Schema.decodeUnknownSync(PluginManifest)({
+				...manifest,
+				operations: [
+					{
+						auth: "integration",
+						slug: operation.slug,
+						scriptSlug: operation.scriptSlug,
+						description: operation.description,
+					},
+				],
+			}).operations[0],
+		).not.toHaveProperty("demoAccess");
 		expect(() =>
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,

@@ -2,6 +2,7 @@ import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
+import { DemoAccessPolicy } from "../../http-annotations";
 import {
 	CompleteUploadResponse,
 	DownloadResolutionInput,
@@ -24,21 +25,27 @@ export const UploadsGroup = HttpApiGroup.make("uploads")
 			error: uploadErrors,
 			payload: UploadIntentInput,
 			success: UploadIntentResponse,
-		}).annotate(OpenApi.Description, "Creates a provider-neutral upload intent"),
+		})
+			.annotate(DemoAccessPolicy, "allowed")
+			.annotate(OpenApi.Description, "Creates a provider-neutral upload intent"),
 	)
 	.add(
 		HttpApiEndpoint.post("completeIntent", "/uploads/intents/:intentId/complete", {
 			error: uploadErrors,
 			success: CompleteUploadResponse,
 			params: { intentId: Schema.String },
-		}).annotate(OpenApi.Description, "Completes an upload intent"),
+		})
+			.annotate(DemoAccessPolicy, "allowed")
+			.annotate(OpenApi.Description, "Completes an upload intent"),
 	)
 	.add(
 		HttpApiEndpoint.post("resolveDownloads", "/uploads/downloads", {
 			error: uploadErrors,
 			payload: DownloadResolutionInput,
 			success: DownloadResolutionResponse,
-		}).annotate(OpenApi.Description, "Resolves download URLs for stored files"),
+		})
+			.annotate(DemoAccessPolicy, "allowed")
+			.annotate(OpenApi.Description, "Resolves download URLs for stored files"),
 	)
 	.middleware(AuthMiddleware);
 

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "@effect/vitest";
-import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
+import {
+	AuthRateLimited,
+	AuthUnauthorized,
+	DemoOperationProtected,
+} from "@ryot-app/contract/auth-middleware";
 import type {
 	ContractPathParams,
 	ContractPayload,
@@ -101,6 +105,7 @@ describe("plugin operations service", () => {
 	const declaredFailures = [
 		new AuthUnauthorized({ reason: { code: "authentication-required" } }),
 		new AuthRateLimited({ reason: { retryAfterMs: null, code: "api-key-rate-limited" } }),
+		new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
 		new PluginNotFoundError({
 			reason: { code: "plugin-not-found", pluginSlug: PluginSlug.make("fixture") },
 		}),

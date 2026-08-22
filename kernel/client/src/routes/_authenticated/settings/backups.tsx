@@ -15,6 +15,7 @@ import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "rea
 
 import { backupArchiveFileName, BackupsApi } from "#/api/backups";
 import type { KernelHostServices } from "#/host-services";
+import { AuthService } from "#/modules/auth/service";
 import {
 	BACKUP_LOAD_ERROR,
 	BackupsView,
@@ -27,6 +28,7 @@ import {
 } from "#/modules/backups/presentation";
 import { BackupRestoreWizard } from "#/modules/backups/restore-wizard";
 import { saveBackupArchive } from "#/modules/backups/save-archive";
+import { DEMO_PROTECTION_MESSAGE, useIsDemoSession } from "#/modules/demo-protection";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
 import { DestructiveConfirmation } from "#/modules/ui/destructive-confirmation";
 import { LoadErrorState } from "#/modules/ui/load-error-state";
@@ -92,6 +94,24 @@ function BackupsFrame(props: { readonly children: ReactNode }) {
 }
 
 function BackupsRoute() {
+	const { server, runtime } = Route.useRouteContext();
+	const isDemo = useIsDemoSession(runtime.runSync(AuthService).session(server));
+	return isDemo ? <BackupsDemoProtected /> : <BackupsStandard />;
+}
+
+function BackupsDemoProtected() {
+	return (
+		<BackupsFrame>
+			<StatusState
+				className="py-16"
+				title="Backups are unavailable"
+				detail={DEMO_PROTECTION_MESSAGE}
+			/>
+		</BackupsFrame>
+	);
+}
+
+function BackupsStandard() {
 	const navigate = Route.useNavigate();
 	const { restore } = Route.useSearch();
 	const query = useRyotQuery(backupRunsQuery);

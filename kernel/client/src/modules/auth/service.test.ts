@@ -14,6 +14,7 @@ const userInfoResponse = {
 	sub: "user-1",
 	name: "Test User",
 	email: "user@example.com",
+	accessClass: "standard" as const,
 	picture: "https://example.com/avatar.png",
 };
 
@@ -80,6 +81,7 @@ describe("authentication service", () => {
 			expect(session.getSnapshot()).toEqual({ status: "pending" });
 
 			expect(yield* auth.settledSession(equivalentOrigin)).toEqual({
+				accessClass: "standard",
 				user: authenticatedUser,
 				status: "authenticated",
 			});
@@ -101,6 +103,25 @@ describe("authentication service", () => {
 			const auth = yield* AuthService;
 			expect(yield* auth.settledSession(origin)).toEqual({ status: "missing" });
 		}).pipe(Effect.provide(authLayer(makeTokens()))),
+	);
+
+	it.effect("exposes demo access from the stored OAuth client", () =>
+		Effect.gen(function* () {
+			const auth = yield* AuthService;
+			expect(yield* auth.settledSession(origin)).toMatchObject({
+				accessClass: "demo",
+				status: "authenticated",
+			});
+		}).pipe(
+			Effect.provide(
+				authLayer(
+					makeTokens({
+						accessToken: () => Effect.succeed("access-1"),
+						userInfo: () => Effect.succeed({ ...userInfoResponse, accessClass: "demo" }),
+					}),
+				),
+			),
+		),
 	);
 
 	it.effect("resolves UserInfo once and serves later navigations from the settled snapshot", () => {
@@ -230,6 +251,7 @@ describe("authentication service", () => {
 
 			offline = true;
 			expect(yield* auth.settledSession(origin)).toEqual({
+				accessClass: "standard",
 				status: "authenticated",
 				user: authenticatedUser,
 			});
@@ -308,24 +330,21 @@ describe("authentication service", () => {
 		);
 	});
 
-	it.effect("uses the native client descriptor for session restoration and logout", () => {
-		const calls: Array<{ readonly clientId: string; readonly logoutUri?: string }> = [];
+	it.effect("uses the native callback descriptor for logout", () => {
+		const calls: string[] = [];
 		return Effect.gen(function* () {
 			const auth = yield* AuthService;
 			yield* auth.settledSession(origin);
 			expect(yield* auth.signOut(origin)).toBe(false);
-			expect(calls).toEqual([
-				{ clientId: "ryot-native" },
-				{ clientId: "ryot-native", logoutUri: "io.ryot.app:/auth/logout/callback" },
-			]);
+			expect(calls).toEqual(["io.ryot.app:/auth/logout/callback"]);
 		}).pipe(
 			Effect.provide(
 				authLayer(
 					makeTokens({
-						accessToken: (_server, clientId) => Effect.sync(() => (calls.push({ clientId }), null)),
-						logout: (_server, clientId, logoutUri) =>
+						accessToken: () => Effect.succeed(null),
+						logout: (_server, logoutUri) =>
 							Effect.sync(() => {
-								calls.push({ clientId, logoutUri });
+								calls.push(logoutUri);
 								return null;
 							}),
 					}),

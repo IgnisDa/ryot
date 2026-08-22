@@ -38,7 +38,7 @@ type Exchange = {
 	readonly code: string;
 	readonly state: string;
 	readonly origin: string;
-	readonly clientId: string;
+	readonly clientIds: readonly string[];
 	readonly redirectUri: string;
 };
 
@@ -55,22 +55,41 @@ const pending = (destination = "/") => ({
 
 const mountCallback = (
 	initialEntry: string | readonly string[],
-	options: { readonly destination?: string; readonly fail?: boolean } = {},
+	options: {
+		readonly destination?: string;
+		readonly fail?: boolean;
+		readonly native?: boolean;
+	} = {},
 ) => {
 	const exchanges: Exchange[] = [];
 	const rejected: string[] = [];
-	const oauth = makeOAuthRouteStubs({
-		rejectAuthorization: (_origin, state) =>
-			Effect.sync(() => rejected.push(state)).pipe(
-				Effect.andThen(Effect.fail(new OAuthTokenError({ reason: "authorization-rejected" }))),
-			),
-		completeAuthorization: (origin, clientId, redirectUri, state, code) => {
-			exchanges.push({ code, state, origin, clientId, redirectUri });
-			return options.fail
-				? Effect.fail(new OAuthTokenError({ reason: "missing-authorization" }))
-				: Effect.succeed(pending(options.destination));
+	const oauth = makeOAuthRouteStubs(
+		{
+			rejectAuthorization: (_origin, state) =>
+				Effect.sync(() => rejected.push(state)).pipe(
+					Effect.andThen(Effect.fail(new OAuthTokenError({ reason: "authorization-rejected" }))),
+				),
+			completeAuthorization: (origin, clientIds, redirectUri, state, code) => {
+				exchanges.push({ code, state, origin, clientIds, redirectUri });
+				return options.fail
+					? Effect.fail(new OAuthTokenError({ reason: "missing-authorization" }))
+					: Effect.succeed(pending(options.destination));
+			},
 		},
-	});
+		{},
+		options.native
+			? {
+					isNative: true,
+					forServer: () =>
+						Effect.succeed({
+							clientId: "ryot-native",
+							nativeApplicationId: "io.ryot.app",
+							callbackUri: "io.ryot.app:/auth/callback",
+							logoutUri: "io.ryot.app:/auth/logout/callback",
+						}),
+				}
+			: {},
+	);
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
 			ProviderAddRouteStubs,
@@ -123,8 +142,8 @@ describe("OAuth callback", () => {
 			{
 				code: "code-1",
 				state: "state",
-				clientId: "ryot-web",
 				origin: window.location.origin,
+				clientIds: ["ryot-web", "ryot-demo-web"],
 				redirectUri: `${window.location.origin}/auth/callback`,
 			},
 		]);
@@ -136,6 +155,22 @@ describe("OAuth callback", () => {
 		const { router } = mountCallback("/auth/callback?code=code-1&state=spent", { fail: true });
 		await screen.findByText("Could not complete sign-in");
 		expect(router.state.location.pathname).toBe("/auth/callback");
+	});
+
+	it("permits only the native client and registered redirect on native", async () => {
+		const { router, exchanges } = mountCallback("/auth/callback?code=code-1&state=state", {
+			native: true,
+		});
+		await settledPath(router);
+		expect(exchanges).toEqual([
+			{
+				code: "code-1",
+				state: "state",
+				origin: server,
+				clientIds: ["ryot-native"],
+				redirectUri: "io.ryot.app:/auth/callback",
+			},
+		]);
 	});
 
 	it("consumes an authorization error by state", async () => {

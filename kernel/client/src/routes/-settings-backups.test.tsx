@@ -19,6 +19,7 @@ import { getRouter } from "#/router";
 import {
 	theme,
 	catalog,
+	authenticated,
 	ServerStub,
 	makeAuthStub,
 	OAuthRouteStubs,
@@ -39,8 +40,6 @@ import {
 } from "#/routes/-route-fixtures";
 
 const HOUR_MS = 3_600_000;
-
-const AuthStub = makeAuthStub();
 
 const nowMs = Date.now();
 
@@ -89,6 +88,7 @@ const mountView = (
 	initialEntry: string,
 	backupsApi: Layer.Layer<BackupsApi> = makeBackupsApi(),
 	uploadsApi: Layer.Layer<UploadsApi> = makeUploadsApi(),
+	auth = makeAuthStub(),
 ) => {
 	const events = makePluginCatalogEventsTestLayer();
 	const runtime = ManagedRuntime.make(
@@ -98,7 +98,7 @@ const mountView = (
 			IntegrationRouteStubs,
 			NotificationChannelRouteStubs,
 			NotificationChannelRouteStubs,
-			AuthStub,
+			auth,
 			GodModeRouteStubs,
 			ServerStub,
 			SavedViewRouteStubs,
@@ -181,6 +181,29 @@ afterEach(() => {
 });
 
 describe("backups list", () => {
+	it("renders the protected demo state without starting the backup query", async () => {
+		let loads = 0;
+		mountView(
+			"/settings/backups",
+			makeBackupsApi({
+				listRuns: () => {
+					loads += 1;
+					return Effect.succeed({ items: [] });
+				},
+			}),
+			makeUploadsApi(),
+			makeAuthStub({}, { ...authenticated, accessClass: "demo" }),
+		);
+
+		await screen.findByText("Backups are unavailable");
+		expect(
+			screen.getByText("This operation is unavailable while using the shared demo account."),
+		).toBeTruthy();
+		expect(screen.queryByRole("button", { name: "Create a backup" })).toBeNull();
+		expect(screen.queryByRole("button", { name: "Restore from a backup" })).toBeNull();
+		expect(loads).toBe(0);
+	});
+
 	it("shows the ordinary pending state while the query is unresolved", async () => {
 		let complete!: (value: { readonly items: readonly BackupRun[] }) => void;
 		mountView(

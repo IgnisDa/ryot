@@ -32,6 +32,7 @@ const workspace = (
 
 const snapshot = {
 	status: "authenticated",
+	accessClass: "standard",
 	user: { image: null, id: "user-1", name: "Test User", email: "user@ryot.test" },
 } as const;
 

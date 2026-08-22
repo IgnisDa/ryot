@@ -17,6 +17,7 @@ const session = (initial: AuthSessionSnapshot): AuthSessionStore => {
 
 const authenticated: AuthSessionSnapshot = {
 	status: "authenticated",
+	accessClass: "standard",
 	user: { image: null, id: "user-1", name: "Ada Lovelace", email: "ada@ryot.example" },
 };
 
@@ -29,6 +30,7 @@ describe("account summary", () => {
 				onNavigate={() => undefined}
 				session={session({
 					status: "authenticated",
+					accessClass: "standard",
 					user: {
 						id: "user-1",
 						name: "Ada Lovelace",

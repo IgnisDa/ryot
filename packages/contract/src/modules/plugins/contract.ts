@@ -1,7 +1,13 @@
 import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
-import { AuthMiddleware, AuthRateLimited, AuthUnauthorized } from "../../auth-middleware";
+import {
+	AuthMiddleware,
+	AuthRateLimited,
+	AuthUnauthorized,
+	DemoOperationProtected,
+} from "../../auth-middleware";
+import { DemoAccessPolicy } from "../../http-annotations";
 import { PluginSlug, UserId } from "../../schema/brands";
 import {
 	InstallPluginBody,
@@ -56,10 +62,12 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 				PluginRequestError.pipe(HttpApiSchema.status(400)),
 				PluginConflictError.pipe(HttpApiSchema.status(409)),
 			],
-		}).annotate(
-			OpenApi.Description,
-			"Validates, compiles, and installs a private plugin from a manifest, source file map, and initial config.",
-		),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(
+				OpenApi.Description,
+				"Validates, compiles, and installs a private plugin from a manifest, source file map, and initial config.",
+			),
 	)
 	.add(
 		HttpApiEndpoint.put("update", "/plugins/:pluginSlug", {
@@ -71,10 +79,12 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 				PluginNotFoundError.pipe(HttpApiSchema.status(404)),
 				PluginConflictError.pipe(HttpApiSchema.status(409)),
 			],
-		}).annotate(
-			OpenApi.Description,
-			"Validates, compiles, and atomically replaces the caller's private plugin package.",
-		),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(
+				OpenApi.Description,
+				"Validates, compiles, and atomically replaces the caller's private plugin package.",
+			),
 	)
 	.add(
 		HttpApiEndpoint.delete("uninstall", "/plugins/:pluginSlug", {
@@ -84,10 +94,12 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 				PluginConflictError.pipe(HttpApiSchema.status(409)),
 				PluginNotFoundError.pipe(HttpApiSchema.status(404)),
 			],
-		}).annotate(
-			OpenApi.Description,
-			"Uninstalls the caller's private plugin unless a workflow or persistent resource still references it.",
-		),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(
+				OpenApi.Description,
+				"Uninstalls the caller's private plugin unless a workflow or persistent resource still references it.",
+			),
 	)
 	.add(
 		HttpApiEndpoint.put("setHomeView", "/plugins/:pluginSlug/home-view", {
@@ -98,7 +110,9 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 				PluginRequestError.pipe(HttpApiSchema.status(400)),
 				PluginNotFoundError.pipe(HttpApiSchema.status(404)),
 			],
-		}).annotate(OpenApi.Description, "Sets or clears the caller's plugin home saved view."),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Sets or clears the caller's plugin home saved view."),
 	)
 	.middleware(AuthMiddleware)
 	.add(
@@ -108,6 +122,7 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 			params: { pluginSlug: PluginSlug, operationSlug: Schema.String },
 			error: [
 				AuthUnauthorized.pipe(HttpApiSchema.status(401)),
+				DemoOperationProtected.pipe(HttpApiSchema.status(403)),
 				PluginConflictError.pipe(HttpApiSchema.status(409)),
 				PluginNotFoundError.pipe(HttpApiSchema.status(404)),
 				PluginRequestError.pipe(HttpApiSchema.status(400)),
