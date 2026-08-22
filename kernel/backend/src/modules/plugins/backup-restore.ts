@@ -10,6 +10,7 @@ import {
 	definitionSourceFromSnapshot,
 	type DefinitionSnapshot,
 } from "#modules/definition-registry/service";
+import { ClientPluginCompiler } from "#modules/sandbox/client-compiler";
 
 import { PluginIngestionLock } from "./ingestion-lock";
 import { mergeManifestDefinitions } from "./loader";
@@ -37,8 +38,9 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 	{
 		make: Effect.gen(function* () {
 			const plugins = yield* PluginRepository;
-			const ingestionLock = yield* PluginIngestionLock;
 			const definitions = yield* DefinitionRegistry;
+			const ingestionLock = yield* PluginIngestionLock;
+			const clientCompiler = yield* ClientPluginCompiler;
 
 			const prepare = Effect.fn("PluginBackupRestore.prepare")(function* (
 				packages: ReadonlyArray<V2PrivatePlugin>,
@@ -73,17 +75,20 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 					);
 					yield* asInvalidBackup(validatePluginSourcePaths(item.files, manifest.scripts));
 					const normalized = yield* asInvalidBackup(
-						compilePluginPackage({ files: item.files, manifest, sourceHash: item.sourceHash }),
+						compilePluginPackage({ files: item.files, manifest, sourceHash: item.sourceHash }).pipe(
+							Effect.provideService(ClientPluginCompiler, clientCompiler),
+						),
 					);
 					yield* asInvalidBackup(validatePluginExecutableScripts(normalized));
 					prepared.push({ ...item, manifest, normalized });
 				}
 				const candidates = prepared.map(({ key, normalized, slug }) => ({
-					id: key,
 					slug,
+					id: key,
 					manifest: normalized.manifest,
 				}));
 				const composedDefinitions = yield* Effect.try({
+					catch: (error) => badRequest(String(error)),
 					try: () =>
 						buildDefinitionSnapshot(
 							mergeManifestDefinitions(
@@ -91,7 +96,6 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 								candidates,
 							),
 						),
-					catch: (error) => badRequest(String(error)),
 				});
 				for (const candidate of prepared) {
 					yield* asInvalidBackup(
