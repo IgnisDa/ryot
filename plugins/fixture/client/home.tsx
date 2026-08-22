@@ -1,6 +1,6 @@
 import { PluginOperationError } from "@ryot/client-sdk";
 import { Schema } from "@ryot/client-sdk/effect";
-import { PluginLink, usePluginNavigation } from "@ryot/client-sdk/plugin";
+import { PluginLink } from "@ryot/client-sdk/plugin";
 import { useRyot } from "@ryot/client-sdk/react";
 import { Button, StatusMessage } from "@ryot/client-ui-sdk";
 import { useState } from "react";
@@ -34,7 +34,6 @@ type GreetingState =
 
 export const Home = () => {
 	const ryot = useRyot();
-	const { push } = usePluginNavigation();
 	const [greetings, setGreetings] = useState(0);
 	const [requested, setRequested] = useState("Ryot");
 	const [greeting, setGreeting] = useState<GreetingState>({ status: "idle" });
@@ -44,7 +43,7 @@ export const Home = () => {
 		setRequested(name);
 		setGreeting({ status: "pending" });
 		try {
-			const result = await ryot.data.invokeOperation({
+			const result = await ryot.operations.invoke({
 				slug: "greet",
 				input: { name },
 				output: Greeting,
@@ -85,7 +84,7 @@ export const Home = () => {
 			<PluginLink to="/details/item-1" search={{ tab: "stats" }}>
 				Item 1 details
 			</PluginLink>
-			<Button variant="secondary" onClick={() => push({ path: "/details/item-2" })}>
+			<Button variant="secondary" onClick={() => ryot.navigation.push({ path: "/details/item-2" })}>
 				Open item 2
 			</Button>
 		</main>

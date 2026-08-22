@@ -11,6 +11,8 @@ import {
 	type MouseEvent,
 } from "react";
 
+import { useRyot } from "./react";
+
 export type PluginRouteDefinition = {
 	readonly path: string;
 	readonly component: ComponentType;
@@ -21,17 +23,9 @@ type PluginRouterDefinition = {
 	readonly routes?: readonly PluginRouteDefinition[];
 };
 
-type PluginNavigateMode = "push" | "replace";
-
-type PluginNavigateTo = {
-	readonly path: string;
-	readonly search?: Record<string, string>;
-};
-
 type RouterContextValue = {
 	params: Record<string, string>;
 	location: PluginLogicalLocation;
-	navigate: (mode: PluginNavigateMode, to: PluginNavigateTo) => void;
 };
 
 const RouterContext = createContext<RouterContextValue | undefined>(undefined);
@@ -50,24 +44,13 @@ export const usePluginParams = () => useRouterContext().params;
 
 export const usePluginSearch = () => new URLSearchParams(useRouterContext().location.search);
 
-export const usePluginNavigation = () => {
-	const { navigate } = useRouterContext();
-	return useMemo(
-		() => ({
-			push: (to: PluginNavigateTo) => navigate("push", to),
-			replace: (to: PluginNavigateTo) => navigate("replace", to),
-		}),
-		[navigate],
-	);
-};
-
 type PluginLinkProps = {
 	readonly to: string;
 	readonly search?: Record<string, string>;
 } & Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href" | "onClick">;
 
 export const PluginLink = ({ to, search, children, ...rest }: PluginLinkProps) => {
-	const { navigate } = useRouterContext();
+	const client = useRyot();
 	const searchString = search ? new URLSearchParams(search).toString() : "";
 	const href = searchString ? `${to}?${searchString}` : to;
 
@@ -76,7 +59,7 @@ export const PluginLink = ({ to, search, children, ...rest }: PluginLinkProps) =
 			return;
 		}
 		event.preventDefault();
-		navigate("push", search ? { path: to, search } : { path: to });
+		client.navigation.push(search ? { path: to, search } : { path: to });
 	};
 
 	return (
@@ -155,10 +138,9 @@ export const createPluginLocationStore = (): PluginLocationController => {
 type PluginRouterProps = {
 	readonly locations: PluginLocationStore;
 	readonly definition: PluginRouterDefinition;
-	readonly navigate: (mode: PluginNavigateMode, to: PluginNavigateTo) => void;
 };
 
-export const PluginRouter = ({ definition, locations, navigate }: PluginRouterProps) => {
+export const PluginRouter = ({ definition, locations }: PluginRouterProps) => {
 	const isFirstLocation = useRef(true);
 	const containerRef = useRef<HTMLDivElement>(null);
 	const location = useSyncExternalStore(locations.subscribe, locations.getSnapshot);
@@ -188,8 +170,8 @@ export const PluginRouter = ({ definition, locations, navigate }: PluginRouterPr
 	}, [location, definition]);
 
 	const contextValue = useMemo<RouterContextValue | undefined>(
-		() => (location && route ? { location, params: route.params, navigate } : undefined),
-		[location, route, navigate],
+		() => (location && route ? { location, params: route.params } : undefined),
+		[location, route],
 	);
 
 	if (!contextValue || !route) {
