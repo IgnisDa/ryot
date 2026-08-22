@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 
 import { AuthenticatedApi } from "#/api/authenticated";
 import { PublicApi } from "#/api/public";
+import type { ApiScope } from "#/api/scope";
 import { AuthClient } from "#/modules/auth/client";
 import { AuthService } from "#/modules/auth/service";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
@@ -52,15 +53,32 @@ const catalog: PluginClientCatalog = [
 	},
 ];
 
-const StorageStub = Layer.succeed(ClientStorage, {
+type WorkspaceStorageRecorder = {
+	readonly getScopes: ApiScope[];
+	readonly setCalls: Array<{ readonly scope: ApiScope; readonly slug: string }>;
+};
+
+const makeWorkspaceRecorder = (): WorkspaceStorageRecorder => ({ getScopes: [], setCalls: [] });
+
+const makeStorageStub = (
+	rememberedSlug: string | null = null,
+	recorder?: WorkspaceStorageRecorder,
+): ClientStorage["Service"] => ({
 	remove: () => Effect.void,
 	clearServerSelection: Effect.void,
-	setLastWorkspace: () => Effect.void,
 	setServerSelection: () => Effect.void,
 	setThemePreference: () => Effect.void,
 	getServerSelection: Effect.succeed(server),
-	getLastWorkspace: () => Effect.succeed(null),
 	getThemePreference: Effect.succeed("system" as const),
+	setLastWorkspace: (scope, slug) =>
+		Effect.sync(() => {
+			recorder?.setCalls.push({ scope, slug });
+		}),
+	getLastWorkspace: (scope) =>
+		Effect.sync(() => {
+			recorder?.getScopes.push(scope);
+			return rememberedSlug;
+		}),
 });
 
 const ServerStub = Layer.succeed(ServerService, {
@@ -84,10 +102,11 @@ const authenticated = {
 } as const;
 
 const mountView = (
-	initialEntry: string,
+	initialEntry: string | string[],
 	entries: PluginClientCatalog = catalog,
 	load = () => Effect.succeed(entries),
 	invoke: PluginOperationsService["Service"]["invoke"] = () => Effect.die("not used"),
+	storage: ClientStorage["Service"] = makeStorageStub(),
 ) => {
 	const events = makePluginCatalogEventsTestLayer();
 	const runtime = ManagedRuntime.make(
@@ -101,18 +120,29 @@ const mountView = (
 			Layer.succeed(PluginCatalogService, { load }),
 			Layer.succeed(PluginOperationsService, { invoke }),
 			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
-		).pipe(Layer.provideMerge(StorageStub)),
+		).pipe(Layer.provideMerge(Layer.succeed(ClientStorage, storage))),
 	);
-	const router = getRouter(
-		{ runtime, theme },
-		createMemoryHistory({ initialEntries: [initialEntry] }),
-	);
+	const initialEntries = typeof initialEntry === "string" ? [initialEntry] : initialEntry;
+	const router = getRouter({ runtime, theme }, createMemoryHistory({ initialEntries }));
 	const view = render(<RouterProvider router={router} />);
 	return { ...view, events, router };
 };
 
 const mount = (initialEntry: string, entries: PluginClientCatalog = catalog) =>
 	mountView(initialEntry, entries).router;
+
+const mountBootstrap = (
+	initialEntry: string | string[],
+	entries: PluginClientCatalog,
+	storage: ClientStorage["Service"],
+) =>
+	mountView(
+		initialEntry,
+		entries,
+		() => Effect.succeed(entries),
+		() => Effect.die("not used"),
+		storage,
+	);
 
 const frame = () => screen.getByTitle<HTMLIFrameElement>("fixture plugin");
 
@@ -344,5 +374,84 @@ describe("plugin navigation", () => {
 
 		mount("/missing");
 		await waitFor(() => expect(screen.getAllByRole("status")).toHaveLength(2));
+	});
+});
+
+describe("authenticated root bootstrap", () => {
+	const scope = { serverUrl: server, userId: authenticated.user.id };
+
+	it("renders a stable error when workspaces cannot be loaded", async () => {
+		mountView("/", catalog, () => Effect.die("catalog unavailable"));
+
+		const alertText = await screen.findByRole("alert");
+		expect(alertText.textContent).toBe("Your workspaces could not be loaded.");
+	});
+
+	it("selects a valid remembered workspace without persisting it again", async () => {
+		const recorder = makeWorkspaceRecorder();
+		const entries = [
+			{ ...catalog[0], slug: "first", sortOrder: 0 },
+			{ ...catalog[0], slug: "remembered", sortOrder: 1 },
+		];
+		const view = mountBootstrap("/", entries, makeStorageStub("remembered", recorder));
+
+		await waitFor(() => expect(view.router.state.location.pathname).toBe("/remembered"));
+		expect(recorder.getScopes.length).toBeGreaterThan(0);
+		expect(
+			recorder.getScopes.every((calledScope) => calledScope.serverUrl === scope.serverUrl),
+		).toBe(true);
+		expect(recorder.getScopes.every((calledScope) => calledScope.userId === scope.userId)).toBe(
+			true,
+		);
+		expect(recorder.setCalls).toEqual([]);
+	});
+
+	it.each([null, "missing", "disabled"])(
+		"persists the deterministic fallback for remembered value %s",
+		async (rememberedSlug) => {
+			const recorder = makeWorkspaceRecorder();
+			const entries = [
+				{ ...catalog[0], slug: "disabled", sortOrder: -1, isDisabled: true },
+				{ ...catalog[0], slug: "zeta", sortOrder: 1 },
+				{ ...catalog[0], slug: "alpha", sortOrder: 1 },
+			];
+			const view = mountBootstrap("/", entries, makeStorageStub(rememberedSlug, recorder));
+
+			await waitFor(() => expect(view.router.state.location.pathname).toBe("/alpha"));
+			expect(recorder.getScopes.length).toBeGreaterThan(0);
+			expect(
+				recorder.getScopes.every((calledScope) => calledScope.serverUrl === scope.serverUrl),
+			).toBe(true);
+			expect(recorder.getScopes.every((calledScope) => calledScope.userId === scope.userId)).toBe(
+				true,
+			);
+			expect(recorder.setCalls).toEqual([{ scope, slug: "alpha" }]);
+		},
+	);
+
+	it("replaces the root history entry", async () => {
+		const view = mountBootstrap(["/before", "/"], catalog, makeStorageStub("fixture"));
+		await waitFor(() => expect(view.router.state.location.pathname).toBe("/fixture"));
+
+		view.router.history.back();
+
+		await waitFor(() => expect(view.router.state.location.pathname).toBe("/before"));
+	});
+
+	it("renders account navigation when no workspace is enabled", async () => {
+		const recorder = makeWorkspaceRecorder();
+		const view = mountBootstrap(
+			"/",
+			catalog.map((entry) => Object.assign(entry, { isDisabled: true })),
+			makeStorageStub("fixture", recorder),
+		);
+
+		await screen.findByRole("heading", { name: "No workspaces enabled" });
+		expect(view.router.state.location.pathname).toBe("/");
+		expect(screen.getByRole("link", { name: "Account settings" }).getAttribute("href")).toBe(
+			"/settings/account",
+		);
+		expect(recorder.getScopes.length).toBeGreaterThan(0);
+		expect(recorder.setCalls).toEqual([]);
 	});
 });
