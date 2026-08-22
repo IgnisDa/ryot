@@ -32,12 +32,10 @@ describe("createRyotClient", () => {
 		await expect(client.data.query(recipe)).rejects.toMatchObject({ reason: "malformed-result" });
 		await expect(client.data.query(recipe)).rejects.toBeInstanceOf(RyotQueryError);
 		const invocation = { slug: "greet", input: {}, output: Greeting };
-		await expect(client.data.invokeOperation(invocation)).rejects.toMatchObject({
+		await expect(client.operations.invoke(invocation)).rejects.toMatchObject({
 			reason: "malformed-result",
 		});
-		await expect(client.data.invokeOperation(invocation)).rejects.toBeInstanceOf(
-			PluginOperationError,
-		);
+		await expect(client.operations.invoke(invocation)).rejects.toBeInstanceOf(PluginOperationError);
 	});
 
 	it("rejects non-JSON adapter output before applying a permissive output schema", async () => {
@@ -47,7 +45,7 @@ describe("createRyotClient", () => {
 		});
 
 		await expect(
-			client.data.invokeOperation({ slug: "greet", input: null, output: Schema.Unknown }),
+			client.operations.invoke({ slug: "greet", input: null, output: Schema.Unknown }),
 		).rejects.toMatchObject({ reason: "malformed-result" });
 	});
 
@@ -59,7 +57,7 @@ describe("createRyotClient", () => {
 		const recipe: PreparedRecipe<string> = { document, decode: () => Result.succeed("unused") };
 		await expect(client.data.query(recipe)).rejects.toMatchObject({ reason: "transport" });
 		await expect(
-			client.data.invokeOperation({ slug: "greet", input: {}, output: Greeting }),
+			client.operations.invoke({ slug: "greet", input: {}, output: Greeting }),
 		).rejects.toMatchObject({ reason: "transport" });
 	});
 
@@ -70,7 +68,7 @@ describe("createRyotClient", () => {
 		});
 
 		await expect(
-			client.data.invokeOperation({ slug: "greet", input: {}, output: Greeting }),
+			client.operations.invoke({ slug: "greet", input: {}, output: Greeting }),
 		).rejects.toMatchObject({ reason: "protocol" });
 	});
 
@@ -85,7 +83,7 @@ describe("createRyotClient", () => {
 		});
 
 		await expect(
-			Reflect.apply(client.data.invokeOperation, client.data, [
+			Reflect.apply(client.operations.invoke, client.operations, [
 				{ slug: "greet", output: Greeting, input: { invalid: undefined } },
 			]),
 		).rejects.toMatchObject({ reason: "invalid-input" });
@@ -95,8 +93,36 @@ describe("createRyotClient", () => {
 	it("rejects operations when the environment does not provide that capability", async () => {
 		const client = createRyotClient({ query: () => Promise.resolve({}) });
 
+		expect(client.data).not.toHaveProperty("invokeOperation");
 		await expect(
-			client.data.invokeOperation({ slug: "greet", input: {}, output: Greeting }),
+			client.operations.invoke({ slug: "greet", input: {}, output: Greeting }),
 		).rejects.toMatchObject({ reason: "unsupported-capability" });
+	});
+
+	it("delegates navigation through the adapter", () => {
+		const navigations: Array<{
+			readonly mode: "push" | "replace";
+			readonly target: { readonly path: string; readonly search?: Record<string, string> };
+		}> = [];
+		const client = createRyotClient({
+			query: () => Promise.resolve({}),
+			navigate: (mode, target) => navigations.push({ mode, target }),
+		});
+
+		client.navigation.push({ path: "/items", search: { tab: "stats" } });
+		client.navigation.replace({ path: "/" });
+
+		expect(navigations).toEqual([
+			{ mode: "push", target: { path: "/items", search: { tab: "stats" } } },
+			{ mode: "replace", target: { path: "/" } },
+		]);
+	});
+
+	it("rejects navigation when the environment does not provide that capability", () => {
+		const client = createRyotClient({ query: () => Promise.resolve({}) });
+
+		expect(() => client.navigation.push({ path: "/items" })).toThrow(
+			new PluginOperationError("unsupported-capability"),
+		);
 	});
 });
