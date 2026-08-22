@@ -4,7 +4,7 @@
 
 **System Design:** [Composable Views](./README.md)
 
-**Status:** todo
+**Status:** done
 
 **Depends On:** [07 - Complete The Collection Workflow](./07-complete-the-collection-workflow.md)
 
@@ -50,3 +50,11 @@ Extend SDK query/entity-refresh tests, kernel entity-interest aggregation tests,
 ## Implementor Notes
 
 Record refresh scheduling/identity decisions and the tests that prove state preservation. Do not describe this as general real-time query support.
+
+- `RyotProvider` now routes browser focus, host page refresh, mutation completion, ordinary query refresh, and custom `usePageRefresh` callbacks through one batched page-refresh registry. Registry generations mark retained inactive consumers stale without fetching them; reactivation performs one catch-up, and a hint received during an in-flight request schedules one later refresh.
+- `usePageRefreshRequest` gives SDK internals a narrow way to request that shared refresh without misreporting entity completion as a mutation. Query atoms remain responsible for rejecting obsolete input completions and retain their previous successful value when refresh fails.
+- `EntityResults` observes each rendered item with the active plugin screen's existing scroll root. It declares only intersecting entity IDs as visible interest, clears demand when items or retained screens become inactive, and leaves foreground interest to callers that explicitly require it. Existing runtime and kernel aggregation continue deduplicating owners and cap foreground IDs before visible IDs.
+- Population and translation completion for a visible presentation request a shared page refresh, so selection references, presentation batches, summaries, and settle display update together. Presentation refresh failures now keep the previous component mounted with its local state and expose retry instead of replacing it with an error item.
+- Kernel visibility return and Capacitor resume send the existing page-refresh bridge message. The iframe's own focus signal enters the same scheduler, so simultaneous lifecycle hints coalesce without a new wire message or polling path.
+- Focused SDK tests cover viewport interest, inactive cleanup, retained-screen catch-up, in-flight hints, obsolete input protection, refresh failure/recovery, and stable component state. Kernel tests cover visibility and native-resume delivery and listener cleanup.
+- The affected composed-view browser suite uses a delayed hermetic provider through the production entity-interest WebSocket. It proves sync and Pokemon data update while expansion, collection review state, dialog identity, iframe identity, and the React root remain intact. The Task 07 live mutation, pagination, and reload assertions remain separate and unchanged in behavior.

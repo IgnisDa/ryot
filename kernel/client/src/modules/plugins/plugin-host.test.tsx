@@ -27,7 +27,7 @@ const session = {
 	src: "https://artifacts.example/session-1/index.html",
 };
 
-function mount() {
+function mount(subscribeResume?: (resumed: () => void) => () => void) {
 	const backInterceptors = createBackInterceptors();
 	const states: unknown[] = [];
 	const searches: unknown[] = [];
@@ -54,6 +54,7 @@ function mount() {
 		title: "Fixture",
 		backInterceptors,
 		mutationCompleted,
+		subscribeResume,
 		chromeLeading: null,
 		sourceHash: "graph-hash",
 		installationId: "build-1",
@@ -232,6 +233,78 @@ describe("PluginFrame", () => {
 					Reflect.get(message, "type") === "page-refresh",
 			),
 		).toHaveLength(1);
+	});
+
+	it("sends one lifecycle page refresh only when the application becomes visible", async () => {
+		const visibility = Object.getOwnPropertyDescriptor(document, "visibilityState");
+		try {
+			mount();
+			await flush();
+			const bridge = connect(screen.getByTitle("Fixture plugin"));
+			bridge.port.postMessage(bridge.ready);
+			await waitFor(() => expect(bridge.messages).toHaveLength(1));
+
+			act(() => {
+				Object.defineProperty(document, "visibilityState", {
+					value: "hidden",
+					configurable: true,
+				});
+				document.dispatchEvent(new Event("visibilitychange"));
+			});
+			expect(bridge.messages).not.toContainEqual({ type: "page-refresh" });
+
+			act(() => {
+				Object.defineProperty(document, "visibilityState", {
+					value: "visible",
+					configurable: true,
+				});
+				document.dispatchEvent(new Event("visibilitychange"));
+			});
+			await waitFor(() => expect(bridge.messages).toContainEqual({ type: "page-refresh" }));
+			expect(
+				bridge.messages.filter(
+					(message) =>
+						typeof message === "object" &&
+						message !== null &&
+						Reflect.get(message, "type") === "page-refresh",
+				),
+			).toHaveLength(1);
+		} finally {
+			if (visibility) {
+				Object.defineProperty(document, "visibilityState", visibility);
+			} else {
+				Reflect.deleteProperty(document, "visibilityState");
+			}
+		}
+	});
+
+	it("sends the same page refresh on native resume and releases the listener", async () => {
+		let resume: (() => void) | undefined;
+		let released = false;
+		const host = mount((resumed) => {
+			resume = resumed;
+			return () => {
+				released = true;
+			};
+		});
+		await flush();
+		const bridge = connect(screen.getByTitle("Fixture plugin"));
+		bridge.port.postMessage(bridge.ready);
+		await waitFor(() => expect(bridge.messages).toHaveLength(1));
+
+		act(() => resume?.());
+		await waitFor(() => expect(bridge.messages).toContainEqual({ type: "page-refresh" }));
+		expect(
+			bridge.messages.filter(
+				(message) =>
+					typeof message === "object" &&
+					message !== null &&
+					Reflect.get(message, "type") === "page-refresh",
+			),
+		).toHaveLength(1);
+
+		host.unmount();
+		expect(released).toBe(true);
 	});
 
 	it("registers iframe overlay Back ownership and releases it after acknowledgement", async () => {
