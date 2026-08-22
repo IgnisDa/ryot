@@ -693,24 +693,24 @@ Static kernel routes take precedence over the dynamic plugin namespace.
 
 ### Reserved plugin slugs
 
-Because plugins occupy the first URL segment, the kernel must reserve names used by global application routes.
+Because plugins occupy the first URL segment, the kernel reserves the names used by global application routes.
 
-Examples may include:
+The canonical set is `reservedPluginSlugs` in `packages/contract/src/modules/plugins/schemas.ts`:
 
 ```text
 e
 v
-settings
 auth
-login
-logout
+settings
+god-mode
 onboarding
-callback
-api
-share
+reset-password
+customize-sidebar
 ```
 
-The exact set is maintained by the kernel and enforced when plugin slugs become active.
+It is exactly the set of global route segments the kernel client owns, so adding or removing a top-level client route means updating it. `reserved-route-slugs.test.ts` in the client's navigation module derives the segments from `src/app` and fails when the two drift apart.
+
+`validatePluginManifestPolicy` enforces the set for system and user plugins alike, before a manifest is persisted or activated. A reserved slug fails with `PluginSlugReservedError`, which reaches API clients as the `slug-reserved` request reason — the same reason a private plugin gets when it collides with a shipped system plugin.
 
 ### No `/p` prefix
 
