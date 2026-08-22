@@ -20,7 +20,12 @@ const identity = (id: string, schemaSlug: string) => ({
 const page = (items: readonly unknown[]) =>
 	rowsResult(items, { limit: 20, hasMore: false, nextCursor: null });
 
-const ANIME_INPUT = { now: "2026-09-01T09:30:00.000Z", until: "2026-09-16T00:00:00.000Z" };
+const ANIME_INPUT = {
+	fromDate: "2026-09-01",
+	untilDate: "2026-09-15",
+	now: "2026-09-01T09:30:00.000Z",
+	until: "2026-09-16T00:00:00.000Z",
+};
 
 const decodeAnime = (row: Record<string, unknown>) =>
 	Result.getOrThrow(
