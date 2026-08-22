@@ -1,4 +1,5 @@
 import type { ContractPayload } from "@ryot/contract/client";
+import type { PluginPackage } from "@ryot/contract/modules/plugins/schemas";
 import {
 	PluginSlug,
 	type SandboxProviderId,
@@ -18,7 +19,7 @@ import { installTestDefinitions } from "./test-plugin";
 type SearchProviderEntitiesBody = ContractPayload<"providerEntities", "search">;
 type ImportProviderEntityBody = ContractPayload<"providerEntities", "import">;
 type EntitySchemaInputSlug = ContractPayload<"entities", "create">["entitySchemaSlug"];
-type PluginManifest = ContractPayload<"plugins", "install">["manifest"];
+type PluginManifest = PluginPackage["manifest"];
 type PluginEntitySchema = PluginManifest["entitySchemas"][number];
 
 export const makeEntitySchemaSlug = Brand.nominal<EntitySchemaInputSlug>();

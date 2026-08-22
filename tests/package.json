@@ -15,6 +15,7 @@
 		"@ryot/contract": "workspace:*",
 		"@ryot/fitness-plugin": "workspace:*",
 		"@ryot/media-plugin": "workspace:*",
+		"@ryot/plugin-archive": "workspace:*",
 		"@ryot/plugin-kit": "workspace:*",
 		"@ryot/ryotql": "workspace:*",
 		"@ryot/ryotql-recipes": "workspace:*",
