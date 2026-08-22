@@ -9,6 +9,7 @@ import {
 	type UpdatePluginInstallationBody,
 } from "@ryot/contract/modules/plugins/schemas";
 import { PluginSlug, UserId } from "@ryot/contract/schema/brands";
+import { isJsonValue } from "@ryot/contract/schema/json";
 import type { AppPropertyDefinition, AppSchema } from "@ryot/contract/schema/property-schema";
 import { readPluginArchiveStream } from "@ryot/plugin-archive";
 import { sha256Hex } from "@ryot/ts-utils/crypto";
@@ -294,6 +295,9 @@ const toInstallationItem = (view: InstallationView): PluginInstallationItem => {
 		"",
 		configuredSecrets,
 	);
+	if (!isJsonValue(config)) {
+		throw new Error("Plugin configuration is not JSON-compatible");
+	}
 	return {
 		...view.manifest.metadata,
 		config,
