@@ -473,6 +473,12 @@ Theme changes do not require recompiling a plugin.
 
 Plugins may use custom CSS in addition to Tailwind.
 
+Plugin CSS resolution is virtual and package-local. A stylesheet may import the compiler-owned
+`tailwindcss` entry and relative `.css` files present in the same plugin's `client/**` source map.
+Absolute paths, traversal outside `client/**`, missing source-map files, and other bare package
+imports are rejected. Plugin-controlled CSS resolution never falls back to the compiler server's
+filesystem.
+
 They may also use normal web-platform animation, View Transitions, SVG, Canvas, and other browser technologies.
 
 ### Dynamic Tailwind classes

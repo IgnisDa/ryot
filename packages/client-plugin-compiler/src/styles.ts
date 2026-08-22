@@ -6,26 +6,74 @@ import { compile } from "tailwindcss";
 import { clientPluginCompilationFailure, clientPluginCompilerDiagnostic } from "./diagnostics";
 
 type ScanSource = { readonly content: string; readonly extension: string };
+type StylesheetSource = { readonly content: string; readonly path: string };
+
+type CompileClientStylesInput = {
+	readonly entry: string;
+	readonly themeStylesheet: string;
+	readonly scanSources: readonly ScanSource[];
+	readonly tailwindStylesheet: StylesheetSource;
+	readonly files: Readonly<Record<string, string>>;
+	readonly stylesheet: StylesheetSource | undefined;
+};
 
 const directoryOf = (path: string) => path.slice(0, path.lastIndexOf("/"));
 
-const loadStylesheet = async (id: string, base: string, tailwindEntry: string) => {
-	const path = id === "tailwindcss" ? tailwindEntry : Bun.resolveSync(id, base);
-	return { path, base: directoryOf(path), content: await Bun.file(path).text() };
+const resolveClientStylesheet = (
+	id: string,
+	base: string,
+	files: Readonly<Record<string, string>>,
+) => {
+	if (!/^\.{1,2}\//.test(id)) {
+		return null;
+	}
+
+	const parts = base.split("/").filter(Boolean);
+	for (const part of id.split("/")) {
+		if (!part || part === ".") {
+			continue;
+		}
+		if (part === "..") {
+			if (parts.length === 0) {
+				return null;
+			}
+			parts.pop();
+			continue;
+		}
+		parts.push(part);
+	}
+
+	const path = parts.join("/");
+	return path.startsWith("client/") && path.endsWith(".css") && Object.hasOwn(files, path)
+		? path
+		: null;
 };
 
-export const compileClientStyles = (
-	entry: string,
-	stylesheet: string,
-	tailwindEntry: string,
-	themeStylesheet: string,
-	scanSources: readonly ScanSource[],
-) =>
+export const compileClientStyles = ({
+	entry,
+	files,
+	stylesheet,
+	scanSources,
+	themeStylesheet,
+	tailwindStylesheet,
+}: CompileClientStylesInput) =>
 	Effect.tryPromise({
 		try: async () => {
-			const compiled = await compile(`${stylesheet}\n${themeStylesheet}`, {
-				base: directoryOf(tailwindEntry),
-				loadStylesheet: (id, base) => loadStylesheet(id, base, tailwindEntry),
+			const compiled = await compile(`${stylesheet?.content ?? ""}\n${themeStylesheet}`, {
+				base: stylesheet === undefined ? "client" : directoryOf(stylesheet.path),
+				loadStylesheet: async (id, base) => {
+					if (id === "tailwindcss") {
+						return { ...tailwindStylesheet, base: directoryOf(tailwindStylesheet.path) };
+					}
+
+					const path = resolveClientStylesheet(id, base, files);
+					if (path === null) {
+						throw new Error(
+							`Stylesheet import "${id}" from "${base}" is not allowed; client plugins may only import "tailwindcss" and relative CSS files from client sources`,
+						);
+					}
+					return { path, base: directoryOf(path), content: files[path] ?? "" };
+				},
 			});
 			const candidates = new Scanner({}).scanFiles([...scanSources]);
 			return compiled.build(sortBy(candidates));
