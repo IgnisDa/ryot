@@ -20,3 +20,9 @@ export const mediaSchemaAspects: Record<MediaArtworkSchemaSlug, MediaArtworkAspe
 	"comic-book-group": "poster",
 	"video-game-group": "poster",
 };
+
+const isMediaArtworkSchemaSlug = (slug: string): slug is MediaArtworkSchemaSlug =>
+	Object.hasOwn(mediaSchemaAspects, slug);
+
+export const mediaAspectOf = (slug: string): MediaArtworkAspect =>
+	isMediaArtworkSchemaSlug(slug) ? mediaSchemaAspects[slug] : "poster";

@@ -46,9 +46,9 @@ export function MediaPartOfSection(props: {
 	return (
 		<MediaEntityRailSection
 			title={props.title}
-			aspect={props.aspect}
 			compact={props.compact}
 			divided={props.divided}
+			aspect={() => props.aspect}
 			items={group.members.items}
 			action={
 				<PluginLink

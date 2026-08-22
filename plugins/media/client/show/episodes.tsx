@@ -76,7 +76,7 @@ export const showSeasonEpisodesQuery = createRyotQuery<
 );
 
 const SHOW_EPISODE_RENDER: MediaEpisodeRender<ShowEpisode> = {
-	aspect: "video",
+	aspect: "still",
 	purpose: "still",
 	originLabel: showEpisodeOriginLabel,
 	numberLabel: mediaEpisodeNumberLabel,
