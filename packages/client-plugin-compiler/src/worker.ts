@@ -1,11 +1,12 @@
-import { Effect, Schema } from "effect";
+import { Effect } from "effect";
 
 import { compileClientPlugin } from "./compile";
 import { clientPluginCompilationFailure, clientPluginCompilerDiagnostic } from "./diagnostics";
 import {
-	ClientPluginCompilerRequest,
 	clientCompilerWorkerFailure,
 	clientCompilerWorkerSuccess,
+	decodeClientCompilerWorkerRequest,
+	encodeClientCompilerWorkerResponse,
 } from "./protocol";
 
 const workerFailure = (message: string) =>
@@ -20,7 +21,7 @@ const response = await Effect.runPromise(
 			workerFailure(`Client plugin compiler input could not be read: ${String(error)}`),
 	}).pipe(
 		Effect.flatMap((input) =>
-			Schema.decodeUnknownEffect(Schema.fromJsonString(ClientPluginCompilerRequest))(input).pipe(
+			decodeClientCompilerWorkerRequest(input).pipe(
 				Effect.mapError((error) =>
 					workerFailure(`Client plugin compiler input could not be decoded: ${String(error)}`),
 				),
@@ -34,4 +35,4 @@ const response = await Effect.runPromise(
 	),
 );
 
-process.stdout.write(JSON.stringify(response));
+process.stdout.write(`${encodeClientCompilerWorkerResponse(response)}\n`);

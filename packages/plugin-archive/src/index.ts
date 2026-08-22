@@ -1,5 +1,8 @@
+import {
+	isPluginClientTextSource,
+	pluginClientFileExtension,
+} from "@ryot/contract/modules/plugins/client";
 import { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import type { PluginPackage } from "@ryot/contract/modules/plugins/schemas";
 import { canonicalRelativePosixPathIssue } from "@ryot/ts-utils/path";
 import { Effect, Schema, Stream } from "effect";
 import { Unzip, UnzipInflate, UnzipPassThrough, Zip, ZipDeflate } from "fflate";
@@ -41,7 +44,11 @@ export class PluginArchiveError extends Schema.TaggedError<PluginArchiveError>()
 	{ reason: PluginArchiveErrorReason },
 ) {}
 
-const CLIENT_SOURCE_EXTENSIONS = [".ts", ".tsx", ".css", ".svg"];
+export type PluginArchivePackage = {
+	readonly manifest: typeof PluginManifest.Type;
+	readonly files: Readonly<Record<string, Uint8Array>>;
+};
+
 const DETERMINISTIC_MTIME = new Date(1980, 0, 1, 0, 0, 0, 0);
 const decoder = new TextDecoder("utf-8", { fatal: true });
 const encoder = new TextEncoder();
@@ -70,7 +77,7 @@ const concat = (chunks: ReadonlyArray<Uint8Array>, size?: number) => {
 	return output;
 };
 
-export const writePluginArchive = (pluginPackage: PluginPackage) => {
+export const writePluginArchive = (pluginPackage: PluginArchivePackage) => {
 	const output: Uint8Array[] = [];
 	const zip = new Zip((error, chunk) => {
 		if (error !== null) {
@@ -81,9 +88,7 @@ export const writePluginArchive = (pluginPackage: PluginPackage) => {
 	});
 	const entries: Array<readonly [string, Uint8Array]> = [
 		["manifest.json", encoder.encode(`${JSON.stringify(pluginPackage.manifest, null, "\t")}\n`)],
-		...Object.keys(pluginPackage.files)
-			.sort(compareCodeUnits)
-			.map((path) => [path, encoder.encode(pluginPackage.files[path])] as const),
+		...Object.entries(pluginPackage.files).sort(([left], [right]) => compareCodeUnits(left, right)),
 	];
 	for (const [path, bytes] of entries) {
 		const file = new ZipDeflate(path, { level: 6 });
@@ -204,8 +209,7 @@ const validateCentralDirectory = (bytes: Uint8Array) => {
 		if (
 			path !== "manifest.json" &&
 			!path.startsWith("backend/") &&
-			(!path.startsWith("client/") ||
-				!CLIENT_SOURCE_EXTENSIONS.some((extension) => path.endsWith(extension)))
+			(!path.startsWith("client/") || pluginClientFileExtension(path) === undefined)
 		) {
 			throw failure("unexpected-entry");
 		}
@@ -314,25 +318,29 @@ class PluginArchiveReader {
 		if (manifestEntry === undefined) {
 			throw failure("missing-manifest");
 		}
-		let manifest: PluginPackage["manifest"];
+		let manifest: PluginArchivePackage["manifest"];
 		try {
 			const text = decoder.decode(concat(manifestEntry.chunks, manifestEntry.bytes));
 			manifest = Schema.decodeUnknownSync(PluginManifest)(JSON.parse(text));
 		} catch {
 			throw failure("manifest-invalid");
 		}
-		const files: Record<string, string> = {};
+		const files: Record<string, Uint8Array> = {};
 		for (const [path, entry] of this.#entries) {
 			if (path === "manifest.json") {
 				continue;
 			}
-			try {
-				files[path] = decoder.decode(concat(entry.chunks, entry.bytes));
-			} catch {
-				throw failure("source-non-utf8");
+			const bytes = concat(entry.chunks, entry.bytes);
+			if (path.startsWith("backend/") || isPluginClientTextSource(path)) {
+				try {
+					decoder.decode(bytes);
+				} catch {
+					throw failure("source-non-utf8");
+				}
 			}
+			files[path] = bytes;
 		}
-		return { files, manifest } satisfies PluginPackage;
+		return { files, manifest } satisfies PluginArchivePackage;
 	}
 }
 
@@ -341,7 +349,7 @@ const normalizeError = (error: unknown) =>
 
 export const readPluginArchive = (
 	input: Uint8Array | AsyncIterable<Uint8Array>,
-): Effect.Effect<PluginPackage, PluginArchiveError> =>
+): Effect.Effect<PluginArchivePackage, PluginArchiveError> =>
 	Effect.tryPromise({
 		try: async () => {
 			const reader = new PluginArchiveReader();
@@ -360,7 +368,7 @@ export const readPluginArchive = (
 
 export const readPluginArchiveStream = <E>(
 	input: Stream.Stream<Uint8Array, E>,
-): Effect.Effect<PluginPackage, E | PluginArchiveError> =>
+): Effect.Effect<PluginArchivePackage, E | PluginArchiveError> =>
 	Effect.gen(function* () {
 		const reader = new PluginArchiveReader();
 		yield* Stream.runForEach(input, (chunk) =>

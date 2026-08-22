@@ -24,7 +24,10 @@ type ClientArtifactFileRow = typeof schema.pluginClientArtifactFile.$inferSelect
 
 type PersistedScript = Omit<NormalizedPluginScript, "entry">;
 
-const artifactMatches = (
+const bytesEqual = (left: Uint8Array, right: Uint8Array) =>
+	left.byteLength === right.byteLength && left.every((byte, index) => byte === right[index]);
+
+export const clientArtifactMatches = (
 	artifact: PluginClientArtifact,
 	metadata: ClientArtifactRow,
 	files: ReadonlyArray<ClientArtifactFileRow>,
@@ -39,7 +42,7 @@ const artifactMatches = (
 		files.some(
 			(stored) =>
 				stored.name === file.name &&
-				stored.contents === file.contents &&
+				bytesEqual(stored.contents, file.contents) &&
 				stored.contentType === file.contentType,
 		),
 	);
@@ -102,7 +105,6 @@ const toStoredPlugin = Effect.fn(function* (row: PluginRow, scripts: ReadonlyArr
 		manifest: row.manifest,
 		scripts: currentScripts,
 		sourceHash: row.sourceHash,
-		sourceFiles: row.sourceFiles,
 		clientArtifactHash: row.clientArtifactHash,
 	} satisfies StoredPlugin;
 });
@@ -440,7 +442,24 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					)
 					.limit(1),
 			);
-			return row ?? null;
+			return row ? { ...row, contents: new Uint8Array(row.contents) } : null;
+		});
+
+		const listSourceFiles = Effect.fn("PluginRepository.listSourceFiles")(function* (
+			pluginId: string,
+		) {
+			const db = yield* Database;
+			const rows = yield* mapDatabaseErrors(
+				db
+					.select({
+						path: schema.pluginSourceFile.path,
+						contents: schema.pluginSourceFile.contents,
+					})
+					.from(schema.pluginSourceFile)
+					.where(eq(schema.pluginSourceFile.pluginId, pluginId))
+					.orderBy(asc(schema.pluginSourceFile.path)),
+			);
+			return Object.fromEntries(rows.map(({ path, contents }) => [path, new Uint8Array(contents)]));
 		});
 
 		const persistClientArtifact = Effect.fn("PluginRepository.persistClientArtifact")(function* (
@@ -463,9 +482,13 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			if (inserted) {
 				if (artifact.files.length > 0) {
 					yield* mapDatabaseErrors(
-						db
-							.insert(schema.pluginClientArtifactFile)
-							.values(artifact.files.map((file) => ({ ...file, artifactHash: artifact.hash }))),
+						db.insert(schema.pluginClientArtifactFile).values(
+							artifact.files.map((file) => ({
+								...file,
+								artifactHash: artifact.hash,
+								contents: Buffer.from(file.contents),
+							})),
+						),
 					);
 				}
 				return undefined;
@@ -483,7 +506,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					.from(schema.pluginClientArtifactFile)
 					.where(eq(schema.pluginClientArtifactFile.artifactHash, artifact.hash)),
 			);
-			if (!metadata || !artifactMatches(artifact, metadata, files)) {
+			if (!metadata || !clientArtifactMatches(artifact, metadata, files)) {
 				return yield* new DbError({
 					message: `Client artifact ${artifact.hash} conflicts with immutable stored data`,
 				});
@@ -551,7 +574,6 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				status: "active",
 				manifest: plugin.manifest,
 				sourceHash: plugin.sourceHash,
-				sourceFiles: plugin.sourceFiles,
 				version: plugin.manifest.metadata.version,
 				clientArtifactHash: plugin.clientArtifact?.hash ?? null,
 			} as const;
@@ -578,6 +600,21 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				return yield* new DbError({ message: `Plugin ${slug} could not be persisted` });
 			}
 			const pluginId = persisted.id;
+			yield* mapDatabaseErrors(
+				db.delete(schema.pluginSourceFile).where(eq(schema.pluginSourceFile.pluginId, pluginId)),
+			);
+			const sourceEntries = Object.entries(plugin.files);
+			if (sourceEntries.length > 0) {
+				yield* mapDatabaseErrors(
+					db.insert(schema.pluginSourceFile).values(
+						sourceEntries.map(([path, contents]) => ({
+							path,
+							pluginId,
+							contents: Buffer.from(contents),
+						})),
+					),
+				);
+			}
 			const existingProviders = yield* mapDatabaseErrors(
 				db
 					.select({ id: schema.sandboxProvider.id, slug: schema.sandboxProvider.slug })
@@ -922,6 +959,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			listActiveManifests,
 			resolveProviderBySlugs,
 			findClientArtifactFile,
+			listSourceFiles,
 			findPrivateByIdForUser,
 			hasDefinitionReferences,
 			hasIntegrationReferences,
