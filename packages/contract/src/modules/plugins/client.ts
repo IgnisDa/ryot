@@ -1,3 +1,4 @@
+import { canonicalRelativePosixPathIssue } from "@ryot/ts-utils/path";
 import { Schema } from "effect";
 
 import { JsonValue } from "../../schema/json";
@@ -8,6 +9,7 @@ export const CLIENT_API_VERSION = 1 as const;
 export const CLIENT_BRIDGE_PROTOCOL_VERSION = 1 as const;
 export const CLIENT_ARTIFACT_FORMAT = 1 as const;
 export const CLIENT_COMPILER_VERSION = 1 as const;
+export const CLIENT_BRIDGE_MAX_PENDING_REQUESTS = 64;
 
 export const CLIENT_ARTIFACT_ROOT_ELEMENT_ID = "app";
 export const CLIENT_ARTIFACT_METADATA_ELEMENT_ID = "ryot-client-artifact";
@@ -59,22 +61,21 @@ export const PluginThemeSnapshot = strictStruct({
 
 export type PluginThemeSnapshot = Schema.Schema.Type<typeof PluginThemeSnapshot>;
 
-export const PluginClientCapability = Schema.Literals([
-	"files",
-	"audio",
-	"storage",
-	"haptics",
-	"keep-awake",
-	"notifications",
-	"live-activities",
-]);
-
-export type PluginClientCapability = Schema.Schema.Type<typeof PluginClientCapability>;
+const PluginClientSourceEntry = Schema.String.pipe(
+	Schema.check(
+		Schema.makeFilter((entry) =>
+			canonicalRelativePosixPathIssue(entry) === null &&
+			entry.startsWith("client/") &&
+			(entry.endsWith(".ts") || entry.endsWith(".tsx"))
+				? true
+				: "Expected a canonical client/**/*.ts or client/**/*.tsx entry",
+		),
+	),
+);
 
 export const PluginClientEntry = strictStruct({
-	entry: Schema.String,
+	entry: PluginClientSourceEntry,
 	apiVersion: Schema.Literal(CLIENT_API_VERSION),
-	capabilities: Schema.Array(PluginClientCapability),
 });
 
 export type PluginClientEntry = Schema.Schema.Type<typeof PluginClientEntry>;
