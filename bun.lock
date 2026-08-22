@@ -58,6 +58,7 @@
       "name": "@ryot/server",
       "dependencies": {
         "@effect/platform-bun": "4.0.0-beta.107",
+        "@ryot/client-plugin-compiler": "workspace:*",
         "@ryot/kernel-backend": "workspace:*",
         "@ryot/sandbox-compiler": "workspace:*",
         "@ryot/sandbox-sdk": "workspace:*",
