@@ -45,15 +45,24 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 				const home = fixture.locator("main");
 
 				await step("onboard and sign in", async () => {
-					await page.goto(`${frontendUrl}/fixture`);
+					await page.goto(`${frontendUrl}/`);
 					await page.getByText("Self-hosted", { exact: true }).click();
 					await page.getByLabel("Server URL").fill(new URL(apiUrl).origin);
 					await page.getByRole("button", { name: "Continue" }).click();
 					await page.waitForURL((url) => url.pathname === "/auth");
 					await page.getByLabel("Email address").fill(email);
 					await page.getByLabel("Password").fill(password);
+					const entriesBeforeBootstrap = await page.evaluate(() => history.length);
 					await page.getByRole("button", { name: "Sign in", exact: true }).last().click();
+					await page.waitForURL(`${frontendUrl}/fitness`);
+					expect(await page.evaluate(() => history.length)).toBe(entriesBeforeBootstrap);
+				});
+
+				await step("enter Fixture through the workspace switcher", async () => {
+					await page.getByRole("button", { name: /workspace,/ }).click();
+					await page.getByRole("button", { name: "Switch to Fixture workspace" }).click();
 					await page.waitForURL(`${frontendUrl}/fixture`);
+					await frame.waitFor({ state: "visible" });
 				});
 
 				await step("verify the isolated revision A frame", async () => {
@@ -68,6 +77,38 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 					expect(
 						await fixture.getByRole("region", { name: "Theme snapshot" }).getAttribute("class"),
 					).toBe("w-full max-w-md rounded-lg border border-border bg-surface p-4");
+				});
+
+				await step("preserve the iframe and bridge across shell-only interactions", async () => {
+					const shellFrame = await frame.elementHandle();
+					expect(shellFrame).not.toBeNull();
+					const sameFrame = () =>
+						frame.evaluate((current, initial) => current === initial, shellFrame);
+
+					const switcherTrigger = page.getByRole("button", { name: /workspace,/ });
+					const switcherMenu = page.getByRole("dialog", { name: "Workspaces" });
+					await switcherTrigger.click();
+					await switcherMenu.waitFor({ state: "visible" });
+					await switcherTrigger.click();
+					await switcherMenu.waitFor({ state: "hidden" });
+					expect(await sameFrame()).toBe(true);
+
+					await page.setViewportSize({ width: 390, height: 844 });
+					expect(await sameFrame()).toBe(true);
+
+					const menuTrigger = page.getByRole("button", { name: "Open navigation" });
+					const drawer = page.getByRole("dialog", { name: "Navigation" });
+					await menuTrigger.click();
+					await drawer.waitFor({ state: "visible" });
+					await page.getByRole("button", { name: "Close navigation" }).click();
+					await drawer.waitFor({ state: "hidden" });
+					expect(await sameFrame()).toBe(true);
+					expect(await menuTrigger.evaluate((element) => element === document.activeElement)).toBe(
+						true,
+					);
+
+					await page.setViewportSize({ width: 1280, height: 800 });
+					expect(await sameFrame()).toBe(true);
 				});
 
 				await step("use catalog and operation bridges", async () => {
@@ -92,13 +133,6 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 						await frame.waitFor({ state: "visible" });
 						await expectVisibleText(home, `Resolved mode: ${resolvedMode}`);
 					};
-
-					// Settings resolves its workspace context from the remembered workspace, so pick
-					// Fixture through the switcher once before relying on the sidebar Home row.
-					await openSettings();
-					await page.getByRole("button", { name: /workspace,/ }).click();
-					await page.getByRole("button", { name: "Switch to Fixture workspace" }).click();
-					await page.waitForURL(`${frontendUrl}/fixture`);
 
 					await openSettings();
 					await page.getByRole("radio", { name: "Use Light theme" }).click();
