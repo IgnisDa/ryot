@@ -75,13 +75,13 @@ export const showPresentationFacts = (show: ShowPresentation) =>
 	show.productionStatus === null ? [] : [show.productionStatus];
 
 const episodeProgressLabel = (show: ShowPresentation) => {
-	if (show.storedEpisodes === 0) {
+	if (show.airedEpisodes === 0) {
 		return undefined;
 	}
 	if (show.watchedEpisodes === 0) {
-		return mediaCountLabel(show.storedEpisodes, "stored episode");
+		return mediaCountLabel(show.airedEpisodes, "aired episode");
 	}
-	return `${show.watchedEpisodes} of ${show.storedEpisodes} episodes watched`;
+	return `${show.watchedEpisodes} of ${show.airedEpisodes} aired episodes watched`;
 };
 
 export const showPresentationDetail = (show: ShowPresentation) => {

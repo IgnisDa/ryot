@@ -146,6 +146,7 @@ export const mediaGroupRecipes = <
 			queries: mediaSummaryQueries({
 				...input,
 				slug: config.slug,
+				include: () => ({}),
 				selection: (entity, provider) => ({
 					...mediaEntitySummarySelection(entity, provider),
 					sourceUrl: selectedField(propertyText(entity, "sourceUrl"), Schema.NullOr(Schema.String)),

@@ -27,6 +27,7 @@ import {
 	sum,
 	table,
 	type Recipe,
+	type SelectedIncludes,
 	type SelectedQuery,
 	type SelectedRow,
 	type SelectedSelection,
@@ -153,11 +154,16 @@ export const mediaSummarySelection = (entity: Table, provider: Table) => ({
 export type MediaSummarySelection = ReturnType<typeof mediaSummarySelection>;
 
 /** The summary row of one entity of `slug`, with its provider and collections, and the requested entity's schema. */
-export const mediaSummaryQueries = <const Selection extends SelectedSelection>(input: {
+export const mediaSummaryQueries = <
+	const Selection extends SelectedSelection,
+	const Includes extends SelectedIncludes,
+>(input: {
 	readonly slug: string;
 	readonly entityId: string;
 	readonly collectionLimit: number;
 	readonly selection: (entity: Table, provider: Table) => Selection;
+	/** Includes a schema adds beside the shared collection membership. */
+	readonly include: (entity: Table) => Includes;
 }) => {
 	const entity = table("entity", "entity");
 	const provider = table("sandboxProvider", "provider");
@@ -166,9 +172,12 @@ export const mediaSummaryQueries = <const Selection extends SelectedSelection>(i
 		summary: selectedOptionalRow(entity, {
 			orderBy: [ascending(column(entity, "id"))],
 			selection: input.selection(entity, provider),
-			include: { collections: collectionMembershipInclude(input.collectionLimit) },
 			where: and(entitySchema(entity, input.slug), entityId(entity, input.entityId)),
 			joins: [join("left", provider, eq(column(entity, "providerId"), column(provider, "id")))],
+			include: {
+				collections: collectionMembershipInclude(input.collectionLimit),
+				...input.include(entity),
+			},
 		}),
 	};
 };
@@ -817,6 +826,7 @@ export const mediaFlatRecipes = <
 			queries: mediaSummaryQueries({
 				...input,
 				slug: config.slug,
+				include: () => ({}),
 				selection: (entity, provider) => {
 					const lifecycle = mediaLifecycleExpressions(entity, `${config.alias}SummaryLifecycle`);
 					return {

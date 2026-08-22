@@ -28,8 +28,11 @@ because only a top-level rows query exposes `pageInfo.nextCursor`. Every page ow
 managed assets, so Load more appends a page without refetching the ones on screen. Container-level
 counts - a season header's episode and watched totals, a podcast's played count - come from the
 container query's own aggregates, never from a loaded page, which would be wrong once the page is
-partial. Show season episodes list ascending and offer the first untracked episode after the last
-completed one as "Next up"; podcast episodes list newest first and offer the newest unplayed episode.
+partial. Episode counts cover the aired episodes and add the unaired ones as upcoming, so the summary
+header reads e.g. "10/10 aired · 3 upcoming". Show season episodes list ascending and podcast
+episodes newest first. "Next up" is not derived from a page: the summary resolves it server-side with
+`episodicNextUpInclude` (see Lifecycle), and the episode list renders it at the head of the one
+container that holds it - the matching season for a show, the feed for a podcast.
 Show's activity coverage is one bar per season with specials last; podcast's is a single Episodes bar.
 
 Podcast providers (iTunes and ListenNotes) emit no person or company credit relationships, so its
@@ -352,6 +355,9 @@ For shows and podcasts, current state means:
 | `in_progress`                               | Latest regular-episode activity has incomplete current-cycle coverage |
 | `caught_up`                                 | Latest regular-episode activity has complete current-cycle coverage   |
 
+Coverage is judged over aired episodes only, so `caught_up` is time-dependent: a show whose remaining
+episodes have not aired reads `caught_up`, and reads `in_progress` again once one of them airs.
+
 Flat, non-episodic media has no coverage to derive from, so its state is the slug of its latest
 `backlog`, `progress`, `complete`, `dropped`, or `on_hold` event, with `progress` reading as
 `in_progress` and no event at all reading as `untracked`. There is no `caught_up` state. Movie events
@@ -364,17 +370,31 @@ Parent aggregate signals interrupt episode-derived activity; later regular-episo
 it. An episode is `untracked`, `in_progress`, or `complete` from its latest progress/completion event.
 Progress after completion starts another cycle.
 
+One episode display state, `episodeDisplayStateExpression`, drives the episode lists, the watched and
+in-progress counts, and next-up. Once a new cycle has begun - a regular-episode progress or
+completion after the parent's latest completion - it is the episode's current-cycle state; until then
+it is the episode's lifetime latest state, so a completed show still lists what was watched and a
+rewatch starts from a clean list.
+
+`episodicNextUpInclude` resolves next-up as a limit-1 include over the required episodes, judged by
+display state: the `in_progress` episode wins (lowest position for a show, newest for a podcast).
+Otherwise a show offers the lowest untracked episode positioned after its highest completed one,
+compared on `(seasonNumber, episodeNumber)`, and has none without that anchor or with nothing after
+it; untracked gaps before the anchor are skipped. A podcast offers its newest untracked episode.
+
 The episodic session ID is the aggregate ID. Regular child events use their show or podcast parent;
 season-zero specials have no parent session. Missing or ambiguous parents reject the event, and
 caller-supplied session IDs are replaced.
 
-The active cycle begins strictly after the latest parent completion. Show coverage requires every
-episode in every regular season (`seasonNumber > 0`) to have a latest current-cycle completion; season
-zero neither satisfies nor blocks coverage. Podcast coverage requires every currently related episode.
-Empty coverage is never complete.
+The active cycle begins strictly after the latest parent completion. `episodicEpisodeQuery` defines
+the required episodes once: for a show, the aired episodes of every regular season
+(`seasonNumber > 0`); for a podcast, every currently related aired episode. An episode has aired when
+its `publishDate` is on or before the server's UTC `currentDate()`; a null or malformed date counts as
+aired. Coverage requires every required episode to have a latest current-cycle completion. Season zero
+and seasons with nothing aired neither satisfy nor block coverage. Empty coverage is never complete.
 
-Episodic parent auto-completion reads that state with one parent-rooted RyotQL snapshot query. For
-each required episode, the query selects the first completion after both the parent completion
+Episodic parent auto-completion reads that state with one parent-rooted RyotQL snapshot query over
+the same required episodes. For each required episode, the query selects the first completion after both the parent completion
 boundary and that episode's latest progress. This preserves progress reopening and keeps duplicate
 completions from moving the coverage-closing event without paging through raw event history. The
 latest covering completion across episodes closes coverage, and `consumedOn` is copied only when all

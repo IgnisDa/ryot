@@ -3,9 +3,14 @@ import { fireEvent, waitFor } from "@testing-library/dom";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { rowsResult } from "../../tests/client/query-result-fixture";
-import { showEpisodeRow, showSeasonRow } from "../../tests/client/show/episodes-fixture";
+import {
+	decodeShowSeasonEpisodesResult,
+	showEpisodeRow,
+	showSeasonRow,
+} from "../../tests/client/show/episodes-fixture";
 import { flushRyotClient, mountRyotClient } from "../../tests/client/test-support";
 import { ShowEpisodesTab } from "./episodes";
+import type { ShowEpisode } from "./episodes-state";
 
 const rows = (items: readonly Record<string, unknown>[]) =>
 	rowsResult(items, { limit: 60, hasMore: false, nextCursor: null });
@@ -72,8 +77,10 @@ const showAdapter = (input: {
 	return adapter;
 };
 
-const renderTab = (adapter: Partial<RyotClientAdapter>) =>
-	mountRyotClient(adapter, <ShowEpisodesTab compact entityId="show-1" />);
+const [summaryNextUp] = decodeShowSeasonEpisodesResult({ episodes: [secondEpisode] }).items;
+
+const renderTab = (adapter: Partial<RyotClientAdapter>, nextUp: ShowEpisode | null = null) =>
+	mountRyotClient(adapter, <ShowEpisodesTab compact entityId="show-1" summary={{ nextUp }} />);
 
 const textOf = (container: HTMLElement, text: string) =>
 	Array.from(container.querySelectorAll("*")).find((element) => element.textContent === text);
@@ -90,13 +97,15 @@ afterEach(() => {
 describe("show season browser", () => {
 	it("heads the season with the counts the season query reports, not the loaded page", async () => {
 		const view = renderTab(
-			showAdapter({ seasons: [{ ...showSeasonRow, episodeTotal: 6, watchedTotal: 2 }] }),
+			showAdapter({
+				seasons: [{ ...showSeasonRow, episodeTotal: 6, watchedTotal: 2, upcomingTotal: 3 }],
+			}),
 		);
 		await flushRyotClient();
 
 		await waitFor(() => expect(view.container.textContent).toContain("Season 1"));
 		expect(
-			textOf(view.container, "Released Mar 13, 2025 • 6 episodes • 2 watched"),
+			textOf(view.container, "Released Mar 13, 2025 • 2/6 aired · 3 upcoming"),
 		).not.toBeUndefined();
 		expect(view.container.textContent).toContain("The complete limited series.");
 		expect(view.container.textContent).toContain("Episode 1: The Arrest");
@@ -136,15 +145,16 @@ describe("show season browser", () => {
 		view.unmount();
 	});
 
-	it("offers the next regular episode to continue with and drops it for specials", async () => {
+	it("leads only the season that holds the summary's next up with it", async () => {
 		const view = renderTab(
 			showAdapter({
 				seasons: [specialsSeason, showSeasonRow],
 				episodes: (seasonId) =>
 					seasonId === "season-0"
 						? [{ ...showEpisodeRow, id: "special-1", seasonNumber: 0, state: "untracked" }]
-						: [showEpisodeRow, secondEpisode],
+						: [showEpisodeRow],
 			}),
+			summaryNextUp,
 		);
 		await flushRyotClient();
 		await waitFor(() => expect(view.container.textContent).toContain("Next up"));
@@ -191,7 +201,7 @@ describe("show season browser", () => {
 				query: () => Promise.reject(new Error("offline")),
 				watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
 			},
-			<ShowEpisodesTab compact entityId="show-1" />,
+			<ShowEpisodesTab compact entityId="show-1" summary={undefined} />,
 		);
 		await flushRyotClient();
 

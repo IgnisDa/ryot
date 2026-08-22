@@ -14,7 +14,6 @@ import {
 	mediaEpisodeStateLabel,
 	mediaEpisodeSynopsis,
 	mediaEpisodesManagedAssets,
-	mediaNextUpEpisode,
 } from "./episodes-state";
 
 const STATE_LABELS = { complete: "Played", untracked: undefined, in_progress: "In progress" };
@@ -26,48 +25,6 @@ const readyEpisodes = (episodes: readonly Record<string, unknown>[]) => {
 };
 
 describe("media episode state", () => {
-	it("resumes a forward sequence at the first untracked episode after the last completed one", () => {
-		const nextUp = mediaNextUpEpisode(
-			readyEpisodes([
-				episodicEpisode({ id: "episode-1", episodeNumber: 1, state: "complete" }),
-				episodicEpisode({ id: "episode-2", episodeNumber: 2, state: "untracked" }),
-			]),
-			"forward",
-		);
-
-		expect(nextUp?.id).toBe("episode-2");
-	});
-
-	it("has no forward next up until something has been completed", () => {
-		expect(
-			mediaNextUpEpisode(readyEpisodes([episodicEpisode({ state: "untracked" })]), "forward"),
-		).toBeUndefined();
-		expect(
-			mediaNextUpEpisode(readyEpisodes([episodicEpisode({ state: "complete" })]), "forward"),
-		).toBeUndefined();
-	});
-
-	it("opens a newest-first list at the newest episode with no completion", () => {
-		const episodes = readyEpisodes([
-			episodicEpisode({ id: "episode-9", episodeNumber: 9, state: "untracked" }),
-			episodicEpisode({ id: "episode-8", episodeNumber: 8, state: "complete" }),
-		]);
-
-		expect(mediaNextUpEpisode(episodes, "latest")?.id).toBe("episode-9");
-		expect(mediaNextUpEpisode(episodes, "forward")).toBeUndefined();
-	});
-
-	it("prefers an in-progress episode in either direction", () => {
-		const episodes = readyEpisodes([
-			episodicEpisode({ id: "episode-9", episodeNumber: 9, state: "untracked" }),
-			episodicEpisode({ id: "episode-8", episodeNumber: 8, state: "in_progress" }),
-			episodicEpisode({ id: "episode-7", episodeNumber: 7, state: "complete" }),
-		]);
-
-		expect(mediaNextUpEpisode(episodes, "latest")?.id).toBe("episode-8");
-		expect(mediaNextUpEpisode(episodes, "forward")?.id).toBe("episode-8");
-	});
-
 	it("formats the metadata a provider recorded and omits the rest", () => {
 		const [first, second] = readyEpisodes([
 			episodicEpisodeRow,

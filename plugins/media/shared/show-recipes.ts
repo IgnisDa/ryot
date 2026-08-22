@@ -35,6 +35,8 @@ import { showEpisodicKindConfig } from "./lifecycle-expressions";
 import { MediaImageListSchema } from "./media-image";
 import { mediaWatchProviderSelection } from "./media-recipes";
 
+const SHOW_SEASON_RELATIONSHIP = "show-to-show-season";
+
 const SHOW_EPISODE_RELATIONSHIP = "show-season-to-show-episode";
 
 const showSeasonNumber = (entity: Table) => ({
@@ -58,12 +60,14 @@ const showSeasonCount = (show: Table) => {
 
 const showSeasonCoverageQuery = (input: { readonly limit: number; readonly entityId: string }) => {
 	const season = table("entity", "coverageSeason");
+	const show = table("entity", "coverageShow");
 	const showSeason = table("relationship", "coverageShowSeason");
 	return selectedRows(season, {
 		limit: input.limit,
 		orderBy: [ascending(propertyNumber(season, "seasonNumber")), ascending(column(season, "id"))],
 		joins: [
 			join("inner", showSeason, eq(column(showSeason, "targetEntityId"), column(season, "id"))),
+			join("inner", show, eq(column(show, "id"), column(showSeason, "sourceEntityId"))),
 		],
 		where: and(
 			entitySchema(season, "show-season"),
@@ -74,6 +78,7 @@ const showSeasonCoverageQuery = (input: { readonly limit: number; readonly entit
 			id: selectedField(column(season, "id"), EntityId),
 			...showSeasonNumber(season),
 			...episodicCoverageSelection({
+				parent: show,
 				container: season,
 				alias: "seasonCoverage",
 				episodeSchemaSlug: "show-episode",
@@ -115,9 +120,10 @@ export const showSeasonEpisodesRecipe = episodicEpisodesRecipe({
 	extraFields: showSeasonNumber,
 	episodeSchemaSlug: "show-episode",
 	relationshipSlug: SHOW_EPISODE_RELATIONSHIP,
+	parentRelationshipSlug: SHOW_SEASON_RELATIONSHIP,
 });
 
-const showSeasonInclude = (seasonLimit: number) => {
+const showSeasonInclude = (show: Table, seasonLimit: number) => {
 	const season = table("entity", "season");
 	const seasonNumber = propertyNumber(season, "seasonNumber");
 	const seasonRelationship = table("relationship", "seasonRelationship");
@@ -125,6 +131,10 @@ const showSeasonInclude = (seasonLimit: number) => {
 	return selectedInclude(season, {
 		limit: seasonLimit,
 		orderBy: [ascending(seasonNumber)],
+		where: and(
+			entitySchema(season, "show-season"),
+			relationshipTo(seasonRelationship, show, season, SHOW_SEASON_RELATIONSHIP),
+		),
 		joins: [
 			join(
 				"inner",
@@ -132,10 +142,6 @@ const showSeasonInclude = (seasonLimit: number) => {
 				eq(column(seasonRelationship, "targetEntityId"), column(season, "id")),
 			),
 		],
-		where: and(
-			entitySchema(season, "show-season"),
-			relationshipTo(seasonRelationship, table("entity", "entity"), season, "show-to-show-season"),
-		),
 		selection: {
 			...entityIdentitySelection(season),
 			seasonNumber: selectedField(seasonNumber, Schema.Number),
@@ -143,6 +149,7 @@ const showSeasonInclude = (seasonLimit: number) => {
 			releaseDate: selectedField(propertyText(season, "releaseDate"), Schema.NullOr(Schema.String)),
 			description: selectedField(propertyText(season, "description"), Schema.NullOr(Schema.String)),
 			...episodicCoverageSelection({
+				parent: show,
 				container: season,
 				alias: "seasonEpisodes",
 				episodeSchemaSlug: "show-episode",
@@ -161,7 +168,7 @@ export const showSeasonsRecipe = defineRecipe(
 				show: selectedOptionalRow(entity, {
 					selection: entityIdentitySelection(entity),
 					orderBy: [ascending(column(entity, "id"))],
-					include: { seasons: showSeasonInclude(input.seasonLimit) },
+					include: { seasons: showSeasonInclude(entity, input.seasonLimit) },
 					where: and(entitySchema(entity, "show"), entityId(entity, input.entityId)),
 				}),
 			},

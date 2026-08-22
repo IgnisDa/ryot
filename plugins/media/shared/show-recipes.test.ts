@@ -83,6 +83,7 @@ const SEASON_ROW = {
 	seasonNumber: 1,
 	episodeTotal: 4,
 	watchedTotal: 1,
+	upcomingTotal: 0,
 	watchedMinutes: 66,
 	watchedUnknownRuntime: 0,
 };
@@ -122,12 +123,13 @@ const SHOW_SUMMARY_ROW = {
 	id: "show-1",
 	totalSeasons: 1,
 	totalEpisodes: 4,
-	storedEpisodes: 4,
+	airedEpisodes: 4,
 	isMonitored: true,
 	publishYear: 2025,
 	state: "complete",
 	watchedEpisodes: 1,
 	schemaSlug: "show",
+	upcomingEpisodes: 0,
 	name: "Adolescence",
 	providerName: "TMDB",
 	inProgressEpisodes: 0,
@@ -139,6 +141,7 @@ const SHOW_SUMMARY_ROW = {
 	publishDate: "2025-03-13",
 	genres: ["Drama", "Crime"],
 	description: "A synopsis.",
+	nextUp: { items: [], pageInfo: { limit: 1, hasMore: false } },
 	collections: {
 		pageInfo: { limit: 6, hasMore: false },
 		items: [{ name: "Completed", id: "collection-1" }],
@@ -188,8 +191,9 @@ describe("media show query recipes", () => {
 			"publishDate",
 			"publishYear",
 			"productionStatus",
-			"storedEpisodes",
+			"airedEpisodes",
 			"watchedEpisodes",
+			"upcomingEpisodes",
 			"inProgressEpisodes",
 			"storedSeasons",
 		]);
@@ -203,8 +207,9 @@ describe("media show query recipes", () => {
 			name: "Severance",
 			publishYear: 2022,
 			publishDate: null,
+			airedEpisodes: 19,
 			schemaSlug: "show",
-			storedEpisodes: 19,
+			upcomingEpisodes: 0,
 			watchedEpisodes: 11,
 			state: "in_progress",
 			inProgressEpisodes: 1,
@@ -219,7 +224,8 @@ describe("media show query recipes", () => {
 				{
 					id: "show-1",
 					storedSeasons: 2,
-					storedEpisodes: 19,
+					airedEpisodes: 19,
+					upcomingEpisodes: 0,
 					watchedEpisodes: 11,
 					inProgressEpisodes: 1,
 				},
@@ -266,6 +272,7 @@ describe("media show query recipes", () => {
 			"episodeTotal",
 			"watchedTotal",
 			"watchedUnknownRuntime",
+			"upcomingTotal",
 			"watchedMinutes",
 		]);
 	});
@@ -348,8 +355,9 @@ describe("media show query recipes", () => {
 			"productionStatus",
 			"state",
 			"totalEpisodes",
-			"storedEpisodes",
+			"airedEpisodes",
 			"watchedEpisodes",
+			"upcomingEpisodes",
 			"inProgressEpisodes",
 			"watchProviders",
 			"totalSeasons",
@@ -374,6 +382,7 @@ describe("media show query recipes", () => {
 				summary: {
 					owned: null,
 					id: "show-1",
+					nextUp: null,
 					state: "complete",
 					publishYear: 2025,
 					isMonitored: true,
@@ -388,6 +397,38 @@ describe("media show query recipes", () => {
 				},
 			},
 		});
+	});
+
+	it("decodes the summary's next up as the one episode its include returned", () => {
+		const recipe = showRecipes.summaryRecipe({ collectionLimit: 6, entityId: "show-1" });
+		const nextUp = {
+			runtime: 58,
+			images: null,
+			id: "episode-5",
+			seasonNumber: 2,
+			episodeNumber: 5,
+			description: null,
+			state: "untracked",
+			name: "The Return",
+			publishDate: "2025-04-01",
+			populationStatus: "ready",
+			translationStatus: "none",
+			schemaSlug: "show-episode",
+		};
+
+		expect(
+			recipe.decode({
+				data: {
+					requested: showRows([{ schemaSlug: "show" }]),
+					summary: showRows([
+						{
+							...SHOW_SUMMARY_ROW,
+							nextUp: { items: [nextUp], pageInfo: { limit: 1, hasMore: false } },
+						},
+					]),
+				},
+			}),
+		).toMatchObject({ success: { summary: { nextUp } } });
 	});
 
 	it("decodes a missing show as an absent summary and absent schema", () => {
@@ -892,6 +933,7 @@ describe("media show query recipes", () => {
 			"episodeTotal",
 			"watchedTotal",
 			"watchedUnknownRuntime",
+			"upcomingTotal",
 			"watchedMinutes",
 		]);
 		expect(seasons.where.predicates[1]).toMatchObject({

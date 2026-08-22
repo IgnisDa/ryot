@@ -36,7 +36,8 @@ export const podcastSummaryRow = {
 	name: "Reply All",
 	totalEpisodes: 412,
 	isMonitored: false,
-	storedEpisodes: 400,
+	airedEpisodes: 400,
+	upcomingEpisodes: 0,
 	watchedEpisodes: 183,
 	state: "in_progress",
 	providerRating: 72.5,
@@ -50,6 +51,7 @@ export const podcastSummaryRow = {
 	publishDate: "2014-11-18",
 	providerName: "Listen Notes",
 	description: "A show about the internet.",
+	nextUp: { items: [], pageInfo: { limit: 1, hasMore: false } },
 	collections: { items: [], pageInfo: { limit: 6, hasMore: false } },
 	images: [{ type: "remote", purpose: "cover", url: "https://images.test/reply-all.jpg" }],
 };
@@ -92,6 +94,7 @@ export const decodePodcastOverview = (
 
 export const podcastCoverageRow = {
 	id: "podcast-1",
+	upcomingTotal: 0,
 	episodeTotal: 400,
 	watchedTotal: 183,
 	watchedMinutes: 9150,
