@@ -162,6 +162,7 @@ const entity: CatalogTable = {
 		populatedAt: physicalField("populated_at", "date"),
 		createdAt: physicalField("created_at", "date", false),
 		updatedAt: physicalField("updated_at", "date", false),
+		entitySchemaPluginId: physicalField("entity_schema_plugin_id", "text"),
 		entitySchemaSlug: physicalField("entity_schema_slug", "text", false),
 	},
 };
