@@ -1,9 +1,12 @@
+import { useAtomValue } from "@effect/atom-react";
 import { createFileRoute, notFound, useLocation, useNavigate } from "@tanstack/react-router";
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
+import { AsyncResult } from "effect/unstable/reactivity";
+import { useMemo } from "react";
 
 import { createKernelRyotClient } from "../api/ryot-client";
 import { protectedRouteGuard } from "../modules/auth/route-gates";
-import { PluginCatalogService } from "../modules/plugins/catalog";
+import { makePluginCatalogAtom, PluginCatalogService } from "../modules/plugins/catalog";
 import { PluginOperationsService } from "../modules/plugins/operations";
 import { PluginHost } from "../modules/plugins/plugin-host";
 import { toPluginLocation } from "../modules/plugins/plugin-location";
@@ -26,16 +29,27 @@ export const Route = createFileRoute("/$pluginSlug")({
 			// oxlint-disable-next-line typescript/only-throw-error
 			throw notFound();
 		}
-		return { installation: target.installation };
+		return { ryot, catalog };
 	},
 });
 
 function PluginDestination() {
 	const navigate = useNavigate();
+	const initial = Route.useLoaderData();
 	const { pluginSlug } = Route.useParams();
 	const { pathname, searchStr } = useLocation();
-	const { installation } = Route.useLoaderData();
 	const { runtime, scope, server, theme } = Route.useRouteContext();
+	const catalogAtom = useMemo(
+		() => makePluginCatalogAtom(runtime, initial.ryot, initial.catalog),
+		[initial.catalog, initial.ryot, runtime],
+	);
+	const catalogResult = useAtomValue(catalogAtom);
+	const catalog = Option.getOrElse(AsyncResult.value(catalogResult), () => initial.catalog);
+	const target = resolveRouteTarget(catalog, pluginSlug);
+	if (target.owner === "kernel") {
+		return <PluginNotFound />;
+	}
+	const installation = target.installation;
 
 	return (
 		<PluginHost
@@ -52,10 +66,10 @@ function PluginDestination() {
 					{ signal },
 				)
 			}
-			onInvokeOperation={(request, signal) =>
+			onInvokeOperation={(request, sourceHash, signal) =>
 				runtime.runPromise(
 					Effect.flatMap(PluginOperationsService, (service) =>
-						service.invoke({ scope, request, pluginSlug: installation.slug }),
+						service.invoke({ scope, request, sourceHash, pluginSlug: installation.slug }),
 					),
 					{ signal },
 				)

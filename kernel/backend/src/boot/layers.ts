@@ -544,7 +544,11 @@ const ContentAndSandboxServicesLive = Layer.mergeAll(
 );
 
 const OperationsServiceLive = OperationsService.layer.pipe(
-	Layer.provide([ContentAndSandboxServicesLive, IntegrationOperationScopeResolverLive]),
+	Layer.provide([
+		PluginRepository.layer,
+		ContentAndSandboxServicesLive,
+		IntegrationOperationScopeResolverLive,
+	]),
 );
 
 const PluginClientArtifactServiceLive = PluginClientArtifactService.layer.pipe(
