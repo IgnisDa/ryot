@@ -7,6 +7,7 @@ import {
 	CLIENT_COMPILER_VERSION,
 	type PluginBridgeNavigate,
 	type PluginBridgeReady,
+	type PluginOperationBridgeErrorReason,
 	type PluginOperationOutcome,
 	type PluginOperationRequest,
 	type PluginRyotQLOutcome,
@@ -274,7 +275,7 @@ describe("plugin bridge", () => {
 		);
 	});
 
-	it("forwards only decoded navigation requests once ready", async () => {
+	it("forwards decoded navigation requests once ready", async () => {
 		const { init, pluginPort, navigations, failures } = connect();
 		const request = {
 			mode: "push",
@@ -283,7 +284,6 @@ describe("plugin bridge", () => {
 		} satisfies PluginBridgeNavigate;
 
 		pluginPort.postMessage(readyFor(init));
-		pluginPort.postMessage({ type: "navigate", mode: "sideways", location: request.location });
 		pluginPort.postMessage(request);
 
 		await waitFor(() => expect(navigations).toEqual([request]));
@@ -409,7 +409,7 @@ describe("plugin bridge", () => {
 		});
 	});
 
-	it("maps an invalid operation success to transport and keeps the session alive", async () => {
+	it("maps an invalid operation success to malformed-result and keeps the session alive", async () => {
 		let calls = 0;
 		const { init, pluginPort, received, failures } = connect({
 			onOperation: () => {
@@ -435,9 +435,9 @@ describe("plugin bridge", () => {
 		await waitFor(() =>
 			expect(received).toContainEqual({
 				outcome: "failure",
-				reason: "transport",
 				requestId: "request-1",
 				type: "operation-result",
+				reason: "malformed-result",
 			}),
 		);
 		pluginPort.postMessage({
@@ -457,9 +457,46 @@ describe("plugin bridge", () => {
 		expect(failures).toEqual([]);
 	});
 
-	it("round-trips an expected operation failure", async () => {
+	for (const reason of [
+		"transport",
+		"operation-failed",
+		"malformed-result",
+	] satisfies PluginOperationBridgeErrorReason[]) {
+		it(`round-trips a ${reason} operation bridge error without extra details`, async () => {
+			const { init, pluginPort, received } = connect({
+				onOperation: () =>
+					Promise.resolve(
+						// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- verifies runtime detail redaction
+						{ outcome: "failure", reason, cause: new Error("private") } as PluginOperationOutcome,
+					),
+			});
+			pluginPort.postMessage(readyFor(init));
+			await waitFor(() => expect(received).toHaveLength(1));
+
+			pluginPort.postMessage({
+				input: null,
+				requestId: "request-1",
+				operationSlug: "greet",
+				type: "operation-request",
+			});
+
+			await waitFor(() => expect(received).toHaveLength(2));
+			expect(received[1]).toEqual({
+				reason,
+				outcome: "failure",
+				requestId: "request-1",
+				type: "operation-result",
+			});
+		});
+	}
+
+	it("maps an invalid callback failure reason to transport", async () => {
 		const { init, pluginPort, received } = connect({
-			onOperation: () => Promise.resolve({ outcome: "failure", reason: "operation-failed" }),
+			onOperation: () =>
+				Promise.resolve(
+					// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- injects an invalid runtime boundary value
+					{ outcome: "failure", reason: "private-failure" } as unknown as PluginOperationOutcome,
+				),
 		});
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(received).toHaveLength(1));
@@ -471,14 +508,13 @@ describe("plugin bridge", () => {
 			type: "operation-request",
 		});
 
-		await waitFor(() =>
-			expect(received).toContainEqual({
-				outcome: "failure",
-				requestId: "request-1",
-				type: "operation-result",
-				reason: "operation-failed",
-			}),
-		);
+		await waitFor(() => expect(received).toHaveLength(2));
+		expect(received[1]).toEqual({
+			outcome: "failure",
+			reason: "transport",
+			requestId: "request-1",
+			type: "operation-result",
+		});
 	});
 
 	it("reports a transport failure when onOperation rejects", async () => {
@@ -503,6 +539,7 @@ describe("plugin bridge", () => {
 				type: "operation-result",
 			}),
 		);
+		expect(received).toHaveLength(2);
 	});
 
 	it("settles two concurrent calls out of order, each exactly once", async () => {
@@ -596,30 +633,45 @@ describe("plugin bridge", () => {
 		expect(received).toHaveLength(2);
 	});
 
-	it("rejects a request that omits input or contains a non-JSON value", async () => {
-		const { init, pluginPort, received, operationCalls } = connect();
+	it("fails the session on a malformed active-port message and suppresses late work", async () => {
+		let signal: AbortSignal | undefined;
+		const call = deferred<PluginOperationOutcome>();
+		const { init, pluginPort, received, failures } = connect({
+			onOperation: (_request, requestSignal) => {
+				signal = requestSignal;
+				return call.promise;
+			},
+		});
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(received).toHaveLength(1));
 
 		pluginPort.postMessage({
+			input: null,
 			requestId: "request-1",
 			operationSlug: "greet",
 			type: "operation-request",
 		});
+		await waitFor(() => expect(signal).toBeDefined());
+
 		pluginPort.postMessage({
-			requestId: "request-2",
+			requestId: "malformed",
 			operationSlug: "greet",
 			type: "operation-request",
-			input: { invalid: undefined },
 		});
+		await waitFor(() => expect(failures).toHaveLength(1));
+		expect(signal?.aborted).toBe(true);
+
+		call.resolve({ outcome: "success", value: "late" });
 		await delay(10);
 
-		expect(operationCalls).toEqual([]);
-		expect(received).toHaveLength(1);
+		expect(received).toEqual([
+			{ type: "location", location: home },
+			{ reason: "failed", type: "lifecycle-close" },
+		]);
 	});
 
-	it("never invokes onOperation for a request carrying extra identity fields", async () => {
-		const { init, pluginPort, received, operationCalls } = connect();
+	it("fails the session before invoking an operation with extra identity fields", async () => {
+		const { init, pluginPort, received, failures, operationCalls } = connect();
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(received).toHaveLength(1));
 
@@ -630,17 +682,13 @@ describe("plugin bridge", () => {
 			type: "operation-request",
 			installationId: "installation-2",
 		});
-		pluginPort.postMessage({
-			input: null,
-			requestId: "request-2",
-			operationSlug: "greet",
-			type: "operation-request",
-			pluginSlug: "another-plugin",
-		});
-		await delay(10);
+		await waitFor(() => expect(failures).toHaveLength(1));
 
 		expect(operationCalls).toEqual([]);
-		expect(received).toHaveLength(1);
+		expect(received).toEqual([
+			{ type: "location", location: home },
+			{ reason: "failed", type: "lifecycle-close" },
+		]);
 	});
 
 	it("aborts pending signals on close and posts nothing after a late resolution", async () => {
@@ -739,9 +787,9 @@ describe("plugin bridge", () => {
 		await waitFor(() => expect(received).toHaveLength(2));
 	});
 
-	it("ignores malformed RyotQL requests with identity or extra fields", async () => {
+	it("fails the session on a malformed RyotQL request", async () => {
 		const calls: PluginRyotQLRequest[] = [];
-		const { init, pluginPort, received } = connect({
+		const { init, pluginPort, received, failures } = connect({
 			onRyotQL: (request) => {
 				calls.push(request);
 				return Promise.resolve({ outcome: "success", response: { data: {} } });
@@ -756,16 +804,13 @@ describe("plugin bridge", () => {
 			requestId: "query-a",
 			type: "ryotql-request",
 		});
-		pluginPort.postMessage({
-			document,
-			requestId: "query-b",
-			type: "ryotql-request",
-			serverUrl: "https://ryot.example",
-		});
-		await delay(10);
+		await waitFor(() => expect(failures).toHaveLength(1));
 
 		expect(calls).toEqual([]);
-		expect(received).toEqual([{ type: "location", location: home }]);
+		expect(received).toEqual([
+			{ type: "location", location: home },
+			{ reason: "failed", type: "lifecycle-close" },
+		]);
 	});
 
 	it("aborts a pending RyotQL request and suppresses its late response", async () => {

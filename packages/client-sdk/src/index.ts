@@ -1,5 +1,5 @@
 import type {
-	PluginOperationFailureReason,
+	PluginOperationErrorReason,
 	PluginRyotQLFailureReason,
 } from "@ryot/contract/modules/plugins/client";
 import { isJsonValue, type JsonValue } from "@ryot/contract/schema/json";
@@ -17,10 +17,7 @@ export class RyotQueryError extends Error {
 	}
 }
 
-export type PluginOperationErrorReason =
-	| "invalid-input"
-	| "malformed-result"
-	| PluginOperationFailureReason;
+export type { PluginOperationErrorReason } from "@ryot/contract/modules/plugins/client";
 
 export class PluginOperationError extends Error {
 	readonly reason: PluginOperationErrorReason;
@@ -67,13 +64,16 @@ export const createRyotClient = (adapter: RyotClientAdapter) => ({
 				throw new PluginOperationError("invalid-input");
 			}
 			if (!adapter.invokeOperation) {
-				throw new PluginOperationError("transport");
+				throw new PluginOperationError("unsupported-capability");
 			}
 			let value: unknown;
 			try {
 				value = await adapter.invokeOperation({ slug: request.slug, input: request.input });
 			} catch (error) {
 				throw error instanceof PluginOperationError ? error : new PluginOperationError("transport");
+			}
+			if (!isJsonValue(value)) {
+				throw new PluginOperationError("malformed-result");
 			}
 			const decoded = Schema.decodeUnknownResult(request.output)(value);
 			if (Result.isFailure(decoded)) {
