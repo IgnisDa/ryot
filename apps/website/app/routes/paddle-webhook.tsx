@@ -151,10 +151,6 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			{ status: isInvalidSignature ? 401 : 400 },
 		);
 	}
-	if (!eventData) {
-		return data({ error: "No event data found in request body" }, { status: 400 });
-	}
-
 	const { eventType, data: paddleData } = eventData;
 	console.log("Received event:", { eventType });
 
