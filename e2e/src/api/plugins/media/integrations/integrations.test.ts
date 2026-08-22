@@ -16,6 +16,7 @@ import {
 import { seedGlobalShowEpisodeTree } from "~/fixtures/plugins/media";
 import { requireObjectRecord, requirePresent, requireString } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
+import { webRequest } from "~/support/web-request";
 
 const plexMultipartBody = (boundary: string, payload: unknown) =>
 	[
@@ -79,22 +80,20 @@ describe("Webhook routes", () => {
 				frontendOrigin,
 				requirePresent(detail.webhookToken, "Expected Plex webhook token"),
 			);
-			const response = yield* Effect.promise(() =>
-				fetch(webhookUrl, {
-					method: "POST",
-					headers: { "Content-Type": `multipart/form-data; boundary=${boundary}` },
-					body: plexMultipartBody(boundary, {
-						event: "media.scrobble",
-						Metadata: {
-							index: 2,
-							parentIndex: 1,
-							type: "episode",
-							Guid: [{ id: `tmdb://${tmdbId}` }],
-							grandparentTitle: "Plex Multipart Sink Show",
-						},
-					}),
+			const response = yield* webRequest(webhookUrl, {
+				method: "POST",
+				headers: { "Content-Type": `multipart/form-data; boundary=${boundary}` },
+				body: plexMultipartBody(boundary, {
+					event: "media.scrobble",
+					Metadata: {
+						index: 2,
+						parentIndex: 1,
+						type: "episode",
+						Guid: [{ id: `tmdb://${tmdbId}` }],
+						grandparentTitle: "Plex Multipart Sink Show",
+					},
 				}),
-			);
+			});
 
 			expect(response.status).toBe(202);
 			const data = requireObjectRecord(

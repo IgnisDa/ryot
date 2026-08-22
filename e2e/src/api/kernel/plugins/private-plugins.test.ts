@@ -3,7 +3,7 @@ import { writePluginArchive } from "@ryot-app/plugin-archive";
 import { column, document, eq, field, join, literal, rows, table } from "@ryot-app/ryotql";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import type { Client } from "~/fixtures/kernel";
 import {
@@ -123,8 +123,9 @@ describe("private plugins", () => {
 			});
 			expect(listed.configuredSecrets).toEqual([PRIVATE_PLUGIN_SECRET_KEY]);
 			expect(listed.config[PRIVATE_PLUGIN_SECRET_KEY]).toBeUndefined();
-			expect(JSON.stringify(listed)).not.toContain("token-alpha");
-			expect(JSON.stringify(listed)).not.toContain("defineOperation");
+			const serialized = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(listed);
+			expect(serialized).not.toContain("token-alpha");
+			expect(serialized).not.toContain("defineOperation");
 		}),
 	);
 
@@ -174,8 +175,12 @@ describe("private plugins", () => {
 				configuredSecrets: [PRIVATE_PLUGIN_SECRET_KEY],
 				config: { [PRIVATE_PLUGIN_CONFIG_KEY]: "beta" },
 			});
-			expect(JSON.stringify(patched)).not.toContain("token-alpha");
-			expect(JSON.stringify(persisted)).not.toContain("token-alpha");
+			expect(
+				yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(patched),
+			).not.toContain("token-alpha");
+			expect(
+				yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(persisted),
+			).not.toContain("token-alpha");
 			expect(
 				(yield* invokePrivatePluginOperation({
 					client,

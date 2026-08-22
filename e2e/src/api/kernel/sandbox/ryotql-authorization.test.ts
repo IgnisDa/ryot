@@ -22,7 +22,7 @@ import {
 	rows,
 	table,
 } from "@ryot-app/ryotql";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import type { RyotQLResponse } from "~/fixtures/kernel";
 import {
@@ -682,7 +682,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 					);
 					if (trigger.status !== "executed") {
 						throw new Error(
-							`Probe '${probe.name}' failed: ${"result" in trigger ? JSON.stringify(trigger.result) : "not found"}`,
+							`Probe '${probe.name}' failed: ${"result" in trigger ? yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(trigger.result) : "not found"}`,
 						);
 					}
 					const response = yield* pollUntil(

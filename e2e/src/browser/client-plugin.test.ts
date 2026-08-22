@@ -159,6 +159,7 @@ const expectCurrentBridgeSession = (observations: BridgeObservation[], expected:
 
 const expectDocumentGrantValid = (page: Playwright.Page, grant: DocumentGrant) =>
 	Effect.gen(function* () {
+		// oxlint-disable-next-line effecttsgo/async-function -- effect-playwright page.use requires a Promise callback for Playwright's native request API.
 		const status = yield* page.use(async (nativePage) => {
 			const response = await nativePage.context().request.get(grant.src);
 			const result = response.status();
@@ -255,6 +256,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		const initialGrant = yield* readDocumentGrant(frame, apiUrl);
 		observedGrants.push(initialGrant);
 		yield* expectVisibleText(home, FIXTURE_CLIENT_REVISION_MARKERS.A);
+		// oxlint-disable-next-line effecttsgo/async-function -- Playwright evaluates this callback inside the browser realm.
 		const typography = yield* home.evaluate(async (element) => {
 			const heading = element.querySelector("h1");
 			const uiFaces = await document.fonts.load('16px "Outfit Variable"', "Fixture");
@@ -358,7 +360,12 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		expect(yield* html.getAttribute("data-theme")).toBeNull();
 		yield* returnToFixture("dark");
 
-		yield* fixture.getByRole("link", { name: "Item 1 details" }).click();
+		// Earlier fixture homes remain mounted; the active link is below the iframe viewport.
+		const detailsLink = fixture
+			.locator('[tabindex="-1"]:not([aria-hidden="true"])')
+			.getByRole("link", { name: "Item 1 details" });
+		yield* detailsLink.scrollIntoViewIfNeeded();
+		yield* detailsLink.click();
 		yield* page.waitForURL(`${frontendUrl}/fixture/details/item-1?tab=stats`);
 		yield* expectVisibleText(fixture.locator("body"), "Item item-1, tab stats.");
 

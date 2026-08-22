@@ -1,6 +1,3 @@
-import type { ChildProcess } from "node:child_process";
-import { randomUUID } from "node:crypto";
-
 import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { and, column, document, eq, field, join, literal, rows, table } from "@ryot-app/ryotql";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
@@ -48,8 +45,8 @@ const privateConfig = {
 };
 
 let apiPort: number;
-let apiProcess: ChildProcess | undefined;
-let coreInfrastructure: Awaited<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
+let apiProcess: ReturnType<typeof spawnApiProcess> | undefined;
+let coreInfrastructure: Effect.Success<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
 
 const apiUrl = () => `http://127.0.0.1:${apiPort}/api`;
 
@@ -72,7 +69,7 @@ const installShippedPlugin = (
 	savedViews?: ReturnType<typeof testPluginManifest>["savedViews"],
 ) => {
 	const name = "E2E Reconciliation Shipped";
-	const slug = `e2e-reconciliation-${randomUUID()}`;
+	const slug = `e2e-reconciliation-${crypto.randomUUID()}`;
 	const entry = "backend/scripts/script.sandbox.ts";
 	const manifest = testPluginManifest({
 		pluginSlug,
@@ -156,44 +153,58 @@ const ownedInstallation = (client: Client, pluginSlug: string) =>
 		),
 	);
 
-beforeAll(async () => {
-	try {
-		const [infrastructure, port] = await Promise.all([
-			startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME }),
-			getPort(),
-		]);
-		apiPort = port;
-		coreInfrastructure = infrastructure;
-		const apiOrigin = `http://127.0.0.1:${apiPort}`;
-		apiProcess = spawnApiProcess(
-			buildApiEnv({
-				port: apiPort,
-				label: API_LABEL,
-				frontendUrl: apiOrigin,
-				dbUrl: infrastructure.dbUrl,
-				s3BucketName: S3_BUCKET_NAME,
-				redisUrl: infrastructure.redisUrl,
-				s3Endpoint: infrastructure.s3Endpoint,
-			}),
-		);
-		await waitForHealthCheck(`${apiOrigin}/api/system/health`, API_LABEL, 90);
-	} catch (error) {
-		await stopApiProcess(apiProcess);
-		await stopCoreTestInfrastructure(coreInfrastructure).catch(() => undefined);
-		throw error;
-	}
-}, 180_000);
+beforeAll(
+	() =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				const [infrastructure, port] = yield* Effect.all(
+					[
+						startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME }),
+						Effect.promise(() => getPort()),
+					],
+					{ concurrency: "unbounded" },
+				);
+				apiPort = port;
+				coreInfrastructure = infrastructure;
+				const apiOrigin = `http://127.0.0.1:${apiPort}`;
+				apiProcess = spawnApiProcess(
+					buildApiEnv({
+						port: apiPort,
+						label: API_LABEL,
+						frontendUrl: apiOrigin,
+						dbUrl: infrastructure.dbUrl,
+						s3BucketName: S3_BUCKET_NAME,
+						redisUrl: infrastructure.redisUrl,
+						s3Endpoint: infrastructure.s3Endpoint,
+					}),
+				);
+				yield* waitForHealthCheck(`${apiOrigin}/api/system/health`, API_LABEL, 90);
+			}).pipe(
+				Effect.onError(() =>
+					Effect.gen(function* () {
+						yield* stopApiProcess(apiProcess);
+						yield* stopCoreTestInfrastructure(coreInfrastructure).pipe(Effect.ignore);
+					}),
+				),
+			),
+		),
+	180_000,
+);
 
-afterAll(async () => {
-	await stopApiProcess(apiProcess);
-	await stopCoreTestInfrastructure(coreInfrastructure).catch(() => undefined);
-});
+afterAll(() =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			yield* stopApiProcess(apiProcess);
+			yield* stopCoreTestInfrastructure(coreInfrastructure).pipe(Effect.ignore);
+		}),
+	),
+);
 
 describe("system plugin reconciliation", () => {
 	it.live("marks a shadowed private installation incompatible and restores it when clear", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient(apiUrl());
-			const pluginSlug = PluginSlug.make(`e2e-shadowed-${randomUUID()}`);
+			const pluginSlug = PluginSlug.make(`e2e-shadowed-${crypto.randomUUID()}`);
 			const plugin = yield* installPrivatePlugin({
 				client,
 				pluginSlug,
@@ -233,7 +244,7 @@ describe("system plugin reconciliation", () => {
 	it.live("uninstalls a private installation shadowed by a shipped plugin", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient(apiUrl());
-			const pluginSlug = PluginSlug.make(`e2e-shadowed-removable-${randomUUID()}`);
+			const pluginSlug = PluginSlug.make(`e2e-shadowed-removable-${crypto.randomUUID()}`);
 			yield* installPrivatePlugin({ client, pluginSlug, baseUrl: apiUrl(), config: privateConfig });
 			yield* installShippedPlugin(pluginSlug);
 			yield* reconcilePluginInstallations();
@@ -257,10 +268,10 @@ describe("system plugin reconciliation", () => {
 	it.live("marks a private installation incompatible when a shipped plugin claims its view", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient(apiUrl());
-			const viewSlug = `e2e-shared-view-${randomUUID()}`;
+			const viewSlug = `e2e-shared-view-${crypto.randomUUID()}`;
 			const savedViews = [testPluginSavedView({ slug: viewSlug })];
-			const pluginSlug = PluginSlug.make(`e2e-view-owner-${randomUUID()}`);
-			const shippedSlug = PluginSlug.make(`e2e-view-claimer-${randomUUID()}`);
+			const pluginSlug = PluginSlug.make(`e2e-view-owner-${crypto.randomUUID()}`);
+			const shippedSlug = PluginSlug.make(`e2e-view-claimer-${crypto.randomUUID()}`);
 			const plugin = yield* installPrivatePlugin({
 				client,
 				savedViews,
@@ -299,7 +310,7 @@ describe("system plugin reconciliation", () => {
 	it.live("provisions an installation for an existing user when a shipped plugin appears", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient(apiUrl());
-			const pluginSlug = PluginSlug.make(`e2e-provisioned-${randomUUID()}`);
+			const pluginSlug = PluginSlug.make(`e2e-provisioned-${crypto.randomUUID()}`);
 			expect(yield* installationRows(client, pluginSlug, "system")).toEqual([]);
 
 			yield* installShippedPlugin(pluginSlug);

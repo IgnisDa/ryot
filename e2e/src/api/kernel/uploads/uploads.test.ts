@@ -1,5 +1,3 @@
-import type { ChildProcess } from "node:child_process";
-
 import { UPLOAD_MAX_FILE_BYTES } from "@ryot-app/contract/modules/uploads/upload-policy";
 import { Effect } from "effect";
 import getPort from "get-port";
@@ -16,12 +14,15 @@ import {
 	stopCoreTestInfrastructure,
 	waitForHealthCheck,
 } from "~/support/provisioning";
+import { webRequest } from "~/support/web-request";
 
 const FALLBACK_S3_BUCKET_NAME = "ryot-upload-fallback-test";
 
 let fallbackApiPort: number;
-let fallbackApiProcess: ChildProcess | undefined;
-let fallbackInfrastructure: Awaited<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
+let fallbackApiProcess: ReturnType<typeof spawnApiProcess> | undefined;
+let fallbackInfrastructure:
+	| Effect.Success<ReturnType<typeof startCoreTestInfrastructure>>
+	| undefined;
 
 const getFallbackApiUrl = () => `http://127.0.0.1:${fallbackApiPort}/api`;
 
@@ -30,45 +31,53 @@ const expectValidExpiry = (expiresAt: string | undefined) => {
 	expect(Number.isNaN(Date.parse(expiresAt ?? ""))).toBe(false);
 };
 
-beforeAll(async () => {
-	fallbackApiPort = await getPort();
-	fallbackInfrastructure = await startCoreTestInfrastructure({
-		bucketName: FALLBACK_S3_BUCKET_NAME,
-	});
-	const infrastructure = requirePresent(
-		fallbackInfrastructure,
-		"Upload fallback infrastructure is not initialised",
-	);
-	fallbackApiProcess = spawnApiProcess(
-		buildApiEnv({
-			port: fallbackApiPort,
-			dbUrl: infrastructure.dbUrl,
-			label: "Upload fallback api",
-			redisUrl: infrastructure.redisUrl,
-			s3Endpoint: infrastructure.s3Endpoint,
-			s3BucketName: FALLBACK_S3_BUCKET_NAME,
-			frontendUrl: `http://127.0.0.1:${fallbackApiPort}`,
-			extraEnv: {
-				FILE_STORAGE_S3_URL: "",
-				FILE_STORAGE_S3_REGION: "",
-				FILE_STORAGE_S3_BUCKET_NAME: "",
-				FILE_STORAGE_S3_ACCESS_KEY_ID: "",
-				FILE_STORAGE_S3_SECRET_ACCESS_KEY: "",
-			},
+beforeAll(() =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			fallbackApiPort = yield* Effect.promise(() => getPort());
+			fallbackInfrastructure = yield* startCoreTestInfrastructure({
+				bucketName: FALLBACK_S3_BUCKET_NAME,
+			});
+			const infrastructure = requirePresent(
+				fallbackInfrastructure,
+				"Upload fallback infrastructure is not initialised",
+			);
+			fallbackApiProcess = spawnApiProcess(
+				buildApiEnv({
+					port: fallbackApiPort,
+					dbUrl: infrastructure.dbUrl,
+					label: "Upload fallback api",
+					redisUrl: infrastructure.redisUrl,
+					s3Endpoint: infrastructure.s3Endpoint,
+					s3BucketName: FALLBACK_S3_BUCKET_NAME,
+					frontendUrl: `http://127.0.0.1:${fallbackApiPort}`,
+					extraEnv: {
+						FILE_STORAGE_S3_URL: "",
+						FILE_STORAGE_S3_REGION: "",
+						FILE_STORAGE_S3_BUCKET_NAME: "",
+						FILE_STORAGE_S3_ACCESS_KEY_ID: "",
+						FILE_STORAGE_S3_SECRET_ACCESS_KEY: "",
+					},
+				}),
+			);
+			yield* waitForHealthCheck(
+				`http://127.0.0.1:${fallbackApiPort}/api/system/health`,
+				"Upload fallback setup",
+			);
 		}),
-	);
-	await waitForHealthCheck(
-		`http://127.0.0.1:${fallbackApiPort}/api/system/health`,
-		"Upload fallback setup",
-	);
-});
+	),
+);
 
-afterAll(async () => {
-	await stopApiProcess(fallbackApiProcess);
-	if (fallbackInfrastructure) {
-		await stopCoreTestInfrastructure(fallbackInfrastructure);
-	}
-});
+afterAll(() =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			yield* stopApiProcess(fallbackApiProcess);
+			if (fallbackInfrastructure) {
+				yield* stopCoreTestInfrastructure(fallbackInfrastructure);
+			}
+		}),
+	),
+);
 
 const uploadAndComplete = (
 	fileName: string,
@@ -81,13 +90,11 @@ const uploadAndComplete = (
 		const intent = yield* client.call((c) =>
 			c.uploads.createIntent({ payload: { fileName, contentType, kind: "permanent" } }),
 		);
-		const uploadResponse = yield* Effect.promise(() =>
-			fetch(new URL(intent.uploadUrl, `${apiUrl}/`), {
-				body,
-				method: intent.method,
-				headers: intent.headers,
-			}),
-		);
+		const uploadResponse = yield* webRequest(new URL(intent.uploadUrl, `${apiUrl}/`), {
+			body,
+			method: intent.method,
+			headers: intent.headers,
+		});
 		expect([200, 204]).toContain(uploadResponse.status);
 		const asset = yield* client.call((c) =>
 			c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
@@ -129,9 +136,7 @@ describe("POST /uploads/intents", () => {
 			const downloadUrl = resolved[0]?.downloadUrl;
 			expect(downloadUrl?.startsWith("uploads/local/download?")).toBe(true);
 			expectValidExpiry(resolved[0]?.expiresAt);
-			const downloadResponse = yield* Effect.promise(() =>
-				fetch(new URL(downloadUrl ?? "", `${apiUrl}/`)),
-			);
+			const downloadResponse = yield* webRequest(new URL(downloadUrl ?? "", `${apiUrl}/`));
 			expect(downloadResponse.status).toBe(200);
 			expect(yield* Effect.promise(() => downloadResponse.text())).toBe("title\nexample");
 		}),
@@ -145,9 +150,7 @@ describe("POST /uploads/intents", () => {
 			const [resolved] = yield* client.call((c) =>
 				c.uploads.resolveDownloads({ payload: { assets: [asset] } }),
 			);
-			const response = yield* Effect.promise(() =>
-				fetch(new URL(resolved?.downloadUrl ?? "", `${apiUrl}/`)),
-			);
+			const response = yield* webRequest(new URL(resolved?.downloadUrl ?? "", `${apiUrl}/`));
 			expect(response.status).toBe(200);
 			expect(response.headers.get("content-type")).toBe("image/svg+xml");
 			expect(response.headers.get("content-disposition")).toBe("attachment");
@@ -166,13 +169,11 @@ describe("POST /uploads/intents", () => {
 				}),
 			);
 			expect(new URL(intent.uploadUrl, `${getApiUrl()}/`).pathname).toContain("/uploads/local/");
-			const uploadResponse = yield* Effect.promise(() =>
-				fetch(new URL(intent.uploadUrl, `${getApiUrl()}/`), {
-					method: intent.method,
-					body: "temporary data",
-					headers: intent.headers,
-				}),
-			);
+			const uploadResponse = yield* webRequest(new URL(intent.uploadUrl, `${getApiUrl()}/`), {
+				method: intent.method,
+				body: "temporary data",
+				headers: intent.headers,
+			});
 			expect([200, 204]).toContain(uploadResponse.status);
 			const token = yield* client.call((c) =>
 				c.uploads.completeIntent({ params: { intentId: intent.intentId } }),
@@ -195,13 +196,11 @@ describe("POST /uploads/intents", () => {
 			);
 			const body = new Uint8Array(UPLOAD_MAX_FILE_BYTES + 1);
 			body.fill(97);
-			const uploadResponse = yield* Effect.promise(() =>
-				fetch(new URL(intent.uploadUrl, `${getApiUrl()}/`), {
-					body,
-					method: intent.method,
-					headers: intent.headers,
-				}),
-			);
+			const uploadResponse = yield* webRequest(new URL(intent.uploadUrl, `${getApiUrl()}/`), {
+				body,
+				method: intent.method,
+				headers: intent.headers,
+			});
 			expect(uploadResponse.status).toBe(400);
 			const cleaned = yield* Effect.flip(
 				client.call((c) => c.uploads.completeIntent({ params: { intentId: intent.intentId } })),
@@ -279,28 +278,29 @@ describe("POST /uploads/intents", () => {
 			);
 			const tamperedSignature = new URL(intent.uploadUrl, `${getApiUrl()}/`);
 			tamperedSignature.searchParams.set("signature", "invalid");
-			const invalidSignature = yield* Effect.promise(() =>
-				fetch(tamperedSignature, {
-					body: "signed",
-					method: intent.method,
-					headers: intent.headers,
-				}),
-			);
+			const invalidSignature = yield* webRequest(tamperedSignature, {
+				body: "signed",
+				method: intent.method,
+				headers: intent.headers,
+			});
 			expect(invalidSignature.status).toBe(400);
 
 			const expired = new URL(intent.uploadUrl, `${getApiUrl()}/`);
 			expired.searchParams.set("expires", "0");
-			const expiredResponse = yield* Effect.promise(() =>
-				fetch(expired, { body: "signed", method: intent.method, headers: intent.headers }),
-			);
+			const expiredResponse = yield* webRequest(expired, {
+				body: "signed",
+				method: intent.method,
+				headers: intent.headers,
+			});
 			expect(expiredResponse.status).toBe(400);
 
-			const mismatchedContentType = yield* Effect.promise(() =>
-				fetch(new URL(intent.uploadUrl, `${getApiUrl()}/`), {
+			const mismatchedContentType = yield* webRequest(
+				new URL(intent.uploadUrl, `${getApiUrl()}/`),
+				{
 					body: "signed",
 					method: intent.method,
 					headers: { ...intent.headers, "content-type": "application/json" },
-				}),
+				},
 			);
 			expect(mismatchedContentType.status).toBe(400);
 		}),
@@ -315,13 +315,11 @@ describe("POST /uploads/intents", () => {
 					payload: { kind: "permanent", contentType: "text/csv", fileName: "other-user.csv" },
 				}),
 			);
-			const uploadResponse = yield* Effect.promise(() =>
-				fetch(new URL(intent.uploadUrl, `${getApiUrl()}/`), {
-					method: intent.method,
-					body: "title\nexample",
-					headers: intent.headers,
-				}),
-			);
+			const uploadResponse = yield* webRequest(new URL(intent.uploadUrl, `${getApiUrl()}/`), {
+				method: intent.method,
+				body: "title\nexample",
+				headers: intent.headers,
+			});
 			expect([200, 204]).toContain(uploadResponse.status);
 			const error = yield* Effect.flip(
 				second.client.call((c) =>
@@ -335,13 +333,11 @@ describe("POST /uploads/intents", () => {
 
 	it.live("requires authentication for temporary intents", () =>
 		Effect.gen(function* () {
-			const response = yield* Effect.promise(() =>
-				fetch(`${getApiUrl()}/uploads/intents`, {
-					method: "POST",
-					headers: { "content-type": "application/json" },
-					body: '{"kind":"temporary","fileName":"report.csv","contentType":"text/csv"}',
-				}),
-			);
+			const response = yield* webRequest(`${getApiUrl()}/uploads/intents`, {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: '{"kind":"temporary","fileName":"report.csv","contentType":"text/csv"}',
+			});
 			expect(response.status).toBe(401);
 		}),
 	);
@@ -357,26 +353,22 @@ describe("GET /uploads/local/download", () => {
 			);
 			expectValidExpiry(resolved[0]?.expiresAt);
 			const downloadUrl = new URL(resolved[0]?.downloadUrl ?? "", `${apiUrl}/`);
-			const head = yield* Effect.promise(() => fetch(downloadUrl, { method: "HEAD" }));
+			const head = yield* webRequest(downloadUrl, { method: "HEAD" });
 			expect(head.status).toBe(200);
 			expect(head.headers.get("content-type")).toContain("text/csv");
 			expect(head.headers.get("content-length")).toBe("13");
 			expect(head.headers.get("content-disposition")).toBe("inline");
-			const range = yield* Effect.promise(() =>
-				fetch(downloadUrl, { headers: { Range: "bytes=0-4" } }),
-			);
+			const range = yield* webRequest(downloadUrl, { headers: { Range: "bytes=0-4" } });
 			expect(range.status).toBe(206);
 			expect(range.headers.get("content-range")).toBe("bytes 0-4/13");
 			expect(yield* Effect.promise(() => range.text())).toBe("title");
-			const invalidRange = yield* Effect.promise(() =>
-				fetch(downloadUrl, { headers: { Range: "bytes=99-100" } }),
-			);
+			const invalidRange = yield* webRequest(downloadUrl, { headers: { Range: "bytes=99-100" } });
 			expect(invalidRange.status).toBe(416);
 			expect(invalidRange.headers.get("content-range")).toBe("bytes */13");
 
 			const invalidSignature = new URL(downloadUrl);
 			invalidSignature.searchParams.set("signature", "invalid");
-			const invalidSignatureResponse = yield* Effect.promise(() => fetch(invalidSignature));
+			const invalidSignatureResponse = yield* webRequest(invalidSignature);
 			expect(invalidSignatureResponse.status).toBe(400);
 		}),
 	);

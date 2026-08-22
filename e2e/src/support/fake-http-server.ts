@@ -2,23 +2,30 @@ import { BunHttpServer } from "@effect/platform-bun";
 import { Effect, Exit, Scope } from "effect";
 import { HttpEffect, HttpServer } from "effect/unstable/http";
 
-export type FakeHttpServer = {
+type ScopedFakeHttpServer = {
 	url: string;
-	stop: () => void;
 	requests: Array<{ body: unknown; path: string; headers: Record<string, string> }>;
 };
 
-export async function startFakeHttpServer(
+export type FakeHttpServer = ScopedFakeHttpServer & { stop: () => Promise<void> };
+
+const closeFakeHttpServer = (scope: Scope.Closeable) =>
+	Effect.runPromise(Scope.close(scope, Exit.void));
+
+export const startFakeHttpServerScoped = (
 	respond: (url: URL, request: Request) => Response | Promise<Response> = () =>
 		Response.json({ ok: true }),
-): Promise<FakeHttpServer> {
-	const scope = await Effect.runPromise(Scope.make());
-	const { url, requests } = await Effect.runPromise(
-		Scope.provide(
+) =>
+	Effect.gen(function* () {
+		const scope = yield* Effect.acquireRelease(Scope.make(), (serverScope) =>
+			Scope.close(serverScope, Exit.void),
+		);
+		return yield* Scope.provide(
 			Effect.gen(function* () {
-				const recorded: FakeHttpServer["requests"] = [];
+				const recorded: ScopedFakeHttpServer["requests"] = [];
 				const server = yield* BunHttpServer.make({ port: 0, hostname: "127.0.0.1" });
 				yield* HttpServer.serveEffect(
+					// oxlint-disable-next-line effecttsgo/async-function -- HttpEffect.fromWebHandler requires a Promise-returning Web Request callback.
 					HttpEffect.fromWebHandler(async (request) => {
 						const reqUrl = new URL(request.url);
 						recorded.push({
@@ -37,15 +44,17 @@ export async function startFakeHttpServer(
 				return { requests: recorded, url: `http://127.0.0.1:${address.port}` };
 			}),
 			scope,
-		),
-	);
-	return { url, requests, stop: () => void Effect.runPromise(Scope.close(scope, Exit.void)) };
-}
+		);
+	});
 
-export const startFakeHttpServerScoped = (
+// Vitest hooks cannot receive the per-test Scope provided by it.live.
+export const startFakeHttpServer = (
 	respond?: (url: URL, request: Request) => Response | Promise<Response>,
 ) =>
-	Effect.acquireRelease(
-		Effect.promise(() => startFakeHttpServer(respond)),
-		(server) => Effect.sync(() => server.stop()),
-	);
+	Effect.gen(function* () {
+		const scope = yield* Scope.make();
+		const server = yield* Scope.provide(startFakeHttpServerScoped(respond), scope).pipe(
+			Effect.onError(() => Scope.close(scope, Exit.void)),
+		);
+		return { ...server, stop: () => closeFakeHttpServer(scope) };
+	});

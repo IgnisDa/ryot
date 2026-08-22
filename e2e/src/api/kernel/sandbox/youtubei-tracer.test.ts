@@ -60,10 +60,9 @@ export default defineScript({
 describe("Youtubei durable tracer", () => {
 	it.live("replays sequential internal fetches without repeating completed HTTP", () =>
 		Effect.gen(function* () {
-			let releaseSecondRequest!: () => void;
-			const secondRequestReleased = new Promise<void>((resolve) => {
-				releaseSecondRequest = resolve;
-			});
+			const { resolve: releaseSecondRequest, promise: secondRequestReleased } =
+				Promise.withResolvers<void>();
+			// oxlint-disable-next-line effecttsgo/async-function -- The fake Web HTTP handler must return a Promise while waiting for a request release.
 			const http = yield* startFakeHttpServerScoped(async (url) => {
 				if (url.pathname === "/second") {
 					await secondRequestReleased;

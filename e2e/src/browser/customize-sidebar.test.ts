@@ -62,8 +62,8 @@ const waitForSidebarSavedViews = (page: Playwright.Page, names: ReadonlyArray<st
 		{ names, suiteId: SUITE_ID },
 	);
 
-beforeAll(async () => {
-	await Effect.runPromise(
+beforeAll(() =>
+	Effect.runPromise(
 		Effect.gen(function* () {
 			const user = yield* createAuthenticatedClient();
 			email = user.email;
@@ -94,12 +94,10 @@ beforeAll(async () => {
 				});
 			}
 		}),
-	);
-});
+	),
+);
 
-afterAll(async () => {
-	await Effect.runPromise(uninstallTestProvider(provider));
-});
+afterAll(() => Effect.runPromise(uninstallTestProvider(provider)));
 
 it.live("reorders and hides saved views, and keeps both across a reload", () =>
 	Effect.gen(function* () {

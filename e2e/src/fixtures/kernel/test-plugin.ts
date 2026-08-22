@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import { PluginClientArtifactFromBase64 } from "@ryot-app/client-plugin-contract";
 import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
@@ -220,7 +218,7 @@ export const installTestPlugin = (
 ) =>
 	Effect.gen(function* () {
 		const entry = `backend/scripts/${input.script.kind}.sandbox.ts`;
-		const pluginSlug = input.pluginSlug ?? `e2e-plugin-${randomUUID()}`;
+		const pluginSlug = input.pluginSlug ?? `e2e-plugin-${crypto.randomUUID()}`;
 		const manifest = testPluginManifest({
 			pluginSlug,
 			providers: input.providers ?? [],
@@ -312,7 +310,7 @@ export const installTestPluginBundle = (
 ) =>
 	Effect.gen(function* () {
 		const files = encodePluginSourceFiles(input.files);
-		const pluginSlug = input.pluginSlug ?? `e2e-plugin-${randomUUID()}`;
+		const pluginSlug = input.pluginSlug ?? `e2e-plugin-${crypto.randomUUID()}`;
 		const manifest = testPluginManifest({
 			pluginSlug,
 			crons: input.crons,

@@ -1,4 +1,5 @@
 import { hmacDigest } from "@ryot-app/ts-utils/crypto";
+import { Effect, Schema } from "effect";
 import { base32 } from "rfc4648";
 
 import { requireNonEmptyArray, requirePresent, requireString } from "~/support/assertions";
@@ -57,74 +58,93 @@ function generateTotpWindowCodes(secret: string) {
 	};
 }
 
-export async function enableTwoFactorForSession(input: {
+export const enableTwoFactorForSessionEffect = (input: {
 	token: string;
 	baseUrl: string;
 	origin?: string;
 	issuer?: string;
 	password: string;
 	sessionCookie: string;
-}): Promise<TwoFactorSetupResult> {
-	let sessionCookie = input.sessionCookie;
-	const authClient = createTestAuthClient(input.baseUrl, {
-		sessionCookie,
-		origin: input.origin,
-		onSessionCookie: (cookie) => {
-			sessionCookie = cookie;
-		},
+}) =>
+	Effect.gen(function* () {
+		let sessionCookie = input.sessionCookie;
+		const authClient = createTestAuthClient(input.baseUrl, {
+			sessionCookie,
+			origin: input.origin,
+			onSessionCookie: (cookie) => {
+				sessionCookie = cookie;
+			},
+		});
+		const { data: enableData, error: enableError } = yield* Effect.promise(() =>
+			authClient.twoFactor.enable({
+				method: "totp",
+				password: input.password,
+				issuer: input.issuer ?? "Ryot",
+			}),
+		);
+		if (enableError) {
+			throw new Error(
+				`Two-factor enable failed: ${yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(enableError)}`,
+			);
+		}
+		const enabled = requirePresent(enableData, "Two-factor enable returned no data");
+		if (enabled.method !== "totp") {
+			throw new Error(`Two-factor enable returned unexpected method: ${enabled.method}`);
+		}
+		const totpURI = requireString(
+			enabled.totpURI,
+			"Two-factor enable succeeded but no TOTP URI was returned",
+		);
+		const totpSecret = parseTotpSecret(totpURI);
+		const totpCodes = generateTotpWindowCodes(totpSecret);
+		const backupCodes = enabled.backupCodes;
+
+		requireNonEmptyArray(
+			backupCodes,
+			"Two-factor enable succeeded but no backup codes were returned",
+		);
+
+		const { error: verifyError } = yield* Effect.promise(() =>
+			authClient.twoFactor.verifyTotp({ code: generateTotpCode(totpSecret) }),
+		);
+		if (verifyError) {
+			throw new Error(`Two-factor verification failed: ${verifyError.message}`);
+		}
+
+		return {
+			totpCodes,
+			backupCodes,
+			sessionCookie,
+			token: input.token,
+		} satisfies TwoFactorSetupResult;
 	});
-	const { data: enableData, error: enableError } = await authClient.twoFactor.enable({
-		method: "totp",
-		password: input.password,
-		issuer: input.issuer ?? "Ryot",
-	});
-	if (enableError) {
-		throw new Error(`Two-factor enable failed: ${JSON.stringify(enableError)}`);
-	}
-	const enabled = requirePresent(enableData, "Two-factor enable returned no data");
-	if (enabled.method !== "totp") {
-		throw new Error(`Two-factor enable returned unexpected method: ${enabled.method}`);
-	}
-	const totpURI = requireString(
-		enabled.totpURI,
-		"Two-factor enable succeeded but no TOTP URI was returned",
-	);
-	const totpSecret = parseTotpSecret(totpURI);
-	const totpCodes = generateTotpWindowCodes(totpSecret);
-	const backupCodes = enabled.backupCodes;
 
-	requireNonEmptyArray(
-		backupCodes,
-		"Two-factor enable succeeded but no backup codes were returned",
-	);
+// The untouched seed script is a Promise-facing command-line entrypoint.
+export const enableTwoFactorForSession = (
+	input: Parameters<typeof enableTwoFactorForSessionEffect>[0],
+) => Effect.runPromise(enableTwoFactorForSessionEffect(input));
 
-	const { error: verifyError } = await authClient.twoFactor.verifyTotp({
-		code: generateTotpCode(totpSecret),
-	});
-	if (verifyError) {
-		throw new Error(`Two-factor verification failed: ${verifyError.message}`);
-	}
-
-	return { totpCodes, backupCodes, sessionCookie, token: input.token };
-}
-
-export async function verifyBackupCodeForSession(input: {
+export const verifyBackupCodeForSession = (input: {
 	code: string;
 	token: string;
 	baseUrl: string;
 	twoFactorToken?: string;
-}) {
-	const twoFactorToken = requirePresent(input.twoFactorToken, "Missing two-factor browser cookie");
-	const { data, token, response, sessionCookie } = await completeTwoFactorSignIn(
-		input.baseUrl,
-		twoFactorToken,
-		"/two-factor/verify-backup-code",
-		{ code: input.code },
-	);
-	return {
-		sessionCookie,
-		token: token ?? input.token,
-		data: response.ok ? data : null,
-		error: response.ok ? null : data,
-	};
-}
+}) =>
+	Effect.gen(function* () {
+		const twoFactorToken = requirePresent(
+			input.twoFactorToken,
+			"Missing two-factor browser cookie",
+		);
+		const { data, token, response, sessionCookie } = yield* completeTwoFactorSignIn(
+			input.baseUrl,
+			twoFactorToken,
+			"/two-factor/verify-backup-code",
+			{ code: input.code },
+		);
+		return {
+			sessionCookie,
+			token: token ?? input.token,
+			data: response.ok ? data : null,
+			error: response.ok ? null : data,
+		};
+	});

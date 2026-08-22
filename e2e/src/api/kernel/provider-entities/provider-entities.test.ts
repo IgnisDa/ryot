@@ -34,8 +34,8 @@ let provider: InstalledTestProvider;
 let audiobookProvider: InstalledTestProvider;
 let workoutProvider: InstalledTestProvider;
 
-beforeAll(async () => {
-	await Effect.runPromise(
+beforeAll(() =>
+	Effect.runPromise(
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			providerClient = client;
@@ -83,18 +83,18 @@ beforeAll(async () => {
 				details: fakeProviderDetailsResult({ properties: {}, name: "E2E Imported Workout" }),
 			});
 		}),
-	);
-});
+	),
+);
 
-afterAll(async () => {
-	await Effect.runPromise(
+afterAll(() =>
+	Effect.runPromise(
 		Effect.gen(function* () {
 			yield* uninstallTestProvider(workoutProvider);
 			yield* uninstallTestProvider(audiobookProvider);
 			yield* uninstallTestProvider(provider);
 		}),
-	);
-});
+	),
+);
 
 describe("provider entity search", () => {
 	it.live("uses separate search and details scripts through one provider identity", () =>

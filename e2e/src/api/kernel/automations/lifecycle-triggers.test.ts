@@ -618,15 +618,15 @@ const inspectCommittedCreate = (sourceRecord: SourceRecord, hookSlug: string) =>
 
 let installed: InstalledTestPlugin | undefined;
 
-beforeAll(async () => {
-	installed = await Effect.runPromise(installLifecyclePlugin());
-});
+beforeAll(() =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			installed = yield* installLifecyclePlugin();
+		}),
+	),
+);
 
-afterAll(async () => {
-	if (installed) {
-		await Effect.runPromise(uninstallTestPlugin(installed));
-	}
-});
+afterAll(() => installed && Effect.runPromise(uninstallTestPlugin(installed)));
 
 describe("automation lifecycle triggers", () => {
 	it.live("runs request policies and commits only accepted or transformed event drafts", () =>
@@ -854,7 +854,7 @@ describe("automation lifecycle triggers", () => {
 			const entity = yield* createFixtureEntity(client, "parity-source");
 			const item = eventInput(entity.id, slugs.policyEvent, "allow", "2026-09-16T03:00:00.000Z");
 			const contractResult = yield* createEvents(client, [item]);
-			const response = yield* Effect.promise(() => postApiJson("/events", [item], token));
+			const response = yield* postApiJson("/events", [item], token);
 			expect(response.status).toBe(201);
 			const rawResult = yield* Schema.decodeUnknownEffect(CreateEventsResponse)(
 				yield* Effect.promise(() => response.json()),

@@ -28,12 +28,12 @@ const POPULATED_NAME = "E2E Populated Studio";
 let provider: InstalledTestProvider;
 
 describe("entity population via client-declared interest", () => {
-	beforeAll(async () => {
-		provider = await Effect.runPromise(
+	beforeAll(() =>
+		Effect.runPromise(
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
 				const { schema } = yield* findBuiltinSchemaBySlug(client, "company");
-				return yield* installTestProvider({
+				provider = yield* installTestProvider({
 					client,
 					scope: "system",
 					rootEntitySchemaSlug: schema.id,
@@ -44,12 +44,10 @@ describe("entity population via client-declared interest", () => {
 					}),
 				});
 			}),
-		);
-	});
+		),
+	);
 
-	afterAll(async () => {
-		await Effect.runPromise(uninstallTestProvider(provider));
-	});
+	afterAll(() => Effect.runPromise(uninstallTestProvider(provider)));
 
 	it.live("keeps a bare read side-effect-free and populates once client interest is declared", () =>
 		Effect.gen(function* () {
@@ -81,21 +79,19 @@ describe("entity population via client-declared interest", () => {
 			expect(afterGrace.populatedAt).toBeNull();
 
 			const socket = yield* openInterestWebSocketScoped(auth);
-			expect(yield* Effect.promise(() => socket.replaceInterest([]))).toEqual({
-				revision: 1,
+			expect(yield* socket.replaceInterest([])).toEqual({ revision: 1, type: "applied" });
+			expect(yield* socket.updateInterest({ remove: [], add: [seeded.id] })).toEqual({
+				revision: 2,
 				type: "applied",
 			});
-			expect(
-				yield* Effect.promise(() => socket.updateInterest({ remove: [], add: [seeded.id] })),
-			).toEqual({ revision: 2, type: "applied" });
 
 			const populated = yield* waitForEntityPopulated(client, provenance);
 			expect(populated.populatedAt).not.toBeNull();
 			expect(populated.name).toBe(POPULATED_NAME);
 
-			const event = yield* Effect.promise(() =>
-				socket.waitForEntityUpdated(seeded.id, "populated", { timeoutMs: 30_000 }),
-			);
+			const event = yield* socket.waitForEntityUpdated(seeded.id, "populated", {
+				timeoutMs: 30_000,
+			});
 			expect(event.reason).toBe("populated");
 		}),
 	);
@@ -116,16 +112,11 @@ describe("entity population via client-declared interest", () => {
 			});
 
 			const socket = yield* openInterestWebSocketScoped(auth);
-			expect(yield* Effect.promise(() => socket.replaceInterest([entity.id]))).toEqual({
-				revision: 1,
-				type: "applied",
-			});
-			const event = yield* Effect.promise(() =>
-				socket.waitForEntityUpdated(entity.id, "populated"),
-			);
+			expect(yield* socket.replaceInterest([entity.id])).toEqual({ revision: 1, type: "applied" });
+			const event = yield* socket.waitForEntityUpdated(entity.id, "populated");
 			expect(event.reason).toBe("populated");
 
-			yield* Effect.promise(() => socket.close());
+			yield* socket.close();
 			yield* pollUntil(
 				`interest session '${socket.ready.sessionId}' closed`,
 				Effect.gen(function* () {
@@ -146,13 +137,15 @@ describe("entity population via client-declared interest", () => {
 			);
 
 			const reconnected = yield* openInterestWebSocketScoped(auth);
-			expect(yield* Effect.promise(() => reconnected.replaceInterest([entity.id]))).toEqual({
+			expect(yield* reconnected.replaceInterest([entity.id])).toEqual({
 				revision: 1,
 				type: "applied",
 			});
-			expect(
-				yield* Effect.promise(() => reconnected.waitForEntityUpdated(entity.id, "populated")),
-			).toEqual({ entityId: entity.id, reason: "populated", type: "entity-updated" });
+			expect(yield* reconnected.waitForEntityUpdated(entity.id, "populated")).toEqual({
+				entityId: entity.id,
+				reason: "populated",
+				type: "entity-updated",
+			});
 		}),
 	);
 
@@ -176,22 +169,19 @@ describe("entity population via client-declared interest", () => {
 			});
 
 			const replaced = yield* openInterestWebSocketScoped(auth);
-			expect(yield* Effect.promise(() => replaced.replaceInterest([entity.id]))).toEqual({
+			expect(yield* replaced.replaceInterest([entity.id])).toEqual({
 				revision: 1,
 				type: "applied",
 			});
-			expect(
-				yield* Effect.promise(() => replaced.updateInterest({ add: [], remove: [entity.id] })),
-			).toEqual({ revision: 2, type: "applied" });
+			expect(yield* replaced.updateInterest({ add: [], remove: [entity.id] })).toEqual({
+				revision: 2,
+				type: "applied",
+			});
 
 			const active = yield* openInterestWebSocketScoped(auth);
-			yield* Effect.promise(() => active.replaceInterest([entity.id]));
-			yield* Effect.promise(() =>
-				active.waitForEntityUpdated(entity.id, "populated", { timeoutMs: 30_000 }),
-			);
-			yield* Effect.promise(() =>
-				replaced.expectNoEntityUpdated(entity.id, { windowMs: GRACE_WINDOW_MS }),
-			);
+			yield* active.replaceInterest([entity.id]);
+			yield* active.waitForEntityUpdated(entity.id, "populated", { timeoutMs: 30_000 });
+			yield* replaced.expectNoEntityUpdated(entity.id, { windowMs: GRACE_WINDOW_MS });
 
 			const populated = yield* waitForEntityPopulated(client, provenance);
 			expect(populated.populatedAt).not.toBeNull();

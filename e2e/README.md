@@ -44,7 +44,9 @@ Up to six files share the backend concurrently. Tests and hooks time out after 1
 
 Fixtures mirror ownership: generic platform fixtures live under `src/fixtures/kernel`, plugin-owned domain fixtures under `src/fixtures/plugins/<plugin>`, and cross-cutting harness code under `src/support`. There is no aggregate fixture barrel. Kernel suites that need plugin-owned schemas import that plugin fixture explicitly.
 
-Effect-native fixtures return effects. `it.live` supplies per-test `Scope` without `TestClock`; do not use `it.effect` for real-time waits. Scoped network resources use `Effect.acquireRelease`. Wrap unavoidable promise APIs at fixture boundaries with typed `Effect.tryPromise` errors.
+Effect-native fixtures return effects. `it.live` supplies per-test `Scope` without `TestClock`; do not use `it.effect` for real-time waits. Scoped network resources use `Effect.acquireRelease`; `startFakeHttpServerScoped` and `startFakeAppriseServerScoped` close their servers with the test Scope. Plain Vitest hooks run Effect setup with `Effect.runPromise` and await `stop()` cleanup. Wrap unavoidable third-party Promise APIs at fixture boundaries with typed `Effect.tryPromise` errors.
+
+E2E enforces the normal Effect async, HTTP, JSON, and platform rules. Keep local inline suppressions only where Playwright evaluates an async callback in the browser or an external API requires a Promise callback; state the boundary in the comment. The two seed scripts have explicit file-scoped lint exemptions and remain untouched.
 
 Provider fixtures install offline scripts through the real admin plugin endpoint. Best-effort teardown stops on persistent references; tests that assert removal must delete references and use strict uninstall. Admin setup uses typed `testSupport` operations. Resolve plugin-owned definitions by plugin plus local slug because local slugs are not globally unique.
 

@@ -1,7 +1,8 @@
-import { Data, Effect } from "effect";
+import { Data, Effect, Schema } from "effect";
 import { Events, OAuth2Server } from "oauth2-mock-server";
 
 import { requirePresent } from "~/support/assertions";
+import { webRequest } from "~/support/web-request";
 
 import {
 	continueOAuthAuthorization,
@@ -21,6 +22,8 @@ class OidcFixtureError extends Data.TaggedError("OidcFixtureError")<{ readonly c
 
 const attempt = <A>(run: () => Promise<A>) =>
 	Effect.tryPromise({ try: run, catch: (cause) => new OidcFixtureError({ cause }) });
+const mapAuthError = <A, E>(effect: Effect.Effect<A, E>) =>
+	effect.pipe(Effect.mapError((cause) => new OidcFixtureError({ cause })));
 
 export const startMockOidcServer = Effect.gen(function* () {
 	const server = new OAuth2Server();
@@ -65,16 +68,18 @@ export const performOidcSignIn = (
 	claims?: Record<string, unknown>,
 ): Effect.Effect<{ pending: PendingOAuth; response: Response }, OidcFixtureError> =>
 	Effect.gen(function* () {
-		const pending = yield* attempt(() => prepareOAuth(apiUrl));
-		const step1Response = yield* attempt(() =>
-			fetch(`${apiUrl}/auth/sign-in/social`, {
+		const pending = yield* mapAuthError(prepareOAuth(apiUrl));
+		const step1Response = yield* mapAuthError(
+			webRequest(`${apiUrl}/auth/sign-in/social`, {
 				method: "POST",
 				redirect: "manual",
 				headers: { Origin: pending.frontendOrigin, "Content-Type": "application/json" },
-				body: JSON.stringify({
-					provider: "oidc",
-					callbackURL: `${pending.frontendOrigin}/oauth/login`,
-				}),
+				body: yield* mapAuthError(
+					Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
+						provider: "oidc",
+						callbackURL: `${pending.frontendOrigin}/oauth/login`,
+					}),
+				),
 			}),
 		);
 		const step1Data: { url?: string; redirect?: boolean } = yield* attempt(() =>
@@ -96,15 +101,15 @@ export const performOidcSignIn = (
 			email: `${username}@example.com`,
 			...claims,
 		});
-		const step2Response = yield* attempt(() => fetch(authorizeUrl, { redirect: "manual" }));
+		const step2Response = yield* mapAuthError(webRequest(authorizeUrl, { redirect: "manual" }));
 		const callbackUrl = requirePresent(
 			step2Response.headers.get("location"),
 			"oidcSignIn step 2 failed: no location header",
 		);
 
 		const cookieValue = stateCookie ?? "";
-		const response = yield* attempt(() =>
-			fetch(callbackUrl, {
+		const response = yield* mapAuthError(
+			webRequest(callbackUrl, {
 				redirect: "manual",
 				headers: { accept: "text/html", Cookie: cookieValue },
 			}),
@@ -129,6 +134,6 @@ export const oidcSignIn = (
 			responseCookie(response),
 			"OIDC callback did not establish a hosted session",
 		);
-		const authorization = yield* attempt(() => continueOAuthAuthorization(pending, sessionCookie));
-		return yield* attempt(() => exchangeOAuthCallback(authorization, pending));
+		const authorization = yield* mapAuthError(continueOAuthAuthorization(pending, sessionCookie));
+		return yield* mapAuthError(exchangeOAuthCallback(authorization, pending));
 	});

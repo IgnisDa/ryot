@@ -17,7 +17,7 @@ import {
 	measure,
 	table,
 } from "@ryot-app/ryotql";
-import { Duration, Effect } from "effect";
+import { Duration, Effect, Schema } from "effect";
 
 import { adminHeaders } from "~/fixtures/kernel/admin";
 import type { Client } from "~/fixtures/kernel/auth";
@@ -59,7 +59,7 @@ export const triggerCronAndWaitForEntity = (auth: { client: Client }, entityId: 
 		}
 		assertCondition(
 			refreshed,
-			`Media monitoring cron failed after ${CRON_TRIGGER_ATTEMPTS} attempts: ${JSON.stringify(lastCron)}`,
+			`Media monitoring cron failed after ${CRON_TRIGGER_ATTEMPTS} attempts: ${yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(lastCron)}`,
 		);
 		yield* pollUntil(
 			"media monitoring entity refresh",

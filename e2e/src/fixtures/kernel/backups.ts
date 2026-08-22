@@ -3,6 +3,7 @@ import { Effect, Option } from "effect";
 
 import { requirePresent } from "~/support/assertions";
 import { getApiUrl } from "~/support/harness-target";
+import { webRequest } from "~/support/web-request";
 
 import type { Client } from "./auth";
 import { pollUntil } from "./polling";
@@ -31,11 +32,9 @@ export const startBackupExport = (client: Client) =>
 
 export const downloadBackupArchive = (token: string, runId: string) =>
 	Effect.gen(function* () {
-		const response = yield* Effect.promise(() =>
-			fetch(`${getApiUrl()}/backups/runs/${runId}/download`, {
-				headers: { Authorization: `Bearer ${token}` },
-			}),
-		);
+		const response = yield* webRequest(`${getApiUrl()}/backups/runs/${runId}/download`, {
+			headers: { Authorization: `Bearer ${token}` },
+		});
 		if (response.status !== 200) {
 			throw new Error(`Could not download backup archive (${response.status})`);
 		}

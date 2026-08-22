@@ -23,13 +23,15 @@ import type { FakeHttpServer } from "~/support/fake-http-server";
 
 let fakeApprise: FakeHttpServer;
 
-beforeAll(async () => {
-	fakeApprise = await startFakeAppriseServer();
-});
+beforeAll(() =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			fakeApprise = yield* startFakeAppriseServer;
+		}),
+	),
+);
 
-afterAll(() => {
-	fakeApprise.stop();
-});
+afterAll(() => fakeApprise.stop());
 
 describe("notification subscription catalog and rules", () => {
 	it.live("installs every active catalog schema by default at signup", () =>
@@ -133,16 +135,14 @@ describe("notification subscription catalog and rules", () => {
 				signalSchemaSlug: reviewRule.signalSchemaSlug,
 			});
 
-			const arbitraryFields = yield* Effect.promise(() =>
-				postApiJson(
-					"/automations/rules",
-					{
-						operation: "signal",
-						scriptId: "caller-selected-script",
-						signalSchemaSlug: reviewRule.signalSchemaSlug,
-					},
-					owner.token,
-				),
+			const arbitraryFields = yield* postApiJson(
+				"/automations/rules",
+				{
+					operation: "signal",
+					scriptId: "caller-selected-script",
+					signalSchemaSlug: reviewRule.signalSchemaSlug,
+				},
+				owner.token,
 			);
 			expect(arbitraryFields.status).toBe(400);
 		}),

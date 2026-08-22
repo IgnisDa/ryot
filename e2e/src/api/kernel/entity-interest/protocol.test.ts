@@ -27,30 +27,26 @@ describe("entity interest protocol", () => {
 			const socket = yield* openInterestWebSocketScoped(auth);
 			expect(socket.ready.maxEntityIds).toBe(MAX_INTEREST_ENTITY_IDS);
 
-			expect(
-				yield* Effect.promise(() =>
-					socket.replaceInterest(Array.from({ length: 501 }, () => entity.id)),
-				),
-			).toEqual({ revision: 1, type: "applied" });
+			expect(yield* socket.replaceInterest(Array.from({ length: 501 }, () => entity.id))).toEqual({
+				revision: 1,
+				type: "applied",
+			});
 
 			const additionalIds = Array.from(
 				{ length: MAX_INTEREST_ENTITY_IDS },
 				(_, index) => `interest-limit-${crypto.randomUUID()}-${index}`,
 			);
-			expect(
-				yield* Effect.promise(() => socket.updateInterest({ remove: [], add: additionalIds })),
-			).toEqual({
+			expect(yield* socket.updateInterest({ remove: [], add: additionalIds })).toEqual({
 				revision: 2,
 				type: "rejected",
 				code: "interest-limit-exceeded",
 				maxEntityIds: MAX_INTEREST_ENTITY_IDS,
 			});
 
-			expect(
-				yield* Effect.promise(() =>
-					socket.updateInterest({ add: additionalIds, remove: [entity.id] }),
-				),
-			).toEqual({ revision: 2, type: "applied" });
+			expect(yield* socket.updateInterest({ add: additionalIds, remove: [entity.id] })).toEqual({
+				revision: 2,
+				type: "applied",
+			});
 		}),
 	);
 });

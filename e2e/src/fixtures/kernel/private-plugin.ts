@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import type { ContractPayload } from "@ryot-app/contract/client";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginSlug } from "@ryot-app/contract/schema/brands";
@@ -66,10 +64,10 @@ export const privatePluginPackage = (
 ): PrivatePluginPackage => {
 	const name = "E2E Private Operation";
 	const entry = "backend/scripts/operation.sandbox.ts";
-	const scriptSlug = `e2e-private-operation-${randomUUID()}`;
+	const scriptSlug = `e2e-private-operation-${crypto.randomUUID()}`;
 	const operationSlug = input.operationSlug ?? "read-config";
 	const configKey = input.configKey ?? PRIVATE_PLUGIN_CONFIG_KEY;
-	const pluginSlug = input.pluginSlug ?? `e2e-private-plugin-${randomUUID()}`;
+	const pluginSlug = input.pluginSlug ?? `e2e-private-plugin-${crypto.randomUUID()}`;
 	const source = pluginConfigOperationSandboxSource({
 		name,
 		configKey,
@@ -163,7 +161,7 @@ export type PrivateBootstrapPluginPackage = {
 } & PluginPackageInput;
 
 export const privateBootstrapPluginPackage = (): PrivateBootstrapPluginPackage => {
-	const suffix = randomUUID();
+	const suffix = crypto.randomUUID();
 	const operationSlug = "read-titles";
 	const name = "E2E private bootstrap";
 	const bootstrapSlug = "seed-owner-data";
@@ -350,7 +348,7 @@ export const privateIntegrationSettingsSchema: PrivatePluginManifest["integratio
 export const privateImportPluginPackage = (
 	input: PrivateSurfaceInput & { readonly sourceSlug?: string } = {},
 ): PrivateImportPluginPackage => {
-	const suffix = randomUUID();
+	const suffix = crypto.randomUUID();
 	const workflowSlug = `private-import-${suffix}`;
 	const entry = "backend/scripts/private-import.sandbox.ts";
 	const name = input.name ?? "E2E private import source";
@@ -393,7 +391,7 @@ export const privateImportPluginPackage = (
 export const privateIntegrationPluginPackage = (
 	input: PrivateSurfaceInput & { readonly providerSlug?: string } = {},
 ): PrivateIntegrationPluginPackage => {
-	const suffix = randomUUID();
+	const suffix = crypto.randomUUID();
 	const operationSlug = "read-integration";
 	const entry = "backend/scripts/private-integration.sandbox.ts";
 	const name = input.name ?? "E2E private integration provider";

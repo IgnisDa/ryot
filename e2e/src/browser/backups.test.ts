@@ -58,15 +58,15 @@ const withBackupsBrowser = <E, R>(run: (page: Playwright.Page) => Effect.Effect<
 		yield* run(page);
 	});
 
-beforeAll(async () => {
-	await Effect.runPromise(
+beforeAll(() =>
+	Effect.runPromise(
 		Effect.gen(function* () {
 			const user = yield* createTestUser();
 			email = user.email;
 			password = user.password;
 		}),
-	);
-});
+	),
+);
 
 it.live("creates, downloads and deletes a backup from settings", () =>
 	withBackupsBrowser((page) =>
