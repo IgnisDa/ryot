@@ -559,11 +559,39 @@ It should provide Ryot-owned APIs rather than blindly re-exporting third-party l
 
 Examples:
 
+Shipped today:
+
 ```ts
-import { Button, Card, Dialog, Input, Select, Tabs } from "@ryot-app/client-ui-sdk";
+import {
+	Badge,
+	Button,
+	Chip,
+	Menu,
+	Modal,
+	MultiSelect,
+	SearchField,
+	SegmentedControl,
+	StatusMessage,
+	Switch,
+	TextField,
+	useDismissOnOutside,
+	useFocusTrap,
+	useScrollLock,
+	useShortcut,
+} from "@ryot-app/client-ui-sdk";
 
 import { DataTable } from "@ryot-app/client-ui-sdk/table";
 
+import { SchemaForm, useSchemaForm } from "@ryot-app/client-ui-sdk/schema-form";
+```
+
+The overlay dialog is `Modal`, not `Dialog`. The `AppSchema` form sits on its own
+`/schema-form` subpath because it pulls `@ryot-app/contract`, `effect`, and
+`@tanstack/react-form`, and the root barrel's weight lands in every plugin artifact.
+
+Still aspirational, not yet built:
+
+```ts
 import { LineChart, BarChart } from "@ryot-app/client-ui-sdk/charts";
 
 import { SwipeActions, ReorderableList } from "@ryot-app/client-ui-sdk/gestures";
