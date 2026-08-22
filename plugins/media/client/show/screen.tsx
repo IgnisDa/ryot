@@ -13,7 +13,7 @@ import {
 	showOverviewManagedAssets,
 	type ShowOverviewState,
 } from "./overview-state";
-import { ShowStatusMessage } from "./primitives";
+import { ShowRefreshStatus, ShowStatusMessage } from "./primitives";
 import { showOverviewQuery, showSummaryQuery } from "./queries";
 import { ShowSummaryHeader } from "./summary-header";
 import {
@@ -31,8 +31,10 @@ export function ShowScreenBody(props: {
 	readonly episodes: ReactNode;
 	readonly activity: ReactNode;
 	readonly state: ShowSummaryState;
-	readonly refreshOverview: () => void;
 	readonly overview: ShowOverviewState;
+	readonly refreshOverview: () => void;
+	readonly summaryRefreshStatus?: ReactNode;
+	readonly overviewRefreshStatus?: ReactNode;
 }) {
 	const { state } = props;
 	const [activeTab, setActiveTab] = useState<ShowTabKey>("overview");
@@ -48,7 +50,12 @@ export function ShowScreenBody(props: {
 		return <ShowStatusMessage {...showSummaryError(state)} onRetry={props.refresh} />;
 	}
 	if (state.status === "unavailable") {
-		return <ShowStatusMessage {...showSummaryUnavailable(state.reason)} />;
+		return (
+			<>
+				{props.summaryRefreshStatus}
+				<ShowStatusMessage {...showSummaryUnavailable(state.reason)} />
+			</>
+		);
 	}
 	const tabContent: Record<ShowTabKey, ReactNode> = {
 		episodes: props.episodes,
@@ -59,11 +66,13 @@ export function ShowScreenBody(props: {
 				compact={props.compact}
 				overview={props.overview}
 				refreshOverview={props.refreshOverview}
+				refreshStatus={props.overviewRefreshStatus}
 			/>
 		),
 	};
 	return (
 		<div className="flex flex-col gap-4">
+			{props.summaryRefreshStatus}
 			<ShowSummaryHeader show={state.show} compact={props.compact} />
 			<ShowTabBar activeTab={activeTab} compact={props.compact} onSelect={setActiveTab} />
 			{tabContent[activeTab]}
@@ -101,6 +110,8 @@ export function ShowScreen(props: EntityRendererProps) {
 						overview={overview}
 						refresh={summaryResult.refetch}
 						refreshOverview={overviewResult.refetch}
+						summaryRefreshStatus={<ShowRefreshStatus result={summaryResult} />}
+						overviewRefreshStatus={<ShowRefreshStatus result={overviewResult} />}
 						episodes={<ShowEpisodesTab compact={compact} entityId={props.entityId} />}
 						activity={<ShowActivityTab compact={compact} entityId={props.entityId} />}
 					/>

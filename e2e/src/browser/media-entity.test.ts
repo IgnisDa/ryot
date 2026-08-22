@@ -1,7 +1,18 @@
 import { Effect, Option } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
-import { createTestUser, findBuiltinSchemaBySlug, makeSession } from "~/fixtures/kernel";
+import {
+	createEntity,
+	createTestUser,
+	fakeProviderDetailsResult,
+	fakeProviderTranslations,
+	findBuiltinSchemaBySlug,
+	getEntity,
+	installTestProvider,
+	makeSession,
+	setUserLanguage,
+	uninstallTestProvider,
+} from "~/fixtures/kernel";
 import {
 	insertLibraryMembership,
 	seedGlobalShowEpisodeTree,
@@ -22,6 +33,70 @@ const expectVisibleText = (locator: Playwright.Locator, text: string) =>
 		yield* match.waitFor({ state: "visible" });
 		expect(yield* match.isVisible()).toBe(true);
 	});
+
+it.live("automatically populates and translates a partial Show in the compiled Media detail", () =>
+	Effect.gen(function* () {
+		const id = crypto.randomUUID();
+		const translatedName = `Serie traducida ${id}`;
+		const translatedDescription = `Resumen de la serie ${id}.`;
+		const { token, email, password } = yield* createTestUser();
+		const client = makeSession(getApiUrl(), { Authorization: `Bearer ${token}` });
+		yield* setUserLanguage(client, "es");
+		const { schema } = yield* findBuiltinSchemaBySlug(client, "show");
+		const provider = yield* installTestProvider({
+			client,
+			rootEntitySchemaSlug: schema.id,
+			information: { source: "e2e", canonicalLanguage: "en" },
+			translations: fakeProviderTranslations({
+				es: { name: translatedName, properties: { description: translatedDescription } },
+			}),
+			details: fakeProviderDetailsResult({
+				name: `Populated Show ${id}`,
+				properties: {
+					totalSeasons: 3,
+					totalEpisodes: 24,
+					description: "Canonical offline show overview.",
+				},
+			}),
+		});
+		yield* Effect.addFinalizer(() => uninstallTestProvider(provider));
+		const show = yield* createEntity(client, {
+			properties: {},
+			externalId: id,
+			name: `Partial Show ${id}`,
+			entitySchemaSlug: schema.id,
+			providerId: provider.providerId,
+		});
+		expect((yield* getEntity(client, show.id)).populatedAt).toBeNull();
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage();
+		yield* signInThroughHostedOAuth(page, email, password);
+		yield* page.goto(`${getFrontendUrl()}/e/${show.id}`);
+		const frame = page.locator('iframe[title="media plugin"]');
+		yield* frame.waitFor({ state: "visible" });
+		const media = frame.contentFrame();
+		yield* media.getByRole("heading", { level: 1, name: translatedName, exact: true }).waitFor({
+			state: "visible",
+			timeout: 150_000,
+		});
+		yield* expectVisibleText(media.locator("body"), translatedDescription);
+		yield* expectVisibleText(
+			media
+				.locator("p")
+				.filter({ hasText: /^Seasons$/ })
+				.locator(".."),
+			"3",
+		);
+		yield* expectVisibleText(
+			media
+				.locator("p")
+				.filter({ hasText: /^Episodes$/ })
+				.locator(".."),
+			"24",
+		);
+		expect((yield* getEntity(client, show.id)).populatedAt).not.toBeNull();
+	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+);
 
 it.live("opens a Media Show entity from the canonical saved-view route", () =>
 	Effect.gen(function* () {

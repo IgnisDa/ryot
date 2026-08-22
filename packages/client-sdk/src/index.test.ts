@@ -4,6 +4,8 @@ import { describe, expect, it } from "vitest";
 
 import {
 	createRyotClient,
+	type EntityUpdate,
+	type EntityInterest,
 	RyotClientError,
 	type ManagedAssetLocator,
 	type RyotNavigationTarget,
@@ -26,6 +28,70 @@ const resolutions = assets.map((asset) => ({
 }));
 
 describe("createRyotClient", () => {
+	it("normalizes mutable entity watches without capping declarations and disposes once", () => {
+		let disposals = 0;
+		const interests: EntityInterest[] = [];
+		const updates: EntityInterest[] = [];
+		const events: EntityUpdate[] = [];
+		const onUpdate = (event: EntityUpdate) => {
+			events.push(event);
+		};
+		let notifyEntity!: (event: EntityUpdate) => void;
+		const watchEntities = (interest: EntityInterest, listener: typeof notifyEntity) => {
+			interests.push(interest);
+			notifyEntity = listener;
+			return {
+				update: (next: EntityInterest) => {
+					updates.push(next);
+				},
+				dispose: () => {
+					disposals++;
+				},
+			};
+		};
+		const client = createRyotClient({ watchEntities, query: () => Promise.resolve({}) });
+		const subscription = client.entities.watch(
+			{ foreground: ["b", "a", "a"], visible: ["c", "a", "c"] },
+			onUpdate,
+		);
+		expect(interests).toEqual([{ foreground: ["a", "b"], visible: ["c"] }]);
+		const rows = Array.from({ length: 600 }, (_, i) => `row-${i}`);
+		subscription.update({ foreground: [], visible: rows });
+		expect(updates[0]?.visible).toHaveLength(600);
+		notifyEntity({ entityId: "a", reason: "populated" });
+		expect(events).toEqual([{ entityId: "a", reason: "populated" }]);
+		subscription.dispose();
+		subscription.dispose();
+		notifyEntity({ entityId: "a", reason: "translated" });
+		expect(disposals).toBe(1);
+		expect(events).toHaveLength(1);
+		expect(() => subscription.update({ foreground: [], visible: [] })).toThrow(
+			new RyotClientError("disposed"),
+		);
+	});
+
+	it("reports synchronous entity capability, input, and transport failures", () => {
+		const client = createRyotClient({ query: () => Promise.resolve({}) });
+		expect(() => client.entities.watch({ foreground: [], visible: [] }, () => undefined)).toThrow(
+			new RyotClientError("unsupported-capability"),
+		);
+		expect(() =>
+			Reflect.apply(client.entities.watch, undefined, [
+				{ foreground: [123], visible: [] },
+				() => undefined,
+			]),
+		).toThrow(new RyotClientError("invalid-input"));
+		const offline = createRyotClient({
+			query: () => Promise.resolve({}),
+			watchEntities: () => {
+				throw new Error("offline");
+			},
+		});
+		expect(() => offline.entities.watch({ foreground: [], visible: [] }, () => undefined)).toThrow(
+			new RyotClientError("transport"),
+		);
+	});
+
 	it("sends only a recipe document and decodes the response locally", async () => {
 		const query = (received: typeof document) => {
 			expect(received).toBe(document);

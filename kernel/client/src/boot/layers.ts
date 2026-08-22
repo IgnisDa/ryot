@@ -3,6 +3,7 @@ import { Layer } from "effect";
 import { AdminApi } from "#/api/admin";
 import { AuthenticatedApi } from "#/api/authenticated";
 import { BackupsApi } from "#/api/backups";
+import { EntityInterestApi } from "#/api/entity-interest";
 import { GodModeApi } from "#/api/god-mode";
 import { ImportsApi } from "#/api/imports";
 import { IntegrationsApi } from "#/api/integrations";
@@ -22,6 +23,8 @@ import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService } from "#/modules/auth/service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 import { EntitiesService } from "#/modules/entities/service";
+import { EntityInterestService } from "#/modules/entity-interest/service";
+import { EntityInterestTransport } from "#/modules/entity-interest/transport";
 import { GodModeService } from "#/modules/god-mode/service";
 import { GodModeSessionService } from "#/modules/god-mode/session";
 import { ImportsService } from "#/modules/imports/service";
@@ -46,6 +49,7 @@ const TransportLive = Layer.mergeAll(AdminApi.layer, AuthenticatedApi.layer).pip
 
 const InfrastructureLive = Layer.mergeAll(
 	PublicApi.layer,
+	EntityInterestApi.layer,
 	RyotQLApi.layer,
 	BackupsApi.layer,
 	UploadsApi.layer,
@@ -82,6 +86,7 @@ const GodModeLive = GodModeService.layer.pipe(
 
 export const ClientLive = Layer.mergeAll(
 	AuthLive,
+	EntityInterestService.layer.pipe(Layer.provide(EntityInterestTransport.layer)),
 	OAuthLauncherLive,
 	HostedAuthService.layer,
 	GodModeLive,

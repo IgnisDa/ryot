@@ -12,7 +12,7 @@ import {
 	type PluginRyotQLOutcome,
 } from "@ryot-app/client-plugin-contract";
 import type { PluginClientCatalogEntry } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Schema } from "effect";
 import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -165,6 +165,7 @@ function renderHost(
 		readonly onQuery?: Parameters<typeof PluginHost>[0]["onQuery"];
 		readonly onAssets?: Parameters<typeof PluginHost>[0]["onAssets"];
 		readonly onHeader?: Parameters<typeof PluginHost>[0]["onHeader"];
+		readonly watchEntities?: Parameters<typeof PluginHost>[0]["watchEntities"];
 		readonly onScreenState?: Parameters<typeof PluginHost>[0]["onScreenState"];
 		readonly onKernelShortcut?: Parameters<typeof PluginHost>[0]["onKernelShortcut"];
 		readonly onInvokeOperation?: Parameters<typeof PluginHost>[0]["onInvokeOperation"];
@@ -194,6 +195,7 @@ function renderHost(
 			onNavigate={(request) => navigations.push(request)}
 			onStaleSession={callbacks.onStaleSession ?? (() => undefined)}
 			onKernelShortcut={callbacks.onKernelShortcut ?? (() => undefined)}
+			watchEntities={callbacks.watchEntities ?? (() => ({ update: () => {}, dispose: () => {} }))}
 			onAssets={
 				callbacks.onAssets ?? (() => Promise.resolve({ outcome: "failure", reason: "transport" }))
 			}
@@ -264,6 +266,42 @@ function connectFrame(frame: HTMLIFrameElement) {
 afterEach(() => vi.useRealTimers());
 
 describe("plugin artifact session lifecycle", () => {
+	it("retains interest on route changes and releases the document owner on replacement and unmount", async () => {
+		let owners = 0;
+		let disposed = 0;
+		const host = renderHost(undefined, {}, home, {
+			watchEntities: () => {
+				owners++;
+				return {
+					update: () => {},
+					dispose: () => {
+						disposed++;
+					},
+				};
+			},
+		});
+		await flush();
+		const first = connectFrame(screen.getByTitle<HTMLIFrameElement>("fixture plugin"));
+		first.pluginPort.postMessage(first.ready);
+		first.pluginPort.postMessage({ type: "entity-interest", foreground: ["a"], visible: [] });
+		await waitFor(() => expect(owners).toBe(1));
+		host.moveTo({ location: { kind: "route", path: "/next", search: "" }, overrides: {} });
+		await flush();
+		expect(owners).toBe(1);
+		expect(disposed).toBe(0);
+		host.moveTo({ location: home, overrides: { clientArtifactHash: "new-artifact" } });
+		await flush();
+		expect(disposed).toBe(1);
+		const second = connectFrame(screen.getByTitle<HTMLIFrameElement>("fixture plugin"));
+		second.pluginPort.postMessage(second.ready);
+		second.pluginPort.postMessage({ type: "entity-interest", foreground: [], visible: ["b"] });
+		await waitFor(() => expect(owners).toBe(2));
+		host.unmount();
+		expect(disposed).toBe(2);
+		first.pluginPort.close();
+		second.pluginPort.close();
+	});
+
 	it("creates before rendering the isolated iframe and keeps credentials out of bridge metadata", async () => {
 		const pending = deferred<PluginArtifactSession>();
 		const recorder = createRecorder({ create: () => pending.promise });
@@ -481,7 +519,6 @@ describe("plugin artifact session lifecycle", () => {
 					theme={theme}
 					onHeader={() => {}}
 					chromeLeading={null}
-					viewport={{ safeAreaTop: 0, safeAreaBottom: 0 }}
 					installation={installation}
 					onNavigate={() => undefined}
 					onOpenDrawer={() => undefined}
@@ -491,10 +528,12 @@ describe("plugin artifact session lifecycle", () => {
 					onKernelShortcut={() => undefined}
 					chromeTriggerRef={{ current: null }}
 					artifactSessionScopeKey="server:user"
+					viewport={{ safeAreaTop: 0, safeAreaBottom: 0 }}
 					navigation={navigationFor({ location: home })}
 					onRenewArtifactSession={recorder.onRenewArtifactSession}
 					onCreateArtifactSession={recorder.onCreateArtifactSession}
 					onRevokeArtifactSession={recorder.onRevokeArtifactSession}
+					watchEntities={() => ({ update: () => {}, dispose: () => {} })}
 					onQuery={() => Promise.resolve({ outcome: "failure", reason: "transport" })}
 					onAssets={() => Promise.resolve({ outcome: "failure", reason: "transport" })}
 					onInvokeOperation={() => Promise.resolve({ outcome: "failure", reason: "transport" })}

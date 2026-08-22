@@ -230,6 +230,7 @@ export const SavedViewRouteStubs = Layer.mergeAll(
 	}),
 	Layer.succeed(SavedViewsService, {
 		count: () => Effect.die("not used"),
+		refresh: () => Effect.die("not used"),
 		loadPage: () => Effect.die("not used"),
 		loadRecord: () => Effect.die("not used"),
 	}),

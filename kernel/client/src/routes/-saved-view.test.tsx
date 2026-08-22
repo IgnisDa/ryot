@@ -1,3 +1,4 @@
+import type { EntityInterest, EntityUpdate } from "@ryot-app/client-sdk";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -7,11 +8,11 @@ import {
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { column, document, field, rows, table } from "@ryot-app/ryotql";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime } from "effect";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { KernelApiTestLayer } from "#/api/ports.test-layer";
+import { KernelApiTestLayer, makeEntityInterestService } from "#/api/ports.test-layer";
 import { ManagedAssetResolutionError, ManagedAssetsService } from "#/modules/assets/managed-assets";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { ArtifactSessions } from "#/modules/plugins/artifact-sessions";
@@ -21,6 +22,7 @@ import { PluginOperationsService } from "#/modules/plugins/operations";
 import { PluginQueriesService } from "#/modules/plugins/queries";
 import { PROVIDER_IMPORT_UNAVAILABLE_MESSAGE } from "#/modules/provider-add/import-controller";
 import { ProviderAddLoadError, ProviderAddService } from "#/modules/provider-add/service";
+import { appendSavedViewPage, type SavedViewData } from "#/modules/saved-views/controller";
 import { SavedViewLoadError, SavedViewsService } from "#/modules/saved-views/service";
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
@@ -232,6 +234,24 @@ const mountView = (
 	providerAdd: Layer.Layer<ProviderAddService> = ProviderAddRouteStubs,
 ) => {
 	const events = makePluginCatalogEventsTestLayer();
+	const watchers = new Set<{
+		interest: EntityInterest;
+		onUpdate: (update: EntityUpdate) => void;
+	}>();
+	const interests = makeEntityInterestService({
+		watch: (_scope, interest, onUpdate) => {
+			const watcher = { interest, onUpdate };
+			watchers.add(watcher);
+			return {
+				dispose: () => {
+					watchers.delete(watcher);
+				},
+				update: (next) => {
+					watcher.interest = next;
+				},
+			};
+		},
+	});
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
 			providerAdd,
@@ -242,6 +262,7 @@ const mountView = (
 			ServerStub,
 			makePublicApiStub(),
 			KernelApiTestLayer,
+			interests,
 			events.layer,
 			Layer.succeed(ArtifactSessions, {
 				renew: () => Effect.die("not used"),
@@ -256,6 +277,7 @@ const mountView = (
 			Layer.succeed(PluginOperationsService, { invoke: () => Effect.die("not used") }),
 			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
 			Layer.succeed(SavedViewsService, {
+				refresh: () => Effect.die("not used"),
 				count: () => Effect.succeed(1),
 				loadPage: () => Effect.succeed(page),
 				loadRecord: () => Effect.succeed(record),
@@ -272,7 +294,21 @@ const mountView = (
 		createMemoryHistory({ initialEntries: ["/v/books"] }),
 	);
 	const view = render(<RouterProvider router={router} />);
-	return { ...view, router, runtime, backInterceptors };
+	return {
+		...view,
+		router,
+		runtime,
+		watchers,
+		backInterceptors,
+		hint: (entityId = "book-1") =>
+			act(() => {
+				for (const watcher of watchers) {
+					if (watcher.interest.visible.includes(entityId)) {
+						watcher.onUpdate({ entityId, reason: "populated" });
+					}
+				}
+			}),
+	};
 };
 
 let restoreMatchMedia = () => undefined as void;
@@ -286,6 +322,163 @@ afterEach(() => {
 });
 
 describe("saved-view route", () => {
+	it("invalidates cached layouts and resolved or pending counts on hints", async () => {
+		const pendingCount = deferred<number>();
+		const layouts: string[] = [];
+		let counts = 0;
+		const view = mountView({
+			loadPage: (_client, layout) => {
+				layouts.push(layout);
+				return Effect.succeed(
+					layout === "list"
+						? { ...page, items: [{ image: null, entityId: "list-only", title: "List only" }] }
+						: page,
+				);
+			},
+			count: () =>
+				++counts === 1 ? Effect.succeed(37) : Effect.promise(() => pendingCount.promise),
+			refresh: (_client, _layout, _definition, current) => Effect.succeed(current),
+		});
+		try {
+			await screen.findByRole("link", { name: "Open Piranesi" });
+			fireEvent.click(screen.getByRole("radio", { name: "List view" }));
+			await screen.findByRole("link", { name: "Open List only" });
+			fireEvent.click(screen.getByRole("radio", { name: "Grid view" }));
+			await screen.findByRole("link", { name: "Open Piranesi" });
+			expect([...view.watchers].flatMap(({ interest }) => interest.visible)).not.toContain(
+				"list-only",
+			);
+			fireEvent.click(screen.getByRole("button", { name: "Count all" }));
+			await screen.findByText("1 of 37 results");
+			view.hint();
+			await screen.findByRole("button", { name: "Count all" });
+			fireEvent.click(screen.getByRole("button", { name: "Count all" }));
+			await screen.findByRole("button", { name: "Counting..." });
+			view.hint();
+			pendingCount.resolve(99);
+			await act(() => new Promise((resolve) => setTimeout(resolve, 300)));
+			expect(screen.queryByText("1 of 99 results")).toBeNull();
+			fireEvent.click(screen.getByRole("radio", { name: "List view" }));
+			await screen.findByRole("link", { name: "Open List only" });
+			expect(layouts).toEqual(["grid", "list", "list"]);
+		} finally {
+			view.unmount();
+			await view.runtime.dispose();
+		}
+	});
+
+	it.each(["search", "layout"])(
+		"rejects a stale refresh after a %s change and ignores old displayed interests",
+		async (change) => {
+			const stale = deferred<SavedViewData>();
+			const next = deferred<typeof importedPage>();
+			let pages = 0;
+			let refreshes = 0;
+			const view = mountView({
+				loadPage: () => (++pages === 1 ? Effect.succeed(page) : Effect.promise(() => next.promise)),
+				refresh: () => {
+					refreshes += 1;
+					return Effect.promise(() => stale.promise);
+				},
+			});
+			try {
+				await screen.findByRole("link", { name: "Open Piranesi" });
+				view.hint();
+				await waitFor(() => expect(refreshes).toBe(1));
+				if (change === "search") {
+					fireEvent.change(screen.getByRole("searchbox", { name: "Search Books" }), {
+						target: { value: "Dune" },
+					});
+				} else {
+					fireEvent.click(screen.getByRole("radio", { name: "List view" }));
+				}
+				await waitFor(() => expect(pages).toBe(2));
+				expect(screen.getByRole("link", { name: "Open Piranesi" })).toBeTruthy();
+				expect([...view.watchers].every(({ interest }) => interest.visible.length === 0)).toBe(
+					true,
+				);
+				view.hint();
+				next.resolve(importedPage);
+				await screen.findByRole("link", { name: "Open Imported Dune" });
+				stale.resolve(appendSavedViewPage(undefined, emptyPage, queryDocument, new Map()));
+				await act(() => new Promise((resolve) => setTimeout(resolve, 350)));
+				expect(screen.getByRole("link", { name: "Open Imported Dune" })).toBeTruthy();
+				expect(refreshes).toBe(1);
+				if (change === "search") {
+					expect(
+						screen.getByRole<HTMLInputElement>("searchbox", { name: "Search Books" }).value,
+					).toBe("Dune");
+				}
+			} finally {
+				view.unmount();
+				await view.runtime.dispose();
+			}
+		},
+	);
+
+	it("holds hints during load-more and refreshes its updated depth without remounting", async () => {
+		const more = deferred<typeof importedPage>();
+		const refreshed = deferred<SavedViewData>();
+		const requests: SavedViewData[] = [];
+		let pages = 0;
+		const view = mountView({
+			loadPage: () => (++pages === 1 ? Effect.succeed(page) : Effect.promise(() => more.promise)),
+			refresh: (_client, _layout, _definition, current) => {
+				requests.push(current);
+				return Effect.promise(() => refreshed.promise);
+			},
+		});
+		try {
+			await screen.findByRole("link", { name: "Open Piranesi" });
+			const main = screen.getByRole("main");
+			main.scrollTop = 145;
+			fireEvent.click(screen.getByRole("button", { name: "Load more results" }));
+			view.hint();
+			await act(() => new Promise((resolve) => setTimeout(resolve, 300)));
+			expect(requests).toHaveLength(0);
+			more.resolve(importedPage);
+			await waitFor(() => expect(requests).toHaveLength(1));
+			expect(requests[0]?.pages).toBe(2);
+			expect(
+				[...view.watchers].every(({ interest }) => interest.visible.includes("book-imported")),
+			).toBe(true);
+			expect(screen.getByRole("link", { name: "Open Piranesi" })).toBeTruthy();
+			refreshed.resolve(appendSavedViewPage(undefined, importedPage, queryDocument, new Map()));
+			await waitFor(() => expect(screen.queryByRole("link", { name: "Open Piranesi" })).toBeNull());
+			expect(screen.getByRole("main")).toBe(main);
+			expect(main.scrollTop).toBe(145);
+			expect(pages).toBe(2);
+		} finally {
+			view.unmount();
+			expect(view.watchers.size).toBe(0);
+			await view.runtime.dispose();
+		}
+	});
+
+	it("keeps content on refresh failure and retries refresh only on explicit retry", async () => {
+		let refreshes = 0;
+		const view = mountView({
+			refresh: () =>
+				++refreshes === 1
+					? Effect.fail(new SavedViewLoadError({ stage: "page", cause: new Error("offline") }))
+					: Effect.succeed(appendSavedViewPage(undefined, importedPage, queryDocument, new Map())),
+		});
+		try {
+			await screen.findByRole("link", { name: "Open Piranesi" });
+			view.hint();
+			await screen.findByRole("alert");
+			expect(screen.getByRole("link", { name: "Open Piranesi" })).toBeTruthy();
+			await act(() => new Promise((resolve) => setTimeout(resolve, 350)));
+			expect(refreshes).toBe(1);
+			fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+			await screen.findByRole("link", { name: "Open Imported Dune" });
+			expect(refreshes).toBe(2);
+		} finally {
+			view.unmount();
+			await view.runtime.dispose();
+		}
+	});
+
 	it("titles the document from the loaded record and renders one skip-link target", async () => {
 		const view = mountView();
 		try {

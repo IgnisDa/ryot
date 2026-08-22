@@ -1,5 +1,5 @@
 import { RyotClientError } from "@ryot-app/client-sdk";
-import { useRyot } from "@ryot-app/client-sdk/react";
+import { useEntityRefresh, useRyot } from "@ryot-app/client-sdk/react";
 import {
 	Badge,
 	Button,
@@ -220,8 +220,8 @@ function SavedViewContent(props: {
 		async (input: {
 			readonly identity: string;
 			readonly layout: SavedViewLayoutName;
-			readonly phase: "initial" | "load-more";
 			readonly current?: SavedViewData | undefined;
+			readonly phase: "initial" | "load-more" | "refresh";
 			readonly queryDocument: (typeof props.record.layouts)[SavedViewLayoutName]["queryDocument"];
 		}) => {
 			pageRequest.current?.controller.abort();
@@ -244,17 +244,25 @@ function SavedViewContent(props: {
 					requestDocument = withSavedViewCursor(input.queryDocument, cursor);
 				}
 				const definition = props.record.layouts[input.layout];
-				const page = await runtime.runPromise(
-					Effect.flatMap(SavedViewsService, (service) =>
-						service.loadPage(ryot, input.layout, definition, requestDocument),
-					),
+				const unresolved = await runtime.runPromise(
+					Effect.flatMap(SavedViewsService, (service) => {
+						if (input.phase === "refresh" && input.current !== undefined) {
+							return service.refresh(ryot, input.layout, definition, input.current);
+						}
+						return service
+							.loadPage(ryot, input.layout, definition, requestDocument)
+							.pipe(
+								Effect.map((page) =>
+									appendSavedViewPage(
+										input.current,
+										page,
+										input.queryDocument,
+										input.current?.managedUrls ?? new Map(),
+									),
+								),
+							);
+					}),
 					{ signal: controller.signal },
-				);
-				const unresolved = appendSavedViewPage(
-					input.current,
-					page,
-					input.queryDocument,
-					input.current?.managedUrls ?? new Map(),
 				);
 				const assets = collectManagedAssets(unresolved.items.map((item) => item.image));
 				const managedUrls = await runtime.runPromise(
@@ -376,6 +384,10 @@ function SavedViewContent(props: {
 	};
 	const retryPage = () => {
 		const current = stateRef.current;
+		if (current.failedPhase === "refresh") {
+			void refreshPage();
+			return;
+		}
 		if (current.failedPhase === "load-more") {
 			loadMore();
 			return;
@@ -431,6 +443,61 @@ function SavedViewContent(props: {
 	const transitioning =
 		visible !== undefined &&
 		(visible.identity !== state.identity || visible.layout !== state.activeLayout);
+	const refreshIdentity = JSON.stringify([state.identity, state.activeLayout]);
+	useEffect(() => {
+		countRequest.current?.controller.abort();
+		countRequest.current = undefined;
+		setCount({ key: "", status: "idle" });
+	}, [refreshIdentity]);
+	const interest = {
+		foreground: [],
+		visible: transitioning ? [] : (visible?.data.items.map((item) => item.entityId) ?? []),
+	};
+	const refreshPage = useEffectEvent(async () => {
+		const current = stateRef.current;
+		if (
+			current.operation !== undefined ||
+			current.visible === undefined ||
+			current.visible.identity !== current.identity ||
+			current.visible.layout !== current.activeLayout
+		) {
+			return;
+		}
+		await runPageRequest({
+			phase: "refresh",
+			identity: current.identity,
+			layout: current.activeLayout,
+			current: current.visible.data,
+			queryDocument: current.visible.data.queryDocument,
+		});
+	});
+	useEntityRefresh({
+		interest,
+		onRefresh: refreshPage,
+		identity: refreshIdentity,
+		blocked: transitioning || state.operation !== undefined,
+	});
+	const invalidateResults = useEffectEvent(() => {
+		dispatch({ type: "interest-updated" });
+		countRequest.current?.controller.abort();
+		countRequest.current = undefined;
+		setCount({ key: "", status: "idle" });
+	});
+	const invalidationWatch = useRef<ReturnType<typeof ryot.entities.watch> | undefined>(undefined);
+	const watchInvalidation = useEffectEvent(() =>
+		ryot.entities.watch(interest, () => invalidateResults()),
+	);
+	useEffect(() => {
+		const watch = watchInvalidation();
+		invalidationWatch.current = watch;
+		return () => {
+			watch.dispose();
+			invalidationWatch.current = undefined;
+		};
+	}, [ryot, refreshIdentity]);
+	useEffect(() => {
+		invalidationWatch.current?.update(interest);
+	});
 	const data = visible?.data;
 	const hasItems = data !== undefined && data.items.length > 0;
 	const resultCount = data
