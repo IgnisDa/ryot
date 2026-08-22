@@ -1,7 +1,0 @@
-{
-  "expo.jsEngine": "hermes",
-  "EX_DEV_CLIENT_NETWORK_INSPECTOR": "true",
-  "expo.inlineModules.watchedDirectories": "[]",
-  "expo.inlineModules.xcodeProjectTargets": "{\"mainTarget\":\"RyotDebug\",\"targets\":[]}",
-  "expo-image.disable-libdav1d": "false"
-}
