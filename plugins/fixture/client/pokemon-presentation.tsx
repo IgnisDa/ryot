@@ -1,4 +1,5 @@
 import type { ManagedAssetLocator } from "@ryot-app/client-sdk";
+import { Effect } from "@ryot-app/client-sdk/effect";
 import {
 	defineEntityPresentation,
 	PluginLink,
@@ -22,20 +23,24 @@ export type PokemonPresentationViewData = PokemonPresentationData & {
 	readonly batchAssets: readonly ManagedAssetLocator[];
 };
 
-export const loadPokemonPresentations: EntityPresentationLoader<
-	PokemonPresentationViewData
-> = async ({ client, signal, references }) => {
+export const loadPokemonPresentations: EntityPresentationLoader<PokemonPresentationViewData> = ({
+	client,
+	references,
+}) => {
 	const requestedIds = [...new Set(references.map(({ entityId }) => entityId))];
-	const rows = await client.data.query(pokemonPresentationRecipe(requestedIds), { signal });
-	const batchAssets = [
-		...new Map(
-			rows
-				.flatMap(({ artwork }) => artwork?.slice(0, 1) ?? [])
-				.filter((asset): asset is ManagedAssetLocator => asset.type !== "remote")
-				.map((asset) => [`${asset.type}:${asset.key}`, asset]),
-		).values(),
-	];
-	return Object.fromEntries(rows.map((row) => [row.id, { ...row, batchAssets }]));
+	return client.data.query(pokemonPresentationRecipe(requestedIds)).pipe(
+		Effect.map((rows) => {
+			const batchAssets = [
+				...new Map(
+					rows
+						.flatMap(({ artwork }) => artwork?.slice(0, 1) ?? [])
+						.filter((asset): asset is ManagedAssetLocator => asset.type !== "remote")
+						.map((asset) => [`${asset.type}:${asset.key}`, asset]),
+				).values(),
+			];
+			return Object.fromEntries(rows.map((row) => [row.id, { ...row, batchAssets }]));
+		}),
+	);
 };
 
 const PokemonExpandedDetails = ({

@@ -1,7 +1,7 @@
 import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
 import { DateTime, Effect, Option } from "@ryot-app/sandbox-sdk/effect";
 
-import { parseJsonResponse } from "../records";
+import { decodeJsonResponse } from "../records";
 
 export type AudibleHost = SandboxHost<readonly ["httpCall"]>;
 
@@ -12,8 +12,8 @@ export const audibleFetchJson = (
 	label: string,
 ) =>
 	host.httpCall("GET", url).pipe(
-		Effect.mapError((error) => new Error(error.message || failureMessage)),
-		Effect.map((response) => parseJsonResponse(response.body, label)),
+		Effect.mapError((error) => ({ ...error, message: error.message || failureMessage })),
+		Effect.flatMap((response) => decodeJsonResponse(response.body, label)),
 	);
 
 export const parseReleaseYear = (releaseDate: unknown) => {

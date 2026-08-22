@@ -7,7 +7,6 @@ import {
 	automationContext,
 	entityRecord,
 	eventAutomationContext,
-	execution,
 	hostSuccess,
 } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./ensure-media-library-membership.sandbox";
@@ -65,7 +64,7 @@ it.each(["book", "show", "anime", "manga", "video-game", "music", "person", "com
 		});
 
 		return Effect.runPromise(
-			definition.run(context(entitySchemaSlug), host, execution).pipe(
+			definition.run(context(entitySchemaSlug), host).pipe(
 				Effect.map((result) => {
 					expect(result).toBeNull();
 					expect(queryCalls).toBe(1);
@@ -102,8 +101,8 @@ it("is idempotent when the same import hook runs repeatedly", () => {
 
 	return Effect.runPromise(
 		Effect.gen(function* () {
-			expect(yield* definition.run(context("book"), host, execution)).toBeNull();
-			expect(yield* definition.run(context("book"), host, execution)).toBeNull();
+			expect(yield* definition.run(context("book"), host)).toBeNull();
+			expect(yield* definition.run(context("book"), host)).toBeNull();
 			expect(changes[0]).toEqual(changes[1]);
 		}),
 	);
@@ -132,10 +131,10 @@ it("ignores irrelevant entity and event inputs", () => {
 
 	return Effect.runPromise(
 		Effect.gen(function* () {
-			expect(yield* definition.run(eventInput, host, execution)).toBeNull();
-			expect(yield* definition.run(mediaLibraryInput, host, execution)).toBeNull();
-			expect(yield* definition.run(untargetedCollectionInput, host, execution)).toBeNull();
-			expect(yield* definition.run(irrelevantInput, host, execution)).toBeNull();
+			expect(yield* definition.run(eventInput, host)).toBeNull();
+			expect(yield* definition.run(mediaLibraryInput, host)).toBeNull();
+			expect(yield* definition.run(untargetedCollectionInput, host)).toBeNull();
+			expect(yield* definition.run(irrelevantInput, host)).toBeNull();
 			expect(calls).toBe(0);
 		}),
 	);
@@ -157,7 +156,6 @@ it("adds the event subject and the collection membership target to the media lib
 				yield* definition.run(
 					eventAutomationContext({ entitySchemaSlug: "movie", eventSchemaSlug: "progress" }),
 					host,
-					execution,
 				),
 			).toBeNull();
 			expect(
@@ -168,7 +166,6 @@ it("adds the event subject and the collection membership target to the media lib
 						properties: { entityId: "entity-2", entitySchemaSlug: "book" },
 					}),
 					host,
-					execution,
 				),
 			).toBeNull();
 			expect(changes).toEqual([membership("entity-1"), membership("entity-2")]);
@@ -176,6 +173,7 @@ it("adds the event subject and the collection membership target to the media lib
 	);
 });
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("uses trusted user scope for direct creation", async () => {
 	const changes: unknown[] = [];
 	let reads = 0;
@@ -195,7 +193,7 @@ it("uses trusted user scope for direct creation", async () => {
 		operation: "create",
 		after: entityRecord({ entitySchemaSlug: "movie" }),
 	};
-	await Effect.runPromise(definition.run(automationContext(payload), host, execution));
+	await Effect.runPromise(definition.run(automationContext(payload), host));
 	expect(reads).toBe(1);
 	expect(changes).toEqual([
 		[
@@ -214,6 +212,7 @@ it("uses trusted user scope for direct creation", async () => {
 	]);
 });
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("rejects provider completion for a different execution user before host calls", async () => {
 	let calls = 0;
 	const host = defineSandboxTestHost(manifest, {
@@ -229,7 +228,7 @@ it("rejects provider completion for a different execution user before host calls
 	const input = automationContext(context("movie").automation.payload, {
 		executionUserId: "other-user",
 	});
-	await expect(Effect.runPromise(definition.run(input, host, execution))).rejects.toThrow(
+	await expect(Effect.runPromise(definition.run(input, host))).rejects.toThrow(
 		"Provider import user does not match execution user",
 	);
 	expect(calls).toBe(0);

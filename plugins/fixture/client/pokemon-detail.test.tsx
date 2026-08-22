@@ -20,6 +20,7 @@ const rows = (items: readonly Record<string, unknown>[]) => ({
 describe("Pokemon detail page", () => {
 	afterEach(disposePluginBridges);
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits Testing Library's Promise-based waitFor.
 	it("queries the entity from the live same-document location", async () => {
 		const page = mountPluginPage(PokemonDetailPage, {
 			location: entityLocation("pokemon-1", "pokemon"),

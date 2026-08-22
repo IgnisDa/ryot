@@ -18,8 +18,8 @@ import { SuggestionsRail } from "./suggestions-rail";
 import { TrendingRail } from "./trending-rail";
 import { useLocalToday } from "./use-local-today";
 
-const libraryCountQuery = createRyotQuery(({ client, signal }) =>
-	client.data.query(libraryMediaCountRecipe(), { signal }),
+const libraryCountQuery = createRyotQuery(({ client }) =>
+	client.data.query(libraryMediaCountRecipe()),
 );
 
 const CONTINUE = { state: "in_progress" } as const;

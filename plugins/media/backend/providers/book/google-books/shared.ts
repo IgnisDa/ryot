@@ -4,6 +4,8 @@ import { DateTime, Effect, Option, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 import { strictStruct } from "@ryot-app/sandbox-sdk/wire";
 
+import { MediaSandboxError } from "../../../lib/failures";
+import { decodeJsonResponse } from "../../../lib/records";
 import { toTitleCase } from "../../../lib/title-case";
 
 type GoogleBooksHost = SandboxHost<readonly ["httpCall", "getPluginConfig"]>;
@@ -26,22 +28,17 @@ const stringValue = (value: unknown) =>
 const numberValue = (value: unknown) =>
 	typeof value === "number" && Number.isFinite(value) ? value : null;
 
-const parseJsonResponse = (responseBody: string) => {
-	try {
-		const value: unknown = JSON.parse(responseBody);
-		return value;
-	} catch {
-		throw new Error("Google Books returned invalid JSON");
-	}
-};
-
 const getGoogleBooksApiKey = (host: GoogleBooksHost) =>
 	host.getPluginConfig(["googleBooksApiKey"]).pipe(
 		Effect.map(({ googleBooksApiKey }) => googleBooksApiKey),
 		Effect.flatMap((value) => {
 			const apiKey = stringValue(value);
 			if (!apiKey) {
-				return Effect.fail(new Error("RYOT_PLUGIN_MEDIA_GOOGLE_BOOKS_API_KEY is not configured"));
+				return Effect.fail(
+					new MediaSandboxError({
+						message: "RYOT_PLUGIN_MEDIA_GOOGLE_BOOKS_API_KEY is not configured",
+					}),
+				);
 			}
 			return Effect.succeed(apiKey);
 		}),
@@ -56,13 +53,8 @@ const googleBooksGet = (
 	host
 		.httpCall("GET", `${GOOGLE_BOOKS_BASE_URL}${path}`, { headers: { "x-goog-api-key": apiKey } })
 		.pipe(
-			Effect.mapError((error) => new Error(error.message || failureMessage)),
-			Effect.flatMap((response) =>
-				Effect.try({
-					try: () => parseJsonResponse(response.body),
-					catch: (error) => (error instanceof Error ? error : new Error(String(error))),
-				}),
-			),
+			Effect.mapError((error) => ({ ...error, message: error.message || failureMessage })),
+			Effect.flatMap((response) => decodeJsonResponse(response.body, "Google Books")),
 		);
 
 const parsePublishYear = (publishedDate: unknown) => {
@@ -243,7 +235,9 @@ export const details = defineProvider({
 			const volumeInfo = asRecord(payload?.["volumeInfo"]);
 			const title = stringValue(volumeInfo?.["title"]);
 			if (!title) {
-				return yield* Effect.fail(new Error("Google Books payload is missing title"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "Google Books payload is missing title" }),
+				);
 			}
 			const pageCount = numberValue(volumeInfo?.["pageCount"]);
 			return {
@@ -274,7 +268,9 @@ export const resolve = defineProvider({
 	operation: "resolve",
 	run: (input, host) => {
 		if (input.identifierType !== "isbn") {
-			return Effect.fail(new Error("Google Books resolve supports only isbn identifiers"));
+			return Effect.fail(
+				new MediaSandboxError({ message: "Google Books resolve supports only isbn identifiers" }),
+			);
 		}
 		const params = new URLSearchParams({
 			maxResults: "1",

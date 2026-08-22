@@ -89,7 +89,6 @@ it.each([
 						return Effect.succeed(null);
 					},
 				}),
-				{ metadata: {}, sandboxScriptId: "script-1" },
 			)
 			.pipe(
 				Effect.map((result) => {

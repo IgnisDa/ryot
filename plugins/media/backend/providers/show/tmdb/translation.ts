@@ -1,6 +1,8 @@
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import type { ProviderTranslateInput } from "@ryot-app/sandbox-sdk/provider";
 
+import { mediaFailureMessage } from "../../../lib/error-message";
+import { MediaSandboxError } from "../../../lib/failures";
 import { asRecord, stringValue } from "../../../lib/records";
 import {
 	firstTranslationValue,
@@ -76,7 +78,7 @@ export const translateTmdbShow = (input: ProviderTranslateInput, host: TmdbHost,
 	return Effect.gen(function* () {
 		const request = yield* Effect.try({
 			try: () => getTranslationRequest(input),
-			catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+			catch: (error) => new MediaSandboxError({ message: mediaFailureMessage(error) }),
 		});
 		const { region, langCode } = parseTranslationLanguage(input.language);
 		const [translationsData, imagesData] = yield* Effect.all([

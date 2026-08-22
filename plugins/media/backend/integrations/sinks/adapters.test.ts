@@ -94,6 +94,7 @@ describe("Kodi sink", () => {
 		]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("parses a Kodi webhook raw body", async () => {
 		const result = await runKodi(JSON.stringify({ lot: "movie", progress: 30, identifier: "603" }));
 		expect(result.failures).toEqual([]);
@@ -106,6 +107,7 @@ describe("Kodi sink", () => {
 });
 
 describe("media server sinks", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("maps an Emby episode webhook to a TMDB show ref", async () => {
 		const rawBody = JSON.stringify({
 			IndexNumber: 3,
@@ -138,6 +140,7 @@ describe("media server sinks", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("maps a Jellyfin episode webhook to a TMDB show ref with an episode locator", async () => {
 		const rawBody = JSON.stringify({
 			IndexNumber: 4,
@@ -171,6 +174,7 @@ describe("media server sinks", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("skips a Jellyfin webhook when the username does not match", async () => {
 		const result = await Effect.runPromise(
 			runSandboxTestScript(
@@ -215,6 +219,7 @@ const runPlex = (payload: unknown, username?: string) =>
 	);
 
 describe("Plex sink", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("maps a Plex scrobble multipart webhook to a movie ref", async () => {
 		const result = await runPlex({
 			event: "media.scrobble",
@@ -227,6 +232,7 @@ describe("Plex sink", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("maps a Plex episode multipart webhook to a TMDB show ref with an episode locator", async () => {
 		const result = await runPlex({
 			event: "media.pause",
@@ -256,6 +262,7 @@ describe("Plex sink", () => {
 		["accepts a Plex webhook from any user when the configured username is blank", "   ", false],
 		["skips a Plex webhook when the configured username does not match", "alice", true],
 		["trims a whitespace-padded Plex username before matching", "  bob  ", false],
+		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	])("%s", async (_name, username, skipped) => {
 		const result = await runPlex(
 			{
@@ -288,6 +295,7 @@ const runBrowser = (rawBody: string, disabledSites: string[] = []) =>
 	);
 
 describe("browser extension sink", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("ignores browser extension events from disabled sites", async () => {
 		const result = await runBrowser(
 			JSON.stringify({
@@ -300,6 +308,7 @@ describe("browser extension sink", () => {
 		expect(result.failures).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("maps a browser extension show webhook to a TMDB show ref with an episode locator", async () => {
 		const result = await runBrowser(
 			JSON.stringify({

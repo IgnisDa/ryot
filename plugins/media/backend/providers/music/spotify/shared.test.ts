@@ -24,7 +24,7 @@ const makeHost = (
 			),
 		httpCall: (_method, url) => {
 			const route = routes.find((candidate) => candidate.match(url));
-			return route ? httpSuccess(route.body) : Effect.fail(new Error(`no route: ${url}`));
+			return route ? httpSuccess(route.body) : Effect.fail({ message: `no route: ${url}` });
 		},
 		...overrides,
 	});
@@ -77,7 +77,7 @@ describe("music.spotify sandbox script", () => {
 				}
 				return url.includes("/search")
 					? httpSuccess(searchBody)
-					: Effect.fail(new Error(`no route: ${url}`));
+					: Effect.fail({ message: `no route: ${url}` });
 			},
 		});
 		return Effect.runPromise(

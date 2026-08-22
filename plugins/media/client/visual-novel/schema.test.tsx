@@ -1,3 +1,4 @@
+import { Effect } from "@ryot-app/client-sdk/effect";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { visualNovelRecipes } from "../../shared/visual-novel-recipes";
@@ -15,7 +16,7 @@ import { renderMediaScreenBody } from "../../tests/client/screen-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
 import { visualNovelPresentationFacts, visualNovelSchema, visualNovelSummaryFacts } from "./schema";
 
-const noopAdapter = { query: () => Promise.resolve({}) };
+const noopAdapter = { query: () => Effect.succeed({}) };
 
 const visualNovelSummary = (overrides: Record<string, unknown> = {}) =>
 	decodeFlatSummary(visualNovelRecipes.summaryRecipe(FLAT_SUMMARY_INPUT), {

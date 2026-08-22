@@ -65,7 +65,7 @@ const fetchArtistAlbums = (
 	externalId: string,
 	offset: number,
 	collected: readonly unknown[],
-): Effect.Effect<readonly unknown[], unknown> =>
+): Effect.Effect<readonly unknown[], Effect.Error<ReturnType<typeof spotifyGet>>> =>
 	spotifyGet(host, `/artists/${encodeURIComponent(externalId)}/albums`, {
 		offset: String(offset),
 		include_groups: "album,single",

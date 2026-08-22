@@ -1,6 +1,7 @@
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { DateTime, Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
+import { mediaFailureMessage } from "../lib/error-message";
 import {
 	manifest as movieTmdbManifest,
 	trending as movieTmdbTrending,
@@ -63,7 +64,10 @@ export default defineScript({
 								{
 									level: "warning",
 									message: "trending provider skipped",
-									attributes: { error: String(error), providerSlug: provider.manifest.slug },
+									attributes: {
+										error: mediaFailureMessage(error),
+										providerSlug: provider.manifest.slug,
+									},
 								},
 							])
 							.pipe(

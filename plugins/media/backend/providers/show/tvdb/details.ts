@@ -4,6 +4,7 @@ import type {
 	ProviderDetailsInput,
 } from "@ryot-app/sandbox-sdk/provider";
 
+import { MediaSandboxError } from "../../../lib/failures";
 import { parsePublishYear } from "../../../lib/parse-publish-year";
 import {
 	type UnknownRecord,
@@ -91,7 +92,9 @@ export const getTvdbShowDetails = (
 	canonicalLanguage: string,
 ) => {
 	if (!/^\d+$/.test(input.externalId)) {
-		return Effect.fail(new Error("externalId must be a numeric TVDB series ID"));
+		return Effect.fail(
+			new MediaSandboxError({ message: "externalId must be a numeric TVDB series ID" }),
+		);
 	}
 	const language = bcp47ToTvdb(canonicalLanguage);
 	return Effect.gen(function* () {
@@ -105,12 +108,16 @@ export const getTvdbShowDetails = (
 		);
 		const show = asRecord(data["data"]);
 		if (!show) {
-			return yield* Effect.fail(new Error("TVDB returned no data for this series"));
+			return yield* Effect.fail(
+				new MediaSandboxError({ message: "TVDB returned no data for this series" }),
+			);
 		}
 		const translation = getTranslationFields(translationData);
 		const title = translation.name ?? stringValue(show["name"]);
 		if (!title) {
-			return yield* Effect.fail(new Error("TVDB returned no name for this series"));
+			return yield* Effect.fail(
+				new MediaSandboxError({ message: "TVDB returned no name for this series" }),
+			);
 		}
 		const images = collectImages([show["image"]], show["artworks"], "cover");
 		const genres = collectGenres(show["genres"]);
@@ -142,19 +149,15 @@ export const getTvdbShowDetails = (
 		const batches = Array.from({ length: Math.ceil(seasonIds.length / 5) }, (_, index) =>
 			seasonIds.slice(index * 5, index * 5 + 5),
 		);
-		const seasonResponses = yield* batches.reduce<Effect.Effect<UnknownRecord[], unknown>>(
-			(loaded, batch) =>
-				Effect.flatMap(loaded, (responses) =>
-					Effect.map(
-						Effect.all(
-							batch.map((sid) => tvdbGet(host, `/seasons/${sid}/extended`)),
-							{ concurrency: "unbounded" },
-						),
-						(results) => [...responses, ...results],
-					),
-				),
-			Effect.succeed([]),
-		);
+		const seasonResponses: UnknownRecord[] = [];
+		for (const batch of batches) {
+			seasonResponses.push(
+				...(yield* Effect.all(
+					batch.map((sid) => tvdbGet(host, `/seasons/${sid}/extended`)),
+					{ concurrency: "unbounded" },
+				)),
+			);
+		}
 		const officialSeasons = seasonResponses
 			.flatMap((response) => {
 				const season = asRecord(response["data"]);

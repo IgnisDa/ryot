@@ -58,12 +58,15 @@ export const adaptJellyfinData = (
 ) =>
 	Effect.gen(function* () {
 		const requestHost = withSourceRequestOptions(host, input.allowInsecureConnections);
+		const body = yield* Schema.encodeEffect(
+			Schema.fromJsonString(Schema.Struct({ Pw: Schema.String, Username: Schema.String })),
+		)({ Pw: input.password ?? "", Username: input.username });
 		const auth = yield* requestSourceJson(requestHost, {
+			body,
 			method: "POST",
 			headers: headers(),
 			baseUrl: input.apiUrl,
 			path: "Users/AuthenticateByName",
-			body: JSON.stringify({ Pw: input.password ?? "", Username: input.username }),
 		}).pipe(Effect.flatMap(Schema.decodeUnknownEffect(AuthResponse)));
 		const requestHeaders = headers(auth.AccessToken);
 		const library = yield* requestSourceJson(requestHost, {

@@ -1,4 +1,5 @@
 import { RyotClientError } from "@ryot-app/client-sdk";
+import { Effect } from "@ryot-app/client-sdk/effect";
 import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
 import { getByRole, getByText } from "@testing-library/dom";
 import { afterEach, describe, expect, it } from "vitest";
@@ -15,7 +16,7 @@ import { ActivitySectionView } from "./activity-section";
 
 const TODAY = "2026-09-25";
 const TIME_ZONE = "America/New_York";
-const noopAdapter = { query: () => Promise.resolve({}) };
+const noopAdapter = { query: () => Effect.succeed({}) };
 
 const activity: MediaActivity = {
 	figures: { reviews: 7, minutes: 5430, finished: 1204 },

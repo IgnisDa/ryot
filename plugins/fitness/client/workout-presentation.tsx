@@ -1,3 +1,4 @@
+import { Effect } from "@ryot-app/client-sdk/effect";
 import {
 	defineEntityPresentation,
 	PluginLink,
@@ -13,14 +14,18 @@ import {
 	type WorkoutPresentationData,
 } from "./workout-presentation-query";
 
-export const loadWorkoutPresentations: EntityPresentationLoader<WorkoutPresentationData> = async ({
+export const loadWorkoutPresentations: EntityPresentationLoader<WorkoutPresentationData> = ({
 	client,
-	signal,
 	references,
 }) => {
 	const requestedIds = [...new Set(references.map(({ entityId }) => entityId))];
-	const workouts = await client.data.query(workoutPresentationRecipe(requestedIds), { signal });
-	return Object.fromEntries(workouts.map((workout) => [workout.id, workout]));
+	return client.data
+		.query(workoutPresentationRecipe(requestedIds))
+		.pipe(
+			Effect.map((workouts) =>
+				Object.fromEntries(workouts.map((workout) => [workout.id, workout])),
+			),
+		);
 };
 
 const validDate = (value: string | null) => {

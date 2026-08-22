@@ -8,7 +8,6 @@ import {
 	eventAutomationContext,
 	entityRecord,
 	entitySchemaRecord,
-	execution,
 	hostFailure,
 	hostSuccess,
 	httpFailure,
@@ -103,7 +102,7 @@ describe("jellyfin-push sandbox script", () => {
 			]),
 		});
 		return Effect.runPromise(
-			definition.run(createAutomation(), host, execution).pipe(
+			definition.run(createAutomation(), host).pipe(
 				Effect.map(() => {
 					const markCall = calls.find((call) => call.url.includes("/PlayedItems/"));
 					expect(markCall?.method).toBe("POST");
@@ -124,12 +123,10 @@ describe("jellyfin-push sandbox script", () => {
 					definition.run(
 						createAutomation(),
 						createHost({ httpCall, entity: movieEntity, integrations: [jellyfinIntegration] }),
-						execution,
 					),
 					definition.run(
 						createAutomation({ entityId: "book-1", entitySchemaSlug: "book" }),
 						createHost({ httpCall, entity: movieEntity, integrations: [jellyfinIntegration] }),
-						execution,
 					),
 					definition.run(
 						createAutomation(),
@@ -139,7 +136,6 @@ describe("jellyfin-push sandbox script", () => {
 							disableIntegrations: true,
 							integrations: [jellyfinIntegration],
 						}),
-						execution,
 					),
 				],
 				{ concurrency: "unbounded" },
@@ -166,7 +162,7 @@ describe("jellyfin-push sandbox script", () => {
 					true,
 				),
 			});
-			const result = yield* definition.run(createAutomation(), host, execution);
+			const result = yield* definition.run(createAutomation(), host);
 			expect(result).toBeNull();
 			expect(warnings).toEqual([
 				[

@@ -1,3 +1,7 @@
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+
+import { MediaSandboxError } from "./failures";
+
 export type UnknownRecord = Record<string, unknown>;
 
 const isRecord = (value: unknown): value is UnknownRecord =>
@@ -29,3 +33,8 @@ export const parseJsonResponse = (responseBody: string, label: string) => {
 		throw new Error(`${label} returned invalid JSON`);
 	}
 };
+
+export const decodeJsonResponse = (responseBody: string, label: string) =>
+	Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(responseBody).pipe(
+		Effect.mapError(() => new MediaSandboxError({ message: `${label} returned invalid JSON` })),
+	);

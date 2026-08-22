@@ -51,6 +51,7 @@ const podcastRef = {
 } as const;
 
 describe("resolve episodes operation", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("builds a relational show query with explicit episode, season, and show joins", async () => {
 		const { host, documents } = createHost([["episode-1"]]);
 
@@ -70,6 +71,7 @@ describe("resolve episodes operation", () => {
 		]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("builds a relational podcast query with the podcast episode join", async () => {
 		const { host, documents } = createHost([["episode-9"]]);
 
@@ -80,6 +82,7 @@ describe("resolve episodes operation", () => {
 		expect(query?.joins?.map((join) => join.table.alias)).toEqual(["podcastEpisode", "podcast"]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("builds a relational show season query", async () => {
 		const { host, documents } = createHost([["season-2"]]);
 
@@ -94,6 +97,7 @@ describe("resolve episodes operation", () => {
 		expect(query?.joins?.map((join) => join.table.alias)).toEqual(["showSeason", "show"]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("emits documents accepted by the RyotQL contract", async () => {
 		const { host, documents } = createHost([[], []]);
 
@@ -110,6 +114,7 @@ describe("resolve episodes operation", () => {
 		}
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("resolves only unique matches and echoes each caller index with its own result", async () => {
 		const { host, documents } = createHost([
 			["episode-1"],

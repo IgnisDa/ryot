@@ -2,6 +2,7 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
+import { MediaSandboxError } from "../../../lib/failures";
 import { numberValue, recordsValue, stringValue } from "../../../lib/records";
 import {
 	collectImages,
@@ -71,7 +72,9 @@ export const details = defineProvider({
 	run: (input, host) =>
 		Effect.gen(function* () {
 			if (!/^\d+$/.test(input.externalId)) {
-				return yield* Effect.fail(new Error("externalId must be a numeric TMDB collection ID"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "externalId must be a numeric TMDB collection ID" }),
+				);
 			}
 			const token = yield* getTmdbAccessToken(host);
 			const [collectionData, imagesData] = yield* Effect.all(
@@ -83,7 +86,9 @@ export const details = defineProvider({
 			);
 			const rawName = stringValue(collectionData["name"]);
 			if (!rawName) {
-				return yield* Effect.fail(new Error("TMDB returned no name for this collection"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "TMDB returned no name for this collection" }),
+				);
 			}
 			const name = stripCollectionSuffix(rawName);
 			const parts = recordsValue(collectionData["parts"]);
@@ -132,7 +137,9 @@ export const translate = defineProvider({
 	run: (input, host) =>
 		Effect.gen(function* () {
 			if (!/^\d+$/.test(input.externalId)) {
-				return yield* Effect.fail(new Error("externalId must be a numeric TMDB collection ID"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "externalId must be a numeric TMDB collection ID" }),
+				);
 			}
 			const { region, langCode } = parseTranslationLanguage(input.language);
 			const token = yield* getTmdbAccessToken(host);

@@ -93,6 +93,7 @@ const createHost = (
 	return { host, logs, calls, claims, queries };
 };
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("leaves ordinary imports and non-progress events untouched without admission calls", async () => {
 	const { host, logs, calls } = createHost();
 	const ordinary = { ...input(), integration: undefined };
@@ -105,6 +106,7 @@ it("leaves ordinary imports and non-progress events untouched without admission 
 
 it.each(["not-a-number", "", 3])(
 	"omits invalid or below-minimum progress %s from import writes",
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	async (progressPercent) => {
 		const { host, logs, calls } = createHost({ minimum: 5 });
 		const admitted = await Effect.runPromise(
@@ -123,6 +125,7 @@ it.each(["not-a-number", "", 3])(
 	},
 );
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("clamps above maximum to completion while preserving unmodified numeric representations and timestamps", async () => {
 	const { host, claims } = createHost({ maximum: 95 });
 	const normalized = await Effect.runPromise(
@@ -133,11 +136,16 @@ it("clamps above maximum to completion while preserving unmodified numeric repre
 		occurredAt: "2026-01-01T00:00:00.000Z",
 		properties: { consumedOn: "Plex", progressPercent: 100 },
 	});
-	await Promise.all(
-		[95, "35.555", 35.555].map(async (progressPercent) => {
-			const original = input({ progressPercent });
-			expect(await Effect.runPromise(admitIntegrationProgress(original, host))).toEqual(original);
-		}),
+	await Effect.runPromise(
+		Effect.all(
+			[95, "35.555", 35.555].map((progressPercent) => {
+				const original = input({ progressPercent });
+				return admitIntegrationProgress(original, host).pipe(
+					Effect.map((admitted) => expect(admitted).toEqual(original)),
+				);
+			}),
+			{ concurrency: "unbounded" },
+		),
 	);
 	expect(claims).toEqual([
 		{
@@ -148,6 +156,7 @@ it("clamps above maximum to completion while preserving unmodified numeric repre
 	]);
 });
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("compares the latest matching consumption/subitem identity and suppresses duplicates within a produced batch", async () => {
 	const { host } = createHost({
 		events: [
@@ -173,18 +182,23 @@ it("compares the latest matching consumption/subitem identity and suppresses dup
 		{ animeEpisode: 2, consumedOn: "Plex", progressPercent: 35 },
 		{ mangaVolume: 1, mangaChapter: 1, consumedOn: "Plex", progressPercent: 35 },
 	];
-	await Promise.all(
-		distinctProperties.map(async (properties) => {
-			const original = input(properties, { occurredAt: "2026-01-03T00:00:00.000Z" });
-			const repeated = {
-				...original,
-				entityGroups: original.entityGroups.map((group) => ({
-					...group,
-					events: [...group.events, ...group.events],
-				})),
-			};
-			expect(await Effect.runPromise(admitIntegrationProgress(repeated, host))).toEqual(original);
-		}),
+	await Effect.runPromise(
+		Effect.all(
+			distinctProperties.map((properties) => {
+				const original = input(properties, { occurredAt: "2026-01-03T00:00:00.000Z" });
+				const repeated = {
+					...original,
+					entityGroups: original.entityGroups.map((group) => ({
+						...group,
+						events: [...group.events, ...group.events],
+					})),
+				};
+				return admitIntegrationProgress(repeated, host).pipe(
+					Effect.map((admitted) => expect(admitted).toEqual(original)),
+				);
+			}),
+			{ concurrency: "unbounded" },
+		),
 	);
 });
 
@@ -197,6 +211,7 @@ it.each([
 	{ ttl: 7200, minutes: 30, threshold: 0, claimed: false, suppressed: true },
 ])(
 	"preserves completion claim/history behavior: $minutes minutes, claimed $claimed, threshold $threshold",
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	async ({ ttl, minutes, claimed, threshold, suppressed }) => {
 		const now = Date.now();
 		const { host, claims } = createHost({
@@ -221,6 +236,7 @@ it.each([
 	},
 );
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("uses the resolved episode identity and stable integration key across import executions", async () => {
 	const { host, logs, claims, queries } = createHost();
 	const episode = input(
@@ -249,6 +265,7 @@ it("uses the resolved episode identity and stable integration key across import 
 	expect(logs.map((log) => log.attributes?.["importRunId"])).toEqual(["run-1", "run-2", "run-3"]);
 });
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("keeps unresolved population failures out of admission", async () => {
 	const { host, calls } = createHost();
 	const unresolved = { ...input(), populationResults: [] };

@@ -121,7 +121,7 @@ describe("book.openlibrary sandbox script", () => {
 	});
 	it("resolves ISBNs to a work id and treats 404 as unresolved", () => {
 		const found = makeHost(() => httpSuccess({ works: [{ key: "/works/OL1W" }] }));
-		const missing = makeHost(() => Effect.fail(new Error("not found")));
+		const missing = makeHost(() => Effect.fail({ message: "not found" }));
 		return Effect.runPromise(
 			Effect.all([
 				runSandboxTestScript(resolve, { value: "123", identifierType: "isbn" }, found, execution),

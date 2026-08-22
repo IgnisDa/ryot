@@ -19,6 +19,7 @@ it("rejects non-HTTP source URLs", () => {
 	);
 });
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("adds insecure connection opt-in only to requests from the configured source", async () => {
 	const options: unknown[] = [];
 	const host = stubHttpHost((request) => {

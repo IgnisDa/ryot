@@ -7,7 +7,6 @@ import {
 	eventAutomationContext,
 	entityRecord,
 	entitySchemaRecord,
-	execution,
 	hostFailure,
 	hostSuccess,
 	httpFailure,
@@ -98,23 +97,21 @@ describe("sonarr-push sandbox script", () => {
 			integrations: [sonarrIntegration],
 		});
 		return Effect.runPromise(
-			definition
-				.run(createAutomation({ entityId: "show-1", entitySchemaSlug: "show" }), host, execution)
-				.pipe(
-					Effect.map(() => {
-						expect(calls).toHaveLength(1);
-						expect(calls[0]?.url).toBe("http://sonarr.local/api/v3/series");
-						expect(JSON.parse(String(calls[0]?.options["body"]))).toEqual({
-							tags: [5, 8],
-							tvdbId: 371980,
-							monitored: true,
-							qualityProfileId: 2,
-							rootFolderPath: "/tv",
-							addOptions: { searchForMissingEpisodes: true },
-						});
-						return undefined;
-					}),
-				),
+			definition.run(createAutomation({ entityId: "show-1", entitySchemaSlug: "show" }), host).pipe(
+				Effect.map(() => {
+					expect(calls).toHaveLength(1);
+					expect(calls[0]?.url).toBe("http://sonarr.local/api/v3/series");
+					expect(JSON.parse(String(calls[0]?.options["body"]))).toEqual({
+						tags: [5, 8],
+						tvdbId: 371980,
+						monitored: true,
+						qualityProfileId: 2,
+						rootFolderPath: "/tv",
+						addOptions: { searchForMissingEpisodes: true },
+					});
+					return undefined;
+				}),
+			),
 		);
 	});
 
@@ -127,7 +124,6 @@ describe("sonarr-push sandbox script", () => {
 					definition.run(
 						createAutomation({ entityId: "movie-1", entitySchemaSlug: "movie" }),
 						createHost({ httpCall, entity: showEntity, integrations: [sonarrIntegration] }),
-						execution,
 					),
 					definition.run(
 						createAutomation({ entityId: "show-1", entitySchemaSlug: "show" }),
@@ -136,7 +132,6 @@ describe("sonarr-push sandbox script", () => {
 							integrations: [sonarrIntegration],
 							entity: entityRecord({ ...showEntity, providerId: "script-show-tmdb" }),
 						}),
-						execution,
 					),
 				],
 				{ concurrency: "unbounded" },
@@ -161,7 +156,6 @@ describe("sonarr-push sandbox script", () => {
 			const result = yield* definition.run(
 				createAutomation({ entityId: "show-1", entitySchemaSlug: "show" }),
 				host,
-				execution,
 			);
 			expect(result).toBeNull();
 			expect(warnings).toEqual([

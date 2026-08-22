@@ -10,7 +10,6 @@ import {
 	eventAutomationContext,
 	entityRecord,
 	eventRecord,
-	execution,
 	hostSuccess,
 	ryotqlRows,
 } from "../../tests/backend/automations/automation-test-utils";
@@ -86,7 +85,7 @@ const run = (context: AutomationInput, host: ReturnType<typeof createHost>["host
 					},
 				}
 			: context;
-	return definition.run(input, host, execution);
+	return definition.run(input, host);
 };
 
 describe("auto-complete-on-full-progress sandbox script", () => {

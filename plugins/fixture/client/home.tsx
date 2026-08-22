@@ -34,8 +34,8 @@ const greetingTones = {
 	success: "success",
 } as const;
 
-const fixtureClientPluginCatalogQuery = createRyotQuery(({ client, signal }) =>
-	client.data.query(fixtureClientPluginCatalogRecipe(), { signal }),
+const fixtureClientPluginCatalogQuery = createRyotQuery(({ client }) =>
+	client.data.query(fixtureClientPluginCatalogRecipe()),
 );
 
 const greetingMutation = createRyotMutation<GreetingInput, typeof Greeting.Type>(

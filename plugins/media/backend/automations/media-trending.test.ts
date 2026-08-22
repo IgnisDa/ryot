@@ -97,6 +97,7 @@ describe("media trending cron", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("continues after a provider failure and preserves existing edges when all providers fail", async () => {
 		const relationshipWrites: unknown[] = [];
 		const logs: unknown[] = [];

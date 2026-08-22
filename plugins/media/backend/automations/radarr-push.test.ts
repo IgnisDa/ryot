@@ -7,7 +7,6 @@ import {
 	eventAutomationContext,
 	entityRecord,
 	entitySchemaRecord,
-	execution,
 	hostFailure,
 	hostSuccess,
 	httpFailure,
@@ -101,7 +100,7 @@ describe("radarr-push sandbox script", () => {
 		});
 		return Effect.runPromise(
 			definition
-				.run(createAutomation({ entityId: "movie-1", entitySchemaSlug: "movie" }), host, execution)
+				.run(createAutomation({ entityId: "movie-1", entitySchemaSlug: "movie" }), host)
 				.pipe(
 					Effect.map(() => {
 						expect(calls).toHaveLength(1);
@@ -146,7 +145,6 @@ describe("radarr-push sandbox script", () => {
 					definition.run(
 						createAutomation({ entityId: "show-1", entitySchemaSlug: "show" }),
 						createHost({ ...base, entity: movieEntity }),
-						execution,
 					),
 					definition.run(
 						createAutomation({ entityId: "movie-1", entitySchemaSlug: "movie" }),
@@ -154,12 +152,10 @@ describe("radarr-push sandbox script", () => {
 							...base,
 							entity: entityRecord({ ...movieEntity, providerId: "script-movie-tvdb" }),
 						}),
-						execution,
 					),
 					definition.run(
 						createAutomation({ entityId: "movie-1", entitySchemaSlug: "movie" }),
 						createHost({ httpCall, entity: movieEntity, integrations: [unmatched] }),
-						execution,
 					),
 				],
 				{ concurrency: "unbounded" },
@@ -182,7 +178,7 @@ describe("radarr-push sandbox script", () => {
 		});
 		return Effect.runPromise(
 			definition
-				.run(createAutomation({ entityId: "movie-1", entitySchemaSlug: "movie" }), host, execution)
+				.run(createAutomation({ entityId: "movie-1", entitySchemaSlug: "movie" }), host)
 				.pipe(
 					Effect.map(() => {
 						expect(calls).toHaveLength(0);
@@ -204,7 +200,6 @@ describe("radarr-push sandbox script", () => {
 			const result = yield* definition.run(
 				createAutomation({ entityId: "movie-1", entitySchemaSlug: "movie" }),
 				host,
-				execution,
 			);
 			expect(result).toBeNull();
 			expect(warnings).toEqual([

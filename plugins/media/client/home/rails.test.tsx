@@ -1,4 +1,5 @@
 import { RyotClientError, type EntityInterest } from "@ryot-app/client-sdk";
+import { Effect } from "@ryot-app/client-sdk/effect";
 import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
 import { fireEvent, getByRole, waitFor } from "@testing-library/dom";
 import { afterEach, assert, describe, expect, it } from "vitest";
@@ -34,7 +35,7 @@ import { SuggestionsRail } from "./suggestions-rail";
 import { TrendingRail } from "./trending-rail";
 import { useLocalToday } from "./use-local-today";
 
-const noopAdapter = { query: () => Promise.resolve({}) };
+const noopAdapter = { query: () => Effect.succeed({}) };
 
 const localNoon = (septemberDay: number) => new Date(2026, 8, septemberDay, 12).toISOString();
 
@@ -254,6 +255,7 @@ function AiringToday(props: { readonly data: ReturnType<typeof airingData> }) {
 }
 
 describe("AiringRail", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("merges shows and anime by local day and recaptions them at local midnight", async () => {
 		const mondayMorning = new Date(2026, 8, 28, 10).toISOString();
 		const data = airingData({
@@ -296,7 +298,7 @@ describe("AiringRail", () => {
 	});
 });
 
-type QueryResponder = (queries: readonly string[]) => Promise<unknown>;
+type QueryResponder = (queries: readonly string[]) => Effect.Effect<unknown, RyotClientError>;
 
 const respondingAdapter = (respond: QueryResponder, interests: EntityInterest[] = []) => ({
 	query: (document: { readonly queries: Readonly<Record<string, unknown>> }) =>
@@ -315,7 +317,7 @@ const respondingAdapter = (respond: QueryResponder, interests: EntityInterest[] 
 const respondWith =
 	(data: Readonly<Record<string, unknown>>): QueryResponder =>
 	(queries) =>
-		Promise.resolve({ data: Object.fromEntries(queries.map((name) => [name, data[name]])) });
+		Effect.succeed({ data: Object.fromEntries(queries.map((name) => [name, data[name]])) });
 
 const trending = (id: string, name: string, schemaSlug: string, rank: number) => ({
 	...mediaIdentity(id, name, schemaSlug),
@@ -339,22 +341,24 @@ const lazyRails = [
 describe("lazily queried rails", () => {
 	it.each(lazyRails)("$title shows a placeholder while pending", ({ Rail, title }) => {
 		const view = mountRyotClient(
-			respondingAdapter(() => new Promise(() => undefined)),
+			respondingAdapter(() => Effect.never),
 			<Rail compact />,
 		);
 		expect(view.container.querySelector(`[aria-label="Loading ${title}"]`)).not.toBeNull();
 		view.unmount();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it.each(lazyRails)("$title offers a retry after an error", async ({ Rail }) => {
 		const view = mountRyotClient(
-			respondingAdapter(() => Promise.reject(new Error("offline"))),
+			respondingAdapter(() => Effect.fail(new RyotClientError("transport"))),
 			<Rail compact />,
 		);
 		await waitFor(() => expect(view.container.querySelector('[role="alert"]')).not.toBeNull());
 		view.unmount();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it.each(lazyRails)("$title hides itself when it has nothing to show", async ({ Rail, empty }) => {
 		const view = mountRyotClient(respondingAdapter(respondWith(empty)), <Rail compact />);
 		await flushRyotClient();
@@ -362,6 +366,7 @@ describe("lazily queried rails", () => {
 		view.unmount();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("titles suggestions after the completion they come from and watches both", async () => {
 		const interests: EntityInterest[] = [];
 		const view = mountRyotClient(
@@ -382,6 +387,7 @@ describe("lazily queried rails", () => {
 		view.unmount();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("numbers trending titles by rank", async () => {
 		const view = mountRyotClient(
 			respondingAdapter(

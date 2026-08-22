@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { buildArtistDetails } from "./shared";
 
 describe("person.youtube-music sandbox script", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("splits artist sections into track and group related entities", async () => {
 		const client = {
 			music: {

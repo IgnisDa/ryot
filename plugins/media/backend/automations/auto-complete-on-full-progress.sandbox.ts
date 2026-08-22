@@ -10,6 +10,7 @@ import {
 } from "@ryot-app/sandbox-sdk/ryotql";
 import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
 
+import { MediaSandboxError } from "../lib/failures";
 import type { MediaProgressEvent } from "../lib/ryotql";
 
 export const manifest = defineManifest({
@@ -157,7 +158,9 @@ const fetchEntity = (host: AutomationHost, entityId: string) =>
 	executeRyotqlRecipe(host.executeRyotql, entityReadRecipe({ entityIds: [entityId] })).pipe(
 		Effect.flatMap(({ items }) => {
 			const entity = items[0];
-			return entity ? Effect.succeed(entity) : Effect.fail(new Error("Entity not found"));
+			return entity
+				? Effect.succeed(entity)
+				: Effect.fail(new MediaSandboxError({ message: "Entity not found" }));
 		}),
 	);
 

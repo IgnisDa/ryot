@@ -3,7 +3,9 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { DateTime, Effect, Option } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
-import { trimmedString } from "../../../lib/records";
+import { mediaFailureMessage } from "../../../lib/error-message";
+import { MediaSandboxError } from "../../../lib/failures";
+import { decodeJsonResponse, trimmedString } from "../../../lib/records";
 
 export const manifest = defineManifest({
 	name: "iTunes",
@@ -109,13 +111,6 @@ const buildSourceUrl = (externalId: string, title: string) => {
 	const slug = encodeURIComponent(title.toLowerCase().replace(/\s+/g, "-"));
 	return `https://podcasts.apple.com/us/podcast/${slug}/id${externalId}`;
 };
-const parseJsonResponse = (responseBody: string): unknown => {
-	try {
-		return JSON.parse(responseBody);
-	} catch {
-		throw new Error("iTunes returned invalid JSON");
-	}
-};
 const itunesGet = (
 	host: ItunesHost,
 	endpoint: "lookup" | "search",
@@ -124,13 +119,8 @@ const itunesGet = (
 ) => {
 	const search = new URLSearchParams(params);
 	return host.httpCall("GET", `https://itunes.apple.com/${endpoint}?${search.toString()}`).pipe(
-		Effect.mapError((error) => new Error(error.message || failureMessage)),
-		Effect.flatMap((response) =>
-			Effect.try({
-				try: () => parseJsonResponse(response.body),
-				catch: (error) => (error instanceof Error ? error : new Error(String(error))),
-			}),
-		),
+		Effect.mapError((error) => ({ ...error, message: error.message || failureMessage })),
+		Effect.flatMap((response) => decodeJsonResponse(response.body, "iTunes")),
 	);
 };
 const lookup = (host: ItunesHost, params: Record<string, string>) =>
@@ -225,11 +215,13 @@ export const details = defineProvider({
 				Effect.gen(function* () {
 					const podcast = asRecord(resultsArray(detailsPayload)[0]);
 					if (!podcast) {
-						return yield* Effect.fail(new Error("Podcast not found"));
+						return yield* Effect.fail(new MediaSandboxError({ message: "Podcast not found" }));
 					}
 					const title = trimmedString(podcast["collectionName"]);
 					if (!title) {
-						return yield* Effect.fail(new Error("Podcast is missing title"));
+						return yield* Effect.fail(
+							new MediaSandboxError({ message: "Podcast is missing title" }),
+						);
 					}
 					const totalEpisodes = positiveInt(podcast["trackCount"]);
 					const episodeLookup: Record<string, string> = {
@@ -349,7 +341,7 @@ export const translate = defineProvider({
 			}).pipe(
 				Effect.flatMap((payload) =>
 					Effect.try({
-						catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+						catch: (error) => new MediaSandboxError({ message: mediaFailureMessage(error) }),
 						try: () =>
 							translationResult(
 								asRecord(resultsArray(payload)[0]),
@@ -366,7 +358,9 @@ export const translate = defineProvider({
 			);
 			if (!parentPodcastExternalId) {
 				return Effect.fail(
-					new Error("parentPodcastExternalId is required for iTunes episode translation"),
+					new MediaSandboxError({
+						message: "parentPodcastExternalId is required for iTunes episode translation",
+					}),
 				);
 			}
 			return lookup(host, {
@@ -378,7 +372,7 @@ export const translate = defineProvider({
 			}).pipe(
 				Effect.flatMap((payload) =>
 					Effect.try({
-						catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+						catch: (error) => new MediaSandboxError({ message: mediaFailureMessage(error) }),
 						try: () =>
 							translationResult(
 								findPodcastEpisode(payload, input.externalId),
@@ -390,7 +384,9 @@ export const translate = defineProvider({
 			);
 		}
 		return Effect.fail(
-			new Error("podcast.itunes translate supports only podcast and podcast-episode"),
+			new MediaSandboxError({
+				message: "podcast.itunes translate supports only podcast and podcast-episode",
+			}),
 		);
 	},
 });

@@ -55,40 +55,40 @@ export const search = defineProvider({
 });
 
 const discoverCompanyResults = (host: TmdbHost, path: string, externalId: string, token: string) =>
-	tmdbGet(host, path, { page: "1", language: "en-US", with_companies: externalId }, token).pipe(
-		Effect.flatMap((firstPage) => {
-			const totalPagesValue = numberValue(firstPage["total_pages"]);
-			const totalPages = totalPagesValue === null ? 1 : Math.max(1, Math.trunc(totalPagesValue));
-			const pageNumbers = Array.from(
-				{ length: Math.max(0, totalPages - 1) },
-				(_, index) => index + 2,
-			);
-			const batches = Array.from({ length: Math.ceil(pageNumbers.length / 5) }, (_, index) =>
-				pageNumbers.slice(index * 5, index * 5 + 5),
-			);
-			return batches
-				.reduce<Effect.Effect<UnknownRecord[], unknown>>(
-					(pages, batch) =>
-						pages.pipe(
-							Effect.flatMap((loaded) =>
-								Effect.all(
-									batch.map((page) =>
-										tmdbGet(
-											host,
-											path,
-											{ language: "en-US", page: String(page), with_companies: externalId },
-											token,
-										),
-									),
-									{ concurrency: "unbounded" },
-								).pipe(Effect.map((results) => [...loaded, ...results])),
-							),
+	Effect.gen(function* () {
+		const firstPage = yield* tmdbGet(
+			host,
+			path,
+			{ page: "1", language: "en-US", with_companies: externalId },
+			token,
+		);
+		const totalPagesValue = numberValue(firstPage["total_pages"]);
+		const totalPages = totalPagesValue === null ? 1 : Math.max(1, Math.trunc(totalPagesValue));
+		const pageNumbers = Array.from(
+			{ length: Math.max(0, totalPages - 1) },
+			(_, index) => index + 2,
+		);
+		const batches = Array.from({ length: Math.ceil(pageNumbers.length / 5) }, (_, index) =>
+			pageNumbers.slice(index * 5, index * 5 + 5),
+		);
+		const pages: UnknownRecord[] = [firstPage];
+		for (const batch of batches) {
+			pages.push(
+				...(yield* Effect.all(
+					batch.map((page) =>
+						tmdbGet(
+							host,
+							path,
+							{ language: "en-US", page: String(page), with_companies: externalId },
+							token,
 						),
-					Effect.succeed([firstPage]),
-				)
-				.pipe(Effect.map((pages) => pages.flatMap((page) => recordsValue(page["results"]))));
-		}),
-	);
+					),
+					{ concurrency: "unbounded" },
+				)),
+			);
+		}
+		return pages.flatMap((page) => recordsValue(page["results"]));
+	});
 
 const productionEntities = (
 	items: readonly UnknownRecord[],

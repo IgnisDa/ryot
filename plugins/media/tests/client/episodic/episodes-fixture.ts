@@ -56,14 +56,13 @@ export const decodeEpisodicEpisodePage = (
 export const episodicFixtureEpisodesQuery = createRyotQuery<
 	MediaEpisodePageInput,
 	MediaCursorPage<EpisodicFixtureEpisode>
->(({ input, client, signal }) =>
+>(({ input, client }) =>
 	client.data.query(
 		episodicFixtureEpisodesRecipe({
 			limit: EPISODIC_PAGE_LIMIT,
 			containerId: input.containerId,
 			...(input.after === null ? {} : { after: input.after }),
 		}),
-		{ signal },
 	),
 );
 

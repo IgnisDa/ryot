@@ -1,3 +1,4 @@
+import { Effect } from "@ryot-app/client-sdk/effect";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { audiobookRecipes } from "../../shared/audiobook-recipes";
@@ -15,7 +16,7 @@ import { renderMediaScreenBody } from "../../tests/client/screen-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
 import { audiobookPresentationFacts, audiobookSchema, audiobookSummaryFacts } from "./schema";
 
-const noopAdapter = { query: () => Promise.resolve({}) };
+const noopAdapter = { query: () => Effect.succeed({}) };
 
 const audiobookSummary = (overrides: Record<string, unknown> = {}) =>
 	decodeFlatSummary(audiobookRecipes.summaryRecipe(FLAT_SUMMARY_INPUT), {

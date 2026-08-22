@@ -1,5 +1,5 @@
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Option, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { DateTime, Effect, Option, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import type { ImportEntityRef } from "../../imports/schemas";
 import { MediaIntegrationAdapterResult } from "../../imports/schemas";
@@ -112,7 +112,7 @@ export default defineScript({
 					if (directory.type === "movie" && item.lastViewedAt) {
 						const timestamp = Number(item.lastViewedAt);
 						if (Number.isFinite(timestamp)) {
-							const occurredAt = new Date(timestamp * 1_000).toISOString();
+							const occurredAt = DateTime.formatIso(DateTime.makeUnsafe(timestamp * 1_000));
 							events.push({
 								occurredAt,
 								eventSchemaSlug: "complete",
@@ -155,7 +155,7 @@ export default defineScript({
 									events.push({
 										eventSchemaSlug: "progress",
 										properties: { progressPercent: 100 },
-										occurredAt: new Date(timestamp * 1_000).toISOString(),
+										occurredAt: DateTime.formatIso(DateTime.makeUnsafe(timestamp * 1_000)),
 										unresolvedEpisode: {
 											type: "show",
 											episodeNumber: leaf.index,

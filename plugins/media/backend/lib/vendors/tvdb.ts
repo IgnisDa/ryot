@@ -1,11 +1,12 @@
 import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import type { ProviderSearchInput, ProviderSearchResult } from "@ryot-app/sandbox-sdk/provider";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import type { ProviderSearchInput } from "@ryot-app/sandbox-sdk/provider";
 
+import { MediaSandboxError } from "../failures";
 import {
 	asRecord,
+	decodeJsonResponse,
 	numberValue,
-	parseJsonResponse,
 	recordsValue,
 	stringValue,
 	type UnknownRecord,
@@ -30,19 +31,25 @@ export const firstStringValue = (record: UnknownRecord, keys: readonly string[])
 const getTvdbApiKey = (host: TvdbHost) =>
 	host.getPluginConfig(["tvdbApiKey"]).pipe(
 		Effect.map(({ tvdbApiKey }) => tvdbApiKey),
-		Effect.mapError((error) => new Error(error.message || "Failed to retrieve TVDB API key")),
-		Effect.map((value) => {
+		Effect.mapError((error) => ({
+			...error,
+			message: error.message || "Failed to retrieve TVDB API key",
+		})),
+		Effect.flatMap((value) => {
 			const key = stringValue(value);
 			if (!key) {
-				throw new Error(
-					"TVDB API key is not configured. Set RYOT_PLUGIN_MEDIA_TVDB_API_KEY in your environment.",
+				return Effect.fail(
+					new MediaSandboxError({
+						message:
+							"TVDB API key is not configured. Set RYOT_PLUGIN_MEDIA_TVDB_API_KEY in your environment.",
+					}),
 				);
 			}
-			return key;
+			return Effect.succeed(key);
 		}),
 	);
 
-export const getTvdbAccessToken = (host: TvdbHost): Effect.Effect<string, unknown> =>
+export const getTvdbAccessToken = (host: TvdbHost) =>
 	host.getCachedValue(TOKEN_CACHE_KEY).pipe(
 		Effect.catch(() => Effect.succeed(null)),
 		Effect.flatMap((cached) => {
@@ -53,19 +60,28 @@ export const getTvdbAccessToken = (host: TvdbHost): Effect.Effect<string, unknow
 			return getTvdbApiKey(host)
 				.pipe(
 					Effect.flatMap((apiKey) =>
-						host.httpCall("POST", `${TVDB_BASE_URL}/login`, {
-							body: JSON.stringify({ apikey: apiKey }),
-							headers: { "Content-Type": "application/json" },
-						}),
+						host
+							.httpCall("POST", `${TVDB_BASE_URL}/login`, {
+								body: JSON.stringify({ apikey: apiKey }),
+								headers: { "Content-Type": "application/json" },
+							})
+							.pipe(
+								Effect.mapError((error) => ({
+									...error,
+									message: error.message || "TVDB login request failed",
+								})),
+							),
 					),
 				)
 				.pipe(
-					Effect.mapError((error) => new Error(error.message || "TVDB login request failed")),
+					Effect.flatMap((response) => decodeJsonResponse(response.body, "TVDB")),
 					Effect.flatMap((response) => {
-						const payload = asRecord(parseJsonResponse(response.body, "TVDB"));
+						const payload = asRecord(response);
 						const token = stringValue(asRecord(payload?.["data"])?.["token"]);
 						if (payload?.["status"] !== "success" || !token) {
-							throw new Error("TVDB login returned no token");
+							return Effect.fail(
+								new MediaSandboxError({ message: "TVDB login returned no token" }),
+							);
 						}
 						const accessToken = `Bearer ${token}`;
 						return host.setCachedValue(TOKEN_CACHE_KEY, accessToken, TOKEN_CACHE_TTL_SECONDS).pipe(
@@ -95,25 +111,37 @@ const tvdbRequest = (
 			return host
 				.httpCall("GET", `${TVDB_BASE_URL}${path}${query}`, { headers: { Authorization: token } })
 				.pipe(
-					Effect.map((response) => {
-						const payload = asRecord(parseJsonResponse(response.body, "TVDB"));
-						if (!payload) {
-							throw new Error("TVDB returned an invalid response object");
-						}
-						const payloadStatus = payload["status"];
-						if (payloadStatus && payloadStatus !== "success") {
-							const message =
-								stringValue(payload["message"]) ??
-								stringValue(payloadStatus) ??
-								JSON.stringify(payloadStatus);
-							throw new Error(`TVDB API error: ${message}`);
-						}
-						return payload;
-					}),
 					Effect.catch((error) =>
 						options.allowMissing
 							? Effect.succeed(null)
-							: Effect.fail(new Error(error.message || `TVDB request failed: ${path}`)),
+							: Effect.fail({ ...error, message: error.message || `TVDB request failed: ${path}` }),
+					),
+					Effect.flatMap((response) =>
+						response === null
+							? Effect.succeed(null)
+							: decodeJsonResponse(response.body, "TVDB").pipe(
+									Effect.flatMap((decoded) => {
+										const payload = asRecord(decoded);
+										if (!payload) {
+											return Effect.fail(
+												new MediaSandboxError({
+													message: "TVDB returned an invalid response object",
+												}),
+											);
+										}
+										const payloadStatus = payload["status"];
+										if (payloadStatus && payloadStatus !== "success") {
+											const message =
+												stringValue(payload["message"]) ??
+												stringValue(payloadStatus) ??
+												Schema.encodeSync(Schema.fromJsonString(Schema.Unknown))(payloadStatus);
+											return Effect.fail(
+												new MediaSandboxError({ message: `TVDB API error: ${message}` }),
+											);
+										}
+										return Effect.succeed(payload);
+									}),
+								),
 					),
 				);
 		}),
@@ -121,11 +149,11 @@ const tvdbRequest = (
 
 export const tvdbGet = (host: TvdbHost, path: string, params?: Readonly<Record<string, string>>) =>
 	tvdbRequest(host, path, params, { allowMissing: false }).pipe(
-		Effect.map((payload) => {
+		Effect.flatMap((payload) => {
 			if (!payload) {
-				throw new Error(`TVDB request failed: ${path}`);
+				return Effect.fail(new MediaSandboxError({ message: `TVDB request failed: ${path}` }));
 			}
-			return payload;
+			return Effect.succeed(payload);
 		}),
 	);
 
@@ -375,7 +403,7 @@ export const searchTvdb = (
 		readonly nameKeys: readonly string[];
 		readonly imageKeys?: readonly string[];
 	},
-): Effect.Effect<ProviderSearchResult, unknown> => {
+) => {
 	const offset = (input.page - 1) * input.pageSize;
 	return tvdbGet(host, "/search", {
 		query: input.query,

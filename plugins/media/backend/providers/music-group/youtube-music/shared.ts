@@ -1,12 +1,14 @@
 import { load } from "@ryot-app/sandbox-sdk/cheerio";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
+import { MediaSandboxError } from "../../../lib/failures";
 import { type UnknownRecord, asRecord, stringValue } from "../../../lib/records";
 import {
 	type AlbumClient,
 	coerceTrimmed,
 	getBestThumbnailUrl,
 	type MusicSearchClient,
+	tryYoutubeMusic,
 } from "../../../lib/vendors/youtube-music";
 
 const getAlbumTitle = (album: UnknownRecord | null) => {
@@ -15,7 +17,7 @@ const getAlbumTitle = (album: UnknownRecord | null) => {
 };
 
 export const buildAlbumSearch = (client: MusicSearchClient, query: string, pageSize: number) =>
-	Effect.tryPromise(() => client.music.search(query, { type: "album" })).pipe(
+	tryYoutubeMusic(() => client.music.search(query, { type: "album" })).pipe(
 		Effect.map((results) => {
 			const shelves = asRecord(results)?.["contents"];
 			const allItems = (Array.isArray(shelves) ? shelves : []).flatMap((shelf) => {
@@ -44,11 +46,13 @@ export const buildAlbumSearch = (client: MusicSearchClient, query: string, pageS
 
 export const buildAlbumDetails = (client: AlbumClient, externalId: string) =>
 	Effect.gen(function* () {
-		const album = yield* Effect.tryPromise(() => client.music.getAlbum(externalId));
+		const album = yield* tryYoutubeMusic(() => client.music.getAlbum(externalId));
 		const albumRecord = asRecord(album);
 		const title = getAlbumTitle(albumRecord);
 		if (!title) {
-			return yield* Effect.fail(new Error(`YouTube Music album not found: ${externalId}`));
+			return yield* Effect.fail(
+				new MediaSandboxError({ message: `YouTube Music album not found: ${externalId}` }),
+			);
 		}
 
 		const headerRecord = asRecord(albumRecord?.["header"]);
@@ -107,7 +111,7 @@ export const buildAlbumDetails = (client: AlbumClient, externalId: string) =>
 	});
 
 export const buildAlbumTranslate = (client: AlbumClient, externalId: string) =>
-	Effect.tryPromise(() => client.music.getAlbum(externalId)).pipe(
+	tryYoutubeMusic(() => client.music.getAlbum(externalId)).pipe(
 		Effect.map((album) => {
 			const name = getAlbumTitle(asRecord(album));
 			return name ? { name } : {};

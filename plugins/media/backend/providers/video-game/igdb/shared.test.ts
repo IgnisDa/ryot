@@ -18,7 +18,7 @@ const makeHost = (overrides: Partial<IgdbVideoGameHost>): IgdbVideoGameHost =>
 	defineSandboxTestHost(manifest, {
 		getCachedValue: () => Effect.succeed(null),
 		setCachedValue: () => Effect.succeed(null),
-		httpCall: () => Effect.fail(new Error("no route")),
+		httpCall: () => Effect.fail({ message: "no route" }),
 		getPluginConfig: (keys) =>
 			Effect.succeed(
 				Object.fromEntries(
@@ -202,6 +202,7 @@ describe("video-game.igdb sandbox script", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("fails when an IGDB search-options response is malformed", async () => {
 		const host = makeHost({
 			httpCall: (_method, url) => {
@@ -218,6 +219,7 @@ describe("video-game.igdb sandbox script", () => {
 		).rejects.toBeDefined();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("propagates IGDB search-options request failures", async () => {
 		const host = makeHost({
 			httpCall: (_method, url) => {
@@ -226,7 +228,7 @@ describe("video-game.igdb sandbox script", () => {
 					return tokenResponse();
 				}
 				return requestUrl.pathname === "/v4/themes"
-					? Effect.fail(new Error("IGDB unavailable"))
+					? Effect.fail({ message: "IGDB unavailable" })
 					: httpSuccess([]);
 			},
 		});
@@ -354,8 +356,9 @@ describe("video-game.igdb sandbox script", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("rejects invalid search options", async () => {
-		const host = makeHost({ httpCall: () => Effect.fail(new Error("unexpected request")) });
+		const host = makeHost({ httpCall: () => Effect.fail({ message: "unexpected request" }) });
 		const invalidOptions: ReadonlyArray<Readonly<Record<string, JsonValue>>> = [
 			{ genreIds: [1] },
 			{ allowGamesWithParent: "yes" },

@@ -2,6 +2,7 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
+import { MediaSandboxError } from "../../../lib/failures";
 import { asRecord, stringValue } from "../../../lib/records";
 import { audibleFetchJson } from "../../../lib/vendors/audible";
 
@@ -19,7 +20,10 @@ const CATALOG_URL = "https://api.audible.com/1.0/catalog/products";
 export const search = defineProvider({
 	manifest,
 	operation: "search",
-	run: () => Effect.fail(new Error("Audible does not support audiobook group search")),
+	run: () =>
+		Effect.fail(
+			new MediaSandboxError({ message: "Audible does not support audiobook group search" }),
+		),
 });
 
 const sortValue = (relationship: unknown) => {
@@ -41,11 +45,15 @@ export const details = defineProvider({
 			);
 			const product = asRecord(asRecord(payloadValue)?.["product"]);
 			if (!product) {
-				return yield* Effect.fail(new Error("Audible returned no product data for this series"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "Audible returned no product data for this series" }),
+				);
 			}
 			const title = stringValue(product["title"]);
 			if (!title) {
-				return yield* Effect.fail(new Error("Audible series product is missing title"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "Audible series product is missing title" }),
+				);
 			}
 
 			const rawRelationships = product["relationships"];

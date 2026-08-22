@@ -34,6 +34,7 @@ export const mountRyotClient = (adapter: Partial<RyotClientAdapter>, children: R
 };
 
 export const flushRyotClient = () =>
+	// oxlint-disable-next-line effecttsgo/async-function -- React act requires a Promise callback to flush microtasks.
 	act(async () => {
 		await Promise.resolve();
 		await Promise.resolve();

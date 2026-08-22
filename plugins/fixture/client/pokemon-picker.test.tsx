@@ -11,6 +11,7 @@ const rows = (items: readonly Record<string, unknown>[]) => ({
 	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 });
 
+// oxlint-disable-next-line effecttsgo/async-function -- Testing Library's waitFor returns a Promise.
 const replyChoices = async (page: ReturnType<typeof mountPluginPage>) => {
 	await waitFor(() => expect(page.queryRequests()).toHaveLength(2));
 	for (const request of page.queryRequests()) {
@@ -37,6 +38,7 @@ const collectionRequests = (page: ReturnType<typeof mountPluginPage>) =>
 describe("PokemonPicker", () => {
 	afterEach(disposePluginBridges);
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits Testing Library's Promise-based waitFor.
 	it("cancels a locally pushed choice without writing and pops host history", async () => {
 		const page = mountPluginPage(PokemonPicker, { location: routeLocation("/", "keep=1") });
 		await replyChoices(page);
@@ -79,6 +81,7 @@ describe("PokemonPicker", () => {
 		expect(collectionRequests(page)).toHaveLength(0);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits Testing Library's Promise-based waitFor.
 	it("keeps a direct-entry selection for the same idempotent retry and closes by replace", async () => {
 		const page = mountPluginPage(PokemonPicker, {
 			location: routeLocation("/", "keep=1&dialog=add-to-collection&entityId=pokemon-2"),

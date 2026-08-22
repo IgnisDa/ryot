@@ -1,4 +1,5 @@
 import type { ManagedAssetLocator } from "@ryot-app/client-sdk";
+import { Effect } from "@ryot-app/client-sdk/effect";
 import {
 	defineEntityPresentation,
 	PluginLink,
@@ -82,11 +83,14 @@ export const createMediaPresentationLoader =
 	<Data extends MediaPresentationSubject>(
 		recipe: (entityIds: readonly string[]) => PreparedRecipe<readonly Data[]>,
 	): EntityPresentationLoader<MediaPresentationViewData<Data>> =>
-	async ({ client, signal, references }) => {
+	({ client, references }) => {
 		const entityIds = [...new Set(references.map(({ entityId }) => entityId))];
-		const rows = await client.data.query(recipe(entityIds), { signal });
-		const batchAssets = collectManagedAssetLocators(rows.map((row) => mediaPosterAsset(row)));
-		return Object.fromEntries(rows.map((row) => [row.id, { ...row, batchAssets }]));
+		return client.data.query(recipe(entityIds)).pipe(
+			Effect.map((rows) => {
+				const batchAssets = collectManagedAssetLocators(rows.map((row) => mediaPosterAsset(row)));
+				return Object.fromEntries(rows.map((row) => [row.id, { ...row, batchAssets }]));
+			}),
+		);
 	};
 
 export function MediaEntityArtwork(props: {

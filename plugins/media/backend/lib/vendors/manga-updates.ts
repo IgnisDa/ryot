@@ -4,8 +4,8 @@ import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
 
 import {
 	asRecord,
+	decodeJsonResponse,
 	numberValue,
-	parseJsonResponse,
 	stringValue,
 	type UnknownRecord,
 } from "../records";
@@ -16,8 +16,11 @@ const MANGA_UPDATES_API_BASE_URL = "https://api.mangaupdates.com/v1";
 
 export const mangaUpdatesGet = (host: MangaUpdatesHost, path: string, label: string) =>
 	host.httpCall("GET", `${MANGA_UPDATES_API_BASE_URL}${path}`).pipe(
-		Effect.mapError((error) => new Error(error.message || `MangaUpdates ${label} request failed`)),
-		Effect.map((response) => parseJsonResponse(response.body, "MangaUpdates")),
+		Effect.mapError((error) => ({
+			...error,
+			message: error.message || `MangaUpdates ${label} request failed`,
+		})),
+		Effect.flatMap((response) => decodeJsonResponse(response.body, "MangaUpdates")),
 	);
 
 export const mangaUpdatesGetOptional = (host: MangaUpdatesHost, path: string) =>
@@ -45,10 +48,11 @@ export const mangaUpdatesPost = (
 			headers: { "Content-Type": "application/json" },
 		})
 		.pipe(
-			Effect.mapError(
-				(error) => new Error(error.message || `MangaUpdates ${label} request failed`),
-			),
-			Effect.map((response) => parseJsonResponse(response.body, "MangaUpdates")),
+			Effect.mapError((error) => ({
+				...error,
+				message: error.message || `MangaUpdates ${label} request failed`,
+			})),
+			Effect.flatMap((response) => decodeJsonResponse(response.body, "MangaUpdates")),
 		);
 
 export const searchTotalItems = (payload: UnknownRecord | null) => {

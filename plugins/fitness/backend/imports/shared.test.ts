@@ -9,7 +9,7 @@ afterEach(() => {
 	Reflect.deleteProperty(globalThis, filesystemKey);
 });
 
-it("reads the uploadToken named artifact used by every fitness importer", async () => {
+it("reads the uploadToken named artifact used by every fitness importer", () => {
 	const keys: string[] = [];
 	Reflect.set(globalThis, filesystemKey, {
 		writeScratchChunks: () => Promise.resolve(),
@@ -20,6 +20,13 @@ it("reads the uploadToken named artifact used by every fitness importer", async 
 		},
 	});
 
-	await expect(Effect.runPromise(readImportArtifactText())).resolves.toBe("upload contents");
-	expect(keys).toEqual(["uploadToken"]);
+	return Effect.runPromise(
+		readImportArtifactText().pipe(
+			Effect.map((text) => {
+				expect(text).toBe("upload contents");
+				expect(keys).toEqual(["uploadToken"]);
+				return text;
+			}),
+		),
+	);
 });

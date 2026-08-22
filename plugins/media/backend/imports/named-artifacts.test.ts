@@ -1,4 +1,4 @@
-import type { ExecutionMetadata, SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { gzipSync } from "@ryot-app/sandbox-sdk/fflate";
 import { afterEach, expect, it } from "vitest";
@@ -10,16 +10,12 @@ import trakt from "./trakt.sandbox";
 
 const filesystemKey = Symbol.for("@ryot-app/sandbox-sdk/filesystem");
 const encoder = new TextEncoder();
-const host = {} satisfies SandboxHost<["artifact-read"]>;
-const execution = {
-	metadata: {},
-	sandboxScriptId: "named-artifacts-test",
-} satisfies ExecutionMetadata;
 
 afterEach(() => {
 	Reflect.deleteProperty(globalThis, filesystemKey);
 });
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("reads a single upload by the schema field key", async () => {
 	const keys: string[] = [];
 	Reflect.set(globalThis, filesystemKey, {
@@ -35,6 +31,7 @@ it("reads a single upload by the schema field key", async () => {
 	expect(keys).toEqual(["uploadToken"]);
 });
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("reads all three Movary uploads by their declared artifact keys", async () => {
 	const keys: string[] = [];
 	Reflect.set(globalThis, filesystemKey, {
@@ -52,11 +49,12 @@ it("reads all three Movary uploads by their declared artifact keys", async () =>
 		},
 	});
 
-	const result = await Effect.runPromise(movary.run({ start: 0, limit: 25 }, host, execution));
+	const result = await Effect.runPromise(movary.run({ start: 0, limit: 25 }));
 	expect(keys).toEqual(["historyUploadToken", "ratingsUploadToken", "watchlistUploadToken"]);
 	expect(result.totalItems).toBe(3);
 });
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("reads only the supplied optional MyAnimeList named artifact", async () => {
 	const keys: string[] = [];
 	Reflect.set(globalThis, filesystemKey, {
@@ -75,11 +73,7 @@ it("reads only the supplied optional MyAnimeList named artifact", async () => {
 	});
 
 	const result = await Effect.runPromise(
-		myanimelist.run(
-			{ start: 0, limit: 25, hasMangaFile: true, hasAnimeFile: false },
-			host,
-			execution,
-		),
+		myanimelist.run({ start: 0, limit: 25, hasMangaFile: true, hasAnimeFile: false }),
 	);
 	expect(keys).toEqual(["mangaUploadToken"]);
 	expect(result.entityGroups[0]?.entityRef).toMatchObject({
@@ -88,6 +82,7 @@ it("reads only the supplied optional MyAnimeList named artifact", async () => {
 	});
 });
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("imports a Trakt ZIP without reading plugin configuration", async () => {
 	const keys: string[] = [];
 	const archive = Buffer.from(
@@ -103,14 +98,10 @@ it("imports a Trakt ZIP without reading plugin configuration", async () => {
 		},
 	});
 	const result = await Effect.runPromise(
-		trakt.run(
-			{ start: 0, limit: 25, mode: "export", hasExportFile: true },
-			{
-				httpCall: () => Effect.die("HTTP must not be called"),
-				getPluginConfig: () => Effect.die("plugin config must not be read"),
-			} satisfies SandboxHost<["artifact-read", "httpCall", "getPluginConfig"]>,
-			execution,
-		),
+		trakt.run({ start: 0, limit: 25, mode: "export", hasExportFile: true }, {
+			httpCall: () => Effect.die("HTTP must not be called"),
+			getPluginConfig: () => Effect.die("plugin config must not be read"),
+		} satisfies SandboxHost<["artifact-read", "httpCall", "getPluginConfig"]>),
 	);
 	expect(keys).toEqual(["exportUploadToken"]);
 	expect(result).toMatchObject({

@@ -10,15 +10,12 @@ export const createMediaEntityQuery = <Data>(
 	recipe: (input: EntityInput) => PreparedRecipe<Data>,
 	visible: (data: Data) => readonly string[],
 ) =>
-	createRyotQuery<EntityInput, Data>(
-		({ input, client, signal }) => client.data.query(recipe(input), { signal }),
-		{
-			entityInterest: ({ data, input }) => ({
-				foreground: [input.entityId],
-				visible: data === undefined ? [] : visible(data),
-			}),
-		},
-	);
+	createRyotQuery<EntityInput, Data>(({ input, client }) => client.data.query(recipe(input)), {
+		entityInterest: ({ data, input }) => ({
+			foreground: [input.entityId],
+			visible: data === undefined ? [] : visible(data),
+		}),
+	});
 
 type SummaryVisible = {
 	readonly collections: { readonly items: readonly { readonly id: string }[] };

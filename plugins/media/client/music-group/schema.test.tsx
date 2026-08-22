@@ -1,3 +1,4 @@
+import { Effect } from "@ryot-app/client-sdk/effect";
 import { getByRole } from "@testing-library/dom";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -12,7 +13,7 @@ import { clickRyotElement, mountRyotClient } from "../../tests/client/test-suppo
 import { mapMediaOverview } from "../media/overview-state";
 import { musicGroupSchema } from "./schema";
 
-const noopAdapter = { query: () => Promise.resolve({}) };
+const noopAdapter = { query: () => Effect.succeed({}) };
 
 afterEach(() => {
 	document.body.innerHTML = "";

@@ -28,14 +28,13 @@ export const podcastEpisodesQuery = createRyotQuery<
 	MediaEpisodePageInput,
 	MediaCursorPage<PodcastEpisode>
 >(
-	({ input, client, signal }) =>
+	({ input, client }) =>
 		client.data.query(
 			podcastEpisodesRecipe({
 				containerId: input.containerId,
 				limit: PODCAST_EPISODE_PAGE_LIMIT,
 				...(input.after === null ? {} : { after: input.after }),
 			}),
-			{ signal },
 		),
 	{
 		entityInterest: ({ data, input }) => ({
