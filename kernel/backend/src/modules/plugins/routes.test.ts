@@ -2,14 +2,14 @@ import { expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 import { HttpServerResponse } from "effect/unstable/http";
 
-import { pluginArtifactResponse } from "./routes";
+import { pluginArtifactSessionResponse } from "./routes";
 
-it.effect("serves exact artifact bytes with immutable security headers", () =>
+it.effect("serves exact session artifact bytes with private security headers", () =>
 	Effect.gen(function* () {
 		const response = HttpServerResponse.toWeb(
-			pluginArtifactResponse({
-				contents: new Uint8Array([0, 255, 1]),
+			pluginArtifactSessionResponse({
 				contentType: "application/octet-stream",
+				contents: new Uint8Array([0, 255, 1]),
 			}),
 		);
 
@@ -19,19 +19,18 @@ it.effect("serves exact artifact bytes with immutable security headers", () =>
 		expect(response.headers.get("content-type")).toBe("application/octet-stream");
 		expect(response.headers.get("access-control-allow-origin")).toBe("*");
 		expect(response.headers.get("x-content-type-options")).toBe("nosniff");
-		expect(response.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
+		expect(response.headers.get("cache-control")).toBe("no-store");
+		expect(response.headers.get("referrer-policy")).toBe("no-referrer");
 	}),
 );
 
-it("sandboxes HTML artifacts and returns 404 for missing files", () => {
+it("sandboxes HTML artifacts", () => {
 	const html = HttpServerResponse.toWeb(
-		pluginArtifactResponse({
+		pluginArtifactSessionResponse({
 			contents: new Uint8Array(),
 			contentType: "text/html; charset=utf-8",
 		}),
 	);
-	const missing = HttpServerResponse.toWeb(pluginArtifactResponse(null));
 
 	expect(html.headers.get("content-security-policy")).toBe("sandbox allow-scripts");
-	expect(missing.status).toBe(404);
 });

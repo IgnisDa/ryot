@@ -4,6 +4,7 @@ import { AuthenticatedApi } from "#/api/authenticated";
 import { PublicApi } from "#/api/public";
 import { AuthClient } from "#/modules/auth/client";
 import { AuthService } from "#/modules/auth/service";
+import { ArtifactSessions } from "#/modules/plugins/artifact-sessions";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { PluginCatalogEventsService } from "#/modules/plugins/events";
 import { PluginOperationsService } from "#/modules/plugins/operations";
@@ -22,6 +23,7 @@ const AuthClientLive = AuthClient.layer.pipe(Layer.provideMerge(InfrastructureLi
 export const ClientLive = Layer.mergeAll(
 	AuthService.layer,
 	ServerService.layer,
+	ArtifactSessions.layer,
 	PluginCatalogService.layer,
 	PluginCatalogEventsService.layer,
 	PluginOperationsService.layer,
