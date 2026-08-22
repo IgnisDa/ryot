@@ -15,16 +15,19 @@ import {
 } from "~/fixtures/kernel/ryotql";
 import { requireObjectRecord, requireString } from "~/support/assertions";
 
-export const createWorkoutEntityFixture = (client: Client) =>
+export const createWorkoutEntityFixture = (
+	client: Client,
+	options: { name?: string; startedAt?: string; endedAt?: string } = {},
+) =>
 	Effect.gen(function* () {
 		const { schema: workoutSchema } = yield* findBuiltinSchemaBySlug(client, "workout");
 
 		const workout = yield* createEntity(client, {
 			entitySchemaSlug: workoutSchema.id,
-			name: `Workout ${crypto.randomUUID()}`,
+			name: options.name ?? `Workout ${crypto.randomUUID()}`,
 			properties: {
-				endedAt: "2026-04-27T11:00:00Z",
-				startedAt: "2026-04-27T10:00:00Z",
+				endedAt: options.endedAt ?? "2026-04-27T11:00:00Z",
+				startedAt: options.startedAt ?? "2026-04-27T10:00:00Z",
 			},
 		});
 
