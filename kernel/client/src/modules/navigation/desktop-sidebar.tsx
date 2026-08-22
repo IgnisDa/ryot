@@ -1,3 +1,4 @@
+import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
 	PluginClientCatalog,
 	PluginClientCatalogEntry,
@@ -20,13 +21,14 @@ type DesktopSidebarProps = {
 	readonly sections: SidebarSections;
 	readonly session: AuthSessionStore;
 	readonly customizePanel: ReactNode;
+	readonly navigation: NavigationData;
 	readonly catalog: PluginClientCatalog;
 	readonly current: PluginClientCatalogEntry | null;
 	readonly onNavigateHome: () => void | Promise<void>;
 	readonly onNavigateSettings: () => void | Promise<void>;
+	readonly onEditSection: (section: CustomizeSection) => void;
 	readonly onSelectWorkspace: (slug: string) => void | Promise<void>;
 	readonly onNavigateItem: (item: SidebarItem) => void | Promise<void>;
-	readonly onEditSection: (section: CustomizeSection) => void;
 };
 
 export function DesktopSidebar(props: DesktopSidebarProps) {
@@ -51,6 +53,7 @@ export function DesktopSidebar(props: DesktopSidebarProps) {
 							catalog={props.catalog}
 							sections={props.sections}
 							activeKey={props.activeKey}
+							navigation={props.navigation}
 							activeHome={props.activeHome}
 							onOpenSearch={props.onOpenSearch}
 							onEditSection={props.onEditSection}

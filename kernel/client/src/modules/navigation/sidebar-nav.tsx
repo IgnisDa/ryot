@@ -1,4 +1,5 @@
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
 	PluginClientCatalog,
 	PluginClientCatalogEntry,
@@ -21,6 +22,7 @@ type SidebarNavProps = {
 	readonly activeKey: string | null;
 	readonly onOpenSearch: () => void;
 	readonly sections: SidebarSections;
+	readonly navigation: NavigationData;
 	readonly showSearchShortcut: boolean;
 	readonly catalog: PluginClientCatalog;
 	readonly onCustomize?: (() => void) | undefined;
@@ -119,6 +121,7 @@ export function SidebarNav(props: SidebarNavProps) {
 			<WorkspaceSwitcher
 				current={props.current}
 				catalog={props.catalog}
+				navigation={props.navigation}
 				onCustomize={props.onCustomize}
 				onSelect={props.onSelectWorkspace}
 				summary={workspaceSummary(props.sections)}
