@@ -136,7 +136,7 @@ describe("automation definitions", () => {
 	});
 
 	test("delivers the immutable signal and causation without an execution query", () => {
-		const input = Schema.decodeUnknownSync(automationInputSchema)({
+		const input = Schema.decodeSync(automationInputSchema)({
 			automation: {
 				runId: "run-1",
 				executionUserId: null,
