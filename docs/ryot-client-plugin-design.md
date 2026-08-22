@@ -393,16 +393,7 @@ The image build invokes `dist/smoke-compiler-workers.js` with the absolute path 
 
 The client artifact is an independently loadable web application.
 
-The exact physical layout is an implementation detail. Reasonable forms include:
-
-```text
-index.html
-plugin.js
-plugin.css
-assets/*
-```
-
-or a more self-contained HTML artifact.
+The artifact is a flat set of files with single-segment names: `index.html`, `plugin.js`, `plugin.css`, and content-hashed assets named `asset-<first 8 hex of sha256>.<ext>`. `index.html` references the other files with relative URLs (`./plugin.js`, `./plugin.css`, `./asset-<hash>.<ext>`).
 
 The important invariants are:
 
@@ -636,7 +627,9 @@ The target model is an isolated iframe/document with:
 - explicit bridge access only
 - sandbox and CSP restrictions appropriate to the required browser capabilities
 
-The exact choice between an opaque sandboxed origin and a dedicated non-kernel origin is an implementation decision to validate during the runtime spike.
+The kernel renders the plugin document in `<iframe sandbox="allow-scripts" referrerPolicy="no-referrer">`. This gives the plugin document an opaque origin: no kernel DOM access, no same-origin storage, and no readable Ryot credentials.
+
+The kernel serves artifact files from a public, unauthenticated, content-addressed route: `GET /api/plugins/artifacts/:artifactHash/:fileName`. The unguessable sha256 path means the sandboxed document never needs credentials to load. An unknown hash or file name returns 404. Every response carries `x-content-type-options: nosniff`, `cache-control: public, max-age=31536000, immutable`, and `etag: "<artifactHash>"`; `index.html` additionally carries `content-security-policy: sandbox allow-scripts` as defence in depth.
 
 The invariant is more important than the mechanism:
 
@@ -1545,10 +1538,6 @@ V1 does not support:
 
 The high-level architecture does not depend on deciding these upfront:
 
-- exact iframe sandbox flags
-- exact plugin document origin mechanism
-- exact CSP directives used to isolate kernel privileges
-- single-file versus multi-file client artifact
 - client artifact storage, retention, and garbage collection
 - exact bridge wire encoding
 - exact set of initial SDK methods
