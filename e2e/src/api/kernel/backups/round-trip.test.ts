@@ -35,7 +35,7 @@ import {
 	literalSandboxSource,
 	listEventSchemas,
 	listEventsForEntity,
-	listNotificationSubscriptionStates,
+	listNotificationSubscriptions,
 	listRelationshipSchemas,
 	listSavedViews,
 	pollProviderEntityImportResult,
@@ -413,7 +413,7 @@ describe("backup export and restore round trip", () => {
 				}),
 			);
 
-			const sourceSubscriptions = yield* listNotificationSubscriptionStates(source.client, {
+			const sourceSubscriptions = yield* listNotificationSubscriptions(source.client, {
 				limit: 100,
 			});
 			const notificationSubscription = requirePresent(
@@ -528,7 +528,7 @@ describe("backup export and restore round trip", () => {
 			expect((yield* findPluginInstallationBySlug(target.client, "media")).homeSavedViewId).toBe(
 				restoredRendererView.id,
 			);
-			const restoredSubscriptions = yield* listNotificationSubscriptionStates(target.client, {
+			const restoredSubscriptions = yield* listNotificationSubscriptions(target.client, {
 				limit: 100,
 			});
 			expect(

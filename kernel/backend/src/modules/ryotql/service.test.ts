@@ -532,18 +532,18 @@ it.effect("selects integrations with useful output kinds", () => {
 	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
 });
 
-it.effect("selects notification subscription states with useful output kinds", () => {
+it.effect("selects notification subscriptions with useful output kinds", () => {
 	const statements: string[] = [];
-	const state = table("notificationSubscriptionState", "state");
+	const subscription = table("notificationSubscription", "subscription");
 	const document = {
 		queries: {
-			states: rows(state, {
+			subscriptions: rows(subscription, {
 				fields: [
-					field("id", column(state, "id")),
-					field("signalSchemaSlug", column(state, "signalSchemaSlug")),
-					field("isActive", column(state, "isActive")),
-					field("createdAt", column(state, "createdAt")),
-					field("updatedAt", column(state, "updatedAt")),
+					field("id", column(subscription, "id")),
+					field("signalSchemaSlug", column(subscription, "signalSchemaSlug")),
+					field("isActive", column(subscription, "isActive")),
+					field("createdAt", column(subscription, "createdAt")),
+					field("updatedAt", column(subscription, "updatedAt")),
 				],
 			}),
 		},
@@ -567,7 +567,7 @@ it.effect("selects notification subscription states with useful output kinds", (
 		const service = yield* RyotQLService;
 		const response = yield* service.executeForUser("user-1", null, document);
 
-		expect(response.data["states"]).toEqual({
+		expect(response.data["subscriptions"]).toEqual({
 			type: "rows",
 			pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 			items: [
@@ -653,15 +653,15 @@ it.effect("authorizes integrations in every query occurrence", () => {
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 
-it.effect("authorizes notification subscription states in every query occurrence", () => {
+it.effect("authorizes notification subscriptions in every query occurrence", () => {
 	const statements: string[] = [];
-	const root = table("notificationSubscriptionState", "root");
-	const joined = table("notificationSubscriptionState", "joined");
-	const included = table("notificationSubscriptionState", "included");
-	const correlated = table("notificationSubscriptionState", "correlated");
+	const root = table("notificationSubscription", "root");
+	const joined = table("notificationSubscription", "joined");
+	const included = table("notificationSubscription", "included");
+	const correlated = table("notificationSubscription", "correlated");
 	const document = {
 		queries: {
-			states: rows(root, {
+			subscriptions: rows(root, {
 				fields: [],
 				joins: [join("left", joined, eq(column(root, "id"), column(joined, "id")))],
 				where: exists(correlated, { where: eq(column(correlated, "id"), column(root, "id")) }),
@@ -684,7 +684,7 @@ it.effect("authorizes notification subscription states in every query occurrence
 
 		const statement = statements[2];
 		expect(
-			statement?.match(/SELECT \* FROM notification_subscription_state WHERE user_id =/g),
+			statement?.match(/SELECT \* FROM notification_subscription WHERE user_id =/g),
 		).toHaveLength(4);
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });

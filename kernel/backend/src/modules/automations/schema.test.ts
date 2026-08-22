@@ -3,14 +3,14 @@ import { PgDialect, getTableConfig } from "drizzle-orm/pg-core";
 
 import {
 	automationOccurrence,
-	notificationSubscriptionState,
+	notificationSubscription,
 	subscriptionRun,
 } from "#lib/infrastructure/db/schema/tables/automations";
 
 const dialect = new PgDialect();
 
-it("defines generated, user-owned notification subscription state", () => {
-	const config = getTableConfig(notificationSubscriptionState);
+it("defines generated, user-owned notification subscription", () => {
+	const config = getTableConfig(notificationSubscription);
 	const id = config.columns.find((column) => column.name === "id");
 	const userId = config.columns.find((column) => column.name === "user_id");
 	expect(id).toMatchObject({ notNull: true, primary: true });
@@ -20,11 +20,11 @@ it("defines generated, user-owned notification subscription state", () => {
 	expect(config.foreignKeys.some(({ onDelete }) => onDelete === "restrict")).toBe(true);
 });
 
-it("uniquely identifies notification state by user and signal schema", () => {
-	const config = getTableConfig(notificationSubscriptionState);
+it("uniquely identifies notification subscription by user and signal schema", () => {
+	const config = getTableConfig(notificationSubscription);
 	expect(config.uniqueConstraints).toHaveLength(1);
 	expect(config.uniqueConstraints[0]?.getName()).toBe(
-		"notification_subscription_state_user_signal_unique",
+		"notification_subscription_user_signal_unique",
 	);
 	expect(config.uniqueConstraints[0]?.columns.map((column) => column.name)).toEqual([
 		"user_id",
@@ -109,13 +109,12 @@ it("indexes and references the source automation occurrence", () => {
 	expect(occurrenceForeignKey?.onDelete).toBe("cascade");
 });
 
-it("constrains run status and lifecycle-versus-signal references", () => {
+it("constrains run status", () => {
 	const config = getTableConfig(subscriptionRun);
 	const checks = new Map(
 		config.checks.map((entry) => [entry.name, dialect.sqlToQuery(entry.value).sql]),
 	);
 	expect(checks.get("subscription_run_status_check")).toContain("queued");
 	expect(checks.get("subscription_run_status_check")).toContain("skipped");
-	expect(checks.get("subscription_run_source_check")).toContain("record_id");
-	expect(checks.get("subscription_run_source_check")).toContain("signal_id");
+	expect([...checks.keys()]).toEqual(["subscription_run_status_check"]);
 });
