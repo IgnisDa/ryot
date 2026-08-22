@@ -96,10 +96,10 @@ describe("Anime airing schedule", () => {
 			const airing = yield* executeRyotQLRecipe(
 				client,
 				animeAiringSoonRecipe({
-					now: "2026-09-01T00:00:00.000Z",
-					until: "2026-09-16T00:00:00.000Z",
 					fromDate: "2026-09-01",
 					untilDate: "2026-09-15",
+					now: "2026-09-01T00:00:00.000Z",
+					until: "2026-09-16T00:00:00.000Z",
 				}),
 			);
 			expect(
@@ -119,10 +119,10 @@ describe("Anime airing schedule", () => {
 			const advanced = yield* executeRyotQLRecipe(
 				client,
 				animeAiringSoonRecipe({
-					now: "2026-09-11T00:00:00.000Z",
-					until: "2026-09-26T00:00:00.000Z",
 					fromDate: "2026-09-11",
 					untilDate: "2026-09-25",
+					now: "2026-09-11T00:00:00.000Z",
+					until: "2026-09-26T00:00:00.000Z",
 				}),
 			);
 			expect(advanced.map((item) => [item.entity.id, item.episodeLabel])).toEqual([
