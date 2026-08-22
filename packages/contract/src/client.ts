@@ -2,11 +2,14 @@ import { Effect } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/unstable/http";
 import { HttpApiClient } from "effect/unstable/httpapi";
 
-import { AppContract } from "./contract";
+import { AppContract, type AppGroups } from "./contract";
 
 export type RequestHeaders = Record<string, string>;
 
-export const makeContractClient = (baseUrl: string, headers: RequestHeaders = {}) =>
+export const makeContractClient = (
+	baseUrl: string,
+	headers: RequestHeaders = {},
+): ReturnType<typeof HttpApiClient.make<"ryot", AppGroups>> =>
 	HttpApiClient.make(AppContract, {
 		baseUrl,
 		...(Object.keys(headers).length

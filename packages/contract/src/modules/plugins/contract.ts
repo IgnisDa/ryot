@@ -11,6 +11,7 @@ import {
 	PluginArtifactSessionNotFoundError,
 	PluginArtifactSessionUnavailableError,
 	PluginConflictError,
+	PluginHomeViewSelection,
 	PluginInstallationItem,
 	PluginInstallationList,
 	PluginInvocationError,
@@ -111,6 +112,17 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 			OpenApi.Description,
 			"Uninstalls the caller's private plugin unless a workflow or persistent resource still references it.",
 		),
+	)
+	.add(
+		HttpApiEndpoint.put("setHomeView", "/plugins/:pluginSlug/home-view", {
+			payload: PluginHomeViewSelection,
+			success: PluginHomeViewSelection,
+			params: { pluginSlug: PluginSlug },
+			error: [
+				PluginRequestError.pipe(HttpApiSchema.status(400)),
+				PluginNotFoundError.pipe(HttpApiSchema.status(404)),
+			],
+		}).annotate(OpenApi.Description, "Sets or clears the caller's plugin home saved view."),
 	)
 	.add(
 		HttpApiEndpoint.post(

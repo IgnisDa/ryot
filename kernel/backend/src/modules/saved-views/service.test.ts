@@ -17,6 +17,7 @@ import { Effect, Layer } from "effect";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { databaseLayer, type MockOverrides } from "#lib/test-utils/effect";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
+import { PluginCatalogInvalidator } from "#modules/plugins/catalog-events";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
@@ -134,6 +135,11 @@ const makeDefinitionRegistryLayer = (...views: ReadonlyArray<ListedSavedView>) =
 const makeServiceLayer = (
 	repository = makeRepository(),
 	definitionRegistry = makeDefinitionRegistryLayer(),
+	installationRepository = Layer.mock(PluginInstallationRepository)({
+		listForUser: () => Effect.succeed([]),
+		clearHomeSavedViewReferences: () => Effect.void,
+	}),
+	invalidator = PluginCatalogInvalidator.layer,
 ) =>
 	SavedViewsService.layer.pipe(
 		Layer.provideMerge(
@@ -141,11 +147,71 @@ const makeServiceLayer = (
 				databaseLayer,
 				definitionRegistry,
 				repository,
+				invalidator,
 				ClientPagesRepository.layer,
-				Layer.mock(PluginInstallationRepository)({ listForUser: () => Effect.succeed([]) }),
+				installationRepository,
 			),
 		),
 	);
+
+it.effect("clears home-view overrides when disabling a saved view", () => {
+	const events: Array<string> = [];
+	const invalidatedUsers: Array<UserId> = [];
+	const layer = makeServiceLayer(
+		makeRepository({
+			lockBySlug: () => Effect.sync(() => (events.push("lock-saved-view"), baseView)),
+			updateBySlug: (_userId, _slug, data) =>
+				Effect.sync(() => {
+					events.push("disable-saved-view");
+					return { ...baseView, isDisabled: data.isDisabled };
+				}),
+		}),
+		makeDefinitionRegistryLayer(),
+		Layer.mock(PluginInstallationRepository)({
+			clearHomeSavedViewReferences: (_userId, savedViewId) =>
+				Effect.sync(() => events.push(`clear:${savedViewId}`)),
+		}),
+		Layer.succeed(PluginCatalogInvalidator, {
+			all: Effect.void,
+			user: (userId) => Effect.sync(() => invalidatedUsers.push(userId)),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		yield* (yield* SavedViewsService).update(user, baseView.slug, {
+			...createBody,
+			isDisabled: true,
+		});
+		expect(events).toEqual(["lock-saved-view", "disable-saved-view", `clear:${baseView.id}`]);
+		expect(invalidatedUsers).toEqual([user.id]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("clears home-view overrides when deleting a saved view", () => {
+	const events: Array<string> = [];
+	const invalidatedUsers: Array<UserId> = [];
+	const layer = makeServiceLayer(
+		makeRepository({
+			lockBySlug: () => Effect.sync(() => (events.push("lock-saved-view"), baseView)),
+			deleteBySlug: () => Effect.sync(() => (events.push("delete-saved-view"), baseView)),
+		}),
+		makeDefinitionRegistryLayer(),
+		Layer.mock(PluginInstallationRepository)({
+			clearHomeSavedViewReferences: (_userId, savedViewId) =>
+				Effect.sync(() => events.push(`clear:${savedViewId}`)),
+		}),
+		Layer.succeed(PluginCatalogInvalidator, {
+			all: Effect.void,
+			user: (userId) => Effect.sync(() => invalidatedUsers.push(userId)),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		yield* (yield* SavedViewsService).delete(user, baseView.slug);
+		expect(events).toEqual(["lock-saved-view", `clear:${baseView.id}`, "delete-saved-view"]);
+		expect(invalidatedUsers).toEqual([user.id]);
+	}).pipe(Effect.provide(layer));
+});
 
 it.effect("creates and clones saved views without changing layouts", () => {
 	let findCalls = 0;
@@ -254,6 +320,7 @@ it.effect("rejects built-in layout changes but permits state updates", () => {
 	const layer = makeServiceLayer(
 		makeRepository({
 			findBySlug: () => Effect.succeed(builtin),
+			lockBySlug: () => Effect.succeed(builtin),
 			updateBuiltinStateBySlug: (_userId, _slug, isDisabled, sortOrder) =>
 				Effect.succeed({ ...builtin, isDisabled, sortOrder }),
 		}),
@@ -304,6 +371,7 @@ it.effect("preserves omitted layouts when updating a non-built-in view", () => {
 	const layer = makeServiceLayer(
 		makeRepository({
 			findBySlug: () => Effect.succeed(baseView),
+			lockBySlug: () => Effect.succeed(baseView),
 			updateBySlug: (_userId, _slug, data, _currentPluginInstallationId) =>
 				Effect.sync(() => {
 					const updated = {
@@ -527,6 +595,7 @@ it.effect("persists exact private plugin ownership for builtin and custom views"
 		Layer.provideMerge(
 			Layer.mergeAll(
 				databaseLayer,
+				PluginCatalogInvalidator.layer,
 				makeDefinitionRegistryLayer(),
 				makeRepository({
 					findBySlug: () => Effect.succeed(baseView),
@@ -585,6 +654,7 @@ it.effect("persists exact private plugin ownership for builtin and custom views"
 								healthReason: null,
 								id: installationId,
 								pluginScope: "user",
+								homeSavedViewId: null,
 								pluginSlug: "private-plugin",
 								createdAt: new Date(0),
 								updatedAt: new Date(0),

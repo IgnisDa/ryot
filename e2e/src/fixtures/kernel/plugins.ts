@@ -1,4 +1,4 @@
-import type { ContractPayload } from "@ryot-app/contract/client";
+import type { ContractPathParams, ContractPayload } from "@ryot-app/contract/client";
 import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
@@ -13,6 +13,9 @@ export const listInstalledPlugins = (client: Client, options: { includeDisabled?
 		c.definitions.listPlugins({ query: { includeDisabled: options.includeDisabled ?? false } }),
 	);
 
+export const listPluginInstallations = (client: Client) =>
+	client.call((contract) => contract.plugins.list());
+
 export const findBuiltinPlugin = (client: Client) =>
 	Effect.gen(function* () {
 		const plugins = yield* listInstalledPlugins(client, { includeDisabled: true });
@@ -26,6 +29,15 @@ export const findBuiltinPluginBySlug = (client: Client, slug: string) =>
 		return requirePresent(plugin, `Built-in plugin '${slug}' not found`);
 	});
 
+export const findPluginInstallationBySlug = (client: Client, slug: string) =>
+	Effect.gen(function* () {
+		const installations = yield* listPluginInstallations(client);
+		return requirePresent(
+			installations.find((installation) => installation.slug === slug),
+			`Plugin installation '${slug}' not found`,
+		);
+	});
+
 export const updatePluginState = (
 	client: Client,
 	pluginSlug: string,
@@ -36,4 +48,13 @@ export const updatePluginState = (
 			payload,
 			params: { pluginSlug: PluginSlug.make(pluginSlug) },
 		}),
+	);
+
+export const setPluginHomeView = (
+	client: Client,
+	pluginSlug: ContractPathParams<"plugins", "setHomeView">["pluginSlug"],
+	savedViewId: ContractPayload<"plugins", "setHomeView">["savedViewId"],
+) =>
+	client.call((contract) =>
+		contract.plugins.setHomeView({ params: { pluginSlug }, payload: { savedViewId } }),
 	);

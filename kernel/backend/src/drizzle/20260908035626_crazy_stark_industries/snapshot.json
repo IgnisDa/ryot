@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "e56d89a7-3276-4f38-82cb-ce2cfd984392",
+	"id": "dbb2e1a2-f018-41ec-9685-ab09426edfbc",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{
@@ -4197,6 +4197,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "health_reason",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "plugin_installation"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "home_saved_view_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "plugin_installation"

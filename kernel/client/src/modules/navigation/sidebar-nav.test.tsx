@@ -15,6 +15,7 @@ const current: PluginClientCatalogEntry = {
 	health: "ready",
 	isDisabled: false,
 	clientApiVersion: 1,
+	homeSavedViewId: null,
 	pluginId: "plugin-media",
 	sourceHash: "source-media",
 	installationId: "installation-media",

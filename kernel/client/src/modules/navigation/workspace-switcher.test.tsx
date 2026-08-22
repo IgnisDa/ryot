@@ -35,6 +35,7 @@ const workspace = (
 	installationId: "installation-media",
 	clientArtifactHash: "artifact-media",
 	...overrides,
+	homeSavedViewId: overrides.homeSavedViewId ?? null,
 });
 
 const navigation: NavigationData = { savedViews: [], collections: [] };

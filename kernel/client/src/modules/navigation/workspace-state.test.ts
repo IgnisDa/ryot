@@ -27,6 +27,7 @@ const workspace = (
 	installationId: "installation-media",
 	clientArtifactHash: "artifact-media",
 	...overrides,
+	homeSavedViewId: overrides.homeSavedViewId ?? null,
 });
 
 describe("workspace state", () => {

@@ -26,7 +26,10 @@ export type PluginInstallationState = PluginInstallationRow & {
 	readonly pluginScope: "system" | "user";
 };
 
-type RestoreInstallationInput = Omit<PluginInstallationRow, "userId" | "healthReason"> & {
+type RestoreInstallationInput = Omit<
+	PluginInstallationRow,
+	"userId" | "healthReason" | "homeSavedViewId"
+> & {
 	readonly userId: UserId;
 	readonly preserveExistingConfig: boolean;
 };
@@ -72,6 +75,7 @@ const installationState = {
 	updatedAt: schema.pluginInstallation.updatedAt,
 	isDisabled: schema.pluginInstallation.isDisabled,
 	healthReason: schema.pluginInstallation.healthReason,
+	homeSavedViewId: schema.pluginInstallation.homeSavedViewId,
 };
 
 export class PluginInstallationRepository extends Context.Service<PluginInstallationRepository>()(
@@ -144,6 +148,65 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				},
 			);
 
+			const findHomeSavedView = Effect.fn("PluginInstallationRepository.findHomeSavedView")(
+				function* (userId: UserId, savedViewId: string) {
+					const db = yield* Database;
+					const [row] = yield* mapDatabaseErrors(
+						db
+							.select({
+								view: {
+									renderer: schema.savedView.renderer,
+									isDisabled: schema.savedView.isDisabled,
+								},
+								renderer: {
+									userId: schema.clientRenderer.userId,
+									publishedHash: schema.clientRenderer.publishedHash,
+									publishedRevision: schema.clientRenderer.publishedRevision,
+									publishedDefinition: schema.clientRenderer.publishedDefinition,
+								},
+							})
+							.from(schema.savedView)
+							.leftJoin(
+								schema.clientRenderer,
+								eq(schema.savedView.clientRendererId, schema.clientRenderer.id),
+							)
+							.where(and(eq(schema.savedView.id, savedViewId), eq(schema.savedView.userId, userId)))
+							.limit(1),
+					);
+					return row ?? null;
+				},
+			);
+
+			const lockHomeSavedView = Effect.fn("PluginInstallationRepository.lockHomeSavedView")(
+				function* (userId: UserId, savedViewId: string) {
+					const db = yield* Database;
+					const [row] = yield* mapDatabaseErrors(
+						db
+							.select({
+								view: {
+									renderer: schema.savedView.renderer,
+									isDisabled: schema.savedView.isDisabled,
+								},
+								renderer: {
+									userId: schema.clientRenderer.userId,
+									publishedHash: schema.clientRenderer.publishedHash,
+									publishedRevision: schema.clientRenderer.publishedRevision,
+									publishedDefinition: schema.clientRenderer.publishedDefinition,
+								},
+							})
+							.from(schema.savedView)
+							.leftJoin(
+								schema.clientRenderer,
+								eq(schema.savedView.clientRendererId, schema.clientRenderer.id),
+							)
+							.where(and(eq(schema.savedView.id, savedViewId), eq(schema.savedView.userId, userId)))
+							.for("update", { of: schema.savedView })
+							.limit(1),
+					);
+					return row ?? null;
+				},
+			);
+
 			const create = Effect.fn("PluginInstallationRepository.create")(function* (input: {
 				userId: UserId;
 				pluginId: string;
@@ -174,6 +237,42 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 					);
 				},
 			);
+
+			const setHomeSavedView = Effect.fn("PluginInstallationRepository.setHomeSavedView")(
+				function* (userId: UserId, id: string, homeSavedViewId: string | null) {
+					const db = yield* Database;
+					const [row] = yield* mapDatabaseErrors(
+						db
+							.update(schema.pluginInstallation)
+							.set({ homeSavedViewId })
+							.where(
+								and(
+									eq(schema.pluginInstallation.id, id),
+									eq(schema.pluginInstallation.userId, userId),
+								),
+							)
+							.returning({ id: schema.pluginInstallation.id }),
+					);
+					return row !== undefined;
+				},
+			);
+
+			const clearHomeSavedViewReferences = Effect.fn(
+				"PluginInstallationRepository.clearHomeSavedViewReferences",
+			)(function* (userId: UserId, savedViewId: string) {
+				const db = yield* Database;
+				yield* mapDatabaseErrors(
+					db
+						.update(schema.pluginInstallation)
+						.set({ homeSavedViewId: null })
+						.where(
+							and(
+								eq(schema.pluginInstallation.userId, userId),
+								eq(schema.pluginInstallation.homeSavedViewId, savedViewId),
+							),
+						),
+				);
+			});
 
 			const upsertState = Effect.fn("PluginInstallationRepository.upsertState")(function* (input: {
 				userId: UserId;
@@ -344,11 +443,15 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				updateState,
 				upsertState,
 				updateHealth,
+				setHomeSavedView,
 				activateRestored,
 				listSystemForUser,
+				lockHomeSavedView,
+				findHomeSavedView,
 				findByUserAndPlugin,
 				listPendingLifecycle,
 				listPrivateInstallations,
+				clearHomeSavedViewReferences,
 				provisionSystemInstallationsForUser,
 				provisionSystemInstallationsForAllUsers,
 			};

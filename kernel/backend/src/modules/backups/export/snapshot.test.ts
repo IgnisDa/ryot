@@ -126,9 +126,10 @@ const installationRow = (input: {
 	userId,
 	config: {},
 	sortOrder: 0,
-	health: "ready" as const,
 	isDisabled: false,
 	healthReason: null,
+	homeSavedViewId: null,
+	health: "ready" as const,
 	createdAt: new Date("2026-08-24T12:00:00.000Z"),
 	updatedAt: new Date("2026-08-24T12:00:00.000Z"),
 });
@@ -345,9 +346,9 @@ it.effect(
 									provider: "private-push",
 									pluginSlug: "private-plugin",
 									pluginInstallationId: "installation-private",
+									extraSettings: { disableOnContinuousErrors: true },
 									createdAt: new Date("2026-08-24T12:00:00.000Z"),
 									updatedAt: new Date("2026-08-24T12:00:00.000Z"),
-									extraSettings: { disableOnContinuousErrors: true },
 									providerSpecifics: {
 										endpoint: "local",
 										credentials: { token: "integration-secret" },
