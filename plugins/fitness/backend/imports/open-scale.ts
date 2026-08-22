@@ -25,11 +25,11 @@ const normalizeKey = (label: string) =>
 const OpenScaleStatisticSchema = Schema.Struct({
 	key: Schema.String,
 	label: Schema.String,
-	value: Schema.Number,
+	value: Schema.Finite,
 });
 
 const OpenScaleNormalizedItemSchema = Schema.Struct({
-	itemIndex: Schema.Number,
+	itemIndex: Schema.Finite,
 	sourceLabel: Schema.String,
 	sourceIdentifier: Schema.String,
 	properties: Schema.Struct({
@@ -43,7 +43,7 @@ export type OpenScaleNormalizedItem = typeof OpenScaleNormalizedItemSchema.Type;
 
 const OpenScaleAdapterFailureSchema = Schema.Struct({
 	message: Schema.String,
-	itemIndex: Schema.Number,
+	itemIndex: Schema.Finite,
 	sourceLabel: Schema.String,
 	sourceIdentifier: Schema.String,
 });

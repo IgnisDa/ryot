@@ -25,7 +25,7 @@ export const workoutPresentationRecipe = defineRecipe((entityIds: readonly strin
 	const exercise = table("entity", "presentationExercise");
 	const workoutProperty = (key: string) => jsonPath(column(workout, "properties"), key);
 	const setProperty = (key: string) => jsonPath(column(event, "properties"), key);
-	const nullableNumber = Schema.NullOr(Schema.Number);
+	const nullableNumber = Schema.NullOr(Schema.Finite);
 	return {
 		map: ({ workouts }) => {
 			return Result.succeed(

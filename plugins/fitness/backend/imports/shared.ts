@@ -9,8 +9,9 @@ import type {
 const decoder = new TextDecoder();
 const CHUNK_SIZE = 50;
 
-export const readImportArtifactText = () =>
-	readNamedArtifact("uploadToken").pipe(Effect.map(decoder.decode.bind(decoder)));
+export const readImportArtifactText = readNamedArtifact("uploadToken").pipe(
+	Effect.map(decoder.decode.bind(decoder)),
+);
 
 export const writeImportChunks = (
 	failures: ReadonlyArray<GenericImportFailure>,

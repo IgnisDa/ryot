@@ -7,7 +7,7 @@ import definition, { manifest } from "./notification.sandbox";
 
 it("formats workout.created exclusively from the inline signal", () => {
 	const messages: string[] = [];
-	const input = Schema.decodeUnknownSync(automationInputSchema)({
+	const input = Schema.decodeSync(automationInputSchema)({
 		automation: {
 			runId: "run-1",
 			triggerId: "trigger-1",
