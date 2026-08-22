@@ -2,7 +2,7 @@ import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
-import { DemoAccessPolicy } from "../../http-annotations";
+import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
 import {
 	CompleteUploadResponse,
 	DownloadResolutionInput,
@@ -21,31 +21,25 @@ const uploadErrors = [
 export const UploadsGroup = HttpApiGroup.make("uploads")
 	.annotate(OpenApi.Description, "Creates upload and download URLs and accepts temporary files")
 	.add(
-		HttpApiEndpoint.post("createIntent", "/uploads/intents", {
+		AuthenticatedMutationEndpoint.post("allowed")("createIntent", "/uploads/intents", {
 			error: uploadErrors,
 			payload: UploadIntentInput,
 			success: UploadIntentResponse,
-		})
-			.annotate(DemoAccessPolicy, "allowed")
-			.annotate(OpenApi.Description, "Creates a provider-neutral upload intent"),
+		}).annotate(OpenApi.Description, "Creates a provider-neutral upload intent"),
 	)
 	.add(
-		HttpApiEndpoint.post("completeIntent", "/uploads/intents/:intentId/complete", {
-			error: uploadErrors,
-			success: CompleteUploadResponse,
-			params: { intentId: Schema.String },
-		})
-			.annotate(DemoAccessPolicy, "allowed")
-			.annotate(OpenApi.Description, "Completes an upload intent"),
+		AuthenticatedMutationEndpoint.post("allowed")(
+			"completeIntent",
+			"/uploads/intents/:intentId/complete",
+			{ error: uploadErrors, success: CompleteUploadResponse, params: { intentId: Schema.String } },
+		).annotate(OpenApi.Description, "Completes an upload intent"),
 	)
 	.add(
-		HttpApiEndpoint.post("resolveDownloads", "/uploads/downloads", {
+		AuthenticatedMutationEndpoint.post("allowed")("resolveDownloads", "/uploads/downloads", {
 			error: uploadErrors,
 			payload: DownloadResolutionInput,
 			success: DownloadResolutionResponse,
-		})
-			.annotate(DemoAccessPolicy, "allowed")
-			.annotate(OpenApi.Description, "Resolves download URLs for stored files"),
+		}).annotate(OpenApi.Description, "Resolves download URLs for stored files"),
 	)
 	.middleware(AuthMiddleware);
 
