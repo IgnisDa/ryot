@@ -17,7 +17,7 @@ import { describe, expect, it } from "vitest";
 import { AuthenticatedApiError } from "#/api/authenticated";
 import type { ImportsApi } from "#/api/imports";
 import { KernelApiTestLayer, makeImportsApi } from "#/api/ports.test-layer";
-import type { ImportsService } from "#/modules/imports/service";
+import { ImportsLoadError, type ImportsService } from "#/modules/imports/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { ArtifactSessions } from "#/modules/plugins/artifact-sessions";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
@@ -289,9 +289,49 @@ describe("import data list", () => {
 		expect(screen.getAllByRole("button", { name: "Start an import" })).toHaveLength(1);
 	});
 
-	it("starts an import through the wizard and reloads the list", async () => {
+	it("retries a failed run query without reloading the route", async () => {
+		let available = false;
+		mountView(
+			"/settings/import-data",
+			makeImportsApi({ listSources: () => Effect.succeed([hevySource]) }),
+			makeImportsStub({
+				loadRuns: () =>
+					available
+						? Effect.succeed(decodeRuns([makeRun()]))
+						: Effect.fail(new ImportsLoadError({ cause: new Error("down"), stage: "runs" })),
+			}),
+		);
+
+		await screen.findByText("Unable to load imports");
+		available = true;
+		fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+		await screen.findByRole("link", { name: /Open the Hevy import from/ });
+	});
+
+	it("requests the configured next page size while keeping the current list visible", async () => {
+		const limits: number[] = [];
+		mountView(
+			"/settings/import-data",
+			makeImportsApi({ listSources: () => Effect.succeed([hevySource]) }),
+			makeImportsStub({
+				loadRuns: (_client, input) => {
+					limits.push(input.limit);
+					return Effect.succeed(decodeRuns([makeRun()], limits.length === 1));
+				},
+			}),
+		);
+
+		await screen.findByRole("link", { name: /Open the Hevy import from/ });
+		fireEvent.click(screen.getByRole("button", { name: "Show older imports" }));
+
+		expect(screen.getByRole("link", { name: /Open the Hevy import from/ })).not.toBeNull();
+		await waitFor(() => expect(limits).toEqual([LIMIT, LIMIT * 2]));
+	});
+
+	it("starts an import and refreshes the active expanded list query", async () => {
 		const started: Record<string, unknown>[] = [];
-		let loads = 0;
+		const limits: number[] = [];
 		const view = mountView(
 			"/settings/import-data",
 			makeImportsApi({
@@ -302,14 +342,22 @@ describe("import data list", () => {
 				},
 			}),
 			makeImportsStub({
-				loadRuns: () => {
-					loads += 1;
-					return Effect.succeed(decodeRuns(loads === 1 ? [] : [makeRun({ source: "trakt" })]));
+				loadRuns: (_client, input) => {
+					limits.push(input.limit);
+					return Effect.succeed(
+						decodeRuns(
+							limits.length < 3 ? [makeRun()] : [makeRun({ source: "trakt" })],
+							limits.length === 1,
+						),
+					);
 				},
 			}),
 		);
 
-		fireEvent.click(await screen.findByRole("button", { name: "Start an import" }));
+		await screen.findByRole("link", { name: /Open the Hevy import from/ });
+		fireEvent.click(screen.getByRole("button", { name: "Show older imports" }));
+		await waitFor(() => expect(limits).toEqual([LIMIT, LIMIT * 2]));
+		fireEvent.click(screen.getByRole("button", { name: "Start an import" }));
 		await waitFor(() => expect(view.router.state.location.search.start).toBe(true));
 		const dialog = await screen.findByRole("dialog", { name: "Start an import" });
 
@@ -328,6 +376,7 @@ describe("import data list", () => {
 		await waitFor(() => expect(started).toHaveLength(1));
 		expect(started[0]).toEqual({ source: "trakt", username: "someone" });
 		await screen.findByRole("link", { name: /Open the Trakt import from/ });
+		expect(limits).toEqual([LIMIT, LIMIT * 2, LIMIT * 2]);
 		expect(screen.queryByRole("dialog", { name: "Start an import" })).toBeNull();
 	});
 
@@ -404,6 +453,51 @@ describe("import data list", () => {
 });
 
 describe("import run detail", () => {
+	it("retries a failed detail loader through the route error state", async () => {
+		let loads = 0;
+		mountView(
+			"/settings/import-data/run_1",
+			makeImportsApi({ listSources: () => Effect.succeed([hevySource]) }),
+			makeImportsStub({
+				loadRun: () => {
+					loads += 1;
+					return loads === 1
+						? Effect.fail(new ImportsLoadError({ cause: new Error("down"), stage: "run" }))
+						: Effect.succeed(decodeRun([makeRun()]));
+				},
+			}),
+		);
+
+		await screen.findByText("Unable to load this import");
+		expect(loads).toBe(1);
+		fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+		await screen.findByRole("heading", { level: 1, name: "Hevy" });
+		expect(loads).toBe(3);
+	});
+
+	it("keeps an ordinary detail retry query-owned", async () => {
+		let loads = 0;
+		mountView(
+			"/settings/import-data/run_1",
+			makeImportsApi({ listSources: () => Effect.succeed([hevySource]) }),
+			makeImportsStub({
+				loadRun: () => {
+					loads += 1;
+					return loads === 2
+						? Effect.fail(new ImportsLoadError({ cause: new Error("down"), stage: "run" }))
+						: Effect.succeed(decodeRun([makeRun()]));
+				},
+			}),
+		);
+
+		await screen.findByText("Unable to load this import");
+		fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+
+		await screen.findByRole("heading", { level: 1, name: "Hevy" });
+		expect(loads).toBe(3);
+	});
+
 	it("shows the counts and groups what could not be brought over", async () => {
 		mountView(
 			"/settings/import-data/run_1",
@@ -505,14 +599,38 @@ describe("import run detail", () => {
 		).not.toBeNull();
 	});
 
-	it("shows a not-found state for a run that no longer exists", async () => {
+	it("uses the route not-found state for a run that no longer exists", async () => {
+		let loads = 0;
 		mountView(
 			"/settings/import-data/run_1",
 			makeImportsApi({ listSources: () => Effect.succeed([hevySource]) }),
-			makeImportsStub({ loadRun: () => Effect.succeed(decodeRun([])) }),
+			makeImportsStub({
+				loadRun: () => {
+					loads += 1;
+					return Effect.succeed(decodeRun([]));
+				},
+			}),
 		);
 
 		await screen.findByText("Import not found");
+		expect(loads).toBe(1);
 		expect(screen.queryByRole("button", { name: "Import actions" })).toBeNull();
+	});
+
+	it("uses the route not-found state for a blank run id without loading detail", async () => {
+		let loads = 0;
+		mountView(
+			"/settings/import-data/%20",
+			makeImportsApi({ listSources: () => Effect.succeed([hevySource]) }),
+			makeImportsStub({
+				loadRun: () => {
+					loads += 1;
+					return Effect.succeed(decodeRun([makeRun()]));
+				},
+			}),
+		);
+
+		await screen.findByText("Import not found");
+		expect(loads).toBe(0);
 	});
 });

@@ -928,6 +928,30 @@ it.effect(
 	30_000,
 );
 
+it.effect("executes the exact supported Effect namespace from the client SDK", () =>
+	Effect.gen(function* () {
+		const { artifact } = yield* compileFixture({
+			"client/index.tsx": bytes(`
+import * as Effect from "@ryot-app/client-sdk/effect";
+Reflect.set(globalThis, "clientEffectExports", Object.keys(Effect).sort());
+`),
+		});
+		const javascript = text(artifact.files.find(({ name }) => name === "plugin.js")?.contents);
+
+		// oxlint-disable-next-line typescript/no-implied-eval -- verifies the emitted namespace bindings
+		Function(javascript)();
+		expect(Reflect.get(globalThis, "clientEffectExports")).toEqual([
+			"DateTime",
+			"Match",
+			"Option",
+			"Result",
+			"Schema",
+			"SchemaGetter",
+		]);
+		Reflect.deleteProperty(globalThis, "clientEffectExports");
+	}),
+);
+
 it.effect(
 	"titles the plugin document with the manifest name and folds the name into artifact identity",
 	() =>

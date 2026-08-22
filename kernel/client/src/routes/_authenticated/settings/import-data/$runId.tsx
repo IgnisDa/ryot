@@ -1,20 +1,24 @@
-import { useRyot } from "@ryot-app/client-sdk/react";
+import { useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
 import { Menu, type MenuItem } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
-import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import type { ImportRunDetail } from "@ryot-app/ryotql-recipes/import-runs";
 import { createFileRoute, notFound, useRouter } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";
 
-import { ImportsApi } from "#/api/imports";
 import { ImportRunView, type ImportRunDetailState } from "#/modules/imports/import-run-view";
 import {
 	canDeleteImportRun,
 	importRunDeleteConfirmation,
 	importSourceName,
 } from "#/modules/imports/run-presentation";
-import { IMPORT_FAILURES_PAGE_SIZE, ImportsService } from "#/modules/imports/service";
+import {
+	IMPORT_FAILURES_PAGE_SIZE,
+	ImportsService,
+	deleteImportRunMutation,
+	importRunQuery,
+	importSourcesQuery,
+} from "#/modules/imports/service";
 import { importSourceNames } from "#/modules/imports/source-selection";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
 import { DestructiveConfirmation } from "#/modules/ui/destructive-confirmation";
@@ -39,38 +43,26 @@ const detailState = (detail: ImportRunDetail): ImportRunDetailState | undefined 
 
 export const Route = createFileRoute("/_authenticated/settings/import-data/$runId")({
 	component: ImportRunRoute,
-	errorComponent: ImportRunLoadError,
 	pendingComponent: ImportRunPending,
+	errorComponent: ImportRunLoaderError,
 	notFoundComponent: ImportRunNotFound,
 	loader: async ({ abortController, context, params }) => {
-		const trimmed = params.runId.trim();
-		if (trimmed.length === 0) {
+		const runId = params.runId.trim();
+		if (runId.length === 0) {
 			// oxlint-disable-next-line typescript/only-throw-error
 			throw notFound();
 		}
-		const [detail, sources] = await Promise.all([
-			context.runtime.runPromise(
-				Effect.flatMap(ImportsService, (service) =>
-					service.loadRun(context.ryot, {
-						runId: trimmed,
-						failureLimit: IMPORT_FAILURES_PAGE_SIZE,
-					}),
-				),
-				{ signal: abortController.signal },
+		const detail = await context.runtime.runPromise(
+			Effect.flatMap(ImportsService, (service) =>
+				service.loadRun(context.ryot, { runId, failureLimit: IMPORT_FAILURES_PAGE_SIZE }),
 			),
-			context.runtime.runPromise(
-				Effect.flatMap(ImportsApi, (api) => api.listSources(context.scope)).pipe(
-					Effect.match({ onSuccess: (listed) => listed, onFailure: () => [] }),
-				),
-				{ signal: abortController.signal },
-			),
-		]);
-		const state = detailState(detail);
-		if (state === undefined) {
+			{ signal: abortController.signal },
+		);
+		if (detail.run === undefined) {
 			// oxlint-disable-next-line typescript/only-throw-error
 			throw notFound();
 		}
-		return { sources, state };
+		return { runId };
 	},
 });
 
@@ -93,53 +85,39 @@ function ImportRunFrame(props: {
 }
 
 function ImportRunRoute() {
-	const ryot = useRyot();
 	const router = useRouter();
 	const navigate = Route.useNavigate();
-	const loaded = Route.useLoaderData();
-	const { runId } = Route.useParams();
-	const { backInterceptors, runtime, scope } = Route.useRouteContext();
+	const { runId } = Route.useLoaderData();
+	const { backInterceptors } = Route.useRouteContext();
 	const menuTrigger = useRef<HTMLButtonElement>(null);
-	const controller = useRef(new AbortController());
-	const [deleting, setDeleting] = useState(false);
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [activeIndex, setActiveIndex] = useState(0);
 	const [isConfirming, setIsConfirming] = useState(false);
-	const [deleteFailed, setDeleteFailed] = useState(false);
-	const [isLoadingMore, setIsLoadingMore] = useState(false);
-	const [state, setState] = useState<ImportRunDetailState>(loaded.state);
 	const [failureLimit, setFailureLimit] = useState(IMPORT_FAILURES_PAGE_SIZE);
+	const detail = useRyotQuery(importRunQuery, { runId, failureLimit });
+	const sources = useRyotQuery(importSourcesQuery);
+	const deletion = useRyotMutation(deleteImportRunMutation);
+	const [retainedDetail, setRetainedDetail] = useState<{
+		readonly runId: string;
+		readonly detail: ImportRunDetail;
+	}>();
+	useEffect(() => {
+		if (detail.data !== undefined) {
+			setRetainedDetail({ runId, detail: detail.data });
+		}
+	}, [detail.data, runId]);
+	const displayedDetail =
+		detail.data ?? (retainedDetail?.runId === runId ? retainedDetail.detail : undefined);
+	const state = displayedDetail === undefined ? undefined : detailState(displayedDetail);
 	const nowMs = Date.now();
-	const sourceNames = importSourceNames(loaded.sources);
-	const run = state.status === "ready" ? state.run : undefined;
+	const sourceNames = importSourceNames(sources.data ?? []);
+	const run = state?.status === "ready" ? state.run : undefined;
 	const title = run === undefined ? "Import" : importSourceName(run.source, sourceNames);
 	const duration = run === undefined ? undefined : runDurationLabel(run, nowMs);
 
-	useEffect(() => () => controller.current.abort(), []);
-
-	const reload = useEffectEvent(async (nextLimit: number) => {
-		setIsLoadingMore(nextLimit > failureLimit);
-		const outcome = await runtime.runPromise(
-			Effect.flatMap(ImportsService, (service) =>
-				service.loadRun(ryot, { runId, failureLimit: nextLimit }),
-			).pipe(
-				Effect.match({
-					onFailure: () => undefined,
-					onSuccess: (detail) => detailState(detail),
-				}),
-			),
-			{ signal: controller.current.signal },
-		);
-		setIsLoadingMore(false);
-		setFailureLimit(nextLimit);
-		if (outcome !== undefined) {
-			setState(outcome);
-		}
-	});
-
 	useRunPolling({
 		intervalMs: RUN_POLL_MS,
-		refresh: () => void reload(failureLimit),
+		refresh: detail.refetch,
 		enabled: run !== undefined && !isTerminalRunStatus(run.status),
 	});
 
@@ -148,27 +126,20 @@ function ImportRunRoute() {
 			return undefined;
 		}
 		return backInterceptors.register(() => {
-			if (deleting) {
+			if (deletion.isPending) {
 				return true;
 			}
 			setMenuOpen(false);
 			setIsConfirming(false);
 			return true;
 		});
-	}, [backInterceptors, deleting, isConfirming, menuOpen]);
+	}, [backInterceptors, deletion.isPending, isConfirming, menuOpen]);
 
 	const confirmDelete = useEffectEvent(async () => {
-		setDeleting(true);
-		setDeleteFailed(false);
-		const removed = await runtime.runPromise(
-			Effect.flatMap(ImportsApi, (api) =>
-				api.deleteRun(scope, { params: { runId: ImportRunId.make(runId) } }),
-			).pipe(Effect.match({ onFailure: () => false, onSuccess: () => true })),
-			{ signal: controller.current.signal },
-		);
-		setDeleting(false);
-		if (!removed) {
-			setDeleteFailed(true);
+		deletion.reset();
+		try {
+			await deletion.mutateAsync(runId);
+		} catch {
 			return;
 		}
 		setIsConfirming(false);
@@ -186,11 +157,28 @@ function ImportRunRoute() {
 			label: "Delete record",
 			onSelect: () => {
 				setMenuOpen(false);
-				setDeleteFailed(false);
+				deletion.reset();
 				setIsConfirming(true);
 			},
 		},
 	];
+	let body: ReactNode;
+	if (state !== undefined) {
+		body = (
+			<ImportRunView
+				state={state}
+				onRetry={detail.refetch}
+				sourceNames={sourceNames}
+				isLoadingMore={detail.isFetching}
+				onCopy={(value) => void navigator.clipboard.writeText(value)}
+				onShowMore={() => setFailureLimit((current) => current + IMPORT_FAILURES_PAGE_SIZE)}
+			/>
+		);
+	} else if (detail.isPending) {
+		body = <StatusState className="py-16" detail="Loading this import..." />;
+	} else {
+		body = <ImportRunLoadErrorBody onRetry={detail.refetch} />;
+	}
 
 	return (
 		<ImportRunFrame
@@ -228,36 +216,31 @@ function ImportRunRoute() {
 							<Menu
 								items={menuItems}
 								label="Import actions"
-								activeIndex={activeIndex}
 								triggerRef={menuTrigger}
-								onClose={() => setMenuOpen(false)}
+								activeIndex={activeIndex}
 								onActiveIndexChange={setActiveIndex}
+								onClose={() => setMenuOpen(false)}
 							/>
 						)}
 					</>
 				) : undefined
 			}
 		>
-			<ImportRunView
-				state={state}
-				sourceNames={sourceNames}
-				isLoadingMore={isLoadingMore}
-				onRetry={() => void reload(failureLimit)}
-				onCopy={(value) => void navigator.clipboard.writeText(value)}
-				onShowMore={() => void reload(failureLimit + IMPORT_FAILURES_PAGE_SIZE)}
-			/>
+			{body}
 			{isConfirming && run !== undefined && (
 				<DestructiveConfirmation
-					pending={deleting}
 					triggerRef={menuTrigger}
 					pendingLabel="Deleting..."
 					actionLabel="Delete record"
+					pending={deletion.isPending}
 					title="Delete this import record?"
 					onConfirm={() => void confirmDelete()}
 					detail={importRunDeleteConfirmation(run)}
-					errorMessage={deleteFailed ? "This record could not be deleted. Try again." : undefined}
+					errorMessage={
+						deletion.status === "error" ? "This record could not be deleted. Try again." : undefined
+					}
 					onClose={() => {
-						setDeleteFailed(false);
+						deletion.reset();
 						setIsConfirming(false);
 					}}
 				/>
@@ -274,26 +257,32 @@ function ImportRunPending() {
 	);
 }
 
-function ImportRunLoadError() {
+function ImportRunLoaderError() {
 	const router = useRouter();
 	return (
 		<ImportRunFrame title="Import">
-			<StatusState
-				detailTone="danger"
-				title="Unable to load this import"
-				className="rounded-xl border border-border bg-surface p-6"
-				detail="This import could not be loaded. Check the server and try again."
-				action={
-					<button
-						type="button"
-						onClick={() => void router.invalidate()}
-						className="min-h-11 rounded-lg border border-border px-4 py-2.5 text-sm font-semibold text-text"
-					>
-						Try again
-					</button>
-				}
-			/>
+			<ImportRunLoadErrorBody onRetry={() => void router.load()} />
 		</ImportRunFrame>
+	);
+}
+
+function ImportRunLoadErrorBody(props: { readonly onRetry: () => void }) {
+	return (
+		<StatusState
+			detailTone="danger"
+			title="Unable to load this import"
+			className="rounded-xl border border-border bg-surface p-6"
+			detail="This import could not be loaded. Check the server and try again."
+			action={
+				<button
+					type="button"
+					onClick={props.onRetry}
+					className="min-h-11 rounded-lg border border-border px-4 py-2.5 text-sm font-semibold text-text"
+				>
+					Try again
+				</button>
+			}
+		/>
 	);
 }
 

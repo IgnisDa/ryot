@@ -1,3 +1,4 @@
+import { useRyotMutation } from "@ryot-app/client-sdk/react";
 import { Button, FieldMessage, StatusMessage } from "@ryot-app/client-ui-sdk";
 import {
 	useSchemaForm,
@@ -6,11 +7,9 @@ import {
 	type SchemaFormValues,
 } from "@ryot-app/client-ui-sdk/schema-form";
 import type { ListedIntegrationProvider } from "@ryot-app/contract/modules/integrations/schemas";
-import { useRouteContext } from "@tanstack/react-router";
-import { Effect, Match } from "effect";
-import { useEffect, useEffectEvent, useReducer, useRef, useState } from "react";
+import { Match } from "effect";
+import { useEffect, useEffectEvent, useReducer, useState } from "react";
 
-import { IntegrationsApi } from "#/api/integrations";
 import {
 	createIntegrationBody,
 	initialIntegrationFormValues,
@@ -25,6 +24,7 @@ import {
 	integrationSaveFailure,
 	type IntegrationSaveFailure,
 } from "#/modules/integrations/save-failure";
+import { createIntegrationMutation } from "#/modules/integrations/service";
 import { IntegrationSettingsForm } from "#/modules/integrations/settings-form";
 import { CatalogPicker, type CatalogPickerState } from "#/modules/ui/catalog/picker";
 import { findBySlug } from "#/modules/ui/catalog/selection";
@@ -172,38 +172,24 @@ function ReviewStep(props: {
 
 export function IntegrationCreateWizard(props: CreateWizardProps) {
 	const uploadFile = useSchemaFileUpload();
-	const { runtime, scope } = useRouteContext({ from: "/_authenticated" });
-	const controller = useRef(new AbortController());
-	const [pending, setPending] = useState(false);
+	const create = useRyotMutation(createIntegrationMutation);
 	const [failure, setFailure] = useState<IntegrationSaveFailure | undefined>();
 	const [state, dispatch] = useReducer(wizardReducer, undefined, createWizardState);
 	const listed = props.providers.status === "ready" ? props.providers.sources : [];
 	const provider = findBySlug(listed, state.slug);
 
-	useEffect(() => () => controller.current.abort(), []);
-
 	const connect = useEffectEvent(async (values: SchemaFormValues) => {
 		if (provider === undefined) {
 			return;
 		}
-		setPending(true);
 		setFailure(undefined);
-		const outcome = await runtime.runPromise(
-			Effect.flatMap(IntegrationsApi, (api) =>
-				api.create(scope, { payload: createIntegrationBody({ provider, values }) }),
-			).pipe(
-				Effect.match({
-					onSuccess: () => ({ failure: undefined }),
-					onFailure: (error) => ({ failure: integrationSaveFailure(error) }),
-				}),
-			),
-			{ signal: controller.current.signal },
-		);
-		setPending(false);
-		if (outcome.failure !== undefined) {
-			setFailure(outcome.failure);
-			if (outcome.failure.step !== undefined) {
-				dispatch({ type: "recover-at", step: outcome.failure.step });
+		try {
+			await create.mutateAsync(createIntegrationBody({ provider, values }));
+		} catch (error) {
+			const saveFailure = integrationSaveFailure(error);
+			setFailure(saveFailure);
+			if (saveFailure.step !== undefined) {
+				dispatch({ type: "recover-at", step: saveFailure.step });
 			}
 			return;
 		}
@@ -280,8 +266,8 @@ export function IntegrationCreateWizard(props: CreateWizardProps) {
 						<ReviewStep
 							values={values}
 							onBack={goBack}
-							pending={pending}
 							provider={provider}
+							pending={create.isPending}
 							failureDetail={reviewFailure}
 							onConnect={() => void connect(values)}
 						/>

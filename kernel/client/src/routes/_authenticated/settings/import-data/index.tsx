@@ -1,137 +1,88 @@
-import { useRyot } from "@ryot-app/client-sdk/react";
+import { useRyotQuery, type RyotQueryResult } from "@ryot-app/client-sdk/react";
+import type { ListedImportSource } from "@ryot-app/contract/modules/imports/schemas";
 import type { ImportRunList } from "@ryot-app/ryotql-recipes/import-runs";
-import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { Effect } from "effect";
-import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 
-import { ImportsApi } from "#/api/imports";
-import {
-	IMPORT_LOAD_ERROR,
-	ImportDataView,
-	type ImportRunListState,
-} from "#/modules/imports/import-data-view";
+import { ImportDataView, type ImportRunListState } from "#/modules/imports/import-data-view";
 import { liveImportRun } from "#/modules/imports/run-presentation";
-import { IMPORT_RUNS_PAGE_SIZE, ImportsService } from "#/modules/imports/service";
+import {
+	IMPORT_RUNS_PAGE_SIZE,
+	importRunsQuery,
+	importSourcesQuery,
+} from "#/modules/imports/service";
 import { importSourceNames } from "#/modules/imports/source-selection";
 import { ImportStartWizard, type ImportSourcePickerState } from "#/modules/imports/start-wizard";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
-import { LoadErrorState } from "#/modules/ui/load-error-state";
 import { RUN_LIST_POLL_MS, useRunPolling } from "#/modules/ui/run/use-run-polling";
 import { useSearchParamModal } from "#/modules/ui/search-param-modal";
-import { StatusState } from "#/modules/ui/status-state";
 
 const listState = (page: ImportRunList): ImportRunListState =>
 	page.items.length === 0
 		? { status: "empty" }
 		: { status: "ready", runs: page.items, hasMore: page.pageInfo.hasMore };
 
+const queryListState = (page: ImportRunList | undefined, pending: boolean): ImportRunListState => {
+	if (page !== undefined) {
+		return listState(page);
+	}
+	return pending ? { status: "loading" } : { status: "failed" };
+};
+
+const sourcePickerState = (
+	result: RyotQueryResult<readonly ListedImportSource[]>,
+): ImportSourcePickerState => {
+	if (result.data === undefined) {
+		return result.isPending ? { status: "loading" } : { status: "failed" };
+	}
+	return result.data.length === 0 ? { status: "empty" } : { status: "ready", sources: result.data };
+};
+
 export const Route = createFileRoute("/_authenticated/settings/import-data/")({
 	component: ImportDataRoute,
-	errorComponent: ImportDataLoadError,
-	pendingComponent: ImportDataPending,
 	validateSearch: (search) => ({
 		start: search.start === true || search.start === "true" ? true : undefined,
 	}),
-	loader: async ({ abortController, context }) => {
-		const [page, sources] = await Promise.all([
-			context.runtime.runPromise(
-				Effect.flatMap(ImportsService, (service) =>
-					service.loadRuns(context.ryot, { limit: IMPORT_RUNS_PAGE_SIZE }),
-				),
-				{ signal: abortController.signal },
-			),
-			context.runtime.runPromise(
-				Effect.flatMap(ImportsApi, (api) => api.listSources(context.scope)).pipe(
-					Effect.match({
-						onFailure: (): ImportSourcePickerState => ({ status: "failed" }),
-						onSuccess: (listed): ImportSourcePickerState =>
-							listed.length === 0 ? { status: "empty" } : { status: "ready", sources: listed },
-					}),
-				),
-				{ signal: abortController.signal },
-			),
-		]);
-		return { page, sources };
-	},
 });
 
-function ImportDataFrame(props: { readonly children: ReactNode }) {
-	return (
-		<SettingsFrame title="Import data" backFallbackHref="/settings">
-			{props.children}
-		</SettingsFrame>
-	);
-}
-
 function ImportDataRoute() {
-	const ryot = useRyot();
 	const navigate = Route.useNavigate();
 	const { start } = Route.useSearch();
-	const loaded = Route.useLoaderData();
-	const { runtime, scope } = Route.useRouteContext();
-	const controller = useRef(new AbortController());
-	const [isLoadingOlder, setIsLoadingOlder] = useState(false);
 	const [limit, setLimit] = useState(IMPORT_RUNS_PAGE_SIZE);
-	const [sources, setSources] = useState(loaded.sources);
-	const [state, setState] = useState(() => listState(loaded.page));
-
-	useEffect(() => () => controller.current.abort(), []);
-
-	const reload = useEffectEvent(async (nextLimit: number) => {
-		setIsLoadingOlder(nextLimit > limit);
-		const outcome = await runtime.runPromise(
-			Effect.flatMap(ImportsService, (service) =>
-				service.loadRuns(ryot, { limit: nextLimit }),
-			).pipe(
-				Effect.match({
-					onFailure: () => undefined,
-					onSuccess: (page) => listState(page),
-				}),
-			),
-			{ signal: controller.current.signal },
-		);
-		setIsLoadingOlder(false);
-		setLimit(nextLimit);
-		setState(outcome ?? { status: "failed" });
-	});
-
-	const reloadSources = useEffectEvent(async () => {
-		setSources({ status: "loading" });
-		const next = await runtime.runPromise(
-			Effect.flatMap(ImportsApi, (api) => api.listSources(scope)).pipe(
-				Effect.match({
-					onFailure: (): ImportSourcePickerState => ({ status: "failed" }),
-					onSuccess: (listed): ImportSourcePickerState =>
-						listed.length === 0 ? { status: "empty" } : { status: "ready", sources: listed },
-				}),
-			),
-			{ signal: controller.current.signal },
-		);
-		setSources(next);
-	});
+	const runs = useRyotQuery(importRunsQuery, { limit });
+	const sourceResult = useRyotQuery(importSourcesQuery);
+	const [retainedPage, setRetainedPage] = useState<ImportRunList>();
+	useEffect(() => {
+		if (runs.data !== undefined) {
+			setRetainedPage(runs.data);
+		}
+	}, [runs.data]);
+	const page = runs.data ?? retainedPage;
+	const state = queryListState(page, runs.isPending);
+	const sources = sourcePickerState(sourceResult);
 
 	const wizard = useSearchParamModal({
 		isOpen: start === true,
 		open: () => void navigate({ search: { start: true } }),
-		onCompleted: () => void reload(IMPORT_RUNS_PAGE_SIZE),
+		onCompleted: () => undefined,
 		close: () => void navigate({ replace: true, search: { start: undefined } }),
 	});
 
 	useRunPolling({
+		refresh: runs.refetch,
 		intervalMs: RUN_LIST_POLL_MS,
-		refresh: () => void reload(limit),
 		enabled: state.status === "ready" && liveImportRun(state.runs) !== undefined,
 	});
 
 	return (
-		<ImportDataFrame>
+		<SettingsFrame title="Import data" backFallbackHref="/settings">
 			<ImportDataView
 				state={state}
 				nowMs={Date.now()}
+				onRetry={runs.refetch}
 				onStartImport={wizard.open}
-				isLoadingOlder={isLoadingOlder}
-				onRetry={() => void reload(limit)}
-				onShowOlder={() => void reload(limit + IMPORT_RUNS_PAGE_SIZE)}
+				isLoadingOlder={runs.isFetching && page !== undefined}
+				onShowOlder={() => setLimit((current) => current + IMPORT_RUNS_PAGE_SIZE)}
 				sourceNames={importSourceNames(sources.status === "ready" ? sources.sources : [])}
 			/>
 			{start === true && (
@@ -139,30 +90,9 @@ function ImportDataRoute() {
 					sources={sources}
 					onClose={wizard.close}
 					onStarted={wizard.markCompleted}
-					onRetrySources={() => void reloadSources()}
+					onRetrySources={sourceResult.refetch}
 				/>
 			)}
-		</ImportDataFrame>
-	);
-}
-
-function ImportDataPending() {
-	return (
-		<ImportDataFrame>
-			<StatusState className="py-16" detail="Loading your imports..." />
-		</ImportDataFrame>
-	);
-}
-
-function ImportDataLoadError() {
-	const router = useRouter();
-	return (
-		<ImportDataFrame>
-			<LoadErrorState
-				title={IMPORT_LOAD_ERROR.title}
-				detail={IMPORT_LOAD_ERROR.detail}
-				onRetry={() => void router.invalidate()}
-			/>
-		</ImportDataFrame>
+		</SettingsFrame>
 	);
 }

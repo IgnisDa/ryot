@@ -22,7 +22,12 @@ export const Route = createFileRoute("/_authenticated")({
 	beforeLoad: async ({ context, location }) => {
 		const authenticated = await protectedRouteGuard(context, location.href);
 		const session = context.ryotClients.get(authenticated.scope);
-		return { ...authenticated, ryot: session.client, ryotRuntime: session.runtime };
+		return {
+			...authenticated,
+			ryot: session.client,
+			ryotRuntime: session.runtime,
+			hostServices: session.hostServices,
+		};
 	},
 	loader: async ({ abortController, context, location }) => {
 		const [catalog, navigation, rememberedSlug, isPro] = await Promise.all([
@@ -76,7 +81,7 @@ export const Route = createFileRoute("/_authenticated")({
 
 function AuthenticatedLayout() {
 	const { catalog, isPro, navigation, rememberedSlug } = Route.useLoaderData();
-	const { ryotRuntime, runtime, scope } = Route.useRouteContext();
+	const { hostServices, ryotRuntime, runtime, scope } = Route.useRouteContext();
 	const { serverUrl, userId } = scope;
 	useEffect(
 		() =>
@@ -86,7 +91,7 @@ function AuthenticatedLayout() {
 		[runtime, serverUrl, userId],
 	);
 	return (
-		<RyotProvider runtime={ryotRuntime}>
+		<RyotProvider hostServices={hostServices} runtime={ryotRuntime}>
 			<PluginCatalogProvider scope={scope} runtime={runtime} initialCatalog={catalog}>
 				<AuthenticatedShell
 					isPro={isPro}

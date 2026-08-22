@@ -3,7 +3,7 @@
 Architecture and rationale live in `README.md`.
 
 - Define application I/O and workflows as Effect services. Keep storage, transport, and third-party clients in live layers, and keep every `ClientLive` layer synchronously constructible.
-- Keep routes as React adapters. Decide access in `beforeLoad`, load route-defining data in `loader`, and represent pending, error, and not-found states through router branches rather than component effects.
+- Keep routes as React adapters. Authenticated user-screen data uses shared Ryot queries and mutations; loaders retain only access decisions, redirects, and not-found checks. The pre-authentication routes have no API scope, God Mode is token-scoped, and the catalog-dependent workspace redirect must resolve before render, so these remain loader/direct-service exceptions.
 - Keep generated contract clients inside `#/api`. Only `AuthenticatedApi` and `AdminApi` run contract programs; other services depend on narrow group ports.
 - Keep authentication, server selection, global history, artifact lifecycle, bridge dispatch, and native authority in the kernel. Expose only semantic, environment-neutral capabilities through `@ryot-app/client-sdk`.
 - Keep native name, identifier, and icon in platform build configurations. `capacitor.config.ts` always uses production identity and has no environment branch.
