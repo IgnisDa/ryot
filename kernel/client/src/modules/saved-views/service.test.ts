@@ -1,4 +1,5 @@
 import { createRyotClient } from "@ryot-app/client-sdk";
+import { createTestRyotAdapter } from "@ryot-app/client-sdk/testing";
 import { column, document, field, rows, table } from "@ryot-app/ryotql";
 import { Effect, ManagedRuntime } from "effect";
 import { describe, expect, it } from "vitest";
@@ -60,14 +61,16 @@ const rowsResult = (items: readonly unknown[]) => ({ type: "rows", items, pageIn
 describe("SavedViewsService", () => {
 	it("rejects a later refresh page without exposing a partial replacement", async () => {
 		let requests = 0;
-		const client = createRyotClient({
-			query: () => {
-				requests += 1;
-				return requests === 1
-					? Promise.resolve({ data: { savedView: rowsResult([]) } })
-					: Promise.reject(new Error("offline"));
-			},
-		});
+		const client = createRyotClient(
+			createTestRyotAdapter({
+				query: () => {
+					requests += 1;
+					return requests === 1
+						? Promise.resolve({ data: { savedView: rowsResult([]) } })
+						: Promise.reject(new Error("offline"));
+				},
+			}),
+		);
 		const current = {
 			...appendSavedViewPage(
 				undefined,
@@ -102,31 +105,33 @@ describe("SavedViewsService", () => {
 		"refreshes up to loaded depth %i with fresh cursors, sorting, deduplication and early end",
 		async (depth) => {
 			const documents: unknown[] = [];
-			const client = createRyotClient({
-				query: (query) => {
-					documents.push(query);
-					const first = documents.length === 1;
-					return Promise.resolve({
-						data: {
-							savedView: {
-								type: "rows",
-								pageInfo: { limit: 2, hasMore: first, nextCursor: first ? "fresh" : null },
-								items: (first ? ["three", "two"] : ["two", "four"]).map((entityId) => ({
-									entityId,
-									image: null,
-									primary: null,
-									callout: null,
-									overline: null,
-									secondary: null,
-									populationStatus: "ready",
-									translationStatus: "none",
-									title: `${entityId}-${documents.length}`,
-								})),
+			const client = createRyotClient(
+				createTestRyotAdapter({
+					query: (query) => {
+						documents.push(query);
+						const first = documents.length === 1;
+						return Promise.resolve({
+							data: {
+								savedView: {
+									type: "rows",
+									pageInfo: { limit: 2, hasMore: first, nextCursor: first ? "fresh" : null },
+									items: (first ? ["three", "two"] : ["two", "four"]).map((entityId) => ({
+										entityId,
+										image: null,
+										primary: null,
+										callout: null,
+										overline: null,
+										secondary: null,
+										populationStatus: "ready",
+										translationStatus: "none",
+										title: `${entityId}-${documents.length}`,
+									})),
+								},
 							},
-						},
-					});
-				},
-			});
+						});
+					},
+				}),
+			);
 			const current = {
 				...appendSavedViewPage(
 					undefined,
@@ -171,32 +176,34 @@ describe("SavedViewsService", () => {
 
 	it("loads a record and executes its persisted grid document", async () => {
 		const documents: unknown[] = [];
-		const client = createRyotClient({
-			query: (query) => {
-				documents.push(query);
-				return Promise.resolve(
-					documents.length === 1
-						? { data: { savedView: rowsResult([record]) } }
-						: {
-								data: {
-									savedView: rowsResult([
-										{
-											callout: 4.5,
-											overline: "Book",
-											title: "Piranesi",
-											entityId: "book-1",
-											primary: "2026-08-12",
-											populationStatus: "ready",
-											translationStatus: "none",
-											secondary: "Susanna Clarke",
-											image: { type: "remote", url: "https://images.example/piranesi" },
-										},
-									]),
+		const client = createRyotClient(
+			createTestRyotAdapter({
+				query: (query) => {
+					documents.push(query);
+					return Promise.resolve(
+						documents.length === 1
+							? { data: { savedView: rowsResult([record]) } }
+							: {
+									data: {
+										savedView: rowsResult([
+											{
+												callout: 4.5,
+												overline: "Book",
+												title: "Piranesi",
+												entityId: "book-1",
+												primary: "2026-08-12",
+												populationStatus: "ready",
+												translationStatus: "none",
+												secondary: "Susanna Clarke",
+												image: { type: "remote", url: "https://images.example/piranesi" },
+											},
+										]),
+									},
 								},
-							},
-				);
-			},
-		});
+					);
+				},
+			}),
+		);
 		const runtime = ManagedRuntime.make(SavedViewsService.layer);
 		try {
 			const loadedRecord = await runtime.runPromise(
@@ -227,9 +234,11 @@ describe("SavedViewsService", () => {
 	});
 
 	it("returns undefined when the saved-view record does not exist", async () => {
-		const client = createRyotClient({
-			query: () => Promise.resolve({ data: { savedView: rowsResult([]) } }),
-		});
+		const client = createRyotClient(
+			createTestRyotAdapter({
+				query: () => Promise.resolve({ data: { savedView: rowsResult([]) } }),
+			}),
+		);
 		const runtime = ManagedRuntime.make(SavedViewsService.layer);
 		try {
 			await expect(

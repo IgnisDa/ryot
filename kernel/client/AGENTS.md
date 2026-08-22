@@ -20,5 +20,5 @@ Architecture and rationale live in `README.md`.
 - Use UI SDK overlay, focus, Escape, shortcut, and scroll-lock primitives. Make background content inert. Back interception remains kernel-owned and is injected into the SDK.
 - Model React-state overlays with `BackInterceptor`; model URL-state overlays as pushed history entries and close them by pop, with replace only for direct entry.
 - Render icons through `@ryot-app/client-ui-sdk/icon`, never direct `lucide-react` imports or inline SVG.
-- Keep selected uploads as `Blob` or `File` through transport and use the client SDK upload capability. The backup archive download is the only code that may obtain a bearer header directly.
+- Keep selected uploads as `Blob` or `File` through transport and use the client SDK upload capability. The kernel performs plugin uploads too, so no upload URL or header crosses the bridge. The backup archive download is the only code that may obtain a bearer header directly.
 - Source desktop sidebar and mobile drawer from the authenticated loader's shared navigation data. Do not patch loaded navigation data in place.

@@ -1,4 +1,5 @@
 import { createRyotClient } from "@ryot-app/client-sdk";
+import { createTestRyotAdapter } from "@ryot-app/client-sdk/testing";
 import { Effect, Layer, ManagedRuntime } from "effect";
 import { describe, expect, it, vi } from "vitest";
 
@@ -68,13 +69,15 @@ describe("EntitiesService", () => {
 		let queryCount = 0;
 		let querySignal: AbortSignal | undefined;
 		const pending = new Promise<never>(() => undefined);
-		const client = createRyotClient({
-			query: (_document, signal) => {
-				queryCount += 1;
-				querySignal = signal;
-				return pending;
-			},
-		});
+		const client = createRyotClient(
+			createTestRyotAdapter({
+				query: (_document, signal) => {
+					queryCount += 1;
+					querySignal = signal;
+					return pending;
+				},
+			}),
+		);
 		const runtime = ManagedRuntime.make(EntitiesService.layer);
 		const controller = new AbortController();
 
@@ -98,9 +101,11 @@ describe("EntitiesService", () => {
 	});
 
 	it("maps query failures to the route error", async () => {
-		const client = createRyotClient({
-			query: () => Promise.reject(new Error("query unavailable")),
-		});
+		const client = createRyotClient(
+			createTestRyotAdapter({
+				query: () => Promise.reject(new Error("query unavailable")),
+			}),
+		);
 		const runtime = ManagedRuntime.make(EntitiesService.layer);
 
 		try {

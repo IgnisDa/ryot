@@ -18,9 +18,10 @@ suppresses forwarding.
 
 ## Capabilities
 
-`uploads` is one capability that hides intent creation, byte transfer, and completion. The direct
-adapter provides it; the MessageChannel adapter returns `unsupported-capability` because bridge
-payloads are JSON and cannot carry `Blob` values.
+`uploads` is one capability on every adapter that hides intent creation, byte transfer, and
+completion. Bridge payloads are structured-clone values, so a plugin sends a `Blob` or `File` with a
+file name and content type, and the host keeps the intent, upload URL, headers, and credential. A
+non-`Blob` source fails with `invalid-input`. There is no cancellation; disposal aborts the transfer.
 
 `assets.resolve` accepts 1 to 64 managed local or S3 locators and returns signed URLs with expiry.
 Remote images do not use it. Disposing a bridge session aborts pending resolution, but an issued URL

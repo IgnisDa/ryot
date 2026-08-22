@@ -21,6 +21,7 @@ import {
 	PluginBridgeHostMessage,
 	PluginManagedAssetResolution,
 	PluginBridgeOperationResult,
+	PluginBridgeUploadResult,
 	PluginBridgeRyotQLCancel,
 	PluginBridgeRyotQLResult,
 	PluginNavigationTarget,
@@ -373,6 +374,78 @@ describe("plugin client bridge contract", () => {
 			Result.isFailure(decode({ reason: "caller", requestId: "request-1", type: "ryotql-cancel" })),
 		).toBe(true);
 		expect(Result.isFailure(decode({ type: "ryotql-cancel" }))).toBe(true);
+	});
+
+	it("carries an upload source as a Blob and rejects any other value", () => {
+		const decodeRequest = Schema.decodeUnknownResult(PluginBridgeClientMessage);
+		const request = {
+			requestId: "request-1",
+			fileName: "items.csv",
+			contentType: "text/csv",
+			type: "upload-request" as const,
+			source: new Blob(["id,title"], { type: "text/csv" }),
+		};
+
+		const decoded = decodeRequest(request);
+		expect(Result.isSuccess(decoded)).toBe(true);
+		expect(Result.isSuccess(decoded) && decoded.success).toMatchObject({ source: request.source });
+
+		expect(Result.isFailure(decodeRequest({ ...request, source: {} }))).toBe(true);
+		expect(Result.isFailure(decodeRequest({ ...request, source: "id,title" }))).toBe(true);
+		expect(Result.isFailure(decodeRequest({ ...request, source: new Uint8Array([1, 2, 3]) }))).toBe(
+			true,
+		);
+	});
+
+	it("accepts a File as an upload source because File extends Blob", () => {
+		const decodeRequest = Schema.decodeUnknownResult(PluginBridgeClientMessage);
+
+		expect(
+			Result.isSuccess(
+				decodeRequest({
+					requestId: "request-1",
+					fileName: "items.csv",
+					contentType: "text/csv",
+					type: "upload-request",
+					source: new File(["id,title"], "items.csv", { type: "text/csv" }),
+				}),
+			),
+		).toBe(true);
+	});
+
+	it("reports an upload outcome as a token or a bridge reason", () => {
+		const decodeResult = Schema.decodeUnknownResult(PluginBridgeUploadResult);
+
+		expect(
+			Result.isSuccess(
+				decodeResult({
+					outcome: "success",
+					requestId: "request-1",
+					type: "upload-result",
+					token: { token: "upload-token", expiresAt: "2026-01-01T00:00:00.000Z" },
+				}),
+			),
+		).toBe(true);
+		expect(
+			Result.isSuccess(
+				decodeResult({
+					outcome: "failure",
+					requestId: "request-1",
+					type: "upload-result",
+					reason: "operation-failed",
+				}),
+			),
+		).toBe(true);
+		expect(
+			Result.isFailure(
+				decodeResult({
+					outcome: "failure",
+					requestId: "request-1",
+					type: "upload-result",
+					reason: "asset-failed",
+				}),
+			),
+		).toBe(true);
 	});
 
 	it("requires JSON operation inputs and success values", () => {

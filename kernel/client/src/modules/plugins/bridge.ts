@@ -27,8 +27,12 @@ import {
 	type PluginBridgeRyotQLRequest,
 	type PluginBridgeRyotQLResult,
 	type PluginBridgeScreenState,
+	type PluginBridgeUploadRequest,
+	type PluginBridgeUploadResult,
 	type PluginOperationOutcome,
 	type PluginOperationRequest,
+	type PluginUploadOutcome,
+	type PluginUploadRequest,
 	type PluginRyotQLOutcome,
 	type PluginRyotQLRequest,
 	type PluginThemeSnapshot,
@@ -60,7 +64,7 @@ type PluginBridgeState = "ready" | "active" | "closing" | "failed" | "disposed";
 
 type PendingRequest = {
 	readonly controller: AbortController;
-	readonly type: "asset" | "operation" | "ryotql";
+	readonly type: "asset" | "operation" | "ryotql" | "upload";
 };
 
 type PluginBridgeOptions = {
@@ -91,6 +95,10 @@ type PluginBridgeOptions = {
 		request: PluginOperationRequest,
 		signal: AbortSignal,
 	) => Promise<PluginOperationOutcome>;
+	readonly onUpload: (
+		request: PluginUploadRequest,
+		signal: AbortSignal,
+	) => Promise<PluginUploadOutcome>;
 };
 
 const decodeReady = Schema.decodeUnknownResult(PluginBridgeReady);
@@ -262,6 +270,44 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 			});
 	}
 
+	function handleUpload(request: PluginBridgeUploadRequest) {
+		if (pending.has(request.requestId)) {
+			return;
+		}
+		if (pending.size >= CLIENT_BRIDGE_MAX_PENDING_REQUESTS) {
+			fail();
+			return;
+		}
+		const controller = new AbortController();
+		pending.set(request.requestId, { controller, type: "upload" });
+		void Promise.resolve()
+			.then(() =>
+				options.onUpload(
+					{ source: request.source, fileName: request.fileName, contentType: request.contentType },
+					controller.signal,
+				),
+			)
+			.catch(() => ({ outcome: "failure", reason: "transport" }) satisfies PluginUploadOutcome)
+			.then((outcome) => {
+				if (state !== "active" || pending.get(request.requestId)?.controller !== controller) {
+					return undefined;
+				}
+				try {
+					channel.port1.postMessage({
+						...outcome,
+						type: "upload-result",
+						requestId: request.requestId,
+					} satisfies PluginBridgeUploadResult);
+					if (pending.get(request.requestId)?.controller === controller) {
+						pending.delete(request.requestId);
+					}
+				} catch {
+					fail();
+				}
+				return undefined;
+			});
+	}
+
 	function handleAssets(request: PluginBridgeAssetRequest) {
 		if (pending.has(request.requestId)) {
 			return;
@@ -397,6 +443,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 					Match.when({ type: "ryotql-cancel" }, (request) => handleRyotQLCancel(request)),
 					Match.when({ type: "ryotql-request" }, (request) => handleRyotQL(request)),
 					Match.when({ type: "operation-request" }, (request) => handleOperation(request)),
+					Match.when({ type: "upload-request" }, (request) => handleUpload(request)),
 					Match.exhaustive,
 				);
 				return;

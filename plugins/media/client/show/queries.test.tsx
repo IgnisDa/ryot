@@ -63,7 +63,7 @@ const recordingAdapter = () => {
 		reject: (error: Error) => void;
 		document: Parameters<RyotClientAdapter["query"]>[0];
 	}> = [];
-	const adapter: RyotClientAdapter = {
+	const adapter: Partial<RyotClientAdapter> = {
 		query: (document) =>
 			new Promise((resolve, reject) => requests.push({ document, resolve, reject })),
 		watchEntities: (interest, onUpdate) => {
