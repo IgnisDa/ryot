@@ -69,6 +69,7 @@ const makeOperations = (users: ReadonlyArray<GodModeUser>, calls: Array<unknown>
 const renderUsers = (
 	users: ReadonlyArray<GodModeUser>,
 	transfer: ResetLinkTransfer = () => Promise.resolve("copied"),
+	overrides: Partial<GodModeUserOperations> = {},
 ) => {
 	const calls: Array<unknown> = [];
 	const backInterceptors = createBackInterceptors();
@@ -76,8 +77,8 @@ const renderUsers = (
 		<UsersAdministration
 			transferResetLink={transfer}
 			backInterceptors={backInterceptors}
-			operations={makeOperations(users, calls)}
 			onUnauthorized={() => calls.push("unauthorized")}
+			operations={{ ...makeOperations(users, calls), ...overrides }}
 		/>,
 	);
 	return { calls, backInterceptors };
@@ -190,6 +191,70 @@ describe("God Mode users administration", () => {
 		expect(view.backInterceptors.run()).toBe(true);
 		await waitFor(() => expect(deleteDialog.isConnected).toBe(false));
 		await waitFor(() => expect(document.activeElement).toBe(trigger));
+	});
+
+	it("contains dialog Tab focus and closes the confirmation on Escape", async () => {
+		const user = userEvent.setup();
+		renderUsers([makeUser(0)]);
+		await screen.findByText("reader-0@example.com");
+
+		await user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" }));
+		await user.click(screen.getByRole("menuitem", { name: "Reset account" }));
+		const dialog = await screen.findByRole("dialog", { name: "Reset this user?" });
+		const cancel = within(dialog).getByRole("button", { name: "Cancel" });
+		const confirm = within(dialog).getByRole("button", { name: "Reset account" });
+		expect(document.activeElement).toBe(cancel);
+
+		fireEvent.keyDown(dialog, { key: "Tab", shiftKey: true });
+		expect(document.activeElement).toBe(confirm);
+		fireEvent.keyDown(dialog, { key: "Tab" });
+		expect(document.activeElement).toBe(cancel);
+
+		fireEvent.keyDown(document, { key: "Escape" });
+		await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+	});
+
+	it("refuses every dismissal while the destructive operation is pending", async () => {
+		const user = userEvent.setup();
+		let settle: (() => void) | undefined;
+		const view = renderUsers([makeUser(0)], undefined, {
+			deleteUser: () =>
+				new Promise((resolve) => {
+					settle = () =>
+						resolve(
+							Exit.succeed({
+								failure: null,
+								startedAt: null,
+								finishedAt: null,
+								id: "operation-1",
+								resetResult: null,
+								kind: "delete" as const,
+								status: "completed" as const,
+								userId: UserId.make("user-0"),
+								createdAt: "2026-09-01T00:00:00.000Z",
+							}),
+						);
+				}),
+		});
+		await screen.findByText("reader-0@example.com");
+
+		await user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" }));
+		await user.click(screen.getByRole("menuitem", { name: "Delete user" }));
+		const dialog = await screen.findByRole("dialog", { name: "Delete this user?" });
+		fireEvent.click(within(dialog).getByRole("button", { name: "Delete user" }));
+		await screen.findByRole("button", { name: "Deleting..." });
+
+		fireEvent.keyDown(document, { key: "Escape" });
+		fireEvent.click(screen.getByRole("button", { name: "Close" }));
+		expect(view.backInterceptors.run()).toBe(true);
+		expect(dialog.isConnected).toBe(true);
+		expect(within(dialog).getByRole<HTMLButtonElement>("button", { name: "Cancel" }).disabled).toBe(
+			true,
+		);
+
+		settle?.();
+		await waitFor(() => expect(dialog.isConnected).toBe(false));
+		expect(screen.queryByText("reader-0@example.com")).toBeNull();
 	});
 
 	it("disables unavailable reset links and keeps the note in the menu", async () => {
