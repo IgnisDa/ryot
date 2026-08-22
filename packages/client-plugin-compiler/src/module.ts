@@ -2,22 +2,21 @@
 // oxlint-disable-next-line effecttsgo/node-builtin-import
 import { basename, resolve } from "node:path";
 
-import { BunFileSystem } from "@effect/platform-bun";
 import {
 	isPluginClientArtifactContentType,
 	type PluginClientArtifact,
 } from "@ryot-app/client-plugin-contract";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
+import type { ViteBuildService } from "@ryot-app/vite-compiler";
 import {
 	acquireCompilerWorkspace,
 	buildWithVite,
 	stageGeneratedFiles,
 	stageSourceFiles,
 	validateRelativePath,
-	ViteBuildService,
 } from "@ryot-app/vite-compiler";
 import tailwindcss from "@tailwindcss/vite";
-import { Effect, Layer, Result } from "effect";
+import { Effect, type FileSystem, Result } from "effect";
 
 import { clientArtifactFile, clientArtifactMetadata } from "./artifact";
 import { validateClientPluginPackage } from "./compile";
@@ -30,7 +29,6 @@ import { CLIENT_PLUGIN_COMPILER_LIMITS } from "./limits";
 import { isCompiledTextSource } from "./planning";
 import { clientTypeScriptProject } from "./semantic-check";
 
-const compilerLayer = Layer.merge(BunFileSystem.layer, ViteBuildService.layer);
 const PLUGIN_IMPORT =
 	/^@ryot-app\/plugins\/([a-z0-9]+(?:[._-][a-z0-9]+)*)\/[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
 const OUTPUT_FILE =
@@ -128,7 +126,11 @@ const outputReferenceIssue = (
 
 export const compileClientPluginModule = (
 	input: ClientPluginCompilerPackageInput,
-): Effect.Effect<{ readonly artifact: PluginClientArtifact }, ClientPluginCompilerFailure> =>
+): Effect.Effect<
+	{ readonly artifact: PluginClientArtifact },
+	ClientPluginCompilerFailure,
+	FileSystem.FileSystem | ViteBuildService
+> =>
 	Effect.gen(function* () {
 		const { dependencies, compiledFiles: sourceEntries } =
 			yield* validateClientPluginPackage(input);
@@ -257,18 +259,14 @@ export const compileClientPluginModule = (
 			}
 			let bytes = file.bytes;
 			if (file.path === "module.js") {
-				let javascript: string;
-				try {
-					javascript = TEXT_DECODER.decode(bytes);
-				} catch {
-					return yield* failure(
-						file.path,
-						"RYOT_CLIENT_UTF8",
-						"Emitted module JavaScript is not valid UTF-8",
-					);
-				}
-				javascript = normalizeWorkspaceRegions(javascript, workspace.rootPath).trimStart();
-				bytes = new TextEncoder().encode(javascript);
+				const javascript = yield* Effect.try({
+					try: () => TEXT_DECODER.decode(bytes),
+					catch: () =>
+						failure(file.path, "RYOT_CLIENT_UTF8", "Emitted module JavaScript is not valid UTF-8"),
+				});
+				bytes = new TextEncoder().encode(
+					normalizeWorkspaceRegions(javascript, workspace.rootPath).trimStart(),
+				);
 			}
 			if (
 				!file.contentType.startsWith("text/") &&
@@ -286,16 +284,15 @@ export const compileClientPluginModule = (
 		const names = new Set(normalizedFiles.map(({ path }) => path));
 		for (const file of normalizedFiles) {
 			if (file.contentType.startsWith("text/")) {
-				let contents: string;
-				try {
-					contents = TEXT_DECODER.decode(file.bytes);
-				} catch {
-					return yield* failure(
-						file.path,
-						"RYOT_CLIENT_UTF8",
-						`Emitted text file "${file.path}" is not valid UTF-8`,
-					);
-				}
+				const contents = yield* Effect.try({
+					try: () => TEXT_DECODER.decode(file.bytes),
+					catch: () =>
+						failure(
+							file.path,
+							"RYOT_CLIENT_UTF8",
+							`Emitted text file "${file.path}" is not valid UTF-8`,
+						),
+				});
 				const issue = outputReferenceIssue(
 					file.path,
 					contents,
@@ -323,4 +320,4 @@ export const compileClientPluginModule = (
 		}
 		const metadata = clientArtifactMetadata(input.name, files);
 		return { artifact: { ...metadata, files: sortBy(files, ({ name }) => name) } };
-	}).pipe(Effect.provide(compilerLayer), Effect.scoped);
+	}).pipe(Effect.scoped);

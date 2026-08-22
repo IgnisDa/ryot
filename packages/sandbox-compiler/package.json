@@ -23,6 +23,10 @@
 			"types": "./src/compiler-plugin-manifest.ts",
 			"default": "./src/compiler-plugin-manifest.ts"
 		},
+		"./platform": {
+			"types": "./src/compiler-platform.ts",
+			"default": "./src/compiler-platform.ts"
+		},
 		"./plugins": {
 			"types": "./src/compiler-plugins.ts",
 			"default": "./src/compiler-plugins.ts"

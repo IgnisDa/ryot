@@ -1,8 +1,12 @@
-import { compileClientPluginModule } from "@ryot-app/client-plugin-compiler";
+import {
+	clientPluginCompilerPlatformLayer,
+	compileClientPluginModule,
+} from "@ryot-app/client-plugin-compiler";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import type { PluginArchivePackage } from "@ryot-app/plugin-archive";
+import { sandboxCompilerPlatformLayer } from "@ryot-app/sandbox-compiler/platform";
 import { compilePluginManifestScripts } from "@ryot-app/sandbox-compiler/plugin-manifest";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 
 export type PluginPackageInput = Pick<PluginArchivePackage, "files" | "manifest"> &
 	Partial<Pick<PluginArchivePackage, "compiledClient" | "compiledScripts">>;
@@ -62,4 +66,6 @@ export const compilePluginPackage = (input: PluginPackageInput) =>
 			manifest: input.manifest,
 			...(compiledClient ? { compiledClient } : {}),
 		} satisfies PluginArchivePackage;
-	});
+	}).pipe(
+		Effect.provide(Layer.merge(sandboxCompilerPlatformLayer, clientPluginCompilerPlatformLayer)),
+	);

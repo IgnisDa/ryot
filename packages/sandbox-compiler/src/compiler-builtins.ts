@@ -12,7 +12,6 @@ import {
 	toTypeScriptDiagnostic,
 } from "./compiler-diagnostics";
 import { extractSandboxManifest } from "./compiler-manifest";
-import { sandboxCompilerPlatformLayer } from "./compiler-platform";
 import {
 	createTypeScriptSourcesProjectForEntries,
 	sandboxSourcePath,
@@ -105,7 +104,7 @@ const workflowSourceFiles = (entry: ts.SourceFile, sourceFiles: ReadonlyArray<ts
 	return reachable;
 };
 
-const compileBuiltInSandboxEntryInternal = (sources: BuiltInSandboxEntry) =>
+export const compileBuiltInSandboxEntry = (sources: BuiltInSandboxEntry) =>
 	sources.files[sources.entry] === undefined
 		? sandboxCompilationFailure([
 				sandboxCompilerDiagnostic(
@@ -113,7 +112,7 @@ const compileBuiltInSandboxEntryInternal = (sources: BuiltInSandboxEntry) =>
 					`Built-in sandbox entry does not exist: ${sources.entry}`,
 				),
 			])
-		: compileSandboxPackageEntriesInternal(sources, [sources.entry]).pipe(
+		: compileSandboxPackageEntries(sources, [sources.entry]).pipe(
 				Effect.flatMap(([compiled]) =>
 					compiled
 						? Effect.succeed(compiled)
@@ -125,14 +124,6 @@ const compileBuiltInSandboxEntryInternal = (sources: BuiltInSandboxEntry) =>
 							]),
 				),
 			);
-
-export const compileBuiltInSandboxEntry = (sources: BuiltInSandboxEntry) =>
-	compileBuiltInSandboxEntryInternal(sources).pipe(Effect.provide(sandboxCompilerPlatformLayer));
-
-export const compileBuiltInSandboxEntries = (entries: readonly BuiltInSandboxEntry[]) =>
-	Effect.forEach(entries, compileBuiltInSandboxEntryInternal, { concurrency: 2 }).pipe(
-		Effect.provide(sandboxCompilerPlatformLayer),
-	);
 
 const createSandboxPackageProject = (
 	sources: SandboxTypeScriptSources,
@@ -341,7 +332,7 @@ const compileValidatedSandboxEntries = (
 		});
 	});
 
-const compileSandboxPackageEntriesInternal = (
+export const compileSandboxPackageEntries = (
 	sources: SandboxTypeScriptSources,
 	entries: ReadonlyArray<string>,
 	declarations: ReadonlyMap<string, SandboxEntryDeclaration> = new Map(),
@@ -361,12 +352,3 @@ const compileSandboxPackageEntriesInternal = (
 		);
 		return yield* compileValidatedSandboxEntries(sources, validatedEntries, dependencies);
 	});
-
-export const compileSandboxPackageEntries = (
-	sources: SandboxTypeScriptSources,
-	entries: ReadonlyArray<string>,
-	declarations: ReadonlyMap<string, SandboxEntryDeclaration> = new Map(),
-) =>
-	compileSandboxPackageEntriesInternal(sources, entries, declarations).pipe(
-		Effect.provide(sandboxCompilerPlatformLayer),
-	);

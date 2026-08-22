@@ -2,17 +2,15 @@
 // oxlint-disable-next-line effecttsgo/node-builtin-import
 import { posix, resolve } from "node:path";
 
-import { BunFileSystem } from "@effect/platform-bun";
 import type { PluginClientArtifact } from "@ryot-app/client-plugin-contract";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import {
 	acquireCompilerWorkspace,
 	buildWithVite,
 	stageGeneratedFiles,
-	ViteBuildService,
 } from "@ryot-app/vite-compiler";
 import tailwindcss from "@tailwindcss/vite";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 
 import { clientArtifactFile, clientArtifactMetadata } from "./artifact";
 import {
@@ -23,7 +21,6 @@ import { clientPluginCompilationFailure, clientPluginCompilerDiagnostic } from "
 import { runtimeStylesheet } from "./generated-source";
 import { clientTypeScriptProject } from "./semantic-check";
 
-const compilerLayer = Layer.merge(BunFileSystem.layer, ViteBuildService.layer);
 const CLIENT_RUNTIME_ARTIFACT_NAME = "client-plugin-runtime";
 const RUNTIME_STYLESHEET = "runtime.css";
 const DEFAULT_EXPORT_SPECIFIERS = new Set(["clsx", "react"]);
@@ -368,110 +365,109 @@ const validateOutputReferences = (
 	return null;
 };
 
-export const buildClientRuntime = () =>
-	Effect.gen(function* () {
-		const dependencies = yield* resolveClientPluginCompilerDependencies;
-		const workspace = yield* acquireCompilerWorkspace({
-			parentPath: dependencies.compilerRoot,
-		}).pipe(Effect.mapError((error) => failure(error.message)));
-		const bootstrapFileName = "entry-bootstrap.js";
-		const entries: Record<string, string> = Object.fromEntries([
-			...CLIENT_DEPENDENCY_SPECIFIERS.map((specifier, index) => [specifier, `entry-${index}.js`]),
-			["bootstrap", bootstrapFileName],
-		]);
-		yield* stageGeneratedFiles(workspace, [
-			...CLIENT_DEPENDENCY_SPECIFIERS.map((specifier, index) => ({
-				path: `entries/entry-${index}.ts`,
-				contents: generatedEntry(specifier),
-			})),
-			{ path: "bootstrap.ts", contents: generatedBootstrapSource },
-			{ path: RUNTIME_STYLESHEET, contents: runtimeStylesheet },
-		]).pipe(Effect.mapError((error) => failure(error.message)));
+export const buildClientRuntime = Effect.gen(function* () {
+	const dependencies = yield* resolveClientPluginCompilerDependencies;
+	const workspace = yield* acquireCompilerWorkspace({ parentPath: dependencies.compilerRoot }).pipe(
+		Effect.mapError((error) => failure(error.message)),
+	);
+	const bootstrapFileName = "entry-bootstrap.js";
+	const entries: Record<string, string> = Object.fromEntries([
+		...CLIENT_DEPENDENCY_SPECIFIERS.map((specifier, index) => [specifier, `entry-${index}.js`]),
+		["bootstrap", bootstrapFileName],
+	]);
+	yield* stageGeneratedFiles(workspace, [
+		...CLIENT_DEPENDENCY_SPECIFIERS.map((specifier, index) => ({
+			path: `entries/entry-${index}.ts`,
+			contents: generatedEntry(specifier),
+		})),
+		{ path: "bootstrap.ts", contents: generatedBootstrapSource },
+		{ path: RUNTIME_STYLESHEET, contents: runtimeStylesheet },
+	]).pipe(Effect.mapError((error) => failure(error.message)));
 
-		const bundled = yield* buildWithVite({
-			workspace,
-			root: workspace.generatedPath,
-			typeScriptProject: clientTypeScriptProject,
-			config: {
-				base: "./",
-				mode: "production",
-				plugins: tailwindcss(),
-				oxc: { jsx: { development: false } },
-				envPrefix: "__RYOT_CLIENT_RUNTIME_NO_ENV__",
-				define: { "import.meta.env": "{}", "process.env.NODE_ENV": '"production"' },
-				resolve: {
-					dedupe: ["react", "react-dom", "@ryot-app/client-sdk", "@ryot-app/client-ui-sdk"],
-				},
-				build: {
-					minify: true,
-					target: "es2022",
-					cssCodeSplit: true,
-					assetsInlineLimit: 0,
-					modulePreload: false,
-					rolldownOptions: {
-						preserveEntrySignatures: "strict",
-						output: {
-							format: "es",
-							entryFileNames: "entry-[name].js",
-							chunkFileNames: "chunk-[hash].js",
-							assetFileNames: ({ names }) =>
-								names.some((name) => name.endsWith(".css"))
-									? RUNTIME_STYLESHEET
-									: "asset-[hash][extname]",
-						},
-						input: Object.fromEntries([
-							...CLIENT_DEPENDENCY_SPECIFIERS.map((_, index) => [
-								String(index),
-								resolve(workspace.generatedPath, `entries/entry-${index}.ts`),
-							]),
-							["bootstrap", resolve(workspace.generatedPath, "bootstrap.ts")],
-							["styles", resolve(workspace.generatedPath, RUNTIME_STYLESHEET)],
-						]),
+	const bundled = yield* buildWithVite({
+		workspace,
+		root: workspace.generatedPath,
+		typeScriptProject: clientTypeScriptProject,
+		config: {
+			base: "./",
+			mode: "production",
+			plugins: tailwindcss(),
+			oxc: { jsx: { development: false } },
+			envPrefix: "__RYOT_CLIENT_RUNTIME_NO_ENV__",
+			define: { "import.meta.env": "{}", "process.env.NODE_ENV": '"production"' },
+			resolve: {
+				dedupe: ["react", "react-dom", "@ryot-app/client-sdk", "@ryot-app/client-ui-sdk"],
+			},
+			build: {
+				minify: true,
+				target: "es2022",
+				cssCodeSplit: true,
+				assetsInlineLimit: 0,
+				modulePreload: false,
+				rolldownOptions: {
+					preserveEntrySignatures: "strict",
+					output: {
+						format: "es",
+						entryFileNames: "entry-[name].js",
+						chunkFileNames: "chunk-[hash].js",
+						assetFileNames: ({ names }) =>
+							names.some((name) => name.endsWith(".css"))
+								? RUNTIME_STYLESHEET
+								: "asset-[hash][extname]",
 					},
+					input: Object.fromEntries([
+						...CLIENT_DEPENDENCY_SPECIFIERS.map((_, index) => [
+							String(index),
+							resolve(workspace.generatedPath, `entries/entry-${index}.ts`),
+						]),
+						["bootstrap", resolve(workspace.generatedPath, "bootstrap.ts")],
+						["styles", resolve(workspace.generatedPath, RUNTIME_STYLESHEET)],
+					]),
 				},
 			},
-		}).pipe(
-			Effect.mapError((error) =>
-				clientPluginCompilationFailure(
-					(error.diagnostics ?? []).some(({ severity }) => severity === "error")
-						? (error.diagnostics ?? [])
-								.filter(({ severity }) => severity === "error")
-								.map(toDiagnostic)
-						: failure(error.message).diagnostics,
-				),
+		},
+	}).pipe(
+		Effect.mapError((error) =>
+			clientPluginCompilationFailure(
+				(error.diagnostics ?? []).some(({ severity }) => severity === "error")
+					? (error.diagnostics ?? [])
+							.filter(({ severity }) => severity === "error")
+							.map(toDiagnostic)
+					: failure(error.message).diagnostics,
 			),
-		);
-		const emittedErrors = bundled.diagnostics
-			.filter(({ severity }) => severity === "error")
-			.map(toDiagnostic);
-		if (emittedErrors.length > 0) {
-			return yield* clientPluginCompilationFailure(emittedErrors);
-		}
+		),
+	);
+	const emittedErrors = bundled.diagnostics
+		.filter(({ severity }) => severity === "error")
+		.map(toDiagnostic);
+	if (emittedErrors.length > 0) {
+		return yield* clientPluginCompilationFailure(emittedErrors);
+	}
 
-		const files = sortBy(bundled.files.map(clientArtifactFile), ({ name }) => name);
-		for (const [index, specifier] of CLIENT_DEPENDENCY_SPECIFIERS.entries()) {
-			const name = entries[specifier];
-			const output = files.find((file) => file.name === name);
-			if (name !== `entry-${index}.js` || !output?.contentType.startsWith("text/javascript")) {
-				return yield* failure(`Vite did not emit the runtime entry for "${specifier}"`);
-			}
+	const files = sortBy(bundled.files.map(clientArtifactFile), ({ name }) => name);
+	for (const [index, specifier] of CLIENT_DEPENDENCY_SPECIFIERS.entries()) {
+		const name = entries[specifier];
+		const output = files.find((file) => file.name === name);
+		if (name !== `entry-${index}.js` || !output?.contentType.startsWith("text/javascript")) {
+			return yield* failure(`Vite did not emit the runtime entry for "${specifier}"`);
 		}
-		const bootstrapName = entries["bootstrap"];
-		const bootstrapOutput = files.find((file) => file.name === bootstrapName);
-		if (
-			bootstrapName !== bootstrapFileName ||
-			!bootstrapOutput?.contentType.startsWith("text/javascript")
-		) {
-			return yield* failure("Vite did not emit the client runtime bootstrap entry");
-		}
-		if (!files.some((file) => file.name === RUNTIME_STYLESHEET)) {
-			return yield* failure("Vite did not emit the client runtime stylesheet");
-		}
-		const missingReference = validateOutputReferences(bundled.files);
-		if (missingReference) {
-			return yield* failure(missingReference);
-		}
-		const metadata = clientArtifactMetadata(CLIENT_RUNTIME_ARTIFACT_NAME, files);
-		const artifact: PluginClientArtifact = { ...metadata, files };
-		return { entries, artifact };
-	}).pipe(Effect.provide(compilerLayer), Effect.scoped);
+	}
+	const bootstrapName = entries["bootstrap"];
+	const bootstrapOutput = files.find((file) => file.name === bootstrapName);
+	if (
+		bootstrapName !== bootstrapFileName ||
+		!bootstrapOutput?.contentType.startsWith("text/javascript")
+	) {
+		return yield* failure("Vite did not emit the client runtime bootstrap entry");
+	}
+	if (!files.some((file) => file.name === RUNTIME_STYLESHEET)) {
+		return yield* failure("Vite did not emit the client runtime stylesheet");
+	}
+	const missingReference = validateOutputReferences(bundled.files);
+	if (missingReference) {
+		return yield* failure(missingReference);
+	}
+	const metadata = clientArtifactMetadata(CLIENT_RUNTIME_ARTIFACT_NAME, files);
+	const artifact: PluginClientArtifact = { ...metadata, files };
+	return { entries, artifact };
+}).pipe(Effect.scoped);
