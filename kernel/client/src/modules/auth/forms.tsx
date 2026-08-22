@@ -1,3 +1,4 @@
+import { Button } from "@ryot/client-ui-sdk";
 import { createErrorVisibility, useForm } from "@tanstack/react-form";
 import { useRef, useState } from "react";
 
@@ -67,24 +68,24 @@ export function CredentialsForm(props: {
 					aria-label="Authentication mode"
 					className="grid grid-cols-2 gap-1 rounded-lg bg-surface-2 p-1"
 				>
-					<button
+					<Button
 						type="button"
+						variant="switch"
 						disabled={props.disabled}
 						onClick={() => changeMode("login")}
 						aria-pressed={props.mode === "login"}
-						className="ui-button-switch"
 					>
 						Sign in
-					</button>
-					<button
+					</Button>
+					<Button
 						type="button"
+						variant="switch"
 						disabled={props.disabled}
 						onClick={() => changeMode("signup")}
 						aria-pressed={props.mode === "signup"}
-						className="ui-button-switch"
 					>
 						Sign up
-					</button>
+					</Button>
 				</div>
 			)}
 			<form
@@ -191,13 +192,14 @@ export function CredentialsForm(props: {
 				)}
 				<form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting] as const}>
 					{([canSubmit, isSubmitting]) => (
-						<button
+						<Button
 							type="submit"
-							className="ui-button-primary w-full"
+							variant="primary"
+							className="w-full"
 							disabled={props.disabled || !canSubmit}
 						>
 							{isSubmitting ? content.pending : content.action}
-						</button>
+						</Button>
 					)}
 				</form.Subscribe>
 			</form>
@@ -301,27 +303,17 @@ export function TwoFactorForm(props: {
 				<form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting] as const}>
 					{([canSubmit, isSubmitting]) => (
 						<>
-							<button className="ui-button-primary w-full" type="submit" disabled={!canSubmit}>
+							<Button className="w-full" type="submit" variant="primary" disabled={!canSubmit}>
 								{isSubmitting ? "Verifying..." : "Verify"}
-							</button>
+							</Button>
 							{props.methods.length > 1 && (
-								<button
-									type="button"
-									onClick={changeMethod}
-									disabled={isSubmitting}
-									className="ui-button-text"
-								>
+								<Button type="button" variant="text" onClick={changeMethod} disabled={isSubmitting}>
 									{usingBackupCode ? "Use an authenticator code" : "Use a backup code"}
-								</button>
+								</Button>
 							)}
-							<button
-								type="button"
-								onClick={props.onBack}
-								disabled={isSubmitting}
-								className="ui-button-text"
-							>
+							<Button type="button" variant="text" onClick={props.onBack} disabled={isSubmitting}>
 								Back to sign in
-							</button>
+							</Button>
 						</>
 					)}
 				</form.Subscribe>
