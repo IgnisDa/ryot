@@ -15,11 +15,22 @@ const session = (initial: AuthSessionSnapshot): AuthSessionStore => {
 	};
 };
 
+const authenticated: AuthSessionSnapshot = {
+	status: "authenticated",
+	user: {
+		id: "user-1",
+		image: null,
+		name: "Ada Lovelace",
+		email: "ada@ryot.example",
+	},
+};
+
 describe("account summary", () => {
 	it("shows the current session name, email, and avatar", () => {
 		render(
 			<AccountSummary
 				active={false}
+				isPro={false}
 				onNavigate={() => undefined}
 				session={session({
 					status: "authenticated",
@@ -39,5 +50,31 @@ describe("account summary", () => {
 		expect(screen.getByRole("img", { name: "Ada Lovelace's avatar" }).getAttribute("src")).toBe(
 			"https://example.test/ada.png",
 		);
+	});
+
+	it("crowns the account avatar for a Pro instance", () => {
+		render(
+			<AccountSummary
+				isPro
+				active={false}
+				onNavigate={() => undefined}
+				session={session(authenticated)}
+			/>,
+		);
+
+		expect(screen.getByRole("img", { name: "Ryot Pro" })).not.toBeNull();
+	});
+
+	it("leaves the account avatar plain on a community instance", () => {
+		render(
+			<AccountSummary
+				active={false}
+				isPro={false}
+				onNavigate={() => undefined}
+				session={session(authenticated)}
+			/>,
+		);
+
+		expect(screen.queryByRole("img", { name: "Ryot Pro" })).toBeNull();
 	});
 });
