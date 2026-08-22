@@ -1,4 +1,5 @@
 import {
+	kernelCollectionDetailRenderer,
 	kernelEntityBrowserRenderer,
 	kernelResultsTableRenderer,
 } from "@ryot-app/kernel-renderers";
@@ -11,3 +12,10 @@ const kernelRenderers = new Map<string, KernelClientRenderer>([
 ]);
 
 export const getKernelClientRenderer = (name: string) => kernelRenderers.get(name);
+
+const kernelEntityRenderers = new Map<string, KernelClientRenderer>([
+	["collection", kernelCollectionDetailRenderer],
+]);
+
+export const getKernelEntityRenderer = (entitySchemaSlug: string) =>
+	kernelEntityRenderers.get(entitySchemaSlug);
