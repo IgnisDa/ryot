@@ -370,7 +370,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		for (const user of migratedUserRows) {
 			yield* bootstrapNewUser(user.id).pipe(
 				Effect.provideService(PluginUserBootstrapDispatcher, {
-					dispatchAll: () => Effect.sync((): undefined => undefined),
+					dispatchAll: () => Effect.undefined,
 				}),
 				Effect.tapError((error) =>
 					Effect.logError("legacy user bootstrap failed", error).pipe(

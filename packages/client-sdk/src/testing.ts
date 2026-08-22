@@ -166,12 +166,7 @@ export const entityLocation = (
 	entitySchemaSlug: string,
 	search = "",
 ): PluginEntityLocation =>
-	Schema.decodeUnknownSync(PluginEntityLocation)({
-		search,
-		entityId,
-		kind: "entity",
-		entitySchemaSlug,
-	});
+	Schema.decodeSync(PluginEntityLocation)({ search, entityId, kind: "entity", entitySchemaSlug });
 
 export const entityPageContext = (options: {
 	readonly pluginId: string;

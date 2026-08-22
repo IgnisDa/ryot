@@ -363,7 +363,7 @@ export const savedViewCountRecipe = (
 						measures: {
 							total: selectedMeasure(
 								{ expr: selection.expr, function: "countDistinct" },
-								Schema.Number,
+								Schema.Finite,
 							),
 						},
 					}),
@@ -578,7 +578,7 @@ export const entityBrowserRecipe = (
 														input.settings.ownerPluginIdField,
 													),
 												};
-												return yield* Schema.decodeUnknownResult(EntityBrowserResultItem)(item);
+												return yield* Schema.decodeResult(EntityBrowserResultItem)(item);
 											}),
 										),
 									);
@@ -634,7 +634,7 @@ export const entityBrowserCountRecipe = (
 					measures: {
 						total: selectedMeasure(
 							{ expr: selection.expr, function: "countDistinct" },
-							Schema.Number,
+							Schema.Finite,
 						),
 					},
 				}),
