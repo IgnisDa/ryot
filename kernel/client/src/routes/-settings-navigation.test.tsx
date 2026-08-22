@@ -213,7 +213,45 @@ describe("settings navigation", () => {
 		expect(view.router.history.canGoBack()).toBe(false);
 	});
 
-	it("falls back to a workspace remembered during the current shell lifetime", async () => {
+	it("falls back to a workspace chosen during the current shell lifetime", async () => {
+		const recorder = makeWorkspaceRecorder();
+		const entries: PluginClientCatalog = [
+			catalog[0],
+			{
+				...catalog[0],
+				sortOrder: 1,
+				name: "Journal",
+				slug: "journal",
+				pluginId: "plugin-2",
+				installationId: "installation-2",
+			},
+		];
+		const view = mountView(
+			"/fixture",
+			"fixture",
+			entries,
+			undefined,
+			undefined,
+			makeStorageStub("fixture", recorder),
+		);
+		await screen.findByTitle("fixture plugin");
+
+		fireEvent.click(screen.getByRole("button", { name: "Fixture workspace, fixture" }));
+		fireEvent.click(screen.getByRole("menuitemradio", { name: "Switch to Journal workspace" }));
+		await waitFor(() =>
+			expect(recorder.setCalls).toEqual([
+				{ slug: "journal", scope: { serverUrl: server, userId: authenticated.user.id } },
+			]),
+		);
+		await view.router.navigate({ href: "/settings", replace: true });
+		await screen.findByRole("heading", { level: 1, name: "Settings" });
+
+		fireEvent.click(screen.getByRole("button", { name: "Go back" }));
+		await waitFor(() => expect(view.router.state.location.pathname).toBe("/journal"));
+		expect(view.router.history.canGoBack()).toBe(false);
+	});
+
+	it("does not adopt a workspace reached only by its direct route", async () => {
 		const recorder = makeWorkspaceRecorder();
 		const entries: PluginClientCatalog = [
 			catalog[0],
@@ -237,17 +275,14 @@ describe("settings navigation", () => {
 		await screen.findByTitle("fixture plugin");
 
 		await view.router.navigate({ href: "/journal", replace: true });
-		await waitFor(() =>
-			expect(recorder.setCalls).toEqual([
-				{ slug: "journal", scope: { serverUrl: server, userId: authenticated.user.id } },
-			]),
-		);
+		await screen.findByTitle("journal plugin");
+		expect(recorder.setCalls).toEqual([]);
+
 		await view.router.navigate({ href: "/settings", replace: true });
 		await screen.findByRole("heading", { level: 1, name: "Settings" });
 
 		fireEvent.click(screen.getByRole("button", { name: "Go back" }));
-		await waitFor(() => expect(view.router.state.location.pathname).toBe("/journal"));
-		expect(view.router.history.canGoBack()).toBe(false);
+		await waitFor(() => expect(view.router.state.location.pathname).toBe("/fixture"));
 	});
 });
 
