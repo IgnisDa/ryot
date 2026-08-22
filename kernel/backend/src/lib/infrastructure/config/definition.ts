@@ -37,6 +37,11 @@ const scheduler = group(
 const users = group(
 	{ label: "Users", description: "User account settings" },
 	{
+		demoAccountId: stringField({
+			label: "Demo account ID",
+			envKey: "USERS_DEMO_ACCOUNT_ID",
+			description: "Existing user ID used by the shared interactive demo",
+		}),
 		allowRegistration: booleanField({
 			defaultValue: true,
 			label: "Allow registration",

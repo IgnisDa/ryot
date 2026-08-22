@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "241c54d5-1c45-4948-8793-9c6225cd055f",
+	"id": "fde3b2ff-07ef-471b-af00-3ea70e3a6804",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -6098,6 +6098,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "token",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "session"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "'standard'",
+			"generated": null,
+			"identity": null,
+			"name": "access_class",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "session"
