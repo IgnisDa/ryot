@@ -81,7 +81,7 @@ export function ShowScreen(props: EntityRendererProps) {
 		<ManagedAssetProvider assets={assets}>
 			<PluginScreenFrame
 				hideTitle
-				title={state.status === "ready" ? state.show.name : ""}
+				title={state.status === "ready" ? state.show.name : null}
 				hero={
 					state.status === "ready" ? (
 						<>

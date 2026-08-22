@@ -1,5 +1,6 @@
 import {
 	CLIENT_BRIDGE_MAX_PENDING_REQUESTS,
+	PLUGIN_HEADER_TITLE_MAX,
 	PluginBridgeHostMessage,
 	type PluginBridgeAssetCancel,
 	type PluginBridgeAssetRequest,
@@ -40,6 +41,16 @@ type PluginThemeRoot = { readonly setAttribute: (name: string, value: string) =>
 
 const decodeHostMessage = Schema.decodeUnknownResult(PluginBridgeHostMessage);
 
+const normalizeHeaderTitle = (title: string) => {
+	const trimmed = title.trim();
+	if (trimmed.length === 0) {
+		return null;
+	}
+	return trimmed.length > PLUGIN_HEADER_TITLE_MAX
+		? trimmed.slice(0, PLUGIN_HEADER_TITLE_MAX)
+		: trimmed;
+};
+
 export const createPluginRuntime = (
 	port: MessagePort,
 	init: PluginBridgeInit,
@@ -66,11 +77,12 @@ export const createPluginRuntime = (
 			if (entry === undefined) {
 				return;
 			}
+			const published = title === null ? null : normalizeHeaderTitle(title);
 			post({
 				key: entry.key,
-				index: entry.index,
 				type: "header",
-				header: title === null ? null : { title },
+				index: entry.index,
+				header: published === null ? null : { title: published },
 			} satisfies PluginBridgeHeader);
 		},
 	};
