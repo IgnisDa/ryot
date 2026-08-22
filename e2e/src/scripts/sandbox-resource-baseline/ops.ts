@@ -229,10 +229,24 @@ export const makeRemote = (serverIp: string) => {
 				),
 			};
 		},
-		/** File-exporter sizes for the benchmark collector; a shrinking file means rotation loss. */
+		teardown: Effect.gen(function* () {
+			yield* stopDetached(REMOTE_FILES.watchdogPid);
+			yield* stopDetached(REMOTE_FILES.appPid);
+			yield* stopDetached(REMOTE_FILES.hostPid);
+			yield* run(`rm -f ${REMOTE_FILES.tokenFile}`);
+			const remaining = yield* run(`ls -A ${tools} 2>/dev/null | tr '\n' ' '`);
+			const processes = yield* run(
+				`pgrep -f ryot-benchmark-host >/dev/null 2>&1 && echo running || echo none`,
+			);
+			return { remaining: remaining.trim(), processes: processes.trim() };
+		}),
+		/**
+		 * File-exporter sizes for the benchmark collector; a shrinking file means rotation loss. The
+		 * collector image is distroless, so the sizes are read from the host side of its output mount.
+		 */
 		otlpOutputSizes: Effect.flatMap(containerId("otel"), (id) =>
 			run(
-				`docker exec ${id} sh -c 'for f in /output/*.json; do printf "%s %s\n" "$f" "$(wc -c < "$f")"; done'`,
+				`stat -c '%n %s' "$(docker inspect ${id} --format '{{range .Mounts}}{{if eq .Destination "/output"}}{{.Source}}{{end}}{{end}}')"/*.json`,
 			).pipe(
 				Effect.map((output) =>
 					Object.fromEntries(
@@ -247,17 +261,6 @@ export const makeRemote = (serverIp: string) => {
 				),
 			),
 		),
-		teardown: Effect.gen(function* () {
-			yield* stopDetached(REMOTE_FILES.watchdogPid);
-			yield* stopDetached(REMOTE_FILES.appPid);
-			yield* stopDetached(REMOTE_FILES.hostPid);
-			yield* run(`rm -f ${REMOTE_FILES.tokenFile}`);
-			const remaining = yield* run(`ls -A ${tools} 2>/dev/null | tr '\n' ' '`);
-			const processes = yield* run(
-				`pgrep -f ryot-benchmark-host >/dev/null 2>&1 && echo running || echo none`,
-			);
-			return { remaining: remaining.trim(), processes: processes.trim() };
-		}),
 		resetPeak: Effect.gen(function* () {
 			const offset = yield* fileSize(REMOTE_FILES.hostSamples);
 			yield* run(`kill -USR1 "$(cat ${REMOTE_FILES.hostPid})"`);
