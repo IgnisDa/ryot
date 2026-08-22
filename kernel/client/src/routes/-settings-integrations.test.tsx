@@ -16,6 +16,7 @@ import { AuthenticatedApiError } from "#/api/authenticated";
 import type { IntegrationsApi } from "#/api/integrations";
 import { KernelApiTestLayer, makeIntegrationsApi, makeRyotQLApi } from "#/api/ports.test-layer";
 import type { RyotQLApi } from "#/api/ryotql";
+import type { AuthService } from "#/modules/auth/service";
 import { IntegrationsService } from "#/modules/integrations/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
@@ -27,6 +28,7 @@ import { getRouter } from "#/router";
 import {
 	theme,
 	catalog,
+	authenticated,
 	ServerStub,
 	makeAuthStub,
 	OAuthRouteStubs,
@@ -208,13 +210,14 @@ const mountView = (
 	initialEntry: string,
 	integrationsApi: Layer.Layer<IntegrationsApi> = makeIntegrationsApi(),
 	queries: Layer.Layer<RyotQLApi> = makeIntegrationQueries(),
+	auth: Layer.Layer<AuthService> = AuthStub,
 ) => {
 	const events = makePluginCatalogEventsTestLayer();
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
 			ProviderAddRouteStubs,
 			ImportsRouteStubs,
-			AuthStub,
+			auth,
 			GodModeRouteStubs,
 			ServerStub,
 			SavedViewRouteStubs,
@@ -248,6 +251,26 @@ const mountView = (
 };
 
 describe("integrations list", () => {
+	it("keeps demo summaries visible while disabling protected actions", async () => {
+		mountView(
+			"/settings/integrations",
+			makeIntegrationsApi({ listProviders: () => Effect.succeed([komgaProvider]) }),
+			makeIntegrationQueries({ list: () => listResponse([makeSummary()]) }),
+			makeAuthStub({}, { ...authenticated, accessClass: "demo" }),
+		);
+
+		await screen.findByRole("link", { name: "Open the Komga integration" });
+		expect(
+			screen.getByText("This operation is unavailable while using the shared demo account."),
+		).not.toBeNull();
+		expect(screen.getByRole("button", { name: "Connect a service" }).hasAttribute("disabled")).toBe(
+			true,
+		);
+		expect(
+			screen.getByRole("button", { name: "Sync all integrations" }).hasAttribute("disabled"),
+		).toBe(true);
+	});
+
 	it("names each integration and opens the one that was clicked", async () => {
 		const view = mountView(
 			"/settings/integrations",
@@ -373,6 +396,30 @@ describe("integrations list", () => {
 });
 
 describe("integration detail", () => {
+	it("does not request or expose protected demo integration detail", async () => {
+		let gets = 0;
+		mountView(
+			"/settings/integrations/int_1",
+			makeIntegrationsApi({
+				get: () => {
+					gets++;
+					return Effect.succeed(makeListed({ webhookUrl: "https://ryot.example/_i/int_1" }));
+				},
+			}),
+			makeIntegrationQueries(),
+			makeAuthStub({}, { ...authenticated, accessClass: "demo" }),
+		);
+
+		await screen.findByText("Integration configuration unavailable");
+		expect(
+			screen.getByText("This operation is unavailable while using the shared demo account."),
+		).not.toBeNull();
+		expect(gets).toBe(0);
+		expect(screen.queryByText("Webhook URL")).toBeNull();
+		expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull();
+		expect(screen.queryByRole("button", { name: "Integration actions" })).toBeNull();
+	});
+
 	it("uses loader data until the ID-keyed detail query succeeds", async () => {
 		let gets = 0;
 		let resolveDetail!: (integration: ListedIntegration) => void;

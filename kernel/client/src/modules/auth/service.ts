@@ -1,10 +1,12 @@
 import { Browser } from "@capacitor/browser";
+import type { AccessClass } from "@ryot-app/contract/oauth";
 import { Context, Effect, Layer } from "effect";
 
 import type { ServerOrigin } from "#/api/origin";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { makeOriginSingleFlight } from "#/modules/auth/single-flight";
-import { OAuthTokenError, OAuthTokenService } from "#/modules/auth/token-service";
+import type { OAuthTokenError } from "#/modules/auth/token-service";
+import { OAuthTokenService } from "#/modules/auth/token-service";
 import { ClientStorage } from "#/persistence/storage";
 
 export type AuthSessionSnapshot =
@@ -12,6 +14,7 @@ export type AuthSessionSnapshot =
 	| { readonly status: "missing" }
 	| {
 			readonly status: "authenticated";
+			readonly accessClass: AccessClass;
 			readonly user: {
 				readonly id: string;
 				readonly name: string;
@@ -76,10 +79,10 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			sessions.set(origin, created);
 			return created;
 		};
-		const resolveUserInfo = (canonical: ServerOrigin, clientId: string) =>
+		const resolveUserInfo = (canonical: ServerOrigin) =>
 			Effect.gen(function* () {
 				const user = yield* tokens
-					.userInfo(canonical, clientId)
+					.userInfo(canonical)
 					.pipe(
 						Effect.catchTag("OAuthTokenError", (error) =>
 							isLostAuthorization(error) ? Effect.succeed(null) : Effect.fail(error),
@@ -88,6 +91,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 				const snapshot: SettledAuthSession = user
 					? {
 							status: "authenticated",
+							accessClass: user.accessClass,
 							user: {
 								id: user.sub,
 								email: user.email ?? "",
@@ -105,10 +109,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 		) {
 			const session = getSession(origin);
 			const cached = session.store.getSnapshot();
-			const { clientId } = yield* runtimeClient
-				.forServer(origin)
-				.pipe(Effect.mapError((cause) => new OAuthTokenError({ cause, reason: "request-failed" })));
-			const probe = yield* tokens.accessToken(origin, clientId).pipe(
+			const probe = yield* tokens.accessToken(origin).pipe(
 				Effect.map(
 					(token): AuthorizationProbe => ({ kind: token === null ? "unauthorized" : "authorized" }),
 				),
@@ -135,7 +136,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			if (!forceRefresh && cached.status === "authenticated") {
 				return cached;
 			}
-			return yield* resolutions(origin, resolveUserInfo(origin, clientId));
+			return yield* resolutions(origin, resolveUserInfo(origin));
 		});
 		const clearSession = Effect.fn("AuthService.clearSession")(function* (origin: ServerOrigin) {
 			yield* tokens.clear(origin);
@@ -152,7 +153,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			if (client === null) {
 				return false;
 			}
-			const endSessionUrl = yield* tokens.logout(origin, client.clientId, client.logoutUri);
+			const endSessionUrl = yield* tokens.logout(origin, client.logoutUri);
 			getSession(origin).set({ status: "missing" });
 			if (!endSessionUrl) {
 				return false;

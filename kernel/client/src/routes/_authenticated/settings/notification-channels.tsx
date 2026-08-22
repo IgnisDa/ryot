@@ -3,6 +3,8 @@ import type { NotificationChannelsResult } from "@ryot-app/ryotql-recipes/notifi
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useEffectEvent, useState, type ReactNode } from "react";
 
+import { AuthService } from "#/modules/auth/service";
+import { useIsDemoSession } from "#/modules/demo-protection";
 import {
 	NOTIFICATION_CHANNELS_LOAD_ERROR,
 	NotificationChannelsView,
@@ -49,6 +51,8 @@ function NotificationChannelsFrame(props: { readonly children: ReactNode }) {
 }
 
 function NotificationChannelsRoute() {
+	const { server, runtime } = Route.useRouteContext();
+	const isDemoProtected = useIsDemoSession(runtime.runSync(AuthService).session(server));
 	const navigate = Route.useNavigate();
 	const { create } = Route.useSearch();
 	const [testDetail, setTestDetail] = useState<string | undefined>();
@@ -141,6 +145,7 @@ function NotificationChannelsRoute() {
 				enabledCount={enabledCount}
 				testSucceeded={testSucceeded}
 				deleteFailedId={deleteFailedId}
+				isDemoProtected={isDemoProtected}
 				onSendTest={() => void sendTest()}
 				pendingChannelId={pendingChannelId}
 				isTesting={sendTestMutation.isPending}
@@ -149,7 +154,7 @@ function NotificationChannelsRoute() {
 				isLoadingMore={listed.isFetching && limit > NOTIFICATION_CHANNELS_PAGE_SIZE}
 				onShowMore={() => setLimit((current) => current + NOTIFICATION_CHANNELS_PAGE_SIZE)}
 			/>
-			{create === true && (
+			{create === true && !isDemoProtected && (
 				<NotificationChannelCreateWizard
 					onClose={wizard.close}
 					smtpEnabled={smtpEnabled.data}

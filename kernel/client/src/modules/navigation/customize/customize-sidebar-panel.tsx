@@ -1,6 +1,7 @@
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import clsx from "clsx";
 
+import { DemoProtectionMessage } from "#/modules/demo-protection";
 import { CustomizePanel } from "#/modules/navigation/customize/customize-panel";
 import type { CustomizeSection } from "#/modules/navigation/customize/customize-state";
 import type { CustomizeDraftState } from "#/modules/navigation/customize/use-customize-draft";
@@ -9,9 +10,10 @@ export function CustomizeSidebarPanel(props: {
 	readonly onSave: () => void;
 	readonly onLeave: () => void;
 	readonly customize: CustomizeDraftState;
+	readonly readOnly?: boolean;
 	readonly initialSection?: CustomizeSection | undefined;
 }) {
-	const canSave = props.customize.isDirty && !props.customize.isSaving;
+	const canSave = props.readOnly !== true && props.customize.isDirty && !props.customize.isSaving;
 	return (
 		<div className="flex min-h-0 flex-1 flex-col">
 			<div className="flex shrink-0 items-start gap-3 border-b border-border px-4 py-4">
@@ -31,12 +33,14 @@ export function CustomizeSidebarPanel(props: {
 				</button>
 			</div>
 			<CustomizePanel
+				readOnly={props.readOnly}
 				draft={props.customize.draft}
 				onMove={props.customize.move}
 				onToggle={props.customize.toggle}
 				initialSection={props.initialSection}
 			/>
 			<div className="flex shrink-0 flex-col gap-2.5 border-t border-border p-3">
+				{props.readOnly === true && <DemoProtectionMessage />}
 				{props.customize.error !== null && (
 					<p role="alert" className="text-xs text-danger">
 						{props.customize.error}

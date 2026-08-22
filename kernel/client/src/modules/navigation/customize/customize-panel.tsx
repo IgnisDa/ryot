@@ -15,6 +15,7 @@ const ROW_HEIGHT = 44;
 
 type CustomizePanelProps = {
 	readonly draft: CustomizeDraft;
+	readonly readOnly?: boolean;
 	readonly initialSection?: CustomizeSection | undefined;
 	readonly onToggle: (section: CustomizeSection, slug: string) => void;
 	readonly onMove: (section: CustomizeSection, fromIndex: number, toIndex: number) => void;
@@ -22,6 +23,7 @@ type CustomizePanelProps = {
 
 type SectionProps = {
 	readonly title: string;
+	readonly readOnly?: boolean;
 	readonly leading?: ReactNode;
 	readonly emptyMessage?: string;
 	readonly onToggle: (slug: string) => void;
@@ -63,6 +65,7 @@ function CustomizeSection(props: SectionProps) {
 							<CustomizeRow
 								item={item}
 								handle={handle}
+								readOnly={props.readOnly}
 								onToggle={props.onToggle}
 								isLast={index === props.items.length - 1}
 								toggleDisabled={props.toggleDisabled?.(item)}
@@ -101,6 +104,7 @@ export function CustomizePanel(props: CustomizePanelProps) {
 				<CustomizeSection
 					title="Workspaces"
 					scrollRef={scrollRef}
+					readOnly={props.readOnly}
 					items={props.draft.workspaces}
 					anchorRef={anchorRef("workspaces")}
 					emptyMessage="No workspaces available."
@@ -112,6 +116,7 @@ export function CustomizePanel(props: CustomizePanelProps) {
 				<CustomizeSection
 					title="Views"
 					scrollRef={scrollRef}
+					readOnly={props.readOnly}
 					items={props.draft.views}
 					leading={<CustomizeHomeRow />}
 					anchorRef={anchorRef("views")}
@@ -122,6 +127,7 @@ export function CustomizePanel(props: CustomizePanelProps) {
 				<CustomizeSection
 					title="Saved Views"
 					scrollRef={scrollRef}
+					readOnly={props.readOnly}
 					items={props.draft.savedViews}
 					emptyMessage="No saved views yet."
 					anchorRef={anchorRef("savedViews")}

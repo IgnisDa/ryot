@@ -450,6 +450,7 @@ describe("client page routes", () => {
 				settledSession: () =>
 					Effect.succeed({
 						status: "authenticated",
+						accessClass: "standard",
 						user: { id: userId, image: null, name: "Test User", email: "user@ryot.example" },
 					}),
 			}),

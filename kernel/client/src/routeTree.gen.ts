@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as DemoRouteImport } from './routes/demo'
 import { Route as GodModeRouteRouteImport } from './routes/god-mode/route'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
@@ -48,6 +49,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DemoRoute = DemoRouteImport.update({
+  id: '/demo',
+  path: '/demo',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GodModeRouteRoute = GodModeRouteRouteImport.update({
@@ -217,6 +223,7 @@ export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
   '/god-mode': typeof GodModeRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/demo': typeof DemoRoute
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/$pluginSlug': typeof AuthenticatedPluginSlugRouteRouteWithChildren
@@ -247,6 +254,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
+  '/demo': typeof DemoRoute
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/customize-sidebar': typeof AuthenticatedCustomizeSidebarRoute
@@ -279,6 +287,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/god-mode': typeof GodModeRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/demo': typeof DemoRoute
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/$pluginSlug': typeof AuthenticatedPluginSlugRouteRouteWithChildren
@@ -314,6 +323,7 @@ export interface FileRouteTypes {
     | '/'
     | '/god-mode'
     | '/auth'
+    | '/demo'
     | '/onboarding'
     | '/reset-password'
     | '/$pluginSlug'
@@ -344,6 +354,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/auth'
+    | '/demo'
     | '/onboarding'
     | '/reset-password'
     | '/customize-sidebar'
@@ -375,6 +386,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/god-mode'
     | '/auth'
+    | '/demo'
     | '/onboarding'
     | '/reset-password'
     | '/_authenticated/$pluginSlug'
@@ -409,6 +421,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   GodModeRouteRoute: typeof GodModeRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  DemoRoute: typeof DemoRoute
   OnboardingRoute: typeof OnboardingRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
@@ -430,6 +443,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/demo': {
+      id: '/demo'
+      path: '/demo'
+      fullPath: '/demo'
+      preLoaderRoute: typeof DemoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/god-mode': {
@@ -740,6 +760,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   GodModeRouteRoute: GodModeRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  DemoRoute: DemoRoute,
   OnboardingRoute: OnboardingRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   AuthCallbackRoute: AuthCallbackRoute,

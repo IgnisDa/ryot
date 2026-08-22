@@ -7,7 +7,6 @@ import { describe, expect, it } from "vitest";
 
 import { decodeServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
-import { makeRuntimeOAuthClient, RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 import { makePluginCatalogEventsLayer, PluginCatalogEventsService } from "#/modules/plugins/events";
 
@@ -51,7 +50,6 @@ class TestStream {
 const makeRuntime = (
 	options: {
 		readonly token?: string;
-		readonly isNative?: boolean;
 		readonly refreshedToken?: string;
 		readonly rejectAttempts?: number;
 		readonly responseStatuses?: readonly number[];
@@ -60,7 +58,6 @@ const makeRuntime = (
 	const streams: TestStream[] = [];
 	const requests: Array<{ readonly url: string; readonly headers: Record<string, string> }> = [];
 	let token = options.token ?? null;
-	const clientIds: string[] = [];
 	const tokenRequests: boolean[] = [];
 	const tokens = Layer.succeed(OAuthTokenService, {
 		clear: () => Effect.void,
@@ -68,9 +65,8 @@ const makeRuntime = (
 		userInfo: () => Effect.succeed(null),
 		rejectAuthorization: () => Effect.die("not used"),
 		completeAuthorization: () => Effect.die("not used"),
-		accessToken: (_origin, clientId, forceRefresh = false) =>
+		accessToken: (_origin, forceRefresh = false) =>
 			Effect.sync(() => {
-				clientIds.push(clientId);
 				tokenRequests.push(forceRefresh);
 				return forceRefresh ? (options.refreshedToken ?? token) : token;
 			}),
@@ -87,23 +83,14 @@ const makeRuntime = (
 		streams.push(stream);
 		return Promise.resolve({ status, ok: true, body: stream.body });
 	}, Schedule.spaced("1 millis"));
-	const runtimeClient = Layer.succeed(
-		RuntimeOAuthClientService,
-		makeRuntimeOAuthClient({
-			isNative: () => options.isNative ?? false,
-			getApplicationId: () => Promise.resolve("io.ryot.app"),
-		}),
-	);
-
 	return {
 		streams,
 		requests,
-		clientIds,
 		tokenRequests,
 		setToken: (value: string) => {
 			token = value;
 		},
-		runtime: ManagedRuntime.make(events.pipe(Layer.provide(tokens), Layer.provide(runtimeClient))),
+		runtime: ManagedRuntime.make(events.pipe(Layer.provide(tokens))),
 	};
 };
 
@@ -293,23 +280,6 @@ describe("plugin catalog events service", () => {
 			await new Promise((resolve) => setTimeout(resolve, 20));
 			expect(requests).toHaveLength(2);
 			expect(tokenRequests).toEqual([false, true]);
-		} finally {
-			await Effect.runPromise(Fiber.interrupt(subscription));
-			await runtime.dispose();
-		}
-	});
-
-	it("uses the native OAuth client for an installed application", async () => {
-		const { runtime, streams, clientIds } = makeRuntime({ isNative: true, token: "token-1" });
-		const subscription = runtime.runFork(
-			Effect.flatMap(PluginCatalogEventsService, (service) =>
-				service.subscribe(scope, () => undefined),
-			),
-		);
-
-		try {
-			await waitUntil(() => streams.length === 1, "stream was never opened");
-			expect(clientIds).toEqual(["ryot-native"]);
 		} finally {
 			await Effect.runPromise(Fiber.interrupt(subscription));
 			await runtime.dispose();

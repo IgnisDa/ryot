@@ -28,6 +28,7 @@ import { getRouter } from "#/router";
 import {
 	theme,
 	catalog,
+	authenticated,
 	ServerStub,
 	makeAuthStub,
 	OAuthRouteStubs,
@@ -114,6 +115,7 @@ const makeDetail = (overrides: Partial<AutomationHistoryDetail> = {}): Automatio
 const mountView = (
 	initialEntry: string,
 	automationHistoryApi: Layer.Layer<AutomationHistoryApi>,
+	auth = makeAuthStub(),
 ) => {
 	const events = makePluginCatalogEventsTestLayer();
 	const runtime = ManagedRuntime.make(
@@ -122,7 +124,7 @@ const mountView = (
 			ImportsRouteStubs,
 			IntegrationRouteStubs,
 			NotificationChannelRouteStubs,
-			makeAuthStub(),
+			auth,
 			GodModeRouteStubs,
 			ServerStub,
 			SavedViewRouteStubs,
@@ -370,6 +372,29 @@ describe("automation history", () => {
 		await screen.findByText("Retry queued as attempt 3. Dispatch is pending.");
 		await waitFor(() => expect(detailReads).toBe(2));
 		expect(retryBodies).toEqual([2]);
+	});
+
+	it("keeps retry visible but disabled for demo sessions", async () => {
+		let retries = 0;
+		mountView(
+			"/settings/automation-history/automation-run-1",
+			makeAutomationHistoryApi({
+				getRun: () => Effect.succeed(makeDetail()),
+				retryRun: () => {
+					retries += 1;
+					return Effect.succeed({ runId, attemptNumber: 3, dispatch: "pending" });
+				},
+			}),
+			makeAuthStub({}, { ...authenticated, accessClass: "demo" }),
+		);
+
+		const retry = await screen.findByRole("button", { name: "Retry run" });
+		expect(retry.hasAttribute("disabled")).toBe(true);
+		expect(
+			screen.getByText("This operation is unavailable while using the shared demo account."),
+		).toBeTruthy();
+		fireEvent.click(retry);
+		expect(retries).toBe(0);
 	});
 
 	it("polls a retried run through queued and running states until it succeeds", async () => {
