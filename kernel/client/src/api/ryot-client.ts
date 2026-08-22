@@ -1,10 +1,10 @@
 import { createRyotClient, RyotClientError } from "@ryot/client-sdk";
 import { Effect } from "effect";
 
-import type { ThemeStore } from "../modules/theme/store";
-import { AuthenticatedApi } from "./authenticated";
-import { classifyRyotQLFailure } from "./ryotql";
-import type { ApiScope } from "./scope";
+import { AuthenticatedApi } from "#/api/authenticated";
+import { classifyRyotQLFailure } from "#/api/ryotql";
+import type { ApiScope } from "#/api/scope";
+import type { ThemeStore } from "#/modules/theme/store";
 
 type AuthenticatedApiRuntime = {
 	readonly runPromise: <A, E>(effect: Effect.Effect<A, E, AuthenticatedApi>) => Promise<A>;
