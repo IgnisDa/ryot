@@ -1,0 +1,182 @@
+{
+  "runId": "2026-09-19T09-33-37Z",
+  "startedAtUtc": "2026-09-19T09:33:41.211Z",
+  "schemaVersion": 2,
+  "prNumber": 1832,
+  "branch": "ultra-rewrite",
+  "deviations": [],
+  "completedAtUtc": null,
+  "invocations": [
+    {
+      "command": "provenance",
+      "invocationId": "provenance-cef40ab1",
+      "startedAtUtc": "2026-09-19T09:33:45.407Z",
+      "scenarioIds": [],
+      "stopReason": null,
+      "completedAtUtc": null,
+      "outcome": "running"
+    },
+    {
+      "command": "provenance",
+      "invocationId": "provenance-fed170ae",
+      "startedAtUtc": "2026-09-19T09:34:53.911Z",
+      "scenarioIds": [],
+      "stopReason": null,
+      "completedAtUtc": "2026-09-19T09:35:03.366Z",
+      "outcome": "completed"
+    },
+    {
+      "command": "capture-live-results",
+      "invocationId": "capture-live-results-03d5695d",
+      "startedAtUtc": "2026-09-19T09:35:26.300Z",
+      "scenarioIds": [],
+      "stopReason": null,
+      "completedAtUtc": "2026-09-19T09:35:34.828Z",
+      "outcome": "completed"
+    },
+    {
+      "command": "capture-fixture",
+      "invocationId": "capture-fixture-53bad91d",
+      "startedAtUtc": "2026-09-19T09:36:06.245Z",
+      "scenarioIds": [],
+      "stopReason": null,
+      "completedAtUtc": "2026-09-19T09:36:15.475Z",
+      "outcome": "completed"
+    }
+  ],
+  "constituentRunIds": [
+    "2026-09-19T09-33-37Z"
+  ],
+  "host": {
+    "kernel": "7.0.0-30-generic",
+    "imageId": "sha256:48fdd57223c44a7dd22bc2aa2f0b6c60471df2058d203ddb3392e7e5d2550a71",
+    "imageCreated": "2026-09-19T09:19:39.747714106Z",
+    "hostCpuCount": "2",
+    "ryotNanoCpus": "0",
+    "ryotPidsLimit": "<nil>",
+    "hostMemTotalBytes": "4000043008",
+    "ryotMemoryLimitBytes": "0",
+    "otelMemoryLimitBytes": "134217728",
+    "imageSource": "https://github.com/oven-sh/bun"
+  },
+  "teardown": null,
+  "preflight": null,
+  "watchdogDrill": null,
+  "counterbalancedOrders": {
+    "live": [
+      [
+        1,
+        2,
+        5,
+        3
+      ],
+      [
+        2,
+        3,
+        1,
+        5
+      ],
+      [
+        3,
+        5,
+        2,
+        1
+      ]
+    ],
+    "hermetic": [
+      [
+        1,
+        2,
+        5,
+        3
+      ],
+      [
+        2,
+        3,
+        1,
+        5
+      ],
+      [
+        3,
+        5,
+        2,
+        1
+      ],
+      [
+        5,
+        1,
+        3,
+        2
+      ],
+      [
+        3,
+        5,
+        2,
+        1
+      ]
+    ]
+  },
+  "retentionTolerance": {
+    "postGcGrowthRatio": 0.1,
+    "slopeBytesPerThousandOperations": 104857600
+  },
+  "runtime": {
+    "bunVersion": "1.4.0",
+    "denoVersion": "2.8.1",
+    "effectVersion": "4.0.0-rc.116"
+  },
+  "commits": {
+    "ciTrigger": "e44aeab90ca4105e7750777edb72ca57db20615b",
+    "implementation": "f43cf2cbae",
+    "workflowRunUrl": "https://github.com/IgnisDa/ryot/actions/runs/35434289866"
+  },
+  "profiles": {
+    "rawDeleted": null,
+    "verifiedAtUtc": null,
+    "remainingRawEntries": null
+  },
+  "image": {
+    "tag": "ghcr.io/ignisda/ryot@sha256:48fdd57223c44a7dd22bc2aa2f0b6c60471df2058d203ddb3392e7e5d2550a71",
+    "digest": "sha256:48fdd57223c44a7dd22bc2aa2f0b6c60471df2058d203ddb3392e7e5d2550a71",
+    "ociRevision": "34cbb9a40b4bd1bd767d134a7065e66c2432a676",
+    "architecture": "linux/amd64"
+  },
+  "deployment": {
+    "otelCollectorImage": "otel/opentelemetry-collector-contrib:0.155.0",
+    "redactedComposeSha256": "bdfdc5bc5a5f48d58045efe9e22e1da2813ff8db60f8ef72641464151ba5fcb3",
+    "resourceSettings": {
+      "kernel": "7.0.0-30-generic",
+      "imageId": "sha256:48fdd57223c44a7dd22bc2aa2f0b6c60471df2058d203ddb3392e7e5d2550a71",
+      "imageCreated": "2026-09-19T09:19:39.747714106Z",
+      "hostCpuCount": "2",
+      "ryotNanoCpus": "0",
+      "ryotPidsLimit": "<nil>",
+      "hostMemTotalBytes": "4000043008",
+      "ryotMemoryLimitBytes": "0",
+      "otelMemoryLimitBytes": "134217728",
+      "imageSource": "https://github.com/oven-sh/bun",
+      "processMode": "on-demand",
+      "workerConcurrency": "2",
+      "benchmarkProfilingEnabled": "true",
+      "schedulerDispatchersDisabled": "true"
+    }
+  },
+  "sampling": {
+    "hostIntervalMs": 1000,
+    "applicationIntervalMs": 200,
+    "hostGate": {
+      "p50MinMs": 900,
+      "p50MaxMs": 1100,
+      "p95MaxMs": 1250,
+      "maxIntervalMs": 2000,
+      "maxMissedSlotRatio": 0.01
+    },
+    "applicationGate": {
+      "p50MinMs": 0,
+      "p50MaxMs": 300,
+      "p95MaxMs": 500,
+      "maxIntervalMs": 2000,
+      "maxMissedSlotRatio": 0.01
+    }
+  }
+}
