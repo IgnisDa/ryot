@@ -2,8 +2,8 @@ import { Effect, Fiber, Option, Stream } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import { createTestUser } from "~/fixtures/kernel";
-import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
-import { beforeAll, expect, it } from "~/support/effect-test";
+import { signInThroughHostedOAuth } from "~/support/browser";
+import { beforeAll, expect, it, runPromise } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
 
 const SUITE_ID = crypto.randomUUID();
@@ -91,7 +91,7 @@ const withImportsBrowser = <E, R>(run: (page: Playwright.Page) => Effect.Effect<
 	});
 
 beforeAll(() =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			const user = yield* createTestUser();
 			email = user.email;
@@ -129,7 +129,7 @@ it.live("starts, follows and deletes an import from settings", () =>
 			yield* page.getByText("No imports yet").waitFor({ state: "visible" });
 			expect(yield* importRow(page).count).toBe(0);
 		}),
-	).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	).pipe(PlaywrightSpawner.withBrowser),
 );
 
 it.live("keeps the wizard in the URL so closing it returns to the list", () =>
@@ -146,5 +146,5 @@ it.live("keeps the wizard in the URL so closing it returns to the list", () =>
 			yield* wizard(page).waitFor({ state: "hidden" });
 			yield* page.waitForURL((url) => !url.searchParams.has("start"));
 		}),
-	).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	).pipe(PlaywrightSpawner.withBrowser),
 );

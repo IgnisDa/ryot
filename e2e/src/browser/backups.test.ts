@@ -2,8 +2,8 @@ import { Effect, Fiber, Option, Stream } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import { createTestUser } from "~/fixtures/kernel";
-import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
-import { beforeAll, expect, it } from "~/support/effect-test";
+import { signInThroughHostedOAuth } from "~/support/browser";
+import { beforeAll, expect, it, runPromise } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
 
 const RUN_SETTLE_TIMEOUT_MS = 90_000;
@@ -59,7 +59,7 @@ const withBackupsBrowser = <E, R>(run: (page: Playwright.Page) => Effect.Effect<
 	});
 
 beforeAll(() =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			const user = yield* createTestUser();
 			email = user.email;
@@ -97,7 +97,7 @@ it.live("creates, downloads and deletes a backup from settings", () =>
 			yield* page.getByText("No backups yet").waitFor({ state: "visible" });
 			expect(yield* downloadButton(page).count).toBe(0);
 		}),
-	).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	).pipe(PlaywrightSpawner.withBrowser),
 );
 
 it.live("keeps the restore wizard in the URL so closing it returns to the list", () =>
@@ -117,5 +117,5 @@ it.live("keeps the restore wizard in the URL so closing it returns to the list",
 			yield* wizard(page).waitFor({ state: "hidden" });
 			yield* page.waitForURL((url) => !url.searchParams.has("restore"));
 		}),
-	).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	).pipe(PlaywrightSpawner.withBrowser),
 );

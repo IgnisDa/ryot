@@ -8,7 +8,7 @@ import {
 	requirePresent,
 	requireString,
 } from "~/support/assertions";
-import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
+import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import { type FakeHttpServer, startFakeHttpServer } from "~/support/fake-http-server";
 import {
 	buildApiEnv,
@@ -187,7 +187,7 @@ function findWorkflowSpan(userId: string) {
 
 beforeAll(
 	() =>
-		Effect.runPromise(
+		runPromise(
 			Effect.gen(function* () {
 				const [infrastructure, server, port] = yield* Effect.all(
 					[
@@ -225,7 +225,7 @@ beforeAll(
 );
 
 afterAll(() =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			yield* stopApiProcess(apiProcess);
 			const server = otlpServer;

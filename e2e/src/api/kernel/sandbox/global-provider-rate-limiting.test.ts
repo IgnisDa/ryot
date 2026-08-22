@@ -23,7 +23,7 @@ import {
 	uninstallTestPlugin,
 } from "~/fixtures/kernel";
 import { assertTaggedError, requireObjectRecord, requirePresent } from "~/support/assertions";
-import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
+import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import {
 	type FakeHttpServer,
 	startFakeHttpServer,
@@ -360,7 +360,7 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 
 	beforeAll(
 		() =>
-			Effect.runPromise(
+			runPromise(
 				Effect.gen(function* () {
 					httpServer = yield* startFakeHttpServer(() => {
 						requestTimestamps.push(Date.now());
@@ -416,7 +416,7 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 		180_000,
 	);
 
-	afterAll(() => Effect.runPromise(stopIsolatedServices()));
+	afterAll(() => runPromise(stopIsolatedServices()));
 
 	it.live(
 		"shares Redis admission across processes and resumes a future reservation after restart",

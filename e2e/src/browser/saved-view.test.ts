@@ -30,8 +30,8 @@ import {
 	type InstalledTestProvider,
 } from "~/fixtures/kernel";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
-import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
-import { afterAll, beforeAll, expect, it } from "~/support/effect-test";
+import { signInThroughHostedOAuth } from "~/support/browser";
+import { afterAll, beforeAll, expect, it, runPromise } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
 
 const SUITE_ID = crypto.randomUUID();
@@ -120,7 +120,7 @@ const openSavedView = (page: Playwright.Page) =>
 	});
 
 beforeAll(() =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			const user = yield* createAuthenticatedClient();
 			email = user.email;
@@ -209,7 +209,7 @@ beforeAll(() =>
 	),
 );
 
-afterAll(() => Effect.runPromise(uninstallTestProvider(provider)));
+afterAll(() => runPromise(uninstallTestProvider(provider)));
 
 it.live("automatically populates and translates entities rendered by a saved view", () =>
 	Effect.gen(function* () {
@@ -281,7 +281,7 @@ it.live("automatically populates and translates entities rendered by a saved vie
 			.waitFor({ state: "visible", timeout: IMPORT_TIMEOUT });
 		yield* runtime.getByText("2,042", { exact: true }).waitFor({ state: "visible" });
 		expect((yield* getEntity(client, entity.id)).name).toBe(translatedName);
-	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
 it.live("keeps source data visible when saved-view translation is outstanding", () =>
@@ -349,7 +349,7 @@ it.live("keeps source data visible when saved-view translation is outstanding", 
 			.waitFor({ state: "visible", timeout: IMPORT_TIMEOUT });
 		expect((yield* getEntity(client, entity.id)).translationStatus).toBe("pending");
 		expect(yield* runtime.getByText(sourceName, { exact: true }).isVisible()).toBe(true);
-	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
 it.live("imports through the configured renderer provider search and refreshes membership", () =>
@@ -390,7 +390,7 @@ it.live("imports through the configured renderer provider search and refreshes m
 			.getByText(IMPORTED_NAME, { exact: true })
 			.waitFor({ state: "visible", timeout: IMPORT_TIMEOUT });
 		expect(yield* runtime.getByText(IMPORTED_NAME, { exact: true }).count).toBe(1);
-	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
 it.live("focuses the view search on / and releases it so page shortcuts return", () =>
@@ -418,7 +418,7 @@ it.live("focuses the view search on / and releases it so page shortcuts return",
 		yield* page.keyboard.press("a");
 		yield* openedDialog(page);
 		yield* closedDialog(page);
-	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
 it.live("suppresses view shortcuts while the provider modal owns the screen", () =>
@@ -438,7 +438,7 @@ it.live("suppresses view shortcuts while the provider modal owns the screen", ()
 		expect(new URL(page.url()).searchParams.get("add")).toBe("true");
 
 		yield* closedDialog(page);
-	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
 it.live("swaps the desktop add button for the mobile add affordances", () =>
@@ -465,5 +465,5 @@ it.live("swaps the desktop add button for the mobile add affordances", () =>
 		yield* fab(runtime).click();
 		yield* openedDialog(page);
 		yield* closedDialog(page);
-	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	}).pipe(PlaywrightSpawner.withBrowser),
 );

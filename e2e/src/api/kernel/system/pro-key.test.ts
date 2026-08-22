@@ -3,7 +3,7 @@ import getPort from "get-port";
 
 import { makeSession } from "~/fixtures/kernel";
 import { requirePresent } from "~/support/assertions";
-import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
+import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import { type FakeHttpServer, startFakeHttpServer } from "~/support/fake-http-server";
 import {
 	buildApiEnv,
@@ -95,7 +95,7 @@ function requireFake(instance: ScenarioInstance) {
 
 beforeAll(
 	() =>
-		Effect.runPromise(
+		runPromise(
 			Effect.gen(function* () {
 				coreInfrastructure = yield* startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME });
 				const infrastructure = requirePresent(
@@ -137,7 +137,7 @@ beforeAll(
 );
 
 afterAll(() =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			yield* Effect.forEach(scenarios.values(), (instance) => stopApiProcess(instance.process), {
 				concurrency: "unbounded",

@@ -9,13 +9,13 @@ import {
 	postIntegrationWebhookAndWait,
 	startFakeAppriseServer,
 } from "~/fixtures/kernel";
-import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
+import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import type { FakeHttpServer } from "~/support/fake-http-server";
 
 let fakeApprise: FakeHttpServer;
 
 beforeAll(() =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			fakeApprise = yield* startFakeAppriseServer;
 		}),

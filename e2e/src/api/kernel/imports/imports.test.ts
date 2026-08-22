@@ -20,7 +20,7 @@ import {
 	uploadImportFile,
 } from "~/fixtures/kernel";
 import { assertPresent, assertTaggedError } from "~/support/assertions";
-import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
+import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 
 let fixtureImportPlugin: InstalledTestPlugin | undefined;
 
@@ -37,16 +37,14 @@ const uninstallWhenReleased = (installed: InstalledTestPlugin) =>
 
 describe("Plugin Import Public Boundary", () => {
 	beforeAll(() =>
-		Effect.runPromise(
+		runPromise(
 			Effect.gen(function* () {
 				fixtureImportPlugin = yield* installTestImportPlugin;
 			}),
 		),
 	);
 
-	afterAll(
-		() => fixtureImportPlugin && Effect.runPromise(uninstallWhenReleased(fixtureImportPlugin)),
-	);
+	afterAll(() => fixtureImportPlugin && runPromise(uninstallWhenReleased(fixtureImportPlugin)));
 
 	it.live("lists authenticated manifest sources with start availability", () =>
 		Effect.gen(function* () {

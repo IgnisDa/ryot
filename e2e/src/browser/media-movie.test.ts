@@ -11,7 +11,7 @@ import {
 } from "~/fixtures/kernel";
 import { insertLibraryMembership, seedGlobalMovieWithCollection } from "~/fixtures/plugins/media";
 import { requirePresent } from "~/support/assertions";
-import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
+import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
 import { webRequest } from "~/support/web-request";
@@ -172,7 +172,7 @@ it.live("renders a populated Movie detail with its collection rail", () =>
 		expect(yield* record.locator("p").filter({ hasText: /^Watch 1 · / }).count).toBe(1);
 		expect(yield* body.getByText("Coverage", { exact: true }).count).toBe(0);
 		expect(yield* body.getByText("Watches", { exact: true }).count).toBe(1);
-	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
 it.live("keeps the collection rail for a Movie with no credits or recommendations", () =>
@@ -216,7 +216,7 @@ it.live("keeps the collection rail for a Movie with no credits or recommendation
 			.waitFor({ state: "visible" });
 		expect(yield* sectionTitles(media)).toEqual([`Part of ${collectionName}`]);
 		expect(yield* media.locator('div[style*="width: 35%"]').count).toBe(1);
-	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
 it.live("renders the Movie presentation facts in the canonical saved view", () =>
@@ -260,5 +260,5 @@ it.live("renders the Movie presentation facts in the canonical saved view", () =
 			.contentFrame()
 			.getByRole("heading", { level: 1, exact: true, name: movieName })
 			.waitFor({ state: "visible", timeout: 150_000 });
-	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	}).pipe(PlaywrightSpawner.withBrowser),
 );

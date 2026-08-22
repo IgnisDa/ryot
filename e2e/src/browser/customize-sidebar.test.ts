@@ -11,8 +11,8 @@ import {
 	uninstallTestProvider,
 	type InstalledTestProvider,
 } from "~/fixtures/kernel";
-import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
-import { afterAll, beforeAll, expect, it } from "~/support/effect-test";
+import { signInThroughHostedOAuth } from "~/support/browser";
+import { afterAll, beforeAll, expect, it, runPromise } from "~/support/effect-test";
 
 const SUITE_ID = crypto.randomUUID();
 
@@ -63,7 +63,7 @@ const waitForSidebarSavedViews = (page: Playwright.Page, names: ReadonlyArray<st
 	);
 
 beforeAll(() =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			const user = yield* createAuthenticatedClient();
 			email = user.email;
@@ -97,7 +97,7 @@ beforeAll(() =>
 	),
 );
 
-afterAll(() => Effect.runPromise(uninstallTestProvider(provider)));
+afterAll(() => runPromise(uninstallTestProvider(provider)));
 
 it.live("reorders and hides saved views, and keeps both across a reload", () =>
 	Effect.gen(function* () {
@@ -120,7 +120,7 @@ it.live("reorders and hides saved views, and keeps both across a reload", () =>
 		yield* page.reload;
 		yield* page.getByTestId("authenticated-shell").waitFor({ state: "visible" });
 		expect(yield* sidebarSavedViews(page)).toEqual([GAMMA, ALPHA]);
-	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
 it.live("restores a hidden view from the panel", () =>
@@ -134,7 +134,7 @@ it.live("restores a hidden view from the panel", () =>
 
 		yield* page.waitForURL((url) => url.pathname === new URL(homeUrl).pathname);
 		yield* waitForSidebarSavedViews(page, [BETA, GAMMA, ALPHA]);
-	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
 it.live("leaves the draft untouched when the customization is cancelled", () =>
@@ -149,7 +149,7 @@ it.live("leaves the draft untouched when the customization is cancelled", () =>
 		yield* page.getByRole("button", { exact: true, name: "Discard" }).click();
 		yield* page.waitForURL((url) => url.pathname === new URL(homeUrl).pathname);
 		yield* waitForSidebarSavedViews(page, [BETA, GAMMA, ALPHA]);
-	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
 it.live("reorders and disables workspaces, and keeps both across a reload", () =>
@@ -176,5 +176,5 @@ it.live("reorders and disables workspaces, and keeps both across a reload", () =
 				.getByRole("switch", { name: "Show Media in sidebar" })
 				.getAttribute("aria-checked"),
 		).toBe("false");
-	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	}).pipe(PlaywrightSpawner.withBrowser),
 );

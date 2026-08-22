@@ -4,7 +4,7 @@ import getPort from "get-port";
 
 import { createAuthenticatedClient } from "~/fixtures/kernel";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
-import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
+import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
 import {
 	buildApiEnv,
@@ -32,7 +32,7 @@ const expectValidExpiry = (expiresAt: string | undefined) => {
 };
 
 beforeAll(() =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			fallbackApiPort = yield* Effect.promise(() => getPort());
 			fallbackInfrastructure = yield* startCoreTestInfrastructure({
@@ -69,7 +69,7 @@ beforeAll(() =>
 );
 
 afterAll(() =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			yield* stopApiProcess(fallbackApiProcess);
 			if (fallbackInfrastructure) {

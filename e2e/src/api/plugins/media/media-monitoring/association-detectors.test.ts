@@ -23,7 +23,7 @@ import {
 	triggerCronAndWaitForEntity,
 } from "~/fixtures/plugins/media";
 import { assertCompleted, requireObjectRecord } from "~/support/assertions";
-import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
+import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import type { FakeHttpServer } from "~/support/fake-http-server";
 
 const movieName = "Association E2E Movie";
@@ -38,7 +38,7 @@ let movieProvider: InstalledTestProvider;
 let personProvider: InstalledTestProvider;
 
 beforeAll(() =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const personSchemaId = yield* getBuiltinEntitySchemaSlug(client, "person");
