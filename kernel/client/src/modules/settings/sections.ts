@@ -5,6 +5,13 @@ export const settingsSections = [
 		icon: "sliders-horizontal",
 		path: "/settings/preferences",
 	},
+	{ icon: "globe", slug: "integrations", label: "Integrations", path: "/settings/integrations" },
+	{
+		icon: "clipboard-list",
+		slug: "import-data",
+		label: "Import data",
+		path: "/settings/import-data",
+	},
 	{ slug: "account", label: "Account", icon: "user", path: "/settings/account" },
 ] as const;
 

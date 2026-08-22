@@ -1,6 +1,7 @@
 import { Effect, Layer } from "effect";
 
 import { GodModeApi } from "#/api/god-mode";
+import { IntegrationsApi } from "#/api/integrations";
 import { PluginsApi } from "#/api/plugins";
 import { ProviderEntitiesApi } from "#/api/provider-entities";
 import { RyotQLApi } from "#/api/ryotql";
@@ -42,6 +43,17 @@ export const makeProviderEntitiesApi = (overrides: Partial<ProviderEntitiesApi["
 		...overrides,
 	});
 
+export const makeIntegrationsApi = (overrides: Partial<IntegrationsApi["Service"]> = {}) =>
+	Layer.succeed(IntegrationsApi, {
+		get: unused,
+		sync: unused,
+		create: unused,
+		delete: unused,
+		update: unused,
+		listProviders: unused,
+		...overrides,
+	});
+
 export const makeUserSettingsApi = (overrides: Partial<UserSettingsApi["Service"]> = {}) =>
 	Layer.succeed(UserSettingsApi, {
 		get: unused,
@@ -68,5 +80,6 @@ export const KernelApiTestLayer = Layer.mergeAll(
 	makePluginsApi(),
 	makeSavedViewsApi(),
 	makeUserSettingsApi(),
+	makeIntegrationsApi(),
 	makeProviderEntitiesApi(),
 );
