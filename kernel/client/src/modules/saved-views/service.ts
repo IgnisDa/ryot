@@ -1,6 +1,9 @@
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { SavedViewLayoutName } from "@ryot-app/contract/modules/saved-views/schemas";
 import { savedViewRecordRecipe } from "@ryot-app/ryotql-recipes/saved-view-records";
-import { savedViewRecipe } from "@ryot-app/ryotql-recipes/saved-views";
-import { Context, Data, Effect, Layer } from "effect";
+import type { SavedViewRecord } from "@ryot-app/ryotql-recipes/saved-view-records";
+import { savedViewCountRecipe, savedViewRecipe } from "@ryot-app/ryotql-recipes/saved-views";
+import { Context, Data, Effect, Layer, Result } from "effect";
 
 import type { KernelRyotClient } from "#/api/ryot-client";
 
@@ -8,25 +11,49 @@ type SavedViewClient = Pick<KernelRyotClient, "data">;
 
 export class SavedViewLoadError extends Data.TaggedError("SavedViewLoadError")<{
 	readonly cause: unknown;
-	readonly stage: "record" | "page";
+	readonly stage: "count" | "record" | "page";
 }> {}
+
+type LayoutDefinition = SavedViewRecord["layouts"][SavedViewLayoutName];
 
 export class SavedViewsService extends Context.Service<SavedViewsService>()("SavedViewsService", {
 	make: Effect.sync(() => {
-		const loadGrid = Effect.fn("SavedViewsService.loadGrid")(function* (
+		const loadRecord = Effect.fn("SavedViewsService.loadRecord")(function* (
 			client: SavedViewClient,
 			slug: string,
 		) {
-			const record = yield* Effect.tryPromise({
+			return yield* Effect.tryPromise({
 				try: (signal) => client.data.query(savedViewRecordRecipe({ slug }), { signal }),
 				catch: (cause) => new SavedViewLoadError({ cause, stage: "record" }),
 			});
-			if (record === undefined) {
-				return null;
+		});
+		const loadPage = Effect.fn("SavedViewsService.loadPage")(function* (
+			client: SavedViewClient,
+			layout: SavedViewLayoutName,
+			definition: LayoutDefinition,
+			queryDocument: RyotQLDocument,
+		) {
+			const { queryDocument: _, ...mapping } = definition;
+			if (layout === "table" && "columns" in mapping) {
+				return yield* Effect.tryPromise({
+					catch: (cause) => new SavedViewLoadError({ cause, stage: "page" }),
+					try: (signal) =>
+						client.data.query(
+							savedViewRecipe({
+								layout: { type: "table", mapping },
+								source: { type: "persisted", queryDocument },
+							}),
+							{ signal },
+						),
+				});
 			}
-
-			const { queryDocument, ...mapping } = record.layouts.grid;
-			const page = yield* Effect.tryPromise({
+			if ("columns" in mapping) {
+				return yield* new SavedViewLoadError({
+					stage: "page",
+					cause: new TypeError("Card saved-view layout requires a card mapping"),
+				});
+			}
+			return yield* Effect.tryPromise({
 				catch: (cause) => new SavedViewLoadError({ cause, stage: "page" }),
 				try: (signal) =>
 					client.data.query(
@@ -37,10 +64,23 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 						{ signal },
 					),
 			});
-			return { page, record };
+		});
+		const count = Effect.fn("SavedViewsService.count")(function* (
+			client: SavedViewClient,
+			queryDocument: RyotQLDocument,
+			entityIdField: string,
+		) {
+			const prepared = savedViewCountRecipe(queryDocument, entityIdField);
+			if (Result.isFailure(prepared)) {
+				return yield* new SavedViewLoadError({ cause: prepared.failure, stage: "count" });
+			}
+			return yield* Effect.tryPromise({
+				try: (signal) => client.data.query(prepared.success, { signal }),
+				catch: (cause) => new SavedViewLoadError({ cause, stage: "count" }),
+			});
 		});
 
-		return { loadGrid };
+		return { count, loadPage, loadRecord };
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);

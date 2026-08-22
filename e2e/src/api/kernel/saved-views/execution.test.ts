@@ -56,7 +56,10 @@ describe("saved views execution", () => {
 			});
 			const persistedView = yield* getSavedView(client, createdView.slug);
 			const countRecipe = yield* resultToEffect(
-				savedViewCountRecipe(persistedView.layouts.grid.queryDocument),
+				savedViewCountRecipe(
+					persistedView.layouts.grid.queryDocument,
+					persistedView.layouts.grid.entityIdField,
+				),
 			);
 			const total = yield* executeRyotQLRecipe(client, countRecipe);
 

@@ -15,10 +15,12 @@ describe("ThemeController", () => {
 				remove: () => Effect.void,
 				clearServerSelection: Effect.void,
 				setLastWorkspace: () => Effect.void,
+				setSavedViewLayout: () => Effect.void,
 				setServerSelection: () => Effect.void,
 				getServerSelection: Effect.succeed(null),
 				getLastWorkspace: () => Effect.succeed(null),
 				getThemePreference: Effect.succeed("system" as const),
+				getSavedViewLayout: () => Effect.succeed("grid" as const),
 				setThemePreference: (preference) =>
 					Effect.sync(() => {
 						persisted.push(preference);

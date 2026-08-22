@@ -213,11 +213,11 @@ describe("saved-view recipes", () => {
 							type: "rows",
 							items: [
 								{
-									entityId: "book-1",
-									title: "Book",
 									image: null,
+									title: "Book",
 									callout: "4.5",
 									overline: "Book",
+									entityId: "book-1",
 									primaryMetadata: "not-a-date",
 								},
 							],
@@ -239,7 +239,7 @@ describe("saved-view recipes", () => {
 				fields: [field("id", column(entity, "id"))],
 			}),
 		});
-		const prepared = Result.getOrThrow(savedViewCountRecipe(source));
+		const prepared = Result.getOrThrow(savedViewCountRecipe(source, "id"));
 
 		expect(prepared.document).toEqual({
 			queries: {
@@ -249,7 +249,12 @@ describe("saved-view recipes", () => {
 					from: entity,
 					output: {
 						type: "aggregate",
-						measures: [{ key: "total", aggregation: { function: "count" } }],
+						measures: [
+							{
+								key: "total",
+								aggregation: { function: "countDistinct", expr: column(entity, "id") },
+							},
+						],
 					},
 				},
 			},
@@ -263,6 +268,43 @@ describe("saved-view recipes", () => {
 		).toBe(42);
 	});
 
+	it("prepares and decodes a distinct aggregate count from a mapped rows field", () => {
+		const source = document({
+			savedView: rows(entity, { fields: [field("entityId", column(entity, "id"))] }),
+		});
+		const prepared = Result.getOrThrow(savedViewCountRecipe(source, "entityId"));
+
+		expect(prepared.document).toEqual({
+			queries: {
+				savedViewCount: {
+					from: entity,
+					output: {
+						type: "aggregate",
+						measures: [
+							{
+								key: "total",
+								aggregation: { function: "countDistinct", expr: column(entity, "id") },
+							},
+						],
+					},
+				},
+			},
+		});
+		expect(
+			Result.getOrThrow(
+				prepared.decode({ data: { savedViewCount: { type: "aggregate", items: [{ total: 3 }] } } }),
+			),
+		).toBe(3);
+	});
+
+	it("fails distinct count preparation when the mapped field is not selected", () => {
+		const source = document({
+			savedView: rows(entity, { fields: [field("id", column(entity, "id"))] }),
+		});
+
+		expect(Result.isFailure(savedViewCountRecipe(source, "entityId"))).toBe(true);
+	});
+
 	it("fails count preparation for empty, multiple, and non-row documents", () => {
 		const aggregateDocument = document({
 			count: aggregate(entity, {
@@ -274,8 +316,8 @@ describe("saved-view recipes", () => {
 			second: rows(entity, { fields: [] }),
 		});
 
-		expect(Result.isFailure(savedViewCountRecipe(document({})))).toBe(true);
-		expect(Result.isFailure(savedViewCountRecipe(multipleDocument))).toBe(true);
-		expect(Result.isFailure(savedViewCountRecipe(aggregateDocument))).toBe(true);
+		expect(Result.isFailure(savedViewCountRecipe(document({}), "id"))).toBe(true);
+		expect(Result.isFailure(savedViewCountRecipe(multipleDocument, "id"))).toBe(true);
+		expect(Result.isFailure(savedViewCountRecipe(aggregateDocument, "id"))).toBe(true);
 	});
 });
