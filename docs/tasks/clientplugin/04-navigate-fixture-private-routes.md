@@ -2,7 +2,7 @@
 
 **Parent Plan:** [Web Client Plugin Tracer](./README.md)
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -16,19 +16,19 @@ Task 03 left the kernel side of the bridge untested, and this task must close th
 
 ## Acceptance criteria
 
-- [ ] The fixture declares one relative private route with a parameter and a search value without hardcoding `fixture` in plugin source.
-- [ ] Directly opening the private global URL resolves the fixture installation and renders the expected logical plugin location.
-- [ ] Plugin links and SDK push/replace calls request relative locations through the bridge; the iframe never mutates Ryot browser history directly.
-- [ ] The kernel validates and prefixes plugin paths so `..`, absolute origins, reserved kernel routes, and another plugin namespace cannot be reached through plugin navigation.
-- [ ] TanStack Router remains the only owner of real browser history and search state.
-- [ ] Browser Back and Forward update the existing plugin document's in-memory location and rendered route.
-- [ ] Navigating between fixture home and the private route does not recreate the iframe, React tree, or bridge session.
-- [ ] The kernel handshake and bridge session lifecycle live in a transport-agnostic module that `PluginHost` drives, without changing the V1 messages or the kernel-owned states.
-- [ ] Kernel-side bridge tests cover port transfer, ready validation against the initiating session and artifact hash, the handshake timeout, teardown on unmount, and the loading-to-ready transition.
-- [ ] A full browser refresh on either route restores the correct surface through catalog and route resolution.
-- [ ] Plugin-facing params and search values are decoded through the SDK contract rather than read from the parent window.
-- [ ] Focus moves to an appropriate page landmark or heading after logical route changes without breaking browser keyboard navigation.
-- [ ] Focused route-resolver, path-validation, bridge-location, history, direct-entry, refresh, and persistent-iframe tests pass with all earlier tracer tests.
+- [x] The fixture declares one relative private route with a parameter and a search value without hardcoding `fixture` in plugin source.
+- [x] Directly opening the private global URL resolves the fixture installation and renders the expected logical plugin location.
+- [x] Plugin links and SDK push/replace calls request relative locations through the bridge; the iframe never mutates Ryot browser history directly.
+- [x] The kernel validates and prefixes plugin paths so `..`, absolute origins, reserved kernel routes, and another plugin namespace cannot be reached through plugin navigation.
+- [x] TanStack Router remains the only owner of real browser history and search state.
+- [x] Browser Back and Forward update the existing plugin document's in-memory location and rendered route.
+- [x] Navigating between fixture home and the private route does not recreate the iframe, React tree, or bridge session.
+- [x] The kernel handshake and bridge session lifecycle live in a transport-agnostic module that `PluginHost` drives, without changing the V1 messages or the kernel-owned states.
+- [x] Kernel-side bridge tests cover port transfer, ready validation against the initiating session and artifact hash, the handshake timeout, teardown on unmount, and the loading-to-ready transition.
+- [x] A full browser refresh on either route restores the correct surface through catalog and route resolution.
+- [x] Plugin-facing params and search values are decoded through the SDK contract rather than read from the parent window.
+- [x] Focus moves to an appropriate page landmark or heading after logical route changes without breaking browser keyboard navigation.
+- [x] Focused route-resolver, path-validation, bridge-location, history, direct-entry, refresh, and persistent-iframe tests pass with all earlier tracer tests.
 
 ## User stories addressed
 
@@ -39,3 +39,20 @@ Task 03 left the kernel side of the bridge untested, and this task must close th
 Do not expose TanStack Router objects as plugin ABI. Keep the SDK surface semantic so the internal in-memory router can change without changing plugin source.
 
 The bridge extraction inherited from Task 03 is a prerequisite for the persistent-session criteria, not a parallel refactor. Do it before adding location messages so the new messages land on an already-testable seam.
+
+## Implementation Notes
+
+- **Bridge extraction came first.** `kernel/client/src/modules/plugins/bridge.ts` owns the handshake and session lifecycle behind `openPluginBridge`, which takes a `postMessage`-capable `PluginBridgeTarget` rather than reading `iframe.contentWindow`. `PluginHost` supplies `frame.current.contentWindow` in production; `bridge.test.ts` supplies a target that hands the transferred port straight to a peer, so port transfer, ready validation, timeout, teardown, and the loading-to-ready transition are driven over a real `MessageChannel`. This closes the gap Task 03 recorded and ticks that task's criterion 12. The V1 `PluginBridgeInit` and `PluginBridgeReady` messages are byte-identical to before.
+- **Handshake framing is a state machine, not a union.** While awaiting ready the kernel decodes `PluginBridgeReady`; once ready it decodes `PluginBridgeNavigate`. A ready-after-ready or a navigate-before-ready simply fails to decode, so no discriminant had to be added to the existing V1 messages. The two new post-handshake messages (`PluginBridgeLocation`, `PluginBridgeNavigate`) do carry a `type` literal, because Tasks 05 and 06 add further message kinds to the same port.
+- **No session identity on port messages.** The `MessageChannel` is created per session and closed on teardown, so the port *is* the session capability. Re-stamping a `sessionId` on every location or navigate message would add no authority the port does not already carry.
+- **The bridge latches the pending location instead of dropping it.** The handshake window is real: the iframe fires `load`, the kernel captures the current location and posts init, and the plugin bundle only later evaluates and posts ready. A first pass dropped any `sendLocation` arriving while `!ready` and replayed the location captured at `connect()` time, so a user who navigated during that window got the plugin rendering its home against a private-route URL, desynced until the next navigation. `openPluginBridge` now keeps `location` as mutable session state that `sendLocation` always updates, and sends the latest value once ready — a coalescing latch rather than a queue, since only the newest location is meaningful.
+- **Kernel-owned prefixing lives in `plugin-location.ts`.** `toPluginLocation` strips `/<slug>` from the TanStack pathname and search, `toGlobalHref` restores it, `validatePluginLocation` enforces a character allowlist and rejects dot segments and protocol-relative paths, and `toNavigationRequest` composes the two into the `{ href, replace }` the route adapter hands to `useNavigate`. Prefixing alone is not containment: a rejected path is what keeps the plugin inside its namespace, because anything that survives validation is then prefixed and a plugin asking for `/settings` lands harmlessly on `/<slug>/settings`. `resolveRouteTarget` was deliberately left answering only "which installation owns this slug".
+- **Dot segments are matched per the URL spec, not literally.** A first pass compared each segment against `"."` and `".."`, which review refuted: `%` is a legal path character and the URL specification treats `%2e` as a dot, so `/%2e%2e/other-plugin/secret` was accepted, prefixed, and then normalised by TanStack and the browser into another installation's namespace — the fixture unmounted itself and mounted a different plugin's artifact, and `/%2e%2e/auth` reached a reserved kernel route. `validatePluginLocation` now tests each segment against `/^(?:\.|%2e)(?:\.|%2e)?$/i`, covering `.`, `..`, `%2e`, `%2e%2e`, `.%2e`, and `%2e.` in either case. Deeper encodings are deliberately not rejected: browsers decode exactly one level, so `%252e%252e` stays a literal segment, and `...`/`%2e%2e%2e` are ordinary names. Both the escapes and the look-alikes are covered in `plugin-location.test.ts`.
+- **One iframe across child navigation.** `routes/$pluginSlug.tsx` became a layout route that owns `beforeLoad`, the catalog loader, and `PluginHost`; `routes/$pluginSlug/index.tsx` and the new `routes/$pluginSlug/$.tsx` are leaves that render nothing. TanStack keeps a matched parent mounted while only the child match changes, so moving between `/fixture` and `/fixture/details/$itemId` never recreates the iframe, the React tree, or the bridge session. `shouldReload: false` keeps the catalog from refetching on plugin-internal navigation, and `PluginFrame`'s key stays `installationId:artifactHash` so only a new artifact replaces the document.
+- **Plugin-side router.** `@ryot/client-plugin-sdk` gained `routing.tsx`: a flat `$name`-segment matcher, `usePluginLocation`/`usePluginParams`/`usePluginSearch`/`usePluginNavigation`, and `PluginLink`. Plugins pass `search` as a record and the SDK serialises it, so plugin code cannot hand the kernel a raw unencoded query string. No TanStack object crosses the ABI. The barrel exports exactly that surface: `PluginRouter` and the location store stay internal to the package's bootstrap, because exporting a bootstrap seam would widen a frozen V1 ABI that no plugin consumes. Param decoding falls back to the raw segment when `decodeURIComponent` throws, so a malformed escape such as `/details/%zz` cannot take down the plugin tree from inside a render.
+- **The location store is created before `port.start()`.** `bootstrapClientPlugin` builds a `subscribe`/`getSnapshot` store over the port, starts the port, posts ready, and only then renders. Attaching the listener from a React effect would have raced: the kernel sends the initial location immediately after ready, and a message delivered before the effect ran would have been dropped, leaving the plugin blank forever. `PluginRouter` reads the store through `useSyncExternalStore`, so a location that arrives before the first render is still rendered.
+- **Focus.** The router wraps the active route in a `tabIndex={-1}` container and focuses it with `preventScroll` on every location change after the first, but only when `document.hasFocus()`. An in-plugin link or `push` therefore moves focus to the new page, while a browser Back pressed in the kernel document does not steal focus into the iframe.
+- **Fixture.** `plugins/fixture/client` gained `details.tsx` (`/details/$itemId` with a `tab` search value) and a link plus a `push` button on the home page. The greet counter is retained deliberately: it is what proves plugin React state survives navigation. The `.fixture-logo` class was renamed to `.plugin-logo` so no plugin client source contains its own installed slug; the two assertions on that class in `packages/client-plugin-compiler/src/compile.test.ts` and `tests/src/tests/kernel/plugins/client-artifact.test.ts` were updated.
+- **`getRouter` accepts an optional `history`** so `routes/plugin-navigation.test.tsx` can mount the real route tree on a memory history and assert direct entry, refresh, Back/Forward, replace semantics, and a stable iframe element without duplicating router configuration.
+- **One lint suppression.** `bridge.test.ts` carries a file-level `oxlint-disable` for `unicorn/require-post-message-target-origin`. That rule guards `Window.postMessage`, and its suggested fix (`, port.location.origin`) would be invalid on a `MessagePort`, whose second argument is a transfer list. It stays quiet only for receivers literally named `.port1`/`.port2`, so the suppression is scoped to the one file that talks exclusively to ports rather than renaming variables to satisfy a name heuristic or weakening the rule for the real `contentWindow.postMessage` call in `plugin-host.tsx`.
+- **Verified with** `bun turbo --filter=@ryot/contract --filter=@ryot/client-plugin-sdk --filter=@ryot/client-plugin-compiler --filter=@ryot/fixture-plugin check test`, `bun turbo --filter=@ryot/kernel-client check test build`, a full `bun turbo check --force=true` reporting zero warnings and zero errors across all 26 packages, and the affected end-to-end suite `tests/src/tests/kernel/plugins/client-artifact.test.ts` only.
