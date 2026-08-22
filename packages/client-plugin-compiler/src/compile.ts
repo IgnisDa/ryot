@@ -50,12 +50,6 @@ type ClientPluginCompilerBaseInput = {
 	readonly apiVersion: typeof CLIENT_API_VERSION;
 };
 
-export type ClientPluginCompilerPageInput = ClientPluginCompilerBaseInput & {
-	readonly entry: string;
-	readonly application: "page";
-	readonly files: Readonly<Record<string, Uint8Array>>;
-};
-
 export type ClientPluginCompilerPackageInput = ClientPluginCompilerBaseInput & {
 	readonly pluginDependencies?: readonly string[];
 	readonly files: Readonly<Record<string, Uint8Array>>;
@@ -103,7 +97,6 @@ export type ClientPluginCompilerGraphInput = ClientPluginCompilerBaseInput & {
 };
 
 export type ClientPluginCompilerInput =
-	| ClientPluginCompilerPageInput
 	| ClientPluginCompilerPackageInput
 	| ClientPluginCompilerGraphInput;
 
@@ -256,10 +249,8 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 		let entry: string;
 		const pluginName = input.name;
 		const graphInput = "contributors" in input;
-		const packageInput = !graphInput && !("application" in input);
 		let automaticExports: readonly string[] = [];
 		let files: Readonly<Record<string, Uint8Array>>;
-		const application = "application" in input ? input.application : undefined;
 		let publicExportPaths: Readonly<Record<string, string>> = {};
 		let pluginRouteRegistry: ClientPluginRouteRegistry | undefined;
 		let automaticRegistry: readonly ClientPluginAutomaticRegistryEntry[] = [];
@@ -348,7 +339,7 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 				resolvedPublicExports[specifier] = target;
 			}
 			publicExportPaths = resolvedPublicExports;
-			if (application === "plugin-route") {
+			if (input.application === "plugin-route") {
 				const registry = input.routeRegistry;
 				const routePaths = new Set(registry?.routes.map(({ path }) => path) ?? []);
 				const registrySpecifiers = registry
@@ -394,9 +385,9 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 			);
 			automaticExports = automaticRegistry.map(({ exportSpecifier }) => exportSpecifier);
 		} else {
-			entry = "entry" in input ? input.entry : GENERATED_PACKAGE_VALIDATION_ENTRY;
+			entry = GENERATED_PACKAGE_VALIDATION_ENTRY;
 			files = input.files;
-			packagePublicExports = "publicExports" in input ? input.publicExports : {};
+			packagePublicExports = input.publicExports;
 			for (const [name, declaration] of Object.entries(packagePublicExports)) {
 				if (
 					!PUBLIC_EXPORT_NAME.test(name) ||
@@ -415,9 +406,9 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 		}
 
 		if (
-			!packageInput &&
+			graphInput &&
 			((!entry.endsWith(".ts") && !entry.endsWith(".tsx")) ||
-				!(graphInput ? entry.includes("/client/") : entry.startsWith(CLIENT_SOURCE_ROOT)) ||
+				!entry.includes("/client/") ||
 				!Object.hasOwn(files, entry))
 		) {
 			return yield* failure(
@@ -476,13 +467,10 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 				);
 			}
 		}
-		const generatedPageEntry = graphInput
-			? `contributors/${input.entry.contributor}/${GENERATED_PAGE_ENTRY}`
-			: GENERATED_PAGE_ENTRY;
-		const generatedPageSourceEntry =
-			application === "page" || application === "plugin-route" ? entry : undefined;
-		const buildEntry = packageInput ? GENERATED_PACKAGE_VALIDATION_ENTRY : generatedPageEntry;
-		if (generatedPageSourceEntry !== undefined) {
+		let buildEntry = GENERATED_PACKAGE_VALIDATION_ENTRY;
+		if (graphInput) {
+			const generatedPageEntry = `contributors/${input.entry.contributor}/${GENERATED_PAGE_ENTRY}`;
+			buildEntry = generatedPageEntry;
 			if (Object.hasOwn(sourceFiles, generatedPageEntry)) {
 				return yield* failure(
 					entry,
@@ -491,14 +479,11 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 				);
 			}
 			sourceFiles[generatedPageEntry] =
-				graphInput && pluginRouteRegistry
+				input.application === "plugin-route" && pluginRouteRegistry
 					? pluginRouteEntrySource(pluginRouteRegistry, automaticRegistry)
-					: pageEntrySource(
-							graphInput ? input.entry.path : generatedPageSourceEntry,
-							automaticRegistry,
-						);
+					: pageEntrySource(input.entry.path, automaticRegistry);
 		}
-		if (packageInput) {
+		if (!graphInput) {
 			if (Object.hasOwn(sourceFiles, GENERATED_PACKAGE_VALIDATION_ENTRY)) {
 				return yield* failure(
 					entry,
@@ -524,7 +509,7 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 				assetNames,
 				files: sourceFiles,
 				publicExports: publicExportPaths,
-				...(packageInput ? { unresolvedPluginDependencies: input.pluginDependencies ?? [] } : {}),
+				...(!graphInput ? { unresolvedPluginDependencies: input.pluginDependencies ?? [] } : {}),
 			},
 			dependencies.compilerRoot,
 		);
@@ -542,7 +527,7 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 					),
 				)
 			: { ...sourceFiles };
-		if (application === "page" || application === "plugin-route") {
+		if (graphInput) {
 			checkedSourceFiles[validationEntry] = validationSource(
 				"@ryot-internal/application-entry",
 				reachablePublicExports,
@@ -550,9 +535,7 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 			);
 		}
 		const typeDiagnostics = yield* checkClientPluginTypes(checkedSourceFiles, dependencies, {
-			...(application === "page" || application === "plugin-route"
-				? { "@ryot-internal/application-entry": entry }
-				: {}),
+			...(graphInput ? { "@ryot-internal/application-entry": entry } : {}),
 			...Object.fromEntries(
 				reachablePublicExports.map((specifier) => [specifier, publicExportPaths[specifier] ?? ""]),
 			),

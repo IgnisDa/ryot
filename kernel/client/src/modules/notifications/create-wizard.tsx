@@ -1,3 +1,4 @@
+import { useRyotMutation } from "@ryot-app/client-sdk/react";
 import { Button, FieldMessage, StatusMessage } from "@ryot-app/client-ui-sdk";
 import {
 	SchemaForm,
@@ -5,11 +6,9 @@ import {
 	type SchemaFormApi,
 	type SchemaFormValues,
 } from "@ryot-app/client-ui-sdk/schema-form";
-import { useRouteContext } from "@tanstack/react-router";
-import { Effect, Match, Result } from "effect";
-import { useEffect, useEffectEvent, useReducer, useRef, useState } from "react";
+import { Match, Result } from "effect";
+import { useEffect, useEffectEvent, useReducer, useState } from "react";
 
-import { NotificationsApi } from "#/api/notifications";
 import {
 	notificationChannelChooseLabel,
 	notificationChannelEntry,
@@ -25,6 +24,7 @@ import {
 	notificationChannelSaveFailure,
 	type NotificationChannelSaveFailure,
 } from "#/modules/notifications/save-failure";
+import { createNotificationChannelMutation } from "#/modules/notifications/service";
 import { CatalogPicker } from "#/modules/ui/catalog/picker";
 import { findBySlug } from "#/modules/ui/catalog/selection";
 import { schemaReviewRows } from "#/modules/ui/review-rows";
@@ -162,14 +162,10 @@ export function NotificationChannelCreateWizard(props: {
 	readonly smtpEnabled: boolean;
 	readonly onCreated: () => void;
 }) {
-	const { runtime, scope } = useRouteContext({ from: "/_authenticated" });
-	const controller = useRef(new AbortController());
-	const [pending, setPending] = useState(false);
+	const create = useRyotMutation(createNotificationChannelMutation);
 	const [failure, setFailure] = useState<NotificationChannelSaveFailure | undefined>();
 	const [state, dispatch] = useReducer(wizardReducer, undefined, createWizardState);
 	const definition = findBySlug(notificationChannelList, state.slug);
-
-	useEffect(() => () => controller.current.abort(), []);
 
 	const add = useEffectEvent(async (values: SchemaFormValues) => {
 		if (definition === undefined) {
@@ -181,24 +177,14 @@ export function NotificationChannelCreateWizard(props: {
 			dispatch({ type: "recover-at", step: "configure" });
 			return;
 		}
-		setPending(true);
 		setFailure(undefined);
-		const outcome = await runtime.runPromise(
-			Effect.flatMap(NotificationsApi, (api) =>
-				api.createChannel(scope, { payload: body.success }),
-			).pipe(
-				Effect.match({
-					onSuccess: () => ({ failure: undefined }),
-					onFailure: (error) => ({ failure: notificationChannelSaveFailure(error) }),
-				}),
-			),
-			{ signal: controller.current.signal },
-		);
-		setPending(false);
-		if (outcome.failure !== undefined) {
-			setFailure(outcome.failure);
-			if (outcome.failure.step !== undefined) {
-				dispatch({ type: "recover-at", step: outcome.failure.step });
+		try {
+			await create.mutateAsync(body.success);
+		} catch (error) {
+			const saveFailure = notificationChannelSaveFailure(error);
+			setFailure(saveFailure);
+			if (saveFailure.step !== undefined) {
+				dispatch({ type: "recover-at", step: saveFailure.step });
 			}
 			return;
 		}
@@ -272,8 +258,8 @@ export function NotificationChannelCreateWizard(props: {
 						<ReviewStep
 							values={values}
 							onBack={goBack}
-							pending={pending}
 							definition={definition}
+							pending={create.isPending}
 							failureDetail={reviewFailure}
 							onAdd={() => void add(values)}
 						/>

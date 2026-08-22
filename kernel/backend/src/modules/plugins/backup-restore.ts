@@ -26,7 +26,7 @@ import {
 	validatePluginSourcePaths,
 } from "./validation";
 
-export type PreparedBackupPrivatePlugin = Omit<ArchivePrivatePlugin, "files"> & {
+type PreparedBackupPrivatePlugin = Omit<ArchivePrivatePlugin, "files"> & {
 	readonly normalized: NormalizedPlugin;
 	readonly files: Readonly<Record<string, Uint8Array>>;
 };

@@ -6,7 +6,6 @@ export {
 	type ClientPluginCompilerInput,
 	type ClientPluginCompilerPackageExport,
 	type ClientPluginCompilerPackageInput,
-	type ClientPluginCompilerPageInput,
 	type ClientPluginCompilerPublicExport,
 	type ClientPluginExportKind,
 } from "./compile";
