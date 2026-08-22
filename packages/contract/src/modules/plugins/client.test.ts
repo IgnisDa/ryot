@@ -7,6 +7,8 @@ import {
 	PluginBridgeHostMessage,
 	PluginBridgeOperationResult,
 	PluginBridgeRyotQLResult,
+	PluginOperationBridgeErrorReason,
+	PluginOperationErrorReason,
 } from "./client";
 
 const document = {
@@ -85,6 +87,63 @@ describe("plugin client bridge contract", () => {
 				decodeResult({
 					outcome: "success",
 					value: () => undefined,
+					requestId: "request-1",
+					type: "operation-result",
+				}),
+			),
+		).toBe(true);
+	});
+
+	it("defines public operation errors as a strict superset of bridge errors", () => {
+		const decodeBridge = Schema.decodeUnknownResult(PluginOperationBridgeErrorReason);
+		const decodePublic = Schema.decodeUnknownResult(PluginOperationErrorReason);
+		const bridgeReasons = ["transport", "operation-failed", "malformed-result"];
+		const publicReasons = [
+			...bridgeReasons,
+			"disposed",
+			"protocol",
+			"invalid-input",
+			"unsupported-capability",
+		];
+
+		for (const reason of publicReasons) {
+			expect(Result.isSuccess(decodePublic(reason))).toBe(true);
+		}
+		for (const reason of bridgeReasons) {
+			expect(Result.isSuccess(decodeBridge(reason))).toBe(true);
+		}
+		for (const reason of publicReasons.slice(bridgeReasons.length)) {
+			expect(Result.isFailure(decodeBridge(reason))).toBe(true);
+		}
+		expect(Result.isFailure(decodePublic("failure"))).toBe(true);
+	});
+
+	it("accepts only bridge operation errors on strict result messages", () => {
+		const decode = Schema.decodeUnknownResult(PluginBridgeOperationResult);
+
+		for (const reason of ["transport", "operation-failed", "malformed-result"]) {
+			expect(
+				Result.isSuccess(
+					decode({ reason, outcome: "failure", requestId: "request-1", type: "operation-result" }),
+				),
+			).toBe(true);
+		}
+		expect(
+			Result.isFailure(
+				decode({
+					reason: "protocol",
+					outcome: "failure",
+					requestId: "request-1",
+					type: "operation-result",
+				}),
+			),
+		).toBe(true);
+		expect(
+			Result.isFailure(
+				decode({
+					debug: true,
+					reason: "transport",
+					outcome: "failure",
 					requestId: "request-1",
 					type: "operation-result",
 				}),
