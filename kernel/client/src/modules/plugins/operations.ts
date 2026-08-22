@@ -13,6 +13,7 @@ import {
 import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Schema } from "effect";
 
+import { isDemoOperationProtectedError } from "#/api/authenticated";
 import { PluginsApi } from "#/api/plugins";
 import type { ApiScope } from "#/api/scope";
 
@@ -60,7 +61,9 @@ export class PluginOperationsService extends Context.Service<PluginOperationsSer
 									return { outcome: "stale-session" } as const;
 								}
 								const reason = (
-									isDeclaredFailure(error.cause) ? "operation-failed" : "transport"
+									isDeclaredFailure(error.cause) || isDemoOperationProtectedError(error)
+										? "operation-failed"
+										: "transport"
 								) satisfies PluginOperationBridgeErrorReason;
 								return { reason, outcome: "failure" } as const;
 							},
