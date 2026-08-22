@@ -1,8 +1,8 @@
 import { describe, expect, it } from "@effect/vitest";
 import type {
-	ContractClient,
 	ContractPathParams,
 	ContractPayload,
+	ContractSuccess,
 } from "@ryot-app/contract/client";
 import {
 	PluginArtifactSessionNotFoundError,
@@ -10,10 +10,13 @@ import {
 	PluginConflictError,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { PluginSlug } from "@ryot-app/contract/schema/brands";
-import { Cause, Effect, Exit, Fiber, Layer } from "effect";
+import type { Layer } from "effect";
+import { Cause, Effect, Exit, Fiber } from "effect";
 
-import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";
+import { AuthenticatedApiError } from "#/api/authenticated";
 import { decodeServerOrigin } from "#/api/origin";
+import type { PluginsApi } from "#/api/plugins";
+import { makePluginsApi, unused } from "#/api/ports.test-layer";
 import type { ApiScope } from "#/api/scope";
 import {
 	ArtifactSessionCreationError,
@@ -33,27 +36,35 @@ type SessionRequest = {
 	readonly params: ContractPathParams<"plugins", "renewArtifactSession">;
 };
 
+type SessionResult<M extends keyof PluginsApi["Service"]> = Effect.Effect<
+	ContractSuccess<"plugins", M>,
+	AuthenticatedApiError
+>;
+
 type PluginsStub = {
-	readonly createArtifactSession?: (request: CreateRequest) => Effect.Effect<unknown, unknown>;
-	readonly renewArtifactSession?: (request: SessionRequest) => Effect.Effect<unknown, unknown>;
-	readonly revokeArtifactSession?: (request: SessionRequest) => Effect.Effect<unknown, unknown>;
+	readonly revokeArtifactSession?: (
+		request: SessionRequest,
+	) => SessionResult<"revokeArtifactSession">;
+	readonly renewArtifactSession?: (
+		request: SessionRequest,
+	) => SessionResult<"renewArtifactSession">;
+	readonly createArtifactSession?: (
+		request: CreateRequest,
+	) => SessionResult<"createArtifactSession">;
 };
 
-const makeApi = (plugins: PluginsStub) => {
-	// Contract programs receive the complete client even when a service uses one endpoint.
-	// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-	const client = { plugins } as ContractClient;
-	return Layer.succeed(AuthenticatedApi, {
-		run: <A, E>(_scope: ApiScope, program: (client: ContractClient) => Effect.Effect<A, E>) =>
-			program(client).pipe(
-				Effect.catch((cause) => Effect.fail(new AuthenticatedApiError({ cause }))),
-			),
+const fails = (cause: unknown) => () => Effect.fail(new AuthenticatedApiError({ cause }));
+
+const makeApi = (plugins: PluginsStub) =>
+	makePluginsApi({
+		renewArtifactSession: (_scope, request) => (plugins.renewArtifactSession ?? unused)(request),
+		revokeArtifactSession: (_scope, request) => (plugins.revokeArtifactSession ?? unused)(request),
+		createArtifactSession: (_scope, request) => (plugins.createArtifactSession ?? unused)(request),
 	});
-};
 
 const run = <A, E>(
 	effect: Effect.Effect<A, E, ArtifactSessions>,
-	dependencies: Layer.Layer<AuthenticatedApi>,
+	dependencies: Layer.Layer<PluginsApi>,
 ) => effect.pipe(Effect.provide(ArtifactSessions.layer), Effect.provide(dependencies));
 
 describe("artifact sessions", () => {
@@ -135,7 +146,7 @@ describe("artifact sessions", () => {
 					expect(error._tag).toBe(expectedTag);
 					expect(error).not.toHaveProperty("cause");
 				}),
-				makeApi({ createArtifactSession: () => Effect.fail(cause) }),
+				makeApi({ createArtifactSession: fails(cause) }),
 			),
 		);
 	}
@@ -145,11 +156,11 @@ describe("artifact sessions", () => {
 		const dependencies = makeApi({
 			renewArtifactSession: (request) => {
 				calls.push(request);
-				return Effect.fail(
+				return fails(
 					new PluginArtifactSessionNotFoundError({
 						reason: { code: "artifact-session-not-found" },
 					}),
-				);
+				)();
 			},
 		});
 
@@ -168,8 +179,8 @@ describe("artifact sessions", () => {
 
 	it.effect("maps renewal and revocation transport failures to temporary errors", () => {
 		const dependencies = makeApi({
-			renewArtifactSession: () => Effect.fail(new TypeError("network unavailable")),
-			revokeArtifactSession: () => Effect.fail(new TypeError("network unavailable")),
+			renewArtifactSession: fails(new TypeError("network unavailable")),
+			revokeArtifactSession: fails(new TypeError("network unavailable")),
 		});
 
 		return run(

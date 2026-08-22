@@ -1,11 +1,11 @@
 import { createRyotClient } from "@ryot-app/client-sdk";
-import type { ContractClient, ContractPayload } from "@ryot-app/contract/client";
+import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
 import type { PluginThemeSnapshot } from "@ryot-app/contract/modules/plugins/client";
 import { Effect, Layer, ManagedRuntime } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";
 import { decodeServerOrigin } from "#/api/origin";
+import { makeRyotQLApi, makeUploadsApi } from "#/api/ports.test-layer";
 import { createKernelRyotClient } from "#/api/ryot-client";
 import type { ApiScope } from "#/api/scope";
 import { PluginCatalogError, PluginCatalogService } from "#/modules/plugins/catalog";
@@ -34,21 +34,19 @@ const entry = {
 	clientArtifactHash: "artifact-hash",
 } as const;
 
-const makeCatalogRuntime = (responses: ReadonlyArray<unknown>) => {
+const makeCatalogRuntime = (responses: ReadonlyArray<ContractSuccess<"ryotql", "execute">>) => {
+	const remaining = [...responses];
 	const calls: Array<{ readonly payload: ContractPayload<"ryotql", "execute"> }> = [];
-	const execute = (request: { readonly payload: ContractPayload<"ryotql", "execute"> }) => {
-		calls.push(request);
-		return Effect.succeed(responses[calls.length - 1]);
-	};
-	// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-	const contractClient = { ryotql: { execute } } as unknown as ContractClient;
-	const api = Layer.succeed(AuthenticatedApi, {
-		run: <A, E>(_scope: ApiScope, program: (client: ContractClient) => Effect.Effect<A, E>) =>
-			program(contractClient).pipe(
-				Effect.catch((cause) => Effect.fail(new AuthenticatedApiError({ cause }))),
-			),
+	const api = makeRyotQLApi({
+		execute: (_scope, request) => {
+			calls.push(request);
+			const response = remaining.shift();
+			return response === undefined ? Effect.die("no queued response") : Effect.succeed(response);
+		},
 	});
-	const runtime = ManagedRuntime.make(Layer.mergeAll(api, PluginCatalogService.layer));
+	const runtime = ManagedRuntime.make(
+		Layer.mergeAll(api, makeUploadsApi(), PluginCatalogService.layer),
+	);
 
 	return { calls, runtime, ryot: createKernelRyotClient(runtime, scope, theme) };
 };
