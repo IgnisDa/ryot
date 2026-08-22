@@ -155,7 +155,6 @@ function SavedViewPage() {
 				record={record}
 				layout={layout}
 				onAdd={openAdd}
-				addOpen={addOpen}
 				key={`${record.id}:${record.updatedAt}:${dataGeneration.current}`}
 			/>
 			{addSchemaSlug !== null && (
@@ -173,7 +172,6 @@ function SavedViewPage() {
 }
 
 function SavedViewContent(props: {
-	readonly addOpen: boolean;
 	readonly data: SavedViewData;
 	readonly layout: SavedViewLayoutName;
 	readonly onAdd: (query?: string) => void;
@@ -204,7 +202,7 @@ function SavedViewContent(props: {
 	stateRef.current = state;
 
 	const onAdd = useEffectEvent(() => props.onAdd());
-	useShortcut("A", onAdd, { enabled: canAdd && !props.addOpen });
+	useShortcut("A", onAdd, { enabled: canAdd });
 
 	const runPageRequest = useEffectEvent(
 		async (input: {
@@ -483,7 +481,6 @@ function SavedViewContent(props: {
 								shortcut="/"
 								value={searchText}
 								onChange={setSearchText}
-								shortcutEnabled={!props.addOpen}
 								label={`Search ${props.record.name}`}
 								icon={<AppIcon name="search" size={15} />}
 								clearIcon={<AppIcon name="x" size={14} />}
