@@ -2,9 +2,9 @@ import { EntityId, RelationshipSchemaSlug } from "@ryot-app/contract/schema/bran
 import {
 	podcastDetailRecipe,
 	podcastsByLifecycleStateRecipe,
-	showSeasonEpisodesRecipe,
 	showsByLifecycleStateRecipe,
 } from "@ryot-app/media-plugin/query-recipes";
+import { showSeasonEpisodesRecipe } from "@ryot-app/media-plugin/shared/show-recipes";
 import { column, descending, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
 import { Effect } from "effect";
 
