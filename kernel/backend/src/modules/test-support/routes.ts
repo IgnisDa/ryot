@@ -197,7 +197,7 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
 				return yield* svc.installSystemPlugin(payload).pipe(dieOnDbError);
-			}).pipe(mapTestSupportFailure),
+			}),
 		)
 		.handle("reconcilePluginInstallations", () =>
 			Effect.gen(function* () {
