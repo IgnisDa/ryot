@@ -1,6 +1,6 @@
 # Ryot Client Plugin Architecture
 
-**Status:** Accepted design; shared TypeScript compiler infrastructure implemented
+**Status:** Current product guide
 **Scope:** Ryot client kernel, client-side plugin runtime, shared client SDK, client UI SDK, web/native packaging, routing, and native capability boundaries.
 
 ## 1. Summary
@@ -9,7 +9,7 @@ Ryot's client is a web-first plugin host.
 
 The application kernel is a React DOM application. On the web it runs directly in the browser. On iOS and Android it runs inside a Capacitor host using the platform WebView. The kernel owns authentication, global routing, settings, saved views, application navigation, plugin lifecycle, authenticated transport, client persistence primitives, and access to native operating-system features.
 
-Each plugin can contribute a client application written in React DOM. Plugin applications are compiled independently and run inside isolated iframes owned by the kernel. Built-in plugins such as Media and Fitness use exactly the same client plugin mechanism as third-party plugins.
+Each plugin can contribute a client application written in React DOM. Plugin applications are compiled independently and run inside isolated iframes owned by the kernel. System and third-party plugin clients use the same host, compiler, SDK, and bridge boundaries.
 
 Plugins own domain-specific UI and behavior. The kernel must remain domain-agnostic.
 
@@ -110,11 +110,10 @@ ryot.fitness.completeSet(...)
 
 Plugins compose generic kernel primitives to implement their own domain behavior.
 
-### 2.2 Built-in plugins dogfood the third-party architecture
+### 2.2 One plugin architecture
 
-Media and Fitness must compile, load, route, render, and communicate with the kernel through the same mechanisms available to third-party plugins.
-
-There must not be a privileged client rendering path for system plugins.
+System plugins have no privileged client rendering path. Every plugin client compiles, loads, routes,
+renders, and communicates through the same mechanisms available to third-party plugins.
 
 ### 2.3 Plugin functionality owns whole application surfaces
 
@@ -207,13 +206,10 @@ TanStack Router replaces React Router and Expo Router in the new client architec
 
 TanStack Start is not required. Ryot already has an independent backend and does not need a React server framework for the main client.
 
-### Greenfield replacement
+### React DOM kernel
 
-The React DOM kernel is a greenfield replacement for the existing Expo / React Native client.
-
-Before implementation begins, the existing `kernel/client` application moves unchanged under `crates/` as temporary reference code. A new TanStack Router React DOM application is then created at `kernel/client`.
-
-Existing functionality is ported into the architecture in this document rather than preserved through adapters. There is no compatibility layer between the Expo client and the new kernel, no shared rendering path, and no migration requirement for client state or production user data.
+The React DOM kernel replaces the Expo / React Native client. It has no shared rendering path or
+client-state adapter with the old application.
 
 The reference applications under `crates/` remain read-only and outside the client plugin tracer scope.
 
@@ -468,7 +464,7 @@ The token file route is `GET /plugin-artifact-sessions/:token/:fileName`. It has
 
 The token must not be logged, placed in a referrer, or sent across the bridge. Application access logs use the contract route template rather than concrete path parameters for this endpoint, so the bearer token never enters the logged URL. Reverse proxies must still redact the token-bearing path segment from access logs and tracing and must not cache these responses. This protects artifact delivery, not code confidentiality: an authorized user can inspect the compiled code, and compiled artifacts must not contain secrets.
 
-`PluginHost` creates the session before assigning the token URL to the iframe, renews it before expiry, and revokes it on unmount, crash, reload, or replacement. Route changes reuse the session. A change to the installation, source revision, or artifact closes the bridge, revokes the old session, and creates a new exact session before mounting the replacement. End-to-end, authenticated session creation, exact current-record lookup, hash-only Redis authorization, and exact file lookup are all required before bytes are returned.
+`PluginHost` creates the session before assigning the token URL to the iframe, renews it before expiry, and revokes it on unmount, crash, reload, or replacement. Route and entity changes within the same active installation/source/artifact document reuse the session; kernel routes unmount it. A change to the installation, source revision, or artifact closes the bridge, revokes the old session, and creates a new exact session before mounting the replacement. End-to-end, authenticated session creation, exact current-record lookup, hash-only Redis authorization, and exact file lookup are all required before bytes are returned.
 
 ---
 
@@ -494,11 +490,11 @@ The resulting structure is:
 kernel document
   └── kernel CSS
 
-Media iframe
-  └── Media CSS
+Plugin A iframe
+  └── Plugin A CSS
 
-Fitness iframe
-  └── Fitness CSS
+Plugin B iframe
+  └── Plugin B CSS
 
 Third-party iframe
   └── that plugin's CSS
@@ -525,7 +521,8 @@ font-display
 
 The compiler inlines `client-ui-sdk/palette.css` into every plugin stylesheet, so a plugin document defines the same token values as the kernel document and resolves them at first paint. Token values never cross the bridge. The kernel sends only the resolved mode: `mode` on the bridge `init` message, and a `{ "type": "theme", "mode": ... }` message if the user changes the preference while a plugin is open. The plugin runtime applies it by setting `data-theme` on its own root element.
 
-That works because the server compiles a plugin's client sources at install time against its own `client-ui-sdk`, so an artifact and the kernel client hosting it are always the same build. There is no author-compiled artifact that could drift from the running palette.
+The server compiles client sources against its own `client-ui-sdk` whenever no current-metadata cache
+artifact can be reused. There is no author-compiled artifact path.
 
 `prefers-color-scheme` already resolves natively inside the iframe, so only an explicit light or dark override needs the mode at all. The `@theme inline` map in `client-ui-sdk/theme.css` and the blocks in `client-ui-sdk/palette.css` remain one coupled set — a token in the map with no value in the palette resolves to an undefined variable in both documents — but `@ryot-app/contract` no longer enumerates token names, so adding a token does not touch the contract.
 
@@ -533,7 +530,9 @@ Two tokens carry roles worth stating, because the split is not obvious from thei
 
 The font-family tokens name the compiler-owned `Outfit Variable` and `Lora Variable` faces. Their `@font-face` declarations and content-addressed files are emitted into every plugin artifact, because an iframe cannot inherit the kernel document's font declarations. The compiler also sets the artifact body's `font-family` to `var(--font-family-ui)` as its default typography; plugins use `font-display` where display typography is required. Font availability and default typography therefore do not depend on device-installed fonts or kernel CSS.
 
-Switching between light and dark does not require recompiling a plugin. Changing a palette *value* does, because the values are compiled into the artifact: bump `CLIENT_COMPILER_VERSION` so the server recompiles installed plugins whose recorded compiler version no longer matches.
+Switching between light and dark does not require recompiling a plugin. Palette values are compiled
+into the artifact, so a value change requires current artifacts to be compiled deliberately. The
+current `CLIENT_COMPILER_VERSION` remains exactly 1.
 
 `theme.css` also carries one `@layer base` block of accessibility primitives — the pointer and not-allowed cursors and the `:focus-visible` outline. It lives there because that file is the only stylesheet loaded by both the kernel document and every plugin iframe, so it is the single place a base rule can reach both. The compiler injects the Tailwind entry itself rather than relying on a plugin to import it, since a plugin may ship no stylesheet at all and would otherwise get neither Preflight nor a registered `@layer` order. Note that cascade layer order precedes specificity, so a Tailwind utility always outranks this layer: a component that sets `outline-none` removes its own focus indicator and must supply a replacement.
 
@@ -701,15 +700,17 @@ that renders no frame at all still ends with room under its last row.
 A screen names itself once, through the `title` it passes the frame, and that one string becomes
 both the `<h1>` and the published `header` message. `usePluginTitle` does the publishing and is
 exported separately so a screen that renders no frame can still name itself. A title is published
-only while its screen is the active one, and stamped with the active history `index` and `key`; the
-kernel applies it only while both still match its current entry, and associates it with the owning
-plugin, so neither a popped screen nor a previous workspace can leave its title standing. A pop
-republishes from the retained screen rather than restoring a value the router cached.
+only while its screen is active and is stamped with its history `index` and `key`. The kernel accepts
+it only for the active installation ID and matching current `index` and `key`, so neither a popped
+screen nor a replaced plugin document can leave its title standing. A pop republishes from the
+retained screen rather than restoring a value the router cached.
 
-The leading control follows §25's arbitration: the plugin receives `edgeBack` and draws back or
-menu from it, then posts `navigate-back` or `open-drawer` and lets the kernel act. Both stay off
-`RyotClient`, because opening kernel chrome is not a capability a plugin may call. The cost is that
-closing the drawer can only return focus to the iframe element, not the button inside it.
+The visible leading control and interactive edge ownership are separate. The plugin receives
+`leading: "back" | "drawer" | "none"` and draws that control independently of `edgeBack`.
+`edgeBack` only enables the plugin document's interactive back edge. Back and drawer controls post
+`navigate-back` or `open-drawer` and let the kernel act. Both stay off `RyotClient`, because opening
+kernel chrome is not a capability a plugin may call. The cost is that closing the drawer can only
+return focus to the iframe element, not the button inside it.
 
 The safe-area inset travels as a discrete number: `safeAreaTop` on init, and a `viewport` message
 when it changes. `env(safe-area-inset-top)` is zero inside an iframe, and §19 resolves an entity
@@ -878,7 +879,7 @@ The normal path is `ready -> active -> closing -> disposed`. A fatal failure ent
 
 `bootstrapClientPlugin` owns embedded metadata validation, the one-time parent-window bootstrap listener, the artifact root, the route resolver and navigation store, and the top-level React root/unmount coordinator. It accepts exactly one valid init with exactly one transferred port, validates the artifact hash and all exact markers, including bridge protocol version 1, before accepting the session, requires the artifact root, creates the runtime, and supplies its client to `RyotProvider`. It removes the bootstrap listener after acceptance. The runtime owns `port.start()`, the session port listeners, the single dispatcher, lifecycle state, pending calls, the `RyotClient`, and idempotent disposal. The shared navigation store owns the current location, edge state, retained stack, and transition identity. Runtime termination tells bootstrap to unmount the root. `PluginHost` owns the iframe element and the kernel-side session handle; it does not create capability-specific bridge objects.
 
-The single dispatcher routes location, theme, query, operation, and terminal `lifecycle-close` messages. One location dispatch synchronously reconciles `compact`, `edgeBack`, the history entry, the retained screen stack, and transition metadata into one immutable navigation snapshot, then notifies subscribers once. `PluginRouter` reads that snapshot directly with `useSyncExternalStore`; it does not mirror the entry into React state through an effect. Query and operation calls use runtime-owned pending registries, even though they may remain separate maps for correlation. Together, operation and RyotQL pending requests share an aggregate maximum of 64 per session, enforced by both the SDK and kernel. Exceeding that limit is a protocol failure using the existing wire `failed` and public `protocol` teardown; requests are not queued or retried, and no new error reason is introduced. No other module may attach a session port listener or own a pending-call registry. The temporary parent-window bootstrap listener is the only listener outside the session runtime and is removed once the runtime is accepted.
+The single dispatcher routes location, theme, query, operation, and terminal `lifecycle-close` messages. One location dispatch synchronously reconciles `compact`, `leading`, `edgeBack`, the history entry, the retained screen stack, and transition metadata into one immutable navigation snapshot, then notifies subscribers once. After reconciliation, the SDK automatically reports the actual `hasPreviousScreen` with the accepted entry's `index` and `key`; this readiness report is not a public plugin API. `PluginRouter` reads the snapshot directly with `useSyncExternalStore`; it does not mirror the entry into React state through an effect. Query and operation calls use runtime-owned pending registries, even though they may remain separate maps for correlation. Together, operation and RyotQL pending requests share an aggregate maximum of 64 per session, enforced by both the SDK and kernel. Exceeding that limit is a protocol failure using the existing wire `failed` and public `protocol` teardown; requests are not queued or retried, and no new error reason is introduced. No other module may attach a session port listener or own a pending-call registry. The temporary parent-window bootstrap listener is the only listener outside the session runtime and is removed once the runtime is accepted.
 
 Every pending query or operation entry is removed before its promise is settled. A result, runtime failure, or disposal can settle an entry only once. Normal disposal rejects every pending call with `disposed`; malformed session data or a wire `failed` close uses `protocol`; communication, posting, or network failure uses `transport`. The runtime clears the registries and ignores duplicate or late results. Closing the iframe is cleanup after this protocol-level rejection; plugin promises do not merely die with the iframe.
 
@@ -906,12 +907,12 @@ type PluginEntityLocation = {
 type PluginLogicalLocation = PluginRouteLocation | PluginEntityLocation;
 ```
 
-The kernel-to-plugin `location` message carries the full navigation state of the entry, not just its path: `{ type: "location", index, key, compact, edgeBack, location }`. Its `location` field uses `PluginLogicalLocation`, so the kernel may deliver either a tagged route location or a tagged entity location. `index` and `key` are the kernel's history identifiers, and the plugin's screen stack derives push, pop, replace, and reset from them (§18). `edgeBack` is the `resolveEdge` verdict — it is `true` only while the plugin document owns the left edge (§25). `compact` is the viewport class the same resolver used, and it is what the plugin document gates its transition on (§18). The kernel re-sends the message whenever any of those fields change, so a viewport change that moves edge ownership does not wait for a navigation.
+The kernel-to-plugin `location` message carries the full navigation state of the entry, not just its path: `{ type: "location", index, key, compact, leading, edgeBack, location }`. Its `location` field uses `PluginLogicalLocation`, so the kernel may deliver either a tagged route location or a tagged entity location. `index` and `key` are the kernel's history identifiers, and the plugin's screen stack derives push, pop, replace, and reset from them (§18). `leading` chooses the visible `back`, `drawer`, or `none` control. `edgeBack` is independent and is `true` only after the kernel grants the plugin document ownership of the interactive left edge (§25); it never chooses a control. `compact` is the viewport class and gates plugin transitions (§18). The kernel re-sends the message whenever any of those fields change.
 
 After accepting a location, the plugin runtime publishes `{ type: "header", index, key, header }`
 from the active screen in that same reconciled snapshot. `header` is validated content or `null` for
-the workspace fallback. The kernel ignores the message unless `index` and `key` still identify its
-current entry.
+the workspace fallback. The kernel owns the publication by installation ID and ignores it unless
+`index` and `key` still identify the current entry.
 
 `compact` exists as its own field because `edgeBack` cannot stand in for it: `edgeBack` is also `false` at the plugin root, where the edge belongs to the drawer, so popping from a child route back to the plugin root would lose its transition exactly as the pop began. The plugin document must not derive the viewport class itself either — media queries inside the iframe measure the content area rather than the window, so an iframe narrowed by the desktop sidebar would disagree with the kernel. `resolveEdge` stays the only definition of a compact viewport.
 
@@ -1210,13 +1211,14 @@ For:
 /fitness/workouts/123
 ```
 
-`fitness` unambiguously owns the renderer, the mounted plugin document, and the left edge.
-It does not become the surrounding workspace: a user can arrive here by cross-plugin delegation,
-such as opening a collection in the Media plugin that contains a workout. The sidebar therefore
-keeps showing the remembered workspace, and nothing is persisted.
+`fitness` unambiguously owns the renderer and mounted plugin document.
+It does not become the surrounding workspace: a user can arrive here by cross-plugin delegation
+from another plugin's collection. The sidebar therefore keeps showing the remembered workspace,
+and nothing is persisted.
 
-Whether the edge offers the drawer or a back gesture stays route-derived, so a plugin workspace
-root still resolves to the drawer even when it is not the remembered workspace.
+The visible leading intent remains route-derived. Interactive edge ownership is decided separately
+from matching SDK screen readiness, so plugin document presence alone never grants the edge. A
+plugin workspace root still resolves to the drawer even when it is not the remembered workspace.
 
 ### Entity routes
 
@@ -1226,9 +1228,10 @@ For:
 /e/entity123
 ```
 
-the kernel resolves the entity's persisted nullable `entitySchemaPluginId` and derives the
-workspace/plugin target. Effective definitions and an unqualified schema slug are not used for
-provenance.
+the route loader reads the entity's persisted nullable `entitySchemaPluginId` once as provenance.
+Rendering resolves that value against the live installation catalog, so catalog changes can update
+the plugin destination without reloading provenance. Effective definitions and an unqualified
+schema slug are not used for provenance.
 
 ### Saved-view routes
 
@@ -1262,7 +1265,7 @@ Avatar refresh, God mode, integrations, imports, backups, plugin management, and
 
 Changing workspace is a navigation-context switch rather than child-screen navigation.
 
-Switching from Media to Fitness should conceptually:
+Switching from one plugin workspace to another should conceptually:
 
 1. navigate with `replace` to `/fitness`
 2. persist `lastWorkspace = "fitness"`
@@ -1271,11 +1274,11 @@ Switching from Media to Fitness should conceptually:
 It should not normally create:
 
 ```text
-/media
+/plugin-a
   ↓ push
-/fitness
+/plugin-b
   ↓ Back
-/media
+/plugin-a
 ```
 
 Workspace switching should preserve the current semantic behavior of replacing the active workspace context.
@@ -1454,10 +1457,11 @@ and updates real browser history.
 
 The URL remains globally canonical and does not include a plugin slug.
 
-The kernel resolves the entity's persisted provenance and determines which plugin installation, if
-any, receives the entity target. The entity RyotQL catalog exposes the persisted nullable
-`entitySchemaPluginId`. Its named recipe returns `entitySchemaSlug` together with that qualified
-owner identity. Effective definitions and an unqualified schema slug are not used for provenance.
+The route loader resolves the entity's persisted provenance once. The entity RyotQL catalog exposes
+the persisted nullable `entitySchemaPluginId`; its named recipe returns `entitySchemaSlug` together
+with that qualified owner identity. Rendering matches the result against the live installation
+catalog to determine which plugin installation, if any, receives the entity target. Effective
+definitions and an unqualified schema slug are not used for provenance.
 
 Conceptually:
 
@@ -1501,19 +1505,14 @@ Conceptually:
 
 Entity ownership must never be guessed only from an unqualified schema slug.
 
-The kernel resolves provenance through an application-owned named RyotQL recipe with a colocated result schema and decoder. `RyotClient` executes the recipe document through the normal authenticated data path and decodes the result locally before the route resolver uses the persisted entity-schema plugin identity to derive the current user's installation.
-
-Media-specific entity recipes remain in the Media plugin. The kernel recipe resolves provenance and
-does not load Media domain data.
+The kernel resolves provenance through an application-owned named RyotQL recipe with a colocated result schema and decoder. `RyotClient` executes the recipe document through the normal authenticated data path and decodes the result locally. The route loader retains that result while the active destination resolves its qualified plugin identity against the live catalog.
 
 ### Disabled plugin navigation
 
-A disabled installation is omitted from `/` bootstrap selection and the workspace switcher.
-It remains reachable only when the user navigates directly to a plugin-private or delegated entity
-URL; the client adds no separate discovery path for it.
-The resolver does not filter a matched installation by disabled, incompatible, or any other health
-state. `PluginHost` owns compatibility and artifact availability, while disabled state adds no
-separate client execution block.
+A disabled installation is omitted from `/` bootstrap selection and the workspace switcher. Direct
+plugin-private and delegated entity URLs remain reachable. Route resolution does not filter an exact
+installation match by enabled state; artifact availability and exact current metadata are validated
+by the ordinary plugin host and artifact-session boundaries.
 
 ---
 
@@ -1546,7 +1545,7 @@ This deliberately keeps the generic saved-view system separate from arbitrary pl
 
 ## 21. Route resolution model
 
-The kernel should resolve every global URL into an explicit intermediate target.
+The kernel resolves every global URL into an explicit intermediate target.
 
 Conceptually:
 
@@ -1601,29 +1600,29 @@ RouteTarget
 
 This route resolver should be a small, explicit, heavily tested kernel subsystem.
 
-For `/e/:entityId`, the resolver consumes the named recipe result and the already-loaded
-installation catalog. A missing entity and a non-null `entitySchemaPluginId` with no exact
-`pluginId` match are explicit states. A null owner resolves to the kernel's `unsupported`
+For `/e/:entityId`, the route loader reads the named recipe result once and the renderer resolves it
+against the live installation catalog. A missing entity and a non-null `entitySchemaPluginId` with
+no exact `pluginId` match are explicit states. A null owner resolves to the kernel's `unsupported`
 surface; a non-null owner with an exact match resolves to a plugin-owned target. The resolver does
 not use effective definitions or an unqualified schema slug for provenance.
 
 For plugin-private routes, the resolver rejects reserved slugs and finds the installation by slug.
-For entity routes, it matches the qualified owner identity by exact `pluginId`. It performs no
-filtering for disabled, incompatible, or other health states; those remain `PluginHost` concerns.
-A missing renderer is plugin SDK/router state, not kernel resolver state.
+For entity routes, it matches the qualified owner identity by exact `pluginId`. It does not filter
+direct URL resolution by enabled state. A missing renderer is plugin SDK/router state, not kernel
+resolver state.
 
 ---
 
 ## 22. Plugin iframe lifecycle
 
-A plugin iframe is keyed by plugin installation/client artifact, not by route.
+A plugin iframe is keyed by one installation/source/artifact document identity, not by route.
 
 Do not reload the iframe for every plugin page.
 
 Good:
 
 ```text
-persistent Media iframe
+persistent plugin iframe
   ├── home
   ├── search
   ├── show entity
@@ -1651,13 +1650,16 @@ The bridge session and the per-session client plugin runtime have the same lifet
 
 Artifact replacement then creates a fresh client and runtime through the same bootstrap/runtime factory used for an initial mount. Reload is a host lifecycle operation, not a public client capability.
 
-The kernel may discard inactive plugin iframes under memory pressure.
+The iframe session is keyed by installation ID, package source hash, and client artifact hash. A
+pathname, plugin slug, entity ID, history index, or history key does not replace it. Plugin-private
+route and plugin-owned entity transitions with the same identity update the retained document. A
+change to any identity component destroys the existing iframe and mounts a fresh document and
+bridge session.
 
-The initial implementation can keep only the active plugin alive and add an LRU/warm-cache policy later if measurements justify it.
-
-A package update is the exception to route-stable iframe reuse. The iframe session is keyed by installation ID, package source hash, and client artifact hash. When either revision hash changes, the kernel destroys the existing iframe and mounts a fresh document and bridge session. The iframe uses content-relative `h-full` sizing rather than `h-screen`, and the plugin route sets `shouldReload: false`.
-
-Only the active plugin is ever mounted. Shell-only interactions must not disturb iframe or bridge identity: opening or closing the workspace switcher, opening or closing the mobile drawer, crossing the desktop/mobile breakpoint, plugin-private navigation, and browser Back/Forward within the plugin route all leave the same iframe and bridge session running. Navigating to settings intentionally unmounts the plugin — settings and a plugin are never mounted together — and returning to the workspace mounts a fresh iframe. Switching workspaces unmounts the outgoing plugin and mounts the selected one. Signing out or changing server disposes the entire authenticated shell and plugin session.
+Only the active plugin is mounted. Shell-only interactions must not disturb iframe or bridge
+identity. Kernel routes unmount the plugin, while route and entity locations owned by the same
+active document keep it mounted. Switching installations, signing out, or changing server disposes
+the active plugin session.
 
 The authenticated layout route's loader loads the catalog once, through the direct kernel `RyotClient` adapter, and returns it as initial data; the layout seeds `pluginCatalogQuery` through `RyotProvider` and a plugin-catalog provider using `useRyotQuery`, so the shared query surface uses that hydrated catalog on mount and revalidates it on browser focus. The plugin-catalog provider — not the plugin route — keeps the one credentialed EventSource for catalog changes; the plugin route only reads the catalog from that provider and never subscribes itself. The backend publishes user-scoped invalidations through Redis and routes them into the same process-local catalog hub used by authenticated SSE responses. Both the initial `connected` event and later `catalog-invalidated` events are named, standards-valid SSE messages with a `data:` field. Those events call the query's `refetch`; they do not carry catalog rows or add a second plugin transport. Browser reconnection remains native EventSource behavior, and ordinary route or catalog renders must not recreate the subscription.
 
@@ -1665,7 +1667,11 @@ The authenticated layout route's loader loads the catalog once, through the dire
 
 ## 23. Page transitions and document boundaries
 
-Plugin pages are normal React DOM pages inside one persistent document, so plugin-internal navigation is the one place where an outgoing and an incoming page genuinely co-exist. The transition therefore belongs to the plugin document, and is driven by the screen stack of §18.
+Plugin pages are normal React DOM pages inside one persistent document. Route-to-route,
+route-to-entity, and entity-to-route transitions owned by the same active
+installation/source/artifact document keep both screens in its retained stack. After matching SDK
+readiness confirms a previous screen, the kernel may grant that document the interactive edge. A
+transition that changes documents remains kernel-owned.
 
 The browser View Transition API is deliberately **not** the mechanism. It cannot express an interactive back gesture:
 
@@ -1685,7 +1691,8 @@ kernel-rendered /v/all-shows
 plugin-rendered /e/show123
 ```
 
-crosses a document boundary.
+crosses a document boundary. In particular, `/v` to `/e` mounts a plugin document from a kernel
+screen, so the plugin stack has no retained copy of `/v` and the kernel keeps the edge.
 
 The kernel can animate the viewport transition, but a native browser shared-element View Transition cannot span the parent document and plugin iframe.
 
@@ -1732,22 +1739,31 @@ the call site. `ryot.feedback.haptic(...)` is the plugin-facing surface over the
 ## 25. Sidebar and back gestures
 
 The kernel owns the application-level edge gesture **policy**. `resolveEdge` in
-`kernel/client/src/modules/navigation/edge-intent.ts` is the single source of truth and returns both an
-`intent` and an `owner`.
+`kernel/client/src/modules/navigation/edge-intent.ts` returns visible leading `intent`, interactive
+edge `owner`, and `compact` as separate results. The intent is `back`, `drawer`, or `none`. The owner
+is `kernel` or `plugin` and does not choose the control.
 
-The arbitration rule is unchanged: **the left edge does whatever the header's leading control does**.
-`MobileHeader` reads `intent`, so the gesture can never contradict the control the user is looking at.
+The plugin receives both `leading` and `edgeBack`. `leading` selects its visible control.
+`edgeBack` only says that its document owns the interactive back edge; it never selects back,
+drawer, or none.
 
 ```text
-workspace root (/:pluginSlug)   intent drawer   owner kernel   header shows the menu button
-plugin child route              intent back     owner plugin   header shows the back chevron
-settings routes                 intent back     owner kernel   SettingsFrame owns its back control
-/customize-sidebar              intent back     owner kernel   the panel owns its Cancel control
-desktop                         intent back     owner kernel   no edge gesture is offered
-"back" with nothing to pop      falls through to the drawer where one is mounted
+workspace root (/:pluginSlug)        intent drawer   owner kernel
+same-document retained destination  intent back     owner plugin after matching SDK readiness
+cross-document /v -> /e              intent back     owner kernel
+settings routes                      intent back     owner kernel
+/customize-sidebar                   intent back     owner kernel
+desktop                              any intent      owner kernel; no edge gesture is offered
+"back" with nothing to pop           falls through to the drawer where one is mounted
 ```
 
-`owner` decides which document *recognizes* the gesture, and only one strip is ever mounted:
+The SDK reconciles an accepted location before automatically publishing its actual
+`hasPreviousScreen` with the accepted `index` and `key`. The kernel uses the report only when the
+installation ID, source hash, artifact hash, index, and key match the active document and current
+entry. It then makes the final `resolveEdge` decision. Readiness is runtime protocol state, not a
+public plugin API.
+
+`owner` decides which document *recognizes* the gesture, and only one strip is mounted:
 
 - **kernel** — `EdgeGesture` renders its 24px strip above the iframe and drives the drawer, or performs a
   plain Back on a kernel-rendered route such as settings, which has no second screen to animate.
@@ -1755,14 +1771,14 @@ desktop                         intent back     owner kernel   no edge gesture i
   the plugin document runs a fully interactive, reversible transition against its own screen stack (§18).
   On commit it posts `navigate-back`; the kernel still owns the pop.
 
-`owner` decides who recognizes a gesture; it does not decide whether a pop is animated. That is `compact`,
-sent on the same message (§11). The two differ at the plugin root, where the edge belongs to the drawer but
-a pop arriving from elsewhere should still animate.
+`owner` decides who recognizes a gesture; it does not choose the leading control or decide whether
+a pop is animated. Animation is gated by `compact`, sent on the same message (§11).
 
 This is why per-frame gesture data never crosses the bridge (§24, §36): the recognizer and the two
-screens it animates are always in the same document. Ownership is a pure function of route shape, so a
-plugin child route has no edge strip for the few hundred milliseconds before its bridge is ready, and the
-plugin strip is bounded by the iframe rather than reaching into the header band. Both are accepted.
+screens it animates are always in the same document. A plugin receives the edge only when its
+matching readiness proves that both screens are retained there. Until then, including every
+cross-document transition, the kernel keeps the edge. The plugin strip is bounded by the iframe
+rather than reaching into the header band.
 
 The recognizer keeps the Expo client's constants: a 24px left-edge strip, activation at
 `dx > 6 && |dx| > |dy|`, and completion at `dx > width / 3 || vx > 0.5`. `width` is the drawer width for
@@ -1952,7 +1968,15 @@ The current client contract records exact markers for:
 2. bridge protocol level
 3. client artifact format/compiler version
 
-The client API level is 1, and the bridge protocol level is exactly 1. Plugin source declares the exact client API level it targets. The compiler emits the exact bridge protocol, artifact format, and compiler versions into artifact metadata. The kernel validates exact expected values before execution.
+The client API level is 1, the bridge protocol level is exactly 1, and
+`CLIENT_COMPILER_VERSION` is exactly 1. Plugin source declares the exact client API level it targets.
+The compiler emits the bridge protocol, artifact format, and compiler versions into artifact
+metadata. The kernel validates exact expected values before execution.
+
+The current ingestion cache reuses client artifacts only when their artifact format, client API,
+bridge protocol, and compiler metadata match the current constants. A mismatch compiles a current
+artifact. There is no alternate metadata acceptance path, cache generation, migration, or guarantee
+for stale version-1 artifacts.
 
 Plugin updates force-reload the mounted iframe so one bridge session never spans package revisions.
 
@@ -2029,7 +2053,7 @@ It should support:
 - hot reload where practical
 - browser developer tools
 
-Media and Fitness should use the same development path.
+System and third-party plugins use the same development path.
 
 ---
 
@@ -2061,13 +2085,18 @@ The same client artifact should be exercised on:
 - iOS
 - Android
 
-Media and Fitness provide additional production dogfooding.
-
 Client boundary tests must verify the exact public `RyotClientError` reasons and their classifications: explicit `null` operation input, omitted input rejected locally as `invalid-input`, an exposed SDK category missing from the supplied adapter as `unsupported-capability`, declared query and operation execution failures as opaque `query-failed` and `operation-failed`, invalid or throwing result decoders as `malformed-result`, teardown as `disposed`, malformed bridge/session data and wire `failed` closes as `protocol`, and communication/posting/network failures as `transport`. Tests must prove the shared 64-request operation/RyotQL pending limit and its protocol teardown, that lifecycle termination classifies every pending and synchronous capability consistently, direct and bridge query adapters classify declared failures identically, expected plugin business/domain outcomes resolve as typed values, and internal causes, messages, diagnostics, HTTP details, and stack traces do not cross the bridge. Routing tests must cover consumer-cancelled links, prevented modifier and auxiliary navigation, explicit home matching, plugin-supplied and default not-found states, one coherent navigation notification per location, synchronous first render from a preloaded location, and exact declarative header restoration on pop.
 
 Client compiler tests must also cover semantic checking of every archived non-test client `.ts`/`.tsx` file, fatal normalized TypeScript diagnostics, bundling from only the manifest entry's reachable graph, and Tailwind scanning of all archived client `.ts`/`.tsx` files.
 
-Shell tests must cover the §25 edge rule as a pure resolver across a workspace root, a plugin child route, a settings route, and a route with nothing to pop, and must prove that the header's leading control and the edge gesture never disagree. Drawer tests must keep Escape, scrim, and close-button dismissal, forward and reverse Tab containment, focus restoration, body-scroll release, removal from the accessibility tree on close, and the guarantee that a destination selection commits the close before navigation runs. Hardware Back tests must prove an open overlay is dismissed before history is popped and before the application exits. Header tests must cover validated declarative content, `null` fallback, retained-screen restoration, stale `index`/`key` rejection, and plugin-owner changes.
+Shell tests cover leading intent separately from edge ownership, including matching and stale SDK
+screen readiness, same-document route/entity transitions, and cross-document `/v` to `/e`
+transitions. Drawer tests keep Escape, scrim, and close-button dismissal, forward and reverse Tab
+containment, focus restoration, body-scroll release, removal from the accessibility tree on close,
+and the guarantee that a destination selection commits the close before navigation runs. Hardware
+Back tests prove an open overlay is dismissed before history is popped and before the application
+exits. Header tests cover validated declarative content, `null` fallback, retained-screen
+restoration, stale `index`/`key` rejection, and installation-owner changes.
 
 The browser lifecycle suite drives theme changes through `/settings/preferences` rather than a global theme selector, accepts that entering settings unmounts the plugin, and verifies that the fresh iframe mounted on return receives the persisted theme. Live theme synchronization on an already-mounted plugin host is covered by unit tests instead of the browser suite.
 
@@ -2128,8 +2157,7 @@ Important performance rules:
 - do not send high-frequency gesture data over the bridge
 - batch data operations
 - treat the plugin document as restartable
-- discard inactive plugin iframes under memory pressure where needed
-- measure before adding iframe pooling or prewarming complexity
+- mount only the active plugin iframe
 
 ---
 
@@ -2162,27 +2190,15 @@ The high-level architecture does not depend on deciding these upfront:
 - exact gesture implementation library
 - exact native implementation of iOS back gestures
 - exact Android predictive-back integration
-- whether inactive plugin iframes are cached
 - exact native Live Activity templates
 
-These should be resolved through implementation spikes and real Media/Fitness requirements without reopening the overall architecture.
+These should be resolved through implementation spikes and concrete plugin requirements without reopening the overall architecture.
 
 ---
 
-## 39. Implementation sequence
+## 39. Current End-To-End Flow
 
-Implementation proceeds through tracer bullets rather than building every SDK and UI surface upfront.
-
-### 39.1 Fresh kernel
-
-1. move the Expo / React Native client from `kernel/client` into `crates/` as temporary reference code
-2. create the new React DOM and TanStack Router kernel at `kernel/client`
-3. retain Effect and `@effect/atom-react` as the kernel async/reactive state model
-4. do not create adapters between the old and new clients
-
-### 39.2 Web fixture tracer
-
-The first tracer proves one fixture plugin end to end on the web:
+The implemented client plugin path is:
 
 ```text
 plugin client source in archive
@@ -2192,34 +2208,17 @@ plugin client source in archive
   -> kernel route resolution
   -> isolated iframe bootstrap
   -> MessageChannel bridge
-  -> plugin home and one private route
+  -> tagged route or entity location
+  -> retained SDK screen reconciliation and readiness report
+  -> kernel-owned final edge policy
   -> one authenticated backend operation
   -> theme update
   -> crash/reload handling
   -> plugin update and forced artifact reload
 ```
 
-Only the SDK and UI primitives required by this tracer are introduced.
-
-### 39.3 Capacitor tracer
-
-The second tracer runs the same compiled fixture artifact inside Capacitor on iOS and Android. It validates WebView loading, bridge startup, deep links, application lifecycle, keyboard behavior, and platform Back behavior without adding domain-specific native APIs.
-
-### 39.4 Media entity tracer
-
-The third tracer ports one real Media entity surface:
-
-```text
-/e/:entityId
-  -> kernel RyotQL provenance recipe
-  -> installation-aware RouteTarget
-  -> Media client artifact
-  -> Media-owned entity renderer and data recipes
-```
-
-This proves that built-in plugins use the third-party path and that the kernel remains domain-agnostic. Further Media, Fitness, UI SDK, storage, and native capability work follows concrete requirements discovered while porting the remaining application.
-
-The `crates/` reference tree remains outside this work; any future removal requires a separate plan after its required behavior has been ported.
+Plugin-originated navigation remains route-only. Entity locations are delivered by the kernel after
+its entity route loads provenance and resolves the owning installation against the live catalog.
 
 ---
 

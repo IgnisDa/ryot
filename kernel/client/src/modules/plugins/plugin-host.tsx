@@ -18,6 +18,7 @@ import {
 	openPluginBridge,
 	type PluginBridgeNavigationState,
 	type PluginBridgeSession,
+	type PluginScreenReadiness,
 } from "#/modules/plugins/bridge";
 import type { PluginOperationDispatchOutcome } from "#/modules/plugins/operations";
 import {
@@ -131,11 +132,12 @@ export function PluginHost(props: {
 	readonly installation: PluginClientCatalogEntry;
 	readonly navigation: PluginBridgeNavigationState;
 	readonly chromeTriggerRef: RefObject<HTMLElement | null>;
-	readonly onHeader: (header: PluginHeaderPublication) => void;
 	readonly onRenewArtifactSession: RenewPluginArtifactSession;
+	readonly onHeader: (header: PluginHeaderPublication) => void;
 	readonly onCreateArtifactSession: CreatePluginArtifactSession;
 	readonly onRevokeArtifactSession: RevokePluginArtifactSession;
 	readonly onNavigate: (request: PluginNavigationRequest) => void;
+	readonly onScreenState: (state: PluginScreenReadiness | null) => void;
 	readonly onQuery: (
 		request: PluginRyotQLRequest,
 		signal: AbortSignal,
@@ -165,6 +167,7 @@ export function PluginHost(props: {
 			navigation={props.navigation}
 			safeAreaTop={props.safeAreaTop}
 			onOpenDrawer={props.onOpenDrawer}
+			onScreenState={props.onScreenState}
 			chromeLeading={props.chromeLeading}
 			pluginSlug={props.installation.slug}
 			onNavigateBack={props.onNavigateBack}
@@ -202,6 +205,7 @@ function PluginFrame(props: {
 	readonly onCreateArtifactSession: CreatePluginArtifactSession;
 	readonly onRevokeArtifactSession: RevokePluginArtifactSession;
 	readonly onNavigate: (request: PluginNavigationRequest) => void;
+	readonly onScreenState: (state: PluginScreenReadiness | null) => void;
 	readonly onQuery: (
 		request: PluginRyotQLRequest,
 		signal: AbortSignal,
@@ -212,7 +216,7 @@ function PluginFrame(props: {
 		signal: AbortSignal,
 	) => Promise<PluginOperationDispatchOutcome>;
 }) {
-	const { compact, edgeBack, index, key, location } = props.navigation;
+	const { compact, edgeBack, index, key, leading, location } = props.navigation;
 	const routePath = location.kind === "route" ? location.path : undefined;
 	const entityId = location.kind === "entity" ? location.entityId : undefined;
 	const routeSearch = location.kind === "route" ? location.search : undefined;
@@ -234,6 +238,11 @@ function PluginFrame(props: {
 	const closeBridge = () => {
 		bridge.current?.close();
 		bridge.current = undefined;
+		latest.current.onScreenState(null);
+	};
+	const reloadArtifact = () => {
+		closeBridge();
+		setReload((value) => value + 1);
 	};
 
 	useEffect(() => {
@@ -392,7 +401,7 @@ function PluginFrame(props: {
 	useEffect(() => {
 		window.clearTimeout(backSettle.current);
 		bridge.current?.sendLocation(latest.current.navigation);
-	}, [compact, edgeBack, entityId, entitySchemaSlug, index, key, routePath, routeSearch]);
+	}, [compact, edgeBack, entityId, entitySchemaSlug, index, key, leading, routePath, routeSearch]);
 
 	useEffect(
 		() =>
@@ -428,14 +437,9 @@ function PluginFrame(props: {
 			onReady: () => setFrameStatus("ready"),
 			onOpenDrawer: () => latest.current.onOpenDrawer(),
 			onRyotQL: (request, signal) => latest.current.onQuery(request, signal),
-			onHeader: (request) => {
-				const current = latest.current.navigation;
-				if (request.index === current.index && request.key === current.key) {
-					latest.current.onHeader({
-						index: request.index,
-						key: request.key,
-						title: request.header?.title ?? null,
-					});
+			onScreenState: (state) => {
+				if (bridge.current === connection.session) {
+					latest.current.onScreenState(state);
 				}
 			},
 			onFailure: () => {
@@ -447,6 +451,16 @@ function PluginFrame(props: {
 				const navigation = toNavigationRequest(latest.current.pluginSlug, request);
 				if (navigation !== undefined) {
 					latest.current.onNavigate(navigation);
+				}
+			},
+			onHeader: (request) => {
+				const current = latest.current.navigation;
+				if (request.index === current.index && request.key === current.key) {
+					latest.current.onHeader({
+						index: request.index,
+						key: request.key,
+						title: request.header?.title ?? null,
+					});
 				}
 			},
 			onNavigateBack: () => {
@@ -482,25 +496,10 @@ function PluginFrame(props: {
 		return <PluginNotice {...chrome} status="loading" />;
 	}
 	if (artifact.status === "failed") {
-		return (
-			<PluginNotice
-				{...chrome}
-				status="artifact-session-failure"
-				onReload={() => setReload((value) => value + 1)}
-			/>
-		);
+		return <PluginNotice {...chrome} status="artifact-session-failure" onReload={reloadArtifact} />;
 	}
 	if (frameStatus === "handshake-failure") {
-		return (
-			<PluginNotice
-				{...chrome}
-				status={frameStatus}
-				onReload={() => {
-					closeBridge();
-					setReload((value) => value + 1);
-				}}
-			/>
-		);
+		return <PluginNotice {...chrome} status={frameStatus} onReload={reloadArtifact} />;
 	}
 
 	return (

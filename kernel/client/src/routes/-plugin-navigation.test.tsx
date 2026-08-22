@@ -1,5 +1,7 @@
 // oxlint-disable unicorn/require-post-message-target-origin -- MessagePort has no target origin
 import { PluginBridgeInit, PluginBridgeLocation } from "@ryot-app/contract/modules/plugins/client";
+import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import type { EntityRouteProvenance } from "@ryot-app/ryotql-recipes/entities";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
@@ -7,6 +9,8 @@ import { Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
+import type { EntitiesService } from "#/modules/entities/service";
+import { EntityRouteLoadError } from "#/modules/entities/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { ArtifactSessions, ArtifactSessionStaleError } from "#/modules/plugins/artifact-sessions";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
@@ -27,6 +31,7 @@ import {
 	GodModeRouteStubs,
 	makePublicApiStub,
 	CustomizeRouteStubs,
+	makeEntityRouteStub,
 	SavedViewRouteStubs,
 	NavigationRouteStubs,
 	ProviderAddRouteStubs,
@@ -55,6 +60,8 @@ const mountView = (
 	invoke: PluginOperationsService["Service"]["invoke"] = () => Effect.die("not used"),
 	storage: ClientStorage["Service"] = makeStorageStub(),
 	artifactSessions: ArtifactSessions["Service"] = makeArtifactSessionsStub(),
+	loadRouteProvenance: EntitiesService["Service"]["loadRouteProvenance"] = () =>
+		Effect.die("not used"),
 ) => {
 	const events = makePluginCatalogEventsTestLayer();
 	const runtime = ManagedRuntime.make(
@@ -66,6 +73,7 @@ const mountView = (
 			GodModeRouteStubs,
 			ServerStub,
 			SavedViewRouteStubs,
+			makeEntityRouteStub(loadRouteProvenance),
 			makePublicApiStub(),
 			KernelApiTestLayer,
 			Layer.succeed(ArtifactSessions, artifactSessions),
@@ -119,6 +127,29 @@ const journalEntries: PluginClientCatalog = [
 
 const frame = () => screen.getByTitle<HTMLIFrameElement>("fixture plugin");
 
+const provenance = (pluginId: string | null): EntityRouteProvenance => ({
+	entitySchemaPluginId: pluginId,
+	entitySchemaSlug: EntitySchemaSlug.make("book"),
+});
+
+const mountEntityView = (
+	initialEntry: string | string[],
+	entries: PluginClientCatalog = catalog,
+	loadRouteProvenance: EntitiesService["Service"]["loadRouteProvenance"] = () =>
+		Effect.succeed(provenance("plugin-1")),
+	load = () => Effect.succeed(entries),
+	artifactSessions: ArtifactSessions["Service"] = makeArtifactSessionsStub(),
+) =>
+	mountView(
+		initialEntry,
+		entries,
+		load,
+		undefined,
+		undefined,
+		artifactSessions,
+		loadRouteProvenance,
+	);
+
 const connectFrame = (element: HTMLIFrameElement) => {
 	const messages: unknown[] = [];
 	let init: PluginBridgeInit | undefined;
@@ -150,6 +181,11 @@ const isLocation = (message: unknown) =>
 	typeof message === "object" && message !== null && "type" in message
 		? message.type === "location"
 		: false;
+
+const locations = (messages: unknown[]) =>
+	messages
+		.filter(isLocation)
+		.map((message) => Schema.decodeUnknownSync(PluginBridgeLocation)(message));
 
 describe("plugin document title", () => {
 	it("falls back to the catalog name and then tracks the published header title", async () => {
@@ -541,6 +577,326 @@ describe("plugin navigation", () => {
 	});
 });
 
+describe("entity navigation", () => {
+	it("shows entity loading without an iframe on a fresh pending load", async () => {
+		let resolveProvenance!: (value: EntityRouteProvenance) => void;
+		const pending = new Promise<EntityRouteProvenance>((resolve) => {
+			resolveProvenance = resolve;
+		});
+		mountEntityView("/e/entity-pending", catalog, () => Effect.promise(() => pending));
+
+		await screen.findByRole("heading", { name: "Entity loading" }, { timeout: 2_500 });
+		expect(screen.queryByTitle("fixture plugin")).toBeNull();
+		expect(document.querySelectorAll("main")).toHaveLength(1);
+
+		resolveProvenance(provenance("plugin-1"));
+		await screen.findByTitle("fixture plugin");
+	});
+
+	it("renders stable kernel states without mounting a plugin document", async () => {
+		const missing = mountEntityView("/e/missing", catalog, () => Effect.succeed(null));
+		await screen.findByRole("heading", { name: "Entity not found" });
+		expect(screen.queryByTitle("fixture plugin")).toBeNull();
+		expect(document.querySelectorAll("main")).toHaveLength(1);
+		missing.unmount();
+
+		const unsupported = mountEntityView("/e/kernel", catalog, () =>
+			Effect.succeed(provenance(null)),
+		);
+		await screen.findByRole("heading", { name: "Kernel-owned entity unsupported" });
+		expect(screen.queryByTitle("fixture plugin")).toBeNull();
+		unsupported.unmount();
+
+		mountEntityView("/e/unavailable", catalog, () => Effect.succeed(provenance("plugin-missing")));
+		await screen.findByRole("heading", { name: "Required plugin unavailable" });
+		expect(screen.queryByTitle("fixture plugin")).toBeNull();
+	});
+
+	it("shows a stable route error and removes the previous plugin document", async () => {
+		const view = mountEntityView("/fixture", catalog, () =>
+			Effect.fail(new EntityRouteLoadError({ cause: new Error("unavailable") })),
+		);
+		const initialFrame = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
+
+		await view.router.navigate({ href: "/e/entity-1" });
+
+		await screen.findByRole("heading", { name: "Retryable entity load failure" });
+		expect(screen.queryByTitle("fixture plugin")).toBeNull();
+		expect(initialFrame.isConnected).toBe(false);
+		expect(document.querySelectorAll("main")).toHaveLength(1);
+	});
+
+	it("selects the exact plugin ID and permits a disabled installation on a direct URL", async () => {
+		const entries: PluginClientCatalog = [catalog[0], { ...journalEntries[1], isDisabled: true }];
+		const creates: Parameters<ArtifactSessions["Service"]["create"]>[0][] = [];
+		const artifacts = makeArtifactSessionsStub();
+		mountEntityView(
+			"/e/entity-2",
+			entries,
+			() => Effect.succeed(provenance("plugin-2")),
+			undefined,
+			{
+				...artifacts,
+				create: (input) => {
+					creates.push(input);
+					return artifacts.create(input);
+				},
+			},
+		);
+
+		await screen.findByTitle("journal plugin");
+		expect(creates).toEqual([
+			{
+				pluginSlug: "journal",
+				sourceHash: "source-hash",
+				installationId: "installation-2",
+				clientArtifactHash: "artifact-hash",
+				scope: { serverUrl: server, userId: authenticated.user.id },
+			},
+		]);
+		expect(screen.queryByTitle("fixture plugin")).toBeNull();
+		expect(document.querySelectorAll("main")).toHaveLength(1);
+	});
+
+	it("keeps the shell, content, iframe, and bridge across a same-owner entity transition", async () => {
+		let provenanceLoads = 0;
+		const view = mountEntityView("/fixture/details/item-1", catalog, () =>
+			Effect.sync(() => {
+				provenanceLoads += 1;
+				return provenance("plugin-1");
+			}),
+		);
+		const shell = await screen.findByTestId("authenticated-shell");
+		const content = screen.getByTestId("shell-content");
+		const iframe = frame();
+		const connected = connectFrame(iframe);
+		connected.pluginPort.postMessage(connected.ready);
+		await waitFor(() => expect(connected.messages.some(isLocation)).toBe(true));
+		const initialLocation = locations(connected.messages)[0];
+		expect(initialLocation).toMatchObject({
+			location: { kind: "route", path: "/details/item-1", search: "" },
+		});
+
+		await view.router.navigate({ href: "/e/entity-1" });
+
+		await waitFor(() => expect(locations(connected.messages)).toHaveLength(2));
+		const entityLocation = locations(connected.messages)[1];
+		expect(
+			locations(connected.messages).map(({ index, key, location }) => ({ index, key, location })),
+		).toEqual([
+			{
+				index: initialLocation.index,
+				key: initialLocation.key,
+				location: { kind: "route", path: "/details/item-1", search: "" },
+			},
+			{
+				index: initialLocation.index + 1,
+				key: entityLocation.key,
+				location: {
+					kind: "entity",
+					entityId: "entity-1",
+					entitySchemaSlug: "book",
+				},
+			},
+		]);
+		expect(frame()).toBe(iframe);
+		expect(screen.getByTestId("authenticated-shell")).toBe(shell);
+		expect(screen.getByTestId("shell-content")).toBe(content);
+		expect(document.querySelectorAll("main")).toHaveLength(1);
+		expect(provenanceLoads).toBe(1);
+
+		view.router.history.back();
+		await waitFor(() =>
+			expect(view.router.state.location.pathname).toBe("/fixture/details/item-1"),
+		);
+		await waitFor(() => expect(locations(connected.messages)).toHaveLength(3));
+		expect(
+			locations(connected.messages).map(({ index, key, location }) => ({ index, key, location })),
+		).toEqual([
+			{
+				index: initialLocation.index,
+				key: initialLocation.key,
+				location: { kind: "route", path: "/details/item-1", search: "" },
+			},
+			{
+				index: initialLocation.index + 1,
+				key: entityLocation.key,
+				location: {
+					kind: "entity",
+					entityId: "entity-1",
+					entitySchemaSlug: "book",
+				},
+			},
+			{
+				index: initialLocation.index,
+				key: initialLocation.key,
+				location: { kind: "route", path: "/details/item-1", search: "" },
+			},
+		]);
+		expect(frame()).toBe(iframe);
+		expect(provenanceLoads).toBe(1);
+	});
+
+	it("keeps the committed plugin location while an entity load is pending", async () => {
+		let resolveProvenance!: (value: EntityRouteProvenance) => void;
+		const pending = new Promise<EntityRouteProvenance>((resolve) => {
+			resolveProvenance = resolve;
+		});
+		const view = mountEntityView("/fixture/details/item-1", catalog, () =>
+			Effect.promise(() => pending),
+		);
+		const iframe = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
+		const connected = connectFrame(iframe);
+		connected.pluginPort.postMessage(connected.ready);
+		await waitFor(() => expect(connected.messages.some(isLocation)).toBe(true));
+		const initialLocation = locations(connected.messages)[0];
+
+		const navigation = view.router.navigate({ href: "/e/entity-pending" });
+		await waitFor(() => expect(view.router.state.location.pathname).toBe("/e/entity-pending"));
+		expect(frame()).toBe(iframe);
+		expect(locations(connected.messages)).toEqual([initialLocation]);
+
+		resolveProvenance(provenance("plugin-1"));
+		await navigation;
+		await waitFor(() => expect(locations(connected.messages)).toHaveLength(2));
+		const committedLocation = locations(connected.messages)[1];
+		expect(
+			locations(connected.messages).map(({ index, key, location }) => ({ index, key, location })),
+		).toEqual([
+			{
+				index: initialLocation.index,
+				key: initialLocation.key,
+				location: { kind: "route", path: "/details/item-1", search: "" },
+			},
+			{
+				index: initialLocation.index + 1,
+				key: committedLocation.key,
+				location: {
+					kind: "entity",
+					entityId: "entity-pending",
+					entitySchemaSlug: "book",
+				},
+			},
+		]);
+		expect(frame()).toBe(iframe);
+	});
+
+	it("aborts a superseded entity load and ignores its late result", async () => {
+		let resolveFirst!: (value: EntityRouteProvenance) => void;
+		let firstSettled = false;
+		const first = new Promise<EntityRouteProvenance>((resolve) => {
+			resolveFirst = resolve;
+		});
+		void first.then(() => {
+			firstSettled = true;
+			return undefined;
+		});
+		const calls: Array<{ readonly entityId: string; readonly signal: AbortSignal }> = [];
+		const view = mountEntityView("/fixture", journalEntries, (_client, entityId) =>
+			Effect.tryPromise({
+				try: (signal) => {
+					calls.push({ entityId, signal });
+					return entityId === "entity-a" ? first : Promise.resolve(provenance("plugin-1"));
+				},
+				catch: (cause) => new EntityRouteLoadError({ cause }),
+			}),
+		);
+		const iframe = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
+		const connected = connectFrame(iframe);
+		connected.pluginPort.postMessage(connected.ready);
+		await waitFor(() => expect(locations(connected.messages)).toHaveLength(1));
+
+		const firstNavigation = view.router.navigate({ href: "/e/entity-a" });
+		await waitFor(() => expect(calls.map(({ entityId }) => entityId)).toEqual(["entity-a"]));
+		await view.router.navigate({ href: "/e/entity-b" });
+
+		expect(calls.map(({ entityId }) => entityId)).toEqual(["entity-a", "entity-b"]);
+		expect(calls[0].signal.aborted).toBe(true);
+		await waitFor(() => expect(locations(connected.messages)).toHaveLength(2));
+		const messagesAfterSecondCommit = locations(connected.messages);
+		expect(messagesAfterSecondCommit[1].location).toEqual({
+			kind: "entity",
+			entityId: "entity-b",
+			entitySchemaSlug: "book",
+		});
+
+		resolveFirst(provenance("plugin-2"));
+		await firstNavigation;
+		await waitFor(() => expect(firstSettled).toBe(true));
+		expect(locations(connected.messages)).toEqual(messagesAfterSecondCommit);
+		expect(frame()).toBe(iframe);
+		expect(screen.queryByTitle("journal plugin")).toBeNull();
+	});
+
+	it("replaces the plugin document when entity ownership changes", async () => {
+		const view = mountEntityView("/fixture", journalEntries, () =>
+			Effect.succeed(provenance("plugin-2")),
+		);
+		const initialFrame = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
+
+		await view.router.navigate({ href: "/e/entity-2" });
+
+		const nextFrame = await screen.findByTitle<HTMLIFrameElement>("journal plugin");
+		expect(nextFrame).not.toBe(initialFrame);
+		expect(initialFrame.isConnected).toBe(false);
+	});
+
+	it("re-resolves the committed provenance after catalog refresh without querying it again", async () => {
+		let provenanceLoads = 0;
+		let entries: PluginClientCatalog = catalog;
+		const view = mountEntityView(
+			"/e/entity-1",
+			entries,
+			() =>
+				Effect.sync(() => {
+					provenanceLoads += 1;
+					return provenance("plugin-1");
+				}),
+			() => Effect.succeed(entries),
+		);
+		await screen.findByTitle("fixture plugin");
+		await waitFor(() => expect(view.events.isSubscribed()).toBe(true));
+
+		entries = [];
+		view.events.send();
+		await screen.findByRole("heading", { name: "Required plugin unavailable" });
+		expect(screen.queryByTitle("fixture plugin")).toBeNull();
+		expect(provenanceLoads).toBe(1);
+
+		entries = catalog;
+		view.events.send();
+		await screen.findByTitle("fixture plugin");
+		expect(provenanceLoads).toBe(1);
+	});
+
+	it("owns the title and keeps the kernel edge on a fresh entity document", async () => {
+		mountEntityView(["/v/global-view", "/e/entity-1"]);
+		const iframe = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
+		const connected = connectFrame(iframe);
+		connected.pluginPort.postMessage(connected.ready);
+		await waitFor(() => expect(connected.messages.some(isLocation)).toBe(true));
+		const location = Schema.decodeUnknownSync(PluginBridgeLocation)(
+			connected.messages.find(isLocation),
+		);
+
+		expect(location).toMatchObject({
+			edgeBack: false,
+			leading: "back",
+			location: { kind: "entity", entityId: "entity-1", entitySchemaSlug: "book" },
+		});
+		expect(screen.getByTestId("edge-gesture")).toBeTruthy();
+		expect(document.title).toBe("Fixture — Ryot");
+		connected.pluginPort.postMessage({
+			type: "header",
+			index: location.index,
+			key: location.key,
+			header: { title: "Entity details" },
+		});
+		await waitFor(() => expect(document.title).toBe("Entity details — Ryot"));
+		expect(document.querySelectorAll("main")).toHaveLength(1);
+	});
+});
+
 describe("desktop navigation", () => {
 	it("shows workspace metadata and marks Home active only at the workspace root", async () => {
 		const view = mountView("/fixture");
@@ -755,6 +1111,18 @@ describe("authenticated root bootstrap", () => {
 
 		await router.navigate({ href: "/fixture/details/item-1" });
 
+		await waitFor(() =>
+			expect(connected.messages).toContainEqual(
+				expect.objectContaining({ edgeBack: false, leading: "back", type: "location" }),
+			),
+		);
+		const childLocation = Schema.decodeUnknownSync(PluginBridgeLocation)(connected.messages.at(-1));
+		connected.pluginPort.postMessage({
+			type: "screen-state",
+			index: childLocation.index,
+			key: childLocation.key,
+			hasPreviousScreen: true,
+		});
 		await waitFor(() =>
 			expect(connected.messages).toContainEqual(
 				expect.objectContaining({ edgeBack: true, type: "location" }),
