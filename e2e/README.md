@@ -1,106 +1,56 @@
 # E2E
 
-This package contains API end-to-end and integration tests running on Vitest over Bun.
+API and browser integration tests run with Vitest over Bun.
 
-## Running Tests
+## Commands
 
-Run discovered suite:
+Run the discovered suite:
 
 ```bash
 bun turbo --filter=@ryot-app/e2e test
 ```
 
-For final acceptance, run each standard file separately so failures retain file-level isolation:
+For final acceptance, run each standard file separately so failures remain isolated:
 
 ```bash
 bun turbo --filter=@ryot-app/e2e test --only -- '<file>'
 ```
 
-Two standalone media suites are discovered but skipped without explicit gates. Do not combine either with standard files.
-
-Full-size operational gate:
+The large media gate and live-provider smoke are discovered but opt-in. Never combine either with standard files.
 
 ```bash
 RUN_OPERATIONAL_GATES=1 bun turbo --filter=@ryot-app/e2e test --only -- 'src/api/plugins/media/imports/media-population-operational-gate.test.ts'
-```
-
-Live provider drift smoke:
-
-```bash
 RUN_LIVE_PROVIDER_TESTS=1 bun turbo --filter=@ryot-app/e2e test --only -- 'src/api/plugins/media/smoke/providers-live-smoke.test.ts'
 ```
 
-Operational gate exercises production-size workflow, Redis, sandbox, and database path with a 15-minute budget. Live smoke covers OpenLibrary import and TMDB translation and may require provider credentials.
+The operational gate exercises production-size workflow, Redis, sandbox, and database paths with a 15-minute budget. Live smoke detects provider drift, may require credentials, and asserts stable properties rather than exact upstream text.
 
-Sandbox runtime benchmark:
+Run sandbox benchmarks separately. `SANDBOX_PROCESS_MODE` defaults to `on-demand`; use `warm` to measure the warm pool.
 
 ```bash
 RUN_SANDBOX_BENCHMARKS=1 bun turbo --env-mode=loose --force --output-logs=full --filter=@ryot-app/e2e test --only -- 'src/api/kernel/sandbox/sandbox-runtime-benchmark.test.ts'
 ```
 
-`SANDBOX_PROCESS_MODE` defaults to `on-demand`; set it to `warm` to benchmark the warm pool.
-
 ## Harness
 
-`global-setup.ts` builds the kernel client and test plugin archive, provisions containers, and starts one shared backend process. The backend serves the built SPA and `/api` from the same origin, matching the production topology. The origin and API URL are provided through Vitest `inject`; worker modules cannot import global setup state directly.
+`global-setup.ts` builds required artifacts, provisions PostgreSQL, Redis, and object storage, then starts one shared backend serving the SPA and `/api` from one origin. Vitest `inject` supplies URLs; worker modules cannot import setup state.
 
-Up to two files share the API process concurrently. Tests and hooks have 180-second limits, and the hanging-process reporter identifies leaked handles.
+Up to four files share the backend concurrently. Tests and hooks time out after 180 seconds. The hanging-process reporter identifies leaked handles. Each spawned API writes a unique `SERVER_LOG_FILE` under the OS temp directory and prints its path.
 
-## Fixtures
+Fixtures mirror ownership: generic platform fixtures live under `src/fixtures/kernel`, plugin-owned domain fixtures under `src/fixtures/plugins/<plugin>`, and cross-cutting harness code under `src/support`. There is no aggregate fixture barrel. Kernel suites that need plugin-owned schemas import that plugin fixture explicitly.
 
-`src/fixtures/` mirrors the ownership split of `src/api/`: `kernel/` holds fixtures for generic platform concepts, and `plugins/<plugin>/` holds fixtures that seed or assert domain data owned by that plugin's manifest (its entity/event/relationship schemas, saved views, providers, or import sources). Each side has its own barrel (`~/fixtures/kernel`, `~/fixtures/plugins/<plugin>`) and there is no combined barrel, so a `src/api/kernel/**` suite cannot reach a plugin fixture through an implicit re-export — a suite that legitimately needs plugin-seeded data (for example, to exercise a generic capability against the only builtin schemas the e2e environment has) says so with an explicit `~/fixtures/plugins/<plugin>` import.
+Effect-native fixtures return effects. `it.live` supplies per-test `Scope` without `TestClock`; do not use `it.effect` for real-time waits. Scoped network resources use `Effect.acquireRelease`. Wrap unavoidable promise APIs at fixture boundaries with typed `Effect.tryPromise` errors.
 
-Effect-native fixtures return effects rather than promises. Scoped network fixtures use `Effect.acquireRelease`, and `it.live` supplies per-test Scope without TestClock so resources close automatically. Browser tests use `effect-playwright` services, scoped spawners, and event streams; keep unsupported native Playwright operations inside the wrapper's `use` escape hatch. Other raw promise boundaries use `Effect.tryPromise` with a typed error at the fixture or service boundary.
+Provider fixtures install offline scripts through the real admin plugin endpoint. Best-effort teardown stops on persistent references; tests that assert removal must delete references and use strict uninstall. Admin setup uses typed `testSupport` operations. Resolve plugin-owned definitions by plugin plus local slug because local slugs are not globally unique.
 
-`pollUntil` retries an Effect check until it returns non-null. Every spawned API process writes to a unique `SERVER_LOG_FILE` under the OS temp directory; startup output prints the path for diagnosis.
+The SSE catalog and entity-interest WebSocket fixtures validate transport headers/frames and support OAuth or API keys. The WebSocket fixture owns ticket authentication, revision acknowledgements, heartbeat replies, completion buffering, and scoped close; protocol details belong in [`kernel/backend/src/modules/entity-interest/README.md`](../kernel/backend/src/modules/entity-interest/README.md).
 
-## Failure Assertions
+## Assertions
 
-Assert typed failure structure: the transport tag or category, the module-owned kebab-case code,
-and its structured parameters. Do not assert server English, localized copy, or diagnostic prose.
-Raw compiler/runtime diagnostics may be asserted only by tests for the explicit plugin-author,
-admin, or test surfaces that are allowed to expose them.
-
-## Provider Fixtures
-
-Provider-driven tests install complete offline scripts through the real admin plugin endpoint with
-`installTestProvider`. Best-effort fixture teardown polls only while a running or suspended workflow
-references the plugin. A persistent-reference conflict ends best-effort teardown without failing the
-test or waiting for a timeout. Tests that assert successful removal must use strict uninstall and
-explicitly remove entities, integrations, saved views, and other persistent references first.
-
-- Build fixed operations with `fakeProviderSearchResult`, `fakeProviderDetailsResult`, and `fakeProviderTranslations`.
-- Add schema-provider link only when provider details reference related entities owned by another provider.
-- Non-empty translation fixture defines translate operation and returns all-null overlay for unnamed languages, making premature translation observable as negative cache.
-- Clean linked providers sequentially, relationship owner first.
-
-Live smoke is drift detection, not exhaustive correctness. It uses real result IDs and asserts stable properties rather than exact upstream text.
-
-## Admin Fixtures
-
-Admin-only setup uses typed `testSupport` contract with `adminHeaders`.
-
-Sandbox coverage installs source through `installTestPlugin` or `installTestPluginBundle`, resolves persisted content-addressed IDs, and invokes admin enqueue/result hooks. Reinstall changed source to obtain new ID. Use strict uninstall only when successful removal is assertion.
-
-Entity, event, and relationship definitions install as scriptless plugins through real plugin endpoint. Global seeding uses test-support entity and relationship operations; user-scoped entities use authenticated API.
-Resolve plugin-owned definition fixtures by plugin slug and definition slug; definition slugs are not globally unique.
-
-## Plugin Catalog Event Stream Fixture
-
-`src/fixtures/kernel/plugin-catalog-events.ts` validates the HTTP status and SSE headers, parses catalog events, and supports OAuth or API-key-authenticated clients. `src/api/kernel/plugins/catalog-events.test.ts` covers an API key receiving a valid `/api/plugins/events` stream.
-
-## Entity Interest WebSocket Fixture
-
-`src/fixtures/kernel/interest-websocket.ts` requests a short-lived ticket through the supplied OAuth or API-key client, opens a real ticket-authenticated WebSocket, sends the ticket as its first frame, and exposes the `ready.sessionId` for admin test support. Invalid tickets receive the generic authentication close; ticket-store failures receive an internal close. Established sockets have a fixed 15-minute lease and close with application code `4001` (`Session expired`), after which clients obtain a new ticket and reconnect. The fixture sends revisioned `replace` and `update` commands, waits for matching `applied` acknowledgements, buffers validated `entity-updated` messages, responds to application heartbeats, and exposes scoped close and completion-wait helpers. It fails tests on malformed server messages, unexpected close, rejected commands, or acknowledgement timeout. Protocol is documented in `kernel/backend/src/modules/entity-interest/README.md`.
-
-## OIDC
-
-`oidcSignIn` starts a first-party PKCE authorization, drives Better Auth OIDC through the mock server while preserving its state cookie, continues the signed Ryot authorization, and exchanges the resulting code for an OAuth access token. The fixture threads that token as `Authorization: Bearer`. The state cookie is Better Auth's browser-session and CSRF handshake, not an application API credential.
+Assert the transport tag or category, module-owned kebab-case reason code, and structured parameters. Never assert server English, localized copy, or diagnostic prose. Raw compiler/runtime diagnostics may be asserted only on plugin-author, admin, or test surfaces that explicitly expose them.
 
 ## Capacity
 
-Shared harness keeps `maxWorkers=2`, fixed sandbox limits, and app/workflow pool maxima at 100. Test PostgreSQL allows 400 connections. Sandbox worker concurrency is fixed at five and production uses ten connections per pool.
+The shared harness uses `maxWorkers=4`, sandbox worker concurrency 5, an API database pool of 100, and PostgreSQL `max_connections=400`. Keep production Effect Cluster expiry behavior so recovery regressions remain visible. Do not raise worker, sandbox, or pool settings without fresh load evidence.
 
-Keep production Effect Cluster expiry settings in harness so recovery regressions remain visible. Last full-suite evidence peaked at 120 total database connections; full-size operational gate recorded no app-pool waits.
-
-Investigate pool pressure through app waiting count, random cross-suite timeouts, connection ceilings, lock waits, Redis projection errors, stalled progress, and overlapping sandbox work.
+Watch app-pool waits, random cross-suite timeouts, connection ceilings, lock waits, Redis projection errors, stalled progress, and overlapping sandbox work. Previous full-suite evidence peaked at 120 database connections; the full-size operational gate recorded no app-pool waits.

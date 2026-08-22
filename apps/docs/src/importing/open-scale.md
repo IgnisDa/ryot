@@ -1,8 +1,5 @@
 # Open Scale
 
-You can import your measurements from [Open Scale](https://github.com/oliexdev/openScale)
-app.
-
-This can be done by clicking on the three dots on the top right corner of the app, and then
-clicking on "Export". This will save a CSV file to your file system. Upload this file in
-the input.
+1. In [openScale](https://github.com/oliexdev/openScale), open the top-right menu and select
+   **Export**.
+2. Upload the saved CSV file under **Settings > Import data**.

@@ -1,32 +1,20 @@
 # Client UI SDK
 
-Rationale for these rules lives in `README.md`.
+Rationale lives in `README.md`.
 
-- Ship no CSS beyond `theme.css` and `palette.css`; components style themselves with Tailwind classes only. Keep `theme.css`'s `@layer base` block to accessibility primitives that must hold everywhere.
-- Keep every `@keyframes` and `--animate-*` token in `theme.css`, outside its `@layer base` block. That is the whole of the "no CSS beyond theme.css and palette.css" allowance for animation; a component never ships a stylesheet of its own.
-- Guard every animated element with `motion-reduce:` in the component itself, never in a stylesheet — a plugin document gets only `theme.css` and `palette.css`, never the kernel's reduced-motion base layer.
-- Keep the sync marks on the `./sync` subpath and never re-export them from the root barrel. `EntityArtWell` is the only missing-image placeholder in the product: a call site that needs one takes it from here rather than drawing its own well.
-- Give every token mapped in `theme.css` a value in `palette.css`, whose `:root` block is the complete set; the dark blocks redefine only what changes. Adding a token never touches `@ryot-app/contract`.
-- Keep source scannable by Tailwind: the client plugin compiler treats this package's `.ts`/`.tsx` files as an extra scan source.
-- Keep `SCREEN_BAR_HEIGHT` off the root barrel. The frame owns every offset its own chrome introduces, so a call site that needs the bar height is a call site doing the frame's arithmetic.
-- Style components with base Tailwind and theme tokens only. The kernel's `ui-*` utilities are not available in a plugin document.
-- Keep a focusable text input at 16px or larger on the touch layout (`text-base`, with a smaller `md:` size when the design wants one).
-- Keep `ScreenFrame` free of a scroll container: it sticks against the scroller its caller owns and takes that element as `scrollRootRef`. Drive its collapse from the sentinel's one `IntersectionObserver`, never a scroll listener, and take the safe-area inset as the `safeAreaTop` number rather than reading `env()`.
-- Keep every gutter and gap inside that scroller in `ScreenFrame`, branched from the `compact` boolean. It accepts no class-name prop and writes no `md:` or `lg:` variant, because a media query in a plugin document measures the iframe rather than the viewport the kernel resolved `compact` from. A narrower column is `width="readable"`.
-- Key the collapse observer to the sentinel node itself, so the sentinel a search row removes is observed again when it returns. A bar carrying a search row is opaque outright, and the `<h1>` stays in the document, visually hidden, whenever the title block is not drawn. The content carries the gap under the bar in that state, since the title block that normally spaces it is gone.
-- Take `ScreenFrame`'s hero as `{ height, node }`, never a bare node, and emit it into a box this frame positions and sizes: out of flow, from the top of the scroll content down to `safeAreaTop + SCREEN_BAR_HEIGHT + height`, with the sentinel at its bottom edge. Never move flow content to place art — a hero block that carries the content column up draws the screen under the status bar. `height` is the art below the bar and doubles as the collapse threshold, because a hero screen draws its own name and leaves no title block for the sentinel to trail; the node fills the box with `absolute inset-0` and adds no chrome offset of its own. A bare node renders as a bar that is opaque from the first pixel with the top of the art behind it.
-- Draw a bar control with `ScreenBarButton`, and keep colour out of its own class string. A caller's utility cannot override one baked into a component: the cascade orders utilities by the stylesheet, not by `clsx` argument order.
-- Guard `ScreenFrame`'s transitions with `motion-reduce:` in the component itself. A plugin document receives only `theme.css` and `palette.css`, never the kernel's reduced-motion base layer.
-- Add a runtime dependency only when the behaviour is genuinely shared, and prefer the root export; a new subpath must also be registered in the plugin compiler's trusted-module list.
-- Keep the `AppSchema` form on the `./schema-form` subpath and never re-export it from the root barrel.
-- Keep `useImageTint`/`ImageTintOverlay` on the `./tint` subpath and never re-export them from the root barrel. Derive tint with the hand-written canvas quantiser, not a third-party colour library — `node-vibrant`'s type declarations fail the plugin semantic check's `skipLibCheck: false`, even though the workspace-level `check` passes with it installed. Resolve any canvas failure (tainted canvas, failed image load, missing 2D context) to no tint, silently; never throw or block render.
-- Keep `AppIcon` on the `./icon` subpath and never re-export it from the root barrel. It is the single icon set for every client surface: reach for it by registered name instead of importing `lucide-react` or hand-rolling an `<svg>`, and register a new name here rather than at the call site.
-- Take the schema form's upload transport as a `SchemaFileUpload` prop; this package must never import a client SDK or know about servers, auth, or scopes.
-- Take icons as `ReactNode` props in every component. A component here must never import `AppIcon`, so a consumer that renders no icon never pays for the registry.
-- Compose radiogroup-shaped controls from `RadioGroup`, which owns `role`, `aria-checked`, roving `tabIndex`, and Arrow/Home/End. Consumers supply visuals through `renderOption` and must never set a role, `aria-checked`, or `tabIndex` themselves. Menus are deliberately not consumers.
-- Keep `RadioGroup`'s tracking of whether a pending change came from keyboard navigation; unlike `Select`, it must leave the modal open for Arrow/Home/End.
-- Supply a visible focus indicator at 3:1 or better in any component that sets `outline-none`.
-- Register keyboard shortcuts through `useShortcut`, never a hand-written document listener. Every registration belongs to the innermost enclosing `OverlayScope`; never gate a shortcut on whether some overlay is open.
-- Wrap every overlay's content in one `OverlayScope`, which pushes the keyboard scope, registers the overlay's own Escape, and publishes the scope to descendants. Pass `enabled` for an overlay whose open state is a prop rather than its mounting. `useFocusTrap` handles Tab only and must not take Escape.
-- Give a search-shaped field its Escape through `useFieldEscape`. Form fields are deliberately excluded — Escape must never discard a password or a half-typed value.
-- Keep `ReorderableList`'s drag handle a real button that reorders with Arrow/Home/End and announces the new position through a live region, with no drag-and-drop dependency. Consumers supply the handle icon, an item key, and an item label.
+- Ship no component stylesheets. Keep shared base rules, keyframes, and animation tokens in `theme.css`, and values in `palette.css`.
+- Give every token mapped by `theme.css` a `palette.css` root value. Dark modes override only changed values.
+- Guard each animated element with `motion-reduce:` because plugin documents do not receive kernel-only reduced-motion CSS.
+- Use base Tailwind and theme tokens only. Plugin documents do not have kernel `ui-*` utilities; touch-layout text inputs remain at least 16px.
+- Keep source scannable by Tailwind. New runtime dependencies and export subpaths also require client compiler allowlist review.
+- Keep `AppSchema`, icons, sync marks, and tint on their existing subpaths, not the root barrel. `EntityArtWell` remains the only missing-image placeholder.
+- Components accept icons as `ReactNode`; they never import the icon registry. Schema forms receive upload transport as a prop and remain independent of client capabilities.
+- Resolve image tint failures, including CORS and canvas failures, to no tint without throwing or blocking render.
+- Keep `ScreenFrame` free of a scroll container. It owns its bar, heading, gutters, rhythm, and safe-area arithmetic and receives `compact`, `safeAreaTop`, and `scrollRootRef`.
+- Do not add responsive variants or layout class props to `ScreenFrame`; plugin media queries measure the iframe. Use `width="readable"` for a narrow column.
+- Key title-collapse observation to the sentinel node. Search keeps one visually hidden `<h1>` and an opaque bar.
+- Keep hero input as `{ height, node }`; the frame positions the box and uses height as the collapse threshold. Hero content adds no chrome offset.
+- Draw bar controls with `ScreenBarButton`; keep caller-selectable color out of its baked classes.
+- Compose radiogroup controls from `RadioGroup`; consumers provide visuals and do not duplicate ARIA or roving-focus behavior. Keyboard selection keeps a radio picker open.
+- Register shortcuts through `useShortcut` and wrap each overlay in `OverlayScope`. `useFocusTrap` handles Tab only; `useFieldEscape` is only for search-shaped fields.
+- Keep `ReorderableList` pointer and keyboard operable. Its handle is a button supporting Arrow/Home/End with live-region announcements and no drag-and-drop dependency.

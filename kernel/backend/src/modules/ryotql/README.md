@@ -1,61 +1,20 @@
-# RyotQL Guide
+# RyotQL
 
-RyotQL is the focused read API at `POST /ryotql/execute`. `POST /ryotql/execute` is the only authenticated HTTP endpoint for user-facing relational reads. Metadata, operational, streaming, administrative, test-support, and command APIs remain explicit exceptions.
+`POST /ryotql/execute` is the authenticated relational read API. Metadata, commands, administration, streaming, test support, and other operational endpoints remain explicit exceptions.
 
-## Current Capabilities
+## Document And Result Shape
 
-- Authenticated user execution against the `entity`, `event`, `relationship`, `plugin`, `pluginState`, `savedView`, `sandboxProvider`, `sandboxProviderOperation`, `notificationChannel`, `integration`, `importRun`, `importRunFailure`, and `notificationSubscriptionState` tables, plus capability-gated execution by pinned system-scope plugin scripts against plugin-owned entity, event, and relationship data.
-- Multiple independent named rows, aggregate, or time-series queries in one repeatable-read, read-only transaction.
-- Field selection, typed JSON expressions, predicates, arithmetic, correlated scalar expressions, inner and left joins, ordering, pagination, and correlated row includes.
-- Localized entity names and properties with translation status as a normal catalog field.
-- Visibility for every table occurrence: plugin metadata is user-or-global; `sandboxProvider` is limited to providers belonging to a ready, enabled plugin installation for the executing user; `sandboxProviderOperation` is limited to operations for those providers; entity, event, and relationship are user-or-global; `pluginState`, `savedView`, `notificationChannel`, `integration`, `importRun`, and `notificationSubscriptionState` are user-owned; `importRunFailure` is parent-owned through `importRun`.
-- Internal field kinds are `text`, `date`, `number`, `boolean`, `json`, and `null`. `expression-kind.ts` owns kind inference for every expression variant; the validator and the executor supply their own alias resolution and share that one function, so a document can never validate as one kind and compile as another. Unresolved aliases or fields are a validation error for the validator and a compiler invariant for the executor.
-- Row and include fields may use the SDK `star(table)` helper to select every approved catalog field for that table alias.
-
-The entity catalog currently exposes `id`, `name`, `userId`, `createdAt`, `updatedAt`, `properties`, `externalId`, `populatedAt`, `providerId`, `populationStatus`, `translationStatus`, and `entitySchemaSlug`. Other physical columns are not queryable.
-
-The event catalog exposes `id`, `userId`, `entityId`, `createdAt`, `updatedAt`, `properties`, `occurredAt`, `eventSchemaSlug`, and `sessionEntityId`.
-
-The relationship catalog exposes `id`, `userId`, `sourceEntityId`, `targetEntityId`, `createdAt`, `properties`, and `relationshipSchemaSlug`.
-
-The plugin catalog exposes `slug`, `name`, `icon`, `status`, `version`, and `ingestedAt`. The plugin-state catalog exposes `id`, `pluginSlug`, `sortOrder`, `isDisabled`, `createdAt`, and `updatedAt`. The saved-view catalog exposes `id`, `slug`, `name`, `icon`, `sortOrder`, `isBuiltin`, `isDisabled`, `pluginSlug`, `layouts`, `createdAt`, and `updatedAt`. The `sandboxProvider` catalog exposes `id`, `slug`, `name`, `pluginSlug`, `rootEntitySchemaSlug`, `information`, `createdAt`, and `updatedAt`. The `sandboxProviderOperation` catalog exposes `id`, `providerId`, `operation`, `optionsSchema`, `createdAt`, and `updatedAt`; `scriptId` is not queryable. Provider operations join through `providerId` to `sandboxProvider.id`. Plugin manifests, source and compiled hashes, plugin-state configuration, and application-table ownership columns are not queryable.
-
-Saved-view and integration `pluginSlug` values are derived from their exact plugin installation; neither table stores a duplicate slug.
-
-## Document Shape
-
-Every document contains a non-empty `queries` object. Each entry is independent and has an explicit root table and alias, an optional predicate and joins, and one rows, aggregate, or time-series output.
-
-Rows and includes support qualified wildcard selections. `star(table("entity", "entity"))` expands to the approved fields for the `entity` alias only; joined aliases are not included unless they are explicitly selected with another `star()` or `field()`. Wildcards can be mixed with explicit fields, but duplicate output keys are rejected. Aggregate `groupBy` selections remain explicit. Wildcards expand through the RyotQL catalog, so hidden physical and authorization columns are never exposed.
-
-RyotQL validates the complete document before execution. Named queries execute sequentially in declaration order inside one repeatable-read, read-only transaction, so they share one database snapshot. Any validation or execution failure fails the complete request; partial result envelopes are not returned.
+A document has a non-empty `queries` record. Each named query has `from: { table, alias }`, optional `joins` and `where`, and one `rows`, `aggregate`, or `timeSeries` output.
 
 ```json
 {
 	"queries": {
-		"collections": {
-			"from": { "table": "entity", "alias": "collection" },
-			"where": {
-				"type": "comparison",
-				"operator": "eq",
-				"left": { "type": "column", "tableAlias": "collection", "field": "entitySchemaSlug" },
-				"right": { "type": "literal", "value": "collection" }
-			},
+		"entities": {
+			"from": { "table": "entity", "alias": "entity" },
 			"output": {
 				"type": "rows",
-				"fields": [
-					{ "key": "id", "expr": { "type": "column", "tableAlias": "collection", "field": "id" } },
-					{
-						"key": "name",
-						"expr": { "type": "column", "tableAlias": "collection", "field": "name" }
-					}
-				],
-				"orderBy": [
-					{
-						"direction": "asc",
-						"expr": { "type": "column", "tableAlias": "collection", "field": "name" }
-					}
-				],
+				"fields": [],
+				"orderBy": [],
 				"pagination": { "limit": 20 }
 			}
 		}
@@ -63,277 +22,82 @@ RyotQL validates the complete document before execution. Named queries execute s
 }
 ```
 
-The response is keyed by the same query name:
+The response is `{ data: { [queryName]: result } }`. The complete document validates before execution. Queries run sequentially in declaration order in one repeatable-read, read-only transaction and share one snapshot. Any validation or execution failure fails the request; there are no partial results.
 
-```json
-{
-	"data": {
-		"collections": {
-			"type": "rows",
-			"items": [{ "id": "collection-id" }],
-			"pageInfo": { "limit": 20, "hasMore": false, "nextCursor": null }
-		}
-	}
-}
-```
+Rows select `{ key, expr }` fields or `{ type: "wildcard", tableAlias }`. A wildcard expands only the approved fields for that alias; hidden physical and authorization columns remain inaccessible. Duplicate output keys fail validation.
 
-Root row requests use `{ limit: number; after?: string }`; initial requests omit `after`, and the SDK builder defaults `limit` to 20. Root row page info is `{ limit: number; hasMore: boolean; nextCursor: string | null }`. Pagination is forward-only: the backend requests `limit + 1` rows, returns at most `limit` items, and sets `nextCursor` only when an extra row exists; otherwise it is `null`. Cursors are opaque client values, and malformed cursors are rejected. Root rows use primary-key ascending order when built with the SDK. The compiler appends joined and root primary keys when needed to keep multiplied rows deterministic and uses `NULLS LAST` in both directions. Saved-view root documents must omit cursors.
+| Output       | Required shape                                                                  | Result                                                              |
+| ------------ | ------------------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| `rows`       | `fields`, `orderBy`, `pagination: { limit, after? }`, optional `include`        | `{ type: "rows", items, pageInfo: { limit, hasMore, nextCursor } }` |
+| `aggregate`  | Non-empty `measures`; optional `groupBy`, `orderBy`, and `limit`                | `{ type: "aggregate", items, pageInfo? }`                           |
+| `timeSeries` | `time: { expr, range: { startAt, endAt }, bucket }`, `measure: { aggregation }` | `{ type: "timeSeries", buckets: [{ startAt, endAt, value }] }`      |
 
-## Application Tables
+## Catalog And Visibility
 
-Application tables use the same table references, joins, expressions, and row outputs as entity data. Public plugin metadata can left join the current user's policy-filtered plugin state. A missing state row keeps the plugin and returns null state fields; another user's state cannot satisfy the join. Saved-view roots return only the authenticated user's rows.
+HTTP execution always uses the authenticated user. A document cannot provide a user ID, plugin slug, execution scope, or grant. Authorization applies independently to every root, join, include, and correlated query before caller predicates.
 
-The `notificationChannel` catalog exposes `id`, `channel`, `description`, `isDisabled`, `createdAt`, and `updatedAt`. The `integration` catalog exposes `id`, `lot`, `name`, `provider`, `pluginSlug`, `isDisabled`, `syncOwnership`, `minimumProgress`, `maximumProgress`, `extraSettings`, `lastFinishedAt`, `createdAt`, and `updatedAt`. The `importRun` catalog exposes `id`, `source`, `status`, `progress`, `createdAt`, `updatedAt`, `failedItems`, `inputSummary`, `importedItems`, `processedItems`, `startedAt`, `finishedAt`, `totalItems`, and `failureReason`. The `importRunFailure` catalog exposes `id`, `runId`, `stage`, `reason`, `createdAt`, `itemIndex`, `sourceLabel`, `eventSchemaSlug`, `entitySchemaSlug`, and `sourceIdentifier`. The `notificationSubscriptionState` catalog exposes `id`, `signalSchemaSlug`, `isActive`, `createdAt`, and `updatedAt`. Notification channel raw specifics and integration provider specifics are not queryable.
+| Table                           | Queryable fields                                                                                                                                                                                            | User visibility                        |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `entity`                        | `id`, `name`, `userId`, `createdAt`, `updatedAt`, `properties`, `externalId`, `populatedAt`, `providerId`, `populationStatus`, `translationStatus`, `entitySchemaPluginId`, `entitySchemaSlug`              | User-owned and global                  |
+| `event`                         | `id`, `userId`, `entityId`, `createdAt`, `updatedAt`, `properties`, `occurredAt`, `eventSchemaSlug`, `sessionEntityId`                                                                                      | User-owned                             |
+| `relationship`                  | `id`, `userId`, `sourceEntityId`, `targetEntityId`, `createdAt`, `properties`, `relationshipSchemaSlug`                                                                                                     | User-owned and global                  |
+| `plugin`                        | `id`, `slug`, `name`, `icon`, `scope`, `status`, `version`, `sourceHash`, `clientApiVersion`, `clientArtifactHash`, `ingestedAt`                                                                            | User-owned and global packages         |
+| `pluginInstallation`            | `id`, `pluginId`, `health`, `sortOrder`, `isDisabled`, `createdAt`, `updatedAt`                                                                                                                             | User-owned                             |
+| `savedView`                     | `id`, `slug`, `name`, `icon`, `sortOrder`, `isBuiltin`, `isDisabled`, `pluginSlug`, `entitySchemaSlug`, `layouts`, `createdAt`, `updatedAt`                                                                 | User-owned                             |
+| `sandboxProvider`               | `id`, `slug`, `name`, `pluginId`, `rootEntitySchemaSlug`, `information`, `createdAt`, `updatedAt`                                                                                                           | Effective ready, enabled installations |
+| `sandboxProviderOperation`      | `id`, `providerId`, `operation`, `optionsSchema`, `createdAt`, `updatedAt`                                                                                                                                  | Operations of visible providers        |
+| `notificationChannel`           | `id`, `channel`, `description`, `isDisabled`, `createdAt`, `updatedAt`                                                                                                                                      | User-owned                             |
+| `integration`                   | `id`, `lot`, `name`, `provider`, `pluginSlug`, `isDisabled`, `syncOwnership`, `minimumProgress`, `maximumProgress`, `extraSettings`, `lastFinishedAt`, `createdAt`, `updatedAt`                             | User-owned                             |
+| `importRun`                     | `id`, `integrationId`, `source`, `status`, `progress`, `failedItems`, `inputSummary`, `importedItems`, `processedItems`, `totalItems`, `failureReason`, `startedAt`, `finishedAt`, `createdAt`, `updatedAt` | User-owned                             |
+| `importRunFailure`              | `id`, `runId`, `stage`, `reason`, `itemIndex`, `sourceLabel`, `eventSchemaSlug`, `entitySchemaSlug`, `sourceIdentifier`, `createdAt`                                                                        | Through the owned import run           |
+| `notificationSubscriptionState` | `id`, `signalSchemaSlug`, `isActive`, `createdAt`, `updatedAt`                                                                                                                                              | User-owned                             |
 
-The shared navigation recipe builds one document with independent `workspaces`, `savedViews`, and `collections` queries. It selects only navigation fields, reads plugin metadata through safe JSON paths, and relies on the response `data` keys to map each section.
+`savedView.pluginSlug` and `integration.pluginSlug` derive from the exact installation. Provider operations join through `providerId`; script IDs, package manifests, installation configuration, raw channel/integration specifics, and ownership columns are not queryable unless listed above.
 
-```ts
-const plugin = table("plugin", "plugin");
-const state = table("pluginState", "state");
+Sandbox scripts require `executeRyotql`. User and subscription executions retain user visibility. System execution requires a persisted pinned system-scope plugin script and may read only global entities whose schema belongs to that plugin, plus events and relationships whose discriminator definition belongs to it. All application/catalog tables are denied in system scope.
 
-document({
-	workspaces: rows(plugin, {
-		joins: [join("left", state, eq(column(plugin, "slug"), column(state, "pluginSlug")))],
-		fields: [
-			field("slug", column(plugin, "slug")),
-			field("sortOrder", column(state, "sortOrder")),
-			field("isDisabled", column(state, "isDisabled")),
-		],
-	}),
-});
-```
+## Expressions And Predicates
 
-## Execution Scopes
+Expression kinds are text, date, number, boolean, JSON, and null. Kind inference is shared by validation and compilation; unknown aliases or fields are validation errors.
 
-`POST /ryotql/execute` always runs as the authenticated user. User execution can read that user's rows and permitted global rows; plugin state and saved views remain user-only. Query documents cannot contain a user ID, plugin slug, execution scope, or grant that changes this access.
+Scalar expressions include columns, JSON literals, `jsonPath`, casts, `coalesce`, `concat`, conditionals, `kebabCase`/`titleCase` transforms, `floor`, `round`, integer conversion, null checks, arithmetic, `dateBucket`, and correlated `exists`, `first`, or aggregate queries. Correlated aliases are lexical: ancestors are visible, siblings and forward joins are not. `first` requires ordering and receives primary-key tie breakers.
 
-Sandbox scripts declare the separate `executeRyotql` capability. User and subscription executions use their user subject. A system execution is accepted only for a persisted, pinned system-scope plugin script, and the backend derives its plugin slug and owned discriminator definitions from that script's installed plugin metadata.
+Predicates include `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `contains`, `in`, `isNull`, `isNotNull`, `and`, `or`, `not`, and `exists`. Null comparisons are false before `not`; empty `and` is true, while empty `or` and `in` are false. Text uses deterministic C collation. `contains` is escaped case-insensitive substring matching for text and structural containment for JSON; JSON equality is structural.
 
-System RyotQL remains plugin-schema scoped. Plugin execution can read only global entities whose `entitySchemaSlug` is owned by the plugin. It can read event and relationship rows across users only when their discriminator definition is owned by the plugin. The `plugin`, `pluginState`, `savedView`, `sandboxProvider`, and `sandboxProviderOperation` tables are denied. These policies apply independently to every root, join, include, and correlated query before document predicates.
+`jsonPath` traverses public JSON object keys or array indexes. Missing paths and JSON null produce null. It does not consult property definitions. Casts to text, number, boolean, date, or JSON return null for incompatible, malformed, or out-of-range values instead of failing SQL. Arithmetic uses safe numeric values; invalid operands and division by zero return null.
 
-Sandbox code imports builders, generic entity and event read recipes, and strict named-response helpers from `@ryot-app/sandbox-sdk/ryotql`. The helpers accept only the RyotQL `{ data: { [queryName]: result } }` envelope.
+`dateBucket` accepts hour, day, week, or month plus an IANA zone and returns the local boundary as an ISO UTC instant; weeks start Monday and daylight-saving offsets are respected. Invalid zones and non-date inputs fail validation.
 
-## Expressions And JSON
+## Joins, Includes, And Pagination
 
-`jsonPath` reads deep object keys and array indices from a public JSON expression. Paths are generic and do not load property schemas, validate property names, infer property types, or resolve discriminator definitions. A missing path and JSON `null` both produce null. Raw JSON-path fields derive their internal runtime kind from the JSON value.
+Inner and left joins support any visible catalog tables and normal SQL multiplicity. A join may refer to its new alias and aliases already in scope. Authorization is inside each table occurrence, so an invisible right row in a left join becomes null without removing the left row.
 
-Use `castText`, `castNumber`, `castBoolean`, `castDate`, or `castJson` when a query needs scalar behavior. JSON casts accept the matching JSON value type; incompatible values produce null. Number and date input is checked before PostgreSQL casts it, so malformed dates and out-of-range numbers also produce null instead of failing the query. Cast expressions can be selected, filtered, and ordered.
+Includes are correlated row queries with their own root, optional joins/predicate, fields, non-empty order, explicit limit, and optional nested includes. They return `{ items, pageInfo: { limit, hasMore } }`; no match returns an empty list. Sibling aliases are isolated.
 
-```ts
-const entity = table("entity", "book");
-const properties = column(entity, "properties");
-const rating = castNumber(jsonPath(properties, "details", "rating"));
+Root rows use `{ limit, after? }` and return `{ items, pageInfo: { limit, hasMore, nextCursor } }`. Pagination is forward-only and cursors are opaque and validated. The backend fetches `limit + 1`, returns at most `limit`, and emits a cursor only when another row exists. Primary-key tie breakers and `NULLS LAST` make multiplied rows deterministic. SDK-built roots default to 20 and primary-key ascending order. Persisted saved-view documents must omit cursors.
 
-document({
-	books: rows(entity, {
-		fields: [
-			field("name", column(entity, "name")),
-			field("rating", rating),
-			field("cover", jsonPath(properties, "images", 0)),
-		],
-		where: and(eq(column(entity, "entitySchemaSlug"), literal("book")), gte(rating, literal(4))),
-		orderBy: [descending(rating)],
-	}),
-});
-```
+## Derived Fields
 
-Comparisons support `eq`, `neq`, `gt`, `gte`, `lt`, and `lte`. Null comparisons are false before `not` is applied. Text comparisons and ordering use C collation. `contains` performs escaped, case-insensitive literal substring matching for text and structural containment for JSON arrays or objects. JSON equality is structural. `isNull`, `isNotNull`, `and`, `or`, and `not` compose predicates; empty `and` is true, empty `or` and empty `inArray` are false. `coalesce` selects the first non-null value and retains that branch's internal runtime kind.
+For users with a non-canonical language, entity `name` falls back to canonical text and translated `properties` overlay canonical keys. Selection, filtering, ordering, and JSON paths see the same resolved values.
 
-Schema discriminators are ordinary `entitySchemaSlug` comparisons. Use `eq` for one slug and `inArray` for several. Unknown slugs return no rows and do not trigger definition lookup.
+`populationStatus` is `ready` when `populatedAt` exists, `none` without provider or external ID, and `pending` otherwise. `translationStatus` is `pending` only when populated provider content needs a missing requested translation, `ready` when an overlay exists, and `none` for canonical readers, inapplicable providers, unpopulated entities, or negative-cache translations.
 
-## Event Queries
+## Aggregate And Time Series
 
-Events are ordinary `event` table rows. Use an explicit join to `entity` when a query needs attached entity fields or `entitySchemaSlug` filtering. Event and entity visibility is applied to each table before the join, so predicates cannot expose another user's rows.
+Root and correlated aggregates support count, count distinct, sum, average, minimum, and maximum. Counts return zero for an empty set; other measures return null. Numeric measures cast safely, count distinct ignores null, and joins retain normal multiplicity.
 
-```ts
-const event = table("event", "event");
-const entity = table("entity", "entity");
+Ungrouped aggregates return one item without page info. Grouped aggregates require group fields, limit, and ordering by group or measure key. They do not support cursors or arbitrary-expression ordering; JSON groups cannot order. The limit counts unique combinations of all group fields. Results use `{ items, pageInfo: { limit, hasMore } }`.
 
-document({
-	events: rows(event, {
-		orderBy: [descending(column(event, "occurredAt"))],
-		joins: [join("inner", entity, eq(column(event, "entityId"), column(entity, "id")))],
-		fields: [
-			field("occurredAt", column(event, "occurredAt")),
-			field("entityName", column(entity, "name")),
-		],
-		where: and(
-			eq(column(event, "eventSchemaSlug"), literal("review")),
-			eq(column(entity, "entitySchemaSlug"), literal("book")),
-		),
-	}),
-});
-```
-
-Event JSON properties use the same generic JSON paths and safe casts as entity properties. `sessionEntityId` is nullable and returns null when absent; event timestamps return ISO strings.
-
-## Relationships And Joins
-
-Relationships are ordinary rows. Join `sourceEntityId` and `targetEntityId` to separate entity aliases when endpoint fields are needed. There are no endpoint declarations, directions, or automatic discriminator filters.
-
-Inner and left joins can connect any catalog tables. A join predicate can reference its new alias and aliases already in scope. Normal SQL multiplicity applies: several matching joined rows produce several root rows, and RyotQL does not deduplicate them.
-
-Authorization is applied inside every table occurrence before joins and caller predicates. A left join with no visible matching row therefore keeps the left row and returns null fields from the joined alias.
-
-```ts
-const member = table("entity", "member");
-const collection = table("entity", "collection");
-const membership = table("relationship", "membership");
-
-rows(membership, {
-	where: eq(column(membership, "relationshipSchemaSlug"), literal("membership")),
-	fields: [
-		field("memberName", column(member, "name")),
-		field("collectionName", column(collection, "name")),
-	],
-	joins: [
-		join("inner", member, eq(column(membership, "sourceEntityId"), column(member, "id"))),
-		join("inner", collection, eq(column(membership, "targetEntityId"), column(collection, "id"))),
-	],
-});
-```
-
-## Correlated Includes
-
-An include is a row query with its own `from`, optional joins and predicate, selected fields, non-empty ordering, and explicit limit. Its expressions can reference aliases from the parent scope. Sibling aliases are not shared. Any catalog table can be an include root or join.
-
-Includes return `{ items, pageInfo: { limit, hasMore } }` under their key. State includes use the same page-info shape. They run as correlated SQL inside the named query statement, fetch at most limit plus one rows to derive `hasMore`, and return an empty `items` list without removing the parent. Includes can be nested to depth three.
-
-```ts
-const course = table("entity", "course");
-const module = table("entity", "module");
-const courseModule = table("relationship", "courseModule");
-
-rows(course, {
-	fields: [field("name", column(course, "name"))],
-	include: [
-		include(courseModule, {
-			limit: 10,
-			key: "modules",
-			orderBy: [ascending(column(module, "name"))],
-			fields: [field("name", column(module, "name"))],
-			where: eq(column(courseModule, "sourceEntityId"), column(course, "id")),
-			joins: [
-				join("inner", module, eq(column(courseModule, "targetEntityId"), column(module, "id"))),
-			],
-		}),
-	],
-});
-```
-
-## Localization And Derived Fields
-
-Catalog fields resolve through one backend-owned interface. Most fields map directly to physical columns. `name`, `properties`, and `translationStatus` are resolved fields whose SQL depends on the authenticated user's language. RyotQL documents use them as ordinary columns and cannot provide custom field resolvers.
-
-For a user with a non-canonical language preference, `name` uses the translated name when present and otherwise falls back to the canonical name. Translated properties merge over canonical properties, so untranslated canonical keys remain available. The same resolved values are used in selection, predicates, ordering, and JSON paths. Users without a language preference read canonical values without translation SQL.
-
-`populationStatus` is `ready` once `populatedAt` is stamped, `none` when the entity has no provider or no external identifier and is therefore never populated, and `pending` otherwise. It does not depend on the reader's language.
-
-`translationStatus` is `none` for canonical-language readers, entities without a provider, providers without a canonical language, and unpopulated entities. It is `pending` when a translation is required but absent, `none` for a negative-cache translation, and `ready` when translated content exists. Its provider and translation SQL is emitted only when an expression references `translationStatus`.
-
-## Correlated Scalar Expressions
-
-`exists`, `first`, and correlated aggregate expressions run a generic query set with its own `from`, optional joins, and optional predicate. The query set can reference aliases from its ancestor scopes. Its own aliases are lexical: duplicate aliases, sibling references, unknown aliases, and forward join references are invalid. Every table occurrence is authorized before its joins and predicates are applied, and localized fields use the same language as the root query.
-
-`exists` returns a boolean. `first` selects one scalar from the first matching row, requires explicit ordering, adds primary-key tie breakers, and returns null when no row matches. Correlated aggregates support `count`, `countDistinct`, `sum`, `average`, `minimum`, and `maximum`. Count operations return zero for an empty set; the other measures return null. Numeric measures safely cast their operands, and count distinct ignores null values through normal PostgreSQL semantics.
-
-```ts
-const course = table("entity", "course");
-const completion = table("event", "completion");
-const completions = {
-	where: eq(column(completion, "entityId"), column(course, "id")),
-};
-
-rows(course, {
-	where: exists(completion, completions),
-	fields: [
-		field("completionCount", count(completion, completions)),
-		field(
-			"latestCompletion",
-			first(completion, {
-				...completions,
-				select: column(completion, "occurredAt"),
-				orderBy: [descending(column(completion, "occurredAt"))],
-			}),
-		),
-	],
-});
-```
-
-`add`, `subtract`, `multiply`, and `divide` operate on safe numeric values. Invalid operands and division by zero return null. `coalesce` returns the first non-null value and preserves the selected branch's internal runtime kind, including values selected by `first`.
-
-`dateBucket` truncates a date expression to an `hour`, `day`, `week`, or `month` boundary in an explicit IANA time zone. It returns that local boundary as an unambiguous ISO UTC instant. Weeks start on Monday. PostgreSQL applies the named zone when calculating the boundary, so daylight-saving changes produce the correct UTC offset for each local date. Invalid time zones and non-date operands are rejected before execution. Date buckets are ordinary date expressions and can be selected, compared, ordered, or used as aggregate group fields. Time-series outputs retain their separate UTC bucket behavior.
-
-```ts
-const event = table("event", "event");
-const localDay = dateBucket(column(event, "occurredAt"), {
-	bucket: "day",
-	timeZone: "America/New_York",
-});
-```
-
-## Aggregate Outputs
-
-Root aggregate outputs run over the same generic table, joins, predicates, localized field resolvers, and authorized relations as rows. Measures support count, count distinct, sum, average, minimum, and maximum. Count operations return zero for an empty input; the other measures return null. Ordinary SQL join multiplicity applies, so use count distinct when multiplied rows must count once.
-
-Ungrouped aggregates return one item without `pageInfo` and otherwise remain unchanged. Grouped aggregates require at least one group field, an explicit limit, and non-empty ordering by group or measure key. JSON group fields cannot be ordering keys. Their page info remains `{ limit, hasMore }`; they support at most 1000 groups and do not support aggregate pagination or ordering by arbitrary expressions. The limit counts unique combinations of all group fields, not distinct values of one field such as a calendar day. Group values return directly as strings, ISO date strings, numbers, booleans, JSON values, or null. Both aggregate ordering directions place null values last; text group ordering uses deterministic `C` collation.
-
-```ts
-const lesson = table("entity", "lesson");
-const duration = castNumber(jsonPath(column(lesson, "properties"), "durationMinutes"));
-
-document({
-	durationsByDayAndLesson: aggregate(lesson, {
-		limit: 100,
-		orderBy: [groupDescending("day"), groupAscending("name")],
-		groupBy: [
-			field(
-				"day",
-				dateBucket(column(lesson, "createdAt"), {
-					bucket: "day",
-					timeZone: "America/New_York",
-				}),
-			),
-			field("id", column(lesson, "id")),
-			field("name", column(lesson, "name")),
-		],
-		measures: [
-			measure("count", { function: "count" }),
-			measure("totalDuration", { expr: duration, function: "sum" }),
-		],
-	}),
-});
-```
-
-## Time-Series Outputs
-
-Time-series outputs apply one count, sum, average, minimum, or maximum measure to a generic query set. The time expression must be a physical date field or an explicit `castDate`, and the range is half open: `startAt` is inclusive and `endAt` is exclusive. Predicates, joins, visibility, and safe numeric measure casts are applied before aggregation.
-
-Buckets support `hour`, `day`, `week`, and `month`. Boundaries are aligned in UTC, weeks start on Monday, and months use calendar boundaries. PostgreSQL generates one contiguous grid and returns zero for empty buckets. A range may contain at most 1000 aligned buckets. Multiple measures, multiple series, custom bucket units, and pagination are not supported.
-
-```ts
-const completion = table("event", "completion");
-
-document({
-	completionCounts: timeSeries(completion, {
-		bucket: "day",
-		measure: { function: "count" },
-		endAt: "2026-02-01T00:00:00.000Z",
-		startAt: "2026-01-01T00:00:00.000Z",
-		time: column(completion, "occurredAt"),
-		where: eq(column(completion, "eventSchemaSlug"), literal("completion")),
-	}),
-});
-```
+Time series apply one count, sum, average, minimum, or maximum measure. The time expression is a physical date or explicit date cast; `[startAt, endAt)` is half-open. Hour/day/week/month buckets align in UTC, weeks start Monday, and empty buckets return zero. Multiple measures or series, custom units, and pagination are unsupported.
 
 ## Limits
 
-- 10 named queries per document.
-- 8 joins per named query.
-- 100 root rows per request.
-- 100 rows per include.
-- 1000 grouped aggregate rows.
-- 1000 aligned time-series buckets.
-- 3 include levels.
-- 3 correlated query levels.
-- 30-second transaction-local statement timeout.
+| Boundary                               |      Limit |
+| -------------------------------------- | ---------: |
+| Named queries per document             |         10 |
+| Joins per named query                  |          8 |
+| Root rows / include rows               |  100 / 100 |
+| Grouped aggregate rows                 |      1,000 |
+| Aligned time-series buckets            |      1,000 |
+| Include depth / correlated query depth |      3 / 3 |
+| Transaction-local statement timeout    | 30 seconds |

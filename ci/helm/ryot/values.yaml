@@ -256,20 +256,20 @@ ingress:
   #    hosts:
   #      - ryot.your-domain.com
 
-# -- Liveness probe. Ryot exposes /api/health on the service port.
+# -- Liveness probe. Ryot exposes /api/system/health on the service port.
 livenessProbe:
   httpGet:
-    path: /api/health
+    path: /api/system/health
     port: http
   initialDelaySeconds: 30
   periodSeconds: 30
   timeoutSeconds: 10
   failureThreshold: 6
 
-# -- Readiness probe.
+# -- Readiness probe using /api/system/health.
 readinessProbe:
   httpGet:
-    path: /api/health
+    path: /api/system/health
     port: http
   initialDelaySeconds: 15
   periodSeconds: 15
