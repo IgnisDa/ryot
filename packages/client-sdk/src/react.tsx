@@ -8,6 +8,7 @@ import {
 import { SETTLE_RING_DURATION_MS } from "@ryot-app/client-ui-sdk/sync";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
+import * as Option from "effect/Option";
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult";
 import * as Atom from "effect/unstable/reactivity/Atom";
 import * as AtomRegistry from "effect/unstable/reactivity/AtomRegistry";
@@ -24,13 +25,28 @@ import {
 import { ActiveScreenContext } from "./active-screen";
 import { createEntityRefresh, entityTransport } from "./entity-refresh";
 import type { EntityInterest, EntityInterestSubscription, EntityUpdate, RyotClient } from "./index";
+import type { PluginRouterNavigation } from "./navigation/store";
+import {
+	RyotClientService,
+	RyotNavigationService,
+	RyotScheduleService,
+	type RyotRuntime,
+	type RyotSchedule,
+} from "./schedule";
 import { createSettleTracker } from "./settle";
 
 const staleTime = 30 * 1_000;
 const idleTTL = 5 * 60 * 1_000;
 const queryTypeId = Symbol("@ryot-app/client-sdk/react/query");
 const mutationTypeId = Symbol("@ryot-app/client-sdk/react/mutation");
-const RyotContext = createContext<RyotClient | undefined>(undefined);
+const RyotContext = createContext<
+	| {
+			readonly client: RyotClient;
+			readonly schedule: RyotSchedule;
+			readonly navigation: PluginRouterNavigation | undefined;
+	  }
+	| undefined
+>(undefined);
 
 type QueryContext<Input> = {
 	readonly input: Input;
@@ -194,18 +210,58 @@ export function createRyotMutation<Input, Data>(
 	return new MutationDefinition(mutation);
 }
 
-export const RyotProvider = ({ client, children }: { client: RyotClient; children: ReactNode }) => (
-	<RegistryProvider defaultIdleTTL={idleTTL}>
-		<RyotContext.Provider value={client}>{children}</RyotContext.Provider>
-	</RegistryProvider>
-);
+export const RyotProvider = ({
+	runtime,
+	children,
+}: {
+	children: ReactNode;
+	runtime: RyotRuntime;
+}) => {
+	const value = useMemo(
+		() =>
+			runtime.runSync(
+				Effect.all({
+					client: RyotClientService,
+					schedule: RyotScheduleService,
+					// Only a plugin artifact's runtime carries navigation; the kernel host has no router.
+					navigation: Effect.map(
+						Effect.serviceOption(RyotNavigationService),
+						Option.getOrUndefined,
+					),
+				}),
+			),
+		[runtime],
+	);
+	return (
+		<RegistryProvider defaultIdleTTL={idleTTL}>
+			<RyotContext.Provider value={value}>{children}</RyotContext.Provider>
+		</RegistryProvider>
+	);
+};
 
 export const useRyot = () => {
-	const client = useContext(RyotContext);
-	if (!client) {
+	const context = useContext(RyotContext);
+	if (!context) {
 		throw new Error("useRyot must be used within RyotProvider");
 	}
-	return client;
+	return context.client;
+};
+
+export const useRyotSchedule = (): RyotSchedule => {
+	const context = useContext(RyotContext);
+	if (!context) {
+		throw new Error("useRyotSchedule must be used within RyotProvider");
+	}
+	return context.schedule;
+};
+
+/** SDK-internal: `PluginRouter` only. Not a plugin capability, so it stays off `./plugin`. */
+export const usePluginNavigation = (): PluginRouterNavigation => {
+	const context = useContext(RyotContext);
+	if (!context?.navigation) {
+		throw new Error("usePluginNavigation must be used within a plugin artifact RyotProvider");
+	}
+	return context.navigation;
 };
 
 export const useRyotTheme = () => {
@@ -220,6 +276,7 @@ const interestedQueries = new WeakMap<
 
 const useQueryInterest = <Data,>(
 	client: RyotClient,
+	schedule: RyotSchedule,
 	atom: ReturnType<typeof makeQueryAtom<Data>>,
 	input: unknown,
 	interest?: RyotQueryOptions<unknown, Data>["entityInterest"],
@@ -251,7 +308,7 @@ const useQueryInterest = <Data,>(
 				!reattach && controllers.has(atom) && !AsyncResult.isInitial(registry.get(atom));
 			let data: Data | undefined;
 			let subscription: EntityInterestSubscription | undefined;
-			const refresh = createEntityRefresh(() => {
+			const refresh = createEntityRefresh(schedule, () => {
 				if (registry.get(atom).waiting) {
 					refresh.block(true);
 					refresh.hint();
@@ -310,11 +367,12 @@ const useQueryInterest = <Data,>(
 				controllers.set(atom, null);
 			}
 		};
-	}, [client, registry, atom, interest, active]);
+	}, [client, schedule, registry, atom, interest, active]);
 };
 
 const useSettleTracker = () => {
-	const tracker = useMemo(() => createSettleTracker(SETTLE_RING_DURATION_MS), []);
+	const schedule = useRyotSchedule();
+	const tracker = useMemo(() => createSettleTracker(schedule, SETTLE_RING_DURATION_MS), [schedule]);
 	useEffect(() => () => tracker.dispose(), [tracker]);
 	const settled = useSyncExternalStore(tracker.subscribe, tracker.snapshot, tracker.snapshot);
 	return { settled, tracker };
@@ -355,6 +413,7 @@ export const useEntityRefresh = (options: {
 	readonly onRefresh: (updates: readonly EntityUpdate[]) => Promise<void>;
 }) => {
 	const client = useRyot();
+	const schedule = useRyotSchedule();
 	const active = useContext(ActiveScreenContext);
 	const { settled, tracker } = useSettleTracker();
 	const latest = useRef(options);
@@ -370,7 +429,7 @@ export const useEntityRefresh = (options: {
 		latest.current = options;
 	});
 	useEffect(() => {
-		const refresh = createEntityRefresh(async (updates) => {
+		const refresh = createEntityRefresh(schedule, async (updates) => {
 			for (const update of updates) {
 				tracker.stage(update);
 			}
@@ -382,7 +441,7 @@ export const useEntityRefresh = (options: {
 			controller.current = undefined;
 			refresh.dispose();
 		};
-	}, [client, options.identity, tracker]);
+	}, [client, schedule, options.identity, tracker]);
 	useEffect(() => {
 		const catchUp =
 			previous.current.identity === options.identity && !previous.current.active && active;
@@ -421,11 +480,12 @@ export function useRyotQuery<Data>(
 	input?: unknown,
 ): RyotQueryResult<Data> {
 	const client = useRyot();
+	const schedule = useRyotSchedule();
 	if (!(query instanceof QueryDefinition)) {
 		throw new Error("useRyotQuery requires a query created by createRyotQuery");
 	}
 	const atom = query.atom(client, input);
-	useQueryInterest(client, atom, input, query.entityInterest);
+	useQueryInterest(client, schedule, atom, input, query.entityInterest);
 	const result = useAtomValue(atom);
 	const refetch = useAtomRefresh(atom);
 	const isError = AsyncResult.isFailure(result);

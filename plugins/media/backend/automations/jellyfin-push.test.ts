@@ -1,8 +1,8 @@
+import { describe, expect, it } from "@effect/vitest";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { LogEntry, SandboxHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
-import { describe, expect, it, vi } from "vitest";
 
 import {
 	eventAutomationContext,
@@ -64,14 +64,24 @@ const createHttpCall =
 		return httpFailure();
 	};
 
+const createLog =
+	(batches: (readonly LogEntry[])[]): JellyfinHost["log"] =>
+	(entries) =>
+		Effect.sync(() => {
+			batches.push(entries);
+			return null;
+		});
+
 const createHost = (options: {
 	disableIntegrations?: boolean;
 	httpCall: JellyfinHost["httpCall"];
+	log?: JellyfinHost["log"];
 	entity?: ReturnType<typeof entityRecord>;
 	integrations?: ReturnType<typeof integrationRecord>[];
 }) =>
 	defineSandboxTestHost(manifest, {
 		httpCall: options.httpCall,
+		log: options.log ?? (() => Effect.succeed(null)),
 		getEntitySchemas: () => hostSuccess([schema]),
 		listIntegrations: () => hostSuccess(options.integrations ?? []),
 		executeRyotql: () =>
@@ -142,27 +152,31 @@ describe("jellyfin-push sandbox script", () => {
 		);
 	});
 
-	it("treats a played-item HTTP failure as non-fatal", () => {
-		const calls: HttpCall[] = [];
-		const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-		const host = createHost({
-			entity: movieEntity,
-			integrations: [jellyfinIntegration],
-			httpCall: createHttpCall(
-				calls,
-				[{ Id: "jf-item-1", Name: "The Matrix", ProviderIds: { Tmdb: "603" } }],
-				true,
-			),
-		});
-		return Effect.runPromise(
-			definition.run(createAutomation(), host, execution).pipe(
-				Effect.map((result) => {
-					expect(result).toBeNull();
-					expect(warning).toHaveBeenCalledWith("Jellyfin push failed: already played");
-					warning.mockRestore();
-					return undefined;
-				}),
-			),
-		);
-	});
+	it.effect("treats a played-item HTTP failure as non-fatal", () =>
+		Effect.gen(function* () {
+			const calls: HttpCall[] = [];
+			const warnings: (readonly LogEntry[])[] = [];
+			const host = createHost({
+				entity: movieEntity,
+				integrations: [jellyfinIntegration],
+				httpCall: createHttpCall(
+					calls,
+					[{ Id: "jf-item-1", Name: "The Matrix", ProviderIds: { Tmdb: "603" } }],
+					true,
+				),
+				log: createLog(warnings),
+			});
+			const result = yield* definition.run(createAutomation(), host, execution);
+			expect(result).toBeNull();
+			expect(warnings).toEqual([
+				[
+					{
+						level: "warning",
+						message: "Jellyfin push failed",
+						attributes: { error: "already played" },
+					},
+				],
+			]);
+		}),
+	);
 });

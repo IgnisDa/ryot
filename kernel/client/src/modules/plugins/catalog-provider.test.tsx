@@ -1,6 +1,5 @@
-import { createRyotClient } from "@ryot-app/client-sdk";
 import { RyotProvider } from "@ryot-app/client-sdk/react";
-import { createTestRyotAdapter } from "@ryot-app/client-sdk/testing";
+import { createTestRyotClock } from "@ryot-app/client-sdk/testing";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { Deferred, Effect, Layer, ManagedRuntime } from "effect";
@@ -32,7 +31,7 @@ const catalog: PluginClientCatalog = [
 		clientArtifactHash: "artifact-hash",
 	},
 ];
-const client = createRyotClient(createTestRyotAdapter({ query: () => Promise.resolve({}) }));
+const ryot = createTestRyotClock();
 
 function CatalogConsumer(props: { readonly name: string }) {
 	const { catalog: current, refetch } = usePluginCatalog();
@@ -55,7 +54,7 @@ const makeView = (
 		Layer.mergeAll(events.layer, Layer.succeed(PluginCatalogService, { load })),
 	);
 	const tree = (content: ReactNode) => (
-		<RyotProvider client={client}>
+		<RyotProvider runtime={ryot.runtime}>
 			<PluginCatalogProvider scope={scope} runtime={runtime} initialCatalog={catalog}>
 				{content}
 			</PluginCatalogProvider>
@@ -67,7 +66,7 @@ const makeView = (
 		tree,
 		events,
 		runtime,
-		removeProvider: () => view.rerender(<RyotProvider client={client}>{null}</RyotProvider>),
+		removeProvider: () => view.rerender(<RyotProvider runtime={ryot.runtime}>{null}</RyotProvider>),
 	};
 };
 

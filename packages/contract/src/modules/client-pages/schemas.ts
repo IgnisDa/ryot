@@ -111,7 +111,7 @@ export type ClientPageTarget = typeof ClientPageTarget.Type;
 
 const PreparedClientPageTarget = Schema.Union([
 	SavedViewClientPageTarget,
-	PluginClientPageTarget.members[0],
+	PluginClientPageTarget.members[1],
 	strictStruct({
 		entityId: EntityId,
 		entitySchemaSlug: EntitySchemaSlug,

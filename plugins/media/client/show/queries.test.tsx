@@ -33,6 +33,9 @@ import {
 } from "./queries";
 import { classifyRyotQueryResult } from "./query-state";
 
+// `createEntityRefresh` debounces an entity hint through the SDK schedule before refetching.
+const ENTITY_REFRESH_DEBOUNCE_MS = 250;
+
 const rows = (items: readonly unknown[]) =>
 	rowsResult(items, { limit: 100, hasMore: false, nextCursor: null });
 
@@ -114,6 +117,7 @@ function queryBehavior<Input, Data>(
 			visible: [...visible].sort(),
 		});
 		act(() => recording.hints[0]?.({ entityId: "show-1", reason: "populated" }));
+		await view.advance(ENTITY_REFRESH_DEBOUNCE_MS);
 		await waitFor(() => expect(recording.requests).toHaveLength(2));
 		await act(async () => {
 			recording.requests[1]?.reject(new Error("offline"));

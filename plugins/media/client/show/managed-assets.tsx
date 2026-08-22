@@ -1,5 +1,5 @@
 import type { ManagedAssetLocator, ManagedAssetResolution } from "@ryot-app/client-sdk";
-import { createRyotQuery, useRyotQuery } from "@ryot-app/client-sdk/react";
+import { createRyotQuery, useRyotQuery, useRyotSchedule } from "@ryot-app/client-sdk/react";
 import { EntityArtWell, type FieldSyncState } from "@ryot-app/client-ui-sdk/sync";
 import {
 	createContext,
@@ -75,6 +75,7 @@ function ManagedAssetBatchResolver(props: {
 	readonly batchKey: string;
 	readonly onResolved: (batchKey: string, urls: ReadonlyMap<string, string>) => void;
 }) {
+	const schedule = useRyotSchedule();
 	const result = useRyotQuery(managedAssetBatchQuery, props.batchKey);
 	const refresh = useEffectEvent(() => result.refetch());
 	const publish = useEffectEvent((urls: ReadonlyMap<string, string>) =>
@@ -100,12 +101,11 @@ function ManagedAssetBatchResolver(props: {
 		const earliestExpiry = Math.min(
 			...resolutions.map((resolution) => Date.parse(resolution.expiresAt)),
 		);
-		const timer = window.setTimeout(
+		return schedule.after(
+			Math.max(ASSET_REFRESH_LEAD_MS, earliestExpiry - ASSET_REFRESH_LEAD_MS - schedule.now()),
 			refresh,
-			Math.max(ASSET_REFRESH_LEAD_MS, earliestExpiry - ASSET_REFRESH_LEAD_MS - Date.now()),
 		);
-		return () => window.clearTimeout(timer);
-	}, [resolutions]);
+	}, [resolutions, schedule]);
 
 	return null;
 }

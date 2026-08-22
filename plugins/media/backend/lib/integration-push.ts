@@ -9,6 +9,7 @@ import { entityReadRecipe, executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryo
 
 export type IntegrationPushHost = SandboxHost<
 	readonly [
+		"log",
 		"httpCall",
 		"executeRyotql",
 		"getEntitySchemas",
@@ -42,6 +43,24 @@ export const parseJsonBody = (
 
 export const integrationsDisabledForUser = (host: IntegrationPushHost) =>
 	host.getUserPreferences().pipe(Effect.map((preferences) => preferences.disableIntegrations));
+
+export const logPushFailure = (
+	host: IntegrationPushHost,
+	integration: string,
+	error: { readonly message: string },
+) =>
+	host
+		.log([
+			{
+				level: "warning",
+				message: `${integration} push failed`,
+				attributes: { error: error.message },
+			},
+		])
+		.pipe(
+			Effect.catch(() => Effect.succeed(null)),
+			Effect.asVoid,
+		);
 
 export const listActiveIntegrations = (
 	host: IntegrationPushHost,

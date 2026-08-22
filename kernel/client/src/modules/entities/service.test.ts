@@ -1,7 +1,7 @@
 import { createRyotClient } from "@ryot-app/client-sdk";
 import { createTestRyotAdapter } from "@ryot-app/client-sdk/testing";
 import { Effect, Layer, ManagedRuntime } from "effect";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { decodeServerOrigin } from "#/api/origin";
 import { makeEntityInterestService, makeRyotQLApi, makeUploadsApi } from "#/api/ports.test-layer";
@@ -69,11 +69,16 @@ describe("EntitiesService", () => {
 		let queryCount = 0;
 		let querySignal: AbortSignal | undefined;
 		const pending = new Promise<never>(() => undefined);
+		let resolveQueryStarted!: () => void;
+		const queryStarted = new Promise<void>((resolve) => {
+			resolveQueryStarted = resolve;
+		});
 		const client = createRyotClient(
 			createTestRyotAdapter({
 				query: (_document, signal) => {
 					queryCount += 1;
 					querySignal = signal;
+					resolveQueryStarted();
 					return pending;
 				},
 			}),
@@ -88,7 +93,7 @@ describe("EntitiesService", () => {
 				),
 				{ signal: controller.signal },
 			);
-			await vi.waitFor(() => expect(querySignal).toBeInstanceOf(AbortSignal));
+			await queryStarted;
 
 			controller.abort();
 

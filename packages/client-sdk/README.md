@@ -46,6 +46,21 @@ the same registry/query atom share one watch. Updates and document-foreground hi
 ms; an in-flight request finishes before one queued refresh. Hidden retained screens withdraw demand,
 and reactivation requests catch-up without discarding cached data.
 
+## Scheduling
+
+Every SDK delay goes through `RyotSchedule` (`now`, `after`), built by `RyotScheduleService` from
+the Effect `Clock` in its layer, and distributed to components by `RyotProvider` alongside the
+client. `makeRyotRuntime(client)` assembles the live runtime; `createTestRyotClock` from
+`./testing` assembles a `TestClock`-backed one, so tests advance time with `advance(ms)` instead of
+faking timers. The plugin-facing shape stays plain callbacks because plugin bundles have no Effect
+barrel. `after` forks its sleep on the layer's captured clock and returns a synchronous cancel; a
+throw inside the callback is rethrown on a microtask so the plugin fatal path still sees it.
+
+The test clock governs SDK scheduling only. It does **not** drive `AtomRegistry` idle-TTL sweeps
+(raw `setTimeout`, 5 min default TTL) or `Atom.swr` staleness (`Date.now()` against a 30 s
+`staleTime`), and interested queries never get `Atom.swr` at all. Advancing the test clock past
+those thresholds will not expire an atom.
+
 `useEntityRefresh` supports controller-owned data and passes a deduplicated batch of updates to
 `onRefresh`. `useEntitySettle` provides the same staging for query-owned screens. Both reveal settle
 marks only on `commit()`, after refreshed values are rendered, and expire marks automatically.
