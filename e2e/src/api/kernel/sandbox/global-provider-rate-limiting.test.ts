@@ -126,7 +126,7 @@ describe("deployment-global sandbox HTTP rate limiting", () => {
 			const declaration = {
 				key,
 				requests: 1,
-				intervalMs: 800,
+				intervalMs: 2_000,
 				origins: [new URL(http.url).origin],
 			};
 			const plugin = yield* installHttpScriptScoped({
@@ -198,7 +198,9 @@ describe("deployment-global sandbox HTTP rate limiting", () => {
 				.map(
 					(timestamp, index) => timestamp - requirePresent(timestamps[index], "Missing timestamp"),
 				);
-			expect(gaps.every((gap) => gap >= 650)).toBe(true);
+			for (const gap of gaps) {
+				expect(gap).toBeGreaterThanOrEqual(1_500);
+			}
 		}),
 	);
 
