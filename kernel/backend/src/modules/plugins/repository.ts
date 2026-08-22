@@ -468,7 +468,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 							.values(artifact.files.map((file) => ({ ...file, artifactHash: artifact.hash }))),
 					);
 				}
-				return;
+				return undefined;
 			}
 			const [metadata] = yield* mapDatabaseErrors(
 				db
@@ -488,6 +488,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					message: `Client artifact ${artifact.hash} conflicts with immutable stored data`,
 				});
 			}
+			return undefined;
 		});
 
 		const persistKernelScript = Effect.fn("PluginRepository.persistKernelScript")(function* (

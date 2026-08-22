@@ -595,7 +595,7 @@ The shared query API is recipe-based:
 const result = await ryot.data.query(recipe);
 ```
 
-The recipe owns its query document and result decoder. The client executes the document and decodes the result locally; consumers do not parse generic `RowItem` values directly. Query requests use the existing user-scoped backend authorization behavior rather than a client-specific bypass.
+The recipe owns its query document and result decoder. The client executes the document and decodes the result locally; consumers do not parse generic `RowItem` values directly. A decoder failure result or thrown decoder exception becomes `malformed-result` and never escapes the SDK as an arbitrary error. Query requests use the existing user-scoped backend authorization behavior rather than a client-specific bypass. The direct kernel adapter and plugin bridge use one kernel-owned classifier so declared query failures have the same public reason in both environments.
 
 `ryot.operations.invoke({ slug, input, output })` is the plugin operation API. It takes an operation slug, a required JSON-compatible `input`, and an output codec, but no input codec. A no-input operation sends `input: null`; omission is invalid and is not converted to `null`. The SDK checks the input with the canonical `isJsonValue` guard from `@ryot/contract/schema/json` and rejects invalid input locally, before invoking the adapter. The client decodes a successful JSON result against `output`.
 
@@ -612,7 +612,7 @@ Expected plugin business/domain outcomes are successful typed values encoded by 
 | `malformed-result`       | A capability result that fails its JSON or caller-owned result schema.                                |
 | `unsupported-capability` | An unavailable or undeclared capability.                                                             |
 
-The wire value `failed` is not a public SDK error reason. Internal causes, messages, diagnostics, HTTP details, and stack traces never cross the bridge.
+The wire value `failed` is not a public SDK error reason. Internal causes, messages, diagnostics, HTTP details, and stack traces never cross the bridge. Synchronous capabilities either dispatch or throw a `RyotClientError`: navigation after teardown uses the stored terminal reason, and a failed adapter call or `postMessage` uses `transport`.
 
 The canonical `JsonValue` type and schema value, also from `@ryot/contract/schema/json`, define the dynamic value boundary for the SDK and bridge. Strict schemas reject values outside that boundary; values are never normalized with `JSON.stringify` or another lossy conversion. The kernel validates a successful operation value before sending it over the bridge, so a non-JSON value becomes `malformed-result` and never crosses the port. A JSON value that fails the caller's output schema is also `malformed-result`. `Schema.Unknown`, duplicated validators, and unchecked casts are not part of this contract.
 
@@ -630,7 +630,7 @@ import {
 } from "@ryot/client-sdk/plugin";
 ```
 
-`PluginLink` and the reactive location, params, and search hooks remain React conveniences on `@ryot/client-sdk/plugin`. They use the same explicit client and plugin runtime as `ryot.navigation.push` and `ryot.navigation.replace`; they do not create a parallel client or bridge facade.
+`PluginLink` and the reactive location, params, and search hooks remain React conveniences on `@ryot/client-sdk/plugin`. They use the same explicit client and plugin runtime as `ryot.navigation.push` and `ryot.navigation.replace`; they do not create a parallel client or bridge facade. Until the kernel supplies an authoritative public URL, `PluginLink` does not support `target` or `download`, prevents modifier and auxiliary clicks from navigating the artifact document, and composes a consumer `onClick` before dispatch. Plugin routing renders home only for `/`; unmatched logical paths render the plugin's optional `notFound` component or the SDK's semantic default.
 
 Possible examples:
 
@@ -1633,7 +1633,7 @@ The same client artifact should be exercised on:
 
 Media and Fitness provide additional production dogfooding.
 
-Client boundary tests must verify the exact public `RyotClientError` reasons and their classifications: explicit `null` operation input, omitted input rejected locally as `invalid-input`, unavailable or undeclared capabilities as `unsupported-capability`, declared query and operation execution failures as opaque `query-failed` and `operation-failed`, invalid capability results as `malformed-result`, teardown as `disposed`, malformed bridge/session data and wire `failed` closes as `protocol`, and communication/posting/network failures as `transport`. Tests must prove that lifecycle termination classifies every pending capability consistently, expected plugin business/domain outcomes resolve as typed values, and internal causes, messages, diagnostics, HTTP details, and stack traces do not cross the bridge.
+Client boundary tests must verify the exact public `RyotClientError` reasons and their classifications: explicit `null` operation input, omitted input rejected locally as `invalid-input`, unavailable or undeclared capabilities as `unsupported-capability`, declared query and operation execution failures as opaque `query-failed` and `operation-failed`, invalid or throwing result decoders as `malformed-result`, teardown as `disposed`, malformed bridge/session data and wire `failed` closes as `protocol`, and communication/posting/network failures as `transport`. Tests must prove that lifecycle termination classifies every pending and synchronous capability consistently, direct and bridge query adapters classify declared failures identically, expected plugin business/domain outcomes resolve as typed values, and internal causes, messages, diagnostics, HTTP details, and stack traces do not cross the bridge. Routing tests must cover consumer-cancelled links, prevented modifier and auxiliary navigation, explicit home matching, and plugin-supplied and default not-found states.
 
 ---
 
