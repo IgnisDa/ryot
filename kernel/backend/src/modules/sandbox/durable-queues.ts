@@ -38,7 +38,9 @@ export const processSandboxExecutionQueue = (payload: SandboxExecutionQueuePaylo
 	DurableQueue.process(SandboxExecutionQueue, payload).pipe(
 		Effect.timeout("1 minute"),
 		Effect.retry(sandboxRetrySchedule),
-		Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
+		Effect.mapError(
+			(error) => new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
+		),
 	);
 
 export type SandboxExecutionResolutionMode = "active" | "exact";
@@ -57,7 +59,10 @@ export const resolveSandboxExecutionPayload = Effect.fn("resolveSandboxExecution
 
 		const activeScript = yield* pluginScriptResolver.findActiveScriptById(payload.scriptId);
 		if (!activeScript) {
-			return yield* new SandboxRunError({ message: "Sandbox script not found" });
+			return yield* new SandboxRunError({
+				kind: "missing-artifact",
+				message: "Sandbox script not found",
+			});
 		}
 		return { ...payload, scriptId: activeScript.id };
 	},
@@ -76,7 +81,10 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 
 	const script = yield* repository.getScript(payload.principal.scriptId);
 	if (!script || script.contentHash !== payload.principal.contentHash) {
-		return yield* new SandboxRunError({ message: "Sandbox script not found" });
+		return yield* new SandboxRunError({
+			kind: "missing-artifact",
+			message: "Sandbox script not found",
+		});
 	}
 	const workflowExecutionId =
 		payload.workflowExecutionId ??
@@ -112,7 +120,10 @@ const makeSandboxExecutionQueueWorkerLive = (concurrency: number) =>
 		SandboxExecutionQueue,
 		(payload) =>
 			executeSandboxExecution(payload).pipe(
-				Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
+				Effect.mapError(
+					(error) =>
+						new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
+				),
 			),
 		{ concurrency },
 	);

@@ -619,6 +619,7 @@ export const parseAppSchemaPropertiesSafe = (input: {
 	kind?: string;
 	properties: unknown;
 	propertiesSchema: AppSchema;
+	allowedMissingRequiredPaths?: ReadonlyArray<ReadonlyArray<string>>;
 }): ValidationResult => {
 	if (!isStringRecord(input.properties)) {
 		return {
@@ -687,6 +688,9 @@ export const parseAppSchemaPropertiesSafe = (input: {
 		input.propertiesSchema,
 		decoded.success,
 		requiredRules,
+	).filter(
+		(issue) =>
+			!input.allowedMissingRequiredPaths?.some((path) => areAppSchemaPathsEqual(path, issue.path)),
 	);
 	if (requiredIssues.length > 0) {
 		return { success: false, issues: requiredIssues };
@@ -701,6 +705,7 @@ export const parseAppSchemaProperties = (input: {
 	kind: string;
 	properties: unknown;
 	propertiesSchema: AppSchema;
+	allowedMissingRequiredPaths?: ReadonlyArray<ReadonlyArray<string>>;
 }): Effect.Effect<Record<string, unknown>, PropertyValidationError> => {
 	const result = parseAppSchemaPropertiesSafe(input);
 	return result.success

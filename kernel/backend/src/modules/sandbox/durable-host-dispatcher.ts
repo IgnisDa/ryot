@@ -19,7 +19,11 @@ import {
 	type SandboxExecutionPrincipal as SandboxExecutionPrincipalValue,
 } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { SandboxHostImplementations } from "#lib/infrastructure/sandbox-runtime/host-implementations";
-import { requireSandboxCapabilityInput } from "#lib/infrastructure/sandbox-runtime/shared";
+import {
+	requireSandboxCapabilityInput,
+	sandboxLifecycleCommand,
+	sandboxRunUserId,
+} from "#lib/infrastructure/sandbox-runtime/shared";
 
 import {
 	SandboxScriptWorkflowPayload,
@@ -102,6 +106,7 @@ const loadDispatchInput = Effect.fn("loadSandboxDurableHostDispatchInput")(funct
 		!(principal.metadata.capabilities ?? []).includes(request.args.capability)
 	) {
 		return yield* new SandboxRunError({
+			kind: "script-failure",
 			message: `Sandbox durable host capability is not declared: ${request.args.capability}`,
 		});
 	}
@@ -112,11 +117,16 @@ const loadDispatchInput = Effect.fn("loadSandboxDurableHostDispatchInput")(funct
 		compiledFormat: 1,
 		context: payload.input,
 		workflowExecutionId: executionId,
+		hostCallDiscriminator: request.index,
 		executionId: `${executionId}-host-${request.index}`,
 	};
 	yield* requireSandboxCapabilityInput(input, request.args.capability).pipe(
 		Effect.mapError(
-			(error) => new SandboxRunError({ message: `Sandbox durable host denied: ${error.message}` }),
+			(error) =>
+				new SandboxRunError({
+					kind: "script-failure",
+					message: `Sandbox durable host denied: ${error.message}`,
+				}),
 		),
 	);
 	return { input };
@@ -146,12 +156,15 @@ export const dispatchSandboxHostActivity = Effect.fn("dispatchSandboxHostActivit
 	)?.[1];
 	if (!bound) {
 		return yield* new SandboxRunError({
+			kind: "script-failure",
 			message: `Sandbox durable host capability is not bridge-callable: ${request.args.capability}`,
 		});
 	}
 	const result = yield* bound(request.args.args).pipe(
 		Effect.flatMap(decodeHostResult),
-		Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
+		Effect.mapError(
+			(error) => new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
+		),
 	);
 	return result.success
 		? ({ state: "success", value: result.data } as const)
@@ -165,25 +178,35 @@ export const prepareSandboxCreateEvents = Effect.fn("prepareSandboxCreateEvents"
 	executionId: string,
 	startedAt: string,
 ) {
-	yield* loadDispatchInput(request, payload, principal, executionId, startedAt);
+	const { input } = yield* loadDispatchInput(request, payload, principal, executionId, startedAt);
 	const args = yield* Schema.decodeUnknownEffect(sandboxHostContracts.createEvents.args)(
 		request.args.args,
 	).pipe(
 		Effect.mapError(
 			(error) =>
 				new SandboxRunError({
+					kind: "invalid-input",
 					message: `Invalid createEvents arguments: ${unknownToMessage(error)}`,
 				}),
 		),
 	);
-	if (!("userId" in principal.subject)) {
-		return yield* new SandboxRunError({ message: "createEvents requires a user subject" });
+	const userId = sandboxRunUserId(input);
+	if (userId === null) {
+		return yield* new SandboxRunError({
+			kind: "script-failure",
+			message: "createEvents requires a user subject",
+		});
 	}
-	return {
-		payload: args[0],
-		userId: principal.subject.userId,
-		executionId: `${executionId}-create-events-${request.index}`,
-	};
+	const command = yield* sandboxLifecycleCommand(
+		input,
+		principal.subject.type === "user" && principal.subject.integrationId ? "integration" : "api",
+		"createEvents",
+	).pipe(
+		Effect.mapError(
+			(error) => new SandboxRunError({ kind: "script-failure", message: error.message }),
+		),
+	);
+	return { userId, command, payload: args[0] };
 });
 
 export const prepareSandboxSendNotification = Effect.fn("prepareSandboxSendNotification")(
@@ -194,26 +217,28 @@ export const prepareSandboxSendNotification = Effect.fn("prepareSandboxSendNotif
 		executionId: string,
 		startedAt: string,
 	) {
-		yield* loadDispatchInput(request, payload, principal, executionId, startedAt);
+		const { input } = yield* loadDispatchInput(request, payload, principal, executionId, startedAt);
 		const args = yield* Schema.decodeUnknownEffect(sandboxHostContracts.sendNotification.args)(
 			request.args.args,
 		).pipe(
 			Effect.mapError(
 				(error) =>
 					new SandboxRunError({
+						kind: "invalid-input",
 						message: `Invalid sendNotification arguments: ${unknownToMessage(error)}`,
 					}),
 			),
 		);
-		if (principal.subject.type !== "subscription") {
+		if (principal.subject.type !== "automation-run" || principal.subject.executionUserId === null) {
 			return yield* new SandboxRunError({
-				message: "sendNotification requires a subscription subject",
+				kind: "script-failure",
+				message: "sendNotification requires a user automation run",
 			});
 		}
 		return {
 			message: args[0],
-			userId: principal.subject.userId,
-			executionId: `${executionId}-send-notification-${request.index}`,
+			userId: principal.subject.executionUserId,
+			executionId: `${principal.subject.runId}-host-${input.hostCallDiscriminator}-notification`,
 		};
 	},
 );

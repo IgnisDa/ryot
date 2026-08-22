@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
-import { makeConfigProviderLayer } from "#lib/test-utils/effect";
 import type { RegisteredImportSource } from "#modules/plugins/import-source-catalog";
 
 import {
@@ -45,7 +45,13 @@ const registeredSource = (
 	requiredPluginConfigKeys: [],
 	pluginId: "example-plugin-id",
 	installationId: "example-installation",
-	configContext: { configSchema, kind: "environment", pluginSlug: "example" },
+	configContext: {
+		configSchema,
+		kind: "revision",
+		ownerUserId: null,
+		pluginRevisionId: "example-revision",
+		pluginConfigRevisionId: "example-config-revision",
+	},
 	inputSchema: {
 		unknownKeys: "strict",
 		fields: {
@@ -260,38 +266,49 @@ it("summarizes only source and claimed original file names", () => {
 	expect(buildImportInputSummary("gamma", {})).toEqual({ source: "gamma" });
 });
 
-it.effect("formats every un-configured plugin config key", () =>
+it.effect("names the environment keys when a system config revision is unavailable", () =>
 	Effect.gen(function* () {
 		const source = registeredSource({
 			requiredPluginConfigKeys: ["alphaAccessToken", "deltaApiKey"],
+			configContext: { ...registeredSource().configContext, pluginConfigRevisionId: null },
 		});
 		expect(yield* registryImportSourceMissingConfigKeys(source)).toEqual([
 			"RYOT_PLUGIN_EXAMPLE_ALPHA_ACCESS_TOKEN",
 			"RYOT_PLUGIN_EXAMPLE_DELTA_API_KEY",
 		]);
-	}).pipe(Effect.provide(makeConfigProviderLayer())),
+	}),
 );
 
-it.effect(
-	"resolves private plugin config from installation config instead of the environment",
-	() =>
-		Effect.gen(function* () {
-			const source = registeredSource({
-				pluginScope: "user",
-				pluginSlug: "my-example",
-				pluginId: "private-plugin-id",
-				installationId: "private-installation",
-				requiredPluginConfigKeys: ["alphaAccessToken", "deltaApiKey"],
-				configContext: {
-					configSchema,
-					kind: "installation",
-					config: { alphaAccessToken: "installed-token" },
-				},
-			});
-			expect(yield* registryImportSourceMissingConfigKeys(source)).toEqual(["deltaApiKey"]);
-		}).pipe(
-			Effect.provide(
-				makeConfigProviderLayer({ RYOT_PLUGIN_MY_EXAMPLE_DELTA_API_KEY: "environment-key" }),
-			),
-		),
+it.effect("returns every required key when a private config revision is unavailable", () =>
+	Effect.gen(function* () {
+		const source = registeredSource({
+			pluginScope: "user",
+			requiredPluginConfigKeys: ["alphaAccessToken", "deltaApiKey"],
+			configContext: { ...registeredSource().configContext, pluginConfigRevisionId: null },
+		});
+		expect(yield* registryImportSourceMissingConfigKeys(source)).toEqual([
+			"alphaAccessToken",
+			"deltaApiKey",
+		]);
+	}),
+);
+
+it.effect("accepts a private plugin config revision without environment lookup", () =>
+	Effect.gen(function* () {
+		const source = registeredSource({
+			pluginScope: "user",
+			pluginSlug: "my-example",
+			pluginId: "private-plugin-id",
+			installationId: "private-installation",
+			requiredPluginConfigKeys: ["alphaAccessToken", "deltaApiKey"],
+			configContext: {
+				configSchema,
+				kind: "revision",
+				ownerUserId: UserId.make("owner"),
+				pluginRevisionId: "private-revision",
+				pluginConfigRevisionId: "private-config-revision",
+			},
+		});
+		expect(yield* registryImportSourceMissingConfigKeys(source)).toEqual([]);
+	}),
 );

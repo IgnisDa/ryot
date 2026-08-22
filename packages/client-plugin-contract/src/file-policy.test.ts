@@ -4,6 +4,7 @@ import {
 	PLUGIN_CLIENT_ASSET_MIME_TYPES,
 	PLUGIN_CLIENT_FILE_EXTENSIONS,
 	isPluginClientTextSource,
+	isPluginSourceFile,
 	pluginClientAssetMimeType,
 	pluginClientFileExtension,
 } from "./index";
@@ -46,5 +47,30 @@ describe("plugin client file policy", () => {
 		expect(pluginClientAssetMimeType("client/index.ts")).toBeUndefined();
 		expect(pluginClientFileExtension("client/logo.PNG")).toBeUndefined();
 		expect(pluginClientFileExtension("client/index.js")).toBeUndefined();
+	});
+
+	it("allows only non-test plugin source files under canonical roots", () => {
+		expect(
+			[
+				"backend/index.ts",
+				"backend/jobs/import.sandbox.ts",
+				"shared/util.ts",
+				"client/index.tsx",
+				"client/styles.css",
+				"client/logo.svg",
+			].every(isPluginSourceFile),
+		).toBe(true);
+		expect(
+			[
+				"backend/data.json",
+				"backend/index.tsx",
+				"backend/index.test.ts",
+				"shared/util.tsx",
+				"shared/util.test.ts",
+				"client/index.js",
+				"client/index.test.tsx",
+				"host/index.ts",
+			].some(isPluginSourceFile),
+		).toBe(false);
 	});
 });

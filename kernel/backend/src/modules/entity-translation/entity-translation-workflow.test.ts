@@ -132,7 +132,11 @@ it.effect("fails with the sandbox's reported error", () => {
 				logs: [],
 				value: null,
 				status: "completed" as const,
-				error: { phase: "execute" as const, message: "Translate script execution failed" },
+				error: {
+					phase: "execute" as const,
+					kind: "script-failure" as const,
+					message: "Translate script execution failed",
+				},
 			}),
 	} satisfies TestLayerOptions;
 

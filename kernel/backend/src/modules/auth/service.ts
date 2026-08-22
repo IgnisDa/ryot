@@ -522,10 +522,6 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			oauthUser: (token: string) => authenticate({ token, kind: "oauth" }),
 			revokeUserOAuthTokens: (userId: UserId) =>
 				repository.revokeUserOAuthTokens(userId).pipe(Effect.orDie),
-			deleteAuthUser: (userId: UserId) =>
-				withInternalAdapter(({ internalAdapter }) => internalAdapter.deleteUser(userId)).pipe(
-					Effect.asVoid,
-				),
 			deleteUserSessions: (userId: UserId) =>
 				withInternalAdapter(({ internalAdapter }) =>
 					internalAdapter.deleteUserSessions(userId),

@@ -1,7 +1,7 @@
 # Media Plugin
 
 The Media plugin owns media schemas, relationships, saved views, providers, operations, automations,
-and bindings. Generic package layout, manifest, and sandbox rules belong to the
+and authored lifecycle hooks. Generic package layout, manifest, and sandbox rules belong to the
 [Plugin Kit](../../packages/plugin-kit/README.md). Provider declarations identify their root entity
 schema; saved views do not declare sandbox scripts.
 
@@ -285,19 +285,26 @@ Media entities use `backlog`, `progress`, `complete`, `dropped`, `on_hold`, and 
 `host/schemas/entity.ts` defines support by entity type. State is derived from append-only history,
 ordered by descending `occurredAt`, `createdAt`, then `id`; it is never stored separately.
 
-Post-write media automations receive compact source references. They load the immutable trigger with
-`automationOccurrenceRecipe(automation.occurrenceId)` through
-`executeRyotqlRecipe(host.executeRyotql, ...)`; automations that need subscription metadata load
-`automationRunRecipe(automation.runId)` through the same path when the run ID is present. These
-occurrence snapshots preserve the trigger-time before/after values. Queries for lifecycle,
-relationships, or entities instead read current state, which may have changed before the automation
-executes. Media RyotQL should use explicit projections for only the fields the automation needs.
+The manifest declares stable lifecycle hook identities. Each invocation carries immutable snapshots
+in `automation.payload` and authored metadata in `automation.hookMetadata`. Ordinary RyotQL queries
+read current user data, not historical execution input.
 
-Provider imports run `automation.media-library-membership-on-import` after population and idempotently
-create `in-library`. Membership uses the compact `provider-entity-import` reference directly because
-it already contains the imported entity ID, schema slug, provider ID, and external ID; it does not load
-the occurrence snapshot first. This is separate from the event-based
-`policy.media-library-membership` used for lifecycle and collection changes.
+`media.ensure-library-membership` is a required after hook bound to library-member entity creation,
+provider-entity-import completion, every media event, and `collection:add-entity-to-collection`,
+whose target comes from the event properties rather than its collection subject. The `library`
+entity schema is not a library member, so workspace bootstrap never links the library to itself. Its
+script upserts `in-library` with `changeUserRelationships`, which emits a child relationship trigger
+only when the upsert changes state. It replaces the former event-wide membership policy.
+
+`media.entity-updated` is an async after hook on entity updates. It reads the immutable population
+context from `payload.population` — `rootPreviouslyPopulated`, `scopeEntity`, and `parentEntity` —
+and emits monitoring signals for production-status, release-date, episode, and season changes.
+Current-state queries cannot recover those trigger-time values, so the payload carries them.
+
+`media.review-created` targets `review` events including `collection:review`; the radarr and sonarr
+push hooks target `collection:add-entity-to-collection`. `media.notification`, `media.radarr-push`,
+and `media.sonarr-push` read inline payloads and declare one attempt with no automatic external
+retry.
 
 Shows and podcasts track progress on child episodes. Anime and manga store episode, volume, or chapter
 position on their own lifecycle events. Complete events represent the whole entity and carry no
@@ -346,7 +353,27 @@ completion by themselves. Parent completion time is the latest false-to-true cov
 the active cycle; repeated evaluation while covered does not move it. `consumedOn` is copied only when
 all required child completions agree on one non-empty value.
 
-Integration-origin progress policy applies minimum filtering, maximum clamping to 100, duplicate
-suppression by consumption key, then 100-percent debounce using
-`scheduler.progressUpdateThresholdHours` (default two hours). Event sinks supply missing timestamps;
-automatic completion reuses the triggering timestamp.
+Integration progress admission runs in `import.write-chunks`, after provider population and episode
+resolution supply the event subject's entity ID and schema. It applies minimum filtering, maximum
+clamping to 100, duplicate suppression by consumption key, and 100-percent debounce using
+`progressUpdateThresholdHours` (default two hours). Numeric rounding remains `AppSchema.normalize`
+behavior. Event sinks supply missing timestamps; automatic completion reuses the triggering timestamp.
+
+The media-local chunk input carries optional `integration: { integrationId, importRunId }`, and
+resolved episode events carry `subjectEntitySchemaSlug` alongside `subjectEntityId`. Admission uses
+the latest matching progress event by entity, schema, `consumedOn`, and anime/manga subitem, including
+events already admitted in this batch. Failed population remains an import failure.
+
+Completion claims use the JSON-encoded array
+`["media.integration-progress.v1", integrationId, entityId, entitySchemaSlug, "progress", consumedOn, subitemSignature]`.
+The subitem signature keeps `animeEpisode`, `mangaVolume`, `mangaChapter` order with `key=value`
+comma joining, and missing consumption or subitem values use empty strings. The stable integration ID
+keeps debounce across import runs; import-run IDs are not claim-key parts. Persistent claims are
+host-scoped by user and provider-or-script ID, so the user-scoped Redis key is
+`ryot:sandbox:cache:user:<userId>:<writeChunksScriptId>:<JSON-encoded claim array>`. A denied claim
+suppresses only when matching recent 100-percent history exists.
+
+Media population carries the import's canonical lifecycle command and derives a deterministic
+population item identity from the import command and group index. The kernel generic-import writer
+derives entity, relationship, collection, and event command identities from the same root command.
+The source item index and event index are preserved for attribution when admission filters events.

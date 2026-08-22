@@ -51,10 +51,10 @@ const makeActiveScript = (id: string) => ({
 	compiledFormat: 1,
 	pluginId: "fixture",
 	createdAt: new Date(0),
-	updatedAt: new Date(0),
 	compiledCode: "compiled",
 	id: SandboxScriptId.make(id),
 	contentHash: "fixture-compiled",
+	pluginRevisionId: "fixture-revision",
 	metadata: {
 		name: DRIVER_REF,
 		slug: DRIVER_REF,
@@ -74,16 +74,18 @@ const resolvedOperation = (available: AvailableOperation) => ({
 		description: "Fixture operation",
 	},
 	plugin: {
-		config: {},
 		isDisabled: false,
 		scope: available.scope,
 		sourceHash: SOURCE_HASH,
 		health: "ready" as const,
 		slug: available.pluginSlug,
 		manifest: fixtureManifest(),
+		pluginRevisionId: "fixture-revision",
 		id: `${available.pluginSlug}-plugin-id`,
+		pluginConfigRevisionId: "fixture-config",
 		installationId: available.installationId,
 		compiledHashes: { [DRIVER_REF]: "fixture-compiled" },
+		ownerUserId: available.scope === "user" ? available.ownerId : null,
 	},
 });
 
@@ -167,7 +169,11 @@ const makeLayer = (input: {
 									status: "completed" as const,
 									value: "sandboxValue" in input ? input.sandboxValue : "ok",
 									error: input.sandboxError
-										? { phase: "execute" as const, message: input.sandboxError }
+										? {
+												phase: "execute" as const,
+												message: input.sandboxError,
+												kind: "script-failure" as const,
+											}
 										: null,
 								};
 							}),

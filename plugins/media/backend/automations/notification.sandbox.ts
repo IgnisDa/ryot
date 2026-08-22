@@ -1,22 +1,22 @@
-import type { AutomationOccurrenceSource } from "@ryot-app/sandbox-sdk/automation";
+import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
 import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { automationOccurrenceRecipe, executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
 import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
 
 type AutomationSignalSnapshot = Extract<
-	AutomationOccurrenceSource,
-	{ readonly kind: "signal" }
->["signal"];
+	AutomationInput["automation"]["payload"],
+	{ readonly resource: "signal" }
+>;
 
 export const manifest = defineManifest({
 	kind: "automation",
+	automationType: "automation",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
 	name: "Media Signal Notification",
+	capabilities: ["sendNotification"],
 	slug: "automation.media-notification",
-	capabilities: ["executeRyotql", "sendNotification"],
 });
 
 const stringProperty = (properties: Readonly<Record<string, JsonValue>>, key: string) => {
@@ -116,20 +116,9 @@ const formatMessage = (signal: AutomationSignalSnapshot) => {
 export default defineAutomation({
 	manifest,
 	run: ({ automation }, host) => {
-		if (automation.source.kind !== "signal") {
+		if (automation.payload.resource !== "signal") {
 			throw new Error("Signal notification requires a signal source");
 		}
-		return executeRyotqlRecipe(
-			host.executeRyotql,
-			automationOccurrenceRecipe(automation.occurrenceId),
-		).pipe(
-			Effect.flatMap((occurrence) => {
-				if (occurrence?.source.kind !== "signal") {
-					throw new Error("Signal notification requires a signal source");
-				}
-				return host.sendNotification(formatMessage(occurrence.source.signal));
-			}),
-			Effect.as(null),
-		);
+		return host.sendNotification(formatMessage(automation.payload)).pipe(Effect.as(null));
 	},
 });

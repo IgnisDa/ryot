@@ -295,6 +295,24 @@ it.effect("repeated cleanup is idempotent", () =>
 	),
 );
 
+it.effect("limits each cleanup pass", () =>
+	withModuleDirectory((fs, moduleDirectory) =>
+		Effect.gen(function* () {
+			for (const contentHash of [hash("dead-a"), hash("dead-b")]) {
+				yield* fs.writeFileString(`${moduleDirectory}/${contentHash}.mjs`, "dead");
+			}
+
+			expect(
+				yield* garbageCollectSandboxCompiledModules({ moduleDirectory }, new Set(), 1),
+			).toEqual({ removedCount: 1, candidateCount: 1 });
+			expect(yield* fs.readDirectory(moduleDirectory)).toHaveLength(1);
+			expect(
+				yield* garbageCollectSandboxCompiledModules({ moduleDirectory }, new Set(), 1),
+			).toEqual({ removedCount: 1, candidateCount: 1 });
+		}),
+	),
+);
+
 it.effect("concurrent repeated cleanup tolerates already-missing candidates", () =>
 	withModuleDirectory((fs, moduleDirectory) =>
 		Effect.gen(function* () {

@@ -1,59 +1,75 @@
-import { SandboxRunError } from "@ryot-app/contract/errors";
+import { SandboxRunError, mapDbErrorToSandbox } from "@ryot-app/contract/errors";
+import type { AutomationPopulationContext } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	EntitySchemaSlug,
 	RelationshipSchemaSlug,
 	type EntityId,
+	type SandboxProviderId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import type {
 	ProviderDetailsRelatedEntity,
 	ProviderDetailsRelatedEntityGroup,
 } from "@ryot-app/sandbox-sdk/provider";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect } from "effect";
 
+import type { LifecyclePlan } from "#lib/domain/lifecycle";
+import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
+import { Database, mapDatabaseErrors, retryOnDeadlock } from "#lib/infrastructure/db/service";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import type { DefinitionSnapshot } from "#modules/definition-registry/service";
 import { EntitiesRepository, providerEntityMutationLockKey } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { RelationshipsService } from "#modules/relationships/service";
 
-import { synchronizeGlobalRelationships } from "./relationship-synchronization";
+import { persistPlannedRelationshipSynchronization } from "./relationship-synchronization";
+
+const commandFor = (
+	command: LifecycleCommand,
+	itemIdentity: ReadonlyArray<string>,
+	population: AutomationPopulationContext,
+): LifecycleCommand => ({
+	...command,
+	population,
+	itemIdentity: stableStringify([command.itemIdentity, ...itemIdentity]),
+});
 
 export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(function* (
 	input: {
+		command: LifecycleCommand;
 		definitions: DefinitionSnapshot;
+		population: AutomationPopulationContext;
 		primaryEntityId: EntityId;
 		primaryEntitySchemaSlug: EntitySchemaSlug;
 		group: ProviderDetailsRelatedEntityGroup;
 	} & ({ scope: "global" } | { scope: "user"; userId: UserId }),
 ) {
+	const database = yield* Database;
 	const entities = yield* EntitiesService;
 	const repository = yield* EntitiesRepository;
+	const relationships = yield* RelationshipsService;
 	const pluginRuntime = yield* PluginRuntimeResolver;
 	const relationshipDefinition =
 		input.definitions.relationshipSchemas[input.group.relationshipSchemaSlug];
-	const relationshipSchema = relationshipDefinition
-		? ({
-				isBuiltin: true,
-				name: relationshipDefinition.name,
-				slug: relationshipDefinition.slug,
-				pluginId: relationshipDefinition.pluginId ?? null,
-				propertiesSchema: relationshipDefinition.propertiesSchema,
-				id: RelationshipSchemaSlug.make(relationshipDefinition.slug),
-				sourceEntitySchemaSlug: relationshipDefinition.sourceEntitySchemaSlug
-					? EntitySchemaSlug.make(relationshipDefinition.sourceEntitySchemaSlug)
-					: null,
-				targetEntitySchemaSlug: relationshipDefinition.targetEntitySchemaSlug
-					? EntitySchemaSlug.make(relationshipDefinition.targetEntitySchemaSlug)
-					: null,
-			} as const)
-		: null;
-	if (!relationshipSchema) {
+	if (!relationshipDefinition) {
 		return yield* new SandboxRunError({
+			kind: "script-failure",
 			message: `Relationship schema not found: ${input.group.relationshipSchemaSlug}`,
 		});
 	}
-
+	const relationshipSchema = {
+		pluginId: relationshipDefinition.pluginId ?? null,
+		propertiesSchema: relationshipDefinition.propertiesSchema,
+		id: RelationshipSchemaSlug.make(relationshipDefinition.slug),
+		sourceEntitySchemaSlug: relationshipDefinition.sourceEntitySchemaSlug
+			? EntitySchemaSlug.make(relationshipDefinition.sourceEntitySchemaSlug)
+			: null,
+		targetEntitySchemaSlug: relationshipDefinition.targetEntitySchemaSlug
+			? EntitySchemaSlug.make(relationshipDefinition.targetEntitySchemaSlug)
+			: null,
+	};
 	const uniqueRelatedEntities = new Map<string, ProviderDetailsRelatedEntity>();
 	for (const relatedEntity of input.group.entities) {
 		uniqueRelatedEntities.set(
@@ -62,7 +78,12 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 		);
 	}
 
-	const resolvedRelatedEntities = [];
+	const resolvedRelatedEntities: Array<{
+		properties: Record<string, unknown>;
+		relatedEntity: ProviderDetailsRelatedEntity;
+		schemaProvider: { providerId: SandboxProviderId; entitySchemaSlug: EntitySchemaSlug };
+		lockInput: Parameters<typeof providerEntityMutationLockKey>[0];
+	}> = [];
 	for (const relatedEntity of uniqueRelatedEntities.values()) {
 		const availableProvider =
 			input.scope === "user"
@@ -84,7 +105,6 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 		if (!schemaProvider) {
 			continue;
 		}
-
 		const sourceSchemaId =
 			input.group.direction === "outgoing"
 				? input.primaryEntitySchemaSlug
@@ -93,12 +113,12 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 			input.group.direction === "outgoing"
 				? schemaProvider.entitySchemaSlug
 				: input.primaryEntitySchemaSlug;
-
 		if (
 			relationshipSchema.sourceEntitySchemaSlug &&
 			relationshipSchema.sourceEntitySchemaSlug !== sourceSchemaId
 		) {
 			return yield* new SandboxRunError({
+				kind: "script-failure",
 				message: `Relationship source schema does not match ${input.group.relationshipSchemaSlug}`,
 			});
 		}
@@ -107,15 +127,19 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 			relationshipSchema.targetEntitySchemaSlug !== targetSchemaId
 		) {
 			return yield* new SandboxRunError({
+				kind: "script-failure",
 				message: `Relationship target schema does not match ${input.group.relationshipSchemaSlug}`,
 			});
 		}
-
 		const properties = yield* parseAppSchemaProperties({
 			kind: "Relationship",
 			propertiesSchema: relationshipSchema.propertiesSchema,
 			properties: relatedEntity.relationshipProperties ?? {},
-		}).pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
+		}).pipe(
+			Effect.mapError(
+				(error) => new SandboxRunError({ kind: "script-failure", message: error.message }),
+			),
+		);
 		const lockInput = {
 			externalId: relatedEntity.externalId,
 			providerId: schemaProvider.providerId,
@@ -131,51 +155,88 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 			providerEntityMutationLockKey(right.lockInput),
 		),
 	);
-	yield* repository.lockProviderEntityMutations(
-		resolvedRelatedEntities.map(({ lockInput }) => lockInput),
-	);
 
-	const entries: Array<{ entityId: EntityId; properties: Record<string, unknown> }> = [];
-	for (const { properties, relatedEntity, schemaProvider } of resolvedRelatedEntities) {
-		const entity = yield* entities.create({
-			properties: {},
-			name: relatedEntity.name,
-			externalId: relatedEntity.externalId,
-			providerId: schemaProvider.providerId,
-			entitySchemaSlug: schemaProvider.entitySchemaSlug,
-			...(input.scope === "user"
-				? { userId: input.userId, scope: "user" as const }
-				: { populatedAt: null, scope: "global" as const }),
-		});
-		entries.push({ properties, entityId: entity.id });
+	const scope =
+		input.scope === "user"
+			? ({ scope: "user", userId: input.userId } as const)
+			: ({ scope: "global" } as const);
+	const itemIdentity = [
+		"related-group",
+		String(input.primaryEntityId),
+		input.group.relationshipSchemaSlug,
+		input.group.direction,
+	];
+	const committed = yield* retryOnDeadlock(
+		mapDatabaseErrors(
+			database.transaction((transaction) =>
+				Effect.gen(function* () {
+					const entityPlans: LifecyclePlan[] = [];
+					const entries: Array<{ entityId: EntityId; properties: Record<string, unknown> }> = [];
+					for (const { properties, relatedEntity, schemaProvider } of resolvedRelatedEntities) {
+						const work = yield* entities.persistPlannedProviderUpsert({
+							...scope,
+							properties: {},
+							populatedAt: null,
+							updateExisting: false,
+							name: relatedEntity.name,
+							externalId: relatedEntity.externalId,
+							providerId: schemaProvider.providerId,
+							entitySchemaSlug: schemaProvider.entitySchemaSlug,
+							lifecycle: commandFor(
+								input.command,
+								[...itemIdentity, relatedEntity.providerSlug, relatedEntity.externalId],
+								input.population,
+							),
+						});
+						entityPlans.push(...work.plans);
+						entries.push({ properties, entityId: work.result.entity.id });
+					}
+					const relationshipWork = yield* persistPlannedRelationshipSynchronization({
+						...scope,
+						entries,
+						direction: input.group.direction,
+						anchorEntityId: input.primaryEntityId,
+						synchronization: input.group.synchronization,
+						relationshipSchemaSlug: relationshipSchema.id,
+						relationshipSchemaPluginId: relationshipSchema.pluginId,
+						onConflict:
+							input.group.synchronization === "additive" ? "preserveExisting" : "replaceProperties",
+						command: commandFor(input.command, itemIdentity, {
+							...input.population,
+							batch: {
+								afterCount: 0,
+								beforeCount: 0,
+								isLeader: true,
+								createdCount: 0,
+								deletedCount: 0,
+								updatedCount: 0,
+								id: stableStringify([input.command.causation.executionId, ...itemIdentity]),
+							},
+						}),
+					});
+					return {
+						entityPlans,
+						result: relationshipWork.result,
+						relationshipPlans: relationshipWork.plans,
+					};
+				}).pipe(Effect.provideService(Database, transaction)),
+			),
+		),
+	).pipe(mapDbErrorToSandbox);
+	const warnings = [
+		...(yield* entities.executeCommittedPlans(committed.entityPlans).pipe(mapDbErrorToSandbox)),
+		...(yield* relationships
+			.executeCommittedPlans(committed.relationshipPlans)
+			.pipe(mapDbErrorToSandbox)),
+	];
+	if (warnings.length > 0) {
+		yield* Effect.logWarning("provider related population completed with automation warnings").pipe(
+			Effect.annotateLogs({
+				warnings,
+				warningCount: warnings.length,
+				relationshipSchemaSlug: input.group.relationshipSchemaSlug,
+			}),
+		);
 	}
-
-	const syncBase = {
-		entries,
-		type: "anchored" as const,
-		direction: input.group.direction,
-		anchorEntityId: input.primaryEntityId,
-		relationshipSchemaSlug: relationshipSchema.id,
-	};
-	const syncInput =
-		input.group.synchronization === "additive"
-			? {
-					...syncBase,
-					synchronization: "additive" as const,
-					onConflict: "preserveExisting" as const,
-				}
-			: {
-					...syncBase,
-					onConflict: "replaceProperties" as const,
-					synchronization: "authoritative" as const,
-				};
-
-	return yield* synchronizeGlobalRelationships({
-		...syncInput,
-		propertiesSchema: relationshipSchema.propertiesSchema,
-		relationshipSchemaPluginId: relationshipSchema.pluginId ?? null,
-		...(input.scope === "user"
-			? { userId: input.userId, scope: "user" as const }
-			: { scope: "global" as const }),
-	});
+	return committed.result;
 });

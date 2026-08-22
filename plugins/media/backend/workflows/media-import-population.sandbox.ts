@@ -1,3 +1,4 @@
+import { LifecycleCommand } from "@ryot-app/sandbox-sdk/imports";
 import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
 
 import {
@@ -20,13 +21,13 @@ const entityImport = {
 	workflowSlug: "kernel:entity-import",
 	input: Schema.Union([
 		Schema.Struct({
-			origin: Schema.Unknown,
+			command: LifecycleCommand,
 			externalId: Schema.String,
 			providerId: Schema.String,
 			entitySchemaSlug: Schema.String,
 		}),
 		Schema.Struct({
-			origin: Schema.Unknown,
+			command: LifecycleCommand,
 			externalId: Schema.String,
 			providerSlug: Schema.String,
 			entitySchemaSlug: Schema.String,
@@ -45,7 +46,7 @@ export default defineWorkflow({
 			const childResults = yield* Effect.all(
 				input.items.map((item) =>
 					replay.child(`import-${item.index}`, entityImport, {
-						origin: item.origin,
+						command: item.command,
 						externalId: item.externalId,
 						entitySchemaSlug: item.entitySchemaSlug,
 						...("providerId" in item

@@ -1,14 +1,17 @@
 import { expect, it } from "@effect/vitest";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { Effect, Fiber, Layer, Ref } from "effect";
-import { assert } from "vitest";
+import { Effect, Fiber, Ref } from "effect";
+import { assert, describe } from "vitest";
 
-import { databaseLayer } from "#lib/test-utils/effect";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 
-import { makePluginLoader, PluginLoader } from "./loader";
-import { PluginRuntimeResolverLive } from "./runtime-resolver";
+import { makePluginLoader } from "./loader";
+import {
+	installRevisionPackage,
+	revisionPackage,
+	withRevisionDatabase,
+} from "./revision.test-support";
 import { fixtureManifest, fixturePluginIdentity } from "./test-support";
 
 const emptySource = {
@@ -362,22 +365,20 @@ it("preserves provider membership for custom scripts in the loader snapshot", ()
 	});
 });
 
-it.effect("shares boot-loaded definitions with runtime repositories", () => {
-	const layer = RelationshipSchemasRepository.layer.pipe(
-		Layer.provideMerge(PluginRuntimeResolverLive),
-		Layer.provide(databaseLayer),
+describe("persisted boot definitions", () => {
+	it.effect("shares the activated revision with runtime repositories", () =>
+		withRevisionDatabase(
+			Effect.gen(function* () {
+				const relationshipSchemas = yield* RelationshipSchemasRepository.make;
+				yield* installRevisionPackage(revisionPackage());
+
+				expect(yield* relationshipSchemas.findBuiltinBySlug("fixture-link")).toMatchObject({
+					isBuiltin: true,
+					slug: "fixture-link",
+				});
+			}),
+		),
 	);
-
-	return Effect.gen(function* () {
-		const loader = yield* PluginLoader;
-		const relationshipSchemas = yield* RelationshipSchemasRepository;
-		loader.load(normalizedPlugin("1"));
-
-		expect(yield* relationshipSchemas.findBuiltinBySlug("fixture-link")).toMatchObject({
-			isBuiltin: true,
-			slug: "fixture-link",
-		});
-	}).pipe(Effect.provide(layer));
 });
 
 it("orders plugin relationship definitions before kernel source-zero definitions", () => {

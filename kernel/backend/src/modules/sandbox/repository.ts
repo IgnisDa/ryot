@@ -1,10 +1,18 @@
-import { SandboxProviderId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import {
+	PluginId,
+	PluginRevisionId,
+	PluginConfigRevisionId,
+	SandboxProviderId,
+	SandboxScriptId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import type { WorkflowDurableCallRequest } from "@ryot-app/sandbox-sdk/workflow";
 import { and, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { PluginEnvironmentConfig } from "#lib/infrastructure/plugin-environment-config";
 import type {
 	SandboxExecutionPrincipal,
 	SandboxPluginRevision,
@@ -12,7 +20,7 @@ import type {
 
 type SandboxScriptPin = Omit<SandboxExecutionPrincipal, "subject">;
 
-const sandboxScriptPin = (pin: SandboxScriptPin) => pin;
+const sandboxScriptPin = <T extends SandboxScriptPin>(pin: T) => pin;
 
 const storedScriptSelection = {
 	id: schema.sandboxScript.id,
@@ -40,7 +48,8 @@ export const isWorkflowCallTargetKind = (
 	(request.kind === "activity" && kind === "script");
 
 export class SandboxRepository extends Context.Service<SandboxRepository>()("SandboxRepository", {
-	make: Effect.sync(() => {
+	make: Effect.gen(function* () {
+		const environmentConfig = yield* PluginEnvironmentConfig;
 		const getScript = Effect.fn("SandboxRepository.getScript")(function* (
 			scriptId: SandboxScriptId,
 		) {
@@ -72,7 +81,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 			const db = yield* Database;
 			const [row] = yield* mapDatabaseErrors(
 				db
-					.select({ pluginId: schema.sandboxScript.pluginId })
+					.select({ pluginId: schema.sandboxScript.pluginRevisionId })
 					.from(schema.sandboxScript)
 					.where(eq(schema.sandboxScript.id, scriptId))
 					.limit(1),
@@ -82,7 +91,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 
 		const getScriptPin = Effect.fn("SandboxRepository.getScriptPin")(function* (
 			scriptId: SandboxScriptId,
-			expectedRevision?: SandboxPluginRevision,
+			expectedRevision?: Pick<SandboxPluginRevision, "id" | "revisionId" | "configRevisionId">,
 		) {
 			const db = yield* Database;
 			const [row] = yield* mapDatabaseErrors(
@@ -94,16 +103,21 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 						pluginScope: schema.plugin.scope,
 						pluginStatus: schema.plugin.status,
 						pluginOwnerId: schema.plugin.ownerId,
-						pluginManifest: schema.plugin.manifest,
 						metadata: schema.sandboxScript.metadata,
-						pluginId: schema.sandboxScript.pluginId,
+						pluginId: schema.pluginRevision.pluginId,
 						providerId: schema.sandboxScript.providerId,
-						compiledHashes: schema.plugin.compiledHashes,
 						contentHash: schema.sandboxScript.contentHash,
+						pluginManifest: schema.pluginRevision.manifest,
+						activeRevisionId: schema.plugin.activeRevisionId,
 						providerPluginId: schema.sandboxProvider.pluginId,
+						pluginRevisionId: schema.sandboxScript.pluginRevisionId,
 					})
 					.from(schema.sandboxScript)
-					.leftJoin(schema.plugin, eq(schema.plugin.id, schema.sandboxScript.pluginId))
+					.leftJoin(
+						schema.pluginRevision,
+						eq(schema.pluginRevision.id, schema.sandboxScript.pluginRevisionId),
+					)
+					.leftJoin(schema.plugin, eq(schema.plugin.id, schema.pluginRevision.pluginId))
 					.leftJoin(
 						schema.sandboxProvider,
 						eq(schema.sandboxProvider.id, schema.sandboxScript.providerId),
@@ -129,38 +143,83 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 						})
 					: null;
 			}
-			if (expectedRevision) {
-				if (
-					expectedRevision.id !== row.pluginId ||
-					expectedRevision.compiledHashes[row.slug] !== row.contentHash ||
-					(row.providerId !== null && row.providerPluginId !== row.pluginId)
-				) {
-					return null;
-				}
-				return sandboxScriptPin({
-					scriptSlug: row.slug,
-					metadata: row.metadata,
-					contentHash: row.contentHash,
-					pluginRevision: expectedRevision,
-					scriptId: SandboxScriptId.make(row.id),
-					providerId: row.providerId ? SandboxProviderId.make(row.providerId) : null,
-				});
+			if (
+				expectedRevision &&
+				(expectedRevision.id !== row.pluginId ||
+					expectedRevision.revisionId !== row.pluginRevisionId)
+			) {
+				return null;
 			}
 			const declaration = row.pluginManifest?.scripts.find(({ slug }) => slug === row.slug);
 			if (
-				row.pluginStatus !== "active" ||
+				(!expectedRevision &&
+					(row.pluginStatus !== "active" || row.activeRevisionId !== row.pluginRevisionId)) ||
 				!row.pluginSlug ||
 				!row.pluginScope ||
 				!row.pluginManifest ||
-				!row.compiledHashes ||
+				!row.pluginRevisionId ||
 				(row.pluginScope === "system") !== (row.pluginOwnerId === null) ||
-				row.compiledHashes[row.slug] !== row.contentHash ||
 				declaration?.kind !== row.metadata.kind ||
 				(row.providerId !== null && row.providerPluginId !== row.pluginId)
 			) {
 				return null;
 			}
 			const manifest = row.pluginManifest;
+			const scripts = yield* mapDatabaseErrors(
+				db
+					.select({
+						slug: schema.sandboxScript.slug,
+						contentHash: schema.sandboxScript.contentHash,
+					})
+					.from(schema.sandboxScript)
+					.where(eq(schema.sandboxScript.pluginRevisionId, row.pluginRevisionId)),
+			);
+			let configRevisionId: string | undefined = expectedRevision?.configRevisionId;
+			if (!expectedRevision) {
+				if (row.pluginScope === "system") {
+					configRevisionId = environmentConfig.find(row.pluginId)?.configRevisionId;
+				} else {
+					const [state] = yield* mapDatabaseErrors(
+						db
+							.select()
+							.from(schema.pluginInstallation)
+							.where(
+								and(
+									eq(schema.pluginInstallation.pluginId, row.pluginId),
+									eq(schema.pluginInstallation.userId, row.pluginOwnerId ?? ""),
+								),
+							)
+							.limit(1),
+					);
+					if (
+						!state ||
+						state.isDisabled ||
+						state.uninstalledAt ||
+						!["ready", "installing"].includes(state.health)
+					) {
+						return null;
+					}
+					configRevisionId = state.activeConfigRevisionId ?? undefined;
+				}
+			}
+			if (!configRevisionId) {
+				return null;
+			}
+			const [config] = yield* mapDatabaseErrors(
+				db
+					.select()
+					.from(schema.pluginConfigRevision)
+					.where(eq(schema.pluginConfigRevision.id, configRevisionId))
+					.limit(1),
+			);
+			if (
+				!config?.encryptedPayload ||
+				config.pluginRevisionId !== row.pluginRevisionId ||
+				config.ownerUserId !== row.pluginOwnerId ||
+				config.scope !== (row.pluginScope === "system" ? "environment" : "installation")
+			) {
+				return null;
+			}
 			return sandboxScriptPin({
 				scriptSlug: row.slug,
 				metadata: row.metadata,
@@ -168,12 +227,16 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 				scriptId: SandboxScriptId.make(row.id),
 				providerId: row.providerId ? SandboxProviderId.make(row.providerId) : null,
 				pluginRevision: {
-					id: row.pluginId,
 					slug: row.pluginSlug,
 					scope: row.pluginScope,
-					compiledHashes: row.compiledHashes,
+					id: PluginId.make(row.pluginId),
 					configSchema: manifest.configSchema,
+					revisionId: PluginRevisionId.make(row.pluginRevisionId),
+					configRevisionId: PluginConfigRevisionId.make(configRevisionId),
 					ownerId: row.pluginOwnerId ? UserId.make(row.pluginOwnerId) : null,
+					compiledHashes: Object.fromEntries(
+						scripts.map(({ slug, contentHash }) => [slug, contentHash]),
+					),
 					workflowScripts: Object.fromEntries(
 						manifest.workflows.map(({ slug, scriptSlug }) => [slug, scriptSlug]),
 					),
@@ -227,7 +290,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 						.where(
 							and(
 								eq(schema.sandboxScript.slug, scriptSlug),
-								eq(schema.sandboxScript.pluginId, revision.id),
+								eq(schema.sandboxScript.pluginRevisionId, revision.revisionId),
 								eq(schema.sandboxScript.contentHash, contentHash),
 							),
 						)

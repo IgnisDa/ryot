@@ -1,7 +1,7 @@
 import { defaultUserPreferences } from "@ryot-app/contract/auth-middleware";
 import {
-	AutomationRuleId,
 	EntitySchemaSlug,
+	NotificationSubscriptionId,
 	SignalSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
@@ -9,18 +9,17 @@ import { describe, expect, it } from "vitest";
 
 import { type AccountCleanlinessState, classifyAccountCleanliness } from "./account-cleanliness";
 
-const bootstrapEntity = (id = "bootstrap-id") => ({
+const entity = (id = "entity-id") => ({
 	id,
 	provider: null,
 	properties: {},
+	name: "Entity",
 	externalId: null,
 	populatedAt: null,
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
-	name: "Bootstrap entity",
 	entitySchemaPluginId: null,
-	origin: { kind: "bootstrap" as const },
-	entitySchemaSlug: EntitySchemaSlug.make("bootstrap-entity"),
+	entitySchemaSlug: EntitySchemaSlug.make("entity"),
 });
 
 const systemInstallation = (
@@ -33,17 +32,20 @@ const systemInstallation = (
 		health: "ready",
 		isDisabled: false,
 		healthReason: null,
+		uninstalledAt: null,
 		homeSavedViewId: null,
 		pluginSlug: "example",
 		pluginScope: "system",
 		createdAt: new Date(0),
 		updatedAt: new Date(0),
+		activeConfigRevisionId: null,
 		pluginId: "example-plugin-id",
 		userId: UserId.make("user-id"),
 		...overrides,
 	}) as const;
 
 const cleanState = (overrides: Partial<AccountCleanlinessState> = {}): AccountCleanlinessState => ({
+	entities: [],
 	savedViews: [],
 	pluginState: [],
 	hasEvents: false,
@@ -51,7 +53,6 @@ const cleanState = (overrides: Partial<AccountCleanlinessState> = {}): AccountCl
 	expectedSavedViews: [],
 	hasIntegrations: false,
 	hasManagedAssets: false,
-	entities: [bootstrapEntity()],
 	notificationSubscriptions: [],
 	hasNotificationChannels: false,
 	expectedBootstrapRelationships: [],
@@ -62,16 +63,21 @@ const cleanState = (overrides: Partial<AccountCleanlinessState> = {}): AccountCl
 });
 
 describe("classifyAccountCleanliness", () => {
-	it("accepts an account with bootstrap-origin entities", () => {
+	it("accepts an account without entities", () => {
 		expect(classifyAccountCleanliness(cleanState())).toBeNull();
 	});
 
-	it.each([
-		["zero", []],
-		["one", [bootstrapEntity("one")]],
-		["multiple", [bootstrapEntity("one"), bootstrapEntity("two")]],
-	] as const)("accepts zero, one, or multiple bootstrap-origin entities", (_name, entities) => {
-		expect(classifyAccountCleanliness(cleanState({ entities }))).toBeNull();
+	it("accepts one bootstrap-shaped entity per entity schema", () => {
+		expect(
+			classifyAccountCleanliness(
+				cleanState({
+					entities: [
+						entity(),
+						{ ...entity("library-id"), entitySchemaSlug: EntitySchemaSlug.make("library") },
+					],
+				}),
+			),
+		).toBeNull();
 	});
 
 	it("accepts an account holding only default system installations", () => {
@@ -109,23 +115,15 @@ describe("classifyAccountCleanliness", () => {
 				],
 			},
 		],
+		["entities", { entities: [entity(), entity("duplicate-schema-id")] }],
+		["entities", { entities: [{ ...entity(), externalId: "external" }] }],
 		[
 			"entities",
 			{
 				entities: [
-					{ ...bootstrapEntity() },
 					{
-						name: "Extra",
-						id: "extra-id",
-						provider: null,
-						properties: {},
-						externalId: null,
-						populatedAt: null,
-						createdAt: new Date(0),
-						updatedAt: new Date(0),
-						origin: { kind: "api" },
-						entitySchemaPluginId: null,
-						entitySchemaSlug: EntitySchemaSlug.make("collection"),
+						...entity(),
+						provider: { pluginId: "plugin", pluginSlug: "media", providerSlug: "movie.tmdb" },
 					},
 				],
 			},
@@ -162,7 +160,7 @@ describe("classifyAccountCleanliness", () => {
 						userId: UserId.make("user-id"),
 						createdAt: new Date(0).toISOString(),
 						updatedAt: new Date(0).toISOString(),
-						id: AutomationRuleId.make("rule-id"),
+						id: NotificationSubscriptionId.make("rule-id"),
 						signalSchemaSlug: SignalSchemaSlug.make("signal"),
 					},
 				],
@@ -180,14 +178,5 @@ describe("classifyAccountCleanliness", () => {
 		["notification-channels", { hasNotificationChannels: true }],
 	] as const)("rejects %s", (category, override) => {
 		expect(classifyAccountCleanliness(cleanState(override))).toBe(category);
-	});
-
-	it.each([
-		["null", null],
-		["non-bootstrap", { kind: "api" as const }],
-	] as const)("rejects %s entity origins", (_name, origin) => {
-		expect(
-			classifyAccountCleanliness(cleanState({ entities: [{ ...bootstrapEntity(), origin }] })),
-		).toBe("entities");
 	});
 });

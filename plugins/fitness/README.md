@@ -5,13 +5,10 @@ Generic package, manifest, and sandbox authoring rules belong to the
 
 ## Automations
 
-Post-write fitness automations receive compact source references rather than complete source records.
-`automation.workout-created` and `automation.fitness-notification` load their immutable trigger with
-`automationOccurrenceRecipe(automation.occurrenceId)` through
-`executeRyotqlRecipe(host.executeRyotql, ...)`. An automation that needs subscription run metadata
-should likewise use `automationRunRecipe(automation.runId)` through `executeRyotql` when a run ID is
-present.
+`fitness.workout-created` is an async after hook for API-created workouts. The manifest's
+causation filter excludes imports and other sources. Its script reads the immutable entity snapshot
+from `automation.payload` and emits `workout.created`.
 
-The occurrence preserves the trigger-time entity or signal snapshot. A separate RyotQL query reads
-current state and may return values changed after that occurrence. Prefer explicit projections that
-select only the fields required by the automation.
+`fitness.notification` is the signal's stable notification hook. It reads the inline signal payload
+and formats the plugin-owned message. Notification delivery has one attempt and no automatic retry
+of uncertain external outcomes. Neither script queries execution records through RyotQL.

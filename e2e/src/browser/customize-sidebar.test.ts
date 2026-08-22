@@ -3,18 +3,16 @@ import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import {
 	buildSavedViewDataSources,
+	createAuthenticatedClient,
 	createSavedView,
-	createTestUser,
 	fakeProviderDetailsResult,
 	fakeProviderSearchResult,
 	installTestProvider,
-	makeSession,
 	uninstallTestProvider,
 	type InstalledTestProvider,
 } from "~/fixtures/kernel";
 import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
 import { afterAll, beforeAll, expect, it } from "~/support/effect-test";
-import { getApiUrl } from "~/support/harness-target";
 
 const SUITE_ID = crypto.randomUUID();
 
@@ -67,10 +65,10 @@ const waitForSidebarSavedViews = (page: Playwright.Page, names: ReadonlyArray<st
 beforeAll(async () => {
 	await Effect.runPromise(
 		Effect.gen(function* () {
-			const user = yield* createTestUser();
+			const user = yield* createAuthenticatedClient();
 			email = user.email;
 			password = user.password;
-			const client = makeSession(getApiUrl(), { Authorization: `Bearer ${user.token}` });
+			const client = user.client;
 			provider = yield* installTestProvider({
 				client,
 				name: PROVIDER_NAME,

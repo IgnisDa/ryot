@@ -101,6 +101,7 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 			: undefined;
 		const workflowInput = yield* Schema.encodeUnknownEffect(genericImportWorkflowInputSchema)({
 			runId: payload.runId,
+			command: payload.command,
 			source: sourceState.source,
 			...(Object.keys(sourceState.sourcePayload).length > 0
 				? { sourcePayload: sourceState.sourcePayload }
@@ -116,6 +117,7 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 				input: workflowInput,
 				executionId: artifactOwnerExecutionId,
 				scriptId: sourceState.workflowScriptId,
+				pluginRevision: sourceState.pluginRevision,
 				...(pinnedGrants ? { grants: pinnedGrants } : {}),
 				subject: { type: "user", userId: payload.userId },
 			})

@@ -364,8 +364,8 @@ async function createEntity(
 	entitySchemaSlug: EntitySchemaSlug,
 	properties: Record<string, unknown>,
 	imageUrl: string | null,
-) {
-	return apiClient.run((c) =>
+): Promise<ContractSuccess<"entities", "create">> {
+	const result = await apiClient.run((c) =>
 		c.entities.create({
 			payload: {
 				name,
@@ -379,6 +379,7 @@ async function createEntity(
 			},
 		}),
 	);
+	return { entity: result.entity, warnings: result.warnings };
 }
 
 async function createCollection(apiClient: APIClient, body: CreateCollectionBody) {
@@ -393,7 +394,7 @@ async function addEntityToCollection(apiClient: APIClient, body: AddToCollection
 	return apiClient.run((c) => c.collections.createMembership({ payload: body }));
 }
 
-type SeedEntity = Awaited<ReturnType<typeof createEntity>>;
+type SeedEntity = ContractSuccess<"entities", "create">["entity"];
 
 type EventPayload = ContractPayload<"events", "create">[number];
 
@@ -720,7 +721,7 @@ async function seedWhiskeys(client: APIClient) {
 		const whiskey = generateWhiskey();
 		entityPipelines.push(
 			(async () => {
-				const entity = await createEntity(
+				const { entity } = await createEntity(
 					client,
 					whiskey.name,
 					entitySchema.id,
@@ -851,7 +852,7 @@ async function seedPlaces(client: APIClient) {
 		const place = generatePlace();
 		entityPipelines.push(
 			(async () => {
-				const entity = await createEntity(
+				const { entity } = await createEntity(
 					client,
 					place.name,
 					entitySchema.id,
@@ -995,7 +996,7 @@ async function seedMobilePhones(client: APIClient) {
 		const phone = generateSmartphone();
 		entityPipelines.push(
 			(async () => {
-				const entity = await createEntity(
+				const { entity } = await createEntity(
 					client,
 					phone.name,
 					smartphoneSchema.id,
@@ -1021,7 +1022,7 @@ async function seedMobilePhones(client: APIClient) {
 		const phone = generateFeaturePhone();
 		featurePhonePipelines.push(
 			(async () => {
-				const entity = await createEntity(
+				const { entity } = await createEntity(
 					client,
 					phone.name,
 					featurePhoneSchema.id,
@@ -1049,7 +1050,7 @@ async function seedMobilePhones(client: APIClient) {
 		const tablet = generateTablet();
 		tabletPipelines.push(
 			(async () => {
-				const entity = await createEntity(
+				const { entity } = await createEntity(
 					client,
 					tablet.name,
 					tabletSchema.id,

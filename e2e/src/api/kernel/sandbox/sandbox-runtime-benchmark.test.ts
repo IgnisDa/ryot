@@ -91,6 +91,7 @@ import { Effect } from "@ryot-app/sandbox-sdk/effect";
 export const manifest = defineManifest({
   capabilities: [],
   kind: "automation",
+  automationType: "automation",
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
   name: "Benchmark no-host automation",
@@ -100,7 +101,7 @@ export const manifest = defineManifest({
 export default defineAutomation({
   manifest,
   run: ({ automation }) =>
-    Effect.succeed(automation.source.kind === "event" ? null : "unexpected-source"),
+    Effect.succeed(automation.payload.resource === "event" ? null : "unexpected-source"),
 });
 `;
 
@@ -111,6 +112,7 @@ import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "automation",
+  automationType: "automation",
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
   name: "Benchmark full automation",
@@ -121,7 +123,7 @@ export const manifest = defineManifest({
 export default defineAutomation({
   manifest,
   run: ({ automation }, host) => {
-    if (automation.source.kind !== "event") {
+    if (automation.payload.resource !== "event") {
       return Effect.succeed(null);
     }
     return Effect.gen(function* () {
@@ -207,16 +209,44 @@ export default defineProvider({
 });
 `;
 
-const automationContext = () => ({
-	automation: {
-		operation: "create",
-		origin: { kind: "api" },
-		ruleId: "benchmark-rule",
-		occurrenceId: crypto.randomUUID(),
-		occurredAt: "2026-08-06T00:00:00.000Z",
-		source: { kind: "event", eventId: crypto.randomUUID() },
-	},
-});
+const automationContext = (userId: string) => {
+	const occurredAt = "2026-08-06T00:00:00.000Z";
+	const executionId = crypto.randomUUID();
+	return {
+		automation: {
+			occurredAt,
+			executionUserId: userId,
+			runId: crypto.randomUUID(),
+			triggerId: crypto.randomUUID(),
+			hookSlug: "benchmark.event-created",
+			causation: {
+				depth: 0,
+				executionId,
+				source: "api",
+				parentRunId: null,
+				parentTriggerId: null,
+				rootExecutionId: executionId,
+				initiator: { id: userId, kind: "user" },
+			},
+			payload: {
+				resource: "event",
+				category: "change",
+				operation: "create",
+				after: {
+					occurredAt,
+					properties: {},
+					createdAt: occurredAt,
+					updatedAt: occurredAt,
+					sessionEntityId: null,
+					id: crypto.randomUUID(),
+					entityId: crypto.randomUUID(),
+					eventSchemaSlug: "benchmark-event",
+					entitySchemaSlug: "benchmark-entity",
+				},
+			},
+		},
+	};
+};
 
 const collectIdleRuntimeSamples = () =>
 	Effect.gen(function* () {
@@ -280,6 +310,7 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("sandbox runtime benchmark", () => {
 						requiredSystemConfigKeys: [],
 						slug: AUTOMATION_NO_HOST_SLUG,
 						name: "Benchmark no-host automation",
+						automationType: "automation" as const,
 						entry: "backend/scripts/automation-no-host.sandbox.ts",
 					},
 					{
@@ -288,6 +319,7 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("sandbox runtime benchmark", () => {
 						requiredPluginConfigKeys: [],
 						requiredSystemConfigKeys: [],
 						name: "Benchmark full automation",
+						automationType: "automation" as const,
 						entry: "backend/scripts/automation-full.sandbox.ts",
 						capabilities: ["getUserPreferences", "setCachedValue"],
 					},
@@ -359,7 +391,7 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("sandbox runtime benchmark", () => {
 					SAMPLE_COUNT,
 					runDirectSample({
 						userId,
-						context: automationContext(),
+						context: automationContext(userId),
 						scriptId: scriptId(AUTOMATION_NO_HOST_SLUG),
 					}),
 				);
@@ -368,7 +400,7 @@ describe.skipIf(!RUN_SANDBOX_BENCHMARKS)("sandbox runtime benchmark", () => {
 					SAMPLE_COUNT,
 					runDirectSample({
 						userId,
-						context: automationContext(),
+						context: automationContext(userId),
 						scriptId: scriptId(AUTOMATION_FULL_SLUG),
 					}),
 				);

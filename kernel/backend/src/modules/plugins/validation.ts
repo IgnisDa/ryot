@@ -181,6 +181,11 @@ export const validatePluginManifestReferences = (
 		}
 		for (const definition of manifest.signalSchemas) {
 			yield* assertSlug("signal schema", definition.slug);
+			yield* assertReference(
+				"Notification hook",
+				definition.notificationHookSlug,
+				new Set(manifest.hooks.map(({ slug }) => slug)),
+			);
 		}
 		for (const definition of manifest.savedViews) {
 			yield* assertSlug("saved view", definition.slug);
@@ -277,54 +282,39 @@ export const validatePluginManifestReferences = (
 				),
 			),
 		);
-		for (const binding of manifest.bindings.entityAutomations) {
-			yield* assertReference("Entity automation", binding.scriptSlug, scriptSlugs);
-			yield* assertAutomationScript("Entity automation", binding.scriptSlug, manifest.scripts);
-			yield* assertReference(
-				"Entity automation",
-				binding.entitySchemaSlug,
-				new Set(Object.keys(snapshot.entitySchemas)),
-			);
-		}
-		for (const binding of manifest.bindings.providerEntityImportAutomations) {
-			yield* assertReference("Provider entity import automation", binding.scriptSlug, scriptSlugs);
-			yield* assertReference(
-				"Provider entity import automation",
-				binding.entitySchemaSlug,
-				new Set(Object.keys(snapshot.entitySchemas)),
-			);
-			yield* assertAutomationScript(
-				"Provider entity import automation",
-				binding.scriptSlug,
-				manifest.scripts,
-			);
-		}
-		for (const binding of manifest.bindings.relationshipAutomations) {
-			yield* assertReference("Relationship automation", binding.scriptSlug, scriptSlugs);
-			yield* assertAutomationScript(
-				"Relationship automation",
-				binding.scriptSlug,
-				manifest.scripts,
-			);
-			yield* assertReference(
-				"Relationship automation",
-				binding.relationshipSchemaSlug,
-				new Set(Object.keys(snapshot.relationshipSchemas)),
-			);
-		}
-		for (const binding of manifest.bindings.eventAutomations) {
-			yield* assertReference("Event automation", binding.scriptSlug, scriptSlugs);
-			yield* assertAutomationScript("Event automation", binding.scriptSlug, manifest.scripts);
-			yield* assertReference("Event automation", binding.eventSchemaSlug, eventSchemaSlugs);
-		}
-		for (const binding of manifest.bindings.signalAutomations) {
-			yield* assertReference("Signal automation", binding.scriptSlug, scriptSlugs);
-			yield* assertAutomationScript("Signal automation", binding.scriptSlug, manifest.scripts);
-			yield* assertReference(
-				"Signal automation",
-				binding.signalSchemaSlug,
-				new Set(Object.keys(snapshot.signalSchemas)),
-			);
+		for (const hook of manifest.hooks) {
+			yield* assertReference("Automation hook", hook.scriptSlug, scriptSlugs);
+			yield* assertAutomationScript("Automation hook", hook.scriptSlug, manifest.scripts);
+			for (const target of hook.targets) {
+				if (target.resource === "entity" || target.resource === "provider-entity-import") {
+					yield* assertReference(
+						"Automation hook",
+						target.entitySchemaSlug,
+						new Set(Object.keys(snapshot.entitySchemas)),
+					);
+				}
+				if (target.resource === "event") {
+					yield* assertReference(
+						"Automation hook",
+						`${target.entitySchemaSlug}:${target.eventSchemaSlug}`,
+						eventSchemaSlugs,
+					);
+				}
+				if (target.resource === "relationship") {
+					yield* assertReference(
+						"Automation hook",
+						target.relationshipSchemaSlug,
+						new Set(Object.keys(snapshot.relationshipSchemas)),
+					);
+				}
+				if (target.resource === "signal") {
+					yield* assertReference(
+						"Automation hook",
+						target.signalSchemaSlug,
+						new Set(Object.keys(snapshot.signalSchemas)),
+					);
+				}
+			}
 		}
 		return yield* Effect.void;
 	});
@@ -464,23 +454,28 @@ export const validateSignalSchemaFormatterReferences = (
 			scriptSlugs.add(script.slug);
 		}
 		for (const signalSchema of Object.values(snapshot.signalSchemas)) {
+			if (signalSchema.pluginId != null) {
+				continue;
+			}
 			if (
-				kernelScriptSlugs.has(signalSchema.notificationScriptSlug) &&
+				kernelScriptSlugs.has(signalSchema.notificationHookSlug) &&
 				!kernelSignalSlugs.has(signalSchema.slug)
 			) {
 				return yield* fail(
-					`Signal schema ${signalSchema.slug} cannot reference kernel source-zero formatter: ${signalSchema.notificationScriptSlug}`,
+					`Signal schema ${signalSchema.slug} cannot reference kernel source-zero formatter: ${signalSchema.notificationHookSlug}`,
 				);
 			}
-			const matches = scripts.filter(({ slug }) => slug === signalSchema.notificationScriptSlug);
+			const matches = kernelScripts.filter(
+				({ slug }) => slug === signalSchema.notificationHookSlug,
+			);
 			if (matches.length === 0) {
 				return yield* fail(
-					`Signal schema ${signalSchema.slug} notification formatter references missing script: ${signalSchema.notificationScriptSlug}`,
+					`Signal schema ${signalSchema.slug} notification hook references missing script: ${signalSchema.notificationHookSlug}`,
 				);
 			}
 			if (!matches.some(({ kind }) => kind === "automation")) {
 				return yield* fail(
-					`Signal schema ${signalSchema.slug} notification formatter ${signalSchema.notificationScriptSlug} must reference an automation script`,
+					`Signal schema ${signalSchema.slug} notification hook ${signalSchema.notificationHookSlug} must reference an automation script`,
 				);
 			}
 		}
