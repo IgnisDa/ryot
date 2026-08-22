@@ -1,4 +1,4 @@
-import { formatRelativeTime } from "#/modules/integrations/run-presentation";
+import { formatRelativeTime } from "#/modules/ui/run/run-status";
 
 /**
  * Structural rather than derived from one row type: the RyotQL row and the contract's

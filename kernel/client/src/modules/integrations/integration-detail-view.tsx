@@ -4,35 +4,15 @@ import type {
 	ListedIntegration,
 	ListedIntegrationProvider,
 } from "@ryot-app/contract/modules/integrations/schemas";
-import type { RunStatus } from "@ryot-app/contract/schema/run-status";
 import type { ImportRunSummary } from "@ryot-app/ryotql-recipes/import-runs";
 import clsx from "clsx";
 
+import { importRunOutcomeLabel } from "#/modules/imports/run-presentation";
 import { integrationLotDetail } from "#/modules/integrations/provider-selection";
-import {
-	formatRelativeTime,
-	importRunOutcomeLabel,
-	runStatusPill,
-	type RunStatusTone,
-} from "#/modules/integrations/run-presentation";
 import { IntegrationSettingsForm } from "#/modules/integrations/settings-form";
 import { AppIcon } from "#/modules/navigation/app-icon";
-
-const toneClassName: Record<RunStatusTone, string> = {
-	info: "text-info",
-	danger: "text-danger",
-	success: "text-success",
-	muted: "text-text-muted",
-};
-
-function RunStatusGlyph(props: { readonly status: RunStatus }) {
-	const pill = runStatusPill(props.status);
-	return (
-		<span role="img" aria-label={pill.label}>
-			<AppIcon size={16} name={pill.icon} className={toneClassName[pill.tone]} />
-		</span>
-	);
-}
+import { formatRelativeTime } from "#/modules/ui/run/run-status";
+import { RunStatusGlyph } from "#/modules/ui/run/run-status-pill";
 
 function IntegrationWebhookRow(props: {
 	readonly webhookUrl: string;

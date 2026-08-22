@@ -25,6 +25,7 @@ import {
 	makeOAuthRouteStubs,
 	NavigationRouteStubs,
 	ProviderAddRouteStubs,
+	ImportsRouteStubs,
 	IntegrationRouteStubs,
 } from "#/routes/-route-fixtures";
 
@@ -58,6 +59,7 @@ const mountLogin = (config: ReturnType<typeof systemConfig>) => {
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
 			ProviderAddRouteStubs,
+			ImportsRouteStubs,
 			IntegrationRouteStubs,
 			makeAuthStub(),
 			GodModeRouteStubs,
