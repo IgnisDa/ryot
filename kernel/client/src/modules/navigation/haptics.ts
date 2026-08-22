@@ -8,3 +8,13 @@ export const impactLight = () => {
 	}
 	void Haptics.impact({ style: ImpactStyle.Light }).catch(() => undefined);
 };
+
+export const selectionChanged = () => {
+	if (!isNativePlatform()) {
+		return;
+	}
+	void Haptics.selectionStart()
+		.then(() => Haptics.selectionChanged())
+		.then(() => Haptics.selectionEnd())
+		.catch(() => undefined);
+};
