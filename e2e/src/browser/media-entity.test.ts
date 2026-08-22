@@ -149,12 +149,18 @@ it.live("opens a Media Show entity from the canonical saved-view route", () =>
 		yield* frame.waitFor({ state: "visible" });
 		const media = frame.contentFrame();
 		yield* media.getByRole("heading", { level: 1, name: SHOW_NAME }).waitFor({ state: "visible" });
-		yield* expectVisibleText(media.locator("body"), "TV Show · TMDB · 2025");
+		yield* expectVisibleText(media.locator("body"), "TV Show • TMDB • 2025");
 		yield* expectVisibleText(media.locator("body"), "Returning Series");
-		yield* expectVisibleText(media.locator("body"), "2 seasons");
-		yield* expectVisibleText(media.locator("body"), "12 episodes");
+		yield* expectVisibleText(
+			media.locator("p").filter({ hasText: /^Seasons$/ }).locator(".."),
+			"2",
+		);
+		yield* expectVisibleText(
+			media.locator("p").filter({ hasText: /^Episodes$/ }).locator(".."),
+			"12",
+		);
 		yield* expectVisibleText(media.locator("body"), "A deterministic browser tracer show.");
-		const coverImage = media.locator("article img");
+		const coverImage = media.locator('img[alt=""]').first();
 		yield* coverImage.waitFor({ state: "visible" });
 		expect(yield* coverImage.getAttribute("alt")).toBe("");
 		const coverUrl = new URL(
