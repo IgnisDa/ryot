@@ -67,6 +67,13 @@ User-effective provider and schema resolution includes ready private installatio
 owner; APIs without user context resolve system definitions only. Persisted provenance uses stable
 plugin ID, not installation ID.
 
+Sandbox definition helpers infer the `run` failure type from its implementation. Use typed/tagged
+failures for expected plugin errors; host capability calls contribute `SandboxHostError` to that
+type. Workflow body failures become failed replay envelopes. Import `Effect` from
+`@ryot-app/sandbox-sdk/effect` in ordinary backend scripts and the restricted
+`@ryot-app/sandbox-sdk/workflow` surface in workflows. The shared `@ryot-app/plugin-kit/effect`
+shim remains environment-neutral and does not export `Effect`.
+
 ## Shared Sources
 
 `shared/**` accepts `.ts`, not `.tsx`. Its only bare imports are
