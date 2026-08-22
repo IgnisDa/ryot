@@ -27,6 +27,7 @@ const TRUSTED_MODULES = new Set([
 	"@ryot-app/client-sdk/react",
 	"@ryot-app/client-sdk/ryotql",
 	"@ryot-app/client-sdk/screen",
+	"@ryot-app/ryotql-recipes/saved-views",
 	"@ryot-app/client-ui-sdk",
 	"@ryot-app/client-ui-sdk/icon",
 	"@ryot-app/client-ui-sdk/sync",
@@ -57,6 +58,10 @@ const resolveTypeScriptEntries = (from: string) => {
 		"@ryot-app/client-sdk/react": Bun.resolveSync("@ryot-app/client-sdk/react", from),
 		"@ryot-app/client-sdk/ryotql": Bun.resolveSync("@ryot-app/client-sdk/ryotql", from),
 		"@ryot-app/client-sdk/screen": Bun.resolveSync("@ryot-app/client-sdk/screen", from),
+		"@ryot-app/ryotql-recipes/saved-views": Bun.resolveSync(
+			"@ryot-app/ryotql-recipes/saved-views",
+			from,
+		),
 		"@ryot-app/client-ui-sdk": Bun.resolveSync("@ryot-app/client-ui-sdk", from),
 		"@ryot-app/client-ui-sdk/icon": Bun.resolveSync("@ryot-app/client-ui-sdk/icon", from),
 		"@ryot-app/client-ui-sdk/sync": Bun.resolveSync("@ryot-app/client-ui-sdk/sync", from),

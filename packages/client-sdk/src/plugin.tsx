@@ -11,6 +11,10 @@ import { Result, Schema } from "effect";
 import { createContext, useContext, useSyncExternalStore, type ComponentType } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
+import {
+	EntityPresentationRegistryProvider,
+	type EntityPresentationRegistration,
+} from "./entity-results";
 import type { ResolvePluginScreen } from "./navigation/stack";
 import { createPluginNavigationStore } from "./navigation/store";
 import { RyotProvider } from "./react";
@@ -62,12 +66,13 @@ const KernelShortcutForwarder = ({
 
 const bootstrapClientApplication = (
 	createResolver: (page: ClientPageContext | undefined) => ResolvePluginScreen,
+	registrations: readonly EntityPresentationRegistration[],
 ) => {
-	const listener = new AbortController();
 	let root: Root | undefined;
+	const listener = new AbortController();
 	let sdkRuntime: RyotPluginRuntime | undefined;
-	let runtime: ReturnType<typeof createPluginRuntime> | undefined;
 	let sessionListener: AbortController | undefined;
+	let runtime: ReturnType<typeof createPluginRuntime> | undefined;
 	const handleFatalEvent = (event: Event) => {
 		event.preventDefault();
 		runtime?.fatal();
@@ -84,10 +89,12 @@ const bootstrapClientApplication = (
 				});
 				root.render(
 					<RyotProvider runtime={sdkRuntime}>
-						<PageContext.Provider value={runtime.page}>
-							<KernelShortcutForwarder runtime={runtime} />
-							<PluginRouter />
-						</PageContext.Provider>
+						<EntityPresentationRegistryProvider registrations={registrations}>
+							<PageContext.Provider value={runtime.page}>
+								<KernelShortcutForwarder runtime={runtime} />
+								<PluginRouter />
+							</PageContext.Provider>
+						</EntityPresentationRegistryProvider>
 					</RyotProvider>,
 				);
 			} catch {
@@ -162,15 +169,40 @@ const bootstrapClientApplication = (
 	return { dispose };
 };
 
-export const bootstrapClientPlugin = (definition: ClientPluginDefinition) =>
-	bootstrapClientApplication(() => createPluginRouteResolver(definition));
+type ClientApplicationOptions = {
+	readonly entityPresentations?: readonly EntityPresentationRegistration[];
+};
 
-export const bootstrapClientPage = (component: ComponentType) =>
-	bootstrapClientApplication((page) =>
-		page === undefined
-			? createPluginRouteResolver({ home: { component } })
-			: createClientPageRouteResolver(component, page),
+export const bootstrapClientPlugin = (
+	definition: ClientPluginDefinition,
+	options: ClientApplicationOptions = {},
+) =>
+	bootstrapClientApplication(
+		() => createPluginRouteResolver(definition),
+		options.entityPresentations ?? [],
 	);
+
+export const bootstrapClientPage = (
+	component: ComponentType,
+	options: ClientApplicationOptions = {},
+) =>
+	bootstrapClientApplication(
+		(page) =>
+			page === undefined
+				? createPluginRouteResolver({ home: { component } })
+				: createClientPageRouteResolver(component, page),
+		options.entityPresentations ?? [],
+	);
+
+export {
+	EntityResults,
+	defineEntityPresentation,
+	type EntityReference,
+	type EntityResultsLayout,
+	type EntityPresentationLoader,
+	type EntityPresentationDefinition,
+	type EntityPresentationComponentProps,
+} from "./entity-results";
 
 export {
 	PluginLink,
