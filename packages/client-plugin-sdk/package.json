@@ -6,6 +6,10 @@
 		".": {
 			"types": "./src/index.ts",
 			"default": "./src/index.ts"
+		},
+		"./effect": {
+			"types": "./src/effect.ts",
+			"default": "./src/effect.ts"
 		}
 	},
 	"scripts": {
