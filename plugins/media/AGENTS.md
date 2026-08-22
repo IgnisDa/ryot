@@ -25,7 +25,7 @@
 - A schema declares its hero backdrop purposes rather than assuming `backdrop`. `backdropPurposes` is an ordered list, defaults to `["backdrop"]`, and drives both the hero image and its managed-asset set.
 - One shared card and row presentation covers every media schema except `show`, `anime`, `movie`, `music`, `book`, `manga`, `podcast`, `audiobook`, `comic-book`, `visual-novel`, `video-game`, and the six `*-group` schemas; its loader takes the schema slug from the batch's references. `person` and `company` keep it and add only a detail page.
 - The artwork aspect of a media or group schema comes only from `mediaSchemaAspects` in `client/schema-aspects.ts`; its descriptor's header art, recommendation tiles, and creator credit tiles all read it.
-- `builtinMediaEntitySchemaSlugs`, `mediaGroupMemberSlugs`, and `creatorGroupTargetSlugs` live in `shared/media-schema-slugs.ts`.
+- `mediaPluginSlug`, `builtinMediaEntitySchemaSlugs`, `mediaGroupMemberSlugs`, and `creatorGroupTargetSlugs` live in `shared/media-schema-slugs.ts`.
 - Import media and schema recipes straight from `shared/media-recipes` and `shared/<slug>-recipes`; never re-export them through `host/query-recipes.ts`, which owns only the podcast, suggestion, trending, and saved-view recipes.
 - `client/` must not restate schemas that `shared/` owns.
 - `client/media/` holds the schema-agnostic client layer every detail screen composes; it carries no schema symbol and no schema copy. Nouns, row and beat labels, credit-section titles, group copy, and artwork aspect are descriptor or caller input; never hardcode poster geometry there.
