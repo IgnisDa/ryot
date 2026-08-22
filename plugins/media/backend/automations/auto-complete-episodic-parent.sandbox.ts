@@ -1,6 +1,6 @@
 import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
 import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
-import type { EventSchemaRecord, SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
@@ -23,7 +23,7 @@ export const manifest = defineManifest({
 	requiredSystemConfigKeys: [],
 	name: "Auto-Complete Episodic Parent",
 	slug: "automation.media-auto-complete-episodic-parent",
-	capabilities: ["executeRyotql", "createEvents", "listEventSchemas", "claimPersistentValue"],
+	capabilities: ["executeRyotql", "createEvents", "claimPersistentValue"],
 	inputProjection: {
 		event: { properties: [], compareProperties: [] },
 		signal: { properties: ["entitySchemaSlug", "oldStatus", "newStatus"] },
@@ -140,32 +140,18 @@ const readSnapshot = (host: AutomationHost, trigger: CompletionTrigger) =>
 		host.executeRyotql,
 	);
 
-const getCompleteSchema = (host: AutomationHost, config: EpisodicKindConfig) =>
-	host
-		.listEventSchemas([config.parentSchemaSlug])
-		.pipe(
-			Effect.map(
-				(schemas): EventSchemaRecord | null =>
-					schemas.find(
-						(schema) =>
-							schema.slug === "complete" && schema.entitySchemaSlug === config.parentSchemaSlug,
-					) ?? null,
-			),
-		);
-
 const createParentCompletion = (
 	host: AutomationHost,
 	trigger: CompletionTrigger,
 	snapshot: EpisodicLifecycleSnapshot & { readonly coverageClosingEvent: EventOrderTuple },
-	completeSchema: EventSchemaRecord,
 ) => {
 	const occurredAt = snapshot.coverageClosingEvent.occurredAt;
 	return host
 		.createEvents([
 			{
 				occurredAt,
+				eventSchemaSlug: "complete",
 				entityId: trigger.parentEntityId,
-				eventSchemaSlug: completeSchema.id,
 				sessionEntityId: trigger.parentEntityId,
 				properties: {
 					completedOn: occurredAt,
@@ -204,10 +190,7 @@ export default defineAutomation({
 			if (!snapshotCanComplete(currentSnapshot, trigger)) {
 				return null;
 			}
-			const completeSchema = yield* getCompleteSchema(host, trigger.config);
-			return completeSchema
-				? yield* createParentCompletion(host, trigger, currentSnapshot, completeSchema)
-				: null;
+			return yield* createParentCompletion(host, trigger, currentSnapshot);
 		});
 	},
 });
