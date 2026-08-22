@@ -11,7 +11,7 @@ import {
 	hostSuccess,
 	integrationRecord,
 	ryotqlRows,
-} from "./automation-test-utils";
+} from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./integration-progress-policy.sandbox";
 
 const minutesAgo = (minutes: number) => new Date(Date.now() - minutes * 60_000).toISOString();

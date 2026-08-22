@@ -20,7 +20,7 @@ import {
 	specialProgressRow,
 	secondWatchDayRow,
 	specialsSeasonRow,
-} from "./activity-fixture";
+} from "../../tests/client/show/activity-fixture";
 import {
 	showActivityCoverage,
 	showActivityDurationLabel,

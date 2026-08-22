@@ -3,22 +3,22 @@
 import { fireEvent, waitFor } from "@testing-library/dom";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { ShowActivity } from "./activity";
 import {
 	decodeShowActivity,
 	emptyShowActivity,
 	firstWatchDayRow,
 	rewatchedShowActivity,
 	sameDayWatchRow,
-} from "./activity-fixture";
-import { mapShowActivity, type ShowActivityState } from "./activity-state";
+} from "../../tests/client/show/activity-fixture";
 import {
 	malformedQueryResult,
 	pendingQueryResult,
 	readyQueryResult,
 	transportErrorQueryResult,
-} from "./query-result-fixture";
-import { mountRyotClient } from "./test-support";
+} from "../../tests/client/show/query-result-fixture";
+import { mountRyotClient } from "../../tests/client/show/test-support";
+import { ShowActivity } from "./activity";
+import { mapShowActivity, type ShowActivityState } from "./activity-state";
 
 const noopAdapter = { query: () => Promise.resolve({}) };
 

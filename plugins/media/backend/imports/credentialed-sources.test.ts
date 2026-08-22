@@ -1,11 +1,11 @@
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { describe, expect, it } from "vitest";
 
+import { stubHttpHost, type StubResponse } from "../../tests/backend/imports/source-test-utils";
 import { adaptAudiobookshelfData } from "./audiobookshelf";
 import { adaptJellyfinData } from "./jellyfin";
 import { adaptMediaTrackerData } from "./media-tracker";
 import { adaptPlexData } from "./plex";
-import { stubHttpHost, type StubResponse } from "./source-test-utils";
 import { adaptTraktData } from "./trakt";
 
 const run = Effect.runPromise;
