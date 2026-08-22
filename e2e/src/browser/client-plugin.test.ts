@@ -65,6 +65,9 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 					expect(artifactUrl?.startsWith(`${apiUrl}/plugins/artifacts/`)).toBe(true);
 					expect(artifactUrl?.endsWith("/index.html")).toBe(true);
 					await expectVisibleText(home, FIXTURE_CLIENT_REVISION_MARKERS.A);
+					expect(
+						await fixture.getByRole("region", { name: "Theme snapshot" }).getAttribute("class"),
+					).toBe("w-full max-w-md rounded-lg border border-border bg-surface p-4");
 				});
 
 				await step("use catalog and operation bridges", async () => {

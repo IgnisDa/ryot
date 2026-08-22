@@ -169,8 +169,9 @@ it.effect(
 	30_000,
 );
 
-it("trusts only the published client SDK entry points", () => {
+it("trusts only the published client SDK entry points and clsx", () => {
 	for (const specifier of [
+		"clsx",
 		"@ryot/client-sdk",
 		"@ryot/client-sdk/effect",
 		"@ryot/client-sdk/plugin",
@@ -180,6 +181,7 @@ it("trusts only the published client SDK entry points", () => {
 	]) {
 		expect(isTrustedClientModule(specifier)).toBe(true);
 	}
+	expect(isTrustedClientModule("clsx/lite")).toBe(false);
 	expect(isTrustedClientModule("@ryot/client-sdk/unknown")).toBe(false);
 	expect(isTrustedClientModule("@ryot/client-ui-sdk/unknown")).toBe(false);
 });
