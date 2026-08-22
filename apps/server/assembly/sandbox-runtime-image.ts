@@ -141,4 +141,5 @@ const RuntimeSmokeLive = Layer.merge(BridgeService.layer, PackageCacheManager.la
 	Layer.provideMerge(BunServices.layer),
 );
 
+// oxlint-disable-next-line effecttsgo/strict-effect-provide -- The runtime image smoke check is a command-line entrypoint
 BunRuntime.runMain(Effect.scoped(program).pipe(Effect.provide(RuntimeSmokeLive)));

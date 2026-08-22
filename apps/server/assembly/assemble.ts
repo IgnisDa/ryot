@@ -124,6 +124,7 @@ export const assemble = Effect.gen(function* () {
 if (import.meta.main) {
 	BunRuntime.runMain(
 		assemble.pipe(
+			// oxlint-disable-next-line effecttsgo/strict-effect-provide -- Server assembly is a command-line entrypoint
 			Effect.provide(Layer.merge(BunServices.layer, clientPluginCompilerPlatformLayer)),
 		),
 	);
