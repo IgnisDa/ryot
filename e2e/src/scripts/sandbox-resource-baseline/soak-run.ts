@@ -15,6 +15,7 @@ import {
 	mergeSources,
 	prepareFreshProcess,
 	readSources,
+	retryTransport,
 	type RunContext,
 	submitWave,
 } from "./scenario-runner";
@@ -23,11 +24,13 @@ import type { ScenarioDefinition } from "./scenarios";
 type BackendAction = "checkpoint" | "gc" | "heap-snapshot" | "cpu-start" | "cpu-stop";
 type BackendCheckpoint = ContractSuccess<"testSupport", "captureBackendProfile">;
 
-const backendProfile = (token: string, label: string, action: BackendAction) =>
-	getApiClient().call(
+const backendProfile = (token: string, label: string, action: BackendAction) => {
+	const capture = getApiClient().call(
 		(client) => client.testSupport.captureBackendProfile({ payload: { token, label, action } }),
 		adminHeaders(),
 	);
+	return action === "cpu-start" || action === "cpu-stop" ? capture : retryTransport(capture);
+};
 
 const checkpointValues = (checkpoint: BackendCheckpoint): MetricValues => {
 	return {
