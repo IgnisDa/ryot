@@ -88,6 +88,22 @@ current entry for a launch URL, and maps the Android hardware back button onto t
 history, exiting the app only when there is nothing left to pop. The kernel remains the sole owner
 of history, per the single-navigation-stack rule in the design document.
 
+## Overlays And Back
+
+Exactly one mechanism dismisses an overlay, and which one follows from where the overlay's open
+state lives. A state-owned overlay — the drawer, the command center, a picker inside a form — only
+exists in React state, so it registers a `BackInterceptor` while open and Android hardware Back
+closes it before the router sees a pop. Browser Back cannot be intercepted, so on the web a
+state-owned overlay leaves with the page it belongs to.
+
+A URL-owned overlay is a history entry instead. The provider add sheet keeps `add` and `q` in the
+saved view's search params so it is deep-linkable and survives a reload, so it opens with a push
+and registers no interceptor: hardware Back, browser Back, and the left-edge gesture all pop that
+entry, and the sheet closes because `add` is gone. Its own close affordances pop the same entry,
+falling back to a replace when the sheet was entered directly and there is no pushed entry to
+drop. Closing with a push would leave the opened state one Back away, so every Back affordance
+would re-enter the sheet instead of leaving the saved view.
+
 ## OAuth Runtime Client
 
 `RuntimeOAuthClientService` is the only runtime selector for the first-party OAuth client. For a
