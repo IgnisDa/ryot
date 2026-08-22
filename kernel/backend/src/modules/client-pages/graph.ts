@@ -14,6 +14,7 @@ import {
 	type ClientPageGraphIdentity,
 	type ClientRendererDefinition,
 } from "@ryot-app/contract/modules/client-pages/schemas";
+import { comparePluginRoutePaths } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginSlug, type ClientRendererId, type UserId } from "@ryot-app/contract/schema/brands";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -74,20 +75,34 @@ export type ResolvedClientPageGraph = {
 	readonly contributors: readonly ClientPageCodeContributor[];
 };
 
-export const resolveClientPageGraph = <E, R>(input: {
+type ClientPageGraphCommon<E, R> = {
 	readonly userId: UserId;
+	readonly plugins: ReadonlyArray<AvailablePlugin>;
+	readonly loadPluginFiles: (
+		plugin: AvailablePlugin,
+	) => Effect.Effect<Readonly<Record<string, Uint8Array>> | null, E, R>;
+};
+
+type RendererClientPageGraphInput<E, R> = ClientPageGraphCommon<E, R> & {
 	readonly rendererName: string;
 	readonly publishedHash: string;
 	readonly rendererId: ClientRendererId;
 	readonly definition: ClientRendererDefinition;
-	readonly plugins: ReadonlyArray<AvailablePlugin>;
 	readonly rendererFiles: Readonly<Record<string, Uint8Array>>;
-	readonly loadPluginFiles: (
-		plugin: AvailablePlugin,
-	) => Effect.Effect<Readonly<Record<string, Uint8Array>> | null, E, R>;
-}): Effect.Effect<ResolvedClientPageGraph, ClientRendererBadRequest | E, R> =>
+};
+
+type PluginClientPageGraphInput<E, R> = ClientPageGraphCommon<E, R> & {
+	readonly exportName: string;
+	readonly plugin: AvailablePlugin;
+	readonly application: "page" | "plugin-route";
+};
+
+export const resolveClientPageGraph = <E, R>(
+	input: RendererClientPageGraphInput<E, R> | PluginClientPageGraphInput<E, R>,
+): Effect.Effect<ResolvedClientPageGraph, ClientRendererBadRequest | E, R> =>
 	Effect.gen(function* () {
-		const rendererNamespace = namespaceFor("renderer", input.rendererId);
+		const isRenderer = "definition" in input;
+		const rendererNamespace = isRenderer ? namespaceFor("renderer", input.rendererId) : null;
 		const catalog = new Map(input.plugins.map((plugin) => [plugin.slug, plugin]));
 		const included = new Map<string, AvailablePlugin>();
 		const files = new Map<string, Readonly<Record<string, Uint8Array>>>();
@@ -115,13 +130,76 @@ export const resolveClientPageGraph = <E, R>(input: {
 				return yield* Effect.void;
 			});
 
-		for (const dependency of sortBy(input.definition.pluginDependencies)) {
-			yield* includePlugin(dependency);
+		if (isRenderer) {
+			for (const dependency of sortBy(input.definition.pluginDependencies)) {
+				yield* includePlugin(dependency);
+			}
+		} else {
+			if (input.plugin.health !== "ready" || !input.plugin.manifest.client) {
+				return yield* dependencyUnavailable(input.plugin.slug);
+			}
+			catalog.set(input.plugin.slug, input.plugin);
+			yield* includePlugin(input.plugin.slug);
 		}
 
-		const selectedExports = new Set<string>();
 		const visited = new Set<string>();
-		let automaticEntityPresentations = input.definition.automaticEntityPresentations;
+		const selectedExports = new Set<string>();
+		const routeRegistry =
+			!isRenderer && input.application === "plugin-route"
+				? (() => {
+						const routes = Object.entries(input.plugin.manifest.client?.routes ?? {}).sort(
+							([left], [right]) => comparePluginRoutePaths(left, right),
+						);
+						const home = routes.find(([path]) => path === "/")?.[1];
+						return home
+							? {
+									home: `@ryot-app/plugins/${input.plugin.slug}/${home}`,
+									routes: routes.flatMap(([path, exportName]) =>
+										path === "/"
+											? []
+											: [
+													{
+														path,
+														exportSpecifier: `@ryot-app/plugins/${input.plugin.slug}/${exportName}`,
+													},
+												],
+									),
+									...(input.plugin.manifest.client?.notFoundPage
+										? {
+												notFound: `@ryot-app/plugins/${input.plugin.slug}/${input.plugin.manifest.client.notFoundPage}`,
+											}
+										: {}),
+								}
+							: null;
+					})()
+				: null;
+		if (!isRenderer && input.application === "plugin-route" && !routeRegistry) {
+			return yield* exportNotFound(`@ryot-app/plugins/${input.plugin.slug}/route:/`);
+		}
+		const selectedPluginExport = isRenderer
+			? null
+			: input.plugin.manifest.client?.exports?.[
+					input.application === "plugin-route"
+						? (input.plugin.manifest.client.routes?.["/"] ?? "")
+						: input.exportName
+				];
+		if (!isRenderer && selectedPluginExport?.kind !== "page") {
+			return yield* exportNotFound(`@ryot-app/plugins/${input.plugin.slug}/${input.exportName}`);
+		}
+		let automaticEntityPresentations = isRenderer
+			? input.definition.automaticEntityPresentations
+			: (selectedPluginExport?.automaticEntityPresentations ?? false);
+		if (!isRenderer && input.application === "plugin-route") {
+			automaticEntityPresentations = [
+				...Object.values(input.plugin.manifest.client?.routes ?? {}),
+				input.plugin.manifest.client?.notFoundPage,
+			]
+				.filter((name): name is string => name !== undefined)
+				.some(
+					(name) =>
+						input.plugin.manifest.client?.exports?.[name]?.automaticEntityPresentations ?? false,
+				);
+		}
 
 		const scan = (
 			owner: { readonly slug: string | null; readonly dependencies: readonly string[] },
@@ -129,7 +207,7 @@ export const resolveClientPageGraph = <E, R>(input: {
 			ownerFiles: Readonly<Record<string, Uint8Array>>,
 		): Effect.Effect<void, ClientRendererBadRequest | E, R> =>
 			Effect.gen(function* () {
-				const key = `${owner.slug ?? rendererNamespace}:${path}`;
+				const key = `${owner.slug ?? rendererNamespace ?? "renderer"}:${path}`;
 				if (visited.has(key)) {
 					return yield* Effect.void;
 				}
@@ -176,11 +254,39 @@ export const resolveClientPageGraph = <E, R>(input: {
 				return yield* Effect.void;
 			});
 
-		yield* scan(
-			{ slug: null, dependencies: input.definition.pluginDependencies },
-			input.definition.entry,
-			input.rendererFiles,
-		);
+		if (isRenderer) {
+			yield* scan(
+				{ slug: null, dependencies: input.definition.pluginDependencies },
+				input.definition.entry,
+				input.rendererFiles,
+			);
+		} else {
+			const exportNames =
+				input.application === "plugin-route"
+					? [
+							...Object.values(input.plugin.manifest.client?.routes ?? {}),
+							...(input.plugin.manifest.client?.notFoundPage
+								? [input.plugin.manifest.client.notFoundPage]
+								: []),
+						]
+					: [input.exportName];
+			for (const exportName of sortBy([...new Set(exportNames)])) {
+				const specifier = `@ryot-app/plugins/${input.plugin.slug}/${exportName}`;
+				const declaration = input.plugin.manifest.client?.exports?.[exportName];
+				if (declaration?.kind !== "page") {
+					return yield* exportNotFound(specifier);
+				}
+				selectedExports.add(specifier);
+				yield* scan(
+					{
+						slug: input.plugin.slug,
+						dependencies: input.plugin.manifest.client?.pluginDependencies ?? [],
+					},
+					declaration.entry,
+					files.get(input.plugin.slug) ?? {},
+				);
+			}
+		}
 
 		const automaticRegistry: ClientPluginAutomaticRegistryEntry[] = [];
 		if (automaticEntityPresentations) {
@@ -240,31 +346,42 @@ export const resolveClientPageGraph = <E, R>(input: {
 				),
 			),
 		);
+		const entry = isRenderer
+			? { contributor: namespaceFor("renderer", input.rendererId), path: input.definition.entry }
+			: {
+					contributor: namespaceFor("plugin", input.plugin.id),
+					path: selectedPluginExport?.entry ?? "",
+				};
 		const identity: ClientPageGraphIdentity = {
+			entry,
 			format: CLIENT_ARTIFACT_FORMAT,
 			apiVersion: CLIENT_API_VERSION,
 			compilerVersion: CLIENT_COMPILER_VERSION,
 			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 			selectedExports: sortBy([...selectedExports]),
-			entry: { contributor: rendererNamespace, path: input.definition.entry },
 			kernelAutomaticFallback: automaticEntityPresentations
 				? { provider: "kernel", runtimeVersion: CLIENT_API_VERSION, layouts: ["grid", "list"] }
 				: null,
 			automaticRegistry: sortBy(
 				automaticRegistry,
-				(entry) => `${entry.ownerPluginId}/${entry.entitySchemaSlug}/${entry.layout}`,
+				(registration) =>
+					`${registration.ownerPluginId}/${registration.entitySchemaSlug}/${registration.layout}`,
 			),
 			contributors: [
-				{
-					kind: "renderer",
-					name: input.rendererName,
-					namespace: rendererNamespace,
-					rendererId: input.rendererId,
-					entry: input.definition.entry,
-					sourceHash: input.publishedHash,
-					pluginDependencies: sortBy(input.definition.pluginDependencies),
-					automaticEntityPresentations: input.definition.automaticEntityPresentations,
-				},
+				...(isRenderer
+					? [
+							{
+								kind: "renderer",
+								name: input.rendererName,
+								rendererId: input.rendererId,
+								entry: input.definition.entry,
+								sourceHash: input.publishedHash,
+								namespace: namespaceFor("renderer", input.rendererId),
+								pluginDependencies: sortBy(input.definition.pluginDependencies),
+								automaticEntityPresentations: input.definition.automaticEntityPresentations,
+							} as const,
+						]
+					: []),
 				...orderedPlugins.map((plugin) => ({
 					pluginId: plugin.id,
 					kind: "plugin" as const,
@@ -300,17 +417,20 @@ export const resolveClientPageGraph = <E, R>(input: {
 		return {
 			identity,
 			contributors,
-			graphHash: sha256Hex(stableStringify(identity)),
+			graphHash: sha256Hex(stableStringify({ identity, routeRegistry })),
 			compilerInput: {
 				publicExports,
-				application: "page",
 				entry: identity.entry,
-				name: input.rendererName,
 				apiVersion: CLIENT_API_VERSION,
+				...(routeRegistry ? { routeRegistry } : {}),
 				automaticRegistry: identity.automaticRegistry,
+				application: isRenderer ? "page" : input.application,
+				name: isRenderer ? input.rendererName : input.plugin.manifest.metadata.name,
 				contributorOrder: identity.contributors.map(({ namespace }) => namespace),
 				contributors: {
-					[rendererNamespace]: { files: input.rendererFiles },
+					...(isRenderer && rendererNamespace
+						? { [rendererNamespace]: { files: input.rendererFiles } }
+						: {}),
 					...Object.fromEntries(
 						orderedPlugins.map((plugin) => [
 							namespaceFor("plugin", plugin.id),

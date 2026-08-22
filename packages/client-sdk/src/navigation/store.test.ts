@@ -23,6 +23,7 @@ const routeLocation = (path: string, search = ""): PluginRouteLocation => ({
 const entityLocation = (entityId: string) =>
 	Schema.decodeUnknownSync(PluginEntityLocation)({
 		entityId,
+		search: "",
 		kind: "entity",
 		entitySchemaSlug: "media-movie",
 	});

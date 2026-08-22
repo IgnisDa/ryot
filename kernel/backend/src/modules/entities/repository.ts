@@ -447,6 +447,32 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				return row ? toListedEntity(row) : null;
 			});
 
+			const getClientPageEntityForUser = Effect.fn("EntitiesRepository.getClientPageEntityForUser")(
+				function* (input: { userId: UserId; entityId: EntityId }) {
+					const db = yield* Database;
+					const [row] = yield* mapDatabaseErrors(
+						db
+							.select({
+								entityId: schema.entity.id,
+								entitySchemaSlug: schema.entity.entitySchemaSlug,
+								entitySchemaPluginId: schema.entity.entitySchemaPluginId,
+							})
+							.from(schema.entity)
+							.where(
+								and(eq(schema.entity.id, input.entityId), entityVisibleToUserClause(input.userId)),
+							)
+							.limit(1),
+					);
+					return row
+						? {
+								...row,
+								entityId: EntityId.make(row.entityId),
+								entitySchemaSlug: EntitySchemaSlug.make(row.entitySchemaSlug),
+							}
+						: null;
+				},
+			);
+
 			const getById = Effect.fn("EntitiesRepository.getById")(function* (entityId: EntityId) {
 				const db = yield* Database;
 				const [row] = yield* mapDatabaseErrors(
@@ -803,6 +829,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				findEntitySchemaForUser,
 				listEntityReferencesByIds,
 				listUserEntitiesForBackup,
+				getClientPageEntityForUser,
 				lockUserEntityEnsureScopes,
 				getEntityMergeScopeForUser,
 				findGlobalEntityForRestore,

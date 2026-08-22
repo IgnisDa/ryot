@@ -309,7 +309,9 @@ describe("definePlugin", () => {
 		const client = {
 			apiVersion: 1 as const,
 			entry: "client/index.tsx",
+			notFoundPage: "dashboard",
 			pluginDependencies: ["media", "private-fixture"],
+			routes: { "/": "dashboard", "/things/$thingId": "dashboard" },
 			entities: { thing: { detailPage: "dashboard", gridPresentation: "row" } },
 			exports: {
 				dashboard: {
@@ -361,6 +363,8 @@ describe("definePlugin", () => {
 			{ ...client, pluginDependencies: ["media", "media"] },
 			{ ...client, entities: { missing: { gridPresentation: "row" } } },
 			{ ...client, entities: { thing: { gridPresentation: "card" } } },
+			{ ...client, routes: { "/": "card" } },
+			{ ...client, notFoundPage: "missing" },
 		];
 		expect(
 			invalidClients.map((invalidClient) =>
@@ -371,7 +375,7 @@ describe("definePlugin", () => {
 					}),
 				),
 			),
-		).toEqual([true, true, true, true, true, true, true]);
+		).toEqual([true, true, true, true, true, true, true, true, true]);
 	});
 
 	it("rejects non-TypeScript client entries outside client/ or with noncanonical paths", () => {

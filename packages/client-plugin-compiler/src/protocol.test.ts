@@ -2,6 +2,7 @@ import { expect, it } from "@effect/vitest";
 import {
 	CLIENT_API_VERSION,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
+	CLIENT_COMPILER_VERSION,
 } from "@ryot-app/client-plugin-contract";
 import { Effect } from "effect";
 
@@ -32,7 +33,7 @@ it.effect("round trips request and response bytes through canonical Base64", () 
 			format: 1,
 			hash: "hash",
 			apiVersion: 1,
-			compilerVersion: 1,
+			compilerVersion: CLIENT_COMPILER_VERSION,
 			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 			files: [
 				{ name: "asset.png", contents: new Uint8Array([0xff, 0x00]), contentType: "image/png" },
@@ -84,6 +85,31 @@ it.effect("round trips namespaced contributor graphs and authorized exports", ()
 					contributor: "plugin-id",
 					kind: "component" as const,
 				},
+			},
+		};
+		const decoded = yield* decodeClientCompilerWorkerRequest(
+			encodeClientCompilerWorkerRequest(request),
+		);
+		expect(decoded).toEqual(request);
+	}),
+);
+
+it.effect("round trips a generated plugin route registry", () =>
+	Effect.gen(function* () {
+		const request = {
+			publicExports: {},
+			name: "Fixture routes",
+			contributorOrder: ["fixture"],
+			apiVersion: CLIENT_API_VERSION,
+			application: "plugin-route" as const,
+			entry: { contributor: "fixture", path: "client/home.tsx" },
+			contributors: { fixture: { files: { "client/home.tsx": new Uint8Array([0x01]) } } },
+			routeRegistry: {
+				home: "@ryot-app/plugins/fixture/home",
+				notFound: "@ryot-app/plugins/fixture/not-found",
+				routes: [
+					{ path: "/details/$itemId", exportSpecifier: "@ryot-app/plugins/fixture/details" },
+				],
 			},
 		};
 		const decoded = yield* decodeClientCompilerWorkerRequest(

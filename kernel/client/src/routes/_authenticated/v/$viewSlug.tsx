@@ -133,17 +133,9 @@ const layoutOptions = (["grid", "list", "table"] as const).map((layout) => ({
 function SavedViewPage() {
 	const loaded = Route.useLoaderData();
 	if (loaded.kind === "page") {
-		return <CustomSavedViewPage name={loaded.record.name} prepared={loaded.prepared} />;
+		return <ClientPageHost title={loaded.record.name} prepared={loaded.prepared} />;
 	}
 	return <LegacySavedViewPage />;
-}
-
-function CustomSavedViewPage(props: {
-	readonly name: string;
-	readonly prepared: Parameters<typeof ClientPageHost>[0]["prepared"];
-}) {
-	usePageTitle(props.name);
-	return <ClientPageHost prepared={props.prepared} />;
 }
 
 function LegacySavedViewPage() {
@@ -930,7 +922,7 @@ function SavedViewNotFound() {
 	return <SavedViewNotice title="Saved view not found" message="This saved view does not exist." />;
 }
 
-function SavedViewError(props: { readonly error: Error }) {
+function SavedViewError(props: { readonly error: unknown }) {
 	const router = useRouter();
 	const invalidDefinition =
 		props.error instanceof SavedViewLoadError &&
