@@ -24,6 +24,11 @@ export class AuthRateLimited extends Schema.TaggedError<AuthRateLimited>()("Auth
 	reason: AuthRateLimitReason,
 }) {}
 
+export class DemoOperationProtected extends Schema.TaggedError<DemoOperationProtected>()(
+	"DemoOperationProtected",
+	{ reason: Schema.Struct({ code: Schema.Literal("demo-operation-protected") }) },
+) {}
+
 export type CachedUserPreferences = {
 	readonly allowNsfw: boolean;
 	readonly language: string | null;
@@ -78,14 +83,15 @@ export class AuthMiddleware extends HttpApiMiddleware.Service<
 	AuthMiddleware,
 	{ provides: AuthorizationContext | CurrentUser }
 >()("AuthMiddleware", {
-	error: [
-		AuthUnauthorized.pipe(HttpApiSchema.status(401)),
-		AuthRateLimited.pipe(HttpApiSchema.status(429)),
-	],
 	security: {
 		oauth: HttpApiSecurity.bearer,
 		apiKey: HttpApiSecurity.apiKey({ in: "header", key: "x-api-key" }),
 	},
+	error: [
+		AuthUnauthorized.pipe(HttpApiSchema.status(401)),
+		DemoOperationProtected.pipe(HttpApiSchema.status(403)),
+		AuthRateLimited.pipe(HttpApiSchema.status(429)),
+	],
 }) {}
 
 export class AdminMiddleware extends HttpApiMiddleware.Service<

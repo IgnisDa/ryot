@@ -624,6 +624,7 @@ CREATE TABLE "session" (
 	"user_agent" text,
 	"id" text PRIMARY KEY,
 	"token" text NOT NULL UNIQUE,
+	"access_class" text DEFAULT 'standard' NOT NULL,
 	"expires_at" timestamp with time zone NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"user_id" text NOT NULL,

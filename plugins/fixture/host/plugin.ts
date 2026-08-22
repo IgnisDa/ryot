@@ -21,14 +21,6 @@ export const fixturePlugin = definePlugin({
 	integrationProviders: [],
 	savedViews: fixtureSavedViews,
 	configSchema: { fields: {}, unknownKeys: "strict" },
-	operations: [
-		{
-			auth: "user",
-			slug: "greet",
-			scriptSlug: "operation.greet",
-			description: "Return a deterministic greeting for the caller",
-		},
-	],
 	metadata: {
 		icon: "puzzle",
 		slug: "fixture",
@@ -36,6 +28,15 @@ export const fixturePlugin = definePlugin({
 		version: "1.0.0",
 		description: "A client plugin fixture used by the web client tracer.",
 	},
+	operations: [
+		{
+			auth: "user",
+			slug: "greet",
+			demoAccess: "allowed",
+			scriptSlug: "operation.greet",
+			description: "Return a deterministic greeting for the caller",
+		},
+	],
 	providers: [
 		{
 			name: "PokeAPI",
