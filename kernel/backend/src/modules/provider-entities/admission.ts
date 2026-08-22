@@ -3,7 +3,6 @@ import { Context, Duration, Effect, Layer, Option, Queue, Schema } from "effect"
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 import { ProviderImportAdmissionRepository } from "./admission-repository";
@@ -53,9 +52,7 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 						finished.push(row.id);
 					}
 				}
-				const admitted = yield* mapDatabaseErrors(
-					session.transaction(repository.admit({ limit, finished })),
-				);
+				const admitted = yield* session.transaction(repository.admit({ limit, finished }));
 				yield* Effect.forEach(admitted, start, { discard: true });
 				return yield* repository.hasPending();
 			}).pipe(Effect.provideService(DatabaseSession, session));
@@ -74,18 +71,16 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 				userId: UserId;
 			}) {
 				const encoded = yield* encodePayload(input.payload).pipe(Effect.orDie);
-				const outcome = yield* mapDatabaseErrors(
-					session.transaction(
-						repository.enqueue({
-							payload: encoded,
-							userId: input.userId,
-							id: input.payload.executionId,
-							externalId: input.payload.externalId,
-							providerId: input.payload.providerId,
-							backlogLimit: PROVIDER_IMPORT_USER_BACKLOG_LIMIT,
-							entitySchemaSlug: input.payload.entitySchemaSlug,
-						}),
-					),
+				const outcome = yield* session.transaction(
+					repository.enqueue({
+						payload: encoded,
+						userId: input.userId,
+						id: input.payload.executionId,
+						externalId: input.payload.externalId,
+						providerId: input.payload.providerId,
+						backlogLimit: PROVIDER_IMPORT_USER_BACKLOG_LIMIT,
+						entitySchemaSlug: input.payload.entitySchemaSlug,
+					}),
 				);
 				if (outcome.status === "queued") {
 					yield* wake;

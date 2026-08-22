@@ -14,7 +14,7 @@ import { DateTime, Effect, Schema } from "effect";
 
 import { LifecycleDispatchPlan, toLifecycleDispatchPlan } from "#lib/domain/lifecycle";
 import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
-import { mapDatabaseErrors, retryOnDeadlock } from "#lib/infrastructure/db/service";
+import { retryOnDeadlock } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import type { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
 import { EntityMutationOutcome } from "#modules/entities/mutation-outcomes";
@@ -140,82 +140,80 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 		.map((childEntity, index) => ({ index, childEntity }))
 		.sort((left, right) => left.childEntity.externalId.localeCompare(right.childEntity.externalId));
 	const committed = yield* retryOnDeadlock(
-		mapDatabaseErrors(
-			session.transaction(
-				Effect.gen(function* () {
-					if (orderedChildEntities.length > 0 && !childEntitySchemaSlug) {
-						return yield* Effect.die("Validated child schema is missing");
-					}
-					const childEntities = childEntitySchemaSlug
-						? orderedChildEntities.map(({ childEntity }) => ({
-								...scope,
-								name: childEntity.name,
-								providerId: input.providerId,
-								externalId: childEntity.externalId,
-								properties: childEntity.properties,
-								updateExisting: input.syncExisting ?? false,
-								entitySchemaSlug: EntitySchemaSlug.make(childEntitySchemaSlug),
-								populatedAt: DateTime.toDateUtc(DateTime.makeUnsafe(input.command.occurredAt)),
-								lifecycle: commandFor(
-									input.command,
-									["child", String(input.parentEntityId), childEntity.externalId],
-									input.population,
-								),
-							}))
-						: [];
-					const upserts = yield* entities.persistPlannedProviderUpserts({
-						items: childEntities,
-						batch: {
-							command: { ...input.command, population: input.population },
-							identity: ["children", String(input.parentEntityId), "entities"],
-						},
-					});
-					const processedChildrenByIndex: Array<ProcessedChildEntity | undefined> = Array.from({
-						length: input.childEntities.length,
-					});
-					for (const [position, { index }] of orderedChildEntities.entries()) {
-						const result = upserts.results[position];
-						if (!result || !childEntitySchemaSlug) {
-							return yield* Effect.die("Planned child entity upsert is missing its result");
-						}
-						processedChildrenByIndex[index] = {
-							entity: result.entity,
-							entityOutcome: result.outcome,
+		session.transaction(
+			Effect.gen(function* () {
+				if (orderedChildEntities.length > 0 && !childEntitySchemaSlug) {
+					return yield* Effect.die("Validated child schema is missing");
+				}
+				const childEntities = childEntitySchemaSlug
+					? orderedChildEntities.map(({ childEntity }) => ({
+							...scope,
+							name: childEntity.name,
+							providerId: input.providerId,
+							externalId: childEntity.externalId,
+							properties: childEntity.properties,
+							updateExisting: input.syncExisting ?? false,
 							entitySchemaSlug: EntitySchemaSlug.make(childEntitySchemaSlug),
-						};
+							populatedAt: DateTime.toDateUtc(DateTime.makeUnsafe(input.command.occurredAt)),
+							lifecycle: commandFor(
+								input.command,
+								["child", String(input.parentEntityId), childEntity.externalId],
+								input.population,
+							),
+						}))
+					: [];
+				const upserts = yield* entities.persistPlannedProviderUpserts({
+					items: childEntities,
+					batch: {
+						command: { ...input.command, population: input.population },
+						identity: ["children", String(input.parentEntityId), "entities"],
+					},
+				});
+				const processedChildrenByIndex: Array<ProcessedChildEntity | undefined> = Array.from({
+					length: input.childEntities.length,
+				});
+				for (const [position, { index }] of orderedChildEntities.entries()) {
+					const result = upserts.results[position];
+					if (!result || !childEntitySchemaSlug) {
+						return yield* Effect.die("Planned child entity upsert is missing its result");
 					}
-					const entityPlans = upserts.plans;
-					const processedChildren = processedChildrenByIndex.flatMap((child) =>
-						child ? [child] : [],
-					);
-					const relationshipWork = relationshipDefinition
-						? yield* persistPlannedRelationshipSynchronization({
-								...scope,
-								direction: "outgoing",
-								onConflict: "preserveExisting",
-								synchronization: "authoritative",
-								anchorEntityId: input.parentEntityId,
-								relationshipSchemaPluginId: relationshipDefinition.pluginId ?? null,
-								relationshipSchemaSlug: RelationshipSchemaSlug.make(relationshipDefinition.slug),
-								entries: processedChildren.map((child) => ({
-									properties: {},
-									entityId: child.entity.id,
-								})),
-								command: relationshipBatch(
-									input.command,
-									["children", String(input.parentEntityId), relationshipDefinition.slug],
-									input.population,
-								),
-							})
-						: { plans: [], result: [] };
-					return {
-						entityPlans,
-						processedChildren,
-						relationshipPlans: relationshipWork.plans,
-						relationshipResults: relationshipWork.result,
+					processedChildrenByIndex[index] = {
+						entity: result.entity,
+						entityOutcome: result.outcome,
+						entitySchemaSlug: EntitySchemaSlug.make(childEntitySchemaSlug),
 					};
-				}),
-			),
+				}
+				const entityPlans = upserts.plans;
+				const processedChildren = processedChildrenByIndex.flatMap((child) =>
+					child ? [child] : [],
+				);
+				const relationshipWork = relationshipDefinition
+					? yield* persistPlannedRelationshipSynchronization({
+							...scope,
+							direction: "outgoing",
+							onConflict: "preserveExisting",
+							synchronization: "authoritative",
+							anchorEntityId: input.parentEntityId,
+							relationshipSchemaPluginId: relationshipDefinition.pluginId ?? null,
+							relationshipSchemaSlug: RelationshipSchemaSlug.make(relationshipDefinition.slug),
+							entries: processedChildren.map((child) => ({
+								properties: {},
+								entityId: child.entity.id,
+							})),
+							command: relationshipBatch(
+								input.command,
+								["children", String(input.parentEntityId), relationshipDefinition.slug],
+								input.population,
+							),
+						})
+					: { plans: [], result: [] };
+				return {
+					entityPlans,
+					processedChildren,
+					relationshipPlans: relationshipWork.plans,
+					relationshipResults: relationshipWork.result,
+				};
+			}),
 		),
 	).pipe(mapDbErrorToSandbox);
 	return {

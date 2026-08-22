@@ -34,7 +34,6 @@ import type { Context } from "effect";
 import { Effect, Exit } from "effect";
 
 import * as authSchema from "#lib/infrastructure/db/schema/tables/auth";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import type { DatabaseSession } from "#lib/infrastructure/db/session";
 import type { RedisService } from "#lib/infrastructure/redis";
 
@@ -374,25 +373,23 @@ export const effectPostgresAuthAdapter = (args: {
 	const transaction = <A, E>(
 		callback: (adapter: DBTransactionAdapter, db: DatabaseExecutor) => Effect.Effect<A, E>,
 	) =>
-		mapDatabaseErrors(
-			session.transaction(
-				Effect.gen(function* () {
-					const tx = yield* session.current;
-					const transactionContext = yield* Effect.context<DatabaseSession | RedisService>();
-					return yield* Effect.callback<A, E>((resume) => {
-						const adapter = makeFactory(tx, false)(options);
-						void Promise.resolve(
-							runWithAdapter(adapter, () =>
-								Effect.runPromiseExitWith(transactionContext)(callback(adapter, tx)),
-							),
-						).then((exit) =>
-							resume(
-								Exit.isSuccess(exit) ? Effect.succeed(exit.value) : Effect.failCause(exit.cause),
-							),
-						);
-					});
-				}),
-			),
+		session.transaction(
+			Effect.gen(function* () {
+				const tx = yield* session.current;
+				const transactionContext = yield* Effect.context<DatabaseSession | RedisService>();
+				return yield* Effect.callback<A, E>((resume) => {
+					const adapter = makeFactory(tx, false)(options);
+					void Promise.resolve(
+						runWithAdapter(adapter, () =>
+							Effect.runPromiseExitWith(transactionContext)(callback(adapter, tx)),
+						),
+					).then((exit) =>
+						resume(
+							Exit.isSuccess(exit) ? Effect.succeed(exit.value) : Effect.failCause(exit.cause),
+						),
+					);
+				});
+			}),
 		);
 
 	return Object.assign(database, { transaction });

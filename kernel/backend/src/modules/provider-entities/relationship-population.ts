@@ -16,7 +16,7 @@ import { Effect } from "effect";
 
 import { toLifecycleDispatchPlan } from "#lib/domain/lifecycle";
 import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
-import { mapDatabaseErrors, retryOnDeadlock } from "#lib/infrastructure/db/service";
+import { retryOnDeadlock } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import type { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
@@ -178,69 +178,67 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 		input.group.direction,
 	];
 	const committed = yield* retryOnDeadlock(
-		mapDatabaseErrors(
-			session.transaction(
-				Effect.gen(function* () {
-					const upserts = yield* entities.persistPlannedProviderUpserts({
-						batch: {
-							identity: [...itemIdentity, "entities"],
-							command: { ...input.command, population: input.population },
-						},
-						items: resolvedRelatedEntities.map(({ relatedEntity, schemaProvider }) => ({
-							...scope,
-							properties: {},
-							populatedAt: null,
-							updateExisting: false,
-							name: relatedEntity.name,
-							externalId: relatedEntity.externalId,
-							providerId: schemaProvider.providerId,
-							entitySchemaSlug: schemaProvider.entitySchemaSlug,
-							lifecycle: commandFor(
-								input.command,
-								[...itemIdentity, relatedEntity.providerSlug, relatedEntity.externalId],
-								input.population,
-							),
-						})),
-					});
-					const entityPlans = upserts.plans;
-					const entries: Array<{ entityId: EntityId; properties: Record<string, unknown> }> = [];
-					for (const [index, { properties }] of resolvedRelatedEntities.entries()) {
-						const result = upserts.results[index];
-						if (!result) {
-							return yield* Effect.die("Planned related entity upsert is missing its result");
-						}
-						entries.push({ properties, entityId: result.entity.id });
-					}
-					const relationshipWork = yield* persistPlannedRelationshipSynchronization({
+		session.transaction(
+			Effect.gen(function* () {
+				const upserts = yield* entities.persistPlannedProviderUpserts({
+					batch: {
+						identity: [...itemIdentity, "entities"],
+						command: { ...input.command, population: input.population },
+					},
+					items: resolvedRelatedEntities.map(({ relatedEntity, schemaProvider }) => ({
 						...scope,
-						entries,
-						direction: input.group.direction,
-						anchorEntityId: input.primaryEntityId,
-						synchronization: input.group.synchronization,
-						relationshipSchemaSlug: relationshipSchema.id,
-						relationshipSchemaPluginId: relationshipSchema.pluginId,
-						onConflict:
-							input.group.synchronization === "additive" ? "preserveExisting" : "replaceProperties",
-						command: commandFor(input.command, itemIdentity, {
-							...input.population,
-							batch: {
-								afterCount: 0,
-								beforeCount: 0,
-								isLeader: true,
-								createdCount: 0,
-								deletedCount: 0,
-								updatedCount: 0,
-								id: stableStringify([input.command.causation.executionId, ...itemIdentity]),
-							},
-						}),
-					});
-					return {
-						entityPlans,
-						result: relationshipWork.result,
-						relationshipPlans: relationshipWork.plans,
-					};
-				}),
-			),
+						properties: {},
+						populatedAt: null,
+						updateExisting: false,
+						name: relatedEntity.name,
+						externalId: relatedEntity.externalId,
+						providerId: schemaProvider.providerId,
+						entitySchemaSlug: schemaProvider.entitySchemaSlug,
+						lifecycle: commandFor(
+							input.command,
+							[...itemIdentity, relatedEntity.providerSlug, relatedEntity.externalId],
+							input.population,
+						),
+					})),
+				});
+				const entityPlans = upserts.plans;
+				const entries: Array<{ entityId: EntityId; properties: Record<string, unknown> }> = [];
+				for (const [index, { properties }] of resolvedRelatedEntities.entries()) {
+					const result = upserts.results[index];
+					if (!result) {
+						return yield* Effect.die("Planned related entity upsert is missing its result");
+					}
+					entries.push({ properties, entityId: result.entity.id });
+				}
+				const relationshipWork = yield* persistPlannedRelationshipSynchronization({
+					...scope,
+					entries,
+					direction: input.group.direction,
+					anchorEntityId: input.primaryEntityId,
+					synchronization: input.group.synchronization,
+					relationshipSchemaSlug: relationshipSchema.id,
+					relationshipSchemaPluginId: relationshipSchema.pluginId,
+					onConflict:
+						input.group.synchronization === "additive" ? "preserveExisting" : "replaceProperties",
+					command: commandFor(input.command, itemIdentity, {
+						...input.population,
+						batch: {
+							afterCount: 0,
+							beforeCount: 0,
+							isLeader: true,
+							createdCount: 0,
+							deletedCount: 0,
+							updatedCount: 0,
+							id: stableStringify([input.command.causation.executionId, ...itemIdentity]),
+						},
+					}),
+				});
+				return {
+					entityPlans,
+					result: relationshipWork.result,
+					relationshipPlans: relationshipWork.plans,
+				};
+			}),
 		),
 	).pipe(mapDbErrorToSandbox);
 	return {

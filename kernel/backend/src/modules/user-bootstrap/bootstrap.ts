@@ -53,13 +53,11 @@ const markBootstrapComplete = Effect.fn(function* (userId: string, image: string
 export const performBootstrap = Effect.fn(function* (userId: string) {
 	const user = UserId.make(userId);
 	const session = yield* DatabaseSession;
-	const alreadyComplete = yield* mapDatabaseErrors(
-		session.transaction(
-			Effect.gen(function* () {
-				yield* acquireBootstrapLock(userId);
-				return (yield* readBootstrapState(userId)).bootstrapCompletedAt !== null;
-			}),
-		),
+	const alreadyComplete = yield* session.transaction(
+		Effect.gen(function* () {
+			yield* acquireBootstrapLock(userId);
+			return (yield* readBootstrapState(userId)).bootstrapCompletedAt !== null;
+		}),
 	);
 	if (alreadyComplete) {
 		return;
@@ -69,21 +67,18 @@ export const performBootstrap = Effect.fn(function* (userId: string) {
 	yield* pluginInstallations.provisionSystemInstallations(user);
 	yield* pluginBootstrap.dispatchAll(user);
 	yield* (yield* ClientSurfaceMaterializer).materializeUserCompositions(user);
-	yield* mapDatabaseErrors(
-		session.transaction(
-			Effect.gen(function* () {
-				yield* acquireBootstrapLock(userId);
-				const state = yield* readBootstrapState(userId);
-				if (state.bootstrapCompletedAt !== null) {
-					return;
-				}
-				const notificationSubscriptions = yield* NotificationSubscriptionsService;
-				yield* notificationSubscriptions.ensureDefaultRules(user);
-				const avatar =
-					state.image === null || state.image === "" ? generateUserAvatar(userId) : null;
-				yield* markBootstrapComplete(userId, avatar);
-			}),
-		),
+	yield* session.transaction(
+		Effect.gen(function* () {
+			yield* acquireBootstrapLock(userId);
+			const state = yield* readBootstrapState(userId);
+			if (state.bootstrapCompletedAt !== null) {
+				return;
+			}
+			const notificationSubscriptions = yield* NotificationSubscriptionsService;
+			yield* notificationSubscriptions.ensureDefaultRules(user);
+			const avatar = state.image === null || state.image === "" ? generateUserAvatar(userId) : null;
+			yield* markBootstrapComplete(userId, avatar);
+		}),
 	);
 });
 

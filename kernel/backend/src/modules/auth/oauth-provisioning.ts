@@ -15,7 +15,6 @@ import {
 import { Context, DateTime, Effect, Layer, Option } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 import {
@@ -108,21 +107,19 @@ export class OAuthProvisioningService extends Context.Service<OAuthProvisioningS
 					now,
 					Option.isSome(config.users.demoAccountId),
 				);
-				yield* mapDatabaseErrors(
-					database.transaction(
-						Effect.gen(function* () {
-							for (const client of records.clients) {
-								yield* repository.upsertInternalOAuthClient(client);
-							}
-							yield* repository.deleteInternalOAuthClientResources(
-								records.clients.map(({ clientId }) => clientId),
-							);
-							yield* repository.upsertInternalOAuthResource(records.resource);
-							for (const link of records.links) {
-								yield* repository.upsertInternalOAuthClientResource(link);
-							}
-						}),
-					),
+				yield* database.transaction(
+					Effect.gen(function* () {
+						for (const client of records.clients) {
+							yield* repository.upsertInternalOAuthClient(client);
+						}
+						yield* repository.deleteInternalOAuthClientResources(
+							records.clients.map(({ clientId }) => clientId),
+						);
+						yield* repository.upsertInternalOAuthResource(records.resource);
+						for (const link of records.links) {
+							yield* repository.upsertInternalOAuthClientResource(link);
+						}
+					}),
 				);
 				yield* Effect.logInfo("internal OAuth provisioning complete").pipe(
 					Effect.annotateLogs({
