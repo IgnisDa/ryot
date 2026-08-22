@@ -18,8 +18,10 @@ it.effect("round trips request and response bytes through canonical Base64", () 
 		const request = {
 			name: "Fixture plugin",
 			entry: "client/index.tsx",
+			pluginDependencies: ["media"],
 			apiVersion: CLIENT_API_VERSION,
 			files: { "client/index.tsx": new Uint8Array([0x00, 0xff, 0x7f]) },
+			publicExports: { summary: { entry: "client/summary.tsx", kind: "component" as const } },
 		};
 		const decodedRequest = yield* decodeClientCompilerWorkerRequest(
 			encodeClientCompilerWorkerRequest(request),
@@ -60,5 +62,33 @@ it.effect("rejects non-canonical and invalid Base64", () =>
 			).pipe(Effect.flip);
 			expect(String(failure)).toContain("Base64");
 		}
+	}),
+);
+
+it.effect("round trips namespaced contributor graphs and authorized exports", () =>
+	Effect.gen(function* () {
+		const request = {
+			name: "Composed page",
+			automaticRegistry: [],
+			application: "page" as const,
+			apiVersion: CLIENT_API_VERSION,
+			contributorOrder: ["user-id", "plugin-id"],
+			entry: { contributor: "user-id", path: "client/page.tsx" },
+			contributors: {
+				"user-id": { files: { "client/page.tsx": new Uint8Array([0xff, 0x00]) } },
+				"plugin-id": { files: { "client/card.tsx": new Uint8Array([0x01, 0x02]) } },
+			},
+			publicExports: {
+				"@ryot-app/plugins/media/card": {
+					entry: "client/card.tsx",
+					contributor: "plugin-id",
+					kind: "component" as const,
+				},
+			},
+		};
+		const decoded = yield* decodeClientCompilerWorkerRequest(
+			encodeClientCompilerWorkerRequest(request),
+		);
+		expect(decoded).toEqual(request);
 	}),
 );

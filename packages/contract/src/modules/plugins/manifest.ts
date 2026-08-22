@@ -15,6 +15,14 @@ const strictParseOptions = {
 
 export const CLIENT_API_VERSION = 1 as const;
 
+const pluginManifestSlug = Schema.String.pipe(
+	Schema.check(
+		Schema.makeFilter((value) =>
+			/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(value) ? true : "Expected a plugin manifest slug",
+		),
+	),
+);
+
 const PluginClientSourceEntry = Schema.String.pipe(
 	Schema.check(
 		Schema.makeFilter((entry) =>
@@ -26,13 +34,6 @@ const PluginClientSourceEntry = Schema.String.pipe(
 		),
 	),
 );
-
-export const PluginClientEntry = strictStruct({
-	entry: PluginClientSourceEntry,
-	apiVersion: Schema.Literal(CLIENT_API_VERSION),
-});
-
-export type PluginClientEntry = Schema.Schema.Type<typeof PluginClientEntry>;
 
 const hasDynamicChoices = (property: AppPropertyDefinition): boolean => {
 	if (
@@ -90,6 +91,63 @@ const PluginAppSchema = Schema.toType(AppSchema).pipe(
 		),
 	),
 );
+
+const PluginClientExportFields = {
+	entry: PluginClientSourceEntry,
+	automaticEntityPresentations: Schema.Boolean,
+};
+
+export const PluginClientExport = Schema.Union([
+	strictStruct({ ...PluginClientExportFields, kind: Schema.Literal("component") }),
+	strictStruct({ ...PluginClientExportFields, kind: Schema.Literal("presentation") }),
+	strictStruct({
+		...PluginClientExportFields,
+		settingsSchema: PluginAppSchema,
+		kind: Schema.Literal("page"),
+	}),
+]);
+
+export type PluginClientExport = Schema.Schema.Type<typeof PluginClientExport>;
+
+const PluginClientExports = Schema.Record(Schema.String, PluginClientExport).pipe(
+	Schema.check(
+		Schema.makeFilter((exports) =>
+			Object.keys(exports).every((name) => /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(name))
+				? true
+				: "Expected canonical public client export names",
+		),
+	),
+);
+
+const PluginClientDependencies = Schema.Array(pluginManifestSlug).pipe(
+	Schema.check(
+		Schema.makeFilter((dependencies) =>
+			new Set(dependencies).size === dependencies.length
+				? true
+				: "Expected unique plugin client dependencies",
+		),
+	),
+);
+
+export const PluginClientEntry = strictStruct({
+	entry: PluginClientSourceEntry,
+	exports: Schema.optional(PluginClientExports),
+	apiVersion: Schema.Literal(CLIENT_API_VERSION),
+	pluginDependencies: Schema.optional(PluginClientDependencies),
+	entities: Schema.optional(
+		Schema.Record(
+			pluginManifestSlug,
+			strictStruct({
+				detailPage: Schema.optional(pluginManifestSlug),
+				gridPresentation: Schema.optional(pluginManifestSlug),
+				listPresentation: Schema.optional(pluginManifestSlug),
+			}),
+		),
+	),
+});
+
+export type PluginClientEntry = Schema.Schema.Type<typeof PluginClientEntry>;
+
 const PluginQueryDocument = Schema.toType(RyotQLDocument);
 
 export const PluginMetadata = strictStruct({
@@ -198,13 +256,7 @@ const sandboxManifestString = Schema.String.pipe(
 	),
 );
 
-const sandboxManifestSlug = Schema.String.pipe(
-	Schema.check(
-		Schema.makeFilter((value) =>
-			/^[a-z0-9]+(?:[._-][a-z0-9]+)*$/.test(value) ? true : "Expected a sandbox manifest slug",
-		),
-	),
-);
+const sandboxManifestSlug = pluginManifestSlug;
 
 const normalizeHttpOrigin = (value: string) => {
 	const parsed = Result.try(() => new URL(value));
@@ -607,9 +659,36 @@ const PluginManifestFields = strictStruct({
 	scripts: Schema.Array(PluginScript),
 });
 
+const hasValidClientManifestReferences = (
+	manifest: Pick<typeof AuthoredPluginManifestFields.Type, "client" | "entitySchemas">,
+) => {
+	const clientExports = manifest.client?.exports ?? {};
+	const entitySchemaSlugs = new Set(manifest.entitySchemas.map(({ slug }) => slug));
+	for (const [entitySchemaSlug, registrations] of Object.entries(manifest.client?.entities ?? {})) {
+		if (!entitySchemaSlugs.has(entitySchemaSlug)) {
+			return false;
+		}
+		if (
+			registrations.detailPage !== undefined &&
+			clientExports[registrations.detailPage]?.kind !== "page"
+		) {
+			return false;
+		}
+		for (const exportName of [registrations.gridPresentation, registrations.listPresentation]) {
+			if (exportName !== undefined && clientExports[exportName]?.kind !== "presentation") {
+				return false;
+			}
+		}
+	}
+	return true;
+};
+
 const hasValidAuthoredPluginManifestReferences = (
 	manifest: typeof AuthoredPluginManifestFields.Type,
 ) => {
+	if (!hasValidClientManifestReferences(manifest)) {
+		return false;
+	}
 	const workflowSlugs = new Set(manifest.workflows.map(({ slug }) => slug));
 	const configKeys = new Set(Object.keys(manifest.configSchema.fields));
 	const configEnvironmentKeys = [...configKeys].map((key) =>
@@ -670,6 +749,9 @@ export const AuthoredPluginManifest = AuthoredPluginManifestFields.pipe(
 export type AuthoredPluginManifest = Schema.Schema.Type<typeof AuthoredPluginManifest>;
 
 const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.Type) => {
+	if (!hasValidClientManifestReferences(manifest)) {
+		return false;
+	}
 	const scriptSlugs = new Set(manifest.scripts.map(({ slug }) => slug));
 	const workflowSlugs = new Set(manifest.workflows.map(({ slug }) => slug));
 	const providerSlugs = new Set(manifest.providers.map(({ slug }) => slug));

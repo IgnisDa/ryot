@@ -569,7 +569,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						scope: "user",
 						systemSlugs: new Set(systemManifests.map(({ metadata }) => metadata.slug)),
 					});
-					yield* validatePluginSourcePaths(files, manifest.scripts);
+					yield* validatePluginSourcePaths(files, manifest);
 					const owned = yield* repository.listPrivateForUser(input.userId);
 					if (owned.some((plugin) => plugin.slug === slug)) {
 						return yield* new PluginConflictError({
@@ -704,7 +704,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 									(yield* repository.listActiveManifests()).map(({ metadata }) => metadata.slug),
 								),
 							});
-							yield* validatePluginSourcePaths(files, manifest.scripts);
+							yield* validatePluginSourcePaths(files, manifest);
 							const effectiveDefinitions = yield* buildEffectiveDefinitions(
 								loader.getSnapshot().definitions,
 								[
