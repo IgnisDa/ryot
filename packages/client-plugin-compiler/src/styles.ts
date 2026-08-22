@@ -14,6 +14,7 @@ type StylesheetSource = { readonly content: string; readonly path: string };
 
 type CompileClientStylesInput = {
 	readonly entry: string;
+	readonly fontStylesheet: string;
 	readonly themeStylesheet: string;
 	readonly scanSources: readonly ScanSource[];
 	readonly tailwindStylesheet: StylesheetSource;
@@ -165,6 +166,7 @@ export const compileClientStyles = ({
 	assetNames,
 	sourceFiles,
 	scanSources,
+	fontStylesheet,
 	themeStylesheet,
 	tailwindStylesheet,
 }: CompileClientStylesInput) =>
@@ -182,7 +184,7 @@ export const compileClientStyles = ({
 				));
 			const rootStylesheet =
 				stylesheet === undefined ? "" : rewrite(stylesheet.path, stylesheet.content);
-			const compiled = await compile(`${rootStylesheet}\n${themeStylesheet}`, {
+			const compiled = await compile(`${fontStylesheet}\n${rootStylesheet}\n${themeStylesheet}`, {
 				base: stylesheet === undefined ? "client" : directoryOf(stylesheet.path),
 				loadStylesheet: (id, base) =>
 					Promise.resolve().then(() => {
