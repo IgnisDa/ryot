@@ -623,7 +623,23 @@ export const PluginHook = Schema.Union([
 		stage: Schema.Literal("after"),
 		retry: Schema.optional(AutomationRetryPolicy),
 		delivery: Schema.Literals(["required", "async"]),
-	}),
+		frequency: Schema.optional(Schema.Literals(["item", "batch"])),
+		executionScope: Schema.optional(Schema.Literals(["user", "global"])),
+	}).pipe(
+		Schema.check(
+			Schema.makeFilter(
+				(hook) =>
+					hook.frequency !== "batch" ||
+					hook.targets.every(
+						(target) =>
+							target.resource === "entity" ||
+							target.resource === "event" ||
+							target.resource === "relationship",
+					) ||
+					"Batch hooks require entity, event or relationship targets",
+			),
+		),
+	),
 ]);
 export type PluginHook = typeof PluginHook.Type;
 export const DEFAULT_POLICY_HOOK_POSITION = 1_000;

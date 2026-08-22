@@ -251,44 +251,60 @@ export const AutomationRequestPayload = Schema.Union([
 	relationshipPayloads[2],
 ]);
 export type AutomationRequestPayload = typeof AutomationRequestPayload.Type;
-export const AutomationChangePayload = Schema.Union([
+const withPopulation = <Fields extends Schema.Struct.Fields>(member: Schema.Struct<Fields>) =>
+	strictStruct({ ...member.fields, population: Schema.optional(AutomationPopulationContext) });
+const entityChanges = [
+	withPopulation(entityPayloads[3]),
+	withPopulation(entityPayloads[4]),
+	withPopulation(entityPayloads[5]),
+] as const;
+const eventChanges = [eventPayloads[3], eventPayloads[4], eventPayloads[5]] as const;
+const relationshipChanges = [
+	withPopulation(relationshipPayloads[3]),
+	withPopulation(relationshipPayloads[4]),
+	withPopulation(relationshipPayloads[5]),
+] as const;
+export const AutomationEntityChangePayload = Schema.Union(entityChanges);
+export type AutomationEntityChangePayload = typeof AutomationEntityChangePayload.Type;
+export const AutomationEventChangePayload = Schema.Union(eventChanges);
+export type AutomationEventChangePayload = typeof AutomationEventChangePayload.Type;
+export const AutomationRelationshipChangePayload = Schema.Union(relationshipChanges);
+export type AutomationRelationshipChangePayload = typeof AutomationRelationshipChangePayload.Type;
+const AutomationProviderImportChangePayload = strictStruct({
+	userId: UserId,
+	entityId: EntityId,
+	externalId: nonEmpty,
+	providerId: SandboxProviderId,
+	category: Schema.Literal("change"),
+	entitySchemaSlug: EntitySchemaSlug,
+	operation: Schema.Literal("complete"),
+	resource: Schema.Literal("provider-entity-import"),
+});
+const batchChange = <
+	const Resource extends "entity" | "event" | "relationship",
+	Items extends Schema.Top,
+>(
+	resource: Resource,
+	items: Items,
+) =>
 	strictStruct({
-		...entityPayloads[3].fields,
-		population: Schema.optional(AutomationPopulationContext),
-	}),
-	strictStruct({
-		...entityPayloads[4].fields,
-		population: Schema.optional(AutomationPopulationContext),
-	}),
-	strictStruct({
-		...entityPayloads[5].fields,
-		population: Schema.optional(AutomationPopulationContext),
-	}),
-	eventPayloads[3],
-	eventPayloads[4],
-	eventPayloads[5],
-	strictStruct({
-		...relationshipPayloads[3].fields,
-		population: Schema.optional(AutomationPopulationContext),
-	}),
-	strictStruct({
-		...relationshipPayloads[4].fields,
-		population: Schema.optional(AutomationPopulationContext),
-	}),
-	strictStruct({
-		...relationshipPayloads[5].fields,
-		population: Schema.optional(AutomationPopulationContext),
-	}),
-	strictStruct({
-		userId: UserId,
-		entityId: EntityId,
-		externalId: nonEmpty,
-		providerId: SandboxProviderId,
+		resource: Schema.Literal(resource),
 		category: Schema.Literal("change"),
-		entitySchemaSlug: EntitySchemaSlug,
-		operation: Schema.Literal("complete"),
-		resource: Schema.Literal("provider-entity-import"),
-	}),
+		operation: Schema.Literal("batch"),
+		items: Schema.Array(items).pipe(Schema.check(Schema.isMinLength(1))),
+	});
+export const AutomationBatchChangePayload = Schema.Union([
+	batchChange("entity", AutomationEntityChangePayload),
+	batchChange("event", AutomationEventChangePayload),
+	batchChange("relationship", AutomationRelationshipChangePayload),
+]);
+export type AutomationBatchChangePayload = typeof AutomationBatchChangePayload.Type;
+export const AutomationChangePayload = Schema.Union([
+	...entityChanges,
+	...eventChanges,
+	...relationshipChanges,
+	AutomationProviderImportChangePayload,
+	...AutomationBatchChangePayload.members,
 ]);
 export type AutomationChangePayload = typeof AutomationChangePayload.Type;
 export const AutomationSignalPayload = strictStruct({
@@ -318,6 +334,11 @@ export const AutomationTriggerKind = Schema.Union([
 	strictStruct({
 		category: Schema.Literals(["request", "change"]),
 		operation: Schema.Literals(["create", "update", "delete"]),
+		resource: Schema.Literals(["entity", "event", "relationship"]),
+	}),
+	strictStruct({
+		category: Schema.Literal("change"),
+		operation: Schema.Literal("batch"),
 		resource: Schema.Literals(["entity", "event", "relationship"]),
 	}),
 	strictStruct({

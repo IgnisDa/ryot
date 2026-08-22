@@ -407,6 +407,12 @@ export const appConfigDefinition = defineConfig(
 					envKey: "AUTOMATIONS_RETRY_WINDOW_DAYS",
 					description: "Executable and configuration retention in days (1–90)",
 				}),
+				batchMaxItems: integerField({
+					defaultValue: 200,
+					label: "Batch trigger size",
+					envKey: "AUTOMATIONS_BATCH_MAX_ITEMS",
+					description: "Maximum items in one batch change trigger (1–1000)",
+				}),
 				historyRetentionDays: integerField({
 					defaultValue: 30,
 					label: "History retention",

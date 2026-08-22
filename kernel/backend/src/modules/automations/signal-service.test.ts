@@ -23,7 +23,7 @@ import { RelationshipSchemasRepository } from "#modules/relationship-schemas/rep
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SignalSchemasRepository } from "#modules/signals/signal-schemas-repository";
 
-import { withLifecycleDispatch } from "./lifecycle.test-support";
+import { withLifecycleBatchPlanning, withLifecycleDispatch } from "./lifecycle.test-support";
 import { LifecyclePlannerLive } from "./planner";
 import { SignalEmissionService } from "./signal-service";
 import { AutomationTriggerRepository } from "./trigger-repository";
@@ -312,10 +312,10 @@ describe("Signal emission PostgreSQL", () => {
 				LifecyclePlanner,
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
-					return {
+					return withLifecycleBatchPlanning({
 						plan: (request: Parameters<typeof planner.plan>[0]) =>
 							planner.plan(request).pipe(Effect.andThen(Effect.fail(failure))),
-					};
+					});
 				}),
 			).pipe(Layer.provide(plannerLayer));
 			return withRevisionDatabase(

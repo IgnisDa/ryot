@@ -54,19 +54,41 @@ const input = (overrides: InputOverrides = {}) => {
 		},
 	};
 	return {
-		context: automationContext({
-			operation,
-			population,
-			category: "change",
-			resource: "relationship",
-			...relationshipSource,
-		}),
 		entities: [
 			entityRecord({ name: "Barbie", id: "associated-1", entitySchemaSlug: targetKind }),
 			entityRecord({ id: "subject-1", name: "Greta Gerwig", entitySchemaSlug: subjectKind }),
 		],
+		context: automationContext({
+			category: "change",
+			operation: "batch",
+			resource: "relationship",
+			items: [
+				{
+					operation,
+					population,
+					category: "change",
+					resource: "relationship",
+					...relationshipSource,
+				},
+			],
+		}),
 	};
 };
+
+const credit = (sourceEntityId: string, role: string) => ({
+	category: "change",
+	operation: "create",
+	resource: "relationship",
+	after: {
+		sourceEntityId,
+		properties: { roles: [role] },
+		targetEntityId: "associated-1",
+		id: `relationship-${sourceEntityId}`,
+		createdAt: "2026-07-20T10:00:00.000Z",
+		updatedAt: "2026-07-20T10:00:00.000Z",
+		relationshipSchemaSlug: "person-to-movie",
+	},
+});
 
 const run = (value: ReturnType<typeof input>) => {
 	const calls: Array<Record<string, JsonValue | undefined>> = [];
@@ -159,5 +181,64 @@ it("uses stable per-role discriminators across replay", () => {
 				return undefined;
 			}),
 		),
+	);
+});
+
+it("ignores relationships in the batch that are not media credits", () =>
+	Effect.runPromise(
+		run({
+			...input(),
+			entities: [
+				entityRecord({ name: "Barbie", id: "associated-1", entitySchemaSlug: "workout" }),
+				entityRecord({ id: "subject-1", name: "Greta Gerwig", entitySchemaSlug: "person" }),
+			],
+		}).pipe(Effect.map((calls) => expect(calls).toEqual([]))),
+	));
+
+it("reads every credited entity in the batch with one query", () => {
+	let reads = 0;
+	const calls: Array<Record<string, JsonValue | undefined>> = [];
+
+	return Effect.runPromise(
+		definition
+			.run(
+				automationContext({
+					category: "change",
+					operation: "batch",
+					resource: "relationship",
+					items: [credit("subject-1", "Director"), credit("subject-2", "Writer")],
+				}),
+				defineSandboxTestHost(manifest, {
+					emitSignal: (request) => {
+						calls.push(request);
+						return Effect.succeed({ wasCreated: true, triggerId: "signal-1" });
+					},
+					executeRyotql: () => {
+						reads += 1;
+						return hostSuccess(
+							ryotqlRows("entities", [
+								entityRecord({ name: "Barbie", id: "associated-1", entitySchemaSlug: "movie" }),
+								entityRecord({ id: "subject-1", name: "Greta Gerwig", entitySchemaSlug: "person" }),
+								entityRecord({
+									id: "subject-2",
+									name: "Noah Baumbach",
+									entitySchemaSlug: "person",
+								}),
+							]),
+						);
+					},
+				}),
+				{ metadata: {}, sandboxScriptId: "script-1" },
+			)
+			.pipe(
+				Effect.map(() => {
+					expect(reads).toBe(1);
+					expect(calls.map(({ discriminator }) => discriminator)).toEqual([
+						"subject-1:Director",
+						"subject-2:Writer",
+					]);
+					return undefined;
+				}),
+			),
 	);
 });
