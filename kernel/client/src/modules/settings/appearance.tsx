@@ -1,8 +1,8 @@
 import { RadioGroup } from "@ryot-app/client-ui-sdk";
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import clsx from "clsx";
 import { useSyncExternalStore } from "react";
 
-import { AppIcon } from "#/modules/navigation/app-icon";
 import type { ThemePreference } from "#/modules/theme/preference";
 import type { ThemeStore } from "#/modules/theme/store";
 

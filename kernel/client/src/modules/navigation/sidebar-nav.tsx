@@ -1,3 +1,4 @@
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import type {
 	PluginClientCatalog,
 	PluginClientCatalogEntry,
@@ -5,7 +6,6 @@ import type {
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
-import { AppIcon } from "#/modules/navigation/app-icon";
 import type { CustomizeSection } from "#/modules/navigation/customize/customize-state";
 import { activateLink } from "#/modules/navigation/link-activation";
 import {

@@ -1,9 +1,9 @@
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import type { EntityId } from "@ryot-app/contract/schema/brands";
 import { Link } from "@tanstack/react-router";
 import { Match } from "effect";
 
 import { ManagedImage } from "#/modules/assets/managed-image";
-import { AppIcon } from "#/modules/navigation/app-icon";
 import type { ProviderEntityImportEntry } from "#/modules/provider-add/import-controller";
 import { describeProviderSearchResultItem } from "#/modules/provider-add/result-display";
 import type { ProviderSearchResultItem } from "#/modules/provider-add/search-controller";

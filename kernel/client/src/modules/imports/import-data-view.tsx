@@ -1,4 +1,5 @@
 import { Button } from "@ryot-app/client-ui-sdk";
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import type { ImportRunSummary } from "@ryot-app/ryotql-recipes/import-runs";
 import { Link } from "@tanstack/react-router";
 import clsx from "clsx";
@@ -11,7 +12,6 @@ import {
 	importSourceName,
 	liveImportRun,
 } from "#/modules/imports/run-presentation";
-import { AppIcon } from "#/modules/navigation/app-icon";
 import { LoadErrorState } from "#/modules/ui/load-error-state";
 import { RunProgressBar } from "#/modules/ui/run/run-progress-bar";
 import { formatRelativeTime, runDurationLabel, runStartedLabel } from "#/modules/ui/run/run-status";

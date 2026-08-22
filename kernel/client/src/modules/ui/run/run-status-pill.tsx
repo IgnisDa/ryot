@@ -1,7 +1,7 @@
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import type { RunStatus } from "@ryot-app/contract/schema/run-status";
 import clsx from "clsx";
 
-import { AppIcon } from "#/modules/navigation/app-icon";
 import { runStatusPill, type RunStatusTone } from "#/modules/ui/run/run-status";
 
 const toneClassName: Record<RunStatusTone, string> = {
