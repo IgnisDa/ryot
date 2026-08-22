@@ -191,9 +191,9 @@
         "@effect/atom-react": "4.0.0-beta.107",
         "@fontsource-variable/lora": "5.3.0",
         "@fontsource-variable/outfit": "5.3.0",
+        "@ryot/client-sdk": "workspace:*",
         "@ryot/client-ui-sdk": "workspace:*",
         "@ryot/contract": "workspace:*",
-        "@ryot/ryotql": "workspace:*",
         "@ryot/ryotql-recipes": "workspace:*",
         "@tailwindcss/vite": "^4.1.18",
         "@tanstack/react-form": "2.0.0-alpha.1",
@@ -258,7 +258,7 @@
     "packages/client-plugin-compiler": {
       "name": "@ryot/client-plugin-compiler",
       "dependencies": {
-        "@ryot/client-plugin-sdk": "workspace:*",
+        "@ryot/client-sdk": "workspace:*",
         "@ryot/client-ui-sdk": "workspace:*",
         "@ryot/contract": "workspace:*",
         "@ryot/ts-utils": "workspace:*",
@@ -276,10 +276,11 @@
         "vitest": "4.1.9",
       },
     },
-    "packages/client-plugin-sdk": {
-      "name": "@ryot/client-plugin-sdk",
+    "packages/client-sdk": {
+      "name": "@ryot/client-sdk",
       "dependencies": {
         "@ryot/contract": "workspace:*",
+        "@ryot/ryotql": "workspace:*",
         "effect": "4.0.0-rc.111",
         "react": "^19.2.0",
         "react-dom": "^19.2.0",
@@ -304,7 +305,6 @@
       },
       "devDependencies": {
         "@ryot/testing": "workspace:*",
-        "@testing-library/dom": "^10.4.1",
         "@testing-library/react": "^16.3.3",
         "@types/react": "^19.2.0",
         "@types/react-dom": "^19.2.0",
@@ -498,7 +498,7 @@
       },
       "devDependencies": {
         "@ryot/cli": "workspace:*",
-        "@ryot/client-plugin-sdk": "workspace:*",
+        "@ryot/client-sdk": "workspace:*",
         "@ryot/client-ui-sdk": "workspace:*",
         "@types/react": "^19.2.0",
         "@types/react-dom": "^19.2.0",
@@ -1308,7 +1308,7 @@
 
     "@ryot/client-plugin-compiler": ["@ryot/client-plugin-compiler@workspace:packages/client-plugin-compiler"],
 
-    "@ryot/client-plugin-sdk": ["@ryot/client-plugin-sdk@workspace:packages/client-plugin-sdk"],
+    "@ryot/client-sdk": ["@ryot/client-sdk@workspace:packages/client-sdk"],
 
     "@ryot/client-ui-sdk": ["@ryot/client-ui-sdk@workspace:packages/client-ui-sdk"],
 
@@ -3384,11 +3384,11 @@
 
     "@ryot/client-plugin-compiler/tailwindcss": ["tailwindcss@4.3.0", "", {}, "sha512-y6nxMGB1nMW9R6k96e5gdIFzcfL/gTJRNaqGes1YvkLnPVXzWgbqFF2yLC0T8G774n24cx3Pe8XrKoniCOAH+Q=="],
 
-    "@ryot/client-plugin-sdk/@types/react": ["@types/react@19.2.15", "", { "dependencies": { "csstype": "^3.2.2" } }, "sha512-eRwcGNHve+E8qtEQSSRl6urh+rFop4v8gm6O8rGv25CodbvFdLjA1vVQ1KkiFE0w0UPOnb8tDiFKL5lp0rtY5Q=="],
+    "@ryot/client-sdk/@types/react": ["@types/react@19.2.15", "", { "dependencies": { "csstype": "^3.2.2" } }, "sha512-eRwcGNHve+E8qtEQSSRl6urh+rFop4v8gm6O8rGv25CodbvFdLjA1vVQ1KkiFE0w0UPOnb8tDiFKL5lp0rtY5Q=="],
 
-    "@ryot/client-plugin-sdk/react": ["react@19.2.6", "", {}, "sha512-sfWGGfavi0xr8Pg0sVsyHMAOziVYKgPLNrS7ig+ivMNb3wbCBw3KxtflsGBAwD3gYQlE/AEZsTLgToRrSCjb0Q=="],
+    "@ryot/client-sdk/react": ["react@19.2.6", "", {}, "sha512-sfWGGfavi0xr8Pg0sVsyHMAOziVYKgPLNrS7ig+ivMNb3wbCBw3KxtflsGBAwD3gYQlE/AEZsTLgToRrSCjb0Q=="],
 
-    "@ryot/client-plugin-sdk/react-dom": ["react-dom@19.2.6", "", { "dependencies": { "scheduler": "^0.27.0" }, "peerDependencies": { "react": "^19.2.6" } }, "sha512-0prMI+hvBbPjsWnxDLxlCGyM8PN6UuWjEUCYmZhO67xIV9Xasa/r/vDnq+Xyq4Lo27g8QSbO5YzARu0D1Sps3g=="],
+    "@ryot/client-sdk/react-dom": ["react-dom@19.2.6", "", { "dependencies": { "scheduler": "^0.27.0" }, "peerDependencies": { "react": "^19.2.6" } }, "sha512-0prMI+hvBbPjsWnxDLxlCGyM8PN6UuWjEUCYmZhO67xIV9Xasa/r/vDnq+Xyq4Lo27g8QSbO5YzARu0D1Sps3g=="],
 
     "@ryot/client-ui-sdk/@types/react": ["@types/react@19.2.15", "", { "dependencies": { "csstype": "^3.2.2" } }, "sha512-eRwcGNHve+E8qtEQSSRl6urh+rFop4v8gm6O8rGv25CodbvFdLjA1vVQ1KkiFE0w0UPOnb8tDiFKL5lp0rtY5Q=="],
 
