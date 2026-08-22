@@ -16,9 +16,15 @@ describe("saved-view display values", () => {
 		expect(formatSavedViewValue({ displayKind: "date", value: "2026-08-12" }, "en-US")).toBe(
 			"8/12/2026",
 		);
+		expect(
+			formatSavedViewValue({
+				displayKind: "managed-asset",
+				value: { type: "local", key: "covers/book.webp" },
+			}),
+		).toBe("");
 	});
 
-	it.each(["text", "number", "boolean", "date"] as const)(
+	it.each(["text", "number", "boolean", "date", "managed-asset"] as const)(
 		"renders a null %s value as empty text",
 		(displayKind) => {
 			expect(formatSavedViewValue({ displayKind, value: null })).toBe("");

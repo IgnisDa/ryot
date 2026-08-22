@@ -32,8 +32,8 @@ import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 import { PluginRepository } from "#modules/plugins/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
-import { kernelEntityBrowserRenderer } from "./entity-browser-renderer";
 import { resolveClientPageGraph, type ResolvedClientPageGraph } from "./graph";
+import { getKernelClientRenderer } from "./kernel-renderers";
 import { clientPageOperationTargets, resolvePluginPageTarget } from "./prepare";
 import { ClientPagesRepository } from "./repository";
 
@@ -421,21 +421,23 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				}
 				const prepared = yield* repository.findPreparedTarget(userId, identity.savedViewId);
 				if (identity.kind === "kernel-saved-view") {
+					const kernelRenderer = getKernelClientRenderer(identity.rendererName);
 					if (
+						!kernelRenderer ||
 						prepared?.view.renderer?.kind !== "kernel" ||
 						prepared.view.renderer.name !== identity.rendererName ||
 						prepared.view.revision !== identity.viewRevision ||
-						identity.sourceHash !== kernelEntityBrowserRenderer.sourceHash
+						identity.sourceHash !== kernelRenderer.sourceHash
 					) {
 						return false;
 					}
 					const graph = yield* resolveGraph({
-						kernel: true,
 						userId,
-						decoded: kernelEntityBrowserRenderer.files,
-						rendererName: kernelEntityBrowserRenderer.name,
-						definition: kernelEntityBrowserRenderer.definition,
-						sourceHash: kernelEntityBrowserRenderer.sourceHash,
+						kernel: true,
+						decoded: kernelRenderer.files,
+						rendererName: kernelRenderer.name,
+						definition: kernelRenderer.definition,
+						sourceHash: kernelRenderer.sourceHash,
 					});
 					const build = yield* repository.findKernelBuild({
 						userId,
@@ -499,24 +501,25 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				savedViewId: string,
 			) {
 				const prepared = yield* repository.findPreparedTarget(user.id, savedViewId);
-				if (
-					prepared?.view.renderer?.kind === "kernel" &&
-					prepared.view.renderer.name === "entity-browser"
-				) {
+				const kernelRenderer =
+					prepared?.view.renderer?.kind === "kernel"
+						? getKernelClientRenderer(prepared.view.renderer.name)
+						: undefined;
+				if (prepared?.view.renderer?.kind === "kernel" && kernelRenderer) {
 					const kernelRendererName = prepared.view.renderer.name;
 					const graph = yield* resolveGraph({
 						kernel: true,
 						userId: user.id,
-						decoded: kernelEntityBrowserRenderer.files,
-						rendererName: kernelEntityBrowserRenderer.name,
-						definition: kernelEntityBrowserRenderer.definition,
-						sourceHash: kernelEntityBrowserRenderer.sourceHash,
+						decoded: kernelRenderer.files,
+						rendererName: kernelRenderer.name,
+						definition: kernelRenderer.definition,
+						sourceHash: kernelRenderer.sourceHash,
 					});
 					let build = yield* repository.findKernelBuild({
 						userId: user.id,
 						kernelRendererName,
 						graphHash: graph.graphHash,
-						sourceHash: kernelEntityBrowserRenderer.sourceHash,
+						sourceHash: kernelRenderer.sourceHash,
 					});
 					if (build && !Bun.deepEquals(build.graphIdentity, graph.identity)) {
 						return yield* invalid(
@@ -544,7 +547,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 									const current = yield* repository.lockSavedView(user.id, prepared.viewId);
 									if (
 										current?.renderer?.kind !== "kernel" ||
-										current.renderer.name !== "entity-browser" ||
+										current.renderer.name !== kernelRendererName ||
 										current.revision !== prepared.view.revision
 									) {
 										return yield* invalid("Saved view changed during compilation");
@@ -552,10 +555,10 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 									const currentGraph = yield* resolveGraph({
 										kernel: true,
 										userId: user.id,
-										decoded: kernelEntityBrowserRenderer.files,
-										rendererName: kernelEntityBrowserRenderer.name,
-										definition: kernelEntityBrowserRenderer.definition,
-										sourceHash: kernelEntityBrowserRenderer.sourceHash,
+										decoded: kernelRenderer.files,
+										rendererName: kernelRenderer.name,
+										definition: kernelRenderer.definition,
+										sourceHash: kernelRenderer.sourceHash,
 									});
 									if (currentGraph.graphHash !== graph.graphHash) {
 										return yield* invalid(
@@ -569,7 +572,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 										graphHash: graph.graphHash,
 										artifactHash: artifact.hash,
 										graphIdentity: graph.identity,
-										sourceHash: kernelEntityBrowserRenderer.sourceHash,
+										sourceHash: kernelRenderer.sourceHash,
 									});
 								}).pipe(Effect.provideService(Database, transaction)),
 							),
@@ -597,7 +600,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 							artifactHash: build.artifactHash,
 							kind: "kernel-saved-view" as const,
 							viewRevision: prepared.view.revision,
-							sourceHash: kernelEntityBrowserRenderer.sourceHash,
+							sourceHash: kernelRenderer.sourceHash,
 							target: { kind: "saved-view" as const, savedViewId: prepared.viewId },
 							operationTargets: clientPageOperationTargets(
 								yield* pluginRuntime.listPluginsAvailableToUser(user.id, true),

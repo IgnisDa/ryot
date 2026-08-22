@@ -26,6 +26,7 @@ import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import {
 	validateEntityBrowserSavedViewDefinition,
+	validateResultsTableSavedViewDefinition,
 	validateSavedViewDefinition,
 } from "./definition-validation";
 import { SavedViewsRepository } from "./repository";
@@ -96,6 +97,10 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 		) {
 			if (renderer.kind === "kernel" && renderer.name === "entity-browser") {
 				yield* validateEntityBrowserSavedViewDefinition({ settings, dataSources });
+				return null;
+			}
+			if (renderer.kind === "kernel" && renderer.name === "results-table") {
+				yield* validateResultsTableSavedViewDefinition({ settings, dataSources });
 				return null;
 			}
 			if (renderer.kind !== "custom") {

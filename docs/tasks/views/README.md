@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 5 of 13 tasks completed
+**Overall Progress:** 6 of 13 tasks completed
 
-**Current Task:** [Task 06](./06-support-configured-queries-and-general-results.md) (todo)
+**Current Task:** [Task 07](./07-complete-the-collection-workflow.md) (todo)
 
 ### Task List
 
@@ -15,7 +15,7 @@
 | 03  | [Unify Plugin And Entity Pages](./03-unify-plugin-and-entity-pages.md)                                   | done   |
 | 04  | [Browse Mixed Entities Automatically](./04-browse-mixed-entities-automatically.md)                       | done   |
 | 05  | [Add Rich Domain Presentations](./05-add-rich-domain-presentations.md)                                   | done   |
-| 06  | [Support Configured Queries And General Results](./06-support-configured-queries-and-general-results.md) | todo   |
+| 06  | [Support Configured Queries And General Results](./06-support-configured-queries-and-general-results.md) | done   |
 | 07  | [Complete The Collection Workflow](./07-complete-the-collection-workflow.md)                             | todo   |
 | 08  | [Preserve State During Live Refresh](./08-preserve-state-during-live-refresh.md)                         | todo   |
 | 09  | [Handle Dependency Updates Safely](./09-handle-dependency-updates-safely.md)                             | todo   |

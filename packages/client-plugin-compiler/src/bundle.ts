@@ -210,6 +210,17 @@ export const bundleClientPlugin = (sources: ClientPluginSources, compilerRoot: s
 						path: Bun.resolveSync(path, compilerRoot),
 					}),
 				);
+				builder.onResolve({ filter: /^@tanstack\/react-store$/ }, ({ importer, path }) => ({
+					namespace: "file",
+					path: Bun.resolveSync(path, importer.slice(0, importer.lastIndexOf("/"))),
+				}));
+				builder.onResolve(
+					{ filter: /^@tanstack\/(?:react-table|table-core(?:\/.*)?)$/ },
+					({ importer, path }) => ({
+						namespace: "file",
+						path: Bun.resolveSync(path, importer.slice(0, importer.lastIndexOf("/"))),
+					}),
+				);
 				// Bun drops namespace bindings when bundling these exports from the Effect barrel.
 				builder.onResolve({ filter: /^effect$/ }, () => ({
 					path: "effect",

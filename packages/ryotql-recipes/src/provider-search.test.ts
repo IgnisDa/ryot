@@ -23,7 +23,10 @@ const provider = {
 	rootEntitySchemaSlug: "movie",
 	searchOptionsSchema,
 };
-const recipe = providerSearchRecipe({ rootEntitySchemaSlug: EntitySchemaSlug.make("movie") });
+const recipe = providerSearchRecipe({
+	ownerPluginId: "stable-plugin-id",
+	rootEntitySchemaSlug: EntitySchemaSlug.make("movie"),
+});
 const responseWithItems = (items: readonly unknown[]) => rowsResponse("providers", items, pageInfo);
 
 describe("provider search recipe", () => {
@@ -48,6 +51,10 @@ describe("provider search recipe", () => {
 		expect(query.where).toMatchObject({
 			predicates: [
 				{ right: { value: "movie" } },
+				{
+					right: { value: "stable-plugin-id" },
+					left: { field: "pluginId", tableAlias: "provider" },
+				},
 				{ right: { value: "search" } },
 				{ right: { value: "active" } },
 			],
@@ -57,11 +64,7 @@ describe("provider search recipe", () => {
 				recipe.decode(
 					responseWithItems([
 						provider,
-						{
-							...provider,
-							providerId: "provider-2",
-							searchOptionsSchema: null,
-						},
+						{ ...provider, providerId: "provider-2", searchOptionsSchema: null },
 					]),
 				),
 			),

@@ -24,6 +24,7 @@ type ProviderAddModalProps = {
 	readonly onClose: () => void;
 	readonly onImported: () => void;
 	readonly initialQuery?: string | undefined;
+	readonly ownerPluginId?: string | undefined;
 	readonly entitySchemaSlug: EntitySchemaSlug;
 };
 
@@ -60,7 +61,7 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 			),
 			runOutcome(
 				Effect.flatMap(ProviderAddService, (service) =>
-					service.loadProviders(ryot, entitySchemaSlug),
+					service.loadProviders(ryot, entitySchemaSlug, props.ownerPluginId),
 				),
 			),
 		]);
@@ -82,7 +83,7 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 		return () => {
 			active = false;
 		};
-	}, [entitySchemaSlug]);
+	}, [entitySchemaSlug, props.ownerPluginId]);
 
 	const selectProvider = (providerId: SandboxProviderId) => {
 		setState((current) => ({ ...current, selectedProviderId: providerId }));

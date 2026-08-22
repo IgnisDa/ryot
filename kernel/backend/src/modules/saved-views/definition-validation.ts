@@ -1,10 +1,12 @@
 import type {
 	FieldSelection,
 	NamedQuery,
+	Predicate,
 	RyotQLDocument,
 } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	EntityBrowserSavedViewSettings,
+	ResultsTableSavedViewSettings,
 	SavedViewBadRequest,
 	type SavedViewLayouts,
 } from "@ryot-app/contract/modules/saved-views/schemas";
@@ -56,6 +58,27 @@ const projectedField = (query: NamedQuery, key: string) =>
 			)
 		: undefined;
 
+const hasFixedEntityValue = (
+	predicate: Predicate | undefined,
+	tableAlias: string,
+	field: "entitySchemaPluginId" | "entitySchemaSlug",
+	value: string,
+): boolean => {
+	if (predicate?.type === "and") {
+		return predicate.predicates.some((part) => hasFixedEntityValue(part, tableAlias, field, value));
+	}
+	if (predicate?.type !== "comparison" || predicate.operator !== "eq") {
+		return false;
+	}
+	const matches = (left: typeof predicate.left, right: typeof predicate.right) =>
+		left.type === "column" &&
+		left.tableAlias === tableAlias &&
+		left.field === field &&
+		right.type === "literal" &&
+		right.value === value;
+	return matches(predicate.left, predicate.right) || matches(predicate.right, predicate.left);
+};
+
 export const validateEntityBrowserSavedViewDefinition = Effect.fn(
 	"validateEntityBrowserSavedViewDefinition",
 )(function* (input: {
@@ -76,6 +99,20 @@ export const validateEntityBrowserSavedViewDefinition = Effect.fn(
 		return yield* invalidEntityBrowserDefinition(
 			"Entity-browser defaultLayout must be one of the enabled layouts",
 		);
+	}
+	if (settings.layouts.includes("table") !== (settings.tableColumns !== null)) {
+		return yield* invalidEntityBrowserDefinition(
+			"Entity-browser table layout requires tableColumns and tableColumns require the table layout",
+		);
+	}
+	if (new Set(settings.searchFields).size !== settings.searchFields.length) {
+		return yield* invalidEntityBrowserDefinition(
+			"Entity-browser searchFields must not contain duplicates",
+		);
+	}
+	const sortNames = settings.sortChoices.map(({ name }) => name);
+	if (new Set(sortNames).size !== sortNames.length) {
+		return yield* invalidEntityBrowserDefinition("Entity-browser sort choice names must be unique");
 	}
 	if (input.dataSources === null) {
 		return yield* invalidEntityBrowserDefinition("Entity-browser dataSources are required");
@@ -125,6 +162,108 @@ export const validateEntityBrowserSavedViewDefinition = Effect.fn(
 		if (selection.expr.tableAlias !== entityAlias) {
 			return yield* invalidEntityBrowserDefinition(
 				"Entity-browser provenance fields must come from the same entity table alias",
+			);
+		}
+	}
+	if (
+		settings.addAction !== null &&
+		(entityAlias === undefined ||
+			!hasFixedEntityValue(
+				query.where,
+				entityAlias,
+				"entitySchemaPluginId",
+				settings.addAction.ownerPluginId,
+			) ||
+			!hasFixedEntityValue(
+				query.where,
+				entityAlias,
+				"entitySchemaSlug",
+				settings.addAction.entitySchemaSlug,
+			))
+	) {
+		return yield* invalidEntityBrowserDefinition(
+			"Entity-browser addAction must match the fixed source entity owner and schema",
+		);
+	}
+	const configuredFields = [
+		...settings.searchFields,
+		...settings.sortChoices.flatMap(({ orderBy }) => orderBy.map(({ field }) => field)),
+		...(settings.tableColumns?.map(({ field }) => field) ?? []),
+	];
+	for (const field of configuredFields) {
+		if (!projectedField(query, field)) {
+			return yield* invalidEntityBrowserDefinition(
+				`Entity-browser configured field '${field}' must be a projected scalar field`,
+			);
+		}
+	}
+	return undefined;
+});
+
+const invalidResultsTableDefinition = (message: string) =>
+	new SavedViewBadRequest({ reason: { code: "settings-incompatible", message } });
+
+export const validateResultsTableSavedViewDefinition = Effect.fn(
+	"validateResultsTableSavedViewDefinition",
+)(function* (input: {
+	readonly settings: Readonly<Record<string, unknown>>;
+	readonly dataSources: RyotQLDocument | null;
+}) {
+	const decoded = Schema.decodeUnknownResult(ResultsTableSavedViewSettings)(input.settings);
+	if (Result.isFailure(decoded)) {
+		return yield* invalidResultsTableDefinition("Invalid results-table settings");
+	}
+	const settings = decoded.success;
+	if (input.dataSources === null) {
+		return yield* invalidResultsTableDefinition("Results-table dataSources are required");
+	}
+	const semanticError = validateRyotQLDocument(input.dataSources);
+	if (semanticError) {
+		return yield* invalidResultsTableDefinition(semanticError);
+	}
+	for (const [name, query] of Object.entries(input.dataSources.queries)) {
+		if (query.output.type === "rows" && "after" in query.output.pagination) {
+			return yield* invalidResultsTableDefinition(
+				`Stored data source '${name}' must not contain a cursor`,
+			);
+		}
+	}
+	const query = input.dataSources.queries[settings.sourceName];
+	if (!query) {
+		return yield* invalidResultsTableDefinition(
+			`Results-table source '${settings.sourceName}' does not exist`,
+		);
+	}
+	if (query.output.type !== "rows") {
+		return yield* invalidResultsTableDefinition(
+			`Results-table source '${settings.sourceName}' must produce rows`,
+		);
+	}
+	const configuredFields = [
+		...settings.rowKeyFields,
+		...settings.columns.map(({ field }) => field),
+	];
+	for (const field of configuredFields) {
+		if (!projectedField(query, field)) {
+			return yield* invalidResultsTableDefinition(
+				`Results-table field '${field}' must be a projected scalar field`,
+			);
+		}
+	}
+	if (settings.entityLink) {
+		const field = projectedField(query, settings.entityLink.entityIdField);
+		const scope = queryScope(query);
+		const sourceTable =
+			field?.expr.type === "column" ? scope.get(field.expr.tableAlias) : undefined;
+		if (
+			field?.expr.type !== "column" ||
+			!(
+				(sourceTable?.name === "entity" && field.expr.field === "id") ||
+				(sourceTable?.name === "event" && field.expr.field === "entityId")
+			)
+		) {
+			return yield* invalidResultsTableDefinition(
+				`Results-table entity link field '${settings.entityLink.entityIdField}' must project entity.id`,
 			);
 		}
 	}

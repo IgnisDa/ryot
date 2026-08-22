@@ -16,7 +16,10 @@ import {
 import { Result, Schema } from "effect";
 
 export const providerSearchRecipe = defineRecipe(
-	(input: { readonly rootEntitySchemaSlug: EntitySchemaSlug }) => {
+	(input: {
+		readonly ownerPluginId?: string | undefined;
+		readonly rootEntitySchemaSlug: EntitySchemaSlug;
+	}) => {
 		const provider = table("sandboxProvider", "provider");
 		const operation = table("sandboxProviderOperation", "operation");
 		const plugin = table("plugin", "plugin");
@@ -27,6 +30,9 @@ export const providerSearchRecipe = defineRecipe(
 					limit: 100,
 					where: and(
 						eq(column(provider, "rootEntitySchemaSlug"), literal(input.rootEntitySchemaSlug)),
+						...(input.ownerPluginId === undefined
+							? []
+							: [eq(column(provider, "pluginId"), literal(input.ownerPluginId))]),
 						eq(column(operation, "operation"), literal("search")),
 						eq(column(plugin, "status"), literal("active")),
 					),
