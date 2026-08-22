@@ -10,10 +10,12 @@ import { Context, DateTime, Effect, Layer } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { RedisService, redisKeys } from "#lib/infrastructure/redis";
+import { getProviderImportPhaseSegments } from "#lib/infrastructure/runtime-metrics";
 import { sandboxContextError } from "#lib/infrastructure/sandbox-runtime/limits";
 import {
 	getSandboxProcessMetrics,
 	getSandboxRuntimeMetrics,
+	type SandboxRuntimeMetricsOptions,
 } from "#lib/infrastructure/sandbox-runtime/runtime";
 import { ImportsService } from "#modules/imports/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -243,10 +245,22 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 				};
 			});
 			const sampleSandboxRuntime = Effect.fn("OperationalGateService.sampleSandboxRuntime")(
-				() => getSandboxRuntimeMetrics,
+				(options: SandboxRuntimeMetricsOptions) => getSandboxRuntimeMetrics(options),
 			);
 
-			return { samplePressure, startWorkflowLoad, sampleSandboxRuntime, getWorkflowLoadResult };
+			const listProviderImportPhaseSegments = Effect.fn(
+				"OperationalGateService.listProviderImportPhaseSegments",
+			)((afterSequence: number) =>
+				Effect.sync(() => ({ segments: getProviderImportPhaseSegments(afterSequence) })),
+			);
+
+			return {
+				samplePressure,
+				startWorkflowLoad,
+				sampleSandboxRuntime,
+				getWorkflowLoadResult,
+				listProviderImportPhaseSegments,
+			};
 		}),
 	},
 ) {

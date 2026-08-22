@@ -122,6 +122,13 @@ const sandbox = group(
 			choices: { kind: "static", values: [{ value: "on-demand" }, { value: "warm" }] },
 			description: "Spawn processes on demand or keep a warm pool ready for executions",
 		}),
+		benchmarkProfileDir: stringField({
+			hidden: true,
+			label: "Benchmark profile directory",
+			envKey: "SANDBOX_BENCHMARK_PROFILE_DIR",
+			description:
+				"Benchmark-only: absolute directory for admin-gated sandbox and backend profiles; the profiling controls are disabled while it is unset",
+		}),
 		workerConcurrency: integerField({
 			defaultValue: 2,
 			label: "Worker concurrency",

@@ -57,6 +57,7 @@ const decodeText = decoder.decode.bind(decoder);
 const jsonStringify = JSON.stringify.bind(JSON);
 const bridgeFetch = globalThis.fetch.bind(globalThis);
 const exitDeno: (code?: number) => never = Deno.exit.bind(Deno);
+const denoMemoryUsage = Deno.memoryUsage.bind(Deno);
 const getOwnPropertyDescriptor = Object.getOwnPropertyDescriptor;
 const performanceNow = performance.now.bind(performance);
 const filesystemKey = Symbol.for("@ryot-app/sandbox-sdk/filesystem");
@@ -99,6 +100,36 @@ const hostResultSchema = Schema.Union([
 const decodeHostResult = Schema.decodeUnknownEffect(hostResultSchema);
 
 let buffer = "";
+
+const PROFILE_CHECKPOINT_LIMIT = 48;
+let profiledPayload: SandboxRunnerPayload | undefined;
+let profileCheckpointCount = 0;
+
+// Benchmark-only: the host takes smaps and heap snapshots while this request is outstanding.
+const profileCheckpoint = async (checkpoint: string) => {
+	const payload = profiledPayload;
+	if (payload === undefined || profileCheckpointCount >= PROFILE_CHECKPOINT_LIMIT) {
+		return;
+	}
+	profileCheckpointCount += 1;
+	try {
+		const response = await bridgeFetch(
+			payload.apiBase +
+				"/profile/" +
+				encodeComponent(payload.executionId) +
+				"/" +
+				encodeComponent(checkpoint),
+			{
+				method: "POST",
+				body: jsonStringify({ denoMemory: denoMemoryUsage() }),
+				headers: { "Content-Type": "application/json", Authorization: "Bearer " + payload.token },
+			},
+		);
+		await response.arrayBuffer();
+	} catch {
+		return;
+	}
+};
 
 const installFilesystem = (payload: SandboxRunnerPayload) => {
 	const artifactPath = payload.filesystem?.artifactPath;
@@ -257,8 +288,9 @@ const makeApprovedDependencyRuntime = () => {
 			];
 		}
 		active += 1;
+		let result: A;
 		try {
-			return await operation();
+			result = await operation();
 		} finally {
 			active -= 1;
 			if (active === 0) {
@@ -268,6 +300,10 @@ const makeApprovedDependencyRuntime = () => {
 				restoreGlobals = undefined;
 			}
 		}
+		if (active === 0) {
+			await profileCheckpoint("dependency-settled");
+		}
+		return result;
 	};
 	return { configure, withGlobals };
 };
@@ -435,6 +471,9 @@ const transportHostCall =
 				? payload.limits.durableBridgeResponseBytes
 				: payload.limits.bridgeResponseBytes;
 		const responseBody = await readBridgeResponse(response, responseLimit);
+		if (fnName === "httpCall") {
+			await profileCheckpoint("host-call-settled");
+		}
 		if (responseBody.oversized) {
 			return hostFailure("Sandbox bridge response exceeds " + responseLimit + " UTF-8 bytes");
 		}
@@ -570,6 +609,7 @@ const createDurableHost = async (definition: SandboxDefinition, payload: Sandbox
 	if (!arrayIsArray(journal)) {
 		throw new nativeError("Durable sandbox replay journal is invalid");
 	}
+	await profileCheckpoint("journal-loaded");
 
 	const calls: DurableCall[] = [];
 	const requests: Array<Record<string, unknown>> = [];
@@ -643,7 +683,7 @@ const createDurableHost = async (definition: SandboxDefinition, payload: Sandbox
 				return Effect.fail({ message: budgetError });
 			}
 			const index = requests.length;
-			return register(
+			const call = register(
 				{
 					index,
 					kind: "host",
@@ -652,6 +692,9 @@ const createDurableHost = async (definition: SandboxDefinition, payload: Sandbox
 				},
 				index,
 			);
+			return capability === "httpCall"
+				? Effect.tap(call, () => Effect.promise(() => profileCheckpoint("host-call-settled")))
+				: call;
 		};
 	}
 	host.executeWorkflow = (name: unknown, reference: unknown, input: unknown) => {
@@ -941,6 +984,8 @@ void (async () => {
 			if (!validateLimits(payload.limits)) {
 				throwPhase("input", "Sandbox runner limits are invalid");
 			}
+			profiledPayload = payload.profiling === true ? payload : undefined;
+			await profileCheckpoint("runner-ready");
 			logCollector = createLogCollector(payload.limits);
 			console.log = logCollector.console.log;
 			console.info = logCollector.console.info;
@@ -960,9 +1005,11 @@ void (async () => {
 			let value: unknown;
 			try {
 				const compiledModule = await importCompiledModule(payload);
+				await profileCheckpoint("module-imported");
 				value = await executeDefinition(compiledModule.default, payload, (nextPhase) => {
 					phase = nextPhase;
 				});
+				await profileCheckpoint("result-built");
 			} finally {
 				restoreWorkflowGlobals?.();
 			}
@@ -984,6 +1031,7 @@ void (async () => {
 					"Sandbox definition result exceeds " + payload.limits.resultBytes + " UTF-8 bytes",
 				);
 			}
+			await profileCheckpoint("response-encoded");
 			await writeSuccess(logCollector.logs, serializedValue, performanceNow() - startedAt);
 		} catch (error) {
 			const errorPhase = failurePhase(error, phase);
@@ -1003,6 +1051,10 @@ void (async () => {
 			console.warn = previousConsole.warn;
 			console.debug = previousConsole.debug;
 			console.error = previousConsole.error;
+		}
+		// A clean exit is what makes Deno flush `--cpu-prof` output.
+		if (profiledPayload !== undefined) {
+			exitDeno(0);
 		}
 	}
 })();
