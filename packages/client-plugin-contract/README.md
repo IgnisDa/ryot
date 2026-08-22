@@ -27,7 +27,9 @@ The complete public `RyotClientErrorReason` set is `disposed`, `protocol`, `tran
 `malformed-result`, and `unsupported-capability`.
 
 Reserved kernel shortcuts are semantic bridge messages, not public `RyotClient` capabilities. Raw
-keyboard events never cross the boundary.
+keyboard events never cross the boundary. Page shortcuts are declarative and two-way: a document
+registers modifier-free keys from `PAGE_SHORTCUT_KEYS` upward, and the kernel sends a press message
+back down. Both realms register the same keys, so whichever document holds focus sees the press.
 
 This package derives specialized fields from generic HTTP-contract schemas such as entity IDs, JSON,
 RyotQL documents, and asset locators. The dependency remains one-way: `@ryot-app/contract` must not

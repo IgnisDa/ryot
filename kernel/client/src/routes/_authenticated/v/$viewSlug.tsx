@@ -94,6 +94,7 @@ function SavedViewPage() {
 	const location = useRouterState({
 		select: (current) => current.resolvedLocation ?? current.location,
 	});
+	const imported = useRef(false);
 	const pushedAdd = useRef(false);
 	const ryot = useRyot();
 	const decodedAction = Schema.decodeUnknownResult(EntityBrowserAddAction)(
@@ -130,10 +131,16 @@ function SavedViewPage() {
 	};
 
 	useEffect(() => {
-		if (!addOpen) {
-			pushedAdd.current = false;
+		if (addOpen) {
+			return;
 		}
-	}, [addOpen]);
+		pushedAdd.current = false;
+		if (!imported.current) {
+			return;
+		}
+		imported.current = false;
+		ryot.mutationCompleted.hint();
+	}, [addOpen, ryot]);
 	useEffect(() => {
 		if (
 			layout === undefined ||
@@ -175,8 +182,7 @@ function SavedViewPage() {
 					ownerPluginId={addAction.ownerPluginId}
 					entitySchemaSlug={addAction.entitySchemaSlug}
 					onImported={() => {
-						ryot.mutationCompleted.hint();
-						closeAdd();
+						imported.current = true;
 					}}
 				/>
 			) : null}

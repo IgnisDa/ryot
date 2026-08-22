@@ -23,6 +23,10 @@ export function getRouter(context: RouterApplicationContext, history?: RouterHis
 }
 
 declare module "@tanstack/react-router" {
+	interface HistoryState {
+		ryotScreenKey?: string;
+	}
+
 	interface Register {
 		router: ReturnType<typeof getRouter>;
 	}

@@ -422,17 +422,13 @@ type SeedTableColumn = SavedViewProjectionInput["table"]["columns"][number];
 
 function buildSeedLayouts(
 	scope: readonly string[],
-	grid: ReturnType<typeof cardConfig>,
 	columns: ReadonlyArray<SeedTableColumn>,
-	list = grid,
 ): SavedViewDefinition {
 	const [first] = scope;
 	if (!first) {
 		throw new Error("Seed saved view requires at least one schema");
 	}
 	const projections = buildSavedViewLayoutProjections({
-		grid: { card: grid, entity: seedEntity },
-		list: { card: list, entity: seedEntity },
 		table: {
 			image: seedImage(),
 			entity: seedEntity,
@@ -513,26 +509,6 @@ function propertyReference(...expressions: ReadonlyArray<ScalarExpression | stri
 function schemaField(_schemaSlug: string, property: string): ScalarExpression {
 	const builtins = new Set(["id", "name", "createdAt", "updatedAt", "externalId", "providerId"]);
 	return builtins.has(property) ? column(seedEntity, property) : seedProperty(property);
-}
-
-function cardConfig(
-	image: ScalarExpression | null,
-	title: ScalarExpression,
-	callout: ScalarExpression | null,
-	primaryMetadata: ScalarExpression | null,
-	secondaryMetadata: ScalarExpression | null = null,
-	overline: ScalarExpression | null = null,
-) {
-	const display = (expression: ScalarExpression | null) =>
-		expression === null ? null : { displayKind: "text" as const, expression };
-	return {
-		overline: display(overline),
-		image,
-		title,
-		callout: display(callout),
-		primaryMetadata: display(primaryMetadata),
-		secondaryMetadata: display(secondaryMetadata),
-	};
 }
 
 function tableColumn(
@@ -1837,12 +1813,6 @@ async function seedSavedViews(
 	console.log("\n💾 Seeding Saved Views...");
 
 	const savedViews: Awaited<ReturnType<typeof createSavedView>>[] = [];
-	const defaultCard = cardConfig(
-		propertyReference("@image"),
-		propertyReference("@name"),
-		null,
-		null,
-	);
 	const allSchemaSlugs = ["whiskey", "place", "smartphone", "feature-phone", "tablet"];
 
 	const whiskeyViews: SavedViewSpec[] = [
@@ -1853,12 +1823,6 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference(schemaField("whiskey", "age")),
-					propertyReference(schemaField("whiskey", "distillery")),
-				),
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Age", schemaField("whiskey", "age")),
@@ -1874,18 +1838,11 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
-				defaultCard,
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Region", schemaField("whiskey", "region")),
 					tableColumn("Distillery", schemaField("whiskey", "distillery")),
 				],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference(schemaField("whiskey", "type")),
-					propertyReference(schemaField("whiskey", "region")),
-				),
 			),
 		},
 		{
@@ -1895,19 +1852,12 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
-				defaultCard,
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Proof", schemaField("whiskey", "proof")),
 					tableColumn("Type", schemaField("whiskey", "type")),
 					tableColumn("Age", schemaField("whiskey", "age")),
 				],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference(schemaField("whiskey", "proof")),
-					propertyReference(schemaField("whiskey", "type")),
-				),
 			),
 		},
 		{
@@ -1917,12 +1867,6 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference(schemaField("whiskey", "type")),
-					propertyReference(schemaField("whiskey", "distillery")),
-				),
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Created", "@createdAt"),
@@ -1937,12 +1881,6 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference(schemaField("whiskey", "age")),
-					propertyReference(schemaField("whiskey", "distillery")),
-				),
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Age", schemaField("whiskey", "age")),
@@ -1957,12 +1895,6 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference(schemaField("whiskey", "region")),
-					propertyReference(schemaField("whiskey", "distillery")),
-				),
 				[
 					tableColumn("Region", schemaField("whiskey", "region")),
 					tableColumn("Distillery", schemaField("whiskey", "distillery")),
@@ -1979,12 +1911,6 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference(schemaField("whiskey", "proof")),
-					propertyReference(schemaField("whiskey", "region")),
-				),
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Proof", schemaField("whiskey", "proof")),
@@ -2003,18 +1929,11 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("place"),
 			layouts: buildSeedLayouts(
 				["place"],
-				defaultCard,
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Type", schemaField("place", "type")),
 					tableColumn("City", schemaField("place", "city")),
 				],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference(schemaField("place", "type")),
-					propertyReference(schemaField("place", "city")),
-				),
 			),
 		},
 		{
@@ -2024,12 +1943,6 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("place"),
 			layouts: buildSeedLayouts(
 				["place"],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference(schemaField("place", "type")),
-					propertyReference(schemaField("place", "country")),
-				),
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Type", schemaField("place", "type")),
@@ -2045,12 +1958,6 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("place"),
 			layouts: buildSeedLayouts(
 				["place"],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference(schemaField("place", "city")),
-					propertyReference(schemaField("place", "country")),
-				),
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("City", schemaField("place", "city")),
@@ -2065,18 +1972,11 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("place"),
 			layouts: buildSeedLayouts(
 				["place"],
-				defaultCard,
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Created", "@createdAt"),
 					tableColumn("Type", schemaField("place", "type")),
 				],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference(schemaField("place", "type")),
-					propertyReference(schemaField("place", "city")),
-				),
 			),
 		},
 		{
@@ -2086,19 +1986,12 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("place"),
 			layouts: buildSeedLayouts(
 				["place"],
-				defaultCard,
 				[
 					tableColumn("Country", schemaField("place", "country")),
 					tableColumn("City", schemaField("place", "city")),
 					tableColumn("Name", "@name"),
 					tableColumn("Type", schemaField("place", "type")),
 				],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference(schemaField("place", "country")),
-					propertyReference(schemaField("place", "city")),
-				),
 			),
 		},
 		{
@@ -2108,12 +2001,6 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("place"),
 			layouts: buildSeedLayouts(
 				["place"],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference(schemaField("place", "city")),
-					propertyReference(schemaField("place", "address")),
-				),
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Latitude", schemaField("place", "latitude")),
@@ -2129,19 +2016,12 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("place"),
 			layouts: buildSeedLayouts(
 				["place"],
-				defaultCard,
 				[
 					tableColumn("City", schemaField("place", "city")),
 					tableColumn("Name", "@name"),
 					tableColumn("Address", schemaField("place", "address")),
 					tableColumn("Country", schemaField("place", "country")),
 				],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference(schemaField("place", "country")),
-					propertyReference(schemaField("place", "address")),
-				),
 			),
 		},
 	];
@@ -2154,12 +2034,6 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("smartphone"),
 			layouts: buildSeedLayouts(
 				["smartphone"],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference(schemaField("smartphone", "year")),
-					propertyReference(schemaField("smartphone", "manufacturer")),
-				),
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Manufacturer", schemaField("smartphone", "manufacturer")),
@@ -2175,19 +2049,12 @@ async function seedSavedViews(
 			entitySchemaSlug: null,
 			layouts: buildSeedLayouts(
 				["smartphone", "tablet"],
-				defaultCard,
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Storage", "smartphone.storage_gb", "tablet.storage_gb"),
 					tableColumn("Manufacturer", "smartphone.manufacturer", "tablet.manufacturer"),
 					tableColumn("Year", "smartphone.year", "tablet.year"),
 				],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference("smartphone.storage_gb", "tablet.storage_gb"),
-					propertyReference("smartphone.manufacturer", "tablet.manufacturer"),
-				),
 			),
 		},
 		{
@@ -2197,19 +2064,12 @@ async function seedSavedViews(
 			entitySchemaSlug: null,
 			layouts: buildSeedLayouts(
 				["smartphone", "tablet"],
-				defaultCard,
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Platform", "smartphone.os", "tablet.os"),
 					tableColumn("Year", "smartphone.year", "tablet.year"),
 					tableColumn("Storage", "smartphone.storage_gb", "tablet.storage_gb"),
 				],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference("smartphone.os", "tablet.os"),
-					propertyReference("smartphone.year", "tablet.year"),
-				),
 			),
 		},
 		{
@@ -2219,12 +2079,6 @@ async function seedSavedViews(
 			entitySchemaSlug: null,
 			layouts: buildSeedLayouts(
 				["smartphone", "tablet"],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference("smartphone.manufacturer", "tablet.manufacturer"),
-					propertyReference("smartphone.year", "tablet.year"),
-				),
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Manufacturer", "smartphone.manufacturer", "tablet.manufacturer"),
@@ -2240,7 +2094,6 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("smartphone"),
 			layouts: buildSeedLayouts(
 				["smartphone"],
-				defaultCard,
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Price", schemaField("smartphone", "price_usd")),
@@ -2248,12 +2101,6 @@ async function seedSavedViews(
 					tableColumn("Storage", schemaField("smartphone", "storage_gb")),
 					tableColumn("RAM", schemaField("smartphone", "ram_gb")),
 				],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference(schemaField("smartphone", "price_usd")),
-					propertyReference(schemaField("smartphone", "manufacturer")),
-				),
 			),
 		},
 		{
@@ -2263,18 +2110,11 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("smartphone"),
 			layouts: buildSeedLayouts(
 				["smartphone"],
-				defaultCard,
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Price", schemaField("smartphone", "price_usd")),
 					tableColumn("Manufacturer", schemaField("smartphone", "manufacturer")),
 				],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference(schemaField("smartphone", "price_usd")),
-					propertyReference(schemaField("smartphone", "manufacturer")),
-				),
 			),
 		},
 		{
@@ -2284,12 +2124,6 @@ async function seedSavedViews(
 			entitySchemaSlug: null,
 			layouts: buildSeedLayouts(
 				["smartphone", "tablet"],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference("smartphone.screen_size", "tablet.screen_size"),
-					propertyReference("smartphone.os", "tablet.os"),
-				),
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Screen Size", "smartphone.screen_size", "tablet.screen_size"),
@@ -2305,12 +2139,6 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("tablet"),
 			layouts: buildSeedLayouts(
 				["tablet"],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference(schemaField("tablet", "screen_size")),
-					propertyReference(schemaField("tablet", "manufacturer")),
-				),
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Screen Size", schemaField("tablet", "screen_size")),
@@ -2326,19 +2154,12 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("feature-phone"),
 			layouts: buildSeedLayouts(
 				["feature-phone"],
-				defaultCard,
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Manufacturer", schemaField("feature-phone", "manufacturer")),
 					tableColumn("Year", schemaField("feature-phone", "year")),
 					tableColumn("Battery", schemaField("feature-phone", "battery_mah")),
 				],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference(schemaField("feature-phone", "year")),
-					propertyReference(schemaField("feature-phone", "manufacturer")),
-				),
 			),
 		},
 		{
@@ -2348,16 +2169,6 @@ async function seedSavedViews(
 			entitySchemaSlug: null,
 			layouts: buildSeedLayouts(
 				["smartphone", "feature-phone", "tablet"],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference("smartphone.os", "feature-phone.color", "tablet.os"),
-					propertyReference(
-						"smartphone.manufacturer",
-						"feature-phone.manufacturer",
-						"tablet.manufacturer",
-					),
-				),
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Primary Field", "smartphone.os", "feature-phone.color", "tablet.os"),
@@ -2378,116 +2189,51 @@ async function seedSavedViews(
 			name: "Everything Recently Added",
 			icon: "star",
 			entitySchemaSlug: null,
-			layouts: buildSeedLayouts(
-				allSchemaSlugs,
-				defaultCard,
-				[
-					tableColumn("Name", "@name"),
-					tableColumn("Created", "@createdAt"),
-					tableColumn(
-						"Primary Field",
-						"whiskey.type",
-						"place.type",
-						"smartphone.os",
-						"feature-phone.color",
-						"tablet.os",
-					),
-				],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference(
-						"whiskey.type",
-						"place.type",
-						"smartphone.os",
-						"feature-phone.color",
-						"tablet.os",
-					),
-					propertyReference(
-						"whiskey.distillery",
-						"place.city",
-						"smartphone.manufacturer",
-						"feature-phone.manufacturer",
-						"tablet.manufacturer",
-					),
+			layouts: buildSeedLayouts(allSchemaSlugs, [
+				tableColumn("Name", "@name"),
+				tableColumn("Created", "@createdAt"),
+				tableColumn(
+					"Primary Field",
+					"whiskey.type",
+					"place.type",
+					"smartphone.os",
+					"feature-phone.color",
+					"tablet.os",
 				),
-			),
+			]),
 		},
 		{
 			name: "All Items A-Z",
 			icon: "book",
 			entitySchemaSlug: null,
-			layouts: buildSeedLayouts(
-				allSchemaSlugs,
-				defaultCard,
-				[
-					tableColumn("Name", "@name"),
-					tableColumn(
-						"Context",
-						"whiskey.distillery",
-						"place.city",
-						"smartphone.manufacturer",
-						"feature-phone.manufacturer",
-						"tablet.manufacturer",
-					),
-				],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference(
-						"whiskey.type",
-						"place.type",
-						"smartphone.os",
-						"feature-phone.color",
-						"tablet.os",
-					),
-					propertyReference(
-						"whiskey.region",
-						"place.country",
-						"smartphone.manufacturer",
-						"feature-phone.manufacturer",
-						"tablet.manufacturer",
-					),
+			layouts: buildSeedLayouts(allSchemaSlugs, [
+				tableColumn("Name", "@name"),
+				tableColumn(
+					"Context",
+					"whiskey.distillery",
+					"place.city",
+					"smartphone.manufacturer",
+					"feature-phone.manufacturer",
+					"tablet.manufacturer",
 				),
-			),
+			]),
 		},
 		{
 			name: "Collection Showcase",
 			icon: "image",
 			entitySchemaSlug: null,
-			layouts: buildSeedLayouts(
-				allSchemaSlugs,
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference(
-						"whiskey.type",
-						"place.type",
-						"smartphone.os",
-						"feature-phone.color",
-						"tablet.os",
-					),
-					propertyReference(
-						"whiskey.distillery",
-						"place.address",
-						"smartphone.manufacturer",
-						"feature-phone.manufacturer",
-						"tablet.manufacturer",
-					),
+			layouts: buildSeedLayouts(allSchemaSlugs, [
+				tableColumn("Name", "@name"),
+				tableColumn(
+					"Highlight",
+					"whiskey.type",
+					"place.type",
+					"smartphone.os",
+					"feature-phone.color",
+					"tablet.os",
 				),
-				[
-					tableColumn("Name", "@name"),
-					tableColumn(
-						"Highlight",
-						"whiskey.type",
-						"place.type",
-						"smartphone.os",
-						"feature-phone.color",
-						"tablet.os",
-					),
-					tableColumn("Updated", "@updatedAt"),
-				],
-			),
+				tableColumn("Updated", "@updatedAt"),
+			]),
 		},
 	];
 
@@ -2501,12 +2247,6 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference("event.tasting.properties.rating"),
-					propertyReference(schemaField("whiskey", "distillery")),
-				),
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Rating", "event.tasting.properties.rating"),
@@ -2523,12 +2263,6 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference("event.tasting.properties.rating"),
-					propertyReference(schemaField("whiskey", "type")),
-				),
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Rating", "event.tasting.properties.rating"),
@@ -2545,12 +2279,6 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference("event.purchase.properties.price"),
-					propertyReference("event.purchase.properties.store"),
-				),
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Price", "event.purchase.properties.price"),
@@ -2567,12 +2295,6 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("place"),
 			layouts: buildSeedLayouts(
 				["place"],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference("event.visit.properties.date"),
-					propertyReference(schemaField("place", "city")),
-				),
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Visit Date", "event.visit.properties.date"),
@@ -2590,12 +2312,6 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference("computed.abv"),
-					propertyReference(schemaField("whiskey", "distillery")),
-				),
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Proof", schemaField("whiskey", "proof")),
@@ -2612,12 +2328,6 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference("computed.tier"),
-					propertyReference(schemaField("whiskey", "type")),
-				),
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Age", schemaField("whiskey", "age")),
@@ -2634,12 +2344,6 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference(schemaField("whiskey", "type")),
-					propertyReference("computed.description"),
-				),
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Description", "computed.description"),
@@ -2654,12 +2358,6 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference("computed.value_score"),
-					propertyReference("computed.abv"),
-				),
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Rating", "event.tasting.properties.rating"),
@@ -2676,12 +2374,6 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference(schemaField("whiskey", "age")),
-					propertyReference(schemaField("whiskey", "distillery")),
-				),
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Age", schemaField("whiskey", "age")),
@@ -2697,12 +2389,6 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference(schemaField("whiskey", "type")),
-					propertyReference(schemaField("whiskey", "region")),
-				),
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Type", schemaField("whiskey", "type")),
@@ -2718,12 +2404,6 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference(schemaField("whiskey", "type")),
-					propertyReference(schemaField("whiskey", "proof")),
-				),
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Type", schemaField("whiskey", "type")),
@@ -2740,12 +2420,6 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference(schemaField("whiskey", "type")),
-					propertyReference(schemaField("whiskey", "distillery")),
-				),
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Type", schemaField("whiskey", "type")),
@@ -2761,12 +2435,6 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("place"),
 			layouts: buildSeedLayouts(
 				["place"],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference(schemaField("place", "city")),
-					propertyReference(schemaField("place", "address")),
-				),
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("City", schemaField("place", "city")),
@@ -2783,12 +2451,6 @@ async function seedSavedViews(
 			entitySchemaSlug: EntitySchemaSlug.make("whiskey"),
 			layouts: buildSeedLayouts(
 				["whiskey"],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference(schemaField("whiskey", "region")),
-					propertyReference(schemaField("whiskey", "distillery")),
-				),
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Region", schemaField("whiskey", "region")),
@@ -2804,12 +2466,6 @@ async function seedSavedViews(
 			entitySchemaSlug: null,
 			layouts: buildSeedLayouts(
 				["smartphone", "tablet"],
-				cardConfig(
-					propertyReference("@image"),
-					propertyReference("@name"),
-					propertyReference("smartphone.manufacturer", "tablet.manufacturer"),
-					propertyReference("smartphone.os", "tablet.os"),
-				),
 				[
 					tableColumn("Name", "@name"),
 					tableColumn("Manufacturer", "smartphone.manufacturer", "tablet.manufacturer"),

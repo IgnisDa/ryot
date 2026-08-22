@@ -282,9 +282,15 @@ export const PreparedClientPageIdentity = Schema.Union([
 	}),
 ]);
 
+export const PreparedClientPageViewIdentity = strictStruct({
+	icon: Schema.String,
+	name: Schema.String,
+});
+
 export const PreparedClientPageContext = strictStruct({
 	target: PreparedClientPageTarget,
 	dataSources: Schema.NullOr(RyotQLDocument),
+	view: Schema.NullOr(PreparedClientPageViewIdentity),
 	settings: Schema.Record(Schema.String, JsonValue),
 	route: strictStruct({ params: Schema.Record(Schema.String, Schema.String) }),
 	renderer: Schema.Union([

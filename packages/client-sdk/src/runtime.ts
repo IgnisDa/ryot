@@ -21,6 +21,7 @@ import {
 	type PluginBridgeRyotQLRequest,
 	type PluginBridgeScreenState,
 	type PluginBridgeOverlayState,
+	type PluginBridgePageShortcuts,
 	type PluginBridgeUploadRequest,
 	type PluginClientArtifactMetadata,
 	type PluginThemeSnapshot,
@@ -95,9 +96,26 @@ export const createPluginRuntime = (
 	const navigation = {
 		subscribe: navigationStore.subscribe,
 		getSnapshot: navigationStore.getSnapshot,
+		completeTransition: navigationStore.completeTransition,
 		back: () => post({ type: "navigate-back" } satisfies PluginBridgeNavigateBack),
 		openDrawer: () => post({ type: "open-drawer" } satisfies PluginBridgeOpenDrawer),
-		completeTransition: navigationStore.completeTransition,
+		registerShortcut: (shortcut: string, press: () => void) => {
+			const handlers = pageShortcuts.get(shortcut) ?? new Set<() => void>();
+			if (!pageShortcuts.has(shortcut)) {
+				pageShortcuts.set(shortcut, handlers);
+				handlers.add(press);
+				publishPageShortcuts();
+			} else {
+				handlers.add(press);
+			}
+			return () => {
+				if (!handlers.delete(press) || handlers.size > 0) {
+					return;
+				}
+				pageShortcuts.delete(shortcut);
+				publishPageShortcuts();
+			};
+		},
 		publishTitle: (title: string | null) => {
 			const entry = navigationStore.getSnapshot().entry;
 			if (entry === undefined) {
@@ -111,6 +129,15 @@ export const createPluginRuntime = (
 				header: published === null ? null : { title: published },
 			} satisfies PluginBridgeHeader);
 		},
+	};
+	const pageShortcuts = new Map<string, Set<() => void>>();
+	const publishPageShortcuts = () => {
+		if (state === "active") {
+			post({
+				type: "page-shortcuts",
+				shortcuts: [...pageShortcuts.keys()].sort(),
+			} satisfies PluginBridgePageShortcuts);
+		}
 	};
 	const applyThemeMode = (mode: PluginThemeSnapshot["resolvedMode"]) =>
 		root.setAttribute("data-theme", mode);
@@ -501,44 +528,50 @@ export const createPluginRuntime = (
 						}
 					}
 				}),
-				Match.when({ type: "location" }, ({ compact, edgeBack, index, key, leading, location }) => {
-					let accepted: PluginNavigationSnapshot;
-					try {
-						accepted = navigationStore.setLocation({
-							leading,
-							compact,
-							edgeBack,
-							entry: { index, key, location },
-						});
-					} catch {
-						finish("failed", "protocol", true);
-						return;
-					}
-					if (state !== "ready" && state !== "active") {
-						return;
-					}
-					const acceptedEntry = accepted.entry;
-					if (acceptedEntry === undefined) {
-						finish("failed", "protocol", true);
-						return;
-					}
-					if (
-						!post({
-							type: "screen-state",
-							key: acceptedEntry.key,
-							index: acceptedEntry.index,
-							hasPreviousScreen: accepted.screens.length > 1,
-						} satisfies PluginBridgeScreenState)
-					) {
-						return;
-					}
-					const activating = state === "ready";
-					hasLocation = true;
-					activate();
-					if (activating && overlayCount > 0) {
-						post({ count: overlayCount, type: "overlay-state" } satisfies PluginBridgeOverlayState);
-					}
-				}),
+				Match.when(
+					{ type: "location" },
+					({ compact, edgeBack, index, key, leading, location, screenKey }) => {
+						let accepted: PluginNavigationSnapshot;
+						try {
+							accepted = navigationStore.setLocation({
+								leading,
+								compact,
+								edgeBack,
+								entry: { index, key, location, screenKey },
+							});
+						} catch {
+							finish("failed", "protocol", true);
+							return;
+						}
+						if (state !== "ready" && state !== "active") {
+							return;
+						}
+						const acceptedEntry = accepted.entry;
+						if (acceptedEntry === undefined) {
+							finish("failed", "protocol", true);
+							return;
+						}
+						if (
+							!post({
+								type: "screen-state",
+								key: acceptedEntry.key,
+								index: acceptedEntry.index,
+								hasPreviousScreen: accepted.screens.length > 1,
+							} satisfies PluginBridgeScreenState)
+						) {
+							return;
+						}
+						const activating = state === "ready";
+						hasLocation = true;
+						activate();
+						if (activating && overlayCount > 0) {
+							post({
+								count: overlayCount,
+								type: "overlay-state",
+							} satisfies PluginBridgeOverlayState);
+						}
+					},
+				),
 				Match.when({ type: "viewport" }, ({ safeAreaBottom, safeAreaTop }) =>
 					navigationStore.setViewport({ safeAreaTop, safeAreaBottom }),
 				),
@@ -551,6 +584,11 @@ export const createPluginRuntime = (
 				}),
 				Match.when({ type: "page-refresh" }, () => {
 					client.mutationCompleted.hint();
+				}),
+				Match.when({ type: "page-shortcut-press" }, ({ shortcut }) => {
+					for (const press of pageShortcuts.get(shortcut) ?? []) {
+						press();
+					}
 				}),
 				Match.when({ type: "lifecycle-close" }, ({ reason }) =>
 					finish(reason, reason === "disposed" ? "disposed" : "protocol", false),

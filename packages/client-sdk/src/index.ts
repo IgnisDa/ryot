@@ -18,6 +18,11 @@ import {
 	type DeleteMembershipBody,
 	MembershipResponse,
 } from "@ryot-app/contract/modules/collections/schemas";
+import {
+	EntitySyncState,
+	PopulationStatus,
+	TranslationStatus,
+} from "@ryot-app/contract/modules/entities/schemas";
 import { EntityUpdatedMessage } from "@ryot-app/contract/modules/entity-interest/messages";
 import {
 	AssetLocator,
@@ -54,7 +59,7 @@ export type {
 	ManagedAssetLocator,
 	TemporaryUploadToken,
 } from "@ryot-app/contract/modules/uploads/schemas";
-export { AssetLocator };
+export { AssetLocator, EntitySyncState, PopulationStatus, TranslationStatus };
 
 export type RyotThemeSnapshot = PluginThemeSnapshotValue;
 export type ManagedAssetResolution = PluginManagedAssetResolutionValue;

@@ -25,6 +25,7 @@ export const fixturePlugin = definePlugin({
 		homeView: null,
 		notFoundPage: "fixture-not-found",
 		entities: {
+			move: { gridPresentation: "move-card", listPresentation: "move-row" },
 			pokemon: {
 				detailPage: "pokemon-detail",
 				gridPresentation: "pokemon-card",
@@ -85,6 +86,16 @@ export const fixturePlugin = definePlugin({
 			"pokemon-row": {
 				kind: "presentation",
 				entry: "client/pokemon-row.ts",
+				automaticEntityPresentations: false,
+			},
+			"move-card": {
+				kind: "presentation",
+				entry: "client/move-card.ts",
+				automaticEntityPresentations: false,
+			},
+			"move-row": {
+				kind: "presentation",
+				entry: "client/move-row.ts",
 				automaticEntityPresentations: false,
 			},
 		},
