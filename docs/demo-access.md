@@ -122,6 +122,7 @@ For the configured demo user:
 - every API key resolving to that user is `demo`;
 - this applies even if the key was created earlier from a standard owner session;
 - a demo hosted session cannot create/update/delete API keys;
+- a demo hosted session cannot list or inspect API-key metadata;
 - owner maintenance should use normal OAuth rather than privileged demo-user API keys.
 
 For all other users, API-key behavior remains standard.
@@ -660,7 +661,7 @@ return Better Auth `403` with code:
 DEMO_OPERATION_PROTECTED
 ```
 
-for account/control-plane mutations.
+for account and credential control-plane operations.
 
 At minimum protect:
 
@@ -686,7 +687,23 @@ At minimum protect:
 /revoke-session
 /revoke-sessions
 /revoke-other-sessions
+
+/list-accounts
+/get-access-token
+/refresh-token
+/account-info
+
+/list-sessions
+
+/api-key/list
+/api-key/get
+
+/two-factor/get-totp-uri
 ```
+
+The hook must resolve the hosted session for every protected path, including GET routes. Lifecycle
+protection remains limited to lifecycle-sensitive mutations; these credential reads are demo-protected
+without becoming lifecycle-protected.
 
 Keep ordinary session retrieval and logout available.
 
@@ -1812,6 +1829,11 @@ For a demo hosted session, assert 403 for:
 - auth-account linking/unlinking;
 - 2FA configuration;
 - session-management mutation;
+- linked-account listing and account information;
+- external access-token and refresh-token retrieval;
+- active-session listing;
+- API-key listing and inspection;
+- TOTP provisioning-secret retrieval;
 - attempts to authorize `ryot-web`;
 - attempts to authorize `ryot-native`.
 
@@ -2063,6 +2085,29 @@ It cannot produce an unrestricted access token.
 
 ## Scenario 7 — sensitive external authority stays hidden
 
+From a demo hosted session, call every protected Better Auth credential/control-plane read:
+
+```text
+/list-accounts
+/get-access-token
+/refresh-token
+/account-info
+/list-sessions
+/api-key/list
+/api-key/get
+/two-factor/get-totp-uri
+```
+
+Expected for every route:
+
+```text
+403 DEMO_OPERATION_PROTECTED
+```
+
+The same requests under a standard hosted session reach ordinary Better Auth behavior.
+
+## Scenario 8 — sensitive integration detail stays hidden
+
 From a demo credential, attempt to load integration detail containing a sink webhook URL.
 
 Expected:
@@ -2073,7 +2118,7 @@ Expected:
 
 No webhook URL is returned.
 
-## Scenario 8 — no reset behavior
+## Scenario 9 — no reset behavior
 
 Domain changes persist across logout/new demo sessions.
 
@@ -2193,7 +2238,7 @@ Implemented on 2026-09-20.
 - Added the shared `AccessClass` contract and durable OAuth provenance through `StoredTokenSet.clientId`.
 - Added `ryot-demo-web`, including enabled/disabled provisioning reconciliation and strict web/native callback validation.
 - Added `USERS_DEMO_ACCOUNT_ID`, the Better Auth `session.accessClass` field, and `POST /api/auth/demo/sign-in` with the specified hosted-session state machine.
-- Enforced demo hosted-session account-operation protection and prevented demo sessions from authorizing normal web or native OAuth clients.
+- Enforced demo hosted-session account and credential control-plane protection, including linked accounts, external tokens, active sessions, API-key inventory, and TOTP provisioning secrets, and prevented demo sessions from authorizing normal web or native OAuth clients.
 - Preserved full credential provenance through application middleware and plugin operations, including fail-closed demo-user OAuth classification and demo-user API-key classification.
 - Added typed `DemoOperationProtected` responses, endpoint `DemoAccessPolicy` annotations, runtime enforcement, and a TypeScript-parser architecture check for unclassified authenticated mutations.
 - Added explicit plugin-operation demo policy and enforcement for system and private plugins.
@@ -2214,4 +2259,5 @@ The following completed successfully:
 bun turbo --filter=@ryot-app/e2e test --only -- 'src/api/kernel/auth/demo-access.test.ts' 'src/api/kernel/auth/auth.test.ts' 'src/api/kernel/auth/oauth-protocol.test.ts' 'src/api/kernel/plugins/operations.test.ts' 'src/api/kernel/plugins/client-operation.test.ts' 'src/api/kernel/automations/lifecycle-triggers.test.ts' 'src/api/kernel/sandbox/durable-tracer.test.ts'
 bun turbo --output-logs=full check
 bun turbo --filter='!@ryot-app/e2e' --output-logs=full test
+bun run build
 ```

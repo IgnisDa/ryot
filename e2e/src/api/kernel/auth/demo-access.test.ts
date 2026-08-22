@@ -12,7 +12,7 @@ import {
 	OAUTH_WEB_CLIENT_ID,
 	type OAuthClientId,
 } from "@ryot-app/contract/oauth";
-import { IntegrationId } from "@ryot-app/contract/schema/brands";
+import { IntegrationId, SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
 import { Effect, Schema } from "effect";
 import getPort from "get-port";
@@ -20,20 +20,32 @@ import getPort from "get-port";
 import {
 	createApiKey,
 	createCollection,
+	createEntity,
 	createKodiIntegration,
 	createTestUser,
 	executeRyotQL,
+	findBuiltinSchemaBySlug,
 	getUserSettings,
+	listEventSchemas,
 	makeSession,
+	mergeUserState,
 	prepareOAuth,
+	requireEventSchemaBySlug,
 	requireRows,
 	requireRyotQLText,
 	responseCookie,
+	searchProviderEntities,
 	signInWithPassword,
 	updateUserSettingsPreferences,
 	type PendingOAuth,
 } from "~/fixtures/kernel";
-import { assertTaggedError, requirePresent } from "~/support/assertions";
+import {
+	assertTaggedError,
+	requireArray,
+	requireObjectRecord,
+	requirePresent,
+	requireString,
+} from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 import {
 	buildApiEnv,
@@ -56,7 +68,37 @@ let demoEmail: string;
 let demoPassword: string;
 let integrationId: string;
 let integrationWebhookUrl: string;
+let ownerSessionCookie: string;
 let infrastructure: Awaited<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
+
+const authControlPlaneRequests = (accountId: string, apiKeyId: string) =>
+	[
+		{ method: "GET", path: "/list-accounts", expectedStandardStatus: 200 },
+		{ method: "POST", body: { accountId }, path: "/get-access-token" },
+		{ method: "POST", body: { accountId }, path: "/refresh-token" },
+		{ method: "GET", path: `/account-info?accountId=${encodeURIComponent(accountId)}` },
+		{ method: "GET", path: "/list-sessions", expectedStandardStatus: 200 },
+		{ method: "GET", path: "/api-key/list", expectedStandardStatus: 200 },
+		{
+			method: "GET",
+			expectedStandardStatus: 200,
+			path: `/api-key/get?id=${encodeURIComponent(apiKeyId)}`,
+		},
+		{ body: {}, method: "POST", path: "/two-factor/get-totp-uri" },
+	] as const;
+
+const callHostedAuth = (
+	sessionCookie: string,
+	request: ReturnType<typeof authControlPlaneRequests>[number],
+) =>
+	fetch(`${apiOrigin}/api/auth${request.path}`, {
+		method: request.method,
+		headers: {
+			Cookie: sessionCookie,
+			...(request.method === "POST" ? { "content-type": "application/json" } : {}),
+		},
+		...(request.method === "POST" ? { body: JSON.stringify(request.body) } : {}),
+	});
 
 const startApi = async (extraEnv: Record<string, string | undefined>) => {
 	const activeInfrastructure = requirePresent(
@@ -163,6 +205,7 @@ beforeAll(async () => {
 	demoUserId = seeded.userId;
 	demoEmail = seeded.email;
 	demoPassword = seeded.password;
+	ownerSessionCookie = seeded.sessionCookie;
 	demoApiKey = await Effect.runPromise(
 		createApiKey(seeded.sessionCookie, "Demo account key", apiUrl),
 	);
@@ -271,6 +314,121 @@ describe("shared demo access acceptance", () => {
 					code: "DEMO_OPERATION_PROTECTED",
 				});
 			}
+		}),
+	);
+
+	it.live("protects Better Auth credential reads while preserving standard hosted access", () =>
+		Effect.gen(function* () {
+			const standardAccountsResponse = yield* Effect.promise(() =>
+				fetch(`${apiOrigin}/api/auth/list-accounts`, { headers: { Cookie: ownerSessionCookie } }),
+			);
+			expect(standardAccountsResponse.status).toBe(200);
+			const standardAccounts: unknown = yield* Effect.promise(() =>
+				standardAccountsResponse.json(),
+			);
+			const account = requireObjectRecord(
+				requirePresent(
+					requireArray(standardAccounts, "Account list was invalid")[0],
+					"Standard account list was empty",
+				),
+				"Standard account was invalid",
+			);
+			const accountId = requireString(account.id, "Account ID was missing");
+
+			const standardApiKeysResponse = yield* Effect.promise(() =>
+				fetch(`${apiOrigin}/api/auth/api-key/list`, { headers: { Cookie: ownerSessionCookie } }),
+			);
+			expect(standardApiKeysResponse.status).toBe(200);
+			const standardApiKeys: unknown = yield* Effect.promise(() => standardApiKeysResponse.json());
+			const apiKeys = requireArray(
+				requireObjectRecord(standardApiKeys, "API-key list was invalid").apiKeys,
+				"API-key list items were invalid",
+			);
+			const apiKey = requireObjectRecord(
+				requirePresent(apiKeys[0], "Standard API-key list was empty"),
+				"Standard API key was invalid",
+			);
+			const apiKeyId = requireString(apiKey.id, "API-key ID was missing");
+			const demoCookie = yield* Effect.promise(signInDemo);
+
+			for (const request of authControlPlaneRequests(accountId, apiKeyId)) {
+				const demoResponse = yield* Effect.promise(() => callHostedAuth(demoCookie, request));
+				expect(demoResponse.status).toBe(403);
+				expect(yield* Effect.promise(() => demoResponse.json())).toMatchObject({
+					code: "DEMO_OPERATION_PROTECTED",
+				});
+
+				const standardResponse = yield* Effect.promise(() =>
+					callHostedAuth(ownerSessionCookie, request),
+				);
+				const standardBody = yield* Effect.promise(() => standardResponse.json());
+				expect(standardResponse.status).not.toBe(403);
+				expect(standardBody).not.toMatchObject({ code: "DEMO_OPERATION_PROTECTED" });
+				if ("expectedStandardStatus" in request) {
+					expect(standardResponse.status).toBe(request.expectedStandardStatus);
+				}
+			}
+		}),
+	);
+
+	it.live("allows provider, event tracking, and user-state routes to reach domain behavior", () =>
+		Effect.gen(function* () {
+			const sessionCookie = yield* Effect.promise(signInDemo);
+			const token = yield* Effect.promise(() => getDemoToken(sessionCookie));
+			const demoClient = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
+			const missingProviderId = SandboxProviderId.make(crypto.randomUUID());
+			const searchError = yield* Effect.flip(
+				searchProviderEntities(demoClient, {
+					page: 1,
+					pageSize: 5,
+					query: "demo",
+					providerId: missingProviderId,
+				}),
+			);
+			assertTaggedError(searchError, "ProviderEntityNotFound");
+			expect(searchError.reason.code).toBe("provider-not-found");
+			const importError = yield* Effect.flip(
+				demoClient.call((c) =>
+					c.providerEntities.import({
+						payload: { externalId: "demo-record", providerId: missingProviderId },
+					}),
+				),
+			);
+			assertTaggedError(importError, "ProviderEntityNotFound");
+			expect(importError.reason.code).toBe("provider-not-found");
+
+			const { schema } = yield* findBuiltinSchemaBySlug(demoClient, "book");
+			const mergeFrom = yield* createEntity(demoClient, {
+				properties: {},
+				name: "Demo merge source",
+				entitySchemaSlug: schema.id,
+			});
+			const mergeInto = yield* createEntity(demoClient, {
+				properties: {},
+				name: "Demo merge target",
+				entitySchemaSlug: schema.id,
+			});
+			const eventSchemas = yield* listEventSchemas(demoClient, schema.id);
+			const review = requireEventSchemaBySlug(eventSchemas, "review");
+			const eventResult = yield* demoClient.call((c) =>
+				c.events.create({
+					payload: [
+						{ entityId: mergeFrom.id, properties: { rating: 5 }, eventSchemaSlug: review.id },
+					],
+				}),
+			);
+			expect(eventResult.count).toBe(1);
+
+			const merged = yield* mergeUserState(demoClient, {
+				mergeFrom: mergeFrom.id,
+				mergeInto: mergeInto.id,
+			});
+			expect(merged).toMatchObject({
+				warnings: [],
+				movedEventsCount: 2,
+				mergeFrom: mergeFrom.id,
+				mergeInto: mergeInto.id,
+			});
 		}),
 	);
 

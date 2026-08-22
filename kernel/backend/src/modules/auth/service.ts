@@ -77,7 +77,17 @@ const lifecycleProtectedAuthPaths = new Set([
 
 export const isLifecycleProtectedAuthPath = (path: string) => lifecycleProtectedAuthPaths.has(path);
 
-const demoProtectedAuthPaths = new Set(lifecycleProtectedAuthPaths);
+const demoProtectedAuthPaths = new Set([
+	...lifecycleProtectedAuthPaths,
+	"/account-info",
+	"/api-key/get",
+	"/api-key/list",
+	"/get-access-token",
+	"/list-accounts",
+	"/list-sessions",
+	"/refresh-token",
+	"/two-factor/get-totp-uri",
+]);
 
 export const isDemoProtectedAuthRequest = (path: string, accessClass: unknown, clientId?: string) =>
 	accessClass === "demo" &&
@@ -244,7 +254,7 @@ const makeAuthInstance = (args: {
 				Effect.runPromiseWith(args.runtime)(
 					Effect.gen(function* () {
 						const needsSession =
-							isLifecycleProtectedAuthPath(ctx.path) || ctx.path === "/oauth2/authorize";
+							demoProtectedAuthPaths.has(ctx.path) || ctx.path === "/oauth2/authorize";
 						if (!needsSession) {
 							return undefined;
 						}
