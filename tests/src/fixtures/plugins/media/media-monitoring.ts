@@ -1,4 +1,5 @@
 import { EntityId, PluginSlug } from "@ryot/contract/schema/brands";
+import type { JsonValue } from "@ryot/contract/schema/json";
 import {
 	mediaMonitoringDisableRecipe,
 	mediaMonitoringEnableRecipe,
@@ -69,7 +70,8 @@ export const disableMediaMonitoring = (client: Client, entityId: string) =>
 	).pipe(Effect.flatMap(singleResult));
 
 const operationTransport =
-	(client: Client) => (request: { payload: unknown; pluginSlug: string; operationSlug: string }) =>
+	(client: Client) =>
+	(request: { payload: JsonValue; pluginSlug: string; operationSlug: string }) =>
 		client
 			.call((contract) =>
 				contract.plugins.invoke({

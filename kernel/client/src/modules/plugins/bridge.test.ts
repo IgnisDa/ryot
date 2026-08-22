@@ -328,6 +328,7 @@ describe("plugin bridge", () => {
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(received).toHaveLength(1));
 		pluginPort.postMessage({
+			input: null,
 			requestId: "request-1",
 			operationSlug: "greet",
 			type: "operation-request",
@@ -386,6 +387,7 @@ describe("plugin bridge", () => {
 		await waitFor(() => expect(received).toHaveLength(1));
 
 		pluginPort.postMessage({
+			input: null,
 			operationSlug: "greet",
 			requestId: "operation-1",
 			type: "operation-request",
@@ -407,24 +409,52 @@ describe("plugin bridge", () => {
 		});
 	});
 
-	it("fails the session when an operation result cannot be cloned", async () => {
+	it("maps an invalid operation success to transport and keeps the session alive", async () => {
+		let calls = 0;
 		const { init, pluginPort, received, failures } = connect({
-			onOperation: () => Promise.resolve({ outcome: "success", value: () => undefined }),
+			onOperation: () => {
+				calls += 1;
+				return Promise.resolve(
+					calls === 1
+						? // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- injects an invalid runtime boundary value
+							({ outcome: "success", value: () => undefined } as unknown as PluginOperationOutcome)
+						: { outcome: "success", value: "ok" },
+				);
+			},
 		});
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(received).toHaveLength(1));
 
 		pluginPort.postMessage({
+			input: null,
 			requestId: "request-1",
 			operationSlug: "greet",
 			type: "operation-request",
 		});
 
-		await waitFor(() => expect(failures).toHaveLength(1));
-		expect(received).toEqual([
-			{ type: "location", location: home },
-			{ reason: "failed", type: "lifecycle-close" },
-		]);
+		await waitFor(() =>
+			expect(received).toContainEqual({
+				outcome: "failure",
+				reason: "transport",
+				requestId: "request-1",
+				type: "operation-result",
+			}),
+		);
+		pluginPort.postMessage({
+			input: null,
+			requestId: "request-2",
+			operationSlug: "greet",
+			type: "operation-request",
+		});
+		await waitFor(() =>
+			expect(received).toContainEqual({
+				value: "ok",
+				outcome: "success",
+				requestId: "request-2",
+				type: "operation-result",
+			}),
+		);
+		expect(failures).toEqual([]);
 	});
 
 	it("round-trips an expected operation failure", async () => {
@@ -566,7 +596,7 @@ describe("plugin bridge", () => {
 		expect(received).toHaveLength(2);
 	});
 
-	it("forwards a request that omits input instead of dropping it unanswered", async () => {
+	it("rejects a request that omits input or contains a non-JSON value", async () => {
 		const { init, pluginPort, received, operationCalls } = connect();
 		pluginPort.postMessage(readyFor(init));
 		await waitFor(() => expect(received).toHaveLength(1));
@@ -576,9 +606,16 @@ describe("plugin bridge", () => {
 			operationSlug: "greet",
 			type: "operation-request",
 		});
-		await waitFor(() => expect(operationCalls).toHaveLength(1));
+		pluginPort.postMessage({
+			requestId: "request-2",
+			operationSlug: "greet",
+			type: "operation-request",
+			input: { invalid: undefined },
+		});
+		await delay(10);
 
-		expect(operationCalls[0]).toMatchObject({ input: undefined, operationSlug: "greet" });
+		expect(operationCalls).toEqual([]);
+		expect(received).toHaveLength(1);
 	});
 
 	it("never invokes onOperation for a request carrying extra identity fields", async () => {
@@ -690,6 +727,7 @@ describe("plugin bridge", () => {
 
 		pluginPort.postMessage({ document, requestId: "shared-id", type: "ryotql-request" });
 		pluginPort.postMessage({
+			input: null,
 			requestId: "shared-id",
 			operationSlug: "greet",
 			type: "operation-request",

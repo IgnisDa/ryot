@@ -5,6 +5,7 @@ import {
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	PluginBridgeClientMessage,
 	PluginBridgeHostMessage,
+	PluginBridgeOperationResult,
 	PluginBridgeRyotQLResult,
 } from "./client";
 
@@ -42,6 +43,51 @@ describe("plugin client bridge contract", () => {
 		expect(
 			Result.isFailure(
 				decode({ document, userId: "user-1", requestId: "request-1", type: "ryotql-request" }),
+			),
+		).toBe(true);
+	});
+
+	it("requires JSON operation inputs and success values", () => {
+		const decodeRequest = Schema.decodeUnknownResult(PluginBridgeClientMessage);
+		const decodeResult = Schema.decodeUnknownResult(PluginBridgeOperationResult);
+
+		expect(
+			Result.isSuccess(
+				decodeRequest({
+					requestId: "request-1",
+					operationSlug: "greet",
+					type: "operation-request",
+					input: { values: [null, true, 1, "ok"] },
+				}),
+			),
+		).toBe(true);
+		expect(
+			Result.isFailure(
+				decodeRequest({
+					requestId: "request-1",
+					operationSlug: "greet",
+					type: "operation-request",
+				}),
+			),
+		).toBe(true);
+		expect(
+			Result.isFailure(
+				decodeRequest({
+					requestId: "request-1",
+					operationSlug: "greet",
+					type: "operation-request",
+					input: { invalid: undefined },
+				}),
+			),
+		).toBe(true);
+		expect(
+			Result.isFailure(
+				decodeResult({
+					outcome: "success",
+					value: () => undefined,
+					requestId: "request-1",
+					type: "operation-result",
+				}),
 			),
 		).toBe(true);
 	});

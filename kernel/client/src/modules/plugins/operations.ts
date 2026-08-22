@@ -37,7 +37,7 @@ export class PluginOperationsService extends Context.Service<PluginOperationsSer
 				const outcome = yield* api
 					.run(invocation.scope, (client) =>
 						client.plugins.invoke({
-							payload: { payload: invocation.request.input ?? null },
+							payload: { payload: invocation.request.input },
 							params: {
 								operationSlug: invocation.request.operationSlug,
 								pluginSlug: PluginSlug.make(invocation.pluginSlug),

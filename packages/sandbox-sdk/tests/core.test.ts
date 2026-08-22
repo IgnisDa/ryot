@@ -52,6 +52,10 @@ describe("shared value contracts", () => {
 		});
 		expect(() => decode(jsonValueSchema)(Number.NaN)).toThrow();
 		expect(() => decode(jsonValueSchema)(Number.POSITIVE_INFINITY)).toThrow();
+		const cyclic: Record<string, unknown> = {};
+		cyclic["self"] = cyclic;
+		expect(() => decode(jsonValueSchema)(cyclic)).toThrow();
+		expect(() => decode(jsonValueSchema)(Array(1))).toThrow();
 	});
 
 	test("preserves core host result variants", () => {

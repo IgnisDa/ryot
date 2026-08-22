@@ -374,6 +374,17 @@ describe("RyotQLDocument", () => {
 		).toThrow();
 	});
 
+	it("uses the strict JSON-value contract for literals", () => {
+		const cyclic: Record<string, unknown> = {};
+		cyclic["self"] = cyclic;
+
+		for (const value of [new Date(0), Array(1), { [Symbol("value")]: true }, cyclic]) {
+			expect(() =>
+				Schema.decodeUnknownSync(RyotQLDocument)(makeDocument({ type: "literal", value })),
+			).toThrow();
+		}
+	});
+
 	it("decodes nested correlated includes and their response values", () => {
 		const withInclude = {
 			queries: {
@@ -394,10 +405,10 @@ describe("RyotQLDocument", () => {
 									},
 								],
 								where: {
-									type: "comparison",
 									operator: "eq",
-									left: { type: "column", tableAlias: "courseModule", field: "sourceEntityId" },
+									type: "comparison",
 									right: { type: "column", tableAlias: "collection", field: "id" },
+									left: { type: "column", tableAlias: "courseModule", field: "sourceEntityId" },
 								},
 							},
 						],
