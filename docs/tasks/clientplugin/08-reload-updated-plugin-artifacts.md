@@ -2,7 +2,7 @@
 
 **Parent Plan:** [Web Client Plugin Tracer](./README.md)
 
-**Status:** todo
+**Status:** done
 
 ## What to build
 
@@ -14,22 +14,22 @@ Keep artifacts immutable and hash-addressed. This slice does not add V2 support,
 
 ## Acceptance criteria
 
-- [ ] Two deterministic fixture source revisions produce different package source hashes and client artifact hashes while retaining plugin and installation identity.
-- [ ] The production plugin update path compiles and validates revision B before activating any B metadata.
-- [ ] A failed B compilation leaves revision A active and renderable without a partial catalog or artifact state.
-- [ ] Successful activation updates the RyotQL catalog and invalidates/reloads the kernel's catalog state through the normal reactive data path.
-- [ ] Catalog refresh continues to execute `pluginClientCatalogRecipe` through the shared kernel `RyotClient`; no direct contract call or plugin-specific query client bypasses `ryot.data.query`.
-- [ ] An unchanged artifact hash does not recreate the iframe.
-- [ ] A changed artifact hash disposes A's runtime, rejects A's pending requests exactly once before closing A's port, destroys A's iframe, and mounts B exactly once.
-- [ ] A changed artifact hash uses the shared disposal path, then creates B's fresh `RyotClient` and runtime through the normal initial-mount factory; no public reload capability or parallel runtime is introduced.
-- [ ] A normal artifact replacement uses the shared client error contract, including `disposed` for normal teardown, and introduces no reload-specific error union or compatibility path.
-- [ ] A changed artifact hash disposes A's existing `ready`/`active`/`closing`/`failed`/`disposed` runtime, settles query and operation calls at most once, and leaves no A listener or pending entry behind.
-- [ ] Revision B opens at the same logical plugin URL and shows its changed output after a fresh exact-version handshake.
-- [ ] Revision A cannot issue an authenticated operation after revision B becomes active.
-- [ ] Immutable artifact responses cannot mutate revision A bytes at revision A's hash.
-- [ ] Reload uses the existing `PluginHost` lifecycle and exact V3 handshake only; no arbitrary reload protocol or reload-specific wire contract is introduced.
-- [ ] No compatibility negotiation, fallback bridge, dual-revision session, client-state migration, or separate theme/crash/reload bridge or teardown path is introduced; V3 is the only supported protocol.
-- [ ] Backend update atomicity, catalog reactivity, host remount, stale-port rejection, shared pending-call/error handling, unchanged-hash stability, failed-update preservation, and browser update tests pass with all earlier tracer tests.
+- [x] Two deterministic fixture source revisions produce different package source hashes and client artifact hashes while retaining plugin and installation identity.
+- [x] The production plugin update path compiles and validates revision B before activating any B metadata.
+- [x] A failed B compilation leaves revision A active and renderable without a partial catalog or artifact state.
+- [x] Successful activation updates the RyotQL catalog and invalidates/reloads the kernel's catalog state through the normal reactive data path.
+- [x] Catalog refresh continues to execute `pluginClientCatalogRecipe` through the shared kernel `RyotClient`; no direct contract call or plugin-specific query client bypasses `ryot.data.query`.
+- [x] An unchanged artifact hash does not recreate the iframe.
+- [x] A changed artifact hash disposes A's runtime, rejects A's pending requests exactly once before closing A's port, destroys A's iframe, and mounts B exactly once.
+- [x] A changed artifact hash uses the shared disposal path, then creates B's fresh `RyotClient` and runtime through the normal initial-mount factory; no public reload capability or parallel runtime is introduced.
+- [x] A normal artifact replacement uses the shared client error contract, including `disposed` for normal teardown, and introduces no reload-specific error union or compatibility path.
+- [x] A changed artifact hash disposes A's existing `ready`/`active`/`closing`/`failed`/`disposed` runtime, settles query and operation calls at most once, and leaves no A listener or pending entry behind.
+- [x] Revision B opens at the same logical plugin URL and shows its changed output after a fresh exact-version handshake.
+- [x] Revision A cannot issue an authenticated operation after revision B becomes active.
+- [x] Immutable artifact responses cannot mutate revision A bytes at revision A's hash.
+- [x] Reload uses the existing `PluginHost` lifecycle and exact V3 handshake only; no arbitrary reload protocol or reload-specific wire contract is introduced.
+- [x] No compatibility negotiation, fallback bridge, dual-revision session, client-state migration, or separate theme/crash/reload bridge or teardown path is introduced; V3 is the only supported protocol.
+- [x] Backend update atomicity, catalog reactivity, host remount, stale-port rejection, shared pending-call/error handling, unchanged-hash stability, failed-update preservation, and browser update tests pass with all earlier tracer tests.
 
 ## User stories addressed
 
@@ -38,3 +38,12 @@ Keep artifacts immutable and hash-addressed. This slice does not add V2 support,
 ## Implementor Notes
 
 Use the existing private/system package update invariants rather than inventing a client-only update endpoint. The browser test must observe the update through the same shared `ryot.data.query` catalog path used at initial load. If this task introduces reactive invalidation or caching, layer it around the existing `RyotClient` query capability rather than restoring the pre-follow-up manual transport and decoding path. Artifact replacement must call the same per-session runtime disposal used by crash recovery and unmount; it must not own a second port, dispatcher, listener, or pending-call teardown.
+
+## Implementation Notes
+
+- **Production update invariants were already sufficient.** Deterministic fixture revisions now drive the normal private upload and update route. Revision B compiles before the existing ingestion transaction activates its source and artifact hashes; a failed client compilation leaves A's catalog row and artifact bytes unchanged. Successful updates retain the plugin and installation IDs, and old content-addressed bytes remain immutable.
+- **Catalog refresh stays on the shared client path.** The plugin route creates one route-scoped Effect Atom around `PluginCatalogService.load`, which continues to call `ryot.data.query(pluginClientCatalogRecipe())` through the loader-created kernel `RyotClient`. It refreshes once per second only while mounted, retains the last successful catalog during transient failures, and stops on unmount. A successful removal unmounts the host instead of retaining stale installation state.
+- **Artifact identity remains the remount trigger.** `PluginHost` still keys `PluginFrame` by installation and artifact hash. Source-only catalog changes preserve the iframe, while an artifact hash change uses React unmount to send the normal `disposed` close, abort and clear pending query/operation work once, release A's listeners and port, and create exactly one fresh B iframe and V3 handshake at the current logical location.
+- **Operation dispatch is revision-bound.** The kernel adds the catalog source hash to its authenticated HTTP operation request; the value is not accepted from the iframe bridge message. When present, the backend resolves and validates that active revision while holding the existing ingestion advisory transaction lock, so A cannot resolve B's operation after activation. The field remains optional for established direct and unauthenticated integration callers. Source-only updates use the latest catalog hash without recreating the iframe; already-authorized A work may finish on A's immutable script, and abort still cannot undo committed work.
+- **Review corrections.** Review found the activation-to-poll race, stale installation fallback, source-only session stranding, and accidental breakage of direct/integration operation callers. The revision guard, successful-removal behavior, latest-hash dispatch, and optional HTTP field fixed them. The same reviewer approved the final implementation with no findings.
+- **Verification.** Contract, kernel backend, and kernel client checks, tests, and builds pass. The affected end-to-end suites `client-artifact.test.ts`, `client-operation.test.ts`, `operations.test.ts`, `private-plugins.test.ts`, and `sandbox/integrations.test.ts` pass 5 files/29 tests together. The repository has no browser-driver harness, so real-browser iframe scheduling remains unautomated; focused route, host, bridge, contract, backend, and production-path end-to-end tests cover the available boundaries.
