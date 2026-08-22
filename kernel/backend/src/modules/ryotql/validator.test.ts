@@ -10,6 +10,7 @@ import {
 	contains,
 	conditional,
 	count,
+	currentDate,
 	dateBucket,
 	document,
 	eq,
@@ -931,6 +932,7 @@ it("validates timezone-aware date bucket expressions", () => {
 		});
 
 	expect(validateRyotQLDocument(query(column(entity, "createdAt")), userAccess)).toBeNull();
+	expect(validateRyotQLDocument(query(currentDate()), userAccess)).toBeNull();
 	expect(validateRyotQLDocument(query(column(entity, "name")), userAccess)).toBe(
 		"Query 'entities': Date buckets require a date expression",
 	);
@@ -939,6 +941,22 @@ it("validates timezone-aware date bucket expressions", () => {
 	).toBe("Query 'entities': Invalid date bucket time zone 'Invalid/Zone'");
 	expect(validateRyotQLDocument(query(column(entity, "createdAt"), "+05:30"), userAccess)).toBe(
 		"Query 'entities': Invalid date bucket time zone '+05:30'",
+	);
+});
+
+it("types currentDate as a date operand", () => {
+	const entity = table("entity", "entity");
+	const query = (where: Parameters<typeof rows>[1]["where"]) =>
+		document({ entities: rows(entity, { where, fields: [field("today", currentDate())] }) });
+
+	expect(
+		validateRyotQLDocument(
+			query(eq(castDate(jsonPath(column(entity, "properties"), "date")), currentDate())),
+			userAccess,
+		),
+	).toBeNull();
+	expect(validateRyotQLDocument(query(eq(column(entity, "name"), currentDate())), userAccess)).toBe(
+		"Query 'entities': Comparison operands must have compatible types",
 	);
 });
 

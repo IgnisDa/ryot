@@ -13,6 +13,7 @@ import {
 	concat,
 	conditional,
 	count,
+	currentDate,
 	dateBucket,
 	eq,
 	exists,
@@ -111,6 +112,7 @@ it("infers one kind per scalar expression variant", () => {
 		{ kind: "text", expr: firstNested(column(entity, "name")) },
 		{ kind: "number", expr: firstNested(count(nested)) },
 		{ kind: "json", expr: jsonElement() },
+		{ kind: "date", expr: currentDate() },
 		{ kind: "boolean", expr: jsonArrayExists(jsonPath(column(entity, "properties"), "schedule")) },
 		{ kind: "number", expr: jsonArrayCount(jsonPath(column(entity, "properties"), "schedule")) },
 		{

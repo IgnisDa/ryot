@@ -72,7 +72,7 @@ const validateExpression = (
 	executionScope: RyotQLAccess,
 	elementDepth = 0,
 ): string | null => {
-	if (expr.type === "literal") {
+	if (expr.type === "literal" || expr.type === "currentDate") {
 		return null;
 	}
 	if (expr.type === "jsonElement") {
