@@ -28,6 +28,7 @@ import {
 import { slugify } from "#lib/shared/slug";
 import { trimToNull } from "#lib/shared/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
+import { PluginCatalogInvalidator } from "#modules/plugins/catalog-events";
 import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 import { PluginRepository } from "#modules/plugins/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -134,6 +135,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 			const compiler = yield* ClientPluginCompiler;
 			const repository = yield* ClientPagesRepository;
 			const pluginRuntime = yield* PluginRuntimeResolver;
+			const invalidator = yield* PluginCatalogInvalidator;
 			const inFlightCompilations = new Map<string, Promise<PluginClientArtifact>>();
 			const operationTargetsCurrent = Effect.fn(function* (
 				userId: CurrentUserValue["id"],
@@ -382,6 +384,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 						}).pipe(Effect.provideService(Database, transaction)),
 					),
 				);
+				yield* invalidator.user(user.id);
 				return { buildId, publishedHash, publishedRevision: expectedDraftRevision };
 			});
 

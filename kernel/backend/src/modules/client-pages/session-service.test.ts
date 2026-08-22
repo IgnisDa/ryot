@@ -57,7 +57,15 @@ const identity: PreparedClientPage["identity"] = {
 	],
 };
 
-const makeLayer = (currentIdentity: PreparedClientPage["identity"], fileReads: string[]) => {
+const makeLayer = (
+	currentIdentity: PreparedClientPage["identity"],
+	fileReads: string[],
+	options: {
+		readonly isIdentityCurrent?: () => boolean;
+		readonly onSet?: (key: string, value: string) => void;
+		readonly onReleaseLease?: (key: string, value: string) => void;
+	} = {},
+) => {
 	const raw = Schema.encodeUnknownSync(ClientPageSessionPayloadFromJson)({ userId, identity });
 	return ClientPageSessionService.layer.pipe(
 		Layer.provide(
@@ -67,18 +75,27 @@ const makeLayer = (currentIdentity: PreparedClientPage["identity"], fileReads: s
 					RedisService,
 					makeRedisService({
 						client: Object.assign(Object.create(null), {
+							set: (key: string, value: string) => {
+								options.onSet?.(key, value);
+								return Promise.resolve("OK" as const);
+							},
 							get: (key: string) =>
 								Promise.resolve(
 									key.endsWith(hashPluginClientArtifactSessionToken(token)) ? raw : null,
 								),
 						}),
+						renewLease: () => Effect.succeed(true),
+						releaseLease: (key, value) => Effect.sync(() => options.onReleaseLease?.(key, value)),
 					}),
 				),
 				Layer.succeed(
 					ClientPagesService,
 					ClientPagesService.of(
 						Object.assign(Object.create(null), {
-							isIdentityCurrent: () => Effect.succeed(Bun.deepEquals(currentIdentity, identity)),
+							isIdentityCurrent: () =>
+								Effect.sync(
+									() => options.isIdentityCurrent?.() ?? Bun.deepEquals(currentIdentity, identity),
+								),
 						}),
 					),
 				),
@@ -98,6 +115,32 @@ const makeLayer = (currentIdentity: PreparedClientPage["identity"], fileReads: s
 		),
 	);
 };
+
+it.effect("releases a newly stored session when its identity becomes stale", () => {
+	let checks = 0;
+	let stored: readonly [string, string] | undefined;
+	const releases: (readonly [string, string])[] = [];
+	return Effect.gen(function* () {
+		const sessions = yield* ClientPageSessionService;
+		const error = yield* Effect.flip(sessions.create(userId, identity));
+		expect(error._tag).toBe("ClientPageStalePreparation");
+		expect(checks).toBe(2);
+		expect(releases).toEqual([stored]);
+	}).pipe(
+		Effect.provide(
+			Layer.mergeAll(
+				makeLayer(identity, [], {
+					isIdentityCurrent: () => ++checks === 1,
+					onReleaseLease: (key, value) => releases.push([key, value]),
+					onSet: (key, value) => {
+						stored = [key, value];
+					},
+				}),
+				databaseLayer,
+			),
+		),
+	);
+});
 
 it.effect("serves an artifact while every composed contributor identity is current", () => {
 	const fileReads: string[] = [];
@@ -138,4 +181,29 @@ it.effect("rejects artifact access when a recorded operation target revision cha
 		expect(error._tag).toBe("ClientPageSessionNotFound");
 		expect(fileReads).toEqual([]);
 	}).pipe(Effect.provide(Layer.mergeAll(makeLayer(currentIdentity, fileReads), databaseLayer)));
+});
+
+it.effect("returns stale preparation when renewing a stale session", () => {
+	const currentIdentity = { ...identity, graphHash: "graph-2" };
+	return Effect.gen(function* () {
+		const sessions = yield* ClientPageSessionService;
+		const error = yield* Effect.flip(
+			sessions.renew(userId, hashPluginClientArtifactSessionToken(token)),
+		);
+		expect(error._tag).toBe("ClientPageStalePreparation");
+	}).pipe(Effect.provide(Layer.mergeAll(makeLayer(currentIdentity, []), databaseLayer)));
+});
+
+it.effect("keeps malformed, missing, and wrong-user renewals as not found", () => {
+	return Effect.gen(function* () {
+		const sessions = yield* ClientPageSessionService;
+		const wrongUser = yield* Effect.flip(
+			sessions.renew(UserId.make("user-2"), hashPluginClientArtifactSessionToken(token)),
+		);
+		const missing = yield* Effect.flip(sessions.renew(userId, "b".repeat(64)));
+		const malformed = yield* Effect.flip(sessions.renew(userId, "malformed"));
+		expect(wrongUser._tag).toBe("ClientPageSessionNotFound");
+		expect(missing._tag).toBe("ClientPageSessionNotFound");
+		expect(malformed._tag).toBe("ClientPageSessionNotFound");
+	}).pipe(Effect.provide(Layer.mergeAll(makeLayer(identity, []), databaseLayer)));
 });

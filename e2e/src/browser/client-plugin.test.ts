@@ -449,10 +449,32 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		);
 		const outerUrl = page.url();
 		yield* frame.evaluate((element) => element.setAttribute("data-e2e-revision", "A"));
+		const revisionAFrame = Option.getOrThrow(yield* frame.elementHandle());
 
 		yield* updateFixtureClientPlugin(client, "B", "", apiUrl);
+		yield* expectVisibleText(
+			page.locator("body"),
+			"An update is available. Reloading will discard unsaved local state.",
+		);
+		yield* expectVisibleText(home, FIXTURE_CLIENT_REVISION_MARKERS.A);
+		yield* expectVisibleText(home, "Greeted 1 times.");
+		expect(yield* frame.evaluate((current, initial) => current === initial, navigationFrame)).toBe(
+			false,
+		);
+		expect(yield* frame.evaluate((current, initial) => current === initial, revisionAFrame)).toBe(
+			true,
+		);
+		expectSameArtifactSession(yield* readArtifactSession(frame, apiUrl), revisionAArtifact);
+		expectCurrentBridgeSession(bridgeObservations, revisionABridgeSession);
+		expect(yield* frame.getAttribute("data-e2e-revision")).toBe("A");
+		expect(page.url()).toBe(outerUrl);
+
+		yield* page.getByRole("button", { name: "Reload updated page" }).click();
 		yield* expectVisibleText(home, FIXTURE_CLIENT_REVISION_MARKERS.B);
 		yield* expectVisibleText(home, "Revision B is active.");
+		expect(yield* frame.evaluate((current, initial) => current === initial, revisionAFrame)).toBe(
+			false,
+		);
 		const revisionBArtifact = yield* readArtifactSession(frame, apiUrl);
 		expectFreshArtifactSession(revisionBArtifact, revisionAArtifact);
 		observedArtifacts.push(revisionBArtifact);
