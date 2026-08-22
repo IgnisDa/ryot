@@ -1,7 +1,7 @@
 import { getRouteApi, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
 
-import { resolveSettingsWorkspace } from "#/modules/navigation/workspace-state";
+import { useDesktopEffect } from "#/modules/navigation/breakpoint";
+import { resolveRememberedWorkspace } from "#/modules/navigation/workspace-state";
 import { usePluginCatalog } from "#/modules/plugins/catalog-provider";
 import { SettingsSectionNav } from "#/modules/settings/section-nav";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
@@ -12,23 +12,10 @@ export function SettingsIndex() {
 	const navigate = useNavigate();
 	const { catalog } = usePluginCatalog();
 	const { rememberedSlug } = authenticatedRoute.useLoaderData();
-	const workspace = resolveSettingsWorkspace(catalog, rememberedSlug);
+	const workspace = resolveRememberedWorkspace(catalog, rememberedSlug);
 	const backFallbackHref = workspace === null ? "/" : `/${workspace.slug}`;
 
-	useEffect(() => {
-		if (typeof window.matchMedia !== "function") {
-			return undefined;
-		}
-		const desktop = window.matchMedia("(min-width: 768px)");
-		const redirectOnDesktop = () => {
-			if (desktop.matches) {
-				void navigate({ to: "/settings/preferences", replace: true });
-			}
-		};
-		redirectOnDesktop();
-		desktop.addEventListener("change", redirectOnDesktop);
-		return () => desktop.removeEventListener("change", redirectOnDesktop);
-	}, [navigate]);
+	useDesktopEffect(() => void navigate({ to: "/settings/preferences", replace: true }));
 
 	return (
 		<SettingsFrame title="Settings" backFallbackHref={backFallbackHref}>
