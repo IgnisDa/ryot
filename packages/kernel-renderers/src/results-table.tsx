@@ -14,7 +14,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { CellValue, cellText, managedCellAssets } from "./display-value";
 
-const QueryInput = Schema.Tuple([Schema.NullOr(Schema.String), Schema.Number]);
+const QueryInput = Schema.Tuple([Schema.NullOr(Schema.String), Schema.Finite]);
 
 const decodeQueryInput = Schema.decodeUnknownSync(Schema.fromJsonString(QueryInput));
 

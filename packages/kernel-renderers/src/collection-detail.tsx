@@ -22,7 +22,7 @@ const QueryInput = Schema.Tuple([
 	Schema.String,
 	Schema.Union([Schema.Literal(""), CollectionMemberSort]),
 	Schema.NullOr(Schema.String),
-	Schema.Number,
+	Schema.Finite,
 ]);
 const decodeQueryInput = Schema.decodeUnknownSync(Schema.fromJsonString(QueryInput));
 

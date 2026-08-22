@@ -161,7 +161,7 @@ describe("RyotQL builders", () => {
 			limit: 1,
 			selection: {
 				entityId: selectedField(column(entity, "id"), EntityId),
-				score: selectedField(column(entity, "score"), Schema.NumberFromString),
+				score: selectedField(column(entity, "score"), Schema.FiniteFromString),
 			},
 		});
 		const result = query.decodeResult({
@@ -330,10 +330,10 @@ describe("RyotQL builders", () => {
 		const entity = table("entity", "entity");
 		const grouped = selectedAggregate(entity, {
 			groupBy: { status: selectedField(column(entity, "status"), Schema.String) },
-			measures: { count: selectedMeasure({ function: "count" }, Schema.NumberFromString) },
+			measures: { count: selectedMeasure({ function: "count" }, Schema.FiniteFromString) },
 		});
 		const countQuery = selectedAggregate(entity, {
-			measures: { count: selectedMeasure({ function: "count" }, Schema.Number) },
+			measures: { count: selectedMeasure({ function: "count" }, Schema.Finite) },
 		});
 
 		expect(grouped.document.output).toMatchObject({
@@ -363,7 +363,7 @@ describe("RyotQL builders", () => {
 			startAt: "2026-01-01",
 			measure: { function: "count" },
 			time: column(event, "occurredAt"),
-			selection: { endAt: Schema.String, startAt: Schema.String, value: Schema.NumberFromString },
+			selection: { endAt: Schema.String, startAt: Schema.String, value: Schema.FiniteFromString },
 		});
 
 		expect(
@@ -387,7 +387,7 @@ describe("RyotQL builders", () => {
 					selection: { id: selectedField(column(entity, "id"), Schema.String) },
 				}),
 				count: selectedAggregate(entity, {
-					measures: { count: selectedMeasure({ function: "count" }, Schema.Number) },
+					measures: { count: selectedMeasure({ function: "count" }, Schema.Finite) },
 				}),
 			},
 		}));
