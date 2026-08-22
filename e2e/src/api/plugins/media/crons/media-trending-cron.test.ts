@@ -62,8 +62,8 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 					"media-trending",
 				).id;
 
-				const detailsEntry = "scripts/provider-details.sandbox.ts";
-				const trendingEntry = "scripts/trending.sandbox.ts";
+				const detailsEntry = `backend/providers/${PROVIDER_SLUG}/details.sandbox.ts`;
+				const trendingEntry = `backend/providers/${PROVIDER_SLUG}/trending.sandbox.ts`;
 				const installed = yield* installTestPluginBundle({
 					scope: "system",
 					configSchema: { fields: {}, unknownKeys: "strict" },
