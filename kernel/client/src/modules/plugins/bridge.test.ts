@@ -9,6 +9,7 @@ import {
 	type PluginAssetBridgeErrorReason,
 	type PluginBridgeNavigate,
 	type PluginBridgeReady,
+	type KernelShortcut,
 	type PluginLogicalLocation,
 	type PluginRouteLocation,
 	type PluginThemeSnapshot,
@@ -110,6 +111,7 @@ const connect = (
 	const received: unknown[] = [];
 	const messages: unknown[] = [];
 	let init: PluginBridgeInit | undefined;
+	const shortcuts: KernelShortcut[] = [];
 	let pluginPort: MessagePort | undefined;
 	const navigations: PluginBridgeNavigate[] = [];
 	const screenStates: PluginScreenReadiness[] = [];
@@ -132,6 +134,7 @@ const connect = (
 		onOpenDrawer: () => drawers.push(null),
 		onScreenState: (state) => screenStates.push(state),
 		onNavigate: (request) => navigations.push(request),
+		onKernelShortcut: (shortcut) => shortcuts.push(shortcut),
 		onAssets: options.onAssets ?? (() => new Promise(() => {})),
 		onRyotQL: options.onRyotQL ?? (() => new Promise(() => {})),
 		onOperation:
@@ -173,6 +176,7 @@ const connect = (
 		failures,
 		messages,
 		received,
+		shortcuts,
 		pluginPort,
 		navigations,
 		screenStates,
@@ -221,6 +225,7 @@ describe("plugin bridge", () => {
 			onOpenDrawer: () => undefined,
 			onScreenState: () => undefined,
 			onNavigateBack: () => undefined,
+			onKernelShortcut: () => undefined,
 			onFailure: () => failures.push(null),
 			onAssets: () => new Promise(() => {}),
 			onRyotQL: () => new Promise(() => {}),
@@ -258,6 +263,17 @@ describe("plugin bridge", () => {
 		await waitFor(() =>
 			expect(screenStates).toEqual([{ index: 0, key: "k0", hasPreviousScreen: true }]),
 		);
+	});
+
+	it("dispatches semantic kernel shortcuts once ready", async () => {
+		const { init, pluginPort, readies, shortcuts } = connect();
+
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(readies).toHaveLength(1));
+		pluginPort.postMessage({ shortcut: "command-center", type: "kernel-shortcut" });
+		pluginPort.postMessage({ shortcut: "workspace-switcher", type: "kernel-shortcut" });
+
+		await waitFor(() => expect(shortcuts).toEqual(["command-center", "workspace-switcher"]));
 	});
 
 	it("ignores screen readiness that no longer matches the latest navigation", async () => {

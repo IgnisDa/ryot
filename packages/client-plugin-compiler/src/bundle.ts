@@ -145,6 +145,13 @@ export const bundleClientPlugin = (sources: ClientPluginSources, compilerRoot: s
 					namespace: "file",
 					path: Bun.resolveSync("lucide-react/dist/esm/lucide-react.mjs", compilerRoot),
 				}));
+				builder.onResolve(
+					{ filter: /^@tanstack\/(?:hotkeys|react-hotkeys|store)$/ },
+					({ path }) => ({
+						namespace: "file",
+						path: Bun.resolveSync(path, compilerRoot),
+					}),
+				);
 				// Bun drops namespace bindings when bundling these exports from the Effect barrel.
 				builder.onResolve({ filter: /^effect$/ }, () => ({
 					path: "effect",
