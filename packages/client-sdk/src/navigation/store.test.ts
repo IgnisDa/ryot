@@ -7,7 +7,6 @@ const Detail = () => null;
 const resolve = (location: { readonly path: string; readonly search: string }) => ({
 	params: {},
 	component: location.path === "/" ? Home : Detail,
-	header: { title: location.path === "/" ? "Home" : location.path },
 });
 const location = (index: number, path: string, key = `k${index}`) => ({
 	compact: true,
@@ -28,7 +27,7 @@ describe("plugin navigation store", () => {
 			compact: true,
 			edgeBack: false,
 			entry: { index: 0, key: "k0" },
-			screens: [{ key: "k0", header: { title: "Home" } }],
+			screens: [{ key: "k0", location: { path: "/" } }],
 		});
 	});
 
@@ -39,7 +38,7 @@ describe("plugin navigation store", () => {
 		expect(store.getSnapshot().screens.at(-1)?.component).toBe(Home);
 	});
 
-	it("restores a retained screen and its exact header on pop", () => {
+	it("restores the retained screen instance on pop", () => {
 		const store = createPluginNavigationStore(resolve);
 		store.setLocation(location(0, "/"));
 		store.setLocation(location(1, "/items/1"));
@@ -49,8 +48,35 @@ describe("plugin navigation store", () => {
 		const popped = store.setLocation(location(1, "/items/1"));
 
 		expect(popped.screens.at(-1)).toBe(retained);
-		expect(popped.screens.at(-1)?.header).toEqual({ title: "/items/1" });
-		expect(popped.transition?.leaving.header).toEqual({ title: "/items/2" });
+		expect(popped.transition?.leaving.location.path).toBe("/items/2");
+	});
+
+	it("keeps the viewport inset across locations and clears", () => {
+		const store = createPluginNavigationStore(resolve, 12);
+		store.setLocation(location(0, "/"));
+
+		expect(store.getSnapshot().safeAreaTop).toBe(12);
+
+		store.setViewport(59);
+		store.setLocation(location(1, "/items/1"));
+
+		expect(store.getSnapshot().safeAreaTop).toBe(59);
+
+		store.clear();
+
+		expect(store.getSnapshot()).toMatchObject({ safeAreaTop: 59, screens: [] });
+	});
+
+	it("emits only when the viewport inset actually changes", () => {
+		const store = createPluginNavigationStore(resolve, 20);
+		let emissions = 0;
+		store.subscribe(() => (emissions += 1));
+
+		store.setViewport(20);
+		expect(emissions).toBe(0);
+
+		store.setViewport(44);
+		expect(emissions).toBe(1);
 	});
 
 	it("only completes the current transition", () => {

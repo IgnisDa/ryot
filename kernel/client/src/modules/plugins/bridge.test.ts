@@ -83,6 +83,7 @@ const connect = (
 	} = {},
 ) => {
 	const backs: null[] = [];
+	const drawers: null[] = [];
 	const readies: null[] = [];
 	const failures: null[] = [];
 	const origins: string[] = [];
@@ -99,6 +100,7 @@ const connect = (
 
 	const session = openPluginBridge({
 		artifactHash,
+		safeAreaTop: 0,
 		navigation: nav(),
 		theme: lightTheme,
 		onHeader: () => {},
@@ -106,6 +108,7 @@ const connect = (
 		onReady: () => readies.push(null),
 		onFailure: () => failures.push(null),
 		onNavigateBack: () => backs.push(null),
+		onOpenDrawer: () => drawers.push(null),
 		onNavigate: (request) => navigations.push(request),
 		onRyotQL: options.onRyotQL ?? (() => new Promise(() => {})),
 		onOperation:
@@ -139,9 +142,11 @@ const connect = (
 	}
 	return {
 		init,
+		backs,
 		session,
 		origins,
 		readies,
+		drawers,
 		failures,
 		messages,
 		received,
@@ -168,6 +173,7 @@ describe("plugin bridge", () => {
 		expect(init).toEqual({
 			artifactHash,
 			mode: "light",
+			safeAreaTop: 0,
 			sessionId: init.sessionId,
 			format: CLIENT_ARTIFACT_FORMAT,
 			apiVersion: CLIENT_API_VERSION,
@@ -182,11 +188,13 @@ describe("plugin bridge", () => {
 		const session = openPluginBridge({
 			artifactHash,
 			timeoutMs: 10,
+			safeAreaTop: 0,
 			navigation: nav(),
 			theme: lightTheme,
 			onHeader: () => {},
 			onReady: () => undefined,
 			onNavigate: () => undefined,
+			onOpenDrawer: () => undefined,
 			onNavigateBack: () => undefined,
 			onFailure: () => failures.push(null),
 			onRyotQL: () => new Promise(() => {}),

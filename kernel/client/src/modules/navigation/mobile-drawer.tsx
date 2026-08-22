@@ -38,14 +38,14 @@ type MobileDrawerProps = {
 	readonly catalog: PluginClientCatalog;
 	readonly progress: MotionValue<number>;
 	readonly current: PluginClientCatalogEntry | null;
+	readonly triggerRef: RefObject<HTMLElement | null>;
 	readonly onNavigateHome: () => void | Promise<void>;
 	readonly onNavigateSettings: () => void | Promise<void>;
-	readonly triggerRef: RefObject<HTMLButtonElement | null>;
 	readonly onSelectWorkspace: (slug: string) => void | Promise<void>;
 	readonly onNavigateItem: (item: SidebarItem) => void | Promise<void>;
 };
 
-const restoreFocus = (trigger: RefObject<HTMLButtonElement | null>) =>
+const restoreFocus = (trigger: RefObject<HTMLElement | null>) =>
 	queueMicrotask(() => trigger.current?.focus());
 
 export function MobileDrawer(props: MobileDrawerProps) {
