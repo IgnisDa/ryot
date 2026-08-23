@@ -1,7 +1,7 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
-import { Effect, Layer, Stream } from "effect";
+import { Context, Effect, Layer, Ref, Stream } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { databaseLayer, makeWorkflowEngine, type MockOverrides } from "#lib/test-utils/effect";
@@ -33,12 +33,37 @@ const completedRun = {
 	expiresAt: "2099-08-24T12:00:00.000Z",
 };
 
+const artifact = {
+	...completedRun,
+	userId: user.id,
+	artifactKey: "temporary/run-1.zip",
+	artifactProvider: "local" as const,
+};
+
+type Run =
+	| typeof completedRun
+	| (Omit<typeof completedRun, "status" | "expiresAt"> & {
+			status: "pending" | "running";
+			expiresAt: null;
+	  });
+
+class FakeBackupRuns extends Context.Service<
+	FakeBackupRuns,
+	{
+		readonly calls: Effect.Effect<ReadonlyArray<string>>;
+		readonly requestedUserIds: Effect.Effect<ReadonlyArray<UserId>>;
+		readonly setRunStatus: (status: "pending" | "running") => Effect.Effect<void>;
+	}
+>()("test/FakeBackupRuns") {}
+
 const mockUploads = Layer.mock(ObjectStorageService);
 const mockRepository = Layer.mock(BackupsRepository);
 
 const makeLayer = (input: {
+	run?: Run | null;
+	artifact?: typeof artifact;
+	expiredArtifacts?: ReadonlyArray<typeof artifact>;
 	uploads?: MockOverrides<typeof mockUploads>;
-	repository: MockOverrides<typeof mockRepository>;
 }) =>
 	BackupsService.layer.pipe(
 		Layer.provideMerge(
@@ -48,126 +73,122 @@ const makeLayer = (input: {
 				Layer.mock(BackupAccountCleanliness, {
 					assertAccountIsClean: () => Effect.void.pipe(Effect.as(undefined)),
 				}),
-				mockUploads(input.uploads ?? {}),
-				mockRepository(input.repository),
+				Layer.unwrap(
+					Effect.gen(function* () {
+						const run = yield* Ref.make(input.run ?? null);
+						const calls = yield* Ref.make<ReadonlyArray<string>>([]);
+						const requestedUserIds = yield* Ref.make<ReadonlyArray<UserId>>([]);
+						const record = (call: string) => Ref.update(calls, (all) => [...all, call]);
+						return Layer.mergeAll(
+							Layer.succeed(FakeBackupRuns, {
+								calls: Ref.get(calls),
+								requestedUserIds: Ref.get(requestedUserIds),
+								setRunStatus: (status) =>
+									Ref.update(run, (current) =>
+										current === null ? null : { ...current, status, expiresAt: null },
+									),
+							}),
+							mockUploads({ deleteObject: () => record("artifact"), ...input.uploads }),
+							mockRepository({
+								deleteRunById: () => record("run").pipe(Effect.as(completedRun)),
+								deleteExpiredRunById: () => record("run").pipe(Effect.as(completedRun)),
+								getRunById: ({ userId }) =>
+									Ref.update(requestedUserIds, (all) => [...all, userId]).pipe(
+										Effect.andThen(Ref.get(run)),
+									),
+								...(input.artifact === undefined
+									? {}
+									: { getArtifactById: () => Effect.succeed(input.artifact ?? null) }),
+								...(input.expiredArtifacts === undefined
+									? {}
+									: {
+											listExpiredArtifacts: () =>
+												Effect.succeed([...(input.expiredArtifacts ?? [])]),
+										}),
+							}),
+						);
+					}),
+				),
 			),
 		),
 	);
 
-it.effect("enforces run ownership through the repository scope", () => {
-	let requestedUserId: UserId | undefined;
-	const layer = makeLayer({
-		repository: {
-			getRunById: ({ userId }) => {
-				requestedUserId = userId;
-				return Effect.succeed(null);
-			},
-		},
-	});
-	return Effect.gen(function* () {
-		const service = yield* BackupsService;
-		const error = yield* service.downloadRun(user, runId).pipe(Effect.flip);
-		expect(error).toMatchObject({ _tag: "BackupNotFound", reason: { code: "run-not-found" } });
-		expect(requestedUserId).toBe(user.id);
-	}).pipe(Effect.provide(layer));
+layer(makeLayer({ run: null }))((test) => {
+	test.effect("enforces run ownership through the repository scope", () =>
+		Effect.gen(function* () {
+			const service = yield* BackupsService;
+			const error = yield* service.downloadRun(user, runId).pipe(Effect.flip);
+			expect(error).toMatchObject({ _tag: "BackupNotFound", reason: { code: "run-not-found" } });
+			expect((yield* (yield* FakeBackupRuns).requestedUserIds).at(-1)).toBe(user.id);
+		}),
+	);
 });
 
-it.effect("rejects download and deletion while a run is pending or running", () => {
-	let status: "pending" | "running" = "pending";
-	const layer = makeLayer({
-		repository: {
-			getRunById: () => Effect.succeed({ ...completedRun, status, progress: 50, expiresAt: null }),
-		},
-	});
-	return Effect.gen(function* () {
-		const service = yield* BackupsService;
-		expect(yield* service.downloadRun(user, runId).pipe(Effect.flip)).toMatchObject({
-			_tag: "BackupConflict",
-			reason: { code: "export-still-running" },
-		});
-		expect(yield* service.deleteRun(user, runId).pipe(Effect.flip)).toMatchObject({
-			_tag: "BackupConflict",
-			reason: { code: "run-still-active" },
-		});
-		status = "running";
-		expect(yield* service.downloadRun(user, runId).pipe(Effect.flip)).toMatchObject({
-			_tag: "BackupConflict",
-			reason: { code: "export-still-running" },
-		});
-		expect(yield* service.deleteRun(user, runId).pipe(Effect.flip)).toMatchObject({
-			_tag: "BackupConflict",
-			reason: { code: "run-still-active" },
-		});
-	}).pipe(Effect.provide(layer));
-});
+layer(makeLayer({ run: { ...completedRun, progress: 50, expiresAt: null, status: "pending" } }))(
+	(test) => {
+		test.effect("rejects download and deletion while a run is pending or running", () =>
+			Effect.gen(function* () {
+				const service = yield* BackupsService;
+				expect(yield* service.downloadRun(user, runId).pipe(Effect.flip)).toMatchObject({
+					_tag: "BackupConflict",
+					reason: { code: "export-still-running" },
+				});
+				expect(yield* service.deleteRun(user, runId).pipe(Effect.flip)).toMatchObject({
+					_tag: "BackupConflict",
+					reason: { code: "run-still-active" },
+				});
+				yield* (yield* FakeBackupRuns).setRunStatus("running");
+				expect(yield* service.downloadRun(user, runId).pipe(Effect.flip)).toMatchObject({
+					_tag: "BackupConflict",
+					reason: { code: "export-still-running" },
+				});
+				expect(yield* service.deleteRun(user, runId).pipe(Effect.flip)).toMatchObject({
+					_tag: "BackupConflict",
+					reason: { code: "run-still-active" },
+				});
+			}),
+		);
+	},
+);
 
-it.effect("streams an owned unexpired artifact without buffering", () => {
-	const bytes = new TextEncoder().encode("archive");
-	const layer = makeLayer({
+const archiveBytes = new TextEncoder().encode("archive");
+
+layer(
+	makeLayer({
+		artifact,
+		run: completedRun,
 		uploads: {
-			openObject: () => Effect.succeed(Stream.make(bytes)),
-			statObject: () => Effect.succeed({ contentType: null, size: bytes.length }),
+			openObject: () => Effect.succeed(Stream.make(archiveBytes)),
+			statObject: () => Effect.succeed({ contentType: null, size: archiveBytes.length }),
 		},
-		repository: {
-			getRunById: () => Effect.succeed(completedRun),
-			getArtifactById: () =>
-				Effect.succeed({
-					...completedRun,
-					userId: user.id,
-					artifactProvider: "local",
-					artifactKey: "temporary/run-1.zip",
-				}),
-		},
-	});
-	return Effect.gen(function* () {
-		const service = yield* BackupsService;
-		const download = yield* service.downloadRun(user, runId);
-		expect(download.size).toBe(bytes.length);
-		expect(Array.from(yield* Stream.runCollect(download.stream))).toEqual([bytes]);
-	}).pipe(Effect.provide(layer));
+	}),
+)((test) => {
+	test.effect("streams an owned unexpired artifact without buffering", () =>
+		Effect.gen(function* () {
+			const service = yield* BackupsService;
+			const download = yield* service.downloadRun(user, runId);
+			expect(download.size).toBe(archiveBytes.length);
+			expect(Array.from(yield* Stream.runCollect(download.stream))).toEqual([archiveBytes]);
+		}),
+	);
 });
 
-it.effect("deletes an artifact before its run and performs cleanup in the same order", () => {
-	const calls: string[] = [];
-	const artifact = {
-		...completedRun,
-		userId: user.id,
-		artifactKey: "temporary/run-1.zip",
-		artifactProvider: "local" as const,
-	};
-	const layer = makeLayer({
-		uploads: { deleteObject: () => Effect.sync(() => void calls.push("artifact")) },
-		repository: {
-			getRunById: () => Effect.succeed(completedRun),
-			getArtifactById: () => Effect.succeed(artifact),
-			deleteRunById: () => Effect.sync(() => (calls.push("run"), completedRun)),
-		},
-	});
-	return Effect.gen(function* () {
-		const service = yield* BackupsService;
-		expect(yield* service.deleteRun(user, runId)).toEqual({ id: runId });
-		expect(calls).toEqual(["artifact", "run"]);
-	}).pipe(Effect.provide(layer));
+layer(makeLayer({ artifact, run: completedRun }))((test) => {
+	test.effect("deletes an artifact before its run and performs cleanup in the same order", () =>
+		Effect.gen(function* () {
+			const service = yield* BackupsService;
+			expect(yield* service.deleteRun(user, runId)).toEqual({ id: runId });
+			expect(yield* (yield* FakeBackupRuns).calls).toEqual(["artifact", "run"]);
+		}),
+	);
 });
 
-it.effect("deletes expired artifact objects before race-safe run cleanup", () => {
-	const calls: string[] = [];
-	const artifact = {
-		...completedRun,
-		userId: user.id,
-		artifactKey: "temporary/run-1.zip",
-		artifactProvider: "local" as const,
-	};
-	const layer = makeLayer({
-		uploads: { deleteObject: () => Effect.sync(() => void calls.push("artifact")) },
-		repository: {
-			listExpiredArtifacts: () => Effect.succeed([artifact]),
-			deleteExpiredRunById: () => Effect.sync(() => (calls.push("run"), completedRun)),
-		},
-	});
-	return Effect.gen(function* () {
-		const service = yield* BackupsService;
-		yield* service.cleanupExpiredArtifacts(100);
-		expect(calls).toEqual(["artifact", "run"]);
-	}).pipe(Effect.provide(layer));
+layer(makeLayer({ expiredArtifacts: [artifact] }))((test) => {
+	test.effect("deletes expired artifact objects before race-safe run cleanup", () =>
+		Effect.gen(function* () {
+			const service = yield* BackupsService;
+			yield* service.cleanupExpiredArtifacts(100);
+			expect(yield* (yield* FakeBackupRuns).calls).toEqual(["artifact", "run"]);
+		}),
+	);
 });

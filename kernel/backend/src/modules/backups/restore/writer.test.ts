@@ -1,15 +1,15 @@
-import { assert, describe, expect, it } from "@effect/vitest";
+import { assert, describe, expect, it, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { ascending, column, document, field, rows, table } from "@ryot-app/ryotql";
 import { count, eq } from "drizzle-orm";
-import { Effect, Layer, Stream } from "effect";
+import { Context, Effect, Layer, Ref, Stream } from "effect";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { makeAppConfigLayer, type MockOverrides } from "#lib/test-utils/effect";
+import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { AuthRepository } from "#modules/auth/repository";
 import { AutomationsRepository } from "#modules/automations/repository";
 import {
@@ -24,7 +24,7 @@ import { IntegrationsRepository } from "#modules/integrations/repository";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { pluginSourceHash } from "#modules/plugins/pipeline";
 import { PluginRepository } from "#modules/plugins/repository";
-import { revisionPackage, withRevisionDatabase } from "#modules/plugins/revision.test-support";
+import { revisionDatabaseLayer, revisionPackage } from "#modules/plugins/revision.test-support";
 import type { NormalizedPlugin } from "#modules/plugins/types";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { validateSavedViewDefinition } from "#modules/saved-views/definition-validation";
@@ -485,9 +485,15 @@ it.effect("rejects unavailable plugin renderers through the canonical rule", () 
 	),
 );
 
-const mockPersistence = Layer.mock(BackupRestorePersistence);
-type RestoreEventsMock = NonNullable<MockOverrides<typeof mockPersistence>["restoreEvents"]>;
-type RestoreEntityMock = NonNullable<MockOverrides<typeof mockPersistence>["restoreEntity"]>;
+type RestoreEntityInput = Parameters<BackupRestorePersistence["Service"]["restoreEntity"]>[0];
+
+class FakeRestorePersistence extends Context.Service<
+	FakeRestorePersistence,
+	{
+		readonly eventBatchSizes: Effect.Effect<ReadonlyArray<number>>;
+		readonly restoredEntities: Effect.Effect<ReadonlyArray<RestoreEntityInput>>;
+	}
+>()("test/FakeRestorePersistence") {}
 
 const eventSchema = { name: "Review", slug: "review", propertiesSchema: { fields: {} } };
 const bootstrapEntitySchema = {
@@ -512,12 +518,7 @@ const archivedEvent = (id: string): ArchiveEvent => ({
 	occurredAt: "2026-08-23T12:00:00.000Z",
 });
 
-const restoreArchivedEvents = (
-	events: ReadonlyArray<ArchiveEvent>,
-	restoreEvents: RestoreEventsMock,
-	restoreEntity: RestoreEntityMock = (input) =>
-		Effect.succeed(EntityId.make(input.id ?? "restored")),
-) =>
+const restoreArchivedEvents = (events: ReadonlyArray<ArchiveEvent>) =>
 	Effect.gen(function* () {
 		const writer = yield* BackupRestoreWriter;
 		return yield* writer.restoreRecords(
@@ -556,26 +557,43 @@ const restoreArchivedEvents = (
 				entitySchemas: { "bootstrap-entity": bootstrapEntitySchema },
 			},
 		);
-	}).pipe(
-		Effect.provide(
-			Layer.effect(BackupRestoreWriter, BackupRestoreWriter.make).pipe(
-				Layer.provideMerge(
-					Layer.mergeAll(
-						Layer.mock(PluginRepository, {
-							listPrivateForUser: () => Effect.succeed([]),
-							listPortablePluginMetadata: () => Effect.succeed([]),
-						}),
-						Layer.mock(BackupRestorePersistence, {
-							restoreEvents,
-							restoreEntity,
-							restorePortableProfile: () => Effect.succeed(true),
-						}),
-						Layer.mock(EntitiesRepository, { listUserEntitiesForBackup: () => Effect.succeed([]) }),
-						Layer.mock(SavedViewsRepository, {}),
-						Layer.mock(AutomationsRepository, {}),
-						Layer.mock(PluginInstallationRepository, {}),
-					),
+	});
+
+const restoreWriterLayer = (options: { readonly eventInsertFails?: boolean } = {}) =>
+	Layer.effect(BackupRestoreWriter, BackupRestoreWriter.make).pipe(
+		Layer.provideMerge(
+			Layer.mergeAll(
+				Layer.mock(PluginRepository, {
+					listPrivateForUser: () => Effect.succeed([]),
+					listPortablePluginMetadata: () => Effect.succeed([]),
+				}),
+				Layer.unwrap(
+					Effect.gen(function* () {
+						const eventBatchSizes = yield* Ref.make<ReadonlyArray<number>>([]);
+						const restoredEntities = yield* Ref.make<ReadonlyArray<RestoreEntityInput>>([]);
+						return Layer.merge(
+							Layer.succeed(FakeRestorePersistence, {
+								eventBatchSizes: Ref.get(eventBatchSizes),
+								restoredEntities: Ref.get(restoredEntities),
+							}),
+							Layer.mock(BackupRestorePersistence, {
+								restorePortableProfile: () => Effect.succeed(true),
+								restoreEntity: (input) =>
+									Ref.update(restoredEntities, (all) => [...all, input]).pipe(
+										Effect.as(EntityId.make(input.id ?? "restored")),
+									),
+								restoreEvents: (batch) =>
+									options.eventInsertFails
+										? Effect.fail(new DbError({ code: "23505", message: "duplicate key value" }))
+										: Ref.update(eventBatchSizes, (all) => [...all, batch.length]),
+							}),
+						);
+					}),
 				),
+				Layer.mock(EntitiesRepository, { listUserEntitiesForBackup: () => Effect.succeed([]) }),
+				Layer.mock(SavedViewsRepository, {}),
+				Layer.mock(AutomationsRepository, {}),
+				Layer.mock(PluginInstallationRepository, {}),
 			),
 		),
 	);
@@ -669,57 +687,55 @@ it.effect("rejects ambiguous bootstrap identities", () =>
 	),
 );
 
-it.effect("restores an archived entity without origin metadata", () => {
-	let restored: unknown;
-	return restoreArchivedEvents(
-		[],
-		() => Effect.void,
-		(input) =>
-			Effect.sync(() => {
-				restored = input;
-				return EntityId.make(input.id ?? "restored");
-			}),
-	).pipe(
-		Effect.tap(() =>
-			Effect.sync(() => {
-				expect(restored).toMatchObject({ id: "archived-bootstrap" });
-				expect(restored).not.toHaveProperty("origin");
-			}),
-		),
+layer(restoreWriterLayer())((test) => {
+	test.effect("restores an archived entity without origin metadata", () =>
+		Effect.gen(function* () {
+			yield* restoreArchivedEvents([]);
+			const [restored] = yield* (yield* FakeRestorePersistence).restoredEntities;
+			expect(restored).toMatchObject({ id: "archived-bootstrap" });
+			expect(restored).not.toHaveProperty("origin");
+		}),
 	);
 });
 
-it.effect("restores archived events in bounded batches", () => {
-	const batches: number[] = [];
-	const events = Array.from({ length: RESTORE_EVENT_BATCH_SIZE + 3 }, (_, index) =>
-		archivedEvent(`event-${index.toString().padStart(5, "0")}`),
+layer(restoreWriterLayer())((test) => {
+	test.effect("restores archived events in bounded batches", () =>
+		Effect.gen(function* () {
+			const events = Array.from({ length: RESTORE_EVENT_BATCH_SIZE + 3 }, (_, index) =>
+				archivedEvent(`event-${index.toString().padStart(5, "0")}`),
+			);
+			yield* restoreArchivedEvents(events);
+			expect(yield* (yield* FakeRestorePersistence).eventBatchSizes).toEqual([
+				RESTORE_EVENT_BATCH_SIZE,
+				3,
+			]);
+		}),
 	);
-	return Effect.gen(function* () {
-		yield* restoreArchivedEvents(events, (batch) =>
-			Effect.sync(() => void batches.push(batch.length)),
-		);
-		expect(batches).toEqual([RESTORE_EVENT_BATCH_SIZE, 3]);
-	});
 });
 
-it.effect("reports a duplicate archived event id through the primary key insert", () =>
-	Effect.gen(function* () {
-		const error = yield* restoreArchivedEvents([archivedEvent("event-1")], () =>
-			Effect.fail(new DbError({ code: "23505", message: "duplicate key value" })),
-		).pipe(Effect.flip);
-		expect(error).toMatchObject({
-			path: "events.ndjson",
-			_tag: "BackupArchiveError",
-			reason: "duplicate_record_id",
-		});
-	}),
-);
+layer(restoreWriterLayer({ eventInsertFails: true }))((test) => {
+	test.effect("reports a duplicate archived event id through the primary key insert", () =>
+		Effect.gen(function* () {
+			const error = yield* restoreArchivedEvents([archivedEvent("event-1")]).pipe(Effect.flip);
+			expect(error).toMatchObject({
+				path: "events.ndjson",
+				_tag: "BackupArchiveError",
+				reason: "duplicate_record_id",
+			});
+		}),
+	);
+});
 
 describe("account backup restore in PostgreSQL", () => {
 	const archivedTimestamp = new Date("2026-09-16T00:00:00.000Z");
 
-	it.effect("rolls back historical profile and saved-view writes together", () =>
-		withRevisionDatabase(
+	layer(
+		BackupRestorePersistence.layer.pipe(
+			Layer.provide(SavedViewsRepository.layer),
+			Layer.provideMerge(revisionDatabaseLayer),
+		),
+	)((test) => {
+		test.effect("rolls back historical profile and saved-view writes together", () =>
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
 				const persistence = yield* BackupRestorePersistence;
@@ -765,31 +781,31 @@ describe("account backup restore in PostgreSQL", () => {
 					.from(tables.savedView)
 					.where(eq(tables.savedView.id, "archived-view"));
 				expect(views).toEqual([]);
-			}).pipe(
-				Effect.provide(
-					BackupRestorePersistence.layer.pipe(Layer.provide(SavedViewsRepository.layer)),
-				),
-			),
-		),
-	);
+			}),
+		);
+	});
 
-	it.effect(
-		"restores redacted required private config and historical records without automation history",
-		() => {
-			const dependencies = Layer.mergeAll(
-				AuthRepository.layer,
-				EventsRepository.layer,
-				EntitiesRepository.layer,
-				PluginRepository.layer,
-				SavedViewsRepository.layer,
-				IntegrationsRepository.layer,
-				AutomationsRepository.layer,
-				TranslationsRepository.layer,
-				RelationshipsRepository.layer,
-				PluginInstallationRepository.layer,
-			).pipe(Layer.provide(makeAppConfigLayer()));
-			const writerLayer = BackupRestoreWriter.layer.pipe(Layer.provideMerge(dependencies));
-			return withRevisionDatabase(
+	const restoreDependencies = Layer.mergeAll(
+		AuthRepository.layer,
+		EventsRepository.layer,
+		EntitiesRepository.layer,
+		PluginRepository.layer,
+		SavedViewsRepository.layer,
+		IntegrationsRepository.layer,
+		AutomationsRepository.layer,
+		TranslationsRepository.layer,
+		RelationshipsRepository.layer,
+		PluginInstallationRepository.layer,
+	).pipe(Layer.provide(makeAppConfigLayer()));
+	layer(
+		BackupRestoreWriter.layer.pipe(
+			Layer.provideMerge(restoreDependencies),
+			Layer.provideMerge(revisionDatabaseLayer),
+		),
+	)((test) => {
+		test.effect(
+			"restores redacted required private config and historical records without automation history",
+			() =>
 				Effect.gen(function* () {
 					const db = yield* (yield* DatabaseSession).current;
 					const plugins = yield* PluginRepository;
@@ -983,8 +999,7 @@ describe("account backup restore in PostgreSQL", () => {
 						const [row] = yield* db.select({ count: count() }).from(tableName);
 						expect(row?.count).toBe(0);
 					}
-				}).pipe(Effect.provide(writerLayer)),
-			);
-		},
-	);
+				}),
+		);
+	});
 });
