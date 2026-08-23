@@ -81,17 +81,17 @@ const runIntegrationRun = Effect.fn("runIntegrationRun")(function* (
 	});
 
 	yield* runIntegrationImport(integration, payload, executionId).pipe(
-		Effect.catchCause((cause) =>
-			Cause.hasInterruptsOnly(cause)
-				? Effect.failCause(cause)
-				: Effect.logError("integration import failed", cause).pipe(
-						Effect.andThen(
-							failRun("fail-integration-run-unexpected", payload.runId, {
-								code: "unexpected-failure",
-								operation: "integration-import",
-							}),
-						),
+		Effect.catchCauseIf(
+			(cause) => !Cause.hasInterruptsOnly(cause),
+			(cause) =>
+				Effect.logError("integration import failed", cause).pipe(
+					Effect.andThen(
+						failRun("fail-integration-run-unexpected", payload.runId, {
+							code: "unexpected-failure",
+							operation: "integration-import",
+						}),
 					),
+				),
 		),
 	);
 

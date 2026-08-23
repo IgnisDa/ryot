@@ -166,12 +166,10 @@ export const installTestProvider = (input: {
 		if (!detailsScriptId) {
 			return yield* Effect.die(new Error("Installed provider details script was not found"));
 		}
-		const storedScripts = yield* Effect.all(
-			Object.values(installed.scriptIds).map((scriptId) =>
-				getApiClient().call(
-					(c) => c.testSupport.getSandboxScript({ params: { scriptId } }),
-					adminHeaders(),
-				),
+		const storedScripts = yield* Effect.forEach(Object.values(installed.scriptIds), (scriptId) =>
+			getApiClient().call(
+				(c) => c.testSupport.getSandboxScript({ params: { scriptId } }),
+				adminHeaders(),
 			),
 		);
 		const providerId = storedScripts.find((script) => script.id === detailsScriptId)?.providerId;

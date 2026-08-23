@@ -558,7 +558,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 								Effect.provideService(SandboxRepository, repository),
 							),
 						});
-						const eventPayload = yield* Schema.decodeUnknownEffect(EventCreateWorkflowPayload)({
+						const eventPayload = yield* Schema.decodeEffect(EventCreateWorkflowPayload)({
 							...prepared,
 							origin: "sandbox",
 						}).pipe(
@@ -615,7 +615,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 							Effect.provideService(SandboxRepository, repository),
 						),
 					});
-					const notificationPayload = yield* Schema.decodeUnknownEffect(
+					const notificationPayload = yield* Schema.decodeEffect(
 						NotificationDeliveryWorkflowPayload,
 					)({
 						userId: prepared.userId,

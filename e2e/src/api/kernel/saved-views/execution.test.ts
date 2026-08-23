@@ -42,10 +42,9 @@ describe("saved views execution", () => {
 				`Saved View Count Match One ${crypto.randomUUID()}`,
 				`Saved View Count Match Two ${crypto.randomUUID()}`,
 			];
-			yield* Effect.all(
-				[...matchingNames, `Saved View Count Other ${crypto.randomUUID()}`].map((name) =>
-					createEntityFixture(client, { name, entitySchemaSlug: schemaId }),
-				),
+			yield* Effect.forEach(
+				[...matchingNames, `Saved View Count Other ${crypto.randomUUID()}`],
+				(name) => createEntityFixture(client, { name, entitySchemaSlug: schemaId }),
 			);
 
 			const entity = table("entity", "entity");

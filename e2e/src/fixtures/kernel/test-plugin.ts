@@ -302,14 +302,12 @@ export const installTestPluginBundle = (
 			);
 		}
 		const scriptIds = Object.fromEntries(
-			yield* Effect.all(
-				input.scripts.map((script) =>
-					findInstalledScriptId(
-						script.slug,
-						decoder.decode(files[script.entry] ?? new Uint8Array()),
-						input.baseUrl,
-					).pipe(Effect.map((scriptId) => [script.slug, scriptId] as const)),
-				),
+			yield* Effect.forEach(input.scripts, (script) =>
+				findInstalledScriptId(
+					script.slug,
+					decoder.decode(files[script.entry] ?? new Uint8Array()),
+					input.baseUrl,
+				).pipe(Effect.map((scriptId) => [script.slug, scriptId] as const)),
 			),
 		);
 		const scriptId =

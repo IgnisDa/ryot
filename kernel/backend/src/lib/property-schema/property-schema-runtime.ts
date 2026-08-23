@@ -658,7 +658,7 @@ export const parseAppSchemaPropertiesSafe = (input: {
 	if (rawHiddenIssues.length > 0) {
 		return { success: false, issues: rawHiddenIssues };
 	}
-	const decoded = Schema.decodeUnknownResult(createPropertiesValueSchema(input.propertiesSchema))(
+	const decoded = Schema.decodeResult(createPropertiesValueSchema(input.propertiesSchema))(
 		input.properties,
 	);
 	if (Result.isFailure(decoded)) {

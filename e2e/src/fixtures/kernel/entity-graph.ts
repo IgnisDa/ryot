@@ -160,40 +160,38 @@ export const createCourseLessonFilterFixture = Effect.gen(function* () {
 	) =>
 		Effect.gen(function* () {
 			const course = yield* createEntityFixture(client, { name, entitySchemaSlug: courseSchemaId });
-			yield* Effect.all(
-				lessons.map((lessonInput, index) =>
-					Effect.gen(function* () {
-						const [module, lesson] = yield* Effect.all([
-							createEntityFixture(client, {
-								entitySchemaSlug: moduleSchemaId,
-								name: `${name} Module ${index + 1}`,
-							}),
-							createEntityFixture(client, {
-								entitySchemaSlug: lessonSchemaId,
-								name: `${name} Lesson ${index + 1}`,
-								properties: { durationMinutes: lessonInput.durationMinutes },
-							}),
-						]);
-						yield* Effect.all([
-							createRelationship(client, {
-								targetEntityId: module.id,
-								sourceEntityId: course.id,
-								relationshipSchemaSlug: courseModuleSchema.id,
-							}),
-							createRelationship(client, {
-								targetEntityId: lesson.id,
-								sourceEntityId: module.id,
-								relationshipSchemaSlug: moduleLessonSchema.id,
-							}),
-						]);
-						if (lessonInput.complete) {
-							yield* createEventFixture(client, {
-								entityId: lesson.id,
-								eventSchemaSlug: completeSchema.id,
-							});
-						}
-					}),
-				),
+			yield* Effect.forEach(lessons, (lessonInput, index) =>
+				Effect.gen(function* () {
+					const [module, lesson] = yield* Effect.all([
+						createEntityFixture(client, {
+							entitySchemaSlug: moduleSchemaId,
+							name: `${name} Module ${index + 1}`,
+						}),
+						createEntityFixture(client, {
+							entitySchemaSlug: lessonSchemaId,
+							name: `${name} Lesson ${index + 1}`,
+							properties: { durationMinutes: lessonInput.durationMinutes },
+						}),
+					]);
+					yield* Effect.all([
+						createRelationship(client, {
+							targetEntityId: module.id,
+							sourceEntityId: course.id,
+							relationshipSchemaSlug: courseModuleSchema.id,
+						}),
+						createRelationship(client, {
+							targetEntityId: lesson.id,
+							sourceEntityId: module.id,
+							relationshipSchemaSlug: moduleLessonSchema.id,
+						}),
+					]);
+					if (lessonInput.complete) {
+						yield* createEventFixture(client, {
+							entityId: lesson.id,
+							eventSchemaSlug: completeSchema.id,
+						});
+					}
+				}),
 			);
 		});
 

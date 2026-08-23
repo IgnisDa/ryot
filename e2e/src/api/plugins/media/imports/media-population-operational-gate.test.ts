@@ -40,18 +40,18 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population operational gate", () 
 				const baseline = yield* sampleOperationalPressure([`phase-3-baseline-${randomUUID()}`]);
 				const startedAt = yield* Clock.currentTimeMillis;
 				const prefix = randomUUID();
-				const runs = yield* Effect.all(
+				const runs = yield* Effect.forEach(
 					[
 						{ executingUserId: firstUser.userId, identifierPrefix: `${prefix}-first` },
 						{ executingUserId: secondUser.userId, identifierPrefix: `${prefix}-second` },
-					].map((run) =>
+					],
+					(run) =>
 						startMediaPopulationGate({
 							...run,
 							itemCount: ITEM_COUNT,
 							entitySchemaSlug: schema.id,
 							providerId: provider.providerId,
 						}),
-					),
 					{ concurrency: "unbounded" },
 				);
 				const deadline = startedAt + GATE_TIMEOUT_MS;
@@ -60,7 +60,7 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population operational gate", () 
 				let maxWaitingAdvisoryLocks = 0;
 				let maxConcurrentPendingRuns = 0;
 				let maxActiveSandboxExecutions = 0;
-				let finalResults = yield* Effect.all(runs.map(getMediaPopulationGateResult), {
+				let finalResults = yield* Effect.forEach(runs, getMediaPopulationGateResult, {
 					concurrency: "unbounded",
 				});
 
@@ -74,7 +74,7 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population operational gate", () 
 					const [pressure, results] = yield* Effect.all(
 						[
 							sampleOperationalPressure(executionIds),
-							Effect.all(runs.map(getMediaPopulationGateResult), { concurrency: "unbounded" }),
+							Effect.forEach(runs, getMediaPopulationGateResult, { concurrency: "unbounded" }),
 						],
 						{ concurrency: "unbounded" },
 					);

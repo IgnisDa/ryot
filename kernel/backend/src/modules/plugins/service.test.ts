@@ -263,7 +263,7 @@ const makeLayer = (input?: {
 				if (input?.afterPersist) {
 					yield* input.afterPersist;
 				}
-				return yield* Effect.sync(() => pluginId);
+				return yield* Effect.succeed(pluginId);
 			}),
 	});
 	const workflowReferenceLayer = Layer.mock(SandboxWorkflowReferenceRepository)({
@@ -276,7 +276,7 @@ const makeLayer = (input?: {
 	const testDatabaseLayer = input?.databaseLayer ?? databaseLayer;
 	const garbageCollectorLayer = Layer.mock(ScriptGarbageCollector)({
 		recordKernelContentHashes: () => Effect.void,
-		collect: input?.collectGarbage ?? (() => Effect.sync(() => undefined)),
+		collect: input?.collectGarbage ?? (() => Effect.void.pipe(Effect.as(undefined))),
 	});
 	const systemPluginsLayer = Layer.succeed(SystemPlugins, {
 		sources: [],

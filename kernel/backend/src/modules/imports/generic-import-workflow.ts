@@ -362,9 +362,7 @@ const readChunk = (ownerExecutionId: string, handle: string, index: number) =>
 				return yield* new ImportRunError({ message: "Import chunk handle was not resolved" });
 			}
 			const text = yield* fs.readFileString(path);
-			return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(genericImportChunkSchema))(
-				text,
-			);
+			return yield* Schema.decodeEffect(Schema.fromJsonString(genericImportChunkSchema))(text);
 		}).pipe(Effect.mapError(toWorkflowError)),
 	});
 

@@ -48,7 +48,7 @@ export const makeAutomationSandboxApiFunctions: Effect.Effect<
 								? input.principal.subject.subscriptionRun
 								: yield* Schema.decodeUnknownEffect(automationInputSchema)(input.context).pipe(
 										Effect.flatMap(({ automation }) =>
-											Schema.decodeUnknownEffect(AutomationOrigin)(automation.origin).pipe(
+											Schema.decodeEffect(AutomationOrigin)(automation.origin).pipe(
 												Effect.map((origin) => ({
 													origin,
 													occurredAt: automation.occurredAt,

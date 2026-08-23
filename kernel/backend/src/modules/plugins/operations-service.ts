@@ -193,8 +193,8 @@ export class OperationsService extends Context.Service<OperationsService>()("Ope
 					}
 
 					const scope = yield* resolveIntegrationScope.pipe(
-						Effect.map(Option.some),
-						Effect.catchTag("BadRequest", () => Effect.succeed(Option.none())),
+						Effect.asSome,
+						Effect.catchTag("BadRequest", () => Effect.succeedNone),
 					);
 					if (Option.isNone(scope)) {
 						return yield* Result.isFailure(authenticated)
