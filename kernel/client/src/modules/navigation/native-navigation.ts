@@ -1,0 +1,26 @@
+import { App } from "@capacitor/app";
+import { Capacitor } from "@capacitor/core";
+
+import {
+	createDeepLinkBridge,
+	type DeepLinkNavigator,
+	type NativeAppSource,
+} from "#/modules/navigation/deep-link";
+
+const capacitorAppSource: NativeAppSource = {
+	exitApp: () => void App.exitApp(),
+	getLaunchUrl: () => App.getLaunchUrl().then((launch) => launch?.url ?? null),
+	onUrlOpen: (handler) =>
+		App.addListener("appUrlOpen", (event) => handler(event.url)).then(
+			(listener) => () => void listener.remove(),
+		),
+	onBackButton: (handler) =>
+		App.addListener("backButton", () => handler()).then((listener) => () => void listener.remove()),
+};
+
+export function startNativeNavigation(navigator: DeepLinkNavigator) {
+	if (!Capacitor.isNativePlatform()) {
+		return { destroy: () => {} };
+	}
+	return createDeepLinkBridge(capacitorAppSource, navigator);
+}
