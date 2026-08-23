@@ -22,6 +22,7 @@ import type { ThemeStore } from "#/modules/theme/store";
 type PluginHostStatus =
 	| "ready"
 	| "loading"
+	| "incompatible"
 	| "missing-artifact"
 	| "handshake-failure"
 	| "unexpected-version"
@@ -29,7 +30,7 @@ type PluginHostStatus =
 
 type PluginBlockedStatus = Extract<
 	PluginHostStatus,
-	"loading" | "missing-artifact" | "unexpected-version" | "compilation-failure"
+	"loading" | "incompatible" | "missing-artifact" | "unexpected-version" | "compilation-failure"
 >;
 
 type PluginArtifactResolution =
@@ -42,12 +43,16 @@ const noticeMessages: Record<Exclude<PluginHostStatus, "ready">, string> = {
 	"compilation-failure": "This plugin could not be prepared.",
 	"missing-artifact": "This plugin has no web experience yet.",
 	"unexpected-version": "This plugin needs a newer version of Ryot.",
+	incompatible: "This plugin is incompatible with this version of Ryot.",
 };
 
 const pluginArtifactUrl = (server: ServerOrigin, artifactHash: string, fileName: string) =>
 	`${serverApiUrl(server)}/plugins/artifacts/${artifactHash}/${fileName}`;
 
 function resolvePluginArtifact(installation: PluginClientCatalogEntry): PluginArtifactResolution {
+	if (installation.health === "incompatible") {
+		return { kind: "blocked", status: "incompatible" };
+	}
 	if (installation.health === "failed") {
 		return { kind: "blocked", status: "compilation-failure" };
 	}

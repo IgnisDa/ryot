@@ -5,6 +5,7 @@ import { parseServerOrigin } from "#/api/origin";
 import {
 	ClientStorage,
 	clientStorageLayer,
+	lastWorkspaceKey,
 	SERVER_SELECTION_KEY,
 	THEME_PREFERENCE_KEY,
 	type BrowserStorage,
@@ -56,6 +57,41 @@ describe("browser persistence", () => {
 			expect(yield* service.getThemePreference).toBe("light");
 			values.set(THEME_PREFERENCE_KEY, "sepia");
 			expect(yield* service.getThemePreference).toBe("system");
+		}).pipe(Effect.provide(clientStorageLayer(storage)));
+	});
+
+	it.effect("partitions the last workspace by normalized server and user scope", () => {
+		const { storage, values } = makeStorage();
+		const secondUser = { serverUrl: "https://one.example.com", userId: "user-2" };
+		const secondServer = { serverUrl: "https://two.example.com", userId: "user-1" };
+		const firstScope = { serverUrl: " https://one.example.com/// ", userId: "user-1" };
+
+		return Effect.gen(function* () {
+			const service = yield* ClientStorage;
+			yield* service.setLastWorkspace(firstScope, "media");
+			yield* service.setLastWorkspace(secondUser, "fitness");
+			yield* service.setLastWorkspace(secondServer, "books");
+
+			expect(values.get('ryot:workspace:["https://one.example.com","user-1"]')).toBe("media");
+			expect(
+				yield* service.getLastWorkspace({ ...firstScope, serverUrl: "https://one.example.com" }),
+			).toBe("media");
+			expect(yield* service.getLastWorkspace(secondUser)).toBe("fitness");
+			expect(yield* service.getLastWorkspace(secondServer)).toBe("books");
+		}).pipe(Effect.provide(clientStorageLayer(storage)));
+	});
+
+	it.effect("returns null for missing or malformed last workspaces", () => {
+		const scope = { serverUrl: "https://one.example.com", userId: "user-1" };
+		const { storage, values } = makeStorage();
+
+		return Effect.gen(function* () {
+			const service = yield* ClientStorage;
+			expect(yield* service.getLastWorkspace(scope)).toBeNull();
+			yield* service.setLastWorkspace(scope, "not/a-slug");
+			expect(values.has(lastWorkspaceKey(scope))).toBe(false);
+			values.set(lastWorkspaceKey(scope), '{"slug":"media"}');
+			expect(yield* service.getLastWorkspace(scope)).toBeNull();
 		}).pipe(Effect.provide(clientStorageLayer(storage)));
 	});
 

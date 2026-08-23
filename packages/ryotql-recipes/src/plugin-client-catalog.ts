@@ -23,13 +23,20 @@ export const pluginClientCatalogRecipe = defineRecipe(
 				limit: 100,
 				after: input.after,
 				where: eq(column(plugin, "status"), literal("active")),
-				orderBy: [ascending(column(plugin, "slug")), ascending(column(installation, "id"))],
 				joins: [join("inner", plugin, eq(column(plugin, "id"), column(installation, "pluginId")))],
+				orderBy: [
+					ascending(column(installation, "sortOrder")),
+					ascending(column(plugin, "slug")),
+					ascending(column(installation, "id")),
+				],
 				selection: {
+					name: selectedField(column(plugin, "name"), Schema.String),
 					slug: selectedField(column(plugin, "slug"), Schema.String),
+					icon: selectedField(column(plugin, "icon"), Schema.String),
 					pluginId: selectedField(column(plugin, "id"), Schema.String),
 					sourceHash: selectedField(column(plugin, "sourceHash"), Schema.String),
 					installationId: selectedField(column(installation, "id"), Schema.String),
+					sortOrder: selectedField(column(installation, "sortOrder"), Schema.Number),
 					isDisabled: selectedField(column(installation, "isDisabled"), Schema.Boolean),
 					health: selectedField(column(installation, "health"), PluginInstallationHealth),
 					clientArtifactHash: selectedField(
