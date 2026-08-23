@@ -27,9 +27,9 @@ const admin = async (path, body) => {
 };
 
 const health = [];
-let done = false;
+const healthState = { done: false };
 const healthLoop = (async () => {
-	while (!done) {
+	while (!healthState.done) {
 		const startedAt = performance.now();
 		const ok = await fetch(`${base}/system/health`, { signal: AbortSignal.timeout(5_000) })
 			.then((response) => response.ok)
@@ -39,7 +39,8 @@ const healthLoop = (async () => {
 	}
 })();
 
-const before = (await admin("sandbox/runtime?includeSmaps=false&completedAfterSequence=0")).value;
+const beforeResponse = await admin("sandbox/runtime?includeSmaps=false&completedAfterSequence=0");
+const before = beforeResponse.value;
 const jobs = await Promise.all(
 	Array.from({ length: Number(countText) }, () =>
 		admin("sandbox/enqueue", {
@@ -70,9 +71,10 @@ for (const job of jobs) {
 		}
 	}
 }
-done = true;
+healthState.done = true;
 await healthLoop;
-const after = (await admin("sandbox/runtime?includeSmaps=false&completedAfterSequence=0")).value;
+const afterResponse = await admin("sandbox/runtime?includeSmaps=false&completedAfterSequence=0");
+const after = afterResponse.value;
 const row = {
 	label,
 	count: Number(countText),

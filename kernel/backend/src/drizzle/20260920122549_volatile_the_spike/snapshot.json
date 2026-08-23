@@ -1694,7 +1694,7 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "graph_hash",
+			"name": "artifact_key",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "client_page_build"
@@ -1707,7 +1707,7 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "graph_identity",
+			"name": "artifact_identity",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "client_page_build"
@@ -1721,45 +1721,6 @@
 			"generated": null,
 			"identity": null,
 			"name": "created_at",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "client_page_build"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "client_page_build"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "renderer_id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "client_page_build"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "user_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "client_page_build"
@@ -1903,19 +1864,6 @@
 			"generated": null,
 			"identity": null,
 			"name": "user_id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "client_renderer"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "published_artifact_hash",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "client_renderer"
@@ -8352,27 +8300,6 @@
 			"with": "",
 			"method": "btree",
 			"concurrently": false,
-			"name": "client_page_build_user_id_idx",
-			"entityType": "indexes",
-			"schema": "public",
-			"table": "client_page_build"
-		},
-		{
-			"nameExplicit": true,
-			"columns": [
-				{
-					"value": "user_id",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				}
-			],
-			"isUnique": false,
-			"where": null,
-			"with": "",
-			"method": "btree",
-			"concurrently": false,
 			"name": "client_renderer_user_id_idx",
 			"entityType": "indexes",
 			"schema": "public",
@@ -10719,32 +10646,6 @@
 		},
 		{
 			"nameExplicit": false,
-			"columns": ["renderer_id"],
-			"schemaTo": "public",
-			"tableTo": "client_renderer",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "CASCADE",
-			"name": "client_page_build_renderer_id_client_renderer_id_fkey",
-			"entityType": "fks",
-			"schema": "public",
-			"table": "client_page_build"
-		},
-		{
-			"nameExplicit": false,
-			"columns": ["user_id"],
-			"schemaTo": "public",
-			"tableTo": "user",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "CASCADE",
-			"name": "client_page_build_user_id_user_id_fkey",
-			"entityType": "fks",
-			"schema": "public",
-			"table": "client_page_build"
-		},
-		{
-			"nameExplicit": false,
 			"columns": ["artifact_hash"],
 			"schemaTo": "public",
 			"tableTo": "plugin_client_artifact",
@@ -10765,19 +10666,6 @@
 			"onUpdate": "NO ACTION",
 			"onDelete": "CASCADE",
 			"name": "client_renderer_user_id_user_id_fkey",
-			"entityType": "fks",
-			"schema": "public",
-			"table": "client_renderer"
-		},
-		{
-			"nameExplicit": false,
-			"columns": ["published_artifact_hash"],
-			"schemaTo": "public",
-			"tableTo": "plugin_client_artifact",
-			"columnsTo": ["hash"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "RESTRICT",
-			"name": "client_renderer_2daUrxvoruES_fkey",
 			"entityType": "fks",
 			"schema": "public",
 			"table": "client_renderer"
@@ -11773,9 +11661,9 @@
 			"entityType": "pks"
 		},
 		{
-			"columns": ["id"],
 			"nameExplicit": false,
 			"name": "client_page_build_pkey",
+			"columns": ["artifact_key"],
 			"schema": "public",
 			"table": "client_page_build",
 			"entityType": "pks"
@@ -12166,15 +12054,6 @@
 			"entityType": "uniques",
 			"schema": "public",
 			"table": "automation_run_attempt"
-		},
-		{
-			"nameExplicit": true,
-			"columns": ["user_id", "graph_hash"],
-			"nullsNotDistinct": false,
-			"name": "client_page_build_user_graph_unique",
-			"entityType": "uniques",
-			"schema": "public",
-			"table": "client_page_build"
 		},
 		{
 			"nameExplicit": true,

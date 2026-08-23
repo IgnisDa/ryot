@@ -8,6 +8,7 @@ import { Database } from "#lib/infrastructure/db/service";
 import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 import { AuthService } from "#modules/auth/service";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
+import { ClientSurfaceMaterializer } from "#modules/plugins/client-surface-materializer";
 import { PluginInstallationService } from "#modules/plugins/installation-service";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
@@ -157,6 +158,11 @@ it.effect(
 					Layer.succeed(Database, Object.create(null)),
 					Layer.mock(AuthService)({ auth: Object.create(null) }),
 					Layer.mock(SavedViewsService)({}),
+					Layer.succeed(ClientSurfaceMaterializer, {
+						materializeUser: () => Effect.void,
+						materializeRenderer: () => Effect.void,
+						materializePendingInstallation: () => Effect.void,
+					}),
 					Layer.mock(PluginUserBootstrapDispatcher)({}),
 					Layer.mock(PluginInstallationService)({}),
 					Layer.mock(NotificationSubscriptionsService)({}),
@@ -276,6 +282,11 @@ it.effect("keeps a recreated reset user disabled until completion", () => {
 						}),
 				}),
 				Layer.mock(SavedViewsService)({}),
+				Layer.succeed(ClientSurfaceMaterializer, {
+					materializeUser: () => Effect.void,
+					materializeRenderer: () => Effect.void,
+					materializePendingInstallation: () => Effect.void,
+				}),
 				Layer.mock(PluginUserBootstrapDispatcher)({}),
 				Layer.mock(PluginInstallationService)({}),
 				Layer.mock(NotificationSubscriptionsService)({}),
@@ -316,6 +327,11 @@ it.effect("uses one database transaction for reset enablement and completion", (
 				}),
 				Layer.mock(AuthService)({ auth: Object.create(null) }),
 				Layer.mock(SavedViewsService)({}),
+				Layer.succeed(ClientSurfaceMaterializer, {
+					materializeUser: () => Effect.void,
+					materializeRenderer: () => Effect.void,
+					materializePendingInstallation: () => Effect.void,
+				}),
 				Layer.mock(PluginUserBootstrapDispatcher)({}),
 				Layer.mock(PluginInstallationService)({}),
 				Layer.mock(NotificationSubscriptionsService)({}),

@@ -28,6 +28,7 @@ const init: PluginBridgeInit = {
 	safeAreaBottom: 0,
 	format: metadata.format,
 	artifactHash: metadata.hash,
+	documentKey: "show-document",
 	sessionId: "media-session-id",
 	apiVersion: metadata.apiVersion,
 	bridgeVersion: metadata.bridgeVersion,
