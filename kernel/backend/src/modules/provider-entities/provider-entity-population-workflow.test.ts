@@ -1,4 +1,4 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import {
 	AutomationExecutionId,
@@ -11,7 +11,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
-import { Effect, Layer, Logger, References } from "effect";
+import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import type { LifecyclePlan } from "#lib/domain/lifecycle";
@@ -34,6 +34,7 @@ import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 
+import { RecordedLogAnnotations, recordLogAnnotationsLayer } from "./log-annotations.test-support";
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 import {
 	ProviderEntityPopulationWorkflow,
@@ -140,184 +141,196 @@ const sandboxResult = {
 	},
 };
 
+class FakePopulationWrites extends Context.Service<
+	FakePopulationWrites,
+	{ readonly recorded: Effect.Effect<ReadonlyArray<string>> }
+>()("test/FakePopulationWrites") {}
+
+type DispatchedPlans = Parameters<LifecycleExecution["Service"]["dispatch"]>[0];
+
 const populationLayer = (options: {
-	readonly recorded: string[];
 	readonly rootPlans?: ReadonlyArray<LifecyclePlan>;
-	readonly dispatch: LifecycleExecution["Service"]["dispatch"];
-}) => {
-	const upsertItem = (input: {
-		externalId: string;
-		populatedAt: Date | null;
-		entitySchemaSlug: EntitySchemaSlug;
-	}) => {
-		const kind = input.populatedAt === null ? "upsert" : "write";
-		const label = input.externalId === payload.externalId ? `root-${kind}` : "child-entity";
-		options.recorded.push(label);
-		const entity = listedEntity(input.externalId, input.entitySchemaSlug);
-		return {
-			plans:
-				label === "root-upsert"
-					? [...(options.rootPlans ?? [planFixture("root-upsert")])]
-					: [planFixture(label)],
-			result: {
-				entity,
-				wasInserted: true,
-				outcome: {
-					before: null,
-					operation: "create" as const,
-					after: { ...entity, properties: {} },
-				},
-			},
-		};
+	readonly dispatch: (plans: DispatchedPlans) => {
+		readonly entry: string;
+		readonly warnings: Effect.Success<ReturnType<LifecycleExecution["Service"]["dispatch"]>>;
 	};
-	return Layer.mergeAll(
-		passthroughDatabase,
-		Layer.mock(DefinitionRepository)({
-			getGlobalSnapshot: Effect.succeed(definitions),
-			getUserSnapshot: () => Effect.succeed(definitions),
-		}),
-		Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(1) })),
-		Layer.mock(PluginRuntimeResolver)({
-			findProviderAvailableToUserBySlug: () => Effect.succeed(null),
-		}),
-		Layer.mock(EntitiesRepository)({
-			findEntityByExternalId: () => Effect.succeed(null),
-			findEntitySchemaProviderBySlug: () =>
-				Effect.succeed({
-					providerId,
-					entitySchemaSlug: relatedSchemaSlug,
-					detailsScriptId: SandboxScriptId.make("person-details"),
+}) =>
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const recorded = yield* Ref.make<ReadonlyArray<string>>([]);
+			const record = (entry: string) => Ref.update(recorded, (all) => [...all, entry]);
+			const upsertItem = (input: {
+				externalId: string;
+				populatedAt: Date | null;
+				entitySchemaSlug: EntitySchemaSlug;
+			}) => {
+				const kind = input.populatedAt === null ? "upsert" : "write";
+				const label = input.externalId === payload.externalId ? `root-${kind}` : "child-entity";
+				const entity = listedEntity(input.externalId, input.entitySchemaSlug);
+				return record(label).pipe(
+					Effect.as({
+						plans:
+							label === "root-upsert"
+								? [...(options.rootPlans ?? [planFixture("root-upsert")])]
+								: [planFixture(label)],
+						result: {
+							entity,
+							wasInserted: true,
+							outcome: {
+								before: null,
+								operation: "create" as const,
+								after: { ...entity, properties: {} },
+							},
+						},
+					}),
+				);
+			};
+			return Layer.mergeAll(
+				passthroughDatabase,
+				Layer.mock(DefinitionRepository)({
+					getGlobalSnapshot: Effect.succeed(definitions),
+					getUserSnapshot: () => Effect.succeed(definitions),
 				}),
-		}),
-		Layer.mock(EntitiesService)({
-			persistPlannedProviderUpsert: (input) => Effect.sync(() => upsertItem(input)),
-			persistPlannedProviderUpserts: (input) =>
-				Effect.sync(() => {
-					const works = input.items.map(upsertItem);
-					return {
-						results: works.map(({ result }) => result),
-						plans: [...works.flatMap(({ plans }) => plans), planFixture("entities-batch")],
-					};
+				Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(1) })),
+				Layer.mock(PluginRuntimeResolver)({
+					findProviderAvailableToUserBySlug: () => Effect.succeed(null),
 				}),
-		}),
-		Layer.mock(RelationshipsRepository)({
-			listRelationshipsForReconciliation: () => Effect.succeed([]),
-		}),
-		Layer.mock(RelationshipsService)({
-			persistPlannedReconciliation: (_groups, _command, _scope) =>
-				Effect.sync(() => {
-					options.recorded.push("relationships");
-					return {
-						plans: [planFixture("relationships")],
-						result: [{ created: 1, updated: 0, deleted: 0, upserted: 1 }],
-					};
-				}),
-		}),
-		Layer.mock(EntityImportWorkflowOperations)({
-			completeProviderEntityImport: () => Effect.void,
-			processSandbox: () => Effect.succeed(sandboxResult),
-			processProviderResolve: () => Effect.die("unexpected provider resolve"),
-		}),
-		Layer.succeed(LifecycleExecution, {
-			dispatch: options.dispatch,
-			after: () => Effect.die("unexpected after"),
-			executePolicy: () => Effect.die("unexpected policy"),
-			skipQueuedPolicies: () => Effect.die("unexpected policy skip"),
-		}),
-	);
-};
-
-it.effect("dispatches each population write between activities and logs blocked hooks", () => {
-	const recorded: string[] = [];
-	const warningLogs: Array<Readonly<Record<string, unknown>>> = [];
-	const logger = Logger.make<unknown, void>((options) => {
-		if (String(options.message).includes("automation warnings")) {
-			warningLogs.push(options.fiber.getRef(References.CurrentLogAnnotations));
-		}
-	});
-	const blocked = {
-		omittedHooks: [],
-		hasRequiredHooks: true,
-		code: "automation-limit-reached" as const,
-	};
-	const instance = WorkflowInstance.initial(ProviderEntityPopulationWorkflow, payload.executionId);
-
-	return runProviderEntityPopulationWorkflow(payload, payload.executionId).pipe(
-		Effect.tap(() => {
-			expect(recorded).toEqual([
-				"root-upsert",
-				"dispatch:root-upsert",
-				"child-entity",
-				"relationships",
-				"dispatch:child-entity,entities-batch,relationships",
-				"child-entity",
-				"relationships",
-				"dispatch:child-entity,entities-batch,relationships",
-				"root-write",
-				"dispatch:root-write",
-			]);
-			expect(warningLogs.map((annotations) => annotations["phase"])).toEqual(["root-upsert"]);
-			return Effect.void;
-		}),
-		Effect.provideService(WorkflowInstance, instance),
-		Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
-		Effect.provide(
-			Layer.merge(
-				Logger.layer([logger]),
-				populationLayer({
-					recorded,
-					dispatch: (plans) =>
-						Effect.sync(() => {
-							recorded.push(`dispatch:${plans.map(({ triggerId }) => triggerId).join(",")}`);
-							return plans.some(({ triggerId }) => triggerId === "root-upsert")
-								? [{ ...blocked, triggerId: AutomationTriggerId.make("root-upsert") }]
-								: [];
+				Layer.mock(EntitiesRepository)({
+					findEntityByExternalId: () => Effect.succeed(null),
+					findEntitySchemaProviderBySlug: () =>
+						Effect.succeed({
+							providerId,
+							entitySchemaSlug: relatedSchemaSlug,
+							detailsScriptId: SandboxScriptId.make("person-details"),
 						}),
 				}),
-			),
-		),
-		Effect.asVoid,
+				Layer.mock(EntitiesService)({
+					persistPlannedProviderUpsert: upsertItem,
+					persistPlannedProviderUpserts: (input) =>
+						Effect.forEach(input.items, upsertItem).pipe(
+							Effect.map((works) => ({
+								results: works.map(({ result }) => result),
+								plans: [...works.flatMap(({ plans }) => plans), planFixture("entities-batch")],
+							})),
+						),
+				}),
+				Layer.mock(RelationshipsRepository)({
+					listRelationshipsForReconciliation: () => Effect.succeed([]),
+				}),
+				Layer.mock(RelationshipsService)({
+					persistPlannedReconciliation: (_groups, _command, _scope) =>
+						record("relationships").pipe(
+							Effect.as({
+								plans: [planFixture("relationships")],
+								result: [{ created: 1, updated: 0, deleted: 0, upserted: 1 }],
+							}),
+						),
+				}),
+				Layer.mock(EntityImportWorkflowOperations)({
+					completeProviderEntityImport: () => Effect.void,
+					processSandbox: () => Effect.succeed(sandboxResult),
+					processProviderResolve: () => Effect.die("unexpected provider resolve"),
+				}),
+				Layer.succeed(LifecycleExecution, {
+					after: () => Effect.die("unexpected after"),
+					executePolicy: () => Effect.die("unexpected policy"),
+					skipQueuedPolicies: () => Effect.die("unexpected policy skip"),
+					dispatch: (plans) => {
+						const { entry, warnings } = options.dispatch(plans);
+						return record(entry).pipe(Effect.as(warnings));
+					},
+				}),
+				Layer.succeed(FakePopulationWrites, { recorded: Ref.get(recorded) }),
+			);
+		}),
 	);
+
+const blocked = {
+	omittedHooks: [],
+	hasRequiredHooks: true,
+	code: "automation-limit-reached" as const,
+};
+
+layer(
+	Layer.merge(
+		recordLogAnnotationsLayer("automation warnings"),
+		populationLayer({
+			dispatch: (plans) => ({
+				entry: `dispatch:${plans.map(({ triggerId }) => triggerId).join(",")}`,
+				warnings: plans.some(({ triggerId }) => triggerId === "root-upsert")
+					? [{ ...blocked, triggerId: AutomationTriggerId.make("root-upsert") }]
+					: [],
+			}),
+		}),
+	),
+)((test) => {
+	test.effect("dispatches each population write between activities and logs blocked hooks", () => {
+		const instance = WorkflowInstance.initial(
+			ProviderEntityPopulationWorkflow,
+			payload.executionId,
+		);
+
+		return runProviderEntityPopulationWorkflow(payload, payload.executionId).pipe(
+			Effect.tap(() =>
+				Effect.gen(function* () {
+					expect(yield* (yield* FakePopulationWrites).recorded).toEqual([
+						"root-upsert",
+						"dispatch:root-upsert",
+						"child-entity",
+						"relationships",
+						"dispatch:child-entity,entities-batch,relationships",
+						"child-entity",
+						"relationships",
+						"dispatch:child-entity,entities-batch,relationships",
+						"root-write",
+						"dispatch:root-write",
+					]);
+					const warningLogs = yield* (yield* RecordedLogAnnotations).annotations;
+					expect(warningLogs.map((annotations) => annotations["phase"])).toEqual(["root-upsert"]);
+				}),
+			),
+			Effect.provideService(WorkflowInstance, instance),
+			Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
+			Effect.asVoid,
+		);
+	});
 });
 
-it.effect("replays the population body without re-running committed write activities", () => {
-	const recorded: string[] = [];
-	const activityRuns: string[] = [];
-	const instance = WorkflowInstance.initial(ProviderEntityPopulationWorkflow, payload.executionId);
-	const engine = makeMemoizingWorkflowEngine(instance, activityRuns);
-	const run = runProviderEntityPopulationWorkflow(payload, payload.executionId).pipe(
-		Effect.provideService(WorkflowInstance, instance),
-		Effect.provideService(WorkflowEngine, engine),
-	);
+layer(populationLayer({ dispatch: () => ({ warnings: [], entry: "dispatch" }) }))((test) => {
+	test.effect("replays the population body without re-running committed write activities", () => {
+		const activityRuns: string[] = [];
+		const instance = WorkflowInstance.initial(
+			ProviderEntityPopulationWorkflow,
+			payload.executionId,
+		);
+		const engine = makeMemoizingWorkflowEngine(instance, activityRuns);
+		const run = runProviderEntityPopulationWorkflow(payload, payload.executionId).pipe(
+			Effect.provideService(WorkflowInstance, instance),
+			Effect.provideService(WorkflowEngine, engine),
+		);
 
-	return Effect.gen(function* () {
-		const first = yield* run;
-		const replayed = yield* run;
-		expect(replayed).toEqual(first);
-		expect(recorded).toEqual([
-			"root-upsert",
-			"dispatch",
-			"child-entity",
-			"relationships",
-			"dispatch",
-			"child-entity",
-			"relationships",
-			"dispatch",
-			"root-write",
-			"dispatch",
-			"dispatch",
-			"dispatch",
-			"dispatch",
-			"dispatch",
-		]);
-		expect(activityRuns.filter((name) => name === "upsert-root-entity")).toHaveLength(1);
-		expect(activityRuns.filter((name) => name === "stamp-root-populated-at")).toHaveLength(1);
-	}).pipe(
-		Effect.provide(
-			populationLayer({
-				recorded,
-				dispatch: () => Effect.sync(() => recorded.push("dispatch")).pipe(Effect.as([])),
-			}),
-		),
-	);
+		return Effect.gen(function* () {
+			const first = yield* run;
+			const replayed = yield* run;
+			expect(replayed).toEqual(first);
+			expect(yield* (yield* FakePopulationWrites).recorded).toEqual([
+				"root-upsert",
+				"dispatch",
+				"child-entity",
+				"relationships",
+				"dispatch",
+				"child-entity",
+				"relationships",
+				"dispatch",
+				"root-write",
+				"dispatch",
+				"dispatch",
+				"dispatch",
+				"dispatch",
+				"dispatch",
+			]);
+			expect(activityRuns.filter((name) => name === "upsert-root-entity")).toHaveLength(1);
+			expect(activityRuns.filter((name) => name === "stamp-root-populated-at")).toHaveLength(1);
+		});
+	});
 });

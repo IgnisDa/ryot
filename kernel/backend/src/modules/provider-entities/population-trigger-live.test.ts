@@ -1,4 +1,4 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import {
 	AutomationExecutionId,
 	EntityId,
@@ -7,7 +7,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
-import { Effect, Exit, Layer } from "effect";
+import { Context, Effect, Exit, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
@@ -26,73 +26,79 @@ const command = rootLifecycleCommand({
 	executionId: AutomationExecutionId.make("populate-entity-1"),
 });
 
-it.effect("keeps the deterministic ID and exposes enqueue failure", () => {
-	let executionId: string | undefined;
-	const layer = EntityPopulationTriggerLive.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				databaseLayer,
-				Layer.mock(PluginRuntimeResolver)({}),
-				Layer.succeed(
-					WorkflowEngine,
-					makeWorkflowEngine({
-						execute: (_workflow, options) => {
-							executionId = options.executionId;
-							return Effect.die("enqueue failed");
-						},
-					}),
+type ExecuteOptions = Parameters<WorkflowEngine["Service"]["execute"]>[1];
+
+class FakePopulationEnqueues extends Context.Service<
+	FakePopulationEnqueues,
+	{ readonly executions: Effect.Effect<ReadonlyArray<ExecuteOptions>> }
+>()("test/FakePopulationEnqueues") {}
+
+const triggerLayer = (
+	resolver: Layer.Layer<PluginRuntimeResolver>,
+	enqueue: (options: ExecuteOptions) => Effect.Effect<unknown> = () => Effect.void,
+) =>
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const executions = yield* Ref.make<ReadonlyArray<ExecuteOptions>>([]);
+			const engine = makeWorkflowEngine({
+				execute: (_workflow, options) =>
+					Ref.update(executions, (all) => [...all, options]).pipe(Effect.andThen(enqueue(options))),
+			});
+			return EntityPopulationTriggerLive.pipe(
+				Layer.provide(
+					Layer.mergeAll(databaseLayer, resolver, Layer.succeed(WorkflowEngine, engine)),
 				),
-			),
-		),
+				Layer.merge(Layer.succeed(FakePopulationEnqueues, { executions: Ref.get(executions) })),
+			);
+		}),
 	);
 
-	return Effect.gen(function* () {
-		const trigger = yield* EntityPopulationTrigger;
-		const exit = yield* Effect.exit(
-			trigger.request({
+const executions = Effect.flatMap(FakePopulationEnqueues, (fake) => fake.executions);
+
+layer(triggerLayer(Layer.mock(PluginRuntimeResolver)({}), () => Effect.die("enqueue failed")))(
+	(test) => {
+		test.effect("keeps the deterministic ID and exposes enqueue failure", () =>
+			Effect.gen(function* () {
+				const trigger = yield* EntityPopulationTrigger;
+				const exit = yield* Effect.exit(
+					trigger.request({
+						command,
+						userId: null,
+						externalId: "record-1",
+						entityId: EntityId.make("entity-1"),
+						providerId: SandboxProviderId.make("provider-1"),
+						entitySchemaSlug: EntitySchemaSlug.make("record"),
+					}),
+				);
+
+				expect((yield* executions).map(({ executionId }) => executionId)).toEqual([
+					"populate-entity-1",
+				]);
+				expect(Exit.isFailure(exit)).toBe(true);
+			}),
+		);
+	},
+);
+
+layer(
+	triggerLayer(
+		Layer.mock(PluginRuntimeResolver)({ findProviderAvailableToUser: () => Effect.succeed(null) }),
+	),
+)((test) => {
+	test.effect("does not enqueue user population for a disabled system provider", () =>
+		Effect.gen(function* () {
+			const trigger = yield* EntityPopulationTrigger;
+			yield* trigger.request({
+				userId,
 				command,
-				userId: null,
 				externalId: "record-1",
 				entityId: EntityId.make("entity-1"),
 				providerId: SandboxProviderId.make("provider-1"),
 				entitySchemaSlug: EntitySchemaSlug.make("record"),
-			}),
-		);
-
-		expect(executionId).toBe("populate-entity-1");
-		expect(Exit.isFailure(exit)).toBe(true);
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("does not enqueue user population for a disabled system provider", () => {
-	let enqueued = false;
-	const layer = EntityPopulationTriggerLive.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				databaseLayer,
-				Layer.mock(PluginRuntimeResolver)({
-					findProviderAvailableToUser: () => Effect.succeed(null),
-				}),
-				Layer.succeed(
-					WorkflowEngine,
-					makeWorkflowEngine({ execute: () => Effect.sync(() => void (enqueued = true)) }),
-				),
-			),
-		),
+			});
+			expect(yield* executions).toEqual([]);
+		}),
 	);
-
-	return Effect.gen(function* () {
-		const trigger = yield* EntityPopulationTrigger;
-		yield* trigger.request({
-			userId,
-			command,
-			externalId: "record-1",
-			entityId: EntityId.make("entity-1"),
-			providerId: SandboxProviderId.make("provider-1"),
-			entitySchemaSlug: EntitySchemaSlug.make("record"),
-		});
-		expect(enqueued).toBe(false);
-	}).pipe(Effect.provide(layer));
 });
 
 const availableProvider = {
@@ -106,61 +112,48 @@ const availableProvider = {
 	rootEntitySchemaSlug: EntitySchemaSlug.make("record"),
 };
 
-const capturePopulationPayload = (pluginScope: "system" | "user") => {
-	let payload: unknown;
-	const layer = EntityPopulationTriggerLive.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				databaseLayer,
-				Layer.mock(PluginRuntimeResolver)({
-					findProviderAvailableToUser: () =>
-						Effect.succeed({ ...availableProvider, pluginScope, id: availableProvider.providerId }),
-				}),
-				Layer.succeed(
-					WorkflowEngine,
-					makeWorkflowEngine({
-						execute: (_workflow, options) => {
-							payload = options.payload;
-							return Effect.void;
-						},
-					}),
-				),
-			),
-		),
+const providerScopeLayer = (pluginScope: "system" | "user") =>
+	triggerLayer(
+		Layer.mock(PluginRuntimeResolver)({
+			findProviderAvailableToUser: () =>
+				Effect.succeed({ ...availableProvider, pluginScope, id: availableProvider.providerId }),
+		}),
 	);
-	return { layer, getPayload: () => payload };
-};
 
-it.effect("keeps user-triggered system provider entities global", () => {
-	const capture = capturePopulationPayload("system");
-	return Effect.gen(function* () {
-		const trigger = yield* EntityPopulationTrigger;
-		yield* trigger.request({
-			userId,
-			command,
-			externalId: "record-1",
-			entityId: EntityId.make("entity-1"),
-			providerId: SandboxProviderId.make("provider-1"),
-			entitySchemaSlug: EntitySchemaSlug.make("record"),
-		});
-		expect(capture.getPayload()).toMatchObject({
-			entityScope: { type: "global", userId: "user-1" },
-		});
-	}).pipe(Effect.provide(capture.layer));
+layer(providerScopeLayer("system"))((test) => {
+	test.effect("keeps user-triggered system provider entities global", () =>
+		Effect.gen(function* () {
+			const trigger = yield* EntityPopulationTrigger;
+			yield* trigger.request({
+				userId,
+				command,
+				externalId: "record-1",
+				entityId: EntityId.make("entity-1"),
+				providerId: SandboxProviderId.make("provider-1"),
+				entitySchemaSlug: EntitySchemaSlug.make("record"),
+			});
+			const [execution] = yield* executions;
+			expect(execution?.payload).toMatchObject({
+				entityScope: { type: "global", userId: "user-1" },
+			});
+		}),
+	);
 });
 
-it.effect("keeps user-triggered private provider entities user-owned", () => {
-	const capture = capturePopulationPayload("user");
-	return Effect.gen(function* () {
-		const trigger = yield* EntityPopulationTrigger;
-		yield* trigger.request({
-			userId,
-			command,
-			externalId: "record-1",
-			entityId: EntityId.make("entity-1"),
-			providerId: SandboxProviderId.make("provider-1"),
-			entitySchemaSlug: EntitySchemaSlug.make("record"),
-		});
-		expect(capture.getPayload()).toMatchObject({ entityScope: { type: "user", userId: "user-1" } });
-	}).pipe(Effect.provide(capture.layer));
+layer(providerScopeLayer("user"))((test) => {
+	test.effect("keeps user-triggered private provider entities user-owned", () =>
+		Effect.gen(function* () {
+			const trigger = yield* EntityPopulationTrigger;
+			yield* trigger.request({
+				userId,
+				command,
+				externalId: "record-1",
+				entityId: EntityId.make("entity-1"),
+				providerId: SandboxProviderId.make("provider-1"),
+				entitySchemaSlug: EntitySchemaSlug.make("record"),
+			});
+			const [execution] = yield* executions;
+			expect(execution?.payload).toMatchObject({ entityScope: { type: "user", userId: "user-1" } });
+		}),
+	);
 });

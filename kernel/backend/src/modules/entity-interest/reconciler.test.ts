@@ -1,8 +1,8 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import type { RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
 import type { EntityId } from "@ryot-app/contract/schema/brands";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { Effect, Layer } from "effect";
+import { Context, Effect, Layer, Ref } from "effect";
 
 import { EntityPopulationTrigger } from "#modules/entities/population-trigger";
 import { TranslationsService } from "#modules/entity-translation/service";
@@ -44,69 +44,68 @@ const row = (id: string, overrides: Partial<InterestItem> = {}): InterestItem =>
 	...overrides,
 });
 
-it.effect("omits IDs filtered from the visible rows", () => {
-	const populationRequests: unknown[] = [];
-	const layer = InterestReconciler.layer.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				Layer.mock(RyotQLService)({
-					executeForUser: () =>
-						Effect.succeed(
-							responseWithItems([
-								row("entity-1", { translationStatus: "none", populationStatus: "pending" }),
-							]),
-						),
-				}),
-				Layer.mock(EntityPopulationTrigger)({
-					request: (input) =>
-						Effect.sync(() => {
-							populationRequests.push(input);
+class FakeInterestFollowUps extends Context.Service<
+	FakeInterestFollowUps,
+	{
+		readonly populationRequests: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly translationEntityIds: Effect.Effect<ReadonlyArray<EntityId>>;
+	}
+>()("test/FakeInterestFollowUps") {}
+
+const reconcilerLayer = (items: readonly InterestItem[]) =>
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const populationRequests = yield* Ref.make<ReadonlyArray<unknown>>([]);
+			const translationEntityIds = yield* Ref.make<ReadonlyArray<EntityId>>([]);
+			return InterestReconciler.layer.pipe(
+				Layer.provide(
+					Layer.mergeAll(
+						Layer.mock(RyotQLService)({
+							executeForUser: () => Effect.succeed(responseWithItems(items)),
 						}),
-				}),
-				Layer.mock(TranslationsService)({ requestFill: () => Effect.void }),
-			),
-		),
+						Layer.mock(EntityPopulationTrigger)({
+							request: (input) => Ref.update(populationRequests, (all) => [...all, input]),
+						}),
+						Layer.mock(TranslationsService)({
+							requestFill: ({ entityId }) =>
+								Ref.update(translationEntityIds, (all) => [...all, entityId]),
+						}),
+					),
+				),
+				Layer.merge(
+					Layer.succeed(FakeInterestFollowUps, {
+						populationRequests: Ref.get(populationRequests),
+						translationEntityIds: Ref.get(translationEntityIds),
+					}),
+				),
+			);
+		}),
 	);
 
-	return Effect.gen(function* () {
-		const reconciler = yield* InterestReconciler;
-		const result = yield* reconciler.reconcile(principal, ["entity-1", "missing-entity"]);
+layer(
+	reconcilerLayer([row("entity-1", { translationStatus: "none", populationStatus: "pending" })]),
+)((test) => {
+	test.effect("omits IDs filtered from the visible rows", () =>
+		Effect.gen(function* () {
+			const reconciler = yield* InterestReconciler;
+			const result = yield* reconciler.reconcile(principal, ["entity-1", "missing-entity"]);
 
-		expect(result).toEqual({ terminal: [], reconciledEntityIds: ["entity-1"] });
-		expect(populationRequests).toHaveLength(1);
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("returns terminal rows and enqueues pending translations", () => {
-	const translationEntityIds: EntityId[] = [];
-	const layer = InterestReconciler.layer.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				Layer.mock(RyotQLService)({
-					executeForUser: () =>
-						Effect.succeed(
-							responseWithItems([
-								row("entity-1"),
-								row("entity-2", { translationStatus: "pending" }),
-							]),
-						),
-				}),
-				Layer.mock(EntityPopulationTrigger)({ request: () => Effect.void }),
-				Layer.mock(TranslationsService)({
-					requestFill: ({ entityId }) =>
-						Effect.sync(() => {
-							translationEntityIds.push(entityId);
-						}),
-				}),
-			),
-		),
+			expect(result).toEqual({ terminal: [], reconciledEntityIds: ["entity-1"] });
+			expect(yield* (yield* FakeInterestFollowUps).populationRequests).toHaveLength(1);
+		}),
 	);
-
-	return Effect.gen(function* () {
-		const reconciler = yield* InterestReconciler;
-		const result = yield* reconciler.reconcile(principal, ["entity-1", "entity-2"]);
-
-		expect(result.terminal).toEqual([{ entityId: "entity-1", reason: "translated" }]);
-		expect(translationEntityIds).toEqual(["entity-2"]);
-	}).pipe(Effect.provide(layer));
 });
+
+layer(reconcilerLayer([row("entity-1"), row("entity-2", { translationStatus: "pending" })]))(
+	(test) => {
+		test.effect("returns terminal rows and enqueues pending translations", () =>
+			Effect.gen(function* () {
+				const reconciler = yield* InterestReconciler;
+				const result = yield* reconciler.reconcile(principal, ["entity-1", "entity-2"]);
+
+				expect(result.terminal).toEqual([{ entityId: "entity-1", reason: "translated" }]);
+				expect(yield* (yield* FakeInterestFollowUps).translationEntityIds).toEqual(["entity-2"]);
+			}),
+		);
+	},
+);

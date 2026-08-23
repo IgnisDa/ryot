@@ -1,16 +1,16 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import { Effect } from "effect";
 import { assert, describe } from "vitest";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
-import { baseInput, withRelationshipDatabase } from "./lifecycle.test-support";
+import { baseInput, relationshipDatabaseLayer } from "./lifecycle.test-support";
 import { RelationshipsRepository } from "./repository";
 
 describe("RelationshipsRepository PostgreSQL", () => {
-	it.effect("returns complete persisted snapshots and obeys the active transaction", () =>
-		withRelationshipDatabase(() =>
+	layer(relationshipDatabaseLayer())((test) => {
+		test.effect("returns complete persisted snapshots and obeys the active transaction", () =>
 			Effect.gen(function* () {
 				const repository = yield* RelationshipsRepository;
 				const session = yield* DatabaseSession;
@@ -54,6 +54,6 @@ describe("RelationshipsRepository PostgreSQL", () => {
 				).toMatchObject({ id: found.id, properties: { rank: 7 } });
 				expect(yield* repository.findRelationship(baseInput)).toBeNull();
 			}),
-		),
-	);
+		);
+	});
 });

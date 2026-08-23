@@ -5,21 +5,16 @@ import {
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { Effect, Layer, Redacted } from "effect";
+import { Context, Effect, Layer, Redacted, Ref } from "effect";
 import { Client } from "pg";
 
-import type { LifecyclePlanner } from "#lib/domain/lifecycle";
+import { LifecyclePlanner } from "#lib/domain/lifecycle";
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import type { AppConfig } from "#lib/infrastructure/config/service";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import {
-	applyBaselineMigration,
-	baselineMigrationStatements,
-} from "#lib/test-utils/baseline-migration";
-import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
+import { IsolatedDatabase, isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
 import { withLifecycleDispatch } from "#modules/automations/lifecycle.test-support";
 import { LifecyclePlannerLive } from "#modules/automations/planner";
 import { AutomationRunRepository } from "#modules/automations/run-repository";
@@ -68,63 +63,36 @@ export const command = (id: string) =>
 		executionId: AutomationExecutionId.make(id),
 	});
 
-type Services =
-	| DatabaseSession
-	| RelationshipsService
-	| EntitiesService
-	| RelationshipsRepository
-	| EntitiesRepository
-	| PluginRuntimeResolver
-	| DefinitionRepository
-	| LifecyclePlanner
-	| LifecycleExecution
-	| PluginRepository
-	| PluginInstallationRepository
-	| PluginConfigRevisions
-	| PluginConfigEncryptionKey
-	| AppConfig;
+export class RelationshipFixture extends Context.Service<
+	RelationshipFixture,
+	{
+		readonly observer: Client;
+		readonly updateRelationshipSchema: Effect.Effect<void>;
+		readonly disableRelationshipSchema: Effect.Effect<void>;
+		readonly runLimitedPlanner: LifecyclePlanner["Service"];
+	}
+>()("test/RelationshipFixture") {}
 
-export const withRelationshipDatabase = <E>(
-	test: (
-		observer: Client,
-		catalog: { disableRelationshipSchema: () => void; updateRelationshipSchema: () => void },
-	) => Effect.Effect<void, E, Services>,
+export const relationshipDatabaseLayer = (
 	options: {
 		readonly activateSchemaOnWrite?: boolean;
 		readonly omitSchemaBeforeWrite?: boolean;
 		readonly mutableRelationshipSchema?: boolean;
 	} = {},
 ) =>
-	Effect.scoped(
+	Layer.unwrap(
 		Effect.gen(function* () {
-			const url = testDatabaseUrl();
-			const name = `relationship_test_${crypto.randomUUID().replaceAll("-", "")}`;
-			const admin = yield* Effect.acquireRelease(
+			const { url } = yield* IsolatedDatabase;
+			const observer = yield* Effect.acquireRelease(
 				Effect.gen(function* () {
 					const client = new Client({ connectionString: url });
 					yield* Effect.tryPromise(() => client.connect());
 					return client;
 				}),
-				(client) =>
-					Effect.promise(() => client.query(`DROP DATABASE IF EXISTS "${name}" WITH (FORCE)`)).pipe(
-						Effect.andThen(Effect.promise(() => client.end())),
-					),
-			);
-			yield* Effect.tryPromise(() => admin.query(`CREATE DATABASE "${name}"`));
-			const scopedUrl = new URL(url);
-			scopedUrl.pathname = `/${name}`;
-			const observer = yield* Effect.acquireRelease(
-				Effect.gen(function* () {
-					const client = new Client({ connectionString: scopedUrl.toString() });
-					yield* Effect.tryPromise(() => client.connect());
-					return client;
-				}),
 				(client) => Effect.promise(() => client.end()),
 			);
-			yield* applyBaselineMigration(yield* baselineMigrationStatements(), (statement) =>
-				Effect.tryPromise(() => observer.query(statement)),
-			);
-			const config = makeAppConfigLayer({ database: { url: Redacted.make(scopedUrl.toString()) } });
+			const database = { url: Redacted.make(url) };
+			const config = makeAppConfigLayer({ database });
 			const relationshipSchema = {
 				name: "Link",
 				pluginId: null,
@@ -157,29 +125,28 @@ export const withRelationshipDatabase = <E>(
 				PluginConfigEncryptionKey.layer,
 				RelationshipsRepository.layer,
 			);
-			let schemaActivated = false;
-			let schemaState: "active" | "disabled" | "updated" = "active";
+			const schemaActivated = yield* Ref.make(false);
+			const schemaState = yield* Ref.make<"active" | "disabled" | "updated">("active");
 			const runtimeOnly =
 				options.activateSchemaOnWrite ||
 				options.omitSchemaBeforeWrite ||
 				options.mutableRelationshipSchema
 					? Layer.merge(
 							Layer.mock(PluginRuntimeResolver)({
-								lockCatalog: () =>
-									Effect.sync(() => {
-										schemaActivated = options.activateSchemaOnWrite ?? false;
-									}),
+								lockCatalog: () => Ref.set(schemaActivated, options.activateSchemaOnWrite ?? false),
 							}),
 							Layer.mock(DefinitionRepository)({
 								findUserRelationshipSchemas: (_userId, slugs) =>
-									Effect.sync(() =>
-										options.omitSchemaBeforeWrite ||
-										schemaState === "disabled" ||
-										!slugs.includes(relationshipSchemaSlug)
+									Effect.gen(function* () {
+										const state = yield* Ref.get(schemaState);
+										const activated = yield* Ref.get(schemaActivated);
+										return options.omitSchemaBeforeWrite ||
+											state === "disabled" ||
+											!slugs.includes(relationshipSchemaSlug)
 											? {}
 											: {
 													[relationshipSchemaSlug]:
-														schemaActivated || schemaState === "updated"
+														activated || state === "updated"
 															? {
 																	...relationshipSchema,
 																	propertiesSchema: {
@@ -194,8 +161,8 @@ export const withRelationshipDatabase = <E>(
 																	},
 																}
 															: relationshipSchema,
-												},
-									),
+												};
+									}),
 							}),
 						)
 					: Layer.merge(
@@ -228,29 +195,44 @@ export const withRelationshipDatabase = <E>(
 				Layer.provideMerge(DatabaseSession.layer),
 				Layer.provideMerge(config),
 			);
-			yield* Effect.gen(function* () {
-				const db = yield* (yield* DatabaseSession).current;
-				yield* (yield* DefinitionRepository.make).replaceKernelDefinitions(source);
-				yield* db
-					.insert(tables.user)
-					.values({
-						id: userId,
-						name: "Owner",
-						preferences: {},
-						email: "relationship@example.test",
-					});
-				yield* db.insert(tables.entity).values([
-					{ name: "Source", properties: {}, id: sourceEntityId, entitySchemaSlug: "fixture" },
-					{ name: "Target", properties: {}, id: targetEntityId, entitySchemaSlug: "fixture" },
-				]);
-				yield* test(observer, {
-					updateRelationshipSchema: () => {
-						schemaState = "updated";
-					},
-					disableRelationshipSchema: () => {
-						schemaState = "disabled";
-					},
-				});
-			}).pipe(Effect.provide(services));
+			const seed = Layer.effectDiscard(
+				Effect.gen(function* () {
+					const db = yield* (yield* DatabaseSession).current;
+					yield* (yield* DefinitionRepository.make).replaceKernelDefinitions(source);
+					yield* db
+						.insert(tables.user)
+						.values({
+							id: userId,
+							name: "Owner",
+							preferences: {},
+							email: "relationship@example.test",
+						});
+					yield* db.insert(tables.entity).values([
+						{ name: "Source", properties: {}, id: sourceEntityId, entitySchemaSlug: "fixture" },
+						{ name: "Target", properties: {}, id: targetEntityId, entitySchemaSlug: "fixture" },
+					]);
+				}),
+			);
+			const fixture = Layer.effect(
+				RelationshipFixture,
+				Effect.gen(function* () {
+					return {
+						observer,
+						runLimitedPlanner: yield* LifecyclePlanner,
+						updateRelationshipSchema: Ref.set(schemaState, "updated"),
+						disableRelationshipSchema: Ref.set(schemaState, "disabled"),
+					};
+				}),
+			).pipe(
+				Layer.provide(
+					Layer.fresh(LifecyclePlannerLive).pipe(
+						Layer.provide(makeAppConfigLayer({ database, automations: { maxRuns: 1 } })),
+					),
+				),
+			);
+			return Layer.merge(seed, fixture).pipe(Layer.provideMerge(services));
 		}),
-	).pipe(Effect.provide(makeConfigProviderLayer()));
+	).pipe(
+		Layer.provide(isolatedDatabaseLayer("relationship_test")),
+		Layer.provideMerge(makeConfigProviderLayer()),
+	);
