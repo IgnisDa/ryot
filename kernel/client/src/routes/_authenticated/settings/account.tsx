@@ -1,11 +1,17 @@
+import {
+	createRyotMutation,
+	createRyotQuery,
+	useRyotMutation,
+	useRyotQuery,
+} from "@ryot-app/client-sdk/react";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
-import { useEffect, useRef } from "react";
 
 import { UserSettingsApi } from "#/api/user-settings";
+import type { KernelHostServices } from "#/host-services";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
-import { AuthService } from "#/modules/auth/service";
+import { AuthService, type SettledAuthSession } from "#/modules/auth/service";
 import { AccountProfile } from "#/modules/settings/account-profile";
 import { AccountServer } from "#/modules/settings/account-server";
 import { AccountSession } from "#/modules/settings/account-session";
@@ -16,26 +22,56 @@ export const Route = createFileRoute("/_authenticated/settings/account")({
 	component: AccountRoute,
 });
 
-function AccountRoute() {
-	const { runtime, scope, server } = Route.useRouteContext();
-	const auth = runtime.runSync(AuthService);
-	const { isNative } = runtime.runSync(RuntimeOAuthClientService);
-	const controller = useRef(new AbortController());
-	useEffect(() => () => controller.current.abort(), []);
+const accountIdentityQuery = createRyotQuery<void, SettledAuthSession, KernelHostServices>(
+	({ hostServices, signal }) =>
+		hostServices.runtime.runPromise(
+			Effect.flatMap(AuthService, (auth) => auth.settledSession(hostServices.scope.serverUrl)),
+			{ signal },
+		),
+);
 
-	const generateAvatar = () =>
-		runtime.runPromise(
-			Effect.flatMap(UserSettingsApi, (api) => api.refreshAvatar(scope)).pipe(
-				Effect.flatMap(() => auth.settledSession(server, true)),
+const refreshAvatarMutation = createRyotMutation<void, void, KernelHostServices>(
+	({ client, hostServices, signal }) =>
+		hostServices.runtime.runPromise(
+			Effect.flatMap(UserSettingsApi, (api) => api.refreshAvatar(hostServices.scope)).pipe(
+				Effect.flatMap(() =>
+					Effect.flatMap(AuthService, (auth) =>
+						auth.settledSession(hostServices.scope.serverUrl, true),
+					),
+				),
+				Effect.tap(() => Effect.sync(() => client.mutationCompleted.hint())),
 				Effect.as(undefined),
 			),
-			{ signal: controller.current.signal },
-		);
+			{ signal },
+		),
+);
+
+const signOutMutation = createRyotMutation<void, boolean, KernelHostServices>(
+	({ hostServices, signal }) =>
+		hostServices.runtime.runPromise(
+			Effect.flatMap(AuthService, (auth) => auth.signOut(hostServices.scope.serverUrl)),
+			{ signal },
+		),
+);
+
+function AccountRoute() {
+	const { runtime, server } = Route.useRouteContext();
+	const { isNative } = runtime.runSync(RuntimeOAuthClientService);
+	const identity = useRyotQuery(accountIdentityQuery);
+	const refreshAvatar = useRyotMutation(refreshAvatarMutation);
+	const signOut = useRyotMutation(signOutMutation);
 
 	return (
 		<SettingsFrame title="Account" backFallbackHref="/settings">
 			<div className="flex flex-col gap-8">
-				<AccountProfile session={auth.session(server)} onGenerateAvatar={generateAvatar} />
+				<AccountProfile
+					identity={identity.data}
+					isLoading={identity.isPending}
+					onRetry={() => identity.refetch()}
+					isGenerating={refreshAvatar.isPending}
+					onGenerateAvatar={() => refreshAvatar.mutate()}
+					generationFailed={refreshAvatar.status === "error"}
+				/>
 				<SettingsSection
 					title="Server administration"
 					detail="Manage server-wide data and operations."
@@ -57,7 +93,11 @@ function AccountRoute() {
 					</Link>
 				</SettingsSection>
 				{isNative && <AccountServer server={server} />}
-				<AccountSession runtime={runtime} server={server} />
+				<AccountSession
+					isPending={signOut.isPending}
+					failed={signOut.status === "error"}
+					onSignOut={() => signOut.mutateAsync()}
+				/>
 			</div>
 		</SettingsFrame>
 	);

@@ -12,10 +12,10 @@ import {
 } from "react";
 
 import type { ApiScope } from "#/api/scope";
-import { pluginCatalogQuery, type PluginCatalogRuntime } from "#/modules/plugins/catalog";
+import { pluginCatalogQuery } from "#/modules/plugins/catalog";
 import { PluginCatalogEventsService } from "#/modules/plugins/events";
 
-type PluginCatalogProviderRuntime = PluginCatalogRuntime & {
+type PluginCatalogProviderRuntime = {
 	readonly runFork: (
 		effect: Effect.Effect<never, never, PluginCatalogEventsService>,
 		options?: Effect.RunOptions,
@@ -37,11 +37,10 @@ export function PluginCatalogProvider(props: {
 	readonly runtime: PluginCatalogProviderRuntime;
 }) {
 	const { serverUrl, userId } = props.scope;
-	const input = useMemo(
-		() => ({ runtime: props.runtime, initialData: props.initialCatalog }),
-		[props.initialCatalog, props.runtime],
+	const { data: catalog = props.initialCatalog, refetch } = useRyotQuery(
+		pluginCatalogQuery,
+		props.initialCatalog,
 	);
-	const { data: catalog = props.initialCatalog, refetch } = useRyotQuery(pluginCatalogQuery, input);
 	const [invalidationRevision, setInvalidationRevision] = useState(0);
 	const refreshCatalog = useEffectEvent(() => {
 		setInvalidationRevision((revision) => revision + 1);
