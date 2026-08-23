@@ -1,6 +1,6 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { Effect, Layer } from "effect";
+import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { makeAppConfigLayer, makeWorkflowEngine, databaseLayer } from "#lib/test-utils/effect";
@@ -43,185 +43,202 @@ const prepared = {
 	accessRevokedAt: new Date("2026-08-24T00:00:00.000Z"),
 };
 
-it.effect("returns one active operation without repeating completed access revocation", () => {
-	const calls: string[] = [];
-	const executionIds: string[] = [];
-	const auth = Layer.mock(AuthService)({
-		auth: Object.create(null),
-		deleteUserSessions: () => Effect.sync(() => void calls.push("sessions")),
-		revokeUserOAuthTokens: () => Effect.sync(() => void calls.push("oauth")),
-		updateAuthUserDisabled: () => Effect.sync(() => void calls.push("disable")),
-		purgeApiKeyCaches: (_userId, apiKeys) =>
-			Effect.sync(() => {
-				calls.push(`keys:${apiKeys.map(({ id }) => id).join(",")}`);
-				return undefined;
-			}),
-	});
-	const repository = Layer.mock(UserLifecycleRepository)({
-		markFailed: () => Effect.void,
-		getInternalById: () => Effect.succeed(prepared),
-		loadPreparationForUpdate: () =>
-			Effect.succeed({ retryable: null, active: prepared, metadata: prepared.metadata }),
-	});
-	const engine = makeWorkflowEngine({
-		execute: (_workflow, options) =>
-			Effect.sync(() => {
-				executionIds.push(options.executionId);
-			}),
-	});
-	const serviceLayer = UserLifecycleService.layer.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				auth,
-				repository,
-				databaseLayer,
-				makeAppConfigLayer(),
-				Layer.succeed(WorkflowEngine, engine),
-			),
-		),
-	);
-	const layer = Layer.merge(serviceLayer, databaseLayer);
+const mockRepository = Layer.mock(UserLifecycleRepository);
+type RepositoryMock = Parameters<typeof mockRepository>[0];
 
-	return Effect.gen(function* () {
-		const service = yield* UserLifecycleService;
-		const operations = yield* Effect.all([service.deleteUser(userId), service.deleteUser(userId)], {
-			concurrency: "unbounded",
-		});
-		expect(operations).toEqual([{ operationId: operation.id }, { operationId: operation.id }]);
-		expect(calls).toEqual([]);
-		expect(executionIds).toEqual(["user-lifecycle-operation-1-0", "user-lifecycle-operation-1-0"]);
-	}).pipe(Effect.provide(layer));
-});
+class FakeLifecycleDependencies extends Context.Service<
+	FakeLifecycleDependencies,
+	{
+		readonly calls: Effect.Effect<ReadonlyArray<string>>;
+		readonly executionIds: Effect.Effect<ReadonlyArray<string>>;
+	}
+>()("test/FakeLifecycleDependencies") {}
 
-it.effect("revokes access once and clears persisted API-key cache lookup metadata", () => {
-	const calls: string[] = [];
-	let revoked = false;
-	const unrevoked = { ...prepared, metadata, accessRevokedAt: null };
-	const revokedOperation = {
-		...prepared,
-		metadata: { ...metadata, apiKeys: [] },
-		accessRevokedAt: new Date("2026-08-24T00:00:01.000Z"),
-	};
-	const repository = Layer.mock(UserLifecycleRepository)({
-		userExists: () => Effect.succeed(true),
-		releaseAccessRevocation: () => Effect.void,
-		claimAccessRevocation: () => Effect.succeed(unrevoked),
-		getInternalById: () => Effect.succeed(revoked ? revokedOperation : unrevoked),
-		markAccessRevoked: () =>
-			Effect.sync(() => {
-				revoked = true;
-				calls.push("record");
-				return revokedOperation;
-			}),
-		loadPreparationForUpdate: () =>
-			Effect.succeed({
-				retryable: null,
-				active: revoked ? revokedOperation : unrevoked,
-				metadata: revoked ? revokedOperation.metadata : metadata,
-			}),
-	});
-	const serviceLayer = UserLifecycleService.layer.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				databaseLayer,
-				repository,
-				makeAppConfigLayer(),
-				Layer.mock(AuthService)({
-					auth: Object.create(null),
-					deleteUserSessions: () => Effect.sync(() => void calls.push("sessions")),
-					revokeUserOAuthTokens: () => Effect.sync(() => void calls.push("oauth")),
-					updateAuthUserDisabled: () => Effect.sync(() => void calls.push("disable")),
-					purgeApiKeyCaches: (_userId, apiKeys) =>
-						Effect.sync(() => void calls.push(`keys:${apiKeys.map(({ id }) => id).join(",")}`)),
-				}),
-				Layer.succeed(WorkflowEngine, makeWorkflowEngine({ execute: () => Effect.void })),
-			),
-		),
-	);
-	return Effect.gen(function* () {
-		const service = yield* UserLifecycleService;
-		yield* service.deleteUser(userId);
-		yield* service.deleteUser(userId);
-		expect(calls).toEqual(["disable", "sessions", "oauth", "keys:key-1", "record"]);
-		expect(revokedOperation.metadata.apiKeys).toEqual([]);
-	}).pipe(Effect.provide(Layer.merge(serviceLayer, databaseLayer)));
-});
-
-it.effect(
-	"returns an internal failure and leaves a pending operation retryable when dispatch fails",
-	() => {
-		const serviceLayer = UserLifecycleService.layer.pipe(
-			Layer.provide(
-				Layer.mergeAll(
-					databaseLayer,
-					makeAppConfigLayer(),
-					Layer.mock(AuthService)({ auth: Object.create(null) }),
-					Layer.mock(UserLifecycleRepository)({
-						getInternalById: () => Effect.succeed(prepared),
-						loadPreparationForUpdate: () =>
-							Effect.succeed({ retryable: null, active: prepared, metadata: prepared.metadata }),
-					}),
-					Layer.succeed(
-						WorkflowEngine,
-						makeWorkflowEngine({ execute: () => Effect.fail("redis unavailable") }),
-					),
-				),
-			),
-		);
-		return Effect.gen(function* () {
-			const service = yield* UserLifecycleService;
-			expect(yield* service.deleteUser(userId).pipe(Effect.flip)).toMatchObject({
-				_tag: "GodModeInternalFailure",
-				reason: { code: "lifecycle-dispatch-failed" },
-			});
-			expect(prepared.operation.status).toBe("pending");
-		}).pipe(Effect.provide(Layer.merge(serviceLayer, databaseLayer)));
-	},
-);
-
-it.effect(
-	"reactivates and redispatches the same failed operation with a new deterministic attempt",
-	() => {
-		const executionIds: string[] = [];
-		const failed = {
-			...prepared,
-			operation: {
-				...operation,
-				status: "failed" as const,
-				failure: { code: "object-cleanup-failed" as const },
-			},
-		};
-		const retried = {
-			...failed,
-			workflowAttempt: 1,
-			operation: { ...failed.operation, finishedAt: null, status: "pending" as const },
-		};
-		const serviceLayer = UserLifecycleService.layer.pipe(
-			Layer.provide(
-				Layer.mergeAll(
-					databaseLayer,
-					makeAppConfigLayer(),
-					Layer.mock(AuthService)({ auth: Object.create(null) }),
-					Layer.mock(UserLifecycleRepository)({
-						getInternalById: () => Effect.succeed(retried),
-						reactivateFailed: () => Effect.succeed(retried),
-						loadPreparationForUpdate: () =>
-							Effect.succeed({ active: null, retryable: failed, metadata: failed.metadata }),
-					}),
-					Layer.succeed(
-						WorkflowEngine,
-						makeWorkflowEngine({
-							execute: (_workflow, options) =>
-								Effect.sync(() => void executionIds.push(options.executionId)),
+const lifecycleServiceLayer = (options: {
+	readonly execute?: Effect.Effect<void, string>;
+	readonly repository: (
+		record: (call: string) => Effect.Effect<void>,
+	) => Effect.Effect<RepositoryMock>;
+}) =>
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const calls = yield* Ref.make<ReadonlyArray<string>>([]);
+			const executionIds = yield* Ref.make<ReadonlyArray<string>>([]);
+			const record = (call: string) => Ref.update(calls, (all) => [...all, call]);
+			const repository = yield* options.repository(record);
+			return UserLifecycleService.layer.pipe(
+				Layer.provideMerge(
+					Layer.mergeAll(
+						databaseLayer,
+						makeAppConfigLayer(),
+						mockRepository(repository),
+						Layer.mock(AuthService)({
+							auth: Object.create(null),
+							deleteUserSessions: () => record("sessions"),
+							revokeUserOAuthTokens: () => record("oauth"),
+							updateAuthUserDisabled: () => record("disable"),
+							purgeApiKeyCaches: (_userId, apiKeys) =>
+								record(`keys:${apiKeys.map(({ id }) => id).join(",")}`).pipe(Effect.as(undefined)),
+						}),
+						Layer.succeed(
+							WorkflowEngine,
+							makeWorkflowEngine({
+								execute: (_workflow, executeOptions) =>
+									Ref.update(executionIds, (all) => [...all, executeOptions.executionId]).pipe(
+										Effect.andThen(options.execute ?? Effect.void),
+									),
+							}),
+						),
+						Layer.succeed(FakeLifecycleDependencies, {
+							calls: Ref.get(calls),
+							executionIds: Ref.get(executionIds),
 						}),
 					),
 				),
-			),
-		);
-		return Effect.gen(function* () {
+			);
+		}),
+	);
+
+layer(
+	lifecycleServiceLayer({
+		repository: () =>
+			Effect.succeed({
+				markFailed: () => Effect.void,
+				getInternalById: () => Effect.succeed(prepared),
+				loadPreparationForUpdate: () =>
+					Effect.succeed({ retryable: null, active: prepared, metadata: prepared.metadata }),
+			}),
+	}),
+)((test) => {
+	test.effect("returns one active operation without repeating completed access revocation", () =>
+		Effect.gen(function* () {
 			const service = yield* UserLifecycleService;
-			expect(yield* service.deleteUser(userId)).toEqual({ operationId: retried.operation.id });
-			expect(executionIds).toEqual(["user-lifecycle-operation-1-1"]);
-		}).pipe(Effect.provide(Layer.merge(serviceLayer, databaseLayer)));
+			const operations = yield* Effect.all(
+				[service.deleteUser(userId), service.deleteUser(userId)],
+				{ concurrency: "unbounded" },
+			);
+			const fake = yield* FakeLifecycleDependencies;
+			expect(operations).toEqual([{ operationId: operation.id }, { operationId: operation.id }]);
+			expect(yield* fake.calls).toEqual([]);
+			expect(yield* fake.executionIds).toEqual([
+				"user-lifecycle-operation-1-0",
+				"user-lifecycle-operation-1-0",
+			]);
+		}),
+	);
+});
+
+const unrevoked = { ...prepared, metadata, accessRevokedAt: null };
+const revokedOperation = {
+	...prepared,
+	metadata: { ...metadata, apiKeys: [] },
+	accessRevokedAt: new Date("2026-08-24T00:00:01.000Z"),
+};
+
+layer(
+	lifecycleServiceLayer({
+		repository: (record) =>
+			Effect.gen(function* () {
+				const revoked = yield* Ref.make(false);
+				const current = Effect.map(Ref.get(revoked), (isRevoked) =>
+					isRevoked ? revokedOperation : unrevoked,
+				);
+				return {
+					getInternalById: () => current,
+					userExists: () => Effect.succeed(true),
+					releaseAccessRevocation: () => Effect.void,
+					claimAccessRevocation: () => Effect.succeed(unrevoked),
+					markAccessRevoked: () =>
+						Ref.set(revoked, true).pipe(
+							Effect.andThen(record("record")),
+							Effect.as(revokedOperation),
+						),
+					loadPreparationForUpdate: () =>
+						Effect.map(current, (active) => ({
+							active,
+							retryable: null,
+							metadata: active.metadata,
+						})),
+				};
+			}),
+	}),
+)((test) => {
+	test.effect("revokes access once and clears persisted API-key cache lookup metadata", () =>
+		Effect.gen(function* () {
+			const service = yield* UserLifecycleService;
+			yield* service.deleteUser(userId);
+			yield* service.deleteUser(userId);
+			expect(yield* (yield* FakeLifecycleDependencies).calls).toEqual([
+				"disable",
+				"sessions",
+				"oauth",
+				"keys:key-1",
+				"record",
+			]);
+			expect(revokedOperation.metadata.apiKeys).toEqual([]);
+		}),
+	);
+});
+
+layer(
+	lifecycleServiceLayer({
+		execute: Effect.fail("redis unavailable"),
+		repository: () =>
+			Effect.succeed({
+				getInternalById: () => Effect.succeed(prepared),
+				loadPreparationForUpdate: () =>
+					Effect.succeed({ retryable: null, active: prepared, metadata: prepared.metadata }),
+			}),
+	}),
+)((test) => {
+	test.effect(
+		"returns an internal failure and leaves a pending operation retryable when dispatch fails",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* UserLifecycleService;
+				expect(yield* service.deleteUser(userId).pipe(Effect.flip)).toMatchObject({
+					_tag: "GodModeInternalFailure",
+					reason: { code: "lifecycle-dispatch-failed" },
+				});
+				expect(prepared.operation.status).toBe("pending");
+			}),
+	);
+});
+
+const failed = {
+	...prepared,
+	operation: {
+		...operation,
+		status: "failed" as const,
+		failure: { code: "object-cleanup-failed" as const },
 	},
-);
+};
+const retried = {
+	...failed,
+	workflowAttempt: 1,
+	operation: { ...failed.operation, finishedAt: null, status: "pending" as const },
+};
+
+layer(
+	lifecycleServiceLayer({
+		repository: () =>
+			Effect.succeed({
+				getInternalById: () => Effect.succeed(retried),
+				reactivateFailed: () => Effect.succeed(retried),
+				loadPreparationForUpdate: () =>
+					Effect.succeed({ active: null, retryable: failed, metadata: failed.metadata }),
+			}),
+	}),
+)((test) => {
+	test.effect(
+		"reactivates and redispatches the same failed operation with a new deterministic attempt",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* UserLifecycleService;
+				expect(yield* service.deleteUser(userId)).toEqual({ operationId: retried.operation.id });
+				expect(yield* (yield* FakeLifecycleDependencies).executionIds).toEqual([
+					"user-lifecycle-operation-1-1",
+				]);
+			}),
+	);
+});

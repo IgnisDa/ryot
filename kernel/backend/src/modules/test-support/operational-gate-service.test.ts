@@ -1,4 +1,4 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { NotFound } from "@ryot-app/contract/errors";
 import {
 	EntitySchemaSlug,
@@ -7,12 +7,12 @@ import {
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { Effect, Layer } from "effect";
+import { Context, Effect, Layer, Ref } from "effect";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { RedisService } from "#lib/infrastructure/redis";
 import { assertExitFails } from "#lib/test-utils/assertions";
-import { makeRedisService, type MockOverrides } from "#lib/test-utils/effect";
+import { makeRedisService } from "#lib/test-utils/effect";
 import { ImportsService } from "#modules/imports/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
@@ -69,128 +69,143 @@ const availablePlugin = {
 	pluginConfigRevisionId: "fixture-plugin-config-revision",
 };
 
-const makeServiceLayer = (
-	imports: MockOverrides<typeof mockImports>,
-	sandbox: MockOverrides<typeof mockSandbox>,
-) =>
-	OperationalGateService.layer.pipe(
-		Layer.provideMerge(
-			Layer.mergeAll(
-				Layer.mock(DatabaseSession)({}),
-				mockImports({ ...imports }),
-				mockSandbox({ ...sandbox }),
-				Layer.mock(PluginRuntimeResolver)({
-					listPluginsAvailableToUser: () => Effect.succeed([availablePlugin]),
-				}),
-				Layer.succeed(RedisService, makeRedisService()),
-			),
-		),
+class FakeWorkflowLoad extends Context.Service<
+	FakeWorkflowLoad,
+	{
+		readonly enqueued: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly updates: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly polledExecutionIds: Effect.Effect<ReadonlyArray<string>>;
+		readonly completeExecutions: Effect.Effect<void>;
+	}
+>()("test/FakeWorkflowLoad") {}
+
+const workflowLoadLayer = () =>
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const enqueued = yield* Ref.make<ReadonlyArray<unknown>>([]);
+			const updates = yield* Ref.make<ReadonlyArray<unknown>>([]);
+			const polledExecutionIds = yield* Ref.make<ReadonlyArray<string>>([]);
+			const terminal = yield* Ref.make(false);
+			return OperationalGateService.layer.pipe(
+				Layer.provideMerge(
+					Layer.mergeAll(
+						Layer.mock(DatabaseSession)({}),
+						mockImports({
+							create: () => Effect.succeed(importRun),
+							update: (input) => Ref.update(updates, (all) => [...all, input]),
+						}),
+						mockSandbox({
+							enqueuePluginWorkflow: (input) =>
+								Ref.update(enqueued, (all) => [...all, input]).pipe(
+									Effect.andThen(
+										Effect.fail(new NotFound({ message: "Sandbox script not found" })),
+									),
+								),
+							getPluginWorkflowResult: (executionId) =>
+								Ref.update(polledExecutionIds, (all) => [...all, executionId]).pipe(
+									Effect.andThen(Ref.get(terminal)),
+									Effect.map((isTerminal) =>
+										isTerminal
+											? { output: { executionId }, status: "completed" as const }
+											: { status: "pending" as const },
+									),
+								),
+						}),
+						Layer.mock(PluginRuntimeResolver)({
+							listPluginsAvailableToUser: () => Effect.succeed([availablePlugin]),
+						}),
+						Layer.succeed(RedisService, makeRedisService()),
+						Layer.succeed(FakeWorkflowLoad, {
+							updates: Ref.get(updates),
+							enqueued: Ref.get(enqueued),
+							completeExecutions: Ref.set(terminal, true),
+							polledExecutionIds: Ref.get(polledExecutionIds),
+						}),
+					),
+				),
+			);
+		}),
 	);
 
-it.effect("returns a typed error for an invalid plugin workflow target", () => {
-	let enqueueInput: unknown;
-	const layer = makeServiceLayer(
-		{ update: () => Effect.void, create: () => Effect.succeed(importRun) },
-		{
-			enqueuePluginWorkflow: (input) => {
-				enqueueInput = input;
-				return Effect.fail(new NotFound({ message: "Sandbox script not found" }));
-			},
-		},
-	);
+layer(workflowLoadLayer())((test) => {
+	test.effect("returns a typed error for an invalid plugin workflow target", () =>
+		Effect.gen(function* () {
+			const service = yield* OperationalGateService;
+			const exit = yield* Effect.exit(service.startWorkflowLoad(gateInput));
 
-	return Effect.gen(function* () {
-		const service = yield* OperationalGateService;
-		const exit = yield* Effect.exit(service.startWorkflowLoad(gateInput));
-
-		assertExitFails(exit, new NotFound({ message: "Sandbox script not found" }));
-		expect(enqueueInput).toEqual({
-			executingUserId,
-			pluginId: availablePlugin.id,
-			workflowSlug: gateInput.workflowSlug,
-			executionId: `${runId}-workflow-load-0`,
-			pluginInstallationId: availablePlugin.installationId,
-			input: {
-				items: [
-					{
-						index: 0,
-						providerId: gateInput.providerId,
-						entitySchemaSlug: gateInput.entitySchemaSlug,
-						externalId: `${gateInput.identifierPrefix}-0`,
-						command: {
-							occurredAt: expect.any(String),
-							itemIdentity: '["workflow-load",0]',
-							causation: {
-								depth: 0,
-								source: "import",
-								parentRunId: null,
-								importRunId: runId,
-								parentTriggerId: null,
-								executionId: `${runId}-workflow-load`,
-								rootExecutionId: `${runId}-workflow-load`,
-								initiator: { kind: "user", id: executingUserId },
+			assertExitFails(exit, new NotFound({ message: "Sandbox script not found" }));
+			expect(yield* (yield* FakeWorkflowLoad).enqueued).toEqual([
+				{
+					executingUserId,
+					pluginId: availablePlugin.id,
+					workflowSlug: gateInput.workflowSlug,
+					executionId: `${runId}-workflow-load-0`,
+					pluginInstallationId: availablePlugin.installationId,
+					input: {
+						items: [
+							{
+								index: 0,
+								providerId: gateInput.providerId,
+								entitySchemaSlug: gateInput.entitySchemaSlug,
+								externalId: `${gateInput.identifierPrefix}-0`,
+								command: {
+									occurredAt: expect.any(String),
+									itemIdentity: '["workflow-load",0]',
+									causation: {
+										depth: 0,
+										source: "import",
+										parentRunId: null,
+										importRunId: runId,
+										parentTriggerId: null,
+										executionId: `${runId}-workflow-load`,
+										rootExecutionId: `${runId}-workflow-load`,
+										initiator: { kind: "user", id: executingUserId },
+									},
+								},
 							},
-						},
+						],
 					},
-				],
-			},
-		});
-	}).pipe(Effect.provide(layer));
+				},
+			]);
+		}),
+	);
 });
 
-it.effect("polls every execution and updates bookkeeping only after all finish", () => {
-	let terminal = false;
-	const updates: Array<unknown> = [];
-	const polledExecutionIds: string[] = [];
-	const layer = makeServiceLayer(
-		{
-			update: (input) =>
-				Effect.sync(() => {
-					updates.push(input);
-				}),
-		},
-		{
-			getPluginWorkflowResult: (executionId) =>
-				Effect.sync(() => {
-					polledExecutionIds.push(executionId);
-					return terminal
-						? { output: { executionId }, status: "completed" as const }
-						: { status: "pending" as const };
-				}),
-		},
-	);
+layer(workflowLoadLayer())((test) => {
+	test.effect("polls every execution and updates bookkeeping only after all finish", () =>
+		Effect.gen(function* () {
+			const service = yield* OperationalGateService;
+			const fake = yield* FakeWorkflowLoad;
+			const input = { runId, itemCount: 2, executionIds: ["execution-0", "execution-1"] };
 
-	return Effect.gen(function* () {
-		const service = yield* OperationalGateService;
-		const input = { runId, itemCount: 2, executionIds: ["execution-0", "execution-1"] };
-
-		expect(yield* service.getWorkflowLoadResult(input)).toEqual({
-			runId,
-			executions: [
-				{ status: "pending", executionId: "execution-0" },
-				{ status: "pending", executionId: "execution-1" },
-			],
-		});
-		expect(polledExecutionIds).toEqual(["execution-0", "execution-1"]);
-		expect(updates).toEqual([]);
-
-		terminal = true;
-		yield* service.getWorkflowLoadResult(input);
-		expect(polledExecutionIds).toEqual([
-			"execution-0",
-			"execution-1",
-			"execution-0",
-			"execution-1",
-		]);
-		expect(updates).toEqual([
-			expect.objectContaining({
+			expect(yield* service.getWorkflowLoadResult(input)).toEqual({
 				runId,
-				progress: 100,
-				failedItems: 0,
-				importedItems: 2,
-				processedItems: 2,
-				status: "completed",
-			}),
-		]);
-	}).pipe(Effect.provide(layer));
+				executions: [
+					{ status: "pending", executionId: "execution-0" },
+					{ status: "pending", executionId: "execution-1" },
+				],
+			});
+			expect(yield* fake.polledExecutionIds).toEqual(["execution-0", "execution-1"]);
+			expect(yield* fake.updates).toEqual([]);
+
+			yield* fake.completeExecutions;
+			yield* service.getWorkflowLoadResult(input);
+			expect(yield* fake.polledExecutionIds).toEqual([
+				"execution-0",
+				"execution-1",
+				"execution-0",
+				"execution-1",
+			]);
+			expect(yield* fake.updates).toEqual([
+				expect.objectContaining({
+					runId,
+					progress: 100,
+					failedItems: 0,
+					importedItems: 2,
+					processedItems: 2,
+					status: "completed",
+				}),
+			]);
+		}),
+	);
 });
