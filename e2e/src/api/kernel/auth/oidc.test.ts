@@ -1,7 +1,10 @@
 import type { ChildProcess } from "node:child_process";
+import { fileURLToPath } from "node:url";
 
+import { OAUTH_WEB_CLIENT_ID } from "@ryot/contract/oauth";
 import { Effect } from "effect";
 import getPort from "get-port";
+import { chromium } from "playwright";
 
 import {
 	type MockOidcServer,
@@ -29,6 +32,7 @@ const OIDC_CLIENT_ID = "test-client";
 const S3_BUCKET_NAME = "ryot-oidc-test";
 const OIDC_CLIENT_SECRET = "test-secret";
 const OIDC_BUTTON_LABEL = "Sign in with TestOIDC";
+const clientDist = fileURLToPath(new URL("../../../../../kernel/client/dist", import.meta.url));
 const existingOidcUsername = `user-${crypto.randomUUID()}`;
 const pluginListQuery = { includeDisabled: false };
 const godModeListQuery = (search: string) => ({ limit: 50, offset: 0, search });
@@ -101,6 +105,7 @@ const startApi = (label: string, port: number, extraEnv: Record<string, string> 
 			s3Endpoint: infrastructure.s3Endpoint,
 			frontendUrl: `http://127.0.0.1:${port}`,
 			extraEnv: {
+				SERVER_CLIENT_DIR: clientDist,
 				SERVER_OIDC_CLIENT_ID: OIDC_CLIENT_ID,
 				SERVER_OIDC_CLIENT_SECRET: OIDC_CLIENT_SECRET,
 				SERVER_OIDC_ISSUER_URL: requireMockOidcServer().issuerUrl,
@@ -183,6 +188,73 @@ describe("Local auth disabled (API B)", () => {
 			);
 			expect(error).toBeDefined();
 			expect(yield* countUsersByEmail(getApiUrlB(), email)).toBe(0);
+		}),
+	);
+
+	it.live("auto-launches OIDC through the hosted browser flow", () =>
+		Effect.promise(async () => {
+			const mockServer = requireMockOidcServer();
+			const frontendUrl = new URL(getApiUrlB()).origin;
+			const issuer = new URL(mockServer.issuerUrl);
+			const browser = await chromium.launch();
+			const context = await browser.newContext();
+			try {
+				const { promise: stateCookieObserved, resolve: resolveStateCookie } =
+					Promise.withResolvers<boolean>();
+				await context.route(
+					(url) => url.origin === issuer.origin && url.pathname === "/authorize",
+					async (route) => {
+						const cookies = await context.cookies(frontendUrl);
+						resolveStateCookie(cookies.some((cookie) => cookie.name.endsWith(".state")));
+						await route.continue();
+					},
+				);
+
+				const page = await context.newPage();
+				const hostedLoginRequest = page.waitForRequest(
+					(request) => new URL(request.url()).pathname === "/oauth/login",
+				);
+				const hostedSignInRequest = page.waitForRequest(
+					(request) => new URL(request.url()).pathname === "/api/auth/sign-in/social",
+				);
+				const providerRequest = page.waitForRequest((request) => {
+					const url = new URL(request.url());
+					return url.origin === issuer.origin && url.pathname === "/authorize";
+				});
+				const tokenResponse = page.waitForResponse(
+					(response) => new URL(response.url()).pathname === "/api/auth/oauth2/token",
+				);
+
+				const username = `browser-${crypto.randomUUID()}`;
+				mockServer.setNextClaims({
+					sub: username,
+					name: username,
+					email: `${username}@example.com`,
+				});
+				await page.goto(`${frontendUrl}/auth`);
+
+				const [loginRequest, signInRequest, oidcRequest, observedStateCookie, oauthResponse] =
+					await Promise.all([
+						hostedLoginRequest,
+						hostedSignInRequest,
+						providerRequest,
+						stateCookieObserved,
+						tokenResponse,
+					]);
+				expect(new URL(loginRequest.url()).searchParams.get("client_id")).toBe(OAUTH_WEB_CLIENT_ID);
+				const body: unknown = signInRequest.postDataJSON();
+				const oauthQuery =
+					body && typeof body === "object" ? Reflect.get(body, "oauth_query") : null;
+				expect(typeof oauthQuery).toBe("string");
+				expect(new URL(oidcRequest.url()).searchParams.get("client_id")).toBe(OIDC_CLIENT_ID);
+				expect(observedStateCookie).toBe(true);
+				expect(oauthResponse.ok()).toBe(true);
+				await page.getByTestId("authenticated-shell").waitFor({ state: "visible" });
+				expect(new URL(page.url()).pathname).not.toMatch(/^\/auth(?:\/|$)/);
+			} finally {
+				await context.close();
+				await browser.close();
+			}
 		}),
 	);
 
