@@ -102,7 +102,7 @@ HTTP logs contain only workflow execution ID, policy key, normalized origin, sta
 
 ## Failures
 
-- Completed script failures identify `load`, `input`, `execute`, or `output` phase and may include allowlisted source-mapped `script.ts` frames.
+- Completed script failures identify `load`, `input`, `execute`, or `output` phase and may include source-mapped frames, each named by its authored path relative to the compiled module.
 - Returned stacks remove data URLs, runner/dependency paths, bridge URLs, execution IDs, and tokens.
 - Bridge validation uses 400 for invalid body, 401 for token failure, 404 for unknown function, and 410 for expired session.
 - Timeout and unexpected process death are workflow job failures. Raw compiler/runtime diagnostics stay on explicit plugin-author, admin, and test surfaces; unexpected causes stay in logs.

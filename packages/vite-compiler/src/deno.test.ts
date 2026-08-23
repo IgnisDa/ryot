@@ -5,7 +5,7 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect, Layer, Result } from "effect";
 import type { InlineConfig } from "vite";
 
-import { auditDenoEsmOutput, buildDenoEsm, ViteBuildService } from "./index";
+import { auditDenoEsmOutput, buildDenoEsm, buildDenoEsmPackage, ViteBuildService } from "./index";
 
 const emitted = (fileName: string, code = "export const value = 1;") => ({
 	output: [{ code, fileName, type: "chunk" }],
@@ -218,6 +218,73 @@ describe("Deno ESM build", () => {
 			expect(result.diagnostics).toEqual([]);
 			expect(result.javascript).toContain("export { value }");
 			expect(result.javascript).toContain("//# sourceMappingURL=data:application/json;base64,");
+		}).pipe(Effect.provide(Layer.merge(BunFileSystem.layer, ViteBuildService.layer))),
+	);
+});
+
+describe("Deno ESM package build", () => {
+	const packageSources = [
+		{ path: "shared/value.ts", contents: "export const value: number = 1;" },
+		{ path: "first/entry.ts", contents: 'export { value as first } from "../shared/value";' },
+		{ path: "second/entry.ts", contents: 'export { value as second } from "../shared/value";' },
+	];
+
+	it.effect("stages the package once and builds every entry against it", () => {
+		let stagedRoots = 0;
+		const roots = new Set<string>();
+		const layer = Layer.merge(
+			BunFileSystem.layer,
+			Layer.succeed(
+				ViteBuildService,
+				ViteBuildService.of({
+					build: (config) =>
+						Effect.sync(() => {
+							const root = config.root ?? "";
+							if (!roots.has(root)) {
+								roots.add(root);
+								stagedRoots += 1;
+							}
+							return emitted("module.mjs");
+						}),
+				}),
+			),
+		);
+		return Effect.gen(function* () {
+			const modules = yield* buildDenoEsmPackage({
+				concurrency: 2,
+				sources: packageSources,
+				outputFile: "module.mjs",
+				approvedExternalSpecifiers: new Set(),
+				entries: ["first/entry.ts", "second/entry.ts"],
+			});
+			expect(modules.map(({ entry }) => entry)).toEqual(["first/entry.ts", "second/entry.ts"]);
+			expect(stagedRoots).toBe(1);
+		}).pipe(Effect.provide(layer));
+	});
+
+	it.effect("emits one audited module per entry and rejects unsafe entries", () =>
+		Effect.gen(function* () {
+			const modules = yield* buildDenoEsmPackage({
+				sources: packageSources,
+				outputFile: "module.mjs",
+				approvedExternalSpecifiers: new Set(),
+				entries: ["first/entry.ts", "second/entry.ts"],
+			});
+			expect(modules[0]?.javascript).toContain("export { value as first }");
+			expect(modules[1]?.javascript).toContain("export { value as second }");
+			for (const module of modules) {
+				expect(module.diagnostics).toEqual([]);
+				expect(module.javascript).toContain("//# sourceMappingURL=data:application/json;base64,");
+			}
+			const unsafe = yield* Effect.flip(
+				buildDenoEsmPackage({
+					sources: packageSources,
+					outputFile: "module.mjs",
+					entries: ["../first/entry.ts"],
+					approvedExternalSpecifiers: new Set(),
+				}),
+			);
+			expect(unsafe.reason).toBe("invalid-input");
 		}).pipe(Effect.provide(Layer.merge(BunFileSystem.layer, ViteBuildService.layer))),
 	);
 });

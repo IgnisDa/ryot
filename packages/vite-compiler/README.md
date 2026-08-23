@@ -26,6 +26,11 @@ normalizes source-map paths, and rejects Node, Bun, URL, npm, and jsr imports, u
 CommonJS output, and browser-only Vite helpers. It infers its TypeScript transform configuration and
 does not discover tsconfig files.
 
+`buildDenoEsmPackage` applies that same profile to many entries of one source tree. It stages the
+tree once and builds each entry against the shared workspace at the caller's concurrency, so a
+package with many entries pays for staging once instead of once per entry. It returns one module per
+requested entry, in request order.
+
 The package does not own plugin source, TypeScript analysis,
 artifact limits, hashing, publication, worker supervision, or client and Deno artifact contracts.
 Those decisions remain with the target compiler and its parent supervisor. The package does not

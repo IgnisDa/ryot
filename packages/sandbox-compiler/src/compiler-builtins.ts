@@ -4,7 +4,7 @@ import { Effect } from "effect";
 import * as ts from "typescript/unstable/ast";
 import { DiagnosticCategory } from "typescript/unstable/async";
 
-import { bundleBuiltInScript } from "./compiler-bundle";
+import { bundleSandboxPackage } from "./compiler-bundle";
 import { resolveSandboxCompilerDependencies } from "./compiler-dependencies";
 import {
 	sandboxCompilationFailure,
@@ -309,32 +309,37 @@ const compileValidatedSandboxEntries = (
 	entries: ReadonlyArray<ValidatedSandboxEntry>,
 	dependencies: SandboxCompilerDependencies,
 ) =>
-	Effect.forEach(
-		entries,
-		({ entry, source, manifest, inspection }) =>
-			bundleBuiltInScript({ ...sources, entry }, dependencies.sdkEntries).pipe(
-				Effect.flatMap((bundled) => {
-					if (!bundled.success) {
-						return sandboxCompilationFailure(bundled.diagnostics);
-					}
-					if (utf8ByteLength(bundled.javascript) > SANDBOX_COMPILER_LIMITS.javascriptBytes) {
-						return sandboxCompilationFailure([
-							sandboxCompilerDiagnostic(
-								"RYOT_COMPILED_SIZE",
-								`Compiled sandbox module exceeds ${SANDBOX_COMPILER_LIMITS.javascriptBytes} UTF-8 bytes`,
-							),
-						]);
-					}
-					return Effect.succeed({
-						entry,
-						source,
-						providerOperation: inspection.providerOperation,
-						compiled: { manifest, javascript: bundled.javascript, format: SANDBOX_COMPILED_FORMAT },
-					} satisfies CompiledBuiltInSandboxEntry);
-				}),
-			),
-		{ concurrency: SANDBOX_COMPILER_LIMITS.concurrency },
-	);
+	Effect.gen(function* () {
+		const bundled = yield* bundleSandboxPackage(
+			sources.files,
+			entries.map(({ entry }) => entry),
+			dependencies.sdkEntries,
+			SANDBOX_COMPILER_LIMITS.concurrency,
+		);
+		const javascriptByEntry = new Map(bundled.map(({ entry, javascript }) => [entry, javascript]));
+		return yield* Effect.forEach(entries, ({ entry, source, manifest, inspection }) => {
+			const javascript = javascriptByEntry.get(entry);
+			if (javascript === undefined) {
+				return sandboxCompilationFailure([
+					sandboxCompilerDiagnostic("RYOT_BUNDLE", `Compiler returned no output for ${entry}`),
+				]);
+			}
+			if (utf8ByteLength(javascript) > SANDBOX_COMPILER_LIMITS.javascriptBytes) {
+				return sandboxCompilationFailure([
+					sandboxCompilerDiagnostic(
+						"RYOT_COMPILED_SIZE",
+						`Compiled sandbox module exceeds ${SANDBOX_COMPILER_LIMITS.javascriptBytes} UTF-8 bytes`,
+					),
+				]);
+			}
+			return Effect.succeed({
+				entry,
+				source,
+				providerOperation: inspection.providerOperation,
+				compiled: { manifest, javascript, format: SANDBOX_COMPILED_FORMAT },
+			} satisfies CompiledBuiltInSandboxEntry);
+		});
+	});
 
 const compileSandboxPackageEntriesInternal = (
 	sources: SandboxTypeScriptSources,
