@@ -51,9 +51,35 @@ export type AggregationSpec =
 
 export type ExistsExpression = { readonly type: "exists"; readonly query: CorrelatedQuerySet };
 
+export type JsonElementExpression = { readonly type: "jsonElement" };
+
+export type JsonArrayExistsExpression = {
+	readonly type: "jsonExists";
+	readonly array: ScalarExpression;
+	readonly where?: Predicate | undefined;
+};
+
+export type JsonArrayFirstExpression = {
+	readonly type: "jsonFirst";
+	readonly array: ScalarExpression;
+	readonly select: ScalarExpression;
+	readonly orderBy: readonly [OrderBy, ...OrderBy[]];
+	readonly where?: Predicate | undefined;
+};
+
+export type JsonArrayCountExpression = {
+	readonly type: "jsonCount";
+	readonly array: ScalarExpression;
+	readonly where?: Predicate | undefined;
+};
+
 export type ScalarExpression =
 	| ColumnExpression
 	| ExistsExpression
+	| JsonArrayCountExpression
+	| JsonArrayExistsExpression
+	| JsonArrayFirstExpression
+	| JsonElementExpression
 	| LiteralExpression
 	| { readonly type: "floor"; readonly expr: ScalarExpression }
 	| { readonly type: "round"; readonly expr: ScalarExpression }
@@ -132,11 +158,19 @@ export const ExistsExpression: Schema.Codec<ExistsExpression, unknown> = Schema.
 	strictStruct({ query: CorrelatedQuerySet, type: Schema.Literal("exists") }),
 ).annotate({ identifier: "RyotQLExistsExpression" });
 
+export const JsonElementExpression: Schema.Codec<JsonElementExpression, unknown> = strictStruct({
+	type: Schema.Literal("jsonElement"),
+}).annotate({ identifier: "RyotQLJsonElementExpression" });
+
 export const ScalarExpression: Schema.Codec<ScalarExpression, unknown> = Schema.suspend(() =>
 	Schema.Union([
 		ColumnExpression,
 		LiteralExpression,
 		ExistsExpression,
+		JsonElementExpression,
+		JsonArrayExistsExpression,
+		JsonArrayFirstExpression,
+		JsonArrayCountExpression,
 		strictStruct({
 			type: Schema.Literal("coalesce"),
 			values: Schema.NonEmptyArray(ScalarExpression),
@@ -218,6 +252,7 @@ const ComparisonPredicate = strictStruct({
 
 export type Predicate =
 	| ExistsExpression
+	| JsonArrayExistsExpression
 	| typeof InPredicate.Type
 	| typeof IsNullPredicate.Type
 	| typeof ContainsPredicate.Type
@@ -232,6 +267,7 @@ export const Predicate: Schema.Codec<Predicate, unknown> = Schema.suspend(() =>
 		InPredicate,
 		IsNullPredicate,
 		ExistsExpression,
+		JsonArrayExistsExpression,
 		ContainsPredicate,
 		IsNotNullPredicate,
 		ComparisonPredicate,
@@ -275,6 +311,35 @@ export const OrderBy = strictStruct({
 	direction: Schema.Literals(["asc", "desc"]),
 }).annotate({ identifier: "RyotQLOrderBy" });
 export type OrderBy = typeof OrderBy.Type;
+
+export const JsonArrayExistsExpression: Schema.Codec<JsonArrayExistsExpression, unknown> =
+	Schema.suspend(() =>
+		strictStruct({
+			array: ScalarExpression,
+			where: Schema.optional(Predicate),
+			type: Schema.Literal("jsonExists"),
+		}),
+	).annotate({ identifier: "RyotQLJsonArrayExistsExpression" });
+
+export const JsonArrayFirstExpression: Schema.Codec<JsonArrayFirstExpression, unknown> =
+	Schema.suspend(() =>
+		strictStruct({
+			array: ScalarExpression,
+			select: ScalarExpression,
+			where: Schema.optional(Predicate),
+			type: Schema.Literal("jsonFirst"),
+			orderBy: Schema.NonEmptyArray(OrderBy),
+		}),
+	).annotate({ identifier: "RyotQLJsonArrayFirstExpression" });
+
+export const JsonArrayCountExpression: Schema.Codec<JsonArrayCountExpression, unknown> =
+	Schema.suspend(() =>
+		strictStruct({
+			array: ScalarExpression,
+			where: Schema.optional(Predicate),
+			type: Schema.Literal("jsonCount"),
+		}),
+	).annotate({ identifier: "RyotQLJsonArrayCountExpression" });
 
 export const AggregateMeasure = strictStruct({
 	key: Schema.String,

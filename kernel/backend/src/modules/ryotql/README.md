@@ -61,6 +61,8 @@ Predicates include `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `contains`, `in`, `isN
 
 `jsonPath` traverses public JSON object keys or array indexes. Missing paths and JSON null produce null. It does not consult property definitions. Casts to text, number, boolean, date, or JSON return null for incompatible, malformed, or out-of-range values instead of failing SQL. Arithmetic uses safe numeric values; invalid operands and division by zero return null.
 
+JSON arrays use `jsonElement` plus the `jsonExists`, `jsonFirst`, and `jsonCount` operators. `jsonElement` denotes the current array item and is valid only inside one of those operators. `jsonExists` tests whether any item matches an optional predicate, `jsonFirst` projects the first matching item under an explicit ordering, and `jsonCount` counts matching items. Element expressions reuse the scalar language (`jsonPath`, casts, comparisons, outer table columns) and stay visible inside nested correlated queries. A missing, null, or non-array value behaves as an empty set: `jsonExists` is false, `jsonFirst` is null, and `jsonCount` is zero. `jsonFirst` results carry the selected kind, so a date projection such as the next anime `airingAt` is a first-class filter, order key, and cursor value. Element nesting must not exceed 3.
+
 `dateBucket` accepts hour, day, week, or month plus an IANA zone and returns the local boundary as an ISO UTC instant; weeks start Monday and daylight-saving offsets are respected. Invalid zones and non-date inputs fail validation.
 
 ## Joins, Includes, And Pagination
