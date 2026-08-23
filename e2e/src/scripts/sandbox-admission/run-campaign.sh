@@ -86,15 +86,18 @@ for arm in "$@"; do
 	set_env EXPERIMENT_SANDBOX_INTERACTIVE_LANE "$lane"
 	set_env EXPERIMENT_SANDBOX_WORKER_PRIORITY "$priority"
 	step="restart"
-	coolify POST /stop >/dev/null
-	# Stop and start are queued in Coolify; a start that overtakes a still-running stop leaves the
-	# service without its app container, so start only once the stop has removed it.
-	remote "for _ in \$(seq 1 60); do
-			docker ps -a --format '{{.Names}}' | grep -qx ryot-$SERVICE || exit 0
-			sleep 5
-		done
-		echo 'service did not stop' >&2
-		exit 1"
+	# Coolify rejects stopping a service that is already stopped.
+	if remote "docker ps --format '{{.Names}}'" | grep -qx "ryot-$SERVICE"; then
+		coolify POST /stop >/dev/null
+		# Stop and start are queued in Coolify; a start that overtakes a still-running stop leaves the
+		# service without its app container, so start only once the stop has removed it.
+		remote "for _ in \$(seq 1 60); do
+				docker ps -a --format '{{.Names}}' | grep -qx ryot-$SERVICE || exit 0
+				sleep 5
+			done
+			echo 'service did not stop' >&2
+			exit 1"
+	fi
 	coolify POST /start >/dev/null
 	wait_healthy
 	# A fresh database per arm: every arm starts from the same empty state.
