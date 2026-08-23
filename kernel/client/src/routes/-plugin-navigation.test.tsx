@@ -202,7 +202,7 @@ describe("plugin navigation", () => {
 		expect(shell.getAttribute("class")).toContain("min-h-0");
 		expect(screen.getByTestId("desktop-sidebar").getAttribute("class")).toContain("hidden");
 		expect(screen.getByTestId("desktop-sidebar").getAttribute("class")).toContain("md:block");
-		expect(screen.getByTestId("desktop-sidebar").getAttribute("class")).toContain("md:w-[264px]");
+		expect(screen.getByTestId("desktop-sidebar").getAttribute("class")).toContain("md:w-66");
 		expect(screen.getByTestId("mobile-header").getAttribute("class")).toContain("h-16");
 		expect(screen.getByTestId("mobile-header").getAttribute("class")).toContain("md:hidden");
 		expect(screen.getByTestId("mobile-drawer").getAttribute("class")).toContain("hidden");

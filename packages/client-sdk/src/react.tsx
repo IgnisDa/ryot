@@ -71,10 +71,16 @@ const asError = (cause: Cause.Cause<unknown>) => {
 };
 
 type RyotQueryOptions<Input, Data> = {
+	/** Cancels in-flight work when the final consumer for an input unmounts. */
+	readonly cancelOnUnmount?: boolean;
 	readonly initialData?: (input: Input) => Data;
 };
 
-const makeQueryAtom = <Data,>(run: (signal: AbortSignal) => Promise<Data>, initialData?: Data) => {
+const makeQueryAtom = <Data,>(
+	run: (signal: AbortSignal) => Promise<Data>,
+	initialData?: Data,
+	cancelOnUnmount = false,
+) => {
 	const request = Effect.tryPromise({
 		try: run,
 		catch: (error) => (error instanceof Error ? error : new Error(String(error))),
@@ -91,13 +97,14 @@ const makeQueryAtom = <Data,>(run: (signal: AbortSignal) => Promise<Data>, initi
 		initialData === undefined
 			? Atom.make(request)
 			: Atom.make(effect, { initialValue: initialData });
+	const requestSource = cancelOnUnmount ? source.pipe(Atom.setIdleTTL(0)) : source;
 	const atom =
 		initialData === undefined
-			? source.pipe(
+			? requestSource.pipe(
 					Atom.swr({ staleTime: 0, revalidateOnFocus: true, focusSignal: browserFocusSignal }),
-					Atom.setIdleTTL(idleTTL),
+					Atom.setIdleTTL(cancelOnUnmount ? 0 : idleTTL),
 				)
-			: source;
+			: requestSource;
 	return atom;
 };
 
@@ -138,6 +145,7 @@ export function createRyotQuery<Input, Data>(
 				makeQueryAtom<Data>(
 					(signal) => query({ client, input: familyInput, signal }),
 					options?.initialData?.(familyInput),
+					options?.cancelOnUnmount,
 				),
 			);
 			clients.set(client, inputs);
