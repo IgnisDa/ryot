@@ -14,7 +14,7 @@ import {
 	rowsFields,
 } from "~/fixtures/kernel";
 import { insertLibraryMembership, seedMediaEntity } from "~/fixtures/plugins/media";
-import { assertPresent, resultToEffect } from "~/support/assertions";
+import { assertPresent, requirePresent, resultToEffect } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("saved views execution", () => {
@@ -55,10 +55,14 @@ describe("saved views execution", () => {
 				name: `Saved View Count ${crypto.randomUUID()}`,
 			});
 			const persistedView = yield* getSavedView(client, createdView.slug);
+			const persistedViewLayouts = requirePresent(
+				persistedView.layouts,
+				"Created saved view has no layouts",
+			);
 			const countRecipe = yield* resultToEffect(
 				savedViewCountRecipe(
-					persistedView.layouts.grid.queryDocument,
-					persistedView.layouts.grid.entityIdField,
+					persistedViewLayouts.grid.queryDocument,
+					persistedViewLayouts.grid.entityIdField,
 				),
 			);
 			const total = yield* executeRyotQLRecipe(client, countRecipe);
@@ -100,18 +104,20 @@ describe("saved views execution", () => {
 
 			const userAView = yield* getSavedView(userA.client, "all-shows");
 			const userBView = yield* getSavedView(userB.client, "all-shows");
+			const userALayouts = requirePresent(userAView.layouts, "User A saved view has no layouts");
+			const userBLayouts = requirePresent(userBView.layouts, "User B saved view has no layouts");
 			const userAResult = yield* executeRyotQLRecipe(
 				userA.client,
 				savedViewRecipe({
-					layout: { type: "card", mapping: userAView.layouts.grid },
-					source: { type: "persisted", queryDocument: userAView.layouts.grid.queryDocument },
+					layout: { type: "card", mapping: userALayouts.grid },
+					source: { type: "persisted", queryDocument: userALayouts.grid.queryDocument },
 				}),
 			);
 			const userBResult = yield* executeRyotQLRecipe(
 				userB.client,
 				savedViewRecipe({
-					layout: { type: "card", mapping: userBView.layouts.grid },
-					source: { type: "persisted", queryDocument: userBView.layouts.grid.queryDocument },
+					layout: { type: "card", mapping: userBLayouts.grid },
+					source: { type: "persisted", queryDocument: userBLayouts.grid.queryDocument },
 				}),
 			);
 

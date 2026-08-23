@@ -4,7 +4,6 @@ import { Effect } from "effect";
 import { useEffect } from "react";
 
 import { PublicApi } from "#/api/public";
-import { createKernelRyotClient } from "#/api/ryot-client";
 import { protectedRouteGuard } from "#/modules/auth/route-gates";
 import { EntityInterestService } from "#/modules/entity-interest/service";
 import { AuthenticatedShell } from "#/modules/navigation/authenticated-shell";
@@ -20,16 +19,18 @@ export const Route = createFileRoute("/_authenticated")({
 	component: AuthenticatedLayout,
 	pendingComponent: RestoringSession,
 	errorComponent: AuthenticatedLoadError,
-	beforeLoad: ({ context, location }) => protectedRouteGuard(context, location.href),
+	beforeLoad: async ({ context, location }) => {
+		const authenticated = await protectedRouteGuard(context, location.href);
+		return { ...authenticated, ryot: context.ryotClients.get(authenticated.scope) };
+	},
 	loader: async ({ abortController, context, location }) => {
-		const ryot = createKernelRyotClient(context.runtime, context.scope, context.theme);
 		const [catalog, navigation, rememberedSlug, isPro] = await Promise.all([
 			context.runtime.runPromise(
-				Effect.flatMap(PluginCatalogService, (service) => service.load(ryot)),
+				Effect.flatMap(PluginCatalogService, (service) => service.load(context.ryot)),
 				{ signal: abortController.signal },
 			),
 			context.runtime.runPromise(
-				Effect.flatMap(NavigationService, (service) => service.load(ryot)),
+				Effect.flatMap(NavigationService, (service) => service.load(context.ryot)),
 				{ signal: abortController.signal },
 			),
 			context.runtime.runPromise(
@@ -67,14 +68,14 @@ export const Route = createFileRoute("/_authenticated")({
 				});
 			}
 		}
-		return { catalog, isPro, navigation, rememberedSlug, ryot };
+		return { catalog, isPro, navigation, rememberedSlug };
 	},
 	shouldReload: ({ location }) => location.pathname === "/",
 });
 
 function AuthenticatedLayout() {
-	const { catalog, isPro, navigation, rememberedSlug, ryot } = Route.useLoaderData();
-	const { runtime, scope } = Route.useRouteContext();
+	const { catalog, isPro, navigation, rememberedSlug } = Route.useLoaderData();
+	const { ryot, runtime, scope } = Route.useRouteContext();
 	const { serverUrl, userId } = scope;
 	useEffect(
 		() =>

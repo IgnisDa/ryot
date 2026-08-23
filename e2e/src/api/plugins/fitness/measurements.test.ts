@@ -11,7 +11,7 @@ import {
 	listSavedViews,
 } from "~/fixtures/kernel";
 import { createMeasurementEntityFixture } from "~/fixtures/plugins/fitness";
-import { assertCondition, assertPresent } from "~/support/assertions";
+import { assertCondition, assertPresent, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 describe("Measurements E2E", () => {
@@ -68,7 +68,11 @@ describe("Measurements E2E", () => {
 				});
 				const allMeasurementsView = views.find((view) => view.name === "All Measurements");
 				assertPresent(allMeasurementsView, "Expected the built-in All Measurements saved view");
-				const savedViewQuery = allMeasurementsView.layouts.grid.queryDocument.queries.savedView;
+				const allMeasurementsLayouts = requirePresent(
+					allMeasurementsView.layouts,
+					"All Measurements saved view has no layouts",
+				);
+				const savedViewQuery = allMeasurementsLayouts.grid.queryDocument.queries.savedView;
 				assertPresent(savedViewQuery, "Expected the All Measurements saved-view query");
 				assertCondition(
 					savedViewQuery.output.type === "rows",

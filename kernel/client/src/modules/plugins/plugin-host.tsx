@@ -1,5 +1,6 @@
 import { CLIENT_API_VERSION } from "@ryot-app/client-plugin-contract";
 import type {
+	ClientPageContext,
 	KernelShortcut,
 	PluginAssetOutcome,
 	PluginAssetRequest,
@@ -205,12 +206,13 @@ export function PluginHost(props: {
 	);
 }
 
-function PluginFrame(props: {
+export function PluginFrame(props: {
 	readonly theme: ThemeStore;
 	readonly pluginSlug: string;
 	readonly sourceHash: string;
 	readonly artifactHash: string;
 	readonly installationId: string;
+	readonly page?: ClientPageContext;
 	readonly chromeLeading: ReactNode;
 	readonly onOpenDrawer: () => void;
 	readonly onStaleSession: () => void;
@@ -459,6 +461,7 @@ function PluginFrame(props: {
 		const connection: { failed: boolean; session?: PluginBridgeSession } = { failed: false };
 		const nextBridge = openPluginBridge({
 			target: plugin,
+			page: latest.current.page,
 			artifactHash: props.artifactHash,
 			viewport: latest.current.viewport,
 			navigation: latest.current.navigation,

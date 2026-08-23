@@ -21,6 +21,7 @@ import { PluginInstallationRepository } from "#modules/plugins/installation-repo
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
 
+import { ClientPagesRepository } from "../client-pages/repository";
 import { SavedViewsRepository } from "./repository";
 import { SavedViewsService } from "./service";
 
@@ -60,41 +61,45 @@ const layouts = {
 	},
 } satisfies SavedViewLayouts;
 
-const baseView: ListedSavedView & { readonly pluginInstallationId: string | null } = {
+const baseView = {
 	layouts,
-	icon: "record",
 	sortOrder: 0,
+	icon: "record",
 	slug: "my-view",
 	name: "My View",
 	pluginSlug: null,
-	pluginInstallationId: null,
 	isBuiltin: false,
 	isDisabled: false,
 	entitySchemaSlug: null,
+	pluginInstallationId: null,
 	createdAt: new Date().toISOString(),
 	updatedAt: new Date().toISOString(),
 	id: SavedViewId.make("sv-id"),
-};
+} satisfies ListedSavedView & { readonly pluginInstallationId: string | null };
 const createBody = { layouts, icon: "record", name: "My View", entitySchemaSlug: null };
 const mockRepository = Layer.mock(SavedViewsRepository);
 const makeRepository = (overrides: MockOverrides<typeof mockRepository> = {}) =>
 	mockRepository({ ...overrides });
+const requireLegacyLayouts = (view: ListedSavedView): SavedViewLayouts => {
+	if (view.layouts === undefined) {
+		throw new Error(`Expected legacy layouts for ${view.slug}`);
+	}
+	return view.layouts;
+};
 const makeDefinitionRegistryLayer = (...views: ReadonlyArray<ListedSavedView>) => {
 	const registry = makeDefinitionRegistry({
 		entitySchemas: [],
 		signalSchemas: [],
 		relationshipSchemas: [],
-		savedViews: views.map(
-			({ icon, layouts: viewLayouts, name, pluginSlug, entitySchemaSlug, slug, sortOrder }) => ({
-				icon,
-				name,
-				slug,
-				sortOrder,
-				pluginSlug,
-				entitySchemaSlug,
-				layouts: viewLayouts,
-			}),
-		),
+		savedViews: views.map((view) => ({
+			icon: view.icon,
+			name: view.name,
+			slug: view.slug,
+			sortOrder: view.sortOrder,
+			pluginSlug: view.pluginSlug,
+			layouts: requireLegacyLayouts(view),
+			entitySchemaSlug: view.entitySchemaSlug,
+		})),
 	});
 	return Layer.mergeAll(
 		Layer.succeed(DefinitionRegistry, registry),
@@ -114,6 +119,7 @@ const makeServiceLayer = (
 				databaseLayer,
 				definitionRegistry,
 				repository,
+				ClientPagesRepository.layer,
 				Layer.mock(PluginInstallationRepository)({ listForUser: () => Effect.succeed([]) }),
 			),
 		),
@@ -127,13 +133,11 @@ it.effect("creates and clones saved views without changing layouts", () => {
 			findBySlug: () => Effect.succeed(findCalls++ === 1 ? baseView : null),
 			create: (_userId, input) =>
 				Effect.sync(() => {
+					if (input.layouts === undefined) {
+						throw new Error("Expected legacy layouts");
+					}
 					createdLayouts.push(input.layouts);
-					return {
-						...baseView,
-						name: input.name,
-						slug: input.slug,
-						layouts: input.layouts,
-					};
+					return { ...baseView, name: input.name, slug: input.slug, layouts: input.layouts };
 				}),
 		}),
 	);
@@ -204,13 +208,21 @@ it.effect("preserves omitted layouts when updating a non-built-in view", () => {
 	const layer = makeServiceLayer(
 		makeRepository({
 			findBySlug: () => Effect.succeed(baseView),
-			updateBySlug: (_userId, _slug, data) =>
+			updateBySlug: (_userId, _slug, data, _currentPluginInstallationId) =>
 				Effect.sync(() => {
 					const updated = {
 						...baseView,
-						...data,
-						pluginSlug: data.pluginInstallationId ? PluginSlug.make("private-plugin") : null,
+						icon: data.icon,
+						name: data.name,
+						isDisabled: data.isDisabled,
+						layouts: data.layouts ?? baseView.layouts,
+						pluginInstallationId: data.pluginInstallationId,
 						sortOrder: data.sortOrder ?? baseView.sortOrder,
+						pluginSlug: data.pluginInstallationId ? PluginSlug.make("private-plugin") : null,
+						entitySchemaSlug:
+							data.entitySchemaSlug === undefined
+								? baseView.entitySchemaSlug
+								: data.entitySchemaSlug,
 					};
 					stored = updated;
 					return updated;
@@ -305,12 +317,7 @@ it.effect("reorders only saved views in the requested scope", () => {
 	const views = [
 		{ ...baseView, slug: "global-a", sortOrder: 0 },
 		{ ...baseView, slug: "global-b", sortOrder: 1 },
-		{
-			...baseView,
-			sortOrder: 0,
-			slug: "plugin-a-view",
-			pluginSlug: PluginSlug.make("plugin-a"),
-		},
+		{ ...baseView, sortOrder: 0, slug: "plugin-a-view", pluginSlug: PluginSlug.make("plugin-a") },
 	];
 	const reorders: Array<ReadonlyArray<string>> = [];
 	const layer = makeServiceLayer(
@@ -373,7 +380,7 @@ it.effect("persists builtin layouts unchanged", () => {
 						throw new Error("Expected a built-in saved view");
 					}
 					builtinLayouts = view.layouts;
-					builtinEntitySchemaSlug = view.entitySchemaSlug;
+					builtinEntitySchemaSlug = view.entitySchemaSlug ?? null;
 				}),
 		}),
 		makeDefinitionRegistryLayer({ ...baseView, isBuiltin: true }),
@@ -411,8 +418,8 @@ it.effect("persists exact private plugin ownership for builtin and custom views"
 			{
 				layouts,
 				pluginId,
-				icon: "record",
 				sortOrder: 0,
+				icon: "record",
 				slug: "plugin-view",
 				name: "Plugin View",
 				entitySchemaSlug: "record",
@@ -429,14 +436,22 @@ it.effect("persists exact private plugin ownership for builtin and custom views"
 					findBySlug: () => Effect.succeed(baseView),
 					ensureBuiltinViews: (_userId, views) =>
 						Effect.sync(() => void installedViews.push(...views)),
-					updateBySlug: (_userId, _slug, data) =>
+					updateBySlug: (_userId, _slug, data, _currentPluginInstallationId) =>
 						Effect.sync(() => {
 							updatedViews.push(data);
 							return {
 								...baseView,
-								...data,
-								pluginSlug: data.pluginInstallationId ? PluginSlug.make("private-plugin") : null,
+								icon: data.icon,
+								name: data.name,
+								isDisabled: data.isDisabled,
+								layouts: data.layouts ?? baseView.layouts,
+								pluginInstallationId: data.pluginInstallationId,
 								sortOrder: data.sortOrder ?? baseView.sortOrder,
+								pluginSlug: data.pluginInstallationId ? PluginSlug.make("private-plugin") : null,
+								entitySchemaSlug:
+									data.entitySchemaSlug === undefined
+										? baseView.entitySchemaSlug
+										: data.entitySchemaSlug,
 							};
 						}),
 				}),
@@ -478,6 +493,7 @@ it.effect("persists exact private plugin ownership for builtin and custom views"
 							},
 						]),
 				}),
+				ClientPagesRepository.layer,
 			),
 		),
 	);
