@@ -1079,9 +1079,7 @@ async function seedMobilePhones(client: APIClient) {
 // ─── Builtin media plugin helpers ──────────────────────────────────────────
 
 async function getBuiltinPlugin(apiClient: APIClient) {
-	const plugins = await apiClient.run((c) =>
-		c.definitions.listPlugins({ query: { includeDisabled: true } }),
-	);
+	const plugins = await apiClient.run((c) => c.plugins.list());
 
 	const builtinPlugin = plugins[0];
 	if (!builtinPlugin) {

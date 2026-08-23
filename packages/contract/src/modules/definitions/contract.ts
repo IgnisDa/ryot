@@ -1,4 +1,4 @@
-import { Schema, Effect, SchemaGetter } from "effect";
+import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
@@ -10,15 +10,10 @@ import {
 	PluginNotFoundError,
 	PluginRequestError,
 } from "../plugins/schemas";
-import {
-	EntityDefinition,
-	ListedPlugin,
-	RelationshipDefinition,
-	UpdatePluginStateBody,
-} from "./schemas";
+import { EntityDefinition, RelationshipDefinition, UpdatePluginStateBody } from "./schemas";
 
 export const DefinitionsGroup = HttpApiGroup.make("definitions")
-	.annotate(OpenApi.Description, "Reads installed definitions and plugins.")
+	.annotate(OpenApi.Description, "Reads installed definitions.")
 	.add(
 		HttpApiEndpoint.get("listEntities", "/definitions/entities", {
 			success: Schema.Array(EntityDefinition),
@@ -28,23 +23,6 @@ export const DefinitionsGroup = HttpApiGroup.make("definitions")
 		HttpApiEndpoint.get("listRelationships", "/definitions/relationships", {
 			success: Schema.Array(RelationshipDefinition),
 		}).annotate(OpenApi.Description, "List installed relationship definitions."),
-	)
-	.add(
-		HttpApiEndpoint.get("listPlugins", "/definitions/plugins", {
-			success: Schema.Array(ListedPlugin),
-			query: {
-				includeDisabled: Schema.Boolean.pipe(
-					(schema) =>
-						Schema.optional(schema).pipe(
-							Schema.decodeTo(Schema.toType(schema), {
-								encode: SchemaGetter.required(),
-								decode: SchemaGetter.withDefault(Effect.sync(() => false)),
-							}),
-						),
-					Schema.withConstructorDefault(Effect.sync(() => false)),
-				),
-			},
-		}).annotate(OpenApi.Description, "List installed plugins with per-user state."),
 	)
 	.add(
 		HttpApiEndpoint.patch("updatePluginState", "/definitions/plugins/:pluginSlug", {

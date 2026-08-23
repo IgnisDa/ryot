@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { AdminAccess, defaultUserPreferences } from "@ryot-app/contract/auth-middleware";
+import { defaultUserPreferences } from "@ryot-app/contract/auth-middleware";
 import { DbError } from "@ryot-app/contract/errors";
 import {
 	AUTOMATION_HISTORY_LIMITS,
@@ -229,18 +229,6 @@ describe("bounded automation HTTP history persistence", () => {
 							.pipe(Effect.exit),
 						new AutomationHistoryRequestError({ reason: { code: "invalid-filters" } }),
 					);
-					expect(
-						(yield* service
-							.listAdminRuns({})
-							.pipe(Effect.provideService(AdminAccess, { authorized: true }))).items,
-					).toHaveLength(5);
-					expect(
-						(yield* service
-							.listAdminRuns({}, other.id)
-							.pipe(Effect.provideService(AdminAccess, { authorized: true }))).items.map(
-							({ id }) => id,
-						),
-					).toEqual(["run-z"]);
 					for (const limit of [0, 101, 1.5]) {
 						assertExitFails(
 							yield* service.listRuns(owner, { limit }).pipe(Effect.exit),
@@ -337,42 +325,34 @@ describe("bounded automation HTTP history persistence", () => {
 		},
 	);
 
-	it.effect(
-		"rejects expired, before-policy and stale retries, while god mode can retry another owner",
-		() =>
-			withDatabase(
-				Effect.gen(function* () {
-					yield* seedRun("expired");
-					yield* seedRun("policy", owner.id, "before");
-					yield* seedRun("stale");
-					yield* seedRun("foreign", other.id);
-					const db = yield* Database;
-					yield* db
-						.update(automationRun)
-						.set({ artifactsExpireAt: now })
-						.where(eq(automationRun.id, "expired"));
-					const service = yield* AutomationHistoryService;
-					for (const [id, count, code] of [
-						["expired", 1, "expired"],
-						["policy", 1, "before-policy"],
-						["stale", 2, "retry-conflict"],
-					] as const) {
-						assertExitFails(
-							yield* service
-								.retryRun(owner, AutomationRunId.make(id), { expectedAttemptCount: count })
-								.pipe(Effect.exit),
-							new AutomationHistoryRetryConflict({
-								reason: { code, runId: AutomationRunId.make(id) },
-							}),
-						);
-					}
-					expect(
+	it.effect("rejects expired, before-policy and stale retries", () =>
+		withDatabase(
+			Effect.gen(function* () {
+				yield* seedRun("expired");
+				yield* seedRun("policy", owner.id, "before");
+				yield* seedRun("stale");
+				const db = yield* Database;
+				yield* db
+					.update(automationRun)
+					.set({ artifactsExpireAt: now })
+					.where(eq(automationRun.id, "expired"));
+				const service = yield* AutomationHistoryService;
+				for (const [id, count, code] of [
+					["expired", 1, "expired"],
+					["policy", 1, "before-policy"],
+					["stale", 2, "retry-conflict"],
+				] as const) {
+					assertExitFails(
 						yield* service
-							.retryAdminRun(AutomationRunId.make("foreign"), { expectedAttemptCount: 1 })
-							.pipe(Effect.provideService(AdminAccess, { authorized: true })),
-					).toEqual({ runId: "foreign", attemptNumber: 2, dispatch: "submitted" });
-				}),
-			),
+							.retryRun(owner, AutomationRunId.make(id), { expectedAttemptCount: count })
+							.pipe(Effect.exit),
+						new AutomationHistoryRetryConflict({
+							reason: { code, runId: AutomationRunId.make(id) },
+						}),
+					);
+				}
+			}),
+		),
 	);
 
 	it.effect(
