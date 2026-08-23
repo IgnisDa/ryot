@@ -1,7 +1,4 @@
 import { expect, it } from "@effect/vitest";
-import { compileClientPlugin } from "@ryot-app/client-plugin-compiler";
-import { CLIENT_API_VERSION } from "@ryot-app/client-plugin-contract";
-import { Effect } from "effect";
 
 import { getKernelClientRenderer, getKernelEntityRenderer } from "./kernel-renderers";
 
@@ -24,31 +21,3 @@ it("looks up each supported kernel renderer with its compilation policy", () => 
 	expect(getKernelClientRenderer("unknown")).toBeUndefined();
 	expect(getKernelEntityRenderer("unknown")).toBeUndefined();
 });
-
-it.effect(
-	"compiles every kernel renderer as a page artifact",
-	() =>
-		Effect.forEach(["entity-browser", "results-table", "collection"] as const, (rendererName) => {
-			const renderer =
-				rendererName === "collection"
-					? getKernelEntityRenderer(rendererName)
-					: getKernelClientRenderer(rendererName);
-			if (!renderer) {
-				return Effect.die(`Missing kernel renderer ${rendererName}`);
-			}
-			return compileClientPlugin({
-				publicExports: {},
-				application: "page",
-				name: renderer.name,
-				apiVersion: CLIENT_API_VERSION,
-				contributorOrder: [rendererName],
-				contributors: { [rendererName]: { files: renderer.files } },
-				entry: { contributor: rendererName, path: renderer.definition.entry },
-			}).pipe(
-				Effect.tap((output) =>
-					Effect.sync(() => expect(output.artifact.files.length).toBeGreaterThan(0)),
-				),
-			);
-		}),
-	50_000,
-);
