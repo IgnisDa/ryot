@@ -1,6 +1,6 @@
 # Composable Views Tracer Plan
 
-Status: ready for implementation. No implementation has been performed as part of writing this plan.
+Status: implemented.
 
 Read the [system design](./README.md) first. That document explains the intended system; this document defines the complete first implementation. Names introduced below are the target vocabulary. Derive implementation types from the canonical Effect schemas rather than copying the descriptive shapes in this document.
 
@@ -40,29 +40,29 @@ This must use the real new saved-view, compiler, artifact, SDK, and page paths. 
 
 ## Completion Checklist
 
-- [ ] Draft source can be saved, inspected, and successfully published through authenticated APIs.
-- [ ] Failed or racing publication does not replace published source.
-- [ ] Two saved views can reference the same custom renderer with different settings.
-- [ ] System and private plugin public exports compile into one application with one React root.
-- [ ] A later results page can introduce a new entity type without rebuilding or remounting the application.
-- [ ] Mixed results preserve query order and batch their presentation loading.
-- [ ] Show, workout, and Pokemon have distinct useful presentations.
-- [ ] Grouped collection counts reflect a confirmed membership change.
-- [ ] The named-query path accepts rows, aggregates, and time series without fake entity identities.
-- [ ] Fixture's `greet` runs against the private fixture installation, not media.
-- [ ] Collection creation/membership capabilities use authenticated kernel service paths through the SDK.
-- [ ] The collection dialog supports choose, review, confirm, retry, and Back dismissal.
-- [ ] The saved dashboard can render at media home without a duplicate frame or redirect loop.
-- [ ] Show and Pokemon entity routes use the shared page runtime and real provenance.
-- [ ] Population/translation refresh preserves an expanded row and unrelated form state.
-- [ ] Desktop, narrow containers, and mobile compact/safe-area behaviour are verified.
-- [ ] Dependency updates show a reload notice without immediately replacing an open page.
-- [ ] Existing artifact access rules cover composed dependencies through focused regression tests.
-- [ ] Shipped saved views use the new model; old slot contracts, runtime, and adapters are gone.
-- [ ] Authenticated kernel settings screens read and write through the shared query/mutation surface, with no route loader and no direct runtime call outside the documented exceptions.
-- [ ] Managed-asset batching and expiry exist once in the SDK and serve both the kernel and plugin callers.
-- [ ] Plugin `client/**` sources cannot import the plugin kit, and the client SDK Effect surface covers what client code needs.
-- [ ] Backups, retained V1 import code, fixtures, package guidance, and maintained documentation match the new model.
+- [x] Draft source can be saved, inspected, and successfully published through authenticated APIs.
+- [x] Failed or racing publication does not replace published source.
+- [x] Two saved views can reference the same custom renderer with different settings.
+- [x] System and private plugin public exports compile into one application with one React root.
+- [x] A later results page can introduce a new entity type without rebuilding or remounting the application.
+- [x] Mixed results preserve query order and batch their presentation loading.
+- [x] Show, workout, and Pokemon have distinct useful presentations.
+- [x] Grouped collection counts reflect a confirmed membership change.
+- [x] The named-query path accepts rows, aggregates, and time series without fake entity identities.
+- [x] Fixture's `greet` runs against the private fixture installation, not media.
+- [x] Collection creation/membership capabilities use authenticated kernel service paths through the SDK.
+- [x] The collection dialog supports choose, review, confirm, retry, and Back dismissal.
+- [x] The saved dashboard can render at media home without a duplicate frame or redirect loop.
+- [x] Show and Pokemon entity routes use the shared page runtime and real provenance.
+- [x] Population/translation refresh preserves an expanded row and unrelated form state.
+- [x] Desktop, narrow containers, and mobile compact/safe-area behaviour are verified.
+- [x] Dependency updates show a reload notice without immediately replacing an open page.
+- [x] Existing artifact access rules cover composed dependencies through focused regression tests.
+- [x] Shipped saved views use the new model; old slot contracts, runtime, and adapters are gone.
+- [x] Authenticated kernel settings screens read and write through the shared query/mutation surface, with no route loader and no direct runtime call outside the documented exceptions.
+- [x] Managed-asset batching and expiry exist once in the SDK and serve both the kernel and plugin callers.
+- [x] Plugin `client/**` sources cannot import the plugin kit, and the client SDK Effect surface covers what client code needs.
+- [x] Backups, retained V1 import code, fixtures, package guidance, and maintained documentation match the new model.
 
 ## Constraints
 
