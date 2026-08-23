@@ -16,6 +16,13 @@ type AuthResponse<A> = {
 	readonly error: null | { readonly message?: string };
 };
 
+const makeHostedClient = () =>
+	createAuthClient({
+		baseURL: window.location.origin,
+		fetchOptions: { credentials: "same-origin" },
+		plugins: [twoFactorClient(), oauthProviderClient()],
+	});
+
 const request = <A>(operation: () => Promise<AuthResponse<A>>, fallback: string) =>
 	Effect.tryPromise({
 		catch: (cause) =>
@@ -31,11 +38,8 @@ const request = <A>(operation: () => Promise<AuthResponse<A>>, fallback: string)
 
 export class HostedAuthService extends Context.Service<HostedAuthService>()("HostedAuthService", {
 	make: Effect.sync(() => {
-		const client = createAuthClient({
-			baseURL: window.location.origin,
-			fetchOptions: { credentials: "same-origin" },
-			plugins: [twoFactorClient(), oauthProviderClient()],
-		});
+		let hosted: ReturnType<typeof makeHostedClient> | undefined;
+		const client = () => (hosted ??= makeHostedClient());
 		const submitCredentials = Effect.fn("HostedAuthService.submitCredentials")(function* (input: {
 			readonly mode: "login" | "signup";
 			readonly values: CredentialsValues;
@@ -43,12 +47,15 @@ export class HostedAuthService extends Context.Service<HostedAuthService>()("Hos
 			if (input.mode === "signup") {
 				yield* request(
 					() =>
-						client.signUp.email({ ...input.values, name: registrationName(input.values.email) }),
+						client().signUp.email({ ...input.values, name: registrationName(input.values.email) }),
 					"Could not create your account.",
 				);
 				return { _tag: "Authenticated" } as const;
 			}
-			const result = yield* request(() => client.signIn.email(input.values), "Could not sign in.");
+			const result = yield* request(
+				() => client().signIn.email(input.values),
+				"Could not sign in.",
+			);
 			return isTwoFactorRedirect(result)
 				? ({
 						_tag: "TwoFactor",
@@ -60,14 +67,14 @@ export class HostedAuthService extends Context.Service<HostedAuthService>()("Hos
 			request(
 				() =>
 					method === "backupCode"
-						? client.twoFactor.verifyBackupCode({ code })
-						: client.twoFactor.verifyTotp({ code }),
+						? client().twoFactor.verifyBackupCode({ code })
+						: client().twoFactor.verifyTotp({ code }),
 				"Could not verify that code.",
 			).pipe(Effect.asVoid);
 		const signInWithOidc = () =>
 			request(
 				() =>
-					client.signIn.social({
+					client().signIn.social({
 						provider: "oidc",
 						callbackURL: `${window.location.origin}/oauth/login`,
 					}),
