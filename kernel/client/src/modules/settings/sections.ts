@@ -7,6 +7,12 @@ export const settingsSections = [
 	},
 	{ icon: "globe", slug: "integrations", label: "Integrations", path: "/settings/integrations" },
 	{
+		icon: "inbox",
+		slug: "notification-channels",
+		label: "Notification channels",
+		path: "/settings/notification-channels",
+	},
+	{
 		icon: "clipboard-list",
 		slug: "import-data",
 		label: "Import data",
