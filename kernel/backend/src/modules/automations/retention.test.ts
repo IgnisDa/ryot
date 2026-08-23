@@ -1,14 +1,14 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { DEFAULT_AUTOMATION_RETRY_POLICY } from "@ryot-app/contract/modules/automations/lifecycle";
 import { SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { asc, eq } from "drizzle-orm";
-import { Effect, Layer, Ref } from "effect";
+import { Context, Effect, Layer, Ref } from "effect";
 import { describe } from "vitest";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
-import { withRevisionDatabase } from "#modules/plugins/revision.test-support";
+import { revisionDatabaseLayer } from "#modules/plugins/revision.test-support";
 import { ScriptGarbageCollector } from "#modules/plugins/script-garbage-collector";
 
 import { AutomationAttemptRepository } from "./attempt-repository";
@@ -53,11 +53,43 @@ const run = (input: {
 	startedAt: input.status === "running" ? input.queuedAt : null,
 });
 
+type Collection = { now: Date; limit: number };
+
+class ScriptCollections extends Context.Service<
+	ScriptCollections,
+	Effect.Effect<ReadonlyArray<Collection>>
+>()("test/ScriptCollections") {}
+
+const recordingCollectorLayer = Layer.effectContext(
+	Effect.gen(function* () {
+		const collections = yield* Ref.make<ReadonlyArray<Collection>>([]);
+		return Context.make(ScriptGarbageCollector, {
+			collect: (input) =>
+				(input ? Ref.update(collections, (values) => [...values, input]) : Effect.void).pipe(
+					Effect.as({ removedCount: 0, candidateCount: 0 }),
+				),
+		}).pipe(Context.add(ScriptCollections, Ref.get(collections)));
+	}),
+);
+
+const retentionLayer = AutomationRetention.layer.pipe(
+	Layer.provideMerge(
+		Layer.mergeAll(
+			recordingCollectorLayer,
+			makeAppConfigLayer(),
+			AutomationRunRepository.layer,
+			AutomationAttemptRepository.layer,
+			AutomationTriggerRepository.layer,
+		),
+	),
+	Layer.provideMerge(revisionDatabaseLayer),
+);
+
 describe("AutomationRetention", () => {
-	it.effect(
-		"prunes expired artifacts and history without touching active or retryable references",
-		() =>
-			withRevisionDatabase(
+	layer(retentionLayer)((test) => {
+		test.effect(
+			"prunes expired artifacts and history without touching active or retryable references",
+			() =>
 				Effect.gen(function* () {
 					const db = yield* (yield* DatabaseSession).current;
 					yield* db
@@ -172,28 +204,11 @@ describe("AutomationRetention", () => {
 						},
 					]);
 
-					const collections = yield* Ref.make<ReadonlyArray<{ now: Date; limit: number }>>([]);
-					const collector = Layer.succeed(ScriptGarbageCollector, {
-						collect: (input) =>
-							(input ? Ref.update(collections, (values) => [...values, input]) : Effect.void).pipe(
-								Effect.as({ removedCount: 0, candidateCount: 0 }),
-							),
-					});
-					const retentionLayer = AutomationRetention.layer.pipe(
-						Layer.provide(
-							Layer.mergeAll(
-								collector,
-								makeAppConfigLayer(),
-								AutomationRunRepository.layer,
-								AutomationAttemptRepository.layer,
-								AutomationTriggerRepository.layer,
-							),
-						),
-					);
-					const results = yield* Effect.gen(function* () {
-						const retention = yield* AutomationRetention;
-						return [yield* retention.runBatch(now, 1), yield* retention.runBatch(now, 1)] as const;
-					}).pipe(Effect.provide(retentionLayer));
+					const retention = yield* AutomationRetention;
+					const results = [
+						yield* retention.runBatch(now, 1),
+						yield* retention.runBatch(now, 1),
+					] as const;
 
 					expect(results).toEqual([
 						{
@@ -213,7 +228,7 @@ describe("AutomationRetention", () => {
 							garbageCollection: { removedCount: 0, candidateCount: 0 },
 						},
 					]);
-					expect(yield* Ref.get(collections)).toEqual([
+					expect(yield* yield* ScriptCollections).toEqual([
 						{ now, limit: 1 },
 						{ now, limit: 1 },
 					]);
@@ -271,6 +286,6 @@ describe("AutomationRetention", () => {
 						{ id: "shared", payloadPrunedAt: now },
 					]);
 				}),
-			),
-	);
+		);
+	});
 });

@@ -1,4 +1,4 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import {
 	AutomationRun,
 	AutomationSignalPayload,
@@ -26,7 +26,7 @@ import { PluginConfigRevisions } from "#modules/plugins/config-revisions";
 import {
 	installRevisionPackage,
 	revisionPackage,
-	withRevisionDatabase,
+	revisionDatabaseLayer,
 } from "#modules/plugins/revision.test-support";
 import { fixtureManifest } from "#modules/plugins/test-support";
 
@@ -188,10 +188,16 @@ unit("redacts mutation snapshots and parent population properties with their own
 });
 
 describe("AutomationRunRepository", () => {
-	it.effect(
-		"closes only unstarted policies in the abandoned trigger without changing attempts or replay timestamps",
-		() =>
-			withRevisionDatabase(
+	layer(
+		Layer.mergeAll(
+			AutomationRunRepository.layer,
+			AutomationAttemptRepository.layer,
+			AutomationTriggerRepository.layer,
+		).pipe(Layer.provideMerge(revisionDatabaseLayer)),
+	)((test) => {
+		test.effect(
+			"closes only unstarted policies in the abandoned trigger without changing attempts or replay timestamps",
+			() =>
 				Effect.gen(function* () {
 					const repo = yield* AutomationRunRepository;
 					const attempts = yield* AutomationAttemptRepository;
@@ -350,21 +356,17 @@ describe("AutomationRunRepository", () => {
 					expect(
 						yield* db.select().from(automationRunAttempt).orderBy(automationRunAttempt.id),
 					).toEqual(attemptsBefore);
-				}).pipe(
-					Effect.provide(
-						Layer.mergeAll(
-							AutomationRunRepository.layer,
-							AutomationAttemptRepository.layer,
-							AutomationTriggerRepository.layer,
-						),
-					),
-				),
-			),
-	);
-	it.effect(
-		"pins kernel runs, verifies immutable replay after completion and selects only due queued after runs",
-		() =>
-			withRevisionDatabase(
+				}),
+		);
+	});
+	layer(
+		Layer.mergeAll(AutomationRunRepository.layer, AutomationTriggerRepository.layer).pipe(
+			Layer.provideMerge(revisionDatabaseLayer),
+		),
+	)((test) => {
+		test.effect(
+			"pins kernel runs, verifies immutable replay after completion and selects only due queued after runs",
+			() =>
 				Effect.gen(function* () {
 					const repo = yield* AutomationRunRepository;
 					const triggers = yield* AutomationTriggerRepository;
@@ -519,11 +521,7 @@ describe("AutomationRunRepository", () => {
 						disabledUserRun,
 						pluginRun,
 					]);
-				}).pipe(
-					Effect.provide(
-						Layer.mergeAll(AutomationRunRepository.layer, AutomationTriggerRepository.layer),
-					),
-				),
-			),
-	);
+				}),
+		);
+	});
 });
