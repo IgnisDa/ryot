@@ -143,6 +143,19 @@ export function ShowLinkButton(props: {
 	);
 }
 
+export function ShowExternalLink(props: { readonly href: string; readonly label: string }) {
+	return (
+		<a
+			target="_blank"
+			rel="noreferrer"
+			href={props.href}
+			className="font-ui font-medium text-[13px] text-accent-text"
+		>
+			{props.label}
+		</a>
+	);
+}
+
 export function ShowActionButton(props: {
 	readonly label: string;
 	readonly compact: boolean;

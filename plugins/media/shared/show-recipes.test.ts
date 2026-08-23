@@ -174,6 +174,21 @@ const SHOW_SUMMARY_ROW = {
 		{ type: "remote", purpose: "backdrop", url: "https://images.test/backdrop.jpg" },
 		{ type: "remote", purpose: "cover", url: "https://images.test/cover.jpg" },
 	],
+	watchProviders: [
+		{
+			link: null,
+			country: "GB",
+			providers: [{ image: null, name: "Netflix", offers: ["stream"] }],
+		},
+		{
+			country: "US",
+			link: "https://www.themoviedb.org/tv/1/watch?locale=US",
+			providers: [
+				{ name: "Netflix", offers: ["stream"], image: "https://images.test/netflix.jpg" },
+				{ image: null, name: "Apple TV", offers: ["rent", "buy"] },
+			],
+		},
+	],
 };
 describe("media show query recipes", () => {
 	it("builds one presentation query for all requested show IDs", () => {
@@ -336,6 +351,7 @@ describe("media show query recipes", () => {
 			"providerName",
 			"description",
 			"publishDate",
+			"watchProviders",
 			"publishYear",
 			"genres",
 			"totalSeasons",
@@ -416,14 +432,77 @@ describe("media show query recipes", () => {
 							totalSeasons: null,
 							totalEpisodes: null,
 							providerRating: null,
+							watchProviders: null,
 							productionStatus: null,
 						},
 					]),
 				},
 			}),
 		).toMatchObject({
-			success: { show: { genres: null, images: null, publishYear: null, providerName: null } },
+			success: {
+				show: {
+					genres: null,
+					images: null,
+					publishYear: null,
+					providerName: null,
+					watchProviders: null,
+				},
+			},
 		});
+	});
+
+	it("decodes each country's watch providers, offer kinds and link", () => {
+		const recipe = showSummaryRecipe({ collectionLimit: 6, entityId: "show-1" });
+
+		expect(
+			recipe.decode({
+				data: { show: showRows([SHOW_SUMMARY_ROW]), requested: showRows([{ schemaSlug: "show" }]) },
+			}),
+		).toMatchObject({
+			success: {
+				show: {
+					watchProviders: [
+						{
+							link: null,
+							country: "GB",
+							providers: [{ image: null, name: "Netflix", offers: ["stream"] }],
+						},
+						{
+							country: "US",
+							link: "https://www.themoviedb.org/tv/1/watch?locale=US",
+							providers: [
+								{ name: "Netflix", offers: ["stream"], image: "https://images.test/netflix.jpg" },
+								{ image: null, name: "Apple TV", offers: ["rent", "buy"] },
+							],
+						},
+					],
+				},
+			},
+		});
+	});
+
+	it("rejects a watch provider offer kind outside the media contract", () => {
+		const recipe = showSummaryRecipe({ collectionLimit: 6, entityId: "show-1" });
+
+		expect(
+			recipe.decode({
+				data: {
+					requested: showRows([{ schemaSlug: "show" }]),
+					show: showRows([
+						{
+							...SHOW_SUMMARY_ROW,
+							watchProviders: [
+								{
+									link: null,
+									country: "US",
+									providers: [{ image: null, name: "Netflix", offers: ["preorder"] }],
+								},
+							],
+						},
+					]),
+				},
+			})._tag,
+		).toBe("Failure");
 	});
 
 	it("rejects a show summary whose lifecycle state is not a media state", () => {
