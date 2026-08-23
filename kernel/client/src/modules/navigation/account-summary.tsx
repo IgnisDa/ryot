@@ -1,7 +1,7 @@
 import clsx from "clsx";
 import { useSyncExternalStore } from "react";
 
-import type { AuthSessionStore } from "#/modules/auth/client";
+import type { AuthSessionStore } from "#/modules/auth/service";
 import { AppIcon } from "#/modules/navigation/app-icon";
 import { Avatar } from "#/modules/navigation/avatar";
 import { activateLink } from "#/modules/navigation/link-activation";
