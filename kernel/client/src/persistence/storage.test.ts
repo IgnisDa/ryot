@@ -1,4 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
+import { SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import { decodeServerOrigin } from "#/api/origin";
@@ -6,6 +7,7 @@ import {
 	ClientStorage,
 	clientStorageLayer,
 	lastWorkspaceKey,
+	rememberedProviderKey,
 	SERVER_SELECTION_KEY,
 	savedViewLayoutKey,
 	THEME_PREFERENCE_KEY,
@@ -145,6 +147,63 @@ describe("browser persistence", () => {
 				expect(values.get(savedViewLayoutKey(scope, "books"))).toBe(layout);
 				expect(yield* service.getSavedViewLayout(scope, "books")).toBe(layout);
 			}
+		}).pipe(Effect.provide(clientStorageLayer(storage)));
+	});
+
+	it.effect("partitions the remembered provider by server, user, and entity schema", () => {
+		const firstScope = { serverUrl: oneOrigin, userId: "user-1" };
+		const secondUser = { serverUrl: oneOrigin, userId: "user-2" };
+		const secondServer = { serverUrl: twoOrigin, userId: "user-1" };
+		const { storage, values } = makeStorage();
+
+		return Effect.gen(function* () {
+			const service = yield* ClientStorage;
+			yield* service.setRememberedProvider(
+				firstScope,
+				"book",
+				SandboxProviderId.make("provider-1"),
+			);
+			yield* service.setRememberedProvider(
+				firstScope,
+				"movie",
+				SandboxProviderId.make("provider-2"),
+			);
+			yield* service.setRememberedProvider(
+				secondUser,
+				"book",
+				SandboxProviderId.make("provider-3"),
+			);
+			yield* service.setRememberedProvider(
+				secondServer,
+				"book",
+				SandboxProviderId.make("provider-4"),
+			);
+
+			expect(rememberedProviderKey(firstScope, "book")).not.toBe(
+				rememberedProviderKey(firstScope, "movie"),
+			);
+			expect(rememberedProviderKey(firstScope, "book")).not.toBe(
+				rememberedProviderKey(secondUser, "book"),
+			);
+			expect(rememberedProviderKey(firstScope, "book")).not.toBe(
+				rememberedProviderKey(secondServer, "book"),
+			);
+			expect(values.get(rememberedProviderKey(firstScope, "book"))).toBe("provider-1");
+			expect(yield* service.getRememberedProvider(firstScope, "movie")).toBe("provider-2");
+			expect(yield* service.getRememberedProvider(secondUser, "book")).toBe("provider-3");
+			expect(yield* service.getRememberedProvider(secondServer, "book")).toBe("provider-4");
+		}).pipe(Effect.provide(clientStorageLayer(storage)));
+	});
+
+	it.effect("returns null when no provider is remembered for the entity schema", () => {
+		const scope = { serverUrl: oneOrigin, userId: "user-1" };
+		const { storage } = makeStorage();
+
+		return Effect.gen(function* () {
+			const service = yield* ClientStorage;
+			expect(yield* service.getRememberedProvider(scope, "book")).toBeNull();
+			yield* service.setRememberedProvider(scope, "book", SandboxProviderId.make("provider-1"));
+			expect(yield* service.getRememberedProvider(scope, "movie")).toBeNull();
 		}).pipe(Effect.provide(clientStorageLayer(storage)));
 	});
 
