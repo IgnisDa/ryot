@@ -34,6 +34,8 @@ import { DestructiveConfirmation } from "#/modules/ui/destructive-confirmation";
 import { isTerminalRunStatus } from "#/modules/ui/run/run-status";
 import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
 import { StatusState } from "#/modules/ui/status-state";
+import { useFormSeed } from "#/modules/ui/use-form-seed";
+import { RELATIVE_TIME_REFRESH_MS, useNowMs } from "#/modules/ui/use-now-ms";
 
 const RUN_LIST_POLL_MS = 10_000;
 
@@ -123,7 +125,7 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 	const { backInterceptors } = Route.useRouteContext();
 	const provider = findOwnedIntegrationProvider(providers.data ?? [], integration);
 
-	const save = useEffectEvent(async (values: SchemaFormValues) => {
+	const save = async (values: SchemaFormValues) => {
 		if (provider === undefined) {
 			return;
 		}
@@ -136,7 +138,7 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 		} catch (error) {
 			setSaveDetail(integrationSaveFailure(error).detail);
 		}
-	});
+	};
 
 	const form = useSchemaForm({
 		mode: "edit",
@@ -144,15 +146,10 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 		schemas: [provider?.commonSchema, provider?.settingsSchema],
 	});
 
-	const seedForm = useEffectEvent(() => {
-		form.reset(
-			provider === undefined ? {} : storedIntegrationFormValues({ provider, integration }),
-		);
-	});
-
-	useEffect(() => {
-		seedForm();
-	}, [integration.id, integration.updatedAt, provider?.slug]);
+	useFormSeed(form, JSON.stringify([integration.id, integration.updatedAt, provider?.slug]), () =>
+		provider === undefined ? {} : storedIntegrationFormValues({ provider, integration }),
+	);
+	const nowMs = useNowMs(RELATIVE_TIME_REFRESH_MS);
 
 	const isPolling = (runs.data?.items ?? []).some((run) => !isTerminalRunStatus(run.status));
 	const refreshRuns = useEffectEvent(runs.refetch);
@@ -183,7 +180,7 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 		});
 	}, [backInterceptors, remove.isPending, isConfirming, menuOpen]);
 
-	const confirmDelete = useEffectEvent(async () => {
+	const confirmDelete = async () => {
 		setDeleteFailed(false);
 		try {
 			await remove.mutateAsync(integration.id);
@@ -197,7 +194,7 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 			return;
 		}
 		void navigate({ replace: true, to: "/settings/integrations", search: { create: undefined } });
-	});
+	};
 
 	const menuItems: readonly MenuItem[] = [
 		{
@@ -248,7 +245,7 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 		>
 			<IntegrationDetailView
 				form={form}
-				nowMs={Date.now()}
+				nowMs={nowMs}
 				provider={provider}
 				uploadFile={uploadFile}
 				saveDetail={saveDetail}

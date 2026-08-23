@@ -24,6 +24,14 @@ const contributors: PreparedClientPage["identity"]["contributors"] = [
 	{ name: "table", kind: "kernel-renderer", sourceHash: "source-hash" },
 ];
 
+const setOrder = (value: string) =>
+	pluginStorageOutcome(scope, contributors, {
+		value,
+		key: "order",
+		action: "set",
+		pluginSlug: media,
+	});
+
 const makeStorage = (setItem?: BrowserStorage["setItem"]) => {
 	const values = new Map<string, string>();
 	const storage: BrowserStorage = {
@@ -80,20 +88,13 @@ describe("plugin storage outcome", () => {
 
 	it.effect("rejects a value whose serialized JSON exceeds the byte limit", () => {
 		const { layer, values } = makeStorage();
-		const set = (value: string) =>
-			pluginStorageOutcome(scope, contributors, {
-				value,
-				key: "order",
-				action: "set",
-				pluginSlug: media,
-			});
 		return Effect.gen(function* () {
 			// Two quote bytes plus two bytes per "é".
-			expect(yield* set("é".repeat((PLUGIN_STORAGE_VALUE_MAX_BYTES - 2) / 2))).toEqual({
+			expect(yield* setOrder("é".repeat((PLUGIN_STORAGE_VALUE_MAX_BYTES - 2) / 2))).toEqual({
 				value: null,
 				outcome: "success",
 			});
-			expect(yield* set("é".repeat((PLUGIN_STORAGE_VALUE_MAX_BYTES - 2) / 2 + 1))).toEqual({
+			expect(yield* setOrder("é".repeat((PLUGIN_STORAGE_VALUE_MAX_BYTES - 2) / 2 + 1))).toEqual({
 				outcome: "failure",
 				reason: "invalid-request",
 			});
