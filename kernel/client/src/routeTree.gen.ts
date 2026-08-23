@@ -23,6 +23,7 @@ import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authen
 import { Route as AuthenticatedSettingsSplatRouteImport } from './routes/_authenticated/settings/$'
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
 import { Route as AuthenticatedSettingsPreferencesRouteImport } from './routes/_authenticated/settings/preferences'
+import { Route as AuthLogoutCallbackRouteImport } from './routes/auth_.logout.callback'
 
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
@@ -101,6 +102,11 @@ const AuthenticatedSettingsPreferencesRoute =
     path: '/preferences',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthLogoutCallbackRoute = AuthLogoutCallbackRouteImport.update({
+  id: '/auth_/logout/callback',
+  path: '/auth/logout/callback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthenticatedIndexRoute
@@ -114,6 +120,7 @@ export interface FileRoutesByFullPath {
   '/settings/$': typeof AuthenticatedSettingsSplatRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
+  '/auth/logout/callback': typeof AuthLogoutCallbackRoute
   '/$pluginSlug/': typeof AuthenticatedPluginSlugIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
 }
@@ -127,6 +134,7 @@ export interface FileRoutesByTo {
   '/settings/$': typeof AuthenticatedSettingsSplatRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
+  '/auth/logout/callback': typeof AuthLogoutCallbackRoute
   '/$pluginSlug': typeof AuthenticatedPluginSlugIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
 }
@@ -144,6 +152,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/$': typeof AuthenticatedSettingsSplatRoute
   '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/_authenticated/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
+  '/auth_/logout/callback': typeof AuthLogoutCallbackRoute
   '/_authenticated/$pluginSlug/': typeof AuthenticatedPluginSlugIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
 }
@@ -161,6 +170,7 @@ export interface FileRouteTypes {
     | '/settings/$'
     | '/settings/account'
     | '/settings/preferences'
+    | '/auth/logout/callback'
     | '/$pluginSlug/'
     | '/settings/'
   fileRoutesByTo: FileRoutesByTo
@@ -174,6 +184,7 @@ export interface FileRouteTypes {
     | '/settings/$'
     | '/settings/account'
     | '/settings/preferences'
+    | '/auth/logout/callback'
     | '/$pluginSlug'
     | '/settings'
   id:
@@ -190,6 +201,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/$'
     | '/_authenticated/settings/account'
     | '/_authenticated/settings/preferences'
+    | '/auth_/logout/callback'
     | '/_authenticated/$pluginSlug/'
     | '/_authenticated/settings/'
   fileRoutesById: FileRoutesById
@@ -200,6 +212,7 @@ export interface RootRouteChildren {
   OnboardingRoute: typeof OnboardingRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   OauthLoginRoute: typeof OauthLoginRoute
+  AuthLogoutCallbackRoute: typeof AuthLogoutCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -302,6 +315,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsPreferencesRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/auth_/logout/callback': {
+      id: '/auth_/logout/callback'
+      path: '/auth/logout/callback'
+      fullPath: '/auth/logout/callback'
+      preLoaderRoute: typeof AuthLogoutCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -364,6 +384,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingRoute: OnboardingRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   OauthLoginRoute: OauthLoginRoute,
+  AuthLogoutCallbackRoute: AuthLogoutCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

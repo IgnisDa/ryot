@@ -74,13 +74,13 @@ links both by name, and generating them here is what keeps them from drifting of
 
 ## Deep Links
 
-Both platforms register the `ryot` scheme and the variant's own bundle identifier, so
-`ryot://e/entity123` and `io.ryot.app.dev://e/entity123` both open the app. On Android the
-identifier scheme comes from the `${applicationId}` manifest placeholder, and on iOS from
-`$(PRODUCT_BUNDLE_IDENTIFIER)`, so neither needs a per-variant literal.
+Both platforms register only the variant's bundle identifier. Debug uses `io.ryot.app.dev` and
+release uses `io.ryot.app`. On Android the identifier scheme comes from the `${applicationId}`
+manifest placeholder, and on iOS from `$(PRODUCT_BUNDLE_IDENTIFIER)`, so neither needs a
+per-variant literal.
 
 `resolveDeepLinkHref` maps an incoming URL onto a kernel route. A custom-scheme URL puts its first
-path segment in the authority, so `ryot://settings/account` has to be folded back into
+path segment in the authority, so `io.ryot.app://settings/account` has to be folded back into
 `/settings/account`; `http` and `https` links use their path unchanged. Anything else is ignored.
 
 `startNativeNavigation` is a no-op off native. On native it navigates on `appUrlOpen`, replaces the
