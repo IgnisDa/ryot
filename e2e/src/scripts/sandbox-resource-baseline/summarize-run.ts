@@ -103,4 +103,11 @@ const program = Effect.gen(function* () {
 	return undefined;
 });
 
-await Effect.runPromise(program);
+/**
+ * A provenance rejection must exit non-zero like any failed phase: it means the run's artifacts
+ * cannot be trusted, and reporting success would let a downstream reader treat them as sound.
+ */
+await Effect.runPromise(program).catch((error: unknown) => {
+	console.error(error);
+	process.exit(1);
+});

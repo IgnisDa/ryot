@@ -11,7 +11,6 @@ import { requirePresent } from "~/support/assertions";
 import { decodeAppLines } from "./app-samples";
 import {
 	artifactPaths,
-	type ManifestInvocation,
 	RunManifest,
 	ScenarioArtifact,
 	scenarioFileName,
@@ -20,6 +19,7 @@ import {
 } from "./artifacts";
 import { APPLICATION_CADENCE_GATE, evaluateCadenceGate, HOST_CADENCE_GATE } from "./cadence";
 import { type DriverConfig, readDriverConfig } from "./config";
+import { recordInvocation, updateManifest } from "./invocations";
 import { makeRemote, REMOTE_FILES } from "./ops";
 import { runProfileScenarios } from "./profile-run";
 import {
@@ -71,31 +71,6 @@ const readState = (config: DriverConfig) =>
 
 const writeState = (config: DriverConfig, state: PersistedState) =>
 	writeRawJson(statePath(config), state);
-
-const readManifest = (config: DriverConfig) =>
-	Effect.tryPromise(() =>
-		readFile(artifactPaths(config.outputDirectory).manifestPath, "utf8"),
-	).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(RunManifest))));
-
-const updateManifest = (config: DriverConfig, update: (manifest: RunManifest) => RunManifest) =>
-	Effect.flatMap(readManifest(config), (manifest) =>
-		writeArtifact(
-			RunManifest,
-			artifactPaths(config.outputDirectory).manifestPath,
-			update(manifest),
-		),
-	);
-
-const recordInvocation = (config: DriverConfig, invocation: ManifestInvocation) =>
-	updateManifest(config, (manifest) => ({
-		...manifest,
-		invocations: [
-			...manifest.invocations.filter(
-				({ invocationId }) => invocationId !== invocation.invocationId,
-			),
-			invocation,
-		],
-	}));
 
 const isoNow = Effect.map(Clock.currentTimeMillis, (millis) => new Date(millis).toISOString());
 
