@@ -45,7 +45,7 @@ The fixture must use the same archive reader, compiler, persistence, artifact se
 
 ## Implementor Notes
 
-This is intentionally the largest slice because it establishes the first demoable source-to-iframe path. Keep APIs narrow: Task 04 adds navigation, Task 05 adds authenticated calls, and Task 06 adds live theme events.
+This is intentionally the largest slice because it establishes the first demoable source-to-iframe path. Keep APIs narrow: Task 04 adds navigation, Task 05 adds authenticated calls, the completed Task 05-followup adds the shared query and React query/mutation surface, and Task 06 adds live theme events.
 
 ## Implementation Notes
 

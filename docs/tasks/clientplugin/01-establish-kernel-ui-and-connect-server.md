@@ -8,7 +8,7 @@
 
 Turn the repository owner's plain TanStack Router starter into the first usable Ryot DOM kernel. Do not move the old client or recreate the starter; both are external prerequisites in the parent plan.
 
-Establish the root application providers, Effect Atom registry, public API transport, persistence boundary, and route gates needed to connect to a Ryot server. Port the existing cloud/self-hosted onboarding behavior: normalize and validate the selected origin, call the public health endpoint, persist only a successful server selection, preserve a safe in-app redirect destination, and route a connected user to `/auth`. `/` must route to onboarding when no server is selected.
+Establish the root application providers, public API transport, persistence boundary, and route gates needed to connect to a Ryot server. Port the existing cloud/self-hosted onboarding behavior: normalize and validate the selected origin, call the public health endpoint, persist only a successful server selection, preserve a safe in-app redirect destination, and route a connected user to `/auth`. `/` must route to onboarding when no server is selected.
 
 The onboarding screen is also the first vertical use of the kernel design system. Adapt the semantic colors, radii, shadows, spacing, Outfit/Lora typography, light/dark/system preference, and accessibility guidance from the legacy client's `global.css` and `design.md` into normal DOM CSS and Tailwind. Remove NativeWind-specific imports and Expo font aliases rather than copying them. Add only the DOM controls and status presentation needed by onboarding. Theme preference is global persisted state; system mode follows `prefers-color-scheme`; explicit modes use a root `data-theme` value.
 
@@ -39,6 +39,6 @@ Treat the legacy client under `crates/` as read-only behavioral and visual refer
 ## Implementation Notes
 
 - Added Effect services for contract-backed public requests, scoped browser persistence, and server connection workflows. Their live layers are composed into the shared client `ManagedRuntime`, while tests provide deterministic layers.
-- Replaced the starter screen with thin TanStack Router adapters, an Effect Atom registry, persisted theme control, safe redirect gates, and the minimal accessible DOM UI needed to connect, retry, or change servers.
+- Replaced the starter screen with thin TanStack Router adapters, persisted theme control, safe redirect gates, and the minimal accessible DOM UI needed to connect, retry, or change servers. Shared query and mutation state is provided by the `@ryot/client-sdk/react` provider surface rather than by kernel-only request state.
 - Ported the semantic light/dark token set and Outfit/Lora browser fonts without NativeWind, Expo aliases, or changes under `crates/**`.
 - Verified with `bun turbo --filter=@ryot/kernel-client check`, `bun turbo --filter=@ryot/kernel-client test`, `bun turbo --filter=@ryot/kernel-client build`, and the affected `e2e/src/api/kernel/system/health.test.ts` end-to-end suite only.

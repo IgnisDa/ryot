@@ -27,6 +27,45 @@ describe("createRyotClient", () => {
 		await expect(client.data.query(recipe)).resolves.toBe("decoded");
 	});
 
+	it("forwards query cancellation and preserves the caller abort reason", async () => {
+		const controller = new AbortController();
+		const reason = new DOMException("Caller canceled", "AbortError");
+		let receivedSignal: AbortSignal | undefined;
+		const client = createRyotClient({
+			query: (_document, signal) => {
+				receivedSignal = signal;
+				return new Promise((_resolve, reject) =>
+					signal?.addEventListener("abort", () => reject(signal.reason), { once: true }),
+				);
+			},
+		});
+		const recipe: PreparedRecipe<string> = { document, decode: () => Result.succeed("unused") };
+		const query = client.data.query(recipe, { signal: controller.signal });
+
+		controller.abort(reason);
+
+		expect(receivedSignal).toBe(controller.signal);
+		await expect(query).rejects.toBe(reason);
+	});
+
+	it("does not call the adapter for an already canceled query", async () => {
+		const controller = new AbortController();
+		const reason = new DOMException("Caller canceled", "AbortError");
+		let calls = 0;
+		controller.abort(reason);
+		const client = createRyotClient({
+			query: () => {
+				calls += 1;
+				return Promise.resolve({});
+			},
+		});
+
+		await expect(
+			client.data.query({ document, decode: Result.succeed }, { signal: controller.signal }),
+		).rejects.toBe(reason);
+		expect(calls).toBe(0);
+	});
+
 	it("rejects malformed query and operation results with stable reasons", async () => {
 		const client = createRyotClient({
 			query: () => Promise.resolve({}),
