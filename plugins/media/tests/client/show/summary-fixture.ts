@@ -35,6 +35,21 @@ export const showSummaryRow = {
 		{ type: "remote", purpose: "backdrop", url: "https://images.test/backdrop.jpg" },
 		{ type: "remote", purpose: "cover", url: "https://images.test/cover.jpg" },
 	],
+	watchProviders: [
+		{
+			link: null,
+			country: "GB",
+			providers: [{ image: null, name: "Netflix", offers: ["stream"] }],
+		},
+		{
+			country: "US",
+			link: "https://www.themoviedb.org/tv/1/watch?locale=US",
+			providers: [
+				{ name: "Netflix", offers: ["stream"], image: "https://images.test/netflix.jpg" },
+				{ image: null, name: "Apple TV", offers: ["rent", "buy"] },
+			],
+		},
+	],
 };
 
 const singleRow = (items: readonly unknown[]) =>
