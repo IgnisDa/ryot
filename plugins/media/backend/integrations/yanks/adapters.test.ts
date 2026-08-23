@@ -119,13 +119,18 @@ const runPlex = (routes: Record<string, Route>, syncOwnership = false) =>
 		),
 	);
 
+const podcastItem = (id: string) => ({
+	id,
+	media: { ebookFormat: null, metadata: { itunesId: "42", title: "Podcast" } },
+});
+
 const runAudiobookshelf = (routes: Record<string, Route>, syncOwnership = false) =>
 	Effect.runPromise(
 		runSandboxTestScript(
 			audiobookshelfDefinition,
 			{},
 			defineSandboxTestHost(audiobookshelfManifest, {
-				httpCall: httpCall(routes),
+				httpCall: httpCall({ "/api/me": { mediaProgress: [] }, ...routes }),
 				getCurrentIntegration: () =>
 					hostSuccess(
 						integrationRecord({
@@ -455,34 +460,32 @@ describe("Audiobookshelf yank", () => {
 		);
 	});
 
-	it("isolates podcast episode request failures and imports later episodes", async () => {
+	const podcastLibrary = {
+		libraries: [{ id: "podcasts", name: "Podcasts", mediaType: "podcast" }],
+	};
+
+	it("imports only the podcast episodes this account finished", async () => {
 		const result = await runAudiobookshelf({
-			"/api/items/pod1?expanded=1&include=progress&episode=bad": failure,
-			"/api/libraries": { libraries: [{ id: "podcasts", name: "Podcasts", mediaType: "podcast" }] },
-			"/api/items/pod1?expanded=1&include=progress&episode=good": {
-				userMediaProgress: { isFinished: true },
-			},
+			"/api/libraries": podcastLibrary,
+			"/api/libraries/podcasts/items?expanded=1": { results: [podcastItem("pod1")] },
 			"/api/items/pod1?expanded=1&include=progress": {
 				media: {
 					episodes: [
-						{ id: "bad", episodeNumber: 1 },
-						{ id: "good", episodeNumber: 2 },
+						{ id: "e1", episodeNumber: 1 },
+						{ id: "e2", episodeNumber: 2 },
+						{ id: "e3", episodeNumber: 3 },
 					],
 				},
 			},
-			"/api/libraries/podcasts/items?expanded=1": {
-				results: [
-					{
-						id: "pod1",
-						media: { ebookFormat: null, metadata: { itunesId: "42", title: "Podcast" } },
-					},
+			"/api/me": {
+				mediaProgress: [
+					{ episodeId: "e1", isFinished: false, libraryItemId: "pod1" },
+					{ episodeId: "e2", isFinished: true, libraryItemId: "pod1" },
+					{ episodeId: "e3", isFinished: true, libraryItemId: "pod2" },
 				],
 			},
 		});
-		expect(result.failures[0]).toMatchObject({
-			stage: "source_fetch",
-			message: "Failed to fetch Audiobookshelf podcast episode progress",
-		});
+		expect(result.failures).toEqual([]);
 		expect(result.entityGroups[0]).toMatchObject({
 			entityRef: { externalId: "42", providerSlug: "podcast.itunes" },
 			events: [{ unresolvedEpisode: { type: "podcast", episodeNumber: 2 } }],
@@ -491,20 +494,11 @@ describe("Audiobookshelf yank", () => {
 
 	it("reads podcast details whose episodes carry null numbering fields", async () => {
 		const result = await runAudiobookshelf({
-			"/api/libraries": { libraries: [{ id: "podcasts", name: "Podcasts", mediaType: "podcast" }] },
-			"/api/items/pod1?expanded=1&include=progress&episode=e1": {
-				userMediaProgress: { isFinished: true },
-			},
+			"/api/libraries": podcastLibrary,
+			"/api/libraries/podcasts/items?expanded=1": { results: [podcastItem("pod1")] },
+			"/api/me": { mediaProgress: [{ episodeId: "e1", isFinished: true, libraryItemId: "pod1" }] },
 			"/api/items/pod1?expanded=1&include=progress": {
 				media: { episodes: [{ id: "e1", index: null, episode: "", episodeNumber: 3 }] },
-			},
-			"/api/libraries/podcasts/items?expanded=1": {
-				results: [
-					{
-						id: "pod1",
-						media: { ebookFormat: null, metadata: { itunesId: "42", title: "Podcast" } },
-					},
-				],
 			},
 		});
 		expect(result.failures).toEqual([]);
@@ -514,33 +508,36 @@ describe("Audiobookshelf yank", () => {
 		});
 	});
 
-	it("treats null podcast episode progress as unfinished rather than a fetch failure", async () => {
+	it("leaves podcasts with nothing finished out of the result without failing them", async () => {
 		const result = await runAudiobookshelf({
-			"/api/items/pod1?expanded=1&include=progress&episode=e1": { userMediaProgress: null },
-			"/api/libraries": { libraries: [{ id: "podcasts", name: "Podcasts", mediaType: "podcast" }] },
-			"/api/items/pod1?expanded=1&include=progress&episode=e2": {
-				userMediaProgress: { isFinished: true },
+			"/api/libraries": podcastLibrary,
+			"/api/items/pod2?expanded=1&include=progress": { media: { episodes: [] } },
+			"/api/libraries/podcasts/items?expanded=1": {
+				results: [podcastItem("pod1"), podcastItem("pod2")],
 			},
 			"/api/items/pod1?expanded=1&include=progress": {
-				media: {
-					episodes: [
-						{ id: "e1", episodeNumber: 1 },
-						{ id: "e2", episodeNumber: 2 },
-					],
-				},
-			},
-			"/api/libraries/podcasts/items?expanded=1": {
-				results: [
-					{
-						id: "pod1",
-						media: { ebookFormat: null, metadata: { itunesId: "42", title: "Podcast" } },
-					},
-				],
+				media: { episodes: [{ id: "e1", episodeNumber: 1 }] },
 			},
 		});
 		expect(result.failures).toEqual([]);
-		expect(result.entityGroups[0]).toMatchObject({
-			events: [{ unresolvedEpisode: { type: "podcast", episodeNumber: 2 } }],
+		expect(result.entityGroups).toEqual([]);
+	});
+
+	it("records a failure when a finished podcast episode has no episode number", async () => {
+		const result = await runAudiobookshelf({
+			"/api/libraries": podcastLibrary,
+			"/api/libraries/podcasts/items?expanded=1": { results: [podcastItem("pod1")] },
+			"/api/me": { mediaProgress: [{ episodeId: "e1", isFinished: true, libraryItemId: "pod1" }] },
+			"/api/items/pod1?expanded=1&include=progress": {
+				media: { episodes: [{ id: "e1", index: null, episode: "", episodeNumber: null }] },
+			},
+		});
+		expect(result.entityGroups).toEqual([]);
+		expect(result.failures[0]).toMatchObject({
+			itemIndex: 0,
+			sourceIdentifier: "e1",
+			stage: "input_transformation",
+			message: "Audiobookshelf podcast episode is finished but has no episode number",
 		});
 	});
 });
