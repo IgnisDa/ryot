@@ -113,19 +113,19 @@ const catalogLayer = () => {
 	loader.rebuild([
 		pluginWithImportSources("zebra", [
 			{
-				inputSchema,
 				name: "Xi",
 				slug: "xi",
-				requiredPluginConfigKeys: [],
+				inputSchema,
 				description: "Xi export",
 				workflowSlug: "xi-import",
+				requiredPluginConfigKeys: [],
 			},
 		]),
 		pluginWithImportSources("apple", [
 			{
-				inputSchema,
 				slug: "nu",
 				name: "Nu",
+				inputSchema,
 				description: "Nu export",
 				workflowSlug: "nu-import",
 				requiredPluginConfigKeys: ["alphaAccessToken"],
@@ -247,7 +247,7 @@ it.effect(
 			yield* Deferred.succeed(release, undefined);
 
 			expect(yield* Fiber.join(fiber)).toMatchObject([
-				{ hasActiveWorkflow: true, source: { description: "Old source", slug: "gamma" } },
+				{ hasActiveWorkflow: true, source: { slug: "gamma", description: "Old source" } },
 			]);
 		}),
 );

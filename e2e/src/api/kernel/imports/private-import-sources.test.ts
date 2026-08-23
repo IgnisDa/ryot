@@ -58,8 +58,8 @@ describe("private import sources", () => {
 				installPrivateImportPlugin({
 					sourceSlug,
 					pluginSlug,
-					name: "First archive",
 					client: first.client,
+					name: "First archive",
 				}),
 				({ pluginSlug: slug }) => releasePrivatePlugin(first.client, slug),
 			);
@@ -79,8 +79,8 @@ describe("private import sources", () => {
 			const secondSources = (yield* second.client.call((c) => c.imports.listSources())).filter(
 				({ slug }) => slug === sourceSlug,
 			);
-			expect(firstSources).toMatchObject([{ name: "First archive", pluginSlug }]);
-			expect(secondSources).toMatchObject([{ name: "Second archive", pluginSlug }]);
+			expect(firstSources).toMatchObject([{ pluginSlug, name: "First archive" }]);
+			expect(secondSources).toMatchObject([{ pluginSlug, name: "Second archive" }]);
 
 			const firstRun = yield* first.client.call((c) =>
 				c.imports.createRun({ payload: { source: sourceSlug } }),
@@ -90,12 +90,12 @@ describe("private import sources", () => {
 			);
 
 			expect(yield* pollImportRunUntilTerminal(first.client, firstRun.id)).toMatchObject({
-				status: "completed",
 				source: sourceSlug,
+				status: "completed",
 			});
 			expect(yield* pollImportRunUntilTerminal(second.client, secondRun.id)).toMatchObject({
-				status: "completed",
 				source: sourceSlug,
+				status: "completed",
 			});
 		}),
 	);

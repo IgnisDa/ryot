@@ -45,9 +45,9 @@ export const ARCHIVE_SECTION_PATHS = [
 export type ArchiveSectionPath = (typeof ARCHIVE_SECTION_PATHS)[number];
 
 export const ArchiveSectionManifest = strictStruct({
-	path: Schema.Literals(ARCHIVE_SECTION_PATHS),
-	count: nonNegativeInteger,
 	sha256,
+	count: nonNegativeInteger,
+	path: Schema.Literals(ARCHIVE_SECTION_PATHS),
 });
 export type ArchiveSectionManifest = typeof ArchiveSectionManifest.Type;
 
@@ -73,9 +73,9 @@ export const ArchiveManifest = strictStruct({
 	archiveId: Schema.String,
 	appVersion: Schema.String,
 	version: Schema.Literal(1),
-	assets: Schema.Array(ArchiveAssetManifest),
-	redactions: Schema.Array(Schema.String),
 	format: Schema.Literal("ryot-backup"),
+	redactions: Schema.Array(Schema.String),
+	assets: Schema.Array(ArchiveAssetManifest),
 	sections: Schema.Array(ArchiveSectionManifest),
 	requiredPlugins: Schema.Array(ArchiveRequiredPlugin),
 });
@@ -105,8 +105,8 @@ export const ArchiveInstallation = strictStruct({
 	updatedAt: isoTimestamp,
 	sortOrder: Schema.Finite,
 	packageKey: Schema.String,
-	homeSavedViewId: Schema.NullOr(Schema.String),
 	disabledIntent: Schema.Boolean,
+	homeSavedViewId: Schema.NullOr(Schema.String),
 	configuredSecretPaths: Schema.Array(Schema.String),
 	lifecycleIntent: Schema.Literals(["ready", "needs-configuration", "disabled"]),
 });
@@ -182,8 +182,8 @@ export const ArchiveEntityDependency = strictStruct({
 	entitySchemaSlug: Schema.String,
 	externalId: Schema.NullOr(Schema.String),
 	populatedAt: Schema.NullOr(isoTimestamp),
-	translations: Schema.Array(ArchiveEntityTranslation),
 	entitySchemaPluginKey: Schema.NullOr(Schema.String),
+	translations: Schema.Array(ArchiveEntityTranslation),
 });
 export type ArchiveEntityDependency = typeof ArchiveEntityDependency.Type;
 
@@ -225,11 +225,11 @@ const savedViewFields = {
 	dataSources: Schema.NullOr(RyotQLDocument),
 	settings: Schema.Record(Schema.String, jsonValueSchema),
 	renderer: Schema.Union([
-		strictStruct({ kind: Schema.Literal("custom"), rendererId: Schema.String }),
+		strictStruct({ rendererId: Schema.String, kind: Schema.Literal("custom") }),
 		strictStruct({ kind: Schema.Literal("kernel"), name: KernelSavedViewRendererName }),
 		strictStruct({
-			exportName: Schema.String,
 			pluginKey: Schema.String,
+			exportName: Schema.String,
 			kind: Schema.Literal("plugin"),
 		}),
 	]),

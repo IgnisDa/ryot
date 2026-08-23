@@ -5,7 +5,7 @@ import { assert, describe, expect, it } from "vitest";
 import { providerEntityLinksRecipe } from "./provider-entity-links";
 import { rowsResponse } from "./test-utils";
 
-const pageInfo = { hasMore: false, limit: 2, nextCursor: null };
+const pageInfo = { limit: 2, hasMore: false, nextCursor: null };
 const recipe = providerEntityLinksRecipe({
 	externalIds: ["external-1", "external-2"],
 	entitySchemaSlug: EntitySchemaSlug.make("book"),
@@ -34,8 +34,8 @@ describe("provider entity links recipe", () => {
 			Result.getOrThrow(
 				recipe.decode(
 					responseWithItems([
-						{ externalId: "external-1", entityId: "entity-1" },
-						{ externalId: "external-2", entityId: "entity-2" },
+						{ entityId: "entity-1", externalId: "external-1" },
+						{ entityId: "entity-2", externalId: "external-2" },
 					]),
 				),
 			),

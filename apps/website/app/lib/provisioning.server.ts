@@ -36,7 +36,7 @@ async function getCloudAuthDetails(
 	oidcIssuerId: string | null,
 ): Promise<CloudAuthDetails> {
 	if (oidcIssuerId) {
-		return { provider: "google", email };
+		return { email, provider: "google" };
 	}
 
 	const reset = await resetUserPassword(UserId.make(userId));
@@ -61,13 +61,13 @@ async function handleCloudPurchase(
 
 	const provisioned = await provisionUser(
 		oidcIssuerId
-			? { provider: "oidc", email, name: email, oidcIssuerId }
-			: { provider: "credential", email, name: email },
+			? { email, name: email, oidcIssuerId, provider: "oidc" }
+			: { email, name: email, provider: "credential" },
 	);
 
 	const auth = await getCloudAuthDetails(provisioned.userId, email, oidcIssuerId);
 
-	return { unkeyKeyId: null, details: { auth, kind: "cloud" }, ryotUserId: provisioned.userId };
+	return { unkeyKeyId: null, ryotUserId: provisioned.userId, details: { auth, kind: "cloud" } };
 }
 
 async function handleSelfHostedPurchase(
@@ -114,7 +114,7 @@ export async function provisionNewPurchase(
 	paymentProviderCustomerId: string,
 	providerIdentity: PaymentProviderIdentity,
 ) {
-	const { ryotUserId, unkeyKeyId, details } =
+	const { details, ryotUserId, unkeyKeyId } =
 		productType === "cloud"
 			? await handleCloudPurchase(customer)
 			: await handleSelfHostedPurchase(customer, planType);
@@ -211,7 +211,7 @@ export async function provisionRenewal(
 export async function revokePurchase(customer: Customer) {
 	await getDb()
 		.update(customerPurchases)
-		.set({ cancelledOn: new Date(), updatedOn: new Date() })
+		.set({ updatedOn: new Date(), cancelledOn: new Date() })
 		.where(
 			and(eq(customerPurchases.customerId, customer.id), isNull(customerPurchases.cancelledOn)),
 		);
@@ -245,8 +245,8 @@ export async function handlePurchaseOrRenewal(
 		console.log("Customer purchased plan:", {
 			planType,
 			productType,
-			paymentProviderCustomerId,
 			providerIdentity,
+			paymentProviderCustomerId,
 		});
 		await provisionNewPurchase(
 			customer,

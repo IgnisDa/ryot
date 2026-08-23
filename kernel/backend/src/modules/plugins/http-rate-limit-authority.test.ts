@@ -15,7 +15,7 @@ const manifest = (slug: string, key: string, origin: string) => {
 	return {
 		...value,
 		metadata: { ...value.metadata, slug },
-		httpRateLimits: [{ key, origins: [origin], requests: 5, intervalMs: 1_000 }],
+		httpRateLimits: [{ key, requests: 5, origins: [origin], intervalMs: 1_000 }],
 	};
 };
 

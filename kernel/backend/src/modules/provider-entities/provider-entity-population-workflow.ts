@@ -107,8 +107,8 @@ const checkExistingEntity = Effect.fn("checkExistingEntity")(function* (
 	}
 
 	return yield* Activity.make({
-		error: SandboxRunError satisfies DurableSchema,
 		name: "check-existing-entity",
+		error: SandboxRunError satisfies DurableSchema,
 		success: Schema.NullOr(ListedEntity) satisfies DurableSchema,
 		execute: repository
 			.findEntityByExternalId({
@@ -124,9 +124,9 @@ const checkExistingEntity = Effect.fn("checkExistingEntity")(function* (
 
 const validateEntityDetails = Effect.fn("validateEntityDetails")(function* (value: unknown) {
 	return yield* Activity.make({
+		name: "validate-entity-details",
 		error: SandboxRunError satisfies DurableSchema,
 		success: ValidatedEntityDetails satisfies DurableSchema,
-		name: "validate-entity-details",
 		execute: Effect.gen(function* () {
 			const details = yield* decodeProviderDetailsResult(value).pipe(
 				Effect.mapError(
@@ -162,8 +162,8 @@ const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 	const scope = getEntityWriteScope(payload);
 
 	return yield* Activity.make({
-		error: SandboxRunError satisfies DurableSchema,
 		name: "upsert-root-entity",
+		error: SandboxRunError satisfies DurableSchema,
 		success: ProviderEntitySaveEnvelope satisfies DurableSchema,
 		// A brand-new or not-yet-populated entity is written with a null populatedAt so
 		// children can reference it before the final stamp activity; refresh preserves an
@@ -228,8 +228,8 @@ const writeChildEntitySetScope = Effect.fn("writeChildEntitySetScope")(function*
 	const entityScope = getEntityWriteScope(payload);
 	return yield* Activity.make({
 		error: SandboxRunError satisfies DurableSchema,
-		success: ChildEntitySetWriteResult satisfies DurableSchema,
 		name: `write-child-entity-set:${scope.parentExternalId}`,
+		success: ChildEntitySetWriteResult satisfies DurableSchema,
 		execute: mapDatabaseErrors(
 			database.transaction((transaction) =>
 				writeChildEntitySet({
@@ -256,8 +256,8 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 	const scope = getEntityWriteScope(payload);
 
 	return yield* Activity.make({
-		error: SandboxRunError satisfies DurableSchema,
 		name: "stamp-root-populated-at",
+		error: SandboxRunError satisfies DurableSchema,
 		success: ProviderEntitySaveEnvelope satisfies DurableSchema,
 		execute: mapDatabaseErrors(
 			database.transaction((transaction) =>
@@ -286,8 +286,8 @@ const publishPrimaryEntity = Effect.fn("publishProviderPrimaryEntity")(function*
 	const redis = yield* RedisService;
 
 	yield* Activity.make({
-		error: SandboxRunError satisfies DurableSchema,
 		name: "publish-primary-entity",
+		error: SandboxRunError satisfies DurableSchema,
 		execute: redis
 			.publish(redisKeys.entityUpdatedChannel, encodeEntityUpdatedMessage(entity.id, "populated"))
 			.pipe(
@@ -318,8 +318,8 @@ const toLifecycleRelationshipSnapshot = (snapshot: RelationshipMutationSnapshot)
 	id: snapshot.id,
 	source: snapshot.sourceEntity,
 	target: snapshot.targetEntity,
-	relationshipSchemaSlug: snapshot.relationshipSchemaSlug,
 	properties: asRecord(snapshot.properties) ?? {},
+	relationshipSchemaSlug: snapshot.relationshipSchemaSlug,
 });
 
 const deterministicId = (prefix: string, parts: ReadonlyArray<string>) =>
@@ -354,8 +354,8 @@ const dispatchEntityMutation = Effect.fn("dispatchProviderEntityMutation")(funct
 	const outcome = input.result.outcome;
 	yield* lifecycleDispatch
 		.dispatch({
-			rowUserId: input.rowUserId,
 			origin: input.origin,
+			rowUserId: input.rowUserId,
 			operation: outcome.operation,
 			population: input.population,
 			occurredAt: input.committedAt,
@@ -421,11 +421,11 @@ const dispatchRelationshipSync = Effect.fn("dispatchProviderRelationshipSync")(f
 		yield* lifecycleDispatch
 			.dispatch({
 				occurrenceId,
-				rowUserId: input.rowUserId,
 				origin: input.origin,
+				recordId: snapshot.id,
+				rowUserId: input.rowUserId,
 				operation: outcome.operation,
 				occurredAt: input.committedAt,
-				recordId: snapshot.id,
 				population: {
 					...input.population,
 					batch: { ...batch, isLeader: relationshipMutationIdentity(outcome) === leaderIdentity },
@@ -458,12 +458,12 @@ const writeChildEntityScopes = Effect.fn("writeChildEntityScopes")(function* (
 		const rowUserId = payload.entityScope.type === "user" ? payload.entityScope.userId : null;
 		const parentEntity = {
 			name: scope.parentName,
-			properties: toSandboxJsonObject(scope.parentProperties),
 			entitySchemaSlug: scope.parentEntitySchemaSlug,
+			properties: toSandboxJsonObject(scope.parentProperties),
 		};
 		yield* dispatchRelationshipSync({
-			executionId,
 			rowUserId,
+			executionId,
 			direction: "outgoing",
 			origin: payload.origin,
 			committedAt: processed.committedAt,
@@ -477,8 +477,8 @@ const writeChildEntityScopes = Effect.fn("writeChildEntityScopes")(function* (
 				continue;
 			}
 			yield* dispatchEntityMutation({
-				executionId,
 				rowUserId,
+				executionId,
 				origin: payload.origin,
 				committedAt: processed.committedAt,
 				phase: `children:${scope.parentExternalId}`,
@@ -524,8 +524,8 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 		entitySchemaSlug: rootSave.result.outcome.after.entitySchemaSlug,
 	};
 	yield* dispatchEntityMutation({
-		executionId,
 		rowUserId,
+		executionId,
 		phase: "root-upsert",
 		origin: payload.origin,
 		result: rootSave.result,
@@ -535,8 +535,8 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 	for (const [index, group] of details.relatedEntityGroups.entries()) {
 		const synced = yield* syncRelatedEntityGroupScope(payload, definitions, entity, group, index);
 		yield* dispatchRelationshipSync({
-			executionId,
 			rowUserId,
+			executionId,
 			origin: payload.origin,
 			anchorEntityId: entity.id,
 			outcomes: synced.outcomes,
@@ -566,8 +566,8 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 	);
 	const stamped = yield* stampRootPopulatedAt(payload, details);
 	yield* dispatchEntityMutation({
-		executionId,
 		rowUserId,
+		executionId,
 		phase: "root-stamp",
 		origin: payload.origin,
 		result: stamped.result,
@@ -580,8 +580,8 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 
 export const ProviderEntityPopulationPayload = Schema.Struct({
 	...entityImportPayloadFields,
-	mode: Schema.Literals(["ensure", "refresh"]),
 	entityScope: EntityImportScope,
+	mode: Schema.Literals(["ensure", "refresh"]),
 });
 
 export type ProviderEntityPopulationPayload = typeof ProviderEntityPopulationPayload.Type;
@@ -589,8 +589,8 @@ export type ProviderEntityPopulationPayload = typeof ProviderEntityPopulationPay
 export const ProviderEntityPopulationWorkflow = Workflow.make("ProviderEntityPopulationWorkflow", {
 	success: ListedEntity satisfies DurableSchema,
 	error: SandboxRunError satisfies DurableSchema,
-	payload: ProviderEntityPopulationPayload satisfies DurableSchema,
 	idempotencyKey: ({ executionId }) => executionId,
+	payload: ProviderEntityPopulationPayload satisfies DurableSchema,
 });
 
 // Exported for unit testing only. Production callers must dispatch

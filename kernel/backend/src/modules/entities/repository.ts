@@ -122,7 +122,7 @@ const toPortableEntity = (
 		provider:
 			pluginSlug === null || providerSlug === null || providerPluginId === null
 				? null
-				: { pluginId: providerPluginId, pluginSlug, providerSlug },
+				: { pluginSlug, providerSlug, pluginId: providerPluginId },
 	};
 };
 
@@ -304,8 +304,8 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 							isBuiltin: true,
 							slug: definition.slug,
 							pluginId: definition.pluginId,
-							propertiesSchema: definition.propertiesSchema,
 							id: EntitySchemaSlug.make(definition.slug),
+							propertiesSchema: definition.propertiesSchema,
 						}
 					: null;
 				return scope;
@@ -352,12 +352,12 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 								}
 								const pluginId = definition.pluginId ?? null;
 								return [
-									[`${entitySchemaSlug}:${pluginId ?? "kernel"}`, { entitySchemaSlug, pluginId }],
+									[`${entitySchemaSlug}:${pluginId ?? "kernel"}`, { pluginId, entitySchemaSlug }],
 								];
 							}),
 						).values(),
 					].sort((left, right) => left.entitySchemaSlug.localeCompare(right.entitySchemaSlug));
-					for (const { entitySchemaSlug, pluginId } of scopes) {
+					for (const { pluginId, entitySchemaSlug } of scopes) {
 						yield* mapDatabaseErrors(
 							db.execute(
 								sql`select pg_advisory_xact_lock(hashtext(${`user-entity:ensure:${input.userId}:${entitySchemaSlug}:${pluginId ?? "kernel"}`}))`,
@@ -681,7 +681,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 						if (!row) {
 							return yield* new DbError({ message: "Global entity insert returned no row" });
 						}
-						return { entity: toListedEntity(row), wasInserted: true };
+						return { wasInserted: true, entity: toListedEntity(row) };
 					}
 
 					const inserted = yield* mapDatabaseErrors(
@@ -693,7 +693,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					);
 
 					if (inserted[0]) {
-						return { entity: toListedEntity(inserted[0]), wasInserted: true };
+						return { wasInserted: true, entity: toListedEntity(inserted[0]) };
 					}
 
 					const [existing] = yield* mapDatabaseErrors(
@@ -717,7 +717,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 						return yield* new DbError({ message: "Global entity insert conflict but not found" });
 					}
 
-					return { entity: toListedEntity(existing), wasInserted: false };
+					return { wasInserted: false, entity: toListedEntity(existing) };
 				}
 
 				const externalId = input.externalId;
@@ -744,7 +744,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 
 					const created = rows[0];
 					if (created) {
-						return { entity: toListedEntity(created), wasInserted: true };
+						return { wasInserted: true, entity: toListedEntity(created) };
 					}
 
 					const [row] = yield* mapDatabaseErrors(
@@ -781,7 +781,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					return yield* new DbError({ message: "Entity insert returned no row" });
 				}
 
-				return { entity: toListedEntity(row), wasInserted: true };
+				return { wasInserted: true, entity: toListedEntity(row) };
 			});
 
 			const updateEntity = Effect.fn("EntitiesRepository.updateEntity")(function* (

@@ -53,7 +53,7 @@ it.effect("rejects duplicate boot slugs and unknown scripts", () => {
 
 it.effect("applies system and user manifest policy", () =>
 	Effect.gen(function* () {
-		const script = { ...requireFixtureScript(), kind: "script" as const, slug: "fixture.script" };
+		const script = { ...requireFixtureScript(), slug: "fixture.script", kind: "script" as const };
 		const allowed = {
 			...fixtureManifest(),
 			scripts: [...fixtureManifest().scripts, script],
@@ -71,9 +71,9 @@ it.effect("applies system and user manifest policy", () =>
 			{
 				...allowed,
 				boot: bootManifest().boot,
-				userBootstrap: [{ slug: "seed", scriptSlug: script.slug, description: "Seed" }],
+				userBootstrap: [{ slug: "seed", description: "Seed", scriptSlug: script.slug }],
 				httpRateLimits: [
-					{ key: "outbound", requests: 1, intervalMs: 1_000, origins: ["https://example.com"] },
+					{ requests: 1, key: "outbound", intervalMs: 1_000, origins: ["https://example.com"] },
 				],
 			},
 			{ scope: "system" },
@@ -84,7 +84,7 @@ it.effect("applies system and user manifest policy", () =>
 				{
 					...allowed,
 					boot: bootManifest().boot,
-					userBootstrap: [{ slug: "seed", scriptSlug: script.slug, description: "Seed" }],
+					userBootstrap: [{ slug: "seed", description: "Seed", scriptSlug: script.slug }],
 					httpRateLimits: [
 						{ requests: 1, key: "outbound", intervalMs: 1_000, origins: ["https://example.com"] },
 					],

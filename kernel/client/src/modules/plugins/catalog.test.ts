@@ -71,7 +71,7 @@ describe("plugin catalog service", () => {
 				installations: {
 					items: [entry],
 					type: "rows" as const,
-					pageInfo: { hasMore: true, limit: 100, nextCursor: "next-page" },
+					pageInfo: { limit: 100, hasMore: true, nextCursor: "next-page" },
 				},
 			},
 		};
@@ -80,11 +80,11 @@ describe("plugin catalog service", () => {
 				installations: {
 					items: [nextEntry],
 					type: "rows" as const,
-					pageInfo: { hasMore: false, limit: 100, nextCursor: null },
+					pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 				},
 			},
 		};
-		const { calls, runtime, ryot } = makeCatalogRuntime([first, second]);
+		const { ryot, calls, runtime } = makeCatalogRuntime([first, second]);
 
 		try {
 			const catalog = await runtime.runPromise(
@@ -99,7 +99,7 @@ describe("plugin catalog service", () => {
 				from: { alias: "installation", table: "pluginInstallation" },
 			});
 			expect(calls[1]?.payload.queries.installations).toMatchObject({
-				output: { pagination: { after: "next-page", limit: 100 } },
+				output: { pagination: { limit: 100, after: "next-page" } },
 			});
 		} finally {
 			await runtime.dispose();
@@ -113,7 +113,7 @@ describe("plugin catalog service", () => {
 				installations: {
 					items: [entry],
 					type: "rows" as const,
-					pageInfo: { hasMore: false, limit: 100, nextCursor: null },
+					pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 				},
 			},
 		};
@@ -146,11 +146,11 @@ describe("plugin catalog service", () => {
 				installations: {
 					items: [entry],
 					type: "rows" as const,
-					pageInfo: { hasMore: true, limit: 100, nextCursor: null },
+					pageInfo: { limit: 100, hasMore: true, nextCursor: null },
 				},
 			},
 		};
-		const { runtime, ryot } = makeCatalogRuntime([response]);
+		const { ryot, runtime } = makeCatalogRuntime([response]);
 
 		try {
 			await expect(

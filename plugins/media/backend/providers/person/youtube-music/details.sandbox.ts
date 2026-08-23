@@ -7,11 +7,11 @@ import { buildArtistDetails } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	name: "YouTube Music artist details",
-	slug: "person.youtube-music.details",
+	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	capabilities: ["httpCall"],
+	name: "YouTube Music artist details",
+	slug: "person.youtube-music.details",
 });
 
 export default defineProvider({

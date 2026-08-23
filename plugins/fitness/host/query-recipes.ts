@@ -52,9 +52,9 @@ const propertyNumber = (entity: Table, path: string) =>
 
 const workoutSelection = (entity: Table) => ({
 	...entityIdentitySelection(entity),
-	startedAt: selectedField(propertyDate(entity, "startedAt"), Schema.NullOr(Schema.String)),
-	endedAt: selectedField(propertyDate(entity, "endedAt"), Schema.NullOr(Schema.String)),
 	comment: selectedField(property(entity, "comment"), Schema.NullOr(Schema.String)),
+	endedAt: selectedField(propertyDate(entity, "endedAt"), Schema.NullOr(Schema.String)),
+	startedAt: selectedField(propertyDate(entity, "startedAt"), Schema.NullOr(Schema.String)),
 	caloriesBurnt: selectedField(
 		propertyNumber(entity, "caloriesBurnt"),
 		Schema.NullOr(Schema.Number),
@@ -112,25 +112,25 @@ export const exerciseListRecipe = defineRecipe(
 	}) => {
 		const entity = table("entity", "entity");
 		return {
+			map: ({ exercises }) => Result.succeed(exercises),
 			queries: {
 				exercises: selectedRows(entity, {
 					after: input.after,
 					limit: input.limit,
-					where: entityWhere(entity, "exercise", input),
 					orderBy: [ascending(column(entity, "name"))],
+					where: entityWhere(entity, "exercise", input),
 					selection: {
 						...entityIdentitySelection(entity),
+						kind: selectedField(property(entity, "kind"), Schema.NullOr(Schema.String)),
+						level: selectedField(property(entity, "level"), Schema.NullOr(Schema.String)),
+						equipment: selectedField(property(entity, "equipment"), Schema.NullOr(Schema.String)),
 						image: selectedField(
 							jsonPath(column(entity, "properties"), "images", 0),
 							Schema.NullOr(JsonValue),
 						),
-						level: selectedField(property(entity, "level"), Schema.NullOr(Schema.String)),
-						kind: selectedField(property(entity, "kind"), Schema.NullOr(Schema.String)),
-						equipment: selectedField(property(entity, "equipment"), Schema.NullOr(Schema.String)),
 					},
 				}),
 			},
-			map: ({ exercises }) => Result.succeed(exercises),
 		};
 	},
 );
@@ -143,6 +143,7 @@ export const workoutListRecipe = defineRecipe(
 	}) => {
 		const entity = table("entity", "entity");
 		return {
+			map: ({ workouts }) => Result.succeed(workouts),
 			queries: {
 				workouts: selectedRows(entity, {
 					after: input.after,
@@ -152,7 +153,6 @@ export const workoutListRecipe = defineRecipe(
 					orderBy: [ascending(column(entity, "name"))],
 				}),
 			},
-			map: ({ workouts }) => Result.succeed(workouts),
 		};
 	},
 );
@@ -165,23 +165,23 @@ export const measurementListRecipe = defineRecipe(
 	}) => {
 		const entity = table("entity", "entity");
 		return {
+			map: ({ measurements }) => Result.succeed(measurements),
 			queries: {
 				measurements: selectedRows(entity, {
 					after: input.after,
 					limit: input.limit,
-					where: entityWhere(entity, "measurement", input),
 					orderBy: [ascending(column(entity, "name"))],
+					where: entityWhere(entity, "measurement", input),
 					selection: {
 						...entityIdentitySelection(entity),
+						comment: selectedField(property(entity, "comment"), Schema.NullOr(Schema.String)),
 						recordedAt: selectedField(
 							propertyDate(entity, "recordedAt"),
 							Schema.NullOr(Schema.String),
 						),
-						comment: selectedField(property(entity, "comment"), Schema.NullOr(Schema.String)),
 					},
 				}),
 			},
-			map: ({ measurements }) => Result.succeed(measurements),
 		};
 	},
 );
@@ -194,16 +194,16 @@ export const workoutTemplateListRecipe = defineRecipe(
 	}) => {
 		const entity = table("entity", "entity");
 		return {
+			map: ({ workoutTemplates }) => Result.succeed(workoutTemplates),
 			queries: {
 				workoutTemplates: selectedRows(entity, {
 					after: input.after,
 					limit: input.limit,
 					selection: workoutTemplateSelection(entity),
-					where: entityWhere(entity, "workout-template", input),
 					orderBy: [descending(column(entity, "createdAt"))],
+					where: entityWhere(entity, "workout-template", input),
 				}),
 			},
-			map: ({ workoutTemplates }) => Result.succeed(workoutTemplates),
 		};
 	},
 );
@@ -212,15 +212,15 @@ export const workoutDetailRecipe = defineRecipe(
 	(input: { entityId: string; templateLimit: number }) => {
 		const entity = table("entity", "entity");
 		return {
+			map: ({ workout }) => Result.succeed(workout ?? null),
 			queries: {
 				workout: selectedOptionalRow(entity, {
 					selection: workoutSelection(entity),
-					where: entityWhere(entity, "workout", input),
 					orderBy: [ascending(column(entity, "id"))],
+					where: entityWhere(entity, "workout", input),
 					include: { template: workoutTemplateInclude(entity, input.templateLimit) },
 				}),
 			},
-			map: ({ workout }) => Result.succeed(workout ?? null),
 		};
 	},
 );
@@ -229,15 +229,15 @@ export const workoutTemplateDetailRecipe = defineRecipe(
 	(input: { entityId: string; workoutLimit: number }) => {
 		const entity = table("entity", "entity");
 		return {
+			map: ({ workoutTemplate }) => Result.succeed(workoutTemplate ?? null),
 			queries: {
 				workoutTemplate: selectedOptionalRow(entity, {
+					orderBy: [ascending(column(entity, "id"))],
 					selection: workoutTemplateSelection(entity),
 					where: entityWhere(entity, "workout-template", input),
-					orderBy: [ascending(column(entity, "id"))],
 					include: { workouts: workoutInclude(entity, input.workoutLimit) },
 				}),
 			},
-			map: ({ workoutTemplate }) => Result.succeed(workoutTemplate ?? null),
 		};
 	},
 );

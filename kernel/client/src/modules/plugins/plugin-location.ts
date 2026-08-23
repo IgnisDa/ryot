@@ -51,7 +51,7 @@ export function validatePluginLocation(location: PluginRouteLocation) {
 	if (path.split("/").some((segment) => dotSegment.test(segment))) {
 		return undefined;
 	}
-	return { kind: "route", path, search: location.search } satisfies PluginRouteLocation;
+	return { path, kind: "route", search: location.search } satisfies PluginRouteLocation;
 }
 
 export function toNavigationRequest(

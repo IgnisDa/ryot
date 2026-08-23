@@ -104,7 +104,7 @@ function ShowSeasonHeader(props: {
 						)}
 					>
 						{showSeasonLabel(season)}
-						{isTitleProvisional(season) && <SyncPip reason="translating" className="ml-1.5" />}
+						{isTitleProvisional(season) && <SyncPip className="ml-1.5" reason="translating" />}
 					</p>
 					{meta === "" ? null : <p className="font-ui text-[12px] text-text-subtle">{meta}</p>}
 				</div>
@@ -150,7 +150,7 @@ function ShowEpisodeRow(props: {
 					</span>
 					<span className="line-clamp-1 min-w-0 flex-1 font-ui font-medium text-[14px] text-text">
 						{episode.name}
-						{isTitleProvisional(episode) && <SyncPip reason="translating" className="ml-1.5" />}
+						{isTitleProvisional(episode) && <SyncPip className="ml-1.5" reason="translating" />}
 					</span>
 					{lifecycle === undefined ? null : (
 						<span
@@ -260,7 +260,7 @@ function ShowSeasonBrowser(props: {
 				compact={props.compact}
 				episodesState={props.seasonEpisodes}
 			/>
-			{nextUp === undefined ? null : <ShowNextUp compact={props.compact} episode={nextUp} />}
+			{nextUp === undefined ? null : <ShowNextUp episode={nextUp} compact={props.compact} />}
 			<ShowSeasonEpisodesList
 				compact={props.compact}
 				state={props.seasonEpisodes}
@@ -355,7 +355,7 @@ export function ShowEpisodesTab(props: { readonly compact: boolean; readonly ent
 		return body({ status: "loading" }, () => undefined);
 	}
 	return (
-		<ShowSeasonEpisodesLoader entityId={props.entityId} seasonId={seasonId}>
+		<ShowSeasonEpisodesLoader seasonId={seasonId} entityId={props.entityId}>
 			{body}
 		</ShowSeasonEpisodesLoader>
 	);

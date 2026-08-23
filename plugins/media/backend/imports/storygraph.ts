@@ -22,7 +22,7 @@ import {
 import type { MediaImportAdapterFailure } from "./schemas";
 
 export const adaptStorygraphCsv = (csvText: string) => {
-	const { headers, rows } = parseCsvText(csvText);
+	const { rows, headers } = parseCsvText(csvText);
 	assertRequiredHeaders(headers, ["Title", "ISBN/UID", "Read Status"], "StoryGraph");
 	const failures: MediaImportAdapterFailure[] = [];
 	const groupMap = new Map<string, ImportMediaEntityGroupBuilder>();
@@ -64,10 +64,10 @@ export const adaptStorygraphCsv = (csvText: string) => {
 		const occurredAt = completedOn ?? nowIso();
 		const readCount = normalizeReadCount(row["Read Count"] ?? "");
 		for (let index = 0; index < readCount; index++) {
-			group.events.push(createCompleteEvent({ completedOn, occurredAt }));
+			group.events.push(createCompleteEvent({ occurredAt, completedOn }));
 		}
 		if (lifecycleStatus === "complete" && readCount === 0) {
-			group.events.push(createCompleteEvent({ completedOn, occurredAt }));
+			group.events.push(createCompleteEvent({ occurredAt, completedOn }));
 		} else if (lifecycleStatus === "progress") {
 			group.events.push(createProgressEvent(occurredAt));
 		} else if (lifecycleStatus === "backlog") {
@@ -78,8 +78,8 @@ export const adaptStorygraphCsv = (csvText: string) => {
 			group.events.push(createOnHoldEvent({ occurredAt }));
 		}
 		const review = createReviewEvent({
-			text: row["Review"] ?? "",
 			occurredAt,
+			text: row["Review"] ?? "",
 			rating: normalizeRating(row["Star Rating"] ?? ""),
 		});
 		if (review) {
@@ -92,8 +92,8 @@ export const adaptStorygraphCsv = (csvText: string) => {
 		}
 	}
 	return {
+		failures,
 		totalItems: rows.length,
 		entityGroups: finalizeEntityGroups(groupMap.values()),
-		failures,
 	};
 };

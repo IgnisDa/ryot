@@ -36,12 +36,12 @@ const runWithOperations = (operations: UserLifecycleWorkflowOperations["Service"
 it.effect("deletes database ownership only after physical cleanup", () => {
 	const calls: string[] = [];
 	const layer = runWithOperations({
-		begin: () => Effect.sync(() => (calls.push("begin"), "delete" as const)),
-		cleanupObjects: () => Effect.sync(() => void calls.push("objects")),
-		deleteDatabaseUser: () => Effect.sync(() => void calls.push("database")),
 		recreateResetUser: () => Effect.die("unused"),
-		complete: () => Effect.sync(() => void calls.push("complete")),
 		fail: () => Effect.sync(() => void calls.push("fail")),
+		complete: () => Effect.sync(() => void calls.push("complete")),
+		cleanupObjects: () => Effect.sync(() => void calls.push("objects")),
+		begin: () => Effect.sync(() => (calls.push("begin"), "delete" as const)),
+		deleteDatabaseUser: () => Effect.sync(() => void calls.push("database")),
 	});
 
 	return Effect.gen(function* () {
@@ -54,17 +54,17 @@ it.effect("retries partial object cleanup before deleting the user", () => {
 	const calls: string[] = [];
 	let cleanupAttempts = 0;
 	const layer = runWithOperations({
+		recreateResetUser: () => Effect.die("unused"),
 		begin: () => Effect.succeed("delete" as const),
+		fail: () => Effect.sync(() => void calls.push("fail")),
+		complete: () => Effect.sync(() => void calls.push("complete")),
+		deleteDatabaseUser: () => Effect.sync(() => void calls.push("database")),
 		cleanupObjects: () =>
 			Effect.suspend(() => {
 				cleanupAttempts += 1;
 				calls.push(`objects-${cleanupAttempts}`);
 				return cleanupAttempts === 1 ? Effect.fail(internalError("s3 unavailable")) : Effect.void;
 			}),
-		deleteDatabaseUser: () => Effect.sync(() => void calls.push("database")),
-		recreateResetUser: () => Effect.die("unused"),
-		complete: () => Effect.sync(() => void calls.push("complete")),
-		fail: () => Effect.sync(() => void calls.push("fail")),
 	});
 
 	return Effect.gen(function* () {
@@ -76,11 +76,11 @@ it.effect("retries partial object cleanup before deleting the user", () => {
 it.effect("persists a safe stage failure instead of the internal cause", () => {
 	let persisted: unknown;
 	const layer = runWithOperations({
-		begin: () => Effect.fail(internalError("database password leaked")),
-		cleanupObjects: () => Effect.die("unused"),
-		deleteDatabaseUser: () => Effect.die("unused"),
-		recreateResetUser: () => Effect.die("unused"),
 		complete: () => Effect.die("unused"),
+		cleanupObjects: () => Effect.die("unused"),
+		recreateResetUser: () => Effect.die("unused"),
+		deleteDatabaseUser: () => Effect.die("unused"),
+		begin: () => Effect.fail(internalError("database password leaked")),
 		fail: (_operationId, failure) => Effect.sync(() => void (persisted = failure)),
 	});
 
@@ -93,8 +93,9 @@ it.effect("persists a safe stage failure instead of the internal cause", () => {
 
 it.effect("recreates the same reset identity after cleanup", () => {
 	const calls: string[] = [];
-	const result = { userId, email: "user@example.com", resetUrl: null };
+	const result = { userId, resetUrl: null, email: "user@example.com" };
 	const layer = runWithOperations({
+		fail: () => Effect.die("unused"),
 		begin: () => Effect.succeed("reset" as const),
 		cleanupObjects: () => Effect.sync(() => void calls.push("objects")),
 		deleteDatabaseUser: () => Effect.sync(() => void calls.push("database")),
@@ -104,7 +105,6 @@ it.effect("recreates the same reset identity after cleanup", () => {
 				calls.push("complete");
 				expect(completed).toEqual(result);
 			}),
-		fail: () => Effect.die("unused"),
 	});
 
 	return Effect.gen(function* () {
@@ -138,10 +138,6 @@ it.effect(
 				accounts: [],
 				usesLocalAuth: true,
 				recreatedAccountId: "account-1",
-				locators: [
-					{ type: "local" as const, key: "permanent/local.png" },
-					{ type: "s3" as const, key: "permanent/s3.png" },
-				],
 				user: {
 					id: userId,
 					name: "User",
@@ -149,6 +145,10 @@ it.effect(
 					emailVerified: true,
 					email: "user@example.com",
 				},
+				locators: [
+					{ type: "local" as const, key: "permanent/local.png" },
+					{ type: "s3" as const, key: "permanent/s3.png" },
+				],
 			},
 		};
 		const layer = UserLifecycleWorkflowOperationsLive.pipe(
@@ -251,12 +251,19 @@ it.effect("keeps a recreated reset user disabled until completion", () => {
 					loadRecreatedIdentity: () =>
 						Effect.succeed(
 							identityExists
-								? { user: { id: userId, email: "user@example.com" }, accounts: [] }
+								? { accounts: [], user: { id: userId, email: "user@example.com" } }
 								: null,
 						),
 				}),
 				Layer.mock(AuthService)({
 					auth: Object.create(null),
+					updateAuthUserDisabled: (_id, data) =>
+						Effect.sync(() => void calls.push(data.disabledAt === null ? "enabled" : "disabled")),
+					requestPasswordResetLink: () =>
+						Effect.sync(() => {
+							calls.push("reset-link");
+							return { email: "user@example.com", resetUrl: "https://example.com/reset" };
+						}),
 					createAuthUser: (input) =>
 						Effect.sync(() => {
 							identityExists = true;
@@ -266,13 +273,6 @@ it.effect("keeps a recreated reset user disabled until completion", () => {
 									: "created-disabled",
 							);
 							return Object.create(null);
-						}),
-					updateAuthUserDisabled: (_id, data) =>
-						Effect.sync(() => void calls.push(data.disabledAt === null ? "enabled" : "disabled")),
-					requestPasswordResetLink: () =>
-						Effect.sync(() => {
-							calls.push("reset-link");
-							return { email: "user@example.com", resetUrl: "https://example.com/reset" };
 						}),
 				}),
 				Layer.mock(SavedViewsService)({}),

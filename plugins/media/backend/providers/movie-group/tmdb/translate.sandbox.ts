@@ -5,11 +5,11 @@ import { translate } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
+	requiredSystemConfigKeys: [],
 	name: "TMDB Movie Group Translate",
 	slug: "movie-group.tmdb.translate",
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["tmdbAccessToken"],
-	requiredSystemConfigKeys: [],
 });
 
-export default defineProvider({ manifest, operation: "translate", run: translate.run });
+export default defineProvider({ manifest, run: translate.run, operation: "translate" });

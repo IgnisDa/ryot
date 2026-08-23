@@ -46,9 +46,9 @@ const rule = (id: string, owner: UserId | null): ResolvedAutomationRule => ({
 
 const entitySnapshot = {
 	name: "Dune",
-	entitySchemaSlug: EntitySchemaSlug.make("record"),
 	properties: { year: 1965 },
 	id: EntityId.make("entity-1"),
+	entitySchemaSlug: EntitySchemaSlug.make("record"),
 };
 
 const entityInput: LifecycleDispatchInput = {
@@ -173,13 +173,13 @@ it.effect("derives the rule target from each lifecycle source kind", () => {
 					occurredAt: "2026-07-20T10:00:00.000Z",
 					sessionEntityId: EntityId.make("session-1"),
 					eventSchemaSlug: EventSchemaSlug.make("finished"),
-					subject: { id: EntityId.make("entity-1"), name: "Dune", entitySchemaSlug: "record" },
+					subject: { name: "Dune", entitySchemaSlug: "record", id: EntityId.make("entity-1") },
 				},
 			},
 		});
 		expect(resolvedTargets).toEqual([
 			{ id: entitySchemaSlug, kind: "entity_schema" },
-			{ id: `${entitySchemaSlug}:${eventSchemaSlug}`, kind: "event_schema" },
+			{ kind: "event_schema", id: `${entitySchemaSlug}:${eventSchemaSlug}` },
 		]);
 		expect(executions).toMatchObject([
 			{
@@ -224,15 +224,15 @@ it.effect("forwards update snapshots and trusted population context", () => {
 			},
 			population: {
 				rootPreviouslyPopulated: true,
+				scopeEntity: {
+					name: "Severance",
+					id: EntityId.make("group-1"),
+					entitySchemaSlug: EntitySchemaSlug.make("group"),
+				},
 				parentEntity: {
 					name: "Container",
 					properties: { ordinal: 1 },
 					entitySchemaSlug: EntitySchemaSlug.make("container"),
-				},
-				scopeEntity: {
-					name: "Severance",
-					entitySchemaSlug: EntitySchemaSlug.make("group"),
-					id: EntityId.make("group-1"),
 				},
 			},
 		});
@@ -245,12 +245,12 @@ it.effect("forwards update snapshots and trusted population context", () => {
 				source: { kind: "entity", after: { name: "Dune" }, before: { name: "Old Dune" } },
 				population: {
 					rootPreviouslyPopulated: true,
+					scopeEntity: { id: "group-1", name: "Severance" },
 					parentEntity: {
 						name: "Container",
 						properties: { ordinal: 1 },
 						entitySchemaSlug: "container",
 					},
-					scopeEntity: { id: "group-1", name: "Severance" },
 				},
 			},
 		]);

@@ -30,8 +30,8 @@ export function IntegrationSettingsForm(props: {
 				<SchemaForm
 					mode={props.mode}
 					form={props.form}
-					title="How Ryot syncs it"
 					icons={schemaFormIcons}
+					title="How Ryot syncs it"
 					onChange={() => undefined}
 					uploadFile={props.uploadFile}
 					schema={props.provider.commonSchema}

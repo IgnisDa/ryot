@@ -125,6 +125,14 @@ const createBatchScheduler = (schedule: RyotSchedule) => {
 		}
 	};
 	return {
+		dispose: () => {
+			disposed = true;
+			scheduled?.();
+			scheduled = undefined;
+			for (const task of queue.splice(0)) {
+				task.rejectQueued();
+			}
+		},
 		run: <Data,>(signal: AbortSignal, run: () => Promise<Data>) =>
 			new Promise<Data>((resolve, reject) => {
 				const task: ScheduledTask = {
@@ -146,14 +154,6 @@ const createBatchScheduler = (schedule: RyotSchedule) => {
 				queue.push(task);
 				drain();
 			}),
-		dispose: () => {
-			disposed = true;
-			scheduled?.();
-			scheduled = undefined;
-			for (const task of queue.splice(0)) {
-				task.rejectQueued();
-			}
-		},
 	};
 };
 
@@ -218,7 +218,7 @@ export const EntityPresentationRegistryProvider = ({
 		for (const registration of registrations) {
 			const definition = registration.definition;
 			const query = createRyotQuery<BatchInput, Readonly<Record<string, unknown>>>(
-				async ({ client, input, signal }) => {
+				async ({ input, client, signal }) => {
 					const references = referencesFromBatchInput(input);
 					const requested = new Set(references.map(({ entityId }) => entityId));
 					const result = await scheduler.run(signal, () =>
@@ -235,7 +235,7 @@ export const EntityPresentationRegistryProvider = ({
 			);
 			registry.set(
 				registryKey(registration.ownerPluginId, registration.entitySchemaSlug, registration.layout),
-				{ definition, query },
+				{ query, definition },
 			);
 		}
 		return { registry, scheduler };
@@ -289,7 +289,7 @@ const GenericEntityCard = ({
 					{schemaLabel(reference.entitySchemaSlug)}
 				</span>
 				<span className="flex min-w-0 items-baseline gap-1.5">
-					<PluginLink to={{ kind: "entity", entityId: reference.entityId }} className="min-w-0">
+					<PluginLink className="min-w-0" to={{ kind: "entity", entityId: reference.entityId }}>
 						<span className="line-clamp-2 min-w-0 text-[15px] font-semibold text-text">
 							{title}
 						</span>
@@ -580,7 +580,7 @@ export const EntityResults = ({
 			if (!input) {
 				throw new Error("Entity presentation batch input is missing");
 			}
-			return { input, reference, runtime };
+			return { input, runtime, reference };
 		});
 	}, [layout, references, registry]);
 	return (

@@ -74,13 +74,27 @@ const makeDb = () => {
 		}),
 	});
 
-	return { db: { insert, select }, rows, getForUpdateCalls: () => forUpdateCalls };
+	return { rows, db: { insert, select }, getForUpdateCalls: () => forUpdateCalls };
 };
 
 it.effect("resolves provider identity and its active details executable", () => {
 	const providerId = SandboxProviderId.make("provider-1");
 	const detailsScriptId = SandboxScriptId.make("details-script-1");
 	const pluginRuntime = makePluginRuntime({
+		findSchemaProviderBySlug: () =>
+			Effect.succeed({
+				entitySchemaSlug: EntitySchemaSlug.make("person"),
+				provider: {
+					id: providerId,
+					name: "Fixture",
+					pluginId: "fixture",
+					createdAt: new Date(0),
+					updatedAt: new Date(0),
+					slug: "fixture-provider",
+					rootEntitySchemaSlug: "person",
+					information: { source: "fixture" },
+				},
+			}),
 		findDetailsScript: () =>
 			Effect.succeed({
 				providerId,
@@ -89,26 +103,12 @@ it.effect("resolves provider identity and its active details executable", () => 
 				compiledFormat: 1,
 				id: detailsScriptId,
 				pluginId: "fixture",
+				createdAt: new Date(0),
+				updatedAt: new Date(0),
 				slug: "fixture.details",
 				compiledCode: "compiled",
 				contentHash: "details-hash",
-				createdAt: new Date(0),
-				updatedAt: new Date(0),
 				metadata: { kind: "provider" as const },
-			}),
-		findSchemaProviderBySlug: () =>
-			Effect.succeed({
-				entitySchemaSlug: EntitySchemaSlug.make("person"),
-				provider: {
-					id: providerId,
-					name: "Fixture",
-					pluginId: "fixture",
-					slug: "fixture-provider",
-					createdAt: new Date(0),
-					updatedAt: new Date(0),
-					rootEntitySchemaSlug: "person",
-					information: { source: "fixture" },
-				},
 			}),
 	});
 
@@ -158,10 +158,10 @@ it.effect("distinguishes an insert from a locked conflict row", () => {
 		populatedAt: null,
 		scope: "global" as const,
 		externalId: "external-1",
+		entitySchemaPluginId: null,
 		properties: { status: "active" },
 		providerId: SandboxProviderId.make("provider-1"),
 		entitySchemaSlug: EntitySchemaSlug.make("schema-1"),
-		entitySchemaPluginId: null,
 	};
 
 	return Effect.gen(function* () {
@@ -191,9 +191,9 @@ it.effect("locks and counts the complete global provenance scope", () => {
 	return Effect.gen(function* () {
 		const repository = yield* EntitiesRepository;
 		const input = {
+			entitySchemaPluginId: "plugin-1",
 			providerId: SandboxProviderId.make("provider-1"),
 			entitySchemaSlug: EntitySchemaSlug.make("person"),
-			entitySchemaPluginId: "plugin-1",
 		};
 		yield* repository.lockGlobalEntityProvenanceScope(input);
 		const total = yield* repository.countGlobalEntitiesByProvenanceScope(input);
@@ -241,8 +241,8 @@ it.effect("restores an entity with its archived identity and timestamps", () => 
 it.effect("lists portable entity provenance", () => {
 	const row = {
 		name: "Entity",
-		id: "entity-id",
 		properties: {},
+		id: "entity-id",
 		externalId: null,
 		pluginSlug: null,
 		populatedAt: null,
@@ -296,8 +296,8 @@ it.effect("resolves restore globals by portable schema, plugin, provider, and ex
 		expect(
 			yield* repository.findGlobalEntityForRestore({
 				externalId: "external-id",
-				entitySchemaSlug: EntitySchemaSlug.make("record"),
 				entitySchemaPluginId: null,
+				entitySchemaSlug: EntitySchemaSlug.make("record"),
 				provider: { pluginSlug: "example", providerSlug: "open-library" },
 			}),
 		).toEqual({ id: "existing-global", entitySchemaSlug: "record" });

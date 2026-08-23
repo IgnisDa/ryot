@@ -103,8 +103,8 @@ describe("collection events", () => {
 			assertTaggedError(error, "CollectionNotFound");
 			expect(error.reason).toEqual({
 				entityId,
-				code: "membership-not-found",
 				collectionId: collection.id,
+				code: "membership-not-found",
 			});
 
 			const events = yield* listEventsForEntity(client, collection.id, undefined, 100);

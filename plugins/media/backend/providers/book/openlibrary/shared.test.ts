@@ -32,13 +32,13 @@ describe("book.openlibrary sandbox script", () => {
 			return httpSuccess({
 				num_found: 2,
 				docs: [
-					{ key: "/works/OL1W", title: "The Work", first_publish_year: 2001, cover_i: 111 },
-					{ key: "/works/OL2W", title: "" },
+					{ cover_i: 111, title: "The Work", key: "/works/OL1W", first_publish_year: 2001 },
+					{ title: "", key: "/works/OL2W" },
 				],
 			});
 		});
 		return Effect.runPromise(
-			runSandboxTestScript(search, { query: "work", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { page: 1, pageSize: 20, query: "work" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{
@@ -59,7 +59,7 @@ describe("book.openlibrary sandbox script", () => {
 			if (url.includes("/editions.json")) {
 				return httpSuccess({
 					entries: [
-						{ number_of_pages: 320, publish_date: "May 5, 2001", covers: [222] },
+						{ covers: [222], number_of_pages: 320, publish_date: "May 5, 2001" },
 						{ publish_date: "1999" },
 					],
 				});

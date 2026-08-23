@@ -12,27 +12,27 @@ describe("adaptWatcharrExportBatch", () => {
 				thoughts: "Soon",
 				status: "PLANNED",
 				watchedEpisodes: [],
-				content: { tmdbId: 10, title: "Arrival", type: "movie" },
+				content: { tmdbId: 10, type: "movie", title: "Arrival" },
 			},
 			{
 				rating: 0,
 				thoughts: "",
 				pinned: false,
 				status: "DROPPED",
-				content: { tmdbId: 20, title: "Lost", type: "tv" },
-				activity: [
-					{
-						type: "EPISODE_WATCHED",
-						customDate: "2026-01-02T10:00:00.000Z",
-						data: JSON.stringify({ season: 1, episode: 2 }),
-					},
-				],
+				content: { tmdbId: 20, type: "tv", title: "Lost" },
 				watchedEpisodes: [
 					{
 						seasonNumber: 1,
 						episodeNumber: 2,
 						status: "FINISHED",
 						createdAt: "2026-01-02T09:00:00.000Z",
+					},
+				],
+				activity: [
+					{
+						type: "EPISODE_WATCHED",
+						customDate: "2026-01-02T10:00:00.000Z",
+						data: JSON.stringify({ season: 1, episode: 2 }),
 					},
 				],
 			},
@@ -48,11 +48,11 @@ describe("adaptWatcharrExportBatch", () => {
 			entityRef: {
 				kind: "resolved",
 				externalId: "10",
-				providerSlug: "movie.tmdb",
 				entitySchemaSlug: "movie",
+				providerSlug: "movie.tmdb",
 			},
 			events: [
-				{ eventSchemaSlug: "backlog", properties: {} },
+				{ properties: {}, eventSchemaSlug: "backlog" },
 				{ eventSchemaSlug: "review", properties: { rating: 70, text: "Soon" } },
 			],
 		});
@@ -60,8 +60,8 @@ describe("adaptWatcharrExportBatch", () => {
 			entityRef: {
 				kind: "resolved",
 				externalId: "20",
-				providerSlug: "show.tmdb",
 				entitySchemaSlug: "show",
+				providerSlug: "show.tmdb",
 			},
 			events: [
 				{

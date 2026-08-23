@@ -22,7 +22,7 @@ describe("results table", () => {
 				settings: resultsSettings,
 				rendererName: "results-table",
 				dataSources: resultsDataSources,
-				view: { name: "Reading Log", icon: "table" },
+				view: { icon: "table", name: "Reading Log" },
 			}),
 		});
 
@@ -41,7 +41,7 @@ describe("results table", () => {
 							resultsTable: {
 								type: "rows",
 								pageInfo: { limit: 10, hasMore: false, nextCursor: null },
-								items: [{ entityId: "book-1", note: "Finished", occurredAt: "2026-08-12" }],
+								items: [{ note: "Finished", entityId: "book-1", occurredAt: "2026-08-12" }],
 							},
 						},
 					},

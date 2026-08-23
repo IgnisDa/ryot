@@ -20,7 +20,7 @@ const S3_BUCKET_NAME = "ryot-pro-key-test";
 const VALID_KEY_ENV_VALUE = "e2e-pro-key";
 
 const unkeyEnvelope = (data: { valid: boolean; code: string; meta?: Record<string, unknown> }) =>
-	Response.json({ meta: { requestId: crypto.randomUUID() }, data });
+	Response.json({ data, meta: { requestId: crypto.randomUUID() } });
 
 const validKeyRespond = () =>
 	unkeyEnvelope({ valid: true, code: "VALID", meta: { expiry: "2030-01-01" } });
@@ -43,9 +43,15 @@ type ScenarioConfig = {
 
 const scenarioConfigs: Record<ScenarioName, ScenarioConfig> = {
 	noKey: { extraEnv: { SERVER_PRO_KEY: "" } },
+	unreachable: { unreachable: true, extraEnv: { SERVER_PRO_KEY: VALID_KEY_ENV_VALUE } },
+	cache: { respond: () => validKeyRespond(), extraEnv: { SERVER_PRO_KEY: VALID_KEY_ENV_VALUE } },
 	validTrue: {
 		respond: () => validKeyRespond(),
 		extraEnv: { SERVER_PRO_KEY: VALID_KEY_ENV_VALUE },
+	},
+	serverError: {
+		extraEnv: { SERVER_PRO_KEY: VALID_KEY_ENV_VALUE },
+		respond: () => new Response(null, { status: 500 }),
 	},
 	validFalse: {
 		extraEnv: { SERVER_PRO_KEY: VALID_KEY_ENV_VALUE },
@@ -59,12 +65,6 @@ const scenarioConfigs: Record<ScenarioName, ScenarioConfig> = {
 		extraEnv: { SERVER_PRO_KEY: VALID_KEY_ENV_VALUE },
 		respond: () => unkeyEnvelope({ valid: true, code: "VALID", meta: { expiry: "whenever" } }),
 	},
-	serverError: {
-		extraEnv: { SERVER_PRO_KEY: VALID_KEY_ENV_VALUE },
-		respond: () => new Response(null, { status: 500 }),
-	},
-	unreachable: { extraEnv: { SERVER_PRO_KEY: VALID_KEY_ENV_VALUE }, unreachable: true },
-	cache: { respond: () => validKeyRespond(), extraEnv: { SERVER_PRO_KEY: VALID_KEY_ENV_VALUE } },
 };
 
 const scenarioNames: ScenarioName[] = [
@@ -119,9 +119,9 @@ beforeAll(async () => {
 		const process = spawnApiProcess(
 			buildApiEnv({
 				port,
+				frontendUrl: apiOrigin,
 				label: `Pro key ${name}`,
 				dbUrl: infrastructure.dbUrl,
-				frontendUrl: apiOrigin,
 				s3BucketName: S3_BUCKET_NAME,
 				redisUrl: infrastructure.redisUrl,
 				s3Endpoint: infrastructure.s3Endpoint,

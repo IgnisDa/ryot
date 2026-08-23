@@ -33,7 +33,7 @@ it.effect("applies centralized capability authorization before durable host disp
 				index: 0,
 				kind: "host",
 				name: "sendNotification",
-				args: { capability: "sendNotification", args: ["Ready"] },
+				args: { args: ["Ready"], capability: "sendNotification" },
 			},
 			{
 				input: {},
@@ -44,11 +44,11 @@ it.effect("applies centralized capability authorization before durable host disp
 			},
 			{
 				providerId: null,
-				pluginRevision: null,
 				contentHash: "hash",
+				pluginRevision: null,
 				scriptSlug: "script",
-				metadata: { capabilities: ["sendNotification"] },
 				scriptId: SandboxScriptId.make("script-1"),
+				metadata: { capabilities: ["sendNotification"] },
 				subject: { type: "user", userId: UserId.make("user-1") },
 			},
 			"sandbox-parent",
@@ -74,7 +74,7 @@ it("extracts only schema-valid durable HTTP request URLs", () => {
 			index: 0,
 			kind: "host",
 			name: "httpCall",
-			args: { capability: "httpCall", args: ["GET"] },
+			args: { args: ["GET"], capability: "httpCall" },
 		}),
 	).toBeNull();
 });
@@ -84,13 +84,20 @@ it("derives service workflow identity from the parent and call index", () => {
 		index: 3,
 		name: "emitSignal",
 		kind: "host" as const,
-		args: { capability: "emitSignal" as const, args: [] },
+		args: { args: [], capability: "emitSignal" as const },
 	};
 	expect(
 		SandboxDurableHostServiceWorkflow.idempotencyKey({
 			request,
 			parentExecutionId: "sandbox-parent",
 			startedAt: "2026-08-06T00:00:00.000Z",
+			sandbox: {
+				input: {},
+				resolutionMode: "exact",
+				subject: { type: "system" },
+				executionId: "sandbox-parent",
+				scriptId: SandboxScriptId.make("script-1"),
+			},
 			principal: {
 				metadata: {},
 				providerId: null,
@@ -98,13 +105,6 @@ it("derives service workflow identity from the parent and call index", () => {
 				pluginRevision: null,
 				scriptSlug: "script",
 				subject: { type: "system" },
-				scriptId: SandboxScriptId.make("script-1"),
-			},
-			sandbox: {
-				input: {},
-				resolutionMode: "exact",
-				subject: { type: "system" },
-				executionId: "sandbox-parent",
 				scriptId: SandboxScriptId.make("script-1"),
 			},
 		}),

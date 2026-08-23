@@ -58,18 +58,19 @@ const failureSelection = {
 		column(failure, "eventSchemaSlug"),
 		Schema.NullOr(EventSchemaSlug),
 	),
-	entitySchemaSlug: selectedField(
-		column(failure, "entitySchemaSlug"),
-		Schema.NullOr(EntitySchemaSlug),
-	),
 	sourceIdentifier: selectedField(
 		column(failure, "sourceIdentifier"),
 		Schema.NullOr(Schema.String),
+	),
+	entitySchemaSlug: selectedField(
+		column(failure, "entitySchemaSlug"),
+		Schema.NullOr(EntitySchemaSlug),
 	),
 };
 
 export const manualImportRunsRecipe = defineRecipe(
 	(input: { readonly after?: string | undefined; readonly limit: number }) => ({
+		map: ({ importRuns }) => Result.succeed(importRuns),
 		queries: {
 			importRuns: selectedRows(importRun, {
 				after: input.after,
@@ -79,7 +80,6 @@ export const manualImportRunsRecipe = defineRecipe(
 				orderBy: [descending(column(importRun, "createdAt")), ascending(column(importRun, "id"))],
 			}),
 		},
-		map: ({ importRuns }) => Result.succeed(importRuns),
 	}),
 );
 
@@ -89,6 +89,7 @@ export const integrationImportRunsRecipe = defineRecipe(
 		readonly integrationId: string;
 		readonly after?: string | undefined;
 	}) => ({
+		map: ({ importRuns }) => Result.succeed(importRuns),
 		queries: {
 			importRuns: selectedRows(importRun, {
 				after: input.after,
@@ -98,7 +99,6 @@ export const integrationImportRunsRecipe = defineRecipe(
 				orderBy: [descending(column(importRun, "createdAt")), ascending(column(importRun, "id"))],
 			}),
 		},
-		map: ({ importRuns }) => Result.succeed(importRuns),
 	}),
 );
 
@@ -108,6 +108,7 @@ export const importRunRecipe = defineRecipe(
 		readonly failureLimit: number;
 		readonly failureAfter?: string | undefined;
 	}) => ({
+		map: ({ failures, run: item }) => Result.succeed({ failures, run: item }),
 		queries: {
 			run: selectedOptionalRow(run, {
 				selection: runSelection(run),
@@ -122,7 +123,6 @@ export const importRunRecipe = defineRecipe(
 				orderBy: [ascending(column(failure, "createdAt")), ascending(column(failure, "id"))],
 			}),
 		},
-		map: ({ failures, run: item }) => Result.succeed({ failures, run: item }),
 	}),
 );
 

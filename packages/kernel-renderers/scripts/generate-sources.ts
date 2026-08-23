@@ -10,7 +10,7 @@ const isRendererSource = (path: string) =>
 	!path.includes(".test.") && !path.endsWith(".generated.ts") && path !== "index.ts";
 
 const tsPaths = await Array.fromAsync(
-	new Bun.Glob("*.{ts,tsx}").scan({ cwd: Bun.fileURLToPath(sourceRoot), onlyFiles: true }),
+	new Bun.Glob("*.{ts,tsx}").scan({ onlyFiles: true, cwd: Bun.fileURLToPath(sourceRoot) }),
 );
 const paths = tsPaths.filter(isRendererSource).sort();
 

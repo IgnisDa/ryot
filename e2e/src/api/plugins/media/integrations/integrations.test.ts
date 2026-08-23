@@ -77,8 +77,8 @@ describe("Webhook routes", () => {
 						event: "media.scrobble",
 						Metadata: {
 							index: 2,
-							type: "episode",
 							parentIndex: 1,
+							type: "episode",
 							Guid: [{ id: `tmdb://${tmdbId}` }],
 							grandparentTitle: "Plex Multipart Sink Show",
 						},

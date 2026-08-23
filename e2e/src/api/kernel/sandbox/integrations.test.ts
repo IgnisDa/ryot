@@ -34,6 +34,14 @@ describe("sandbox integration reads", () => {
 							description: "Reads integration scope",
 						},
 					],
+					script: {
+						slug,
+						kind: "operation",
+						name: "Integration read",
+						requiredPluginConfigKeys: [],
+						requiredSystemConfigKeys: [],
+						capabilities: ["getCurrentIntegration", "listIntegrations"],
+					},
 					integrationProviders: [
 						{
 							lot: "push",
@@ -48,14 +56,6 @@ describe("sandbox integration reads", () => {
 							},
 						},
 					],
-					script: {
-						slug,
-						kind: "operation",
-						name: "Integration read",
-						requiredPluginConfigKeys: [],
-						requiredSystemConfigKeys: [],
-						capabilities: ["getCurrentIntegration", "listIntegrations"],
-					},
 				}),
 				uninstallTestPlugin,
 			);

@@ -62,7 +62,7 @@ export const createEventTestFixture = (client: Client) =>
 			name: "Test Book",
 			properties: { title: "Test" },
 		});
-		return { entityId: entity.id, entitySchemaSlug, eventSchemaSlug: eventSchema.id };
+		return { entitySchemaSlug, entityId: entity.id, eventSchemaSlug: eventSchema.id };
 	});
 
 export const createRuleEventFixture = (client: Client) =>
@@ -76,6 +76,14 @@ export const createRuleEventFixture = (client: Client) =>
 			name: "Progress Log",
 			slug: `progress-log-${crypto.randomUUID()}`,
 			propertiesSchema: {
+				rules: [
+					{
+						path: ["progressPercent"],
+						kind: "validation" as const,
+						validation: { required: true as const },
+						when: { path: ["status"], value: "completed", operator: "eq" as const },
+					},
+				],
 				fields: {
 					progressPercent: {
 						type: "number" as const,
@@ -89,14 +97,6 @@ export const createRuleEventFixture = (client: Client) =>
 						validation: { required: true as const },
 					},
 				},
-				rules: [
-					{
-						path: ["progressPercent"],
-						kind: "validation" as const,
-						validation: { required: true as const },
-						when: { path: ["status"], value: "completed", operator: "eq" as const },
-					},
-				],
 			},
 		});
 		const entity = yield* createEntity(client, {
@@ -126,6 +126,7 @@ export const listEventsForEntity = (
 				events: rows(event, {
 					after,
 					limit,
+					where,
 					orderBy: [
 						descending(column(event, "occurredAt")),
 						descending(column(event, "createdAt")),
@@ -138,7 +139,6 @@ export const listEventsForEntity = (
 						field("eventSchemaSlug", column(event, "eventSchemaSlug")),
 						field("sessionEntityId", column(event, "sessionEntityId")),
 					],
-					where,
 				}),
 			}),
 		);
@@ -151,8 +151,8 @@ export const listEventsForEntity = (
 				throw new Error("Expected event sessionEntityId to be text or null");
 			}
 			return {
-				occurredAt: requireRyotQLDate(item, "occurredAt"),
 				id: EventId.make(requireRyotQLText(item, "id")),
+				occurredAt: requireRyotQLDate(item, "occurredAt"),
 				properties: requireObjectRecord(properties, "Event properties must be an object"),
 				eventSchemaSlug: EventSchemaSlug.make(requireRyotQLText(item, "eventSchemaSlug")),
 				sessionEntityId:

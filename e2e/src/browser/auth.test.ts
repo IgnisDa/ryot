@@ -22,7 +22,7 @@ it.live("signs up through the hosted OAuth flow", () =>
 		yield* page.waitForURL((url) => url.pathname === "/oauth/login");
 
 		const mode = page.getByRole("group", { name: "Authentication mode" });
-		yield* mode.getByRole("button", { name: "Sign up", exact: true }).click();
+		yield* mode.getByRole("button", { exact: true, name: "Sign up" }).click();
 		yield* page
 			.getByLabel("Email address")
 			.fill(`browser-signup-${crypto.randomUUID()}@example.com`);
@@ -37,7 +37,7 @@ it.live("signs up through the hosted OAuth flow", () =>
 			Stream.runHead,
 			Effect.forkChild({ startImmediately: true }),
 		);
-		yield* page.getByRole("button", { name: "Create account", exact: true }).click();
+		yield* page.getByRole("button", { exact: true, name: "Create account" }).click();
 
 		const request = Option.getOrThrow(yield* Fiber.join(signupRequestFiber));
 		const oauthResponse = Option.getOrThrow(yield* Fiber.join(tokenResponseFiber));

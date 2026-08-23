@@ -27,13 +27,13 @@ export const createPluginEntitySchema = (
 ) =>
 	Effect.gen(function* () {
 		const pluginSlug = createPluginScope();
-		const { schemaId, slug } = yield* createEntitySchema(client, {
+		const { slug, schemaId } = yield* createEntitySchema(client, {
 			pluginSlug,
 			name: options.schemaName,
 			...(options.schemaSlug ? { slug: options.schemaSlug } : {}),
 			...(options.propertiesSchema ? { propertiesSchema: options.propertiesSchema } : {}),
 		});
-		return { pluginSlug, schemaId, slug };
+		return { slug, schemaId, pluginSlug };
 	});
 
 export const createEntityFixture = (
@@ -115,13 +115,13 @@ export const insertGlobalRelationship = (input: {
 
 export const createCourseLessonFilterFixture = Effect.gen(function* () {
 	const { client } = yield* createAuthenticatedClient();
-	const { schemaId: courseSchemaId, slug: courseSlug } = yield* createPluginEntitySchema(client, {
+	const { slug: courseSlug, schemaId: courseSchemaId } = yield* createPluginEntitySchema(client, {
 		schemaName: "FilterCourse",
 	});
-	const { schemaId: moduleSchemaId, slug: moduleSlug } = yield* createPluginEntitySchema(client, {
+	const { slug: moduleSlug, schemaId: moduleSchemaId } = yield* createPluginEntitySchema(client, {
 		schemaName: "FilterModule",
 	});
-	const { schemaId: lessonSchemaId, slug: lessonSlug } = yield* createPluginEntitySchema(client, {
+	const { slug: lessonSlug, schemaId: lessonSchemaId } = yield* createPluginEntitySchema(client, {
 		schemaName: "FilterLesson",
 		propertiesSchema: {
 			fields: {

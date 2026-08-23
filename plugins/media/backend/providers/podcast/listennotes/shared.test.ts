@@ -18,10 +18,10 @@ const makeHost = (
 ) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getPluginConfig: (keys) =>
-			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "listen-key"]))),
 		getCachedValue: () => Effect.succeed(null),
 		setCachedValue: () => Effect.succeed(null),
+		getPluginConfig: (keys) =>
+			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "listen-key"]))),
 		...overrides,
 	});
 
@@ -52,11 +52,11 @@ describe("podcast.listennotes sandbox script", () => {
 				expect(requestUrl.host).toBe("listen-api.listennotes.com");
 				expect(requestUrl.pathname).toBe("/api/v2/search");
 				expect(options?.headers).toEqual({ "X-ListenAPI-Key": "listen-key" });
-				return httpSuccess({ total: 0, next_offset: null, results: [] });
+				return httpSuccess({ total: 0, results: [], next_offset: null });
 			},
 		});
 		return Effect.runPromise(
-			runSandboxTestScript(search, { query: "news", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { page: 1, pageSize: 20, query: "news" }, host, execution).pipe(
 				Effect.map(() => {
 					expect(configKeys).toEqual(["listennotesApiKey"]);
 					return undefined;
@@ -82,7 +82,7 @@ describe("podcast.listennotes sandbox script", () => {
 			}),
 		);
 		return Effect.runPromise(
-			runSandboxTestScript(search, { query: "news", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { page: 1, pageSize: 20, query: "news" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{
@@ -92,7 +92,7 @@ describe("podcast.listennotes sandbox script", () => {
 							imageUrl: "https://img/a.jpg",
 						},
 					]);
-					expect(result.details).toEqual({ totalItems: 42, nextPage: 2 });
+					expect(result.details).toEqual({ nextPage: 2, totalItems: 42 });
 					return undefined;
 				}),
 			),
@@ -150,7 +150,7 @@ describe("podcast.listennotes sandbox script", () => {
 								episodeNumber: 1,
 								publishDate: "2020-01-01",
 								description: "First episode.",
-								images: [{ type: "remote", url: "https://img/ep1.jpg", purpose: "cover" }],
+								images: [{ type: "remote", purpose: "cover", url: "https://img/ep1.jpg" }],
 							},
 						},
 					]);
@@ -176,9 +176,9 @@ describe("podcast.listennotes sandbox script", () => {
 						providerRating: 62,
 						publishDate: "2020-01-01",
 						description: "A great show.",
-						images: [{ type: "remote", url: "https://img/cover.jpg", purpose: "cover" }],
 						unlinkedCreators: [{ role: "Publishing", name: "Acme Media" }],
 						sourceUrl: "https://www.listennotes.com/podcasts/My Podcast-pod-1",
+						images: [{ type: "remote", purpose: "cover", url: "https://img/cover.jpg" }],
 					});
 					return undefined;
 				}),

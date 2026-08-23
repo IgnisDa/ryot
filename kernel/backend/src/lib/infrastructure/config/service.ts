@@ -48,25 +48,25 @@ const pathsOverlap = (root: string, target: string) =>
 	target === root || target.startsWith(`${root}/`);
 
 export const isOidcEnabled = (config: AppConfigValue): boolean => {
-	const { clientId, clientSecret, issuerUrl } = config.server.oidc;
+	const { clientId, issuerUrl, clientSecret } = config.server.oidc;
 	return isNonEmpty(clientId) && isNonEmpty(issuerUrl) && isNonEmptyRedacted(clientSecret);
 };
 
 export const getSmtpCredentials = (
 	config: AppConfigValue,
 ): Option.Option<{ server: string; user: Redacted.Redacted; password: Redacted.Redacted }> => {
-	const { password, server, user } = config.server.smtp;
+	const { user, server, password } = config.server.smtp;
 	if (!isNonEmpty(server) || !isNonEmptyRedacted(user) || !isNonEmptyRedacted(password)) {
 		return Option.none();
 	}
-	return Option.some({ server: server.value, user: user.value, password: password.value });
+	return Option.some({ user: user.value, server: server.value, password: password.value });
 };
 
 export const isSmtpEnabled = (config: AppConfigValue): boolean =>
 	Option.isSome(getSmtpCredentials(config));
 
 export const isS3Configured = (config: AppConfigValue): boolean => {
-	const { accessKeyId, bucketName, secretAccessKey, url } = config.fileStorage;
+	const { url, bucketName, accessKeyId, secretAccessKey } = config.fileStorage;
 	return (
 		isNonEmpty(url) &&
 		isNonEmpty(bucketName) &&
@@ -103,7 +103,7 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 			).pipe(Effect.annotateLogs({ frontendUrl: frontendUrl.origin }));
 		}
 
-		const { clientId, clientSecret, issuerUrl } = config.server.oidc;
+		const { clientId, issuerUrl, clientSecret } = config.server.oidc;
 		const oidcSetCount = [
 			isNonEmpty(clientId),
 			isNonEmpty(issuerUrl),
@@ -127,7 +127,7 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 			);
 		}
 
-		const { password, server, user } = config.server.smtp;
+		const { user, server, password } = config.server.smtp;
 		const smtpSetCount = [
 			isNonEmpty(server),
 			isNonEmptyRedacted(user),

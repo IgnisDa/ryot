@@ -77,7 +77,7 @@ beforeAll(async () => {
 				searchOptionsSchema: DYNAMIC_SEARCH_OPTIONS_SCHEMA,
 				details: fakeProviderDetailsResult({ name: "Dynamic Search Options Provider" }),
 				search: fakeProviderSearchResult([
-					{ externalId: "search-options-book-1", title: "Action Book" },
+					{ title: "Action Book", externalId: "search-options-book-1" },
 				]),
 			});
 			failingProvider = yield* installTestProvider({
@@ -89,7 +89,7 @@ beforeAll(async () => {
 				searchOptionsFailure: "search options fixture failure",
 				details: fakeProviderDetailsResult({ name: "Failing Search Options Provider" }),
 				search: fakeProviderSearchResult([
-					{ externalId: "failing-search-options-book-1", title: "Fallback Book" },
+					{ title: "Fallback Book", externalId: "failing-search-options-book-1" },
 				]),
 			});
 			staticProvider = yield* installTestProvider({
@@ -100,7 +100,7 @@ beforeAll(async () => {
 				searchOptionsSchema: STATIC_SEARCH_OPTIONS_SCHEMA,
 				details: fakeProviderDetailsResult({ name: "Static Search Options Provider" }),
 				search: fakeProviderSearchResult([
-					{ externalId: "static-search-options-book-1", title: "Static Book" },
+					{ title: "Static Book", externalId: "static-search-options-book-1" },
 				]),
 			});
 		}),

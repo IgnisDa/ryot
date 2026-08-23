@@ -31,14 +31,14 @@ it.effect("builds the v1 request shape for every HTTP notification provider", ()
 	globalThis.fetch = Object.assign(stubFetch, { preconnect: originalFetch.preconnect });
 
 	const specifics = [
-		{ baseUrl: "http://apprise", key: "key", kind: "apprise" as const },
+		{ key: "key", kind: "apprise" as const, baseUrl: "http://apprise" },
 		{ kind: "discord" as const, webhookUrl: "http://discord/webhook" },
-		{ baseUrl: "http://gotify", kind: "gotify" as const, token: "token" },
-		{ kind: "ntfy" as const, topic: "topic", accessToken: "auth", baseUrl: "http://ntfy" },
+		{ token: "token", kind: "gotify" as const, baseUrl: "http://gotify" },
+		{ topic: "topic", accessToken: "auth", kind: "ntfy" as const, baseUrl: "http://ntfy" },
 		{ accessToken: "token", kind: "push_bullet" as const },
-		{ appToken: "app", kind: "push_over" as const, userKey: "user" },
+		{ appToken: "app", userKey: "user", kind: "push_over" as const },
 		{ key: "key", kind: "push_safer" as const },
-		{ botToken: "bot", chatId: "chat", kind: "telegram" as const },
+		{ chatId: "chat", botToken: "bot", kind: "telegram" as const },
 	];
 
 	const program = Effect.gen(function* () {

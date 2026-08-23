@@ -28,7 +28,7 @@ export interface RunContractOptions {
 
 export const runContract = <A, E>(
 	program: ContractProgram<A, E>,
-	{ baseUrl, headers = {}, signal }: RunContractOptions,
+	{ signal, baseUrl, headers = {} }: RunContractOptions,
 ): Promise<A> => {
 	const program$ = makeContractClient(baseUrl, headers).pipe(Effect.flatMap(program));
 	return Effect.runPromise(program$.pipe(Effect.provide(FetchHttpClient.layer)), { signal });

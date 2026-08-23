@@ -64,8 +64,8 @@ describe("requireSandboxCapabilityInput", () => {
 						userId: UserId.make("user_1"),
 						subscriptionRun: {
 							origin: { kind: "api" },
-							occurredAt: "2026-01-01T00:00:00.000Z",
 							id: SubscriptionRunId.make("run_1"),
+							occurredAt: "2026-01-01T00:00:00.000Z",
 						},
 					}),
 					"ensureUserEntities",

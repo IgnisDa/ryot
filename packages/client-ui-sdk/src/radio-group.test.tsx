@@ -20,8 +20,8 @@ function ThemeChoice(props: { readonly initial?: "light" | "dark" | "system" }) 
 			label="Appearance"
 			onChange={setValue}
 			renderOption={(option, selected) => ({
-				className: selected ? "border-accent" : "border-transparent",
 				content: <span>{option.label}</span>,
+				className: selected ? "border-accent" : "border-transparent",
 			})}
 		/>
 	);

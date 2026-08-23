@@ -100,7 +100,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			properties: unknown,
 			propertiesSchema: Parameters<typeof parseAppSchemaProperties>[0]["propertiesSchema"],
 		) {
-			return yield* parseAppSchemaProperties({ kind: "Entity", properties, propertiesSchema }).pipe(
+			return yield* parseAppSchemaProperties({ properties, kind: "Entity", propertiesSchema }).pipe(
 				Effect.mapError(
 					(error) =>
 						new EntityBadRequest({
@@ -138,7 +138,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 
 			const name = trimToNull(input.name);
 			if (!name) {
-				return yield* new EntityBadRequest({ reason: { code: "name-required", field: "name" } });
+				return yield* new EntityBadRequest({ reason: { field: "name", code: "name-required" } });
 			}
 			const properties = yield* parseEntityProperties(input.properties, scope.propertiesSchema);
 			const saved = yield* repository.insertEntity({
@@ -240,7 +240,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 						: Effect.void,
 				{ discard: true },
 			);
-			return saved.map(({ entity, wasInserted }) => ({ entityId: entity.id, wasInserted }));
+			return saved.map(({ entity, wasInserted }) => ({ wasInserted, entityId: entity.id }));
 		});
 
 		const createGlobal = Effect.fn("EntitiesService.createGlobal")(function* (
@@ -302,7 +302,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 
 			const name = trimToNull(input.name);
 			if (!name) {
-				return yield* new EntityBadRequest({ reason: { code: "name-required", field: "name" } });
+				return yield* new EntityBadRequest({ reason: { field: "name", code: "name-required" } });
 			}
 			const properties = yield* parseEntityProperties(input.properties, scope.propertiesSchema);
 			const provenance = {
@@ -316,7 +316,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 				properties,
 				...provenance,
 				...(input.scope === "user"
-					? { scope: "user" as const, userId: input.userId }
+					? { userId: input.userId, scope: "user" as const }
 					: { scope: "global" as const, populatedAt: input.populatedAt }),
 			});
 			const before = toMutationSnapshot(saved.entity);
@@ -347,7 +347,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					? ("noop" as const)
 					: ("update" as const);
 
-			return { entity, outcome: { before, after, operation } };
+			return { entity, outcome: { after, before, operation } };
 		});
 
 		const upsertGlobalEntities = Effect.fn("EntitiesService.upsertGlobalEntities")(function* (
@@ -367,7 +367,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 					const name = trimToNull(input.name);
 					if (!name) {
 						return yield* new EntityBadRequest({
-							reason: { code: "name-required", field: "name" },
+							reason: { field: "name", code: "name-required" },
 						});
 					}
 					const properties = yield* parseEntityProperties(input.properties, scope.propertiesSchema);
@@ -381,7 +381,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			);
 
 			const save = (input: ValidatedGlobalEntityItem) =>
-				repository.insertEntity({ ...input, scope: "global", providerId });
+				repository.insertEntity({ ...input, providerId, scope: "global" });
 
 			if (options?.maximumTotal === undefined) {
 				return yield* Effect.forEach(validated, (input) =>
@@ -397,7 +397,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 
 			if (!Number.isInteger(options.maximumTotal) || options.maximumTotal < 0) {
 				return yield* new EntityBadRequest({
-					reason: { code: "invalid-maximum-total", field: "maximumTotal" },
+					reason: { field: "maximumTotal", code: "invalid-maximum-total" },
 				});
 			}
 
@@ -469,7 +469,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 		) {
 			const entity = yield* repository.getById(entityId);
 			if (!entity) {
-				return yield* new EntityNotFound({ reason: { code: "entity-not-found", entityId } });
+				return yield* new EntityNotFound({ reason: { entityId, code: "entity-not-found" } });
 			}
 			return entity;
 		});

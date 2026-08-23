@@ -29,13 +29,13 @@ it("emits one actor signal for an API workout from its entity snapshot", () => {
 			defineSandboxTestHost(manifest, {
 				emitSignal: (request) => {
 					calls.push(request);
-					return Effect.succeed({ signalId: "signal-1", wasCreated: true });
+					return Effect.succeed({ wasCreated: true, signalId: "signal-1" });
 				},
 			}),
 			execution,
 		),
 	).then((result) => {
-		expect(result).toEqual({ signalId: "signal-1", wasCreated: true });
+		expect(result).toEqual({ wasCreated: true, signalId: "signal-1" });
 		expect(calls).toEqual([
 			{
 				discriminator: "workout-1",
@@ -61,7 +61,7 @@ it.each([
 			defineSandboxTestHost(manifest, {
 				emitSignal: (request) => {
 					calls.push(request);
-					return Effect.succeed({ signalId: "signal-1", wasCreated: true });
+					return Effect.succeed({ wasCreated: true, signalId: "signal-1" });
 				},
 			}),
 			execution,

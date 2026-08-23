@@ -12,8 +12,8 @@ export type SandboxCapabilityRequirement = {
 };
 
 export const SANDBOX_CAPABILITY_REQUIREMENTS = {
-	scratch: { bridge: false, subjects: [] },
-	"artifact-read": { bridge: false, subjects: [] },
+	scratch: { subjects: [], bridge: false },
+	"artifact-read": { subjects: [], bridge: false },
 	sendNotification: { bridge: true, subjects: ["subscription"] as const },
 	createEvents: { bridge: true, subjects: ["user", "subscription"] as const },
 	log: { bridge: true, subjects: ["user", "subscription", "system"] as const },

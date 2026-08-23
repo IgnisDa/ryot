@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { makePreferenceDraft, preferencePayload } from "#/modules/settings/preference-draft";
 
-const preferences = { allowNsfw: false, language: null, disableIntegrations: false };
+const preferences = { language: null, allowNsfw: false, disableIntegrations: false };
 
 describe("user settings preference draft", () => {
 	it("does not treat the empty language field as a change from provider default", () => {
@@ -18,7 +18,7 @@ describe("user settings preference draft", () => {
 				language: " es ",
 				disableIntegrations: false,
 			}),
-		).toEqual({ allowNsfw: true, language: "es" });
+		).toEqual({ language: "es", allowNsfw: true });
 	});
 
 	it("clears an existing language when the field is blank", () => {

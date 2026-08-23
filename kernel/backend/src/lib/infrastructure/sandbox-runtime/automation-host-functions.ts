@@ -25,6 +25,20 @@ export const makeAutomationSandboxApiFunctions: Effect.Effect<
 	const notifications = yield* NotificationsService;
 
 	return {
+		sendNotification: (rawInput, message) =>
+			requireSandboxCapabilityInput(rawInput, "sendNotification").pipe(
+				Effect.flatMap((input) =>
+					sandboxHostEffect(
+						notifications
+							.sendMessage({
+								message: message.trim(),
+								userId: UserId.make(input.principal.subject.userId),
+								executionId: `${input.principal.subject.subscriptionRun.id}-notification`,
+							})
+							.pipe(Effect.as(null)),
+					),
+				),
+			),
 		emitSignal: (rawInput, request) =>
 			requireSandboxCapabilityInput(rawInput, "emitSignal").pipe(
 				Effect.flatMap((input) =>
@@ -77,20 +91,6 @@ export const makeAutomationSandboxApiFunctions: Effect.Effect<
 								),
 						);
 					}),
-				),
-			),
-		sendNotification: (rawInput, message) =>
-			requireSandboxCapabilityInput(rawInput, "sendNotification").pipe(
-				Effect.flatMap((input) =>
-					sandboxHostEffect(
-						notifications
-							.sendMessage({
-								message: message.trim(),
-								userId: UserId.make(input.principal.subject.userId),
-								executionId: `${input.principal.subject.subscriptionRun.id}-notification`,
-							})
-							.pipe(Effect.as(null)),
-					),
 				),
 			),
 	} satisfies AutomationSandboxHostImplementationMap<SandboxRunInput>;

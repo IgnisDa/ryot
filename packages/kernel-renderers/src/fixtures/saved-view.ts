@@ -27,7 +27,7 @@ export const browserSettings = {
 	layouts: ["grid", "list", "table"],
 	ownerPluginIdField: "ownerPluginId",
 	entitySchemaSlugField: "entitySchemaSlug",
-	addAction: { type: "provider-search", ownerPluginId: "media", entitySchemaSlug: "book" },
+	addAction: { ownerPluginId: "media", type: "provider-search", entitySchemaSlug: "book" },
 	tableColumns: [
 		{ label: "Image", field: "image", displayKind: "managed-asset" },
 		{ label: "Name", field: "column0", displayKind: "text" },
@@ -53,7 +53,7 @@ export const browserPage = (
 	nextCursor: string | null = null,
 ) => ({
 	data: {
-		entityBrowser: { items, type: "rows" as const, pageInfo: { limit: 2, hasMore, nextCursor } },
+		entityBrowser: { items, type: "rows" as const, pageInfo: { hasMore, limit: 2, nextCursor } },
 	},
 });
 

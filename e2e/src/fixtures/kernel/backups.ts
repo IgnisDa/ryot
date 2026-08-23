@@ -63,7 +63,7 @@ export const exportAndDownloadBackup = (client: Client, token: string) =>
 		}
 
 		const { bytes } = yield* downloadBackupArchive(token, id);
-		return { run, id, bytes };
+		return { id, run, bytes };
 	});
 
 export const restoreBackup = (client: Client, bytes: Uint8Array) =>
@@ -72,5 +72,5 @@ export const restoreBackup = (client: Client, bytes: Uint8Array) =>
 		const result = yield* client.call((c) => c.backups.createRestore({ payload: { uploadToken } }));
 		const id = requirePresent(result.id, "Backup restore run id is missing");
 		const run = yield* pollBackupRunUntilTerminal(client, id);
-		return { run, id };
+		return { id, run };
 	});

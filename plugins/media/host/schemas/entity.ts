@@ -123,7 +123,7 @@ const reviewBaseFields = () => ({
 	rating: {
 		label: "Rating",
 		type: "number" as const,
-		validation: { maximum: 100, minimum: 0 },
+		validation: { minimum: 0, maximum: 100 },
 		description: "Your personal rating from 0 (lowest) to 100 (highest)",
 	},
 });
@@ -297,26 +297,26 @@ export const builtinEntitySchemas = () => [
 	{
 		slug: "movie",
 		name: "Movie",
-		icon: "clapperboard",
 		pluginSlug: "media",
+		icon: "clapperboard",
 		propertiesSchema: moviePropertiesSchema,
 		eventSchemas: mediaLifecycleEventSchemas("movie"),
 	},
 	{
 		slug: "show",
 		name: "Show",
-		icon: "monitor-play",
 		pluginSlug: "media",
+		icon: "monitor-play",
 		propertiesSchema: showPropertiesSchema,
 		eventSchemas: mediaLifecycleEventSchemas("show").filter((schema) => schema.slug !== "progress"),
 	},
 	{
-		eventSchemas: [lifecycleEventSchemaBySlug("review")],
 		icon: "list-video",
 		slug: "show-season",
 		name: "Show Season",
 		pluginSlug: undefined,
 		propertiesSchema: showSeasonPropertiesSchema,
+		eventSchemas: [lifecycleEventSchemaBySlug("review")],
 	},
 	{
 		icon: "play-square",
@@ -331,9 +331,9 @@ export const builtinEntitySchemas = () => [
 		],
 	},
 	{
+		icon: "book",
 		slug: "manga",
 		name: "Manga",
-		icon: "book",
 		pluginSlug: "media",
 		propertiesSchema: mangaPropertiesSchema,
 		eventSchemas: mediaLifecycleEventSchemas("manga"),
@@ -358,9 +358,9 @@ export const builtinEntitySchemas = () => [
 	},
 	{
 		icon: "radio",
+		pluginSlug: undefined,
 		slug: "podcast-episode",
 		name: "Podcast Episode",
-		pluginSlug: undefined,
 		propertiesSchema: podcastEpisodePropertiesSchema,
 		eventSchemas: [
 			lifecycleEventSchemaBySlug("progress"),
@@ -386,9 +386,9 @@ export const builtinEntitySchemas = () => [
 	},
 	{
 		icon: "book-heart",
+		pluginSlug: "media",
 		slug: "visual-novel",
 		name: "Visual Novel",
-		pluginSlug: "media",
 		propertiesSchema: visualNovelPropertiesSchema,
 		eventSchemas: mediaLifecycleEventSchemas("visual-novel"),
 	},

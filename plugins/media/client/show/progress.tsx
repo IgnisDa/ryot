@@ -19,9 +19,9 @@ const ShowProgress = ({ name, totalEpisodes, watchedEpisodes }: ShowProgressProp
 			</p>
 			<progress
 				value={boundedWatched}
+				max={Math.max(1, totalEpisodes)}
 				className="mt-3 w-full accent-accent"
 				aria-label={`${name} viewing progress`}
-				max={Math.max(1, totalEpisodes)}
 			/>
 		</section>
 	);

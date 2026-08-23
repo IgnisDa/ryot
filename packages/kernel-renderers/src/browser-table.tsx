@@ -28,14 +28,14 @@ const browserColumns = (
 		.map((column, index) => ({
 			id: column.field,
 			header: column.label,
-			headerClassName:
-				index === 0
-					? "min-w-0 px-0 py-3 text-left font-semibold"
-					: "w-16 px-0 py-3 text-right font-semibold @2xl:w-28",
 			cellClassName:
 				index === 0
 					? "min-w-0 px-0 py-1"
 					: "w-16 px-0 py-1 text-right text-sm text-text-muted @2xl:w-28",
+			headerClassName:
+				index === 0
+					? "min-w-0 px-0 py-3 text-left font-semibold"
+					: "w-16 px-0 py-3 text-right font-semibold @2xl:w-28",
 			cell: (item: BrowserItem) => {
 				const value = item.cells.find(({ key }) => key === column.field)?.value;
 				if (index !== 0) {
@@ -81,8 +81,8 @@ export function BrowserTable({
 				data={items}
 				getRowId={(item) => item.entityId}
 				rowClassName="h-15 border-b border-border"
-				className="w-full border-collapse text-left"
 				columns={browserColumns(columns, settled)}
+				className="w-full border-collapse text-left"
 				headerClassName="border-b border-border text-xs text-text-muted"
 			/>
 		</div>

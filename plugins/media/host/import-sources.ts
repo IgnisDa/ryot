@@ -15,16 +15,16 @@ const urlAndKeyInput = <const Source extends string>(source: Source) =>
 	}).pipe(Schema.annotate({ identifier: `MediaImportInput_${source}` }));
 
 const traktUserInput = strictStruct({
-	username: Schema.NonEmptyString,
 	mode: Schema.Literal("user"),
+	username: Schema.NonEmptyString,
 	source: Schema.Literal("trakt"),
 }).pipe(Schema.annotate({ identifier: "MediaImportInput_trakt_user" }));
 
 const traktListInput = strictStruct({
 	url: HttpUrl,
-	collection: Schema.NonEmptyString,
 	mode: Schema.Literal("list"),
 	source: Schema.Literal("trakt"),
+	collection: Schema.NonEmptyString,
 }).pipe(Schema.annotate({ identifier: "MediaImportInput_trakt_list" }));
 
 export const MediaCreateImportRunBody = Schema.Union([
@@ -41,13 +41,13 @@ export const MediaCreateImportRunBody = Schema.Union([
 	traktUserInput,
 	traktListInput,
 	strictStruct({
+		source: Schema.Literal("igdb"),
 		collection: Schema.NonEmptyString,
 		uploadToken: Schema.NonEmptyString,
-		source: Schema.Literal("igdb"),
 	}).pipe(Schema.annotate({ identifier: "MediaImportInput_igdb" })),
 	strictStruct({
-		uploadToken: Schema.NonEmptyString,
 		source: Schema.Literal("netflix"),
+		uploadToken: Schema.NonEmptyString,
 		profileName: Schema.optional(Schema.NullOr(Schema.String)),
 	}).pipe(Schema.annotate({ identifier: "MediaImportInput_netflix" })),
 	strictStruct({

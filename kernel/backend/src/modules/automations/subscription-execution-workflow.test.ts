@@ -100,9 +100,9 @@ const eventPayload = {
 	operation: "create",
 	sourceKind: "event",
 	origin: { kind: "api" },
+	recordId: EventId.make("event-1"),
 	occurrenceId: "event-occurrence-1",
 	occurredAt: "2026-07-20T11:00:00.000Z",
-	recordId: EventId.make("event-1"),
 	source: {
 		kind: "event",
 		after: {
@@ -112,7 +112,7 @@ const eventPayload = {
 			createdAt: "2026-07-20T12:00:00.000Z",
 			occurredAt: "2026-07-20T11:00:00.000Z",
 			sessionEntityId: EntityId.make("session-1"),
-			subject: { id: EntityId.make("entity-1"), name: "Dune", entitySchemaSlug: "record" },
+			subject: { name: "Dune", entitySchemaSlug: "record", id: EntityId.make("entity-1") },
 		},
 	},
 } as const satisfies SubscriptionExecutionWorkflowPayload;
@@ -151,16 +151,16 @@ it.effect("runs a signal subscription to completion with full automation context
 	let sandboxPayload: unknown;
 	const logs = ["console", '{"kind":"log","level":"info","message":"traced"}'];
 	const service = Layer.mock(AutomationsService, {
+		beginRun: () => Effect.succeed({ run: queuedRun, kind: "ready" as const }),
+		completeRun: (input) => {
+			completed = input;
+			return Effect.succeed({ ...queuedRun, status: "succeeded" as const });
+		},
 		prepareRun: () =>
 			Effect.succeed({
 				run: queuedRun,
 				execution: { ruleId, metadata: rule.metadata, sandboxScriptId: scriptId },
 			}),
-		beginRun: () => Effect.succeed({ kind: "ready" as const, run: queuedRun }),
-		completeRun: (input) => {
-			completed = input;
-			return Effect.succeed({ ...queuedRun, status: "succeeded" as const });
-		},
 	});
 	const operations = Layer.mock(SubscriptionExecutionWorkflowOperations, {
 		runSandbox: (input) => {
@@ -219,13 +219,13 @@ it.effect("preserves event session and creation time in the sandbox context", ()
 		occurrenceId: eventPayload.occurrenceId,
 	};
 	const service = Layer.mock(AutomationsService, {
+		beginRun: () => Effect.succeed({ run: eventRun, kind: "ready" as const }),
+		completeRun: () => Effect.succeed({ ...eventRun, status: "succeeded" as const }),
 		prepareRun: () =>
 			Effect.succeed({
 				run: eventRun,
 				execution: { ruleId, metadata: rule.metadata, sandboxScriptId: scriptId },
 			}),
-		beginRun: () => Effect.succeed({ kind: "ready" as const, run: eventRun }),
-		completeRun: () => Effect.succeed({ ...eventRun, status: "succeeded" as const }),
 	});
 	const operations = Layer.mock(SubscriptionExecutionWorkflowOperations, {
 		runSandbox: (input) => {
@@ -261,6 +261,7 @@ it.effect("preserves event session and creation time in the sandbox context", ()
 
 it.effect("does not execute the sandbox for an already terminal run", () => {
 	const service = Layer.mock(AutomationsService, {
+		completeRun: () => Effect.die("terminal run was completed again"),
 		prepareRun: () =>
 			Effect.succeed({
 				run: queuedRun,
@@ -271,7 +272,6 @@ it.effect("does not execute the sandbox for an already terminal run", () => {
 				kind: "terminal" as const,
 				run: { ...queuedRun, status: "skipped" as const, skipReason: { kind: "user_disabled" } },
 			}),
-		completeRun: () => Effect.die("terminal run was completed again"),
 	});
 	const operations = Layer.mock(SubscriptionExecutionWorkflowOperations, {
 		runSandbox: () => Effect.die("terminal run executed the sandbox"),
@@ -289,16 +289,16 @@ it.effect("does not execute the sandbox for an already terminal run", () => {
 it.effect("records sandbox failures before completing the subscription run", () => {
 	let completed: unknown;
 	const service = Layer.mock(AutomationsService, {
+		beginRun: () => Effect.succeed({ run: queuedRun, kind: "ready" as const }),
+		completeRun: (input) => {
+			completed = input;
+			return Effect.succeed({ ...queuedRun, status: "failed" as const });
+		},
 		prepareRun: () =>
 			Effect.succeed({
 				run: queuedRun,
 				execution: { ruleId, metadata: rule.metadata, sandboxScriptId: scriptId },
 			}),
-		beginRun: () => Effect.succeed({ kind: "ready" as const, run: queuedRun }),
-		completeRun: (input) => {
-			completed = input;
-			return Effect.succeed({ ...queuedRun, status: "failed" as const });
-		},
 	});
 	const operations = Layer.mock(SubscriptionExecutionWorkflowOperations, {
 		runSandbox: () => Effect.fail(new SandboxRunError({ message: "script failed" })),
@@ -310,8 +310,8 @@ it.effect("records sandbox failures before completing the subscription run", () 
 		Effect.gen(function* () {
 			expect(yield* runSubscriptionExecutionWorkflow(payload, "execution-1")).toBe(runId);
 			expect(completed).toMatchObject({
-				id: runId,
 				logs: [],
+				id: runId,
 				value: null,
 				error: { phase: "execute", message: "script failed" },
 			});

@@ -29,8 +29,8 @@ const readBootstrapState = Effect.fn(function* (userId: string) {
 			.for("update"),
 	);
 	return row
-		? { bootstrapCompletedAt: row.bootstrapCompletedAt, image: row.image }
-		: { bootstrapCompletedAt: null, image: null };
+		? { image: row.image, bootstrapCompletedAt: row.bootstrapCompletedAt }
+		: { image: null, bootstrapCompletedAt: null };
 });
 
 const markBootstrapComplete = Effect.fn(function* (userId: string, image: string | null) {
@@ -42,7 +42,7 @@ const markBootstrapComplete = Effect.fn(function* (userId: string, image: string
 			.set(
 				image === null
 					? { bootstrapCompletedAt: completedAt }
-					: { bootstrapCompletedAt: completedAt, image },
+					: { image, bootstrapCompletedAt: completedAt },
 			)
 			.where(eq(schema.user.id, userId)),
 	);

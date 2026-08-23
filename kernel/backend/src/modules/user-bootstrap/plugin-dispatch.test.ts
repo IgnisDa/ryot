@@ -72,12 +72,12 @@ const normalizedPlugin = (
 const loader = makePluginLoader(makeDefinitionRegistry());
 loader.load(
 	normalizedPlugin("example", [
-		{ slug: "second", scriptSlug: "bootstrap.second", description: "Second" },
-		{ slug: "first", scriptSlug: "bootstrap.first", description: "First" },
+		{ slug: "second", description: "Second", scriptSlug: "bootstrap.second" },
+		{ slug: "first", description: "First", scriptSlug: "bootstrap.first" },
 	]),
 );
 loader.load(
-	normalizedPlugin("sample", [{ slug: "only", scriptSlug: "bootstrap.only", description: "Only" }]),
+	normalizedPlugin("sample", [{ slug: "only", description: "Only", scriptSlug: "bootstrap.only" }]),
 );
 
 const systemInstallation = (pluginSlug: string): PluginInstallationState => ({
@@ -89,11 +89,11 @@ const systemInstallation = (pluginSlug: string): PluginInstallationState => ({
 	healthReason: null,
 	homeSavedViewId: null,
 	pluginScope: "system",
-	pluginId: `${pluginSlug}-id`,
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
-	id: `${pluginSlug}-installation`,
+	pluginId: `${pluginSlug}-id`,
 	userId: UserId.make("user-1"),
+	id: `${pluginSlug}-installation`,
 });
 
 type ActiveScript = NonNullable<
@@ -104,7 +104,7 @@ const baseLayer = Layer.mergeAll(
 	databaseLayer,
 	Layer.succeed(PluginLoader, { ...loader }),
 	Layer.mock(PluginRuntimeResolver)({
-		resolveActivePluginUserBootstrap: ({ bootstrapSlug, pluginSlug }) => {
+		resolveActivePluginUserBootstrap: ({ pluginSlug, bootstrapSlug }) => {
 			const bootstrap = loader
 				.getSnapshot()
 				.plugins[pluginSlug]?.manifest.userBootstrap.find(({ slug }) => slug === bootstrapSlug);
@@ -116,11 +116,11 @@ const baseLayer = Layer.mergeAll(
 							providerId: null,
 							compiledFormat: 1,
 							pluginId: pluginSlug,
+							createdAt: new Date(0),
+							updatedAt: new Date(0),
 							compiledCode: "compiled",
 							name: bootstrap.scriptSlug,
 							slug: bootstrap.scriptSlug,
-							createdAt: new Date(0),
-							updatedAt: new Date(0),
 							contentHash: `${bootstrap.scriptSlug}-hash`,
 							id: SandboxScriptId.make(`${bootstrap.scriptSlug}-id`),
 							metadata: {

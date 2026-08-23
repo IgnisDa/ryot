@@ -16,8 +16,8 @@ const failureSource = (
 	message: string,
 	stage: GenericImportFailure["stage"],
 ): GenericImportFailure => ({
-	message,
 	stage,
+	message,
 	itemIndex: group.itemIndex,
 	sourceLabel: group.entityRef.sourceLabel,
 	entitySchemaSlug: group.entityRef.entitySchemaSlug,
@@ -25,8 +25,8 @@ const failureSource = (
 });
 
 const adapterFailure = (failure: MediaImportAdapterFailure): GenericImportFailure => ({
-	itemIndex: failure.itemIndex,
 	message: failure.message,
+	itemIndex: failure.itemIndex,
 	stage: failure.stage ?? "input_transformation",
 	sourceLabel: failure.sourceLabel ?? `Item ${failure.itemIndex + 1}`,
 	sourceIdentifier: failure.sourceIdentifier ?? String(failure.itemIndex),
@@ -57,17 +57,6 @@ export const createMediaImportChunk = (
 		}
 
 		items.push({
-			relationships: [
-				{
-					sourceAlias: "media",
-					targetAlias: "library",
-					propertiesMode: "merge",
-					relationshipSchemaSlug: "in-library",
-					properties: group.ownershipProvider
-						? { owned: true, ownershipSyncedAt, ownershipSources: [group.ownershipProvider] }
-						: {},
-				},
-			],
 			itemIndex: group.itemIndex,
 			subjectEntityAlias: "media",
 			sourceLabel: group.entityRef.sourceLabel,
@@ -79,6 +68,17 @@ export const createMediaImportChunk = (
 				eventSchemaSlug: event.eventSchemaSlug,
 				...(event.subjectEntityId === undefined ? {} : { subjectEntityId: event.subjectEntityId }),
 			})),
+			relationships: [
+				{
+					sourceAlias: "media",
+					targetAlias: "library",
+					propertiesMode: "merge",
+					relationshipSchemaSlug: "in-library",
+					properties: group.ownershipProvider
+						? { owned: true, ownershipSyncedAt, ownershipSources: [group.ownershipProvider] }
+						: {},
+				},
+			],
 			entities: [
 				{
 					alias: "media",
@@ -94,7 +94,7 @@ export const createMediaImportChunk = (
 					alias: "library",
 					existingOnly: true,
 					entitySchemaSlug: "library",
-					match: { name: "Library", properties: {} },
+					match: { properties: {}, name: "Library" },
 				},
 			],
 			...(group.collectionMemberships.length > 0
@@ -108,5 +108,5 @@ export const createMediaImportChunk = (
 		});
 	}
 
-	return { failures, items };
+	return { items, failures };
 };

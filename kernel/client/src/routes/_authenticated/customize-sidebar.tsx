@@ -18,7 +18,7 @@ function CustomizeSidebarRoute() {
 	usePageTitle("Customize sidebar");
 	const isDesktop = useIsDesktop();
 	const { section } = Route.useSearch();
-	const { customize, onLeave, onSave } = useCustomizeController();
+	const { onSave, onLeave, customize } = useCustomizeController();
 
 	return (
 		<main {...mainContentProps} className="h-full min-h-0">

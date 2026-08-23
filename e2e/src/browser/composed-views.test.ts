@@ -81,7 +81,7 @@ it.live("opens a published saved-view renderer in one sandboxed iframe", () =>
 
 		const renderedPage = frames.first().contentFrame();
 		yield* renderedPage
-			.getByRole("heading", { level: 1, name: "Task 01 composed page", exact: true })
+			.getByRole("heading", { level: 1, exact: true, name: "Task 01 composed page" })
 			.waitFor({ state: "visible" });
 		yield* expectVisibleText(renderedPage.locator("body"), "Task 01 composed page");
 		yield* expectVisibleText(
@@ -123,13 +123,13 @@ it.live("renders system and private public components in one shared page runtime
 		expect(yield* frames.count).toBe(1);
 		const runtime = frames.first().contentFrame();
 		yield* runtime
-			.getByRole("heading", { level: 1, name: "Task 02 composed page", exact: true })
+			.getByRole("heading", { level: 1, exact: true, name: "Task 02 composed page" })
 			.waitFor({ state: "visible" });
 		const application = runtime.locator("#app");
 		expect(yield* application.count).toBe(1);
 		yield* expectVisibleText(application, "3 episodes watched, 5 episodes remaining");
 		yield* application
-			.getByRole("heading", { level: 3, name: "E2E deterministic Pokemon types", exact: true })
+			.getByRole("heading", { level: 3, exact: true, name: "E2E deterministic Pokemon types" })
 			.waitFor({ state: "visible" });
 		yield* expectVisibleText(application, "grass");
 		yield* expectVisibleText(application, "poison");
@@ -164,13 +164,13 @@ it.live("uses the deterministic collection dashboard as media home and persists 
 		const view = yield* createRendererSavedView(
 			client,
 			renderer.id,
-			{ collectionId: collection.id, pageSize: 2 },
+			{ pageSize: 2, collectionId: collection.id },
 			{ name: "Task 10 primary dashboard" },
 		);
 		const secondaryView = yield* createRendererSavedView(
 			client,
 			renderer.id,
-			{ collectionId: collection.id, pageSize: 3 },
+			{ pageSize: 3, collectionId: collection.id },
 			{ name: "Task 10 secondary dashboard" },
 		);
 		const media = yield* findBuiltinPluginBySlug(client, "media");
@@ -192,7 +192,7 @@ it.live("uses the deterministic collection dashboard as media home and persists 
 		yield* expectVisibleText(runtime.locator("body"), "3 total");
 		yield* expectVisibleText(runtime.locator("body"), "1 Pokemon");
 		const dashboardUrl = `${getFrontendUrl()}/v/${view.slug}?keep=preserved`;
-		const showLink = runtime.getByRole("link", { name: "01 Task 10 Show", exact: true }).first();
+		const showLink = runtime.getByRole("link", { exact: true, name: "01 Task 10 Show" }).first();
 		expect(yield* showLink.getAttribute("href")).toBe(`/e/${showId}`);
 		yield* showLink.click();
 		yield* page.waitForURL(`${getFrontendUrl()}/e/${showId}`);
@@ -200,7 +200,7 @@ it.live("uses the deterministic collection dashboard as media home and persists 
 		yield* showFrame.waitFor({ state: "visible" });
 		yield* showFrame
 			.contentFrame()
-			.getByRole("heading", { level: 1, name: "01 Task 10 Show", exact: true })
+			.getByRole("heading", { level: 1, exact: true, name: "01 Task 10 Show" })
 			.waitFor({ state: "visible" });
 		yield* page.goto(dashboardUrl);
 		yield* page.waitForURL(dashboardUrl);
@@ -220,7 +220,7 @@ it.live("uses the deterministic collection dashboard as media home and persists 
 		yield* pokemonFrame.waitFor({ state: "visible" });
 		yield* pokemonFrame
 			.contentFrame()
-			.getByRole("heading", { level: 1, name: pokemonA.name, exact: true })
+			.getByRole("heading", { level: 1, exact: true, name: pokemonA.name })
 			.waitFor({ state: "visible" });
 		yield* expectVisibleText(pokemonFrame.contentFrame().locator("body"), "Grass");
 		yield* page.goto(dashboardUrl);
@@ -264,7 +264,7 @@ it.live("uses the deterministic collection dashboard as media home and persists 
 		yield* expectVisibleText(runtime.locator("body"), "4 total");
 		yield* expectVisibleText(runtime.locator("body"), "2 Pokemon");
 		yield* runtime
-			.getByRole("link", { name: "04 Task 10 Pokemon B", exact: true })
+			.getByRole("link", { exact: true, name: "04 Task 10 Pokemon B" })
 			.waitFor({ state: "visible" });
 
 		yield* page.reload;
@@ -273,7 +273,7 @@ it.live("uses the deterministic collection dashboard as media home and persists 
 		yield* expectVisibleText(runtime.locator("body"), "2 Pokemon");
 		yield* runtime.getByRole("button", { name: "Load next page" }).click();
 		yield* runtime
-			.getByRole("link", { name: "04 Task 10 Pokemon B", exact: true })
+			.getByRole("link", { exact: true, name: "04 Task 10 Pokemon B" })
 			.waitFor({ state: "visible" });
 
 		yield* page.goto(`${getFrontendUrl()}/media`);
@@ -281,7 +281,7 @@ it.live("uses the deterministic collection dashboard as media home and persists 
 		yield* page.locator("iframe").waitFor({ state: "visible" });
 		expect(yield* page.getByRole("button", { name: "Media workspace, media" }).count).toBe(1);
 		expect(
-			yield* page.getByRole("link", { name: "Home", exact: true }).getAttribute("aria-current"),
+			yield* page.getByRole("link", { exact: true, name: "Home" }).getAttribute("aria-current"),
 		).toBe("page");
 		yield* expectVisibleText(page.locator("iframe").contentFrame().locator("body"), "4 total");
 
@@ -308,7 +308,7 @@ it.live("uses the deterministic collection dashboard as media home and persists 
 		runtime = page.locator("iframe").contentFrame();
 		const directDialog = runtime.getByRole("dialog", { name: "Choose a collection" });
 		yield* directDialog.waitFor();
-		yield* directDialog.getByRole("button", { name: "Cancel", exact: true }).click();
+		yield* directDialog.getByRole("button", { exact: true, name: "Cancel" }).click();
 		yield* page.waitForURL(dashboardUrl);
 		expect(new URL(page.url()).search).toBe("?keep=preserved");
 		runtime = page.locator("iframe").contentFrame();
@@ -356,7 +356,7 @@ it.live("preserves expanded and dialog state when provider population completes"
 		const view = yield* createRendererSavedView(
 			client,
 			renderer.id,
-			{ collectionId: collection.id, pageSize: 10 },
+			{ pageSize: 10, collectionId: collection.id },
 			{ name: "Task 08 state preservation" },
 		);
 
@@ -464,7 +464,7 @@ it.live("preserves collection review state when a renderer update is published",
 		const view = yield* createRendererSavedView(
 			client,
 			renderer.id,
-			{ collectionId: collection.id, pageSize: 10 },
+			{ pageSize: 10, collectionId: collection.id },
 			{ name: "Task 09 renderer update" },
 		);
 
@@ -556,16 +556,16 @@ it.live("keeps configured entity-browser controls within their declared source",
 				layouts: ["grid", "list", "table"],
 				ownerPluginIdField: "ownerPluginId",
 				entitySchemaSlugField: "entitySchemaSlug",
-				tableColumns: [
-					{ field: "entitySchemaSlug", label: "Schema", displayKind: "text" },
-					{ field: "name", label: "Name", displayKind: "text" },
-				],
 				sortChoices: [
 					{
 						name: "name-desc",
 						label: "Name descending",
 						orderBy: [{ field: "name", direction: "desc" }],
 					},
+				],
+				tableColumns: [
+					{ label: "Schema", displayKind: "text", field: "entitySchemaSlug" },
+					{ field: "name", label: "Name", displayKind: "text" },
 				],
 			},
 		});
@@ -719,7 +719,7 @@ it.live("decodes native, grouped, and time-series named data sources in a publis
 			{
 				dataSources: buildNamedDataSources(
 					entities.map(({ id }) => id),
-					{ startAt: DateTime.formatIso(start), endAt: DateTime.formatIso(end) },
+					{ endAt: DateTime.formatIso(end), startAt: DateTime.formatIso(start) },
 				),
 			},
 		);
@@ -746,7 +746,7 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 			Effect.gen(function* () {
 				const intent = yield* client.call((c) =>
 					c.uploads.createIntent({
-						payload: { kind: "permanent", fileName, contentType: "image/svg+xml" },
+						payload: { fileName, kind: "permanent", contentType: "image/svg+xml" },
 					}),
 				);
 				const upload = yield* Effect.promise(() =>
@@ -890,12 +890,12 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 		yield* expectVisibleText(runtime.locator("body"), "2 of 5 results");
 		yield* runtime.getByRole("button", { name: "Load more" }).click();
 		yield* runtime
-			.getByRole("link", { name: "04 Composed Strength Workout", exact: true })
+			.getByRole("link", { exact: true, name: "04 Composed Strength Workout" })
 			.waitFor({ state: "visible" });
 		expect(yield* runtime.locator("article").count).toBe(4);
 		yield* runtime.getByRole("button", { name: "Load more" }).click();
 		yield* runtime
-			.getByRole("link", { name: "05 Composed Bulbasaur", exact: true })
+			.getByRole("link", { exact: true, name: "05 Composed Bulbasaur" })
 			.waitFor({ state: "visible" });
 		expect(yield* runtime.locator("article").count).toBe(5);
 		const gridRows = yield* runtime.locator("article").allInnerTexts();

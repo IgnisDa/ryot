@@ -83,6 +83,15 @@ export const createPluginNavigationStore = (
 
 	return {
 		getSnapshot: () => snapshot,
+		subscribe: (listener) => {
+			listeners.add(listener);
+			return () => listeners.delete(listener);
+		},
+		completeTransition: (id) => {
+			if (snapshot.transition?.id === id) {
+				emit({ ...snapshot, transition: undefined });
+			}
+		},
 		clear: () =>
 			emit(
 				initialSnapshot({
@@ -90,10 +99,6 @@ export const createPluginNavigationStore = (
 					safeAreaBottom: snapshot.safeAreaBottom,
 				}),
 			),
-		subscribe: (listener) => {
-			listeners.add(listener);
-			return () => listeners.delete(listener);
-		},
 		setViewport: (insets) => {
 			if (
 				snapshot.safeAreaTop !== insets.safeAreaTop ||
@@ -102,12 +107,7 @@ export const createPluginNavigationStore = (
 				emit({ ...snapshot, ...insets });
 			}
 		},
-		completeTransition: (id) => {
-			if (snapshot.transition?.id === id) {
-				emit({ ...snapshot, transition: undefined });
-			}
-		},
-		setLocation: ({ compact, edgeBack, entry, leading }) => {
+		setLocation: ({ entry, compact, leading, edgeBack }) => {
 			const previousTop = snapshot.screens.at(-1);
 			const result = reconcileStack(snapshot.screens, entry, resolve);
 			const transition =

@@ -63,6 +63,6 @@ BEGIN
 		cursor_id := next_cursor_id;
 	END LOOP;
 
-	${buildReportSql("user_to_entity -> in-library relationship", [{ message: "row(s) migrated total", count: "rows_inserted" }])}
+	${buildReportSql("user_to_entity -> in-library relationship", [{ count: "rows_inserted", message: "row(s) migrated total" }])}
 END $$;
 `;

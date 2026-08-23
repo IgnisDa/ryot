@@ -105,8 +105,8 @@ export const runAddEntityToCollectionWorkflow = Effect.fn("AddEntityToCollection
 			}
 			if (eventAttempt.success.failure) {
 				yield* Activity.make({
-					success: Schema.Boolean satisfies DurableSchema,
 					name: "compensate-collection-membership",
+					success: Schema.Boolean satisfies DurableSchema,
 					error: AddEntityToCollectionWorkflowError satisfies DurableSchema,
 					execute: operations.compensateMembership(payload.userId, result.memberOf.id),
 				});

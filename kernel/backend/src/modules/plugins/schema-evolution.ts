@@ -45,7 +45,7 @@ const compareProperty = (
 	issues: Array<SchemaEvolutionIssue>,
 ) => {
 	if (previous.type !== next.type) {
-		issues.push({ code: "property_type_changed", path });
+		issues.push({ path, code: "property_type_changed" });
 		return;
 	}
 	if (
@@ -64,7 +64,7 @@ const compareProperty = (
 					(choice) => !nextChoices.values.some((nextChoice) => nextChoice.value === choice.value),
 				))
 		) {
-			issues.push({ code: "enum_narrowed", path });
+			issues.push({ path, code: "enum_narrowed" });
 		}
 	}
 	if (previous.type === "object" && next.type === "object") {
@@ -74,7 +74,7 @@ const compareProperty = (
 		compareProperty(`${path}[]`, previous.items, next.items, issues);
 	}
 	if (stableStringify(comparableProperty(previous)) !== stableStringify(comparableProperty(next))) {
-		issues.push({ code: "property_changed", path });
+		issues.push({ path, code: "property_changed" });
 	}
 };
 
@@ -88,14 +88,14 @@ const compareFields = (
 		const propertyPath = `${path}.${key}`;
 		const nextProperty = next[key];
 		if (!nextProperty) {
-			issues.push({ code: "property_removed", path: propertyPath });
+			issues.push({ path: propertyPath, code: "property_removed" });
 			continue;
 		}
 		compareProperty(propertyPath, previousProperty, nextProperty, issues);
 	}
 	for (const [key, nextProperty] of Object.entries(next)) {
 		if (!previous[key] && isAppPropertyRequired(nextProperty)) {
-			issues.push({ code: "required_property_added", path: `${path}.${key}` });
+			issues.push({ path: `${path}.${key}`, code: "required_property_added" });
 		}
 	}
 };
@@ -111,7 +111,7 @@ const compareAppSchema = (
 		stableStringify({ rules: previous.rules, unknownKeys: previous.unknownKeys }) !==
 		stableStringify({ rules: next.rules, unknownKeys: next.unknownKeys })
 	) {
-		issues.push({ code: "schema_changed", path });
+		issues.push({ path, code: "schema_changed" });
 	}
 };
 
@@ -126,7 +126,7 @@ const compareDefinitions = (
 		const path = `${kind}:${previousDefinition.slug}`;
 		const nextDefinition = nextBySlug.get(previousDefinition.slug);
 		if (!nextDefinition) {
-			issues.push({ code: "schema_removed", path });
+			issues.push({ path, code: "schema_removed" });
 			continue;
 		}
 		compareAppSchema(

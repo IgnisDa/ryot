@@ -22,8 +22,8 @@ describe("audiobook-group.audible sandbox script", () => {
 				product: {
 					title: "The Series",
 					relationships: [
-						{ asin: "book-b", sort: "2" },
-						{ asin: "book-a", sort: "1" },
+						{ sort: "2", asin: "book-b" },
+						{ sort: "1", asin: "book-a" },
 						{ sort: "3" },
 					],
 				},
@@ -41,14 +41,14 @@ describe("audiobook-group.audible sandbox script", () => {
 							relationshipSchemaSlug: "audiobook-group-to-audiobook",
 							entities: [
 								{
-									externalId: "book-a",
 									name: "Loading...",
+									externalId: "book-a",
 									providerSlug: "audiobook.audible",
 									relationshipProperties: { order: 1 },
 								},
 								{
-									externalId: "book-b",
 									name: "Loading...",
+									externalId: "book-b",
 									providerSlug: "audiobook.audible",
 									relationshipProperties: { order: 2 },
 								},
@@ -71,7 +71,7 @@ describe("audiobook-group.audible sandbox script", () => {
 
 		return expect(
 			Effect.runPromise(
-				runSandboxTestScript(search, { query: "x", page: 1, pageSize: 20 }, host, execution),
+				runSandboxTestScript(search, { page: 1, query: "x", pageSize: 20 }, host, execution),
 			),
 		).rejects.toThrow("Audible does not support audiobook group search");
 	});

@@ -199,7 +199,7 @@ const progressRows = (items: readonly Record<string, unknown>[]) =>
 		items.map(({ id, createdAt, occurredAt, consumedOn, progressPercent, ...episode }) => ({
 			...episode,
 			milestone: {
-				pageInfo: { hasMore: false, limit: 1 },
+				pageInfo: { limit: 1, hasMore: false },
 				items: [{ id, createdAt, occurredAt, consumedOn, progressPercent }],
 			},
 		})),
@@ -211,8 +211,8 @@ export const decodeShowActivity = (input: ActivityRows = {}) => {
 	return Result.getOrThrow(
 		showActivityFixtureRecipe.decode({
 			data: {
-				episodeProgress: progressRows(input.episodeProgress ?? [specialProgressRow]),
 				totals: activityRows([{ watchCount: input.watchCount ?? 1 }], false),
+				episodeProgress: progressRows(input.episodeProgress ?? [specialProgressRow]),
 				episodeEvents: activityRows(input.episodeEvents ?? [episodeReviewEventRow], false),
 				seasons: activityRows(input.seasons ?? [specialsSeasonRow, regularSeasonRow], false),
 				collectionEvents: activityRows(
@@ -225,7 +225,7 @@ export const decodeShowActivity = (input: ActivityRows = {}) => {
 				),
 				watchDays: {
 					type: "aggregate",
-					pageInfo: { hasMore: hasMore, limit: 1000 },
+					pageInfo: { limit: 1000, hasMore: hasMore },
 					items: input.watchDays ?? [firstWatchDayRow, secondWatchDayRow],
 				},
 			},

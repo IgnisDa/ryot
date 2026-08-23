@@ -123,7 +123,7 @@ export const registerRootRoutes = Effect.fn("registerRootRoutes")(function* <E, 
 	serveStatic: (pathname: string) => Effect.Effect<HttpServerResponse.HttpServerResponse, SE, SR>,
 	frontendUrl: string,
 ) {
-	const cors = HttpMiddleware.cors({ allowedOrigins: ["*"], credentials: false });
+	const cors = HttpMiddleware.cors({ credentials: false, allowedOrigins: ["*"] });
 	yield* router.addGlobalMiddleware(cors);
 	yield* router.add("*", "/api/auth/*", (request) =>
 		HttpEffect.fromWebHandler(authHandler).pipe(

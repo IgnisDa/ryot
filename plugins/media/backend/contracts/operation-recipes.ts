@@ -11,22 +11,22 @@ import {
 
 export const mediaMonitoringStatusRecipe = defineOperationRecipe({
 	pluginSlug: "media",
-	input: MediaMonitoringStatusInput,
 	output: MediaMonitoringOutput,
+	input: MediaMonitoringStatusInput,
 	operationSlug: "media-monitoring-status",
 });
 
 export const mediaMonitoringEnableRecipe = defineOperationRecipe({
 	pluginSlug: "media",
-	input: MediaMonitoringEnableInput,
 	output: MediaMonitoringOutput,
+	input: MediaMonitoringEnableInput,
 	operationSlug: "media-monitoring-enable",
 });
 
 export const mediaMonitoringDisableRecipe = defineOperationRecipe({
 	pluginSlug: "media",
-	input: MediaMonitoringDisableInput,
 	output: MediaMonitoringOutput,
+	input: MediaMonitoringDisableInput,
 	operationSlug: "media-monitoring-disable",
 });
 

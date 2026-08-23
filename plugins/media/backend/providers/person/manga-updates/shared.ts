@@ -13,9 +13,9 @@ import {
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "MangaUpdates",
+	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	capabilities: ["httpCall"],
 	slug: "person.manga-updates",
 });
 
@@ -26,7 +26,7 @@ export const search = defineProvider({
 		mangaUpdatesPost(
 			host,
 			"/authors/search",
-			{ search: input.query, page: input.page, perpage: input.pageSize },
+			{ page: input.page, search: input.query, perpage: input.pageSize },
 			"person search",
 		).pipe(
 			Effect.map((payloadValue) => {
@@ -118,8 +118,8 @@ export const details = defineProvider({
 								return [
 									{
 										providerSlug: "manga.manga-updates",
-										relationshipProperties: { roles: ["Author"] },
 										externalId: String(Math.trunc(idValue)),
+										relationshipProperties: { roles: ["Author"] },
 										name: stringValue(record?.["title"]) ?? "Loading...",
 									},
 								];
@@ -141,10 +141,10 @@ export const details = defineProvider({
 								gender: stringValue(payload["gender"]),
 								birthPlace: stringValue(payload["birthplace"]),
 								birthDate: formatBirthday(payload["birthday"]),
-								images: image
-									? [{ type: "remote" as const, url: image, purpose: "profile" as const }]
-									: [],
 								sourceUrl: `https://www.mangaupdates.com/authors/${encodeURIComponent(input.externalId)}`,
+								images: image
+									? [{ url: image, type: "remote" as const, purpose: "profile" as const }]
+									: [],
 							},
 						};
 					}),

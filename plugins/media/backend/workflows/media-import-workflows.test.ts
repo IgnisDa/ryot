@@ -72,7 +72,7 @@ it("emits population children as one deterministic batch", async () => {
 		entitySchemaSlug: "book",
 		externalId: `external-${index}`,
 		providerId: "provider-openlibrary",
-		origin: { kind: "import" as const, importRunId: "run-1" },
+		origin: { importRunId: "run-1", kind: "import" as const },
 	}));
 	const envelope = await Effect.runPromise(
 		populationWorkflow.run(

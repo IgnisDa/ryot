@@ -53,8 +53,8 @@ beforeAll(async () => {
 			movieProvider = yield* installTestProvider({
 				client,
 				scope: "system",
-				slug: `movie.association-e2e-${crypto.randomUUID()}`,
 				rootEntitySchemaSlug: movieSchemaId,
+				slug: `movie.association-e2e-${crypto.randomUUID()}`,
 				details: fakeProviderDetailsResult({
 					name: movieName,
 					relatedEntityGroups: [
@@ -65,8 +65,8 @@ beforeAll(async () => {
 							entities: [
 								{
 									name: personName,
-									providerSlug: personProvider.providerSlug,
 									externalId: personExternalId,
+									providerSlug: personProvider.providerSlug,
 									relationshipProperties: { roles: ["Actor", "Director"] },
 								},
 							],
@@ -98,11 +98,11 @@ it.live("notifies only a credited person's monitor once per role on first media 
 		yield* Effect.all([
 			createNotificationChannel(personMonitor.client, {
 				channel: "apprise",
-				channelSpecifics: { baseUrl: fakeApprise.url, key: "person-monitor", kind: "apprise" },
+				channelSpecifics: { kind: "apprise", key: "person-monitor", baseUrl: fakeApprise.url },
 			}),
 			createNotificationChannel(importer.client, {
 				channel: "apprise",
-				channelSpecifics: { baseUrl: fakeApprise.url, key: "media-importer", kind: "apprise" },
+				channelSpecifics: { kind: "apprise", key: "media-importer", baseUrl: fakeApprise.url },
 			}),
 		]);
 		yield* enableMediaMonitoring(personMonitor.client, personEntityId);
@@ -281,8 +281,8 @@ describe("association lifecycle via cron refresh", () => {
 			const buildPersonSource = (roles: string[]) =>
 				providerSandboxSource({
 					name: ruPersonName,
-					slug: `${ruPersonSlug}.details`,
 					operation: "details",
+					slug: `${ruPersonSlug}.details`,
 					result: fakeProviderDetailsResult({
 						name: ruPersonName,
 						relatedEntityGroups: [
@@ -365,7 +365,7 @@ describe("association lifecycle via cron refresh", () => {
 			const personMonitor = yield* createAuthenticatedClient();
 			yield* createNotificationChannel(personMonitor.client, {
 				channel: "apprise",
-				channelSpecifics: { baseUrl: fakeApprise.url, key: "role-update-monitor", kind: "apprise" },
+				channelSpecifics: { kind: "apprise", baseUrl: fakeApprise.url, key: "role-update-monitor" },
 			});
 			yield* enableMediaMonitoring(personMonitor.client, person.id);
 			yield* enableMediaMonitoring(personMonitor.client, movie.id);
@@ -417,8 +417,8 @@ describe("association lifecycle via cron refresh", () => {
 				const buildPersonSource = (entities: ReadonlyArray<typeof movieRelatedEntity>) =>
 					providerSandboxSource({
 						name: drPersonName,
-						slug: `${drPersonSlug}.details`,
 						operation: "details",
+						slug: `${drPersonSlug}.details`,
 						result: fakeProviderDetailsResult({
 							name: drPersonName,
 							relatedEntityGroups: [

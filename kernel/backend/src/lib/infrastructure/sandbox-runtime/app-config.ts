@@ -30,9 +30,9 @@ const resolvePluginConfig = Effect.fn("resolvePluginConfig")(function* (input: {
 	);
 	const properties = Object.fromEntries(Object.entries(loaded).flatMap(pluginConfigPropertyEntry));
 	return yield* parseAppSchemaProperties({
-		kind: `Plugin ${input.pluginSlug} config`,
 		properties,
 		propertiesSchema: input.configSchema,
+		kind: `Plugin ${input.pluginSlug} config`,
 	});
 });
 
@@ -125,7 +125,7 @@ export const getSystemConfig = Effect.fn("getSystemConfig")(function* (
 
 	const definition = appConfigDefinition.fields.timezone;
 	const loaded = yield* configFromAppSchema(
-		{ fields: { timezone: definition.schema }, unknownKeys: "strict" },
+		{ unknownKeys: "strict", fields: { timezone: definition.schema } },
 		() => definition.envKey ?? "",
 	);
 	const values: Record<string, unknown> = {};

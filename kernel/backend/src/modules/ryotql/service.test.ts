@@ -135,8 +135,8 @@ it.effect("returns a cursor from the last returned row and compiles mixed keyset
 		orderBy: [descending(column(entity, "createdAt")), ascending(column(entity, "name"))],
 	});
 	const resultRows = [
-		{ o0: new Date("2026-08-10T00:00:00.000Z"), o1: "duplicate", o2: "entity-1", f0v: "entity-1" },
-		{ o0: new Date("2026-08-09T00:00:00.000Z"), o1: null, o2: "entity-2", f0v: "entity-2" },
+		{ o2: "entity-1", o1: "duplicate", f0v: "entity-1", o0: new Date("2026-08-10T00:00:00.000Z") },
+		{ o1: null, o2: "entity-2", f0v: "entity-2", o0: new Date("2026-08-09T00:00:00.000Z") },
 	];
 
 	return Effect.gen(function* () {
@@ -175,8 +175,8 @@ it.effect("rejects malformed cursor envelopes before row SQL", () => {
 		"not+base64url",
 		encodeCursor({ version: 2, values: [] }),
 		encodeCursor({ version: 1, values: [] }),
-		encodeCursor({ version: 1, values: [{ kind: "number", value: 1 }] }),
-		encodeCursor({ version: 1, values: [{ kind: "text", value: 1 }] }),
+		encodeCursor({ version: 1, values: [{ value: 1, kind: "number" }] }),
+		encodeCursor({ version: 1, values: [{ value: 1, kind: "text" }] }),
 	];
 	const entity = table("entity", "entity");
 
@@ -225,8 +225,8 @@ it.effect("collates text predicates and authorizes every joined table occurrence
 		queries: {
 			entities: rows(root, {
 				fields: [],
-				where: inArray(column(root, "name"), [literal("First"), literal("Second")]),
 				joins: [join("left", child, eq(column(root, "id"), column(child, "id")))],
+				where: inArray(column(root, "name"), [literal("First"), literal("Second")]),
 			}),
 		},
 	};
@@ -248,7 +248,7 @@ it.effect("applies user-only policies to navigation tables", () => {
 		const service = yield* RyotQLService;
 		yield* service.executeForUser("user-1", null, navigationRecipe().document);
 
-		const savedViews = statements[2];
+		const savedViews = statements[3];
 		expect(savedViews).toMatch(/FROM \(SELECT \* FROM saved_view WHERE user_id = \$\d+\)/);
 		expect(savedViews).not.toContain("saved_view WHERE (user_id");
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
@@ -339,7 +339,7 @@ it.effect("rejects malformed runtime field kinds", () => {
 			}),
 		},
 	};
-	const resultRows = [{ f0k: "unexpected", f0v: 4 }];
+	const resultRows = [{ f0v: 4, f0k: "unexpected" }];
 
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
@@ -357,16 +357,23 @@ it.effect("returns plain aggregate and time-series values", () => {
 			totals: aggregate(entity, {
 				measures: [
 					measure("count", { function: "count" }),
-					measure("total", { expr: literal(2), function: "sum" }),
+					measure("total", { function: "sum", expr: literal(2) }),
 				],
+			}),
+			series: timeSeries(entity, {
+				bucket: "day",
+				measure: { function: "count" },
+				endAt: "2026-08-03T00:00:00.000Z",
+				time: column(entity, "createdAt"),
+				startAt: "2026-08-01T00:00:00.000Z",
 			}),
 			grouped: aggregate(entity, {
 				limit: 10,
+				orderBy: [groupDescending("day"), measureDescending("count")],
 				measures: [
 					measure("count", { function: "count" }),
-					measure("total", { expr: literal(2), function: "sum" }),
+					measure("total", { function: "sum", expr: literal(2) }),
 				],
-				orderBy: [groupDescending("day"), measureDescending("count")],
 				groupBy: [
 					field(
 						"day",
@@ -376,13 +383,6 @@ it.effect("returns plain aggregate and time-series values", () => {
 						}),
 					),
 				],
-			}),
-			series: timeSeries(entity, {
-				bucket: "day",
-				measure: { function: "count" },
-				endAt: "2026-08-03T00:00:00.000Z",
-				startAt: "2026-08-01T00:00:00.000Z",
-				time: column(entity, "createdAt"),
 			}),
 		},
 	};
@@ -412,8 +412,8 @@ it.effect("returns plain aggregate and time-series values", () => {
 		});
 		expect(response.data["grouped"]).toEqual({
 			type: "aggregate",
-			pageInfo: { hasMore: false, limit: 10 },
-			items: [{ count: 3, day: "2026-08-01T00:00:00.000Z", total: null }],
+			pageInfo: { limit: 10, hasMore: false },
+			items: [{ count: 3, total: null, day: "2026-08-01T00:00:00.000Z" }],
 		});
 		expect(response.data["series"]).toEqual({
 			type: "timeSeries",
@@ -472,32 +472,32 @@ it.effect("selects integrations with useful output kinds", () => {
 	};
 	const resultRows = [
 		{
+			f8v: true,
+			f11v: "2",
+			f7v: false,
+			f12v: "95",
 			f0k: "text",
-			f0v: "integration-1",
 			f1k: "text",
-			f1v: "example",
 			f2k: "text",
-			f2v: "Example integration",
 			f3k: "text",
-			f3v: "theta",
 			f4k: "date",
-			f4v: new Date("2026-08-01T10:00:00.000Z"),
 			f5k: "date",
-			f5v: new Date("2026-08-07T12:00:00.000Z"),
 			f6k: "text",
+			f9k: "json",
+			f3v: "theta",
+			f10k: "date",
+			f1v: "example",
 			f6v: "example",
 			f7k: "boolean",
-			f7v: false,
 			f8k: "boolean",
-			f8v: true,
-			f9k: "json",
-			f9v: { disableOnContinuousErrors: true },
-			f10k: "date",
-			f10v: new Date("2026-08-07T10:00:00.000Z"),
 			f11k: "number",
-			f11v: "2",
 			f12k: "number",
-			f12v: "95",
+			f0v: "integration-1",
+			f2v: "Example integration",
+			f9v: { disableOnContinuousErrors: true },
+			f4v: new Date("2026-08-01T10:00:00.000Z"),
+			f5v: new Date("2026-08-07T12:00:00.000Z"),
+			f10v: new Date("2026-08-07T10:00:00.000Z"),
 		},
 	];
 
@@ -512,12 +512,12 @@ it.effect("selects integrations with useful output kinds", () => {
 				{
 					lot: "example",
 					provider: "theta",
-					pluginSlug: "example",
-					id: "integration-1",
 					isDisabled: false,
 					minimumProgress: 2,
+					id: "integration-1",
 					maximumProgress: 95,
 					syncOwnership: true,
+					pluginSlug: "example",
 					name: "Example integration",
 					createdAt: "2026-08-01T10:00:00.000Z",
 					updatedAt: "2026-08-07T12:00:00.000Z",
@@ -784,6 +784,15 @@ it.effect("applies plugin ownership to every allowed table occurrence", () => {
 		queries: {
 			entities: rows(entity, {
 				joins: [join("left", event, eq(column(event, "entityId"), column(entity, "id")))],
+				include: [
+					include(includedRelationship, {
+						limit: 1,
+						key: "relationships",
+						orderBy: [ascending(column(includedRelationship, "id"))],
+						fields: [field("id", column(includedRelationship, "id"))],
+						where: eq(column(includedRelationship, "sourceEntityId"), column(entity, "id")),
+					}),
+				],
 				fields: [
 					field("eventId", column(event, "id")),
 					field(
@@ -799,15 +808,6 @@ it.effect("applies plugin ownership to every allowed table occurrence", () => {
 						}),
 					),
 				],
-				include: [
-					include(includedRelationship, {
-						limit: 1,
-						key: "relationships",
-						orderBy: [ascending(column(includedRelationship, "id"))],
-						fields: [field("id", column(includedRelationship, "id"))],
-						where: eq(column(includedRelationship, "sourceEntityId"), column(entity, "id")),
-					}),
-				],
 			}),
 		},
 	};
@@ -819,7 +819,7 @@ it.effect("applies plugin ownership to every allowed table occurrence", () => {
 				pluginSlug: "example",
 				entitySchemaSlugs: ["item"],
 				relationshipSchemaSlugs: ["example-monitoring"],
-				eventSchemas: [{ eventSchemaSlug: "review", entitySchemaSlug: "item" }],
+				eventSchemas: [{ entitySchemaSlug: "item", eventSchemaSlug: "review" }],
 			},
 			document,
 		);
@@ -1018,9 +1018,9 @@ it.effect("compiles and reconstructs nested correlated includes in one statement
 	const completions = include(completion, {
 		limit: 1,
 		key: "completions",
-		orderBy: [{ direction: "desc", expr: column(completion, "occurredAt") }],
 		fields: [field("occurredAt", column(completion, "occurredAt"))],
 		where: eq(column(completion, "entityId"), column(module, "id")),
+		orderBy: [{ direction: "desc", expr: column(completion, "occurredAt") }],
 	});
 	const modules = include(courseModule, {
 		limit: 1,
@@ -1085,9 +1085,9 @@ it.effect("compiles and reconstructs nested correlated includes in one statement
 					pageInfo: { limit: 1, hasMore: true },
 					items: [
 						{
+							active: true,
 							name: "Module",
 							optional: null,
-							active: true,
 							metadata: { position: 1 },
 							completions: {
 								pageInfo: { limit: 1, hasMore: false },
@@ -1141,20 +1141,20 @@ it.effect("compiles correlated scalar expressions with authorized query sets", (
 	};
 	const resultRows = [
 		{
-			f0v: true,
-			f0k: "boolean",
-			f1v: null,
-			f1k: "null",
 			f2v: 0,
-			f2k: "number",
 			f3v: 0,
-			f3k: "number",
+			f0v: true,
+			f1v: null,
 			f4v: null,
-			f4k: "null",
 			f5v: null,
+			f1k: "null",
+			f4k: "null",
 			f5k: "null",
 			f6v: "none",
 			f6k: "text",
+			f2k: "number",
+			f3k: "number",
+			f0k: "boolean",
 		},
 	];
 
@@ -1173,13 +1173,13 @@ it.effect("compiles correlated scalar expressions with authorized query sets", (
 			throw new Error("Expected entities rows result");
 		}
 		expect(entities.items[0]).toEqual({
-			sum: null,
 			count: 0,
+			sum: null,
 			ratio: null,
-			latest: null,
 			distinct: 0,
-			fallback: "none",
+			latest: null,
 			hasEvents: true,
+			fallback: "none",
 		});
 	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
 });
@@ -1215,6 +1215,6 @@ it.effect("maps statement timeouts to a bad request", () => {
 			service.executeForUser("user-1", null, allCollectionsRecipe().document),
 		);
 
-		expect(error).toMatchObject({ reason: { code: "query-timeout", limitMs: 30_000 } });
+		expect(error).toMatchObject({ reason: { limitMs: 30_000, code: "query-timeout" } });
 	}).pipe(Effect.provide(layer));
 });

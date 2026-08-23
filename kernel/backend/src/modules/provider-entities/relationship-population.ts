@@ -93,8 +93,8 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 				providerId: schemaProvider.providerId,
 				entitySchemaSlug: schemaProvider.entitySchemaSlug,
 				...(input.scope === "user"
-					? { scope: "user" as const, userId: input.userId }
-					: { scope: "global" as const, populatedAt: null }),
+					? { userId: input.userId, scope: "user" as const }
+					: { populatedAt: null, scope: "global" as const }),
 			})
 			.pipe(mapDbErrorToSandbox);
 
@@ -126,16 +126,16 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 
 		const properties = yield* parseAppSchemaProperties({
 			kind: "Relationship",
-			properties: relatedEntity.relationshipProperties ?? {},
 			propertiesSchema: relationshipSchema.propertiesSchema,
+			properties: relatedEntity.relationshipProperties ?? {},
 		}).pipe(Effect.mapError((error) => new SandboxRunError({ message: error.message })));
 
-		entries.push({ entityId: entity.id, properties });
+		entries.push({ properties, entityId: entity.id });
 	}
 
 	const syncBase = {
-		type: "anchored" as const,
 		entries,
+		type: "anchored" as const,
 		direction: input.group.direction,
 		anchorEntityId: input.primaryEntityId,
 		relationshipSchemaSlug: relationshipSchema.id,
@@ -144,8 +144,8 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 		input.group.synchronization === "additive"
 			? {
 					...syncBase,
-					onConflict: "preserveExisting" as const,
 					synchronization: "additive" as const,
+					onConflict: "preserveExisting" as const,
 				}
 			: {
 					...syncBase,
@@ -155,10 +155,10 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 
 	return yield* synchronizeGlobalRelationships({
 		...syncInput,
-		relationshipSchemaPluginId: relationshipSchema.pluginId ?? null,
 		propertiesSchema: relationshipSchema.propertiesSchema,
+		relationshipSchemaPluginId: relationshipSchema.pluginId ?? null,
 		...(input.scope === "user"
-			? { scope: "user" as const, userId: input.userId }
+			? { userId: input.userId, scope: "user" as const }
 			: { scope: "global" as const }),
 	});
 }, dieOnDbError);

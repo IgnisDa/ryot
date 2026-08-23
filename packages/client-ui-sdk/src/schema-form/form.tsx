@@ -158,16 +158,16 @@ function SchemaArrayControl(props: {
 						) : (
 							<TextField
 								density="compact"
-								className="min-w-0 flex-1"
 								value={String(row.value)}
+								className="min-w-0 flex-1"
 								placeholder={item.description}
-								onKeyDown={submitOnEnter(props.onSubmitEditing)}
-								aria-label={`${props.field.label} item ${index + 1}`}
 								ref={index === 0 ? props.inputRef : undefined}
+								onKeyDown={submitOnEnter(props.onSubmitEditing)}
 								type={item.secret === true ? "password" : "text"}
+								aria-label={`${props.field.label} item ${index + 1}`}
 								autoComplete={item.secret === true ? "off" : undefined}
-								autoCapitalize={item.secret === true ? "none" : undefined}
 								inputMode={item.type === "string" ? "text" : "numeric"}
+								autoCapitalize={item.secret === true ? "none" : undefined}
 								onChange={(event) =>
 									replace(
 										index,
@@ -261,13 +261,13 @@ function SchemaFieldControl(props: {
 				onChange={props.onChange}
 				value={schemaText(props.value)}
 				className="flex flex-row flex-wrap gap-1.5"
-				renderOption={(option, selected) => ({
-					content: <Chip className="px-2.5" label={option.label} checked={selected} />,
-				})}
 				options={choices.map((choice) => ({
 					value: choice.value,
 					label: schemaChoiceLabel(choice),
 				}))}
+				renderOption={(option, selected) => ({
+					content: <Chip className="px-2.5" checked={selected} label={option.label} />,
+				})}
 			/>
 		)),
 		Match.when("file", () => (
@@ -299,9 +299,9 @@ function SchemaFieldControl(props: {
 				density="compact"
 				ref={props.inputRef}
 				{...schemaTextInputProps(props.field)}
+				aria-label={props.field.label}
 				value={schemaText(props.value)}
 				placeholder={props.description}
-				aria-label={props.field.label}
 				onKeyDown={submitOnEnter(props.onSubmitEditing)}
 				onChange={(event) =>
 					props.onChange(

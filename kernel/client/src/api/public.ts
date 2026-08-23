@@ -12,7 +12,7 @@ const checkHealth = Effect.fn("PublicApi.checkHealth")(function* (origin: Server
 	yield* Effect.tryPromise({
 		catch: (cause) => new PublicApiError({ cause }),
 		try: (signal) =>
-			runContract((client) => client.system.health(), { baseUrl: serverApiUrl(origin), signal }),
+			runContract((client) => client.system.health(), { signal, baseUrl: serverApiUrl(origin) }),
 	});
 });
 

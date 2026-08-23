@@ -31,16 +31,16 @@ const input: SandboxRunInput = {
 		providerId: null,
 		scriptSlug: "script",
 		pluginRevision: null,
-		metadata: { capabilities: ["log", "span"] },
 		scriptId: SandboxScriptId.make("script-1"),
+		metadata: { capabilities: ["log", "span"] },
 		subject: { type: "user", userId: UserId.make("user-1") },
 	},
 };
 
 const makeTracer = (spans: Tracer.Span[]) =>
 	Tracer.make({
-		span: ({ name, parent, annotations, links, startTime, kind, sampled }) => {
-			let status: Tracer.SpanStatus = { _tag: "Started", startTime };
+		span: ({ name, kind, links, parent, sampled, startTime, annotations }) => {
+			let status: Tracer.SpanStatus = { startTime, _tag: "Started" };
 			const attributes = new Map<string, unknown>();
 			const span: Tracer.Span = {
 				name,
@@ -48,23 +48,23 @@ const makeTracer = (spans: Tracer.Span[]) =>
 				links,
 				parent,
 				sampled,
-				annotations,
 				attributes,
+				annotations,
 				_tag: "Span",
 				event: () => undefined,
 				addLinks: () => undefined,
 				spanId: `span-${spans.length + 1}`,
-				attribute: (key, value) => attributes.set(key, value),
 				get status() {
 					return status;
 				},
-				end: (endTime, exit: Exit.Exit<unknown, unknown>) => {
-					status = { _tag: "Ended", startTime, endTime, exit };
-				},
+				attribute: (key, value) => attributes.set(key, value),
 				traceId: parent.pipe(
 					Option.map((value) => value.traceId),
 					Option.getOrElse(() => "trace-1"),
 				),
+				end: (endTime, exit: Exit.Exit<unknown, unknown>) => {
+					status = { exit, endTime, startTime, _tag: "Ended" };
+				},
 			};
 			spans.push(span);
 			return span;
@@ -117,7 +117,7 @@ describe("sandbox observability host functions", () => {
 					message: "request complete authorization=Bearer message-secret",
 					attributes: {
 						apiKey: "api-secret",
-						request: { authorization: "Bearer secret", status: 200 },
+						request: { status: 200, authorization: "Bearer secret" },
 					},
 				},
 			]),
@@ -231,8 +231,8 @@ describe("sandbox observability host functions", () => {
 						expect(warning?.options.logLevel).toBe("Warn");
 						expect(warning?.annotations).toMatchObject({
 							plugin: "example",
-							scriptId: input.principal.scriptId,
 							executionId: input.executionId,
+							scriptId: input.principal.scriptId,
 						});
 
 						const execution = spans.find((span) => span.name === "sandbox.execution");
@@ -245,8 +245,8 @@ describe("sandbox observability host functions", () => {
 						expect(pluginSpan?.status._tag).toBe("Ended");
 						expect(Object.fromEntries(pluginSpan?.attributes ?? [])).toMatchObject({
 							plugin: "example",
-							scriptId: input.principal.scriptId,
 							executionId: input.executionId,
+							scriptId: input.principal.scriptId,
 						});
 					}),
 				),

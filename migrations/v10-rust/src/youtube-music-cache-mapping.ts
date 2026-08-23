@@ -87,7 +87,7 @@ export const migrateYoutubeMusicCache = (input: {
 
 			yield* Effect.forEach(
 				redisWrites,
-				({ expiresAtMs, key }) => {
+				({ key, expiresAtMs }) => {
 					const ttlSeconds = Math.ceil((expiresAtMs - Date.now()) / 1000);
 					if (ttlSeconds <= 0) {
 						return Effect.void;
@@ -107,8 +107,8 @@ export const migrateYoutubeMusicCache = (input: {
 			connection.executeRaw(
 				`DO $$ DECLARE started_at timestamptz := clock_timestamp(); cache_rows int := ${cacheRows.length}; keys_created int := ${keysCreated}; BEGIN
 				${buildReportSql("application_cache -> YouTube Music persistent cache", [
-					{ message: "unexpired cache row(s) found", count: "cache_rows" },
-					{ message: "persistent Redis key(s) created", count: "keys_created" },
+					{ count: "cache_rows", message: "unexpired cache row(s) found" },
+					{ count: "keys_created", message: "persistent Redis key(s) created" },
 				])}
 			END $$;`,
 				[],

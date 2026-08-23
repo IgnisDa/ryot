@@ -142,14 +142,14 @@ export const details = defineProvider({
 				return Effect.succeed({
 					name: titleCase(name),
 					properties: {
-						sourceUrl: `${API_BASE_URL}/pokemon/${name}`,
 						height: integerValue(pokemon["height"]),
 						weight: integerValue(pokemon["weight"]),
 						pokedexNumber: integerValue(pokemon["id"]),
+						sourceUrl: `${API_BASE_URL}/pokemon/${name}`,
 						baseExperience: integerValue(pokemon["base_experience"]),
-						images: imageUrl === null ? [] : [{ type: "remote" as const, url: imageUrl }],
 						types: namesFrom(pokemon["types"], "type").map(titleCase),
 						abilities: namesFrom(pokemon["abilities"], "ability").map(titleCase),
+						images: imageUrl === null ? [] : [{ url: imageUrl, type: "remote" as const }],
 					},
 				});
 			}),

@@ -29,8 +29,8 @@ export const AddEntityToCollectionWorkflowPayload = Schema.Struct({
 export type AddEntityToCollectionWorkflowPayload = typeof AddEntityToCollectionWorkflowPayload.Type;
 
 export const AddEntityToCollectionWorkflow = Workflow.make("AddEntityToCollectionWorkflow", {
+	idempotencyKey: ({ executionId }) => executionId,
 	success: MembershipResponse satisfies DurableSchema,
 	error: AddEntityToCollectionWorkflowError satisfies DurableSchema,
 	payload: AddEntityToCollectionWorkflowPayload satisfies DurableSchema,
-	idempotencyKey: ({ executionId }) => executionId,
 });

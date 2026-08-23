@@ -25,6 +25,11 @@ export const manifest = defineManifest({
 				description: "IGDB genre IDs",
 				choices: { kind: "dynamic", source: "genres" },
 			},
+			allowGamesWithParent: {
+				type: "boolean",
+				label: "Allow games with a parent",
+				description: "Include game versions that have a parent game",
+			},
 			platformIds: {
 				type: "enum-array",
 				label: "Platform IDs",
@@ -49,13 +54,8 @@ export const manifest = defineManifest({
 				description: "IGDB release date region IDs",
 				choices: { kind: "dynamic", source: "releaseDateRegions" },
 			},
-			allowGamesWithParent: {
-				type: "boolean",
-				label: "Allow games with a parent",
-				description: "Include game versions that have a parent game",
-			},
 		},
 	},
 });
 
-export default defineProvider({ manifest, operation: "search", run: search.run });
+export default defineProvider({ manifest, run: search.run, operation: "search" });

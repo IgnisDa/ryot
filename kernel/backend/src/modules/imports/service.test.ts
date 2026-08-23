@@ -59,8 +59,8 @@ const createdRun = {
 	totalItems: null,
 	processedItems: 0,
 	failureReason: null,
-	status: "pending" as const,
 	source: "beta" as const,
+	status: "pending" as const,
 	id: ImportRunId.make("run-1"),
 } satisfies ListedImportRun;
 
@@ -70,9 +70,9 @@ const mockUploadsService = Layer.mock(UploadIntentsService);
 
 const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsRepository> = {}) =>
 	mockImportsRepository({
-		createRun: () => Effect.succeed(createdRun),
 		updateRun: () => Effect.void,
 		deleteRunById: () => Effect.void,
+		createRun: () => Effect.succeed(createdRun),
 		...overrides,
 	});
 
@@ -83,13 +83,13 @@ const importWorkflowScript = {
 	source: "source",
 	providerId: null,
 	compiledFormat: 1,
-	compiledCode: "compiled",
 	name: "Beta workflow",
-	pluginId: "example-plugin-id",
-	contentHash: "workflow-hash",
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
+	compiledCode: "compiled",
+	contentHash: "workflow-hash",
 	slug: "workflow.beta-import",
+	pluginId: "example-plugin-id",
 	metadata: { kind: "workflow" as const },
 	id: SandboxScriptId.make("accepted-import-script"),
 };
@@ -100,7 +100,7 @@ const makeImportSourceCatalog = (
 ) =>
 	Layer.mock(ImportSourceCatalog)({
 		listForUser: () =>
-			Effect.succeed(registered ? [{ source: registered, hasActiveWorkflow }] : []),
+			Effect.succeed(registered ? [{ hasActiveWorkflow, source: registered }] : []),
 		resolveForUser: () =>
 			Effect.succeed(registered ? { source: registered, script: importWorkflowScript } : null),
 	});
@@ -146,7 +146,7 @@ const user: CurrentUserValue = {
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-1"),
-	preferences: { allowNsfw: false, language: null, disableIntegrations: false },
+	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
 };
 
 const betaSource = (overrides: Partial<RegisteredImportSource> = {}): RegisteredImportSource => ({
@@ -155,12 +155,12 @@ const betaSource = (overrides: Partial<RegisteredImportSource> = {}): Registered
 	name: "Beta",
 	pluginSlug: "example",
 	pluginScope: "system",
-	pluginId: "example-plugin-id",
-	requiredPluginConfigKeys: [],
 	description: "Beta export",
 	workflowSlug: "beta-import",
+	requiredPluginConfigKeys: [],
+	pluginId: "example-plugin-id",
 	installationId: "example-installation",
-	configContext: { kind: "environment", pluginSlug: "example", configSchema },
+	configContext: { configSchema, kind: "environment", pluginSlug: "example" },
 	inputSchema: { unknownKeys: "strict", fields: { uploadToken: uploadProperty(["csv"]) } },
 	...overrides,
 });
@@ -186,13 +186,13 @@ it.effect("delegates import run CRUD through the canonical service methods", () 
 	let deletedInput: unknown;
 	const layer = makeServiceLayer(
 		makeImportsRepository({
+			updateRun: (input) => Effect.sync(() => void updates.push(input)),
+			deleteRunById: (input) => Effect.sync(() => void (deletedInput = input)),
 			createRun: (input) =>
 				Effect.sync(() => {
 					createdInput = input;
 					return createdRun;
 				}),
-			updateRun: (input) => Effect.sync(() => void updates.push(input)),
-			deleteRunById: (input) => Effect.sync(() => void (deletedInput = input)),
 		}),
 	);
 
@@ -200,17 +200,17 @@ it.effect("delegates import run CRUD through the canonical service methods", () 
 		const service = yield* ImportsService;
 		const createInput = {
 			source: "beta" as const,
-			inputSummary: { source: "test" },
 			userId: UserId.make("user-1"),
+			inputSummary: { source: "test" },
 			pluginInstallationId: "example-installation",
 		} satisfies CreateImportRunInput;
 
 		const run = yield* service.create(createInput);
-		yield* service.update({ runId: run.id, status: "running", progress: 25 });
+		yield* service.update({ progress: 25, runId: run.id, status: "running" });
 		yield* service.delete({ runId: run.id, userId: createInput.userId });
 
 		expect(createdInput).toEqual(createInput);
-		expect(updates).toEqual([{ runId: "run-1", status: "running", progress: 25 }]);
+		expect(updates).toEqual([{ progress: 25, runId: "run-1", status: "running" }]);
 		expect(deletedInput).toEqual({ runId: "run-1", userId: "user-1" });
 	}).pipe(Effect.provide(layer));
 });
@@ -226,6 +226,8 @@ it.effect("validates extensions against the claimed original file name", () => {
 				}),
 			),
 			mockUploadsService({
+				deleteTemporaryUpload: (intentId) =>
+					Effect.sync(() => void deletedIntentIds.push(intentId)),
 				claimTemporaryUpload: () =>
 					Effect.succeed({
 						leaseExpiresAt: now,
@@ -234,8 +236,6 @@ it.effect("validates extensions against the claimed original file name", () => {
 						resolvedPath: "/tmp/random-object.json",
 						locator: { type: "local" as const, key: "temporary/random-object.json" },
 					}),
-				deleteTemporaryUpload: (intentId) =>
-					Effect.sync(() => void deletedIntentIds.push(intentId)),
 			}),
 			Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
 		),
@@ -246,7 +246,7 @@ it.effect("validates extensions against the claimed original file name", () => {
 			(yield* ImportsService).startImportRun(user, { source: "beta", uploadToken: "tok_beta" }),
 		);
 		expect(error).toMatchObject({
-			reason: { code: "unsupported-file-extension", allowedExtensions: ["json"] },
+			reason: { allowedExtensions: ["json"], code: "unsupported-file-extension" },
 		});
 		expect(deletedIntentIds).toEqual(["intent-beta"]);
 	}).pipe(Effect.provide(layer));
@@ -259,15 +259,15 @@ it.effect("rejects temporary uploads claimed from S3 storage", () => {
 		Layer.mergeAll(
 			makeImportSourceCatalog(betaSource()),
 			mockUploadsService({
+				deleteTemporaryUpload: (intentId) =>
+					Effect.sync(() => void deletedIntentIds.push(intentId)),
 				claimTemporaryUpload: () =>
 					Effect.succeed({
 						leaseExpiresAt: now,
-						intentId: "intent-s3",
 						fileName: "beta.csv",
-						locator: { key: "temporary/object.csv", type: "s3" as const },
+						intentId: "intent-s3",
+						locator: { type: "s3" as const, key: "temporary/object.csv" },
 					}),
-				deleteTemporaryUpload: (intentId) =>
-					Effect.sync(() => void deletedIntentIds.push(intentId)),
 			}),
 			Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
 		),
@@ -277,7 +277,7 @@ it.effect("rejects temporary uploads claimed from S3 storage", () => {
 		const error = yield* Effect.flip(
 			(yield* ImportsService).startImportRun(user, { source: "beta", uploadToken: "tok_s3" }),
 		);
-		expect(error).toMatchObject({ reason: { code: "upload-unavailable", field: "uploadToken" } });
+		expect(error).toMatchObject({ reason: { field: "uploadToken", code: "upload-unavailable" } });
 		expect(deletedIntentIds).toEqual(["intent-s3"]);
 	}).pipe(Effect.provide(layer));
 });
@@ -294,6 +294,20 @@ it.effect("claims only the visible upload from mutually exclusive required field
 		workflowSlug: "movary-import",
 		inputSchema: {
 			unknownKeys: "strict",
+			rules: [
+				{
+					kind: "visibility",
+					path: ["ratingsUploadToken"],
+					visibility: { hidden: true },
+					when: { operator: "eq", path: ["mode"], value: "history" },
+				},
+				{
+					kind: "visibility",
+					path: ["historyUploadToken"],
+					visibility: { hidden: true },
+					when: { operator: "eq", path: ["mode"], value: "ratings" },
+				},
+			],
 			fields: {
 				historyUploadToken: uploadProperty(["csv"]),
 				ratingsUploadToken: uploadProperty(["csv"]),
@@ -312,37 +326,24 @@ it.effect("claims only the visible upload from mutually exclusive required field
 					choices: { kind: "static", values: [{ value: "history" }, { value: "ratings" }] },
 				},
 			},
-			rules: [
-				{
-					kind: "visibility",
-					path: ["ratingsUploadToken"],
-					visibility: { hidden: true },
-					when: { operator: "eq", path: ["mode"], value: "history" },
-				},
-				{
-					kind: "visibility",
-					path: ["historyUploadToken"],
-					visibility: { hidden: true },
-					when: { operator: "eq", path: ["mode"], value: "ratings" },
-				},
-			],
 		},
 	});
 	const layer = makeServiceLayer(
 		makeImportsRepository({
+			updateRun: (input) => Effect.sync(() => void (updatedInput = input)),
 			createRun: (input) =>
 				Effect.sync(() => {
 					createdInput = input;
 					return createdRun;
 				}),
-			updateRun: (input) => Effect.sync(() => void (updatedInput = input)),
 		}),
 		Layer.mergeAll(
 			makeImportSourceCatalog(source),
 			mockUploadsService({
+				deleteTemporaryUpload: () => Effect.sync(() => undefined),
 				claimTemporaryUpload: (token, _userId, claimId) =>
 					Effect.sync(() => {
-						claims.push({ claimId, token });
+						claims.push({ token, claimId });
 						return {
 							leaseExpiresAt: now,
 							intentId: `intent-${token}`,
@@ -351,7 +352,6 @@ it.effect("claims only the visible upload from mutually exclusive required field
 							locator: { type: "local" as const, key: `temporary/${token}.csv` },
 						};
 					}),
-				deleteTemporaryUpload: () => Effect.sync(() => undefined),
 			}),
 			Layer.succeed(
 				WorkflowEngine,
@@ -369,9 +369,9 @@ it.effect("claims only the visible upload from mutually exclusive required field
 
 	return Effect.gen(function* () {
 		yield* (yield* ImportsService).startImportRun(user, {
-			apiKey: "file-source-secret",
 			mode: "history",
 			source: "movary",
+			apiKey: "file-source-secret",
 			historyUploadToken: "history",
 		});
 
@@ -429,7 +429,7 @@ it.effect("rejects undeclared upload token fields before claims or work", () => 
 				historyUploadToken: "history",
 			}),
 		);
-		expect(error).toMatchObject({ reason: { code: "invalid-input", field: null } });
+		expect(error).toMatchObject({ reason: { field: null, code: "invalid-input" } });
 	}).pipe(Effect.provide(layer));
 });
 
@@ -477,8 +477,8 @@ it.effect("lists manifest sources with workflow and config availability", () => 
 				isStartable: false,
 				pluginSlug: "example",
 				description: "Beta export",
-				inputSchema: source.inputSchema,
 				workflowSlug: "beta-import",
+				inputSchema: source.inputSchema,
 				requiredPluginConfigKeys: ["deltaApiKey"],
 				missingPluginConfigKeys: ["RYOT_PLUGIN_EXAMPLE_DELTA_API_KEY"],
 			},
@@ -523,7 +523,7 @@ it.effect("hides and rejects import sources from an unavailable system installat
 		const service = yield* ImportsService;
 		expect(yield* service.listImportSources(user)).toEqual([]);
 		const error = yield* Effect.flip(service.startImportRun(user, { source: source.slug }));
-		expect(error).toMatchObject({ reason: { code: "source-not-found", source: source.slug } });
+		expect(error).toMatchObject({ reason: { source: source.slug, code: "source-not-found" } });
 	}).pipe(Effect.provide(Layer.mergeAll(layer, makeConfigProviderLayer())));
 });
 
@@ -555,7 +555,7 @@ it.effect("stores decoded payload credentials without exposing them in the input
 
 	return Effect.gen(function* () {
 		expect(
-			yield* (yield* ImportsService).startImportRun(user, { apiKey: "secret", source: "beta" }),
+			yield* (yield* ImportsService).startImportRun(user, { source: "beta", apiKey: "secret" }),
 		).toEqual({ id: "run-1" });
 		expect(createdInput?.inputSummary).toEqual({ source: "beta" });
 		const [options] = executed;
@@ -597,10 +597,10 @@ it.effect("deletes pending source state when workflow dispatch fails", () => {
 
 	return Effect.gen(function* () {
 		const error = yield* Effect.flip(
-			(yield* ImportsService).startImportRun(user, { apiKey: "secret", source: "beta" }),
+			(yield* ImportsService).startImportRun(user, { source: "beta", apiKey: "secret" }),
 		);
 
-		expect(error).toMatchObject({ reason: { code: "queue-unavailable", operation: "import-run" } });
+		expect(error).toMatchObject({ reason: { operation: "import-run", code: "queue-unavailable" } });
 		expect(deletedKeys).toEqual([[redisKeys.importSourceState("run-1")]]);
 	}).pipe(Effect.provide(layer));
 });
@@ -613,8 +613,8 @@ it.effect("records the resolving installation on the run and its durable source 
 		pluginSlug: "my-example",
 		pluginId: "private-plugin-id",
 		installationId: "private-installation",
-		inputSchema: { unknownKeys: "strict", fields: {} },
-		configContext: { kind: "installation", config: {}, configSchema },
+		inputSchema: { fields: {}, unknownKeys: "strict" },
+		configContext: { config: {}, configSchema, kind: "installation" },
 	});
 	const layer = makeServiceLayer(
 		makeImportsRepository({
@@ -660,6 +660,8 @@ it.effect("rolls back uploads, source state, and the pin when file dispatch fail
 		Layer.mergeAll(
 			makeImportSourceCatalog(betaSource()),
 			mockUploadsService({
+				deleteTemporaryUpload: (intentId) =>
+					Effect.sync(() => void deletedIntentIds.push(intentId)),
 				claimTemporaryUpload: () =>
 					Effect.succeed({
 						leaseExpiresAt: now,
@@ -668,8 +670,6 @@ it.effect("rolls back uploads, source state, and the pin when file dispatch fail
 						resolvedPath: "/tmp/beta-export.csv",
 						locator: { type: "local" as const, key: "temporary/beta-export.csv" },
 					}),
-				deleteTemporaryUpload: (intentId) =>
-					Effect.sync(() => void deletedIntentIds.push(intentId)),
 			}),
 			Layer.succeed(
 				WorkflowEngine,
@@ -694,7 +694,7 @@ it.effect("rolls back uploads, source state, and the pin when file dispatch fail
 			(yield* ImportsService).startImportRun(user, { source: "beta", uploadToken: "tok_beta" }),
 		);
 
-		expect(error).toMatchObject({ reason: { code: "queue-unavailable", operation: "import-run" } });
+		expect(error).toMatchObject({ reason: { operation: "import-run", code: "queue-unavailable" } });
 		expect(released).toEqual(["run-1-import"]);
 		expect(deletedIntentIds).toEqual(["intent-beta"]);
 		expect(deletedKeys).toEqual([[redisKeys.importSourceState("run-1")]]);
@@ -702,7 +702,7 @@ it.effect("rolls back uploads, source state, and the pin when file dispatch fail
 		expect(updates.at(-1)).toMatchObject({
 			runId: "run-1",
 			status: "failed",
-			failureReason: { code: "queue-unavailable", operation: "workflow" },
+			failureReason: { operation: "workflow", code: "queue-unavailable" },
 		});
 	}).pipe(Effect.provide(layer));
 });
@@ -716,6 +716,8 @@ it.effect("cleans up claimed uploads without releasing a pin that never register
 		Layer.mergeAll(
 			makeImportSourceCatalog(betaSource()),
 			mockUploadsService({
+				deleteTemporaryUpload: (intentId) =>
+					Effect.sync(() => void deletedIntentIds.push(intentId)),
 				claimTemporaryUpload: () =>
 					Effect.succeed({
 						leaseExpiresAt: now,
@@ -724,8 +726,6 @@ it.effect("cleans up claimed uploads without releasing a pin that never register
 						resolvedPath: "/tmp/beta-export.csv",
 						locator: { type: "local" as const, key: "temporary/beta-export.csv" },
 					}),
-				deleteTemporaryUpload: (intentId) =>
-					Effect.sync(() => void deletedIntentIds.push(intentId)),
 			}),
 			Layer.succeed(
 				WorkflowEngine,
@@ -747,7 +747,7 @@ it.effect("cleans up claimed uploads without releasing a pin that never register
 			(yield* ImportsService).startImportRun(user, { source: "beta", uploadToken: "tok_beta" }),
 		);
 
-		expect(error).toMatchObject({ reason: { code: "queue-unavailable", operation: "import-run" } });
+		expect(error).toMatchObject({ reason: { operation: "import-run", code: "queue-unavailable" } });
 		expect(released).toEqual([]);
 		expect(deletedIntentIds).toEqual(["intent-beta"]);
 		expect(updates.at(-1)).toMatchObject({
@@ -772,8 +772,8 @@ it.effect("leaves an already-registered pin in place while rolling back source s
 			),
 		),
 		makeImportWorkflowPinning({
-			preRegister: () => Effect.succeed({ registrationStatus: "already-registered" as const }),
 			release: (executionId) => Effect.sync(() => void released.push(executionId)),
+			preRegister: () => Effect.succeed({ registrationStatus: "already-registered" as const }),
 		}),
 		makeRedisService({
 			set: () => Effect.void,
@@ -787,10 +787,10 @@ it.effect("leaves an already-registered pin in place while rolling back source s
 
 	return Effect.gen(function* () {
 		const error = yield* Effect.flip(
-			(yield* ImportsService).startImportRun(user, { apiKey: "secret", source: "beta" }),
+			(yield* ImportsService).startImportRun(user, { source: "beta", apiKey: "secret" }),
 		);
 
-		expect(error).toMatchObject({ reason: { code: "queue-unavailable", operation: "import-run" } });
+		expect(error).toMatchObject({ reason: { operation: "import-run", code: "queue-unavailable" } });
 		expect(released).toEqual([]);
 		expect(deletedKeys).toEqual([[redisKeys.importSourceState("run-1")]]);
 	}).pipe(Effect.provide(layer));

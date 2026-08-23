@@ -54,7 +54,7 @@ const metadata = (items: Array<Record<string, JsonValue>>) => ({
 });
 
 const historyClient = (
-	songs: ReadonlyArray<{ title: string; videoId: string }> = [{ title: "First", videoId: "v1" }],
+	songs: ReadonlyArray<{ title: string; videoId: string }> = [{ videoId: "v1", title: "First" }],
 ): HistoryClient => ({
 	getHistory: () =>
 		Promise.resolve({
@@ -146,6 +146,9 @@ describe("Plex yank", () => {
 				{ key: "1", type: "movie", title: "Movies" },
 				{ key: "2", type: "show", title: "Shows" },
 			]),
+			"/library/metadata/555/allLeaves": metadata([
+				{ index: 3, key: "/e/1", title: "Ep1", parentIndex: 1, lastViewedAt: 1_700_000_100 },
+			]),
 			"/library/sections/1/all?includeGuids=1": metadata([
 				{
 					key: "/m/1",
@@ -159,24 +162,21 @@ describe("Plex yank", () => {
 				{
 					key: "/s/1",
 					type: "show",
-					title: "Severance",
 					ratingKey: "555",
+					title: "Severance",
 					lastViewedAt: 1_700_000_000,
 					Guid: [{ id: "tmdb://95396" }],
 				},
-			]),
-			"/library/metadata/555/allLeaves": metadata([
-				{ index: 3, key: "/e/1", title: "Ep1", parentIndex: 1, lastViewedAt: 1_700_000_100 },
 			]),
 		});
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups).toHaveLength(2);
 		expect(result.entityGroups[0]).toMatchObject({
 			events: [{ eventSchemaSlug: "complete" }],
-			entityRef: { externalId: "329865", providerSlug: "movie.tmdb", entitySchemaSlug: "movie" },
+			entityRef: { externalId: "329865", entitySchemaSlug: "movie", providerSlug: "movie.tmdb" },
 		});
 		expect(result.entityGroups[1]).toMatchObject({
-			entityRef: { externalId: "95396", providerSlug: "show.tmdb", entitySchemaSlug: "show" },
+			entityRef: { externalId: "95396", entitySchemaSlug: "show", providerSlug: "show.tmdb" },
 			events: [
 				{
 					eventSchemaSlug: "progress",
@@ -249,6 +249,7 @@ describe("Plex yank", () => {
 	it("skips a section whose item fetch fails and keeps the rest", async () => {
 		const result = await runPlex(
 			{
+				"/library/sections/2/all?includeGuids=1": failure,
 				"/library/sections": libraries([
 					{ key: "1", type: "movie", title: "Movies" },
 					{ key: "2", type: "show", title: "Shows" },
@@ -256,7 +257,6 @@ describe("Plex yank", () => {
 				"/library/sections/1/all?includeGuids=1": metadata([
 					{ key: "/m/1", type: "movie", title: "Arrival", Guid: [{ id: "tmdb://329865" }] },
 				]),
-				"/library/sections/2/all?includeGuids=1": failure,
 			},
 			true,
 		);
@@ -283,35 +283,35 @@ describe("Plex yank", () => {
 			kind: "unresolved",
 			sourceLabel: "Primer",
 			identifierType: "imdb",
-			identifierValue: "tt0390384",
 			entitySchemaSlug: "movie",
+			identifierValue: "tt0390384",
 		});
 	});
 
 	it("isolates a show episode request failure and continues later rows", async () => {
 		const result = await runPlex({
+			"/library/metadata/1/allLeaves": failure,
 			"/library/sections": libraries([{ key: "1", type: "show", title: "Shows" }]),
+			"/library/metadata/2/allLeaves": metadata([
+				{ index: 1, key: "/e/2", parentIndex: 1, title: "Episode", lastViewedAt: 1_700_000_100 },
+			]),
 			"/library/sections/1/all?includeGuids=1": metadata([
 				{
 					key: "/s/1",
 					type: "show",
-					title: "Broken",
 					ratingKey: "1",
-					lastViewedAt: 1_700_000_000,
+					title: "Broken",
 					Guid: [{ id: "tmdb://1" }],
+					lastViewedAt: 1_700_000_000,
 				},
 				{
 					key: "/s/2",
 					type: "show",
-					title: "Working",
 					ratingKey: "2",
-					lastViewedAt: 1_700_000_000,
+					title: "Working",
 					Guid: [{ id: "tmdb://2" }],
+					lastViewedAt: 1_700_000_000,
 				},
-			]),
-			"/library/metadata/1/allLeaves": failure,
-			"/library/metadata/2/allLeaves": metadata([
-				{ key: "/e/2", title: "Episode", index: 1, parentIndex: 1, lastViewedAt: 1_700_000_100 },
 			]),
 		});
 		expect(result.failures[0]).toMatchObject({
@@ -324,7 +324,7 @@ describe("Plex yank", () => {
 });
 
 describe("Audiobookshelf yank", () => {
-	const libraryResponse = { libraries: [{ id: "lib1", name: "Audiobooks", mediaType: "book" }] };
+	const libraryResponse = { libraries: [{ id: "lib1", mediaType: "book", name: "Audiobooks" }] };
 	const itemRoutes = (items: JsonValue[]) => ({
 		"/api/libraries": libraryResponse,
 		"/api/libraries/lib1/items?expanded=1&filter=progress.ZmluaXNoZWQ=": { results: items },
@@ -337,7 +337,7 @@ describe("Audiobookshelf yank", () => {
 					id: "a1",
 					media: {
 						ebookFormat: null,
-						metadata: { title: "Project Hail Mary", asin: "B08G9PRS1K" },
+						metadata: { asin: "B08G9PRS1K", title: "Project Hail Mary" },
 					},
 				},
 				{
@@ -392,7 +392,7 @@ describe("Audiobookshelf yank", () => {
 		const items: JsonValue[] = [
 			{
 				id: "a1",
-				media: { ebookFormat: null, metadata: { title: "Project Hail Mary", asin: "B08G9PRS1K" } },
+				media: { ebookFormat: null, metadata: { asin: "B08G9PRS1K", title: "Project Hail Mary" } },
 			},
 			{
 				id: "b1",
@@ -409,13 +409,13 @@ describe("Audiobookshelf yank", () => {
 		expect(owned).toHaveLength(2);
 		expect(owned.map((group: EntityGroup) => group.entityRef)).toMatchObject([
 			{ externalId: "B08G9PRS1K", entitySchemaSlug: "audiobook" },
-			{ identifierValue: "9780441013593", entitySchemaSlug: "book" },
+			{ entitySchemaSlug: "book", identifierValue: "9780441013593" },
 		]);
 	});
 
 	it("omits owned items without a usable identifier", async () => {
 		const items: JsonValue[] = [
-			{ id: "a1", media: { ebookFormat: null, metadata: { title: "Has Asin", asin: "B01" } } },
+			{ id: "a1", media: { ebookFormat: null, metadata: { asin: "B01", title: "Has Asin" } } },
 			{ id: "x1", media: { ebookFormat: null, metadata: { title: "No Ids" } } },
 		];
 		const result = await runAudiobookshelf(
@@ -430,20 +430,20 @@ describe("Audiobookshelf yank", () => {
 	it("skips a library whose item fetch fails and keeps the rest", async () => {
 		const item = {
 			id: "a1",
-			media: { ebookFormat: null, metadata: { title: "Owned", asin: "B01" } },
+			media: { ebookFormat: null, metadata: { asin: "B01", title: "Owned" } },
 		};
 		const result = await runAudiobookshelf(
 			{
-				"/api/libraries": {
-					libraries: [
-						{ id: "lib1", name: "A", mediaType: "book" },
-						{ id: "lib2", name: "B", mediaType: "book" },
-					],
-				},
-				"/api/libraries/lib1/items?expanded=1&filter=progress.ZmluaXNoZWQ=": { results: [item] },
+				"/api/libraries/lib2/items?expanded=1": failure,
 				"/api/libraries/lib1/items?expanded=1": { results: [item] },
 				"/api/libraries/lib2/items?expanded=1&filter=progress.ZmluaXNoZWQ=": failure,
-				"/api/libraries/lib2/items?expanded=1": failure,
+				"/api/libraries/lib1/items?expanded=1&filter=progress.ZmluaXNoZWQ=": { results: [item] },
+				"/api/libraries": {
+					libraries: [
+						{ name: "A", id: "lib1", mediaType: "book" },
+						{ name: "B", id: "lib2", mediaType: "book" },
+					],
+				},
 			},
 			true,
 		);
@@ -457,14 +457,10 @@ describe("Audiobookshelf yank", () => {
 
 	it("isolates podcast episode request failures and imports later episodes", async () => {
 		const result = await runAudiobookshelf({
+			"/api/items/pod1?expanded=1&include=progress&episode=bad": failure,
 			"/api/libraries": { libraries: [{ id: "podcasts", name: "Podcasts", mediaType: "podcast" }] },
-			"/api/libraries/podcasts/items?expanded=1": {
-				results: [
-					{
-						id: "pod1",
-						media: { ebookFormat: null, metadata: { title: "Podcast", itunesId: "42" } },
-					},
-				],
+			"/api/items/pod1?expanded=1&include=progress&episode=good": {
+				userMediaProgress: { isFinished: true },
 			},
 			"/api/items/pod1?expanded=1&include=progress": {
 				media: {
@@ -474,9 +470,13 @@ describe("Audiobookshelf yank", () => {
 					],
 				},
 			},
-			"/api/items/pod1?expanded=1&include=progress&episode=bad": failure,
-			"/api/items/pod1?expanded=1&include=progress&episode=good": {
-				userMediaProgress: { isFinished: true },
+			"/api/libraries/podcasts/items?expanded=1": {
+				results: [
+					{
+						id: "pod1",
+						media: { ebookFormat: null, metadata: { itunesId: "42", title: "Podcast" } },
+					},
+				],
 			},
 		});
 		expect(result.failures[0]).toMatchObject({
@@ -509,7 +509,7 @@ describe("Komga yank", () => {
 				[{ label: "MyAnimeList", url: "https://myanimelist.net/manga/2/Berserk" }],
 				"Berserk",
 			),
-		).toMatchObject({ providerSlug: "manga.myanimelist", externalId: "2" });
+		).toMatchObject({ externalId: "2", providerSlug: "manga.myanimelist" });
 	});
 
 	it("maps a MangaUpdates link to manga.manga-updates", () => {
@@ -518,7 +518,7 @@ describe("Komga yank", () => {
 				[{ label: "MangaUpdates", url: "https://www.mangaupdates.com/series/abc123/berserk" }],
 				"Berserk",
 			),
-		).toMatchObject({ providerSlug: "manga.manga-updates", externalId: "abc123" });
+		).toMatchObject({ externalId: "abc123", providerSlug: "manga.manga-updates" });
 	});
 
 	it("returns null for links without a supported manga resolver", () => {
@@ -549,28 +549,28 @@ describe("Komga yank", () => {
 				komgaDefinition,
 				{},
 				defineSandboxTestHost(komgaManifest, {
+					getCurrentIntegration: () =>
+						hostSuccess(
+							integrationRecord({
+								provider: "komga",
+								syncOwnership: true,
+								providerSpecifics: { apiKey: "key", baseUrl: "http://komga.test" },
+							}),
+						),
 					httpCall: httpCall({
+						"/api/v1/books?page=0&size=500": { totalPages: 1, content: [book] },
 						"/api/v1/books?page=0&size=500&read_status=IN_PROGRESS": {
 							totalPages: 1,
 							content: [book, { ...book, id: "unread", readProgress: { page: 0 } }],
 						},
-						"/api/v1/books?page=0&size=500": { totalPages: 1, content: [book] },
 					}),
-					getCurrentIntegration: () =>
-						hostSuccess(
-							integrationRecord({
-								syncOwnership: true,
-								provider: "komga",
-								providerSpecifics: { apiKey: "key", baseUrl: "http://komga.test" },
-							}),
-						),
 				}),
 				execution,
 			),
 		);
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups).toEqual([
-			expect.objectContaining({ ownershipProvider: "komga", events: [] }),
+			expect.objectContaining({ events: [], ownershipProvider: "komga" }),
 		]);
 	});
 });
@@ -580,21 +580,21 @@ describe("YouTube Music yank", () => {
 		const claims = new Set<string>();
 		const host = defineSandboxTestHost(youtubeMusicManifest, {
 			httpCall: httpCall({}),
+			claimPersistentValue: (key) => {
+				if (claims.has(key)) {
+					return hostSuccess({ value: true, claimed: false });
+				}
+				claims.add(key);
+				return hostSuccess({ claimed: true });
+			},
 			getCurrentIntegration: () =>
 				hostSuccess(
 					integrationRecord({
 						lot: "yank",
 						provider: "youtube_music",
-						providerSpecifics: { authCookie: "cookie", timezone: "UTC" },
+						providerSpecifics: { timezone: "UTC", authCookie: "cookie" },
 					}),
 				),
-			claimPersistentValue: (key) => {
-				if (claims.has(key)) {
-					return hostSuccess({ claimed: false, value: true });
-				}
-				claims.add(key);
-				return hostSuccess({ claimed: true });
-			},
 		});
 		const run = (startedAt: string) =>
 			Effect.runPromise(
@@ -602,7 +602,7 @@ describe("YouTube Music yank", () => {
 					Effect.succeed(historyClient(songs)),
 				),
 			);
-		return { claims, run };
+		return { run, claims };
 	};
 
 	it("returns a zone-local date and a positive sub-day TTL for a valid timezone", () => {
@@ -616,7 +616,7 @@ describe("YouTube Music yank", () => {
 	});
 
 	it("falls back to a full-day TTL for an unknown timezone", () => {
-		const { isFinalWindow, localDate, ttlSeconds } = dailyProgressWindow(
+		const { localDate, ttlSeconds, isFinalWindow } = dailyProgressWindow(
 			"Not/AZone",
 			"2026-01-01T00:00:00.000Z",
 		);
@@ -637,9 +637,9 @@ describe("YouTube Music yank", () => {
 
 	it("emits 35 once, emits 100 once, then skips songs already completed that day", async () => {
 		const { run } = setup([
-			{ title: "First", videoId: "v1" },
-			{ title: "Second", videoId: "v2" },
-			{ title: "First duplicate", videoId: "v1" },
+			{ videoId: "v1", title: "First" },
+			{ videoId: "v2", title: "Second" },
+			{ videoId: "v1", title: "First duplicate" },
 		]);
 		expect(progressValues(await run("2026-01-01T12:00:00.000Z"))).toEqual([35, 35]);
 		expect(progressValues(await run("2026-01-01T12:05:00.000Z"))).toEqual([100, 100]);
@@ -647,7 +647,7 @@ describe("YouTube Music yank", () => {
 	});
 
 	it("completes a song directly when first found in the final ten minutes", async () => {
-		const { claims, run } = setup();
+		const { run, claims } = setup();
 		expect(progressValues(await run("2026-01-01T23:50:00.000Z"))).toEqual([100]);
 		expect(progressValues(await run("2026-01-01T23:55:00.000Z"))).toEqual([]);
 		expect([...claims]).toEqual([expect.stringMatching(/:v1:2026-01-01:completed$/)]);

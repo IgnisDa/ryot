@@ -19,9 +19,9 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "GiantBomb",
 	slug: "company.giant-bomb",
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["giantBombApiKey"],
-	requiredSystemConfigKeys: [],
 });
 
 const getGameGuid = (game: Record<string, unknown> | null) => {
@@ -160,20 +160,20 @@ export const details = defineProvider({
 					relatedEntityGroups: [
 						{
 							direction: "outgoing" as const,
-							synchronization: "authoritative" as const,
 							entities: accumulator.entities,
+							synchronization: "authoritative" as const,
 							relationshipSchemaSlug: "company-to-video-game",
 						},
 					],
 					properties: {
 						headquarters,
 						alternateNames,
-						foundedYear: extractYear(company["date_founded"]),
 						website: stringValue(company["website"]),
+						foundedYear: extractYear(company["date_founded"]),
 						sourceUrl: stringValue(company["site_detail_url"]),
 						description: combineDescription(company["deck"], company["description"]),
 						images: primaryImage
-							? [{ type: "remote" as const, url: primaryImage, purpose: "logo" as const }]
+							? [{ url: primaryImage, type: "remote" as const, purpose: "logo" as const }]
 							: [],
 					},
 				};

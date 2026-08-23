@@ -24,7 +24,7 @@ export const failureResult = (
 	stage: MediaIntegrationAdapterResult["failures"][number]["stage"] = "input_transformation",
 ): MediaIntegrationAdapterResult => ({
 	entityGroups: [],
-	failures: [{ message, stage, itemIndex: 0 }],
+	failures: [{ stage, message, itemIndex: 0 }],
 });
 
 export const progressResult = (input: {

@@ -415,10 +415,10 @@ BEGIN
 
 	${buildReportSql("seen -> event", [
 		{
-			message: "show/podcast parent complete events backfilled",
 			count: "show_podcast_complete_inserted",
+			message: "show/podcast parent complete events backfilled",
 		},
-		{ message: "anime/manga complete events backfilled", count: "flat_complete_inserted" },
+		{ count: "flat_complete_inserted", message: "anime/manga complete events backfilled" },
 	])}
 END $$;
 `;

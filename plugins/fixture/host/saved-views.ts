@@ -42,7 +42,7 @@ const buildDefinition = (
 			ownerPluginIdField: "ownerPluginId",
 			entitySchemaSlugField: "entitySchemaSlug",
 			layouts: ["grid", "list", "table"] as const,
-			addAction: { type: "provider-search" as const, ownerPluginId: "fixture", entitySchemaSlug },
+			addAction: { entitySchemaSlug, ownerPluginId: "fixture", type: "provider-search" as const },
 			tableColumns: [
 				...(projections.table.mappings.imageField === null
 					? []

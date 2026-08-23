@@ -55,8 +55,8 @@ const withCollector = <A, E, R>(
 	assert(loadedPlugin);
 	const loaderLayer = Layer.succeed(PluginLoader, { ...loader });
 	const repositoryLayer = Layer.mock(PluginRepository)({
-		lockIngestion: input.lockIngestion ?? (() => Effect.void),
 		hasIntegrationReferences: () => Effect.succeed(false),
+		lockIngestion: input.lockIngestion ?? (() => Effect.void),
 		deleteInactiveUnreferencedPlugins: () => Effect.succeed([]),
 		deleteUnreferencedScripts: input.deleteScripts ?? (() => Effect.succeed([])),
 		listPersistedLivenessContentHashes: () =>
@@ -127,8 +127,8 @@ it.effect(
 						expect(yield* Ref.get(observedLiveHashes)).toEqual([]);
 						expect(yield* Ref.get(lockCount)).toBe(0);
 						yield* collector.recordKernelContentHashes(new Set([kernelHash]));
-						expect(yield* collector.collect()).toEqual({ candidateCount: 2, removedCount: 2 });
-						expect(yield* collector.collect()).toEqual({ candidateCount: 0, removedCount: 0 });
+						expect(yield* collector.collect()).toEqual({ removedCount: 2, candidateCount: 2 });
+						expect(yield* collector.collect()).toEqual({ removedCount: 0, candidateCount: 0 });
 					}),
 					{
 						deleteScripts,

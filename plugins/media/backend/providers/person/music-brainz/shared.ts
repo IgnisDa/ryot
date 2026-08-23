@@ -8,10 +8,10 @@ import { buildLuceneQuery, mbGet } from "../../../lib/vendors/music-brainz";
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "MusicBrainz",
+	capabilities: ["httpCall"],
 	slug: "person.music-brainz",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	capabilities: ["httpCall"],
 });
 
 const buildArtistDescription = (artist: Record<string, unknown>) => {
@@ -94,7 +94,7 @@ export const details = defineProvider({
 		Effect.all(
 			[
 				mbGet(host, `artist/${input.externalId}`, { inc: "aliases release-groups" }),
-				mbGet(host, "recording", { artist: input.externalId, limit: "100" }),
+				mbGet(host, "recording", { limit: "100", artist: input.externalId }),
 			],
 			{ concurrency: "unbounded" },
 		).pipe(
@@ -157,20 +157,6 @@ export const details = defineProvider({
 
 				return {
 					name,
-					relatedEntityGroups: [
-						{
-							direction: "outgoing" as const,
-							synchronization: "authoritative" as const,
-							entities: mediaEntities,
-							relationshipSchemaSlug: "person-to-music",
-						},
-						{
-							direction: "outgoing" as const,
-							synchronization: "authoritative" as const,
-							entities: groupEntities,
-							relationshipSchemaSlug: "person-to-music-group",
-						},
-					],
 					properties: {
 						birthDate,
 						deathDate,
@@ -180,6 +166,20 @@ export const details = defineProvider({
 						alternateNames,
 						sourceUrl: `https://musicbrainz.org/artist/${input.externalId}`,
 					},
+					relatedEntityGroups: [
+						{
+							entities: mediaEntities,
+							direction: "outgoing" as const,
+							synchronization: "authoritative" as const,
+							relationshipSchemaSlug: "person-to-music",
+						},
+						{
+							entities: groupEntities,
+							direction: "outgoing" as const,
+							synchronization: "authoritative" as const,
+							relationshipSchemaSlug: "person-to-music-group",
+						},
+					],
 				};
 			}),
 		),

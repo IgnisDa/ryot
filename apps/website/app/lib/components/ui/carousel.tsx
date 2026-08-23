@@ -52,12 +52,12 @@ function useCarousel() {
 const Carousel = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement> & CarouselProps>(
 	(props, ref) => {
 		const {
-			orientation = "horizontal",
 			opts,
 			setApi,
 			plugins,
-			className,
 			children,
+			className,
+			orientation = "horizontal",
 			...rest
 		} = props;
 		const [carouselRef, api] = useEmblaCarousel(
@@ -116,8 +116,8 @@ const Carousel = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement> & Car
 
 		const contextValue = useMemo(
 			() => ({
-				opts,
 				api,
+				opts,
 				scrollPrev,
 				scrollNext,
 				carouselRef,
@@ -180,14 +180,16 @@ CarouselItem.displayName = "CarouselItem";
 
 const CarouselPrevious = forwardRef<HTMLButtonElement, ComponentProps<typeof Button>>(
 	(props, ref) => {
-		const { className, variant = "outline", size = "icon", ...rest } = props;
-		const { orientation, scrollPrev, canScrollPrev } = useCarousel();
+		const { className, size = "icon", variant = "outline", ...rest } = props;
+		const { scrollPrev, orientation, canScrollPrev } = useCarousel();
 
 		return (
 			<Button
 				ref={ref}
-				variant={variant}
 				size={size}
+				variant={variant}
+				onClick={scrollPrev}
+				disabled={!canScrollPrev}
 				className={cn(
 					"absolute  h-8 w-8 rounded-full",
 					orientation === "horizontal"
@@ -195,8 +197,6 @@ const CarouselPrevious = forwardRef<HTMLButtonElement, ComponentProps<typeof But
 						: "-top-12 left-1/2 -translate-x-1/2 rotate-90",
 					className,
 				)}
-				disabled={!canScrollPrev}
-				onClick={scrollPrev}
 				{...rest}
 			>
 				<ArrowLeft className="h-4 w-4" />
@@ -208,14 +208,16 @@ const CarouselPrevious = forwardRef<HTMLButtonElement, ComponentProps<typeof But
 CarouselPrevious.displayName = "CarouselPrevious";
 
 const CarouselNext = forwardRef<HTMLButtonElement, ComponentProps<typeof Button>>((props, ref) => {
-	const { className, variant = "outline", size = "icon", ...rest } = props;
-	const { orientation, scrollNext, canScrollNext } = useCarousel();
+	const { className, size = "icon", variant = "outline", ...rest } = props;
+	const { scrollNext, orientation, canScrollNext } = useCarousel();
 
 	return (
 		<Button
 			ref={ref}
-			variant={variant}
 			size={size}
+			variant={variant}
+			onClick={scrollNext}
+			disabled={!canScrollNext}
 			className={cn(
 				"absolute h-8 w-8 rounded-full",
 				orientation === "horizontal"
@@ -223,8 +225,6 @@ const CarouselNext = forwardRef<HTMLButtonElement, ComponentProps<typeof Button>
 					: "-bottom-12 left-1/2 -translate-x-1/2 rotate-90",
 				className,
 			)}
-			disabled={!canScrollNext}
-			onClick={scrollNext}
 			{...rest}
 		>
 			<ArrowRight className="h-4 w-4" />

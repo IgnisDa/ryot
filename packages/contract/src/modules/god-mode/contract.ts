@@ -9,14 +9,14 @@ import { UserLifecycleOperation } from "./user-lifecycle";
 const UserAuthState = Schema.Literals(["credential", "oidc", "none", "mixed"]);
 
 const GodModeRequestFailureReason = Schema.Union([
-	Schema.Struct({ code: Schema.Literal("user-already-exists"), email: Email }),
+	Schema.Struct({ email: Email, code: Schema.Literal("user-already-exists") }),
 	Schema.Struct({ code: Schema.Literal("local-auth-disabled") }),
 	Schema.Struct({ code: Schema.Literal("password-reset-in-progress") }),
-	Schema.Struct({ code: Schema.Literal("password-reset-unsupported"), authState: UserAuthState }),
+	Schema.Struct({ authState: UserAuthState, code: Schema.Literal("password-reset-unsupported") }),
 	Schema.Struct({ code: Schema.Literal("mixed-auth-reset-unsupported") }),
 ]);
 const GodModeNotFoundReason = Schema.Union([
-	Schema.Struct({ code: Schema.Literal("user-not-found"), userId: UserId }),
+	Schema.Struct({ userId: UserId, code: Schema.Literal("user-not-found") }),
 	Schema.Struct({
 		operationId: Schema.String,
 		code: Schema.Literal("lifecycle-operation-not-found"),
@@ -79,8 +79,8 @@ const ListUsersResponse = Schema.Struct({
 const ProvisionUserBody = Schema.Union([
 	Schema.Struct({ email: Email, name: Schema.String, provider: Schema.Literal("credential") }).pipe(
 		Schema.annotate({
-			identifier: "CredentialProvisionUserBody",
 			title: "Credential Provision User",
+			identifier: "CredentialProvisionUserBody",
 		}),
 	),
 	Schema.Struct({
@@ -88,7 +88,7 @@ const ProvisionUserBody = Schema.Union([
 		name: Schema.String,
 		oidcIssuerId: Schema.String,
 		provider: Schema.Literal("oidc"),
-	}).pipe(Schema.annotate({ identifier: "OidcProvisionUserBody", title: "OIDC Provision User" })),
+	}).pipe(Schema.annotate({ title: "OIDC Provision User", identifier: "OidcProvisionUserBody" })),
 ]);
 
 export type ProvisionUserBody = Schema.Schema.Type<typeof ProvisionUserBody>;
@@ -119,14 +119,16 @@ export const GodModeGroup = HttpApiGroup.make("godMode")
 	)
 	.add(
 		HttpApiEndpoint.get("listUsers", "/god-mode/users", {
+			error: internalFailure,
+			success: ListUsersResponse,
 			query: {
 				search: Schema.optional(Schema.String),
 				offset: Schema.NumberFromString.pipe(
 					(schema) =>
 						Schema.optional(schema).pipe(
 							Schema.decodeTo(Schema.toType(schema), {
-								decode: SchemaGetter.withDefault(Effect.sync(() => 0)),
 								encode: SchemaGetter.required(),
+								decode: SchemaGetter.withDefault(Effect.sync(() => 0)),
 							}),
 						),
 					Schema.withConstructorDefault(Effect.sync(() => 0)),
@@ -135,15 +137,13 @@ export const GodModeGroup = HttpApiGroup.make("godMode")
 					(schema) =>
 						Schema.optional(schema).pipe(
 							Schema.decodeTo(Schema.toType(schema), {
-								decode: SchemaGetter.withDefault(Effect.sync(() => 50)),
 								encode: SchemaGetter.required(),
+								decode: SchemaGetter.withDefault(Effect.sync(() => 50)),
 							}),
 						),
 					Schema.withConstructorDefault(Effect.sync(() => 50)),
 				),
 			},
-			success: ListUsersResponse,
-			error: internalFailure,
 		})
 			.middleware(AdminMiddleware)
 			.annotate(OpenApi.Description, "Lists users with pagination and optional search"),

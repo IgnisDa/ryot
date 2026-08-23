@@ -36,7 +36,7 @@ const signalSchema = {
 	name: "Review Created",
 	audiencePolicy: { kind: "actor" },
 	notificationScriptSlug: "automation.notification",
-	propertiesSchema: { unknownKeys: "strict", fields: {} },
+	propertiesSchema: { fields: {}, unknownKeys: "strict" },
 } as const;
 
 const state = {
@@ -44,8 +44,8 @@ const state = {
 	id: ruleId,
 	metadata: null,
 	isActive: true,
-	signalSchemaPluginId: null,
 	signalSchemaSlug,
+	signalSchemaPluginId: null,
 	createdAt: "2026-07-21T10:00:00.000Z",
 	updatedAt: "2026-07-21T10:00:00.000Z",
 } as const satisfies StoredNotificationSubscription;
@@ -136,7 +136,7 @@ it.effect("rejects hidden catalog schemas and duplicate installs", () => {
 		assertExitFails(
 			hidden,
 			new AutomationNotFoundError({
-				reason: { code: "signal-schema-not-found", signalSchemaSlug },
+				reason: { signalSchemaSlug, code: "signal-schema-not-found" },
 			}),
 		);
 
@@ -150,7 +150,7 @@ it.effect("rejects hidden catalog schemas and duplicate installs", () => {
 		);
 		assertExitFails(
 			duplicate,
-			new AutomationConflictError({ reason: { code: "rule-already-installed", signalSchemaSlug } }),
+			new AutomationConflictError({ reason: { signalSchemaSlug, code: "rule-already-installed" } }),
 		);
 	});
 });
@@ -170,7 +170,7 @@ it.effect("does not reveal inaccessible notification state through mutations", (
 		]) {
 			assertExitFails(
 				yield* Effect.exit(mutation),
-				new AutomationNotFoundError({ reason: { code: "rule-not-found", ruleId } }),
+				new AutomationNotFoundError({ reason: { ruleId, code: "rule-not-found" } }),
 			);
 		}
 	}).pipe(Effect.provide(layer));
@@ -193,7 +193,7 @@ it.effect("does not mutate state whose signal definition is no longer registered
 		const service = yield* NotificationSubscriptionsService;
 		assertExitFails(
 			yield* Effect.exit(service.setRuleActive({ userId, ruleId, isActive: false })),
-			new AutomationNotFoundError({ reason: { code: "rule-not-found", ruleId } }),
+			new AutomationNotFoundError({ reason: { ruleId, code: "rule-not-found" } }),
 		);
 		expect(mutationAttempted).toBe(false);
 	}).pipe(Effect.provide(layer));
@@ -221,10 +221,6 @@ it.effect("deactivates, deletes, and reinstalls the same notification rule shape
 	let currentState: StoredNotificationSubscription | null = null;
 	const layer = makeLayer({
 		findNotificationSubscription: () => Effect.succeed(currentState),
-		setNotificationSubscriptionActive: (input) => {
-			currentState = currentState ? { ...currentState, isActive: input.isActive } : null;
-			return Effect.succeed(currentState);
-		},
 		deleteNotificationSubscription: () => {
 			const deleted = currentState;
 			currentState = null;
@@ -232,6 +228,10 @@ it.effect("deactivates, deletes, and reinstalls the same notification rule shape
 		},
 		insertNotificationSubscription: (input) => {
 			currentState = { ...state, ...input, id: AutomationRuleId.make(`rule-${nextId++}`) };
+			return Effect.succeed(currentState);
+		},
+		setNotificationSubscriptionActive: (input) => {
+			currentState = currentState ? { ...currentState, isActive: input.isActive } : null;
 			return Effect.succeed(currentState);
 		},
 	});

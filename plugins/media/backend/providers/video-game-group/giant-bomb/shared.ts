@@ -17,10 +17,10 @@ import {
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "GiantBomb",
+	requiredSystemConfigKeys: [],
 	slug: "video-game-group.giant-bomb",
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["giantBombApiKey"],
-	requiredSystemConfigKeys: [],
 });
 
 export const search = defineProvider({
@@ -112,8 +112,8 @@ export const details = defineProvider({
 				name,
 				relatedEntityGroups: [
 					{
-						direction: "outgoing" as const,
 						entities: relatedEntities,
+						direction: "outgoing" as const,
 						synchronization: "authoritative" as const,
 						relationshipSchemaSlug: "video-game-group-to-video-game",
 					},
@@ -121,10 +121,10 @@ export const details = defineProvider({
 				properties: {
 					parts: franchiseGames.length,
 					sourceUrl: stringValue(franchise["site_detail_url"]),
-					images: primaryImage
-						? [{ type: "remote" as const, url: primaryImage, purpose: "cover" as const }]
-						: [],
 					description: combineDescription(franchise["deck"], franchise["description"]),
+					images: primaryImage
+						? [{ url: primaryImage, type: "remote" as const, purpose: "cover" as const }]
+						: [],
 				},
 			};
 		}),

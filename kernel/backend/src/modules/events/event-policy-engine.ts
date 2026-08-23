@@ -117,9 +117,9 @@ const validateEventDraft = Effect.fn("validateEventPolicyDraft")(function* (
 	draft: { properties: unknown; occurredAt: string; sessionEntityId?: EntityId | undefined },
 ) {
 	return yield* Activity.make({
-		error: EventCreateWorkflowError satisfies DurableSchema,
-		name: `validate-policy-draft-${itemIndex}-${stepId}`,
 		success: EventPolicyDraft satisfies DurableSchema,
+		name: `validate-policy-draft-${itemIndex}-${stepId}`,
+		error: EventCreateWorkflowError satisfies DurableSchema,
 		execute: Effect.gen(function* () {
 			const scopes = yield* resolveEventCreateItemScopes({
 				userId: payload.userId,
@@ -127,8 +127,8 @@ const validateEventDraft = Effect.fn("validateEventPolicyDraft")(function* (
 					entityId: prepared.entityId,
 					occurredAt: draft.occurredAt,
 					properties: draft.properties,
-					eventSchemaSlug: prepared.eventSchemaSlug,
 					sessionEntityId: draft.sessionEntityId,
+					eventSchemaSlug: prepared.eventSchemaSlug,
 				},
 			});
 			const parsedProperties = yield* parseAppSchemaProperties({
@@ -217,7 +217,7 @@ export const runEventCreatePolicies = Effect.fn(function* (
 			sandboxResult.value,
 		).pipe(Effect.mapError(policyFailed));
 		if (result.action === "skip") {
-			return { kind: "skipped" as const, reason: result.reason };
+			return { reason: result.reason, kind: "skipped" as const };
 		}
 		if (result.action === "replace") {
 			let sessionEntityId = draft.sessionEntityId;

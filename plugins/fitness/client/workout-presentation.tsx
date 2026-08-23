@@ -155,12 +155,12 @@ export const WorkoutPresentation = ({
 
 const WorkoutCard = (props: EntityPresentationComponentProps<WorkoutPresentationData>) => {
 	const { compact } = useRyotViewport();
-	return <WorkoutPresentation {...props} compact={compact} layout="grid" />;
+	return <WorkoutPresentation {...props} layout="grid" compact={compact} />;
 };
 
 const WorkoutRow = (props: EntityPresentationComponentProps<WorkoutPresentationData>) => {
 	const { compact } = useRyotViewport();
-	return <WorkoutPresentation {...props} compact={compact} layout="list" />;
+	return <WorkoutPresentation {...props} layout="list" compact={compact} />;
 };
 
 export const workoutCardPresentation = defineEntityPresentation({

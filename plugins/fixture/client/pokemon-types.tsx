@@ -3,7 +3,7 @@ export type PokemonTypesProps = { readonly name: string; readonly types: readonl
 const PokemonTypes = ({ name, types }: PokemonTypesProps) => (
 	<section className="rounded-lg border border-border bg-surface p-4 text-text">
 		<h3 className="font-display text-lg">{name} types</h3>
-		<div className="mt-2 flex flex-wrap gap-2" aria-label={`${name} types`}>
+		<div aria-label={`${name} types`} className="mt-2 flex flex-wrap gap-2">
 			{types.length === 0 && <span className="text-sm text-text-muted">Unavailable</span>}
 			{types.map((type) => (
 				<span

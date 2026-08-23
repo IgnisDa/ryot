@@ -21,9 +21,9 @@ const ProviderIds = Schema.optional(
 	}),
 );
 const Item = Schema.Struct({
+	ProviderIds,
 	Id: Schema.String,
 	Name: Schema.String,
-	ProviderIds,
 	Type: Schema.optional(Schema.String),
 	SeriesId: Schema.optional(Schema.String),
 	IndexNumber: Schema.optional(Schema.Int),
@@ -60,17 +60,17 @@ export const adaptJellyfinData = (
 		const requestHost = withSourceRequestOptions(host, input.allowInsecureConnections);
 		const auth = yield* requestSourceJson(requestHost, {
 			method: "POST",
+			headers: headers(),
 			baseUrl: input.apiUrl,
 			path: "Users/AuthenticateByName",
-			headers: headers(),
 			body: JSON.stringify({ Pw: input.password ?? "", Username: input.username }),
 		}).pipe(Effect.flatMap(Schema.decodeUnknownEffect(AuthResponse)));
 		const requestHeaders = headers(auth.AccessToken);
 		const library = yield* requestSourceJson(requestHost, {
-			headers: requestHeaders,
 			baseUrl: input.apiUrl,
+			headers: requestHeaders,
 			path: `Users/${auth.User.Id}/Items`,
-			query: { fields: "ProviderIds", IsPlayed: true, recursive: true },
+			query: { IsPlayed: true, recursive: true, fields: "ProviderIds" },
 		}).pipe(Effect.flatMap(Schema.decodeUnknownEffect(ItemsResponse)));
 		const failures: MediaImportAdapterFailure[] = [];
 		const groups = new Map<string, ImportMediaEntityGroupBuilder>();
@@ -130,8 +130,8 @@ export const adaptJellyfinData = (
 			let series = seriesCache.get(item.SeriesId);
 			if (!series) {
 				const result = yield* requestSourceJson(requestHost, {
-					headers: requestHeaders,
 					baseUrl: input.apiUrl,
+					headers: requestHeaders,
 					path: `Items/${item.SeriesId}`,
 				}).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Item)), Effect.result);
 				if (Result.isFailure(result)) {

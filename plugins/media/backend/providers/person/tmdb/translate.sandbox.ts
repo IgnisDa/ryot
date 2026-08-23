@@ -5,11 +5,11 @@ import { translate } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
+	requiredSystemConfigKeys: [],
 	name: "TMDB Person Translate",
 	slug: "person.tmdb.translate",
-	capabilities: ["httpCall", "getPluginConfig", "getUserPreferences"],
 	requiredPluginConfigKeys: ["tmdbAccessToken"],
-	requiredSystemConfigKeys: [],
+	capabilities: ["httpCall", "getPluginConfig", "getUserPreferences"],
 });
 
-export default defineProvider({ manifest, operation: "translate", run: translate.run });
+export default defineProvider({ manifest, run: translate.run, operation: "translate" });

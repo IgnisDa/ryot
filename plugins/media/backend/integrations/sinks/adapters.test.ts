@@ -45,7 +45,7 @@ describe("Kodi sink", () => {
 		);
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups[0]).toMatchObject({
-			entityRef: { externalId: "1234", providerSlug: "show.tmdb", entitySchemaSlug: "show" },
+			entityRef: { externalId: "1234", entitySchemaSlug: "show", providerSlug: "show.tmdb" },
 			events: [
 				{
 					eventSchemaSlug: "progress",
@@ -99,8 +99,8 @@ describe("Kodi sink", () => {
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups[0]?.entityRef).toMatchObject({
 			externalId: "603",
-			providerSlug: "movie.tmdb",
 			entitySchemaSlug: "movie",
+			providerSlug: "movie.tmdb",
 		});
 	});
 });
@@ -128,7 +128,7 @@ describe("media server sinks", () => {
 		);
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups[0]).toMatchObject({
-			entityRef: { externalId: "95396", providerSlug: "show.tmdb", entitySchemaSlug: "show" },
+			entityRef: { externalId: "95396", entitySchemaSlug: "show", providerSlug: "show.tmdb" },
 			events: [
 				{
 					properties: { consumedOn: "emby", progressPercent: 50 },
@@ -161,10 +161,10 @@ describe("media server sinks", () => {
 		);
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups[0]).toMatchObject({
-			entityRef: { externalId: "125988", providerSlug: "show.tmdb", entitySchemaSlug: "show" },
+			entityRef: { externalId: "125988", entitySchemaSlug: "show", providerSlug: "show.tmdb" },
 			events: [
 				{
-					properties: { consumedOn: "jellyfin_sink", progressPercent: 25 },
+					properties: { progressPercent: 25, consumedOn: "jellyfin_sink" },
 					unresolvedEpisode: { type: "show", seasonNumber: 2, episodeNumber: 4 },
 				},
 			],
@@ -222,8 +222,8 @@ describe("Plex sink", () => {
 		});
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups[0]).toMatchObject({
-			entityRef: { externalId: "27205", providerSlug: "movie.tmdb", entitySchemaSlug: "movie" },
-			events: [{ properties: { consumedOn: "plex_sink", progressPercent: 100 } }],
+			events: [{ properties: { progressPercent: 100, consumedOn: "plex_sink" } }],
+			entityRef: { externalId: "27205", entitySchemaSlug: "movie", providerSlug: "movie.tmdb" },
 		});
 	});
 
@@ -242,10 +242,10 @@ describe("Plex sink", () => {
 		});
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups[0]).toMatchObject({
-			entityRef: { externalId: "93740", providerSlug: "show.tmdb", entitySchemaSlug: "show" },
+			entityRef: { externalId: "93740", entitySchemaSlug: "show", providerSlug: "show.tmdb" },
 			events: [
 				{
-					properties: { consumedOn: "plex_sink", progressPercent: 80 },
+					properties: { progressPercent: 80, consumedOn: "plex_sink" },
 					unresolvedEpisode: { type: "show", seasonNumber: 3, episodeNumber: 5 },
 				},
 			],
@@ -315,7 +315,7 @@ describe("browser extension sink", () => {
 		);
 		expect(result.failures).toEqual([]);
 		expect(result.entityGroups[0]).toMatchObject({
-			entityRef: { externalId: "94997", providerSlug: "show.tmdb", entitySchemaSlug: "show" },
+			entityRef: { externalId: "94997", entitySchemaSlug: "show", providerSlug: "show.tmdb" },
 			events: [
 				{
 					properties: { consumedOn: "max", progressPercent: 80 },

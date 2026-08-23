@@ -10,9 +10,9 @@ const SavedViewBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("renderer-not-found") }),
 	Schema.Struct({ code: Schema.Literal("renderer-unpublished") }),
 	Schema.Struct({ code: Schema.Literal("renderer-kind-unavailable") }),
-	Schema.Struct({ code: Schema.Literal("plugin-not-found"), pluginSlug: PluginSlug }),
-	Schema.Struct({ code: Schema.Literal("settings-incompatible"), message: Schema.String }),
-	Schema.Struct({ code: Schema.Literal("builtin-view-immutable"), viewSlug: Schema.String }),
+	Schema.Struct({ pluginSlug: PluginSlug, code: Schema.Literal("plugin-not-found") }),
+	Schema.Struct({ message: Schema.String, code: Schema.Literal("settings-incompatible") }),
+	Schema.Struct({ viewSlug: Schema.String, code: Schema.Literal("builtin-view-immutable") }),
 	Schema.Struct({
 		code: Schema.Literal("required-field"),
 		field: Schema.Literals(["name", "slug"]),
@@ -25,7 +25,7 @@ const SavedViewBadRequestReason = Schema.Union([
 ]);
 
 const SavedViewNotFoundReason = Schema.Union([
-	Schema.Struct({ code: Schema.Literal("saved-view-not-found"), viewSlug: Schema.String }),
+	Schema.Struct({ viewSlug: Schema.String, code: Schema.Literal("saved-view-not-found") }),
 ]);
 
 export class SavedViewBadRequest extends Schema.TaggedError<SavedViewBadRequest>()(
@@ -78,7 +78,7 @@ export const AuthoredSavedViewRenderer = Schema.Union([
 export type AuthoredSavedViewRenderer = typeof AuthoredSavedViewRenderer.Type;
 
 export const SavedViewRenderer = Schema.Union([
-	strictStruct({ kind: Schema.Literal("custom"), rendererId: ClientRendererId }),
+	strictStruct({ rendererId: ClientRendererId, kind: Schema.Literal("custom") }),
 	strictStruct({ kind: Schema.Literal("kernel"), name: KernelSavedViewRendererName }),
 	strictStruct({
 		pluginId: Schema.String,

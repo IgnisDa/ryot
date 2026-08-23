@@ -31,8 +31,8 @@ export type CachedUserPreferences = {
 };
 
 export const defaultUserPreferences: CachedUserPreferences = {
-	allowNsfw: false,
 	language: null,
+	allowNsfw: false,
 	disableIntegrations: false,
 };
 
@@ -78,14 +78,14 @@ export class AuthMiddleware extends HttpApiMiddleware.Service<
 	AuthMiddleware,
 	{ provides: AuthorizationContext | CurrentUser }
 >()("AuthMiddleware", {
-	security: {
-		oauth: HttpApiSecurity.bearer,
-		apiKey: HttpApiSecurity.apiKey({ in: "header", key: "x-api-key" }),
-	},
 	error: [
 		AuthUnauthorized.pipe(HttpApiSchema.status(401)),
 		AuthRateLimited.pipe(HttpApiSchema.status(429)),
 	],
+	security: {
+		oauth: HttpApiSecurity.bearer,
+		apiKey: HttpApiSecurity.apiKey({ in: "header", key: "x-api-key" }),
+	},
 }) {}
 
 export class AdminMiddleware extends HttpApiMiddleware.Service<

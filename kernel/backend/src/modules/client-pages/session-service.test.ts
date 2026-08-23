@@ -27,8 +27,8 @@ const privateContributor = {
 	kind: "plugin" as const,
 	pluginId: "private-plugin-id",
 	sourceHash: "private-source-1",
-	installationId: "private-installation-id",
 	pluginSlug: PluginSlug.make("private"),
+	installationId: "private-installation-id",
 };
 const rendererContributor = {
 	rendererId,
@@ -45,14 +45,14 @@ const identity: PreparedClientPage["identity"] = {
 	publishedRevision: 1,
 	artifactHash: "artifact-1",
 	publishedHash: "renderer-source-1",
-	target: { kind: "saved-view", savedViewId },
+	target: { savedViewId, kind: "saved-view" },
 	contributors: [rendererContributor, privateContributor],
 	operationTargets: [
 		{
 			pluginId: "target-plugin-id",
 			sourceHash: "target-source-1",
-			installationId: "target-installation-id",
 			pluginSlug: PluginSlug.make("target"),
+			installationId: "target-installation-id",
 		},
 	],
 };
@@ -74,16 +74,16 @@ const makeLayer = (
 				Layer.succeed(
 					RedisService,
 					makeRedisService({
+						renewLease: () => Effect.succeed(true),
+						releaseLease: (key, value) => Effect.sync(() => options.onReleaseLease?.(key, value)),
 						client: Object.assign(Object.create(null), {
+							get: (key: string) =>
+								Promise.resolve(key.endsWith(hashClientPageSessionToken(token)) ? raw : null),
 							set: (key: string, value: string) => {
 								options.onSet?.(key, value);
 								return Promise.resolve("OK" as const);
 							},
-							get: (key: string) =>
-								Promise.resolve(key.endsWith(hashClientPageSessionToken(token)) ? raw : null),
 						}),
-						renewLease: () => Effect.succeed(true),
-						releaseLease: (key, value) => Effect.sync(() => options.onReleaseLease?.(key, value)),
 					}),
 				),
 				Layer.succeed(
@@ -104,7 +104,7 @@ const makeLayer = (
 							findArtifactFile: (_hash: string, name: string) =>
 								Effect.sync(() => {
 									fileReads.push(name);
-									return { contentType: "text/javascript", contents: new Uint8Array([1]) };
+									return { contents: new Uint8Array([1]), contentType: "text/javascript" };
 								}),
 						}),
 					),

@@ -31,18 +31,18 @@ const collectionSelection = {
 	updatedAt: schema.entity.updatedAt,
 	externalId: schema.entity.externalId,
 	properties: schema.entity.properties,
-	entitySchemaSlug: schema.entity.entitySchemaSlug,
 	providerId: schema.entity.providerId,
+	entitySchemaSlug: schema.entity.entitySchemaSlug,
 };
 
 const toCollectionResponse = (row: CollectionRow) => ({
 	name: row.name,
+	id: EntityId.make(row.id),
 	properties: row.properties,
 	externalId: row.externalId,
-	id: EntityId.make(row.id),
-	entitySchemaSlug: EntitySchemaSlug.make(row.entitySchemaSlug),
 	createdAt: row.createdAt.toISOString(),
 	updatedAt: row.updatedAt.toISOString(),
+	entitySchemaSlug: EntitySchemaSlug.make(row.entitySchemaSlug),
 	providerId: row.providerId ? SandboxProviderId.make(row.providerId) : null,
 });
 
@@ -59,8 +59,8 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 					definition
 						? {
 								id: EntitySchemaSlug.make(definition.slug),
-								entitySchemaSlug: EntitySchemaSlug.make(definition.slug),
 								propertiesSchema: definition.propertiesSchema,
+								entitySchemaSlug: EntitySchemaSlug.make(definition.slug),
 							}
 						: null,
 				);
@@ -143,10 +143,10 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 			});
 
 			return {
-				getBuiltinCollectionSchema,
-				findCollectionByNameForUser,
 				getCollectionById,
 				getEntityForMembership,
+				getBuiltinCollectionSchema,
+				findCollectionByNameForUser,
 				findBuiltinEventSchemaBySlug,
 			};
 		}),

@@ -72,7 +72,7 @@ it.effect("binds local download signatures to the key and content type", () =>
 		const localStorage = yield* LocalStorageService;
 		const target = yield* localStorage.createDownloadTarget(key, "text/plain", 1_700_000_000);
 		const verified = yield* localStorage.verifyDownloadTarget("GET", target, 1_700_000_899);
-		expect(verified).toEqual({ contentType: "text/plain", key });
+		expect(verified).toEqual({ key, contentType: "text/plain" });
 		const tampered = new URL(target, "http://local.invalid");
 		tampered.searchParams.set("key", "permanent/other.txt");
 		const exit = yield* Effect.exit(
@@ -153,7 +153,7 @@ it.effect(
 
 			const outside = "/tmp/ryot-local-storage-outside";
 			yield* fs.makeDirectory(outside, { recursive: true });
-			yield* fs.remove(`${ROOT}/permanent`, { recursive: true, force: true });
+			yield* fs.remove(`${ROOT}/permanent`, { force: true, recursive: true });
 			yield* fs.symlink(outside, `${ROOT}/permanent`);
 			const escaped = yield* Effect.exit(
 				localStorage.writeObject("permanent/escape.txt", Stream.make(new Uint8Array([1])), "1"),
@@ -165,6 +165,6 @@ it.effect(
 				}),
 			);
 			yield* fs.remove(`${ROOT}/permanent`, { force: true });
-			yield* fs.remove(outside, { recursive: true, force: true });
+			yield* fs.remove(outside, { force: true, recursive: true });
 		}).pipe(Effect.provide(makeLayer())),
 );

@@ -53,7 +53,7 @@ export const pluginCatalogQuery = createRyotQuery<
 	PluginClientCatalog,
 	KernelHostServices
 >(
-	({ client, hostServices, signal }) =>
+	({ client, signal, hostServices }) =>
 		hostServices.runtime.runPromise(
 			Effect.flatMap(PluginCatalogService, (service) => service.load(client)),
 			{ signal },

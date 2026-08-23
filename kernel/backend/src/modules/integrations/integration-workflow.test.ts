@@ -65,8 +65,8 @@ const makeIntegrationsRepository = (
 
 const makeIntegrationsService = (overrides: MockOverrides<typeof mockIntegrationsService> = {}) =>
 	mockIntegrationsService({
-		update: () => Effect.succeed(makeIntegration()),
 		disableIfEnabled: () => Effect.succeed(false),
+		update: () => Effect.succeed(makeIntegration()),
 		...overrides,
 	});
 
@@ -152,7 +152,7 @@ const makeTestLayer = (options: TestLayerOptions) =>
 				return Effect.succeed(SandboxScriptId.make("workflow.example-import"));
 			},
 			executeWorkflow: (input) => {
-				options.sandboxCalls?.push({ executionId: input.executionId, payload: input.input });
+				options.sandboxCalls?.push({ payload: input.input, executionId: input.executionId });
 				if (options.sandboxInterrupt) {
 					return Effect.interrupt;
 				}
@@ -190,7 +190,7 @@ const captureChildExecute = (
 ): WorkflowEngineOverrides => ({
 	execute: (_workflow, dispatch) =>
 		Effect.sync(() => {
-			childDispatches.push({ executionId: dispatch.executionId, payload: dispatch.payload });
+			childDispatches.push({ payload: dispatch.payload, executionId: dispatch.executionId });
 			return undefined;
 		}),
 });
@@ -259,7 +259,7 @@ it.effect("persists the sink adapter result and dispatches the normalized child"
 				},
 			});
 			expect(providerLookups).toEqual([
-				{ providerSlug: "test-provider", installationId: "inst_1" },
+				{ installationId: "inst_1", providerSlug: "test-provider" },
 			]);
 			expect(workflowResolutions).toEqual([
 				{
@@ -291,14 +291,14 @@ it.effect("fails the run when the integration is not found", () => {
 
 	const options = {
 		sandboxCalls: childDispatches,
+		integrationsRepository: makeIntegrationsRepository({
+			getByIdAnyUser: () => Effect.succeed(null),
+		}),
 		importsService: makeImportsService({
 			update: (input) => {
 				recordedUpdates.push(input);
 				return Effect.void;
 			},
-		}),
-		integrationsRepository: makeIntegrationsRepository({
-			getByIdAnyUser: () => Effect.succeed(null),
 		}),
 	} satisfies TestLayerOptions;
 
@@ -389,6 +389,18 @@ it.effect("disables a yank integration after continuous failures during finaliza
 	const integrationUpdates: Array<Record<string, unknown>> = [];
 
 	const options = {
+		integrationsRepository: makeIntegrationsRepository({
+			getByIdAnyUser: () =>
+				Effect.succeed(
+					makeIntegration({ lot: "yank", extraSettings: { disableOnContinuousErrors: true } }),
+				),
+		}),
+		integrationsService: makeIntegrationsService({
+			disableIfEnabled: (userId, integrationId, runId) => {
+				integrationUpdates.push({ runId, userId, integrationId, isDisabled: true });
+				return Effect.succeed(true);
+			},
+		}),
 		importsRepository: makeImportsRepository({
 			getRunById: () => Effect.succeed(makeRun("failed")),
 			listRecentStatusesByIntegrationId: () =>
@@ -399,18 +411,6 @@ it.effect("disables a yank integration after continuous failures during finaliza
 					{ status: "failed" as const },
 					{ status: "failed" as const },
 				]),
-		}),
-		integrationsRepository: makeIntegrationsRepository({
-			getByIdAnyUser: () =>
-				Effect.succeed(
-					makeIntegration({ lot: "yank", extraSettings: { disableOnContinuousErrors: true } }),
-				),
-		}),
-		integrationsService: makeIntegrationsService({
-			disableIfEnabled: (userId, integrationId, runId) => {
-				integrationUpdates.push({ userId, integrationId, runId, isDisabled: true });
-				return Effect.succeed(true);
-			},
 		}),
 		signalEmissionService: makeSignalEmissionService({
 			emit: (input) => {
@@ -441,7 +441,7 @@ it.effect("disables a yank integration after continuous failures during finaliza
 			yield* runIntegrationRunWorkflow(yankPayload, "run_1");
 
 			expect(integrationUpdates).toEqual([
-				{ userId: "user_1", runId: "run_1", isDisabled: true, integrationId: "int_1" },
+				{ runId: "run_1", userId: "user_1", isDisabled: true, integrationId: "int_1" },
 			]);
 			expect(emitted).toMatchObject({
 				executionId: "run_1",

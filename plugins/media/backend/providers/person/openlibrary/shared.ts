@@ -12,10 +12,10 @@ import {
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "OpenLibrary",
-	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	slug: "person.openlibrary",
 	capabilities: ["httpCall"],
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 const trimmedOrNull = (value: unknown) => (typeof value === "string" ? value.trim() : null);
@@ -68,9 +68,9 @@ export const details = defineProvider({
 						website,
 						images: [],
 						alternateNames,
+						description: parseDescription(authorPayload?.["bio"]),
 						birthDate: trimmedOrNull(authorPayload?.["birth_date"]),
 						deathDate: trimmedOrNull(authorPayload?.["death_date"]),
-						description: parseDescription(authorPayload?.["bio"]),
 						sourceUrl: `https://openlibrary.org/authors/${requestedIdentifier}`,
 					},
 				};

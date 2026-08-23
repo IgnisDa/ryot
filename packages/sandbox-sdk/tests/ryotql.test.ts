@@ -21,13 +21,13 @@ const rowsResponse = {
 			pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 			items: [
 				{
-					id: "entity-1",
 					name: "Book",
+					id: "entity-1",
 					externalId: null,
 					providerId: null,
 					populatedAt: null,
-					properties: { pages: 320 },
 					entitySchemaSlug: "book",
+					properties: { pages: 320 },
 					createdAt: "2026-01-01T00:00:00Z",
 					updatedAt: "2026-01-02T00:00:00Z",
 				},

@@ -25,8 +25,8 @@ const entity = {
 	createdAt: "2026-08-14T00:00:00.000Z",
 	updatedAt: "2026-08-14T00:00:00.000Z",
 	populatedAt: "2026-08-14T00:00:00.000Z",
-	entitySchemaSlug: EntitySchemaSlug.make("record"),
 	providerId: SandboxProviderId.make("provider-1"),
+	entitySchemaSlug: EntitySchemaSlug.make("record"),
 };
 
 const makeLayer = (input: {
@@ -83,47 +83,47 @@ it.effect("uses one entity lease and requests each distinct noncanonical languag
 					{
 						revision: 1,
 						preferredLanguage: "es",
-						sessionId: sessionIds[0] ?? "",
 						userId: UserId.make("user-1"),
+						sessionId: sessionIds[0] ?? "",
 					},
 					{
 						revision: 1,
 						preferredLanguage: "es",
-						sessionId: sessionIds[1] ?? "",
 						userId: UserId.make("user-2"),
+						sessionId: sessionIds[1] ?? "",
 					},
 					{
 						revision: 1,
 						preferredLanguage: "fr",
-						sessionId: sessionIds[2] ?? "",
 						userId: UserId.make("user-3"),
+						sessionId: sessionIds[2] ?? "",
 					},
 					{
 						revision: 1,
 						preferredLanguage: "en",
-						sessionId: sessionIds[3] ?? "",
 						userId: UserId.make("user-4"),
+						sessionId: sessionIds[3] ?? "",
 					},
 					{
 						revision: 1,
 						preferredLanguage: null,
-						sessionId: sessionIds[4] ?? "",
 						userId: UserId.make("user-5"),
+						sessionId: sessionIds[4] ?? "",
 					},
 				];
 			}),
 	});
 	const redis = makeRedisService({
+		releaseLease: (key) =>
+			Effect.sync(() => {
+				events.push("release");
+				released.push(key);
+			}),
 		acquireLease: (key, ttl) =>
 			Effect.sync(() => {
 				events.push("acquire");
 				acquired.push([key, ttl]);
 				return crypto.randomUUID();
-			}),
-		releaseLease: (key) =>
-			Effect.sync(() => {
-				events.push("release");
-				released.push(key);
 			}),
 	});
 
@@ -140,7 +140,7 @@ it.effect("uses one entity lease and requests each distinct noncanonical languag
 		]);
 		expect(requests.map(({ language }) => language)).toEqual(["es", "fr"]);
 		expect(released).toEqual(["ryot:entity-interest:progress:entity-1"]);
-	}).pipe(Effect.provide(makeLayer({ redis, requests, store })));
+	}).pipe(Effect.provide(makeLayer({ redis, store, requests })));
 });
 
 it.effect("retries a contended lease once near expiry", () => {
@@ -150,27 +150,27 @@ it.effect("retries a contended lease once near expiry", () => {
 	const released: string[] = [];
 	const requests: RequestFillInput[] = [];
 	const store = Layer.mock(EntityInterestStore)({
-		listInterestedSessions: () => Effect.succeed(["session-1"]),
 		getSessionMetadata: () => Effect.succeed([]),
+		listInterestedSessions: () => Effect.succeed(["session-1"]),
 	});
 	const redis = makeRedisService({
+		releaseLease: (key) =>
+			Effect.sync(() => {
+				released.push(key);
+			}),
 		acquireLease: (key) =>
 			Effect.sync(() => {
 				acquired.push(key);
 				attempts += 1;
 				return attempts === 1 ? null : crypto.randomUUID();
 			}),
-		releaseLease: (key) =>
-			Effect.sync(() => {
-				released.push(key);
-			}),
 	});
 	const clock: Clock.Clock = {
 		currentTimeMillisUnsafe: () => 0,
-		currentTimeMillis: Effect.succeed(0),
 		currentTimeNanosUnsafe: () => 0n,
-		currentTimeNanos: Effect.succeed(0n),
 		monotonicTimeNanosUnsafe: () => 0n,
+		currentTimeMillis: Effect.succeed(0),
+		currentTimeNanos: Effect.succeed(0n),
 		monotonicTimeNanos: Effect.succeed(0n),
 		sleep: (duration) =>
 			Effect.sync(() => {
@@ -190,7 +190,7 @@ it.effect("retries a contended lease once near expiry", () => {
 		expect(sleeps).toEqual([29_000]);
 		expect(released).toEqual(["ryot:entity-interest:progress:entity-1"]);
 	}).pipe(
-		Effect.provide(makeLayer({ redis, requests, store })),
+		Effect.provide(makeLayer({ redis, store, requests })),
 		Effect.provideService(Clock.Clock, clock),
 	);
 });

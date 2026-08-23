@@ -33,7 +33,7 @@ const openBrowser = (
 		page: savedViewPageContext({
 			rendererName: "entity-browser",
 			dataSources: browserDataSources,
-			view: { name: "All Books", icon: "book" },
+			view: { icon: "book", name: "All Books" },
 			settings: options.settings ?? browserSettings,
 			savedViewId: options.savedViewId ?? `view-${views}`,
 		}),
@@ -249,7 +249,7 @@ describe("entity browser", () => {
 			expect(page.clientMessages()).toContainEqual({
 				mode: "replace",
 				type: "page-search",
-				update: { search: "pir", sort: null },
+				update: { sort: null, search: "pir" },
 			}),
 		);
 	});

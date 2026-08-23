@@ -115,11 +115,11 @@ const prepareItem = Effect.fn("prepareEventCreateItem")(function* (
 	const automations = yield* AutomationsService;
 
 	return yield* Activity.make({
-		success: PreparedItem satisfies DurableSchema,
 		name: `prepare-item-${itemIndex}`,
+		success: PreparedItem satisfies DurableSchema,
 		error: EventCreateWorkflowError satisfies DurableSchema,
 		execute: Effect.gen(function* () {
-			const { entityId, entityScope, eventSchemaScope, sessionEntityId, occurredAt } =
+			const { entityId, occurredAt, entityScope, sessionEntityId, eventSchemaScope } =
 				yield* resolveEventCreateItemScopes({ item, userId: payload.userId });
 			const parsedProperties = yield* parseAppSchemaProperties({
 				kind: "Event",
@@ -172,9 +172,9 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 	const eventsRepository = yield* EventsRepository;
 
 	return yield* Activity.make({
+		name: `write-event-${itemIndex}`,
 		success: CreatedEvent satisfies DurableSchema,
 		error: EventCreateWorkflowError satisfies DurableSchema,
-		name: `write-event-${itemIndex}`,
 		execute: Effect.gen(function* () {
 			const createdEvent = yield* eventsRepository.createEvent({
 				userId: payload.userId,
@@ -268,10 +268,10 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(
 					prepared,
 					operations.executeSandboxScript,
 				);
-				return { policyResult, prepared, kind: "prepared" as const };
+				return { prepared, policyResult, kind: "prepared" as const };
 			}).pipe(
 				Effect.catchTag("EventCreateItemError", (error) =>
-					Effect.succeed({ kind: "failed" as const, reason: error.reason }),
+					Effect.succeed({ reason: error.reason, kind: "failed" as const }),
 				),
 			);
 			if (attempt.kind === "failed") {
@@ -296,7 +296,7 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(
 				attempt.prepared,
 				attempt.policyResult.draft,
 			);
-			outcomes.push({ index: itemIndex, eventId: createdEvent.id, status: "written" });
+			outcomes.push({ index: itemIndex, status: "written", eventId: createdEvent.id });
 			createdCount += 1;
 			yield* dispatchLifecycleOccurrence(
 				payload,

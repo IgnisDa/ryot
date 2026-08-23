@@ -32,23 +32,24 @@ const selection = {
 
 export const notificationSubscriptionStatesRecipe = defineRecipe(
 	(input: { readonly after?: string | undefined; readonly limit: number }) => ({
+		map: ({ notificationSubscriptionStates }) => Result.succeed(notificationSubscriptionStates),
 		queries: {
 			notificationSubscriptionStates: selectedRows(notificationSubscriptionState, {
+				selection,
 				after: input.after,
 				limit: input.limit,
-				selection,
 				orderBy: [
 					ascending(column(notificationSubscriptionState, "signalSchemaSlug")),
 					ascending(column(notificationSubscriptionState, "id")),
 				],
 			}),
 		},
-		map: ({ notificationSubscriptionStates }) => Result.succeed(notificationSubscriptionStates),
 	}),
 );
 
 export const notificationSubscriptionStateRecipe = defineRecipe(
 	(input: { readonly id: string }) => ({
+		map: ({ notificationSubscriptionState: state }) => Result.succeed(state),
 		queries: {
 			notificationSubscriptionState: selectedOptionalRow(notificationSubscriptionState, {
 				selection,
@@ -56,7 +57,6 @@ export const notificationSubscriptionStateRecipe = defineRecipe(
 				where: eq(column(notificationSubscriptionState, "id"), literal(input.id)),
 			}),
 		},
-		map: ({ notificationSubscriptionState: state }) => Result.succeed(state),
 	}),
 );
 

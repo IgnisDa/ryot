@@ -39,14 +39,14 @@ const makeHost = (
 		options: Parameters<PreloadHost["upsertGlobalEntities"]>[1];
 	}> = [];
 	const host = defineSandboxTestHost(manifest, {
-		getPluginConfig: (keys) =>
-			Effect.succeed(Object.fromEntries(keys.map((key) => [key, configuredLimit]))),
-		httpCall: () => Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(dataset) }),
 		getCachedValue: (key) => Effect.succeed(cache.get(key) ?? null),
+		httpCall: () => Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(dataset) }),
 		setCachedValue: (key, value) => {
 			cache.set(key, value);
 			return Effect.succeed(null);
 		},
+		getPluginConfig: (keys) =>
+			Effect.succeed(Object.fromEntries(keys.map((key) => [key, configuredLimit]))),
 		upsertGlobalEntities: (items, options) => {
 			calls.push({ items, options });
 			return Effect.succeed(
@@ -71,12 +71,12 @@ const makeHost = (
 			);
 		},
 	});
-	return { calls, host };
+	return { host, calls };
 };
 
 describe("fitness exercise preload boot", () => {
 	it("batch upserts normalized exercises and remains idempotent", async () => {
-		const { calls, host } = makeHost([exercise], 1);
+		const { host, calls } = makeHost([exercise], 1);
 
 		const first = await Effect.runPromise(preload.run(null, host, execution));
 		const second = await Effect.runPromise(preload.run(null, host, execution));
@@ -106,7 +106,7 @@ describe("fitness exercise preload boot", () => {
 	});
 
 	it("does not preload exercises when configured to zero", async () => {
-		const { calls, host } = makeHost([exercise], 0);
+		const { host, calls } = makeHost([exercise], 0);
 
 		const result = await Effect.runPromise(preload.run(null, host, execution));
 
@@ -119,7 +119,7 @@ describe("fitness exercise preload boot", () => {
 			...exercise,
 			name: `Exercise ${String(index).padStart(3, "0")}`,
 		}));
-		const { calls, host } = makeHost(dataset, 101);
+		const { host, calls } = makeHost(dataset, 101);
 
 		const result = await Effect.runPromise(preload.run(null, host, execution));
 
@@ -136,7 +136,7 @@ describe("fitness exercise preload boot", () => {
 			{ ...exercise, name: "New Prefix Exercise" },
 			{ ...exercise, name: "Another Prefix Exercise" },
 		];
-		const { calls, host } = makeHost(dataset, 2, ["Former Prefix Exercise"]);
+		const { host, calls } = makeHost(dataset, 2, ["Former Prefix Exercise"]);
 
 		const result = await Effect.runPromise(preload.run(null, host, execution));
 
@@ -150,7 +150,7 @@ describe("fitness exercise preload boot", () => {
 			...exercise,
 			name: `Exercise ${String(index).padStart(3, "0")}`,
 		}));
-		const { calls, host } = makeHost(dataset, 1_000);
+		const { host, calls } = makeHost(dataset, 1_000);
 
 		const result = await Effect.runPromise(preload.run(null, host, execution));
 

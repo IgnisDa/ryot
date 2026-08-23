@@ -14,7 +14,7 @@ function NoWorkspaces() {
 				className="ui-stack ui-card mx-auto w-[min(100%,480px)]"
 			>
 				<div>
-					<h1 id="no-workspaces-title" className="ui-heading">
+					<h1 className="ui-heading" id="no-workspaces-title">
 						No workspaces enabled
 					</h1>
 					<p role="status" className="ui-subtitle">

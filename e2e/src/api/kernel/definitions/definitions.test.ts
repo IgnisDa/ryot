@@ -67,7 +67,7 @@ describe("Definitions E2E", () => {
 				providerSearchRecipe({ rootEntitySchemaSlug: EntitySchemaSlug.make(schemaSlug) }),
 			);
 			expect(providers.items).toContainEqual(
-				expect.objectContaining({ providerId: provider.providerId, providerName }),
+				expect.objectContaining({ providerName, providerId: provider.providerId }),
 			);
 
 			const outsider = yield* createAuthenticatedClient();

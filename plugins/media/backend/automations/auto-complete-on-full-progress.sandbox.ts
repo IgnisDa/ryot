@@ -207,9 +207,9 @@ const createCompletionEvent = (
 	return host
 		.createEvents([
 			{
+				occurredAt,
 				entityId: event.subject.id,
 				eventSchemaSlug: completeSchema.id,
-				occurredAt,
 				...(source.sessionEntityId === undefined || source.sessionEntityId === null
 					? {}
 					: { sessionEntityId: source.sessionEntityId }),

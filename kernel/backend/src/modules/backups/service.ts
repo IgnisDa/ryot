@@ -55,7 +55,7 @@ export class BackupsService extends Context.Service<BackupsService>()("BackupsSe
 		const createExport = Effect.fn("BackupsService.createExport")(function* (
 			user: CurrentUserValue,
 		) {
-			const run = yield* mapDbToInternal(repository.createRun({ userId: user.id, kind: "export" }));
+			const run = yield* mapDbToInternal(repository.createRun({ kind: "export", userId: user.id }));
 			const dispatched = yield* engine
 				.execute(ExportBackupWorkflow, {
 					discard: true,
@@ -69,7 +69,7 @@ export class BackupsService extends Context.Service<BackupsService>()("BackupsSe
 					repository.failRun({
 						runId: run.id,
 						userId: user.id,
-						failure: { code: "unexpected-failure", operation: "export" },
+						failure: { operation: "export", code: "unexpected-failure" },
 					}),
 				);
 				return yield* new BackupInternalError({ reason: { code: "export-dispatch-failed" } });
@@ -98,7 +98,7 @@ export class BackupsService extends Context.Service<BackupsService>()("BackupsSe
 					repository.failRun({
 						runId: run.id,
 						userId: user.id,
-						failure: { code: "unexpected-failure", operation: "restore" },
+						failure: { operation: "restore", code: "unexpected-failure" },
 					}),
 				);
 				return yield* new BackupInternalError({ reason: { code: "restore-dispatch-failed" } });
@@ -141,7 +141,7 @@ export class BackupsService extends Context.Service<BackupsService>()("BackupsSe
 			if (!artifact) {
 				return yield* new BackupNotFound({ reason: { code: "artifact-not-found" } });
 			}
-			const locator = { type: artifact.artifactProvider, key: artifact.artifactKey } as const;
+			const locator = { key: artifact.artifactKey, type: artifact.artifactProvider } as const;
 			const info = yield* storageFailure(
 				uploads.statObject(locator),
 				"artifact-storage-unavailable",
@@ -166,7 +166,7 @@ export class BackupsService extends Context.Service<BackupsService>()("BackupsSe
 			);
 			if (artifact) {
 				yield* storageFailure(
-					uploads.deleteObject({ type: artifact.artifactProvider, key: artifact.artifactKey }),
+					uploads.deleteObject({ key: artifact.artifactKey, type: artifact.artifactProvider }),
 					"artifact-delete-failed",
 				);
 			}

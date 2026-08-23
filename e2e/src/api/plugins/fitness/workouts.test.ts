@@ -44,17 +44,17 @@ describe("Workouts E2E", () => {
 			const { schema: workoutSchema } = yield* findBuiltinSchemaBySlug(client, "workout");
 
 			expect(workoutSchema.propertiesSchema.fields).toMatchObject({
-				comment: {
-					type: "string",
-					label: "Comment",
-					description: "Optional notes or comments about this workout",
-				},
 				images: { type: "array", label: "Images", description: "Images attached to this workout" },
 				videos: { type: "array", label: "Videos", description: "Videos attached to this workout" },
 				endedAt: {
 					type: "datetime",
 					label: "Ended At",
 					description: "Date and time this workout session ended",
+				},
+				comment: {
+					type: "string",
+					label: "Comment",
+					description: "Optional notes or comments about this workout",
 				},
 				startedAt: {
 					type: "datetime",
@@ -131,8 +131,8 @@ describe("Workouts E2E", () => {
 					},
 					tableColumns: [
 						{ label: "Name", field: "column0", displayKind: "text" },
-						{ label: "Started At", field: "column1", displayKind: "date" },
-						{ label: "Ended At", field: "column2", displayKind: "date" },
+						{ field: "column1", label: "Started At", displayKind: "date" },
+						{ field: "column2", label: "Ended At", displayKind: "date" },
 					],
 				},
 			});
@@ -140,15 +140,15 @@ describe("Workouts E2E", () => {
 				expect.arrayContaining([
 					expect.objectContaining({
 						key: "entityId",
-						expr: { type: "column", field: "id", tableAlias: "entity" },
+						expr: { field: "id", type: "column", tableAlias: "entity" },
 					}),
 					expect.objectContaining({
 						key: "ownerPluginId",
-						expr: { type: "column", field: "entitySchemaPluginId", tableAlias: "entity" },
+						expr: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
 					}),
 					expect.objectContaining({
 						key: "entitySchemaSlug",
-						expr: { type: "column", field: "entitySchemaSlug", tableAlias: "entity" },
+						expr: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
 					}),
 				]),
 			);
@@ -157,7 +157,7 @@ describe("Workouts E2E", () => {
 				predicates: expect.arrayContaining([
 					expect.objectContaining({
 						right: { type: "literal", value: "workout" },
-						left: { field: "entitySchemaSlug", tableAlias: "entity", type: "column" },
+						left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
 					}),
 				]),
 			});

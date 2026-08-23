@@ -72,7 +72,7 @@ export const toSandboxHostError = (error: unknown): SandboxHostError => {
 		typeof error["reason"]["code"] === "string" &&
 		isJsonValue(error["reason"])
 	) {
-		return { message: error["reason"]["code"], data: error["reason"] };
+		return { data: error["reason"], message: error["reason"]["code"] };
 	}
 	if (isObjectRecord(error) && typeof error["message"] === "string") {
 		return { ...error, message: error["message"] };

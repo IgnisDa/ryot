@@ -25,10 +25,10 @@ const renderPanel = () =>
 			entitySchemaSlug={bookSlug}
 			onImported={() => undefined}
 			onSelectProvider={() => undefined}
-			providers={{ status: "ready", providers }}
+			providers={{ providers, status: "ready" }}
 			selectedProviderId={providers[0].providerId}
-			uploadFile={() => Promise.reject(new Error("not used"))}
 			search={() => Promise.reject(new Error("not used"))}
+			uploadFile={() => Promise.reject(new Error("not used"))}
 			importEntity={() => Promise.reject(new Error("not used"))}
 			loadEntityLinks={() => Promise.reject(new Error("not used"))}
 			loadSearchOptions={() => Promise.reject(new Error("not used"))}

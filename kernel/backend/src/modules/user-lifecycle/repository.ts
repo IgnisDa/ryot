@@ -38,10 +38,10 @@ type OperationRow = typeof lifecycleSchema.userLifecycleOperation.$inferSelect;
 const toOperation = (row: OperationRow): UserLifecycleOperation => ({
 	id: row.id,
 	kind: row.kind,
-	failure: row.failure,
 	status: row.status,
-	resetResult: row.resetResult ?? null,
+	failure: row.failure,
 	userId: UserId.make(row.userId),
+	resetResult: row.resetResult ?? null,
 	createdAt: row.createdAt.toISOString(),
 	startedAt: row.startedAt?.toISOString() ?? null,
 	finishedAt: row.finishedAt?.toISOString() ?? null,
@@ -135,7 +135,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 				);
 				if (failed) {
 					const retryable = yield* toInternal(failed);
-					return { active: null, retryable, metadata: retryable.metadata };
+					return { retryable, active: null, metadata: retryable.metadata };
 				}
 
 				const [user] = yield* mapDatabaseErrors(
@@ -353,7 +353,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 				yield* mapDatabaseErrors(
 					db
 						.update(lifecycleSchema.userLifecycleOperation)
-						.set({ status: "running", startedAt: now })
+						.set({ startedAt: now, status: "running" })
 						.where(
 							and(
 								eq(lifecycleSchema.userLifecycleOperation.id, operationId),
@@ -409,7 +409,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 					const [enabled] = yield* mapDatabaseErrors(
 						db
 							.update(authSchema.user)
-							.set({ disabledAt: null, updatedAt: now })
+							.set({ updatedAt: now, disabledAt: null })
 							.where(eq(authSchema.user.id, completed.userId))
 							.returning({ id: authSchema.user.id }),
 					);

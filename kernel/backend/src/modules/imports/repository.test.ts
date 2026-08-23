@@ -23,9 +23,9 @@ const row = {
 	importedItems: 0,
 	processedItems: 0,
 	failureReason: null,
-	status: "pending" as const,
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
+	status: "pending" as const,
 	id: ImportRunId.make("run-id"),
 };
 

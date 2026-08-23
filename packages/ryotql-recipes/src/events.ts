@@ -39,6 +39,7 @@ export const eventHistoryRecipe = defineRecipe(
 		const eventSchema = column(event, "eventSchemaSlug");
 		const entitySchema = column(entity, "entitySchemaSlug");
 		return {
+			map: ({ events }) => Result.succeed(events),
 			queries: {
 				events: selectedRows(event, {
 					after: input.after,
@@ -66,20 +67,19 @@ export const eventHistoryRecipe = defineRecipe(
 					selection: {
 						id: selectedField(column(event, "id"), EventId),
 						entityId: selectedField(column(event, "entityId"), EntityId),
+						properties: selectedField(column(event, "properties"), JsonValue),
 						createdAt: selectedField(column(event, "createdAt"), IsoDateString),
 						updatedAt: selectedField(column(event, "updatedAt"), IsoDateString),
 						occurredAt: selectedField(column(event, "occurredAt"), IsoDateString),
-						properties: selectedField(column(event, "properties"), JsonValue),
 						eventSchemaSlug: selectedField(column(event, "eventSchemaSlug"), EventSchemaSlug),
+						entitySchemaSlug: selectedField(column(entity, "entitySchemaSlug"), EntitySchemaSlug),
 						sessionEntityId: selectedField(
 							column(event, "sessionEntityId"),
 							Schema.NullOr(EntityId),
 						),
-						entitySchemaSlug: selectedField(column(entity, "entitySchemaSlug"), EntitySchemaSlug),
 					},
 				}),
 			},
-			map: ({ events }) => Result.succeed(events),
 		};
 	},
 );

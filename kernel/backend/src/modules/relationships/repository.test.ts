@@ -102,11 +102,11 @@ const makeDb = (initialRows: ReadonlyArray<StoredRelationship> = []) => {
 					},
 				});
 				return {
+					limit: () => limited,
 					for: () => {
 						state.forUpdateCalls += 1;
 						return Effect.succeed(rows());
 					},
-					limit: () => limited,
 				};
 			},
 		}),
@@ -133,8 +133,8 @@ const makeDb = (initialRows: ReadonlyArray<StoredRelationship> = []) => {
 
 					const row = {
 						...input,
-						createdAt: new Date("2026-06-14T00:00:00.000Z"),
 						id: `relationship-${state.rows.length + 1}`,
+						createdAt: new Date("2026-06-14T00:00:00.000Z"),
 					};
 					state.rows.push(row);
 					inserted.push(row);
@@ -174,14 +174,14 @@ const makeDb = (initialRows: ReadonlyArray<StoredRelationship> = []) => {
 	});
 
 	const db = {
+		insert,
+		select,
+		update,
 		delete: remove,
 		execute: () => {
 			state.executeCalls += 1;
 			return Effect.void;
 		},
-		insert,
-		select,
-		update,
 	};
 	return { db, state };
 };
@@ -194,10 +194,10 @@ const makeLayer = (db: object) =>
 
 const globalInput = {
 	scope: "global" as const,
+	relationshipSchemaPluginId: null,
 	sourceEntityId: EntityId.make("source"),
 	targetEntityId: EntityId.make("target"),
 	relationshipSchemaSlug: RelationshipSchemaSlug.make("schema"),
-	relationshipSchemaPluginId: null,
 };
 
 it.effect("creates once and preserves an existing relationship on conflict", () => {
@@ -254,8 +254,8 @@ it.effect("updates only an existing relationship", () => {
 		});
 		const missing = yield* repository.updateRelationship({
 			...globalInput,
-			targetEntityId: EntityId.make("missing"),
 			properties: { rank: 3 },
+			targetEntityId: EntityId.make("missing"),
 		});
 
 		expect(updated?.properties).toEqual({ rank: 2 });

@@ -21,7 +21,7 @@ it.effect("round trips request and response bytes through canonical Base64", () 
 			pluginDependencies: ["media"],
 			apiVersion: CLIENT_API_VERSION,
 			files: { "client/index.tsx": new Uint8Array([0x00, 0xff, 0x7f]) },
-			publicExports: { summary: { entry: "client/summary.tsx", kind: "component" as const } },
+			publicExports: { summary: { kind: "component" as const, entry: "client/summary.tsx" } },
 		};
 		const decodedRequest = yield* decodeClientCompilerWorkerRequest(
 			encodeClientCompilerWorkerRequest(request),
@@ -35,7 +35,7 @@ it.effect("round trips request and response bytes through canonical Base64", () 
 			compilerVersion: CLIENT_COMPILER_VERSION,
 			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 			files: [
-				{ name: "asset.png", contents: new Uint8Array([0xff, 0x00]), contentType: "image/png" },
+				{ name: "asset.png", contentType: "image/png", contents: new Uint8Array([0xff, 0x00]) },
 			],
 		} as const;
 		const decodedResponse = yield* decodeClientCompilerWorkerResponse(
@@ -54,9 +54,9 @@ it.effect("rejects non-canonical and invalid Base64", () =>
 			const failure = yield* decodeClientCompilerWorkerRequest(
 				JSON.stringify({
 					contents,
+					publicExports: {},
 					name: "Fixture plugin",
 					apiVersion: CLIENT_API_VERSION,
-					publicExports: {},
 					files: { "client/index.tsx": contents },
 				}),
 			).pipe(Effect.flip);
@@ -74,16 +74,16 @@ it.effect("round trips namespaced contributor graphs and authorized exports", ()
 			apiVersion: CLIENT_API_VERSION,
 			contributorOrder: ["user-id", "plugin-id"],
 			entry: { contributor: "user-id", path: "client/page.tsx" },
-			contributors: {
-				"user-id": { files: { "client/page.tsx": new Uint8Array([0xff, 0x00]) } },
-				"plugin-id": { files: { "client/card.tsx": new Uint8Array([0x01, 0x02]) } },
-			},
 			publicExports: {
 				"@ryot-app/plugins/media/card": {
 					entry: "client/card.tsx",
 					contributor: "plugin-id",
 					kind: "component" as const,
 				},
+			},
+			contributors: {
+				"user-id": { files: { "client/page.tsx": new Uint8Array([0xff, 0x00]) } },
+				"plugin-id": { files: { "client/card.tsx": new Uint8Array([0x01, 0x02]) } },
 			},
 		};
 		const decoded = yield* decodeClientCompilerWorkerRequest(

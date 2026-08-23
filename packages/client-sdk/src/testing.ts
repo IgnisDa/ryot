@@ -105,6 +105,10 @@ export const createTestRyotClock = (
 	return {
 		client,
 		runtime,
+		dispose: async () => {
+			setBootstrapRyotRuntimeFactory(undefined);
+			await runtime.dispose();
+		},
 		advance: (millis: Duration.Input) =>
 			act(async () => {
 				await runtime.runPromise(advanceRyotSchedule(millis));
@@ -113,10 +117,6 @@ export const createTestRyotClock = (
 			act(async () => {
 				await runtime.runPromise(Effect.andThen(TestClock.setTime(timestamp), drainMicrotasks));
 			}),
-		dispose: async () => {
-			setBootstrapRyotRuntimeFactory(undefined);
-			await runtime.dispose();
-		},
 	};
 };
 
@@ -182,7 +182,7 @@ export const savedViewPageContext = (options: {
 		settings: options.settings,
 		dataSources: options.dataSources,
 		renderer: { kind: "kernel", name: options.rendererName },
-		view: options.view ?? { name: "All Records", icon: "library" },
+		view: options.view ?? { icon: "library", name: "All Records" },
 		target: { kind: "saved-view", savedViewId: options.savedViewId },
 	});
 
@@ -274,10 +274,10 @@ export const mountPluginPage = (
 		assetCancels: () => clientMessagesOfType("asset-cancel"),
 		assetRequests: () => clientMessagesOfType("asset-request"),
 		container: document.getElementById(CLIENT_ARTIFACT_ROOT_ELEMENT_ID),
-		replyQuery: (requestId: string, outcome: PluginRyotQLOutcome) =>
-			send({ ...outcome, requestId, type: "ryotql-result" }),
 		replyAssets: (requestId: string, outcome: PluginAssetOutcome) =>
 			send({ ...outcome, requestId, type: "asset-result" }),
+		replyQuery: (requestId: string, outcome: PluginRyotQLOutcome) =>
+			send({ ...outcome, requestId, type: "ryotql-result" }),
 		queryRequests: (queryKey?: string) =>
 			clientMessagesOfType("ryotql-request").filter(
 				(request) => queryKey === undefined || queryKey in request.document.queries,

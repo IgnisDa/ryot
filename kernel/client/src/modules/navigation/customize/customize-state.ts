@@ -27,7 +27,7 @@ const draftItems = (items: readonly NavigationView[], scopeSlug: string | null |
 	[...items]
 		.filter((item) => item.pluginSlug === scopeSlug)
 		.sort((left, right) => left.sortOrder - right.sortOrder)
-		.map(({ icon, isDisabled, name, pluginSlug, slug }) => ({
+		.map(({ icon, name, slug, isDisabled, pluginSlug }) => ({
 			icon,
 			slug,
 			name,
@@ -36,7 +36,7 @@ const draftItems = (items: readonly NavigationView[], scopeSlug: string | null |
 		}));
 
 const draftWorkspaces = (catalog: PluginClientCatalog) =>
-	sortWorkspaces(catalog).map(({ icon, isDisabled, name, slug }) => ({
+	sortWorkspaces(catalog).map(({ icon, name, slug, isDisabled }) => ({
 		icon,
 		slug,
 		name,

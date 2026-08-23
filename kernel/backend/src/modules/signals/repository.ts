@@ -42,8 +42,8 @@ const toStoredSignal: (row: SignalRow) => Effect.Effect<StoredSignal, DbError> =
 		);
 		return {
 			origin,
-			properties: row.properties,
 			id: SignalId.make(row.id),
+			properties: row.properties,
 			createdAt: row.createdAt.toISOString(),
 			occurredAt: row.occurredAt.toISOString(),
 			signalSchemaSlug: SignalSchemaSlug.make(row.signalSchemaSlug),

@@ -213,15 +213,15 @@ const makeTokenService = (
 				client_id: pending.clientId,
 				grant_type: "authorization_code",
 				redirect_uri: pending.redirectUri,
-				code_verifier: pending.codeVerifier,
 				resource: getOAuthResource(origin),
+				code_verifier: pending.codeVerifier,
 			}),
 			OAuthTokenResponse,
 		).pipe(
 			Effect.catchTags({
 				SchemaError: (cause) => terminalFailure(requestFailed(cause)),
-				OAuthEndpointError: (cause) => terminalFailure(requestFailed(cause)),
 				OAuthTransportError: (cause) => Effect.fail(requestFailed(cause)),
+				OAuthEndpointError: (cause) => terminalFailure(requestFailed(cause)),
 			}),
 		);
 		const tokens = yield* Effect.try({

@@ -40,7 +40,7 @@ import { ClientPagesRepository } from "./repository";
 
 const notFound = () => new ClientRendererNotFound({ reason: { code: "renderer-not-found" } });
 const invalid = (message: string) =>
-	new ClientRendererBadRequest({ reason: { code: "definition-invalid", message } });
+	new ClientRendererBadRequest({ reason: { message, code: "definition-invalid" } });
 
 const normalizeDefinition = (definition: ClientRendererDefinition) =>
 	Effect.gen(function* () {
@@ -117,12 +117,12 @@ const normalizeDefinition = (definition: ClientRendererDefinition) =>
 			),
 		);
 		return {
+			decoded,
 			definition: {
 				...definition,
 				files,
 				pluginDependencies: [...definition.pluginDependencies].sort(),
 			},
-			decoded,
 		};
 	});
 
@@ -217,6 +217,10 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 
 			const compileGraph = (graph: ResolvedClientPageGraph) =>
 				Effect.tryPromise({
+					catch: (error) =>
+						error instanceof ClientPluginCompilerFailure
+							? error
+							: new ClientPluginCompilerFailure({ diagnostics: [], message: String(error) }),
 					try: () => {
 						const existing = inFlightCompilations.get(graph.graphHash);
 						if (existing) {
@@ -232,10 +236,6 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 						);
 						return compilation;
 					},
-					catch: (error) =>
-						error instanceof ClientPluginCompilerFailure
-							? error
-							: new ClientPluginCompilerFailure({ message: String(error), diagnostics: [] }),
 				});
 
 			const requireRenderer = Effect.fn(function* (
@@ -298,7 +298,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				if (renderer.draftRevision !== expectedDraftRevision) {
 					return yield* new ClientRendererBadRequest({ reason: { code: "draft-revision-stale" } });
 				}
-				const { definition, decoded } = yield* normalizeDefinition(renderer.draftDefinition);
+				const { decoded, definition } = yield* normalizeDefinition(renderer.draftDefinition);
 				const publishedHash = sha256Hex(
 					yield* Schema.encodeUnknownEffect(Schema.fromJsonString(ClientRendererDefinition))(
 						definition,
@@ -468,7 +468,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				) {
 					return false;
 				}
-				const { definition, decoded } = yield* normalizeDefinition(renderer.publishedDefinition);
+				const { decoded, definition } = yield* normalizeDefinition(renderer.publishedDefinition);
 				const graph = yield* resolveGraph({
 					userId,
 					decoded,
@@ -591,6 +591,21 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 						};
 					}
 					return {
+						artifact: {
+							format: build.format,
+							hash: build.artifactHash,
+							apiVersion: build.apiVersion,
+							bridgeVersion: build.bridgeVersion,
+							compilerVersion: build.compilerVersion,
+						},
+						context: {
+							route: { params: {} },
+							settings: prepared.view.settings,
+							dataSources: prepared.view.dataSources,
+							view: { name: prepared.view.name, icon: prepared.view.icon },
+							renderer: { kind: "kernel" as const, name: kernelRendererName },
+							target: { kind: "saved-view" as const, savedViewId: prepared.viewId },
+						},
 						identity: {
 							buildId: build.id,
 							graphHash: graph.graphHash,
@@ -605,21 +620,6 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 							operationTargets: clientPageOperationTargets(
 								yield* pluginRuntime.listPluginsAvailableToUser(user.id, true),
 							),
-						},
-						context: {
-							route: { params: {} },
-							settings: prepared.view.settings,
-							dataSources: prepared.view.dataSources,
-							view: { name: prepared.view.name, icon: prepared.view.icon },
-							renderer: { kind: "kernel" as const, name: kernelRendererName },
-							target: { kind: "saved-view" as const, savedViewId: prepared.viewId },
-						},
-						artifact: {
-							format: build.format,
-							hash: build.artifactHash,
-							apiVersion: build.apiVersion,
-							bridgeVersion: build.bridgeVersion,
-							compilerVersion: build.compilerVersion,
 						},
 					};
 				}
@@ -638,7 +638,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				}
 				const publishedHash = renderer.publishedHash;
 				const publishedRevision = renderer.publishedRevision;
-				const { definition, decoded } = yield* normalizeDefinition(renderer.publishedDefinition);
+				const { decoded, definition } = yield* normalizeDefinition(renderer.publishedDefinition);
 				const graph = yield* resolveGraph({
 					decoded,
 					definition,
@@ -718,6 +718,21 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					};
 				}
 				return {
+					artifact: {
+						format: build.format,
+						hash: build.artifactHash,
+						apiVersion: build.apiVersion,
+						bridgeVersion: build.bridgeVersion,
+						compilerVersion: build.compilerVersion,
+					},
+					context: {
+						route: { params: {} },
+						settings: prepared.view.settings,
+						dataSources: prepared.view.dataSources,
+						renderer: { id: rendererId, kind: "custom" as const },
+						view: { name: prepared.view.name, icon: prepared.view.icon },
+						target: { kind: "saved-view" as const, savedViewId: prepared.viewId },
+					},
 					identity: {
 						rendererId,
 						publishedHash,
@@ -731,21 +746,6 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 						viewRevision: prepared.view.revision,
 						operationTargets: preparedOperationTargets,
 						target: { kind: "saved-view" as const, savedViewId: prepared.viewId },
-					},
-					context: {
-						route: { params: {} },
-						settings: prepared.view.settings,
-						dataSources: prepared.view.dataSources,
-						renderer: { kind: "custom" as const, id: rendererId },
-						view: { name: prepared.view.name, icon: prepared.view.icon },
-						target: { kind: "saved-view" as const, savedViewId: prepared.viewId },
-					},
-					artifact: {
-						format: build.format,
-						hash: build.artifactHash,
-						apiVersion: build.apiVersion,
-						bridgeVersion: build.bridgeVersion,
-						compilerVersion: build.compilerVersion,
 					},
 				};
 			});
@@ -784,18 +784,12 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					contextTarget = target;
 				}
 				return {
-					identity: {
-						target,
-						artifactHash: artifact.hash,
-						kind: "plugin-page" as const,
-						pluginId: resolved.plugin.id,
-						exportName: resolved.exportName,
-						buildId: resolved.graph.graphHash,
-						graphHash: resolved.graph.graphHash,
-						sourceHash: resolved.plugin.sourceHash,
-						contributors: resolved.graph.contributors,
-						operationTargets: resolved.operationTargets,
-						installationId: resolved.plugin.installationId,
+					artifact: {
+						hash: artifact.hash,
+						format: artifact.format,
+						apiVersion: artifact.apiVersion,
+						bridgeVersion: artifact.bridgeVersion,
+						compilerVersion: artifact.compilerVersion,
 					},
 					context: {
 						view: null,
@@ -809,12 +803,18 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 							exportName: resolved.exportName,
 						},
 					},
-					artifact: {
-						hash: artifact.hash,
-						format: artifact.format,
-						apiVersion: artifact.apiVersion,
-						bridgeVersion: artifact.bridgeVersion,
-						compilerVersion: artifact.compilerVersion,
+					identity: {
+						target,
+						artifactHash: artifact.hash,
+						kind: "plugin-page" as const,
+						pluginId: resolved.plugin.id,
+						exportName: resolved.exportName,
+						buildId: resolved.graph.graphHash,
+						graphHash: resolved.graph.graphHash,
+						sourceHash: resolved.plugin.sourceHash,
+						contributors: resolved.graph.contributors,
+						operationTargets: resolved.operationTargets,
+						installationId: resolved.plugin.installationId,
 					},
 				};
 			});

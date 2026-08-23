@@ -26,7 +26,7 @@ describe("person.vndb sandbox script", () => {
 
 		return runSandboxTestScript(
 			search,
-			{ query: "kid", page: 1, pageSize: 20 },
+			{ page: 1, query: "kid", pageSize: 20 },
 			host,
 			execution,
 		).pipe(

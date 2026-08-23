@@ -23,7 +23,7 @@ const historyResponse = (contents: readonly unknown[]) => ({
 });
 
 const historyShelf = (title: string, contents: readonly unknown[]) => ({
-	musicShelfRenderer: { title: { runs: [{ text: title }] }, contents },
+	musicShelfRenderer: { contents, title: { runs: [{ text: title }] } },
 });
 
 describe("music.youtube-music sandbox script", () => {
@@ -38,13 +38,13 @@ describe("music.youtube-music sandbox script", () => {
 									title: "Source",
 									video_id: "track-1",
 									duration: { seconds: 180 },
-									album: { id: "album-1", name: "Album", year: "2024" },
-									artists: [{ channel_id: "artist-1", name: "Artist" }],
-									thumbnail: [{ url: "https://img/1.jpg", width: 100, height: 100 }],
+									album: { year: "2024", id: "album-1", name: "Album" },
+									artists: [{ name: "Artist", channel_id: "artist-1" }],
+									thumbnail: [{ width: 100, height: 100, url: "https://img/1.jpg" }],
 								},
-								{ video_id: "track-2", title: "Pick One" },
-								{ video_id: "track-2", title: "Pick One" },
-								{ video_id: "track-3", title: "Pick Two" },
+								{ title: "Pick One", video_id: "track-2" },
+								{ title: "Pick One", video_id: "track-2" },
+								{ title: "Pick Two", video_id: "track-3" },
 							],
 						}),
 					),
@@ -60,7 +60,7 @@ describe("music.youtube-music sandbox script", () => {
 						publishYear: 2024,
 						byVariousArtists: false,
 						sourceUrl: "https://music.youtube.com/watch?v=track-1",
-						images: [{ type: "remote", url: "https://img/1.jpg", purpose: "cover" }],
+						images: [{ type: "remote", purpose: "cover", url: "https://img/1.jpg" }],
 					});
 					expect(details.relatedEntityGroups).toEqual([
 						{
@@ -147,7 +147,7 @@ describe("music.youtube-music sandbox script", () => {
 		};
 		return Effect.runPromise(
 			runHistory(
-				{ authCookie: "cookie", timezone: "UTC" },
+				{ timezone: "UTC", authCookie: "cookie" },
 				host,
 				{ metadata: {}, sandboxScriptId: "script_test", startedAt: "2026-08-05T12:00:00.000Z" },
 				() => Effect.succeed(client),

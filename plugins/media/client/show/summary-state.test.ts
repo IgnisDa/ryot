@@ -32,7 +32,7 @@ import {
 
 const label = (items: readonly { id: string; name: string }[], hasMore = false) =>
 	showCollectionsLabel(
-		decodeShowSummary({ collections: { pageInfo: { hasMore, limit: 6 }, items } }).collections,
+		decodeShowSummary({ collections: { items, pageInfo: { hasMore, limit: 6 } } }).collections,
 	);
 
 describe("show summary state", () => {
@@ -46,7 +46,7 @@ describe("show summary state", () => {
 	});
 
 	it("maps an absent entity to the missing unavailable reason", () => {
-		const value = decodeShowSummaryResult({ requested: [], show: [] });
+		const value = decodeShowSummaryResult({ show: [], requested: [] });
 
 		expect(mapShowSummary(readyQueryResult(value))).toEqual({
 			reason: "missing",
@@ -55,7 +55,7 @@ describe("show summary state", () => {
 	});
 
 	it("maps a non-show entity to the unsupported unavailable reason", () => {
-		const value = decodeShowSummaryResult({ requested: [{ schemaSlug: "book" }], show: [] });
+		const value = decodeShowSummaryResult({ show: [], requested: [{ schemaSlug: "book" }] });
 
 		expect(mapShowSummary(readyQueryResult(value))).toEqual({
 			reason: "unsupported",
@@ -98,8 +98,8 @@ describe("show summary state", () => {
 	it("keeps provider order among images sharing a purpose", () => {
 		const show = decodeShowSummary({
 			images: [
-				{ type: "remote", url: "https://images.test/cover-a.jpg", purpose: "cover" },
-				{ type: "remote", url: "https://images.test/cover-b.jpg", purpose: "cover" },
+				{ type: "remote", purpose: "cover", url: "https://images.test/cover-a.jpg" },
+				{ type: "remote", purpose: "cover", url: "https://images.test/cover-b.jpg" },
 			],
 		});
 
@@ -113,8 +113,8 @@ describe("show summary state", () => {
 	it("falls back to provider order when no image records a cover purpose", () => {
 		const show = decodeShowSummary({
 			images: [
-				{ type: "remote", url: "https://images.test/still.jpg", purpose: "still" },
-				{ type: "remote", url: "https://images.test/backdrop.jpg", purpose: "backdrop" },
+				{ type: "remote", purpose: "still", url: "https://images.test/still.jpg" },
+				{ type: "remote", purpose: "backdrop", url: "https://images.test/backdrop.jpg" },
 			],
 		});
 

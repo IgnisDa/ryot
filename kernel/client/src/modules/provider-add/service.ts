@@ -35,7 +35,7 @@ export class ProviderAddService extends Context.Service<ProviderAddService>()(
 					catch: (cause) => new ProviderAddLoadError({ cause, stage: "providers" }),
 					try: (signal) =>
 						client.data.query(
-							providerSearchRecipe({ rootEntitySchemaSlug: entitySchemaSlug, ownerPluginId }),
+							providerSearchRecipe({ ownerPluginId, rootEntitySchemaSlug: entitySchemaSlug }),
 							{ signal },
 						),
 				});
@@ -61,7 +61,7 @@ export class ProviderAddService extends Context.Service<ProviderAddService>()(
 					.searchOptions(scope, { payload: { providerId } })
 					.pipe(
 						Effect.mapError(
-							(error) => new ProviderAddLoadError({ cause: error.cause, stage: "options" }),
+							(error) => new ProviderAddLoadError({ stage: "options", cause: error.cause }),
 						),
 					);
 			});
@@ -73,7 +73,7 @@ export class ProviderAddService extends Context.Service<ProviderAddService>()(
 					.search(scope, { payload })
 					.pipe(
 						Effect.mapError(
-							(error) => new ProviderAddLoadError({ cause: error.cause, stage: "search" }),
+							(error) => new ProviderAddLoadError({ stage: "search", cause: error.cause }),
 						),
 					);
 			});
@@ -85,7 +85,7 @@ export class ProviderAddService extends Context.Service<ProviderAddService>()(
 					.import(scope, { payload })
 					.pipe(
 						Effect.mapError(
-							(error) => new ProviderAddLoadError({ cause: error.cause, stage: "import" }),
+							(error) => new ProviderAddLoadError({ stage: "import", cause: error.cause }),
 						),
 					);
 			});
@@ -97,7 +97,7 @@ export class ProviderAddService extends Context.Service<ProviderAddService>()(
 					.getImportResult(scope, { params: { jobId } })
 					.pipe(
 						Effect.mapError(
-							(error) => new ProviderAddLoadError({ cause: error.cause, stage: "import" }),
+							(error) => new ProviderAddLoadError({ stage: "import", cause: error.cause }),
 						),
 					);
 			});

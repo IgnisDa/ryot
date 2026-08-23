@@ -60,9 +60,9 @@ describe("audiobook.audible sandbox script", () => {
 				Effect.map((result) => {
 					expect(result.relatedEntityGroups).toEqual([
 						{
+							entities: [],
 							direction: "incoming",
 							synchronization: "authoritative",
-							entities: [],
 							relationshipSchemaSlug: "person-to-audiobook",
 						},
 						{
@@ -95,13 +95,13 @@ describe("audiobook.audible sandbox script", () => {
 						is_adult_product: true,
 						runtime_length_min: 610.9,
 						release_date: "2020-05-02T00:00:00Z",
-						series: [{ asin: "series-1", title: "The Saga" }],
-						authors: [{ asin: "person-1", name: "Jane Doe" }, { name: "No Asin" }],
-						narrators: [{ asin: "person-1", name: "Jane Doe" }],
-						product_images: { "2400": "https://img/big.jpg", "500": "https://img/small.jpg" },
-						category_ladders: [{ ladder: [{ name: "science fiction & FANTASY" }] }],
-						rating: { num_reviews: 4, overall_distribution: { display_average_rating: "4.5" } },
 						publisher_summary: "<p>Line one<br>Line two</p>",
+						series: [{ asin: "series-1", title: "The Saga" }],
+						narrators: [{ asin: "person-1", name: "Jane Doe" }],
+						authors: [{ asin: "person-1", name: "Jane Doe" }, { name: "No Asin" }],
+						category_ladders: [{ ladder: [{ name: "science fiction & FANTASY" }] }],
+						product_images: { "2400": "https://img/big.jpg", "500": "https://img/small.jpg" },
+						rating: { num_reviews: 4, overall_distribution: { display_average_rating: "4.5" } },
 					},
 				});
 			}
@@ -140,9 +140,9 @@ describe("audiobook.audible sandbox script", () => {
 						publishDate: "2020-05-02",
 						description: "Line one\nLine two",
 						genres: ["Science Fiction", "Fantasy"],
-						unlinkedCreators: [{ role: "Author", name: "No Asin" }],
 						sourceUrl: "https://www.audible.com/pd/mixed-book",
-						images: [{ type: "remote", url: "https://img/big.jpg", purpose: "cover" }],
+						unlinkedCreators: [{ role: "Author", name: "No Asin" }],
+						images: [{ type: "remote", purpose: "cover", url: "https://img/big.jpg" }],
 					});
 					return undefined;
 				}),

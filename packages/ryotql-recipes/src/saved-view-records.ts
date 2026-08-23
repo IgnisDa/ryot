@@ -25,15 +25,15 @@ const selection = {
 	slug: selectedField(column(savedView, "slug"), Schema.String),
 	name: selectedField(column(savedView, "name"), Schema.String),
 	icon: selectedField(column(savedView, "icon"), Schema.String),
-	renderer: selectedField(column(savedView, "renderer"), SavedViewRenderer),
-	settings: selectedField(column(savedView, "settings"), Schema.Record(Schema.String, JsonValue)),
-	dataSources: selectedField(column(savedView, "dataSources"), Schema.NullOr(RyotQLDocument)),
 	sortOrder: selectedField(column(savedView, "sortOrder"), Schema.Number),
 	createdAt: selectedField(column(savedView, "createdAt"), IsoDateString),
 	updatedAt: selectedField(column(savedView, "updatedAt"), IsoDateString),
 	isBuiltin: selectedField(column(savedView, "isBuiltin"), Schema.Boolean),
+	renderer: selectedField(column(savedView, "renderer"), SavedViewRenderer),
 	isDisabled: selectedField(column(savedView, "isDisabled"), Schema.Boolean),
 	pluginSlug: selectedField(column(savedView, "pluginSlug"), Schema.NullOr(PluginSlug)),
+	dataSources: selectedField(column(savedView, "dataSources"), Schema.NullOr(RyotQLDocument)),
+	settings: selectedField(column(savedView, "settings"), Schema.Record(Schema.String, JsonValue)),
 };
 
 export const savedViewRecordsRecipe = defineRecipe(
@@ -50,11 +50,12 @@ export const savedViewRecordsRecipe = defineRecipe(
 			...(input.pluginSlug ? [eq(column(savedView, "pluginSlug"), literal(input.pluginSlug))] : []),
 		];
 		return {
+			map: ({ savedViews }) => Result.succeed(savedViews),
 			queries: {
 				savedViews: selectedRows(savedView, {
+					selection,
 					after: input.after,
 					limit: input.limit,
-					selection,
 					where: predicates.length > 0 ? and(...predicates) : undefined,
 					orderBy: [
 						ascending(column(savedView, "pluginSlug")),
@@ -63,12 +64,12 @@ export const savedViewRecordsRecipe = defineRecipe(
 					],
 				}),
 			},
-			map: ({ savedViews }) => Result.succeed(savedViews),
 		};
 	},
 );
 
 export const savedViewRecordRecipe = defineRecipe((input: { readonly slug: string }) => ({
+	map: ({ savedView: record }) => Result.succeed(record),
 	queries: {
 		savedView: selectedOptionalRow(savedView, {
 			selection,
@@ -76,7 +77,6 @@ export const savedViewRecordRecipe = defineRecipe((input: { readonly slug: strin
 			where: eq(column(savedView, "slug"), literal(input.slug)),
 		}),
 	},
-	map: ({ savedView: record }) => Result.succeed(record),
 }));
 
 export type SavedViewRecordList = Recipe.Success<typeof savedViewRecordsRecipe>;

@@ -7,7 +7,7 @@ const recipe = defineOperationRecipe({
 	pluginSlug: "media",
 	operationSlug: "resolve-episodes",
 	input: Schema.Struct({ count: Schema.FiniteFromString }),
-	output: Schema.Struct({ count: Schema.NumberFromString, entityId: Schema.String }),
+	output: Schema.Struct({ entityId: Schema.String, count: Schema.NumberFromString }),
 });
 
 describe("invokeOperationRecipe", () => {
@@ -21,7 +21,7 @@ describe("invokeOperationRecipe", () => {
 		);
 
 		expect(request).toEqual([
-			{ payload: { count: "3" }, pluginSlug: "media", operationSlug: "resolve-episodes" },
+			{ pluginSlug: "media", payload: { count: "3" }, operationSlug: "resolve-episodes" },
 		]);
 		expect(result).toEqual({ count: 4, entityId: "entity-1" });
 	});

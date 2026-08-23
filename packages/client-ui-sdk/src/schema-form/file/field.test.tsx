@@ -154,12 +154,12 @@ describe("SchemaFileField", () => {
 		const files = [candidate("first.zip", 1024), candidate("second.zip", 2048)];
 		render(
 			<FileFieldHarness
-				onChange={(token) => tokens.push(token)}
 				uploadFile={upload.uploadFile}
+				onChange={(token) => tokens.push(token)}
 				pickFile={() => {
 					const file = files.shift();
 					return Promise.resolve(
-						file === undefined ? { kind: "canceled" } : { kind: "picked", file },
+						file === undefined ? { kind: "canceled" } : { file, kind: "picked" },
 					);
 				}}
 			/>,

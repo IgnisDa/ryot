@@ -66,8 +66,8 @@ export const SystemRoutesLive = HttpApiBuilder.group(AppContract, "system", (han
 				);
 
 				yield* Effect.tryPromise({
-					try: () => redis.client.ping(),
 					catch: (cause) => ({ cause }),
+					try: () => redis.client.ping(),
 				}).pipe(
 					Effect.tapError(({ cause }) =>
 						Effect.logError("system health Redis check failed", cause),

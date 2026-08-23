@@ -30,7 +30,9 @@ it.effect("runs export side effects only through backup workflow operations", ()
 		Layer.succeed(WorkflowInstance, instance),
 		Layer.succeed(WorkflowEngine, engine),
 		Layer.mock(ExportBackupWorkflowOperations, {
+			fail: () => Effect.sync(() => void calls.push("fail")),
 			begin: () => Effect.sync(() => (calls.push("begin"), true)),
+			complete: () => Effect.sync(() => void calls.push("complete")),
 			build: () =>
 				Effect.sync(() => {
 					calls.push("build");
@@ -40,8 +42,6 @@ it.effect("runs export side effects only through backup workflow operations", ()
 						expiresAt: "2026-08-24T12:00:00.000Z",
 					};
 				}),
-			complete: () => Effect.sync(() => void calls.push("complete")),
-			fail: () => Effect.sync(() => void calls.push("fail")),
 		}),
 	);
 	return Effect.gen(function* () {
@@ -82,13 +82,14 @@ it.effect("preserves an artifact after an ambiguous export completion", () => {
 					deleteObject: () => Effect.sync(() => void (deletes += 1)),
 				}),
 				Layer.mock(BackupsRepository, {
+					failRun: () => Effect.sync(() => ((failures += 1), null)),
+					getRunById: () => Effect.succeed(completed ? completedRun : null),
 					completeRun: () =>
 						Effect.sync(() => {
 							completed = true;
 						}).pipe(
 							Effect.andThen(Effect.fail(new DbError({ message: "completion response was lost" }))),
 						),
-					getRunById: () => Effect.succeed(completed ? completedRun : null),
 					getArtifactById: () =>
 						Effect.succeed(
 							completed
@@ -100,7 +101,6 @@ it.effect("preserves an artifact after an ambiguous export completion", () => {
 									}
 								: null,
 						),
-					failRun: () => Effect.sync(() => ((failures += 1), null)),
 				}),
 			),
 		),

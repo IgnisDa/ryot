@@ -37,7 +37,7 @@ export class EntityInterestSubscriber extends Context.Service<EntityInterestSubs
 						Effect.retry({ times: 2, while: (cause) => !Cause.hasInterrupts(cause) }),
 						Effect.catch((cause) =>
 							store
-								.markPending({ entityId: update.entityId, sessionIds })
+								.markPending({ sessionIds, entityId: update.entityId })
 								.pipe(
 									Effect.andThen(
 										Effect.logError("entity interest progression failed", cause).pipe(

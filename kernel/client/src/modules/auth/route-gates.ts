@@ -39,7 +39,7 @@ export function decideAuthRoute(
 ): AuthRouteDecision {
 	const redirectTo = sanitizeRedirect(redirectIntent);
 	if (server === null) {
-		return { action: "redirect", redirectTo, to: "/onboarding" };
+		return { redirectTo, to: "/onboarding", action: "redirect" };
 	}
 	if (session.status === "pending") {
 		return { action: "wait" };
@@ -47,7 +47,7 @@ export function decideAuthRoute(
 	if (session.status === "authenticated") {
 		return { action: "redirect", to: redirectTo ?? "/" };
 	}
-	return { action: "stay", redirectTo };
+	return { redirectTo, action: "stay" };
 }
 
 export function decideProtectedRoute(
@@ -57,13 +57,13 @@ export function decideProtectedRoute(
 ): ProtectedRouteDecision {
 	const redirectTo = sanitizeRedirect(destination);
 	if (server === null) {
-		return { action: "redirect", redirectTo, to: "/onboarding" };
+		return { redirectTo, to: "/onboarding", action: "redirect" };
 	}
 	if (session.status === "pending") {
 		return { action: "wait" };
 	}
 	if (session.status === "missing") {
-		return { action: "redirect", redirectTo, to: "/auth" };
+		return { redirectTo, to: "/auth", action: "redirect" };
 	}
 	return { action: "allow", scope: { serverUrl: server, userId: session.userId } };
 }

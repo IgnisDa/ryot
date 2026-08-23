@@ -158,7 +158,7 @@ BEGIN
 	INTO generic_json_rows
 	FROM "old_integration"
 	WHERE provider = 'generic_json';
-	${buildReportSql("old_integration -> integration", [{ message: "row(s) migrated", count: "rows_inserted" }])}
-	${buildReportSql("old_integration -> integration", [{ message: "generic_json integration row(s) skipped because the provider was removed in V2", count: "generic_json_rows" }])}
+	${buildReportSql("old_integration -> integration", [{ count: "rows_inserted", message: "row(s) migrated" }])}
+	${buildReportSql("old_integration -> integration", [{ count: "generic_json_rows", message: "generic_json integration row(s) skipped because the provider was removed in V2" }])}
 END $$;
 `;

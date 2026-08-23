@@ -81,8 +81,8 @@ const createHost = (options: {
 }) =>
 	defineSandboxTestHost(manifest, {
 		httpCall: options.httpCall,
-		log: options.log ?? (() => Effect.succeed(null)),
 		getEntitySchemas: () => hostSuccess([schema]),
+		log: options.log ?? (() => Effect.succeed(null)),
 		listIntegrations: () => hostSuccess(options.integrations ?? []),
 		executeRyotql: () =>
 			options.entity ? hostSuccess(ryotqlRows("entities", [options.entity])) : hostFailure(),
@@ -121,12 +121,12 @@ describe("jellyfin-push sandbox script", () => {
 				[
 					definition.run(
 						createAutomation(),
-						createHost({ entity: movieEntity, integrations: [jellyfinIntegration], httpCall }),
+						createHost({ httpCall, entity: movieEntity, integrations: [jellyfinIntegration] }),
 						execution,
 					),
 					definition.run(
 						createAutomation({ subject: { id: "book-1", name: "Book", entitySchemaSlug: "book" } }),
-						createHost({ entity: movieEntity, integrations: [jellyfinIntegration], httpCall }),
+						createHost({ httpCall, entity: movieEntity, integrations: [jellyfinIntegration] }),
 						execution,
 					),
 					definition.run(
@@ -156,13 +156,13 @@ describe("jellyfin-push sandbox script", () => {
 			const warnings: (readonly LogEntry[])[] = [];
 			const host = createHost({
 				entity: movieEntity,
+				log: createLog(warnings),
 				integrations: [jellyfinIntegration],
 				httpCall: createHttpCall(
 					calls,
 					[{ Id: "jf-item-1", Name: "The Matrix", ProviderIds: { Tmdb: "603" } }],
 					true,
 				),
-				log: createLog(warnings),
 			});
 			const result = yield* definition.run(createAutomation(), host, execution);
 			expect(result).toBeNull();

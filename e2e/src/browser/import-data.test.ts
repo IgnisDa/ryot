@@ -115,7 +115,7 @@ it.live("starts, follows and deletes an import from settings", () =>
 			yield* page.getByRole("heading", { level: 1, name: SOURCE_NAME }).waitFor();
 
 			// The detail polls until the run leaves a non-terminal status.
-			yield* page.getByText("Completed").waitFor({ state: "visible", timeout: 60_000 });
+			yield* page.getByText("Completed").waitFor({ timeout: 60_000, state: "visible" });
 			expect(yield* page.getByText("3 of 3 read · 3 added · 0 failed").count).toBe(1);
 			yield* page.getByText("What could not be brought over").waitFor({ state: "hidden" });
 

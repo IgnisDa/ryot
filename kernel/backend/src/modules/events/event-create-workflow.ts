@@ -37,10 +37,10 @@ type EventCreateWorkflowInput = Omit<EventCreateWorkflowPayload, "executionId"> 
 };
 
 export const EventCreateWorkflow = Workflow.make("EventCreateWorkflow", {
+	idempotencyKey: ({ executionId }) => executionId,
 	success: CreateEventsResponse satisfies DurableSchema,
 	error: EventCreateWorkflowError satisfies DurableSchema,
 	payload: EventCreateWorkflowPayload satisfies DurableSchema,
-	idempotencyKey: ({ executionId }) => executionId,
 });
 
 const withExecutionId = (input: EventCreateWorkflowInput) => ({

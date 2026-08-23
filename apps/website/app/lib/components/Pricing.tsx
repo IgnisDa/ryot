@@ -64,7 +64,7 @@ export default function Pricing(props: {
 			<div className="absolute inset-0 bg-linear-to-br from-primary/5 via-transparent to-accent/5" />
 			<div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
 				<div className="text-center mb-16">
-					<Badge variant="outline" className="mb-4">
+					<Badge className="mb-4" variant="outline">
 						<Sparkles className="w-4 h-4 mr-2" />
 						Pricing
 					</Badge>
@@ -216,8 +216,8 @@ export default function Pricing(props: {
 								</CardHeader>
 								<CardContent>
 									<Link
-										target={p.linkToGithub ? "_blank" : undefined}
 										to={getPriceLink(p.linkToGithub)}
+										target={p.linkToGithub ? "_blank" : undefined}
 										onClick={(e) => {
 											if (props.onClick && p.priceId) {
 												e.preventDefault();

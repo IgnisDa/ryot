@@ -9,9 +9,9 @@ export const manifest = defineManifest({
 	name: "iTunes",
 	kind: "provider",
 	slug: "podcast.itunes",
+	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	capabilities: ["httpCall"],
 });
 type ItunesHost = SandboxHost<typeof manifest.capabilities>;
 type UnknownRecord = Record<string, unknown>;
@@ -157,10 +157,10 @@ export const search = defineProvider({
 			host,
 			"search",
 			{
-				term: input.query,
-				media: "podcast",
-				entity: "podcast",
 				lang: "en_us",
+				media: "podcast",
+				term: input.query,
+				entity: "podcast",
 				limit: String(resultLimit),
 			},
 			"iTunes search request failed",
@@ -216,10 +216,10 @@ export const details = defineProvider({
 	run: (input, host) => {
 		const language = bcp47ToItunes("en");
 		return lookup(host, {
-			id: input.externalId,
+			lang: language,
 			media: "podcast",
 			entity: "podcast",
-			lang: language,
+			id: input.externalId,
 		}).pipe(
 			Effect.flatMap((detailsPayload) =>
 				Effect.gen(function* () {
@@ -233,10 +233,10 @@ export const details = defineProvider({
 					}
 					const totalEpisodes = positiveInt(podcast["trackCount"]);
 					const episodeLookup: Record<string, string> = {
-						id: input.externalId,
-						media: "podcast",
-						entity: "podcastEpisode",
 						lang: language,
+						media: "podcast",
+						id: input.externalId,
+						entity: "podcastEpisode",
 					};
 					if (totalEpisodes !== null) {
 						episodeLookup["limit"] = String(totalEpisodes);
@@ -261,19 +261,19 @@ export const details = defineProvider({
 									return [
 										{
 											id,
-											publishDate,
 											number: 0,
+											publishDate,
 											title: episodeTitle,
 											overview: stringValue(episode["description"]),
+											runtime:
+												typeof runtimeMillis === "number" && Number.isFinite(runtimeMillis)
+													? Math.trunc(runtimeMillis / 1000 / 60)
+													: null,
 											thumbnail:
 												stringValue(episode["artworkUrl600"]) ??
 												stringValue(episode["artworkUrl100"]) ??
 												stringValue(episode["artworkUrl60"]) ??
 												stringValue(episode["artworkUrl30"]),
-											runtime:
-												typeof runtimeMillis === "number" && Number.isFinite(runtimeMillis)
-													? Math.trunc(runtimeMillis / 1000 / 60)
-													: null,
 										},
 									];
 								})
@@ -286,8 +286,8 @@ export const details = defineProvider({
 									return episode;
 								});
 							const childEntities = episodes.map((episode) => ({
-								entitySchemaSlug: "podcast-episode",
 								externalId: episode.id,
+								entitySchemaSlug: "podcast-episode",
 								name: episode.title || `Episode ${episode.number}`,
 								properties: {
 									runtime: episode.runtime,
@@ -296,7 +296,7 @@ export const details = defineProvider({
 									publishDate: episode.publishDate,
 									parentPodcastExternalId: input.externalId,
 									...(episode.thumbnail
-										? { images: [{ type: "remote", url: episode.thumbnail, purpose: "cover" }] }
+										? { images: [{ type: "remote", purpose: "cover", url: episode.thumbnail }] }
 										: {}),
 								},
 							}));
@@ -305,16 +305,16 @@ export const details = defineProvider({
 								childEntities,
 								expectedChildEntitySchemaSlug: "podcast-episode",
 								properties: {
-									publishDate: getIsoDate(podcast["releaseDate"]),
-									publishYear: getPublishYear(podcast["releaseDate"]),
 									unlinkedCreators,
 									genres: collectGenres(podcast),
-									sourceUrl: buildSourceUrl(input.externalId, title),
+									publishDate: getIsoDate(podcast["releaseDate"]),
 									totalEpisodes: totalEpisodes ?? episodes.length,
 									description: stringValue(podcast["description"]),
+									sourceUrl: buildSourceUrl(input.externalId, title),
+									publishYear: getPublishYear(podcast["releaseDate"]),
 									images: collectImages(podcast).map((url) => ({
-										type: "remote" as const,
 										url,
+										type: "remote" as const,
 										purpose: "cover" as const,
 									})),
 								},
@@ -342,20 +342,20 @@ export const translate = defineProvider({
 		const providerLanguage = bcp47ToItunes(input.language);
 		if (input.entitySchemaSlug === "podcast") {
 			return lookup(host, {
-				id: input.externalId,
 				media: "podcast",
 				entity: "podcast",
+				id: input.externalId,
 				lang: providerLanguage,
 			}).pipe(
 				Effect.flatMap((payload) =>
 					Effect.try({
+						catch: (error) => (error instanceof Error ? error : new Error(String(error))),
 						try: () =>
 							translationResult(
 								asRecord(resultsArray(payload)[0]),
 								"collectionName",
 								"iTunes podcast not found",
 							),
-						catch: (error) => (error instanceof Error ? error : new Error(String(error))),
 					}),
 				),
 			);
@@ -378,13 +378,13 @@ export const translate = defineProvider({
 			}).pipe(
 				Effect.flatMap((payload) =>
 					Effect.try({
+						catch: (error) => (error instanceof Error ? error : new Error(String(error))),
 						try: () =>
 							translationResult(
 								findPodcastEpisode(payload, input.externalId),
 								"trackName",
 								"iTunes podcast episode not found",
 							),
-						catch: (error) => (error instanceof Error ? error : new Error(String(error))),
 					}),
 				),
 			);

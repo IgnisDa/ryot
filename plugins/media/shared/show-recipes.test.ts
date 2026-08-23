@@ -11,7 +11,7 @@ import {
 } from "./show-recipes";
 
 const showRows = (items: readonly Record<string, unknown>[]) =>
-	rowsResult(items, { hasMore: false, limit: 1, nextCursor: null });
+	rowsResult(items, { limit: 1, hasMore: false, nextCursor: null });
 
 const ACTIVITY_RECIPE = showActivityRecipe({
 	timeZone: "UTC",
@@ -25,14 +25,14 @@ const ACTIVITY_RECIPE = showActivityRecipe({
 });
 
 const activityRows = (items: readonly Record<string, unknown>[]) =>
-	rowsResult(items, { hasMore: false, limit: 100, nextCursor: null });
+	rowsResult(items, { limit: 100, hasMore: false, nextCursor: null });
 
 const progressRows = (items: readonly Record<string, unknown>[]) =>
 	activityRows(
 		items.map(({ id, createdAt, occurredAt, consumedOn, progressPercent, ...episode }) => ({
 			...episode,
 			milestone: {
-				pageInfo: { hasMore: false, limit: 1 },
+				pageInfo: { limit: 1, hasMore: false },
 				items: [{ id, createdAt, occurredAt, consumedOn, progressPercent }],
 			},
 		})),
@@ -105,7 +105,7 @@ const WATCH_DAY_ROW = {
 const aggregateRows = (items: readonly Record<string, unknown>[]) => ({
 	items,
 	type: "aggregate" as const,
-	pageInfo: { hasMore: false, limit: 500 },
+	pageInfo: { limit: 500, hasMore: false },
 });
 
 const SEASON_ROW = {
@@ -167,12 +167,12 @@ const SHOW_SUMMARY_ROW = {
 	genres: ["Drama", "Crime"],
 	description: "A synopsis.",
 	collections: {
-		pageInfo: { hasMore: false, limit: 6 },
-		items: [{ id: "collection-1", name: "Completed" }],
+		pageInfo: { limit: 6, hasMore: false },
+		items: [{ name: "Completed", id: "collection-1" }],
 	},
 	images: [
-		{ type: "remote", url: "https://images.test/backdrop.jpg", purpose: "backdrop" },
-		{ type: "remote", url: "https://images.test/cover.jpg", purpose: "cover" },
+		{ type: "remote", purpose: "backdrop", url: "https://images.test/backdrop.jpg" },
+		{ type: "remote", purpose: "cover", url: "https://images.test/cover.jpg" },
 	],
 };
 describe("media show query recipes", () => {
@@ -197,10 +197,10 @@ describe("media show query recipes", () => {
 			"translationStatus",
 			"state",
 			"images",
+			"storedSeasons",
 			"publishDate",
 			"publishYear",
 			"productionStatus",
-			"storedSeasons",
 			"storedEpisodes",
 			"watchedEpisodes",
 			"inProgressEpisodes",
@@ -223,7 +223,7 @@ describe("media show query recipes", () => {
 			populationStatus: "ready",
 			translationStatus: "none",
 			productionStatus: "Returning Series",
-			images: [{ type: "s3", key: "severance-cover", purpose: "cover" }],
+			images: [{ type: "s3", purpose: "cover", key: "severance-cover" }],
 		};
 
 		expect(recipe.decode({ data: { shows: showRows([row]) } })).toMatchObject({
@@ -238,7 +238,7 @@ describe("media show query recipes", () => {
 			],
 		});
 		expect(
-			recipe.decode({ data: { shows: showRows([{ ...row, images: [{ type: "ftp", url: 12 }] }]) } })
+			recipe.decode({ data: { shows: showRows([{ ...row, images: [{ url: 12, type: "ftp" }] }]) } })
 				._tag,
 		).toBe("Failure");
 	});
@@ -259,7 +259,7 @@ describe("media show query recipes", () => {
 			"populationStatus",
 			"translationStatus",
 		]);
-		expect(seasons).toMatchObject({ key: "seasons", limit: 4 });
+		expect(seasons).toMatchObject({ limit: 4, key: "seasons" });
 		expect(seasons?.include).toBeUndefined();
 		expect(
 			seasons && "fields" in seasons
@@ -293,7 +293,7 @@ describe("media show query recipes", () => {
 			"populationStatus",
 			"translationStatus",
 		]);
-		expect(episodes).toMatchObject({ key: "episodes", limit: 12 });
+		expect(episodes).toMatchObject({ limit: 12, key: "episodes" });
 		expect(
 			episodes && "fields" in episodes
 				? episodes.fields.map((field) => ("key" in field ? field.key : null))
@@ -304,13 +304,13 @@ describe("media show query recipes", () => {
 			"schemaSlug",
 			"populationStatus",
 			"translationStatus",
-			"state",
 			"episodeNumber",
-			"seasonNumber",
 			"images",
+			"seasonNumber",
 			"runtime",
 			"publishDate",
 			"description",
+			"state",
 		]);
 	});
 
@@ -333,20 +333,20 @@ describe("media show query recipes", () => {
 			"translationStatus",
 			"state",
 			"owned",
-			"genres",
-			"images",
 			"providerName",
 			"description",
 			"publishDate",
-			"productionStatus",
 			"publishYear",
+			"genres",
 			"totalSeasons",
 			"totalEpisodes",
+			"images",
 			"providerRating",
-			"isMonitored",
+			"productionStatus",
 			"isInLibrary",
+			"isMonitored",
 		]);
-		expect(show.output.include?.[0]).toMatchObject({ key: "collections", limit: 6 });
+		expect(show.output.include?.[0]).toMatchObject({ limit: 6, key: "collections" });
 		expect(show.joins?.[0]).toMatchObject({ type: "left", table: { alias: "provider" } });
 	});
 
@@ -369,10 +369,10 @@ describe("media show query recipes", () => {
 					isMonitored: true,
 					providerName: "TMDB",
 					genres: ["Drama", "Crime"],
-					collections: { items: [{ id: "collection-1", name: "Completed" }] },
+					collections: { items: [{ name: "Completed", id: "collection-1" }] },
 					images: [
-						{ type: "remote", url: "https://images.test/backdrop.jpg", purpose: "backdrop" },
-						{ type: "remote", url: "https://images.test/cover.jpg", purpose: "cover" },
+						{ type: "remote", purpose: "backdrop", url: "https://images.test/backdrop.jpg" },
+						{ type: "remote", purpose: "cover", url: "https://images.test/cover.jpg" },
 					],
 				},
 			},
@@ -382,7 +382,7 @@ describe("media show query recipes", () => {
 	it("decodes a missing show as an absent summary and absent schema", () => {
 		const recipe = showSummaryRecipe({ collectionLimit: 6, entityId: "missing" });
 
-		expect(recipe.decode({ data: { requested: showRows([]), show: showRows([]) } })).toMatchObject({
+		expect(recipe.decode({ data: { show: showRows([]), requested: showRows([]) } })).toMatchObject({
 			success: { show: null, entitySchemaSlug: null },
 		});
 	});
@@ -392,7 +392,7 @@ describe("media show query recipes", () => {
 
 		expect(
 			recipe.decode({
-				data: { requested: showRows([{ schemaSlug: "book" }]), show: showRows([]) },
+				data: { show: showRows([]), requested: showRows([{ schemaSlug: "book" }]) },
 			}),
 		).toMatchObject({ success: { show: null, entitySchemaSlug: "book" } });
 	});
@@ -446,7 +446,7 @@ describe("media show query recipes", () => {
 			recipe.decode({
 				data: {
 					requested: showRows([{ schemaSlug: "show" }]),
-					show: showRows([{ ...SHOW_SUMMARY_ROW, images: [{ type: "ftp", url: 12 }] }]),
+					show: showRows([{ ...SHOW_SUMMARY_ROW, images: [{ url: 12, type: "ftp" }] }]),
 				},
 			})._tag,
 		).toBe("Failure");
@@ -462,7 +462,7 @@ describe("media show query recipes", () => {
 					show: showRows([
 						{
 							...SHOW_SUMMARY_ROW,
-							images: [{ type: "remote", url: "https://images.test/a.jpg", purpose: "poster" }],
+							images: [{ type: "remote", purpose: "poster", url: "https://images.test/a.jpg" }],
 						},
 					]),
 				},
@@ -564,7 +564,7 @@ describe("media show query recipes", () => {
 		expect(people.output.orderBy).toMatchObject([
 			{
 				direction: "asc",
-				expr: { target: "number", type: "cast", expr: { path: ["order"], type: "jsonPath" } },
+				expr: { type: "cast", target: "number", expr: { path: ["order"], type: "jsonPath" } },
 			},
 			{ direction: "asc", expr: { field: "name", tableAlias: "person" } },
 		]);
@@ -586,7 +586,7 @@ describe("media show query recipes", () => {
 		expect(recommendations.where).toMatchObject({
 			type: "and",
 			predicates: [
-				{ right: { type: "literal", value: "show" } },
+				{ right: { value: "show", type: "literal" } },
 				{
 					right: { type: "literal", value: "show-1" },
 					left: { field: "sourceEntityId", tableAlias: "suggestionRelationship" },
@@ -606,6 +606,26 @@ describe("media show query recipes", () => {
 		expect(
 			OVERVIEW_RECIPE.decode({
 				data: {
+					recommendations: showRows([
+						{
+							id: "show-2",
+							name: "Bad Girls",
+							populationStatus: "ready",
+							translationStatus: "none",
+							images: [{ type: "local", purpose: "cover", key: "bad-girls-cover" }],
+						},
+					]),
+					companies: showRows([
+						{
+							order: 1,
+							id: "company-1",
+							name: "Warp Films",
+							populationStatus: "ready",
+							translationStatus: "none",
+							roles: ["Production Company"],
+							images: [{ type: "s3", purpose: "logo", key: "warp-logo" }],
+						},
+					]),
 					people: showRows([
 						{
 							order: 1,
@@ -615,42 +635,19 @@ describe("media show query recipes", () => {
 							character: "Narrator",
 							populationStatus: "ready",
 							translationStatus: "none",
-							images: [{ type: "remote", url: "https://images.test/jack.jpg", purpose: "profile" }],
-						},
-					]),
-					companies: showRows([
-						{
-							order: 1,
-							id: "company-1",
-							name: "Warp Films",
-							roles: ["Production Company"],
-							populationStatus: "ready",
-							translationStatus: "none",
-							images: [{ type: "s3", key: "warp-logo", purpose: "logo" }],
-						},
-					]),
-					recommendations: showRows([
-						{
-							id: "show-2",
-							name: "Bad Girls",
-							populationStatus: "ready",
-							translationStatus: "none",
-							images: [{ type: "local", key: "bad-girls-cover", purpose: "cover" }],
+							images: [{ type: "remote", purpose: "profile", url: "https://images.test/jack.jpg" }],
 						},
 					]),
 				},
 			}),
 		).toMatchObject({
 			success: {
-				people: {
+				recommendations: {
 					items: [
 						{
-							order: 1,
-							id: "person-1",
-							roles: ["Creator"],
-							name: "Jack Thorne",
-							character: "Narrator",
-							images: [{ type: "remote", url: "https://images.test/jack.jpg", purpose: "profile" }],
+							id: "show-2",
+							name: "Bad Girls",
+							images: [{ type: "local", purpose: "cover", key: "bad-girls-cover" }],
 						},
 					],
 				},
@@ -661,16 +658,19 @@ describe("media show query recipes", () => {
 							id: "company-1",
 							name: "Warp Films",
 							roles: ["Production Company"],
-							images: [{ type: "s3", key: "warp-logo", purpose: "logo" }],
+							images: [{ type: "s3", purpose: "logo", key: "warp-logo" }],
 						},
 					],
 				},
-				recommendations: {
+				people: {
 					items: [
 						{
-							id: "show-2",
-							name: "Bad Girls",
-							images: [{ type: "local", key: "bad-girls-cover", purpose: "cover" }],
+							order: 1,
+							id: "person-1",
+							roles: ["Creator"],
+							name: "Jack Thorne",
+							character: "Narrator",
+							images: [{ type: "remote", purpose: "profile", url: "https://images.test/jack.jpg" }],
 						},
 					],
 				},
@@ -739,7 +739,7 @@ describe("media show query recipes", () => {
 							id: "person-1",
 							character: null,
 							name: "Jack Thorne",
-							images: [{ type: "ftp", url: 12 }],
+							images: [{ url: 12, type: "ftp" }],
 						},
 					]),
 				},
@@ -769,8 +769,8 @@ describe("media show query recipes", () => {
 			"text",
 			"rating",
 			"timeSpent",
-			"isSpoiler",
 			"consumedOn",
+			"isSpoiler",
 			"startedOn",
 			"completedOn",
 			"eventSchemaSlug",
@@ -783,8 +783,8 @@ describe("media show query recipes", () => {
 				"text",
 				"rating",
 				"timeSpent",
-				"isSpoiler",
 				"consumedOn",
+				"isSpoiler",
 				"episodeId",
 				"episodeName",
 				"seasonNumber",
@@ -810,8 +810,8 @@ describe("media show query recipes", () => {
 			"seasonNumber",
 			"episodeTotal",
 			"watchedTotal",
-			"watchedMinutes",
 			"watchedUnknownRuntime",
+			"watchedMinutes",
 		]);
 		expect(seasons.where.predicates[1]).toMatchObject({
 			type: "comparison",
@@ -1000,13 +1000,13 @@ describe("media show query recipes", () => {
 				parentEvents: [{ ...PARENT_EVENT_ROW, eventSchemaSlug: "review" }],
 				episodeProgress: [{ ...EPISODE_PROGRESS_ROW, progressPercent: null }],
 				episodeEvents: [
-					{ ...EPISODE_EVENT_ROW, consumedOn: null, timeSpent: null, episodeRuntime: null },
+					{ ...EPISODE_EVENT_ROW, timeSpent: null, consumedOn: null, episodeRuntime: null },
 				],
 			}),
 		).toMatchObject({
 			success: {
 				events: [
-					{ progressPercent: null, consumedOn: null },
+					{ consumedOn: null, progressPercent: null },
 					{ text: null, rating: null, isSpoiler: null, eventSchemaSlug: "review" },
 					{ timeSpent: null, consumedOn: null, episode: { runtime: null } },
 				],
@@ -1084,18 +1084,18 @@ describe("media show query recipes", () => {
 						text: null,
 						rating: null,
 						timeSpent: null,
-						kind: "collection",
 						consumedOn: null,
+						kind: "collection",
 						id: "collection-removed",
 						eventSchemaSlug: "remove-entity-from-collection",
-						collection: { id: "collection-1", name: "Watchlist" },
+						collection: { name: "Watchlist", id: "collection-1" },
 					},
 					{ kind: "parent", id: "parent-complete" },
 					{
 						kind: "collection",
 						id: "collection-added",
 						eventSchemaSlug: "add-entity-to-collection",
-						collection: { id: "collection-1", name: "Watchlist" },
+						collection: { name: "Watchlist", id: "collection-1" },
 					},
 				],
 			},

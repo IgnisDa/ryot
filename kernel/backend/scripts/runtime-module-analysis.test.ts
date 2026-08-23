@@ -97,7 +97,7 @@ describe("runtime module analysis", () => {
 			{ to: "beta", from: "zeta", kind: "runtime" },
 			{ to: "alpha", from: "beta", kind: "runtime" },
 			{ to: "zeta", from: "alpha", kind: "runtime" },
-			{ to: "beta", from: "alpha", kind: "test" },
+			{ to: "beta", kind: "test", from: "alpha" },
 		];
 		const cycles = detectRuntimeCycles(["zeta", "beta", "alpha"], edges.toReversed());
 

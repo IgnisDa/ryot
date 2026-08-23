@@ -15,7 +15,7 @@ import {
 const rows = (items: readonly Record<string, unknown>[]) => ({
 	items,
 	type: "rows" as const,
-	pageInfo: { hasMore: false, limit: 100, nextCursor: null },
+	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 });
 
 const presentationRow = {
@@ -32,7 +32,7 @@ const presentationRow = {
 	populationStatus: "ready",
 	translationStatus: "none",
 	productionStatus: "Returning Series",
-	images: [{ type: "remote", url: "https://images.test/severance.jpg", purpose: "cover" }],
+	images: [{ type: "remote", purpose: "cover", url: "https://images.test/severance.jpg" }],
 };
 
 const decodedData = (overrides: Record<string, unknown> = {}): ShowPresentationViewData => {
@@ -69,13 +69,13 @@ describe("show entity presentations", () => {
 						shows: rows([
 							{
 								...presentationRow,
-								images: [{ type: "s3", key: "shared-cover", purpose: "cover" }],
+								images: [{ type: "s3", purpose: "cover", key: "shared-cover" }],
 							},
 							{
 								...presentationRow,
 								id: "show-2",
 								name: "Second Show",
-								images: [{ type: "s3", key: "shared-cover", purpose: "cover" }],
+								images: [{ type: "s3", purpose: "cover", key: "shared-cover" }],
 							},
 						]),
 					},
@@ -138,7 +138,7 @@ describe("show entity presentations", () => {
 		});
 		const view = mountRyotClient(
 			{ query: () => Promise.resolve({}) },
-			<ShowRowContent compact={false} data={data} entityId="show-1" />,
+			<ShowRowContent data={data} compact={false} entityId="show-1" />,
 		);
 
 		expect(view.container.textContent).toContain("Severance");

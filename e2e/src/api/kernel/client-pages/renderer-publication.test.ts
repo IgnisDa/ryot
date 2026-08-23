@@ -253,8 +253,8 @@ describe("client renderer publication E2E", () => {
 					expect.objectContaining({
 						kind: "plugin",
 						sourceHash: fixture.sourceHash,
-						pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG,
 						installationId: expect.any(String),
+						pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG,
 					}),
 				]),
 			);

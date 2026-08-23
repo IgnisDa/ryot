@@ -23,11 +23,11 @@ it.effect("inserts restored translations without suppressing conflicts", () => {
 	const db = {
 		insert: () => ({
 			values: () => ({
+				returning: () => Effect.succeed([{ id: input.id }]),
 				onConflictDoNothing: () => {
 					conflictSuppressionRequested = true;
 					return { returning: () => Effect.succeed([]) };
 				},
-				returning: () => Effect.succeed([{ id: input.id }]),
 			}),
 		}),
 	};

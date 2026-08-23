@@ -3,7 +3,7 @@ import { Result } from "@ryot-app/client-sdk/effect";
 import { showSeasonEpisodesRecipe, showSeasonsRecipe } from "../../../shared/show-recipes";
 import { rowsResult } from "./query-result-fixture";
 
-const showEpisodesFixtureRecipe = showSeasonsRecipe({ entityId: "show-1", seasonLimit: 40 });
+const showEpisodesFixtureRecipe = showSeasonsRecipe({ seasonLimit: 40, entityId: "show-1" });
 
 const showSeasonEpisodesFixtureRecipe = showSeasonEpisodesRecipe({
 	episodeLimit: 60,
@@ -22,7 +22,7 @@ export const showEpisodeRow = {
 	schemaSlug: "show-episode",
 	name: "Episode 1: The Arrest",
 	description: "A thirteen-year-old is arrested at dawn.",
-	images: [{ type: "remote", url: "https://images.test/episode-1.jpg", purpose: "still" }],
+	images: [{ type: "remote", purpose: "still", url: "https://images.test/episode-1.jpg" }],
 };
 
 export const showSeasonRow = {
@@ -34,7 +34,7 @@ export const showSeasonRow = {
 	populationStatus: "ready",
 	translationStatus: "none",
 	description: "The complete limited series.",
-	images: [{ type: "remote", url: "https://images.test/season-1.jpg", purpose: "cover" }],
+	images: [{ type: "remote", purpose: "cover", url: "https://images.test/season-1.jpg" }],
 };
 
 type SeasonInput = Record<string, unknown>;
@@ -56,7 +56,7 @@ const defaultSeasonEpisodes: SeasonEpisodesInput = { ...showSeasonRow, episodes:
 
 const nestedRows = (items: readonly unknown[], hasMore: boolean, limit: number) => ({
 	items,
-	pageInfo: { hasMore, limit },
+	pageInfo: { limit, hasMore },
 });
 
 const seasonRows = (input: SeasonEpisodeRows) => {
@@ -86,12 +86,12 @@ export const decodeShowEpisodesResult = (input: {
 						populationStatus: "ready",
 						translationStatus: "none",
 						...input.show,
-						seasons: { items: seasons, pageInfo: { hasMore: false, limit: 40 } },
+						seasons: { items: seasons, pageInfo: { limit: 40, hasMore: false } },
 					},
 				];
 	return Result.getOrThrow(
 		showEpisodesFixtureRecipe.decode({
-			data: { show: rowsResult(show, { hasMore: false, limit: 1, nextCursor: null }) },
+			data: { show: rowsResult(show, { limit: 1, hasMore: false, nextCursor: null }) },
 		}),
 	);
 };

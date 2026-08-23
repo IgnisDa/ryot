@@ -26,8 +26,8 @@ const workspace = (slug: string, isDisabled = false) => ({
 });
 
 const draft: CustomizeDraft = {
-	workspaces: [workspace("media"), workspace("fitness", true)],
 	savedViews: [item("recent", null)],
+	workspaces: [workspace("media"), workspace("fitness", true)],
 	views: [item("shows", "media"), item("movies", "media", true)],
 };
 
@@ -37,10 +37,10 @@ function Harness(props: { readonly initial?: CustomizeDraft }) {
 		<CustomizePanel
 			draft={current}
 			onToggle={(section, slug) =>
-				setCurrent((value) => toggleCustomizeItem({ draft: value, section, slug }))
+				setCurrent((value) => toggleCustomizeItem({ slug, section, draft: value }))
 			}
 			onMove={(section, fromIndex, toIndex) =>
-				setCurrent((value) => moveCustomizeItem({ draft: value, section, fromIndex, toIndex }))
+				setCurrent((value) => moveCustomizeItem({ section, toIndex, fromIndex, draft: value }))
 			}
 		/>
 	);
@@ -125,7 +125,7 @@ describe("CustomizePanel", () => {
 	});
 
 	it("shows the saved views empty state while keeping the pinned Home row", () => {
-		render(<Harness initial={{ workspaces: [], views: [], savedViews: [] }} />);
+		render(<Harness initial={{ views: [], workspaces: [], savedViews: [] }} />);
 
 		expect(screen.getByText("No saved views yet.")).toBeDefined();
 		expect(screen.getByText("Views · 1 of 1 shown")).toBeDefined();

@@ -130,7 +130,7 @@ describe("Exercises E2E", () => {
 					tableColumns: [
 						{ label: "Name", field: "column0" },
 						{ label: "Level", field: "column1" },
-						{ label: "Equipment", field: "column2" },
+						{ field: "column2", label: "Equipment" },
 					],
 				},
 			});
@@ -138,15 +138,15 @@ describe("Exercises E2E", () => {
 				expect.arrayContaining([
 					expect.objectContaining({
 						key: "entityId",
-						expr: { type: "column", field: "id", tableAlias: "entity" },
+						expr: { field: "id", type: "column", tableAlias: "entity" },
 					}),
 					expect.objectContaining({
 						key: "ownerPluginId",
-						expr: { type: "column", field: "entitySchemaPluginId", tableAlias: "entity" },
+						expr: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
 					}),
 					expect.objectContaining({
 						key: "entitySchemaSlug",
-						expr: { type: "column", field: "entitySchemaSlug", tableAlias: "entity" },
+						expr: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
 					}),
 				]),
 			);
@@ -155,7 +155,7 @@ describe("Exercises E2E", () => {
 				predicates: expect.arrayContaining([
 					expect.objectContaining({
 						right: { type: "literal", value: "exercise" },
-						left: { field: "entitySchemaSlug", tableAlias: "entity", type: "column" },
+						left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
 					}),
 				]),
 			});
@@ -278,7 +278,7 @@ describe("Exercises E2E", () => {
 			);
 
 			assertTaggedError(error, "UserStateBadRequest");
-			expect(error.reason).toEqual({ code: "identity-property-mismatch", property: "kind" });
+			expect(error.reason).toEqual({ property: "kind", code: "identity-property-mismatch" });
 		}),
 	);
 });

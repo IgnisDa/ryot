@@ -24,7 +24,7 @@ export const automationOriginSchema = Schema.Union([
 		kind: Schema.Literal("integration"),
 		importRunId: Schema.optional(Schema.String),
 	}),
-	strictStruct({ kind: Schema.Literal("automation"), executionId: Schema.String }),
+	strictStruct({ executionId: Schema.String, kind: Schema.Literal("automation") }),
 ]);
 export const automationEntitySnapshotSchema = strictStruct({
 	id: Schema.String,
@@ -74,6 +74,7 @@ const automationSourceSchema = Schema.Union([
 	}),
 ]);
 const automationPopulationSchema = strictStruct({
+	scopeEntity: entityReferenceSchema,
 	rootPreviouslyPopulated: Schema.Boolean,
 	parentEntity: Schema.optional(
 		strictStruct({
@@ -82,7 +83,6 @@ const automationPopulationSchema = strictStruct({
 			entitySchemaSlug: Schema.String,
 		}),
 	),
-	scopeEntity: entityReferenceSchema,
 	batch: Schema.optional(
 		strictStruct({
 			id: Schema.String,
@@ -129,7 +129,7 @@ export const automationPolicyInputSchema = strictStruct({
 });
 export const automationPolicyResultSchema = Schema.Union([
 	strictStruct({ action: Schema.Literal("allow") }),
-	strictStruct({ action: Schema.Literal("skip"), reason: Schema.String }),
+	strictStruct({ reason: Schema.String, action: Schema.Literal("skip") }),
 	strictStruct({
 		action: Schema.Literal("replace"),
 		body: strictStruct({
@@ -167,19 +167,19 @@ export const defineAutomation = <const Manifest extends AutomationManifest>(defi
 	readonly manifest: Manifest;
 	readonly run: AutomationDefinition<Manifest>["run"];
 }): AutomationDefinition<Manifest> => ({
-	manifest: definition.manifest,
-	definitionType: SANDBOX_SCRIPT_DEFINITION,
 	run: definition.run,
 	input: automationInputSchema,
+	manifest: definition.manifest,
 	output: automationResultSchema,
+	definitionType: SANDBOX_SCRIPT_DEFINITION,
 });
 export const defineAutomationPolicy = <const Manifest extends AutomationManifest>(definition: {
 	readonly manifest: Manifest;
 	readonly run: AutomationPolicyDefinition<Manifest>["run"];
 }): AutomationPolicyDefinition<Manifest> => ({
-	manifest: definition.manifest,
-	definitionType: SANDBOX_SCRIPT_DEFINITION,
 	run: definition.run,
+	manifest: definition.manifest,
 	input: automationPolicyInputSchema,
 	output: automationPolicyResultSchema,
+	definitionType: SANDBOX_SCRIPT_DEFINITION,
 });

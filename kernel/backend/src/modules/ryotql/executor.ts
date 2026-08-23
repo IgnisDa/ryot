@@ -94,10 +94,10 @@ const expressionScope = (query: CorrelatedQuerySet, ancestors: CompileScope) => 
 		...(query.joins ?? []).map((join) => join.table),
 	].entries()) {
 		scope.set(reference.alias, {
-			alias: `kind${ancestors.size}_t${index}`,
-			table: requireTable(reference.table),
-			joinedNullable: index > 0,
 			executionScope,
+			joinedNullable: index > 0,
+			table: requireTable(reference.table),
+			alias: `kind${ancestors.size}_t${index}`,
 		});
 	}
 	return scope;
@@ -184,14 +184,14 @@ const compileCast = (
 	if (expr.expr.type === "first" && sourceKind === "json") {
 		const first = expr.expr;
 		return compileFirst(first, scope, (childScope) =>
-			compileCast({ expr: first.select, target: expr.target, type: "cast" }, childScope),
+			compileCast({ type: "cast", expr: first.select, target: expr.target }, childScope),
 		);
 	}
 	if (expr.expr.type === "coalesce" && sourceKind === "json") {
 		const branches = expr.expr.values.map(
 			(value) =>
 				sql`WHEN ${compileJsonValue(value, scope)} IS NOT NULL THEN ${compileCast(
-					{ expr: value, target: expr.target, type: "cast" },
+					{ expr: value, type: "cast", target: expr.target },
 					scope,
 				)}`,
 		);
@@ -265,7 +265,7 @@ const compileUnary = (
 	expr: Extract<ScalarExpression, { type: "floor" | "integer" | "round" }>,
 	scope: CompileScope,
 ) => {
-	const value = compileCast({ expr: expr.expr, target: "number", type: "cast" }, scope);
+	const value = compileCast({ type: "cast", expr: expr.expr, target: "number" }, scope);
 	if (expr.type === "round") {
 		return sql`round(${value})`;
 	}
@@ -279,8 +279,8 @@ const compileArithmetic = (
 	expr: Extract<ScalarExpression, { type: "arithmetic" }>,
 	scope: CompileScope,
 ) => {
-	const left = compileCast({ expr: expr.left, target: "number", type: "cast" }, scope);
-	const right = compileCast({ expr: expr.right, target: "number", type: "cast" }, scope);
+	const left = compileCast({ type: "cast", expr: expr.left, target: "number" }, scope);
+	const right = compileCast({ type: "cast", expr: expr.right, target: "number" }, scope);
 	if (expr.operator === "divide") {
 		return sql`((${left}) / NULLIF((${right}), 0))`;
 	}
@@ -356,7 +356,7 @@ const compileExpression = (expr: ScalarExpression, scope: CompileScope): SqlFrag
 	if (!field) {
 		throw new Error(`RyotQL compiler received unknown field '${expr.field}'`);
 	}
-	return field.resolve({ language: scopeLanguage(scope), sqlAlias: compileTable.alias });
+	return field.resolve({ sqlAlias: compileTable.alias, language: scopeLanguage(scope) });
 };
 
 const expressionNullable = (expr: ScalarExpression, scope: CompileScope): boolean => {
@@ -594,17 +594,17 @@ const buildScope = (
 	const root = requireTable(query.from.table);
 	const scope = new Map(ancestors);
 	scope.set(query.from.alias, {
+		table: root,
 		executionScope,
 		alias: `${prefix}t0`,
-		table: root,
 		joinedNullable: false,
 	});
 	(query.joins ?? []).forEach((join, index) => {
 		scope.set(join.table.alias, {
 			executionScope,
 			alias: `${prefix}t${index + 1}`,
-			table: requireTable(join.table.table),
 			joinedNullable: join.type === "left",
+			table: requireTable(join.table.table),
 		});
 	});
 	return scope;
@@ -743,7 +743,7 @@ const decodeCursor = Effect.fn("decodeRyotQLCursor")(function* (
 			if (raw["value"] !== null) {
 				return yield* cursorError();
 			}
-			values.push({ kind: "null", value: null });
+			values.push({ value: null, kind: "null" });
 			continue;
 		}
 		if (raw["kind"] !== expected || expected === "null") {
@@ -857,7 +857,7 @@ const compileAggregation = (aggregation: AggregationSpec, scope: CompileScope) =
 	} else if (aggregation.function === "countDistinct") {
 		value = sql`COUNT(DISTINCT ${compileExpression(aggregation.expr, scope)})::double precision`;
 	} else {
-		const operand = compileCast({ expr: aggregation.expr, target: "number", type: "cast" }, scope);
+		const operand = compileCast({ type: "cast", target: "number", expr: aggregation.expr }, scope);
 		if (aggregation.function === "sum") {
 			value = sql`SUM(${operand})`;
 		} else if (aggregation.function === "average") {
@@ -1207,7 +1207,7 @@ const executeTimeSeriesQuery = Effect.fn("executeRyotQLTimeSeriesQuery")(functio
 		if (typeof startAt !== "string" || typeof endAt !== "string") {
 			throw new Error("RyotQL received an invalid time-series bucket boundary");
 		}
-		return { startAt, endAt, value: Number(row["value"]) };
+		return { endAt, startAt, value: Number(row["value"]) };
 	});
 	return { buckets, type: "timeSeries" } satisfies TimeSeriesResult;
 });
@@ -1262,7 +1262,7 @@ export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* 
 				orderKinds.map((kind, index): CursorValue => {
 					const value = last[`o${index}`];
 					if (value === null) {
-						return { kind: "null", value: null };
+						return { value: null, kind: "null" };
 					}
 					const cursorValue = makeCursorValue(kind, normalizeValue(value, kind));
 					if (!cursorValue) {

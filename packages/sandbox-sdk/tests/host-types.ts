@@ -32,9 +32,9 @@ const allCapabilitiesManifest = defineManifest({
 });
 
 defineScript({
-	manifest: allCapabilitiesManifest,
-	input: Schema.Struct({}),
 	output: Schema.Boolean,
+	input: Schema.Struct({}),
+	manifest: allCapabilitiesManifest,
 	run: (_input, host) =>
 		Effect.gen(function* () {
 			const logs: ReadonlyArray<LogEntry> = [
@@ -89,7 +89,7 @@ defineScript({
 			// @ts-expect-error log takes exactly one batch argument.
 			yield* host.log(logs, logs);
 			// @ts-expect-error span entries reject excess fields.
-			yield* host.span([{ name: "provider.run", extra: true }]);
+			yield* host.span([{ extra: true, name: "provider.run" }]);
 			return true;
 		}),
 });
@@ -103,8 +103,8 @@ const narrowedManifest = defineManifest({
 	capabilities: ["getCachedValue"],
 });
 defineScript({
-	manifest: narrowedManifest,
 	input: Schema.Struct({}),
+	manifest: narrowedManifest,
 	output: Schema.NullOr(jsonValueSchema),
 	run: (_input, host) => {
 		const capabilities: Expect<Equal<keyof typeof host, "executeWorkflow" | "getCachedValue">> =
@@ -120,9 +120,9 @@ defineSandboxTestHost(narrowedManifest, {
 
 const allDomainManifest = defineManifest({
 	kind: "script",
-	name: "All domain capabilities",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
+	name: "All domain capabilities",
 	slug: "all-domain-capabilities",
 	capabilities: [
 		"createEvents",
@@ -138,9 +138,9 @@ const allDomainManifest = defineManifest({
 	],
 });
 defineScript({
-	manifest: allDomainManifest,
-	input: Schema.Struct({}),
 	output: Schema.Boolean,
+	input: Schema.Struct({}),
+	manifest: allDomainManifest,
 	run: (_input, host) =>
 		Effect.gen(function* () {
 			const integration = yield* host.getCurrentIntegration();
@@ -232,9 +232,9 @@ const promiseScriptManifest = defineManifest({
 	slug: "promise-driver-rejection",
 });
 defineScript({
-	manifest: promiseScriptManifest,
-	input: Schema.Struct({}),
 	output: Schema.Boolean,
+	input: Schema.Struct({}),
+	manifest: promiseScriptManifest,
 	// @ts-expect-error scripts must return Effect values.
 	run: () => Promise.resolve(true),
 });

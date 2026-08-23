@@ -269,7 +269,7 @@ it.effect("removes dead modules while retaining live and unrecognized entries", 
 				new Set([liveHash]),
 			);
 
-			expect(result).toEqual({ candidateCount: 1, removedCount: 1 });
+			expect(result).toEqual({ removedCount: 1, candidateCount: 1 });
 			expect((yield* fs.readDirectory(moduleDirectory)).sort()).toEqual(
 				[`${liveHash}.mjs`, ...unknownEntries].sort(),
 			);
@@ -345,7 +345,7 @@ it.effect("counts only successful module removals", () =>
 				new Set(),
 			).pipe(Effect.provideService(FileSystem.FileSystem, fsWithMissingRemoval));
 
-			expect(result).toEqual({ candidateCount: 2, removedCount: 1 });
+			expect(result).toEqual({ removedCount: 1, candidateCount: 2 });
 			expect(yield* fs.exists(`${moduleDirectory}/${removedHash}.mjs`)).toBe(false);
 			expect(yield* fs.exists(missingPath)).toBe(true);
 		}),

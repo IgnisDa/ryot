@@ -55,7 +55,7 @@ export function Menu({
 }: MenuProps) {
 	const menuRef = useRef<HTMLDivElement>(null);
 	const menuItems = useRef<Array<HTMLButtonElement | null>>([]);
-	const [position, setPosition] = useState({ left: 0, top: 0 });
+	const [position, setPosition] = useState({ top: 0, left: 0 });
 	const close = useEffectEvent((restoreFocus: boolean) => {
 		if (onInterceptBack?.() === true) {
 			return;
@@ -86,7 +86,7 @@ export function Menu({
 				above >= VIEWPORT_PADDING && below + menuHeight > viewportHeight - VIEWPORT_PADDING
 					? above
 					: Math.min(Math.max(below, VIEWPORT_PADDING), maxTop);
-			setPosition({ left, top });
+			setPosition({ top, left });
 		};
 
 		updatePosition();
@@ -142,7 +142,7 @@ export function Menu({
 				ref={menuRef}
 				aria-label={label}
 				onKeyDown={onKeyDown}
-				style={{ left: position.left, top: position.top }}
+				style={{ top: position.top, left: position.left }}
 				className={clsx(
 					"fixed z-50 flex max-h-[calc(100vh-1rem)] w-56 max-w-[calc(100vw-1rem)] flex-col overflow-y-auto rounded-xl border border-border bg-surface p-1.5 shadow-card",
 					className,

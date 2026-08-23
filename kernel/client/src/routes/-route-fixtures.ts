@@ -66,6 +66,16 @@ export const catalog: PluginClientCatalog = [
 ];
 
 export const navigationData: NavigationData = {
+	collections: [
+		{
+			sortOrder: 0,
+			pluginSlug: null,
+			icon: "layers-3",
+			isDisabled: false,
+			slug: "collection-1",
+			name: "Fixture Collection",
+		},
+	],
 	savedViews: [
 		{
 			icon: "list",
@@ -82,16 +92,6 @@ export const navigationData: NavigationData = {
 			isDisabled: false,
 			name: "Global View",
 			slug: "global-view",
-		},
-	],
-	collections: [
-		{
-			sortOrder: 0,
-			pluginSlug: null,
-			icon: "layers-3",
-			isDisabled: false,
-			slug: "collection-1",
-			name: "Fixture Collection",
 		},
 	],
 };
@@ -116,9 +116,9 @@ export const unauthenticated = { status: "missing" } as const;
 export const userSettings: UserSettings = {
 	image: null,
 	name: "Test User",
-	email: "user@ryot.example",
 	id: UserId.make("user-1"),
-	preferences: { allowNsfw: false, language: null, disableIntegrations: false },
+	email: "user@ryot.example",
+	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
 };
 
 export const makeUserSettingsStub = (overrides: Partial<UserSettingsApi["Service"]> = {}) =>
@@ -132,7 +132,7 @@ export const makeAuthStub = (
 		changeServer: () => Effect.void,
 		signOut: () => Effect.succeed(false),
 		settledSession: () => Effect.succeed(session),
-		session: () => ({ subscribe: () => () => undefined, getSnapshot: () => session }),
+		session: () => ({ getSnapshot: () => session, subscribe: () => () => undefined }),
 		...overrides,
 	});
 
@@ -289,33 +289,19 @@ export const preparePluginPage = (
 		},
 	];
 	return {
-		identity: {
-			target,
-			pluginId,
-			buildId: "build-1",
-			exportName: "page",
-			kind: "plugin-page",
-			graphHash: "graph-1",
-			sourceHash: "source-hash",
-			artifactHash: "artifact-hash",
-			installationId: "installation-1",
-			operationTargets,
-			contributors: [
-				{
-					pluginId,
-					kind: "plugin",
-					sourceHash: "source-hash",
-					installationId: "installation-1",
-					pluginSlug: PluginSlug.make(pluginSlug),
-				},
-			],
+		artifact: {
+			hash: "artifact-hash",
+			format: CLIENT_ARTIFACT_FORMAT,
+			apiVersion: CLIENT_API_VERSION,
+			compilerVersion: CLIENT_COMPILER_VERSION,
+			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 		},
 		context: {
 			view: null,
 			settings: {},
 			dataSources: null,
 			route: { params: {} },
-			renderer: { kind: "plugin", pluginId, exportName: "page" },
+			renderer: { pluginId, kind: "plugin", exportName: "page" },
 			target:
 				target.kind === "entity"
 					? {
@@ -325,12 +311,26 @@ export const preparePluginPage = (
 						}
 					: target,
 		},
-		artifact: {
-			hash: "artifact-hash",
-			format: CLIENT_ARTIFACT_FORMAT,
-			apiVersion: CLIENT_API_VERSION,
-			compilerVersion: CLIENT_COMPILER_VERSION,
-			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
+		identity: {
+			target,
+			pluginId,
+			operationTargets,
+			buildId: "build-1",
+			exportName: "page",
+			kind: "plugin-page",
+			graphHash: "graph-1",
+			sourceHash: "source-hash",
+			artifactHash: "artifact-hash",
+			installationId: "installation-1",
+			contributors: [
+				{
+					pluginId,
+					kind: "plugin",
+					sourceHash: "source-hash",
+					installationId: "installation-1",
+					pluginSlug: PluginSlug.make(pluginSlug),
+				},
+			],
 		},
 	};
 };
@@ -347,13 +347,13 @@ export const ClientPagesApiRouteStubs = Layer.succeed(ClientPagesApi, {
 
 export const ClientPageSessionsRouteStubs = Layer.succeed(ClientPageSessions, {
 	renew: () => Effect.die("not used"),
+	revoke: () => Effect.die("not used"),
 	create: (_scope, identity) =>
 		Effect.succeed({
 			sessionId: "session-1",
 			expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
 			src: `https://ryot.example/session/${identity.artifactHash}/index.html`,
 		}),
-	revoke: () => Effect.die("not used"),
 });
 
 export type WorkspaceStorageRecorder = {
@@ -392,7 +392,7 @@ export const makeStorageStub = (
 		setLastWorkspace: (scope, slug) =>
 			Effect.sync(() => {
 				lastWorkspace = slug;
-				recorder?.setCalls.push({ scope, slug });
+				recorder?.setCalls.push({ slug, scope });
 				recorder?.popupOpenWhenSet.push(document.querySelector('[role="menu"]') !== null);
 			}),
 	};

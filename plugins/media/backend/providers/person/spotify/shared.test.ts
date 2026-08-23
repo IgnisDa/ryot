@@ -17,12 +17,12 @@ const makeHost = (
 	overrides: Partial<SpotifyPersonHost> = {},
 ): SpotifyPersonHost =>
 	defineSandboxTestHost(manifest, {
+		setCachedValue: () => Effect.succeed(null),
+		getCachedValue: () => Effect.succeed("cached-token"),
 		getPluginConfig: (keys) =>
 			Effect.succeed(
 				Object.fromEntries(keys.map((key) => [key, key.endsWith("Secret") ? "secret" : "id"])),
 			),
-		getCachedValue: () => Effect.succeed("cached-token"),
-		setCachedValue: () => Effect.succeed(null),
 		httpCall: (_method, url) => {
 			const route = routes.find((candidate) => candidate.match(url));
 			return route ? httpSuccess(route.body) : Effect.fail({ message: `no route: ${url}` });
@@ -49,7 +49,7 @@ describe("person.spotify sandbox script", () => {
 
 		return runSandboxTestScript(
 			search,
-			{ query: "artist", page: 2, pageSize: 5 },
+			{ page: 2, pageSize: 5, query: "artist" },
 			host,
 			execution,
 		).pipe(
@@ -89,7 +89,7 @@ describe("person.spotify sandbox script", () => {
 					id: "a1",
 					name: "The Artist",
 					genres: ["rock", "indie"],
-					images: [{ url: "https://img/a.jpg", width: 640, height: 640 }],
+					images: [{ width: 640, height: 640, url: "https://img/a.jpg" }],
 					external_urls: { spotify: "https://open.spotify.com/artist/a1" },
 				},
 			},
@@ -105,8 +105,8 @@ describe("person.spotify sandbox script", () => {
 						relationshipSchemaSlug: "person-to-music",
 						entities: [
 							{
-								name: "Top Track",
 								externalId: "t1",
+								name: "Top Track",
 								providerSlug: "music.spotify",
 								relationshipProperties: { roles: ["Artist"] },
 							},
@@ -136,7 +136,7 @@ describe("person.spotify sandbox script", () => {
 					alternateNames: [],
 					description: "Genres: rock, indie",
 					sourceUrl: "https://open.spotify.com/artist/a1",
-					images: [{ type: "remote", url: "https://img/a.jpg", purpose: "profile" }],
+					images: [{ type: "remote", purpose: "profile", url: "https://img/a.jpg" }],
 				});
 				return undefined;
 			}),

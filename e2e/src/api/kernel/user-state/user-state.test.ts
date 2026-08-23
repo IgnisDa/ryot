@@ -90,8 +90,8 @@ describe("DELETE /user-state/clear/:id", () => {
 			};
 			const mediaSuggestionRelationship = {
 				sourceSchema: schema.slug,
-				schema: "media-suggestion",
 				targetSchema: schema.slug,
+				schema: "media-suggestion",
 			};
 			const queryCounts = (
 				auth: typeof userA,
@@ -196,7 +196,7 @@ describe("DELETE /user-state/clear/:id", () => {
 			);
 
 			assertTaggedError(error, "UserStateBadRequest");
-			expect(error.reason).toEqual({ code: "operation-denied", operation: "clear" });
+			expect(error.reason).toEqual({ operation: "clear", code: "operation-denied" });
 		}),
 	);
 

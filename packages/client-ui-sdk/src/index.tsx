@@ -47,7 +47,7 @@ const toneClasses = {
 
 type StatusMessageProps = ComponentProps<"p"> & { tone: keyof typeof toneClasses };
 
-export function StatusMessage({ className, tone, ...props }: StatusMessageProps) {
+export function StatusMessage({ tone, className, ...props }: StatusMessageProps) {
 	return (
 		<p
 			role={tone === "error" ? "alert" : "status"}

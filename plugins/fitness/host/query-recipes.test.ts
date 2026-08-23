@@ -9,10 +9,10 @@ import {
 describe("fitness query recipes", () => {
 	it("builds typed filtered exercise rows", () => {
 		const recipe = exerciseListRecipe({
-			after: "exercise-cursor",
 			limit: 5,
 			name: "Push Up",
 			entityId: "exercise-id",
+			after: "exercise-cursor",
 		});
 		const exercises = recipe.document.queries["exercises"];
 		if (exercises?.output.type !== "rows") {
@@ -27,8 +27,8 @@ describe("fitness query recipes", () => {
 						left: expect.objectContaining({ field: "entitySchemaSlug" }),
 					}),
 					expect.objectContaining({
-						right: { type: "literal", value: "exercise-id" },
 						left: expect.objectContaining({ field: "id" }),
+						right: { type: "literal", value: "exercise-id" },
 					}),
 					expect.objectContaining({
 						right: { type: "literal", value: "Push Up" },
@@ -39,16 +39,16 @@ describe("fitness query recipes", () => {
 		);
 		expect(exercises.output).toEqual(
 			expect.objectContaining({
-				pagination: { after: "exercise-cursor", limit: 5 },
+				pagination: { limit: 5, after: "exercise-cursor" },
 				orderBy: [expect.objectContaining({ direction: "asc" })],
 				fields: expect.arrayContaining([
 					expect.objectContaining({
 						key: "image",
-						expr: expect.objectContaining({ path: ["images", 0], type: "jsonPath" }),
+						expr: expect.objectContaining({ type: "jsonPath", path: ["images", 0] }),
 					}),
 					expect.objectContaining({
 						key: "level",
-						expr: expect.objectContaining({ target: "text", type: "cast" }),
+						expr: expect.objectContaining({ type: "cast", target: "text" }),
 					}),
 				]),
 			}),
@@ -67,7 +67,7 @@ describe("fitness query recipes", () => {
 				{
 					limit: 6,
 					key: "workouts",
-					from: { alias: "workoutRelationship", table: "relationship" },
+					from: { table: "relationship", alias: "workoutRelationship" },
 				},
 			],
 		});
@@ -87,22 +87,21 @@ describe("fitness query recipes", () => {
 
 		expect(workout.output).toEqual(
 			expect.objectContaining({
+				fields: expect.arrayContaining([
+					expect.objectContaining({
+						key: "startedAt",
+						expr: expect.objectContaining({ type: "cast", target: "date" }),
+					}),
+					expect.objectContaining({
+						key: "caloriesBurnt",
+						expr: expect.objectContaining({ type: "cast", target: "number" }),
+					}),
+				]),
 				include: expect.arrayContaining([
 					expect.objectContaining({
 						limit: 3,
 						key: "template",
-						from: { alias: "templateRelationship", table: "relationship" },
-						where: expect.objectContaining({
-							predicates: expect.arrayContaining([
-								expect.objectContaining({
-									right: expect.objectContaining({ field: "id", tableAlias: "entity" }),
-									left: expect.objectContaining({
-										field: "sourceEntityId",
-										tableAlias: "templateRelationship",
-									}),
-								}),
-							]),
-						}),
+						from: { table: "relationship", alias: "templateRelationship" },
 						joins: expect.arrayContaining([
 							expect.objectContaining({
 								on: expect.objectContaining({
@@ -114,16 +113,17 @@ describe("fitness query recipes", () => {
 								}),
 							}),
 						]),
-					}),
-				]),
-				fields: expect.arrayContaining([
-					expect.objectContaining({
-						key: "startedAt",
-						expr: expect.objectContaining({ target: "date", type: "cast" }),
-					}),
-					expect.objectContaining({
-						key: "caloriesBurnt",
-						expr: expect.objectContaining({ target: "number", type: "cast" }),
+						where: expect.objectContaining({
+							predicates: expect.arrayContaining([
+								expect.objectContaining({
+									right: expect.objectContaining({ field: "id", tableAlias: "entity" }),
+									left: expect.objectContaining({
+										field: "sourceEntityId",
+										tableAlias: "templateRelationship",
+									}),
+								}),
+							]),
+						}),
 					}),
 				]),
 			}),
@@ -134,18 +134,7 @@ describe("fitness query recipes", () => {
 					expect.objectContaining({
 						limit: 4,
 						key: "workouts",
-						from: { alias: "workoutRelationship", table: "relationship" },
-						where: expect.objectContaining({
-							predicates: expect.arrayContaining([
-								expect.objectContaining({
-									right: expect.objectContaining({ field: "id", tableAlias: "entity" }),
-									left: expect.objectContaining({
-										field: "targetEntityId",
-										tableAlias: "workoutRelationship",
-									}),
-								}),
-							]),
-						}),
+						from: { table: "relationship", alias: "workoutRelationship" },
 						joins: expect.arrayContaining([
 							expect.objectContaining({
 								on: expect.objectContaining({
@@ -157,6 +146,17 @@ describe("fitness query recipes", () => {
 								}),
 							}),
 						]),
+						where: expect.objectContaining({
+							predicates: expect.arrayContaining([
+								expect.objectContaining({
+									right: expect.objectContaining({ field: "id", tableAlias: "entity" }),
+									left: expect.objectContaining({
+										field: "targetEntityId",
+										tableAlias: "workoutRelationship",
+									}),
+								}),
+							]),
+						}),
 					}),
 				]),
 			}),
@@ -170,15 +170,15 @@ describe("fitness query recipes", () => {
 				data: {
 					exercises: {
 						type: "rows",
-						pageInfo: { hasMore: false, limit: 20, nextCursor: null },
+						pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 						items: [
 							{
-								id: "exercise-1",
-								name: "Push Up",
 								image: null,
-								level: "beginner",
-								kind: "strength",
+								name: "Push Up",
 								equipment: null,
+								id: "exercise-1",
+								kind: "strength",
+								level: "beginner",
 								schemaSlug: "exercise",
 							},
 						],

@@ -43,7 +43,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 				) ?? available.find((candidate) => candidate.slug === pluginSlug);
 			return plugin
 				? plugin.installationId
-				: yield* new SavedViewBadRequest({ reason: { code: "plugin-not-found", pluginSlug } });
+				: yield* new SavedViewBadRequest({ reason: { pluginSlug, code: "plugin-not-found" } });
 		});
 
 		const ensureBuiltinViews = Effect.fn(function* (userId: CurrentUserValue["id"]) {
@@ -54,14 +54,14 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			);
 			yield* repository.ensureBuiltinViews(
 				userId,
-				views.map(({ slug, name, icon, renderer, settings, dataSources, sortOrder, pluginId }) => ({
+				views.map(({ slug, name, icon, renderer, settings, pluginId, sortOrder, dataSources }) => ({
 					slug,
 					name,
 					icon,
 					renderer,
 					settings,
-					dataSources,
 					sortOrder,
+					dataSources,
 					pluginInstallationId: pluginId ? (installationByPluginId.get(pluginId) ?? null) : null,
 				})),
 			);
@@ -76,7 +76,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			if (savedView) {
 				return savedView;
 			}
-			return yield* new SavedViewNotFound({ reason: { code: "saved-view-not-found", viewSlug } });
+			return yield* new SavedViewNotFound({ reason: { viewSlug, code: "saved-view-not-found" } });
 		});
 		const validateRendererSettings = Effect.fn(function* (
 			userId: CurrentUserValue["id"],
@@ -110,13 +110,13 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			const name = trimToNull(payload.name);
 			if (!name) {
 				return yield* new SavedViewBadRequest({
-					reason: { code: "required-field", field: "name" },
+					reason: { field: "name", code: "required-field" },
 				});
 			}
 			const slug = slugify(payload.slug ?? name);
 			if (!slug) {
 				return yield* new SavedViewBadRequest({
-					reason: { code: "required-field", field: "slug" },
+					reason: { field: "slug", code: "required-field" },
 				});
 			}
 			const effective = yield* effectiveForUser(user.id);
@@ -173,14 +173,14 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 					!Bun.deepEquals(dataSources, current.dataSources)
 				) {
 					return yield* new SavedViewBadRequest({
-						reason: { code: "builtin-view-immutable", viewSlug },
+						reason: { viewSlug, code: "builtin-view-immutable" },
 					});
 				}
 			}
 			const name = trimToNull(payload.name);
 			if (!name) {
 				return yield* new SavedViewBadRequest({
-					reason: { code: "required-field", field: "name" },
+					reason: { field: "name", code: "required-field" },
 				});
 			}
 			let rendererId = null;
@@ -205,20 +205,20 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 				viewSlug,
 				{
 					name,
-					icon: payload.icon,
 					renderer,
 					settings,
 					dataSources,
-					clientRendererId: rendererId,
-					isDisabled: payload.isDisabled,
-					sortOrder: payload.sortOrder,
+					icon: payload.icon,
 					pluginInstallationId,
+					clientRendererId: rendererId,
+					sortOrder: payload.sortOrder,
+					isDisabled: payload.isDisabled,
 				},
 				current.pluginInstallationId,
 			);
 			return (
 				updated ??
-				(yield* new SavedViewNotFound({ reason: { code: "saved-view-not-found", viewSlug } }))
+				(yield* new SavedViewNotFound({ reason: { viewSlug, code: "saved-view-not-found" } }))
 			);
 		});
 
@@ -234,7 +234,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 						const current = yield* repository.lockBySlug(user.id, viewSlug);
 						if (!current) {
 							return yield* new SavedViewNotFound({
-								reason: { code: "saved-view-not-found", viewSlug },
+								reason: { viewSlug, code: "saved-view-not-found" },
 							});
 						}
 						const result = yield* updateUnlocked(user, viewSlug, payload, current);
@@ -259,18 +259,18 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 						const current = yield* repository.lockBySlug(user.id, viewSlug);
 						if (!current) {
 							return yield* new SavedViewNotFound({
-								reason: { code: "saved-view-not-found", viewSlug },
+								reason: { viewSlug, code: "saved-view-not-found" },
 							});
 						}
 						if (current.isBuiltin) {
 							return yield* new SavedViewBadRequest({
-								reason: { code: "builtin-view-immutable", viewSlug },
+								reason: { viewSlug, code: "builtin-view-immutable" },
 							});
 						}
 						yield* installations.clearHomeSavedViewReferences(user.id, current.id);
 						return (
 							(yield* repository.deleteBySlug(user.id, viewSlug)) ??
-							(yield* new SavedViewNotFound({ reason: { code: "saved-view-not-found", viewSlug } }))
+							(yield* new SavedViewNotFound({ reason: { viewSlug, code: "saved-view-not-found" } }))
 						);
 					}).pipe(Effect.provideService(Database, transaction)),
 				),
@@ -284,8 +284,8 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			return yield* create(user, {
 				icon: source.icon,
 				renderer: source.renderer,
-				name: `${source.name} (Copy)`,
 				settings: source.settings,
+				name: `${source.name} (Copy)`,
 				dataSources: source.dataSources,
 				...(source.pluginSlug ? { workspacePluginSlug: source.pluginSlug } : {}),
 			});
@@ -305,17 +305,17 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			const requested = payload.viewSlugs.map((slug) => slug.trim()).filter(Boolean);
 			if (requested.length === 0) {
 				return yield* new SavedViewBadRequest({
-					reason: { code: "invalid-reorder", issue: "empty", viewSlugs: requested },
+					reason: { issue: "empty", viewSlugs: requested, code: "invalid-reorder" },
 				});
 			}
 			if (new Set(requested).size !== requested.length) {
 				return yield* new SavedViewBadRequest({
-					reason: { code: "invalid-reorder", issue: "duplicate", viewSlugs: requested },
+					reason: { issue: "duplicate", viewSlugs: requested, code: "invalid-reorder" },
 				});
 			}
 			if (requested.some((slug) => !scoped.some((view) => view.slug === slug))) {
 				return yield* new SavedViewBadRequest({
-					reason: { code: "invalid-reorder", issue: "unknown-view", viewSlugs: requested },
+					reason: { viewSlugs: requested, issue: "unknown-view", code: "invalid-reorder" },
 				});
 			}
 			const reordered = [
@@ -356,12 +356,12 @@ export const SavedViewPluginDefinitionMaterializerLive = Layer.effect(
 		const savedViews = yield* SavedViewsService;
 		return {
 			materialize: (userId: CurrentUserValue["id"]) => savedViews.ensureBuiltinViews(userId),
+			removeGenerated: (pluginInstallationId: string) =>
+				savedViews.removeGenerated(pluginInstallationId),
 			hasCustomSavedViewReferences: (
 				userId: CurrentUserValue["id"],
 				pluginInstallationId: string,
 			) => savedViews.hasCustomInstallationReferences(userId, pluginInstallationId),
-			removeGenerated: (pluginInstallationId: string) =>
-				savedViews.removeGenerated(pluginInstallationId),
 		};
 	}),
 );

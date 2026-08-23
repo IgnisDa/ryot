@@ -207,13 +207,13 @@ export function UsersAdministration(props: UsersAdministrationProps) {
 	);
 
 	return (
-		<section aria-labelledby="god-mode-users-title" className="ui-card max-w-6xl">
+		<section className="ui-card max-w-6xl" aria-labelledby="god-mode-users-title">
 			<p className="ui-overline">Administration</p>
 			<h1 id="god-mode-users-title" className="font-display text-3xl font-semibold">
 				Users
 			</h1>
 			<p className="ui-subtitle">Manage account access, recovery, and user data.</p>
-			<form className="mt-6 flex max-w-md gap-2" role="search" onSubmit={submitSearch}>
+			<form role="search" onSubmit={submitSearch} className="mt-6 flex max-w-md gap-2">
 				<label className="sr-only" htmlFor="god-mode-user-search">
 					Search users by email
 				</label>
@@ -243,9 +243,9 @@ export function UsersAdministration(props: UsersAdministrationProps) {
 							user={user}
 							operations={props.operations}
 							onUnauthorized={props.onUnauthorized}
+							onRemoved={() => removeUser(user.id)}
 							backInterceptors={props.backInterceptors}
 							transferResetLink={props.transferResetLink}
-							onRemoved={() => removeUser(user.id)}
 							onChanged={(update) => updateUser(user.id, update)}
 						/>
 					)}
@@ -263,7 +263,7 @@ export function UsersAdministration(props: UsersAdministrationProps) {
 			)}
 			{last?.state === "loaded" && loaded > 0 && loaded < total && (
 				<div className="mt-5 flex justify-center">
-					<Button type="button" variant="secondary" onClick={loadMore}>
+					<Button type="button" onClick={loadMore} variant="secondary">
 						Load more users
 					</Button>
 				</div>
@@ -491,7 +491,7 @@ function UserRow(props: {
 						onClick={() => (menuOpen ? closeMenu(true) : openMenu())}
 						className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg border border-border-strong bg-raised text-text-muted hover:bg-surface-2 disabled:cursor-not-allowed disabled:text-text-subtle"
 					>
-						<AppIcon name="more-horizontal" size={18} />
+						<AppIcon size={18} name="more-horizontal" />
 					</button>
 					<UserActionsMenu
 						id={menuId}
@@ -617,7 +617,7 @@ function Badge(props: { readonly children: string; readonly tone?: "success" | "
 }
 
 const authLabel = (state: GodModeUser["authState"]) =>
-	({ credential: "Password", oidc: "OIDC", mixed: "Mixed", none: "None" })[state];
+	({ oidc: "OIDC", none: "None", mixed: "Mixed", credential: "Password" })[state];
 
 function ConfirmationDialog(props: {
 	readonly error?: string;
@@ -650,11 +650,11 @@ function ConfirmationDialog(props: {
 		<Modal
 			closeLabel="Close"
 			onClose={props.onClose}
-			triggerRef={props.triggerRef}
 			initialFocusRef={cancelRef}
-			className="ui-card w-[min(100%,460px)]"
+			triggerRef={props.triggerRef}
 			labelledBy="user-confirmation-title"
 			onInterceptBack={() => props.pending}
+			className="ui-card w-[min(100%,460px)]"
 			containerClassName="items-center justify-center p-4"
 		>
 			<h2 id="user-confirmation-title" className="font-display text-xl font-semibold">

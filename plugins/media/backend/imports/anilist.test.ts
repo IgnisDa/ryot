@@ -5,8 +5,19 @@ import { adaptAnilistExport } from "./anilist";
 describe("adaptAnilistExport", () => {
 	it("maps progress coverage, reviews, favorites, and custom lists", () => {
 		const exportJson = JSON.stringify({
-			user: { custom_lists: { anime: ["Watch Party"], manga: ["Book Club"] } },
 			favourites: [{ favourite_id: 200, favourite_type: 2 }],
+			user: { custom_lists: { manga: ["Book Club"], anime: ["Watch Party"] } },
+			reviews: [
+				{
+					id: 3,
+					score: 90,
+					series_id: 100,
+					series_type: 0,
+					text: "Detailed review",
+					summary: "Short summary",
+					updated_at: "2026-01-04 10:00:00",
+				},
+			],
 			lists: [
 				{
 					id: 1,
@@ -31,17 +42,6 @@ describe("adaptAnilistExport", () => {
 					updated_at: "2026-01-03 09:00:00",
 				},
 			],
-			reviews: [
-				{
-					id: 3,
-					score: 90,
-					series_id: 100,
-					series_type: 0,
-					text: "Detailed review",
-					summary: "Short summary",
-					updated_at: "2026-01-04 10:00:00",
-				},
-			],
 		});
 
 		const result = adaptAnilistExport(exportJson, "Etc/GMT");
@@ -60,12 +60,12 @@ describe("adaptAnilistExport", () => {
 				{
 					eventSchemaSlug: "progress",
 					occurredAt: "2026-01-02T13:00:00.000Z",
-					properties: { progressPercent: 100, animeEpisode: 1 },
+					properties: { animeEpisode: 1, progressPercent: 100 },
 				},
 				{
 					eventSchemaSlug: "progress",
 					occurredAt: "2026-01-02T13:00:00.000Z",
-					properties: { progressPercent: 100, animeEpisode: 2 },
+					properties: { animeEpisode: 2, progressPercent: 100 },
 				},
 				{
 					eventSchemaSlug: "review",
@@ -88,9 +88,9 @@ describe("adaptAnilistExport", () => {
 				providerSlug: "manga.anilist",
 			},
 			events: [
-				{ properties: { progressPercent: 100, mangaChapter: 1 } },
-				{ properties: { progressPercent: 100, mangaChapter: 2 } },
-				{ properties: { progressPercent: 100, mangaChapter: 3 } },
+				{ properties: { mangaChapter: 1, progressPercent: 100 } },
+				{ properties: { mangaChapter: 2, progressPercent: 100 } },
+				{ properties: { mangaChapter: 3, progressPercent: 100 } },
 			],
 		});
 	});
@@ -240,7 +240,7 @@ describe("adaptAnilistExport", () => {
 			user: { custom_lists: { anime: [], manga: [] } },
 			favourites: [{ favourite_id: 10, favourite_type: 9 }],
 			lists: [
-				{ id: 1, progress: 1, score: 8 },
+				{ id: 1, score: 8, progress: 1 },
 				{
 					id: 2,
 					score: 8,

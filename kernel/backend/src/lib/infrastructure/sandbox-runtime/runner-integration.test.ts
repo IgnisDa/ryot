@@ -582,7 +582,7 @@ type RunnerRequest = {
 	readonly compiled: RunnerCompiledModule;
 };
 
-const runInDenoRequest = ({ compiled, context, options = {} }: RunnerRequest) =>
+const runInDenoRequest = ({ context, compiled, options = {} }: RunnerRequest) =>
 	Effect.scoped(
 		Effect.gen(function* () {
 			const runtime = dependencyRuntime;
@@ -645,10 +645,10 @@ const runInDenoRequest = ({ compiled, context, options = {} }: RunnerRequest) =>
 					runnerPath,
 				],
 				{
-					stdin: Stream.succeed(new TextEncoder().encode(request)),
 					stdout: "pipe",
 					stderr: "pipe",
 					extendEnv: false,
+					stdin: Stream.succeed(new TextEncoder().encode(request)),
 					env: { DENO_DIR: runtime.cacheDirectory, PATH: Bun.env["PATH"] ?? "/usr/bin:/bin" },
 				},
 			);
@@ -689,7 +689,7 @@ const runInDenoRequest = ({ compiled, context, options = {} }: RunnerRequest) =>
 	).pipe(Effect.provide(BunServices.layer));
 
 const runInDeno = (compiled: RunnerCompiledModule, context: unknown, options: RunnerOptions = {}) =>
-	runInDenoRequest({ compiled, context, options });
+	runInDenoRequest({ context, options, compiled });
 
 const compileHostBridgeFixture = Effect.gen(function* () {
 	const path = yield* Path.Path;
@@ -734,13 +734,13 @@ const startCoreHostBridge = (
 						const args: readonly unknown[] = Array.isArray(argsValue) ? argsValue : [];
 						const scriptId = executionScripts.get(executionId) ?? "unknown";
 						const cacheKey = `${scriptId}:${String(args[0])}`;
-						calls.push({ fnName, executionId, args });
+						calls.push({ args, fnName, executionId });
 
 						let result: unknown;
 						if (fnName === "getCachedValue") {
 							result = options.getCachedValueResult ?? {
-								data: runCache.has(cacheKey) ? runCache.get(cacheKey) : null,
 								success: true,
+								data: runCache.has(cacheKey) ? runCache.get(cacheKey) : null,
 							};
 						} else if (fnName === "setCachedValue") {
 							runCache.set(cacheKey, args[1]);
@@ -753,11 +753,12 @@ const startCoreHostBridge = (
 								};
 							} else {
 								persistentCache.set(cacheKey, args[1]);
-								result = { data: { claimed: true }, success: true };
+								result = { success: true, data: { claimed: true } };
 							}
 						} else if (fnName === "httpCall") {
 							const customBody = options.httpResponse?.(String(args[1]));
 							result = {
+								success: true,
 								data: {
 									status: 200,
 									headers: { "content-type": "application/json" },
@@ -766,36 +767,35 @@ const startCoreHostBridge = (
 											? encodeRunnerRequest({ url: args[1], method: args[0], options: args[2] })
 											: encodeRunnerRequest(customBody),
 								},
-								success: true,
 							};
 						} else if (fnName === "getPluginConfig") {
 							const keys = Array.isArray(args[0]) ? args[0] : [];
 							result = {
+								success: true,
 								data: Object.fromEntries(
 									keys.map((requestedKey) => [
 										requestedKey,
 										options.pluginConfigValue ?? "plugin-value",
 									]),
 								),
-								success: true,
 							};
 						} else if (fnName === "getSystemConfig") {
 							const keys = Array.isArray(args[0]) ? args[0] : [];
 							result = {
+								success: true,
 								data: Object.fromEntries(
 									keys.map((requestedKey) => [
 										requestedKey,
 										options.systemConfigValue ?? "Etc/GMT",
 									]),
 								),
-								success: true,
 							};
 						} else if (fnName === "getUserPreferences") {
 							result = { success: true, data: { allowNsfw: false, disableIntegrations: true } };
 						} else if (fnName === "replayJournal") {
 							result = { success: true, data: options.replayJournalResult ?? [] };
 						} else {
-							result = { error: "Unknown function", success: false };
+							result = { success: false, error: "Unknown function" };
 						}
 
 						return Response.json({ result });
@@ -823,7 +823,7 @@ it("loads compiled ESM in Deno and validates definition input and output", () =>
 			const success = yield* runInDeno(compiled, { value: 42 });
 			assert(success !== null && typeof success === "object");
 			expect(Reflect.get(success, "error")).toBeUndefined();
-			expect(success).toMatchObject({ success: true, value: 42 });
+			expect(success).toMatchObject({ value: 42, success: true });
 
 			const invalidInput = yield* runInDeno(compiled, { value: "wrong" });
 			assert(invalidInput !== null && typeof invalidInput === "object");
@@ -1024,7 +1024,7 @@ it("loads one compiled fixture for each approved SDK dependency without remote m
 				const result = yield* runInDeno(compiled, {});
 				assert(result !== null && typeof result === "object");
 				expect(Reflect.get(result, "error"), dependency.name).toBeUndefined();
-				expect(result).toMatchObject({ success: true, value: null });
+				expect(result).toMatchObject({ value: null, success: true });
 			}
 		}).pipe(Effect.provide(SandboxCompiler.layer)),
 	));
@@ -1063,9 +1063,9 @@ it("executes typed core host methods and builds the Deno host from approved capa
 				assert(first !== null && typeof first === "object");
 				expect(Reflect.get(first, "value")).toMatchObject({
 					before: null,
-					config: { timezone: "Etc/GMT" },
 					after: { value: 42 },
 					claim: { claimed: true },
+					config: { timezone: "Etc/GMT" },
 					preferences: { allowNsfw: false, disableIntegrations: true },
 				});
 
@@ -1288,15 +1288,15 @@ it("replays durable host successes and typed failures without bridge redispatch"
 							},
 						},
 						{
+							value: {
+								state: "failure",
+								error: { data: { code: 7 }, message: "recorded failure" },
+							},
 							request: {
 								index: 1,
 								kind: "host",
 								name: "getCachedValue",
 								args: { args: ["second"], capability: "getCachedValue" },
-							},
-							value: {
-								state: "failure",
-								error: { message: "recorded failure", data: { code: 7 } },
 							},
 						},
 					],
@@ -1327,7 +1327,7 @@ it("replays durable host successes and typed failures without bridge redispatch"
 						output: {
 							first: "recorded",
 							startedAt: "2026-08-06T00:00:00.000Z",
-							second: { error: "recorded failure", data: { code: 7 } },
+							second: { data: { code: 7 }, error: "recorded failure" },
 						},
 					},
 				});
@@ -1395,7 +1395,7 @@ it("exposes only kernel-selected workflow host functions despite an empty manife
 					value: { keys: ["replayJournal"], journal: [{ recorded: true }] },
 				});
 				expect(bridge.calls).toEqual([
-					expect.objectContaining({ fnName: "replayJournal", args: [] }),
+					expect.objectContaining({ args: [], fnName: "replayJournal" }),
 				]);
 			}),
 		),
@@ -1454,7 +1454,7 @@ it("keeps the deterministic workflow clock active through Effect callbacks", () 
 					{ operation, timestamp: "2024-01-01T00:00:00.000Z" },
 				);
 
-				expect(result).toMatchObject({ success: true, value: 0 });
+				expect(result).toMatchObject({ value: 0, success: true });
 			}),
 		),
 	));
@@ -1496,7 +1496,7 @@ it("allows deterministic workflow dates without changing ambient APIs for script
 					iso: "2024-01-01T00:00:00.000Z",
 				},
 			});
-			expect(scriptResult).toMatchObject({ success: true, value: true });
+			expect(scriptResult).toMatchObject({ value: true, success: true });
 		}),
 	));
 
@@ -1587,8 +1587,8 @@ const domainIntegrationRecord = {
 	minimumProgress: 2,
 	syncOwnership: true,
 	maximumProgress: 95,
-	lastFinishedAt: null,
 	id: "integration-1",
+	lastFinishedAt: null,
 	provider: "lambda_yank",
 	createdAt: "2024-01-01T00:00:00.000Z",
 	updatedAt: "2024-01-01T00:00:00.000Z",
@@ -1633,53 +1633,53 @@ const startDomainHostBridge = () =>
 
 						let result: unknown;
 						if (fnName === "getCurrentIntegration") {
-							result = { data: domainIntegrationRecord, success: true };
+							result = { success: true, data: domainIntegrationRecord };
 						} else if (fnName === "getEntitySchemas") {
-							result = { data: [domainEntitySchemaRecord], success: true };
+							result = { success: true, data: [domainEntitySchemaRecord] };
 						} else if (fnName === "listEventSchemas") {
-							result = { data: [domainEventSchemaRecord], success: true };
+							result = { success: true, data: [domainEventSchemaRecord] };
 						} else if (fnName === "createEvents") {
 							const items = args[0];
 							createdEvents.push(Array.isArray(items) ? items : []);
-							result = { data: { count: Array.isArray(items) ? items.length : 0 }, success: true };
+							result = { success: true, data: { count: Array.isArray(items) ? items.length : 0 } };
 						} else if (fnName === "executeRyotql") {
 							result = {
+								success: true,
 								data: {
 									data: {
 										entities: {
 											type: "rows",
+											pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 											items: [
 												{
 													id: "a",
+													properties: {},
 													name: "Entity A",
 													externalId: null,
 													providerId: null,
 													populatedAt: null,
-													properties: {},
 													entitySchemaSlug: "item",
 													createdAt: "2024-01-01T00:00:00.000Z",
 													updatedAt: "2024-01-01T00:00:00.000Z",
 												},
 												{
 													id: "b",
+													properties: {},
 													name: "Entity B",
 													externalId: null,
 													providerId: null,
 													populatedAt: null,
-													properties: {},
 													entitySchemaSlug: "item",
 													createdAt: "2024-01-01T00:00:00.000Z",
 													updatedAt: "2024-01-01T00:00:00.000Z",
 												},
 											],
-											pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 										},
 									},
 								},
-								success: true,
 							};
 						} else {
-							result = { error: "Unknown function", success: false };
+							result = { success: false, error: "Unknown function" };
 						}
 
 						return Response.json({ result });
@@ -1713,8 +1713,8 @@ it("executes typed domain host methods through Deno", () =>
 						queryRows: 2,
 						created: { count: 1 },
 						entitySchemas: [{ id: "item", name: "Item" }],
-						integration: { id: "integration-1", provider: "lambda_yank" },
 						eventSchemas: [{ id: "watched", entitySchemaSlug: "item" }],
+						integration: { id: "integration-1", provider: "lambda_yank" },
 					},
 				});
 				expect(bridge.createdEvents).toHaveLength(1);

@@ -11,17 +11,17 @@ import {
 
 export const manifest = defineManifest({
 	kind: "operation",
-	name: "Enable media monitoring",
-	slug: "operation.media-monitoring-enable",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
+	name: "Enable media monitoring",
+	slug: "operation.media-monitoring-enable",
 	capabilities: ["executeRyotql", "changeUserRelationships"],
 });
 
 export default defineOperation({
 	manifest,
-	input: MediaMonitoringEnableInput,
 	output: MediaMonitoringOutput,
+	input: MediaMonitoringEnableInput,
 	run: (input, host) =>
 		Effect.gen(function* () {
 			const [targets, library] = yield* Effect.all([
@@ -36,14 +36,14 @@ export default defineOperation({
 							{
 								properties: {},
 								sourceEntityId: entityId,
-								relationshipSchemaSlug: "in-library",
 								targetEntityId: library.entityId,
+								relationshipSchemaSlug: "in-library",
 							},
 							{
 								properties: {},
 								sourceEntityId: entityId,
-								relationshipSchemaSlug: "media-monitoring",
 								targetEntityId: library.entityId,
+								relationshipSchemaSlug: "media-monitoring",
 							},
 						]),
 					},

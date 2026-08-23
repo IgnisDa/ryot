@@ -23,27 +23,27 @@ describe("resolveEdge", () => {
 		{
 			input: {},
 			name: "plugin child ready",
-			expected: { compact: true, owner: "plugin", intent: "back" },
+			expected: { compact: true, intent: "back", owner: "plugin" },
 		},
 		{
 			input: { pathname: "/e/entity-1" },
-			expected: { compact: true, owner: "plugin", intent: "back" },
+			expected: { compact: true, intent: "back", owner: "plugin" },
 			name: "plugin to entity in the same document with generic readiness",
 		},
 		{
 			name: "saved view to entity without plugin readiness",
-			expected: { compact: true, owner: "kernel", intent: "back" },
+			expected: { compact: true, intent: "back", owner: "kernel" },
 			input: { pathname: "/e/entity-1", hasPluginBackScreen: false },
 		},
 		{
 			name: "cross-plugin navigation without readiness",
-			expected: { compact: true, owner: "kernel", intent: "back" },
-			input: { pathname: "/fitness/workouts", hasPluginBackScreen: false },
+			expected: { compact: true, intent: "back", owner: "kernel" },
+			input: { hasPluginBackScreen: false, pathname: "/fitness/workouts" },
 		},
 		{
 			name: "direct entity entry with no history",
 			expected: { compact: true, owner: "kernel", intent: "drawer" },
-			input: { pathname: "/e/entity-1", canGoBack: false, hasPluginBackScreen: false },
+			input: { canGoBack: false, pathname: "/e/entity-1", hasPluginBackScreen: false },
 		},
 		{
 			name: "workspace root",
@@ -53,20 +53,20 @@ describe("resolveEdge", () => {
 		{
 			input: { isDesktop: true },
 			name: "desktop child with no interactive edge",
-			expected: { compact: false, owner: "kernel", intent: "back" },
+			expected: { compact: false, intent: "back", owner: "kernel" },
 		},
 		{
 			input: { hasPluginBackScreen: false },
 			name: "plugin child with a blocked artifact",
-			expected: { compact: true, owner: "kernel", intent: "back" },
+			expected: { compact: true, intent: "back", owner: "kernel" },
 		},
-	] as const)("resolves $name", ({ expected, input }) => {
+	] as const)("resolves $name", ({ input, expected }) => {
 		expect(resolve(input)).toEqual(expected);
 	});
 
 	it("reports a compact viewport even where the kernel keeps the edge", () => {
 		expect(resolve({ atRoot: true, pathname: "/media" }).compact).toBe(true);
-		expect(resolve({ isDesktop: true, atRoot: true, pathname: "/media" }).compact).toBe(false);
+		expect(resolve({ atRoot: true, isDesktop: true, pathname: "/media" }).compact).toBe(false);
 	});
 
 	it("suspends edge Back while an iframe overlay owns Back and resumes afterward", () => {
@@ -83,7 +83,7 @@ describe("resolveEdge", () => {
 	});
 
 	it("keeps back in the kernel on the customize route, which owns its own back control", () => {
-		expect(resolve({ pathname: "/customize-sidebar", hasPluginBackScreen: false })).toEqual({
+		expect(resolve({ hasPluginBackScreen: false, pathname: "/customize-sidebar" })).toEqual({
 			compact: true,
 			intent: "back",
 			owner: "kernel",
@@ -92,13 +92,13 @@ describe("resolveEdge", () => {
 
 	it("offers no drawer on the customize route even with nothing to pop", () => {
 		expect(
-			resolve({ pathname: "/customize-sidebar", canGoBack: false, hasPluginBackScreen: false }),
+			resolve({ canGoBack: false, hasPluginBackScreen: false, pathname: "/customize-sidebar" }),
 		).toEqual({ compact: true, intent: "none", owner: "kernel" });
 	});
 
 	it("binds nothing on a settings route with no history", () => {
 		expect(
-			resolve({ pathname: "/settings", canGoBack: false, hasPluginBackScreen: false }),
+			resolve({ canGoBack: false, pathname: "/settings", hasPluginBackScreen: false }),
 		).toEqual({ compact: true, intent: "none", owner: "kernel" });
 	});
 });

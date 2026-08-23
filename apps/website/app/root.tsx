@@ -31,7 +31,7 @@ function HeaderActions() {
 		<div className="flex items-center space-x-4">
 			{configData?.isLoggedIn ? (
 				<Link to={$path("/me")}>
-					<Button variant="ghost" size="sm">
+					<Button size="sm" variant="ghost">
 						Dashboard
 					</Button>
 				</Link>

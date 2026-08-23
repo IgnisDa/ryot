@@ -371,5 +371,5 @@ export const createAuthenticatedClient = (baseUrl = getApiUrl()) =>
 	Effect.gen(function* () {
 		const { token, email, userId, password, sessionCookie } = yield* createTestUser(baseUrl);
 		const client = makeSession(baseUrl, { Authorization: `Bearer ${token}` });
-		return { client, token, email, userId, password, sessionCookie };
+		return { token, email, client, userId, password, sessionCookie };
 	});

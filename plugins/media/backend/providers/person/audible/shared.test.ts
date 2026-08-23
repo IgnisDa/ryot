@@ -20,7 +20,7 @@ describe("person.audible sandbox script", () => {
 		const host = makeHost(() =>
 			httpSuccess([
 				{ asin: "a1", name: "First Author" },
-				{ asin: "a2", name: "" },
+				{ name: "", asin: "a2" },
 				{ name: "No Asin" },
 				{ asin: "a3", name: "Third Author" },
 			]),
@@ -28,13 +28,13 @@ describe("person.audible sandbox script", () => {
 
 		return runSandboxTestScript(
 			search,
-			{ query: "author", page: 1, pageSize: 2 },
+			{ page: 1, pageSize: 2, query: "author" },
 			host,
 			execution,
 		).pipe(
 			Effect.map((result) => {
 				expect(result.items).toEqual([{ externalId: "a1", title: "First Author" }]);
-				expect(result.details).toEqual({ totalItems: 4, nextPage: 2 });
+				expect(result.details).toEqual({ nextPage: 2, totalItems: 4 });
 				return undefined;
 			}),
 			Effect.runPromise,
@@ -57,7 +57,7 @@ describe("person.audible sandbox script", () => {
 					alternateNames: [],
 					description: "Bio text.",
 					sourceUrl: "https://www.audible.com/author/a1",
-					images: [{ type: "remote", url: "https://img/author.jpg", purpose: "profile" }],
+					images: [{ type: "remote", purpose: "profile", url: "https://img/author.jpg" }],
 				});
 				return undefined;
 			}),

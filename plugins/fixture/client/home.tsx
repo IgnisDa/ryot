@@ -39,7 +39,7 @@ const fixtureClientPluginCatalogQuery = createRyotQuery(({ client, signal }) =>
 );
 
 const greetingMutation = createRyotMutation<GreetingInput, typeof Greeting.Type>(
-	({ client, input }) =>
+	({ input, client }) =>
 		client.operations.invoke({
 			input,
 			slug: "greet",
@@ -55,7 +55,7 @@ const uploadTones = {
 	success: "success",
 } as const;
 
-const uploadMutation = createRyotMutation<File, TemporaryUploadToken>(({ client, input }) =>
+const uploadMutation = createRyotMutation<File, TemporaryUploadToken>(({ input, client }) =>
 	client.uploads.uploadTemporary({ source: input, fileName: input.name, contentType: input.type }),
 );
 
@@ -129,7 +129,7 @@ export const Home = () => {
 						<span>Binary TSX import asset</span>
 					</div>
 					<div className="flex items-center gap-2">
-						<div role="img" aria-label="Fixture plugin binary CSS URL logo" className="css-logo" />
+						<div role="img" className="css-logo" aria-label="Fixture plugin binary CSS URL logo" />
 						<span>Binary CSS URL asset</span>
 					</div>
 				</section>
@@ -148,7 +148,7 @@ export const Home = () => {
 					<p role="status" aria-live="polite" className="text-sm text-text-muted">
 						Resolved mode: <strong className="text-accent-text">{theme.resolvedMode}</strong>
 					</p>
-					<StatusMessage className="mt-2" tone="success">
+					<StatusMessage tone="success" className="mt-2">
 						Semantic theme tokens synchronized.
 					</StatusMessage>
 					<div className="mt-3 rounded-md border border-accent bg-accent-soft p-3 text-sm text-text">
@@ -195,8 +195,8 @@ export const Home = () => {
 					</Button>
 				</section>
 				<section
-					className="flex flex-col items-center gap-3"
 					aria-labelledby="fixture-upload-title"
+					className="flex flex-col items-center gap-3"
 				>
 					<h2 id="fixture-upload-title" className="font-display text-lg">
 						Temporary upload

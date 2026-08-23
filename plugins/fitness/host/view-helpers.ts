@@ -42,5 +42,5 @@ const tableColumns = (slug: string): ViewExpressions["table"]["columns"] => {
 };
 
 export const buildViewExpressions = (slug: string): ViewExpressions => ({
-	table: { image: slug === "exercise" ? entityImage() : null, columns: tableColumns(slug) },
+	table: { columns: tableColumns(slug), image: slug === "exercise" ? entityImage() : null },
 });

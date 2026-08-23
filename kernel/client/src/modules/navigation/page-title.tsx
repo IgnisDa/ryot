@@ -74,7 +74,7 @@ function RouteAnnouncer(props: { readonly title: string | undefined }) {
 	}, [props.title]);
 
 	return (
-		<p aria-atomic="true" aria-live="polite" data-testid="route-announcer" className="sr-only">
+		<p aria-atomic="true" aria-live="polite" className="sr-only" data-testid="route-announcer">
 			{message}
 		</p>
 	);

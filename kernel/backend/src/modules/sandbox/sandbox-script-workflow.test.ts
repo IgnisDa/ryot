@@ -115,6 +115,9 @@ fi
 	const executedContent: string[] = [];
 	const hashes = new Map<string, Map<string, string>>();
 	const redisClient: RedisService["Service"]["client"] = Object.assign(Object.create(null), {
+		hget: (key: string, field: string) => Promise.resolve(hashes.get(key)?.get(field) ?? null),
+		hmget: (key: string, ...fields: string[]) =>
+			Promise.resolve(fields.map((field) => hashes.get(key)?.get(field) ?? null)),
 		eval: (
 			_script: string,
 			_numberOfKeys: number,
@@ -129,9 +132,6 @@ fi
 			hashes.set(key, fields);
 			return Promise.resolve(1);
 		},
-		hget: (key: string, field: string) => Promise.resolve(hashes.get(key)?.get(field) ?? null),
-		hmget: (key: string, ...fields: string[]) =>
-			Promise.resolve(fields.map((field) => hashes.get(key)?.get(field) ?? null)),
 	});
 	const script = (id: typeof historicalScriptId, compiledCode: string) => ({
 		id,
@@ -176,6 +176,9 @@ fi
 		Layer.succeed(RedisService, makeRedisService({ client: redisClient })),
 		Layer.mock(SandboxArtifactStore)({ retain: () => Effect.void, release: () => Effect.void }),
 		Layer.mock(SandboxRepository)({
+			resolveWorkflowCallScript: () => Effect.succeed(null),
+			getScript: (scriptId) =>
+				Effect.succeed(scriptId === historicalScriptId ? historical : replacement),
 			isPluginScript: () =>
 				Effect.sync(() => {
 					pinEvents.push("resolve-owned");
@@ -202,9 +205,6 @@ fi
 								metadata: { kind: "workflow", capabilities: [] },
 							};
 				}),
-			getScript: (scriptId) =>
-				Effect.succeed(scriptId === historicalScriptId ? historical : replacement),
-			resolveWorkflowCallScript: () => Effect.succeed(null),
 		}),
 		Layer.mock(SandboxPluginScriptResolver)({
 			findActiveScriptById: () =>
@@ -215,15 +215,15 @@ fi
 		}),
 		Layer.mock(SandboxWorkflowReferenceRepository)({
 			lockIngestionShared: () => Effect.sync(() => pinEvents.push("lock")),
+			release: (registeredExecutionId) =>
+				Effect.sync(() => {
+					releases.push(registeredExecutionId);
+				}),
 			registerInTransaction: (input) =>
 				Effect.sync(() => {
 					pinEvents.push("register");
 					registrations.push(input);
 					return { status: "registered" as const };
-				}),
-			release: (registeredExecutionId) =>
-				Effect.sync(() => {
-					releases.push(registeredExecutionId);
 				}),
 		}),
 		Layer.mock(RuntimeSandboxService)({
@@ -256,8 +256,8 @@ fi
 						success: true,
 						harvest: null,
 						executionId: input.executionId,
-						timing: { totalMs: 1, executionMs: 1 },
 						value: yield* decodeEnvelope(output),
+						timing: { totalMs: 1, executionMs: 1 },
 					};
 				}).pipe(Effect.orDie),
 		}),
@@ -352,14 +352,14 @@ it.effect("retains a plugin workflow reference while durably suspended", () => {
 		}),
 		Layer.mock(SandboxWorkflowReferenceRepository)({
 			lockIngestionShared: () => Effect.void,
+			release: () =>
+				Effect.sync(() => {
+					releases += 1;
+				}),
 			registerInTransaction: () =>
 				Effect.sync(() => {
 					registrations += 1;
 					return { status: "registered" as const };
-				}),
-			release: () =>
-				Effect.sync(() => {
-					releases += 1;
 				}),
 		}),
 	);
@@ -382,7 +382,7 @@ it.effect("retains a plugin workflow reference while durably suspended", () => {
 									index: 0,
 									kind: "host" as const,
 									name: "getCachedValue",
-									args: { capability: "getCachedValue" as const, args: ["key"] },
+									args: { args: ["key"], capability: "getCachedValue" as const },
 								},
 							],
 						},
@@ -451,9 +451,9 @@ it.effect("reconstructs a completed host write after interruption without repeat
 					}),
 			}),
 			Layer.mock(SandboxWorkflowReferenceRepository)({
+				release: () => Effect.die("unused"),
 				lockIngestionShared: () => Effect.void,
 				registerInTransaction: () => Effect.die("unused"),
-				release: () => Effect.die("unused"),
 			}),
 			Layer.mock(SandboxDurableHostDispatcher)({
 				dispatch: () =>
@@ -463,7 +463,7 @@ it.effect("reconstructs a completed host write after interruption without repeat
 						name: "sandbox-host-0-setCachedValue",
 						execute: Effect.sync(() => {
 							writes += 1;
-							return { state: "success" as const, value: null };
+							return { value: null, state: "success" as const };
 						}),
 					}),
 			}),
@@ -483,7 +483,7 @@ it.effect("reconstructs a completed host write after interruption without repeat
 			status: "completed" as const,
 			value:
 				sandboxPayload.executionId === `${executionId}-replay-0`
-					? { state: "pending" as const, requests: [request] }
+					? { requests: [request], state: "pending" as const }
 					: { requests: [request], state: "completed" as const, output: { completed: true } },
 		});
 
@@ -532,12 +532,12 @@ it.effect("releases a plugin workflow reference before returning terminal failur
 		}),
 		Layer.mock(SandboxWorkflowReferenceRepository)({
 			lockIngestionShared: () => Effect.void,
+			release: () => Effect.sync(() => events.push("released")),
 			registerInTransaction: () =>
 				Effect.sync(() => {
 					events.push("registered");
 					return { status: "registered" as const };
 				}),
-			release: () => Effect.sync(() => events.push("released")),
 		}),
 	);
 
@@ -552,7 +552,7 @@ it.effect("releases a plugin workflow reference before returning terminal failur
 						value: null,
 						harvest: null,
 						status: "completed" as const,
-						error: { phase: "execute" as const, message: "boom" },
+						error: { message: "boom", phase: "execute" as const },
 					}),
 			),
 		);
@@ -674,7 +674,7 @@ it.effect("rejects a completed replay that only forges a stale length marker", (
 	return Effect.gen(function* () {
 		const exit = yield* Effect.exit(
 			validateWorkflowReplayEnvelope(
-				{ output: null, journalLength: 0, state: "completed", requests: [first] },
+				{ output: null, journalLength: 0, requests: [first], state: "completed" },
 				[
 					{ value: null, request: first },
 					{ value: null, request: second },
@@ -731,6 +731,8 @@ it.effect("executes a pending batch with request-indexed script child identities
 			),
 			Layer.succeed(WorkflowInstance, instance),
 			Layer.mock(SandboxRepository)({
+				resolveWorkflowCallScript: () =>
+					Effect.succeed({ kind: "script" as const, scriptId: activityScriptId }),
 				getScriptPin: () =>
 					Effect.succeed({
 						scriptId,
@@ -740,13 +742,11 @@ it.effect("executes a pending batch with request-indexed script child identities
 						contentHash: "workflow-hash",
 						metadata: { kind: "workflow", capabilities: [] },
 					}),
-				resolveWorkflowCallScript: () =>
-					Effect.succeed({ kind: "script" as const, scriptId: activityScriptId }),
 			}),
 			Layer.mock(SandboxWorkflowReferenceRepository)({
+				release: () => Effect.die("unused"),
 				lockIngestionShared: () => Effect.void,
 				registerInTransaction: () => Effect.die("unused"),
-				release: () => Effect.die("unused"),
 			}),
 		);
 		const result = yield* runSandboxScriptWorkflowBody(
@@ -786,8 +786,8 @@ it.effect("accepts completion output only after the encountered trace matches th
 	return Effect.gen(function* () {
 		expect(
 			yield* validateWorkflowReplayEnvelope(
-				{ state: "completed", output: { done: true }, requests: [request] },
-				[{ value: null, request }],
+				{ state: "completed", requests: [request], output: { done: true } },
+				[{ request, value: null }],
 			),
 		).toEqual({ state: "completed", output: { done: true } });
 	});
@@ -951,9 +951,9 @@ it.effect("dispatches library imports with the parent workflow subject", () => {
 		Effect.provideService(
 			WorkflowEngine,
 			makeWorkflowEngine({
+				execute: () => Effect.die("unused"),
 				activityExecute: (activity) =>
 					Effect.map(Effect.exit(activity.execute), (exit) => new Workflow.Complete({ exit })),
-				execute: () => Effect.die("unused"),
 			}),
 		),
 		Effect.provideService(KernelWorkflowReferences, {

@@ -149,6 +149,7 @@ export const makeSandboxStderrTail = (): SandboxStderrTail => {
 	const lines: string[] = [];
 
 	return {
+		snapshot: () => ({ truncated, lines: [...lines] }),
 		append: (line) => {
 			const value = truncateSandboxStderrLine(line);
 			truncated ||= value !== line;
@@ -166,7 +167,6 @@ export const makeSandboxStderrTail = (): SandboxStderrTail => {
 				truncated = true;
 			}
 		},
-		snapshot: () => ({ lines: [...lines], truncated }),
 	};
 };
 
@@ -218,7 +218,7 @@ export const runSandboxBridgeHostFunction = (
 ) =>
 	fn(args).pipe(
 		Effect.withSpan(`sandbox.host.${input.fnName}`, {
-			attributes: { executionId: input.executionId, functionName: input.fnName },
+			attributes: { functionName: input.fnName, executionId: input.executionId },
 		}),
 		Effect.withParentSpan(input.parentSpan),
 	);
@@ -314,7 +314,7 @@ const makeSpawnDenoProcess = Effect.fn("makeSpawnDenoProcess")(function* (
 		Effect.forkScoped,
 	);
 
-	return { process: denoProcess, stdinQueue, responseQueue, stderrClosed, stderrTail };
+	return { stdinQueue, stderrTail, stderrClosed, responseQueue, process: denoProcess };
 });
 
 export class BridgeService extends Context.Service<BridgeService>()("BridgeService", {
@@ -560,8 +560,8 @@ export class SandboxProcessManager extends Context.Service<SandboxProcessManager
 						pids,
 						(pid) =>
 							Effect.tryPromise({
-								try: () => Bun.file(`/proc/${pid}/status`).text(),
 								catch: () => new SandboxProcessMemoryReadError(),
+								try: () => Bun.file(`/proc/${pid}/status`).text(),
 							}).pipe(
 								Effect.map((status) => {
 									const match = /^VmRSS:\s+(\d+)\s+kB$/m.exec(status);
@@ -577,6 +577,7 @@ export class SandboxProcessManager extends Context.Service<SandboxProcessManager
 					);
 				}
 				return Effect.try({
+					catch: () => new SandboxProcessMemoryReadError(),
 					try: () => {
 						if (pids.length === 0) {
 							return new Map<number, number>();
@@ -594,7 +595,6 @@ export class SandboxProcessManager extends Context.Service<SandboxProcessManager
 						}
 						return memory;
 					},
-					catch: () => new SandboxProcessMemoryReadError(),
 				}).pipe(Effect.orElseSucceed(() => new Map<number, number>()));
 			};
 			const getRuntimeMetrics = Effect.fn("SandboxProcessManager.getRuntimeMetrics")(function* () {
@@ -616,7 +616,7 @@ export class SandboxProcessManager extends Context.Service<SandboxProcessManager
 					runtimeMetricsReader = () => Effect.succeed(emptySandboxProcessRuntimeMetrics());
 				}),
 			);
-			return { acquire, release, runtimePaths: dependencies, spawnDedicated };
+			return { acquire, release, spawnDedicated, runtimePaths: dependencies };
 		}),
 	},
 ) {

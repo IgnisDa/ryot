@@ -46,11 +46,11 @@ const parseHevyRow = (row: Record<string, string>, rowIdx: number): HevyRow => {
 		itemIndex: rowIdx,
 		weight: readHevyWeight(row),
 		reps: readOptionalCsvNumber(row, ["reps", "Reps"]),
-		description: readCsvCell(row, ["description", "Description"]),
 		title: readRequiredCsvCell(row, ["title", "Title"], "Title"),
-		exerciseNotes: readCsvCell(row, ["exercise_notes", "Exercise Notes", "ExerciseNotes"]),
+		description: readCsvCell(row, ["description", "Description"]),
 		endTime: readRequiredCsvCell(row, ["end_time", "End Time", "EndTime"], "End Time"),
 		setType: readRequiredCsvCell(row, ["set_type", "Set Type", "SetType"], "Set Type"),
+		exerciseNotes: readCsvCell(row, ["exercise_notes", "Exercise Notes", "ExerciseNotes"]),
 		startTime: readRequiredCsvCell(row, ["start_time", "Start Time", "StartTime"], "Start Time"),
 		durationSeconds: readOptionalCsvNumber(row, [
 			"duration_seconds",
@@ -139,9 +139,9 @@ const parseHevyDate = (value: string, timezone: string) => {
 
 const toWorkoutSet = (row: HevyRow): WorkoutImportSet => {
 	const setLots: Record<string, WorkoutImportSet["setLot"]> = {
+		dropset: "drop",
 		warmup: "warm_up",
 		failure: "failure",
-		dropset: "drop",
 	};
 	const set: WorkoutImportSet = { setLot: setLots[row.setType] ?? "normal" };
 	if (row.exerciseNotes) {
@@ -167,7 +167,7 @@ const sourceIdentifierForWorkout = (row: Pick<HevyRow, "startTime" | "title">) =
 	`${row.startTime}:${row.title}`;
 
 export const adaptHevyCsv = (csvText: string, timezone: string): WorkoutAdapterResult => {
-	const { headers, rows } = parseCsvText(csvText);
+	const { rows, headers } = parseCsvText(csvText);
 	if (headers.length === 0) {
 		throw new Error("Hevy CSV is empty or has no header row");
 	}
@@ -261,8 +261,8 @@ export const adaptHevyCsv = (csvText: string, timezone: string): WorkoutAdapterR
 			sourceIdentifier,
 			name: firstRow.title,
 			itemIndex: firstRow.itemIndex,
-			startedAt: DateTime.formatIso(startedAt.value),
 			comment: firstRow.description ?? null,
+			startedAt: DateTime.formatIso(startedAt.value),
 		});
 	}
 

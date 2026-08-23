@@ -105,8 +105,8 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 				const dispatched = yield* engine
 					.execute(UserLifecycleWorkflow, {
 						discard: true,
-						executionId: executionIdFor(operation.operation.id, operation.workflowAttempt),
 						payload: { operationId: operation.operation.id },
+						executionId: executionIdFor(operation.operation.id, operation.workflowAttempt),
 					})
 					.pipe(Effect.result);
 				if (Result.isFailure(dispatched)) {
@@ -130,7 +130,7 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 							Effect.gen(function* () {
 								const preparation = yield* repository.loadPreparationForUpdate(userId, kind);
 								if (!preparation) {
-									return yield* new GodModeNotFound({ reason: { code: "user-not-found", userId } });
+									return yield* new GodModeNotFound({ reason: { userId, code: "user-not-found" } });
 								}
 								if (preparation.active) {
 									return preparation.active;
@@ -202,7 +202,7 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 				return (
 					(yield* repository.getById(operationId)) ??
 					(yield* new GodModeNotFound({
-						reason: { code: "lifecycle-operation-not-found", operationId },
+						reason: { operationId, code: "lifecycle-operation-not-found" },
 					}))
 				);
 			});

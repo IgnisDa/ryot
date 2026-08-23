@@ -89,9 +89,9 @@ const makeLayer = (
 											pluginId: pluginSlug,
 											slug: boot.scriptSlug,
 											name: boot.scriptSlug,
-											compiledCode: "compiled",
 											createdAt: new Date(0),
 											updatedAt: new Date(0),
+											compiledCode: "compiled",
 											contentHash: `${boot.scriptSlug}-hash`,
 											id: SandboxScriptId.make(`${boot.scriptSlug}-id`),
 											metadata: {

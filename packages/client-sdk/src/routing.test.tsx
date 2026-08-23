@@ -97,7 +97,7 @@ const Home = () => {
 			</button>
 			<button
 				type="button"
-				onClick={() => navigation.replace({ pluginSlug, kind: "plugin-route", path: "/" })}
+				onClick={() => navigation.replace({ path: "/", pluginSlug, kind: "plugin-route" })}
 			>
 				Replace home
 			</button>
@@ -121,8 +121,8 @@ const DRAG_START = 1_000;
 const DRAG_END = 1_400;
 
 const pointer = (type: string, clientX: number, timeStamp: number) => {
-	const event = new PointerEvent(type, { bubbles: true, clientX, clientY: 0, pointerId: 1 });
-	Object.defineProperty(event, "timeStamp", { configurable: true, value: timeStamp });
+	const event = new PointerEvent(type, { clientX, clientY: 0, pointerId: 1, bubbles: true });
+	Object.defineProperty(event, "timeStamp", { value: timeStamp, configurable: true });
 	return event;
 };
 
@@ -181,8 +181,8 @@ const openChannel = (
 		position = options.index ?? position + 1;
 		store.setLocation({
 			compact,
-			edgeBack,
 			leading,
+			edgeBack,
 			entry: {
 				index: position,
 				key: options.key ?? `k${position}`,
@@ -206,7 +206,7 @@ const openChannel = (
 	};
 	const navigate = (mode: "push" | "replace", to: RyotNavigationTarget) => {
 		const target: PluginBridgeNavigate["target"] = Match.value(to).pipe(
-			Match.when({ kind: "plugin-route" }, ({ path, pluginSlug: targetPlugin, search }) => ({
+			Match.when({ kind: "plugin-route" }, ({ path, search, pluginSlug: targetPlugin }) => ({
 				path,
 				kind: "plugin-route" as const,
 				pluginSlug: PluginSlug.make(targetPlugin),
@@ -242,7 +242,7 @@ const openChannel = (
 			leading = edge.leading ?? leading;
 			const { entry } = store.getSnapshot();
 			if (entry !== undefined) {
-				store.setLocation({ compact, edgeBack, entry, leading });
+				store.setLocation({ entry, compact, leading, edgeBack });
 			}
 		},
 	};
@@ -270,8 +270,8 @@ const mount = (
 	notFound?: typeof NotFound,
 ) => {
 	const definition = notFound
-		? { home: { component: Home }, routes, notFound }
-		: { home: { component: Home }, routes };
+		? { routes, notFound, home: { component: Home } }
+		: { routes, home: { component: Home } };
 	const channel = openChannel(definition);
 	const container = renderRouter(channel);
 	return {
@@ -319,20 +319,20 @@ describe("PluginRouter", () => {
 			watches++;
 			hint = listener;
 			return {
+				update: () => undefined,
 				dispose: () => {
 					disposals++;
 				},
-				update: () => undefined,
 			};
 		};
 		const pending: Array<() => void> = [];
 		const onRefresh = () => new Promise<void>((resolve) => pending.push(resolve));
 		const InterestedHome = () => {
 			useEntityRefresh({
-				identity: "home",
-				blocked: false,
 				onRefresh,
-				interest: { foreground: ["root"], visible: [] },
+				blocked: false,
+				identity: "home",
+				interest: { visible: [], foreground: ["root"] },
 			});
 			return <p>Interested home</p>;
 		};
@@ -372,7 +372,7 @@ describe("PluginRouter", () => {
 	it("renders a location that arrived before the router mounted", async () => {
 		const channel = openChannel({
 			home: { component: Home },
-			routes: [{ path: "/items/$itemId", component: ItemRoute }],
+			routes: [{ component: ItemRoute, path: "/items/$itemId" }],
 		});
 		channel.send("/items/item-9");
 		await waitFor(() => expect(channel.store.getSnapshot().entry).toBeDefined());
@@ -383,7 +383,7 @@ describe("PluginRouter", () => {
 	});
 
 	it("matches a route with a parameter, URL-decoding the segment", async () => {
-		const { container, sendLocation } = mount([{ path: "/items/$itemId", component: ItemRoute }]);
+		const { container, sendLocation } = mount([{ component: ItemRoute, path: "/items/$itemId" }]);
 		sendLocation("/items/hello%20world");
 		await waitFor(() => expect(container.textContent).toContain("Item hello world"));
 	});
@@ -392,7 +392,7 @@ describe("PluginRouter", () => {
 		const channel = openChannel({
 			home: { component: Home },
 			routes: [
-				{ path: "/items/$itemId", component: ItemRoute },
+				{ component: ItemRoute, path: "/items/$itemId" },
 				{ path: "/items/new", component: NewItemRoute },
 			],
 		});
@@ -403,20 +403,20 @@ describe("PluginRouter", () => {
 	});
 
 	it("passes through a param segment that is not valid percent-encoding", async () => {
-		const { container, sendLocation } = mount([{ path: "/items/$itemId", component: ItemRoute }]);
+		const { container, sendLocation } = mount([{ component: ItemRoute, path: "/items/$itemId" }]);
 		sendLocation("/items/%zz");
 		await waitFor(() => expect(container.textContent).toContain("Item %zz"));
 	});
 
 	it("renders the default not-found state for an unmatched path", async () => {
-		const { container, sendLocation } = mount([{ path: "/items/$itemId", component: ItemRoute }]);
+		const { container, sendLocation } = mount([{ component: ItemRoute, path: "/items/$itemId" }]);
 		sendLocation("/does-not-exist");
 		await waitFor(() => expect(container.textContent).toContain("Page not found"));
 	});
 
 	it("renders a plugin not-found component for an unmatched path", async () => {
 		const { container, sendLocation } = mount(
-			[{ path: "/items/$itemId", component: ItemRoute }],
+			[{ component: ItemRoute, path: "/items/$itemId" }],
 			NotFound,
 		);
 		sendLocation("/does-not-exist");
@@ -430,8 +430,8 @@ describe("PluginRouter", () => {
 	});
 
 	it("renders one stable unavailable component for unregistered entity locations", async () => {
-		const { container, sendEntityLocation, store } = mount([
-			{ path: "/items/$itemId", component: ItemRoute },
+		const { store, container, sendEntityLocation } = mount([
+			{ component: ItemRoute, path: "/items/$itemId" },
 		]);
 		sendEntityLocation("entity-1", "media-movie");
 		await waitFor(() => expect(container.textContent).toContain("Entity renderer unavailable"));
@@ -499,7 +499,7 @@ describe("PluginRouter", () => {
 	});
 
 	it("exposes an entity location and its search through routing hooks", async () => {
-		const channel = openChannel(undefined, () => ({ element: <LocationProbe />, params: {} }));
+		const channel = openChannel(undefined, () => ({ params: {}, element: <LocationProbe /> }));
 		const container = renderRouter(channel);
 
 		channel.sendEntity("entity-1", "media-movie", { search: "dialog=details" });
@@ -516,7 +516,7 @@ describe("PluginRouter", () => {
 	});
 
 	it("posts an exact PluginBridgeNavigate message on PluginLink click", async () => {
-		const { container, messages, sendLocation } = mount();
+		const { messages, container, sendLocation } = mount();
 		sendLocation("/");
 		await waitFor(() => expect(container.querySelector("a")).not.toBeNull());
 
@@ -526,7 +526,7 @@ describe("PluginRouter", () => {
 		}
 		expect(link.getAttribute("href")).toBe("/fixture/items/item-1?tab=stats");
 		act(() => {
-			link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }));
+			link.dispatchEvent(new MouseEvent("click", { button: 0, bubbles: true, cancelable: true }));
 		});
 
 		await waitFor(() =>
@@ -565,7 +565,7 @@ describe("PluginRouter", () => {
 		}
 		expect(link.getAttribute("href")).toBe("/e/entity%2F1");
 		act(() => {
-			link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }));
+			link.dispatchEvent(new MouseEvent("click", { button: 0, bubbles: true, cancelable: true }));
 		});
 
 		expect(channel.messages).toEqual([
@@ -603,7 +603,7 @@ describe("PluginRouter", () => {
 		if (!link) {
 			throw new Error("expected a rendered plugin link");
 		}
-		const event = new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 });
+		const event = new MouseEvent("click", { button: 0, bubbles: true, cancelable: true });
 		void act(() => link.dispatchEvent(event));
 
 		expect(clicks).toBe(1);
@@ -612,7 +612,7 @@ describe("PluginRouter", () => {
 	});
 
 	it("prevents native navigation on modifier and auxiliary clicks", async () => {
-		const { container, messages, sendLocation } = mount();
+		const { messages, container, sendLocation } = mount();
 		sendLocation("/");
 		await waitFor(() => expect(container.querySelector("a")).not.toBeNull());
 
@@ -637,7 +637,7 @@ describe("PluginRouter", () => {
 	});
 
 	it("posts push and replace navigate messages from the client", async () => {
-		const { container, messages, sendLocation } = mount();
+		const { messages, container, sendLocation } = mount();
 		sendLocation("/");
 		await waitFor(() => expect(container.textContent).toContain("Greeted 0 times."));
 
@@ -737,7 +737,7 @@ describe("PluginRouter", () => {
 	});
 
 	it("retains the previous screen across a pop, without remounting it", async () => {
-		const { container, sendLocation } = mount([{ path: "/items/$itemId", component: ItemRoute }]);
+		const { container, sendLocation } = mount([{ component: ItemRoute, path: "/items/$itemId" }]);
 		sendLocation("/");
 		await waitFor(() => expect(container.textContent).toContain("Greeted 0 times."));
 		expect(mountCount).toBe(1);
@@ -753,8 +753,8 @@ describe("PluginRouter", () => {
 	});
 
 	it("paints the retained screen instead of hiding it while a compact pop settles", async () => {
-		const { container, sendLocation, setEdge } = mount([
-			{ path: "/items/$itemId", component: ItemRoute },
+		const { setEdge, container, sendLocation } = mount([
+			{ component: ItemRoute, path: "/items/$itemId" },
 		]);
 		setEdge({ compact: true, edgeBack: true });
 		sendLocation("/");
@@ -771,7 +771,7 @@ describe("PluginRouter", () => {
 	});
 
 	it("swaps without retaining a leaving screen when the viewport is not compact", async () => {
-		const { container, sendLocation } = mount([{ path: "/items/$itemId", component: ItemRoute }]);
+		const { container, sendLocation } = mount([{ component: ItemRoute, path: "/items/$itemId" }]);
 		sendLocation("/");
 		await waitFor(() => expect(container.textContent).toContain("Greeted 0 times."));
 		sendLocation("/items/item-1");
@@ -785,7 +785,7 @@ describe("PluginRouter", () => {
 	});
 
 	it("keeps a retained screen mounted and inert beneath the top screen", async () => {
-		const { container, sendLocation } = mount([{ path: "/items/$itemId", component: ItemRoute }]);
+		const { container, sendLocation } = mount([{ component: ItemRoute, path: "/items/$itemId" }]);
 		sendLocation("/");
 		await waitFor(() => expect(container.textContent).toContain("Greeted 0 times."));
 
@@ -799,7 +799,7 @@ describe("PluginRouter", () => {
 	});
 
 	it("renders no back edge until the kernel hands the plugin the edge", async () => {
-		const { container, sendLocation } = mount([{ path: "/items/$itemId", component: ItemRoute }]);
+		const { container, sendLocation } = mount([{ component: ItemRoute, path: "/items/$itemId" }]);
 		sendLocation("/");
 		sendLocation("/items/item-1");
 		await waitFor(() => expect(container.textContent).toContain("Item item-1"));
@@ -830,8 +830,8 @@ describe("PluginRouter", () => {
 	});
 
 	it("posts one navigate-back when an edge drag passes the commit threshold", async () => {
-		const { container, messages, sendLocation, setEdge } = mount([
-			{ path: "/items/$itemId", component: ItemRoute },
+		const { setEdge, messages, container, sendLocation } = mount([
+			{ component: ItemRoute, path: "/items/$itemId" },
 		]);
 		sendLocation("/");
 		sendLocation("/items/item-1");
@@ -843,7 +843,7 @@ describe("PluginRouter", () => {
 		if (!(edge instanceof HTMLElement) || !(root instanceof HTMLElement)) {
 			throw new Error("expected a plugin edge strip inside a router root");
 		}
-		Object.defineProperty(root, "clientWidth", { configurable: true, value: 300 });
+		Object.defineProperty(root, "clientWidth", { value: 300, configurable: true });
 
 		act(() => {
 			edge.dispatchEvent(pointer("pointerdown", 2, DRAG_START));
@@ -865,8 +865,8 @@ describe("PluginRouter", () => {
 	});
 
 	it("posts nothing when an edge drag is released below the commit threshold", async () => {
-		const { container, messages, sendLocation, setEdge } = mount([
-			{ path: "/items/$itemId", component: ItemRoute },
+		const { setEdge, messages, container, sendLocation } = mount([
+			{ component: ItemRoute, path: "/items/$itemId" },
 		]);
 		sendLocation("/");
 		sendLocation("/items/item-1");
@@ -878,7 +878,7 @@ describe("PluginRouter", () => {
 		if (!(edge instanceof HTMLElement) || !(root instanceof HTMLElement)) {
 			throw new Error("expected a plugin edge strip inside a router root");
 		}
-		Object.defineProperty(root, "clientWidth", { configurable: true, value: 300 });
+		Object.defineProperty(root, "clientWidth", { value: 300, configurable: true });
 
 		act(() => {
 			edge.dispatchEvent(pointer("pointerdown", 2, DRAG_START));
@@ -893,7 +893,7 @@ describe("PluginRouter", () => {
 	});
 
 	it("keeps exactly one screen per history entry across back and forward", async () => {
-		const { container, sendLocation } = mount([{ path: "/items/$itemId", component: ItemRoute }]);
+		const { container, sendLocation } = mount([{ component: ItemRoute, path: "/items/$itemId" }]);
 		sendLocation("/", "", { index: 0 });
 		await waitFor(() => expect(container.textContent).toContain("Greeted 0 times."));
 

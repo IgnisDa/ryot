@@ -196,7 +196,7 @@ export const installTestProvider = (input: {
 	});
 
 export const uninstallTestProvider = (seeded: InstalledTestProvider) =>
-	uninstallTestPlugin({ ...seeded, scriptId: seeded.detailsScriptId, slug: seeded.providerSlug });
+	uninstallTestPlugin({ ...seeded, slug: seeded.providerSlug, scriptId: seeded.detailsScriptId });
 
 export const replaceSandboxScriptCompiledRepresentation = (
 	_client: Client,

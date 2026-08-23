@@ -22,8 +22,8 @@ export const manifest = defineManifest({
 	name: "TVDB",
 	kind: "provider",
 	slug: "movie.tvdb",
-	requiredPluginConfigKeys: ["tvdbApiKey"],
 	requiredSystemConfigKeys: [],
+	requiredPluginConfigKeys: ["tvdbApiKey"],
 	capabilities: ["httpCall", "getCachedValue", "setCachedValue", "getPluginConfig"],
 });
 
@@ -85,8 +85,8 @@ export const details = defineProvider({
 						{
 							externalId: groupExternalId,
 							providerSlug: "movie-group.tvdb",
-							name: stringValue(list["name"]) ?? "Loading...",
 							relationshipProperties: { roles: ["Member"] },
+							name: stringValue(list["name"]) ?? "Loading...",
 						},
 					];
 				});
@@ -108,26 +108,6 @@ export const details = defineProvider({
 
 			return {
 				name: title,
-				relatedEntityGroups: [
-					{
-						direction: "incoming",
-						synchronization: "additive",
-						entities: relatedEntities,
-						relationshipSchemaSlug: "person-to-movie",
-					},
-					{
-						direction: "incoming",
-						synchronization: "additive",
-						entities: companies,
-						relationshipSchemaSlug: "company-to-movie",
-					},
-					{
-						direction: "incoming",
-						synchronization: "additive",
-						entities: groupRelatedEntities,
-						relationshipSchemaSlug: "movie-group-to-movie",
-					},
-				],
 				properties: {
 					images,
 					genres,
@@ -137,6 +117,26 @@ export const details = defineProvider({
 					unlinkedCreators,
 					description: translation.description ?? stringValue(movie["overview"]),
 				},
+				relatedEntityGroups: [
+					{
+						direction: "incoming",
+						entities: relatedEntities,
+						synchronization: "additive",
+						relationshipSchemaSlug: "person-to-movie",
+					},
+					{
+						entities: companies,
+						direction: "incoming",
+						synchronization: "additive",
+						relationshipSchemaSlug: "company-to-movie",
+					},
+					{
+						direction: "incoming",
+						synchronization: "additive",
+						entities: groupRelatedEntities,
+						relationshipSchemaSlug: "movie-group-to-movie",
+					},
+				],
 			};
 		});
 	},

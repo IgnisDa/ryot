@@ -106,12 +106,12 @@ const validateRegisteredSettings = (
 				Effect.mapError(
 					() =>
 						new IntegrationRequestError({
-							reason: { code: "invalid-provider-settings", provider },
+							reason: { provider, code: "invalid-provider-settings" },
 						}),
 				),
 				Effect.asVoid,
 			)
-		: new IntegrationRequestError({ reason: { code: "provider-not-found", provider } });
+		: new IntegrationRequestError({ reason: { provider, code: "provider-not-found" } });
 
 type UpdateIntegrationInput = UpdateIntegrationBody & {
 	readonly lastFinishedAt?: Date | null | undefined;
@@ -131,13 +131,13 @@ export const validateProgressThresholds = (
 	maximumProgress: number,
 ): IntegrationRequestFailureReason | null => {
 	if (minimumProgress < 0 || minimumProgress > 100) {
-		return { code: "progress-out-of-range", field: "minimumProgress", value: minimumProgress };
+		return { value: minimumProgress, field: "minimumProgress", code: "progress-out-of-range" };
 	}
 	if (maximumProgress < 0 || maximumProgress > 100) {
-		return { code: "progress-out-of-range", field: "maximumProgress", value: maximumProgress };
+		return { value: maximumProgress, field: "maximumProgress", code: "progress-out-of-range" };
 	}
 	if (minimumProgress > maximumProgress) {
-		return { code: "invalid-progress-range", minimumProgress, maximumProgress };
+		return { minimumProgress, maximumProgress, code: "invalid-progress-range" };
 	}
 	return null;
 };
@@ -186,7 +186,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				const integration = yield* repository.getForUser({ userId, integrationId });
 				if (!integration) {
 					return yield* new IntegrationNotFoundError({
-						reason: { code: "integration-not-found", integrationId },
+						reason: { integrationId, code: "integration-not-found" },
 					});
 				}
 				return integration;
@@ -196,7 +196,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				function* (userId: UserId) {
 					const isPro = yield* proKey.isValidated;
 					return (yield* providerCatalog.listResolvedForUser(userId)).map(
-						({ provider, script }) => {
+						({ script, provider }) => {
 							const requiresProKey = provider.requiresProKey ?? false;
 							return {
 								requiresProKey,
@@ -225,7 +225,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				const registered = yield* providerCatalog.findForUser(user.id, body.provider);
 				if (!registered) {
 					return yield* new IntegrationRequestError({
-						reason: { code: "provider-not-found", provider: body.provider },
+						reason: { provider: body.provider, code: "provider-not-found" },
 					});
 				}
 				yield* validateRegisteredSettings(body.provider, registered, body.providerSpecifics);
@@ -245,10 +245,10 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					name: body.name ?? null,
 					provider: body.provider,
 					isDisabled: body.isDisabled ?? false,
-					providerSpecifics: body.providerSpecifics,
-					syncOwnership: body.syncOwnership ?? false,
 					minimumProgress: String(minimumProgress),
 					maximumProgress: String(maximumProgress),
+					providerSpecifics: body.providerSpecifics,
+					syncOwnership: body.syncOwnership ?? false,
 					pluginInstallationId: registered.installationId,
 					extraSettings: body.extraSettings ?? defaultExtraSettings,
 				});
@@ -304,7 +304,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 
 				if (!updated) {
 					return yield* new IntegrationNotFoundError({
-						reason: { code: "integration-not-found", integrationId },
+						reason: { integrationId, code: "integration-not-found" },
 					});
 				}
 
@@ -338,7 +338,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				integrationId: IntegrationId,
 			) {
 				yield* requireIntegration(user.id, integrationId);
-				yield* repository.deleteForUser({ userId: user.id, integrationId });
+				yield* repository.deleteForUser({ integrationId, userId: user.id });
 				return { id: integrationId };
 			});
 
@@ -351,7 +351,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				const integration = yield* repository.getByIdAnyUser({ integrationId });
 				if (!integration) {
 					return yield* new IntegrationNotFoundError({
-						reason: { code: "integration-not-found", integrationId },
+						reason: { integrationId, code: "integration-not-found" },
 					});
 				}
 				const registered = yield* providerCatalog.findOwnedForUser(
@@ -361,7 +361,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				);
 				if (!registered) {
 					return yield* new IntegrationNotFoundError({
-						reason: { code: "integration-not-found", integrationId },
+						reason: { integrationId, code: "integration-not-found" },
 					});
 				}
 				if (registered.lot !== "sink") {
@@ -380,8 +380,8 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					userId: integration.userId,
 					source: integration.provider,
 					integrationId: integration.id,
-					inputSummary: buildIntegrationInputSummary(integration),
 					pluginInstallationId: integration.pluginInstallationId,
+					inputSummary: buildIntegrationInputSummary(integration),
 				});
 
 				if (integration.isDisabled) {
@@ -490,7 +490,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					.pipe(Effect.result);
 				if (Result.isFailure(started)) {
 					yield* Effect.logError("integration sync enqueue failed", started.failure).pipe(
-						Effect.annotateLogs({ executionId, userId }),
+						Effect.annotateLogs({ userId, executionId }),
 					);
 					return yield* new IntegrationRequestError({
 						reason: { code: "queue-unavailable", operation: "integration-sync" },

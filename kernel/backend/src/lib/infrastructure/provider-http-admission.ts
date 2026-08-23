@@ -227,8 +227,8 @@ const validateDeclaration = (declaration: ProviderHttpAdmissionDeclaration) =>
 	declaration.intervalMs > 0 &&
 	declaration.intervalMs <= Math.floor(MAX_SAFE_INTEGER / 10)
 		? Effect.succeed({
-				spacingMs: Math.ceil(declaration.intervalMs / declaration.requests),
 				ttlMs: Math.max(10 * declaration.intervalMs, MINIMUM_TTL_MS),
+				spacingMs: Math.ceil(declaration.intervalMs / declaration.requests),
 			})
 		: Effect.fail(corruptState("Provider HTTP admission declaration is invalid"));
 
@@ -250,9 +250,13 @@ export class ProviderHttpAdmissionService extends Context.Service<ProviderHttpAd
 				declarationHash = declaration.hash,
 			) =>
 				Effect.gen(function* () {
-					const { spacingMs, ttlMs } = yield* validateDeclaration(declaration);
+					const { ttlMs, spacingMs } = yield* validateDeclaration(declaration);
 					const operationValue = operation === "reserve" ? spacingMs : value;
 					const response = yield* Effect.tryPromise({
+						catch: (error) =>
+							new ProviderHttpAdmissionUnavailable({
+								message: `Redis admission command failed: ${unknownToMessage(error)}`,
+							}),
 						try: () =>
 							redis.client.eval(
 								admissionScript,
@@ -263,10 +267,6 @@ export class ProviderHttpAdmissionService extends Context.Service<ProviderHttpAd
 								String(operationValue),
 								String(ttlMs),
 							),
-						catch: (error) =>
-							new ProviderHttpAdmissionUnavailable({
-								message: `Redis admission command failed: ${unknownToMessage(error)}`,
-							}),
 					}).pipe(
 						Effect.timeoutOrElse({
 							duration: COMMAND_TIMEOUT_MS,
@@ -320,8 +320,8 @@ export class ProviderHttpAdmissionService extends Context.Service<ProviderHttpAd
 				}
 				return {
 					status: "later" as const,
-					eligibleAtMs: yield* parseTimestamp(response[1], "confirmation"),
 					observedAtMs: yield* parseTimestamp(response[2], "observation"),
+					eligibleAtMs: yield* parseTimestamp(response[1], "confirmation"),
 				};
 			});
 

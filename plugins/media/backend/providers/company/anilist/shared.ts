@@ -37,8 +37,8 @@ export const search = defineProvider({
 	operation: "search",
 	run: (input, host) =>
 		anilistGraphql(host, "studio search", STUDIO_SEARCH_QUERY, {
-			search: input.query,
 			page: input.page,
+			search: input.query,
 			perPage: input.pageSize,
 		}).pipe(
 			Effect.map((data) => {
@@ -94,7 +94,7 @@ query StudioDetailsQuery($id: Int!, $page: Int!) {
 type StudioPages = { studio: UnknownRecord; mediaEdges: unknown[] };
 
 const getStudioPage = (host: AnilistHost, studioId: number, page: number) =>
-	anilistGraphql(host, "studio details", STUDIO_DETAILS_QUERY, { id: studioId, page }).pipe(
+	anilistGraphql(host, "studio details", STUDIO_DETAILS_QUERY, { page, id: studioId }).pipe(
 		Effect.map((data) => {
 			const studio = asRecord(data?.["Studio"]);
 			if (!studio) {

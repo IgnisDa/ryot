@@ -15,10 +15,10 @@ const bootstrapEntity = (id = "bootstrap-id") => ({
 	properties: {},
 	externalId: null,
 	populatedAt: null,
-	name: "Bootstrap entity",
-	entitySchemaPluginId: null,
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
+	name: "Bootstrap entity",
+	entitySchemaPluginId: null,
 	origin: { kind: "bootstrap" as const },
 	entitySchemaSlug: EntitySchemaSlug.make("bootstrap-entity"),
 });
@@ -36,9 +36,9 @@ const systemInstallation = (
 		homeSavedViewId: null,
 		pluginSlug: "example",
 		pluginScope: "system",
-		pluginId: "example-plugin-id",
 		createdAt: new Date(0),
 		updatedAt: new Date(0),
+		pluginId: "example-plugin-id",
 		userId: UserId.make("user-id"),
 		...overrides,
 	}) as const;
@@ -57,7 +57,7 @@ const cleanState = (overrides: Partial<AccountCleanlinessState> = {}): AccountCl
 	expectedBootstrapRelationships: [],
 	expectedNotificationSubscriptionSlugs: [],
 	defaultPreferences: { ...defaultUserPreferences },
-	profile: { name: "User", image: null, preferences: { ...defaultUserPreferences } },
+	profile: { image: null, name: "User", preferences: { ...defaultUserPreferences } },
 	...overrides,
 });
 
@@ -93,7 +93,7 @@ describe("classifyAccountCleanliness", () => {
 	});
 
 	it.each([
-		["preferences", { profile: { name: "User", image: null, preferences: { allowNsfw: true } } }],
+		["preferences", { profile: { image: null, name: "User", preferences: { allowNsfw: true } } }],
 		["events", { hasEvents: true }],
 		["managed-assets", { hasManagedAssets: true }],
 		[
@@ -121,10 +121,10 @@ describe("classifyAccountCleanliness", () => {
 						properties: {},
 						externalId: null,
 						populatedAt: null,
-						origin: { kind: "api" },
-						entitySchemaPluginId: null,
 						createdAt: new Date(0),
 						updatedAt: new Date(0),
+						origin: { kind: "api" },
+						entitySchemaPluginId: null,
 						entitySchemaSlug: EntitySchemaSlug.make("collection"),
 					},
 				],
@@ -136,17 +136,17 @@ describe("classifyAccountCleanliness", () => {
 				savedViews: [
 					{
 						icon: "x",
-						renderer: { kind: "kernel", name: "results-table" },
 						settings: {},
-						dataSources: null,
 						sortOrder: 0,
 						slug: "custom",
 						name: "Custom",
 						pluginSlug: null,
 						isBuiltin: false,
+						dataSources: null,
 						isDisabled: false,
 						pluginInstallationId: null,
 						entitySchemaPluginId: null,
+						renderer: { kind: "kernel", name: "results-table" },
 					},
 				],
 			},
@@ -158,11 +158,11 @@ describe("classifyAccountCleanliness", () => {
 					{
 						metadata: null,
 						isActive: false,
+						signalSchemaPluginId: null,
 						userId: UserId.make("user-id"),
 						createdAt: new Date(0).toISOString(),
 						updatedAt: new Date(0).toISOString(),
 						id: AutomationRuleId.make("rule-id"),
-						signalSchemaPluginId: null,
 						signalSchemaSlug: SignalSchemaSlug.make("signal"),
 					},
 				],

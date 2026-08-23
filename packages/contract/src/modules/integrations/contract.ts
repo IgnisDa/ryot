@@ -31,8 +31,8 @@ export const IntegrationsGroup = HttpApiGroup.make("integrations")
 	.add(
 		HttpApiEndpoint.post("create", "/integrations", {
 			payload: CreateIntegrationBody,
-			error: [IntegrationRequestError.pipe(HttpApiSchema.status(400))],
 			success: ListedIntegration.pipe(HttpApiSchema.status(201)),
+			error: [IntegrationRequestError.pipe(HttpApiSchema.status(400))],
 		}).annotate(OpenApi.Description, "Create an external service integration."),
 	)
 	.add(
@@ -64,12 +64,12 @@ export const IntegrationsGroup = HttpApiGroup.make("integrations")
 		HttpApiEndpoint.post("webhook", "/webhooks/integrations/:integrationId", {
 			params: { integrationId: IntegrationId },
 			success: Schema.Struct({ runId: ImportRunId }).pipe(HttpApiSchema.status(202)),
-			payload: integrationWebhookContentTypes.map((contentType) =>
-				IntegrationWebhookBody.pipe(HttpApiSchema.asText({ contentType })),
-			),
 			error: [
 				IntegrationRequestError.pipe(HttpApiSchema.status(400)),
 				IntegrationNotFoundError.pipe(HttpApiSchema.status(404)),
 			],
+			payload: integrationWebhookContentTypes.map((contentType) =>
+				IntegrationWebhookBody.pipe(HttpApiSchema.asText({ contentType })),
+			),
 		}).annotate(OpenApi.Description, "Receive a webhook payload for an integration."),
 	);

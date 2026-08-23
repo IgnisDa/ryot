@@ -28,13 +28,13 @@ export const SHOW_ACTIVITY_COLLECTION_EVENT_LIMIT = 60;
 export const SHOW_ACTIVITY_EPISODE_PROGRESS_LIMIT = 100;
 
 export const showSummaryQuery = createRyotQuery<{ readonly entityId: string }, ShowSummaryResult>(
-	({ client, input, signal }) =>
+	({ input, client, signal }) =>
 		client.data.query(
 			showSummaryRecipe({ ...input, collectionLimit: SHOW_SUMMARY_COLLECTION_LIMIT }),
 			{ signal },
 		),
 	{
-		entityInterest: ({ input, data }) => ({
+		entityInterest: ({ data, input }) => ({
 			foreground: [input.entityId],
 			visible: data?.show?.collections.items.map(({ id }) => id) ?? [],
 		}),
@@ -42,7 +42,7 @@ export const showSummaryQuery = createRyotQuery<{ readonly entityId: string }, S
 );
 
 export const showOverviewQuery = createRyotQuery<{ readonly entityId: string }, ShowOverviewResult>(
-	({ client, input, signal }) =>
+	({ input, client, signal }) =>
 		client.data.query(
 			showOverviewRecipe({
 				entityId: input.entityId,
@@ -53,7 +53,7 @@ export const showOverviewQuery = createRyotQuery<{ readonly entityId: string }, 
 			{ signal },
 		),
 	{
-		entityInterest: ({ input, data }) => ({
+		entityInterest: ({ data, input }) => ({
 			foreground: [input.entityId],
 			visible: data
 				? [...data.people.items, ...data.companies.items, ...data.recommendations.items].map(
@@ -65,13 +65,13 @@ export const showOverviewQuery = createRyotQuery<{ readonly entityId: string }, 
 );
 
 export const showEpisodesQuery = createRyotQuery<{ readonly entityId: string }, ShowSeasonsResult>(
-	({ client, input, signal }) =>
+	({ input, client, signal }) =>
 		client.data.query(
 			showSeasonsRecipe({ entityId: input.entityId, seasonLimit: SHOW_SEASON_LIMIT }),
 			{ signal },
 		),
 	{
-		entityInterest: ({ input, data }) => ({
+		entityInterest: ({ data, input }) => ({
 			foreground: [input.entityId],
 			visible: data?.seasons.items.map(({ id }) => id) ?? [],
 		}),
@@ -82,13 +82,13 @@ export const showSeasonEpisodesQuery = createRyotQuery<
 	{ readonly entityId: string; readonly seasonId: string },
 	ShowSeasonEpisodesResult
 >(
-	({ client, input, signal }) =>
+	({ input, client, signal }) =>
 		client.data.query(
 			showSeasonEpisodesRecipe({ seasonId: input.seasonId, episodeLimit: SHOW_EPISODE_LIMIT }),
 			{ signal },
 		),
 	{
-		entityInterest: ({ input, data }) => ({
+		entityInterest: ({ data, input }) => ({
 			foreground: [input.entityId, input.seasonId],
 			visible: data?.episodes.items.map(({ id }) => id) ?? [],
 		}),
@@ -96,7 +96,7 @@ export const showSeasonEpisodesQuery = createRyotQuery<
 );
 
 export const showActivityQuery = createRyotQuery<{ readonly entityId: string }, ShowActivityResult>(
-	({ client, input, signal }) =>
+	({ input, client, signal }) =>
 		client.data.query(
 			showActivityRecipe({
 				entityId: input.entityId,
@@ -111,7 +111,7 @@ export const showActivityQuery = createRyotQuery<{ readonly entityId: string }, 
 			{ signal },
 		),
 	{
-		entityInterest: ({ input, data }) => ({
+		entityInterest: ({ data, input }) => ({
 			foreground: [input.entityId],
 			visible: data
 				? [

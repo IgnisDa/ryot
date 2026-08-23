@@ -53,7 +53,7 @@ export class NotificationsService extends Context.Service<NotificationsService>(
 				const channel = yield* repository.updateForUser({ body, channelId, userId: user.id });
 				if (!channel) {
 					return yield* new NotificationNotFoundError({
-						reason: { code: "channel-not-found", channelId },
+						reason: { channelId, code: "channel-not-found" },
 					});
 				}
 				return channel;
@@ -66,7 +66,7 @@ export class NotificationsService extends Context.Service<NotificationsService>(
 				const deleted = yield* repository.deleteForUser({ channelId, userId: user.id });
 				if (!deleted) {
 					return yield* new NotificationNotFoundError({
-						reason: { code: "channel-not-found", channelId },
+						reason: { channelId, code: "channel-not-found" },
 					});
 				}
 				return { id: channelId };
@@ -94,7 +94,7 @@ export class NotificationsService extends Context.Service<NotificationsService>(
 				return undefined;
 			});
 
-			return { create, delete: remove, sendMessage, test, update };
+			return { test, create, update, sendMessage, delete: remove };
 		}),
 	},
 ) {

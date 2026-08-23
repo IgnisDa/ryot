@@ -227,8 +227,8 @@ export const adaptAnilistExport = (jsonText: string, timezone: string) => {
 				sourceLabel,
 				kind: "resolved",
 				providerSlug: target.providerSlug,
-				entitySchemaSlug: target.entitySchemaSlug,
 				externalId: String(review.series_id),
+				entitySchemaSlug: target.entitySchemaSlug,
 			},
 			itemIndex,
 		);
@@ -279,5 +279,5 @@ export const adaptAnilistExport = (jsonText: string, timezone: string) => {
 		addCollectionMembership(group, "Favorite");
 		itemIndex += 1;
 	}
-	return { totalItems: itemIndex, entityGroups: finalizeEntityGroups(groupMap.values()), failures };
+	return { failures, totalItems: itemIndex, entityGroups: finalizeEntityGroups(groupMap.values()) };
 };

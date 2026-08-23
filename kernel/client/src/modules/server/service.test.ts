@@ -44,10 +44,10 @@ describe("server service", () => {
 
 			const failed = yield* service
 				.connect(origin)
-				.pipe(Effect.match({ onFailure: () => false, onSuccess: () => true }));
+				.pipe(Effect.match({ onSuccess: () => true, onFailure: () => false }));
 			const succeeded = yield* service
 				.connect(origin)
-				.pipe(Effect.match({ onFailure: () => false, onSuccess: () => true }));
+				.pipe(Effect.match({ onSuccess: () => true, onFailure: () => false }));
 
 			expect(failed).toBe(false);
 			expect(succeeded).toBe(true);

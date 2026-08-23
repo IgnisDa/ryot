@@ -15,7 +15,7 @@ const document = {
 	queries: {
 		items: {
 			from: { alias: "item", table: "item" },
-			output: { fields: [], orderBy: [], pagination: { limit: 10 }, type: "rows" },
+			output: { fields: [], orderBy: [], type: "rows", pagination: { limit: 10 } },
 		},
 	},
 } as const;
@@ -43,13 +43,13 @@ describe("plugin queries service", () => {
 			const outcome = yield* service.query({ scope, request: { document } });
 
 			expect(calls).toEqual([{ payload: document }]);
-			expect(outcome).toEqual({ outcome: "success", response });
+			expect(outcome).toEqual({ response, outcome: "success" });
 		}).pipe(Effect.provide(PluginQueriesService.layer), Effect.provide(dependencies));
 	});
 
 	const expectedFailures = [
 		new AuthUnauthorized({ reason: { code: "authentication-required" } }),
-		new AuthRateLimited({ reason: { code: "api-key-rate-limited", retryAfterMs: 30_000 } }),
+		new AuthRateLimited({ reason: { retryAfterMs: 30_000, code: "api-key-rate-limited" } }),
 		new RyotQLBadRequest({ reason: { code: "invalid-query" } }),
 		new RyotQLInternalError({ reason: { code: "execution-failed" } }),
 	];

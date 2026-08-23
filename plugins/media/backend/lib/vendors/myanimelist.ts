@@ -86,7 +86,7 @@ export const collectImages = (mainPicture: unknown) => {
 			urls.add(url);
 		}
 	}
-	return [...urls].map((url) => ({ type: "remote" as const, url, purpose: "cover" as const }));
+	return [...urls].map((url) => ({ url, type: "remote" as const, purpose: "cover" as const }));
 };
 
 export const collectGenres = (genres: unknown) => {
@@ -136,9 +136,9 @@ export const searchMal = (
 		Effect.flatMap(([clientId, allowNsfw]) => {
 			const params = new URLSearchParams({
 				q: input.query,
+				limit: String(input.pageSize),
 				fields: "start_date,main_picture",
 				offset: String((input.page - 1) * input.pageSize),
-				limit: String(input.pageSize),
 			});
 			if (allowNsfw) {
 				params.set("nsfw", "true");

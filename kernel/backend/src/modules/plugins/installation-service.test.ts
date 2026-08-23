@@ -150,54 +150,39 @@ const makeLayer = (input?: {
 	const repositoryLayer = Layer.mock(PluginRepository)({
 		lockIngestion: () => input?.lockIngestion?.() ?? Effect.void,
 		listPrivateForUser: () => Effect.succeed(input?.privatePlugins ?? []),
-		persist: (plugin, identity) =>
-			Effect.sync(() => {
-				input?.persisted?.push({ plugin: plugin.manifest, identity });
-				return `${identity.slug}-plugin-id`;
-			}),
+		hasEntityReferences: () => Effect.succeed(input?.hasEntityReferences ?? false),
+		deactivate: (pluginId) => Effect.sync(() => void input?.deactivated?.push(pluginId)),
+		hasDefinitionReferences: () => Effect.succeed(input?.hasDefinitionReferences ?? false),
 		findPrivateByIdForUser: (pluginId) =>
 			Effect.succeed((input?.privatePlugins ?? []).find(({ id }) => id === pluginId) ?? null),
-		hasEntityReferences: () => Effect.succeed(input?.hasEntityReferences ?? false),
-		hasDefinitionReferences: () => Effect.succeed(input?.hasDefinitionReferences ?? false),
+		listActiveManifests: () =>
+			input?.listActiveManifests?.() ??
+			Effect.succeed((input?.systemPlugins ?? []).map(({ manifest }) => manifest)),
 		hasIntegrationReferences: (fence) =>
 			Effect.sync(() => {
 				input?.integrationFences?.push(fence);
 				return input?.hasIntegrationReferences ?? false;
 			}),
-		deactivate: (pluginId) => Effect.sync(() => void input?.deactivated?.push(pluginId)),
-		listActiveManifests: () =>
-			input?.listActiveManifests?.() ??
-			Effect.succeed((input?.systemPlugins ?? []).map(({ manifest }) => manifest)),
+		persist: (plugin, identity) =>
+			Effect.sync(() => {
+				input?.persisted?.push({ identity, plugin: plugin.manifest });
+				return `${identity.slug}-plugin-id`;
+			}),
 	});
 	const ingestionLockLayer = PluginIngestionLock.layer.pipe(Layer.provide(repositoryLayer));
 	const installationLayer = Layer.mock(PluginInstallationRepository)({
 		provisionSystemInstallationsForAllUsers: () => Effect.void,
-		listForUser: () => Effect.succeed(input?.installations ?? []),
 		remove: (id) => Effect.sync(() => input?.removed?.push(id)),
+		listForUser: () => Effect.succeed(input?.installations ?? []),
 		listPendingLifecycle: () => Effect.succeed(input?.pendingLifecycle ?? []),
 		listPrivateInstallations: () => Effect.succeed(input?.privateInstallations ?? []),
 		updateHealth: (values) => Effect.sync(() => void input?.healthUpdates?.push(values)),
-		setHomeSavedView: (ownerId, id, homeSavedViewId) =>
-			Effect.gen(function* () {
-				const database = yield* Database;
-				input?.homeViewTransactionScopes?.push("transaction" in database ? "root" : "transaction");
-				input?.homeViewEvents?.push("set-installation");
-				input?.homeViewUpdates?.push({ id, homeSavedViewId, userId: ownerId });
-				return (input?.installations ?? []).some((row) => row.id === id && row.userId === ownerId);
-			}),
-		findByUserAndPlugin: (_user, pluginId) =>
-			Effect.succeed((input?.installations ?? []).find((row) => row.pluginId === pluginId) ?? null),
 		findHomeSavedView: (_ownerId, savedViewId) =>
 			Effect.succeed(input?.homeTargets?.get(savedViewId) ?? null),
+		findByUserAndPlugin: (_user, pluginId) =>
+			Effect.succeed((input?.installations ?? []).find((row) => row.pluginId === pluginId) ?? null),
 		findHomeSavedViewBySlug: (_ownerId, installationId, slug) =>
 			Effect.succeed(input?.defaultHomeTargets?.get(`${installationId}:${slug}`) ?? null),
-		lockHomeSavedView: (_ownerId, savedViewId) =>
-			Effect.gen(function* () {
-				const database = yield* Database;
-				input?.homeViewTransactionScopes?.push("transaction" in database ? "root" : "transaction");
-				input?.homeViewEvents?.push("lock-saved-view");
-				return input?.homeTargets?.get(savedViewId) ?? null;
-			}),
 		create: (values) =>
 			Effect.sync(() => {
 				input?.created?.push(values);
@@ -208,6 +193,21 @@ const makeLayer = (input?: {
 				input?.updated?.push(values);
 				const current = (input?.installations ?? []).find((row) => row.id === values.id);
 				return current ? { ...current, ...values } : undefined;
+			}),
+		lockHomeSavedView: (_ownerId, savedViewId) =>
+			Effect.gen(function* () {
+				const database = yield* Database;
+				input?.homeViewTransactionScopes?.push("transaction" in database ? "root" : "transaction");
+				input?.homeViewEvents?.push("lock-saved-view");
+				return input?.homeTargets?.get(savedViewId) ?? null;
+			}),
+		setHomeSavedView: (ownerId, id, homeSavedViewId) =>
+			Effect.gen(function* () {
+				const database = yield* Database;
+				input?.homeViewTransactionScopes?.push("transaction" in database ? "root" : "transaction");
+				input?.homeViewEvents?.push("set-installation");
+				input?.homeViewUpdates?.push({ id, homeSavedViewId, userId: ownerId });
+				return (input?.installations ?? []).some((row) => row.id === id && row.userId === ownerId);
 			}),
 	});
 	const lifecycleDispatcherLayer = Layer.succeed(PluginInstallationLifecycleDispatcher, {
@@ -225,17 +225,25 @@ const makeLayer = (input?: {
 	});
 	const definitionMaterializerLayer = Layer.succeed(PluginDefinitionMaterializer, {
 		materialize: (owner) => input?.materialize?.(owner) ?? Effect.void,
+		removeGenerated: (installationId) =>
+			Effect.sync(() => void input?.removedGenerated?.push(installationId)),
 		hasCustomSavedViewReferences: (ownerId, installationId) =>
 			Effect.sync(() => {
 				input?.savedViewFences?.push({ installationId, userId: ownerId });
 				return input?.hasSavedViewReferences ?? false;
 			}),
-		removeGenerated: (installationId) =>
-			Effect.sync(() => void input?.removedGenerated?.push(installationId)),
 	});
 	const uploadIntentsLayer = Layer.mock(UploadIntentsService)({
+		deleteTemporaryUpload: (intentId) =>
+			Effect.sync(() => input?.deletedUploads?.push(intentId)).pipe(
+				Effect.andThen(
+					input?.deleteUploadFails
+						? Effect.fail(new UploadBadRequest({ reason: { intentId, code: "intent-busy" } }))
+						: Effect.sync(() => undefined),
+				),
+			),
 		claimTemporaryUpload: (token, ownerId, claimId) =>
-			Effect.sync(() => input?.claimedUploads?.push({ claimId, token, userId: ownerId })).pipe(
+			Effect.sync(() => input?.claimedUploads?.push({ token, claimId, userId: ownerId })).pipe(
 				Effect.andThen(
 					input?.claimUploadFails
 						? Effect.fail(new UploadBadRequest({ reason: { code: "token-invalid" } }))
@@ -244,16 +252,8 @@ const makeLayer = (input?: {
 								resolvedPath: "/tmp/plugin.zip",
 								intentId: "plugin-upload-intent",
 								leaseExpiresAt: "2026-08-27T00:00:00.000Z",
-								locator: { type: "local" as const, key: "plugin-upload" },
+								locator: { key: "plugin-upload", type: "local" as const },
 							}),
-				),
-			),
-		deleteTemporaryUpload: (intentId) =>
-			Effect.sync(() => input?.deletedUploads?.push(intentId)).pipe(
-				Effect.andThen(
-					input?.deleteUploadFails
-						? Effect.fail(new UploadBadRequest({ reason: { code: "intent-busy", intentId } }))
-						: Effect.sync(() => undefined),
 				),
 			),
 	});
@@ -370,7 +370,7 @@ it.effect("maps an unavailable upload claim without attempting cleanup", () => {
 	return Effect.gen(function* () {
 		const service = yield* PluginInstallationService;
 		const exit = yield* Effect.exit(
-			service.installPrivatePlugin({ uploadToken: "missing", userId, config: {} }),
+			service.installPrivatePlugin({ userId, config: {}, uploadToken: "missing" }),
 		);
 		const failure = failureOf(exit);
 		assert(failure instanceof PluginRequestError);
@@ -384,11 +384,11 @@ it.effect("maps an invalid archive and deletes the claimed upload", () => {
 	return Effect.gen(function* () {
 		const service = yield* PluginInstallationService;
 		const exit = yield* Effect.exit(
-			service.installPrivatePlugin({ uploadToken: "corrupt", userId, config: {} }),
+			service.installPrivatePlugin({ userId, config: {}, uploadToken: "corrupt" }),
 		);
 		const failure = failureOf(exit);
 		assert(failure instanceof PluginRequestError);
-		expect(failure.reason).toEqual({ code: "package-archive-invalid", issue: "malformed-zip" });
+		expect(failure.reason).toEqual({ issue: "malformed-zip", code: "package-archive-invalid" });
 		expect(deletedUploads).toEqual(["plugin-upload-intent"]);
 	}).pipe(Effect.provide(makeLayer({ deletedUploads, archiveBytes: new Uint8Array([1, 2, 3]) })));
 });
@@ -398,7 +398,7 @@ it.effect("maps an unavailable archive object and deletes the claimed upload", (
 	return Effect.gen(function* () {
 		const service = yield* PluginInstallationService;
 		const exit = yield* Effect.exit(
-			service.installPrivatePlugin({ uploadToken: "missing-object", userId, config: {} }),
+			service.installPrivatePlugin({ userId, config: {}, uploadToken: "missing-object" }),
 		);
 		const failure = failureOf(exit);
 		assert(failure instanceof PluginRequestError);
@@ -439,7 +439,7 @@ it.effect("rejects an oversized package before compiling it", () => {
 		);
 		const failure = failureOf(exit);
 		assert(failure instanceof PluginRequestError);
-		expect(failure.reason).toEqual({ code: "package-limit-exceeded", limit: "file-count" });
+		expect(failure.reason).toEqual({ limit: "file-count", code: "package-limit-exceeded" });
 	}).pipe(Effect.provide(makeLayer()));
 });
 
@@ -460,7 +460,7 @@ it.effect("rejects only the private manifest surfaces that cannot carry user sub
 					signalSchemas: fixture.signalSchemas,
 					scripts: [...fixture.scripts, bootstrapScript],
 					relationshipSchemas: fixture.relationshipSchemas,
-					boot: [{ slug: "startup", scriptSlug: script.slug, description: "Startup" }],
+					boot: [{ slug: "startup", description: "Startup", scriptSlug: script.slug }],
 					httpRateLimits: [
 						{ requests: 1, key: "outbound", intervalMs: 1_000, origins: ["https://example.com"] },
 					],
@@ -521,7 +521,7 @@ it.effect("rejects persistence when a system slug appears after install preparat
 	return Effect.gen(function* () {
 		const service = yield* PluginInstallationService;
 		const failure = failureOf(
-			yield* Effect.exit(service.installPrivatePlugin({ userId, files: {}, config: {}, manifest })),
+			yield* Effect.exit(service.installPrivatePlugin({ userId, manifest, files: {}, config: {} })),
 		);
 		assert(failure instanceof PluginRequestError);
 		expect(failure.reason).toEqual({ code: "slug-reserved", pluginSlug: manifest.metadata.slug });
@@ -583,7 +583,7 @@ const nestedConfiguredManifest = privateManifest({
 					label: "Account",
 					description: "Account",
 					properties: {
-						name: { type: "string", label: "Name", description: "Name" },
+						name: { label: "Name", type: "string", description: "Name" },
 						token: {
 							secret: true,
 							type: "string",
@@ -724,8 +724,8 @@ it.effect("sets and clears a usable home view without requiring workspace placem
 			savedViewId: null,
 		});
 		expect(updates).toEqual([
-			{ id: installation.id, homeSavedViewId: savedViewId, userId },
-			{ id: installation.id, homeSavedViewId: null, userId },
+			{ userId, id: installation.id, homeSavedViewId: savedViewId },
+			{ userId, id: installation.id, homeSavedViewId: null },
 		]);
 		expect(invalidatedUsers).toEqual([userId, userId]);
 		expect(homeViewEvents).toEqual(["lock-saved-view", "set-installation", "set-installation"]);
@@ -749,8 +749,8 @@ it.effect("accepts a home view backed by an advertised plugin page", () => {
 	const savedViewId = SavedViewId.make("plugin-view");
 	const manifest = privateManifest({
 		client: {
-			homeView: null,
 			apiVersion: 1,
+			homeView: null,
 			exports: {
 				summary: {
 					kind: "page",
@@ -780,7 +780,7 @@ it.effect("accepts a home view backed by an advertised plugin page", () => {
 							renderer: null,
 							view: {
 								isDisabled: false,
-								renderer: { kind: "plugin", pluginId: privatePlugin.id, exportName: "summary" },
+								renderer: { kind: "plugin", exportName: "summary", pluginId: privatePlugin.id },
 							},
 						},
 					],
@@ -853,8 +853,8 @@ it.effect("falls back from a stale home override but preserves a usable selectio
 	);
 	const installations = [
 		installationRow({
-			pluginSlug: "selected",
 			pluginScope: "system",
+			pluginSlug: "selected",
 			pluginId: selectedPlugin.id,
 			homeSavedViewId: selectedId,
 		}),
@@ -895,6 +895,14 @@ it.effect("falls back to the manifest home and preserves the plugin root for nul
 	const defaultPlugin = systemEntry(
 		privateManifest({
 			metadata: { ...privateManifest().metadata, slug: "defaulted" },
+			savedViews: [
+				{
+					...kernelView,
+					slug: "default-home",
+					pluginSlug: "defaulted",
+					renderer: kernelView.renderer,
+				},
+			],
 			client: {
 				apiVersion: 1,
 				homeView: "default-home",
@@ -906,14 +914,6 @@ it.effect("falls back to the manifest home and preserves the plugin root for nul
 					},
 				},
 			},
-			savedViews: [
-				{
-					...kernelView,
-					slug: "default-home",
-					pluginSlug: "defaulted",
-					renderer: kernelView.renderer,
-				},
-			],
 		}),
 	);
 	const rootPlugin = systemEntry(
@@ -922,6 +922,7 @@ it.effect("falls back to the manifest home and preserves the plugin root for nul
 			client: {
 				apiVersion: 1,
 				homeView: null,
+				routes: { "/": "root" },
 				exports: {
 					root: {
 						kind: "page",
@@ -930,15 +931,14 @@ it.effect("falls back to the manifest home and preserves the plugin root for nul
 						automaticEntityPresentations: false,
 					},
 				},
-				routes: { "/": "root" },
 			},
 		}),
 	);
 	const defaultInstallation = installationRow({
-		pluginSlug: "defaulted",
 		pluginScope: "system",
-		pluginId: defaultPlugin.id,
+		pluginSlug: "defaulted",
 		homeSavedViewId: staleId,
+		pluginId: defaultPlugin.id,
 	});
 	const rootInstallation = installationRow({
 		pluginSlug: "rooted",
@@ -1055,7 +1055,7 @@ it.effect(
 						accounts.items.properties["token"],
 				).not.toHaveProperty("defaultValue");
 			}
-		}).pipe(Effect.provide(makeLayer({ privatePlugins: [privatePlugin], installations })));
+		}).pipe(Effect.provide(makeLayer({ installations, privatePlugins: [privatePlugin] })));
 	},
 );
 
@@ -1096,7 +1096,7 @@ it.effect("allows system controls but rejects system config changes", () => {
 		privateManifest({ metadata: { ...privateManifest().metadata, slug: "example" } }),
 	);
 	const installations = [
-		installationRow({ pluginId: systemPlugin.id, pluginScope: "system", pluginSlug: "example" }),
+		installationRow({ pluginScope: "system", pluginSlug: "example", pluginId: systemPlugin.id }),
 	];
 	return Effect.gen(function* () {
 		const loader = yield* PluginLoader;
@@ -1104,8 +1104,8 @@ it.effect("allows system controls but rejects system config changes", () => {
 		loader.load(systemPlugin);
 
 		expect(
-			yield* service.updateInstallation(userId, "example", { isDisabled: true, sortOrder: 4 }),
-		).toMatchObject({ scope: "system", isDisabled: true, sortOrder: 4, config: {} });
+			yield* service.updateInstallation(userId, "example", { sortOrder: 4, isDisabled: true }),
+		).toMatchObject({ config: {}, sortOrder: 4, scope: "system", isDisabled: true });
 		expect(
 			failureOf(yield* Effect.exit(service.updateInstallation(userId, "example", { config: {} }))),
 		).toMatchObject({
@@ -1126,7 +1126,7 @@ it.effect("hides foreign installations and rejects enabling an unready installat
 			),
 		).toMatchObject({
 			_tag: "PluginNotFoundError",
-			reason: { code: "plugin-not-found", pluginSlug: "foreign" },
+			reason: { pluginSlug: "foreign", code: "plugin-not-found" },
 		});
 		expect(
 			failureOf(
@@ -1136,7 +1136,7 @@ it.effect("hides foreign installations and rejects enabling an unready installat
 			),
 		).toMatchObject({
 			_tag: "PluginConflictError",
-			reason: { code: "installation-not-ready", health: "needs-configuration" },
+			reason: { health: "needs-configuration", code: "installation-not-ready" },
 		});
 	}).pipe(
 		Effect.provide(
@@ -1300,7 +1300,7 @@ it.effect("keeps a private plugin with custom views installed", () => {
 		);
 		assert(failure instanceof PluginConflictError);
 		expect(failure.reason.code).toBe("saved-view-referenced");
-		expect(savedViewFences).toEqual([{ installationId: installations[0]?.id, userId }]);
+		expect(savedViewFences).toEqual([{ userId, installationId: installations[0]?.id }]);
 		expect(deactivated).toEqual([]);
 	}).pipe(
 		Effect.provide(
@@ -1383,7 +1383,7 @@ it.effect("updates source while retaining plugin, installation, and omitted secr
 		expect(persisted).toHaveLength(1);
 		expect(persisted[0]).toMatchObject({
 			plugin: { metadata: { version: "2.0.0" } },
-			identity: { slug: privatePlugin.slug, scope: "user", ownerId: userId },
+			identity: { scope: "user", ownerId: userId, slug: privatePlugin.slug },
 		});
 		expect(updated[0]).toMatchObject({
 			id: installation.id,
@@ -1525,7 +1525,7 @@ it.effect("rejects package updates for system and foreign plugins", () => {
 			),
 		).toMatchObject({
 			_tag: "PluginNotFoundError",
-			reason: { code: "plugin-not-found", pluginSlug: "foreign" },
+			reason: { pluginSlug: "foreign", code: "plugin-not-found" },
 		});
 	}).pipe(Effect.provide(makeLayer()));
 });
@@ -1562,8 +1562,8 @@ it.effect("rejects an operation referencing an undeclared script slug", () => {
 it.effect("rejects duplicate operation slugs before compiling the package", () => {
 	const created: Array<Record<string, unknown>> = [];
 	const operation = {
-		auth: "user" as const,
 		slug: "run.fixture",
+		auth: "user" as const,
 		description: "Run fixture",
 		scriptSlug: operationScript.slug,
 	};
@@ -1575,8 +1575,8 @@ it.effect("rejects duplicate operation slugs before compiling the package", () =
 				config: {},
 				files: { [operationScript.entry]: bytes(operationScriptSource) },
 				manifest: privateManifest({
-					operations: [operation, operation],
 					scripts: [operationScript],
+					operations: [operation, operation],
 				}),
 			}),
 		);
@@ -1707,7 +1707,7 @@ it.effect("orders provisioned system installations by slug when their sort order
 			makeLayer({
 				installations: [
 					installationRow({ pluginId: example.id, pluginScope: "system", pluginSlug: "example" }),
-					installationRow({ pluginId: sample.id, pluginScope: "system", pluginSlug: "sample" }),
+					installationRow({ pluginId: sample.id, pluginSlug: "sample", pluginScope: "system" }),
 				],
 			}),
 		),
@@ -1722,7 +1722,7 @@ const sharedImportSource = {
 	description: "Shared import",
 	requiredPluginConfigKeys: [],
 	workflowSlug: "fixture-workflow",
-	inputSchema: { unknownKeys: "strict" as const, fields: {} },
+	inputSchema: { fields: {}, unknownKeys: "strict" as const },
 };
 
 const privateInstallationRow = (
@@ -1918,15 +1918,15 @@ it.effect(
 		const healthUpdates: Array<Record<string, unknown>> = [];
 		const reason = shippedConflict("Shipped plugins already use the slug 'example'");
 		const privateInstallations = [
-			privateInstallationRow({ pluginSlug: "example", health: "failed", installationId: "failed" }),
+			privateInstallationRow({ health: "failed", pluginSlug: "example", installationId: "failed" }),
 			privateInstallationRow({
-				pluginSlug: "example",
 				health: "installing",
+				pluginSlug: "example",
 				installationId: "installing",
 			}),
 			privateInstallationRow({
-				health: "needs-configuration",
 				pluginSlug: "example",
+				health: "needs-configuration",
 				installationId: "unconfigured",
 			}),
 			privateInstallationRow({
@@ -1982,7 +1982,7 @@ it.effect("clears incompatible health when a private package update succeeds", (
 			pluginSlug: privatePlugin.slug,
 			manifest: privateManifest({ metadata: { ...privateManifest().metadata, version: "2.0.0" } }),
 		});
-		expect(result).toMatchObject({ health: "ready", healthReason: null, version: "2.0.0" });
+		expect(result).toMatchObject({ health: "ready", version: "2.0.0", healthReason: null });
 		expect(healthUpdates).toEqual([{ health: "ready", healthReason: null, id: installation.id }]);
 	}).pipe(
 		Effect.provide(

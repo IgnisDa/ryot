@@ -60,12 +60,12 @@ describe("Email sign-up", () => {
 					makeSession(undefined, { Authorization: `Bearer ${retryToken ?? token}` }),
 					document({
 						libraries: rows(library, {
+							where: eq(column(library, "entitySchemaSlug"), literal("library")),
 							fields: [
 								field("id", column(library, "id")),
 								field("name", column(library, "name")),
 								field("properties", column(library, "properties")),
 							],
-							where: eq(column(library, "entitySchemaSlug"), literal("library")),
 						}),
 					}),
 				);

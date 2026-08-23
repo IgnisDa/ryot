@@ -18,7 +18,7 @@ import { GodModeRepository } from "./repository";
 
 export const checkResetEligibility = (authState: ReturnType<typeof classifyAuthState>) => {
 	if (authState !== "credential" && authState !== "none") {
-		return { code: "password-reset-unsupported", authState } as const;
+		return { authState, code: "password-reset-unsupported" } as const;
 	}
 
 	return null;
@@ -84,7 +84,7 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 
 			if (existing) {
 				return yield* new GodModeRequestFailure({
-					reason: { code: "user-already-exists", email: input.email },
+					reason: { email: input.email, code: "user-already-exists" },
 				});
 			}
 
@@ -118,13 +118,13 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 			const user = yield* repository.findUserDisabledState(userId);
 
 			if (!user) {
-				return yield* new GodModeNotFound({ reason: { code: "user-not-found", userId } });
+				return yield* new GodModeNotFound({ reason: { userId, code: "user-not-found" } });
 			}
 
 			const updatedAt = yield* DateTime.nowAsDate;
 			const disabledAt = disabled ? (user.disabledAt ?? updatedAt) : null;
 
-			yield* updateAuthUserDisabled(userId, { disabledAt, updatedAt });
+			yield* updateAuthUserDisabled(userId, { updatedAt, disabledAt });
 
 			if (disabled) {
 				yield* deleteUserSessions(userId);
@@ -146,7 +146,7 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 				: null;
 
 			if (!userData) {
-				return yield* new GodModeNotFound({ reason: { code: "user-not-found", userId } });
+				return yield* new GodModeNotFound({ reason: { userId, code: "user-not-found" } });
 			}
 
 			const authState = classifyAuthState(userData.accounts);
@@ -157,10 +157,10 @@ export class GodModeService extends Context.Service<GodModeService>()("GodModeSe
 
 			return yield* requestPasswordResetLink(userData.user.email).pipe(
 				Effect.catchTags({
-					BadRequest: () =>
-						new GodModeRequestFailure({ reason: { code: "password-reset-in-progress" } }),
 					InternalError: () =>
 						new GodModeInternalFailure({ reason: { code: "password-reset-failed" } }),
+					BadRequest: () =>
+						new GodModeRequestFailure({ reason: { code: "password-reset-in-progress" } }),
 				}),
 			);
 		});

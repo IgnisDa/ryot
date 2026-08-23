@@ -25,7 +25,7 @@ export const Route = createFileRoute("/_authenticated/settings/preferences")({
 });
 
 const preferencesQuery = createRyotQuery<void, UserPreferences, KernelHostServices>(
-	({ hostServices, signal }) =>
+	({ signal, hostServices }) =>
 		hostServices.runtime.runPromise(
 			Effect.map(
 				Effect.flatMap(UserSettingsApi, (api) => api.get(hostServices.scope)),
@@ -39,7 +39,7 @@ const updatePreferencesMutation = createRyotMutation<
 	UpdateUserPreferencesBody,
 	UserPreferences,
 	KernelHostServices
->(({ client, hostServices, input, signal }) =>
+>(({ input, client, signal, hostServices }) =>
 	hostServices.runtime.runPromise(
 		Effect.flatMap(UserSettingsApi, (api) =>
 			api.updatePreferences(hostServices.scope, { payload: input }),

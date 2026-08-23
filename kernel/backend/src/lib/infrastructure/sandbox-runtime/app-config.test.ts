@@ -11,14 +11,14 @@ const pluginSlug = "test-plugin";
 const pluginConfigSchema = {
 	unknownKeys: "strict",
 	fields: {
+		requestLimit: { type: "integer", label: "Request limit", description: "Maximum requests" },
 		enabled: { type: "boolean", label: "Enabled", description: "Whether the plugin is enabled" },
 		apiToken: {
 			type: "string",
 			label: "API token",
-			description: "Token used by the plugin",
 			validation: { required: true },
+			description: "Token used by the plugin",
 		},
-		requestLimit: { type: "integer", label: "Request limit", description: "Maximum requests" },
 	},
 } satisfies AppSchema;
 
@@ -37,7 +37,7 @@ const runPluginConfig = (
 		getPluginConfig({
 			keys,
 			metadata: { requiredPluginConfigKeys },
-			context: { kind: "environment", pluginSlug, configSchema: pluginConfigSchema },
+			context: { pluginSlug, kind: "environment", configSchema: pluginConfigSchema },
 		}).pipe(Effect.result, Effect.provide(makeConfigProviderLayer(configValues))),
 	);
 };
@@ -51,7 +51,7 @@ const runInstallationConfig = (
 		getPluginConfig({
 			keys,
 			metadata: { requiredPluginConfigKeys },
-			context: { kind: "installation", config, configSchema: pluginConfigSchema },
+			context: { config, kind: "installation", configSchema: pluginConfigSchema },
 		}).pipe(Effect.result, Effect.provide(makeConfigProviderLayer())),
 	);
 
@@ -76,15 +76,15 @@ describe("getPluginConfig", () => {
 	it("reads and parses declared plugin config from the config provider", () => {
 		expect(
 			runPluginConfig(["requestLimit", "enabled", "requestLimit"], {
+				enabled: "true",
 				apiToken: "secret",
 				requestLimit: "12",
-				enabled: "true",
 			}),
-		).toMatchObject({ _tag: "Success", success: { requestLimit: 12, enabled: true } });
+		).toMatchObject({ _tag: "Success", success: { enabled: true, requestLimit: 12 } });
 	});
 
 	it("returns an empty record without loading config", () => {
-		expect(runPluginConfig([], {})).toMatchObject({ _tag: "Success", success: {} });
+		expect(runPluginConfig([], {})).toMatchObject({ success: {}, _tag: "Success" });
 	});
 
 	it("rejects undeclared, unknown, and unconfigured plugin config", () => {
@@ -110,7 +110,7 @@ describe("getPluginConfig for an installation", () => {
 				requestLimit: 12,
 				apiToken: "secret",
 			}),
-		).toMatchObject({ _tag: "Success", success: { requestLimit: 12, enabled: true } });
+		).toMatchObject({ _tag: "Success", success: { enabled: true, requestLimit: 12 } });
 	});
 
 	it("rejects undeclared and unknown installation config keys", () => {
@@ -143,7 +143,7 @@ describe("getSystemConfig", () => {
 	});
 
 	it("returns an empty record without loading system config", () => {
-		expect(runSystemConfig([])).toMatchObject({ _tag: "Success", success: {} });
+		expect(runSystemConfig([])).toMatchObject({ success: {}, _tag: "Success" });
 	});
 
 	it("rejects undeclared and non-plugin-readable system config", () => {

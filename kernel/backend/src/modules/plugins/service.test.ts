@@ -157,6 +157,13 @@ const relationshipDependentManifest = (targetEntitySchemaSlug: string): PluginMa
 		scripts: [{ ...script, slug: "dependent.automation" }],
 		entitySchemas: [{ ...entitySchema, slug: "dependent-entity" }],
 		metadata: { ...fixture.metadata, name: "Dependent", slug: "dependent" },
+		bindings: {
+			eventAutomations: [],
+			entityAutomations: [],
+			signalAutomations: [],
+			relationshipAutomations: [],
+			providerEntityImportAutomations: [],
+		},
 		relationshipSchemas: [
 			{
 				...relationshipSchema,
@@ -165,13 +172,6 @@ const relationshipDependentManifest = (targetEntitySchemaSlug: string): PluginMa
 				sourceEntitySchemaSlug: "dependent-entity",
 			},
 		],
-		bindings: {
-			eventAutomations: [],
-			entityAutomations: [],
-			signalAutomations: [],
-			relationshipAutomations: [],
-			providerEntityImportAutomations: [],
-		},
 	};
 };
 
@@ -205,6 +205,19 @@ const makeLayer = (input?: {
 	const loaderLayer = PluginLoader.layer.pipe(Layer.provide(registryLayer));
 	const repositoryLayer = makeRepository({
 		list: input?.repositoryList ?? (() => Effect.succeed(installed)),
+		hasEntityReferences: () => Effect.succeed(input?.hasEntityReferences ?? false),
+		hasDefinitionReferences: () => Effect.succeed(input?.hasDefinitionReferences ?? false),
+		lockIngestion:
+			input?.lockIngestion ??
+			(() =>
+				Effect.sync(() => {
+					input?.events?.push("lock");
+				})),
+		hasIntegrationReferences: (fence) =>
+			Effect.sync(() => {
+				input?.integrationFences?.push(fence);
+				return input?.hasIntegrationReferences ?? false;
+			}),
 		deactivate:
 			input?.deactivate ??
 			((pluginId) =>
@@ -216,19 +229,6 @@ const makeLayer = (input?: {
 						installed.splice(index, 1);
 					}
 				})),
-		lockIngestion:
-			input?.lockIngestion ??
-			(() =>
-				Effect.sync(() => {
-					input?.events?.push("lock");
-				})),
-		hasEntityReferences: () => Effect.succeed(input?.hasEntityReferences ?? false),
-		hasDefinitionReferences: () => Effect.succeed(input?.hasDefinitionReferences ?? false),
-		hasIntegrationReferences: (fence) =>
-			Effect.sync(() => {
-				input?.integrationFences?.push(fence);
-				return input?.hasIntegrationReferences ?? false;
-			}),
 		findBySourceHash: ({ sourceHash }) =>
 			Effect.sync(() => {
 				if (!input?.cached) {
@@ -275,8 +275,8 @@ const makeLayer = (input?: {
 	});
 	const testDatabaseLayer = input?.databaseLayer ?? databaseLayer;
 	const garbageCollectorLayer = Layer.mock(ScriptGarbageCollector)({
-		collect: input?.collectGarbage ?? (() => Effect.sync(() => undefined)),
 		recordKernelContentHashes: () => Effect.void,
+		collect: input?.collectGarbage ?? (() => Effect.sync(() => undefined)),
 	});
 	const systemPluginsLayer = Layer.succeed(SystemPlugins, {
 		sources: [],
@@ -717,7 +717,7 @@ it.effect("lists active plugins and uninstalls without deleting historical scrip
 		expect(published).toEqual([
 			expect.objectContaining({ channel: redisKeys.pluginRegistryChannel }),
 		]);
-	}).pipe(Effect.provide(makeLayer({ deactivated, published, initialInstalled: [stored] })));
+	}).pipe(Effect.provide(makeLayer({ published, deactivated, initialInstalled: [stored] })));
 });
 
 it.effect("returns a committed uninstall when Redis publication fails", () => {
@@ -895,17 +895,17 @@ it.effect("serializes workflow pin registration with refused and successful unin
 				initialInstalled: [stored],
 				databaseLayer: transactionDatabaseLayer,
 				hasWorkflowReferences: () => hasExistingReference,
+				deactivate: () =>
+					Effect.sync(() => {
+						active = false;
+						events.push("deactivated");
+					}),
 				lockIngestion: () =>
 					Effect.gen(function* () {
 						exclusive = true;
 						events.push("exclusive-acquired");
 						yield* Deferred.succeed(exclusiveAcquired, undefined);
 						yield* Deferred.await(allowInspection);
-					}),
-				deactivate: () =>
-					Effect.sync(() => {
-						active = false;
-						events.push("deactivated");
 					}),
 			});
 
@@ -975,7 +975,7 @@ it.effect("refuses uninstall while entities reference a declared schema", () => 
 
 		expect(failureOf(exit)).toMatchObject({
 			_tag: "PluginConflictError",
-			reason: { code: "entity-referenced", pluginSlug: "fixture" },
+			reason: { pluginSlug: "fixture", code: "entity-referenced" },
 		});
 		expect(deactivated).toEqual([]);
 	}).pipe(
@@ -1023,7 +1023,7 @@ it.effect("refuses uninstall while another active plugin binds to its definition
 
 		expect(failureOf(exit)).toMatchObject({
 			_tag: "PluginConflictError",
-			reason: { code: "definition-referenced", pluginSlug: "fixture" },
+			reason: { pluginSlug: "fixture", code: "definition-referenced" },
 		});
 		expect(deactivated).toEqual([]);
 	}).pipe(Effect.provide(makeLayer({ deactivated, initialInstalled: [owner, dependent] })));
@@ -1076,7 +1076,7 @@ it.effect("refuses uninstall while another plugin relationship targets its entit
 			const error = Option.getOrThrow(Cause.findErrorOption(exit.cause));
 			expect(error).toMatchObject({
 				_tag: "PluginConflictError",
-				reason: { code: "definition-referenced", pluginSlug: "fixture" },
+				reason: { pluginSlug: "fixture", code: "definition-referenced" },
 			});
 		}
 		expect(loader.getSnapshot()).toBe(snapshot);
@@ -1084,7 +1084,7 @@ it.effect("refuses uninstall while another plugin relationship targets its entit
 		expect(deactivated).toEqual([]);
 		expect(published).toEqual([]);
 	}).pipe(
-		Effect.provide(makeLayer({ deactivated, published, initialInstalled: [owner, dependent] })),
+		Effect.provide(makeLayer({ published, deactivated, initialInstalled: [owner, dependent] })),
 	);
 });
 
@@ -1097,7 +1097,7 @@ it.effect("refuses uninstall for a boot-configured plugin", () => {
 
 		expect(failureOf(exit)).toMatchObject({
 			_tag: "PluginConflictError",
-			reason: { code: "boot-configured", pluginSlug: "example" },
+			reason: { pluginSlug: "example", code: "boot-configured" },
 		});
 	}).pipe(
 		Effect.provide(
@@ -1126,7 +1126,7 @@ it.effect("keeps a no-client plugin on the source-hash cache path", () => {
 		expect(published).toEqual([
 			expect.objectContaining({ channel: redisKeys.pluginRegistryChannel }),
 		]);
-	}).pipe(Effect.provide(makeLayer({ cached: true, events, persisted, published })));
+	}).pipe(Effect.provide(makeLayer({ events, persisted, published, cached: true })));
 });
 
 it.effect("validates the full authoritative active set before exposing a cached plugin", () => {
@@ -1187,7 +1187,7 @@ it.effect("returns structured validation and compiler diagnostics", () => {
 		packageRoot: string;
 		reasonCode: "validation-failed" | "compilation-failed";
 	}> = [
-		{ manifest: {}, packageRoot: fixturePackageRoot(), reasonCode: "validation-failed" },
+		{ manifest: {}, reasonCode: "validation-failed", packageRoot: fixturePackageRoot() },
 		{
 			reasonCode: "validation-failed",
 			packageRoot: fixturePackageRoot(),
@@ -1256,8 +1256,8 @@ it.effect("returns structured validation and compiler diagnostics", () => {
 const clientManifest = (): PluginManifest => ({
 	...fixtureManifest(),
 	client: {
-		apiVersion: CLIENT_API_VERSION,
 		homeView: null,
+		apiVersion: CLIENT_API_VERSION,
 		exports: {
 			summary: { kind: "component", entry: "client/index.ts", automaticEntityPresentations: false },
 		},
@@ -1297,8 +1297,8 @@ it.effect("skips client validation for a matching source hash", () => {
 	}).pipe(
 		Effect.provide(
 			makeLayer({
-				cached: true,
 				persisted,
+				cached: true,
 				cachedManifest: clientManifest(),
 				clientCompile: (request) =>
 					Effect.sync(() => {
@@ -1327,7 +1327,7 @@ it.effect(
 					files: source.files,
 					pluginDependencies: [],
 					name: clientManifest().metadata.name,
-					publicExports: { summary: { entry: "client/index.ts", kind: "component" } },
+					publicExports: { summary: { kind: "component", entry: "client/index.ts" } },
 				},
 			]);
 			expect(persisted).toEqual([
@@ -1399,10 +1399,10 @@ it.effect("rejects non-canonical and missing plugin source paths as bad requests
 	const cases = [
 		{ path: "", scriptEntry: entry },
 		{ path: "/script.ts", scriptEntry: entry },
-		{ path: "scripts\\script.ts", scriptEntry: entry },
-		{ path: "scripts//script.ts", scriptEntry: entry },
-		{ path: "scripts/./script.ts", scriptEntry: entry },
-		{ path: "scripts/../script.ts", scriptEntry: entry },
+		{ scriptEntry: entry, path: "scripts\\script.ts" },
+		{ scriptEntry: entry, path: "scripts//script.ts" },
+		{ scriptEntry: entry, path: "scripts/./script.ts" },
+		{ scriptEntry: entry, path: "scripts/../script.ts" },
 		{ path: entry, scriptEntry: "scripts/missing.ts" },
 	] as const;
 
@@ -1414,9 +1414,9 @@ it.effect("rejects non-canonical and missing plugin source paths as bad requests
 			assert(script);
 			const exit = yield* Effect.exit(
 				ingestion.ingestSystemPlugin({
+					manifest: { ...manifest, scripts: [{ ...script, entry: scriptEntry }] },
 					files:
 						path === entry ? {} : { ...source.files, [path]: new TextEncoder().encode("source") },
-					manifest: { ...manifest, scripts: [{ ...script, entry: scriptEntry }] },
 				}),
 			);
 			expect(failureOf(exit)).toMatchObject({

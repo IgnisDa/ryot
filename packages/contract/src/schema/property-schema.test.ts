@@ -48,18 +48,18 @@ describe("AppSchema presentation metadata", () => {
 	it("accepts visibility rules", () => {
 		expect(
 			decodeSchema({
-				fields: {
-					secret: { type: "string", label: "Secret", description: "An advanced secret" },
-					advanced: { type: "boolean", label: "Advanced", description: "Show advanced fields" },
-				},
 				rules: [
 					{
 						path: ["secret"],
 						kind: "visibility",
 						visibility: { hidden: true },
-						when: { operator: "neq", path: ["advanced"], value: true },
+						when: { value: true, operator: "neq", path: ["advanced"] },
 					},
 				],
+				fields: {
+					secret: { type: "string", label: "Secret", description: "An advanced secret" },
+					advanced: { type: "boolean", label: "Advanced", description: "Show advanced fields" },
+				},
 			}),
 		).toMatchObject({ rules: [{ kind: "visibility", visibility: { hidden: true } }] });
 	});
@@ -67,10 +67,10 @@ describe("AppSchema presentation metadata", () => {
 	it("orders positioned fields stably and leaves position optional", () => {
 		const schema = decodeSchema({
 			fields: {
-				last: { type: "string", label: "Last", description: "Last" },
+				last: { label: "Last", type: "string", description: "Last" },
 				alsoLast: { type: "string", label: "Also last", description: "Also last" },
-				first: { type: "string", label: "First", position: 1, description: "First" },
-				second: { type: "string", label: "Second", position: 2, description: "Second" },
+				first: { position: 1, type: "string", label: "First", description: "First" },
+				second: { position: 2, type: "string", label: "Second", description: "Second" },
 				secondTie: { position: 2, type: "string", label: "Second tie", description: "Second tie" },
 			},
 		});
@@ -90,7 +90,7 @@ describe("AppSchema presentation metadata", () => {
 		(position) => {
 			expect(() =>
 				decodeSchema({
-					fields: { value: { type: "string", label: "Value", position, description: "Value" } },
+					fields: { value: { position, type: "string", label: "Value", description: "Value" } },
 				}),
 			).toThrow();
 		},
@@ -103,7 +103,7 @@ describe("AppSchema presentation metadata", () => {
 	])("accepts the $kind string format", (format) => {
 		expect(
 			decodeSchema({
-				fields: { value: { type: "string", label: "Value", format, description: "A value" } },
+				fields: { value: { format, type: "string", label: "Value", description: "A value" } },
 			}),
 		).toMatchObject({ fields: { value: { format } } });
 	});
@@ -126,7 +126,7 @@ describe("AppSchema presentation metadata", () => {
 		},
 	);
 
-	it.each([{ kind: "entity" }, { kind: "entity-id", required: false }])(
+	it.each([{ kind: "entity" }, { required: false, kind: "entity-id" }])(
 		"rejects invalid reference metadata %#",
 		(reference) => {
 			expect(() =>
@@ -225,29 +225,29 @@ describe("AppSchema rule semantics", () => {
 	});
 
 	it.each([
-		["all", { operator: "all", conditions: [{ operator: "exists", path: ["present"] }] }, true],
+		["all", { operator: "all", conditions: [{ path: ["present"], operator: "exists" }] }, true],
 		[
 			"any",
 			{
 				operator: "any",
 				conditions: [
 					{ operator: "eq", path: ["status"], value: "inactive" },
-					{ operator: "not_exists", path: ["missing"] },
+					{ path: ["missing"], operator: "not_exists" },
 				],
 			},
 			true,
 		],
-		["exists", { operator: "exists", path: ["present"] }, true],
-		["not_exists", { operator: "not_exists", path: ["undefined"] }, true],
+		["exists", { path: ["present"], operator: "exists" }, true],
+		["not_exists", { path: ["undefined"], operator: "not_exists" }, true],
 		["exists against null", { operator: "exists", path: ["explicitNull"] }, false],
 		["not_exists against null", { operator: "not_exists", path: ["explicitNull"] }, true],
-		["eq against null", { operator: "eq", path: ["explicitNull"], value: null }, true],
-		["neq against null", { operator: "neq", path: ["explicitNull"], value: null }, false],
-		["in against null", { operator: "in", path: ["explicitNull"], value: [null, 1] }, true],
-		["eq", { operator: "eq", path: ["notANumber"], value: Number.NaN }, true],
-		["neq", { operator: "neq", path: ["negativeZero"], value: 0 }, true],
+		["eq against null", { value: null, operator: "eq", path: ["explicitNull"] }, true],
+		["neq against null", { value: null, operator: "neq", path: ["explicitNull"] }, false],
+		["in against null", { operator: "in", value: [null, 1], path: ["explicitNull"] }, true],
+		["eq", { operator: "eq", value: Number.NaN, path: ["notANumber"] }, true],
+		["neq", { value: 0, operator: "neq", path: ["negativeZero"] }, true],
 		["in", { operator: "in", path: ["notANumber"], value: [Number.NaN, 1] }, true],
-		["not_in", { operator: "not_in", path: ["negativeZero"], value: [0, 1] }, true],
+		["not_in", { value: [0, 1], operator: "not_in", path: ["negativeZero"] }, true],
 	] as const)("evaluates %s conditions", (_operator, condition, expected) => {
 		expect(
 			evaluateAppSchemaRuleCondition(condition, {
@@ -269,13 +269,13 @@ describe("AppSchema rule semantics", () => {
 					kind: "visibility",
 					path: ["settings", "secret"],
 					visibility: { hidden: true },
-					when: { operator: "eq", path: ["enabled"], value: false },
+					when: { value: false, operator: "eq", path: ["enabled"] },
 				},
 				{
 					kind: "visibility",
 					path: ["settings", "secret"],
 					visibility: { hidden: true },
-					when: { operator: "eq", path: ["enabled"], value: true },
+					when: { value: true, operator: "eq", path: ["enabled"] },
 				},
 			],
 		} satisfies AppSchema;
@@ -292,7 +292,7 @@ describe("AppSchema rule semantics", () => {
 					kind: "visibility",
 					path: ["settings"],
 					visibility: { hidden: true },
-					when: { operator: "eq", path: ["enabled"], value: true },
+					when: { value: true, operator: "eq", path: ["enabled"] },
 				},
 			],
 		} satisfies AppSchema;
@@ -312,19 +312,19 @@ describe("AppSchema rule semantics", () => {
 					kind: "visibility",
 					visibility: { hidden: true },
 					path: ["settings", "required"],
-					when: { operator: "exists", path: ["enabled"] },
+					when: { path: ["enabled"], operator: "exists" },
 				},
 				{
 					kind: "visibility",
 					path: ["settings", "secret"],
 					visibility: { hidden: true },
-					when: { operator: "exists", path: ["enabled"] },
+					when: { path: ["enabled"], operator: "exists" },
 				},
 				{
 					kind: "validation",
 					path: ["settings", "secret"],
 					validation: { required: true },
-					when: { operator: "exists", path: ["enabled"] },
+					when: { path: ["enabled"], operator: "exists" },
 				},
 			],
 		} satisfies AppSchema;
@@ -346,7 +346,7 @@ describe("AppSchema rule semantics", () => {
 					kind: "validation",
 					path: ["settings", "secret"],
 					validation: { required: true },
-					when: { operator: "eq", path: ["enabled"], value: true },
+					when: { value: true, operator: "eq", path: ["enabled"] },
 				},
 			],
 		} satisfies AppSchema;
@@ -390,17 +390,17 @@ describe("AppSchema enum choices", () => {
 	});
 
 	it.each([
-		{ name: "empty choice values", field: enumField({ kind: "static", values: [] }) },
+		{ name: "empty choice values", field: enumField({ values: [], kind: "static" }) },
 		{ name: "blank choice value", field: enumField({ kind: "static", values: [{ value: "  " }] }) },
 		{
 			name: "blank choice label",
-			field: enumField({ kind: "static", values: [{ value: "active", label: " " }] }),
+			field: enumField({ kind: "static", values: [{ label: " ", value: "active" }] }),
 		},
 		{
 			name: "duplicate choice values",
 			field: enumField({ kind: "static", values: [{ value: "active" }, { value: "active" }] }),
 		},
-		{ name: "blank dynamic source", field: enumField({ kind: "dynamic", source: " " }) },
+		{ name: "blank dynamic source", field: enumField({ source: " ", kind: "dynamic" }) },
 		{
 			name: "static default outside choices",
 			field: enumField({ kind: "static", values: [{ value: "active" }] }, "inactive"),
@@ -426,8 +426,8 @@ describe("AppSchema enum choices", () => {
 			decodeSchema({
 				fields: {
 					status: {
-						label: "Status",
 						type: "enum",
+						label: "Status",
 						options: ["active"],
 						description: "Status value",
 					},

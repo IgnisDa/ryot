@@ -39,6 +39,9 @@ const normalizedPlugin = (
 		signalSchemas: [],
 		relationshipSchemas: [],
 		metadata: { ...manifest.metadata, slug: pluginSlug },
+		crons: [
+			{ schedule, scriptSlug, slug: `${pluginSlug}-cron`, description: `${pluginSlug} cron` },
+		],
 		bindings: {
 			eventAutomations: [],
 			entityAutomations: [],
@@ -46,9 +49,6 @@ const normalizedPlugin = (
 			relationshipAutomations: [],
 			providerEntityImportAutomations: [],
 		},
-		crons: [
-			{ schedule, scriptSlug, slug: `${pluginSlug}-cron`, description: `${pluginSlug} cron` },
-		],
 	} satisfies PluginManifest;
 	const { entry, ...metadata } = script;
 	return {
@@ -136,10 +136,10 @@ const makeLayer = (
 									providerId: null,
 									compiledFormat: 1,
 									pluginId: pluginSlug,
-									compiledCode: "compiled",
-									contentHash: `${slug}-hash`,
 									createdAt: new Date(0),
 									updatedAt: new Date(0),
+									compiledCode: "compiled",
+									contentHash: `${slug}-hash`,
 									id: SandboxScriptId.make(`${slug}-id`),
 									metadata: {
 										kind,
@@ -398,8 +398,8 @@ it("builds stable execution ids", () => {
 const privateCronSchedule = (installationId: string, userId: string) => ({
 	installationId,
 	pluginSlug: "private",
-	pluginId: "private-plugin-id",
 	userId: UserId.make(userId),
+	pluginId: "private-plugin-id",
 	cron: {
 		slug: "private-cron",
 		description: "Private cron",

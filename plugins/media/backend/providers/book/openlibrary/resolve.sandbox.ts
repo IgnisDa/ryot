@@ -12,4 +12,4 @@ export const manifest = defineManifest({
 	slug: "book.openlibrary.resolve",
 });
 
-export default defineProvider({ manifest, operation: "resolve", run: resolve.run });
+export default defineProvider({ manifest, run: resolve.run, operation: "resolve" });

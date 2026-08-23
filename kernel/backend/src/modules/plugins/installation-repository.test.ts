@@ -67,16 +67,16 @@ it.effect("preserves destination system config while restoring private config", 
 		Effect.gen(function* () {
 			const repository = yield* PluginInstallationRepository;
 			yield* repository.restore({
-				preserveExistingConfig,
-				id: "installation-id",
-				pluginId: "plugin-id",
-				userId: UserId.make("user-id"),
-				health: "installing",
-				isDisabled: true,
 				sortOrder: 0,
-				config: { token: "archived" },
+				isDisabled: true,
+				health: "installing",
 				createdAt: timestamp,
 				updatedAt: timestamp,
+				id: "installation-id",
+				pluginId: "plugin-id",
+				preserveExistingConfig,
+				config: { token: "archived" },
+				userId: UserId.make("user-id"),
 			});
 		}).pipe(
 			Effect.provide(

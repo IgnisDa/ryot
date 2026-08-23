@@ -99,10 +99,10 @@ export default defineScript({
 					return failureResult("Browser extension payload is missing show episode coordinates");
 				}
 				return progressResult({
-					entityRef: resolvedMediaRef(lot, "tmdb", id, id),
 					occurredAt,
 					progressPercent: progress,
 					consumedOn: hostname(url),
+					entityRef: resolvedMediaRef(lot, "tmdb", id, id),
 					...(locator ? { unresolvedEpisode: locator } : {}),
 				});
 			}).pipe(

@@ -46,7 +46,7 @@ export const Route = createFileRoute("/_authenticated/settings/import-data/$runI
 	pendingComponent: ImportRunPending,
 	errorComponent: ImportRunLoaderError,
 	notFoundComponent: ImportRunNotFound,
-	loader: async ({ abortController, context, params }) => {
+	loader: async ({ params, context, abortController }) => {
 		const runId = params.runId.trim();
 		if (runId.length === 0) {
 			// oxlint-disable-next-line typescript/only-throw-error
@@ -218,8 +218,8 @@ function ImportRunRoute() {
 								label="Import actions"
 								triggerRef={menuTrigger}
 								activeIndex={activeIndex}
-								onActiveIndexChange={setActiveIndex}
 								onClose={() => setMenuOpen(false)}
+								onActiveIndexChange={setActiveIndex}
 							/>
 						)}
 					</>
@@ -236,13 +236,13 @@ function ImportRunRoute() {
 					title="Delete this import record?"
 					onConfirm={() => void confirmDelete()}
 					detail={importRunDeleteConfirmation(run)}
-					errorMessage={
-						deletion.status === "error" ? "This record could not be deleted. Try again." : undefined
-					}
 					onClose={() => {
 						deletion.reset();
 						setIsConfirming(false);
 					}}
+					errorMessage={
+						deletion.status === "error" ? "This record could not be deleted. Try again." : undefined
+					}
 				/>
 			)}
 		</ImportRunFrame>

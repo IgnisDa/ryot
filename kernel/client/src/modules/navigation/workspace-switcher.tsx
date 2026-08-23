@@ -81,7 +81,7 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 
 	return (
 		<OverlayScope enabled={props.open} onEscape={() => close(true)}>
-			<WorkspaceShortcut enabled={props.showShortcut === true} onOpen={open} />
+			<WorkspaceShortcut onOpen={open} enabled={props.showShortcut === true} />
 			<div ref={container} className="relative">
 				<button
 					type="button"
@@ -91,23 +91,23 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 					aria-expanded={props.open}
 					disabled={workspaces.length === 0}
 					onClick={() => (props.open ? close(true) : open())}
-					className="flex w-full items-center gap-2.5 rounded-lg border border-border bg-surface px-2.5 py-2 text-left shadow-sm"
 					aria-keyshortcuts={
 						props.showShortcut === true ? KERNEL_SHORTCUTS.workspaceSwitcher : undefined
 					}
-					aria-label={
-						props.current === null
-							? "No workspace, Plugin workspace"
-							: `${props.current.name} workspace, ${props.current.slug}`
-					}
+					className="flex w-full items-center gap-2.5 rounded-lg border border-border bg-surface px-2.5 py-2 text-left shadow-sm"
 					onPointerDown={(event) => {
 						if (props.open && event.button === 0) {
 							event.preventDefault();
 						}
 					}}
+					aria-label={
+						props.current === null
+							? "No workspace, Plugin workspace"
+							: `${props.current.name} workspace, ${props.current.slug}`
+					}
 				>
 					<span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent-text">
-						<AppIcon name={props.current?.icon ?? "puzzle"} size={17} />
+						<AppIcon size={17} name={props.current?.icon ?? "puzzle"} />
 					</span>
 					<span className="min-w-0 flex-1">
 						<span className="block truncate text-sm font-medium text-text">
@@ -123,7 +123,7 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 							{WORKSPACE_SHORTCUT_LABEL}
 						</span>
 					)}
-					<AppIcon name="chevron-down" size={15} className="shrink-0 text-text-subtle" />
+					<AppIcon size={15} name="chevron-down" className="shrink-0 text-text-subtle" />
 				</button>
 
 				{props.open && (
@@ -167,8 +167,8 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 									aria-checked={isCurrent}
 									key={workspace.installationId}
 									onClick={() => select(workspace)}
-									tabIndex={index === activeIndex ? 0 : -1}
 									onFocus={() => setActiveIndex(index)}
+									tabIndex={index === activeIndex ? 0 : -1}
 									aria-label={`Switch to ${workspace.name} workspace`}
 									ref={(item) => {
 										items.current[index] = item;
@@ -184,7 +184,7 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 											isCurrent ? "bg-accent text-accent-ink" : "bg-surface-2 text-text",
 										)}
 									>
-										<AppIcon name={workspace.icon} size={17} />
+										<AppIcon size={17} name={workspace.icon} />
 									</span>
 									<span className="min-w-0 flex-1">
 										<span className="block truncate text-sm text-text">{workspace.name}</span>
@@ -208,14 +208,14 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 									role="menuitem"
 									onClick={customize}
 									aria-label="Customize sidebar"
-									tabIndex={activeIndex === workspaces.length ? 0 : -1}
 									onFocus={() => setActiveIndex(workspaces.length)}
-									className="flex w-full items-center gap-2.5 rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-left hover:bg-surface"
+									tabIndex={activeIndex === workspaces.length ? 0 : -1}
 									ref={(item) => {
 										items.current[workspaces.length] = item;
 									}}
+									className="flex w-full items-center gap-2.5 rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-left hover:bg-surface"
 								>
-									<AppIcon name="sliders-horizontal" size={16} className="text-text-muted" />
+									<AppIcon size={16} name="sliders-horizontal" className="text-text-muted" />
 									<span className="text-sm font-medium text-text">Customize sidebar…</span>
 								</button>
 							</>

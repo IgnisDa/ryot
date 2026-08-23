@@ -258,6 +258,20 @@ query GetHardcoverBookDetails($id: Int!) {
 
 			return {
 				name: title,
+				properties: {
+					sourceUrl,
+					unlinkedCreators: [],
+					publishYear: releaseYear,
+					genres: collectGenres(bookData["cached_tags"]),
+					publishDate: stringValue(bookData["release_date"]),
+					pages: pages === null ? null : Math.max(0, Math.trunc(pages)),
+					description: typeof bookData["description"] === "string" ? bookData["description"] : null,
+					images: collectImages(bookData["image"], bookData["images"]).map((url) => ({
+						url,
+						type: "remote" as const,
+						purpose: "cover" as const,
+					})),
+				},
 				relatedEntityGroups: [
 					{
 						direction: "incoming" as const,
@@ -284,20 +298,6 @@ query GetHardcoverBookDetails($id: Int!) {
 						),
 					},
 				],
-				properties: {
-					pages: pages === null ? null : Math.max(0, Math.trunc(pages)),
-					sourceUrl,
-					unlinkedCreators: [],
-					publishYear: releaseYear,
-					genres: collectGenres(bookData["cached_tags"]),
-					publishDate: stringValue(bookData["release_date"]),
-					description: typeof bookData["description"] === "string" ? bookData["description"] : null,
-					images: collectImages(bookData["image"], bookData["images"]).map((url) => ({
-						url,
-						type: "remote" as const,
-						purpose: "cover" as const,
-					})),
-				},
 			};
 		});
 	},

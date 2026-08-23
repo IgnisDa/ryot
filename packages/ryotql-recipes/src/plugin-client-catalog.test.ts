@@ -19,7 +19,7 @@ const entry = {
 };
 
 const response = {
-	data: { installations: rowsResult([entry], { hasMore: false, limit: 100, nextCursor: null }) },
+	data: { installations: rowsResult([entry], { limit: 100, hasMore: false, nextCursor: null }) },
 };
 
 describe("plugin client catalog recipe", () => {
@@ -29,7 +29,7 @@ describe("plugin client catalog recipe", () => {
 		);
 
 		expect(query).toMatchObject({
-			output: { pagination: { after: "cursor", limit: 100 } },
+			output: { pagination: { limit: 100, after: "cursor" } },
 			from: { alias: "installation", table: "pluginInstallation" },
 			joins: [{ type: "inner", table: { alias: "plugin", table: "plugin" } }],
 			where: {
@@ -38,7 +38,7 @@ describe("plugin client catalog recipe", () => {
 					{ type: "comparison", right: { type: "literal", value: "active" } },
 					{
 						type: "isNotNull",
-						expr: { type: "column", field: "clientApiVersion", tableAlias: "plugin" },
+						expr: { type: "column", tableAlias: "plugin", field: "clientApiVersion" },
 					},
 				],
 			},
@@ -46,10 +46,10 @@ describe("plugin client catalog recipe", () => {
 		expect(query.output.orderBy).toEqual([
 			{
 				direction: "asc",
-				expr: { field: "sortOrder", tableAlias: "installation", type: "column" },
+				expr: { type: "column", field: "sortOrder", tableAlias: "installation" },
 			},
-			{ direction: "asc", expr: { field: "slug", tableAlias: "plugin", type: "column" } },
-			{ direction: "asc", expr: { field: "id", tableAlias: "installation", type: "column" } },
+			{ direction: "asc", expr: { field: "slug", type: "column", tableAlias: "plugin" } },
+			{ direction: "asc", expr: { field: "id", type: "column", tableAlias: "installation" } },
 		]);
 	});
 
