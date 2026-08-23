@@ -17,6 +17,8 @@ BEGIN
 	DROP TABLE IF EXISTS "metadata_to_metadata_group" CASCADE;
 	DROP TABLE IF EXISTS "metadata_group_to_person" CASCADE;
 	DROP TABLE IF EXISTS "metadata_to_person" CASCADE;
+	DROP TABLE IF EXISTS "metadata_to_genre" CASCADE;
+	DROP TABLE IF EXISTS "genre" CASCADE;
 	DROP TABLE IF EXISTS "metadata" CASCADE;
 	DROP TABLE IF EXISTS "metadata_group" CASCADE;
 	DROP TABLE IF EXISTS "person" CASCADE;
@@ -34,6 +36,12 @@ BEGIN
 	DROP TABLE IF EXISTS "old_notification_platform" CASCADE;
 	DROP TABLE IF EXISTS "old_entity_translation" CASCADE;
 	DROP TABLE IF EXISTS "application_cache" CASCADE;
+	DROP TABLE IF EXISTS "access_link" CASCADE;
+	DROP TABLE IF EXISTS "calendar_event" CASCADE;
+	DROP TABLE IF EXISTS "daily_user_activity" CASCADE;
+	DROP TABLE IF EXISTS "filter_preset" CASCADE;
+	DROP TABLE IF EXISTS "import_report" CASCADE;
+	DROP FUNCTION IF EXISTS "array_to_string_immutable"(text[], text);
 	${buildReportSql("drop legacy tables", [{ message: "legacy tables dropped" }])}
 END $$;
 `;
