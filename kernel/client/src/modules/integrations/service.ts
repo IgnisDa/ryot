@@ -1,24 +1,43 @@
 import { createRyotMutation, createRyotQuery } from "@ryot-app/client-sdk/react";
 import type { ContractSuccess } from "@ryot-app/contract/client";
+import { integrationWebhookUrl } from "@ryot-app/contract/modules/integrations/schemas";
 import type {
 	CreateIntegrationBody,
-	ListedIntegration,
-	ListedIntegrationProvider,
 	UpdateIntegrationBody,
 } from "@ryot-app/contract/modules/integrations/schemas";
 import { IntegrationId } from "@ryot-app/contract/schema/brands";
 import { integrationImportRunsRecipe } from "@ryot-app/ryotql-recipes/import-runs";
 import type { ImportRunList } from "@ryot-app/ryotql-recipes/import-runs";
-import { integrationsRecipe, type IntegrationList } from "@ryot-app/ryotql-recipes/integrations";
-import { Context, Data, Effect, Layer } from "effect";
+import {
+	integrationProvidersRecipe,
+	type IntegrationProvidersPage,
+} from "@ryot-app/ryotql-recipes/integration-providers";
+import {
+	integrationRecipe,
+	integrationsRecipe,
+	type IntegrationDetail,
+	type IntegrationList,
+} from "@ryot-app/ryotql-recipes/integrations";
+import { Context, Data, Effect, Layer, Option } from "effect";
 
 import { IntegrationsApi } from "#/api/integrations";
+import { PublicApi } from "#/api/public";
 import type { KernelRyotClient } from "#/api/ryot-client";
 import type { ApiScope } from "#/api/scope";
 import type { KernelHostServices } from "#/host-services";
 
 export const INTEGRATIONS_PAGE_SIZE = 20;
 export const INTEGRATION_RUNS_PAGE_SIZE = 10;
+
+export type IntegrationProviderItem = Omit<
+	IntegrationProvidersPage["items"][number],
+	"id" | "hasScript"
+> & { readonly isCreatable: boolean };
+
+export type IntegrationClientDetail = Omit<
+	IntegrationDetail extends Option.Option<infer Row> ? Row : never,
+	"webhookToken"
+> & { readonly webhookUrl?: string };
 
 type IntegrationsClient = Pick<KernelRyotClient, "data">;
 
@@ -58,7 +77,60 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				});
 			});
 
-			return { loadRuns, loadIntegrations };
+			const loadProviders = Effect.fn("IntegrationsService.loadProviders")(function* (
+				client: IntegrationsClient,
+				serverUrl: ApiScope["serverUrl"],
+			) {
+				const api = yield* PublicApi;
+				const config = yield* api.getSystemConfig(serverUrl).pipe(Effect.orElseSucceed(() => null));
+				const providers: IntegrationProviderItem[] = [];
+				let after: string | undefined | null;
+				do {
+					const page = yield* Effect.tryPromise({
+						catch: (cause) => new IntegrationsLoadError({ cause, stage: "list" }),
+						try: (signal) =>
+							client.data.query(
+								integrationProvidersRecipe({ limit: 100, after: after ?? undefined }),
+								{ signal },
+							),
+					});
+					providers.push(
+						...page.items.map(({ id: _id, hasScript, ...provider }) => ({
+							...provider,
+							isCreatable:
+								hasScript &&
+								(!provider.requiresProKey || config?.pro.isServerKeyValidated === true),
+						})),
+					);
+					after = page.pageInfo.nextCursor;
+				} while (after !== null);
+				return providers;
+			});
+			const loadIntegration = Effect.fn("IntegrationsService.loadIntegration")(function* (
+				client: IntegrationsClient,
+				serverUrl: ApiScope["serverUrl"],
+				id: string,
+			) {
+				const result = yield* Effect.tryPromise({
+					catch: (cause) => new IntegrationsLoadError({ cause, stage: "list" }),
+					try: (signal) => client.data.query(integrationRecipe({ id }), { signal }),
+				});
+				if (Option.isNone(result)) {
+					return Option.none();
+				}
+				const { webhookToken, ...integration } = result.value;
+				if (webhookToken === null) {
+					return Option.some(integration);
+				}
+				const api = yield* PublicApi;
+				const config = yield* api.getSystemConfig(serverUrl);
+				return Option.some({
+					...integration,
+					webhookUrl: integrationWebhookUrl(config.frontendOrigin, webhookToken),
+				});
+			});
+
+			return { loadRuns, loadProviders, loadIntegration, loadIntegrations };
 		}),
 	},
 ) {
@@ -81,14 +153,13 @@ const loadRuns = Effect.fnUntraced(function* (
 	return yield* service.loadRuns(client, input);
 });
 
-const listIntegrationProviders = Effect.fnUntraced(function* (scope: ApiScope) {
-	const api = yield* IntegrationsApi;
-	return yield* api.listProviders(scope);
-});
-
-const getIntegration = Effect.fnUntraced(function* (scope: ApiScope, integrationId: string) {
-	const api = yield* IntegrationsApi;
-	return yield* api.get(scope, { params: { integrationId: IntegrationId.make(integrationId) } });
+export const getIntegration = Effect.fnUntraced(function* (
+	client: IntegrationsClient,
+	serverUrl: ApiScope["serverUrl"],
+	integrationId: string,
+) {
+	const service = yield* IntegrationsService;
+	return yield* service.loadIntegration(client, serverUrl, integrationId);
 });
 
 const syncIntegrations = Effect.fnUntraced(function* (scope: ApiScope) {
@@ -136,19 +207,28 @@ export const integrationRunsQuery = createRyotQuery<string, ImportRunList, Kerne
 
 export const integrationProvidersQuery = createRyotQuery<
 	void,
-	readonly ListedIntegrationProvider[],
+	readonly IntegrationProviderItem[],
 	KernelHostServices
->(({ signal, hostServices }) =>
-	hostServices.runtime.runPromise(listIntegrationProviders(hostServices.scope), { signal }),
+>(({ client, signal, hostServices }) =>
+	hostServices.runtime.runPromise(
+		Effect.flatMap(IntegrationsService, (service) =>
+			service.loadProviders(client, hostServices.scope.serverUrl),
+		),
+		{ signal },
+	),
 );
 
 export const integrationDetailQuery = createRyotQuery<
 	string,
-	ListedIntegration,
+	IntegrationClientDetail | undefined,
 	KernelHostServices
->(({ input, signal, hostServices }) =>
-	hostServices.runtime.runPromise(getIntegration(hostServices.scope, input), { signal }),
-);
+>(async ({ input, client, signal, hostServices }) => {
+	const result = await hostServices.runtime.runPromise(
+		getIntegration(client, hostServices.scope.serverUrl, input),
+		{ signal },
+	);
+	return Option.getOrUndefined(result);
+});
 
 export const syncIntegrationsMutation = createRyotMutation<
 	void,
@@ -164,7 +244,7 @@ export const syncIntegrationsMutation = createRyotMutation<
 
 export const createIntegrationMutation = createRyotMutation<
 	CreateIntegrationBody,
-	ListedIntegration,
+	ContractSuccess<"integrations", "create">,
 	KernelHostServices
 >(async ({ input, client, signal, hostServices }) => {
 	const result = await hostServices.runtime.runPromise(
@@ -177,7 +257,7 @@ export const createIntegrationMutation = createRyotMutation<
 
 export const updateIntegrationMutation = createRyotMutation<
 	{ readonly id: string; readonly payload: UpdateIntegrationBody },
-	ListedIntegration,
+	ContractSuccess<"integrations", "update">,
 	KernelHostServices
 >(async ({ input, client, signal, hostServices }) => {
 	const result = await hostServices.runtime.runPromise(

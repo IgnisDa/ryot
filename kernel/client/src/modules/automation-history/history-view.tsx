@@ -1,6 +1,6 @@
 import { Button, StatusMessage } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
-import type { AutomationHistoryRun } from "@ryot-app/contract/modules/automations/history-schemas";
+import type { AutomationHistoryRunsPage } from "@ryot-app/ryotql-recipes/automation-history";
 import { Link } from "@tanstack/react-router";
 import clsx from "clsx";
 
@@ -8,6 +8,8 @@ import { AutomationStatusGlyph, AutomationStatusPill } from "#/modules/automatio
 import { LoadErrorState } from "#/modules/ui/load-error-state";
 import { formatRelativeTime } from "#/modules/ui/run/run-status";
 import { StatusState } from "#/modules/ui/status-state";
+
+type AutomationHistoryRun = AutomationHistoryRunsPage["items"][number];
 
 export type AutomationHistoryListState =
 	| { readonly status: "loading" }

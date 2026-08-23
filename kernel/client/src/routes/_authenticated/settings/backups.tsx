@@ -1,14 +1,17 @@
 import {
 	createRyotMutation,
 	createRyotQuery,
+	useRyot,
 	useRyotMutation,
 	useRyotQuery,
 } from "@ryot-app/client-sdk/react";
-import type {
-	BackupRun,
-	BackupRunIdResponse,
-	ListRunsResponse,
-} from "@ryot-app/contract/modules/backups/schemas";
+import { Button } from "@ryot-app/client-ui-sdk";
+import type { BackupRunIdResponse } from "@ryot-app/contract/modules/backups/schemas";
+import {
+	backupRunsRecipe,
+	type BackupRunItem,
+	type BackupRunsPage,
+} from "@ryot-app/ryotql-recipes/backups";
 import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";
@@ -42,15 +45,10 @@ const DELETE_FAILURE_DETAIL = "This record could not be deleted. Try again.";
 
 const DOWNLOAD_FAILURE_DETAIL = "Could not download this backup. Try again.";
 
-const listState = (response: ListRunsResponse): BackupRunListState =>
-	response.items.length === 0 ? { status: "empty" } : { status: "ready", runs: response.items };
+const PAGE_SIZE = 50;
 
-const backupRunsQuery = createRyotQuery<void, ListRunsResponse, KernelHostServices>(
-	({ signal, hostServices }) =>
-		hostServices.runtime.runPromise(
-			Effect.flatMap(BackupsApi, (api) => api.listRuns(hostServices.scope)),
-			{ signal },
-		),
+const backupRunsQuery = createRyotQuery<void, BackupRunsPage, KernelHostServices>(
+	({ client, signal }) => client.data.query(backupRunsRecipe({ limit: PAGE_SIZE }), { signal }),
 	{ cancelOnUnmount: true },
 );
 
@@ -65,18 +63,20 @@ const createBackupMutation = createRyotMutation<void, BackupRunIdResponse, Kerne
 	},
 );
 
-const deleteBackupMutation = createRyotMutation<BackupRun, BackupRunIdResponse, KernelHostServices>(
-	async ({ input, client, signal, hostServices }) => {
-		const result = await hostServices.runtime.runPromise(
-			Effect.flatMap(BackupsApi, (api) =>
-				api.deleteRun(hostServices.scope, { params: { id: input.id } }),
-			),
-			{ signal },
-		);
-		client.mutationCompleted.hint();
-		return result;
-	},
-);
+const deleteBackupMutation = createRyotMutation<
+	BackupRunItem,
+	BackupRunIdResponse,
+	KernelHostServices
+>(async ({ input, client, signal, hostServices }) => {
+	const result = await hostServices.runtime.runPromise(
+		Effect.flatMap(BackupsApi, (api) =>
+			api.deleteRun(hostServices.scope, { params: { id: input.id } }),
+		),
+		{ signal },
+	);
+	client.mutationCompleted.hint();
+	return result;
+});
 
 export const Route = createFileRoute("/_authenticated/settings/backups")({
 	component: BackupsRoute,
@@ -115,6 +115,11 @@ function BackupsStandard() {
 	const navigate = Route.useNavigate();
 	const { restore } = Route.useSearch();
 	const query = useRyotQuery(backupRunsQuery);
+	const client = useRyot();
+	const [olderRuns, setOlderRuns] = useState<readonly BackupRunItem[]>([]);
+	const [nextCursor, setNextCursor] = useState<string | null | undefined>();
+	const [loadingMore, setLoadingMore] = useState(false);
+	const [loadMoreFailed, setLoadMoreFailed] = useState(false);
 	const createMutation = useRyotMutation(createBackupMutation);
 	const deleteMutation = useRyotMutation(deleteBackupMutation);
 	const { scope, runtime } = Route.useRouteContext();
@@ -123,9 +128,20 @@ function BackupsStandard() {
 	const deleteTrigger = useRef<HTMLButtonElement | null>(null);
 	const [downloadFailed, setDownloadFailed] = useState(false);
 	const [downloadingRunId, setDownloadingRunId] = useState<string | undefined>();
-	const [pendingDelete, setPendingDelete] = useState<BackupRun | undefined>();
-	const state = query.data === undefined ? undefined : listState(query.data);
-	const runs: readonly BackupRun[] = state?.status === "ready" ? state.runs : [];
+	const [pendingDelete, setPendingDelete] = useState<BackupRunItem | undefined>();
+	const firstPage = query.data;
+	const runs: readonly BackupRunItem[] =
+		firstPage === undefined
+			? []
+			: [
+					...firstPage.items,
+					...olderRuns.filter((run) => !firstPage.items.some((first) => first.id === run.id)),
+				];
+	let state: BackupRunListState | undefined;
+	if (firstPage !== undefined) {
+		state = runs.length === 0 ? { status: "empty" } : { runs, status: "ready" };
+	}
+	const cursor = nextCursor === undefined ? firstPage?.pageInfo.nextCursor : nextCursor;
 	const live = liveBackupRun(runs);
 
 	useEffect(() => () => controller.current.abort(), []);
@@ -141,10 +157,16 @@ function BackupsStandard() {
 		if (live !== undefined) {
 			return;
 		}
-		await createMutation.mutateAsync().catch(() => undefined);
+		try {
+			await createMutation.mutateAsync();
+			setOlderRuns([]);
+			setNextCursor(undefined);
+		} catch {
+			return;
+		}
 	});
 
-	const confirmDelete = useEffectEvent(async (run: BackupRun) => {
+	const confirmDelete = useEffectEvent(async (run: BackupRunItem) => {
 		if (!canDeleteBackupRun(run.status)) {
 			setPendingDelete(undefined);
 			return;
@@ -157,9 +179,11 @@ function BackupsStandard() {
 			return;
 		}
 		setPendingDelete(undefined);
+		setOlderRuns([]);
+		setNextCursor(undefined);
 	});
 
-	const startDownload = useEffectEvent(async (run: BackupRun) => {
+	const startDownload = useEffectEvent(async (run: BackupRunItem) => {
 		if (downloading.current !== undefined) {
 			return;
 		}
@@ -179,6 +203,29 @@ function BackupsStandard() {
 			return;
 		}
 		saveBackupArchive(blob, backupArchiveFileName(run.id));
+	});
+
+	const loadMore = useEffectEvent(async () => {
+		if (cursor === null || cursor === undefined || loadingMore) {
+			return;
+		}
+		setLoadingMore(true);
+		setLoadMoreFailed(false);
+		try {
+			const page = await client.data.query(backupRunsRecipe({ after: cursor, limit: PAGE_SIZE }), {
+				signal: controller.current.signal,
+			});
+			setOlderRuns((current) => [...current, ...page.items]);
+			setNextCursor(page.pageInfo.nextCursor);
+		} catch {
+			if (!controller.current.signal.aborted) {
+				setLoadMoreFailed(true);
+			}
+		} finally {
+			if (!controller.current.signal.aborted) {
+				setLoadingMore(false);
+			}
+		}
 	});
 
 	useRunPolling({
@@ -209,6 +256,23 @@ function BackupsStandard() {
 					setPendingDelete(run);
 				}}
 			/>
+			{cursor !== null && cursor !== undefined && (
+				<div className="grid justify-items-center gap-2">
+					{loadMoreFailed && (
+						<p role="alert" className="text-sm text-danger">
+							Could not load more backups. Try again.
+						</p>
+					)}
+					<Button
+						type="button"
+						variant="secondary"
+						disabled={loadingMore}
+						onClick={() => void loadMore()}
+					>
+						{loadingMore ? "Loading..." : "Load more backups"}
+					</Button>
+				</div>
+			)}
 			{pendingDelete === undefined ? null : (
 				<DestructiveConfirmation
 					pendingLabel="Deleting..."

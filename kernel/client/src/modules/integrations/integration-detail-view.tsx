@@ -1,15 +1,15 @@
 import { Button, FieldMessage } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import type { SchemaFileUpload, SchemaFormApi } from "@ryot-app/client-ui-sdk/schema-form";
-import type {
-	ListedIntegration,
-	ListedIntegrationProvider,
-} from "@ryot-app/contract/modules/integrations/schemas";
 import type { ImportRunSummary } from "@ryot-app/ryotql-recipes/import-runs";
 import clsx from "clsx";
 
 import { importRunOutcomeLabel } from "#/modules/imports/run-presentation";
 import { integrationLotDetail } from "#/modules/integrations/provider-selection";
+import type {
+	IntegrationClientDetail,
+	IntegrationProviderItem,
+} from "#/modules/integrations/service";
 import { IntegrationSettingsForm } from "#/modules/integrations/settings-form";
 import { formatRelativeTime } from "#/modules/ui/run/run-status";
 import { RunStatusGlyph } from "#/modules/ui/run/run-status-pill";
@@ -65,10 +65,10 @@ export function IntegrationDetailView(props: {
 	readonly form: SchemaFormApi;
 	readonly uploadFile: SchemaFileUpload;
 	readonly saveDetail: string | undefined;
-	readonly integration: ListedIntegration;
+	readonly integration: IntegrationClientDetail;
 	readonly onCopy: (value: string) => void;
 	readonly runs: readonly ImportRunSummary[];
-	readonly provider: ListedIntegrationProvider | undefined;
+	readonly provider: IntegrationProviderItem | undefined;
 }) {
 	return (
 		<div className="flex flex-col gap-6 pb-4">

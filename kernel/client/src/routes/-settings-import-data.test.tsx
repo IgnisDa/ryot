@@ -1,7 +1,4 @@
-import {
-	ImportRequestError,
-	type ListedImportSource,
-} from "@ryot-app/contract/modules/imports/schemas";
+import { ImportRequestError } from "@ryot-app/contract/modules/imports/schemas";
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import {
 	importRunRecipe,
@@ -16,8 +13,12 @@ import { describe, expect, it } from "vitest";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import type { ImportsApi } from "#/api/imports";
-import { KernelApiTestLayer, makeImportsApi } from "#/api/ports.test-layer";
-import { ImportsLoadError, type ImportsService } from "#/modules/imports/service";
+import { KernelApiTestLayer, makeImportsApi, makeRyotQLApi } from "#/api/ports.test-layer";
+import {
+	ImportsLoadError,
+	type ImportSourceItem,
+	type ImportsService,
+} from "#/modules/imports/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
@@ -56,7 +57,7 @@ const AuthStub = makeAuthStub();
 
 const described = (label: string) => ({ label, description: label });
 
-const hevySource: ListedImportSource = {
+const hevySource: ImportSourceItem = {
 	slug: "hevy",
 	name: "Hevy",
 	isStartable: true,
@@ -79,7 +80,7 @@ const hevySource: ListedImportSource = {
 	},
 };
 
-const traktSource: ListedImportSource = {
+const traktSource: ImportSourceItem = {
 	slug: "trakt",
 	name: "Trakt",
 	isStartable: true,
@@ -96,7 +97,7 @@ const traktSource: ListedImportSource = {
 	},
 };
 
-const lockedSource: ListedImportSource = {
+const lockedSource: ImportSourceItem = {
 	...traktSource,
 	slug: "plex",
 	name: "Plex",
@@ -166,6 +167,30 @@ const decodeRun = (runs: readonly unknown[], failures: readonly unknown[] = [], 
 		}),
 	);
 
+const makeImportSourceQueries = (sources: readonly ImportSourceItem[] | null) =>
+	makeRyotQLApi({
+		execute: (_scope, request) => {
+			if (!("sources" in request.payload.queries)) {
+				return Effect.die("Unexpected RyotQL document");
+			}
+			return sources === null
+				? Effect.fail(new AuthenticatedApiError({ cause: new Error("down") }))
+				: Effect.succeed({
+						data: {
+							sources: {
+								type: "rows" as const,
+								pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+								items: sources.map((source, index) => ({
+									...source,
+									id: `source-${index}`,
+									exportHelp: source.exportHelp ?? null,
+								})),
+							},
+						},
+					});
+		},
+	});
+
 const startFailure = (reason: ImportRequestError["reason"]) =>
 	new AuthenticatedApiError({ cause: new ImportRequestError({ reason }) });
 
@@ -173,6 +198,7 @@ const mountView = (
 	initialEntry: string,
 	importsApi: Layer.Layer<ImportsApi> = makeImportsApi(),
 	imports: Layer.Layer<ImportsService> = ImportsRouteStubs,
+	sources: readonly ImportSourceItem[] | null = [hevySource],
 ) => {
 	const events = makePluginCatalogEventsTestLayer();
 	const runtime = ManagedRuntime.make(
@@ -199,6 +225,7 @@ const mountView = (
 			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
 			imports,
 			importsApi,
+			makeImportSourceQueries(sources),
 		).pipe(
 			Layer.provideMerge(OAuthRouteStubs),
 			Layer.provideMerge(Layer.succeed(ClientStorage, makeStorageStub("fixture"))),
@@ -216,7 +243,7 @@ describe("import data list", () => {
 	it("names each run by its source and opens the one that was clicked", async () => {
 		const view = mountView(
 			"/settings/import-data",
-			makeImportsApi({ listSources: () => Effect.succeed([hevySource]) }),
+			makeImportsApi(),
 			makeImportsStub({
 				loadRun: () => Effect.succeed(decodeRun([makeRun()])),
 				loadRuns: () =>
@@ -249,7 +276,7 @@ describe("import data list", () => {
 	it("shows the progress of a run that is still going", async () => {
 		mountView(
 			"/settings/import-data",
-			makeImportsApi({ listSources: () => Effect.succeed([hevySource]) }),
+			makeImportsApi(),
 			makeImportsStub({
 				loadRuns: () =>
 					Effect.succeed(
@@ -275,7 +302,7 @@ describe("import data list", () => {
 	it("offers the wizard from the empty state", async () => {
 		mountView(
 			"/settings/import-data",
-			makeImportsApi({ listSources: () => Effect.succeed([hevySource]) }),
+			makeImportsApi(),
 			makeImportsStub({ loadRuns: () => Effect.succeed(decodeRuns([])) }),
 		);
 
@@ -287,7 +314,7 @@ describe("import data list", () => {
 		let available = false;
 		mountView(
 			"/settings/import-data",
-			makeImportsApi({ listSources: () => Effect.succeed([hevySource]) }),
+			makeImportsApi(),
 			makeImportsStub({
 				loadRuns: () =>
 					available
@@ -307,7 +334,7 @@ describe("import data list", () => {
 		const limits: number[] = [];
 		mountView(
 			"/settings/import-data",
-			makeImportsApi({ listSources: () => Effect.succeed([hevySource]) }),
+			makeImportsApi(),
 			makeImportsStub({
 				loadRuns: (_client, input) => {
 					limits.push(input.limit);
@@ -329,7 +356,6 @@ describe("import data list", () => {
 		const view = mountView(
 			"/settings/import-data",
 			makeImportsApi({
-				listSources: () => Effect.succeed([hevySource, traktSource]),
 				createRun: (_scope, request) => {
 					started.push(request.payload);
 					return Effect.succeed({ id: "run_1" });
@@ -346,6 +372,7 @@ describe("import data list", () => {
 					);
 				},
 			}),
+			[hevySource, traktSource],
 		);
 
 		await screen.findByRole("link", { name: /Open the Hevy import from/ });
@@ -377,7 +404,7 @@ describe("import data list", () => {
 	it("reveals the export steps for a source that documents them", async () => {
 		mountView(
 			"/settings/import-data",
-			makeImportsApi({ listSources: () => Effect.succeed([hevySource]) }),
+			makeImportsApi(),
 			makeImportsStub({ loadRuns: () => Effect.succeed(decodeRuns([])) }),
 		);
 
@@ -394,8 +421,9 @@ describe("import data list", () => {
 	it("explains what a source still needs before it can be chosen", async () => {
 		mountView(
 			"/settings/import-data",
-			makeImportsApi({ listSources: () => Effect.succeed([lockedSource]) }),
+			makeImportsApi(),
 			makeImportsStub({ loadRuns: () => Effect.succeed(decodeRuns([])) }),
+			[lockedSource],
 		);
 
 		fireEvent.click(await screen.findByRole("button", { name: "Start an import" }));
@@ -412,10 +440,10 @@ describe("import data list", () => {
 		mountView(
 			"/settings/import-data",
 			makeImportsApi({
-				listSources: () => Effect.succeed([traktSource]),
 				createRun: () => Effect.fail(startFailure({ field: "username", code: "invalid-input" })),
 			}),
 			makeImportsStub({ loadRuns: () => Effect.succeed(decodeRuns([])) }),
+			[traktSource],
 		);
 
 		fireEvent.click(await screen.findByRole("button", { name: "Start an import" }));
@@ -432,10 +460,9 @@ describe("import data list", () => {
 	it("keeps the failure visible when the services cannot be listed", async () => {
 		mountView(
 			"/settings/import-data",
-			makeImportsApi({
-				listSources: () => Effect.fail(new AuthenticatedApiError({ cause: new Error("down") })),
-			}),
+			makeImportsApi(),
 			makeImportsStub({ loadRuns: () => Effect.succeed(decodeRuns([])) }),
+			null,
 		);
 
 		fireEvent.click(await screen.findByRole("button", { name: "Start an import" }));
@@ -451,7 +478,7 @@ describe("import run detail", () => {
 		let loads = 0;
 		mountView(
 			"/settings/import-data/run_1",
-			makeImportsApi({ listSources: () => Effect.succeed([hevySource]) }),
+			makeImportsApi(),
 			makeImportsStub({
 				loadRun: () => {
 					loads += 1;
@@ -474,7 +501,7 @@ describe("import run detail", () => {
 		let loads = 0;
 		mountView(
 			"/settings/import-data/run_1",
-			makeImportsApi({ listSources: () => Effect.succeed([hevySource]) }),
+			makeImportsApi(),
 			makeImportsStub({
 				loadRun: () => {
 					loads += 1;
@@ -495,7 +522,7 @@ describe("import run detail", () => {
 	it("shows the counts and groups what could not be brought over", async () => {
 		mountView(
 			"/settings/import-data/run_1",
-			makeImportsApi({ listSources: () => Effect.succeed([hevySource]) }),
+			makeImportsApi(),
 			makeImportsStub({
 				loadRun: () =>
 					Effect.succeed(
@@ -527,7 +554,7 @@ describe("import run detail", () => {
 	it("explains why a failed run stopped", async () => {
 		mountView(
 			"/settings/import-data/run_1",
-			makeImportsApi({ listSources: () => Effect.succeed([hevySource]) }),
+			makeImportsApi(),
 			makeImportsStub({
 				loadRun: () =>
 					Effect.succeed(
@@ -551,7 +578,6 @@ describe("import run detail", () => {
 		const view = mountView(
 			"/settings/import-data/run_1",
 			makeImportsApi({
-				listSources: () => Effect.succeed([hevySource]),
 				deleteRun: (_scope, request) => {
 					deleted.push(request.params.runId);
 					return Effect.succeed({ id: request.params.runId });
@@ -576,7 +602,7 @@ describe("import run detail", () => {
 	it("offers no delete action while a run is still going", async () => {
 		mountView(
 			"/settings/import-data/run_1",
-			makeImportsApi({ listSources: () => Effect.succeed([hevySource]) }),
+			makeImportsApi(),
 			makeImportsStub({
 				loadRun: () =>
 					Effect.succeed(decodeRun([makeRun({ finishedAt: null, status: "running" })])),
@@ -594,7 +620,7 @@ describe("import run detail", () => {
 		let loads = 0;
 		mountView(
 			"/settings/import-data/run_1",
-			makeImportsApi({ listSources: () => Effect.succeed([hevySource]) }),
+			makeImportsApi(),
 			makeImportsStub({
 				loadRun: () => {
 					loads += 1;
@@ -612,7 +638,7 @@ describe("import run detail", () => {
 		let loads = 0;
 		mountView(
 			"/settings/import-data/%20",
-			makeImportsApi({ listSources: () => Effect.succeed([hevySource]) }),
+			makeImportsApi(),
 			makeImportsStub({
 				loadRun: () => {
 					loads += 1;
