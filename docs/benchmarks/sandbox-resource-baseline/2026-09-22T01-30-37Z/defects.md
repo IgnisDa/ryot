@@ -76,6 +76,164 @@ client returned 255.
 Any process probe or kill against these tools must match on something other than the full command
 line, or explicitly exclude the invoking shell.
 
+## Defects found in the product
+
+### 5. Deadlock retry is dead on every Drizzle query failure
+
+**Status:** fixed in `75970d6472`, not present in the image this run measured.
+
+Three of 252 live-matrix imports failed with `failureStage: "population"` — `live-c2.1` index 11,
+`live-c5.2` index 10, `live-c3.3` index 0 — each terminating in 196–279 s rather than hanging.
+
+Root-caused from the OTLP trace file. The causal chain is `EntityImportWorkflow` →
+`runEntityImportPhases` → `ProviderEntityPopulationWorkflow` → `synchronizeEntityGraph` →
+`syncProviderRelatedEntityGroupScope` → `sync-related-entity-group:2:media-suggestion` →
+`syncRelatedEntityGroup` → `sql.transaction` → `sql.execute`, failing on
+`select pg_advisory_xact_lock(hashtextextended($1, 0))` with
+`SqlError/DeadlockError: deadlock detected`. Two distinct lock classes collide:
+`live-c2.1` deadlocked in `EntitiesRepository.lockProviderEntityMutations` under
+`EntitiesService.persistPlannedProviderUpserts`, `live-c5.2` in
+`EntitiesRepository.lockEntityReferencesByIds` under
+`RelationshipsService.persistPlannedReconciliation`.
+
+The transaction was already wrapped in `retryOnDeadlock(mapDatabaseErrors(...))`, so a deadlock
+should have been retried and invisible. It never was. Drizzle reports a failed query as
+`new EffectDrizzleQueryError({ ..., cause: Cause.fail(e) })` — an Effect `Cause`, not the error.
+`unwrapDatabaseFailure` in `kernel/backend/src/lib/infrastructure/db/service.ts` unwrapped
+`EffectDrizzleQueryError` and `Error.cause` but had no `Cause` branch, so it stopped at the `Cause`
+and handed that to `unknownToDbError`, which reads `code`, `table`, `column` and `constraint` off it.
+A `Cause` has none of those, so **every `DbError` raised from a Drizzle query carried
+`code: undefined`** and the `error.code === "40P01"` predicate could never match.
+
+Diagnostic fingerprint: the `DbError.message` is a stringified `Cause`, `Cause([Fail(...)])`.
+
+Blast radius — four error-code paths were silently dead for all Drizzle-issued queries:
+
+- `retryOnDeadlock`, SQLSTATE `40P01`.
+- `isUniqueConstraintError`, `23505`, used at `modules/imports/repository.ts:82` and
+  `modules/backups/runs/repository.ts:70`.
+- The `23505` branch at `modules/backups/restore/writer.ts:375`.
+- The `40001` serialization retry at `modules/backups/restore/workflow.ts:303`.
+
+The fix adds a `Cause.isCause` branch that recurses through `Cause.squash`. Three regression tests
+were added and verified to fail without it; the four pre-existing tests pass either way, because they
+construct a bare `SqlError`, a shape no Drizzle query ever produces. That is precisely how the defect
+survived a test suite that covered the mapping.
+
+Two caveats stated rather than resolved: lock ordering is unchanged and `retryOnDeadlock` allows only
+two retries, so three attempts may still not survive 20-way concurrency; and the claim that `rc.116`
+avoided these deadlocks because its stall serialized the imports is inference, not something proven
+against `rc.116` traces.
+
+### 6. Import throughput regressed about 2× against rc.116
+
+**Status:** open, cause not established.
+
+Per unit of working time the hermetic soak runs at 2.21–2.45 executions per second against `rc.116`'s
+4.32. Because `rc.117` is busy 91–99.5 percent of each wave and `rc.116` was busy 53–73 percent, the two
+effects cancel and wall-clock wave duration is unchanged at about 26 minutes.
+
+This is not cosmetic: it caused data loss. Wave 7 crossed the 30-minute request timeout and ended the
+soak at 6 of 10 waves, so the retention series is four waves shorter than designed and the question
+of whether the slope flattens is unanswered.
+
+The comparison is between a busy-time rate for `rc.116` and a rate for `rc.117` that is effectively
+both, since `rc.117` is almost never idle. That is the correct pairing, but it is worth stating
+explicitly because comparing `rc.116`'s busy-time rate against a wall-clock rate would understate the
+regression.
+
+## Observability gaps
+
+### 7. A failed import reports a constant code
+
+`ImportEntityRunResult`'s failed variant in
+`packages/contract/src/modules/provider-entities/schemas.ts` carries
+`code: Schema.Literal("import-failed")` — a constant — plus a three-value `stage`. Nothing
+distinguishes a deadlock from a provider timeout from a schema violation. Diagnosing defect 5
+required the OTLP trace file; the benchmark artifacts alone could not have done it.
+
+### 8. The backend emits almost no OTLP log records
+
+The collector captured 55 log records for the whole run, all from startup. Traces carried the
+diagnosis; logs contributed nothing.
+
+### 9. The data-gathering plan's claim that OTLP export is disabled is stale
+
+`../sandbox-resource-data-gathering-plan.md:87` states that the compose file has no
+`OTEL_EXPORTER_OTLP_ENDPOINT` and that OTLP export is therefore disabled. The deployed service has
+`OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318` and an
+`otel/opentelemetry-collector-contrib:0.155.0` sidecar writing traces, metrics and logs to files on a
+named volume.
+
+This mattered. Acting on the plan's text rather than the live deployment, this session initially
+reported the three import failures as undiagnosable. They were fully diagnosable, and the trace file
+that diagnosed them had been accumulating for eight hours. The collector also survives recreation of
+the `ryot` container, unlike `docker logs`. Correct the plan before the next run.
+
+## Harness defects found during measurement
+
+### 10. A truncated soak reports itself as completed
+
+**Status:** open.
+
+`soak-hermetic-import.1.json` records `outcome: "completed"` and `stopReason: null` after the
+scenario stopped at wave 6 of 10 because wave 7 exceeded the request timeout. The truncation is
+recorded only in prose, in `notes`: `"wave 7 exceeded the request timeout and ended the soak"`.
+
+Any reader or tool that trusts `outcome` will treat a 6-wave series as a 10-wave one and will read
+the retention slope off an incomplete run without knowing it. `soak.waves` does report 6, so the
+artifact contradicts itself. An early stop must set `outcome` and `stopReason`.
+
+### 11. Import submissions never record execution or queue time
+
+**Status:** open.
+
+`requests[].executionMs` and `requests[].queueWaitMs` are `0`/`null` for every import request, and
+the derived `requests.executionMs.*` and `requests.queueWaitMs.*` metrics are correspondingly
+`null`, in both the soak and all twelve live repetitions. Only end-to-end `latencyMs` is populated.
+
+Combined with defect 12 this leaves no way to separate queueing from execution for an import, which
+is exactly the decomposition a concurrency comparison needs.
+
+### 12. The documented stall threshold is below the hermetic workload's own cost
+
+**Status:** open. Not a code defect; a measurement-rule defect in `../effect-workflow-stall.md` and
+in the operating check-in for this run.
+
+A wave or repetition submits all 20 imports at once with `concurrency: "unbounded"`
+(`e2e/src/scripts/sandbox-resource-baseline/scenario-runner.ts:465`); measured submission spread is
+0.1 s. They then run concurrently for the whole wave, so each import's latency is close to the wave
+window — within 15–75 s of it — rather than being the cost of that import in isolation.
+
+The `latencyMs > 600000` rule was calibrated on a live import costing about 165 s, where roughly
+765 s meant a stall. For the hermetic soak, normal per-import latency is **1 520–1 760 s**, because
+twenty imports genuinely share two vCPUs for the length of the wave. Every one of the 120 requests
+therefore trips the threshold while the backend is busy 91 to 99.5 percent of the time. The rule
+reports 120 stalls where dead-time analysis finds none.
+
+It remains sound for the live matrix, where normal latency is 196–466 s and a stalled import would
+stand out — as it did on `rc.116`, at about 775 s against a 177 s median.
+
+A stall threshold has to sit above the workload's own cost. Either scale it per scenario, or use the
+two scenario-computable discriminators instead: contiguous backend idleness from
+`series.application`, and the spread of request terminal times within a wave. Both are in
+`soak-dead-time.json`.
+
+### 13. Scenario artifacts already carry the series needed for stall analysis
+
+**Status:** open, documentation gap rather than a code defect.
+
+`series.application` in every scenario artifact carries `activeExecutions`, `executingImportBodies`,
+`workers`, `bunRss` and `cgroupCurrent` at 1 Hz for the whole scenario. The whole dead-time analysis
+is computable from committed artifacts alone, for this run and retrospectively for
+`2026-09-19T09-33-37Z`.
+
+This session initially ran that analysis against the 238 MB `app.jsonl` on the benchmark VM instead,
+which required care not to perturb a live run and which produced a **wrong answer**: the ad-hoc
+script truncated each wave at its execution ceiling and thereby hid a real 141 s gap in soak wave 4.
+Nothing documents that the artifact is self-sufficient for this, so the harder and less reliable
+path was taken first.
+
 ## Deviations from the plan
 
 1. The host sampler binary was rebuilt and reinstalled at `/root/ryot-benchmark-tools/` mode 700
@@ -87,3 +245,13 @@ line, or explicitly exclude the invoking shell.
    second invocation.
 4. The benchmark deployment's `SERVER_ADMIN_ACCESS_TOKEN` was rotated as part of the redeploy that
    moved the service to the `rc.117` image.
+5. The soak stopped at 6 of 10 waves when wave 7 exceeded the request timeout (defect 6). Figures are
+   computed over the six complete waves.
+6. `BENCHMARK_REQUEST_TIMEOUT_MS=5400000` was set for the live matrix, raising the per-request
+   timeout from the default.
+7. The live matrix was restarted once after a `ScenarioPreparationError`. Coolify had regenerated
+   `docker-compose.yml` with literal values, and a service's explicit `environment:` block overrides
+   `.env`, so the worker-concurrency override never reached the container. Fixed on the server, with
+   the original kept at `docker-compose.yml.pre-benchmark-substitution`.
+8. The deadlock fix in `75970d6472` was committed during the run and deliberately **not** deployed.
+   The measured image predates it.
