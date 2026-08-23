@@ -1,11 +1,13 @@
 import { RyotProvider } from "@ryot/client-sdk/react";
-import { Outlet, createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Effect } from "effect";
 
 import { createKernelRyotClient } from "#/api/ryot-client";
 import { protectedRouteGuard } from "#/modules/auth/route-gates";
+import { AuthenticatedShell } from "#/modules/navigation/authenticated-shell";
 import { resolveRememberedWorkspace } from "#/modules/navigation/workspace-state";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
+import { PluginCatalogProvider } from "#/modules/plugins/catalog-provider";
 import { ClientStorage } from "#/persistence/storage";
 
 export const Route = createFileRoute("/_authenticated")({
@@ -49,12 +51,13 @@ export const Route = createFileRoute("/_authenticated")({
 });
 
 function AuthenticatedLayout() {
-	const { ryot } = Route.useLoaderData();
+	const { catalog, ryot } = Route.useLoaderData();
+	const { runtime, scope } = Route.useRouteContext();
 	return (
 		<RyotProvider client={ryot}>
-			<div className="contents">
-				<Outlet />
-			</div>
+			<PluginCatalogProvider scope={scope} runtime={runtime} initialCatalog={catalog}>
+				<AuthenticatedShell />
+			</PluginCatalogProvider>
 		</RyotProvider>
 	);
 }
