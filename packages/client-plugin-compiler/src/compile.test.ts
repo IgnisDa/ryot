@@ -7,6 +7,7 @@ import {
 import { sha256Hex } from "@ryot/ts-utils/crypto";
 import { sortBy } from "@ryot/ts-utils/lodash";
 import { Effect } from "effect";
+import { parse } from "postcss";
 
 import { compileClientPlugin } from "./compile";
 import { isTrustedClientModule, resolveClientPluginCompilerDependencies } from "./dependencies";
@@ -17,6 +18,15 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 const bytes = (value: string) => encoder.encode(value);
 const text = (value: Uint8Array | undefined) => decoder.decode(value);
+const fontFamiliesForSelector = (css: string, selector: string) => {
+	const values: string[] = [];
+	parse(css).walkRules(selector, (rule) => {
+		rule.walkDecls("font-family", ({ value }) => {
+			values.push(value);
+		});
+	});
+	return values;
+};
 
 const fixtureFiles = Effect.promise(async () => {
 	const paths = await Array.fromAsync(
@@ -79,6 +89,7 @@ it.effect(
 			const css = text(byName.get("plugin.css")?.contents);
 			expect(css).toContain("font-family: 'Outfit Variable'");
 			expect(css).toContain("font-family: 'Lora Variable'");
+			expect(fontFamiliesForSelector(css, "body")).toContain("var(--font-family-ui)");
 			expect(css).toContain(".plugin-logo");
 			expect(css).toContain(`./${cssPngName}`);
 			expect(css).toContain("background-color: var(--accent)");
@@ -112,6 +123,7 @@ it.effect(
 			expect(fonts).toHaveLength(9);
 			expect(css).toContain("font-family: 'Outfit Variable'");
 			expect(css).toContain("font-family: 'Lora Variable'");
+			expect(fontFamiliesForSelector(css, "body")).toContain("var(--font-family-ui)");
 			for (const font of fonts) {
 				expect(font.contentType).toBe("font/woff2");
 				expect(font.contents).toEqual(expected.get(font.name)?.contents);
