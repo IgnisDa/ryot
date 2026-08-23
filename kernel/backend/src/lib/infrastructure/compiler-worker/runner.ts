@@ -3,6 +3,7 @@ import { Duration, Effect, Fiber, FileSystem, Ref, Result, Stream, type Semaphor
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 const encoder = new TextEncoder();
+const PROCESS_EXIT_GRACE_MS = 50;
 
 export type CompilerWorkerFailure =
 	| { readonly _tag: "Timeout" }
@@ -112,8 +113,16 @@ export const makeCompilerWorkerRunner = <E>(options: {
 								fs.readFileString(`/proc/${pid}/smaps_rollup`),
 							);
 							if (Result.isFailure(rootMemory)) {
-								const running = yield* worker.isRunning.pipe(Effect.orElseSucceed(() => false));
-								if (running) {
+								// procfs can disappear before the process exit event reaches the handle.
+								const exited = yield* worker.exitCode.pipe(
+									Effect.as(true),
+									Effect.orElseSucceed(() => true),
+									Effect.timeoutOrElse({
+										orElse: () => Effect.succeed(false),
+										duration: Duration.millis(PROCESS_EXIT_GRACE_MS),
+									}),
+								);
+								if (!exited) {
 									yield* Ref.set(memorySupervisionFailed, true);
 									yield* worker.kill({ killSignal: "SIGKILL" }).pipe(Effect.ignore);
 								}
