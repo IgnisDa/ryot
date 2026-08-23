@@ -1,4 +1,4 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import {
 	AutomationExecutionId,
 	AutomationRunId,
@@ -8,7 +8,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { Effect, Layer } from "effect";
+import { Context, Effect, Layer, Ref } from "effect";
 
 import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import type { SandboxRunInput } from "#lib/infrastructure/sandbox-runtime/shared";
@@ -82,79 +82,93 @@ const runInput = (executionUserId: UserId | null = userId): SandboxRunInput => (
 	},
 });
 
-it.effect("derives a child lifecycle command from the trusted automation run", () => {
-	let captured: LifecycleCommand | undefined;
-	const signals = Layer.mock(SignalEmissionService, {
-		emitSignal: (input) => {
-			captured = input.command;
-			return Effect.succeed({
-				warnings: [],
-				wasCreated: true,
-				triggerId: AutomationTriggerId.make("signal-trigger"),
-			});
-		},
-	});
-	return Effect.gen(function* () {
-		const host = yield* makeAutomationSandboxApiFunctions;
-		expect(
-			yield* host.emitSignal(runInput(), {
-				discriminator: "part-1",
-				schemaSlug: "review.created",
-				properties: { title: "Dune" },
-			}),
-		).toEqual({ wasCreated: true, triggerId: "signal-trigger" });
-		expect(captured).toEqual({
-			occurredAt,
-			itemIdentity: "emitSignal:part-1",
-			causation: {
-				...causation,
-				depth: 3,
-				parentRunId: runId,
-				source: "automation",
-				parentTriggerId: triggerId,
-				executionId: "run-1-host-4",
-			},
-		});
-	}).pipe(
-		Effect.provide(Layer.mergeAll(databaseLayer, signals, Layer.mock(NotificationsService)({}))),
-	);
-});
+type NotificationDelivery = Parameters<NotificationsService["Service"]["sendMessage"]>[0];
 
-it.effect("uses one logical-run and host-index notification identity across attempts", () => {
-	const deliveries: unknown[] = [];
-	const notifications = Layer.mock(NotificationsService, {
-		sendMessage: (input) => {
-			deliveries.push(input);
-			return Effect.as(Effect.void, undefined);
-		},
-	});
-	return Effect.gen(function* () {
-		const host = yield* makeAutomationSandboxApiFunctions;
-		expect(yield* host.sendNotification(runInput(), "Ready")).toBeNull();
-		expect(yield* host.sendNotification(runInput(), "Ready")).toBeNull();
-		expect(deliveries).toEqual([
-			{ userId, message: "Ready", executionId: "run-1-host-4-notification" },
-			{ userId, message: "Ready", executionId: "run-1-host-4-notification" },
-		]);
-	}).pipe(
-		Effect.provide(
-			Layer.mergeAll(databaseLayer, notifications, Layer.mock(SignalEmissionService)({})),
-		),
-	);
-});
+class AutomationHostCalls extends Context.Service<
+	AutomationHostCalls,
+	{
+		readonly signalCommands: Effect.Effect<ReadonlyArray<LifecycleCommand>>;
+		readonly notificationDeliveries: Effect.Effect<ReadonlyArray<NotificationDelivery>>;
+	}
+>()("test/AutomationHostCalls") {}
 
-it.effect("rejects notifications without an automation-run user", () =>
+const automationHostLayer = Layer.unwrap(
 	Effect.gen(function* () {
-		const host = yield* makeAutomationSandboxApiFunctions;
-		const error = yield* Effect.flip(host.sendNotification(runInput(null), "Ready"));
-		expect(error.message).toBe("sendNotification is available only to user automation runs");
-	}).pipe(
-		Effect.provide(
-			Layer.mergeAll(
-				databaseLayer,
-				Layer.mock(NotificationsService)({}),
-				Layer.mock(SignalEmissionService)({}),
-			),
-		),
-	),
+		const signalCommands = yield* Ref.make<ReadonlyArray<LifecycleCommand>>([]);
+		const notificationDeliveries = yield* Ref.make<ReadonlyArray<NotificationDelivery>>([]);
+		return Layer.mergeAll(
+			databaseLayer,
+			Layer.succeed(AutomationHostCalls, {
+				signalCommands: Ref.get(signalCommands),
+				notificationDeliveries: Ref.get(notificationDeliveries),
+			}),
+			Layer.mock(SignalEmissionService, {
+				emitSignal: (input) =>
+					Ref.update(signalCommands, (all) => [...all, input.command]).pipe(
+						Effect.as({
+							warnings: [],
+							wasCreated: true,
+							triggerId: AutomationTriggerId.make("signal-trigger"),
+						}),
+					),
+			}),
+			Layer.mock(NotificationsService, {
+				sendMessage: (input) =>
+					Ref.update(notificationDeliveries, (all) => [...all, input]).pipe(Effect.as(undefined)),
+			}),
+		);
+	}),
 );
+
+layer(automationHostLayer)((test) => {
+	test.effect("derives a child lifecycle command from the trusted automation run", () =>
+		Effect.gen(function* () {
+			const host = yield* makeAutomationSandboxApiFunctions;
+			expect(
+				yield* host.emitSignal(runInput(), {
+					discriminator: "part-1",
+					schemaSlug: "review.created",
+					properties: { title: "Dune" },
+				}),
+			).toEqual({ wasCreated: true, triggerId: "signal-trigger" });
+			expect(yield* (yield* AutomationHostCalls).signalCommands).toEqual([
+				{
+					occurredAt,
+					itemIdentity: "emitSignal:part-1",
+					causation: {
+						...causation,
+						depth: 3,
+						parentRunId: runId,
+						source: "automation",
+						parentTriggerId: triggerId,
+						executionId: "run-1-host-4",
+					},
+				},
+			]);
+		}),
+	);
+});
+
+layer(automationHostLayer)((test) => {
+	test.effect("uses one logical-run and host-index notification identity across attempts", () =>
+		Effect.gen(function* () {
+			const host = yield* makeAutomationSandboxApiFunctions;
+			expect(yield* host.sendNotification(runInput(), "Ready")).toBeNull();
+			expect(yield* host.sendNotification(runInput(), "Ready")).toBeNull();
+			expect(yield* (yield* AutomationHostCalls).notificationDeliveries).toEqual([
+				{ userId, message: "Ready", executionId: "run-1-host-4-notification" },
+				{ userId, message: "Ready", executionId: "run-1-host-4-notification" },
+			]);
+		}),
+	);
+});
+
+layer(automationHostLayer)((test) => {
+	test.effect("rejects notifications without an automation-run user", () =>
+		Effect.gen(function* () {
+			const host = yield* makeAutomationSandboxApiFunctions;
+			const error = yield* Effect.flip(host.sendNotification(runInput(null), "Ready"));
+			expect(error.message).toBe("sendNotification is available only to user automation runs");
+		}),
+	);
+});
