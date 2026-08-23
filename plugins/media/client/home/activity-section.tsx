@@ -124,7 +124,7 @@ export function ActivitySectionView(props: {
 }
 
 export function ActivitySection(props: { readonly compact: boolean; readonly today: string }) {
-	const timeZone = resolveTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+	const timeZone = resolveTimeZone(new Intl.DateTimeFormat().resolvedOptions().timeZone);
 	const window = activityWindow(props.today, timeZone);
 	const result = useRyotQuery(mediaActivityQuery, { ...window, timeZone });
 	return (
