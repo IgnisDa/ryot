@@ -237,7 +237,6 @@ describe("plugin client bridge contract", () => {
 			edgeBack: false,
 			type: "location",
 			leading: "drawer",
-			screenKey: "screen-0",
 		};
 
 		for (const leading of ["back", "drawer", "none"]) {
@@ -248,10 +247,8 @@ describe("plugin client bridge contract", () => {
 		expect(Result.isFailure(decodeHost({ ...message, leading: "menu" }))).toBe(true);
 		const { leading: _leading, ...withoutLeading } = message;
 		const { edgeBack: _edgeBack, ...withoutEdgeBack } = message;
-		const { screenKey: _screenKey, ...withoutScreenKey } = message;
 		expect(Result.isFailure(decodeHost(withoutLeading))).toBe(true);
 		expect(Result.isFailure(decodeHost(withoutEdgeBack))).toBe(true);
-		expect(Result.isFailure(decodeHost(withoutScreenKey))).toBe(true);
 	});
 
 	it("admits only strict screen-state messages stamped with an index and key", () => {
@@ -466,7 +463,6 @@ describe("plugin client bridge contract", () => {
 			leading: "none",
 			edgeBack: false,
 			type: "location",
-			screenKey: "screen-0",
 		};
 		const targetEntity = { entityId: "entity-1", kind: "entity" };
 		const route = { kind: "route", path: "/details", search: "tab=stats" };

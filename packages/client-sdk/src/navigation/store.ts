@@ -9,7 +9,6 @@ import { reconcileStack, type PluginScreen, type ResolvePluginScreen } from "./s
 export type PluginNavigationEntry = {
 	readonly key: string;
 	readonly index: number;
-	readonly screenKey: string;
 	readonly location: PluginLogicalLocation;
 };
 

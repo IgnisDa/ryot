@@ -165,7 +165,6 @@ const openShow = () => {
 		edgeBack: false,
 		type: "location",
 		leading: "drawer",
-		screenKey: "show-1",
 		location: { entityId: "show-1", entitySchemaSlug: "show", kind: "entity", search: "" },
 	});
 	return { channel, messages, container: document.getElementById("app") };
@@ -287,7 +286,6 @@ describe("ShowScreen", () => {
 			edgeBack: true,
 			leading: "back",
 			type: "location",
-			screenKey: "show-2",
 			location: { entityId: "show-2", entitySchemaSlug: "show", kind: "entity", search: "" },
 		});
 		await waitFor(() => expect(queryRequestsFor(messages, "show")).toHaveLength(2));
@@ -488,7 +486,6 @@ describe("ShowScreen", () => {
 			leading: "none",
 			type: "location",
 			key: "replacement",
-			screenKey: "replacement",
 			location: { kind: "route", path: "/replacement", search: "" },
 		});
 
