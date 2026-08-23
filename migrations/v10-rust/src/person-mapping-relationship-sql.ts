@@ -1,6 +1,7 @@
 import { legacyPersonCompanyPredicateSql } from "./person-mapping-entity-sql";
 import {
 	type ResolvedRelationshipTarget,
+	buildAbortOnRowsSql,
 	buildRelationshipTargetValuesSql,
 	buildReportSql,
 } from "./shared";
@@ -26,31 +27,38 @@ export const buildLegacyRelationshipInsertSql = ({ kind, targets }: Relationship
 DO $$
 DECLARE
 	rows_inserted int;
+	cross_owner_rows int := 0;
+	cross_owner_sample text;
 	started_at timestamptz := clock_timestamp();
 BEGIN
-	IF EXISTS (
-		WITH relationship_targets (lot, relationship_schema_slug, relationship_schema_plugin_id) AS (
-			VALUES ${buildRelationshipTargetValuesSql(targets)}
-		), legacy_people AS (
-			SELECT
-				legacy_person.id,
-				legacy_person.created_by_user_id AS person_user_id,
-				${companyFilterSql} AS is_company
-			FROM "person" legacy_person
-		)
-		SELECT 1
-		FROM "metadata_to_person" m2p
-		INNER JOIN legacy_people ON legacy_people.id = m2p.person_id
-		INNER JOIN "metadata" metadata ON metadata.id = m2p.metadata_id
-		INNER JOIN relationship_targets ON relationship_targets.lot = metadata.lot
-		WHERE legacy_people.is_company = ${isCompanyFilter}
-			AND legacy_people.person_user_id IS NOT NULL
-			AND metadata.created_by_user_id IS NOT NULL
-			AND legacy_people.person_user_id <> metadata.created_by_user_id
-		LIMIT 1
-	) THEN
-		RAISE EXCEPTION '${kindNotice} -> relationship: found relationship between entities owned by different users';
-	END IF;
+	${buildAbortOnRowsSql({
+		countVariable: "cross_owner_rows",
+		sampleVariable: "cross_owner_sample",
+		message:
+			"${kindNotice} -> relationship: % user-authored credit(s) link a ${kindNotice} to media owned by a different user, and a V2 relationship has a single owner, so there is no correct owner to give them: %. Keep the dump and report it; this migration needs an ownership rule before it can run on this data.",
+		source: `
+			WITH relationship_targets (lot, relationship_schema_slug, relationship_schema_plugin_id) AS (
+				VALUES ${buildRelationshipTargetValuesSql(targets)}
+			), legacy_people AS (
+				SELECT
+					legacy_person.id,
+					legacy_person.name,
+					legacy_person.created_by_user_id AS person_user_id,
+					${companyFilterSql} AS is_company
+				FROM "person" legacy_person
+			)
+			SELECT legacy_people.name || ' (owner ' || legacy_people.person_user_id
+				|| ') -> ' || metadata.title || ' (owner ' || metadata.created_by_user_id || ')' AS label
+			FROM "metadata_to_person" m2p
+			INNER JOIN legacy_people ON legacy_people.id = m2p.person_id
+			INNER JOIN "metadata" metadata ON metadata.id = m2p.metadata_id
+			INNER JOIN relationship_targets ON relationship_targets.lot = metadata.lot
+			WHERE legacy_people.is_company = ${isCompanyFilter}
+				AND legacy_people.person_user_id IS NOT NULL
+				AND metadata.created_by_user_id IS NOT NULL
+				AND legacy_people.person_user_id <> metadata.created_by_user_id
+		`,
+	})}
 
 	WITH relationship_targets (lot, relationship_schema_slug, relationship_schema_plugin_id) AS (
 		VALUES ${buildRelationshipTargetValuesSql(targets)}
@@ -150,24 +158,30 @@ export const buildLegacyGroupPersonRelationshipInsertSql = (
 DO $$
 DECLARE
 	rows_inserted int;
+	cross_owner_rows int := 0;
+	cross_owner_sample text;
 	started_at timestamptz := clock_timestamp();
 BEGIN
-	IF EXISTS (
-		WITH relationship_targets (lot, relationship_schema_slug, relationship_schema_plugin_id) AS (
-			VALUES ${buildRelationshipTargetValuesSql(targets)}
-		)
-		SELECT 1
-		FROM "metadata_group_to_person" mg2p
-		INNER JOIN "metadata_group" mg ON mg.id = mg2p.metadata_group_id
-		INNER JOIN relationship_targets ON relationship_targets.lot = mg.lot
-		INNER JOIN "person" legacy_person ON legacy_person.id = mg2p.person_id
-		WHERE legacy_person.created_by_user_id IS NOT NULL
-			AND mg.created_by_user_id IS NOT NULL
-			AND legacy_person.created_by_user_id <> mg.created_by_user_id
-		LIMIT 1
-	) THEN
-		RAISE EXCEPTION 'group_person -> relationship: found relationship between entities owned by different users';
-	END IF;
+	${buildAbortOnRowsSql({
+		countVariable: "cross_owner_rows",
+		sampleVariable: "cross_owner_sample",
+		message:
+			"group_person -> relationship: % user-authored credit(s) link a person to a group owned by a different user, and a V2 relationship has a single owner, so there is no correct owner to give them: %. Keep the dump and report it; this migration needs an ownership rule before it can run on this data.",
+		source: `
+			WITH relationship_targets (lot, relationship_schema_slug, relationship_schema_plugin_id) AS (
+				VALUES ${buildRelationshipTargetValuesSql(targets)}
+			)
+			SELECT legacy_person.name || ' (owner ' || legacy_person.created_by_user_id
+				|| ') -> ' || mg.title || ' (owner ' || mg.created_by_user_id || ')' AS label
+			FROM "metadata_group_to_person" mg2p
+			INNER JOIN "metadata_group" mg ON mg.id = mg2p.metadata_group_id
+			INNER JOIN relationship_targets ON relationship_targets.lot = mg.lot
+			INNER JOIN "person" legacy_person ON legacy_person.id = mg2p.person_id
+			WHERE legacy_person.created_by_user_id IS NOT NULL
+				AND mg.created_by_user_id IS NOT NULL
+				AND legacy_person.created_by_user_id <> mg.created_by_user_id
+		`,
+	})}
 
 	WITH relationship_targets (lot, relationship_schema_slug, relationship_schema_plugin_id) AS (
 		VALUES ${buildRelationshipTargetValuesSql(targets)}

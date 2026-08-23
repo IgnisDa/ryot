@@ -1,7 +1,12 @@
 import { createOAuthAccountIssuer } from "@better-auth/core/db";
 
 import type { QualifiedSchema } from "./migration-resolution";
-import { buildReportSql, quoteNullableSqlString, quoteSqlString } from "./shared";
+import {
+	buildRequireLegacyTableSql,
+	buildReportSql,
+	quoteNullableSqlString,
+	quoteSqlString,
+} from "./shared";
 
 const legacyEmailRegex = quoteSqlString("^[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}$");
 const legacyOidcAccountIdPrefix = quoteSqlString("legacy-oidc-account:");
@@ -50,12 +55,10 @@ DECLARE
 	unexpected_oidc_account_user_ids text;
 	password_user_account_ids text;
 BEGIN
-	IF to_regclass('"old_user"') IS NULL THEN
-		RAISE EXCEPTION 'Expected old_user table to exist (created by renameLegacyTables) but it was not found';
-	END IF;
+	${buildRequireLegacyTableSql("old_user -> user", "old_user")}
 
 	IF to_regclass('"account"') IS NULL THEN
-		RAISE EXCEPTION 'Expected account table to exist but it was not found';
+		RAISE EXCEPTION 'old_user -> user: the V2 table "account" is missing, so migrated users would have no sign-in accounts. Drizzle creates it before this migration runs, so the schema step did not complete. This is a defect in the migration order rather than in the legacy data; keep the dump and report it.';
 	END IF;
 
 	SELECT string_agg(id, ', ' ORDER BY id)
@@ -64,7 +67,7 @@ BEGIN
 	WHERE nullif(btrim("password"), '') IS NOT NULL
 		AND nullif(btrim("oidc_issuer_id"), '') IS NOT NULL;
 	IF invalid_mixed_user_ids IS NOT NULL THEN
-		RAISE EXCEPTION 'Legacy users with both a non-empty password and a non-empty OIDC subject are invalid: %',
+		RAISE EXCEPTION 'old_user -> user: these legacy users have both a password and an OIDC subject, and V2 stores exactly one sign-in method per user: %. Pick one method per user in the V1 database -- clear the password or clear oidc_issuer_id -- then start the server again.',
 			invalid_mixed_user_ids;
 	END IF;
 
@@ -74,7 +77,7 @@ BEGIN
 	WHERE nullif(btrim("password"), '') IS NULL
 		AND nullif(btrim("oidc_issuer_id"), '') IS NULL;
 	IF invalid_missing_user_ids IS NOT NULL THEN
-		RAISE EXCEPTION 'Legacy users with neither a non-empty password nor a non-empty OIDC subject are invalid: %',
+		RAISE EXCEPTION 'old_user -> user: these legacy users have neither a password nor an OIDC subject, so V2 would leave them with no way to sign in: %. Give each of them a password or an OIDC subject in the V1 database, or delete them, then start the server again.',
 			invalid_missing_user_ids;
 	END IF;
 
@@ -84,7 +87,7 @@ BEGIN
 	WHERE nullif(btrim("oidc_issuer_id"), '') IS NOT NULL
 		AND lower("name") !~ ${legacyEmailRegex};
 	IF invalid_oidc_user_ids IS NOT NULL THEN
-		RAISE EXCEPTION 'Legacy OIDC users with invalid email-style names are invalid: %', invalid_oidc_user_ids;
+		RAISE EXCEPTION 'old_user -> user: these legacy OIDC users have a name that is not an email address, and V2 identifies OIDC users by email: %. Set an email address as the name for these users in the V1 database, then start the server again.', invalid_oidc_user_ids;
 	END IF;
 
 	SELECT string_agg(oidc_subject, ', ' ORDER BY oidc_subject)
@@ -97,7 +100,7 @@ BEGIN
 		HAVING count(*) > 1
 	) duplicate_oidc_subjects;
 	IF duplicate_oidc_subject_ids IS NOT NULL THEN
-		RAISE EXCEPTION 'Legacy users with duplicate OIDC subjects are invalid: %',
+		RAISE EXCEPTION 'old_user -> user: these OIDC subjects are shared by more than one legacy user, so V2 cannot give each user a distinct sign-in account: %. Keep one user per subject in the V1 database, or clear oidc_issuer_id on the duplicates, then start the server again.',
 			duplicate_oidc_subject_ids;
 	END IF;
 
@@ -219,7 +222,7 @@ BEGIN
 				AND a."password" IS NULL
 		);
 	IF missing_oidc_stub_user_ids IS NOT NULL THEN
-		RAISE EXCEPTION 'Legacy OIDC users are missing matching Better Auth account stubs: %',
+		RAISE EXCEPTION 'old_user -> user: these legacy OIDC users did not receive the sign-in account this migration creates for them, so they would be unable to sign in: %. This is a defect in this migration rather than in the legacy data. Keep the dump and report it; retrying will not change the result.',
 			missing_oidc_stub_user_ids;
 	END IF;
 
@@ -234,7 +237,7 @@ BEGIN
 				AND a."id" <> md5(${legacyOidcAccountIdPrefix} || ou.id)
 		);
 	IF unexpected_oidc_account_user_ids IS NOT NULL THEN
-		RAISE EXCEPTION 'Legacy OIDC users unexpectedly received extra Better Auth account rows: %',
+		RAISE EXCEPTION 'old_user -> user: these legacy OIDC users received more than one sign-in account, and V2 expects exactly one: %. This is a defect in this migration rather than in the legacy data. Keep the dump and report it; retrying will not change the result.',
 			unexpected_oidc_account_user_ids;
 	END IF;
 
@@ -248,7 +251,7 @@ BEGIN
 			WHERE a."user_id" = ou.id
 		);
 	IF password_user_account_ids IS NOT NULL THEN
-		RAISE EXCEPTION 'Legacy password users unexpectedly received Better Auth account rows: %',
+		RAISE EXCEPTION 'old_user -> user: these legacy password users received an OIDC sign-in account, which only OIDC users should have: %. This is a defect in this migration rather than in the legacy data. Keep the dump and report it; retrying will not change the result.',
 			password_user_account_ids;
 	END IF;
 

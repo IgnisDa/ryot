@@ -1,5 +1,10 @@
 import type { QualifiedSchema } from "./migration-resolution";
-import { buildReportSql, quoteNullableSqlString, quoteSqlString } from "./shared";
+import {
+	buildRequireLegacyTableSql,
+	buildReportSql,
+	quoteNullableSqlString,
+	quoteSqlString,
+} from "./shared";
 
 export const buildUserToEntityInLibraryMigrationSql = (
 	inLibraryRelationshipSchema: QualifiedSchema,
@@ -14,9 +19,7 @@ DECLARE
 	rows_inserted       int          := 0;
 	started_at          timestamptz  := clock_timestamp();
 BEGIN
-	IF to_regclass('"user_to_entity"') IS NULL THEN
-		RAISE EXCEPTION 'Expected user_to_entity table to exist in a V1 database but it was not found';
-	END IF;
+	${buildRequireLegacyTableSql("user_to_entity -> in-library relationship", "user_to_entity")}
 
 	LOOP
 		WITH batch AS (

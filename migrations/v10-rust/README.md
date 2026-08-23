@@ -41,9 +41,27 @@ When legacy debounce rows collapse to one V2 fingerprint, preserve the longest r
 
 ## Reports And Failures
 
-After Drizzle creates V2 schema, each phase appends structured rows to `migration_report`: sequence, timestamp, phase, level, message, optional count, and elapsed seconds. The table remains for inspection; pre-schema table renames cannot report there.
+After Drizzle creates V2 schema, each phase appends structured rows to `migration_report`: sequence, timestamp, phase, level, message, optional count, elapsed seconds, and — on anomalies only — a stable `code`. The table remains for inspection; pre-schema table renames cannot report there.
 
-Allowed warnings are limited to unresolved seen/review episodes, unresolved legacy S3 assets, and post-migration S3 deletion failures. Any other warning or unexpected state aborts startup. On restart, existing report rows remain and orchestration logs only newly appended rows.
+A warning also writes one row per offending record to `migration_report_detail`, keyed to its summary by `report_seq`. Legacy `seen`, `review` and `application_cache` are dropped when the migration finishes, so each detail row denormalises everything needed to explain that record — the title, the position asked for, and what the cached metadata actually held. Emission is uncapped; the god-mode API serves the first 100 details per summary alongside the true total, and the rest stay queryable in SQL. Only a sample reaches the terminal log.
+
+Warnings are allowed by `code`, never by message text, so report copy can be rewritten without changing abort behaviour:
+
+| Code                                  | Phase                                                        | Meaning                                                                                    | Per-record detail |
+| ------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------ | ----------------- |
+| `seen-episode-absent`                 | `seen -> event`                                              | The watched position is not in the parent's stored episode list.                           | yes               |
+| `seen-episode-ambiguous`              | `seen -> event`                                              | Several stored episodes claim the watched position.                                        | yes               |
+| `seen-episode-malformed`              | `seen -> event`                                              | The legacy row stored no usable episode number.                                            | yes               |
+| `review-episode-absent`               | `review -> event`                                            | The reviewed position is not in the parent's stored episode list.                          | yes               |
+| `review-episode-ambiguous`            | `review -> event`                                            | Several stored episodes claim the reviewed position.                                       | yes               |
+| `integration-cache-provider-unmapped` | `application_cache -> integration progress persistent cache` | The service that produced a debounce marker has no V2 equivalent.                          | yes               |
+| `integration-cache-entity-unresolved` | `application_cache -> integration progress persistent cache` | A debounce marker points at an unmigrated item.                                            | yes               |
+| `asset-locator-unresolved`            | `legacy S3 assets -> managed_asset`                          | An attachment could not be copied into managed storage; its original locator was retained. | no                |
+| `asset-deletion-failed`               | `legacy S3 assets -> managed_asset`                          | A copied attachment could not be deleted from the old bucket.                              | no                |
+
+Any warning whose code is not in `allowedWarningCodes`, and any other unexpected state, aborts startup. On restart, existing report rows remain and orchestration logs only newly appended rows.
+
+A `RAISE EXCEPTION` rolls back its own `DO $$` block, so an abort can leave nothing behind in `migration_report`; the exception message is the only thing an operator sees. Abort messages therefore state what was found — with a bounded sample of offending identifiers — why it blocks the migration, and whether the fix is to change the V1 data, use a different build, or report a migration defect.
 
 ## Validation Runbook
 

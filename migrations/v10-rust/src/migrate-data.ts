@@ -90,6 +90,28 @@ import {
 } from "./workout-mapping";
 import { migrateYoutubeMusicCache } from "./youtube-music-cache-mapping";
 
+const abortSampleLimit = 20;
+
+const formatAbortSample = (labels: ReadonlyArray<string>) => {
+	const shown = labels.slice(0, abortSampleLimit);
+	const suffix = labels.length > shown.length ? ` (${shown.length} of ${labels.length} shown)` : "";
+	return `${shown.join(", ")}${suffix}`;
+};
+
+const abortOnUnsupported = (input: {
+	phase: string;
+	remedy: string;
+	subject: string;
+	labels: ReadonlyArray<string>;
+}) =>
+	input.labels.length === 0
+		? Effect.void
+		: Effect.die(
+				new Error(
+					`${input.phase}: ${input.labels.length} legacy ${input.subject}(s) are not available in this build, so the data using them would be silently dropped: ${formatAbortSample(input.labels)}. ${input.remedy}`,
+				),
+			);
+
 export const migrateLegacyTables = Effect.gen(function* () {
 	const gate = yield* legacyBootstrapGate;
 	const startedAtMs = yield* Clock.currentTimeMillis;
@@ -263,67 +285,55 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	);
 
 	const unsupportedMetadataSources = yield* getUnsupportedMetadataSources;
-	yield* unsupportedMetadataSources.length > 0
-		? Effect.die(
-				new Error(
-					`Unsupported legacy metadata sources: ${unsupportedMetadataSources
-						.map(({ lot, source }) => `${lot}|${source}`)
-						.join(", ")}`,
-				),
-			)
-		: Effect.void;
+	yield* abortOnUnsupported({
+		subject: "media source",
+		phase: "metadata -> entity",
+		labels: unsupportedMetadataSources.map(({ lot, source }) => `${lot}|${source}`),
+		remedy:
+			"Use a build whose media plugin provides these sources, or delete the rows that use them in the V1 database, then start the server again.",
+	});
 
 	const unsupportedMetadataGroupSources = yield* getUnsupportedMetadataGroupSources;
-	yield* unsupportedMetadataGroupSources.length > 0
-		? Effect.die(
-				new Error(
-					`Unsupported legacy metadata group sources: ${unsupportedMetadataGroupSources
-						.map(({ lot, source }) => `${lot}|${source}`)
-						.join(", ")}`,
-				),
-			)
-		: Effect.void;
+	yield* abortOnUnsupported({
+		subject: "media group source",
+		phase: "metadata_group -> entity",
+		labels: unsupportedMetadataGroupSources.map(({ lot, source }) => `${lot}|${source}`),
+		remedy:
+			"Use a build whose media plugin provides these sources, or delete the groups that use them in the V1 database, then start the server again.",
+	});
 
 	const unsupportedPersonSources = yield* getUnsupportedPersonSources;
-	yield* unsupportedPersonSources.length > 0
-		? Effect.die(
-				new Error(
-					`Unsupported legacy person sources: ${unsupportedPersonSources
-						.map(({ source, entity_kind }) => `${entity_kind}|${source}`)
-						.join(", ")}`,
-				),
-			)
-		: Effect.void;
+	yield* abortOnUnsupported({
+		phase: "person -> entity",
+		subject: "person or company source",
+		labels: unsupportedPersonSources.map(({ source, entity_kind }) => `${entity_kind}|${source}`),
+		remedy:
+			"Use a build whose media plugin provides these sources, or delete the people and companies that use them in the V1 database, then start the server again.",
+	});
 
 	const unsupportedExerciseSources = yield* getUnsupportedExerciseSources;
-	yield* unsupportedExerciseSources.length > 0
-		? Effect.die(
-				new Error(
-					`Unsupported legacy exercise sources: ${unsupportedExerciseSources
-						.map(({ source }) => source)
-						.join(", ")}`,
-				),
-			)
-		: Effect.void;
+	yield* abortOnUnsupported({
+		subject: "exercise source",
+		phase: "exercise -> entity",
+		labels: unsupportedExerciseSources.map(({ source }) => source),
+		remedy:
+			"Use a build whose fitness plugin provides these sources, or delete the exercises that use them in the V1 database, then start the server again.",
+	});
 
 	const unsupportedExerciseLots = yield* getUnsupportedExerciseLots;
-	yield* unsupportedExerciseLots.length > 0
-		? Effect.die(
-				new Error(
-					`Unsupported legacy exercise lots: ${unsupportedExerciseLots
-						.map(({ lot }) => lot)
-						.join(", ")}`,
-				),
-			)
-		: Effect.void;
+	yield* abortOnUnsupported({
+		subject: "exercise type",
+		phase: "exercise -> entity",
+		labels: unsupportedExerciseLots.map(({ lot }) => lot),
+		remedy:
+			"Use a build whose fitness plugin supports these types, or delete the exercises that use them in the V1 database, then start the server again.",
+	});
 
 	const invalidExerciseGithubOwnership = yield* getInvalidExerciseGithubOwnership;
 	yield* invalidExerciseGithubOwnership.length > 0
 		? Effect.die(
 				new Error(
-					`Legacy github exercise rows must not have a creator user id: ${invalidExerciseGithubOwnership
-						.map(({ id }) => id)
-						.join(", ")}`,
+					`exercise -> entity: ${invalidExerciseGithubOwnership.length} catalog exercise row(s) from GitHub carry a creator user id, which only custom exercises may have, so migrating them would attribute catalog data to a user: ${formatAbortSample(invalidExerciseGithubOwnership.map(({ id }) => id))}. Clear created_by_user_id on those rows in the V1 database, then start the server again.`,
 				),
 			)
 		: Effect.void;

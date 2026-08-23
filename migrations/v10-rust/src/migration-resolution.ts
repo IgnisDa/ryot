@@ -45,7 +45,7 @@ const requireSystemPlugin = (
 	);
 	if (matches.length !== 1) {
 		throw new Error(
-			`Expected exactly one active trusted system plugin "${slug}", found ${matches.length}`,
+			`Legacy bootstrap: this build has ${matches.length} active trusted system "${slug}" plugins, and the migration resolves every schema and provider through exactly one. Use a build with a single system "${slug}" plugin, then start the server again.`,
 		);
 	}
 	const match = matches[0];
@@ -57,7 +57,9 @@ const requireSystemPlugin = (
 
 const addUnique = <Value>(map: Map<string, Value>, key: string, value: Value, kind: string) => {
 	if (map.has(key)) {
-		throw new Error(`Ambiguous active ${kind} mapping for ${key}`);
+		throw new Error(
+			`Legacy bootstrap: two active ${kind} definitions both claim "${key}", and the migration maps legacy data by that key, so it cannot choose between them. Use a build without duplicate ${kind} definitions, then start the server again.`,
+		);
 	}
 	map.set(key, value);
 };
@@ -136,7 +138,7 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 		);
 		if (matches.length !== 1) {
 			throw new Error(
-				`Active loader plugin does not match one active persisted system plugin: ${expected.slug}`,
+				`Legacy bootstrap: the loaded "${expected.slug}" system plugin does not match exactly one active plugin row in this database. Plugin rows and loaded plugins must agree before legacy data can be attributed to them. Use a build whose plugin set matches this database, or start from an empty database.`,
 			);
 		}
 	}
@@ -214,7 +216,7 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 				.digest("hex");
 			if (row.health !== "ready" || row.isDisabled || row.id !== expectedId) {
 				throw new Error(
-					`Legacy system plugin installation is not the expected deterministic ready installation: ${row.userId}/${row.pluginId}`,
+					`Legacy bootstrap: the plugin installation for ${row.userId}/${row.pluginId} is not the deterministic ready installation this migration creates, so reusing it could attach legacy data to the wrong installation. This database was partly migrated by a different build; restore the V1 dump and start again.`,
 				);
 			}
 			addUnique(installations, installationKey(row.userId, row.pluginId), row.id, "installation");
@@ -222,7 +224,9 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 		for (const userId of userIds) {
 			for (const pluginId of pluginIds) {
 				if (!installations.has(installationKey(userId, pluginId))) {
-					throw new Error(`Missing ready legacy system plugin installation: ${userId}/${pluginId}`);
+					throw new Error(
+						`Legacy bootstrap: no ready installation of "${pluginId}" exists for user ${userId} after this migration created them, so that user's legacy data has nothing to attach to. This is a defect in this migration rather than in the legacy data. Keep the dump and report it; retrying will not change the result.`,
+					);
 				}
 			}
 		}
@@ -248,12 +252,14 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 			);
 			if (matches.length !== 1) {
 				throw new Error(
-					`Expected one current persisted script for "${plugin.id}/${script.slug}", found ${matches.length}`,
+					`Legacy bootstrap: expected one stored script matching "${plugin.id}/${script.slug}" at this build's content hash but found ${matches.length}. Persistent integration claims are keyed by script identity and would be written under the wrong key. Let plugin scripts finish syncing, or use the build these scripts came from, then start the server again.`,
 				);
 			}
 			const match = matches[0];
 			if (!match) {
-				throw new Error(`Missing current persisted script for "${plugin.id}/${script.slug}"`);
+				throw new Error(
+					`Legacy bootstrap: no stored script matches "${plugin.id}/${script.slug}" at this build's content hash, so persistent integration claims would be written under the wrong key. Let plugin scripts finish syncing, or use the build these scripts came from, then start the server again.`,
+				);
 			}
 			addUnique(
 				scripts,
@@ -333,7 +339,9 @@ export const requireMapped = <T>(
 ) => {
 	const value = map.get(qualifiedKey(pluginId, slug));
 	if (value === undefined) {
-		throw new Error(`Missing active ${kind} mapping for "${pluginId}/${slug}"`);
+		throw new Error(
+			`Legacy bootstrap: this build has no active ${kind} "${pluginId}/${slug}", but the legacy data references it, so migrating without it would drop that data. Use a build whose ${kind} set covers this legacy data, then start the server again.`,
+		);
 	}
 	return value;
 };
@@ -346,7 +354,9 @@ export const requireSchema = (
 ) => {
 	const value = map.get(qualifiedKey(pluginId, slug));
 	if (value === undefined) {
-		throw new Error(`Missing active ${kind} mapping for "${pluginId ?? "kernel"}/${slug}"`);
+		throw new Error(
+			`Legacy bootstrap: this build has no active ${kind} "${pluginId ?? "kernel"}/${slug}", but the legacy data references it, so migrating without it would drop that data. Use a build whose ${kind} set covers this legacy data, then start the server again.`,
+		);
 	}
 	return value;
 };
@@ -360,7 +370,7 @@ export const requireEventSchema = (
 	const value = resolution.eventSchemas.get(eventKey(pluginId, entitySchemaSlug, slug));
 	if (!value) {
 		throw new Error(
-			`Missing active event schema mapping for "${pluginId ?? "kernel"}/${entitySchemaSlug}/${slug}"`,
+			`Legacy bootstrap: this build has no active event schema "${pluginId ?? "kernel"}/${entitySchemaSlug}/${slug}", but the legacy data references it, so migrating without it would drop that data. Use a build whose event schema set covers this legacy data, then start the server again.`,
 		);
 	}
 	return value;
@@ -373,7 +383,9 @@ export const requireInstallation = (
 ) => {
 	const value = resolution.installations.get(installationKey(userId, pluginId));
 	if (!value) {
-		throw new Error(`Missing ready installation mapping for "${userId}/${pluginId}"`);
+		throw new Error(
+			`Legacy bootstrap: no ready installation of "${pluginId}" exists for user ${userId}, so that user's legacy data has nothing to attach to. This is a defect in this migration rather than in the legacy data. Keep the dump and report it; retrying will not change the result.`,
+		);
 	}
 	return value;
 };
@@ -386,7 +398,7 @@ export const buildUniqueLotEntitySchemaSlugMap = (
 		const existing = values.get(target.lot);
 		if (existing !== undefined && existing !== target.entitySchemaSlug) {
 			throw new Error(
-				`Conflicting entity schema slugs for legacy lot "${target.lot}" (${existing} vs ${target.entitySchemaSlug})`,
+				`Legacy bootstrap: legacy lot "${target.lot}" maps to two different entity schemas ("${existing}" and "${target.entitySchemaSlug}"), so rows of that lot would land in different schemas depending on ordering. This is a defect in this migration's target tables rather than in the legacy data.`,
 			);
 		}
 		values.set(target.lot, target.entitySchemaSlug);
