@@ -34,10 +34,11 @@ const catalog: PluginClientCatalog = [
 const ryot = createTestRyotClock();
 
 function CatalogConsumer(props: { readonly name: string }) {
-	const { catalog: current, refetch } = usePluginCatalog();
+	const { catalog: current, refetch, invalidationRevision } = usePluginCatalog();
 	return (
 		<div>
 			<p>{`${props.name}:${current.map((entry) => entry.sourceHash).join(",")}`}</p>
+			<p>{`${props.name}-revision:${invalidationRevision}`}</p>
 			<button type="button" onClick={refetch}>
 				{`Refresh ${props.name}`}
 			</button>
@@ -82,6 +83,7 @@ describe("plugin catalog provider", () => {
 		);
 
 		expect(screen.getByText("catalog:source-hash")).toBeTruthy();
+		expect(screen.getByText("catalog-revision:0")).toBeTruthy();
 		await waitFor(() => expect(view.events.isSubscribed()).toBe(true));
 		expect(loads).toBe(0);
 
@@ -90,6 +92,8 @@ describe("plugin catalog provider", () => {
 
 		await screen.findByText("catalog:updated-source-hash");
 		expect(loads).toBe(1);
+		expect(screen.getByText("catalog-revision:1")).toBeTruthy();
+		expect(view.events.getSubscriptionCount()).toBe(1);
 		view.unmount();
 		await view.runtime.dispose();
 	});
