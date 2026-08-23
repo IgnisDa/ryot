@@ -12,6 +12,7 @@ import { Context, Data, Effect, Layer } from "effect";
 import { NotificationsApi } from "#/api/notifications";
 import { PublicApi } from "#/api/public";
 import type { KernelRyotClient } from "#/api/ryot-client";
+import type { ApiScope } from "#/api/scope";
 import type { KernelHostServices } from "#/host-services";
 
 export const NOTIFICATION_CHANNELS_PAGE_SIZE = 20;
@@ -44,25 +45,65 @@ export class NotificationChannelsService extends Context.Service<NotificationCha
 	static readonly layer = Layer.effect(this, this.make);
 }
 
+const loadNotificationChannels = Effect.fnUntraced(function* (
+	client: NotificationChannelsClient,
+	input: { readonly limit: number },
+) {
+	const service = yield* NotificationChannelsService;
+	return yield* service.loadChannels(client, input);
+});
+
+const getSystemConfig = Effect.fnUntraced(function* (serverUrl: ApiScope["serverUrl"]) {
+	const api = yield* PublicApi;
+	return yield* api.getSystemConfig(serverUrl);
+});
+
+const testNotificationChannels = Effect.fnUntraced(function* (scope: ApiScope) {
+	const api = yield* NotificationsApi;
+	return yield* api.testChannels(scope);
+});
+
+const createNotificationChannel = Effect.fnUntraced(function* (
+	scope: ApiScope,
+	payload: CreateNotificationChannelBody,
+) {
+	const api = yield* NotificationsApi;
+	return yield* api.createChannel(scope, { payload });
+});
+
+const updateNotificationChannel = Effect.fnUntraced(function* (
+	scope: ApiScope,
+	channelId: string,
+	isDisabled: boolean,
+) {
+	const api = yield* NotificationsApi;
+	return yield* api.updateChannel(scope, {
+		payload: { isDisabled },
+		params: { channelId: NotificationChannelId.make(channelId) },
+	});
+});
+
+const deleteNotificationChannel = Effect.fnUntraced(function* (scope: ApiScope, channelId: string) {
+	const api = yield* NotificationsApi;
+	return yield* api.deleteChannel(scope, {
+		params: { channelId: NotificationChannelId.make(channelId) },
+	});
+});
+
 export const notificationChannelsQuery = createRyotQuery<
 	number,
 	NotificationChannelsResult,
 	KernelHostServices
 >(
 	({ input, client, signal, hostServices }) =>
-		hostServices.runtime.runPromise(
-			Effect.flatMap(NotificationChannelsService, (service) =>
-				service.loadChannels(client, { limit: input }),
-			),
-			{ signal },
-		),
+		hostServices.runtime.runPromise(loadNotificationChannels(client, { limit: input }), { signal }),
 	{ cancelOnUnmount: true },
 );
 
 export const notificationSmtpEnabledQuery = createRyotQuery<void, boolean, KernelHostServices>(
 	({ signal, hostServices }) =>
 		hostServices.runtime.runPromise(
-			Effect.flatMap(PublicApi, (api) => api.getSystemConfig(hostServices.scope.serverUrl)).pipe(
+			getSystemConfig(hostServices.scope.serverUrl).pipe(
 				Effect.match({
 					onFailure: () => false,
 					onSuccess: (config) => config.notifications.smtpEnabled,
@@ -76,7 +117,7 @@ export const notificationSmtpEnabledQuery = createRyotQuery<void, boolean, Kerne
 export const testNotificationChannelsMutation = createRyotMutation<void, void, KernelHostServices>(
 	async ({ client, signal, hostServices }) => {
 		const result = await hostServices.runtime.runPromise(
-			Effect.flatMap(NotificationsApi, (api) => api.testChannels(hostServices.scope)),
+			testNotificationChannels(hostServices.scope),
 			{ signal },
 		);
 		client.mutationCompleted.hint();
@@ -90,9 +131,7 @@ export const createNotificationChannelMutation = createRyotMutation<
 	KernelHostServices
 >(async ({ input, client, signal, hostServices }) => {
 	const result = await hostServices.runtime.runPromise(
-		Effect.flatMap(NotificationsApi, (api) =>
-			api.createChannel(hostServices.scope, { payload: input }),
-		),
+		createNotificationChannel(hostServices.scope, input),
 		{ signal },
 	);
 	client.mutationCompleted.hint();
@@ -105,12 +144,7 @@ export const updateNotificationChannelMutation = createRyotMutation<
 	KernelHostServices
 >(async ({ input, client, signal, hostServices }) => {
 	const result = await hostServices.runtime.runPromise(
-		Effect.flatMap(NotificationsApi, (api) =>
-			api.updateChannel(hostServices.scope, {
-				payload: { isDisabled: input.isDisabled },
-				params: { channelId: NotificationChannelId.make(input.id) },
-			}),
-		),
+		updateNotificationChannel(hostServices.scope, input.id, input.isDisabled),
 		{ signal },
 	);
 	client.mutationCompleted.hint();
@@ -123,11 +157,7 @@ export const deleteNotificationChannelMutation = createRyotMutation<
 	KernelHostServices
 >(async ({ input, client, signal, hostServices }) => {
 	const result = await hostServices.runtime.runPromise(
-		Effect.flatMap(NotificationsApi, (api) =>
-			api.deleteChannel(hostServices.scope, {
-				params: { channelId: NotificationChannelId.make(input) },
-			}),
-		),
+		deleteNotificationChannel(hostServices.scope, input),
 		{ signal },
 	);
 	client.mutationCompleted.hint();

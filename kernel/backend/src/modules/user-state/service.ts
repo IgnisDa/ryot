@@ -27,6 +27,81 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 		const entitiesRepository = yield* EntitiesRepository;
 		const relationshipsRepository = yield* RelationshipsRepository;
 		const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
+		type RelationshipRow = Effect.Success<
+			ReturnType<typeof relationshipsRepository.listUserRelationshipsForEntityWithProvenance>
+		>[number];
+
+		const getRelationshipPropertiesSchema = Effect.fnUntraced(function* (input: {
+			cache: Map<RelationshipRow["relationshipSchemaSlug"], AppSchema>;
+			relationshipSchemaSlug: RelationshipRow["relationshipSchemaSlug"];
+			userId: CurrentUserValue["id"];
+		}) {
+			const cached = input.cache.get(input.relationshipSchemaSlug);
+			if (cached) {
+				return cached;
+			}
+
+			const relationshipSchema = yield* relationshipSchemasRepository.findById(
+				input.relationshipSchemaSlug,
+				input.userId,
+			);
+			if (!relationshipSchema) {
+				return yield* Effect.die("Relationship schema not found during entity merge");
+			}
+
+			input.cache.set(input.relationshipSchemaSlug, relationshipSchema.propertiesSchema);
+			return relationshipSchema.propertiesSchema;
+		});
+
+		const moveRelationship = Effect.fnUntraced(function* (input: {
+			relationship: RelationshipRow;
+			mergeFrom: EntityId;
+			mergeInto: EntityId;
+			userId: CurrentUserValue["id"];
+			propertiesSchemas: Map<RelationshipRow["relationshipSchemaSlug"], AppSchema>;
+		}) {
+			const { userId, mergeFrom, mergeInto, relationship } = input;
+			const sourceEntityId =
+				relationship.sourceEntityId === mergeFrom ? mergeInto : relationship.sourceEntityId;
+			const targetEntityId =
+				relationship.targetEntityId === mergeFrom ? mergeInto : relationship.targetEntityId;
+
+			if (sourceEntityId !== targetEntityId) {
+				yield* relationships
+					.create({
+						userId,
+						scope: "user",
+						sourceEntityId,
+						targetEntityId,
+						properties: relationship.properties,
+						relationshipSchemaSlug: relationship.relationshipSchemaSlug,
+						relationshipSchemaPluginId: relationship.relationshipSchemaPluginId,
+						propertiesSchema: yield* getRelationshipPropertiesSchema({
+							userId,
+							cache: input.propertiesSchemas,
+							relationshipSchemaSlug: relationship.relationshipSchemaSlug,
+						}),
+					})
+					.pipe(
+						Effect.catchTag("RelationshipBadRequest", (error) =>
+							Effect.logWarning("relationship merge validation failed", error).pipe(
+								Effect.andThen(
+									new UserStateBadRequest({ reason: { code: "relationship-merge-failed" } }),
+								),
+							),
+						),
+					);
+			}
+
+			return yield* relationships.delete({
+				userId,
+				scope: "user",
+				sourceEntityId: relationship.sourceEntityId,
+				targetEntityId: relationship.targetEntityId,
+				relationshipSchemaSlug: relationship.relationshipSchemaSlug,
+				relationshipSchemaPluginId: relationship.relationshipSchemaPluginId,
+			});
+		});
 
 		const clearUserState = Effect.fn("UserStateService.clearUserState")(function* (
 			user: CurrentUserValue,
@@ -178,70 +253,18 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 								userId: user.id,
 								entityId: mergeFrom,
 							});
-						const propertiesSchemas = new Map<string, AppSchema>();
-						const getPropertiesSchema = Effect.fn(
-							"UserStateService.getRelationshipPropertiesSchema",
-						)(function* (
-							relationshipSchemaSlug: (typeof relationshipRows)[number]["relationshipSchemaSlug"],
-						) {
-							const cached = propertiesSchemas.get(relationshipSchemaSlug);
-							if (cached) {
-								return cached;
-							}
-
-							const relationshipSchema = yield* relationshipSchemasRepository.findById(
-								relationshipSchemaSlug,
-								user.id,
-							);
-							if (!relationshipSchema) {
-								return yield* Effect.die("Relationship schema not found during entity merge");
-							}
-
-							propertiesSchemas.set(relationshipSchemaSlug, relationshipSchema.propertiesSchema);
-							return relationshipSchema.propertiesSchema;
-						});
-
+						const propertiesSchemas = new Map<
+							RelationshipRow["relationshipSchemaSlug"],
+							AppSchema
+						>();
 						let movedRelationshipsCount = 0;
 						for (const relationship of relationshipRows) {
-							const sourceEntityId =
-								relationship.sourceEntityId === mergeFrom ? mergeInto : relationship.sourceEntityId;
-							const targetEntityId =
-								relationship.targetEntityId === mergeFrom ? mergeInto : relationship.targetEntityId;
-
-							if (sourceEntityId !== targetEntityId) {
-								yield* relationships
-									.create({
-										scope: "user",
-										sourceEntityId,
-										targetEntityId,
-										userId: user.id,
-										properties: relationship.properties,
-										relationshipSchemaSlug: relationship.relationshipSchemaSlug,
-										relationshipSchemaPluginId: relationship.relationshipSchemaPluginId,
-										propertiesSchema: yield* getPropertiesSchema(
-											relationship.relationshipSchemaSlug,
-										),
-									})
-									.pipe(
-										Effect.catchTag("RelationshipBadRequest", (error) =>
-											Effect.logWarning("relationship merge validation failed", error).pipe(
-												Effect.andThen(
-													new UserStateBadRequest({
-														reason: { code: "relationship-merge-failed" },
-													}),
-												),
-											),
-										),
-									);
-							}
-
-							const deleted = yield* relationships.delete({
-								scope: "user",
+							const deleted = yield* moveRelationship({
+								mergeFrom,
+								mergeInto,
+								relationship,
 								userId: user.id,
-								sourceEntityId: relationship.sourceEntityId,
-								targetEntityId: relationship.targetEntityId,
-								relationshipSchemaSlug: relationship.relationshipSchemaSlug,
-								relationshipSchemaPluginId: relationship.relationshipSchemaPluginId,
+								propertiesSchemas,
 							});
 							if (deleted) {
 								movedRelationshipsCount += 1;

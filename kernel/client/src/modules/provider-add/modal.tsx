@@ -4,7 +4,7 @@ import type { SchemaFileUpload } from "@ryot-app/client-ui-sdk/schema-form";
 import type { EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { useRouteContext } from "@tanstack/react-router";
 import { Effect } from "effect";
-import { useEffect, useEffectEvent, useState } from "react";
+import { useEffect, useEffectEvent, useState, type ComponentProps } from "react";
 
 import { importProviderEntity } from "#/modules/provider-add/import-controller";
 import {
@@ -102,6 +102,35 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 			return { kind: "failed", message: UPLOAD_FAILURE_MESSAGE };
 		}
 	};
+	const search: ComponentProps<typeof ProviderSearchPanel>["search"] = (payload) =>
+		runOutcome(Effect.flatMap(ProviderAddService, (service) => service.search(scope, payload)));
+	const loadSearchOptions: ComponentProps<typeof ProviderSearchPanel>["loadSearchOptions"] = (
+		providerId,
+	) =>
+		runOutcome(
+			Effect.flatMap(ProviderAddService, (service) => service.loadSearchOptions(scope, providerId)),
+		);
+	const importEntity: ComponentProps<typeof ProviderSearchPanel>["importEntity"] = ({
+		externalId,
+		providerId,
+	}) =>
+		runtime.runPromise(
+			Effect.flatMap(ProviderAddService, (service) =>
+				importProviderEntity({
+					poll: (jobId) => service.pollImport(scope, jobId),
+					start: service.startImport(scope, { externalId, providerId }),
+				}),
+			),
+		);
+	const loadEntityLinks: ComponentProps<typeof ProviderSearchPanel>["loadEntityLinks"] = (input) =>
+		runOutcome(
+			Effect.flatMap(ProviderAddService, (service) => service.loadEntityLinks(ryot, input)).pipe(
+				Effect.map(
+					(links): ProviderEntityLinks =>
+						new Map(links.map((link) => [link.externalId, link.entityId])),
+				),
+			),
+		);
 
 	return (
 		<Modal
@@ -114,48 +143,18 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 			<div className="min-h-0 flex-1 overflow-y-auto">
 				<div className="p-4">
 					<ProviderSearchPanel
+						search={search}
 						uploadFile={uploadFile}
 						onClose={props.onClose}
 						providers={state.providers}
+						importEntity={importEntity}
 						onImported={props.onImported}
 						onSelectProvider={selectProvider}
 						initialQuery={props.initialQuery}
+						loadEntityLinks={loadEntityLinks}
 						entitySchemaSlug={entitySchemaSlug}
+						loadSearchOptions={loadSearchOptions}
 						selectedProviderId={state.selectedProviderId}
-						search={(payload) =>
-							runOutcome(
-								Effect.flatMap(ProviderAddService, (service) => service.search(scope, payload)),
-							)
-						}
-						loadSearchOptions={(providerId) =>
-							runOutcome(
-								Effect.flatMap(ProviderAddService, (service) =>
-									service.loadSearchOptions(scope, providerId),
-								),
-							)
-						}
-						importEntity={({ externalId, providerId }) =>
-							runtime.runPromise(
-								Effect.flatMap(ProviderAddService, (service) =>
-									importProviderEntity({
-										poll: (jobId) => service.pollImport(scope, jobId),
-										start: service.startImport(scope, { externalId, providerId }),
-									}),
-								),
-							)
-						}
-						loadEntityLinks={(input) =>
-							runOutcome(
-								Effect.flatMap(ProviderAddService, (service) =>
-									service.loadEntityLinks(ryot, input),
-								).pipe(
-									Effect.map(
-										(links): ProviderEntityLinks =>
-											new Map(links.map((link) => [link.externalId, link.entityId])),
-									),
-								),
-							)
-						}
 					/>
 				</div>
 			</div>

@@ -30,33 +30,25 @@ export const Route = createFileRoute("/_authenticated")({
 		};
 	},
 	loader: async ({ context, location, abortController }) => {
-		const [catalog, navigation, rememberedSlug, isPro] = await Promise.all([
-			context.runtime.runPromise(
-				Effect.flatMap(PluginCatalogService, (service) => service.load(context.ryot)),
-				{ signal: abortController.signal },
-			),
-			context.runtime.runPromise(
-				Effect.flatMap(NavigationService, (service) => service.load(context.ryot)),
-				{ signal: abortController.signal },
-			),
-			context.runtime.runPromise(
-				Effect.flatMap(ClientStorage, (service) => service.getLastWorkspace(context.scope)),
-				{ signal: abortController.signal },
-			),
-			context.runtime.runPromise(
-				Effect.flatMap(PublicApi, (api) =>
-					api
-						.getSystemConfig(context.server)
-						.pipe(
+		const [catalog, navigation, rememberedSlug, isPro] = await context.runtime.runPromise(
+			Effect.gen(function* () {
+				return yield* Effect.all(
+					[
+						Effect.flatMap(PluginCatalogService, (service) => service.load(context.ryot)),
+						Effect.flatMap(NavigationService, (service) => service.load(context.ryot)),
+						Effect.flatMap(ClientStorage, (service) => service.getLastWorkspace(context.scope)),
+						Effect.flatMap(PublicApi, (api) => api.getSystemConfig(context.server)).pipe(
 							Effect.match({
 								onFailure: () => false,
 								onSuccess: (config) => config.pro.isServerKeyValidated,
 							}),
 						),
-				),
-				{ signal: abortController.signal },
-			),
-		]);
+					],
+					{ concurrency: "unbounded" },
+				);
+			}),
+			{ signal: abortController.signal },
+		);
 		if (location.pathname === "/") {
 			const selected = resolveRememberedWorkspace(catalog, rememberedSlug);
 			if (selected !== null) {
