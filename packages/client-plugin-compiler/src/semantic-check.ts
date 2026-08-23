@@ -95,7 +95,6 @@ export const analyzeClientPluginTypes = (
 					.map(({ fileName }) => logicalFile(fileName))
 					.filter((path) => Object.hasOwn(files, path)),
 				diagnostics: diagnostics
-					.filter(({ fileName }) => !fileName || fileName.startsWith(`${VIRTUAL_ROOT}/`))
 					.map(
 						(diagnostic): ClientPluginCompilerDiagnostic =>
 							normalizeTypeScriptDiagnostic(diagnostic, sourceFiles, fallbackFile, logicalFile),

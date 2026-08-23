@@ -1,8 +1,11 @@
 import { genericImportFailureSchema } from "@ryot-app/sandbox-sdk/imports";
-import { jsonValueSchema, strictStruct } from "@ryot-app/sandbox-sdk/wire";
+import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
 import { Schema } from "@ryot-app/sandbox-sdk/workflow";
 
 import { MediaImportPopulationWorkflowOutput } from "../contracts/workflows";
+
+const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
+	Schema.Struct(fields).annotate({ parseOptions: { onExcessProperty: "error" as const } });
 
 const isHttpUrl = (value: string): true | string => {
 	try {
