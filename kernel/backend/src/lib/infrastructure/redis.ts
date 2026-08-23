@@ -1,6 +1,7 @@
 import { PreparedClientPageIdentity } from "@ryot-app/contract/modules/client-pages/schemas";
 import { jsonValueSchema } from "@ryot-app/contract/modules/sandbox/wire";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import { strictStruct } from "@ryot-app/contract/schema/utils";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Context, Effect, Layer, Redacted, Schema } from "effect";
 import Redis from "ioredis";
@@ -29,10 +30,10 @@ export type ImportSourceState = typeof ImportSourceState.Type;
 
 export const ImportSourceStateFromJson = Schema.fromJsonString(ImportSourceState);
 
-const ClientPageSessionPayload = Schema.Struct({
+const ClientPageSessionPayload = strictStruct({
 	userId: UserId,
 	identity: PreparedClientPageIdentity,
-}).annotate({ parseOptions: { onExcessProperty: "error" as const } });
+});
 
 export const ClientPageSessionPayloadFromJson = Schema.fromJsonString(ClientPageSessionPayload);
 

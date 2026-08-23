@@ -4,7 +4,8 @@ import { BadRequest } from "@ryot-app/contract/errors";
 import { UploadBadRequest } from "@ryot-app/contract/modules/uploads/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { CryptoHasher } from "bun";
-import { Clock, DateTime, Effect, FileSystem, Layer, Option, Stream } from "effect";
+import type { FileSystem } from "effect";
+import { ByteSize, Clock, DateTime, Effect, Layer, Option, Stream } from "effect";
 
 import { Database } from "#lib/infrastructure/db/service";
 import { LocalStorageService } from "#lib/infrastructure/local-storage";
@@ -45,8 +46,8 @@ const localFileInfo = {
 	type: "File" as const,
 	blocks: Option.none(),
 	blksize: Option.none(),
+	size: ByteSize.bytes(1),
 	birthtime: Option.none(),
-	size: FileSystem.Size(1),
 } satisfies FileSystem.File.Info;
 
 const makeLayer = (locators: ReadonlyArray<{ key: string; type: "local" | "s3" }>) => {
