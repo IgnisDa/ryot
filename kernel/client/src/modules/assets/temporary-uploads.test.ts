@@ -106,23 +106,21 @@ describe("temporary uploads", () => {
 	});
 
 	it.live("treats a completion that is not a temporary token as a malformed result", () =>
-		Effect.gen(function* () {
-			yield* Effect.promise(() =>
-				withUploads(
-					{
-						putBytes: () => Effect.void,
-						createIntent: () => Effect.succeed(intent),
-						completeIntent: () =>
-							Effect.succeed({ type: "local" as const, key: "permanent/items.csv" }),
-					},
-					(run) =>
-						expect(run(temporaryUploadOutcome(scope, request))).resolves.toEqual({
-							outcome: "failure",
-							reason: "malformed-result",
-						}),
-				),
-			);
-		}),
+		Effect.promise(() =>
+			withUploads(
+				{
+					putBytes: () => Effect.void,
+					createIntent: () => Effect.succeed(intent),
+					completeIntent: () =>
+						Effect.succeed({ type: "local" as const, key: "permanent/items.csv" }),
+				},
+				(run) =>
+					expect(run(temporaryUploadOutcome(scope, request))).resolves.toEqual({
+						outcome: "failure",
+						reason: "malformed-result",
+					}),
+			),
+		),
 	);
 
 	it.live("separates a declared upload rejection from a transport failure", () =>
