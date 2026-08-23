@@ -61,24 +61,14 @@ export async function performOidcSignIn(
 	apiUrl: string,
 	claims?: Record<string, unknown>,
 ): Promise<{ pending: PendingOAuth; response: Response }> {
-	const configResponse = await fetch(`${apiUrl}/system/config`);
-	const config: unknown = await configResponse.json();
-	const frontendOrigin = requirePresent(
-		config !== null &&
-			typeof config === "object" &&
-			typeof Reflect.get(config, "frontendOrigin") === "string"
-			? Reflect.get(config, "frontendOrigin")
-			: null,
-		"OIDC server config did not expose its frontend origin",
-	);
-	const pending = await prepareOAuth(apiUrl, frontendOrigin);
+	const pending = await prepareOAuth(apiUrl);
 	const step1Response = await fetch(`${apiUrl}/auth/sign-in/social`, {
 		method: "POST",
 		redirect: "manual",
-		headers: { "Content-Type": "application/json", Origin: new URL(apiUrl).origin },
+		headers: { "Content-Type": "application/json", Origin: pending.frontendOrigin },
 		body: JSON.stringify({
 			provider: "oidc",
-			callbackURL: `${frontendOrigin}/oauth/login`,
+			callbackURL: `${pending.frontendOrigin}/oauth/login`,
 		}),
 	});
 	const step1Data: { url?: string; redirect?: boolean } = await step1Response.json();

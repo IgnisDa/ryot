@@ -42,7 +42,7 @@ beforeAll(async () => {
 			redisUrl: infrastructure.redisUrl,
 			s3Endpoint: infrastructure.s3Endpoint,
 			s3BucketName: FALLBACK_S3_BUCKET_NAME,
-			frontendUrl: `http://127.0.0.1:${fallbackApiPort + 1}`,
+			frontendUrl: `http://127.0.0.1:${fallbackApiPort}`,
 			extraEnv: {
 				FILE_STORAGE_S3_URL: "",
 				FILE_STORAGE_S3_REGION: "",
