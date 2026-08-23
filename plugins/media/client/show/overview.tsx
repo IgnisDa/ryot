@@ -1,10 +1,12 @@
 import { PluginLink } from "@ryot-app/client-sdk/plugin";
 import { fieldSyncState } from "@ryot-app/client-ui-sdk/sync";
 import clsx from "clsx";
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useRef, useState, type ReactNode } from "react";
 
-import { imageAssetKey, ManagedAssetImage } from "./managed-assets";
-import type { ShowImageAsset } from "./media-image";
+import { MediaImageGallery } from "../image-gallery";
+import { galleryImages } from "../image-gallery-state";
+import { imageAssetKey, ManagedAssetImage } from "../managed-assets";
+import type { MediaGalleryImage, MediaImageAsset } from "../media-image";
 import {
 	showCharacterLabel,
 	showCompanyAsset,
@@ -47,8 +49,11 @@ export function ShowImageGallery(props: {
 	readonly name: string;
 	readonly compact: boolean;
 	readonly divided: boolean;
-	readonly assets: readonly ShowImageAsset[];
+	readonly assets: readonly MediaImageAsset[];
+	readonly images: readonly MediaGalleryImage[];
 }) {
+	const triggerRef = useRef<HTMLButtonElement>(null);
+	const [galleryOpen, setGalleryOpen] = useState(false);
 	if (props.assets.length === 0) {
 		return null;
 	}
@@ -59,8 +64,9 @@ export function ShowImageGallery(props: {
 			compact={props.compact}
 			action={
 				<ShowLinkButton
+					ref={triggerRef}
 					label="View all images"
-					onClick={() => console.log("TODO: open image gallery")}
+					onClick={() => setGalleryOpen(true)}
 				/>
 			}
 		>
@@ -75,6 +81,15 @@ export function ShowImageGallery(props: {
 					/>
 				))}
 			</ShowRail>
+			{galleryOpen && (
+				<MediaImageGallery
+					name={props.name}
+					images={props.images}
+					triggerRef={triggerRef}
+					compact={props.compact}
+					onClose={() => setGalleryOpen(false)}
+				/>
+			)}
 		</ShowOverviewSection>
 	);
 }
@@ -405,6 +420,7 @@ export function ShowOverview(props: {
 				assets={gallery}
 				name={props.show.name}
 				compact={props.compact}
+				images={galleryImages(props.show.images)}
 			/>
 			<ShowOverviewBody
 				state={props.overview}

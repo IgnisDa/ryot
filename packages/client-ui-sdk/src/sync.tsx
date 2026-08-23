@@ -17,8 +17,13 @@ export const SETTLE_RING_DURATION_MS = 900;
 
 type ArtShape = "rounded" | "circle";
 
+type ArtFit = "cover" | "contain";
+
 const reasonBackground = (reason: SyncReason) =>
 	reason === "translating" ? "bg-translate" : "bg-info";
+
+const fitClassName = (fit: ArtFit | undefined) =>
+	fit === "contain" ? "object-contain" : "object-cover";
 
 const shapeClassName = (shape: ArtShape | undefined) => {
 	if (shape === undefined) {
@@ -48,6 +53,7 @@ export function EntityArtWell(props: {
 	readonly className: string;
 	readonly state: FieldSyncState;
 	readonly url: string | undefined;
+	readonly fit?: ArtFit | undefined;
 	readonly shape?: ArtShape | undefined;
 }) {
 	const [failedUrl, setFailedUrl] = useState<string>();
@@ -61,7 +67,8 @@ export function EntityArtWell(props: {
 				onError={() => setFailedUrl(props.url)}
 				className={clsx(
 					props.className,
-					"overflow-hidden bg-surface-2 object-cover",
+					"overflow-hidden bg-surface-2",
+					fitClassName(props.fit),
 					shapeClassName(props.shape),
 				)}
 			/>

@@ -21,7 +21,7 @@ import {
 } from "../../tests/client/show/overview-fixture";
 import { rowsResult } from "../../tests/client/show/query-result-fixture";
 import { showSummaryRow } from "../../tests/client/show/summary-fixture";
-import { flushRyotClient, mountRyotClient } from "../../tests/client/show/test-support";
+import { flushRyotClient, mountRyotClient } from "../../tests/client/test-support";
 import { ShowEpisodesTab } from "./episodes";
 import { ShowRefreshStatus } from "./primitives";
 import {

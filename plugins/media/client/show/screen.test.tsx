@@ -22,7 +22,7 @@ import {
 	readyQueryResult,
 } from "../../tests/client/show/query-result-fixture";
 import { decodeShowSummaryResult, showSummaryRow } from "../../tests/client/show/summary-fixture";
-import { mountRyotClient } from "../../tests/client/show/test-support";
+import { mountRyotClient } from "../../tests/client/test-support";
 import { ShowActivity } from "./activity";
 import { mapShowActivity, type ShowActivityState } from "./activity-state";
 import { ShowEpisodes } from "./episodes";
