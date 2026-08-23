@@ -2,6 +2,7 @@ import type {
 	PluginClientCatalog,
 	PluginClientCatalogEntry,
 } from "@ryot/ryotql-recipes/plugin-client-catalog";
+import clsx from "clsx";
 import { useId, useRef, useState } from "react";
 
 import { AppIcon } from "#/modules/navigation/app-icon";
@@ -84,16 +85,16 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 								key={workspace.installationId}
 								onClick={() => select(workspace)}
 								aria-label={`Switch to ${workspace.name} workspace`}
-								className={[
+								className={clsx(
 									"flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left",
 									isCurrent ? "bg-accent-soft" : "hover:bg-surface-2",
-								].join(" ")}
+								)}
 							>
 								<span
-									className={[
+									className={clsx(
 										"flex size-8 shrink-0 items-center justify-center rounded-lg",
 										isCurrent ? "bg-accent text-accent-ink" : "bg-surface-2 text-text",
-									].join(" ")}
+									)}
 								>
 									<AppIcon name={workspace.icon} size={17} />
 								</span>
@@ -104,7 +105,7 @@ export function WorkspaceSwitcher(props: WorkspaceSwitcherProps) {
 								<AppIcon
 									size={15}
 									name={isCurrent ? "circle-check" : "chevron-right"}
-									className={isCurrent ? "text-accent-text" : "text-text-subtle"}
+									className={clsx(isCurrent ? "text-accent-text" : "text-text-subtle")}
 								/>
 							</button>
 						);
