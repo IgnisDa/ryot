@@ -102,6 +102,26 @@ describe("plugin client bridge contract", () => {
 		);
 	});
 
+	it("requires header content to identify its active screen", () => {
+		const decode = Schema.decodeUnknownResult(PluginBridgeClientMessage);
+
+		expect(
+			Result.isSuccess(
+				decode({ index: 2, key: "k2", header: { title: "Details" }, type: "header" }),
+			),
+		).toBe(true);
+		expect(Result.isSuccess(decode({ index: 2, key: "k2", header: null, type: "header" }))).toBe(
+			true,
+		);
+		expect(Result.isFailure(decode({ header: { title: "Details" }, type: "header" }))).toBe(true);
+		expect(
+			Result.isFailure(decode({ index: 2, key: "k2", header: { title: "" }, type: "header" })),
+		).toBe(true);
+		expect(
+			Result.isFailure(decode({ extra: true, index: 2, key: "k2", header: null, type: "header" })),
+		).toBe(true);
+	});
+
 	it("decodes strict theme snapshots with every required CSS token", () => {
 		const decode = Schema.decodeUnknownResult(PluginThemeSnapshot);
 
