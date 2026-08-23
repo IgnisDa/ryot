@@ -4,7 +4,7 @@ import { redirect } from "react-router";
 import { $path } from "safe-routes";
 import { match } from "ts-pattern";
 
-import { customers } from "~/drizzle/schema.server";
+import { customer } from "~/drizzle/schema.server";
 import {
 	assignPaymentProvider,
 	getDb,
@@ -29,17 +29,17 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	if (!email || !claims.sub) {
 		throw new Error("Invalid claims");
 	}
-	const alreadyCustomer = await getDb().query.customers.findFirst({
-		where: eq(customers.email, email),
+	const alreadyCustomer = await getDb().query.customer.findFirst({
+		where: eq(customer.email, email),
 	});
 	const customerId = await match(alreadyCustomer)
 		.with(undefined, async () => {
 			const paymentProvider = assignPaymentProvider(email);
 			const dbCustomer = await getDb()
-				.insert(customers)
+				.insert(customer)
 				.values({ email, paymentProvider, oidcIssuerId: claims.sub })
-				.returning({ id: customers.id })
-				.onConflictDoUpdate({ target: customers.oidcIssuerId, set: { oidcIssuerId: claims.sub } });
+				.returning({ id: customer.id })
+				.onConflictDoUpdate({ target: customer.oidcIssuerId, set: { oidcIssuerId: claims.sub } });
 			return dbCustomer.at(0)?.id;
 		})
 		.otherwise((value) => value.id);
