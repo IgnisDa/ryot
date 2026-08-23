@@ -69,6 +69,7 @@ export const reservedPluginSlugs: ReadonlySet<string> = new Set([
 	"e",
 	"v",
 	"auth",
+	"oauth",
 	"settings",
 	"god-mode",
 	"onboarding",

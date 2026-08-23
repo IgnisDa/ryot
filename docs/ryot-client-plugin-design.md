@@ -984,6 +984,7 @@ The canonical set is `reservedPluginSlugs` in `packages/contract/src/modules/plu
 e
 v
 auth
+oauth
 settings
 god-mode
 onboarding
@@ -991,7 +992,7 @@ reset-password
 customize-sidebar
 ```
 
-It is exactly the set of global route segments the kernel client owns, so adding or removing a top-level client route means updating it. The kernel client must test that the static top-level segments in its TanStack Router route tree exactly match this set.
+It is exactly the set of global route segments the clients own, so adding or removing a top-level client route means updating it. The native client route test excludes `oauth` because `/oauth/login` is a server-hosted web route that is not bundled in the native client. The kernel client must test that its static top-level segments match this set.
 
 `validatePluginManifestPolicy` enforces the set for system and user plugins alike, before a manifest is persisted or activated. A reserved slug fails with `PluginSlugReservedError`, which reaches API clients as the `slug-reserved` request reason — the same reason a private plugin gets when it collides with a shipped system plugin.
 
