@@ -8,6 +8,7 @@ const systemConfig = (auth: SystemConfigResponse["auth"]): SystemConfigResponse 
 	analytics: {},
 	pro: { isServerKeyValidated: false },
 	notifications: { smtpEnabled: false },
+	frontendOrigin: "http://localhost:3000",
 	fileStorage: { temporaryUploadProvider: "local", preferredPermanentUploadProvider: "local" },
 });
 

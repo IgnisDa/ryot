@@ -76,6 +76,26 @@ export const isS3Configured = (config: AppConfigValue): boolean => {
 
 export const validateSystemConfig = (config: AppConfigValue) =>
 	Effect.gen(function* () {
+		const frontendUrl = yield* Effect.try({
+			try: () => new URL(config.frontendUrl),
+			catch: () => configError("FRONTEND_URL must be an absolute HTTP or HTTPS origin."),
+		});
+		if (
+			!/^https?:\/\/[^/?#]+\/?$/i.test(config.frontendUrl) ||
+			(frontendUrl.protocol !== "http:" && frontendUrl.protocol !== "https:") ||
+			frontendUrl.pathname !== "/" ||
+			frontendUrl.search !== "" ||
+			frontendUrl.hash !== "" ||
+			frontendUrl.username !== "" ||
+			frontendUrl.password !== ""
+		) {
+			return yield* Effect.fail(
+				configError(
+					"FRONTEND_URL must be an absolute HTTP or HTTPS origin without a path, query, or fragment.",
+				),
+			);
+		}
+
 		const { clientId, clientSecret, issuerUrl } = config.server.oidc;
 		const oidcSetCount = [
 			isNonEmpty(clientId),
@@ -145,7 +165,7 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 			);
 		}
 
-		return config;
+		return { ...config, frontendUrl: frontendUrl.origin };
 	});
 
 export class AppConfig extends Context.Service<AppConfig>()("AppConfig", {
