@@ -153,6 +153,16 @@ CREATE TABLE "integration_auto_disable_claim" (
 	"integration_id" text NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "jwks" (
+	"alg" text,
+	"crv" text,
+	"id" text PRIMARY KEY,
+	"public_key" text NOT NULL,
+	"private_key" text NOT NULL,
+	"expires_at" timestamp with time zone,
+	"created_at" timestamp with time zone NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "managed_asset" (
 	"key" text,
 	"sha256" text NOT NULL,
@@ -196,6 +206,127 @@ CREATE TABLE "notification_subscription_state" (
 	"id" text PRIMARY KEY,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "notification_subscription_state_user_signal_unique" UNIQUE NULLS NOT DISTINCT("user_id","signal_schema_slug","signal_schema_plugin_id")
+);
+--> statement-breakpoint
+CREATE TABLE "oauth_access_token" (
+	"reference_id" text,
+	"token" text UNIQUE,
+	"id" text PRIMARY KEY,
+	"resources" text[],
+	"authorization_code_id" text,
+	"scopes" text[] NOT NULL,
+	"requested_user_info_claims" text[],
+	"user_id" text,
+	"revoked" timestamp with time zone,
+	"confirmation" jsonb,
+	"refresh_id" text,
+	"expires_at" timestamp with time zone NOT NULL,
+	"created_at" timestamp with time zone NOT NULL,
+	"session_id" text,
+	"client_id" text NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "oauth_client" (
+	"tos" text,
+	"uri" text,
+	"icon" text,
+	"jwks" text,
+	"name" text,
+	"policy" text,
+	"jwks_uri" text,
+	"software_id" text,
+	"reference_id" text,
+	"subject_type" text,
+	"client_secret" text,
+	"scopes" text[],
+	"skip_consent" boolean,
+	"require_pkce" boolean,
+	"id" text PRIMARY KEY,
+	"software_version" text,
+	"application_type" text,
+	"contacts" text[],
+	"client_discovery_id" text,
+	"software_statement" text,
+	"grant_types" text[],
+	"enable_end_session" boolean,
+	"backchannel_logout_uri" text,
+	"response_types" text[],
+	"token_endpoint_auth_method" text,
+	"client_id" text NOT NULL UNIQUE,
+	"redirect_uris" text[] NOT NULL,
+	"post_logout_redirect_uris" text[],
+	"disabled" boolean DEFAULT false,
+	"backchannel_logout_session_required" boolean,
+	"user_id" text,
+	"metadata" jsonb,
+	"created_at" timestamp with time zone,
+	"updated_at" timestamp with time zone,
+	"dpop_bound_access_tokens" boolean DEFAULT false,
+	"client_credentials_scopes" text[] DEFAULT '{}'::text[]
+);
+--> statement-breakpoint
+CREATE TABLE "oauth_client_assertion" (
+	"id" text PRIMARY KEY,
+	"expires_at" timestamp with time zone NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "oauth_client_resource" (
+	"id" text PRIMARY KEY,
+	"metadata" jsonb,
+	"created_at" timestamp with time zone,
+	"client_id" text NOT NULL,
+	"resource_id" text NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "oauth_consent" (
+	"reference_id" text,
+	"id" text PRIMARY KEY,
+	"resources" text[],
+	"scopes" text[] NOT NULL,
+	"requested_user_info_claims" text[],
+	"user_id" text,
+	"created_at" timestamp with time zone NOT NULL,
+	"updated_at" timestamp with time zone NOT NULL,
+	"client_id" text NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "oauth_refresh_token" (
+	"reference_id" text,
+	"id" text PRIMARY KEY,
+	"resources" text[],
+	"authorization_code_id" text,
+	"rotation_replay_response" text,
+	"token" text NOT NULL UNIQUE,
+	"scopes" text[] NOT NULL,
+	"requested_user_info_claims" text[],
+	"revoked" timestamp with time zone,
+	"auth_time" timestamp with time zone,
+	"rotated_at" timestamp with time zone,
+	"confirmation" jsonb,
+	"expires_at" timestamp with time zone NOT NULL,
+	"created_at" timestamp with time zone NOT NULL,
+	"rotation_replay_expires_at" timestamp with time zone,
+	"session_id" text,
+	"client_id" text NOT NULL,
+	"user_id" text NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "oauth_resource" (
+	"signing_key_id" text,
+	"name" text NOT NULL,
+	"id" text PRIMARY KEY,
+	"signing_algorithm" text,
+	"access_token_ttl" integer,
+	"refresh_token_ttl" integer,
+	"allowed_scopes" text[],
+	"identifier" text NOT NULL UNIQUE,
+	"disabled" boolean DEFAULT false,
+	"policy_version" integer DEFAULT 1,
+	"metadata" jsonb,
+	"created_at" timestamp with time zone,
+	"updated_at" timestamp with time zone,
+	"custom_claims" jsonb,
+	"dpop_bound_access_tokens_required" boolean DEFAULT false
 );
 --> statement-breakpoint
 CREATE TABLE "plugin" (
@@ -388,8 +519,8 @@ CREATE TABLE "subscription_run" (
 CREATE TABLE "two_factor" (
 	"id" text PRIMARY KEY,
 	"secret" text NOT NULL,
-	"backup_codes" text NOT NULL,
 	"verified" boolean NOT NULL,
+	"backup_codes" text NOT NULL,
 	"failed_verification_count" integer DEFAULT 0,
 	"locked_until" timestamp with time zone,
 	"user_id" text NOT NULL
@@ -480,6 +611,21 @@ CREATE INDEX "notification_channel_user_id_created_at_idx" ON "notification_chan
 CREATE INDEX "notification_channel_user_id_is_disabled_idx" ON "notification_channel" ("user_id","is_disabled");--> statement-breakpoint
 CREATE INDEX "notification_subscription_state_user_id_idx" ON "notification_subscription_state" ("user_id");--> statement-breakpoint
 CREATE INDEX "notification_subscription_state_signal_schema_plugin_id_idx" ON "notification_subscription_state" ("signal_schema_plugin_id");--> statement-breakpoint
+CREATE INDEX "oauth_access_token_clientId_idx" ON "oauth_access_token" ("client_id");--> statement-breakpoint
+CREATE INDEX "oauth_access_token_sessionId_idx" ON "oauth_access_token" ("session_id");--> statement-breakpoint
+CREATE INDEX "oauth_access_token_userId_idx" ON "oauth_access_token" ("user_id");--> statement-breakpoint
+CREATE INDEX "oauth_access_token_refreshId_idx" ON "oauth_access_token" ("refresh_id");--> statement-breakpoint
+CREATE INDEX "oauth_access_token_authorizationCodeId_idx" ON "oauth_access_token" ("authorization_code_id");--> statement-breakpoint
+CREATE INDEX "oauth_client_userId_idx" ON "oauth_client" ("user_id");--> statement-breakpoint
+CREATE INDEX "oauth_client_resource_clientId_idx" ON "oauth_client_resource" ("client_id");--> statement-breakpoint
+CREATE INDEX "oauth_client_resource_resourceId_idx" ON "oauth_client_resource" ("resource_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "oauth_client_resource_clientId_resourceId_uidx" ON "oauth_client_resource" ("client_id","resource_id");--> statement-breakpoint
+CREATE INDEX "oauth_consent_clientId_idx" ON "oauth_consent" ("client_id");--> statement-breakpoint
+CREATE INDEX "oauth_consent_userId_idx" ON "oauth_consent" ("user_id");--> statement-breakpoint
+CREATE INDEX "oauth_refresh_token_clientId_idx" ON "oauth_refresh_token" ("client_id");--> statement-breakpoint
+CREATE INDEX "oauth_refresh_token_sessionId_idx" ON "oauth_refresh_token" ("session_id");--> statement-breakpoint
+CREATE INDEX "oauth_refresh_token_userId_idx" ON "oauth_refresh_token" ("user_id");--> statement-breakpoint
+CREATE INDEX "oauth_refresh_token_authorizationCodeId_idx" ON "oauth_refresh_token" ("authorization_code_id");--> statement-breakpoint
 CREATE INDEX "plugin_owner_id_idx" ON "plugin" ("owner_id");--> statement-breakpoint
 CREATE INDEX "plugin_client_artifact_hash_idx" ON "plugin" ("client_artifact_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "plugin_system_slug_unique" ON "plugin" ("slug") WHERE "scope" = 'system';--> statement-breakpoint
@@ -538,6 +684,18 @@ ALTER TABLE "managed_asset" ADD CONSTRAINT "managed_asset_owner_user_id_user_id_
 ALTER TABLE "notification_channel" ADD CONSTRAINT "notification_channel_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "notification_subscription_state" ADD CONSTRAINT "notification_subscription_state_6cYqs9dCUQns_fkey" FOREIGN KEY ("signal_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "notification_subscription_state" ADD CONSTRAINT "notification_subscription_state_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "oauth_access_token" ADD CONSTRAINT "oauth_access_token_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id");--> statement-breakpoint
+ALTER TABLE "oauth_access_token" ADD CONSTRAINT "oauth_access_token_refresh_id_oauth_refresh_token_id_fkey" FOREIGN KEY ("refresh_id") REFERENCES "oauth_refresh_token"("id");--> statement-breakpoint
+ALTER TABLE "oauth_access_token" ADD CONSTRAINT "oauth_access_token_session_id_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "session"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "oauth_access_token" ADD CONSTRAINT "oauth_access_token_client_id_oauth_client_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "oauth_client"("client_id");--> statement-breakpoint
+ALTER TABLE "oauth_client" ADD CONSTRAINT "oauth_client_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id");--> statement-breakpoint
+ALTER TABLE "oauth_client_resource" ADD CONSTRAINT "oauth_client_resource_client_id_oauth_client_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "oauth_client"("client_id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "oauth_client_resource" ADD CONSTRAINT "oauth_client_resource_resource_id_oauth_resource_id_fkey" FOREIGN KEY ("resource_id") REFERENCES "oauth_resource"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "oauth_consent" ADD CONSTRAINT "oauth_consent_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id");--> statement-breakpoint
+ALTER TABLE "oauth_consent" ADD CONSTRAINT "oauth_consent_client_id_oauth_client_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "oauth_client"("client_id");--> statement-breakpoint
+ALTER TABLE "oauth_refresh_token" ADD CONSTRAINT "oauth_refresh_token_session_id_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "session"("id") ON DELETE SET NULL;--> statement-breakpoint
+ALTER TABLE "oauth_refresh_token" ADD CONSTRAINT "oauth_refresh_token_client_id_oauth_client_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "oauth_client"("client_id");--> statement-breakpoint
+ALTER TABLE "oauth_refresh_token" ADD CONSTRAINT "oauth_refresh_token_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id");--> statement-breakpoint
 ALTER TABLE "plugin" ADD CONSTRAINT "plugin_client_artifact_hash_plugin_client_artifact_hash_fkey" FOREIGN KEY ("client_artifact_hash") REFERENCES "plugin_client_artifact"("hash");--> statement-breakpoint
 ALTER TABLE "plugin" ADD CONSTRAINT "plugin_owner_id_user_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "plugin_client_artifact_file" ADD CONSTRAINT "plugin_client_artifact_file_vYqlZNnp2DwH_fkey" FOREIGN KEY ("artifact_hash") REFERENCES "plugin_client_artifact"("hash");--> statement-breakpoint
