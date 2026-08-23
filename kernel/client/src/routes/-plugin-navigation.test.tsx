@@ -21,6 +21,7 @@ import {
 	catalog,
 	makeAuthStub,
 	makePublicApiStub,
+	OAuthRouteStubs,
 	makeStorageStub,
 	makeWorkspaceRecorder,
 	server,
@@ -53,6 +54,7 @@ const mountView = (
 		Layer.mergeAll(
 			AuthStub,
 			ServerStub,
+			OAuthRouteStubs,
 			makePublicApiStub(),
 			AuthClient.layer,
 			AuthenticatedApi.layer,
