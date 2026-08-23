@@ -12,7 +12,6 @@ import {
 import { Data, Effect, Schema } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
-import { resolveApiUrl } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
 import { UploadsApi } from "#/api/uploads";
 
@@ -48,20 +47,22 @@ export const temporaryUpload = Effect.fn("temporaryUpload")(function* (
 			payload: { kind: "temporary", fileName: request.fileName, contentType: request.contentType },
 		})
 		.pipe(Effect.mapError((error) => failWith(classifyTemporaryUploadFailure(error))));
-	const response = yield* Effect.tryPromise({
-		catch: () => failWith("transport"),
-		try: (signal) =>
-			// oxlint-disable-next-line effecttsgo/global-fetch-in-effect -- Signed upload URLs and Blob bodies use the browser fetch boundary.
-			fetch(resolveApiUrl(scope.serverUrl, intent.uploadUrl), {
-				signal,
-				body: request.source,
-				method: intent.method,
-				headers: { ...intent.headers },
-			}),
-	});
-	if (!response.ok) {
-		return yield* failWith("operation-failed");
-	}
+	yield* api
+		.putBytes(scope, {
+			source: request.source,
+			uploadUrl: intent.uploadUrl,
+			headers: { ...intent.headers },
+			contentType: request.contentType,
+		})
+		.pipe(
+			Effect.mapError((error) =>
+				failWith(
+					error instanceof AuthenticatedApiError && typeof error.cause === "number"
+						? "operation-failed"
+						: "transport",
+				),
+			),
+		);
 	const completion = yield* api
 		.completeIntent(scope, { params: { intentId: intent.intentId } })
 		.pipe(Effect.mapError((error) => failWith(classifyTemporaryUploadFailure(error))));

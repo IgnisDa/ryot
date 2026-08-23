@@ -1,6 +1,6 @@
 import { UploadBadRequest } from "@ryot-app/contract/modules/uploads/schemas";
 import { Effect, ManagedRuntime } from "effect";
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { decodeServerOrigin } from "#/api/origin";
@@ -27,17 +27,6 @@ const intent = {
 	headers: { "content-type": "text/csv" },
 };
 
-const originalFetch = globalThis.fetch;
-
-const stubFetch = (respond: (init: RequestInit | undefined) => Promise<Response>) => {
-	const inits: (RequestInit | undefined)[] = [];
-	globalThis.fetch = (_input: RequestInfo | URL, init?: RequestInit) => {
-		inits.push(init);
-		return respond(init);
-	};
-	return inits;
-};
-
 const withUploads = <A>(
 	overrides: Parameters<typeof makeUploadsApi>[0],
 	body: (run: <B, E>(effect: Effect.Effect<B, E, UploadsApi>) => Promise<B>) => Promise<A>,
@@ -51,18 +40,18 @@ const withUploads = <A>(
 };
 
 describe("temporary uploads", () => {
-	afterEach(() => {
-		globalThis.fetch = originalFetch;
-	});
-
 	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("hides intent creation, byte transfer, and completion behind one token", async () => {
-		const inits = stubFetch(() => Promise.resolve(new Response(null, { status: 200 })));
+		const transfers: unknown[] = [];
 		const completed: string[] = [];
 
 		await withUploads(
 			{
 				createIntent: () => Effect.succeed(intent),
+				putBytes: (_scope, transfer) => {
+					transfers.push(transfer);
+					return Effect.void;
+				},
 				completeIntent: (_scope, apiRequest) => {
 					completed.push(apiRequest.params.intentId);
 					return Effect.succeed(token);
@@ -72,23 +61,31 @@ describe("temporary uploads", () => {
 		);
 
 		expect(completed).toEqual(["intent-1"]);
-		expect(inits[0]).toMatchObject({ method: "PUT", headers: { "content-type": "text/csv" } });
-		expect(inits[0]?.body).toBe(request.source);
+		expect(transfers).toEqual([
+			{
+				source: request.source,
+				contentType: "text/csv",
+				uploadUrl: "/uploads/local/intent-1",
+				headers: { "content-type": "text/csv" },
+			},
+		]);
 	});
 
 	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("passes an abort signal to the byte transfer so teardown stops it", async () => {
-		let transferSignal: AbortSignal | undefined;
-		stubFetch((init) => {
-			transferSignal = init?.signal ?? undefined;
-			// oxlint-disable-next-line effecttsgo/new-promise -- The injected fetch remains pending until the abort signal rejects it.
-			return new Promise<Response>((_resolve, reject) => {
-				init?.signal?.addEventListener("abort", () => reject(new Error("aborted")));
-			});
-		});
-
+	it("interrupts the byte transfer when the scope is torn down", async () => {
+		let released = false;
 		const runtime = ManagedRuntime.make(
-			makeUploadsApi({ createIntent: () => Effect.succeed(intent) }),
+			makeUploadsApi({
+				createIntent: () => Effect.succeed(intent),
+				putBytes: () =>
+					Effect.never.pipe(
+						Effect.ensuring(
+							Effect.sync(() => {
+								released = true;
+							}),
+						),
+					),
+			}),
 		);
 		const controller = new AbortController();
 		const pending = runtime.runPromise(temporaryUpload(scope, request), {
@@ -96,19 +93,17 @@ describe("temporary uploads", () => {
 		});
 		await Effect.runPromise(Effect.sleep(0));
 
-		expect(transferSignal?.aborted).toBe(false);
 		controller.abort();
 		await expect(pending).rejects.toBeDefined();
-		expect(transferSignal?.aborted).toBe(true);
+		expect(released).toBe(true);
 		await runtime.dispose();
 	});
 
 	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("treats a completion that is not a temporary token as a malformed result", async () => {
-		stubFetch(() => Promise.resolve(new Response(null, { status: 200 })));
-
 		await withUploads(
 			{
+				putBytes: () => Effect.void,
 				createIntent: () => Effect.succeed(intent),
 				completeIntent: () =>
 					Effect.succeed({ type: "local" as const, key: "permanent/items.csv" }),
@@ -123,20 +118,28 @@ describe("temporary uploads", () => {
 
 	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("separates a declared upload rejection from a transport failure", async () => {
-		stubFetch(() => Promise.resolve(new Response(null, { status: 500 })));
-		await withUploads({ createIntent: () => Effect.succeed(intent) }, (run) =>
-			expect(run(temporaryUploadOutcome(scope, request))).resolves.toEqual({
-				outcome: "failure",
-				reason: "operation-failed",
-			}),
+		await withUploads(
+			{
+				createIntent: () => Effect.succeed(intent),
+				putBytes: () => Effect.fail(new AuthenticatedApiError({ cause: 500 })),
+			},
+			(run) =>
+				expect(run(temporaryUploadOutcome(scope, request))).resolves.toEqual({
+					outcome: "failure",
+					reason: "operation-failed",
+				}),
 		);
 
-		stubFetch(() => Promise.reject(new Error("offline")));
-		await withUploads({ createIntent: () => Effect.succeed(intent) }, (run) =>
-			expect(run(temporaryUploadOutcome(scope, request))).resolves.toEqual({
-				outcome: "failure",
-				reason: "transport",
-			}),
+		await withUploads(
+			{
+				createIntent: () => Effect.succeed(intent),
+				putBytes: () => Effect.fail(new AuthenticatedApiError({ cause: new Error("offline") })),
+			},
+			(run) =>
+				expect(run(temporaryUploadOutcome(scope, request))).resolves.toEqual({
+					outcome: "failure",
+					reason: "transport",
+				}),
 		);
 	});
 

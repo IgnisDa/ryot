@@ -57,13 +57,6 @@ type UploadStep<M extends "createIntent" | "completeIntent"> = Effect.Effect<
 	AuthenticatedApiError
 >;
 
-type FetchCall = {
-	readonly url: string;
-	readonly body: unknown;
-	readonly method: string;
-	readonly headers: unknown;
-};
-
 const intent: UploadIntentResponse = {
 	method: "PUT",
 	intentId: "intent-1",
@@ -101,6 +94,7 @@ const makeUploadsRuntime = (
 	steps: {
 		readonly createIntent: UploadStep<"createIntent">;
 		readonly completeIntent: UploadStep<"completeIntent">;
+		readonly putBytes?: Effect.Effect<void, AuthenticatedApiError>;
 	},
 ) =>
 	ManagedRuntime.make(
@@ -109,6 +103,10 @@ const makeUploadsRuntime = (
 			makeEntityInterestService(),
 			makeRyotQLApi(),
 			makeUploadsApi({
+				putBytes: (_scope, transfer) => {
+					events.push(`put:${transfer.uploadUrl}`);
+					return steps.putBytes ?? Effect.void;
+				},
 				createIntent: (_scope, request) => {
 					events.push(`create-intent:${request.payload.fileName}`);
 					return steps.createIntent;
@@ -121,43 +119,6 @@ const makeUploadsRuntime = (
 		),
 	);
 
-const requestUrl = (input: RequestInfo | URL) => {
-	if (typeof input === "string") {
-		return input;
-	}
-	return input instanceof URL ? input.href : input.url;
-};
-
-const withFetch = (
-	calls: FetchCall[],
-	respond: (call: FetchCall) => Promise<Response>,
-	run: () => Promise<void>,
-) => {
-	const original = globalThis.fetch;
-	const stub: typeof globalThis.fetch = (input, init = {}) => {
-		const call = {
-			body: init.body,
-			headers: init.headers,
-			url: requestUrl(input),
-			method: init.method ?? "GET",
-		} satisfies FetchCall;
-		calls.push(call);
-		return respond(call);
-	};
-	globalThis.fetch = stub;
-	return Effect.runPromise(
-		Effect.promise(run).pipe(
-			Effect.ensuring(
-				Effect.sync(() => {
-					globalThis.fetch = original;
-				}),
-			),
-		),
-	);
-};
-
-const accepted = new Response(null, { status: 204 });
-const forbidden = new Response(null, { status: 403 });
 const source = new Blob(["id,title"], { type: "text/csv" });
 const uploadRequest = { source, fileName: "items.csv", contentType: "text/csv" };
 
@@ -507,38 +468,48 @@ describe("kernel Ryot client", () => {
 
 describe("kernel temporary uploads", () => {
 	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("creates an intent, transfers the bytes with its method and headers, then completes it", async () => {
+	it("creates an intent, transfers the bytes with its headers, then completes it", async () => {
 		const events: string[] = [];
-		const calls: FetchCall[] = [];
-		const runtime = makeUploadsRuntime(events, {
-			createIntent: Effect.succeed(intent),
-			completeIntent: Effect.succeed(uploadToken),
-		});
+		const transfers: unknown[] = [];
+		const runtime = ManagedRuntime.make(
+			Layer.mergeAll(
+				makeCollectionsApi(),
+				makeEntityInterestService(),
+				makeRyotQLApi(),
+				makeUploadsApi({
+					createIntent: (_scope, request) => {
+						events.push(`create-intent:${request.payload.fileName}`);
+						return Effect.succeed(intent);
+					},
+					putBytes: (_scope, transfer) => {
+						events.push(`put:${transfer.uploadUrl}`);
+						transfers.push(transfer);
+						return Effect.void;
+					},
+					completeIntent: (_scope, request) => {
+						events.push(`complete-intent:${request.params.intentId}`);
+						return Effect.succeed(uploadToken);
+					},
+				}),
+			),
+		);
 		try {
 			const client = createKernelRyotClient(runtime, scope, theme);
-			await withFetch(
-				calls,
-				(call) => {
-					events.push(`put:${call.url}`);
-					return Promise.resolve(accepted);
-				},
-				() =>
-					expect(Effect.runPromise(client.uploads.uploadTemporary(uploadRequest))).resolves.toEqual(
-						uploadToken,
-					),
-			);
+			await expect(
+				Effect.runPromise(client.uploads.uploadTemporary(uploadRequest)),
+			).resolves.toEqual(uploadToken);
 
 			expect(events).toEqual([
 				"create-intent:items.csv",
-				"put:https://ryot.example/api/uploads/local/intent-1",
+				"put:/uploads/local/intent-1",
 				"complete-intent:intent-1",
 			]);
-			expect(calls).toEqual([
+			expect(transfers).toEqual([
 				{
-					body: source,
-					method: "PUT",
+					source,
+					contentType: "text/csv",
 					headers: { ...intent.headers },
-					url: "https://ryot.example/api/uploads/local/intent-1",
+					uploadUrl: "/uploads/local/intent-1",
 				},
 			]);
 		} finally {
@@ -549,7 +520,6 @@ describe("kernel temporary uploads", () => {
 	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("classifies a declared intent failure as operation-failed and skips the transfer", async () => {
 		const events: string[] = [];
-		const calls: FetchCall[] = [];
 		const runtime = makeUploadsRuntime(events, {
 			completeIntent: Effect.succeed(uploadToken),
 			createIntent: fails(
@@ -560,17 +530,11 @@ describe("kernel temporary uploads", () => {
 		});
 		try {
 			const client = createKernelRyotClient(runtime, scope, theme);
-			await withFetch(
-				calls,
-				() => Promise.resolve(accepted),
-				() =>
-					expect(
-						Effect.runPromise(client.uploads.uploadTemporary(uploadRequest)),
-					).rejects.toMatchObject({ reason: "operation-failed" }),
-			);
+			await expect(
+				Effect.runPromise(client.uploads.uploadTemporary(uploadRequest)),
+			).rejects.toMatchObject({ reason: "operation-failed" });
 
 			expect(events).toEqual(["create-intent:items.csv"]);
-			expect(calls).toEqual([]);
 		} finally {
 			await runtime.dispose();
 		}
@@ -595,58 +559,57 @@ describe("kernel temporary uploads", () => {
 
 	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("classifies a rejected byte transfer and never completes the intent", async () => {
-		const events: string[] = [];
-		const calls: FetchCall[] = [];
-		const runtime = makeUploadsRuntime(events, {
+		const rejected: string[] = [];
+		const rejectedRuntime = makeUploadsRuntime(rejected, {
+			putBytes: fails(403),
 			createIntent: Effect.succeed(intent),
 			completeIntent: Effect.succeed(uploadToken),
 		});
 		try {
-			const client = createKernelRyotClient(runtime, scope, theme);
-			await withFetch(
-				calls,
-				() => Promise.resolve(forbidden),
-				() =>
-					expect(
-						Effect.runPromise(client.uploads.uploadTemporary(uploadRequest)),
-					).rejects.toMatchObject({ reason: "operation-failed" }),
-			);
-			await withFetch(
-				calls,
-				() => Promise.reject(new TypeError("Failed to fetch")),
-				() =>
-					expect(
-						Effect.runPromise(client.uploads.uploadTemporary(uploadRequest)),
-					).rejects.toMatchObject({ reason: "transport" }),
-			);
-
-			expect(events).toEqual(["create-intent:items.csv", "create-intent:items.csv"]);
-			expect(calls).toHaveLength(2);
+			const client = createKernelRyotClient(rejectedRuntime, scope, theme);
+			await expect(
+				Effect.runPromise(client.uploads.uploadTemporary(uploadRequest)),
+			).rejects.toMatchObject({ reason: "operation-failed" });
+			expect(rejected).toEqual(["create-intent:items.csv", "put:/uploads/local/intent-1"]);
 		} finally {
-			await runtime.dispose();
+			await rejectedRuntime.dispose();
+		}
+
+		const offline: string[] = [];
+		const offlineRuntime = makeUploadsRuntime(offline, {
+			createIntent: Effect.succeed(intent),
+			completeIntent: Effect.succeed(uploadToken),
+			putBytes: fails(new TypeError("Failed to fetch")),
+		});
+		try {
+			const client = createKernelRyotClient(offlineRuntime, scope, theme);
+			await expect(
+				Effect.runPromise(client.uploads.uploadTemporary(uploadRequest)),
+			).rejects.toMatchObject({ reason: "transport" });
+			expect(offline).toEqual(["create-intent:items.csv", "put:/uploads/local/intent-1"]);
+		} finally {
+			await offlineRuntime.dispose();
 		}
 	});
 
 	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("classifies a failed completion after the bytes are transferred", async () => {
 		const events: string[] = [];
-		const calls: FetchCall[] = [];
 		const runtime = makeUploadsRuntime(events, {
 			createIntent: Effect.succeed(intent),
 			completeIntent: fails(new UploadInternalError({ reason: { code: "unexpected-error" } })),
 		});
 		try {
 			const client = createKernelRyotClient(runtime, scope, theme);
-			await withFetch(
-				calls,
-				() => Promise.resolve(accepted),
-				() =>
-					expect(
-						Effect.runPromise(client.uploads.uploadTemporary(uploadRequest)),
-					).rejects.toMatchObject({ reason: "operation-failed" }),
-			);
+			await expect(
+				Effect.runPromise(client.uploads.uploadTemporary(uploadRequest)),
+			).rejects.toMatchObject({ reason: "operation-failed" });
 
-			expect(events).toEqual(["create-intent:items.csv", "complete-intent:intent-1"]);
+			expect(events).toEqual([
+				"create-intent:items.csv",
+				"put:/uploads/local/intent-1",
+				"complete-intent:intent-1",
+			]);
 		} finally {
 			await runtime.dispose();
 		}
@@ -655,21 +618,20 @@ describe("kernel temporary uploads", () => {
 	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("rejects a completion that resolves to a managed asset instead of a token", async () => {
 		const events: string[] = [];
-		const calls: FetchCall[] = [];
 		const runtime = makeUploadsRuntime(events, {
 			createIntent: Effect.succeed(intent),
 			completeIntent: Effect.succeed({ type: "local", key: "assets/items.csv" }),
 		});
 		try {
 			const client = createKernelRyotClient(runtime, scope, theme);
-			await withFetch(
-				calls,
-				() => Promise.resolve(accepted),
-				() =>
-					expect(
-						Effect.runPromise(client.uploads.uploadTemporary(uploadRequest)),
-					).rejects.toMatchObject({ reason: "malformed-result" }),
-			);
+			await expect(
+				Effect.runPromise(client.uploads.uploadTemporary(uploadRequest)),
+			).rejects.toMatchObject({ reason: "malformed-result" });
+			expect(events).toEqual([
+				"create-intent:items.csv",
+				"put:/uploads/local/intent-1",
+				"complete-intent:intent-1",
+			]);
 		} finally {
 			await runtime.dispose();
 		}

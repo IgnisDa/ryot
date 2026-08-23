@@ -4,7 +4,7 @@ import type { BackupRunItem } from "@ryot-app/ryotql-recipes/backups";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime } from "effect";
-import { afterEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import type { BackupsApi } from "#/api/backups";
@@ -81,6 +81,7 @@ const fileListOf = (file: File) => ({
 
 const uploadStub = () =>
 	makeUploadsApi({
+		putBytes: () => Effect.void,
 		completeIntent: () => Effect.succeed({ token: "upload_1", expiresAt: at(HOUR_MS) }),
 		createIntent: () =>
 			Effect.succeed({
@@ -213,21 +214,6 @@ const attachArchive = () => {
 		}),
 	);
 };
-
-const swappedFetch: { current: typeof globalThis.fetch | undefined } = { current: undefined };
-
-/** The byte transfer is a bare `fetch` to a presigned URL, which jsdom has no server for. */
-const stubUploadTransfer = () => {
-	swappedFetch.current = globalThis.fetch;
-	globalThis.fetch = () => Promise.resolve(new Response(null, { status: 200 }));
-};
-
-afterEach(() => {
-	if (swappedFetch.current !== undefined) {
-		globalThis.fetch = swappedFetch.current;
-		swappedFetch.current = undefined;
-	}
-});
 
 // oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 it("loads older backups by cursor without discarding recent runs", async () => {
@@ -562,7 +548,6 @@ describe("backup restore", () => {
 
 	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("starts a restore from the uploaded archive", async () => {
-		stubUploadTransfer();
 		const tokens: string[] = [];
 		let loads = 0;
 		mountView(
@@ -599,7 +584,6 @@ describe("backup restore", () => {
 
 	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("explains an account that is not empty on the confirm step", async () => {
-		stubUploadTransfer();
 		mountView(
 			"/settings/backups?restore=true",
 			makeBackupsApi({
