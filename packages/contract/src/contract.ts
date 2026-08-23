@@ -23,7 +23,34 @@ import { LocalUploadsGroup, UploadsGroup } from "./modules/uploads/contract";
 import { UserSettingsGroup } from "./modules/user-settings/contract";
 import { UserStateGroup } from "./modules/user-state/contract";
 
-export const AppContract = HttpApi.make("ryot")
+export type AppGroups =
+	| typeof SystemGroup
+	| typeof AutomationsGroup
+	| typeof BackupsGroup
+	| typeof DefinitionsGroup
+	| typeof RelationshipsGroup
+	| typeof EntitiesGroup
+	| typeof ProviderEntitiesGroup
+	| typeof UserStateGroup
+	| typeof UserSettingsGroup
+	| typeof EventsGroup
+	| typeof UploadsGroup
+	| typeof LocalUploadsGroup
+	| typeof SavedViewsGroup
+	| typeof CollectionsGroup
+	| typeof ClientPagesGroup
+	| typeof ClientPageArtifactsGroup
+	| typeof GodModeGroup
+	| typeof TestSupportGroup
+	| typeof ImportsGroup
+	| typeof IntegrationsGroup
+	| typeof RyotQLGroup
+	| typeof InterestGroup
+	| typeof NotificationsGroup
+	| typeof PluginArtifactSessionsGroup
+	| typeof PluginsGroup;
+
+export const AppContract: HttpApi.HttpApi<"ryot", AppGroups> = HttpApi.make("ryot")
 	.add(SystemGroup)
 	.add(AutomationsGroup)
 	.add(BackupsGroup)

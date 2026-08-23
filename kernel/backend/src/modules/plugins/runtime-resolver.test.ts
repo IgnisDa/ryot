@@ -1019,6 +1019,7 @@ const installationState = (overrides: Partial<PluginInstallationState> = {}) =>
 		userId: "user-1",
 		isDisabled: false,
 		healthReason: null,
+		homeSavedViewId: null,
 		pluginScope: "system",
 		pluginSlug: "fixture",
 		id: "system-installation-id",
