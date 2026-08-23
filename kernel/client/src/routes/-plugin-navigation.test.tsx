@@ -16,6 +16,7 @@ import { PluginQueriesService } from "#/modules/plugins/queries";
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
 import {
+	GodModeRouteStubs,
 	ServerStub,
 	SavedViewRouteStubs,
 	authenticated,
@@ -54,6 +55,7 @@ const mountView = (
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
 			AuthStub,
+			GodModeRouteStubs,
 			ServerStub,
 			SavedViewRouteStubs,
 			makePublicApiStub(),
