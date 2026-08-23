@@ -1,8 +1,8 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { sql } from "drizzle-orm";
-import { Data, Deferred, Effect, Layer, Redacted } from "effect";
+import { Context, Data, Deferred, Effect, Layer, Redacted } from "effect";
 import { assert, describe } from "vitest";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/core";
@@ -22,14 +22,43 @@ import { PluginRepository } from "./repository";
 import {
 	installRevisionPackage,
 	revisionPackage,
-	withRevisionDatabase,
+	revisionDatabaseLayer,
 } from "./revision.test-support";
 
 class RollbackKeyTest extends Data.TaggedError("RollbackKeyTest") {}
 
+class RestartedConfigRevisions extends Context.Service<
+	RestartedConfigRevisions,
+	PluginConfigRevisions["Service"]
+>()("test/RestartedConfigRevisions") {}
+
+const restartedConfigRevisionsLayer = Layer.effect(
+	RestartedConfigRevisions,
+	PluginConfigRevisions.make,
+).pipe(
+	Layer.provide(Layer.fresh(PluginConfigEncryptionKey.layer)),
+	Layer.provide(
+		makeAppConfigLayer({ server: { adminAccessToken: Redacted.make("changed-admin-token") } }),
+	),
+);
+
+const sharedDatabaseEncryptionKeyLayer = PluginConfigEncryptionKey.layer.pipe(
+	Layer.provideMerge(
+		Layer.unwrap(
+			Effect.sync(() =>
+				DatabaseSession.layer.pipe(
+					Layer.provide(
+						makeAppConfigLayer({ database: { url: Redacted.make(testDatabaseUrl()) } }),
+					),
+				),
+			),
+		),
+	),
+);
+
 describe("persisted plugin configuration encryption key", () => {
-	it.effect("retries after missing schema and never caches a rolled-back key", () =>
-		withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("retries after missing schema and never caches a rolled-back key", () =>
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
 				const db = yield* session.current;
@@ -59,45 +88,47 @@ describe("persisted plugin configuration encryption key", () => {
 				expect((yield* service.load).activeKeyId).not.toBe(rolledBackId);
 				expect(yield* db.select().from(tables.pluginConfigEncryptionKey)).toHaveLength(1);
 			}),
-		),
-	);
-	it.effect("excludes the shared key from account backup plugin inputs and archive sections", () =>
-		withRevisionDatabase(
-			Effect.gen(function* () {
-				const db = yield* (yield* DatabaseSession).current;
-				const configs = yield* PluginConfigRevisions;
-				const plugins = yield* PluginRepository;
-				const installations = yield* PluginInstallationRepository;
-				yield* configs.validateKeys();
-				yield* installRevisionPackage(revisionPackage("system"));
-				yield* installRevisionPackage(revisionPackage("private"), UserId.make("owner"));
-				const [key] = yield* db.select().from(tables.pluginConfigEncryptionKey);
-				assert(key);
-				const system = yield* plugins.listPortablePluginMetadata();
-				const privatePlugins = yield* plugins.listPrivateForUser(UserId.make("owner"));
-				const installed = yield* installations.listForUser(UserId.make("owner"));
-				expect(system).toHaveLength(1);
-				expect(privatePlugins).toHaveLength(1);
-				expect(installed).toHaveLength(2);
-				const exported = stableStringify({ system, installed, privatePlugins });
-				for (const secret of [
-					key.id,
-					key.key.toString("hex"),
-					key.key.toString("base64"),
-					stableStringify(key.key),
-				]) {
-					expect(exported).not.toContain(secret);
-				}
-				expect(Object.keys(ARCHIVE_CODECS).join("\n")).not.toMatch(
-					/encryption|keyring|config[_-]revisions/i,
-				);
-			}),
-		),
-	);
-	it.effect(
-		"initializes lazily and decrypts retained configs across independent services and admin token changes",
-		() =>
-			withRevisionDatabase(
+		);
+	});
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect(
+			"excludes the shared key from account backup plugin inputs and archive sections",
+			() =>
+				Effect.gen(function* () {
+					const db = yield* (yield* DatabaseSession).current;
+					const configs = yield* PluginConfigRevisions;
+					const plugins = yield* PluginRepository;
+					const installations = yield* PluginInstallationRepository;
+					yield* configs.validateKeys();
+					yield* installRevisionPackage(revisionPackage("system"));
+					yield* installRevisionPackage(revisionPackage("private"), UserId.make("owner"));
+					const [key] = yield* db.select().from(tables.pluginConfigEncryptionKey);
+					assert(key);
+					const system = yield* plugins.listPortablePluginMetadata();
+					const privatePlugins = yield* plugins.listPrivateForUser(UserId.make("owner"));
+					const installed = yield* installations.listForUser(UserId.make("owner"));
+					expect(system).toHaveLength(1);
+					expect(privatePlugins).toHaveLength(1);
+					expect(installed).toHaveLength(2);
+					const exported = stableStringify({ system, installed, privatePlugins });
+					for (const secret of [
+						key.id,
+						key.key.toString("hex"),
+						key.key.toString("base64"),
+						stableStringify(key.key),
+					]) {
+						expect(exported).not.toContain(secret);
+					}
+					expect(Object.keys(ARCHIVE_CODECS).join("\n")).not.toMatch(
+						/encryption|keyring|config[_-]revisions/i,
+					);
+				}),
+		);
+	});
+	layer(restartedConfigRevisionsLayer.pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
+		test.effect(
+			"initializes lazily and decrypts retained configs across independent services and admin token changes",
+			() =>
 				Effect.gen(function* () {
 					const db = yield* (yield* DatabaseSession).current;
 					const configs = yield* PluginConfigRevisions;
@@ -115,16 +146,7 @@ describe("persisted plugin configuration encryption key", () => {
 						properties: { token: "retained-private-token" },
 						pluginInstallationId: installed.installation.id,
 					});
-					const restarted = yield* PluginConfigRevisions.make.pipe(
-						Effect.provide(
-							Layer.merge(
-								PluginConfigEncryptionKey.layer,
-								makeAppConfigLayer({
-									server: { adminAccessToken: Redacted.make("changed-admin-token") },
-								}),
-							),
-						),
-					);
+					const restarted = yield* RestartedConfigRevisions;
 					expect(
 						yield* restarted.read({
 							id,
@@ -135,13 +157,13 @@ describe("persisted plugin configuration encryption key", () => {
 					yield* restarted.validateKeys();
 					expect(yield* db.select().from(tables.pluginConfigEncryptionKey)).toEqual([key]);
 				}),
-			),
-	);
+		);
+	});
 
-	it.effect(
-		"does not replace missing keys and sanitizes malformed keys and mismatched retained references",
-		() =>
-			withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect(
+			"does not replace missing keys and sanitizes malformed keys and mismatched retained references",
+			() =>
 				Effect.gen(function* () {
 					const db = yield* (yield* DatabaseSession).current;
 					const configs = yield* PluginConfigRevisions;
@@ -179,86 +201,82 @@ describe("persisted plugin configuration encryption key", () => {
 						"Invalid persisted plugin configuration encryption key",
 					);
 				}),
-			),
-	);
-
-	it.effect("uses one first-start winner across real concurrent PostgreSQL connections", () => {
-		const name = `key_concurrency_${crypto.randomUUID().replaceAll("-", "")}`;
-		return Effect.gen(function* () {
-			const session = yield* DatabaseSession;
-			const db = yield* session.current;
-			const statements = yield* baselineMigrationStatements();
-			yield* Effect.acquireUseRelease(
-				session.transaction(
-					Effect.gen(function* () {
-						const tx = yield* session.current;
-						yield* tx.execute(sql`create schema ${sql.identifier(name)}`);
-						yield* tx.execute(sql`set local search_path to ${sql.identifier(name)}, public`);
-						yield* applyBaselineMigration(statements, (statement) =>
-							tx.execute(sql.raw(statement)),
-						);
-					}),
-				),
-				() =>
-					Effect.gen(function* () {
-						const ready = yield* Deferred.make<void>();
-						let arrivals = 0;
-						const results = yield* Effect.all(
-							Array.from({ length: 4 }, () =>
-								session.transaction(
-									Effect.gen(function* () {
-										const tx = yield* session.current;
-										yield* tx.execute(
-											sql`set local search_path to ${sql.identifier(name)}, public`,
-										);
-										const [connection] = yield* tx
-											.select({ pid: sql<number>`pid` })
-											.from(sql`(select pg_backend_pid() as pid) as connection`);
-										assert(connection);
-										expect(yield* tx.select().from(tables.pluginConfigEncryptionKey)).toEqual([]);
-										arrivals += 1;
-										if (arrivals === 4) {
-											yield* Deferred.succeed(ready, undefined);
-										}
-										yield* Deferred.await(ready);
-										const encryption = yield* PluginConfigEncryptionKey;
-										const loaded = yield* encryption.load;
-										return {
-											pid: connection.pid,
-											envelope: yield* loaded.encrypt({ token: "shared" }, { owner: "test" }),
-										};
-									}).pipe(Effect.provide(PluginConfigEncryptionKey.layer)),
-								),
-							),
-							{ concurrency: "unbounded" },
-						);
-						expect(new Set(results.map((result) => result.pid)).size).toBe(4);
-						expect(new Set(results.map((result) => result.envelope.encryptionKeyId)).size).toBe(1);
-						yield* session.transaction(
-							Effect.gen(function* () {
-								const tx = yield* session.current;
-								yield* tx.execute(sql`set local search_path to ${sql.identifier(name)}, public`);
-								const encryption = yield* PluginConfigEncryptionKey;
-								const loaded = yield* encryption.load;
-								for (const result of results) {
-									expect(yield* loaded.decrypt(result.envelope, { owner: "test" })).toEqual({
-										token: "shared",
-									});
-								}
-								expect(yield* tx.select().from(tables.pluginConfigEncryptionKey)).toHaveLength(1);
-							}).pipe(Effect.provide(PluginConfigEncryptionKey.layer)),
-						);
-					}),
-				() => db.execute(sql`drop schema ${sql.identifier(name)} cascade`).pipe(Effect.orDie),
-			);
-		}).pipe(
-			Effect.provide(
-				DatabaseSession.layer.pipe(
-					Layer.provide(
-						makeAppConfigLayer({ database: { url: Redacted.make(testDatabaseUrl()) } }),
-					),
-				),
-			),
 		);
+	});
+
+	layer(sharedDatabaseEncryptionKeyLayer)((test) => {
+		test.effect("uses one first-start winner across real concurrent PostgreSQL connections", () => {
+			const name = `key_concurrency_${crypto.randomUUID().replaceAll("-", "")}`;
+			return Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const db = yield* session.current;
+				const statements = yield* baselineMigrationStatements();
+				yield* Effect.acquireUseRelease(
+					session.transaction(
+						Effect.gen(function* () {
+							const tx = yield* session.current;
+							yield* tx.execute(sql`create schema ${sql.identifier(name)}`);
+							yield* tx.execute(sql`set local search_path to ${sql.identifier(name)}, public`);
+							yield* applyBaselineMigration(statements, (statement) =>
+								tx.execute(sql.raw(statement)),
+							);
+						}),
+					),
+					() =>
+						Effect.gen(function* () {
+							const ready = yield* Deferred.make<void>();
+							let arrivals = 0;
+							const results = yield* Effect.all(
+								Array.from({ length: 4 }, () =>
+									session.transaction(
+										Effect.gen(function* () {
+											const tx = yield* session.current;
+											yield* tx.execute(
+												sql`set local search_path to ${sql.identifier(name)}, public`,
+											);
+											const [connection] = yield* tx
+												.select({ pid: sql<number>`pid` })
+												.from(sql`(select pg_backend_pid() as pid) as connection`);
+											assert(connection);
+											expect(yield* tx.select().from(tables.pluginConfigEncryptionKey)).toEqual([]);
+											arrivals += 1;
+											if (arrivals === 4) {
+												yield* Deferred.succeed(ready, undefined);
+											}
+											yield* Deferred.await(ready);
+											const encryption = yield* PluginConfigEncryptionKey;
+											const loaded = yield* encryption.load;
+											return {
+												pid: connection.pid,
+												envelope: yield* loaded.encrypt({ token: "shared" }, { owner: "test" }),
+											};
+										}),
+									),
+								),
+								{ concurrency: "unbounded" },
+							);
+							expect(new Set(results.map((result) => result.pid)).size).toBe(4);
+							expect(new Set(results.map((result) => result.envelope.encryptionKeyId)).size).toBe(
+								1,
+							);
+							yield* session.transaction(
+								Effect.gen(function* () {
+									const tx = yield* session.current;
+									yield* tx.execute(sql`set local search_path to ${sql.identifier(name)}, public`);
+									const encryption = yield* PluginConfigEncryptionKey;
+									const loaded = yield* encryption.load;
+									for (const result of results) {
+										expect(yield* loaded.decrypt(result.envelope, { owner: "test" })).toEqual({
+											token: "shared",
+										});
+									}
+									expect(yield* tx.select().from(tables.pluginConfigEncryptionKey)).toHaveLength(1);
+								}),
+							);
+						}),
+					() => db.execute(sql`drop schema ${sql.identifier(name)} cascade`).pipe(Effect.orDie),
+				);
+			});
+		});
 	});
 });

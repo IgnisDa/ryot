@@ -1,4 +1,4 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { SandboxProviderId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { eq } from "drizzle-orm";
 import { Effect, Result } from "effect";
@@ -13,7 +13,7 @@ import { PluginRepository } from "./repository";
 import {
 	installRevisionPackage,
 	revisionPackage,
-	withRevisionDatabase,
+	revisionDatabaseLayer,
 } from "./revision.test-support";
 import { PluginRuntimeResolver } from "./runtime-resolver";
 
@@ -21,10 +21,10 @@ const owner = UserId.make("owner");
 const other = UserId.make("recipient");
 
 describe("revision-backed runtime resolution", () => {
-	it.effect(
-		"resolves provider declarations and operation-specific scripts from the active revision",
-		() =>
-			withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect(
+			"resolves provider declarations and operation-specific scripts from the active revision",
+			() =>
 				Effect.gen(function* () {
 					const runtime = yield* PluginRuntimeResolver;
 					const installed = yield* installRevisionPackage(revisionPackage());
@@ -70,13 +70,13 @@ describe("revision-backed runtime resolution", () => {
 						}),
 					).toBeNull();
 				}),
-			),
-	);
+		);
+	});
 
-	it.effect(
-		"returns contextual errors for unknown, inactive, and undeclared provider operations",
-		() =>
-			withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect(
+			"returns contextual errors for unknown, inactive, and undeclared provider operations",
+			() =>
 				Effect.gen(function* () {
 					const runtime = yield* PluginRuntimeResolver;
 					const plugins = yield* PluginRepository;
@@ -101,46 +101,48 @@ describe("revision-backed runtime resolution", () => {
 					assert(Result.isFailure(inactive));
 					expect(inactive.failure).toMatchObject({ reason: "inactive_provider" });
 				}),
-			),
-	);
+		);
+	});
 
-	it.effect("excludes disabled, unhealthy, and uninstalled installations from new resolution", () =>
-		withRevisionDatabase(
-			Effect.gen(function* () {
-				const runtime = yield* PluginRuntimeResolver;
-				const installations = yield* PluginInstallationRepository;
-				const installed = yield* installRevisionPackage(revisionPackage());
-				yield* installations.updateState({
-					config: {},
-					sortOrder: 0,
-					isDisabled: true,
-					id: installed.installation.id,
-				});
-				expect(yield* runtime.listPluginsAvailableToUser(owner)).toEqual([]);
-				expect(
-					yield* runtime.findScriptAvailableToUser(owner, installed.pluginId, "fixture.details"),
-				).toBeNull();
-				expect((yield* runtime.listPluginsAvailableToUser(owner, true)).length).toBe(1);
-				yield* installations.updateState({
-					config: {},
-					sortOrder: 0,
-					isDisabled: false,
-					id: installed.installation.id,
-				});
-				yield* installations.updateHealth({
-					healthReason: null,
-					id: installed.installation.id,
-					health: "needs-configuration",
-				});
-				expect(yield* runtime.listSchemaProviders({ userId: owner })).toEqual([]);
-				yield* installations.remove(installed.installation.id);
-				expect(yield* runtime.listPluginsAvailableToUser(owner, true)).toEqual([]);
-			}),
-		),
-	);
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect(
+			"excludes disabled, unhealthy, and uninstalled installations from new resolution",
+			() =>
+				Effect.gen(function* () {
+					const runtime = yield* PluginRuntimeResolver;
+					const installations = yield* PluginInstallationRepository;
+					const installed = yield* installRevisionPackage(revisionPackage());
+					yield* installations.updateState({
+						config: {},
+						sortOrder: 0,
+						isDisabled: true,
+						id: installed.installation.id,
+					});
+					expect(yield* runtime.listPluginsAvailableToUser(owner)).toEqual([]);
+					expect(
+						yield* runtime.findScriptAvailableToUser(owner, installed.pluginId, "fixture.details"),
+					).toBeNull();
+					expect((yield* runtime.listPluginsAvailableToUser(owner, true)).length).toBe(1);
+					yield* installations.updateState({
+						config: {},
+						sortOrder: 0,
+						isDisabled: false,
+						id: installed.installation.id,
+					});
+					yield* installations.updateHealth({
+						healthReason: null,
+						id: installed.installation.id,
+						health: "needs-configuration",
+					});
+					expect(yield* runtime.listSchemaProviders({ userId: owner })).toEqual([]);
+					yield* installations.remove(installed.installation.id);
+					expect(yield* runtime.listPluginsAvailableToUser(owner, true)).toEqual([]);
+				}),
+		);
+	});
 
-	it.effect("uses the exact private installation for private package scripts", () =>
-		withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("uses the exact private installation for private package scripts", () =>
 			Effect.gen(function* () {
 				const runtime = yield* PluginRuntimeResolver;
 				const first = yield* installRevisionPackage(revisionPackage("notes"), owner);
@@ -174,13 +176,13 @@ describe("revision-backed runtime resolution", () => {
 					),
 				).toBeNull();
 			}),
-		),
-	);
+		);
+	});
 
-	it.effect(
-		"keeps captured catalog operations pinned while new requests select the upgraded revision",
-		() =>
-			withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect(
+			"keeps captured catalog operations pinned while new requests select the upgraded revision",
+			() =>
 				Effect.gen(function* () {
 					const runtime = yield* PluginRuntimeResolver;
 					const first = yield* installRevisionPackage(revisionPackage("notes", "v1"), owner);
@@ -210,13 +212,13 @@ describe("revision-backed runtime resolution", () => {
 						yield* runtime.findActiveScriptById(SandboxScriptId.make(oldScript.id)),
 					).toBeNull();
 				}),
-			),
-	);
+		);
+	});
 
-	it.effect(
-		"requires configuration to belong to the selected package before exposing a ready catalog entry",
-		() =>
-			withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect(
+			"requires configuration to belong to the selected package before exposing a ready catalog entry",
+			() =>
 				Effect.gen(function* () {
 					const runtime = yield* PluginRuntimeResolver;
 					const plugins = yield* PluginRepository;
@@ -230,13 +232,13 @@ describe("revision-backed runtime resolution", () => {
 					const [pending] = yield* runtime.listPluginsAvailableToUser(owner, true);
 					expect(pending?.id).toBe(installed.pluginId);
 				}),
-			),
-	);
+		);
+	});
 
-	it.effect(
-		"recomputes effective definitions and includes installing private packages only when requested",
-		() =>
-			withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect(
+			"recomputes effective definitions and includes installing private packages only when requested",
+			() =>
 				Effect.gen(function* () {
 					const definitions = yield* DefinitionRepository;
 					const installations = yield* PluginInstallationRepository;
@@ -261,13 +263,13 @@ describe("revision-backed runtime resolution", () => {
 					});
 					expect((yield* effective(true)).entitySchemas["notes-entity"]).toBeUndefined();
 				}),
-			),
-	);
+		);
+	});
 
-	it.effect(
-		"lets shipped definitions win a private collision without dropping independent private definitions",
-		() =>
-			withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect(
+			"lets shipped definitions win a private collision without dropping independent private definitions",
+			() =>
 				Effect.gen(function* () {
 					const repository = yield* DefinitionRepository;
 					const privatePackage = revisionPackage("notes", "v1", "shared-entity");
@@ -293,11 +295,11 @@ describe("revision-backed runtime resolution", () => {
 					expect(definitions.entitySchemas["shared-entity"]?.pluginId).toBe(system.pluginId);
 					expect(definitions.entitySchemas["notes-extra"]?.pluginId).toBe(privatePlugin.pluginId);
 				}),
-			),
-	);
+		);
+	});
 
-	it.effect("resolves cron and bootstrap declarations against their package revision", () =>
-		withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("resolves cron and bootstrap declarations against their package revision", () =>
 			Effect.gen(function* () {
 				const runtime = yield* PluginRuntimeResolver;
 				const packageValue = revisionPackage();
@@ -332,11 +334,11 @@ describe("revision-backed runtime resolution", () => {
 					(yield* runtime.resolveInstallationBootstrap(installed.installation.id))?.entries,
 				).toHaveLength(1);
 			}),
-		),
-	);
+		);
+	});
 
-	it.effect("schedules private crons only for ready enabled exact installations", () =>
-		withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("schedules private crons only for ready enabled exact installations", () =>
 			Effect.gen(function* () {
 				const runtime = yield* PluginRuntimeResolver;
 				const installations = yield* PluginInstallationRepository;
@@ -381,13 +383,13 @@ describe("revision-backed runtime resolution", () => {
 					}),
 				).toBeNull();
 			}),
-		),
-	);
+		);
+	});
 });
 
 describe("catalog reads across revision boundaries", () => {
-	it.effect("serves the upgraded manifest and the upgraded script rows after a reinstall", () =>
-		withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("serves the upgraded manifest and the upgraded script rows after a reinstall", () =>
 			Effect.gen(function* () {
 				const plugins = yield* PluginRepository;
 				const runtime = yield* PluginRuntimeResolver;
@@ -404,13 +406,13 @@ describe("catalog reads across revision boundaries", () => {
 				expect(secondScript.id).not.toBe(firstScript.id);
 				expect(secondScript.contentHash).toBe("fixture.details-v2");
 			}),
-		),
-	);
+		);
+	});
 
-	it.effect(
-		"stops resolving a deactivated plugin's provider while its revision stays readable",
-		() =>
-			withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect(
+			"stops resolving a deactivated plugin's provider while its revision stays readable",
+			() =>
 				Effect.gen(function* () {
 					const db = yield* (yield* DatabaseSession).current;
 					const plugins = yield* PluginRepository;
@@ -430,11 +432,11 @@ describe("catalog reads across revision boundaries", () => {
 					expect(yield* runtime.findActiveProviderById(provider.provider.id)).toBeNull();
 					expect(yield* runtime.listPluginsAvailableToUser(owner)).toEqual([]);
 				}),
-			),
-	);
+		);
+	});
 
-	it.effect("stops resolving a provider the new active revision no longer declares", () =>
-		withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("stops resolving a provider the new active revision no longer declares", () =>
 			Effect.gen(function* () {
 				const runtime = yield* PluginRuntimeResolver;
 				yield* installRevisionPackage(revisionPackage("fixture", "v1"));
@@ -454,6 +456,6 @@ describe("catalog reads across revision boundaries", () => {
 				expect(yield* runtime.findSchemaProviderBySlug("fixture-provider")).toBeNull();
 				expect(yield* runtime.findActiveProviderById(provider.provider.id)).toBeNull();
 			}),
-		),
-	);
+		);
+	});
 });
