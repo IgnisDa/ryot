@@ -18,8 +18,8 @@ SDKs, and the matching `@ryot-app/ryotql-recipes` entrypoints. Tests mount them 
 messages the renderer actually puts on the port.
 
 The browser owns its own screen chrome inside the iframe: the saved view's name and icon, search,
-sort, layout, the disabled Filters placeholder, the result and sync count line, and the compact
-search row, options sheet, and add FAB. Cards come from registered entity presentations; the browser
+layout, the Filters dialog (sort lives inside it when configured, otherwise it is empty), the
+result and sync count line, and the compact search row, options sheet, and add FAB. Cards come from registered entity presentations; the browser
 renders entity art itself only in the table layout, from a `managed-asset` table column.
 
 `entity-browser-controller.tsx` owns the shared browser controls, URL state, refresh replay, chrome,
