@@ -19,6 +19,7 @@ const TRUSTED_MODULES = new Set([
 	"@ryot-app/client-sdk/react",
 	"@ryot-app/client-sdk/ryotql",
 	"@ryot-app/client-ui-sdk",
+	"@ryot-app/client-ui-sdk/table",
 ]);
 
 export const isTrustedClientModule = (specifier: string) => TRUSTED_MODULES.has(specifier);
@@ -41,6 +42,7 @@ const resolveTypeScriptEntries = (from: string) => {
 		"@ryot-app/client-sdk/react": Bun.resolveSync("@ryot-app/client-sdk/react", from),
 		"@ryot-app/client-sdk/ryotql": Bun.resolveSync("@ryot-app/client-sdk/ryotql", from),
 		"@ryot-app/client-ui-sdk": Bun.resolveSync("@ryot-app/client-ui-sdk", from),
+		"@ryot-app/client-ui-sdk/table": Bun.resolveSync("@ryot-app/client-ui-sdk/table", from),
 	};
 };
 
