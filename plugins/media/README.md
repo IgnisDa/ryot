@@ -261,7 +261,7 @@ in PostgreSQL rather than loading episodes for in-memory filtering.
 
 Monitoring status, enable, and disable accept at most 50 entity IDs and enforce global,
 provider-backed, monitorable, and user-visible targets, so the header hides the Monitoring toggle
-for an entity without a provider. Enable atomically creates `in-library` and `media-monitoring`;
+for an entity without a provider. Enable atomically creates `in-media-library` and `media-monitoring`;
 disable removes only `media-monitoring`; invalid or invisible targets return input-aligned
 `notFound` results.
 
@@ -284,7 +284,7 @@ shows, seasons, or episodes.
 
 ## Lifecycle
 
-Media entities use `add-to-library`, `backlog`, `progress`, `complete`, `dropped`, `on_hold`, and
+Media entities use `add-to-media-library`, `backlog`, `progress`, `complete`, `dropped`, `on_hold`, and
 `review` events.
 `host/schemas/entity.ts` defines support by entity type. State is derived from append-only history,
 ordered by descending `occurredAt`, `createdAt`, then `id`; it is never stored separately.
@@ -296,14 +296,14 @@ invocation carries only the selected snapshot properties, parent properties, and
 Ordinary RyotQL queries read current user data only and cannot recover omitted or historical
 trigger-time values.
 
-`media.ensure-library-membership` is a required after hook bound to library-member entity creation,
-provider-entity-import completion, every media event except `add-to-library`, and
+`media.ensure-media-library-membership` is a required after hook bound to library-member entity creation,
+provider-entity-import completion, every media event except `add-to-media-library`, and
 `collection:add-entity-to-collection`,
-whose target comes from the event properties rather than its collection subject. The `library`
+whose target comes from the event properties rather than its collection subject. The `media-library`
 entity schema is not a library member, so workspace bootstrap never links the library to itself. Its
-script upserts `in-library` with `changeUserRelationships`, which emits a child relationship trigger
-only when the upsert changes state. `media.record-library-membership-event` is a required after hook
-on new `in-library` relationships; it records `add-to-library` at the relationship creation time for
+script upserts `in-media-library` with `changeUserRelationships`, which emits a child relationship trigger
+only when the upsert changes state. `media.record-media-library-membership-event` is a required after hook
+on new `in-media-library` relationships; it records `add-to-media-library` at the relationship creation time for
 each media library member. Repeated idempotent upserts and existing memberships do not create another
 event. Both declare `executionScope: "user"`, so global population plans no run for them at all.
 

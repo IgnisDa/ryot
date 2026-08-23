@@ -430,7 +430,7 @@ describe("Events built-in status schemas", () => {
 			expect(createResult.count).toBe(2);
 
 			const allEvents = yield* waitForEventCount(apiClient, entity.id, 3);
-			const events = allEvents.filter((event) => event.eventSchemaSlug !== "add-to-library");
+			const events = allEvents.filter((event) => event.eventSchemaSlug !== "add-to-media-library");
 			expect(events).toHaveLength(2);
 			expect(sortBy(events.map((event) => event.eventSchemaSlug))).toEqual(["dropped", "on_hold"]);
 			const sortedEvents = sortBy(events, (event) => event.eventSchemaSlug);

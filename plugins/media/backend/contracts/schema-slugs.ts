@@ -11,6 +11,6 @@ export const mediaLibraryMemberEntitySchemaSlugs = [
 ] as const;
 
 export const mediaLibraryEligibleEntitySchemaSlugs = [
-	"library",
+	"media-library",
 	...mediaLibraryMemberEntitySchemaSlugs,
 ] as const;

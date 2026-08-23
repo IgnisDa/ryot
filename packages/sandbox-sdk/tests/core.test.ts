@@ -186,7 +186,7 @@ describe("shared value contracts", () => {
 	});
 
 	test("validates user entity ensure batches without accepting caller-owned subject", () => {
-		const item = { properties: {}, name: "Library", entitySchemaSlug: "library" };
+		const item = { properties: {}, name: "Library", entitySchemaSlug: "media-library" };
 		expect(decode(ensureUserEntitiesArgsSchema)([[item]])).toEqual([[item]]);
 		expect(() =>
 			decode(ensureUserEntitiesArgsSchema)([[{ ...item, userId: "caller-selected" }]]),

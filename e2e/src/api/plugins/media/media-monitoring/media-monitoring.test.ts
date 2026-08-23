@@ -21,7 +21,7 @@ import {
 	disableMediaMonitoring,
 	enableMediaMonitoring,
 	getMediaMonitoringStatus,
-	queryInLibraryRelationship,
+	queryInMediaLibraryRelationship,
 	seedMediaEntity,
 	triggerCronAndWaitForEntity,
 } from "~/fixtures/plugins/media";
@@ -204,14 +204,14 @@ describe("media monitoring endpoints", () => {
 					entitySchemaSlug: "movie",
 				}),
 			).toBe(0);
-			const inLibraryRelationship = yield* queryInLibraryRelationship(
+			const inMediaLibraryRelationship = yield* queryInMediaLibraryRelationship(
 				owner.client,
 				apiEntityId,
 				"movie",
 			);
 			expect(
-				inLibraryRelationship.data.entity?.type === "rows"
-					? inLibraryRelationship.data.entity.items
+				inMediaLibraryRelationship.data.entity?.type === "rows"
+					? inMediaLibraryRelationship.data.entity.items
 					: [],
 			).toHaveLength(1);
 		}),

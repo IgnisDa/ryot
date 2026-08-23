@@ -27,38 +27,55 @@ const reviewPropertiesSchema = {
 	},
 };
 
+const fitnessEntitySchemaDefinitions = [
+	{
+		icon: "library",
+		eventSchemas: [],
+		pluginSlug: "fitness",
+		slug: "fitness-library",
+		name: "Fitness Library",
+		propertiesSchema: { fields: {} },
+		userState: { deniedOperations: ["clear", "merge"] },
+	},
+	{
+		icon: "zap",
+		slug: "exercise",
+		name: "Exercise",
+		mergeIdentityProperties: ["kind"],
+		propertiesSchema: exercisePropertiesSchema,
+		eventSchemas: [
+			{ name: "Workout Set", slug: "workout-set", propertiesSchema: workoutSetPropertiesSchema },
+			{ name: "Review", slug: "review", propertiesSchema: reviewPropertiesSchema },
+		],
+	},
+	{
+		slug: "workout",
+		name: "Workout",
+		icon: "dumbbell",
+		eventSchemas: [],
+		propertiesSchema: workoutPropertiesSchema,
+	},
+	{
+		eventSchemas: [],
+		icon: "clipboard-list",
+		slug: "workout-template",
+		name: "Workout Template",
+		propertiesSchema: workoutTemplatePropertiesSchema,
+	},
+	{
+		icon: "ruler",
+		eventSchemas: [],
+		slug: "measurement",
+		name: "Measurement",
+		propertiesSchema: measurementPropertiesSchema,
+	},
+] as const;
+
 export const fitnessEntitySchemas = () =>
-	[
-		{
-			icon: "zap",
-			slug: "exercise",
-			name: "Exercise",
-			mergeIdentityProperties: ["kind"],
-			propertiesSchema: exercisePropertiesSchema,
-			eventSchemas: [
-				{ name: "Workout Set", slug: "workout-set", propertiesSchema: workoutSetPropertiesSchema },
-				{ name: "Review", slug: "review", propertiesSchema: reviewPropertiesSchema },
-			],
-		},
-		{
-			slug: "workout",
-			name: "Workout",
-			icon: "dumbbell",
-			eventSchemas: [],
-			propertiesSchema: workoutPropertiesSchema,
-		},
-		{
-			eventSchemas: [],
-			icon: "clipboard-list",
-			slug: "workout-template",
-			name: "Workout Template",
-			propertiesSchema: workoutTemplatePropertiesSchema,
-		},
-		{
-			icon: "ruler",
-			eventSchemas: [],
-			slug: "measurement",
-			name: "Measurement",
-			propertiesSchema: measurementPropertiesSchema,
-		},
-	] as const;
+	fitnessEntitySchemaDefinitions.map((schema) => {
+		if (!("pluginSlug" in schema)) {
+			return schema;
+		}
+		const { pluginSlug: _pluginSlug, ...withoutPluginSlug } = schema;
+		return withoutPluginSlug;
+	});

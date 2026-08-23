@@ -63,18 +63,18 @@ export const relationshipTo = (relationship: Table, parent: Table, child: Table,
 	);
 
 export const libraryLinkExists = (entity: Table, alias: string, slug: string) => {
-	const library = table("entity", alias);
+	const mediaLibrary = table("entity", alias);
 	const relationship = table("relationship", `${alias}Relationship`);
-	return exists(library, {
+	return exists(mediaLibrary, {
 		joins: [
 			join(
 				"inner",
 				relationship,
-				eq(column(relationship, "targetEntityId"), column(library, "id")),
+				eq(column(relationship, "targetEntityId"), column(mediaLibrary, "id")),
 			),
 		],
 		where: and(
-			entitySchema(library, "library"),
+			entitySchema(mediaLibrary, "media-library"),
 			eq(column(relationship, "sourceEntityId"), column(entity, "id")),
 			eq(column(relationship, "relationshipSchemaSlug"), literal(slug)),
 		),

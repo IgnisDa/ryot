@@ -1,7 +1,7 @@
 import { defineAutomation, type AutomationInput } from "@ryot-app/sandbox-sdk/automation";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { executeRyotqlRecipe, userLibraryRecipe } from "@ryot-app/sandbox-sdk/ryotql";
+import { executeRyotqlRecipe, userMediaLibraryRecipe } from "@ryot-app/sandbox-sdk/ryotql";
 
 import { mediaLibraryMemberEntitySchemaSlugs } from "../contracts/schema-slugs";
 
@@ -11,7 +11,7 @@ export const manifest = defineManifest({
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
 	name: "Ensure media library membership",
-	slug: "automation.ensure-library-membership",
+	slug: "automation.ensure-media-library-membership",
 	capabilities: ["executeRyotql", "changeUserRelationships"],
 	inputProjection: {
 		providerEntityImport: true,
@@ -22,11 +22,11 @@ export const manifest = defineManifest({
 
 const libraryMemberEntitySchemaSlugs = new Set<string>(mediaLibraryMemberEntitySchemaSlugs);
 
-type LibraryTarget = { entityId: string; entitySchemaSlug: string };
+type MediaLibraryTarget = { entityId: string; entitySchemaSlug: string };
 
 const collectionMembershipTarget = (event: {
 	properties: Readonly<Record<string, unknown>>;
-}): LibraryTarget | null => {
+}): MediaLibraryTarget | null => {
 	const entityId = event.properties["entityId"];
 	const entitySchemaSlug = event.properties["entitySchemaSlug"];
 	return typeof entityId === "string" && typeof entitySchemaSlug === "string"
@@ -34,7 +34,9 @@ const collectionMembershipTarget = (event: {
 		: null;
 };
 
-const libraryTarget = (payload: AutomationInput["automation"]["payload"]): LibraryTarget | null => {
+const mediaLibraryTarget = (
+	payload: AutomationInput["automation"]["payload"],
+): MediaLibraryTarget | null => {
 	if (payload.resource === "provider-entity-import") {
 		return { entityId: payload.entityId, entitySchemaSlug: payload.entitySchemaSlug };
 	}
@@ -62,11 +64,11 @@ export default defineAutomation({
 			) {
 				return yield* Effect.fail(new Error("Provider import user does not match execution user"));
 			}
-			const target = libraryTarget(payload);
+			const target = mediaLibraryTarget(payload);
 			if (!target || !libraryMemberEntitySchemaSlugs.has(target.entitySchemaSlug)) {
 				return null;
 			}
-			const library = yield* executeRyotqlRecipe(host.executeRyotql, userLibraryRecipe());
+			const mediaLibrary = yield* executeRyotqlRecipe(host.executeRyotql, userMediaLibraryRecipe());
 			yield* host.changeUserRelationships([
 				{
 					deletes: [],
@@ -74,8 +76,8 @@ export default defineAutomation({
 						{
 							properties: {},
 							sourceEntityId: target.entityId,
-							targetEntityId: library.entityId,
-							relationshipSchemaSlug: "in-library",
+							targetEntityId: mediaLibrary.entityId,
+							relationshipSchemaSlug: "in-media-library",
 						},
 					],
 				},

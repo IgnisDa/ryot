@@ -45,7 +45,6 @@ const SUMMARY_ROW = {
 	id: "media-1",
 	publishYear: 1999,
 	state: "complete",
-	isInLibrary: true,
 	description: null,
 	publishDate: null,
 	isMonitored: false,
@@ -54,6 +53,7 @@ const SUMMARY_ROW = {
 	providerRating: 86.5,
 	schemaSlug: "fixture",
 	progressPercent: null,
+	isInMediaLibrary: true,
 	populationStatus: "ready",
 	translationStatus: "none",
 	productionStatus: "Released",
@@ -81,8 +81,8 @@ describe("media flat recipes", () => {
 			"providerName",
 			"description",
 			"images",
-			"isInLibrary",
 			"isMonitored",
+			"isInMediaLibrary",
 			"owned",
 			"publishDate",
 			"publishYear",
@@ -345,7 +345,7 @@ describe("media flat recipes", () => {
 		expect(events.where.predicates[1]).toMatchObject({
 			type: "in",
 			values: [
-				{ value: "add-to-library" },
+				{ value: "add-to-media-library" },
 				{ value: "backlog" },
 				{ value: "on_hold" },
 				{ value: "dropped" },
@@ -566,7 +566,10 @@ describe("media review activity recipe", () => {
 		}
 
 		expect(events.where).toMatchObject({
-			predicates: [{}, { type: "in", values: [{ value: "review" }, { value: "add-to-library" }] }],
+			predicates: [
+				{},
+				{ type: "in", values: [{ value: "review" }, { value: "add-to-media-library" }] },
+			],
 		});
 		expect(JSON.stringify(totals.output.fields)).toContain('"value":"review"');
 		expect(fieldKeys(events.output.fields)).toEqual([

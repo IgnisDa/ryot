@@ -55,16 +55,16 @@ describe("Email sign-up", () => {
 				const retrySignIn = yield* signInWithPassword(email, password);
 				const retryToken = retrySignIn.token;
 				expect(retryToken).toBeDefined();
-				const library = table("entity", "library");
+				const mediaLibrary = table("entity", "mediaLibrary");
 				const libraryResponse = yield* executeRyotQL(
 					makeSession(undefined, { Authorization: `Bearer ${retryToken ?? token}` }),
 					document({
-						libraries: rows(library, {
-							where: eq(column(library, "entitySchemaSlug"), literal("library")),
+						libraries: rows(mediaLibrary, {
+							where: eq(column(mediaLibrary, "entitySchemaSlug"), literal("media-library")),
 							fields: [
-								field("id", column(library, "id")),
-								field("name", column(library, "name")),
-								field("properties", column(library, "properties")),
+								field("id", column(mediaLibrary, "id")),
+								field("name", column(mediaLibrary, "name")),
+								field("properties", column(mediaLibrary, "properties")),
 							],
 						}),
 					}),
@@ -73,7 +73,7 @@ describe("Email sign-up", () => {
 				expect(libraries.items).toHaveLength(1);
 				const libraryRow = libraries.items[0];
 				assert(libraryRow);
-				expect(requireRyotQLText(libraryRow, "name")).toBe("Library");
+				expect(requireRyotQLText(libraryRow, "name")).toBe("Media Library");
 				expect(requireRyotQLValue(libraryRow, "properties")).toEqual({});
 			}),
 	);

@@ -10,23 +10,27 @@ import type { ProviderSearchResultItem } from "#/modules/provider-add/search-con
 
 const IMAGE_CLASS_NAME = "h-16 w-11 shrink-0 overflow-hidden rounded-md object-cover";
 
-function InLibraryBadge() {
+function InLibraryBadge(props: { readonly libraryName: string }) {
 	return (
 		<div className="flex items-center gap-1.5">
 			<AppIcon size={14} name="check" className="text-text-muted" />
-			<span className="text-xs text-text-muted">In library</span>
+			<span className="text-xs text-text-muted">In {props.libraryName}</span>
 		</div>
 	);
 }
 
-function InLibraryLink(props: { readonly title: string; readonly entityId: EntityId }) {
+function InLibraryLink(props: {
+	readonly title: string;
+	readonly entityId: EntityId;
+	readonly libraryName: string;
+}) {
 	return (
 		<Link
 			to="/e/$entityId"
 			params={{ entityId: props.entityId }}
-			aria-label={`Open ${props.title} in library`}
+			aria-label={`Open ${props.title} in ${props.libraryName}`}
 		>
-			<InLibraryBadge />
+			<InLibraryBadge libraryName={props.libraryName} />
 		</Link>
 	);
 }
@@ -36,16 +40,27 @@ function ResultAction(props: {
 	readonly onAdd: () => void;
 	readonly entry: ProviderEntityImportEntry;
 	readonly linkedEntityId: EntityId | undefined;
+	readonly libraryName: string;
 }) {
 	if (props.linkedEntityId !== undefined) {
-		return <InLibraryLink title={props.title} entityId={props.linkedEntityId} />;
+		return (
+			<InLibraryLink
+				title={props.title}
+				entityId={props.linkedEntityId}
+				libraryName={props.libraryName}
+			/>
+		);
 	}
 	return Match.value(props.entry).pipe(
 		Match.when({ status: "imported" }, (entry) => (
-			<InLibraryLink title={props.title} entityId={entry.entityId} />
+			<InLibraryLink
+				title={props.title}
+				entityId={entry.entityId}
+				libraryName={props.libraryName}
+			/>
 		)),
 		Match.when({ status: "importing" }, () => (
-			<span role="status" aria-label="Adding to library">
+			<span role="status" aria-label={`Adding to ${props.libraryName}`}>
 				<AppIcon size={16} name="plus" className="animate-pulse text-text-muted" />
 			</span>
 		)),
@@ -53,7 +68,7 @@ function ResultAction(props: {
 			<button
 				type="button"
 				onClick={props.onAdd}
-				aria-label={`Retry adding ${props.title}`}
+				aria-label={`Retry adding ${props.title} to ${props.libraryName}`}
 				className="flex h-7 shrink-0 items-center px-1 text-xs font-medium text-accent-text"
 			>
 				Retry
@@ -63,7 +78,7 @@ function ResultAction(props: {
 			<button
 				type="button"
 				onClick={props.onAdd}
-				aria-label={`Add ${props.title}`}
+				aria-label={`Add ${props.title} to ${props.libraryName}`}
 				className="flex h-7 shrink-0 items-center gap-1 rounded-pill bg-accent-soft px-2.5 md:rounded-md md:border md:border-border-strong md:bg-transparent md:px-3"
 			>
 				<AppIcon size={13} name="plus" className="text-accent-text md:hidden" />
@@ -79,6 +94,7 @@ export function ProviderSearchResultRow(props: {
 	readonly item: ProviderSearchResultItem;
 	readonly entry: ProviderEntityImportEntry;
 	readonly linkedEntityId: EntityId | undefined;
+	readonly libraryName: string;
 }) {
 	const display = describeProviderSearchResultItem(props.item);
 	return (
@@ -102,6 +118,7 @@ export function ProviderSearchResultRow(props: {
 				entry={props.entry}
 				onAdd={props.onAdd}
 				title={display.title}
+				libraryName={props.libraryName}
 				linkedEntityId={props.linkedEntityId}
 			/>
 		</div>

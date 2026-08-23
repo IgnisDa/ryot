@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 
 import { manifest as autoCompleteParent } from "./auto-complete-episodic-parent.sandbox";
 import { manifest as autoCompleteProgress } from "./auto-complete-on-full-progress.sandbox";
-import { manifest as ensureLibrary } from "./ensure-library-membership.sandbox";
+import { manifest as ensureMediaLibrary } from "./ensure-media-library-membership.sandbox";
 import { manifest as episodicPolicy } from "./episodic-session-policy.sandbox";
 import { manifest as jellyfin } from "./jellyfin-push.sandbox";
 import { manifest as association } from "./media-association.sandbox";
@@ -10,7 +10,7 @@ import { manifest as entityUpdated } from "./media-entity-updated.sandbox";
 import { manifest as relationshipSync } from "./media-relationship-sync.sandbox";
 import { manifest as notification } from "./notification.sandbox";
 import { manifest as radarr } from "./radarr-push.sandbox";
-import { manifest as recordMembership } from "./record-library-membership-event.sandbox";
+import { manifest as recordMediaLibraryMembership } from "./record-media-library-membership-event.sandbox";
 import { manifest as reviewCreated } from "./review-created.sandbox";
 import { manifest as sonarr } from "./sonarr-push.sandbox";
 
@@ -23,12 +23,12 @@ it("declares the media automation input projections", () => {
 		[notification.slug]: notification.inputProjection,
 		[reviewCreated.slug]: reviewCreated.inputProjection,
 		[entityUpdated.slug]: entityUpdated.inputProjection,
-		[ensureLibrary.slug]: ensureLibrary.inputProjection,
 		[episodicPolicy.slug]: episodicPolicy.inputProjection,
-		[recordMembership.slug]: recordMembership.inputProjection,
 		[relationshipSync.slug]: relationshipSync.inputProjection,
+		[ensureMediaLibrary.slug]: ensureMediaLibrary.inputProjection,
 		[autoCompleteParent.slug]: autoCompleteParent.inputProjection,
 		[autoCompleteProgress.slug]: autoCompleteProgress.inputProjection,
+		[recordMediaLibraryMembership.slug]: recordMediaLibraryMembership.inputProjection,
 	}).toEqual({
 		"policy.media-episodic-session": { event: { properties: [] } },
 		"trigger.jellyfin-push": { event: { properties: [], compareProperties: [] } },
@@ -42,7 +42,7 @@ it("declares the media automation input projections", () => {
 		"automation.media-association": {
 			relationship: { properties: ["roles"], compareProperties: [], parentEntityProperties: [] },
 		},
-		"automation.record-library-membership-event": {
+		"automation.record-media-library-membership-event": {
 			relationship: { properties: [], compareProperties: [], parentEntityProperties: [] },
 		},
 		"automation.media-relationship-sync": {
@@ -62,7 +62,7 @@ it("declares the media automation input projections", () => {
 			event: { properties: [], compareProperties: [] },
 			signal: { properties: ["entitySchemaSlug", "oldStatus", "newStatus"] },
 		},
-		"automation.ensure-library-membership": {
+		"automation.ensure-media-library-membership": {
 			providerEntityImport: true,
 			entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
 			event: { compareProperties: [], properties: ["entityId", "entitySchemaSlug"] },

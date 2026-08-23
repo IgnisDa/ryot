@@ -46,9 +46,9 @@ export const episodicBacklogEventRow = {
 export const episodicLibraryEventRow = {
 	...emptyParentProperties,
 	id: "parent-library",
-	eventSchemaSlug: "add-to-library",
 	createdAt: "2025-11-01T00:00:05.000Z",
 	occurredAt: "2025-11-01T00:00:00.000Z",
+	eventSchemaSlug: "add-to-media-library",
 };
 
 export const episodicCompletionEventRow = {

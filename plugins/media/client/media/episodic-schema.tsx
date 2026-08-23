@@ -157,9 +157,9 @@ const MARKER_TONE: Record<MediaEpisodicRow["type"], string> = {
 	beat: "bg-border",
 	watch: "bg-success",
 	review: "bg-accent",
-	library: "bg-accent",
 	progress: "bg-accent",
 	completion: "bg-accent",
+	"media-library": "bg-accent",
 	collection: "bg-transparent",
 };
 

@@ -172,9 +172,9 @@ export type MediaFlatSchemaDescriptor<
 const MARKER_TONE: Record<MediaFlatSchemaRow["type"], string> = {
 	beat: "bg-border",
 	review: "bg-accent",
-	library: "bg-accent",
 	progress: "bg-accent",
 	completion: "bg-accent",
+	"media-library": "bg-accent",
 	collection: "bg-transparent",
 };
 
@@ -256,7 +256,7 @@ export const defineFlatMediaSchema = <
 		if (row.type === "collection") {
 			return mediaCollectionRowLabel(row);
 		}
-		if (row.type === "library") {
+		if (row.type === "media-library") {
 			return activityCopy.libraryLabel;
 		}
 		if (row.type === "beat") {

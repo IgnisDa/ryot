@@ -25,7 +25,6 @@ const uploadInputSchema = (label: string, description: string) => ({
 export const fitnessPlugin = definePlugin({
 	crons: [],
 	operations: [],
-	userBootstrap: [],
 	httpRateLimits: [],
 	integrationProviders: [],
 	savedViews: fitnessSavedViews(),
@@ -41,6 +40,13 @@ export const fitnessPlugin = definePlugin({
 		icon: "heart-pulse",
 		description: "Track workouts, measurements, and progress.",
 	},
+	userBootstrap: [
+		{
+			slug: "initialize-workspace",
+			scriptSlug: "bootstrap.fitness-workspace",
+			description: "Initialize the user's fitness workspace",
+		},
+	],
 	providers: [
 		{
 			name: "Free Exercise DB",

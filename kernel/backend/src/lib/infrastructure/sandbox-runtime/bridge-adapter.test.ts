@@ -257,7 +257,7 @@ describe("bindSandboxHostFunctions", () => {
 						properties: {},
 						sourceEntityId: "example-1",
 						targetEntityId: "library-1",
-						relationshipSchemaSlug: "in-library",
+						relationshipSchemaSlug: "in-media-library",
 					},
 				],
 			};
@@ -283,7 +283,7 @@ describe("bindSandboxHostFunctions", () => {
 				},
 			});
 			const bound = bindSandboxHostFunctions(implementations, input);
-			const item = { properties: {}, name: "Library", entitySchemaSlug: "library" };
+			const item = { properties: {}, name: "Library", entitySchemaSlug: "media-library" };
 
 			expect(yield* bound.ensureUserEntities([[item]])).toEqual({
 				success: true,

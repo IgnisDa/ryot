@@ -18,7 +18,7 @@ import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
 import {
 	getVisibleEntityByProvenance,
 	getRelationshipBySchemaSlug,
-	queryInLibraryRelationship,
+	queryInMediaLibraryRelationship,
 } from "~/fixtures/plugins/media";
 import {
 	assertCompleted,
@@ -214,9 +214,13 @@ describe("GET /provider-entities/imports/{jobId}", () => {
 
 			assertCompleted(result, "import job");
 			expect(result.data.name).toBe(BOOK_IMPORT_NAME);
-			const inLibrary = yield* queryInLibraryRelationship(providerClient, result.data.id, "book");
+			const inMediaLibrary = yield* queryInMediaLibraryRelationship(
+				providerClient,
+				result.data.id,
+				"book",
+			);
 			expect(
-				inLibrary.data.entity?.type === "rows" ? inLibrary.data.entity.items : [],
+				inMediaLibrary.data.entity?.type === "rows" ? inMediaLibrary.data.entity.items : [],
 			).toHaveLength(1);
 		}),
 	);

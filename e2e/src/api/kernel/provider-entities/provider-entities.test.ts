@@ -19,7 +19,7 @@ import {
 	installTestProvider,
 } from "~/fixtures/kernel";
 import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
-import { queryInLibraryRelationship } from "~/fixtures/plugins/media";
+import { queryInMediaLibraryRelationship } from "~/fixtures/plugins/media";
 import { assertCompleted, assertPresent, assertTaggedError } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 
@@ -192,6 +192,8 @@ describe("GET /provider-entities/imports/:jobId — provider entity import resul
 				providerEntityLinksRecipe({
 					externalIds: [externalId],
 					entitySchemaSlug: schema.id,
+					librarySchemaSlug: "media-library",
+					relationshipSlug: "in-media-library",
 					providerId: audiobookProvider.providerId,
 				}),
 			);
@@ -215,13 +217,13 @@ describe("GET /provider-entities/imports/:jobId — provider entity import resul
 			expect(result.data.name).toBe("E2E Imported Workout");
 			expect(result.data.entitySchemaSlug).toBe(schema.id);
 
-			const inLibrary = yield* queryInLibraryRelationship(
+			const inMediaLibrary = yield* queryInMediaLibraryRelationship(
 				providerClient,
 				result.data.id,
 				schema.slug,
 			);
 			expect(
-				inLibrary.data.entity?.type === "rows" ? inLibrary.data.entity.items : [],
+				inMediaLibrary.data.entity?.type === "rows" ? inMediaLibrary.data.entity.items : [],
 			).toHaveLength(0);
 		}),
 	);

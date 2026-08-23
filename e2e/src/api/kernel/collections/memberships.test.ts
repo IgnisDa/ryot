@@ -13,7 +13,7 @@ import {
 } from "~/fixtures/kernel";
 import {
 	createGlobalBookEntityFixture,
-	queryInLibraryRelationship,
+	queryInMediaLibraryRelationship,
 	seedMediaEntity,
 } from "~/fixtures/plugins/media";
 import { assertTaggedError } from "~/support/assertions";
@@ -110,7 +110,7 @@ describe("POST /collections/memberships", () => {
 			expect(data.memberOf.sourceEntityId).toBe(entity.id);
 			expect(data.memberOf.targetEntityId).toBe(collection.id);
 
-			const membership = yield* queryInLibraryRelationship(client, entity.id, schema.slug);
+			const membership = yield* queryInMediaLibraryRelationship(client, entity.id, schema.slug);
 
 			expect(
 				membership.data.entity?.type === "rows" ? membership.data.entity.items : [],
@@ -138,7 +138,7 @@ describe("POST /collections/memberships", () => {
 				}),
 			);
 
-			const membership = yield* queryInLibraryRelationship(client, entity.id, schema.slug);
+			const membership = yield* queryInMediaLibraryRelationship(client, entity.id, schema.slug);
 			expect(
 				membership.data.entity?.type === "rows" ? membership.data.entity.items : [],
 			).toHaveLength(0);
@@ -201,7 +201,7 @@ describe("POST /collections/memberships", () => {
 				}),
 			);
 
-			const membership = yield* queryInLibraryRelationship(client, entity.id, schemaSlug);
+			const membership = yield* queryInMediaLibraryRelationship(client, entity.id, schemaSlug);
 			expect(
 				membership.data.entity?.type === "rows" ? membership.data.entity.items : [],
 			).toHaveLength(0);

@@ -17,7 +17,7 @@ const ACTIVITY_COLLECTION_EVENT_LIMIT = 60;
 
 const MARKER_TONE: Record<MediaReviewActivityRow["type"], string> = {
 	review: "bg-accent",
-	library: "bg-accent",
+	"media-library": "bg-accent",
 	collection: "bg-transparent",
 };
 
@@ -47,7 +47,7 @@ export const defineMediaReviewActivityTab = (input: {
 		if (row.type === "collection") {
 			return mediaCollectionRowLabel(row);
 		}
-		if (row.type === "library") {
+		if (row.type === "media-library") {
 			return activityCopy.libraryLabel;
 		}
 		return activityCopy.rowLabels.review;

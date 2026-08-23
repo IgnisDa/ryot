@@ -20,7 +20,7 @@ DECLARE
 	rows_inserted       int          := 0;
 	started_at          timestamptz  := clock_timestamp();
 BEGIN
-	${buildRequireLegacyTableSql("user_to_entity -> in-library relationship", "user_to_entity")}
+	${buildRequireLegacyTableSql("user_to_entity -> in-media-library relationship", "user_to_entity")}
 
 	LOOP
 		WITH batch AS (
@@ -45,7 +45,7 @@ BEGIN
 			"created_at"
 		)
 		SELECT
-			md5(ute.entity_id || ':in-library:' || ute.user_id),
+			md5(ute.entity_id || ':in-media-library:' || ute.user_id),
 			ute.user_id,
 			ute.entity_id,
 			lib.id,
@@ -68,6 +68,6 @@ BEGIN
 		cursor_id := next_cursor_id;
 	END LOOP;
 
-	${buildReportSql("user_to_entity -> in-library relationship", [{ count: "rows_inserted", message: "row(s) migrated total" }])}
+	${buildReportSql("user_to_entity -> in-media-library relationship", [{ count: "rows_inserted", message: "row(s) migrated total" }])}
 END $$;
 `;
