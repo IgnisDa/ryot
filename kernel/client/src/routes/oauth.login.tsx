@@ -3,6 +3,7 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
+import { decodeServerOrigin } from "#/api/origin";
 import { PublicApi } from "#/api/public";
 import { deriveAuthMethods } from "#/modules/auth/config";
 import type { AuthMode, TwoFactorMethod } from "#/modules/auth/flow";
@@ -16,7 +17,7 @@ const ROUTE_ABORTED = { _tag: "RouteAborted" } as const;
 export const Route = createFileRoute("/oauth/login")({
 	component: OAuthLogin,
 	errorComponent: OAuthLoginUnavailable,
-	beforeLoad: () => ({ server: window.location.origin }),
+	beforeLoad: () => ({ server: decodeServerOrigin(window.location.origin) }),
 	pendingComponent: () => (
 		<AuthStatus title="Loading sign-in options" message="Reading this server's settings..." />
 	),
