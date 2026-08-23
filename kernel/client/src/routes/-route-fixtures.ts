@@ -82,7 +82,6 @@ export const makeOAuthRouteStubs = (tokenOverrides: Partial<OAuthTokenService["S
 			setTokenSet: () => Effect.void,
 			clearPending: () => Effect.void,
 			removeTokenSet: () => Effect.void,
-			getPending: () => Effect.succeed(null),
 			takePending: () => Effect.succeed(null),
 			getTokenSet: () => Effect.succeed(null),
 		}),

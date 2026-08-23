@@ -22,7 +22,7 @@ Register this single callback at Authentik, Google, Keycloak, or your other prov
 <FRONTEND_URL>/api/auth/callback/oidc
 ```
 
-The required scopes are `openid email`. Do not register an iOS or Android callback at the external provider. Ryot provisions its internal `ryot-web` and `ryot-native` OAuth clients automatically.
+The required scopes are `openid email profile`. Do not register an iOS or Android callback at the external provider. Ryot provisions its internal `ryot-web` and `ryot-native` OAuth clients automatically.
 
 ::: warning
 `FRONTEND_URL` must be the exact origin users browse to, without a path, query, or fragment. It defines the OAuth issuer, API audience, trusted browser origin, and web callbacks. Ryot rejects malformed values at startup.

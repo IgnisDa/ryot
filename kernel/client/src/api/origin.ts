@@ -21,13 +21,14 @@ export function parseServerOrigin(value: string): ServerOriginResult {
 			!url.hostname ||
 			url.username ||
 			url.password ||
+			url.pathname !== "/" ||
 			url.search ||
 			url.hash
 		) {
 			return { ok: false, reason: "invalid-server-origin" };
 		}
 
-		return { ok: true, origin: normalizeServerOrigin(url.toString()) };
+		return { ok: true, origin: url.origin };
 	} catch {
 		return { ok: false, reason: "invalid-server-origin" };
 	}
