@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 
 import { AuthenticatedApi } from "#/api/authenticated";
 import { OAuthTokenError } from "#/modules/auth/token-service";
+import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { ArtifactSessions } from "#/modules/plugins/artifact-sessions";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
@@ -81,7 +82,7 @@ const mountCallback = (
 		),
 	);
 	const router = getRouter(
-		{ runtime, theme },
+		{ runtime, theme, backInterceptors: createBackInterceptors() },
 		createMemoryHistory({
 			initialEntries: typeof initialEntry === "string" ? [initialEntry] : [...initialEntry],
 		}),

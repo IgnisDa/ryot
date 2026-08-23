@@ -1,4 +1,5 @@
 import {
+	PluginHeaderContent,
 	PluginThemeSnapshot,
 	type PluginThemeSnapshot as PluginThemeSnapshotValue,
 	type RyotClientErrorReason,
@@ -10,6 +11,8 @@ import { Result, Schema } from "effect";
 export type { RyotClientErrorReason } from "@ryot/contract/modules/plugins/client";
 
 export type RyotThemeSnapshot = PluginThemeSnapshotValue;
+
+export type { PluginHeaderContent as RyotHeaderContent } from "@ryot/contract/modules/plugins/client";
 
 export class RyotClientError extends Error {
 	readonly reason: RyotClientErrorReason;
@@ -40,6 +43,7 @@ export type RyotClientAdapter = {
 		signal?: AbortSignal,
 	) => Promise<unknown>;
 	readonly navigate?: (mode: "push" | "replace", target: RyotNavigationTarget) => void;
+	readonly setHeader?: (header: PluginHeaderContent) => void;
 	readonly theme?: {
 		readonly getSnapshot: () => unknown;
 		readonly subscribe: (listener: () => void) => () => void;
@@ -90,6 +94,22 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		navigation: {
 			push: (target: RyotNavigationTarget) => navigate("push", target),
 			replace: (target: RyotNavigationTarget) => navigate("replace", target),
+		},
+		header: {
+			set: (header: PluginHeaderContent) => {
+				if (!adapter.setHeader) {
+					throw new RyotClientError("unsupported-capability");
+				}
+				const decoded = Schema.decodeUnknownResult(PluginHeaderContent)(header);
+				if (Result.isFailure(decoded)) {
+					throw new RyotClientError("invalid-input");
+				}
+				try {
+					adapter.setHeader(decoded.success);
+				} catch (error) {
+					throw asTransportError(error);
+				}
+			},
 		},
 		data: {
 			query: async <Success>(
