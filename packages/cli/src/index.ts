@@ -1,7 +1,10 @@
 #!/usr/bin/env bun
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
-import { compileClientPlugin } from "@ryot-app/client-plugin-compiler";
+import {
+	compileClientPlugin,
+	STYLEX_TRACER_BUILD_FINGERPRINT,
+} from "@ryot-app/client-plugin-compiler";
 import { pluginClientFileExtension } from "@ryot-app/client-plugin-contract";
 import {
 	AuthoredPluginManifest as AuthoredPluginManifestSchema,
@@ -27,7 +30,11 @@ const PackageJson = Schema.Struct({
 	),
 });
 
-type BuildOptions = { readonly cwd: string; readonly output: string | undefined };
+type BuildOptions = {
+	readonly cwd: string;
+	readonly output: string | undefined;
+	readonly stylexTracer: boolean;
+};
 
 type PluginManifest = Schema.Schema.Type<typeof PluginManifestSchema>;
 
@@ -152,6 +159,7 @@ const deriveManifestScripts = Effect.fn("deriveManifestScripts")(function* (
 const compileClientArtifact = Effect.fn("compileClientArtifact")(function* (
 	manifest: AuthoredPluginManifest,
 	sources: ReadonlyArray<SourceFile>,
+	stylexTracer: boolean,
 ) {
 	if (manifest.client === undefined) {
 		return yield* Effect.void;
@@ -168,6 +176,7 @@ const compileClientArtifact = Effect.fn("compileClientArtifact")(function* (
 		files,
 		name: manifest.metadata.name,
 		apiVersion: manifest.client.apiVersion,
+		...(stylexTracer ? { stylexTracer: { fingerprint: STYLEX_TRACER_BUILD_FINGERPRINT } } : {}),
 		pluginDependencies: manifest.client.pluginDependencies ?? [],
 		publicExports: Object.fromEntries(
 			Object.entries(manifest.client.exports ?? {}).map(([name, declaration]) => [
@@ -211,12 +220,21 @@ const writeOutput = Effect.fn("writeOutput")(function* (
 	);
 });
 
-const buildPlugin = Effect.fn("buildPlugin")(function* ({ cwd, output }: BuildOptions) {
+const buildPlugin = Effect.fn("buildPlugin")(function* ({
+	cwd,
+	output,
+	stylexTracer,
+}: BuildOptions) {
 	const path = yield* Path.Path;
 	const authored = yield* loadManifest(cwd);
+	if (stylexTracer && authored.metadata.slug !== "stylex-tracer") {
+		yield* new BuildError({
+			message: `RYOT_STYLEX_TRACER=1 is reserved for the "stylex-tracer" plugin, but the manifest slug is "${authored.metadata.slug}". Unset RYOT_STYLEX_TRACER for ordinary plugin builds.`,
+		});
+	}
 	const sources = yield* collectSources(cwd);
 	const scripts = yield* deriveManifestScripts(sources);
-	yield* compileClientArtifact(authored, sources);
+	yield* compileClientArtifact(authored, sources, stylexTracer);
 	const manifest = yield* Schema.decodeUnknownEffect(PluginManifestSchema)({
 		...authored,
 		scripts,
@@ -341,7 +359,11 @@ const buildCommand = Command.make(
 		output: Flag.string("output").pipe(Flag.withSchema(Schema.NonEmptyString), Flag.optional),
 	},
 	Effect.fn("buildCommand")(function* ({ watch, output }) {
-		const options = { cwd: process.cwd(), output: Option.getOrUndefined(output) };
+		const options = {
+			cwd: process.cwd(),
+			output: Option.getOrUndefined(output),
+			stylexTracer: process.env.RYOT_STYLEX_TRACER === "1",
+		};
 		if (watch) {
 			return yield* watchPlugin(options);
 		}
