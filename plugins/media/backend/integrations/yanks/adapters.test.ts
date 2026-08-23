@@ -166,13 +166,7 @@ describe("Plex yank", () => {
 				},
 			]),
 			"/library/metadata/555/allLeaves": metadata([
-				{
-					index: 3,
-					key: "/e/1",
-					title: "Ep1",
-					parentIndex: 1,
-					lastViewedAt: 1_700_000_100,
-				},
+				{ index: 3, key: "/e/1", title: "Ep1", parentIndex: 1, lastViewedAt: 1_700_000_100 },
 			]),
 		});
 		expect(result.failures).toEqual([]);
@@ -330,9 +324,7 @@ describe("Plex yank", () => {
 });
 
 describe("Audiobookshelf yank", () => {
-	const libraryResponse = {
-		libraries: [{ id: "lib1", name: "Audiobooks", mediaType: "book" }],
-	};
+	const libraryResponse = { libraries: [{ id: "lib1", name: "Audiobooks", mediaType: "book" }] };
 	const itemRoutes = (items: JsonValue[]) => ({
 		"/api/libraries": libraryResponse,
 		"/api/libraries/lib1/items?expanded=1&filter=progress.ZmluaXNoZWQ=": { results: items },

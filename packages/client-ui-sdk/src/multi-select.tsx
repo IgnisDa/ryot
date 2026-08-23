@@ -4,10 +4,7 @@ import { useDeferredValue, useRef, useState, type ReactNode } from "react";
 import { useFieldEscape } from "./field-escape";
 import { Modal } from "./modal";
 
-export type MultiSelectChoice = {
-	readonly value: string;
-	readonly label?: string | undefined;
-};
+export type MultiSelectChoice = { readonly value: string; readonly label?: string | undefined };
 
 type MultiSelectProps = {
 	readonly label: string;

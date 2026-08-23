@@ -66,35 +66,17 @@ const decodeSource = (source: LifecycleSource) =>
 	Match.value(source).pipe(
 		Match.when({ kind: "entity" }, (value) =>
 			decodeSnapshots(value).pipe(
-				Effect.map(
-					(snapshots) =>
-						({
-							kind: "entity",
-							...snapshots,
-						}) as const,
-				),
+				Effect.map((snapshots) => ({ kind: "entity", ...snapshots }) as const),
 			),
 		),
 		Match.when({ kind: "event" }, (value) =>
 			decodeSnapshots(value).pipe(
-				Effect.map(
-					(snapshots) =>
-						({
-							kind: "event",
-							...snapshots,
-						}) as const,
-				),
+				Effect.map((snapshots) => ({ kind: "event", ...snapshots }) as const),
 			),
 		),
 		Match.when({ kind: "relationship" }, (value) =>
 			decodeSnapshots(value).pipe(
-				Effect.map(
-					(snapshots) =>
-						({
-							kind: "relationship",
-							...snapshots,
-						}) as const,
-				),
+				Effect.map((snapshots) => ({ kind: "relationship", ...snapshots }) as const),
 			),
 		),
 		Match.exhaustive,

@@ -198,9 +198,7 @@ export const extractSandboxManifest = (
 
 	const parsed = Schema.decodeUnknownResult(sandboxManifestSchema)(literal.value);
 	if (Result.isFailure(parsed)) {
-		return {
-			diagnostic: diagnosticAt(argument, "RYOT_MANIFEST", String(parsed.failure)),
-		};
+		return { diagnostic: diagnosticAt(argument, "RYOT_MANIFEST", String(parsed.failure)) };
 	}
 	return { manifest: parsed.success };
 };

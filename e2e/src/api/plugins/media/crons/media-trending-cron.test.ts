@@ -132,10 +132,7 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 				const directScriptId = installed.scriptIds[SCRIPT_SLUG];
 				assertPresent(directScriptId, "Trending direct script was not installed");
 				const directScript = yield* getApiClient().call(
-					(c) =>
-						c.testSupport.getSandboxScript({
-							params: { scriptId: directScriptId },
-						}),
+					(c) => c.testSupport.getSandboxScript({ params: { scriptId: directScriptId } }),
 					adminHeaders(),
 				);
 				assertPresent(directScript.providerId, "Trending script provider was not stored");

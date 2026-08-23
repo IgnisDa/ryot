@@ -65,10 +65,7 @@ export function decideProtectedRoute(
 	if (session.status === "missing") {
 		return { action: "redirect", redirectTo, to: "/auth" };
 	}
-	return {
-		action: "allow",
-		scope: { serverUrl: server, userId: session.userId },
-	};
+	return { action: "allow", scope: { serverUrl: server, userId: session.userId } };
 }
 
 export async function protectedRouteGuard(

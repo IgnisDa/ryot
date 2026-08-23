@@ -280,10 +280,7 @@ describe("media monitoring endpoints", () => {
 				unsupported.map((entity) => enableMediaMonitoring(owner.client, entity.id)),
 			);
 			for (const [index, result] of unsupportedResults.entries()) {
-				expect(result).toEqual({
-					status: "notFound",
-					entityId: unsupported[index]?.id,
-				});
+				expect(result).toEqual({ status: "notFound", entityId: unsupported[index]?.id });
 			}
 			expect(yield* getMediaMonitoringStatus(owner.client, unsupported[4].id)).toEqual({
 				status: "notFound",

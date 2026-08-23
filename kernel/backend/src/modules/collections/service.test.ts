@@ -773,11 +773,7 @@ it.effect("can insert and run policy again after a compensated failure", () => {
 		}),
 	});
 	const eventResults: CreateEventsResponse[] = [
-		{
-			count: 0,
-			outcomes: [],
-			failure: { index: 0, reason: { code: "policy-failed" } },
-		},
+		{ count: 0, outcomes: [], failure: { index: 0, reason: { code: "policy-failed" } } },
 		{ count: 1, outcomes: [], failure: null },
 	];
 

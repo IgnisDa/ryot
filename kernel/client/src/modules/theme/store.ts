@@ -23,10 +23,7 @@ export type ThemeStore = {
 
 export function createThemeStore(
 	initialPreference: ThemePreference,
-	options: {
-		readonly root?: ThemeRoot;
-		readonly media?: ThemeMedia;
-	} = {},
+	options: { readonly root?: ThemeRoot; readonly media?: ThemeMedia } = {},
 ): ThemeStore {
 	const root = options.root ?? document.documentElement;
 	const media = options.media ?? window.matchMedia("(prefers-color-scheme: dark)");

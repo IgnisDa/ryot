@@ -4,12 +4,7 @@ export const fixturePackageRoot = (kind: "diagnostic" | "valid" = "valid") =>
 	new URL(`./test-fixtures/${kind}`, import.meta.url).pathname;
 
 export const fixturePluginIdentity = (slug = "fixture") =>
-	({
-		slug,
-		ownerId: null,
-		scope: "system",
-		id: `${slug}-plugin-id`,
-	}) as const;
+	({ slug, ownerId: null, scope: "system", id: `${slug}-plugin-id` }) as const;
 
 export const fixtureManifest = () =>
 	({

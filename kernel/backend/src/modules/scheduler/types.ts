@@ -1,8 +1,6 @@
 import type { Effect } from "effect";
 
-export type CronTaskContext = {
-	executionId: string;
-};
+export type CronTaskContext = { executionId: string };
 
 export type CronTask<E, R> = {
 	name: string;

@@ -21,11 +21,7 @@ const userBootstrapManifest = () => {
 		...manifest,
 		scripts: [...manifest.scripts, script],
 		userBootstrap: [
-			{
-				slug: "fixture",
-				scriptSlug: script.slug,
-				description: "Bootstrap fixture user data",
-			},
+			{ slug: "fixture", scriptSlug: script.slug, description: "Bootstrap fixture user data" },
 		],
 	};
 };
@@ -40,11 +36,7 @@ it.effect("rejects duplicate, missing, and incompatible user bootstrap script re
 		(manifest: ReturnType<typeof userBootstrapManifest>) => ({
 			...manifest,
 			userBootstrap: [
-				{
-					slug: "fixture",
-					scriptSlug: "missing-script",
-					description: "Missing fixture bootstrap",
-				},
+				{ slug: "fixture", scriptSlug: "missing-script", description: "Missing fixture bootstrap" },
 			],
 		}),
 		(manifest: ReturnType<typeof userBootstrapManifest>) => ({

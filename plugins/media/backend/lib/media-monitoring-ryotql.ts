@@ -110,9 +110,7 @@ export const mediaMonitoringSweepRecipe = defineRecipe(
 					orderBy: [ascending(column(entity, "id"))],
 					where: and(
 						providerBackedFilter(entity),
-						exists(relationship, {
-							where: monitoringRelationshipFilter(entity, relationship),
-						}),
+						exists(relationship, { where: monitoringRelationshipFilter(entity, relationship) }),
 					),
 				}),
 			},

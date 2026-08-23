@@ -346,10 +346,7 @@ describe("RyotQL aggregate outputs", () => {
 			});
 			const ownerEntities = yield* Effect.all(
 				["Visible Source", "Visible Target One", "Visible Target Two"].map((name) =>
-					createEntityFixture(owner.client, {
-						name,
-						entitySchemaSlug: ownerSchema.schemaId,
-					}),
+					createEntityFixture(owner.client, { name, entitySchemaSlug: ownerSchema.schemaId }),
 				),
 			);
 			const otherEntities = yield* Effect.all(

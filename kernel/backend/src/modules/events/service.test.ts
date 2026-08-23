@@ -26,9 +26,7 @@ const user = {
 const mockEventsRepository = Layer.mock(EventsRepository);
 
 const makeEventsRepository = (overrides: MockOverrides<typeof mockEventsRepository> = {}) =>
-	mockEventsRepository({
-		...overrides,
-	});
+	mockEventsRepository({ ...overrides });
 
 const makeServiceLayer = (input: {
 	workflowEngine?: WorkflowEngine["Service"];

@@ -111,10 +111,7 @@ describe("Events built-in status schemas", () => {
 			expect(events).toHaveLength(2);
 			expect(events.map((event) => event.eventSchemaSlug)).toEqual(["complete", "complete"]);
 			expect(events.map((event) => event.properties)).toEqual([
-				{
-					completionMode: "custom_timestamps",
-					completedOn: "2026-03-27T18:30:00Z",
-				},
+				{ completionMode: "custom_timestamps", completedOn: "2026-03-27T18:30:00Z" },
 				{ completionMode: "just_now" },
 			]);
 		}),
@@ -204,11 +201,7 @@ describe("Events built-in status schemas", () => {
 			const createResult = yield* apiClient.call((c) =>
 				c.events.create({
 					payload: [
-						{
-							entityId,
-							properties: { rating: 4 },
-							eventSchemaSlug: reviewEventSchemaSlug,
-						},
+						{ entityId, properties: { rating: 4 }, eventSchemaSlug: reviewEventSchemaSlug },
 						{
 							entityId,
 							eventSchemaSlug: reviewEventSchemaSlug,

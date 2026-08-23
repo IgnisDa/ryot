@@ -107,9 +107,7 @@ export const InstalledNotificationRule = Schema.Struct({
 
 export type InstalledNotificationRule = typeof InstalledNotificationRule.Type;
 
-export const InstallNotificationRuleBody = strictStruct({
-	signalSchemaSlug: SignalSchemaSlug,
-});
+export const InstallNotificationRuleBody = strictStruct({ signalSchemaSlug: SignalSchemaSlug });
 
 export type InstallNotificationRuleBody = typeof InstallNotificationRuleBody.Type;
 
@@ -142,19 +140,13 @@ export const AutomationOrigin = Schema.Union([
 	strictStruct({ kind: Schema.Literal("api") }),
 	strictStruct({ kind: Schema.Literal("bootstrap") }),
 	strictStruct({ kind: Schema.Literal("provider_refresh") }),
-	strictStruct({
-		kind: Schema.Literal("import"),
-		importRunId: Schema.optional(ImportRunId),
-	}),
+	strictStruct({ kind: Schema.Literal("import"), importRunId: Schema.optional(ImportRunId) }),
 	strictStruct({
 		integrationId: IntegrationId,
 		kind: Schema.Literal("integration"),
 		importRunId: Schema.optional(ImportRunId),
 	}),
-	strictStruct({
-		executionId: Schema.String,
-		kind: Schema.Literal("automation"),
-	}),
+	strictStruct({ executionId: Schema.String, kind: Schema.Literal("automation") }),
 ]);
 
 export type AutomationOrigin = typeof AutomationOrigin.Type;

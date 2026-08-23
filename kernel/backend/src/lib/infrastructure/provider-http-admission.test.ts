@@ -191,11 +191,7 @@ describe("ProviderHttpAdmissionService", () => {
 					observedAtMs: 1_000,
 					blockedUntilMs: 5_000,
 				});
-				expect(delayed).toEqual({
-					status: "later",
-					eligibleAtMs: 5_000,
-					observedAtMs: 1_000,
-				});
+				expect(delayed).toEqual({ status: "later", eligibleAtMs: 5_000, observedAtMs: 1_000 });
 				expect(redis.states.get(key)?.nextEligibleMs).toBe(nextEligibleMs);
 				expect(redis.states.get(key)?.expiresAtMs).toBe(65_000);
 

@@ -77,11 +77,7 @@ const ListUsersResponse = Schema.Struct({
 });
 
 const ProvisionUserBody = Schema.Union([
-	Schema.Struct({
-		email: Email,
-		name: Schema.String,
-		provider: Schema.Literal("credential"),
-	}).pipe(
+	Schema.Struct({ email: Email, name: Schema.String, provider: Schema.Literal("credential") }).pipe(
 		Schema.annotate({
 			identifier: "CredentialProvisionUserBody",
 			title: "Credential Provision User",
@@ -99,10 +95,7 @@ export type ProvisionUserBody = Schema.Schema.Type<typeof ProvisionUserBody>;
 
 const ProvisionUserResponse = Schema.Struct({ userId: UserId });
 
-const ResetPasswordResponse = Schema.Struct({
-	email: Schema.String,
-	resetUrl: Schema.String,
-});
+const ResetPasswordResponse = Schema.Struct({ email: Schema.String, resetUrl: Schema.String });
 
 const SetDisabledBody = Schema.Struct({ disabled: Schema.Boolean });
 

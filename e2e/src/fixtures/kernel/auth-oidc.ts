@@ -17,15 +17,10 @@ export type MockOidcServer = {
 	setNextClaims: (claims: Record<string, unknown>) => void;
 };
 
-class OidcFixtureError extends Data.TaggedError("OidcFixtureError")<{
-	readonly cause: unknown;
-}> {}
+class OidcFixtureError extends Data.TaggedError("OidcFixtureError")<{ readonly cause: unknown }> {}
 
 const attempt = <A>(run: () => Promise<A>) =>
-	Effect.tryPromise({
-		try: run,
-		catch: (cause) => new OidcFixtureError({ cause }),
-	});
+	Effect.tryPromise({ try: run, catch: (cause) => new OidcFixtureError({ cause }) });
 
 export const startMockOidcServer = Effect.gen(function* () {
 	const server = new OAuth2Server();

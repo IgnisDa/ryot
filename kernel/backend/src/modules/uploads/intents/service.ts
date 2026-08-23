@@ -394,10 +394,7 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 
 			const removeIntentRecord = (intentId: string, metadata: typeof UploadIntentMetadata.Type) =>
 				Effect.gen(function* () {
-					yield* objectStorage.deleteObject({
-						type: metadata.provider,
-						key: metadata.objectKey,
-					});
+					yield* objectStorage.deleteObject({ type: metadata.provider, key: metadata.objectKey });
 					if (metadata.completion && "token" in metadata.completion) {
 						yield* redis.del(redisKeys.uploadToken(metadata.completion.token));
 					}

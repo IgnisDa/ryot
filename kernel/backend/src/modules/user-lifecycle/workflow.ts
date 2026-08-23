@@ -287,9 +287,7 @@ export const runUserLifecycleWorkflow = Effect.fn("UserLifecycleWorkflow")(
 					name: "fail-reset-user-recreation",
 					error: InternalError satisfies DurableSchema,
 					success: Schema.Void satisfies DurableSchema,
-					execute: operations.fail(payload.operationId, {
-						code: "reset-user-recreation-failed",
-					}),
+					execute: operations.fail(payload.operationId, { code: "reset-user-recreation-failed" }),
 				}).pipe(Activity.retry({ times: 3 }));
 				return;
 			}
@@ -307,9 +305,7 @@ export const runUserLifecycleWorkflow = Effect.fn("UserLifecycleWorkflow")(
 				name: "fail-user-lifecycle-completion",
 				error: InternalError satisfies DurableSchema,
 				success: Schema.Void satisfies DurableSchema,
-				execute: operations.fail(payload.operationId, {
-					code: "operation-completion-failed",
-				}),
+				execute: operations.fail(payload.operationId, { code: "operation-completion-failed" }),
 			}).pipe(Activity.retry({ times: 3 }));
 		}
 	},

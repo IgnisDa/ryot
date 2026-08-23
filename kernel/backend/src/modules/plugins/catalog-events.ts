@@ -80,10 +80,7 @@ export class PluginCatalogInvalidator extends Context.Service<
 	PluginCatalogInvalidator,
 	PluginCatalogInvalidatorValue
 >()("PluginCatalogInvalidator", {
-	make: Effect.succeed({
-		all: Effect.void,
-		user: (_userId: UserId) => Effect.void,
-	}),
+	make: Effect.succeed({ all: Effect.void, user: (_userId: UserId) => Effect.void }),
 }) {
 	static readonly layer = Layer.effect(this, this.make);
 }

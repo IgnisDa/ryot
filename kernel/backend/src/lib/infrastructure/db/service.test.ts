@@ -19,11 +19,7 @@ it("maps Effect SQL metadata to the application DbError", () => {
 	});
 
 	expect(databaseError(failure)).toEqual(
-		new DbError({
-			code: "23505",
-			constraint: "users_email_unique",
-			message: "duplicate",
-		}),
+		new DbError({ code: "23505", constraint: "users_email_unique", message: "duplicate" }),
 	);
 });
 

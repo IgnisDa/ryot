@@ -258,11 +258,7 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 					expect(created).toHaveLength(1);
 					expect(documents.slice(1)).toMatchObject([
 						{ queries: { events: { output: { pagination: {} } } } },
-						{
-							queries: {
-								events: { output: { pagination: { after: "events-1" } } },
-							},
-						},
+						{ queries: { events: { output: { pagination: { after: "events-1" } } } } },
 					]);
 					return undefined;
 				}),

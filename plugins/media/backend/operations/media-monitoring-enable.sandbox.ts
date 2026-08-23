@@ -49,8 +49,6 @@ export default defineOperation({
 					},
 				]);
 			}
-			return {
-				results: alignedMediaMonitoringResults(input.entityIds, targets, () => true),
-			};
+			return { results: alignedMediaMonitoringResults(input.entityIds, targets, () => true) };
 		}),
 });

@@ -645,10 +645,7 @@ describe("definePlugin", () => {
 			{ ...declaration, origins: ["https://*.example.com"] },
 		]) {
 			expect(() =>
-				Schema.decodeUnknownSync(PluginManifest)({
-					...manifest,
-					httpRateLimits: [candidate],
-				}),
+				Schema.decodeUnknownSync(PluginManifest)({ ...manifest, httpRateLimits: [candidate] }),
 			).toThrow();
 		}
 		expect(() => {
@@ -915,12 +912,7 @@ describe("definePlugin", () => {
 				description: "An array value",
 				items: { type: "string", label: "Item", description: "An item" },
 			},
-			{
-				type: "object",
-				label: "Value",
-				properties: {},
-				description: "An object value",
-			},
+			{ type: "object", label: "Value", properties: {}, description: "An object value" },
 		]) {
 			expect(() =>
 				Schema.decodeUnknownSync(PluginManifest)({
@@ -966,10 +958,7 @@ describe("definePlugin", () => {
 					},
 				},
 				importSources: [],
-				scripts: manifest.scripts.map((script) => ({
-					...script,
-					requiredPluginConfigKeys: [],
-				})),
+				scripts: manifest.scripts.map((script) => ({ ...script, requiredPluginConfigKeys: [] })),
 			}),
 		).toThrow();
 	});
@@ -1104,10 +1093,7 @@ describe("definePlugin", () => {
 				providers: [
 					{
 						...provider,
-						operations: {
-							details: "provider.test.details",
-							search: "provider.test.details",
-						},
+						operations: { details: "provider.test.details", search: "provider.test.details" },
 					},
 				],
 			}),
@@ -1158,11 +1144,7 @@ describe("definePlugin", () => {
 				...manifest,
 				providers: [
 					...manifest.providers,
-					{
-						...provider,
-						slug: "provider.other",
-						operations: { details: otherDetailsScript.slug },
-					},
+					{ ...provider, slug: "provider.other", operations: { details: otherDetailsScript.slug } },
 				],
 				scripts: [
 					...manifest.scripts,
@@ -1218,11 +1200,7 @@ describe("definePlugin", () => {
 				bindings: {
 					...manifest.bindings,
 					entityAutomations: [
-						{
-							operation: "create",
-							scriptSlug: "missing.script",
-							entitySchemaSlug: "entity.test",
-						},
+						{ operation: "create", scriptSlug: "missing.script", entitySchemaSlug: "entity.test" },
 					],
 				},
 			}),

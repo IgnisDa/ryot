@@ -19,10 +19,7 @@ import type {
 type ImportMediaEntityGroupBuilder = Omit<
 	ImportMediaEntityGroup,
 	"events" | "collectionMemberships"
-> & {
-	events: ImportMediaEvent[];
-	collectionMemberships: Array<{ collectionName: string }>;
-};
+> & { events: ImportMediaEvent[]; collectionMemberships: Array<{ collectionName: string }> };
 
 const WatcharrActivity = Schema.Struct({
 	type: Schema.String,
@@ -114,10 +111,7 @@ export const adaptWatcharrExportBatch = (jsonText: string, start: number, limit:
 	for (let itemIndex = start; itemIndex < end; itemIndex += 1) {
 		const parsedItem = decodeWatcharrItem(parsed[itemIndex]);
 		if (Result.isFailure(parsedItem)) {
-			failures.push({
-				itemIndex,
-				message: "Watcharr item is malformed",
-			});
+			failures.push({ itemIndex, message: "Watcharr item is malformed" });
 			continue;
 		}
 

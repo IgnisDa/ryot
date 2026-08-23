@@ -161,10 +161,7 @@ describe("Reset user for credential user", () => {
 			assertPresent(token, "missing token");
 			const newPassword = "reset-user-pw-123!";
 			const { error: resetError } = yield* Effect.promise(() =>
-				createTestAuthClient().resetPassword({
-					token,
-					newPassword,
-				}),
+				createTestAuthClient().resetPassword({ token, newPassword }),
 			);
 			expect(resetError).toBeNull();
 

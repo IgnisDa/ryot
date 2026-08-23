@@ -17,11 +17,7 @@ import { Context, Effect, Layer } from "effect";
 
 import type { Database } from "#lib/infrastructure/db/service";
 
-export type LifecycleEntityReference = {
-	id: EntityId;
-	name: string;
-	entitySchemaSlug: string;
-};
+export type LifecycleEntityReference = { id: EntityId; name: string; entitySchemaSlug: string };
 
 export type LifecycleEntitySnapshot = {
 	id: EntityId;
@@ -73,11 +69,7 @@ export type LifecyclePopulationContext = {
 		entitySchemaSlug: EntitySchemaSlug;
 		properties: Record<string, JsonValue>;
 	};
-	scopeEntity: {
-		id: EntityId;
-		name: string;
-		entitySchemaSlug: EntitySchemaSlug;
-	};
+	scopeEntity: { id: EntityId; name: string; entitySchemaSlug: EntitySchemaSlug };
 };
 
 /**

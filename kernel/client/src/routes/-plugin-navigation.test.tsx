@@ -405,10 +405,7 @@ describe("client page routes", () => {
 				];
 				return Effect.succeed({
 					...prepared,
-					identity: {
-						...prepared.identity,
-						operationTargets,
-					},
+					identity: { ...prepared.identity, operationTargets },
 				});
 			},
 		});
@@ -496,10 +493,7 @@ describe("client page routes", () => {
 		await waitFor(() => expect(searchView.router.state.location.searchStr).toBe("?keep=1&q=dune"));
 		await waitFor(() => expect(searchBridge.messages).toHaveLength(2));
 		const replacedSearch = Schema.decodeUnknownSync(PluginBridgeLocation)(searchBridge.messages[1]);
-		expect(replacedSearch).toMatchObject({
-			index: initialSearch.index,
-			key: initialSearch.key,
-		});
+		expect(replacedSearch).toMatchObject({ index: initialSearch.index, key: initialSearch.key });
 	});
 
 	it("prepares entities directly and allows a disabled ready installation", async () => {

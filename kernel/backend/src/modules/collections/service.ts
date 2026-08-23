@@ -276,33 +276,40 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 								relationshipSchemaPluginId: memberOfRelationshipSchema.pluginId ?? null,
 								propertiesSchema: memberOfRelationshipSchema.propertiesSchema,
 							} as const;
-							const created = yield* relationships.create(membershipInput).pipe(
-								Effect.catchTag(
-									"RelationshipBadRequest",
-									(error) =>
-										new CollectionBadRequest({
-											reason: {
-												code: "invalid-membership-properties",
-												paths: error.reason.code === "invalid-properties" ? error.reason.paths : [],
-											},
-										}),
-								),
-							);
+							const created = yield* relationships
+								.create(membershipInput)
+								.pipe(
+									Effect.catchTag(
+										"RelationshipBadRequest",
+										(error) =>
+											new CollectionBadRequest({
+												reason: {
+													code: "invalid-membership-properties",
+													paths:
+														error.reason.code === "invalid-properties" ? error.reason.paths : [],
+												},
+											}),
+									),
+								);
 							return created.wasInserted
 								? created
-								: yield* relationships.update(membershipInput).pipe(
-										Effect.catchTags({
-											RelationshipBadRequest: (error) =>
-												new CollectionBadRequest({
-													reason: {
-														code: "invalid-membership-properties",
-														paths:
-															error.reason.code === "invalid-properties" ? error.reason.paths : [],
-													},
-												}),
-											RelationshipNotFound: (error) => Effect.die(error),
-										}),
-									);
+								: yield* relationships
+										.update(membershipInput)
+										.pipe(
+											Effect.catchTags({
+												RelationshipBadRequest: (error) =>
+													new CollectionBadRequest({
+														reason: {
+															code: "invalid-membership-properties",
+															paths:
+																error.reason.code === "invalid-properties"
+																	? error.reason.paths
+																	: [],
+														},
+													}),
+												RelationshipNotFound: (error) => Effect.die(error),
+											}),
+										);
 						}).pipe(Effect.provideService(Database, transaction)),
 					),
 				);

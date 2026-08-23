@@ -9,10 +9,7 @@ import type { DurableSchema } from "#lib/infrastructure/workflow";
 
 export const NotificationDeliveryRequest = Schema.Union([
 	Schema.Struct({ kind: Schema.Literal("test") }),
-	Schema.Struct({
-		message: Schema.String,
-		kind: Schema.Literal("message"),
-	}),
+	Schema.Struct({ message: Schema.String, kind: Schema.Literal("message") }),
 ]);
 
 export const NotificationDeliveryResult = Schema.Struct({

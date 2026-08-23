@@ -21,8 +21,4 @@ export const manifest = defineManifest({
 	},
 });
 
-export default defineProvider({
-	manifest,
-	operation: "search",
-	run: () => Effect.die("unused"),
-});
+export default defineProvider({ manifest, operation: "search", run: () => Effect.die("unused") });

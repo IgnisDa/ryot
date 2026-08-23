@@ -184,9 +184,7 @@ it("keeps only a string kind when the registry provider is unavailable", () => {
 	};
 	const record = { ...integration(), providerSpecifics };
 
-	expect(redactIntegrationForClient(null, record).providerSpecifics).toEqual({
-		kind: "test-kind",
-	});
+	expect(redactIntegrationForClient(null, record).providerSpecifics).toEqual({ kind: "test-kind" });
 	expect(providerSpecifics).toEqual({
 		kind: "test-kind",
 		token: "secret-token",

@@ -78,13 +78,7 @@ export const registryImportSourceFileInputs = (
 	uploadFields(source).flatMap(([key, property]) => {
 		const uploadToken = properties[key];
 		return typeof uploadToken === "string" && uploadToken.length > 0
-			? [
-					{
-						key,
-						uploadToken,
-						allowedExtensions: [...property.format.allowedFileExtensions],
-					},
-				]
+			? [{ key, uploadToken, allowedExtensions: [...property.format.allowedFileExtensions] }]
 			: [];
 	});
 

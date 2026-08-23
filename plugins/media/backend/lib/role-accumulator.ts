@@ -3,10 +3,7 @@ import type { ProviderDetailsRelatedEntity } from "@ryot-app/sandbox-sdk/provide
 export type RoleRelatedEntity = Omit<
 	ProviderDetailsRelatedEntity,
 	"name" | "relationshipProperties"
-> & {
-	name: string;
-	relationshipProperties: { roles: string[] };
-};
+> & { name: string; relationshipProperties: { roles: string[] } };
 
 export const createRoleAccumulator = (initial: readonly RoleRelatedEntity[] = []) => {
 	const entities: RoleRelatedEntity[] = [];

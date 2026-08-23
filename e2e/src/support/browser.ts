@@ -4,10 +4,7 @@ import { PlaywrightSpawner, chromium } from "effect-playwright";
 
 import { getFrontendUrl } from "~/support/harness-target";
 
-type BrowserSignInOptions = {
-	readonly entryPath?: string;
-	readonly captureHistory?: boolean;
-};
+type BrowserSignInOptions = { readonly entryPath?: string; readonly captureHistory?: boolean };
 
 export const browserLayer = PlaywrightSpawner.layer(chromium);
 

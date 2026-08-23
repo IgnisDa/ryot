@@ -183,16 +183,10 @@ describe("kernel Ryot client", () => {
 			const client = createKernelRyotClient(runtime, scope, theme);
 			await expect(client.collections.create({ name: "Favorites" })).resolves.toEqual(collection);
 			await expect(
-				client.collections.upsertMembership({
-					entityId: "entity-1",
-					collectionId: "collection-1",
-				}),
+				client.collections.upsertMembership({ entityId: "entity-1", collectionId: "collection-1" }),
 			).resolves.toEqual(membership);
 			await expect(
-				client.collections.removeMembership({
-					entityId: "entity-1",
-					collectionId: "collection-1",
-				}),
+				client.collections.removeMembership({ entityId: "entity-1", collectionId: "collection-1" }),
 			).resolves.toEqual(membership);
 			expect(calls).toEqual([
 				{ method: "create", request: { payload: { name: "Favorites" } }, scope },

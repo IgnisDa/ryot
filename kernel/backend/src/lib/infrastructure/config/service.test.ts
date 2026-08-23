@@ -16,10 +16,7 @@ const validate = (overrides?: Overrides) =>
 	);
 
 const loadSystemConfig = (
-	options: {
-		readonly logLevel?: string;
-		readonly processMode?: string;
-	} = {},
+	options: { readonly logLevel?: string; readonly processMode?: string } = {},
 ) =>
 	Effect.runSyncExit(
 		AppConfig.pipe(

@@ -35,9 +35,7 @@ export function SearchField({
 }: SearchFieldProps) {
 	const fallbackRef = useRef<HTMLInputElement>(null);
 	const input = inputRef ?? fallbackRef;
-	useShortcut(shortcut ?? "/", () => input.current?.focus(), {
-		enabled: shortcut !== undefined,
-	});
+	useShortcut(shortcut ?? "/", () => input.current?.focus(), { enabled: shortcut !== undefined });
 	useFieldEscape(input, { hasValue: value !== "", onClear: () => onChange("") });
 
 	return (

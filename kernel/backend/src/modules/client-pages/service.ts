@@ -235,10 +235,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					catch: (error) =>
 						error instanceof ClientPluginCompilerFailure
 							? error
-							: new ClientPluginCompilerFailure({
-									message: String(error),
-									diagnostics: [],
-								}),
+							: new ClientPluginCompilerFailure({ message: String(error), diagnostics: [] }),
 				});
 
 			const requireRenderer = Effect.fn(function* (

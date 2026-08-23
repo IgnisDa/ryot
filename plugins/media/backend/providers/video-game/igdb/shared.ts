@@ -328,11 +328,7 @@ export const details = defineProvider({
 					if (!name) {
 						return yield* Effect.fail(new Error("IGDB game payload is missing name"));
 					}
-					const images: Array<{
-						type: "remote";
-						url: string;
-						purpose: string;
-					}> = [];
+					const images: Array<{ type: "remote"; url: string; purpose: string }> = [];
 					const coverImageId = stringValue(asRecord(game?.["cover"])?.["image_id"]);
 					if (coverImageId) {
 						images.push({

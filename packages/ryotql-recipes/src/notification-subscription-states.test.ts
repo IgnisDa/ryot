@@ -72,11 +72,7 @@ describe("notification subscription state recipes", () => {
 		).toEqual({
 			pageInfo,
 			items: [
-				{
-					...item,
-					createdAt: "2025-12-31T23:00:00.000Z",
-					updatedAt: "2026-01-01T23:00:00.000Z",
-				},
+				{ ...item, createdAt: "2025-12-31T23:00:00.000Z", updatedAt: "2026-01-01T23:00:00.000Z" },
 			],
 		});
 	});

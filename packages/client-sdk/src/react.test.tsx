@@ -251,10 +251,7 @@ describe("useRyotQuery", () => {
 		const requests: Array<{ signal: AbortSignal; resolve: (value: number) => void }> = [];
 		const query = createRyotQuery(
 			({ signal }) => new Promise<number>((resolve) => requests.push({ signal, resolve })),
-			{
-				initialData: () => 0,
-				entityInterest: () => ({ foreground: ["root"], visible: [] }),
-			},
+			{ initialData: () => 0, entityInterest: () => ({ foreground: ["root"], visible: [] }) },
 		);
 		const View = () => {
 			latest = useRyotQuery(query);
@@ -308,9 +305,7 @@ describe("useRyotQuery", () => {
 		const query = createRyotQuery(
 			({ signal }) =>
 				new Promise<string[]>((resolve, reject) => requests.push({ resolve, reject, signal })),
-			{
-				entityInterest: ({ data }) => ({ foreground: ["root"], visible: data ?? [] }),
-			},
+			{ entityInterest: ({ data }) => ({ foreground: ["root"], visible: data ?? [] }) },
 		);
 		const View = () => <p>{useRyotQuery(query).data?.join(",") ?? "pending"}</p>;
 		const container = render(
@@ -366,10 +361,7 @@ describe("useRyotQuery", () => {
 		const requests: Array<{ resolve: (value: number) => void; signal: AbortSignal }> = [];
 		const query = createRyotQuery(
 			({ signal }) => new Promise<number>((resolve) => requests.push({ signal, resolve })),
-			{
-				cancelOnUnmount: true,
-				entityInterest: () => ({ foreground: ["root"], visible: [] }),
-			},
+			{ cancelOnUnmount: true, entityInterest: () => ({ foreground: ["root"], visible: [] }) },
 		);
 		const View = () => <p>{useRyotQuery(query).data ?? "pending"}</p>;
 		const view = <View />;
@@ -531,9 +523,7 @@ describe("useRyotQuery", () => {
 
 	it("refreshes active queries after a direct capability mutation", async () => {
 		let calls = 0;
-		const clock = makeClock({
-			invokeOperation: () => Promise.resolve("saved"),
-		});
+		const clock = makeClock({ invokeOperation: () => Promise.resolve("saved") });
 		const query = createRyotQuery(() => Promise.resolve(++calls));
 		const View = () => <p>{useRyotQuery(query).data ?? "pending"}</p>;
 		const container = render(<View />, clock.runtime);
@@ -917,9 +907,7 @@ describe("useRyotMutation", () => {
 			return null;
 		};
 		const clock = makeClock();
-		render(<View />, clock.runtime, {
-			write: (input: string) => Promise.resolve(`host:${input}`),
-		});
+		render(<View />, clock.runtime, { write: (input: string) => Promise.resolve(`host:${input}`) });
 
 		if (!latest) {
 			throw new Error("Mutation hook did not render");
@@ -1018,10 +1006,7 @@ describe("useRyotMutation", () => {
 		await waitFor(() => expect(container.textContent).toBe("1"));
 
 		act(() => {
-			Object.defineProperty(document, "visibilityState", {
-				value: "visible",
-				configurable: true,
-			});
+			Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
 			document.dispatchEvent(new Event("visibilitychange"));
 		});
 		await new Promise((resolve) => setTimeout(resolve, 0));

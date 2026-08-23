@@ -12,12 +12,8 @@ import { TurnstileWidget } from "~/lib/components/ui/turnstile";
 
 type ContactSectionProps = {
 	isLoading: boolean;
-	configData?: {
-		turnstileSiteKey: string;
-	};
-	query: {
-		contactSubmission: boolean;
-	};
+	configData?: { turnstileSiteKey: string };
+	query: { contactSubmission: boolean };
 	contactSubmissionTurnstileToken: string;
 	setContactSubmissionTurnstileToken: (token: string) => void;
 };

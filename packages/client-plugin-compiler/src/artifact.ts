@@ -61,11 +61,7 @@ export const clientArtifactMetadata = (
 		bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 	};
 	const fileIdentity = files
-		.map(({ name, contents, contentType }) => ({
-			name,
-			contentType,
-			sha256: sha256Hex(contents),
-		}))
+		.map(({ name, contents, contentType }) => ({ name, contentType, sha256: sha256Hex(contents) }))
 		.sort((left, right) => {
 			if (left.name < right.name) {
 				return -1;

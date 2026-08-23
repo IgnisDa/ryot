@@ -34,9 +34,7 @@ it.effect("dispatches the sync workflow with a tick-derived execution id", () =>
 
 it.effect("swallows an enqueue failure so the cron tick keeps running", () => {
 	const instance = WorkflowInstance.initial(FrequentCronWorkflow, "exec-int");
-	const engine = makeWorkflowEngine({
-		execute: () => Effect.die("enqueue boom"),
-	});
+	const engine = makeWorkflowEngine({ execute: () => Effect.die("enqueue boom") });
 
 	return integrationsFrequentTask.run({ executionId: "exec-int" }).pipe(
 		Effect.provideService(WorkflowEngine, engine),

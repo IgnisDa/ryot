@@ -45,10 +45,7 @@ describe("provider search controller", () => {
 		expect(cleared.query).toBe("");
 		expect(cleared.items).toEqual([]);
 
-		const replaced = providerSearchReducer(cleared, {
-			query: "foundation",
-			type: "query-changed",
-		});
+		const replaced = providerSearchReducer(cleared, { query: "foundation", type: "query-changed" });
 		expect(replaced.query).toBe("foundation");
 		expect(replaced.items).toEqual([]);
 	});
@@ -100,12 +97,9 @@ describe("provider search controller", () => {
 				response: response(["stale"], null),
 			}),
 		).toBe(restarted);
-		expect(
-			providerSearchReducer(restarted, {
-				token: stale,
-				type: "request-failed",
-			}),
-		).toBe(restarted);
+		expect(providerSearchReducer(restarted, { token: stale, type: "request-failed" })).toBe(
+			restarted,
+		);
 
 		const failed = providerSearchReducer(restarted, {
 			type: "request-failed",

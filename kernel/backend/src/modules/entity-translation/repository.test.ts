@@ -46,9 +46,7 @@ it.effect("inserts restored translations without suppressing conflicts", () => {
 });
 
 it.effect("fails when a restored translation insert returns no row", () => {
-	const db = {
-		insert: () => ({ values: () => ({ returning: () => Effect.succeed([]) }) }),
-	};
+	const db = { insert: () => ({ values: () => ({ returning: () => Effect.succeed([]) }) }) };
 	return Effect.gen(function* () {
 		const repository = yield* TranslationsRepository;
 		const error = yield* repository.restoreTranslation(input).pipe(Effect.flip);

@@ -16,10 +16,7 @@ const response = await Effect.runPromise(
 			]),
 	}).pipe(
 		Effect.flatMap(compileSandboxSource),
-		Effect.match({
-			onFailure: compilerWorkerFailure,
-			onSuccess: compilerWorkerSuccess,
-		}),
+		Effect.match({ onFailure: compilerWorkerFailure, onSuccess: compilerWorkerSuccess }),
 	),
 );
 

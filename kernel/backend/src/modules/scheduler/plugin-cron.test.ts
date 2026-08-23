@@ -47,12 +47,7 @@ const normalizedPlugin = (
 			providerEntityImportAutomations: [],
 		},
 		crons: [
-			{
-				schedule,
-				scriptSlug,
-				slug: `${pluginSlug}-cron`,
-				description: `${pluginSlug} cron`,
-			},
+			{ schedule, scriptSlug, slug: `${pluginSlug}-cron`, description: `${pluginSlug} cron` },
 		],
 	} satisfies PluginManifest;
 	const { entry, ...metadata } = script;
@@ -295,9 +290,7 @@ it.effect("reports workflow failures from manual cron triggers", () => {
 			status: "failed",
 			pluginSlug: "fixture",
 			cronSlug: "fixture-cron",
-			result: {
-				error: { phase: "execute", message: "dispatch failed" },
-			},
+			result: { error: { phase: "execute", message: "dispatch failed" } },
 		});
 		expect(captured).toEqual([]);
 	}).pipe(

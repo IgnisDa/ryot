@@ -75,20 +75,14 @@ const syncSelections = (entity: TableReference) =>
 		field(translationStatusField, column(entity, translationStatusField)),
 	] satisfies readonly FieldSelection[];
 
-export type SavedViewLayoutProjectionsInput = {
-	readonly table: TableProjectionInput;
-};
+export type SavedViewLayoutProjectionsInput = { readonly table: TableProjectionInput };
 
 const tableProjection = (input: TableProjectionInput) => {
 	const entityId = "entityId";
 	const image = "image";
 	const [firstTableColumn, ...remainingTableColumns] = input.columns;
 	const columns = [
-		{
-			field: "column0",
-			label: firstTableColumn.label,
-			displayKind: firstTableColumn.displayKind,
-		},
+		{ field: "column0", label: firstTableColumn.label, displayKind: firstTableColumn.displayKind },
 		...remainingTableColumns.map((tableColumn, index) => ({
 			label: tableColumn.label,
 			field: `column${index + 1}`,
@@ -386,11 +380,7 @@ export const EntityBrowserResultItem = Schema.Struct({
 	entitySchemaSlug: Schema.String,
 	ownerPluginId: Schema.NullOr(Schema.String),
 	cells: Schema.Array(
-		Schema.Struct({
-			key: Schema.String,
-			label: Schema.String,
-			value: SavedViewDisplayValue,
-		}),
+		Schema.Struct({ key: Schema.String, label: Schema.String, value: SavedViewDisplayValue }),
 	),
 });
 export type EntityBrowserResultItem = typeof EntityBrowserResultItem.Type;
@@ -405,10 +395,7 @@ type EntityBrowserRecipeInput = {
 	readonly settings: EntityBrowserSavedViewSettingsValue;
 };
 
-export const SavedViewPageIdentity = Schema.Struct({
-	icon: Schema.String,
-	name: Schema.String,
-});
+export const SavedViewPageIdentity = Schema.Struct({ icon: Schema.String, name: Schema.String });
 
 export const EntityBrowserPageInput = Schema.Struct({
 	dataSources: RyotQLDocument,

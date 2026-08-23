@@ -444,10 +444,7 @@ const PluginCronFields = {
 	]),
 };
 
-export const PluginCron = strictStruct({
-	...PluginCronFields,
-	scriptSlug: sandboxManifestSlug,
-});
+export const PluginCron = strictStruct({ ...PluginCronFields, scriptSlug: sandboxManifestSlug });
 
 export type PluginCron = Schema.Schema.Type<typeof PluginCron>;
 

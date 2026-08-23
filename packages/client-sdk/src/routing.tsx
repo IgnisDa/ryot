@@ -41,20 +41,13 @@ import {
 import type { PluginNavigationEntry } from "./navigation/store";
 import { usePluginNavigation, useRyot } from "./react";
 
-export type PluginRouteDefinition = {
-	readonly path: string;
-	readonly component: ComponentType;
-};
+export type PluginRouteDefinition = { readonly path: string; readonly component: ComponentType };
 
-export type PluginHomeDefinition = {
-	readonly component: ComponentType;
-};
+export type PluginHomeDefinition = { readonly component: ComponentType };
 
 export type EntityRendererProps = Pick<PluginEntityLocation, "entityId" | "entitySchemaSlug">;
 
-export type PluginEntityDefinition = {
-	readonly component: ComponentType<EntityRendererProps>;
-};
+export type PluginEntityDefinition = { readonly component: ComponentType<EntityRendererProps> };
 
 export type PluginRouterDefinition = {
 	readonly notFound?: ComponentType;
@@ -63,10 +56,7 @@ export type PluginRouterDefinition = {
 	readonly entities?: Readonly<Record<string, PluginEntityDefinition>>;
 };
 
-type RouterContextValue = {
-	params: Record<string, string>;
-	location: PluginLogicalLocation;
-};
+type RouterContextValue = { params: Record<string, string>; location: PluginLogicalLocation };
 
 const RouterContext = createContext<RouterContextValue | undefined>(undefined);
 
@@ -163,9 +153,10 @@ export const usePluginSearch = () =>
 		Match.exhaustive,
 	);
 
-type PluginLinkProps = {
-	readonly to: RyotNavigationTarget;
-} & Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "download" | "href" | "target">;
+type PluginLinkProps = { readonly to: RyotNavigationTarget } & Omit<
+	AnchorHTMLAttributes<HTMLAnchorElement>,
+	"download" | "href" | "target"
+>;
 
 const navigationTargetHref = (target: RyotNavigationTarget) =>
 	Match.value(target).pipe(
@@ -277,10 +268,7 @@ export const createPluginRouteResolver = (
 			Match.when({ kind: "entity" }, ({ entityId, entitySchemaSlug }) => {
 				const Renderer =
 					definition.entities?.[entitySchemaSlug]?.component ?? EntityRendererUnavailable;
-				return {
-					params: {},
-					element: createElement(Renderer, { entityId, entitySchemaSlug }),
-				};
+				return { params: {}, element: createElement(Renderer, { entityId, entitySchemaSlug }) };
 			}),
 			Match.exhaustive,
 		);

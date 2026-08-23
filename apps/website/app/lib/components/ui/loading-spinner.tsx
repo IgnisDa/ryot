@@ -1,15 +1,8 @@
 import { cn } from "@ryot-app/ts-utils/cn";
 
-type LoadingSpinnerProps = {
-	size?: "sm" | "md" | "lg";
-	message?: string;
-};
+type LoadingSpinnerProps = { size?: "sm" | "md" | "lg"; message?: string };
 
-const sizeMap = {
-	sm: "h-4 w-4",
-	md: "h-8 w-8",
-	lg: "h-12 w-12",
-};
+const sizeMap = { sm: "h-4 w-4", md: "h-8 w-8", lg: "h-12 w-12" };
 
 export function LoadingSpinner(props: LoadingSpinnerProps) {
 	const size = props.size ?? "md";

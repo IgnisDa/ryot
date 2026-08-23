@@ -161,10 +161,7 @@ describe("DELETE /user-state/clear/:id", () => {
 			});
 			expect(
 				yield* queryCounts(userA, [inLibraryRelationship, mediaSuggestionRelationship]),
-			).toEqual({
-				eventCount: 0,
-				relationshipCount: 0,
-			});
+			).toEqual({ eventCount: 0, relationshipCount: 0 });
 			expect(yield* queryCounts(userB, [inLibraryRelationship])).toEqual({
 				eventCount: 1,
 				relationshipCount: 1,
@@ -263,11 +260,7 @@ describe("POST /user-state/merge", () => {
 			yield* client.call((c) =>
 				c.events.create({
 					payload: [
-						{
-							entityId: source.id,
-							properties: { note: "moves" },
-							eventSchemaSlug: eventSchema.id,
-						},
+						{ entityId: source.id, properties: { note: "moves" }, eventSchemaSlug: eventSchema.id },
 					],
 				}),
 			);
@@ -299,14 +292,8 @@ describe("POST /user-state/merge", () => {
 				mergeInto: target.id,
 				movedRelationshipsCount: 1,
 			});
-			expect(yield* queryCounts(source.id)).toEqual({
-				eventCount: 0,
-				relationshipCount: 0,
-			});
-			expect(yield* queryCounts(target.id)).toEqual({
-				eventCount: 1,
-				relationshipCount: 1,
-			});
+			expect(yield* queryCounts(source.id)).toEqual({ eventCount: 0, relationshipCount: 0 });
+			expect(yield* queryCounts(target.id)).toEqual({ eventCount: 1, relationshipCount: 1 });
 		}),
 	);
 

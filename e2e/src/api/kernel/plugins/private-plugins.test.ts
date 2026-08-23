@@ -441,10 +441,7 @@ describe("private plugins", () => {
 			);
 
 			assertTaggedError(failure, "PluginRequestError");
-			expect(failure.reason).toEqual({
-				issue: "malformed-zip",
-				code: "package-archive-invalid",
-			});
+			expect(failure.reason).toEqual({ issue: "malformed-zip", code: "package-archive-invalid" });
 		}),
 	);
 

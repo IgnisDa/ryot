@@ -196,9 +196,7 @@ const makeApprovedDependencyRuntime = () => {
 		return reflectConstruct(nativeDate, args.length === 0 ? [startedAt] : args, deterministicDate);
 	} as unknown as DateConstructor;
 	setPrototypeOf(deterministicDate.prototype, nativeDate.prototype);
-	defineProperty(deterministicDate, "now", {
-		value: () => nativeDate.parse(startedAt),
-	});
+	defineProperty(deterministicDate, "now", { value: () => nativeDate.parse(startedAt) });
 	defineProperty(deterministicDate, "UTC", { value: nativeDate.UTC });
 	defineProperty(deterministicDate, "parse", { value: nativeDate.parse });
 
@@ -893,13 +891,7 @@ void (async () => {
 		let payload: SandboxRunnerPayload | undefined;
 		let logCollector: SandboxLogCollector = {
 			logs: [],
-			console: {
-				log: () => {},
-				info: () => {},
-				warn: () => {},
-				debug: () => {},
-				error: () => {},
-			},
+			console: { log: () => {}, info: () => {}, warn: () => {}, debug: () => {}, error: () => {} },
 		};
 		const startedAt = performanceNow();
 		const previousConsole = {

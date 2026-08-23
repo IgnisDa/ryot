@@ -15,10 +15,7 @@ export type StackTransition = "same" | "push" | "pop" | "replace" | "reset";
 
 export type ScreenRole = "hidden" | "active" | "beneath" | "leaving";
 
-export type PresentedScreen = {
-	readonly role: ScreenRole;
-	readonly screen: PluginScreen;
-};
+export type PresentedScreen = { readonly role: ScreenRole; readonly screen: PluginScreen };
 
 export type Presentation =
 	| { readonly kind: "idle" }
@@ -51,10 +48,7 @@ export function reconcileStack(
 	incoming: StackEntry,
 	resolve: ResolvePluginScreen,
 ): StackResult {
-	const screen = {
-		...incoming,
-		...resolve(incoming.location),
-	};
+	const screen = { ...incoming, ...resolve(incoming.location) };
 	const top = stack.at(-1);
 	if (top === undefined) {
 		return { stack: [screen], transition: "reset" };
@@ -63,10 +57,7 @@ export function reconcileStack(
 		return { stack: [...stack.slice(0, -1), screen], transition: "same" };
 	}
 	if (incoming.index === top.index) {
-		return {
-			stack: [...stack.slice(0, -1), screen],
-			transition: "replace",
-		};
+		return { stack: [...stack.slice(0, -1), screen], transition: "replace" };
 	}
 	if (incoming.index === top.index + 1) {
 		const pushed = [...stack, screen];

@@ -139,9 +139,7 @@ describe("sidebar navigation", () => {
 
 	it("has no accessibility violations", async () => {
 		const view = renderSidebar(true);
-		const results = await axe(view.container, {
-			rules: { "color-contrast": { enabled: false } },
-		});
+		const results = await axe(view.container, { rules: { "color-contrast": { enabled: false } } });
 		expect(results.violations.map((violation) => violation.id)).toEqual([]);
 	});
 

@@ -73,11 +73,7 @@ const ReportRow = Schema.Struct({
 	level: Schema.Literals(["info", "warning"]),
 });
 
-type ReportEntry = {
-	count?: string;
-	message: string;
-	level?: typeof ReportRow.Type.level;
-};
+type ReportEntry = { count?: string; message: string; level?: typeof ReportRow.Type.level };
 
 const decodeReportRows = Schema.decodeUnknownEffect(Schema.Array(ReportRow));
 

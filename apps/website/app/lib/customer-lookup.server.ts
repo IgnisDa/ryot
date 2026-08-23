@@ -9,9 +9,7 @@ export async function findCustomerByField(
 	field: keyof typeof customers.$inferSelect,
 	value: string,
 ): Promise<Customer | undefined> {
-	return await getDb().query.customers.findFirst({
-		where: eq(customers[field], value),
-	});
+	return await getDb().query.customers.findFirst({ where: eq(customers[field], value) });
 }
 
 export async function findCustomerByPolarId(polarCustomerId: string) {

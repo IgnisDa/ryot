@@ -29,9 +29,7 @@ const mockImportsRepository = Layer.mock(ImportsRepository);
 const mockIntegrationsRepository = Layer.mock(IntegrationsRepository);
 const unownedRepositories = Layer.mergeAll(
 	mockImportsRepository({ getRunById: () => Effect.succeed(null) }),
-	mockIntegrationsRepository({
-		getForUser: () => Effect.succeed(null),
-	}),
+	mockIntegrationsRepository({ getForUser: () => Effect.succeed(null) }),
 );
 
 const referencesLayer = (repositories: Layer.Layer<ImportsRepository | IntegrationsRepository>) =>

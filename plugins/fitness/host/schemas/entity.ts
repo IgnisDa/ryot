@@ -36,11 +36,7 @@ export const fitnessEntitySchemas = () =>
 			mergeIdentityProperties: ["kind"],
 			propertiesSchema: exercisePropertiesSchema,
 			eventSchemas: [
-				{
-					name: "Workout Set",
-					slug: "workout-set",
-					propertiesSchema: workoutSetPropertiesSchema,
-				},
+				{ name: "Workout Set", slug: "workout-set", propertiesSchema: workoutSetPropertiesSchema },
 				{ name: "Review", slug: "review", propertiesSchema: reviewPropertiesSchema },
 			],
 		},

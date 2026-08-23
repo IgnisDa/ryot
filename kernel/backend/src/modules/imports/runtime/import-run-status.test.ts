@@ -11,10 +11,7 @@ import { markImportRunStarted } from "./import-run-status";
 const mockImportsService = Layer.mock(ImportsService);
 
 const makeImportsService = (overrides: MockOverrides<typeof mockImportsService> = {}) =>
-	mockImportsService({
-		update: () => Effect.void,
-		...overrides,
-	});
+	mockImportsService({ update: () => Effect.void, ...overrides });
 
 const makeTestLayer = (importsService: Layer.Layer<ImportsService>) =>
 	Layer.mergeAll(databaseLayer, importsService);

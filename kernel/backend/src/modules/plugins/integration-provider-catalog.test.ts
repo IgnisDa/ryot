@@ -59,9 +59,7 @@ const scriptDatabaseLayer = Layer.succeed(
 	Database,
 	Object.assign(Object.create(null), {
 		select: () => ({
-			from: () => ({
-				where: () => queryable([], Effect.succeed([{ id: "active-script" }])),
-			}),
+			from: () => ({ where: () => queryable([], Effect.succeed([{ id: "active-script" }])) }),
 		}),
 	}),
 );

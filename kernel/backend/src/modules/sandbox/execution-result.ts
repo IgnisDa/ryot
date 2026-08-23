@@ -1,10 +1,7 @@
 import { SandboxExecutionError } from "@ryot-app/contract/modules/sandbox/schemas";
 import { Schema } from "effect";
 
-const SandboxTiming = Schema.Struct({
-	totalMs: Schema.Finite,
-	executionMs: Schema.Finite,
-});
+const SandboxTiming = Schema.Struct({ totalMs: Schema.Finite, executionMs: Schema.Finite });
 
 export const SandboxExecutionResult = Schema.Struct({
 	value: Schema.Unknown,

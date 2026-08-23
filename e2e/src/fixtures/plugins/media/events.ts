@@ -31,12 +31,7 @@ const propertiesBySchemaSlug: Record<string, Record<string, unknown>> = {
 	book: { ...defaultMediaProperties },
 	movie: { ...defaultMediaProperties, images: [] },
 	anime: { ...defaultMediaProperties, images: [], episodes: null },
-	manga: {
-		...defaultMediaProperties,
-		images: [],
-		volumes: null,
-		chapters: null,
-	},
+	manga: { ...defaultMediaProperties, images: [], volumes: null, chapters: null },
 	show: {
 		...defaultMediaPropertiesWithUnlinkedCreators,
 		images: [],

@@ -25,12 +25,8 @@ const rows = (items: readonly unknown[], limit = 2) => rowsResult(items, { ...pa
 describe("integration recipes", () => {
 	it("prepares list fields, filters, pagination, and stable ordering", () => {
 		const query = requireRowsQuery(
-			integrationsRecipe({
-				after: "cursor",
-				limit: 7,
-				isDisabled: false,
-				provider: "provider-1",
-			}).document.queries.integrations,
+			integrationsRecipe({ after: "cursor", limit: 7, isDisabled: false, provider: "provider-1" })
+				.document.queries.integrations,
 		);
 
 		expect(query.output.pagination).toEqual({ after: "cursor", limit: 7 });

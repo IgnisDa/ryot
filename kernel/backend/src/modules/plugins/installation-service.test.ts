@@ -494,9 +494,7 @@ it.effect("reserves slugs owned by active system plugins", () =>
 				userId,
 				files: {},
 				config: {},
-				manifest: privateManifest({
-					metadata: { ...privateManifest().metadata, slug: "example" },
-				}),
+				manifest: privateManifest({ metadata: { ...privateManifest().metadata, slug: "example" } }),
 			}),
 		);
 		const failure = failureOf(exit);
@@ -782,11 +780,7 @@ it.effect("accepts a home view backed by an advertised plugin page", () => {
 							renderer: null,
 							view: {
 								isDisabled: false,
-								renderer: {
-									kind: "plugin",
-									pluginId: privatePlugin.id,
-									exportName: "summary",
-								},
+								renderer: { kind: "plugin", pluginId: privatePlugin.id, exportName: "summary" },
 							},
 						},
 					],
@@ -1356,10 +1350,8 @@ it.effect("updates source while retaining plugin, installation, and omitted secr
 	const manifest = configuredManifest;
 	const invalidatedUsers: Array<UserId> = [];
 	const updated: Array<Record<string, unknown>> = [];
-	const persisted: Array<{
-		plugin: StoredPlugin["manifest"];
-		identity: Record<string, unknown>;
-	}> = [];
+	const persisted: Array<{ plugin: StoredPlugin["manifest"]; identity: Record<string, unknown> }> =
+		[];
 	const nextManifest: PluginManifest = {
 		...manifest,
 		scripts: [operationScript],
@@ -1417,10 +1409,8 @@ it.effect("updates source while retaining plugin, installation, and omitted secr
 });
 
 it.effect("fails a package update when generated views cannot be materialized", () => {
-	const persisted: Array<{
-		plugin: StoredPlugin["manifest"];
-		identity: Record<string, unknown>;
-	}> = [];
+	const persisted: Array<{ plugin: StoredPlugin["manifest"]; identity: Record<string, unknown> }> =
+		[];
 	const privatePlugin = storedPrivatePlugin(configuredManifest);
 	const installation = installationRow({
 		pluginId: privatePlugin.id,
@@ -1751,10 +1741,7 @@ const privateInstallationRow = (
 
 const shippedEntry = (overrides: Partial<PluginManifest> = {}) =>
 	systemEntry(
-		privateManifest({
-			...overrides,
-			metadata: { ...privateManifest().metadata, slug: "example" },
-		}),
+		privateManifest({ ...overrides, metadata: { ...privateManifest().metadata, slug: "example" } }),
 	);
 
 it.effect("marks a private installation incompatible when a shipped plugin claims its slug", () => {
@@ -1850,10 +1837,7 @@ it.effect("marks a private installation incompatible when a shipped plugin claim
 		renderer: kernelView.renderer,
 	};
 	const withSavedView = (slug: string) =>
-		privateManifest({
-			savedViews: [savedView],
-			metadata: { ...privateManifest().metadata, slug },
-		});
+		privateManifest({ savedViews: [savedView], metadata: { ...privateManifest().metadata, slug } });
 	const shadowed = privateInstallationRow({
 		pluginSlug: "notes",
 		manifest: withSavedView("notes"),
@@ -1996,19 +1980,13 @@ it.effect("clears incompatible health when a private package update succeeds", (
 			userId,
 			files: {},
 			pluginSlug: privatePlugin.slug,
-			manifest: privateManifest({
-				metadata: { ...privateManifest().metadata, version: "2.0.0" },
-			}),
+			manifest: privateManifest({ metadata: { ...privateManifest().metadata, version: "2.0.0" } }),
 		});
 		expect(result).toMatchObject({ health: "ready", healthReason: null, version: "2.0.0" });
 		expect(healthUpdates).toEqual([{ health: "ready", healthReason: null, id: installation.id }]);
 	}).pipe(
 		Effect.provide(
-			makeLayer({
-				healthUpdates,
-				installations: [installation],
-				privatePlugins: [privatePlugin],
-			}),
+			makeLayer({ healthUpdates, installations: [installation], privatePlugins: [privatePlugin] }),
 		),
 	);
 });
@@ -2023,9 +2001,7 @@ it.effect("uninstalls a private plugin shadowed by a newly shipped slug", () => 
 		const service = yield* PluginInstallationService;
 		loader.load(
 			systemEntry(
-				privateManifest({
-					metadata: { ...privateManifest().metadata, slug: privatePlugin.slug },
-				}),
+				privateManifest({ metadata: { ...privateManifest().metadata, slug: privatePlugin.slug } }),
 			),
 		);
 		const removed = yield* service.uninstallPlugin(userId, privatePlugin.slug);

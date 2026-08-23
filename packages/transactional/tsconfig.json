@@ -1,19 +1,13 @@
 {
 	"include": ["**/*"],
 	"extends": "../../tsconfig.options.json",
-	"references": [
-		{
-			"path": "../ts-utils"
-		}
-	],
+	"references": [{ "path": "../ts-utils" }],
 	"compilerOptions": {
 		"noEmit": true,
 		"outDir": "dist",
 		"module": "ESNext",
 		"jsx": "react-jsx",
 		"moduleResolution": "bundler",
-		"paths": {
-			"@ryot-app/ts-utils/*": ["../ts-utils/src/*"]
-		}
+		"paths": { "@ryot-app/ts-utils/*": ["../ts-utils/src/*"] }
 	}
 }

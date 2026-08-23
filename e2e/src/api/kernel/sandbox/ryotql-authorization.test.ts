@@ -175,9 +175,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 						.call(
 							(c) =>
 								c.testSupport.deleteGlobalEntities({
-									payload: {
-										ids: [...new Set(globalEntityIds)].map((id) => EntityId.make(id)),
-									},
+									payload: { ids: [...new Set(globalEntityIds)].map((id) => EntityId.make(id)) },
 								}),
 							adminHeaders(),
 						)

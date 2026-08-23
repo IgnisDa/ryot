@@ -94,10 +94,7 @@ it("rejects definition collisions without replacing the current snapshot", () =>
 		scripts: plugin.scripts.map((script) => ({ ...script, slug: "other.automation" })),
 		manifest: {
 			...plugin.manifest,
-			scripts: plugin.manifest.scripts.map((script) => ({
-				...script,
-				slug: "other.automation",
-			})),
+			scripts: plugin.manifest.scripts.map((script) => ({ ...script, slug: "other.automation" })),
 			metadata: { ...plugin.manifest.metadata, slug: "other-plugin" },
 		},
 	};
@@ -151,11 +148,7 @@ it("materializes portable saved-view page exports to stable plugin ids", () => {
 	expect(() =>
 		loader.preview({
 			...plugin,
-			manifest: {
-				...plugin.manifest,
-				client,
-				savedViews: [{ ...savedView, settings: {} }],
-			},
+			manifest: { ...plugin.manifest, client, savedViews: [{ ...savedView, settings: {} }] },
 		}),
 	).toThrow(/Invalid saved view summary/);
 });
@@ -200,14 +193,8 @@ it("rejects invalid entity merge identity properties", () => {
 			expected: /merge identity property 'missing' is not defined/,
 			mergeIdentityProperties: ["missing"],
 		},
-		{
-			expected: /duplicate merge identity properties/,
-			mergeIdentityProperties: ["kind", "kind"],
-		},
-		{
-			expected: /merge identity property names cannot be empty/,
-			mergeIdentityProperties: [""],
-		},
+		{ expected: /duplicate merge identity properties/, mergeIdentityProperties: ["kind", "kind"] },
+		{ expected: /merge identity property names cannot be empty/, mergeIdentityProperties: [""] },
 	];
 
 	for (const { expected, mergeIdentityProperties } of cases) {

@@ -125,9 +125,7 @@ describe("jellyfin-push sandbox script", () => {
 						execution,
 					),
 					definition.run(
-						createAutomation({
-							subject: { id: "book-1", name: "Book", entitySchemaSlug: "book" },
-						}),
+						createAutomation({ subject: { id: "book-1", name: "Book", entitySchemaSlug: "book" } }),
 						createHost({ entity: movieEntity, integrations: [jellyfinIntegration], httpCall }),
 						execution,
 					),

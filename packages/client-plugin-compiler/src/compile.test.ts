@@ -56,13 +56,8 @@ export default Home;
 
 const compileFixture = (files: Record<string, Uint8Array>) =>
 	compileClientPlugin({
-		files: {
-			...files,
-			"client/__fixture_page.tsx": bytes(fixturePageSource),
-		},
-		publicExports: {
-			fixture: { entry: "client/__fixture_page.tsx", kind: "page" },
-		},
+		files: { ...files, "client/__fixture_page.tsx": bytes(fixturePageSource) },
+		publicExports: { fixture: { entry: "client/__fixture_page.tsx", kind: "page" } },
 		name: "Fixture plugin",
 		apiVersion: CLIENT_API_VERSION,
 	});
@@ -238,9 +233,7 @@ it.effect(
 	() =>
 		Effect.gen(function* () {
 			const dependencies = yield* resolveClientPluginCompilerDependencies;
-			const { artifact } = yield* compileFixture({
-				"client/index.tsx": bytes("export {};"),
-			});
+			const { artifact } = yield* compileFixture({ "client/index.tsx": bytes("export {};") });
 			const css = text(artifact.files.find(({ name }) => name === "plugin.css")?.contents);
 			const expected = new Map(dependencies.fontAssets.map((file) => [file.name, file]));
 			const fonts = artifact.files.filter(({ name }) => name.endsWith(".woff2"));
@@ -413,9 +406,9 @@ it.effect(
 
 it.effect("rejects invalid UTF-8 in text sources", () =>
 	Effect.gen(function* () {
-		const failure = yield* compileFixture({
-			"client/index.tsx": new Uint8Array([0xff]),
-		}).pipe(Effect.flip);
+		const failure = yield* compileFixture({ "client/index.tsx": new Uint8Array([0xff]) }).pipe(
+			Effect.flip,
+		);
 
 		expect(failure.diagnostics[0]?.code).toBe("RYOT_CLIENT_UTF8");
 		expect(failure.diagnostics[0]?.file).toBe("client/index.tsx");
@@ -541,11 +534,7 @@ it.effect("checks archived TypeScript declaration sources", () =>
 
 		expect(failure.diagnostics).toEqual(
 			expect.arrayContaining([
-				expect.objectContaining({
-					code: "TS2717",
-					severity: "error",
-					file: "client/types.d.ts",
-				}),
+				expect.objectContaining({ code: "TS2717", severity: "error", file: "client/types.d.ts" }),
 			]),
 		);
 	}),
@@ -609,9 +598,7 @@ export default function Home() { return (
 
 		const dom = new JSDOM(
 			'<!doctype html><html><head></head><body><div id="app"></div></body></html>',
-			{
-				url: "https://fixture.test",
-			},
+			{ url: "https://fixture.test" },
 		);
 		const { document, window } = dom.window;
 		const metadata = document.createElement("script");
@@ -1251,9 +1238,7 @@ it.effect(
 						},
 					},
 					media: {
-						files: {
-							"client/card.tsx": bytes("export default function Card() { return null; }"),
-						},
+						files: { "client/card.tsx": bytes("export default function Card() { return null; }") },
 					},
 				},
 				publicExports: {

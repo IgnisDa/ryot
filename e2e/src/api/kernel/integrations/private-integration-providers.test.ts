@@ -64,16 +64,10 @@ describe("private integration providers", () => {
 			).toEqual({ integrationId: created.id });
 
 			const failure = yield* Effect.flip(
-				createIntegration(outsider.client, {
-					providerSpecifics,
-					provider: plugin.providerSlug,
-				}),
+				createIntegration(outsider.client, { providerSpecifics, provider: plugin.providerSlug }),
 			);
 			assertTaggedError(failure, "IntegrationRequestError");
-			expect(failure.reason).toEqual({
-				code: "provider-not-found",
-				provider: plugin.providerSlug,
-			});
+			expect(failure.reason).toEqual({ code: "provider-not-found", provider: plugin.providerSlug });
 		}),
 	);
 
@@ -165,10 +159,7 @@ describe("private integration providers", () => {
 				createIntegration(client, { providerSpecifics, provider: plugin.providerSlug }),
 			);
 			assertTaggedError(failure, "IntegrationRequestError");
-			expect(failure.reason).toEqual({
-				code: "provider-not-found",
-				provider: plugin.providerSlug,
-			});
+			expect(failure.reason).toEqual({ code: "provider-not-found", provider: plugin.providerSlug });
 
 			yield* updatePluginState(client, plugin.pluginSlug, { isDisabled: false });
 			expect(
