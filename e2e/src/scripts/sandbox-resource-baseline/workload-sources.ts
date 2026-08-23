@@ -181,6 +181,9 @@ ${TERMINAL_OUTCOME_BRANCHES}
 });
 `;
 
+/** A rate-limited origin that each details run calls before its durable host-call loop. */
+export type BenchmarkRateLimitedCalls = { readonly url: string; readonly calls: number };
+
 export const benchmarkBookDetailsSource = (input: {
 	readonly slug: string;
 	readonly name: string;
@@ -188,6 +191,7 @@ export const benchmarkBookDetailsSource = (input: {
 	readonly personProviderSlug: string;
 	readonly suggestionRelationshipSlug: string;
 	readonly relatedEntityRelationshipSlug: string;
+	readonly rateLimited?: BenchmarkRateLimitedCalls;
 }) => `
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Duration, Effect } from "@ryot-app/sandbox-sdk/effect";
@@ -199,7 +203,11 @@ export const manifest = defineManifest({
   requiredSystemConfigKeys: [],
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
-  capabilities: ["getUserPreferences", "setCachedValue"],
+  capabilities: ${JSON.stringify([
+		"getUserPreferences",
+		"setCachedValue",
+		...(input.rateLimited ? ["httpCall"] : []),
+	])},
 });
 
 ${DETERMINISTIC_PAYLOAD_SOURCE}
@@ -216,7 +224,14 @@ export default defineProvider({
         _tag: "BenchmarkExternalIdInvalid",
         message: "benchmark external id could not be decoded",
       });
-    }${DURABLE_HOST_CALL_LOOP}
+    }${
+			input.rateLimited
+				? `
+    for (let call = 0; call < ${input.rateLimited.calls}; call += 1) {
+      yield* host.httpCall("GET", ${JSON.stringify(input.rateLimited.url)});
+    }`
+				: ""
+		}${DURABLE_HOST_CALL_LOOP}
 ${TERMINAL_OUTCOME_BRANCHES}
     const related = Array.from({ length: workload.relatedEntityCount }, (_unused: unknown, index: number) => ({
       providerSlug: ${JSON.stringify(input.personProviderSlug)},

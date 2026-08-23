@@ -51,7 +51,14 @@ export const ProviderEntitiesRoutesLive = HttpApiBuilder.group(
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;
 					const service = yield* EntityImportService;
-					return yield* service.getImportResult(user, params.jobId);
+					return yield* mapProviderEntityDbError(service.getImportResult(user, params.jobId));
+				}),
+			)
+			.handle("cancelImport", ({ params }) =>
+				Effect.gen(function* () {
+					const user = yield* CurrentUser;
+					const service = yield* EntityImportService;
+					return yield* mapProviderEntityDbError(service.cancelImport(user, params.jobId));
 				}),
 			),
 );

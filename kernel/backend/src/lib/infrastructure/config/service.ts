@@ -307,7 +307,8 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 		// The cluster SQL runner permanently reserves one shared application/workflow-pool
 		// connection, even when advisory shard locks are disabled.
 		const usablePoolConnections = config.database.poolMax - 1;
-		if (workerConcurrency > usablePoolConnections) {
+		const sandboxWorkers = workerConcurrency + (config.sandbox.experimentInteractiveLane ? 1 : 0);
+		if (sandboxWorkers > usablePoolConnections) {
 			return yield* Effect.fail(
 				configError(
 					`SANDBOX_WORKER_CONCURRENCY (${workerConcurrency}) exceeds the usable shared application/workflow-pool connections (${usablePoolConnections}). The cluster SQL runner permanently reserves one connection of DATABASE_POOL_MAX (${config.database.poolMax}), so usable connections = DATABASE_POOL_MAX - 1; the shared application/workflow pool cannot support that many concurrent sandbox workers. Raise DATABASE_POOL_MAX or lower SANDBOX_WORKER_CONCURRENCY.`,
@@ -316,7 +317,7 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 		}
 
 		// The +2 accounts for the two always-on DurableQueue workers, concurrency 1 each.
-		if (workerConcurrency + 2 >= usablePoolConnections) {
+		if (sandboxWorkers + 2 >= usablePoolConnections) {
 			yield* Effect.logWarning(
 				"shared application/workflow pool connection headroom exhausted",
 			).pipe(

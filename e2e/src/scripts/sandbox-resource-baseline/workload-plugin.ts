@@ -6,6 +6,7 @@ import { listAdminSandboxScripts } from "~/fixtures/kernel/admin-sandbox-scripts
 import { requirePresent } from "~/support/assertions";
 
 import {
+	type BenchmarkRateLimitedCalls,
 	benchmarkBookDetailsSource,
 	benchmarkBookSearchSource,
 	benchmarkPersonDetailsSource,
@@ -29,12 +30,19 @@ export const benchmarkSlugSegment = (value: string) =>
 export const installBenchmarkWorkloadPlugin = (input: {
 	readonly client: Client;
 	readonly runId: string;
+	/**
+	 * Adds a book provider whose details calls this origin under a one-request policy. HTTP rate
+	 * limits are a system-plugin surface, so the plugin is then installed system-wide.
+	 */
+	readonly slowProvider?: BenchmarkRateLimitedCalls & { readonly intervalMs: number };
 }) =>
 	Effect.gen(function* () {
 		const pluginSlug = `sandbox-resource-baseline-${benchmarkSlugSegment(input.runId)}`;
 		const scriptSlug = `${pluginSlug}.script`;
 		const bookProviderSlug = `book.${pluginSlug}`;
 		const personProviderSlug = `person.${pluginSlug}`;
+		const slowProviderSlug = `slowbook.${pluginSlug}`;
+		const slow = input.slowProvider;
 		const [{ schema: bookSchema }, { schema: personSchema }] = yield* Effect.all([
 			findBuiltinSchemaBySlug(input.client, "book"),
 			findBuiltinSchemaBySlug(input.client, "person"),
@@ -82,11 +90,26 @@ export const installBenchmarkWorkloadPlugin = (input: {
 				providerOperation: "details" as const,
 				entry: `backend/providers/${personProviderSlug}/details.sandbox.ts`,
 			},
+			...(slow
+				? [
+						{
+							kind: "provider" as const,
+							requiredPluginConfigKeys: [],
+							requiredSystemConfigKeys: [],
+							providerSlug: slowProviderSlug,
+							slug: `${slowProviderSlug}.details`,
+							providerOperation: "details" as const,
+							name: "Benchmark rate-limited book details",
+							entry: `backend/providers/${slowProviderSlug}/details.sandbox.ts`,
+							capabilities: ["getUserPreferences", "setCachedValue", "httpCall"] as const,
+						},
+					]
+				: []),
 		] satisfies PluginManifest["scripts"];
 		const installed = yield* installTestPluginBundle({
 			scripts,
 			pluginSlug,
-			client: input.client,
+			...(slow ? { scope: "system" as const } : { client: input.client }),
 			providers: [
 				{
 					slug: bookProviderSlug,
@@ -98,6 +121,17 @@ export const installBenchmarkWorkloadPlugin = (input: {
 						details: `${bookProviderSlug}.details`,
 					},
 				},
+				...(slow
+					? [
+							{
+								slug: slowProviderSlug,
+								rootEntitySchemaSlug: bookSchema.id,
+								name: "Benchmark rate-limited book provider",
+								information: { source: "sandbox-resource-baseline" },
+								operations: { details: `${slowProviderSlug}.details` },
+							},
+						]
+					: []),
 				{
 					slug: personProviderSlug,
 					name: "Benchmark person provider",
@@ -106,7 +140,33 @@ export const installBenchmarkWorkloadPlugin = (input: {
 					operations: { details: `${personProviderSlug}.details` },
 				},
 			],
+			...(slow
+				? {
+						httpRateLimits: [
+							{
+								requests: 1,
+								key: "benchmark-loopback",
+								intervalMs: slow.intervalMs,
+								origins: [new URL(slow.url).origin],
+							},
+						],
+					}
+				: {}),
 			files: {
+				...(slow
+					? {
+							[`backend/providers/${slowProviderSlug}/details.sandbox.ts`]:
+								benchmarkBookDetailsSource({
+									rateLimited: slow,
+									personProviderSlug,
+									bookProviderSlug: slowProviderSlug,
+									slug: `${slowProviderSlug}.details`,
+									name: "Benchmark rate-limited book details",
+									suggestionRelationshipSlug: BENCHMARK_SUGGESTION_RELATIONSHIP_SLUG,
+									relatedEntityRelationshipSlug: BENCHMARK_RELATED_RELATIONSHIP_SLUG,
+								}),
+						}
+					: {}),
 				"backend/scripts/hermetic.sandbox.ts": benchmarkScriptSource({
 					slug: scriptSlug,
 					name: "Benchmark hermetic script",
@@ -148,7 +208,22 @@ export const installBenchmarkWorkloadPlugin = (input: {
 			storedBookDetails.providerId,
 			"Benchmark book provider ID was not returned by test support",
 		);
-		return { scriptId, installed, pluginSlug, bookProviderId, bookProviderSlug };
+		const slowBookProviderId = slow
+			? requirePresent(
+					(yield* listAdminSandboxScripts(installed.activePluginRevisionId)).find(
+						({ id }) => id === installed.scriptIds[`${slowProviderSlug}.details`],
+					)?.providerId,
+					"Benchmark rate-limited book provider ID was not returned by test support",
+				)
+			: null;
+		return {
+			scriptId,
+			installed,
+			pluginSlug,
+			bookProviderId,
+			bookProviderSlug,
+			slowBookProviderId,
+		};
 	});
 
 export type BenchmarkWorkloadPlugin = Effect.Success<
