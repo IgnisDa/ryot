@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "@effect/vitest";
 import type { EntityUpdate } from "@ryot-app/client-sdk";
 import { act, render } from "@testing-library/react";
-import { Effect, Layer, ManagedRuntime } from "effect";
+import { Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { createElement, StrictMode, useEffect } from "react";
 
 import { decodeServerOrigin } from "#/api/origin";
@@ -14,6 +14,7 @@ const updates: EntityUpdate[] = [];
 const empty = { visible: [], foreground: [] };
 const cleanups: Array<() => Promise<void>> = [];
 const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
+const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
 afterEach(() => {
 	updates.length = 0;
@@ -539,7 +540,7 @@ describe("entity interest session", () => {
 				test.socket().ready();
 				stale?.(
 					new MessageEvent("message", {
-						data: JSON.stringify({ entityId: "a", reason: "populated", type: "entity-updated" }),
+						data: yield* encodeJson({ entityId: "a", reason: "populated", type: "entity-updated" }),
 					}),
 				);
 				expect(test.socket().sent.at(-1)).toEqual({ revision: 1, entityIds: [], type: "replace" });

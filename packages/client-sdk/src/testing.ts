@@ -131,18 +131,9 @@ export const createTestRyotClock = (
 			setBootstrapRyotRuntimeFactory(undefined);
 			return runtime.dispose();
 		},
-		advance: (millis: Duration.Input) => {
-			const { promise, reject, resolve } = Promise.withResolvers<void>();
-			act(() => runtime.runPromise(advanceRyotSchedule(millis))).then(resolve, reject);
-			return promise;
-		},
-		setTime: (timestamp: number) => {
-			const { promise, reject, resolve } = Promise.withResolvers<void>();
-			act(() =>
-				runtime.runPromise(Effect.andThen(TestClock.setTime(timestamp), drainMicrotasks)),
-			).then(resolve, reject);
-			return promise;
-		},
+		advance: (millis: Duration.Input) => act(() => runtime.runPromise(advanceRyotSchedule(millis))),
+		setTime: (timestamp: number) =>
+			act(() => runtime.runPromise(Effect.andThen(TestClock.setTime(timestamp), drainMicrotasks))),
 	};
 };
 

@@ -1,6 +1,6 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect, it, layer } from "@effect/vitest";
 import { UploadBadRequest } from "@ryot-app/contract/modules/uploads/schemas";
-import { Effect, ManagedRuntime } from "effect";
+import { Effect, Fiber, ManagedRuntime } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { decodeServerOrigin } from "#/api/origin";
@@ -74,34 +74,36 @@ describe("temporary uploads", () => {
 		}),
 	);
 
-	it.live("interrupts the byte transfer when the scope is torn down", () =>
-		Effect.gen(function* () {
-			let released = false;
-			const runtime = ManagedRuntime.make(
-				makeUploadsApi({
-					createIntent: () => Effect.succeed(intent),
-					putBytes: () =>
-						Effect.never.pipe(
-							Effect.ensuring(
-								Effect.sync(() => {
-									released = true;
-								}),
-							),
-						),
-				}),
-			);
-			const controller = new AbortController();
-			const pending = runtime.runPromise(temporaryUpload(scope, request), {
-				signal: controller.signal,
-			});
-			yield* Effect.sleep(0);
-
-			controller.abort();
-			yield* Effect.promise(() => expect(pending).rejects.toBeDefined());
-			expect(released).toBe(true);
-			yield* Effect.promise(() => runtime.dispose());
+	let released = false;
+	let started = false;
+	layer(
+		makeUploadsApi({
+			createIntent: () => Effect.succeed(intent),
+			putBytes: () =>
+				Effect.sync(() => {
+					started = true;
+				}).pipe(
+					Effect.andThen(Effect.never),
+					Effect.ensuring(
+						Effect.sync(() => {
+							released = true;
+						}),
+					),
+				),
 		}),
-	);
+	)((test) => {
+		test.effect("interrupts the byte transfer when the scope is torn down", () =>
+			Effect.gen(function* () {
+				const pending = yield* Effect.forkChild(temporaryUpload(scope, request), {
+					startImmediately: true,
+				});
+
+				expect(started).toBe(true);
+				yield* Fiber.interrupt(pending);
+				expect(released).toBe(true);
+			}),
+		);
+	});
 
 	it.live("treats a completion that is not a temporary token as a malformed result", () =>
 		Effect.gen(function* () {
