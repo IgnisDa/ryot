@@ -229,6 +229,9 @@ it.effect("uses one compiler graph for every route in a plugin revision", () => 
 				findEntity: () => Effect.succeed(null),
 				target: { path, search: "", kind: "plugin-route", pluginId: fixture.id },
 			});
+			if (resolved.kind !== "plugin") {
+				throw new Error("Expected plugin target");
+			}
 			return yield* resolveClientPageGraph({
 				plugins: [fixture],
 				plugin: resolved.plugin,
