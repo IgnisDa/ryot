@@ -8,8 +8,19 @@ import { Schema } from "@ryot-app/sandbox-sdk/effect";
 export { jsonValueSchema };
 export type { JsonPrimitive, JsonValue };
 
-const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
-	Schema.Struct(fields).annotate({ parseOptions: { onExcessProperty: "error" as const } });
+export const strictStruct = <Fields extends Schema.Struct.Fields>(
+	fields: Fields,
+): Schema.Struct<Fields> => {
+	const declared = new Set(Object.keys(fields));
+	const struct = Schema.Struct(fields);
+	const excessKey = Schema.String.check(
+		Schema.makeFilter((key: string) => (declared.has(key) ? "declared property" : undefined)),
+	);
+	const strict = Schema.StructWithRest(struct, [
+		Schema.Record(excessKey, Schema.Never.annotate({ identifier: "no excess property" })),
+	]);
+	return struct.rebuild(strict.ast);
+};
 
 export const sandboxHostErrorSchema = strictStruct({
 	message: Schema.String,
