@@ -19,7 +19,10 @@ import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-
 import { LifecycleDispatchNoop } from "#modules/entities/lifecycle-dispatch";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
-import type { ResolvedAutomationRule } from "#modules/plugins/runtime-resolver";
+import {
+	PluginRuntimeResolver,
+	type ResolvedAutomationRule,
+} from "#modules/plugins/runtime-resolver";
 
 import { EventCreateWorkflow, type EventCreateWorkflowPayload } from "./event-create-workflow";
 import {
@@ -41,6 +44,7 @@ const registry = makeDefinitionRegistry({
 		{
 			icon: "record",
 			name: "Record",
+			pluginId: "private-plugin-id",
 			pluginSlug: "test",
 			slug: entitySchemaSlug,
 			propertiesSchema: { fields: {} },
@@ -64,7 +68,14 @@ const registry = makeDefinitionRegistry({
 	],
 });
 const eventSchemasRepository = EventSchemasRepository.layer.pipe(
-	Layer.provide(Layer.succeed(DefinitionRegistry, { ...registry })),
+	Layer.provide(
+		Layer.mergeAll(
+			Layer.succeed(DefinitionRegistry, { ...registry }),
+			Layer.mock(PluginRuntimeResolver)({
+				getEffectiveDefinitions: () => Effect.succeed(registry.getSnapshot()),
+			}),
+		),
+	),
 );
 
 const policy = (id: string, position: number): ResolvedAutomationRule => ({
@@ -229,7 +240,11 @@ it.effect("runs policies in position order and validates each replacement before
 				id: "event-policy-execution-policy-0-early",
 			},
 		});
-		expect(test.created[0]).toMatchObject({ properties: { rating: 10 }, sessionEntityId });
+		expect(test.created[0]).toMatchObject({
+			sessionEntityId,
+			eventSchemaPluginId: "private-plugin-id",
+			properties: { rating: 10 },
+		});
 	});
 });
 

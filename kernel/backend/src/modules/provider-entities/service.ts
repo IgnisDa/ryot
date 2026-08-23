@@ -59,7 +59,7 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 				}
 				const entitySchemaSlug = EntitySchemaSlug.make(provider.rootEntitySchemaSlug);
 
-				const entitySchemaScope = yield* repository.getEntitySchemaScopeForUser({
+				const entitySchemaScope = yield* repository.findEntitySchemaForUser({
 					userId: user.id,
 					entitySchemaSlug,
 				});
@@ -78,10 +78,12 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 							providerId,
 							externalId,
 							executionId,
-							userId: user.id,
 							entitySchemaSlug,
 							origin: { kind: "api" },
-							entityScope: provider.pluginScope === "user" ? "user" : "global",
+							entityScope: {
+								type: provider.pluginScope === "user" ? "user" : "global",
+								userId: user.id,
+							},
 						},
 					})
 					.pipe(Effect.orDie);

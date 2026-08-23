@@ -125,10 +125,10 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 					return created;
 				}
 				return yield* entities.update({
+					scope: "global",
 					name: created.name,
 					entityId: created.id,
 					properties: created.properties,
-					entitySchemaSlug: created.entitySchemaSlug,
 					populatedAt: input.populatedAt === null ? null : yield* parseDate(input.populatedAt),
 				});
 			});
@@ -139,10 +139,10 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 			) {
 				const entity = yield* entities.getByIdAnyScope(entityId);
 				return yield* entities.update({
+					scope: "global",
 					entityId,
 					name: entity.name,
 					properties: entity.properties,
-					entitySchemaSlug: entity.entitySchemaSlug,
 					populatedAt: populatedAt === null ? null : yield* parseDate(populatedAt),
 				});
 			});
