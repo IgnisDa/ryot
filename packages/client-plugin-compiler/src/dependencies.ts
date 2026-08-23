@@ -30,6 +30,7 @@ const TRUSTED_MODULES = new Set([
 	"@ryot-app/client-sdk/screen",
 	"@ryot-app/client-ui-sdk",
 	"@ryot-app/client-ui-sdk/icon",
+	"@ryot-app/client-ui-sdk/sync",
 	"@ryot-app/client-ui-sdk/tint",
 	"@ryot-app/client-ui-sdk/table",
 	"@ryot-app/client-ui-sdk/schema-form",
@@ -59,6 +60,7 @@ const resolveTypeScriptEntries = (from: string) => {
 		"@ryot-app/client-sdk/screen": Bun.resolveSync("@ryot-app/client-sdk/screen", from),
 		"@ryot-app/client-ui-sdk": Bun.resolveSync("@ryot-app/client-ui-sdk", from),
 		"@ryot-app/client-ui-sdk/icon": Bun.resolveSync("@ryot-app/client-ui-sdk/icon", from),
+		"@ryot-app/client-ui-sdk/sync": Bun.resolveSync("@ryot-app/client-ui-sdk/sync", from),
 		"@ryot-app/client-ui-sdk/tint": Bun.resolveSync("@ryot-app/client-ui-sdk/tint", from),
 		"@ryot-app/client-ui-sdk/table": Bun.resolveSync("@ryot-app/client-ui-sdk/table", from),
 		"@ryot-app/client-ui-sdk/schema-form": Bun.resolveSync(

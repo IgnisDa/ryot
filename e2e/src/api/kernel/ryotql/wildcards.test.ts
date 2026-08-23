@@ -169,6 +169,7 @@ describe("RyotQL wildcard projections", () => {
 					"id",
 					"name",
 					"populatedAt",
+					"populationStatus",
 					"properties",
 					"providerId",
 					"translationStatus",

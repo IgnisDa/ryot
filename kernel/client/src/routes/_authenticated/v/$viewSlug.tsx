@@ -1,4 +1,4 @@
-import { RyotClientError } from "@ryot-app/client-sdk";
+import { RyotClientError, type EntitySettle } from "@ryot-app/client-sdk";
 import { useEntityRefresh, useRyot } from "@ryot-app/client-sdk/react";
 import {
 	Badge,
@@ -10,7 +10,9 @@ import {
 	useShortcut,
 } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+import { SyncCountLine } from "@ryot-app/client-ui-sdk/sync";
 import type { SavedViewLayoutName } from "@ryot-app/contract/modules/saved-views/schemas";
+import type { SavedViewRecord } from "@ryot-app/ryotql-recipes/saved-view-records";
 import type {
 	SavedViewCardResultItem,
 	SavedViewTableResultItem,
@@ -43,6 +45,7 @@ import {
 	withSavedViewSearch,
 } from "#/modules/saved-views/query";
 import { SavedViewLoadError, SavedViewsService } from "#/modules/saved-views/service";
+import { savedViewSyncSummary } from "#/modules/saved-views/sync-summary";
 import { SavedViewTable } from "#/modules/saved-views/table";
 import { ClientStorage } from "#/persistence/storage";
 
@@ -471,7 +474,7 @@ function SavedViewContent(props: {
 			queryDocument: current.visible.data.queryDocument,
 		});
 	});
-	useEntityRefresh({
+	const { settled } = useEntityRefresh({
 		interest,
 		onRefresh: refreshPage,
 		identity: refreshIdentity,
@@ -499,7 +502,21 @@ function SavedViewContent(props: {
 		invalidationWatch.current?.update(interest);
 	});
 	const data = visible?.data;
+	const activeLayout = visible?.layout ?? state.activeLayout;
 	const hasItems = data !== undefined && data.items.length > 0;
+	const syncSummary = savedViewSyncSummary(
+		activeLayout === "table"
+			? {
+					type: "table",
+					mapping: props.record.layouts.table,
+					items: (data?.items ?? []).filter(isTableItem),
+				}
+			: {
+					type: "card",
+					mapping: props.record.layouts[activeLayout],
+					items: (data?.items ?? []).filter(isCardItem),
+				},
+	);
 	const resultCount = data
 		? savedViewResultLabel(data.items.length, data.pageInfo.hasMore, currentCount)
 		: "";
@@ -531,8 +548,9 @@ function SavedViewContent(props: {
 		content = (
 			<SavedViewItems
 				data={data}
-				layout={visible?.layout ?? state.activeLayout}
-				tableColumns={props.record.layouts.table.columns}
+				settled={settled}
+				layout={activeLayout}
+				layouts={props.record.layouts}
 			/>
 		);
 	}
@@ -554,22 +572,6 @@ function SavedViewContent(props: {
 	return (
 		<div className="relative h-full min-h-0">
 			<AppScreen
-				meta={
-					<div className="flex h-10 items-center gap-2 text-xs text-text-muted md:text-sm">
-						<span>{resultCount}</span>
-						{data?.pageInfo.hasMore && !transitioning && currentCount.status !== "resolved" && (
-							<Button
-								variant="text"
-								onClick={() => void countAll()}
-								className="text-sm text-accent-text"
-								disabled={currentCount.status === "counting"}
-							>
-								{countActionLabel}
-							</Button>
-						)}
-						{transitioning && <span role="status">Updating...</span>}
-					</div>
-				}
 				title={props.record.name}
 				titleIcon={
 					<AppIcon size={20} name={props.record.icon} className="shrink-0 text-text-muted" />
@@ -583,6 +585,29 @@ function SavedViewContent(props: {
 							{searchField("h-9.5 flex-1", true)}
 						</>
 					) : undefined
+				}
+				meta={
+					<div
+						role="status"
+						className="flex h-10 items-center gap-2 text-xs text-text-muted md:text-sm"
+					>
+						<span>{resultCount}</span>
+						{data?.pageInfo.hasMore && !transitioning && currentCount.status !== "resolved" && (
+							<Button
+								variant="text"
+								onClick={() => void countAll()}
+								className="text-sm text-accent-text"
+								disabled={currentCount.status === "counting"}
+							>
+								{countActionLabel}
+							</Button>
+						)}
+						<SyncCountLine
+							populating={syncSummary.populating}
+							translating={syncSummary.translating}
+						/>
+						{transitioning && <span>Updating...</span>}
+					</div>
 				}
 				barActions={
 					<>
@@ -757,30 +782,27 @@ const isTableItem = (item: SavedViewItem): item is SavedViewTableResultItem => "
 
 function SavedViewItems(props: {
 	readonly data: SavedViewData;
+	readonly settled: EntitySettle;
 	readonly layout: SavedViewLayoutName;
-	readonly tableColumns: Parameters<typeof SavedViewTable>[0]["columns"];
+	readonly layouts: SavedViewRecord["layouts"];
 }) {
-	if (props.layout === "grid") {
+	if (props.layout === "table") {
 		return (
-			<SavedViewGrid
+			<SavedViewTable
+				settled={props.settled}
+				mapping={props.layouts.table}
 				managedUrls={props.data.managedUrls}
-				items={props.data.items.filter(isCardItem)}
+				items={props.data.items.filter(isTableItem)}
 			/>
 		);
 	}
-	if (props.layout === "list") {
-		return (
-			<SavedViewList
-				managedUrls={props.data.managedUrls}
-				items={props.data.items.filter(isCardItem)}
-			/>
-		);
-	}
+	const Layout = props.layout === "grid" ? SavedViewGrid : SavedViewList;
 	return (
-		<SavedViewTable
-			columns={props.tableColumns}
+		<Layout
+			settled={props.settled}
 			managedUrls={props.data.managedUrls}
-			items={props.data.items.filter(isTableItem)}
+			mapping={props.layouts[props.layout]}
+			items={props.data.items.filter(isCardItem)}
 		/>
 	);
 }

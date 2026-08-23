@@ -1,7 +1,10 @@
 import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+import { SyncCountLine } from "@ryot-app/client-ui-sdk/sync";
 import clsx from "clsx";
 import type { ReactNode } from "react";
+
+import type { ShowSyncCounts } from "./sync-counts";
 
 export function ShowRefreshStatus(props: { readonly result: RyotQueryResult<unknown> }) {
 	if (props.result.status !== "error" || props.result.data === undefined) {
@@ -89,20 +92,31 @@ export function ShowOverviewSection(props: {
 	readonly action?: ReactNode;
 	readonly children: ReactNode;
 	readonly className?: string | undefined;
+	readonly sync?: ShowSyncCounts | undefined;
 }) {
 	return (
 		<section
 			className={clsx(props.divided !== false && "border-t border-border pt-5", props.className)}
 		>
 			<div className="flex items-center justify-between gap-3 pb-4">
-				<h2
-					className={clsx(
-						"font-display font-semibold text-text",
-						props.compact ? "text-[17px]" : "text-xl",
+				<div className="flex min-w-0 items-baseline gap-3">
+					<h2
+						className={clsx(
+							"font-display font-semibold text-text",
+							props.compact ? "text-[17px]" : "text-xl",
+						)}
+					>
+						{props.title}
+					</h2>
+					{props.sync === undefined ? null : (
+						<span className="font-ui text-[12px] text-text-muted">
+							<SyncCountLine
+								populating={props.sync.populating}
+								translating={props.sync.translating}
+							/>
+						</span>
 					)}
-				>
-					{props.title}
-				</h2>
+				</div>
 				{props.action}
 			</div>
 			{props.children}
