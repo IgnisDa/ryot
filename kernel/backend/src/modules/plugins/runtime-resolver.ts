@@ -504,22 +504,6 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 			});
 			const findActiveWorkflowScript = (input: { pluginSlug: string; workflowSlug: string }) =>
 				findActiveWorkflowScriptInSnapshot(loader.getSnapshot(), input);
-			const resolveActivePluginBoot = Effect.fn(function* (input: {
-				pluginSlug: string;
-				bootSlug: string;
-			}) {
-				const snapshot = loader.getSnapshot();
-				const boot = snapshot.plugins[input.pluginSlug]?.manifest.boot.find(
-					({ slug }) => slug === input.bootSlug,
-				);
-				const script = boot
-					? yield* findActiveScriptInPluginSnapshot(snapshot, {
-							scriptSlug: boot.scriptSlug,
-							pluginSlug: input.pluginSlug,
-						})
-					: null;
-				return boot && script ? { boot, script } : null;
-			});
 			const resolveActivePluginCron = Effect.fn(function* (input: {
 				pluginSlug: string;
 				cronSlug: string;
@@ -794,7 +778,6 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				getGlobalDefinitions,
 				findActiveProviderById,
 				getEffectiveDefinitions,
-				resolveActivePluginBoot,
 				resolveActivePluginCron,
 				findActiveWorkflowScript,
 				listPrivateCronSchedules,
@@ -818,6 +801,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				resolveResolveScript: systemOperation("resolve"),
 				resolveUserSearchScript: userOperation("search"),
 				resolveUserDetailsScript: userOperation("details"),
+				resolveUserResolveScript: userOperation("resolve"),
 				resolveTranslateScript: systemOperation("translate"),
 				resolveUserTranslateScript: userOperation("translate"),
 				resolveSearchOptionsScript: systemOperation("search-options"),

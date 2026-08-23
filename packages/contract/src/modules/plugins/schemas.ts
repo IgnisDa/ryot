@@ -119,7 +119,6 @@ const PluginRequestFailureReason = Schema.Union([
 
 const PluginConflictReason = Schema.Union([
 	Schema.Struct({ pluginSlug: PluginSlug, code: Schema.Literal("system-plugin") }),
-	Schema.Struct({ pluginSlug: PluginSlug, code: Schema.Literal("boot-configured") }),
 	Schema.Struct({ pluginSlug: PluginSlug, code: Schema.Literal("already-installed") }),
 	Schema.Struct({ pluginSlug: PluginSlug, code: Schema.Literal("entity-referenced") }),
 	Schema.Struct({ pluginSlug: PluginSlug, code: Schema.Literal("workflow-referenced") }),

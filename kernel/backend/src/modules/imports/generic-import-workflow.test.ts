@@ -1,7 +1,7 @@
 import { BunServices } from "@effect/platform-bun";
 import { PgClient } from "@effect/sql-pg";
 import { expect, it } from "@effect/vitest";
-import { DbError } from "@ryot-app/contract/errors";
+import { DbError, SandboxRunError } from "@ryot-app/contract/errors";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	AutomationHookSlug,
@@ -14,6 +14,7 @@ import {
 	IntegrationId,
 	RelationshipId,
 	RelationshipSchemaSlug,
+	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
@@ -41,6 +42,11 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import {
+	EntityImportError,
+	EntityImportWorkflow,
+} from "#modules/provider-entities/entity-import-workflow";
+import { EntityImportWorkflowOperations } from "#modules/provider-entities/operations-workflow";
 import { RelationshipsService } from "#modules/relationships/service";
 
 import { ImportRunFailuresService } from "./failure-service";
@@ -62,6 +68,11 @@ const artifactStoreLayer = Layer.mock(SandboxArtifactStore)({
 	retain: () => Effect.void,
 	release: () => Effect.void,
 	resolveOutputs: (_ownerExecutionId, handles) => Effect.succeed([...handles]),
+});
+const providerOperationsLayer = Layer.mock(EntityImportWorkflowOperations)({
+	processSandbox: () => Effect.die("unexpected provider details"),
+	processProviderResolve: () => Effect.die("unexpected provider resolve"),
+	completeProviderEntityImport: () => Effect.die("unexpected provider completion"),
 });
 const transactionDatabaseLayer = Layer.succeed(
 	Database,
@@ -133,6 +144,36 @@ const makeRelationshipSchemaImportItem = (
 			alias: "target",
 			name: `target-${itemIndex}`,
 			entitySchemaSlug: targetEntitySchemaSlug,
+		},
+	],
+});
+
+const providerImportIntent = (value: string, name: string) => ({
+	name,
+	alias: "routine",
+	scope: "user" as const,
+	entitySchemaSlug: "routine",
+	properties: { kind: "exercise" },
+	match: { name: "Routine", properties: { kind: "exercise" } },
+	providerResolution: { value, providerSlug: "fitness", identifierType: "source-id" },
+});
+
+const makeProviderImportItem = (
+	itemIndex: number,
+	entity: ReturnType<typeof providerImportIntent> | object,
+) => ({
+	itemIndex,
+	relationships: [],
+	entities: [entity],
+	subjectEntityAlias: "routine",
+	sourceLabel: `Routine ${itemIndex}`,
+	sourceIdentifier: String(itemIndex),
+	events: [
+		{
+			properties: {},
+			entityAlias: "routine",
+			eventSchemaSlug: "completed",
+			occurredAt: "2026-01-02T03:04:05.000Z",
 		},
 	],
 });
@@ -422,6 +463,7 @@ it.effect("processes generic entity, relationship, event, and collection writes"
 		Effect.provideService(WorkflowInstance, instance),
 		Effect.provide(
 			Layer.mergeAll(
+				providerOperationsLayer,
 				Logger.layer([logger]),
 				artifactStoreLayer,
 				databaseLayer,
@@ -730,6 +772,7 @@ it.effect("imports private event and relationship schemas from one effective sna
 		Effect.provideService(WorkflowInstance, instance),
 		Effect.provide(
 			Layer.mergeAll(
+				providerOperationsLayer,
 				artifactStoreLayer,
 				databaseLayer,
 				transactionDatabaseLayer,
@@ -813,6 +856,225 @@ it.effect("imports private event and relationship schemas from one effective sna
 	);
 });
 
+it.effect("resolves provider entities and preserves generic fallbacks and failure stages", () => {
+	const executionId = "generic-provider-import";
+	const userId = UserId.make("user-1");
+	const providerId = SandboxProviderId.make("provider-1");
+	const failures: Array<Record<string, unknown>> = [];
+	const eventEntityIds: string[] = [];
+	const createdNames: string[] = [];
+	const providerExecutions: string[] = [];
+	const directory = `/tmp/ryot-sandbox-harvest-test/${executionId}-activity-0`;
+	const path = `${directory}/chunk-0.json`;
+	const instance = WorkflowInstance.initial(ProcessGenericImportChunksWorkflow, executionId);
+	const definitions = makeDefinitionRegistry({
+		savedViews: [],
+		signalSchemas: [],
+		relationshipSchemas: [],
+		entitySchemas: [
+			{
+				icon: "circle",
+				name: "Routine",
+				slug: "routine",
+				pluginSlug: "fitness",
+				pluginId: "fitness-plugin",
+				propertiesSchema: { fields: {}, unknownKeys: "passthrough" },
+				eventSchemas: [
+					{
+						name: "Completed",
+						slug: "completed",
+						propertiesSchema: { fields: {}, unknownKeys: "strict" },
+					},
+				],
+			},
+		],
+	} satisfies DefinitionSource).getSnapshot();
+	return Effect.gen(function* () {
+		const fs = yield* FileSystem.FileSystem;
+		yield* fs.makeDirectory(directory, { recursive: true });
+		yield* fs.writeFileString(
+			path,
+			yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
+				failures: [],
+				items: [
+					makeProviderImportItem(0, providerImportIntent("success-a", "Success A")),
+					makeProviderImportItem(1, providerImportIntent("success-b", "Success B")),
+					makeProviderImportItem(2, providerImportIntent("null", "Null fallback")),
+					makeProviderImportItem(3, providerImportIntent("mismatch", "Mismatch fallback")),
+					makeProviderImportItem(4, providerImportIntent("resolve-error", "Resolve failure")),
+					makeProviderImportItem(5, providerImportIntent("details-error", "Details failure")),
+					makeProviderImportItem(6, {
+						properties: {},
+						alias: "routine",
+						name: "Old path",
+						entitySchemaSlug: "routine",
+					}),
+				],
+			}),
+		);
+
+		const result = yield* runProcessGenericImportChunksWorkflow(
+			{
+				userId,
+				executionId,
+				totalItems: 7,
+				failureCount: 0,
+				writeItemCount: 7,
+				chunkHandles: [path],
+				artifactOwnerExecutionId: executionId,
+				runId: ImportRunId.make("provider-run"),
+				artifactReferenceExecutionId: executionId,
+				command: importCommand(executionId, ImportRunId.make("provider-run"), userId),
+			},
+			executionId,
+		);
+
+		expect(result).toEqual({ failedItems: 2, importedItems: 5, processedItems: 7 });
+		expect(eventEntityIds).toEqual([
+			"global-provider-entity",
+			"global-provider-entity",
+			"created-Null fallback",
+			"created-Mismatch fallback",
+			"created-Old path",
+		]);
+		expect(createdNames).toEqual(["Null fallback", "Mismatch fallback", "Old path"]);
+		expect(providerExecutions).toEqual([
+			`${executionId}-item-0-entity-0-provider-import`,
+			`${executionId}-item-1-entity-0-provider-import`,
+			`${executionId}-item-3-entity-0-provider-import`,
+			`${executionId}-item-5-entity-0-provider-import`,
+		]);
+		expect(failures).toEqual([
+			expect.objectContaining({
+				itemIndex: 4,
+				stage: "provider_resolution",
+				reason: { code: "provider-resolution-failed" },
+			}),
+			expect.objectContaining({
+				itemIndex: 5,
+				stage: "provider_details",
+				reason: { code: "provider-details-failed" },
+			}),
+		]);
+	}).pipe(
+		Effect.provideService(
+			WorkflowEngine,
+			makeWorkflowActivityEngine(instance, {
+				execute: (workflow, options) => {
+					if (workflow._tag !== EntityImportWorkflow._tag) {
+						return Effect.die(`Unexpected workflow: ${workflow._tag}`);
+					}
+					providerExecutions.push(options.executionId);
+					if (options.executionId.includes("item-5-")) {
+						return Effect.fail(
+							new EntityImportError({ stage: "population", message: "details failed" }),
+						);
+					}
+					return Effect.succeed({
+						providerId,
+						name: "Routine",
+						externalId: "provider-external",
+						createdAt: "2026-01-01T00:00:00.000Z",
+						updatedAt: "2026-01-01T00:00:00.000Z",
+						populatedAt: "2026-01-01T00:00:00.000Z",
+						id: EntityId.make("global-provider-entity"),
+						entitySchemaSlug: EntitySchemaSlug.make("routine"),
+						properties: options.executionId.includes("item-3-")
+							? { kind: "workout" }
+							: { kind: "exercise" },
+					});
+				},
+			}),
+		),
+		Effect.provideService(WorkflowInstance, instance),
+		Effect.provide(
+			Layer.mergeAll(
+				artifactStoreLayer,
+				databaseLayer,
+				transactionDatabaseLayer,
+				lifecycleDependencies,
+				BunServices.layer,
+				makeAppConfigLayer(),
+				collectionsLayer,
+				Layer.mock(PluginRuntimeResolver)({
+					getEffectiveDefinitions: () => Effect.succeed(definitions),
+					findProviderAvailableToUserBySlug: () =>
+						Effect.succeed({
+							id: providerId,
+							name: "Fitness",
+							slug: "fitness",
+							pluginId: "fitness-plugin",
+							pluginScope: "system" as const,
+							rootEntitySchemaSlug: "routine",
+							information: { source: "provider" },
+							createdAt: new Date("2026-01-01T00:00:00.000Z"),
+							updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+						}),
+				}),
+				Layer.mock(EntityImportWorkflowOperations)({
+					processSandbox: () => Effect.die("unexpected provider details"),
+					completeProviderEntityImport: () => Effect.die("unexpected provider completion"),
+					processProviderResolve: ({ value }) =>
+						value === "resolve-error"
+							? Effect.fail(
+									new SandboxRunError({ kind: "infrastructure", message: "resolve failed" }),
+								)
+							: Effect.succeed({
+									logs: [],
+									error: null,
+									status: "completed" as const,
+									value: { externalId: value === "null" ? null : `external-${value}` },
+								}),
+				}),
+				Layer.mock(EntitiesRepository)({ listMatchCandidatesBySchema: () => Effect.succeed([]) }),
+				Layer.mock(EntitiesService)({
+					prepareCreateStep: (input) =>
+						Effect.sync(() => {
+							createdNames.push(input.name);
+							expect(input.scope).toBe("user");
+							const entity = {
+								name: input.name,
+								providerId: null,
+								externalId: null,
+								populatedAt: null,
+								properties: input.properties,
+								createdAt: "2026-01-01T00:00:00.000Z",
+								updatedAt: "2026-01-01T00:00:00.000Z",
+								id: EntityId.make(`created-${input.name}`),
+								entitySchemaSlug: EntitySchemaSlug.make(input.entitySchemaSlug),
+							};
+							return {
+								dispatch: [],
+								_tag: "Committed" as const,
+								result: {
+									entity,
+									wasInserted: true,
+									outcome: {
+										before: null,
+										operation: "create" as const,
+										after: { ...entity, properties: {} },
+									},
+								},
+							};
+						}),
+				}),
+				Layer.mock(RelationshipsService)({}),
+				Layer.mock(EventsService)({
+					create: ({ payload: events }) =>
+						Effect.sync(() => {
+							eventEntityIds.push(...events.map(({ entityId }) => entityId));
+							return { outcomes: [], warnings: [], failure: null, count: events.length };
+						}),
+				}),
+				Layer.mock(ImportsService)({ update: () => Effect.void }),
+				Layer.mock(ImportRunFailuresService)({
+					create: (input) => Effect.sync(() => failures.push(input)).pipe(Effect.asVoid),
+				}),
+			),
+		),
+	);
+});
+
 it.effect("fails before reading chunks when the initial run update fails", () => {
 	const executionId = "generic-import-update-failure";
 	const directory = `/tmp/ryot-sandbox-harvest-test/${executionId}-activity-0`;
@@ -852,6 +1114,7 @@ it.effect("fails before reading chunks when the initial run update fails", () =>
 		Effect.provideService(WorkflowInstance, instance),
 		Effect.provide(
 			Layer.mergeAll(
+				providerOperationsLayer,
 				artifactStoreLayer,
 				databaseLayer,
 				transactionDatabaseLayer,

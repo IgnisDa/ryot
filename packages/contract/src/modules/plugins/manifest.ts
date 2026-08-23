@@ -455,14 +455,6 @@ export const PluginCron = strictStruct({ ...PluginCronFields, scriptSlug: sandbo
 
 export type PluginCron = Schema.Schema.Type<typeof PluginCron>;
 
-export const PluginBoot = strictStruct({
-	slug: sandboxManifestSlug,
-	scriptSlug: sandboxManifestSlug,
-	description: sandboxManifestString,
-});
-
-export type PluginBoot = Schema.Schema.Type<typeof PluginBoot>;
-
 export const PluginUserBootstrap = strictStruct({
 	slug: sandboxManifestSlug,
 	scriptSlug: sandboxManifestSlug,
@@ -667,7 +659,6 @@ export const DEFAULT_POLICY_HOOK_POSITION = 1_000;
 
 const PluginManifestAuthoredFields = {
 	metadata: PluginMetadata,
-	boot: Schema.Array(PluginBoot),
 	hooks: Schema.Array(PluginHook),
 	crons: Schema.Array(PluginCron),
 	configSchema: PluginConfigSchema,
@@ -1059,7 +1050,6 @@ const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.
 	}
 
 	const referencedScriptSlugs = [
-		...manifest.boot.map(({ scriptSlug }) => scriptSlug),
 		...manifest.userBootstrap.map(({ scriptSlug }) => scriptSlug),
 		...manifest.crons.map(({ scriptSlug }) => scriptSlug),
 		...manifest.operations.map(({ scriptSlug }) => scriptSlug),

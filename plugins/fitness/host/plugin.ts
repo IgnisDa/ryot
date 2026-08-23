@@ -41,13 +41,6 @@ export const fitnessPlugin = definePlugin({
 		icon: "heart-pulse",
 		description: "Track workouts, measurements, and progress.",
 	},
-	boot: [
-		{
-			slug: "preload-exercises",
-			scriptSlug: "exercise.free-exercise-db.preload",
-			description: "Preload the built-in exercise catalog",
-		},
-	],
 	providers: [
 		{
 			name: "Free Exercise DB",
@@ -57,6 +50,7 @@ export const fitnessPlugin = definePlugin({
 			operations: {
 				search: "exercise.free-exercise-db.search",
 				details: "exercise.free-exercise-db.details",
+				resolve: "exercise.free-exercise-db.resolve",
 			},
 		},
 	],

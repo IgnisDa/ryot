@@ -18,7 +18,6 @@ const fixture = {
 		"client/c.css": encoder.encode(".fixture { color: red; }\n"),
 	},
 	manifest: {
-		boot: [],
 		hooks: [],
 		crons: [],
 		scripts: [],

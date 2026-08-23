@@ -36,7 +36,6 @@ export type TestPluginScript = PluginScript extends infer Script
 type TestPluginManifestInput = Partial<
 	Pick<
 		TestPluginManifest,
-		| "boot"
 		| "crons"
 		| "hooks"
 		| "savedViews"
@@ -104,7 +103,6 @@ export const findTestEntitySchema = (slug: string) => {
 
 export const testPluginManifest = (input: TestPluginManifestInput): TestPluginManifest => ({
 	signalSchemas: [],
-	boot: input.boot ?? [],
 	crons: input.crons ?? [],
 	hooks: input.hooks ?? [],
 	scripts: input.scripts ?? [],
@@ -154,7 +152,6 @@ export const installTestPlugin = (
 		source: string;
 		pluginSlug?: string;
 		script: TestPluginScript;
-		boot?: TestPluginManifest["boot"];
 		crons?: TestPluginManifest["crons"];
 		config?: InstallPluginPayload["config"];
 		providers?: ReadonlyArray<PluginProvider>;
@@ -175,7 +172,6 @@ export const installTestPlugin = (
 			configSchema: input.configSchema,
 			httpRateLimits: input.httpRateLimits,
 			scripts: [{ ...input.script, entry }],
-			...(input.boot ? { boot: input.boot } : {}),
 			...(input.crons ? { crons: input.crons } : {}),
 			...(input.savedViews ? { savedViews: input.savedViews } : {}),
 			...(input.operations ? { operations: input.operations } : {}),

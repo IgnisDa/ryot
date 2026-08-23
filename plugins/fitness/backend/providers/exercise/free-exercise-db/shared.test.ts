@@ -5,6 +5,7 @@ import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 import { assert, describe, expect, it } from "vitest";
 
 import details, { manifest as detailsManifest } from "./details.sandbox";
+import resolve, { manifest as resolveManifest } from "./resolve.sandbox";
 import search, { manifest as searchManifest } from "./search.sandbox";
 
 type ExerciseHost = SandboxHost<typeof searchManifest.capabilities>;
@@ -77,11 +78,13 @@ const execution = {
 };
 
 describe("exercise.free-exercise-db sandbox script", () => {
-	it("uses matching narrow capabilities for search and details", () => {
+	it("uses matching narrow capabilities for all provider operations", () => {
 		expect(searchManifest.capabilities).toEqual(["httpCall", "getCachedValue", "setCachedValue"]);
 		expect(detailsManifest.capabilities).toEqual(searchManifest.capabilities);
+		expect(resolveManifest.capabilities).toEqual(searchManifest.capabilities);
 		expect(searchManifest.requiredPluginConfigKeys).toEqual([]);
 		expect(detailsManifest.requiredPluginConfigKeys).toEqual([]);
+		expect(resolveManifest.requiredPluginConfigKeys).toEqual([]);
 	});
 
 	it("fetches, normalizes and writes chunk + metadata cache entries on a cache miss", () => {
@@ -145,6 +148,35 @@ describe("exercise.free-exercise-db sandbox script", () => {
 			instructions: ["Lie down.", "Push the bar up."],
 			images: [{ type: "remote", url: `${IMAGES_PREFIX_URL}/Bench_Press/0.jpg` }],
 		});
+	});
+
+	it("resolves only one exact normalized exercise name to its canonical external id", async () => {
+		const { host, httpCallCount } = makeStatefulHost();
+
+		await expect(
+			Effect.runPromise(
+				resolve.run({ identifierType: "name", value: "  BENCH---press " }, host, execution),
+			),
+		).resolves.toEqual({ externalId: "Bench Press" });
+		await expect(
+			Effect.runPromise(resolve.run({ value: "Bench", identifierType: "name" }, host, execution)),
+		).resolves.toEqual({ externalId: null });
+		expect(httpCallCount()).toBe(1);
+	});
+
+	it("does not resolve ambiguous normalized names or unsupported identifiers", async () => {
+		const { host } = makeStatefulHost({}, [...dataset, { ...dataset[1], name: "Bench-Press" }]);
+
+		await expect(
+			Effect.runPromise(
+				resolve.run({ value: "bench press", identifierType: "name" }, host, execution),
+			),
+		).resolves.toEqual({ externalId: null });
+		await expect(
+			Effect.runPromise(
+				resolve.run({ value: "Bench Press", identifierType: "external-id" }, host, execution),
+			),
+		).resolves.toEqual({ externalId: null });
 	});
 
 	it("reads chunks from a pre-seeded cache without making an http call", () => {

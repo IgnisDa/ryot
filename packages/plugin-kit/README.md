@@ -90,7 +90,6 @@ entry can therefore leave otherwise unreachable shared files unchecked.
 | `providers`            | Logical providers mapped to provider-operation scripts                  |
 | `workflows`            | Public workflow slugs                                                   |
 | `operations`           | Public user- or integration-authenticated operations                    |
-| `boot`                 | Restart-time system-subject dispatches                                  |
 | `userBootstrap`        | Per-user bootstrap dispatches for system plugins                        |
 | `crons`                | Scheduled system-subject dispatches                                     |
 | `importSources`        | Payload, single-file, or named-file workflow inputs                     |
@@ -115,7 +114,7 @@ legacy display mappings or sandbox scripts.
 
 Ingestion assigns plugin scope (`system` or `user`); manifests do not. Execution subject identifies
 whose data an invocation uses and does not widen plugin privilege. Kernel dispatch selects it, never
-script input. User plugins cannot declare `boot`, `userBootstrap`, or `httpRateLimits`, or use a system
+script input. User plugins cannot declare `userBootstrap` or `httpRateLimits`, or use a system
 plugin slug.
 
 `capabilities` is an allowlist request, not a grant. The backend intersects it with host functions and
@@ -123,7 +122,7 @@ policy for script kind, subject, plugin scope, provider association, and bootstr
 modules still enforce ownership. Declare only used methods. `artifact-read` and `scratch` request
 filesystem grants. Workflows declare no capabilities and receive durable replay primitives only.
 
-Subject follows the dispatch path: boot and cron use system; user bootstrap uses the initialized user;
+Subject follows the dispatch path: cron uses system; user bootstrap uses the initialized user;
 user operations, imports, and user-triggered provider calls use the caller; integration operations add
 validated integration context; automations use a trusted automation-run subject; durable descendants inherit
 their parent's subject.

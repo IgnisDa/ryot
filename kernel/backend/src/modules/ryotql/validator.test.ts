@@ -57,9 +57,11 @@ const nested = (depth: number): ReturnType<typeof include> => {
 	});
 };
 
-const nestedExists = (depth: number, maximum: number): ReturnType<typeof exists> => {
+const nestedExists = (depth: number, maximumDepth: number): ReturnType<typeof exists> => {
 	const child = table("entity", `correlated${depth}`);
-	return exists(child, { where: depth < maximum ? nestedExists(depth + 1, maximum) : undefined });
+	return exists(child, {
+		where: depth < maximumDepth ? nestedExists(depth + 1, maximumDepth) : undefined,
+	});
 };
 
 it("exposes only approved entity fields", () => {

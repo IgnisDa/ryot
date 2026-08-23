@@ -399,34 +399,6 @@ describe("private plugins", () => {
 		}),
 	);
 
-	it.live("rejects a private manifest that declares an instance boot entry", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const plugin = privatePluginPackage();
-			const scriptSlug = requirePresent(
-				plugin.manifest.scripts[0],
-				"Private plugin fixture has no script",
-			).slug;
-
-			const failure = yield* Effect.flip(
-				installPrivatePluginPackage({
-					client,
-					config: { [PRIVATE_PLUGIN_CONFIG_KEY]: "alpha" },
-					pluginPackage: {
-						files: plugin.files,
-						manifest: {
-							...plugin.manifest,
-							boot: [{ scriptSlug, slug: "startup", description: "Unsupported private surface" }],
-						},
-					},
-				}),
-			);
-
-			assertTaggedError(failure, "PluginRequestError");
-			expect(failure.reason).toEqual({ surfaces: ["boot"], code: "unsupported-manifest-surface" });
-		}),
-	);
-
 	it.live("rejects a corrupt private plugin archive", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();

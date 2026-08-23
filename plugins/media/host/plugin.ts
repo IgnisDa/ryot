@@ -515,7 +515,6 @@ const creatorClients = ["person", "company"].map((slug) => ({
 const entityClients = [...schemaClients, ...creatorClients];
 
 export const mediaPlugin = definePlugin({
-	boot: [],
 	entitySchemas,
 	relationshipSchemas,
 	integrationProviders,

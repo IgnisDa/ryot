@@ -9,7 +9,7 @@ import {
 } from "~/fixtures/kernel/relationship-schemas";
 import { requirePresent } from "~/support/assertions";
 
-import { waitForSeededExerciseId } from "./workouts";
+import { createExerciseEntityFixture } from "./exercises";
 
 export const findBuiltinRelationshipSchemaSlug = (client: Client, slug: string) =>
 	Effect.gen(function* () {
@@ -30,7 +30,8 @@ export const createWorkoutTemplateEntityFixture = (
 			client,
 			"workout-template",
 		);
-		const exerciseId = options.exerciseId ?? (yield* waitForSeededExerciseId(client));
+		const exerciseId =
+			options.exerciseId ?? (yield* createExerciseEntityFixture(client)).exerciseId;
 		const workoutTemplate = yield* createEntity(client, {
 			entitySchemaSlug: workoutTemplateSchema.id,
 			name: options.name ?? `Workout Template ${crypto.randomUUID()}`,

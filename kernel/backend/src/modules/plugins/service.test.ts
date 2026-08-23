@@ -1077,7 +1077,7 @@ it.effect("refuses uninstall while another plugin relationship targets its entit
 	);
 });
 
-it.effect("refuses uninstall for a boot-configured plugin", () => {
+it.effect("refuses uninstall for a system plugin", () => {
 	const manifest = definitionOwnerManifest();
 	const stored = makeStoredPlugin(manifest, "example-source-hash");
 	return Effect.gen(function* () {
@@ -1086,7 +1086,7 @@ it.effect("refuses uninstall for a boot-configured plugin", () => {
 
 		expect(failureOf(exit)).toMatchObject({
 			_tag: "PluginConflictError",
-			reason: { pluginSlug: "example", code: "boot-configured" },
+			reason: { pluginSlug: "example", code: "system-plugin" },
 		});
 	}).pipe(
 		Effect.provide(
