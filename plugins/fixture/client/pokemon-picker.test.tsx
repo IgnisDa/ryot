@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { disposePluginBridges, mountPluginPage, routeLocation } from "@ryot-app/client-sdk/testing";
 import { EntityId, RelationshipId, RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";

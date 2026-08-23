@@ -1,5 +1,3 @@
-// @vitest-environment jsdom
-
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
