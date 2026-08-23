@@ -6,7 +6,10 @@ import {
 	type Client,
 	createAuthenticatedClient,
 	executeRyotQL,
+	getClientRenderer,
+	getSavedView,
 	getUserSettings,
+	listClientRenderers,
 	makeSession,
 	pollBackupRunUntilTerminal,
 	requireRows,
@@ -20,13 +23,14 @@ import { assert, describe, expect, it } from "~/support/effect-test";
 
 const archivedLibraryId = "00000000-0000-4000-8000-000000000001";
 const fixtureRoot = new URL(
-	"../../../../../packages/contract/src/modules/backups/fixtures/v2/",
+	"../../../../../packages/contract/src/modules/backups/fixtures/v1/",
 	import.meta.url,
 );
 const fixturePaths = [
 	"manifest.json",
 	"profile.json",
 	"private-plugins.ndjson",
+	"client-renderers.ndjson",
 	"installations.ndjson",
 	"entities.ndjson",
 	"entity-dependencies.ndjson",
@@ -44,7 +48,23 @@ const readFixtureEntries = Effect.fn(function* () {
 			return [path, bytes] as const;
 		}),
 	);
-	return Object.fromEntries(entries);
+	const files = Object.fromEntries(entries);
+	const manifestBytes = files["manifest.json"];
+	assert(manifestBytes);
+	const manifest = JSON.parse(new TextDecoder().decode(manifestBytes));
+	manifest.requiredPlugins = [];
+	manifest.sections = manifest.sections.map((section: { path: string }) =>
+		section.path === "installations.ndjson"
+			? {
+					...section,
+					count: 0,
+					sha256: "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+				}
+			: section,
+	);
+	files["installations.ndjson"] = new Uint8Array();
+	files["manifest.json"] = new TextEncoder().encode(JSON.stringify(manifest));
+	return files;
 });
 
 const getLibraryId = Effect.fn(function* (client: Client) {
@@ -80,7 +100,7 @@ const refreshedClient = Effect.fn(function* (email: string) {
 	return makeSession(undefined, { Authorization: `Bearer ${token}` });
 });
 
-describe("V2 backup archive validation", () => {
+describe("V1 backup archive validation", () => {
 	it.live("restores the checked-in minimal golden archive", () =>
 		Effect.gen(function* () {
 			const { client, email } = yield* createAuthenticatedClient();
@@ -88,16 +108,54 @@ describe("V2 backup archive validation", () => {
 			const restored = yield* restoreBackup(client, zipSync(yield* readFixtureEntries()));
 
 			expect(restored.run.status).toBe("completed");
-			const after = yield* inspectAccount(yield* refreshedClient(email));
+			const restoredClient = yield* refreshedClient(email);
+			const after = yield* inspectAccount(restoredClient);
 			expect(after.profile.name).toBe("Fixture");
 			expect(after.profile.image).toBeNull();
 			expect(after.profile.preferences).toEqual({
-				allowNsfw: false,
 				language: null,
+				allowNsfw: false,
 				disableIntegrations: false,
 			});
 			expect(after.libraryId).toBe(before.libraryId);
 			expect(after.libraryId).not.toBe(archivedLibraryId);
+			const rendererMetadata = requirePresent(
+				(yield* listClientRenderers(restoredClient)).find(
+					(candidate) => candidate.slug === "fixture-renderer",
+				),
+				"Restored renderer not found",
+			);
+			const renderer = yield* getClientRenderer(restoredClient, rendererMetadata.id);
+			expect(renderer.id).not.toBe("renderer-1");
+			expect(renderer.draftDefinition.files[0]?.content).toBe("ZXhwb3J0IGRlZmF1bHQgMQo=");
+			expect(yield* getSavedView(restoredClient, "fixture")).toMatchObject({
+				dataSources: null,
+				settings: { heading: "Fixture" },
+				renderer: { kind: "custom", rendererId: renderer.id },
+			});
+		}),
+	);
+
+	it.live("rejects every non-V1 manifest version without mutating the account", () =>
+		Effect.gen(function* () {
+			const { client, email } = yield* createAuthenticatedClient();
+			const before = yield* inspectAccount(client);
+
+			for (const version of [0, 2]) {
+				const entries = yield* readFixtureEntries();
+				const manifestBytes = entries["manifest.json"];
+				assert(manifestBytes);
+				const manifest = JSON.parse(new TextDecoder().decode(manifestBytes));
+				entries["manifest.json"] = new TextEncoder().encode(
+					JSON.stringify({ ...manifest, version }),
+				);
+
+				const failed = yield* restoreBackup(client, zipSync(entries));
+				expect(failed.run.status).toBe("failed");
+				expect(failed.run.failure).toEqual({ feature: "format", code: "archive-unsupported" });
+			}
+
+			expect(yield* inspectAccount(yield* refreshedClient(email))).toEqual(before);
 		}),
 	);
 
@@ -117,12 +175,6 @@ describe("V2 backup archive validation", () => {
 				issue: "checksum-mismatch",
 			});
 			expect(yield* inspectAccount(yield* refreshedClient(email))).toEqual(before);
-
-			const restored = yield* restoreBackup(client, zipSync(entries));
-			expect(restored.run.status).toBe("completed");
-			const after = yield* inspectAccount(yield* refreshedClient(email));
-			expect(after.profile.name).toBe("Fixture");
-			expect(after.libraryId).toBe(before.libraryId);
 		}),
 	);
 

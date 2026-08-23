@@ -6,7 +6,6 @@ import { describe, expect, it } from "vitest";
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import type { CustomizeSidebarService } from "#/modules/navigation/customize/service";
-import { ArtifactSessions } from "#/modules/plugins/artifact-sessions";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
 import { PluginOperationsService } from "#/modules/plugins/operations";
@@ -60,11 +59,6 @@ const mountView = (
 			ClientPagesApiRouteStubs,
 			ClientPageSessionsRouteStubs,
 			events.layer,
-			Layer.succeed(ArtifactSessions, {
-				renew: () => Effect.die("not used"),
-				revoke: () => Effect.die("not used"),
-				create: () => Effect.die("not used"),
-			}),
 			Layer.succeed(PluginCatalogService, {
 				load: () => Effect.succeed(options.catalog ?? catalog),
 			}),

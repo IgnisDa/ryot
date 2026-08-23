@@ -17,7 +17,7 @@ import { UploadIntentsService } from "#modules/uploads/intents/service";
 import { ManagedAssetsService } from "#modules/uploads/managed-assets/service";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
-import { createV2ArchiveStream } from "../archive-v2/archive";
+import { createArchiveStream } from "../archive/archive";
 import { BackupsRepository } from "../runs/repository";
 import { BackupAccountCleanliness } from "./account-cleanliness";
 import {
@@ -200,12 +200,12 @@ it.effect("completes before best-effort temporary cleanup", () => {
 
 it.effect("keeps a committed restore successful when spool cleanup fails", () => {
 	let committed = false;
-	const archive = createV2ArchiveStream({
+	const archive = createArchiveStream({
 		assets: [],
 		redactions: [],
 		requiredPlugins: [],
 		archiveId: "archive-id",
-		appVersion: "backend-v2",
+		appVersion: "backend-v1",
 		createdAt: "2026-08-23T12:00:00.000Z",
 		events: { count: 0, bytes: 0, chunks: [], sha256: EMPTY_SHA256 },
 		records: {
@@ -215,6 +215,7 @@ it.effect("keeps a committed restore successful when spool cleanup fails", () =>
 			installations: [],
 			relationships: [],
 			privatePlugins: [],
+			clientRenderers: [],
 			entityDependencies: [],
 			notificationSubscriptions: [],
 			profile: { name: "User", image: null, preferences: {} },
@@ -277,11 +278,11 @@ it.effect("stops before plugin persistence and asset staging when package prefli
 	let persisted = false;
 	const asset = new TextEncoder().encode("unstaged asset");
 	const sha256 = new CryptoHasher("sha256").update(asset).digest("hex");
-	const archive = createV2ArchiveStream({
+	const archive = createArchiveStream({
 		redactions: [],
 		requiredPlugins: [],
 		archiveId: "archive-id",
-		appVersion: "backend-v2",
+		appVersion: "backend-v1",
 		createdAt: "2026-08-23T12:00:00.000Z",
 		events: { count: 0, bytes: 0, chunks: [], sha256: EMPTY_SHA256 },
 		records: {
@@ -291,6 +292,7 @@ it.effect("stops before plugin persistence and asset staging when package prefli
 			installations: [],
 			relationships: [],
 			privatePlugins: [],
+			clientRenderers: [],
 			entityDependencies: [],
 			notificationSubscriptions: [],
 			profile: { name: "User", image: null, preferences: {} },
@@ -393,11 +395,11 @@ it.effect("rolls back managed assets and domain rows and removes newly staged ob
 	const managedAssets = new Set<string>();
 	const domainRows = new Set<string>();
 	const createdAt = new Date(0);
-	const archive = createV2ArchiveStream({
+	const archive = createArchiveStream({
 		redactions: [],
 		requiredPlugins: [],
 		archiveId: "archive-id",
-		appVersion: "backend-v2",
+		appVersion: "backend-v1",
 		createdAt: "2026-08-23T12:00:00.000Z",
 		events: { count: 0, bytes: 0, chunks: [], sha256: EMPTY_SHA256 },
 		records: {
@@ -407,6 +409,7 @@ it.effect("rolls back managed assets and domain rows and removes newly staged ob
 			installations: [],
 			relationships: [],
 			privatePlugins: [],
+			clientRenderers: [],
 			entityDependencies: [],
 			notificationSubscriptions: [],
 			profile: { name: "User", image: null, preferences: {} },

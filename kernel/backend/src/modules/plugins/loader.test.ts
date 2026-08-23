@@ -106,6 +106,60 @@ it("rejects definition collisions without replacing the current snapshot", () =>
 	expect(loader.getSnapshot()).toBe(original);
 });
 
+it("materializes portable saved-view page exports to stable plugin ids", () => {
+	const loader = makePluginLoader(makeDefinitionRegistry(emptySource));
+	const plugin = normalizedPlugin("1");
+	const client = {
+		homeView: "summary",
+		apiVersion: 1 as const,
+		exports: {
+			summary: {
+				kind: "page" as const,
+				entry: "client/summary.tsx",
+				automaticEntityPresentations: false,
+				settingsSchema: {
+					unknownKeys: "strict" as const,
+					fields: {
+						title: {
+							type: "string" as const,
+							label: "Title",
+							description: "Summary title",
+							validation: { required: true as const },
+						},
+					},
+				},
+			},
+		},
+	};
+	const savedView = {
+		icon: "box",
+		name: "Summary",
+		slug: "summary",
+		sortOrder: 0,
+		pluginSlug: "fixture",
+		dataSources: null,
+		settings: { title: "Fixture" },
+		renderer: { kind: "plugin" as const, exportName: "summary" },
+	};
+	loader.load({ ...plugin, manifest: { ...plugin.manifest, client, savedViews: [savedView] } });
+
+	expect(loader.getSnapshot().definitions.savedViews["summary"]?.renderer).toEqual({
+		kind: "plugin",
+		pluginId: "fixture-plugin-id",
+		exportName: "summary",
+	});
+	expect(() =>
+		loader.preview({
+			...plugin,
+			manifest: {
+				...plugin.manifest,
+				client,
+				savedViews: [{ ...savedView, settings: {} }],
+			},
+		}),
+	).toThrow(/Invalid saved view summary/);
+});
+
 it("rejects plugin config environment collisions across active plugins", () => {
 	const loader = makePluginLoader(makeDefinitionRegistry(emptySource));
 	const firstBase = normalizedPlugin("1");

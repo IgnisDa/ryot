@@ -1,10 +1,4 @@
-import {
-	CLIENT_API_VERSION,
-	CLIENT_ARTIFACT_FORMAT,
-	CLIENT_BRIDGE_PROTOCOL_VERSION,
-	CLIENT_COMPILER_VERSION,
-	type PluginClientArtifact,
-} from "@ryot-app/client-plugin-contract";
+import type { PluginClientArtifact } from "@ryot-app/client-plugin-contract";
 import { DbError } from "@ryot-app/contract/errors";
 import type { PluginProviderOperation } from "@ryot-app/contract/modules/plugins/manifest";
 import { SandboxProviderId } from "@ryot-app/contract/schema/brands";
@@ -111,7 +105,6 @@ const toStoredPlugin = Effect.fn(function* (row: PluginRow, scripts: ReadonlyArr
 		manifest: row.manifest,
 		scripts: currentScripts,
 		sourceHash: row.sourceHash,
-		clientArtifactHash: row.clientArtifactHash,
 	} satisfies StoredPlugin;
 });
 
@@ -239,6 +232,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 							slug,
 							version,
 							sourceHash,
+							client: manifest.client,
 							metadata: manifest.metadata,
 							configSchema: manifest.configSchema,
 							integrationProviders: manifest.integrationProviders,
@@ -361,20 +355,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				if (subscription) {
 					return true;
 				}
-
-				const [customView] = yield* mapDatabaseErrors(
-					db
-						.select({ id: schema.savedView.id })
-						.from(schema.savedView)
-						.where(
-							and(
-								eq(schema.savedView.entitySchemaPluginId, pluginId),
-								isNull(schema.savedView.pluginInstallationId),
-							),
-						)
-						.limit(1),
-				);
-				return customView !== undefined;
+				return false;
 			},
 		);
 
@@ -392,29 +373,6 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 							eq(schema.plugin.scope, input.scope),
 							eq(schema.plugin.status, "active"),
 							eq(schema.plugin.sourceHash, input.sourceHash),
-							or(
-								and(
-									isNull(schema.plugin.clientArtifactHash),
-									sql`not (${schema.plugin.manifest} ? 'client')`,
-								),
-								exists(
-									db
-										.select({ hash: schema.pluginClientArtifact.hash })
-										.from(schema.pluginClientArtifact)
-										.where(
-											and(
-												eq(schema.pluginClientArtifact.hash, schema.plugin.clientArtifactHash),
-												eq(schema.pluginClientArtifact.format, CLIENT_ARTIFACT_FORMAT),
-												eq(schema.pluginClientArtifact.apiVersion, CLIENT_API_VERSION),
-												eq(
-													schema.pluginClientArtifact.bridgeVersion,
-													CLIENT_BRIDGE_PROTOCOL_VERSION,
-												),
-												eq(schema.pluginClientArtifact.compilerVersion, CLIENT_COMPILER_VERSION),
-											),
-										),
-								),
-							),
 							input.ownerId === null
 								? isNull(schema.plugin.ownerId)
 								: eq(schema.plugin.ownerId, input.ownerId),
@@ -448,101 +406,6 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					.limit(1),
 			);
 			return row !== undefined;
-		});
-
-		const findPrivateClientArtifact = Effect.fn("PluginRepository.findPrivateClientArtifact")(
-			function* (input: {
-				readonly userId: string;
-				readonly pluginSlug: string;
-				readonly sourceHash: string;
-				readonly artifactHash: string;
-				readonly installationId: string;
-			}) {
-				const db = yield* Database;
-				const [row] = yield* mapDatabaseErrors(
-					db
-						.select({
-							pluginId: schema.plugin.id,
-							pluginSlug: schema.plugin.slug,
-							sourceHash: schema.plugin.sourceHash,
-							health: schema.pluginInstallation.health,
-							artifactHash: schema.pluginClientArtifact.hash,
-							artifactFormat: schema.pluginClientArtifact.format,
-							clientApiVersion: schema.pluginClientArtifact.apiVersion,
-							bridgeVersion: schema.pluginClientArtifact.bridgeVersion,
-							compilerVersion: schema.pluginClientArtifact.compilerVersion,
-						})
-						.from(schema.pluginInstallation)
-						.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginInstallation.pluginId))
-						.innerJoin(
-							schema.pluginClientArtifact,
-							eq(schema.pluginClientArtifact.hash, schema.plugin.clientArtifactHash),
-						)
-						.where(
-							and(
-								eq(schema.plugin.status, "active"),
-								eq(schema.plugin.slug, input.pluginSlug),
-								eq(schema.pluginInstallation.userId, input.userId),
-								eq(schema.pluginInstallation.id, input.installationId),
-							),
-						)
-						.limit(1),
-				);
-				return row ?? null;
-			},
-		);
-
-		const findPrivateClientArtifactFile = Effect.fn(
-			"PluginRepository.findPrivateClientArtifactFile",
-		)(function* (input: {
-			readonly userId: string;
-			readonly fileName: string;
-			readonly pluginId: string;
-			readonly pluginSlug: string;
-			readonly sourceHash: string;
-			readonly artifactHash: string;
-			readonly installationId: string;
-		}) {
-			const db = yield* Database;
-			const [row] = yield* mapDatabaseErrors(
-				db
-					.select({
-						name: schema.pluginClientArtifactFile.name,
-						contents: schema.pluginClientArtifactFile.contents,
-						contentType: schema.pluginClientArtifactFile.contentType,
-					})
-					.from(schema.pluginInstallation)
-					.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginInstallation.pluginId))
-					.innerJoin(
-						schema.pluginClientArtifact,
-						eq(schema.pluginClientArtifact.hash, schema.plugin.clientArtifactHash),
-					)
-					.innerJoin(
-						schema.pluginClientArtifactFile,
-						and(
-							eq(schema.pluginClientArtifactFile.artifactHash, schema.pluginClientArtifact.hash),
-							eq(schema.pluginClientArtifactFile.name, input.fileName),
-						),
-					)
-					.where(
-						and(
-							eq(schema.plugin.id, input.pluginId),
-							eq(schema.plugin.slug, input.pluginSlug),
-							eq(schema.plugin.status, "active"),
-							eq(schema.plugin.sourceHash, input.sourceHash),
-							eq(schema.pluginInstallation.userId, input.userId),
-							inArray(schema.pluginInstallation.health, ["ready", "needs-configuration"]),
-							eq(schema.pluginInstallation.id, input.installationId),
-							eq(schema.pluginClientArtifact.hash, input.artifactHash),
-							eq(schema.pluginClientArtifact.format, CLIENT_ARTIFACT_FORMAT),
-							eq(schema.pluginClientArtifact.apiVersion, CLIENT_API_VERSION),
-							eq(schema.pluginClientArtifact.bridgeVersion, CLIENT_BRIDGE_PROTOCOL_VERSION),
-							eq(schema.pluginClientArtifact.compilerVersion, CLIENT_COMPILER_VERSION),
-						),
-					)
-					.limit(1),
-			);
-			return row ? { ...row, contents: new Uint8Array(row.contents) } : null;
 		});
 
 		const listSourceFiles = Effect.fn("PluginRepository.listSourceFiles")(function* (
@@ -694,16 +557,12 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			const compiledHashes = Object.fromEntries(
 				plugin.scripts.map((script) => [script.slug, script.contentHash]),
 			);
-			if (plugin.clientArtifact) {
-				yield* persistClientArtifact(plugin.clientArtifact);
-			}
 			const mutation = {
 				compiledHashes,
 				status: "active",
 				manifest: plugin.manifest,
 				sourceHash: plugin.sourceHash,
 				version: plugin.manifest.metadata.version,
-				clientArtifactHash: plugin.clientArtifact?.hash ?? null,
 			} as const;
 			const conflict =
 				identity.scope === "system"
@@ -970,12 +829,6 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 							),
 							notExists(
 								db
-									.select({ id: schema.savedView.id })
-									.from(schema.savedView)
-									.where(eq(schema.savedView.entitySchemaPluginId, schema.plugin.id)),
-							),
-							notExists(
-								db
 									.select({ executionId: schema.sandboxWorkflowReference.executionId })
 									.from(schema.sandboxWorkflowReference)
 									.where(eq(schema.sandboxWorkflowReference.pluginId, schema.plugin.id)),
@@ -1093,9 +946,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			hasIntegrationReferences,
 			listAuthorizedSourceFiles,
 			deleteUnreferencedScripts,
-			findPrivateClientArtifact,
 			listPortablePluginMetadata,
-			findPrivateClientArtifactFile,
 			deleteInactiveUnreferencedPlugins,
 			listPersistedLivenessContentHashes,
 		};

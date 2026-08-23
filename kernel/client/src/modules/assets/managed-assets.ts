@@ -5,7 +5,6 @@ import type {
 } from "@ryot-app/client-plugin-contract";
 import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import {
-	type AssetLocator,
 	type DownloadResolutionResponse,
 	type ManagedAssetLocator,
 	UploadBadRequest,
@@ -31,22 +30,6 @@ const classifyManagedAssetCause = (cause: unknown): PluginAssetBridgeErrorReason
 
 export const classifyManagedAssetFailure = (error: unknown): PluginAssetBridgeErrorReason =>
 	error instanceof AuthenticatedApiError ? classifyManagedAssetCause(error.cause) : "transport";
-
-export const managedAssetKey = (asset: ManagedAssetLocator) => `${asset.type}:${asset.key}`;
-
-export const collectManagedAssets = (assets: readonly (AssetLocator | null | undefined)[]) =>
-	[
-		...new Map(
-			assets.flatMap((asset) =>
-				asset === null || asset === undefined || asset.type === "remote"
-					? []
-					: [[managedAssetKey(asset), asset] as const],
-			),
-		).values(),
-	].sort((left, right) => managedAssetKey(left).localeCompare(managedAssetKey(right)));
-
-export const resolveAssetUrl = (asset: AssetLocator, managedUrls: ReadonlyMap<string, string>) =>
-	asset.type === "remote" ? asset.url : managedUrls.get(managedAssetKey(asset));
 
 export const mapManagedAssetResolutions = (
 	scope: ApiScope,
@@ -75,14 +58,7 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 					Effect.mapError((error) => new ManagedAssetResolutionError({ cause: error.cause })),
 				);
 			});
-			const resolve = Effect.fn("ManagedAssetsService.resolve")(function* (
-				scope: ApiScope,
-				assets: readonly ManagedAssetLocator[],
-			) {
-				const resolutions = yield* read(scope, assets);
-				return new Map(resolutions.map(({ asset, url }) => [managedAssetKey(asset), url] as const));
-			});
-			return { read, resolve };
+			return { read };
 		}),
 	},
 ) {

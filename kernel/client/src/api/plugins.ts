@@ -10,18 +10,6 @@ export class PluginsApi extends Context.Service<PluginsApi>()("PluginsApi", {
 		return {
 			invoke: (scope: ApiScope, request: ContractRequest<"plugins", "invoke">) =>
 				api.run(scope, (client) => client.plugins.invoke(request)),
-			renewArtifactSession: (
-				scope: ApiScope,
-				request: ContractRequest<"plugins", "renewArtifactSession">,
-			) => api.run(scope, (client) => client.plugins.renewArtifactSession(request)),
-			revokeArtifactSession: (
-				scope: ApiScope,
-				request: ContractRequest<"plugins", "revokeArtifactSession">,
-			) => api.run(scope, (client) => client.plugins.revokeArtifactSession(request)),
-			createArtifactSession: (
-				scope: ApiScope,
-				request: ContractRequest<"plugins", "createArtifactSession">,
-			) => api.run(scope, (client) => client.plugins.createArtifactSession(request)),
 		};
 	}),
 }) {

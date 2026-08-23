@@ -1,16 +1,14 @@
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
+import { EntityArtWell } from "@ryot-app/client-ui-sdk/sync";
 import type { EntityId } from "@ryot-app/contract/schema/brands";
 import { Link } from "@tanstack/react-router";
 import { Match } from "effect";
 
-import { ManagedImage } from "#/modules/assets/managed-image";
 import type { ProviderEntityImportEntry } from "#/modules/provider-add/import-controller";
 import { describeProviderSearchResultItem } from "#/modules/provider-add/result-display";
 import type { ProviderSearchResultItem } from "#/modules/provider-add/search-controller";
 
 const IMAGE_CLASS_NAME = "h-16 w-11 shrink-0 overflow-hidden rounded-md object-cover";
-
-const NO_MANAGED_URLS: ReadonlyMap<string, string> = new Map();
 
 function InLibraryBadge() {
 	return (
@@ -85,12 +83,11 @@ export function ProviderSearchResultRow(props: {
 	const display = describeProviderSearchResultItem(props.item);
 	return (
 		<div className="flex items-center gap-3 rounded-lg bg-surface-2 px-3 py-2.5 md:bg-transparent">
-			<ManagedImage
+			<EntityArtWell
 				state="absent"
-				urls={NO_MANAGED_URLS}
 				monogram={display.title}
 				className={IMAGE_CLASS_NAME}
-				asset={display.imageUrl === undefined ? null : { type: "remote", url: display.imageUrl }}
+				url={display.imageUrl}
 			/>
 			<div className="grid min-w-0 flex-1 gap-0.5">
 				<p className="line-clamp-2 text-[15px] font-medium text-text">{display.title}</p>

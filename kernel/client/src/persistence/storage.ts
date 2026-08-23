@@ -1,6 +1,6 @@
 import {
-	SavedViewLayoutName,
-	type SavedViewLayoutName as SavedViewLayout,
+	EntityBrowserLayout,
+	type EntityBrowserLayout as SavedViewLayout,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import {
 	SandboxProviderId,
@@ -27,7 +27,7 @@ export type BrowserStorage = Pick<Storage, "getItem" | "removeItem" | "setItem">
 
 const browserStorage = () => (typeof localStorage === "undefined" ? undefined : localStorage);
 const isWorkspaceSlug = Schema.is(Slug);
-const isSavedViewLayout = Schema.is(SavedViewLayoutName);
+const isSavedViewLayout = Schema.is(EntityBrowserLayout);
 const isSandboxProviderId = Schema.is(SandboxProviderId);
 
 const makeStorage = (storage: BrowserStorage | undefined): ClientStorage["Service"] => ({

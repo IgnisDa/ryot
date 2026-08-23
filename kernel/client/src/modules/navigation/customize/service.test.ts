@@ -29,17 +29,6 @@ type Call =
 			readonly params: ContractPathParams<"definitions", "updatePluginState">;
 	  };
 
-const cardLayout = {
-	callout: null,
-	overline: null,
-	imageField: null,
-	titleField: "title",
-	entityIdField: "id",
-	primaryMetadata: null,
-	secondaryMetadata: null,
-	queryDocument: { queries: {} },
-};
-
 const savedView: ContractSuccess<"savedViews", "update"> = {
 	name: "All",
 	slug: "all",
@@ -48,20 +37,12 @@ const savedView: ContractSuccess<"savedViews", "update"> = {
 	pluginSlug: null,
 	isBuiltin: false,
 	isDisabled: false,
-	entitySchemaSlug: null,
+	settings: {},
+	dataSources: null,
+	renderer: { kind: "kernel", name: "results-table" },
 	id: SavedViewId.make("view-1"),
 	createdAt: "2026-01-01T00:00:00.000Z",
 	updatedAt: "2026-01-01T00:00:00.000Z",
-	layouts: {
-		grid: cardLayout,
-		list: cardLayout,
-		table: {
-			imageField: null,
-			entityIdField: "id",
-			queryDocument: { queries: {} },
-			columns: [{ label: "Name", field: "title", displayKind: "text" }],
-		},
-	},
 };
 
 const installation: ContractSuccess<"definitions", "updatePluginState"> = {

@@ -11,6 +11,7 @@ import { assertExitFails } from "#lib/test-utils/assertions";
 import { databaseLayer } from "#lib/test-utils/effect";
 import { AuthRepository } from "#modules/auth/repository";
 import { AutomationsRepository } from "#modules/automations/repository";
+import { ClientPagesRepository } from "#modules/client-pages/repository";
 import { buildDefinitionSnapshot } from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { TranslationsRepository } from "#modules/entity-translation/repository";
@@ -31,7 +32,7 @@ import {
 	collectManagedAssetLocators,
 	definitionForPlugin,
 	requirePluginKey,
-	requireV2NotificationMetadataSchema,
+	requireNotificationMetadataSchema,
 } from "./snapshot";
 
 it("does not archive managed assets stored in schema-declared secret fields", () => {
@@ -69,7 +70,7 @@ it("does not archive managed assets stored in schema-declared secret fields", ()
 
 it.effect("rejects non-null notification metadata without its signal schema", () =>
 	Effect.gen(function* () {
-		const error = yield* requireV2NotificationMetadataSchema(
+		const error = yield* requireNotificationMetadataSchema(
 			{
 				isActive: false,
 				signalSchemaPluginKey: null,
@@ -80,7 +81,7 @@ it.effect("rejects non-null notification metadata without its signal schema", ()
 		).pipe(Effect.flip);
 		expect(error.message).toContain("unavailable signal schema 'missing.signal'");
 		expect(
-			yield* requireV2NotificationMetadataSchema(
+			yield* requireNotificationMetadataSchema(
 				{
 					metadata: null,
 					isActive: false,
@@ -317,6 +318,7 @@ it.effect(
 				Layer.mergeAll(
 					databaseLayer,
 					BunFileSystem.layer,
+					Layer.mock(ClientPagesRepository, { listRenderers: () => Effect.succeed([]) }),
 					Layer.mock(PluginRuntimeResolver, {
 						getEffectiveDefinitions: (_userId, includeUnavailable) =>
 							Effect.sync(() => {
@@ -422,7 +424,6 @@ it.effect(
 									slug: "private-plugin",
 									scope: "user" as const,
 									id: "private-plugin-id",
-									clientArtifactHash: null,
 									status: "active" as const,
 									manifest: privateManifest,
 									sourceHash: privateSourceHash,
@@ -432,6 +433,7 @@ it.effect(
 							Effect.succeed([
 								{
 									version: "1.0.0",
+									client: undefined,
 									signalSchemaSlugs: [],
 									slug: "default-plugin",
 									id: "default-plugin-id",
@@ -449,12 +451,13 @@ it.effect(
 								},
 								{
 									version: "1.0.0",
+									client: undefined,
 									slug: "system-plugin",
 									signalSchemaSlugs: [],
 									id: "system-plugin-id",
 									integrationProviders: [],
-									sourceHash: "a".repeat(64),
 									relationshipSchemaSlugs: [],
+									sourceHash: "a".repeat(64),
 									metadata: {
 										icon: "box",
 										version: "1.0.0",
@@ -507,9 +510,9 @@ it.effect(
 			]);
 			expect(prepared.records.privatePlugins).toEqual([
 				expect.objectContaining({
-					files: { "client/asset.png": "AP+AQQ==" },
 					slug: "private-plugin",
 					sourceHash: privateSourceHash,
+					files: { "client/asset.png": "AP+AQQ==" },
 					key: `user:private-plugin:${privateSourceHash}`,
 				}),
 			]);
@@ -644,6 +647,7 @@ it.effect("reuses one export context across every event page", () => {
 			Layer.mergeAll(
 				databaseLayer,
 				BunFileSystem.layer,
+				Layer.mock(ClientPagesRepository, { listRenderers: () => Effect.succeed([]) }),
 				Layer.mock(PluginRuntimeResolver, {
 					getEffectiveDefinitions: () =>
 						Effect.succeed(
@@ -731,7 +735,6 @@ it.effect("reuses one export context across every event page", () => {
 									slug: "private-plugin",
 									scope: "user" as const,
 									id: "private-plugin-id",
-									clientArtifactHash: null,
 									status: "active" as const,
 								},
 							];

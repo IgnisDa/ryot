@@ -43,7 +43,7 @@ export const fitnessPlugin = definePlugin({
 	],
 	client: {
 		apiVersion: 1,
-		entry: "client/index.ts",
+		homeView: null,
 		entities: { workout: { listPresentation: "workout-row", gridPresentation: "workout-card" } },
 		exports: {
 			"workout-card": {

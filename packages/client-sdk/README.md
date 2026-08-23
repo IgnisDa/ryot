@@ -17,20 +17,28 @@ suppresses forwarding.
 
 ## Capabilities
 
+`RyotClientError.reason` is the complete public capability failure set:
+`disposed`, `protocol`, `transport`, `asset-failed`, `collection-failed`, `query-failed`,
+`invalid-input`, `operation-failed`, `malformed-result`, and `unsupported-capability`. Adapters must
+preserve these reasons; callers must not infer failures from message text or expect capability-specific
+reasons outside this set.
+
 `uploads` is one capability on every adapter that hides intent creation, byte transfer, and
 completion. Bridge payloads are structured-clone values, so a plugin sends a `Blob` or `File` with a
 file name and content type, and the host keeps the intent, upload URL, headers, and credential. A
 non-`Blob` source fails with `invalid-input`. There is no cancellation; disposal aborts the transfer.
 
 `assets.resolve` accepts 1 to 64 managed local or S3 locators and returns signed URLs with expiry.
-Remote images do not use it. Disposing a bridge session aborts pending resolution, but an issued URL
-remains valid until expiry. Failures expose only `asset-failed`.
+Remote images do not use it. `ManagedAssetProvider` owns stable sorting, deduplication, batches of at
+most 64, retained URLs during refresh, and renewal before the earliest expiry; kernel and plugin
+renderers are callers of this SDK behavior. Disposing a bridge session aborts pending resolution, but
+an issued URL remains valid until expiry.
 
 `screens.openProviderSearch` is the only provider-add screen capability. It carries the configured
 entity-schema owner and slug, plus an optional initial query; it does not expose a generic native
-screen method. After a successful import, the host sends one narrow `page-refresh` signal.
-Client pages can register their current source refetch with `usePageRefresh`. Task 07 replaces this
-signal with the shared mutation refresh path.
+screen method. After a successful import, the host sends one narrow `page-refresh` signal. Client
+pages can register their current source refetch with `usePageRefresh`; successful shared mutations use
+the same refresh registry.
 
 ## Entity Interest
 
@@ -72,26 +80,20 @@ marks only on `commit()`, after refreshed values are rendered, and expire marks 
 Identity changes and unmount discard queued work. Transient transport and disposal failures do not
 crash a screen; invalid input and unsupported capabilities remain explicit.
 
-## Plugin Routing
+## Client Pages And Routing
 
 `PluginRouter` retains a stack of screens and reconciles it only from the kernel history `index` and
 `key`; paths never imply push, pop, or replace. Route targets contain `path` and optional `search`.
 Entity targets contain only `entityId`; the kernel builds the canonical URL and returns an entity
 location with `entitySchemaSlug`.
 
-`home` is required. Entity renderers register by schema slug and receive `entityId` and
-`entitySchemaSlug`; an unregistered slug renders the SDK unavailable state.
+Plugin authors default-export public page components and presentation definitions from manifest-named
+entries. They do not mount or bootstrap an application. The compiler generates the route or
+selected-page registry and one bootstrap that owns the document's single React root. The same runtime
+hosts plugin routes, entity pages, saved-view renderers, and workspace homes.
 
-```tsx
-import { bootstrapClientPlugin, type EntityRendererProps } from "@ryot-app/client-sdk/plugin";
-
-const ShowEntity = ({ entityId }: EntityRendererProps) => <h2>{entityId}</h2>;
-
-bootstrapClientPlugin({
-	home: { component: Home },
-	entities: { show: { component: ShowEntity } },
-});
-```
+`usePageContext` exposes target, renderer, settings, optional named data sources, and route parameters.
+Settings and data-source values are page inputs, not executable source or artifact identity.
 
 Retained screens keep their React keys and use `visibility: hidden`, preserving state, layout, and
 scroll position. `leading` selects visible back, drawer, or no control; `edgeBack` independently

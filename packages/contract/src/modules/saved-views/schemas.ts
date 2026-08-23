@@ -5,24 +5,6 @@ import { strictStruct } from "../../schema/utils";
 import { JsonValue, OutputFieldKey, RyotQLDocument } from "../ryotql/language";
 import { AssetLocator } from "../uploads/schemas";
 
-export const SavedViewLayoutName = Schema.Literals(["grid", "list", "table"]);
-export type SavedViewLayoutName = typeof SavedViewLayoutName.Type;
-
-export const SavedViewDefinitionIssue = Schema.Literals([
-	"query-count",
-	"output-kind",
-	"cursor-pagination",
-	"explicit-fields-required",
-	"nested-results",
-	"columns-empty",
-	"query-invalid",
-	"mapping-field-missing",
-	"field-kind",
-	"entity-id-source",
-	"image-cast",
-]);
-export type SavedViewDefinitionIssue = typeof SavedViewDefinitionIssue.Type;
-
 const SavedViewBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("duplicate-name") }),
 	Schema.Struct({ code: Schema.Literal("renderer-not-found") }),
@@ -32,10 +14,6 @@ const SavedViewBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("settings-incompatible"), message: Schema.String }),
 	Schema.Struct({ code: Schema.Literal("builtin-view-immutable"), viewSlug: Schema.String }),
 	Schema.Struct({
-		entitySchemaSlug: EntitySchemaSlug,
-		code: Schema.Literal("entity-schema-not-found"),
-	}),
-	Schema.Struct({
 		code: Schema.Literal("required-field"),
 		field: Schema.Literals(["name", "slug"]),
 	}),
@@ -43,12 +21,6 @@ const SavedViewBadRequestReason = Schema.Union([
 		viewSlugs: Schema.Array(Schema.String),
 		code: Schema.Literal("invalid-reorder"),
 		issue: Schema.Literals(["empty", "duplicate", "unknown-view", "update-failed"]),
-	}),
-	Schema.Struct({
-		layout: SavedViewLayoutName,
-		issue: SavedViewDefinitionIssue,
-		field: Schema.optional(Schema.String),
-		code: Schema.Literal("invalid-definition"),
 	}),
 ]);
 
@@ -96,48 +68,14 @@ export const SavedViewTableColumn = strictStruct({
 });
 export type SavedViewTableColumn = typeof SavedViewTableColumn.Type;
 
-const SavedViewValueMapping = strictStruct({
-	field: OutputFieldKey,
-	displayKind: SavedViewDisplayKind,
-});
-
-export const SavedViewCardMapping = strictStruct({
-	titleField: OutputFieldKey,
-	imageField: Schema.NullOr(OutputFieldKey),
-	callout: Schema.NullOr(SavedViewValueMapping),
-	overline: Schema.NullOr(SavedViewValueMapping),
-	primaryMetadata: Schema.NullOr(SavedViewValueMapping),
-	secondaryMetadata: Schema.NullOr(SavedViewValueMapping),
-});
-export type SavedViewCardMapping = typeof SavedViewCardMapping.Type;
-
-export const SavedViewTableMapping = strictStruct({
-	imageField: Schema.NullOr(OutputFieldKey),
-	columns: Schema.NonEmptyArray(SavedViewTableColumn),
-});
-export type SavedViewTableMapping = typeof SavedViewTableMapping.Type;
-
-const SavedViewCardLayout = strictStruct({
-	...SavedViewCardMapping.fields,
-	entityIdField: OutputFieldKey,
-	queryDocument: RyotQLDocument,
-});
-
-const SavedViewTableLayout = strictStruct({
-	...SavedViewTableMapping.fields,
-	entityIdField: OutputFieldKey,
-	queryDocument: RyotQLDocument,
-});
-
-export const SavedViewLayouts = strictStruct({
-	grid: SavedViewCardLayout,
-	list: SavedViewCardLayout,
-	table: SavedViewTableLayout,
-});
-export type SavedViewLayouts = typeof SavedViewLayouts.Type;
-
 export const KernelSavedViewRendererName = Schema.Literals(["entity-browser", "results-table"]);
 export type KernelSavedViewRendererName = typeof KernelSavedViewRendererName.Type;
+
+export const AuthoredSavedViewRenderer = Schema.Union([
+	strictStruct({ kind: Schema.Literal("kernel"), name: KernelSavedViewRendererName }),
+	strictStruct({ exportName: Schema.String, kind: Schema.Literal("plugin") }),
+]);
+export type AuthoredSavedViewRenderer = typeof AuthoredSavedViewRenderer.Type;
 
 export const SavedViewRenderer = Schema.Union([
 	strictStruct({ kind: Schema.Literal("custom"), rendererId: ClientRendererId }),
@@ -213,24 +151,14 @@ const ListedSavedViewBase = {
 
 export const ListedSavedView = strictStruct({
 	...ListedSavedViewBase,
-	layouts: Schema.optional(SavedViewLayouts),
-	renderer: Schema.optional(SavedViewRenderer),
-	entitySchemaSlug: Schema.NullOr(EntitySchemaSlug),
-	dataSources: Schema.optional(Schema.NullOr(RyotQLDocument)),
-	settings: Schema.optional(Schema.Record(Schema.String, JsonValue)),
+	renderer: SavedViewRenderer,
+	dataSources: Schema.NullOr(RyotQLDocument),
+	settings: Schema.Record(Schema.String, JsonValue),
 });
 
 export type ListedSavedView = typeof ListedSavedView.Type;
 
-export const LegacyCreateSavedViewBody = Schema.Struct({
-	icon: Schema.String,
-	name: Schema.String,
-	layouts: SavedViewLayouts,
-	pluginSlug: Schema.optional(PluginSlug),
-	entitySchemaSlug: Schema.NullOr(EntitySchemaSlug),
-});
-
-export const RendererCreateSavedViewBody = strictStruct({
+export const CreateSavedViewBody = strictStruct({
 	icon: Schema.String,
 	name: Schema.String,
 	renderer: SavedViewRenderer,
@@ -238,37 +166,18 @@ export const RendererCreateSavedViewBody = strictStruct({
 	workspacePluginSlug: Schema.optional(PluginSlug),
 	settings: Schema.Record(Schema.String, JsonValue),
 });
-
-export const CreateSavedViewBody = Schema.Union([
-	LegacyCreateSavedViewBody,
-	RendererCreateSavedViewBody,
-]);
 
 export type CreateSavedViewBody = typeof CreateSavedViewBody.Type;
 
-export const LegacyUpdateSavedViewBody = Schema.Struct({
+export const UpdateSavedViewBody = strictStruct({
 	icon: Schema.String,
 	name: Schema.String,
 	isDisabled: Schema.Boolean,
-	pluginSlug: Schema.optional(PluginSlug),
-	layouts: Schema.optional(SavedViewLayouts),
-	entitySchemaSlug: Schema.optional(Schema.NullOr(EntitySchemaSlug)),
+	renderer: Schema.optional(SavedViewRenderer),
+	dataSources: Schema.optional(Schema.NullOr(RyotQLDocument)),
+	workspacePluginSlug: Schema.optional(Schema.NullOr(PluginSlug)),
+	settings: Schema.optional(Schema.Record(Schema.String, JsonValue)),
 });
-
-export const RendererUpdateSavedViewBody = strictStruct({
-	icon: Schema.String,
-	name: Schema.String,
-	isDisabled: Schema.Boolean,
-	renderer: SavedViewRenderer,
-	dataSources: Schema.NullOr(RyotQLDocument),
-	workspacePluginSlug: Schema.optional(PluginSlug),
-	settings: Schema.Record(Schema.String, JsonValue),
-});
-
-export const UpdateSavedViewBody = Schema.Union([
-	LegacyUpdateSavedViewBody,
-	RendererUpdateSavedViewBody,
-]);
 
 export type UpdateSavedViewBody = typeof UpdateSavedViewBody.Type;
 
