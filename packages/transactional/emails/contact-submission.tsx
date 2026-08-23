@@ -2,10 +2,7 @@ import { Text } from "@react-email/components";
 
 import Layout from "../layout";
 
-type ContactSubmissionEmailProps = {
-	message: string;
-	ticketNumber: number;
-};
+type ContactSubmissionEmailProps = { message: string; ticketNumber: number };
 
 const subject = "Query regarding Ryot";
 

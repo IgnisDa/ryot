@@ -19,11 +19,7 @@ type TransactionDatabase = Parameters<Parameters<Database["Service"]["transactio
 
 const transactionDatabase: TransactionDatabase = Object.assign(Object.create(null), {
 	execute: () => Effect.succeed([]),
-	select: () => ({
-		from: () => ({
-			where: () => ({ limit: () => Effect.succeed([]) }),
-		}),
-	}),
+	select: () => ({ from: () => ({ where: () => ({ limit: () => Effect.succeed([]) }) }) }),
 });
 
 export const databaseLayer = Layer.succeed(
@@ -118,11 +114,7 @@ export const makeAppConfigLayer = (
 			infrequentCronJobsSchedule: "0 0 * * *",
 			frequentCronJobsSchedule: "every 5 minutes",
 		},
-		database: {
-			poolMax: 10,
-			connectionTimeoutMs: 10_000,
-			url: Redacted.make("unused"),
-		},
+		database: { poolMax: 10, connectionTimeoutMs: 10_000, url: Redacted.make("unused") },
 		fileStorage: {
 			url: Option.none(),
 			region: Option.none(),

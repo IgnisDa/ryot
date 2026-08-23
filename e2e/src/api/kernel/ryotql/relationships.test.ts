@@ -199,11 +199,7 @@ describe("RyotQL relationship rows and includes", () => {
 					}),
 				);
 				const multipliedPageTwo = requireRows(next.data["multiplied"], "multiplied");
-				expect(multipliedPageTwo.pageInfo).toEqual({
-					limit: 1,
-					hasMore: false,
-					nextCursor: null,
-				});
+				expect(multipliedPageTwo.pageInfo).toEqual({ limit: 1, hasMore: false, nextCursor: null });
 				const multipliedItems = [multipliedPageOne, multipliedPageTwo].flatMap(
 					(page) => page.items,
 				);

@@ -6,11 +6,7 @@ import { makeAppConfigLayer } from "#lib/test-utils/effect";
 
 import { NotificationDeliveryService, NotificationMailer } from "./delivery";
 
-type CapturedRequest = {
-	url: string;
-	body: string;
-	headers: Record<string, string>;
-};
+type CapturedRequest = { url: string; body: string; headers: Record<string, string> };
 
 it.effect("builds the v1 request shape for every HTTP notification provider", () => {
 	const captured: CapturedRequest[] = [];

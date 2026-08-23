@@ -207,9 +207,7 @@ export const UpdatePluginInstallationBody = strictStruct({
 
 export type UpdatePluginInstallationBody = typeof UpdatePluginInstallationBody.Type;
 
-export const PluginHomeViewSelection = strictStruct({
-	savedViewId: Schema.NullOr(SavedViewId),
-});
+export const PluginHomeViewSelection = strictStruct({ savedViewId: Schema.NullOr(SavedViewId) });
 
 export type PluginHomeViewSelection = typeof PluginHomeViewSelection.Type;
 

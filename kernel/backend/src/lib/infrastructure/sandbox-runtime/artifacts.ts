@@ -223,13 +223,7 @@ export class SandboxArtifactStore extends Context.Service<SandboxArtifactStore>(
 				);
 			});
 
-			return {
-				retain,
-				release,
-				resolveOutputs,
-				materializeInputs,
-				materializeOutputs,
-			};
+			return { retain, release, resolveOutputs, materializeInputs, materializeOutputs };
 		}),
 	},
 ) {

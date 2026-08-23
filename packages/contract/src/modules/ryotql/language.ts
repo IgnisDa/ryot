@@ -11,10 +11,9 @@ export const JsonValue = JsonValueSchema;
 export type JsonValue = JsonValueType;
 export type JsonPrimitive = JsonPrimitiveType;
 
-export const TableReference = strictStruct({
-	alias: Schema.String,
-	table: Schema.String,
-}).annotate({ identifier: "RyotQLTableReference" });
+export const TableReference = strictStruct({ alias: Schema.String, table: Schema.String }).annotate(
+	{ identifier: "RyotQLTableReference" },
+);
 export type TableReference = typeof TableReference.Type;
 
 export const ColumnExpression = strictStruct({
@@ -50,10 +49,7 @@ export type AggregationSpec =
 			readonly function: "average" | "maximum" | "minimum" | "sum";
 	  };
 
-export type ExistsExpression = {
-	readonly type: "exists";
-	readonly query: CorrelatedQuerySet;
-};
+export type ExistsExpression = { readonly type: "exists"; readonly query: CorrelatedQuerySet };
 
 export type ScalarExpression =
 	| ColumnExpression
@@ -67,10 +63,7 @@ export type ScalarExpression =
 			readonly type: "coalesce";
 			readonly values: readonly [ScalarExpression, ...ScalarExpression[]];
 	  }
-	| {
-			readonly type: "concat";
-			readonly values: readonly [ScalarExpression, ...ScalarExpression[]];
-	  }
+	| { readonly type: "concat"; readonly values: readonly [ScalarExpression, ...ScalarExpression[]] }
 	| {
 			readonly type: "cast";
 			readonly expr: ScalarExpression;
@@ -158,11 +151,7 @@ export const ScalarExpression: Schema.Codec<ScalarExpression, unknown> = Schema.
 			whenFalse: ScalarExpression,
 			type: Schema.Literal("conditional"),
 		}),
-		strictStruct({
-			target: CastTarget,
-			expr: ScalarExpression,
-			type: Schema.Literal("cast"),
-		}),
+		strictStruct({ target: CastTarget, expr: ScalarExpression, type: Schema.Literal("cast") }),
 		strictStruct({
 			name: TransformName,
 			expr: ScalarExpression,
@@ -199,10 +188,7 @@ export const ScalarExpression: Schema.Codec<ScalarExpression, unknown> = Schema.
 	]),
 ).annotate({ identifier: "RyotQLScalarExpression" });
 
-const IsNullPredicate = strictStruct({
-	expr: ScalarExpression,
-	type: Schema.Literal("isNull"),
-});
+const IsNullPredicate = strictStruct({ expr: ScalarExpression, type: Schema.Literal("isNull") });
 
 const IsNotNullPredicate = strictStruct({
 	expr: ScalarExpression,
@@ -360,10 +346,9 @@ const TimeSeriesMeasure = strictStruct({
 	]),
 }).annotate({ identifier: "RyotQLTimeSeriesMeasure" });
 
-const TimeSeriesRange = strictStruct({
-	endAt: Schema.String,
-	startAt: Schema.String,
-}).annotate({ identifier: "RyotQLTimeSeriesRange" });
+const TimeSeriesRange = strictStruct({ endAt: Schema.String, startAt: Schema.String }).annotate({
+	identifier: "RyotQLTimeSeriesRange",
+});
 
 const TimeSeriesTime = strictStruct({
 	expr: ScalarExpression,
@@ -391,10 +376,9 @@ export const RyotQLDocument = strictStruct({
 }).annotate({ identifier: "RyotQLDocument" });
 export type RyotQLDocument = typeof RyotQLDocument.Type;
 
-const IncludePageInfo = strictStruct({
-	limit: Schema.Int,
-	hasMore: Schema.Boolean,
-}).annotate({ identifier: "RyotQLIncludePageInfo" });
+const IncludePageInfo = strictStruct({ limit: Schema.Int, hasMore: Schema.Boolean }).annotate({
+	identifier: "RyotQLIncludePageInfo",
+});
 
 export type IncludeResult = {
 	readonly items: readonly RowItem[];
@@ -419,11 +403,7 @@ export const RowsPageInfo = strictStruct({
 }).annotate({ identifier: "RyotQLRowsPageInfo" });
 
 export const rowsResultSchema = <A, I>(item: Schema.Codec<A, I>) =>
-	strictStruct({
-		pageInfo: RowsPageInfo,
-		items: Schema.Array(item),
-		type: Schema.Literal("rows"),
-	});
+	strictStruct({ pageInfo: RowsPageInfo, items: Schema.Array(item), type: Schema.Literal("rows") });
 
 export const RowsResult = rowsResultSchema(Schema.Record(Schema.String, ResultValue)).annotate({
 	identifier: "RyotQLRowsResult",

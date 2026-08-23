@@ -54,9 +54,7 @@ export type TemporaryUploadToken = typeof TemporaryUploadToken.Type;
 export const CompleteUploadResponse = Schema.Union([ManagedAssetLocator, TemporaryUploadToken]);
 export type CompleteUploadResponse = typeof CompleteUploadResponse.Type;
 
-export const DownloadResolutionInput = Schema.Struct({
-	assets: ManagedAssetResolutionBatch,
-});
+export const DownloadResolutionInput = Schema.Struct({ assets: ManagedAssetResolutionBatch });
 export type DownloadResolutionInput = typeof DownloadResolutionInput.Type;
 
 export const DownloadResolutionResponse = Schema.Array(

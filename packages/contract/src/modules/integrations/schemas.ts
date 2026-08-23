@@ -50,9 +50,7 @@ export const IntegrationProviderSettings = Schema.Record(Schema.String, Schema.U
 
 export type IntegrationProviderSettings = typeof IntegrationProviderSettings.Type;
 
-const IntegrationExtraSettings = Schema.Struct({
-	disableOnContinuousErrors: Schema.Boolean,
-});
+const IntegrationExtraSettings = Schema.Struct({ disableOnContinuousErrors: Schema.Boolean });
 
 export type IntegrationExtraSettings = typeof IntegrationExtraSettings.Type;
 

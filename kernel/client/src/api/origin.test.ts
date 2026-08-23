@@ -16,10 +16,7 @@ describe("server origins", () => {
 	});
 
 	it("resolves cloud independently of the entered value", () => {
-		expect(resolveServerOrigin("cloud", "not a URL")).toEqual({
-			ok: true,
-			origin: CLOUD_ORIGIN,
-		});
+		expect(resolveServerOrigin("cloud", "not a URL")).toEqual({ ok: true, origin: CLOUD_ORIGIN });
 	});
 
 	it("normalizes a self-hosted origin and constructs its API URL", () => {

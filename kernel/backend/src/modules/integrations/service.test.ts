@@ -223,9 +223,7 @@ describe("client endpoints", () => {
 					databaseLayer,
 					mockProKey(false),
 					Layer.mock(ImportsService, {}),
-					Layer.mock(IntegrationsRepository, {
-						getForUser: () => Effect.succeed(integration),
-					}),
+					Layer.mock(IntegrationsRepository, { getForUser: () => Effect.succeed(integration) }),
 					Layer.mock(IntegrationProviderCatalog, {
 						findForUser: () => Effect.succeed(null),
 						resolveOwnedForUser: () => Effect.succeed(null),
@@ -243,10 +241,7 @@ describe("client endpoints", () => {
 				integration.id,
 			);
 
-			expect(listed.providerSpecifics).toEqual({
-				kind: "theta",
-				baseUrl: "https://theta.test",
-			});
+			expect(listed.providerSpecifics).toEqual({ kind: "theta", baseUrl: "https://theta.test" });
 		}).pipe(Effect.provide(layer));
 	});
 
@@ -333,19 +328,12 @@ describe("update", () => {
 			pluginSlug: "example",
 			provider: "mu",
 			pluginInstallationId: "example-installation-id",
-			providerSpecifics: {
-				token: "stored-token",
-				kind: "mu",
-				baseUrl: "https://old.example.com",
-			},
+			providerSpecifics: { token: "stored-token", kind: "mu", baseUrl: "https://old.example.com" },
 		});
 		const repository = Layer.mock(IntegrationsRepository)({
 			getForUser: () => Effect.succeed(state),
 			updateForUser: (input) => {
-				state = {
-					...state,
-					providerSpecifics: input.providerSpecifics ?? state.providerSpecifics,
-				};
+				state = { ...state, providerSpecifics: input.providerSpecifics ?? state.providerSpecifics };
 				return Effect.succeed(state);
 			},
 		});
@@ -371,10 +359,7 @@ describe("update", () => {
 		return Effect.gen(function* () {
 			const service = yield* IntegrationsService;
 			const updated = yield* service.update(state.userId, state.id, {
-				providerSpecifics: {
-					kind: "mu",
-					baseUrl: "https://new.example.com",
-				},
+				providerSpecifics: { kind: "mu", baseUrl: "https://new.example.com" },
 			});
 
 			expect(updated.providerSpecifics).toEqual({
@@ -564,9 +549,7 @@ describe("installation availability", () => {
 				Layer.mergeAll(
 					databaseLayer,
 					mockProKey(true),
-					Layer.mock(IntegrationsRepository)({
-						getByIdAnyUser: () => Effect.succeed(integration),
-					}),
+					Layer.mock(IntegrationsRepository)({ getByIdAnyUser: () => Effect.succeed(integration) }),
 					Layer.mock(IntegrationProviderCatalog)({
 						listForUser: () => Effect.succeed([]),
 						listResolvedForUser: () => Effect.succeed([]),

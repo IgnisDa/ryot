@@ -229,9 +229,7 @@ export function resolveEpisodeParentRecipe(input: {
 				parents: selectedRows(parent, {
 					limit: 2,
 					orderBy: [ascending(column(parent, "id"))],
-					selection: {
-						parentEntityId: selectedField(column(parent, "id"), Schema.String),
-					},
+					selection: { parentEntityId: selectedField(column(parent, "id"), Schema.String) },
 					joins: [
 						join(
 							"inner",
@@ -694,11 +692,7 @@ export const episodicLifecycleSnapshotRecipe = defineRecipe(
 				const replay = replayCurrentCycleCoverage(input.requiredEpisodeIds, input.childEvents);
 				const validReplay = parentResult.coverageStructureValid
 					? replay
-					: {
-							agreedConsumedOn: null,
-							coverageComplete: false,
-							coverageClosingEvent: null,
-						};
+					: { agreedConsumedOn: null, coverageComplete: false, coverageClosingEvent: null };
 				const boundaryCompleteEvent = eventOrderFromNullableFields({
 					id: parentResult.boundaryId,
 					createdAt: parentResult.boundaryCreatedAt,

@@ -273,15 +273,13 @@ it.live("automatically populates and translates entities rendered by a saved vie
 				),
 			),
 		);
-		yield* runtime.getByText(translatedName, { exact: true }).waitFor({
-			state: "visible",
-			timeout: IMPORT_TIMEOUT,
-		});
+		yield* runtime
+			.getByText(translatedName, { exact: true })
+			.waitFor({ state: "visible", timeout: IMPORT_TIMEOUT });
 		yield* runtime.getByRole("radio", { name: "Table view" }).click();
-		yield* runtime.getByText(translatedName, { exact: true }).waitFor({
-			state: "visible",
-			timeout: IMPORT_TIMEOUT,
-		});
+		yield* runtime
+			.getByText(translatedName, { exact: true })
+			.waitFor({ state: "visible", timeout: IMPORT_TIMEOUT });
 		yield* runtime.getByText("2,042", { exact: true }).waitFor({ state: "visible" });
 		expect((yield* getEntity(client, entity.id)).name).toBe(translatedName);
 	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
@@ -388,10 +386,9 @@ it.live("imports through the configured renderer provider search and refreshes m
 		yield* closedDialog(page);
 		expect(new URL(page.url()).searchParams.get("keep")).toBe("1");
 		expect(new URL(page.url()).searchParams.get("layout")).toBe("grid");
-		yield* runtime.getByText(IMPORTED_NAME, { exact: true }).waitFor({
-			state: "visible",
-			timeout: IMPORT_TIMEOUT,
-		});
+		yield* runtime
+			.getByText(IMPORTED_NAME, { exact: true })
+			.waitFor({ state: "visible", timeout: IMPORT_TIMEOUT });
 		expect(yield* runtime.getByText(IMPORTED_NAME, { exact: true }).count).toBe(1);
 	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );

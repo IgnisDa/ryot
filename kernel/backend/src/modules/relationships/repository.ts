@@ -54,11 +54,7 @@ export type GlobalRelationshipListInput = {
 	relationshipSchemaPluginId?: string | null | undefined;
 } & (
 	| { type: "self" }
-	| {
-			type: "anchored";
-			direction: "incoming" | "outgoing";
-			anchorEntityId: EntityId;
-	  }
+	| { type: "anchored"; direction: "incoming" | "outgoing"; anchorEntityId: EntityId }
 );
 
 const relationshipSnapshotSelection = {
@@ -129,9 +125,7 @@ const globalRelationshipConflictColumns = [
 	schema.relationship.relationshipSchemaPluginId,
 ];
 
-const globalRelationshipConflictDoNothingTarget = {
-	target: globalRelationshipConflictColumns,
-};
+const globalRelationshipConflictDoNothingTarget = { target: globalRelationshipConflictColumns };
 
 const userRelationshipConflictTarget = {
 	target: [

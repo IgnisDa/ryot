@@ -7,11 +7,7 @@ type BlogFrontmatter = {
 	properties: { labels: string[] };
 };
 
-export type BlogTableOfContentsItem = {
-	id: string;
-	depth: 2 | 3;
-	label: string;
-};
+export type BlogTableOfContentsItem = { id: string; depth: 2 | 3; label: string };
 
 type BlogPostModule = {
 	default: ComponentType;

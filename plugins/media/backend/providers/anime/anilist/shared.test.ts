@@ -156,13 +156,7 @@ describe("anime.anilist sandbox script", () => {
 		const requestBodies: string[] = [];
 		const searchResponse = () =>
 			httpSuccess({ data: { Page: { pageInfo: { total: 41 }, media: [] } } });
-		const collectBody = (
-			options:
-				| {
-						body?: string | undefined;
-				  }
-				| undefined,
-		) => {
+		const collectBody = (options: { body?: string | undefined } | undefined) => {
 			requestBodies.push(options?.body ?? "");
 			return searchResponse();
 		};

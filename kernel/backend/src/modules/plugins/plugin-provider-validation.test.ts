@@ -51,10 +51,7 @@ it.effect(
 		assert(provider);
 		const cases = [
 			{ ...manifest, providers: [] },
-			{
-				...manifest,
-				providers: [{ ...provider, operations: { details: "fixture.automation" } }],
-			},
+			{ ...manifest, providers: [{ ...provider, operations: { details: "fixture.automation" } }] },
 		];
 		return Effect.forEach(cases, (candidate) =>
 			Effect.gen(function* () {

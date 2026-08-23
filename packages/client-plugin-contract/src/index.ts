@@ -562,9 +562,7 @@ export const PluginManagedAssetResolution = strictStruct({
 
 export type PluginManagedAssetResolution = Schema.Schema.Type<typeof PluginManagedAssetResolution>;
 
-export const PluginAssetRequest = strictStruct({
-	assets: ManagedAssetResolutionBatch,
-});
+export const PluginAssetRequest = strictStruct({ assets: ManagedAssetResolutionBatch });
 
 export type PluginAssetRequest = Schema.Schema.Type<typeof PluginAssetRequest>;
 
@@ -726,10 +724,7 @@ export const PluginBridgeRyotQLCancel = strictStruct({
 
 export type PluginBridgeRyotQLCancel = Schema.Schema.Type<typeof PluginBridgeRyotQLCancel>;
 
-const pluginRyotQLSuccessFields = {
-	response: RyotQLResponse,
-	outcome: Schema.Literal("success"),
-};
+const pluginRyotQLSuccessFields = { response: RyotQLResponse, outcome: Schema.Literal("success") };
 
 const pluginRyotQLFailureFields = {
 	reason: PluginRyotQLFailureReason,

@@ -79,10 +79,7 @@ describe("EntityInterestTicketService", () => {
 		return Effect.gen(function* () {
 			const service = yield* EntityInterestTicketService;
 			const exit = yield* Effect.exit(
-				service.create({
-					preferredLanguage: null,
-					userId: UserId.make("user-1"),
-				}),
+				service.create({ preferredLanguage: null, userId: UserId.make("user-1") }),
 			);
 
 			expect(failure(exit)).toEqual(

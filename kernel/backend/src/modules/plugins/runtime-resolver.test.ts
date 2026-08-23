@@ -716,10 +716,7 @@ it.effect(
 			);
 			yield* Deferred.await(selected);
 			const replacement = normalizedPlugin();
-			loader.load({
-				...replacement,
-				manifest: { ...replacement.manifest, providers: [] },
-			});
+			loader.load({ ...replacement, manifest: { ...replacement.manifest, providers: [] } });
 			yield* Deferred.succeed(release, undefined);
 			expect(yield* Fiber.join(fiber)).toMatchObject({
 				id: "details-script-id",
@@ -754,12 +751,7 @@ const privatePluginRow = {
 			fields: { apiToken: { type: "string", label: "Token", description: "Token" } },
 		},
 		operations: [
-			{
-				auth: "user",
-				slug: "private.op",
-				description: "Private",
-				scriptSlug: "private.script",
-			},
+			{ auth: "user", slug: "private.op", description: "Private", scriptSlug: "private.script" },
 		],
 	},
 };
@@ -1518,9 +1510,7 @@ it.effect("lets a shipped definition win a private slug collision while the rest
 		expect(definitions.savedViews["retired"]).toMatchObject({ pluginId: "notes-a" });
 		installations[0] = noteInstallation("notes-a", "user-1", { health: "incompatible" });
 		const conflicted = yield* resolver.getEffectiveDefinitions(UserId.make("user-1"), true);
-		expect(conflicted.entitySchemas["note"]).toMatchObject({
-			pluginId: "shipped-notes-plugin-id",
-		});
+		expect(conflicted.entitySchemas["note"]).toMatchObject({ pluginId: "shipped-notes-plugin-id" });
 		expect(conflicted.entitySchemas["task"]).toBeUndefined();
 		expect(conflicted.savedViews["all-tasks"]).toBeUndefined();
 	}).pipe(Effect.provide(layer));

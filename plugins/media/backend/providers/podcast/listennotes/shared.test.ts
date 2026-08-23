@@ -133,9 +133,7 @@ describe("podcast.listennotes sandbox script", () => {
 					],
 				});
 			},
-			{
-				getCachedValue: () => Effect.succeed({ "67": "Comedy" }),
-			},
+			{ getCachedValue: () => Effect.succeed({ "67": "Comedy" }) },
 		);
 		return Effect.runPromise(
 			runSandboxTestScript(details, { externalId: "pod-1" }, host, execution).pipe(

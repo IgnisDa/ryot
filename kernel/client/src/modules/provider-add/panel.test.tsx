@@ -57,9 +57,7 @@ describe("provider search panel", () => {
 		await waitFor(() =>
 			expect(screen.getByRole("radiogroup", { name: "Search provider" })).toBeTruthy(),
 		);
-		const results = await axe(view.container, {
-			rules: { "color-contrast": { enabled: false } },
-		});
+		const results = await axe(view.container, { rules: { "color-contrast": { enabled: false } } });
 
 		expect(results.violations.map((violation) => violation.id)).toEqual([]);
 	});

@@ -51,12 +51,7 @@ const createOidcUser = (name: string) =>
 		const { userId } = yield* getApiClient().call(
 			(c) =>
 				c.godMode.provisionUser({
-					payload: {
-						name,
-						email,
-						provider: "oidc",
-						oidcIssuerId: `oidc-sub-${uniqueTimestamp()}`,
-					},
+					payload: { name, email, provider: "oidc", oidcIssuerId: `oidc-sub-${uniqueTimestamp()}` },
 				}),
 			adminHeaders(),
 		);
@@ -197,11 +192,7 @@ describe("User listing with correct admin token", () => {
 			yield* client.call(
 				(c) =>
 					c.testSupport.linkAuthAccount({
-						payload: {
-							userId,
-							providerId: "oidc",
-							accountId: `oidc-sub-${uniqueTimestamp()}`,
-						},
+						payload: { userId, providerId: "oidc", accountId: `oidc-sub-${uniqueTimestamp()}` },
 					}),
 				adminHeaders(),
 			);
@@ -362,10 +353,7 @@ describe("Reset link generation and completion for credential user", () => {
 
 			const newPassword = "new-password-456!";
 			const { error: resetError } = yield* Effect.promise(() =>
-				createTestAuthClient().resetPassword({
-					token,
-					newPassword,
-				}),
+				createTestAuthClient().resetPassword({ token, newPassword }),
 			);
 			expect(resetError).toBeNull();
 

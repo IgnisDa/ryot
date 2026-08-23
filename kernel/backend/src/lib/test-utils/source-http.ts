@@ -7,11 +7,7 @@ export type StubHttpResponse = {
 	headers?: Record<string, string>;
 };
 
-export type StubHttpRequest = {
-	url: URL;
-	path: string;
-	method: string;
-};
+export type StubHttpRequest = { url: URL; path: string; method: string };
 
 export type StubHttpHandler = (request: StubHttpRequest) => StubHttpResponse;
 

@@ -64,11 +64,7 @@ export const createMediaImportChunk = (
 					propertiesMode: "merge",
 					relationshipSchemaSlug: "in-library",
 					properties: group.ownershipProvider
-						? {
-								owned: true,
-								ownershipSyncedAt,
-								ownershipSources: [group.ownershipProvider],
-							}
+						? { owned: true, ownershipSyncedAt, ownershipSources: [group.ownershipProvider] }
 						: {},
 				},
 			],

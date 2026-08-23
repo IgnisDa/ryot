@@ -10,15 +10,9 @@ const AppriseSpecifics = Schema.Struct({
 	kind: Schema.Literal("apprise"),
 });
 
-const DiscordSpecifics = Schema.Struct({
-	webhookUrl: HttpUrl,
-	kind: Schema.Literal("discord"),
-});
+const DiscordSpecifics = Schema.Struct({ webhookUrl: HttpUrl, kind: Schema.Literal("discord") });
 
-const EmailSpecifics = Schema.Struct({
-	recipient: Email,
-	kind: Schema.Literal("email"),
-});
+const EmailSpecifics = Schema.Struct({ recipient: Email, kind: Schema.Literal("email") });
 
 const GotifySpecifics = Schema.Struct({
 	baseUrl: HttpUrl,

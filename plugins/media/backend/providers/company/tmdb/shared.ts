@@ -152,10 +152,7 @@ export const details = defineProvider({
 								direction: "outgoing" as const,
 								synchronization: "authoritative" as const,
 								relationshipSchemaSlug: "company-to-show",
-								entities: productionEntities(shows, {
-									nameKey: "name",
-									providerSlug: "show.tmdb",
-								}),
+								entities: productionEntities(shows, { nameKey: "name", providerSlug: "show.tmdb" }),
 							},
 						],
 						properties: {

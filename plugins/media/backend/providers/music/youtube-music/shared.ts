@@ -31,11 +31,7 @@ const nodeTitle = (value: unknown) => {
 	);
 };
 
-type SuggestionEntity = {
-	name: string;
-	externalId: string;
-	providerSlug: string;
-};
+type SuggestionEntity = { name: string; externalId: string; providerSlug: string };
 
 const collectSuggestions = (
 	contents: readonly unknown[],

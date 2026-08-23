@@ -87,9 +87,7 @@ describe("Workout Templates E2E", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const fitnessPlugin = yield* findBuiltinPluginBySlug(client, "fitness");
-			const schemas = yield* listEntitySchemas(client, {
-				pluginSlug: fitnessPlugin.slug,
-			});
+			const schemas = yield* listEntitySchemas(client, { pluginSlug: fitnessPlugin.slug });
 			const workoutTemplateSchema = schemas.find((schema) => schema.slug === "workout-template");
 
 			expect(workoutTemplateSchema).toBeDefined();
@@ -113,16 +111,8 @@ describe("Workout Templates E2E", () => {
 					label: "Comment",
 					description: "Optional notes about this workout template",
 				},
-				images: {
-					type: "array",
-					label: "Images",
-					description: "Images attached to this template",
-				},
-				videos: {
-					type: "array",
-					label: "Videos",
-					description: "Videos attached to this template",
-				},
+				images: { type: "array", label: "Images", description: "Images attached to this template" },
+				videos: { type: "array", label: "Videos", description: "Videos attached to this template" },
 				exercises: {
 					type: "array",
 					label: "Exercises",
@@ -215,9 +205,7 @@ describe("Workout Templates E2E", () => {
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
 				const fitnessPlugin = yield* findBuiltinPluginBySlug(client, "fitness");
-				const views = yield* listSavedViews(client, {
-					pluginSlug: fitnessPlugin.slug,
-				});
+				const views = yield* listSavedViews(client, { pluginSlug: fitnessPlugin.slug });
 				const allWorkoutTemplatesView = views.find((view) => view.name === "All Workout Templates");
 				assertPresent(
 					allWorkoutTemplatesView,

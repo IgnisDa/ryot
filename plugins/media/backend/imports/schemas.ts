@@ -39,19 +39,13 @@ export const ImportEntityRef = Schema.Union([ResolvedEntityRef, UnresolvedEntity
 export type ImportEntityRef = typeof ImportEntityRef.Type;
 
 export const UnresolvedEpisodeRef = Schema.Union([
-	Schema.Struct({
-		type: Schema.Literal("show-season"),
-		seasonNumber: Schema.Int,
-	}),
+	Schema.Struct({ type: Schema.Literal("show-season"), seasonNumber: Schema.Int }),
 	Schema.Struct({
 		type: Schema.Literal("show"),
 		seasonNumber: Schema.Int,
 		episodeNumber: Schema.Int,
 	}),
-	Schema.Struct({
-		type: Schema.Literal("podcast"),
-		episodeNumber: Schema.Int,
-	}),
+	Schema.Struct({ type: Schema.Literal("podcast"), episodeNumber: Schema.Int }),
 ]);
 
 export type UnresolvedEpisodeRef = typeof UnresolvedEpisodeRef.Type;
@@ -131,10 +125,7 @@ export const TraktImportTarget = Schema.Union([
 
 export type TraktImportTarget = typeof TraktImportTarget.Type;
 
-export const MediaImportParserInput = Schema.Struct({
-	start: Schema.Number,
-	limit: Schema.Number,
-});
+export const MediaImportParserInput = Schema.Struct({ start: Schema.Number, limit: Schema.Number });
 
 export const MediaImportDispatchParserInput = Schema.Struct({
 	...MediaImportParserInput.fields,

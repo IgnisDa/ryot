@@ -41,10 +41,7 @@ export type SandboxEntryDeclaration =
 			readonly kind: Exclude<SandboxManifest["kind"], "provider">;
 			readonly providerOperation?: never;
 	  }
-	| {
-			readonly kind: "provider";
-			readonly providerOperation: ProviderOperation;
-	  };
+	| { readonly kind: "provider"; readonly providerOperation: ProviderOperation };
 
 const relativeModulePath = (sourceFile: ts.SourceFile, specifier: string) => {
 	const segments = sourceFile.fileName.split("/").slice(0, -1);

@@ -13,10 +13,7 @@ import { AppSchema } from "../../schema/property-schema";
 import { strictStruct } from "../../schema/utils";
 import { RyotQLDocument } from "../ryotql/language";
 
-export const ClientRendererFile = strictStruct({
-	path: Schema.String,
-	content: CanonicalBase64,
-});
+export const ClientRendererFile = strictStruct({ path: Schema.String, content: CanonicalBase64 });
 
 export const ClientRendererDefinition = strictStruct({
 	entry: Schema.String,
