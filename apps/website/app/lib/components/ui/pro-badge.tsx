@@ -1,5 +1,6 @@
-import { cn } from "@ryot-app/ts-utils/cn";
 import { Crown } from "lucide-react";
+
+import { cn } from "~/lib/utils";
 
 import { Badge } from "./badge";
 
