@@ -1,11 +1,10 @@
-import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import { badRequest, notFound } from "@ryot/contract/errors";
 import type { EntityInterestEntityUpdatedMessage } from "@ryot/contract/modules/entity-interest/messages";
 import { Context, Effect, Layer } from "effect";
 
 import { MAX_ROOT_PAGE_SIZE } from "#modules/ryotql/validator";
 
-import { InterestReconciler } from "./reconciler";
+import { InterestReconciler, type InterestPrincipal } from "./reconciler";
 import { EntityInterestStore, type PendingInterest } from "./store";
 
 const chunk = <T>(items: readonly T[], size: number) => {
@@ -28,13 +27,13 @@ export class InterestService extends Context.Service<InterestService>()("Interes
 
 		const reconcile = Effect.fn("InterestService.reconcile")(function* (input: {
 			readonly sessionId: string;
-			readonly user: CurrentUserValue;
+			readonly principal: InterestPrincipal;
 			readonly pending: readonly PendingInterest[];
 		}) {
 			const terminal: ReconciledCompletion[] = [];
 			for (const pending of chunk(input.pending, MAX_ROOT_PAGE_SIZE)) {
 				const result = yield* reconciler.reconcile(
-					input.user,
+					input.principal,
 					pending.map(({ entityId }) => entityId),
 				);
 				const visibleIds = new Set<string>(result.reconciledEntityIds);

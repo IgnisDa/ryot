@@ -1,5 +1,4 @@
 import { expect, it } from "@effect/vitest";
-import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
 import type { RyotQLResponse } from "@ryot/contract/modules/ryotql/language";
 import type { EntityId } from "@ryot/contract/schema/brands";
 import { UserId } from "@ryot/contract/schema/brands";
@@ -11,13 +10,7 @@ import { RyotQLService } from "#modules/ryotql/service";
 
 import { InterestReconciler } from "./reconciler";
 
-const user = {
-	image: null,
-	name: "Test User",
-	email: "user@example.com",
-	id: UserId.make("user-1"),
-	preferences: { allowNsfw: false, language: "es", disableIntegrations: false },
-} satisfies CurrentUserValue;
+const principal = { preferredLanguage: "es", userId: UserId.make("user-1") };
 
 type InterestItem = {
 	readonly id: string;
@@ -57,13 +50,10 @@ it.effect("omits IDs filtered from the visible rows", () => {
 		Layer.provide(
 			Layer.mergeAll(
 				Layer.mock(RyotQLService)({
-					execute: () =>
+					executeForUser: () =>
 						Effect.succeed(
 							responseWithItems([
-								row("entity-1", {
-									populatedAt: null,
-									translationStatus: "none",
-								}),
+								row("entity-1", { populatedAt: null, translationStatus: "none" }),
 							]),
 						),
 				}),
@@ -80,7 +70,7 @@ it.effect("omits IDs filtered from the visible rows", () => {
 
 	return Effect.gen(function* () {
 		const reconciler = yield* InterestReconciler;
-		const result = yield* reconciler.reconcile(user, ["entity-1", "missing-entity"]);
+		const result = yield* reconciler.reconcile(principal, ["entity-1", "missing-entity"]);
 
 		expect(result).toEqual({ terminal: [], reconciledEntityIds: ["entity-1"] });
 		expect(populationRequests).toHaveLength(1);
@@ -93,13 +83,11 @@ it.effect("returns terminal rows and enqueues pending translations", () => {
 		Layer.provide(
 			Layer.mergeAll(
 				Layer.mock(RyotQLService)({
-					execute: () =>
+					executeForUser: () =>
 						Effect.succeed(
 							responseWithItems([
 								row("entity-1"),
-								row("entity-2", {
-									translationStatus: "pending",
-								}),
+								row("entity-2", { translationStatus: "pending" }),
 							]),
 						),
 				}),
@@ -116,7 +104,7 @@ it.effect("returns terminal rows and enqueues pending translations", () => {
 
 	return Effect.gen(function* () {
 		const reconciler = yield* InterestReconciler;
-		const result = yield* reconciler.reconcile(user, ["entity-1", "entity-2"]);
+		const result = yield* reconciler.reconcile(principal, ["entity-1", "entity-2"]);
 
 		expect(result.terminal).toEqual([{ entityId: "entity-1", reason: "translated" }]);
 		expect(translationEntityIds).toEqual(["entity-2"]);
