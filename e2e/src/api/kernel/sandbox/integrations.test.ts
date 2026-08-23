@@ -105,7 +105,8 @@ describe("sandbox integration reads", () => {
 					}),
 				),
 			);
-			assertTaggedError(stale, "PluginNotFoundError");
+			assertTaggedError(stale, "PluginConflictError");
+			expect(stale.reason.code).toBe("source-revision-stale");
 		}),
 	);
 });
