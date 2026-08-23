@@ -54,56 +54,6 @@ TypeScript sources, so utility classes written in either SDK reach every artifac
 Palette values are baked into artifacts. A palette change therefore requires current artifacts to be
 compiled; stale artifacts are not patched at runtime.
 
-### StyleX Tracer Authoring Contract
-
-The opt-in StyleX tracer requires every `stylex.create` declaration to use one of these checked
-forms. Plain object inference is not sufficient with StyleX 0.19.0: it accepts unknown property names
-and unconstrained string values. The archive compiler reports `RYOT_CLIENT_STYLEX_CONVENTION` when a
-form is missing, before it can produce an artifact. Import StyleX as a namespace and call
-`stylex.create` directly; aliases and named `create` imports are rejected so they cannot bypass the
-transform.
-
-```tsx
-const styles = stylex.create({
-	// Static styles and token values.
-	root: {
-		color: tracerTokens.foreground,
-		maxWidth: "calc(100% - 48px)",
-	} satisfies stylex.CSSProperties,
-
-	// Check each declaration leaf inside a pseudo or media wrapper.
-	hover: { ":hover": { color: tracerTokens.accent } satisfies stylex.CSSProperties },
-	reducedMotion: {
-		"@media (prefers-reduced-motion: reduce)": {
-			transitionDuration: "0ms",
-		} satisfies stylex.CSSProperties,
-	},
-
-	// Dynamic styles use an explicit return type.
-	progress: (width: string): stylex.CSSProperties => ({ width }),
-});
-```
-
-Components can restrict overrides with the upstream type. The declaration still uses the static
-checked form:
-
-```tsx
-type ButtonOverride = Pick<stylex.CSSProperties, "backgroundColor" | "color">;
-
-type ButtonProps = { readonly xstyle?: stylex.StyleXStyles<ButtonOverride> };
-
-const overrides = stylex.create({
-	button: { color: tracerTokens.foreground } satisfies stylex.CSSProperties,
-});
-```
-
-Ryot TypeScript diagnostics check property names, supported typed values, token members, and component
-override contracts. The upstream StyleX transform checks its compile-time expression and property
-rules. CSS values whose upstream type is intentionally `string`, including flexible custom-property
-and `calc(...)` expressions, remain accepted strings; these checks do not prove browser support or
-visual correctness. Archived configuration and author code are never executed for validation, and a
-failed StyleX build has no Tailwind fallback.
-
 ## Artifact Identity
 
 The compiler embeds format, client API version, bridge version, compiler version, and content hash;
@@ -115,11 +65,6 @@ Cached artifacts are reused only when format, client API, bridge, and compiler m
 current constants.
 Otherwise the source is compiled into a new immutable content-addressed artifact; there is no stale
 fallback.
-
-The tracer dependency fingerprint describes one compiler-process generation. If an approved trusted
-SDK source changes after startup, compilation fails with `RYOT_CLIENT_STYLEX_RESTART_REQUIRED` before
-bundling. Restart the compiler process and rebuild so the new source snapshot and fingerprint are
-captured together.
 
 The client artifact format, client API, compiler, and bridge protocol remain version 1. This is a
 greenfield coordinated boundary, so the compiler has no old bootstrap, format, or protocol path.

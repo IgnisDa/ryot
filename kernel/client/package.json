@@ -52,7 +52,6 @@
 		"@effect/vitest": "4.0.0-beta.107",
 		"@ryot-app/ryotql": "workspace:*",
 		"@ryot-app/testing": "workspace:*",
-		"@stylexjs/unplugin": "0.19.0",
 		"@tanstack/devtools-vite": "latest",
 		"@tanstack/router-cli": "^1.132.0",
 		"@tanstack/router-plugin": "latest",
