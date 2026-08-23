@@ -27,14 +27,16 @@ const session = {
 };
 
 function mount() {
-	const navigations: unknown[] = [];
-	const searches: unknown[] = [];
-	const operations: PluginOperationRequest[] = [];
 	const states: unknown[] = [];
-	const props = (location: PluginLogicalLocation, index: number) => ({
+	const searches: unknown[] = [];
+	const navigations: unknown[] = [];
+	const providerSearches: unknown[] = [];
+	const operations: PluginOperationRequest[] = [];
+	const props = (location: PluginLogicalLocation, index: number, pageRefreshToken = 0) => ({
 		theme,
 		location,
 		title: "Fixture",
+		pageRefreshToken,
 		chromeLeading: null,
 		sourceHash: "graph-hash",
 		installationId: "build-1",
@@ -53,6 +55,7 @@ function mount() {
 		onPageSearch: (request: unknown) => searches.push(request),
 		onNavigate: (request: unknown) => navigations.push(request),
 		watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
+		onProviderSearch: (request: unknown) => providerSearches.push(request),
 		onQuery: () => Promise.resolve({ outcome: "failure" as const, reason: "transport" as const }),
 		onAssets: () => Promise.resolve({ outcome: "failure" as const, reason: "transport" as const }),
 		onUpload: () => Promise.resolve({ outcome: "failure" as const, reason: "transport" as const }),
@@ -78,6 +81,8 @@ function mount() {
 		searches,
 		operations,
 		navigations,
+		providerSearches,
+		refresh: (token: number) => view.rerender(<PluginFrame {...props(home, 0, token)} />),
 		move: (location: PluginLogicalLocation, index: number) =>
 			view.rerender(<PluginFrame {...props(location, index)} />),
 	};
@@ -152,6 +157,11 @@ describe("PluginFrame", () => {
 			target: { kind: "plugin-route", pluginSlug: "media", path: "/shows", search: "q=x" },
 		});
 		bridge.port.postMessage({
+			entitySchemaSlug: "movie",
+			type: "provider-search-screen",
+			ownerPluginId: "media-installation",
+		});
+		bridge.port.postMessage({
 			mode: "replace",
 			type: "page-search",
 			update: { dialog: null, q: "dune" },
@@ -170,9 +180,36 @@ describe("PluginFrame", () => {
 		expect(host.searches).toEqual([
 			{ mode: "replace", update: { dialog: null, q: "dune" }, type: "page-search" },
 		]);
+		expect(host.providerSearches).toEqual([
+			{
+				entitySchemaSlug: "movie",
+				type: "provider-search-screen",
+				ownerPluginId: "media-installation",
+			},
+		]);
 		expect(host.operations).toEqual([
 			{ input: null, operationSlug: "greet", pluginSlug: PluginSlug.make("fixture") },
 		]);
 		expect(host.states).toContainEqual({ index: 0, key: "k0", hasPreviousScreen: true });
+	});
+
+	it("sends one page refresh when the host token changes", async () => {
+		const host = mount();
+		await flush();
+		const bridge = connect(screen.getByTitle("Fixture plugin"));
+		bridge.port.postMessage(bridge.ready);
+		await waitFor(() => expect(bridge.messages).toHaveLength(1));
+
+		host.refresh(1);
+
+		await waitFor(() => expect(bridge.messages).toContainEqual({ type: "page-refresh" }));
+		expect(
+			bridge.messages.filter(
+				(message) =>
+					typeof message === "object" &&
+					message !== null &&
+					Reflect.get(message, "type") === "page-refresh",
+			),
+		).toHaveLength(1);
 	});
 });

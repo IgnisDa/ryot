@@ -4,7 +4,7 @@ import { assert, describe, expect, it } from "vitest";
 import { ImportsGroup } from "../imports/contract";
 import { ListedImportSource } from "../imports/schemas";
 import { uploadContentTypeExtensions } from "../uploads/upload-policy";
-import { definePlugin, PluginManifest } from "./manifest";
+import { CLIENT_API_VERSION, definePlugin, PluginManifest } from "./manifest";
 
 const queryDocument = {
 	queries: {
@@ -299,7 +299,7 @@ describe("definePlugin", () => {
 	});
 
 	it("accepts a canonical client entry under client/", () => {
-		const client = { entry: "client/pages/index.tsx", apiVersion: 1 };
+		const client = { entry: "client/pages/index.tsx", apiVersion: CLIENT_API_VERSION };
 		const decoded = Schema.decodeUnknownSync(PluginManifest)({ ...manifest, client });
 
 		expect(decoded.client).toEqual(client);
@@ -307,7 +307,7 @@ describe("definePlugin", () => {
 
 	it("decodes declarative public client exports by kind", () => {
 		const client = {
-			apiVersion: 1 as const,
+			apiVersion: CLIENT_API_VERSION,
 			entry: "client/index.tsx",
 			notFoundPage: "dashboard",
 			pluginDependencies: ["media", "private-fixture"],
@@ -391,7 +391,7 @@ describe("definePlugin", () => {
 			expect(() =>
 				Schema.decodeUnknownSync(PluginManifest)({
 					...manifest,
-					client: { entry, apiVersion: 1 },
+					client: { entry, apiVersion: CLIENT_API_VERSION },
 				}),
 			).toThrow();
 		}
@@ -401,7 +401,7 @@ describe("definePlugin", () => {
 		expect(() =>
 			Schema.decodeUnknownSync(PluginManifest)({
 				...manifest,
-				client: { entry: "client/index.tsx", apiVersion: 1, capabilities: [] },
+				client: { entry: "client/index.tsx", apiVersion: CLIENT_API_VERSION, capabilities: [] },
 			}),
 		).toThrow();
 	});

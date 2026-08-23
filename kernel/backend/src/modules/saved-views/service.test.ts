@@ -79,6 +79,10 @@ const baseView = {
 const createBody = { layouts, icon: "record", name: "My View", entitySchemaSlug: null };
 const browserSettings = {
 	pageSize: 20,
+	addAction: null,
+	sortChoices: [],
+	searchFields: [],
+	tableColumns: null,
 	defaultLayout: "grid",
 	sourceName: "entities",
 	layouts: ["grid", "list"],
@@ -199,6 +203,46 @@ it.effect("creates an entity-browser view through the kernel renderer path", () 
 			name: "Entity Browser",
 			settings: browserSettings,
 			dataSources: browserDataSources,
+		});
+
+		expect(storedRenderer).toEqual(renderer);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("creates a results-table view through the kernel renderer path", () => {
+	let storedRenderer: ListedSavedView["renderer"];
+	const layer = makeServiceLayer(
+		makeRepository({
+			findBySlug: () => Effect.succeed(null),
+			create: (_userId, input) =>
+				Effect.sync(() => {
+					storedRenderer = input.renderer;
+					return {
+						...baseView,
+						layouts: undefined,
+						renderer: input.renderer,
+						settings: input.settings,
+						dataSources: input.dataSources,
+					};
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* SavedViewsService;
+		const renderer = { kind: "kernel", name: "results-table" } as const;
+		yield* service.create(user, {
+			renderer,
+			icon: "table",
+			name: "Results",
+			dataSources: browserDataSources,
+			settings: {
+				pageSize: 20,
+				sourceName: "entities",
+				rowKeyFields: ["entityId"],
+				entityLink: { entityIdField: "entityId" },
+				columns: [{ label: "Schema", field: "entitySchemaSlug", displayKind: "text" }],
+			},
 		});
 
 		expect(storedRenderer).toEqual(renderer);
