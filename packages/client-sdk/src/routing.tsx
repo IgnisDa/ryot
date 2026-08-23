@@ -70,6 +70,7 @@ export type PluginChromeValue = {
 	readonly compact: boolean;
 	readonly safeAreaTop: number;
 	readonly openDrawer: () => void;
+	readonly safeAreaBottom: number;
 	readonly leading: PluginLeadingIntent;
 	readonly entry: PluginNavigationEntry | undefined;
 	readonly publishTitle: (title: string | null) => void;
@@ -100,7 +101,14 @@ export const usePluginScreenSurface = () => {
 	return context;
 };
 
-export const useRyotSafeArea = () => usePluginChrome().safeAreaTop;
+export const useRyotViewport = () => {
+	const { compact, safeAreaBottom, safeAreaTop } = usePluginChrome();
+
+	return useMemo(
+		() => ({ compact, safeAreaTop, safeAreaBottom }),
+		[compact, safeAreaTop, safeAreaBottom],
+	);
+};
 
 export function usePluginTitle(title: string | null) {
 	const { entry, publishTitle } = usePluginChrome();
@@ -248,10 +256,11 @@ export const createPluginRouteResolver = (
 		);
 };
 
+const SCREEN_BOTTOM_PADDING = 32;
+
 const screenBase: CSSProperties = {
 	inset: 0,
 	overflowY: "auto",
-	paddingBottom: 32,
 	position: "absolute",
 	willChange: "transform",
 	background: "var(--bg)",
@@ -303,7 +312,7 @@ export const PluginRouter = ({ navigation }: PluginRouterProps) => {
 		engaged: false,
 	});
 	const [gesturePresentation, setGesturePresentation] = useState<Presentation>(idle);
-	const { compact, edgeBack, entry, leading, safeAreaTop, screens, transition } =
+	const { entry, compact, leading, screens, edgeBack, transition, safeAreaTop, safeAreaBottom } =
 		useSyncExternalStore(navigation.subscribe, navigation.getSnapshot);
 	const chrome = useMemo<PluginChromeValue>(
 		() => ({
@@ -311,11 +320,12 @@ export const PluginRouter = ({ navigation }: PluginRouterProps) => {
 			compact,
 			leading,
 			safeAreaTop,
+			safeAreaBottom,
 			back: navigation.back,
 			openDrawer: navigation.openDrawer,
 			publishTitle: navigation.publishTitle,
 		}),
-		[compact, entry, leading, navigation, safeAreaTop],
+		[compact, entry, leading, navigation, safeAreaBottom, safeAreaTop],
 	);
 	const popping = useMemo(
 		() =>
@@ -464,7 +474,7 @@ export const PluginRouter = ({ navigation }: PluginRouterProps) => {
 			<div ref={rootRef} style={rootStyle}>
 				{presented.map(({ role, screen }) => (
 					<Fragment key={screen.key}>
-						<Screen role={role} screen={screen} refs={screenRefs} />
+						<Screen role={role} screen={screen} refs={screenRefs} safeAreaBottom={safeAreaBottom} />
 						{role === scrimAfter && <div ref={scrimRef} aria-hidden="true" style={scrimStyle} />}
 					</Fragment>
 				))}
@@ -477,6 +487,7 @@ export const PluginRouter = ({ navigation }: PluginRouterProps) => {
 function Screen(props: {
 	readonly role: ScreenRole;
 	readonly screen: PluginScreen;
+	readonly safeAreaBottom: number;
 	readonly refs: RefObject<Map<string, HTMLDivElement>>;
 }) {
 	const active = props.role === "active";
@@ -492,7 +503,10 @@ function Screen(props: {
 			tabIndex={-1}
 			inert={!active}
 			aria-hidden={active ? undefined : true}
-			style={props.role === "hidden" ? hiddenScreenStyle : visibleScreenStyle}
+			style={{
+				...(props.role === "hidden" ? hiddenScreenStyle : visibleScreenStyle),
+				paddingBottom: Math.max(SCREEN_BOTTOM_PADDING, props.safeAreaBottom),
+			}}
 			ref={(element) => {
 				scrollRoot.current = element;
 				if (element === null) {

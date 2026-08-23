@@ -98,10 +98,12 @@ directly. Exiting hands focus back to the bar's search control, and since that c
 while the row is open, the close is flushed before the focus so the ref points at the button that
 came back rather than at the one that left.
 
-The safe-area inset reaches the plugin as a discrete `safeAreaTop` on init and a `viewport` message
-on change, measured in the kernel from a probe element. `env(safe-area-inset-top)` is zero inside an
-iframe, and `/e/:entityId` resolves to a plugin-owned renderer, so a hero that bleeds behind the
-status bar has to be drawn with a number the plugin was told.
+The safe-area insets reach the plugin as discrete `safeAreaTop` and `safeAreaBottom` values on init
+and a `viewport` message on change, measured in the kernel from one probe element. `env(safe-area-inset-*)`
+is zero inside an iframe, and `/e/:entityId` resolves to a plugin-owned renderer, so a hero that
+bleeds behind the status bar, and a page that has to clear the home indicator, have to be drawn with
+numbers the plugin was told. Kernel-owned surfaces keep spending the CSS `env()` directly, since only
+the iframe cannot resolve it.
 
 A screen names itself once, through the `title` it passes the frame. `AppScreen` turns that into the
 `<h1>` and the document title; `PluginScreenFrame` turns it into the `<h1>` and the published

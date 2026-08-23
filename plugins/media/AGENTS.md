@@ -8,4 +8,5 @@
 - Show recipes and RyotQL lifecycle expression builders live in `shared/`.
 - Import show recipes straight from `shared/show-recipes`; never re-export them through `host/query-recipes.ts`, which owns only the podcast, suggestion, trending, and saved-view recipes.
 - `client/` must not restate schemas that `shared/` owns.
-- Size the Show hero art band from `useRyotSafeArea() + SCREEN_BAR_HEIGHT`. The hook reports the device inset alone, while the frame draws content under its own sticky bar, so the bar height is the plugin's to add.
+- Fill the hero box the frame sizes: declare the art height below the bar and draw with `absolute inset-0`, never a safe-area inset or bar height of the plugin's own.
+- Take every layout decision in `client/` from the `compact` boolean `useRyotViewport()` reports, threaded down as a prop from the screen. Never write a `md:`, `sm:`, or `lg:` utility here: a media query inside the plugin document measures the iframe, not the viewport the kernel resolved `compact` from.
