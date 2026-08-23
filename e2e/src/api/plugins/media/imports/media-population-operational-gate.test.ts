@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 
-import { MediaImportPopulationWorkflowOutput } from "@ryot-app/media-plugin/workflows/schemas";
+import { MediaImportPopulationWorkflowOutput } from "@ryot-app/media-plugin/contracts/workflows";
 import { Clock, Effect, Schema } from "effect";
 
 import {

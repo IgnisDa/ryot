@@ -4,7 +4,7 @@ import {
 	mediaMonitoringDisableRecipe,
 	mediaMonitoringEnableRecipe,
 	mediaMonitoringStatusRecipe,
-} from "@ryot-app/media-plugin/operations/recipes";
+} from "@ryot-app/media-plugin/contracts/operation-recipes";
 import { invokeOperationRecipe } from "@ryot-app/plugin-kit/operations";
 import {
 	aggregate,

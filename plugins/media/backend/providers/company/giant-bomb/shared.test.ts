@@ -1,0 +1,107 @@
+import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
+import { describe, expect, it } from "vitest";
+
+import { details, manifest, search } from "./shared";
+
+type GiantBombHost = SandboxHost<typeof manifest.capabilities>;
+
+const httpSuccess = (body: unknown) =>
+	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
+
+const makeHost = (httpCall: GiantBombHost["httpCall"]) =>
+	defineSandboxTestHost(manifest, {
+		httpCall,
+		getPluginConfig: (keys) =>
+			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "api-key"]))),
+	});
+
+const execution = { metadata: {}, sandboxScriptId: "script_test" };
+
+describe("company.giant-bomb sandbox script", () => {
+	it("maps search hits without metadata", () => {
+		const host = makeHost(() =>
+			httpSuccess({
+				error: "OK",
+				number_of_total_results: 1,
+				results: [
+					{ guid: "4010-1", name: "Studio X", image: { original_url: "https://img/c.jpg" } },
+				],
+			}),
+		);
+
+		return runSandboxTestScript(
+			search,
+			{ query: "studio", page: 1, pageSize: 20 },
+			host,
+			execution,
+		).pipe(
+			Effect.map((result) => {
+				expect(result.items).toEqual([
+					{ title: "Studio X", externalId: "4010-1", imageUrl: "https://img/c.jpg" },
+				]);
+				expect(result.details).toEqual({ totalItems: 1, nextPage: null });
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
+	});
+
+	it("merges developer and publisher roles for the same game", () => {
+		const host = makeHost(() =>
+			httpSuccess({
+				error: "OK",
+				results: {
+					deck: "Maker.",
+					name: "Studio X",
+					location_state: null,
+					aliases: "StudioX\nSX",
+					location_city: "Kyoto",
+					location_country: "Japan",
+					date_founded: "1995-03-01",
+					description: "<p>desc</p>",
+					website: "https://studiox.com",
+					image: { original_url: "https://img/c.jpg" },
+					site_detail_url: "https://www.giantbomb.com/studiox/",
+					published_games: [{ guid: "3030-1", name: "Game One" }],
+					developed_games: [
+						{ guid: "3030-1", name: "Game One", api_detail_url: "https://x/api/game/3030-1/" },
+					],
+				},
+			}),
+		);
+
+		return runSandboxTestScript(details, { externalId: "4010-1" }, host, execution).pipe(
+			Effect.map((result) => {
+				expect(result.name).toBe("Studio X");
+				expect(result.relatedEntityGroups).toEqual([
+					{
+						direction: "outgoing",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "company-to-video-game",
+						entities: [
+							{
+								name: "Game One",
+								externalId: "3030-1",
+								providerSlug: "video-game.giant-bomb",
+								relationshipProperties: { roles: ["Developer", "Publisher"] },
+							},
+						],
+					},
+				]);
+				expect(result.properties).toEqual({
+					foundedYear: 1995,
+					headquarters: "Kyoto, Japan",
+					website: "https://studiox.com",
+					alternateNames: ["StudioX", "SX"],
+					description: "Maker.\n\n<p>desc</p>",
+					sourceUrl: "https://www.giantbomb.com/studiox/",
+					images: [{ type: "remote", url: "https://img/c.jpg", purpose: "logo" }],
+				});
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
+	});
+});

@@ -1,0 +1,121 @@
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
+
+import { asRecord, numberValue, stringValue } from "../../../lib/records";
+import { getImagesSortedBySize, spotifyGet } from "../../../lib/vendors/spotify";
+
+export const manifest = defineManifest({
+	kind: "provider",
+	name: "Spotify",
+	slug: "music-group.spotify",
+	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
+	requiredPluginConfigKeys: ["spotifyClientId", "spotifyClientSecret"],
+	requiredSystemConfigKeys: [],
+});
+
+export const search = defineProvider({
+	manifest,
+	operation: "search",
+	run: (input, host) => {
+		const offset = (input.page - 1) * input.pageSize;
+		return spotifyGet(host, "/search", {
+			type: "album",
+			q: input.query,
+			offset: String(offset),
+			limit: String(input.pageSize),
+		}).pipe(
+			Effect.map((dataValue) => {
+				const albums = asRecord(asRecord(dataValue)?.["albums"]);
+				const totalItems = numberValue(albums?.["total"]) ?? 0;
+				const albumItems = Array.isArray(albums?.["items"]) ? albums["items"] : [];
+				const items = albumItems.flatMap((album) => {
+					const record = asRecord(album);
+					const id = stringValue(record?.["id"]);
+					const name = stringValue(record?.["name"]);
+					if (!id || !name) {
+						return [];
+					}
+					const parts = numberValue(record?.["total_tracks"]);
+					const imageUrl = getImagesSortedBySize(record?.["images"])[0] ?? null;
+					return [
+						{
+							title: name,
+							externalId: id,
+							...(imageUrl === null ? {} : { imageUrl }),
+							...(parts === null ? {} : { metadata: [parts] as const }),
+						},
+					];
+				});
+				return {
+					items,
+					details: {
+						totalItems,
+						nextPage: offset + albumItems.length < totalItems ? input.page + 1 : null,
+					},
+				};
+			}),
+		);
+	},
+});
+
+export const details = defineProvider({
+	manifest,
+	operation: "details",
+	run: (input, host) =>
+		Effect.gen(function* () {
+			const albumValue = yield* spotifyGet(host, `/albums/${encodeURIComponent(input.externalId)}`);
+			const album = asRecord(albumValue);
+			const title = stringValue(album?.["name"]);
+			if (!title) {
+				return yield* Effect.fail(new Error("Spotify album is missing name"));
+			}
+
+			const parts = numberValue(album?.["total_tracks"]);
+			const description = stringValue(album?.["description"]);
+			const tracksRecord = asRecord(album?.["tracks"]);
+			const trackItems = Array.isArray(tracksRecord?.["items"]) ? tracksRecord["items"] : [];
+			const relatedEntities = trackItems.flatMap((item, index) => {
+				const record = asRecord(item);
+				const track = asRecord(record?.["track"]) ?? record;
+				const memberId = stringValue(track?.["id"]);
+				if (!memberId) {
+					return [];
+				}
+				const memberName = stringValue(track?.["name"]) ?? "Loading...";
+				return [
+					{
+						name: memberName,
+						externalId: memberId,
+						providerSlug: "music.spotify",
+						relationshipProperties: { order: index + 1 },
+					},
+				];
+			});
+
+			const spotifyUrl = asRecord(album?.["external_urls"])?.["spotify"];
+			const sourceUrl = typeof spotifyUrl === "string" ? spotifyUrl : null;
+
+			return {
+				name: title,
+				properties: {
+					parts,
+					sourceUrl,
+					description,
+					images: getImagesSortedBySize(album?.["images"]).map((url) => ({
+						url,
+						type: "remote" as const,
+						purpose: "cover" as const,
+					})),
+				},
+				relatedEntityGroups: [
+					{
+						direction: "outgoing" as const,
+						entities: relatedEntities,
+						synchronization: "authoritative" as const,
+						relationshipSchemaSlug: "music-group-to-music",
+					},
+				],
+			};
+		}),
+});
