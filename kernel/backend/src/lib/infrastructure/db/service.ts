@@ -3,7 +3,7 @@ import { DbError, unknownToDbError } from "@ryot-app/contract/errors";
 import { sql } from "drizzle-orm";
 import { EffectDrizzleQueryError } from "drizzle-orm/effect-core";
 import * as PgDrizzle from "drizzle-orm/effect-postgres";
-import { Context, Duration, Effect, Layer } from "effect";
+import { Cause, Context, Duration, Effect, Layer } from "effect";
 import { SqlError } from "effect/unstable/sql/SqlError";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
@@ -26,6 +26,9 @@ export class Database extends Context.Service<Database, PgDrizzle.EffectPgDataba
 export const DatabaseLive = Database.layer.pipe(Layer.provideMerge(PgClientLive));
 
 const unwrapDatabaseFailure = (failure: unknown): unknown => {
+	if (Cause.isCause(failure)) {
+		return unwrapDatabaseFailure(Cause.squash(failure));
+	}
 	if (failure instanceof EffectDrizzleQueryError) {
 		return unwrapDatabaseFailure(failure.cause);
 	}
