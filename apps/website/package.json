@@ -7,7 +7,7 @@
 		"build": "bun --bun react-router build",
 		"dev": "bun --bun react-router dev --port 5200 --host",
 		"typecheck": "react-router typegen && safe-routes typegen && tsc",
-		"check": "bun run typecheck && oxfmt . --write && oxlint . --type-aware --fix"
+		"check": "bun run typecheck && oxfmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
 		"@conform-to/zod": "1.19.3",

@@ -78,7 +78,7 @@
 	},
 	"scripts": {
 		"test": "bun --bun run vitest run",
-		"check": "tsc && tsc --project tests/tsconfig.json && oxfmt . --write && oxlint . --type-aware --fix"
+		"check": "tsc && tsc --project tests/tsconfig.json && oxfmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
 		"@nodable/entities": "2.1.1",
