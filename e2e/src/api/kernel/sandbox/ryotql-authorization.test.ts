@@ -179,7 +179,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 										ids: [...new Set(globalEntityIds)].map((id) => EntityId.make(id)),
 									},
 								}),
-							adminHeaders,
+							adminHeaders(),
 						)
 						.pipe(Effect.ignore);
 				}
@@ -588,7 +588,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 								entitySchemaSlug: EntitySchemaSlug.make(input.entitySchemaSlug),
 							},
 						}),
-					adminHeaders,
+					adminHeaders(),
 				);
 
 			const globalRoot = yield* createGlobalEntity({
@@ -680,7 +680,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 							c.testSupport.triggerPluginCron({
 								payload: { cronSlug: probe.cronSlug, pluginSlug: PluginSlug.make(pluginSlug) },
 							}),
-						adminHeaders,
+						adminHeaders(),
 					);
 					if (trigger.status !== "executed") {
 						throw new Error(

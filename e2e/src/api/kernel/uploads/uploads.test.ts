@@ -5,9 +5,9 @@ import { Effect } from "effect";
 import getPort from "get-port";
 
 import { createAuthenticatedClient } from "~/fixtures/kernel";
-import { getApiUrl } from "~/support/api";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
+import { getApiUrl } from "~/support/harness-target";
 import {
 	buildApiEnv,
 	spawnApiProcess,

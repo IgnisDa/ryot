@@ -9,9 +9,9 @@ import {
 	createPluginSchemaAndEntity,
 	waitForEventCount,
 } from "~/fixtures/kernel";
-import { getApiUrl } from "~/support/api";
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
+import { getApiUrl } from "~/support/harness-target";
 
 describe("Entity write path — propertiesSchema validation", () => {
 	it.live("rejects entity creation when a required field is missing", () =>

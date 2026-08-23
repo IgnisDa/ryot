@@ -2,7 +2,6 @@ import { ascending, column, document, eq, field, literal, rows, table } from "@r
 import { Effect } from "effect";
 
 import {
-	ADMIN_TOKEN,
 	adminAccessTokenHeaders,
 	adminHeaders,
 	bootSandboxSource,
@@ -128,7 +127,7 @@ describe("POST /test-support/plugin-boot (custom plugin boot dispatch)", () => {
 								files: encodeTestSupportPluginFiles(installed.files),
 							},
 						}),
-					adminHeaders,
+					adminHeaders(),
 				);
 				bootPlugin = installed;
 			}),
@@ -176,7 +175,7 @@ describe("POST /test-support/plugin-boot (custom plugin boot dispatch)", () => {
 								pluginSlug: requirePresent(bootPlugin, "Boot plugin is not installed").pluginSlug,
 							},
 						}),
-					adminAccessTokenHeaders(ADMIN_TOKEN),
+					adminHeaders(),
 				);
 				expect(typeof executionId).toBe("string");
 				expect(executionId.length).toBeGreaterThan(0);

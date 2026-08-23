@@ -8,7 +8,7 @@ import {
 } from "@ryot-app/contract/modules/entity-interest/messages";
 import { Effect, Result } from "effect";
 
-import { getApiUrl } from "~/support/api";
+import { getApiUrl } from "~/support/harness-target";
 
 import type { ContractSession } from "./contract-client";
 
