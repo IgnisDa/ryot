@@ -1,3 +1,4 @@
+import { createRyotClient } from "@ryot/client-sdk";
 import type { ContractClient, ContractPayload } from "@ryot/contract/client";
 import {
 	REQUIRED_THEME_TOKEN_NAMES,
@@ -92,6 +93,38 @@ describe("plugin catalog service", () => {
 			expect(calls[1]?.payload.queries.installations).toMatchObject({
 				output: { pagination: { after: "next-page", limit: 100 } },
 			});
+		} finally {
+			await runtime.dispose();
+		}
+	});
+
+	it("forwards the Effect cancellation signal to the Ryot client", async () => {
+		const signals: Array<AbortSignal | undefined> = [];
+		const response = {
+			data: {
+				installations: {
+					items: [entry],
+					type: "rows" as const,
+					pageInfo: { hasMore: false, limit: 100, nextCursor: null },
+				},
+			},
+		};
+		const ryot = createRyotClient({
+			theme,
+			query: (_document, signal) => {
+				signals.push(signal);
+				return Promise.resolve(response);
+			},
+		});
+		const runtime = ManagedRuntime.make(PluginCatalogService.layer);
+
+		try {
+			await runtime.runPromise(
+				Effect.flatMap(PluginCatalogService, (service) => service.load(ryot)),
+			);
+
+			expect(signals).toHaveLength(1);
+			expect(signals[0]).toBeInstanceOf(AbortSignal);
 		} finally {
 			await runtime.dispose();
 		}
