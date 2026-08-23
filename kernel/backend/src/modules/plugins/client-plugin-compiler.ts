@@ -1,4 +1,5 @@
 import { BunServices } from "@effect/platform-bun";
+import type { ClientPluginCompilerInput } from "@ryot/client-plugin-compiler";
 import {
 	ClientPluginCompilerFailure,
 	clientPluginCompilationFailure,
@@ -6,10 +7,10 @@ import {
 } from "@ryot/client-plugin-compiler/diagnostics";
 import { CLIENT_PLUGIN_COMPILER_LIMITS } from "@ryot/client-plugin-compiler/limits";
 import {
-	ClientCompilerWorkerResponse,
-	type ClientPluginCompilerRequest,
+	decodeClientCompilerWorkerResponse,
+	encodeClientCompilerWorkerRequest,
 } from "@ryot/client-plugin-compiler/protocol";
-import { Context, Effect, Layer, Match, Path, Schema, Semaphore } from "effect";
+import { Context, Effect, Layer, Match, Path, Semaphore } from "effect";
 
 import {
 	type CompilerWorkerFailure,
@@ -50,12 +51,20 @@ const workerFailure = Match.type<CompilerWorkerFailure>().pipe(
 			"Client plugin compiler process could not be started or read",
 		),
 	),
+	Match.tag("OutputExceeded", () =>
+		processFailure(
+			"RYOT_CLIENT_COMPILER_PROCESS",
+			"Client plugin compiler process returned an oversized result",
+		),
+	),
 	Match.exhaustive,
 );
 
-const decodeClientCompilerWorkerResponse = Schema.decodeUnknownEffect(
-	Schema.fromJsonString(ClientCompilerWorkerResponse),
-);
+const CLIENT_COMPILER_STDOUT_BYTES =
+	Math.ceil(CLIENT_PLUGIN_COMPILER_LIMITS.artifactBytes / 3) * 4 +
+	CLIENT_PLUGIN_COMPILER_LIMITS.diagnosticCount *
+		CLIENT_PLUGIN_COMPILER_LIMITS.diagnosticMessageCharacters +
+	64 * 1024;
 
 export class ClientPluginCompiler extends Context.Service<ClientPluginCompiler>()(
 	"ClientPluginCompiler",
@@ -74,13 +83,14 @@ export class ClientPluginCompiler extends Context.Service<ClientPluginCompiler>(
 				semaphore,
 				path: workerPath,
 				failure: workerFailure,
+				stdoutBytes: CLIENT_COMPILER_STDOUT_BYTES,
 				timeoutMs: CLIENT_PLUGIN_COMPILER_LIMITS.timeoutMs,
 				memoryBytes: CLIENT_PLUGIN_COMPILER_LIMITS.memoryBytes,
 				memoryPollIntervalMs: CLIENT_PLUGIN_COMPILER_LIMITS.memoryPollIntervalMs,
 			});
 
-			const compile = (request: ClientPluginCompilerRequest) =>
-				runWorker(JSON.stringify(request)).pipe(
+			const compile = (request: ClientPluginCompilerInput) =>
+				runWorker(encodeClientCompilerWorkerRequest(request)).pipe(
 					Effect.flatMap((output) =>
 						decodeClientCompilerWorkerResponse(output).pipe(
 							Effect.mapError(() =>

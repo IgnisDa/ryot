@@ -4,3 +4,10 @@
 	width: 3rem;
 	height: 3rem;
 }
+
+.css-logo {
+	width: 3rem;
+	height: 3rem;
+	background-image: url("./css-logo.png");
+	background-size: cover;
+}

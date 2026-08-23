@@ -8,6 +8,7 @@ import {
 	bootSandboxSource,
 	type Client,
 	createAuthenticatedClient,
+	encodeTestSupportPluginFiles,
 	executeRyotQL,
 	fakeProviderDetailsResult,
 	findBuiltinSchemaBySlug,
@@ -122,7 +123,10 @@ describe("POST /test-support/plugin-boot (custom plugin boot dispatch)", () => {
 				yield* getApiClient().call(
 					(c) =>
 						c.testSupport.installSystemPlugin({
-							payload: { files: installed.files, manifest: installed.manifest },
+							payload: {
+								manifest: installed.manifest,
+								files: encodeTestSupportPluginFiles(installed.files),
+							},
 						}),
 					adminHeaders,
 				);

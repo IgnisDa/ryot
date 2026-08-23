@@ -1,4 +1,10 @@
 import { expect, it } from "@effect/vitest";
+import {
+	CLIENT_API_VERSION,
+	CLIENT_ARTIFACT_FORMAT,
+	CLIENT_BRIDGE_PROTOCOL_VERSION,
+	CLIENT_COMPILER_VERSION,
+} from "@ryot/contract/modules/plugins/client";
 import { SandboxProviderId } from "@ryot/contract/schema/brands";
 import { sql, type SQLWrapper } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
@@ -8,11 +14,50 @@ import { assert } from "vitest";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database } from "#lib/infrastructure/db/service";
 
-import { PluginRepository } from "./repository";
+import { clientArtifactMatches, PluginRepository } from "./repository";
 import { fixtureManifest } from "./test-support";
 import type { NormalizedPlugin } from "./types";
 
 const systemIdentity = { slug: "fixture", ownerId: null, scope: "system" } as const;
+
+it("matches immutable client artifacts by exact bytes", () => {
+	const metadata = {
+		hash: "artifact-hash",
+		format: CLIENT_ARTIFACT_FORMAT,
+		apiVersion: CLIENT_API_VERSION,
+		bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
+		compilerVersion: CLIENT_COMPILER_VERSION,
+	};
+	const artifact = {
+		...metadata,
+		files: [
+			{
+				name: "asset.bin",
+				contentType: "application/octet-stream",
+				contents: new Uint8Array([0, 255, 1]),
+			},
+		],
+	};
+	const stored = [
+		{
+			name: "asset.bin",
+			artifactHash: metadata.hash,
+			contentType: "application/octet-stream",
+			contents: Buffer.from([0, 255, 1]),
+		},
+	];
+	const [artifactFile] = artifact.files;
+	assert(artifactFile);
+
+	expect(clientArtifactMatches(artifact, metadata, stored)).toBe(true);
+	expect(
+		clientArtifactMatches(
+			{ ...artifact, files: [{ ...artifactFile, contents: new Uint8Array([0, 254, 1]) }] },
+			metadata,
+			stored,
+		),
+	).toBe(false);
+});
 
 const makeLayer = (input: {
 	statuses?: Array<string>;
@@ -257,7 +302,7 @@ it.effect(
 			providerSlug: "fixture-provider",
 		};
 		const plugin: NormalizedPlugin = {
-			sourceFiles: {},
+			files: {},
 			clientArtifact: null,
 			sourceHash: "source-hash",
 			manifest: {
@@ -398,7 +443,7 @@ it.effect("persists provider operation bindings and search options separately", 
 		providerOperation: "search-options" as const,
 	};
 	const normalized: NormalizedPlugin = {
-		sourceFiles: {},
+		files: {},
 		clientArtifact: null,
 		sourceHash: "source-hash",
 		manifest: {
@@ -570,5 +615,75 @@ it.effect("lists persisted source-zero and pinned-plugin script hashes as live",
 		expect(liveness?.sql).toContain('"sandbox_script"."plugin_id" is null');
 		expect(liveness?.sql).toContain('"plugin"."status" =');
 		expect(liveness?.sql).toContain('"sandbox_workflow_reference"');
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("persists and explicitly reloads exact plugin source bytes", () => {
+	const sourceRows: Array<{ pluginId: string; path: string; contents: Buffer }> = [];
+	const db = {
+		delete: () => ({ where: () => Effect.void }),
+		select: () => ({
+			from: (table: unknown) => ({
+				where: () => {
+					if (table === schema.pluginSourceFile) {
+						return {
+							orderBy: () =>
+								Effect.succeed(sourceRows.map(({ path, contents }) => ({ path, contents }))),
+						};
+					}
+					return Effect.succeed([]);
+				},
+			}),
+		}),
+		insert: (table: unknown) => ({
+			values: (values: unknown) => {
+				if (table === schema.pluginSourceFile) {
+					assert(Array.isArray(values));
+					for (const value of values) {
+						assert(typeof value === "object" && value !== null);
+						assert("path" in value && typeof value.path === "string");
+						assert("pluginId" in value && typeof value.pluginId === "string");
+						assert("contents" in value && Buffer.isBuffer(value.contents));
+						sourceRows.push({
+							path: value.path,
+							pluginId: value.pluginId,
+							contents: value.contents,
+						});
+					}
+					return Effect.void;
+				}
+				return {
+					onConflictDoUpdate: () => ({
+						returning: () => Effect.succeed([{ id: "fixture-plugin-id" }]),
+					}),
+				};
+			},
+		}),
+	};
+	const manifest = { ...fixtureManifest(), providers: [], scripts: [] };
+	const plugin: NormalizedPlugin = {
+		manifest,
+		scripts: [],
+		clientArtifact: null,
+		sourceHash: "source-hash",
+		files: { "client/pixel.png": new Uint8Array([0, 255, 1]) },
+	};
+	const layer = PluginRepository.layer.pipe(
+		Layer.provideMerge(Layer.succeed(Database, Object.assign(Object.create(null), db))),
+	);
+
+	return Effect.gen(function* () {
+		const repository = yield* PluginRepository;
+		yield* repository.persist(plugin, systemIdentity);
+		const files = yield* repository.listSourceFiles("fixture-plugin-id");
+
+		expect(files["client/pixel.png"]).toEqual(new Uint8Array([0, 255, 1]));
+		expect(sourceRows).toEqual([
+			{
+				path: "client/pixel.png",
+				pluginId: "fixture-plugin-id",
+				contents: Buffer.from([0, 255, 1]),
+			},
+		]);
 	}).pipe(Effect.provide(layer));
 });

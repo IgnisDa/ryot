@@ -52,7 +52,6 @@ const normalizedPlugin = (
 	return {
 		manifest,
 		ownerId: null,
-		sourceFiles: {},
 		slug: pluginSlug,
 		id: `${pluginSlug}-id`,
 		scope: "system" as const,
