@@ -69,6 +69,24 @@
       "stopReason": null,
       "completedAtUtc": "2026-09-22T07:20:38.685Z",
       "outcome": "completed"
+    },
+    {
+      "command": "live",
+      "invocationId": "live-0b92ea2c",
+      "startedAtUtc": "2026-09-22T07:24:15.848Z",
+      "scenarioIds": [],
+      "stopReason": "ScenarioPreparationError: effective worker concurrency 2 does not match scenario 1\n    at <anonymous> (/Users/diptesh/Desktop/Personal/ryot/e2e/src/scripts/sandbox-resource-baseline/scenario-runner.ts:236:22)",
+      "completedAtUtc": "2026-09-22T07:24:43.525Z",
+      "outcome": "failed"
+    },
+    {
+      "command": "live",
+      "invocationId": "live-c86adfb1",
+      "startedAtUtc": "2026-09-22T07:28:08.512Z",
+      "scenarioIds": [],
+      "stopReason": null,
+      "completedAtUtc": null,
+      "outcome": "running"
     }
   ],
   "constituentRunIds": [
