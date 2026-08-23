@@ -159,6 +159,10 @@ export const makeRemote = (serverIp: string) => {
 			Effect.map((output) => output.trim() === "yes"),
 		);
 
+	const removeSampleFiles = run(
+		`rm -f ${REMOTE_FILES.hostSamples} ${REMOTE_FILES.appSamples} ${REMOTE_FILES.watchdogTriggers} ${tools}/watchdog-drill.jsonl && rm -rf ${REMOTE_FILES.profiles}`,
+	);
+
 	return {
 		run,
 		metadata,
@@ -182,9 +186,17 @@ export const makeRemote = (serverIp: string) => {
 			REMOTE_FILES.appPid,
 			`app-sample --project ${project} --output ${REMOTE_FILES.appSamples} --token-file ${REMOTE_FILES.tokenFile}`,
 		),
-		removeSampleFiles: run(
-			`rm -f ${REMOTE_FILES.hostSamples} ${REMOTE_FILES.appSamples} ${REMOTE_FILES.watchdogTriggers} ${tools}/watchdog-drill.jsonl && rm -rf ${REMOTE_FILES.profiles}`,
-		),
+		/**
+		 * The collector reads the admin token from a file so it never appears in the host's process
+		 * list, and it is passed over stdin here for the same reason. Nothing else creates this file:
+		 * before this existed, `startAppCollector` spawned a collector that exited immediately and
+		 * preflight only noticed ten minutes later, when it read samples that were never written.
+		 */
+		writeTokenFile: (token: string) =>
+			run(`umask 077 && cat > ${REMOTE_FILES.tokenFile} && chmod 600 ${REMOTE_FILES.tokenFile}`, {
+				stdin: new TextEncoder().encode(token),
+			}),
+		removeSampleFiles,
 		watchdogTriggers: run(`cat ${REMOTE_FILES.watchdogTriggers} 2>/dev/null || true`).pipe(
 			Effect.map((output) =>
 				decodeHostLines(output).lines.filter(
@@ -240,17 +252,35 @@ export const makeRemote = (serverIp: string) => {
 				),
 			};
 		},
-		teardown: Effect.gen(function* () {
-			yield* stopDetached(REMOTE_FILES.watchdogPid);
-			yield* stopDetached(REMOTE_FILES.appPid);
-			yield* stopDetached(REMOTE_FILES.hostPid);
-			yield* run(`rm -f ${REMOTE_FILES.tokenFile}`);
-			const remaining = yield* run(`ls -A ${tools} 2>/dev/null | tr '\n' ' '`);
-			const processes = yield* run(
-				`pgrep -f ryot-benchmark-host >/dev/null 2>&1 && echo running || echo none`,
-			);
-			return { remaining: remaining.trim(), processes: processes.trim() };
-		}),
+		/**
+		 * Takes `removeSampleFiles` rather than leaving the caller to remove the samples afterwards,
+		 * because the listing has to describe the state the run is actually left in. Removing them
+		 * after this returned is how the teardown of run `2026-09-19T09-33-37Z` came to record a
+		 * directory listing of files it had already deleted.
+		 */
+		teardown: (options: { readonly removeSampleFiles: boolean }) =>
+			Effect.gen(function* () {
+				yield* stopDetached(REMOTE_FILES.watchdogPid);
+				yield* stopDetached(REMOTE_FILES.appPid);
+				yield* stopDetached(REMOTE_FILES.hostPid);
+				yield* run(`rm -f ${REMOTE_FILES.tokenFile}`);
+				if (options.removeSampleFiles) yield* removeSampleFiles;
+				const remaining = yield* run(`ls -A ${tools} 2>/dev/null | tr '\n' ' '`);
+				/**
+				 * The first character is bracketed so the pattern cannot match the `bash -c` wrapper
+				 * this very command runs inside. Without it the probe reports `running` whether or not
+				 * a sampler exists, and `pgrep -x` is no substitute because the kernel truncates the
+				 * process name to fifteen characters.
+				 */
+				const processes = yield* run(
+					`pgrep -f ${tools}/'[r]'yot-benchmark-host >/dev/null 2>&1 && echo running || echo none`,
+				);
+				return {
+					processes: processes.trim(),
+					remaining: remaining.trim(),
+					removedSampleFiles: options.removeSampleFiles,
+				};
+			}),
 		/**
 		 * File-exporter sizes for the benchmark collector; a shrinking file means rotation loss. The
 		 * collector image is distroless, so the sizes are read from the host side of its output mount.
