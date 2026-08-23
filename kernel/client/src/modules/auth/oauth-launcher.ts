@@ -18,6 +18,7 @@ import { PublicApi } from "#/api/public";
 import { authDestination } from "#/modules/auth/flow";
 import { OAuthStorage } from "#/modules/auth/oauth-storage";
 import { deriveCodeChallenge, generateOAuthRandomValue } from "#/modules/auth/pkce";
+import { AuthService } from "#/modules/auth/service";
 import { isNativePlatform } from "#/modules/navigation/native-navigation";
 import { ServerService } from "#/modules/server/service";
 
@@ -76,6 +77,7 @@ export const buildAuthorizationUrl = (
 export class OAuthLauncher extends Context.Service<OAuthLauncher>()("OAuthLauncher", {
 	make: Effect.gen(function* () {
 		const api = yield* PublicApi;
+		const auth = yield* AuthService;
 		const storage = yield* OAuthStorage;
 		const serverService = yield* ServerService;
 		const prepare = Effect.fn("OAuthLauncher.prepare")(function* (redirectIntent: unknown) {
@@ -85,8 +87,8 @@ export class OAuthLauncher extends Context.Service<OAuthLauncher>()("OAuthLaunch
 				return { _tag: "MissingServer" } as const;
 			}
 			const serverOrigin = normalizeServerOrigin(selected);
-			const tokenSet = yield* storage.getTokenSet(serverOrigin);
-			if (tokenSet !== null) {
+			const session = yield* auth.settledSession(serverOrigin);
+			if (session.status === "authenticated") {
 				return { _tag: "Authenticated", destination: authDestination(redirectIntent) } as const;
 			}
 			yield* api.getSystemConfig(serverOrigin);
