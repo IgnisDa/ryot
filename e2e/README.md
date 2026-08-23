@@ -42,7 +42,7 @@ RUN_SANDBOX_BENCHMARKS=1 bun turbo --env-mode=loose --force --output-logs=full -
 
 ## Harness
 
-`global-setup.api.ts` provisions containers and one shared API process, then provides `apiUrl` to workers. `src/support/api.ts` reads it through Vitest `inject`; worker modules cannot import global setup state directly.
+`global-setup.ts` assembles the test plugin archive and coordinates the API and frontend setup. `global-setup.api.ts` provisions containers and one shared API process, while `global-setup.frontend.ts` starts the kernel client for browser tests. Their URLs are provided through Vitest `inject`; worker modules cannot import global setup state directly.
 
 Up to two files share the API process concurrently. Tests and hooks have 180-second limits, and the hanging-process reporter identifies leaked handles.
 
