@@ -2,6 +2,7 @@ import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import type { ProviderDetailsRelatedEntity } from "@ryot-app/sandbox-sdk/provider";
 
+import type { WatchProviderOffer } from "../../../shared/watch-provider";
 import {
 	asRecord,
 	numberValue,
@@ -100,6 +101,58 @@ export const collectGenres = (genres: unknown) =>
 		const name = stringValue(genre["name"]);
 		return name ? [name] : [];
 	});
+
+type TmdbWatchProviderAvailability = { country: string; offers: WatchProviderOffer[] };
+type TmdbWatchProvider = {
+	name: string;
+	image: string | null;
+	availability: TmdbWatchProviderAvailability[];
+};
+
+const tmdbOfferKeys: ReadonlyArray<readonly [string, WatchProviderOffer]> = [
+	["flatrate", "stream"],
+	["free", "free"],
+	["ads", "ads"],
+	["rent", "rent"],
+	["buy", "buy"],
+];
+
+export const collectWatchProviders = (payload: unknown) => {
+	const results = asRecord(asRecord(payload)?.["results"]);
+	if (!results) {
+		return [];
+	}
+	const providers = new Map<string, TmdbWatchProvider>();
+	for (const country of Object.keys(results).sort()) {
+		const countryOffers = asRecord(results[country]);
+		if (!countryOffers) {
+			continue;
+		}
+		for (const [key, offer] of tmdbOfferKeys) {
+			for (const entry of recordsValue(countryOffers[key])) {
+				const name = stringValue(entry["provider_name"]);
+				if (!name) {
+					continue;
+				}
+				const provider = providers.get(name) ?? {
+					name,
+					availability: [],
+					image: getImageUrl(entry["logo_path"]),
+				};
+				providers.set(name, provider);
+				const availability = provider.availability.at(-1);
+				if (availability?.country === country) {
+					if (!availability.offers.includes(offer)) {
+						availability.offers.push(offer);
+					}
+					continue;
+				}
+				provider.availability.push({ country, offers: [offer] });
+			}
+		}
+	}
+	return [...providers.values()];
+};
 
 export const collectSuggestions = (
 	results: unknown,
