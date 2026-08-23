@@ -32,6 +32,7 @@ import {
 	type PluginBridgeOverlayState,
 	PluginBridgePageSearch,
 	PluginBridgeProviderSearchScreen,
+	PluginBridgeStorageResult,
 	PluginBridgeUploadResult,
 	PluginBridgeRyotQLCancel,
 	PluginBridgeRyotQLResult,
@@ -39,6 +40,7 @@ import {
 	PluginLeadingIntent,
 	PluginOperationBridgeErrorReason,
 	PluginRyotQLFailureReason,
+	PLUGIN_STORAGE_KEY_MAX_LENGTH,
 	PluginThemeSnapshot,
 	RyotClientErrorReason,
 } from "./index";
@@ -662,6 +664,56 @@ describe("plugin client bridge contract", () => {
 		).toBe(true);
 	});
 
+	it("bounds storage keys and carries a value only on set", () => {
+		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
+		const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
+		const request = {
+			pluginSlug: "media",
+			key: "episode-order",
+			requestId: "storage-1",
+			type: "storage-request" as const,
+		};
+
+		expect(Result.isSuccess(decodeClient({ ...request, action: "get" }))).toBe(true);
+		expect(Result.isSuccess(decodeClient({ ...request, action: "set", value: { a: [1] } }))).toBe(
+			true,
+		);
+		expect(Result.isFailure(decodeClient({ ...request, action: "set" }))).toBe(true);
+		expect(Result.isFailure(decodeClient({ ...request, value: 1, action: "get" }))).toBe(true);
+		expect(Result.isFailure(decodeClient({ ...request, value: 1, action: "remove" }))).toBe(true);
+		expect(Result.isFailure(decodeClient({ ...request, key: "", action: "get" }))).toBe(true);
+		expect(
+			Result.isSuccess(
+				decodeClient({ ...request, action: "get", key: "k".repeat(PLUGIN_STORAGE_KEY_MAX_LENGTH) }),
+			),
+		).toBe(true);
+		expect(
+			Result.isFailure(
+				decodeClient({
+					...request,
+					action: "get",
+					key: "k".repeat(PLUGIN_STORAGE_KEY_MAX_LENGTH + 1),
+				}),
+			),
+		).toBe(true);
+		expect(Result.isFailure(decodeHost({ ...request, action: "get" }))).toBe(true);
+
+		const result = { requestId: "storage-1", type: "storage-result" as const };
+		const decodeResult = Schema.decodeUnknownResult(PluginBridgeStorageResult);
+		expect(Result.isSuccess(decodeResult({ ...result, value: null, outcome: "success" }))).toBe(
+			true,
+		);
+		expect(Result.isSuccess(decodeResult({ ...result, reason: "quota", outcome: "failure" }))).toBe(
+			true,
+		);
+		expect(
+			Result.isFailure(decodeResult({ ...result, outcome: "failure", reason: "operation-failed" })),
+		).toBe(true);
+		expect(Result.isFailure(decodeClient({ ...result, value: null, outcome: "success" }))).toBe(
+			true,
+		);
+	});
+
 	it("decodes only the strict RyotQL cancellation message", () => {
 		const decode = Schema.decodeUnknownResult(PluginBridgeRyotQLCancel);
 
@@ -833,6 +885,8 @@ describe("plugin client bridge contract", () => {
 			"operation-failed",
 			"malformed-result",
 			"unsupported-capability",
+			"invalid-request",
+			"quota",
 		];
 
 		for (const reason of publicReasons) {

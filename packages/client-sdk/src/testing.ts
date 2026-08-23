@@ -15,6 +15,7 @@ import {
 	type PluginRouteLocation,
 	type PluginRyotQLOutcome,
 } from "@ryot-app/client-plugin-contract";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -44,6 +45,26 @@ export const createTestRyotAdapter = (
 		Promise.resolve({ token: "test-upload-token", expiresAt: "2026-01-01T00:00:00.000Z" }),
 	...overrides,
 });
+
+/**
+ * An in-memory `accessStorage` capability for `usePluginStorage` and `client.storage`. `entries` is
+ * keyed by `${pluginSlug}:${key}` so tests can seed and inspect values directly.
+ */
+export const createTestPluginStorage = (initial: Iterable<readonly [string, JsonValue]> = []) => {
+	const entries = new Map<string, JsonValue>(initial);
+	const accessStorage: NonNullable<RyotClientAdapter["accessStorage"]> = (request) => {
+		const entry = `${request.pluginSlug}:${request.key}`;
+		if (request.action === "set") {
+			entries.set(entry, request.value);
+		} else if (request.action === "remove") {
+			entries.delete(entry);
+		} else {
+			return Promise.resolve(entries.get(entry) ?? null);
+		}
+		return Promise.resolve(null);
+	};
+	return { entries, accessStorage };
+};
 
 // `TestClock.adjust` opens each due sleep's latch and yields once, which is enough for a
 // synchronous callback but not for the promise chain `createEntityRefresh` starts. One real
