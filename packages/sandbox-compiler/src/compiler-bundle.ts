@@ -1,222 +1,204 @@
+import { basename, resolve } from "node:path";
+
 import { SANDBOX_RUNTIME_SDK_IMPORTS, SANDBOX_SDK_IMPORTS } from "@ryot-app/sandbox-sdk/imports";
+import {
+	acquireCompilerWorkspace,
+	buildWithVite,
+	stageGeneratedFiles,
+	stageSourceFiles,
+} from "@ryot-app/vite-compiler";
+import type {
+	CompilerWorkspace,
+	CompilerWorkspaceOptions,
+	ViteDiagnostic,
+} from "@ryot-app/vite-compiler";
 import { Effect } from "effect";
 
 import {
 	type SandboxCompilerDiagnostic,
-	type SandboxCompilerFailure,
 	SANDBOX_SOURCE_FILE,
 	sandboxCompilationFailure,
 } from "./compiler-diagnostics";
-import type { SandboxTypeScriptSources } from "./compiler-project";
+import { sandboxTypeScriptProject, type SandboxTypeScriptSources } from "./compiler-project";
 
 type BundleResult =
-	| { readonly diagnostics: readonly SandboxCompilerDiagnostic[] }
-	| { readonly javascript: string };
+	| { readonly success: false; readonly diagnostics: readonly SandboxCompilerDiagnostic[] }
+	| { readonly success: true; readonly javascript: string };
 
-const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-const externalDependencyImports = [...SANDBOX_RUNTIME_SDK_IMPORTS, "effect"] as const;
-const dependencyImportPattern = new RegExp(
-	`^(?:${externalDependencyImports.map(escapeRegExp).join("|")})$`,
+const outputFile = "sandbox.mjs";
+const externalDependencyImports = new Set<string>(SANDBOX_RUNTIME_SDK_IMPORTS);
+const bundledSdkImports = SANDBOX_SDK_IMPORTS.filter(
+	(specifier) => !externalDependencyImports.has(specifier),
 );
-const runtimeSdkImports = new Set<string>(SANDBOX_RUNTIME_SDK_IMPORTS);
-const bundledSdkImports = new Set<string>(
-	SANDBOX_SDK_IMPORTS.filter((specifier) => !runtimeSdkImports.has(specifier)),
-);
-const bundledSdkImportPattern = new RegExp(
-	`^(?:${[...bundledSdkImports].map(escapeRegExp).join("|")})$`,
-);
+const importPattern = /^\s*(?:import|export)\s+(?:[^"']*?\s+from\s+)?["']([^"']+)["']/gm;
+const dynamicImportPattern = /\bimport\(\s*["']([^"']+)["']\s*\)/g;
+const forbiddenRuntimePattern =
+	/\bBun\b|\b(?:require|__require)\s*\(|__vite(?:_|-)?browser(?:_|-)?external|vite:preloadError|document\.getElementsByTagName/;
 
-const buildDiagnosticSeverity = (level: BuildMessage["level"]) => {
-	if (level === "warning") {
-		return "warning" as const;
-	}
-	if (level === "info") {
-		return "info" as const;
-	}
-	return "error" as const;
-};
-
-const toBuildDiagnostic = (log: BuildMessage | ResolveMessage): SandboxCompilerDiagnostic => ({
-	code: "RYOT_BUNDLE",
-	message: log.message,
-	line: Math.max(1, log.position?.line ?? 1),
-	severity: buildDiagnosticSeverity(log.level),
-	column: Math.max(1, log.position?.column ?? 1),
-	file: log.position?.file ?? SANDBOX_SOURCE_FILE,
-	...(log.position === null ? {} : { length: log.position.length }),
+const toBuildDiagnostic = (diagnostic: ViteDiagnostic): SandboxCompilerDiagnostic => ({
+	message: diagnostic.message,
+	severity: diagnostic.severity,
+	code: diagnostic.code ?? "RYOT_BUNDLE",
+	line: Math.max(1, diagnostic.location?.line ?? 1),
+	column: Math.max(1, diagnostic.location?.column ?? 1),
+	file: (diagnostic.file ?? SANDBOX_SOURCE_FILE).replace(/^source\//, ""),
 });
 
-const bundleSandboxScript = (plugin: Bun.BunPlugin, entrypoint: string) =>
-	Effect.tryPromise({
-		catch: (error) =>
-			sandboxCompilationFailure([
-				{
-					line: 1,
-					column: 1,
-					severity: "error",
-					code: "RYOT_BUNDLE",
-					file: SANDBOX_SOURCE_FILE,
-					message: `JavaScript bundling failed: ${String(error)}`,
+const bundleDiagnostic = (message: string, file = SANDBOX_SOURCE_FILE) => ({
+	file,
+	line: 1,
+	message,
+	column: 1,
+	code: "RYOT_BUNDLE",
+	severity: "error" as const,
+});
+
+const exactAlias = (specifier: string) =>
+	new RegExp(`^${specifier.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
+
+const denoViteConfig = (
+	workspace: CompilerWorkspace,
+	entrypoint: string,
+	sdkEntries: Readonly<Record<string, string>>,
+) => ({
+	resolve: {
+		mainFields: ["browser", "module", "jsnext:main", "jsnext", "main"],
+		conditions: ["deno", "worker", "browser", "import", "module", "default"],
+		alias: bundledSdkImports.map((specifier) => ({
+			find: exactAlias(specifier),
+			replacement: sdkEntries[specifier] ?? specifier,
+		})),
+	},
+	build: {
+		minify: false,
+		target: "es2022",
+		cssCodeSplit: false,
+		modulePreload: false,
+		sourcemap: "inline" as const,
+		lib: { entry: entrypoint, formats: ["es" as const], fileName: () => outputFile },
+		rolldownOptions: {
+			preserveEntrySignatures: "strict" as const,
+			external: (specifier: string) => externalDependencyImports.has(specifier),
+			output: {
+				codeSplitting: false,
+				format: "es" as const,
+				entryFileNames: outputFile,
+				sourcemapPathTransform: (source: string) => {
+					const absolute = resolve(workspace.outputPath, source);
+					if (absolute.startsWith(`${workspace.sourcePath}/`)) {
+						return absolute.slice(workspace.sourcePath.length + 1);
+					}
+					if (absolute.startsWith(`${workspace.generatedPath}/`)) {
+						return `ryot:generated/${absolute.slice(workspace.generatedPath.length + 1)}`;
+					}
+					return `ryot:sdk/${basename(source)}`;
 				},
-			]),
-		try: () =>
-			Bun.build({
-				throw: false,
-				format: "esm",
-				minify: false,
-				splitting: false,
-				plugins: [plugin],
-				target: "browser",
-				packages: "bundle",
-				sourcemap: "inline",
-				allowUnresolved: [],
-				entrypoints: [entrypoint],
-			}),
-	}).pipe(
-		Effect.flatMap((result): Effect.Effect<BundleResult, SandboxCompilerFailure> => {
-			if (!result.success) {
-				return Effect.succeed({ diagnostics: result.logs.map(toBuildDiagnostic) });
-			}
+			},
+		},
+	},
+});
 
-			const outputs = result.outputs.filter((output) => output.kind === "entry-point");
-			const output = outputs[0];
-			if (outputs.length !== 1 || !output) {
-				return Effect.succeed({
-					diagnostics: [
-						{
-							line: 1,
-							column: 1,
-							code: "RYOT_BUNDLE",
-							file: SANDBOX_SOURCE_FILE,
-							severity: "error" as const,
-							message: "Compiler did not emit exactly one JavaScript module",
-						},
-					],
-				});
+const auditDenoEsmOutput = (javascript: string) => {
+	const executable = (javascript.split("//# sourceMappingURL", 1)[0] ?? javascript)
+		.replace(/\/\*[\s\S]*?\*\//g, "")
+		.replace(/^\s*\/\/.*$/gm, "");
+	const forbidden = forbiddenRuntimePattern.exec(executable);
+	if (forbidden) {
+		return bundleDiagnostic(
+			`Compiled JavaScript contains a forbidden CommonJS, Bun, or browser helper: ${forbidden[0]}`,
+		);
+	}
+	for (const pattern of [importPattern, dynamicImportPattern]) {
+		pattern.lastIndex = 0;
+		let match: RegExpExecArray | null;
+		while ((match = pattern.exec(executable)) !== null) {
+			const specifier = match[1];
+			if (!specifier) {
+				continue;
 			}
+			if (/^(?:node:|bun:|https?:|npm:|jsr:)/.test(specifier)) {
+				return bundleDiagnostic(
+					`Compiled JavaScript contains a forbidden runtime import: ${specifier}`,
+				);
+			}
+			if (!externalDependencyImports.has(specifier)) {
+				return bundleDiagnostic(
+					`Compiled JavaScript contains an unknown external import: ${specifier}`,
+				);
+			}
+		}
+	}
+	return null;
+};
 
-			return Effect.tryPromise({
-				try: () => output.text(),
-				catch: (error) =>
-					sandboxCompilationFailure([
-						{
-							line: 1,
-							column: 1,
-							severity: "error",
-							code: "RYOT_BUNDLE",
-							file: SANDBOX_SOURCE_FILE,
-							message: `Compiled JavaScript could not be read: ${String(error)}`,
-						},
-					]),
-			}).pipe(Effect.map((javascript) => ({ javascript })));
+const bundleSandboxScript = (
+	sources: SandboxTypeScriptSources,
+	sdkEntries: Readonly<Record<string, string>>,
+	workspaceOptions: CompilerWorkspaceOptions = {},
+) =>
+	Effect.scoped(
+		Effect.gen(function* () {
+			const workspace = yield* acquireCompilerWorkspace(workspaceOptions);
+			yield* stageSourceFiles(
+				workspace,
+				Object.entries(sources.files).map(([path, contents]) => ({ path, contents })),
+			);
+			yield* stageGeneratedFiles(workspace, [
+				{
+					path: "entry.ts",
+					contents: `export * from ${JSON.stringify(`../source/${sources.entry}`)};\nexport { default } from ${JSON.stringify(`../source/${sources.entry}`)};\n`,
+				},
+			]);
+			const result = yield* buildWithVite({
+				workspace,
+				typeScriptProject: sandboxTypeScriptProject,
+				config: denoViteConfig(workspace, `${workspace.generatedPath}/entry.ts`, sdkEntries),
+			});
+			if (result.diagnostics.some(({ severity }) => severity === "error")) {
+				return {
+					success: false,
+					diagnostics: result.diagnostics.map(toBuildDiagnostic),
+				} satisfies BundleResult;
+			}
+			const output = result.files[0];
+			if (result.files.length !== 1 || output?.path !== outputFile) {
+				return {
+					success: false,
+					diagnostics: [bundleDiagnostic("Compiler did not emit exactly one JavaScript module")],
+				} satisfies BundleResult;
+			}
+			const javascript = new TextDecoder()
+				.decode(output.bytes)
+				.replace(
+					"sourceMappingURL=data:application/json;charset=utf-8;base64,",
+					"sourceMappingURL=data:application/json;base64,",
+				)
+				.replace(/^\/\/#region .*\/source\/(.+)$/gm, "//#region $1")
+				.replace(/^\/\/#region .*\/generated\/(.+)$/gm, "//#region ryot:generated/$1");
+			const auditDiagnostic = auditDenoEsmOutput(javascript);
+			return auditDiagnostic
+				? ({ success: false, diagnostics: [auditDiagnostic] } satisfies BundleResult)
+				: ({ javascript, success: true } satisfies BundleResult);
 		}),
+	).pipe(
+		Effect.mapError((error) =>
+			sandboxCompilationFailure([bundleDiagnostic(`JavaScript bundling failed: ${error.message}`)]),
+		),
 	);
 
-export const bundleUserScript = (source: string, sdkEntries: Readonly<Record<string, string>>) => {
-	const plugin: Bun.BunPlugin = {
-		name: "sandbox-user-source",
-		setup(builder) {
-			builder.onResolve({ filter: /^sandbox:user-source$/ }, () => ({
-				path: SANDBOX_SOURCE_FILE,
-				namespace: "sandbox-user",
-			}));
-			builder.onLoad({ filter: /.*/, namespace: "sandbox-user" }, () => ({
-				loader: "ts",
-				contents: source,
-			}));
-			builder.onResolve({ filter: bundledSdkImportPattern }, ({ path }) => ({
-				namespace: "file",
-				path: sdkEntries[path] ?? path,
-			}));
-			builder.onResolve({ filter: dependencyImportPattern }, ({ path }) => ({
-				path,
-				external: true,
-			}));
-		},
-	};
-	return bundleSandboxScript(plugin, "sandbox:user-source");
-};
-
-const normalizeRelativePath = (importer: string, specifier: string) => {
-	const parts = [...importer.split("/").slice(0, -1), ...specifier.split("/")];
-	const normalized: string[] = [];
-	for (const part of parts) {
-		if (!part || part === ".") {
-			continue;
-		}
-		if (part === "..") {
-			if (normalized.length === 0) {
-				return null;
-			}
-			normalized.pop();
-			continue;
-		}
-		normalized.push(part);
-	}
-	return normalized.join("/");
-};
-
-const resolveBuiltInImport = (
-	files: Readonly<Record<string, string>>,
-	importer: string,
-	specifier: string,
-) => {
-	const path = normalizeRelativePath(importer, specifier);
-	if (!path) {
-		return null;
-	}
-	const candidates = [
-		path,
-		`${path}.ts`,
-		`${path}/index.ts`,
-		...(path.endsWith(".js") ? [`${path.slice(0, -3)}.ts`] : []),
-	];
-	return candidates.find((candidate) => Object.hasOwn(files, candidate)) ?? null;
-};
+export const bundleUserScript = (
+	source: string,
+	sdkEntries: Readonly<Record<string, string>>,
+	workspaceOptions?: CompilerWorkspaceOptions,
+) =>
+	bundleSandboxScript(
+		{ entry: SANDBOX_SOURCE_FILE, files: { [SANDBOX_SOURCE_FILE]: source } },
+		sdkEntries,
+		workspaceOptions,
+	);
 
 export const bundleBuiltInScript = (
 	sources: SandboxTypeScriptSources,
 	sdkEntries: Readonly<Record<string, string>>,
-) => {
-	const plugin: Bun.BunPlugin = {
-		name: "sandbox-built-in-source",
-		setup(builder) {
-			builder.onResolve({ filter: /^sandbox:built-in-entry$/ }, () => ({
-				path: sources.entry,
-				namespace: "sandbox-built-in",
-			}));
-			builder.onResolve({ filter: dependencyImportPattern }, ({ path }) => ({
-				path,
-				external: true,
-			}));
-			builder.onResolve({ filter: bundledSdkImportPattern }, ({ path }) => ({
-				namespace: "file",
-				path: sdkEntries[path] ?? path,
-			}));
-			builder.onResolve({ filter: /^\.{1,2}\// }, (args) => {
-				return Object.hasOwn(sources.files, args.importer)
-					? {
-							namespace: "sandbox-built-in",
-							path: resolveBuiltInImport(sources.files, args.importer, args.path) ?? args.path,
-						}
-					: undefined;
-			});
-			builder.onResolve({ filter: /^[^.]/, namespace: "sandbox-built-in" }, ({ path }) => ({
-				path,
-				namespace: "sandbox-built-in",
-			}));
-			builder.onLoad({ filter: /.*/, namespace: "sandbox-built-in" }, ({ path }) => {
-				const source = sources.files[path];
-				const resolveDirectory = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : ".";
-				return source === undefined
-					? Promise.reject(new Error(`Built-in sandbox import could not be resolved: ${path}`))
-					: Promise.resolve({
-							contents: source,
-							loader: "ts" as const,
-							resolveDir: resolveDirectory,
-						});
-			});
-		},
-	};
-	return bundleSandboxScript(plugin, "sandbox:built-in-entry");
-};
+	workspaceOptions?: CompilerWorkspaceOptions,
+) => bundleSandboxScript(sources, sdkEntries, workspaceOptions);

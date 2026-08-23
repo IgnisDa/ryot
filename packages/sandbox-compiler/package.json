@@ -35,19 +35,20 @@
 	"scripts": {
 		"test": "bun --bun run vitest run",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix",
-		"build": "tsc && bun build src/compiler-worker.ts --outdir dist --entry-naming sandbox-compiler-worker.js --target bun --sourcemap"
+		"build": "tsc && bun build src/compiler-worker.ts --outdir dist --entry-naming sandbox-compiler-worker.js --target bun --sourcemap --external @ryot-app/vite-compiler"
 	},
 	"dependencies": {
+		"@effect/platform-bun": "4.0.0-beta.107",
 		"@ryot-app/contract": "workspace:*",
 		"@ryot-app/plugin-kit": "workspace:*",
 		"@ryot-app/sandbox-sdk": "workspace:*",
 		"@ryot-app/ts-utils": "workspace:*",
 		"@ryot-app/typescript-compiler": "workspace:*",
+		"@ryot-app/vite-compiler": "workspace:*",
 		"effect": "4.0.0-rc.111",
 		"typescript": "7.0.2"
 	},
 	"devDependencies": {
-		"@effect/platform-bun": "4.0.0-beta.107",
 		"@effect/vitest": "4.0.0-beta.107",
 		"@ryot-app/testing": "workspace:*",
 		"bun-types": "1.4.0",
