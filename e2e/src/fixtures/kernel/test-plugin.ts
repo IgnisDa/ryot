@@ -15,11 +15,12 @@ import { Effect, Encoding } from "effect";
 import { requirePresent } from "~/support/assertions";
 
 import { adminHeaders } from "./admin";
-import { listAdminSystemPlugins } from "./admin-system-plugins";
+import { adminSystemPluginsRecipe, listAdminSystemPlugins } from "./admin-system-plugins";
 import type { Client } from "./auth";
 import { getApiClient } from "./contract-client";
 import { listInstalledPlugins } from "./plugins";
 import { pollUntil } from "./polling";
+import { collectAdminRyotQLRecipeItems } from "./ryotql";
 import { entityBrowserSettings, rowsDataSources } from "./saved-views";
 import { uploadPrivatePluginPackage } from "./temporary-archive";
 
@@ -151,10 +152,13 @@ const installedSourceHash = (
 	pluginId: PluginId,
 	pluginSlug: PluginSlug,
 	client?: Client,
+	baseUrl?: string,
 ) =>
 	Effect.gen(function* () {
 		if (scope === "system") {
-			const plugins = yield* listAdminSystemPlugins;
+			const plugins = yield* baseUrl === undefined
+				? listAdminSystemPlugins
+				: collectAdminRyotQLRecipeItems((after) => adminSystemPluginsRecipe({ after }), baseUrl);
 			const plugin = requirePresent(
 				plugins.find(({ id }) => id === pluginId),
 				`System plugin '${pluginSlug}' was not found after installation`,
@@ -352,6 +356,7 @@ export const installTestPluginBundle = (
 			operationResult.pluginId,
 			PluginSlug.make(pluginSlug),
 			input.client,
+			input.baseUrl,
 		);
 		const installed: InstalledTestPlugin = {
 			files,
