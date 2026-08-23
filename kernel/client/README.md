@@ -5,11 +5,11 @@ same build in Capacitor WebViews.
 
 ## Ownership And Isolation
 
-The kernel owns authentication, server selection, the single global URL and history, client-page
-sessions, bridge dispatch, and all native and platform authority. Plugins own domain UI and behavior.
+The kernel owns authentication, server selection, the single global URL and history, artifact grants,
+bridge dispatch, and all native and platform authority. Plugins own domain UI and behavior.
 Routes publish plugin routes, entity pages, saved views, and workspace homes to the shell-owned client
-page document host. Each prepared page is an independently compiled React DOM application in a
-sandboxed, opaque-origin iframe.
+page document host. Compatible prepared pages share a compiled React DOM artifact in a sandboxed,
+opaque-origin iframe.
 
 The iframe receives no bearer credentials and has no direct Capacitor access. Its only privileged
 connection is the `MessagePort` transferred by the kernel after both peers validate the bridge and
@@ -17,29 +17,28 @@ artifact identity. Plugin requests cross that port as narrow, schema-checked cap
 applies authentication, installation scope, and platform policy. A plugin upload sends only bytes with
 a proposed file name and content type; the kernel keeps intent creation, transfer, and completion.
 
-Client artifacts are immutable, content-addressed outputs of a complete contributor graph. The
-backend `ClientPages` module prepares the target, renderer, settings, optional named data sources,
-contributors, operation targets, graph hash, build, and artifact as one identity. It also owns the
-authenticated artifact session used to serve that graph. Session creation and renewal revalidate the
-whole identity; stale preparation is rejected instead of serving mismatched code. There is no
-plugin-owned artifact selection or session route.
+Client artifacts are immutable, content-addressed outputs of a compile-only contributor graph.
+Mutation and user bootstrap materialize missing builds before publishing catalog changes; navigation
+preparation only resolves the current page, finds its global build, and issues or reuses an authenticated
+grant for its artifact. The grant authorizes static artifact files until expiry. A separate freshness
+check on catalog invalidation detects changed page or plugin state and offers an explicit reload.
+There is no plugin-owned artifact selection or grant route.
 
 The kernel resolves every committed URL explicitly. Kernel routes render kernel surfaces;
 `/:pluginSlug/*`, `/v/:viewSlug`, and `/e/:entityId` resolve to client-page targets for plugin routes,
 saved views, and persisted entity provenance. A workspace home resolves to its selected saved-view
-target while retaining the workspace URL. The shell retains the three most recently active client-page
-iframes. It reuses a frame only while its prepared build, graph, artifact, document identity, and
-non-location page context stay unchanged; location-derived route and entity fields arrive through live
-navigation updates. Retained frames keep artifact sessions and entity interests warm, but only the
-active frame owns shell integrations. Disabled installations stay out of workspace discovery but
-remain reachable through direct plugin and delegated entity URLs.
+target while retaining the workspace URL. The shell retains up to three iframe runtimes keyed by
+artifact hash. A different page using the same artifact replaces the document context and remounts
+the page React tree while retaining the iframe, bridge, and SDK runtime. Retained frames keep entity
+interests warm, but only the active frame owns shell integrations. Disabled installations stay out of
+workspace discovery but remain reachable through direct plugin and delegated entity URLs.
 
 There is one global history. Plugins request tagged route or entity navigation, and the kernel writes
 the canonical URL. The kernel sends each accepted location with its history `index` and stable entry
 `key`; page-state replacements retain that key, while screen navigation creates a new one. Plugin
 screen stacks use those values, never pathname inference, to distinguish push, pop, and replace.
 
-Protocol schemas and immutable session identity live in
+Protocol schemas and bridge identity live in
 [`@ryot-app/client-plugin-contract`](../../packages/client-plugin-contract/README.md). SDK runtime
 behavior lives in [`@ryot-app/client-sdk`](../../packages/client-sdk/README.md), and shared screen and
 interaction rules live in
