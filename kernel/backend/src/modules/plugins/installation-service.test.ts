@@ -261,7 +261,7 @@ const bootstrapScript = {
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
 	slug: "script.fixture-bootstrap",
-	entry: "scripts/bootstrap.sandbox.ts",
+	entry: "backend/bootstrap/bootstrap.sandbox.ts",
 };
 
 const bootstrapScriptSource = `import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
@@ -1001,7 +1001,7 @@ const operationScript = {
 	kind: "operation" as const,
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	entry: "scripts/operation.sandbox.ts",
+	entry: "backend/operations/operation.sandbox.ts",
 };
 
 const operationScriptSource = `import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
