@@ -17,7 +17,7 @@ import {
 	FileSystem,
 	Semaphore,
 } from "effect";
-import { HttpEffect, HttpServer } from "effect/unstable/http";
+import { HttpServer, HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 import { sandboxDenoDirConfig } from "../config/definition";
@@ -319,7 +319,6 @@ const makeSpawnDenoProcess = Effect.fn("makeSpawnDenoProcess")(function* (
 
 export class BridgeService extends Context.Service<BridgeService>()("BridgeService", {
 	make: Effect.gen(function* () {
-		const runtime = yield* Effect.context();
 		const activeSessions = new Map<string, ActiveExecutionSession>();
 
 		const evictSession = (executionId: string, session: ActiveExecutionSession) => {
@@ -452,9 +451,11 @@ export class BridgeService extends Context.Service<BridgeService>()("BridgeServi
 
 		const server = yield* BunHttpServer.make({ port: 0, hostname: "127.0.0.1" });
 		yield* HttpServer.serveEffect(
-			HttpEffect.fromWebHandler((request) =>
-				Effect.runPromiseWith(runtime)(handleRequest(request)),
-			),
+			Effect.gen(function* () {
+				const request = yield* HttpServerRequest.HttpServerRequest;
+				const webRequest = yield* HttpServerRequest.toWeb(request);
+				return HttpServerResponse.fromWeb(yield* handleRequest(webRequest));
+			}),
 		).pipe(Effect.provideService(HttpServer.HttpServer, server));
 		const address = server.address;
 		if (address._tag === "UnixAddress") {
