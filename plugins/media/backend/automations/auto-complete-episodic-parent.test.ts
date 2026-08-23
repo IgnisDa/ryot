@@ -6,12 +6,16 @@ import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
 import type { EpisodicLifecycleState } from "../../shared/lifecycle-expressions";
+import {
+	eventAutomationContext,
+	execution,
+	hostSuccess,
+} from "../../tests/backend/automations/automation-test-utils";
 import type { CurrentCycleChildEvent, EventOrderTuple } from "../contracts/lifecycle-recipes";
 import definition, {
 	manifest,
 	PARENT_COMPLETION_CLAIM_TTL_SECONDS,
 } from "./auto-complete-episodic-parent.sandbox";
-import { eventAutomationContext, execution, hostSuccess } from "./automation-test-utils";
 
 type SnapshotFixture = {
 	readonly parentEntityId?: string;

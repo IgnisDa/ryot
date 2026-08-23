@@ -2,7 +2,11 @@ import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import { execution, hostSuccess, integrationRecord } from "../../automations/automation-test-utils";
+import {
+	execution,
+	hostSuccess,
+	integrationRecord,
+} from "../../../tests/backend/automations/automation-test-utils";
 import browserDefinition, { manifest as browserManifest } from "./browser-extension.sandbox";
 import embyDefinition, { manifest as embyManifest } from "./emby.sandbox";
 import jellyfinDefinition, { manifest as jellyfinManifest } from "./jellyfin.sandbox";
