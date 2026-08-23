@@ -13,7 +13,7 @@ import {
 	requireRyotQLText,
 	requireRyotQLValue,
 } from "~/fixtures/kernel/ryotql";
-import { requireObjectRecord, requireString } from "~/support/assertions";
+import { requireObjectRecord } from "~/support/assertions";
 
 export const createWorkoutEntityFixture = (
 	client: Client,
@@ -83,38 +83,3 @@ export const waitForSessionEventCount = (
 			return events.length >= expectedCount ? events : null;
 		}),
 	);
-
-const pollSeededExerciseIds = (client: Client, count: number) =>
-	pollUntil(
-		count === 1 ? "seeded exercise id to be queryable" : "seeded exercise ids to be queryable",
-		Effect.gen(function* () {
-			const entity = table("entity", "exercise");
-			const result = yield* executeRyotQL(
-				client,
-				document({
-					exercises: rows(entity, {
-						limit: count,
-						fields: [field("id", column(entity, "id"))],
-						where: eq(column(entity, "entitySchemaSlug"), literal("exercise")),
-					}),
-				}),
-			);
-
-			const exercises = result.data.exercises;
-			if (exercises?.type !== "rows") {
-				return null;
-			}
-			const ids = exercises.items.map((item) => EntityId.make(requireRyotQLText(item, "id")));
-
-			return ids.length >= count ? ids.slice(0, count) : null;
-		}),
-	);
-
-export const waitForSeededExerciseId = (client: Client) =>
-	Effect.gen(function* () {
-		const ids = yield* pollSeededExerciseIds(client, 1);
-		return EntityId.make(requireString(ids[0], "Expected at least one seeded exercise id"));
-	});
-
-export const waitForSeededExerciseIds = (client: Client, count: number) =>
-	pollSeededExerciseIds(client, count);

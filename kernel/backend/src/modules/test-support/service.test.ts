@@ -31,7 +31,6 @@ import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxExecutionService } from "#modules/sandbox/service";
-import { PluginBootService } from "#modules/scheduler/plugin-boot";
 import { PluginCronService } from "#modules/scheduler/plugin-cron";
 
 import { TestSupportService } from "./service";
@@ -53,7 +52,6 @@ const storedSandboxScript = {
 const mockAuth = Layer.mock(AuthService);
 const mockEntities = Layer.mock(EntitiesService);
 const mockInterest = Layer.mock(InterestService);
-const mockPluginBoots = Layer.mock(PluginBootService);
 const mockPluginIngestion = Layer.mock(PluginIngestionService);
 const mockPluginInstallations = Layer.mock(PluginInstallationService);
 const mockPluginRepository = Layer.mock(PluginRepository);
@@ -68,7 +66,6 @@ const makeServiceLayer = (
 		sandbox?: MockOverrides<typeof mockSandbox>;
 		entities?: MockOverrides<typeof mockEntities>;
 		interest?: MockOverrides<typeof mockInterest>;
-		pluginBoots?: MockOverrides<typeof mockPluginBoots>;
 		pluginCrons?: MockOverrides<typeof mockPluginCrons>;
 		pluginIngestion?: MockOverrides<typeof mockPluginIngestion>;
 		pluginInstallations?: MockOverrides<typeof mockPluginInstallations>;
@@ -101,7 +98,6 @@ const makeServiceLayer = (
 						Effect.succeed({ cronSlug, pluginSlug, status: "notFound" as const }),
 					...overrides.pluginCrons,
 				}),
-				mockPluginBoots({ trigger: () => Effect.void, ...overrides.pluginBoots }),
 				mockPluginIngestion({ ...overrides.pluginIngestion }),
 				mockPluginInstallations({ ...overrides.pluginInstallations }),
 				mockPluginRepository({ ...overrides.pluginRepository }),
@@ -534,30 +530,5 @@ it.effect("triggers exactly one requested plugin cron with a manual execution id
 		expect(result.status).toBe("executed");
 		expect(triggerInput?.slice(0, 2)).toEqual(["example", "monitor"]);
 		expect(triggerInput?.[2]).toMatch(/^plugin-cron-manual-/);
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("triggers plugin boots with the manual boot execution id", () => {
-	let pluginBootExecutionId: string | undefined;
-	let pluginBootIdentity: { bootSlug: string; pluginSlug: string } | undefined;
-	const layer = makeServiceLayer({
-		pluginBoots: {
-			trigger: (identity, executionId) =>
-				Effect.sync(() => {
-					pluginBootIdentity = identity;
-					pluginBootExecutionId = executionId;
-				}),
-		},
-	});
-
-	return Effect.gen(function* () {
-		const service = yield* TestSupportService;
-		const result = yield* service.triggerPluginBoot({
-			bootSlug: "fixture",
-			pluginSlug: PluginSlug.make("example"),
-		});
-		expect(result.executionId).toMatch(/^plugin-boot-manual-/);
-		expect(pluginBootIdentity).toEqual({ bootSlug: "fixture", pluginSlug: "example" });
-		expect(pluginBootExecutionId).toBe(result.executionId);
 	}).pipe(Effect.provide(layer));
 });
