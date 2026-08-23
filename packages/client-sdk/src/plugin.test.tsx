@@ -108,7 +108,13 @@ describe("bootstrapClientPlugin", () => {
 		window.dispatchEvent(
 			new MessageEvent("message", { data: init, ports: [channel.port2], source: window.parent }),
 		);
-		channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
+		channel.port1.postMessage({
+			index: 0,
+			key: "k0",
+			edgeBack: false,
+			type: "location",
+			location: { path: "/", search: "" },
+		});
 		channel.port1.postMessage({ generation: 1, type: "theme", theme });
 		await waitFor(() =>
 			expect(messages).toContainEqual(
@@ -147,7 +153,13 @@ describe("bootstrapClientPlugin", () => {
 		await new Promise((resolve) => setTimeout(resolve, 0));
 		expect(document.getElementById("app")?.textContent).toBe("");
 
-		channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
+		channel.port1.postMessage({
+			index: 0,
+			key: "k0",
+			edgeBack: false,
+			type: "location",
+			location: { path: "/", search: "" },
+		});
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted"));
 	});
 
@@ -188,7 +200,13 @@ describe("bootstrapClientPlugin", () => {
 		window.dispatchEvent(
 			new MessageEvent("message", { data: init, ports: [channel.port2], source: window.parent }),
 		);
-		channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
+		channel.port1.postMessage({
+			index: 0,
+			key: "k0",
+			edgeBack: false,
+			type: "location",
+			location: { path: "/", search: "" },
+		});
 		channel.port1.postMessage({ generation: 1, type: "theme", theme });
 
 		await waitFor(() =>
@@ -212,7 +230,13 @@ describe("bootstrapClientPlugin", () => {
 		window.dispatchEvent(
 			new MessageEvent("message", { data: init, ports: [channel.port2], source: window.parent }),
 		);
-		channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
+		channel.port1.postMessage({
+			index: 0,
+			key: "k0",
+			edgeBack: false,
+			type: "location",
+			location: { path: "/", search: "" },
+		});
 		channel.port1.postMessage({ generation: 1, type: "theme", theme });
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted"));
 
@@ -240,7 +264,13 @@ describe("bootstrapClientPlugin", () => {
 		window.dispatchEvent(
 			new MessageEvent("message", { data: init, ports: [channel.port2], source: window.parent }),
 		);
-		channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
+		channel.port1.postMessage({
+			index: 0,
+			key: "k0",
+			edgeBack: false,
+			type: "location",
+			location: { path: "/", search: "" },
+		});
 		channel.port1.postMessage({ generation: 1, type: "theme", theme });
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted"));
 
@@ -271,7 +301,13 @@ describe("bootstrapClientPlugin", () => {
 		window.dispatchEvent(
 			new MessageEvent("message", { data: init, ports: [channel.port2], source: window.parent }),
 		);
-		channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
+		channel.port1.postMessage({
+			index: 0,
+			key: "k0",
+			edgeBack: false,
+			type: "location",
+			location: { path: "/", search: "" },
+		});
 		channel.port1.postMessage({ generation: 1, type: "theme", theme });
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted"));
 
@@ -313,7 +349,13 @@ describe("bootstrapClientPlugin", () => {
 		window.dispatchEvent(
 			new MessageEvent("message", { data: init, ports: [channel.port2], source: window.parent }),
 		);
-		channel.port1.postMessage({ type: "location", location: { path: "/", search: "" } });
+		channel.port1.postMessage({
+			index: 0,
+			key: "k0",
+			edgeBack: false,
+			type: "location",
+			location: { path: "/", search: "" },
+		});
 		channel.port1.postMessage({ generation: 1, type: "theme", theme });
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("Mounted"));
 

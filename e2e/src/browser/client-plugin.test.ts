@@ -203,7 +203,7 @@ const expectNoCredentialsInBridgeMessages = (
 };
 
 const expectVisibleText = async (locator: Locator, text: string) => {
-	const match = locator.getByText(text, { exact: true });
+	const match = locator.getByText(text, { exact: true }).filter({ visible: true });
 	await match.waitFor({ state: "visible" });
 	expect(await match.isVisible()).toBe(true);
 };

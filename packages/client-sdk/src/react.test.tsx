@@ -292,4 +292,34 @@ describe("useRyotMutation", () => {
 		await expect(failure).rejects.toThrow("denied");
 		await waitFor(() => expect(container.textContent).toBe("error:denied"));
 	});
+
+	it("serves a fresh query from cache when the app returns to the foreground", async () => {
+		let calls = 0;
+		const query = createRyotQuery(() => Promise.resolve(++calls));
+		const View = () => <p>{useRyotQuery(query).data ?? "pending"}</p>;
+		const container = document.createElement("div");
+		document.body.append(container);
+		const root = createRoot(container);
+		roots.push(root);
+		act(() =>
+			root.render(
+				<RyotProvider client={client}>
+					<View />
+				</RyotProvider>,
+			),
+		);
+		await waitFor(() => expect(container.textContent).toBe("1"));
+
+		act(() => {
+			Object.defineProperty(document, "visibilityState", {
+				value: "visible",
+				configurable: true,
+			});
+			document.dispatchEvent(new Event("visibilitychange"));
+		});
+		await new Promise((resolve) => setTimeout(resolve, 0));
+
+		expect(container.textContent).toBe("1");
+		expect(calls).toBe(1);
+	});
 });
