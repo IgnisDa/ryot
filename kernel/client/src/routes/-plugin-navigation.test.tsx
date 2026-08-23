@@ -6,7 +6,7 @@ import {
 } from "@ryot/contract/modules/plugins/client";
 import type { PluginClientCatalog } from "@ryot/ryotql-recipes/plugin-client-catalog";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -220,14 +220,31 @@ describe("plugin navigation", () => {
 		expect(screen.getByTestId("desktop-sidebar").getAttribute("class")).toContain("hidden");
 		expect(screen.getByTestId("desktop-sidebar").getAttribute("class")).toContain("md:flex");
 		expect(screen.getByTestId("desktop-sidebar").getAttribute("class")).toContain("w-66");
-		expect(screen.getByTestId("mobile-header").getAttribute("class")).toContain("h-16");
+		expect(screen.getByTestId("mobile-header").getAttribute("class")).toContain(
+			"safe-area-inset-top",
+		);
 		expect(screen.getByTestId("mobile-header").getAttribute("class")).toContain("md:hidden");
-		expect(screen.getByTestId("mobile-drawer").getAttribute("class")).toContain("hidden");
+		expect(screen.getByRole("button", { name: "Open navigation" })).toBeTruthy();
+		expect(screen.getByTestId("mobile-drawer").tagName).toBe("DIALOG");
+		expect(within(screen.getByTestId("mobile-header")).getByText("Fixture")).toBeTruthy();
+		expect(within(screen.getByTestId("mobile-header")).getByText("fixture")).toBeTruthy();
 		expect(content.getAttribute("class")).toContain("min-h-0");
 		expect(content.getAttribute("class")).toContain("min-w-0");
 		expect(content.getAttribute("class")).toContain("overflow-hidden");
 		expect(iframe.getAttribute("class")).toContain("h-full");
 		expect(iframe.getAttribute("class")).not.toContain("h-screen");
+		const mobileTrigger = screen.getByRole("button", { name: "Open navigation" });
+
+		fireEvent.click(mobileTrigger);
+		await screen.findByRole("dialog", { name: "Navigation" });
+		expect(mobileTrigger.getAttribute("aria-expanded")).toBe("true");
+		expect(frame()).toBe(iframe);
+		fireEvent.click(screen.getByRole("button", { name: "Close navigation" }));
+		await waitFor(() => expect(mobileTrigger.getAttribute("aria-expanded")).toBe("false"));
+		expect(screen.queryByRole("dialog", { name: "Navigation" })).toBeNull();
+		expect(screen.getByTestId("authenticated-shell")).toBe(shell);
+		expect(screen.getByTestId("shell-content")).toBe(content);
+		expect(frame()).toBe(iframe);
 
 		await router.navigate({ href: "/fixture/details/item-1" });
 		await waitFor(() => expect(router.state.location.pathname).toBe("/fixture/details/item-1"));
