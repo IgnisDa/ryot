@@ -1,11 +1,24 @@
+import { createRyotMutation, RyotProvider, useRyotMutation } from "@ryot/client-sdk/react";
 import { Button } from "@ryot/client-ui-sdk";
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 
 import type { ServerOrigin } from "#/api/origin";
+import { createKernelRyotClient } from "#/api/ryot-client";
 import type { ApiScope } from "#/api/scope";
 import { protectedRouteGuard } from "#/modules/auth/route-gates";
 import { AuthService } from "#/modules/auth/service";
+import type { ClientRuntime } from "#/runtime";
+
+type SignOutInput = {
+	readonly server: ServerOrigin;
+	readonly runtime: ClientRuntime;
+	readonly auth: AuthService["Service"];
+};
+
+const signOutMutation = createRyotMutation<SignOutInput, void>(({ input, signal }) =>
+	input.runtime.runPromise(input.auth.signOut(input.server), { signal }),
+);
 
 export const Route = createFileRoute("/")({
 	component: KernelDestination,
@@ -13,30 +26,36 @@ export const Route = createFileRoute("/")({
 });
 
 function KernelDestination() {
-	const { runtime, server, scope } = Route.useRouteContext();
+	const { runtime, server, scope, theme } = Route.useRouteContext();
 	const auth = runtime.runSync(AuthService);
 	const store = auth.session(server);
 	const session = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
 	const email = session.status === "authenticated" ? session.user.email : "Signed-in user";
-	return <KernelShell server={server} scope={scope} email={email} />;
+	const ryot = useMemo(
+		() => createKernelRyotClient(runtime, scope, theme),
+		[runtime, scope, theme],
+	);
+	return (
+		<RyotProvider client={ryot}>
+			<KernelShell server={server} scope={scope} email={email} />
+		</RyotProvider>
+	);
 }
 
 function KernelShell(props: { email: string; scope: ApiScope; server: ServerOrigin }) {
 	const { runtime } = Route.useRouteContext();
 	const navigate = Route.useNavigate();
 	const auth = runtime.runSync(AuthService);
+	const signOutAction = useRyotMutation(signOutMutation);
 	const actionController = useRef(new AbortController());
-	const [pendingAction, setPendingAction] = useState<"server" | "signout">();
+	const [changingServer, setChangingServer] = useState(false);
 	useEffect(() => () => actionController.current.abort(), []);
 
 	async function signOut() {
-		setPendingAction("signout");
-		const signedOut = await runtime
-			.runPromise(auth.signOut(props.server), { signal: actionController.current.signal })
-			.then(
-				() => true,
-				() => false,
-			);
+		const signedOut = await signOutAction.mutateAsync({ auth, runtime, server: props.server }).then(
+			() => true,
+			() => false,
+		);
 		if (!signedOut) {
 			return;
 		}
@@ -44,7 +63,7 @@ function KernelShell(props: { email: string; scope: ApiScope; server: ServerOrig
 	}
 
 	async function changeServer() {
-		setPendingAction("server");
+		setChangingServer(true);
 		const changed = await runtime
 			.runPromise(auth.changeServer(props.server), { signal: actionController.current.signal })
 			.then(
@@ -69,17 +88,17 @@ function KernelShell(props: { email: string; scope: ApiScope; server: ServerOrig
 						type="button"
 						variant="secondary"
 						onClick={() => void changeServer()}
-						disabled={pendingAction !== undefined}
+						disabled={changingServer || signOutAction.isPending}
 					>
-						{pendingAction === "server" ? "Changing..." : "Change server"}
+						{changingServer ? "Changing..." : "Change server"}
 					</Button>
 					<Button
 						type="button"
 						variant="primary"
 						onClick={() => void signOut()}
-						disabled={pendingAction !== undefined}
+						disabled={changingServer || signOutAction.isPending}
 					>
-						{pendingAction === "signout" ? "Signing out..." : "Sign out"}
+						{signOutAction.isPending ? "Signing out..." : "Sign out"}
 					</Button>
 				</nav>
 			</header>
