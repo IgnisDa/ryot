@@ -10,6 +10,10 @@ import { AuthoredSavedViewRenderer } from "../saved-views/schemas";
 import { isSupportedUploadFileExtension } from "../uploads/upload-policy";
 import { pluginConfigEnvironmentKey } from "./plugin-config";
 
+const strictParseOptions = {
+	parseOptions: { onExcessProperty: "error" },
+} satisfies Schema.Annotations.Filter;
+
 export const CLIENT_API_VERSION = 1 as const;
 
 export const comparePluginRoutePaths = (left: string, right: string) => {
@@ -102,6 +106,7 @@ const PluginAppSchema = Schema.toType(AppSchema).pipe(
 			(schema) =>
 				Object.values(schema.fields).every((property) => !hasUploadFormat(property)) ||
 				"Upload fields are only supported by import input schemas",
+			strictParseOptions,
 		),
 	),
 );
@@ -317,7 +322,7 @@ const PluginHttpRateLimits = Schema.Array(PluginHttpRateLimit).pipe(
 			return new Set(keys).size === keys.length && new Set(origins).size === origins.length
 				? true
 				: "Expected unique HTTP rate limit keys and origins";
-		}),
+		}, strictParseOptions),
 	),
 );
 
@@ -325,17 +330,20 @@ const pluginConfigFieldTypes = new Set(["enum", "string", "number", "integer", "
 
 export const PluginConfigSchema = PluginAppSchema.pipe(
 	Schema.check(
-		Schema.makeFilter((schema) =>
-			schema.unknownKeys === "strict" &&
-			schema.rules === undefined &&
-			Object.values(schema.fields).every(
-				(field) =>
-					pluginConfigFieldTypes.has(field.type) &&
-					field.translatable === undefined &&
-					((field.type !== "number" && field.type !== "integer") || field.normalize === undefined),
-			)
-				? true
-				: "Expected a strict, top-level plugin config schema without translation, normalization, or rules",
+		Schema.makeFilter(
+			(schema) =>
+				schema.unknownKeys === "strict" &&
+				schema.rules === undefined &&
+				Object.values(schema.fields).every(
+					(field) =>
+						pluginConfigFieldTypes.has(field.type) &&
+						field.translatable === undefined &&
+						((field.type !== "number" && field.type !== "integer") ||
+							field.normalize === undefined),
+				)
+					? true
+					: "Expected a strict, top-level plugin config schema without translation, normalization, or rules",
+			strictParseOptions,
 		),
 	),
 );
@@ -512,17 +520,19 @@ const ImportInputSchema = Schema.toType(AppSchema).pipe(
 			return extension === undefined
 				? true
 				: `Unsupported import upload file extension: ${extension}`;
-		}),
+		}, strictParseOptions),
 	),
 	Schema.check(
-		Schema.makeFilter((schema) =>
-			schema.unknownKeys === "strict" &&
-			Object.values(schema.fields).every((property) => !hasDynamicChoices(property)) &&
-			Object.values(schema.fields).every(
-				(property) => property.type === "string" || !hasUploadFormat(property),
-			)
-				? true
-				: "Expected a strict import input schema with static choices and only top-level uploads",
+		Schema.makeFilter(
+			(schema) =>
+				schema.unknownKeys === "strict" &&
+				Object.values(schema.fields).every((property) => !hasDynamicChoices(property)) &&
+				Object.values(schema.fields).every(
+					(property) => property.type === "string" || !hasUploadFormat(property),
+				)
+					? true
+					: "Expected a strict import input schema with static choices and only top-level uploads",
+			strictParseOptions,
 		),
 	),
 );
@@ -539,6 +549,7 @@ const PluginImportExportHelp = strictStruct({
 				value.docsUrl !== undefined ||
 				value.steps !== undefined ||
 				"Expected import export help documentation or steps",
+			strictParseOptions,
 		),
 	),
 );
@@ -765,6 +776,7 @@ export const AuthoredPluginManifest = AuthoredPluginManifestFields.pipe(
 			(manifest) =>
 				hasValidAuthoredPluginManifestReferences(manifest) ||
 				"Expected valid plugin config, provider, workflow, and import-source references",
+			strictParseOptions,
 		),
 	),
 );
@@ -934,6 +946,7 @@ export const PluginManifest = PluginManifestFields.pipe(
 			(manifest) =>
 				hasValidPluginManifestReferences(manifest) ||
 				"Expected valid plugin config, provider, and script references",
+			strictParseOptions,
 		),
 	),
 );

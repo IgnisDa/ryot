@@ -25,48 +25,47 @@ const makeSocket = Effect.fn(function* (
 	const writes = yield* Queue.unbounded<string | Socket.CloseEvent>();
 	let gateReady = readyWriteGate !== undefined;
 	let shouldFailReadyWrite = failReadyWrite;
-	const write = (frame: string | Uint8Array | Socket.CloseEvent) =>
-		Effect.gen(function* () {
-			if (frame instanceof Uint8Array) {
-				return yield* Effect.die("unexpected binary server frame");
-			}
-			yield* Queue.offer(writes, frame);
-			if (typeof frame === "string" && autoPong) {
-				const decoded = decodeEntityInterestServerMessage(frame);
-				if (Result.isSuccess(decoded) && decoded.success.type === "ping") {
-					yield* Queue.offer(
-						inbound,
-						encodeEntityInterestClientMessage({ type: "pong", nonce: decoded.success.nonce }),
-					);
-				}
-			}
-			if (typeof frame === "string" && shouldFailReadyWrite) {
-				shouldFailReadyWrite = false;
-				return yield* Effect.die("writer failed before ready acknowledgement");
-			}
-			if (typeof frame === "string" && gateReady && readyWriteGate !== undefined) {
-				gateReady = false;
-				yield* Deferred.await(readyWriteGate);
-			}
-			return undefined;
-		});
 	const socket = Socket.make({
-		writer: Effect.succeed({
-			write,
-			writeAll: (chunks) => Effect.forEach(chunks, write, { discard: true }),
-		}),
-		reader: Effect.gen(function* () {
-			yield* Deferred.succeed(opened, undefined);
-			return {
-				upgrade: Socket.SocketUpgradeError.unsupported,
-				pull: Effect.gen(function* () {
+		runRaw: (handler) =>
+			Effect.gen(function* () {
+				yield* Deferred.succeed(opened, undefined);
+				for (;;) {
 					const frame = yield* Queue.take(inbound);
-					return frame === null
-						? yield* new Socket.SocketError({ reason: new Socket.SocketCloseError({ code: 1000 }) })
-						: ([frame] as const);
-				}),
-			};
-		}),
+					if (frame === null) {
+						return;
+					}
+					const result = handler(frame);
+					if (Effect.isEffect(result)) {
+						yield* result;
+					}
+				}
+			}),
+		writer: Effect.succeed((frame) =>
+			Effect.gen(function* () {
+				if (frame instanceof Uint8Array) {
+					return yield* Effect.die("unexpected binary server frame");
+				}
+				yield* Queue.offer(writes, frame);
+				if (typeof frame === "string" && autoPong) {
+					const decoded = decodeEntityInterestServerMessage(frame);
+					if (Result.isSuccess(decoded) && decoded.success.type === "ping") {
+						yield* Queue.offer(
+							inbound,
+							encodeEntityInterestClientMessage({ type: "pong", nonce: decoded.success.nonce }),
+						);
+					}
+				}
+				if (typeof frame === "string" && shouldFailReadyWrite) {
+					shouldFailReadyWrite = false;
+					return yield* Effect.die("writer failed before ready acknowledgement");
+				}
+				if (typeof frame === "string" && gateReady && readyWriteGate !== undefined) {
+					gateReady = false;
+					yield* Deferred.await(readyWriteGate);
+				}
+				return undefined;
+			}),
+		),
 	});
 	const nextMessage = Effect.fn(function* () {
 		const frame = yield* Queue.take(writes);

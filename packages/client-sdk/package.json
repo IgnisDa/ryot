@@ -41,17 +41,17 @@
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
-		"@effect/atom-react": "4.0.0-rc.113",
+		"@effect/atom-react": "4.0.0-beta.107",
 		"@ryot-app/client-plugin-contract": "workspace:*",
 		"@ryot-app/client-ui-sdk": "workspace:*",
 		"@ryot-app/contract": "workspace:*",
 		"@ryot-app/ryotql": "workspace:*",
-		"effect": "4.0.0-rc.113",
+		"effect": "4.0.0-rc.111",
 		"react": "^19.2.0",
 		"react-dom": "^19.2.0"
 	},
 	"devDependencies": {
-		"@effect/vitest": "4.0.0-rc.113",
+		"@effect/vitest": "4.0.0-beta.107",
 		"@ryot-app/testing": "workspace:*",
 		"@testing-library/dom": "^10.4.1",
 		"@types/react": "^19.2.0",

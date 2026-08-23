@@ -183,14 +183,6 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 				dependencies,
 				plan.typeAliases,
 				[GENERATED_VALIDATION],
-			).pipe(
-				Effect.mapError((error) =>
-					failure(
-						plan.entry,
-						"RYOT_CLIENT_COMPILER",
-						`TypeScript compiler failed: ${String(error)}`,
-					),
-				),
 			);
 			if (checkedAnalysis.diagnostics.length > 0) {
 				return yield* clientPluginCompilationFailure(checkedAnalysis.diagnostics);
