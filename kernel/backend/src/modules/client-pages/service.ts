@@ -186,6 +186,17 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				const add = (graph: ResolvedClientPageGraph) =>
 					void graphs.set(graph.compositionKey, graph);
 				for (const renderer of savedViewRenderers) {
+					if (
+						renderer.kind === "plugin" &&
+						!available.some(
+							(plugin) =>
+								plugin.id === renderer.pluginId &&
+								plugin.health === "ready" &&
+								plugin.manifest.client,
+						)
+					) {
+						continue;
+					}
 					add((yield* rendererGraph(available, renderer)).graph);
 				}
 				for (const plugin of available) {
