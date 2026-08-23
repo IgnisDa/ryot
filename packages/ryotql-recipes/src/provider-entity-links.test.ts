@@ -7,6 +7,8 @@ import { rowsResponse } from "./test-utils";
 
 const pageInfo = { limit: 2, hasMore: false, nextCursor: null };
 const recipe = providerEntityLinksRecipe({
+	librarySchemaSlug: "media-library",
+	relationshipSlug: "in-media-library",
 	externalIds: ["external-1", "external-2"],
 	entitySchemaSlug: EntitySchemaSlug.make("book"),
 	providerId: SandboxProviderId.make("provider-1"),

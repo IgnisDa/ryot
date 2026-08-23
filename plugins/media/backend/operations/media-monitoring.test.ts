@@ -27,7 +27,7 @@ const rows = (items: unknown[]) => ({
 
 const libraryRows = (items: unknown[]) => ({
 	data: {
-		library: { items, type: "rows", pageInfo: { limit: 1, hasMore: false, nextCursor: null } },
+		mediaLibrary: { items, type: "rows", pageInfo: { limit: 1, hasMore: false, nextCursor: null } },
 	},
 });
 
@@ -85,7 +85,7 @@ describe("media monitoring operations", () => {
 		);
 		expect(serialized).toContain('"field":"providerId"');
 		expect(serialized).toContain('"field":"externalId"');
-		expect(serialized).not.toContain('"table":"entity","alias":"library"');
+		expect(serialized).not.toContain('"table":"entity","alias":"mediaLibrary"');
 		expect(serialized).not.toContain("show-season");
 	});
 
@@ -102,7 +102,7 @@ describe("media monitoring operations", () => {
 				Effect.sync(() => {
 					documents.push(document);
 					const query = Schema.decodeUnknownSync(RyotQLDocument)(document);
-					return "library" in query.queries
+					return "mediaLibrary" in query.queries
 						? libraryRows([{ entityId: "library-1" }])
 						: rows([target("entity-a")]);
 				}),
@@ -132,7 +132,7 @@ describe("media monitoring operations", () => {
 							properties: {},
 							sourceEntityId: "entity-a",
 							targetEntityId: "library-1",
-							relationshipSchemaSlug: "in-library",
+							relationshipSchemaSlug: "in-media-library",
 						},
 						{
 							properties: {},
@@ -151,7 +151,7 @@ describe("media monitoring operations", () => {
 		expect(JSON.stringify(changes)).not.toContain("userId");
 	});
 
-	it("disables only existing monitoring edges and leaves ordinary library membership alone", async () => {
+	it("disables only existing monitoring edges and leaves ordinary media library membership alone", async () => {
 		const changes: unknown[] = [];
 		const host = defineSandboxTestHost(disableManifest, {
 			executeRyotql: () =>
@@ -193,7 +193,7 @@ describe("media monitoring operations", () => {
 				},
 			],
 		]);
-		expect(JSON.stringify(changes)).not.toContain("in-library");
+		expect(JSON.stringify(changes)).not.toContain("in-media-library");
 	});
 
 	it("bounds operation batches and validates aligned result variants", () => {

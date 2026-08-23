@@ -9,11 +9,11 @@ export const creatorSummaryRecipe = creatorFixtureRecipes.summaryRecipe(CREATOR_
 
 export const creatorSummaryRow = {
 	id: "creator-1",
-	isInLibrary: true,
 	isMonitored: false,
 	providerName: "TMDB",
 	name: "Edward Norton",
 	schemaSlug: "creator",
+	isInMediaLibrary: true,
 	populationStatus: "ready",
 	translationStatus: "none",
 	description: "An American actor.",

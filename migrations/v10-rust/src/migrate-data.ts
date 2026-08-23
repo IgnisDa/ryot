@@ -197,9 +197,9 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		};
 	});
 	const collectionEntitySchema = entitySchema(null, "collection");
-	const libraryEntitySchema = entitySchema(mediaPluginId, "library");
+	const libraryEntitySchema = entitySchema(mediaPluginId, "media-library");
 	const memberOfRelationshipSchema = relationshipSchema(null, "member-of");
-	const inLibraryRelationshipSchema = relationshipSchema(mediaPluginId, "in-library");
+	const inLibraryRelationshipSchema = relationshipSchema(mediaPluginId, "in-media-library");
 	for (const slug of legacySavedViewTargets.kernel) {
 		requireSchema(resolution.savedViews, null, slug, "saved view");
 	}

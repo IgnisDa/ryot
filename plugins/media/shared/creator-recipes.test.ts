@@ -47,8 +47,8 @@ describe("media creator recipes", () => {
 			"providerName",
 			"description",
 			"images",
-			"isInLibrary",
 			"isMonitored",
+			"isInMediaLibrary",
 			"alternateNames",
 		]);
 		expect(rowsQuery(recipe, "summary").where).toMatchObject({

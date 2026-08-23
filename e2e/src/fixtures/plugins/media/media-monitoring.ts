@@ -122,7 +122,7 @@ export const countMediaMonitoringRelationships = (input: {
 	Effect.gen(function* () {
 		const relationship = table("relationship", "relationship");
 		const media = table("entity", "media");
-		const library = table("entity", "library");
+		const mediaLibrary = table("entity", "mediaLibrary");
 		const result = yield* executeRyotQL(
 			input.client,
 			document({
@@ -132,15 +132,15 @@ export const countMediaMonitoringRelationships = (input: {
 						join("inner", media, eq(column(relationship, "sourceEntityId"), column(media, "id"))),
 						join(
 							"inner",
-							library,
-							eq(column(relationship, "targetEntityId"), column(library, "id")),
+							mediaLibrary,
+							eq(column(relationship, "targetEntityId"), column(mediaLibrary, "id")),
 						),
 					],
 					where: and(
 						eq(column(relationship, "relationshipSchemaSlug"), literal("media-monitoring")),
 						eq(column(media, "id"), literal(input.entityId)),
 						eq(column(media, "entitySchemaSlug"), literal(input.entitySchemaSlug)),
-						eq(column(library, "entitySchemaSlug"), literal("library")),
+						eq(column(mediaLibrary, "entitySchemaSlug"), literal("media-library")),
 					),
 				}),
 			}),

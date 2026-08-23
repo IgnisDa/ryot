@@ -12,7 +12,7 @@ export const manifest = defineManifest({
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
 	name: "Record media library membership event",
-	slug: "automation.record-library-membership-event",
+	slug: "automation.record-media-library-membership-event",
 	capabilities: ["executeRyotql", "createEvents", "listEventSchemas"],
 	inputProjection: {
 		relationship: { properties: [], compareProperties: [], parentEntityProperties: [] },
@@ -31,13 +31,13 @@ const sourceEntity = (host: AutomationHost, entityId: string) =>
 		}),
 	);
 
-const libraryEventSchema = (host: AutomationHost, entitySchemaSlug: string) =>
+const mediaLibraryEventSchema = (host: AutomationHost, entitySchemaSlug: string) =>
 	host
 		.listEventSchemas([entitySchemaSlug])
 		.pipe(
 			Effect.map(
 				(schemas): EventSchemaRecord | null =>
-					schemas.find((schema) => schema.slug === "add-to-library") ?? null,
+					schemas.find((schema) => schema.slug === "add-to-media-library") ?? null,
 			),
 		);
 
@@ -49,7 +49,7 @@ export default defineAutomation({
 			if (
 				payload.resource !== "relationship" ||
 				payload.operation !== "create" ||
-				payload.after.relationshipSchemaSlug !== "in-library"
+				payload.after.relationshipSchemaSlug !== "in-media-library"
 			) {
 				return null;
 			}
@@ -57,7 +57,7 @@ export default defineAutomation({
 			if (!libraryMemberEntitySchemaSlugs.has(entity.entitySchemaSlug)) {
 				return null;
 			}
-			const eventSchema = yield* libraryEventSchema(host, entity.entitySchemaSlug);
+			const eventSchema = yield* mediaLibraryEventSchema(host, entity.entitySchemaSlug);
 			if (eventSchema === null) {
 				return null;
 			}

@@ -10,11 +10,11 @@ import {
 	execution,
 	hostSuccess,
 } from "../../tests/backend/automations/automation-test-utils";
-import definition, { manifest } from "./ensure-library-membership.sandbox";
+import definition, { manifest } from "./ensure-media-library-membership.sandbox";
 
-const libraryRows = {
+const mediaLibraryRows = {
 	data: {
-		library: {
+		mediaLibrary: {
 			type: "rows" as const,
 			items: [{ entityId: "library-1" }],
 			pageInfo: { limit: 1, hasMore: false, nextCursor: null },
@@ -42,21 +42,21 @@ const membership = (sourceEntityId: string) => [
 				properties: {},
 				sourceEntityId,
 				targetEntityId: "library-1",
-				relationshipSchemaSlug: "in-library",
+				relationshipSchemaSlug: "in-media-library",
 			},
 		],
 	},
 ];
 
 it.each(["book", "show", "anime", "manga", "video-game", "music", "person", "company"])(
-	"adds %s to the user's library",
+	"adds %s to the user's media library",
 	(entitySchemaSlug) => {
 		const changes: unknown[] = [];
 		let queryCalls = 0;
 		const host = defineSandboxTestHost(manifest, {
 			executeRyotql: () => {
 				queryCalls += 1;
-				return hostSuccess(libraryRows);
+				return hostSuccess(mediaLibraryRows);
 			},
 			changeUserRelationships: (batches) => {
 				changes.push(batches);
@@ -78,7 +78,7 @@ it.each(["book", "show", "anime", "manga", "video-game", "music", "person", "com
 										properties: {},
 										sourceEntityId: "entity-1",
 										targetEntityId: "library-1",
-										relationshipSchemaSlug: "in-library",
+										relationshipSchemaSlug: "in-media-library",
 									},
 								],
 							},
@@ -93,7 +93,7 @@ it.each(["book", "show", "anime", "manga", "video-game", "music", "person", "com
 it("is idempotent when the same import hook runs repeatedly", () => {
 	const changes: unknown[] = [];
 	const host = defineSandboxTestHost(manifest, {
-		executeRyotql: () => hostSuccess(libraryRows),
+		executeRyotql: () => hostSuccess(mediaLibraryRows),
 		changeUserRelationships: (batches) => {
 			changes.push(batches);
 			return hostSuccess([{ deleted: 0, created: changes.length === 1 ? 1 : 0 }]);
@@ -112,17 +112,17 @@ it("is idempotent when the same import hook runs repeatedly", () => {
 it("ignores irrelevant entity and event inputs", () => {
 	let calls = 0;
 	const host = defineSandboxTestHost(manifest, {
-		executeRyotql: () => {
-			calls += 1;
-			return hostSuccess(libraryRows);
-		},
 		changeUserRelationships: () => {
 			calls += 1;
 			return hostSuccess([]);
 		},
+		executeRyotql: () => {
+			calls += 1;
+			return hostSuccess(mediaLibraryRows);
+		},
 	});
 	const eventInput = eventAutomationContext({ entitySchemaSlug: "workout" });
-	const libraryInput = eventAutomationContext({ entitySchemaSlug: "library" });
+	const mediaLibraryInput = eventAutomationContext({ entitySchemaSlug: "media-library" });
 	const untargetedCollectionInput = eventAutomationContext({
 		entitySchemaSlug: "collection",
 		eventSchemaSlug: "add-entity-to-collection",
@@ -133,7 +133,7 @@ it("ignores irrelevant entity and event inputs", () => {
 	return Effect.runPromise(
 		Effect.gen(function* () {
 			expect(yield* definition.run(eventInput, host, execution)).toBeNull();
-			expect(yield* definition.run(libraryInput, host, execution)).toBeNull();
+			expect(yield* definition.run(mediaLibraryInput, host, execution)).toBeNull();
 			expect(yield* definition.run(untargetedCollectionInput, host, execution)).toBeNull();
 			expect(yield* definition.run(irrelevantInput, host, execution)).toBeNull();
 			expect(calls).toBe(0);
@@ -141,10 +141,10 @@ it("ignores irrelevant entity and event inputs", () => {
 	);
 });
 
-it("adds the event subject and the collection membership target to the library", () => {
+it("adds the event subject and the collection membership target to the media library", () => {
 	const changes: unknown[] = [];
 	const host = defineSandboxTestHost(manifest, {
-		executeRyotql: () => hostSuccess(libraryRows),
+		executeRyotql: () => hostSuccess(mediaLibraryRows),
 		changeUserRelationships: (batches) => {
 			changes.push(batches);
 			return hostSuccess([{ created: 1, deleted: 0 }]);
@@ -182,7 +182,7 @@ it("uses trusted user scope for direct creation", async () => {
 	const host = defineSandboxTestHost(manifest, {
 		executeRyotql: () => {
 			reads += 1;
-			return hostSuccess(libraryRows);
+			return hostSuccess(mediaLibraryRows);
 		},
 		changeUserRelationships: (batches) => {
 			changes.push(batches);
@@ -206,7 +206,7 @@ it("uses trusted user scope for direct creation", async () => {
 						properties: {},
 						sourceEntityId: "entity-1",
 						targetEntityId: "library-1",
-						relationshipSchemaSlug: "in-library",
+						relationshipSchemaSlug: "in-media-library",
 					},
 				],
 			},
@@ -217,13 +217,13 @@ it("uses trusted user scope for direct creation", async () => {
 it("rejects provider completion for a different execution user before host calls", async () => {
 	let calls = 0;
 	const host = defineSandboxTestHost(manifest, {
-		executeRyotql: () => {
-			calls += 1;
-			return hostSuccess(libraryRows);
-		},
 		changeUserRelationships: () => {
 			calls += 1;
 			return hostSuccess([]);
+		},
+		executeRyotql: () => {
+			calls += 1;
+			return hostSuccess(mediaLibraryRows);
 		},
 	});
 	const input = automationContext(context("movie").automation.payload, {

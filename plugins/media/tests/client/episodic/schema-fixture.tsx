@@ -49,7 +49,7 @@ export const episodicFixtureSchema = defineEpisodicMediaSchema({
 	activityCopy: {
 		segmentNoun: "Pass",
 		recordLabel: "Item record",
-		libraryLabel: "Added to library",
+		libraryLabel: "Added to media library",
 		loadingDetail: "Fetching the item record.",
 		emptyDetail: "Nothing has been recorded for this item.",
 		figures: { time: "Time", watches: "Passes", episodes: "Episodes" },

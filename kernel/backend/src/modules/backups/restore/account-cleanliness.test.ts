@@ -73,7 +73,7 @@ describe("classifyAccountCleanliness", () => {
 				cleanState({
 					entities: [
 						entity(),
-						{ ...entity("library-id"), entitySchemaSlug: EntitySchemaSlug.make("library") },
+						{ ...entity("library-id"), entitySchemaSlug: EntitySchemaSlug.make("media-library") },
 					],
 				}),
 			),
