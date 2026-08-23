@@ -8,7 +8,6 @@ import { Database } from "#lib/infrastructure/db/service";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
 import { ClientSurfaceMaterializer } from "#modules/plugins/client-surface-materializer";
 import { PluginInstallationService } from "#modules/plugins/installation-service";
-import { SavedViewsService } from "#modules/saved-views/service";
 
 import { performBootstrap } from "./bootstrap";
 import { PluginUserBootstrapDispatcher } from "./plugin-dispatch";
@@ -49,7 +48,6 @@ const makeBootstrapDb = (options?: {
 const makeLayer = (options: {
 	db?: object;
 	onDefaultRules?: (userId: UserId) => void;
-	onBuiltinViews?: (userId: UserId) => void;
 	onMaterializeBuilds?: (userId: UserId) => Effect.Effect<void>;
 	onProvisionInstallations?: (userId: UserId) => void;
 	dispatch: (userId: UserId) => Effect.Effect<void, SandboxRunError>;
@@ -72,9 +70,6 @@ const makeLayer = (options: {
 		Layer.mock(NotificationSubscriptionsService)({
 			ensureDefaultRules: (inputUserId) => Effect.sync(() => options.onDefaultRules?.(inputUserId)),
 		}),
-		Layer.mock(SavedViewsService)({
-			ensureBuiltinViews: (inputUserId) => Effect.sync(() => options.onBuiltinViews?.(inputUserId)),
-		}),
 		Layer.succeed(ClientSurfaceMaterializer, {
 			materializeRenderer: () => Effect.void,
 			assertUserCompositions: () => Effect.void,
@@ -93,16 +88,14 @@ it.effect(
 		const order: string[] = [];
 		const dispatchedUserIds: UserId[] = [];
 		const defaultRuleUserIds: UserId[] = [];
-		const builtinViewUserIds: UserId[] = [];
 		const provisionedUserIds: UserId[] = [];
 
 		return Effect.gen(function* () {
 			yield* performBootstrap(userId);
 
-			expect(order).toEqual(["provision", "dispatch", "views", "materialize-builds", "complete"]);
+			expect(order).toEqual(["provision", "dispatch", "materialize-builds", "complete"]);
 			expect(dispatchedUserIds).toEqual([userId]);
 			expect(provisionedUserIds).toEqual([userId]);
-			expect(builtinViewUserIds).toEqual([userId]);
 			expect(defaultRuleUserIds).toEqual([userId]);
 			expect(markerUpdated).toBe(true);
 		}).pipe(
@@ -113,10 +106,6 @@ it.effect(
 						Effect.sync(() => {
 							order.push("materialize-builds");
 						}),
-					onBuiltinViews: (inputUserId) => {
-						order.push("views");
-						builtinViewUserIds.push(inputUserId);
-					},
 					onProvisionInstallations: (inputUserId) => {
 						order.push("provision");
 						provisionedUserIds.push(inputUserId);

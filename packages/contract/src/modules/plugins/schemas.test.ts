@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 
 import {
 	PluginConflictError,
-	PluginHomeViewSelection,
 	PluginInvokeBody,
 	PluginInvokeResult,
 	UpdatePluginInstallationBody,
@@ -31,20 +30,6 @@ describe("UpdatePrivatePluginBody", () => {
 		]) {
 			expect(() => Schema.decodeUnknownSync(UpdatePrivatePluginBody)(input)).toThrow();
 		}
-	});
-});
-
-describe("PluginHomeViewSelection", () => {
-	it("accepts a saved-view ID or null and rejects excess fields", () => {
-		expect(Schema.decodeUnknownSync(PluginHomeViewSelection)({ savedViewId: "view-1" })).toEqual({
-			savedViewId: "view-1",
-		});
-		expect(Schema.decodeUnknownSync(PluginHomeViewSelection)({ savedViewId: null })).toEqual({
-			savedViewId: null,
-		});
-		expect(() =>
-			Schema.decodeUnknownSync(PluginHomeViewSelection)({ extra: true, savedViewId: "view-1" }),
-		).toThrow();
 	});
 });
 

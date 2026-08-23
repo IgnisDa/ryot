@@ -12,9 +12,12 @@ import { KernelSavedViewRendererName } from "@ryot-app/contract/modules/saved-vi
 import { PluginId, PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { readPluginArchiveStream, type PluginArchivePackage } from "@ryot-app/plugin-archive";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { and, eq, inArray } from "drizzle-orm";
 import { Context, Effect, Layer, Result, Schema } from "effect";
 
+import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { acquireUserWriteLock } from "#lib/infrastructure/db/user-write-lock";
 import {
 	formatPropertyIssues,
 	parseAppSchemaProperties,
@@ -30,7 +33,6 @@ import { UploadIntentsService } from "#modules/uploads/intents/service";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
 import { PluginCatalogInvalidator } from "./catalog-events";
-import { PluginDefinitionMaterializer } from "./definition-materializer";
 import { PluginIngestionLock } from "./ingestion-lock";
 import {
 	PluginInstallationRepository,
@@ -40,6 +42,7 @@ import {
 import { PluginInstallationLifecycleDispatcher } from "./installation-workflow";
 import { normalizePluginPackage, normalizePluginSource, structurePluginFailure } from "./pipeline";
 import { PluginRepository } from "./repository";
+import { PluginSavedViewReferences } from "./saved-view-references";
 import { validateAdditiveSchemaEvolution } from "./schema-evolution";
 import type { StoredPlugin } from "./types";
 import {
@@ -70,7 +73,7 @@ type UpdatePrivatePluginInput = PrivatePluginPackageInput &
 	};
 
 type HomeSavedViewTarget = NonNullable<
-	Effect.Success<ReturnType<PluginInstallationRepository["Service"]["lockHomeSavedView"]>>
+	Effect.Success<ReturnType<PluginInstallationRepository["Service"]["findHomeSavedView"]>>
 >;
 
 const isUsableHomeSavedView = (
@@ -146,6 +149,30 @@ const validateEffectiveSurfaceSlugs = (
 		},
 	});
 
+const assertUnclaimedSavedViewSlugs = Effect.fn(function* (
+	userId: UserId,
+	manifest: PluginManifest,
+) {
+	const slugs = manifest.savedViews.map(({ slug }) => slug);
+	if (slugs.length === 0) {
+		return yield* Effect.void;
+	}
+	const db = yield* Database;
+	const [collision] = yield* mapDatabaseErrors(
+		db
+			.select({ slug: schema.savedView.slug })
+			.from(schema.savedView)
+			.where(and(eq(schema.savedView.userId, userId), inArray(schema.savedView.slug, slugs)))
+			.limit(1),
+	);
+	if (collision) {
+		return yield* new PluginValidationError({
+			issues: [`Saved view slug '${collision.slug}' is owned by a custom view`],
+		});
+	}
+	return yield* Effect.void;
+});
+
 const definitionClaimKinds = [
 	["savedViews", "saved view"],
 	["entitySchemas", "entity schema"],
@@ -213,7 +240,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			const objectStorage = yield* ObjectStorageService;
 			const invalidator = yield* PluginCatalogInvalidator;
 			const installations = yield* PluginInstallationRepository;
-			const definitionMaterializer = yield* PluginDefinitionMaterializer;
+			const savedViewReferences = yield* PluginSavedViewReferences;
 			const lifecycleDispatcher = yield* PluginInstallationLifecycleDispatcher;
 
 			const withPrivatePluginPackage = <A, E, R>(
@@ -345,7 +372,6 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 							}
 							continue;
 						}
-						yield* definitionMaterializer.removeGenerated(row.installationId);
 						if (row.health !== "ready" && row.health !== "incompatible") {
 							continue;
 						}
@@ -361,7 +387,6 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						healthChanged = true;
 					}
 					if (healthChanged) {
-						yield* definitionMaterializer.materialize(userId);
 						yield* invalidator.user(userId);
 					}
 				}
@@ -417,6 +442,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				const updated = yield* mapDatabaseErrors(
 					database.transaction((transaction) =>
 						Effect.gen(function* () {
+							yield* acquireUserWriteLock(userId);
 							const usablePluginIds = new Set(
 								(yield* installations.listForUser(userId))
 									.filter((candidate) => candidate.health === "ready" && !candidate.isDisabled)
@@ -430,28 +456,31 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 									.filter((candidate) => usablePluginIds.has(candidate.id))
 									.map((candidate) => [candidate.id, candidate]),
 							);
-							if (payload.savedViewId !== null) {
-								const target = yield* installations.lockHomeSavedView(userId, payload.savedViewId);
+							if (payload.savedViewSlug !== null) {
+								const target = yield* installations.findHomeSavedView(
+									userId,
+									payload.savedViewSlug,
+								);
 								if (!target) {
 									return yield* new PluginRequestError({
-										reason: { code: "home-view-not-found", savedViewId: payload.savedViewId },
+										reason: { code: "home-view-not-found", savedViewSlug: payload.savedViewSlug },
 									});
 								}
 								if (target.view.isDisabled) {
 									return yield* new PluginRequestError({
-										reason: { code: "home-view-disabled", savedViewId: payload.savedViewId },
+										reason: { code: "home-view-disabled", savedViewSlug: payload.savedViewSlug },
 									});
 								}
 								if (!isUsableHomeSavedView(target, rendererPlugins)) {
 									return yield* new PluginRequestError({
 										reason: {
-											savedViewId: payload.savedViewId,
+											savedViewSlug: payload.savedViewSlug,
 											code: "home-view-renderer-unavailable",
 										},
 									});
 								}
 							}
-							return yield* installations.setHomeSavedView(userId, state.id, payload.savedViewId);
+							return yield* installations.setHomeSavedView(userId, state.id, payload.savedViewSlug);
 						}).pipe(Effect.provideService(Database, transaction)),
 					),
 				);
@@ -535,6 +564,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 										scope: "user",
 										ownerId: input.userId,
 									});
+									yield* assertUnclaimedSavedViewSlugs(input.userId, manifest);
 									const existing = yield* installations.findByUserAndPlugin(input.userId, pluginId);
 									const current = yield* installations.listForUser(input.userId);
 									const sortOrder =
@@ -556,7 +586,6 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 											message: "Plugin installation upsert returned no row",
 										});
 									}
-									yield* definitionMaterializer.materialize(input.userId);
 									return existingState;
 								}).pipe(Effect.provideService(Database, transaction)),
 							),
@@ -643,6 +672,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 									database.transaction((transaction) =>
 										Effect.gen(function* () {
 											yield* repository.lockIngestion();
+											yield* assertUnclaimedSavedViewSlugs(input.userId, manifest);
 											const current = yield* repository.findPrivateByIdForUser(
 												plugin.id,
 												input.userId,
@@ -692,7 +722,6 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 												});
 											}
 											if (currentInstallation.health !== "incompatible") {
-												yield* definitionMaterializer.materialize(input.userId);
 												return { id: state.id };
 											}
 											yield* installations.updateHealth({
@@ -700,7 +729,6 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 												healthReason: null,
 												id: currentInstallation.id,
 											});
-											yield* definitionMaterializer.materialize(input.userId);
 											return { id: state.id };
 										}).pipe(Effect.provideService(Database, transaction)),
 									),
@@ -770,20 +798,12 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						? {}
 						: yield* validateConfigPatch(plugin.manifest, state.config, payload);
 				const saved = yield* Effect.uninterruptible(
-					installations
-						.updateState({
-							config,
-							isDisabled,
-							id: state.id,
-							sortOrder: payload.sortOrder ?? state.sortOrder,
-						})
-						.pipe(
-							Effect.tap((result) =>
-								state.health === "needs-configuration" && result?.health === "ready"
-									? definitionMaterializer.materialize(userId)
-									: Effect.void,
-							),
-						),
+					installations.updateState({
+						config,
+						isDisabled,
+						id: state.id,
+						sortOrder: payload.sortOrder ?? state.sortOrder,
+					}),
 				);
 				if (!saved) {
 					return yield* new PluginNotFoundError({
@@ -849,7 +869,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						});
 					}
 					if (
-						yield* definitionMaterializer.hasCustomSavedViewReferences(
+						yield* savedViewReferences.hasCustomSavedViewReferences(
 							UserId.make(installation.userId),
 							installation.id,
 						)
@@ -900,7 +920,6 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 										reason: { pluginSlug, code: "plugin-not-found" },
 									});
 								}
-								yield* definitionMaterializer.removeGenerated(currentInstallation.id);
 								yield* assertUnreferenced(current, currentInstallation, pluginSlug);
 								yield* installations.remove(currentInstallation.id);
 								yield* repository.deactivate(current.id);

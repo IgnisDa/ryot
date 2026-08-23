@@ -287,10 +287,17 @@ export const preflightProvenance = Effect.fn(function* (
 	for (const view of records.savedViews) {
 		if (view.kind === "builtin-override") {
 			yield* assertOwner(view.pluginKey, definitions.savedViews[view.slug], "saved view");
-		} else if (view.pluginKey !== null) {
-			yield* mappedPluginId(view.pluginKey);
+		} else {
+			if (definitions.savedViews[view.slug]) {
+				return yield* badRequest(
+					`Custom saved view slug '${view.slug}' belongs to a built-in view`,
+				);
+			}
+			if (view.pluginKey !== null) {
+				yield* mappedPluginId(view.pluginKey);
+			}
 		}
-		if (view.renderer.kind === "plugin") {
+		if (view.kind === "custom" && view.renderer.kind === "plugin") {
 			yield* mappedPluginId(view.renderer.pluginKey);
 		}
 	}
@@ -402,7 +409,6 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					].map((plugin) => [plugin.id, plugin]),
 				);
 				const installationIdByKey = new Map<string, string>();
-				const savedViewIdMap = new Map<string, string>();
 				const installationActivations: Array<{
 					readonly id: string;
 					readonly updatedAt: Date;
@@ -461,28 +467,6 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				}
 				const getEntitySchema = (slug: string) => definitions.entitySchemas[slug];
 				const getRelationshipSchema = (slug: string) => definitions.relationshipSchemas[slug];
-				yield* savedViews.restoreBuiltinViews(
-					userId,
-					Object.values(definitions.savedViews)
-						.filter(
-							({ pluginId }) =>
-								pluginId !== null &&
-								pluginId !== undefined &&
-								pluginKeyById.get(pluginId)?.startsWith("user:") === true,
-						)
-						.map(({ slug, name, icon, renderer, settings, pluginId, sortOrder, dataSources }) => ({
-							slug,
-							name,
-							icon,
-							renderer,
-							settings,
-							sortOrder,
-							dataSources,
-							pluginInstallationId: pluginId
-								? (installationIdByKey.get(pluginKeyById.get(pluginId) ?? "") ?? null)
-								: null,
-						})),
-				);
 				for (const integration of records.integrations) {
 					const pluginId = pluginIdByKey.get(integration.packageKey);
 					const plugin = pluginId ? installedPlugins.get(pluginId) : undefined;
@@ -802,7 +786,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						if (!definitions.savedViews[view.slug]) {
 							return yield* badRequest("Backup references an unavailable built-in saved view");
 						}
-						const restored = yield* savedViews.restoreBuiltinStateBySlug(
+						const restored = yield* savedViews.setBuiltinState(
 							userId,
 							view.slug,
 							view.isDisabled,
@@ -811,7 +795,6 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						if (!restored) {
 							return yield* badRequest("Backup target is missing a built-in saved view");
 						}
-						savedViewIdMap.set(view.id, restored.id);
 						continue;
 					}
 					const pluginInstallationId = view.pluginKey
@@ -859,18 +842,21 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					if (!restored) {
 						return yield* badRequest("Backup saved view could not be restored");
 					}
-					savedViewIdMap.set(view.id, restored.id);
 				}
 				for (const state of records.installations) {
-					if (state.homeSavedViewId === null) {
+					if (state.homeSavedViewSlug === null) {
 						continue;
 					}
 					const installationId = installationIdByKey.get(state.packageKey);
-					const homeSavedViewId = savedViewIdMap.get(state.homeSavedViewId);
+					const homeView = yield* savedViews.findBySlug(userId, state.homeSavedViewSlug);
 					if (
 						!installationId ||
-						!homeSavedViewId ||
-						!(yield* installations.setHomeSavedView(userId, installationId, homeSavedViewId))
+						!homeView ||
+						!(yield* installations.setHomeSavedView(
+							userId,
+							installationId,
+							state.homeSavedViewSlug,
+						))
 					) {
 						return yield* badRequest("Backup installation home saved view could not be restored");
 					}

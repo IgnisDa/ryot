@@ -75,7 +75,8 @@ async function main() {
 		),
 	);
 	const media = await Effect.runPromise(findBuiltinPluginBySlug(client, "media"));
-	await Effect.runPromise(setPluginHomeView(client, media.slug, primaryView.id));
+	const primaryViewRecord = await Effect.runPromise(findSavedViewById(client, primaryView.id));
+	await Effect.runPromise(setPluginHomeView(client, media.slug, primaryViewRecord.slug));
 
 	const appBaseUrl = getFrontendUrl();
 

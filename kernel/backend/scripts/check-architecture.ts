@@ -52,8 +52,6 @@ const backupOnlyRestoreCalls = [
 	".restoreForUser(",
 	".restoreTranslation(",
 	".restoreCustomView(",
-	".restoreBuiltinViews(",
-	".restoreBuiltinStateBySlug(",
 	".restoreNotificationSubscription(",
 	".activateRestored(",
 	"installations.restore(",
