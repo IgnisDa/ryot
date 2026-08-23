@@ -10,6 +10,7 @@ import {
 	type EntityMigrationTarget,
 	type ResolvedEntityMigrationTarget,
 	buildEntityTargetValuesSql,
+	buildRequireLegacyTableSql,
 	buildReportSql,
 } from "./shared";
 
@@ -112,9 +113,7 @@ DECLARE
 	rows_inserted int := 0;
 	started_at timestamptz := clock_timestamp();
 BEGIN
-	IF to_regclass('"exercise"') IS NULL THEN
-		RAISE EXCEPTION 'Expected exercise table to exist in a V1 database but it was not found';
-	END IF;
+	${buildRequireLegacyTableSql("exercise -> entity", "exercise")}
 
 	LOOP
 		WITH exercise_targets (source, entity_schema_slug, entity_schema_plugin_id, provider_id) AS (

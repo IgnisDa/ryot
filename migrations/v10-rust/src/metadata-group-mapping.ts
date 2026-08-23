@@ -11,6 +11,7 @@ import {
 	type ResolvedRelationshipTarget,
 	buildLotEntityTargetValuesSql,
 	buildRelationshipTargetValuesSql,
+	buildAbortOnRowsSql,
 	buildReportSql,
 } from "./shared";
 
@@ -234,25 +235,31 @@ export const buildMetadataGroupRelationshipMigrationSql = (
 ) => `
 DO $$
 DECLARE
+	cross_owner_rows int := 0;
+	cross_owner_sample text;
 	rows_inserted int;
 	started_at timestamptz := clock_timestamp();
 BEGIN
-	IF EXISTS (
-		WITH lot_to_relationship_schema (lot, relationship_schema_slug, relationship_schema_plugin_id) AS (
-			VALUES ${buildRelationshipTargetValuesSql(targets)}
-		)
-		SELECT 1
-		FROM "metadata_to_metadata_group" m2mg
-		INNER JOIN "metadata_group" mg ON mg.id = m2mg.metadata_group_id
-		INNER JOIN "metadata" metadata ON metadata.id = m2mg.metadata_id
-		INNER JOIN lot_to_relationship_schema lrs ON lrs.lot = mg.lot
-		WHERE mg.created_by_user_id IS NOT NULL
-			AND metadata.created_by_user_id IS NOT NULL
-			AND mg.created_by_user_id <> metadata.created_by_user_id
-		LIMIT 1
-	) THEN
-		RAISE EXCEPTION 'metadata_group -> relationship: found relationship between entities owned by different users';
-	END IF;
+	${buildAbortOnRowsSql({
+		countVariable: "cross_owner_rows",
+		sampleVariable: "cross_owner_sample",
+		message:
+			"metadata_group -> relationship: % user-authored link(s) join a group and a media item owned by different users, and a V2 relationship has a single owner, so there is no correct owner to give them: %. Keep the dump and report it; this migration needs an ownership rule before it can run on this data.",
+		source: `
+			WITH lot_to_relationship_schema (lot, relationship_schema_slug, relationship_schema_plugin_id) AS (
+				VALUES ${buildRelationshipTargetValuesSql(targets)}
+			)
+			SELECT mg.title || ' (owner ' || mg.created_by_user_id || ') -> ' || metadata.title
+				|| ' (owner ' || metadata.created_by_user_id || ')' AS label
+			FROM "metadata_to_metadata_group" m2mg
+			INNER JOIN "metadata_group" mg ON mg.id = m2mg.metadata_group_id
+			INNER JOIN "metadata" metadata ON metadata.id = m2mg.metadata_id
+			INNER JOIN lot_to_relationship_schema lrs ON lrs.lot = mg.lot
+			WHERE mg.created_by_user_id IS NOT NULL
+				AND metadata.created_by_user_id IS NOT NULL
+				AND mg.created_by_user_id <> metadata.created_by_user_id
+		`,
+	})}
 
 	WITH lot_to_relationship_schema (lot, relationship_schema_slug, relationship_schema_plugin_id) AS (
 		VALUES ${buildRelationshipTargetValuesSql(targets)}

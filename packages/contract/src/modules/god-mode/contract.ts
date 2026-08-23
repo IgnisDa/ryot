@@ -4,6 +4,11 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/un
 import { AdminMiddleware } from "../../auth-middleware";
 import { UserId } from "../../schema/brands";
 import { Email } from "../../schema/utils";
+import {
+	MigrationReportAnomalyCode,
+	MigrationReportDetail,
+	MigrationReportLevel,
+} from "./migration-report";
 import { UserLifecycleOperation } from "./user-lifecycle";
 
 const UserAuthState = Schema.Literals(["credential", "oidc", "none", "mixed"]);
@@ -46,9 +51,6 @@ const requestFailure = GodModeRequestFailure.pipe(HttpApiSchema.status(400));
 const notFoundFailure = GodModeNotFound.pipe(HttpApiSchema.status(404));
 const internalFailure = GodModeInternalFailure.pipe(HttpApiSchema.status(500));
 
-export const MigrationReportLevel = Schema.Literals(["info", "warning"]);
-export type MigrationReportLevel = Schema.Schema.Type<typeof MigrationReportLevel>;
-
 const MigrationReportEntry = Schema.Struct({
 	seq: Schema.Number,
 	phase: Schema.String,
@@ -56,7 +58,10 @@ const MigrationReportEntry = Schema.Struct({
 	createdAt: Schema.String,
 	level: MigrationReportLevel,
 	count: Schema.NullOr(Schema.Number),
+	totalDetails: Schema.NullOr(Schema.Number),
 	elapsedSeconds: Schema.NullOr(Schema.Number),
+	details: Schema.Array(MigrationReportDetail),
+	code: Schema.NullOr(MigrationReportAnomalyCode),
 });
 
 const MigrationReportResponse = Schema.Struct({ entries: Schema.Array(MigrationReportEntry) });
