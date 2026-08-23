@@ -13,9 +13,10 @@
     "The seven phase invocation records were reconstructed from the scenario artifacts. Each phase command recorded itself in this manifest when it started, but those writes did not survive: the file on disk matched its last committed state, which predates the idle phase. Every field is derived from the artifacts that invocation produced, so the start and end times bound the scenario work rather than the process lifetime.",
     "The manifest profiles block was filled by hand from profiles/summary.json. No command writes it, so a verified raw-profile deletion would otherwise not be recorded in the manifest.",
     "Neither soak-control-extended invocation recorded its scenarioIds: both wrote an empty array, so the omission is systematic rather than intermittent. The scenario ids were filled in by hand from the artifacts, which carry their own invocationId. summarize-run.ts validates artifact provenance against invocation records but does not reject an empty scenarioIds, so the omission was silent both times.",
-    "The first soak-control-extended run, invocation soak-f16b3ad6, completed but its complete artifact was destroyed after the run by an operator error before it was committed. See defects.md defect 25. The scenario was re-run as invocation soak-e9171c80 and that run's complete artifact is what this manifest and summary.json describe; the first run survives only as figures quoted in report.md."
+    "The first soak-control-extended run, invocation soak-f16b3ad6, completed but its complete artifact was destroyed after the run by an operator error before it was committed. See defects.md defect 25. The scenario was re-run as invocation soak-e9171c80 and that run's complete artifact is what this manifest and summary.json describe; the first run survives only as figures quoted in report.md.",
+    "The teardown record was corrected by hand. The command snapshots remaining files and sampler processes before --remove-samples deletes them, and its process probe self-matches, so both fields describe a state that never existed after teardown. The verified state is recorded alongside them under remainingAfterRemoval and processesVerified, per defects.md defect 26."
   ],
-  "completedAtUtc": null,
+  "completedAtUtc": "2026-09-20T22:39:22.000Z",
   "invocations": [
     {
       "command": "provenance",
@@ -162,6 +163,15 @@
       "stopReason": null,
       "completedAtUtc": "2026-09-20T21:57:20.997Z",
       "outcome": "completed"
+    },
+    {
+      "command": "teardown",
+      "invocationId": "teardown-29193d55",
+      "startedAtUtc": "2026-09-20T22:37:54.473Z",
+      "scenarioIds": [],
+      "stopReason": null,
+      "completedAtUtc": "2026-09-20T22:38:02.742Z",
+      "outcome": "completed"
     }
   ],
   "constituentRunIds": [
@@ -179,7 +189,14 @@
     "otelMemoryLimitBytes": "134217728",
     "imageSource": "https://github.com/oven-sh/bun"
   },
-  "teardown": null,
+  "teardown": {
+    "remaining": "app.jsonl host.jsonl profiles ryot-benchmark-host smoke.jsonl smoke.pid watchdog-drill.jsonl watchdog-triggers.attempt1-archive.jsonl watchdog-triggers.jsonl",
+    "processes": "running",
+    "removedSampleFiles": true,
+    "remainingAfterRemoval": "ryot-benchmark-host smoke.jsonl smoke.pid watchdog-triggers.attempt1-archive.jsonl",
+    "processesVerified": "none",
+    "note": "remaining and processes are the teardown command's pre-removal snapshot: it reads them before --remove-samples deletes the files it lists. processes is also invariant - the pgrep pattern matches the probe's own shell command line, so it reports running with no sampler alive. remainingAfterRemoval and processesVerified were checked over ssh after the command returned. See defects.md defect 26."
+  },
   "preflight": null,
   "watchdogDrill": null,
   "counterbalancedOrders": {
