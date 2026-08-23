@@ -9,11 +9,36 @@ import {
 	type ReactNode,
 } from "react";
 
-const rootScope = Symbol("shortcut-scope-root");
-const listeners = new Set<() => void>();
-const stack: symbol[] = [];
+type ShortcutScope = {
+	readonly id: symbol;
+	readonly parent?: ShortcutScope;
+};
+type OverlayEntry = {
+	readonly dismiss: () => boolean;
+	readonly scope: ShortcutScope;
+};
 
-const ShortcutScopeContext = createContext<symbol>(rootScope);
+const rootScope: ShortcutScope = { id: Symbol("shortcut-scope-root") };
+const listeners = new Set<() => void>();
+const shortcutStack: Array<{ readonly scope: ShortcutScope }> = [];
+const backStack: OverlayEntry[] = [];
+
+const ShortcutScopeContext = createContext(rootScope);
+export type OverlayBackAdapter = {
+	readonly register: (dismiss: () => boolean) => () => void;
+};
+const OverlayBackContext = createContext<OverlayBackAdapter | undefined>(undefined);
+
+export function OverlayBackProvider(props: {
+	readonly children: ReactNode;
+	readonly adapter: OverlayBackAdapter;
+}) {
+	return (
+		<OverlayBackContext.Provider value={props.adapter}>
+			{props.children}
+		</OverlayBackContext.Provider>
+	);
+}
 
 const notify = () => {
 	for (const listener of listeners) {
@@ -28,12 +53,29 @@ const subscribe = (listener: () => void) => {
 	};
 };
 
-const topScope = () => stack.at(-1) ?? rootScope;
+const contains = (scope: ShortcutScope, candidate: ShortcutScope) => {
+	for (let current = candidate.parent; current !== undefined; current = current.parent) {
+		if (current === scope) {
+			return true;
+		}
+	}
+	return false;
+};
+
+const topScopeIn = <Entry extends { readonly scope: ShortcutScope }>(entries: readonly Entry[]) =>
+	entries.reduce<Entry | undefined>((top, entry) => {
+		if (top === undefined || contains(top.scope, entry.scope)) {
+			return entry;
+		}
+		return contains(entry.scope, top.scope) ? top : entry;
+	}, undefined);
+const topScope = () => topScopeIn(shortcutStack)?.scope ?? rootScope;
+const dismissTop = () => topScopeIn(backStack)?.dismiss() ?? false;
 
 export function useShortcut(
 	key: RegisterableHotkey,
 	handler: () => void,
-	options?: { readonly enabled?: boolean; readonly scope?: symbol },
+	options?: { readonly enabled?: boolean; readonly scope?: ShortcutScope },
 ) {
 	const inherited = useContext(ShortcutScopeContext);
 	const target = options?.scope ?? inherited;
@@ -50,25 +92,53 @@ export function OverlayScope(props: {
 	readonly enabled?: boolean;
 	readonly children: ReactNode;
 	readonly onEscape: () => void;
+	readonly backEnabled?: boolean;
+	readonly onBack?: () => boolean;
 }) {
-	const scope = useRef(Symbol("shortcut-scope")).current;
+	const back = useContext(OverlayBackContext);
+	const parent = useContext(ShortcutScopeContext);
+	const scope = useRef<ShortcutScope>({ id: Symbol("shortcut-scope"), parent }).current;
 	const escape = useEffectEvent(() => props.onEscape());
+	const dismiss = useEffectEvent(() => {
+		if (props.onBack !== undefined) {
+			return props.onBack();
+		}
+		props.onEscape();
+		return true;
+	});
 	const enabled = props.enabled ?? true;
 
 	useEffect(() => {
 		if (!enabled) {
 			return undefined;
 		}
-		stack.push(scope);
+		const entry = { scope };
+		shortcutStack.push(entry);
 		notify();
 		return () => {
-			const index = stack.lastIndexOf(scope);
+			const index = shortcutStack.lastIndexOf(entry);
 			if (index !== -1) {
-				stack.splice(index, 1);
+				shortcutStack.splice(index, 1);
 			}
 			notify();
 		};
 	}, [enabled, scope]);
+
+	useEffect(() => {
+		if (!enabled || !(props.backEnabled ?? true) || back === undefined) {
+			return undefined;
+		}
+		const entry = { dismiss, scope };
+		backStack.push(entry);
+		const unregister = back.register(dismissTop);
+		return () => {
+			const index = backStack.lastIndexOf(entry);
+			if (index !== -1) {
+				backStack.splice(index, 1);
+			}
+			unregister();
+		};
+	}, [back, enabled, props.backEnabled, scope]);
 
 	useShortcut("Escape", escape, { enabled, scope });
 

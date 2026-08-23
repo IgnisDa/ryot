@@ -15,6 +15,8 @@ import {
 	type PluginThemeSnapshot,
 	type PluginAssetOutcome,
 	type PluginAssetRequest,
+	type PluginCollectionOutcome,
+	type PluginCollectionRequest,
 	type PluginOperationBridgeErrorReason,
 	type PluginOperationOutcome,
 	type PluginOperationRequest,
@@ -24,6 +26,7 @@ import {
 } from "@ryot-app/client-plugin-contract";
 import { createRyotClient } from "@ryot-app/client-sdk";
 import { createTestRyotAdapter } from "@ryot-app/client-sdk/testing";
+import { MembershipResponse } from "@ryot-app/contract/modules/collections/schemas";
 import { EntityId, EntitySchemaSlug, PluginSlug } from "@ryot-app/contract/schema/brands";
 import { waitFor } from "@testing-library/dom";
 import { Schema } from "effect";
@@ -49,10 +52,10 @@ const entity: PluginLogicalLocation = {
 const nav = (location: PluginLogicalLocation = home, index = 0) => ({
 	index,
 	location,
-	leading: "none" as const,
 	compact: false,
 	edgeBack: false,
 	key: `k${index}`,
+	leading: "none" as const,
 });
 const at = (location: PluginLogicalLocation = home, index = 0) => ({
 	...nav(location, index),
@@ -60,6 +63,16 @@ const at = (location: PluginLogicalLocation = home, index = 0) => ({
 });
 const lightTheme: PluginThemeSnapshot = { resolvedMode: "light" };
 const darkTheme: PluginThemeSnapshot = { resolvedMode: "dark" };
+const membership = Schema.decodeUnknownSync(MembershipResponse)({
+	memberOf: {
+		properties: {},
+		id: "relationship-1",
+		sourceEntityId: "entity-1",
+		targetEntityId: "collection-1",
+		relationshipSchemaSlug: "member-of",
+		createdAt: "2026-09-07T00:00:00.000Z",
+	},
+});
 const document = {
 	queries: {
 		items: {
@@ -98,7 +111,12 @@ const connect = (
 		readonly timeoutMs?: number;
 		readonly onAssets?: Parameters<typeof openPluginBridge>[0]["onAssets"];
 		readonly onUpload?: Parameters<typeof openPluginBridge>[0]["onUpload"];
+		readonly scheduleOverlayDismissTimeout?: (onTimeout: () => void) => () => void;
 		readonly watchEntities?: Parameters<typeof openPluginBridge>[0]["watchEntities"];
+		readonly onCollection?: (
+			request: PluginCollectionRequest,
+			signal: AbortSignal,
+		) => Promise<PluginCollectionOutcome>;
 		readonly onOperation?: (
 			request: PluginOperationRequest,
 			signal: AbortSignal,
@@ -123,6 +141,7 @@ const connect = (
 	let pluginPort: MessagePort | undefined;
 	const navigations: PluginBridgeNavigate[] = [];
 	const screenStates: PluginScreenReadiness[] = [];
+	const overlayStates: number[] = [];
 	const operationCalls: Array<{
 		readonly input: unknown;
 		readonly signal: AbortSignal;
@@ -141,14 +160,17 @@ const connect = (
 		viewport: { safeAreaTop: 0, safeAreaBottom: 0 },
 		onNavigateBack: () => backs.push(null),
 		onOpenDrawer: () => drawers.push(null),
-		onScreenState: (state) => screenStates.push(state),
 		onNavigate: (request) => navigations.push(request),
+		onScreenState: (state) => screenStates.push(state),
+		onOverlayState: (count) => overlayStates.push(count),
 		onPageSearch: (request) => pageSearches.push(request),
-		onProviderSearch: (request) => providerSearches.push(request),
 		onKernelShortcut: (shortcut) => shortcuts.push(shortcut),
 		onAssets: options.onAssets ?? (() => new Promise(() => {})),
-		onUpload: options.onUpload ?? (() => new Promise(() => {})),
 		onRyotQL: options.onRyotQL ?? (() => new Promise(() => {})),
+		onUpload: options.onUpload ?? (() => new Promise(() => {})),
+		scheduleOverlayDismissTimeout: options.scheduleOverlayDismissTimeout,
+		onProviderSearch: (request) => providerSearches.push(request),
+		onCollection: options.onCollection ?? (() => new Promise(() => {})),
 		watchEntities: options.watchEntities ?? (() => ({ update: () => {}, dispose: () => {} })),
 		onOperation:
 			options.onOperation ??
@@ -208,6 +230,7 @@ const connect = (
 		drawers,
 		failures,
 		messages,
+		overlayStates,
 		received,
 		shortcuts,
 		navigations,
@@ -361,6 +384,65 @@ describe("bridge entity interest", () => {
 });
 
 describe("plugin bridge", () => {
+	it("allows one acknowledged overlay dismissal at a time and preserves aggregate order", async () => {
+		const { init, overlayStates, pluginPort, received, session } = connect();
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toHaveLength(1));
+		pluginPort.postMessage({ count: 2, type: "overlay-state" });
+		await waitFor(() => expect(overlayStates).toContain(2));
+
+		expect(session.requestOverlayDismiss()).toBe(true);
+		expect(session.requestOverlayDismiss()).toBe(true);
+		await waitFor(() =>
+			expect(
+				received.filter((message) => Reflect.get(Object(message), "type") === "dismiss-overlay"),
+			).toHaveLength(1),
+		);
+		pluginPort.postMessage({
+			dismissed: true,
+			requestId: "overlay-1",
+			type: "dismiss-overlay-result",
+		});
+		await waitFor(() => expect(overlayStates.at(-1)).toBe(1));
+
+		expect(session.requestOverlayDismiss()).toBe(true);
+		await waitFor(() =>
+			expect(received).toContainEqual({ requestId: "overlay-2", type: "dismiss-overlay" }),
+		);
+	});
+
+	it("fails a document whose overlay dismissal is not acknowledged within the bound", async () => {
+		let expire: (() => void) | undefined;
+		const { failures, init, pluginPort, session } = connect({
+			scheduleOverlayDismissTimeout: (onTimeout) => {
+				expire = onTimeout;
+				return () => {
+					expire = undefined;
+				};
+			},
+		});
+		pluginPort.postMessage(readyFor(init));
+		pluginPort.postMessage({ count: 1, type: "overlay-state" });
+		await waitFor(() => expect(session.requestOverlayDismiss()).toBe(true));
+
+		expire?.();
+
+		expect(failures).toHaveLength(1);
+		expect(session.requestOverlayDismiss()).toBe(false);
+	});
+
+	it("routes explicit plugin Back through an owned overlay before navigation", async () => {
+		const { backs, init, pluginPort, received } = connect();
+		pluginPort.postMessage(readyFor(init));
+		pluginPort.postMessage({ count: 1, type: "overlay-state" });
+		pluginPort.postMessage({ type: "navigate-back" });
+
+		await waitFor(() =>
+			expect(received).toContainEqual({ requestId: "overlay-1", type: "dismiss-overlay" }),
+		);
+		expect(backs).toEqual([]);
+	});
+
 	it("transfers exactly one port with the exact init markers and the resolved mode", () => {
 		const { init, origins } = connect();
 
@@ -392,12 +474,14 @@ describe("plugin bridge", () => {
 			onPageSearch: () => undefined,
 			onOpenDrawer: () => undefined,
 			onScreenState: () => undefined,
+			onOverlayState: () => undefined,
 			onNavigateBack: () => undefined,
 			onKernelShortcut: () => undefined,
 			onProviderSearch: () => undefined,
 			onFailure: () => failures.push(null),
 			onAssets: () => new Promise(() => {}),
 			onUpload: () => new Promise(() => {}),
+			onCollection: () => new Promise(() => {}),
 			onRyotQL: () => new Promise(() => {}),
 			viewport: { safeAreaTop: 0, safeAreaBottom: 0 },
 			onOperation: () => new Promise(() => {}),
@@ -873,11 +957,59 @@ describe("plugin bridge", () => {
 		);
 		expect(calls).toEqual([
 			{
+				operationSlug: "greet",
 				input: { greeting: "hi" },
 				pluginSlug: PluginSlug.make("fixture"),
-				operationSlug: "greet",
 			},
 		]);
+	});
+
+	it("round-trips a collection mutation and sanitizes invalid outcomes", async () => {
+		const calls: PluginCollectionRequest[] = [];
+		let count = 0;
+		const { init, pluginPort, received, failures } = connect({
+			onCollection: (request) => {
+				calls.push(request);
+				count += 1;
+				return Promise.resolve(
+					count === 1
+						? { outcome: "success", response: membership }
+						: // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- verifies runtime detail redaction
+							({
+								cause: "secret",
+								reason: "private",
+								outcome: "failure",
+							} as unknown as PluginCollectionOutcome),
+				);
+			},
+		});
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toHaveLength(1));
+
+		const request = {
+			requestId: "collection-1",
+			type: "collection-request" as const,
+			action: "upsert-membership" as const,
+			input: { entityId: "entity-1", collectionId: "collection-1" },
+		};
+		pluginPort.postMessage(request);
+		await waitFor(() => expect(received).toHaveLength(2));
+		expect(received[1]).toMatchObject({
+			outcome: "success",
+			requestId: "collection-1",
+			type: "collection-result",
+		});
+		expect(calls).toEqual([{ action: request.action, input: request.input }]);
+
+		pluginPort.postMessage({ ...request, requestId: "collection-2" });
+		await waitFor(() => expect(received).toHaveLength(3));
+		expect(received[2]).toEqual({
+			outcome: "failure",
+			reason: "transport",
+			requestId: "collection-2",
+			type: "collection-result",
+		});
+		expect(failures).toEqual([]);
 	});
 
 	it("round-trips an upload and hands the source to the host untouched", async () => {

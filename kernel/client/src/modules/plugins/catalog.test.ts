@@ -6,7 +6,12 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { decodeServerOrigin } from "#/api/origin";
-import { makeEntityInterestService, makeRyotQLApi, makeUploadsApi } from "#/api/ports.test-layer";
+import {
+	makeCollectionsApi,
+	makeEntityInterestService,
+	makeRyotQLApi,
+	makeUploadsApi,
+} from "#/api/ports.test-layer";
 import { createKernelRyotClient } from "#/api/ryot-client";
 import type { ApiScope } from "#/api/scope";
 import { PluginCatalogError, PluginCatalogService } from "#/modules/plugins/catalog";
@@ -46,7 +51,13 @@ const makeCatalogRuntime = (responses: ReadonlyArray<ContractSuccess<"ryotql", "
 		},
 	});
 	const runtime = ManagedRuntime.make(
-		Layer.mergeAll(api, makeEntityInterestService(), makeUploadsApi(), PluginCatalogService.layer),
+		Layer.mergeAll(
+			api,
+			makeCollectionsApi(),
+			makeEntityInterestService(),
+			makeUploadsApi(),
+			PluginCatalogService.layer,
+		),
 	);
 
 	return { calls, runtime, ryot: createKernelRyotClient(runtime, scope, theme) };

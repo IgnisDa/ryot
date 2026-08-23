@@ -20,7 +20,8 @@ export { SegmentedControl } from "./segmented-control";
 export { ScreenBarButton, ScreenFrame } from "./screen-frame";
 export type { MultiSelectChoice } from "./multi-select";
 export { useFocusTrap, useScrollLock, useRestoreFocus, useDismissOnOutside } from "./overlay";
-export { OverlayScope, useShortcut } from "./shortcut";
+export { OverlayBackProvider, OverlayScope, useShortcut } from "./shortcut";
+export type { OverlayBackAdapter } from "./shortcut";
 
 const variantClasses = {
 	text: "min-h-10 font-semibold text-text-muted",

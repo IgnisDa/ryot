@@ -25,6 +25,7 @@ describe("fixture client registration", () => {
 			"pokemon-detail": { kind: "page", entry: "client/pokemon-detail.tsx" },
 			"pokemon-row": { kind: "presentation", entry: "client/pokemon-row.ts" },
 			"pokemon-card": { kind: "presentation", entry: "client/pokemon-card.ts" },
+			"pokemon-picker": { kind: "component", entry: "client/pokemon-picker.tsx" },
 		});
 		expect(fixturePlugin.client.exports).not.toHaveProperty("pokemon-grid");
 		expect(fixturePlugin.client.exports).not.toHaveProperty("pokemon-list");

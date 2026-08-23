@@ -4,7 +4,12 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { decodeServerOrigin } from "#/api/origin";
-import { makeEntityInterestService, makeRyotQLApi, makeUploadsApi } from "#/api/ports.test-layer";
+import {
+	makeCollectionsApi,
+	makeEntityInterestService,
+	makeRyotQLApi,
+	makeUploadsApi,
+} from "#/api/ports.test-layer";
 import { createKernelRyotClient } from "#/api/ryot-client";
 import { EntitiesService, EntityRouteLoadError } from "#/modules/entities/service";
 import type { ThemeStore } from "#/modules/theme/store";
@@ -37,7 +42,13 @@ describe("EntitiesService", () => {
 			},
 		});
 		const runtime = ManagedRuntime.make(
-			Layer.mergeAll(api, makeEntityInterestService(), makeUploadsApi(), EntitiesService.layer),
+			Layer.mergeAll(
+				api,
+				makeCollectionsApi(),
+				makeEntityInterestService(),
+				makeUploadsApi(),
+				EntitiesService.layer,
+			),
 		);
 		const client = createKernelRyotClient(runtime, scope, theme);
 
