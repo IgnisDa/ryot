@@ -16,19 +16,22 @@ export function BrowserEmpty({
 	name,
 	onAdd,
 	canAdd,
+	message,
 }: {
 	readonly name: string;
 	readonly canAdd: boolean;
 	readonly onAdd: () => void;
+	readonly message?: string | undefined;
 }) {
 	return (
 		<section className={panel}>
 			<AppIcon size={40} name="library" className="text-text-subtle" />
 			<h2 className="text-xl font-semibold">{name} is empty</h2>
 			<p className="text-sm text-text-muted">
-				{canAdd
-					? "Search online to add your first item."
-					: "No items have been added to this view yet."}
+				{message ??
+					(canAdd
+						? "Search online to add your first item."
+						: "No items have been added to this view yet.")}
 			</p>
 			{canAdd && (
 				<Button onClick={onAdd} className="mt-2 flex items-center gap-2 rounded-pill py-2">
