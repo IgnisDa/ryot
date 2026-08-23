@@ -36,6 +36,7 @@ describe("server service", () => {
 
 		return Effect.gen(function* () {
 			const service = yield* ServerService;
+			expect(yield* service.selected).toBe(window.location.origin);
 
 			const failed = yield* service
 				.connect("https://example.com")

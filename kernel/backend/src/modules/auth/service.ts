@@ -170,7 +170,7 @@ const makeAuthInstance = (args: {
 		},
 		emailAndPassword: {
 			enabled: true,
-			autoSignIn: false,
+			autoSignIn: true,
 			revokeSessionsOnPasswordReset: true,
 			disableSignUp: !args.config.users.allowRegistration || args.config.users.disableLocalAuth,
 			sendResetPassword: ({ user, token }) =>
