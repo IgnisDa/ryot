@@ -214,7 +214,7 @@ export const oauthClientResource = snakeCase.table(
 			.references(() => oauthClient.clientId, { onDelete: "cascade" }),
 		resourceId: text()
 			.notNull()
-			.references(() => oauthResource.id, { onDelete: "cascade" }),
+			.references(() => oauthResource.identifier, { onDelete: "cascade" }),
 	},
 	(table) => [
 		index("oauth_client_resource_clientId_idx").on(table.clientId),
