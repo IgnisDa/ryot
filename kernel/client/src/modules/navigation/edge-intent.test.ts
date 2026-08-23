@@ -15,32 +15,48 @@ const resolve = (input: Partial<Parameters<typeof resolveEdge>[0]> = {}) =>
 describe("resolveEdge", () => {
 	it("opens the drawer at a workspace root even when history can be popped", () => {
 		expect(resolve({ atRoot: true, pathname: "/media" })).toEqual({
+			compact: true,
 			owner: "kernel",
 			intent: "drawer",
 		});
 	});
 
 	it("gives the plugin document the back gesture on a plugin child route", () => {
-		expect(resolve()).toEqual({ owner: "plugin", intent: "back" });
+		expect(resolve()).toEqual({ compact: true, owner: "plugin", intent: "back" });
 	});
 
 	it("keeps back in the kernel on a settings route, where no plugin document exists", () => {
 		expect(resolve({ pathname: "/settings/account", hasPluginDocument: false })).toEqual({
+			compact: true,
 			intent: "back",
 			owner: "kernel",
 		});
 	});
 
 	it("keeps back in the kernel on desktop, where the edge gesture is not offered", () => {
-		expect(resolve({ isDesktop: true })).toEqual({ owner: "kernel", intent: "back" });
+		expect(resolve({ isDesktop: true })).toEqual({
+			intent: "back",
+			compact: false,
+			owner: "kernel",
+		});
+	});
+
+	it("reports a compact viewport even where the kernel keeps the edge", () => {
+		expect(resolve({ atRoot: true, pathname: "/media" }).compact).toBe(true);
+		expect(resolve({ isDesktop: true, atRoot: true, pathname: "/media" }).compact).toBe(false);
 	});
 
 	it("falls through to the drawer when a child route has nothing to pop", () => {
-		expect(resolve({ canGoBack: false })).toEqual({ owner: "kernel", intent: "drawer" });
+		expect(resolve({ canGoBack: false })).toEqual({
+			compact: true,
+			owner: "kernel",
+			intent: "drawer",
+		});
 	});
 
 	it("binds nothing on a settings route with no history", () => {
 		expect(resolve({ pathname: "/settings", canGoBack: false, hasPluginDocument: false })).toEqual({
+			compact: true,
 			intent: "none",
 			owner: "kernel",
 		});

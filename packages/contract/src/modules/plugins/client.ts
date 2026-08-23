@@ -199,6 +199,7 @@ export type PluginLogicalLocation = Schema.Schema.Type<typeof PluginLogicalLocat
 export const PluginBridgeLocation = strictStruct({
 	index: Schema.Int,
 	key: Schema.String,
+	compact: Schema.Boolean,
 	edgeBack: Schema.Boolean,
 	location: PluginLogicalLocation,
 	type: Schema.Literal("location"),

@@ -108,6 +108,7 @@ function PluginInstallation(props: {
 			}}
 			navigation={{
 				...historyEntry(state),
+				compact: edge.compact,
 				edgeBack: edge.owner === "plugin" && edge.intent === "back",
 				location: toPluginLocation(pluginSlug, pathname, searchStr),
 			}}
