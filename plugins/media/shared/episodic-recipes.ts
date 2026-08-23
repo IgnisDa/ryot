@@ -113,21 +113,22 @@ export const episodicEpisodeSelection = (episode: Table, parent: Table, alias: s
 });
 
 /**
- * Aired and upcoming totals, watched totals and watched minutes for one container's episodes.
- * Watched is judged by display state against the container's episodic parent.
+ * Aired and upcoming totals, watched totals and watched minutes for the episodes one scope selects.
+ * Watched is judged by display state against the episodic parent.
  */
-export const episodicCoverageSelection = (input: {
+export const episodicScopedCoverageSelection = (input: {
 	readonly alias: string;
 	readonly parent: Table;
-	readonly container: Table;
-	readonly episodeSchemaSlug: string;
-	readonly relationshipSlug: string;
+	readonly scope: (episode: Table) => {
+		readonly joins: ReturnType<typeof join>[];
+		readonly where: ReturnType<typeof and>;
+	};
 }) => {
 	const episode = table("entity", `${input.alias}Episode`);
 	const runtime = propertyNumber(episode, "runtime");
-	const traversal = episodeTraversal({ ...input, episode });
-	const joins = traversal.joins;
-	const where = and(traversal.where, episodeHasAired(episode));
+	const scope = input.scope(episode);
+	const joins = scope.joins;
+	const where = and(scope.where, episodeHasAired(episode));
 	const isWatched = and(
 		where,
 		eq(
@@ -152,7 +153,7 @@ export const episodicCoverageSelection = (input: {
 			Schema.Number,
 		),
 		upcomingTotal: selectedField(
-			count(episode, { joins, where: and(traversal.where, episodeIsUpcoming(episode)) }),
+			count(episode, { joins, where: and(scope.where, episodeIsUpcoming(episode)) }),
 			Schema.Number,
 		),
 		watchedMinutes: selectedField(
@@ -161,6 +162,20 @@ export const episodicCoverageSelection = (input: {
 		),
 	};
 };
+
+/** `episodicScopedCoverageSelection` over one container's episodes. */
+export const episodicCoverageSelection = (input: {
+	readonly alias: string;
+	readonly parent: Table;
+	readonly container: Table;
+	readonly episodeSchemaSlug: string;
+	readonly relationshipSlug: string;
+}) =>
+	episodicScopedCoverageSelection({
+		alias: input.alias,
+		parent: input.parent,
+		scope: (episode) => episodeTraversal({ ...input, episode }),
+	});
 
 /** Predicate matching episodes that belong to one parent, however the schema nests them. */
 export const episodicEpisodeMembership = (
