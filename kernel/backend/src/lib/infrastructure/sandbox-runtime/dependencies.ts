@@ -2,7 +2,7 @@ import { canonicalFileSetHash, sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Data, Effect, FileSystem, Schema } from "effect";
 
 import { sandboxRuntimePayloadMetadataSchema, sandboxRuntimePayloadSchema } from "./payload";
-import { sandboxRuntimePayload } from "./runtime-payload.generated";
+import { sandboxRuntimePayloadMetadata } from "./runtime-payload-metadata.generated";
 
 export class SandboxRuntimeDependencyError extends Data.TaggedError(
 	"SandboxRuntimeDependencyError",
@@ -66,12 +66,15 @@ const validatePayload = (payload: unknown) =>
 		return candidate;
 	});
 
-const trustedPayload = sandboxRuntimePayload;
+const trustedMetadata = sandboxRuntimePayloadMetadata.metadata;
 
-const runtimeDirectoryPrefix = `runtime-v${trustedPayload.metadata.format}-${trustedPayload.metadata.dependencies
+const runtimeDirectoryPrefix = `runtime-v${trustedMetadata.format}-${trustedMetadata.dependencies
 	.map(({ name, version }) => `${name}-${version}`)
 	.join("_")}`;
-const runtimeFiles = trustedPayload.files.map(({ path }) => path).sort();
+const runtimeFiles = [
+	...trustedMetadata.files.map(({ path }) => path),
+	"runtime-metadata.json",
+].sort();
 const runtimeDirectoryEntries = [...runtimeFiles, runtimeModuleDirectoryName].sort();
 
 export type SandboxRuntimePaths = {
@@ -91,7 +94,7 @@ const sandboxRuntimePaths = (
 		directory,
 		importMapPath: `${directory}/import-map.json`,
 		moduleDirectory: `${directory}/${runtimeModuleDirectoryName}`,
-		cacheDirectory: `${denoDir}/cache-v${trustedPayload.metadata.format}-${contentHash}`,
+		cacheDirectory: `${denoDir}/cache-v${trustedMetadata.format}-${contentHash}`,
 	};
 };
 
@@ -242,4 +245,21 @@ export const materializeSandboxRuntimePayload = (denoDir: string, payload: unkno
 	});
 
 export const materializeShippedSandboxRuntime = (denoDir: string) =>
-	materializeSandboxRuntimePayload(denoDir, sandboxRuntimePayload);
+	Effect.gen(function* () {
+		const fs = yield* FileSystem.FileSystem;
+		const { contentHash } = sandboxRuntimePayloadMetadata;
+		const primaryPaths = sandboxRuntimePaths(denoDir, contentHash);
+		if (yield* runtimeMatches(fs, primaryPaths, contentHash)) {
+			return yield* prepareRuntimePaths(fs, primaryPaths);
+		}
+		const existingRepair = yield* findVerifiedRepair(fs, denoDir, contentHash).pipe(
+			Effect.orElseSucceed(() => null),
+		);
+		if (existingRepair) {
+			return yield* prepareRuntimePaths(fs, existingRepair);
+		}
+		const { sandboxRuntimePayload } = yield* Effect.promise(
+			() => import("./runtime-payload.generated"),
+		);
+		return yield* materializeSandboxRuntimePayload(denoDir, sandboxRuntimePayload);
+	});
