@@ -10,6 +10,7 @@ import {
 	type PluginBridgeNavigate,
 	type PluginBridgeReady,
 	type KernelShortcut,
+	type PageShortcutKey,
 	type PluginLogicalLocation,
 	type PluginRouteLocation,
 	type PluginThemeSnapshot,
@@ -55,6 +56,7 @@ const nav = (location: PluginLogicalLocation = home, index = 0) => ({
 	compact: false,
 	edgeBack: false,
 	key: `k${index}`,
+	screenKey: `k${index}`,
 	leading: "none" as const,
 });
 const at = (location: PluginLogicalLocation = home, index = 0) => ({
@@ -135,13 +137,14 @@ const connect = (
 	const received: unknown[] = [];
 	const messages: unknown[] = [];
 	const pageSearches: unknown[] = [];
+	const overlayStates: number[] = [];
 	let init: PluginBridgeInit | undefined;
 	const shortcuts: KernelShortcut[] = [];
 	const providerSearches: unknown[] = [];
 	let pluginPort: MessagePort | undefined;
 	const navigations: PluginBridgeNavigate[] = [];
 	const screenStates: PluginScreenReadiness[] = [];
-	const overlayStates: number[] = [];
+	const pageShortcuts: (readonly PageShortcutKey[])[] = [];
 	const operationCalls: Array<{
 		readonly input: unknown;
 		readonly signal: AbortSignal;
@@ -165,6 +168,7 @@ const connect = (
 		onOverlayState: (count) => overlayStates.push(count),
 		onPageSearch: (request) => pageSearches.push(request),
 		onKernelShortcut: (shortcut) => shortcuts.push(shortcut),
+		onPageShortcuts: (registered) => pageShortcuts.push(registered),
 		onAssets: options.onAssets ?? (() => new Promise(() => {})),
 		onRyotQL: options.onRyotQL ?? (() => new Promise(() => {})),
 		onUpload: options.onUpload ?? (() => new Promise(() => {})),
@@ -230,12 +234,13 @@ const connect = (
 		drawers,
 		failures,
 		messages,
-		overlayStates,
 		received,
 		shortcuts,
 		navigations,
 		screenStates,
 		pageSearches,
+		pageShortcuts,
+		overlayStates,
 		operationCalls,
 		providerSearches,
 		pluginPort: testPort,
@@ -275,6 +280,24 @@ describe("bridge page screens", () => {
 				ownerPluginId: "media-installation",
 			},
 		]);
+	});
+
+	it("registers only allowlisted page shortcuts and sends presses back down", async () => {
+		const { init, pageShortcuts, pluginPort, received, session } = connect();
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toEqual([at()]));
+
+		pluginPort.postMessage({
+			type: "page-shortcuts",
+			shortcuts: ["A", "/", "A", "Mod+K", "a", "Escape"],
+		});
+		await waitFor(() => expect(pageShortcuts).toHaveLength(1));
+		expect(pageShortcuts[0]).toEqual(["/", "A"]);
+
+		session.sendShortcut("A");
+		await waitFor(() =>
+			expect(received).toContainEqual({ shortcut: "A", type: "page-shortcut-press" }),
+		);
 	});
 });
 
@@ -476,15 +499,16 @@ describe("plugin bridge", () => {
 			onScreenState: () => undefined,
 			onOverlayState: () => undefined,
 			onNavigateBack: () => undefined,
+			onPageShortcuts: () => undefined,
 			onKernelShortcut: () => undefined,
 			onProviderSearch: () => undefined,
 			onFailure: () => failures.push(null),
 			onAssets: () => new Promise(() => {}),
-			onUpload: () => new Promise(() => {}),
-			onCollection: () => new Promise(() => {}),
 			onRyotQL: () => new Promise(() => {}),
+			onUpload: () => new Promise(() => {}),
 			viewport: { safeAreaTop: 0, safeAreaBottom: 0 },
 			onOperation: () => new Promise(() => {}),
+			onCollection: () => new Promise(() => {}),
 			watchEntities: () => ({ update: () => {}, dispose: () => {} }),
 			target: {
 				postMessage: () => {

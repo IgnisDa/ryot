@@ -4,6 +4,7 @@ import type {
 	PluginEntityLocation,
 	PluginLogicalLocation,
 } from "@ryot-app/client-plugin-contract";
+import { useShortcut, type Hotkey } from "@ryot-app/client-ui-sdk";
 import { comparePluginRoutePaths } from "@ryot-app/contract/modules/plugins/manifest";
 import { Match } from "effect";
 import {
@@ -12,6 +13,7 @@ import {
 	createElement,
 	useContext,
 	useEffect,
+	useEffectEvent,
 	useLayoutEffect,
 	useMemo,
 	useRef,
@@ -81,6 +83,7 @@ export type PluginChromeValue = {
 
 export type PluginScreenSurface = {
 	readonly isActive: boolean;
+	readonly floatingRoot: HTMLElement | null;
 	readonly scrollRootRef: RefObject<HTMLDivElement | null>;
 };
 
@@ -122,6 +125,23 @@ export function usePluginTitle(title: string | null) {
 			publishTitle(title);
 		}
 	}, [entry, isActive, publishTitle, title]);
+}
+
+export function usePageShortcut(
+	shortcut: Hotkey,
+	press: () => void,
+	options: { readonly enabled?: boolean } = {},
+) {
+	const navigation = usePluginNavigation();
+	const { isActive } = usePluginScreenSurface();
+	const enabled = (options.enabled ?? true) && isActive;
+	const handler = useEffectEvent(press);
+
+	useShortcut(shortcut, handler, { enabled });
+	useEffect(
+		() => (enabled ? navigation.registerShortcut(shortcut, handler) : undefined),
+		[enabled, navigation, shortcut],
+	);
 }
 
 const useRouterContext = () => {
@@ -294,16 +314,21 @@ const SCREEN_BOTTOM_PADDING = 32;
 
 const screenBase: CSSProperties = {
 	inset: 0,
-	overflowY: "auto",
+	overflow: "hidden",
 	position: "absolute",
 	willChange: "transform",
 	background: "var(--bg)",
-	// Vertical only: containing the x axis would disable the browser's own back-swipe.
-	overscrollBehaviorY: "contain",
 };
 
 const hiddenScreenStyle: CSSProperties = { ...screenBase, visibility: "hidden" };
 const visibleScreenStyle: CSSProperties = { ...screenBase, visibility: "visible" };
+
+const scrollerBase: CSSProperties = {
+	height: "100%",
+	overflowY: "auto",
+	// Vertical only: containing the x axis would disable the browser's own back-swipe.
+	overscrollBehaviorY: "contain",
+};
 
 const scrimStyle: CSSProperties = {
 	inset: 0,
@@ -523,36 +548,43 @@ function Screen(props: {
 }) {
 	const active = props.role === "active";
 	const scrollRoot = useRef<HTMLDivElement>(null);
+	const [floatingRoot, setFloatingRoot] = useState<HTMLDivElement | null>(null);
 	const { location, params } = props.screen;
 	const value = useMemo(() => ({ location, params }), [location, params]);
 	const surface = useMemo<PluginScreenSurface>(
-		() => ({ isActive: active, scrollRootRef: scrollRoot }),
-		[active],
+		() => ({ floatingRoot, isActive: active, scrollRootRef: scrollRoot }),
+		[active, floatingRoot],
 	);
 	return (
 		<div
 			tabIndex={-1}
 			inert={!active}
 			aria-hidden={active ? undefined : true}
-			style={{
-				...(props.role === "hidden" ? hiddenScreenStyle : visibleScreenStyle),
-				paddingBottom: Math.max(SCREEN_BOTTOM_PADDING, props.safeAreaBottom),
-			}}
+			style={props.role === "hidden" ? hiddenScreenStyle : visibleScreenStyle}
 			ref={(element) => {
-				scrollRoot.current = element;
 				if (element === null) {
 					return undefined;
 				}
 				props.refs.current.set(props.screen.key, element);
 				return () => {
-					scrollRoot.current = null;
 					props.refs.current.delete(props.screen.key);
 				};
 			}}
 		>
 			<PluginScreenContext.Provider value={surface}>
 				<ActiveScreenContext.Provider value={active}>
-					<RouterContext.Provider value={value}>{props.screen.element}</RouterContext.Provider>
+					<RouterContext.Provider value={value}>
+						<div
+							ref={scrollRoot}
+							style={{
+								...scrollerBase,
+								paddingBottom: Math.max(SCREEN_BOTTOM_PADDING, props.safeAreaBottom),
+							}}
+						>
+							{props.screen.element}
+						</div>
+						<div ref={setFloatingRoot} />
+					</RouterContext.Provider>
 				</ActiveScreenContext.Provider>
 			</PluginScreenContext.Provider>
 		</div>

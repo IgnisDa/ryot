@@ -16,5 +16,5 @@ Rationale lives in `README.md`.
 - Keep hero input as `{ height, node }`; the frame positions the box and uses height as the collapse threshold. Hero content adds no chrome offset.
 - Draw bar controls with `ScreenBarButton`; keep caller-selectable color out of its baked classes.
 - Compose radiogroup controls from `RadioGroup`; consumers provide visuals and do not duplicate ARIA or roving-focus behavior. Keyboard selection keeps a radio picker open.
-- Register shortcuts through `useShortcut` and wrap each overlay in `OverlayScope`. `useFocusTrap` handles Tab only; `useFieldEscape` is only for search-shaped fields.
+- Register shortcuts through `useShortcut` and wrap each overlay in `OverlayScope`. Its scope stack is a module singleton, so each realm suppresses only its own registrations. `useFocusTrap` handles Tab only; `useFieldEscape` is only for search-shaped fields.
 - Keep `ReorderableList` pointer and keyboard operable. Its handle is a button supporting Arrow/Home/End with live-region announcements and no drag-and-drop dependency.

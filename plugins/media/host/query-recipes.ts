@@ -23,11 +23,7 @@ import {
 	selectedRows,
 	table,
 } from "@ryot-app/ryotql";
-import {
-	savedViewRecipe,
-	type SavedViewCardMapping,
-	type SavedViewTableMapping,
-} from "@ryot-app/ryotql-recipes/saved-views";
+import { savedViewRecipe, type SavedViewTableMapping } from "@ryot-app/ryotql-recipes/saved-views";
 import { Result, Schema } from "effect";
 
 import { podcastEpisodicKindConfig } from "../backend/contracts/lifecycle-recipes";
@@ -314,12 +310,10 @@ export const defaultMediaSavedViewRecipe = (input: {
 	readonly fields: readonly FieldSelection[];
 	readonly schemas: readonly [string, ...string[]];
 	readonly orderBy?: readonly OrderBy[] | undefined;
-	readonly layout:
-		| { readonly type: "card"; readonly mapping: SavedViewCardMapping & { entityIdField: string } }
-		| {
-				readonly type: "table";
-				readonly mapping: SavedViewTableMapping & { entityIdField: string };
-		  };
+	readonly layout: {
+		readonly type: "table";
+		readonly mapping: SavedViewTableMapping & { entityIdField: string };
+	};
 }) => {
 	const entity = table("entity", "entity");
 	const library = table("entity", "library");

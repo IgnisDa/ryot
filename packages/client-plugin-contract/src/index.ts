@@ -39,6 +39,43 @@ export const KERNEL_SHORTCUTS = {
 	workspaceSwitcher: "Mod+Shift+Space",
 } as const;
 
+export const MAX_PAGE_SHORTCUTS = 16;
+
+export const PAGE_SHORTCUT_KEYS = [
+	"/",
+	"A",
+	"B",
+	"C",
+	"D",
+	"E",
+	"F",
+	"G",
+	"H",
+	"I",
+	"J",
+	"K",
+	"L",
+	"M",
+	"N",
+	"O",
+	"P",
+	"Q",
+	"R",
+	"S",
+	"T",
+	"U",
+	"V",
+	"W",
+	"X",
+	"Y",
+	"Z",
+] as const;
+
+export type PageShortcutKey = (typeof PAGE_SHORTCUT_KEYS)[number];
+
+export const isPageShortcut = (value: string): value is PageShortcutKey =>
+	PAGE_SHORTCUT_KEYS.some((key) => key === value);
+
 export const CLIENT_ARTIFACT_ROOT_ELEMENT_ID = "app";
 export const CLIENT_ARTIFACT_METADATA_ELEMENT_ID = "ryot-client-artifact";
 
@@ -138,10 +175,15 @@ export const ClientPageOperationTarget = strictStruct({
 
 export type ClientPageOperationTarget = Schema.Schema.Type<typeof ClientPageOperationTarget>;
 
+export const ClientPageViewIdentity = strictStruct({ icon: Schema.String, name: Schema.String });
+
+export type ClientPageViewIdentity = Schema.Schema.Type<typeof ClientPageViewIdentity>;
+
 export const ClientPageContext = strictStruct({
 	target: ClientPageTarget,
 	renderer: ClientPageRenderer,
 	dataSources: Schema.NullOr(RyotQLDocument),
+	view: Schema.NullOr(ClientPageViewIdentity),
 	settings: Schema.Record(Schema.String, JsonValue),
 	route: strictStruct({ params: Schema.Record(Schema.String, Schema.String) }),
 });
@@ -249,6 +291,7 @@ export type PluginLeadingIntent = Schema.Schema.Type<typeof PluginLeadingIntent>
 export const PluginBridgeLocation = strictStruct({
 	index: Schema.Int,
 	key: Schema.String,
+	screenKey: Schema.String,
 	compact: Schema.Boolean,
 	edgeBack: Schema.Boolean,
 	leading: PluginLeadingIntent,
@@ -300,6 +343,22 @@ export const PluginBridgeKernelShortcut = strictStruct({
 });
 
 export type PluginBridgeKernelShortcut = Schema.Schema.Type<typeof PluginBridgeKernelShortcut>;
+
+export const PluginBridgePageShortcuts = strictStruct({
+	type: Schema.Literal("page-shortcuts"),
+	shortcuts: Schema.Array(Schema.String).pipe(Schema.check(Schema.isMaxLength(MAX_PAGE_SHORTCUTS))),
+});
+
+export type PluginBridgePageShortcuts = Schema.Schema.Type<typeof PluginBridgePageShortcuts>;
+
+export const PluginBridgePageShortcutPress = strictStruct({
+	shortcut: Schema.String,
+	type: Schema.Literal("page-shortcut-press"),
+});
+
+export type PluginBridgePageShortcutPress = Schema.Schema.Type<
+	typeof PluginBridgePageShortcutPress
+>;
 
 export const PluginBridgeNavigate = strictStruct({
 	target: PluginNavigationTarget,
@@ -730,7 +789,6 @@ export type PluginBridgeEntityUpdated = Schema.Schema.Type<typeof PluginBridgeEn
 
 export const PluginBridgeClientMessage = Schema.Union([
 	PluginBridgeHeader,
-	PluginBridgeCollectionRequest,
 	PluginBridgeNavigate,
 	PluginBridgePageSearch,
 	PluginBridgeOpenDrawer,
@@ -742,10 +800,12 @@ export const PluginBridgeClientMessage = Schema.Union([
 	PluginBridgeOverlayState,
 	PluginBridgeRyotQLRequest,
 	PluginBridgeUploadRequest,
+	PluginBridgePageShortcuts,
 	PluginBridgeLifecycleClose,
 	PluginBridgeKernelShortcut,
 	PluginBridgeEntityInterest,
 	PluginBridgeOperationRequest,
+	PluginBridgeCollectionRequest,
 	PluginBridgeDismissOverlayResult,
 	PluginBridgeProviderSearchScreen,
 ]);
@@ -765,6 +825,7 @@ export const PluginBridgeHostMessage = Schema.Union([
 	PluginBridgeDismissOverlay,
 	PluginBridgeOperationResult,
 	PluginBridgeCollectionResult,
+	PluginBridgePageShortcutPress,
 ]);
 
 export type PluginBridgeHostMessage = Schema.Schema.Type<typeof PluginBridgeHostMessage>;

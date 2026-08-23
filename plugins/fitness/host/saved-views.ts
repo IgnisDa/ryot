@@ -45,11 +45,9 @@ export const fitnessSavedViews = () => {
 		if (!schema) {
 			throw new Error(`Missing fitness entity schema: ${input.entitySchemaSlug}`);
 		}
-		const expressions = buildViewExpressions(input.entitySchemaSlug, schema.name);
+		const expressions = buildViewExpressions(input.entitySchemaSlug);
 		const projections = buildSavedViewLayoutProjections({
 			table: { ...expressions.table, entity },
-			grid: { entity, card: expressions.grid },
-			list: { entity, card: expressions.list },
 		});
 		const dataSources = savedViewRecipe({
 			layout: { type: "table", mapping: projections.table.mappings },

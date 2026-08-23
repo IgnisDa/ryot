@@ -208,7 +208,7 @@ Active-screen state is part of this contract. Its default is active and only the
 
 The browser uses that one source for selection across grid/list/table. Table display fields can be additional projections in the same source. An explicit search field names a projected expression to search; a sort choice names projected expressions and directions. Apply only declared choices to a cloned request document and add a deterministic primary-key tie-breaker. Never infer search from the title or first column. Changing search/sort resets cursor and count state, but switching layout does not change membership.
 
-Expose search, existing page-size/load-more behaviour, count-on-demand, layout selection, refresh, and existing loading/empty/error/sync states. A basic control for declared sort choices is sufficient. Arbitrary filter editing remains out of scope; fixed filters live in the query and custom pages can supply their own controls. Do not carry forward non-functional Filters buttons.
+Expose search, existing page-size/load-more behaviour, count-on-demand, layout selection, refresh, and existing loading/empty/error/sync states. A basic control for declared sort choices is sufficient. Arbitrary filter editing remains out of scope; fixed filters live in the query and custom pages can supply their own controls. The Filters affordance ships as the disabled, announced placeholder the previous screen had.
 
 Persist layout preference using existing server/user/view-scoped client storage. Explicit URL layout/search/sort inputs win over stored/default values. Preserve non-browser search parameters used by a page's dialogs.
 
@@ -252,7 +252,7 @@ Extract media's generic managed-asset batching/expiry behaviour into the SDK. Re
 
 The kernel is the second caller of that extracted behaviour, not an exception to it. It currently resolves managed assets through its own service in a route loader, threads a URL map through view state and three layers of props, discards the expiry value it already receives, and never refreshes an expired URL; it also keeps its own locator-key, locator-collection, URL-resolution, and image-wrapper duplicates of what the plugin implements. Kernel screens and renderers consume the extracted behaviour and those duplicates are deleted. The kernel-side asset service remains only where it serves the bridge adapter's asset requests on behalf of a plugin session.
 
-Any visual component that moves into `client-sdk` as part of this extraction must be reachable by the artifact stylesheet scanner. The scanner currently reads plugin client sources and the UI SDK only, so utility classes written in `client-sdk` reach a plugin artifact only when some scanned file happens to use the same class. Either add the client SDK to the scanned sources or keep visual implementations in the UI SDK and leave only hooks and data behaviour in `client-sdk`. Do not rely on incidental class overlap.
+Any visual component that moves into `client-sdk` as part of this extraction must be reachable by the artifact stylesheet scanner. The scanner reads plugin client sources, the UI SDK, and the client SDK, so visual code may live in either SDK. Do not rely on incidental class overlap.
 
 Kernel app activation/visibility changes produce one shared refresh hint; deduplicate it with existing query focus refresh. Expose the signal through the existing bridge lifecycle rather than relying only on visibility inside the iframe. Do not introduce continuous polling.
 
