@@ -47,6 +47,6 @@
 
 - Centralize Redis keys, channel names, payload codecs, and parsing in the Redis infrastructure module.
 - Sandbox scripts enter through plugin or kernel source-zero ingestion; see `src/lib/infrastructure/sandbox-runtime/README.md`.
-- Keep the sandbox and client plugin compiler engines separate while using the shared server-owned process-supervision boundary for their workers.
+- Keep the sandbox and client plugin compiler engines separate. They may share generic TypeScript infrastructure from `@ryot/typescript-compiler` and the server-owned process-supervision boundary, but not import policies, limits, protocols, output models, or public APIs.
 - Follow `src/modules/entity-interest/README.md` for entity read, population, translation, and interest semantics.
 - Public and service-owned event creates await `EventCreateWorkflow`. Callers using `discard: true` must poll to observe results.
