@@ -182,8 +182,8 @@ export const savedViewPageContext = (options: {
 		settings: options.settings,
 		dataSources: options.dataSources,
 		renderer: { kind: "kernel", name: options.rendererName },
+		target: { kind: "saved-view", slug: options.savedViewId },
 		view: options.view ?? { icon: "library", name: "All Records" },
-		target: { kind: "saved-view", savedViewId: options.savedViewId },
 	});
 
 export const kernelEntityPageContext = (options: {
@@ -249,6 +249,7 @@ export const mountPluginPage = (
 				safeAreaBottom: 0,
 				page: options.page,
 				sessionId: "test-session",
+				documentKey: "test-document",
 				format: artifactMetadata.format,
 				artifactHash: artifactMetadata.hash,
 				apiVersion: artifactMetadata.apiVersion,

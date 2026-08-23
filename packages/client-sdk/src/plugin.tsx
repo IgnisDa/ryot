@@ -8,7 +8,14 @@ import {
 } from "@ryot-app/client-plugin-contract";
 import { useShortcut } from "@ryot-app/client-ui-sdk";
 import { Result, Schema } from "effect";
-import { createContext, useContext, useSyncExternalStore, type ComponentType } from "react";
+import {
+	createContext,
+	useContext,
+	useSyncExternalStore,
+	type ComponentType,
+	type ContextType,
+	type ReactNode,
+} from "react";
 import { createRoot, type Root } from "react-dom/client";
 
 import {
@@ -29,10 +36,28 @@ import { createBootstrapRyotRuntime, type RyotPluginRuntime } from "./schedule";
 
 type ClientPluginDefinition = PluginRouterDefinition;
 
-const PageContext = createContext<ClientPageContext | undefined>(undefined);
+const PageContext = createContext<
+	| {
+			readonly getSnapshot: () => ClientPageContext | undefined;
+			readonly subscribe: (listener: () => void) => () => void;
+	  }
+	| undefined
+>(undefined);
+
+const PageStoreProvider = ({
+	store,
+	children,
+}: {
+	readonly store: NonNullable<ContextType<typeof PageContext>>;
+	readonly children: ReactNode;
+}) => <PageContext.Provider value={store}>{children}</PageContext.Provider>;
 
 export const usePageContext = () => {
-	const context = useContext(PageContext);
+	const store = useContext(PageContext);
+	if (!store) {
+		throw new Error("Page context is only available in a mounted page");
+	}
+	const context = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
 	if (!context) {
 		throw new Error("Page context is only available in a mounted page");
 	}
@@ -75,6 +100,33 @@ const bootstrapClientApplication = (
 	let sdkRuntime: RyotPluginRuntime | undefined;
 	let sessionListener: AbortController | undefined;
 	let runtime: ReturnType<typeof createPluginRuntime> | undefined;
+	let currentPage: ClientPageContext | undefined;
+	let documentKey = "";
+	const pageListeners = new Set<() => void>();
+	const pageStore = {
+		getSnapshot: () => currentPage,
+		subscribe: (notify: () => void) => {
+			pageListeners.add(notify);
+			return () => {
+				pageListeners.delete(notify);
+			};
+		},
+	};
+	const renderPage = () => {
+		if (!root || !runtime || !sdkRuntime) {
+			return;
+		}
+		root.render(
+			<RyotProvider runtime={sdkRuntime}>
+				<EntityPresentationRegistryProvider registrations={registrations}>
+					<PageStoreProvider store={pageStore}>
+						<KernelShortcutForwarder runtime={runtime} />
+						<PluginRouter key={documentKey} />
+					</PageStoreProvider>
+				</EntityPresentationRegistryProvider>
+			</RyotProvider>,
+		);
+	};
 	const handleFatalEvent = (event: Event) => {
 		event.preventDefault();
 		runtime?.fatal();
@@ -87,16 +139,7 @@ const bootstrapClientApplication = (
 			}
 			try {
 				root = createRoot(rootElement, { onUncaughtError: () => runtime?.fatal() });
-				root.render(
-					<RyotProvider runtime={sdkRuntime}>
-						<EntityPresentationRegistryProvider registrations={registrations}>
-							<PageContext.Provider value={runtime.page}>
-								<KernelShortcutForwarder runtime={runtime} />
-								<PluginRouter />
-							</PageContext.Provider>
-						</EntityPresentationRegistryProvider>
-					</RyotProvider>,
-				);
+				renderPage();
 			} catch {
 				runtime.fatal();
 			}
@@ -147,6 +190,8 @@ const bootstrapClientApplication = (
 				signal: sessionListener.signal,
 			});
 			const init = decoded.success;
+			currentPage = init.page;
+			documentKey = init.documentKey;
 			const navigationStore = createPluginNavigationStore(createResolver(init.page));
 			const pluginRuntime = createPluginRuntime(
 				port,
@@ -159,6 +204,15 @@ const bootstrapClientApplication = (
 					sessionListener?.abort();
 					sessionListener = undefined;
 					unmount();
+				},
+				(nextKey, page) => {
+					currentPage = page;
+					documentKey = nextKey;
+					navigationStore.replaceDocument(createResolver(page));
+					for (const notify of pageListeners) {
+						notify();
+					}
+					renderPage();
 				},
 			);
 			sdkRuntime = createBootstrapRyotRuntime(pluginRuntime.client, pluginRuntime.navigation);

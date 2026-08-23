@@ -175,7 +175,7 @@ describe("plugin client bridge contract", () => {
 	});
 
 	it("pins the protocol and compiler versions it stamps into an artifact", () => {
-		expect(CLIENT_BRIDGE_PROTOCOL_VERSION).toBe(1);
+		expect(CLIENT_BRIDGE_PROTOCOL_VERSION).toBe(2);
 		expect(CLIENT_COMPILER_VERSION).toBe(1);
 	});
 
@@ -330,7 +330,13 @@ describe("plugin client bridge contract", () => {
 	it("carries the theme mode and safe-area insets on init and never on the ready echo", () => {
 		const decodeInit = Schema.decodeUnknownResult(PluginBridgeInit);
 		const decodeReady = Schema.decodeUnknownResult(PluginBridgeReady);
-		const init = { ...identity, mode: "dark", safeAreaTop: 59, safeAreaBottom: 34 };
+		const init = {
+			...identity,
+			mode: "dark",
+			safeAreaTop: 59,
+			safeAreaBottom: 34,
+			documentKey: "page-1",
+		};
 
 		expect(Result.isSuccess(decodeInit(init))).toBe(true);
 		expect(Result.isFailure(decodeInit({ ...identity, mode: "dark" }))).toBe(true);
@@ -351,14 +357,14 @@ describe("plugin client bridge contract", () => {
 		};
 
 		expect(
-			Result.isSuccess(decode({ ...base, target: { kind: "saved-view", savedViewId: "view-1" } })),
+			Result.isSuccess(decode({ ...base, target: { slug: "view-1", kind: "saved-view" } })),
 		).toBe(true);
 		expect(
 			Result.isSuccess(
 				decode({
 					...base,
+					target: { slug: "view-1", kind: "saved-view" },
 					renderer: { kind: "kernel", name: "entity-browser" },
-					target: { kind: "saved-view", savedViewId: "view-1" },
 				}),
 			),
 		).toBe(true);
@@ -370,8 +376,8 @@ describe("plugin client bridge contract", () => {
 					target: {
 						path: "/items/1",
 						search: "tab=stats",
-						pluginId: "plugin-1",
 						kind: "plugin-route",
+						pluginSlug: "plugin-1",
 					},
 				}),
 			),
@@ -499,7 +505,7 @@ describe("plugin client bridge contract", () => {
 			kind: "plugin-route",
 			pluginSlug: "fixture",
 		};
-		const savedView = { kind: "saved-view", savedViewId: "view-1" };
+		const savedView = { slug: "view-1", kind: "saved-view" };
 		const entity = {
 			kind: "entity",
 			entityId: "entity-1",
