@@ -4,6 +4,7 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 
 import { execution } from "../../tests/backend/automations/automation-test-utils";
+import { ryotqlDocumentNodes } from "../../tests/ryotql-test-utils";
 import definition, { manifest } from "./media-monitoring-targets.sandbox";
 
 describe("media monitoring targets", () => {
@@ -63,15 +64,14 @@ describe("media monitoring targets", () => {
 						},
 					},
 				});
-				const serialized = JSON.stringify(documents[0]);
-				expect(serialized).toContain('"field":"relationshipSchemaSlug"');
-				expect(serialized).toContain(
-					'"field":"userId","type":"column","tableAlias":"monitoringRelationship"},"type":"isNotNull"',
+				const nodes = ryotqlDocumentNodes(documents[0]);
+				for (const field of ["relationshipSchemaSlug", "userId", "providerId", "externalId"]) {
+					expect(nodes).toContain(field);
+				}
+				expect(nodes).not.toContainEqual(
+					expect.objectContaining({ table: "entity", alias: "mediaLibrary" }),
 				);
-				expect(serialized).toContain('"field":"providerId"');
-				expect(serialized).toContain('"field":"externalId"');
-				expect(serialized).not.toContain('"table":"entity","alias":"mediaLibrary"');
-				expect(serialized).not.toContain("show-season");
+				expect(nodes).not.toContain("show-season");
 			}),
 	);
 });

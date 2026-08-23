@@ -1,6 +1,6 @@
 import { afterEach, assert, describe, expect, it } from "@effect/vitest";
 import { RyotClientError, type EntityInterest } from "@ryot-app/client-sdk";
-import { Effect } from "@ryot-app/client-sdk/effect";
+import { DateTime, Effect } from "@ryot-app/client-sdk/effect";
 import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
 import { fireEvent, getByRole, waitFor } from "@testing-library/dom";
 
@@ -27,7 +27,7 @@ import {
 	pendingQueryResult,
 	readyQueryResult,
 } from "../../tests/client/query-result-fixture";
-import { flushRyotClient, mountRyotClient } from "../../tests/client/test-support";
+import { flushRyotClient, localDateTime, mountRyotClient } from "../../tests/client/test-support";
 import { AiringRail } from "./airing-rail";
 import { BacklogRail } from "./backlog-rail";
 import { ContinueRail } from "./continue-rail";
@@ -37,7 +37,8 @@ import { useLocalToday } from "./use-local-today";
 
 const noopAdapter = { query: () => Effect.succeed({}) };
 
-const localNoon = (septemberDay: number) => new Date(2026, 8, septemberDay, 12).toISOString();
+const localNoon = (septemberDay: number) =>
+	DateTime.formatIso(localDateTime({ hour: 12, month: 9, year: 2026, day: septemberDay }));
 
 const libraryData = (input: {
 	readonly flat?: readonly unknown[];
@@ -257,7 +258,9 @@ function AiringToday(props: { readonly data: ReturnType<typeof airingData> }) {
 describe("AiringRail", () => {
 	it.live("merges shows and anime by local day and recaptions them at local midnight", () =>
 		Effect.gen(function* () {
-			const mondayMorning = new Date(2026, 8, 28, 10).toISOString();
+			const mondayMorning = DateTime.formatIso(
+				localDateTime({ day: 28, hour: 10, month: 9, year: 2026 }),
+			);
 			const data = airingData({
 				shows: [airingShow("2026-09-26", 3)],
 				anime: [
@@ -266,7 +269,13 @@ describe("AiringRail", () => {
 				],
 			});
 			const view = mountRyotClient(noopAdapter, null);
-			yield* Effect.promise(() => view.setTime(new Date(2026, 8, 25, 23, 30).getTime()));
+			yield* Effect.promise(() =>
+				view.setTime(
+					DateTime.toEpochMillis(
+						localDateTime({ day: 25, hour: 23, month: 9, minute: 30, year: 2026 }),
+					),
+				),
+			);
 			view.rerender(<AiringToday data={data} />);
 
 			expect(tileLines(view.container)).toEqual([

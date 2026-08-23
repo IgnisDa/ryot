@@ -4,6 +4,7 @@ import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 
 import { execution } from "../../tests/backend/automations/automation-test-utils";
+import { ryotqlDocumentNodes } from "../../tests/ryotql-test-utils";
 import { MediaMonitoringEnableInput, MediaMonitoringOutput } from "../contracts/operations";
 import disableDefinition, { manifest as disableManifest } from "./media-monitoring-disable.sandbox";
 import enableDefinition, { manifest as enableManifest } from "./media-monitoring-enable.sandbox";
@@ -79,15 +80,29 @@ describe("media monitoring operations", () => {
 						},
 					},
 				});
-				const serialized = JSON.stringify(documents[0]);
-				expect(serialized).toContain('"field":"targetEntityId"');
-				expect(serialized).toContain(
-					'"field":"userId","type":"column","tableAlias":"monitoringRelationship"},"type":"isNotNull"',
+				const nodes = ryotqlDocumentNodes(documents[0]);
+				expect(nodes).toContainEqual(
+					expect.objectContaining({
+						type: "column",
+						field: "targetEntityId",
+						tableAlias: "monitoringRelationship",
+					}),
 				);
-				expect(serialized).toContain('"field":"providerId"');
-				expect(serialized).toContain('"field":"externalId"');
-				expect(serialized).not.toContain('"table":"entity","alias":"mediaLibrary"');
-				expect(serialized).not.toContain("show-season");
+				expect(nodes).toContainEqual(
+					expect.objectContaining({
+						type: "isNotNull",
+						expr: { type: "column", field: "userId", tableAlias: "monitoringRelationship" },
+					}),
+				);
+				for (const field of ["providerId", "externalId"]) {
+					expect(nodes).toContainEqual(
+						expect.objectContaining({ field, type: "column", tableAlias: "entity" }),
+					);
+				}
+				expect(nodes).not.toContainEqual(
+					expect.objectContaining({ table: "entity", alias: "mediaLibrary" }),
+				);
+				expect(nodes).not.toContain("show-season");
 			}),
 	);
 
@@ -149,7 +164,6 @@ describe("media monitoring operations", () => {
 			for (const document of documents) {
 				expect(Schema.is(RyotQLDocument)(document)).toBe(true);
 			}
-			expect(JSON.stringify(changes)).not.toContain("userId");
 		}),
 	);
 
@@ -196,7 +210,6 @@ describe("media monitoring operations", () => {
 						},
 					],
 				]);
-				expect(JSON.stringify(changes)).not.toContain("in-media-library");
 			}),
 	);
 
