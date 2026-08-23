@@ -1,7 +1,7 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import { describe, expect, it } from "@effect/vitest";
+import type { LogEntry, SandboxHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
-import { describe, expect, it, vi } from "vitest";
 
 import {
 	eventAutomationContext,
@@ -63,14 +63,24 @@ const createHttpCall =
 		return httpSuccess({});
 	};
 
+const createLog =
+	(batches: (readonly LogEntry[])[]): RadarrHost["log"] =>
+	(entries) =>
+		Effect.sync(() => {
+			batches.push(entries);
+			return null;
+		});
+
 const createHost = (options: {
 	disableIntegrations?: boolean;
 	httpCall: RadarrHost["httpCall"];
+	log?: RadarrHost["log"];
 	entity?: ReturnType<typeof entityRecord> | null;
 	integrations?: ReturnType<typeof integrationRecord>[];
 }) =>
 	defineSandboxTestHost(manifest, {
 		httpCall: options.httpCall,
+		log: options.log ?? (() => Effect.succeed(null)),
 		getEntitySchemas: () => hostSuccess([schema]),
 		listIntegrations: () => hostSuccess(options.integrations ?? []),
 		executeRyotql: () =>
@@ -180,24 +190,30 @@ describe("radarr-push sandbox script", () => {
 		);
 	});
 
-	it("treats an expected Radarr HTTP failure as non-fatal", () => {
-		const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-		const host = createHost({
-			entity: movieEntity,
-			integrations: [radarrIntegration],
-			httpCall: () => httpFailure("already exists"),
-		});
-		return Effect.runPromise(
-			definition
-				.run(createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }), host, execution)
-				.pipe(
-					Effect.map((result) => {
-						expect(result).toBeNull();
-						expect(warning).toHaveBeenCalledWith("Radarr push failed: already exists");
-						warning.mockRestore();
-						return undefined;
-					}),
-				),
-		);
-	});
+	it.effect("treats an expected Radarr HTTP failure as non-fatal", () =>
+		Effect.gen(function* () {
+			const warnings: (readonly LogEntry[])[] = [];
+			const host = createHost({
+				entity: movieEntity,
+				integrations: [radarrIntegration],
+				httpCall: () => httpFailure("already exists"),
+				log: createLog(warnings),
+			});
+			const result = yield* definition.run(
+				createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }),
+				host,
+				execution,
+			);
+			expect(result).toBeNull();
+			expect(warnings).toEqual([
+				[
+					{
+						level: "warning",
+						message: "Radarr push failed",
+						attributes: { error: "already exists" },
+					},
+				],
+			]);
+		}),
+	);
 });
