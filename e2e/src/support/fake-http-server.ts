@@ -32,9 +32,9 @@ export const startFakeHttpServerScoped = (
 							.catch(() => null)
 							.then((body) => {
 								recorded.push({
+									body,
 									path: reqUrl.pathname,
 									headers: Object.fromEntries(request.headers),
-									body,
 								});
 								return respond(reqUrl, request);
 							});
