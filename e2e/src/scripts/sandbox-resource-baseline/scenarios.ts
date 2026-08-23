@@ -202,8 +202,8 @@ export const SOAK_SCENARIOS = [
 	}),
 	{
 		...soak({
-			requestCount: 100,
 			sequential: true,
+			requestCount: 100,
 			submission: "direct",
 			id: "soak-control-extended",
 			workload: workload({ seed: 81 }),
