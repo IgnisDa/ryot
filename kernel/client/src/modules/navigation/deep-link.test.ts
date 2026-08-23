@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it } from "@effect/vitest";
+import { Effect } from "effect";
 
 import {
 	createDeepLinkBridge,
@@ -114,88 +115,94 @@ describe("resolveDeepLinkHref", () => {
 });
 
 describe("createDeepLinkBridge", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("replaces the current entry for a launch URL and pushes for a later one", async () => {
-		const harness = makeHarness("io.ryot.app://e/entity123");
-		const bridge = createDeepLinkBridge(harness.source, harness.navigator);
-		await Promise.resolve();
+	it.live("replaces the current entry for a launch URL and pushes for a later one", () =>
+		Effect.gen(function* () {
+			const harness = makeHarness("io.ryot.app://e/entity123");
+			const bridge = createDeepLinkBridge(harness.source, harness.navigator);
+			yield* Effect.promise(() => Promise.resolve());
 
-		harness.openUrl("io.ryot.app.dev://media/search");
-		bridge.destroy();
+			harness.openUrl("io.ryot.app.dev://media/search");
+			bridge.destroy();
 
-		expect(harness.navigated).toEqual([
-			{ replace: true, href: "/e/entity123" },
-			{ replace: false, href: "/media/search" },
-		]);
-	});
+			expect(harness.navigated).toEqual([
+				{ replace: true, href: "/e/entity123" },
+				{ replace: false, href: "/media/search" },
+			]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("ignores a link that does not resolve to an application route", async () => {
-		const harness = makeHarness();
-		const bridge = createDeepLinkBridge(harness.source, harness.navigator);
-		await Promise.resolve();
+	it.live("ignores a link that does not resolve to an application route", () =>
+		Effect.gen(function* () {
+			const harness = makeHarness();
+			const bridge = createDeepLinkBridge(harness.source, harness.navigator);
+			yield* Effect.promise(() => Promise.resolve());
 
-		harness.openUrl("other://media");
-		bridge.destroy();
+			harness.openUrl("other://media");
+			bridge.destroy();
 
-		expect(harness.navigated).toEqual([]);
-	});
+			expect(harness.navigated).toEqual([]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("navigates back while history remains and exits at the root", async () => {
-		const harness = makeHarness();
-		const bridge = createDeepLinkBridge(harness.source, harness.navigator);
-		await Promise.resolve();
+	it.live("navigates back while history remains and exits at the root", () =>
+		Effect.gen(function* () {
+			const harness = makeHarness();
+			const bridge = createDeepLinkBridge(harness.source, harness.navigator);
+			yield* Effect.promise(() => Promise.resolve());
 
-		harness.allowBack();
-		harness.pressBack();
-		expect(harness.counts()).toEqual({ exited: 0, backCount: 1, dismissed: 0 });
+			harness.allowBack();
+			harness.pressBack();
+			expect(harness.counts()).toEqual({ exited: 0, backCount: 1, dismissed: 0 });
 
-		bridge.destroy();
-	});
+			bridge.destroy();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("dismisses an open overlay before it pops history", async () => {
-		const harness = makeHarness();
-		const bridge = createDeepLinkBridge(harness.source, harness.navigator);
-		await Promise.resolve();
+	it.live("dismisses an open overlay before it pops history", () =>
+		Effect.gen(function* () {
+			const harness = makeHarness();
+			const bridge = createDeepLinkBridge(harness.source, harness.navigator);
+			yield* Effect.promise(() => Promise.resolve());
 
-		harness.allowBack();
-		harness.openOverlay();
-		harness.pressBack();
-		expect(harness.counts()).toEqual({ exited: 0, backCount: 0, dismissed: 1 });
+			harness.allowBack();
+			harness.openOverlay();
+			harness.pressBack();
+			expect(harness.counts()).toEqual({ exited: 0, backCount: 0, dismissed: 1 });
 
-		harness.pressBack();
-		expect(harness.counts()).toEqual({ exited: 0, backCount: 1, dismissed: 1 });
+			harness.pressBack();
+			expect(harness.counts()).toEqual({ exited: 0, backCount: 1, dismissed: 1 });
 
-		bridge.destroy();
-	});
+			bridge.destroy();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("exits the application when there is nothing to go back to", async () => {
-		const harness = makeHarness();
-		const bridge = createDeepLinkBridge(harness.source, harness.navigator);
-		await Promise.resolve();
+	it.live("exits the application when there is nothing to go back to", () =>
+		Effect.gen(function* () {
+			const harness = makeHarness();
+			const bridge = createDeepLinkBridge(harness.source, harness.navigator);
+			yield* Effect.promise(() => Promise.resolve());
 
-		harness.pressBack();
-		bridge.destroy();
+			harness.pressBack();
+			bridge.destroy();
 
-		expect(harness.counts()).toEqual({ exited: 1, backCount: 0, dismissed: 0 });
-	});
+			expect(harness.counts()).toEqual({ exited: 1, backCount: 0, dismissed: 0 });
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("removes every listener once and ignores events after disposal", async () => {
-		const harness = makeHarness();
-		const bridge = createDeepLinkBridge(harness.source, harness.navigator);
-		await Promise.resolve();
+	it.live("removes every listener once and ignores events after disposal", () =>
+		Effect.gen(function* () {
+			const harness = makeHarness();
+			const bridge = createDeepLinkBridge(harness.source, harness.navigator);
+			yield* Effect.promise(() => Promise.resolve());
 
-		bridge.destroy();
-		bridge.destroy();
-		harness.openUrl("io.ryot.app://media");
-		harness.pressBack();
+			bridge.destroy();
+			bridge.destroy();
+			harness.openUrl("io.ryot.app://media");
+			harness.pressBack();
 
-		expect(harness.removed).toEqual(["appUrlOpen", "backButton"]);
-		expect(harness.navigated).toEqual([]);
-		expect(harness.counts()).toEqual({ exited: 0, backCount: 0, dismissed: 0 });
-	});
+			expect(harness.removed).toEqual(["appUrlOpen", "backButton"]);
+			expect(harness.navigated).toEqual([]);
+			expect(harness.counts()).toEqual({ exited: 0, backCount: 0, dismissed: 0 });
+		}),
+	);
 });

@@ -21,47 +21,48 @@ export const Route = createFileRoute("/demo")({
 	pendingComponent: () => (
 		<AuthStatus title="Opening demo" message="Preparing the shared demo account..." />
 	),
-	// oxlint-disable-next-line effecttsgo/async-function -- TanStack route guard.
-	beforeLoad: async ({ context }) => {
-		const result = await context.runtime.runPromise(
-			Effect.gen(function* () {
-				const runtimeClient = yield* RuntimeOAuthClientService;
-				if (runtimeClient.isNative) {
-					return { _tag: "Native" } as const;
+	beforeLoad: ({ context }) =>
+		context.runtime
+			.runPromise(
+				Effect.gen(function* () {
+					const runtimeClient = yield* RuntimeOAuthClientService;
+					if (runtimeClient.isNative) {
+						return { _tag: "Native" } as const;
+					}
+					const serverOrigin = decodeServerOrigin(window.location.origin);
+					const auth = yield* AuthService;
+					const session = yield* auth.settledSession(serverOrigin);
+					if (session.status === "authenticated") {
+						return { _tag: "Authenticated" } as const;
+					}
+					const hosted = yield* HostedAuthService;
+					const { mode } = yield* hosted.signInDemo;
+					const launcher = yield* OAuthLauncher;
+					return yield* launcher.prepare(undefined, {
+						serverOrigin,
+						client: {
+							nativeApplicationId: null,
+							callbackUri: getWebOAuthCallbackUri(serverOrigin),
+							logoutUri: getWebOAuthLogoutCallbackUri(serverOrigin),
+							clientId: mode === "demo" ? OAUTH_DEMO_WEB_CLIENT_ID : OAUTH_WEB_CLIENT_ID,
+						},
+					});
+				}),
+			)
+			.then((result) => {
+				if (result._tag === "Native") {
+					// oxlint-disable-next-line typescript/only-throw-error
+					throw redirect({ to: "/auth", replace: true, search: { redirect: undefined } });
 				}
-				const serverOrigin = decodeServerOrigin(window.location.origin);
-				const auth = yield* AuthService;
-				const session = yield* auth.settledSession(serverOrigin);
-				if (session.status === "authenticated") {
-					return { _tag: "Authenticated" } as const;
+				if (result._tag === "Authenticated") {
+					// oxlint-disable-next-line typescript/only-throw-error
+					throw redirect({ to: "/", replace: true });
 				}
-				const hosted = yield* HostedAuthService;
-				const { mode } = yield* hosted.signInDemo;
-				const launcher = yield* OAuthLauncher;
-				return yield* launcher.prepare(undefined, {
-					serverOrigin,
-					client: {
-						nativeApplicationId: null,
-						callbackUri: getWebOAuthCallbackUri(serverOrigin),
-						logoutUri: getWebOAuthLogoutCallbackUri(serverOrigin),
-						clientId: mode === "demo" ? OAUTH_DEMO_WEB_CLIENT_ID : OAUTH_WEB_CLIENT_ID,
-					},
-				});
+				if (result._tag === "MissingServer") {
+					throw new Error("The browser origin is unavailable.");
+				}
+				return { plan: result.plan };
 			}),
-		);
-		if (result._tag === "Native") {
-			// oxlint-disable-next-line typescript/only-throw-error
-			throw redirect({ to: "/auth", replace: true, search: { redirect: undefined } });
-		}
-		if (result._tag === "Authenticated") {
-			// oxlint-disable-next-line typescript/only-throw-error
-			throw redirect({ to: "/", replace: true });
-		}
-		if (result._tag === "MissingServer") {
-			throw new Error("The browser origin is unavailable.");
-		}
-		return { plan: result.plan };
-	},
 });
 
 function DemoUnavailable() {

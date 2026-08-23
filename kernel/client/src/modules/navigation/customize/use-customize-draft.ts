@@ -58,28 +58,30 @@ export function useCustomizeDraft(props: {
 
 	const isDirty = isCustomizeDraftDirty(session);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- React sidebar customization callback.
-	const save = async () => {
+	const save = () => {
 		if (!isDirty) {
-			return true;
+			return Promise.resolve(true);
 		}
 		if (isSaving) {
-			return false;
+			return Promise.resolve(false);
 		}
 		setError(null);
 		setIsSaving(true);
 		const plan = buildCustomizePlan({ ...session, workspaceSlug: props.workspaceSlug });
-		const saved = await runtime.runPromise(
-			Effect.flatMap(CustomizeSidebarService, (service) => service.save(scope, plan)).pipe(
-				Effect.match({ onSuccess: () => true, onFailure: () => false }),
-			),
-		);
-		setIsSaving(false);
-		if (!saved) {
-			setError(SAVE_ERROR);
-			return false;
-		}
-		return true;
+		return runtime
+			.runPromise(
+				Effect.flatMap(CustomizeSidebarService, (service) => service.save(scope, plan)).pipe(
+					Effect.match({ onSuccess: () => true, onFailure: () => false }),
+				),
+			)
+			.then((saved) => {
+				setIsSaving(false);
+				if (!saved) {
+					setError(SAVE_ERROR);
+					return false;
+				}
+				return true;
+			});
 	};
 
 	return { move, save, error, toggle, isDirty, isSaving, draft: session.draft };

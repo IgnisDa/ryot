@@ -1,5 +1,5 @@
+import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { describe, expect, it } from "vitest";
 
 import { showEpisodicKindConfig } from "../../shared/lifecycle-expressions";
 import {
@@ -51,11 +51,10 @@ describe("media lifecycle recipes", () => {
 		expect(document.match(/"type":"currentDate"/g)?.length).toBeGreaterThanOrEqual(2);
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("executes and decodes one query per snapshot read", async () => {
-		let calls = 0;
-		const snapshot = await Effect.runPromise(
-			readEpisodicLifecycleSnapshot(input, (document) => {
+	it.live("executes and decodes one query per snapshot read", () =>
+		Effect.gen(function* () {
+			let calls = 0;
+			const snapshot = yield* readEpisodicLifecycleSnapshot(input, (document) => {
 				calls += 1;
 				expect(Object.keys(document.queries)).toEqual(["parent"]);
 				return Effect.succeed({
@@ -87,19 +86,19 @@ describe("media lifecycle recipes", () => {
 						},
 					},
 				});
-			}),
-		);
+			});
 
-		expect(calls).toBe(1);
-		expect(snapshot).toMatchObject({
-			coverageComplete: true,
-			parentEntityId: "show-1",
-			agreedConsumedOn: "Plex",
-			coverageClosingEvent: {
-				id: "episode-complete-2",
-				createdAt: "2026-01-03T00:00:00.000Z",
-				occurredAt: "2026-01-03T00:00:00.000Z",
-			},
-		});
-	});
+			expect(calls).toBe(1);
+			expect(snapshot).toMatchObject({
+				coverageComplete: true,
+				parentEntityId: "show-1",
+				agreedConsumedOn: "Plex",
+				coverageClosingEvent: {
+					id: "episode-complete-2",
+					createdAt: "2026-01-03T00:00:00.000Z",
+					occurredAt: "2026-01-03T00:00:00.000Z",
+				},
+			});
+		}),
+	);
 });

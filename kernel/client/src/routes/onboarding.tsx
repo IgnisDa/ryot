@@ -71,41 +71,45 @@ function Onboarding() {
 		submitLabel = "Retry";
 	}
 
-	// oxlint-disable-next-line effecttsgo/async-function -- React onboarding form handler.
-	async function connect() {
+	function connect() {
 		setValidationError(undefined);
 
 		const result = resolveServerOrigin(mode, serverUrl);
 		if (!result.ok) {
 			setValidationError("Enter a valid URL, including http:// or https://.");
 			dispatch({ type: "changed" });
-			return;
+			return Promise.resolve();
 		}
 
 		dispatch({ type: "started" });
 		connectionController.current?.abort();
 		const controller = new AbortController();
 		connectionController.current = controller;
-		const connected = await runtime
+		return runtime
 			.runPromise(serverService.connect(result.origin), { signal: controller.signal })
 			.then(
 				() => true,
 				() => false,
-			);
-		if (controller.signal.aborted) {
-			return;
-		}
-		if (!connected) {
-			dispatch({ type: "failed" });
-			return;
-		}
-		dispatch({ type: "succeeded" });
-		const decision = decideOnboardingCompletion(search.redirect);
-		if (decision.action === "enter-god-mode") {
-			await navigate({ replace: true, href: decision.to, search: { redirect: undefined } });
-			return;
-		}
-		await navigate({ replace: true, to: decision.to, search: { redirect: decision.redirectTo } });
+			)
+			.then((connected) => {
+				if (controller.signal.aborted) {
+					return undefined;
+				}
+				if (!connected) {
+					dispatch({ type: "failed" });
+					return undefined;
+				}
+				dispatch({ type: "succeeded" });
+				const decision = decideOnboardingCompletion(search.redirect);
+				if (decision.action === "enter-god-mode") {
+					return navigate({ replace: true, href: decision.to, search: { redirect: undefined } });
+				}
+				return navigate({
+					replace: true,
+					to: decision.to,
+					search: { redirect: decision.redirectTo },
+				});
+			});
 	}
 
 	return (

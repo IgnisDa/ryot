@@ -1,6 +1,7 @@
+import { describe, expect, it } from "@effect/vitest";
 import { SandboxProviderId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { render, screen, waitFor } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { Effect } from "effect";
 import { axe } from "vitest-axe";
 
 import { ProviderSearchPanel, resolveLibraryMembership } from "#/modules/provider-add/panel";
@@ -49,31 +50,39 @@ describe("provider search panel", () => {
 		});
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("exposes the providers as a single-tab-stop radiogroup", async () => {
-		renderPanel();
+	it.live("exposes the providers as a single-tab-stop radiogroup", () =>
+		Effect.gen(function* () {
+			renderPanel();
 
-		await waitFor(() =>
-			expect(screen.getByRole("radiogroup", { name: "Search provider" })).toBeTruthy(),
-		);
-		expect(screen.getAllByRole("radio").map((radio) => radio.getAttribute("tabindex"))).toEqual([
-			"0",
-			"-1",
-		]);
-		expect(screen.getByRole("radio", { name: "Provider 1" }).getAttribute("aria-checked")).toBe(
-			"true",
-		);
-	});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(screen.getByRole("radiogroup", { name: "Search provider" })).toBeTruthy(),
+				),
+			);
+			expect(screen.getAllByRole("radio").map((radio) => radio.getAttribute("tabindex"))).toEqual([
+				"0",
+				"-1",
+			]);
+			expect(screen.getByRole("radio", { name: "Provider 1" }).getAttribute("aria-checked")).toBe(
+				"true",
+			);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("passes an axe pass on the rendered panel", async () => {
-		const view = renderPanel();
+	it.live("passes an axe pass on the rendered panel", () =>
+		Effect.gen(function* () {
+			const view = renderPanel();
 
-		await waitFor(() =>
-			expect(screen.getByRole("radiogroup", { name: "Search provider" })).toBeTruthy(),
-		);
-		const results = await axe(view.container, { rules: { "color-contrast": { enabled: false } } });
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(screen.getByRole("radiogroup", { name: "Search provider" })).toBeTruthy(),
+				),
+			);
+			const results = yield* Effect.promise(() =>
+				axe(view.container, { rules: { "color-contrast": { enabled: false } } }),
+			);
 
-		expect(results.violations.map((violation) => violation.id)).toEqual([]);
-	});
+			expect(results.violations.map((violation) => violation.id)).toEqual([]);
+		}),
+	);
 });

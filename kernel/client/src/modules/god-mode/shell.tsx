@@ -87,24 +87,21 @@ function GodModeTokenGate(props: {
 	const [error, setError] = useState(props.initialError);
 	const [submitting, setSubmitting] = useState(false);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- React God Mode unlock handler.
-	async function unlock() {
+	function unlock() {
 		const trimmedToken = token.trim();
 		if (!trimmedToken) {
 			setError("Enter an admin access token.");
-			return;
+			return Promise.resolve();
 		}
 		setSubmitting(true);
 		setError(undefined);
-		try {
-			const sessionId = await props.runtime.runPromise(
-				sessionService.create(props.server, trimmedToken),
-			);
-			props.onUnlock(sessionId);
-		} catch {
-			setError("Could not start God Mode.");
-			setSubmitting(false);
-		}
+		return props.runtime.runPromise(sessionService.create(props.server, trimmedToken)).then(
+			(sessionId) => props.onUnlock(sessionId),
+			() => {
+				setError("Could not start God Mode.");
+				setSubmitting(false);
+			},
+		);
 	}
 
 	return (

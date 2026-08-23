@@ -1,6 +1,6 @@
+import { describe, expect, it } from "@effect/vitest";
 import { UploadBadRequest } from "@ryot-app/contract/modules/uploads/schemas";
 import { Effect, ManagedRuntime } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { decodeServerOrigin } from "#/api/origin";
@@ -40,108 +40,120 @@ const withUploads = <A>(
 };
 
 describe("temporary uploads", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("hides intent creation, byte transfer, and completion behind one token", async () => {
-		const transfers: unknown[] = [];
-		const completed: string[] = [];
+	it.live("hides intent creation, byte transfer, and completion behind one token", () =>
+		Effect.gen(function* () {
+			const transfers: unknown[] = [];
+			const completed: string[] = [];
 
-		await withUploads(
-			{
-				createIntent: () => Effect.succeed(intent),
-				putBytes: (_scope, transfer) => {
-					transfers.push(transfer);
-					return Effect.void;
+			yield* Effect.promise(() =>
+				withUploads(
+					{
+						createIntent: () => Effect.succeed(intent),
+						putBytes: (_scope, transfer) => {
+							transfers.push(transfer);
+							return Effect.void;
+						},
+						completeIntent: (_scope, apiRequest) => {
+							completed.push(apiRequest.params.intentId);
+							return Effect.succeed(token);
+						},
+					},
+					(run) => expect(run(temporaryUpload(scope, request))).resolves.toEqual(token),
+				),
+			);
+
+			expect(completed).toEqual(["intent-1"]);
+			expect(transfers).toEqual([
+				{
+					source: request.source,
+					contentType: "text/csv",
+					uploadUrl: "/uploads/local/intent-1",
+					headers: { "content-type": "text/csv" },
 				},
-				completeIntent: (_scope, apiRequest) => {
-					completed.push(apiRequest.params.intentId);
-					return Effect.succeed(token);
-				},
-			},
-			(run) => expect(run(temporaryUpload(scope, request))).resolves.toEqual(token),
-		);
+			]);
+		}),
+	);
 
-		expect(completed).toEqual(["intent-1"]);
-		expect(transfers).toEqual([
-			{
-				source: request.source,
-				contentType: "text/csv",
-				uploadUrl: "/uploads/local/intent-1",
-				headers: { "content-type": "text/csv" },
-			},
-		]);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("interrupts the byte transfer when the scope is torn down", async () => {
-		let released = false;
-		const runtime = ManagedRuntime.make(
-			makeUploadsApi({
-				createIntent: () => Effect.succeed(intent),
-				putBytes: () =>
-					Effect.never.pipe(
-						Effect.ensuring(
-							Effect.sync(() => {
-								released = true;
-							}),
+	it.live("interrupts the byte transfer when the scope is torn down", () =>
+		Effect.gen(function* () {
+			let released = false;
+			const runtime = ManagedRuntime.make(
+				makeUploadsApi({
+					createIntent: () => Effect.succeed(intent),
+					putBytes: () =>
+						Effect.never.pipe(
+							Effect.ensuring(
+								Effect.sync(() => {
+									released = true;
+								}),
+							),
 						),
-					),
-			}),
-		);
-		const controller = new AbortController();
-		const pending = runtime.runPromise(temporaryUpload(scope, request), {
-			signal: controller.signal,
-		});
-		await Effect.runPromise(Effect.sleep(0));
-
-		controller.abort();
-		await expect(pending).rejects.toBeDefined();
-		expect(released).toBe(true);
-		await runtime.dispose();
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("treats a completion that is not a temporary token as a malformed result", async () => {
-		await withUploads(
-			{
-				putBytes: () => Effect.void,
-				createIntent: () => Effect.succeed(intent),
-				completeIntent: () =>
-					Effect.succeed({ type: "local" as const, key: "permanent/items.csv" }),
-			},
-			(run) =>
-				expect(run(temporaryUploadOutcome(scope, request))).resolves.toEqual({
-					outcome: "failure",
-					reason: "malformed-result",
 				}),
-		);
-	});
+			);
+			const controller = new AbortController();
+			const pending = runtime.runPromise(temporaryUpload(scope, request), {
+				signal: controller.signal,
+			});
+			yield* Effect.sleep(0);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("separates a declared upload rejection from a transport failure", async () => {
-		await withUploads(
-			{
-				createIntent: () => Effect.succeed(intent),
-				putBytes: () => Effect.fail(new AuthenticatedApiError({ cause: 500 })),
-			},
-			(run) =>
-				expect(run(temporaryUploadOutcome(scope, request))).resolves.toEqual({
-					outcome: "failure",
-					reason: "operation-failed",
-				}),
-		);
+			controller.abort();
+			yield* Effect.promise(() => expect(pending).rejects.toBeDefined());
+			expect(released).toBe(true);
+			yield* Effect.promise(() => runtime.dispose());
+		}),
+	);
 
-		await withUploads(
-			{
-				createIntent: () => Effect.succeed(intent),
-				putBytes: () => Effect.fail(new AuthenticatedApiError({ cause: new Error("offline") })),
-			},
-			(run) =>
-				expect(run(temporaryUploadOutcome(scope, request))).resolves.toEqual({
-					outcome: "failure",
-					reason: "transport",
-				}),
-		);
-	});
+	it.live("treats a completion that is not a temporary token as a malformed result", () =>
+		Effect.gen(function* () {
+			yield* Effect.promise(() =>
+				withUploads(
+					{
+						putBytes: () => Effect.void,
+						createIntent: () => Effect.succeed(intent),
+						completeIntent: () =>
+							Effect.succeed({ type: "local" as const, key: "permanent/items.csv" }),
+					},
+					(run) =>
+						expect(run(temporaryUploadOutcome(scope, request))).resolves.toEqual({
+							outcome: "failure",
+							reason: "malformed-result",
+						}),
+				),
+			);
+		}),
+	);
+
+	it.live("separates a declared upload rejection from a transport failure", () =>
+		Effect.gen(function* () {
+			yield* Effect.promise(() =>
+				withUploads(
+					{
+						createIntent: () => Effect.succeed(intent),
+						putBytes: () => Effect.fail(new AuthenticatedApiError({ cause: 500 })),
+					},
+					(run) =>
+						expect(run(temporaryUploadOutcome(scope, request))).resolves.toEqual({
+							outcome: "failure",
+							reason: "operation-failed",
+						}),
+				),
+			);
+
+			yield* Effect.promise(() =>
+				withUploads(
+					{
+						createIntent: () => Effect.succeed(intent),
+						putBytes: () => Effect.fail(new AuthenticatedApiError({ cause: new Error("offline") })),
+					},
+					(run) =>
+						expect(run(temporaryUploadOutcome(scope, request))).resolves.toEqual({
+							outcome: "failure",
+							reason: "transport",
+						}),
+				),
+			);
+		}),
+	);
 
 	it("classifies declared API failures apart from unexpected ones", () => {
 		const declared = new AuthenticatedApiError({

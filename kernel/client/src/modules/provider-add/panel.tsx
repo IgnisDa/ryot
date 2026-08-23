@@ -338,33 +338,34 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 		dispatch({ type: "provider-changed" });
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- React provider-options load callback.
-	const fetchProviderOptions = async (provider: ProviderSearchSummary | undefined) => {
+	const fetchProviderOptions = (provider: ProviderSearchSummary | undefined) => {
 		const requestId = ++optionsRequestId.current;
 		if (provider === undefined) {
-			return;
+			return Promise.resolve();
 		}
 		if (provider.searchOptionsSchema === null) {
-			return;
+			return Promise.resolve();
 		}
-		const result = await props.loadSearchOptions(provider.providerId);
-		if (optionsRequestId.current !== requestId) {
-			return;
-		}
-		setOptions((current) => {
-			if (
-				!isProviderOptionsRequestCurrent(
-					current,
-					provider.providerId,
-					requestId,
-					optionsRequestId.current,
-				)
-			) {
-				return current;
+		return props.loadSearchOptions(provider.providerId).then((result) => {
+			if (optionsRequestId.current !== requestId) {
+				return undefined;
 			}
-			return "value" in result
-				? applyProviderOptionsResponse(current, result.value)
-				: applyProviderOptionsFailure(current, result.cause);
+			setOptions((current) => {
+				if (
+					!isProviderOptionsRequestCurrent(
+						current,
+						provider.providerId,
+						requestId,
+						optionsRequestId.current,
+					)
+				) {
+					return current;
+				}
+				return "value" in result
+					? applyProviderOptionsResponse(current, result.value)
+					: applyProviderOptionsFailure(current, result.cause);
+			});
+			return undefined;
 		});
 	};
 	const fetchSelectedProviderOptions = useEffectEvent(
@@ -376,16 +377,17 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 		fetchSelectedProviderOptions(selectedProviderId);
 	}, [selectedProviderId]);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- React form submission callback.
-	const requestSearch = async () => {
+	const requestSearch = () => {
 		if (options.status === "ready" && options.providerId === selected?.providerId) {
-			const errors = await optionsForm.handleSubmit();
-			if (errors.length > 0) {
-				setAdvancedOptionsOpen(true);
-			}
-			return;
+			return optionsForm.handleSubmit().then((errors) => {
+				if (errors.length > 0) {
+					setAdvancedOptionsOpen(true);
+				}
+				return undefined;
+			});
 		}
 		dispatch({ type: "search-requested" });
+		return Promise.resolve();
 	};
 
 	const submitSearch = useEffectEvent(() => void requestSearch());
@@ -411,28 +413,31 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 			? Object.keys(toSchemaFormPayload(options.schema, optionsForm.state.values)).length
 			: 0;
 
-	// oxlint-disable-next-line effecttsgo/async-function -- React search effect event.
-	const runSearch = useEffectEvent(async (operation: ProviderSearchOperation) => {
+	const runSearch = useEffectEvent((operation: ProviderSearchOperation) => {
 		if (selected === undefined) {
-			return;
+			return Promise.resolve();
 		}
 		const optionPayload =
 			options.status === "ready" && options.providerId === selected.providerId
 				? toSchemaFormPayload(options.schema, optionsForm.state.values)
 				: undefined;
-		const result = await props.search(
-			buildSearchPayload({
-				query: state.query,
-				page: operation.page,
-				options: optionPayload,
-				providerId: selected.providerId,
-			}),
-		);
-		if ("value" in result) {
-			dispatch({ token: operation.token, response: result.value, type: "response-received" });
-			return;
-		}
-		dispatch({ type: "request-failed", token: operation.token });
+		return props
+			.search(
+				buildSearchPayload({
+					query: state.query,
+					page: operation.page,
+					options: optionPayload,
+					providerId: selected.providerId,
+				}),
+			)
+			.then((result) => {
+				if ("value" in result) {
+					dispatch({ token: operation.token, response: result.value, type: "response-received" });
+					return undefined;
+				}
+				dispatch({ type: "request-failed", token: operation.token });
+				return undefined;
+			});
 	});
 
 	useEffect(() => {

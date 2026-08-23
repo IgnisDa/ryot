@@ -1,3 +1,4 @@
+import { describe, expect, it } from "@effect/vitest";
 import { ImportRequestError } from "@ryot-app/contract/modules/imports/schemas";
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import {
@@ -9,7 +10,6 @@ import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime, Result } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import type { ImportsApi } from "#/api/imports";
@@ -241,434 +241,496 @@ const mountView = (
 };
 
 describe("import data list", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("names each run by its source and opens the one that was clicked", async () => {
-		const view = mountView(
-			"/settings/import-data",
-			makeImportsApi(),
-			makeImportsStub({
-				loadRun: () => Effect.succeed(decodeRun([makeRun()])),
-				loadRuns: () =>
-					Effect.succeed(
-						decodeRuns([
-							makeRun(),
-							makeRun({
-								failedItems: 3,
-								importedItems: 9,
-								source: "open_scale",
-								id: ImportRunId.make("run_2"),
-							}),
-						]),
-					),
-			}),
-		);
-
-		const row = await screen.findByRole("link", { name: /Open the Hevy import from/ });
-		expect(row.textContent).toContain("12 added");
-		expect(
-			screen.getByRole("link", { name: /Open the Open Scale import from/ }).textContent,
-		).toContain("9 added · 3 failed");
-
-		fireEvent.click(row);
-		await waitFor(() =>
-			expect(view.router.state.location.pathname).toBe("/settings/import-data/run_1"),
-		);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("shows the progress of a run that is still going", async () => {
-		mountView(
-			"/settings/import-data",
-			makeImportsApi(),
-			makeImportsStub({
-				loadRuns: () =>
-					Effect.succeed(
-						decodeRuns([
-							makeRun({
-								progress: 25,
-								finishedAt: null,
-								importedItems: 3,
-								status: "running",
-								processedItems: 3,
-							}),
-						]),
-					),
-			}),
-		);
-
-		const card = await screen.findByRole("link", { name: "Open the Hevy import in progress" });
-		expect(card.textContent).toContain("3 of 12 read · 3 added · 0 failed");
-		expect(card.textContent).toContain("25%");
-		expect(within(card).getByRole("progressbar").getAttribute("aria-valuetext")).toBe("3 of 12");
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("offers the wizard from the empty state", async () => {
-		mountView(
-			"/settings/import-data",
-			makeImportsApi(),
-			makeImportsStub({ loadRuns: () => Effect.succeed(decodeRuns([])) }),
-		);
-
-		await screen.findByText("No imports yet");
-		expect(screen.getAllByRole("button", { name: "Start an import" })).toHaveLength(1);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("retries a failed run query without reloading the route", async () => {
-		let available = false;
-		mountView(
-			"/settings/import-data",
-			makeImportsApi(),
-			makeImportsStub({
-				loadRuns: () =>
-					available
-						? Effect.succeed(decodeRuns([makeRun()]))
-						: Effect.fail(new ImportsLoadError({ stage: "runs", cause: new Error("down") })),
-			}),
-		);
-
-		await screen.findByText("Unable to load imports");
-		available = true;
-		fireEvent.click(screen.getByRole("button", { name: "Try again" }));
-
-		await screen.findByRole("link", { name: /Open the Hevy import from/ });
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("requests the configured next page size while keeping the current list visible", async () => {
-		const limits: number[] = [];
-		mountView(
-			"/settings/import-data",
-			makeImportsApi(),
-			makeImportsStub({
-				loadRuns: (_client, input) => {
-					limits.push(input.limit);
-					return Effect.succeed(decodeRuns([makeRun()], limits.length === 1));
-				},
-			}),
-		);
-
-		await screen.findByRole("link", { name: /Open the Hevy import from/ });
-		fireEvent.click(screen.getByRole("button", { name: "Show older imports" }));
-
-		expect(screen.getByRole("link", { name: /Open the Hevy import from/ })).not.toBeNull();
-		await waitFor(() => expect(limits).toEqual([LIMIT, LIMIT * 2]));
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("starts an import and refreshes the active expanded list query", async () => {
-		const started: Record<string, unknown>[] = [];
-		const limits: number[] = [];
-		const view = mountView(
-			"/settings/import-data",
-			makeImportsApi({
-				createRun: (_scope, request) => {
-					started.push(request.payload);
-					return Effect.succeed({ id: "run_1" });
-				},
-			}),
-			makeImportsStub({
-				loadRuns: (_client, input) => {
-					limits.push(input.limit);
-					return Effect.succeed(
-						decodeRuns(
-							limits.length < 3 ? [makeRun()] : [makeRun({ source: "trakt" })],
-							limits.length === 1,
+	it.live("names each run by its source and opens the one that was clicked", () =>
+		Effect.gen(function* () {
+			const view = mountView(
+				"/settings/import-data",
+				makeImportsApi(),
+				makeImportsStub({
+					loadRun: () => Effect.succeed(decodeRun([makeRun()])),
+					loadRuns: () =>
+						Effect.succeed(
+							decodeRuns([
+								makeRun(),
+								makeRun({
+									failedItems: 3,
+									importedItems: 9,
+									source: "open_scale",
+									id: ImportRunId.make("run_2"),
+								}),
+							]),
 						),
-					);
-				},
-			}),
-			[hevySource, traktSource],
-		);
+				}),
+			);
 
-		await screen.findByRole("link", { name: /Open the Hevy import from/ });
-		fireEvent.click(screen.getByRole("button", { name: "Show older imports" }));
-		await waitFor(() => expect(limits).toEqual([LIMIT, LIMIT * 2]));
-		fireEvent.click(screen.getByRole("button", { name: "Start an import" }));
-		await waitFor(() => expect(view.router.state.location.search.start).toBe(true));
-		const dialog = await screen.findByRole("dialog", { name: "Start an import" });
+			const row = yield* Effect.promise(() =>
+				screen.findByRole("link", { name: /Open the Hevy import from/ }),
+			);
+			expect(row.textContent).toContain("12 added");
+			expect(
+				screen.getByRole("link", { name: /Open the Open Scale import from/ }).textContent,
+			).toContain("9 added · 3 failed");
 
-		fireEvent.change(within(dialog).getByLabelText("Search services"), {
-			target: { value: "trakt" },
-		});
-		expect(within(dialog).queryByRole("button", { name: "Import from Hevy" })).toBeNull();
+			fireEvent.click(row);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(view.router.state.location.pathname).toBe("/settings/import-data/run_1"),
+				),
+			);
+		}),
+	);
 
-		fireEvent.click(within(dialog).getByRole("button", { name: "Import from Trakt" }));
-		fireEvent.change(await screen.findByLabelText("Username"), { target: { value: "someone" } });
-		fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+	it.live("shows the progress of a run that is still going", () =>
+		Effect.gen(function* () {
+			mountView(
+				"/settings/import-data",
+				makeImportsApi(),
+				makeImportsStub({
+					loadRuns: () =>
+						Effect.succeed(
+							decodeRuns([
+								makeRun({
+									progress: 25,
+									finishedAt: null,
+									importedItems: 3,
+									status: "running",
+									processedItems: 3,
+								}),
+							]),
+						),
+				}),
+			);
 
-		await screen.findByText("someone");
-		fireEvent.click(screen.getByRole("button", { name: "Start import" }));
+			const card = yield* Effect.promise(() =>
+				screen.findByRole("link", { name: "Open the Hevy import in progress" }),
+			);
+			expect(card.textContent).toContain("3 of 12 read · 3 added · 0 failed");
+			expect(card.textContent).toContain("25%");
+			expect(within(card).getByRole("progressbar").getAttribute("aria-valuetext")).toBe("3 of 12");
+		}),
+	);
 
-		await waitFor(() => expect(started).toHaveLength(1));
-		expect(started[0]).toEqual({ source: "trakt", username: "someone" });
-		await screen.findByRole("link", { name: /Open the Trakt import from/ });
-		expect(limits).toEqual([LIMIT, LIMIT * 2, LIMIT * 2]);
-		expect(screen.queryByRole("dialog", { name: "Start an import" })).toBeNull();
-	});
+	it.live("offers the wizard from the empty state", () =>
+		Effect.gen(function* () {
+			mountView(
+				"/settings/import-data",
+				makeImportsApi(),
+				makeImportsStub({ loadRuns: () => Effect.succeed(decodeRuns([])) }),
+			);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("reveals the export steps for a source that documents them", async () => {
-		mountView(
-			"/settings/import-data",
-			makeImportsApi(),
-			makeImportsStub({ loadRuns: () => Effect.succeed(decodeRuns([])) }),
-		);
+			yield* Effect.promise(() => screen.findByText("No imports yet"));
+			expect(screen.getAllByRole("button", { name: "Start an import" })).toHaveLength(1);
+		}),
+	);
 
-		fireEvent.click(await screen.findByRole("button", { name: "Start an import" }));
-		const dialog = await screen.findByRole("dialog", { name: "Start an import" });
-		fireEvent.click(within(dialog).getByRole("button", { name: "Import from Hevy" }));
+	it.live("retries a failed run query without reloading the route", () =>
+		Effect.gen(function* () {
+			let available = false;
+			mountView(
+				"/settings/import-data",
+				makeImportsApi(),
+				makeImportsStub({
+					loadRuns: () =>
+						available
+							? Effect.succeed(decodeRuns([makeRun()]))
+							: Effect.fail(new ImportsLoadError({ stage: "runs", cause: new Error("down") })),
+				}),
+			);
 
-		const help = await screen.findByRole("button", { name: "Where do I find this file?" });
-		expect(screen.queryByText("Open the Hevy app")).toBeNull();
-		fireEvent.click(help);
-		expect(screen.getByText("Open the Hevy app")).not.toBeNull();
-	});
+			yield* Effect.promise(() => screen.findByText("Unable to load imports"));
+			available = true;
+			fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("explains what a source still needs before it can be chosen", async () => {
-		mountView(
-			"/settings/import-data",
-			makeImportsApi(),
-			makeImportsStub({ loadRuns: () => Effect.succeed(decodeRuns([])) }),
-			[lockedSource],
-		);
+			yield* Effect.promise(() => screen.findByRole("link", { name: /Open the Hevy import from/ }));
+		}),
+	);
 
-		fireEvent.click(await screen.findByRole("button", { name: "Start an import" }));
-		const dialog = await screen.findByRole("dialog", { name: "Start an import" });
+	it.live("requests the configured next page size while keeping the current list visible", () =>
+		Effect.gen(function* () {
+			const limits: number[] = [];
+			mountView(
+				"/settings/import-data",
+				makeImportsApi(),
+				makeImportsStub({
+					loadRuns: (_client, input) => {
+						limits.push(input.limit);
+						return Effect.succeed(decodeRuns([makeRun()], limits.length === 1));
+					},
+				}),
+			);
 
-		const option = within(dialog).getByRole("button", { name: "Plex is unavailable" });
-		expect(option.hasAttribute("disabled")).toBe(true);
-		expect(
-			within(dialog).getByText("Set RYOT_MEDIA_PLEX_TOKEN on your server to use this."),
-		).not.toBeNull();
-	});
+			yield* Effect.promise(() => screen.findByRole("link", { name: /Open the Hevy import from/ }));
+			fireEvent.click(screen.getByRole("button", { name: "Show older imports" }));
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("returns to the details step when the server rejects the input", async () => {
-		mountView(
-			"/settings/import-data",
-			makeImportsApi({
-				createRun: () => Effect.fail(startFailure({ field: "username", code: "invalid-input" })),
-			}),
-			makeImportsStub({ loadRuns: () => Effect.succeed(decodeRuns([])) }),
-			[traktSource],
-		);
+			expect(screen.getByRole("link", { name: /Open the Hevy import from/ })).not.toBeNull();
+			yield* Effect.promise(() => waitFor(() => expect(limits).toEqual([LIMIT, LIMIT * 2])));
+		}),
+	);
 
-		fireEvent.click(await screen.findByRole("button", { name: "Start an import" }));
-		const dialog = await screen.findByRole("dialog", { name: "Start an import" });
-		fireEvent.click(within(dialog).getByRole("button", { name: "Import from Trakt" }));
-		fireEvent.change(await screen.findByLabelText("Username"), { target: { value: "someone" } });
-		fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-		fireEvent.click(await screen.findByRole("button", { name: "Start import" }));
+	it.live("starts an import and refreshes the active expanded list query", () =>
+		Effect.gen(function* () {
+			const started: Record<string, unknown>[] = [];
+			const limits: number[] = [];
+			const view = mountView(
+				"/settings/import-data",
+				makeImportsApi({
+					createRun: (_scope, request) => {
+						started.push(request.payload);
+						return Effect.succeed({ id: "run_1" });
+					},
+				}),
+				makeImportsStub({
+					loadRuns: (_client, input) => {
+						limits.push(input.limit);
+						return Effect.succeed(
+							decodeRuns(
+								limits.length < 3 ? [makeRun()] : [makeRun({ source: "trakt" })],
+								limits.length === 1,
+							),
+						);
+					},
+				}),
+				[hevySource, traktSource],
+			);
 
-		await screen.findByText("Some of these details could not be used. Check them and try again.");
-		expect(screen.getByLabelText("Username")).not.toBeNull();
-	});
+			yield* Effect.promise(() => screen.findByRole("link", { name: /Open the Hevy import from/ }));
+			fireEvent.click(screen.getByRole("button", { name: "Show older imports" }));
+			yield* Effect.promise(() => waitFor(() => expect(limits).toEqual([LIMIT, LIMIT * 2])));
+			fireEvent.click(screen.getByRole("button", { name: "Start an import" }));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.router.state.location.search.start).toBe(true)),
+			);
+			const dialog = yield* Effect.promise(() =>
+				screen.findByRole("dialog", { name: "Start an import" }),
+			);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("keeps the failure visible when the services cannot be listed", async () => {
-		mountView(
-			"/settings/import-data",
-			makeImportsApi(),
-			makeImportsStub({ loadRuns: () => Effect.succeed(decodeRuns([])) }),
-			null,
-		);
+			fireEvent.change(within(dialog).getByLabelText("Search services"), {
+				target: { value: "trakt" },
+			});
+			expect(within(dialog).queryByRole("button", { name: "Import from Hevy" })).toBeNull();
 
-		fireEvent.click(await screen.findByRole("button", { name: "Start an import" }));
-		const dialog = await screen.findByRole("dialog", { name: "Start an import" });
+			fireEvent.click(within(dialog).getByRole("button", { name: "Import from Trakt" }));
+			fireEvent.change(yield* Effect.promise(() => screen.findByLabelText("Username")), {
+				target: { value: "someone" },
+			});
+			fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
-		expect(within(dialog).getByText("Unable to load services")).not.toBeNull();
-		expect(within(dialog).queryByText(/down/)).toBeNull();
-	});
+			yield* Effect.promise(() => screen.findByText("someone"));
+			fireEvent.click(screen.getByRole("button", { name: "Start import" }));
+
+			yield* Effect.promise(() => waitFor(() => expect(started).toHaveLength(1)));
+			expect(started[0]).toEqual({ source: "trakt", username: "someone" });
+			yield* Effect.promise(() =>
+				screen.findByRole("link", { name: /Open the Trakt import from/ }),
+			);
+			expect(limits).toEqual([LIMIT, LIMIT * 2, LIMIT * 2]);
+			expect(screen.queryByRole("dialog", { name: "Start an import" })).toBeNull();
+		}),
+	);
+
+	it.live("reveals the export steps for a source that documents them", () =>
+		Effect.gen(function* () {
+			mountView(
+				"/settings/import-data",
+				makeImportsApi(),
+				makeImportsStub({ loadRuns: () => Effect.succeed(decodeRuns([])) }),
+			);
+
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Start an import" })),
+			);
+			const dialog = yield* Effect.promise(() =>
+				screen.findByRole("dialog", { name: "Start an import" }),
+			);
+			fireEvent.click(within(dialog).getByRole("button", { name: "Import from Hevy" }));
+
+			const help = yield* Effect.promise(() =>
+				screen.findByRole("button", { name: "Where do I find this file?" }),
+			);
+			expect(screen.queryByText("Open the Hevy app")).toBeNull();
+			fireEvent.click(help);
+			expect(screen.getByText("Open the Hevy app")).not.toBeNull();
+		}),
+	);
+
+	it.live("explains what a source still needs before it can be chosen", () =>
+		Effect.gen(function* () {
+			mountView(
+				"/settings/import-data",
+				makeImportsApi(),
+				makeImportsStub({ loadRuns: () => Effect.succeed(decodeRuns([])) }),
+				[lockedSource],
+			);
+
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Start an import" })),
+			);
+			const dialog = yield* Effect.promise(() =>
+				screen.findByRole("dialog", { name: "Start an import" }),
+			);
+
+			const option = within(dialog).getByRole("button", { name: "Plex is unavailable" });
+			expect(option.hasAttribute("disabled")).toBe(true);
+			expect(
+				within(dialog).getByText("Set RYOT_MEDIA_PLEX_TOKEN on your server to use this."),
+			).not.toBeNull();
+		}),
+	);
+
+	it.live("returns to the details step when the server rejects the input", () =>
+		Effect.gen(function* () {
+			mountView(
+				"/settings/import-data",
+				makeImportsApi({
+					createRun: () => Effect.fail(startFailure({ field: "username", code: "invalid-input" })),
+				}),
+				makeImportsStub({ loadRuns: () => Effect.succeed(decodeRuns([])) }),
+				[traktSource],
+			);
+
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Start an import" })),
+			);
+			const dialog = yield* Effect.promise(() =>
+				screen.findByRole("dialog", { name: "Start an import" }),
+			);
+			fireEvent.click(within(dialog).getByRole("button", { name: "Import from Trakt" }));
+			fireEvent.change(yield* Effect.promise(() => screen.findByLabelText("Username")), {
+				target: { value: "someone" },
+			});
+			fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Start import" })),
+			);
+
+			yield* Effect.promise(() =>
+				screen.findByText("Some of these details could not be used. Check them and try again."),
+			);
+			expect(screen.getByLabelText("Username")).not.toBeNull();
+		}),
+	);
+
+	it.live("keeps the failure visible when the services cannot be listed", () =>
+		Effect.gen(function* () {
+			mountView(
+				"/settings/import-data",
+				makeImportsApi(),
+				makeImportsStub({ loadRuns: () => Effect.succeed(decodeRuns([])) }),
+				null,
+			);
+
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Start an import" })),
+			);
+			const dialog = yield* Effect.promise(() =>
+				screen.findByRole("dialog", { name: "Start an import" }),
+			);
+
+			expect(within(dialog).getByText("Unable to load services")).not.toBeNull();
+			expect(within(dialog).queryByText(/down/)).toBeNull();
+		}),
+	);
 });
 
 describe("import run detail", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("retries a failed detail loader through the route error state", async () => {
-		let loads = 0;
-		mountView(
-			"/settings/import-data/run_1",
-			makeImportsApi(),
-			makeImportsStub({
-				loadRun: () => {
-					loads += 1;
-					return loads === 1
-						? Effect.fail(new ImportsLoadError({ stage: "run", cause: new Error("down") }))
-						: Effect.succeed(decodeRun([makeRun()]));
-				},
-			}),
-		);
+	it.live("retries a failed detail loader through the route error state", () =>
+		Effect.gen(function* () {
+			let loads = 0;
+			mountView(
+				"/settings/import-data/run_1",
+				makeImportsApi(),
+				makeImportsStub({
+					loadRun: () => {
+						loads += 1;
+						return loads === 1
+							? Effect.fail(new ImportsLoadError({ stage: "run", cause: new Error("down") }))
+							: Effect.succeed(decodeRun([makeRun()]));
+					},
+				}),
+			);
 
-		await screen.findByText("Unable to load this import");
-		expect(loads).toBe(1);
-		fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+			yield* Effect.promise(() => screen.findByText("Unable to load this import"));
+			expect(loads).toBe(1);
+			fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 
-		await screen.findByRole("heading", { level: 1, name: "Hevy" });
-		expect(loads).toBe(3);
-	});
+			yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Hevy" }));
+			expect(loads).toBe(3);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("keeps an ordinary detail retry query-owned", async () => {
-		let loads = 0;
-		let retry = false;
-		mountView(
-			"/settings/import-data/run_1",
-			makeImportsApi(),
-			makeImportsStub({
-				loadRun: () => {
-					loads += 1;
-					return loads > 1 && !retry
-						? Effect.fail(new ImportsLoadError({ stage: "run", cause: new Error("down") }))
-						: Effect.succeed(decodeRun([makeRun()]));
-				},
-			}),
-		);
+	it.live("keeps an ordinary detail retry query-owned", () =>
+		Effect.gen(function* () {
+			let loads = 0;
+			let retry = false;
+			mountView(
+				"/settings/import-data/run_1",
+				makeImportsApi(),
+				makeImportsStub({
+					loadRun: () => {
+						loads += 1;
+						return loads > 1 && !retry
+							? Effect.fail(new ImportsLoadError({ stage: "run", cause: new Error("down") }))
+							: Effect.succeed(decodeRun([makeRun()]));
+					},
+				}),
+			);
 
-		await screen.findByText("Unable to load this import");
-		retry = true;
-		fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+			yield* Effect.promise(() => screen.findByText("Unable to load this import"));
+			retry = true;
+			fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 
-		await screen.findByRole("heading", { level: 1, name: "Hevy" });
-		expect(loads).toBeGreaterThan(2);
-	});
+			yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Hevy" }));
+			expect(loads).toBeGreaterThan(2);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("shows the counts and groups what could not be brought over", async () => {
-		mountView(
-			"/settings/import-data/run_1",
-			makeImportsApi(),
-			makeImportsStub({
-				loadRun: () =>
-					Effect.succeed(
-						decodeRun(
-							[
-								makeRun({
-									failedItems: 1,
-									importedItems: 11,
-									inputSummary: { fileNames: ["a.csv"] },
-								}),
-							],
-							[makeFailure()],
+	it.live("shows the counts and groups what could not be brought over", () =>
+		Effect.gen(function* () {
+			mountView(
+				"/settings/import-data/run_1",
+				makeImportsApi(),
+				makeImportsStub({
+					loadRun: () =>
+						Effect.succeed(
+							decodeRun(
+								[
+									makeRun({
+										failedItems: 1,
+										importedItems: 11,
+										inputSummary: { fileNames: ["a.csv"] },
+									}),
+								],
+								[makeFailure()],
+							),
 						),
-					),
-			}),
-		);
+				}),
+			);
 
-		await screen.findByRole("heading", { level: 1, name: "Hevy" });
-		expect(screen.getByText("From a.csv")).not.toBeNull();
-		expect(screen.getByText("11")).not.toBeNull();
-		expect(screen.getByText("Couldn't be read")).not.toBeNull();
+			yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Hevy" }));
+			expect(screen.getByText("From a.csv")).not.toBeNull();
+			expect(screen.getByText("11")).not.toBeNull();
+			expect(screen.getByText("Couldn't be read")).not.toBeNull();
 
-		const row = screen.getByRole("button", { name: "Bench Press" });
-		expect(screen.queryByText("row-5")).toBeNull();
-		fireEvent.click(row);
-		expect(screen.getByText("row-5")).not.toBeNull();
-	});
+			const row = screen.getByRole("button", { name: "Bench Press" });
+			expect(screen.queryByText("row-5")).toBeNull();
+			fireEvent.click(row);
+			expect(screen.getByText("row-5")).not.toBeNull();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("explains why a failed run stopped", async () => {
-		mountView(
-			"/settings/import-data/run_1",
-			makeImportsApi(),
-			makeImportsStub({
-				loadRun: () =>
-					Effect.succeed(
-						decodeRun([
-							makeRun({ status: "failed", failureReason: { code: "source-fetch-failed" } }),
-						]),
-					),
-			}),
-		);
+	it.live("explains why a failed run stopped", () =>
+		Effect.gen(function* () {
+			mountView(
+				"/settings/import-data/run_1",
+				makeImportsApi(),
+				makeImportsStub({
+					loadRun: () =>
+						Effect.succeed(
+							decodeRun([
+								makeRun({ status: "failed", failureReason: { code: "source-fetch-failed" } }),
+							]),
+						),
+				}),
+			);
 
-		await screen.findByText("Source unavailable");
-		expect(
-			screen.getByText(
-				"The source could not be read. Check its availability, then start the import again.",
-			),
-		).not.toBeNull();
-	});
+			yield* Effect.promise(() => screen.findByText("Source unavailable"));
+			expect(
+				screen.getByText(
+					"The source could not be read. Check its availability, then start the import again.",
+				),
+			).not.toBeNull();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("returns to the list after a confirmed delete", async () => {
-		const deleted: string[] = [];
-		const view = mountView(
-			"/settings/import-data/run_1",
-			makeImportsApi({
-				deleteRun: (_scope, request) => {
-					deleted.push(request.params.runId);
-					return Effect.succeed({ id: request.params.runId });
-				},
-			}),
-			makeImportsStub({
-				loadRuns: () => Effect.succeed(decodeRuns([])),
-				loadRun: () => Effect.succeed(decodeRun([makeRun()])),
-			}),
-		);
+	it.live("returns to the list after a confirmed delete", () =>
+		Effect.gen(function* () {
+			const deleted: string[] = [];
+			const view = mountView(
+				"/settings/import-data/run_1",
+				makeImportsApi({
+					deleteRun: (_scope, request) => {
+						deleted.push(request.params.runId);
+						return Effect.succeed({ id: request.params.runId });
+					},
+				}),
+				makeImportsStub({
+					loadRuns: () => Effect.succeed(decodeRuns([])),
+					loadRun: () => Effect.succeed(decodeRun([makeRun()])),
+				}),
+			);
 
-		fireEvent.click(await screen.findByRole("button", { name: "Import actions" }));
-		fireEvent.click(await screen.findByRole("menuitem", { name: "Delete record" }));
-		const dialog = await screen.findByRole("dialog");
-		expect(within(dialog).getByText(/12 items it added stay in your library/)).not.toBeNull();
-		fireEvent.click(within(dialog).getByRole("button", { name: "Delete record" }));
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Import actions" })),
+			);
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("menuitem", { name: "Delete record" })),
+			);
+			const dialog = yield* Effect.promise(() => screen.findByRole("dialog"));
+			expect(within(dialog).getByText(/12 items it added stay in your library/)).not.toBeNull();
+			fireEvent.click(within(dialog).getByRole("button", { name: "Delete record" }));
 
-		await waitFor(() => expect(deleted).toEqual(["run_1"]));
-		await waitFor(() => expect(view.router.state.location.pathname).toBe("/settings/import-data"));
-	});
+			yield* Effect.promise(() => waitFor(() => expect(deleted).toEqual(["run_1"])));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.router.state.location.pathname).toBe("/settings/import-data")),
+			);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("offers no delete action while a run is still going", async () => {
-		mountView(
-			"/settings/import-data/run_1",
-			makeImportsApi(),
-			makeImportsStub({
-				loadRun: () =>
-					Effect.succeed(decodeRun([makeRun({ finishedAt: null, status: "running" })])),
-			}),
-		);
+	it.live("offers no delete action while a run is still going", () =>
+		Effect.gen(function* () {
+			mountView(
+				"/settings/import-data/run_1",
+				makeImportsApi(),
+				makeImportsStub({
+					loadRun: () =>
+						Effect.succeed(decodeRun([makeRun({ finishedAt: null, status: "running" })])),
+				}),
+			);
 
-		await screen.findByRole("heading", { level: 1, name: "Hevy" });
-		expect(screen.queryByRole("button", { name: "Import actions" })).toBeNull();
-		expect(
-			screen.getByText("This runs on your server and can't be stopped once started."),
-		).not.toBeNull();
-	});
+			yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Hevy" }));
+			expect(screen.queryByRole("button", { name: "Import actions" })).toBeNull();
+			expect(
+				screen.getByText("This runs on your server and can't be stopped once started."),
+			).not.toBeNull();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("uses the route not-found state for a run that no longer exists", async () => {
-		let loads = 0;
-		mountView(
-			"/settings/import-data/run_1",
-			makeImportsApi(),
-			makeImportsStub({
-				loadRun: () => {
-					loads += 1;
-					return Effect.succeed(decodeRun([]));
-				},
-			}),
-		);
+	it.live("uses the route not-found state for a run that no longer exists", () =>
+		Effect.gen(function* () {
+			let loads = 0;
+			mountView(
+				"/settings/import-data/run_1",
+				makeImportsApi(),
+				makeImportsStub({
+					loadRun: () => {
+						loads += 1;
+						return Effect.succeed(decodeRun([]));
+					},
+				}),
+			);
 
-		await screen.findByText("Import not found");
-		expect(loads).toBe(1);
-		expect(screen.queryByRole("button", { name: "Import actions" })).toBeNull();
-	});
+			yield* Effect.promise(() => screen.findByText("Import not found"));
+			expect(loads).toBe(1);
+			expect(screen.queryByRole("button", { name: "Import actions" })).toBeNull();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("uses the route not-found state for a blank run id without loading detail", async () => {
-		let loads = 0;
-		mountView(
-			"/settings/import-data/%20",
-			makeImportsApi(),
-			makeImportsStub({
-				loadRun: () => {
-					loads += 1;
-					return Effect.succeed(decodeRun([makeRun()]));
-				},
-			}),
-		);
+	it.live("uses the route not-found state for a blank run id without loading detail", () =>
+		Effect.gen(function* () {
+			let loads = 0;
+			mountView(
+				"/settings/import-data/%20",
+				makeImportsApi(),
+				makeImportsStub({
+					loadRun: () => {
+						loads += 1;
+						return Effect.succeed(decodeRun([makeRun()]));
+					},
+				}),
+			);
 
-		await screen.findByText("Import not found");
-		expect(loads).toBe(0);
-	});
+			yield* Effect.promise(() => screen.findByText("Import not found"));
+			expect(loads).toBe(0);
+		}),
+	);
 });

@@ -1,3 +1,4 @@
+import { describe, expect, it } from "@effect/vitest";
 import type {
 	CreateIntegrationBody,
 	UpdateIntegrationBody,
@@ -12,7 +13,6 @@ import type { IntegrationDetail, IntegrationSummary } from "@ryot-app/ryotql-rec
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime, type Option } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import type { IntegrationsApi } from "#/api/integrations";
@@ -288,313 +288,374 @@ const mountView = (
 };
 
 describe("integrations list", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("keeps demo summaries visible while disabling protected actions", async () => {
-		mountView(
-			"/settings/integrations",
-			makeIntegrationsApi(),
-			makeIntegrationQueries({ list: () => listResponse([makeSummary()]) }),
-			makeAuthStub({}, { ...authenticated, accessClass: "demo" }),
-		);
+	it.live("keeps demo summaries visible while disabling protected actions", () =>
+		Effect.gen(function* () {
+			mountView(
+				"/settings/integrations",
+				makeIntegrationsApi(),
+				makeIntegrationQueries({ list: () => listResponse([makeSummary()]) }),
+				makeAuthStub({}, { ...authenticated, accessClass: "demo" }),
+			);
 
-		await screen.findByRole("link", { name: "Open the Komga integration" });
-		expect(
-			screen.getByText("This operation is unavailable while using the shared demo account."),
-		).not.toBeNull();
-		expect(screen.getByRole("button", { name: "Connect a service" }).hasAttribute("disabled")).toBe(
-			true,
-		);
-		expect(
-			screen.getByRole("button", { name: "Sync all integrations" }).hasAttribute("disabled"),
-		).toBe(true);
-	});
+			yield* Effect.promise(() =>
+				screen.findByRole("link", { name: "Open the Komga integration" }),
+			);
+			expect(
+				screen.getByText("This operation is unavailable while using the shared demo account."),
+			).not.toBeNull();
+			expect(
+				screen.getByRole("button", { name: "Connect a service" }).hasAttribute("disabled"),
+			).toBe(true);
+			expect(
+				screen.getByRole("button", { name: "Sync all integrations" }).hasAttribute("disabled"),
+			).toBe(true);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("names each integration and opens the one that was clicked", async () => {
-		const view = mountView(
-			"/settings/integrations",
-			makeIntegrationsApi(),
-			makeIntegrationQueries({
-				list: () =>
-					listResponse([
-						makeSummary(),
-						makeSummary({ isDisabled: true, name: "Paused one", id: IntegrationId.make("int_2") }),
-					]),
-			}),
-		);
+	it.live("names each integration and opens the one that was clicked", () =>
+		Effect.gen(function* () {
+			const view = mountView(
+				"/settings/integrations",
+				makeIntegrationsApi(),
+				makeIntegrationQueries({
+					list: () =>
+						listResponse([
+							makeSummary(),
+							makeSummary({
+								isDisabled: true,
+								name: "Paused one",
+								id: IntegrationId.make("int_2"),
+							}),
+						]),
+				}),
+			);
 
-		const row = await screen.findByRole("link", { name: "Open the Komga integration" });
-		expect(row.textContent).toContain("Active · Never synced");
-		expect(row.textContent).toContain("Scheduled");
-		expect(
-			screen.getByRole("link", { name: "Open the Paused one integration" }).textContent,
-		).toContain("Paused");
+			const row = yield* Effect.promise(() =>
+				screen.findByRole("link", { name: "Open the Komga integration" }),
+			);
+			expect(row.textContent).toContain("Active · Never synced");
+			expect(row.textContent).toContain("Scheduled");
+			expect(
+				screen.getByRole("link", { name: "Open the Paused one integration" }).textContent,
+			).toContain("Paused");
 
-		fireEvent.click(row);
-		await waitFor(() =>
-			expect(view.router.state.location.pathname).toBe("/settings/integrations/int_1"),
-		);
-	});
+			fireEvent.click(row);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(view.router.state.location.pathname).toBe("/settings/integrations/int_1"),
+				),
+			);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("reports whether a sync could be started", async () => {
-		let attempts = 0;
-		mountView(
-			"/settings/integrations",
-			makeIntegrationsApi({
-				sync: () => {
-					attempts += 1;
-					return attempts === 1
-						? Effect.fail(new AuthenticatedApiError({ cause: new Error("nope") }))
-						: Effect.succeed({ executionId: "exec_1" });
-				},
-			}),
-			makeIntegrationQueries({ list: () => listResponse([makeSummary()]) }),
-		);
+	it.live("reports whether a sync could be started", () =>
+		Effect.gen(function* () {
+			let attempts = 0;
+			mountView(
+				"/settings/integrations",
+				makeIntegrationsApi({
+					sync: () => {
+						attempts += 1;
+						return attempts === 1
+							? Effect.fail(new AuthenticatedApiError({ cause: new Error("nope") }))
+							: Effect.succeed({ executionId: "exec_1" });
+					},
+				}),
+				makeIntegrationQueries({ list: () => listResponse([makeSummary()]) }),
+			);
 
-		const syncAll = await screen.findByRole("button", { name: "Sync all integrations" });
-		fireEvent.click(syncAll);
-		await screen.findByText("Integration sync could not be started. Try again.");
+			const syncAll = yield* Effect.promise(() =>
+				screen.findByRole("button", { name: "Sync all integrations" }),
+			);
+			fireEvent.click(syncAll);
+			yield* Effect.promise(() =>
+				screen.findByText("Integration sync could not be started. Try again."),
+			);
 
-		fireEvent.click(syncAll);
-		await screen.findByText("Sync started. Updates will appear as integrations finish.");
-		expect(attempts).toBe(2);
-	});
+			fireEvent.click(syncAll);
+			yield* Effect.promise(() =>
+				screen.findByText("Sync started. Updates will appear as integrations finish."),
+			);
+			expect(attempts).toBe(2);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("connects a service and refreshes the expanded list without resetting pagination", async () => {
-		const created: CreateIntegrationBody[] = [];
-		const limits: number[] = [];
-		const view = mountView(
-			"/settings/integrations",
-			makeIntegrationsApi({
-				create: (_scope, request) => {
-					created.push(request.payload);
-					return Effect.succeed({ id: IntegrationId.make("int_2") });
-				},
-			}),
-			makeIntegrationQueries({
-				list: (limit) => {
-					limits.push(limit);
-					return listResponse(
-						created.length === 0
-							? [makeSummary()]
-							: [makeSummary(), makeSummary({ name: "Created", id: IntegrationId.make("int_2") })],
-						limit === LIMIT,
-						limit,
-					);
-				},
-			}),
-		);
+	it.live("connects a service and refreshes the expanded list without resetting pagination", () =>
+		Effect.gen(function* () {
+			const created: CreateIntegrationBody[] = [];
+			const limits: number[] = [];
+			const view = mountView(
+				"/settings/integrations",
+				makeIntegrationsApi({
+					create: (_scope, request) => {
+						created.push(request.payload);
+						return Effect.succeed({ id: IntegrationId.make("int_2") });
+					},
+				}),
+				makeIntegrationQueries({
+					list: (limit) => {
+						limits.push(limit);
+						return listResponse(
+							created.length === 0
+								? [makeSummary()]
+								: [
+										makeSummary(),
+										makeSummary({ name: "Created", id: IntegrationId.make("int_2") }),
+									],
+							limit === LIMIT,
+							limit,
+						);
+					},
+				}),
+			);
 
-		fireEvent.click(await screen.findByRole("button", { name: "Show more integrations" }));
-		await waitFor(() => expect(limits).toEqual([20, 40]));
-		fireEvent.click(await screen.findByRole("button", { name: "Connect a service" }));
-		await waitFor(() => expect(view.router.state.location.search.create).toBe(true));
-		const dialog = await screen.findByRole("dialog", { name: "Connect a service" });
+			fireEvent.click(
+				yield* Effect.promise(() =>
+					screen.findByRole("button", { name: "Show more integrations" }),
+				),
+			);
+			yield* Effect.promise(() => waitFor(() => expect(limits).toEqual([20, 40])));
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Connect a service" })),
+			);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.router.state.location.search.create).toBe(true)),
+			);
+			const dialog = yield* Effect.promise(() =>
+				screen.findByRole("dialog", { name: "Connect a service" }),
+			);
 
-		fireEvent.click(within(dialog).getByRole("button", { name: "Connect Komga" }));
-		fireEvent.change(await screen.findByLabelText("Base URL"), {
-			target: { value: "https://komga.example" },
-		});
-		fireEvent.change(screen.getByLabelText("API key"), { target: { value: "secret" } });
-		fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+			fireEvent.click(within(dialog).getByRole("button", { name: "Connect Komga" }));
+			fireEvent.change(yield* Effect.promise(() => screen.findByLabelText("Base URL")), {
+				target: { value: "https://komga.example" },
+			});
+			fireEvent.change(screen.getByLabelText("API key"), { target: { value: "secret" } });
+			fireEvent.click(screen.getByRole("button", { name: "Continue" }));
 
-		await screen.findByText("Kept hidden");
-		fireEvent.click(screen.getByRole("button", { name: "Connect" }));
+			yield* Effect.promise(() => screen.findByText("Kept hidden"));
+			fireEvent.click(screen.getByRole("button", { name: "Connect" }));
 
-		await waitFor(() => expect(created).toHaveLength(1));
-		expect(created[0]?.provider).toBe("komga");
-		expect(created[0]?.providerSpecifics).toEqual({
-			apiKey: "secret",
-			baseUrl: "https://komga.example",
-		});
-		await screen.findByRole("link", { name: "Open the Created integration" });
-		expect(limits).toEqual([20, 40, 40]);
-		expect(screen.queryByRole("dialog", { name: "Connect a service" })).toBeNull();
-	});
+			yield* Effect.promise(() => waitFor(() => expect(created).toHaveLength(1)));
+			expect(created[0]?.provider).toBe("komga");
+			expect(created[0]?.providerSpecifics).toEqual({
+				apiKey: "secret",
+				baseUrl: "https://komga.example",
+			});
+			yield* Effect.promise(() =>
+				screen.findByRole("link", { name: "Open the Created integration" }),
+			);
+			expect(limits).toEqual([20, 40, 40]);
+			expect(screen.queryByRole("dialog", { name: "Connect a service" })).toBeNull();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("keeps the failure visible when the services cannot be listed", async () => {
-		mountView(
-			"/settings/integrations",
-			makeIntegrationsApi(),
-			makeIntegrationQueries({
-				providers: () => Effect.fail(new AuthenticatedApiError({ cause: new Error("down") })),
-			}),
-		);
+	it.live("keeps the failure visible when the services cannot be listed", () =>
+		Effect.gen(function* () {
+			mountView(
+				"/settings/integrations",
+				makeIntegrationsApi(),
+				makeIntegrationQueries({
+					providers: () => Effect.fail(new AuthenticatedApiError({ cause: new Error("down") })),
+				}),
+			);
 
-		fireEvent.click(await screen.findByRole("button", { name: "Connect a service" }));
-		const dialog = await screen.findByRole("dialog", { name: "Connect a service" });
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Connect a service" })),
+			);
+			const dialog = yield* Effect.promise(() =>
+				screen.findByRole("dialog", { name: "Connect a service" }),
+			);
 
-		expect(within(dialog).getByText("Unable to load services")).not.toBeNull();
-		expect(within(dialog).queryByText(/down/)).toBeNull();
-	});
+			expect(within(dialog).getByText("Unable to load services")).not.toBeNull();
+			expect(within(dialog).queryByText(/down/)).toBeNull();
+		}),
+	);
 });
 
 describe("integration detail", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("does not request or expose protected demo integration detail", async () => {
-		let gets = 0;
-		mountView(
-			"/settings/integrations/int_1",
-			makeIntegrationsApi(),
-			makeIntegrationQueries({
-				detail: () => {
-					gets++;
-					return Effect.succeed(
-						makeDetail({ webhookToken: IntegrationWebhookToken.make("webhook-token-1") }),
-					);
-				},
-			}),
-			makeAuthStub({}, { ...authenticated, accessClass: "demo" }),
-		);
+	it.live("does not request or expose protected demo integration detail", () =>
+		Effect.gen(function* () {
+			let gets = 0;
+			mountView(
+				"/settings/integrations/int_1",
+				makeIntegrationsApi(),
+				makeIntegrationQueries({
+					detail: () => {
+						gets++;
+						return Effect.succeed(
+							makeDetail({ webhookToken: IntegrationWebhookToken.make("webhook-token-1") }),
+						);
+					},
+				}),
+				makeAuthStub({}, { ...authenticated, accessClass: "demo" }),
+			);
 
-		await screen.findByText("Integration configuration unavailable");
-		expect(
-			screen.getByText("This operation is unavailable while using the shared demo account."),
-		).not.toBeNull();
-		expect(gets).toBe(0);
-		expect(screen.queryByText("Webhook URL")).toBeNull();
-		expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull();
-		expect(screen.queryByRole("button", { name: "Integration actions" })).toBeNull();
-	});
+			yield* Effect.promise(() => screen.findByText("Integration configuration unavailable"));
+			expect(
+				screen.getByText("This operation is unavailable while using the shared demo account."),
+			).not.toBeNull();
+			expect(gets).toBe(0);
+			expect(screen.queryByText("Webhook URL")).toBeNull();
+			expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull();
+			expect(screen.queryByRole("button", { name: "Integration actions" })).toBeNull();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("uses loader data until the ID-keyed detail query succeeds", async () => {
-		let gets = 0;
-		let resolveDetail!: (integration: IntegrationDetailRow) => void;
-		// oxlint-disable-next-line effecttsgo/new-promise -- This controllable test gate stays pending until the host callback or test releases it.
-		const pendingDetail = new Promise<IntegrationDetailRow>((resolve) => {
-			resolveDetail = resolve;
-		});
-		mountView(
-			"/settings/integrations/int_1",
-			makeIntegrationsApi(),
-			makeIntegrationQueries({
-				detail: () => {
-					gets += 1;
-					return gets === 1
-						? Effect.succeed(makeDetail({ name: "Loader integration" }))
-						: Effect.promise(() => pendingDetail);
-				},
-			}),
-		);
+	it.live("uses loader data until the ID-keyed detail query succeeds", () =>
+		Effect.gen(function* () {
+			let gets = 0;
+			let resolveDetail!: (integration: IntegrationDetailRow) => void;
+			// oxlint-disable-next-line effecttsgo/new-promise -- This controllable test gate stays pending until the host callback or test releases it.
+			const pendingDetail = new Promise<IntegrationDetailRow>((resolve) => {
+				resolveDetail = resolve;
+			});
+			mountView(
+				"/settings/integrations/int_1",
+				makeIntegrationsApi(),
+				makeIntegrationQueries({
+					detail: () => {
+						gets += 1;
+						return gets === 1
+							? Effect.succeed(makeDetail({ name: "Loader integration" }))
+							: Effect.promise(() => pendingDetail);
+					},
+				}),
+			);
 
-		await screen.findByRole("heading", { level: 1, name: "Loader integration" });
-		resolveDetail(makeDetail({ name: "Queried integration" }));
-		await screen.findByRole("heading", { level: 1, name: "Queried integration" });
-		expect(gets).toBe(2);
-	});
+			yield* Effect.promise(() =>
+				screen.findByRole("heading", { level: 1, name: "Loader integration" }),
+			);
+			resolveDetail(makeDetail({ name: "Queried integration" }));
+			yield* Effect.promise(() =>
+				screen.findByRole("heading", { level: 1, name: "Queried integration" }),
+			);
+			expect(gets).toBe(2);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("shows the webhook URL and recent runs", async () => {
-		mountView(
-			"/settings/integrations/int_1",
-			makeIntegrationsApi(),
-			makeIntegrationQueries({
-				runs: () => runsResponse([completedRun]),
-				providers: () => Effect.succeed([kodiProvider]),
-				detail: () =>
-					Effect.succeed(
-						makeDetail({
-							lot: "sink",
-							provider: "kodi",
-							providerSpecifics: {},
-							webhookToken: IntegrationWebhookToken.make("webhook-token-1"),
-						}),
-					),
-			}),
-		);
+	it.live("shows the webhook URL and recent runs", () =>
+		Effect.gen(function* () {
+			mountView(
+				"/settings/integrations/int_1",
+				makeIntegrationsApi(),
+				makeIntegrationQueries({
+					runs: () => runsResponse([completedRun]),
+					providers: () => Effect.succeed([kodiProvider]),
+					detail: () =>
+						Effect.succeed(
+							makeDetail({
+								lot: "sink",
+								provider: "kodi",
+								providerSpecifics: {},
+								webhookToken: IntegrationWebhookToken.make("webhook-token-1"),
+							}),
+						),
+				}),
+			);
 
-		await screen.findByRole("heading", { level: 1, name: "Kodi" });
-		expect(screen.getByText(`${window.location.origin}/_i/webhook-token-1`)).not.toBeNull();
-		expect(screen.getByRole("img", { name: "Completed" })).not.toBeNull();
-		expect(screen.getByText("12 added")).not.toBeNull();
-	});
+			yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Kodi" }));
+			expect(screen.getByText(`${window.location.origin}/_i/webhook-token-1`)).not.toBeNull();
+			expect(screen.getByRole("img", { name: "Completed" })).not.toBeNull();
+			expect(screen.getByText("12 added")).not.toBeNull();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("saves edited settings through the update endpoint", async () => {
-		const saved: UpdateIntegrationBody[] = [];
-		let stored = makeDetail();
-		mountView(
-			"/settings/integrations/int_1",
-			makeIntegrationsApi({
-				update: (_scope, request) => {
-					saved.push(request.payload);
-					stored = makeDetail({ name: "Renamed" });
-					return Effect.succeed({ id: stored.id });
-				},
-			}),
-			makeIntegrationQueries({ detail: () => Effect.succeed(stored) }),
-		);
+	it.live("saves edited settings through the update endpoint", () =>
+		Effect.gen(function* () {
+			const saved: UpdateIntegrationBody[] = [];
+			let stored = makeDetail();
+			mountView(
+				"/settings/integrations/int_1",
+				makeIntegrationsApi({
+					update: (_scope, request) => {
+						saved.push(request.payload);
+						stored = makeDetail({ name: "Renamed" });
+						return Effect.succeed({ id: stored.id });
+					},
+				}),
+				makeIntegrationQueries({ detail: () => Effect.succeed(stored) }),
+			);
 
-		fireEvent.change(await screen.findByLabelText("Name"), { target: { value: "Renamed" } });
-		fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+			fireEvent.change(yield* Effect.promise(() => screen.findByLabelText("Name")), {
+				target: { value: "Renamed" },
+			});
+			fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
-		await waitFor(() => expect(saved).toHaveLength(1));
-		expect(saved[0]?.name).toBe("Renamed");
-		await screen.findByRole("heading", { level: 1, name: "Renamed" });
-	});
+			yield* Effect.promise(() => waitFor(() => expect(saved).toHaveLength(1)));
+			expect(saved[0]?.name).toBe("Renamed");
+			yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Renamed" }));
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("keeps successful detail content when mutation refresh fails", async () => {
-		let gets = 0;
-		mountView(
-			"/settings/integrations/int_1",
-			makeIntegrationsApi({ update: () => Effect.succeed({ id: IntegrationId.make("int_1") }) }),
-			makeIntegrationQueries({
-				detail: () => {
-					gets += 1;
-					if (gets === 1) {
-						return Effect.succeed(makeDetail({ name: "Loader integration" }));
-					}
-					if (gets === 2) {
-						return Effect.succeed(makeDetail({ name: "Current integration" }));
-					}
-					return Effect.fail(new AuthenticatedApiError({ cause: new Error("refresh failed") }));
-				},
-			}),
-		);
+	it.live("keeps successful detail content when mutation refresh fails", () =>
+		Effect.gen(function* () {
+			let gets = 0;
+			mountView(
+				"/settings/integrations/int_1",
+				makeIntegrationsApi({ update: () => Effect.succeed({ id: IntegrationId.make("int_1") }) }),
+				makeIntegrationQueries({
+					detail: () => {
+						gets += 1;
+						if (gets === 1) {
+							return Effect.succeed(makeDetail({ name: "Loader integration" }));
+						}
+						if (gets === 2) {
+							return Effect.succeed(makeDetail({ name: "Current integration" }));
+						}
+						return Effect.fail(new AuthenticatedApiError({ cause: new Error("refresh failed") }));
+					},
+				}),
+			);
 
-		await screen.findByRole("heading", { level: 1, name: "Current integration" });
-		fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
-		await waitFor(() => expect(gets).toBe(3));
-		expect(screen.getByRole("heading", { level: 1, name: "Current integration" })).not.toBeNull();
-	});
+			yield* Effect.promise(() =>
+				screen.findByRole("heading", { level: 1, name: "Current integration" }),
+			);
+			fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+			yield* Effect.promise(() => waitFor(() => expect(gets).toBe(3)));
+			expect(screen.getByRole("heading", { level: 1, name: "Current integration" })).not.toBeNull();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("returns to the list after a confirmed delete", async () => {
-		const deleted: string[] = [];
-		const view = mountView(
-			"/settings/integrations/int_1",
-			makeIntegrationsApi({
-				delete: (_scope, request) => {
-					deleted.push(request.params.integrationId);
-					return Effect.succeed({ id: request.params.integrationId });
-				},
-			}),
-			makeIntegrationQueries(),
-		);
+	it.live("returns to the list after a confirmed delete", () =>
+		Effect.gen(function* () {
+			const deleted: string[] = [];
+			const view = mountView(
+				"/settings/integrations/int_1",
+				makeIntegrationsApi({
+					delete: (_scope, request) => {
+						deleted.push(request.params.integrationId);
+						return Effect.succeed({ id: request.params.integrationId });
+					},
+				}),
+				makeIntegrationQueries(),
+			);
 
-		fireEvent.click(await screen.findByRole("button", { name: "Integration actions" }));
-		fireEvent.click(await screen.findByRole("menuitem", { name: "Delete integration" }));
-		const dialog = await screen.findByRole("dialog");
-		fireEvent.click(within(dialog).getByRole("button", { name: "Delete integration" }));
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Integration actions" })),
+			);
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("menuitem", { name: "Delete integration" })),
+			);
+			const dialog = yield* Effect.promise(() => screen.findByRole("dialog"));
+			fireEvent.click(within(dialog).getByRole("button", { name: "Delete integration" }));
 
-		await waitFor(() => expect(deleted).toEqual(["int_1"]));
-		await waitFor(() => expect(view.router.state.location.pathname).toBe("/settings/integrations"));
-	});
+			yield* Effect.promise(() => waitFor(() => expect(deleted).toEqual(["int_1"])));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.router.state.location.pathname).toBe("/settings/integrations")),
+			);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("shows a not-found state for an integration that no longer exists", async () => {
-		mountView(
-			"/settings/integrations/int_1",
-			makeIntegrationsApi(),
-			makeIntegrationQueries({ detail: () => Effect.undefined }),
-		);
+	it.live("shows a not-found state for an integration that no longer exists", () =>
+		Effect.gen(function* () {
+			mountView(
+				"/settings/integrations/int_1",
+				makeIntegrationsApi(),
+				makeIntegrationQueries({ detail: () => Effect.undefined }),
+			);
 
-		await screen.findByText("Integration not found");
-		expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull();
-	});
+			yield* Effect.promise(() => screen.findByText("Integration not found"));
+			expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull();
+		}),
+	);
 });

@@ -1,7 +1,7 @@
+import { describe, expect, it } from "@effect/vitest";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { render, screen } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import { PublicApi } from "#/api/public";
@@ -99,39 +99,42 @@ const mountLogin = (config: ReturnType<typeof systemConfig>) => {
 };
 
 describe("Hosted OAuth login", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("shows a configured frontend mismatch without starting authentication", async () => {
-		const mounted = mountLogin(
-			systemConfig("https://configured.example", { oidcEnabled: true, localAuthDisabled: true }),
-		);
+	it.live("shows a configured frontend mismatch without starting authentication", () =>
+		Effect.gen(function* () {
+			const mounted = mountLogin(
+				systemConfig("https://configured.example", { oidcEnabled: true, localAuthDisabled: true }),
+			);
 
-		await screen.findByText("Server configuration mismatch");
-		expect(
-			screen.getByText(
-				"This server is configured for https://configured.example. Open that address to sign in.",
-			),
-		).not.toBeNull();
-		expect(mounted.authCallCount()).toBe(0);
-	});
+			yield* Effect.promise(() => screen.findByText("Server configuration mismatch"));
+			expect(
+				screen.getByText(
+					"This server is configured for https://configured.example. Open that address to sign in.",
+				),
+			).not.toBeNull();
+			expect(mounted.authCallCount()).toBe(0);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("uses the browser origin as a fixed server", async () => {
-		const mounted = mountLogin(
-			systemConfig(window.location.origin, { oidcEnabled: false, localAuthDisabled: false }),
-		);
+	it.live("uses the browser origin as a fixed server", () =>
+		Effect.gen(function* () {
+			const mounted = mountLogin(
+				systemConfig(window.location.origin, { oidcEnabled: false, localAuthDisabled: false }),
+			);
 
-		await screen.findByText(`Server: ${window.location.hostname}`);
-		expect(mounted.requestedOrigins).toEqual([window.location.origin]);
-		expect(screen.queryByRole("button", { name: "Change server" })).toBeNull();
-	});
+			yield* Effect.promise(() => screen.findByText(`Server: ${window.location.hostname}`));
+			expect(mounted.requestedOrigins).toEqual([window.location.origin]);
+			expect(screen.queryByRole("button", { name: "Change server" })).toBeNull();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("shows an unavailable state when no authentication method is configured", async () => {
-		mountLogin(
-			systemConfig(window.location.origin, { oidcEnabled: false, localAuthDisabled: true }),
-		);
+	it.live("shows an unavailable state when no authentication method is configured", () =>
+		Effect.gen(function* () {
+			mountLogin(
+				systemConfig(window.location.origin, { oidcEnabled: false, localAuthDisabled: true }),
+			);
 
-		await screen.findByText("Authentication unavailable");
-		expect(screen.getByText("This server has no browser sign-in method enabled.")).not.toBeNull();
-	});
+			yield* Effect.promise(() => screen.findByText("Authentication unavailable"));
+			expect(screen.getByText("This server has no browser sign-in method enabled.")).not.toBeNull();
+		}),
+	);
 });

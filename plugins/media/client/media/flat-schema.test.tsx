@@ -1,8 +1,8 @@
+import { afterEach, describe, expect, it } from "@effect/vitest";
 import type { RyotClientAdapter } from "@ryot-app/client-sdk";
 import { Effect, Result } from "@ryot-app/client-sdk/effect";
 import { ManagedAssetProvider } from "@ryot-app/client-sdk/react";
 import { fireEvent, waitFor } from "@testing-library/dom";
-import { afterEach, describe, expect, it } from "vitest";
 
 import {
 	decodeFlatActivity,
@@ -236,19 +236,22 @@ describe("flat media detail screen", () => {
 		inProgress.unmount();
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("switches to the activity tab on demand", async () => {
-		const { unmount, container } = renderBody(readyState());
+	it.live("switches to the activity tab on demand", () =>
+		Effect.gen(function* () {
+			const { unmount, container } = renderBody(readyState());
 
-		const selected = tab(container, "Activity");
-		fireEvent.click(selected);
+			const selected = tab(container, "Activity");
+			fireEvent.click(selected);
 
-		await waitFor(() => expect(selected.getAttribute("aria-selected")).toBe("true"));
-		expect(container.querySelector('[aria-label="Item record"]')).not.toBeNull();
-		expect(container.textContent).toContain(`${flatProgressEventRow.progressPercent}% through`);
-		expect(container.textContent).not.toContain("People");
-		unmount();
-	});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(selected.getAttribute("aria-selected")).toBe("true")),
+			);
+			expect(container.querySelector('[aria-label="Item record"]')).not.toBeNull();
+			expect(container.textContent).toContain(`${flatProgressEventRow.progressPercent}% through`);
+			expect(container.textContent).not.toContain("People");
+			unmount();
+		}),
+	);
 
 	it("explains that only this schema opens here when the entity is another schema", () => {
 		const state = fixtureSchema.mapSummary(
@@ -435,31 +438,34 @@ describe("flat media overview", () => {
 		]);
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("resolves the group tiles through the overview's managed asset provider", async () => {
-		const overview = overviewOf();
-		const { unmount, container } = mountRyotClient(
-			resolvingAdapter,
-			<ManagedAssetProvider assets={fixtureSchema.overviewManagedAssets(overview)}>
-				<fixtureSchema.ScreenBody
-					compact
-					safeAreaTop={0}
-					activity={null}
-					settled={undefined}
-					state={readyState()}
-					refresh={() => undefined}
-					refreshOverview={() => undefined}
-					overview={mapMediaOverview(readyQueryResult(overview))}
-				/>
-			</ManagedAssetProvider>,
-		);
+	it.live("resolves the group tiles through the overview's managed asset provider", () =>
+		Effect.gen(function* () {
+			const overview = overviewOf();
+			const { unmount, container } = mountRyotClient(
+				resolvingAdapter,
+				<ManagedAssetProvider assets={fixtureSchema.overviewManagedAssets(overview)}>
+					<fixtureSchema.ScreenBody
+						compact
+						safeAreaTop={0}
+						activity={null}
+						settled={undefined}
+						state={readyState()}
+						refresh={() => undefined}
+						refreshOverview={() => undefined}
+						overview={mapMediaOverview(readyQueryResult(overview))}
+					/>
+				</ManagedAssetProvider>,
+			);
 
-		const tile = () =>
-			container.querySelector(`a[href="/e/${flatGroupMemberRow.id}"] img`)?.getAttribute("src");
+			const tile = () =>
+				container.querySelector(`a[href="/e/${flatGroupMemberRow.id}"] img`)?.getAttribute("src");
 
-		await waitFor(() => expect(tile()).toBe("https://cdn.test/s3-fc2-cover"));
-		unmount();
-	});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(tile()).toBe("https://cdn.test/s3-fc2-cover")),
+			);
+			unmount();
+		}),
+	);
 });
 
 const art = (container: HTMLElement) => ({

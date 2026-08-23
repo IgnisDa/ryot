@@ -69,16 +69,16 @@ describe("person.vndb sandbox script", () => {
 		);
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("rejects an externalId that is not a VNDB producer id", async () => {
+	it("rejects an externalId that is not a VNDB producer id", () => {
 		const host = makeHost(() => httpSuccess({ results: [] }));
-		try {
-			await Effect.runPromise(
-				runSandboxTestScript(details, { externalId: "v17" }, host, execution),
-			);
-			expect.unreachable("expected details to reject a non-producer externalId");
-		} catch (error: unknown) {
-			expect(error).toBeInstanceOf(Error);
-		}
+		return Effect.runPromise(
+			runSandboxTestScript(details, { externalId: "v17" }, host, execution),
+		).then(
+			() => expect.unreachable("expected details to reject a non-producer externalId"),
+			(error: unknown) => {
+				expect(error).toBeInstanceOf(Error);
+				return undefined;
+			},
+		);
 	});
 });

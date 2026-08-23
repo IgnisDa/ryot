@@ -74,45 +74,50 @@ function NotificationChannelsRoute() {
 		state?.status === "ready" ? enabledNotificationChannelCount(state.channels) : 0;
 
 	/** Delivery is enqueued and the endpoint returns at once, so "queued" is all that can be said. */
-	// oxlint-disable-next-line effecttsgo/async-function -- React test-notification handler.
-	const sendTest = async () => {
+	const sendTest = () => {
 		setTestDetail(undefined);
 		setTestSucceeded(false);
-		const queued = await sendTestMutation
+		return sendTestMutation
 			.mutateAsync()
 			.then(() => true)
-			.catch(() => false);
-		setTestSucceeded(queued);
-		setTestDetail(
-			queued
-				? testedChannelsDetail(enabledCount)
-				: "The test notification could not be sent. Try again.",
-		);
+			.catch(() => false)
+			.then((queued) => {
+				setTestSucceeded(queued);
+				setTestDetail(
+					queued
+						? testedChannelsDetail(enabledCount)
+						: "The test notification could not be sent. Try again.",
+				);
+				return undefined;
+			});
 	};
 
-	// oxlint-disable-next-line effecttsgo/async-function -- React channel-status handler.
-	const toggleChannel = async (id: string, isDisabled: boolean) => {
+	const toggleChannel = (id: string, isDisabled: boolean) => {
 		setPendingChannelId(id);
 		setTestDetail(undefined);
 		setDeleteFailedId(undefined);
-		await updateMutation.mutateAsync({ id, isDisabled }).catch(() => undefined);
-		setPendingChannelId(undefined);
+		return updateMutation
+			.mutateAsync({ id, isDisabled })
+			.catch(() => undefined)
+			.then(() => setPendingChannelId(undefined));
 	};
 
-	// oxlint-disable-next-line effecttsgo/async-function -- React channel deletion handler.
-	const deleteChannel = async (id: string) => {
+	const deleteChannel = (id: string) => {
 		setPendingChannelId(id);
 		setDeleteFailedId(undefined);
-		const removed = await deleteMutation
+		return deleteMutation
 			.mutateAsync(id)
 			.then(() => true)
-			.catch(() => false);
-		setPendingChannelId(undefined);
-		if (!removed) {
-			setDeleteFailedId(id);
-			return;
-		}
-		setTestDetail(undefined);
+			.catch(() => false)
+			.then((removed) => {
+				setPendingChannelId(undefined);
+				if (!removed) {
+					setDeleteFailedId(id);
+					return undefined;
+				}
+				setTestDetail(undefined);
+				return undefined;
+			});
 	};
 
 	const wizard = useSearchParamModal({

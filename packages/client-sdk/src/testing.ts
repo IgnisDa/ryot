@@ -127,21 +127,22 @@ export const createTestRyotClock = (
 	return {
 		client,
 		runtime,
-		// oxlint-disable-next-line effecttsgo/async-function -- Test teardown awaits ManagedRuntime's Promise disposal.
-		dispose: async () => {
+		dispose: () => {
 			setBootstrapRyotRuntimeFactory(undefined);
-			await runtime.dispose();
+			return runtime.dispose();
 		},
-		advance: (millis: Duration.Input) =>
-			// oxlint-disable-next-line effecttsgo/async-function -- React act requires a Promise callback to flush updates.
-			act(async () => {
-				await runtime.runPromise(advanceRyotSchedule(millis));
-			}),
-		setTime: (timestamp: number) =>
-			// oxlint-disable-next-line effecttsgo/async-function -- React act requires a Promise callback to flush updates.
-			act(async () => {
-				await runtime.runPromise(Effect.andThen(TestClock.setTime(timestamp), drainMicrotasks));
-			}),
+		advance: (millis: Duration.Input) => {
+			const { promise, reject, resolve } = Promise.withResolvers<void>();
+			act(() => runtime.runPromise(advanceRyotSchedule(millis))).then(resolve, reject);
+			return promise;
+		},
+		setTime: (timestamp: number) => {
+			const { promise, reject, resolve } = Promise.withResolvers<void>();
+			act(() =>
+				runtime.runPromise(Effect.andThen(TestClock.setTime(timestamp), drainMicrotasks)),
+			).then(resolve, reject);
+			return promise;
+		},
 	};
 };
 

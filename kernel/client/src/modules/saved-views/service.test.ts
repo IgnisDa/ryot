@@ -1,7 +1,7 @@
+import { describe, expect, it } from "@effect/vitest";
 import { createRyotClient } from "@ryot-app/client-sdk";
 import { createTestRyotAdapter } from "@ryot-app/client-sdk/testing";
 import { Effect, ManagedRuntime } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { SavedViewsService } from "#/modules/saved-views/service";
 
@@ -12,8 +12,7 @@ const rowsResult = (items: readonly unknown[]) => ({
 });
 
 describe("SavedViewsService", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback.
-	it("loads a renderer-backed saved-view record", async () => {
+	it.live("loads a renderer-backed saved-view record", () => {
 		const record = {
 			id: "view-1",
 			icon: "book",
@@ -35,33 +34,32 @@ describe("SavedViewsService", () => {
 			}),
 		);
 		const runtime = ManagedRuntime.make(SavedViewsService.layer);
-		try {
-			await expect(
-				runtime.runPromise(
-					Effect.flatMap(SavedViewsService, (service) => service.loadRecord(client, "books")),
+		return Effect.gen(function* () {
+			expect(
+				yield* Effect.promise(() =>
+					runtime.runPromise(
+						Effect.flatMap(SavedViewsService, (service) => service.loadRecord(client, "books")),
+					),
 				),
-			).resolves.toMatchObject({ name: "Books", renderer: record.renderer });
-		} finally {
-			await runtime.dispose();
-		}
+			).toMatchObject({ name: "Books", renderer: record.renderer });
+		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback.
-	it("returns undefined when the record does not exist", async () => {
+	it.live("returns undefined when the record does not exist", () => {
 		const client = createRyotClient(
 			createTestRyotAdapter({
 				query: () => Effect.succeed({ data: { savedView: rowsResult([]) } }),
 			}),
 		);
 		const runtime = ManagedRuntime.make(SavedViewsService.layer);
-		try {
-			await expect(
-				runtime.runPromise(
-					Effect.flatMap(SavedViewsService, (service) => service.loadRecord(client, "missing")),
+		return Effect.gen(function* () {
+			expect(
+				yield* Effect.promise(() =>
+					runtime.runPromise(
+						Effect.flatMap(SavedViewsService, (service) => service.loadRecord(client, "missing")),
+					),
 				),
-			).resolves.toBeUndefined();
-		} finally {
-			await runtime.dispose();
-		}
+			).toBeUndefined();
+		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
 	});
 });

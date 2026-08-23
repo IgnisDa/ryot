@@ -1,5 +1,5 @@
+import { expect, it } from "@effect/vitest";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { expect, it } from "vitest";
 
 import { stubHttpHost } from "../../tests/backend/imports/source-test-utils";
 import { normalizeSourceApiUrl, sourceApiUrl, withSourceRequestOptions } from "./source-api";
@@ -19,18 +19,17 @@ it("rejects non-HTTP source URLs", () => {
 	);
 });
 
-// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-it("adds insecure connection opt-in only to requests from the configured source", async () => {
-	const options: unknown[] = [];
-	const host = stubHttpHost((request) => {
-		options.push(request.options);
-		return {};
-	});
+it.live("adds insecure connection opt-in only to requests from the configured source", () =>
+	Effect.gen(function* () {
+		const options: unknown[] = [];
+		const host = stubHttpHost((request) => {
+			options.push(request.options);
+			return {};
+		});
 
-	await Effect.runPromise(host.httpCall("GET", "https://secure.example"));
-	await Effect.runPromise(
-		withSourceRequestOptions(host, true).httpCall("GET", "https://insecure.example"),
-	);
+		yield* host.httpCall("GET", "https://secure.example");
+		yield* withSourceRequestOptions(host, true).httpCall("GET", "https://insecure.example");
 
-	expect(options).toEqual([undefined, { allowInsecureConnections: true }]);
-});
+		expect(options).toEqual([undefined, { allowInsecureConnections: true }]);
+	}),
+);

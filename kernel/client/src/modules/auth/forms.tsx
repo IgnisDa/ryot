@@ -42,10 +42,11 @@ export function CredentialsForm(props: {
 	const form = useForm({
 		errorVisibility,
 		defaultValues: { email: "", password: "" },
-		// oxlint-disable-next-line effecttsgo/async-function -- React auth form callback.
-		onSubmit: async ({ value }) => {
+		onSubmit: ({ value }) => {
 			setServerError(undefined);
-			setServerError(await props.onSubmit(normalizeCredentials(value)));
+			return props
+				.onSubmit(normalizeCredentials(value))
+				.then((submissionError) => setServerError(submissionError));
 		},
 	});
 
@@ -220,14 +221,15 @@ export function TwoFactorForm(props: {
 	const form = useForm({
 		errorVisibility,
 		defaultValues: { code: "" },
-		// oxlint-disable-next-line effecttsgo/async-function -- React auth form callback.
-		onSubmit: async ({ value }) => {
+		onSubmit: ({ value }) => {
 			setServerError(undefined);
-			const error = await props.onSubmit(value.code.trim());
-			setServerError(error);
-			if (error) {
-				form.reset();
-			}
+			return props.onSubmit(value.code.trim()).then((error) => {
+				setServerError(error);
+				if (error) {
+					form.reset();
+				}
+				return undefined;
+			});
 		},
 	});
 

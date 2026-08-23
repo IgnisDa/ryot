@@ -1,7 +1,7 @@
+import { describe, expect, it } from "@effect/vitest";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
-import { describe, expect, it } from "vitest";
 
 import {
 	execution,
@@ -55,57 +55,60 @@ const runLookup = (titles: string[], integration?: ReturnType<typeof integration
 };
 
 describe("metadata lookup operation", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("aligns batched results with the requested titles and attaches show coordinates", async () => {
-		const { result, queries } = runLookup([
-			"Breaking Bad S02E03",
-			"The Matrix (1999)",
-			"Totally Unknown Thing",
-		]);
+	it.live("aligns batched results with the requested titles and attaches show coordinates", () =>
+		Effect.gen(function* () {
+			const { result, queries } = runLookup([
+				"Breaking Bad S02E03",
+				"The Matrix (1999)",
+				"Totally Unknown Thing",
+			]);
 
-		await expect(Effect.runPromise(result)).resolves.toEqual({
-			results: [
-				{
-					status: "found",
-					title: "Breaking Bad",
-					showInformation: { season: 2, episode: 3 },
-					data: { lot: "show", source: "tmdb", identifier: "1396" },
-				},
-				{
-					status: "found",
-					title: "The Matrix",
-					data: { lot: "movie", source: "tmdb", identifier: "603" },
-				},
-				{ notFound: true, status: "notFound" },
-			],
-		});
-		expect([...queries].sort()).toEqual([
-			"/3/search/movie?Breaking Bad",
-			"/3/search/movie?The Matrix",
-			"/3/search/movie?Totally Unknown Thing",
-			"/3/search/tv?Breaking Bad",
-			"/3/search/tv?The Matrix",
-			"/3/search/tv?Totally Unknown Thing",
-		]);
-	});
+			expect(yield* result).toEqual({
+				results: [
+					{
+						status: "found",
+						title: "Breaking Bad",
+						showInformation: { season: 2, episode: 3 },
+						data: { lot: "show", source: "tmdb", identifier: "1396" },
+					},
+					{
+						status: "found",
+						title: "The Matrix",
+						data: { lot: "movie", source: "tmdb", identifier: "603" },
+					},
+					{ notFound: true, status: "notFound" },
+				],
+			});
+			expect([...queries].sort()).toEqual([
+				"/3/search/movie?Breaking Bad",
+				"/3/search/movie?The Matrix",
+				"/3/search/movie?Totally Unknown Thing",
+				"/3/search/tv?Breaking Bad",
+				"/3/search/tv?The Matrix",
+				"/3/search/tv?Totally Unknown Thing",
+			]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("rejects integrations that are not browser extensions before searching", async () => {
-		const { result, queries } = runLookup(["Breaking Bad S02E03"], integrationRecord());
+	it.live("rejects integrations that are not browser extensions before searching", () =>
+		Effect.gen(function* () {
+			const { result, queries } = runLookup(["Breaking Bad S02E03"], integrationRecord());
 
-		await expect(Effect.runPromise(Effect.flip(result))).resolves.toEqual(
-			new MediaSandboxError({ message: "Integration is not a browser extension integration" }),
-		);
-		expect(queries).toEqual([]);
-	});
+			expect(yield* Effect.flip(result)).toEqual(
+				new MediaSandboxError({ message: "Integration is not a browser extension integration" }),
+			);
+			expect(queries).toEqual([]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("rejects a batch containing a blank title", async () => {
-		const { result, queries } = runLookup(["Breaking Bad S02E03", "   "]);
+	it.live("rejects a batch containing a blank title", () =>
+		Effect.gen(function* () {
+			const { result, queries } = runLookup(["Breaking Bad S02E03", "   "]);
 
-		await expect(Effect.runPromise(Effect.flip(result))).resolves.toEqual(
-			new MediaSandboxError({ message: "title is required" }),
-		);
-		expect(queries).toEqual([]);
-	});
+			expect(yield* Effect.flip(result)).toEqual(
+				new MediaSandboxError({ message: "title is required" }),
+			);
+			expect(queries).toEqual([]);
+		}),
+	);
 });

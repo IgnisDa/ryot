@@ -1,3 +1,4 @@
+import { describe, expect, it } from "@effect/vitest";
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
@@ -8,7 +9,6 @@ import {
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Effect } from "effect";
 import { unzipSync, Zip, zipSync, ZipDeflate } from "fflate";
-import { describe, expect, it } from "vitest";
 
 import type { PluginArchiveErrorReason, PluginArchivePackage } from "./index";
 import { PLUGIN_ARCHIVE_LIMITS, readPluginArchive, writePluginArchive } from "./index";
@@ -293,68 +293,70 @@ describe("plugin archive", () => {
 		);
 	});
 
-	// Vitest awaits the archive reader at the test boundary.
-	// oxlint-disable-next-line effecttsgo/async-function
-	it("round trips deterministic compiled sandbox scripts and canonical metadata", async () => {
-		const first = writePluginArchive(scriptFixture);
-		const second = writePluginArchive({
-			...scriptFixture,
-			compiledScripts: scriptFixture.compiledScripts.toReversed(),
-			files: Object.fromEntries(Object.entries(scriptFixture.files).toReversed()),
-		});
-		expect(first).toEqual(second);
-
-		const entries = unzipSync(first);
-		expect(Object.keys(entries)).toEqual([
-			"manifest.json",
-			"backend/a.ts",
-			"backend/main.sandbox.ts",
-			"backend/z.ts",
-			"shared/a.ts",
-			"client/a.ts",
-			"client/b.tsx",
-			"client/c.css",
-			"client/d.svg",
-			`compiled-backend/files/${scriptJavascriptHash}.js`,
-			"compiled-backend/metadata.json",
-		]);
-		expect(entries[`compiled-backend/files/${scriptJavascriptHash}.js`]).toEqual(
-			scriptJavascriptBytes,
-		);
-		expect(JSON.parse(new TextDecoder().decode(entries["compiled-backend/metadata.json"]))).toEqual(
-			{ scripts: [{ format: 1, entry: scriptEntry, hash: scriptJavascriptHash }] },
-		);
-
-		const result = await Effect.runPromise(readPluginArchive(first));
-		expect(result.compiledScripts).toEqual(scriptFixture.compiledScripts);
-	});
-
-	// Vitest awaits the archive reader at the test boundary.
-	// oxlint-disable-next-line effecttsgo/async-function
-	it("requires every manifest script and rejects duplicate, extra, and missing outputs", async () => {
-		expectWriteReason({ ...scriptFixture, compiledScripts: [] }, "compiled-script-invalid");
-		expectWriteReason(
-			{
+	it.live("round trips deterministic compiled sandbox scripts and canonical metadata", () =>
+		Effect.gen(function* () {
+			const first = writePluginArchive(scriptFixture);
+			const second = writePluginArchive({
 				...scriptFixture,
-				compiledScripts: [...scriptFixture.compiledScripts, ...scriptFixture.compiledScripts],
-			},
-			"compiled-script-invalid",
-		);
-		expectWriteReason(
-			{
-				...scriptFixture,
-				compiledScripts: [{ ...compiledScriptFixture, entry: "backend/extra.sandbox.ts" }],
-			},
-			"compiled-script-invalid",
-		);
-		await expectReason(
-			archive([
-				["manifest.json", scriptRawManifest],
-				[scriptEntry, encoder.encode(scriptSource)],
-			]),
-			"compiled-script-invalid",
-		);
-	});
+				compiledScripts: scriptFixture.compiledScripts.toReversed(),
+				files: Object.fromEntries(Object.entries(scriptFixture.files).toReversed()),
+			});
+			expect(first).toEqual(second);
+
+			const entries = unzipSync(first);
+			expect(Object.keys(entries)).toEqual([
+				"manifest.json",
+				"backend/a.ts",
+				"backend/main.sandbox.ts",
+				"backend/z.ts",
+				"shared/a.ts",
+				"client/a.ts",
+				"client/b.tsx",
+				"client/c.css",
+				"client/d.svg",
+				`compiled-backend/files/${scriptJavascriptHash}.js`,
+				"compiled-backend/metadata.json",
+			]);
+			expect(entries[`compiled-backend/files/${scriptJavascriptHash}.js`]).toEqual(
+				scriptJavascriptBytes,
+			);
+			expect(
+				JSON.parse(new TextDecoder().decode(entries["compiled-backend/metadata.json"])),
+			).toEqual({ scripts: [{ format: 1, entry: scriptEntry, hash: scriptJavascriptHash }] });
+
+			const result = yield* readPluginArchive(first);
+			expect(result.compiledScripts).toEqual(scriptFixture.compiledScripts);
+		}),
+	);
+
+	it.live("requires every manifest script and rejects duplicate, extra, and missing outputs", () =>
+		Effect.gen(function* () {
+			expectWriteReason({ ...scriptFixture, compiledScripts: [] }, "compiled-script-invalid");
+			expectWriteReason(
+				{
+					...scriptFixture,
+					compiledScripts: [...scriptFixture.compiledScripts, ...scriptFixture.compiledScripts],
+				},
+				"compiled-script-invalid",
+			);
+			expectWriteReason(
+				{
+					...scriptFixture,
+					compiledScripts: [{ ...compiledScriptFixture, entry: "backend/extra.sandbox.ts" }],
+				},
+				"compiled-script-invalid",
+			);
+			yield* Effect.promise(() =>
+				expectReason(
+					archive([
+						["manifest.json", scriptRawManifest],
+						[scriptEntry, encoder.encode(scriptSource)],
+					]),
+					"compiled-script-invalid",
+				),
+			);
+		}),
+	);
 
 	it("rejects non-canonical entries, invalid UTF-8 JavaScript, and invalid formats", () => {
 		expectWriteReason(
@@ -401,57 +403,59 @@ describe("plugin archive", () => {
 		);
 	});
 
-	// Vitest awaits the archive reader at the test boundary.
-	// oxlint-disable-next-line effecttsgo/async-function
-	it("writes and reads deterministic compiled client entries with canonical metadata", async () => {
-		const compiledClient = { ...compiledClientFixture, files: compiledClientFixture.files };
-		const first = writePluginArchive({ ...fixture, compiledClient });
-		const second = writePluginArchive({
-			...fixture,
-			files: Object.fromEntries(Object.entries(fixture.files).toReversed()),
-			compiledClient: { ...compiledClient, files: compiledClient.files.toReversed() },
-		});
-		expect(first).toEqual(second);
+	it.live("writes and reads deterministic compiled client entries with canonical metadata", () =>
+		Effect.gen(function* () {
+			const compiledClient = { ...compiledClientFixture, files: compiledClientFixture.files };
+			const first = writePluginArchive({ ...fixture, compiledClient });
+			const second = writePluginArchive({
+				...fixture,
+				files: Object.fromEntries(Object.entries(fixture.files).toReversed()),
+				compiledClient: { ...compiledClient, files: compiledClient.files.toReversed() },
+			});
+			expect(first).toEqual(second);
 
-		const entries = unzipSync(first);
-		expect(Object.keys(entries)).toEqual([
-			"manifest.json",
-			"backend/a.ts",
-			"backend/z.ts",
-			"shared/a.ts",
-			"client/a.ts",
-			"client/b.tsx",
-			"client/c.css",
-			"client/d.svg",
-			"compiled-client/files/assets/icon.svg",
-			"compiled-client/files/index.html",
-			"compiled-client/files/plugin.js",
-			"compiled-client/metadata.json",
-		]);
-		expect(JSON.parse(new TextDecoder().decode(entries["compiled-client/metadata.json"]))).toEqual({
-			hash: compiledClient.hash,
-			format: compiledClient.format,
-			apiVersion: compiledClient.apiVersion,
-			bridgeVersion: compiledClient.bridgeVersion,
-			compilerVersion: compiledClient.compilerVersion,
-			files: [
-				{ name: "assets/icon.svg", contentType: "image/svg+xml" },
-				{ name: "index.html", contentType: "text/html; charset=utf-8" },
-				{ name: "plugin.js", contentType: "text/javascript; charset=utf-8" },
-			],
-		});
-		expect(entries["compiled-client/files/assets/icon.svg"]).toEqual(
-			new Uint8Array([0xff, 0x00, 0x7f]),
-		);
+			const entries = unzipSync(first);
+			expect(Object.keys(entries)).toEqual([
+				"manifest.json",
+				"backend/a.ts",
+				"backend/z.ts",
+				"shared/a.ts",
+				"client/a.ts",
+				"client/b.tsx",
+				"client/c.css",
+				"client/d.svg",
+				"compiled-client/files/assets/icon.svg",
+				"compiled-client/files/index.html",
+				"compiled-client/files/plugin.js",
+				"compiled-client/metadata.json",
+			]);
+			expect(
+				JSON.parse(new TextDecoder().decode(entries["compiled-client/metadata.json"])),
+			).toEqual({
+				hash: compiledClient.hash,
+				format: compiledClient.format,
+				apiVersion: compiledClient.apiVersion,
+				bridgeVersion: compiledClient.bridgeVersion,
+				compilerVersion: compiledClient.compilerVersion,
+				files: [
+					{ name: "assets/icon.svg", contentType: "image/svg+xml" },
+					{ name: "index.html", contentType: "text/html; charset=utf-8" },
+					{ name: "plugin.js", contentType: "text/javascript; charset=utf-8" },
+				],
+			});
+			expect(entries["compiled-client/files/assets/icon.svg"]).toEqual(
+				new Uint8Array([0xff, 0x00, 0x7f]),
+			);
 
-		const result = await Effect.runPromise(readPluginArchive(first));
-		expect(result.compiledClient).toEqual({
-			...compiledClient,
-			files: compiledClient.files
-				.slice()
-				.sort((left, right) => compareNames(left.name, right.name)),
-		});
-	});
+			const result = yield* readPluginArchive(first);
+			expect(result.compiledClient).toEqual({
+				...compiledClient,
+				files: compiledClient.files
+					.slice()
+					.sort((left, right) => compareNames(left.name, right.name)),
+			});
+		}),
+	);
 
 	it("writes byte-identical archives across timezones", () => {
 		const utc = writeArchiveInTimezone("UTC");
@@ -476,32 +480,47 @@ describe("plugin archive", () => {
 		]);
 	});
 
-	// Vitest awaits an external AsyncIterable fixture at the test boundary.
-	// oxlint-disable-next-line effecttsgo/async-function
-	it("round trips exact backend, shared, client text, and invalid UTF-8 asset bytes", async () => {
-		const pluginBytes = writePluginArchive(fixture);
-		// The archive reader's external AsyncIterable input is exercised here.
-		// oxlint-disable-next-line effecttsgo/async-function
-		async function* chunks() {
-			await Promise.resolve();
-			for (let offset = 0; offset < pluginBytes.byteLength; offset += 7) {
-				yield pluginBytes.subarray(offset, offset + 7);
+	it.live("round trips exact backend, shared, client text, and invalid UTF-8 asset bytes", () =>
+		Effect.gen(function* () {
+			const pluginBytes = writePluginArchive(fixture);
+			const chunks: AsyncIterable<Uint8Array> = {
+				[Symbol.asyncIterator]() {
+					let offset = 0;
+					return {
+						next: (): Promise<IteratorResult<Uint8Array>> =>
+							Promise.resolve().then(() => {
+								if (offset >= pluginBytes.byteLength) {
+									return Object.assign({ done: true as const }, { value: undefined });
+								}
+								const value = pluginBytes.subarray(offset, offset + 7);
+								offset += 7;
+								return Object.assign({ done: false as const }, { value });
+							}),
+					};
+				},
+			};
+			const result = yield* readPluginArchive(chunks);
+			expect(result.manifest).toEqual(fixture.manifest);
+			for (const [path, bytes] of Object.entries(fixture.files)) {
+				expect(result.files[path]).toEqual(bytes);
 			}
-		}
-		const result = await Effect.runPromise(readPluginArchive(chunks()));
-		expect(result.manifest).toEqual(fixture.manifest);
-		for (const [path, bytes] of Object.entries(fixture.files)) {
-			expect(result.files[path]).toEqual(bytes);
-		}
-	});
+		}),
+	);
 
 	it("maps a failed external async iterable to the archive error", () => {
-		const input = {
+		let first = true;
+		const input: AsyncIterable<Uint8Array> = {
 			// The input models a Promise-based transport failing after its first chunk.
-			// oxlint-disable-next-line effecttsgo/async-function
-			async *[Symbol.asyncIterator]() {
-				yield rawManifest;
-				await Promise.reject(new Error("transport closed"));
+			[Symbol.asyncIterator]() {
+				return {
+					next: (): Promise<IteratorResult<Uint8Array>> => {
+						if (first) {
+							first = false;
+							return Promise.resolve({ done: false, value: rawManifest });
+						}
+						return Promise.reject(new Error("transport closed"));
+					},
+				};
 			},
 		};
 		return Effect.runPromise(
@@ -512,19 +531,22 @@ describe("plugin archive", () => {
 		);
 	});
 
-	// Vitest awaits the archive reader at the test boundary.
-	// oxlint-disable-next-line effecttsgo/async-function
-	it("returns a boundary archive accepted by its reader", async () => {
-		const path = pathAtBytes(PLUGIN_ARCHIVE_LIMITS.maxPathBytes);
-		const bytes = new Uint8Array(PLUGIN_ARCHIVE_LIMITS.maxSourceBytes);
-		const pluginBytes = writePluginArchive({
-			files: { [path]: bytes },
-			manifest: fixture.manifest,
-		});
-		const result = await Effect.runPromise(readPluginArchive(pluginBytes));
+	it.live(
+		"returns a boundary archive accepted by its reader",
+		() =>
+			Effect.gen(function* () {
+				const path = pathAtBytes(PLUGIN_ARCHIVE_LIMITS.maxPathBytes);
+				const bytes = new Uint8Array(PLUGIN_ARCHIVE_LIMITS.maxSourceBytes);
+				const pluginBytes = writePluginArchive({
+					files: { [path]: bytes },
+					manifest: fixture.manifest,
+				});
+				const result = yield* readPluginArchive(pluginBytes);
 
-		expect(result.files[path]).toEqual(bytes);
-	}, 20_000);
+				expect(result.files[path]).toEqual(bytes);
+			}),
+		20_000,
+	);
 
 	it("rejects one entry over the writer file-count limit", () => {
 		const files: Record<string, Uint8Array> = {};
@@ -577,128 +599,149 @@ describe("plugin archive", () => {
 		expectWriteReason({ files, manifest: fixture.manifest }, reason),
 	);
 
-	it.each([
+	it.live.each([
 		"backend/data.json",
 		"backend/ignored.test.ts",
 		"shared/unsupported.tsx",
 		"shared/ignored.test.ts",
 		"client/unsupported.js",
 		"client/ignored.test.tsx",
-		// Vitest awaits the archive reader at the test boundary.
-		// oxlint-disable-next-line effecttsgo/async-function
-	])("rejects unsupported source path %s in the writer and reader", async (path) => {
-		expectWriteReason(
-			{ manifest: fixture.manifest, files: { [path]: new Uint8Array(0) } },
-			"unexpected-entry",
-		);
-		await expectReason(
-			archive([
-				["manifest.json", rawManifest],
-				[path, new Uint8Array(0)],
-			]),
-			"unexpected-entry",
-		);
-	});
+	])("rejects unsupported source path %s in the writer and reader", (path) =>
+		Effect.gen(function* () {
+			expectWriteReason(
+				{ manifest: fixture.manifest, files: { [path]: new Uint8Array(0) } },
+				"unexpected-entry",
+			);
+			yield* Effect.promise(() =>
+				expectReason(
+					archive([
+						["manifest.json", rawManifest],
+						[path, new Uint8Array(0)],
+					]),
+					"unexpected-entry",
+				),
+			);
+		}),
+	);
 
-	// Vitest awaits the archive reader at the test boundary.
-	// oxlint-disable-next-line effecttsgo/async-function
-	it("rejects a compiled client with a non-canonical file path", async () => {
-		const file = artifactFile(compiledClientFixture, "plugin.js");
-		const compiledClient = { ...compiledClientFixture, files: [{ ...file, name: "../plugin.js" }] };
-		expectWriteReason({ ...fixture, compiledClient }, "path-noncanonical");
-		await expectReason(
-			archive([
-				["manifest.json", rawManifest],
-				["compiled-client/metadata.json", compiledClientMetadata(compiledClient)],
-				["compiled-client/files/../plugin.js", file.contents],
-			]),
-			"path-noncanonical",
-		);
-	});
+	it.live("rejects a compiled client with a non-canonical file path", () =>
+		Effect.gen(function* () {
+			const file = artifactFile(compiledClientFixture, "plugin.js");
+			const compiledClient = {
+				...compiledClientFixture,
+				files: [{ ...file, name: "../plugin.js" }],
+			};
+			expectWriteReason({ ...fixture, compiledClient }, "path-noncanonical");
+			yield* Effect.promise(() =>
+				expectReason(
+					archive([
+						["manifest.json", rawManifest],
+						["compiled-client/metadata.json", compiledClientMetadata(compiledClient)],
+						["compiled-client/files/../plugin.js", file.contents],
+					]),
+					"path-noncanonical",
+				),
+			);
+		}),
+	);
 
-	// Vitest awaits the archive reader at the test boundary.
-	// oxlint-disable-next-line effecttsgo/async-function
-	it("rejects compiled client bytes over the artifact limit in the writer and reader", async () => {
-		const contents = new Uint8Array(PLUGIN_ARCHIVE_LIMITS.maxCompiledClientBytes + 1);
-		const file = { contents, name: "index.html", contentType: "text/html; charset=utf-8" };
-		const compiledClient = { ...compiledClientFixture, files: [file] };
-		expectWriteReason({ ...fixture, compiledClient }, "compiled-client-bytes-exceeded");
-		await expectReason(
-			archive([
-				["manifest.json", rawManifest],
-				["compiled-client/metadata.json", compiledClientMetadata(compiledClient)],
-				["compiled-client/files/index.html", contents],
-			]),
-			"compiled-client-bytes-exceeded",
-		);
-	});
+	it.live("rejects compiled client bytes over the artifact limit in the writer and reader", () =>
+		Effect.gen(function* () {
+			const contents = new Uint8Array(PLUGIN_ARCHIVE_LIMITS.maxCompiledClientBytes + 1);
+			const file = { contents, name: "index.html", contentType: "text/html; charset=utf-8" };
+			const compiledClient = { ...compiledClientFixture, files: [file] };
+			expectWriteReason({ ...fixture, compiledClient }, "compiled-client-bytes-exceeded");
+			yield* Effect.promise(() =>
+				expectReason(
+					archive([
+						["manifest.json", rawManifest],
+						["compiled-client/metadata.json", compiledClientMetadata(compiledClient)],
+						["compiled-client/files/index.html", contents],
+					]),
+					"compiled-client-bytes-exceeded",
+				),
+			);
+		}),
+	);
 
-	// Vitest awaits the archive reader at the test boundary.
-	// oxlint-disable-next-line effecttsgo/async-function
-	it("rejects compiled client file counts over the artifact limit in the writer and reader", async () => {
-		const files = Array.from(
-			{ length: PLUGIN_ARCHIVE_LIMITS.maxCompiledClientFiles + 1 },
-			(_, index) => ({
-				name: `assets/${index}.js`,
-				contents: new Uint8Array(0),
-				contentType: "text/javascript; charset=utf-8",
+	it.live(
+		"rejects compiled client file counts over the artifact limit in the writer and reader",
+		() =>
+			Effect.gen(function* () {
+				const files = Array.from(
+					{ length: PLUGIN_ARCHIVE_LIMITS.maxCompiledClientFiles + 1 },
+					(_, index) => ({
+						name: `assets/${index}.js`,
+						contents: new Uint8Array(0),
+						contentType: "text/javascript; charset=utf-8",
+					}),
+				);
+				const compiledClient = { ...compiledClientFixture, files };
+				expectWriteReason({ ...fixture, compiledClient }, "compiled-client-file-count-exceeded");
+				yield* Effect.promise(() =>
+					expectReason(
+						archive([
+							["manifest.json", rawManifest],
+							["compiled-client/metadata.json", compiledClientMetadata(compiledClient)],
+							...files.map(
+								({ name, contents }) => [`compiled-client/files/${name}`, contents] as const,
+							),
+						]),
+						"compiled-client-file-count-exceeded",
+					),
+				);
 			}),
-		);
-		const compiledClient = { ...compiledClientFixture, files };
-		expectWriteReason({ ...fixture, compiledClient }, "compiled-client-file-count-exceeded");
-		await expectReason(
-			archive([
-				["manifest.json", rawManifest],
-				["compiled-client/metadata.json", compiledClientMetadata(compiledClient)],
-				...files.map(({ name, contents }) => [`compiled-client/files/${name}`, contents] as const),
-			]),
-			"compiled-client-file-count-exceeded",
-		);
-	});
+	);
 
-	// Vitest awaits the archive reader at the test boundary.
-	// oxlint-disable-next-line effecttsgo/async-function
-	it("rejects incomplete and malformed compiled client metadata", async () => {
-		await expectReason(
-			archive([
-				["manifest.json", rawManifest],
-				["compiled-client/metadata.json", compiledClientMetadata(compiledClientFixture)],
-				[
-					"compiled-client/files/index.html",
-					artifactFile(compiledClientFixture, "index.html").contents,
-				],
-			]),
-			"compiled-client-invalid",
-		);
-		await expectReason(
-			archive([
-				["manifest.json", rawManifest],
-				["compiled-client/metadata.json", encoder.encode('{"format":"wrong"}')],
-			]),
-			"compiled-client-invalid",
-		);
-	});
+	it.live("rejects incomplete and malformed compiled client metadata", () =>
+		Effect.gen(function* () {
+			yield* Effect.promise(() =>
+				expectReason(
+					archive([
+						["manifest.json", rawManifest],
+						["compiled-client/metadata.json", compiledClientMetadata(compiledClientFixture)],
+						[
+							"compiled-client/files/index.html",
+							artifactFile(compiledClientFixture, "index.html").contents,
+						],
+					]),
+					"compiled-client-invalid",
+				),
+			);
+			yield* Effect.promise(() =>
+				expectReason(
+					archive([
+						["manifest.json", rawManifest],
+						["compiled-client/metadata.json", encoder.encode('{"format":"wrong"}')],
+					]),
+					"compiled-client-invalid",
+				),
+			);
+		}),
+	);
 
-	// Vitest awaits the archive reader at the test boundary.
-	// oxlint-disable-next-line effecttsgo/async-function
-	it("rejects unsupported compiled client output content types", async () => {
-		const originalFile = artifactFile(compiledClientFixture, "plugin.js");
-		const file = {
-			name: originalFile.name,
-			contents: originalFile.contents,
-			contentType: "application/json",
-		};
-		const compiledClient = { ...compiledClientFixture, files: [file] };
-		expectWriteReason({ ...fixture, compiledClient }, "compiled-client-invalid");
-		await expectReason(
-			archive([
-				["manifest.json", rawManifest],
-				["compiled-client/metadata.json", compiledClientMetadata(compiledClient)],
-				["compiled-client/files/plugin.js", file.contents],
-			]),
-			"compiled-client-invalid",
-		);
-	});
+	it.live("rejects unsupported compiled client output content types", () =>
+		Effect.gen(function* () {
+			const originalFile = artifactFile(compiledClientFixture, "plugin.js");
+			const file = {
+				name: originalFile.name,
+				contents: originalFile.contents,
+				contentType: "application/json",
+			};
+			const compiledClient = { ...compiledClientFixture, files: [file] };
+			expectWriteReason({ ...fixture, compiledClient }, "compiled-client-invalid");
+			yield* Effect.promise(() =>
+				expectReason(
+					archive([
+						["manifest.json", rawManifest],
+						["compiled-client/metadata.json", compiledClientMetadata(compiledClient)],
+						["compiled-client/files/plugin.js", file.contents],
+					]),
+					"compiled-client-invalid",
+				),
+			);
+		}),
+	);
 
 	it("rejects the compressed byte limit", () =>
 		expectReason(
