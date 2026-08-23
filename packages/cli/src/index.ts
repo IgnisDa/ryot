@@ -302,13 +302,18 @@ const runBuildChild = Effect.fn("runBuildChild")(function* (options: BuildOption
 	);
 });
 
-const watchPlugin = Effect.fn("watchPlugin")(function* (options: BuildOptions) {
+const watchPlugin = Effect.fn("watchPlugin")(function* (
+	options: BuildOptions,
+	skipInitial: boolean,
+) {
 	let currentFingerprint = yield* fingerprintAuthoringInputs(options);
-	const initialExitCode = yield* runBuildChild(options);
-	if (initialExitCode !== 0) {
-		return yield* new BuildError({
-			message: `Initial build failed with exit code ${initialExitCode}`,
-		});
+	if (!skipInitial) {
+		const initialExitCode = yield* runBuildChild(options);
+		if (initialExitCode !== 0) {
+			return yield* new BuildError({
+				message: `Initial build failed with exit code ${initialExitCode}`,
+			});
+		}
 	}
 
 	return yield* Effect.forever(
@@ -338,12 +343,13 @@ const buildCommand = Command.make(
 	"build",
 	{
 		watch: Flag.boolean("watch").pipe(Flag.withDefault(false)),
+		skipInitial: Flag.boolean("skip-initial").pipe(Flag.withDefault(false)),
 		output: Flag.string("output").pipe(Flag.withSchema(Schema.NonEmptyString), Flag.optional),
 	},
-	Effect.fn("buildCommand")(function* ({ watch, output }) {
+	Effect.fn("buildCommand")(function* ({ watch, output, skipInitial }) {
 		const options = { cwd: process.cwd(), output: Option.getOrUndefined(output) };
 		if (watch) {
-			return yield* watchPlugin(options);
+			return yield* watchPlugin(options, skipInitial);
 		}
 		return yield* buildPlugin(options);
 	}),
