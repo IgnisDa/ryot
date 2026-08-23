@@ -110,17 +110,29 @@ const PUBLIC_EXPORT_SPECIFIER =
 const PUBLIC_EXPORT_NAME = /^[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
 const CONTRIBUTOR_NAMESPACE = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/;
 
-const pageEntrySource = (entry: string, automaticExports: readonly string[] = []) => `
+const automaticRegistrySource = (
+	automaticRegistry: readonly ClientPluginAutomaticRegistryEntry[],
+) =>
+	`{ entityPresentations: [${automaticRegistry
+		.map(
+			(registration, index) =>
+				`{ ownerPluginId: ${JSON.stringify(registration.ownerPluginId)}, entitySchemaSlug: ${JSON.stringify(registration.entitySchemaSlug)}, layout: ${JSON.stringify(registration.layout)}, definition: AutomaticPresentation${index} }`,
+		)
+		.join(", ")}] }`;
+
+const pageEntrySource = (
+	entry: string,
+	automaticRegistry: readonly ClientPluginAutomaticRegistryEntry[] = [],
+) => `
 import { bootstrapClientPage } from "@ryot-app/client-sdk/plugin";
 import Page from ${JSON.stringify(`./${entry.slice(CLIENT_SOURCE_ROOT.length).replace(/\.(?:ts|tsx)$/, "")}`)};
-${automaticExports.map((specifier, index) => `import AutomaticPresentation${index} from ${JSON.stringify(specifier)};`).join("\n")}
-void [${automaticExports.map((_, index) => `AutomaticPresentation${index}`).join(", ")}];
-bootstrapClientPage(Page);
+${automaticRegistry.map(({ exportSpecifier }, index) => `import AutomaticPresentation${index} from ${JSON.stringify(exportSpecifier)};`).join("\n")}
+bootstrapClientPage(Page, ${automaticRegistrySource(automaticRegistry)});
 `;
 
 const pluginRouteEntrySource = (
 	registry: ClientPluginRouteRegistry,
-	automaticExports: readonly string[],
+	automaticRegistry: readonly ClientPluginAutomaticRegistryEntry[],
 ) => {
 	const routes = [...registry.routes].sort((left, right) =>
 		comparePluginRoutePaths(left.path, right.path),
@@ -129,25 +141,27 @@ const pluginRouteEntrySource = (
 		["Home", registry.home],
 		...routes.map(({ exportSpecifier }, index) => [`Route${index}`, exportSpecifier]),
 		...(registry.notFound === undefined ? [] : [["NotFound", registry.notFound]]),
-		...automaticExports.map((specifier, index) => [`AutomaticPresentation${index}`, specifier]),
+		...automaticRegistry.map(({ exportSpecifier }, index) => [
+			`AutomaticPresentation${index}`,
+			exportSpecifier,
+		]),
 	] as const;
 	return `
 import { bootstrapClientPlugin } from "@ryot-app/client-sdk/plugin";
 ${registrations.map(([name, specifier]) => `import ${name} from ${JSON.stringify(specifier)};`).join("\n")}
-void [${automaticExports.map((_, index) => `AutomaticPresentation${index}`).join(", ")}];
 bootstrapClientPlugin({
   home: { component: Home },
 	  routes: [${routes
 			.map(({ path }, index) => `{ path: ${JSON.stringify(path)}, component: Route${index} }`)
 			.join(", ")}],
   ${registry.notFound === undefined ? "" : "notFound: NotFound,"}
-});
+}, ${automaticRegistrySource(automaticRegistry)});
 `;
 };
 
 const publicExportType = (kind: ClientPluginExportKind | undefined) => {
 	if (kind === "presentation") {
-		return "ComponentType<EntityRendererProps>";
+		return "EntityPresentationDefinition";
 	}
 	return kind === "component" ? "ComponentType<any>" : "ComponentType";
 };
@@ -159,7 +173,7 @@ const validationSource = (
 ) => {
 	const imports = [
 		`import type { ComponentType } from "react";`,
-		`import { bootstrapClientPage, type EntityRendererProps } from "@ryot-app/client-sdk/plugin";`,
+		`import { bootstrapClientPage, type EntityPresentationDefinition } from "@ryot-app/client-sdk/plugin";`,
 		`import Application from ${JSON.stringify(entrySpecifier)};`,
 		`const application: ComponentType = Application;`,
 		`void application;`,
@@ -179,7 +193,7 @@ const packageValidationSource = (
 	const imports = [
 		`import type { ComponentType } from "react";`,
 		`import { bootstrapClientPage } from "@ryot-app/client-sdk/plugin";`,
-		`import type { EntityRendererProps } from "@ryot-app/client-sdk/plugin";`,
+		`import type { EntityPresentationDefinition } from "@ryot-app/client-sdk/plugin";`,
 	];
 	for (const [index, [, declaration]] of sortBy(
 		Object.entries(publicExports),
@@ -244,8 +258,9 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 		let automaticExports: readonly string[] = [];
 		let files: Readonly<Record<string, Uint8Array>>;
 		const application = input.application ?? "plugin";
-		let pluginRouteRegistry: ClientPluginRouteRegistry | undefined;
 		let publicExportPaths: Readonly<Record<string, string>> = {};
+		let pluginRouteRegistry: ClientPluginRouteRegistry | undefined;
+		let automaticRegistry: readonly ClientPluginAutomaticRegistryEntry[] = [];
 		let publicExports: Readonly<Record<string, ClientPluginCompilerPublicExport>> = {};
 		let packagePublicExports: Readonly<Record<string, ClientPluginCompilerPackageExport>> = {};
 
@@ -356,24 +371,26 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 				pluginRouteRegistry = registry;
 			}
 			const registryKeys = new Set<string>();
-			automaticExports = sortBy(
-				(input.automaticRegistry ?? []).map((registration) => {
-					const key = `${registration.ownerPluginId}/${registration.entitySchemaSlug}/${registration.layout}`;
-					const declaration = input.publicExports[registration.exportSpecifier];
-					if (registryKeys.has(key) || declaration?.kind !== "presentation") {
-						return "";
-					}
-					registryKeys.add(key);
-					return registration.exportSpecifier;
-				}),
-			).filter(Boolean);
-			if (automaticExports.length !== (input.automaticRegistry ?? []).length) {
-				return yield* failure(
-					entry,
-					"RYOT_CLIENT_AUTOMATIC_REGISTRY",
-					"Automatic registry entries must be unique and reference authorized presentation exports",
-				);
+			const checkedAutomaticRegistry: ClientPluginAutomaticRegistryEntry[] = [];
+			for (const registration of input.automaticRegistry ?? []) {
+				const key = `${registration.ownerPluginId}/${registration.entitySchemaSlug}/${registration.layout}`;
+				const declaration = input.publicExports[registration.exportSpecifier];
+				if (registryKeys.has(key) || declaration?.kind !== "presentation") {
+					return yield* failure(
+						entry,
+						"RYOT_CLIENT_AUTOMATIC_REGISTRY",
+						"Automatic registry entries must be unique and reference authorized presentation exports",
+					);
+				}
+				registryKeys.add(key);
+				checkedAutomaticRegistry.push(registration);
 			}
+			automaticRegistry = sortBy(
+				checkedAutomaticRegistry,
+				({ ownerPluginId, entitySchemaSlug, layout, exportSpecifier }) =>
+					`${ownerPluginId}\u0000${entitySchemaSlug}\u0000${layout}\u0000${exportSpecifier}`,
+			);
+			automaticExports = automaticRegistry.map(({ exportSpecifier }) => exportSpecifier);
 		} else {
 			entry = input.entry;
 			files = input.files;
@@ -476,10 +493,10 @@ export const compileClientPlugin = (input: ClientPluginCompilerInput) =>
 			}
 			sourceFiles[generatedPageEntry] =
 				graphInput && pluginRouteRegistry
-					? pluginRouteEntrySource(pluginRouteRegistry, automaticExports)
+					? pluginRouteEntrySource(pluginRouteRegistry, automaticRegistry)
 					: pageEntrySource(
 							graphInput ? input.entry.path : generatedPageSourceEntry,
-							automaticExports,
+							automaticRegistry,
 						);
 		}
 		if (!graphInput && Object.keys(packagePublicExports).length > 0) {

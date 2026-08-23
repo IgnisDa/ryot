@@ -24,7 +24,13 @@ export const fixturePlugin = definePlugin({
 		apiVersion: 1,
 		entry: "client/index.tsx",
 		notFoundPage: "fixture-not-found",
-		entities: { pokemon: { detailPage: "pokemon-detail" } },
+		entities: {
+			pokemon: {
+				detailPage: "pokemon-detail",
+				gridPresentation: "pokemon-grid",
+				listPresentation: "pokemon-list",
+			},
+		},
 		routes: {
 			"/": "fixture-home",
 			"/full-bleed": "fixture-full-bleed",
@@ -65,6 +71,16 @@ export const fixturePlugin = definePlugin({
 				kind: "component",
 				entry: "client/pokemon-types.tsx",
 				automaticEntityPresentations: false,
+			},
+			"pokemon-grid": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/pokemon-grid-presentation.ts",
+			},
+			"pokemon-list": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/pokemon-list-presentation.ts",
 			},
 		},
 	},

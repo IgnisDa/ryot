@@ -11,14 +11,20 @@ describe("fixture client registration", () => {
 		});
 		expect(fixturePlugin.client.notFoundPage).toBe("fixture-not-found");
 		expect(fixturePlugin.client.entities).toEqual({
-			pokemon: { detailPage: "pokemon-detail" },
+			pokemon: {
+				detailPage: "pokemon-detail",
+				gridPresentation: "pokemon-grid",
+				listPresentation: "pokemon-list",
+			},
 		});
 		expect(fixturePlugin.client.exports).toMatchObject({
 			"fixture-home": { kind: "page", entry: "client/home.tsx" },
+			"fixture-details": { kind: "page", entry: "client/details.tsx" },
 			"fixture-not-found": { kind: "page", entry: "client/not-found.tsx" },
 			"fixture-full-bleed": { kind: "page", entry: "client/full-bleed.tsx" },
-			"fixture-details": { kind: "page", entry: "client/details.tsx" },
 			"pokemon-detail": { kind: "page", entry: "client/pokemon-detail.tsx" },
+			"pokemon-grid": { kind: "presentation", entry: "client/pokemon-grid-presentation.ts" },
+			"pokemon-list": { kind: "presentation", entry: "client/pokemon-list-presentation.ts" },
 		});
 	});
 });
