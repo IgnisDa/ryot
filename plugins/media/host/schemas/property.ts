@@ -9,6 +9,7 @@ import {
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 
 import { mediaImagePurposes } from "../../shared/media-image";
+import { watchProviderOffers } from "../../shared/watch-provider";
 
 const booleanField = (label: string, description: string) =>
 	({ label, description, type: "boolean" }) as const;
@@ -29,6 +30,57 @@ const mediaImagesField = (description: string) =>
 					description: "Purpose",
 					validation: { required: true },
 					choices: { kind: "static", values: mediaImagePurposes.map((value) => ({ value })) },
+				},
+			},
+		},
+	}) satisfies AppPropertyDefinition;
+
+const watchProvidersField = (description: string) =>
+	({
+		description,
+		type: "array",
+		label: "Watch Providers",
+		items: {
+			label: "Item",
+			type: "object",
+			description: "Item",
+			unknownKeys: "strict",
+			properties: {
+				image: { type: "string", label: "Image", description: "Provider logo image URL" },
+				name: {
+					label: "Name",
+					type: "string",
+					description: "Name",
+					validation: { required: true },
+				},
+				availability: {
+					type: "array",
+					label: "Availability",
+					description: "Countries where this provider carries the title",
+					items: {
+						label: "Item",
+						type: "object",
+						description: "Item",
+						unknownKeys: "strict",
+						properties: {
+							country: {
+								type: "string",
+								label: "Country",
+								validation: { required: true },
+								description: "ISO 3166-1 alpha-2 country code",
+							},
+							offers: {
+								label: "Offers",
+								type: "enum-array",
+								validation: { minItems: 1 },
+								description: "How the title is offered in this country",
+								choices: {
+									kind: "static",
+									values: watchProviderOffers.map((value) => ({ value })),
+								},
+							},
+						},
+					},
 				},
 			},
 		},
@@ -80,6 +132,7 @@ export const moviePropertiesSchema: AppSchema = {
 		...mediaBaseFields,
 		runtime: integerField("Runtime", "Runtime in minutes"),
 		images: mediaImagesField("Cover and promotional images for this movie"),
+		watchProviders: watchProvidersField("Services carrying this movie, by country"),
 	},
 };
 
@@ -87,6 +140,7 @@ export const showPropertiesSchema: AppSchema = {
 	fields: {
 		...mediaBaseFields,
 		images: mediaImagesField("Cover and promotional images for this show"),
+		watchProviders: watchProvidersField("Services carrying this show, by country"),
 		totalSeasons: integerField("Total Seasons", "Total number of seasons in this show"),
 		totalEpisodes: integerField("Total Episodes", "Total number of episodes in this show"),
 	},
