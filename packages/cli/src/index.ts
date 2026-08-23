@@ -329,6 +329,7 @@ const runBuildChild = Effect.fn("runBuildChild")(function* (options: BuildOption
 });
 
 const watchPlugin = Effect.fn("watchPlugin")(function* (options: BuildOptions) {
+	let currentFingerprint = yield* fingerprintAuthoringInputs(options);
 	const initialExitCode = yield* runBuildChild(options);
 	if (initialExitCode !== 0) {
 		return yield* new BuildError({
@@ -336,7 +337,6 @@ const watchPlugin = Effect.fn("watchPlugin")(function* (options: BuildOptions) {
 		});
 	}
 
-	let currentFingerprint = yield* fingerprintAuthoringInputs(options);
 	return yield* Effect.forever(
 		Effect.gen(function* () {
 			yield* Effect.sleep("250 millis");

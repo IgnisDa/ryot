@@ -5,7 +5,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { Deferred, Effect, Layer, ManagedRuntime } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { KernelApiTestLayer } from "#/api/ports.test-layer";
+import { KernelApiTestLayer, makeEntityInterestService } from "#/api/ports.test-layer";
 import { PublicApi, PublicApiError } from "#/api/public";
 import type { UserSettingsApi } from "#/api/user-settings";
 import type { AuthService } from "#/modules/auth/service";
@@ -56,6 +56,7 @@ const mountView = (
 	oauthLayer = OAuthRouteStubs,
 ) => {
 	const events = makePluginCatalogEventsTestLayer();
+	const interestEvents: string[] = [];
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
 			ProviderAddRouteStubs,
@@ -68,6 +69,17 @@ const mountView = (
 			EntityRouteStubs,
 			publicLayer,
 			KernelApiTestLayer,
+			makeEntityInterestService({
+				acquire: () => {
+					interestEvents.push("acquire");
+					return () => {
+						interestEvents.push("release");
+					};
+				},
+				reconnect: () => {
+					interestEvents.push("reconnect");
+				},
+			}),
 			userSettingsLayer,
 			events.layer,
 			Layer.succeed(ArtifactSessions, {
@@ -96,10 +108,34 @@ const mountView = (
 		createMemoryHistory({ initialEntries }),
 	);
 	const view = render(<RouterProvider router={router} />);
-	return { ...view, router };
+	return { ...view, router, interestEvents };
 };
 
 describe("authenticated route gate", () => {
+	it("owns one interest session across loader revalidation and releases it on unmount without fetching preferences", async () => {
+		let settingsReads = 0;
+		const view = mountView(
+			"/settings",
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			undefined,
+			makeUserSettingsStub({
+				get: () => {
+					settingsReads++;
+					return Effect.succeed(userSettings);
+				},
+			}),
+		);
+		await screen.findByRole("heading", { level: 1, name: "Settings" });
+		expect(view.interestEvents).toEqual(["acquire"]);
+		await view.router.invalidate();
+		expect(view.interestEvents).toEqual(["acquire"]);
+		expect(settingsReads).toBe(0);
+		view.unmount();
+		expect(view.interestEvents).toEqual(["acquire", "release"]);
+	});
 	it.each(["/", "/fixture", "/settings", "/settings/preferences", "/settings/account"])(
 		"redirects an unauthenticated visitor from %s to /auth",
 		async (path) => {
@@ -494,7 +530,7 @@ describe("preferences settings", () => {
 
 	it("submits only the changed preferences and reports the save", async () => {
 		const saved: UpdateUserPreferencesBody[] = [];
-		mountPreferences(
+		const view = mountPreferences(
 			makeUserSettingsStub({
 				updatePreferences: (_scope, request) =>
 					Effect.sync(() => {
@@ -513,6 +549,7 @@ describe("preferences settings", () => {
 
 		await screen.findByText("Preferences saved.");
 		expect(saved).toEqual([{ allowNsfw: true }]);
+		expect(view.interestEvents).toEqual(["acquire"]);
 		expect(screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
 			true,
 		);
@@ -520,7 +557,7 @@ describe("preferences settings", () => {
 
 	it("submits a metadata language picked from the options", async () => {
 		const saved: UpdateUserPreferencesBody[] = [];
-		mountPreferences(
+		const view = mountPreferences(
 			makeUserSettingsStub({
 				updatePreferences: (_scope, request) =>
 					Effect.sync(() => {
@@ -537,6 +574,19 @@ describe("preferences settings", () => {
 
 		await screen.findByText("Preferences saved.");
 		expect(saved).toEqual([{ language: "es" }]);
+		expect(view.interestEvents).toEqual(["acquire", "reconnect"]);
+	});
+
+	it("does not reconnect when a metadata language save fails", async () => {
+		const view = mountPreferences(
+			makeUserSettingsStub({ updatePreferences: () => Effect.die("save failed") }),
+		);
+		await screen.findByRole("heading", { name: "Content and data" });
+		fireEvent.click(screen.getByRole("button", { name: "Metadata language: Provider default" }));
+		fireEvent.click(screen.getByRole("radio", { name: "Spanish" }));
+		fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+		await screen.findByText("Could not save preferences. Try again.");
+		expect(view.interestEvents).toEqual(["acquire"]);
 	});
 
 	it("keeps the edit available and explains a failed save", async () => {

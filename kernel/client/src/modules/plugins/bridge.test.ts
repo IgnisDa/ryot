@@ -21,6 +21,7 @@ import {
 	type PluginRyotQLOutcome,
 	type PluginRyotQLRequest,
 } from "@ryot-app/client-plugin-contract";
+import { createRyotClient } from "@ryot-app/client-sdk";
 import { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { waitFor } from "@testing-library/dom";
 import { Schema } from "effect";
@@ -93,6 +94,7 @@ const connect = (
 	options: {
 		readonly timeoutMs?: number;
 		readonly onAssets?: Parameters<typeof openPluginBridge>[0]["onAssets"];
+		readonly watchEntities?: Parameters<typeof openPluginBridge>[0]["watchEntities"];
 		readonly onOperation?: (
 			request: PluginOperationRequest,
 			signal: AbortSignal,
@@ -124,12 +126,12 @@ const connect = (
 	const session = openPluginBridge({
 		artifactHash,
 		navigation: nav(),
-		viewport: { safeAreaTop: 0, safeAreaBottom: 0 },
 		theme: lightTheme,
 		onHeader: () => {},
 		timeoutMs: options.timeoutMs,
 		onReady: () => readies.push(null),
 		onFailure: () => failures.push(null),
+		viewport: { safeAreaTop: 0, safeAreaBottom: 0 },
 		onNavigateBack: () => backs.push(null),
 		onOpenDrawer: () => drawers.push(null),
 		onScreenState: (state) => screenStates.push(state),
@@ -137,6 +139,7 @@ const connect = (
 		onKernelShortcut: (shortcut) => shortcuts.push(shortcut),
 		onAssets: options.onAssets ?? (() => new Promise(() => {})),
 		onRyotQL: options.onRyotQL ?? (() => new Promise(() => {})),
+		watchEntities: options.watchEntities ?? (() => ({ update: () => {}, dispose: () => {} })),
 		onOperation:
 			options.onOperation ??
 			((request, signal) => {
@@ -193,6 +196,109 @@ const readyFor = (init: PluginBridgeInit): PluginBridgeReady => ({
 	bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 });
 
+describe("bridge entity interest", () => {
+	it.each(["close", "crash", "invalid"])(
+		"keeps one mutable owner and releases it on %s",
+		async (exit) => {
+			const declarations: unknown[] = [];
+			let disposed = 0;
+			let notify:
+				| Parameters<Parameters<typeof openPluginBridge>[0]["watchEntities"]>[1]
+				| undefined;
+			const client = createRyotClient({
+				query: () => Promise.resolve({}),
+				watchEntities: (interest, onUpdate) => {
+					declarations.push(interest);
+					notify = onUpdate;
+					return {
+						update: (next) => declarations.push(next),
+						dispose: () => {
+							disposed++;
+						},
+					};
+				},
+			});
+			const bridge = connect({ watchEntities: client.entities.watch });
+			bridge.pluginPort.postMessage(readyFor(bridge.init));
+			await waitFor(() => expect(bridge.readies).toHaveLength(1));
+			bridge.pluginPort.postMessage({ type: "entity-interest", foreground: ["a"], visible: [] });
+			await waitFor(() => expect(declarations).toEqual([{ foreground: ["a"], visible: [] }]));
+			notify?.({ entityId: "a", reason: "populated" });
+			notify?.({ entityId: "other", reason: "translated" });
+			await waitFor(() =>
+				expect(bridge.received).toContainEqual({
+					entityId: "a",
+					reason: "populated",
+					type: "entity-updated",
+				}),
+			);
+			bridge.pluginPort.postMessage({ type: "entity-interest", foreground: [], visible: ["b"] });
+			await waitFor(() =>
+				expect(declarations).toEqual([
+					{ foreground: ["a"], visible: [] },
+					{ foreground: [], visible: ["b"] },
+				]),
+			);
+			notify?.({ entityId: "a", reason: "translated" });
+			notify?.({ entityId: "b", reason: "translated" });
+			await waitFor(() =>
+				expect(bridge.received).toContainEqual({
+					entityId: "b",
+					reason: "translated",
+					type: "entity-updated",
+				}),
+			);
+			if (exit === "close") {
+				bridge.session.close();
+			} else {
+				bridge.pluginPort.postMessage(
+					exit === "crash" ? { type: "lifecycle-close", reason: "failed" } : { type: "invalid" },
+				);
+			}
+			await waitFor(() => expect(disposed).toBe(1));
+			notify?.({ entityId: "b", reason: "populated" });
+			bridge.session.close();
+			await delay(10);
+			expect(disposed).toBe(1);
+			expect(
+				bridge.received.filter(
+					(message) =>
+						typeof message === "object" &&
+						message !== null &&
+						"type" in message &&
+						message.type === "entity-updated",
+				),
+			).toEqual([
+				{ type: "entity-updated", entityId: "a", reason: "populated" },
+				{ type: "entity-updated", entityId: "b", reason: "translated" },
+			]);
+		},
+	);
+
+	it("does not spend request slots or fail the iframe when interest transport fails", async () => {
+		let declarations = 0;
+		const bridge = connect({
+			watchEntities: () => {
+				declarations++;
+				throw new Error("offline");
+			},
+		});
+		bridge.pluginPort.postMessage(readyFor(bridge.init));
+		await waitFor(() => expect(bridge.readies).toHaveLength(1));
+		for (let i = 0; i < CLIENT_BRIDGE_MAX_PENDING_REQUESTS; i++) {
+			bridge.pluginPort.postMessage({
+				input: {},
+				type: "operation-request",
+				requestId: `request-${i}`,
+				operationSlug: "operation",
+			});
+		}
+		bridge.pluginPort.postMessage({ type: "entity-interest", foreground: ["a"], visible: [] });
+		await waitFor(() => expect(declarations).toBe(1));
+		expect(bridge.failures).toEqual([]);
+	});
+});
+
 describe("plugin bridge", () => {
 	it("transfers exactly one port with the exact init markers and the resolved mode", () => {
 		const { init, origins } = connect();
@@ -218,7 +324,6 @@ describe("plugin bridge", () => {
 			artifactHash,
 			timeoutMs: 10,
 			navigation: nav(),
-			viewport: { safeAreaTop: 0, safeAreaBottom: 0 },
 			theme: lightTheme,
 			onHeader: () => {},
 			onReady: () => undefined,
@@ -230,7 +335,9 @@ describe("plugin bridge", () => {
 			onFailure: () => failures.push(null),
 			onAssets: () => new Promise(() => {}),
 			onRyotQL: () => new Promise(() => {}),
+			viewport: { safeAreaTop: 0, safeAreaBottom: 0 },
 			onOperation: () => new Promise(() => {}),
+			watchEntities: () => ({ update: () => {}, dispose: () => {} }),
 			target: {
 				postMessage: () => {
 					throw new Error("transfer failed");

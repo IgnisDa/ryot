@@ -14,7 +14,7 @@ export type MappedRyotQueryState<State extends { readonly status: string }> =
 export const classifyRyotQueryResult = <Value>(
 	result: RyotQueryResult<Value>,
 ): RyotQueryState<Value> => {
-	if (result.status === "success" && result.data !== undefined) {
+	if (result.data !== undefined) {
 		return { status: "ready", value: result.data };
 	}
 	if (result.status !== "error") {

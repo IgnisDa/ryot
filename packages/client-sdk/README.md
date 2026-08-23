@@ -38,6 +38,51 @@ authenticated upload boundary and opaque `asset-failed` classification. Bridge m
 authentication, server, user, plugin, or installation identity. Canceling or disposing a session
 aborts pending resolution work; an issued asset-scoped URL remains usable until its natural expiry.
 
+## Entity Interest
+
+`ryot.entities.watch(interest, onUpdate)` returns an `EntityInterestSubscription` with
+`update(interest): void` and `dispose(): void`. `EntityInterest` has readonly `foreground` and
+`visible` string arrays. Both types are exported from the SDK root. The callback receives only
+`{ entityId: string, reason: "populated" | "translated" }`, derived from the HTTP contract's
+`EntityUpdatedMessage`. The optional adapter capability is `watchEntities(interest, onUpdate)`.
+Invalid declarations fail synchronously with `invalid-input`; a missing adapter fails with
+`unsupported-capability`. Transport failures use `RyotClientError("transport")`. Disposal is
+idempotent, suppresses subsequent callbacks, and rejects subsequent updates with `disposed`.
+
+Declarations can contain more than 500 loaded rows. The SDK normalizes and deduplicates IDs, with
+foreground winning overlaps. The plugin runtime aggregates all watch owners and selects at most
+500 IDs, sorted lexically within each priority and taking foreground first. Unchanged aggregate
+sets do not post again. Protocol version 1 sends exactly
+`{ type: "entity-interest", foreground: string[], visible: string[] }` and receives exactly
+`{ type: "entity-updated", entityId, reason }`. These strict messages have no request IDs,
+acknowledgements, credentials, tickets, user IDs, or server fields. Terminal runtime teardown
+clears all owners. The host owns socket connectivity and reconnection.
+
+`createRyotQuery(query, { entityInterest: ({ input, data }) => interest })` declares roots with
+`data` undefined before the first response, then retains dependencies from the last successful
+data, including during refresh or failure. One controller per registry and query atom shares a
+watch across active consumers. Hints coalesce for 250 ms; hints during a request become one
+follow-up after settlement rather than canceling that request. The queued refresh checks the
+registry's current waiting state before invalidating the atom. Interested queries use the existing
+atom cache and explicitly catch up when cached data is remounted after the final consumer leaves,
+including within the host's removal grace. First-mount hydration does not trigger an extra request.
+Active controllers also coalesce document foreground visibility events through the same scheduler;
+hidden retained screens do not independently refresh. Queries without this option keep their
+existing hydration, cancellation, cache, and SWR focus behavior.
+
+`useEntityRefresh` from `@ryot-app/client-sdk/react` supports controller-owned saved views:
+`{ identity: string, interest: EntityInterest, blocked: boolean, onRefresh: () => Promise<void> }`.
+It keeps one mutable watch, coalesces hints for 250 ms, and holds dirty state while blocked or
+running. Identity changes and unmount discard queued work. A failed refresh does not retry without
+a new hint. Both React paths tolerate transient transport/disposal failures without crashing the
+screen; invalid input and unsupported capabilities remain explicit errors.
+
+The generic React surface defaults to active and does not import plugin routing. `PluginRouter`
+supplies activity from screen roles: hidden retained screens withdraw demand and do not
+automatically refresh, but keep cached data and in-flight completion. Reactivation explicitly
+requests catch-up, even within the host's two-second removal grace. A running saved-view refresh
+must settle before this catch-up starts.
+
 ## Screen Stack
 
 `PluginRouter` keeps a stack of screens, not one route, and reconciles it through the pure

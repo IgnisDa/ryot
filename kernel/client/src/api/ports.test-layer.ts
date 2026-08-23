@@ -1,6 +1,7 @@
 import { Effect, Layer } from "effect";
 
 import { BackupsApi } from "#/api/backups";
+import { EntityInterestApi } from "#/api/entity-interest";
 import { GodModeApi } from "#/api/god-mode";
 import { ImportsApi } from "#/api/imports";
 import { IntegrationsApi } from "#/api/integrations";
@@ -11,8 +12,22 @@ import { RyotQLApi } from "#/api/ryotql";
 import { SavedViewsApi } from "#/api/saved-views";
 import { UploadsApi } from "#/api/uploads";
 import { UserSettingsApi } from "#/api/user-settings";
+import { EntityInterestService } from "#/modules/entity-interest/service";
 
 export const unused = () => Effect.die("not used");
+
+export const makeEntityInterestApi = (overrides: Partial<EntityInterestApi["Service"]> = {}) =>
+	Layer.succeed(EntityInterestApi, { createSocketTicket: unused, ...overrides });
+
+export const makeEntityInterestService = (
+	overrides: Partial<EntityInterestService["Service"]> = {},
+) =>
+	Layer.succeed(EntityInterestService, {
+		reconnect: () => {},
+		acquire: () => () => {},
+		watch: () => ({ update: () => {}, dispose: () => {} }),
+		...overrides,
+	});
 
 export const makeRyotQLApi = (overrides: Partial<RyotQLApi["Service"]> = {}) =>
 	Layer.succeed(RyotQLApi, { execute: unused, ...overrides });
@@ -100,6 +115,8 @@ export const makeGodModeApi = (overrides: Partial<GodModeApi["Service"]> = {}) =
 	});
 
 export const KernelApiTestLayer = Layer.mergeAll(
+	makeEntityInterestApi(),
+	makeEntityInterestService(),
 	makeRyotQLApi(),
 	makeImportsApi(),
 	makeBackupsApi(),

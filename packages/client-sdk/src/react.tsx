@@ -1,12 +1,28 @@
-import { RegistryProvider, useAtomRefresh, useAtomSet, useAtomValue } from "@effect/atom-react";
+import {
+	RegistryContext,
+	RegistryProvider,
+	useAtomRefresh,
+	useAtomSet,
+	useAtomValue,
+} from "@effect/atom-react";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as AsyncResult from "effect/unstable/reactivity/AsyncResult";
 import * as Atom from "effect/unstable/reactivity/Atom";
 import * as AtomRegistry from "effect/unstable/reactivity/AtomRegistry";
-import { createContext, useContext, useMemo, useSyncExternalStore, type ReactNode } from "react";
+import {
+	createContext,
+	useContext,
+	useEffect,
+	useRef,
+	useMemo,
+	useSyncExternalStore,
+	type ReactNode,
+} from "react";
 
-import type { RyotClient } from "./index";
+import { ActiveScreenContext } from "./active-screen";
+import { createEntityRefresh, entityTransport } from "./entity-refresh";
+import type { RyotClient, EntityInterest, EntityInterestSubscription } from "./index";
 
 const staleTime = 30 * 1_000;
 const idleTTL = 5 * 60 * 1_000;
@@ -75,12 +91,17 @@ type RyotQueryOptions<Input, Data> = {
 	/** Cancels in-flight work when the final consumer for an input unmounts. */
 	readonly cancelOnUnmount?: boolean;
 	readonly initialData?: (input: Input) => Data;
+	readonly entityInterest?: (context: {
+		readonly input: Input;
+		readonly data: Data | undefined;
+	}) => EntityInterest;
 };
 
 const makeQueryAtom = <Data,>(
 	run: (signal: AbortSignal) => Promise<Data>,
 	initialData?: Data,
 	cancelOnUnmount = false,
+	interested = false,
 ) => {
 	const request = Effect.tryPromise({
 		try: run,
@@ -99,14 +120,16 @@ const makeQueryAtom = <Data,>(
 			? Atom.make(request)
 			: Atom.make(effect, { initialValue: initialData });
 	const requestSource = cancelOnUnmount ? source.pipe(Atom.setIdleTTL(0)) : source;
-	const atom =
-		initialData === undefined
-			? requestSource.pipe(
-					Atom.swr({ staleTime, revalidateOnFocus: true, focusSignal: browserFocusSignal }),
-					Atom.setIdleTTL(cancelOnUnmount ? 0 : idleTTL),
-				)
-			: requestSource;
-	return atom;
+	if (interested) {
+		return requestSource.pipe(Atom.setIdleTTL(cancelOnUnmount ? 0 : idleTTL));
+	}
+	if (initialData !== undefined) {
+		return requestSource;
+	}
+	return requestSource.pipe(
+		Atom.swr({ staleTime, revalidateOnFocus: true, focusSignal: browserFocusSignal }),
+		Atom.setIdleTTL(cancelOnUnmount ? 0 : idleTTL),
+	);
 };
 
 class QueryDefinition<Input, Data> implements RyotQuery<Input, Data> {
@@ -114,6 +137,7 @@ class QueryDefinition<Input, Data> implements RyotQuery<Input, Data> {
 
 	constructor(
 		readonly atom: (client: RyotClient, input: Input) => ReturnType<typeof makeQueryAtom<Data>>,
+		readonly entityInterest?: RyotQueryOptions<Input, Data>["entityInterest"],
 	) {}
 }
 
@@ -147,12 +171,13 @@ export function createRyotQuery<Input, Data>(
 					(signal) => query({ client, input: familyInput, signal }),
 					options?.initialData?.(familyInput),
 					options?.cancelOnUnmount,
+					options?.entityInterest !== undefined,
 				),
 			);
 			clients.set(client, inputs);
 		}
 		return inputs(input);
-	});
+	}, options?.entityInterest);
 }
 
 export function createRyotMutation<Data>(
@@ -186,6 +211,161 @@ export const useRyotTheme = () => {
 	return useSyncExternalStore(theme.subscribe, theme.getSnapshot, theme.getSnapshot);
 };
 
+const interestedQueries = new WeakMap<
+	AtomRegistry.AtomRegistry,
+	WeakMap<object, { users: number; readonly hint: () => void; readonly dispose: () => void } | null>
+>();
+
+const useQueryInterest = <Data,>(
+	client: RyotClient,
+	atom: ReturnType<typeof makeQueryAtom<Data>>,
+	input: unknown,
+	interest?: RyotQueryOptions<unknown, Data>["entityInterest"],
+) => {
+	const active = useContext(ActiveScreenContext);
+	const registry = useContext(RegistryContext);
+	const previous = useRef({ atom, active, attached: false });
+	const latestInput = useRef(input);
+	useEffect(() => {
+		latestInput.current = input;
+	});
+	useEffect(() => {
+		const queryInput = latestInput.current;
+		const reattach =
+			previous.current.attached && previous.current.atom === atom && previous.current.active;
+		const catchUp = previous.current.atom === atom && !previous.current.active && active;
+		previous.current = { atom, active, attached: true };
+		if (!interest || !active) {
+			return undefined;
+		}
+		let controllers = interestedQueries.get(registry);
+		if (!controllers) {
+			controllers = new WeakMap();
+			interestedQueries.set(registry, controllers);
+		}
+		let controller = controllers.get(atom);
+		if (!controller) {
+			const remount =
+				!reattach && controllers.has(atom) && !AsyncResult.isInitial(registry.get(atom));
+			let data: Data | undefined;
+			let subscription: EntityInterestSubscription | undefined;
+			const refresh = createEntityRefresh(() => {
+				if (registry.get(atom).waiting) {
+					refresh.block(true);
+					refresh.hint();
+				} else {
+					registry.refresh(atom);
+					refresh.block(registry.get(atom).waiting);
+				}
+				return Promise.resolve();
+			});
+			const sync = () => {
+				const result = registry.get(atom);
+				if (AsyncResult.isSuccess(result)) {
+					data = result.value;
+				} else if (AsyncResult.isFailure(result) && result.previousSuccess._tag === "Some") {
+					data = result.previousSuccess.value.value;
+				}
+				refresh.block(result.waiting);
+				const next = interest({ input: queryInput, data });
+				entityTransport(() => {
+					if (subscription) {
+						subscription.update(next);
+					} else {
+						subscription = client.entities.watch(next, refresh.hint);
+					}
+				});
+			};
+			subscription = entityTransport(() =>
+				client.entities.watch(interest({ input: queryInput, data }), refresh.hint),
+			);
+			const unsubscribe = registry.subscribe(atom, sync);
+			registry.get(browserFocusSignal);
+			const unfocus = registry.subscribe(browserFocusSignal, refresh.hint);
+			sync();
+			if (remount) {
+				refresh.hint();
+			}
+			controller = {
+				users: 0,
+				hint: refresh.hint,
+				dispose: () => {
+					refresh.dispose();
+					unsubscribe();
+					unfocus();
+					entityTransport(() => subscription?.dispose());
+				},
+			};
+			controllers.set(atom, controller);
+		}
+		controller.users++;
+		if (catchUp) {
+			controller.hint();
+		}
+		return () => {
+			if (--controller.users === 0) {
+				controller.dispose();
+				controllers.set(atom, null);
+			}
+		};
+	}, [client, registry, atom, interest, active]);
+};
+
+export const useEntityRefresh = (options: {
+	readonly blocked: boolean;
+	readonly identity: string;
+	readonly interest: EntityInterest;
+	readonly onRefresh: () => Promise<void>;
+}) => {
+	const client = useRyot();
+	const active = useContext(ActiveScreenContext);
+	const latest = useRef(options);
+	const previous = useRef({ identity: options.identity, active });
+	const controller = useRef<
+		| {
+				subscription: EntityInterestSubscription | undefined;
+				readonly refresh: ReturnType<typeof createEntityRefresh>;
+		  }
+		| undefined
+	>(undefined);
+	useEffect(() => {
+		latest.current = options;
+	});
+	useEffect(() => {
+		const refresh = createEntityRefresh(() => latest.current.onRefresh());
+		controller.current = { refresh, subscription: undefined };
+		return () => {
+			controller.current = undefined;
+			refresh.dispose();
+		};
+	}, [client, options.identity]);
+	useEffect(() => {
+		const catchUp =
+			previous.current.identity === options.identity && !previous.current.active && active;
+		previous.current = { identity: options.identity, active };
+		const current = controller.current;
+		current?.refresh.block(!active || latest.current.blocked);
+		if (!active || !current) {
+			return undefined;
+		}
+		const subscription = entityTransport(() =>
+			client.entities.watch(latest.current.interest, current.refresh.hint),
+		);
+		current.subscription = subscription;
+		if (catchUp) {
+			current.refresh.hint();
+		}
+		return () => {
+			current.subscription = undefined;
+			entityTransport(() => subscription?.dispose());
+		};
+	}, [client, options.identity, active]);
+	useEffect(() => {
+		controller.current?.refresh.block(!active || options.blocked);
+		entityTransport(() => controller.current?.subscription?.update(options.interest));
+	}, [active, options.interest, options.blocked]);
+};
+
 export function useRyotQuery<Data>(query: RyotQuery<void, Data>): RyotQueryResult<Data>;
 export function useRyotQuery<Input, Data>(
 	query: RyotQuery<Input, Data>,
@@ -200,6 +380,7 @@ export function useRyotQuery<Data>(
 		throw new Error("useRyotQuery requires a query created by createRyotQuery");
 	}
 	const atom = query.atom(client, input);
+	useQueryInterest(client, atom, input, query.entityInterest);
 	const result = useAtomValue(atom);
 	const refetch = useAtomRefresh(atom);
 	const isError = AsyncResult.isFailure(result);
