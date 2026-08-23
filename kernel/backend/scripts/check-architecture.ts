@@ -1,10 +1,11 @@
 #!/usr/bin/env bun
 
-import { BunFileSystem, BunPath, BunRuntime } from "@effect/platform-bun";
-import { Data, Effect, Layer, FileSystem, Path } from "effect";
+import { BunRuntime, BunServices } from "@effect/platform-bun";
+import { Data, Effect, Path } from "effect";
 
 import { findDuplicateServiceLayers, type LayerWiringSource } from "./layer-wiring";
 import { analyzeRuntimeModules, formatRuntimeCycleDiagnostics } from "./runtime-module-analysis";
+import { walkSourceFiles } from "./walk-source-tree";
 
 class ArchitectureCheckError extends Data.TaggedError("ArchitectureCheckError")<{
 	message: string;
@@ -20,28 +21,12 @@ const isProductionSourcePath = (file: string) =>
 	!file.endsWith(".generated.ts") &&
 	!file.replaceAll("\\", "/").includes("/test-fixtures/");
 
-const walkSources = (
-	directory: string,
-	workspaceRoot: string,
-): Effect.Effect<ReadonlyArray<LayerWiringSource>, unknown, FileSystem.FileSystem | Path.Path> =>
-	Effect.gen(function* () {
-		const fs = yield* FileSystem.FileSystem;
-		const path = yield* Path.Path;
-		const sources: LayerWiringSource[] = [];
-		for (const entry of (yield* fs.readDirectory(directory)).sort()) {
-			const absolutePath = path.join(directory, entry);
-			const info = yield* fs.stat(absolutePath);
-			if (info.type === "Directory") {
-				sources.push(...(yield* walkSources(absolutePath, workspaceRoot)));
-				continue;
-			}
-			const relativePath = path.relative(workspaceRoot, absolutePath).split(path.sep).join("/");
-			if (isProductionSourcePath(relativePath)) {
-				sources.push({ path: relativePath, source: yield* fs.readFileString(absolutePath) });
-			}
-		}
-		return sources;
-	});
+const walkSources = (directory: string, workspaceRoot: string) =>
+	walkSourceFiles(directory, workspaceRoot, isProductionSourcePath).pipe(
+		Effect.map((files) =>
+			Object.entries(files).map(([path, source]) => ({ path, source }) satisfies LayerWiringSource),
+		),
+	);
 
 const program = Effect.gen(function* () {
 	const path = yield* Path.Path;
@@ -65,6 +50,4 @@ const program = Effect.gen(function* () {
 	return yield* Effect.logInfo(`Kernel architecture checks passed (${sources.length} files)`);
 }).pipe(Effect.tapError((error) => Effect.logError(String(error))));
 
-BunRuntime.runMain(
-	program.pipe(Effect.provide(Layer.mergeAll(BunFileSystem.layer, BunPath.layer))),
-);
+BunRuntime.runMain(program.pipe(Effect.provide(BunServices.layer)));

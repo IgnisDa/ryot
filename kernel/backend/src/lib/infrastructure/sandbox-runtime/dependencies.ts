@@ -1,4 +1,4 @@
-import { createSha256Hasher, sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { canonicalFileSetHash, sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Data, Effect, FileSystem, Schema } from "effect";
 
 import { sandboxRuntimePayloadMetadataSchema, sandboxRuntimePayloadSchema } from "./payload";
@@ -59,26 +59,12 @@ const validatePayload = (payload: unknown) =>
 		);
 		if (
 			encodeJson(fileMetadata) !== encodeJson(candidate.metadata) ||
-			canonicalRuntimeHash(candidate.files) !== candidate.contentHash
+			canonicalFileSetHash(candidate.files) !== candidate.contentHash
 		) {
 			return yield* payloadError("Trusted sandbox runtime payload integrity check failed");
 		}
 		return candidate;
 	});
-
-const canonicalRuntimeHash = (
-	files: readonly { readonly path: string; readonly contents: string }[],
-) => {
-	const hasher = createSha256Hasher();
-	for (const { path, contents } of files
-		.slice()
-		.sort(({ path: left }, { path: right }) => left.localeCompare(right))) {
-		const bytes = new TextEncoder().encode(contents);
-		hasher.update(`${path.length}:${path}:${bytes.byteLength}:`);
-		hasher.update(bytes);
-	}
-	return hasher.digest("hex");
-};
 
 const trustedPayload = sandboxRuntimePayload;
 
@@ -126,7 +112,7 @@ const runtimeContentHash = (fs: FileSystem.FileSystem, directory: string) =>
 				.readFileString(`${directory}/${file}`)
 				.pipe(Effect.map((contents) => ({ contents, path: file }))),
 		);
-		return canonicalRuntimeHash(files);
+		return canonicalFileSetHash(files);
 	});
 
 const runtimeMatches = (

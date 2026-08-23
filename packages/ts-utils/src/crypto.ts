@@ -26,3 +26,18 @@ export const hmacDigest = (algorithm: HashAlgorithm, secret: HashInput, value: H
 
 export const hmacSha256Base64Url = (secret: HashInput, value: HashInput) =>
 	createHasher("sha256", secret).update(value).digest("base64url");
+
+export const canonicalFileSetHash = (
+	files: Iterable<{ readonly path: string; readonly contents: string }>,
+) => {
+	const encoder = new TextEncoder();
+	const hasher = createSha256Hasher();
+	for (const { path, contents } of [...files].sort(({ path: left }, { path: right }) =>
+		left.localeCompare(right),
+	)) {
+		const bytes = encoder.encode(contents);
+		hasher.update(`${path.length}:${path}:${bytes.byteLength}:`);
+		hasher.update(bytes);
+	}
+	return hasher.digest("hex");
+};

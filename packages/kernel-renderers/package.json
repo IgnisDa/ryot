@@ -9,9 +9,9 @@
 		}
 	},
 	"scripts": {
-		"generate": "bun run scripts/generate-sources.ts",
-		"test": "bun run generate && bun --bun run vitest run",
-		"check": "bun run generate && tsc && oxfmt . --write && oxlint . --type-aware --fix"
+		"test": "bun --bun run vitest run",
+		"build": "bun run scripts/generate-sources.ts",
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
 		"@ryot-app/ts-utils": "workspace:*"
