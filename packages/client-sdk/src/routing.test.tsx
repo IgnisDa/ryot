@@ -5,7 +5,7 @@ import {
 	type PluginLogicalLocation,
 	type PluginRouteLocation,
 } from "@ryot-app/client-plugin-contract";
-import { EntityId } from "@ryot-app/contract/schema/brands";
+import { EntityId, PluginSlug, SavedViewId } from "@ryot-app/contract/schema/brands";
 import { waitFor } from "@testing-library/dom";
 import { Match, Schema } from "effect";
 import { useState, act } from "react";
@@ -39,11 +39,14 @@ import { createTestRyotAdapter } from "./testing";
 
 let mountCount = 0;
 let entityMountCount = 0;
+const pluginSlug = "fixture";
 
 const ItemRoute = () => {
 	const { itemId } = usePluginParams();
 	return <p>Item {itemId}</p>;
 };
+
+const NewItemRoute = () => <p>New item</p>;
 
 const NotFound = () => <p>Fixture page not found.</p>;
 
@@ -81,16 +84,21 @@ const Home = () => {
 			<button type="button" onClick={() => setGreetings((count) => count + 1)}>
 				Greet
 			</button>
-			<PluginLink to={{ kind: "route", path: "/items/item-1", search: { tab: "stats" } }}>
+			<PluginLink
+				to={{ pluginSlug, kind: "plugin-route", path: "/items/item-1", search: { tab: "stats" } }}
+			>
 				Item 1
 			</PluginLink>
 			<button
 				type="button"
-				onClick={() => navigation.push({ kind: "route", path: "/items/item-2" })}
+				onClick={() => navigation.push({ pluginSlug, kind: "plugin-route", path: "/items/item-2" })}
 			>
 				Push item 2
 			</button>
-			<button type="button" onClick={() => navigation.replace({ kind: "route", path: "/" })}>
+			<button
+				type="button"
+				onClick={() => navigation.replace({ pluginSlug, kind: "plugin-route", path: "/" })}
+			>
 				Replace home
 			</button>
 		</div>
@@ -113,8 +121,13 @@ const routeLocation = (path: string, search = ""): PluginRouteLocation => ({
 	search,
 	kind: "route",
 });
-const entityLocation = (entityId: string, entitySchemaSlug: string) =>
-	Schema.decodeUnknownSync(PluginEntityLocation)({ entityId, entitySchemaSlug, kind: "entity" });
+const entityLocation = (entityId: string, entitySchemaSlug: string, search = "") =>
+	Schema.decodeUnknownSync(PluginEntityLocation)({
+		search,
+		entityId,
+		kind: "entity",
+		entitySchemaSlug,
+	});
 
 let observedSearch: URLSearchParams | undefined;
 let observedParams: Record<string, string> | undefined;
@@ -160,10 +173,10 @@ const openChannel = (
 	const sendEntity = (
 		entityId: string,
 		entitySchemaSlug: string,
-		options: { readonly key?: string; readonly index?: number } = {},
+		options: { readonly key?: string; readonly index?: number; readonly search?: string } = {},
 	) => {
 		position = options.index ?? position + 1;
-		const location = entityLocation(entityId, entitySchemaSlug);
+		const location = entityLocation(entityId, entitySchemaSlug, options.search);
 		store.setLocation({
 			compact,
 			leading,
@@ -173,14 +186,19 @@ const openChannel = (
 	};
 	const navigate = (mode: "push" | "replace", to: RyotNavigationTarget) => {
 		const target: PluginBridgeNavigate["target"] = Match.value(to).pipe(
-			Match.when({ kind: "route" }, ({ path, search }) => ({
+			Match.when({ kind: "plugin-route" }, ({ path, pluginSlug: targetPlugin, search }) => ({
 				path,
-				kind: "route" as const,
+				kind: "plugin-route" as const,
+				pluginSlug: PluginSlug.make(targetPlugin),
 				search: search === undefined ? "" : new URLSearchParams(search).toString(),
 			})),
 			Match.when({ kind: "entity" }, ({ entityId }) => ({
 				kind: "entity" as const,
 				entityId: EntityId.make(entityId),
+			})),
+			Match.when({ kind: "saved-view" }, ({ savedViewId }) => ({
+				kind: "saved-view" as const,
+				savedViewId: SavedViewId.make(savedViewId),
 			})),
 			Match.exhaustive,
 		);
@@ -355,6 +373,20 @@ describe("PluginRouter", () => {
 		await waitFor(() => expect(container.textContent).toContain("Item hello world"));
 	});
 
+	it("matches a static route before an overlapping dynamic route", async () => {
+		const channel = openChannel({
+			home: { component: Home },
+			routes: [
+				{ path: "/items/$itemId", component: ItemRoute },
+				{ path: "/items/new", component: NewItemRoute },
+			],
+		});
+		const container = renderRouter(channel);
+		act(() => channel.send("/items/new"));
+		await waitFor(() => expect(container.textContent).toContain("New item"));
+		expect(container.textContent).not.toContain("Item new");
+	});
+
 	it("passes through a param segment that is not valid percent-encoding", async () => {
 		const { container, sendLocation } = mount([{ path: "/items/$itemId", component: ItemRoute }]);
 		sendLocation("/items/%zz");
@@ -451,20 +483,21 @@ describe("PluginRouter", () => {
 		expect(channel.store.getSnapshot().screens.at(-1)?.element.type).toBe(EntityRenderer);
 	});
 
-	it("exposes an entity location and empty search through routing hooks", async () => {
+	it("exposes an entity location and its search through routing hooks", async () => {
 		const channel = openChannel(undefined, () => ({ element: <LocationProbe />, params: {} }));
 		const container = renderRouter(channel);
 
-		channel.sendEntity("entity-1", "media-movie");
-		await waitFor(() => expect(container.textContent).toBe("entity:"));
+		channel.sendEntity("entity-1", "media-movie", { search: "dialog=details" });
+		await waitFor(() => expect(container.textContent).toBe("entity:dialog=details"));
 
 		expect(observedLocation).toEqual({
 			kind: "entity",
 			entityId: "entity-1",
+			search: "dialog=details",
 			entitySchemaSlug: "media-movie",
 		});
 		expect(observedParams).toEqual({});
-		expect(observedSearch?.toString()).toBe("");
+		expect(observedSearch?.toString()).toBe("dialog=details");
 	});
 
 	it("posts an exact PluginBridgeNavigate message on PluginLink click", async () => {
@@ -476,7 +509,7 @@ describe("PluginRouter", () => {
 		if (!link) {
 			throw new Error("expected a rendered plugin link");
 		}
-		expect(link.getAttribute("href")).toBe("/items/item-1?tab=stats");
+		expect(link.getAttribute("href")).toBe("/fixture/items/item-1?tab=stats");
 		act(() => {
 			link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }));
 		});
@@ -486,7 +519,12 @@ describe("PluginRouter", () => {
 				{
 					mode: "push",
 					type: "navigate",
-					target: { kind: "route", path: "/items/item-1", search: "tab=stats" },
+					target: {
+						search: "tab=stats",
+						kind: "plugin-route",
+						path: "/items/item-1",
+						pluginSlug: PluginSlug.make(pluginSlug),
+					},
 				} satisfies PluginBridgeNavigate,
 			]),
 		);
@@ -535,7 +573,7 @@ describe("PluginRouter", () => {
 			root.render(
 				<RyotProvider client={channel.client}>
 					<PluginLink
-						to={{ kind: "route", path: "/items/item-1" }}
+						to={{ pluginSlug, kind: "plugin-route", path: "/items/item-1" }}
 						onClick={(event) => {
 							clicks += 1;
 							event.preventDefault();
@@ -605,12 +643,22 @@ describe("PluginRouter", () => {
 				{
 					mode: "push",
 					type: "navigate",
-					target: { kind: "route", path: "/items/item-2", search: "" },
+					target: {
+						search: "",
+						kind: "plugin-route",
+						path: "/items/item-2",
+						pluginSlug: PluginSlug.make(pluginSlug),
+					},
 				} satisfies PluginBridgeNavigate,
 				{
 					mode: "replace",
 					type: "navigate",
-					target: { kind: "route", path: "/", search: "" },
+					target: {
+						path: "/",
+						search: "",
+						kind: "plugin-route",
+						pluginSlug: PluginSlug.make(pluginSlug),
+					},
 				} satisfies PluginBridgeNavigate,
 			]),
 		);

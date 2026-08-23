@@ -1,8 +1,10 @@
+import type { KernelShortcut } from "@ryot-app/client-plugin-contract";
 import { createContext, useContext, type RefObject } from "react";
 
 import type { CustomizeDraftState } from "#/modules/navigation/customize/use-customize-draft";
 import type { EdgeResolution } from "#/modules/navigation/edge-intent";
 import type { SafeAreaInsets } from "#/modules/navigation/safe-area";
+import type { PluginScreenReadiness } from "#/modules/plugins/bridge";
 import type { PluginHeaderPublication } from "#/modules/plugins/plugin-host";
 
 export const RememberedWorkspaceContext = createContext<string | null | undefined>(undefined);
@@ -11,12 +13,70 @@ export type PluginHeaderState = PluginHeaderPublication & { readonly owner: stri
 
 export type PluginHeaderController = {
 	readonly clear: (owner: string) => void;
+	readonly activate: (owner: string) => void;
 	readonly publish: (owner: string, header: PluginHeaderPublication) => void;
 };
 
 export const PluginHeaderContext = createContext<PluginHeaderController | undefined>(undefined);
 
 export const PluginTitleContext = createContext<string | null | undefined>(undefined);
+
+export type ClientPageScreenState = PluginScreenReadiness & { readonly owner: string };
+
+export type ClientPageScreenController = {
+	readonly clear: (owner: string) => void;
+	readonly activate: (owner: string) => void;
+	readonly publish: (owner: string, state: PluginScreenReadiness | null) => void;
+};
+
+export function createClientDocumentControllers(
+	activeOwner: RefObject<string | null>,
+	setHeader: (state: PluginHeaderState | null) => void,
+	setScreen: (state: ClientPageScreenState | null) => void,
+) {
+	const header: PluginHeaderController = {
+		activate: (owner) => {
+			if (activeOwner.current !== owner) {
+				setHeader(null);
+			}
+			activeOwner.current = owner;
+		},
+		publish: (owner, publication) => {
+			if (activeOwner.current === owner) {
+				setHeader({ owner, ...publication });
+			}
+		},
+		clear: (owner) => {
+			if (activeOwner.current === owner) {
+				activeOwner.current = null;
+				setHeader(null);
+			}
+		},
+	};
+	const screen: ClientPageScreenController = {
+		activate: (owner) => {
+			if (activeOwner.current !== owner) {
+				activeOwner.current = owner;
+			}
+			setScreen(null);
+		},
+		clear: (owner) => {
+			if (activeOwner.current === owner) {
+				setScreen(null);
+			}
+		},
+		publish: (owner, publication) => {
+			if (activeOwner.current === owner) {
+				setScreen(publication === null ? null : { ...publication, owner });
+			}
+		},
+	};
+	return { header, screen };
+}
+
+export const ClientPageScreenContext = createContext<ClientPageScreenController | undefined>(
+	undefined,
+);
 
 export const EdgeContext = createContext<EdgeResolution | undefined>(undefined);
 
@@ -26,6 +86,7 @@ export type ShellChrome = SafeAreaInsets & {
 	readonly isDrawerOpen: boolean;
 	readonly onOpenDrawer: () => void;
 	readonly triggerRef: RefObject<HTMLElement | null>;
+	readonly onKernelShortcut: (shortcut: KernelShortcut) => void;
 };
 
 export const ShellChromeContext = createContext<ShellChrome | undefined>(undefined);
@@ -84,4 +145,12 @@ export const usePluginHeader = () => {
 		throw new Error("usePluginHeader must be used inside AuthenticatedShell");
 	}
 	return header;
+};
+
+export const useClientPageScreen = () => {
+	const screen = useContext(ClientPageScreenContext);
+	if (screen === undefined) {
+		throw new Error("useClientPageScreen must be used inside AuthenticatedShell");
+	}
+	return screen;
 };

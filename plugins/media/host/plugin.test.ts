@@ -66,7 +66,21 @@ it("declares the complete media-owned source", () => {
 	expect(mediaPlugin.client).toEqual({
 		apiVersion: 1,
 		entry: "client/index.tsx",
+		routes: { "/": "media-home" },
+		entities: { show: { detailPage: "show-detail" } },
 		exports: {
+			"media-home": {
+				kind: "page",
+				entry: "client/home.tsx",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+			},
+			"show-detail": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				entry: "client/show/screen.tsx",
+				automaticEntityPresentations: false,
+			},
 			"show-progress": {
 				kind: "component",
 				entry: "client/show/progress.tsx",

@@ -4,6 +4,7 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/un
 import { AuthMiddleware } from "../../auth-middleware";
 import {
 	ClientPageSessionNotFound,
+	ClientPagePreparationError,
 	ClientPageStalePreparation,
 	ClientRendererBadRequest,
 	ClientRendererMetadata,
@@ -80,10 +81,10 @@ export const ClientPagesGroup = HttpApiGroup.make("clientPages")
 	)
 	.add(
 		HttpApiEndpoint.post("prepare", "/client-pages/prepare", {
-			error: rendererErrors,
 			success: PreparedClientPage,
 			payload: PrepareClientPageBody,
-		}).annotate(OpenApi.Description, "Prepares a saved view client page"),
+			error: [...rendererErrors, ClientPagePreparationError.pipe(HttpApiSchema.status(404))],
+		}).annotate(OpenApi.Description, "Resolves and prepares a client page target"),
 	)
 	.add(
 		HttpApiEndpoint.post("createSession", "/client-pages/sessions", {
