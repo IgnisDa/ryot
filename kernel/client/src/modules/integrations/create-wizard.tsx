@@ -90,10 +90,10 @@ function SettingsStep(props: {
 				<FieldMessage>{props.failureDetail}</FieldMessage>
 			)}
 			<div className="flex flex-col gap-2 sm:flex-row-reverse sm:justify-end">
-				<Button type="button" variant="primary" onClick={props.onContinue} className="sm:px-6">
+				<Button type="button" variant="primary" className="sm:px-6" onClick={props.onContinue}>
 					Continue
 				</Button>
-				<Button type="button" variant="secondary" onClick={props.onBack} className="sm:px-6">
+				<Button type="button" variant="secondary" className="sm:px-6" onClick={props.onBack}>
 					Back
 				</Button>
 			</div>
@@ -184,7 +184,7 @@ export function IntegrationCreateWizard(props: CreateWizardProps) {
 		}
 		setFailure(undefined);
 		try {
-			await create.mutateAsync(createIntegrationBody({ provider, values }));
+			await create.mutateAsync(createIntegrationBody({ values, provider }));
 		} catch (error) {
 			const saveFailure = integrationSaveFailure(error);
 			setFailure(saveFailure);
@@ -241,8 +241,8 @@ export function IntegrationCreateWizard(props: CreateWizardProps) {
 					copy={pickerCopy}
 					state={props.providers}
 					onChoose={chooseProvider}
-					toEntry={integrationProviderEntry}
 					onRetry={props.onRetryProviders}
+					toEntry={integrationProviderEntry}
 					chooseLabel={integrationProviderChooseLabel}
 				/>
 			</>

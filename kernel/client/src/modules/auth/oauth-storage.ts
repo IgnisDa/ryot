@@ -33,10 +33,10 @@ export const oauthTokenKey = (origin: ServerOrigin) => `${OAUTH_TOKEN_PREFIX}${o
 const browserOAuthStorage = (): OAuthStorageAdapter => {
 	const storage = typeof localStorage === "undefined" ? undefined : localStorage;
 	const attempt = <A>(reason: OAuthStorageError["reason"], evaluate: () => A) =>
-		Effect.try({ try: evaluate, catch: (cause) => new OAuthStorageError({ reason, cause }) });
+		Effect.try({ try: evaluate, catch: (cause) => new OAuthStorageError({ cause, reason }) });
 	return {
-		getItem: (key) => attempt("read-failed", () => storage?.getItem(key) ?? null),
 		removeItem: (key) => attempt("write-failed", () => storage?.removeItem(key)),
+		getItem: (key) => attempt("read-failed", () => storage?.getItem(key) ?? null),
 		setItem: (key, value) => attempt("write-failed", () => storage?.setItem(key, value)),
 		keys: attempt("read-failed", () =>
 			Array.from({ length: storage?.length ?? 0 }, (_, index) => storage?.key(index)).filter(
@@ -48,7 +48,7 @@ const browserOAuthStorage = (): OAuthStorageAdapter => {
 
 const secureOAuthStorage = (): OAuthStorageAdapter => {
 	const ready = import("@aparajita/capacitor-secure-storage").then(
-		async ({ KeychainAccess, SecureStorage }) => {
+		async ({ SecureStorage, KeychainAccess }) => {
 			await SecureStorage.setKeyPrefix(SECURE_KEY_PREFIX);
 			await SecureStorage.setSynchronize(false);
 			await SecureStorage.setDefaultKeychainAccess(KeychainAccess.afterFirstUnlockThisDeviceOnly);
@@ -62,7 +62,7 @@ const secureOAuthStorage = (): OAuthStorageAdapter => {
 	) =>
 		Effect.tryPromise({
 			try: () => ready.then(({ plugin }) => operation(plugin)),
-			catch: (cause) => new OAuthStorageError({ reason, cause }),
+			catch: (cause) => new OAuthStorageError({ cause, reason }),
 		});
 	return {
 		keys: attempt("read-failed", (storage) => storage.keys()),
@@ -135,15 +135,6 @@ const makeStorage = (adapter: OAuthStorageAdapter): OAuthStorage["Service"] => {
 					JSON.stringify(pending),
 				);
 			}),
-		getTokenSet: (origin) =>
-			Effect.gen(function* () {
-				const key = oauthTokenKey(origin);
-				const value = yield* readUnverified(key);
-				if (value === undefined || value === null) {
-					return null;
-				}
-				return yield* decodeOrEvict(StoredTokenSet, key, value);
-			}),
 		takePending: (origin, state) =>
 			Effect.gen(function* () {
 				const pending = yield* getPending(origin, state);
@@ -152,6 +143,15 @@ const makeStorage = (adapter: OAuthStorageAdapter): OAuthStorage["Service"] => {
 				}
 				yield* evict(oauthPendingKey(origin, state));
 				return pending;
+			}),
+		getTokenSet: (origin) =>
+			Effect.gen(function* () {
+				const key = oauthTokenKey(origin);
+				const value = yield* readUnverified(key);
+				if (value === undefined || value === null) {
+					return null;
+				}
+				return yield* decodeOrEvict(StoredTokenSet, key, value);
 			}),
 		clearPending: (origin) =>
 			Effect.gen(function* () {

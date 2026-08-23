@@ -35,8 +35,8 @@ type NotificationDeliveryWorkflowInput = Omit<
 
 export const NotificationDeliveryWorkflow = Workflow.make("NotificationDeliveryWorkflow", {
 	error: DbError satisfies DurableSchema,
-	payload: NotificationDeliveryWorkflowPayload satisfies DurableSchema,
 	idempotencyKey: ({ executionId }) => executionId,
+	payload: NotificationDeliveryWorkflowPayload satisfies DurableSchema,
 	success: Schema.Array(NotificationDeliveryResult) satisfies DurableSchema,
 });
 

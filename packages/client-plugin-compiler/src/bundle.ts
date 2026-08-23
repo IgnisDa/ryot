@@ -49,8 +49,8 @@ const toBuildDiagnostic = (
 	message: log.message,
 	code: "RYOT_CLIENT_BUNDLE",
 	file: log.position?.file ?? entry,
-	severity: buildDiagnosticSeverity(log.level),
 	line: Math.max(1, log.position?.line ?? 1),
+	severity: buildDiagnosticSeverity(log.level),
 	column: Math.max(1, log.position?.column ?? 1),
 	...(log.position === null ? {} : { length: log.position.length }),
 });
@@ -207,13 +207,13 @@ export const bundleClientPlugin = (sources: ClientPluginSources, compilerRoot: s
 					{ filter: /^@tanstack\/(?:hotkeys|react-hotkeys|store)$/ },
 					({ path }) => ({ namespace: "file", path: Bun.resolveSync(path, compilerRoot) }),
 				);
-				builder.onResolve({ filter: /^@tanstack\/react-store$/ }, ({ importer, path }) => ({
+				builder.onResolve({ filter: /^@tanstack\/react-store$/ }, ({ path, importer }) => ({
 					namespace: "file",
 					path: Bun.resolveSync(path, importer.slice(0, importer.lastIndexOf("/"))),
 				}));
 				builder.onResolve(
 					{ filter: /^@tanstack\/(?:react-table|table-core(?:\/.*)?)$/ },
-					({ importer, path }) => ({
+					({ path, importer }) => ({
 						namespace: "file",
 						path: Bun.resolveSync(path, importer.slice(0, importer.lastIndexOf("/"))),
 					}),
@@ -274,6 +274,14 @@ export * as SchemaGetter from "effect/SchemaGetter";
 		};
 
 		return Effect.tryPromise({
+			catch: (error) =>
+				clientPluginCompilationFailure([
+					clientPluginCompilerDiagnostic(
+						"RYOT_CLIENT_BUNDLE",
+						sources.entry,
+						`Client plugin bundling failed: ${String(error)}`,
+					),
+				]),
 			try: () =>
 				Bun.build({
 					throw: false,
@@ -287,14 +295,6 @@ export * as SchemaGetter from "effect/SchemaGetter";
 					entrypoints: [CLIENT_ENTRY_SPECIFIER],
 					define: { "process.env.NODE_ENV": '"production"' },
 				}),
-			catch: (error) =>
-				clientPluginCompilationFailure([
-					clientPluginCompilerDiagnostic(
-						"RYOT_CLIENT_BUNDLE",
-						sources.entry,
-						`Client plugin bundling failed: ${String(error)}`,
-					),
-				]),
 		}).pipe(
 			Effect.flatMap((result): Effect.Effect<ClientBundleResult, ClientPluginCompilerFailure> => {
 				if (rejected.length > 0) {

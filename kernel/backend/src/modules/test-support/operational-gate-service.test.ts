@@ -87,7 +87,7 @@ const makeServiceLayer = (
 it.effect("returns a typed error for an invalid plugin workflow target", () => {
 	let enqueueInput: unknown;
 	const layer = makeServiceLayer(
-		{ create: () => Effect.succeed(importRun), update: () => Effect.void },
+		{ update: () => Effect.void, create: () => Effect.succeed(importRun) },
 		{
 			enqueuePluginWorkflow: (input) => {
 				enqueueInput = input;
@@ -138,7 +138,7 @@ it.effect("polls every execution and updates bookkeeping only after all finish",
 				Effect.sync(() => {
 					polledExecutionIds.push(executionId);
 					return terminal
-						? { status: "completed" as const, output: { executionId } }
+						? { output: { executionId }, status: "completed" as const }
 						: { status: "pending" as const };
 				}),
 		},

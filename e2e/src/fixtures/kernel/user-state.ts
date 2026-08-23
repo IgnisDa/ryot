@@ -76,15 +76,6 @@ export const queryUserEntityStateCounts = (input: {
 							const target = table("entity", "target");
 							return aggregate(relationshipTable, {
 								measures: [measure("count", { function: "count" })],
-								where: and(
-									eq(
-										column(relationshipTable, "relationshipSchemaSlug"),
-										literal(relationship.schema),
-									),
-									eq(column(source, "id"), literal(input.entityId)),
-									eq(column(source, "entitySchemaSlug"), literal(relationship.sourceSchema)),
-									eq(column(target, "entitySchemaSlug"), literal(relationship.targetSchema)),
-								),
 								joins: [
 									join(
 										"inner",
@@ -97,6 +88,15 @@ export const queryUserEntityStateCounts = (input: {
 										eq(column(relationshipTable, "targetEntityId"), column(target, "id")),
 									),
 								],
+								where: and(
+									eq(
+										column(relationshipTable, "relationshipSchemaSlug"),
+										literal(relationship.schema),
+									),
+									eq(column(source, "id"), literal(input.entityId)),
+									eq(column(source, "entitySchemaSlug"), literal(relationship.sourceSchema)),
+									eq(column(target, "entitySchemaSlug"), literal(relationship.targetSchema)),
+								),
 							});
 						})(),
 					}),

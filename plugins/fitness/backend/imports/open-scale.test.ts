@@ -17,8 +17,8 @@ describe("adaptOpenScaleCsv", () => {
 		expect(items[0]?.properties.comment).toBe("Morning");
 		expect(items[1]?.properties.comment).toBeNull();
 		expect(items[0]?.properties.statistics).toEqual([
-			{ key: "weight", label: "weight", value: 75 },
-			{ key: "bmi", label: "bmi", value: 22.5 },
+			{ value: 75, key: "weight", label: "weight" },
+			{ key: "bmi", value: 22.5, label: "bmi" },
 		]);
 		expect(new Date(items[0]?.properties.recordedAt ?? "").getTime()).not.toBeNaN();
 	});
@@ -51,7 +51,7 @@ describe("adaptOpenScaleCsv", () => {
 		expect(failures).toHaveLength(0);
 		expect(items).toHaveLength(1);
 		expect(items[0]?.properties.statistics).toEqual([
-			{ key: "weight", label: "weight", value: 80.5 },
+			{ value: 80.5, key: "weight", label: "weight" },
 		]);
 	});
 

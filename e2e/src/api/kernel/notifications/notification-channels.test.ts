@@ -54,7 +54,7 @@ describe("notification channel CRUD", () => {
 			const { client } = yield* createAuthenticatedClient();
 			yield* createNotificationChannel(client, {
 				channel: "apprise",
-				channelSpecifics: { baseUrl: fakeApprise.url, key: "secret-key", kind: "apprise" },
+				channelSpecifics: { kind: "apprise", key: "secret-key", baseUrl: fakeApprise.url },
 			});
 
 			const channels = yield* listNotificationChannels(client);
@@ -70,7 +70,7 @@ describe("notification channel CRUD", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const { id } = yield* createNotificationChannel(client, {
 				channel: "telegram",
-				channelSpecifics: { botToken: "bot-secret", chatId: "1234", kind: "telegram" },
+				channelSpecifics: { chatId: "1234", kind: "telegram", botToken: "bot-secret" },
 			});
 
 			const updated = yield* updateNotificationChannel(client, id, { isDisabled: true });
@@ -99,7 +99,7 @@ describe("notification channel CRUD", () => {
 				),
 			);
 			assertTaggedError(updateError, "NotificationNotFoundError");
-			expect(updateError.reason).toEqual({ code: "channel-not-found", channelId: id });
+			expect(updateError.reason).toEqual({ channelId: id, code: "channel-not-found" });
 
 			const deleteError = yield* Effect.flip(
 				other.client.call((c) =>
@@ -107,7 +107,7 @@ describe("notification channel CRUD", () => {
 				),
 			);
 			assertTaggedError(deleteError, "NotificationNotFoundError");
-			expect(deleteError.reason).toEqual({ code: "channel-not-found", channelId: id });
+			expect(deleteError.reason).toEqual({ channelId: id, code: "channel-not-found" });
 
 			yield* deleteNotificationChannel(owner.client, id);
 			expect(yield* listNotificationChannels(owner.client)).toEqual([]);
@@ -122,7 +122,7 @@ describe("notification channel CRUD", () => {
 					c.notifications.createChannel({
 						payload: {
 							channel: "email",
-							channelSpecifics: { baseUrl: fakeApprise.url, key: "key", kind: "apprise" },
+							channelSpecifics: { key: "key", kind: "apprise", baseUrl: fakeApprise.url },
 						},
 					}),
 				),
@@ -130,8 +130,8 @@ describe("notification channel CRUD", () => {
 			assertTaggedError(mismatch, "NotificationRequestError");
 			expect(mismatch.reason).toEqual({
 				channel: "email",
-				code: "channel-kind-mismatch",
 				specificsKind: "apprise",
+				code: "channel-kind-mismatch",
 			});
 		}),
 	);
@@ -144,11 +144,11 @@ describe("notification channel RyotQL authorization", () => {
 			const other = yield* createAuthenticatedClient();
 			const { id: ownerChannelId } = yield* createNotificationChannel(owner.client, {
 				channel: "push_safer",
-				channelSpecifics: { key: "owner-secret", kind: "push_safer" },
+				channelSpecifics: { kind: "push_safer", key: "owner-secret" },
 			});
 			const { id: otherChannelId } = yield* createNotificationChannel(other.client, {
 				channel: "push_safer",
-				channelSpecifics: { key: "other-secret", kind: "push_safer" },
+				channelSpecifics: { kind: "push_safer", key: "other-secret" },
 			});
 
 			const joinRoot = table("notificationChannel", "joinRoot");
@@ -180,20 +180,6 @@ describe("notification channel RyotQL authorization", () => {
 							field("otherDescription", column(joinedChannel, "description")),
 						],
 					}),
-					craftedInclude: rows(includeRoot, {
-						limit: 100,
-						where: eq(column(includeRoot, "id"), literal(ownerChannelId)),
-						fields: [field("id", column(includeRoot, "id"))],
-						include: [
-							include(includedChannel, {
-								limit: 100,
-								key: "otherChannels",
-								orderBy: [ascending(column(includedChannel, "id"))],
-								fields: [field("id", column(includedChannel, "id"))],
-								where: eq(column(includedChannel, "id"), literal(otherChannelId)),
-							}),
-						],
-					}),
 					correlated: rows(correlatedRoot, {
 						limit: 100,
 						where: eq(column(correlatedRoot, "id"), literal(ownerChannelId)),
@@ -205,6 +191,20 @@ describe("notification channel RyotQL authorization", () => {
 									where: eq(column(correlatedChannel, "id"), literal(otherChannelId)),
 								}),
 							),
+						],
+					}),
+					craftedInclude: rows(includeRoot, {
+						limit: 100,
+						fields: [field("id", column(includeRoot, "id"))],
+						where: eq(column(includeRoot, "id"), literal(ownerChannelId)),
+						include: [
+							include(includedChannel, {
+								limit: 100,
+								key: "otherChannels",
+								orderBy: [ascending(column(includedChannel, "id"))],
+								fields: [field("id", column(includedChannel, "id"))],
+								where: eq(column(includedChannel, "id"), literal(otherChannelId)),
+							}),
 						],
 					}),
 				}),
@@ -247,16 +247,16 @@ describe("notification delivery", () => {
 			const { client } = yield* createAuthenticatedClient();
 			yield* createNotificationChannel(client, {
 				channel: "apprise",
-				channelSpecifics: { baseUrl: fakeApprise.url, key: "success", kind: "apprise" },
+				channelSpecifics: { key: "success", kind: "apprise", baseUrl: fakeApprise.url },
 			});
 			yield* createNotificationChannel(client, {
 				channel: "apprise",
-				channelSpecifics: { baseUrl: fakeApprise.url, key: "fail", kind: "apprise" },
+				channelSpecifics: { key: "fail", kind: "apprise", baseUrl: fakeApprise.url },
 			});
 			yield* createNotificationChannel(client, {
 				isDisabled: true,
 				channel: "apprise",
-				channelSpecifics: { baseUrl: fakeApprise.url, key: "disabled", kind: "apprise" },
+				channelSpecifics: { key: "disabled", kind: "apprise", baseUrl: fakeApprise.url },
 			});
 
 			yield* testNotificationChannels(client);
@@ -272,8 +272,8 @@ describe("notification delivery", () => {
 
 			expect(delivered).toEqual(["/notify/fail", "/notify/success"]);
 			expect(fakeApprise.requests.map((request) => request.body)).toEqual([
-				{ body: "This is a test notification for channel: apprise", title: "Ryot" },
-				{ body: "This is a test notification for channel: apprise", title: "Ryot" },
+				{ title: "Ryot", body: "This is a test notification for channel: apprise" },
+				{ title: "Ryot", body: "This is a test notification for channel: apprise" },
 			]);
 			expect(fakeApprise.requests.some((request) => request.path === "/notify/disabled")).toBe(
 				false,
@@ -294,8 +294,8 @@ describe("notification delivery", () => {
 			});
 
 			const { id: signalId } = yield* pollSignal({
-				schemaSlug: "workout.created",
 				actorUserId: userId,
+				schemaSlug: "workout.created",
 			});
 			const runs = yield* pollTerminalSubscriptionRuns({ signalId, executionUserId: userId });
 			expect(runs.map((run) => run.status)).toEqual(["succeeded"]);

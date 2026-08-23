@@ -35,6 +35,11 @@ describe("config definitions", () => {
 			server: group(
 				{ label: "Server", description: "Server settings" },
 				{
+					enabled: booleanField({
+						label: "Enabled",
+						envKey: "ENABLED",
+						description: "Enable server",
+					}),
 					token: stringField({
 						secret: true,
 						label: "Token",
@@ -48,16 +53,11 @@ describe("config definitions", () => {
 						description: "Server mode",
 						choices: { kind: "static", values: [{ value: "safe" }, { value: "fast" }] },
 					}),
-					enabled: booleanField({
-						label: "Enabled",
-						envKey: "ENABLED",
-						description: "Enable server",
-					}),
 				},
 			),
 		});
 
-		const value = load(definition.config, { TOKEN: "secret", MODE: "safe" });
+		const value = load(definition.config, { MODE: "safe", TOKEN: "secret" });
 		expectTypeOf(value.port).toEqualTypeOf<number>();
 		expectTypeOf(value.server.token).toEqualTypeOf<Redacted.Redacted>();
 		expectTypeOf(value.server.mode).toEqualTypeOf<Option.Option<"safe" | "fast">>();
@@ -67,7 +67,7 @@ describe("config definitions", () => {
 		expect(value.server.enabled).toEqual(Option.none());
 		expect(definition.schema.fields.server).toMatchObject({
 			type: "object",
-			properties: { token: { type: "string", secret: true } },
+			properties: { token: { secret: true, type: "string" } },
 		});
 	});
 

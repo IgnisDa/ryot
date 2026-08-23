@@ -33,9 +33,9 @@ const payload = {
 	externalId: "ext-1",
 	executionId: "exec-1",
 	entitySchemaSlug: "record",
-	properties: { title: "Test Record" },
 	userId: UserId.make("user-1"),
 	entityId: EntityId.make("entity-1"),
+	properties: { title: "Test Record" },
 	providerId: SandboxProviderId.make("provider-1"),
 } satisfies TranslateEntityWorkflowPayload;
 
@@ -93,6 +93,12 @@ it.effect("upserts the translation overlay and publishes an update on success", 
 
 	const options = {
 		publishedMessages,
+		translationsService: makeTranslationsService({
+			upsert: (input) => {
+				upsertedInput = input;
+				return Effect.sync(() => undefined);
+			},
+		}),
 		processSandbox: () =>
 			Effect.succeed({
 				logs: [],
@@ -100,12 +106,6 @@ it.effect("upserts the translation overlay and publishes an update on success", 
 				status: "completed" as const,
 				value: { name: "Libro de Prueba", properties: { title: "Libro de Prueba" } },
 			}),
-		translationsService: makeTranslationsService({
-			upsert: (input) => {
-				upsertedInput = input;
-				return Effect.sync(() => undefined);
-			},
-		}),
 	} satisfies TestLayerOptions;
 
 	return withTestLayer(

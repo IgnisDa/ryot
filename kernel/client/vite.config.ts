@@ -7,17 +7,17 @@ import { defineConfig } from "vite";
 const config = defineConfig((_conf) => {
 	return {
 		resolve: { tsconfigPaths: true },
-		server: {
-			cors: true,
-			allowedHosts: true,
-			proxy: { "/api": { ws: true, changeOrigin: true, target: "http://localhost:3000" } },
-		},
 		plugins: [
 			devtools(),
 			tailwindcss(),
 			tanstackRouter({ target: "react", autoCodeSplitting: true }),
 			viteReact(),
 		],
+		server: {
+			cors: true,
+			allowedHosts: true,
+			proxy: { "/api": { ws: true, changeOrigin: true, target: "http://localhost:3000" } },
+		},
 	};
 });
 

@@ -46,6 +46,7 @@ export const getEntity = (client: Client, entityId: string) =>
 			document({
 				entity: rows(entityTable, {
 					limit: 1,
+					where: eq(column(entityTable, "id"), literal(entityId)),
 					fields: [
 						field("id", column(entityTable, "id")),
 						field("name", column(entityTable, "name")),
@@ -59,7 +60,6 @@ export const getEntity = (client: Client, entityId: string) =>
 						field("populationStatus", column(entityTable, "populationStatus")),
 						field("translationStatus", column(entityTable, "translationStatus")),
 					],
-					where: eq(column(entityTable, "id"), literal(entityId)),
 				}),
 			}),
 		);
@@ -80,8 +80,8 @@ export const getEntity = (client: Client, entityId: string) =>
 		const populatedAt = value === null ? null : requireRyotQLDate(row, "populatedAt");
 		return {
 			populatedAt,
-			externalId: optionalText("externalId"),
 			name: requireRyotQLText(row, "name"),
+			externalId: optionalText("externalId"),
 			createdAt: requireRyotQLDate(row, "createdAt"),
 			updatedAt: requireRyotQLDate(row, "updatedAt"),
 			id: EntityId.make(requireRyotQLText(row, "id")),

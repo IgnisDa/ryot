@@ -84,8 +84,8 @@ export function ShowPeopleSection(props: {
 			title="Cast & crew"
 			divided={props.divided}
 			compact={props.compact}
-			className={props.compact ? undefined : CREDIT_COLUMN_CLASS}
 			sync={showSyncCounts(props.people, showPersonAsset)}
+			className={props.compact ? undefined : CREDIT_COLUMN_CLASS}
 			action={
 				<ShowLinkButton
 					label="View all people"
@@ -150,8 +150,8 @@ export function ShowCompaniesSection(props: {
 			divided={props.divided}
 			compact={props.compact}
 			title="Production companies"
-			className={props.compact ? undefined : COMPANY_COLUMN_CLASS}
 			sync={showSyncCounts(props.companies, showCompanyAsset)}
+			className={props.compact ? undefined : COMPANY_COLUMN_CLASS}
 		>
 			<div className="flex flex-col gap-3.5">
 				{props.companies.map((company) => {
@@ -261,7 +261,7 @@ function ShowOverviewRelations(props: {
 	if (showOverviewIsEmpty(props.overview)) {
 		return null;
 	}
-	const { companies, people, recommendations } = props.overview;
+	const { people, companies, recommendations } = props.overview;
 	const hasCredits = people.items.length > 0 || companies.items.length > 0;
 	return (
 		<>

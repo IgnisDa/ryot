@@ -215,7 +215,7 @@ describe("Episodic lifecycle sessions", () => {
 
 	it.live("assigns the parent show session to import-origin episode progress", () =>
 		Effect.gen(function* () {
-			const { client, token } = yield* createAuthenticatedClient();
+			const { token, client } = yield* createAuthenticatedClient();
 			const { tmdbId, showId, episodeId } = yield* seedGlobalShowEpisodeTree(client, {
 				showName: "Import Episode Session Show",
 			});
@@ -243,7 +243,7 @@ describe("Episodic lifecycle sessions", () => {
 				"application/json",
 			);
 			const created = yield* client.call((c) =>
-				c.imports.createRun({ payload: { source: "watcharr", uploadToken } }),
+				c.imports.createRun({ payload: { uploadToken, source: "watcharr" } }),
 			);
 			const completedRun = yield* pollImportRunUntilTerminal(client, created.id);
 			const progressEvent = yield* waitForEventWithSchema(client, episodeId, "progress");

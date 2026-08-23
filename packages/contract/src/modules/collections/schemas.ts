@@ -11,15 +11,15 @@ import {
 const CollectionBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("circular-membership") }),
 	Schema.Struct({ code: Schema.Literal("membership-event-failed") }),
-	Schema.Struct({ code: Schema.Literal("name-required"), field: Schema.Literal("name") }),
+	Schema.Struct({ field: Schema.Literal("name"), code: Schema.Literal("name-required") }),
 	Schema.Struct({
 		paths: Schema.Array(Schema.Array(Schema.String)),
 		code: Schema.Literal("invalid-collection-properties"),
 	}),
 	Schema.Struct({
+		paths: Schema.Array(Schema.Array(Schema.String)),
 		code: Schema.Literal("invalid-membership-schema"),
 		field: Schema.Literal("membershipPropertiesSchema"),
-		paths: Schema.Array(Schema.Array(Schema.String)),
 	}),
 	Schema.Struct({
 		paths: Schema.Array(Schema.Array(Schema.String)),
@@ -28,8 +28,8 @@ const CollectionBadRequestReason = Schema.Union([
 ]);
 
 const CollectionNotFoundReason = Schema.Union([
-	Schema.Struct({ code: Schema.Literal("collection-not-found"), collectionId: EntityId }),
-	Schema.Struct({ code: Schema.Literal("entity-not-found"), entityId: EntityId }),
+	Schema.Struct({ collectionId: EntityId, code: Schema.Literal("collection-not-found") }),
+	Schema.Struct({ entityId: EntityId, code: Schema.Literal("entity-not-found") }),
 	Schema.Struct({
 		entityId: EntityId,
 		collectionId: EntityId,

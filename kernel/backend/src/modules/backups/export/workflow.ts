@@ -117,7 +117,7 @@ export const ExportBackupWorkflowOperationsLive = Layer.effect(
 								snapshotService
 									.prepareExportSnapshot(payload.userId, eventsPath)
 									.pipe(Effect.provideService(Database, transaction)),
-							{ isolationLevel: "repeatable read", accessMode: "read only" },
+							{ accessMode: "read only", isolationLevel: "repeatable read" },
 						),
 					);
 					yield* repository.updateProgress({ ...payload, progress: 45 });
@@ -137,7 +137,7 @@ export const ExportBackupWorkflowOperationsLive = Layer.effect(
 					for (const asset of [...assetsBySha.values()].sort((a, b) =>
 						a.sha256.localeCompare(b.sha256),
 					)) {
-						const stream = yield* uploads.openObject({ type: asset.provider, key: asset.key });
+						const stream = yield* uploads.openObject({ key: asset.key, type: asset.provider });
 						assets.push({
 							chunks: Stream.toAsyncIterable(stream),
 							metadata: {
@@ -154,7 +154,7 @@ export const ExportBackupWorkflowOperationsLive = Layer.effect(
 					}
 					const provider = yield* uploads.selectStorageProvider("temporary");
 					const key = `temporary/${payload.runId}.zip`;
-					const locator = { type: provider, key } as const;
+					const locator = { key, type: provider } as const;
 					const archive = createArchiveStream({
 						assets,
 						archiveId: payload.runId,
@@ -217,13 +217,13 @@ export const ExportBackupWorkflowOperationsLive = Layer.effect(
 					const committed = run?.status === "completed" || committedArtifact !== null;
 					if (artifact && !committed) {
 						yield* uploads
-							.deleteObject({ type: artifact.provider, key: artifact.key })
+							.deleteObject({ key: artifact.key, type: artifact.provider })
 							.pipe(Effect.ignore);
 					}
 					if (!committed) {
 						yield* repository.failRun({
 							...payload,
-							failure: { code: "unexpected-failure", operation: "export" },
+							failure: { operation: "export", code: "unexpected-failure" },
 						});
 					}
 				}),

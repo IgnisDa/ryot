@@ -35,7 +35,7 @@ const selectLifecycleStatus = (shelves: string[]) => {
 };
 
 export const adaptGoodreadsCsv = (csvText: string) => {
-	const { headers, rows } = parseCsvText(csvText);
+	const { rows, headers } = parseCsvText(csvText);
 	assertRequiredHeaders(headers, ["Title", "ISBN13", "Bookshelves"], "Goodreads");
 	const failures: MediaImportAdapterFailure[] = [];
 	const groupMap = new Map<string, ImportMediaEntityGroupBuilder>();
@@ -144,8 +144,8 @@ export const adaptGoodreadsCsv = (csvText: string) => {
 		}
 	}
 	return {
+		failures,
 		totalItems: rows.length,
 		entityGroups: finalizeEntityGroups(groupMap.values()),
-		failures,
 	};
 };

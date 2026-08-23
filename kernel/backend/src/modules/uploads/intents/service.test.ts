@@ -25,7 +25,7 @@ const user: CurrentUserValue = {
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-id"),
-	preferences: { allowNsfw: false, language: null, disableIntegrations: false },
+	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
 };
 
 const makeRedisClient = (): RedisService["Service"]["client"] =>
@@ -37,15 +37,15 @@ const leaseOwner = "00000000-0000-0000-0000-000000000000" as const;
 
 const makeIntentRecord = (overrides: Record<string, unknown> = {}) =>
 	JSON.stringify({
+		createdAt: 0,
+		expiresAt: 900,
 		userId: user.id,
 		kind: "temporary",
 		provider: "local",
 		state: "completed",
 		fileName: "photo.png",
-		intentId: cleanupIntentId,
-		createdAt: 0,
-		expiresAt: 900,
 		contentType: "image/png",
+		intentId: cleanupIntentId,
 		objectKey: "temporary/object.png",
 		...overrides,
 	});
@@ -62,7 +62,7 @@ it.effect(
 				client: makeRedisClient(),
 				setAndIndex: (key, value, indexKey, score, member) => {
 					stored.set(key, value);
-					indexed.push({ key: indexKey, score, member });
+					indexed.push({ score, member, key: indexKey });
 					return Effect.void;
 				},
 			}),
@@ -134,7 +134,7 @@ it.effect("cleans up an expired upload intent holding only the intent lock", () 
 	const deletedKeys: string[] = [];
 	const removedMembers: string[] = [];
 	const deletedObjects: Array<{ key: string; type: string }> = [];
-	const record = makeIntentRecord({ completion: { token: "upload-token", expiresAt: 900 } });
+	const record = makeIntentRecord({ completion: { expiresAt: 900, token: "upload-token" } });
 	const layer = makeCleanupLayer(
 		{
 			get: () => Effect.succeed(record),
@@ -188,7 +188,7 @@ it.effect("reindexes an intent whose expiry was renewed after selection", () => 
 		state: "claimed",
 		expiresAt: 87_300,
 		claimId: "claim-id",
-		completion: { token: "upload-token", expiresAt: 900 },
+		completion: { expiresAt: 900, token: "upload-token" },
 	});
 	const layer = makeCleanupLayer(
 		{
@@ -196,12 +196,12 @@ it.effect("reindexes an intent whose expiry was renewed after selection", () => 
 			get: () => Effect.succeed(record),
 			acquireLease: () => Effect.succeed(leaseOwner),
 			zrangeByScore: () => Effect.succeed([cleanupIntentId]),
-			zadd: (_key, score, member) => {
-				indexed.push({ score, member });
-				return Effect.void;
-			},
 			zrem: (_key, ...members) => {
 				removedMembers.push(...members);
+				return Effect.void;
+			},
+			zadd: (_key, score, member) => {
+				indexed.push({ score, member });
 				return Effect.void;
 			},
 		},

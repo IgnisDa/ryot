@@ -40,13 +40,13 @@ const sessionPolicyResult = (resolution: EpisodeParentResolution | null) => {
 const assignShowEpisodeSession = (host: AutomationHost, episodeEntityId: string) =>
 	executeRyotqlRecipe(
 		host.executeRyotql,
-		resolveEpisodeParentRecipe({ config: showEpisodicKindConfig, episodeEntityId }),
+		resolveEpisodeParentRecipe({ episodeEntityId, config: showEpisodicKindConfig }),
 	).pipe(Effect.map(sessionPolicyResult));
 
 const assignPodcastEpisodeSession = (host: AutomationHost, episodeEntityId: string) =>
 	executeRyotqlRecipe(
 		host.executeRyotql,
-		resolveEpisodeParentRecipe({ config: podcastEpisodicKindConfig, episodeEntityId }),
+		resolveEpisodeParentRecipe({ episodeEntityId, config: podcastEpisodicKindConfig }),
 	).pipe(Effect.map(sessionPolicyResult));
 
 export default defineAutomationPolicy({

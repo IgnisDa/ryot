@@ -30,9 +30,9 @@ export type SandboxScriptMetadata = Schema.Schema.Type<typeof SandboxScriptMetad
 const SandboxScriptManifestFields = {
 	name: Schema.String,
 	slug: Schema.String,
-	capabilities: Schema.Array(Schema.Literals([...SANDBOX_HOST_CAPABILITIES])),
 	requiredPluginConfigKeys: Schema.Array(Schema.String),
 	requiredSystemConfigKeys: Schema.Array(Schema.String),
+	capabilities: Schema.Array(Schema.Literals([...SANDBOX_HOST_CAPABILITIES])),
 };
 
 export const SandboxScriptManifest = Schema.Union([
@@ -89,8 +89,8 @@ export const SandboxExecutionSubject = Schema.Union([
 		integrationId: Schema.optional(IntegrationId),
 	}),
 	strictStruct({
-		type: Schema.Literal("subscription"),
 		userId: UserId,
+		type: Schema.Literal("subscription"),
 		subscriptionRun: strictStruct({
 			id: SubscriptionRunId,
 			origin: AutomationOrigin,

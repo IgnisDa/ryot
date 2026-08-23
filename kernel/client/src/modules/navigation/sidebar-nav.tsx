@@ -53,7 +53,7 @@ function SidebarRow(props: {
 				props.active ? "bg-nav-indicator" : "hover:bg-surface-2",
 			)}
 		>
-			<AppIcon name={props.item.icon} size={16} className="text-text-muted" />
+			<AppIcon size={16} name={props.item.icon} className="text-text-muted" />
 			<span
 				className={clsx(
 					"min-w-0 flex-1 truncate text-base",
@@ -63,7 +63,7 @@ function SidebarRow(props: {
 				{props.item.name}
 			</span>
 			{props.item.kind !== "home" && (
-				<AppIcon name="chevron-right" size={15} className="text-text-subtle" />
+				<AppIcon size={15} name="chevron-right" className="text-text-subtle" />
 			)}
 		</a>
 	);
@@ -139,7 +139,7 @@ export function SidebarNav(props: SidebarNavProps) {
 				aria-keyshortcuts={props.showSearchShortcut ? KERNEL_SHORTCUTS.commandCenter : undefined}
 				className="flex h-10 items-center gap-2.5 rounded-lg border border-border bg-bg px-2.5 text-left"
 			>
-				<AppIcon name="search" size={16} className="text-text-muted" />
+				<AppIcon size={16} name="search" className="text-text-muted" />
 				<span className="min-w-0 flex-1 text-sm text-text-subtle">Search</span>
 				{props.showSearchShortcut && (
 					<span className="rounded border border-border px-1.5 py-0.5 font-mono text-xs text-text-subtle">

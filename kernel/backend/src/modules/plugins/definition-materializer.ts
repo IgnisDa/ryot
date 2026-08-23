@@ -9,12 +9,12 @@ export class PluginDefinitionMaterializer extends Context.Service<PluginDefiniti
 	{
 		make: Effect.succeed({
 			materialize: (_userId: UserId): Effect.Effect<void, DbError, Database> => Effect.void,
+			removeGenerated: (_pluginInstallationId: string): Effect.Effect<void, DbError, Database> =>
+				Effect.void,
 			hasCustomSavedViewReferences: (
 				_userId: UserId,
 				_pluginInstallationId: string,
 			): Effect.Effect<boolean, DbError, Database> => Effect.succeed(false),
-			removeGenerated: (_pluginInstallationId: string): Effect.Effect<void, DbError, Database> =>
-				Effect.void,
 		}),
 	},
 ) {}

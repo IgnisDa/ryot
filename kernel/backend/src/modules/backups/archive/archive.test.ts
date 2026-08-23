@@ -38,70 +38,70 @@ const savedViewQuery = document({
 });
 const records: ArchiveRecords = {
 	entities: [],
+	integrations: [],
+	relationships: [],
+	privatePlugins: [],
+	entityDependencies: [],
+	notificationSubscriptions: [],
+	profile: { image: null, preferences: {}, name: "Test User" },
+	installations: [
+		{
+			config: {},
+			sortOrder: 0,
+			id: "installation-1",
+			createdAt: timestamp,
+			updatedAt: timestamp,
+			disabledIntent: false,
+			lifecycleIntent: "ready",
+			homeSavedViewId: "view-1",
+			configuredSecretPaths: [],
+			packageKey: `system:fixture:${"a".repeat(64)}`,
+		},
+	],
 	savedViews: [
 		{
 			id: "view-1",
 			icon: "list",
+			sortOrder: 0,
+			kind: "custom",
 			name: "Fixture",
 			slug: "fixture",
 			pluginKey: null,
-			sortOrder: 0,
 			isBuiltin: false,
 			isDisabled: false,
-			kind: "custom",
 			createdAt: timestamp,
 			updatedAt: timestamp,
-			renderer: { kind: "custom", rendererId: "renderer-1" },
-			settings: { heading: "Fixture" },
 			dataSources: savedViewQuery,
+			settings: { heading: "Fixture" },
+			renderer: { kind: "custom", rendererId: "renderer-1" },
 		},
 	],
-	integrations: [],
-	installations: [
-		{
-			id: "installation-1",
-			config: {},
-			sortOrder: 0,
-			disabledIntent: false,
-			createdAt: timestamp,
-			updatedAt: timestamp,
-			homeSavedViewId: "view-1",
-			configuredSecretPaths: [],
-			lifecycleIntent: "ready",
-			packageKey: `system:fixture:${"a".repeat(64)}`,
-		},
-	],
-	relationships: [],
-	privatePlugins: [],
 	clientRenderers: [
 		{
 			id: "renderer-1",
-			slug: "fixture-renderer",
-			name: "Fixture renderer",
+			draftRevision: 2,
 			createdAt: timestamp,
 			updatedAt: timestamp,
-			draftRevision: 2,
 			publishedRevision: 1,
+			slug: "fixture-renderer",
+			name: "Fixture renderer",
 			publishedHash: "published-source-hash",
 			draftDefinition: {
+				pluginDependencies: [],
 				entry: "client/page.tsx",
 				settingsSchema: { fields: {} },
 				automaticEntityPresentations: false,
 				files: [{ path: "client/page.tsx", content: "ZXhwb3J0IGRlZmF1bHQgMQo=" }],
-				pluginDependencies: [],
 			},
 			publishedDefinition: {
+				pluginDependencies: [],
 				entry: "client/page.tsx",
 				settingsSchema: { fields: {} },
 				automaticEntityPresentations: false,
 				files: [{ path: "client/page.tsx", content: "ZXhwb3J0IGRlZmF1bHQgMQo=" }],
-				pluginDependencies: [],
 			},
 		},
 	],
-	entityDependencies: [],
-	notificationSubscriptions: [],
-	profile: { image: null, name: "Test User", preferences: {} },
 };
 
 const input = (overrides: Partial<CreateArchiveInput> = {}): CreateArchiveInput => {
@@ -110,11 +110,11 @@ const input = (overrides: Partial<CreateArchiveInput> = {}): CreateArchiveInput 
 		records,
 		assets: [],
 		redactions: [],
-		requiredPlugins: [{ slug: "fixture", version: "1.0.0", sourceHash: "a".repeat(64) }],
 		createdAt: timestamp,
 		archiveId: "archive-1",
 		appVersion: "backend-v1",
 		events: { ...events, count: 0, chunks: [] },
+		requiredPlugins: [{ slug: "fixture", version: "1.0.0", sourceHash: "a".repeat(64) }],
 		...overrides,
 	};
 };
@@ -226,8 +226,8 @@ const assetInput = () => {
 		asset: {
 			chunks: [payload],
 			metadata: {
-				sha256: measured.sha256,
 				size: measured.bytes,
+				sha256: measured.sha256,
 				contentType: "text/plain",
 				path: `assets/${measured.sha256}`,
 			},
@@ -322,14 +322,14 @@ it.effect("enforces record, entry, and total archive limits", () =>
 	Effect.gen(function* () {
 		const { asset } = assetInput();
 		const archive = yield* archiveBytes(
-			input({ records: { ...records, entities: [entity()] }, assets: [asset] }),
+			input({ assets: [asset], records: { ...records, entities: [entity()] } }),
 		);
 		const cases = [
-			{ limits: { maxRecordsPerSection: 0 }, reason: "count_mismatch" },
+			{ reason: "count_mismatch", limits: { maxRecordsPerSection: 0 } },
 			{ limits: { maxEntryCount: 1 }, reason: "entry_count_exceeded" },
-			{ limits: { maxEntryBytes: 1 }, reason: "entry_too_large" },
-			{ limits: { maxMetadataEntryBytes: 1 }, reason: "entry_too_large" },
-			{ limits: { maxTotalUncompressedBytes: 1 }, reason: "total_size_exceeded" },
+			{ reason: "entry_too_large", limits: { maxEntryBytes: 1 } },
+			{ reason: "entry_too_large", limits: { maxMetadataEntryBytes: 1 } },
+			{ reason: "total_size_exceeded", limits: { maxTotalUncompressedBytes: 1 } },
 		] as const;
 		for (const testCase of cases) {
 			const error = yield* validationError(archive, { limits: testCase.limits });
@@ -341,8 +341,8 @@ it.effect("enforces record, entry, and total archive limits", () =>
 it.effect("rejects section digest and count mismatches including streamed events", () =>
 	Effect.gen(function* () {
 		const populated = input({
-			records: { ...records, entities: [entity()] },
 			events: eventsInput([event()]),
+			records: { ...records, entities: [entity()] },
 		});
 		const boundedDigest = yield* mutateArchive(populated, (files) => {
 			files["entities.ndjson"] = encoder.encode("\n");
@@ -381,7 +381,7 @@ it.effect("rejects section digest and count mismatches including streamed events
 		yield* Effect.gen(function* () {
 			const validated = yield* validateArchive(asChunks(eventCount));
 			const error = yield* Stream.runDrain(validated.events.read()).pipe(Effect.flip);
-			expect(error).toMatchObject({ reason: "count_mismatch", path: "events.ndjson" });
+			expect(error).toMatchObject({ path: "events.ndjson", reason: "count_mismatch" });
 		}).pipe(Effect.scoped, Effect.provide(BunFileSystem.layer));
 	}),
 );
@@ -412,7 +412,7 @@ it.effect("rejects duplicate and missing paths and unsupported compression", () 
 
 it.effect("rejects malformed and truncated bounded and streamed NDJSON", () =>
 	Effect.gen(function* () {
-		for (const { payload, reason } of [
+		for (const { reason, payload } of [
 			{ payload: "not-json\n", reason: "invalid_entry" },
 			{ payload: '{"id":', reason: "truncated_ndjson" },
 		] as const) {
@@ -504,7 +504,7 @@ it.effect("releases the spool directory on success, failure, and interruption", 
 		expect(exit._tag).toBe("Failure");
 		expect(yield* spoolEntries()).toBe(0);
 
-		yield* fs.remove(root, { recursive: true, force: true });
+		yield* fs.remove(root, { force: true, recursive: true });
 	}).pipe(Effect.provide(BunFileSystem.layer)),
 );
 

@@ -157,7 +157,7 @@ BEGIN
 	FROM legacy_users
 	ON CONFLICT ("id") DO NOTHING;
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
-	${buildReportSql("old_user -> user", [{ message: "row(s) migrated", count: "rows_inserted" }])}
+	${buildReportSql("old_user -> user", [{ count: "rows_inserted", message: "row(s) migrated" }])}
 
 	WITH oidc_users AS (
 		SELECT
@@ -202,7 +202,7 @@ BEGIN
 	FROM oidc_users
 	ON CONFLICT ("id") DO NOTHING;
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
-	${buildReportSql("old_user -> account", [{ message: "row(s) migrated", count: "rows_inserted" }])}
+	${buildReportSql("old_user -> account", [{ count: "rows_inserted", message: "row(s) migrated" }])}
 
 	SELECT string_agg(ou.id, ', ' ORDER BY ou.id)
 	INTO missing_oidc_stub_user_ids

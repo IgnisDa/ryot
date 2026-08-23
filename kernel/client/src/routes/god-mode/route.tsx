@@ -19,6 +19,6 @@ export const Route = createFileRoute("/god-mode")({
 });
 
 function GodModeRoute() {
-	const { runtime, server } = Route.useRouteContext();
-	return <GodModeShell runtime={runtime} server={server} />;
+	const { server, runtime } = Route.useRouteContext();
+	return <GodModeShell server={server} runtime={runtime} />;
 }

@@ -52,9 +52,9 @@ const makeLayer = () => {
 				return respond();
 			});
 	const godMode = makeGodModeApi({
-		getMigrationReport: record("getMigrationReport", () => ({ entries: [] })),
-		deleteUser: record("deleteUser", () => operation("delete", "completed")),
 		resetUser: record("resetUser", () => operation("reset", "pending")),
+		deleteUser: record("deleteUser", () => operation("delete", "completed")),
+		getMigrationReport: record("getMigrationReport", () => ({ entries: [] })),
 		resetUserPassword: record("resetUserPassword", () => ({
 			email: resetResult.email,
 			resetUrl: resetResult.resetUrl,
@@ -74,8 +74,8 @@ const makeLayer = () => {
 					name: "Reader",
 					disabledAt: null,
 					twoFactorEnabled: false,
-					email: "reader@example.com",
 					id: UserId.make("user-1"),
+					email: "reader@example.com",
 					authState: "credential" as const,
 					createdAt: "2026-09-01T00:00:00.000Z",
 				},
@@ -85,7 +85,7 @@ const makeLayer = () => {
 	const session = Layer.succeed(GodModeSessionService, sessions);
 	const layer = GodModeService.layer.pipe(Layer.provide(godMode), Layer.provide(session));
 
-	return { calls, layer, requests, sessions, lifecyclePolls: () => lifecyclePolls, resetResult };
+	return { calls, layer, requests, sessions, resetResult, lifecyclePolls: () => lifecyclePolls };
 };
 
 describe("God Mode service", () => {
@@ -109,12 +109,12 @@ describe("God Mode service", () => {
 			expect(fixture.calls).toHaveLength(5);
 			expect(fixture.calls.every((call) => call.token === "admin-secret")).toBe(true);
 			expect(fixture.requests).toEqual([
-				{ name: "listUsers", request: { query: { search: "reader", offset: 10, limit: 25 } } },
+				{ name: "listUsers", request: { query: { limit: 25, offset: 10, search: "reader" } } },
 				{ name: "getMigrationReport" },
 				{ name: "resetUserPassword", request: { params: { userId: "user-1" } } },
 				{
 					name: "setUserDisabled",
-					request: { params: { userId: "user-1" }, payload: { disabled: true } },
+					request: { payload: { disabled: true }, params: { userId: "user-1" } },
 				},
 				{ name: "deleteUser", request: { params: { userId: "user-1" } } },
 			]);

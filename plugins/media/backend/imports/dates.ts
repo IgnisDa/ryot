@@ -75,10 +75,10 @@ const matchFormat = (value: string, format: string) => {
 	}
 	const captured: Captured = {
 		day: "01",
-		offset: null,
-		year: "1970",
 		month: "01",
 		hours: "00",
+		offset: null,
+		year: "1970",
 		minutes: "00",
 		seconds: "00",
 	};

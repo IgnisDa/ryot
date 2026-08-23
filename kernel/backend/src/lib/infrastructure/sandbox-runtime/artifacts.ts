@@ -34,8 +34,8 @@ const materializeBytes = Effect.fn("sandbox.materializeArtifactBytes")(function*
 
 	const path = yield* Path.Path;
 	const temporaryDirectory = yield* fs.makeTempDirectory({
-		prefix: ".ryot-sandbox-artifact-",
 		directory: path.dirname(target),
+		prefix: ".ryot-sandbox-artifact-",
 	});
 	const temporaryPath = path.join(temporaryDirectory, "artifact");
 	yield* fs.writeFile(temporaryPath, bytes);

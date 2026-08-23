@@ -33,8 +33,8 @@ describe("workspace state", () => {
 	it("sorts deterministically by sort order, slug, and installation ID", () => {
 		const catalog = [
 			workspace({ slug: "beta", sortOrder: 1, installationId: "installation-b" }),
-			workspace({ slug: "alpha", sortOrder: 1, installationId: "installation-c" }),
-			workspace({ slug: "alpha", sortOrder: 1, installationId: "installation-a" }),
+			workspace({ sortOrder: 1, slug: "alpha", installationId: "installation-c" }),
+			workspace({ sortOrder: 1, slug: "alpha", installationId: "installation-a" }),
 			workspace({ slug: "zeta", sortOrder: 0, installationId: "installation-z" }),
 		];
 
@@ -54,19 +54,19 @@ describe("workspace state", () => {
 
 	it("filters only disabled workspaces and sorts all other catalog states", () => {
 		const catalog: PluginClientCatalog = [
-			workspace({ slug: "disabled", sortOrder: 0, isDisabled: true }),
-			workspace({ slug: "failed", sortOrder: 3, health: "failed" }),
-			workspace({ slug: "incompatible", sortOrder: 2, health: "incompatible" }),
+			workspace({ sortOrder: 0, slug: "disabled", isDisabled: true }),
+			workspace({ sortOrder: 3, slug: "failed", health: "failed" }),
+			workspace({ sortOrder: 2, slug: "incompatible", health: "incompatible" }),
 		];
 
 		expect(visibleWorkspaces(catalog).map(({ slug }) => slug)).toEqual(["incompatible", "failed"]);
 	});
 
 	it("falls back from a disabled remembered workspace to the first enabled workspace", () => {
-		const first = workspace({ slug: "first", sortOrder: 0 });
+		const first = workspace({ sortOrder: 0, slug: "first" });
 		const catalog = [
-			workspace({ slug: "remembered", sortOrder: -1, isDisabled: true }),
-			workspace({ slug: "second", sortOrder: 1 }),
+			workspace({ sortOrder: -1, isDisabled: true, slug: "remembered" }),
+			workspace({ sortOrder: 1, slug: "second" }),
 			first,
 		];
 

@@ -94,7 +94,7 @@ const mountLogin = (config: ReturnType<typeof systemConfig>) => {
 		),
 	);
 	const router = getRouter(
-		{ runtime, theme, backInterceptors: createBackInterceptors() },
+		{ theme, runtime, backInterceptors: createBackInterceptors() },
 		createMemoryHistory({ initialEntries: ["/oauth/login"] }),
 	);
 	render(<RouterProvider router={router} />);

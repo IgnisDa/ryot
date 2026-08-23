@@ -15,7 +15,7 @@ export type EntityUpdatedMessage = typeof EntityUpdatedMessage.Type;
 export const encodeEntityUpdatedMessage = (
 	entityId: EntityId,
 	reason: EntityUpdatedReason,
-): string => JSON.stringify({ entityId, reason } satisfies EntityUpdatedMessage);
+): string => JSON.stringify({ reason, entityId } satisfies EntityUpdatedMessage);
 
 // Sync decoder for the ioredis message callback (not an Effect context).
 export const decodeEntityUpdatedMessage = Schema.decodeUnknownResult(
@@ -85,8 +85,8 @@ export type EntityInterestClientMessage = typeof EntityInterestClientMessage.Typ
 export const EntityInterestReadyMessage = Schema.Struct({
 	sessionId: Schema.String,
 	maxEntityIds: Schema.Finite,
-	heartbeatIntervalMs: Schema.Finite,
 	type: Schema.Literal("ready"),
+	heartbeatIntervalMs: Schema.Finite,
 });
 export type EntityInterestReadyMessage = typeof EntityInterestReadyMessage.Type;
 

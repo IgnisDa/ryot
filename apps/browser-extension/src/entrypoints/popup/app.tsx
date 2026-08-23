@@ -202,14 +202,14 @@ const App = () => {
 				</div>
 				<button
 					type="button"
+					title="Settings"
 					onClick={() => setCurrentPage("settings")}
 					className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors"
-					title="Settings"
 				>
 					<Settings size={18} />
 				</button>
 			</div>
-			<form onSubmit={(e) => void handleSubmit(e)} className="flex flex-col gap-3">
+			<form className="flex flex-col gap-3" onSubmit={(e) => void handleSubmit(e)}>
 				{formState.status !== "submitted" && (
 					<>
 						<label htmlFor="url-input" className="text-sm font-medium text-gray-600 mb-1">
@@ -219,13 +219,13 @@ const App = () => {
 							type="text"
 							value={url}
 							id="url-input"
-							className={`w-full py-2.5 px-3 border-2 rounded-md text-sm transition-colors box-border focus:outline-none ${formState.error ? "border-red-500 focus:border-red-500" : "border-gray-300 focus:border-blue-600"}`}
+							placeholder="Enter your integration URL"
 							onChange={(e) => {
 								const newUrl = e.target.value;
 								setUrl(newUrl);
 								validateUrl(newUrl);
 							}}
-							placeholder="Enter your integration URL"
+							className={`w-full py-2.5 px-3 border-2 rounded-md text-sm transition-colors box-border focus:outline-none ${formState.error ? "border-red-500 focus:border-red-500" : "border-gray-300 focus:border-blue-600"}`}
 						/>
 						{formState.error && <div className="text-red-500 text-xs mt-1">{formState.error}</div>}
 					</>
@@ -234,8 +234,8 @@ const App = () => {
 					{formState.status !== "submitted" && (
 						<button
 							type="submit"
-							className="flex-2 py-2.5 px-4 bg-blue-600 text-white border-none rounded-md text-sm font-medium cursor-pointer transition-colors hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
 							disabled={formState.status === "submitting" || !url.trim() || !!formState.error}
+							className="flex-2 py-2.5 px-4 bg-blue-600 text-white border-none rounded-md text-sm font-medium cursor-pointer transition-colors hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed"
 						>
 							{formState.status === "submitting" ? "Saving..." : "Submit"}
 						</button>

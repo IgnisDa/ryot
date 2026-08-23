@@ -20,7 +20,7 @@ const resolve = (location: PluginLogicalLocation) => {
 			element: createElement(location.path === "/" ? Home : Detail),
 		};
 	}
-	return { params: {}, header: { title: location.entityId }, element: createElement(Detail) };
+	return { params: {}, element: createElement(Detail), header: { title: location.entityId } };
 };
 
 const routeLocation = (path: string, search = ""): PluginRouteLocation => ({
@@ -145,9 +145,9 @@ describe("presentScreens", () => {
 		}
 		const presented = presentScreens(popped, {
 			from: 0,
+			leaving,
 			kind: "popping",
 			incoming: popped[0]?.key,
-			leaving,
 		});
 
 		expect(presented.map((screenEntry) => screenEntry.role)).toEqual(["active", "leaving"]);

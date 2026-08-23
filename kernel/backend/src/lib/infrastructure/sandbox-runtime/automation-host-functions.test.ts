@@ -80,8 +80,8 @@ it.effect("derives signal subject and identity from the subscription run", () =>
 					origin: input.origin,
 					subjectEntityId: null,
 					schemaSlug: input.schemaSlug,
-					properties: { message: "trace" },
 					id: SignalId.make("signal-1"),
+					properties: { message: "trace" },
 					createdAt: "2026-07-20T10:00:01.000Z",
 					occurredAt: input.occurredAt.toISOString(),
 					signalSchemaSlug: SignalSchemaSlug.make("signal-schema-1"),
@@ -106,7 +106,7 @@ it.effect("derives signal subject and identity from the subscription run", () =>
 			discriminator: "part-item-1",
 			schemaSlug: "review.created",
 			properties: { message: "trace" },
-			principal: { kind: "user", userId },
+			principal: { userId, kind: "user" },
 		});
 		expect(captured?.occurredAt.toISOString()).toBe(occurredAt);
 	}).pipe(Effect.provide(Layer.mergeAll(databaseLayer, signals, notifications)));
@@ -176,7 +176,7 @@ it.effect("returns context failures through the Effect error channel", () => {
 it("exposes automation capabilities only to trusted automation executions", () => {
 	const bound = { emitSignal, sendNotification };
 	const direct = selectSandboxHostFunctions(bound, {
-		principal: selectionPrincipal({ type: "user", userId }, "script", [
+		principal: selectionPrincipal({ userId, type: "user" }, "script", [
 			"emitSignal",
 			"sendNotification",
 		]),
@@ -197,7 +197,7 @@ it("exposes automation capabilities only to trusted automation executions", () =
 it("exposes global writes only to system runs with explicit capabilities", () => {
 	const bound = { upsertGlobalEntities };
 	const user = selectSandboxHostFunctions(bound, {
-		principal: selectionPrincipal({ type: "user", userId }, "script", ["upsertGlobalEntities"]),
+		principal: selectionPrincipal({ userId, type: "user" }, "script", ["upsertGlobalEntities"]),
 	});
 	const subscription = selectSandboxHostFunctions(bound, {
 		principal: selectionPrincipal(runInput.principal.subject, "automation", [
@@ -225,7 +225,7 @@ it("filters user-context and user-only capabilities by subject", () => {
 	const bound = { ensureUserEntities, getUserPreferences };
 	const user = selectSandboxHostFunctions(bound, {
 		principal: {
-			...selectionPrincipal({ type: "user", userId }, "operation", [
+			...selectionPrincipal({ userId, type: "user" }, "operation", [
 				"ensureUserEntities",
 				"getUserPreferences",
 			]),
@@ -253,7 +253,7 @@ it("filters user-context and user-only capabilities by subject", () => {
 it("exposes declared user relationship changes only to user-bound subject", () => {
 	const bound = { changeUserRelationships };
 	const user = selectSandboxHostFunctions(bound, {
-		principal: selectionPrincipal({ type: "user", userId }, "operation", [
+		principal: selectionPrincipal({ userId, type: "user" }, "operation", [
 			"changeUserRelationships",
 		]),
 	});

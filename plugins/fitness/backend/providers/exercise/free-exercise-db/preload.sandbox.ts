@@ -5,10 +5,10 @@ import { preloadExercises, preloadResultSchema } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "script",
+	requiredSystemConfigKeys: [],
 	name: "Free Exercise DB Preload",
 	slug: "exercise.free-exercise-db.preload",
 	requiredPluginConfigKeys: ["exercisePreloadLimit"],
-	requiredSystemConfigKeys: [],
 	capabilities: [
 		"httpCall",
 		"getCachedValue",

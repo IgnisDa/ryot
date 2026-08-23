@@ -34,6 +34,48 @@ export const createKernelRyotClient = (
 ) => {
 	return createRyotClient({
 		theme,
+		watchEntities: (interest, onUpdate) =>
+			runtime.runSync(
+				Effect.map(EntityInterestService, (service) => service.watch(scope, interest, onUpdate)),
+			),
+		uploadTemporary: async (request) => {
+			try {
+				return await runtime.runPromise(temporaryUpload(scope, request));
+			} catch (error) {
+				throw new RyotClientError(classifyTemporaryUploadFailure(error));
+			}
+		},
+		query: async (document, signal) => {
+			try {
+				return await runtime.runPromise(
+					RyotQLApi.pipe(Effect.flatMap((api) => api.execute(scope, { payload: document }))),
+					{ signal },
+				);
+			} catch (error) {
+				if (signal?.aborted) {
+					throw signal.reason;
+				}
+				throw new RyotClientError(classifyRyotQLFailure(error));
+			}
+		},
+		resolveAssets: async (assets, signal) => {
+			try {
+				const response = await runtime.runPromise(
+					UploadsApi.pipe(
+						Effect.flatMap((api) =>
+							api.resolveDownloads(scope, { payload: { assets: [...assets] } }),
+						),
+					),
+					{ signal },
+				);
+				return mapManagedAssetResolutions(scope, response);
+			} catch (error) {
+				if (signal?.aborted) {
+					throw signal.reason;
+				}
+				throw new RyotClientError(classifyManagedAssetFailure(error));
+			}
+		},
 		mutateCollection: async (request) => {
 			try {
 				return await runtime.runPromise(
@@ -57,48 +99,6 @@ export const createKernelRyotClient = (
 				);
 			} catch (error) {
 				throw new RyotClientError(classifyCollectionFailure(error));
-			}
-		},
-		watchEntities: (interest, onUpdate) =>
-			runtime.runSync(
-				Effect.map(EntityInterestService, (service) => service.watch(scope, interest, onUpdate)),
-			),
-		uploadTemporary: async (request) => {
-			try {
-				return await runtime.runPromise(temporaryUpload(scope, request));
-			} catch (error) {
-				throw new RyotClientError(classifyTemporaryUploadFailure(error));
-			}
-		},
-		resolveAssets: async (assets, signal) => {
-			try {
-				const response = await runtime.runPromise(
-					UploadsApi.pipe(
-						Effect.flatMap((api) =>
-							api.resolveDownloads(scope, { payload: { assets: [...assets] } }),
-						),
-					),
-					{ signal },
-				);
-				return mapManagedAssetResolutions(scope, response);
-			} catch (error) {
-				if (signal?.aborted) {
-					throw signal.reason;
-				}
-				throw new RyotClientError(classifyManagedAssetFailure(error));
-			}
-		},
-		query: async (document, signal) => {
-			try {
-				return await runtime.runPromise(
-					RyotQLApi.pipe(Effect.flatMap((api) => api.execute(scope, { payload: document }))),
-					{ signal },
-				);
-			} catch (error) {
-				if (signal?.aborted) {
-					throw signal.reason;
-				}
-				throw new RyotClientError(classifyRyotQLFailure(error));
 			}
 		},
 	});
@@ -130,7 +130,7 @@ export const createKernelRyotClientStore = (
 			const session = {
 				client,
 				runtime: makeRyotRuntime(client),
-				hostServices: { runtime, scope },
+				hostServices: { scope, runtime },
 			};
 			sessions.set(key, session);
 			return session;

@@ -55,9 +55,9 @@ export const loader = async ({ request }: Route.LoaderArgs) => {
 	const isPurchaseInProgress = getPurchaseInProgress(customerDetails.id);
 	return {
 		isCancelling,
-		isPurchaseInProgress,
 		customerDetails,
 		prices: getPrices(),
+		isPurchaseInProgress,
 		renewOn: customerDetails.renewOn,
 		isSandbox: !!serverVariables.PADDLE_SANDBOX,
 		clientToken: serverVariables.PADDLE_CLIENT_TOKEN,
@@ -119,7 +119,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			const emailElement = PurchaseCompleteEmail({
 				planType: customer.planType,
 				renewOn: customer.renewOn ?? undefined,
-				details: { kind: "self_hosted", key: created.key },
+				details: { key: created.key, kind: "self_hosted" },
 			});
 			if (!emailElement) {
 				throw new Error("Failed to create email element");
@@ -354,9 +354,9 @@ export default function Index() {
 										action={withQuery(".", { intent: "generateResetLink" })}
 									>
 										<Button
+											size="sm"
 											type="submit"
 											variant="outline"
-											size="sm"
 											disabled={resetFetcher.state !== "idle"}
 										>
 											{resetFetcher.state !== "idle" ? "Generating..." : "Generate Reset Link"}
@@ -464,7 +464,7 @@ export default function Index() {
 								}
 							}}
 						>
-							<Button variant="outline" type="submit">
+							<Button type="submit" variant="outline">
 								{isCancelLoading ? "Cancelling..." : "Cancel Subscription"}
 							</Button>
 						</fetcher.Form>

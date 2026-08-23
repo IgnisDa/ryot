@@ -22,9 +22,9 @@ export default defineScript({
 	output: MediaImportResolutionActivityResult,
 	run: (input, host, execution) =>
 		resolve.run(input, host, execution).pipe(
-			Effect.map(({ externalId }) => ({ status: "completed" as const, externalId })),
+			Effect.map(({ externalId }) => ({ externalId, status: "completed" as const })),
 			Effect.catch((error) =>
-				Effect.succeed({ status: "failed" as const, message: String(error) }),
+				Effect.succeed({ message: String(error), status: "failed" as const }),
 			),
 		),
 });

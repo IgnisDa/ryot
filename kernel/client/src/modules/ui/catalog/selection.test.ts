@@ -35,7 +35,7 @@ const toEntry = (item: ReturnType<typeof source>): CatalogEntry => ({
 
 const sources = [
 	source({ name: "Netflix", slug: "netflix", pluginSlug: "media" }),
-	source({ name: "Audible", slug: "audible", pluginSlug: "media", isAvailable: false }),
+	source({ name: "Audible", slug: "audible", isAvailable: false, pluginSlug: "media" }),
 	source({ name: "Strava", slug: "strava", pluginSlug: "fitness-tracker" }),
 ];
 

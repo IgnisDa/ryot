@@ -30,7 +30,7 @@ describe("music-group.music-brainz sandbox script", () => {
 		}));
 
 		return Effect.runPromise(
-			runSandboxTestScript(search, { query: "album", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { page: 1, pageSize: 20, query: "album" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([{ externalId: "g1", title: "Album One" }]);
 					expect(result.details).toEqual({ totalItems: 1, nextPage: null });
@@ -48,8 +48,8 @@ describe("music-group.music-brainz sandbox script", () => {
 				return {
 					title: "Album One",
 					"primary-type": "Album",
-					"secondary-types": ["Live"],
 					disambiguation: "deluxe",
+					"secondary-types": ["Live"],
 				};
 			}
 			if (url.includes("/release?")) {
@@ -84,14 +84,14 @@ describe("music-group.music-brainz sandbox script", () => {
 							relationshipSchemaSlug: "music-group-to-music",
 							entities: [
 								{
-									name: "Track One",
 									externalId: "r1",
+									name: "Track One",
 									providerSlug: "music.music-brainz",
 									relationshipProperties: { order: 1 },
 								},
 								{
-									name: "Track Three",
 									externalId: "r3",
+									name: "Track Three",
 									providerSlug: "music.music-brainz",
 									relationshipProperties: { order: 3 },
 								},

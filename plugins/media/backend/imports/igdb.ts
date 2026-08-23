@@ -4,7 +4,7 @@ import { addCollectionMembership, assertRequiredHeaders, finalizeEntityGroups } 
 import type { MediaImportAdapterFailure } from "./schemas";
 
 export const adaptIgdbCsv = (csvText: string, input: { collection: string }) => {
-	const { headers, rows } = parseCsvText(csvText);
+	const { rows, headers } = parseCsvText(csvText);
 	assertRequiredHeaders(headers, ["id", "game"], "IGDB");
 	const failures: MediaImportAdapterFailure[] = [];
 	const groupMap = new Map<string, ImportMediaEntityGroupBuilder>();
@@ -26,16 +26,16 @@ export const adaptIgdbCsv = (csvText: string, input: { collection: string }) => 
 				externalId,
 				sourceLabel,
 				kind: "resolved",
-				providerSlug: "video-game.igdb",
 				entitySchemaSlug: "video-game",
+				providerSlug: "video-game.igdb",
 			},
 			itemIndex,
 		);
 		addCollectionMembership(group, input.collection);
 	}
 	return {
+		failures,
 		totalItems: rows.length,
 		entityGroups: finalizeEntityGroups(groupMap.values()),
-		failures,
 	};
 };

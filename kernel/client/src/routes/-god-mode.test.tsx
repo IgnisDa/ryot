@@ -81,7 +81,7 @@ const makeView = (
 		),
 	);
 	const router = getRouter(
-		{ runtime, theme, backInterceptors: createBackInterceptors() },
+		{ theme, runtime, backInterceptors: createBackInterceptors() },
 		createMemoryHistory({ initialEntries: [path] }),
 	);
 	const view = render(<RouterProvider router={router} />);

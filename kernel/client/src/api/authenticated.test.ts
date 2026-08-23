@@ -7,7 +7,7 @@ import { decodeServerOrigin } from "#/api/origin";
 import { makeRuntimeOAuthClient } from "#/modules/auth/runtime-client";
 import type { OAuthTokenService } from "#/modules/auth/token-service";
 
-const scope = { serverUrl: decodeServerOrigin("https://ryot.example"), userId: "user-1" };
+const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
 const runtimeClient = (isNative: boolean) =>
 	makeRuntimeOAuthClient({
 		isNative: () => isNative,

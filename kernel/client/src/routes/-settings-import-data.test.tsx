@@ -62,8 +62,8 @@ const hevySource: ListedImportSource = {
 	isStartable: true,
 	pluginSlug: "fitness",
 	workflowSlug: "import",
-	requiredPluginConfigKeys: [],
 	missingPluginConfigKeys: [],
+	requiredPluginConfigKeys: [],
 	description: "Import workouts from a Hevy CSV export",
 	exportHelp: { steps: ["Open the Hevy app", "Export your workouts"] },
 	inputSchema: {
@@ -72,7 +72,7 @@ const hevySource: ListedImportSource = {
 			uploadToken: {
 				type: "string",
 				...described("Hevy export"),
-				validation: { required: true, minLength: 1 },
+				validation: { minLength: 1, required: true },
 				format: { kind: "upload", allowedFileExtensions: ["csv"] },
 			},
 		},
@@ -85,8 +85,8 @@ const traktSource: ListedImportSource = {
 	isStartable: true,
 	pluginSlug: "media",
 	workflowSlug: "import",
-	requiredPluginConfigKeys: [],
 	missingPluginConfigKeys: [],
+	requiredPluginConfigKeys: [],
 	description: "Import watched history from a Trakt profile",
 	inputSchema: {
 		unknownKeys: "strict",
@@ -128,10 +128,10 @@ const makeFailure = (overrides: Record<string, unknown> = {}) => ({
 	itemIndex: 4,
 	runId: "run_1",
 	id: "failure_1",
-	sourceLabel: "Bench Press",
-	entitySchemaSlug: "workout",
 	eventSchemaSlug: null,
 	sourceIdentifier: "row-5",
+	sourceLabel: "Bench Press",
+	entitySchemaSlug: "workout",
 	stage: "input_transformation",
 	createdAt: "2026-08-23T11:01:00.000Z",
 	reason: { code: "input-transformation-failed" },
@@ -156,7 +156,7 @@ const decodeRun = (runs: readonly unknown[], failures: readonly unknown[] = [], 
 	Result.getOrThrow(
 		importRunRecipe({ runId: "run_1", failureLimit: FAILURE_LIMIT }).decode({
 			data: {
-				run: rowsResult(runs, { hasMore: false, limit: 2, nextCursor: null }),
+				run: rowsResult(runs, { limit: 2, hasMore: false, nextCursor: null }),
 				failures: rowsResult(failures, {
 					hasMore,
 					limit: FAILURE_LIMIT,
@@ -205,7 +205,7 @@ const mountView = (
 		),
 	);
 	const router = getRouter(
-		{ runtime, theme, backInterceptors: createBackInterceptors() },
+		{ theme, runtime, backInterceptors: createBackInterceptors() },
 		createMemoryHistory({ initialEntries: [initialEntry] }),
 	);
 	const view = render(<RouterProvider router={router} />);
@@ -256,9 +256,9 @@ describe("import data list", () => {
 						decodeRuns([
 							makeRun({
 								progress: 25,
-								status: "running",
 								finishedAt: null,
 								importedItems: 3,
+								status: "running",
 								processedItems: 3,
 							}),
 						]),
@@ -292,7 +292,7 @@ describe("import data list", () => {
 				loadRuns: () =>
 					available
 						? Effect.succeed(decodeRuns([makeRun()]))
-						: Effect.fail(new ImportsLoadError({ cause: new Error("down"), stage: "runs" })),
+						: Effect.fail(new ImportsLoadError({ stage: "runs", cause: new Error("down") })),
 			}),
 		);
 
@@ -413,7 +413,7 @@ describe("import data list", () => {
 			"/settings/import-data",
 			makeImportsApi({
 				listSources: () => Effect.succeed([traktSource]),
-				createRun: () => Effect.fail(startFailure({ code: "invalid-input", field: "username" })),
+				createRun: () => Effect.fail(startFailure({ field: "username", code: "invalid-input" })),
 			}),
 			makeImportsStub({ loadRuns: () => Effect.succeed(decodeRuns([])) }),
 		);
@@ -456,7 +456,7 @@ describe("import run detail", () => {
 				loadRun: () => {
 					loads += 1;
 					return loads === 1
-						? Effect.fail(new ImportsLoadError({ cause: new Error("down"), stage: "run" }))
+						? Effect.fail(new ImportsLoadError({ stage: "run", cause: new Error("down") }))
 						: Effect.succeed(decodeRun([makeRun()]));
 				},
 			}),
@@ -479,7 +479,7 @@ describe("import run detail", () => {
 				loadRun: () => {
 					loads += 1;
 					return loads === 2
-						? Effect.fail(new ImportsLoadError({ cause: new Error("down"), stage: "run" }))
+						? Effect.fail(new ImportsLoadError({ stage: "run", cause: new Error("down") }))
 						: Effect.succeed(decodeRun([makeRun()]));
 				},
 			}),
@@ -579,7 +579,7 @@ describe("import run detail", () => {
 			makeImportsApi({ listSources: () => Effect.succeed([hevySource]) }),
 			makeImportsStub({
 				loadRun: () =>
-					Effect.succeed(decodeRun([makeRun({ status: "running", finishedAt: null })])),
+					Effect.succeed(decodeRun([makeRun({ finishedAt: null, status: "running" })])),
 			}),
 		);
 

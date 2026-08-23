@@ -88,8 +88,8 @@ describe("company.anilist sandbox script", () => {
 				data: {
 					Studio: {
 						id: 1,
-						name: "Studio",
 						siteUrl: null,
+						name: "Studio",
 						media: {
 							pageInfo: { hasNextPage: page === 1 },
 							edges:

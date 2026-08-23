@@ -8,10 +8,10 @@ import { buildLuceneQuery, fetchCoverArtUrl, mbGet } from "../../../lib/vendors/
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "MusicBrainz",
-	slug: "music-group.music-brainz",
+	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	capabilities: ["httpCall"],
+	slug: "music-group.music-brainz",
 });
 
 type OrderedRelatedEntity = {
@@ -183,8 +183,8 @@ export const details = defineProvider({
 			const description = releaseGroupDescription(releaseGroup);
 
 			const browseValue = yield* mbGet(host, "release", {
-				"release-group": input.externalId,
 				limit: "10",
+				"release-group": input.externalId,
 			});
 			const releases = asRecord(browseValue)?.["releases"];
 			const bestRelease = chooseRelease(Array.isArray(releases) ? releases : []);
@@ -210,19 +210,19 @@ export const details = defineProvider({
 				name: title,
 				relatedEntityGroups: [
 					{
+						entities: relatedEntities,
 						direction: "outgoing" as const,
 						synchronization: "authoritative" as const,
-						entities: relatedEntities,
 						relationshipSchemaSlug: "music-group-to-music",
 					},
 				],
 				properties: {
 					description,
 					parts: trackCount > 0 ? trackCount : null,
-					images: coverUrl
-						? [{ type: "remote" as const, url: coverUrl, purpose: "cover" as const }]
-						: [],
 					sourceUrl: `https://musicbrainz.org/release-group/${input.externalId}`,
+					images: coverUrl
+						? [{ url: coverUrl, type: "remote" as const, purpose: "cover" as const }]
+						: [],
 				},
 			};
 		}),

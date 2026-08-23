@@ -23,6 +23,12 @@ export function FileDropZone(props: {
 				stop(event);
 				setDragging(false);
 			}}
+			style={{
+				minWidth: 0,
+				display: "flex",
+				flexDirection: "column",
+				opacity: dragging ? 0.75 : 1,
+			}}
 			onDrop={(event) => {
 				stop(event);
 				setDragging(false);
@@ -30,12 +36,6 @@ export function FileDropZone(props: {
 				if (file !== null) {
 					props.onFileDropped(browserFileCandidate(file));
 				}
-			}}
-			style={{
-				minWidth: 0,
-				display: "flex",
-				flexDirection: "column",
-				opacity: dragging ? 0.75 : 1,
 			}}
 		>
 			{props.children}

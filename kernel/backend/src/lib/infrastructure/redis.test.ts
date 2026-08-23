@@ -65,9 +65,9 @@ describe("import source state", () => {
 			pluginId: "example-plugin-id",
 			uploadIntentIds: ["intent-1"],
 			pluginInstallationId: "example-installation",
+			workflowScriptId: SandboxScriptId.make("script-1"),
 			namedArtifactPaths: { history: "/tmp/history.csv" },
 			sourcePayload: { apiKey: "secret", history: "history" },
-			workflowScriptId: SandboxScriptId.make("script-1"),
 		};
 		const encoded = Schema.encodeSync(ImportSourceStateFromJson)(state);
 

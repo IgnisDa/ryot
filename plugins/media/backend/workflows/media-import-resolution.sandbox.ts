@@ -10,10 +10,10 @@ import {
 export const manifest = defineManifest({
 	kind: "workflow",
 	capabilities: [],
-	name: "Media import resolution",
-	slug: "workflow.media-import-resolution",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
+	name: "Media import resolution",
+	slug: "workflow.media-import-resolution",
 });
 
 export default defineWorkflow({
@@ -31,9 +31,9 @@ export default defineWorkflow({
 					const result = yield* replay.activity(
 						`resolve-${item.index}-${candidateIndex}`,
 						{
+							scriptSlug: candidate.scriptSlug,
 							input: MediaImportResolutionActivityInput,
 							output: MediaImportResolutionActivityResult,
-							scriptSlug: candidate.scriptSlug,
 						},
 						{ value: item.value, identifierType: item.identifierType },
 					);
@@ -49,7 +49,7 @@ export default defineWorkflow({
 				results.push(
 					resolved
 						? { index: item.index, status: "resolved", ...resolved }
-						: { index: item.index, status: "unresolved", errors },
+						: { errors, index: item.index, status: "unresolved" },
 				);
 			}
 			return { results };

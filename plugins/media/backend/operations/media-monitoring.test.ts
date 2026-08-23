@@ -11,23 +11,23 @@ import statusDefinition, { manifest as statusManifest } from "./media-monitoring
 
 const target = (entityId: string, monitoringLibraryId: string | null = null) => ({
 	entityId,
+	entitySchemaSlug: "movie",
 	externalId: `external-${entityId}`,
 	providerId: `provider-${entityId}`,
-	entitySchemaSlug: "movie",
 	monitoringLibraries: {
-		items: monitoringLibraryId ? [{ libraryEntityId: monitoringLibraryId }] : [],
 		pageInfo: { limit: 1, hasMore: false },
+		items: monitoringLibraryId ? [{ libraryEntityId: monitoringLibraryId }] : [],
 	},
 });
 const rows = (items: unknown[]) => ({
 	data: {
-		targets: { type: "rows", items, pageInfo: { hasMore: false, limit: 50, nextCursor: null } },
+		targets: { items, type: "rows", pageInfo: { limit: 50, hasMore: false, nextCursor: null } },
 	},
 });
 
 const libraryRows = (items: unknown[]) => ({
 	data: {
-		library: { type: "rows", items, pageInfo: { hasMore: false, limit: 1, nextCursor: null } },
+		library: { items, type: "rows", pageInfo: { limit: 1, hasMore: false, nextCursor: null } },
 	},
 });
 
@@ -53,9 +53,9 @@ describe("media monitoring operations", () => {
 			),
 		).resolves.toEqual({
 			results: [
-				{ entityId: "entity-a", status: "found", isMediaMonitored: true },
-				{ entityId: "missing", status: "notFound" },
-				{ entityId: "entity-a", status: "found", isMediaMonitored: true },
+				{ status: "found", entityId: "entity-a", isMediaMonitored: true },
+				{ status: "notFound", entityId: "missing" },
+				{ status: "found", entityId: "entity-a", isMediaMonitored: true },
 			],
 		});
 		expect(documents).toHaveLength(1);
@@ -63,8 +63,8 @@ describe("media monitoring operations", () => {
 		expect(documents[0]).toMatchObject({
 			queries: {
 				targets: {
-					from: { table: "entity", alias: "entity" },
 					where: { type: "and" },
+					from: { table: "entity", alias: "entity" },
 					output: {
 						type: "rows",
 						pagination: { limit: 3 },
@@ -93,6 +93,11 @@ describe("media monitoring operations", () => {
 		const changes: unknown[] = [];
 		const documents: unknown[] = [];
 		const host = defineSandboxTestHost(enableManifest, {
+			changeUserRelationships: (batches) =>
+				Effect.sync(() => {
+					changes.push(batches);
+					return [{ created: 2, deleted: 0 }];
+				}),
 			executeRyotql: (document) =>
 				Effect.sync(() => {
 					documents.push(document);
@@ -100,11 +105,6 @@ describe("media monitoring operations", () => {
 					return "library" in query.queries
 						? libraryRows([{ entityId: "library-1" }])
 						: rows([target("entity-a")]);
-				}),
-			changeUserRelationships: (batches) =>
-				Effect.sync(() => {
-					changes.push(batches);
-					return [{ created: 2, deleted: 0 }];
 				}),
 		});
 
@@ -119,8 +119,8 @@ describe("media monitoring operations", () => {
 			),
 		).resolves.toEqual({
 			results: [
-				{ entityId: "entity-a", status: "found", isMediaMonitored: true },
-				{ entityId: "missing", status: "notFound" },
+				{ status: "found", entityId: "entity-a", isMediaMonitored: true },
+				{ status: "notFound", entityId: "missing" },
 			],
 		});
 		expect(changes).toEqual([
@@ -174,9 +174,9 @@ describe("media monitoring operations", () => {
 			),
 		).resolves.toEqual({
 			results: [
-				{ entityId: "entity-a", status: "found", isMediaMonitored: false },
-				{ entityId: "entity-b", status: "found", isMediaMonitored: false },
-				{ entityId: "missing", status: "notFound" },
+				{ status: "found", entityId: "entity-a", isMediaMonitored: false },
+				{ status: "found", entityId: "entity-b", isMediaMonitored: false },
+				{ status: "notFound", entityId: "missing" },
 			],
 		});
 		expect(changes).toEqual([
@@ -206,14 +206,14 @@ describe("media monitoring operations", () => {
 		expect(
 			Schema.decodeUnknownSync(MediaMonitoringOutput)({
 				results: [
-					{ entityId: "entity-a", status: "found", isMediaMonitored: true },
-					{ entityId: "missing", status: "notFound" },
+					{ status: "found", entityId: "entity-a", isMediaMonitored: true },
+					{ status: "notFound", entityId: "missing" },
 				],
 			}),
 		).toEqual({
 			results: [
-				{ entityId: "entity-a", status: "found", isMediaMonitored: true },
-				{ entityId: "missing", status: "notFound" },
+				{ status: "found", entityId: "entity-a", isMediaMonitored: true },
+				{ status: "notFound", entityId: "missing" },
 			],
 		});
 	});

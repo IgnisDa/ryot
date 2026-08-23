@@ -57,7 +57,7 @@ describe("book.google-books sandbox script", () => {
 			});
 		});
 		return Effect.runPromise(
-			runSandboxTestScript(search, { query: "g", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { page: 1, query: "g", pageSize: 20 }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{ title: "G Book", metadata: [2010], externalId: "g1", imageUrl: "https://img/t.jpg" },
@@ -121,7 +121,7 @@ describe("book.google-books sandbox script", () => {
 					publishedDate: "2010-06-01",
 					mainCategory: "Best Seller",
 					categories: ["Fiction / Fantasy"],
-					imageLinks: { thumbnail: "https://img/t.jpg", small: "https://img/s.jpg" },
+					imageLinks: { small: "https://img/s.jpg", thumbnail: "https://img/t.jpg" },
 				},
 			}),
 		);
@@ -137,11 +137,11 @@ describe("book.google-books sandbox script", () => {
 						sourceUrl: "https://www.google.co.in/books/edition/G Book/g1",
 						unlinkedCreators: [
 							{ role: "Author", name: "Author A" },
-							{ role: "Publisher", name: "Pub" },
+							{ name: "Pub", role: "Publisher" },
 						],
 						images: [
-							{ type: "remote", url: "https://img/t.jpg", purpose: "cover" },
-							{ type: "remote", url: "https://img/s.jpg", purpose: "cover" },
+							{ type: "remote", purpose: "cover", url: "https://img/t.jpg" },
+							{ type: "remote", purpose: "cover", url: "https://img/s.jpg" },
 						],
 					});
 					return undefined;

@@ -24,6 +24,7 @@ export const pokemonPresentationRecipe = defineRecipe((entityIds: readonly strin
 	const pokemon = table("entity", "pokemonPresentation");
 	const property = (key: string) => jsonPath(column(pokemon, "properties"), key);
 	return {
+		map: ({ pokemon: rows }) => Result.succeed(rows.items),
 		queries: {
 			pokemon: selectedRows(pokemon, {
 				limit: 100,
@@ -36,17 +37,16 @@ export const pokemonPresentationRecipe = defineRecipe((entityIds: readonly strin
 					),
 				),
 				selection: {
+					id: selectedField(column(pokemon, "id"), Schema.String),
+					name: selectedField(column(pokemon, "name"), Schema.String),
 					types: selectedField(property("types"), PokemonStringsSchema),
 					height: selectedField(property("height"), PokemonNumberSchema),
 					weight: selectedField(property("weight"), PokemonNumberSchema),
-					id: selectedField(column(pokemon, "id"), Schema.String),
 					artwork: selectedField(property("images"), PokemonArtworkListSchema),
 					abilities: selectedField(property("abilities"), PokemonStringsSchema),
-					name: selectedField(column(pokemon, "name"), Schema.String),
 				},
 			}),
 		},
-		map: ({ pokemon: rows }) => Result.succeed(rows.items),
 	};
 });
 

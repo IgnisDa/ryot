@@ -68,8 +68,8 @@ const toRecord = (row: NotificationChannelRow): NotificationChannelRecord => {
 };
 
 const toListed = ({
-	channelSpecifics: _channelSpecifics,
 	userId: _userId,
+	channelSpecifics: _channelSpecifics,
 	...record
 }: NotificationChannelRecord) => record;
 

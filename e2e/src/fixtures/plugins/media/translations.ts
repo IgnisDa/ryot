@@ -29,8 +29,8 @@ export const seedPopulatedProviderEntity = (input: {
 			name: input.name,
 			externalId: input.externalId,
 			properties: input.properties,
-			entitySchemaSlug: input.entitySchemaSlug,
 			providerId: input.providerId,
+			entitySchemaSlug: input.entitySchemaSlug,
 		});
 		yield* markEntityPopulated(seeded.id);
 

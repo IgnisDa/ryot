@@ -19,8 +19,8 @@ export const S3AssetLocator = Schema.Struct({ key: Schema.String, type: Schema.L
 export type S3AssetLocator = typeof S3AssetLocator.Type;
 
 export const RemoteAssetLocator = Schema.Struct({
-	type: Schema.Literal("remote"),
 	url: Schema.String,
+	type: Schema.Literal("remote"),
 });
 export type RemoteAssetLocator = typeof RemoteAssetLocator.Type;
 
@@ -77,14 +77,14 @@ export const UploadFailureReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("token-already-claimed") }),
 	Schema.Struct({ code: Schema.Literal("asset-metadata-mismatch") }),
 	Schema.Struct({ code: Schema.Literal("invalid-download-target") }),
-	Schema.Struct({ code: Schema.Literal("intent-busy"), intentId: Schema.String }),
-	Schema.Struct({ code: Schema.Literal("intent-invalid"), intentId: Schema.String }),
-	Schema.Struct({ code: Schema.Literal("object-missing"), intentId: Schema.String }),
-	Schema.Struct({ code: Schema.Literal("intent-expired"), intentId: Schema.String }),
-	Schema.Struct({ code: Schema.Literal("intent-forbidden"), intentId: Schema.String }),
-	Schema.Struct({ code: Schema.Literal("intent-provider-mismatch"), intentId: Schema.String }),
-	Schema.Struct({ code: Schema.Literal("unsupported-file-type"), contentType: Schema.String }),
-	Schema.Struct({ code: Schema.Literal("unsupported-file-extension"), extension: Schema.String }),
+	Schema.Struct({ intentId: Schema.String, code: Schema.Literal("intent-busy") }),
+	Schema.Struct({ intentId: Schema.String, code: Schema.Literal("intent-invalid") }),
+	Schema.Struct({ intentId: Schema.String, code: Schema.Literal("object-missing") }),
+	Schema.Struct({ intentId: Schema.String, code: Schema.Literal("intent-expired") }),
+	Schema.Struct({ intentId: Schema.String, code: Schema.Literal("intent-forbidden") }),
+	Schema.Struct({ intentId: Schema.String, code: Schema.Literal("intent-provider-mismatch") }),
+	Schema.Struct({ contentType: Schema.String, code: Schema.Literal("unsupported-file-type") }),
+	Schema.Struct({ extension: Schema.String, code: Schema.Literal("unsupported-file-extension") }),
 	Schema.Struct({
 		code: Schema.Literal("asset-metadata-invalid"),
 		field: Schema.Literals(["key", "sha256", "size"]),
@@ -95,8 +95,8 @@ export const UploadFailureReason = Schema.Union([
 	}),
 	Schema.Struct({
 		maxBytes: Schema.Number,
-		actualBytes: Schema.NullOr(Schema.Number),
 		code: Schema.Literal("upload-too-large"),
+		actualBytes: Schema.NullOr(Schema.Number),
 	}),
 	Schema.Struct({
 		expected: Schema.String,

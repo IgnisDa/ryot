@@ -74,8 +74,8 @@ BEGIN
 
 	GET DIAGNOSTICS events_inserted = ROW_COUNT;
 	${buildReportSql("collection_to_entity -> relationship", [
-		{ message: "relationship(s) migrated", count: "relationships_inserted" },
-		{ message: "add event(s) migrated", count: "events_inserted" },
+		{ count: "relationships_inserted", message: "relationship(s) migrated" },
+		{ count: "events_inserted", message: "add event(s) migrated" },
 	])}
 END $$;
 `;
@@ -155,7 +155,7 @@ BEGIN
 	ON CONFLICT DO NOTHING;
 
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
-	${buildReportSql("Monitoring collection -> media-monitoring", [{ message: "relationship(s) migrated", count: "rows_inserted" }])}
+	${buildReportSql("Monitoring collection -> media-monitoring", [{ count: "rows_inserted", message: "relationship(s) migrated" }])}
 END $$;
 `;
 
@@ -191,7 +191,7 @@ BEGIN
 		AND rel.user_id = coll.user_id;
 
 	GET DIAGNOSTICS rows_updated = ROW_COUNT;
-	${buildReportSql("Owned collection -> in-library ownership", [{ message: "relationship(s) updated", count: "rows_updated" }])}
+	${buildReportSql("Owned collection -> in-library ownership", [{ count: "rows_updated", message: "relationship(s) updated" }])}
 END $$;
 `;
 
@@ -334,6 +334,6 @@ BEGIN
 	ON CONFLICT ("id") DO NOTHING;
 
 	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
-	${buildReportSql("collection -> entity", [{ message: "row(s) migrated", count: "rows_inserted" }])}
+	${buildReportSql("collection -> entity", [{ count: "rows_inserted", message: "row(s) migrated" }])}
 END $$;
 `;

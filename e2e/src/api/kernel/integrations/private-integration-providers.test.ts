@@ -52,7 +52,7 @@ describe("private integration providers", () => {
 			expect(outsiderProviders.map(({ slug }) => slug)).not.toContain(plugin.providerSlug);
 
 			const created = yield* scopedIntegration(owner.client, plugin.providerSlug);
-			expect(created).toMatchObject({ provider: plugin.providerSlug, isDisabled: false });
+			expect(created).toMatchObject({ isDisabled: false, provider: plugin.providerSlug });
 			expect((yield* listIntegrations(owner.client)).map(({ id }) => id)).toContain(created.id);
 			expect(
 				(yield* invokePrivateIntegrationOperation({

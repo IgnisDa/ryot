@@ -24,8 +24,8 @@ export const finalizeIntegrationRun = Effect.fn("integrationsWorker.finalizeInte
 		}
 
 		const lastRuns = yield* repository.listRecentStatusesByIntegrationId({
-			integrationId: integration.id,
 			limit: 5,
+			integrationId: integration.id,
 		});
 		if (lastRuns.length < 5 || lastRuns.some((candidate) => candidate.status !== "failed")) {
 			return false;

@@ -26,7 +26,7 @@ import {
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
 
-const kodiPayload = { identifier: "tt1234567", lot: "movie", progress: 50 };
+const kodiPayload = { lot: "movie", progress: 50, identifier: "tt1234567" };
 
 describe("Integration CRUD", () => {
 	it.live("lists integration providers with server-owned form schemas", () =>
@@ -131,7 +131,7 @@ describe("Integration CRUD", () => {
 			);
 
 			assertTaggedError(error, "IntegrationRequestError");
-			expect(error.reason).toEqual({ code: "invalid-provider-settings", provider: "emby" });
+			expect(error.reason).toEqual({ provider: "emby", code: "invalid-provider-settings" });
 		}),
 	);
 
@@ -385,7 +385,7 @@ describe("Webhook routes", () => {
 			);
 
 			assertTaggedError(error, "IntegrationRequestError");
-			expect(error.reason).toMatchObject({ code: "wrong-integration-lot", expected: "sink" });
+			expect(error.reason).toMatchObject({ expected: "sink", code: "wrong-integration-lot" });
 		}),
 	);
 });

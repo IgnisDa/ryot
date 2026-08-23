@@ -20,7 +20,7 @@ const user = {
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-id"),
-	preferences: { allowNsfw: false, language: null, disableIntegrations: false },
+	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
 } satisfies CurrentUserValue;
 
 const mockEventsRepository = Layer.mock(EventsRepository);
@@ -86,7 +86,7 @@ it.effect("awaits API event creation and returns the workflow outcomes", () => {
 				return Effect.succeed({
 					count: 1,
 					failure: null,
-					outcomes: [{ index: 0, eventId: EventId.make("event-1"), status: "written" }],
+					outcomes: [{ index: 0, status: "written", eventId: EventId.make("event-1") }],
 				});
 			},
 		}),
@@ -100,8 +100,8 @@ it.effect("awaits API event creation and returns the workflow outcomes", () => {
 			payload: [
 				{
 					properties: { rating: 5 },
-					occurredAt: "2026-01-01T00:00:00.000Z",
 					entityId: EntityId.make("entity-1"),
+					occurredAt: "2026-01-01T00:00:00.000Z",
 					eventSchemaSlug: EventSchemaSlug.make("event-schema-1"),
 				},
 			],
@@ -110,7 +110,7 @@ it.effect("awaits API event creation and returns the workflow outcomes", () => {
 		expect(result).toEqual({
 			count: 1,
 			failure: null,
-			outcomes: [{ index: 0, eventId: EventId.make("event-1"), status: "written" }],
+			outcomes: [{ index: 0, status: "written", eventId: EventId.make("event-1") }],
 		});
 		expect(capturedOptions).toMatchObject({
 			payload: {
@@ -119,8 +119,8 @@ it.effect("awaits API event creation and returns the workflow outcomes", () => {
 				payload: [
 					{
 						properties: { rating: 5 },
-						occurredAt: "2026-01-01T00:00:00.000Z",
 						entityId: EntityId.make("entity-1"),
+						occurredAt: "2026-01-01T00:00:00.000Z",
 						eventSchemaSlug: EventSchemaSlug.make("event-schema-1"),
 					},
 				],
@@ -141,7 +141,7 @@ it.effect("marks sandbox-created events with the creating automation execution",
 		workflowEngine: makeWorkflowEngine({
 			execute: (_workflow, options) => {
 				capturedOptions = options;
-				return Effect.succeed({ count: 0, failure: null, outcomes: [] });
+				return Effect.succeed({ count: 0, outcomes: [], failure: null });
 			},
 		}),
 	});
@@ -180,7 +180,7 @@ it.effect("awaits the durable import event-create path with its deterministic ex
 				return Effect.succeed({
 					count: 1,
 					failure: null,
-					outcomes: [{ index: 0, eventId: EventId.make("event-1"), status: "written" }],
+					outcomes: [{ index: 0, status: "written", eventId: EventId.make("event-1") }],
 				});
 			},
 		}),

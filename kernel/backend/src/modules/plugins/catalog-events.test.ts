@@ -114,8 +114,8 @@ it.effect("routes Redis invalidations by user and refreshes all streams after re
 	let rebuilds = 0;
 	const redisSubscriber = Object.assign(Object.create(Redis.prototype), {
 		on: () => redisSubscriber,
-		removeAllListeners: () => redisSubscriber,
 		quit: () => Promise.resolve("OK"),
+		removeAllListeners: () => redisSubscriber,
 		subscribe: () => {
 			subscriptions += 1;
 			return Promise.resolve(2);
@@ -129,9 +129,9 @@ it.effect("routes Redis invalidations by user and refreshes all streams after re
 		PluginCatalogHub.layer,
 		Layer.succeed(RedisService, makeRedisService({ client })),
 		Layer.mock(PluginIngestionService)({
+			reconcile: () => Effect.succeed(false),
 			rebuild: () =>
 				Effect.sync(() => void (rebuilds += 1)).pipe(Effect.andThen(Effect.die("rebuilt"))),
-			reconcile: () => Effect.succeed(false),
 		}),
 	);
 

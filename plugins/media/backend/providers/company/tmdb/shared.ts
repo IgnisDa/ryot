@@ -9,9 +9,9 @@ export const manifest = defineManifest({
 	name: "TMDB",
 	kind: "provider",
 	slug: "company.tmdb",
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["tmdbAccessToken"],
-	requiredSystemConfigKeys: [],
 });
 
 export const search = defineProvider({
@@ -55,7 +55,7 @@ export const search = defineProvider({
 });
 
 const discoverCompanyResults = (host: TmdbHost, path: string, externalId: string, token: string) =>
-	tmdbGet(host, path, { language: "en-US", page: "1", with_companies: externalId }, token).pipe(
+	tmdbGet(host, path, { page: "1", language: "en-US", with_companies: externalId }, token).pipe(
 		Effect.flatMap((firstPage) => {
 			const totalPagesValue = numberValue(firstPage["total_pages"]);
 			const totalPages = totalPagesValue === null ? 1 : Math.max(1, Math.trunc(totalPagesValue));
@@ -103,8 +103,8 @@ const productionEntities = (
 			{
 				providerSlug: options.providerSlug,
 				externalId: String(Math.trunc(id)),
-				relationshipProperties: { roles: ["Production Company"] },
 				name: stringValue(item[options.nameKey]) ?? "Loading...",
+				relationshipProperties: { roles: ["Production Company"] },
 			},
 		];
 	});
@@ -138,6 +138,18 @@ export const details = defineProvider({
 					const logo = getImageUrl(companyData["logo_path"]);
 					return {
 						name,
+						properties: {
+							alternateNames: [],
+							website: stringValue(companyData["homepage"]),
+							description: stringValue(companyData["description"]),
+							sourceUrl: `https://www.themoviedb.org/company/${input.externalId}`,
+							images: logo
+								? [{ url: logo, type: "remote" as const, purpose: "logo" as const }]
+								: [],
+							headquarters:
+								stringValue(companyData["headquarters"]) ??
+								stringValue(companyData["origin_country"]),
+						},
 						relatedEntityGroups: [
 							{
 								direction: "outgoing" as const,
@@ -155,18 +167,6 @@ export const details = defineProvider({
 								entities: productionEntities(shows, { nameKey: "name", providerSlug: "show.tmdb" }),
 							},
 						],
-						properties: {
-							alternateNames: [],
-							website: stringValue(companyData["homepage"]),
-							description: stringValue(companyData["description"]),
-							sourceUrl: `https://www.themoviedb.org/company/${input.externalId}`,
-							images: logo
-								? [{ type: "remote" as const, url: logo, purpose: "logo" as const }]
-								: [],
-							headquarters:
-								stringValue(companyData["headquarters"]) ??
-								stringValue(companyData["origin_country"]),
-						},
 					};
 				}),
 			);

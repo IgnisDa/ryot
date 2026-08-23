@@ -46,7 +46,7 @@ describe("video-game.giant-bomb sandbox script", () => {
 			});
 		});
 		return Effect.runPromise(
-			runSandboxTestScript(search, { query: "game", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { page: 1, pageSize: 20, query: "game" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result).toMatchObject({
 						details: { totalItems: 1, nextPage: null },

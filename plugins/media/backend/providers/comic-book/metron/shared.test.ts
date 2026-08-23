@@ -60,7 +60,7 @@ describe("comic-book.metron sandbox script", () => {
 		return Effect.runPromise(
 			runSandboxTestScript(
 				search,
-				{ query: "series", page: 1, pageSize: 20 },
+				{ page: 1, pageSize: 20, query: "series" },
 				host,
 				execution,
 			).pipe(
@@ -134,8 +134,8 @@ describe("comic-book.metron sandbox script", () => {
 			if (url.includes("/issue/1/")) {
 				return httpSuccess({
 					id: 1,
-					number: "5",
 					arcs: [],
+					number: "5",
 					series: { id: 10, name: "Saga" },
 					credits: [
 						{ id: 7, creator: "Jane Doe", role: [{ name: "Writer" }] },
@@ -155,8 +155,8 @@ describe("comic-book.metron sandbox script", () => {
 					);
 					expect(people?.entities).toEqual([
 						{
-							name: "Jane Doe",
 							externalId: "7",
+							name: "Jane Doe",
 							providerSlug: "person.metron",
 							relationshipProperties: { roles: ["Writer", "Artist"] },
 						},

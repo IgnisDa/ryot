@@ -24,7 +24,7 @@ const state = {
 	uploadIntentIds: ["intent-1"],
 	pluginInstallationId: "example-installation",
 	namedArtifactPaths: { file: "/tmp/export.csv" },
-	sourcePayload: { apiKey: "secret", file: "file" },
+	sourcePayload: { file: "file", apiKey: "secret" },
 	workflowScriptId: SandboxScriptId.make("script-1"),
 };
 
@@ -34,21 +34,21 @@ it.effect("stores, claims, and deletes import source state with bounded lifecycl
 	let claimInput: { key: string; claimKey: string; ttlSeconds: number } | undefined;
 	const redis = makeRedisService({
 		set: (key, value, ttlSeconds) => Effect.sync(() => void (pending = { key, value, ttlSeconds })),
-		claim: (key, claimKey, ttlSeconds) =>
-			Effect.sync(() => {
-				claimInput = { key, claimKey, ttlSeconds };
-				return pending?.value ?? null;
-			}),
 		del: (...keys) =>
 			Effect.sync(() => {
 				deleted.push([...keys]);
 				return keys.length;
 			}),
+		claim: (key, claimKey, ttlSeconds) =>
+			Effect.sync(() => {
+				claimInput = { key, claimKey, ttlSeconds };
+				return pending?.value ?? null;
+			}),
 	});
 	const layer = Layer.succeed(RedisService, redis);
 
 	return Effect.gen(function* () {
-		yield* storeImportSourceState({ stateId: "state-1", state });
+		yield* storeImportSourceState({ state, stateId: "state-1" });
 		expect(pending).toMatchObject({
 			key: redisKeys.importSourceState("state-1"),
 			ttlSeconds: IMPORT_SOURCE_STATE_PENDING_TTL_SECONDS,

@@ -34,8 +34,8 @@ const fromAvailablePlugins = (
 				pluginSlug: plugin.slug,
 				pluginScope: plugin.scope,
 				installationId: plugin.installationId,
-				configContext: pluginConfigContextFor(plugin),
 				configSchema: plugin.manifest.configSchema,
+				configContext: pluginConfigContextFor(plugin),
 			})),
 		)
 		.sort(

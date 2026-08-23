@@ -17,15 +17,15 @@ const session = (initial: AuthSessionSnapshot): AuthSessionStore => {
 
 const authenticated: AuthSessionSnapshot = {
 	status: "authenticated",
-	user: { id: "user-1", image: null, name: "Ada Lovelace", email: "ada@ryot.example" },
+	user: { image: null, id: "user-1", name: "Ada Lovelace", email: "ada@ryot.example" },
 };
 
 describe("account summary", () => {
 	it("shows the current session name, email, and avatar", () => {
 		render(
 			<AccountSummary
-				active={false}
 				isPro={false}
+				active={false}
 				onNavigate={() => undefined}
 				session={session({
 					status: "authenticated",
@@ -63,8 +63,8 @@ describe("account summary", () => {
 	it("leaves the account avatar plain on a community instance", () => {
 		render(
 			<AccountSummary
-				active={false}
 				isPro={false}
+				active={false}
 				onNavigate={() => undefined}
 				session={session(authenticated)}
 			/>,

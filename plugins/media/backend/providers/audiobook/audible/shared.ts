@@ -14,8 +14,8 @@ import {
 } from "../../../lib/vendors/audible";
 
 export const manifest = defineManifest({
-	kind: "provider",
 	name: "Audible",
+	kind: "provider",
 	slug: "audiobook.audible",
 	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
@@ -91,9 +91,9 @@ export const search = defineProvider({
 	run: (input, host) => {
 		const params = new URLSearchParams({
 			title: input.query,
+			page: String(input.page - 1),
 			products_sort_by: "Relevance",
 			num_results: String(input.pageSize),
-			page: String(input.page - 1),
 			response_groups: "media,product_attrs",
 		});
 		return audibleFetchJson(
@@ -168,8 +168,8 @@ const collectContributors = (
 		const asin = trimmedString(record["asin"]);
 		if (asin) {
 			accumulator.add({
-				name: relatedName,
 				externalId: asin,
+				name: relatedName,
 				providerSlug: "person.audible",
 				relationshipProperties: { roles: [role] },
 			});
@@ -249,6 +249,22 @@ export const details = defineProvider({
 
 			return {
 				name: title,
+				properties: {
+					unlinkedCreators,
+					providerRating: providerRatingValue(rating),
+					genres: collectGenres(product["category_ladders"]),
+					runtime: runtime === null ? null : Math.trunc(runtime),
+					publishYear: parseReleaseYear(product["release_date"]),
+					publishDate: parseReleaseDate(product["release_date"]),
+					isNsfw: typeof rawIsNsfw === "boolean" ? rawIsNsfw : null,
+					sourceUrl: `https://www.audible.com/pd/${input.externalId}`,
+					images: imageUrl
+						? [{ url: imageUrl, type: "remote" as const, purpose: "cover" as const }]
+						: [],
+					description: cleanHtmlDescription(
+						product["publisher_summary"] ?? product["merchandising_summary"] ?? null,
+					),
+				},
 				relatedEntityGroups: [
 					{
 						direction: "incoming" as const,
@@ -273,22 +289,6 @@ export const details = defineProvider({
 						relationshipSchemaSlug: "media-suggestion",
 					},
 				],
-				properties: {
-					runtime: runtime === null ? null : Math.trunc(runtime),
-					unlinkedCreators,
-					genres: collectGenres(product["category_ladders"]),
-					providerRating: providerRatingValue(rating),
-					publishYear: parseReleaseYear(product["release_date"]),
-					publishDate: parseReleaseDate(product["release_date"]),
-					sourceUrl: `https://www.audible.com/pd/${input.externalId}`,
-					isNsfw: typeof rawIsNsfw === "boolean" ? rawIsNsfw : null,
-					images: imageUrl
-						? [{ type: "remote" as const, url: imageUrl, purpose: "cover" as const }]
-						: [],
-					description: cleanHtmlDescription(
-						product["publisher_summary"] ?? product["merchandising_summary"] ?? null,
-					),
-				},
 			};
 		});
 	},

@@ -4,7 +4,7 @@ import { buildReorderedIds } from "./reorder";
 
 describe("buildReorderedIds", () => {
 	it("preserves the order of the requested ids", () => {
-		const result = buildReorderedIds({ currentIds: ["a", "b", "c"], requestedIds: ["c", "a"] });
+		const result = buildReorderedIds({ requestedIds: ["c", "a"], currentIds: ["a", "b", "c"] });
 		expect(result).toEqual(["c", "a", "b"]);
 	});
 
@@ -14,7 +14,7 @@ describe("buildReorderedIds", () => {
 	});
 
 	it("appends current ids not present in the request", () => {
-		const result = buildReorderedIds({ currentIds: ["a", "b", "c"], requestedIds: ["b"] });
+		const result = buildReorderedIds({ requestedIds: ["b"], currentIds: ["a", "b", "c"] });
 		expect(result).toEqual(["b", "a", "c"]);
 	});
 
@@ -24,7 +24,7 @@ describe("buildReorderedIds", () => {
 	});
 
 	it("returns all current ids as trailing when request is empty", () => {
-		const result = buildReorderedIds({ currentIds: ["a", "b", "c"], requestedIds: [] });
+		const result = buildReorderedIds({ requestedIds: [], currentIds: ["a", "b", "c"] });
 		expect(result).toEqual(["a", "b", "c"]);
 	});
 

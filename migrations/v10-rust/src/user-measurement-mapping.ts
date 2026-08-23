@@ -83,6 +83,6 @@ BEGIN
 		cursor_ts         := next_cursor_ts;
 	END LOOP;
 
-	${buildReportSql("user_measurement -> entity", [{ message: "row(s) migrated total", count: "rows_inserted" }])}
+	${buildReportSql("user_measurement -> entity", [{ count: "rows_inserted", message: "row(s) migrated total" }])}
 END $$;
 `;

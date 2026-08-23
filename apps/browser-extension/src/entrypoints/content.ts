@@ -69,7 +69,7 @@ async function sendProgressUpdate(progressData: RawMediaData, metadata: Metadata
 	try {
 		await browser.runtime.sendMessage({
 			type: MESSAGE_TYPES.SEND_PROGRESS_DATA,
-			data: { rawData: progressData, metadata },
+			data: { metadata, rawData: progressData },
 		});
 	} catch (error) {
 		logger.error("Failed to send progress update", { error });
@@ -317,8 +317,8 @@ export default defineContentScript({
 			// oxlint-disable-next-line typescript/no-unnecessary-condition -- document.body can be null at document_start despite the non-null lib.dom.d.ts type
 			if (document.body) {
 				observer.observe(document.body, {
-					childList: true,
 					subtree: true,
+					childList: true,
 					attributes: true,
 					attributeFilter: ["src", "currentSrc"],
 				});

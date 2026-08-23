@@ -54,10 +54,10 @@ export function reconcileStack(
 		return { stack: [screen], transition: "reset" };
 	}
 	if (incoming.key === top.key) {
-		return { stack: [...stack.slice(0, -1), screen], transition: "same" };
+		return { transition: "same", stack: [...stack.slice(0, -1), screen] };
 	}
 	if (incoming.index === top.index) {
-		return { stack: [...stack.slice(0, -1), screen], transition: "replace" };
+		return { transition: "replace", stack: [...stack.slice(0, -1), screen] };
 	}
 	if (incoming.index === top.index + 1) {
 		const pushed = [...stack, screen];
@@ -70,7 +70,7 @@ export function reconcileStack(
 		(entry) => entry.index === incoming.index && entry.key === incoming.key,
 	);
 	if (retained !== -1 && incoming.index < top.index) {
-		return { stack: stack.slice(0, retained + 1), transition: "pop" };
+		return { transition: "pop", stack: stack.slice(0, retained + 1) };
 	}
 	return { stack: [screen], transition: "reset" };
 }

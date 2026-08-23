@@ -51,8 +51,8 @@ beforeAll(async () => {
 			extraEnv: {
 				FILE_STORAGE_S3_URL: "",
 				FILE_STORAGE_S3_REGION: "",
-				FILE_STORAGE_S3_ACCESS_KEY_ID: "",
 				FILE_STORAGE_S3_BUCKET_NAME: "",
+				FILE_STORAGE_S3_ACCESS_KEY_ID: "",
 				FILE_STORAGE_S3_SECRET_ACCESS_KEY: "",
 			},
 		}),
@@ -79,7 +79,7 @@ const uploadAndComplete = (
 	Effect.gen(function* () {
 		const { client } = yield* createAuthenticatedClient(apiUrl);
 		const intent = yield* client.call((c) =>
-			c.uploads.createIntent({ payload: { kind: "permanent", fileName, contentType } }),
+			c.uploads.createIntent({ payload: { fileName, contentType, kind: "permanent" } }),
 		);
 		const uploadResponse = yield* Effect.promise(() =>
 			fetch(new URL(intent.uploadUrl, `${apiUrl}/`), {

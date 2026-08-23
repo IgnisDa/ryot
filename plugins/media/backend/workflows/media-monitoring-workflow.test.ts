@@ -33,10 +33,10 @@ const completeReplay = async (
 };
 
 const target = (index: number) => ({
+	entitySchemaSlug: "movie",
 	entityId: `entity-${index}`,
 	externalId: `external-${index}`,
 	providerId: `provider-${index}`,
-	entitySchemaSlug: "movie",
 });
 
 type DurableRequest = WorkflowReplayEnvelope["requests"][number];
@@ -64,7 +64,7 @@ it("deduplicates paged targets and orchestrates bounded provider refresh batches
 		if (request.kind === "activity") {
 			return request.name === "targets-0"
 				? { items: firstPage, nextCursor: "targets-cursor" }
-				: { items: secondPage, nextCursor: null };
+				: { nextCursor: null, items: secondPage };
 		}
 		return [];
 	});
@@ -75,7 +75,7 @@ it("deduplicates paged targets and orchestrates bounded provider refresh batches
 	);
 	expect(activities.map(({ args, name }) => ({ name, input: args.input }))).toEqual([
 		{ name: "targets-0", input: { limit: 100 } },
-		{ name: "targets-1", input: { after: "targets-cursor", limit: 100 } },
+		{ name: "targets-1", input: { limit: 100, after: "targets-cursor" } },
 	]);
 	const children = result.requests.filter(
 		(request): request is ChildRequest => request.kind === "child",

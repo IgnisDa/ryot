@@ -13,5 +13,5 @@ export const toIntegrationWorkflowError = (cause: unknown) =>
 
 export const failRun = (name: string, runId: ImportRunId, reason: ImportRunFailureReason) => {
 	const failEffect = failImportRun(runId, reason).pipe(Effect.mapError(toIntegrationWorkflowError));
-	return Activity.make({ name, error: IntegrationRunError, execute: failEffect });
+	return Activity.make({ name, execute: failEffect, error: IntegrationRunError });
 };

@@ -28,17 +28,17 @@ export const showSummaryRow = {
 	genres: ["Drama", "Crime"],
 	description: "A four-part limited series.",
 	collections: {
-		pageInfo: { hasMore: false, limit: 6 },
-		items: [{ id: "collection-1", name: "Completed" }],
+		pageInfo: { limit: 6, hasMore: false },
+		items: [{ name: "Completed", id: "collection-1" }],
 	},
 	images: [
-		{ type: "remote", url: "https://images.test/backdrop.jpg", purpose: "backdrop" },
-		{ type: "remote", url: "https://images.test/cover.jpg", purpose: "cover" },
+		{ type: "remote", purpose: "backdrop", url: "https://images.test/backdrop.jpg" },
+		{ type: "remote", purpose: "cover", url: "https://images.test/cover.jpg" },
 	],
 };
 
 const singleRow = (items: readonly unknown[]) =>
-	rowsResult(items, { hasMore: false, limit: 1, nextCursor: null });
+	rowsResult(items, { limit: 1, hasMore: false, nextCursor: null });
 
 export const decodeShowSummaryResult = (input: {
 	readonly show: readonly Record<string, unknown>[];
@@ -46,7 +46,7 @@ export const decodeShowSummaryResult = (input: {
 }) =>
 	Result.getOrThrow(
 		showSummaryFixtureRecipe.decode({
-			data: { requested: singleRow(input.requested), show: singleRow(input.show) },
+			data: { show: singleRow(input.show), requested: singleRow(input.requested) },
 		}),
 	);
 

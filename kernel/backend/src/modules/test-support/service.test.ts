@@ -36,9 +36,9 @@ const storedSandboxScript = {
 	id: scriptId,
 	name: "Script",
 	slug: "script",
+	compiledFormat: 1,
 	source: "export default {}",
 	compiledCode: "export default {}",
-	compiledFormat: 1,
 	metadata: { kind: "script" as const },
 };
 
@@ -78,7 +78,7 @@ const makeServiceLayer = (
 				mockSandbox({ ...overrides.sandbox }),
 				mockPluginCrons({
 					trigger: (pluginSlug, cronSlug) =>
-						Effect.succeed({ status: "notFound" as const, cronSlug, pluginSlug }),
+						Effect.succeed({ cronSlug, pluginSlug, status: "notFound" as const }),
 					...overrides.pluginCrons,
 				}),
 				mockPluginBoots({ trigger: () => Effect.void, ...overrides.pluginBoots }),
@@ -102,8 +102,8 @@ it.effect("updates populatedAt without changing entity fields", () => {
 		name: "Entity",
 		entitySchemaSlug,
 		externalId: null,
-		populatedAt: null,
 		providerId: null,
+		populatedAt: null,
 		createdAt: populatedAt,
 		updatedAt: populatedAt,
 		properties: { title: "Entity" },
@@ -208,14 +208,14 @@ it.effect("delegates sandbox execution with the explicit executing user", () => 
 			enqueue: (userId, payload) =>
 				Effect.sync(() => {
 					enqueueInput = { userId, payload };
-					return { executionId: "execution-id", jobId: "job-id" };
+					return { jobId: "job-id", executionId: "execution-id" };
 				}),
 		},
 	});
 
 	return Effect.gen(function* () {
 		const service = yield* TestSupportService;
-		expect(yield* service.enqueueSandbox({ executingUserId, scriptId })).toEqual({
+		expect(yield* service.enqueueSandbox({ scriptId, executingUserId })).toEqual({
 			jobId: "job-id",
 			executionId: "execution-id",
 		});
@@ -230,7 +230,7 @@ it.effect("brands provider IDs in stored sandbox script responses", () => {
 			getStoredScript: () => Effect.succeed({ ...storedSandboxScript, providerId }),
 			listStoredScripts: Effect.succeed([
 				{ ...storedSandboxScript, providerId },
-				{ ...storedSandboxScript, id: SandboxScriptId.make("standalone-id"), providerId: null },
+				{ ...storedSandboxScript, providerId: null, id: SandboxScriptId.make("standalone-id") },
 			]),
 		},
 	});
@@ -243,7 +243,7 @@ it.effect("brands provider IDs in stored sandbox script responses", () => {
 		});
 		expect(yield* service.listSandboxScripts()).toEqual([
 			{ ...storedSandboxScript, providerId: SandboxProviderId.make(providerId) },
-			{ ...storedSandboxScript, id: SandboxScriptId.make("standalone-id"), providerId: null },
+			{ ...storedSandboxScript, providerId: null, id: SandboxScriptId.make("standalone-id") },
 		]);
 	}).pipe(Effect.provide(layer));
 });
