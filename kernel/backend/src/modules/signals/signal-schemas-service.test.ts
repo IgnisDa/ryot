@@ -64,9 +64,8 @@ const makeLayer = (
 	relationshipSchemasRepository = makeRelationshipSchemasRepository(),
 ) =>
 	SignalSchemasService.layer.pipe(
-		Layer.provide(
-			Layer.mergeAll(databaseLayer, signalSchemasRepository, relationshipSchemasRepository),
-		),
+		Layer.provide(Layer.mergeAll(signalSchemasRepository, relationshipSchemasRepository)),
+		Layer.provideMerge(databaseLayer),
 	);
 
 it.effect("inserts a missing built-in signal schema", () => {

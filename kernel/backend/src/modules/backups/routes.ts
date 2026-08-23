@@ -22,20 +22,6 @@ export const BackupsRoutesLive = HttpApiBuilder.group(AppContract, "backups", (h
 				return yield* service.createRestore(user, payload);
 			}),
 		)
-		.handle("listRuns", () =>
-			Effect.gen(function* () {
-				const user = yield* CurrentUser;
-				const service = yield* BackupsService;
-				return yield* service.listRuns(user);
-			}),
-		)
-		.handle("getRun", ({ params }) =>
-			Effect.gen(function* () {
-				const user = yield* CurrentUser;
-				const service = yield* BackupsService;
-				return yield* service.getRun(user, params.id);
-			}),
-		)
 		.handleRaw("downloadRun", ({ params }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;

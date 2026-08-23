@@ -13,6 +13,7 @@ import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import {
@@ -155,7 +156,11 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 	{
 		make: Effect.gen(function* () {
 			const pluginRuntime = yield* PluginRuntimeResolver;
+			const definitions = yield* DefinitionRepository;
 			const lockSchemaCatalog = pluginRuntime.lockCatalog;
+			const findUserEntitySchema = Effect.fn(function* (userId: UserId, slug: EntitySchemaSlug) {
+				return (yield* definitions.findUserEntitySchemas(userId, [slug]))[slug] ?? null;
+			});
 			const lockProviderEntityMutations = Effect.fn(
 				"EntitiesRepository.lockProviderEntityMutations",
 			)(function* (inputs: ReadonlyArray<ProviderEntityMutationLockInput>) {
@@ -187,8 +192,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const listMatchCandidatesBySchema = Effect.fn(
 				"EntitiesRepository.listMatchCandidatesBySchema",
 			)(function* (input: { userId: UserId; entitySchemaSlug: EntitySchemaSlug }) {
-				const effective = yield* pluginRuntime.getEffectiveDefinitions(input.userId);
-				const definition = effective.entitySchemas[input.entitySchemaSlug];
+				const definition = yield* findUserEntitySchema(input.userId, input.entitySchemaSlug);
 				if (!definition) {
 					return [];
 				}
@@ -340,8 +344,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			}) => Effect.Effect<EntitySchemaScope | null, DbError, Database> = Effect.fn(
 				"EntitiesRepository.findEntitySchemaForUser",
 			)(function* (input: { userId: UserId; entitySchemaSlug: EntitySchemaSlug }) {
-				const effectiveDefinitions = yield* pluginRuntime.getEffectiveDefinitions(input.userId);
-				const definition = effectiveDefinitions.entitySchemas[input.entitySchemaSlug];
+				const definition = yield* findUserEntitySchema(input.userId, input.entitySchemaSlug);
 				const scope: EntitySchemaScope | null = definition
 					? {
 							userId: null,
@@ -358,8 +361,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const findUserEntityWithoutProvenance = Effect.fn(
 				"EntitiesRepository.findUserEntityWithoutProvenance",
 			)(function* (input: { userId: UserId; entitySchemaSlug: EntitySchemaSlug }) {
-				const effective = yield* pluginRuntime.getEffectiveDefinitions(input.userId);
-				const definition = effective.entitySchemas[input.entitySchemaSlug];
+				const definition = yield* findUserEntitySchema(input.userId, input.entitySchemaSlug);
 				if (!definition) {
 					return null;
 				}
@@ -385,12 +387,15 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 
 			const lockUserEntityEnsureScopes = Effect.fn("EntitiesRepository.lockUserEntityEnsureScopes")(
 				function* (input: { userId: UserId; entitySchemaSlugs: ReadonlyArray<EntitySchemaSlug> }) {
-					const effective = yield* pluginRuntime.getEffectiveDefinitions(input.userId);
+					const effective = yield* definitions.findUserEntitySchemas(
+						input.userId,
+						input.entitySchemaSlugs,
+					);
 					const db = yield* Database;
 					const scopes = [
 						...new Map(
 							input.entitySchemaSlugs.flatMap((entitySchemaSlug) => {
-								const definition = effective.entitySchemas[entitySchemaSlug];
+								const definition = effective[entitySchemaSlug];
 								if (!definition) {
 									return [];
 								}
@@ -666,9 +671,8 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			});
 
 			const findSystemEntitySchemaById = (entitySchemaSlug: EntitySchemaSlug) =>
-				pluginRuntime.getGlobalDefinitions().pipe(
-					Effect.map((definitions) => {
-						const definition = definitions.entitySchemas[entitySchemaSlug];
+				definitions.findGlobalEntitySchema(entitySchemaSlug).pipe(
+					Effect.map((definition) => {
 						return definition
 							? {
 									slug: definition.slug,

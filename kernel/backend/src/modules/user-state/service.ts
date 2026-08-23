@@ -23,6 +23,7 @@ import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { trimToNull } from "#lib/shared/validation";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
 import {
@@ -30,7 +31,6 @@ import {
 	type PreparedEventDelete,
 	type PreparedEventUpdate,
 } from "#modules/events/service";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import type {
 	PreparedUserRelationshipCreate,
 	PreparedUserRelationshipDelete,
@@ -60,7 +60,7 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 		const eventsRepository = yield* EventsRepository;
 		const events = yield* EventsService;
 		const relationships = yield* RelationshipsService;
-		const pluginRuntime = yield* PluginRuntimeResolver;
+		const definitions = yield* DefinitionRepository;
 		const entitiesRepository = yield* EntitiesRepository;
 		const relationshipsRepository = yield* RelationshipsRepository;
 		const provideMutation = <A, E>(
@@ -179,8 +179,9 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 				});
 			}
 
-			const definitions = yield* pluginRuntime.getEffectiveDefinitions(user.id).pipe(Effect.orDie);
-			const entitySchema = definitions.entitySchemas[scope.entitySchemaSlug];
+			const entitySchema = (yield* definitions
+				.findUserEntitySchemas(user.id, [scope.entitySchemaSlug])
+				.pipe(Effect.orDie))[scope.entitySchemaSlug];
 			if (entitySchema?.userState?.deniedOperations.includes("clear")) {
 				return yield* new UserStateBadRequest({
 					reason: { operation: "clear", code: "operation-denied" },
@@ -293,9 +294,11 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 					reason: { code: "entity-not-found", entityIds: [mergeFrom, mergeInto] },
 				});
 			}
-			const definitions = yield* pluginRuntime.getEffectiveDefinitions(user.id).pipe(Effect.orDie);
-			const fromEntitySchema = definitions.entitySchemas[fromScope.entitySchemaSlug];
-			const intoEntitySchema = definitions.entitySchemas[intoScope.entitySchemaSlug];
+			const entitySchemas = yield* definitions
+				.findUserEntitySchemas(user.id, [fromScope.entitySchemaSlug, intoScope.entitySchemaSlug])
+				.pipe(Effect.orDie);
+			const fromEntitySchema = entitySchemas[fromScope.entitySchemaSlug];
+			const intoEntitySchema = entitySchemas[intoScope.entitySchemaSlug];
 			if (
 				fromEntitySchema?.userState?.deniedOperations.includes("merge") ||
 				intoEntitySchema?.userState?.deniedOperations.includes("merge")

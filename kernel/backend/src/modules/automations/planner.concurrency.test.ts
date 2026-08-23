@@ -12,12 +12,11 @@ import { assert, describe } from "vitest";
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, DatabaseLive, setLocalStatementTimeout } from "#lib/infrastructure/db/service";
-import { PluginEnvironmentConfig } from "#lib/infrastructure/plugin-environment-config";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
 import { makeRecordingTracer } from "#lib/test-utils/tracer";
 import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
-import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { PluginConfigRevisions } from "#modules/plugins/config-revisions";
 import { PluginRepository } from "#modules/plugins/repository";
 import { fixtureManifest } from "#modules/plugins/test-support";
@@ -60,8 +59,7 @@ const withPlannerSchema = <A, E, R>(body: (harness: PlannerHarness) => Effect.Ef
 	const dependencies = Layer.mergeAll(
 		PluginRepository.layer,
 		PluginConfigRevisions.layer,
-		PluginEnvironmentConfig.layer,
-		Layer.succeed(DefinitionRegistry, makeDefinitionRegistry(kernelDefinitionSource())),
+		DefinitionRepository.layer,
 	);
 	const services = LifecyclePlannerLive.pipe(
 		Layer.provideMerge(dependencies),
@@ -104,6 +102,7 @@ const seedCatalog = (ddl: string) =>
 				version: "1.0.0",
 				id: "fixture-revision",
 				sourceHash: "fixture-source",
+				clientConfigSchema: { fields: {} },
 				manifest: { ...fixtureManifest(), hooks: [], scripts: [], signalSchemas: [] },
 			});
 		yield* tx
@@ -152,6 +151,9 @@ describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 						yield* tx
 							.insert(tables.user)
 							.values({ id: "owner", name: "Owner", preferences: {}, email: "owner@example.test" });
+						yield* (yield* DefinitionRepository.make).replaceKernelDefinitions(
+							kernelDefinitionSource(),
+						);
 						yield* tx
 							.insert(tables.notificationSubscription)
 							.values({ userId: "owner", signalSchemaSlug: "integration.disabled" });
@@ -328,9 +330,9 @@ describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 					Effect.withTracer(makeRecordingTracer(single)),
 				);
 				const counted = (spans: ReadonlyArray<Tracer.Span>) => ({
-					catalog: statements(spans, 'from "plugin"'),
 					exclusive: statements(spans, "pg_advisory_xact_lock("),
 					shared: statements(spans, "pg_advisory_xact_lock_shared("),
+					catalog: statements(spans, 'from "plugin"') + statements(spans, 'from "user_plugin"'),
 				});
 				// The ingestion key plus the one `plugin-config:` key, the two `lockCatalog` selects plus
 				// the one `catalog` select, and the per-trigger `automation-root:` lock as the control.

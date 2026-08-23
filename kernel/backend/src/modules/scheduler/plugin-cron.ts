@@ -6,11 +6,8 @@ import { Cause, Clock, Context, Cron, Duration, Effect, Result, Layer } from "ef
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
-import { PluginLoader } from "#modules/plugins/loader";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { SandboxScriptWorkflow } from "#modules/sandbox/sandbox-script-workflow";
-
-type ActivePluginCron = { readonly cron: PluginCron; readonly pluginSlug: string };
 
 type PluginCronTarget = {
 	readonly cronSlug: string;
@@ -40,20 +37,8 @@ export const privatePluginCronExecutionId = (
 export class PluginCronService extends Context.Service<PluginCronService>()("PluginCronService", {
 	make: Effect.gen(function* () {
 		const config = yield* AppConfig;
-		const loader = yield* PluginLoader;
 		const engine = yield* WorkflowEngine;
 		const runtime = yield* PluginRuntimeResolver;
-
-		const list = (): ReadonlyArray<ActivePluginCron> =>
-			Object.entries(loader.getSnapshot().plugins)
-				.flatMap(([pluginSlug, plugin]) =>
-					plugin.manifest.crons.map((cron) => ({ cron, pluginSlug })),
-				)
-				.sort(
-					(left, right) =>
-						left.pluginSlug.localeCompare(right.pluginSlug) ||
-						left.cron.slug.localeCompare(right.cron.slug),
-				);
 
 		const resolveTarget = Effect.fn("PluginCronService.resolveTarget")(function* (
 			entry: PluginCronTarget,
@@ -183,7 +168,7 @@ export class PluginCronService extends Context.Service<PluginCronService>()("Plu
 		});
 
 		const dueSystemDispatches = Effect.fnUntraced(function* (scheduledAt: number) {
-			const entries = yield* Effect.forEach(list(), (entry) =>
+			const entries = yield* Effect.forEach(yield* runtime.listSystemCronSchedules(), (entry) =>
 				dueDispatches(
 					entry,
 					scheduledAt,

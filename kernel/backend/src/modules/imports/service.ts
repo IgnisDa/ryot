@@ -338,7 +338,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 					reason: { source: body.source, code: "workflow-unavailable" },
 				});
 			}
-			const missingConfigKeys = yield* registryImportSourceMissingConfigKeys(registered);
+			const missingConfigKeys = registryImportSourceMissingConfigKeys(registered);
 			if (missingConfigKeys.length > 0) {
 				return yield* new ImportRequestError({
 					reason: { missingConfigKeys, source: body.source, code: "source-not-configured" },
@@ -362,32 +362,6 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 						workflowScript.id,
 					)
 				: yield* startSourcePayloadImportRun(user, body, properties, registered, workflowScript.id);
-		});
-
-		const listImportSources = Effect.fn("ImportsService.listImportSources")(function* (
-			user: CurrentUserValue,
-		) {
-			const sources = yield* importSources.listForUser(user.id);
-			return yield* Effect.forEach(sources, ({ source, hasActiveWorkflow }) =>
-				Effect.gen(function* () {
-					const missingPluginConfigKeys = yield* registryImportSourceMissingConfigKeys(source);
-					const {
-						pluginSlug,
-						pluginId: _pluginId,
-						pluginScope: _pluginScope,
-						configSchema: _configSchema,
-						configContext: _configContext,
-						installationId: _installationId,
-						...manifestSource
-					} = source;
-					return {
-						...manifestSource,
-						pluginSlug,
-						missingPluginConfigKeys,
-						isStartable: hasActiveWorkflow && missingPluginConfigKeys.length === 0,
-					};
-				}),
-			);
 		});
 
 		const requireImportRun = Effect.fn("ImportsService.requireImportRun")(function* (
@@ -458,7 +432,6 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			startImportRun,
 			removeImportRun,
 			delete: deleteRun,
-			listImportSources,
 			failRunForIntegration,
 			createRunForIntegration,
 			createRunForIntegrationIfIdle,

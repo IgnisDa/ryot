@@ -7,11 +7,6 @@ import type {
 } from "@ryot-app/contract/modules/plugins/schemas";
 import type {
 	TestSupportEnqueueSandboxBody,
-	TestSupportListAutomationRunAttemptsBody,
-	TestSupportListAutomationRunsBody,
-	TestSupportListAutomationTriggerRecipientsBody,
-	TestSupportListAutomationTriggersBody,
-	TestSupportStoredSandboxScript,
 	TestSupportTriggerPluginCronBody,
 } from "@ryot-app/contract/modules/test-support/schemas";
 import {
@@ -20,36 +15,28 @@ import {
 } from "@ryot-app/contract/modules/test-support/schemas";
 import {
 	AutomationExecutionId,
-	AutomationTriggerId,
-	EntitySchemaSlug,
+	type EntitySchemaSlug,
 	type EntityId,
 	PluginConfigRevisionId,
 	PluginId,
 	PluginRevisionId,
-	PluginSlug,
+	type PluginSlug,
 	type RelationshipSchemaSlug,
-	SandboxProviderId,
+	type SandboxProviderId,
 	SandboxScriptId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { generateId } from "better-auth";
-import { and, desc, eq, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
 import { type LifecycleCommand, rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { automationTrigger as automationTriggerTable } from "#lib/infrastructure/db/schema/tables/automations";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { Database } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { AuthService } from "#modules/auth/service";
-import { AutomationHistoryRepository } from "#modules/automations/history-repository";
-import { AutomationRunRepository } from "#modules/automations/run-repository";
-import { AutomationsService } from "#modules/automations/service";
-import { AutomationTriggerRepository } from "#modules/automations/trigger-repository";
-import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { InterestService } from "#modules/entity-interest/service";
@@ -58,7 +45,6 @@ import { PluginInstallationService } from "#modules/plugins/installation-service
 import { PluginRepository } from "#modules/plugins/repository";
 import { PluginIngestionService } from "#modules/plugins/service";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
-import type { GlobalRelationshipListInput } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 import { PluginCronService } from "#modules/scheduler/plugin-cron";
@@ -71,15 +57,6 @@ type CreateGlobalEntityInput = {
 	readonly populatedAt?: string | null | undefined;
 	readonly providerId?: SandboxProviderId | undefined;
 };
-
-type StoredSandboxScriptRow = Omit<TestSupportStoredSandboxScript, "providerId"> & {
-	readonly providerId: string | null;
-};
-
-const toStoredSandboxScript = (script: StoredSandboxScriptRow) => ({
-	...script,
-	providerId: script.providerId === null ? null : SandboxProviderId.make(script.providerId),
-});
 
 const parseDate = (value: string) => {
 	const parsed = new Date(value);
@@ -119,105 +96,6 @@ const reportWarnings = (
 		? Effect.void
 		: Effect.logWarning("test support lifecycle warnings", { warnings, operation });
 
-const TEST_SUPPORT_INSPECTION_LIMIT = 1_000;
-
-const sourceRecordCondition = (
-	sourceRecord: TestSupportListAutomationTriggersBody["sourceRecord"],
-) => {
-	if (sourceRecord === undefined) {
-		return undefined;
-	}
-	const recordId =
-		sourceRecord.resource === "provider-entity-import"
-			? sql<string>`${automationTriggerTable.payload}->>'entityId'`
-			: sql<string>`coalesce(${automationTriggerTable.payload}->'after'->>'id', ${automationTriggerTable.payload}->'before'->>'id')`;
-	return and(
-		eq(automationTriggerTable.resourceKind, sourceRecord.resource),
-		eq(recordId, sourceRecord.id),
-	);
-};
-
-export const makeTestSupportAutomationInspection = Effect.gen(function* () {
-	const database = yield* Database;
-	const triggers = yield* AutomationTriggerRepository;
-	const runs = yield* AutomationRunRepository;
-	const history = yield* AutomationHistoryRepository;
-	const persisted = <A, E>(effect: Effect.Effect<A, E, Database>) =>
-		effect.pipe(Effect.provideService(Database, database));
-	const listAutomationTriggers = Effect.fn("TestSupportService.listAutomationTriggers")(function* (
-		input: TestSupportListAutomationTriggersBody,
-	) {
-		const rows = yield* mapDatabaseErrors(
-			database
-				.select({ id: automationTriggerTable.id })
-				.from(automationTriggerTable)
-				.where(
-					and(
-						input.triggerId === undefined
-							? undefined
-							: eq(automationTriggerTable.id, input.triggerId),
-						input.rootExecutionId === undefined
-							? undefined
-							: eq(automationTriggerTable.rootExecutionId, input.rootExecutionId),
-						input.payload === undefined
-							? undefined
-							: eq(automationTriggerTable.payload, input.payload),
-						sourceRecordCondition(input.sourceRecord),
-					),
-				)
-				.orderBy(desc(automationTriggerTable.createdAt), desc(automationTriggerTable.id))
-				.limit(TEST_SUPPORT_INSPECTION_LIMIT),
-		);
-		const found = yield* Effect.forEach(rows, ({ id }) =>
-			persisted(triggers.findById(AutomationTriggerId.make(id))),
-		);
-		return found.filter((trigger) => trigger !== null);
-	});
-	const listAutomationTriggerRecipients = Effect.fn(
-		"TestSupportService.listAutomationTriggerRecipients",
-	)(function* (input: TestSupportListAutomationTriggerRecipientsBody) {
-		const recipients = yield* persisted(triggers.listRecipients(input.triggerId));
-		return input.userId === undefined
-			? recipients
-			: recipients.filter(({ userId }) => userId === input.userId);
-	});
-	const listAutomationRuns = Effect.fn("TestSupportService.listAutomationRuns")(function* (
-		input: TestSupportListAutomationRunsBody,
-	) {
-		const matchingTriggers = yield* listAutomationTriggers(input);
-		const found = yield* Effect.forEach(matchingTriggers, ({ id }) =>
-			persisted(runs.listByTrigger(id)),
-		);
-		return found
-			.flat()
-			.filter(
-				(run) =>
-					(input.hookSlug === undefined || run.hookSlug === input.hookSlug) &&
-					(input.status === undefined || run.status === input.status) &&
-					(input.executionUserId === undefined || run.executionUserId === input.executionUserId),
-			)
-			.sort((left, right) =>
-				left.queuedAt === right.queuedAt
-					? right.id.localeCompare(left.id)
-					: right.queuedAt.localeCompare(left.queuedAt),
-			);
-	});
-	const listAutomationRunAttempts = Effect.fn("TestSupportService.listAutomationRunAttempts")(
-		function* (input: TestSupportListAutomationRunAttemptsBody) {
-			const attempts = yield* persisted(history.attempts(input.runId));
-			return input.status === undefined
-				? attempts
-				: attempts.filter(({ status }) => status === input.status);
-		},
-	);
-	return {
-		listAutomationRuns,
-		listAutomationTriggers,
-		listAutomationRunAttempts,
-		listAutomationTriggerRecipients,
-	};
-});
-
 export class TestSupportService extends Context.Service<TestSupportService>()(
 	"TestSupportService",
 	{
@@ -232,8 +110,6 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 			const entities = yield* EntitiesService;
 			const interest = yield* InterestService;
 			const pluginCrons = yield* PluginCronService;
-			const definitions = yield* DefinitionRegistry;
-			const automations = yield* AutomationsService;
 			const sandbox = yield* SandboxExecutionService;
 			const translations = yield* TranslationsService;
 			const relationships = yield* RelationshipsService;
@@ -241,7 +117,6 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 			const pluginInstallations = yield* PluginInstallationService;
 			const pluginRepository = yield* PluginRepository;
 			const relationshipSchemas = yield* RelationshipSchemasRepository;
-			const automationInspection = yield* makeTestSupportAutomationInspection;
 			const provideMutation = <A, E>(
 				effect: Effect.Effect<
 					A,
@@ -265,22 +140,15 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 						return yield* new TestSupportOperationFailure({
 							reason: {
 								code: "operation-failed",
-								diagnostic: `Plugin '${identity.slug}' was not persisted after ingestion`,
+								diagnostic: `Plugin '${"pluginId" in identity ? identity.pluginId : identity.slug}' was not persisted after ingestion`,
 							},
 						});
 					}
 					return {
-						...result.manifest.metadata,
-						scope: result.scope,
-						sourceHash: result.sourceHash,
-						slug: PluginSlug.make(result.slug),
 						pluginId: PluginId.make(result.id),
 						installationId: result.installationId,
 						activePluginRevisionId: PluginRevisionId.make(result.activeRevisionId),
-						scripts: result.scripts.map((script) => ({
-							...script,
-							id: SandboxScriptId.make(script.id),
-						})),
+						scripts: result.scripts.map(({ id, slug }) => ({ slug, id: SandboxScriptId.make(id) })),
 						configRevisionId:
 							result.configRevisionId === null
 								? null
@@ -328,7 +196,7 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				return yield* getPluginOperationResult({
 					scope: "user",
 					ownerId: userId,
-					slug: installed.slug,
+					pluginId: installed.pluginId,
 				});
 			});
 			const updatePrivatePlugin = Effect.fn("TestSupportService.updatePrivatePlugin")(function* (
@@ -457,24 +325,6 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				return result.deletedCount;
 			});
 
-			const listGlobalRelationships = Effect.fn("TestSupportService.listGlobalRelationships")(
-				function* (input: GlobalRelationshipListInput) {
-					const relationshipSchema = yield* relationshipSchemas.findById(
-						input.relationshipSchemaSlug,
-						null,
-					);
-					if (!relationshipSchema) {
-						return yield* new TestSupportBadRequest({
-							reason: { code: "invalid-request", diagnostic: "Relationship schema not found" },
-						});
-					}
-					return yield* relationships.listGlobal({
-						...input,
-						relationshipSchemaPluginId: relationshipSchema.pluginId ?? null,
-					});
-				},
-			);
-
 			const linkAuthAccount = Effect.fn("TestSupportService.linkAuthAccount")(function* (input: {
 				userId: UserId;
 				accountId: string;
@@ -496,8 +346,11 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 					name: string | null;
 					properties: Record<string, unknown> | null;
 				}) {
-					yield* translations.upsert({ ...input, populatedAt: yield* DateTime.nowAsDate });
-					return { entityId: input.entityId, language: input.language };
+					const id = yield* translations.upsert({
+						...input,
+						populatedAt: yield* DateTime.nowAsDate,
+					});
+					return { id };
 				},
 			);
 
@@ -508,58 +361,22 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				yield* pluginInstallations.reconcileSystemInstallations();
 				yield* pluginInstallations.dispatchPendingInstallationLifecycle();
 			});
-			const listSystemPlugins = Effect.suspend(() =>
-				pluginIngestion
-					.listPlugins()
-					.pipe(
-						Effect.flatMap((plugins) =>
-							Effect.forEach(plugins, ({ slug }) =>
-								getPluginOperationResult({ slug, ownerId: null, scope: "system" }),
-							),
-						),
-					),
-			);
-
-			const countAutomationRules = Effect.fn("TestSupportService.countAutomationRules")(function* (
-				userId: UserId,
-			) {
-				const count = yield* automations.countByUser(userId);
-				return { count };
-			});
-
-			const getSandboxScript = Effect.fn("TestSupportService.getSandboxScript")(function* (
-				scriptId: SandboxScriptId,
-			) {
-				const script = yield* sandbox.getStoredScript(scriptId);
-				return toStoredSandboxScript(script as StoredSandboxScriptRow);
-			});
-
-			const listSandboxScripts = Effect.fn("TestSupportService.listSandboxScripts")(function* () {
-				const scripts = yield* sandbox.listStoredScripts;
-				return scripts.map((script) => toStoredSandboxScript(script as StoredSandboxScriptRow));
-			});
-
 			return {
 				linkAuthAccount,
-				getSandboxScript,
 				triggerPluginCron,
-				listSandboxScripts,
 				createGlobalEntity,
 				installSystemPlugin,
 				updatePrivatePlugin,
 				installPrivatePlugin,
-				countAutomationRules,
 				setEntityPopulatedAt,
-				upsertEntityTranslation,
-				listGlobalRelationships,
-				upsertGlobalRelationship,
-				...automationInspection,
-				listSystemPlugins,
 				deleteGlobalEntities,
+				upsertEntityTranslation,
+				upsertGlobalRelationship,
 				reconcilePluginInstallations,
 				getSandboxResult: sandbox.getResult,
-				listEntityTranslations: translations.listByEntity,
 				setEntityInterestMembership: interest.setEntityInterestMembership,
+				uninstallSystemPlugin: (pluginSlug: PluginSlug) =>
+					pluginIngestion.uninstallPlugin(pluginSlug),
 				enqueueSandbox: (input: TestSupportEnqueueSandboxBody) => {
 					const { executingUserId, ...payload } = input;
 					return sandbox.enqueue(executingUserId, payload);
@@ -568,43 +385,9 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 					redis
 						.del(redisKeys.sandboxWorkflowJournal(executionId))
 						.pipe(Effect.map((deleted) => ({ deleted: deleted > 0 }))),
-				uninstallSystemPlugin: (pluginSlug: PluginSlug) =>
-					Effect.gen(function* () {
-						const result = yield* getPluginOperationResult({
-							ownerId: null,
-							scope: "system",
-							slug: pluginSlug,
-						});
-						yield* pluginIngestion.uninstallPlugin(pluginSlug);
-						return result;
-					}),
-				getBuiltinEntitySchema: (slug: string) =>
-					Effect.succeed(definitions.getEntitySchema(slug)).pipe(
-						Effect.flatMap((definition) =>
-							definition
-								? Effect.succeed({
-										slug: definition.slug,
-										name: definition.name,
-										id: EntitySchemaSlug.make(definition.slug),
-									})
-								: Effect.fail(
-										new TestSupportBadRequest({
-											reason: { code: "invalid-request", diagnostic: "Entity schema not found" },
-										}),
-									),
-						),
-					),
 			};
 		}),
 	},
 ) {
-	static readonly layer = Layer.effect(this, this.make).pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				AutomationHistoryRepository.layer,
-				AutomationRunRepository.layer,
-				AutomationTriggerRepository.layer,
-			),
-		),
-	);
+	static readonly layer = Layer.effect(this, this.make);
 }

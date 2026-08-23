@@ -2,7 +2,8 @@ import { expect, it } from "@effect/vitest";
 import { Cause, Effect, Exit, Option } from "effect";
 import { assert } from "vitest";
 
-import { makeDefinitionRegistry } from "#modules/definition-registry/service";
+import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
+import { buildDefinitionSnapshot } from "#modules/definition-registry/snapshot";
 
 import { fixtureManifest } from "./test-support";
 import { validatePluginExecutableScripts, validatePluginManifestReferences } from "./validation";
@@ -40,7 +41,7 @@ it.effect("rejects duplicate workflow slugs and non-workflow declarations", () =
 			workflows: [{ slug: "refresh.fixture", scriptSlug: "fixture.automation" }],
 		}),
 	];
-	const snapshot = makeDefinitionRegistry().getSnapshot();
+	const snapshot = buildDefinitionSnapshot(kernelDefinitionSource());
 
 	return Effect.forEach(cases, (mutate) =>
 		Effect.gen(function* () {

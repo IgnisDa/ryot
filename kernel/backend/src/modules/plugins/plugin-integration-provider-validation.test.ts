@@ -2,7 +2,8 @@ import { expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 import { assert } from "vitest";
 
-import { makeDefinitionRegistry } from "#modules/definition-registry/service";
+import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
+import { buildDefinitionSnapshot } from "#modules/definition-registry/snapshot";
 
 import { fixtureManifest } from "./test-support";
 import {
@@ -91,7 +92,7 @@ it.effect("rejects a non-push integration provider bound to a non-script kind", 
 				},
 			],
 		});
-		const snapshot = makeDefinitionRegistry().getSnapshot();
+		const snapshot = buildDefinitionSnapshot(kernelDefinitionSource());
 
 		const error = yield* Effect.flip(
 			validatePluginManifestReferences(withProvider("fixture.automation"), snapshot),

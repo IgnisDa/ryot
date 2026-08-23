@@ -147,6 +147,7 @@ BEGIN
 		"sync_ownership",
 		"extra_settings",
 		"provider_specifics",
+		"client_provider_specifics",
 		"created_at",
 		"last_finished_at",
 		"updated_at"
@@ -168,6 +169,7 @@ BEGIN
 			COALESCE((oi.extra_settings->>'disable_on_continuous_errors')::boolean, false)
 		),
 		${legacyProviderSpecificsSql("oi")},
+		'{}'::jsonb,
 		oi.created_on,
 		oi.last_finished_at,
 		oi.created_on

@@ -185,7 +185,7 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 
 				const ready = yield* ensureAccessRevoked(prepared.operation.id);
 				yield* dispatch(ready);
-				return (yield* repository.getById(prepared.operation.id)) ?? prepared.operation;
+				return { operationId: prepared.operation.id };
 			});
 
 			const reconcilePending = Effect.fn("UserLifecycleService.reconcilePending")(function* (
@@ -209,19 +209,7 @@ export class UserLifecycleService extends Context.Service<UserLifecycleService>(
 				);
 			});
 
-			const getOperation = Effect.fn("UserLifecycleService.getOperation")(function* (
-				operationId: string,
-			) {
-				return (
-					(yield* repository.getById(operationId)) ??
-					(yield* new GodModeNotFound({
-						reason: { operationId, code: "lifecycle-operation-not-found" },
-					}))
-				);
-			});
-
 			return {
-				getOperation,
 				reconcilePending,
 				resetUser: (userId: UserId) => request(userId, "reset"),
 				deleteUser: (userId: UserId) => request(userId, "delete"),

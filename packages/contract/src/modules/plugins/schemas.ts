@@ -1,10 +1,9 @@
 import { Schema } from "effect";
 
-import { PluginSlug, SavedViewId } from "../../schema/brands";
+import { PluginId, PluginSlug, SavedViewId } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
 import { SandboxCompilationDiagnostic, SandboxExecutionError } from "../sandbox/schemas";
-import { PluginConfigSchema } from "./manifest";
 
 const PluginValidationDiagnostic = Schema.Struct({
 	code: Schema.String,
@@ -218,27 +217,10 @@ export const PluginInstallationHealth = Schema.Literals([
 	"needs-configuration",
 ]);
 
-export const PluginInstallationItem = Schema.Struct({
-	slug: PluginSlug,
-	icon: Schema.String,
-	name: Schema.String,
-	version: Schema.String,
-	sortOrder: Schema.Number,
-	sourceHash: Schema.String,
-	isDisabled: Schema.Boolean,
-	description: Schema.String,
-	configSchema: PluginConfigSchema,
-	health: PluginInstallationHealth,
-	healthReason: Schema.NullOr(Schema.String),
-	scope: Schema.Literals(["system", "user"]),
-	homeSavedViewId: Schema.NullOr(SavedViewId),
-	configuredSecrets: Schema.Array(Schema.String),
-	config: Schema.Record(Schema.String, JsonValue),
+export const PluginInstallationWriteResult = Schema.Struct({
+	id: Schema.String,
+	pluginId: PluginId,
 });
-
-export type PluginInstallationItem = Schema.Schema.Type<typeof PluginInstallationItem>;
-
-export const PluginInstallationList = Schema.Array(PluginInstallationItem);
 
 export const PluginInvokeBody = Schema.Struct({
 	payload: JsonValue,

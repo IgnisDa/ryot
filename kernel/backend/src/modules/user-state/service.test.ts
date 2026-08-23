@@ -34,7 +34,8 @@ import {
 	triggerFixture,
 	withLifecycleBatchPlanning,
 } from "#modules/automations/lifecycle.test-support";
-import { makeDefinitionRegistry } from "#modules/definition-registry/service";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { buildDefinitionSnapshot } from "#modules/definition-registry/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
 import {
@@ -42,7 +43,6 @@ import {
 	type PreparedEventDelete,
 	type PreparedEventUpdate,
 } from "#modules/events/service";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import type {
 	PreparedUserRelationshipCreate,
 	PreparedUserRelationshipDelete,
@@ -104,16 +104,14 @@ const mockRelationshipsService = Layer.mock(RelationshipsService);
 const makeRelationshipsService = (overrides: MockOverrides<typeof mockRelationshipsService> = {}) =>
 	mockRelationshipsService({ ...overrides });
 
-const mockPluginRuntime = Layer.mock(PluginRuntimeResolver);
-
-const makePluginRuntimeLayer = (
+const makeDefinitionsLayer = (
 	mergeIdentityProperties: ReadonlyArray<string> = [],
 	deniedOperationsBySchema: Readonly<Record<string, ReadonlyArray<"clear" | "merge">>> = {},
 ) =>
-	mockPluginRuntime({
-		getEffectiveDefinitions: () =>
+	Layer.mock(DefinitionRepository)({
+		findUserEntitySchemas: () =>
 			Effect.succeed(
-				makeDefinitionRegistry({
+				buildDefinitionSnapshot({
 					savedViews: [],
 					signalSchemas: [],
 					relationshipSchemas: [],
@@ -144,7 +142,7 @@ const makePluginRuntimeLayer = (
 								propertiesSchema: { fields: {} },
 							})),
 					],
-				}).getSnapshot(),
+				}).entitySchemas,
 			),
 	});
 
@@ -152,7 +150,7 @@ const makeServiceLayer = (
 	options: {
 		database?: Layer.Layer<Database>;
 		eventsService?: ReturnType<typeof makeEventsService>;
-		pluginRuntime?: ReturnType<typeof makePluginRuntimeLayer>;
+		definitions?: ReturnType<typeof makeDefinitionsLayer>;
 		eventsRepository?: ReturnType<typeof makeEventsRepository>;
 		entitiesRepository?: ReturnType<typeof makeEntitiesRepository>;
 		relationshipsService?: ReturnType<typeof makeRelationshipsService>;
@@ -177,7 +175,7 @@ const makeServiceLayer = (
 						executePolicy: () => Effect.die("unused"),
 						skipQueuedPolicies: () => Effect.die("unused"),
 					}),
-				options.pluginRuntime ?? makePluginRuntimeLayer(),
+				options.definitions ?? makeDefinitionsLayer(),
 				options.entitiesRepository ?? makeEntitiesRepository(),
 				options.eventsRepository ?? makeEventsRepository(),
 				options.eventsService ?? makeEventsService(),
@@ -201,7 +199,7 @@ const makeMergeScope = (overrides: {
 
 it.effect("rejects clearing user state when the entity schema denies it", () => {
 	const layer = makeServiceLayer({
-		pluginRuntime: makePluginRuntimeLayer([], { "media-library": ["clear", "merge"] }),
+		definitions: makeDefinitionsLayer([], { "media-library": ["clear", "merge"] }),
 		entitiesRepository: makeEntitiesRepository({
 			getEntityScopeForUser: () =>
 				Effect.succeed({
@@ -542,7 +540,7 @@ it.effect("returns not found when one merge entity is not visible", () => {
 
 it.effect("rejects merging when either source or destination schema denies it", () => {
 	const layer = makeServiceLayer({
-		pluginRuntime: makePluginRuntimeLayer([], { blocked: ["merge"] }),
+		definitions: makeDefinitionsLayer([], { blocked: ["merge"] }),
 		entitiesRepository: makeEntitiesRepository({
 			getEntityMergeScopeForUser: ({ entityId }) =>
 				Effect.succeed(
@@ -614,7 +612,7 @@ it.effect("rejects merging entities from different schemas", () => {
 
 it.effect("allows merging entities with matching declared identity properties", () => {
 	const layer = makeServiceLayer({
-		pluginRuntime: makePluginRuntimeLayer(["kind"]),
+		definitions: makeDefinitionsLayer(["kind"]),
 		eventsRepository: makeEventsRepository({ listUserEventIdsForEntity: () => Effect.succeed([]) }),
 		relationshipsRepository: makeRelationshipsRepository({
 			listUserRelationshipsForEntityWithProvenance: () => Effect.succeed([]),
@@ -645,7 +643,7 @@ it.effect("allows merging entities with matching declared identity properties", 
 
 it.effect("rejects merging entities with mismatched declared identity properties", () => {
 	const layer = makeServiceLayer({
-		pluginRuntime: makePluginRuntimeLayer(["kind"]),
+		definitions: makeDefinitionsLayer(["kind"]),
 		entitiesRepository: makeEntitiesRepository({
 			getEntityMergeScopeForUser: ({ entityId }) =>
 				Effect.succeed(
