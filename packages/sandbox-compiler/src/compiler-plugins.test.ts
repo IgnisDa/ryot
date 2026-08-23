@@ -488,3 +488,59 @@ export default defineOperation({ manifest, drivers: { main } });
 		]);
 	}),
 );
+
+it.effect("rejects a manifest value that is an imported identifier", () =>
+	Effect.gen(function* () {
+		const shared = `
+export const TYPE_CHOICES = [
+	{ value: "bug", label: "Bug" },
+	{ value: "dark", label: "Dark" },
+] as const;
+`;
+		const source = `
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
+
+import { TYPE_CHOICES } from "./shared";
+
+export const manifest = defineManifest({
+	kind: "provider",
+	capabilities: [],
+	name: "Move search",
+	slug: "move.search",
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
+	searchOptionsSchema: {
+		unknownKeys: "strict",
+		fields: {
+			typeNames: {
+				label: "Types",
+				type: "enum-array",
+				description: "Only include moves that have every selected type",
+				choices: { kind: "static", values: TYPE_CHOICES },
+			},
+		},
+	},
+});
+
+export default defineProvider({
+	manifest,
+	operation: "search",
+	run: () => Effect.die("unused"),
+});
+`;
+		const failure = yield* compilePluginSandboxSourceEntries(
+			{ "shared.ts": shared, "move-search.sandbox.ts": source },
+			[{ kind: "provider", providerOperation: "search", entry: "move-search.sandbox.ts" }],
+		).pipe(Effect.flip);
+
+		expect(failure.diagnostics).toEqual([
+			expect.objectContaining({
+				code: "RYOT_MANIFEST",
+				file: "move-search.sandbox.ts",
+				message: "Manifest values must be JSON-safe literals",
+			}),
+		]);
+	}),
+);
