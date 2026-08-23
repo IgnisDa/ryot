@@ -770,17 +770,15 @@ export type EntityInterest = Schema.Codec.Encoded<typeof EntityInterest>;
 export const PluginBridgeEntityInterest = strictStruct({
 	...EntityInterest.fields,
 	type: Schema.Literal("entity-interest"),
-})
-	.pipe(
-		Schema.check(
-			Schema.makeFilter(
-				({ visible, foreground }) =>
-					foreground.length + visible.length <= MAX_INTEREST_ENTITY_IDS ||
-					"Too many entity interests",
-			),
+}).pipe(
+	Schema.check(
+		Schema.makeFilter(
+			({ visible, foreground }) =>
+				foreground.length + visible.length <= MAX_INTEREST_ENTITY_IDS ||
+				"Too many entity interests",
 		),
-	)
-	.annotate({ parseOptions: { onExcessProperty: "error" } });
+	),
+);
 
 export type PluginBridgeEntityInterest = Schema.Schema.Type<typeof PluginBridgeEntityInterest>;
 
