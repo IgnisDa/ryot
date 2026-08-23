@@ -1,11 +1,15 @@
 import { createAuthClient } from "better-auth/client";
-import { twoFactorClient } from "better-auth/client/plugins";
+import { oneTimeTokenClient, twoFactorClient } from "better-auth/client/plugins";
 import { Context, Data, Effect, Layer } from "effect";
 
 import { normalizeServerOrigin, type ServerOrigin } from "#/api/origin";
 import type { TwoFactorMethod } from "#/modules/auth/flow";
 import type { CredentialsValues } from "#/modules/auth/form-values";
 import { ClientStorage } from "#/persistence/storage";
+
+export const SESSION_TOKEN_HEADER = "set-auth-token";
+export const TWO_FACTOR_TOKEN_HEADER = "x-two-factor-token";
+export const SET_TWO_FACTOR_TOKEN_HEADER = "set-two-factor-token";
 
 export const BETTER_AUTH_STORAGE_KEYS = ["better-auth.message"] as const;
 
@@ -53,12 +57,41 @@ type AuthResponse<A> = {
 	readonly error: null | { readonly message?: string };
 };
 
-const createClient = (origin: ServerOrigin) =>
-	createAuthClient({
+type SessionTokenStore = {
+	readonly read: (origin: ServerOrigin) => string | null;
+	readonly write: (origin: ServerOrigin, token: string) => void;
+};
+
+const createClient = (origin: ServerOrigin, tokens: SessionTokenStore) => {
+	let challenge: string | undefined;
+	return createAuthClient({
 		baseURL: origin,
-		plugins: [twoFactorClient()],
-		fetchOptions: { credentials: "include" },
+		plugins: [twoFactorClient(), oneTimeTokenClient()],
+		fetchOptions: {
+			credentials: "omit",
+			onRequest: (context) => {
+				const token = tokens.read(origin);
+				if (token) {
+					context.headers.set("Authorization", `Bearer ${token}`);
+				}
+				if (challenge) {
+					context.headers.set(TWO_FACTOR_TOKEN_HEADER, challenge);
+				}
+			},
+			onResponse: (context) => {
+				const token = context.response.headers.get(SESSION_TOKEN_HEADER);
+				if (token) {
+					challenge = undefined;
+					tokens.write(origin, token);
+				}
+				const issued = context.response.headers.get(SET_TWO_FACTOR_TOKEN_HEADER);
+				if (issued) {
+					challenge = issued;
+				}
+			},
+		},
 	});
+};
 
 type BrowserAuthClient = ReturnType<typeof createClient>;
 
@@ -146,6 +179,10 @@ export class AuthClient extends Context.Service<
 			origin: ServerOrigin,
 			values: CredentialsValues & { readonly name: string },
 		) => Effect.Effect<void, AuthClientError>;
+		readonly verifyOneTimeToken: (
+			origin: ServerOrigin,
+			token: string,
+		) => Effect.Effect<void, AuthClientError>;
 		readonly verifyTwoFactor: (
 			origin: ServerOrigin,
 			method: TwoFactorMethod,
@@ -155,15 +192,19 @@ export class AuthClient extends Context.Service<
 >()("AuthClient", {
 	make: Effect.gen(function* () {
 		const storage = yield* ClientStorage;
-		const clients = new Map<ServerOrigin, BrowserAuthClient>();
 		const stores = new Map<ServerOrigin, AuthSessionStore>();
+		const clients = new Map<ServerOrigin, BrowserAuthClient>();
+		const tokens: SessionTokenStore = {
+			read: (origin) => Effect.runSync(storage.getSessionToken(origin)),
+			write: (origin, token) => Effect.runSync(storage.setSessionToken(origin, token)),
+		};
 		const getClient = (origin: ServerOrigin) => {
 			const canonical = normalizeServerOrigin(origin);
 			const existing = clients.get(canonical);
 			if (existing) {
 				return existing;
 			}
-			const client = createClient(canonical);
+			const client = createClient(canonical, tokens);
 			clients.set(canonical, client);
 			return client;
 		};
@@ -180,6 +221,7 @@ export class AuthClient extends Context.Service<
 		};
 		const clear = Effect.fn("AuthClient.clear")(function* () {
 			yield* storage.remove(BETTER_AUTH_STORAGE_KEYS);
+			yield* Effect.forEach([...clients.keys()], storage.clearSessionToken);
 			clients.clear();
 			stores.clear();
 		});
@@ -204,6 +246,11 @@ export class AuthClient extends Context.Service<
 					}),
 				try: () => getClient(origin).useSession.get().refetch(),
 			});
+		const verifyOneTimeToken = (origin: ServerOrigin, token: string) =>
+			request(
+				() => getClient(origin).oneTimeToken.verify({ token }),
+				"Could not complete sign-in.",
+			).pipe(Effect.asVoid);
 		const verifyTwoFactor = (origin: ServerOrigin, method: TwoFactorMethod, code: string) =>
 			request(
 				() =>
@@ -225,6 +272,7 @@ export class AuthClient extends Context.Service<
 			settledSession,
 			signInWithOidc,
 			verifyTwoFactor,
+			verifyOneTimeToken,
 		};
 	}),
 }) {

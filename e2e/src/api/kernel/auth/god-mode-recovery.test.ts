@@ -285,12 +285,12 @@ describe("God-mode disable set", () => {
 	it.live("disables a user, revokes sessions, blocks API keys, and then enables the user", () =>
 		Effect.gen(function* () {
 			const client = getApiClient();
-			const { cookies, email, password } = yield* createTestUser();
+			const { token, email, password } = yield* createTestUser();
 			const userId = yield* getUserIdByEmail(email);
-			const apiKey = yield* createApiKey(cookies);
+			const apiKey = yield* createApiKey(token);
 
 			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-				Cookie: cookies,
+				Authorization: `Bearer ${token}`,
 			});
 
 			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
@@ -311,7 +311,7 @@ describe("God-mode disable set", () => {
 
 			const revokedSession = yield* Effect.flip(
 				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-					Cookie: cookies,
+					Authorization: `Bearer ${token}`,
 				}),
 			);
 			assertTaggedError(revokedSession, "AuthUnauthorized");
@@ -369,9 +369,9 @@ describe("Reset link generation and completion for credential user", () => {
 
 			const signInRes = yield* signInWithPassword(email, newPassword);
 			expect(signInRes.error).toBeNull();
-			assertPresent(signInRes.cookies, "Expected session cookies after sign-in");
+			assertPresent(signInRes.token, "Expected an auth token after sign-in");
 			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-				Cookie: signInRes.cookies,
+				Authorization: `Bearer ${signInRes.token}`,
 			});
 		}),
 	);
@@ -379,10 +379,10 @@ describe("Reset link generation and completion for credential user", () => {
 	it.live("revokes sessions after password reset", () =>
 		Effect.gen(function* () {
 			const client = getApiClient();
-			const { cookies, email } = yield* createTestUser();
+			const { token: authToken, email } = yield* createTestUser();
 
 			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-				Cookie: cookies,
+				Authorization: `Bearer ${authToken}`,
 			});
 
 			const userId = yield* getUserIdByEmail(email);
@@ -397,25 +397,22 @@ describe("Reset link generation and completion for credential user", () => {
 
 			const newPassword = "revoked-session-pw!";
 			const { error: resetError } = yield* Effect.promise(() =>
-				createTestAuthClient().resetPassword({
-					token,
-					newPassword,
-				}),
+				createTestAuthClient().resetPassword({ token, newPassword }),
 			);
 			expect(resetError).toBeNull();
 
 			const oldSessionError = yield* Effect.flip(
 				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-					Cookie: cookies,
+					Authorization: `Bearer ${authToken}`,
 				}),
 			);
 			assertTaggedError(oldSessionError, "AuthUnauthorized");
 
 			const signInRes = yield* signInWithPassword(email, newPassword);
 			expect(signInRes.error).toBeNull();
-			assertPresent(signInRes.cookies, "Expected session cookies after re-sign-in");
+			assertPresent(signInRes.token, "Expected an auth token after re-sign-in");
 			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-				Cookie: signInRes.cookies,
+				Authorization: `Bearer ${signInRes.token}`,
 			});
 		}),
 	);
@@ -438,10 +435,7 @@ describe("Reset link generation and completion for no-account user", () => {
 
 			const newPassword = "none-state-password-456!";
 			const { error: resetError } = yield* Effect.promise(() =>
-				createTestAuthClient().resetPassword({
-					token,
-					newPassword,
-				}),
+				createTestAuthClient().resetPassword({ token, newPassword }),
 			);
 			expect(resetError).toBeNull();
 
@@ -485,11 +479,7 @@ describe("Mixed auth user restrictions", () => {
 			yield* client.call(
 				(c) =>
 					c.testSupport.linkAuthAccount({
-						payload: {
-							userId,
-							providerId: "oidc",
-							accountId: `oidc-sub-${uniqueTimestamp()}`,
-						},
+						payload: { userId, providerId: "oidc", accountId: `oidc-sub-${uniqueTimestamp()}` },
 					}),
 				adminAccessTokenHeaders(ADMIN_TOKEN),
 			);

@@ -25,11 +25,11 @@ export const startBackupExport = (client: Client) =>
 		return requirePresent(result.id, "Backup export run id is missing");
 	});
 
-export const downloadBackupArchive = (cookies: string, runId: string) =>
+export const downloadBackupArchive = (token: string, runId: string) =>
 	Effect.gen(function* () {
 		const response = yield* Effect.promise(() =>
 			fetch(`${getApiUrl()}/backups/runs/${runId}/download`, {
-				headers: { Cookie: cookies },
+				headers: { Authorization: `Bearer ${token}` },
 			}),
 		);
 		if (response.status !== 200) {
@@ -54,7 +54,7 @@ export const downloadBackupArchive = (cookies: string, runId: string) =>
 		return { bytes, headers: response.headers };
 	});
 
-export const exportAndDownloadBackup = (client: Client, cookies: string) =>
+export const exportAndDownloadBackup = (client: Client, token: string) =>
 	Effect.gen(function* () {
 		const id = yield* startBackupExport(client);
 		const run = yield* pollBackupRunUntilTerminal(client, id);
@@ -62,7 +62,7 @@ export const exportAndDownloadBackup = (client: Client, cookies: string) =>
 			throw new Error(`Backup export '${id}' failed with ${run.failure?.code ?? "unknown"}`);
 		}
 
-		const { bytes } = yield* downloadBackupArchive(cookies, id);
+		const { bytes } = yield* downloadBackupArchive(token, id);
 		return { run, id, bytes };
 	});
 

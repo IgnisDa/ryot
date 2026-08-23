@@ -18,10 +18,10 @@ describe("Two-factor sign-in flow", () => {
 		Effect.gen(function* () {
 			const baseUrl = getApiUrl();
 			const client = getApiClient();
-			const { cookies, email, password } = yield* createTestUser();
+			const { token, email, password } = yield* createTestUser();
 
-			const { backupCodes, cookies: twoFactorCookies } = yield* Effect.promise(() =>
-				enableTwoFactorForSession({ baseUrl, cookies, password }),
+			const { backupCodes, token: twoFactorToken } = yield* Effect.promise(() =>
+				enableTwoFactorForSession({ baseUrl, token, password }),
 			);
 
 			const [backupCode] = requireNonEmptyArray(
@@ -30,37 +30,42 @@ describe("Two-factor sign-in flow", () => {
 			);
 
 			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-				Cookie: twoFactorCookies,
+				Authorization: `Bearer ${twoFactorToken}`,
 			});
 
 			const signIn = yield* signInWithPassword(email, password, baseUrl);
 			expect(signIn.error).toBeNull();
-			const signInCookies = requirePresent(
-				signIn.cookies,
-				"Sign in succeeded but no cookies were returned",
+			const signInToken = requirePresent(
+				signIn.token,
+				"Sign in succeeded but no auth token was returned",
 			);
 			expect(signIn.data).toHaveProperty("twoFactorRedirect", true);
 
 			const unauthorizedError = yield* Effect.flip(
 				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-					Cookie: signInCookies,
+					Authorization: `Bearer ${signInToken}`,
 				}),
 			);
 			assertTaggedError(unauthorizedError, "AuthUnauthorized");
 
 			const verification = yield* Effect.promise(() =>
-				verifyBackupCodeForSession({ code: backupCode, cookies: signInCookies, baseUrl }),
+				verifyBackupCodeForSession({
+					baseUrl,
+					code: backupCode,
+					token: signInToken,
+					twoFactorToken: signIn.twoFactorToken,
+				}),
 			);
 			expect(verification.error).toBeNull();
 			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-				Cookie: verification.cookies,
+				Authorization: `Bearer ${verification.token}`,
 			});
 
 			const secondSignIn = yield* signInWithPassword(email, password, baseUrl);
 			expect(secondSignIn.error).toBeNull();
-			const secondSignInCookies = requirePresent(
-				secondSignIn.cookies,
-				"Second sign in succeeded but no cookies were returned",
+			const secondSignInToken = requirePresent(
+				secondSignIn.token,
+				"Second sign in succeeded but no auth token was returned",
 			);
 			expect(secondSignIn.data).toHaveProperty("twoFactorRedirect", true);
 
@@ -68,7 +73,8 @@ describe("Two-factor sign-in flow", () => {
 				verifyBackupCodeForSession({
 					baseUrl,
 					code: backupCode,
-					cookies: secondSignInCookies,
+					token: secondSignInToken,
+					twoFactorToken: secondSignIn.twoFactorToken,
 				}),
 			);
 			expect(reuse.error?.message).toMatch(/invalid/i);

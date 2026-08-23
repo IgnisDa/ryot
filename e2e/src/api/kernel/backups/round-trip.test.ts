@@ -322,7 +322,7 @@ describe("backup export and restore round trip", () => {
 			yield* setNotificationRuleActive(source.client, notificationSubscription.id, false);
 			yield* updatePluginState(source.client, "media", { isDisabled: true, sortOrder: 73 });
 
-			const { bytes } = yield* exportAndDownloadBackup(source.client, source.cookies);
+			const { bytes } = yield* exportAndDownloadBackup(source.client, source.token);
 			yield* deleteUserAndWait(source.userId);
 			const restored = yield* restoreBackup(target.client, bytes);
 			assertCompleted(restored.run, "backup restore");
@@ -515,7 +515,7 @@ describe("backup export and restore round trip", () => {
 				sourceEntityId: archivedResult.data.id,
 				properties: { owned: true, ownershipSources: ["backup-round-trip"] },
 			});
-			const { bytes } = yield* exportAndDownloadBackup(source.client, source.cookies);
+			const { bytes } = yield* exportAndDownloadBackup(source.client, source.token);
 			yield* deleteUserAndWait(source.userId);
 
 			const existingBeforeRestore = yield* getEntity(updater.client, archivedResult.data.id);

@@ -76,8 +76,8 @@ const refreshedClient = Effect.fn(function* (email: string) {
 	if (signIn.error) {
 		throw new Error(`Sign in failed: ${signIn.error.message}`);
 	}
-	const cookies = requirePresent(signIn.cookies, "Failed to refresh auth cookies");
-	return makeSession(undefined, { Cookie: cookies });
+	const token = requirePresent(signIn.token, "Failed to refresh auth token");
+	return makeSession(undefined, { Authorization: `Bearer ${token}` });
 });
 
 describe("V2 backup archive validation", () => {

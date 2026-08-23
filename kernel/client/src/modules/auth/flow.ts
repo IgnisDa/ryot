@@ -5,6 +5,12 @@ export type TwoFactorMethod = "totp" | "backupCode";
 
 export const authDestination = (value: unknown): SafeRedirect => sanitizeRedirect(value) ?? "/";
 
+export const oidcCallbackURL = (destination: SafeRedirect, isNative: boolean) => {
+	const base = isNative ? "ryot://auth/callback" : "/auth/callback";
+	const query = new URLSearchParams({ redirect: destination });
+	return `${base}?${query.toString()}`;
+};
+
 export const isTwoFactorRedirect = (
 	data: unknown,
 ): data is { twoFactorRedirect: true; twoFactorMethods?: string[] } =>

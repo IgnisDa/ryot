@@ -23,8 +23,8 @@ import { describe, expect, it } from "~/support/effect-test";
 describe("OpenScale Import E2E", () => {
 	it.live("completes an OpenScale import and creates measurement entities", () =>
 		Effect.gen(function* () {
-			const { client, cookies } = yield* createAuthenticatedClient();
-			const { runId, completedRun } = yield* runOpenScaleImportFixture(client, cookies);
+			const { client, token } = yield* createAuthenticatedClient();
+			const { runId, completedRun } = yield* runOpenScaleImportFixture(client, token);
 
 			expect(completedRun.id).toBe(ImportRunId.make(runId));
 			expect(completedRun.status).toBe("completed");
@@ -53,8 +53,8 @@ describe("OpenScale Import E2E", () => {
 
 	it.live("returns the run via RyotQL", () =>
 		Effect.gen(function* () {
-			const { client, cookies } = yield* createAuthenticatedClient();
-			const { runId } = yield* runOpenScaleImportFixture(client, cookies);
+			const { client, token } = yield* createAuthenticatedClient();
+			const { runId } = yield* runOpenScaleImportFixture(client, token);
 
 			const detail = yield* getImportRun(client, runId, undefined, 20);
 			const run = requirePresent(detail.run, "Expected completed import run");
@@ -65,8 +65,8 @@ describe("OpenScale Import E2E", () => {
 
 	it.live("lists runs for the current user", () =>
 		Effect.gen(function* () {
-			const { client, cookies } = yield* createAuthenticatedClient();
-			yield* runOpenScaleImportFixture(client, cookies);
+			const { client, token } = yield* createAuthenticatedClient();
+			yield* runOpenScaleImportFixture(client, token);
 
 			const data = yield* listManualImportRuns(client, undefined, 20);
 
@@ -100,10 +100,10 @@ describe("OpenScale Import E2E", () => {
 
 	it.live("rejects a non-CSV file extension", () =>
 		Effect.gen(function* () {
-			const { client, cookies } = yield* createAuthenticatedClient();
+			const { client, token } = yield* createAuthenticatedClient();
 
 			const uploadToken = yield* uploadImportFile(
-				cookies,
+				token,
 				'{"data": "not csv"}',
 				"export.json",
 				"application/octet-stream",
@@ -119,8 +119,8 @@ describe("OpenScale Import E2E", () => {
 
 	it.live("deletes a completed run", () =>
 		Effect.gen(function* () {
-			const { client, cookies } = yield* createAuthenticatedClient();
-			const { runId } = yield* runOpenScaleImportFixture(client, cookies);
+			const { client, token } = yield* createAuthenticatedClient();
+			const { runId } = yield* runOpenScaleImportFixture(client, token);
 
 			yield* client.call((c) =>
 				c.imports.deleteRun({ params: { runId: ImportRunId.make(runId) } }),
@@ -132,11 +132,11 @@ describe("OpenScale Import E2E", () => {
 
 	it.live("returns failures for a run with bad rows", () =>
 		Effect.gen(function* () {
-			const { client, cookies } = yield* createAuthenticatedClient();
+			const { client, token } = yield* createAuthenticatedClient();
 
 			const badCsv = `dateTime,weight\n2026-01-01 08:00:00,75.0\n,invalid-no-date\n2026-01-03 08:00:00,not-a-number\n`;
 
-			const uploadToken = yield* uploadImportFile(cookies, badCsv, "openscale-bad.csv", "text/csv");
+			const uploadToken = yield* uploadImportFile(token, badCsv, "openscale-bad.csv", "text/csv");
 
 			const runId = yield* startOpenScaleImport(client, uploadToken);
 			const completedRun = yield* pollImportRunUntilTerminal(client, runId);
@@ -173,8 +173,8 @@ describe("OpenScale Import E2E", () => {
 describe("Hevy Workout Import E2E", () => {
 	it.live("imports a Hevy workout into exercise/workout entities and events", () =>
 		Effect.gen(function* () {
-			const { client, cookies } = yield* createAuthenticatedClient();
-			const { runId, completedRun } = yield* runHevyImportFixture(client, cookies);
+			const { client, token } = yield* createAuthenticatedClient();
+			const { runId, completedRun } = yield* runHevyImportFixture(client, token);
 
 			expect(completedRun.id).toBe(ImportRunId.make(runId));
 			expect(completedRun.source).toBe("hevy");
