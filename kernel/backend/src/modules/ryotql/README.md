@@ -79,7 +79,7 @@ For users with a non-canonical language, entity `name` falls back to canonical t
 
 ## Aggregate And Time Series
 
-Root and correlated aggregates support count, count distinct, sum, average, minimum, and maximum. Counts return zero for an empty set; other measures return null. Numeric measures cast safely, count distinct ignores null, and joins retain normal multiplicity.
+Root and correlated aggregates support count, count distinct, sum, average, minimum, and maximum. Counts return zero for an empty set; other measures return null. Sum and average cast safely to numbers, minimum and maximum preserve the operand kind (so `maximum(date)` is a date), count distinct ignores null, and joins retain normal multiplicity. Time-series measures stay numeric.
 
 Ungrouped aggregates return one item without page info. Grouped aggregates require group fields, limit, and ordering by group or measure key. They do not support cursors or arbitrary-expression ordering; JSON groups cannot order. The limit counts unique combinations of all group fields. Results use `{ items, pageInfo: { limit, hasMore } }`.
 

@@ -33,6 +33,7 @@ import {
 	jsonPath,
 	kebabCase,
 	literal,
+	maximum,
 	measure,
 	measureDescending,
 	not,
@@ -421,6 +422,47 @@ it.effect("returns plain aggregate and time-series values", () => {
 			buckets: [
 				{ value: 2, endAt: "2026-08-02T00:00:00.000Z", startAt: "2026-08-01T00:00:00.000Z" },
 			],
+		});
+	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
+});
+
+it.effect("compares dates against kind-preserving maximum aggregates", () => {
+	const statements: string[] = [];
+	const event = table("event", "event");
+	const latest = table("event", "latest");
+	const occurredAt = column(event, "occurredAt");
+	const latestOccurredAt = column(latest, "occurredAt");
+	const document = {
+		queries: {
+			latest: aggregate(latest, {
+				measures: [measure("latest", { function: "maximum", expr: latestOccurredAt })],
+			}),
+			events: rows(event, {
+				fields: [field("occurredAt", occurredAt)],
+				where: eq(occurredAt, maximum(latest, latestOccurredAt)),
+			}),
+		},
+	};
+	const resultRows = [
+		{ m0: new Date("2026-08-02T00:00:00.000Z"), f0v: new Date("2026-08-02T00:00:00.000Z") },
+	];
+
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		const response = yield* service.executeForUser("user-1", null, document);
+
+		for (const statement of statements.slice(2)) {
+			expect(statement).toContain("MAX(");
+			expect(statement).not.toContain("double precision");
+		}
+		expect(response.data["latest"]).toEqual({
+			type: "aggregate",
+			items: [{ latest: "2026-08-02T00:00:00.000Z" }],
+		});
+		expect(response.data["events"]).toEqual({
+			type: "rows",
+			items: [{ occurredAt: "2026-08-02T00:00:00.000Z" }],
+			pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 		});
 	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
 });

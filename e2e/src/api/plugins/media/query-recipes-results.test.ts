@@ -3,6 +3,7 @@ import {
 	personalMediaSuggestionsRecipe,
 	podcastDetailRecipe,
 	podcastsByLifecycleStateRecipe,
+	trendingLatestMediaRecipe,
 	trendingMediaRecipe,
 } from "@ryot-app/media-plugin/query-recipes";
 import { personRecipes } from "@ryot-app/media-plugin/shared/person-recipes";
@@ -1157,6 +1158,51 @@ describe("Media RyotQL query recipe results", () => {
 				expect(secondResult.id).toBe(secondBook.entity.id);
 				expect(secondResult.rank).toBe(2);
 			}),
+	);
+
+	it.live("resolves the latest trending batch without a caller-supplied timestamp", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { schema: bookSchema } = yield* findBuiltinSchemaBySlug(client, "book");
+			const [current, stale] = yield* Effect.all([
+				createGlobalBookEntityFixture(client, { name: `Trending Latest ${crypto.randomUUID()}` }),
+				createGlobalBookEntityFixture(client, {
+					name: `Trending Superseded ${crypto.randomUUID()}`,
+				}),
+			]);
+			const latestAt = DateTime.formatIso(
+				DateTime.makeUnsafe(Date.UTC(2026, 6, 2) + Math.floor(Math.random() * 1_000_000)),
+			);
+			const relationshipSchemas = yield* listRelationshipSchemas(client, {
+				slugs: ["media-trending"],
+			});
+			const mediaTrending = requireRelationshipSchemaBySlug(relationshipSchemas, "media-trending");
+			yield* Effect.all([
+				insertGlobalRelationship({
+					sourceEntityId: current.entity.id,
+					targetEntityId: current.entity.id,
+					relationshipSchemaSlug: mediaTrending.id,
+					properties: { rank: 1, fetchedAt: latestAt },
+				}),
+				insertGlobalRelationship({
+					sourceEntityId: stale.entity.id,
+					targetEntityId: stale.entity.id,
+					relationshipSchemaSlug: mediaTrending.id,
+					properties: { rank: 1, fetchedAt: "2026-06-01T00:00:00.000Z" },
+				}),
+			]);
+
+			const result = yield* executeRyotQLRecipe(
+				client,
+				trendingLatestMediaRecipe({ limit: 10, entitySchemaSlug: bookSchema.slug }),
+			);
+			expect(result.items).toHaveLength(1);
+			const first = result.items[0];
+			assertPresent(first, "Expected latest trending row");
+			expect(first.id).toBe(current.entity.id);
+			expect(first.rank).toBe(1);
+			expect(first.fetchedAt).toBe(latestAt);
+		}),
 	);
 
 	it.live("journals parent, regular episode and special activity in one ordered history", () =>

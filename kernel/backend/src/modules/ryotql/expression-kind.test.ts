@@ -2,6 +2,7 @@ import { expect, it } from "@effect/vitest";
 import type { ScalarExpression, TableReference } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	ascending,
+	average,
 	castBoolean,
 	castDate,
 	castJson,
@@ -22,6 +23,8 @@ import {
 	jsonPath,
 	kebabCase,
 	literal,
+	maximum,
+	minimum,
 	multiply,
 	round,
 	sum,
@@ -77,6 +80,15 @@ it("infers one kind per scalar expression variant", () => {
 		{ kind: "text", expr: kebabCase(column(entity, "name")) },
 		{ kind: "number", expr: count(nested) },
 		{ kind: "number", expr: sum(nested, column(nested, "occurredAt")) },
+		{ kind: "number", expr: average(nested, column(nested, "occurredAt")) },
+		{ kind: "date", expr: maximum(nested, column(nested, "occurredAt")) },
+		{ kind: "date", expr: minimum(nested, column(entity, "createdAt")) },
+		{ kind: "text", expr: maximum(entity, column(entity, "name")) },
+		{ kind: "text", expr: minimum(entity, column(entity, "name")) },
+		{ kind: "number", expr: maximum(view, column(view, "sortOrder")) },
+		{ kind: "number", expr: minimum(view, column(view, "sortOrder")) },
+		{ kind: "json", expr: maximum(nested, column(nested, "properties")) },
+		{ kind: "boolean", expr: minimum(view, column(view, "isBuiltin")) },
 		{ kind: "number", expr: multiply(literal(2), column(view, "sortOrder")) },
 		{ kind: "number", expr: floor(column(view, "sortOrder")) },
 		{ kind: "number", expr: integer(column(view, "sortOrder")) },
@@ -106,6 +118,7 @@ it("leaves unresolvable column kinds undefined", () => {
 	const unresolved: readonly ScalarExpression[] = [
 		column(nested, "occurredAt"),
 		column(entity, "unknownField"),
+		maximum(nested, column(nested, "unknownField")),
 		firstNested(column(nested, "unknownField")),
 		first(unknownTable, {
 			select: column(unknownTable, "id"),

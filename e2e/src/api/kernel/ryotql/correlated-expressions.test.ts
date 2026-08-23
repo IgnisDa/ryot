@@ -35,9 +35,12 @@ import {
 	createAuthenticatedClient,
 	createCourseLessonFilterFixture,
 	createEntityFixture,
+	createEventFixture,
+	createEventSchema,
 	createPluginEntitySchema,
 	executeRyotQL,
 	requireRows,
+	requireRyotQLDate,
 	requireRyotQLValue,
 } from "~/fixtures/kernel";
 import { assertPresent } from "~/support/assertions";
@@ -423,6 +426,64 @@ describe("RyotQL correlated expressions", () => {
 			expect(requireRyotQLValue(item, "joinedExists")).toBe(false);
 			expect(requireRyotQLValue(item, "joinedCount")).toBe(0);
 			expect(requireRyotQLValue(item, "joinedFirst")).toBeNull();
+		}),
+	);
+
+	it.live("compares dates against a correlated maximum in one query", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { schemaId } = yield* createPluginEntitySchema(client, {
+				schemaName: "RyotQLMaximumDate",
+			});
+			const eventSchema = yield* createEventSchema(client, {
+				entitySchemaSlug: schemaId,
+				name: "RyotQL Maximum Date Event",
+				slug: `ryotql-maximum-date-${crypto.randomUUID()}`,
+			});
+			const entity = yield* createEntityFixture(client, {
+				entitySchemaSlug: schemaId,
+				name: "Maximum Date Entity",
+			});
+			const latestAt = "2026-05-03T00:00:00.000Z";
+			yield* createEventFixture(client, {
+				entityId: entity.id,
+				eventSchemaSlug: eventSchema.slug,
+				occurredAt: "2026-05-01T00:00:00.000Z",
+			});
+			yield* createEventFixture(client, {
+				entityId: entity.id,
+				occurredAt: latestAt,
+				eventSchemaSlug: eventSchema.slug,
+			});
+
+			const event = table("event", "event");
+			const latest = table("event", "latest");
+			const latestOccurredAt = maximum(latest, column(latest, "occurredAt"), {
+				where: eq(column(latest, "entityId"), column(event, "entityId")),
+			});
+			const result = yield* executeRyotQL(
+				client,
+				document({
+					latestEvents: rows(event, {
+						orderBy: [ascending(column(event, "occurredAt"))],
+						fields: [
+							field("occurredAt", column(event, "occurredAt")),
+							field("latestOccurredAt", latestOccurredAt),
+						],
+						where: and(
+							eq(column(event, "entityId"), literal(entity.id)),
+							eq(column(event, "occurredAt"), latestOccurredAt),
+						),
+					}),
+				}),
+			);
+
+			const items = requireRows(result.data["latestEvents"], "latestEvents").items;
+			expect(items).toHaveLength(1);
+			const item = items[0];
+			assertPresent(item, "Expected latest event");
+			expect(requireRyotQLDate(item, "occurredAt")).toBe(latestAt);
+			expect(requireRyotQLDate(item, "latestOccurredAt")).toBe(latestAt);
 		}),
 	);
 });
