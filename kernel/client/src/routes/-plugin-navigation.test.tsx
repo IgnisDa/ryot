@@ -37,6 +37,7 @@ import {
 	ProviderAddRouteStubs,
 	ImportsRouteStubs,
 	IntegrationRouteStubs,
+	NotificationChannelRouteStubs,
 	makeWorkspaceRecorder,
 } from "#/routes/-route-fixtures";
 
@@ -69,6 +70,8 @@ const mountView = (
 			ProviderAddRouteStubs,
 			ImportsRouteStubs,
 			IntegrationRouteStubs,
+			NotificationChannelRouteStubs,
+			NotificationChannelRouteStubs,
 			AuthStub,
 			GodModeRouteStubs,
 			ServerStub,

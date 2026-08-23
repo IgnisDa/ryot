@@ -41,6 +41,7 @@ import {
 	ProviderAddRouteStubs,
 	ImportsRouteStubs,
 	IntegrationRouteStubs,
+	NotificationChannelRouteStubs,
 	stubDesktopMatchMedia,
 	stubCompactMatchMedia,
 } from "#/routes/-route-fixtures";
@@ -260,6 +261,8 @@ const mountView = (
 			providerAdd,
 			ImportsRouteStubs,
 			IntegrationRouteStubs,
+			NotificationChannelRouteStubs,
+			NotificationChannelRouteStubs,
 			makeAuthStub(),
 			GodModeRouteStubs,
 			ServerStub,
