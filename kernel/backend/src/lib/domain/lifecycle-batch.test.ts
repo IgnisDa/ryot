@@ -60,9 +60,8 @@ describe("lifecycle batch triggers", () => {
 		const plans = Array.from({ length: 200 }, (_, index) => creditPlan(index));
 		const input = { plans, command, identity: ["credits"], resource: "relationship" } as const;
 		const triggers = lifecycleBatchTriggers(input, 200);
-		const items = triggers.flatMap(
-			({ payload }): ReadonlyArray<unknown> =>
-				payload?.operation === "batch" ? payload.items : [],
+		const items = triggers.flatMap(({ payload }): ReadonlyArray<unknown> =>
+			payload?.operation === "batch" ? payload.items : [],
 		);
 		expect(triggers.length).toBeGreaterThan(1);
 		expect(items).toEqual(plans.map(({ trigger }) => trigger.payload));
