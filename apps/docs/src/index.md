@@ -4,12 +4,12 @@ import variables from "./variables";
 
 # Installation
 
-Use the following docker-compose file:
+Use this Docker Compose file:
 
 ```yaml
 services:
   ryot-db:
-    image: postgres:18-alpine # at-least version 15 is required
+    image: postgres:18-alpine # PostgreSQL 15 or later is required
     restart: unless-stopped
     container_name: ryot-db
     volumes:
@@ -28,7 +28,7 @@ services:
       - redis_storage:/data
 
   ryot:
-    image: ignisda/ryot:v11 # or ghcr.io/ignisda/ryot:v11
+    image: ignisda/ryot:v10 # or ghcr.io/ignisda/ryot:v10
     pull_policy: always
     container_name: ryot
     restart: unless-stopped
@@ -49,23 +49,16 @@ volumes:
   postgres_storage:
 ```
 
-This example uses the persistent local fallback for permanent files. Temporary files always use
-the local, ephemeral `/home/ryot/work` directory; do not mount it. For production deployments,
-configure complete S3 storage so permanent files use S3 instead of the local volume. See the
-[file storage guide](./guides/file-storage.md).
+This configuration stores permanent files in `ryot_storage`. Do not mount `/home/ryot/work`;
+it is temporary storage. For production, consider S3-compatible permanent storage. See
+[File Storage](./guides/file-storage.md).
 
-Some providers (eg: TMDB for movies, IGDB for video games) need access tokens. Please visit
-the [configuration](./configuration.md) page for more information.
+Some metadata providers require credentials. See [Configuration](./configuration.md).
 
 ## Upgrading to Pro
 
-To see the features of the pro version, check the <a
-:href="`${variables.mainWebsiteUrl}/features`" target="_blank">features page</a>. To
-upgrade to the pro version, you need to provide a `SERVER_PRO_KEY` environment variable.
-You can get a key by purchasing it from the <a :href="variables.mainWebsiteUrl"
-target="_blank">website</a>.
-
-Once you have the key, you can set it in the `docker-compose.yml` file:
+Buy a key from the <a :href="variables.mainWebsiteUrl" target="_blank">Ryot website</a>, then
+set `SERVER_PRO_KEY`:
 
 ```diff
   ryot:
@@ -73,33 +66,27 @@ Once you have the key, you can set it in the `docker-compose.yml` file:
 +      - SERVER_PRO_KEY=<pro_key_issued_to_you>
 ```
 
-If the key is invalid or your subscription has expired, the server will automatically switch
-to the community version. Since the two versions are compatible, you can switch between
-them by simply fixing the key and restarting the server.
+An invalid or expired key switches the server to the compatible community version. Fix the key
+and restart the server to enable Pro again. See [Pro Key Verification](./concepts/pro-key.md).
 
 ## Releases
 
-Each version of Ryot is released as docker images. For example, if the latest tag is
-`v5.2.1`, then the docker image will be tagged as `v5.2.1`, `v5.2`, `v5`, `latest` and
-`sha-e145f71` (git commit SHA). The images will be made available on [Docker
-Hub](https://hub.docker.com/r/ignisda/ryot) and [GitHub Container
-Registry](https://ghcr.io/ignisda/ryot). Ryot is released on a (loosely) weekly basis.
+Images are published to [Docker Hub](https://hub.docker.com/r/ignisda/ryot) and [GitHub Container
+Registry](https://ghcr.io/ignisda/ryot). A release such as `v10.5.0` has `v10.5.0`, `v10.5`,
+`v10`, `latest`, and commit-SHA tags.
 
-If you prefer to live on the edge, you can use the `develop` docker tag which is released
-when changes are merged into the `main` branch. Please note that this tag often has major
-bugs and results in data loss. Only use this tag if you know what you are doing.
+::: danger
+The `develop` tag follows `main`. It can contain severe defects and cause data loss. Do not use it
+for important data.
+:::
 
 ## Telemetry
 
-Ryot collects usage data to help me prioritize features. It uses a self-hosted
-[Umami](https://umami.is) instance to collect this data. In addition to page views, a few
-events are also tracked, and you can find them in the
+Ryot uses self-hosted [Umami](https://umami.is) analytics to collect page views and selected
+events. The event definitions are in the
 [source code](https://github.com/IgnisDa/ryot/blob/main/kernel/client/src/modules/analytics).
 
-Once you are signed in, this data is linked to your account identifier so that activity
-belonging to one person is not counted as several visitors across sessions and devices.
-That identifier is an opaque account ID; your name, email address and the contents of
-anything you track are never sent.
+Signed-in events use an opaque account ID to correlate sessions and devices. Ryot does not send
+your name, email address, or tracked content.
 
-You can opt out entirely by setting `DISABLE_TELEMETRY` as described in the
-[configuration guide](./configuration.md#important-parameters).
+Set `DISABLE_TELEMETRY=true` to opt out.

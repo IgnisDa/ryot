@@ -1,14 +1,9 @@
 # MediaTracker
 
 ::: info
-It is necessary to setup TMDB for this import to work. Please follow the configuration
-[guide](../configuration.md) for instructions.
+Set `RYOT_PLUGIN_MEDIA_TMDB_ACCESS_TOKEN` before import.
 :::
 
-You can import from [MediaTracker](https://github.com/bonukai/MediaTracker).
-
-1. Login to your MediaTracker account and click on your name on the top right.
-2. Click on the "Application tokens" section.
-3. Enter a name and click on "Add token".
-4. Copy the token that was just generated.
-5. Enter the details in the inputs.
+1. Log in to [MediaTracker](https://github.com/bonukai/MediaTracker).
+2. Under **Application tokens**, name and add a token.
+3. Copy the token and enter the server details under **Settings > Import data**.
