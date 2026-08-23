@@ -4,8 +4,8 @@ import {
 } from "@ryot/contract/modules/plugins/contract";
 import { Context, Effect, Layer } from "effect";
 
-import { serverApiUrl } from "../../api/origin";
-import { canonicalApiScope, type ApiScope } from "../../api/scope";
+import { serverApiUrl } from "#/api/origin";
+import { canonicalApiScope, type ApiScope } from "#/api/scope";
 
 type CatalogEventSource = {
 	readonly close: () => void;

@@ -1,7 +1,6 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, Fiber } from "effect";
 
-import { clientStorageLayer, type BrowserStorage } from "../../persistence/storage";
 import {
 	AuthClient,
 	BETTER_AUTH_STORAGE_KEYS,
@@ -10,7 +9,8 @@ import {
 	type AuthSessionSnapshot,
 	type AuthSessionSource,
 	type AuthSessionStore,
-} from "./client";
+} from "#/modules/auth/client";
+import { clientStorageLayer, type BrowserStorage } from "#/persistence/storage";
 
 const makeStorage = (entries: readonly (readonly [string, string])[]) => {
 	const values = new Map(entries);

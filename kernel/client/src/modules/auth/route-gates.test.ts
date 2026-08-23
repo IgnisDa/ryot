@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { decideAuthRoute, decideProtectedRoute } from "./route-gates";
+import { decideAuthRoute, decideProtectedRoute } from "#/modules/auth/route-gates";
 
 describe("authentication route gates", () => {
 	it("waits while a session is being restored", () => {
