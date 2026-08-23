@@ -15,8 +15,10 @@ import { Effect, Encoding } from "effect";
 import { requirePresent } from "~/support/assertions";
 
 import { adminHeaders } from "./admin";
+import { listAdminSystemPlugins } from "./admin-system-plugins";
 import type { Client } from "./auth";
 import { getApiClient } from "./contract-client";
+import { listInstalledPlugins } from "./plugins";
 import { pollUntil } from "./polling";
 import { entityBrowserSettings, rowsDataSources } from "./saved-views";
 import { uploadPrivatePluginPackage } from "./temporary-archive";
@@ -144,6 +146,30 @@ export const testPluginSavedView = (input: {
 const operationScriptIds = (result: PluginOperationResult) =>
 	Object.fromEntries(result.scripts.map(({ id, slug }) => [slug, id]));
 
+const installedSourceHash = (
+	scope: "system" | "user",
+	pluginId: PluginId,
+	pluginSlug: PluginSlug,
+	client?: Client,
+) =>
+	Effect.gen(function* () {
+		if (scope === "system") {
+			const plugins = yield* listAdminSystemPlugins;
+			const plugin = requirePresent(
+				plugins.find(({ id }) => id === pluginId),
+				`System plugin '${pluginSlug}' was not found after installation`,
+			);
+			return requirePresent(plugin.sourceHash, `System plugin '${pluginSlug}' has no source hash`);
+		}
+		const owner = requirePresent(client, "User test plugin has no client");
+		const plugins = yield* listInstalledPlugins(owner, { includeDisabled: true });
+		const plugin = requirePresent(
+			plugins.find(({ slug }) => slug === pluginSlug),
+			`Private plugin '${pluginSlug}' was not found after installation`,
+		);
+		return plugin.sourceHash;
+	});
+
 const requireFixtureUserId = (client: Client) =>
 	requirePresent(client.userId, "Private test plugin client has no fixture user ID");
 
@@ -200,14 +226,12 @@ export const installTestPlugin = (
 			);
 			yield* pollUntil(
 				`private test plugin '${pluginSlug}' installation`,
-				input.client
-					.call((c) => c.plugins.list())
-					.pipe(
-						Effect.map((installations) => {
-							const installation = installations.find(({ slug }) => slug === pluginSlug);
-							return installation?.health === "ready" ? installation : null;
-						}),
-					),
+				listInstalledPlugins(input.client, { includeDisabled: true }).pipe(
+					Effect.map((installations) => {
+						const installation = installations.find(({ slug }) => slug === pluginSlug);
+						return installation?.health === "ready" ? installation : null;
+					}),
+				),
 			);
 		}
 		const scriptIds = operationScriptIds(operationResult);
@@ -215,20 +239,26 @@ export const installTestPlugin = (
 			scriptIds[input.script.slug],
 			`Installed test plugin script '${input.script.slug}' was not returned`,
 		);
-		const installed = {
+		const sourceHash = yield* installedSourceHash(
+			input.scope === "system" ? "system" : "user",
+			operationResult.pluginId,
+			PluginSlug.make(pluginSlug),
+			input.client,
+		);
+		const installed: InstalledTestPlugin = {
 			files,
 			manifest,
 			scriptId,
 			scriptIds,
+			sourceHash,
 			active: true,
 			client: input.client,
 			slug: input.script.slug,
-			scope: operationResult.scope,
-			pluginSlug: operationResult.slug,
 			pluginId: operationResult.pluginId,
-			sourceHash: operationResult.sourceHash,
+			pluginSlug: PluginSlug.make(pluginSlug),
 			installationId: operationResult.installationId,
 			configRevisionId: operationResult.configRevisionId,
+			scope: input.scope === "system" ? "system" : "user",
 			activePluginRevisionId: operationResult.activePluginRevisionId,
 		};
 		installedByScriptId.set(scriptId, { installed, targetSlug: input.script.slug });
@@ -302,14 +332,12 @@ export const installTestPluginBundle = (
 			);
 			yield* pollUntil(
 				`private test plugin '${pluginSlug}' installation`,
-				input.client
-					.call((c) => c.plugins.list())
-					.pipe(
-						Effect.map((installations) => {
-							const installation = installations.find(({ slug }) => slug === pluginSlug);
-							return installation?.health === "ready" ? installation : null;
-						}),
-					),
+				listInstalledPlugins(input.client, { includeDisabled: true }).pipe(
+					Effect.map((installations) => {
+						const installation = installations.find(({ slug }) => slug === pluginSlug);
+						return installation?.health === "ready" ? installation : null;
+					}),
+				),
 			);
 		}
 		const scriptIds = operationScriptIds(operationResult);
@@ -319,19 +347,25 @@ export const installTestPluginBundle = (
 		if (!scriptId) {
 			return yield* Effect.die(new Error("Test plugin bundle requires at least one script"));
 		}
+		const sourceHash = yield* installedSourceHash(
+			input.scope === "system" ? "system" : "user",
+			operationResult.pluginId,
+			PluginSlug.make(pluginSlug),
+			input.client,
+		);
 		const installed: InstalledTestPlugin = {
 			files,
 			manifest,
 			scriptId,
 			scriptIds,
+			sourceHash,
 			active: true,
 			client: input.client,
-			scope: operationResult.scope,
-			pluginSlug: operationResult.slug,
 			pluginId: operationResult.pluginId,
-			sourceHash: operationResult.sourceHash,
+			pluginSlug: PluginSlug.make(pluginSlug),
 			installationId: operationResult.installationId,
 			configRevisionId: operationResult.configRevisionId,
+			scope: input.scope === "system" ? "system" : "user",
 			activePluginRevisionId: operationResult.activePluginRevisionId,
 			slug: input.providers?.[0]?.slug ?? input.scripts[0]?.slug ?? pluginSlug,
 		};
@@ -379,14 +413,12 @@ export const installTestDefinitions = (input: {
 			yield* input.client.call((c) => c.plugins.install({ payload: { config: {}, uploadToken } }));
 			yield* pollUntil(
 				`private definition plugin '${input.pluginSlug}' installation`,
-				input.client
-					.call((c) => c.plugins.list())
-					.pipe(
-						Effect.map((installations) => {
-							const installation = installations.find(({ slug }) => slug === input.pluginSlug);
-							return installation?.health === "ready" ? installation : null;
-						}),
-					),
+				listInstalledPlugins(input.client, { includeDisabled: true }).pipe(
+					Effect.map((installations) => {
+						const installation = installations.find(({ slug }) => slug === input.pluginSlug);
+						return installation?.health === "ready" ? installation : null;
+					}),
+				),
 			);
 		}
 		definitionManifests.set(input.pluginSlug, { manifest, client: input.client });
@@ -441,14 +473,20 @@ export const reinstallTestPluginScript = (
 			`Updated test plugin script '${script.slug}' was not returned`,
 		);
 		const updatesPrimaryScript = installed.scriptId === installed.scriptIds[targetSlug];
+		const sourceHash = yield* installedSourceHash(
+			installed.scope,
+			operationResult.pluginId,
+			installed.pluginSlug,
+			installed.client,
+		);
 		const nextInstalled: InstalledTestPlugin = {
 			...installed,
 			files,
 			manifest,
+			sourceHash,
 			scriptIds: nextScriptIds,
-			pluginSlug: operationResult.slug,
+			pluginSlug: installed.pluginSlug,
 			pluginId: operationResult.pluginId,
-			sourceHash: operationResult.sourceHash,
 			installationId: operationResult.installationId,
 			configRevisionId: operationResult.configRevisionId,
 			scriptId: updatesPrimaryScript ? scriptId : installed.scriptId,

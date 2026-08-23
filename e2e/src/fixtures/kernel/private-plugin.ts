@@ -7,6 +7,7 @@ import type { PluginArchivePackage } from "@ryot-app/plugin-archive";
 import { Effect } from "effect";
 
 import type { Client } from "./auth";
+import { listInstalledPlugins } from "./plugins";
 import { pollUntil } from "./polling";
 import {
 	literalSandboxSource,
@@ -112,14 +113,12 @@ export const privatePluginPackage = (
 export const settledPrivateInstallation = (client: Client, pluginSlug: PluginSlug) =>
 	pollUntil(
 		`installation of private plugin '${pluginSlug}'`,
-		client
-			.call((c) => c.plugins.list())
-			.pipe(
-				Effect.map((installations) => {
-					const installed = installations.find((entry) => entry.slug === pluginSlug);
-					return installed && installed.health !== "installing" ? installed : null;
-				}),
-			),
+		listInstalledPlugins(client, { includeDisabled: true }).pipe(
+			Effect.map((installations) => {
+				const installed = installations.find((entry) => entry.slug === pluginSlug);
+				return installed && installed.health !== "installing" ? installed : null;
+			}),
+		),
 	);
 
 export const installPrivatePluginPackage = (input: {
