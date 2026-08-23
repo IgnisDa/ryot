@@ -415,7 +415,7 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 					httpRateLimits: [
 						{
 							requests: 1,
-							intervalMs: 20_000,
+							intervalMs: 60_000,
 							origins: [new URL(http.url).origin],
 							key: `e2e.isolated.${crypto.randomUUID()}`,
 						},
@@ -510,7 +510,7 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 				expect(
 					requirePresent(requestTimestamps[1], "Missing request timestamp") -
 						requirePresent(requestTimestamps[0], "Missing request timestamp"),
-				).toBeGreaterThanOrEqual(18_500);
+				).toBeGreaterThanOrEqual(58_500);
 			}),
 	);
 });
