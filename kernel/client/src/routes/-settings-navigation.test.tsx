@@ -5,7 +5,7 @@ import { Deferred, Effect, Layer, ManagedRuntime } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { AuthenticatedApi } from "#/api/authenticated";
-import { PublicApi } from "#/api/public";
+import { PublicApi, PublicApiError } from "#/api/public";
 import { AuthClient } from "#/modules/auth/client";
 import type { AuthService } from "#/modules/auth/service";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
@@ -18,6 +18,7 @@ import {
 	ServerStub,
 	catalog,
 	makeAuthStub,
+	makePublicApiStub,
 	makeStorageStub,
 	theme,
 	unauthenticated,
@@ -30,13 +31,14 @@ const mountView = (
 	rememberedSlug: string | null = "fixture",
 	entries: PluginClientCatalog = catalog,
 	authLayer: Layer.Layer<AuthService> = AuthStub,
+	publicLayer = makePublicApiStub(),
 ) => {
 	const events = makePluginCatalogEventsTestLayer();
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
 			authLayer,
 			ServerStub,
-			PublicApi.layer,
+			publicLayer,
 			AuthClient.layer,
 			AuthenticatedApi.layer,
 			events.layer,
@@ -278,5 +280,38 @@ describe("account settings", () => {
 		expect(screen.getByRole("button", { name: "Change server" }).hasAttribute("disabled")).toBe(
 			false,
 		);
+	});
+});
+
+describe("pro instance badge", () => {
+	it("crowns the sidebar account avatar when the server key is validated", async () => {
+		mountView("/settings/preferences", undefined, undefined, undefined, makePublicApiStub(true));
+		const sidebar = await screen.findByTestId("desktop-sidebar");
+
+		expect(within(sidebar).getByRole("img", { name: "Ryot Pro" })).not.toBeNull();
+	});
+
+	it("leaves the sidebar account avatar plain when the server key is not validated", async () => {
+		mountView("/settings/preferences");
+		const sidebar = await screen.findByTestId("desktop-sidebar");
+
+		expect(within(sidebar).queryByRole("img", { name: "Ryot Pro" })).toBeNull();
+	});
+
+	it("falls back to the community badge when the system config cannot be read", async () => {
+		mountView(
+			"/settings/preferences",
+			undefined,
+			undefined,
+			undefined,
+			Layer.succeed(PublicApi, {
+				checkHealth: () => Effect.void,
+				getSystemConfig: () => Effect.fail(new PublicApiError({ cause: "offline" })),
+			}),
+		);
+		const sidebar = await screen.findByTestId("desktop-sidebar");
+
+		expect(within(sidebar).queryByRole("img", { name: "Ryot Pro" })).toBeNull();
+		expect(screen.getByRole("heading", { name: "Preferences" })).not.toBeNull();
 	});
 });
