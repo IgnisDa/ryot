@@ -1,38 +1,58 @@
-import { Effect } from "effect";
+/* oxlint-disable perfectionist/sort-objects -- Worker evidence fields follow timing chronology. */
+import type { ClientCompilerResponse } from "./protocol";
 
-import { compileClientPlugin } from "./compile";
-import { clientPluginCompilationFailure, clientPluginCompilerDiagnostic } from "./diagnostics";
-import {
-	clientCompilerWorkerFailure,
-	clientCompilerWorkerSuccess,
-	decodeClientCompilerWorkerRequest,
-	encodeClientCompilerWorkerResponse,
-} from "./protocol";
+const processStartedNs = Bun.nanoseconds();
+const requestReadStartedNs = Bun.nanoseconds();
+const input = await Bun.stdin.text();
+const [{ Effect }, { compileClientPlugin }, diagnostics, protocol] = await Promise.all([
+	import("effect"),
+	import("./compile"),
+	import("./diagnostics"),
+	import("./protocol"),
+]);
+const importsReadyNs = Bun.nanoseconds();
 
 const workerFailure = (message: string) =>
-	clientPluginCompilationFailure([
-		clientPluginCompilerDiagnostic("RYOT_CLIENT_COMPILER_PROCESS", "client", message),
+	diagnostics.clientPluginCompilationFailure([
+		diagnostics.clientPluginCompilerDiagnostic("RYOT_CLIENT_COMPILER_PROCESS", "client", message),
 	]);
 
 const response = await Effect.runPromise(
-	Effect.tryPromise({
-		try: () => Bun.stdin.text(),
-		catch: (error) =>
-			workerFailure(`Client plugin compiler input could not be read: ${String(error)}`),
-	}).pipe(
-		Effect.flatMap((input) =>
-			decodeClientCompilerWorkerRequest(input).pipe(
-				Effect.mapError((error) =>
-					workerFailure(`Client plugin compiler input could not be decoded: ${String(error)}`),
-				),
-			),
+	protocol.decodeClientCompilerWorkerRequest(input).pipe(
+		Effect.mapError((error) =>
+			workerFailure(`Client plugin compiler input could not be decoded: ${String(error)}`),
 		),
 		Effect.flatMap(compileClientPlugin),
 		Effect.match({
-			onFailure: clientCompilerWorkerFailure,
-			onSuccess: clientCompilerWorkerSuccess,
+			onFailure: protocol.clientCompilerWorkerFailure,
+			onSuccess: protocol.clientCompilerWorkerSuccess,
 		}),
 	),
 );
-
-process.stdout.write(`${encodeClientCompilerWorkerResponse(response)}\n`);
+const artifactReadyNs = Bun.nanoseconds();
+const instrumentedResponse: ClientCompilerResponse =
+	response.success && response.value.benchmarkInstrumentation !== undefined
+		? {
+				success: true as const,
+				value: {
+					artifact: response.value.artifact,
+					benchmarkInstrumentation: {
+						...response.value.benchmarkInstrumentation,
+						worker: { processStartedNs, importsReadyNs, requestReadStartedNs, artifactReadyNs },
+					},
+				},
+			}
+		: response;
+const tracePath = process.env.RYOT_CLIENT_COMPILER_BENCHMARK_TRACE;
+if (
+	tracePath !== undefined &&
+	instrumentedResponse.success &&
+	instrumentedResponse.value.benchmarkInstrumentation !== undefined
+) {
+	const { appendFile } = await import("node:fs/promises");
+	await appendFile(
+		tracePath,
+		`${JSON.stringify(instrumentedResponse.value.benchmarkInstrumentation)}\n`,
+	);
+}
+process.stdout.write(`${protocol.encodeClientCompilerWorkerResponse(instrumentedResponse)}\n`);

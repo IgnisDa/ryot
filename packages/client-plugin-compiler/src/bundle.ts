@@ -1,18 +1,31 @@
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect } from "effect";
 
-import { isNeutralPluginModule, isTrustedClientModule } from "./dependencies";
+import { isTrustedClientModule } from "./dependencies";
 import {
 	type ClientPluginCompilerDiagnostic,
 	type ClientPluginCompilerFailure,
 	clientPluginCompilationFailure,
 	clientPluginCompilerDiagnostic,
 } from "./diagnostics";
+import {
+	clientImportPolicyIssue,
+	isSharedClientSource,
+	resolveClientLocalImport,
+} from "./import-policy";
+import type { ClientCompilerBenchmarkInstrumentation } from "./instrumentation";
+import {
+	createStylexTracerBundleAdapter,
+	STYLEX_RUNTIME_MODULE,
+	STYLEX_TRACER_TRUSTED_MODULES,
+	type StylexTracerRule,
+} from "./stylex-tracer";
 
 const CLIENT_NAMESPACE = "ryot-client-plugin";
 const EFFECT_NAMESPACE = "ryot-client-plugin-effect";
 const CLIENT_ENTRY_SPECIFIER = "ryot:client-entry";
 const UNTRUSTED_NAMESPACE = "ryot-client-plugin-untrusted";
+const STYLEX_TRUSTED_NAMESPACE = "ryot-client-plugin-stylex-trusted";
 
 export type ClientPluginSources = {
 	readonly entry: string;
@@ -20,6 +33,7 @@ export type ClientPluginSources = {
 	readonly assetNames: Readonly<Record<string, string>>;
 	readonly publicExports: Readonly<Record<string, string>>;
 	readonly unresolvedPluginDependencies?: readonly string[];
+	readonly stylexTracer?: { readonly fingerprint: string };
 };
 
 export type ClientBundleResult =
@@ -30,6 +44,7 @@ export type ClientBundleResult =
 			readonly sources: readonly string[];
 			readonly stylesheets: readonly string[];
 			readonly publicExports: readonly string[];
+			readonly stylexRules?: readonly StylexTracerRule[];
 	  };
 
 const buildDiagnosticSeverity = (level: BuildMessage["level"]) => {
@@ -55,67 +70,48 @@ const toBuildDiagnostic = (
 	...(log.position === null ? {} : { length: log.position.length }),
 });
 
-const normalizeRelativePath = (importer: string, specifier: string) => {
-	const parts = [...importer.split("/").slice(0, -1), ...specifier.split("/")];
-	const normalized: string[] = [];
-	for (const part of parts) {
-		if (!part || part === ".") {
-			continue;
-		}
-		if (part === "..") {
-			if (normalized.length === 0) {
-				return null;
-			}
-			normalized.pop();
-			continue;
-		}
-		normalized.push(part);
-	}
-	return normalized.join("/");
-};
-
-const contributorRoot = (path: string) => {
-	const client = path.lastIndexOf("/client/");
-	const shared = path.lastIndexOf("/shared/");
-	const boundary = Math.max(client, shared);
-	return boundary === -1 ? "" : path.slice(0, boundary + 1);
-};
-
-const isSharedSource = (path: string) => path.startsWith("shared/") || path.includes("/shared/");
-
-const reachableRoots = (importer: string) => {
-	const root = contributorRoot(importer);
-	return isSharedSource(importer) ? [`${root}shared/`] : [`${root}client/`, `${root}shared/`];
-};
-
-const resolveLocalImport = (
-	files: Readonly<Record<string, string>>,
-	assetNames: Readonly<Record<string, string>>,
-	importer: string,
-	specifier: string,
-) => {
-	const path = normalizeRelativePath(importer, specifier);
-	if (!path || !reachableRoots(importer).some((root) => path.startsWith(root))) {
-		return null;
-	}
-	const candidates = [path, `${path}.tsx`, `${path}.ts`, `${path}/index.tsx`, `${path}/index.ts`];
-	return (
-		candidates.find(
-			(candidate) => Object.hasOwn(files, candidate) || Object.hasOwn(assetNames, candidate),
-		) ?? null
-	);
-};
-
 const sourceLoader = (path: string) => (path.endsWith(".tsx") ? "tsx" : "ts");
 
-export const bundleClientPlugin = (sources: ClientPluginSources, compilerRoot: string) =>
+export const bundleClientPlugin = (
+	sources: ClientPluginSources,
+	compilerRoot: string,
+	instrumentation?: ClientCompilerBenchmarkInstrumentation,
+) =>
 	Effect.suspend(() => {
 		const assets = new Set<string>();
 		const stylesheets = new Set<string>();
 		const publicExports = new Set<string>();
 		const loadedSources = new Set<string>();
 		const rejected: ClientPluginCompilerDiagnostic[] = [];
-		const unresolvedPluginDependencies = new Set(sources.unresolvedPluginDependencies ?? []);
+		let stylexTracer: ReturnType<typeof createStylexTracerBundleAdapter> | undefined;
+		if (sources.stylexTracer !== undefined) {
+			try {
+				const finishMaterialization = instrumentation?.start("trusted-reads-materialization", true);
+				stylexTracer = createStylexTracerBundleAdapter(
+					sources.files,
+					compilerRoot,
+					undefined,
+					instrumentation,
+				);
+				finishMaterialization?.();
+				if (stylexTracer.preflightDiagnostics.length > 0) {
+					const finishCleanup = instrumentation?.start("cleanup", true);
+					stylexTracer.cleanup();
+					finishCleanup?.();
+					return Effect.fail(clientPluginCompilationFailure(stylexTracer.preflightDiagnostics));
+				}
+			} catch (error) {
+				return Effect.fail(
+					clientPluginCompilationFailure([
+						clientPluginCompilerDiagnostic(
+							"RYOT_CLIENT_STYLEX",
+							sources.entry,
+							`StyleX tracer dependencies could not be resolved: ${String(error)}`,
+						),
+					]),
+				);
+			}
+		}
 
 		const plugin: Bun.BunPlugin = {
 			name: "ryot-client-plugin-source",
@@ -125,16 +121,32 @@ export const bundleClientPlugin = (sources: ClientPluginSources, compilerRoot: s
 					namespace: CLIENT_NAMESPACE,
 				}));
 				builder.onResolve({ filter: /^\.{1,2}\// }, ({ path, importer }) => {
+					const trustedImporter = stylexTracer?.trustedSources[importer];
+					if (trustedImporter !== undefined && stylexTracer !== undefined) {
+						const resolved = stylexTracer.resolveTrustedImport(importer, path);
+						if (resolved !== undefined) {
+							return { path: resolved, namespace: STYLEX_TRUSTED_NAMESPACE };
+						}
+						rejected.push(
+							clientPluginCompilerDiagnostic(
+								"RYOT_CLIENT_IMPORT",
+								trustedImporter.logicalPath,
+								`Trusted StyleX tracer import "${path}" is outside the approved tracer sources`,
+							),
+						);
+						return { path, namespace: UNTRUSTED_NAMESPACE };
+					}
 					if (!Object.hasOwn(sources.files, importer)) {
 						return undefined;
 					}
-					const resolved = resolveLocalImport(sources.files, sources.assetNames, importer, path);
-					if (resolved === null) {
+					const issue = clientImportPolicyIssue(sources, importer, path);
+					const resolved = resolveClientLocalImport(sources, importer, path);
+					if (issue !== null || resolved === null) {
 						rejected.push(
 							clientPluginCompilerDiagnostic(
 								"RYOT_CLIENT_IMPORT",
 								importer,
-								`Import "${path}" could not be resolved inside the plugin client sources`,
+								issue ?? `Import "${path}" could not be resolved inside the plugin client sources`,
 							),
 						);
 						return { path, namespace: UNTRUSTED_NAMESPACE };
@@ -145,53 +157,56 @@ export const bundleClientPlugin = (sources: ClientPluginSources, compilerRoot: s
 					if (!Object.hasOwn(sources.files, importer)) {
 						return undefined;
 					}
-					if (isSharedSource(importer)) {
-						rejected.push(
-							clientPluginCompilerDiagnostic(
-								"RYOT_CLIENT_IMPORT",
-								importer,
-								`Import "${path}" is not allowed; plugin shared sources may only import Ryot plugin kit entry points`,
-							),
-						);
+					const issue = clientImportPolicyIssue(sources, importer, path);
+					if (issue !== null) {
+						rejected.push(clientPluginCompilerDiagnostic("RYOT_CLIENT_IMPORT", importer, issue));
 						return { path, namespace: UNTRUSTED_NAMESPACE };
 					}
 					const resolved = sources.publicExports[path];
 					if (resolved === undefined) {
-						const pluginSlug =
-							/^@ryot-app\/plugins\/([a-z0-9]+(?:[._-][a-z0-9]+)*)\/[a-z0-9]+(?:[._-][a-z0-9]+)*$/.exec(
-								path,
-							)?.[1];
-						if (pluginSlug !== undefined && unresolvedPluginDependencies.has(pluginSlug)) {
-							return { path, external: true };
-						}
-						rejected.push(
-							clientPluginCompilerDiagnostic(
-								"RYOT_CLIENT_IMPORT",
-								importer,
-								`Public plugin import "${path}" is not present in the authorized export map`,
-							),
-						);
-						return { path, namespace: UNTRUSTED_NAMESPACE };
+						return { path, external: true };
 					}
 					publicExports.add(path);
 					return { path: resolved, namespace: CLIENT_NAMESPACE };
 				});
 				builder.onResolve({ filter: /^[^.]/ }, ({ path, importer }) => {
-					if (!Object.hasOwn(sources.files, importer)) {
-						return undefined;
-					}
-					const shared = isSharedSource(importer);
-					if (shared ? !isNeutralPluginModule(path) : !isTrustedClientModule(path)) {
+					const trustedImporter = stylexTracer?.trustedSources[importer];
+					if (trustedImporter !== undefined && stylexTracer !== undefined) {
+						if (STYLEX_TRACER_TRUSTED_MODULES.some((trusted) => trusted === path)) {
+							const trustedPath = stylexTracer.trustedEntries[path];
+							return trustedPath === undefined
+								? { path, namespace: UNTRUSTED_NAMESPACE }
+								: { path: trustedPath, namespace: STYLEX_TRUSTED_NAMESPACE };
+						}
+						if (
+							path === STYLEX_RUNTIME_MODULE ||
+							path === "@tanstack/react-hotkeys" ||
+							isTrustedClientModule(path)
+						) {
+							return { namespace: "file", path: Bun.resolveSync(path, compilerRoot) };
+						}
 						rejected.push(
 							clientPluginCompilerDiagnostic(
 								"RYOT_CLIENT_IMPORT",
-								importer,
-								shared
-									? `Import "${path}" is not allowed; plugin shared sources may only import Ryot plugin kit entry points`
-									: `Import "${path}" is not allowed; client plugins may only import React and Ryot client SDK entry points`,
+								trustedImporter.logicalPath,
+								`Trusted StyleX tracer import "${path}" is not approved`,
 							),
 						);
 						return { path, namespace: UNTRUSTED_NAMESPACE };
+					}
+					if (!Object.hasOwn(sources.files, importer)) {
+						return undefined;
+					}
+					const issue = clientImportPolicyIssue(sources, importer, path);
+					if (issue !== null) {
+						rejected.push(clientPluginCompilerDiagnostic("RYOT_CLIENT_IMPORT", importer, issue));
+						return { path, namespace: UNTRUSTED_NAMESPACE };
+					}
+					if (STYLEX_TRACER_TRUSTED_MODULES.some((trusted) => trusted === path)) {
+						const trustedPath = stylexTracer?.trustedEntries[path];
+						return trustedPath === undefined
+							? { path, namespace: UNTRUSTED_NAMESPACE }
+							: { path: trustedPath, namespace: STYLEX_TRUSTED_NAMESPACE };
 					}
 					return { namespace: "file", path: Bun.resolveSync(path, compilerRoot) };
 				});
@@ -242,6 +257,28 @@ export * as SchemaGetter from "effect/SchemaGetter";
 					contents: "",
 					loader: "js" as const,
 				}));
+				builder.onLoad({ filter: /.*/, namespace: STYLEX_TRUSTED_NAMESPACE }, ({ path }) => {
+					const trusted = stylexTracer?.trustedSources[path];
+					if (trusted === undefined || stylexTracer === undefined) {
+						rejected.push(
+							clientPluginCompilerDiagnostic(
+								"RYOT_CLIENT_IMPORT",
+								sources.entry,
+								`Trusted StyleX tracer source "${path}" is not approved`,
+							),
+						);
+						return { contents: "", loader: "js" as const };
+					}
+					const transformed = stylexTracer.transform(
+						trusted.logicalPath,
+						trusted.source,
+						trusted.actualPath,
+					);
+					if (transformed.diagnostic !== undefined) {
+						rejected.push(transformed.diagnostic);
+					}
+					return { loader: sourceLoader(path), contents: transformed.code ?? "" };
+				});
 				builder.onLoad({ filter: /.*/, namespace: CLIENT_NAMESPACE }, ({ path }) => {
 					const assetName = sources.assetNames[path];
 					if (assetName !== undefined) {
@@ -268,6 +305,24 @@ export * as SchemaGetter from "effect/SchemaGetter";
 						return { contents: "", loader: "js" as const };
 					}
 					loadedSources.add(path);
+					if (stylexTracer !== undefined && /\.tsx?$/.test(path) && !isSharedClientSource(path)) {
+						const actualPath = stylexTracer.archivedPaths[path];
+						if (actualPath === undefined) {
+							rejected.push(
+								clientPluginCompilerDiagnostic(
+									"RYOT_CLIENT_STYLEX",
+									path,
+									`StyleX source "${path}" has no canonical compiler path`,
+								),
+							);
+							return { contents: "", loader: "js" as const };
+						}
+						const transformed = stylexTracer.transform(path, source, actualPath);
+						if (transformed.diagnostic !== undefined) {
+							rejected.push(transformed.diagnostic);
+						}
+						return { loader: sourceLoader(path), contents: transformed.code ?? "" };
+					}
 					return { contents: source, loader: sourceLoader(path) };
 				});
 			},
@@ -282,19 +337,28 @@ export * as SchemaGetter from "effect/SchemaGetter";
 						`Client plugin bundling failed: ${String(error)}`,
 					),
 				]),
-			try: () =>
-				Bun.build({
-					throw: false,
-					minify: true,
-					format: "esm",
-					splitting: false,
-					plugins: [plugin],
-					sourcemap: "none",
-					target: "browser",
-					packages: "bundle",
-					entrypoints: [CLIENT_ENTRY_SPECIFIER],
-					define: { "process.env.NODE_ENV": '"production"' },
-				}),
+			try: async () => {
+				try {
+					return await Bun.build({
+						throw: false,
+						minify: true,
+						format: "esm",
+						splitting: false,
+						plugins: [plugin],
+						sourcemap: "none",
+						target: "browser",
+						packages: "bundle",
+						entrypoints: [CLIENT_ENTRY_SPECIFIER],
+						define: { "process.env.NODE_ENV": '"production"' },
+					});
+				} finally {
+					if (stylexTracer !== undefined) {
+						const finishCleanup = instrumentation?.start("cleanup", true);
+						stylexTracer.cleanup();
+						finishCleanup?.();
+					}
+				}
+			},
 		}).pipe(
 			Effect.flatMap((result): Effect.Effect<ClientBundleResult, ClientPluginCompilerFailure> => {
 				if (rejected.length > 0) {
@@ -331,13 +395,18 @@ export * as SchemaGetter from "effect/SchemaGetter";
 							),
 						]),
 				}).pipe(
-					Effect.map((javascript) => ({
-						javascript,
-						assets: sortBy([...assets]),
-						sources: sortBy([...loadedSources]),
-						stylesheets: sortBy([...stylesheets]),
-						publicExports: sortBy([...publicExports]),
-					})),
+					Effect.map((javascript) =>
+						Object.assign(
+							{
+								javascript,
+								assets: sortBy([...assets]),
+								sources: sortBy([...loadedSources]),
+								stylesheets: sortBy([...stylesheets]),
+								publicExports: sortBy([...publicExports]),
+							},
+							stylexTracer === undefined ? {} : { stylexRules: [...stylexTracer.rules] },
+						),
+					),
 				);
 			}),
 		);
