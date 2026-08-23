@@ -9,7 +9,7 @@ import { ChildProcess } from "effect/unstable/process";
 import { loadPluginSource, PluginSourceError } from "#modules/plugins/source.test-support";
 
 import { materializeSandboxCompiledModule } from "./compiled-modules";
-import { ensureSandboxRuntimeDependencies } from "./dependencies";
+import { materializeShippedSandboxRuntime } from "./dependencies";
 import { SANDBOX_LIMITS, SANDBOX_RUNNER_LIMITS } from "./limits";
 import { sandboxRunnerSource } from "./runner.generated";
 
@@ -26,7 +26,7 @@ export const verifyPluginSandboxScriptsLoad = (
 			const fs = yield* FileSystem.FileSystem;
 			const path = yield* Path.Path;
 			const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-plugin-load-" });
-			const runtime = yield* ensureSandboxRuntimeDependencies(root);
+			const runtime = yield* materializeShippedSandboxRuntime(root);
 			const runnerPath = path.join(root, "runner.mjs");
 			yield* fs.writeFileString(runnerPath, sandboxRunnerSource);
 			yield* Effect.addFinalizer(() => fs.chmod(runtime.directory, 0o755).pipe(Effect.ignore));

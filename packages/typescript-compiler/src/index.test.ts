@@ -43,9 +43,9 @@ it.effect("collects project and source diagnostics and exposes entry source file
 
 		expect(Object.keys(project.entrySourceFiles)).toEqual(["semantic.ts", "syntactic.ts"]);
 		expect(project.sourceFiles).toHaveLength(2);
-		expect(project.diagnostics.map(({ code }) => code)).toEqual(
-			expect.arrayContaining([2322, 1109]),
-		);
+		const diagnosticCodes = project.diagnostics.map(({ code }) => code);
+		expect(diagnosticCodes.filter((code) => code === 2322)).toHaveLength(1);
+		expect(diagnosticCodes.filter((code) => code === 1109)).toHaveLength(1);
 	}),
 );
 

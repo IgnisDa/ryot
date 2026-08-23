@@ -22,7 +22,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 import { sandboxDenoDirConfig } from "../config/definition";
 import { AppConfig } from "../config/service";
-import { ensureSandboxRuntimeDependencies } from "./dependencies";
+import { materializeShippedSandboxRuntime } from "./dependencies";
 import type { SandboxProcessGrants } from "./filesystem-grants";
 import { consumeSandboxHostCall, SANDBOX_LIMITS, type SandboxHostCallBudget } from "./limits";
 import { sandboxRunnerSource } from "./runner.generated";
@@ -493,7 +493,7 @@ export class PackageCacheManager extends Context.Service<PackageCacheManager>()(
 	{
 		make: Effect.gen(function* () {
 			const denoDir = yield* sandboxDenoDirConfig;
-			return yield* ensureSandboxRuntimeDependencies(denoDir);
+			return yield* materializeShippedSandboxRuntime(denoDir);
 		}),
 	},
 ) {

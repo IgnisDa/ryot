@@ -3,74 +3,76 @@ import { Effect } from "effect";
 
 import { clientPluginCompilationFailure, clientPluginCompilerDiagnostic } from "./diagnostics";
 
-const NEUTRAL_MODULES = [
-	"@ryot-app/plugin-kit/effect",
-	"@ryot-app/plugin-kit/ryotql",
-	"@ryot-app/plugin-kit/schema",
+const CLIENT_DEPENDENCY_REGISTRY = [
+	{ policy: "trusted", specifier: "clsx", typesPackage: "clsx", typesPath: "clsx.d.mts" },
+	{ policy: "trusted", specifier: "react", typesPath: "index.d.ts", typesPackage: "@types/react" },
+	{
+		policy: "trusted",
+		specifier: "react-dom",
+		typesPath: "index.d.ts",
+		typesPackage: "@types/react-dom",
+	},
+	{
+		policy: "trusted",
+		typesPath: "client.d.ts",
+		specifier: "react-dom/client",
+		typesPackage: "@types/react-dom",
+	},
+	{
+		policy: "trusted",
+		typesPackage: "@types/react",
+		typesPath: "jsx-runtime.d.ts",
+		specifier: "react/jsx-runtime",
+	},
+	{ policy: "trusted", specifier: "@ryot-app/client-sdk" },
+	{ policy: "trusted", specifier: "@ryot-app/client-sdk/effect" },
+	{ policy: "trusted", specifier: "@ryot-app/client-sdk/plugin" },
+	{ policy: "trusted", specifier: "@ryot-app/client-sdk/react" },
+	{ policy: "trusted", specifier: "@ryot-app/client-sdk/ryotql" },
+	{ policy: "trusted", specifier: "@ryot-app/client-sdk/screen" },
+	{ policy: "trusted", specifier: "@ryot-app/ryotql-recipes/saved-views" },
+	{ policy: "trusted", specifier: "@ryot-app/client-ui-sdk" },
+	{ policy: "trusted", specifier: "@ryot-app/client-ui-sdk/icon" },
+	{ policy: "trusted", specifier: "@ryot-app/client-ui-sdk/sync" },
+	{ policy: "trusted", specifier: "@ryot-app/client-ui-sdk/tint" },
+	{ policy: "trusted", specifier: "@ryot-app/client-ui-sdk/table" },
+	{ policy: "trusted", specifier: "@ryot-app/client-ui-sdk/schema-form" },
+	{ policy: "neutral", specifier: "@ryot-app/plugin-kit/effect" },
+	{ policy: "neutral", specifier: "@ryot-app/plugin-kit/ryotql" },
+	{ policy: "neutral", specifier: "@ryot-app/plugin-kit/schema" },
 ] as const;
 
-const NEUTRAL_MODULE_SET = new Set<string>(NEUTRAL_MODULES);
+const trustedModules = new Set<string>(
+	CLIENT_DEPENDENCY_REGISTRY.filter(({ policy }) => policy === "trusted").map(
+		({ specifier }) => specifier,
+	),
+);
+const neutralModules = new Set<string>(
+	CLIENT_DEPENDENCY_REGISTRY.filter(({ policy }) => policy === "neutral").map(
+		({ specifier }) => specifier,
+	),
+);
 
-const TRUSTED_MODULES = new Set([
-	"clsx",
-	"react",
-	"react-dom",
-	"react-dom/client",
-	"react/jsx-runtime",
-	"@ryot-app/client-sdk",
-	"@ryot-app/client-sdk/effect",
-	"@ryot-app/client-sdk/plugin",
-	"@ryot-app/client-sdk/react",
-	"@ryot-app/client-sdk/ryotql",
-	"@ryot-app/client-sdk/screen",
-	"@ryot-app/ryotql-recipes/saved-views",
-	"@ryot-app/client-ui-sdk",
-	"@ryot-app/client-ui-sdk/icon",
-	"@ryot-app/client-ui-sdk/sync",
-	"@ryot-app/client-ui-sdk/tint",
-	"@ryot-app/client-ui-sdk/table",
-	"@ryot-app/client-ui-sdk/schema-form",
-]);
-
-export const isTrustedClientModule = (specifier: string) => TRUSTED_MODULES.has(specifier);
-
-export const isNeutralPluginModule = (specifier: string) => NEUTRAL_MODULE_SET.has(specifier);
+export const isTrustedClientModule = (specifier: string) => trustedModules.has(specifier);
+export const isNeutralPluginModule = (specifier: string) => neutralModules.has(specifier);
 
 const directoryOf = (path: string) => path.slice(0, path.lastIndexOf("/"));
 
 const resolveTypeScriptEntries = (from: string) => {
-	const reactTypesRoot = directoryOf(Bun.resolveSync("@types/react/package.json", from));
-	const reactDomTypesRoot = directoryOf(Bun.resolveSync("@types/react-dom/package.json", from));
-	const clsxRoot = directoryOf(Bun.resolveSync("clsx/package.json", from));
-	return {
-		clsx: `${clsxRoot}/clsx.d.mts`,
-		react: `${reactTypesRoot}/index.d.ts`,
-		"react-dom": `${reactDomTypesRoot}/index.d.ts`,
-		"react-dom/client": `${reactDomTypesRoot}/client.d.ts`,
-		"react/jsx-runtime": `${reactTypesRoot}/jsx-runtime.d.ts`,
-		"@ryot-app/client-sdk": Bun.resolveSync("@ryot-app/client-sdk", from),
-		"@ryot-app/client-ui-sdk": Bun.resolveSync("@ryot-app/client-ui-sdk", from),
-		"@ryot-app/client-sdk/react": Bun.resolveSync("@ryot-app/client-sdk/react", from),
-		"@ryot-app/client-sdk/effect": Bun.resolveSync("@ryot-app/client-sdk/effect", from),
-		"@ryot-app/client-sdk/plugin": Bun.resolveSync("@ryot-app/client-sdk/plugin", from),
-		"@ryot-app/client-sdk/ryotql": Bun.resolveSync("@ryot-app/client-sdk/ryotql", from),
-		"@ryot-app/client-sdk/screen": Bun.resolveSync("@ryot-app/client-sdk/screen", from),
-		"@ryot-app/plugin-kit/effect": Bun.resolveSync("@ryot-app/plugin-kit/effect", from),
-		"@ryot-app/plugin-kit/ryotql": Bun.resolveSync("@ryot-app/plugin-kit/ryotql", from),
-		"@ryot-app/plugin-kit/schema": Bun.resolveSync("@ryot-app/plugin-kit/schema", from),
-		"@ryot-app/client-ui-sdk/icon": Bun.resolveSync("@ryot-app/client-ui-sdk/icon", from),
-		"@ryot-app/client-ui-sdk/sync": Bun.resolveSync("@ryot-app/client-ui-sdk/sync", from),
-		"@ryot-app/client-ui-sdk/tint": Bun.resolveSync("@ryot-app/client-ui-sdk/tint", from),
-		"@ryot-app/client-ui-sdk/table": Bun.resolveSync("@ryot-app/client-ui-sdk/table", from),
-		"@ryot-app/client-ui-sdk/schema-form": Bun.resolveSync(
-			"@ryot-app/client-ui-sdk/schema-form",
-			from,
-		),
-		"@ryot-app/ryotql-recipes/saved-views": Bun.resolveSync(
-			"@ryot-app/ryotql-recipes/saved-views",
-			from,
-		),
-	};
+	const packageRoots = new Map<string, string>();
+	return Object.fromEntries(
+		CLIENT_DEPENDENCY_REGISTRY.map((dependency) => {
+			if (!("typesPackage" in dependency)) {
+				return [dependency.specifier, Bun.resolveSync(dependency.specifier, from)];
+			}
+			let root = packageRoots.get(dependency.typesPackage);
+			if (root === undefined) {
+				root = directoryOf(Bun.resolveSync(`${dependency.typesPackage}/package.json`, from));
+				packageRoots.set(dependency.typesPackage, root);
+			}
+			return [dependency.specifier, `${root}/${dependency.typesPath}`];
+		}),
+	);
 };
 
 export const resolveClientPluginCompilerDependencies = Effect.try({
