@@ -11,9 +11,26 @@ must remain within an allowed root. `shared/**` accepts environment-neutral `.ts
 only `@ryot-app/plugin-kit/{effect,ryotql,schema}` as bare imports, matching the sandbox compiler's
 policy.
 
+Only those roots are compiler inputs, so only they are charged against the source-byte limit; an
+archive's `backend/**` sources are neither compiled, type-checked, nor counted. A plugin package
+charges every eligible authored source it ships, while a composed application charges only the
+sources its bundler and style graphs actually reach from the application entry.
+
+Composed applications namespace each contributor as `contributors/<stable-id>/client/**` and
+`contributors/<stable-id>/shared/**`. Public imports use
+`@ryot-app/plugins/<plugin-slug>/<export-name>` and resolve only through the authorized map supplied
+with the compiler input. The compiler does not discover plugins or private files by slug. The map and
+automatic-presentation registrations are expected to use backend-resolved stable identities and
+stable order; traversal is cycle-safe in the bundler module graph.
+
 Client bare imports use a fixed trusted-module allowlist. Anything else fails compilation rather
 than falling through to the host resolver. The exact list is maintained in `AGENTS.md` and
 `src/dependencies.ts`.
+
+Plugin package builds supply every advertised public export to the compiler. A compiler-generated
+validation entry imports and checks all of them, including exports that the current plugin bootstrap
+cannot reach. This validation bundle is discarded: the emitted route artifact still uses the
+plugin-authored entry until route applications move to the generated bootstrap.
 
 The resolver must also provide concrete paths for transitive re-export barrels such as `effect` and
 `lucide-react`. Declining these can emit a bundle with dangling references even though bundling
@@ -22,10 +39,13 @@ resolver entries must stay synchronized.
 
 ## Styles
 
-The compiler injects Tailwind's entry once, then emits plugin CSS and inlines
+The compiler injects Tailwind's entry once, then emits all reachable contributor CSS in stable
+namespaced source order and inlines
 `@ryot-app/client-ui-sdk/theme.css` followed by `palette.css`. This gives every plugin Preflight,
 shared accessibility rules, layer order, and concrete token values even when it has no stylesheet.
-The compiler scans plugin sources and the UI SDK's TypeScript sources so SDK-only classes are emitted.
+The compiler scans reachable contributor client sources and the UI SDK's TypeScript sources so
+SDK-only classes are emitted. Visual implementations stay in the UI SDK; client SDK sources are not
+added to the visual scan set.
 
 Palette values are baked into artifacts. A palette change therefore requires current artifacts to be
 compiled; stale artifacts are not patched at runtime.

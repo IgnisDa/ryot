@@ -4,7 +4,7 @@
 
 **System Design:** [Composable Views](./README.md)
 
-**Status:** todo
+**Status:** done
 
 **Depends On:** [01 - Publish And Open Custom Pages](./01-publish-and-open-custom-pages.md)
 
@@ -26,20 +26,20 @@ Extend artifact metadata/session validation to the complete code-contributor set
 
 ## Acceptance Criteria
 
-- [ ] One user page renders a system media component and a private fixture component through declared public imports.
-- [ ] There is one iframe, one bootstrap, one React instance, and one shared SDK context.
-- [ ] Public export metadata distinguishes pages, components, and presentations and checks generated imports against the appropriate SDK types.
-- [ ] Missing exports, undeclared plugins, traversal, cross-contributor relative paths, backend source, and unsupported packages are rejected clearly.
-- [ ] Contributor identity uses the user's resolved stable plugin/installation IDs, not an unscoped slug lookup.
-- [ ] Equal relative filenames from different contributors do not collide.
-- [ ] Reachable CSS and assets from several contributors work together, with framework/theme styles emitted once.
-- [ ] The trusted client import set no longer inherits the neutral shared modules, while `shared/**` keeps its existing plugin-kit-only rule and its shared-source-imported-from-client fixture still compiles.
-- [ ] The scanned stylesheet source set is stated explicitly, and no emitted class depends on incidental overlap with an unrelated scanned file.
-- [ ] Unrelated plugin page code is not pulled into a user page solely because it imports one public component.
-- [ ] Recursive public dependencies and automatic-registry requirements are resolved with cycle-safe traversal and stable ordering.
-- [ ] Source/dependency/export/provider-set changes affect build selection; settings values and query results do not become source bytes.
-- [ ] Existing access tests include a focused composed-private-dependency case without adding a separate security system.
-- [ ] Compiler tests execute the emitted composition and enforce the existing aggregate limits.
+- [x] One user page renders a system media component and a private fixture component through declared public imports.
+- [x] There is one iframe, one bootstrap, one React instance, and one shared SDK context.
+- [x] Public export metadata distinguishes pages, components, and presentations and checks generated imports against the appropriate SDK types.
+- [x] Missing exports, undeclared plugins, traversal, cross-contributor relative paths, backend source, and unsupported packages are rejected clearly.
+- [x] Contributor identity uses the user's resolved stable plugin/installation IDs, not an unscoped slug lookup.
+- [x] Equal relative filenames from different contributors do not collide.
+- [x] Reachable CSS and assets from several contributors work together, with framework/theme styles emitted once.
+- [x] The trusted client import set no longer inherits the neutral shared modules, while `shared/**` keeps its existing plugin-kit-only rule and its shared-source-imported-from-client fixture still compiles.
+- [x] The scanned stylesheet source set is stated explicitly, and no emitted class depends on incidental overlap with an unrelated scanned file.
+- [x] Unrelated plugin page code is not pulled into a user page solely because it imports one public component.
+- [x] Recursive public dependencies and automatic-registry requirements are resolved with cycle-safe traversal and stable ordering.
+- [x] Source/dependency/export/provider-set changes affect build selection; settings values and query results do not become source bytes.
+- [x] Existing access tests include a focused composed-private-dependency case without adding a separate security system.
+- [x] Compiler tests execute the emitted composition and enforce the existing aggregate limits.
 
 ## Verification
 
@@ -54,3 +54,11 @@ Extend compiler import, stylesheet, asset, and runtime execution tests. Extend e
 ## Implementor Notes
 
 Record compiler graph identities, source namespace conventions, and public-export validation details that later tasks must reuse.
+
+- Graph identity records the custom renderer publication plus each resolved contributor's stable plugin ID, exact installation ID, source hash, selected export metadata, and automatic-provider membership. Runtime settings and query data remain outside build identity.
+- Compiler sources use opaque contributor namespaces derived from stable contributor identity. A separate graph-derived dependency postorder controls deterministic source and stylesheet cascade order, so hash ordering cannot change CSS behavior.
+- Public imports use `@ryot-app/plugins/<pluginSlug>/<exportName>`. Package validation permits imports only from declared dependency slugs and validates every advertised export through a discarded generated entry; composed compilation resolves and typechecks concrete exports from the authorized user-scoped graph.
+- Reachability controls semantic checks, aggregate authored-source limits, stylesheet scanning, and emitted assets. Stylesheet scanning covers reachable contributor client sources and the UI SDK; visual implementations were not moved into the client SDK.
+- Generated `kernel/backend/src/drizzle/20260906172518_productive_gamma_corps` for graph-aware page-build persistence. Existing cached page builds are cleared before adding canonical graph identity and graph-hash uniqueness.
+- The first composition proof exports deterministic `media/show-progress` and `fixture/pokemon-types` components. The browser test publishes a real user renderer, installs fixture privately, and renders both components under one `#app` root in one iframe.
+- Verified `renderer-publication.test.ts` (17 tests), `composed-views.test.ts` (2 tests), all non-E2E package tests, and the complete repository check.

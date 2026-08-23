@@ -2,9 +2,11 @@ import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import {
+	buildComposedClientRendererDefinition,
 	createClientRenderer,
 	createRendererSavedView,
 	createTestUser,
+	installFixtureClientPlugin,
 	makeSession,
 	publishClientRenderer,
 } from "~/fixtures/kernel";
@@ -62,5 +64,41 @@ it.live("opens a published saved-view renderer in one sandboxed iframe", () =>
 			"Renderer setting: Task 01 second setting",
 		);
 		expect(yield* page.locator("iframe").count).toBe(1);
+	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+);
+
+it.live("renders system and private public components in one shared page runtime", () =>
+	Effect.gen(function* () {
+		const apiUrl = getApiUrl();
+		const { token, email, password } = yield* createTestUser(apiUrl);
+		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
+		yield* installFixtureClientPlugin(client, "A", "", apiUrl);
+		const renderer = yield* createClientRenderer(client, {
+			draftDefinition: buildComposedClientRendererDefinition(),
+		});
+		yield* publishClientRenderer(client, renderer.id, renderer.draftRevision);
+		const view = yield* createRendererSavedView(client, renderer.id, {
+			label: "Task 02 browser setting",
+		});
+
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage();
+		yield* signInThroughHostedOAuth(page, email, password);
+		yield* page.goto(`${getFrontendUrl()}/v/${view.slug}`);
+
+		const frames = page.locator("iframe");
+		yield* frames.waitFor({ state: "visible" });
+		expect(yield* frames.count).toBe(1);
+		const runtime = frames.first().contentFrame();
+		yield* runtime
+			.getByRole("heading", { level: 1, name: "Task 02 composed page", exact: true })
+			.waitFor({ state: "visible" });
+		const application = runtime.locator("#app");
+		expect(yield* application.count).toBe(1);
+		yield* expectVisibleText(application, "3 episodes watched, 5 episodes remaining");
+		yield* expectVisibleText(application, "E2E deterministic Pokemon");
+		yield* expectVisibleText(application, "grass");
+		yield* expectVisibleText(application, "poison");
+		yield* expectVisibleText(application, "Renderer setting: Task 02 browser setting");
 	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );

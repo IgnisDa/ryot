@@ -9,7 +9,7 @@ import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect } from "effect";
 import { parse } from "postcss";
 
-import { compileClientPlugin } from "./compile";
+import { compileClientPlugin, type ClientPluginCompilerGraphInput } from "./compile";
 import { isTrustedClientModule, resolveClientPluginCompilerDependencies } from "./dependencies";
 import { CLIENT_PLUGIN_COMPILER_LIMITS } from "./limits";
 
@@ -46,9 +46,27 @@ const compileFixture = (files: Record<string, Uint8Array>) =>
 	compileClientPlugin({
 		files,
 		name: "Fixture plugin",
-		apiVersion: CLIENT_API_VERSION,
 		entry: "client/index.tsx",
+		apiVersion: CLIENT_API_VERSION,
 	});
+
+const compileGraph = (overrides: Partial<ClientPluginCompilerGraphInput> = {}) => {
+	const contributors = overrides.contributors ?? {
+		user: {
+			files: { "client/page.tsx": bytes("export default function Page() { return null; }") },
+		},
+	};
+	return compileClientPlugin({
+		contributors,
+		publicExports: {},
+		application: "page",
+		name: "Composed page",
+		apiVersion: CLIENT_API_VERSION,
+		entry: { contributor: "user", path: "client/page.tsx" },
+		contributorOrder: overrides.contributorOrder ?? Object.keys(contributors),
+		...overrides,
+	});
+};
 
 const compileStylesheet = (stylesheet: string, files: Record<string, Uint8Array> = {}) =>
 	compileFixture({
@@ -404,6 +422,71 @@ it.effect("checks unreachable archived TypeScript sources but excludes test sour
 	}),
 );
 
+it.effect(
+	"checks every advertised package export through generated imports without replacing its bootstrap",
+	() =>
+		Effect.gen(function* () {
+			const input = {
+				name: "Exporting plugin",
+				entry: "client/index.tsx",
+				apiVersion: CLIENT_API_VERSION,
+				publicExports: { summary: { entry: "client/summary.tsx", kind: "component" as const } },
+				files: {
+					"client/index.tsx": bytes('Reflect.set(globalThis, "pluginBootstrap", "authored");'),
+					"client/summary.tsx": bytes(
+						"export default function Summary(_props: { label: string }) { return null; }",
+					),
+				},
+			};
+			const { artifact } = yield* compileClientPlugin(input);
+			const javascript = text(artifact.files.find(({ name }) => name === "plugin.js")?.contents);
+			expect(javascript).toContain("pluginBootstrap");
+
+			const missingDefault = yield* compileClientPlugin({
+				...input,
+				files: {
+					...input.files,
+					"client/summary.tsx": bytes("export const Summary = () => null;"),
+				},
+			}).pipe(Effect.flip);
+			expect(missingDefault.diagnostics[0]).toMatchObject({ code: "RYOT_CLIENT_BUNDLE" });
+			expect(missingDefault.diagnostics[0]?.message).toContain("No matching export");
+
+			const wrongPageType = yield* compileClientPlugin({
+				...input,
+				publicExports: {
+					summary: { entry: "client/summary.tsx", kind: "page" as const },
+				},
+			}).pipe(Effect.flip);
+			expect(wrongPageType.diagnostics).toEqual(
+				expect.arrayContaining([expect.objectContaining({ code: "TS2322" })]),
+			);
+		}),
+	30_000,
+);
+
+it.effect("enforces client import policy for otherwise unreachable advertised exports", () =>
+	Effect.gen(function* () {
+		const failure = yield* compileClientPlugin({
+			name: "Exporting plugin",
+			entry: "client/index.tsx",
+			apiVersion: CLIENT_API_VERSION,
+			publicExports: { summary: { entry: "client/summary.tsx", kind: "component" } },
+			files: {
+				"client/index.tsx": bytes("export {};"),
+				"client/summary.tsx": bytes(
+					'import { Option } from "@ryot-app/plugin-kit/effect"; export default function Summary() { return Option.none(); }',
+				),
+			},
+		}).pipe(Effect.flip);
+
+		expect(failure.diagnostics[0]).toMatchObject({
+			code: "RYOT_CLIENT_IMPORT",
+			file: "client/summary.tsx",
+		});
+	}),
+);
+
 it.effect("checks archived TypeScript declaration sources", () =>
 	Effect.gen(function* () {
 		const failure = yield* compileFixture({
@@ -582,7 +665,7 @@ it.effect(
 );
 
 it.effect(
-	"enforces source and per-asset limits on exact raw byte lengths",
+	"enforces source and per-asset limits on eligible client and shared bytes alone",
 	() =>
 		Effect.gen(function* () {
 			const prefix = "export {};";
@@ -591,6 +674,13 @@ it.effect(
 			);
 			const exact = yield* compileFixture({ "client/index.tsx": exactSource });
 			expect(exact.artifact.files.at(-1)?.name).toBe("index.html");
+
+			const archived = yield* compileFixture({
+				"client/index.tsx": exactSource,
+				"backend/invalid.ts": bytes("const invalid: string = 1;"),
+				"backend/bulk.ts": new Uint8Array(CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes),
+			});
+			expect(archived.artifact.files.at(-1)?.name).toBe("index.html");
 
 			const oversizedSource = yield* compileFixture({
 				"client/index.tsx": new Uint8Array(CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes + 1),
@@ -811,4 +901,305 @@ it.effect(
 			});
 		}),
 	30_000,
+);
+
+it.effect(
+	"executes public exports from isolated contributors with their reachable CSS and assets",
+	() =>
+		Effect.gen(function* () {
+			const mediaImage = new Uint8Array([1, 3, 5]);
+			const fixtureImage = new Uint8Array([2, 4, 6]);
+			const { artifact } = yield* compileGraph({
+				contributorOrder: ["user", "media", "fixture"],
+				contributors: {
+					user: {
+						files: {
+							"client/page.tsx": bytes(`
+import MediaCard from "@ryot-app/plugins/media/show-card";
+import PokemonCard from "@ryot-app/plugins/fixture/pokemon-card";
+export default function Page() { return <><MediaCard /><PokemonCard /></>; }
+`),
+						},
+					},
+					media: {
+						files: {
+							"client/card.tsx": bytes(`
+import "./styles.css";
+import image from "./image.png";
+import React from "react";
+Reflect.set(globalThis, "ryotTestReact", React);
+Reflect.set(globalThis, "ryotTestContributors", ["media"]);
+export default function Card() { return <img className="media-card" src={image} />; }
+`),
+							"client/styles.css": bytes(
+								'.media-card { background: url("./image.png"); } .shared-priority { color: red; }',
+							),
+							"client/image.png": mediaImage,
+							"client/unrelated.ts": bytes(
+								"const invalid: string = 1;" +
+									" ".repeat(CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes),
+							),
+							"client/unrelated.css": bytes(".unrelated-page { color: red; }"),
+						},
+					},
+					fixture: {
+						files: {
+							"client/card.tsx": bytes(`
+import "./styles.css";
+import image from "./image.png";
+import React from "react";
+if (Reflect.get(globalThis, "ryotTestReact") !== React) throw new Error("duplicate React");
+(Reflect.get(globalThis, "ryotTestContributors") as string[]).push("fixture");
+export default function Card() { return <img className="fixture-card" src={image} />; }
+`),
+							"client/styles.css": bytes(
+								'.fixture-card { background: url("./image.png"); } .shared-priority { color: blue; }',
+							),
+							"client/image.png": fixtureImage,
+						},
+					},
+				},
+				publicExports: {
+					"@ryot-app/plugins/media/show-card": {
+						kind: "component",
+						contributor: "media",
+						entry: "client/card.tsx",
+					},
+					"@ryot-app/plugins/fixture/pokemon-card": {
+						kind: "component",
+						contributor: "fixture",
+						entry: "client/card.tsx",
+					},
+				},
+			});
+
+			const javascript = text(artifact.files.find(({ name }) => name === "plugin.js")?.contents);
+			const css = text(artifact.files.find(({ name }) => name === "plugin.css")?.contents);
+			// oxlint-disable-next-line typescript/no-implied-eval -- exercises the emitted composition
+			Function("document", javascript)({ getElementById: () => null });
+			expect(Reflect.get(globalThis, "ryotTestContributors")).toEqual(["media", "fixture"]);
+			expect(artifact.files.filter(({ name }) => name.endsWith(".png"))).toHaveLength(2);
+			expect(css).toContain(".media-card");
+			expect(css).toContain(".fixture-card");
+			expect(css).not.toContain(".unrelated-page");
+			expect(css.match(/box-sizing: border-box/g)).toHaveLength(1);
+			const priorityColors: string[] = [];
+			parse(css).walkRules(".shared-priority", (rule) => {
+				rule.walkDecls("color", ({ value }) => {
+					priorityColors.push(value);
+				});
+			});
+			expect(priorityColors).toEqual(["red", "blue"]);
+			Reflect.deleteProperty(globalThis, "ryotTestContributors");
+			Reflect.deleteProperty(globalThis, "ryotTestReact");
+		}),
+	60_000,
+);
+
+it.effect(
+	"rejects unauthorized, private, traversing, cross-contributor, and backend public imports",
+	() =>
+		Effect.gen(function* () {
+			for (const source of [
+				'import Missing from "@ryot-app/plugins/media/missing"; export default Missing;',
+				'import Private from "@ryot-app/plugins/media/private-card"; export default Private;',
+				'import Traversal from "@ryot-app/plugins/media/../private"; export default Traversal;',
+				'import Cross from "../../media/client/card"; export default Cross;',
+			]) {
+				const failure = yield* compileGraph({
+					contributors: {
+						user: { files: { "client/page.tsx": bytes(source) } },
+						media: {
+							files: {
+								"client/card.tsx": bytes("export default function Card() { return null; }"),
+							},
+						},
+					},
+					publicExports: {
+						"@ryot-app/plugins/media/card": {
+							kind: "component",
+							contributor: "media",
+							entry: "client/card.tsx",
+						},
+					},
+				}).pipe(Effect.flip);
+				expect(failure.diagnostics[0]?.code).toBe("RYOT_CLIENT_IMPORT");
+			}
+
+			const backend = yield* compileGraph({
+				contributors: {
+					media: { files: { "backend/private.tsx": bytes("export default null;") } },
+					user: {
+						files: { "client/page.tsx": bytes("export default function Page() { return null; }") },
+					},
+				},
+				publicExports: {
+					"@ryot-app/plugins/media/private": {
+						kind: "component",
+						contributor: "media",
+						entry: "backend/private.tsx",
+					},
+				},
+			}).pipe(Effect.flip);
+			expect(backend.diagnostics[0]?.code).toBe("RYOT_CLIENT_SOURCE_PATH");
+
+			const sharedPublic = yield* compileGraph({
+				contributors: {
+					user: {
+						files: {
+							"client/page.tsx": bytes(
+								'import Value from "../shared/value"; export default Value;',
+							),
+							"shared/value.ts": bytes(
+								'import Card from "@ryot-app/plugins/media/card"; export default Card;',
+							),
+						},
+					},
+					media: {
+						files: {
+							"client/card.tsx": bytes("export default function Card() { return null; }"),
+						},
+					},
+				},
+				publicExports: {
+					"@ryot-app/plugins/media/card": {
+						kind: "component",
+						contributor: "media",
+						entry: "client/card.tsx",
+					},
+				},
+			}).pipe(Effect.flip);
+			expect(sharedPublic.diagnostics[0]?.file).toBe("contributors/user/shared/value.ts");
+			expect(sharedPublic.diagnostics[0]?.message).toContain("plugin shared sources");
+		}),
+	60_000,
+);
+
+it.effect("checks generated public export types and the aggregate reachable graph limit", () =>
+	Effect.gen(function* () {
+		const invalidType = yield* compileGraph({
+			contributors: {
+				user: {
+					files: {
+						"client/page.tsx": bytes(
+							'import Other from "@ryot-app/plugins/media/other-page"; export default Other;',
+						),
+					},
+				},
+				media: {
+					files: {
+						"client/page.tsx": bytes(
+							"export default function Page(_props: { required: string }) { return null; }",
+						),
+					},
+				},
+			},
+			publicExports: {
+				"@ryot-app/plugins/media/other-page": {
+					kind: "page",
+					contributor: "media",
+					entry: "client/page.tsx",
+				},
+			},
+		}).pipe(Effect.flip);
+		expect(invalidType.diagnostics.some(({ code }) => code === "TS2322")).toBe(true);
+
+		const half = Math.floor(CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes / 2) + 1;
+		const limit = yield* compileGraph({
+			contributors: {
+				user: {
+					files: {
+						"client/page.tsx": bytes(
+							'import { first } from "./first"; import Second from "@ryot-app/plugins/media/second"; console.log(first, Second); export default function Page() { return null; }',
+						),
+						"client/first.ts": bytes(`export const first = 1;${" ".repeat(half)}`),
+					},
+				},
+				media: {
+					files: {
+						"client/second.tsx": bytes(
+							`export default function Second() { return null; }${" ".repeat(half)}`,
+						),
+					},
+				},
+			},
+			publicExports: {
+				"@ryot-app/plugins/media/second": {
+					kind: "component",
+					contributor: "media",
+					entry: "client/second.tsx",
+				},
+			},
+		}).pipe(Effect.flip);
+		expect(limit.diagnostics[0]?.code).toBe("RYOT_CLIENT_SOURCE_SIZE");
+	}),
+);
+
+it.effect("keeps cyclic contributor graphs stable and validates automatic registry entries", () =>
+	Effect.gen(function* () {
+		const input = {
+			contributors: {
+				user: {
+					files: {
+						"client/page.tsx": bytes(
+							'import Media from "@ryot-app/plugins/media/card"; export default Media;',
+						),
+					},
+				},
+				media: {
+					files: {
+						"client/card.tsx": bytes(
+							'import "@ryot-app/plugins/fixture/presentation"; export default function Card() { return null; }',
+						),
+					},
+				},
+				fixture: {
+					files: {
+						"client/presentation.tsx": bytes(
+							'import "@ryot-app/plugins/media/card"; export default function Presentation() { return null; }',
+						),
+					},
+				},
+			},
+			publicExports: {
+				"@ryot-app/plugins/media/card": {
+					contributor: "media",
+					entry: "client/card.tsx",
+					kind: "component" as const,
+				},
+				"@ryot-app/plugins/fixture/presentation": {
+					contributor: "fixture",
+					kind: "presentation" as const,
+					entry: "client/presentation.tsx",
+				},
+			},
+			automaticRegistry: [
+				{
+					layout: "grid" as const,
+					ownerPluginId: "fixture-id",
+					entitySchemaSlug: "pokemon",
+					exportSpecifier: "@ryot-app/plugins/fixture/presentation",
+				},
+			],
+		};
+		const first = yield* compileGraph(input);
+		const second = yield* compileGraph({
+			...input,
+			contributors: Object.fromEntries(Object.entries(input.contributors).toReversed()),
+			publicExports: Object.fromEntries(Object.entries(input.publicExports).toReversed()),
+		});
+		expect(second.artifact).toEqual(first.artifact);
+	}),
+);
+
+it.effect("rejects plugin-kit imports from client sources while preserving shared imports", () =>
+	Effect.gen(function* () {
+		const failure = yield* compileFixture({
+			"client/index.tsx": bytes(
+				'import { Schema } from "@ryot-app/plugin-kit/effect"; console.log(Schema);',
+			),
+		}).pipe(Effect.flip);
+		expect(failure.diagnostics[0]?.code).toBe("RYOT_CLIENT_IMPORT");
+		expect(failure.diagnostics[0]?.file).toBe("client/index.tsx");
+	}),
 );
