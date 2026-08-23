@@ -10,13 +10,13 @@ import { mainContentProps } from "#/modules/navigation/skip-link";
 type AppScreenProps = {
 	readonly title: string;
 	readonly meta?: ReactNode;
-	readonly hero?: ReactNode;
 	readonly children: ReactNode;
 	readonly actions?: ReactNode;
 	readonly searchRow?: ReactNode;
 	readonly titleIcon?: ReactNode;
 	readonly barActions?: ReactNode;
 	readonly backFallbackHref?: string;
+	readonly hero?: ComponentProps<typeof ScreenFrame>["hero"];
 	readonly width?: ComponentProps<typeof ScreenFrame>["width"];
 };
 
