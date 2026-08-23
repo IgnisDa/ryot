@@ -341,6 +341,10 @@ it.live("keeps source data visible when saved-view translation is outstanding", 
 				),
 			),
 		);
+		yield* page.reload;
+		yield* runtime
+			.getByRole("heading", { level: 1, name: `Translating View ${id}` })
+			.waitFor({ state: "visible" });
 		yield* runtime.getByRole("radio", { name: "Table view" }).click();
 		yield* runtime
 			.getByText("2,043", { exact: true })
