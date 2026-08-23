@@ -53,7 +53,6 @@ it.effect("rejects non-canonical and invalid Base64", () =>
 		for (const contents of ["AA", "AA=", "AA===", "A===", "__8=", "Zh==", "////\n"]) {
 			const failure = yield* decodeClientCompilerWorkerRequest(
 				JSON.stringify({
-					contents,
 					publicExports: {},
 					name: "Fixture plugin",
 					apiVersion: CLIENT_API_VERSION,

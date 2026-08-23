@@ -1,9 +1,10 @@
 import { BunServices } from "@effect/platform-bun";
 import { SandboxCompilationFailure } from "@ryot-app/contract/modules/sandbox/schemas";
 import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
-import { CompilerWorkerResponse } from "@ryot-app/sandbox-compiler/protocol";
+import { CompilerWorkerRequest, CompilerWorkerResponse } from "@ryot-app/sandbox-compiler/protocol";
 import { sandboxManifestSchema } from "@ryot-app/sandbox-sdk/core";
-import { Context, Effect, Layer, Match, Path, Schema, Semaphore } from "effect";
+import { getCompilerWorkspaceRoot } from "@ryot-app/vite-compiler";
+import { Context, Effect, FileSystem, Layer, Match, Path, Schema, Semaphore } from "effect";
 
 import {
 	type CompilerWorkerFailure,
@@ -57,10 +58,15 @@ const workerFailure = Match.type<CompilerWorkerFailure>().pipe(
 const decodeCompilerWorkerResponse = Schema.decodeUnknownEffect(
 	Schema.fromJsonString(CompilerWorkerResponse),
 );
+const encodeCompilerWorkerRequest = Schema.encodeSync(Schema.fromJsonString(CompilerWorkerRequest));
 
-export class SandboxCompiler extends Context.Service<SandboxCompiler>()("SandboxCompiler", {
-	make: Effect.gen(function* () {
+export const makeSandboxCompiler = (configuredWorkspaceParentPath?: string) =>
+	Effect.gen(function* () {
 		const path = yield* Path.Path;
+		const fs = yield* FileSystem.FileSystem;
+		const workspaceParentPath =
+			configuredWorkspaceParentPath ??
+			(yield* fs.makeTempDirectoryScoped({ prefix: "ryot-sandbox-compiler-" }));
 		const semaphore = yield* Semaphore.make(SANDBOX_LIMITS.compiler.concurrency);
 		const current = new URL(import.meta.url);
 		const currentPath = yield* path.fromFileUrl(current).pipe(Effect.orDie);
@@ -88,46 +94,62 @@ export class SandboxCompiler extends Context.Service<SandboxCompiler>()("Sandbox
 				);
 			}
 
-			return runWorker(source).pipe(
-				Effect.flatMap((output) =>
-					decodeCompilerWorkerResponse(output).pipe(
-						Effect.mapError(() =>
-							processFailure(
-								"RYOT_COMPILER_PROCESS",
-								"Sandbox compiler process returned an invalid result",
+			const workspaceJobId = crypto.randomUUID();
+			const workspaceRoot = Effect.fromResult(
+				getCompilerWorkspaceRoot({ jobId: workspaceJobId, parentPath: workspaceParentPath }),
+			).pipe(Effect.orDie);
+			return Effect.acquireUseRelease(
+				workspaceRoot,
+				() =>
+					runWorker(
+						encodeCompilerWorkerRequest({ source, workspaceJobId, workspaceParentPath }),
+					).pipe(
+						Effect.flatMap((output) =>
+							decodeCompilerWorkerResponse(output).pipe(
+								Effect.mapError(() =>
+									processFailure(
+										"RYOT_COMPILER_PROCESS",
+										"Sandbox compiler process returned an invalid result",
+									),
+								),
 							),
 						),
-					),
-				),
-				Effect.flatMap((response) => {
-					if (!response.success) {
-						return Effect.fail(
-							new SandboxCompilationFailure({
-								message: response.error.message,
-								diagnostics: response.error.diagnostics,
-							}),
-						);
-					}
+						Effect.flatMap((response) => {
+							if (!response.success) {
+								return Effect.fail(
+									new SandboxCompilationFailure({
+										message: response.error.message,
+										diagnostics: response.error.diagnostics,
+									}),
+								);
+							}
 
-					return Schema.decodeUnknownEffect(sandboxManifestSchema)(response.value.manifest).pipe(
-						Effect.mapError(() =>
-							processFailure(
-								"RYOT_COMPILER_PROCESS",
-								"Sandbox compiler process returned an invalid manifest",
-							),
-						),
-						Effect.map((manifest) => ({
-							manifest,
-							format: response.value.format,
-							javascript: response.value.javascript,
-						})),
-					);
-				}),
+							return Schema.decodeUnknownEffect(sandboxManifestSchema)(
+								response.value.manifest,
+							).pipe(
+								Effect.mapError(() =>
+									processFailure(
+										"RYOT_COMPILER_PROCESS",
+										"Sandbox compiler process returned an invalid manifest",
+									),
+								),
+								Effect.map((manifest) => ({
+									manifest,
+									format: response.value.format,
+									javascript: response.value.javascript,
+								})),
+							);
+						}),
+					),
+				(root) => fs.remove(root, { force: true, recursive: true }).pipe(Effect.orDie),
 			);
 		};
 
 		return { compile };
-	}),
+	});
+
+export class SandboxCompiler extends Context.Service<SandboxCompiler>()("SandboxCompiler", {
+	make: makeSandboxCompiler().pipe(Effect.orDie),
 }) {
 	static readonly layer = Layer.effect(this, this.make).pipe(Layer.provide(BunServices.layer));
 }

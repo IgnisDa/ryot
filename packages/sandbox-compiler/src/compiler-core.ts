@@ -1,3 +1,4 @@
+import type { CompilerWorkspaceOptions } from "@ryot-app/vite-compiler";
 import { Effect } from "effect";
 import { DiagnosticCategory } from "typescript/unstable/async";
 
@@ -15,7 +16,7 @@ import { type CompiledSandboxModule, SANDBOX_COMPILED_FORMAT } from "./compiler-
 import { inspectSandboxSource, sandboxDefinitionMismatch } from "./compiler-source";
 import { jsonByteLength, SANDBOX_COMPILER_LIMITS, utf8ByteLength } from "./limits";
 
-export const compileSandboxSource = (source: string) =>
+export const compileSandboxSource = (source: string, workspaceOptions?: CompilerWorkspaceOptions) =>
 	Effect.gen(function* () {
 		if (utf8ByteLength(source) > SANDBOX_COMPILER_LIMITS.sourceBytes) {
 			return yield* sandboxCompilationFailure([
@@ -82,11 +83,8 @@ export const compileSandboxSource = (source: string) =>
 			]);
 		}
 
-		const bundled = yield* bundleUserScript(source, dependencies.sdkEntries);
-		if ("diagnostics" in bundled) {
-			return yield* sandboxCompilationFailure(bundled.diagnostics);
-		}
-		if (utf8ByteLength(bundled.javascript) > SANDBOX_COMPILER_LIMITS.javascriptBytes) {
+		const javascript = yield* bundleUserScript(source, dependencies.sdkEntries, workspaceOptions);
+		if (utf8ByteLength(javascript) > SANDBOX_COMPILER_LIMITS.javascriptBytes) {
 			return yield* sandboxCompilationFailure([
 				sandboxCompilerDiagnostic(
 					"RYOT_COMPILED_SIZE",
@@ -96,8 +94,8 @@ export const compileSandboxSource = (source: string) =>
 		}
 
 		return {
+			javascript,
 			manifest: extracted.manifest,
-			javascript: bundled.javascript,
 			format: SANDBOX_COMPILED_FORMAT,
 		} satisfies CompiledSandboxModule;
 	});
