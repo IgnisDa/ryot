@@ -5,7 +5,7 @@ import { HttpEffect, HttpServer } from "effect/unstable/http";
 export type FakeHttpServer = {
 	url: string;
 	stop: () => void;
-	requests: Array<{ body: unknown; path: string }>;
+	requests: Array<{ body: unknown; path: string; headers: Record<string, string> }>;
 };
 
 export async function startFakeHttpServer(
@@ -21,7 +21,11 @@ export async function startFakeHttpServer(
 				yield* HttpServer.serveEffect(
 					HttpEffect.fromWebHandler(async (request) => {
 						const reqUrl = new URL(request.url);
-						recorded.push({ path: reqUrl.pathname, body: await request.json().catch(() => null) });
+						recorded.push({
+							path: reqUrl.pathname,
+							headers: Object.fromEntries(request.headers),
+							body: await request.json().catch(() => null),
+						});
 						return respond(reqUrl, request);
 					}),
 				).pipe(Effect.provideService(HttpServer.HttpServer, server));
