@@ -63,7 +63,8 @@ const episodeOrderGroups = (orderData: UnknownRecord): ShowEpisodeOrder["groups"
 		}),
 	);
 
-/** Loads every item five requests at a time, keeping the input order. */
+const HTTP_CALL_LIMIT = 50;
+
 const loadInBatches = <A, B>(items: readonly A[], load: (item: A) => Effect.Effect<B, unknown>) =>
 	Array.from({ length: Math.ceil(items.length / 5) }, (_, index) =>
 		items.slice(index * 5, index * 5 + 5),
@@ -251,13 +252,16 @@ export const getTmdbShowDetails = (
 			const header = episodeOrderHeader(entry);
 			return header ? [header] : [];
 		});
-		const episodeOrders = yield* loadInBatches(episodeOrderHeaders, (header) =>
-			tmdbGet(
-				host,
-				`/tv/episode_group/${encodeURIComponent(header.externalId)}`,
-				{ language },
-				token,
-			).pipe(Effect.map((orderData) => ({ ...header, groups: episodeOrderGroups(orderData) }))),
+		const episodeOrderBudget = Math.max(0, HTTP_CALL_LIMIT - 6 - seasonNumbers.length);
+		const episodeOrders = yield* loadInBatches(
+			episodeOrderHeaders.slice(0, episodeOrderBudget),
+			(header) =>
+				tmdbGet(
+					host,
+					`/tv/episode_group/${encodeURIComponent(header.externalId)}`,
+					{ language },
+					token,
+				).pipe(Effect.map((orderData) => ({ ...header, groups: episodeOrderGroups(orderData) }))),
 		);
 		return yield* Effect.try({
 			catch: (error) => (error instanceof Error ? error : new Error(String(error))),

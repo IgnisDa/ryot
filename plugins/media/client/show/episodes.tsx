@@ -447,6 +447,8 @@ export function ShowEpisodes(props: {
 	);
 }
 
+const persistOrder = (write: Promise<void>) => void write.catch(() => undefined);
+
 function ShowEpisodesWithOrder(props: {
 	readonly compact: boolean;
 	readonly entityId: string;
@@ -463,7 +465,7 @@ function ShowEpisodesWithOrder(props: {
 	const { remove } = storage;
 	useEffect(() => {
 		if (stale) {
-			void remove();
+			persistOrder(remove());
 		}
 	}, [stale, remove]);
 	return (
@@ -478,7 +480,9 @@ function ShowEpisodesWithOrder(props: {
 				refresh={result.refetch}
 				entityId={props.entityId}
 				order={resolved?.order ?? null}
-				onSelectOrder={(orderId) => void (orderId === null ? remove() : storage.set(orderId))}
+				onSelectOrder={(orderId) =>
+					persistOrder(orderId === null ? remove() : storage.set(orderId))
+				}
 			/>
 		</>
 	);
