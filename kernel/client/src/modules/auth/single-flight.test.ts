@@ -1,9 +1,13 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Deferred, Effect, Fiber } from "effect";
 
+import { decodeServerOrigin } from "#/api/origin";
 import { makeOriginSingleFlight } from "#/modules/auth/single-flight";
 
-const origin = "https://example.com";
+const origin = decodeServerOrigin("https://example.com");
+const oneOrigin = decodeServerOrigin("https://one.test");
+const twoOrigin = decodeServerOrigin("https://two.test");
+const equivalentOrigin = decodeServerOrigin("https://example.com/");
 
 describe("origin single flight", () => {
 	it.effect("shares one run across concurrent callers for the same origin", () => {
@@ -28,13 +32,13 @@ describe("origin single flight", () => {
 		const seen: string[] = [];
 		return Effect.gen(function* () {
 			const flight = makeOriginSingleFlight<string, never>();
-			const run = (server: string) =>
+			const run = (server: typeof origin) =>
 				flight(
 					server,
 					Effect.sync(() => (seen.push(server), server)),
 				);
 
-			expect(yield* Effect.all([run("https://one.test"), run("https://two.test")])).toEqual([
+			expect(yield* Effect.all([run(oneOrigin), run(twoOrigin)])).toEqual([
 				"https://one.test",
 				"https://two.test",
 			]);
@@ -50,7 +54,7 @@ describe("origin single flight", () => {
 				runs += 1;
 				return Promise.resolve("value");
 			});
-			yield* Effect.all([flight("https://example.com", compute), flight(`${origin}/`, compute)], {
+			yield* Effect.all([flight(origin, compute), flight(equivalentOrigin, compute)], {
 				concurrency: "unbounded",
 			});
 

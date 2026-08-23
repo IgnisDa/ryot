@@ -1,9 +1,12 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, Layer } from "effect";
 
+import { decodeServerOrigin } from "#/api/origin";
 import { PublicApi, PublicApiError } from "#/api/public";
 import { ServerService } from "#/modules/server/service";
 import { ClientStorage } from "#/persistence/storage";
+
+const origin = decodeServerOrigin("https://example.com");
 
 describe("server service", () => {
 	it.effect("persists only after a healthy response and checks again when retried", () => {
@@ -36,10 +39,10 @@ describe("server service", () => {
 			expect(yield* service.selected).toBe(window.location.origin);
 
 			const failed = yield* service
-				.connect("https://example.com")
+				.connect(origin)
 				.pipe(Effect.match({ onFailure: () => false, onSuccess: () => true }));
 			const succeeded = yield* service
-				.connect("https://example.com")
+				.connect(origin)
 				.pipe(Effect.match({ onFailure: () => false, onSuccess: () => true }));
 
 			expect(failed).toBe(false);
