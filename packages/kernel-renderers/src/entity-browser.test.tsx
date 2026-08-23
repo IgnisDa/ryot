@@ -107,12 +107,18 @@ describe("entity browser", () => {
 		const search = screen.getByRole("searchbox", { name: "Search All Books" });
 		expect(search.getAttribute("aria-keyshortcuts")).toBe("/");
 		const filters = screen.getByRole("button", { name: /Filters/ });
-		expect(filters.getAttribute("aria-disabled")).toBe("true");
+		expect(filters.hasAttribute("disabled")).toBe(false);
 		expect(filters.textContent).toContain("0");
+		expect(screen.queryByRole("button", { name: /^Sort results/ })).toBeNull();
 		const add = screen.getByRole("button", { name: "Add" });
 		expect(add.getAttribute("aria-keyshortcuts")).toBe("A");
 		expect(screen.getByRole("radio", { name: "Grid view" })).toBeTruthy();
 		expect(screen.getByRole("radio", { name: "Table view" })).toBeTruthy();
+		fireEvent.click(filters);
+		const dialog = await waitFor(() => screen.getByRole("dialog", { name: "Filters" }));
+		expect(dialog.textContent).toContain("Filters are not available yet.");
+		expect(screen.queryByRole("button", { name: /^Sort results/ })).toBeNull();
+		expect(dialog.textContent).not.toContain("View as");
 	});
 
 	it("registers its page shortcuts upward and opens provider search on a kernel press", async () => {
