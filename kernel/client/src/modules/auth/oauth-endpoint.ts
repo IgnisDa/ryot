@@ -16,12 +16,11 @@ export class OAuthEndpointError extends Data.TaggedError("OAuthEndpointError")<{
 
 export type OAuthFetch = typeof fetch;
 
-export async function postOAuthForm<A>(
+export async function postOAuthFormRequest(
 	fetcher: OAuthFetch,
 	origin: ServerOrigin,
 	path: string,
 	body: URLSearchParams,
-	schema: Schema.Codec<A, unknown>,
 ) {
 	const response = await fetcher(getOAuthEndpoint(origin, path), {
 		body,
@@ -30,8 +29,8 @@ export async function postOAuthForm<A>(
 		credentials: "omit",
 		headers: { "content-type": "application/x-www-form-urlencoded" },
 	});
-	const payload: unknown = await response.json();
 	if (!response.ok) {
+		const payload: unknown = await response.json();
 		const decoded = Schema.decodeUnknownOption(OAuthErrorResponse)(payload);
 		throw new OAuthEndpointError({
 			status: response.status,
@@ -41,5 +40,17 @@ export async function postOAuthForm<A>(
 				: {}),
 		});
 	}
+	return response;
+}
+
+export async function postOAuthForm<A>(
+	fetcher: OAuthFetch,
+	origin: ServerOrigin,
+	path: string,
+	body: URLSearchParams,
+	schema: Schema.Codec<A, unknown>,
+) {
+	const response = await postOAuthFormRequest(fetcher, origin, path, body);
+	const payload: unknown = await response.json();
 	return Schema.decodeUnknownSync(schema)(payload);
 }

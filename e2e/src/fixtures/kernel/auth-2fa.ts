@@ -3,11 +3,12 @@ import { base32 } from "rfc4648";
 
 import { requireNonEmptyArray, requirePresent, requireString } from "~/support/assertions";
 
-import { createTestAuthClient } from "./auth";
+import { completeTwoFactorSignIn, createTestAuthClient } from "./auth";
 
 type TwoFactorSetupResult = {
 	token: string;
 	backupCodes: string[];
+	sessionCookie: string;
 	totpCodes: { past: string; current: string; future: string };
 };
 
@@ -57,18 +58,19 @@ function generateTotpWindowCodes(secret: string) {
 }
 
 export async function enableTwoFactorForSession(input: {
+	token: string;
 	baseUrl: string;
 	origin?: string;
-	token: string;
 	issuer?: string;
 	password: string;
+	sessionCookie: string;
 }): Promise<TwoFactorSetupResult> {
-	let nextToken: string | undefined;
+	let sessionCookie = input.sessionCookie;
 	const authClient = createTestAuthClient(input.baseUrl, {
-		token: input.token,
+		sessionCookie,
 		origin: input.origin,
-		onSetToken: (token) => {
-			nextToken = token;
+		onSessionCookie: (cookie) => {
+			sessionCookie = cookie;
 		},
 	});
 	const { data: enableData, error: enableError } = await authClient.twoFactor.enable({
@@ -103,11 +105,7 @@ export async function enableTwoFactorForSession(input: {
 		throw new Error(`Two-factor verification failed: ${verifyError.message}`);
 	}
 
-	return {
-		totpCodes,
-		backupCodes,
-		token: nextToken ?? input.token,
-	};
+	return { totpCodes, backupCodes, sessionCookie, token: input.token };
 }
 
 export async function verifyBackupCodeForSession(input: {
@@ -116,17 +114,17 @@ export async function verifyBackupCodeForSession(input: {
 	baseUrl: string;
 	twoFactorToken?: string;
 }) {
-	let nextToken: string | undefined;
-	const authClient = createTestAuthClient(input.baseUrl, {
-		token: input.token,
-		twoFactorToken: input.twoFactorToken,
-		onSetToken: (token) => {
-			nextToken = token;
-		},
-	});
-	const result = await authClient.twoFactor.verifyBackupCode({ code: input.code });
+	const twoFactorToken = requirePresent(input.twoFactorToken, "Missing two-factor browser cookie");
+	const { data, response, token, sessionCookie } = await completeTwoFactorSignIn(
+		input.baseUrl,
+		twoFactorToken,
+		"/two-factor/verify-backup-code",
+		{ code: input.code },
+	);
 	return {
-		...result,
-		token: nextToken ?? input.token,
+		sessionCookie,
+		token: token ?? input.token,
+		data: response.ok ? data : null,
+		error: response.ok ? null : data,
 	};
 }

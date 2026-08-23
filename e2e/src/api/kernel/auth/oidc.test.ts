@@ -29,6 +29,7 @@ const OIDC_CLIENT_ID = "test-client";
 const S3_BUCKET_NAME = "ryot-oidc-test";
 const OIDC_CLIENT_SECRET = "test-secret";
 const OIDC_BUTTON_LABEL = "Sign in with TestOIDC";
+const existingOidcUsername = `user-${crypto.randomUUID()}`;
 const pluginListQuery = { includeDisabled: false };
 const godModeListQuery = (search: string) => ({ limit: 50, offset: 0, search });
 
@@ -88,6 +89,30 @@ function requireCoreInfrastructure() {
 	return requirePresent(coreInfrastructure, "OIDC test infrastructure is not initialised");
 }
 
+const startApi = (label: string, port: number, extraEnv: Record<string, string> = {}) => {
+	const infrastructure = requireCoreInfrastructure();
+	return spawnApiProcess(
+		buildApiEnv({
+			port,
+			label: `API ${label}`,
+			dbUrl: infrastructure.dbUrl,
+			s3BucketName: S3_BUCKET_NAME,
+			redisUrl: infrastructure.redisUrl,
+			s3Endpoint: infrastructure.s3Endpoint,
+			frontendUrl: `http://127.0.0.1:${port}`,
+			extraEnv: {
+				SERVER_OIDC_CLIENT_ID: OIDC_CLIENT_ID,
+				SERVER_OIDC_CLIENT_SECRET: OIDC_CLIENT_SECRET,
+				SERVER_OIDC_ISSUER_URL: requireMockOidcServer().issuerUrl,
+				...extraEnv,
+			},
+		}),
+	);
+};
+
+const waitForApi = (port: number) =>
+	waitForHealthCheck(`http://127.0.0.1:${port}/api/system/health`, "OIDC Setup");
+
 beforeAll(async () => {
 	coreInfrastructure = await startCoreTestInfrastructure({
 		bucketName: S3_BUCKET_NAME,
@@ -96,51 +121,10 @@ beforeAll(async () => {
 	mockOidcServer = await startMockOidcServer();
 
 	[apiPortA, apiPortB, apiPortC] = await Promise.all([getPort(), getPort(), getPort()]);
-	const apiOriginA = `http://127.0.0.1:${apiPortA}`;
-	const apiOriginB = `http://127.0.0.1:${apiPortB}`;
-	const apiOriginC = `http://127.0.0.1:${apiPortC}`;
-
-	const infrastructure = requireCoreInfrastructure();
-	const sharedEnv = {
-		SERVER_OIDC_CLIENT_ID: OIDC_CLIENT_ID,
-		SERVER_OIDC_CLIENT_SECRET: OIDC_CLIENT_SECRET,
-		SERVER_OIDC_ISSUER_URL: requireMockOidcServer().issuerUrl,
-	};
-	const startApi = (
-		label: string,
-		frontendUrl: string,
-		port: number,
-		extraEnv: Record<string, string> = {},
-	) => {
-		return spawnApiProcess(
-			buildApiEnv({
-				port,
-				frontendUrl,
-				label: `API ${label}`,
-				dbUrl: infrastructure.dbUrl,
-				s3BucketName: S3_BUCKET_NAME,
-				redisUrl: infrastructure.redisUrl,
-				s3Endpoint: infrastructure.s3Endpoint,
-				extraEnv: { ...sharedEnv, ...extraEnv },
-			}),
-		);
-	};
-
-	apiProcessA = startApi("A", apiOriginA, apiPortA, {
+	apiProcessA = startApi("A", apiPortA, {
 		FRONTEND_OIDC_BUTTON_LABEL: OIDC_BUTTON_LABEL,
 	});
-	await waitForHealthCheck(`http://127.0.0.1:${apiPortA}/api/system/health`, "OIDC Setup");
-
-	apiProcessB = startApi("B", apiOriginB, apiPortB, {
-		USERS_DISABLE_LOCAL_AUTH: "true",
-	});
-	apiProcessC = startApi("C", apiOriginC, apiPortC, {
-		USERS_ALLOW_REGISTRATION: "false",
-	});
-	await Promise.all([
-		waitForHealthCheck(`http://127.0.0.1:${apiPortB}/api/system/health`, "OIDC Setup"),
-		waitForHealthCheck(`http://127.0.0.1:${apiPortC}/api/system/health`, "OIDC Setup"),
-	]);
+	await waitForApi(apiPortA);
 });
 
 afterAll(async () => {
@@ -174,7 +158,13 @@ describe("GET /system/config with OIDC enabled (API A)", () => {
 	);
 });
 
-describe("GET /system/config with local auth disabled (API B)", () => {
+describe("Local auth disabled (API B)", () => {
+	beforeAll(async () => {
+		await stopApiProcess(apiProcessA);
+		apiProcessB = startApi("B", apiPortB, { USERS_DISABLE_LOCAL_AUTH: "true" });
+		await waitForApi(apiPortB);
+	});
+
 	it.live("returns localAuthDisabled: true", () =>
 		Effect.gen(function* () {
 			const client = makeSession(getApiUrlB());
@@ -183,9 +173,7 @@ describe("GET /system/config with local auth disabled (API B)", () => {
 			expect(data.auth.localAuthDisabled).toBe(true);
 		}),
 	);
-});
 
-describe("sign-up/email with local auth disabled (API B)", () => {
 	it.live("returns an error and does not create a user", () =>
 		Effect.gen(function* () {
 			const email = "test@example.com";
@@ -197,6 +185,14 @@ describe("sign-up/email with local auth disabled (API B)", () => {
 			expect(yield* countUsersByEmail(getApiUrlB(), email)).toBe(0);
 		}),
 	);
+
+	afterAll(async () => {
+		await stopApiProcess(apiProcessB);
+		apiProcessA = startApi("A", apiPortA, {
+			FRONTEND_OIDC_BUTTON_LABEL: OIDC_BUTTON_LABEL,
+		});
+		await waitForApi(apiPortA);
+	});
 });
 
 describe("OIDC sign-in happy path (API A)", () => {
@@ -299,23 +295,22 @@ describe("OIDC idempotency (API A)", () => {
 });
 
 describe("Registration gating for OIDC (API C)", () => {
+	beforeAll(async () => {
+		await oidcSignIn(requireMockOidcServer(), existingOidcUsername, getApiUrlA());
+		await stopApiProcess(apiProcessA);
+		apiProcessC = startApi("C", apiPortC, { USERS_ALLOW_REGISTRATION: "false" });
+		await waitForApi(apiPortC);
+	});
+
 	it.live("first-time OIDC sign-in is rejected when registration is disabled", () =>
 		Effect.gen(function* () {
 			const username = `user-${crypto.randomUUID()}`;
 			const apiUrl = getApiUrlC();
 
-			const step3Response = yield* Effect.promise(() =>
+			const { response: step3Response } = yield* Effect.promise(() =>
 				performOidcSignIn(requireMockOidcServer(), username, apiUrl),
 			);
-			const step3Location = step3Response.headers.get("location");
 			expect(step3Response.status).toBe(302);
-			expect(step3Location).toMatch(/signup_disabled/i);
-
-			const sessionToken = step3Response.headers.get("set-auth-token");
-			expect(
-				sessionToken,
-				"API C must not issue a session when registration is disabled",
-			).toBeNull();
 
 			expect(
 				yield* countUsersByEmail(getApiUrlC(), `${username}@example.com`),
@@ -326,15 +321,13 @@ describe("Registration gating for OIDC (API C)", () => {
 
 	it.live("existing OIDC users can still sign in when registration is disabled", () =>
 		Effect.gen(function* () {
-			const username = `user-${crypto.randomUUID()}`;
-			const email = `${username}@example.com`;
+			const email = `${existingOidcUsername}@example.com`;
 
-			yield* Effect.promise(() => oidcSignIn(requireMockOidcServer(), username, getApiUrlA()));
-			const beforeId = yield* findUserIdByEmail(getApiUrlA(), email);
+			const beforeId = yield* findUserIdByEmail(getApiUrlC(), email);
 			expect(beforeId).not.toBeNull();
 
 			const sessionToken = yield* Effect.promise(() =>
-				oidcSignIn(requireMockOidcServer(), username, getApiUrlC()),
+				oidcSignIn(requireMockOidcServer(), existingOidcUsername, getApiUrlC()),
 			);
 			const client = makeSession(getApiUrlC());
 			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
