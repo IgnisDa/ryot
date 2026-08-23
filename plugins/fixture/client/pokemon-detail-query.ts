@@ -14,13 +14,11 @@ import {
 	type Recipe,
 } from "@ryot-app/client-sdk/ryotql";
 
-const nullableStrings = Schema.NullOr(Schema.Array(Schema.String));
-const nullableNumber = Schema.NullOr(Schema.Number);
-const pokemonImage = Schema.Struct({
-	key: Schema.optional(Schema.String),
-	url: Schema.optional(Schema.String),
-	type: Schema.Literals(["local", "s3", "remote"]),
-});
+import {
+	PokemonArtworkListSchema,
+	PokemonNumberSchema,
+	PokemonStringsSchema,
+} from "./pokemon-schema";
 
 export const pokemonDetailRecipe = defineRecipe((input: { readonly entityId: string }) => {
 	const requested = table("entity", "requested");
@@ -42,16 +40,16 @@ export const pokemonDetailRecipe = defineRecipe((input: { readonly entityId: str
 					eq(column(pokemon, "entitySchemaSlug"), literal("pokemon")),
 				),
 				selection: {
-					types: selectedField(property("types"), nullableStrings),
-					height: selectedField(property("height"), nullableNumber),
-					weight: selectedField(property("weight"), nullableNumber),
-					abilities: selectedField(property("abilities"), nullableStrings),
+					types: selectedField(property("types"), PokemonStringsSchema),
+					height: selectedField(property("height"), PokemonNumberSchema),
+					weight: selectedField(property("weight"), PokemonNumberSchema),
+					images: selectedField(property("images"), PokemonArtworkListSchema),
 					id: selectedField(column(pokemon, "id"), Schema.String),
-					pokedexNumber: selectedField(property("pokedexNumber"), nullableNumber),
+					abilities: selectedField(property("abilities"), PokemonStringsSchema),
 					name: selectedField(column(pokemon, "name"), Schema.String),
-					baseExperience: selectedField(property("baseExperience"), nullableNumber),
+					pokedexNumber: selectedField(property("pokedexNumber"), PokemonNumberSchema),
+					baseExperience: selectedField(property("baseExperience"), PokemonNumberSchema),
 					sourceUrl: selectedField(property("sourceUrl"), Schema.NullOr(Schema.String)),
-					images: selectedField(property("images"), Schema.NullOr(Schema.Array(pokemonImage))),
 				},
 			}),
 		},
