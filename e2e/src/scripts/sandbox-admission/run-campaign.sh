@@ -68,8 +68,6 @@ wait_healthy() {
 		fi
 		sleep 5
 	done
-arm=none
-echo "campaign complete $(date -u +%FT%TZ)"
 	echo "service did not become healthy" >&2
 	return 1
 }
@@ -112,12 +110,17 @@ for arm in "$@"; do
 			exit 1
 		}
 	done
-arm=none
-echo "campaign complete $(date -u +%FT%TZ)"
 	step="user and plugin setup"
 	E2E_API_URL=https://ur-testing.ryot.io/api E2E_FRONTEND_URL=https://ur-testing.ryot.io \
 		E2E_ADMIN_ACCESS_TOKEN=$(cat "$BENCHMARK_ADMIN_TOKEN_FILE") \
 		with_deadline 600 bun run "$HERE/remote-setup.ts" "$OUTPUT/.state.json" >/dev/null
+	# The probe polls every job like the session-authenticated client does, but through API keys,
+	# whose per-key limit only resets after a quiet window; lift it for the benchmark keys only.
+	step="api key limit"
+	# Keys are cached in Redis in front of the database, so the cached copies are evicted too.
+	remote "set -e
+		docker exec ryot-db-$SERVICE sh -c 'psql -U \"\$POSTGRES_USER\" -d postgres -qc \"update apikey set rate_limit_enabled = false\"'
+		docker exec ryot-redis-$SERVICE sh -c 'redis-cli --scan --pattern \"*api-key:*\" | xargs -r redis-cli del' >/dev/null"
 	step="tool upload"
 	remote "mkdir -p /root/ryot-admission-tools && chmod 700 /root/ryot-admission-tools"
 	# shellcheck disable=SC2086
