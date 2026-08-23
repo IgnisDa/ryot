@@ -1,5 +1,5 @@
 import { BunFileSystem } from "@effect/platform-bun";
-import { assert, expect, it } from "@effect/vitest";
+import { assert, expect, it, layer } from "@effect/vitest";
 import {
 	AuthoredPluginManifest,
 	CLIENT_API_VERSION,
@@ -26,47 +26,49 @@ const PROVIDER_OPERATIONS = new Set([
 	"translate",
 ]);
 
-it.effect("backs every declared provider operation with its entry file", () =>
-	Effect.gen(function* () {
-		const fs = yield* FileSystem.FileSystem;
-		const entries = yield* fs.glob("backend/providers/**/*.sandbox.ts", { root: process.cwd() });
-		const operationsByProvider = new Map<string, string[]>();
-		for (const entry of entries) {
-			const segments = entry.slice("backend/providers/".length).split("/");
-			const file = segments.at(-1);
-			assert(file && segments.length > 1);
-			const providerSlug = segments.slice(0, -1).join(".");
-			operationsByProvider.set(providerSlug, [
-				...(operationsByProvider.get(providerSlug) ?? []),
-				file.replace(".sandbox.ts", ""),
-			]);
-		}
+layer(BunFileSystem.layer)((test) => {
+	test.effect("backs every declared provider operation with its entry file", () =>
+		Effect.gen(function* () {
+			const fs = yield* FileSystem.FileSystem;
+			const entries = yield* fs.glob("backend/providers/**/*.sandbox.ts", { root: process.cwd() });
+			const operationsByProvider = new Map<string, string[]>();
+			for (const entry of entries) {
+				const segments = entry.slice("backend/providers/".length).split("/");
+				const file = segments.at(-1);
+				assert(file && segments.length > 1);
+				const providerSlug = segments.slice(0, -1).join(".");
+				operationsByProvider.set(providerSlug, [
+					...(operationsByProvider.get(providerSlug) ?? []),
+					file.replace(".sandbox.ts", ""),
+				]);
+			}
 
-		expect(sortBy([...operationsByProvider.keys()])).toEqual(
-			sortBy(mediaPlugin.providers.map(({ slug }) => slug)),
-		);
-		const associatedScripts: string[] = [];
-		for (const provider of mediaPlugin.providers) {
-			const files = operationsByProvider.get(provider.slug) ?? [];
-			const declared = Object.keys(provider.operations).map((operation) =>
-				operation === "searchOptions" ? "search-options" : operation,
+			expect(sortBy([...operationsByProvider.keys()])).toEqual(
+				sortBy(mediaPlugin.providers.map(({ slug }) => slug)),
 			);
-			expect(sortBy(files.filter((file) => PROVIDER_OPERATIONS.has(file)))).toEqual(
-				sortBy(declared),
-			);
-			associatedScripts.push(
-				...files
-					.filter((file) => !PROVIDER_OPERATIONS.has(file))
-					.map((file) => `${provider.slug}.${file}`),
-			);
-		}
-		expect(sortBy(associatedScripts)).toEqual([
-			"movie.tmdb.trending",
-			"music.youtube-music.history",
-			"show.tmdb.trending",
-		]);
-	}).pipe(Effect.provide(BunFileSystem.layer)),
-);
+			const associatedScripts: string[] = [];
+			for (const provider of mediaPlugin.providers) {
+				const files = operationsByProvider.get(provider.slug) ?? [];
+				const declared = Object.keys(provider.operations).map((operation) =>
+					operation === "searchOptions" ? "search-options" : operation,
+				);
+				expect(sortBy(files.filter((file) => PROVIDER_OPERATIONS.has(file)))).toEqual(
+					sortBy(declared),
+				);
+				associatedScripts.push(
+					...files
+						.filter((file) => !PROVIDER_OPERATIONS.has(file))
+						.map((file) => `${provider.slug}.${file}`),
+				);
+			}
+			expect(sortBy(associatedScripts)).toEqual([
+				"movie.tmdb.trending",
+				"music.youtube-music.history",
+				"show.tmdb.trending",
+			]);
+		}),
+	);
+});
 
 it("declares the complete media-owned source", () => {
 	expect(() => Schema.decodeSync(AuthoredPluginManifest)(mediaPlugin)).not.toThrow();
