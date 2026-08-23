@@ -1,4 +1,4 @@
-import { column, document, eq, field, literal, rows, table } from "@ryot/ryotql";
+import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
 import { Effect } from "effect";
 import { zipSync } from "fflate";
 

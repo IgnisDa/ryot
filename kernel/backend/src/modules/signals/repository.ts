@@ -1,9 +1,9 @@
-import { DbError } from "@ryot/contract/errors";
+import { DbError } from "@ryot-app/contract/errors";
 import {
 	AutomationOrigin,
 	type AutomationOrigin as AutomationOriginValue,
-} from "@ryot/contract/modules/automations/schemas";
-import { EntityId, SignalId, SignalSchemaSlug, UserId } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/automations/schemas";
+import { EntityId, SignalId, SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 

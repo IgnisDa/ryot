@@ -1,4 +1,4 @@
-import type { EntityInterestEntityUpdatedMessage } from "@ryot/contract/modules/entity-interest/messages";
+import type { EntityInterestEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-interest/messages";
 import { Context, Effect, Fiber, FiberSet, Layer } from "effect";
 
 const DEFAULT_ENTITY_UPDATE_BATCH_SIZE = 25;

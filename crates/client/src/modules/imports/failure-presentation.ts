@@ -1,5 +1,5 @@
-import type { ImportRunFailureStage } from "@ryot/contract/modules/imports/types";
-import type { ImportRunFailure } from "@ryot/ryotql-recipes/import-runs";
+import type { ImportRunFailureStage } from "@ryot-app/contract/modules/imports/types";
+import type { ImportRunFailure } from "@ryot-app/ryotql-recipes/import-runs";
 import { Match } from "effect";
 
 export type ImportFailureGroup = {

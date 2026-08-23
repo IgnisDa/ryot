@@ -1,6 +1,6 @@
-import type { ScriptManifest } from "@ryot/sandbox-sdk/core";
-import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineProvider, type ProviderResolveResult } from "@ryot/sandbox-sdk/provider";
+import type { ScriptManifest } from "@ryot-app/sandbox-sdk/core";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineProvider, type ProviderResolveResult } from "@ryot-app/sandbox-sdk/provider";
 
 import { defineManifest } from "../src/driver.js";
 import type { Equal, Expect } from "./type-assertions.js";

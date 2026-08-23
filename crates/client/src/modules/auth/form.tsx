@@ -1,4 +1,4 @@
-import type { ContractSuccess } from "@ryot/contract/client";
+import type { ContractSuccess } from "@ryot-app/contract/client";
 import clsx from "clsx";
 import { router } from "expo-router";
 import { useEffect, useEffectEvent, useRef, useState } from "react";

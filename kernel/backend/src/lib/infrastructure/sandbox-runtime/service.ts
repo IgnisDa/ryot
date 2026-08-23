@@ -1,6 +1,6 @@
-import { SandboxRunError, TimeoutError, unknownToMessage } from "@ryot/contract/errors";
-import { SandboxExecutionError } from "@ryot/contract/modules/sandbox/schemas";
-import { isObjectRecord } from "@ryot/ts-utils/predicates";
+import { SandboxRunError, TimeoutError, unknownToMessage } from "@ryot-app/contract/errors";
+import { SandboxExecutionError } from "@ryot-app/contract/modules/sandbox/schemas";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { generateId } from "better-auth";
 import {
 	Clock,

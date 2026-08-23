@@ -1,4 +1,4 @@
-import type { BackupRun } from "@ryot/contract/modules/backups/schemas";
+import type { BackupRun } from "@ryot-app/contract/modules/backups/schemas";
 import clsx from "clsx";
 import { ActivityIndicator, Pressable, Text, View } from "react-native";
 

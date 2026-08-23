@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { Effect, Fiber, Layer, Ref } from "effect";
 import { assert } from "vitest";
 

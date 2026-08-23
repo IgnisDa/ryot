@@ -1,4 +1,4 @@
-import type { PluginLogicalLocation } from "@ryot/contract/modules/plugins/client";
+import type { PluginLogicalLocation } from "@ryot-app/contract/modules/plugins/client";
 
 import { reconcileStack, type PluginScreen, type ResolvePluginScreen } from "./stack";
 

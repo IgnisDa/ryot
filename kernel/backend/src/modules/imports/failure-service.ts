@@ -1,6 +1,6 @@
-import type { ImportRunFailureReason } from "@ryot/contract/modules/imports/schemas";
-import type { ImportRunFailureStage } from "@ryot/contract/modules/imports/types";
-import type { ImportRunId } from "@ryot/contract/schema/brands";
+import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
+import type { ImportRunFailureStage } from "@ryot-app/contract/modules/imports/types";
+import type { ImportRunId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
 import { ImportsRepository } from "./repository";

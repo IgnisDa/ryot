@@ -1,5 +1,5 @@
-import type { DbError } from "@ryot/contract/errors";
-import type { SandboxScriptId, UserId } from "@ryot/contract/schema/brands";
+import type { DbError } from "@ryot-app/contract/errors";
+import type { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, type Effect } from "effect";
 
 import type { Database } from "#lib/infrastructure/db/service";

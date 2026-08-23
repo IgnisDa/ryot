@@ -1,4 +1,4 @@
-import type { AutomationInput } from "@ryot/sandbox-sdk/automation";
+import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
 
 type Population = NonNullable<AutomationInput["automation"]["population"]>;
 

@@ -9,7 +9,7 @@ import {
 	showSeasonsRecipe,
 	showSummaryRecipe,
 	trendingMediaRecipe,
-} from "@ryot/media-plugin/query-recipes";
+} from "@ryot-app/media-plugin/query-recipes";
 import { DateTime, Effect } from "effect";
 
 import {

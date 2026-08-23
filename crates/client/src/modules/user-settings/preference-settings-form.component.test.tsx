@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import type { UpdateUserPreferencesBody } from "@ryot/contract/modules/user-settings/schemas";
+import type { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/user-settings/schemas";
 import { render, screen, userEvent } from "@testing-library/react-native";
 import { Exit } from "effect";
 

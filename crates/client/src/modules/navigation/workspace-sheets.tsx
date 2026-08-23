@@ -1,4 +1,4 @@
-import type { NavigationData } from "@ryot/ryotql-recipes/navigation";
+import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import { Pressable, Text, View } from "react-native";
 
 import { AppIcon } from "@/modules/icons";

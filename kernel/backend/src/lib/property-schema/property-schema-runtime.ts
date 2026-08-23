@@ -23,8 +23,8 @@ import {
 	isMissingAppSchemaRequiredValue,
 	type PropertyValidationError,
 	type PropertyValidationIssue,
-} from "@ryot/contract/schema/property-schema";
-import { Email, HttpUrl } from "@ryot/contract/schema/utils";
+} from "@ryot-app/contract/schema/property-schema";
+import { Email, HttpUrl } from "@ryot-app/contract/schema/utils";
 import { Result, Effect, Schema, SchemaGetter } from "effect";
 
 import {

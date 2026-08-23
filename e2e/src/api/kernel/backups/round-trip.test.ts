@@ -2,8 +2,8 @@ import {
 	EntitySchemaSlug,
 	EventSchemaSlug,
 	RelationshipSchemaSlug,
-} from "@ryot/contract/schema/brands";
-import { column, document, eq, field, literal, rows, table } from "@ryot/ryotql";
+} from "@ryot-app/contract/schema/brands";
+import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
 import { Effect } from "effect";
 
 import {

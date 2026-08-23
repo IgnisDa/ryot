@@ -1,9 +1,9 @@
-import { badRequest } from "@ryot/contract/errors";
-import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import type { AssetLocator, ManagedAssetLocator } from "@ryot/contract/modules/uploads/schemas";
-import { EntityId, EventId, type UserId } from "@ryot/contract/schema/brands";
-import type { AppPropertyDefinition, AppSchema } from "@ryot/contract/schema/property-schema";
-import { isEqual } from "@ryot/ts-utils/lodash";
+import { badRequest } from "@ryot-app/contract/errors";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import type { AssetLocator, ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
+import { EntityId, EventId, type UserId } from "@ryot-app/contract/schema/brands";
+import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { isEqual } from "@ryot-app/ts-utils/lodash";
 import { Context, Effect, Encoding, FileSystem, Layer } from "effect";
 
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";

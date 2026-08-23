@@ -1,5 +1,5 @@
-import type { EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
-import { PluginSlug, UserId } from "@ryot/contract/schema/brands";
+import type { EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import { PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
 
 import { adminHeaders } from "~/fixtures/kernel/admin";
 import { getApiClient } from "~/fixtures/kernel/contract-client";

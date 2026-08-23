@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import type { ListedIntegrationProvider } from "@ryot/contract/modules/integrations/schemas";
+import type { ListedIntegrationProvider } from "@ryot-app/contract/modules/integrations/schemas";
 import { render, screen, userEvent } from "@testing-library/react-native";
 import { useEffect } from "react";
 import { Pressable, Text } from "react-native";

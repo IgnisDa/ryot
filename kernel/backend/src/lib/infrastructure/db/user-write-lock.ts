@@ -1,4 +1,4 @@
-import type { UserId } from "@ryot/contract/schema/brands";
+import type { UserId } from "@ryot-app/contract/schema/brands";
 import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 

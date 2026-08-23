@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { AutomationRuleId, SignalSchemaSlug, UserId } from "@ryot/contract/schema/brands";
+import { AutomationRuleId, SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";
 

@@ -1,5 +1,5 @@
-import { REQUIRED_THEME_TOKEN_NAMES } from "@ryot/contract/modules/plugins/client";
-import type { PreparedRecipe } from "@ryot/ryotql";
+import { REQUIRED_THEME_TOKEN_NAMES } from "@ryot-app/contract/modules/plugins/client";
+import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 

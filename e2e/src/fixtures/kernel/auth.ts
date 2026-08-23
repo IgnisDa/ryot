@@ -9,7 +9,7 @@ import {
 	OAUTH_SCOPE,
 	OAUTH_TOKEN_PATH,
 	OAUTH_WEB_CLIENT_ID,
-} from "@ryot/contract/oauth";
+} from "@ryot-app/contract/oauth";
 import { createAuthClient } from "better-auth/client";
 import { twoFactorClient } from "better-auth/client/plugins";
 import { Effect, Schema } from "effect";

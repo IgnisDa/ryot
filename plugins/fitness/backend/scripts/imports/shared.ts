@@ -1,10 +1,10 @@
-import { Effect } from "@ryot/sandbox-sdk/effect";
-import { readNamedArtifact, writeScratchChunks } from "@ryot/sandbox-sdk/filesystem";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { readNamedArtifact, writeScratchChunks } from "@ryot-app/sandbox-sdk/filesystem";
 import type {
 	GenericImportChunk,
 	GenericImportFailure,
 	GenericImportWriteItem,
-} from "@ryot/sandbox-sdk/imports";
+} from "@ryot-app/sandbox-sdk/imports";
 
 const decoder = new TextDecoder();
 const CHUNK_SIZE = 50;

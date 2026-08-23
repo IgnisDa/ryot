@@ -1,7 +1,7 @@
 import type {
 	PluginClientCatalog,
 	PluginClientCatalogEntry,
-} from "@ryot/ryotql-recipes/plugin-client-catalog";
+} from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import clsx from "clsx";
 import { useEffect, useId, useRef, useState } from "react";
 

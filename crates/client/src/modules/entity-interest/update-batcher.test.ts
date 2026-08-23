@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
-import type { EntityInterestEntityUpdatedMessage } from "@ryot/contract/modules/entity-interest/messages";
-import { EntityId } from "@ryot/contract/schema/brands";
+import type { EntityInterestEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-interest/messages";
+import { EntityId } from "@ryot-app/contract/schema/brands";
 import { Deferred, Effect, Exit, ManagedRuntime, Scope } from "effect";
 import { TestClock } from "effect/testing";
 

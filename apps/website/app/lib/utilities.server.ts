@@ -1,7 +1,7 @@
 import { Environment, Paddle } from "@paddle/paddle-node-sdk";
 import { render } from "@react-email/components";
-import { dayjs, type Dayjs } from "@ryot/ts-utils/dayjs";
-import { formatDateToNaiveDate } from "@ryot/ts-utils/format";
+import { dayjs, type Dayjs } from "@ryot-app/ts-utils/dayjs";
+import { formatDateToNaiveDate } from "@ryot-app/ts-utils/format";
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { createTransport } from "nodemailer";
 import * as openidClient from "openid-client";

@@ -1,12 +1,12 @@
 import { expect, it } from "@effect/vitest";
-import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import type { SandboxExecutionSubject } from "@ryot/contract/modules/sandbox/schemas";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/sandbox/schemas";
 import {
 	EntitySchemaSlug,
 	SandboxProviderId,
 	SandboxScriptId,
 	UserId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Cause, Deferred, Effect, Exit, Fiber, Layer, Option } from "effect";
 import { assert } from "vitest";

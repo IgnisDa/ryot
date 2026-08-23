@@ -19,7 +19,7 @@ import {
 	useMantineTheme,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { startCase } from "@ryot/ts-utils/lodash";
+import { startCase } from "@ryot-app/ts-utils/lodash";
 import {
 	IconArchive,
 	IconCalendar,

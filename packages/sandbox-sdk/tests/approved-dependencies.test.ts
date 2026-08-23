@@ -1,8 +1,8 @@
-import { load } from "@ryot/sandbox-sdk/cheerio";
-import { Effect } from "@ryot/sandbox-sdk/effect";
-import { XMLParser } from "@ryot/sandbox-sdk/fast-xml-parser";
-import { strFromU8, gunzipSync, gzipSync } from "@ryot/sandbox-sdk/fflate";
-import { parse } from "@ryot/sandbox-sdk/papaparse";
+import { load } from "@ryot-app/sandbox-sdk/cheerio";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { XMLParser } from "@ryot-app/sandbox-sdk/fast-xml-parser";
+import { strFromU8, gunzipSync, gzipSync } from "@ryot-app/sandbox-sdk/fflate";
+import { parse } from "@ryot-app/sandbox-sdk/papaparse";
 import { expect, test } from "vitest";
 
 test("approved non-network dependencies remain local transformations", async () => {

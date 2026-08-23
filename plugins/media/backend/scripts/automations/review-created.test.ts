@@ -1,6 +1,6 @@
-import type { AutomationInput } from "@ryot/sandbox-sdk/automation";
-import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost } from "@ryot/sandbox-sdk/testing";
+import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 import { expect, it } from "vitest";
 
 import definition, { manifest } from "./review-created.sandbox";

@@ -1,4 +1,4 @@
-import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 
 export const fixturePackageRoot = (kind: "diagnostic" | "valid" = "valid") =>
 	new URL(`./test-fixtures/${kind}`, import.meta.url).pathname;

@@ -1,4 +1,4 @@
-import { DbError } from "@ryot/contract/errors";
+import { DbError } from "@ryot-app/contract/errors";
 import { Effect, Layer, Schema } from "effect";
 import { Activity } from "effect/unstable/workflow";
 

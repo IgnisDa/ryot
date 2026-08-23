@@ -1,7 +1,7 @@
-import type { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
-import type { CreateEventItem, EventCreateOrigin } from "@ryot/contract/modules/events/schemas";
-import { EventsBadRequest } from "@ryot/contract/modules/events/schemas";
-import type { ImportRunId, IntegrationId, UserId } from "@ryot/contract/schema/brands";
+import type { AutomationOrigin } from "@ryot-app/contract/modules/automations/schemas";
+import type { CreateEventItem, EventCreateOrigin } from "@ryot-app/contract/modules/events/schemas";
+import { EventsBadRequest } from "@ryot-app/contract/modules/events/schemas";
+import type { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Match } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 

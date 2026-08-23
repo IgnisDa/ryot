@@ -1,4 +1,4 @@
-import { castDate, eventIsAfter, literal, table } from "@ryot/sandbox-sdk/ryotql";
+import { castDate, eventIsAfter, literal, table } from "@ryot-app/sandbox-sdk/ryotql";
 import { describe, expect, it } from "vitest";
 
 import {

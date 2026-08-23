@@ -9,7 +9,7 @@ import {
 	literal,
 	rows,
 	table,
-} from "@ryot/ryotql";
+} from "@ryot-app/ryotql";
 import { Result } from "effect";
 import { describe, expect, it } from "vitest";
 

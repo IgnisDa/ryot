@@ -1,12 +1,17 @@
 import { expect, it } from "@effect/vitest";
-import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
+import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import {
 	type ListedSavedView,
 	SavedViewBadRequest,
 	type SavedViewLayouts,
-} from "@ryot/contract/modules/saved-views/schemas";
-import { EntitySchemaSlug, PluginSlug, SavedViewId, UserId } from "@ryot/contract/schema/brands";
-import { ascending, column, document, field, rows, table } from "@ryot/ryotql";
+} from "@ryot-app/contract/modules/saved-views/schemas";
+import {
+	EntitySchemaSlug,
+	PluginSlug,
+	SavedViewId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
+import { ascending, column, document, field, rows, table } from "@ryot-app/ryotql";
 import { Effect, Layer } from "effect";
 
 import { assertExitFails } from "#lib/test-utils/assertions";

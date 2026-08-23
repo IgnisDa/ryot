@@ -1,6 +1,6 @@
 import { assert, expect, it } from "@effect/vitest";
-import { SandboxRunError } from "@ryot/contract/errors";
-import { ListedEntity } from "@ryot/contract/modules/entities/schemas";
+import { SandboxRunError } from "@ryot-app/contract/errors";
+import { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -9,7 +9,7 @@ import {
 	SandboxProviderId,
 	SandboxScriptId,
 	UserId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";

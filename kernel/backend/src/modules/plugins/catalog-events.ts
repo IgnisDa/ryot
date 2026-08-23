@@ -2,8 +2,8 @@ import {
 	PLUGIN_CATALOG_CONNECTED_EVENT,
 	PLUGIN_CATALOG_INVALIDATED_EVENT,
 	encodePluginCatalogInvalidatedMessage,
-} from "@ryot/contract/modules/plugins/contract";
-import type { UserId } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/plugins/contract";
+import type { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Queue, Stream } from "effect";
 
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";

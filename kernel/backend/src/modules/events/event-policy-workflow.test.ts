@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
+import type { SandboxExecutionPayload } from "@ryot-app/contract/modules/sandbox/schemas";
 import {
 	AutomationRuleId,
 	EntityId,
@@ -7,7 +7,7 @@ import {
 	EventSchemaSlug,
 	UserId,
 	SandboxScriptId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";

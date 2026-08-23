@@ -2,7 +2,7 @@ import {
 	MAX_INTEREST_ENTITY_IDS,
 	type EntityInterestClientMessage,
 	type EntityInterestEntityUpdatedMessage,
-} from "@ryot/contract/modules/entity-interest/messages";
+} from "@ryot-app/contract/modules/entity-interest/messages";
 import { Context, Duration, Effect, FiberSet, Layer } from "effect";
 
 export type EntityInterestPriority = "foreground" | "visible" | "prefetch";

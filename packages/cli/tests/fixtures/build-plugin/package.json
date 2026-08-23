@@ -1,5 +1,5 @@
 {
-	"name": "@ryot/cli-test-plugin",
+	"name": "@ryot-app/cli-test-plugin",
 	"type": "module",
 	"exports": {
 		".": {

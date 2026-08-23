@@ -1,5 +1,5 @@
-import { Result } from "@ryot/sandbox-sdk/effect";
-import { XMLParser } from "@ryot/sandbox-sdk/fast-xml-parser";
+import { Result } from "@ryot-app/sandbox-sdk/effect";
+import { XMLParser } from "@ryot-app/sandbox-sdk/fast-xml-parser";
 
 import { nowIso, parseDateWithFormat } from "./dates";
 import { getOrCreateMediaEntityGroup, type ImportMediaEntityGroupBuilder } from "./groups";

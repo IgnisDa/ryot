@@ -1,4 +1,4 @@
-import { AutomationRuleId, SignalSchemaSlug } from "@ryot/contract/schema/brands";
+import { AutomationRuleId, SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
 import {
 	ascending,
 	column,
@@ -10,7 +10,7 @@ import {
 	selectedOptionalRow,
 	selectedRows,
 	type Recipe,
-} from "@ryot/ryotql";
+} from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 
 import { IsoDateString } from "./codecs";

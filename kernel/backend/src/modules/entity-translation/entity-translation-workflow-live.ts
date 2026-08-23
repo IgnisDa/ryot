@@ -1,9 +1,9 @@
-import { SandboxRunError, dieOnDbError, toSandboxRunError } from "@ryot/contract/errors";
-import { encodeEntityUpdatedMessage } from "@ryot/contract/modules/entity-interest/messages";
+import { SandboxRunError, dieOnDbError, toSandboxRunError } from "@ryot-app/contract/errors";
+import { encodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-interest/messages";
 import {
 	providerTranslateResultSchema,
 	type ProviderTranslateResult,
-} from "@ryot/sandbox-sdk/provider";
+} from "@ryot-app/sandbox-sdk/provider";
 import { DateTime, Effect, Schema } from "effect";
 import { Activity } from "effect/unstable/workflow";
 

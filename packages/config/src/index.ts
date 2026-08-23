@@ -1,4 +1,4 @@
-import { pluginConfigEnvironmentKey } from "@ryot/contract/modules/plugins/plugin-config";
+import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
 import {
 	type AppChoice,
 	type AppBooleanProperty,
@@ -10,11 +10,11 @@ import {
 	type AppSchemaFields,
 	type AppStringProperty,
 	isAppPropertyRequired,
-} from "@ryot/contract/schema/property-schema";
+} from "@ryot-app/contract/schema/property-schema";
 import type { Option } from "effect";
 import { Config, Effect, Redacted, Schema, SchemaIssue } from "effect";
 
-const ConfigValueType: unique symbol = Symbol.for("@ryot/config/ConfigValue");
+const ConfigValueType: unique symbol = Symbol.for("@ryot-app/config/ConfigValue");
 
 type Validation = { readonly required?: true | undefined };
 

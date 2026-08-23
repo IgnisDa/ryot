@@ -1,5 +1,5 @@
 import { useAtomRefresh } from "@effect/atom-react";
-import type { NavigationData } from "@ryot/ryotql-recipes/navigation";
+import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import { Effect } from "effect";
 import { useState } from "react";
 

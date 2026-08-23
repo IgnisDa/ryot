@@ -25,7 +25,7 @@ import {
 	UserPeopleListDocument,
 	type UserPeopleListInput,
 	UsersListDocument,
-} from "@ryot/generated/graphql/backend/graphql";
+} from "@ryot-app/generated/graphql/backend/graphql";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";

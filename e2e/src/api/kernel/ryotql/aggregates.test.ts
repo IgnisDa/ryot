@@ -1,4 +1,4 @@
-import type { AggregateResult, RyotQLResult } from "@ryot/contract/modules/ryotql/language";
+import type { AggregateResult, RyotQLResult } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	aggregate,
 	and,
@@ -19,7 +19,7 @@ import {
 	measureAscending,
 	measureDescending,
 	table,
-} from "@ryot/ryotql";
+} from "@ryot-app/ryotql";
 import { Effect } from "effect";
 
 import {

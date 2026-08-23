@@ -1,10 +1,10 @@
-import type { ListedImportSource } from "@ryot/contract/modules/imports/schemas";
+import type { ListedImportSource } from "@ryot-app/contract/modules/imports/schemas";
 import type {
 	ImportRunDetail,
 	ImportRunFailure,
 	ImportRunList,
 	ImportRunSummary,
-} from "@ryot/ryotql-recipes/import-runs";
+} from "@ryot-app/ryotql-recipes/import-runs";
 import type { AsyncResult } from "effect/unstable/reactivity";
 
 import { requestFailureCopy, type RequestFailureState } from "@/api/request-failure";

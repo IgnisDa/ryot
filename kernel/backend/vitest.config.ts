@@ -1,4 +1,4 @@
-import shared from "@ryot/testing/vitest.shared";
+import shared from "@ryot-app/testing/vitest.shared";
 import { defineConfig, mergeConfig } from "vitest/config";
 
 const srcDir = Bun.fileURLToPath(new URL("./src/", import.meta.url));

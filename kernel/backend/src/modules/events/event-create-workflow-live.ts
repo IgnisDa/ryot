@@ -1,13 +1,18 @@
-import type { SandboxRunError } from "@ryot/contract/errors";
-import { AutomationProperties } from "@ryot/contract/modules/automations/schemas";
+import type { SandboxRunError } from "@ryot-app/contract/errors";
+import { AutomationProperties } from "@ryot-app/contract/modules/automations/schemas";
 import {
 	EventCreateItemError,
 	type EventCreateFailureReason,
 	type EventCreateItemOutcome,
-} from "@ryot/contract/modules/events/schemas";
-import type { SandboxExecutionPayload } from "@ryot/contract/modules/sandbox/schemas";
-import { EntityId, EntitySchemaSlug, EventId, EventSchemaSlug } from "@ryot/contract/schema/brands";
-import { AppSchema } from "@ryot/contract/schema/property-schema";
+} from "@ryot-app/contract/modules/events/schemas";
+import type { SandboxExecutionPayload } from "@ryot-app/contract/modules/sandbox/schemas";
+import {
+	EntityId,
+	EntitySchemaSlug,
+	EventId,
+	EventSchemaSlug,
+} from "@ryot-app/contract/schema/brands";
+import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 import { Activity } from "effect/unstable/workflow";
 

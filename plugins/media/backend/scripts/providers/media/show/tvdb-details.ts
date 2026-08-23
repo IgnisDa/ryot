@@ -1,5 +1,8 @@
-import { Effect } from "@ryot/sandbox-sdk/effect";
-import type { ProviderDetailsChildEntity, ProviderDetailsInput } from "@ryot/sandbox-sdk/provider";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import type {
+	ProviderDetailsChildEntity,
+	ProviderDetailsInput,
+} from "@ryot-app/sandbox-sdk/provider";
 
 import { parsePublishYear } from "../../../../shared/parse-publish-year";
 import {

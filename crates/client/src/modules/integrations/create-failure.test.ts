@@ -1,4 +1,4 @@
-import { IntegrationRequestError } from "@ryot/contract/modules/integrations/schemas";
+import { IntegrationRequestError } from "@ryot-app/contract/modules/integrations/schemas";
 import { Cause } from "effect";
 import { describe, expect, it } from "vitest";
 

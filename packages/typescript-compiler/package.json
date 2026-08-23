@@ -1,5 +1,5 @@
 {
-	"name": "@ryot/typescript-compiler",
+	"name": "@ryot-app/typescript-compiler",
 	"private": true,
 	"type": "module",
 	"exports": {
@@ -18,7 +18,7 @@
 	},
 	"devDependencies": {
 		"@effect/vitest": "4.0.0-beta.107",
-		"@ryot/testing": "workspace:*",
+		"@ryot-app/testing": "workspace:*",
 		"bun-types": "1.4.0",
 		"vitest": "4.1.9"
 	}

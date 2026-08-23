@@ -1,4 +1,4 @@
-import { SANDBOX_RUNTIME_SDK_IMPORTS, SANDBOX_SDK_IMPORTS } from "@ryot/sandbox-sdk/imports";
+import { SANDBOX_RUNTIME_SDK_IMPORTS, SANDBOX_SDK_IMPORTS } from "@ryot-app/sandbox-sdk/imports";
 import { Effect } from "effect";
 
 import {

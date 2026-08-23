@@ -4,9 +4,14 @@ import {
 	type Predicate,
 	type ScalarExpression,
 	type TableReference,
-} from "@ryot/contract/modules/ryotql/language";
-import { EntityId, EntitySchemaSlug, EventId, EventSchemaSlug } from "@ryot/contract/schema/brands";
-import type { Recipe } from "@ryot/ryotql";
+} from "@ryot-app/contract/modules/ryotql/language";
+import {
+	EntityId,
+	EntitySchemaSlug,
+	EventId,
+	EventSchemaSlug,
+} from "@ryot-app/contract/schema/brands";
+import type { Recipe } from "@ryot-app/ryotql";
 import {
 	and,
 	column,
@@ -22,7 +27,7 @@ import {
 	selectedField,
 	selectedRows,
 	table,
-} from "@ryot/ryotql";
+} from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 
 import { IsoDateString } from "./codecs";

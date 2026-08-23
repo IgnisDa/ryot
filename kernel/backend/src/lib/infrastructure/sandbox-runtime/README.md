@@ -33,7 +33,7 @@ while a request is dispatched.
 ## Execution Flow
 
 1. Plugin or kernel ingestion validates and compiles source, then persists source and immutable format-1 JavaScript separately.
-2. A trusted caller starts `SandboxScriptWorkflow` with a persisted `scriptId`, optional context, a `SandboxExecutionSubject`, and an execution identity. The subject describes whose data and context the execution uses; it is not plugin privilege or trust classification. It is schema-defined in `@ryot/contract/modules/sandbox/schemas` as a `system`, `user`, or `subscription` variant, and only kernel dispatch constructs it.
+2. A trusted caller starts `SandboxScriptWorkflow` with a persisted `scriptId`, optional context, a `SandboxExecutionSubject`, and an execution identity. The subject describes whose data and context the execution uses; it is not plugin privilege or trust classification. It is schema-defined in `@ryot-app/contract/modules/sandbox/schemas` as a `system`, `user`, or `subscription` variant, and only kernel dispatch constructs it.
 3. The workflow pins the root script and records its `startedAt` value before the first replay. Plugin `scope` (`system` or `user`) is established at ingestion and is the single plugin trust classification. From the immutable script pin, the backend derives a backend-only `SandboxExecutionPrincipal` containing the script identity, subject, and exact plugin revision needed for capability, schema-scope, configuration, and child-target decisions. Nested script targets resolve from that pinned revision on first observation and are then pinned for the durable request.
 4. Each replay checks out a pre-warmed or dedicated single-use Deno process, acquires an execution-scoped hard link to the verified module, and registers a short-lived bridge session. The runner receives the context, metadata, limits, and filesystem grants in one JSON request.
 5. The runner captures diagnostics, imports the compiled module, validates the definition and input, and returns a completed, failed, or pending replay envelope. A mutable `host.*` call becomes a typed durable request; an unrecorded request ends the replay without waiting inside Deno.
@@ -57,7 +57,7 @@ while a request is dispatched.
 - Immutable input artifacts are pinned for the active workflow lifetime. Generated chunk handles remain
   resolvable until terminal completion or cancellation cleanup; TTLs are leak cleanup only.
 
-Compilation uses two separate compiler engines: `@ryot/sandbox-compiler` compiles backend sandbox definitions, while `@ryot/client-plugin-compiler` compiles browser plugin artifacts. Both workers use the server-owned process supervision boundary for lifecycle, concurrency, timeout, process-tree memory, and termination controls. Each compiler package owns its production dependencies, limits, and output contract.
+Compilation uses two separate compiler engines: `@ryot-app/sandbox-compiler` compiles backend sandbox definitions, while `@ryot-app/client-plugin-compiler` compiles browser plugin artifacts. Both workers use the server-owned process supervision boundary for lifecycle, concurrency, timeout, process-tree memory, and termination controls. Each compiler package owns its production dependencies, limits, and output contract.
 
 ## Global HTTP Admission
 
@@ -196,7 +196,7 @@ Cache keys are isolated per `(executing user, providerId)`. Cache host functions
 
 ### Adding A Host Function
 
-1. Define the script-facing schema and method in `@ryot/sandbox-sdk`.
+1. Define the script-facing schema and method in `@ryot-app/sandbox-sdk`.
 2. Implement app-bound context-first methods in `host-functions.ts` or `automation-host-functions.ts`; runtime-owned methods go in `runtime-host-functions.ts`.
 3. Decode its untrusted RPC argument array in `bridge-adapter.ts`; implementation functions must not accept unknown argument arrays.
 4. Use `requireSandboxCapabilityInput(input, capability)` for capability authorization.
@@ -207,8 +207,8 @@ Cache keys are isolated per `(executing user, providerId)`. Cache host functions
 A format-1 script default-exports exactly one definition carrying its `manifest` plus SDK `input`, `output`, and `run`. There is no driver map and no driver name on the wire: starting `SandboxScriptWorkflow` with a `scriptId` selects the definition, and the runner validates `input` before invoking `run` and `output` before returning it. Provider, automation, operation, generic script, and named workflow definitions all use this same workflow shell while retaining their role-specific contracts.
 
 ```ts
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({ kind: "script" /* … */ });
 
@@ -249,7 +249,7 @@ can therefore use script versions from different active plugin installations whe
 first reached at different times; each individual step still executes exactly once against its
 resolved version.
 
-A workflow body signals an expected failure with `Effect.fail` from `@ryot/sandbox-sdk/workflow`,
+A workflow body signals an expected failure with `Effect.fail` from `@ryot-app/sandbox-sdk/workflow`,
 which the definition wrapper turns into a `state: "failed"` envelope carrying the durable-call
 requests accumulated for that attempt. That deterministic-only surface exposes `as`, `gen`, `fail`,
 and `succeed`; a bare `throw` is a defect instead, so it bypasses the envelope and surfaces as an
@@ -274,7 +274,7 @@ fan out those independent child executions under the global sandbox worker bound
 
 ## Resource Limits
 
-`@ryot/sandbox-compiler/limits` owns compiler limits and UTF-8 measurement. `limits.ts` composes those values with the execution, bridge, HTTP, log, result, and cache limits used by the backend. Limits are fixed in this phase rather than exposed as environment settings.
+`@ryot-app/sandbox-compiler/limits` owns compiler limits and UTF-8 measurement. `limits.ts` composes those values with the execution, bridge, HTTP, log, result, and cache limits used by the backend. Limits are fixed in this phase rather than exposed as environment settings.
 
 Every definition uses one universal execution profile. Local replay computation is bounded by a
 30-second timeout, 64 KiB context, 4 MiB final result, 1,000 host calls, 50 HTTP calls, and 1,000

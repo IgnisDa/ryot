@@ -2,8 +2,8 @@ import { expect, it } from "@effect/vitest";
 import {
 	decodePluginCatalogInvalidatedMessage,
 	encodePluginCatalogInvalidatedMessage,
-} from "@ryot/contract/modules/plugins/contract";
-import { UserId } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/plugins/contract";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Fiber, Layer, Option, Queue, Result, Stream } from "effect";
 import { TestClock } from "effect/testing";
 import Redis from "ioredis";

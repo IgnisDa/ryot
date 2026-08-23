@@ -1,6 +1,6 @@
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { DateTime, Effect } from "@ryot/sandbox-sdk/effect";
-import { defineProvider } from "@ryot/sandbox-sdk/provider";
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { DateTime, Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
 import { cleanHtmlDescription } from "../../../shared/clean-html-description";
 import { type UnknownRecord, asRecord, numberValue, stringValue } from "../../../shared/records";

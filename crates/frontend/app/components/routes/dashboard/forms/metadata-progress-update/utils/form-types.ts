@@ -1,7 +1,7 @@
 import type {
 	MetadataProgressUpdateCommonInput,
 	MetadataProgressUpdateInput,
-} from "@ryot/generated/graphql/backend/graphql";
+} from "@ryot-app/generated/graphql/backend/graphql";
 
 import type { InProgress, MetadataHistory, WatchTimes } from "~/components/routes/dashboard/types";
 import type { MetadataDetails } from "~/components/routes/media-item/types";

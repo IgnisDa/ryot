@@ -1,13 +1,13 @@
-import type { DbError } from "@ryot/contract/errors";
+import type { DbError } from "@ryot-app/contract/errors";
 import type {
 	AutomationOperation,
 	AutomationRuleKind,
 	AutomationRuleMetadata,
-} from "@ryot/contract/modules/automations/schemas";
+} from "@ryot-app/contract/modules/automations/schemas";
 import type {
 	PluginManifest,
 	PluginProviderOperation,
-} from "@ryot/contract/modules/plugins/manifest";
+} from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	AutomationRuleId,
 	EntitySchemaSlug,
@@ -17,7 +17,7 @@ import {
 	SandboxScriptId,
 	SignalSchemaSlug,
 	UserId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import { and, desc, eq, inArray, isNotNull, isNull, or, type SQL, sql } from "drizzle-orm";
 import { Context, Data, Effect, Layer } from "effect";
 

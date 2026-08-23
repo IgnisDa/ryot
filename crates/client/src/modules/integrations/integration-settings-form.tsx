@@ -1,4 +1,4 @@
-import type { ListedIntegrationProvider } from "@ryot/contract/modules/integrations/schemas";
+import type { ListedIntegrationProvider } from "@ryot-app/contract/modules/integrations/schemas";
 import { Text, View } from "react-native";
 
 import type { SchemaFileUpload } from "@/modules/ui/schema-form/file/file-upload";

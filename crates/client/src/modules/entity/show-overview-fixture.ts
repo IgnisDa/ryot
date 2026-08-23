@@ -1,5 +1,5 @@
-import { showOverviewRecipe } from "@ryot/media-plugin/query-recipes";
-import { rowsResult } from "@ryot/ryotql-recipes/test-utils";
+import { showOverviewRecipe } from "@ryot-app/media-plugin/query-recipes";
+import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 import { Result } from "effect";
 
 export const showOverviewFixtureRecipe = showOverviewRecipe({

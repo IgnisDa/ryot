@@ -1,14 +1,14 @@
 import { BunServices } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
-import { DbError } from "@ryot/contract/errors";
+import { DbError } from "@ryot-app/contract/errors";
 import {
 	EntityId,
 	EntitySchemaSlug,
 	ImportRunId,
 	RelationshipId,
 	UserId,
-} from "@ryot/contract/schema/brands";
-import { isObjectRecord } from "@ryot/ts-utils/predicates";
+} from "@ryot-app/contract/schema/brands";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Effect, Layer, Schema, FileSystem } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 import { assert } from "vitest";

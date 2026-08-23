@@ -1,4 +1,4 @@
-import { AppContract } from "@ryot/contract/contract";
+import { AppContract } from "@ryot-app/contract/contract";
 import { OpenApi } from "effect/unstable/httpapi";
 import { describe, expect, it } from "vitest";
 

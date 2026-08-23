@@ -1,7 +1,7 @@
-import { CurrentUser } from "@ryot/contract/auth-middleware";
-import { AppContract } from "@ryot/contract/contract";
-import type { DbError } from "@ryot/contract/errors";
-import { ProviderEntityInternalError } from "@ryot/contract/modules/provider-entities/schemas";
+import { CurrentUser } from "@ryot-app/contract/auth-middleware";
+import { AppContract } from "@ryot-app/contract/contract";
+import type { DbError } from "@ryot-app/contract/errors";
+import { ProviderEntityInternalError } from "@ryot-app/contract/modules/provider-entities/schemas";
 import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
 

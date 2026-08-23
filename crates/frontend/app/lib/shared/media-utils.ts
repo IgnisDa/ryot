@@ -4,8 +4,8 @@ import {
 	MetadataDetailsDocument,
 	SetLot,
 	UserReviewScale,
-} from "@ryot/generated/graphql/backend/graphql";
-import { inRange } from "@ryot/ts-utils/lodash";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { inRange } from "@ryot-app/ts-utils/lodash";
 import {
 	IconBook,
 	IconBook2,

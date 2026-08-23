@@ -1,6 +1,6 @@
-import type { FieldSelection, RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
-import { and, contains, literal } from "@ryot/ryotql";
-import type { SavedViewRecord } from "@ryot/ryotql-recipes/saved-view-records";
+import type { FieldSelection, RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import { and, contains, literal } from "@ryot-app/ryotql";
+import type { SavedViewRecord } from "@ryot-app/ryotql-recipes/saved-view-records";
 import { Effect } from "effect";
 
 import { RyotQLMalformedResultError } from "@/api/ryotql";

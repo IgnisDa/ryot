@@ -1,4 +1,4 @@
-import type { PluginBoot } from "@ryot/contract/modules/plugins/manifest";
+import type { PluginBoot } from "@ryot-app/contract/modules/plugins/manifest";
 import { Clock, Context, Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 

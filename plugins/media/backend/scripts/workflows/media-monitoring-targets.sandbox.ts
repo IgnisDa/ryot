@@ -1,5 +1,5 @@
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
-import { executeRyotqlRecipe } from "@ryot/sandbox-sdk/ryotql";
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
 
 import { mediaMonitoringSweepRecipe } from "../../media-monitoring-ryotql";
 import {

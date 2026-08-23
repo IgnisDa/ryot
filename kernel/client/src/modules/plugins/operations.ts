@@ -1,16 +1,16 @@
-import { AuthRateLimited, AuthUnauthorized } from "@ryot/contract/auth-middleware";
+import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import type {
 	PluginOperationBridgeErrorReason,
 	PluginOperationOutcome,
 	PluginOperationRequest,
-} from "@ryot/contract/modules/plugins/client";
+} from "@ryot-app/contract/modules/plugins/client";
 import {
 	PluginConflictError,
 	PluginInvocationError,
 	PluginNotFoundError,
 	PluginRequestError,
-} from "@ryot/contract/modules/plugins/schemas";
-import { PluginSlug } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/plugins/schemas";
+import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { AuthenticatedApi } from "#/api/authenticated";
