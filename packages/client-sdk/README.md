@@ -87,8 +87,9 @@ crash a screen; invalid input and unsupported capabilities remain explicit.
 
 ## Client Pages And Routing
 
-`PluginRouter` retains a stack of screens and reconciles it only from the kernel history `index` and
-`key`; paths never imply push, pop, or replace. Route targets contain `path` and optional `search`.
+`PluginRouter` retains a stack of screens and reconciles it only from the kernel entry `index` and
+stable `key`; paths never imply push, pop, or replace. In-place location updates preserve focused
+controls, while a changed active key moves focus to the new screen. Route targets contain `path` and optional `search`.
 Entity targets contain only `entityId`; the kernel builds the canonical URL and returns an entity
 location with `entitySchemaSlug`.
 

@@ -184,7 +184,13 @@ export function ClientPageHost(props: {
 			artifactSessionScopeKey={`${scope.serverUrl}\0${scope.userId}`}
 			onProviderSearch={(request) => props.onProviderSearch?.(request)}
 			onHeader={(publication) => header.publish(owner, publication)}
-			onNavigate={(request) => void navigate({ href: request.href, replace: request.replace })}
+			onNavigate={(request) =>
+				void navigate({
+					href: request.href,
+					replace: request.replace,
+					state: (current) => ({ ...current, ryotEntryKey: crypto.randomUUID() }),
+				})
+			}
 			title={rendererContributor?.kind === "plugin" ? rendererContributor.pluginSlug : props.title}
 			onUpload={(request, signal) =>
 				runtime.runPromise(temporaryUploadOutcome(scope, request), { signal })
@@ -198,9 +204,10 @@ export function ClientPageHost(props: {
 				void navigate({
 					href,
 					replace: mode === "replace",
-					...(mode === "replace"
-						? { state: (current) => ({ ...current, ryotScreenKey: entry.screenKey }) }
-						: {}),
+					state: (current) => ({
+						...current,
+						ryotEntryKey: mode === "replace" ? entry.key : crypto.randomUUID(),
+					}),
 				});
 			}}
 			navigation={{

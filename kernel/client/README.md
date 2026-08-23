@@ -32,7 +32,8 @@ graph, artifact, and document identity stay unchanged. Disabled installations st
 discovery but remain reachable through direct plugin and delegated entity URLs.
 
 There is one global history. Plugins request tagged route or entity navigation, and the kernel writes
-the canonical URL. The kernel sends each accepted location with its history `index` and `key`; plugin
+the canonical URL. The kernel sends each accepted location with its history `index` and stable entry
+`key`; page-state replacements retain that key, while screen navigation creates a new one. Plugin
 screen stacks use those values, never pathname inference, to distinguish push, pop, and replace.
 
 Protocol schemas and immutable session identity live in
