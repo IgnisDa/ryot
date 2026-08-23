@@ -1,17 +1,10 @@
-import { App } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
-import {
-	getWebOAuthLogoutCallbackUri,
-	OAUTH_NATIVE_CLIENT_ID,
-	OAUTH_WEB_CLIENT_ID,
-} from "@ryot/contract/oauth";
 import { Context, Effect, Layer } from "effect";
 
 import type { ServerOrigin } from "#/api/origin";
+import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { makeOriginSingleFlight } from "#/modules/auth/single-flight";
-import type { OAuthTokenError } from "#/modules/auth/token-service";
-import { OAuthTokenService } from "#/modules/auth/token-service";
-import { isNativePlatform } from "#/modules/navigation/native-navigation";
+import { OAuthTokenError, OAuthTokenService } from "#/modules/auth/token-service";
 import { ClientStorage } from "#/persistence/storage";
 
 export type AuthSessionSnapshot =
@@ -71,6 +64,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 	make: Effect.gen(function* () {
 		const storage = yield* ClientStorage;
 		const tokens = yield* OAuthTokenService;
+		const runtimeClient = yield* RuntimeOAuthClientService;
 		const sessions = new Map<ServerOrigin, ReturnType<typeof makeSessionStore>>();
 		const resolutions = makeOriginSingleFlight<SettledAuthSession, OAuthTokenError>();
 		const getSession = (origin: ServerOrigin) => {
@@ -111,7 +105,9 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 		) {
 			const session = getSession(origin);
 			const cached = session.store.getSnapshot();
-			const clientId = isNativePlatform() ? OAUTH_NATIVE_CLIENT_ID : OAUTH_WEB_CLIENT_ID;
+			const { clientId } = yield* runtimeClient
+				.forServer(origin)
+				.pipe(Effect.mapError((cause) => new OAuthTokenError({ reason: "request-failed", cause })));
 			const probe = yield* tokens.accessToken(origin, clientId).pipe(
 				Effect.map(
 					(token): AuthorizationProbe => ({
@@ -148,26 +144,22 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			getSession(origin).set({ status: "missing" });
 		});
 		const signOut = Effect.fn("AuthService.signOut")(function* (origin: ServerOrigin) {
-			const isNative = isNativePlatform();
-			const applicationId = isNative
-				? yield* Effect.tryPromise(() => App.getInfo().then((info) => info.id)).pipe(
-						Effect.catch(() => Effect.succeed(null)),
-					)
-				: undefined;
-			if (isNative && applicationId !== "io.ryot.app" && applicationId !== "io.ryot.app.dev") {
-				yield* clearSession(origin);
+			const client = yield* runtimeClient
+				.forServer(origin)
+				.pipe(
+					Effect.catchTag("RuntimeOAuthClientError", () =>
+						clearSession(origin).pipe(Effect.as(null)),
+					),
+				);
+			if (client === null) {
 				return false;
 			}
-			const endSessionUrl = yield* tokens.logout(
-				origin,
-				isNative ? OAUTH_NATIVE_CLIENT_ID : OAUTH_WEB_CLIENT_ID,
-				isNative ? `${applicationId}:/auth/logout/callback` : getWebOAuthLogoutCallbackUri(origin),
-			);
+			const endSessionUrl = yield* tokens.logout(origin, client.clientId, client.logoutUri);
 			getSession(origin).set({ status: "missing" });
 			if (!endSessionUrl) {
 				return false;
 			}
-			if (isNative) {
+			if (client.nativeApplicationId !== null) {
 				return yield* Effect.tryPromise(() => Browser.open({ url: endSessionUrl })).pipe(
 					Effect.as(true),
 					Effect.catch(() => Effect.succeed(false)),

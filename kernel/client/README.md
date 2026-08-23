@@ -88,6 +88,18 @@ current entry for a launch URL, and maps the Android hardware back button onto t
 history, exiting the app only when there is nothing left to pop. The kernel remains the sole owner
 of history, per the single-navigation-stack rule in the design document.
 
+## OAuth Runtime Client
+
+`RuntimeOAuthClientService` is the only runtime selector for the first-party OAuth client. For a
+server origin it returns the client ID, authorization callback URI, logout callback URI, and the
+validated native application ID when running under Capacitor. Web descriptors use the current
+server origin and have no native application ID. Native descriptors accept only `io.ryot.app` and
+`io.ryot.app.dev`; an unreadable or unknown application ID fails closed before tokens are used.
+
+The native identifiers and callback URI builders live in `@ryot/contract/oauth`. Backend client
+provisioning and native deep-link filtering consume the same identifiers, so build variants,
+registered OAuth callbacks, and runtime validation cannot drift independently.
+
 ## Secure Storage
 
 `OAuthStorage` owns every OAuth record: the access, refresh, and ID tokens, and the short-lived

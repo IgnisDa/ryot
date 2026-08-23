@@ -1,4 +1,4 @@
-export const DEEP_LINK_SCHEMES = ["io.ryot.app", "io.ryot.app.dev"] as const;
+import { OAUTH_NATIVE_APPLICATION_IDS } from "@ryot/contract/oauth";
 
 export type NativeAppSource = {
 	readonly exitApp: () => void;
@@ -14,7 +14,7 @@ export type DeepLinkNavigator = {
 };
 
 const isAppScheme = (scheme: string): boolean =>
-	DEEP_LINK_SCHEMES.some((candidate) => candidate === scheme);
+	OAUTH_NATIVE_APPLICATION_IDS.some((candidate) => candidate === scheme);
 
 export function resolveDeepLinkHref(rawUrl: string): string | null {
 	let url: URL;

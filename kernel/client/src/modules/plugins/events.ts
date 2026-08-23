@@ -2,13 +2,12 @@ import {
 	PLUGIN_CATALOG_CONNECTED_EVENT,
 	PLUGIN_CATALOG_INVALIDATED_EVENT,
 } from "@ryot/contract/modules/plugins/contract";
-import { OAUTH_NATIVE_CLIENT_ID, OAUTH_WEB_CLIENT_ID } from "@ryot/contract/oauth";
 import { Context, Data, Duration, Effect, Layer, Match, Schedule } from "effect";
 
 import { serverApiUrl } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
+import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { OAuthTokenService } from "#/modules/auth/token-service";
-import { isNativePlatform } from "#/modules/navigation/native-navigation";
 
 type CatalogStreamResponse = {
 	readonly ok: boolean;
@@ -122,6 +121,7 @@ const openCatalogStream = async (
 
 const makePluginCatalogEventsService = (
 	tokens: OAuthTokenService["Service"],
+	runtimeClient: RuntimeOAuthClientService["Service"],
 	open: CatalogStreamFactory,
 	reconnect: Schedule.Schedule<unknown>,
 ) => ({
@@ -133,17 +133,19 @@ const makePluginCatalogEventsService = (
 			}
 		};
 
-		return Effect.gen(function* () {
-			const token = yield* tokens.accessToken(
-				scope.serverUrl,
-				isNativePlatform() ? OAUTH_NATIVE_CLIENT_ID : OAUTH_WEB_CLIENT_ID,
-			);
-			yield* Effect.tryPromise({
-				try: (signal) => openCatalogStream(open, url, token, signal, onEvent),
-				catch: (cause) => new CatalogStreamClosed({ cause }),
-			});
-			return yield* new CatalogStreamClosed({ cause: "stream ended" });
-		}).pipe(Effect.retry(reconnect), Effect.orDie);
+		return runtimeClient.forServer(scope.serverUrl).pipe(
+			Effect.orDie,
+			Effect.flatMap((client) =>
+				Effect.gen(function* () {
+					const token = yield* tokens.accessToken(scope.serverUrl, client.clientId);
+					yield* Effect.tryPromise({
+						try: (signal) => openCatalogStream(open, url, token, signal, onEvent),
+						catch: (cause) => new CatalogStreamClosed({ cause }),
+					});
+					return yield* new CatalogStreamClosed({ cause: "stream ended" });
+				}).pipe(Effect.retry(reconnect), Effect.orDie),
+			),
+		);
 	},
 });
 
@@ -153,13 +155,14 @@ export class PluginCatalogEventsService extends Context.Service<
 >()("PluginCatalogEventsService") {
 	static readonly layer = Layer.effect(
 		this,
-		Effect.map(OAuthTokenService, (tokens) =>
-			makePluginCatalogEventsService(
-				tokens,
+		Effect.gen(function* () {
+			return makePluginCatalogEventsService(
+				yield* OAuthTokenService,
+				yield* RuntimeOAuthClientService,
 				(url, request) => fetch(url, { ...request, cache: "no-store", credentials: "omit" }),
 				reconnectSchedule,
-			),
-		),
+			);
+		}),
 	);
 }
 
@@ -169,7 +172,12 @@ export const makePluginCatalogEventsLayer = (
 ) =>
 	Layer.effect(
 		PluginCatalogEventsService,
-		Effect.map(OAuthTokenService, (tokens) =>
-			makePluginCatalogEventsService(tokens, open, reconnect),
-		),
+		Effect.gen(function* () {
+			return makePluginCatalogEventsService(
+				yield* OAuthTokenService,
+				yield* RuntimeOAuthClientService,
+				open,
+				reconnect,
+			);
+		}),
 	);
