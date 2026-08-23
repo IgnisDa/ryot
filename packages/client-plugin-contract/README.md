@@ -2,7 +2,8 @@
 
 `@ryot-app/client-plugin-contract` owns schemas shared by plugin clients, the kernel, compiler, archive
 tooling, and artifact persistence: bridge messages, artifact format and metadata, source file policy,
-and wire-safe capability payloads. Runtime-only policy stays with its runtime.
+and shared capability payloads. Runtime-only policy stays with its runtime. Bridge payloads are
+structured-clone values rather than JSON, so the upload source crosses the port as a `Blob`.
 
 Artifact metadata includes content hash, artifact format, client API version, compiler version, and
 bridge version. Bridge init establishes an immutable session identity from a random session ID and

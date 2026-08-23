@@ -10,7 +10,9 @@ import { flushRyotClient, mountRyotClient } from "./test-support";
 const makeLocators = (count: number): readonly ManagedAssetLocator[] =>
 	Array.from({ length: count }, (_, index) => ({ type: "s3", key: `asset-${index}` }));
 
-const recordingAdapter = (calls: (readonly ManagedAssetLocator[])[]): RyotClientAdapter => ({
+const recordingAdapter = (
+	calls: (readonly ManagedAssetLocator[])[],
+): Partial<RyotClientAdapter> => ({
 	query: () => Promise.resolve({}),
 	resolveAssets: (assets) => {
 		calls.push(assets);
@@ -124,7 +126,7 @@ describe("ManagedAssetImage", () => {
 	});
 
 	it("keeps showing a placeholder instead of throwing when resolution fails", async () => {
-		const adapter: RyotClientAdapter = {
+		const adapter: Partial<RyotClientAdapter> = {
 			query: () => Promise.resolve({}),
 			resolveAssets: () => Promise.reject(new Error("offline")),
 		};

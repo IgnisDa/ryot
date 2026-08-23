@@ -26,6 +26,10 @@
 		"./screen": {
 			"types": "./src/plugin-screen.tsx",
 			"default": "./src/plugin-screen.tsx"
+		},
+		"./testing": {
+			"types": "./src/testing.ts",
+			"default": "./src/testing.ts"
 		}
 	},
 	"scripts": {
