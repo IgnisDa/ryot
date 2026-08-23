@@ -33,8 +33,8 @@ describe("Email sign-up", () => {
 		"bootstraps a new user with plugin state and default notification rules after sign-up",
 		() =>
 			Effect.gen(function* () {
-				const { cookies, email, password } = yield* createTestUser();
-				const headers = { Cookie: cookies };
+				const { token, email, password } = yield* createTestUser();
+				const headers = { Authorization: `Bearer ${token}` };
 				const plugins = yield* getApiClient().call(
 					(c) => c.definitions.listPlugins({ query: { includeDisabled: true } }),
 					headers,
@@ -53,11 +53,11 @@ describe("Email sign-up", () => {
 				expect(rules.every((rule) => rule.isActive)).toBe(true);
 
 				const retrySignIn = yield* signInWithPassword(email, password);
-				const retryCookies = retrySignIn.cookies;
-				expect(retryCookies).toBeDefined();
+				const retryToken = retrySignIn.token;
+				expect(retryToken).toBeDefined();
 				const library = table("entity", "library");
 				const libraryResponse = yield* executeRyotQL(
-					makeSession(undefined, { Cookie: retryCookies ?? cookies }),
+					makeSession(undefined, { Authorization: `Bearer ${retryToken ?? token}` }),
 					document({
 						libraries: rows(library, {
 							fields: [

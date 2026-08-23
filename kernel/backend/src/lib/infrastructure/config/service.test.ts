@@ -1,12 +1,8 @@
-import { Effect, Exit, Layer, Option } from "effect";
+import { Effect, Exit, Layer } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
 import type { AppConfigValue } from "#lib/infrastructure/config/service";
-import {
-	AppConfig,
-	parseCorsOrigins,
-	validateSystemConfig,
-} from "#lib/infrastructure/config/service";
+import { AppConfig, validateSystemConfig } from "#lib/infrastructure/config/service";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
 
 type Overrides = Parameters<typeof makeAppConfigLayer>[0];
@@ -46,13 +42,6 @@ const loadSystemConfig = (
 	);
 
 describe("system log level config", () => {
-	it("parses configured CORS origins", () => {
-		expect(
-			parseCorsOrigins(Option.some("http://localhost:3005, https://client.example, ")),
-		).toEqual(["http://localhost:3005", "https://client.example"]);
-		expect(parseCorsOrigins(Option.none())).toEqual([]);
-	});
-
 	it("defaults to info", () => {
 		const result = loadSystemConfig();
 		assert(Exit.isSuccess(result));
