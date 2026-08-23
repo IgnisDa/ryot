@@ -1,7 +1,7 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { PgDialect } from "drizzle-orm/pg-core";
-import { Effect, Layer } from "effect";
+import { Context, Effect, Layer, Ref } from "effect";
 
 import type * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
@@ -21,182 +21,216 @@ const input = {
 
 const reference = { ...input, pluginInstallationId: null };
 
+class RegistrationDatabase extends Context.Service<
+	RegistrationDatabase,
+	{
+		readonly events: Effect.Effect<ReadonlyArray<string>>;
+		readonly references: Effect.Effect<ReadonlyArray<Record<string, unknown>>>;
+	}
+>()("test/RegistrationDatabase") {}
+
+class ReleaseDatabase extends Context.Service<
+	ReleaseDatabase,
+	{ readonly releases: Effect.Effect<number> }
+>()("test/ReleaseDatabase") {}
+
 const makeRegisterLayer = (options: {
 	active: boolean;
-	events: string[];
 	inserted?: boolean;
 	installationId?: string | null;
 	pluginScope?: "system" | "user";
-	references?: Array<Record<string, unknown>>;
 	existing?: typeof schema.sandboxWorkflowReference.$inferSelect;
-}) => {
-	const dialect = new PgDialect();
-	const db = {
-		execute: (statement: Parameters<typeof dialect.sqlToQuery>[0]) => {
-			const query = dialect.sqlToQuery(statement);
-			options.events.push(`lock:${query.sql}:${query.params.join(":")}`);
-			return Effect.void;
-		},
-		insert: () => ({
-			values: (values: Record<string, unknown>) => ({
-				onConflictDoNothing: () => ({
-					returning: () => {
-						options.events.push("insert");
-						options.references?.push(values);
-						return Effect.succeed(options.inserted === false ? [] : [input]);
-					},
-				}),
-			}),
-		}),
-		select: () => ({
-			from: () => ({
-				where: () => ({
-					limit: () => {
-						options.events.push("existing");
-						return Effect.succeed(options.existing ? [options.existing] : []);
-					},
-				}),
-				leftJoin: () => ({
-					where: () => ({
-						limit: () => {
-							options.events.push("plugin");
-							return Effect.succeed(
-								options.active
-									? [
-											{
-												slug: input.pluginId,
-												scope: options.pluginScope ?? "system",
-												installationId: options.installationId ?? null,
-											},
-										]
-									: [],
-							);
-						},
+}) =>
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const events = yield* Ref.make<ReadonlyArray<string>>([]);
+			const references = yield* Ref.make<ReadonlyArray<Record<string, unknown>>>([]);
+			const record = (event: string) => Ref.update(events, (all) => [...all, event]);
+			const dialect = new PgDialect();
+			const db = {
+				execute: (statement: Parameters<typeof dialect.sqlToQuery>[0]) => {
+					const query = dialect.sqlToQuery(statement);
+					return record(`lock:${query.sql}:${query.params.join(":")}`);
+				},
+				insert: () => ({
+					values: (values: Record<string, unknown>) => ({
+						onConflictDoNothing: () => ({
+							returning: () =>
+								record("insert").pipe(
+									Effect.andThen(Ref.update(references, (all) => [...all, values])),
+									Effect.as(options.inserted === false ? [] : [input]),
+								),
+						}),
 					}),
 				}),
-			}),
+				select: () => ({
+					from: () => ({
+						where: () => ({
+							limit: () =>
+								record("existing").pipe(Effect.as(options.existing ? [options.existing] : [])),
+						}),
+						leftJoin: () => ({
+							where: () => ({
+								limit: () =>
+									record("plugin").pipe(
+										Effect.as(
+											options.active
+												? [
+														{
+															slug: input.pluginId,
+															scope: options.pluginScope ?? "system",
+															installationId: options.installationId ?? null,
+														},
+													]
+												: [],
+										),
+									),
+							}),
+						}),
+					}),
+				}),
+			};
+			const executor = Object.assign(Object.create(null), db);
+			return SandboxWorkflowReferenceRepository.layer.pipe(
+				Layer.provideMerge(
+					Layer.merge(
+						Layer.mock(DatabaseSession)({ current: Effect.succeed(executor) }),
+						Layer.succeed(RegistrationDatabase, {
+							events: Ref.get(events),
+							references: Ref.get(references),
+						}),
+					),
+				),
+			);
 		}),
-	};
-	const executor = Object.assign(Object.create(null), db);
-	return SandboxWorkflowReferenceRepository.layer.pipe(
-		Layer.provideMerge(Layer.mock(DatabaseSession)({ current: Effect.succeed(executor) })),
 	);
-};
 
-it.effect("registers under the plugin ingestion lock after confirming the plugin is active", () => {
-	const events: string[] = [];
-	const references: Array<Record<string, unknown>> = [];
-	return Effect.gen(function* () {
-		const repository = yield* SandboxWorkflowReferenceRepository;
-		yield* repository.lockIngestionShared();
-		expect(yield* repository.registerInTransaction({ ...input, userId: "owner" })).toEqual({
-			status: "registered",
-		});
-		expect(events).toHaveLength(3);
-		expect(events[0]).toContain("pg_advisory_xact_lock_shared");
-		expect(events[0]).toContain("ryot-plugin-ingestion");
-		expect(events.slice(1)).toEqual(["plugin", "insert"]);
-		expect(references).toEqual([{ ...input, pluginInstallationId: "installation" }]);
-	}).pipe(
-		Effect.provide(
-			makeRegisterLayer({
-				events,
-				references,
-				active: true,
-				pluginScope: "user",
-				installationId: "installation",
+const releasingLayer = Layer.unwrap(
+	Effect.gen(function* () {
+		const rows = yield* Ref.make<ReadonlyArray<typeof reference>>([reference]);
+		const releases = yield* Ref.make(0);
+		const db = {
+			delete: () => ({
+				where: () =>
+					Ref.update(releases, (count) => count + 1).pipe(Effect.andThen(Ref.set(rows, []))),
 			}),
-		),
-	);
-});
-
-it.effect("refuses private plugin registration without user installation subject", () => {
-	const events: string[] = [];
-	return Effect.gen(function* () {
-		const repository = yield* SandboxWorkflowReferenceRepository;
-		yield* repository.lockIngestionShared();
-		const exit = yield* Effect.exit(repository.registerInTransaction(input));
-		assertExitFails(
-			exit,
-			new SandboxWorkflowReferenceRegistrationError({
-				reason: "plugin-inactive",
-				message: "Private plugin 'fixture' requires an exact user installation",
+			select: (selection?: unknown) => ({
+				from: () => {
+					if (selection) {
+						return {
+							where: () => ({
+								limit: () => Ref.get(rows).pipe(Effect.map((all) => all.slice(0, 1))),
+							}),
+						};
+					}
+					return Object.assign(Ref.get(rows), { where: () => Ref.get(rows) });
+				},
 			}),
+		};
+		return SandboxWorkflowReferenceRepository.layer.pipe(
+			Layer.provideMerge(
+				Layer.merge(
+					Layer.mock(DatabaseSession)({
+						current: Effect.succeed(Object.assign(Object.create(null), db)),
+					}),
+					Layer.succeed(ReleaseDatabase, { releases: Ref.get(releases) }),
+				),
+			),
 		);
-		expect(events.slice(1)).toEqual(["plugin"]);
-	}).pipe(Effect.provide(makeRegisterLayer({ events, active: true, pluginScope: "user" })));
-});
+	}),
+);
 
-it.effect("refuses registration when uninstall has deactivated the plugin", () => {
-	const events: string[] = [];
-	return Effect.gen(function* () {
-		const repository = yield* SandboxWorkflowReferenceRepository;
-		yield* repository.lockIngestionShared();
-		const exit = yield* Effect.exit(repository.registerInTransaction(input));
-		assertExitFails(
-			exit,
-			new SandboxWorkflowReferenceRegistrationError({
-				reason: "plugin-inactive",
-				message: "Plugin 'fixture' is not active",
-			}),
+layer(makeRegisterLayer({ active: true, pluginScope: "user", installationId: "installation" }))(
+	(test) => {
+		test.effect(
+			"registers under the plugin ingestion lock after confirming the plugin is active",
+			() =>
+				Effect.gen(function* () {
+					const repository = yield* SandboxWorkflowReferenceRepository;
+					const database = yield* RegistrationDatabase;
+					yield* repository.lockIngestionShared();
+					expect(yield* repository.registerInTransaction({ ...input, userId: "owner" })).toEqual({
+						status: "registered",
+					});
+					const events = yield* database.events;
+					expect(events).toHaveLength(3);
+					expect(events[0]).toContain("pg_advisory_xact_lock_shared");
+					expect(events[0]).toContain("ryot-plugin-ingestion");
+					expect(events.slice(1)).toEqual(["plugin", "insert"]);
+					expect(yield* database.references).toEqual([
+						{ ...input, pluginInstallationId: "installation" },
+					]);
+				}),
 		);
-		expect(events.slice(1)).toEqual(["plugin"]);
-	}).pipe(Effect.provide(makeRegisterLayer({ events, active: false })));
-});
+	},
+);
 
-it.effect("treats registration replay for the same pin as idempotent", () => {
-	const events: string[] = [];
-	return Effect.gen(function* () {
-		const repository = yield* SandboxWorkflowReferenceRepository;
-		yield* repository.lockIngestionShared();
-		expect(yield* repository.registerInTransaction(input)).toEqual({
-			status: "already-registered",
-		});
-		expect(events.slice(1)).toEqual(["plugin", "insert", "existing"]);
-	}).pipe(
-		Effect.provide(
-			makeRegisterLayer({ events, active: true, inserted: false, existing: reference }),
-		),
+layer(makeRegisterLayer({ active: true, pluginScope: "user" }))((test) => {
+	test.effect("refuses private plugin registration without user installation subject", () =>
+		Effect.gen(function* () {
+			const repository = yield* SandboxWorkflowReferenceRepository;
+			yield* repository.lockIngestionShared();
+			const exit = yield* Effect.exit(repository.registerInTransaction(input));
+			assertExitFails(
+				exit,
+				new SandboxWorkflowReferenceRegistrationError({
+					reason: "plugin-inactive",
+					message: "Private plugin 'fixture' requires an exact user installation",
+				}),
+			);
+			expect((yield* (yield* RegistrationDatabase).events).slice(1)).toEqual(["plugin"]);
+		}),
 	);
 });
 
-it.effect("exposes reusable reference liveness queries and idempotent release", () => {
-	let rows = [reference];
-	let releases = 0;
-	const db = {
-		delete: () => ({
-			where: () => {
-				releases += 1;
-				rows = [];
-				return Effect.void;
-			},
+layer(makeRegisterLayer({ active: false }))((test) => {
+	test.effect("refuses registration when uninstall has deactivated the plugin", () =>
+		Effect.gen(function* () {
+			const repository = yield* SandboxWorkflowReferenceRepository;
+			yield* repository.lockIngestionShared();
+			const exit = yield* Effect.exit(repository.registerInTransaction(input));
+			assertExitFails(
+				exit,
+				new SandboxWorkflowReferenceRegistrationError({
+					reason: "plugin-inactive",
+					message: "Plugin 'fixture' is not active",
+				}),
+			);
+			expect((yield* (yield* RegistrationDatabase).events).slice(1)).toEqual(["plugin"]);
 		}),
-		select: (selection?: unknown) => ({
-			from: () => {
-				if (selection) {
-					return { where: () => ({ limit: () => Effect.succeed(rows.slice(0, 1)) }) };
-				}
-				return Object.assign(Effect.succeed(rows), { where: () => Effect.succeed(rows) });
-			},
-		}),
-	};
-	const layer = SandboxWorkflowReferenceRepository.layer.pipe(
-		Layer.provideMerge(
-			Layer.mock(DatabaseSession)({
-				current: Effect.succeed(Object.assign(Object.create(null), db)),
-			}),
-		),
 	);
-	return Effect.gen(function* () {
-		const repository = yield* SandboxWorkflowReferenceRepository;
-		expect(yield* repository.hasReferences(input.pluginId)).toBe(true);
-		expect(yield* repository.hasInstallationReferences("installation")).toBe(true);
-		expect(yield* repository.listReferences(input.pluginId)).toEqual([reference]);
-		expect(yield* repository.listReferences()).toEqual([reference]);
-		yield* repository.release(input.executionId);
-		yield* repository.release(input.executionId);
-		expect(yield* repository.hasReferences(input.pluginId)).toBe(false);
-		expect(yield* repository.hasInstallationReferences("installation")).toBe(false);
-		expect(releases).toBe(2);
-	}).pipe(Effect.provide(layer));
+});
+
+layer(makeRegisterLayer({ active: true, inserted: false, existing: reference }))((test) => {
+	test.effect("treats registration replay for the same pin as idempotent", () =>
+		Effect.gen(function* () {
+			const repository = yield* SandboxWorkflowReferenceRepository;
+			yield* repository.lockIngestionShared();
+			expect(yield* repository.registerInTransaction(input)).toEqual({
+				status: "already-registered",
+			});
+			expect((yield* (yield* RegistrationDatabase).events).slice(1)).toEqual([
+				"plugin",
+				"insert",
+				"existing",
+			]);
+		}),
+	);
+});
+
+layer(releasingLayer)((test) => {
+	test.effect("exposes reusable reference liveness queries and idempotent release", () =>
+		Effect.gen(function* () {
+			const repository = yield* SandboxWorkflowReferenceRepository;
+			expect(yield* repository.hasReferences(input.pluginId)).toBe(true);
+			expect(yield* repository.hasInstallationReferences("installation")).toBe(true);
+			expect(yield* repository.listReferences(input.pluginId)).toEqual([reference]);
+			expect(yield* repository.listReferences()).toEqual([reference]);
+			yield* repository.release(input.executionId);
+			yield* repository.release(input.executionId);
+			expect(yield* repository.hasReferences(input.pluginId)).toBe(false);
+			expect(yield* repository.hasInstallationReferences("installation")).toBe(false);
+			expect(yield* (yield* ReleaseDatabase).releases).toBe(2);
+		}),
+	);
 });
