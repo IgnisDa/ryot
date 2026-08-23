@@ -3,22 +3,24 @@ import { createAuthClient } from "better-auth/client";
 import { twoFactorClient } from "better-auth/client/plugins";
 import { Context, Data, Effect, Layer } from "effect";
 
+import type { ServerOrigin } from "#/api/origin";
 import type { TwoFactorMethod } from "#/modules/auth/flow";
 import { availableTwoFactorMethods, isTwoFactorRedirect } from "#/modules/auth/flow";
 import { registrationName, type CredentialsValues } from "#/modules/auth/form-values";
 
 export class HostedAuthError extends Data.TaggedError("HostedAuthError")<{
+	readonly code?: string;
 	readonly message: string;
 }> {}
 
 type AuthResponse<A> = {
 	readonly data: A;
-	readonly error: null | { readonly message?: string };
+	readonly error: null | { readonly code?: string; readonly message?: string };
 };
 
-const makeHostedClient = () =>
+const makeHostedClient = (baseURL = window.location.origin) =>
 	createAuthClient({
-		baseURL: window.location.origin,
+		baseURL,
 		fetchOptions: { credentials: "same-origin" },
 		plugins: [twoFactorClient(), oauthProviderClient()],
 	});
@@ -31,7 +33,12 @@ const request = <A>(operation: () => Promise<AuthResponse<A>>, fallback: string)
 	}).pipe(
 		Effect.flatMap((response) =>
 			response.error
-				? Effect.fail(new HostedAuthError({ message: response.error.message ?? fallback }))
+				? Effect.fail(
+						new HostedAuthError({
+							message: response.error.message ?? fallback,
+							...(response.error.code ? { code: response.error.code } : {}),
+						}),
+					)
 				: Effect.succeed(response.data),
 		),
 	);
@@ -80,8 +87,13 @@ export class HostedAuthService extends Context.Service<HostedAuthService>()("Hos
 					}),
 				"Could not open the identity provider.",
 			).pipe(Effect.asVoid);
+		const resetPassword = (server: ServerOrigin, token: string, newPassword: string) =>
+			request(
+				() => makeHostedClient(server).resetPassword({ token, newPassword }),
+				"Could not reset your password.",
+			).pipe(Effect.asVoid);
 
-		return { signInWithOidc, submitCredentials, verifyTwoFactor };
+		return { resetPassword, signInWithOidc, submitCredentials, verifyTwoFactor };
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);
