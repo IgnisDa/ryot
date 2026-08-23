@@ -1,3 +1,4 @@
+import { sanitizeEnvironment } from "@ryot-app/vite-compiler";
 import { Duration, Effect, Fiber, FileSystem, Ref, Result, Stream, type Semaphore } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
@@ -59,6 +60,7 @@ export const makeCompilerWorkerRunner = <E>(options: {
 	Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
 		const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+		const environment = yield* Effect.fromResult(sanitizeEnvironment({ includePath: true }));
 
 		const execute = (input: string) =>
 			Effect.scoped(
@@ -67,7 +69,12 @@ export const makeCompilerWorkerRunner = <E>(options: {
 						ChildProcess.make(
 							process.execPath,
 							["--smol", "--no-orphans", "--no-install", "--no-env-file", options.path],
-							{ stdout: "pipe", stderr: "pipe", stdin: Stream.succeed(encoder.encode(input)) },
+							{
+								stdout: "pipe",
+								stderr: "pipe",
+								env: environment,
+								stdin: Stream.succeed(encoder.encode(input)),
+							},
 						),
 					);
 					yield* Effect.addFinalizer(() =>

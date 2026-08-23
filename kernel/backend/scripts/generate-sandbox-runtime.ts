@@ -2,21 +2,26 @@
 
 import { BunFileSystem, BunPath, BunRuntime } from "@effect/platform-bun";
 import { createSha256Hasher } from "@ryot-app/ts-utils/crypto";
+import { buildDenoEsm, ViteBuildService } from "@ryot-app/vite-compiler";
 import { Data, Effect, Layer, Ref, Schema, FileSystem, Path } from "effect";
+
+import { buildSandboxRuntimePayload } from "./sandbox-runtime-payload";
+import { preparationSources } from "./sandbox-runtime-preparation";
 
 class RunnerGenerationError extends Data.TaggedError("RunnerGenerationError")<{
 	message: string;
 }> {}
 
 const encodeGeneratedString = Schema.encodeSync(Schema.fromJsonString(Schema.String));
+const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 
 const walkSandboxSources = (
 	directory: string,
 	root: string,
 ): Effect.Effect<Readonly<Record<string, string>>, unknown, FileSystem.FileSystem | Path.Path> =>
 	Effect.gen(function* () {
-		const fs = yield* FileSystem.FileSystem;
 		const path = yield* Path.Path;
+		const fs = yield* FileSystem.FileSystem;
 		const files: Record<string, string> = {};
 		for (const entry of (yield* fs.readDirectory(directory)).sort()) {
 			const absolutePath = path.join(directory, entry);
@@ -55,35 +60,42 @@ const embedKernelScripts = (kernelDirectory: string) =>
 const compileRunner = (sandboxRuntimeDirectory: string) =>
 	Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
-		const entrypoint = `${sandboxRuntimeDirectory}/runner-source.sandbox.ts`;
-		const result = yield* Effect.tryPromise({
-			catch: (error) =>
-				new RunnerGenerationError({ message: `Sandbox runner build failed: ${String(error)}` }),
-			try: () =>
-				Bun.build({
-					format: "esm",
-					minify: false,
-					splitting: false,
-					target: "browser",
-					packages: "bundle",
-					entrypoints: [entrypoint],
-					external: ["@ryot-app/sandbox-sdk/effect"],
-				}),
-		});
-		const [output, ...rest] = result.outputs;
-		if (!result.success || !output || rest.length > 0) {
-			const details = result.logs.map(({ message }) => message).join("\n");
-			return yield* new RunnerGenerationError({
-				message: details || "Sandbox runner build did not emit exactly one module",
-			});
-		}
-		const javascript = yield* Effect.promise(() => output.text());
+		const sources = yield* walkSandboxSources(sandboxRuntimeDirectory, sandboxRuntimeDirectory);
+		const { javascript } = yield* buildDenoEsm({
+			outputFile: "runner.mjs",
+			entry: "runner-source.sandbox.ts",
+			approvedDynamicImportExpressions: new Set(["payload.moduleUrl"]),
+			approvedExternalSpecifiers: new Set(["@ryot-app/sandbox-sdk/effect"]),
+			sources: Object.entries(sources).map(([path, contents]) => ({ path, contents })),
+		}).pipe(
+			Effect.mapError(
+				(error) =>
+					new RunnerGenerationError({ message: `Sandbox runner build failed: ${error.message}` }),
+			),
+		);
 		yield* fs.writeFileString(
 			`${sandboxRuntimeDirectory}/runner.generated.ts`,
 			`export const sandboxRunnerSource = ${encodeGeneratedString(javascript)};\n`,
 		);
 		yield* Effect.logInfo("Compiled Deno sandbox runner");
-		return yield* Effect.void;
+	});
+
+const compileRuntimePayload = (kernelDirectory: string, sandboxRuntimeDirectory: string) =>
+	Effect.gen(function* () {
+		const fs = yield* FileSystem.FileSystem;
+		const payload = yield* buildSandboxRuntimePayload(kernelDirectory).pipe(
+			Effect.mapError(
+				(error) =>
+					new RunnerGenerationError({
+						message: `Trusted sandbox runtime build failed: ${error.message}`,
+					}),
+			),
+		);
+		yield* fs.writeFileString(
+			`${sandboxRuntimeDirectory}/runtime-payload.generated.ts`,
+			`export const sandboxRuntimePayload = ${encodeJson(payload)} as const;\n`,
+		);
+		yield* Effect.logInfo("Compiled trusted Deno runtime payload");
 	});
 
 const fingerprint = (files: Readonly<Record<string, string>>) => {
@@ -101,10 +113,6 @@ const program = Effect.gen(function* () {
 	const path = yield* Path.Path;
 	const scriptPath = yield* path.fromFileUrl(new URL(import.meta.url));
 	const kernelDirectory = path.resolve(path.dirname(scriptPath), "..");
-	const kernelScriptsDirectory = path.join(
-		kernelDirectory,
-		"src/modules/definition-registry/kernel-scripts",
-	);
 	const sandboxRuntimeDirectory = path.resolve(
 		kernelDirectory,
 		"src",
@@ -114,7 +122,11 @@ const program = Effect.gen(function* () {
 	);
 	if (!process.argv.includes("--skip-initial")) {
 		yield* Effect.all(
-			[compileRunner(sandboxRuntimeDirectory), embedKernelScripts(kernelDirectory)],
+			[
+				compileRunner(sandboxRuntimeDirectory),
+				compileRuntimePayload(kernelDirectory, sandboxRuntimeDirectory),
+				embedKernelScripts(kernelDirectory),
+			],
 			{ discard: true },
 		);
 	}
@@ -122,23 +134,22 @@ const program = Effect.gen(function* () {
 		return yield* Effect.void;
 	}
 
-	const sources = {
-		...(yield* walkSandboxSources(sandboxRuntimeDirectory, sandboxRuntimeDirectory)),
-		...(yield* walkSandboxSources(kernelScriptsDirectory, kernelDirectory)),
-	};
+	const sources = yield* preparationSources(kernelDirectory, sandboxRuntimeDirectory);
 	const currentFingerprint = yield* Ref.make(fingerprint(sources));
 	return yield* Effect.gen(function* () {
 		yield* Effect.sleep("250 millis");
-		const nextSources = {
-			...(yield* walkSandboxSources(sandboxRuntimeDirectory, sandboxRuntimeDirectory)),
-			...(yield* walkSandboxSources(kernelScriptsDirectory, kernelDirectory)),
-		};
+		const nextSources = yield* preparationSources(kernelDirectory, sandboxRuntimeDirectory);
 		const nextFingerprint = fingerprint(nextSources);
 		if (nextFingerprint !== (yield* Ref.get(currentFingerprint))) {
 			const compiled = yield* Effect.result(
-				Effect.all([compileRunner(sandboxRuntimeDirectory), embedKernelScripts(kernelDirectory)], {
-					discard: true,
-				}),
+				Effect.all(
+					[
+						compileRunner(sandboxRuntimeDirectory),
+						compileRuntimePayload(kernelDirectory, sandboxRuntimeDirectory),
+						embedKernelScripts(kernelDirectory),
+					],
+					{ discard: true },
+				),
 			);
 			if (compiled._tag === "Success") {
 				yield* Ref.set(currentFingerprint, nextFingerprint);
@@ -150,5 +161,7 @@ const program = Effect.gen(function* () {
 }).pipe(Effect.tapError((error) => Effect.logError(JSON.stringify(error, null, 2))));
 
 BunRuntime.runMain(
-	program.pipe(Effect.provide(Layer.mergeAll(BunFileSystem.layer, BunPath.layer))),
+	program.pipe(
+		Effect.provide(Layer.mergeAll(BunFileSystem.layer, BunPath.layer, ViteBuildService.layer)),
+	),
 );

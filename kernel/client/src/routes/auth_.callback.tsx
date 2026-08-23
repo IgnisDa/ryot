@@ -14,10 +14,15 @@ import { ServerService } from "#/modules/server/service";
 const searchValue = (value: unknown) =>
 	typeof value === "string" && value !== "" ? value : undefined;
 
+const completingSignIn = {
+	title: "Completing sign-in",
+	message: "Finishing the secure token exchange...",
+};
+
 export const Route = createFileRoute("/auth_/callback")({
 	component: CompletingSignIn,
-	pendingComponent: CompletingSignIn,
 	errorComponent: CouldNotCompleteSignIn,
+	pendingComponent: () => <AuthStatus {...completingSignIn} />,
 	validateSearch: (search) =>
 		Schema.decodeUnknownSync(OAuthCallbackQuery)({
 			code: searchValue(search.code),
@@ -73,7 +78,7 @@ export const Route = createFileRoute("/auth_/callback")({
 });
 
 function CompletingSignIn() {
-	return <AuthStatus title="Completing sign-in" message="Finishing the secure token exchange..." />;
+	return <AuthStatus {...completingSignIn} />;
 }
 
 function CouldNotCompleteSignIn() {

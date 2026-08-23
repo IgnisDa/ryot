@@ -6,6 +6,7 @@ import {
 	type SandboxEntryDeclaration,
 } from "./compiler-builtins";
 import { sandboxCompilationFailure, sandboxCompilerDiagnostic } from "./compiler-diagnostics";
+import { sandboxCompilerPlatformLayer } from "./compiler-platform";
 import type { SandboxTypeScriptSources } from "./compiler-project";
 
 export type CompiledPluginSandboxEntry = CompiledBuiltInSandboxEntry;
@@ -78,7 +79,7 @@ const loadPluginSources = (packageRoot: string) =>
 		return files;
 	});
 
-export const compilePluginSandboxEntries = (
+const compilePluginSandboxEntriesInternal = (
 	packageRoot: string,
 	scripts: ReadonlyArray<PluginSandboxScriptEntry>,
 ) =>
@@ -86,3 +87,11 @@ export const compilePluginSandboxEntries = (
 		const files = yield* loadPluginSources(packageRoot);
 		return yield* compilePluginSandboxSourceEntries(files, scripts);
 	});
+
+export const compilePluginSandboxEntries = (
+	packageRoot: string,
+	scripts: ReadonlyArray<PluginSandboxScriptEntry>,
+) =>
+	compilePluginSandboxEntriesInternal(packageRoot, scripts).pipe(
+		Effect.provide(sandboxCompilerPlatformLayer),
+	);
