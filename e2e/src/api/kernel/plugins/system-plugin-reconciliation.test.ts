@@ -13,7 +13,6 @@ import {
 	collectRyotQLRecipeItems,
 	createAuthenticatedClient,
 	encodePluginSourceFiles,
-	encodeTestSupportPluginFiles,
 	executeRyotQL,
 	installPrivatePlugin,
 	listSavedViews,
@@ -27,6 +26,7 @@ import {
 	requireRyotQLText,
 	testPluginManifest,
 	testPluginSavedView,
+	installTestSupportSystemPlugin,
 } from "~/fixtures/kernel";
 import { requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
@@ -73,7 +73,7 @@ const installShippedPlugin = (
 ) => {
 	const name = "E2E Reconciliation Shipped";
 	const slug = `e2e-reconciliation-${randomUUID()}`;
-	const entry = "scripts/script.sandbox.ts";
+	const entry = "backend/scripts/script.sandbox.ts";
 	const manifest = testPluginManifest({
 		pluginSlug,
 		savedViews,
@@ -89,16 +89,13 @@ const installShippedPlugin = (
 			},
 		],
 	});
-	const files = encodeTestSupportPluginFiles(
-		encodePluginSourceFiles({ [entry]: literalSandboxSource({ name, slug, value: true }) }),
-	);
+	const files = encodePluginSourceFiles({
+		[entry]: literalSandboxSource({ name, slug, value: true }),
+	});
 	return Effect.acquireRelease(
-		adminSession()
-			.call(
-				(c) => c.testSupport.installSystemPlugin({ payload: { files, manifest } }),
-				adminHeaders(),
-			)
-			.pipe(Effect.as(pluginSlug)),
+		installTestSupportSystemPlugin({ files, manifest, baseUrl: apiUrl() }).pipe(
+			Effect.as(pluginSlug),
+		),
 		() =>
 			uninstallShippedPlugin(pluginSlug).pipe(
 				Effect.catch((error) =>

@@ -11,7 +11,7 @@ export const installTestIntegrationProvider = (
 	const pluginSlug = `e2e-integration-plugin-${suffix}`;
 	const providerSlug = `e2e-integration-provider-${suffix}`;
 	const scriptSlug = `integration.e2e-sink-${suffix}`;
-	const entry = `scripts/${scriptSlug}.sandbox.ts`;
+	const entry = `backend/scripts/${scriptSlug}.sandbox.ts`;
 	const name = "E2E integration sink";
 	const source = `
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
