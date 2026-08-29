@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { chromium, type Browser, type BrowserContext, type Page } from "playwright";
+import type { Page } from "playwright";
 
 import {
 	buildSavedViewLayouts,
@@ -14,6 +14,7 @@ import {
 	type InstalledTestProvider,
 } from "~/fixtures/kernel";
 import { getApiUrl } from "~/support/api";
+import { signInThroughHostedOAuth, withBrowser } from "~/support/browser";
 import { afterAll, beforeAll, expect, it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/frontend";
 
@@ -36,25 +37,28 @@ const IMPORT_TIMEOUT = 150_000;
 const MODAL_LABEL = "Add from a provider";
 const PROVIDER_SLUG = `${ENTITY_SCHEMA_SLUG}.saved-view-add`;
 
-let page: Page;
+let email: string;
+let password: string;
 let viewUrl: string;
-let workspaceUrl: string;
-let browser: Browser;
-let context: BrowserContext;
 let provider: InstalledTestProvider;
 
-const activeElementAttribute = (attribute: string) =>
+const activeElementAttribute = (page: Page, attribute: string) =>
 	page.evaluate((name) => document.activeElement?.getAttribute(name) ?? null, attribute);
 
-const modalSearch = () => dialog().getByLabel("Search providers");
-const dialog = () => page.getByRole("dialog", { name: MODAL_LABEL });
-const fab = () => page.getByRole("button", { name: "Add to this view" });
-const closeModal = () => dialog().getByRole("button", { name: /^(Close|Cancel)$/ });
-const headerAdd = () => page.getByRole("button", { name: "Add", exact: true });
-const providerChip = () => dialog().getByRole("radio", { name: PROVIDER_NAME });
-const pageSearch = () => page.getByRole("searchbox", { name: `Search ${VIEW_NAME}` });
+const modalSearch = (page: Page) => dialog(page).getByLabel("Search providers");
+const dialog = (page: Page) => page.getByRole("dialog", { name: MODAL_LABEL });
+const fab = (page: Page) => page.getByRole("button", { name: "Add to this view" });
+const closeModal = (page: Page) => dialog(page).getByRole("button", { name: /^(Close|Cancel)$/ });
+const headerAdd = (page: Page) => page.getByRole("button", { name: "Add", exact: true });
+const providerChip = (page: Page) => dialog(page).getByRole("radio", { name: PROVIDER_NAME });
+const pageSearch = (page: Page) => page.getByRole("searchbox", { name: `Search ${VIEW_NAME}` });
 
-const openSavedView = async (options: { compact?: boolean; coldLoad?: boolean } = {}) => {
+const openSavedView = async (
+	page: Page,
+	viewUrl: string,
+	workspaceUrl: string,
+	options: { compact?: boolean; coldLoad?: boolean } = {},
+) => {
 	if (options.coldLoad) {
 		await page.goto(workspaceUrl);
 		await page.getByTestId("authenticated-shell").waitFor({ state: "visible" });
@@ -71,28 +75,42 @@ const openSavedView = async (options: { compact?: boolean; coldLoad?: boolean } 
 	if (options.compact) {
 		await page.getByTestId("mobile-drawer").waitFor({ state: "hidden" });
 	}
+	await pageSearch(page).waitFor({ state: "visible" });
 };
 
-const waitForAddParam = (present: boolean) =>
+const waitForAddParam = (page: Page, present: boolean) =>
 	page.waitForURL((url) => url.searchParams.has("add") === present);
 
-const openedDialog = async () => {
-	await dialog().waitFor({ state: "visible" });
-	await waitForAddParam(true);
+const openedDialog = async (page: Page) => {
+	await dialog(page).waitFor({ state: "visible" });
+	await waitForAddParam(page, true);
 	expect(new URL(page.url()).searchParams.get("add")).toBe("true");
 };
 
-const closedDialog = async () => {
-	await closeModal().click();
-	await dialog().waitFor({ state: "hidden" });
-	await waitForAddParam(false);
+const closedDialog = async (page: Page) => {
+	await closeModal(page).click();
+	await dialog(page).waitFor({ state: "hidden" });
+	await waitForAddParam(page, false);
 };
 
-beforeAll(async () => {
-	const credentials = await Effect.runPromise(
+const withSavedViewBrowser = (
+	run: (page: Page, workspaceUrl: string) => Effect.Effect<void>,
+	options = { viewport: { width: 1280, height: 800 } },
+) =>
+	withBrowser(options, ({ page }) =>
 		Effect.gen(function* () {
-			const { email, token, password } = yield* createTestUser();
-			const client = makeSession(getApiUrl(), { Authorization: `Bearer ${token}` });
+			const { homeUrl } = yield* signInThroughHostedOAuth(page, email, password);
+			yield* run(page, homeUrl);
+		}),
+	);
+
+beforeAll(async () => {
+	const viewSlug = await Effect.runPromise(
+		Effect.gen(function* () {
+			const user = yield* createTestUser();
+			email = user.email;
+			password = user.password;
+			const client = makeSession(getApiUrl(), { Authorization: `Bearer ${user.token}` });
 			provider = yield* installTestProvider({
 				client,
 				name: PROVIDER_NAME,
@@ -130,149 +148,152 @@ beforeAll(async () => {
 				entitySchemaSlug: makeEntitySchemaSlug(ENTITY_SCHEMA_SLUG),
 				layouts: buildSavedViewLayouts({}, [ENTITY_SCHEMA_SLUG]),
 			});
-			return { email, password, viewSlug: view.slug };
+			return view.slug;
 		}),
 	);
-
-	const frontendUrl = getFrontendUrl();
-	viewUrl = `${frontendUrl}/v/${credentials.viewSlug}`;
-	browser = await chromium.launch();
-	context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
-	page = await context.newPage();
-	await page.goto(`${frontendUrl}/auth`);
-	await page.waitForURL((url) => url.pathname === "/oauth/login");
-	await page.getByLabel("Email address").fill(credentials.email);
-	await page.getByLabel("Password").fill(credentials.password);
-	await page.locator("form").getByRole("button", { name: "Sign in", exact: true }).click();
-	await page.getByTestId("authenticated-shell").waitFor({ state: "visible" });
-	const homePath = await page.getByRole("link", { name: "Home", exact: true }).getAttribute("href");
-	workspaceUrl = new URL(homePath ?? "/", frontendUrl).toString();
+	viewUrl = `${getFrontendUrl()}/v/${viewSlug}`;
 });
 
 afterAll(async () => {
-	await context.close();
-	await browser.close();
 	await Effect.runPromise(uninstallTestProvider(provider));
 });
 
 it.live("opens the provider add flow from every saved-view affordance", () =>
-	Effect.promise(async () => {
-		await openSavedView();
-		await headerAdd().waitFor({ state: "visible" });
-		await fab().waitFor({ state: "hidden" });
+	Effect.gen(function* () {
+		yield* withSavedViewBrowser((page, workspaceUrl) =>
+			Effect.promise(async () => {
+				await openSavedView(page, viewUrl, workspaceUrl);
+				await headerAdd(page).waitFor({ state: "visible" });
+				await fab(page).waitFor({ state: "hidden" });
 
-		await headerAdd().click();
-		await openedDialog();
-		await expect
-			.poll(() => providerChip().getAttribute("aria-checked"), { timeout: 15_000 })
-			.toBe("true");
-		await closedDialog();
+				await headerAdd(page).click();
+				await openedDialog(page);
+				await expect
+					.poll(() => providerChip(page).getAttribute("aria-checked"), { timeout: 15_000 })
+					.toBe("true");
+				await closedDialog(page);
 
-		await page.keyboard.press("a");
-		await openedDialog();
-		await closedDialog();
+				await page.keyboard.press("a");
+				await openedDialog(page);
+				await closedDialog(page);
 
-		const searchOnline = page.getByRole("button", { name: "Search online" });
-		await searchOnline.click();
-		await openedDialog();
-		expect(await modalSearch().inputValue()).toBe("");
-		await closedDialog();
+				const searchOnline = page.getByRole("button", { name: "Search online" });
+				await searchOnline.click();
+				await openedDialog(page);
+				expect(await modalSearch(page).inputValue()).toBe("");
+				await closedDialog(page);
 
-		await page.keyboard.press("/");
-		await expect.poll(() => activeElementAttribute("type")).toBe("search");
-		expect(await pageSearch().inputValue()).toBe("");
+				await page.keyboard.press("/");
+				await expect.poll(() => activeElementAttribute(page, "type")).toBe("search");
+				expect(await pageSearch(page).inputValue()).toBe("");
+			}),
+		);
 	}),
 );
 
 it.live("clears then releases the search field on Escape so page shortcuts return", () =>
-	Effect.promise(async () => {
-		await openSavedView();
+	Effect.gen(function* () {
+		yield* withSavedViewBrowser((page, workspaceUrl) =>
+			Effect.promise(async () => {
+				await openSavedView(page, viewUrl, workspaceUrl);
 
-		await page.keyboard.press("/");
-		await expect.poll(() => activeElementAttribute("type")).toBe("search");
-		await page.keyboard.type("dune");
-		await expect.poll(() => pageSearch().inputValue()).toBe("dune");
+				await page.keyboard.press("/");
+				await expect.poll(() => activeElementAttribute(page, "type")).toBe("search");
+				await page.keyboard.type("dune");
+				await expect.poll(() => pageSearch(page).inputValue()).toBe("dune");
 
-		await page.keyboard.press("Escape");
-		await expect.poll(() => pageSearch().inputValue()).toBe("");
-		expect(await activeElementAttribute("type")).toBe("search");
+				await page.keyboard.press("Escape");
+				await expect.poll(() => pageSearch(page).inputValue()).toBe("");
+				expect(await activeElementAttribute(page, "type")).toBe("search");
 
-		await page.keyboard.press("Escape");
-		await expect.poll(() => activeElementAttribute("type")).not.toBe("search");
+				await page.keyboard.press("Escape");
+				await expect.poll(() => activeElementAttribute(page, "type")).not.toBe("search");
 
-		await page.keyboard.press("a");
-		await openedDialog();
-		await closedDialog();
+				await page.keyboard.press("a");
+				await openedDialog(page);
+				await closedDialog(page);
+			}),
+		);
 	}),
 );
 
 it.live("seeds the provider search from the no-matches action and guards page shortcuts", () =>
-	Effect.promise(async () => {
-		await openSavedView({ coldLoad: true });
-		await pageSearch().fill(NO_MATCH_QUERY);
-		const noMatches = page.getByRole("button", {
-			name: `Search online for “${NO_MATCH_QUERY}”`,
-		});
-		await noMatches.waitFor({ state: "visible" });
-		await noMatches.click();
-		await openedDialog();
-		await page.waitForURL((url) => url.searchParams.get("q") === NO_MATCH_QUERY);
-		await expect.poll(() => modalSearch().inputValue(), { timeout: 15_000 }).toBe(NO_MATCH_QUERY);
+	Effect.gen(function* () {
+		yield* withSavedViewBrowser((page, workspaceUrl) =>
+			Effect.promise(async () => {
+				await openSavedView(page, viewUrl, workspaceUrl, { coldLoad: true });
+				await pageSearch(page).fill(NO_MATCH_QUERY);
+				const noMatches = page.getByRole("button", {
+					name: `Search online for “${NO_MATCH_QUERY}”`,
+				});
+				await noMatches.waitFor({ state: "visible" });
+				await noMatches.click();
+				await openedDialog(page);
+				await page.waitForURL((url) => url.searchParams.get("q") === NO_MATCH_QUERY);
+				await expect
+					.poll(() => modalSearch(page).inputValue(), { timeout: 15_000 })
+					.toBe(NO_MATCH_QUERY);
 
-		await providerChip().click();
-		await expect.poll(() => activeElementAttribute("aria-label")).toBe(PROVIDER_NAME);
+				await providerChip(page).click();
+				await expect.poll(() => activeElementAttribute(page, "aria-label")).toBe(PROVIDER_NAME);
 
-		const pageSearchFocused = page
-			.waitForFunction(() => document.activeElement?.getAttribute("type") === "search", null, {
-				timeout: GUARD_TIMEOUT,
-			})
-			.then(
-				() => true,
-				() => false,
-			);
-		await page.keyboard.press("/");
-		expect(await pageSearchFocused).toBe(false);
-		expect(await activeElementAttribute("aria-label")).toBe(PROVIDER_NAME);
+				const pageSearchFocused = page
+					.waitForFunction(() => document.activeElement?.getAttribute("type") === "search", null, {
+						timeout: GUARD_TIMEOUT,
+					})
+					.then(
+						() => true,
+						() => false,
+					);
+				await page.keyboard.press("/");
+				expect(await pageSearchFocused).toBe(false);
+				expect(await activeElementAttribute(page, "aria-label")).toBe(PROVIDER_NAME);
 
-		const reopened = page
-			.waitForURL((url) => !url.searchParams.has("q"), { timeout: GUARD_TIMEOUT })
-			.then(
-				() => true,
-				() => false,
-			);
-		await page.keyboard.press("a");
-		expect(await reopened).toBe(false);
-		await dialog().waitFor({ state: "visible" });
+				const reopened = page
+					.waitForURL((url) => !url.searchParams.has("q"), { timeout: GUARD_TIMEOUT })
+					.then(
+						() => true,
+						() => false,
+					);
+				await page.keyboard.press("a");
+				expect(await reopened).toBe(false);
+				await dialog(page).waitFor({ state: "visible" });
 
-		await page.goBack();
-		await dialog().waitFor({ state: "hidden" });
-		await waitForAddParam(false);
+				await page.goBack();
+				await dialog(page).waitFor({ state: "hidden" });
+				await waitForAddParam(page, false);
+			}),
+		);
 	}),
 );
 
 it.live("adds a provider result to the saved view and swaps the mobile affordance", () =>
-	Effect.promise(async () => {
-		await page.setViewportSize({ width: 480, height: 900 });
-		await openSavedView({ coldLoad: true, compact: true });
-		await fab().waitFor({ state: "visible" });
-		await headerAdd().waitFor({ state: "hidden" });
+	Effect.gen(function* () {
+		yield* withSavedViewBrowser((page, workspaceUrl) =>
+			Effect.promise(async () => {
+				await page.setViewportSize({ width: 480, height: 900 });
+				await openSavedView(page, viewUrl, workspaceUrl, { coldLoad: true, compact: true });
+				await fab(page).waitFor({ state: "visible" });
+				await headerAdd(page).waitFor({ state: "hidden" });
 
-		await fab().click();
-		await openedDialog();
-		await modalSearch().fill("result");
-		const addFirst = dialog().getByRole("button", { name: `Add ${FIRST_RESULT_TITLE}` });
-		await addFirst.waitFor({ state: "visible" });
-		await dialog()
-			.getByRole("button", { name: `Add ${SECOND_RESULT_TITLE}` })
-			.waitFor({ state: "visible" });
+				await fab(page).click();
+				await openedDialog(page);
+				await modalSearch(page).fill("result");
+				const addFirst = dialog(page).getByRole("button", { name: `Add ${FIRST_RESULT_TITLE}` });
+				await addFirst.waitFor({ state: "visible" });
+				await dialog(page)
+					.getByRole("button", { name: `Add ${SECOND_RESULT_TITLE}` })
+					.waitFor({ state: "visible" });
 
-		await addFirst.click();
-		await dialog()
-			.getByRole("link", { name: `Open ${FIRST_RESULT_TITLE} in library` })
-			.waitFor({ state: "visible", timeout: IMPORT_TIMEOUT });
+				await addFirst.click();
+				await dialog(page)
+					.getByRole("link", { name: `Open ${FIRST_RESULT_TITLE} in library` })
+					.waitFor({ state: "visible", timeout: IMPORT_TIMEOUT });
 
-		await closedDialog();
-		await page.getByText(IMPORTED_NAME).waitFor({ state: "visible" });
-		await page.setViewportSize({ width: 1280, height: 800 });
+				await closedDialog(page);
+				await page.getByText(IMPORTED_NAME).waitFor({ state: "visible" });
+				await page.setViewportSize({ width: 1280, height: 800 });
+			}),
+		);
 	}),
 );
