@@ -8,7 +8,7 @@ import {
 	useRyotMutation,
 	useRyotQuery,
 } from "@ryot-app/client-sdk/react";
-import { Button, Modal, RadioGroup, StatusMessage } from "@ryot-app/client-ui-sdk";
+import { Button, Modal, RadioGroup, StatusMessage, useValueChange } from "@ryot-app/client-ui-sdk";
 import { useEffect, useEffectEvent, useState } from "react";
 
 import { fixtureCollectionChoicesRecipe, fixturePokemonChoicesRecipe } from "./query-recipes";
@@ -56,10 +56,14 @@ export const PokemonPicker = () => {
 	const open = search.get("dialog") === DIALOG && entityId !== null;
 	const collection = choices.data?.find((choice) => choice.id === collectionId);
 
-	useEffect(() => {
-		if (!open) {
+	useValueChange(open, (isOpen) => {
+		if (!isOpen) {
 			setReviewing(false);
 			setCollectionId(undefined);
+		}
+	});
+	useEffect(() => {
+		if (!open) {
 			resetMutation();
 		}
 	}, [open]);

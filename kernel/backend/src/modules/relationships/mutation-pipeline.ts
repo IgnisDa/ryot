@@ -636,12 +636,10 @@ export const commitProjectedRelationshipMutations = <Result>(
 	project: (results: RelationshipMutationResults) => Result,
 ) =>
 	commitRelationshipMutations(pending).pipe(
-		Effect.map(
-			(step): LifecyclePreparedStep<Result, PendingRelationshipMutations> => ({
-				...step,
-				result: project(step.result),
-			}),
-		),
+		Effect.map((step): LifecyclePreparedStep<Result, PendingRelationshipMutations> => ({
+			...step,
+			result: project(step.result),
+		})),
 	);
 
 export const prepareProjectedRelationshipMutations = <Result, E, R>(

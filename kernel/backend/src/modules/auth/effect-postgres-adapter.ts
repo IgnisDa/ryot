@@ -171,26 +171,27 @@ export const effectPostgresAuthAdapter = (args: {
 	const root = args.db;
 	const run = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromiseWith(args.context)(effect);
 
-	const createCustomAdapter =
-		(db: DatabaseExecutor) =>
-		({ getFieldName }: Parameters<Parameters<typeof createAdapterFactory>[0]["adapter"]>[0]) => {
-			const addJoins = (rows: readonly AuthRow[], join: JoinConfig | undefined) =>
-				Effect.forEach(rows, (row) =>
-					Effect.gen(function* () {
-						const result = { ...row };
-						for (const [joinModel, config] of Object.entries(join ?? {})) {
-							const table = getTable(joinModel);
-							const joined = yield* db
-								.select()
-								.from(table)
-								.where(eq(getColumn(table, joinModel, config.on.to), row[config.on.from]))
-								.limit(config.relation === "one-to-one" ? 1 : (config.limit ?? 100));
-							result[joinModel] = config.relation === "one-to-one" ? (joined[0] ?? null) : joined;
-						}
-						return result;
-					}),
-				);
+	const createCustomAdapter = (db: DatabaseExecutor) => {
+		const addJoins = (rows: readonly AuthRow[], join: JoinConfig | undefined) =>
+			Effect.forEach(rows, (row) =>
+				Effect.gen(function* () {
+					const result = { ...row };
+					for (const [joinModel, config] of Object.entries(join ?? {})) {
+						const table = getTable(joinModel);
+						const joined = yield* db
+							.select()
+							.from(table)
+							.where(eq(getColumn(table, joinModel, config.on.to), row[config.on.from]))
+							.limit(config.relation === "one-to-one" ? 1 : (config.limit ?? 100));
+						result[joinModel] = config.relation === "one-to-one" ? (joined[0] ?? null) : joined;
+					}
+					return result;
+				}),
+			);
 
+		return ({
+			getFieldName,
+		}: Parameters<Parameters<typeof createAdapterFactory>[0]["adapter"]>[0]) => {
 			const adapter: CustomAdapter = {
 				delete: ({ model, where }) =>
 					run(db.delete(getTable(model)).where(makeWhere(model, where, getFieldName))).then(
@@ -232,16 +233,15 @@ export const effectPostgresAuthAdapter = (args: {
 						.from(table)
 						.where(makeWhere(model, where, getFieldName))
 						.limit(1);
-					// Better Auth supplies the result type from its model registry, which is not exposed to custom adapters.
-					// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-					return run(db.delete(table).where(inArray(id, target)).returning()).then(
+					const deleted = run(db.delete(table).where(inArray(id, target)).returning()).then(
 						(rows) => rows[0] ?? null,
-					) as Promise<never>;
-				},
-				findOne: ({ join, model, where, select }) =>
+					);
 					// Better Auth supplies the result type from its model registry, which is not exposed to custom adapters.
 					// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-					run(
+					return deleted as Promise<never>;
+				},
+				findOne: ({ join, model, where, select }) => {
+					const found = run(
 						Effect.gen(function* () {
 							const table = getTable(model);
 							const selection = makeSelection(model, select, getFieldName) ?? getColumns(table);
@@ -255,7 +255,35 @@ export const effectPostgresAuthAdapter = (args: {
 							}
 							return join ? (yield* addJoins(rows, join))[0] : rows[0];
 						}),
-					) as Promise<never>,
+					);
+					// Better Auth supplies the result type from its model registry, which is not exposed to custom adapters.
+					// oxlint-disable-next-line typescript/no-unsafe-type-assertion
+					return found as Promise<never>;
+				},
+				update: ({ model, where, update }) => {
+					if (!where.length) {
+						return Promise.resolve(null);
+					}
+					const table = getTable(model);
+					const id = getColumn(table, model, getFieldName({ model, field: "id" }));
+					const target = db
+						.select({ id })
+						.from(table)
+						.where(makeWhere(model, where, getFieldName))
+						.limit(1);
+					const updated = run(
+						db
+							.update(table)
+							// Better Auth guarantees update is a model-shaped object, but leaves its generic unconstrained.
+							// oxlint-disable-next-line typescript/no-unsafe-type-assertion
+							.set(update as {})
+							.where(inArray(id, target))
+							.returning(),
+					).then((rows) => rows[0] ?? null);
+					// Better Auth supplies the result type from its model registry, which is not exposed to custom adapters.
+					// oxlint-disable-next-line typescript/no-unsafe-type-assertion
+					return updated as Promise<never>;
+				},
 				incrementOne: ({ set, model, where, increment }) => {
 					const table = getTable(model);
 					const id = getColumn(table, model, getFieldName({ model, field: "id" }));
@@ -267,20 +295,19 @@ export const effectPostgresAuthAdapter = (args: {
 						const column = getColumn(table, model, name);
 						update[name] = sql`${column} + ${delta}`;
 					}
-					// Better Auth supplies the result type from its model registry, which is not exposed to custom adapters.
-					// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-					return run(
+					const incremented = run(
 						db
 							.update(table)
 							.set(update)
 							.where(and(guard, inArray(id, target)))
 							.returning(),
-					).then((rows) => rows[0] ?? null) as Promise<never>;
-				},
-				findMany: ({ join, model, where, limit, select, sortBy, offset }) =>
+					).then((rows) => rows[0] ?? null);
 					// Better Auth supplies the result type from its model registry, which is not exposed to custom adapters.
 					// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-					run(
+					return incremented as Promise<never>;
+				},
+				findMany: ({ join, model, where, limit, select, sortBy, offset }) => {
+					const found = run(
 						Effect.gen(function* () {
 							const table = getTable(model);
 							const selection = makeSelection(model, select, getFieldName) ?? getColumns(table);
@@ -302,35 +329,15 @@ export const effectPostgresAuthAdapter = (args: {
 							const rows = yield* query;
 							return join ? yield* addJoins(rows, join) : rows;
 						}),
-					) as Promise<never>,
-				update: ({ model, where, update }) => {
-					if (!where.length) {
-						// Better Auth's generic update result is not recoverable when no row is selected.
-						// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-						return Promise.resolve(null) as Promise<never>;
-					}
-					const table = getTable(model);
-					const id = getColumn(table, model, getFieldName({ model, field: "id" }));
-					const target = db
-						.select({ id })
-						.from(table)
-						.where(makeWhere(model, where, getFieldName))
-						.limit(1);
+					);
 					// Better Auth supplies the result type from its model registry, which is not exposed to custom adapters.
 					// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-					return run(
-						db
-							.update(table)
-							// Better Auth guarantees update is a model-shaped object, but leaves its generic unconstrained.
-							// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-							.set(update as {})
-							.where(inArray(id, target))
-							.returning(),
-					).then((rows) => rows[0] ?? null) as Promise<never>;
+					return found as Promise<never>;
 				},
 			};
 			return adapter;
 		};
+	};
 
 	let options: Parameters<ReturnType<typeof createAdapterFactory>>[0];
 	const makeFactory = (db: DatabaseExecutor, transaction: boolean): AuthAdapterFactory =>

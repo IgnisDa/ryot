@@ -43,6 +43,14 @@ export class ImportRunArtifacts extends Context.Service<ImportRunArtifacts>()(
 	static readonly layer = Layer.effect(this, this.make);
 }
 
+const cleanupUploadsBestEffort = (name: string, intentIds: ReadonlyArray<string>) => {
+	const cleanupBestEffortEffect = Effect.gen(function* () {
+		const artifacts = yield* ImportRunArtifacts;
+		yield* artifacts.cleanupUploads(intentIds);
+	}).pipe(Effect.ignore);
+	return makeActivity({ name, execute: cleanupBestEffortEffect });
+};
+
 export const createImportRunLifecycle = (
 	payload: Pick<ImportRunJobData, "runId" | "sourceStateId">,
 	claimId: string,
@@ -58,13 +66,6 @@ export const createImportRunLifecycle = (
 		const cleanupBestEffortEffect = Effect.gen(function* () {
 			const artifacts = yield* ImportRunArtifacts;
 			yield* artifacts.cleanupArtifacts({ claimId, sourceStateId: payload.sourceStateId });
-		}).pipe(Effect.ignore);
-		return makeActivity({ name, execute: cleanupBestEffortEffect });
-	};
-	const cleanupUploadsBestEffort = (name: string, intentIds: ReadonlyArray<string>) => {
-		const cleanupBestEffortEffect = Effect.gen(function* () {
-			const artifacts = yield* ImportRunArtifacts;
-			yield* artifacts.cleanupUploads(intentIds);
 		}).pipe(Effect.ignore);
 		return makeActivity({ name, execute: cleanupBestEffortEffect });
 	};

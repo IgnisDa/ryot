@@ -1,7 +1,7 @@
 import { createRyotMutation, useRyotMutation } from "@ryot-app/client-sdk/react";
 import type { BackupRunIdResponse } from "@ryot-app/contract/modules/backups/schemas";
 import { Effect, Match } from "effect";
-import { useEffectEvent, useState } from "react";
+import { useState } from "react";
 
 import { BackupsApi } from "#/api/backups";
 import type { KernelHostServices } from "#/host-services";
@@ -47,7 +47,7 @@ export function BackupRestoreWizard(props: {
 	const [uploadToken, setUploadToken] = useState<string | undefined>();
 	const [failure, setFailure] = useState<BackupRestoreFailure | undefined>();
 
-	const startRestore = useEffectEvent(async () => {
+	const startRestore = async () => {
 		if (props.disabled || uploadToken === undefined) {
 			return;
 		}
@@ -67,7 +67,7 @@ export function BackupRestoreWizard(props: {
 			return;
 		}
 		props.onClose();
-	});
+	};
 
 	const changeToken = (token: string | undefined) => {
 		setFailure(undefined);

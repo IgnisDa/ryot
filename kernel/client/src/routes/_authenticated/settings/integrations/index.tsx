@@ -1,7 +1,7 @@
 import { useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
 import type { IntegrationList } from "@ryot-app/ryotql-recipes/integrations";
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useEffectEvent, useState } from "react";
+import { useState } from "react";
 
 import { AuthService } from "#/modules/auth/service";
 import { useIsDemoSession } from "#/modules/demo-protection";
@@ -23,6 +23,8 @@ import {
 import { SettingsFrame } from "#/modules/settings/settings-frame";
 import { useSearchParamModal } from "#/modules/ui/search-param-modal";
 import { StatusState } from "#/modules/ui/status-state";
+import { useLatestListState } from "#/modules/ui/use-latest-defined";
+import { RELATIVE_TIME_REFRESH_MS, useNowMs } from "#/modules/ui/use-now-ms";
 
 const listState = (page: IntegrationList): IntegrationListState =>
 	page.items.length === 0
@@ -47,15 +49,8 @@ function IntegrationsRoute() {
 	const listed = useRyotQuery(integrationsQuery, limit);
 	const providerQuery = useRyotQuery(integrationProvidersQuery);
 	const sync = useRyotMutation(syncIntegrationsMutation);
-	const [state, setState] = useState<IntegrationListState | undefined>();
-
-	useEffect(() => {
-		if (listed.data !== undefined) {
-			setState(listState(listed.data));
-		} else if (listed.isError) {
-			setState((current) => current ?? { status: "failed" });
-		}
-	}, [listed.data, listed.isError]);
+	const state = useLatestListState(listed, listState);
+	const nowMs = useNowMs(RELATIVE_TIME_REFRESH_MS);
 
 	let providers: IntegrationProviderPickerState = { status: "loading" };
 	if (providerQuery.data !== undefined) {
@@ -67,7 +62,7 @@ function IntegrationsRoute() {
 		providers = { status: "failed" };
 	}
 
-	const syncAll = useEffectEvent(async () => {
+	const syncAll = async () => {
 		setSyncDetail(undefined);
 		setSyncSucceeded(false);
 		try {
@@ -78,7 +73,7 @@ function IntegrationsRoute() {
 		}
 		setSyncSucceeded(true);
 		setSyncDetail("Sync started. Updates will appear as integrations finish.");
-	});
+	};
 
 	const wizard = useSearchParamModal({
 		isOpen: create === true,
@@ -94,8 +89,8 @@ function IntegrationsRoute() {
 			) : (
 				<IntegrationsView
 					state={state}
+					nowMs={nowMs}
 					readOnly={isDemo}
-					nowMs={Date.now()}
 					onConnect={wizard.open}
 					syncDetail={syncDetail}
 					onRetry={listed.refetch}

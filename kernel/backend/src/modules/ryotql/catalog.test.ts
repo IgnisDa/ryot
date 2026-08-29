@@ -52,26 +52,26 @@ it("grants tables only to scopes whose policy the table declares", () => {
 	expect(canAccessCatalogTable(adminOnlyTable, system)).toBe(false);
 });
 
-it("resolves restricted fields only for scopes allowed to read them", () => {
-	const resolvable = (access: RyotQLAccess) =>
-		["id", "audit", "secret", "constructor", "toString"].filter(
-			(name) => resolveCatalogField(kernelOnlyTable, name, access) !== undefined,
-		);
+const resolvable = (access: RyotQLAccess) =>
+	["id", "audit", "secret", "constructor", "toString"].filter(
+		(name) => resolveCatalogField(kernelOnlyTable, name, access) !== undefined,
+	);
 
+it("resolves restricted fields only for scopes allowed to read them", () => {
 	expect(resolvable(kernel)).toEqual(["id", "secret"]);
 	expect(resolvable(plugin)).toEqual(["id"]);
 	expect(resolvable(system)).toEqual(["id"]);
 	expect(resolvable(admin)).toEqual(["id", "audit", "secret"]);
 });
 
-it("expands wildcards to the fields the scope may read", () => {
-	const expandedKeys = (access: RyotQLAccess) =>
-		expandCatalogSelections(
-			[{ type: "wildcard", tableAlias: "row" }],
-			(alias) => (alias === "row" ? kernelOnlyTable : undefined),
-			access,
-		).fields.map((selection) => selection.key);
+const expandedKeys = (access: RyotQLAccess) =>
+	expandCatalogSelections(
+		[{ type: "wildcard", tableAlias: "row" }],
+		(alias) => (alias === "row" ? kernelOnlyTable : undefined),
+		access,
+	).fields.map((selection) => selection.key);
 
+it("expands wildcards to the fields the scope may read", () => {
 	expect(expandedKeys(kernel)).toEqual(["id", "secret"]);
 	expect(expandedKeys(plugin)).toEqual(["id"]);
 	expect(expandedKeys(system)).toEqual(["id"]);

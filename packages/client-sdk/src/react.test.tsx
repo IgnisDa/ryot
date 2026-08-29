@@ -1,6 +1,6 @@
 import { fireEvent, getByRole, waitFor } from "@testing-library/dom";
 import { Schema } from "effect";
-import { act, StrictMode, type ReactNode } from "react";
+import { act, StrictMode, useEffect, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -255,8 +255,11 @@ describe("useRyotQuery", () => {
 			{ initialData: () => 0, entityInterest: () => ({ visible: [], foreground: ["root"] }) },
 		);
 		const View = () => {
-			latest = useRyotQuery(query);
-			return <p>{latest.data}</p>;
+			const result = useRyotQuery(query);
+			useEffect(() => {
+				latest = result;
+			});
+			return <p>{result.data}</p>;
 		};
 		render(<View />, clock.runtime);
 		await clock.advance(0);
@@ -432,8 +435,11 @@ describe("useRyotQuery", () => {
 		let latest: RyotQueryResult<number> | undefined;
 		const query = createRyotQuery(() => Promise.resolve(++calls));
 		const View = () => {
-			latest = useRyotQuery(query);
-			return <p>{latest.data ?? "pending"}</p>;
+			const result = useRyotQuery(query);
+			useEffect(() => {
+				latest = result;
+			});
+			return <p>{result.data ?? "pending"}</p>;
 		};
 		const container = render(<View />);
 		await waitFor(() => expect(container.textContent).toBe("1"));
@@ -456,9 +462,11 @@ describe("useRyotQuery", () => {
 		);
 		const View = ({ capture = false }: { capture?: boolean }) => {
 			const result = useRyotQuery(query);
-			if (capture) {
-				latest = result;
-			}
+			useEffect(() => {
+				if (capture) {
+					latest = result;
+				}
+			});
 			return <p>{result.data ?? "pending"}</p>;
 		};
 		const container = render(
@@ -631,7 +639,10 @@ describe("useRyotQuery", () => {
 		const clock = makeClock();
 		clock.client.mutationCompleted.subscribe(() => mutationHints++);
 		const View = () => {
-			request = usePageRefreshRequest();
+			const requestRefresh = usePageRefreshRequest();
+			useEffect(() => {
+				request = requestRefresh;
+			});
 			usePageRefresh(() => {
 				refreshes++;
 			});
@@ -652,7 +663,9 @@ describe("useRyotQuery", () => {
 		const query = createRyotQuery<string, number>(() => Promise.resolve(++calls));
 		const View = () => {
 			const result = useRyotQuery(query, "page", { refreshOnMutation: false });
-			refetch = result.refetch;
+			useEffect(() => {
+				refetch = result.refetch;
+			});
 			usePageRefresh(result.refetch);
 			return <p>{result.data ?? "pending"}</p>;
 		};
@@ -774,8 +787,11 @@ describe("useRyotQuery", () => {
 			},
 		);
 		const View = () => {
-			latest = useRyotQuery(query, { page: 1 });
-			return <p>{latest.data ?? "pending"}</p>;
+			const result = useRyotQuery(query, { page: 1 });
+			useEffect(() => {
+				latest = result;
+			});
+			return <p>{result.data ?? "pending"}</p>;
 		};
 		const clock = makeClock();
 		const container = document.createElement("div");
@@ -904,7 +920,10 @@ describe("useRyotMutation", () => {
 			hostServices.write(input),
 		);
 		const View = () => {
-			latest = useRyotMutation(mutation);
+			const result = useRyotMutation(mutation);
+			useEffect(() => {
+				latest = result;
+			});
 			return null;
 		};
 		const clock = makeClock();
@@ -930,7 +949,10 @@ describe("useRyotMutation", () => {
 			}),
 		);
 		const View = () => {
-			latest = useRyotMutation(mutation);
+			const result = useRyotMutation(mutation);
+			useEffect(() => {
+				latest = result;
+			});
 			return null;
 		};
 		render(<View />, clock.runtime);
@@ -953,8 +975,11 @@ describe("useRyotMutation", () => {
 			});
 		});
 		const View = () => {
-			latest = useRyotMutation(mutation);
-			return <p>{`${latest.status}:${latest.data ?? latest.error?.message ?? "none"}`}</p>;
+			const result = useRyotMutation(mutation);
+			useEffect(() => {
+				latest = result;
+			});
+			return <p>{`${result.status}:${result.data ?? result.error?.message ?? "none"}`}</p>;
 		};
 		const container = render(<View />);
 		expect(container.textContent).toBe("idle:none");
@@ -1017,40 +1042,41 @@ describe("useRyotMutation", () => {
 	});
 });
 
-describe("usePluginStorage", () => {
-	const EpisodeOrder = Schema.Struct({ order: Schema.Literals(["aired", "dvd"]) });
+const EpisodeOrder = Schema.Struct({ order: Schema.Literals(["aired", "dvd"]) });
 
-	const mountStorage = (initial?: Parameters<typeof createTestPluginStorage>[0]) => {
-		const storage = createTestPluginStorage(initial);
-		const clock = makeClock({ accessStorage: storage.accessStorage });
-		const View = () => {
-			const state = usePluginStorage({ key: "order", pluginSlug: "media", schema: EpisodeOrder });
-			if (state.status === "loading") {
-				return <p>loading</p>;
-			}
-			return (
-				<>
-					<p>{state.value?.order ?? "unset"}</p>
-					<button type="button" onClick={() => void state.set({ order: "aired" })}>
-						set
-					</button>
-					<button type="button" onClick={() => void state.remove()}>
-						remove
-					</button>
-				</>
-			);
-		};
-		const container = render(<View />, clock.runtime);
-		const text = () => container.querySelector("p")?.textContent;
-		const click = async (name: string) => {
-			await act(async () => {
-				fireEvent.click(getByRole(container, "button", { name }));
-				await Promise.resolve();
-			});
-		};
-		return { text, click, storage };
+const StorageView = () => {
+	const state = usePluginStorage({ key: "order", pluginSlug: "media", schema: EpisodeOrder });
+	if (state.status === "loading") {
+		return <p>loading</p>;
+	}
+	return (
+		<>
+			<p>{state.value?.order ?? "unset"}</p>
+			<button type="button" onClick={() => void state.set({ order: "aired" })}>
+				set
+			</button>
+			<button type="button" onClick={() => void state.remove()}>
+				remove
+			</button>
+		</>
+	);
+};
+
+const mountStorage = (initial?: Parameters<typeof createTestPluginStorage>[0]) => {
+	const storage = createTestPluginStorage(initial);
+	const clock = makeClock({ accessStorage: storage.accessStorage });
+	const container = render(<StorageView />, clock.runtime);
+	const text = () => container.querySelector("p")?.textContent;
+	const click = async (name: string) => {
+		await act(async () => {
+			fireEvent.click(getByRole(container, "button", { name }));
+			await Promise.resolve();
+		});
 	};
+	return { text, click, storage };
+};
 
+describe("usePluginStorage", () => {
 	it("starts loading, then exposes the stored value", async () => {
 		const { text } = mountStorage([["media:order", { order: "dvd" }]]);
 		expect(text()).toBe("loading");

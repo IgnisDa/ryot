@@ -1,4 +1,4 @@
-import Autoplay from "embla-carousel-autoplay";
+import autoplay from "embla-carousel-autoplay";
 import {
 	AreaChart,
 	ArrowRight,
@@ -144,7 +144,7 @@ const FeatureItem = (props: { children: ReactNode; isPro?: boolean }) => (
 
 const FeatureCarousel = (props: { images: string[]; altPrefix: string }) => (
 	<div className="mb-16">
-		<Carousel className="w-full max-w-5xl mx-auto" plugins={[Autoplay({ delay: 5000 })]}>
+		<Carousel className="w-full max-w-5xl mx-auto" plugins={[autoplay({ delay: 5000 })]}>
 			<CarouselContent>
 				{props.images.map((image, index) => (
 					<CarouselItem key={image} className="flex flex-col space-y-4">

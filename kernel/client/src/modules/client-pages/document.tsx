@@ -47,7 +47,9 @@ export function ClientPageDocumentProvider(props: { readonly children: ReactNode
 export function useClientPageDocument(document: ClientPageDocument) {
 	const { publish } = useDocumentState();
 	const latest = useRef(document);
-	latest.current = document;
+	useLayoutEffect(() => {
+		latest.current = document;
+	});
 	const published = useMemo<ClientPageDocument>(
 		() => ({
 			title: document.title,
