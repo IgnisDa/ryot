@@ -308,9 +308,9 @@ describe("lifecycle payload boundaries", () => {
 		expect(Schema.decodeUnknownSync(AutomationAfterInputProjection)(projection)).toEqual(
 			projection,
 		);
-		expect(() => Schema.decodeUnknownSync(AutomationPolicyInputProjection)(projection)).toThrow();
+		expect(() => Schema.decodeSync(AutomationPolicyInputProjection)(projection)).toThrow();
 		expect(
-			Schema.decodeUnknownSync(AutomationAfterInputProjection)({
+			Schema.decodeSync(AutomationAfterInputProjection)({
 				event: {
 					properties: [" title "],
 					compareProperties: [{ equality: "json", property: " status " }],
@@ -323,7 +323,7 @@ describe("lifecycle payload boundaries", () => {
 			},
 		});
 		expect(
-			Schema.decodeUnknownSync(AutomationPolicyInputProjection)({
+			Schema.decodeSync(AutomationPolicyInputProjection)({
 				event: { properties: [] },
 				entity: { properties: ["title"] },
 				relationship: { properties: ["role"] },
@@ -619,7 +619,7 @@ describe("lifecycle payload boundaries", () => {
 			{ ...DEFAULT_AUTOMATION_RETRY_POLICY, maxDelayMs: Infinity },
 			{ ...DEFAULT_AUTOMATION_RETRY_POLICY, expression: "retry()" },
 		]) {
-			expect(() => Schema.decodeUnknownSync(AutomationRetryPolicy)(retry)).toThrow();
+			expect(() => Schema.decodeSync(AutomationRetryPolicy)(retry)).toThrow();
 		}
 	});
 
@@ -640,7 +640,7 @@ describe("lifecycle payload boundaries", () => {
 			Schema.decodeUnknownSync(AutomationWarning)({ ...warning, error: "secret" }),
 		).toThrow();
 		expect(() =>
-			Schema.decodeUnknownSync(AutomationWarning)({
+			Schema.decodeSync(AutomationWarning)({
 				triggerId: "trigger-1",
 				hasRequiredHooks: false,
 				code: "automation-limit-reached",
@@ -662,13 +662,13 @@ describe("lifecycle payload boundaries", () => {
 		};
 		expect(Schema.decodeUnknownSync(AutomationPolicyOutput)(transform)).toEqual(transform);
 		expect(
-			Schema.decodeUnknownSync(AutomationPolicyOutput)({
+			Schema.decodeSync(AutomationPolicyOutput)({
 				action: "transform",
 				patch: { resource: "entity", draft: { name: "Updated" } },
 			}),
 		).toMatchObject({ patch: { resource: "entity" } });
 		expect(
-			Schema.decodeUnknownSync(AutomationPolicyOutput)({
+			Schema.decodeSync(AutomationPolicyOutput)({
 				action: "transform",
 				patch: {
 					resource: "relationship",
@@ -677,10 +677,7 @@ describe("lifecycle payload boundaries", () => {
 			}),
 		).toMatchObject({ patch: { resource: "relationship" } });
 		expect(
-			Schema.decodeUnknownSync(AutomationPolicyOutput)({
-				action: "reject",
-				reason: "Invalid progress",
-			}),
+			Schema.decodeSync(AutomationPolicyOutput)({ action: "reject", reason: "Invalid progress" }),
 		).toEqual({ action: "reject", reason: "Invalid progress" });
 		for (const old of [
 			{ action: "skip", reason: "Invalid progress" },

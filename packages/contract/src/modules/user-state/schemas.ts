@@ -37,8 +37,8 @@ export class UserStateNotFound extends Schema.TaggedError<UserStateNotFound>()(
 
 export const ClearUserStateResponse = Schema.Struct({
 	entityId: EntityId,
-	deletedEventsCount: Schema.Number,
-	deletedRelationshipsCount: Schema.Number,
+	deletedEventsCount: Schema.Finite,
+	deletedRelationshipsCount: Schema.Finite,
 	warnings: Schema.Array(AutomationWarning),
 });
 
@@ -51,8 +51,8 @@ export type MergeUserStateBody = typeof MergeUserStateBody.Type;
 export const MergeUserStateResponse = Schema.Struct({
 	mergeFrom: EntityId,
 	mergeInto: EntityId,
-	movedEventsCount: Schema.Number,
-	movedRelationshipsCount: Schema.Number,
+	movedEventsCount: Schema.Finite,
+	movedRelationshipsCount: Schema.Finite,
 	warnings: Schema.Array(AutomationWarning),
 });
 

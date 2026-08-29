@@ -132,7 +132,7 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 	.add(
 		HttpApiEndpoint.post("deleteGlobalEntities", "/test-support/entities/global/delete", {
 			error: testSupportErrors,
-			success: Schema.Struct({ deleted: Schema.Number }),
+			success: Schema.Struct({ deleted: Schema.Finite }),
 			payload: Schema.Struct({
 				ids: Schema.Array(EntityId).pipe(Schema.check(Schema.isMinLength(1))),
 			}),

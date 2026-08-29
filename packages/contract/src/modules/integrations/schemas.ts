@@ -14,13 +14,13 @@ export const IntegrationRequestFailureReason = Schema.Union([
 	Schema.Struct({ integrationId: IntegrationId, code: Schema.Literal("integration-not-found") }),
 	Schema.Struct({ code: Schema.Literal("integration-webhook-not-found") }),
 	Schema.Struct({
-		value: Schema.Number,
+		value: Schema.Finite,
 		code: Schema.Literal("progress-out-of-range"),
 		field: Schema.Literals(["minimumProgress", "maximumProgress"]),
 	}),
 	Schema.Struct({
-		minimumProgress: Schema.Number,
-		maximumProgress: Schema.Number,
+		minimumProgress: Schema.Finite,
+		maximumProgress: Schema.Finite,
 		code: Schema.Literal("invalid-progress-range"),
 	}),
 	Schema.Struct({
@@ -123,8 +123,8 @@ export const IntegrationSnapshot = Schema.Struct({
 	isDisabled: Schema.Boolean,
 	provider: IntegrationProvider,
 	syncOwnership: Schema.Boolean,
-	minimumProgress: Schema.Number,
-	maximumProgress: Schema.Number,
+	minimumProgress: Schema.Finite,
+	maximumProgress: Schema.Finite,
 	name: Schema.NullOr(Schema.String),
 	extraSettings: IntegrationExtraSettings,
 	lastFinishedAt: Schema.NullOr(Schema.String),
@@ -139,8 +139,8 @@ export const CreateIntegrationBody = Schema.Struct({
 	isDisabled: Schema.optional(Schema.Boolean),
 	providerSpecifics: IntegrationProviderSettings,
 	syncOwnership: Schema.optional(Schema.Boolean),
-	minimumProgress: Schema.optional(Schema.Number),
-	maximumProgress: Schema.optional(Schema.Number),
+	minimumProgress: Schema.optional(Schema.Finite),
+	maximumProgress: Schema.optional(Schema.Finite),
 	extraSettings: Schema.optional(IntegrationExtraSettings),
 });
 
@@ -150,8 +150,8 @@ export const UpdateIntegrationBody = Schema.Struct({
 	name: Schema.optional(Schema.String),
 	isDisabled: Schema.optional(Schema.Boolean),
 	syncOwnership: Schema.optional(Schema.Boolean),
-	minimumProgress: Schema.optional(Schema.Number),
-	maximumProgress: Schema.optional(Schema.Number),
+	minimumProgress: Schema.optional(Schema.Finite),
+	maximumProgress: Schema.optional(Schema.Finite),
 	extraSettings: Schema.optional(IntegrationExtraSettings),
 	providerSpecifics: Schema.optional(IntegrationProviderSettings),
 });

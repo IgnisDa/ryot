@@ -24,7 +24,7 @@ describe("saved-view schemas", () => {
 
 	it("decodes canonical managed-asset display values", () => {
 		expect(
-			Schema.decodeUnknownSync(SavedViewDisplayValue)({
+			Schema.decodeSync(SavedViewDisplayValue)({
 				displayKind: "managed-asset",
 				value: { type: "local", key: "covers/book.webp" },
 			}),
@@ -40,7 +40,7 @@ describe("saved-view schemas", () => {
 	});
 
 	it("decodes canonical configured browser and general-table settings", () => {
-		const browser = Schema.decodeUnknownSync(EntityBrowserSavedViewSettings)({
+		const browser = Schema.decodeSync(EntityBrowserSavedViewSettings)({
 			pageSize: 25,
 			sourceName: "entities",
 			defaultLayout: "table",
@@ -66,7 +66,7 @@ describe("saved-view schemas", () => {
 			entityLink: { entityIdField: "entityId" },
 			columns: [{ label: "Occurred", field: "occurredAt", displayKind: "date" }],
 		} as const;
-		const results = Schema.decodeUnknownSync(ResultsTableSavedViewSettings)(resultsInput);
+		const results = Schema.decodeSync(ResultsTableSavedViewSettings)(resultsInput);
 		const { pageSize: _pageSize, ...withoutPageSize } = resultsInput;
 
 		expect(browser.layouts).toEqual(["grid", "table"]);
@@ -79,7 +79,7 @@ describe("saved-view schemas", () => {
 		for (const pageSize of [0, 101]) {
 			expect(
 				Result.isFailure(
-					Schema.decodeUnknownResult(ResultsTableSavedViewSettings)({ ...resultsInput, pageSize }),
+					Schema.decodeResult(ResultsTableSavedViewSettings)({ ...resultsInput, pageSize }),
 				),
 			).toBe(true);
 		}
