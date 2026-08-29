@@ -7,7 +7,8 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { AdminApi, AdminApiError, type AdminApiService } from "#/api/admin";
-import { AuthenticatedApi } from "#/api/authenticated";
+import { GodModeApi } from "#/api/god-mode";
+import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import { GodModeService } from "#/modules/god-mode/service";
 import { GodModeSessionService, makeGodModeSessionService } from "#/modules/god-mode/session";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
@@ -20,17 +21,17 @@ import { ServerService } from "#/modules/server/service";
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
 import {
-	OAuthRouteStubs,
-	SavedViewRouteStubs,
-	ProviderAddRouteStubs,
-	CustomizeRouteStubs,
-	NavigationRouteStubs,
 	theme,
 	server,
 	catalog,
 	makeAuthStub,
+	OAuthRouteStubs,
 	makeStorageStub,
 	makePublicApiStub,
+	CustomizeRouteStubs,
+	SavedViewRouteStubs,
+	NavigationRouteStubs,
+	ProviderAddRouteStubs,
 } from "#/routes/-route-fixtures";
 
 const makeView = (
@@ -40,7 +41,7 @@ const makeView = (
 ) => {
 	const events = makePluginCatalogEventsTestLayer();
 	const sessions = makeGodModeSessionService(() => "god-session");
-	const admin = Layer.succeed(AdminApi, adminService);
+	const godMode = GodModeApi.layer.pipe(Layer.provide(Layer.succeed(AdminApi, adminService)));
 	const session = Layer.succeed(GodModeSessionService, sessions);
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
@@ -48,11 +49,11 @@ const makeView = (
 			makeAuthStub({ settledSession: () => Effect.die("OAuth guard must not run") }),
 			SavedViewRouteStubs,
 			makePublicApiStub(),
-			AuthenticatedApi.layer,
+			KernelApiTestLayer,
 			events.layer,
-			admin,
+			godMode,
 			session,
-			GodModeService.layer.pipe(Layer.provide(admin), Layer.provide(session)),
+			GodModeService.layer.pipe(Layer.provide(godMode), Layer.provide(session)),
 			Layer.succeed(ServerService, {
 				connect: () => Effect.void,
 				selected: Effect.succeed(selected),
