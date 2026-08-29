@@ -14,6 +14,7 @@ import { PluginQueriesService } from "#/modules/plugins/queries";
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
 import {
+	GodModeRouteStubs,
 	ServerStub,
 	SavedViewRouteStubs,
 	catalog,
@@ -65,6 +66,7 @@ const mountCallback = (
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
 			makeAuthStub(),
+			GodModeRouteStubs,
 			ServerStub,
 			SavedViewRouteStubs,
 			makePublicApiStub(),
