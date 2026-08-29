@@ -17,7 +17,7 @@
 
 - Keep runtime schemas, persisted JSON, and TypeScript types aligned. Store timezone-aware timestamps and emit ISO 8601 UTC dates.
 - Validate schema-backed entity, event, and relationship properties before writes.
-- Services own transaction boundaries; repositories capture `DatabaseSession` and use its current executor. Shared writes participate in the owner's transaction without manual injection; owning services reject an already active transaction where required.
+- Services own transaction boundaries; repositories capture `DatabaseSession` and run statements through `session.run`, which uses the current executor and maps native database failures; take `current` only to hand the raw executor off. Shared writes participate in the owner's transaction without manual injection; owning services reject an already active transaction where required.
 - Lifecycle planning may invert module dependencies through the generic `LifecyclePlanner` transaction-scoped persistence port. Source writes, immutable triggers, recipients, and pinned runs share the caller's transaction; the port must not execute sandbox code or start workflows. Start execution only after commit.
 - Every change-producing write also plans batch change triggers through `LifecyclePlanner.planBatch`, in the same transaction as its item plans, and dispatches item plans before batch plans. A single-item write emits a batch of one; batch identity and chunk boundaries must stay replay-stable.
 - Historical backup writes belong to `modules/backups/restore/persistence.ts`; ordinary repositories do not expose restore methods. Runtime callers use owning services.
