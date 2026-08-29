@@ -6,13 +6,11 @@ import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/san
 import { databaseLayer } from "#lib/test-utils/effect";
 
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
-import {
-	executeSandboxExecution,
-	resolveSandboxExecutionPayload,
-	SandboxExecutionQueue,
-} from "./durable-queues";
+import { executeSandboxExecution, SandboxExecutionQueue } from "./durable-queues";
 import { SandboxPluginScriptResolver } from "./plugin-script-resolver";
 import { SandboxRepository } from "./repository";
+import { SandboxWorkflowPinning } from "./sandbox-script-workflow";
+import { SandboxWorkflowReferenceRepository } from "./workflow-reference-repository";
 
 const queuedReplay = {
 	journalLength: 0,
@@ -149,33 +147,38 @@ it("uses the sandbox execution id as the durable queue identity", () => {
 });
 
 layer(
-	Layer.mergeAll(
-		databaseLayer,
-		dispatcherLayer,
-		Layer.mock(SandboxRepository)({
-			isPluginScript: () => Effect.succeed(true),
-			getScript: (scriptId) =>
-				Effect.succeed(scriptId === historicalScriptId ? historical : replacement),
-		}),
-		hotSwapResolverLayer,
-		runtimeSandboxLayer((input) => {
-			let value = "completed:active-v2";
-			if (input.compiledCode === historicalContent) {
-				value = input.executionId.endsWith("-replay-0")
-					? "pending:pinned-v1"
-					: "completed:pinned-v1";
-			}
-			return Effect.succeed({
-				value,
-				logs: [],
-				inline: [],
-				error: null,
-				success: true,
-				harvest: null,
-				executionId: input.executionId,
-				timing: { totalMs: 1, executionMs: 1 },
-			});
-		}),
+	SandboxWorkflowPinning.layer.pipe(
+		Layer.provideMerge(
+			Layer.mergeAll(
+				databaseLayer,
+				dispatcherLayer,
+				Layer.mock(SandboxWorkflowReferenceRepository)({}),
+				Layer.mock(SandboxRepository)({
+					isPluginScript: () => Effect.succeed(true),
+					getScript: (scriptId) =>
+						Effect.succeed(scriptId === historicalScriptId ? historical : replacement),
+				}),
+				hotSwapResolverLayer,
+				runtimeSandboxLayer((input) => {
+					let value = "completed:active-v2";
+					if (input.compiledCode === historicalContent) {
+						value = input.executionId.endsWith("-replay-0")
+							? "pending:pinned-v1"
+							: "completed:pinned-v1";
+					}
+					return Effect.succeed({
+						value,
+						logs: [],
+						inline: [],
+						error: null,
+						success: true,
+						harvest: null,
+						executionId: input.executionId,
+						timing: { totalMs: 1, executionMs: 1 },
+					});
+				}),
+			),
+		),
 	),
 )((test) => {
 	test.effect(
@@ -189,7 +192,7 @@ layer(
 			};
 
 			return Effect.gen(function* () {
-				const pinned = yield* resolveSandboxExecutionPayload(payload, "active");
+				const pinned = yield* (yield* SandboxWorkflowPinning).resolvePayload(payload, "active");
 				const principal = {
 					providerId: null,
 					pluginRevision: null,

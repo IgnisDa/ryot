@@ -25,7 +25,7 @@ import {
 	type SandboxPluginScriptResolverValue,
 } from "./plugin-script-resolver";
 import { SandboxRepository } from "./repository";
-import { establishSandboxWorkflowPin, SandboxScriptWorkflow } from "./sandbox-script-workflow";
+import { SandboxScriptWorkflow, SandboxWorkflowPinning } from "./sandbox-script-workflow";
 import { SandboxScriptWorkflowPayload } from "./sandbox-script-workflow-payload";
 import { SandboxExecutionService } from "./service";
 import { SandboxWorkflowReferenceRepository } from "./workflow-reference-repository";
@@ -113,6 +113,7 @@ const makeServiceLayer = <Repository, Workflow = WorkflowEngine>(options: {
 					return yield* respond(...args);
 				});
 			return SandboxExecutionService.layer.pipe(
+				Layer.provideMerge(SandboxWorkflowPinning.layer),
 				Layer.provideMerge(
 					Layer.mergeAll(
 						databaseLayer,
@@ -463,7 +464,7 @@ layer(makeServiceLayer({ repository: revisionPinRepository }))((test) => {
 				const startedPayload = yield* Schema.decodeUnknownEffect(SandboxScriptWorkflowPayload)(
 					(yield* (yield* SandboxServiceCalls).executions).at(-1)?.options.payload,
 				);
-				const startedPin = yield* establishSandboxWorkflowPin(
+				const startedPin = yield* (yield* SandboxWorkflowPinning).establish(
 					startedPayload,
 					"pre-registered-workflow",
 				);

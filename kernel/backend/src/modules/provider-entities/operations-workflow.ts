@@ -30,103 +30,6 @@ type ProviderResolveOperationInput = {
 	readonly identifierType: string;
 };
 
-const processSandboxEntityDetails = (payload: EntityImportPayload, executionId: string) =>
-	Effect.gen(function* () {
-		const sandbox = yield* SandboxExecutionService;
-		const pluginRuntime = yield* PluginRuntimeResolver;
-		const resolveScript = (
-			payload.entityScope.userId
-				? pluginRuntime.resolveUserDetailsScript(payload.entityScope.userId, payload.providerId)
-				: pluginRuntime.resolveDetailsScript(payload.providerId)
-		).pipe(
-			Effect.map(({ id }) => id),
-			Effect.mapError((error) => toSandboxRunError(error, "infrastructure")),
-		);
-		const scriptId = yield* makeActivity({
-			error: SandboxRunError,
-			execute: resolveScript,
-			success: SandboxScriptId,
-			name: `resolve-provider-details-script-${executionId}`,
-		});
-		return yield* sandbox.executeScript({
-			scriptId,
-			input: { externalId: payload.externalId },
-			executionId: `${executionId}-sandbox-details`,
-			subject: payload.entityScope.userId
-				? { type: "user", userId: payload.entityScope.userId }
-				: { type: "system" },
-		});
-	}).pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
-
-const processSandboxProviderResolve = (input: ProviderResolveOperationInput, executionId: string) =>
-	Effect.gen(function* () {
-		const sandbox = yield* SandboxExecutionService;
-		const pluginRuntime = yield* PluginRuntimeResolver;
-		const resolveScript = (
-			input.userId
-				? pluginRuntime.resolveUserResolveScript(input.userId, input.providerId)
-				: pluginRuntime.resolveResolveScript(input.providerId)
-		).pipe(
-			Effect.map(({ id }) => id),
-			Effect.mapError((error) => toSandboxRunError(error, "infrastructure")),
-		);
-		const scriptId = yield* makeActivity({
-			error: SandboxRunError,
-			execute: resolveScript,
-			success: SandboxScriptId,
-			name: `resolve-provider-resolve-script-${executionId}`,
-		});
-		return yield* sandbox.executeScript({
-			scriptId,
-			executionId: `${executionId}-sandbox-resolve`,
-			input: { value: input.value, identifierType: input.identifierType },
-			subject: input.userId ? { type: "user", userId: input.userId } : { type: "system" },
-		});
-	}).pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
-
-export const completeProviderEntityImport = (
-	payload: ProviderEntityImportWorkflowPayload,
-	importedEntity: ListedEntity,
-	executionId: string,
-) =>
-	Effect.gen(function* () {
-		const session = yield* DatabaseSession;
-		const planner = yield* LifecyclePlanner;
-		const execution = yield* LifecycleExecution;
-		const completion = {
-			entityId: importedEntity.id,
-			category: "change" as const,
-			externalId: payload.externalId,
-			providerId: payload.providerId,
-			operation: "complete" as const,
-			userId: payload.entityScope.userId,
-			entitySchemaSlug: payload.entitySchemaSlug,
-			resource: "provider-entity-import" as const,
-		};
-		const plan = yield* makeActivity({
-			error: SandboxRunError,
-			success: LifecycleDispatchPlan,
-			name: `plan-provider-import-completion-${executionId}`,
-			execute: session
-				.transaction(
-					planner
-						.plan({
-							trigger: lifecycleTrigger(payload.command, payload.entityScope.userId, completion),
-						})
-						.pipe(Effect.map(toLifecycleDispatchPlan)),
-				)
-				.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure"))),
-		});
-		const warnings = yield* execution
-			.dispatch([plan])
-			.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
-		if (warnings.length > 0) {
-			yield* Effect.logWarning("provider import completed with automation warnings").pipe(
-				Effect.annotateLogs({ warningCount: warnings.length, warnings: warnings.slice(0, 100) }),
-			);
-		}
-	});
-
 export type EntityImportWorkflowOperationsValue = {
 	processSandbox: (
 		payload: EntityImportPayload,
@@ -157,25 +60,111 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 		const execution = yield* LifecycleExecution;
 		const sandbox = yield* SandboxExecutionService;
 		const pluginRuntime = yield* PluginRuntimeResolver;
+
+		const processSandboxEntityDetails = (payload: EntityImportPayload, executionId: string) =>
+			Effect.gen(function* () {
+				const resolveScript = (
+					payload.entityScope.userId
+						? pluginRuntime.resolveUserDetailsScript(payload.entityScope.userId, payload.providerId)
+						: pluginRuntime.resolveDetailsScript(payload.providerId)
+				).pipe(
+					Effect.map(({ id }) => id),
+					Effect.mapError((error) => toSandboxRunError(error, "infrastructure")),
+				);
+				const scriptId = yield* makeActivity({
+					error: SandboxRunError,
+					execute: resolveScript,
+					success: SandboxScriptId,
+					name: `resolve-provider-details-script-${executionId}`,
+				});
+				return yield* sandbox.executeScript({
+					scriptId,
+					input: { externalId: payload.externalId },
+					executionId: `${executionId}-sandbox-details`,
+					subject: payload.entityScope.userId
+						? { type: "user", userId: payload.entityScope.userId }
+						: { type: "system" },
+				});
+			}).pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
+
+		const processSandboxProviderResolve = (
+			input: ProviderResolveOperationInput,
+			executionId: string,
+		) =>
+			Effect.gen(function* () {
+				const resolveScript = (
+					input.userId
+						? pluginRuntime.resolveUserResolveScript(input.userId, input.providerId)
+						: pluginRuntime.resolveResolveScript(input.providerId)
+				).pipe(
+					Effect.map(({ id }) => id),
+					Effect.mapError((error) => toSandboxRunError(error, "infrastructure")),
+				);
+				const scriptId = yield* makeActivity({
+					error: SandboxRunError,
+					execute: resolveScript,
+					success: SandboxScriptId,
+					name: `resolve-provider-resolve-script-${executionId}`,
+				});
+				return yield* sandbox.executeScript({
+					scriptId,
+					executionId: `${executionId}-sandbox-resolve`,
+					input: { value: input.value, identifierType: input.identifierType },
+					subject: input.userId ? { type: "user", userId: input.userId } : { type: "system" },
+				});
+			}).pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
+
+		const completeProviderEntityImport = (
+			payload: ProviderEntityImportWorkflowPayload,
+			importedEntity: ListedEntity,
+			executionId: string,
+		) =>
+			Effect.gen(function* () {
+				const completion = {
+					entityId: importedEntity.id,
+					category: "change" as const,
+					externalId: payload.externalId,
+					providerId: payload.providerId,
+					operation: "complete" as const,
+					userId: payload.entityScope.userId,
+					entitySchemaSlug: payload.entitySchemaSlug,
+					resource: "provider-entity-import" as const,
+				};
+				const plan = yield* makeActivity({
+					error: SandboxRunError,
+					success: LifecycleDispatchPlan,
+					name: `plan-provider-import-completion-${executionId}`,
+					execute: session
+						.transaction(
+							planner
+								.plan({
+									trigger: lifecycleTrigger(
+										payload.command,
+										payload.entityScope.userId,
+										completion,
+									),
+								})
+								.pipe(Effect.map(toLifecycleDispatchPlan)),
+						)
+						.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure"))),
+				});
+				const warnings = yield* execution
+					.dispatch([plan])
+					.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
+				if (warnings.length > 0) {
+					yield* Effect.logWarning("provider import completed with automation warnings").pipe(
+						Effect.annotateLogs({
+							warningCount: warnings.length,
+							warnings: warnings.slice(0, 100),
+						}),
+					);
+				}
+			});
+
 		return {
-			processSandbox: (payload, executionId) =>
-				processSandboxEntityDetails(payload, executionId).pipe(
-					Effect.provideService(DatabaseSession, session),
-					Effect.provideService(PluginRuntimeResolver, pluginRuntime),
-					Effect.provideService(SandboxExecutionService, sandbox),
-				),
-			processProviderResolve: (input, executionId) =>
-				processSandboxProviderResolve(input, executionId).pipe(
-					Effect.provideService(DatabaseSession, session),
-					Effect.provideService(PluginRuntimeResolver, pluginRuntime),
-					Effect.provideService(SandboxExecutionService, sandbox),
-				),
-			completeProviderEntityImport: (payload, importedEntity, executionId) =>
-				completeProviderEntityImport(payload, importedEntity, executionId).pipe(
-					Effect.provideService(DatabaseSession, session),
-					Effect.provideService(LifecyclePlanner, planner),
-					Effect.provideService(LifecycleExecution, execution),
-				),
+			completeProviderEntityImport,
+			processSandbox: processSandboxEntityDetails,
+			processProviderResolve: processSandboxProviderResolve,
 		} satisfies EntityImportWorkflowOperationsValue;
 	}),
 );
