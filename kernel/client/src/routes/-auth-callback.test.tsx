@@ -18,6 +18,7 @@ import {
 	GodModeRouteStubs,
 	SavedViewRouteStubs,
 	ProviderAddRouteStubs,
+	CustomizeRouteStubs,
 	NavigationRouteStubs,
 	theme,
 	server,
@@ -75,6 +76,7 @@ const mountCallback = (
 			makePublicApiStub(),
 			Layer.succeed(PluginCatalogService, { load: () => Effect.succeed(catalog) }),
 			NavigationRouteStubs,
+			CustomizeRouteStubs,
 			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
 			Layer.succeed(PluginOperationsService, { invoke: () => Effect.die("not used") }),
 			Layer.succeed(ArtifactSessions, {

@@ -11,6 +11,7 @@ export { useShortcut } from "./shortcut";
 export { RadioGroup } from "./radio-group";
 export { MultiSelect } from "./multi-select";
 export { SearchField } from "./search-field";
+export { ReorderableList } from "./reorderable-list";
 export type { RadioGroupOption } from "./radio-group";
 export { FieldMessage, TextField } from "./text-field";
 export { SegmentedControl } from "./segmented-control";
