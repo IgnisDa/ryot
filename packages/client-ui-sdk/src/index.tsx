@@ -8,21 +8,22 @@ export { Modal } from "./modal";
 export { Switch } from "./switch";
 export type { MenuItem } from "./menu";
 export { useShortcut } from "./shortcut";
+export { RadioGroup } from "./radio-group";
 export { MultiSelect } from "./multi-select";
 export { SearchField } from "./search-field";
+export type { RadioGroupOption } from "./radio-group";
 export { FieldMessage, TextField } from "./text-field";
 export { SegmentedControl } from "./segmented-control";
 export type { MultiSelectChoice } from "./multi-select";
 export { useFocusTrap, useScrollLock, useRestoreFocus, useDismissOnOutside } from "./overlay";
 
 const variantClasses = {
-	text: "min-h-10 cursor-pointer font-semibold text-text-muted",
-	switch:
-		"min-h-9.5 cursor-pointer rounded-md font-semibold text-text-muted aria-pressed:bg-raised aria-pressed:text-text aria-pressed:shadow-sm",
+	text: "min-h-10 font-semibold text-text-muted",
+	secondary: "min-h-11 rounded-lg border border-border-strong px-4 py-2.5 font-semibold text-text",
 	primary:
-		"min-h-11 cursor-pointer rounded-lg border border-accent bg-accent px-4 py-2.5 font-semibold text-accent-ink",
-	secondary:
-		"min-h-11 cursor-pointer rounded-lg border border-border-strong px-4 py-2.5 font-semibold text-text",
+		"min-h-11 rounded-lg border border-accent-deep bg-accent px-4 py-2.5 font-semibold text-accent-ink",
+	switch:
+		"min-h-9.5 rounded-md font-semibold text-text-muted aria-pressed:bg-raised aria-pressed:text-text aria-pressed:shadow-sm",
 } as const;
 
 type ButtonProps = ComponentProps<"button"> & {

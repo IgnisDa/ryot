@@ -66,6 +66,7 @@
 		"sharp": "^0.35.4",
 		"typescript": "^6.0.2",
 		"vite": "^8.0.0",
-		"vitest": "4.1.9"
+		"vitest": "4.1.9",
+		"vitest-axe": "^0.1.0"
 	}
 }

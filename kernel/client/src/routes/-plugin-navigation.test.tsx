@@ -1,5 +1,5 @@
 // oxlint-disable unicorn/require-post-message-target-origin -- MessagePort has no target origin
-import { PluginBridgeInit } from "@ryot-app/contract/modules/plugins/client";
+import { PluginBridgeInit, PluginBridgeLocation } from "@ryot-app/contract/modules/plugins/client";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -137,6 +137,39 @@ const connectFrame = (element: HTMLIFrameElement) => {
 	return { init, messages, pluginPort };
 };
 
+const isLocation = (message: unknown) =>
+	typeof message === "object" && message !== null && "type" in message
+		? message.type === "location"
+		: false;
+
+describe("plugin document title", () => {
+	it("falls back to the catalog name and then tracks the published header title", async () => {
+		mountView("/fixture");
+		await screen.findByTitle("fixture plugin");
+		const connected = connectFrame(frame());
+		connected.pluginPort.postMessage(connected.init);
+		await waitFor(() => expect(connected.messages).toHaveLength(1));
+		connected.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
+		await waitFor(() =>
+			expect(connected.messages.some((message) => isLocation(message))).toBe(true),
+		);
+		const location = Schema.decodeUnknownSync(PluginBridgeLocation)(
+			connected.messages.find((message) => isLocation(message)),
+		);
+
+		await waitFor(() => expect(document.title).toBe("Fixture — Ryot"));
+		expect(document.querySelectorAll("#main-content")).toHaveLength(1);
+
+		connected.pluginPort.postMessage({
+			type: "header",
+			index: location.index,
+			key: location.key,
+			header: { title: "Watchlist" },
+		});
+		await waitFor(() => expect(document.title).toBe("Watchlist — Ryot"));
+	});
+});
+
 describe("plugin navigation", () => {
 	it("resolves the plugin home directly from its global URL", async () => {
 		const router = mount("/fixture");
@@ -204,6 +237,21 @@ describe("plugin navigation", () => {
 		expect(screen.getByRole("button", { name: "No workspace, Plugin workspace" })).toBeTruthy();
 		expect(screen.queryByRole("link", { name: "Home" })).toBeNull();
 		expect(recorder.setCalls).toEqual([]);
+	});
+
+	it("inerts the shell content while the mobile drawer is open", async () => {
+		mountView("/fixture");
+		const content = await screen.findByTestId("shell-content");
+		const trigger = screen.getByRole("button", { name: "Open navigation" });
+
+		expect(content.hasAttribute("inert")).toBe(false);
+
+		fireEvent.click(trigger);
+		await screen.findByRole("dialog", { name: "Navigation" });
+		expect(content.hasAttribute("inert")).toBe(true);
+
+		fireEvent.click(screen.getByRole("button", { name: "Close navigation" }));
+		await waitFor(() => expect(content.hasAttribute("inert")).toBe(false));
 	});
 
 	it("keeps the authenticated shell stable across plugin child routes", async () => {
