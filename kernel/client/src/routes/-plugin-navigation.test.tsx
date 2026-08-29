@@ -2,7 +2,7 @@
 import { PluginBridgeInit, PluginBridgeLocation } from "@ryot-app/contract/modules/plugins/client";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -142,7 +142,7 @@ const connectFrame = (element: HTMLIFrameElement) => {
 	if (init === undefined || pluginPort === undefined) {
 		throw new Error("Plugin bridge did not connect");
 	}
-	const { mode: _mode, ...ready } = init;
+	const { mode: _mode, safeAreaTop: _safeAreaTop, ...ready } = init;
 	return { init, ready, messages, pluginPort };
 };
 
@@ -276,7 +276,6 @@ describe("plugin navigation", () => {
 		expect(Array.from(shell.children).map((child) => child.getAttribute("data-testid"))).toEqual([
 			"desktop-sidebar",
 			"edge-gesture",
-			"mobile-header",
 			"mobile-drawer",
 			"shell-content",
 		]);
@@ -285,27 +284,19 @@ describe("plugin navigation", () => {
 		expect(screen.getByTestId("desktop-sidebar").getAttribute("class")).toContain("hidden");
 		expect(screen.getByTestId("desktop-sidebar").getAttribute("class")).toContain("md:flex");
 		expect(screen.getByTestId("desktop-sidebar").getAttribute("class")).toContain("w-66");
-		expect(screen.getByTestId("mobile-header").getAttribute("class")).toContain(
-			"safe-area-inset-top",
-		);
-		expect(screen.getByTestId("mobile-header").getAttribute("class")).toContain("md:hidden");
-		expect(screen.getByRole("button", { name: "Open navigation" })).toBeTruthy();
+		expect(screen.queryByTestId("screen-frame-bar")).toBeNull();
+		expect(screen.queryByRole("button", { name: "Open navigation" })).toBeNull();
 		expect(screen.getByTestId("mobile-drawer").tagName).toBe("DIV");
-		expect(within(screen.getByTestId("mobile-header")).getByText("Fixture")).toBeTruthy();
 		expect(content.getAttribute("class")).toContain("min-h-0");
 		expect(content.getAttribute("class")).toContain("min-w-0");
 		expect(content.getAttribute("class")).toContain("overflow-hidden");
 		expect(iframe.getAttribute("class")).toContain("h-full");
 		expect(iframe.getAttribute("class")).not.toContain("h-screen");
-		const mobileTrigger = screen.getByRole("button", { name: "Open navigation" });
-
-		fireEvent.click(mobileTrigger);
+		connected.pluginPort.postMessage({ type: "open-drawer" });
 		await screen.findByRole("dialog", { name: "Navigation" });
-		expect(mobileTrigger.getAttribute("aria-expanded")).toBe("true");
 		expect(frame()).toBe(iframe);
 		fireEvent.click(screen.getByRole("button", { name: "Close navigation" }));
-		await waitFor(() => expect(mobileTrigger.getAttribute("aria-expanded")).toBe("false"));
-		expect(screen.queryByRole("dialog", { name: "Navigation" })).toBeNull();
+		await waitFor(() => expect(screen.queryByRole("dialog", { name: "Navigation" })).toBeNull());
 		expect(screen.getByTestId("authenticated-shell")).toBe(shell);
 		expect(screen.getByTestId("shell-content")).toBe(content);
 		expect(frame()).toBe(iframe);
