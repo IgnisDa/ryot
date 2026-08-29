@@ -40,6 +40,7 @@ import {
 import type { ThemeStore } from "#/modules/theme/store";
 
 const PLUGIN_BACK_SETTLE_MS = 500;
+const BOOTSTRAP_TIMEOUT_MS = 15_000;
 
 export type PluginHeaderPublication = {
 	readonly index: number;
@@ -59,8 +60,8 @@ export function PluginFrame(props: {
 	readonly title: string;
 	readonly inert?: boolean;
 	readonly theme: ThemeStore;
-	readonly artifactHash: string;
-	readonly artifactGrant: PreparedClientPage["artifact"]["grant"];
+	readonly compositionHash: string;
+	readonly documentGrant: PreparedClientPage["composition"]["documentGrant"];
 	readonly documentKey: string;
 	readonly page?: ClientPageContext;
 	readonly chromeLeading: ReactNode;
@@ -111,11 +112,11 @@ export function PluginFrame(props: {
 	const entitySchemaSlug = location.kind === "entity" ? location.entitySchemaSlug : undefined;
 	const subscribeResume = props.subscribeResume;
 	const latest = useRef(props);
-	const artifactSrc = useRef(props.artifactGrant.src);
+	const documentSrc = useRef(props.documentGrant.src);
 	const frame = useRef<HTMLIFrameElement>(null);
 	const backSettle = useRef<number>(undefined);
 	const bridge = useRef<PluginBridgeSession>(undefined);
-	const markArtifactStale = useRef<(() => void) | undefined>(undefined);
+	const markCompositionStale = useRef<(() => void) | undefined>(undefined);
 	const freshnessRevision = useRef(props.freshnessCheckRevision);
 	const documentKey = useRef(props.documentKey);
 	const mutationRevision = useRef(0);
@@ -126,7 +127,6 @@ export function PluginFrame(props: {
 	const [frameStatus, setFrameStatus] = useState<"ready" | "loading" | "handshake-failure">(
 		"loading",
 	);
-	const [reload, setReload] = useState(0);
 	latest.current = props;
 
 	const closeBridge = () => {
@@ -137,14 +137,35 @@ export function PluginFrame(props: {
 		setPageShortcuts([]);
 		latest.current.onOverlayState(0);
 	};
-	const reloadArtifact = () => {
+	const retryDocument = () => {
 		closeBridge();
-		setFrameStatus("loading");
-		setReload((value) => value + 1);
+		props.onReloadCurrent();
 	};
+	useEffect(() => {
+		if (frameStatus !== "loading") {
+			return undefined;
+		}
+		const timeout = window.setTimeout(() => {
+			closeBridge();
+			setFrameStatus("handshake-failure");
+		}, BOOTSTRAP_TIMEOUT_MS);
+		return () => window.clearTimeout(timeout);
+	}, [frameStatus]);
+	useEffect(() => {
+		const element = frame.current;
+		if (!element) {
+			return undefined;
+		}
+		const failed = () => {
+			closeBridge();
+			setFrameStatus("handshake-failure");
+		};
+		element.addEventListener("error", failed);
+		return () => element.removeEventListener("error", failed);
+	}, []);
 
 	useEffect(() => {
-		markArtifactStale.current = () => setUpdateAvailable(true);
+		markCompositionStale.current = () => setUpdateAvailable(true);
 		const onVisibilityChange = () => {
 			if (document.visibilityState === "visible" && latest.current.active) {
 				bridge.current?.sendPageRefresh();
@@ -159,11 +180,11 @@ export function PluginFrame(props: {
 		});
 		return () => {
 			closeBridge();
-			markArtifactStale.current = undefined;
+			markCompositionStale.current = undefined;
 			document.removeEventListener("visibilitychange", onVisibilityChange);
 			releaseResume();
 		};
-	}, [subscribeResume, reload]);
+	}, [subscribeResume]);
 
 	useEffect(() => {
 		if (freshnessRevision.current === props.freshnessCheckRevision) {
@@ -270,9 +291,9 @@ export function PluginFrame(props: {
 		const nextBridge = openPluginBridge({
 			target: plugin,
 			page: latest.current.page,
-			artifactHash: props.artifactHash,
 			viewport: latest.current.viewport,
 			navigation: latest.current.navigation,
+			compositionHash: props.compositionHash,
 			onReady: () => setFrameStatus("ready"),
 			documentKey: latest.current.documentKey,
 			theme: latest.current.theme.getSnapshot(),
@@ -336,7 +357,7 @@ export function PluginFrame(props: {
 					return outcome;
 				}
 				if (bridge.current === connection.session) {
-					markArtifactStale.current?.();
+					markCompositionStale.current?.();
 				}
 				return { outcome: "failure", reason: "operation-failed" } satisfies PluginOperationOutcome;
 			},
@@ -361,7 +382,7 @@ export function PluginFrame(props: {
 
 	const chrome = { compact, leading: props.chromeLeading, safeAreaTop: props.viewport.safeAreaTop };
 	if (frameStatus === "handshake-failure") {
-		return <PluginNotice {...chrome} status={frameStatus} onReload={reloadArtifact} />;
+		return <PluginNotice {...chrome} status={frameStatus} onRetry={retryDocument} />;
 	}
 
 	return (
@@ -378,9 +399,8 @@ export function PluginFrame(props: {
 					/>
 				))}
 			<iframe
-				key={reload}
 				sandbox="allow-scripts"
-				src={artifactSrc.current}
+				src={documentSrc.current}
 				referrerPolicy="no-referrer"
 				title={`${props.title} plugin`}
 				inert={props.inert === true || updateAvailable}
@@ -465,7 +485,7 @@ function PluginNotice(props: {
 	readonly compact: boolean;
 	readonly leading: ReactNode;
 	readonly safeAreaTop: number;
-	readonly onReload?: () => void;
+	readonly onRetry?: () => void;
 	readonly status: PluginHostStatus;
 }) {
 	return (
@@ -476,14 +496,14 @@ function PluginNotice(props: {
 				safeAreaTop={props.safeAreaTop}
 				title={props.status === "loading" ? "Loading plugin" : "Plugin unavailable"}
 			>
-				<PluginNoticePanel status={props.status} onReload={props.onReload} />
+				<PluginNoticePanel status={props.status} onRetry={props.onRetry} />
 			</PluginChromeFrame>
 		</div>
 	);
 }
 
 function PluginNoticePanel(props: {
-	readonly onReload?: () => void;
+	readonly onRetry?: () => void;
 	readonly status: PluginHostStatus;
 }) {
 	return (
@@ -491,9 +511,9 @@ function PluginNoticePanel(props: {
 			<p className="text-text-muted" role={props.status === "loading" ? "status" : "alert"}>
 				{noticeMessages[props.status]}
 			</p>
-			{props.onReload ? (
-				<Button type="button" onClick={props.onReload}>
-					Reload plugin
+			{props.onRetry ? (
+				<Button type="button" onClick={props.onRetry}>
+					Retry
 				</Button>
 			) : null}
 		</section>
