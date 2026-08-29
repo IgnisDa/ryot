@@ -34,7 +34,9 @@ export const verifyPluginSandboxScriptsLoad = (
 			const source = yield* loadPluginSource(packageRoot, manifest);
 			const backendFiles = Object.fromEntries(
 				yield* Effect.forEach(
-					Object.entries(source.files).filter(([filePath]) => filePath.startsWith("backend/")),
+					Object.entries(source.files).filter(
+						([filePath]) => filePath.startsWith("backend/") || filePath.startsWith("shared/"),
+					),
 					([filePath, contents]) =>
 						Effect.try({
 							try: () => [filePath, decoder.decode(contents)] as const,

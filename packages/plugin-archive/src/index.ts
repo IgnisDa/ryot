@@ -3,6 +3,7 @@ import {
 	pluginClientFileExtension,
 } from "@ryot-app/client-plugin-contract";
 import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { isPluginSharedSource } from "@ryot-app/contract/modules/plugins/shared-file-policy";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
 import { Effect, Schema, Stream } from "effect";
 import { Unzip, UnzipInflate, UnzipPassThrough, Zip, ZipDeflate } from "fflate";
@@ -209,6 +210,7 @@ const validateCentralDirectory = (bytes: Uint8Array) => {
 		if (
 			path !== "manifest.json" &&
 			!path.startsWith("backend/") &&
+			!isPluginSharedSource(path) &&
 			(!path.startsWith("client/") || pluginClientFileExtension(path) === undefined)
 		) {
 			throw failure("unexpected-entry");
@@ -331,7 +333,11 @@ class PluginArchiveReader {
 				continue;
 			}
 			const bytes = concat(entry.chunks, entry.bytes);
-			if (path.startsWith("backend/") || isPluginClientTextSource(path)) {
+			if (
+				path.startsWith("backend/") ||
+				isPluginSharedSource(path) ||
+				isPluginClientTextSource(path)
+			) {
 				try {
 					decoder.decode(bytes);
 				} catch {

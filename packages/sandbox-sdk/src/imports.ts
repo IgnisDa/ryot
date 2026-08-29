@@ -9,6 +9,16 @@ export const SANDBOX_SDK_WORKFLOW_IMPORT = "@ryot-app/sandbox-sdk/workflow";
 export const SANDBOX_SDK_FILESYSTEM_IMPORT = "@ryot-app/sandbox-sdk/filesystem";
 export const SANDBOX_SDK_IMPORT_WIRE_IMPORT = "@ryot-app/sandbox-sdk/imports";
 
+export const PLUGIN_KIT_EFFECT_IMPORT = "@ryot-app/plugin-kit/effect";
+export const PLUGIN_KIT_RYOTQL_IMPORT = "@ryot-app/plugin-kit/ryotql";
+export const PLUGIN_KIT_SCHEMA_IMPORT = "@ryot-app/plugin-kit/schema";
+
+export const PLUGIN_KIT_IMPORTS = [
+	PLUGIN_KIT_EFFECT_IMPORT,
+	PLUGIN_KIT_RYOTQL_IMPORT,
+	PLUGIN_KIT_SCHEMA_IMPORT,
+] as const;
+
 export const SANDBOX_RUNTIME_SDK_IMPORTS = [
 	"@ryot-app/sandbox-sdk/effect",
 	"@ryot-app/sandbox-sdk/cheerio",
@@ -17,6 +27,8 @@ export const SANDBOX_RUNTIME_SDK_IMPORTS = [
 	"@ryot-app/sandbox-sdk/papaparse",
 	"@ryot-app/sandbox-sdk/fast-xml-parser",
 	"@ryot-app/sandbox-sdk/ryotql",
+	PLUGIN_KIT_EFFECT_IMPORT,
+	PLUGIN_KIT_RYOTQL_IMPORT,
 ] as const;
 
 export const SANDBOX_SDK_IMPORTS = [
@@ -29,6 +41,7 @@ export const SANDBOX_SDK_IMPORTS = [
 	"@ryot-app/sandbox-sdk/driver",
 	"@ryot-app/sandbox-sdk/operation",
 	"@ryot-app/sandbox-sdk/wire",
+	PLUGIN_KIT_SCHEMA_IMPORT,
 	...SANDBOX_RUNTIME_SDK_IMPORTS,
 ] as const;
 
