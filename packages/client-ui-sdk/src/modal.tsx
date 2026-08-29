@@ -48,7 +48,8 @@ export function Modal({
 	useScrollLock(true);
 
 	useEffect(() => {
-		const initial = initialFocusRef?.current ?? focusableElements(panelRef.current)[0];
+		const initial =
+			initialFocusRef?.current ?? focusableElements(panelRef.current)[0] ?? panelRef.current;
 		initial?.focus();
 	}, [initialFocusRef]);
 
@@ -72,6 +73,7 @@ export function Modal({
 				/>
 				<div
 					role="dialog"
+					tabIndex={-1}
 					ref={panelRef}
 					aria-modal="true"
 					aria-label={label}

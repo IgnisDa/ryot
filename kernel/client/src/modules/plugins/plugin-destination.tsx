@@ -1,3 +1,4 @@
+import type { KernelShortcut } from "@ryot-app/client-plugin-contract";
 import { useNavigate, useRouteContext, useRouter } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useCallback, useLayoutEffect, type ReactNode } from "react";
@@ -28,17 +29,23 @@ export type PluginDestinationScreenState = PluginScreenReadiness & {
 export function PluginDestination(props: {
 	readonly children: ReactNode;
 	readonly target: ActivePluginDestination | null;
+	readonly onKernelShortcut: (shortcut: KernelShortcut) => void;
 	readonly onScreenState: (state: PluginDestinationScreenState | null) => void;
 }) {
 	return props.target === null ? (
 		props.children
 	) : (
-		<PluginInstallation target={props.target} onScreenState={props.onScreenState} />
+		<PluginInstallation
+			target={props.target}
+			onScreenState={props.onScreenState}
+			onKernelShortcut={props.onKernelShortcut}
+		/>
 	);
 }
 
 function PluginInstallation(props: {
 	readonly target: ActivePluginDestination;
+	readonly onKernelShortcut: (shortcut: KernelShortcut) => void;
 	readonly onScreenState: (state: PluginDestinationScreenState | null) => void;
 }) {
 	const edge = useEdge();
@@ -127,6 +134,7 @@ function PluginInstallation(props: {
 			safeAreaTop={chrome.safeAreaTop}
 			onOpenDrawer={chrome.onOpenDrawer}
 			chromeTriggerRef={chrome.triggerRef}
+			onKernelShortcut={props.onKernelShortcut}
 			onNavigateBack={() => router.history.back()}
 			onRenewArtifactSession={onRenewArtifactSession}
 			onCreateArtifactSession={onCreateArtifactSession}

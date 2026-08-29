@@ -15,6 +15,11 @@ export const CLIENT_ARTIFACT_FORMAT = 1 as const;
 export const CLIENT_COMPILER_VERSION = 1 as const;
 export const CLIENT_BRIDGE_MAX_PENDING_REQUESTS = 64;
 
+export const KERNEL_SHORTCUTS = {
+	commandCenter: "Mod+K",
+	workspaceSwitcher: "Mod+Shift+Space",
+} as const;
+
 export const CLIENT_ARTIFACT_ROOT_ELEMENT_ID = "app";
 export const CLIENT_ARTIFACT_METADATA_ELEMENT_ID = "ryot-client-artifact";
 
@@ -183,6 +188,17 @@ export type PluginBridgeNavigateBack = Schema.Schema.Type<typeof PluginBridgeNav
 export const PluginBridgeOpenDrawer = strictStruct({ type: Schema.Literal("open-drawer") });
 
 export type PluginBridgeOpenDrawer = Schema.Schema.Type<typeof PluginBridgeOpenDrawer>;
+
+export const KernelShortcut = Schema.Literals(["command-center", "workspace-switcher"]);
+
+export type KernelShortcut = Schema.Schema.Type<typeof KernelShortcut>;
+
+export const PluginBridgeKernelShortcut = strictStruct({
+	shortcut: KernelShortcut,
+	type: Schema.Literal("kernel-shortcut"),
+});
+
+export type PluginBridgeKernelShortcut = Schema.Schema.Type<typeof PluginBridgeKernelShortcut>;
 
 export const PluginBridgeNavigate = strictStruct({
 	target: PluginNavigationTarget,
@@ -435,6 +451,7 @@ export const PluginBridgeClientMessage = Schema.Union([
 	PluginBridgeNavigateBack,
 	PluginBridgeRyotQLRequest,
 	PluginBridgeLifecycleClose,
+	PluginBridgeKernelShortcut,
 	PluginBridgeOperationRequest,
 ]);
 

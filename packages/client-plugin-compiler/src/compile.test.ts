@@ -18,6 +18,7 @@ const encoder = new TextEncoder();
 const decoder = new TextDecoder();
 const bytes = (value: string) => encoder.encode(value);
 const text = (value: Uint8Array | undefined) => decoder.decode(value);
+const bindingPattern = (binding: string) => binding.replaceAll("$", "\\$");
 const fontFamiliesForSelector = (css: string, selector: string) => {
 	const values: string[] = [];
 	parse(css).walkRules(selector, (rule) => {
@@ -61,7 +62,21 @@ it.effect(
 	() =>
 		Effect.gen(function* () {
 			const files = yield* fixtureFiles;
-			const { artifact } = yield* compileFixture(files);
+			const hotkeyFiles = {
+				...files,
+				"client/home.tsx": bytes(
+					text(files["client/home.tsx"])
+						.replace(
+							"import { Button, StatusMessage }",
+							"import { Button, StatusMessage, useShortcut }",
+						)
+						.replace(
+							"export const Home = () => {",
+							'export const Home = () => {\n\tuseShortcut("Mod+K", () => {});',
+						),
+				),
+			};
+			const { artifact } = yield* compileFixture(hotkeyFiles);
 			const svgName = `asset-${sha256Hex(files["client/logo.svg"] ?? new Uint8Array())}.svg`;
 			const importedPngName = `asset-${sha256Hex(files["client/imported-logo.png"] ?? new Uint8Array())}.png`;
 			const cssPngName = `asset-${sha256Hex(files["client/css-logo.png"] ?? new Uint8Array())}.png`;
@@ -88,6 +103,41 @@ it.effect(
 			expect(javascript).toContain(`"./${importedPngName}"`);
 			expect(javascript).not.toContain("@ryot-app/client-ui-sdk");
 			expect(javascript).not.toContain("./styles.css");
+			// Bun can emit this imported hook call without declaring its minified binding.
+			const hotkeyBinding = javascript.match(
+				/\b([A-Za-z_$][\w$]*)\([^)]*,[^)]*,\{stopPropagation:!1,conflictBehavior:"allow"/,
+			)?.[1];
+			if (hotkeyBinding === undefined) {
+				throw new Error("Expected the generated useHotkey call");
+			}
+			const coreHotkeyBindings = javascript
+				.match(
+					new RegExp(
+						`function\\s+${hotkeyBinding}\\([^)]*\\)\\{.*?,[A-Za-z_$][\\w$]*=([A-Za-z_$][\\w$]*)\\(\\),.*?,[A-Za-z_$][\\w$]*=([A-Za-z_$][\\w$]*)\\([^,]+,[^?]+\\?\\?([A-Za-z_$][\\w$]*)\\(\\)\\)`,
+					),
+				)
+				?.slice(1);
+			if (coreHotkeyBindings === undefined) {
+				throw new Error("Expected the generated core hotkey calls");
+			}
+			for (const binding of [hotkeyBinding, ...coreHotkeyBindings]) {
+				expect(javascript).toMatch(
+					new RegExp(
+						`\\b(?:function\\s+${bindingPattern(binding)}\\b|${bindingPattern(binding)}\\s*=)`,
+					),
+				);
+			}
+			const hotkeyManagerStoreBinding = javascript.match(
+				/this\.registrations=new ([A-Za-z_$][\w$]*)\(new Map\)/,
+			)?.[1];
+			if (hotkeyManagerStoreBinding === undefined) {
+				throw new Error("Expected the generated HotkeyManager Store construction");
+			}
+			expect(javascript).toMatch(
+				new RegExp(
+					`\\b(?:function\\s+${bindingPattern(hotkeyManagerStoreBinding)}\\b|${bindingPattern(hotkeyManagerStoreBinding)}\\s*=)`,
+				),
+			);
 			// oxlint-disable-next-line typescript/no-implied-eval -- verifies the generated browser module can execute
 			expect(() => Function("document", javascript)({ getElementById: () => null })).not.toThrow();
 

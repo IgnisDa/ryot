@@ -7,10 +7,11 @@ import {
 	type PluginBridgeInit,
 	type PluginRouteLocation,
 } from "@ryot-app/client-plugin-contract";
-import { waitFor } from "@testing-library/dom";
+import { Modal } from "@ryot-app/client-ui-sdk";
+import { fireEvent, waitFor } from "@testing-library/dom";
 import { Schema } from "effect";
 import { useEffect, useState } from "react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, assert, describe, expect, it } from "vitest";
 
 import {
 	bootstrapClientPlugin,
@@ -38,6 +39,11 @@ const init: PluginBridgeInit = {
 	bridgeVersion: metadata.bridgeVersion,
 	compilerVersion: metadata.compilerVersion,
 };
+
+const pressMod = (key: string, event: KeyboardEventInit = {}) => {
+	fireEvent.keyDown(document, { ...event, key, ctrlKey: true });
+	fireEvent.keyDown(document, { ...event, key, metaKey: true });
+};
 const routeLocation = (path: string, search = ""): PluginRouteLocation => ({
 	path,
 	search,
@@ -59,6 +65,22 @@ const Home = () => {
 };
 
 const StaticHome = () => <p>Mounted</p>;
+
+const OverlayHome = () => {
+	const [open, setOpen] = useState(false);
+	return (
+		<>
+			<button type="button" onClick={() => setOpen(true)}>
+				Open
+			</button>
+			{open && (
+				<Modal closeLabel="Close" label="Overlay" onClose={() => setOpen(false)}>
+					<button type="button">Inside</button>
+				</Modal>
+			)}
+		</>
+	);
+};
 
 const MovieRenderer = ({ entityId, entitySchemaSlug }: EntityRendererProps) => (
 	<p>{`${entityId}:${entitySchemaSlug}`}</p>
@@ -156,6 +178,61 @@ describe("bootstrapClientPlugin", () => {
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("light:Hello"));
 		channel.port1.postMessage({ mode: "dark", type: "theme" });
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("dark:Hello"));
+	});
+
+	it("forwards root kernel shortcuts, gates the workspace switcher, and respects overlays", async () => {
+		document.body.innerHTML = '<div id="app"></div>';
+		embedMetadata();
+		bootstraps.push(bootstrapClientPlugin({ home: { component: OverlayHome } }));
+		const channel = new MessageChannel();
+		channels.push(channel);
+		const messages: unknown[] = [];
+		channel.port1.addEventListener("message", ({ data }) => messages.push(data));
+		channel.port1.start();
+		window.dispatchEvent(
+			new MessageEvent("message", { data: init, ports: [channel.port2], source: window.parent }),
+		);
+		const locate = (compact: boolean) =>
+			channel.port1.postMessage({
+				compact,
+				index: 0,
+				key: "k0",
+				edgeBack: false,
+				type: "location",
+				leading: "drawer",
+				location: routeLocation("/"),
+			});
+		const shortcuts = () =>
+			messages.filter(
+				(message) =>
+					typeof message === "object" &&
+					message !== null &&
+					"type" in message &&
+					message.type === "kernel-shortcut",
+			);
+		locate(false);
+		await waitFor(() => expect(document.querySelector("button")?.textContent).toBe("Open"));
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		pressMod("k");
+		pressMod(" ", { code: "Space", shiftKey: true });
+		await waitFor(() => expect(shortcuts()).toHaveLength(2));
+
+		locate(true);
+		await waitFor(() => expect(document.getElementById("app")?.textContent).toContain("Open"));
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		pressMod("k");
+		pressMod(" ", { code: "Space", shiftKey: true });
+		await waitFor(() => expect(shortcuts()).toHaveLength(3));
+		expect(shortcuts().at(-1)).toEqual({ shortcut: "command-center", type: "kernel-shortcut" });
+
+		const open = document.querySelector("button");
+		assert(open instanceof HTMLButtonElement);
+		fireEvent.click(open);
+		await waitFor(() => expect(document.querySelector('[role="dialog"]')).not.toBeNull());
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		pressMod("k");
+		await new Promise((resolve) => setTimeout(resolve, 0));
+		expect(shortcuts()).toHaveLength(3);
 	});
 
 	it("accepts entity renderer registrations during bootstrap", async () => {

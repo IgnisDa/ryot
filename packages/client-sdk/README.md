@@ -25,6 +25,13 @@ completion, so no intent id, upload URL, or completion step reaches a caller. Th
 adapter cannot provide it, because every bridge payload is a `JsonValue` and a `Blob` cannot cross
 the port; a plugin calling it gets `unsupported-capability`.
 
+When focus is inside a plugin iframe, its bootstrap recognizes the reserved `Mod+K` command-center
+shortcut and `Mod+Shift+Space` desktop-workspace-switcher shortcut. It sends semantic
+`{ type: "kernel-shortcut", shortcut: "command-center" | "workspace-switcher" }` bridge messages,
+never raw `KeyboardEvent` or key payloads. The kernel owns both actions and desktop gating. An active
+plugin `OverlayScope` suppresses root forwarding, and plugins must not bind either reserved combination
+at their root. These shortcuts are not a public `RyotClient` capability.
+
 `assets.resolve` accepts a non-empty batch of local or S3 managed locators and returns matching
 absolute signed URLs with their expiry. The direct and `MessageChannel` adapters use the same
 authenticated upload boundary and opaque `asset-failed` classification. Bridge messages contain no
