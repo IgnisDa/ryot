@@ -9,6 +9,7 @@ import {
 	stageGeneratedFiles,
 	ViteBuildService,
 } from "@ryot-app/vite-compiler";
+import tailwindcss from "@tailwindcss/vite";
 import { Effect, Layer } from "effect";
 
 import { clientArtifactFile, clientArtifactMetadata } from "./artifact";
@@ -17,10 +18,12 @@ import {
 	resolveClientPluginCompilerDependencies,
 } from "./dependencies";
 import { clientPluginCompilationFailure, clientPluginCompilerDiagnostic } from "./diagnostics";
+import { runtimeStylesheet } from "./generated-source";
 import { clientTypeScriptProject } from "./semantic-check";
 
 const compilerLayer = Layer.merge(BunFileSystem.layer, ViteBuildService.layer);
 const CLIENT_RUNTIME_ARTIFACT_NAME = "client-plugin-runtime";
+const RUNTIME_STYLESHEET = "runtime.css";
 const DEFAULT_EXPORT_SPECIFIERS = new Set(["clsx", "react"]);
 
 const failure = (message: string) =>
@@ -380,6 +383,7 @@ export const buildClientRuntime = () =>
 				contents: generatedEntry(specifier),
 			})),
 			{ path: "bootstrap.ts", contents: generatedBootstrapSource },
+			{ path: RUNTIME_STYLESHEET, contents: runtimeStylesheet },
 		]).pipe(Effect.mapError((error) => failure(error.message)));
 
 		const bundled = yield* buildWithVite({
@@ -389,6 +393,7 @@ export const buildClientRuntime = () =>
 			config: {
 				base: "./",
 				mode: "production",
+				plugins: tailwindcss(),
 				oxc: { jsx: { development: false } },
 				envPrefix: "__RYOT_CLIENT_RUNTIME_NO_ENV__",
 				define: { "import.meta.env": "{}", "process.env.NODE_ENV": JSON.stringify("production") },
@@ -407,7 +412,10 @@ export const buildClientRuntime = () =>
 							format: "es",
 							entryFileNames: "entry-[name].js",
 							chunkFileNames: "chunk-[hash].js",
-							assetFileNames: "asset-[hash][extname]",
+							assetFileNames: ({ names }) =>
+								names.some((name) => name.endsWith(".css"))
+									? RUNTIME_STYLESHEET
+									: "asset-[hash][extname]",
 						},
 						input: Object.fromEntries([
 							...CLIENT_DEPENDENCY_SPECIFIERS.map((_, index) => [
@@ -415,6 +423,7 @@ export const buildClientRuntime = () =>
 								resolve(workspace.generatedPath, `entries/entry-${index}.ts`),
 							]),
 							["bootstrap", resolve(workspace.generatedPath, "bootstrap.ts")],
+							["styles", resolve(workspace.generatedPath, RUNTIME_STYLESHEET)],
 						]),
 					},
 				},
@@ -452,6 +461,9 @@ export const buildClientRuntime = () =>
 			!bootstrapOutput?.contentType.startsWith("text/javascript")
 		) {
 			return yield* failure("Vite did not emit the client runtime bootstrap entry");
+		}
+		if (!files.some((file) => file.name === RUNTIME_STYLESHEET)) {
+			return yield* failure("Vite did not emit the client runtime stylesheet");
 		}
 		const missingReference = validateOutputReferences(bundled.files);
 		if (missingReference) {
