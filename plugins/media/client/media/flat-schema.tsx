@@ -38,6 +38,7 @@ import {
 	MediaPartOfSection,
 	type MediaGroupOverview,
 } from "./group-section";
+import type { MediaImagePurposes } from "./image";
 import {
 	MediaOverviewRelations,
 	type MediaCreditCopy,
@@ -59,7 +60,6 @@ import {
 	type MediaSummaryState,
 } from "./summary-state";
 import type { MediaTab } from "./tabs";
-import type { MediaWatchProviders } from "./watch-providers";
 
 const GROUP_LIMIT = 20;
 const PEOPLE_LIMIT = 12;
@@ -133,6 +133,7 @@ export type MediaFlatSchemaDescriptor<
 	};
 	readonly aspect: MediaArtworkAspect;
 	readonly heroHeight: (compact: boolean) => number;
+	readonly backdropPurposes?: MediaImagePurposes;
 	readonly nouns: { readonly title: string; readonly singular: string; readonly plural: string };
 	readonly activityCopy: {
 		readonly recordLabel: string;
@@ -157,8 +158,12 @@ export type MediaFlatSchemaDescriptor<
 	readonly progressVerb: string;
 	readonly facts: (summary: Summary) => readonly MediaSummaryFact[];
 	readonly presentationFacts: (data: Presentation) => readonly string[];
-	readonly watchProviders?: (summary: Summary) => MediaWatchProviders | undefined;
 	readonly unlinkedCreators?: (overview: Overview) => readonly MediaUnlinkedCreator[];
+	readonly overviewTrailing?: (input: {
+		readonly summary: Summary;
+		readonly compact: boolean;
+		readonly divided: boolean;
+	}) => ReactNode;
 };
 
 const MARKER_TONE: Record<MediaFlatSchemaRow["type"], string> = {
@@ -429,7 +434,7 @@ export const defineFlatMediaSchema = <
 				refreshOverview={props.refreshOverview}
 				summaryError={summaryState.summaryError}
 				tabContent={{ activity: props.activity }}
-				watchProviders={descriptor.watchProviders}
+				overviewTrailing={descriptor.overviewTrailing}
 				summaryRefreshStatus={props.summaryRefreshStatus}
 				overviewNoticeTitle={descriptor.creditCopy.notice}
 				overviewRefreshStatus={props.overviewRefreshStatus}
@@ -459,6 +464,7 @@ export const defineFlatMediaSchema = <
 				overviewQuery={overviewQuery}
 				heroHeight={descriptor.heroHeight}
 				mapSummary={summaryState.mapSummary}
+				backdropPurposes={descriptor.backdropPurposes}
 				overviewAssets={mediaGroupOverviewManagedAssets}
 			/>
 		);

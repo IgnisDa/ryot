@@ -15,6 +15,7 @@ import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { MediaHero } from "./hero";
+import type { MediaImagePurposes } from "./image";
 import { MediaOverview, type MediaOverviewRelationsRender } from "./overview";
 import { mapMediaOverview, type MediaOverviewState } from "./overview-state";
 import { MediaRefreshStatus, MediaStatusMessage } from "./primitives";
@@ -27,7 +28,6 @@ import {
 	type MediaSummaryUnavailableReason,
 } from "./summary-state";
 import { MediaTabBar, type MediaTab } from "./tabs";
-import type { MediaWatchProviders } from "./watch-providers";
 
 export type MediaStatusCopy = { readonly title: string; readonly detail: string };
 
@@ -75,9 +75,15 @@ export function MediaDetailBody<
 	readonly overviewRelations: MediaOverviewRelationsRender<Overview>;
 	readonly summaryUnavailable: (reason: MediaSummaryUnavailableReason) => MediaStatusCopy;
 	readonly progress?: (summary: Summary) => { readonly percent: number } | undefined;
-	readonly watchProviders?: ((summary: Summary) => MediaWatchProviders | undefined) | undefined;
+	readonly overviewTrailing?:
+		| ((input: {
+				readonly summary: Summary;
+				readonly compact: boolean;
+				readonly divided: boolean;
+		  }) => ReactNode)
+		| undefined;
 }) {
-	const { state } = props;
+	const { state, overviewTrailing } = props;
 	const [activeTab, setActiveTab] = useState<TabKey>(props.overviewTab);
 	if (state.status === "loading") {
 		return <MediaStatusMessage title={props.loading.title} detail={props.loading.detail} />;
@@ -124,7 +130,11 @@ export function MediaDetailBody<
 					noticeTitle={props.overviewNoticeTitle}
 					refreshStatus={props.overviewRefreshStatus}
 					loadingDetail={props.overviewLoadingDetail}
-					watchProviders={props.watchProviders?.(summary)}
+					trailing={
+						overviewTrailing === undefined
+							? undefined
+							: (input) => overviewTrailing({ ...input, summary })
+					}
 				/>
 			) : (
 				props.tabContent[activeTab]
@@ -140,6 +150,7 @@ export function MediaDetailScreen<
 >(props: {
 	readonly entityId: string;
 	readonly heroHeight: (compact: boolean) => number;
+	readonly backdropPurposes?: MediaImagePurposes | undefined;
 	readonly summaryQuery: RyotQuery<{ readonly entityId: string }, SummaryData>;
 	readonly overviewQuery: RyotQuery<{ readonly entityId: string }, OverviewData>;
 	readonly mapSummary: (result: RyotQueryResult<SummaryData>) => MediaSummaryState<Summary>;
@@ -155,7 +166,8 @@ export function MediaDetailScreen<
 	}, [commit, summaryResult.data, overviewResult.data]);
 	const state = props.mapSummary(summaryResult);
 	const overview = mapMediaOverview(overviewResult);
-	const assets = state.status === "ready" ? mediaManagedAssets(state.summary) : [];
+	const assets =
+		state.status === "ready" ? mediaManagedAssets(state.summary, props.backdropPurposes) : [];
 	const overviewAssets = overview.status === "ready" ? props.overviewAssets(overview.overview) : [];
 	return (
 		<ManagedAssetProvider assets={assets}>
@@ -166,7 +178,13 @@ export function MediaDetailScreen<
 					state.status === "ready"
 						? {
 								height: props.heroHeight(compact),
-								node: <MediaHero compact={compact} media={state.summary} />,
+								node: (
+									<MediaHero
+										compact={compact}
+										media={state.summary}
+										backdropPurposes={props.backdropPurposes}
+									/>
+								),
 							}
 						: undefined
 				}

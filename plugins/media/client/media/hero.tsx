@@ -1,6 +1,6 @@
 import { ImageTintOverlay, useImageTint } from "@ryot-app/client-ui-sdk/tint";
 
-import type { MediaImages } from "./image";
+import type { MediaImagePurposes, MediaImages } from "./image";
 import { useManagedAssetUrl } from "./managed-assets";
 import { mediaBackdropAsset, mediaPosterAsset } from "./summary-state";
 
@@ -34,8 +34,9 @@ const wideScrim = `linear-gradient(to bottom, ${scrimColor(SCRIM_WIDE_ALPHA)} 0%
 export function MediaHero(props: {
 	readonly compact: boolean;
 	readonly media: { readonly images: MediaImages };
+	readonly backdropPurposes?: MediaImagePurposes | undefined;
 }) {
-	const url = useManagedAssetUrl(mediaBackdropAsset(props.media));
+	const url = useManagedAssetUrl(mediaBackdropAsset(props.media, props.backdropPurposes));
 	const { gradientStops } = useImageTint(useManagedAssetUrl(mediaPosterAsset(props.media)));
 	return (
 		<div aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">

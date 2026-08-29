@@ -14,8 +14,7 @@ import { ManagedAssetImage } from "./managed-assets";
 import {
 	MediaActionButton,
 	MediaChip,
-	MediaFact,
-	MediaFactDivider,
+	MediaFactRow,
 	MediaLinkButton,
 	MediaProgressBar,
 	MediaRailRow,
@@ -31,44 +30,6 @@ import {
 } from "./summary-state";
 
 export type MediaSummaryValue = MediaSummaryFields & { readonly collections: MediaCollectionList };
-
-function MediaFactRow(props: {
-	readonly compact: boolean;
-	readonly facts: readonly MediaSummaryFact[];
-}) {
-	const { compact } = props;
-	return (
-		<div
-			className={clsx(
-				"flex flex-wrap items-center gap-y-4 pt-0.5",
-				!compact && "flex-nowrap gap-x-4",
-			)}
-		>
-			{props.facts.map((fact, index) => (
-				<div
-					key={fact.label}
-					className={clsx("flex items-center gap-3", compact ? "w-1/2" : "w-auto flex-none")}
-				>
-					{index === 0 || (compact && index % 2 === 0) ? null : (
-						<div className={clsx("flex", compact ? "mr-3" : "mr-4")}>
-							<MediaFactDivider />
-						</div>
-					)}
-					{compact && (
-						<div className="flex w-5 items-center">
-							<AppIcon
-								size={18}
-								name={fact.icon}
-								className={fact.iconClass ?? "text-text-subtle"}
-							/>
-						</div>
-					)}
-					<MediaFact label={fact.label} value={fact.value} suffix={fact.suffix} />
-				</div>
-			))}
-		</div>
-	);
-}
 
 function MediaIdentityLine(props: {
 	readonly typeLabel: string;
