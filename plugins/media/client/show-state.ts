@@ -1,11 +1,14 @@
-import type { MediaImage, ShowDetails, ShowRecipeResult } from "./show-recipe";
+import type { MediaImage } from "../shared/media-image";
+import type { ShowSummaryResult } from "../shared/show-recipes";
+
+export type ShowDetails = NonNullable<ShowSummaryResult["show"]>;
 
 export type ShowState =
 	| { readonly kind: "ready"; readonly show: ShowDetails }
 	| { readonly kind: "missing" }
 	| { readonly kind: "wrong-schema"; readonly entitySchemaSlug: string };
 
-export const classifyShow = (result: ShowRecipeResult): ShowState => {
+export const classifyShow = (result: ShowSummaryResult): ShowState => {
 	if (result.show !== null) {
 		return { kind: "ready", show: result.show };
 	}
