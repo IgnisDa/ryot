@@ -13,7 +13,8 @@ sandboxed, opaque-origin iframe.
 The iframe receives no bearer credentials and has no direct Capacitor access. Its only privileged
 connection is the `MessagePort` transferred by the kernel after both peers validate the bridge and
 artifact identity. Plugin requests cross that port as narrow, schema-checked capabilities; the kernel
-applies authentication, installation scope, and platform policy.
+applies authentication, installation scope, and platform policy. A plugin upload sends only bytes with
+a proposed file name and content type; the kernel keeps intent creation, transfer, and completion.
 
 Client artifacts are immutable and content-addressed. An installation catalog entry couples a source
 revision to one artifact hash, and artifact-session creation submits the installation ID, source hash,

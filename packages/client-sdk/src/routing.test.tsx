@@ -35,6 +35,7 @@ import {
 	type EntityRendererProps,
 	type PluginRouterDefinition,
 } from "./routing";
+import { createTestRyotAdapter } from "./testing";
 
 let mountCount = 0;
 let entityMountCount = 0;
@@ -191,7 +192,7 @@ const openChannel = (
 		store,
 		messages,
 		sendEntity,
-		client: createRyotClient({ navigate, query: () => Promise.resolve({}) }),
+		client: createRyotClient(createTestRyotAdapter({ navigate, query: () => Promise.resolve({}) })),
 		setEdge: (edge: {
 			readonly compact: boolean;
 			readonly edgeBack: boolean;
@@ -308,7 +309,9 @@ describe("PluginRouter", () => {
 		});
 		const container = renderRouter({
 			...channel,
-			client: createRyotClient({ watchEntities, query: () => Promise.resolve({}) }),
+			client: createRyotClient(
+				createTestRyotAdapter({ watchEntities, query: () => Promise.resolve({}) }),
+			),
 		});
 		act(() => channel.send("/", "", { index: 0, key: "home" }));
 		expect(watches).toBe(1);

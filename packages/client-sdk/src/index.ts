@@ -35,7 +35,10 @@ const normalizeInterest = (interest: EntityInterest): EntityInterest => {
 	const visible = [...new Set(decoded.success.visible)].filter((id) => !roots.has(id)).sort();
 	return { visible, foreground };
 };
-export type { ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
+export type {
+	ManagedAssetLocator,
+	TemporaryUploadToken,
+} from "@ryot-app/contract/modules/uploads/schemas";
 
 export type RyotThemeSnapshot = PluginThemeSnapshotValue;
 export type ManagedAssetResolution = PluginManagedAssetResolutionValue;
@@ -69,7 +72,7 @@ export type RyotNavigationTarget =
 	| { readonly path: string; readonly kind: "route"; readonly search?: Record<string, string> };
 
 export type RyotClientAdapter = {
-	readonly uploadTemporary?: (request: TemporaryUploadRequest) => Promise<unknown>;
+	readonly uploadTemporary: (request: TemporaryUploadRequest) => Promise<unknown>;
 	readonly navigate?: (mode: "push" | "replace", target: RyotNavigationTarget) => void;
 	readonly watchEntities?: (
 		interest: EntityInterest,
@@ -285,8 +288,8 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		},
 		uploads: {
 			uploadTemporary: async (request: TemporaryUploadRequest) => {
-				if (!adapter.uploadTemporary) {
-					throw new RyotClientError("unsupported-capability");
+				if (!(request.source instanceof Blob)) {
+					throw new RyotClientError("invalid-input");
 				}
 				let value: unknown;
 				try {
