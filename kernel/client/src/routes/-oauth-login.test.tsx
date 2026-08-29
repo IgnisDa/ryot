@@ -18,6 +18,7 @@ import {
 	GodModeRouteStubs,
 	SavedViewRouteStubs,
 	ProviderAddRouteStubs,
+	NavigationRouteStubs,
 	theme,
 	catalog,
 	makeAuthStub,
@@ -68,6 +69,7 @@ const mountLogin = (config: ReturnType<typeof systemConfig>) => {
 					}),
 			}),
 			Layer.succeed(PluginCatalogService, { load: () => Effect.succeed(catalog) }),
+			NavigationRouteStubs,
 			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
 			Layer.succeed(PluginOperationsService, { invoke: () => Effect.die("not used") }),
 			Layer.succeed(ArtifactSessions, {

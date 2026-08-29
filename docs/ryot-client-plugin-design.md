@@ -1168,7 +1168,9 @@ For:
 the kernel owns the screen.
 
 A saved view's plugin association never determines the surrounding workspace context. Every saved
-view uses the remembered last workspace for surrounding navigation context.
+view uses the remembered last workspace for surrounding navigation context. The association only
+groups sidebar rows: a matching `pluginSlug` appears under the workspace's **Views**, while a null
+`pluginSlug` appears under **Saved Views**.
 
 ### Settings and other global routes
 
@@ -1179,7 +1181,7 @@ Settings lives at `/settings`, `/settings/preferences`, and `/settings/account`,
 
 `/settings/preferences` currently contains only an Appearance section: Light/Dark/System radios that are device-local. `/settings/account` shows profile identity — avatar, name, email, user ID, and server origin — plus sign out and change server, each with pending, disabled, and stable failure states. A `ThemeController` stays mounted globally, renders nothing, and reads and persists the preference from a `ThemeStore`; that store remains the single source of truth for applying the theme to the document and for the theme snapshot published to plugins. There is no separate global theme selector outside Appearance.
 
-Saved views, collections, search, the command center, sidebar customization, avatar refresh, God mode, integrations, imports, backups, plugin management, and the remaining settings sections are deferred.
+Sidebar customization, avatar refresh, God mode, integrations, imports, backups, plugin management, and the remaining settings sections are deferred. The command center currently ships only as a placeholder surface.
 
 ---
 
@@ -1209,7 +1211,7 @@ The switcher lists every enabled installation in catalog order. Selecting the cu
 
 ### Shell chrome
 
-At `md` and above, a desktop workspace sidebar (~264px, hidden below `md`) is always present: a workspace trigger, a Home row for the remembered workspace, and an account/settings footer. It carries no search, saved views, collections, or customization. Below `md`, a mobile header replaces it, opening a drawer that carries the same trigger, Home row, and footer.
+At `md` and above, a desktop workspace sidebar (~264px, hidden below `md`) is always present. Its shared `SidebarNav` contains a workspace trigger whose subtitle is the workspace view count, a command-center search row, workspace Views, global Saved Views, and Collections; the account/settings footer remains outside the shared body. Below `md`, a mobile header replaces the rail and opens a drawer that renders the same `SidebarNav` and footer, except that the search row omits the keyboard-shortcut chip. Sidebar customization remains deferred.
 
 The mobile header is a 54px row with `size-11 rounded-pill` controls on a `bg-bg` surface. Its leading control is the menu button or a back chevron, chosen by the §25 edge rule. Its title is the remembered workspace's name, overridden by the plugin-supplied title described in §10 when one is set.
 

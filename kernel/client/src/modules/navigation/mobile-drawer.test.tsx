@@ -10,6 +10,7 @@ import { axe } from "vitest-axe";
 
 import type { AuthSessionStore } from "#/modules/auth/service";
 import { MobileDrawer } from "#/modules/navigation/mobile-drawer";
+import type { SidebarSections } from "#/modules/navigation/sidebar-sections";
 
 const workspace = (
 	overrides: Partial<PluginClientCatalogEntry> = {},
@@ -36,6 +37,22 @@ const snapshot = {
 const session: AuthSessionStore = {
 	getSnapshot: () => snapshot,
 	subscribe: () => () => undefined,
+};
+
+const sections: SidebarSections = {
+	savedViews: [],
+	collections: [],
+	views: [
+		{
+			name: "Home",
+			slug: "home",
+			sortOrder: 0,
+			kind: "home",
+			icon: "house",
+			pluginSlug: null,
+			isDisabled: false,
+		},
+	],
 };
 
 type HarnessProps = {
@@ -65,13 +82,17 @@ function Harness(props: HarnessProps) {
 			<MobileDrawer
 				isPro={false}
 				isOpen={isOpen}
+				activeKey={null}
 				session={session}
 				current={current}
 				activeHome={true}
 				progress={progress}
+				sections={sections}
 				drawerId="test-drawer"
 				activeSettings={false}
 				triggerRef={triggerRef}
+				onOpenSearch={() => undefined}
+				onNavigateItem={() => undefined}
 				hasDrawer={props.hasDrawer ?? true}
 				onNavigateSettings={() => undefined}
 				catalog={props.catalog ?? [current]}
