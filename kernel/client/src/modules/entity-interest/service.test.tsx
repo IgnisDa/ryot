@@ -619,11 +619,9 @@ describe("entity interest session", () => {
 				test.advance(15_000);
 				expect(test.socket().closed).toBe(true);
 				test.advance(delay - 1);
-				// oxlint-disable-next-line eslint/no-await-in-loop -- Observe each retry before advancing its next deadline.
 				yield* Effect.promise(() => settle());
 				expect(test.tickets()).toBe(count);
 				test.advance(1);
-				// oxlint-disable-next-line eslint/no-await-in-loop -- Complete this ticket before the next retry.
 				yield* Effect.promise(() => settle());
 				expect(test.tickets()).toBe(count + 1);
 			}
