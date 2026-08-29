@@ -148,6 +148,13 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 			);
 		}
 
+		// TODO(https://github.com/better-auth/better-auth/issues/11277): OAuth sign-in
+		// is broken entirely on these origins, not just unencrypted. Better Auth
+		// rejects `http:` redirect URIs outside loopback with no override, so
+		// `/oauth2/authorize` fails on `redirect_uri` before the flow starts. The
+		// message of the commit that added this comment lists every change needed
+		// once upstream exposes an opt-in override; follow it rather than
+		// rediscovering the wiring.
 		if (frontendUrl.protocol === "http:" && !isLoopbackOrigin(frontendUrl.origin)) {
 			yield* Effect.logWarning(
 				"FRONTEND_URL uses plain HTTP, so logins and API keys cross the network unencrypted and anyone on it can read them. Use HTTPS for anything reachable from the internet.",
