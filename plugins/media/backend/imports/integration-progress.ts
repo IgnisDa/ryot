@@ -1,8 +1,9 @@
 import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
-import { DateTime, Effect } from "@ryot-app/sandbox-sdk/effect";
+import { DateTime, Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { eventReadRecipe, executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
 import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
 
+import { MediaSandboxError } from "../lib/failures";
 import type { MediaProgressEvent } from "../lib/ryotql";
 import type { MediaImportWriteChunkInput } from "./schemas";
 import type { manifest } from "./write-chunks.sandbox";
@@ -10,6 +11,9 @@ import type { manifest } from "./write-chunks.sandbox";
 type Host = SandboxHost<typeof manifest.capabilities>;
 type Properties = Readonly<Record<string, JsonValue>>;
 type ProgressEvent = Pick<MediaProgressEvent, "properties" | "occurredAt" | "createdAt">;
+const encodeProgressIdentity = Schema.encodeSync(
+	Schema.fromJsonString(Schema.Array(Schema.String)),
+);
 
 const parseProgressPercent = (value: JsonValue | undefined) => {
 	if (typeof value === "number") {
@@ -80,7 +84,9 @@ export const admitIntegrationProgress = (input: MediaImportWriteChunkInput, host
 				const entityId = event.subjectEntityId ?? population.entityId;
 				if (event.subjectEntityId && !event.subjectEntitySchemaSlug) {
 					return yield* Effect.fail(
-						new Error("Integration progress subject is missing its resolved schema"),
+						new MediaSandboxError({
+							message: "Integration progress subject is missing its resolved schema",
+						}),
 					);
 				}
 				const entitySchemaSlug = event.subjectEntitySchemaSlug ?? group.entityRef.entitySchemaSlug;
@@ -91,13 +97,13 @@ export const admitIntegrationProgress = (input: MediaImportWriteChunkInput, host
 					consumedOnValue(event.properties),
 					subitemSignature(event.properties),
 				];
-				const fingerprint = JSON.stringify(identity);
-				const claimKey = JSON.stringify([
+				const fingerprint = encodeProgressIdentity(identity);
+				const claimKey = encodeProgressIdentity([
 					"media.integration-progress.v1",
 					attribution.integrationId,
 					...identity,
 				]);
-				const decision = yield* Effect.gen(function* () {
+				const decideProgress = Effect.fnUntraced(function* decideProgress() {
 					const parsed = parseProgressPercent(event.properties["progressPercent"]);
 					if (parsed === null) {
 						return { reason: "invalid_progress" };
@@ -162,6 +168,7 @@ export const admitIntegrationProgress = (input: MediaImportWriteChunkInput, host
 						reason: parsed > maximum ? "normalized_completion" : "admitted",
 					};
 				});
+				const decision = yield* decideProgress();
 				yield* host.log([
 					{
 						level: "debug",

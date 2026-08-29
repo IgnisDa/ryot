@@ -146,6 +146,7 @@ const runAudiobookshelf = (routes: Record<string, Route>, syncOwnership = false)
 	);
 
 describe("Plex yank", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("maps watched movies and per-episode show coverage by guid", async () => {
 		const result = await runPlex({
 			"/library/sections": libraries([
@@ -193,6 +194,7 @@ describe("Plex yank", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("records a failure for a watched item without a provider id", async () => {
 		const result = await runPlex({
 			"/library/sections": libraries([{ key: "1", type: "movie", title: "Movies" }]),
@@ -210,6 +212,7 @@ describe("Plex yank", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("returns owned movies and shows regardless of watch state", async () => {
 		const result = await runPlex(
 			{
@@ -236,6 +239,7 @@ describe("Plex yank", () => {
 		]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("omits owned items without a provider id", async () => {
 		const result = await runPlex(
 			{
@@ -252,6 +256,7 @@ describe("Plex yank", () => {
 		).toHaveLength(1);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("skips a section whose item fetch fails and keeps the rest", async () => {
 		const result = await runPlex(
 			{
@@ -272,6 +277,7 @@ describe("Plex yank", () => {
 		expect(result.failures[0]).toMatchObject({ stage: "source_fetch" });
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("falls back to an unresolved IMDb ref", async () => {
 		const result = await runPlex({
 			"/library/sections": libraries([{ key: "1", type: "movie", title: "Movies" }]),
@@ -294,6 +300,7 @@ describe("Plex yank", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("isolates a show episode request failure and continues later rows", async () => {
 		const result = await runPlex({
 			"/library/metadata/1/allLeaves": failure,
@@ -336,6 +343,7 @@ describe("Audiobookshelf yank", () => {
 		"/api/libraries/lib1/items?expanded=1&filter=progress.ZmluaXNoZWQ=": { results: items },
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("maps Audible audiobooks and ISBN ebooks into library collections", async () => {
 		const result = await runAudiobookshelf(
 			itemRoutes([
@@ -365,6 +373,7 @@ describe("Audiobookshelf yank", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("records a failure for an item missing media metadata", async () => {
 		const result = await runAudiobookshelf(itemRoutes([{ id: "x1", name: "Broken" }]));
 		expect(result.entityGroups).toEqual([]);
@@ -376,6 +385,7 @@ describe("Audiobookshelf yank", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("rejects an ebook with an invalid ISBN", async () => {
 		const result = await runAudiobookshelf(
 			itemRoutes([
@@ -394,6 +404,7 @@ describe("Audiobookshelf yank", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("returns owned audiobooks and ebooks regardless of finished state", async () => {
 		const items: JsonValue[] = [
 			{
@@ -419,6 +430,7 @@ describe("Audiobookshelf yank", () => {
 		]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("omits owned items without a usable identifier", async () => {
 		const items: JsonValue[] = [
 			{ id: "a1", media: { ebookFormat: null, metadata: { asin: "B01", title: "Has Asin" } } },
@@ -433,6 +445,7 @@ describe("Audiobookshelf yank", () => {
 		).toHaveLength(1);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("skips a library whose item fetch fails and keeps the rest", async () => {
 		const item = {
 			id: "a1",
@@ -465,6 +478,7 @@ describe("Audiobookshelf yank", () => {
 		libraries: [{ id: "podcasts", name: "Podcasts", mediaType: "podcast" }],
 	};
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("imports only the podcast episodes this account finished", async () => {
 		const result = await runAudiobookshelf({
 			"/api/libraries": podcastLibrary,
@@ -493,6 +507,7 @@ describe("Audiobookshelf yank", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("reads podcast details whose episodes carry null numbering fields", async () => {
 		const result = await runAudiobookshelf({
 			"/api/libraries": podcastLibrary,
@@ -509,6 +524,7 @@ describe("Audiobookshelf yank", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("leaves podcasts with nothing finished out of the result without failing them", async () => {
 		const result = await runAudiobookshelf({
 			"/api/libraries": podcastLibrary,
@@ -524,6 +540,7 @@ describe("Audiobookshelf yank", () => {
 		expect(result.entityGroups).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("records a failure when a finished podcast episode has no episode number", async () => {
 		const result = await runAudiobookshelf({
 			"/api/libraries": podcastLibrary,
@@ -587,6 +604,7 @@ describe("Komga yank", () => {
 		expect(extractMangaRef([], "Berserk")).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("accepts null and unread progress while preserving ownership", async () => {
 		const book = {
 			id: "book1",
@@ -690,6 +708,7 @@ describe("YouTube Music yank", () => {
 		expect(dailyProgressWindow("UTC", "2026-01-01T23:50:00.000Z").isFinalWindow).toBe(true);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("emits 35 once, emits 100 once, then skips songs already completed that day", async () => {
 		const { run } = setup([
 			{ videoId: "v1", title: "First" },
@@ -701,6 +720,7 @@ describe("YouTube Music yank", () => {
 		expect(progressValues(await run("2026-01-01T12:10:00.000Z"))).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("completes a song directly when first found in the final ten minutes", async () => {
 		const { run, claims } = setup();
 		expect(progressValues(await run("2026-01-01T23:50:00.000Z"))).toEqual([100]);

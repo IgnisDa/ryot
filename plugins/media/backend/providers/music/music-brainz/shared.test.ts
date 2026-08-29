@@ -8,7 +8,7 @@ import { manifest } from "./shared";
 
 const httpSuccess = (body: unknown) =>
 	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
-const httpFailure = () => Effect.fail(new Error("not found"));
+const httpFailure = () => Effect.fail({ message: "not found" });
 const makeHost = (route: (url: string) => unknown) =>
 	defineSandboxTestHost(manifest, {
 		httpCall: (_method: string, url: string) => {

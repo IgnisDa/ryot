@@ -2,6 +2,7 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
+import { MediaSandboxError } from "../../../lib/failures";
 import { asRecord, stringValue } from "../../../lib/records";
 import { createRoleAccumulator } from "../../../lib/role-accumulator";
 import {
@@ -101,7 +102,9 @@ export const details = defineProvider({
 	operation: "details",
 	run: (input, host) => {
 		if (!GUID_PATTERN.test(input.externalId)) {
-			return Effect.fail(new Error("externalId must be a GiantBomb GUID (e.g., '3030-1')"));
+			return Effect.fail(
+				new MediaSandboxError({ message: "externalId must be a GiantBomb GUID (e.g., '3030-1')" }),
+			);
 		}
 		return Effect.gen(function* () {
 			const payload = yield* giantBombRequest(
@@ -112,11 +115,15 @@ export const details = defineProvider({
 			);
 			const game = asRecord(payload?.["results"]);
 			if (!game) {
-				return yield* Effect.fail(new Error("GiantBomb returned no game data"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "GiantBomb returned no game data" }),
+				);
 			}
 			const name = stringValue(game["name"]);
 			if (!name) {
-				return yield* Effect.fail(new Error("GiantBomb game payload is missing name"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "GiantBomb game payload is missing name" }),
+				);
 			}
 
 			const companyAccumulator = createRoleAccumulator();

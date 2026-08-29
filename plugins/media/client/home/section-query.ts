@@ -58,7 +58,7 @@ export const createHomeSectionQuery = <Input, Recipes extends SectionRecipes>(
 	visible: (data: SectionData<Recipes>) => readonly string[],
 ) =>
 	createRyotQuery<Input, SectionData<Recipes>>(
-		({ input, client, signal }) => client.data.query(sectionRecipe(recipes(input)), { signal }),
+		({ input, client }) => client.data.query(sectionRecipe(recipes(input))),
 		{
 			entityInterest: ({ data }) => ({
 				foreground: [],

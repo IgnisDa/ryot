@@ -9,7 +9,6 @@ import type { EpisodicLifecycleState } from "../../shared/lifecycle-expressions"
 import {
 	eventAutomationContext,
 	automationContext,
-	execution,
 	hostSuccess,
 } from "../../tests/backend/automations/automation-test-utils";
 import type { EventOrderTuple } from "../contracts/lifecycle-recipes";
@@ -212,7 +211,7 @@ const createHost = (
 };
 
 const run = (context: AutomationInput, host: ReturnType<typeof createHost>["host"]) =>
-	definition.run(context, host, execution);
+	definition.run(context, host);
 
 describe("auto-complete-episodic-parent sandbox script", () => {
 	it("declares the exact automation manifest", () => {
@@ -231,6 +230,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("requires an episode completion session", async () => {
 		const testHost = createHost([completeCoverage()]);
 		await Effect.runPromise(run(eventContext({ sessionEntityId: undefined }), testHost.host));
@@ -263,6 +263,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 				occurredAt: "2026-01-04T00:00:00.000Z",
 			},
 		},
+		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	])("ignores event triggers at or before the boundary by $name", async ({ boundary }) => {
 		const testHost = createHost([{ ...completeCoverage(), boundary }]);
 		await Effect.runPromise(run(eventContext(), testHost.host));
@@ -277,6 +278,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 		},
 		{ name: "nonterminal status", fixture: completeCoverage("Continuing") },
 		{ name: "unknown status", fixture: completeCoverage("Unknown") },
+		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	])("does not claim for $name", async ({ fixture }) => {
 		const testHost = createHost([fixture]);
 		await Effect.runPromise(run(eventContext(), testHost.host));
@@ -284,6 +286,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 		expect(testHost.created).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("does not complete a show with zero regular seasons", async () => {
 		const fixture: SnapshotFixture = {
 			events: [],
@@ -310,6 +313,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("excludes season-zero and unaired episodes from aggregate coverage", async () => {
 		const fixture: SnapshotFixture = {
 			events: [],
@@ -330,6 +334,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 		expect(testHost.created).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("does not combine pre-boundary completions with current-cycle coverage", async () => {
 		const boundary = {
 			id: "parent-complete-1",
@@ -362,6 +367,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 		expect(testHost.created).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("later progress reopens coverage after a closing completion", async () => {
 		const fixture: SnapshotFixture = {
 			state: "in_progress",
@@ -380,6 +386,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 		expect(testHost.created).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("duplicate completion does not move the coverage-closing event", async () => {
 		const fixture = {
 			...completeCoverage(),
@@ -420,6 +427,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 		]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("stops immediately when the claim is held", async () => {
 		const testHost = createHost([completeCoverage()], { claimed: false });
 		await Effect.runPromise(run(eventContext(), testHost.host));
@@ -427,6 +435,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 		expect(testHost.created).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("rechecks lifecycle state after a successful claim", async () => {
 		const testHost = createHost([
 			completeCoverage(),
@@ -437,6 +446,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 		expect(testHost.created).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("uses the latest parent-completion boundary in the claim key", async () => {
 		const boundary = {
 			id: "parent-complete-1",
@@ -453,6 +463,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 		]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("does not let an old event trigger close a cycle whose boundary advanced after claiming", async () => {
 		const current = {
 			...completeCoverage(),
@@ -472,6 +483,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 		expect(testHost.created).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("uses one claim key for concurrent final candidates and creates one event", async () => {
 		let held = false;
 		const claims: Array<readonly [string, boolean, number]> = [];
@@ -498,6 +510,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 		expect(created).toHaveLength(1);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("uses one aggregate query per snapshot for more than 100 episodes", async () => {
 		const firstEpisodeIds = Array.from(
 			{ length: 100 },
@@ -549,6 +562,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 		["Continuing", "Ended"],
 		["Unknown", "CANCELED"],
 		["Continuing", "cancelled"],
+		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	])("completes caught-up parents on %s to %s", async (oldStatus, newStatus) => {
 		const fixture = completeCoverage(newStatus);
 		const testHost = createHost([fixture, fixture]);
@@ -557,6 +571,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 		expect(testHost.created[0]?.[0]?.occurredAt).toBe("2026-01-03T00:00:00.000Z");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("completes caught-up podcasts when production ends", async () => {
 		const fixture = completeCoverage();
 		const testHost = createHost([fixture, fixture]);
@@ -569,6 +584,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 	it.each([
 		["Ended", "Cancelled"],
 		["Continuing", "Returning Series"],
+		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	])("ignores production-status changes from %s to %s", async (oldStatus, newStatus) => {
 		const testHost = createHost([completeCoverage(newStatus)]);
 		await Effect.runPromise(run(statusSignalContext(oldStatus, newStatus), testHost.host));
@@ -581,12 +597,14 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 			name: "a missing subject",
 			context: statusSignalContext("Continuing", "Ended", "show", null),
 		},
+		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	])("ignores status signals for $name", async ({ context }) => {
 		const testHost = createHost([completeCoverage()]);
 		await Effect.runPromise(run(context, testHost.host));
 		expect(testHost.queryCount).toBe(0);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("does not complete a terminal status change with incomplete coverage", async () => {
 		const fixture: SnapshotFixture = {
 			state: "in_progress",
@@ -603,6 +621,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 
 	it.each(["on_hold", "dropped"] as const)(
 		"does not complete a terminal status change while parent state is %s",
+		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 		async (state) => {
 			const fixture = { ...completeCoverage(), state };
 			const testHost = createHost([fixture]);
@@ -612,6 +631,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 		},
 	);
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("resumes after on hold when a later child completion closes coverage", async () => {
 		const firstComplete = childEvent(
 			"complete-1",
@@ -659,6 +679,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 		expect(testHost.created[0]?.[0]?.occurredAt).toBe(finalComplete.occurredAt);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("supports podcast child completion with no agreed consumedOn", async () => {
 		const fixture: SnapshotFixture = {
 			state: "caught_up",

@@ -109,7 +109,7 @@ const collectStudioPages = (
 	studioId: number,
 	page: number,
 	collected: { studio: UnknownRecord | null; mediaEdges: unknown[] },
-): Effect.Effect<StudioPages, unknown> =>
+): Effect.Effect<StudioPages, Effect.Error<ReturnType<typeof getStudioPage>>> =>
 	getStudioPage(host, studioId, page).pipe(
 		Effect.flatMap((studioPage) => {
 			const studio = collected.studio ?? studioPage;

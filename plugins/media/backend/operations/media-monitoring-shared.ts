@@ -1,12 +1,13 @@
 import type { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { executeRyotqlRecipe, type RyotQLDocument } from "@ryot-app/sandbox-sdk/ryotql";
+import type { SandboxHostError } from "@ryot-app/sandbox-sdk/wire";
 
 import type { MediaMonitoringResult } from "../contracts/operations";
 import { mediaMonitoringTargetsRecipe } from "../lib/media-monitoring-ryotql";
 
 export const queryMediaMonitoringTargets = (
 	entityIds: readonly string[],
-	executeRyotql: (document: RyotQLDocument) => Effect.Effect<unknown, unknown>,
+	executeRyotql: (document: RyotQLDocument) => Effect.Effect<unknown, SandboxHostError>,
 ) => executeRyotqlRecipe(executeRyotql, mediaMonitoringTargetsRecipe(entityIds));
 
 export const alignedMediaMonitoringResults = (

@@ -4,7 +4,6 @@ import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
 import {
-	execution,
 	hostSuccess,
 	policyAutomationContext,
 	ryotqlRows,
@@ -12,15 +11,17 @@ import {
 import definition, { manifest } from "./episodic-session-policy.sandbox";
 
 const run = (context: AutomationPolicyInput, parents: readonly Record<string, unknown>[] = []) =>
-	definition.run(
-		context,
-		defineSandboxTestHost(manifest, {
-			executeRyotql: () => hostSuccess(ryotqlRows("parents", parents)),
-		}),
-		execution,
-	);
+	Effect.gen(function* () {
+		return yield* definition.run(
+			context,
+			defineSandboxTestHost(manifest, {
+				executeRyotql: () => hostSuccess(ryotqlRows("parents", parents)),
+			}),
+		);
+	});
 
 describe("episodic session policy", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("returns only the session patch", async () => {
 		const input = policyAutomationContext({
 			entityId: "episode-1",

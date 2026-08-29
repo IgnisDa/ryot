@@ -6,12 +6,12 @@ import { mediaPlugin } from "../../host/plugin";
 import {
 	entityRecord,
 	eventAutomationContext,
-	execution,
 	hostSuccess,
 	ryotqlRows,
 } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./review-created.sandbox";
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("emits a review signal using the inline event identity and current entity name", async () => {
 	const calls: unknown[] = [];
 	await Effect.runPromise(
@@ -32,7 +32,6 @@ it("emits a review signal using the inline event identity and current entity nam
 						ryotqlRows("entities", [entityRecord({ name: "Dune", entitySchemaSlug: "book" })]),
 					),
 			}),
-			execution,
 		),
 	);
 	expect(calls).toEqual([
@@ -52,6 +51,7 @@ it("emits a review signal using the inline event identity and current entity nam
 	});
 });
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("ignores non-review events and deleted subjects", async () => {
 	const calls: unknown[] = [];
 	const host = defineSandboxTestHost(manifest, {
@@ -62,10 +62,10 @@ it("ignores non-review events and deleted subjects", async () => {
 		},
 	});
 	await Effect.runPromise(
-		definition.run(eventAutomationContext({ eventSchemaSlug: "progress" }), host, execution),
+		definition.run(eventAutomationContext({ eventSchemaSlug: "progress" }), host),
 	);
 	await Effect.runPromise(
-		definition.run(eventAutomationContext({ eventSchemaSlug: "review" }), host, execution),
+		definition.run(eventAutomationContext({ eventSchemaSlug: "review" }), host),
 	);
 	expect(calls).toEqual([]);
 });

@@ -2,6 +2,7 @@ import type { ExecutionMetadata } from "@ryot-app/sandbox-sdk/core";
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
+import { MediaSandboxError } from "../../../lib/failures";
 import {
 	createYoutubeHistoryClient,
 	type HistoryClient,
@@ -21,7 +22,7 @@ export const manifest = defineManifest({
 type HistoryClientFactory = (
 	host: YoutubeMusicHost,
 	authCookie: string,
-) => Effect.Effect<HistoryClient, unknown>;
+) => Effect.Effect<HistoryClient, Effect.Error<ReturnType<typeof createYoutubeHistoryClient>>>;
 
 export const runHistory = (
 	input: { timezone: string; authCookie: string },
@@ -33,7 +34,9 @@ export const runHistory = (
 		Effect.flatMap((client) =>
 			execution.startedAt
 				? buildHistory(client, input.timezone, execution.startedAt)
-				: Effect.fail(new Error("Sandbox execution startedAt metadata is required")),
+				: Effect.fail(
+						new MediaSandboxError({ message: "Sandbox execution startedAt metadata is required" }),
+					),
 		),
 	);
 

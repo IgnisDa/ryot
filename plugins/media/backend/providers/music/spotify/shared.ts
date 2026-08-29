@@ -2,6 +2,7 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { DateTime, Effect, Option } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
+import { MediaSandboxError } from "../../../lib/failures";
 import { asRecord, numberValue, stringValue, trimmedString } from "../../../lib/records";
 import { createRoleAccumulator } from "../../../lib/role-accumulator";
 import {
@@ -96,7 +97,9 @@ export const details = defineProvider({
 			const track = asRecord(trackValue);
 			const title = stringValue(track?.["name"]);
 			if (!title) {
-				return yield* Effect.fail(new Error("Spotify track is missing name"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "Spotify track is missing name" }),
+				);
 			}
 
 			const artists = Array.isArray(track?.["artists"]) ? track["artists"] : [];

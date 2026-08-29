@@ -1,7 +1,10 @@
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { DateTime, Effect } from "@ryot-app/sandbox-sdk/effect";
+import { DateTime, Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { writeScratchChunks } from "@ryot-app/sandbox-sdk/filesystem";
-import { genericImportAdapterManifestSchema } from "@ryot-app/sandbox-sdk/imports";
+import {
+	genericImportAdapterManifestSchema,
+	genericImportChunkSchema,
+} from "@ryot-app/sandbox-sdk/imports";
 
 import { createMediaImportChunk } from "./chunks";
 import { admitIntegrationProgress } from "./integration-progress";
@@ -32,9 +35,10 @@ export default defineScript({
 			const ownershipSyncedAt = (yield* DateTime.nowAsDate).toISOString();
 			const admitted = yield* admitIntegrationProgress(input, host);
 			const chunk = createMediaImportChunk(admitted, ownershipSyncedAt);
-			return yield* writeScratchChunks([
-				{ name: "writes.json", contents: JSON.stringify(chunk) },
-			]).pipe(
+			const contents = yield* Schema.encodeEffect(Schema.fromJsonString(genericImportChunkSchema))(
+				chunk,
+			);
+			return yield* writeScratchChunks([{ contents, name: "writes.json" }]).pipe(
 				Effect.map(({ chunkFiles }) => ({
 					chunkFiles,
 					writeItemCount: chunk.items.length,

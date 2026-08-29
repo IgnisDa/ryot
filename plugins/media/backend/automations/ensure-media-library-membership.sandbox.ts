@@ -4,6 +4,7 @@ import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { executeRyotqlRecipe, userMediaLibraryRecipe } from "@ryot-app/sandbox-sdk/ryotql";
 
 import { mediaLibraryMemberEntitySchemaSlugs } from "../contracts/schema-slugs";
+import { MediaSandboxError } from "../lib/failures";
 
 export const manifest = defineManifest({
 	kind: "automation",
@@ -62,7 +63,9 @@ export default defineAutomation({
 				payload.resource === "provider-entity-import" &&
 				payload.userId !== automation.executionUserId
 			) {
-				return yield* Effect.fail(new Error("Provider import user does not match execution user"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "Provider import user does not match execution user" }),
+				);
 			}
 			const target = mediaLibraryTarget(payload);
 			if (!target || !libraryMemberEntitySchemaSlugs.has(target.entitySchemaSlug)) {

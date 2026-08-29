@@ -2,6 +2,7 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
+import { MediaSandboxError } from "../../../lib/failures";
 import { asRecord, numberValue, stringValue } from "../../../lib/records";
 import {
 	extractDate,
@@ -110,7 +111,9 @@ export const details = defineProvider({
 	operation: "details",
 	run: (input, host) => {
 		if (!/^v\d+$/.test(input.externalId)) {
-			return Effect.fail(new Error("externalId must be a VNDB VN ID (e.g., 'v17')"));
+			return Effect.fail(
+				new MediaSandboxError({ message: "externalId must be a VNDB VN ID (e.g., 'v17')" }),
+			);
 		}
 		return Effect.gen(function* () {
 			const payload = yield* vndbPost(
@@ -122,11 +125,15 @@ export const details = defineProvider({
 			const [first] = readResults(payload);
 			const vn = asRecord(first);
 			if (!vn) {
-				return yield* Effect.fail(new Error("VNDB returned no data for this externalId"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "VNDB returned no data for this externalId" }),
+				);
 			}
 			const name = stringValue(vn["title"]);
 			if (!name) {
-				return yield* Effect.fail(new Error("VNDB VN payload is missing title"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "VNDB VN payload is missing title" }),
+				);
 			}
 
 			const images: Array<{ type: "remote"; url: string; purpose: string }> = [];

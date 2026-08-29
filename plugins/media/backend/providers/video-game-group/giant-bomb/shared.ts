@@ -2,6 +2,7 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
+import { MediaSandboxError } from "../../../lib/failures";
 import { asRecord, stringValue } from "../../../lib/records";
 import {
 	combineDescription,
@@ -72,7 +73,9 @@ export const details = defineProvider({
 		Effect.gen(function* () {
 			if (!GUID_PATTERN.test(input.externalId)) {
 				return yield* Effect.fail(
-					new Error("externalId must be a GiantBomb GUID (e.g., '3030-1')"),
+					new MediaSandboxError({
+						message: "externalId must be a GiantBomb GUID (e.g., '3030-1')",
+					}),
 				);
 			}
 			const payload = yield* giantBombRequest(
@@ -83,11 +86,15 @@ export const details = defineProvider({
 			);
 			const franchise = asRecord(payload?.["results"]);
 			if (!franchise) {
-				return yield* Effect.fail(new Error("GiantBomb returned no franchise data"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "GiantBomb returned no franchise data" }),
+				);
 			}
 			const name = stringValue(franchise["name"]);
 			if (!name) {
-				return yield* Effect.fail(new Error("GiantBomb franchise payload is missing name"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "GiantBomb franchise payload is missing name" }),
+				);
 			}
 
 			const primaryImage = getPrioritizedImage(franchise["image"]);

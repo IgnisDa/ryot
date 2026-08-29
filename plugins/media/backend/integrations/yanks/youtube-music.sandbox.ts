@@ -25,7 +25,7 @@ const Input = Schema.Struct({});
 type HistoryClientFactory = (
 	host: YoutubeMusicHost,
 	authCookie: string,
-) => Effect.Effect<HistoryClient, unknown>;
+) => Effect.Effect<HistoryClient, Effect.Error<ReturnType<typeof createYoutubeHistoryClient>>>;
 
 export const dailyProgressWindow = (timezone: string, startedAt: string) =>
 	Option.match(DateTime.makeZoned(DateTime.makeUnsafe(startedAt), { timeZone: timezone }), {

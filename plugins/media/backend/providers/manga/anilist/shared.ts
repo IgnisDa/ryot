@@ -3,6 +3,8 @@ import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
 import { cleanHtmlDescription } from "../../../lib/clean-html-description";
+import { mediaFailureMessage } from "../../../lib/error-message";
+import { MediaSandboxError } from "../../../lib/failures";
 import { numberValue, stringValue } from "../../../lib/records";
 import { toTitleCase } from "../../../lib/title-case-delimiters";
 import {
@@ -64,14 +66,14 @@ export const details = defineProvider({
 		return Effect.gen(function* () {
 			const mediaId = yield* Effect.try({
 				try: () => parseAnilistId(input.externalId, "media"),
-				catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+				catch: (error) => new MediaSandboxError({ message: mediaFailureMessage(error) }),
 			});
 			const data = yield* anilistGraphql(host, "manga details", MEDIA_DETAILS_QUERY, {
 				id: mediaId,
 			});
 			const media = yield* Effect.try({
 				try: () => requireAnilistMedia(data, "MANGA"),
-				catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+				catch: (error) => new MediaSandboxError({ message: mediaFailureMessage(error) }),
 			});
 			const idValue = numberValue(media["id"]);
 			const payloadIdentifier = idValue === null ? input.externalId : String(Math.trunc(idValue));

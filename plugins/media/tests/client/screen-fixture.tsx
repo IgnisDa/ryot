@@ -1,4 +1,5 @@
 import type { EntitySettleReason } from "@ryot-app/client-sdk";
+import { Effect } from "@ryot-app/client-sdk/effect";
 import type { ReactNode } from "react";
 
 import type { MediaOverviewState } from "../../client/media/overview-state";
@@ -7,7 +8,7 @@ import type { MediaSummaryState } from "../../client/media/summary-state";
 import { readyQueryResult } from "./query-result-fixture";
 import { mountRyotClient } from "./test-support";
 
-const noopAdapter = { query: () => Promise.resolve({}) };
+const noopAdapter = { query: () => Effect.succeed({}) };
 
 type MediaScreenBody<Summary, Overview> = (props: {
 	readonly compact: boolean;

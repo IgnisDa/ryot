@@ -69,6 +69,7 @@ describe("person.vndb sandbox script", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("rejects an externalId that is not a VNDB producer id", async () => {
 		const host = makeHost(() => httpSuccess({ results: [] }));
 		try {

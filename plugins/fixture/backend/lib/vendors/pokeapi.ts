@@ -1,11 +1,15 @@
 import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const INDEX_LIMIT = 10_000;
 export const API_BASE_URL = "https://pokeapi.co/api/v2";
 
 export type PokeApiHost = SandboxHost<readonly ["httpCall"]>;
 export type PokeApiEntry = { readonly id: number; readonly name: string };
+
+export class PokeApiError extends Error {
+	readonly _tag = "PokeApiError";
+}
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
 	value !== null && typeof value === "object" && !Array.isArray(value);
@@ -27,15 +31,15 @@ export const titleCase = (value: string) =>
 		.join(" ");
 
 export const loadJson = (host: PokeApiHost, url: string) =>
-	host.httpCall("GET", url).pipe(
-		Effect.mapError((error) => new Error(error.message || `PokeAPI request failed: ${url}`)),
-		Effect.flatMap((response) =>
-			Effect.try({
-				try: () => JSON.parse(response.body) as unknown,
-				catch: () => new Error(`PokeAPI returned invalid JSON: ${url}`),
-			}),
-		),
-	);
+	host
+		.httpCall("GET", url)
+		.pipe(
+			Effect.flatMap((response) =>
+				Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(response.body).pipe(
+					Effect.mapError(() => new PokeApiError(`PokeAPI returned invalid JSON: ${url}`)),
+				),
+			),
+		);
 
 const toEntry = (value: unknown): PokeApiEntry | null => {
 	const record = asRecord(value);

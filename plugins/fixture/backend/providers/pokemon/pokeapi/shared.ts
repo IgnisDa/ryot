@@ -10,6 +10,7 @@ import {
 	integerValue,
 	intersectEntries,
 	loadJson,
+	PokeApiError,
 	stringValue,
 	titleCase,
 	toEntries,
@@ -54,7 +55,7 @@ const loadPokemon = (host: PokeApiHost, externalId: string) =>
 			const pokemon = asRecord(payload);
 			return pokemon
 				? Effect.succeed(pokemon)
-				: Effect.fail(new Error(`PokeAPI returned no Pokémon for '${externalId}'`));
+				: Effect.fail(new PokeApiError(`PokeAPI returned no Pokémon for '${externalId}'`));
 		}),
 	);
 
@@ -131,13 +132,15 @@ export const details = defineProvider({
 	operation: "details",
 	run: (input, host) => {
 		if (!/^\d+$/.test(input.externalId)) {
-			return Effect.fail(new Error("externalId must be a numeric PokeAPI Pokémon ID (e.g. '25')"));
+			return Effect.fail(
+				new PokeApiError("externalId must be a numeric PokeAPI Pokémon ID (e.g. '25')"),
+			);
 		}
 		return loadPokemon(host, input.externalId).pipe(
 			Effect.flatMap((pokemon) => {
 				const name = stringValue(pokemon["name"]);
 				if (!name) {
-					return Effect.fail(new Error("PokeAPI Pokémon payload is missing name"));
+					return Effect.fail(new PokeApiError("PokeAPI Pokémon payload is missing name"));
 				}
 				const imageUrl = artworkUrl(pokemon);
 				return Effect.succeed({

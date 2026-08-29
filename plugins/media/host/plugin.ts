@@ -1,4 +1,4 @@
-import { definePlugin } from "@ryot-app/contract/modules/plugins/manifest";
+import { CLIENT_API_VERSION, definePlugin } from "@ryot-app/contract/modules/plugins/manifest";
 
 import { mediaLibraryMemberEntitySchemaSlugs } from "../backend/contracts/schema-slugs";
 import {
@@ -567,9 +567,9 @@ export const mediaPlugin = definePlugin({
 		},
 	],
 	client: {
-		apiVersion: 1,
 		homeView: null,
 		routes: { "/": "media-home" },
+		apiVersion: CLIENT_API_VERSION,
 		entities: Object.fromEntries(entityClients.map(({ slug, entity }) => [slug, entity])),
 		exports: {
 			"show-progress": {

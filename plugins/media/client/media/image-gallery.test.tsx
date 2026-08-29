@@ -1,3 +1,5 @@
+import { Effect } from "@ryot-app/client-sdk/effect";
+import { waitFor } from "@testing-library/dom";
 import { createRef } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -15,7 +17,7 @@ import {
 } from "./overview";
 import { mediaRelationsAreEmpty } from "./overview-state";
 
-const noopAdapter = { query: () => Promise.resolve({}) };
+const noopAdapter = { query: () => Effect.succeed({}) };
 
 const relationsRender: MediaOverviewRelationsRender<MediaOverviewRows> = ({
 	divided,
@@ -201,15 +203,12 @@ describe("MediaImageGallery", () => {
 		unmount();
 	});
 
-	it("returns focus to the tile the lightbox was opened from", async () => {
+	it("returns focus to the tile the lightbox was opened from", () => {
 		const { unmount } = mountGallery(true);
 		const opened = tile(4);
 
 		clickRyotElement(opened);
 		pressRyotKey("Escape");
-		await new Promise((resolve) => setTimeout(resolve, 0));
-
-		expect(document.activeElement).toBe(opened);
-		unmount();
+		return waitFor(() => expect(document.activeElement).toBe(opened)).finally(unmount);
 	});
 });

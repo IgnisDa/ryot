@@ -1,3 +1,4 @@
+import { Effect } from "@ryot-app/client-sdk/effect";
 import type { usePluginLocation } from "@ryot-app/client-sdk/plugin";
 import { usePluginSearch } from "@ryot-app/client-sdk/plugin";
 import {
@@ -15,18 +16,23 @@ import { fixtureCollectionChoicesRecipe, fixturePokemonChoicesRecipe } from "./q
 
 const DIALOG = "add-to-collection";
 
-const collectionChoicesQuery = createRyotQuery(({ client, signal }) =>
-	client.data.query(fixtureCollectionChoicesRecipe(), { signal }),
+const collectionChoicesQuery = createRyotQuery(({ client }) =>
+	client.data.query(fixtureCollectionChoicesRecipe()),
 );
 
-const pokemonChoicesQuery = createRyotQuery(({ client, signal }) =>
-	client.data.query(fixturePokemonChoicesRecipe(), { signal }),
+const pokemonChoicesQuery = createRyotQuery(({ client }) =>
+	client.data.query(fixturePokemonChoicesRecipe()),
 );
 
 const addToCollectionMutation = createRyotMutation<
-	{ readonly collectionId: string; readonly entityId: string },
-	unknown
->(({ input, client }) => client.collections.upsertMembership(input));
+	{ readonly collectionId: string; readonly entityId: string; readonly onSuccess: () => void },
+	void
+>(({ input, client }) =>
+	Effect.gen(function* () {
+		yield* client.collections.upsertMembership(input);
+		input.onSuccess();
+	}),
+);
 
 const samePage = (
 	left: ReturnType<typeof usePluginLocation>,
@@ -91,10 +97,7 @@ export const PokemonPicker = () => {
 		if (collectionId === undefined || entityId === null) {
 			return;
 		}
-		mutation
-			.mutateAsync({ entityId, collectionId })
-			.then(close)
-			.catch(() => undefined);
+		mutation.mutate({ entityId, collectionId, onSuccess: close });
 	};
 
 	return (

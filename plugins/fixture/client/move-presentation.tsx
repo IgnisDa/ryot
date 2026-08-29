@@ -1,5 +1,5 @@
 import { PopulationStatus, TranslationStatus } from "@ryot-app/client-sdk";
-import { Result, Schema } from "@ryot-app/client-sdk/effect";
+import { Effect, Result, Schema } from "@ryot-app/client-sdk/effect";
 import {
 	defineEntityPresentation,
 	PluginLink,
@@ -63,14 +63,14 @@ export const movePresentationRecipe = defineRecipe((entityIds: readonly string[]
 
 export type MovePresentationData = Recipe.Success<typeof movePresentationRecipe>[number];
 
-export const loadMovePresentations: EntityPresentationLoader<MovePresentationData> = async ({
+export const loadMovePresentations: EntityPresentationLoader<MovePresentationData> = ({
 	client,
-	signal,
 	references,
 }) => {
 	const entityIds = [...new Set(references.map(({ entityId }) => entityId))];
-	const moves = await client.data.query(movePresentationRecipe(entityIds), { signal });
-	return Object.fromEntries(moves.map((move) => [move.id, move]));
+	return client.data
+		.query(movePresentationRecipe(entityIds))
+		.pipe(Effect.map((moves) => Object.fromEntries(moves.map((move) => [move.id, move]))));
 };
 
 function MovePresentation(props: {

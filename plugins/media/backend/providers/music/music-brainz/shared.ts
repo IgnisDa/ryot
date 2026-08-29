@@ -2,6 +2,7 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
+import { MediaSandboxError } from "../../../lib/failures";
 import { asRecord, numberValue, stringValue, trimmedString } from "../../../lib/records";
 import { createRoleAccumulator } from "../../../lib/role-accumulator";
 import {
@@ -33,7 +34,9 @@ export const search = defineProvider({
 			Effect.flatMap((dataValue) => {
 				const data = asRecord(dataValue);
 				if (!data) {
-					return Effect.fail(new Error("MusicBrainz recording search returned no data"));
+					return Effect.fail(
+						new MediaSandboxError({ message: "MusicBrainz recording search returned no data" }),
+					);
 				}
 				const totalItems = Math.max(0, numberValue(data["count"]) ?? 0);
 				const recordings = data["recordings"];
@@ -76,12 +79,16 @@ export const details = defineProvider({
 			const data = asRecord(dataValue);
 			if (!data) {
 				return yield* Effect.fail(
-					new Error(`MusicBrainz recording not found: ${input.externalId}`),
+					new MediaSandboxError({
+						message: `MusicBrainz recording not found: ${input.externalId}`,
+					}),
 				);
 			}
 			const title = stringValue(data["title"]);
 			if (!title) {
-				return yield* Effect.fail(new Error("MusicBrainz recording is missing title"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "MusicBrainz recording is missing title" }),
+				);
 			}
 
 			const publishYear = getPublishYear(data["first-release-date"]);

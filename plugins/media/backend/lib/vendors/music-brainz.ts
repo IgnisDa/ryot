@@ -1,7 +1,7 @@
 import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
 import { DateTime, Effect, Option } from "@ryot-app/sandbox-sdk/effect";
 
-import { asRecord, parseJsonResponse, stringValue } from "../records";
+import { asRecord, decodeJsonResponse, parseJsonResponse, stringValue } from "../records";
 
 export type MusicBrainzHost = SandboxHost<readonly ["httpCall"]>;
 
@@ -13,14 +13,15 @@ export const mbGet = (
 	host: MusicBrainzHost,
 	path: string,
 	params: Readonly<Record<string, string>>,
-): Effect.Effect<unknown, unknown> => {
+) => {
 	const search = new URLSearchParams({ fmt: "json", ...params });
 	const url = `${MB_BASE}/${path}?${search.toString()}`;
 	return host.httpCall("GET", url, { headers: MB_HEADERS }).pipe(
-		Effect.map((response) => parseJsonResponse(response.body, "MusicBrainz")),
-		Effect.catch((error) =>
-			Effect.fail(new Error(error.message || `MusicBrainz request failed: ${path}`)),
-		),
+		Effect.mapError((error) => ({
+			...error,
+			message: error.message || `MusicBrainz request failed: ${path}`,
+		})),
+		Effect.flatMap((response) => decodeJsonResponse(response.body, "MusicBrainz")),
 	);
 };
 

@@ -189,14 +189,13 @@ export const defineGroupMediaSchema = <
 		{ readonly entityId: string; readonly after: string | null },
 		MediaCursorPage<Member>
 	>(
-		({ input, client, signal }) =>
+		({ input, client }) =>
 			client.data.query(
 				recipes.membersRecipe({
 					groupId: input.entityId,
 					limit: MEMBER_PAGE_LIMIT,
 					...(input.after === null ? {} : { after: input.after }),
 				}),
-				{ signal },
 			),
 		{
 			entityInterest: ({ data, input }) => ({

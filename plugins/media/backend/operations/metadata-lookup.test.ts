@@ -8,6 +8,7 @@ import {
 	httpSuccess,
 	integrationRecord,
 } from "../../tests/backend/automations/automation-test-utils";
+import { MediaSandboxError } from "../lib/failures";
 import definition, { manifest } from "./metadata-lookup.sandbox";
 
 const tmdbResults = (pathname: string, query: string): JsonValue[] => {
@@ -54,6 +55,7 @@ const runLookup = (titles: string[], integration?: ReturnType<typeof integration
 };
 
 describe("metadata lookup operation", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("aligns batched results with the requested titles and attaches show coordinates", async () => {
 		const { result, queries } = runLookup([
 			"Breaking Bad S02E03",
@@ -87,20 +89,22 @@ describe("metadata lookup operation", () => {
 		]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("rejects integrations that are not browser extensions before searching", async () => {
 		const { result, queries } = runLookup(["Breaking Bad S02E03"], integrationRecord());
 
 		await expect(Effect.runPromise(Effect.flip(result))).resolves.toEqual(
-			new Error("Integration is not a browser extension integration"),
+			new MediaSandboxError({ message: "Integration is not a browser extension integration" }),
 		);
 		expect(queries).toEqual([]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	it("rejects a batch containing a blank title", async () => {
 		const { result, queries } = runLookup(["Breaking Bad S02E03", "   "]);
 
 		await expect(Effect.runPromise(Effect.flip(result))).resolves.toEqual(
-			new Error("title is required"),
+			new MediaSandboxError({ message: "title is required" }),
 		);
 		expect(queries).toEqual([]);
 	});

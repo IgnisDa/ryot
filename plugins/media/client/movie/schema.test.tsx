@@ -1,3 +1,4 @@
+import { Effect } from "@ryot-app/client-sdk/effect";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { movieRecipes } from "../../shared/movie-recipes";
@@ -14,7 +15,7 @@ import { renderMediaScreenBody } from "../../tests/client/screen-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
 import { moviePresentationFacts, movieSchema, movieSummaryFacts } from "./schema";
 
-const noopAdapter = { query: () => Promise.resolve({}) };
+const noopAdapter = { query: () => Effect.succeed({}) };
 
 const movieFields = { runtime: 169, watchProviders: null };
 

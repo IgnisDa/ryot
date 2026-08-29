@@ -1,3 +1,4 @@
+import { Effect } from "@ryot-app/client-sdk/effect";
 import { fireEvent, waitFor } from "@testing-library/dom";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it } from "vitest";
@@ -21,7 +22,7 @@ import {
 import { mediaRelationsAreEmpty, type MediaOverviewState } from "./overview-state";
 import { watchProviderGroups, watchProviderLink } from "./watch-providers";
 
-const noopAdapter = { query: () => Promise.resolve({}) };
+const noopAdapter = { query: () => Effect.succeed({}) };
 
 const relationsRender: MediaOverviewRelationsRender<Overview> = ({ divided, overview }) => (
 	<MediaOverviewRelations
@@ -164,6 +165,7 @@ describe("MediaOverview", () => {
 		unmount();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
 	it("retries a failed overview load through the refresh callback", async () => {
 		let refreshCount = 0;
 		const { unmount, container } = mountRyotClient(

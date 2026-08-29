@@ -1,4 +1,4 @@
-import { definePlugin } from "@ryot-app/contract/modules/plugins/manifest";
+import { CLIENT_API_VERSION, definePlugin } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	integerField,
 	managedAssetItemSchema,
@@ -101,8 +101,8 @@ export const fixturePlugin = definePlugin({
 		},
 	],
 	client: {
-		apiVersion: 1,
 		homeView: null,
+		apiVersion: CLIENT_API_VERSION,
 		notFoundPage: "fixture-not-found",
 		routes: {
 			"/": "fixture-home",

@@ -1,3 +1,4 @@
+import { Effect } from "@ryot-app/client-sdk/effect";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { podcastRecipes } from "../../shared/podcast-recipes";
@@ -18,7 +19,7 @@ import {
 	podcastSummaryFacts,
 } from "./schema";
 
-const noopAdapter = { query: () => Promise.resolve({}) };
+const noopAdapter = { query: () => Effect.succeed({}) };
 
 const presentationRow = {
 	id: "podcast-1",

@@ -5,6 +5,7 @@ import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { entityReadRecipe, executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
 
 import { mediaLibraryMemberEntitySchemaSlugs } from "../contracts/schema-slugs";
+import { MediaSandboxError } from "../lib/failures";
 
 export const manifest = defineManifest({
 	kind: "automation",
@@ -27,7 +28,9 @@ const sourceEntity = (host: AutomationHost, entityId: string) =>
 	executeRyotqlRecipe(host.executeRyotql, entityReadRecipe({ entityIds: [entityId] })).pipe(
 		Effect.flatMap(({ items }) => {
 			const entity = items[0];
-			return entity ? Effect.succeed(entity) : Effect.fail(new Error("Entity not found"));
+			return entity
+				? Effect.succeed(entity)
+				: Effect.fail(new MediaSandboxError({ message: "Entity not found" }));
 		}),
 	);
 

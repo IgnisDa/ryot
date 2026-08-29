@@ -3,8 +3,8 @@ import { DateTime, Effect, Option } from "@ryot-app/sandbox-sdk/effect";
 
 import {
 	asRecord,
+	decodeJsonResponse,
 	numberValue,
-	parseJsonResponse,
 	stringValue,
 	type UnknownRecord,
 } from "../records";
@@ -39,15 +39,15 @@ export const vndbPost = (
 	path: string,
 	body: Readonly<UnknownRecord>,
 	failureMessage: string,
-): Effect.Effect<unknown, unknown> =>
+) =>
 	host
 		.httpCall("POST", `${BASE_URL}/${path}`, {
 			body: JSON.stringify(body),
 			headers: { Accept: "application/json", "Content-Type": "application/json" },
 		})
 		.pipe(
-			Effect.mapError((error) => new Error(error.message || failureMessage)),
-			Effect.map((response) => parseJsonResponse(response.body, "VNDB")),
+			Effect.mapError((error) => ({ ...error, message: error.message || failureMessage })),
+			Effect.flatMap((response) => decodeJsonResponse(response.body, "VNDB")),
 		);
 
 export const readResults = (payload: unknown) => {

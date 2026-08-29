@@ -50,6 +50,7 @@ it("dispatches every declared source to its matching parser activity", () => {
 	}
 });
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("passes Netflix profile selection from source payload to its parser activity", async () => {
 	const envelope = await Effect.runPromise(
 		workflow.run(
@@ -86,6 +87,7 @@ it.each([
 		{ mode: "export", exportUploadToken: "exportUploadToken" },
 		{ mode: "export", hasExportFile: true },
 	],
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 ])("passes Trakt $0 fields to its parser activity", async (_, sourcePayload, input) => {
 	const envelope = await Effect.runPromise(
 		workflow.run(
@@ -110,6 +112,7 @@ it.each([
 	});
 });
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("passes credentialed source payload fields to its parser activity", async () => {
 	const envelope = await Effect.runPromise(
 		workflow.run(
@@ -146,6 +149,7 @@ it("passes credentialed source payload fields to its parser activity", async () 
 	});
 });
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("selects optional MyAnimeList artifacts from source payload field markers", async () => {
 	const envelope = await Effect.runPromise(
 		workflow.run(
@@ -172,6 +176,7 @@ it("selects optional MyAnimeList artifacts from source payload field markers", a
 	});
 });
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("marks adapter-only integration failures as failed kernel runs", async () => {
 	const journal: JsonValue[] = [];
 	const input = {
@@ -223,6 +228,7 @@ it("marks adapter-only integration failures as failed kernel runs", async () => 
 	});
 });
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("dispatches integration runs to the adapter even when the source names a credentialed parser", async () => {
 	const envelope = await Effect.runPromise(
 		workflow.run(
@@ -317,6 +323,7 @@ const driveWatcharrImport = (input: {
 	return { replay, requests };
 };
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("fails the workflow rather than dying when a source payload is incomplete", async () => {
 	const envelope = await Effect.runPromise(
 		workflow.run(
@@ -374,6 +381,7 @@ it.each([
 		"Import job is missing or invalid Trakt mode",
 	],
 	["missing export ZIP", { mode: "export" }, "Import job is missing Trakt export ZIP"],
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 ])("fails the Trakt workflow on $0", async (_, sourcePayload, error) => {
 	const envelope = await Effect.runPromise(
 		workflow.run(
@@ -398,6 +406,7 @@ const singleShowGroup = (events: ReadonlyArray<JsonValue>) => [
 
 const completedShowPopulation = [{ index: 0, entityId: "show-1", status: "completed" }];
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("passes integration attribution and resolved episode identity to event production", async () => {
 	const envelope = await Effect.runPromise(
 		workflow.run(
@@ -450,6 +459,7 @@ it("passes integration attribution and resolved episode identity to event produc
 	});
 });
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("deterministically composes Watcharr parsing, population, episode resolution, and kernel writes", async () => {
 	const { replay, requests } = driveWatcharrImport({
 		populationResults: completedShowPopulation,
@@ -502,6 +512,7 @@ it("deterministically composes Watcharr parsing, population, episode resolution,
 	});
 });
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("subjects resolved episodes, omits unresolved ones as failures, and keeps sibling events", async () => {
 	const { replay, requests } = driveWatcharrImport({
 		populationResults: completedShowPopulation,
@@ -562,6 +573,7 @@ it("subjects resolved episodes, omits unresolved ones as failures, and keeps sib
 	expect(writeInput).not.toContain('"subjectEntityId":"show-1"');
 });
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("reports the podcast episode that could not be resolved", async () => {
 	const { replay, requests } = driveWatcharrImport({
 		episodeResults: { results: [{ index: 0, entityId: null }] },
@@ -625,6 +637,7 @@ it.each([
 		error: "Episode resolution omitted indices 1",
 		results: [{ index: 0, entityId: "episode-1" }],
 	},
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 ])("fails the workflow on $label episode result indices", async ({ error, results }) => {
 	const { replay, requests } = driveWatcharrImport({
 		episodeResults: { results },

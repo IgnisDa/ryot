@@ -2,6 +2,7 @@ import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
+import { MediaSandboxError } from "../../../lib/failures";
 import { type UnknownRecord, asRecord, numberValue, stringValue } from "../../../lib/records";
 import { buildLuceneQuery, fetchCoverArtUrl, mbGet } from "../../../lib/vendors/music-brainz";
 
@@ -101,7 +102,9 @@ export const search = defineProvider({
 			Effect.flatMap((dataValue) => {
 				const data = asRecord(dataValue);
 				if (!data) {
-					return Effect.fail(new Error("MusicBrainz release-group search returned no data"));
+					return Effect.fail(
+						new MediaSandboxError({ message: "MusicBrainz release-group search returned no data" }),
+					);
 				}
 				const totalItems = Math.max(0, numberValue(data["count"]) ?? 0);
 				const groups = data["release-groups"];
@@ -173,12 +176,16 @@ export const details = defineProvider({
 			const releaseGroup = asRecord(releaseGroupValue);
 			if (!releaseGroup) {
 				return yield* Effect.fail(
-					new Error(`MusicBrainz release-group not found: ${input.externalId}`),
+					new MediaSandboxError({
+						message: `MusicBrainz release-group not found: ${input.externalId}`,
+					}),
 				);
 			}
 			const title = stringValue(releaseGroup["title"]);
 			if (!title) {
-				return yield* Effect.fail(new Error("MusicBrainz release-group is missing title"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "MusicBrainz release-group is missing title" }),
+				);
 			}
 			const description = releaseGroupDescription(releaseGroup);
 

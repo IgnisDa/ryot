@@ -1,5 +1,6 @@
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
+import { MediaSandboxError } from "../../../lib/failures";
 import { type UnknownRecord, asRecord, numberValue, stringValue } from "../../../lib/records";
 import { createRoleAccumulator } from "../../../lib/role-accumulator";
 import {
@@ -9,6 +10,7 @@ import {
 	type HistoryClient,
 	type MusicSearchClient,
 	type TrackQueueClient,
+	tryYoutubeMusic,
 } from "../../../lib/vendors/youtube-music";
 
 const getTrackTitle = (track: UnknownRecord | null) => {
@@ -58,7 +60,7 @@ const collectSuggestions = (
 };
 
 export const buildTrackSearch = (client: MusicSearchClient, query: string, pageSize: number) =>
-	Effect.tryPromise(() => client.music.search(query, { type: "song" })).pipe(
+	tryYoutubeMusic(() => client.music.search(query, { type: "song" })).pipe(
 		Effect.map((results) => {
 			const shelves = asRecord(results)?.["contents"];
 			const allItems = (Array.isArray(shelves) ? shelves : []).flatMap((shelf) => {
@@ -88,7 +90,7 @@ export const buildTrackSearch = (client: MusicSearchClient, query: string, pageS
 	);
 
 export const buildTrackDetails = (client: TrackQueueClient, externalId: string) =>
-	Effect.tryPromise(() => client.music.getUpNext(externalId)).pipe(
+	tryYoutubeMusic(() => client.music.getUpNext(externalId)).pipe(
 		Effect.flatMap((queue) =>
 			Effect.gen(function* () {
 				const rawContents = asRecord(queue)?.["contents"];
@@ -97,11 +99,15 @@ export const buildTrackDetails = (client: TrackQueueClient, externalId: string) 
 					contents.find((item) => asRecord(item)?.["video_id"] === externalId) ?? contents[0];
 				const trackRecord = asRecord(trackItem);
 				if (!trackRecord) {
-					return yield* Effect.fail(new Error(`YouTube Music track not found: ${externalId}`));
+					return yield* Effect.fail(
+						new MediaSandboxError({ message: `YouTube Music track not found: ${externalId}` }),
+					);
 				}
 				const title = getTrackTitle(trackRecord);
 				if (!title) {
-					return yield* Effect.fail(new Error("YouTube Music track is missing title"));
+					return yield* Effect.fail(
+						new MediaSandboxError({ message: "YouTube Music track is missing title" }),
+					);
 				}
 				const duration = numberValue(asRecord(trackRecord["duration"])?.["seconds"]);
 				const album = asRecord(trackRecord["album"]);
@@ -181,7 +187,7 @@ export const buildTrackDetails = (client: TrackQueueClient, externalId: string) 
 	);
 
 export const buildTrackTranslate = (client: TrackQueueClient, externalId: string) =>
-	Effect.tryPromise(() => client.music.getUpNext(externalId)).pipe(
+	tryYoutubeMusic(() => client.music.getUpNext(externalId)).pipe(
 		Effect.flatMap((queue) =>
 			Effect.gen(function* () {
 				const rawContents = asRecord(queue)?.["contents"];
@@ -190,7 +196,9 @@ export const buildTrackTranslate = (client: TrackQueueClient, externalId: string
 					contents.find((item) => asRecord(item)?.["video_id"] === externalId),
 				);
 				if (!trackRecord) {
-					return yield* Effect.fail(new Error(`YouTube Music track not found: ${externalId}`));
+					return yield* Effect.fail(
+						new MediaSandboxError({ message: `YouTube Music track not found: ${externalId}` }),
+					);
 				}
 				const name = getTrackTitle(trackRecord);
 				return name ? { name } : {};
@@ -214,7 +222,7 @@ export const buildHistory = (client: HistoryClient, timezone: string, startedAt:
 			.toLowerCase();
 		return lower.includes(localDate);
 	};
-	return Effect.tryPromise(() => client.getHistory()).pipe(
+	return tryYoutubeMusic(() => client.getHistory()).pipe(
 		Effect.map((history) => {
 			const songs: { videoId: string; title: string }[] = [];
 			const rootContents = asRecord(asRecord(history)?.["contents"]);
