@@ -1,4 +1,7 @@
+import type { PluginBridgeProviderSearchScreen } from "@ryot-app/client-plugin-contract";
+import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
 import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { useState } from "react";
 
 import {
 	useClearClientPageDocument,
@@ -10,6 +13,7 @@ import { AppScreen } from "#/modules/navigation/app-screen";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
 import { usePluginCatalog } from "#/modules/plugins/catalog-provider";
+import { ProviderAddModal } from "#/modules/provider-add/modal";
 
 export const Route = createFileRoute("/_authenticated/$pluginSlug")({
 	component: Outlet,
@@ -33,9 +37,23 @@ export function PluginRoutePage({
 	return <PluginDocument prepared={preparation.prepared} title={installation?.name ?? "Plugin"} />;
 }
 
-function PluginDocument(props: Parameters<typeof useClientPageDocument>[0]) {
-	useClientPageDocument(props);
-	return null;
+function PluginDocument(props: { readonly title: string; readonly prepared: PreparedClientPage }) {
+	const [providerSearch, setProviderSearch] = useState<PluginBridgeProviderSearchScreen | null>(
+		null,
+	);
+	useClientPageDocument({
+		...props,
+		inert: providerSearch !== null,
+		onProviderSearch: setProviderSearch,
+	});
+	return providerSearch === null ? null : (
+		<ProviderAddModal
+			onClose={() => setProviderSearch(null)}
+			initialQuery={providerSearch.initialQuery}
+			ownerPluginId={providerSearch.ownerPluginId}
+			entitySchemaSlug={providerSearch.entitySchemaSlug}
+		/>
+	);
 }
 
 function PluginPending() {

@@ -1,7 +1,11 @@
 import { definePlugin } from "@ryot-app/contract/modules/plugins/manifest";
 
 import { mediaLibraryMemberEntitySchemaSlugs } from "../backend/contracts/schema-slugs";
-import { builtinMediaEntitySchemaSlugs, mediaGroupSlugs } from "../shared/media-schema-slugs";
+import {
+	builtinMediaEntitySchemaSlugs,
+	mediaGroupSlugs,
+	mediaPluginSlug,
+} from "../shared/media-schema-slugs";
 import { mediaConfigSchema } from "./config";
 import { mediaSavedViews } from "./saved-views";
 import { mediaEntitySchemas } from "./schemas/entity";
@@ -532,8 +536,8 @@ export const mediaPlugin = definePlugin({
 	metadata: {
 		icon: "film",
 		name: "Media",
-		slug: "media",
 		version: "1.0.0",
+		slug: mediaPluginSlug,
 		description:
 			"Track media across movies, shows, books, comic books, anime, manga, audiobooks, podcasts, video games, and music.",
 	},
