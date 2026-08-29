@@ -2,7 +2,7 @@ import { DateTime, Option } from "@ryot-app/client-sdk/effect";
 
 const DAY_MS = 86_400_000;
 
-export const ACTIVITY_WEEKS = 52;
+const ACTIVITY_WEEKS = 52;
 
 const dayNumber = (date: string) => Date.parse(`${date}T00:00:00.000Z`) / DAY_MS;
 
@@ -36,7 +36,6 @@ export type ActivityWindow = {
 	readonly until: string;
 };
 
-/** The last 52 Monday-start weeks, the newest one ending today. */
 export const activityWindow = (today: string, timeZone: string): ActivityWindow => {
 	const daysSinceMonday = (new Date(dayNumber(today) * DAY_MS).getUTCDay() + 6) % 7;
 	const start = shiftDate(today, -daysSinceMonday - (ACTIVITY_WEEKS - 1) * 7);
@@ -52,7 +51,6 @@ export const activityWindow = (today: string, timeZone: string): ActivityWindow 
 export const localDateOf = (instant: string, timeZone: string) =>
 	DateTime.formatIsoDate(DateTime.makeZonedUnsafe(instant, { timeZone }));
 
-/** One entry per date of the window, zero where nothing happened. */
 export const activityDays = (
 	window: ActivityWindow,
 	counts: ReadonlyMap<string, number>,
@@ -93,7 +91,7 @@ export const largestRemainderPercents = (values: readonly number[]) => {
 	return floors;
 };
 
-export type ActivityShare = {
+type ActivityShare = {
 	readonly key: string;
 	readonly label: string;
 	readonly value: number;
@@ -101,7 +99,6 @@ export type ActivityShare = {
 	readonly share: string;
 };
 
-/** Media types with activity, each with its share of all activity. */
 export const activityShares = (
 	rows: readonly { readonly slug: string; readonly label: string; readonly events: number }[],
 ): readonly ActivityShare[] => {
