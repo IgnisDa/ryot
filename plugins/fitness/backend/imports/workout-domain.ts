@@ -14,10 +14,10 @@ export type WorkoutExerciseKind = (typeof workoutExerciseKinds)[number];
 
 const WorkoutImportSetSchema = Schema.Struct({
 	note: Schema.mutableKey(Schema.optional(Schema.String)),
-	reps: Schema.mutableKey(Schema.optional(Schema.Number)),
-	weight: Schema.mutableKey(Schema.optional(Schema.Number)),
-	duration: Schema.mutableKey(Schema.optional(Schema.Number)),
-	distance: Schema.mutableKey(Schema.optional(Schema.Number)),
+	reps: Schema.mutableKey(Schema.optional(Schema.Finite)),
+	weight: Schema.mutableKey(Schema.optional(Schema.Finite)),
+	duration: Schema.mutableKey(Schema.optional(Schema.Finite)),
+	distance: Schema.mutableKey(Schema.optional(Schema.Finite)),
 	setLot: Schema.mutableKey(Schema.Literals(["normal", "warm_up", "drop", "failure"])),
 });
 
@@ -33,7 +33,7 @@ export type WorkoutImportExercise = Schema.Schema.Type<typeof WorkoutImportExerc
 
 export const WorkoutImportItemSchema = Schema.Struct({
 	name: Schema.mutableKey(Schema.String),
-	itemIndex: Schema.mutableKey(Schema.Number),
+	itemIndex: Schema.mutableKey(Schema.Finite),
 	startedAt: Schema.mutableKey(Schema.String),
 	sourceLabel: Schema.mutableKey(Schema.String),
 	sourceIdentifier: Schema.mutableKey(Schema.String),
@@ -46,7 +46,7 @@ export type WorkoutImportItem = Schema.Schema.Type<typeof WorkoutImportItemSchem
 
 const WorkoutAdapterFailureSchema = Schema.Struct({
 	message: Schema.String,
-	itemIndex: Schema.Number,
+	itemIndex: Schema.Finite,
 	sourceLabel: Schema.String,
 	sourceIdentifier: Schema.String,
 });

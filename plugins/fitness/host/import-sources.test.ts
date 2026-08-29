@@ -10,14 +10,14 @@ const sources = ["hevy", "strong_app", "open_scale"] as const;
 it.each(sources)("builds a typed %s request accepted by the open import envelope", (source) => {
 	const body = createFitnessImportRunBody({ source, uploadToken });
 
-	expect(Schema.decodeUnknownSync(FitnessCreateImportRunBody)(body)).toEqual(body);
-	expect(Schema.decodeUnknownSync(CreateImportRunBody)(body)).toEqual(body);
+	expect(Schema.decodeSync(FitnessCreateImportRunBody)(body)).toEqual(body);
+	expect(Schema.decodeSync(CreateImportRunBody)(body)).toEqual(body);
 	expect(body.source).toBe(source);
 });
 
 it("keeps fitness-specific request validation strict and contract-owned", () => {
 	expect(() =>
-		Schema.decodeUnknownSync(FitnessCreateImportRunBody)({ source: "hevy", uploadToken: "" }),
+		Schema.decodeSync(FitnessCreateImportRunBody)({ source: "hevy", uploadToken: "" }),
 	).toThrow();
 	expect(() =>
 		Schema.decodeUnknownSync(FitnessCreateImportRunBody)({

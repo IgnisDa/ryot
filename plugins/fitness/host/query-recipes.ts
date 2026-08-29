@@ -57,7 +57,7 @@ const workoutSelection = (entity: Table) => ({
 	startedAt: selectedField(propertyDate(entity, "startedAt"), Schema.NullOr(Schema.String)),
 	caloriesBurnt: selectedField(
 		propertyNumber(entity, "caloriesBurnt"),
-		Schema.NullOr(Schema.Number),
+		Schema.NullOr(Schema.Finite),
 	),
 });
 
