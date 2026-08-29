@@ -408,6 +408,13 @@ responses being journalled.
 
 Recorded as measurements. The architecture decisions belong to a separate review.
 
+> **Superseded in part by run `2026-09-22T01-30-37Z`.** The live throughput and latency figures in
+> inputs 1, 2, 3 and 9 were measured under Effect #8312 and are contaminated by the stall; see
+> `../effect-workflow-stall.md`. They are replaced by the stall-free matrix in
+> `../2026-09-22T01-30-37Z/report.md`, which confirms the direction of all four. Input 7's
+> import-path half now has a first measurement there. Memory, pressure and profile figures were never
+> affected and stand as written.
+
 1. **Is worker concurrency 2 correct for 2 vCPU / 4 GB?** Hermetic throughput at c2 is 28.5/min,
    88 % of the c3 maximum, for 237.9 MiB of Deno RSS and CPU pressure 40.4, with health p95 at 18 ms.
    For live imports, c2 is the whole of the available gain: non-stalled per-import latency falls
@@ -485,8 +492,13 @@ Recorded as measurements. The architecture decisions belong to a separate review
 
 **Unresolved.**
 
-- The true retention of the import path, which needs a rerun after #8312 is fixed.
+- ~~The true retention of the import path, which needs a rerun after #8312 is fixed.~~ **Measured**
+  in run `2026-09-22T01-30-37Z`: about 1.6 MiB per import, 8.7 MiB per 1 000 sandbox executions,
+  below the direct-execution figure rather than an import-specific leak. Six waves only, so whether
+  the slope flattens remains open.
 - Why `youtubei.js` parses and walks JavaScript on every execution, and whether that work is
   cacheable across executions. This run measured the cost, not the cause.
-- Whether the live health p95 of 543 ms at c3 is reproducible or an artefact of the 1.73 % sampling
-  gap in that group.
+- ~~Whether the live health p95 of 543 ms at c3 is reproducible or an artefact of the 1.73 % sampling
+  gap in that group.~~ **Resolved** in run `2026-09-22T01-30-37Z`: reproducible across three clean
+  repetitions at 795–930 ms, with health-probe failures. Not a sampling artefact, and worse than the
+  figure recorded here.

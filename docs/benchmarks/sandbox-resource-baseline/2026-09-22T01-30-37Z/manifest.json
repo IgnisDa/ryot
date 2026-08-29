@@ -4,17 +4,26 @@
   "schemaVersion": 2,
   "prNumber": null,
   "branch": null,
-  "deviations": [],
-  "completedAtUtc": null,
+  "deviations": [
+    "Host sampler binary rebuilt and reinstalled at /root/ryot-benchmark-tools/ mode 700; the directory was absent.",
+    "Admin token file written by hand to /root/ryot-benchmark-tools/admin-token mode 600; no harness command writes it.",
+    "First provenance and first preflight invocations failed while exiting 0, and were marked failed by hand.",
+    "soak-hermetic-import stopped at 6 of 10 waves when wave 7 exceeded the request timeout.",
+    "BENCHMARK_REQUEST_TIMEOUT_MS=5400000 for the live matrix.",
+    "Live matrix restarted once after a ScenarioPreparationError caused by Coolify regenerating docker-compose.yml with literal values, so the compose environment block overrode .env.",
+    "Deadlock fix 75970d6472 was committed during the run and deliberately not deployed; the measured image predates it."
+  ],
+  "completedAtUtc": "2026-09-22T10:21:40.664Z",
   "invocations": [
     {
       "command": "provenance",
       "invocationId": "provenance-8a9fe6b5",
       "startedAtUtc": "2026-09-22T01:41:31.724Z",
       "scenarioIds": [],
-      "stopReason": null,
-      "completedAtUtc": null,
-      "outcome": "running"
+      "stopReason": "RemoteCommandError: exit code 127, /root/ryot-benchmark-tools/ryot-benchmark-host absent. Process exited 0 despite the failure; see defects.md defect 1.",
+      "completedAtUtc": "2026-09-22T01:42:48.611Z",
+      "outcome": "failed",
+      "correctedByHand": "The harness left this invocation at outcome 'running'. Outcome, stopReason and completedAtUtc were written by hand after the run; completedAtUtc is the start of the succeeding invocation, an upper bound, not a measured time."
     },
     {
       "command": "provenance",
@@ -48,9 +57,10 @@
       "invocationId": "preflight-8e0891c3",
       "startedAtUtc": "2026-09-22T01:44:06.094Z",
       "scenarioIds": [],
-      "stopReason": null,
-      "completedAtUtc": null,
-      "outcome": "running"
+      "stopReason": "RemoteCommandError: exit code 1, app.jsonl absent because the sampler exited immediately without its token file. Process exited 0 despite the failure; see defects.md defects 1 and 3.",
+      "completedAtUtc": "2026-09-22T01:56:12.301Z",
+      "outcome": "failed",
+      "correctedByHand": "The harness left this invocation at outcome 'running'. Outcome, stopReason and completedAtUtc were written by hand after the run; completedAtUtc is the start of the succeeding invocation, an upper bound, not a measured time."
     },
     {
       "command": "preflight",
@@ -85,8 +95,8 @@
       "startedAtUtc": "2026-09-22T07:28:08.512Z",
       "scenarioIds": [],
       "stopReason": null,
-      "completedAtUtc": null,
-      "outcome": "running"
+      "completedAtUtc": "2026-09-22T10:21:40.664Z",
+      "outcome": "completed"
     }
   ],
   "constituentRunIds": [
