@@ -7,7 +7,6 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer, Redacted } from "effect";
 import { Client } from "pg";
-import { assert } from "vitest";
 
 import type { LifecyclePlanner } from "#lib/domain/lifecycle";
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
@@ -15,6 +14,10 @@ import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import type { AppConfig } from "#lib/infrastructure/config/service";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import {
+	applyBaselineMigration,
+	baselineMigrationStatements,
+} from "#lib/test-utils/baseline-migration";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
 import { withLifecycleDispatch } from "#modules/automations/lifecycle.test-support";
@@ -118,13 +121,9 @@ export const withRelationshipDatabase = <E>(
 				}),
 				(client) => Effect.promise(() => client.end()),
 			);
-			const directory = new URL("../../drizzle/", import.meta.url).pathname;
-			const paths = [...new Bun.Glob("*/migration.sql").scanSync({ cwd: directory })];
-			assert(paths.length === 1);
-			const ddl = yield* Effect.tryPromise(() => Bun.file(directory + paths[0]).text());
-			for (const statement of ddl.split("--> statement-breakpoint")) {
-				yield* Effect.tryPromise(() => observer.query(statement));
-			}
+			yield* applyBaselineMigration(yield* baselineMigrationStatements(), (statement) =>
+				Effect.tryPromise(() => observer.query(statement)),
+			);
 			const config = makeAppConfigLayer({ database: { url: Redacted.make(scopedUrl.toString()) } });
 			const relationshipSchema = {
 				name: "Link",

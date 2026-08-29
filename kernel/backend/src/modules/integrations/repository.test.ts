@@ -2,11 +2,15 @@ import { expect, it } from "@effect/vitest";
 import { IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
 import { sql } from "drizzle-orm";
 import { Deferred, Effect, Fiber, Layer, Redacted } from "effect";
-import { assert, describe } from "vitest";
+import { describe } from "vitest";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { testDatabaseUrl } from "#lib/test-utils/database";
+import {
+	applyBaselineMigration,
+	baselineMigrationStatements,
+} from "#lib/test-utils/baseline-migration";
+import { testDatabaseUrl, withIsolatedDatabase } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
 import { BackupRestorePersistence } from "#modules/backups/restore/persistence";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
@@ -84,48 +88,38 @@ const withCommittedDatabase = <E>(
 		Layer.provide(makeAppConfigLayer({ database: { url: Redacted.make(url) } })),
 	);
 	return Effect.gen(function* () {
-		const admin = yield* (yield* DatabaseSession).current;
-		const directory = new URL("../../drizzle/", import.meta.url).pathname;
-		const paths = [...new Bun.Glob("*/migration.sql").scanSync({ cwd: directory })];
-		assert(paths.length === 1);
-		const ddl = yield* Effect.promise(() => Bun.file(directory + paths[0]).text());
-		yield* admin.execute(sql`create database ${sql.identifier(name)}`);
-		const scopedUrl = new URL(url);
-		scopedUrl.pathname = `/${name}`;
-		const config = makeAppConfigLayer({ database: { url: Redacted.make(scopedUrl.toString()) } });
-		const database = DatabaseSession.layer.pipe(Layer.provide(config), Layer.fresh);
-		const repositories = Layer.mergeAll(
-			PluginRepository.layer,
-			PluginInstallationRepository.layer,
-			IntegrationsRepository.layer,
-		).pipe(
-			Layer.provideMerge(
-				Layer.mergeAll(
-					DefinitionRepository.layer,
-					PluginConfigRevisions.layer,
-					PluginConfigEncryptionKey.layer,
+		const statements = yield* baselineMigrationStatements();
+		yield* withIsolatedDatabase(name, url, (scopedUrl) => {
+			const config = makeAppConfigLayer({ database: { url: Redacted.make(scopedUrl) } });
+			const database = DatabaseSession.layer.pipe(Layer.provide(config), Layer.fresh);
+			const repositories = Layer.mergeAll(
+				PluginRepository.layer,
+				PluginInstallationRepository.layer,
+				IntegrationsRepository.layer,
+			).pipe(
+				Layer.provideMerge(
+					Layer.mergeAll(
+						DefinitionRepository.layer,
+						PluginConfigRevisions.layer,
+						PluginConfigEncryptionKey.layer,
+					),
 				),
-			),
-			Layer.provide(config),
-		);
-		const services = PluginIngestionLock.layer.pipe(
-			Layer.provide(IntegrationPluginRevisionActivationLive),
-			Layer.provideMerge(repositories),
-			Layer.provideMerge(database),
-		);
-		yield* Effect.gen(function* () {
-			const db = yield* (yield* DatabaseSession).current;
-			for (const statement of ddl.split("--> statement-breakpoint")) {
-				yield* db.execute(sql.raw(statement));
-			}
-			yield* db
-				.insert(tables.user)
-				.values({ id: owner, name: "Owner", preferences: {}, email: "owner@example.test" });
-			yield* test;
-		}).pipe(
-			Effect.provide(services),
-			Effect.ensuring(admin.execute(sql`drop database ${sql.identifier(name)}`).pipe(Effect.orDie)),
-		);
+				Layer.provide(config),
+			);
+			const services = PluginIngestionLock.layer.pipe(
+				Layer.provide(IntegrationPluginRevisionActivationLive),
+				Layer.provideMerge(repositories),
+				Layer.provideMerge(database),
+			);
+			return Effect.gen(function* () {
+				const db = yield* (yield* DatabaseSession).current;
+				yield* applyBaselineMigration(statements, (statement) => db.execute(sql.raw(statement)));
+				yield* db
+					.insert(tables.user)
+					.values({ id: owner, name: "Owner", preferences: {}, email: "owner@example.test" });
+				yield* test;
+			}).pipe(Effect.provide(services));
+		});
 	}).pipe(Effect.provide(root.pipe(Layer.provideMerge(makeConfigProviderLayer()))));
 };
 

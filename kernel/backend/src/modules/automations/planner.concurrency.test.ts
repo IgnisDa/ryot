@@ -1,5 +1,4 @@
 import { expect, it } from "@effect/vitest";
-import { DbError } from "@ryot-app/contract/errors";
 import {
 	AutomationExecutionId,
 	AutomationTriggerId,
@@ -12,6 +11,10 @@ import { assert, describe } from "vitest";
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { setLocalStatementTimeout, DatabaseSession } from "#lib/infrastructure/db/session";
+import {
+	applyBaselineMigration,
+	baselineMigrationStatements,
+} from "#lib/test-utils/baseline-migration";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
 import { makeRecordingTracer } from "#lib/test-utils/tracer";
@@ -32,13 +35,7 @@ const bootstrap = Effect.gen(function* () {
 	const planner = yield* LifecyclePlanner;
 	const plugins = yield* PluginRepository;
 	const name = `planner_test_${crypto.randomUUID().replaceAll("-", "")}`;
-	const directory = new URL("../../drizzle/", import.meta.url).pathname;
-	const paths = [...new Bun.Glob("*/migration.sql").scanSync({ cwd: directory })];
-	assert(paths.length === 1);
-	const ddl = yield* Effect.tryPromise({
-		try: () => Bun.file(directory + paths[0]).text(),
-		catch: () => new DbError({ message: "Cannot read generated baseline" }),
-	});
+	const statements = yield* baselineMigrationStatements();
 	yield* db.execute(sql`create schema ${sql.identifier(name)}`);
 	const transaction = <A, E, R>(body: Effect.Effect<A, E, R>) =>
 		session.transaction(
@@ -48,7 +45,7 @@ const bootstrap = Effect.gen(function* () {
 				return yield* body;
 			}),
 		);
-	return { db, ddl, name, planner, plugins, transaction };
+	return { db, name, planner, plugins, statements, transaction };
 });
 
 type PlannerHarness = Effect.Success<typeof bootstrap>;
@@ -85,12 +82,10 @@ const withPlannerSchema = <A, E, R>(body: (harness: PlannerHarness) => Effect.Ef
 // declares no scripts, because a revision read demands a compiled row for each one, and the
 // installation keeps a null config pointer, so `catalog` drops the row and plans stay zero-run
 // while `lockCatalog` still takes one real `plugin-config:` key.
-const seedCatalog = (ddl: string) =>
+const seedCatalog = (statements: readonly string[]) =>
 	Effect.gen(function* () {
 		const tx = yield* (yield* DatabaseSession).current;
-		for (const statement of ddl.split("--> statement-breakpoint")) {
-			yield* tx.execute(sql.raw(statement));
-		}
+		yield* applyBaselineMigration(statements, (statement) => tx.execute(sql.raw(statement)));
 		yield* tx
 			.insert(tables.user)
 			.values({ id: "owner", name: "Owner", preferences: {}, email: "owner@example.test" });
@@ -148,14 +143,14 @@ const counted = (spans: ReadonlyArray<Tracer.Span>) => ({
 
 describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 	it.effect("serializes a shared root budget and replays without spending it twice", () =>
-		withPlannerSchema(({ ddl, planner, plugins, transaction }) =>
+		withPlannerSchema(({ planner, plugins, statements, transaction }) =>
 			Effect.gen(function* () {
 				yield* transaction(
 					Effect.gen(function* () {
 						const tx = yield* (yield* DatabaseSession).current;
-						for (const statement of ddl.split("--> statement-breakpoint")) {
-							yield* tx.execute(sql.raw(statement));
-						}
+						yield* applyBaselineMigration(statements, (statement) =>
+							tx.execute(sql.raw(statement)),
+						);
 						yield* tx
 							.insert(tables.user)
 							.values({ id: "owner", name: "Owner", preferences: {}, email: "owner@example.test" });
@@ -264,9 +259,9 @@ describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 	);
 
 	it.effect("plans while another planner holds the catalog lock open", () =>
-		withPlannerSchema(({ ddl, planner, transaction }) =>
+		withPlannerSchema(({ planner, statements, transaction }) =>
 			Effect.gen(function* () {
-				yield* transaction(seedCatalog(ddl));
+				yield* transaction(seedCatalog(statements));
 				const holding = yield* Deferred.make<void>();
 				const release = yield* Deferred.make<void>();
 				const holder = yield* Effect.forkChild(
@@ -292,9 +287,9 @@ describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 	);
 
 	it.effect("cannot plan while a configuration writer holds the catalog lock", () =>
-		withPlannerSchema(({ ddl, planner, transaction }) =>
+		withPlannerSchema(({ planner, statements, transaction }) =>
 			Effect.gen(function* () {
-				yield* transaction(seedCatalog(ddl));
+				yield* transaction(seedCatalog(statements));
 				const holding = yield* Deferred.make<void>();
 				const release = yield* Deferred.make<void>();
 				const configs = yield* PluginConfigRevisions;
@@ -324,9 +319,9 @@ describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 	);
 
 	it.effect("locks the catalog and reads it once however many triggers a transaction plans", () =>
-		withPlannerSchema(({ ddl, planner, transaction }) =>
+		withPlannerSchema(({ planner, statements, transaction }) =>
 			Effect.gen(function* () {
-				yield* transaction(seedCatalog(ddl));
+				yield* transaction(seedCatalog(statements));
 				const many: Tracer.Span[] = [];
 				yield* transaction(
 					Effect.forEach(["first", "second", "third"], (id) =>

@@ -1,11 +1,13 @@
-import { DbError } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { sql } from "drizzle-orm";
 import { Data, Effect, Layer, Redacted } from "effect";
-import { assert } from "vitest";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import {
+	applyBaselineMigration,
+	baselineMigrationStatements,
+} from "#lib/test-utils/baseline-migration";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
 
@@ -23,22 +25,14 @@ export const withAdmissionDatabase = <E>(
 	const config = makeAppConfigLayer({ database: { url: Redacted.make(testDatabaseUrl()) } });
 	return Effect.gen(function* () {
 		const session = yield* DatabaseSession;
-		const directory = new URL("../../drizzle/", import.meta.url).pathname;
-		const paths = [...new Bun.Glob("*/migration.sql").scanSync({ cwd: directory })];
-		assert(paths.length === 1);
-		const ddl = yield* Effect.tryPromise({
-			try: () => Bun.file(directory + paths[0]).text(),
-			catch: () => new DbError({ message: "Cannot read generated baseline" }),
-		});
+		const statements = yield* baselineMigrationStatements();
 		yield* session
 			.transaction(
 				Effect.gen(function* () {
 					const db = yield* session.current;
 					yield* db.execute(sql`create schema ${sql.identifier(name)}`);
 					yield* db.execute(sql`set local search_path to ${sql.identifier(name)}, public`);
-					for (const statement of ddl.split("--> statement-breakpoint")) {
-						yield* db.execute(sql.raw(statement));
-					}
+					yield* applyBaselineMigration(statements, (statement) => db.execute(sql.raw(statement)));
 					yield* db.insert(tables.user).values([
 						{ id: alice, name: "Alice", preferences: {}, email: "alice@example.test" },
 						{ id: bob, name: "Bob", preferences: {}, email: "bob@example.test" },
