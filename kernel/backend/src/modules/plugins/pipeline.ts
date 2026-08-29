@@ -110,7 +110,16 @@ export const compilePluginPackage = Effect.fn("PluginPipeline.compilePluginPacka
 						]),
 					),
 				})
-				.pipe(Effect.tapError((error) => Effect.logError("plugin client compile error", error)));
+				.pipe(
+					Effect.tapError((error) =>
+						Effect.logError("plugin client compile error").pipe(
+							Effect.annotateLogs({
+								pluginSlug: input.manifest.metadata.slug,
+								diagnostics: JSON.stringify(error.diagnostics),
+							}),
+						),
+					),
+				);
 		}
 		return {
 			scripts,
