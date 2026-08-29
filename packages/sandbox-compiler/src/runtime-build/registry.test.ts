@@ -3,7 +3,7 @@ import { expect, it } from "@effect/vitest";
 import { SANDBOX_RUNTIME_REGISTRY } from "@ryot-app/sandbox-sdk/runtime-registry";
 import { Effect } from "effect";
 
-import { resolveSandboxRuntimeRegistry } from "./sandbox-runtime-registry";
+import { resolveSandboxRuntimeRegistry } from "./registry";
 
 it.effect("derives trusted runtime versions and filenames from installed manifests", () =>
 	Effect.gen(function* () {

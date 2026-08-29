@@ -5,20 +5,20 @@ import dotenv from "dotenv";
 import { Effect, FileSystem, Path, Stream } from "effect";
 import { ChildProcess } from "effect/unstable/process";
 
-import { assemble, readShippedSlugs } from "./assemble";
+import { assemble, readShippedSlugs } from "./assembly/assemble";
 
 dotenv.config();
 
 type ProcessCommand = readonly [string, ...string[]];
 
-const repositoryRoot = Bun.fileURLToPath(new URL("../../..", import.meta.url));
+const repositoryRoot = Bun.fileURLToPath(new URL("../..", import.meta.url));
 const serverRoot = `${repositoryRoot}/apps/server`;
 
 const pluginRoot = (slug: string) => `${repositoryRoot}/plugins/${slug}`;
 
 const rendererSourceRoot = `${repositoryRoot}/packages/kernel-renderers/src`;
 
-const sandboxRuntimeGenerator = `${repositoryRoot}/kernel/backend/scripts/generate-sandbox-runtime.ts`;
+const sandboxRuntimeGenerator = `${repositoryRoot}/kernel/backend/tooling/sandbox-runtime.ts`;
 
 const runCommand = ([executable, ...args]: ProcessCommand, cwd?: string) =>
 	ChildProcess.make(executable, args, {

@@ -12,16 +12,10 @@
 		},
 		"@ryot-app/kernel-backend#build": {
 			"dependsOn": ["^build"],
+			"inputs": ["src/**/*.ts", "!src/**/*.generated.ts", "tooling/**/*.ts", "package.json"],
 			"outputs": [
 				"src/lib/infrastructure/sandbox-runtime/*.generated.ts",
 				"src/modules/definition-registry/*.generated.ts"
-			],
-			"inputs": [
-				"src/**/*.ts",
-				"!src/**/*.generated.ts",
-				"scripts/**/*.ts",
-				"!scripts/**/*.test.ts",
-				"package.json"
 			]
 		},
 		"@ryot-app/kernel-backend#check": {
@@ -31,6 +25,12 @@
 		"@ryot-app/kernel-backend#test": {
 			"outputLogs": "errors-only",
 			"dependsOn": ["build", "^build", "^check", "^test"]
+		},
+		"@ryot-app/server#build": {
+			"outputs": ["dist/**"],
+			"dependsOn": ["^build"],
+			"env": ["UNKEY_ROOT_KEY"],
+			"outputLogs": "errors-only"
 		},
 		"@ryot-app/kernel-renderers#build": {
 			"dependsOn": ["^build"],

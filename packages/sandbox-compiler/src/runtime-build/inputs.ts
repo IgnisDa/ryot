@@ -1,13 +1,13 @@
 import { SANDBOX_RUNTIME_REGISTRY } from "@ryot-app/sandbox-sdk/runtime-registry";
 import { Effect, FileSystem, Path, Schema } from "effect";
 
-import type { SourceWalkLimits } from "./walk-source-tree";
+import type { SourceWalkLimits } from "./source-tree";
 import {
 	createSourceWalkBudget,
 	readSourceWithin,
 	walkSourceFiles,
 	walkSourcePaths,
-} from "./walk-source-tree";
+} from "./source-tree";
 
 const defaultLimits: SourceWalkLimits = {
 	maxDepth: 16,
@@ -17,7 +17,7 @@ const defaultLimits: SourceWalkLimits = {
 
 const workspaceScope = "@ryot-app/";
 
-const toolchainPackages = ["typescript-compiler", "vite-compiler"];
+const toolchainPackages = ["sandbox-compiler", "typescript-compiler", "vite-compiler"];
 
 const WorkspaceManifest = Schema.fromJsonString(
 	Schema.Struct({ dependencies: Schema.optional(Schema.Record(Schema.String, Schema.String)) }),
@@ -96,15 +96,15 @@ export const sandboxRuntimeInputs = (
 				),
 			);
 		}
-		const scriptPaths = yield* walkSourcePaths(
-			path.join(kernelDirectory, "scripts"),
+		const buildPaths = yield* walkSourcePaths(
+			path.join(kernelDirectory, "tooling"),
 			runtimeTypeScriptSource,
 			options,
 		);
 		const relativeTo = (file: string) =>
 			path.relative(workspaceRoot, file).split(path.sep).join("/");
 		const fs = yield* FileSystem.FileSystem;
-		for (const file of scriptPaths) {
+		for (const file of buildPaths) {
 			sources[relativeTo(file)] = yield* fs.readFileString(file);
 		}
 		for (const file of [
