@@ -36,6 +36,7 @@ import {
 	CustomizeRouteStubs,
 	NavigationRouteStubs,
 	ProviderAddRouteStubs,
+	ImportsRouteStubs,
 	IntegrationRouteStubs,
 } from "#/routes/-route-fixtures";
 
@@ -231,6 +232,7 @@ const mountView = (
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
 			providerAdd,
+			ImportsRouteStubs,
 			IntegrationRouteStubs,
 			makeAuthStub(),
 			GodModeRouteStubs,

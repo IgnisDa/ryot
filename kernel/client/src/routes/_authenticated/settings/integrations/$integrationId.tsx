@@ -31,12 +31,12 @@ import {
 	integrationLotLabel,
 	integrationProviderNames,
 } from "#/modules/integrations/provider-selection";
-import { isTerminalRunStatus } from "#/modules/integrations/run-presentation";
 import { integrationSaveFailure } from "#/modules/integrations/save-failure";
 import { INTEGRATION_RUNS_PAGE_SIZE, IntegrationsService } from "#/modules/integrations/service";
-import { StatusState } from "#/modules/integrations/status-state";
 import { AppIcon } from "#/modules/navigation/app-icon";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
+import { isTerminalRunStatus } from "#/modules/ui/run/run-status";
+import { StatusState } from "#/modules/ui/status-state";
 
 const RUN_LIST_POLL_MS = 10_000;
 

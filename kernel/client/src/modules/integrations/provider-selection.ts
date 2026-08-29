@@ -2,8 +2,7 @@ import type { ListedIntegrationProvider } from "@ryot-app/contract/modules/integ
 import type { IntegrationLot } from "@ryot-app/contract/modules/integrations/types";
 
 import { integrationProviderKey } from "#/modules/integrations/presentation";
-
-const UNTITLED_PLUGIN_HEADING = "Other";
+import type { CatalogEntry } from "#/modules/ui/catalog/selection";
 
 export const PRO_REQUIRED_INTEGRATION_MESSAGE = "Ryot Pro is required to use this integration.";
 
@@ -12,21 +11,6 @@ const lotLabels = {
 	sink: "Webhook",
 	yank: "Scheduled",
 } as const satisfies Record<IntegrationLot, string>;
-
-export type CatalogEntry = {
-	readonly slug: string;
-	readonly name: string;
-	readonly badge: string;
-	readonly description: string;
-	readonly isAvailable: boolean;
-	readonly requirement: string | undefined;
-};
-
-export type CatalogGroup = {
-	readonly heading: string;
-	readonly pluginSlug: string;
-	readonly entries: readonly CatalogEntry[];
-};
 
 export const integrationLotLabel = (lot: IntegrationLot) => lotLabels[lot];
 
@@ -78,43 +62,3 @@ export const findOwnedIntegrationProvider = (
 		: providers.find(
 				(provider) => provider.slug === owner.provider && provider.pluginSlug === owner.pluginSlug,
 			);
-
-export const findProviderBySlug = (
-	providers: readonly ListedIntegrationProvider[],
-	slug: string | undefined,
-) => (slug === undefined ? undefined : providers.find((provider) => provider.slug === slug));
-
-export const pluginHeading = (pluginSlug: string) => {
-	const words = pluginSlug
-		.split(/[-_\s]+/)
-		.filter((part) => part.length > 0)
-		.map((part) => `${part.charAt(0).toUpperCase()}${part.slice(1)}`);
-	return words.length === 0 ? UNTITLED_PLUGIN_HEADING : words.join(" ");
-};
-
-const matchesCatalogQuery = (provider: ListedIntegrationProvider, query: string) => {
-	const needle = query.trim().toLowerCase();
-	return (
-		needle.length === 0 ||
-		provider.name.toLowerCase().includes(needle) ||
-		provider.description.toLowerCase().includes(needle)
-	);
-};
-
-export const groupIntegrationProviders = (
-	providers: readonly ListedIntegrationProvider[],
-	query: string,
-): readonly CatalogGroup[] => {
-	const matched = providers.filter((provider) => matchesCatalogQuery(provider, query));
-	return [...new Set(matched.map((provider) => provider.pluginSlug))].map((pluginSlug) => ({
-		pluginSlug,
-		heading: pluginHeading(pluginSlug),
-		entries: matched
-			.filter((provider) => provider.pluginSlug === pluginSlug)
-			.map(integrationProviderEntry)
-			.sort((left, right) => left.name.localeCompare(right.name)),
-	}));
-};
-
-export const availableCatalogEntries = (groups: readonly CatalogGroup[]) =>
-	groups.flatMap((group) => group.entries.filter((entry) => entry.isAvailable));
