@@ -3,8 +3,8 @@ import {
 	MAX_INTEREST_ENTITY_IDS,
 	type EntityInterestClientMessage,
 	type EntityInterestEntityUpdatedMessage,
-} from "@ryot/contract/modules/entity-interest/messages";
-import { EntityId } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/entity-interest/messages";
+import { EntityId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 import { TestClock } from "effect/testing";
 

@@ -1,6 +1,6 @@
-import type { SandboxHost } from "@ryot/sandbox-sdk/core";
-import { Effect } from "@ryot/sandbox-sdk/effect";
-import type { ProviderSearchInput, ProviderSearchResult } from "@ryot/sandbox-sdk/provider";
+import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import type { ProviderSearchInput, ProviderSearchResult } from "@ryot-app/sandbox-sdk/provider";
 
 import {
 	asRecord,

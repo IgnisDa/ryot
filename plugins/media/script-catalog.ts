@@ -1,4 +1,4 @@
-import type { SandboxManifest } from "@ryot/sandbox-sdk/core";
+import type { SandboxManifest } from "@ryot-app/sandbox-sdk/core";
 
 import { manifest as manifest181 } from "./backend/scripts/automations/auto-complete-episodic-parent.sandbox";
 import { manifest as manifest0 } from "./backend/scripts/automations/auto-complete-on-full-progress.sandbox";

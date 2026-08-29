@@ -1,4 +1,4 @@
-import type { UserId } from "@ryot/contract/schema/brands";
+import type { UserId } from "@ryot-app/contract/schema/brands";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 

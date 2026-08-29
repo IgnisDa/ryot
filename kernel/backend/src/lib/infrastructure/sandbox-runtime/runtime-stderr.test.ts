@@ -1,4 +1,4 @@
-import { utf8ByteLength } from "@ryot/sandbox-compiler/limits";
+import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
 import { describe, expect, it } from "vitest";
 
 import { SANDBOX_LIMITS } from "./limits";

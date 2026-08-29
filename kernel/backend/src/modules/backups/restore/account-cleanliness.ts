@@ -1,11 +1,11 @@
-import { defaultUserPreferences } from "@ryot/contract/auth-middleware";
+import { defaultUserPreferences } from "@ryot-app/contract/auth-middleware";
 import {
 	BackupBadRequest,
 	BackupConflict,
 	type BackupAccountDataCategory,
-} from "@ryot/contract/modules/backups/schemas";
-import type { UserId } from "@ryot/contract/schema/brands";
-import { isEqual } from "@ryot/ts-utils/lodash";
+} from "@ryot-app/contract/modules/backups/schemas";
+import type { UserId } from "@ryot-app/contract/schema/brands";
+import { isEqual } from "@ryot-app/ts-utils/lodash";
 import { Context, Effect, Layer } from "effect";
 
 import { AuthRepository, type PortableUserProfile } from "#modules/auth/repository";

@@ -1,5 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
-import type { ManagedAssetLocator } from "@ryot/contract/modules/uploads/schemas";
+import type { ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import type { ReactNode } from "react";
 
 import { useApiScope } from "@/api/scope";

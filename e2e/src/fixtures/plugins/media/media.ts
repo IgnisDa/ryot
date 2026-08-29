@@ -3,7 +3,7 @@ import {
 	EntitySchemaSlug,
 	RelationshipSchemaSlug,
 	SandboxProviderId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import {
 	and,
 	ascending,
@@ -19,7 +19,7 @@ import {
 	literal,
 	rows,
 	table,
-} from "@ryot/ryotql";
+} from "@ryot-app/ryotql";
 import { DateTime, Effect } from "effect";
 
 import { adminHeaders } from "~/fixtures/kernel/admin";

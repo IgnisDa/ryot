@@ -1,5 +1,5 @@
-import type { Effect } from "@ryot/sandbox-sdk/effect";
-import { executeRyotqlRecipe, type RyotQLDocument } from "@ryot/sandbox-sdk/ryotql";
+import type { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { executeRyotqlRecipe, type RyotQLDocument } from "@ryot-app/sandbox-sdk/ryotql";
 
 import { mediaMonitoringTargetsRecipe } from "../../media-monitoring-ryotql";
 import type { MediaMonitoringResult } from "../../operations/schemas";

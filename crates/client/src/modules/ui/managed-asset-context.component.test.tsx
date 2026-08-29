@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import type { AssetLocator } from "@ryot/contract/modules/uploads/schemas";
+import type { AssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import { render, screen } from "@testing-library/react-native";
 import { Text } from "react-native";
 

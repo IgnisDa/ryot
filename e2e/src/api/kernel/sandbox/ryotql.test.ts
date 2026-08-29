@@ -1,5 +1,5 @@
-import { EntityId, EntitySchemaSlug, PluginSlug } from "@ryot/contract/schema/brands";
-import { column, document, eq, field, literal, rows, table } from "@ryot/ryotql";
+import { EntityId, EntitySchemaSlug, PluginSlug } from "@ryot-app/contract/schema/brands";
+import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
 import { Effect } from "effect";
 
 import {

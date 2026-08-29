@@ -1,5 +1,5 @@
 import * as LabelPrimitive from "@radix-ui/react-label";
-import { cn } from "@ryot/ts-utils/cn";
+import { cn } from "@ryot-app/ts-utils/cn";
 import { cva, type VariantProps } from "class-variance-authority";
 import { type ComponentPropsWithoutRef, type ComponentRef, forwardRef } from "react";
 

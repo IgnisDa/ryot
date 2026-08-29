@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { DbError } from "@ryot/contract/errors";
+import { DbError } from "@ryot-app/contract/errors";
 import {
 	AutomationRuleId,
 	EntityId,
@@ -8,7 +8,7 @@ import {
 	EventSchemaSlug,
 	SandboxScriptId,
 	UserId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import { Effect, Result, Layer, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 

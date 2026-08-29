@@ -9,7 +9,7 @@ WORKDIR /app
 # Use the exact version from the root package.json
 RUN npm install -g turbo@2.10.12
 COPY . .
-RUN turbo prune @ryot/website --docker
+RUN turbo prune @ryot-app/website --docker
 
 FROM website-build-base AS website-builder
 WORKDIR /app
@@ -17,8 +17,8 @@ COPY --from=website-pruner /app/out/json/ .
 RUN bun install --frozen-lockfile
 COPY --from=website-pruner /app/out/full/ .
 COPY --from=website-pruner /app/tsconfig.options.json .
-RUN bun run turbo build --filter=@ryot/website
-RUN bun install --filter @ryot/website --production
+RUN bun run turbo build --filter=@ryot-app/website
+RUN bun install --filter @ryot-app/website --production
 
 FROM $NODE_BASE_IMAGE
 RUN apt-get update && apt-get install -y --no-install-recommends wget curl && rm -rf /var/lib/apt/lists/*

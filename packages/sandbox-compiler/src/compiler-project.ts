@@ -1,4 +1,4 @@
-import { createTypeScriptProject } from "@ryot/typescript-compiler";
+import { createTypeScriptProject } from "@ryot-app/typescript-compiler";
 import { Data, Effect } from "effect";
 
 const virtualRoot = "/__ryot_sandbox__";

@@ -23,8 +23,8 @@ import {
 	type PluginRyotQLOutcome,
 	type PluginRyotQLRequest,
 	type PluginThemeSnapshot,
-} from "@ryot/contract/modules/plugins/client";
-import { isJsonValue } from "@ryot/contract/schema/json";
+} from "@ryot-app/contract/modules/plugins/client";
+import { isJsonValue } from "@ryot-app/contract/schema/json";
 import { Match, Result, Schema } from "effect";
 
 const HANDSHAKE_TIMEOUT_MS = 15_000;

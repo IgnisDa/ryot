@@ -1,5 +1,5 @@
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
-import { DateTime, Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { DateTime, Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import {
 	manifest as movieTmdbManifest,

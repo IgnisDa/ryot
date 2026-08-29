@@ -2,7 +2,7 @@ import type {
 	AssetLocator,
 	DownloadResolutionResponse,
 	ManagedAssetLocator,
-} from "@ryot/contract/modules/uploads/schemas";
+} from "@ryot-app/contract/modules/uploads/schemas";
 import type { Cause } from "effect";
 import { AsyncResult } from "effect/unstable/reactivity";
 

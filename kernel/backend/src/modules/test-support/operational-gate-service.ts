@@ -1,8 +1,8 @@
 import {
 	TestSupportBadRequest,
 	type TestSupportStartWorkflowLoadGateBody,
-} from "@ryot/contract/modules/test-support/schemas";
-import type { ImportRunId } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/modules/test-support/schemas";
+import type { ImportRunId } from "@ryot-app/contract/schema/brands";
 import { sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 

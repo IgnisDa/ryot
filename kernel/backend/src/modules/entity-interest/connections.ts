@@ -1,5 +1,5 @@
-import { notFound } from "@ryot/contract/errors";
-import type { EntityInterestEntityUpdatedMessage } from "@ryot/contract/modules/entity-interest/messages";
+import { notFound } from "@ryot-app/contract/errors";
+import type { EntityInterestEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-interest/messages";
 import { Context, Effect, Layer } from "effect";
 
 export type LocalInterestSessionEnqueue = (message: EntityInterestEntityUpdatedMessage) => void;

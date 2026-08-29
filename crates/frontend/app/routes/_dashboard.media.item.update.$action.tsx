@@ -20,9 +20,9 @@ import {
 	MediaLot,
 	MediaSource,
 	UpdateCustomMetadataDocument,
-} from "@ryot/generated/graphql/backend/graphql";
-import { camelCase } from "@ryot/ts-utils/lodash";
-import { parseParameters, parseSearchQuery } from "@ryot/ts-utils/request";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { camelCase } from "@ryot-app/ts-utils/lodash";
+import { parseParameters, parseSearchQuery } from "@ryot-app/ts-utils/request";
 import { IconCalendar, IconCalendarEvent } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";

@@ -1,8 +1,8 @@
-import { DbError, unknownToMessage } from "@ryot/contract/errors";
-import { AutomationProperties } from "@ryot/contract/modules/automations/schemas";
-import { type AutomationRuleId, EventSchemaSlug } from "@ryot/contract/schema/brands";
-import { sha256Base64Url } from "@ryot/ts-utils/crypto";
-import { stableStringify } from "@ryot/ts-utils/json";
+import { DbError, unknownToMessage } from "@ryot-app/contract/errors";
+import { AutomationProperties } from "@ryot-app/contract/modules/automations/schemas";
+import { type AutomationRuleId, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
+import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, Result, Layer, Match, Schema } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 

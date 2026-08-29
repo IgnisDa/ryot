@@ -1,6 +1,6 @@
 import { assert, expect, it } from "@effect/vitest";
-import { DbError } from "@ryot/contract/errors";
-import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
+import { DbError } from "@ryot-app/contract/errors";
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	aggregate,
 	and,
@@ -42,9 +42,9 @@ import {
 	table,
 	timeSeries,
 	titleCase,
-} from "@ryot/ryotql";
-import { allCollectionsRecipe } from "@ryot/ryotql-recipes/collections";
-import { navigationRecipe } from "@ryot/ryotql-recipes/navigation";
+} from "@ryot-app/ryotql";
+import { allCollectionsRecipe } from "@ryot-app/ryotql-recipes/collections";
+import { navigationRecipe } from "@ryot-app/ryotql-recipes/navigation";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer, Result, Schema } from "effect";
 

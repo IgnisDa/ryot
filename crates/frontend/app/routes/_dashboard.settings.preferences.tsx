@@ -34,15 +34,15 @@ import {
 	type UserPreferences,
 	UserReviewScale,
 	UserUnitSystem,
-} from "@ryot/generated/graphql/backend/graphql";
-import { cn } from "@ryot/ts-utils/cn";
-import { cloneDeep } from "@ryot/ts-utils/lodash";
-import { isBoolean } from "@ryot/ts-utils/lodash";
-import { isNumber } from "@ryot/ts-utils/lodash";
-import { snakeCase } from "@ryot/ts-utils/lodash";
-import { startCase } from "@ryot/ts-utils/lodash";
-import { parseSearchQuery } from "@ryot/ts-utils/request";
-import { changeCase } from "@ryot/ts-utils/string";
+} from "@ryot-app/generated/graphql/backend/graphql";
+import { cn } from "@ryot-app/ts-utils/cn";
+import { cloneDeep } from "@ryot-app/ts-utils/lodash";
+import { isBoolean } from "@ryot-app/ts-utils/lodash";
+import { isNumber } from "@ryot-app/ts-utils/lodash";
+import { snakeCase } from "@ryot-app/ts-utils/lodash";
+import { startCase } from "@ryot-app/ts-utils/lodash";
+import { parseSearchQuery } from "@ryot-app/ts-utils/request";
+import { changeCase } from "@ryot-app/ts-utils/string";
 import {
 	IconAlertCircle,
 	IconCheckbox,

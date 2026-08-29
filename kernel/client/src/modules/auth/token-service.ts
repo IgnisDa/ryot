@@ -10,7 +10,7 @@ import {
 	type OAuthUserInfoResponse as OAuthUserInfo,
 	type PendingAuthorization,
 	type StoredTokenSet,
-} from "@ryot/contract/oauth";
+} from "@ryot-app/contract/oauth";
 import { Context, Data, Effect, Layer, Schema } from "effect";
 
 import type { ServerOrigin } from "#/api/origin";

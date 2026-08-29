@@ -1,6 +1,6 @@
-import type { ContractPathParams, ContractPayload } from "@ryot/contract/client";
-import { PluginSlug } from "@ryot/contract/schema/brands";
-import { readPluginArchive } from "@ryot/plugin-archive";
+import type { ContractPathParams, ContractPayload } from "@ryot-app/contract/client";
+import { PluginSlug } from "@ryot-app/contract/schema/brands";
+import { readPluginArchive } from "@ryot-app/plugin-archive";
 import { Effect } from "effect";
 
 import type { Client } from "./auth";
@@ -50,7 +50,7 @@ export const fixtureClientPluginPackage = (
 		const archive = yield* Effect.promise(async () => {
 			const file = Bun.file(archiveUrl);
 			if (!(await file.exists())) {
-				throw new Error(`Build @ryot/fixture-plugin before this suite: ${archiveUrl.pathname}`);
+				throw new Error(`Build @ryot-app/fixture-plugin before this suite: ${archiveUrl.pathname}`);
 			}
 			return file.bytes();
 		});

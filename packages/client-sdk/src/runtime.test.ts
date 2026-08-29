@@ -8,9 +8,9 @@ import {
 	REQUIRED_THEME_TOKEN_NAMES,
 	type PluginBridgeInit,
 	type PluginClientArtifactMetadata,
-} from "@ryot/contract/modules/plugins/client";
-import { JsonValue } from "@ryot/contract/schema/json";
-import type { PreparedRecipe } from "@ryot/ryotql";
+} from "@ryot-app/contract/modules/plugins/client";
+import { JsonValue } from "@ryot-app/contract/schema/json";
+import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 import { afterEach, describe, expect, it } from "vitest";
 

@@ -1,10 +1,10 @@
-import { AuthRateLimited, AuthUnauthorized } from "@ryot/contract/auth-middleware";
+import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import {
 	PluginThemeSnapshot,
 	REQUIRED_THEME_TOKEN_NAMES,
-} from "@ryot/contract/modules/plugins/client";
-import { RyotQLBadRequest, RyotQLInternalError } from "@ryot/contract/modules/ryotql/contract";
-import type { PreparedRecipe } from "@ryot/ryotql";
+} from "@ryot-app/contract/modules/plugins/client";
+import { RyotQLBadRequest, RyotQLInternalError } from "@ryot-app/contract/modules/ryotql/contract";
+import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Effect, Layer, ManagedRuntime, Result, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 

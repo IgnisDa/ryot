@@ -1,15 +1,15 @@
-import type { FieldSelection, OrderBy } from "@ryot/contract/modules/ryotql/language";
+import type { FieldSelection, OrderBy } from "@ryot-app/contract/modules/ryotql/language";
 import type {
 	SavedViewCardMapping,
 	SavedViewTableMapping,
-} from "@ryot/contract/modules/saved-views/schemas";
+} from "@ryot-app/contract/modules/saved-views/schemas";
 import {
 	LocalAssetLocator,
 	RemoteAssetLocator,
 	S3AssetLocator,
-} from "@ryot/contract/modules/uploads/schemas";
-import { EntityId, EntitySchemaSlug, EventId } from "@ryot/contract/schema/brands";
-import type { Recipe, SelectedRow } from "@ryot/ryotql";
+} from "@ryot-app/contract/modules/uploads/schemas";
+import { EntityId, EntitySchemaSlug, EventId } from "@ryot-app/contract/schema/brands";
+import type { Recipe, SelectedRow } from "@ryot-app/ryotql";
 import {
 	and,
 	ascending,
@@ -44,10 +44,10 @@ import {
 	selectedRows,
 	sum,
 	table,
-} from "@ryot/ryotql";
-import { IsoDateString } from "@ryot/ryotql-recipes/codecs";
-import { eventOrderDescending } from "@ryot/ryotql-recipes/events";
-import { savedViewRecipe } from "@ryot/ryotql-recipes/saved-views";
+} from "@ryot-app/ryotql";
+import { IsoDateString } from "@ryot-app/ryotql-recipes/codecs";
+import { eventOrderDescending } from "@ryot-app/ryotql-recipes/events";
+import { savedViewRecipe } from "@ryot-app/ryotql-recipes/saved-views";
 import { Result, Schema } from "effect";
 
 import {

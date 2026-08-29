@@ -2,12 +2,12 @@ import {
 	PluginThemeSnapshot,
 	type PluginThemeSnapshot as PluginThemeSnapshotValue,
 	type RyotClientErrorReason,
-} from "@ryot/contract/modules/plugins/client";
-import { isJsonValue, type JsonValue } from "@ryot/contract/schema/json";
-import type { PreparedRecipe } from "@ryot/ryotql";
+} from "@ryot-app/contract/modules/plugins/client";
+import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
+import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
 
-export type { RyotClientErrorReason } from "@ryot/contract/modules/plugins/client";
+export type { RyotClientErrorReason } from "@ryot-app/contract/modules/plugins/client";
 
 export type RyotThemeSnapshot = PluginThemeSnapshotValue;
 

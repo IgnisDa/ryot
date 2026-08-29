@@ -1,4 +1,4 @@
-import { cn } from "@ryot/ts-utils/cn";
+import { cn } from "@ryot-app/ts-utils/cn";
 import Autoplay from "embla-carousel-autoplay";
 import {
 	AreaChart,

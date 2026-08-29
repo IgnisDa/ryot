@@ -1,4 +1,4 @@
-import type { ProviderDetailsRelatedEntity } from "@ryot/sandbox-sdk/provider";
+import type { ProviderDetailsRelatedEntity } from "@ryot-app/sandbox-sdk/provider";
 
 export type RoleRelatedEntity = Omit<
 	ProviderDetailsRelatedEntity,

@@ -2,7 +2,7 @@ import { expect, it } from "@effect/vitest";
 import {
 	CLIENT_API_VERSION,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
-} from "@ryot/contract/modules/plugins/client";
+} from "@ryot-app/contract/modules/plugins/client";
 import { Effect } from "effect";
 
 import {

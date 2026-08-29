@@ -1,1 +1,1 @@
-export { default } from "@ryot/testing/vitest.shared";
+export { default } from "@ryot-app/testing/vitest.shared";

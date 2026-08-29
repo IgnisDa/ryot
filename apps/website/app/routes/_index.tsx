@@ -1,6 +1,6 @@
-import ContactSubmissionEmail from "@ryot/transactional/emails/contact-submission";
-import LoginCodeEmail from "@ryot/transactional/emails/login-code";
-import { getActionIntent, processSubmission } from "@ryot/ts-utils/request";
+import ContactSubmissionEmail from "@ryot-app/transactional/emails/contact-submission";
+import LoginCodeEmail from "@ryot-app/transactional/emails/login-code";
+import { getActionIntent, processSubmission } from "@ryot-app/ts-utils/request";
 import { sql } from "drizzle-orm";
 import * as openidClient from "openid-client";
 import { useState } from "react";

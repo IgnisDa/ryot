@@ -1,5 +1,5 @@
-import { CurrentUser } from "@ryot/contract/auth-middleware";
-import { AppContract } from "@ryot/contract/contract";
+import { CurrentUser } from "@ryot-app/contract/auth-middleware";
+import { AppContract } from "@ryot-app/contract/contract";
 import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
 

@@ -1,8 +1,8 @@
-import { UserId } from "@ryot/contract/schema/brands";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import PurchaseCompleteEmail, {
 	type PurchaseCompleteEmailProps,
-} from "@ryot/transactional/emails/purchase-complete";
-import { formatDateToNaiveDate } from "@ryot/ts-utils/format";
+} from "@ryot-app/transactional/emails/purchase-complete";
+import { formatDateToNaiveDate } from "@ryot-app/ts-utils/format";
 import { and, eq, type InferSelectModel, isNull } from "drizzle-orm";
 
 import {

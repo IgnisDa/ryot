@@ -1,4 +1,4 @@
-import { PluginSlug, RelationshipSchemaSlug } from "@ryot/contract/schema/brands";
+import { PluginSlug, RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import {

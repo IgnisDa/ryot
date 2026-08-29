@@ -1,4 +1,4 @@
-import { PluginSlug } from "@ryot/contract/schema/brands";
+import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { describe, expect, it } from "vitest";
 
 import { buildCustomizePlan } from "./customize-plan";

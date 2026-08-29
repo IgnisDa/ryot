@@ -1,5 +1,5 @@
-import type { ImportEntityRunResult } from "@ryot/contract/modules/provider-entities/schemas";
-import type { EntityId } from "@ryot/contract/schema/brands";
+import type { ImportEntityRunResult } from "@ryot-app/contract/modules/provider-entities/schemas";
+import type { EntityId } from "@ryot-app/contract/schema/brands";
 import { Effect, Match, Schedule } from "effect";
 
 const PROVIDER_IMPORT_POLL_ATTEMPTS = 60;

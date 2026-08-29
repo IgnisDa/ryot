@@ -1,7 +1,7 @@
-import type { ExecutionMetadata, SandboxHost } from "@ryot/sandbox-sdk/core";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
-import type { ProviderDetailsInput, ProviderSearchInput } from "@ryot/sandbox-sdk/provider";
-import type { JsonValue } from "@ryot/sandbox-sdk/wire";
+import type { ExecutionMetadata, SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import type { ProviderDetailsInput, ProviderSearchInput } from "@ryot-app/sandbox-sdk/provider";
+import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
 
 type ExerciseSourceHost = SandboxHost<readonly ["httpCall", "getCachedValue", "setCachedValue"]>;
 type ExercisePreloadHost = SandboxHost<

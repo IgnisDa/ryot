@@ -1,7 +1,7 @@
-import type { JsonValue } from "@ryot/contract/modules/ryotql/language";
-import type { AutomationPolicyInput } from "@ryot/sandbox-sdk/automation";
-import { Effect } from "@ryot/sandbox-sdk/effect";
-import { defineSandboxTestHost } from "@ryot/sandbox-sdk/testing";
+import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
+import type { AutomationPolicyInput } from "@ryot-app/sandbox-sdk/automation";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 import { expect, it } from "vitest";
 
 import { execution, hostSuccess, policyAutomationContext } from "./automation-test-utils";

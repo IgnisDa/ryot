@@ -1,6 +1,6 @@
-import { IntegrationId } from "@ryot/contract/schema/brands";
-import { integrationImportRunsRecipe } from "@ryot/ryotql-recipes/import-runs";
-import { integrationRecipe, integrationsRecipe } from "@ryot/ryotql-recipes/integrations";
+import { IntegrationId } from "@ryot-app/contract/schema/brands";
+import { integrationImportRunsRecipe } from "@ryot-app/ryotql-recipes/import-runs";
+import { integrationRecipe, integrationsRecipe } from "@ryot-app/ryotql-recipes/integrations";
 import { Atom } from "effect/unstable/reactivity";
 
 import { appClient } from "@/api/client";

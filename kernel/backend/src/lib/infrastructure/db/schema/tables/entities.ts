@@ -1,4 +1,4 @@
-import type { AutomationOrigin } from "@ryot/contract/modules/automations/schemas";
+import type { AutomationOrigin } from "@ryot-app/contract/modules/automations/schemas";
 import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
 import { index, jsonb, snakeCase, text, timestamp, unique, uniqueIndex } from "drizzle-orm/pg-core";

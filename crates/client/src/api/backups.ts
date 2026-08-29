@@ -1,4 +1,4 @@
-import type { BackupRunId } from "@ryot/contract/schema/brands";
+import type { BackupRunId } from "@ryot-app/contract/schema/brands";
 import { Cause, Effect } from "effect";
 
 import { getAuthCookie } from "@/modules/auth/storage";

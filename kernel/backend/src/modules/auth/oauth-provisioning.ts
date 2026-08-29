@@ -10,7 +10,7 @@ import {
 	OAUTH_REFRESH_TOKEN_TTL_SECONDS,
 	OAUTH_SCOPES,
 	OAUTH_WEB_CLIENT_ID,
-} from "@ryot/contract/oauth";
+} from "@ryot-app/contract/oauth";
 import { Context, DateTime, Effect, Layer } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";

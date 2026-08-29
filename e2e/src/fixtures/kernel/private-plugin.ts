@@ -1,9 +1,9 @@
 import { randomUUID } from "node:crypto";
 
-import type { ContractPayload } from "@ryot/contract/client";
-import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import { PluginSlug } from "@ryot/contract/schema/brands";
-import type { PluginArchivePackage } from "@ryot/plugin-archive";
+import type { ContractPayload } from "@ryot-app/contract/client";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { PluginSlug } from "@ryot-app/contract/schema/brands";
+import type { PluginArchivePackage } from "@ryot-app/plugin-archive";
 import { Effect } from "effect";
 
 import type { Client } from "./auth";
@@ -263,8 +263,8 @@ import {
   genericImportKernelInputSchema,
   genericImportWorkflowInputSchema,
   genericImportWorkflowResultSchema,
-} from "@ryot/sandbox-sdk/imports";
-import { defineManifest, defineWorkflow } from "@ryot/sandbox-sdk/workflow";
+} from "@ryot-app/sandbox-sdk/imports";
+import { defineManifest, defineWorkflow } from "@ryot-app/sandbox-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "workflow",
@@ -297,9 +297,9 @@ export default defineWorkflow({
 `;
 
 const privateIntegrationOperationSource = (scriptSlug: string) => `
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { defineOperation } from "@ryot/sandbox-sdk/operation";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { defineOperation } from "@ryot-app/sandbox-sdk/operation";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   capabilities: [],

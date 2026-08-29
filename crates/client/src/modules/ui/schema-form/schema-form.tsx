@@ -1,4 +1,4 @@
-import type { AppSchema } from "@ryot/contract/schema/property-schema";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { useForm } from "@tanstack/react-form";
 import { Match } from "effect";
 import type { ComponentProps, Ref } from "react";

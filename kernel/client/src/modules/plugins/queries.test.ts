@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
-import { AuthRateLimited, AuthUnauthorized } from "@ryot/contract/auth-middleware";
-import type { ContractClient, ContractPayload } from "@ryot/contract/client";
-import { RyotQLBadRequest, RyotQLInternalError } from "@ryot/contract/modules/ryotql/contract";
+import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
+import type { ContractClient, ContractPayload } from "@ryot-app/contract/client";
+import { RyotQLBadRequest, RyotQLInternalError } from "@ryot-app/contract/modules/ryotql/contract";
 import { Effect, Layer } from "effect";
 
 import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";

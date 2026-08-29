@@ -1,7 +1,7 @@
-import type { ContractPayload } from "@ryot/contract/client";
-import { TranslationStatus } from "@ryot/contract/modules/entities/schemas";
-import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot/contract/schema/brands";
-import { column, document, eq, field, literal, rows, table } from "@ryot/ryotql";
+import type { ContractPayload } from "@ryot-app/contract/client";
+import { TranslationStatus } from "@ryot-app/contract/modules/entities/schemas";
+import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
 import { Effect, Schema } from "effect";
 
 import { requireObjectRecord, requirePresent, requireString } from "~/support/assertions";

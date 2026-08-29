@@ -1,4 +1,4 @@
-import type { NamedQuery, RowsResult } from "@ryot/contract/modules/ryotql/language";
+import type { NamedQuery, RowsResult } from "@ryot-app/contract/modules/ryotql/language";
 
 export const rowsResult = (items: readonly unknown[], pageInfo: RowsResult["pageInfo"]) => ({
 	items,

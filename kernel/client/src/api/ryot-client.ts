@@ -1,4 +1,4 @@
-import { createRyotClient, RyotClientError } from "@ryot/client-sdk";
+import { createRyotClient, RyotClientError } from "@ryot-app/client-sdk";
 import { Effect } from "effect";
 
 import { AuthenticatedApi } from "#/api/authenticated";

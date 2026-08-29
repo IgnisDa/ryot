@@ -1,6 +1,9 @@
-import { defineAutomationPolicy, type AutomationPolicyInput } from "@ryot/sandbox-sdk/automation";
-import { defineManifest } from "@ryot/sandbox-sdk/driver";
-import { Effect, Result, Schema } from "@ryot/sandbox-sdk/effect";
+import {
+	defineAutomationPolicy,
+	type AutomationPolicyInput,
+} from "@ryot-app/sandbox-sdk/automation";
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Result, Schema } from "@ryot-app/sandbox-sdk/effect";
 import {
 	and,
 	ascending,
@@ -14,7 +17,7 @@ import {
 	executeRyotqlRecipe,
 	table,
 	userLibraryRecipe,
-} from "@ryot/sandbox-sdk/ryotql";
+} from "@ryot-app/sandbox-sdk/ryotql";
 
 import { mediaLibraryEligibleEntitySchemaSlugs } from "../../schemas/media-schema-slugs";
 

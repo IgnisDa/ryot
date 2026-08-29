@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
-import { DbError } from "@ryot/contract/errors";
-import { SandboxScriptId, SubscriptionRunId, UserId } from "@ryot/contract/schema/brands";
+import { DbError } from "@ryot-app/contract/errors";
+import { SandboxScriptId, SubscriptionRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { Cause, Duration, Effect, Exit, Layer, Logger, Option, References } from "effect";
 import type { Logger as LoggerType } from "effect/Logger";
 import { Workflow } from "effect/unstable/workflow";

@@ -6,7 +6,7 @@ import {
 	ExerciseMuscle,
 	UserUnitSystem,
 	type WorkoutSetStatistic,
-} from "@ryot/generated/graphql/backend/graphql";
+} from "@ryot-app/generated/graphql/backend/graphql";
 import { match } from "ts-pattern";
 
 export const convertDurationFromMinutes = (

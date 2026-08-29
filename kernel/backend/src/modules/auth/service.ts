@@ -12,8 +12,8 @@ import {
 	CurrentUser,
 	defaultUserPreferences,
 	normalizeUserPreferences,
-} from "@ryot/contract/auth-middleware";
-import { badRequest, internalError, unknownToDbError } from "@ryot/contract/errors";
+} from "@ryot-app/contract/auth-middleware";
+import { badRequest, internalError, unknownToDbError } from "@ryot-app/contract/errors";
 import {
 	getOAuthEndpoint,
 	getOAuthIssuer,
@@ -22,8 +22,8 @@ import {
 	OAUTH_LOGIN_PATH,
 	OAUTH_SCOPES,
 	type AuthorizationContext as AuthorizationContextValue,
-} from "@ryot/contract/oauth";
-import { UserId } from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/oauth";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { betterAuth, type BetterAuthPlugin } from "better-auth";
 import { APIError, createAuthMiddleware, getSessionFromCtx } from "better-auth/api";
 import { verifyBearerToken } from "better-auth/oauth2";

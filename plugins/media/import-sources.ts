@@ -1,4 +1,4 @@
-import { HttpUrl, strictStruct } from "@ryot/contract/schema/utils";
+import { HttpUrl, strictStruct } from "@ryot-app/contract/schema/utils";
 import { Schema } from "effect";
 
 const uploadTokenInput = <const Source extends string>(source: Source) =>

@@ -1,5 +1,5 @@
 import { it } from "@effect/vitest";
-import { reservedPluginSlugs } from "@ryot/contract/modules/plugins/schemas";
+import { reservedPluginSlugs } from "@ryot-app/contract/modules/plugins/schemas";
 import { Effect } from "effect";
 
 import { assertExitFails } from "#lib/test-utils/assertions";

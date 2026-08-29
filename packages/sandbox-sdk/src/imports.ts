@@ -1,22 +1,22 @@
-import { Schema } from "@ryot/sandbox-sdk/effect";
+import { Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import { jsonValueSchema } from "./wire";
 
-export const SANDBOX_SDK_ROOT_IMPORT = "@ryot/sandbox-sdk/core";
-export const SANDBOX_SDK_AUTOMATION_IMPORT = "@ryot/sandbox-sdk/automation";
-export const SANDBOX_SDK_PROVIDER_IMPORT = "@ryot/sandbox-sdk/provider";
-export const SANDBOX_SDK_WORKFLOW_IMPORT = "@ryot/sandbox-sdk/workflow";
-export const SANDBOX_SDK_FILESYSTEM_IMPORT = "@ryot/sandbox-sdk/filesystem";
-export const SANDBOX_SDK_IMPORT_WIRE_IMPORT = "@ryot/sandbox-sdk/imports";
+export const SANDBOX_SDK_ROOT_IMPORT = "@ryot-app/sandbox-sdk/core";
+export const SANDBOX_SDK_AUTOMATION_IMPORT = "@ryot-app/sandbox-sdk/automation";
+export const SANDBOX_SDK_PROVIDER_IMPORT = "@ryot-app/sandbox-sdk/provider";
+export const SANDBOX_SDK_WORKFLOW_IMPORT = "@ryot-app/sandbox-sdk/workflow";
+export const SANDBOX_SDK_FILESYSTEM_IMPORT = "@ryot-app/sandbox-sdk/filesystem";
+export const SANDBOX_SDK_IMPORT_WIRE_IMPORT = "@ryot-app/sandbox-sdk/imports";
 
 export const SANDBOX_RUNTIME_SDK_IMPORTS = [
-	"@ryot/sandbox-sdk/effect",
-	"@ryot/sandbox-sdk/cheerio",
-	"@ryot/sandbox-sdk/youtubei",
-	"@ryot/sandbox-sdk/fflate",
-	"@ryot/sandbox-sdk/papaparse",
-	"@ryot/sandbox-sdk/fast-xml-parser",
-	"@ryot/sandbox-sdk/ryotql",
+	"@ryot-app/sandbox-sdk/effect",
+	"@ryot-app/sandbox-sdk/cheerio",
+	"@ryot-app/sandbox-sdk/youtubei",
+	"@ryot-app/sandbox-sdk/fflate",
+	"@ryot-app/sandbox-sdk/papaparse",
+	"@ryot-app/sandbox-sdk/fast-xml-parser",
+	"@ryot-app/sandbox-sdk/ryotql",
 ] as const;
 
 export const SANDBOX_SDK_IMPORTS = [
@@ -26,9 +26,9 @@ export const SANDBOX_SDK_IMPORTS = [
 	SANDBOX_SDK_WORKFLOW_IMPORT,
 	SANDBOX_SDK_FILESYSTEM_IMPORT,
 	SANDBOX_SDK_IMPORT_WIRE_IMPORT,
-	"@ryot/sandbox-sdk/driver",
-	"@ryot/sandbox-sdk/operation",
-	"@ryot/sandbox-sdk/wire",
+	"@ryot-app/sandbox-sdk/driver",
+	"@ryot-app/sandbox-sdk/operation",
+	"@ryot-app/sandbox-sdk/wire",
 	...SANDBOX_RUNTIME_SDK_IMPORTS,
 ] as const;
 

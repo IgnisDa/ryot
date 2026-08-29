@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
-import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
-import type { SandboxExecutionSubject } from "@ryot/contract/modules/sandbox/schemas";
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/sandbox/schemas";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -9,8 +9,8 @@ import {
 	SandboxScriptId,
 	SubscriptionRunId,
 	UserId,
-} from "@ryot/contract/schema/brands";
-import type { ChangeUserRelationshipBatch } from "@ryot/sandbox-sdk/core";
+} from "@ryot-app/contract/schema/brands";
+import type { ChangeUserRelationshipBatch } from "@ryot-app/sandbox-sdk/core";
 import { Effect, Result, Layer, Option } from "effect";
 import { describe } from "vitest";
 

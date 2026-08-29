@@ -1,11 +1,11 @@
-import type { PluginManifest } from "@ryot/contract/modules/plugins/manifest";
-import type { RyotQLDocument } from "@ryot/contract/modules/ryotql/language";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	EntityId,
 	EntitySchemaSlug,
 	PluginSlug,
 	RelationshipSchemaSlug,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import {
 	and,
 	ascending,
@@ -21,7 +21,7 @@ import {
 	literal,
 	rows,
 	table,
-} from "@ryot/ryotql";
+} from "@ryot-app/ryotql";
 import { Effect } from "effect";
 
 import type { RyotQLResponse } from "~/fixtures/kernel";
@@ -66,10 +66,10 @@ type AuthorizationProbe = {
 const authorizationProbeSource = (
 	input: AuthorizationProbe & { readonly markerSchemaSlug: string },
 ) => `
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
-import { ryotqlDocumentSchema } from "@ryot/sandbox-sdk/core";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
-import { jsonValueSchema } from "@ryot/sandbox-sdk/wire";
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { ryotqlDocumentSchema } from "@ryot-app/sandbox-sdk/core";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
 
 export const manifest = defineManifest({
   kind: "script",

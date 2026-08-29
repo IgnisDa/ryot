@@ -1,6 +1,6 @@
 # Plugin Kit
 
-`@ryot/plugin-kit/manifest` provides the schemas and types used to declare plugins.
+`@ryot-app/plugin-kit/manifest` provides the schemas and types used to declare plugins.
 
 The manifest is strict: every top-level section is required, even when its value is an empty array,
 and unknown fields are rejected. `definePlugin` preserves literal types while checking this contract.
@@ -83,7 +83,7 @@ Every `scripts` item declares `entry`, `slug`, `name`, `kind`, `capabilities`,
 Each entry is a complete ES module that default-exports exactly one direct definition containing its
 static manifest, input schema, output schema, and Effect-returning `run`. The entry's static manifest
 must match its `scripts` metadata. There are no driver maps, conventional driver names, or runtime
-selection inside a module. The matching `@ryot/sandbox-sdk` kind-specific entrypoint owns exact
+selection inside a module. The matching `@ryot-app/sandbox-sdk` kind-specific entrypoint owns exact
 input/output contracts.
 
 ### Logical Providers
@@ -262,7 +262,7 @@ operations: [
 `"integration"` and declares who may invoke the operation. `scriptSlug` is the slug of an
 `operation`-kind script declared in the manifest's `scripts` section. Author that script as one
 direct definition — `{ manifest, input, output, run }` — with the `defineOperation` helper from
-`@ryot/sandbox-sdk/operation`; there is no driver map and no conventional driver name.
+`@ryot-app/sandbox-sdk/operation`; there is no driver map and no conventional driver name.
 
 ## Import Sources
 
@@ -327,7 +327,7 @@ file fields.
 
 ## Recipes
 
-`@ryot/plugin-kit/operations` provides a transport-agnostic, Effect-based typed invoker so callers
+`@ryot-app/plugin-kit/operations` provides a transport-agnostic, Effect-based typed invoker so callers
 can invoke an operation without depending on a specific HTTP client. `defineOperationRecipe` pins
 the `pluginSlug`, `operationSlug`, and the `input`/`output` Effect Schemas; `invokeOperationRecipe`
 encodes the input, hands the payload to the supplied `transport`, and decodes the result against

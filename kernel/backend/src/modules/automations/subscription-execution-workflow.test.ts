@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { SandboxRunError } from "@ryot/contract/errors";
+import { SandboxRunError } from "@ryot-app/contract/errors";
 import {
 	AutomationRuleId,
 	EntityId,
@@ -9,7 +9,7 @@ import {
 	SignalSchemaSlug,
 	SubscriptionRunId,
 	UserId,
-} from "@ryot/contract/schema/brands";
+} from "@ryot-app/contract/schema/brands";
 import { Effect, Exit, Layer } from "effect";
 import { PersistedQueue } from "effect/unstable/persistence";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";

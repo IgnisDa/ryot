@@ -1,6 +1,6 @@
-import { ManagedAssetLocator } from "@ryot/contract/modules/uploads/schemas";
-import { BackupRunId, EntitySchemaSlug } from "@ryot/contract/schema/brands";
-import { managedAssetItemSchema } from "@ryot/contract/schema/core";
+import { ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
+import { BackupRunId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import { managedAssetItemSchema } from "@ryot-app/contract/schema/core";
 import { Effect, Schema } from "effect";
 
 import {

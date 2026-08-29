@@ -1,5 +1,5 @@
 import { expect, it } from "@effect/vitest";
-import { SandboxScriptId } from "@ryot/contract/schema/brands";
+import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer, Schema } from "effect";
 import { assert } from "vitest";
 

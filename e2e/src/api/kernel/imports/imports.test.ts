@@ -1,5 +1,5 @@
-import type { ContractSuccess } from "@ryot/contract/client";
-import { pluginConfigEnvironmentKey } from "@ryot/contract/modules/plugins/plugin-config";
+import type { ContractSuccess } from "@ryot-app/contract/client";
+import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
 import { Effect } from "effect";
 
 import {

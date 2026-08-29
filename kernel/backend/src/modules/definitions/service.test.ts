@@ -1,6 +1,6 @@
 import { expect, it } from "@effect/vitest";
-import type { CurrentUserValue } from "@ryot/contract/auth-middleware";
-import { UserId } from "@ryot/contract/schema/brands";
+import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
 import type { MockOverrides } from "#lib/test-utils/effect";

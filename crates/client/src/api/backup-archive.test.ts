@@ -1,4 +1,4 @@
-import { BackupRunId } from "@ryot/contract/schema/brands";
+import { BackupRunId } from "@ryot-app/contract/schema/brands";
 import { describe, expect, it } from "vitest";
 
 import { backupArchiveDownloadUrl, backupArchiveFileName } from "./backup-archive";

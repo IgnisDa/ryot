@@ -1,8 +1,8 @@
-import { SandboxRunError, unknownToMessage } from "@ryot/contract/errors";
+import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import {
 	SandboxExecutionGrants,
 	type SandboxExecutionPayload,
-} from "@ryot/contract/modules/sandbox/schemas";
+} from "@ryot-app/contract/modules/sandbox/schemas";
 import { Clock, DateTime, Effect, Schedule, Schema } from "effect";
 import { DurableQueue } from "effect/unstable/workflow";
 

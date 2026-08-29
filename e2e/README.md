@@ -7,13 +7,13 @@ This package contains API end-to-end and integration tests running on Vitest ove
 Run discovered suite:
 
 ```bash
-bun turbo --filter=@ryot/e2e test
+bun turbo --filter=@ryot-app/e2e test
 ```
 
 For final acceptance, run each standard file separately so failures retain file-level isolation:
 
 ```bash
-bun turbo --filter=@ryot/e2e test --only -- '<file>'
+bun turbo --filter=@ryot-app/e2e test --only -- '<file>'
 ```
 
 Two standalone media suites are discovered but skipped without explicit gates. Do not combine either with standard files.
@@ -21,13 +21,13 @@ Two standalone media suites are discovered but skipped without explicit gates. D
 Full-size operational gate:
 
 ```bash
-RUN_OPERATIONAL_GATES=1 bun turbo --filter=@ryot/e2e test --only -- 'src/api/plugins/media/imports/media-population-operational-gate.test.ts'
+RUN_OPERATIONAL_GATES=1 bun turbo --filter=@ryot-app/e2e test --only -- 'src/api/plugins/media/imports/media-population-operational-gate.test.ts'
 ```
 
 Live provider drift smoke:
 
 ```bash
-RUN_LIVE_PROVIDER_TESTS=1 bun turbo --filter=@ryot/e2e test --only -- 'src/api/plugins/media/smoke/providers-live-smoke.test.ts'
+RUN_LIVE_PROVIDER_TESTS=1 bun turbo --filter=@ryot-app/e2e test --only -- 'src/api/plugins/media/smoke/providers-live-smoke.test.ts'
 ```
 
 Operational gate exercises production-size workflow, Redis, sandbox, and database path with a 15-minute budget. Live smoke covers OpenLibrary import and TMDB translation and may require provider credentials.
@@ -35,7 +35,7 @@ Operational gate exercises production-size workflow, Redis, sandbox, and databas
 Sandbox runtime benchmark:
 
 ```bash
-RUN_SANDBOX_BENCHMARKS=1 bun turbo --env-mode=loose --force --output-logs=full --filter=@ryot/e2e test --only -- 'src/api/kernel/sandbox/sandbox-runtime-benchmark.test.ts'
+RUN_SANDBOX_BENCHMARKS=1 bun turbo --env-mode=loose --force --output-logs=full --filter=@ryot-app/e2e test --only -- 'src/api/kernel/sandbox/sandbox-runtime-benchmark.test.ts'
 ```
 
 `SANDBOX_PROCESS_MODE` defaults to `on-demand`; set it to `warm` to benchmark the warm pool.

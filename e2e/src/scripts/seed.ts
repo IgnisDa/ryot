@@ -6,8 +6,8 @@ import {
 	ContractSuccess,
 	runContract,
 	type ContractProgram,
-} from "@ryot/contract/client";
-import type { FieldSelection, ScalarExpression } from "@ryot/contract/modules/ryotql/language";
+} from "@ryot-app/contract/client";
+import type { FieldSelection, ScalarExpression } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	EntitySchemaSlug,
 	EventSchemaSlug,
@@ -15,12 +15,15 @@ import {
 	RemoteImageUrl,
 	type SandboxProviderId,
 	UserId,
-} from "@ryot/contract/schema/brands";
-import { imagesField } from "@ryot/contract/schema/core";
-import type { AppSchema } from "@ryot/contract/schema/property-schema";
-import { castJson, column, coalesce, jsonPath, literal, table } from "@ryot/ryotql";
-import { buildSavedViewLayoutProjections, savedViewRecipe } from "@ryot/ryotql-recipes/saved-views";
-import { dayjs } from "@ryot/ts-utils/dayjs";
+} from "@ryot-app/contract/schema/brands";
+import { imagesField } from "@ryot-app/contract/schema/core";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { castJson, column, coalesce, jsonPath, literal, table } from "@ryot-app/ryotql";
+import {
+	buildSavedViewLayoutProjections,
+	savedViewRecipe,
+} from "@ryot-app/ryotql-recipes/saved-views";
+import { dayjs } from "@ryot-app/ts-utils/dayjs";
 import { createAuthClient } from "better-auth/client";
 import { Effect } from "effect";
 
@@ -179,8 +182,8 @@ async function installSeedDefinitions(
 async function seedSandboxScript(apiClient: APIClient, executingUserId: string) {
 	const value = `seed-script-${dayjs().valueOf()}`;
 	const source = `
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot/sandbox-sdk/effect";
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",

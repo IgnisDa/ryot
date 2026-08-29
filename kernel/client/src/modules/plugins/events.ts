@@ -1,7 +1,7 @@
 import {
 	PLUGIN_CATALOG_CONNECTED_EVENT,
 	PLUGIN_CATALOG_INVALIDATED_EVENT,
-} from "@ryot/contract/modules/plugins/contract";
+} from "@ryot-app/contract/modules/plugins/contract";
 import { Context, Data, Duration, Effect, Layer, Match, Schedule } from "effect";
 
 import { serverApiUrl } from "#/api/origin";

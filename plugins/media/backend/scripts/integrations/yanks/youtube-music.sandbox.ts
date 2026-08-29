@@ -1,6 +1,6 @@
-import type { ExecutionMetadata, SandboxHost } from "@ryot/sandbox-sdk/core";
-import { defineManifest, defineScript } from "@ryot/sandbox-sdk/driver";
-import { DateTime, Effect, Option, Schema } from "@ryot/sandbox-sdk/effect";
+import type { ExecutionMetadata, SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { DateTime, Effect, Option, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 import { MediaIntegrationAdapterResult } from "../../../imports/schemas";
 import { buildHistory } from "../../providers/media/music/youtube-music";
