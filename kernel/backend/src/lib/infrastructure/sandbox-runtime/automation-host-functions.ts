@@ -2,7 +2,6 @@ import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import type { AutomationSandboxHostImplementationMap } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "effect";
 
-import { DatabaseSession } from "#lib/infrastructure/db/session";
 import {
 	requireSandboxCapabilityInput,
 	reportSandboxLifecycleWarnings,
@@ -17,9 +16,8 @@ import { NotificationsService } from "#modules/notifications/service";
 export const makeAutomationSandboxApiFunctions: Effect.Effect<
 	AutomationSandboxHostImplementationMap<SandboxRunInput>,
 	never,
-	DatabaseSession | NotificationsService | SignalEmissionService
+	NotificationsService | SignalEmissionService
 > = Effect.gen(function* () {
-	const session = yield* DatabaseSession;
 	const signals = yield* SignalEmissionService;
 	const notifications = yield* NotificationsService;
 
@@ -51,24 +49,19 @@ export const makeAutomationSandboxApiFunctions: Effect.Effect<
 							`emitSignal:${request.discriminator}`,
 						);
 						const result = yield* sandboxHostEffect(
-							signals
-								.emitSignal({
-									command,
-									properties: request.properties,
-									schemaSlug: request.schemaSlug,
-									...(request.subjectEntityId
-										? { subjectEntityId: EntityId.make(request.subjectEntityId) }
-										: {}),
-									principal:
-										input.principal.subject.type === "automation-run" &&
-										input.principal.subject.executionUserId !== null
-											? {
-													kind: "user",
-													userId: UserId.make(input.principal.subject.executionUserId),
-												}
-											: { kind: "system" },
-								})
-								.pipe(Effect.provideService(DatabaseSession, session)),
+							signals.emitSignal({
+								command,
+								properties: request.properties,
+								schemaSlug: request.schemaSlug,
+								...(request.subjectEntityId
+									? { subjectEntityId: EntityId.make(request.subjectEntityId) }
+									: {}),
+								principal:
+									input.principal.subject.type === "automation-run" &&
+									input.principal.subject.executionUserId !== null
+										? { kind: "user", userId: UserId.make(input.principal.subject.executionUserId) }
+										: { kind: "system" },
+							}),
 						);
 						yield* reportSandboxLifecycleWarnings("emitSignal", result.warnings);
 						return { triggerId: result.triggerId, wasCreated: result.wasCreated };

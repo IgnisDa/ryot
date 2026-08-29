@@ -118,9 +118,7 @@ export const ExportBackupWorkflowOperationsLive = Layer.effect(
 							yield* database.run((db) =>
 								db.execute(sql`set transaction isolation level repeatable read, read only`),
 							);
-							return yield* snapshotService
-								.prepareExportSnapshot(payload.userId, eventsPath)
-								.pipe(Effect.provideService(DatabaseSession, database));
+							return yield* snapshotService.prepareExportSnapshot(payload.userId, eventsPath);
 						}),
 					);
 					yield* repository.updateProgress({ ...payload, progress: 45 });
