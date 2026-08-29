@@ -19,14 +19,11 @@ import {
 	TemporaryUploadToken,
 } from "@ryot-app/contract/modules/uploads/schemas";
 import { CanonicalBase64 } from "@ryot-app/contract/schema/base64";
-import {
-	ClientRendererId,
-	EntityId,
-	EntitySchemaSlug,
-	PluginSlug,
-} from "@ryot-app/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, PluginSlug } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { HttpUrl, IsoUtcString, strictStruct } from "@ryot-app/contract/schema/utils";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Schema } from "effect";
 
 export { CLIENT_API_VERSION };
@@ -34,6 +31,7 @@ export const CLIENT_ARTIFACT_FORMAT = 1 as const;
 export const CLIENT_COMPILER_VERSION = 1 as const;
 export const CLIENT_BRIDGE_MAX_PENDING_REQUESTS = 64;
 export const CLIENT_BRIDGE_PROTOCOL_VERSION = 2 as const;
+export const CLIENT_BRIDGE_BOOTSTRAP_READY = "ryot-client-bootstrap-ready" as const;
 
 export const KERNEL_SHORTCUTS = {
 	commandCenter: "Mod+K",
@@ -79,6 +77,24 @@ export const isPageShortcut = (value: string): value is PageShortcutKey =>
 
 export const CLIENT_ARTIFACT_ROOT_ELEMENT_ID = "app";
 export const CLIENT_ARTIFACT_METADATA_ELEMENT_ID = "ryot-client-artifact";
+
+export const PLUGIN_CLIENT_ARTIFACT_CONTENT_TYPES = [
+	"text/html; charset=utf-8",
+	"text/css; charset=utf-8",
+	"text/javascript; charset=utf-8",
+	"image/png",
+	"image/gif",
+	"image/jpeg",
+	"image/webp",
+	"image/avif",
+	"image/x-icon",
+	"image/svg+xml",
+	"font/woff2",
+	"application/wasm",
+] as const;
+
+export const isPluginClientArtifactContentType = (contentType: string) =>
+	PLUGIN_CLIENT_ARTIFACT_CONTENT_TYPES.some((supported) => supported === contentType);
 
 export const PLUGIN_CLIENT_TEXT_SOURCE_EXTENSIONS = [".ts", ".tsx", ".css"] as const;
 
@@ -166,7 +182,6 @@ export type ClientPageTarget = Schema.Schema.Type<typeof ClientPageTarget>;
 
 export const ClientPageRenderer = Schema.Union([
 	strictStruct({ name: Schema.String, kind: Schema.Literal("kernel") }),
-	strictStruct({ id: ClientRendererId, kind: Schema.Literal("custom") }),
 	strictStruct({
 		pluginId: Schema.String,
 		exportName: Schema.String,
@@ -218,6 +233,44 @@ export const PluginClientArtifactMetadata = strictStruct({
 
 export type PluginClientArtifactMetadata = Schema.Schema.Type<typeof PluginClientArtifactMetadata>;
 
+export const clientArtifactFile = ({
+	path,
+	bytes,
+	contentType,
+}: {
+	readonly path: string;
+	readonly bytes: Uint8Array;
+	readonly contentType: string;
+}): PluginClientArtifactFile => ({
+	name: path,
+	contentType,
+	contents: new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength).slice(),
+});
+
+export const clientArtifactMetadata = (
+	pluginName: string,
+	files: readonly PluginClientArtifactFile[],
+): PluginClientArtifactMetadata => {
+	const identity = {
+		format: CLIENT_ARTIFACT_FORMAT,
+		apiVersion: CLIENT_API_VERSION,
+		compilerVersion: CLIENT_COMPILER_VERSION,
+		bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
+	};
+	const fileIdentity = files
+		.map(({ name, contents, contentType }) => ({ name, contentType, sha256: sha256Hex(contents) }))
+		.sort((left, right) => {
+			if (left.name < right.name) {
+				return -1;
+			}
+			return left.name > right.name ? 1 : 0;
+		});
+	return {
+		...identity,
+		hash: sha256Hex(stableStringify({ name: pluginName, metadata: identity, files: fileIdentity })),
+	};
+};
+
 const pluginClientArtifact = <Encoded, DecodingServices, EncodingServices>(
 	contents: Schema.Codec<Uint8Array, Encoded, DecodingServices, EncodingServices>,
 ) =>
@@ -253,7 +306,7 @@ const pluginBridgeIdentityFields = {
 	bridgeVersion: Schema.Literal(CLIENT_BRIDGE_PROTOCOL_VERSION),
 };
 
-const pluginSafeAreaInset = Schema.Number.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)));
+const pluginSafeAreaInset = Schema.Finite.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)));
 
 export const PluginBridgeInit = strictStruct({
 	...pluginBridgeIdentityFields,
