@@ -19,7 +19,7 @@ import { jsonValueSchema } from "../src/wire";
 const decode = <A, I>(schema: Schema.Codec<A, I>) => Schema.decodeUnknownSync(schema);
 
 describe("generic script definitions", () => {
-	test("preserves the manifest, schemas, and inferred implementation", async () => {
+	test("preserves the manifest, schemas, and inferred implementation", () => {
 		const manifest = defineManifest({
 			kind: "script",
 			capabilities: [],
@@ -38,7 +38,7 @@ describe("generic script definitions", () => {
 		expect(definition.definitionType).toBe(SANDBOX_SCRIPT_DEFINITION);
 		expect(definition.manifest).toBe(manifest);
 		expect(
-			await Effect.runPromise(
+			Effect.runSync(
 				definition.run({ value: 41 }, {}, { metadata: {}, sandboxScriptId: "script-1" }),
 			),
 		).toBe(42);
@@ -201,7 +201,7 @@ describe("shared value contracts", () => {
 });
 
 describe("sandbox test hosts", () => {
-	test("invokes a script with capability-checked host stubs", async () => {
+	test("invokes a script with capability-checked host stubs", () => {
 		const manifest = defineManifest({
 			kind: "script",
 			name: "Cache reader",
@@ -221,19 +221,17 @@ describe("sandbox test hosts", () => {
 		});
 		const host = defineSandboxTestHost(manifest, { getCachedValue: () => Effect.succeed(42) });
 
-		expect(
-			await Effect.runPromise(
-				runSandboxTestScript(definition, { key: "answer" }, host, {
-					metadata: {},
-					sandboxScriptId: "script-1",
-				}),
-			),
-		).toBe(42);
+		return Effect.runPromise(
+			runSandboxTestScript(definition, { key: "answer" }, host, {
+				metadata: {},
+				sandboxScriptId: "script-1",
+			}).pipe(Effect.map((value) => expect(value).toBe(42))),
+		);
 	});
 });
 
 describe("domain host contracts", () => {
-	test("invokes domain host stubs and keeps RyotQL output unparsed", async () => {
+	test("invokes domain host stubs and keeps RyotQL output unparsed", () => {
 		const manifest = defineManifest({
 			kind: "script",
 			name: "Domain reader",
@@ -255,10 +253,11 @@ describe("domain host contracts", () => {
 			executeRyotql: () => Effect.succeed([{ id: "a" }, { id: "b" }]),
 		});
 
-		expect(
-			await Effect.runPromise(
-				runSandboxTestScript(definition, {}, host, { metadata: {}, sandboxScriptId: "script-1" }),
-			),
-		).toEqual({ rows: 2 });
+		return Effect.runPromise(
+			runSandboxTestScript(definition, {}, host, {
+				metadata: {},
+				sandboxScriptId: "script-1",
+			}).pipe(Effect.map((value) => expect(value).toEqual({ rows: 2 }))),
+		);
 	});
 });

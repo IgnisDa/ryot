@@ -51,22 +51,22 @@ describe("RyotQL sandbox SDK", () => {
 		expect(userMediaLibraryRecipe().document).toHaveProperty("queries.mediaLibrary");
 	});
 
-	it("executes and decodes a prepared recipe", async () => {
+	it("executes and decodes a prepared recipe", () => {
 		const recipe = entityReadRecipe({ entityIds: ["entity-1"] });
 		const executeRyotql = (queryDocument: typeof recipe.document) => {
 			expect(queryDocument).toBe(recipe.document);
 			return Effect.succeed(rowsResponse);
 		};
 
-		await expect(
+		return expect(
 			Effect.runPromise(executeRyotqlRecipe(executeRyotql, recipe)),
 		).resolves.toMatchObject({ items: [{ id: "entity-1", properties: { pages: 320 } }] });
 	});
 
-	it("lifts recipe decoder failures into Effect", async () => {
+	it("lifts recipe decoder failures into Effect", () => {
 		const recipe = entityReadRecipe({ entityIds: ["entity-1"] });
 
-		await expect(
+		return expect(
 			Effect.runPromise(
 				executeRyotqlRecipe(
 					() => Effect.succeed({ data: { entities: { type: "aggregate" } } }),
@@ -76,7 +76,7 @@ describe("RyotQL sandbox SDK", () => {
 		).rejects.toBeTruthy();
 	});
 
-	it("keeps executeRyotql as a generic host transport", async () => {
+	it("keeps executeRyotql as a generic host transport", () => {
 		const manifest = defineManifest({
 			kind: "script",
 			name: "RyotQL reader",
@@ -98,7 +98,7 @@ describe("RyotQL sandbox SDK", () => {
 			executeRyotql: () => Effect.succeed(rowsResponse),
 		});
 
-		await expect(
+		return expect(
 			Effect.runPromise(
 				runSandboxTestScript(definition, {}, host, { metadata: {}, sandboxScriptId: "script-1" }),
 			),

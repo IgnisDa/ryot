@@ -99,8 +99,8 @@ const resolveRequestParts = (
 			Effect.map((text) =>
 				applyInit({ url: input.url, method: input.method, body: text ? text : undefined }),
 			),
-			Effect.catch(() =>
-				Effect.succeed(applyInit({ url: input.url, body: undefined, method: input.method })),
+			Effect.orElseSucceed(() =>
+				applyInit({ url: input.url, body: undefined, method: input.method }),
 			),
 		);
 	}
@@ -127,10 +127,8 @@ const makeFetch = (host: YoutubeiHost): typeof fetch =>
 							(result) =>
 								new Response(result.body, { status: result.status, headers: result.headers }),
 						),
-						Effect.catch((error) =>
-							isHostError(error)
-								? Effect.succeed(new Response(error.message, { status: 500 }))
-								: Effect.fail(error),
+						Effect.catchIf(isHostError, (error) =>
+							Effect.succeed(new Response(error.message, { status: 500 })),
 						),
 					);
 				}),
@@ -185,14 +183,14 @@ export const createYoutubeHistoryClient = (host: YoutubeiHost, authCookie: strin
 	).pipe(
 		Effect.map((client) =>
 			wrapClient({
-				getHistory: async () => {
-					const response = await client.actions.execute("/browse", {
-						client: "YTMUSIC",
-						params: "oggECgIIAQ%3D%3D",
-						browseId: "FEmusic_history",
-					});
-					return response.data;
-				},
+				getHistory: () =>
+					client.actions
+						.execute("/browse", {
+							client: "YTMUSIC",
+							params: "oggECgIIAQ%3D%3D",
+							browseId: "FEmusic_history",
+						})
+						.then((response) => response.data),
 			}),
 		),
 	);
