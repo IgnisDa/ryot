@@ -8,6 +8,8 @@ import { mainContentProps } from "#/modules/navigation/skip-link";
 
 type SettingsFrameProps = {
 	readonly title: string;
+	readonly meta?: ReactNode;
+	readonly actions?: ReactNode;
 	readonly children?: ReactNode;
 	readonly backFallbackHref: string;
 };
@@ -37,13 +39,25 @@ export function SettingsFrame(props: SettingsFrameProps) {
 					>
 						<AppIcon name="chevron-left" size={20} />
 					</button>
-					<h1 className="px-2 py-4 font-display text-lg font-semibold text-text">{props.title}</h1>
+					<div className="min-w-0 flex-1 px-2 py-4">
+						<h1 className="truncate font-display text-lg font-semibold text-text">{props.title}</h1>
+						{props.meta}
+					</div>
+					{props.actions}
 				</header>
 			)}
 			<div className="min-h-0 flex-1 overflow-y-auto px-4 pt-6 pb-8 md:px-8 md:pt-8">
 				<div className="mx-auto w-full max-w-2xl">
 					{isDesktop && (
-						<h1 className="mb-8 font-display text-3xl font-semibold text-text">{props.title}</h1>
+						<div className="mb-8 flex items-start justify-between gap-3">
+							<div className="min-w-0 flex-1">
+								<h1 className="truncate font-display text-3xl font-semibold text-text">
+									{props.title}
+								</h1>
+								{props.meta}
+							</div>
+							{props.actions}
+						</div>
 					)}
 					{props.children}
 				</div>

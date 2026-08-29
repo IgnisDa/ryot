@@ -3,6 +3,7 @@ import { Layer } from "effect";
 import { AdminApi } from "#/api/admin";
 import { AuthenticatedApi } from "#/api/authenticated";
 import { GodModeApi } from "#/api/god-mode";
+import { IntegrationsApi } from "#/api/integrations";
 import { PluginsApi } from "#/api/plugins";
 import { ProviderEntitiesApi } from "#/api/provider-entities";
 import { PublicApi } from "#/api/public";
@@ -19,6 +20,7 @@ import { AuthService } from "#/modules/auth/service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 import { GodModeService } from "#/modules/god-mode/service";
 import { GodModeSessionService } from "#/modules/god-mode/session";
+import { IntegrationsService } from "#/modules/integrations/service";
 import { CustomizeSidebarService } from "#/modules/navigation/customize/service";
 import { NavigationService } from "#/modules/navigation/service";
 import { ArtifactSessions } from "#/modules/plugins/artifact-sessions";
@@ -45,6 +47,7 @@ const InfrastructureLive = Layer.mergeAll(
 	GodModeApi.layer,
 	SavedViewsApi.layer,
 	UserSettingsApi.layer,
+	IntegrationsApi.layer,
 	ProviderEntitiesApi.layer,
 ).pipe(Layer.provide(TransportLive));
 
@@ -88,6 +91,7 @@ export const ClientLive = Layer.mergeAll(
 	PluginQueriesService.layer,
 	SavedViewsService.layer,
 	ProviderAddService.layer,
+	IntegrationsService.layer,
 	OAuthTokenLive,
 	RuntimeOAuthClientService.layer,
 ).pipe(Layer.provideMerge(InfrastructureLive));
