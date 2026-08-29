@@ -57,8 +57,8 @@ it.effect("persists only an immutable composition manifest and detects key confl
 								hash,
 								format: 1,
 								apiVersion: 1,
-								bridgeVersion: 3,
-								compilerVersion: 2,
+								bridgeVersion: 1,
+								compilerVersion: 1,
 							});
 						},
 					}),
