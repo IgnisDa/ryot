@@ -2,6 +2,7 @@ import { Button } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import clsx from "clsx";
+import { Effect } from "effect";
 import { useEffect, useRef, useState } from "react";
 
 import type { ServerOrigin } from "#/api/origin";
@@ -91,16 +92,20 @@ function GodModeTokenGate(props: {
 		const trimmedToken = token.trim();
 		if (!trimmedToken) {
 			setError("Enter an admin access token.");
-			return Promise.resolve();
+			return;
 		}
 		setSubmitting(true);
 		setError(undefined);
-		return props.runtime.runPromise(sessionService.create(props.server, trimmedToken)).then(
-			(sessionId) => props.onUnlock(sessionId),
-			() => {
-				setError("Could not start God Mode.");
-				setSubmitting(false);
-			},
+		props.runtime.runFork(
+			sessionService.create(props.server, trimmedToken).pipe(
+				Effect.matchCause({
+					onSuccess: (sessionId) => props.onUnlock(sessionId),
+					onFailure: () => {
+						setError("Could not start God Mode.");
+						setSubmitting(false);
+					},
+				}),
+			),
 		);
 	}
 
@@ -124,7 +129,7 @@ function GodModeTokenGate(props: {
 				className="ui-card mx-auto w-[min(100%,460px)] md:mx-0"
 				onSubmit={(event) => {
 					event.preventDefault();
-					void unlock();
+					unlock();
 				}}
 			>
 				<label className="ui-field-label">

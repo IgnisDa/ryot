@@ -9,23 +9,20 @@ import { ServerService } from "#/modules/server/service";
 
 export const Route = createFileRoute("/auth_/logout/callback")({
 	beforeLoad: ({ context }) =>
-		context.runtime
-			.runPromise(
-				Effect.gen(function* () {
-					const runtimeClient = yield* RuntimeOAuthClientService;
-					const selected = runtimeClient.isNative
-						? yield* Effect.flatMap(ServerService, (service) => service.selected)
-						: decodeServerOrigin(window.location.origin);
-					if (runtimeClient.isNative) {
-						yield* Effect.tryPromise(() => Browser.close()).pipe(Effect.ignore);
-					}
-					if (selected) {
-						yield* Effect.flatMap(OAuthTokenService, (tokens) => tokens.clear(selected));
-					}
-				}),
-			)
-			.then(() => {
+		context.runtime.runPromise(
+			Effect.gen(function* () {
+				const runtimeClient = yield* RuntimeOAuthClientService;
+				const selected = runtimeClient.isNative
+					? yield* Effect.flatMap(ServerService, (service) => service.selected)
+					: decodeServerOrigin(window.location.origin);
+				if (runtimeClient.isNative) {
+					yield* Effect.tryPromise(() => Browser.close()).pipe(Effect.ignore);
+				}
+				if (selected) {
+					yield* Effect.flatMap(OAuthTokenService, (tokens) => tokens.clear(selected));
+				}
 				// oxlint-disable-next-line typescript/only-throw-error
 				throw redirect({ to: "/auth", replace: true, search: { redirect: undefined } });
 			}),
+		),
 });

@@ -87,7 +87,7 @@ export function PluginFrame(props: {
 	readonly onOverlayState: (count: number) => void;
 	readonly chromeTriggerRef: RefObject<HTMLElement | null>;
 	readonly mutationCompleted: RyotClient["mutationCompleted"];
-	readonly onCheckFreshness: (signal: AbortSignal) => Promise<boolean>;
+	readonly onCheckFreshness: () => Effect.Effect<boolean, Error>;
 	readonly onHeader: (header: PluginHeaderPublication) => void;
 	readonly onKernelShortcut: (shortcut: KernelShortcut) => void;
 	readonly subscribeResume?: (resumed: () => void) => () => void;
@@ -195,19 +195,21 @@ export function PluginFrame(props: {
 		freshnessRevision.current = props.freshnessCheckRevision;
 		const checkedDocumentKey = props.documentKey;
 		const controller = new AbortController();
-		void latest.current
-			.onCheckFreshness(controller.signal)
-			.then((current) => {
-				if (
-					!controller.signal.aborted &&
-					!current &&
-					latest.current.documentKey === checkedDocumentKey
-				) {
-					setUpdateAvailable(true);
-				}
-				return undefined;
-			})
-			.catch(() => undefined);
+		Effect.runFork(
+			latest.current.onCheckFreshness().pipe(
+				Effect.map((current) => {
+					if (
+						!controller.signal.aborted &&
+						!current &&
+						latest.current.documentKey === checkedDocumentKey
+					) {
+						setUpdateAvailable(true);
+					}
+				}),
+				Effect.ignore,
+			),
+			{ signal: controller.signal },
+		);
 		return () => controller.abort();
 	}, [props.freshnessCheckRevision, props.documentKey]);
 

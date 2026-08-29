@@ -31,7 +31,7 @@ export function useCustomizeDraft(props: {
 	readonly catalog: PluginClientCatalog;
 	readonly workspaceSlug: string | undefined;
 }) {
-	const { scope, runtime } = useRouteContext({ from: "/_authenticated" });
+	const { scope } = useRouteContext({ from: "/_authenticated" });
 	const [error, setError] = useState<string | null>(null);
 	const [isSaving, setIsSaving] = useState(false);
 	const [session, setSession] = useState<Session>(() => {
@@ -60,28 +60,27 @@ export function useCustomizeDraft(props: {
 
 	const save = () => {
 		if (!isDirty) {
-			return Promise.resolve(true);
+			return Effect.succeed(true);
 		}
 		if (isSaving) {
-			return Promise.resolve(false);
+			return Effect.succeed(false);
 		}
 		setError(null);
 		setIsSaving(true);
 		const plan = buildCustomizePlan({ ...session, workspaceSlug: props.workspaceSlug });
-		return runtime
-			.runPromise(
-				Effect.flatMap(CustomizeSidebarService, (service) => service.save(scope, plan)).pipe(
-					Effect.match({ onSuccess: () => true, onFailure: () => false }),
-				),
-			)
-			.then((saved) => {
-				setIsSaving(false);
-				if (!saved) {
+		return Effect.flatMap(CustomizeSidebarService, (service) => service.save(scope, plan)).pipe(
+			Effect.match({
+				onSuccess: () => {
+					setIsSaving(false);
+					return true;
+				},
+				onFailure: () => {
+					setIsSaving(false);
 					setError(SAVE_ERROR);
 					return false;
-				}
-				return true;
-			});
+				},
+			}),
+		);
 	};
 
 	return { move, save, error, toggle, isDirty, isSaving, draft: session.draft };

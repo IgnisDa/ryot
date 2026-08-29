@@ -14,8 +14,6 @@ import { AuthStatus } from "#/modules/auth/status";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
 
-const ROUTE_ABORTED = { _tag: "RouteAborted" } as const;
-
 export const Route = createFileRoute("/oauth/login")({
 	component: OAuthLogin,
 	errorComponent: OAuthLoginUnavailable,
@@ -66,75 +64,43 @@ function OAuthLogin() {
 	const methods = deriveAuthMethods(config);
 
 	function submitCredentials(values: CredentialsValues) {
-		return runtime
-			.runPromise(
-				auth
-					.submitCredentials({ mode, values })
-					.pipe(
-						Effect.match({
-							onFailure: (error) => ({ error }) as const,
-							onSuccess: (result) => ({ result }) as const,
-						}),
-					),
-				{ signal: controller.current.signal },
-			)
-			.then(
-				(result) => result,
-				() => ROUTE_ABORTED,
-			)
-			.then((outcome) => {
-				if ("_tag" in outcome) {
+		return auth.submitCredentials({ mode, values }).pipe(
+			Effect.match({
+				onFailure: (error) => error.message,
+				onSuccess: (result) => {
+					if (result._tag === "TwoFactor") {
+						setTwoFactorMethods(result.methods);
+						setTwoFactorMethod(result.methods[0]);
+					}
 					return undefined;
-				}
-				if ("error" in outcome) {
-					return outcome.error.message;
-				}
-				if (outcome.result._tag === "TwoFactor") {
-					setTwoFactorMethods(outcome.result.methods);
-					setTwoFactorMethod(outcome.result.methods[0]);
-				}
-				return undefined;
-			});
+				},
+			}),
+		);
 	}
 
 	function submitTwoFactor(code: string) {
-		return runtime
-			.runPromise(
-				auth
-					.verifyTwoFactor(twoFactorMethod, code)
-					.pipe(Effect.match({ onSuccess: () => undefined, onFailure: (error) => error.message })),
-				{ signal: controller.current.signal },
-			)
-			.then(
-				(result) => result,
-				() => undefined,
-			);
+		return auth
+			.verifyTwoFactor(twoFactorMethod, code)
+			.pipe(Effect.match({ onSuccess: () => undefined, onFailure: (error) => error.message }));
 	}
 
 	function signInWithOidc() {
 		if (oidcPending) {
-			return Promise.resolve();
+			return;
 		}
 		setOidcError(undefined);
 		setOidcPending(true);
-		return runtime
-			.runPromise(
-				auth.signInWithOidc.pipe(
-					Effect.match({ onSuccess: () => undefined, onFailure: (failure) => failure.message }),
+		runtime.runFork(
+			auth.signInWithOidc.pipe(
+				Effect.catch((failure) =>
+					Effect.sync(() => {
+						setOidcError(failure.message);
+						setOidcPending(false);
+					}),
 				),
-				{ signal: controller.current.signal },
-			)
-			.then(
-				(result) => result,
-				() => undefined,
-			)
-			.then((error) => {
-				if (error) {
-					setOidcError(error);
-					setOidcPending(false);
-				}
-				return undefined;
-			});
+			),
+			{ signal: controller.current.signal },
+		);
 	}
 
 	const launchOidc = useEffectEvent(signInWithOidc);
@@ -146,7 +112,7 @@ function OAuthLogin() {
 			!oidcAutoLaunched.current
 		) {
 			oidcAutoLaunched.current = true;
-			void launchOidc();
+			launchOidc();
 		}
 	}, [config.frontendOrigin, methods.emailSignIn, methods.oidc, server]);
 
@@ -218,7 +184,7 @@ function OAuthLogin() {
 									className="w-full"
 									variant="secondary"
 									disabled={oidcPending}
-									onClick={() => void signInWithOidc()}
+									onClick={signInWithOidc}
 								>
 									{oidcPending
 										? "Opening provider..."

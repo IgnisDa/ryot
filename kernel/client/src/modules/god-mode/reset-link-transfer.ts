@@ -1,16 +1,25 @@
 import { Capacitor } from "@capacitor/core";
 import { Share } from "@capacitor/share";
+import { type Cause, Effect } from "effect";
 
-export type ResetLinkTransfer = (url: string) => Promise<"copied" | "shared">;
+export type ResetLinkTransfer = (
+	url: string,
+) => Effect.Effect<"copied" | "shared", Cause.UnknownError>;
 
 export const transferResetLink: ResetLinkTransfer = (url) =>
 	Capacitor.isNativePlatform()
-		? Share.share({ url }).then(() => "shared" as const)
-		: navigator.clipboard.writeText(url).then(() => "copied" as const);
+		? Effect.tryPromise(() => Share.share({ url })).pipe(Effect.as("shared" as const))
+		: Effect.tryPromise(() => navigator.clipboard.writeText(url)).pipe(
+				Effect.as("copied" as const),
+			);
 
-export type MigrationReportDetailsTransfer = (text: string) => Promise<"copied" | "shared">;
+export type MigrationReportDetailsTransfer = (
+	text: string,
+) => Effect.Effect<"copied" | "shared", Cause.UnknownError>;
 
 export const transferMigrationReportDetails: MigrationReportDetailsTransfer = (text) =>
 	Capacitor.isNativePlatform()
-		? Share.share({ text }).then(() => "shared" as const)
-		: navigator.clipboard.writeText(text).then(() => "copied" as const);
+		? Effect.tryPromise(() => Share.share({ text })).pipe(Effect.as("shared" as const))
+		: Effect.tryPromise(() => navigator.clipboard.writeText(text)).pipe(
+				Effect.as("copied" as const),
+			);

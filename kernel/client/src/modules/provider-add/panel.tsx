@@ -231,11 +231,11 @@ function ProviderSearchResultList(props: {
 					librarySchemaSlug: props.librarySchemaSlug,
 				})
 				.pipe(
-				Effect.match({ onFailure: () => undefined, onSuccess: (linkMap) => linkMap }),
-				Effect.tap((linkMap) =>
-					Effect.sync(() => {
-						if (isActive()) {
-							setLoadedLinks({ links: linkMap, request });
+					Effect.match({ onFailure: () => undefined, onSuccess: (linkMap) => linkMap }),
+					Effect.tap((linkMap) =>
+						Effect.sync(() => {
+							if (isActive()) {
+								setLoadedLinks({ request, links: linkMap });
 							}
 						}),
 					),
@@ -395,18 +395,21 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 
 	const requestSearch = () => {
 		if (options.status === "ready" && options.providerId === selected?.providerId) {
-			return optionsForm.handleSubmit().then((errors) => {
-				if (errors.length > 0) {
-					setAdvancedOptionsOpen(true);
-				}
-				return undefined;
-			});
+			Effect.runFork(
+				Effect.promise(() => optionsForm.handleSubmit()).pipe(
+					Effect.map((errors) => {
+						if (errors.length > 0) {
+							setAdvancedOptionsOpen(true);
+						}
+					}),
+				),
+			);
+			return;
 		}
 		dispatch({ type: "search-requested" });
-		return Promise.resolve();
 	};
 
-	const submitSearch = useEffectEvent(() => void requestSearch());
+	const submitSearch = useEffectEvent(() => requestSearch());
 	const debouncedSearch =
 		state.query.trim() === "" ? undefined : JSON.stringify([state.generation, state.query]);
 	useEffect(() => {
@@ -508,7 +511,7 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 						className="min-w-0 flex-1 bg-transparent text-base text-text outline-none md:text-sm"
 						onKeyDown={(event) => {
 							if (event.key === "Enter") {
-								void requestSearch();
+								requestSearch();
 							}
 						}}
 					/>
@@ -628,7 +631,7 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 						Match.when("failed", () => (
 							<div className="grid gap-2">
 								<PanelFailure className="min-h-32" />
-								<Button aria-label="Try searching again" onClick={() => void requestSearch()}>
+								<Button onClick={() => requestSearch()} aria-label="Try searching again">
 									Try again
 								</Button>
 							</div>

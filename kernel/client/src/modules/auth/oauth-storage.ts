@@ -47,34 +47,48 @@ const browserOAuthStorage = (): OAuthStorageAdapter => {
 	};
 };
 
-const setupSecureStorage = () =>
-	import("@aparajita/capacitor-secure-storage").then(({ SecureStorage, KeychainAccess }) =>
-		SecureStorage.setKeyPrefix(SECURE_KEY_PREFIX)
-			.then(() => SecureStorage.setSynchronize(false))
-			.then(() =>
-				SecureStorage.setDefaultKeychainAccess(KeychainAccess.afterFirstUnlockThisDeviceOnly),
-			)
-			.then(() => ({ plugin: SecureStorage })),
-	);
+class SecureStorageSetupError extends Data.TaggedError("SecureStorageSetupError")<{
+	readonly cause: unknown;
+}> {}
 
-const secureOAuthStorage = (): OAuthStorageAdapter => {
+const attemptSetup = <A>(evaluate: () => Promise<A>) =>
+	Effect.tryPromise({ try: evaluate, catch: (cause) => new SecureStorageSetupError({ cause }) });
+
+const setupSecureStorage = Effect.gen(function* () {
+	const { SecureStorage, KeychainAccess } = yield* attemptSetup(
+		() => import("@aparajita/capacitor-secure-storage"),
+	);
+	yield* attemptSetup(() => SecureStorage.setKeyPrefix(SECURE_KEY_PREFIX));
+	yield* attemptSetup(() => SecureStorage.setSynchronize(false));
+	yield* attemptSetup(() =>
+		SecureStorage.setDefaultKeychainAccess(KeychainAccess.afterFirstUnlockThisDeviceOnly),
+	);
+	return SecureStorage;
+});
+
+const secureOAuthStorage = Effect.gen(function* () {
 	// Capacitor configuration must finish before any storage operation; defer it until first use.
-	let ready: ReturnType<typeof setupSecureStorage> | undefined;
+	const ready = yield* Effect.cached(setupSecureStorage);
 	const attempt = <A>(
 		reason: OAuthStorageError["reason"],
-		operation: (storage: Awaited<ReturnType<typeof setupSecureStorage>>["plugin"]) => Promise<A>,
+		operation: (storage: Effect.Success<typeof setupSecureStorage>) => Promise<A>,
 	) =>
-		Effect.tryPromise({
-			catch: (cause) => new OAuthStorageError({ cause, reason }),
-			try: () => (ready ??= setupSecureStorage()).then(({ plugin }) => operation(plugin)),
-		});
+		ready.pipe(
+			Effect.mapError(({ cause }) => new OAuthStorageError({ cause, reason })),
+			Effect.flatMap((storage) =>
+				Effect.tryPromise({
+					try: () => operation(storage),
+					catch: (cause) => new OAuthStorageError({ cause, reason }),
+				}),
+			),
+		);
 	return {
 		keys: attempt("read-failed", (storage) => storage.keys()),
 		getItem: (key) => attempt("read-failed", (storage) => storage.getItem(key)),
 		removeItem: (key) => attempt("write-failed", (storage) => storage.removeItem(key)),
 		setItem: (key, value) => attempt("write-failed", (storage) => storage.setItem(key, value)),
-	};
-};
+	} satisfies OAuthStorageAdapter;
+});
 
 const isFresh = (pending: PendingAuthorizationValue, now: number) =>
 	now - pending.createdAt <= PENDING_AUTHORIZATION_TTL_MS;
@@ -197,8 +211,11 @@ export class OAuthStorage extends Context.Service<
 		) => Effect.Effect<void, OAuthStorageError>;
 	}
 >()("OAuthStorage") {
-	static readonly layer = Layer.sync(this, () =>
-		makeStorage(isNativePlatform() ? secureOAuthStorage() : browserOAuthStorage()),
+	static readonly layer = Layer.effect(
+		this,
+		Effect.suspend(() =>
+			isNativePlatform() ? secureOAuthStorage : Effect.sync(browserOAuthStorage),
+		).pipe(Effect.map(makeStorage)),
 	);
 }
 

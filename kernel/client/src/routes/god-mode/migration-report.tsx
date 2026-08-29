@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { Effect } from "effect";
 
 import { useGodMode } from "#/modules/god-mode/context";
 import { MigrationReportView } from "#/modules/god-mode/migration-report-view";
@@ -15,9 +16,7 @@ function GodModeMigrationReport() {
 	return (
 		<MigrationReportView
 			unauthorized={unauthorized}
-			load={(after, signal) =>
-				runtime.runPromiseExit(service.getMigrationReport(sessionId, after), { signal })
-			}
+			load={(after) => Effect.exit(service.getMigrationReport(sessionId, after))}
 		/>
 	);
 }

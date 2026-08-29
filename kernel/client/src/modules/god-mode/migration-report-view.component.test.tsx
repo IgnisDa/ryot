@@ -64,20 +64,20 @@ const emptyReport: GodModeMigrationReport = {
 describe("MigrationReportView", () => {
 	it.live("loads on mount and renders the semantic report table", () =>
 		Effect.gen(function* () {
-			const requests: Array<{ after: string | undefined; signal: AbortSignal }> = [];
+			const requests: Array<string | undefined> = [];
 			render(
 				<MigrationReportView
 					unauthorized={() => undefined}
-					load={(after, signal) => {
-						requests.push({ after, signal });
-						return Promise.resolve(Exit.succeed(report));
+					load={(after) => {
+						requests.push(after);
+						return Effect.succeed(Exit.succeed(report));
 					}}
 				/>,
 			);
 
 			const table = yield* Effect.promise(() => screen.findByRole("table"));
 			expect(requests).toHaveLength(1);
-			expect(requests[0]?.after).toBeUndefined();
+			expect(requests[0]).toBeUndefined();
 			expect(
 				within(table)
 					.getAllByRole("columnheader")
@@ -97,7 +97,7 @@ describe("MigrationReportView", () => {
 			render(
 				<MigrationReportView
 					unauthorized={() => undefined}
-					load={() => Promise.resolve(Exit.succeed(report))}
+					load={() => Effect.succeed(Exit.succeed(report))}
 				/>,
 			);
 
@@ -121,7 +121,7 @@ describe("MigrationReportView", () => {
 			render(
 				<MigrationReportView
 					unauthorized={() => undefined}
-					load={() => Promise.resolve(Exit.succeed(report))}
+					load={() => Effect.succeed(Exit.succeed(report))}
 				/>,
 			);
 
@@ -144,7 +144,7 @@ describe("MigrationReportView", () => {
 						load={(after) => {
 							requests.push(after);
 							if (after === undefined) {
-								return Promise.resolve(
+								return Effect.succeed(
 									Exit.succeed({
 										...report,
 										pageInfo: { limit: 50, hasMore: true, nextCursor: "next" },
@@ -152,7 +152,7 @@ describe("MigrationReportView", () => {
 								);
 							}
 							nextAttempts += 1;
-							return Promise.resolve(
+							return Effect.succeed(
 								nextAttempts === 1
 									? Exit.fail(new AdminApiError({ cause: "offline" }))
 									: Exit.succeed({
@@ -184,7 +184,7 @@ describe("MigrationReportView", () => {
 					unauthorized={() => undefined}
 					load={() => {
 						calls += 1;
-						return Promise.resolve(
+						return Effect.succeed(
 							calls === 1
 								? Exit.fail(new AdminApiError({ cause: "offline" }))
 								: Exit.succeed(emptyReport),
@@ -208,7 +208,7 @@ describe("MigrationReportView", () => {
 						relocks += 1;
 					}}
 					load={() =>
-						Promise.resolve(
+						Effect.succeed(
 							Exit.failCause(
 								Cause.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } })),
 							),
@@ -223,21 +223,32 @@ describe("MigrationReportView", () => {
 		}),
 	);
 
-	it("cancels an in-flight load on unmount", () => {
-		let signal: AbortSignal | undefined;
-		const view = render(
-			<MigrationReportView
-				unauthorized={() => undefined}
-				load={(_, value) => {
-					signal = value;
-					// oxlint-disable-next-line effecttsgo/new-promise -- The load must remain pending so unmount can abort its signal.
-					return new Promise(() => undefined);
-				}}
-			/>,
-		);
+	it.live("cancels an in-flight load on unmount", () =>
+		Effect.gen(function* () {
+			let started = false;
+			let interrupted = false;
+			const view = render(
+				<MigrationReportView
+					unauthorized={() => undefined}
+					load={() =>
+						Effect.sync(() => {
+							started = true;
+						}).pipe(
+							Effect.andThen(Effect.never),
+							Effect.onInterrupt(() =>
+								Effect.sync(() => {
+									interrupted = true;
+								}),
+							),
+						)
+					}
+				/>,
+			);
 
-		expect(signal?.aborted).toBe(false);
-		view.unmount();
-		expect(signal?.aborted).toBe(true);
-	});
+			yield* Effect.promise(() => waitFor(() => expect(started).toBe(true)));
+			expect(interrupted).toBe(false);
+			view.unmount();
+			yield* Effect.promise(() => waitFor(() => expect(interrupted).toBe(true)));
+		}),
+	);
 });

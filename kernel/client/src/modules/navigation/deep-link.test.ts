@@ -25,14 +25,14 @@ const makeHarness = (launchUrl: string | null = null) => {
 		exitApp: () => {
 			exited += 1;
 		},
-		getLaunchUrl: () => Promise.resolve(launchUrl),
+		getLaunchUrl: () => Effect.succeed(launchUrl),
 		onUrlOpen: (handler) => {
 			urlOpen = handler;
-			return Promise.resolve(() => removed.push("appUrlOpen"));
+			return Effect.succeed(() => removed.push("appUrlOpen"));
 		},
 		onBackButton: (handler) => {
 			backButton = handler;
-			return Promise.resolve(() => removed.push("backButton"));
+			return Effect.succeed(() => removed.push("backButton"));
 		},
 	};
 

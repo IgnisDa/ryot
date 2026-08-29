@@ -96,28 +96,22 @@ function ResetPasswordForm(props: {
 				setServerError("Passwords do not match.");
 				return Promise.resolve();
 			}
-			return props.runtime
-				.runPromise(
-					auth
-						.resetPassword(props.server, props.token, value.password)
-						.pipe(Effect.match({ onSuccess: () => undefined, onFailure: (failure) => failure })),
-					{ signal: controller.current.signal },
-				)
-				.then(
-					(error) => {
-						if (error) {
-							setServerError(
-								error.code === "INVALID_TOKEN"
-									? "This password reset link is invalid or has expired."
-									: "Could not reset your password.",
-							);
-							return undefined;
-						}
-						setDone(true);
-						return undefined;
-					},
-					() => undefined,
-				);
+			return props.runtime.runPromiseExit(
+				auth
+					.resetPassword(props.server, props.token, value.password)
+					.pipe(
+						Effect.match({
+							onSuccess: () => setDone(true),
+							onFailure: (error) =>
+								setServerError(
+									error.code === "INVALID_TOKEN"
+										? "This password reset link is invalid or has expired."
+										: "Could not reset your password.",
+								),
+						}),
+					),
+				{ signal: controller.current.signal },
+			);
 		},
 	});
 
