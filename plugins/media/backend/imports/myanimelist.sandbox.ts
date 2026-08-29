@@ -1,0 +1,47 @@
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { gunzipSync, strFromU8 } from "@ryot-app/sandbox-sdk/fflate";
+import { readNamedArtifact } from "@ryot-app/sandbox-sdk/filesystem";
+
+import { batchMediaImportResult } from "./helpers";
+import { adaptMyanimelistExports } from "./myanimelist";
+import { MediaImportAdapterBatch, MyanimelistImportParserInput } from "./schemas";
+
+export const manifest = defineManifest({
+	kind: "script",
+	slug: "import.myanimelist",
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
+	capabilities: ["artifact-read"],
+	name: "Parse MyAnimeList import",
+});
+
+const decodeXml = (bytes: Uint8Array) => {
+	if (bytes[0] === 0x1f && bytes[1] === 0x8b) {
+		return strFromU8(gunzipSync(bytes));
+	}
+	return strFromU8(bytes);
+};
+
+export default defineScript({
+	manifest,
+	output: MediaImportAdapterBatch,
+	input: MyanimelistImportParserInput,
+	run: (input) =>
+		Effect.gen(function* () {
+			if (!input.hasAnimeFile && !input.hasMangaFile) {
+				throw new Error("Import job is missing MyAnimeList export files");
+			}
+			const animeXml = input.hasAnimeFile
+				? decodeXml(yield* readNamedArtifact("animeUploadToken"))
+				: undefined;
+			const mangaXml = input.hasMangaFile
+				? decodeXml(yield* readNamedArtifact("mangaUploadToken"))
+				: undefined;
+			return batchMediaImportResult(
+				adaptMyanimelistExports({ animeXml, mangaXml }),
+				input.start,
+				input.limit,
+			);
+		}),
+});

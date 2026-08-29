@@ -6,6 +6,45 @@ The manifest is strict: every top-level section is required, even when its value
 and unknown fields are rejected. `definePlugin` preserves literal types while checking this contract.
 Sandbox slugs use lowercase letters and numbers separated by `.`, `_`, or `-`; `/` is reserved.
 
+## Package Layout
+
+A plugin package has three roots, split by who consumes the code:
+
+| Root       | Archived | Contents                                                                                     |
+| ---------- | -------- | -------------------------------------------------------------------------------------------- |
+| `host/`    | No       | The manifest and everything the Ryot server or web client imports directly from the package. |
+| `backend/` | Yes      | Sandbox sources. Every `*.sandbox.ts` is an entrypoint; sibling modules are its libraries.   |
+| `client/`  | Yes      | The client bundle, present only when the manifest declares `client`.                         |
+
+`backend/` and `client/` are self-contained: they import workspace packages and their own siblings,
+never `host/`. Production `host/` code reaches into the sandbox tree only through
+`backend/contracts/**`, which holds the sandbox-owned schemas, recipes, and helpers that host callers
+also need; tests are not archived and may cross freely. Nothing host-only belongs under `backend/`,
+because the archive ships that tree verbatim.
+
+`host/` holds `plugin.ts` (the manifest, and the package's `.` export), `config.ts`, `saved-views.ts`,
+`import-sources.ts`, `query-recipes.ts`, and `schemas/` for entity, property, relationship, and signal
+declarations. Tests colocate with their subject in every root.
+
+### Backend Areas
+
+`backend/` groups entrypoints with the libraries they call, one directory per area — `automations/`,
+`bootstrap/`, `imports/`, `integrations/`, `operations/`, `workflows/`, and `providers/`. Cross-area
+helpers live in `backend/lib/`, and per-vendor HTTP and mapping helpers shared across providers live
+in `backend/lib/vendors/<vendor>.ts`.
+
+Provider entrypoints are addressed by path:
+
+```
+backend/providers/<rootEntitySchemaSlug>/<vendor>/<operation>.sandbox.ts
+```
+
+so `backend/providers/movie/tmdb/details.sandbox.ts` is the `details` operation of provider
+`movie.tmdb`. A basename outside the operation set (`details`, `search`, `search-options`, `resolve`,
+`translate`) is a provider-associated `script` rather than a provider operation. Modules shared inside
+one provider directory use local names such as `shared.ts`, since the directory already names the
+provider.
+
 ## Manifest Reference
 
 | Section                | Purpose                                                                                                                        |

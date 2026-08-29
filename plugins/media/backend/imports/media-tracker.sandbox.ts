@@ -1,0 +1,25 @@
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+
+import { batchMediaImportResult } from "./helpers";
+import { adaptMediaTrackerData } from "./media-tracker";
+import { MediaImportAdapterBatch, UrlAndKeyImportParserInput } from "./schemas";
+
+export const manifest = defineManifest({
+	kind: "script",
+	capabilities: ["httpCall"],
+	slug: "import.media_tracker",
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
+	name: "Fetch MediaTracker import",
+});
+
+export default defineScript({
+	manifest,
+	output: MediaImportAdapterBatch,
+	input: UrlAndKeyImportParserInput,
+	run: (input, host) =>
+		adaptMediaTrackerData(input, host).pipe(
+			Effect.map((result) => batchMediaImportResult(result, input.start, input.limit)),
+		),
+});

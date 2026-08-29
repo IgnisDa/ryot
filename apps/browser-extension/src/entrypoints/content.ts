@@ -1,4 +1,4 @@
-import type { MetadataLookupResult } from "@ryot-app/media-plugin/operations/schemas";
+import type { MetadataLookupResult } from "@ryot-app/media-plugin/contracts/operations";
 import { debounce, throttle } from "@ryot-app/ts-utils/lodash";
 
 import { storage } from "#imports";
