@@ -8,7 +8,7 @@ import {
 	pluginClientAssetMimeType,
 	type PluginClientArtifactFile,
 	type PluginClientArtifactMetadata,
-} from "@ryot-app/contract/modules/plugins/client";
+} from "@ryot-app/client-plugin-contract";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 
