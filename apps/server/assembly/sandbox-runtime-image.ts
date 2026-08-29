@@ -1,19 +1,18 @@
 #!/usr/bin/env bun
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
-import { runProcessCapturing } from "@ryot-app/sandbox-compiler/runtime-build/process";
-import { hostSuccess } from "@ryot-app/sandbox-sdk/wire";
-import { Clock, Crypto, Data, Effect, Encoding, FileSystem, Layer, Path, Schema } from "effect";
-
-import { materializeSandboxCompiledModule } from "../../../kernel/backend/src/lib/infrastructure/sandbox-runtime/compiled-modules";
-import { SANDBOX_RUNNER_LIMITS } from "../../../kernel/backend/src/lib/infrastructure/sandbox-runtime/limits";
-import { sandboxRunnerSource } from "../../../kernel/backend/src/lib/infrastructure/sandbox-runtime/runner.generated";
+import { materializeSandboxCompiledModule } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/compiled-modules";
+import { SANDBOX_RUNNER_LIMITS } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/limits";
+import { sandboxRunnerSource } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/runner.generated";
 import {
 	BridgeService,
 	PackageCacheManager,
 	sandboxDenoRunFlags,
-} from "../../../kernel/backend/src/lib/infrastructure/sandbox-runtime/runtime";
-import { sandboxRuntimePayload } from "../../../kernel/backend/src/lib/infrastructure/sandbox-runtime/runtime-payload.generated";
+} from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/runtime";
+import { sandboxRuntimePayload } from "@ryot-app/kernel-backend/lib/infrastructure/sandbox-runtime/runtime-payload.generated";
+import { runProcessCapturing } from "@ryot-app/sandbox-compiler/runtime-build/process";
+import { hostSuccess } from "@ryot-app/sandbox-sdk/wire";
+import { Clock, Crypto, Data, Effect, Encoding, FileSystem, Layer, Path, Schema } from "effect";
 
 class SandboxRuntimeSmokeError extends Data.TaggedError("SandboxRuntimeSmokeError")<{
 	readonly message: string;
