@@ -47,7 +47,7 @@ export const movePresentationRecipe = defineRecipe((entityIds: readonly string[]
 					id: selectedField(column(move, "id"), Schema.String),
 					name: selectedField(column(move, "name"), Schema.String),
 					type: selectedField(castText(property("type")), Schema.NullOr(Schema.String)),
-					power: selectedField(castNumber(property("power")), Schema.NullOr(Schema.Number)),
+					power: selectedField(castNumber(property("power")), Schema.NullOr(Schema.Finite)),
 					populationStatus: selectedField(column(move, "populationStatus"), PopulationStatus),
 					translationStatus: selectedField(column(move, "translationStatus"), TranslationStatus),
 					generation: selectedField(castText(property("generation")), Schema.NullOr(Schema.String)),
