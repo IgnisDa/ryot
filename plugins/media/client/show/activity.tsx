@@ -36,7 +36,10 @@ const MARKER_TONE: Record<ShowActivityRow["type"], string> = {
 	collection: "bg-transparent",
 };
 
-function ShowActivitySummaryFigures(props: { readonly summary: ShowActivitySummary }) {
+function ShowActivitySummaryFigures(props: {
+	readonly compact: boolean;
+	readonly summary: ShowActivitySummary;
+}) {
 	const { summary } = props;
 	const span = showActivitySpanLabel(summary);
 	const figures = [
@@ -48,7 +51,10 @@ function ShowActivitySummaryFigures(props: { readonly summary: ShowActivitySumma
 	return (
 		<div className="flex flex-wrap gap-y-4 rounded-lg border border-border bg-surface px-3.5 py-3">
 			{figures.map((figure) => (
-				<div key={figure.label} className="flex w-1/2 flex-col gap-0.5 md:w-1/4">
+				<div
+					key={figure.label}
+					className={clsx("flex flex-col gap-0.5", props.compact ? "w-1/2" : "w-1/4")}
+				>
 					<ShowFact label={figure.label} value={figure.value} />
 					{figure.detail === undefined ? null : (
 						<p className="font-ui text-[11px] text-text-subtle">{figure.detail}</p>
@@ -314,18 +320,23 @@ function ShowActivityEmpty() {
 	);
 }
 
-function ShowActivityRecord(props: { readonly view: ShowActivityView }) {
-	const { view } = props;
+function ShowActivityRecord(props: { readonly compact: boolean; readonly view: ShowActivityView }) {
+	const { compact, view } = props;
 	return (
-		<div className="flex flex-col gap-6 pt-6 md:flex-row md:justify-center md:gap-10 md:pt-8">
-			<div className="flex flex-col gap-5 md:w-72 md:shrink-0">
-				<ShowActivitySummaryFigures summary={view.summary} />
+		<div
+			className={clsx(
+				"flex gap-6",
+				compact ? "flex-col pt-6" : "flex-row justify-center gap-10 pt-8",
+			)}
+		>
+			<div className={clsx("flex flex-col gap-5", !compact && "w-72 shrink-0")}>
+				<ShowActivitySummaryFigures compact={compact} summary={view.summary} />
 				<ShowActivityCoverageStrip coverage={view.coverage} />
 			</div>
 			<div
 				role="list"
 				aria-label="Watch record"
-				className="flex min-w-0 flex-col gap-5 md:max-w-2xl md:flex-1"
+				className={clsx("flex min-w-0 flex-col gap-5", !compact && "max-w-2xl flex-1")}
 			>
 				<ShowActivityTimelineView timeline={view.timeline} />
 				<ShowActivityFooter summary={view.summary} />
@@ -335,6 +346,7 @@ function ShowActivityRecord(props: { readonly view: ShowActivityView }) {
 }
 
 export function ShowActivity(props: {
+	readonly compact: boolean;
 	readonly refresh: () => void;
 	readonly state: ShowActivityState;
 }) {
@@ -353,10 +365,16 @@ export function ShowActivity(props: {
 	if (state.status === "empty") {
 		return <ShowActivityEmpty />;
 	}
-	return <ShowActivityRecord view={state.view} />;
+	return <ShowActivityRecord view={state.view} compact={props.compact} />;
 }
 
-export function ShowActivityTab(props: { readonly entityId: string }) {
+export function ShowActivityTab(props: { readonly compact: boolean; readonly entityId: string }) {
 	const result = useRyotQuery(showActivityQuery, { entityId: props.entityId });
-	return <ShowActivity state={mapShowActivity(result)} refresh={result.refetch} />;
+	return (
+		<ShowActivity
+			compact={props.compact}
+			refresh={result.refetch}
+			state={mapShowActivity(result)}
+		/>
+	);
 }
