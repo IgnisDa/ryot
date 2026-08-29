@@ -1,7 +1,6 @@
 import clsx from "clsx";
 import {
 	useEffect,
-	useEffectEvent,
 	useLayoutEffect,
 	useRef,
 	useState,
@@ -56,12 +55,12 @@ export function Menu({
 	const menuRef = useRef<HTMLDivElement>(null);
 	const menuItems = useRef<Array<HTMLButtonElement | null>>([]);
 	const [position, setPosition] = useState({ top: 0, left: 0 });
-	const close = useEffectEvent((restoreFocus: boolean) => {
+	const close = (restoreFocus: boolean) => {
 		if (onInterceptBack?.() === true) {
 			return;
 		}
 		onClose(restoreFocus);
-	});
+	};
 
 	useLayoutEffect(() => {
 		const updatePosition = () => {
