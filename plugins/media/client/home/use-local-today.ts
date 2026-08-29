@@ -1,4 +1,4 @@
-import { useRyotSchedule } from "@ryot-app/client-sdk/react";
+import { usePageRefreshRequest, useRyotSchedule } from "@ryot-app/client-sdk/react";
 import { useEffect, useState } from "react";
 
 import { formatLocalDateKey } from "../media/date";
@@ -8,13 +8,18 @@ const nextLocalMidnight = (now: number) => {
 	return new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1).getTime();
 };
 
-/** The local `YYYY-MM-DD` date, re-rendering at each local midnight. */
+/** The local `YYYY-MM-DD` date, re-rendering and refreshing the page at each local midnight. */
 export const useLocalToday = () => {
 	const schedule = useRyotSchedule();
+	const requestPageRefresh = usePageRefreshRequest();
 	const [now, setNow] = useState(() => schedule.now());
 	useEffect(
-		() => schedule.after(nextLocalMidnight(now) - now, () => setNow(schedule.now())),
-		[schedule, now],
+		() =>
+			schedule.after(nextLocalMidnight(now) - now, () => {
+				setNow(schedule.now());
+				requestPageRefresh();
+			}),
+		[schedule, now, requestPageRefresh],
 	);
 	return formatLocalDateKey(new Date(now).toISOString());
 };
