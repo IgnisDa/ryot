@@ -8,8 +8,8 @@ schema; saved views do not declare sandbox scripts.
 ## Client
 
 The plugin client supplies a workspace home and `show`, `anime`, `movie`, `music`, `book`, `manga`,
-`podcast`, `audiobook`, `comic-book`, `visual-novel`, `video-game`, `person`, and `company` entity
-renderers. Person and company register only a detail page and keep the shared media row and card. Entity links
+`podcast`, `audiobook`, `comic-book`, `visual-novel`, `video-game`, the six `*-group` schemas,
+`person`, and `company` entity renderers. Person and company register only a detail page and keep the shared media row and card. Entity links
 use `PluginLink` so the kernel resolves canonical entity routes.
 
 `client/media/` owns everything the screens share and carries no schema copy.
@@ -131,6 +131,33 @@ select `timeToBeat.normally` directly through the variadic property accessors in
 there: Giant Bomb emits platform names alone, and the v10 migration strips null keys. Video games
 ship cover art plus IGDB artwork rather than a backdrop, so the schema declares
 `backdropPurposes: ["artwork"]` and gets the full backdrop hero at wide widths.
+
+### Groups
+
+`movie-group`, `audiobook-group`, `book-group`, `comic-book-group`, `music-group`, and
+`video-game-group` are groups: each is one `mediaGroupRecipes` config in `shared/<slug>-recipes.ts`
+over its member's `mediaFlatRecipes`, and one `defineGroupMediaSchema` descriptor in
+`client/<slug>/schema.tsx`. The member schema comes from `mediaGroupMemberSlugs`, and members hang
+off the group through `<group>-to-<member>`. The tab set is `<Members> | Overview | Activity`, and
+the screen opens on Members.
+
+Members are a cursor-paged top-level row query with Load more, like episode lists, because a comic
+series can hold hundreds of issues. They are ordered by the relationship `order`, then name, then ID,
+and each row is the member schema's own flat row with its `order` as a leading position.
+
+A group records no lifecycle of its own, so the header status is "N of M <verb>": M counts the linked
+members and N those with at least one `complete` event, both aggregated on the group row. The status
+row is hidden when the group has no members. `parts` is a separate fact, and rows and cards show the
+same two labels.
+
+Most group providers (Audible, Hardcover, Metron, IGDB) ship no images. When a group's own `images` is
+empty, the recipe replaces it with the `cover` images of its first member by `order`, so the header,
+hero, gallery, managed assets, rows, and cards all read the same artwork.
+
+The overview holds the gallery and, for `creatorGroupTargetSlugs` only, the person and company credit
+columns; those credits never select `character`. A group without credits issues no overview query.
+When the overview has neither images nor credits, it shows a "Nothing more to show" notice. Activity
+is the group's own reviews and collection changes, the same as creators.
 
 ### Creators
 

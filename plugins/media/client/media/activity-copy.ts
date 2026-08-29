@@ -94,7 +94,7 @@ export const mediaEpisodicActivityCopy = (input: {
 	};
 };
 
-export const mediaCreatorActivityCopy = (noun: string) => ({
+export const mediaReviewActivityCopy = (noun: string) => ({
 	segmentNoun: "Activity",
 	recordLabel: "Activity record",
 	rowLabels: { review: `Reviewed this ${noun}` },
