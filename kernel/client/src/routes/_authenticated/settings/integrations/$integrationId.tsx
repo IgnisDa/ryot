@@ -128,12 +128,12 @@ function IntegrationDetailRoute() {
 	const menuTrigger = useRef<HTMLButtonElement>(null);
 	const [isConfirming, setIsConfirming] = useState(false);
 	const [deleteFailed, setDeleteFailed] = useState(false);
-	const title = integrationTitle(integration, providerNames);
+	const [integration, setIntegration] = useState<ListedIntegration>(loaded.integration);
 	const providerNames = integrationProviderNames(loaded.providers);
+	const title = integrationTitle(integration, providerNames);
 	const [saveDetail, setSaveDetail] = useState<string | undefined>();
 	const { backInterceptors, runtime, scope } = Route.useRouteContext();
 	const provider = findOwnedIntegrationProvider(loaded.providers, integration);
-	const [integration, setIntegration] = useState<ListedIntegration>(loaded.integration);
 
 	useEffect(() => () => controller.current.abort(), []);
 
