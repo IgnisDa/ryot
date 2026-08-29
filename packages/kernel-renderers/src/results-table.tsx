@@ -56,7 +56,7 @@ const ResultsTable = ({ input }: { readonly input: typeof ResultsTablePageInput.
 	const appliedCursors = useRef(new Set<string>());
 	const [refreshGeneration, setRefreshGeneration] = useState(0);
 	const activeGeneration = useRef(refreshGeneration);
-	const refresh = () => setRefreshGeneration((current) => current + 1);
+	const refresh = () => Effect.sync(() => setRefreshGeneration((current) => current + 1));
 	usePageRefresh(refresh);
 	const [query] = useState(() =>
 		createRyotQuery<string, TablePage>(

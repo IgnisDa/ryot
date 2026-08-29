@@ -90,29 +90,30 @@ function ResetPasswordForm(props: {
 	const form = useForm({
 		errorVisibility,
 		defaultValues: { password: "", confirmation: "" },
-		onSubmit: ({ value }) => {
-			setServerError(undefined);
-			if (value.password !== value.confirmation) {
-				setServerError("Passwords do not match.");
-				return Promise.resolve();
-			}
-			return props.runtime.runPromiseExit(
-				auth
-					.resetPassword(props.server, props.token, value.password)
-					.pipe(
-						Effect.match({
-							onSuccess: () => setDone(true),
-							onFailure: (error) =>
-								setServerError(
-									error.code === "INVALID_TOKEN"
-										? "This password reset link is invalid or has expired."
-										: "Could not reset your password.",
-								),
-						}),
-					),
+		onSubmit: ({ value }) =>
+			props.runtime.runPromiseExit(
+				Effect.gen(function* () {
+					setServerError(undefined);
+					if (value.password !== value.confirmation) {
+						setServerError("Passwords do not match.");
+						return;
+					}
+					yield* auth
+						.resetPassword(props.server, props.token, value.password)
+						.pipe(
+							Effect.match({
+								onSuccess: () => setDone(true),
+								onFailure: (error) =>
+									setServerError(
+										error.code === "INVALID_TOKEN"
+											? "This password reset link is invalid or has expired."
+											: "Could not reset your password.",
+									),
+							}),
+						);
+				}),
 				{ signal: controller.current.signal },
-			);
-		},
+			),
 	});
 
 	if (done) {
