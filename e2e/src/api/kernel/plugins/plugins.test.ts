@@ -376,7 +376,13 @@ export default defineAutomation({
 							c.testSupport.uninstallSystemPlugin({ params: { pluginSlug: provider.pluginSlug } }),
 						adminHeaders,
 					)
-					.pipe(Effect.catchTag("PluginConflictError", () => Effect.succeed(null))),
+					.pipe(
+						Effect.catchTag("PluginConflictError", (error) =>
+							error.reason.code === "workflow-referenced"
+								? Effect.succeed(null)
+								: Effect.fail(error),
+						),
+					),
 			);
 			provider.active = false;
 			expect(uninstalled).toEqual(reingestedPlugin);
