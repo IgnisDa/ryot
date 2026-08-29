@@ -181,16 +181,16 @@ export const createYoutubeHistoryClient = (host: YoutubeiHost, authCookie: strin
 			}),
 		),
 	).pipe(
-		Effect.map((client) =>
-			wrapClient({
-				getHistory: () =>
-					client.actions
-						.execute("/browse", {
+		Effect.map((client) => ({
+			getHistory: () =>
+				Effect.tryPromise(() =>
+					withApprovedDependencyRuntime(() =>
+						client.actions.execute("/browse", {
 							client: "YTMUSIC",
 							params: "oggECgIIAQ%3D%3D",
 							browseId: "FEmusic_history",
-						})
-						.then((response) => response.data),
-			}),
-		),
+						}),
+					),
+				).pipe(Effect.map((response) => response.data)),
+		})),
 	);

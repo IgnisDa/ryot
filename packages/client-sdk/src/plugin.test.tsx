@@ -72,14 +72,17 @@ const Home = () => {
 	const ryotTheme = useRyotTheme();
 	const [result, setResult] = useState("pending");
 	useEffect(() => {
-		void Effect.runPromise(
-			ryot.operations.invoke({
-				input: {},
-				slug: "greet",
-				pluginSlug: "fixture",
-				output: Schema.String,
-			}),
-		).then(setResult);
+		Effect.runFork(
+			Effect.andThen(
+				ryot.operations.invoke({
+					input: {},
+					slug: "greet",
+					pluginSlug: "fixture",
+					output: Schema.String,
+				}),
+				(greeting) => Effect.sync(() => setResult(greeting)),
+			),
+		);
 	}, [ryot]);
 	return <p>{`${ryotTheme.resolvedMode}:${result}`}</p>;
 };
