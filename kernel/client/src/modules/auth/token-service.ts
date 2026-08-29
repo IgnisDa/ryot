@@ -108,7 +108,7 @@ const makeTokenService = (
 					OAuthEndpointError: (cause) =>
 						cause.code === "invalid_grant"
 							? Effect.gen(function* () {
-									yield* storage.removeTokenSet(canonical);
+									yield* fromStorage(storage.removeTokenSet(canonical));
 									return yield* Effect.fail(
 										new OAuthTokenError({ cause, reason: "invalid-grant" }),
 									);
@@ -191,16 +191,18 @@ const makeTokenService = (
 		state: string,
 		code: string,
 	) {
-		const pending = yield* fromStorage(storage.takePending(origin, state));
+		const pending = yield* storage.getPending(origin, state);
 		if (!pending) {
 			return yield* Effect.fail(new OAuthTokenError({ reason: "missing-authorization" }));
 		}
+		const terminalFailure = (error: OAuthTokenError) =>
+			storage.removePending(origin, state).pipe(Effect.andThen(Effect.fail(error)));
 		if (
 			pending.serverOrigin !== origin ||
 			pending.clientId !== expectedClientId ||
 			pending.redirectUri !== expectedRedirectUri
 		) {
-			return yield* Effect.fail(new OAuthTokenError({ reason: "invalid-callback" }));
+			return yield* terminalFailure(new OAuthTokenError({ reason: "invalid-callback" }));
 		}
 		const response = yield* postOAuthForm(
 			fetcher,
@@ -217,19 +219,23 @@ const makeTokenService = (
 			OAuthTokenResponse,
 		).pipe(
 			Effect.catchTags({
-				SchemaError: (cause) => Effect.fail(requestFailed(cause)),
-				OAuthEndpointError: (cause) => Effect.fail(requestFailed(cause)),
+				SchemaError: (cause) => terminalFailure(requestFailed(cause)),
+				OAuthEndpointError: (cause) => terminalFailure(requestFailed(cause)),
 				OAuthTransportError: (cause) => Effect.fail(requestFailed(cause)),
 			}),
 		);
-		const tokens = yield* Effect.try({ catch: requestFailed, try: () => storedTokenSet(response) });
+		const tokens = yield* Effect.try({
+			catch: requestFailed,
+			try: () => storedTokenSet(response),
+		}).pipe(Effect.catch(terminalFailure));
 		const nonce = yield* Effect.try({
 			try: () => decodeIdTokenNonce(tokens.idToken),
 			catch: (cause) => new OAuthTokenError({ cause, reason: "invalid-nonce" }),
-		});
+		}).pipe(Effect.catch(terminalFailure));
 		if (nonce !== pending.nonce) {
-			return yield* Effect.fail(new OAuthTokenError({ reason: "invalid-nonce" }));
+			return yield* terminalFailure(new OAuthTokenError({ reason: "invalid-nonce" }));
 		}
+		yield* storage.removePending(origin, state);
 		yield* fromStorage(storage.setTokenSet(origin, tokens));
 		return pending;
 	});
@@ -249,8 +255,9 @@ const makeTokenService = (
 		clientId: string,
 		postLogoutRedirectUri: string,
 	) {
-		const clearLocal = Effect.all([storage.removeTokenSet(origin), storage.clearPending(origin)], {
-			discard: true,
+		const clearLocal = Effect.gen(function* () {
+			yield* fromStorage(storage.removeTokenSet(origin));
+			yield* storage.clearPending(origin);
 		});
 		const current = yield* fromStorage(storage.getTokenSet(origin));
 		if (!current) {
@@ -280,8 +287,9 @@ const makeTokenService = (
 				id_token_hint: current.idToken,
 				post_logout_redirect_uri: postLogoutRedirectUri,
 			}).toString();
+			yield* clearLocal;
 			return url.toString();
-		}).pipe(Effect.ensuring(clearLocal));
+		});
 	});
 
 	return {
@@ -291,9 +299,15 @@ const makeTokenService = (
 		rejectAuthorization,
 		completeAuthorization,
 		clear: (origin) =>
-			Effect.all([storage.removeTokenSet(origin), storage.clearPending(origin)], {
-				discard: true,
-			}),
+			Effect.all(
+				[
+					storage.removeTokenSet(origin).pipe(Effect.catch(() => Effect.void)),
+					storage.clearPending(origin),
+				],
+				{
+					discard: true,
+				},
+			),
 	};
 };
 

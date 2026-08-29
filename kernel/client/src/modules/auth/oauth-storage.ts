@@ -86,19 +86,55 @@ const makeStorage = (adapter: OAuthStorageAdapter): OAuthStorage["Service"] => {
 		Effect.gen(function* () {
 			const value = yield* readUnverified(key);
 			if (value === undefined || value === null) {
-				return null;
+				return value;
 			}
 			return yield* decodeOrEvict(PendingAuthorization, key, value);
 		});
+	const getPending = (origin: ServerOrigin, state: string) =>
+		Effect.gen(function* () {
+			const key = oauthPendingKey(origin, state);
+			const pending = yield* readPending(key);
+			if (pending === undefined || pending === null) {
+				return null;
+			}
+			if (!isFresh(pending)) {
+				yield* evict(key);
+				return null;
+			}
+			return pending;
+		});
+	const prunePending = (origin: string) =>
+		Effect.gen(function* () {
+			const prefix = `${OAUTH_PENDING_PREFIX}${encodeURIComponent(normalizeServerOrigin(origin))}:`;
+			const keys = yield* adapter.keys.pipe(
+				Effect.catch(() => Effect.succeed<readonly string[]>([])),
+			);
+			yield* Effect.forEach(
+				keys.filter((key) => key.startsWith(prefix)),
+				(key) =>
+					Effect.gen(function* () {
+						const pending = yield* readPending(key);
+						if (pending !== undefined && pending !== null && !isFresh(pending)) {
+							yield* evict(key);
+						}
+					}),
+				{ discard: true },
+			);
+		});
 	return {
-		removeTokenSet: (origin) => evict(oauthTokenKey(origin)),
+		getPending,
+		removeTokenSet: (origin) => adapter.removeItem(oauthTokenKey(origin)),
+		removePending: (origin, state) => evict(oauthPendingKey(origin, state)),
 		setTokenSet: (origin, tokenSet) =>
 			adapter.setItem(oauthTokenKey(origin), JSON.stringify(tokenSet)),
 		setPending: (pending) =>
-			adapter.setItem(
-				oauthPendingKey(pending.serverOrigin, pending.state),
-				JSON.stringify(pending),
-			),
+			Effect.gen(function* () {
+				yield* prunePending(pending.serverOrigin);
+				yield* adapter.setItem(
+					oauthPendingKey(pending.serverOrigin, pending.state),
+					JSON.stringify(pending),
+				);
+			}),
 		getTokenSet: (origin) =>
 			Effect.gen(function* () {
 				const key = oauthTokenKey(origin);
@@ -110,13 +146,12 @@ const makeStorage = (adapter: OAuthStorageAdapter): OAuthStorage["Service"] => {
 			}),
 		takePending: (origin, state) =>
 			Effect.gen(function* () {
-				const key = oauthPendingKey(origin, state);
-				const pending = yield* readPending(key);
+				const pending = yield* getPending(origin, state);
 				if (pending === null) {
 					return null;
 				}
-				yield* evict(key);
-				return isFresh(pending) ? pending : null;
+				yield* evict(oauthPendingKey(origin, state));
+				return pending;
 			}),
 		clearPending: (origin) =>
 			Effect.gen(function* () {
@@ -136,12 +171,17 @@ const makeStorage = (adapter: OAuthStorageAdapter): OAuthStorage["Service"] => {
 export class OAuthStorage extends Context.Service<
 	OAuthStorage,
 	{
+		readonly removePending: (origin: ServerOrigin, state: string) => Effect.Effect<void>;
 		readonly clearPending: (origin: ServerOrigin) => Effect.Effect<void>;
-		readonly removeTokenSet: (origin: ServerOrigin) => Effect.Effect<void>;
+		readonly removeTokenSet: (origin: ServerOrigin) => Effect.Effect<void, OAuthStorageError>;
 		readonly getTokenSet: (origin: ServerOrigin) => Effect.Effect<StoredTokenSetValue | null>;
 		readonly setPending: (
 			pending: PendingAuthorizationValue,
 		) => Effect.Effect<void, OAuthStorageError>;
+		readonly getPending: (
+			origin: ServerOrigin,
+			state: string,
+		) => Effect.Effect<PendingAuthorizationValue | null>;
 		readonly takePending: (
 			origin: ServerOrigin,
 			state: string,

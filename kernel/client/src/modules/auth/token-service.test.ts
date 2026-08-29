@@ -6,6 +6,7 @@ import { decodeServerOrigin } from "#/api/origin";
 import {
 	OAuthStorage,
 	OAuthStorageError,
+	oauthPendingKey,
 	oauthStorageLayer,
 	oauthTokenKey,
 	type OAuthStorageAdapter,
@@ -154,6 +155,77 @@ describe("OAuth token service", () => {
 		);
 	});
 
+	it.effect("retries a code exchange after a transport failure with the same state", () => {
+		const storage = makeStorage();
+		let requests = 0;
+		const fetcher: typeof fetch = () => {
+			requests += 1;
+			return requests === 1
+				? Promise.reject(new TypeError("network down"))
+				: Promise.resolve(jsonResponse(tokenResponse()));
+		};
+		return Effect.gen(function* () {
+			const persisted = yield* OAuthStorage;
+			yield* persisted.setPending(pending());
+			const tokens = yield* OAuthTokenService;
+
+			const failure = yield* Effect.flip(
+				tokens.completeAuthorization(
+					origin,
+					OAUTH_WEB_CLIENT_ID,
+					`${origin}/auth/callback`,
+					"state-1",
+					"code-1",
+				),
+			);
+			expect(failure.reason).toBe("request-failed");
+			expect(storage.values.has(oauthPendingKey(origin, "state-1"))).toBe(true);
+
+			expect(
+				yield* tokens.completeAuthorization(
+					origin,
+					OAUTH_WEB_CLIENT_ID,
+					`${origin}/auth/callback`,
+					"state-1",
+					"code-1",
+				),
+			).toEqual(pending());
+			expect(requests).toBe(2);
+			expect(storage.values.has(oauthPendingKey(origin, "state-1"))).toBe(false);
+		}).pipe(
+			Effect.provide(oauthTokenServiceLayer(fetcher, () => now)),
+			Effect.provide(storage.layer),
+		);
+	});
+
+	it.effect("consumes the state after a terminal token endpoint failure", () => {
+		const storage = makeStorage();
+		return Effect.gen(function* () {
+			const persisted = yield* OAuthStorage;
+			yield* persisted.setPending(pending());
+			const tokens = yield* OAuthTokenService;
+			const failure = yield* Effect.flip(
+				tokens.completeAuthorization(
+					origin,
+					OAUTH_WEB_CLIENT_ID,
+					`${origin}/auth/callback`,
+					"state-1",
+					"code-1",
+				),
+			);
+			expect(failure.reason).toBe("request-failed");
+			expect(storage.values.has(oauthPendingKey(origin, "state-1"))).toBe(false);
+		}).pipe(
+			Effect.provide(
+				oauthTokenServiceLayer(
+					() => Promise.resolve(jsonResponse({ error: "invalid_grant" }, 400)),
+					() => now,
+				),
+			),
+			Effect.provide(storage.layer),
+		);
+	});
+
 	it.effect("rotates refresh tokens with one refresh request in flight per server", () => {
 		const storage = makeStorage();
 		let requests = 0;
@@ -275,6 +347,78 @@ describe("OAuth token service", () => {
 			);
 		},
 	);
+
+	it.effect("fails explicit logout when local token deletion fails", () => {
+		const storage = makeStorage({
+			removeItem: () => Effect.fail(new OAuthStorageError({ reason: "write-failed" })),
+		});
+		storage.values.set(
+			oauthTokenKey(origin),
+			JSON.stringify({
+				tokenType: "Bearer",
+				accessToken: "access-1",
+				scope: "openid ryot:api",
+				refreshToken: "refresh-1",
+				accessTokenExpiresAt: now,
+				idToken: idToken("nonce-1"),
+			}),
+		);
+		return Effect.gen(function* () {
+			const tokens = yield* OAuthTokenService;
+			const failure = yield* Effect.flip(
+				tokens.logout(origin, OAUTH_WEB_CLIENT_ID, `${origin}/auth/logout/callback`),
+			);
+			expect(failure.reason).toBe("storage-failed");
+			expect(storage.values.has(oauthTokenKey(origin))).toBe(true);
+		}).pipe(
+			Effect.provide(
+				oauthTokenServiceLayer(
+					() => Promise.resolve(new Response(null, { status: 200 })),
+					() => now,
+				),
+			),
+			Effect.provide(storage.layer),
+		);
+	});
+
+	it.effect("deletes local authentication when remote revocation fails", () => {
+		const storage = makeStorage();
+		let requests = 0;
+		return Effect.gen(function* () {
+			const persisted = yield* OAuthStorage;
+			yield* persisted.setTokenSet(origin, {
+				tokenType: "Bearer",
+				accessToken: "access-1",
+				scope: "openid ryot:api",
+				refreshToken: "refresh-1",
+				accessTokenExpiresAt: now,
+				idToken: idToken("nonce-1"),
+			});
+			yield* persisted.setPending(pending());
+			const tokens = yield* OAuthTokenService;
+			const endSession = yield* tokens.logout(
+				origin,
+				OAUTH_WEB_CLIENT_ID,
+				`${origin}/auth/logout/callback`,
+			);
+
+			expect(requests).toBe(2);
+			expect(endSession).not.toBeNull();
+			expect(storage.values.has(oauthTokenKey(origin))).toBe(false);
+			expect(storage.values.has(oauthPendingKey(origin, "state-1"))).toBe(false);
+		}).pipe(
+			Effect.provide(
+				oauthTokenServiceLayer(
+					() => {
+						requests += 1;
+						return Promise.reject(new TypeError("network down"));
+					},
+					() => now,
+				),
+			),
+			Effect.provide(storage.layer),
+		);
+	});
 
 	it.effect("drops the stored token set when persisting a rotated refresh token fails", () => {
 		const storage = makeStorage({
