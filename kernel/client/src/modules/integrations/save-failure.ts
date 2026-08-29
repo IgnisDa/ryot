@@ -6,7 +6,7 @@ import { Match } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { PRO_REQUIRED_INTEGRATION_MESSAGE } from "#/modules/integrations/provider-selection";
-import type { WizardStep } from "#/modules/integrations/wizard-state";
+import type { WizardStep } from "#/modules/ui/wizard/wizard-state";
 
 export type IntegrationSaveFailure = {
 	readonly detail: string;
