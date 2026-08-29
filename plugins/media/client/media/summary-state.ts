@@ -1,7 +1,10 @@
 import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
 import type { SelectedRow } from "@ryot-app/client-sdk/ryotql";
 
-import type { MediaLifecycleState } from "../../shared/lifecycle-expressions";
+import type {
+	EpisodicLifecycleState,
+	MediaLifecycleState,
+} from "../../shared/lifecycle-expressions";
 import type { MediaSummarySelection } from "../../shared/media-recipes";
 import {
 	collectManagedAssetLocators,
@@ -142,6 +145,14 @@ const MEDIA_FLAT_LIFECYCLE_LABELS: Record<MediaLifecycleState, string> = {
 
 export const mediaFlatLifecycleLabel = (state: MediaLifecycleState) =>
 	MEDIA_FLAT_LIFECYCLE_LABELS[state];
+
+const MEDIA_EPISODIC_LIFECYCLE_LABELS: Record<EpisodicLifecycleState, string> = {
+	...MEDIA_FLAT_LIFECYCLE_LABELS,
+	caught_up: "Caught up",
+};
+
+export const mediaEpisodicLifecycleLabel = (state: EpisodicLifecycleState) =>
+	MEDIA_EPISODIC_LIFECYCLE_LABELS[state];
 
 export const mediaOwnershipLabel = (owned: boolean | null) => {
 	if (owned === null) {

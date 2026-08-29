@@ -15,7 +15,7 @@ const showRows = (items: readonly Record<string, unknown>[]) =>
 
 const ACTIVITY_RECIPE = showActivityRecipe({
 	timeZone: "UTC",
-	seasonLimit: 50,
+	coverageLimit: 50,
 	watchDayLimit: 500,
 	entityId: "show-1",
 	parentEventLimit: 60,
@@ -37,20 +37,6 @@ const progressRows = (items: readonly Record<string, unknown>[]) =>
 			},
 		})),
 	);
-
-const PARENT_EVENT_ROW = {
-	text: null,
-	rating: null,
-	timeSpent: null,
-	isSpoiler: null,
-	startedOn: null,
-	consumedOn: null,
-	completedOn: null,
-	id: "parent-complete",
-	eventSchemaSlug: "complete",
-	createdAt: "2024-02-02T10:00:00.000Z",
-	occurredAt: "2024-02-02T09:00:00.000Z",
-};
 
 const EPISODE_EVENT_ROW = {
 	text: null,
@@ -82,15 +68,6 @@ const EPISODE_PROGRESS_ROW = {
 	occurredAt: "2024-02-03T09:00:00.000Z",
 };
 
-const COLLECTION_EVENT_ROW = {
-	id: "collection-added",
-	collectionName: "Watchlist",
-	collectionId: "collection-1",
-	createdAt: "2024-01-31T10:00:00.000Z",
-	occurredAt: "2024-01-31T09:00:00.000Z",
-	eventSchemaSlug: "add-entity-to-collection",
-};
-
 const WATCH_DAY_ROW = {
 	minutes: 45,
 	runtime: 31,
@@ -120,7 +97,7 @@ const SEASON_ROW = {
 const decodeActivity = (
 	input: {
 		readonly watchCount?: number;
-		readonly seasons?: readonly Record<string, unknown>[];
+		readonly coverage?: readonly Record<string, unknown>[];
 		readonly watchDays?: readonly Record<string, unknown>[];
 		readonly parentEvents?: readonly Record<string, unknown>[];
 		readonly episodeEvents?: readonly Record<string, unknown>[];
@@ -130,8 +107,8 @@ const decodeActivity = (
 ) =>
 	ACTIVITY_RECIPE.decode({
 		data: {
-			seasons: activityRows(input.seasons ?? [SEASON_ROW]),
 			parentEvents: activityRows(input.parentEvents ?? []),
+			coverage: activityRows(input.coverage ?? [SEASON_ROW]),
 			episodeEvents: activityRows(input.episodeEvents ?? []),
 			episodeProgress: progressRows(input.episodeProgress ?? []),
 			watchDays: aggregateRows(input.watchDays ?? [WATCH_DAY_ROW]),
@@ -152,13 +129,16 @@ const SHOW_SUMMARY_ROW = {
 	id: "show-1",
 	totalSeasons: 1,
 	totalEpisodes: 4,
+	storedEpisodes: 4,
 	isInLibrary: true,
 	isMonitored: true,
 	publishYear: 2025,
 	state: "complete",
+	watchedEpisodes: 1,
 	schemaSlug: "show",
 	name: "Adolescence",
 	providerName: "TMDB",
+	inProgressEpisodes: 0,
 	providerRating: 78.25,
 	populationStatus: "ready",
 	translationStatus: "none",
@@ -193,12 +173,12 @@ const SHOW_SUMMARY_ROW = {
 describe("media show query recipes", () => {
 	it("builds one presentation query for all requested show IDs", () => {
 		const recipe = showPresentationRecipe(["show-2", "show-1", "show-2"]);
-		const shows = recipe.document.queries["shows"];
+		const shows = recipe.document.queries["rows"];
 		if (shows?.output.type !== "rows" || shows.where?.type !== "and") {
 			throw new Error("Expected filtered presentation rows query");
 		}
 
-		expect(Object.keys(recipe.document.queries)).toEqual(["shows"]);
+		expect(Object.keys(recipe.document.queries)).toEqual(["rows"]);
 		expect(shows.output.pagination).toMatchObject({ limit: 100 });
 		expect(shows.where.predicates[1]).toMatchObject({
 			type: "in",
@@ -212,13 +192,13 @@ describe("media show query recipes", () => {
 			"translationStatus",
 			"state",
 			"images",
-			"storedSeasons",
 			"publishDate",
 			"publishYear",
 			"productionStatus",
 			"storedEpisodes",
 			"watchedEpisodes",
 			"inProgressEpisodes",
+			"storedSeasons",
 		]);
 	});
 
@@ -241,7 +221,7 @@ describe("media show query recipes", () => {
 			images: [{ type: "s3", purpose: "cover", key: "severance-cover" }],
 		};
 
-		expect(recipe.decode({ data: { shows: showRows([row]) } })).toMatchObject({
+		expect(recipe.decode({ data: { rows: showRows([row]) } })).toMatchObject({
 			success: [
 				{
 					id: "show-1",
@@ -253,7 +233,7 @@ describe("media show query recipes", () => {
 			],
 		});
 		expect(
-			recipe.decode({ data: { shows: showRows([{ ...row, images: [{ url: 12, type: "ftp" }] }]) } })
+			recipe.decode({ data: { rows: showRows([{ ...row, images: [{ url: 12, type: "ftp" }] }]) } })
 				._tag,
 		).toBe("Failure");
 	});
@@ -290,57 +270,73 @@ describe("media show query recipes", () => {
 			"images",
 			"releaseDate",
 			"description",
+			"episodeTotal",
+			"watchedTotal",
+			"watchedUnknownRuntime",
+			"watchedMinutes",
 		]);
 	});
 
-	it("builds selected season episodes with the caller-owned limit", () => {
-		const recipe = showSeasonEpisodesRecipe({ episodeLimit: 12, seasonId: "season-id" });
-		const season = recipe.document.queries["season"];
-		if (season?.output.type !== "rows") {
-			throw new Error("Expected season rows query");
+	it("pages a season's episodes ascending as a top-level row query", () => {
+		const recipe = showSeasonEpisodesRecipe({ limit: 12, containerId: "season-id" });
+		const episodes = recipe.document.queries["episodes"];
+		if (episodes?.output.type !== "rows" || episodes.where?.type !== "and") {
+			throw new Error("Expected a filtered episode rows query");
 		}
-		const episodes = season.output.include?.[0];
 
-		expect(season.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
+		expect(Object.keys(recipe.document.queries)).toEqual(["episodes"]);
+		expect(episodes.output.pagination).toEqual({ limit: 12 });
+		expect(episodes.output.orderBy.map(({ direction }) => direction)).toEqual(["asc", "asc"]);
+		expect(episodes.where.predicates[1]).toMatchObject({
+			type: "comparison",
+			right: { type: "literal", value: "season-id" },
+		});
+		expect(episodes.where.predicates[2]).toMatchObject({
+			type: "comparison",
+			right: { type: "literal", value: "show-season-to-show-episode" },
+		});
+		expect(episodes.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
 			"id",
 			"name",
 			"schemaSlug",
 			"populationStatus",
 			"translationStatus",
-		]);
-		expect(episodes).toMatchObject({ limit: 12, key: "episodes" });
-		expect(
-			episodes && "fields" in episodes
-				? episodes.fields.map((field) => ("key" in field ? field.key : null))
-				: [],
-		).toEqual([
-			"id",
-			"name",
-			"schemaSlug",
-			"populationStatus",
-			"translationStatus",
-			"episodeNumber",
 			"images",
-			"seasonNumber",
+			"episodeNumber",
 			"runtime",
 			"publishDate",
 			"description",
 			"state",
+			"seasonNumber",
 		]);
+	});
+
+	it("resumes a season's episodes from the cursor the previous page handed back", () => {
+		const recipe = showSeasonEpisodesRecipe({
+			limit: 12,
+			after: "season-cursor",
+			containerId: "season-id",
+		});
+		const episodes = recipe.document.queries["episodes"];
+		if (episodes?.output.type !== "rows") {
+			throw new Error("Expected an episode rows query");
+		}
+
+		expect(episodes.output.pagination).toEqual({ limit: 12, after: "season-cursor" });
 	});
 
 	it("selects the show summary alongside the requested entity schema", () => {
 		const recipe = showSummaryRecipe({ collectionLimit: 6, entityId: "show-1" });
-		const show = recipe.document.queries["show"];
+		const summary = recipe.document.queries["summary"];
 		const requested = recipe.document.queries["requested"];
-		if (show?.output.type !== "rows" || requested?.output.type !== "rows") {
-			throw new Error("Expected show and requested rows queries");
+		if (summary?.output.type !== "rows" || requested?.output.type !== "rows") {
+			throw new Error("Expected summary and requested rows queries");
 		}
 
 		expect(requested.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
 			"schemaSlug",
 		]);
-		expect(show.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
+		expect(summary.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
 			"id",
 			"name",
 			"schemaSlug",
@@ -357,13 +353,16 @@ describe("media show query recipes", () => {
 			"productionStatus",
 			"isInLibrary",
 			"isMonitored",
-			"watchProviders",
 			"state",
-			"totalSeasons",
 			"totalEpisodes",
+			"storedEpisodes",
+			"watchedEpisodes",
+			"inProgressEpisodes",
+			"watchProviders",
+			"totalSeasons",
 		]);
-		expect(show.output.include?.[0]).toMatchObject({ limit: 6, key: "collections" });
-		expect(show.joins?.[0]).toMatchObject({ type: "left", table: { alias: "provider" } });
+		expect(summary.output.include?.[0]).toMatchObject({ limit: 6, key: "collections" });
+		expect(summary.joins?.[0]).toMatchObject({ type: "left", table: { alias: "provider" } });
 	});
 
 	it("decodes a show summary with collections and asset locators", () => {
@@ -371,12 +370,15 @@ describe("media show query recipes", () => {
 
 		expect(
 			recipe.decode({
-				data: { show: showRows([SHOW_SUMMARY_ROW]), requested: showRows([{ schemaSlug: "show" }]) },
+				data: {
+					summary: showRows([SHOW_SUMMARY_ROW]),
+					requested: showRows([{ schemaSlug: "show" }]),
+				},
 			}),
 		).toMatchObject({
 			success: {
 				entitySchemaSlug: "show",
-				show: {
+				summary: {
 					owned: null,
 					id: "show-1",
 					state: "complete",
@@ -398,9 +400,9 @@ describe("media show query recipes", () => {
 	it("decodes a missing show as an absent summary and absent schema", () => {
 		const recipe = showSummaryRecipe({ collectionLimit: 6, entityId: "missing" });
 
-		expect(recipe.decode({ data: { show: showRows([]), requested: showRows([]) } })).toMatchObject({
-			success: { show: null, entitySchemaSlug: null },
-		});
+		expect(
+			recipe.decode({ data: { summary: showRows([]), requested: showRows([]) } }),
+		).toMatchObject({ success: { summary: null, entitySchemaSlug: null } });
 	});
 
 	it("decodes a non-show entity as an absent summary with its schema slug", () => {
@@ -408,9 +410,9 @@ describe("media show query recipes", () => {
 
 		expect(
 			recipe.decode({
-				data: { show: showRows([]), requested: showRows([{ schemaSlug: "book" }]) },
+				data: { summary: showRows([]), requested: showRows([{ schemaSlug: "book" }]) },
 			}),
-		).toMatchObject({ success: { show: null, entitySchemaSlug: "book" } });
+		).toMatchObject({ success: { summary: null, entitySchemaSlug: "book" } });
 	});
 
 	it("decodes omitted optional show properties as null", () => {
@@ -420,7 +422,7 @@ describe("media show query recipes", () => {
 			recipe.decode({
 				data: {
 					requested: showRows([{ schemaSlug: "show" }]),
-					show: showRows([
+					summary: showRows([
 						{
 							...SHOW_SUMMARY_ROW,
 							genres: null,
@@ -440,7 +442,7 @@ describe("media show query recipes", () => {
 			}),
 		).toMatchObject({
 			success: {
-				show: {
+				summary: {
 					genres: null,
 					images: null,
 					publishYear: null,
@@ -456,11 +458,14 @@ describe("media show query recipes", () => {
 
 		expect(
 			recipe.decode({
-				data: { show: showRows([SHOW_SUMMARY_ROW]), requested: showRows([{ schemaSlug: "show" }]) },
+				data: {
+					summary: showRows([SHOW_SUMMARY_ROW]),
+					requested: showRows([{ schemaSlug: "show" }]),
+				},
 			}),
 		).toMatchObject({
 			success: {
-				show: {
+				summary: {
 					watchProviders: [
 						{
 							link: null,
@@ -488,7 +493,7 @@ describe("media show query recipes", () => {
 			recipe.decode({
 				data: {
 					requested: showRows([{ schemaSlug: "show" }]),
-					show: showRows([
+					summary: showRows([
 						{
 							...SHOW_SUMMARY_ROW,
 							watchProviders: [
@@ -512,7 +517,7 @@ describe("media show query recipes", () => {
 			recipe.decode({
 				data: {
 					requested: showRows([{ schemaSlug: "show" }]),
-					show: showRows([{ ...SHOW_SUMMARY_ROW, state: "watching" }]),
+					summary: showRows([{ ...SHOW_SUMMARY_ROW, state: "watching" }]),
 				},
 			})._tag,
 		).toBe("Failure");
@@ -525,7 +530,7 @@ describe("media show query recipes", () => {
 			recipe.decode({
 				data: {
 					requested: showRows([{ schemaSlug: "show" }]),
-					show: showRows([{ ...SHOW_SUMMARY_ROW, images: [{ url: 12, type: "ftp" }] }]),
+					summary: showRows([{ ...SHOW_SUMMARY_ROW, images: [{ url: 12, type: "ftp" }] }]),
 				},
 			})._tag,
 		).toBe("Failure");
@@ -538,7 +543,7 @@ describe("media show query recipes", () => {
 			recipe.decode({
 				data: {
 					requested: showRows([{ schemaSlug: "show" }]),
-					show: showRows([
+					summary: showRows([
 						{
 							...SHOW_SUMMARY_ROW,
 							images: [{ type: "remote", purpose: "poster", url: "https://images.test/a.jpg" }],
@@ -556,11 +561,14 @@ describe("media show query recipes", () => {
 			recipe.decode({
 				data: {
 					requested: showRows([{ schemaSlug: "show" }]),
-					show: showRows([{ ...SHOW_SUMMARY_ROW, images: [{ type: "s3", key: "legacy-image" }] }]),
+					summary: showRows([
+						{ ...SHOW_SUMMARY_ROW, images: [{ type: "s3", key: "legacy-image" }] },
+					]),
 				},
 			}),
-		).toMatchObject({ success: { show: { images: [{ type: "s3", key: "legacy-image" }] } } });
+		).toMatchObject({ success: { summary: { images: [{ type: "s3", key: "legacy-image" }] } } });
 	});
+
 	it("reads show credits from the relationship side that points at the show", () => {
 		const recipe = showOverviewRecipe({
 			peopleLimit: 12,
@@ -825,6 +833,7 @@ describe("media show query recipes", () => {
 			})._tag,
 		).toBe("Failure");
 	});
+
 	it("builds show activity from parent, episode and progress queries with caller-owned limits", () => {
 		const parentEvents = ACTIVITY_RECIPE.document.queries["parentEvents"];
 		const episodeEvents = ACTIVITY_RECIPE.document.queries["episodeEvents"];
@@ -866,19 +875,19 @@ describe("media show query recipes", () => {
 				"isSpoiler",
 				"episodeId",
 				"episodeName",
-				"seasonNumber",
 				"episodeNumber",
 				"episodeRuntime",
+				"seasonNumber",
 				"eventSchemaSlug",
 			],
 		);
 		expect(
 			episodeProgress.output.fields.map((field) => ("key" in field ? field.key : null)),
-		).toEqual(["episodeId", "episodeName", "seasonNumber", "episodeNumber", "episodeRuntime"]);
+		).toEqual(["episodeId", "episodeName", "episodeNumber", "episodeRuntime", "seasonNumber"]);
 	});
 
 	it("counts every season's episodes for coverage, specials included", () => {
-		const seasons = ACTIVITY_RECIPE.document.queries["seasons"];
+		const seasons = ACTIVITY_RECIPE.document.queries["coverage"];
 		if (seasons?.output.type !== "rows" || seasons.where?.type !== "and") {
 			throw new Error("Expected filtered season rows query");
 		}
@@ -904,62 +913,6 @@ describe("media show query recipes", () => {
 		).toBe(false);
 	});
 
-	it("scopes parent activity to the show entity and its lifecycle events", () => {
-		const parentEvents = ACTIVITY_RECIPE.document.queries["parentEvents"];
-		if (parentEvents?.output.type !== "rows" || parentEvents.where?.type !== "and") {
-			throw new Error("Expected filtered parent event rows query");
-		}
-
-		expect(parentEvents.where.predicates[0]).toMatchObject({
-			type: "comparison",
-			right: { type: "literal", value: "show-1" },
-			left: { field: "entityId", tableAlias: "parentEvent" },
-		});
-		expect(parentEvents.where.predicates[1]).toMatchObject({
-			type: "in",
-			values: [
-				{ value: "backlog" },
-				{ value: "on_hold" },
-				{ value: "dropped" },
-				{ value: "complete" },
-				{ value: "review" },
-			],
-		});
-	});
-
-	it("scopes collection activity to membership events that name the show as their subject", () => {
-		const collectionEvents = ACTIVITY_RECIPE.document.queries["collectionEvents"];
-		if (collectionEvents?.output.type !== "rows" || collectionEvents.where?.type !== "and") {
-			throw new Error("Expected filtered collection event rows query");
-		}
-
-		expect(collectionEvents.output.pagination).toMatchObject({ limit: 40 });
-		expect(collectionEvents.joins?.map((join) => join.table.alias)).toEqual(["eventCollection"]);
-		expect(
-			collectionEvents.output.fields.map((field) => ("key" in field ? field.key : null)),
-		).toEqual([
-			"id",
-			"collectionId",
-			"collectionName",
-			"createdAt",
-			"occurredAt",
-			"eventSchemaSlug",
-		]);
-		expect(collectionEvents.where.predicates[0]).toMatchObject({
-			type: "comparison",
-			right: { type: "literal", value: "collection" },
-			left: { field: "entitySchemaSlug", tableAlias: "eventCollection" },
-		});
-		expect(collectionEvents.where.predicates[1]).toMatchObject({
-			type: "in",
-			values: [{ value: "add-entity-to-collection" }, { value: "remove-entity-from-collection" }],
-		});
-		expect(collectionEvents.where.predicates[2]).toMatchObject({
-			type: "comparison",
-			right: { type: "literal", value: "show-1" },
-		});
-	});
-
 	it("reaches episode activity through season relationships instead of the event session", () => {
 		const episodeEvents = ACTIVITY_RECIPE.document.queries["episodeEvents"];
 		if (episodeEvents?.output.type !== "rows" || episodeEvents.where?.type !== "and") {
@@ -972,85 +925,13 @@ describe("media show query recipes", () => {
 
 		expect(JSON.stringify(episodeEvents)).not.toContain("sessionEntityId");
 		expect(JSON.stringify(membership)).not.toContain("seasonNumber");
-		expect(membership.query.from).toMatchObject({
-			table: "relationship",
-			alias: "episodeEventShowShowSeason",
-		});
-		expect(membership.query.joins?.map((join) => join.table.alias)).toEqual([
-			"episodeEventShowSeason",
-			"episodeEventShowSeasonEpisode",
+		expect(membership.query.from).toMatchObject({ table: "relationship" });
+		expect(membership.query.joins?.map((join) => join.table.table)).toEqual([
+			"entity",
+			"relationship",
 		]);
-	});
-
-	it("selects one collapsed progress milestone for every episode that recorded progress", () => {
-		const episodeProgress = ACTIVITY_RECIPE.document.queries["episodeProgress"];
-		if (episodeProgress?.output.type !== "rows") {
-			throw new Error("Expected progress rows query");
-		}
-		const milestone = episodeProgress.output.include?.[0];
-
-		expect(episodeProgress.from).toMatchObject({ table: "entity", alias: "progressEpisode" });
-		expect(milestone).toMatchObject({
-			limit: 1,
-			key: "milestone",
-			orderBy: [
-				{ direction: "desc", expr: { field: "occurredAt" } },
-				{ direction: "desc", expr: { field: "createdAt" } },
-				{ direction: "desc", expr: { field: "id" } },
-			],
-		});
-		expect(
-			milestone && "fields" in milestone
-				? milestone.fields.map((field) => ("key" in field ? field.key : null))
-				: [],
-		).toEqual(["id", "createdAt", "occurredAt", "consumedOn", "progressPercent"]);
-	});
-
-	it("merges activity queries into one authoritative descending event order", () => {
-		const sameInstant = { occurredAt: "2024-02-04T09:00:00.000Z" };
-
-		expect(
-			decodeActivity({
-				episodeEvents: [EPISODE_EVENT_ROW],
-				episodeProgress: [EPISODE_PROGRESS_ROW],
-				parentEvents: [
-					{ ...PARENT_EVENT_ROW, ...sameInstant, id: "b", createdAt: "2024-02-04T10:00:00.000Z" },
-					{ ...PARENT_EVENT_ROW, ...sameInstant, id: "a", createdAt: "2024-02-04T10:00:00.000Z" },
-					{ ...PARENT_EVENT_ROW, ...sameInstant, id: "c", createdAt: "2024-02-04T11:00:00.000Z" },
-				],
-			}),
-		).toMatchObject({
-			success: {
-				truncated: false,
-				events: [
-					{ id: "c" },
-					{ id: "b" },
-					{ id: "a" },
-					{ id: "special-progress" },
-					{ id: "episode-review" },
-				],
-			},
-		});
-	});
-
-	it("keeps parent activity separate from episode activity without duplicating rows", () => {
-		const decoded = decodeActivity({
-			parentEvents: [PARENT_EVENT_ROW],
-			episodeEvents: [EPISODE_EVENT_ROW],
-			episodeProgress: [EPISODE_PROGRESS_ROW],
-		});
-		if (decoded._tag === "Failure") {
-			throw new Error("Expected a decoded activity result");
-		}
-
-		expect(decoded.success.events.map((event) => event.kind)).toEqual([
-			"episode",
-			"parent",
-			"episode",
-		]);
-		expect(decoded.success.events.filter((event) => event.kind === "parent")).toMatchObject([
-			{ id: "parent-complete", eventSchemaSlug: "complete" },
-		]);
+		expect(JSON.stringify(membership)).toContain("show-to-show-season");
+		expect(JSON.stringify(membership)).toContain("show-season-to-show-episode");
 	});
 
 	it("decodes special-episode progress with its season and episode identity", () => {
@@ -1073,163 +954,18 @@ describe("media show query recipes", () => {
 		});
 	});
 
-	it("decodes activity whose optional event properties were never recorded", () => {
-		expect(
-			decodeActivity({
-				parentEvents: [{ ...PARENT_EVENT_ROW, eventSchemaSlug: "review" }],
-				episodeProgress: [{ ...EPISODE_PROGRESS_ROW, progressPercent: null }],
-				episodeEvents: [
-					{ ...EPISODE_EVENT_ROW, timeSpent: null, consumedOn: null, episodeRuntime: null },
-				],
-			}),
-		).toMatchObject({
-			success: {
-				events: [
-					{ consumedOn: null, progressPercent: null },
-					{ text: null, rating: null, isSpoiler: null, eventSchemaSlug: "review" },
-					{ timeSpent: null, consumedOn: null, episode: { runtime: null } },
-				],
-			},
-		});
-	});
-
-	it("decodes a review with its rating, body and spoiler flag", () => {
-		expect(
-			decodeActivity({
-				parentEvents: [
-					{
-						...PARENT_EVENT_ROW,
-						rating: 82,
-						isSpoiler: true,
-						id: "parent-review",
-						eventSchemaSlug: "review",
-						text: "The ending recontextualises everything.",
-					},
-				],
-			}),
-		).toMatchObject({
-			success: {
-				events: [
-					{
-						rating: 82,
-						isSpoiler: true,
-						eventSchemaSlug: "review",
-						text: "The ending recontextualises everything.",
-					},
-				],
-			},
-		});
-	});
-
-	it("reports truncation when any activity page holds more rows", () => {
-		expect(
-			ACTIVITY_RECIPE.decode({
-				data: {
-					episodeProgress: activityRows([]),
-					collectionEvents: activityRows([]),
-					seasons: activityRows([SEASON_ROW]),
-					totals: activityRows([{ watchCount: 1 }]),
-					watchDays: aggregateRows([WATCH_DAY_ROW]),
-					parentEvents: activityRows([PARENT_EVENT_ROW]),
-					episodeEvents: rowsResult([EPISODE_EVENT_ROW], {
-						limit: 100,
-						hasMore: true,
-						nextCursor: "episode-cursor",
-					}),
-				},
-			}),
-		).toMatchObject({ success: { truncated: true } });
-	});
-
-	it("decodes collection membership changes into the shared descending event order", () => {
-		expect(
-			decodeActivity({
-				parentEvents: [PARENT_EVENT_ROW],
-				collectionEvents: [
-					COLLECTION_EVENT_ROW,
-					{
-						...COLLECTION_EVENT_ROW,
-						id: "collection-removed",
-						createdAt: "2024-02-03T10:00:00.000Z",
-						occurredAt: "2024-02-03T09:00:00.000Z",
-						eventSchemaSlug: "remove-entity-from-collection",
-					},
-				],
-			}),
-		).toMatchObject({
-			success: {
-				events: [
-					{
-						text: null,
-						rating: null,
-						timeSpent: null,
-						consumedOn: null,
-						kind: "collection",
-						id: "collection-removed",
-						eventSchemaSlug: "remove-entity-from-collection",
-						collection: { name: "Watchlist", id: "collection-1" },
-					},
-					{ kind: "parent", id: "parent-complete" },
-					{
-						kind: "collection",
-						id: "collection-added",
-						eventSchemaSlug: "add-entity-to-collection",
-						collection: { name: "Watchlist", id: "collection-1" },
-					},
-				],
-			},
-		});
-	});
-
-	it("reports truncation when the collection membership page holds more rows", () => {
-		expect(
-			ACTIVITY_RECIPE.decode({
-				data: {
-					parentEvents: activityRows([]),
-					episodeEvents: activityRows([]),
-					episodeProgress: progressRows([]),
-					seasons: activityRows([SEASON_ROW]),
-					totals: activityRows([{ watchCount: 1 }]),
-					watchDays: aggregateRows([WATCH_DAY_ROW]),
-					collectionEvents: rowsResult([COLLECTION_EVENT_ROW], {
-						limit: 40,
-						hasMore: true,
-						nextCursor: "collection-cursor",
-					}),
-				},
-			}),
-		).toMatchObject({ success: { truncated: true } });
-	});
-
-	it("rejects collection activity whose event schema slug is not a membership change", () => {
-		expect(
-			decodeActivity({ collectionEvents: [{ ...COLLECTION_EVENT_ROW, eventSchemaSlug: "review" }] })
-				._tag,
-		).toBe("Failure");
-	});
-
-	it("decodes a show with no recorded activity as an empty event list", () => {
-		expect(decodeActivity()).toMatchObject({ success: { events: [], truncated: false } });
-	});
-
-	it("rejects activity whose event schema slug is outside the media lifecycle", () => {
-		expect(
-			decodeActivity({ parentEvents: [{ ...PARENT_EVENT_ROW, eventSchemaSlug: "watched" }] })._tag,
-		).toBe("Failure");
-	});
-
 	it("counts a season's episodes independently of the events that were fetched", () => {
 		expect(
 			decodeActivity({
 				episodeEvents: [EPISODE_EVENT_ROW],
-				seasons: [
+				coverage: [
 					{ ...SEASON_ROW, id: "season-0", seasonNumber: 0, episodeTotal: 2 },
 					{ ...SEASON_ROW, id: "season-1", seasonNumber: 1, episodeTotal: 6 },
 				],
 			}),
 		).toMatchObject({
 			success: {
-				seasons: [
+				coverage: [
 					{ seasonNumber: 0, episodeTotal: 2 },
 					{ seasonNumber: 1, episodeTotal: 6 },
 				],

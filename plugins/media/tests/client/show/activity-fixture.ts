@@ -5,7 +5,7 @@ import { rowsResult } from "../query-result-fixture";
 
 const showActivityFixtureRecipe = showActivityRecipe({
 	timeZone: "UTC",
-	seasonLimit: 100,
+	coverageLimit: 100,
 	entityId: "show-1",
 	watchDayLimit: 1000,
 	parentEventLimit: 60,
@@ -183,7 +183,7 @@ export const rewatchCompletionEventRow = {
 type ActivityRows = {
 	readonly truncated?: boolean;
 	readonly watchCount?: number;
-	readonly seasons?: readonly Record<string, unknown>[];
+	readonly coverage?: readonly Record<string, unknown>[];
 	readonly watchDays?: readonly Record<string, unknown>[];
 	readonly parentEvents?: readonly Record<string, unknown>[];
 	readonly episodeEvents?: readonly Record<string, unknown>[];
@@ -214,7 +214,7 @@ export const decodeShowActivity = (input: ActivityRows = {}) => {
 				totals: activityRows([{ watchCount: input.watchCount ?? 1 }], false),
 				episodeProgress: progressRows(input.episodeProgress ?? [specialProgressRow]),
 				episodeEvents: activityRows(input.episodeEvents ?? [episodeReviewEventRow], false),
-				seasons: activityRows(input.seasons ?? [specialsSeasonRow, regularSeasonRow], false),
+				coverage: activityRows(input.coverage ?? [specialsSeasonRow, regularSeasonRow], false),
 				collectionEvents: activityRows(
 					input.collectionEvents ?? [collectionRemovedEventRow, collectionAddedEventRow],
 					false,
