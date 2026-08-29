@@ -1,6 +1,7 @@
 import { Effect } from "effect";
 
 import {
+	completeTwoFactorSignIn,
 	createTestUser,
 	enableTwoFactorForSession,
 	getApiClient,
@@ -8,7 +9,7 @@ import {
 	verifyBackupCodeForSession,
 } from "~/fixtures/kernel";
 import { getApiUrl } from "~/support/api";
-import { requireNonEmptyArray } from "~/support/assertions";
+import { requireNonEmptyArray, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const pluginListQuery = { includeDisabled: false };
@@ -67,6 +68,38 @@ describe("Two-factor sign-in flow", () => {
 			expect(reuse.error).toEqual(
 				expect.objectContaining({ message: expect.stringMatching(/invalid/i) }),
 			);
+		}),
+	);
+
+	it.live("completes hosted OAuth sign-in with a TOTP code", () =>
+		Effect.gen(function* () {
+			const baseUrl = getApiUrl();
+			const client = getApiClient();
+			const { token, email, password, sessionCookie } = yield* createTestUser();
+			const { totpCodes } = yield* Effect.promise(() =>
+				enableTwoFactorForSession({ baseUrl, token, password, sessionCookie }),
+			);
+
+			const signIn = yield* signInWithPassword(email, password, baseUrl);
+			expect(signIn.error).toBeNull();
+			expect(signIn.token).toBeUndefined();
+			expect(signIn.data).toHaveProperty("twoFactorRedirect", true);
+
+			const verification = yield* Effect.promise(() =>
+				completeTwoFactorSignIn(
+					baseUrl,
+					requirePresent(signIn.twoFactorToken, "Missing two-factor browser cookie"),
+					"/two-factor/verify-totp",
+					{ code: totpCodes.current },
+				),
+			);
+			const accessToken = requirePresent(
+				verification.token,
+				"TOTP continuation did not return an OAuth access token",
+			);
+			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
+				Authorization: `Bearer ${accessToken}`,
+			});
 		}),
 	);
 });
