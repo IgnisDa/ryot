@@ -12,6 +12,7 @@ type SearchFieldProps = {
 	readonly clearIcon: ReactNode;
 	readonly shortcut?: Hotkey;
 	readonly className?: string;
+	readonly shortcutEnabled?: boolean;
 	readonly placeholder?: string;
 	readonly onSubmit?: () => void;
 	readonly onChange: (value: string) => void;
@@ -27,9 +28,12 @@ export function SearchField({
 	clearIcon,
 	className,
 	placeholder,
+	shortcutEnabled = true,
 }: SearchFieldProps) {
 	const input = useRef<HTMLInputElement>(null);
-	useShortcut(shortcut ?? "/", () => input.current?.focus(), { enabled: shortcut !== undefined });
+	useShortcut(shortcut ?? "/", () => input.current?.focus(), {
+		enabled: shortcutEnabled && shortcut !== undefined,
+	});
 
 	return (
 		<form

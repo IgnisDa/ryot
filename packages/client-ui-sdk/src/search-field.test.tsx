@@ -86,4 +86,21 @@ describe("SearchField", () => {
 
 		expect(document.activeElement).toBe(screen.getByRole("searchbox"));
 	});
+
+	it("ignores its shortcut while the caller suppresses it", () => {
+		render(
+			<SearchField
+				{...icons}
+				value=""
+				shortcut="/"
+				label="Search"
+				onChange={() => {}}
+				shortcutEnabled={false}
+			/>,
+		);
+
+		fireEvent.keyDown(document, { key: "/" });
+
+		expect(document.activeElement).not.toBe(screen.getByRole("searchbox"));
+	});
 });
