@@ -89,7 +89,7 @@ discarding good data for a fifth sample.
 
 ## 3. Concurrent live imports deadlock in PostgreSQL during population
 
-**Status:** reproduced in both concurrent live runs, not investigated further.
+**Status:** resolved on 2026-09-14.
 
 | scenario                      | imports | completed | deadlocked |
 | ----------------------------- | ------- | --------- | ---------- |
@@ -113,6 +113,33 @@ captured.
 
 This does not meet the live-comparison stop condition in the plan, which covers throttling and
 provider drift, so the live comparison continued to the twenty-import run.
+
+### Resolution
+
+The original run retained the wrapped `40P01` error but not PostgreSQL server logs, so its exact
+process graph and conflicting statements cannot be recovered. The E2E PostgreSQL harness now enables
+`log_lock_waits`, uses a 100 ms `deadlock_timeout`, logs failed statements, prefixes records with the
+backend PID and transaction ID, and prints the retained PostgreSQL log path. Any recurrence therefore
+captures the process graph and both statements instead of only the user-visible import failure.
+
+The database and Drizzle/Effect transaction implementations were inspected. Effect SQL reserves a
+connection for each top-level transaction, stores transaction state in fiber context, completes
+rollback before returning a failed transaction, and classifies PostgreSQL `40P01` as
+`DeadlockError`. Drizzle delegates its transaction directly to Effect SQL's `withTransaction`. No
+transaction sharing, early connection release, or SQLSTATE loss was found.
+
+The application fix gives provider entity and relationship mutations canonical transaction-scoped
+advisory lock keys and sorts writes by those identities. Related providers and schemas are resolved
+before the first mutation so each transaction can acquire its complete entity lock set first.
+Relationship synchronization and user/global relationship batch writes use the same deterministic
+ordering. SQLSTATE `40P01` is preserved until a bounded retry reruns the complete failed transaction;
+individual statements are never retried.
+
+The new hermetic overlap gate uses unique tracks that share two artists and one album. On 2026-09-14
+it completed three repeated 5-import runs and three repeated 20-import runs: all 75 imports completed,
+the PostgreSQL deadlock delta was zero, and no lock wait remained at completion. The gate does not
+limit submission concurrency. A live YouTube Music rerun remains useful for provider-level
+confirmation but is not required for the deterministic regression gate.
 
 ## 4. Harness issues
 
