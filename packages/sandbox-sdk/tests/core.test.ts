@@ -30,8 +30,8 @@ describe("generic script definitions", () => {
 		});
 		const definition = defineScript({
 			manifest,
-			output: Schema.Number,
-			input: Schema.Struct({ value: Schema.Number }),
+			output: Schema.Finite,
+			input: Schema.Struct({ value: Schema.Finite }),
 			run: (input) => Effect.succeed(input.value + 1),
 		});
 
@@ -212,7 +212,7 @@ describe("sandbox test hosts", () => {
 		});
 		const definition = defineScript({
 			manifest,
-			output: Schema.NullOr(Schema.Number),
+			output: Schema.NullOr(Schema.Finite),
 			input: Schema.Struct({ key: Schema.String }),
 			run: (input, host) =>
 				host
@@ -243,7 +243,7 @@ describe("domain host contracts", () => {
 		const definition = defineScript({
 			manifest,
 			input: Schema.Struct({}),
-			output: Schema.Struct({ rows: Schema.Number }),
+			output: Schema.Struct({ rows: Schema.Finite }),
 			run: (_input, host) =>
 				host
 					.executeRyotql({ queries: {} })

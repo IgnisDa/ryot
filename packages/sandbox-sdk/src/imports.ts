@@ -54,7 +54,7 @@ const hasGenericImportAttribution = (
 
 export const genericImportFailureSchema = strictStruct({
 	message: Schema.String,
-	itemIndex: Schema.Number,
+	itemIndex: Schema.Finite,
 	sourceLabel: Schema.String,
 	sourceIdentifier: Schema.String,
 	entitySchemaSlug: Schema.optional(Schema.String),
@@ -117,7 +117,7 @@ export const genericImportRelationshipIntentSchema = strictStruct({
 });
 
 export const genericImportWriteItemSchema = strictStruct({
-	itemIndex: Schema.Number,
+	itemIndex: Schema.Finite,
 	sourceLabel: Schema.String,
 	sourceIdentifier: Schema.String,
 	subjectEntityAlias: Schema.String,
@@ -175,9 +175,9 @@ export const genericImportWorkflowInputSchema = strictStruct({
 );
 
 export const genericImportWorkflowResultSchema = strictStruct({
-	failedItems: Schema.Number,
-	importedItems: Schema.Number,
-	processedItems: Schema.Number,
+	failedItems: Schema.Finite,
+	importedItems: Schema.Finite,
+	processedItems: Schema.Finite,
 });
 
 export const genericImportKernelInputSchema = strictStruct({
