@@ -1,3 +1,5 @@
+// CSS import paths are POSIX strings interpreted by the external stylesheet parser.
+// oxlint-disable-next-line effecttsgo/node-builtin-import
 import { posix } from "node:path";
 
 import { pluginClientAssetMimeType } from "@ryot-app/client-plugin-contract";

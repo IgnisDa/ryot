@@ -34,7 +34,7 @@ export function applyProgress(frame: ScreenFrame, progress: number) {
 	}
 }
 
-export async function settleProgress(frame: ScreenFrame, from: number, to: number) {
+export function settleProgress(frame: ScreenFrame, from: number, to: number) {
 	const steps: Array<[HTMLElement, string, string, string]> = [];
 	if (frame.outgoing) {
 		steps.push([frame.outgoing, "transform", outgoingTransform(from), outgoingTransform(to)]);
@@ -59,5 +59,8 @@ export async function settleProgress(frame: ScreenFrame, from: number, to: numbe
 		];
 	});
 
-	await Promise.all(animations.map((animation) => animation.finished.catch(() => undefined)));
+	// Animation.finished is a browser Promise; routing awaits it at the React transition boundary.
+	return Promise.all(animations.map((animation) => animation.finished.catch(() => undefined))).then(
+		() => undefined,
+	);
 }

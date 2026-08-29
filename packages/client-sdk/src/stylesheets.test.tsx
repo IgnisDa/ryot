@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { loadStylesheet } from "./stylesheets";
 
 describe("lazy presentation stylesheets", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits DOM stylesheet load events.
 	it("shares one link and promise between simultaneous presentations", async () => {
 		const href = "/presentations/shared.css";
 		const first = loadStylesheet(href);
@@ -16,6 +17,7 @@ describe("lazy presentation stylesheets", () => {
 		expect(document.querySelectorAll(`link[rel="stylesheet"][href="${href}"]`)).toHaveLength(1);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits DOM stylesheet load events.
 	it("recognizes a document-warmed stylesheet without adding a link", async () => {
 		const href = "/presentations/warmed.css";
 		const link = document.createElement("link");
@@ -28,6 +30,7 @@ describe("lazy presentation stylesheets", () => {
 		await expect(loading).resolves.toBeUndefined();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits DOM stylesheet load events.
 	it("rejects a broken stylesheet without duplicating its link", async () => {
 		const href = "/presentations/broken.css";
 		const loading = loadStylesheet(href);
@@ -37,6 +40,7 @@ describe("lazy presentation stylesheets", () => {
 		expect(document.querySelectorAll(`link[rel="stylesheet"][href="${href}"]`)).toHaveLength(1);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits DOM stylesheet load events.
 	it("rejects a warmed stylesheet whose error happened before first use", async () => {
 		const href = "/presentations/warmed-error.css";
 		const link = document.createElement("link");

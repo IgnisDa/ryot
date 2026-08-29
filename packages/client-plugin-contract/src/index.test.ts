@@ -176,7 +176,8 @@ describe("plugin client bridge contract", () => {
 		).toBe(true);
 	});
 
-	it("pins the protocol and compiler versions it stamps into an artifact", () => {
+	it("pins the API, protocol, and compiler versions it stamps into an artifact", () => {
+		expect(CLIENT_API_VERSION).toBe(1);
 		expect(CLIENT_BRIDGE_PROTOCOL_VERSION).toBe(1);
 		expect(CLIENT_COMPILER_VERSION).toBe(1);
 	});

@@ -1,3 +1,5 @@
+// Compiler-generated @source paths use native paths at the Tailwind/Vite boundary.
+// oxlint-disable-next-line effecttsgo/node-builtin-import
 import { relative as relativePath, resolve as resolvePath } from "node:path";
 
 import { sortBy } from "@ryot-app/ts-utils/lodash";

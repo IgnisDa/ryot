@@ -15,7 +15,7 @@ describe("createEntityRefresh", () => {
 			const batches: EntityUpdate[][] = [];
 			const refresh = createEntityRefresh(schedule, (updates) => {
 				batches.push([...updates]);
-				return Promise.resolve();
+				return Effect.void;
 			});
 
 			refresh.hint(populated("a"));
@@ -43,7 +43,7 @@ describe("createEntityRefresh", () => {
 			const batches: EntityUpdate[][] = [];
 			const refresh = createEntityRefresh(schedule, (updates) => {
 				batches.push([...updates]);
-				return Promise.resolve();
+				return Effect.void;
 			});
 
 			refresh.hint();
@@ -59,7 +59,7 @@ describe("createEntityRefresh", () => {
 			const batches: EntityUpdate[][] = [];
 			const refresh = createEntityRefresh(schedule, (updates) => {
 				batches.push([...updates]);
-				return Promise.resolve();
+				return Effect.void;
 			});
 
 			refresh.block(true);
@@ -81,7 +81,7 @@ describe("createEntityRefresh", () => {
 			let calls = 0;
 			const refresh = createEntityRefresh(schedule, () => {
 				calls++;
-				return Promise.resolve();
+				return Effect.void;
 			});
 
 			refresh.hint(populated("a"));
@@ -89,6 +89,35 @@ describe("createEntityRefresh", () => {
 			yield* advanceRyotSchedule(1_000);
 
 			expect(calls).toBe(0);
+		}).pipe(Effect.provide(RyotScheduleService.layer)),
+	);
+
+	it.effect("interrupts a running refresh and discards later hints on disposal", () =>
+		Effect.gen(function* () {
+			const schedule = yield* RyotScheduleService;
+			const started: string[] = [];
+			let finalized = 0;
+			const refresh = createEntityRefresh(schedule, (updates) =>
+				Effect.gen(function* () {
+					started.push(updates[0]?.entityId ?? "");
+					return yield* Effect.never;
+				}).pipe(
+					Effect.ensuring(
+						Effect.sync(() => {
+							finalized++;
+						}),
+					),
+				),
+			);
+
+			refresh.hint(populated("first"));
+			yield* advanceRyotSchedule(250);
+			refresh.hint(populated("second"));
+			refresh.dispose();
+			yield* advanceRyotSchedule(500);
+
+			expect(started).toEqual(["first"]);
+			expect(finalized).toBe(1);
 		}).pipe(Effect.provide(RyotScheduleService.layer)),
 	);
 });

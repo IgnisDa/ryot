@@ -1,3 +1,4 @@
+// oxlint-disable-next-line effecttsgo/node-builtin-import -- This synchronous fixture read runs during Vitest module setup.
 import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
