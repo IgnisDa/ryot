@@ -23,7 +23,9 @@ export const FullBleed = () => {
 					This screen renders no header frame. It paints under the status bar itself and owns its
 					own way back, so the drawer is only reachable by the left-edge gesture here.
 				</p>
-				<Button onClick={() => ryot.navigation.replace({ path: "/" })}>Back to home</Button>
+				<Button onClick={() => ryot.navigation.replace({ kind: "route", path: "/" })}>
+					Back to home
+				</Button>
 			</div>
 		</main>
 	);

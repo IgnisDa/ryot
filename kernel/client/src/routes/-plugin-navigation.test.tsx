@@ -222,6 +222,22 @@ describe("plugin navigation", () => {
 		expect(router.state.location.pathname).toBe("/fixture");
 	});
 
+	it("navigates an iframe entity target to the global entity route", async () => {
+		const view = mountEntityView("/fixture");
+		const connected = connectFrame(await screen.findByTitle<HTMLIFrameElement>("fixture plugin"));
+
+		connected.pluginPort.postMessage(connected.ready);
+		await waitFor(() => expect(connected.messages.some(isLocation)).toBe(true));
+		connected.pluginPort.postMessage({
+			mode: "push",
+			type: "navigate",
+			target: { kind: "entity", entityId: "entity-1" },
+		});
+
+		await waitFor(() => expect(view.router.state.location.pathname).toBe("/e/entity-1"));
+		expect(view.router.state.location.pathname).not.toContain("/fixture");
+	});
+
 	it("keeps the remembered workspace as the sidebar identity on another workspace's route", async () => {
 		const recorder = makeWorkspaceRecorder();
 		mountView(
