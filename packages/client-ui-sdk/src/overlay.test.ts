@@ -1,7 +1,13 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { useDismissOnOutside, useFocusTrap, useRestoreFocus, useScrollLock } from "./overlay";
+import {
+	focusableElements,
+	useDismissOnOutside,
+	useFocusTrap,
+	useRestoreFocus,
+	useScrollLock,
+} from "./overlay";
 
 const mountContainer = () => {
 	const container = document.createElement("div");
@@ -20,6 +26,64 @@ const keydown = (target: EventTarget, init: KeyboardEventInit) =>
 			new KeyboardEvent("keydown", { bubbles: true, cancelable: true, ...init }),
 		);
 	});
+
+describe("focusableElements", () => {
+	it("collects every focusable kind a trap boundary can land on", () => {
+		const container = document.createElement("div");
+		container.innerHTML = `
+			<button type="button">button</button>
+			<a href="#one">link</a>
+			<input />
+			<select></select>
+			<textarea></textarea>
+			<details><summary>summary</summary></details>
+			<iframe title="frame"></iframe>
+			<div contenteditable="true"></div>
+			<audio controls></audio>
+			<video controls></video>
+			<div tabindex="0"></div>
+			<button type="button" disabled>disabled</button>
+			<a>nameless</a>
+			<div contenteditable="false"></div>
+			<div tabindex="-1"></div>
+			<audio></audio>
+		`;
+		document.body.append(container);
+
+		expect(focusableElements(container).map((element) => element.tagName)).toEqual([
+			"BUTTON",
+			"A",
+			"INPUT",
+			"SELECT",
+			"TEXTAREA",
+			"SUMMARY",
+			"IFRAME",
+			"DIV",
+			"AUDIO",
+			"VIDEO",
+			"DIV",
+		]);
+
+		container.remove();
+	});
+
+	it("skips focusables that are unrendered or inside an inert subtree", () => {
+		const container = document.createElement("div");
+		container.innerHTML = `
+			<button type="button">visible</button>
+			<button type="button" style="display: none">display none</button>
+			<button type="button" style="visibility: hidden">visibility hidden</button>
+			<button type="button" hidden>hidden attribute</button>
+			<div style="display: none"><button type="button">hidden ancestor</button></div>
+			<div inert><button type="button">inert ancestor</button></div>
+		`;
+		document.body.append(container);
+
+		expect(focusableElements(container).map((element) => element.textContent)).toEqual(["visible"]);
+
+		container.remove();
+	});
+});
 
 describe("useFocusTrap", () => {
 	it("wraps focus in both directions", () => {

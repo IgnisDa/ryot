@@ -2,6 +2,8 @@ import { useNavigate, useRouter } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
 import { AppIcon } from "#/modules/navigation/app-icon";
+import { usePageTitle } from "#/modules/navigation/page-title";
+import { mainContentProps } from "#/modules/navigation/skip-link";
 
 type SettingsFrameProps = {
 	readonly title: string;
@@ -12,6 +14,7 @@ type SettingsFrameProps = {
 export function SettingsFrame(props: SettingsFrameProps) {
 	const router = useRouter();
 	const navigate = useNavigate();
+	usePageTitle(props.title);
 	const goBack = () => {
 		if (router.history.canGoBack()) {
 			router.history.back();
@@ -21,7 +24,7 @@ export function SettingsFrame(props: SettingsFrameProps) {
 	};
 
 	return (
-		<div className="flex h-full min-h-0 flex-col">
+		<main {...mainContentProps} className="flex h-full min-h-0 flex-col">
 			<header className="flex shrink-0 items-center gap-2 border-b border-border pt-[env(safe-area-inset-top)]">
 				<button
 					type="button"
@@ -36,6 +39,6 @@ export function SettingsFrame(props: SettingsFrameProps) {
 				</h1>
 			</header>
 			<div className="min-h-0 flex-1 overflow-y-auto px-4 py-6">{props.children}</div>
-		</div>
+		</main>
 	);
 }

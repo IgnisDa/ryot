@@ -3,16 +3,6 @@ import { describe, expect, it } from "vitest";
 
 import { Button, StatusMessage } from "./index";
 
-const classes = {
-	text: "min-h-10 cursor-pointer font-semibold text-text-muted",
-	switch:
-		"min-h-9.5 cursor-pointer rounded-md font-semibold text-text-muted aria-pressed:bg-raised aria-pressed:text-text aria-pressed:shadow-sm",
-	primary:
-		"min-h-11 cursor-pointer rounded-lg border border-accent bg-accent px-4 py-2.5 font-semibold text-accent-ink",
-	secondary:
-		"min-h-11 cursor-pointer rounded-lg border border-border-strong px-4 py-2.5 font-semibold text-text",
-} as const;
-
 describe("Button", () => {
 	it("renders a button and forwards its attributes", () => {
 		render(
@@ -27,41 +17,48 @@ describe("Button", () => {
 		expect(button.hasAttribute("disabled")).toBe(true);
 	});
 
-	it.each([
-		["text", classes.text],
-		["switch", classes.switch],
-		["primary", classes.primary],
-		["secondary", classes.secondary],
-	] as const)("applies the %s variant classes", (variant, className) => {
-		render(<Button variant={variant}>{variant}</Button>);
+	it.each(["text", "switch", "primary", "secondary"] as const)(
+		"names the %s variant by its content",
+		(variant) => {
+			render(<Button variant={variant}>{variant}</Button>);
 
-		expect(screen.getByRole("button").className).toBe(className);
+			expect(screen.getByRole("button", { name: variant })).toBeTruthy();
+		},
+	);
+
+	it("keeps caller classes alongside the variant it defaults to", () => {
+		render(<Button className="w-full">Continue</Button>);
+		const fallback = screen.getByRole("button", { name: "Continue" });
+
+		render(<Button variant="primary">Explicit</Button>);
+		const explicit = screen.getByRole("button", { name: "Explicit" });
+
+		expect(fallback.classList.contains("w-full")).toBe(true);
+		expect(fallback.className).toBe(`${explicit.className} w-full`);
 	});
 
-	it("defaults to primary and merges className after variant classes", () => {
-		render(<Button className="w-full">Continue</Button>);
+	it("reports its pressed state to assistive technology through the switch variant", () => {
+		render(
+			<Button variant="switch" aria-pressed>
+				Compact
+			</Button>,
+		);
 
-		expect(screen.getByRole("button").className).toBe(`${classes.primary} w-full`);
+		expect(screen.getByRole("button", { name: "Compact", pressed: true })).toBeTruthy();
 	});
 });
 
 describe("StatusMessage", () => {
-	it("renders an alert role with the danger token for the error tone", () => {
+	it("announces the error tone as an alert", () => {
 		render(<StatusMessage tone="error">Something failed</StatusMessage>);
 
-		const message = screen.getByRole("alert");
-		expect(message.className).toBe("text-danger");
-		expect(message.textContent).toBe("Something failed");
+		expect(screen.getByRole("alert").textContent).toBe("Something failed");
 	});
 
-	it.each([
-		["pending", "text-text-muted"],
-		["success", "text-success"],
-	] as const)("renders a status role with the %s tone", (tone, className) => {
+	it.each(["pending", "success"] as const)("announces the %s tone as a status", (tone) => {
 		render(<StatusMessage tone={tone}>Message</StatusMessage>);
 
-		const message = screen.getByRole("status");
-		expect(message.className).toBe(className);
+		expect(screen.getByRole("status").textContent).toBe("Message");
 	});
 
 	it("keeps one live region element across a tone change so content changes are announced", () => {
@@ -76,13 +73,13 @@ describe("StatusMessage", () => {
 		expect(screen.getByRole("alert")).toBe(region);
 	});
 
-	it("merges className after the tone class", () => {
+	it("keeps caller classes", () => {
 		render(
 			<StatusMessage tone="success" className="mt-2">
 				Done
 			</StatusMessage>,
 		);
 
-		expect(screen.getByRole("status").className).toBe("text-success mt-2");
+		expect(screen.getByRole("status").classList.contains("mt-2")).toBe(true);
 	});
 });

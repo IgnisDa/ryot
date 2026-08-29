@@ -42,7 +42,12 @@ const fixtureFiles = Effect.promise(async () => {
 });
 
 const compileFixture = (files: Record<string, Uint8Array>) =>
-	compileClientPlugin({ files, apiVersion: CLIENT_API_VERSION, entry: "client/index.tsx" });
+	compileClientPlugin({
+		files,
+		name: "Fixture plugin",
+		apiVersion: CLIENT_API_VERSION,
+		entry: "client/index.tsx",
+	});
 
 const compileStylesheet = (stylesheet: string, files: Record<string, Uint8Array> = {}) =>
 	compileFixture({
@@ -96,6 +101,7 @@ it.effect(
 			expect(css).toContain("color: var(--text-muted)");
 
 			const document = text(byName.get("index.html")?.contents);
+			expect(document).toContain("<title>Fixture plugin</title>");
 			expect(document).toContain(`"hash":"${artifact.hash}"`);
 			expect(document).toContain('<script type="module" src="./plugin.js">');
 			expect(document).toContain('<link rel="stylesheet" href="./plugin.css" />');
@@ -129,6 +135,36 @@ it.effect(
 				expect(font.contents).toEqual(expected.get(font.name)?.contents);
 				expect(css).toContain(`./${font.name}`);
 			}
+		}),
+	30_000,
+);
+
+it.effect(
+	"injects the Tailwind entry once for a plugin without a stylesheet",
+	() =>
+		Effect.gen(function* () {
+			const { artifact } = yield* compileFixture({ "client/index.tsx": bytes("export {};") });
+			const css = text(artifact.files.find(({ name }) => name === "plugin.css")?.contents);
+
+			expect(css).toContain("box-sizing: border-box");
+			expect(css).toContain("outline: 2px solid var(--focus)");
+			expect(css).toContain("cursor: pointer");
+			expect(css.match(/box-sizing: border-box/g)).toHaveLength(1);
+		}),
+	30_000,
+);
+
+it.effect(
+	"does not duplicate the Tailwind entry a plugin stylesheet also imports",
+	() =>
+		Effect.gen(function* () {
+			const { artifact } = yield* compileStylesheet(
+				'@import "tailwindcss";\n.local { color: red; }',
+			);
+			const css = text(artifact.files.find(({ name }) => name === "plugin.css")?.contents);
+
+			expect(css).toContain(".local");
+			expect(css.match(/box-sizing: border-box/g)).toHaveLength(1);
 		}),
 	30_000,
 );
@@ -558,6 +594,34 @@ it.effect(
 			expect(failure.diagnostics[0]?.file).toBe("client/home.tsx");
 			expect(failure.diagnostics[0]?.severity).toBe("error");
 			expect(failure.diagnostics[0]?.message).toContain('"effect"');
+		}),
+	30_000,
+);
+
+it.effect(
+	"titles the plugin document with the manifest name without changing artifact identity",
+	() =>
+		Effect.gen(function* () {
+			const files = { "client/index.tsx": bytes("export {};") };
+			const plain = yield* compileClientPlugin({
+				files,
+				name: "Anime & Manga",
+				apiVersion: CLIENT_API_VERSION,
+				entry: "client/index.tsx",
+			});
+			const other = yield* compileClientPlugin({
+				files,
+				name: "Fitness",
+				apiVersion: CLIENT_API_VERSION,
+				entry: "client/index.tsx",
+			});
+			const documentOf = (artifact: typeof plain.artifact) =>
+				text(artifact.files.find((file) => file.name === "index.html")?.contents);
+
+			expect(documentOf(plain.artifact)).toContain("<title>Anime &amp; Manga</title>");
+			expect(documentOf(other.artifact)).toContain("<title>Fitness</title>");
+			expect(documentOf(plain.artifact)).toContain('<html lang="en">');
+			expect(other.artifact.hash).toBe(plain.artifact.hash);
 		}),
 	30_000,
 );

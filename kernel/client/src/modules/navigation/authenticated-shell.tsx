@@ -39,6 +39,8 @@ type PluginHeaderController = {
 
 const PluginHeaderContext = createContext<PluginHeaderController | undefined>(undefined);
 
+const PluginTitleContext = createContext<string | null | undefined>(undefined);
+
 const EdgeContext = createContext<EdgeResolution | undefined>(undefined);
 
 export const useEdge = () => {
@@ -55,6 +57,14 @@ export const useRememberedWorkspaceSlug = () => {
 		throw new Error("useRememberedWorkspaceSlug must be used inside AuthenticatedShell");
 	}
 	return slug;
+};
+
+export const usePluginTitle = () => {
+	const title = useContext(PluginTitleContext);
+	if (title === undefined) {
+		throw new Error("usePluginTitle must be used inside AuthenticatedShell");
+	}
+	return title;
 };
 
 export const usePluginHeader = () => {
@@ -189,15 +199,18 @@ export function AuthenticatedShell(props: {
 			/>
 			<RememberedWorkspaceContext value={rememberedSlug}>
 				<PluginHeaderContext value={header}>
-					<EdgeContext value={edge}>
-						<motion.div
-							style={{ x: contentShift }}
-							data-testid="shell-content"
-							className="min-h-0 min-w-0 flex-1 overflow-hidden"
-						>
-							<Outlet />
-						</motion.div>
-					</EdgeContext>
+					<PluginTitleContext value={pluginTitle}>
+						<EdgeContext value={edge}>
+							<motion.div
+								inert={drawerOpen}
+								style={{ x: contentShift }}
+								data-testid="shell-content"
+								className="min-h-0 min-w-0 flex-1 overflow-hidden"
+							>
+								<Outlet />
+							</motion.div>
+						</EdgeContext>
+					</PluginTitleContext>
 				</PluginHeaderContext>
 			</RememberedWorkspaceContext>
 		</div>
