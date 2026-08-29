@@ -38,7 +38,7 @@
 		"build": "tsc && bun build src/compiler-worker.ts --outdir dist --entry-naming sandbox-compiler-worker.js --target bun --sourcemap --external @ryot-app/vite-compiler"
 	},
 	"dependencies": {
-		"@effect/platform-bun": "4.0.0-beta.107",
+		"@effect/platform-bun": "4.0.0-rc.111",
 		"@ryot-app/contract": "workspace:*",
 		"@ryot-app/plugin-kit": "workspace:*",
 		"@ryot-app/sandbox-sdk": "workspace:*",
@@ -49,7 +49,7 @@
 		"typescript": "7.0.2"
 	},
 	"devDependencies": {
-		"@effect/vitest": "4.0.0-beta.107",
+		"@effect/vitest": "4.0.0-rc.111",
 		"@ryot-app/testing": "workspace:*",
 		"bun-types": "1.4.0",
 		"vitest": "4.1.9"
