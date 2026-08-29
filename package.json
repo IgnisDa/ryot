@@ -14,12 +14,12 @@
 		"test": "turbo test",
 		"build": "turbo build",
 		"check": "turbo check",
-		"prepare": "effect-tsgo patch",
+		"prepare": "effect-tsgo patch --no-typescript --oxlint",
 		"docker:up": "docker compose -f ci/dev/docker-compose.yml up",
 		"docker:down": "docker compose -f ci/dev/docker-compose.yml down"
 	},
 	"devDependencies": {
-		"@effect/tsgo": "0.45.0",
+		"@effect/tsgo": "0.46.0",
 		"bun-types": "1.4.0",
 		"eslint-plugin-perfectionist": "5.12.1",
 		"oxfmt": "0.70.0",
