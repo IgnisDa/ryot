@@ -30,6 +30,13 @@ services:
       - "9000:9000"
       - "9001:9001"
 
+  ryot-otel:
+    restart: unless-stopped
+    image: cr.jaegertracing.io/jaegertracing/jaeger
+    ports:
+      - "4318:4318"
+      - "16686:16686"
+
 volumes:
   s3_storage:
   postgres_storage:
