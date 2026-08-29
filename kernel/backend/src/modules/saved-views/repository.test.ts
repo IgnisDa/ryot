@@ -3,7 +3,7 @@ import { UserId } from "@ryot-app/contract/schema/brands";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Ref } from "effect";
 
-import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { fakeDatabaseSession } from "#lib/test-utils/effect";
 
 import { SavedViewsRepository } from "./repository";
 
@@ -30,7 +30,7 @@ const recordingDatabaseLayer = Layer.unwrap(
 			}),
 		});
 		return Layer.merge(
-			Layer.mock(DatabaseSession)({ current: Effect.succeed(database) }),
+			fakeDatabaseSession(database),
 			Layer.succeed(RecordedConditions, { conditions: Ref.get(conditions) }),
 		);
 	}),

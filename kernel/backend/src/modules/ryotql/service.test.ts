@@ -62,7 +62,7 @@ import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Ref, Result, Schema } from "effect";
 
 import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { fakeDatabaseSession } from "#lib/test-utils/effect";
 
 import { RyotQLService } from "./service";
 
@@ -103,10 +103,7 @@ const makeServiceLayer = (
 						},
 					});
 					return Layer.merge(
-						Layer.mock(DatabaseSession)({
-							current: Effect.succeed(db),
-							transaction: (work) => mapDatabaseErrors(work),
-						}),
+						fakeDatabaseSession(db, { transaction: (work) => mapDatabaseErrors(work) }),
 						Layer.succeed(RecordedStatements, { statements: Ref.get(recorded) }),
 					);
 				}),
