@@ -120,7 +120,8 @@ const runDirect = async (iterations, repetition) => {
 };
 
 const runImports = async (count, repetition, segmentCursor) => {
-	const nonce = `${label}-${scenario.replace(":", "")}-${repetition}`;
+	// Every import needs a fresh identity; a repeated one is a populated-entity cache hit.
+	const nonce = `${label}-${invocation}-${scenario.replace(":", "")}-${repetition}`;
 	const startedAt = Date.now();
 	const jobs = await Promise.all(
 		Array.from({ length: count }, (_, index) =>
@@ -159,6 +160,7 @@ const runImports = async (count, repetition, segmentCursor) => {
 	return outcomes;
 };
 
+const invocation = Date.now().toString(36);
 const [kind, amountText] = scenario.split(":");
 const amount = Number(amountText ?? "1");
 const initialSegments = await phaseSegments(0);

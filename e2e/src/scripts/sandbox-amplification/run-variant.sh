@@ -1,7 +1,7 @@
 #!/bin/sh
 # Runs the matched scenario list for one deployed variant on the benchmark host. Each scenario is
 # wrapped with PostgreSQL cgroup CPU and pg_stat_database commit counters, which the in-container
-# probe cannot read. Usage (on the host): run-variant.sh <label>
+# probe cannot read. Usage (on the host): run-variant.sh <label> [<scenario> <repetitions>]...
 set -eu
 LABEL="$1"
 SERVICE=a2dt5g6dbmpwqwllnzsho8jc
@@ -29,14 +29,23 @@ run() {
 		"$(awk "BEGIN { print ($1 - $before_usage) / 1000000 }")" "$(($2 - before_commits))" >>"$OUT"
 }
 
-run direct:0 1
-run import 1
-: >"$OUT"
-docker exec "$APP" sh -c "rm -f /tmp/$LABEL.jsonl"
-run direct:0 5
-run direct:1 5
-run direct:5 5
-run direct:10 5
-run import 3
-run batch:5 2
+shift
+if [ "$#" -gt 0 ]; then
+	# Explicit "<scenario> <repetitions>" pairs append to an existing variant run.
+	while [ "$#" -gt 1 ]; do
+		run "$1" "$2"
+		shift 2
+	done
+else
+	run direct:0 1
+	run import 1
+	: >"$OUT"
+	docker exec "$APP" sh -c "rm -f /tmp/$LABEL.jsonl"
+	run direct:0 5
+	run direct:1 5
+	run direct:5 5
+	run direct:10 5
+	run import 3
+	run batch:5 2
+fi
 docker cp "$APP:/tmp/$LABEL.jsonl" "/root/ryot-benchmark-tools/amp-$LABEL-probe.jsonl"
