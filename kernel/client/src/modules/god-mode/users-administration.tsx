@@ -7,6 +7,8 @@ import {
 	type SyntheticEvent,
 	useEffect,
 	useEffectEvent,
+	useId,
+	useLayoutEffect,
 	useRef,
 	useState,
 } from "react";
@@ -24,9 +26,13 @@ import type {
 	GodModeUserLifecycleOperation,
 	GodModeUserResetResult,
 } from "#/modules/god-mode/user-lifecycle";
+import { AppIcon } from "#/modules/navigation/app-icon";
 import type { BackInterceptors } from "#/modules/navigation/back-interceptors";
 
+const MENU_GAP = 4;
 const PAGE_SIZE = 50;
+const MENU_WIDTH = 224;
+const VIEWPORT_PADDING = 8;
 const focusable =
 	'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -34,6 +40,24 @@ type OperationResult<A> = Promise<Exit.Exit<A, unknown>>;
 type Page =
 	| { readonly offset: number; readonly state: "loading" | "error" }
 	| { readonly offset: number; readonly state: "loaded"; readonly value: GodModeUsers };
+
+type UserAction = "password" | "disabled" | "reset" | "delete";
+
+type UserActionItem = {
+	readonly label: string;
+	readonly key: UserAction;
+	readonly disabled: boolean;
+	readonly destructive: boolean;
+	readonly onSelect: () => void;
+};
+
+const getEnabledIndices = (items: ReadonlyArray<UserActionItem>) =>
+	items.reduce<Array<number>>((indices, item, index) => {
+		if (!item.disabled) {
+			indices.push(index);
+		}
+		return indices;
+	}, []);
 
 export type GodModeUserOperations = {
 	readonly resetUser: (userId: string) => OperationResult<GodModeUserResetResult>;
@@ -281,9 +305,12 @@ function UserRow(props: {
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const copyTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 	const pendingRef = useRef<string | null>(null);
+	const menuId = useId();
 	const [copied, setCopied] = useState(false);
 	const [error, setError] = useState<string>();
 	const [confirmation, setConfirmation] = useState<"reset" | "delete" | null>(null);
+	const [menuOpen, setMenuOpen] = useState(false);
+	const [activeMenuIndex, setActiveMenuIndex] = useState(0);
 	const [pending, setPending] = useState<"password" | "disabled" | "reset" | "delete" | null>(null);
 	const [result, setResult] = useState<GodModePasswordResetResult | GodModeUserResetResult | null>(
 		null,
@@ -296,7 +323,7 @@ function UserRow(props: {
 	} else if (props.user.authState === "mixed") {
 		resetNote = "Mixed authentication: manual recovery is required.";
 	}
-	let disabledActionLabel = isDisabled ? "Enable" : "Disable";
+	let disabledActionLabel = isDisabled ? "Enable user" : "Disable user";
 	if (pending === "disabled") {
 		disabledActionLabel = isDisabled ? "Enabling..." : "Disabling...";
 	}
@@ -394,6 +421,56 @@ function UserRow(props: {
 			setError("Could not copy or share the reset link. Try again.");
 		}
 	};
+	const closeMenu = (restoreFocus: boolean) => {
+		setMenuOpen(false);
+		if (restoreFocus) {
+			queueMicrotask(() => triggerRef.current?.focus());
+		}
+	};
+	const selectAction = (kind: UserAction) => {
+		closeMenu(kind !== "reset" && kind !== "delete");
+		setError(undefined);
+		if (kind === "reset" || kind === "delete") {
+			setConfirmation(kind);
+			return;
+		}
+		queueMicrotask(() => void (kind === "password" ? resetPassword() : toggleDisabled()));
+	};
+	const actionItems: ReadonlyArray<UserActionItem> = [
+		{
+			key: "password",
+			destructive: false,
+			onSelect: () => selectAction("password"),
+			disabled: !canResetPassword || pending !== null,
+			label: pending === "password" ? "Generating..." : "Generate reset link",
+		},
+		{
+			key: "disabled",
+			destructive: !isDisabled,
+			disabled: pending !== null,
+			label: disabledActionLabel,
+			onSelect: () => selectAction("disabled"),
+		},
+		{
+			key: "reset",
+			destructive: true,
+			disabled: pending !== null,
+			onSelect: () => selectAction("reset"),
+			label: pending === "reset" ? "Resetting..." : "Reset account",
+		},
+		{
+			key: "delete",
+			destructive: true,
+			disabled: pending !== null,
+			onSelect: () => selectAction("delete"),
+			label: pending === "delete" ? "Deleting..." : "Delete user",
+		},
+	];
+	const openMenu = () => {
+		const firstEnabled = actionItems.findIndex((item) => !item.disabled);
+		setActiveMenuIndex(firstEnabled === -1 ? 0 : firstEnabled);
+		setMenuOpen(true);
+	};
 
 	return (
 		<>
@@ -423,58 +500,36 @@ function UserRow(props: {
 				<td className="hidden px-2 py-4 whitespace-nowrap text-text-muted lg:table-cell">
 					{formatDate(props.user.createdAt)}
 				</td>
-				<td className="min-w-44 px-2 py-3">
-					<div className="flex flex-wrap gap-x-3 gap-y-1">
-						<button
-							type="button"
-							disabled={!canResetPassword || pending !== null}
-							onClick={() => void resetPassword()}
-							className="min-h-9 text-xs font-semibold text-accent-text disabled:text-text-subtle"
-						>
-							{pending === "password" ? "Generating..." : "Reset password"}
-						</button>
-						<button
-							type="button"
-							disabled={pending !== null}
-							onClick={() => void toggleDisabled()}
-							className={clsx(
-								"min-h-9 text-xs font-semibold",
-								isDisabled ? "text-accent-text" : "text-danger",
-							)}
-						>
-							{disabledActionLabel}
-						</button>
-						<button
-							type="button"
-							ref={triggerRef}
-							disabled={pending !== null}
-							className="min-h-9 text-xs font-semibold text-danger"
-							onClick={() => {
-								setError(undefined);
-								setConfirmation("reset");
-							}}
-						>
-							Reset account
-						</button>
-						<button
-							type="button"
-							disabled={pending !== null}
-							className="min-h-9 text-xs font-semibold text-danger"
-							onClick={(event) => {
-								triggerRef.current = event.currentTarget;
-								setError(undefined);
-								setConfirmation("delete");
-							}}
-						>
-							Delete
-						</button>
-					</div>
-					{resetNote && <p className="max-w-52 pb-1 text-xs text-text-subtle">{resetNote}</p>}
+				<td className="w-14 px-2 py-3">
+					<button
+						type="button"
+						ref={triggerRef}
+						aria-haspopup="menu"
+						aria-controls={menuId}
+						aria-expanded={menuOpen}
+						disabled={pending !== null}
+						aria-label={`Actions for ${props.user.email}`}
+						onClick={() => (menuOpen ? closeMenu(true) : openMenu())}
+						className="inline-flex min-h-9 min-w-9 items-center justify-center rounded-lg border border-border-strong bg-raised text-text-muted hover:bg-surface-2 disabled:cursor-not-allowed disabled:text-text-subtle"
+					>
+						<AppIcon name="more-horizontal" size={18} />
+					</button>
+					<UserActionsMenu
+						id={menuId}
+						open={menuOpen}
+						note={resetNote}
+						items={actionItems}
+						onClose={closeMenu}
+						triggerRef={triggerRef}
+						activeIndex={activeMenuIndex}
+						onActiveIndexChange={setActiveMenuIndex}
+						backInterceptors={props.backInterceptors}
+					/>
 				</td>
 			</tr>
 			{(error !== undefined || result !== null) && (
 				<tr className="border-b border-border">
-					<td colSpan={6} className="px-2 pt-0 pb-4">
+					<td colSpan={6} className="px-2 py-3">
 						{error && (
 							<p role="alert" className="text-sm text-danger">
 								{error}
@@ -488,24 +543,23 @@ function UserRow(props: {
 						)}
 						{result?.resetUrl && (
 							<div className="grid gap-2 rounded-lg border border-border bg-raised p-3">
-								<label className="text-xs text-text-muted">
-									Reset link for {result.email}
+								<p className="text-xs text-text-muted">Reset link for {result.email}</p>
+								<div className="flex min-w-0 flex-wrap items-center gap-2">
 									<input
 										readOnly
 										value={result.resetUrl}
 										aria-label="Password reset link"
-										className="ui-field-input mt-1 text-sm"
+										className="min-w-0 flex-1 basis-40 rounded-lg border border-border-strong bg-surface px-3 py-2 text-[13px] font-normal text-text"
 									/>
-								</label>
-								<Button
-									type="button"
-									disabled={copied}
-									variant="secondary"
-									className="justify-self-start"
-									onClick={() => void transfer()}
-								>
-									{copied ? "Copied!" : "Copy or share"}
-								</Button>
+									<button
+										type="button"
+										disabled={copied}
+										onClick={() => void transfer()}
+										className="min-h-9 shrink-0 rounded-lg border border-border-strong px-3 py-2 text-[13px] font-semibold text-text disabled:opacity-50"
+									>
+										{copied ? "Copied!" : "Copy or share"}
+									</button>
+								</div>
 							</div>
 						)}
 					</td>
@@ -531,6 +585,190 @@ function UserRow(props: {
 				)}
 		</>
 	);
+}
+
+function UserActionsMenu(props: {
+	readonly id: string;
+	readonly open: boolean;
+	readonly note?: string;
+	readonly activeIndex: number;
+	readonly backInterceptors: BackInterceptors;
+	readonly items: ReadonlyArray<UserActionItem>;
+	readonly onClose: (restoreFocus: boolean) => void;
+	readonly onActiveIndexChange: (index: number) => void;
+	readonly triggerRef: RefObject<HTMLButtonElement | null>;
+}) {
+	const {
+		id,
+		open,
+		note,
+		items,
+		triggerRef,
+		activeIndex,
+		backInterceptors,
+		onActiveIndexChange,
+		onClose,
+	} = props;
+	const menuRef = useRef<HTMLDivElement>(null);
+	const menuItems = useRef<Array<HTMLButtonElement | null>>([]);
+	const [position, setPosition] = useState({ left: 0, top: 0 });
+	const close = useEffectEvent((restoreFocus: boolean) => onClose(restoreFocus));
+
+	useLayoutEffect(() => {
+		if (!open) {
+			return undefined;
+		}
+		const updatePosition = () => {
+			const trigger = triggerRef.current;
+			const menu = menuRef.current;
+			if (trigger === null || menu === null) {
+				return;
+			}
+			const triggerRect = trigger.getBoundingClientRect();
+			const menuRect = menu.getBoundingClientRect();
+			const viewportWidth = Math.max(window.innerWidth, document.documentElement.clientWidth);
+			const viewportHeight = Math.max(window.innerHeight, document.documentElement.clientHeight);
+			const menuWidth =
+				menuRect.width || Math.min(MENU_WIDTH, viewportWidth - VIEWPORT_PADDING * 2);
+			const menuHeight = menuRect.height;
+			const maxLeft = Math.max(VIEWPORT_PADDING, viewportWidth - menuWidth - VIEWPORT_PADDING);
+			const left = Math.min(Math.max(triggerRect.right - menuWidth, VIEWPORT_PADDING), maxLeft);
+			const below = triggerRect.bottom + MENU_GAP;
+			const above = triggerRect.top - menuHeight - MENU_GAP;
+			const maxTop = Math.max(VIEWPORT_PADDING, viewportHeight - menuHeight - VIEWPORT_PADDING);
+			const top =
+				above >= VIEWPORT_PADDING && below + menuHeight > viewportHeight - VIEWPORT_PADDING
+					? above
+					: Math.min(Math.max(below, VIEWPORT_PADDING), maxTop);
+			setPosition({ left, top });
+		};
+
+		updatePosition();
+		window.addEventListener("resize", updatePosition);
+		document.addEventListener("scroll", updatePosition, true);
+		return () => {
+			window.removeEventListener("resize", updatePosition);
+			document.removeEventListener("scroll", updatePosition, true);
+		};
+	}, [open, triggerRef]);
+
+	useEffect(() => {
+		if (!open) {
+			return undefined;
+		}
+		const enabledIndices = getEnabledIndices(items);
+		const index = items[activeIndex]?.disabled ? enabledIndices.at(0) : activeIndex;
+		if (index === undefined) {
+			return undefined;
+		}
+		if (index !== activeIndex) {
+			onActiveIndexChange(index);
+			return undefined;
+		}
+		menuItems.current[index]?.focus();
+		return undefined;
+	}, [activeIndex, items, onActiveIndexChange, open]);
+
+	useEffect(() => {
+		if (!open) {
+			return undefined;
+		}
+		const dismiss = (event: PointerEvent) => {
+			if (!(event.target instanceof Node)) {
+				return;
+			}
+			if (menuRef.current?.contains(event.target) || triggerRef.current?.contains(event.target)) {
+				return;
+			}
+			close(false);
+		};
+		document.addEventListener("pointerdown", dismiss);
+		const unregister = backInterceptors.register(() => {
+			close(true);
+			return true;
+		});
+		return () => {
+			document.removeEventListener("pointerdown", dismiss);
+			unregister();
+		};
+	}, [backInterceptors, open, triggerRef]);
+
+	const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+		if (event.key === "Escape") {
+			event.preventDefault();
+			event.stopPropagation();
+			close(true);
+			return;
+		}
+		const enabledIndices = getEnabledIndices(items);
+		if (enabledIndices.length === 0) {
+			return;
+		}
+		let index: number | undefined;
+		if (event.key === "Home") {
+			index = enabledIndices[0];
+		} else if (event.key === "End") {
+			index = enabledIndices.at(-1);
+		} else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+			const current = Math.max(0, enabledIndices.indexOf(activeIndex));
+			const offset = event.key === "ArrowDown" ? 1 : -1;
+			index = enabledIndices[(current + offset + enabledIndices.length) % enabledIndices.length];
+		}
+		if (index !== undefined) {
+			event.preventDefault();
+			onActiveIndexChange(index);
+		}
+	};
+
+	return open
+		? createPortal(
+				<div
+					role="menu"
+					ref={menuRef}
+					id={id}
+					onKeyDown={onKeyDown}
+					aria-label="User actions"
+					style={{ left: position.left, top: position.top }}
+					className="fixed z-50 flex max-h-[calc(100vh-1rem)] w-56 max-w-[calc(100vw-1rem)] flex-col overflow-y-auto rounded-xl border border-border bg-surface p-1.5 shadow-card"
+					onBlur={(event) => {
+						const relatedTarget = event.relatedTarget;
+						if (
+							!(relatedTarget instanceof Node) ||
+							(!event.currentTarget.contains(relatedTarget) &&
+								!triggerRef.current?.contains(relatedTarget))
+						) {
+							close(false);
+						}
+					}}
+				>
+					{items.map((item, index) => (
+						<button
+							type="button"
+							key={item.key}
+							role="menuitem"
+							onClick={item.onSelect}
+							disabled={item.disabled}
+							tabIndex={index === activeIndex ? 0 : -1}
+							onFocus={() => onActiveIndexChange(index)}
+							ref={(element) => {
+								menuItems.current[index] = element;
+							}}
+							className={clsx(
+								"flex min-h-10 w-full items-center rounded-lg px-3 py-2 text-left text-sm font-semibold outline-none hover:bg-surface-2 focus-visible:bg-surface-2",
+								item.destructive ? "text-danger" : "text-text",
+								"disabled:cursor-not-allowed disabled:text-text-subtle",
+							)}
+						>
+							{item.label}
+						</button>
+					))}
+					{note && (
+						<p className="border-t border-border px-3 pt-2 pb-1 text-xs text-text-subtle">{note}</p>
+					)}
+				</div>,
+				document.body,
+			)
+		: null;
 }
 
 function Badge(props: { readonly children: string; readonly tone?: "success" | "danger" }) {
@@ -562,17 +800,18 @@ function ConfirmationDialog(props: {
 	const dialogRef = useRef<HTMLDivElement>(null);
 	const cancelRef = useRef<HTMLButtonElement>(null);
 	const close = useEffectEvent(() => props.onClose());
+	const interceptBack = useEffectEvent(() => {
+		if (props.pending) {
+			return true;
+		}
+		close();
+		return true;
+	});
 
 	useEffect(() => {
 		cancelRef.current?.focus();
 		const trigger = props.triggerRef.current;
-		const unregister = props.backInterceptors.register(() => {
-			if (props.pending) {
-				return true;
-			}
-			close();
-			return true;
-		});
+		const unregister = props.backInterceptors.register(interceptBack);
 		const overflow = document.body.style.overflow;
 		document.body.style.overflow = "hidden";
 		return () => {
@@ -580,7 +819,7 @@ function ConfirmationDialog(props: {
 			document.body.style.overflow = overflow;
 			queueMicrotask(() => trigger?.focus());
 		};
-	}, [props.backInterceptors, props.pending, props.triggerRef]);
+	}, [props.backInterceptors, props.triggerRef]);
 
 	const onKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
 		if (event.key === "Escape" && !props.pending) {
