@@ -2,6 +2,7 @@ import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
 import type { IntegrationRecord } from "@ryot-app/sandbox-sdk/core";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { automationOccurrenceRecipe, executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
 
 import {
 	fetchEntity,
@@ -151,13 +152,20 @@ const markPlayedInJellyfin = (
 export default defineAutomation({
 	manifest,
 	run: ({ automation }, host) => {
-		const event = automation.source.kind === "event" ? automation.source.after : undefined;
-		const entitySchemaSlug = event?.subject.entitySchemaSlug;
-		if (!event || (entitySchemaSlug !== "movie" && entitySchemaSlug !== "show")) {
+		if (automation.source.kind !== "event") {
 			return Effect.succeed(null);
 		}
 
 		return Effect.gen(function* () {
+			const occurrence = yield* executeRyotqlRecipe(
+				host.executeRyotql,
+				automationOccurrenceRecipe(automation.occurrenceId),
+			);
+			const event = occurrence?.source.kind === "event" ? occurrence.source.after : undefined;
+			const entitySchemaSlug = event?.subject.entitySchemaSlug;
+			if (!event || (entitySchemaSlug !== "movie" && entitySchemaSlug !== "show")) {
+				return null;
+			}
 			const [disabled, integrations] = yield* Effect.all(
 				[integrationsDisabledForUser(host), listActiveIntegrations(host, "jellyfin_push")],
 				{ concurrency: "unbounded" },

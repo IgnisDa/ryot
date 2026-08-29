@@ -66,12 +66,15 @@ const encodeCursor = (value: unknown) =>
 const makeServiceLayer = (
 	statements: string[],
 	serviceRows: readonly Record<string, unknown>[] = [],
+	parameters?: unknown[][],
 ) => {
 	const dialect = new PgDialect();
 	const db = Object.assign(Object.create(null), {
 		execute: (query: Parameters<typeof dialect.sqlToQuery>[0]) => {
-			const statement = dialect.sqlToQuery(query).sql;
+			const compiled = dialect.sqlToQuery(query);
+			const statement = compiled.sql;
 			statements.push(statement);
+			parameters?.push(compiled.params);
 			if (statement.startsWith("SET ") || statement.includes("set_config(")) {
 				return Effect.succeed([]);
 			}
@@ -860,6 +863,46 @@ it.effect("denies application tables to plugin execution before opening a transa
 		expect(error).toMatchObject({ reason: { code: "invalid-query" } });
 		expect(statements).toEqual([]);
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
+});
+
+it.effect("limits execution-scoped tables to the current occurrence and run", () => {
+	const statements: string[] = [];
+	const parameters: unknown[][] = [];
+	const occurrence = table("automationOccurrence", "occurrence");
+	const run = table("subscriptionRun", "run");
+	const document = {
+		queries: {
+			run: rows(run, { fields: [field("id", column(run, "id"))] }),
+			occurrence: rows(occurrence, {
+				fields: [
+					field("id", column(occurrence, "id")),
+					field("sourceId", jsonPath(column(occurrence, "source"), "id")),
+				],
+			}),
+		},
+	};
+	const resultRows = [{ f0k: "text", f1k: "text", f1v: "source-1", f0v: "occurrence-1" }];
+
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		const response = yield* service.executeForUser("user-1", null, document, {
+			automationRunId: "run-1",
+			automationOccurrenceId: "occurrence-1",
+		});
+
+		expect(statements[2]).toMatch(/FROM \(SELECT \* FROM subscription_run WHERE id = \$\d+\)/);
+		expect(parameters[2]).toContain("run-1");
+		expect(parameters[2]).not.toContain("occurrence-1");
+		expect(statements[3]).toMatch(/FROM \(SELECT \* FROM automation_occurrence WHERE id = \$\d+\)/);
+		expect(parameters[3]).toContain("occurrence-1");
+		expect(parameters[3]).not.toContain("run-1");
+		expect(statements[3]).toContain("jsonb_extract_path");
+		expect(response.data["occurrence"]).toEqual({
+			type: "rows",
+			items: [{ id: "occurrence-1", sourceId: "source-1" }],
+			pageInfo: { limit: 20, hasMore: false, nextCursor: null },
+		});
+	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows, parameters)));
 });
 
 it.effect("preserves reserved result keys and non-text runtime kinds", () => {

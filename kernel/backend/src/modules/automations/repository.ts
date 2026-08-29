@@ -1,12 +1,15 @@
 import type { DbError } from "@ryot-app/contract/errors";
 import {
+	AutomationOccurrence,
 	AutomationRuleMetadata,
+	type AutomationOccurrence as AutomationOccurrenceValue,
 	type AutomationOperation,
 	type AutomationRuleMetadata as AutomationRuleMetadataValue,
 	type SubscriptionRunSourceKind,
 	type SubscriptionRunSkipReason,
 	type SubscriptionRunTiming,
 } from "@ryot-app/contract/modules/automations/schemas";
+import type { AutomationOccurrenceId } from "@ryot-app/contract/schema/brands";
 import {
 	AutomationRuleId,
 	SandboxScriptId,
@@ -25,8 +28,11 @@ import type { AutomationRuleTarget as PluginAutomationRuleTarget } from "#module
 
 type NotificationSubscriptionStateRow = typeof schema.notificationSubscriptionState.$inferSelect;
 type SubscriptionRunRow = typeof schema.subscriptionRun.$inferSelect;
+type AutomationOccurrenceRow = typeof schema.automationOccurrence.$inferSelect;
 
 export type AutomationRuleTarget = PluginAutomationRuleTarget;
+
+export type InsertAutomationOccurrenceInput = AutomationOccurrenceValue;
 
 export type StoredNotificationSubscription = {
 	userId: UserId;
@@ -112,10 +118,64 @@ const toStoredRun = (row: SubscriptionRunRow) => ({
 
 export type StoredSubscriptionRun = ReturnType<typeof toStoredRun>;
 
+const toStoredOccurrence: (
+	row: AutomationOccurrenceRow,
+) => Effect.Effect<AutomationOccurrenceValue, DbError> = Effect.fn(function* (
+	row: AutomationOccurrenceRow,
+) {
+	return yield* decodeStoredSchema(
+		{
+			id: row.id,
+			origin: row.origin,
+			source: row.source,
+			userId: row.userId,
+			recordId: row.recordId,
+			signalId: row.signalId,
+			operation: row.operation,
+			sourceKind: row.sourceKind,
+			population: row.population,
+			occurredAt: row.occurredAt.toISOString(),
+		},
+		AutomationOccurrence,
+		`Invalid automation occurrence ${row.id}`,
+	);
+});
+
 export class AutomationsRepository extends Context.Service<AutomationsRepository>()(
 	"AutomationsRepository",
 	{
 		make: Effect.sync(() => {
+			const insertOccurrence = Effect.fn("AutomationsRepository.insertOccurrence")(function* (
+				input: InsertAutomationOccurrenceInput,
+			) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.insert(schema.automationOccurrence)
+						.values({
+							...input,
+							occurredAt: DateTime.toDate(DateTime.makeUnsafe(input.occurredAt)),
+						})
+						.onConflictDoNothing({ target: schema.automationOccurrence.id })
+						.returning(),
+				);
+				return row ? yield* toStoredOccurrence(row) : null;
+			});
+
+			const findOccurrence = Effect.fn("AutomationsRepository.findOccurrence")(function* (
+				id: AutomationOccurrenceId,
+			) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.select()
+						.from(schema.automationOccurrence)
+						.where(eq(schema.automationOccurrence.id, id))
+						.limit(1),
+				);
+				return row ? yield* toStoredOccurrence(row) : null;
+			});
+
 			const listNotificationSubscriptionsForBackup = Effect.fn(
 				"AutomationsRepository.listNotificationSubscriptionsForBackup",
 			)(function* (userId: UserId) {
@@ -449,7 +509,9 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 				countByUser,
 				findRunById,
 				isUserEnabled,
+				findOccurrence,
 				markRunRunning,
+				insertOccurrence,
 				listRunsByRuleId,
 				findScriptExecution,
 				listRunsByExecutionUserId,

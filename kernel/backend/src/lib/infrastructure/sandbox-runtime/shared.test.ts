@@ -3,6 +3,7 @@ import type {
 	SandboxScriptMetadata,
 } from "@ryot-app/contract/modules/sandbox/schemas";
 import {
+	AutomationOccurrenceId,
 	SandboxProviderId,
 	SandboxScriptId,
 	SubscriptionRunId,
@@ -66,6 +67,7 @@ describe("requireSandboxCapabilityInput", () => {
 							origin: { kind: "api" },
 							id: SubscriptionRunId.make("run_1"),
 							occurredAt: "2026-01-01T00:00:00.000Z",
+							occurrenceId: AutomationOccurrenceId.make("occurrence-1"),
 						},
 					}),
 					"ensureUserEntities",
