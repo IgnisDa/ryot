@@ -1,4 +1,5 @@
 import { Button } from "@ryot-app/client-ui-sdk";
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { Link, Outlet, useLocation, useNavigate } from "@tanstack/react-router";
 import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
@@ -6,7 +7,6 @@ import { useEffect, useRef, useState } from "react";
 import type { ServerOrigin } from "#/api/origin";
 import { GodModeContext } from "#/modules/god-mode/context";
 import { GodModeSessionService } from "#/modules/god-mode/session";
-import { AppIcon } from "#/modules/navigation/app-icon";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
 import type { ClientRuntime } from "#/runtime";

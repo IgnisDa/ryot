@@ -137,6 +137,14 @@ export const bundleClientPlugin = (sources: ClientPluginSources, compilerRoot: s
 					}
 					return { namespace: "file", path: Bun.resolveSync(path, compilerRoot) };
 				});
+				// Bun drops a barrel's re-exported bodies whenever the resolver above declines it, which
+				// leaves the icon registry referencing bindings no module defines. Resolving it here keeps
+				// the barrel linked and picks the ES module build over the CommonJS one Bun's own
+				// resolution would prefer.
+				builder.onResolve({ filter: /^lucide-react$/ }, () => ({
+					namespace: "file",
+					path: Bun.resolveSync("lucide-react/dist/esm/lucide-react.mjs", compilerRoot),
+				}));
 				// Bun drops namespace bindings when bundling these exports from the Effect barrel.
 				builder.onResolve({ filter: /^effect$/ }, () => ({
 					path: "effect",

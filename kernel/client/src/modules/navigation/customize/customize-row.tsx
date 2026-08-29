@@ -1,8 +1,8 @@
 import { Switch } from "@ryot-app/client-ui-sdk";
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
-import { AppIcon } from "#/modules/navigation/app-icon";
 import type { CustomizeDraftItem } from "#/modules/navigation/customize/customize-state";
 
 export function CustomizeRow(props: {

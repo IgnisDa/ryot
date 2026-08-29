@@ -1,3 +1,4 @@
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { Link, createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useEffect, useRef } from "react";
@@ -5,7 +6,6 @@ import { useEffect, useRef } from "react";
 import { UserSettingsApi } from "#/api/user-settings";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService } from "#/modules/auth/service";
-import { AppIcon } from "#/modules/navigation/app-icon";
 import { AccountProfile } from "#/modules/settings/account-profile";
 import { AccountServer } from "#/modules/settings/account-server";
 import { AccountSession } from "#/modules/settings/account-session";

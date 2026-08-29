@@ -1,4 +1,5 @@
 import { Button, FieldMessage } from "@ryot-app/client-ui-sdk";
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import {
 	SchemaForm,
 	type SchemaFileUpload,
@@ -7,7 +8,6 @@ import {
 import { useState } from "react";
 
 import type { ImportWizardSource } from "#/modules/imports/source-selection";
-import { AppIcon } from "#/modules/navigation/app-icon";
 import { schemaFormIcons } from "#/modules/ui/schema-form-icons";
 
 const HELP_LABEL = "Where do I find this file?";

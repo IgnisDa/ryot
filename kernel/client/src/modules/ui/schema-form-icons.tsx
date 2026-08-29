@@ -1,6 +1,5 @@
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import type { SchemaFormIcons } from "@ryot-app/client-ui-sdk/schema-form";
-
-import { AppIcon } from "#/modules/navigation/app-icon";
 
 export const schemaFormIcons: SchemaFormIcons = {
 	close: <AppIcon name="x" size={14} />,

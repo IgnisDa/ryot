@@ -1,7 +1,6 @@
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import clsx from "clsx";
 import { useState } from "react";
-
-import { AppIcon } from "#/modules/navigation/app-icon";
 
 type AvatarProps = {
 	readonly name: string;
