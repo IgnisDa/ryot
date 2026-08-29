@@ -18,9 +18,11 @@ export const aggregateMetric = (values: ReadonlyArray<number>): MetricAggregate 
 });
 
 /**
- * Aborted and skipped repetitions never contribute to resource statistics; every repetition,
- * including them, stays listed individually. Values are sorted before reduction, so the input
- * order of repetitions cannot change an aggregate.
+ * Aborted, skipped and truncated repetitions never contribute to resource statistics; every
+ * repetition, including them, stays listed individually. A truncated series measured fewer waves
+ * than designed, so folding it into a comparison would read a partial series as a full one.
+ * Values are sorted before reduction, so the input order of repetitions cannot change an
+ * aggregate.
  */
 export const aggregateScenario = (
 	artifacts: ReadonlyArray<ScenarioArtifact>,
@@ -60,6 +62,7 @@ export const aggregateScenario = (
 			aborted: ordered.filter(({ outcome }) => outcome === "aborted").length,
 			skipped: ordered.filter(({ outcome }) => outcome === "skipped").length,
 			completed: ordered.filter(({ outcome }) => outcome === "completed").length,
+			truncated: ordered.filter(({ outcome }) => outcome === "truncated").length,
 		},
 	};
 };

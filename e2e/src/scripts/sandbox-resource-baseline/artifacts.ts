@@ -12,7 +12,18 @@ export class ArtifactWriteError extends Data.TaggedError("ArtifactWriteError")<{
 	readonly cause: unknown;
 }> {}
 
-export const ScenarioOutcome = Schema.Literals(["completed", "failed", "aborted", "skipped"]);
+/**
+ * `truncated` means the measurement stopped early (wave or request timeout, failure threshold)
+ * but the partial waves are still recorded. It never contributes to resource comparisons; see
+ * `aggregate.ts`. A `completed` artifact must always carry its full designed wave count.
+ */
+export const ScenarioOutcome = Schema.Literals([
+	"completed",
+	"failed",
+	"aborted",
+	"skipped",
+	"truncated",
+]);
 export type ScenarioOutcome = typeof ScenarioOutcome.Type;
 export const RequestOutcome = Schema.Literals(["completed", "failed", "timeout", "aborted"]);
 
@@ -265,6 +276,7 @@ export const ScenarioAggregate = Schema.Struct({
 		aborted: Schema.Int,
 		skipped: Schema.Int,
 		completed: Schema.Int,
+		truncated: Schema.Int,
 	}),
 	repetitionResults: Schema.Array(
 		Schema.Struct({

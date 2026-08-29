@@ -29,11 +29,19 @@ import { type CadenceRecord, cadenceStatistics } from "./cadence";
 import type { DriverConfig } from "./config";
 import type { HostSampleLine } from "./host/samples";
 import { type Remote, REMOTE_FILES } from "./ops";
-import { accountImports, type ImportRecord, type PhaseSegment, summarizePhases } from "./phases";
+import {
+	accountImports,
+	importExecutionKeyFromJobId,
+	importTimings,
+	type ImportRecord,
+	type PhaseSegment,
+	summarizePhases,
+} from "./phases";
 import type { ScenarioDefinition } from "./scenarios";
 import {
 	type AppRecord,
 	appPoint,
+	attachRequestTimings,
 	type CompletedWorkerRecord,
 	downsample,
 	executionTimings,
@@ -342,6 +350,12 @@ const importRequest = (
 				payload: { externalId: input.externalId, providerId: input.providerId },
 			}),
 		);
+		/**
+		 * The job id embeds the import workflow's execution id, which is the same key the phase
+		 * segments carry. Joining on it (rather than on timing overlap) is what lets an import
+		 * request resolve its queue/execution split out of twenty concurrent imports.
+		 */
+		const executionKey = importExecutionKeyFromJobId(jobId);
 		input.record({
 			jobId,
 			startedAtMs,
@@ -383,13 +397,13 @@ const importRequest = (
 					startedAtMs,
 					terminalAtMs,
 					failureStage,
+					executionKey,
 					attempts: null,
 					wave: input.wave,
 					queueWaitMs: null,
 					executionMs: null,
 					failureCode: null,
 					index: input.index,
-					executionKey: null,
 					responseByteLength: null,
 					latencyMs: terminalAtMs - startedAtMs,
 					identityDigest: identifierDigest(jobId),
@@ -594,6 +608,12 @@ export type CaptureInput = {
 	readonly profileIds: ReadonlyArray<string>;
 	readonly notes: ReadonlyArray<string>;
 	readonly sources?: CaptureSources;
+	/**
+	 * The measurement stopped early (wave or request timeout, failure threshold) before its
+	 * designed work finished. The artifact records `truncated` with this machine-readable stop
+	 * reason instead of reading as a complete series.
+	 */
+	readonly earlyStop: { readonly stopReason: string } | null;
 };
 
 const asRecords = (lines: ReadonlyArray<AppSampleLine>): AppRecord[] =>
@@ -684,28 +704,24 @@ export const captureRepetition = (
 		const triggers = yield* Effect.map(remote.watchdogTriggers, (lines) =>
 			lines.filter(({ timestampMs }) => timestampMs >= input.startedAtMs),
 		);
-		const segments = yield* listPhaseSegments(input.phaseSequence);
 		const records = sources.records;
 		const pre =
 			records.findLast(({ t }) => t <= input.submittedAtMs) ??
 			appRecord(input.preSample, input.submittedAtMs);
 		const workers = sources.completedWorkers;
-		const timings = executionTimings(
-			workers,
-			input.requests.flatMap((request) =>
-				request.executionKey === null
-					? []
-					: [{ executionKey: request.executionKey, submittedAtMs: request.startedAtMs }],
-			),
+		const submissions = input.requests.flatMap((request) =>
+			request.executionKey === null
+				? []
+				: [{ executionKey: request.executionKey, submittedAtMs: request.startedAtMs }],
 		);
-		const requests = input.requests.map(({ executionKey, ...request }) => {
-			const timing = executionKey === null ? undefined : timings.get(executionKey);
-			return {
-				...request,
-				attempts: timing?.attempts ?? null,
-				queueWaitMs: timing?.queueWaitMs ?? null,
-				executionMs: timing?.executionMs ?? null,
-			} satisfies ScenarioRequest;
+		const segments = yield* listPhaseSegments(input.phaseSequence);
+		const scenarioSegments = segments.filter(
+			({ startedAtMs }) => startedAtMs >= input.startedAtMs && startedAtMs <= input.completedAtMs,
+		);
+		const requests = attachRequestTimings(input.requests, {
+			workers: executionTimings(workers, submissions),
+			phases: importTimings(scenarioSegments, submissions),
+			usePhaseTimings: scenario.submission === "import" || scenario.submission === "live-import",
 		});
 		const window = {
 			terminalAtMs: input.terminalAtMs,
@@ -730,23 +746,24 @@ export const captureRepetition = (
 		});
 		const oomKilled =
 			(metrics["ryot.cgroupOomKillDelta"] ?? 0) > 0 || (metrics["host.oomKillDelta"] ?? 0) > 0;
-		const stopReason = ((): string | null => {
+		const safetyStop = ((): string | null => {
 			if (triggers.length > 0) {
 				return `watchdog:${triggers[0]?.reason}`;
 			}
 			return oomKilled ? "oom-kill" : null;
 		})();
+		const stopReason = safetyStop ?? input.earlyStop?.stopReason ?? null;
 		const failed = requests.some(({ outcome }) => outcome !== "completed");
 		const outcome: ScenarioOutcome = ((): ScenarioOutcome => {
-			if (stopReason !== null) {
+			if (safetyStop !== null) {
 				return "aborted";
 			}
-			return failed ? "failed" : "completed";
+			if (failed) {
+				return "failed";
+			}
+			return input.earlyStop === null ? "completed" : "truncated";
 		})();
 		const imports = input.importRecords.length === 0 ? null : accountImports(input.importRecords);
-		const scenarioSegments = segments.filter(
-			({ startedAtMs }) => startedAtMs >= input.startedAtMs && startedAtMs <= input.completedAtMs,
-		);
 		return {
 			imports,
 			outcome,
@@ -903,16 +920,16 @@ export const runFreshRepetition = (
 			Effect.timeoutOrElse({
 				duration: `${context.config.requestTimeoutMs} millis`,
 				/**
-				 * A timed-out repetition yields no requests, which is indistinguishable in the artifact
-				 * from a repetition that submitted nothing. The soak path logs its own stop reason, so
-				 * this logs the equivalent for the matrix paths rather than losing the wave silently.
+				 * A timed-out repetition yields no submission, which the artifact records as
+				 * `truncated` with a `request-timeout` stop reason rather than as a repetition
+				 * that submitted nothing and completed.
 				 */
 				orElse: () =>
 					Effect.log("sandbox-resource-baseline.repetition.timeout", {
 						scenarioId: scenario.id,
 						repetition: plan.repetition,
 						timeoutMs: context.config.requestTimeoutMs,
-					}).pipe(Effect.as({ requests: [], importRecords: [] })),
+					}).pipe(Effect.as(null)),
 			}),
 		);
 		const terminalAtMs = yield* Clock.currentTimeMillis;
@@ -934,9 +951,10 @@ export const runFreshRepetition = (
 			preSample: prepared.sample,
 			repetition: plan.repetition,
 			orderInRound: plan.orderInRound,
-			importRecords: submission.importRecords,
+			importRecords: submission?.importRecords ?? [],
 			profileIds: plan.profileToken === null ? [] : [plan.profileToken],
-			requests: [...(live === null ? [] : [live.request]), ...submission.requests],
+			earlyStop: submission === null ? { stopReason: "request-timeout" } : null,
+			requests: [...(live === null ? [] : [live.request]), ...(submission?.requests ?? [])],
 			peakReset:
 				peakReset === null
 					? null

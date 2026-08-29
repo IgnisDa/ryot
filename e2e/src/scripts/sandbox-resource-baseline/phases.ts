@@ -132,6 +132,77 @@ export type ImportRecord = {
 };
 
 /**
+ * The import job id is `${workflowExecutionId}.${signature}` (see
+ * `kernel/backend/src/lib/shared/job-id.ts`); the signature is base64url, so it never contains
+ * a dot and the last segment split mirrors the backend's own parsing. Extraction needs no
+ * secret — only verification does — and an unparseable id yields `null` so the request keeps
+ * null timings instead of joining to the wrong execution.
+ */
+export const importExecutionKeyFromJobId = (jobId: string): string | null => {
+	const separatorIndex = jobId.lastIndexOf(".");
+	if (separatorIndex <= 0 || separatorIndex === jobId.length - 1) {
+		return null;
+	}
+	return jobId.slice(0, separatorIndex);
+};
+
+export type ImportTiming = {
+	readonly attempts: number;
+	readonly queueWaitMs: number;
+	readonly executionMs: number;
+};
+
+/**
+ * Per-import queue/execution split from the workflow phase segments of one repetition window.
+ *
+ * Field meanings, because an import is not one execution:
+ *
+ * - `attempts` counts every recorded phase attempt for the import's workflow execution,
+ *   including replays and interrupts. It is not comparable to a direct request's `attempts`
+ *   (worker tries); it is informational.
+ * - `executionMs` sums the *logical* (replay-merged, see `logicalPhases`) phase durations, so
+ *   a replayed attempt never double-counts time. A logical phase runs from its first attempt's
+ *   start to its first terminal end, which keeps suspend gaps inside the phase — that wall-clock
+ *   cost is the stall signal — while inter-phase gaps stay out.
+ * - `queueWaitMs` runs from the harness submit to the first phase start: the time the import
+ *   waited before any phase work began. It is clamped at zero because the harness and backend
+ *   clocks differ and skew would otherwise read as negative queueing.
+ *
+ * `queueWaitMs + executionMs` stays within `latencyMs`; the remainder is inter-phase gaps plus
+ * terminal-poll granularity. An execution with attempts but no terminal segment (only
+ * interrupts, e.g. a backend restart dropped the replay) gets no entry, so its request keeps
+ * null timings instead of a fabricated zero.
+ */
+export const importTimings = (
+	segments: ReadonlyArray<PhaseSegment>,
+	submissions: ReadonlyArray<{ readonly executionKey: string; readonly submittedAtMs: number }>,
+): Map<string, ImportTiming> => {
+	const timings = new Map<string, ImportTiming>();
+	for (const submission of submissions) {
+		const attempts = segments.filter(({ executionId }) => executionId === submission.executionKey);
+		if (attempts.length === 0) {
+			continue;
+		}
+		const logical = logicalPhases(attempts);
+		if (logical.length === 0) {
+			continue;
+		}
+		timings.set(submission.executionKey, {
+			attempts: attempts.length,
+			executionMs: logical.reduce(
+				(total, { startedAtMs, finishedAtMs }) => total + (finishedAtMs - startedAtMs),
+				0,
+			),
+			queueWaitMs: Math.max(
+				0,
+				Math.min(...logical.map(({ startedAtMs }) => startedAtMs)) - submission.submittedAtMs,
+			),
+		});
+	}
+	return timings;
+};
+
+/**
  * Logical import state comes from benchmark-owned submission and terminal records keyed by job ID,
  * so repeated terminal observations after a restart count once and never drive pending negative.
  */

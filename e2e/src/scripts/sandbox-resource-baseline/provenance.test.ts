@@ -1,7 +1,20 @@
 import { describe, expect, it } from "~/support/effect-test";
 
 import { runManifest, scenarioArtifact } from "./artifact-fixture";
+import type { WaveSummary } from "./artifacts";
 import { provenanceErrors } from "./provenance";
+
+const wave = (index: number): WaveSummary => ({
+	failed: 0,
+	wave: index,
+	requests: 20,
+	checkpoints: [],
+	drainedAfterMs: null,
+	terminalAtMs: index * 1_000,
+	submittedAtMs: (index - 1) * 1_000,
+});
+const soakWaves = (count: number) =>
+	Array.from({ length: count }, (_unused, index) => wave(index + 1));
 
 const artifact = scenarioArtifact({ repetition: 1, scenarioId: "hermetic-c2" });
 
@@ -44,6 +57,54 @@ describe("provenanceErrors", () => {
 
 		expect(provenanceErrors(runManifest(), [drifted])).toEqual([
 			"hermetic-c2.1 ran at worker concurrency 5, not the declared 2",
+		]);
+	});
+
+	it("rejects a completed soak that stopped short of its designed waves", () => {
+		const truncated = scenarioArtifact({
+			repetition: 1,
+			waves: soakWaves(6),
+			scenarioId: "soak-hermetic-import",
+		});
+
+		expect(provenanceErrors(runManifest(), [truncated])).toEqual([
+			'soak-hermetic-import.1 reports outcome "completed" with 6 of 10 waves: a truncated series must not read as complete',
+		]);
+	});
+
+	it("accepts a truncated soak with a stop reason and consistent wave counts", () => {
+		const truncated = scenarioArtifact({
+			repetition: 1,
+			waves: soakWaves(6),
+			outcome: "truncated",
+			scenarioId: "soak-hermetic-import",
+			stopReason: "wave-request-timeout",
+			metrics: { "soak.waves": 6, "soak.expectedWaves": 10, "soak.truncatedAtWave": 7 },
+		});
+
+		expect(provenanceErrors(runManifest(), [truncated])).toEqual([]);
+	});
+
+	it("accepts a completed soak with its full designed waves", () => {
+		const complete = scenarioArtifact({
+			repetition: 1,
+			waves: soakWaves(10),
+			scenarioId: "soak-hermetic-import",
+		});
+
+		expect(provenanceErrors(runManifest(), [complete])).toEqual([]);
+	});
+
+	it("rejects a truncated artifact without a stop reason", () => {
+		const truncated = scenarioArtifact({
+			repetition: 1,
+			waves: soakWaves(6),
+			outcome: "truncated",
+			scenarioId: "soak-hermetic-import",
+		});
+
+		expect(provenanceErrors(runManifest(), [truncated])).toEqual([
+			'soak-hermetic-import.1 reports outcome "truncated" without a machine-readable stopReason',
 		]);
 	});
 
