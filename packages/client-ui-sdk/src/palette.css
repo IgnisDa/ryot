@@ -27,6 +27,13 @@
 	--accent-border: #a86a24;
 	--border-strong: #8d8069;
 	--focus: #a24e08;
+	--chart-accent: #d96c06;
+	--chart-seq-0: #ece5d8;
+	--chart-seq-1: #fde3c4;
+	--chart-seq-2: #fbbf7d;
+	--chart-seq-3: #f79233;
+	--chart-seq-4: #d96c06;
+	--chart-seq-5: #a04c02;
 	--font-family-ui: "Outfit Variable", sans-serif;
 	--font-family-display: "Lora Variable", serif;
 	--r-sm: 6px;
@@ -65,6 +72,13 @@
 		--accent-border: #96703f;
 		--border-strong: #6d717a;
 		--focus: #fd7e14;
+		--chart-accent: #fda33f;
+		--chart-seq-0: #23252b;
+		--chart-seq-1: #3d2a15;
+		--chart-seq-2: #71450f;
+		--chart-seq-3: #a8680b;
+		--chart-seq-4: #dc8c14;
+		--chart-seq-5: #fda33f;
 		--shadow-small: 0 1px 2px rgb(0 0 0 / 45%);
 		--shadow-raised: 0 1px 2px rgb(0 0 0 / 40%), 0 14px 28px -14px rgb(0 0 0 / 55%);
 	}
@@ -96,6 +110,13 @@
 	--accent-border: #96703f;
 	--border-strong: #6d717a;
 	--focus: #fd7e14;
+	--chart-accent: #fda33f;
+	--chart-seq-0: #23252b;
+	--chart-seq-1: #3d2a15;
+	--chart-seq-2: #71450f;
+	--chart-seq-3: #a8680b;
+	--chart-seq-4: #dc8c14;
+	--chart-seq-5: #fda33f;
 	--shadow-small: 0 1px 2px rgb(0 0 0 / 45%);
 	--shadow-raised: 0 1px 2px rgb(0 0 0 / 40%), 0 14px 28px -14px rgb(0 0 0 / 55%);
 }
