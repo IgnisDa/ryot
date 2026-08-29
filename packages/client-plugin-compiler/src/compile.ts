@@ -159,6 +159,7 @@ export const compileClientPlugin = ({
 			sourceFiles,
 			fontStylesheet: dependencies.fontStylesheet,
 			themeStylesheet: dependencies.themeStylesheet,
+			paletteStylesheet: dependencies.paletteStylesheet,
 			tailwindStylesheet: dependencies.tailwindStylesheet,
 			stylesheet:
 				stylesheet === undefined

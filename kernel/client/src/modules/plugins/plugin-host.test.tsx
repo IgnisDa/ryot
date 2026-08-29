@@ -2,8 +2,7 @@
 import {
 	CLIENT_API_VERSION,
 	PluginBridgeInit,
-	PluginThemeSnapshot,
-	REQUIRED_THEME_TOKEN_NAMES,
+	type PluginThemeSnapshot,
 	type PluginLogicalLocation,
 	type PluginOperationOutcome,
 	type PluginRyotQLOutcome,
@@ -36,10 +35,7 @@ const navigationFor = (state: {
 	location: state.location,
 	key: `k${state.index ?? 0}`,
 });
-const themeSnapshot = Schema.decodeUnknownSync(PluginThemeSnapshot)({
-	resolvedMode: "light",
-	tokens: Object.fromEntries(REQUIRED_THEME_TOKEN_NAMES.map((name) => [name, `light-${name}`])),
-});
+const themeSnapshot: PluginThemeSnapshot = { resolvedMode: "light" };
 
 const installation = {
 	sortOrder: 0,
@@ -220,7 +216,8 @@ function connectFrame(frame: HTMLIFrameElement) {
 	if (init === undefined || pluginPort === undefined) {
 		throw new Error("Plugin bridge did not connect");
 	}
-	return { init, messages, pluginPort };
+	const { mode: _mode, ...ready } = init;
+	return { init, ready, messages, pluginPort };
 }
 
 afterEach(() => vi.useRealTimers());
@@ -395,9 +392,8 @@ describe("plugin artifact session lifecycle", () => {
 		});
 		await flush();
 		const connected = connectFrame(screen.getByTitle("fixture plugin"));
-		connected.pluginPort.postMessage(connected.init);
+		connected.pluginPort.postMessage(connected.ready);
 		await flush();
-		connected.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
 		await flush();
 		connected.pluginPort.postMessage({
 			requestId: "query",
@@ -431,9 +427,8 @@ describe("plugin artifact session lifecycle", () => {
 		});
 		await flush();
 		const connected = connectFrame(screen.getByTitle("fixture plugin"));
-		connected.pluginPort.postMessage(connected.init);
+		connected.pluginPort.postMessage(connected.ready);
 		await flush();
-		connected.pluginPort.postMessage({ generation: 1, type: "theme-applied" });
 		await flush();
 		connected.pluginPort.postMessage({
 			index: 0,

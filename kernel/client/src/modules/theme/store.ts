@@ -1,8 +1,4 @@
-import {
-	PluginThemeSnapshot,
-	REQUIRED_THEME_TOKEN_NAMES,
-} from "@ryot-app/contract/modules/plugins/client";
-import { Schema } from "effect";
+import type { PluginThemeSnapshot } from "@ryot-app/contract/modules/plugins/client";
 
 import {
 	applyThemePreference,
@@ -15,10 +11,6 @@ type ThemeMedia = {
 	readonly matches: boolean;
 	addEventListener(type: "change", listener: () => void): void;
 	removeEventListener(type: "change", listener: () => void): void;
-};
-
-type ThemeStyle = {
-	getPropertyValue(name: string): string;
 };
 
 export type ThemeStore = {
@@ -34,28 +26,17 @@ export function createThemeStore(
 	options: {
 		readonly root?: ThemeRoot;
 		readonly media?: ThemeMedia;
-		readonly getStyle?: (root: ThemeRoot) => ThemeStyle;
 	} = {},
 ): ThemeStore {
 	const root = options.root ?? document.documentElement;
 	const media = options.media ?? window.matchMedia("(prefers-color-scheme: dark)");
-	const getStyle = options.getStyle ?? (() => window.getComputedStyle(document.documentElement));
 	const listeners = new Set<() => void>();
 	let preference = initialPreference;
 	let snapshot = resolveSnapshot();
 
 	function resolveSnapshot(): PluginThemeSnapshot {
 		applyThemePreference(root, preference);
-		const style = getStyle(root);
-		return Schema.decodeUnknownSync(PluginThemeSnapshot)({
-			resolvedMode: resolveTheme(preference, media.matches ? "dark" : "light"),
-			tokens: Object.fromEntries(
-				REQUIRED_THEME_TOKEN_NAMES.map((name) => [
-					name,
-					style.getPropertyValue(`--${name}`).trim(),
-				]),
-			),
-		});
+		return { resolvedMode: resolveTheme(preference, media.matches ? "dark" : "light") };
 	}
 
 	function publish() {
