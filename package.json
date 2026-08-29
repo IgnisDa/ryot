@@ -14,7 +14,9 @@
 		"test": "turbo test",
 		"build": "turbo build",
 		"check": "turbo check",
-		"prepare": "effect-tsgo patch"
+		"prepare": "effect-tsgo patch",
+		"docker:up": "docker compose -f ci/dev/docker-compose.yml up",
+		"docker:down": "docker compose -f ci/dev/docker-compose.yml down"
 	},
 	"devDependencies": {
 		"@effect/tsgo": "0.45.0",
