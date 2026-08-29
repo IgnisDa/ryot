@@ -124,7 +124,9 @@ const render = (
 };
 
 const flush = (clock: Clock, turns = 6): Promise<void> =>
-	turns > 0 ? clock.advance(0).then(() => flush(clock, turns - 1)) : Promise.resolve();
+	turns > 0
+		? Promise.resolve(clock.advance(0)).then(() => flush(clock, turns - 1))
+		: Promise.resolve();
 
 const clickRetry = (container: HTMLElement) => {
 	const button = container.querySelector("button");
