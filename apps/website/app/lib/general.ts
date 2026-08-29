@@ -37,12 +37,13 @@ export const queryClient = new QueryClient({
 export const useConfigData = () =>
 	useQuery({
 		queryKey: ["websiteConfig"],
-		queryFn: () =>
-			fetch("/api/config").then((response) => {
-				if (!response.ok) {
-					throw new Error("Failed to fetch config");
-				}
-				// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Same-origin response produced by the api.config loader
-				return response.json() as Promise<ConfigData>;
-			}),
+		// oxlint-disable-next-line effecttsgo/async-function -- TanStack Query owns the Promise-returning queryFn contract.
+		queryFn: async () => {
+			const response = await fetch("/api/config");
+			if (!response.ok) {
+				throw new Error("Failed to fetch config");
+			}
+			// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Same-origin response produced by the api.config loader
+			return response.json() as Promise<ConfigData>;
+		},
 	});

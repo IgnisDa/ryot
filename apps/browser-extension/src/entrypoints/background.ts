@@ -1,5 +1,5 @@
 import { isFiniteNumber } from "@ryot-app/ts-utils/lodash";
-import { Effect } from "effect";
+import { Cause, Effect } from "effect";
 import { FetchHttpClient, type HttpClient } from "effect/unstable/http";
 
 import { storage } from "#imports";
@@ -96,13 +96,19 @@ export default defineBackground(() => {
 			label: string,
 			makeResponse: (result: A) => unknown,
 		) => {
-			// oxlint-disable-next-line effecttsgo/strict-effect-provide -- Each runtime message is a background entrypoint
-			void Effect.runPromise(program.pipe(Effect.provide(FetchHttpClient.layer))).then(
-				(result) => sendResponse(makeResponse(result)),
-				(error: unknown) => {
-					logger.debug(label, { error });
-					sendResponse({ success: false, error: errorMessage(error) });
-				},
+			void Effect.runPromise(
+				program.pipe(
+					// oxlint-disable-next-line effecttsgo/strict-effect-provide -- Each runtime message is a background entrypoint
+					Effect.provide(FetchHttpClient.layer),
+					Effect.matchCause({
+						onSuccess: (result) => sendResponse(makeResponse(result)),
+						onFailure: (cause) => {
+							const error = Cause.squash(cause);
+							logger.debug(label, { error });
+							sendResponse({ success: false, error: errorMessage(error) });
+						},
+					}),
+				),
 			);
 			return true;
 		};

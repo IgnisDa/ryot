@@ -19,8 +19,9 @@ const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
 const serverCwd = fileURLToPath(new URL("../apps/server", import.meta.url));
 const clientDist = fileURLToPath(new URL("../kernel/client/dist", import.meta.url));
 
-export default () =>
-	runPromise(
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest globalSetup owns the Promise-returning setup contract.
+export default async () => {
+	const setup = await runPromise(
 		Effect.gen(function* () {
 			const build = Bun.spawnSync(
 				[
@@ -99,10 +100,10 @@ export default () =>
 			});
 			return yield* startup.pipe(Effect.onError(() => shutdown));
 		}),
-	).then(({ apiUrl, shutdown, pgLogPath, adminToken, frontendUrl }) => {
-		process.env.E2E_FRONTEND_URL = frontendUrl;
-		process.env.E2E_API_URL = apiUrl;
-		process.env.E2E_ADMIN_ACCESS_TOKEN = adminToken;
-		console.info(`PostgreSQL logs: ${pgLogPath}`);
-		return () => runPromise(shutdown);
-	});
+	);
+	process.env.E2E_FRONTEND_URL = setup.frontendUrl;
+	process.env.E2E_API_URL = setup.apiUrl;
+	process.env.E2E_ADMIN_ACCESS_TOKEN = setup.adminToken;
+	console.info(`PostgreSQL logs: ${setup.pgLogPath}`);
+	return () => runPromise(setup.shutdown);
+};

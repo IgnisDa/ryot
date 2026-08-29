@@ -156,16 +156,14 @@ it.live("renders a saved view from an installed client plugin page", () =>
 		);
 		const runtimeUrl = yield* clientImportUrl(frame, "@ryot-app/client-sdk/plugin");
 		expect(runtimeUrl).toMatch(/^\/api\/client-assets\/[a-f0-9]{64}\/public\//);
-		const runtimeCache = yield* page.use((nativePage) =>
-			nativePage
-				.context()
-				.request.get(new URL(runtimeUrl, apiUrl).href)
-				.then((response) => {
-					const cache = response.headers()["cache-control"];
-					const status = response.status();
-					return response.dispose().then(() => ({ cache, status }));
-				}),
+		const runtimeResponse = yield* page.use((nativePage) =>
+			nativePage.context().request.get(new URL(runtimeUrl, apiUrl).href),
 		);
+		const runtimeCache = {
+			status: runtimeResponse.status(),
+			cache: runtimeResponse.headers()["cache-control"],
+		};
+		yield* page.use(() => runtimeResponse.dispose());
 		expect(runtimeCache.status).toBe(200);
 		expect(runtimeCache.cache).toBe("public, max-age=31536000, immutable");
 
@@ -377,7 +375,7 @@ it.live("warms private Pokemon presentation files without evaluating them until 
 								predicate: (request) => new URL(request.url()).pathname === path,
 							}),
 				),
-			).then(() => undefined),
+			),
 		);
 		expect(warmedFiles.every((path) => requested.includes(path))).toBe(true);
 		for (const path of warmedFiles) {
