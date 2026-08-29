@@ -312,7 +312,7 @@ export const makePublicApiStub = (isServerKeyValidated = false) =>
 			}),
 	});
 
-export const stubDesktopMatchMedia = () => {
+const stubMatchMedia = (isDesktop: boolean) => {
 	const original = window.matchMedia;
 	window.matchMedia = ((query: string) => ({
 		media: query,
@@ -322,9 +322,13 @@ export const stubDesktopMatchMedia = () => {
 		removeListener: () => undefined,
 		addEventListener: () => undefined,
 		removeEventListener: () => undefined,
-		matches: query === "(min-width: 768px)",
+		matches: isDesktop && query === "(min-width: 768px)",
 	})) as typeof window.matchMedia;
 	return () => {
 		window.matchMedia = original;
 	};
 };
+
+export const stubDesktopMatchMedia = () => stubMatchMedia(true);
+
+export const stubCompactMatchMedia = () => stubMatchMedia(false);

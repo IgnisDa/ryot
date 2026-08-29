@@ -15,5 +15,6 @@ Rationale for these rules lives in `README.md`.
 - Keep the gesture recognizer and stack reconciler pure and DOM-free, and confine animation to the animator, which feature-detects `Element.prototype.animate`.
 - Take no animation or gesture dependency; write transforms directly.
 - Keep `PluginScreenFrame` on the `./screen` subpath so a plugin that renders no frame does not pull the UI SDK barrel into its artifact. `usePluginTitle` and `useRyotSafeArea` stay on `./plugin` for exactly that case.
+- Pass the frame no layout classes from a plugin screen: gutters and rhythm follow the `compact` boolean the kernel sends, and a media query inside the iframe measures the iframe instead. The per-screen scroll div carries the bottom inset for every screen, framed or not.
 - Publish a screen's title from the screen that renders it, and only while it is the active one. `PluginRouter` supplies `isActive` and the current entry, so a pop republishes the retained screen's own title instead of leaving the popped screen's title standing.
 - Keep `openDrawer` and `publishTitle` on the router's navigation object, never on `RyotClient`. Kernel chrome is not a plugin capability.

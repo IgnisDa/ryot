@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import { useEffect, useState, type ComponentProps, type ReactNode, type RefObject } from "react";
 
 export const SCREEN_BAR_HEIGHT = 54;
 
@@ -15,18 +15,27 @@ type ScreenFrameProps = {
 	readonly searchRow?: ReactNode;
 	readonly titleIcon?: ReactNode;
 	readonly barActions?: ReactNode;
-	readonly headerClassName?: string | undefined;
-	readonly columnClassName?: string | undefined;
-	readonly contentClassName?: string | undefined;
+	readonly width?: "full" | "readable";
 	readonly scrollRootRef: RefObject<HTMLElement | null>;
 };
 
+type ScreenBarButtonProps = ComponentProps<"button"> & { readonly label: string };
+
 const fade = "transition-opacity duration-150 ease-out motion-reduce:transition-none";
+
+const barControl = "flex size-11 shrink-0 items-center justify-center rounded-pill";
+
+export function ScreenBarButton({ label, className, ...props }: ScreenBarButtonProps) {
+	return (
+		<button type="button" aria-label={label} className={clsx(barControl, className)} {...props} />
+	);
+}
 
 export function ScreenFrame({
 	meta,
 	hero,
 	title,
+	width,
 	compact,
 	leading,
 	actions,
@@ -36,22 +45,19 @@ export function ScreenFrame({
 	barActions,
 	safeAreaTop,
 	scrollRootRef,
-	headerClassName,
-	columnClassName,
-	contentClassName,
 }: ScreenFrameProps) {
-	const sentinel = useRef<HTMLDivElement>(null);
+	const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null);
 	const [isScrolled, setIsScrolled] = useState(false);
 	const hasTitleBlock = searchRow === undefined;
 	const collapsible = hero !== undefined || hasTitleBlock;
+	const column = width === "readable" ? "mx-auto w-full max-w-2xl" : undefined;
 
 	useEffect(() => {
 		if (!compact) {
 			setIsScrolled(false);
 			return undefined;
 		}
-		const target = sentinel.current;
-		if (target === null || typeof IntersectionObserver !== "function") {
+		if (sentinel === null || typeof IntersectionObserver !== "function") {
 			return undefined;
 		}
 		const observer = new IntersectionObserver(
@@ -67,9 +73,9 @@ export function ScreenFrame({
 				rootMargin: `-${safeAreaTop + SCREEN_BAR_HEIGHT}px 0px 0px 0px`,
 			},
 		);
-		observer.observe(target);
+		observer.observe(sentinel);
 		return () => observer.disconnect();
-	}, [compact, safeAreaTop, scrollRootRef]);
+	}, [compact, safeAreaTop, scrollRootRef, sentinel]);
 
 	const heading = (
 		<div className="flex min-w-0 items-center gap-2.5">
@@ -87,21 +93,21 @@ export function ScreenFrame({
 
 	if (!compact) {
 		return (
-			<div className={columnClassName}>
-				<header
-					className={
-						headerClassName ??
-						"grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-start md:gap-6"
-					}
-				>
-					<div className="grid min-w-0 gap-1">
-						{heading}
-						{meta}
+			<>
+				{hero}
+				<div className={clsx("px-8", hero === undefined && "pt-8")}>
+					<div className={column}>
+						<header className="mb-5 flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+							<div className="grid min-w-0 grow basis-72 gap-1">
+								{heading}
+								{meta}
+							</div>
+							{actions}
+						</header>
+						{children}
 					</div>
-					{actions}
-				</header>
-				<div className={contentClassName}>{children}</div>
-			</div>
+				</div>
+			</>
 		);
 	}
 
@@ -110,44 +116,48 @@ export function ScreenFrame({
 			<div
 				data-testid="screen-frame-bar"
 				style={{ paddingTop: safeAreaTop }}
-				data-scrolled={isScrolled ? "" : undefined}
 				className="group sticky top-0 z-20 shrink-0"
+				data-solid={isScrolled || searchRow !== undefined ? "" : undefined}
 			>
 				<div
 					aria-hidden="true"
 					className={clsx(
-						"absolute inset-0 border-b border-border bg-bg opacity-0 group-data-[scrolled]:opacity-100",
+						"absolute inset-0 border-b border-border bg-bg opacity-0 group-data-[solid]:opacity-100",
 						fade,
 					)}
 				/>
-				{searchRow ?? (
-					<div
-						className="relative flex items-center gap-1.5 px-4"
-						style={{ height: SCREEN_BAR_HEIGHT }}
-					>
-						{leading}
-						<span
-							aria-hidden="true"
-							className="min-w-0 flex-1 translate-y-1.5 truncate font-ui text-[19px] font-semibold text-text opacity-0 transition-[opacity,transform] duration-150 ease-out group-data-[scrolled]:translate-y-0 group-data-[scrolled]:opacity-100 motion-reduce:transition-none"
-						>
-							{title}
-						</span>
-						{barActions}
-					</div>
-				)}
+				<div
+					className="relative flex items-center gap-1.5 px-4"
+					style={{ height: SCREEN_BAR_HEIGHT }}
+				>
+					{searchRow ?? (
+						<>
+							{leading}
+							<span
+								aria-hidden="true"
+								className="min-w-0 flex-1 translate-y-1.5 truncate font-ui text-[19px] font-semibold text-text opacity-0 transition-[opacity,transform] duration-150 ease-out group-data-[solid]:translate-y-0 group-data-[solid]:opacity-100 motion-reduce:transition-none"
+							>
+								{title}
+							</span>
+							{barActions}
+						</>
+					)}
+				</div>
 			</div>
 			{hero !== undefined && (
 				<div style={{ marginTop: -(safeAreaTop + SCREEN_BAR_HEIGHT) }}>{hero}</div>
 			)}
-			<div className={columnClassName}>
-				{hasTitleBlock && (
-					<div className="grid gap-1 px-4 pb-2">
+			<div className={column}>
+				{hasTitleBlock ? (
+					<div className="grid gap-1 px-4 pb-4">
 						{heading}
 						{meta}
 					</div>
+				) : (
+					<h1 className="sr-only">{title}</h1>
 				)}
-				{collapsible && <div ref={sentinel} aria-hidden="true" className="h-px" />}
-				<div className={contentClassName}>{children}</div>
+				{collapsible && <div ref={setSentinel} aria-hidden="true" className="h-px" />}
+				<div className="px-4">{children}</div>
 			</div>
 		</>
 	);

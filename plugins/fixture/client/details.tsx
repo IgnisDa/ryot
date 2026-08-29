@@ -9,7 +9,7 @@ export const Details = () => {
 	const tab = usePluginSearch().get("tab");
 
 	return (
-		<PluginScreenFrame title={`Item ${itemId}`} contentClassName="px-4 pb-8 md:px-0">
+		<PluginScreenFrame title={`Item ${itemId}`}>
 			<div className="flex w-full flex-col items-center gap-4 text-text">
 				<p className="text-text-muted">
 					Item {itemId}, tab {tab}.
