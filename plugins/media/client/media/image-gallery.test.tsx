@@ -209,6 +209,10 @@ describe("MediaImageGallery", () => {
 
 		clickRyotElement(opened);
 		pressRyotKey("Escape");
-		return waitFor(() => expect(document.activeElement).toBe(opened)).finally(unmount);
+		return Effect.runPromise(
+			Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(opened))).pipe(
+				Effect.ensuring(Effect.sync(unmount)),
+			),
+		);
 	});
 });

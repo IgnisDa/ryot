@@ -261,9 +261,12 @@ const managedCoverImage = (container: HTMLElement | null) =>
 
 const flush = () =>
 	act(() =>
-		Promise.resolve()
-			.then(() => undefined)
-			.then(() => undefined),
+		Effect.runPromise(
+			Effect.gen(function* () {
+				yield* Effect.promise(() => Promise.resolve());
+				yield* Effect.promise(() => Promise.resolve());
+			}),
+		),
 	);
 
 afterEach(() => {
@@ -278,10 +281,17 @@ afterEach(() => {
 	channels.length = 0;
 	document.head.innerHTML = "";
 	document.body.innerHTML = "";
-	return Promise.all(clocks.map((clock) => clock.dispose())).then(() => {
-		clocks.length = 0;
-		return undefined;
-	});
+	return Effect.runPromise(
+		Effect.andThen(
+			Effect.forEach(clocks, (clock) => Effect.promise(() => clock.dispose()), {
+				discard: true,
+				concurrency: "unbounded",
+			}),
+			Effect.sync(() => {
+				clocks.length = 0;
+			}),
+		),
+	);
 });
 
 describe("ShowScreen", () => {

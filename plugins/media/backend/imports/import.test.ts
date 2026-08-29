@@ -281,14 +281,13 @@ const driveWatcharrImport = (input: {
 }) => {
 	const journal: JsonValue[] = [];
 	const requests: Array<WorkflowReplayEnvelope["requests"][number]> = [];
-	const replay = (): Promise<WorkflowReplayEnvelope> =>
-		Effect.runPromise(
-			workflow.run(
+	const replay = Effect.fnUntraced(function* () {
+		for (;;) {
+			const envelope = yield* workflow.run(
 				{ runId: "run-1", source: "watcharr", command: importCommand("run-1") },
 				{ replayJournal: () => Effect.succeed(journal) } satisfies WorkflowReplayHost,
 				{ metadata: {}, sandboxScriptId: "media-import" },
-			),
-		).then((envelope) => {
+			);
 			requests.splice(0, requests.length, ...envelope.requests);
 			if (envelope.state !== "pending") {
 				return envelope;
@@ -317,8 +316,8 @@ const driveWatcharrImport = (input: {
 			} else {
 				journal.push({ failedItems: 1, importedItems: 1, processedItems: 2 });
 			}
-			return replay();
-		});
+		}
+	});
 
 	return { replay, requests };
 };
@@ -468,7 +467,7 @@ it.live(
 				]),
 			});
 
-			const envelope = yield* Effect.promise(() => replay());
+			const envelope = yield* replay();
 			expect(envelope).toMatchObject({
 				state: "completed",
 				output: { failedItems: 1, importedItems: 1, processedItems: 2 },
@@ -537,7 +536,7 @@ it.live(
 				]),
 			});
 
-			yield* Effect.promise(() => replay());
+			yield* replay();
 			expect(requests[2]).toMatchObject({
 				args: {
 					input: {
@@ -624,7 +623,7 @@ it.live("reports the podcast episode that could not be resolved", () =>
 			],
 		});
 
-		yield* Effect.promise(() => replay());
+		yield* replay();
 		expect(requests[2]).toMatchObject({
 			args: { input: { refs: [{ index: 0, kind: "podcast", podcastEntityId: "podcast-1" }] } },
 		});
@@ -679,7 +678,7 @@ it.live.each([
 			]),
 		});
 
-		const envelope = yield* Effect.promise(() => replay());
+		const envelope = yield* replay();
 		assert(envelope.state === "failed");
 		expect(envelope.error).toContain(error);
 		expect(envelope.requests.map(({ kind }) => kind)).toEqual(["activity", "child", "activity"]);

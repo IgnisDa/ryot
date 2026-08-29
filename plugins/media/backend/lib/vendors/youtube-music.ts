@@ -9,11 +9,11 @@ import { mediaFailureMessage } from "../error-message";
 import { MediaSandboxError } from "../failures";
 import { asRecord, numberValue, stringValue } from "../records";
 
+const toMediaSandboxError = (error: unknown) =>
+	new MediaSandboxError({ message: mediaFailureMessage(error) });
+
 export const tryYoutubeMusic = <A>(tryCall: () => Promise<A>) =>
-	Effect.tryPromise({
-		try: tryCall,
-		catch: (error) => new MediaSandboxError({ message: mediaFailureMessage(error) }),
-	});
+	Effect.tryPromise({ try: tryCall, catch: toMediaSandboxError });
 
 export type YoutubeMusicHost = YoutubeiHost;
 
@@ -29,7 +29,7 @@ export type ArtistClient = { music: { getArtist: (artistId: string) => Promise<u
 
 export type AlbumClient = { music: { getAlbum: (albumId: string) => Promise<unknown> } };
 
-export type HistoryClient = { getHistory: () => Promise<unknown> };
+export type HistoryClient = { getHistory: () => Effect.Effect<unknown, MediaSandboxError> };
 
 export const coerceTrimmed = (value: unknown) =>
 	typeof value === "string" ? value.trim() : String(value).trim();
@@ -63,11 +63,12 @@ export const createYoutubeMusicClient = (host: YoutubeMusicHost, language?: stri
 	createSdkYoutubeMusicClient(host, language, {
 		retrievePlayer: false,
 		retrieveInnertubeConfig: false,
-	}).pipe(
-		Effect.mapError((error) => new MediaSandboxError({ message: mediaFailureMessage(error) })),
-	);
+	}).pipe(Effect.mapError(toMediaSandboxError));
 
 export const createYoutubeHistoryClient = (host: YoutubeMusicHost, authCookie: string) =>
 	createSdkYoutubeHistoryClient(host, authCookie).pipe(
-		Effect.mapError((error) => new MediaSandboxError({ message: mediaFailureMessage(error) })),
+		Effect.map((client): HistoryClient => ({
+			getHistory: () => client.getHistory().pipe(Effect.mapError(toMediaSandboxError)),
+		})),
+		Effect.mapError(toMediaSandboxError),
 	);
