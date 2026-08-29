@@ -1,6 +1,7 @@
 import {
 	EntityInterest,
 	PluginCollectionRequest,
+	PluginStorageRequest,
 	type PluginOperationRequest,
 	type PluginPageSearchUpdate,
 	ProviderSearchScreenRequest,
@@ -32,7 +33,7 @@ import {
 	TemporaryUploadToken,
 } from "@ryot-app/contract/modules/uploads/schemas";
 import { EntityId, PluginSlug } from "@ryot-app/contract/schema/brands";
-import { isJsonValue } from "@ryot-app/contract/schema/json";
+import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Result, Schema } from "effect";
@@ -84,6 +85,8 @@ export type OperationAdapterRequest = Omit<OperationRequest, "operationSlug"> & 
 
 export type CollectionAdapterRequest = PluginCollectionRequest;
 
+export type StorageAdapterRequest = PluginStorageRequest;
+
 export type RyotPageSearchUpdate = PluginPageSearchUpdate;
 export type RyotProviderSearchScreenRequest = Schema.Codec.Encoded<
 	typeof ProviderSearchScreenRequest
@@ -119,6 +122,7 @@ export type RyotClientAdapter = {
 	readonly invokeOperation?: (request: OperationAdapterRequest) => Promise<unknown>;
 	readonly openProviderSearch?: (request: ProviderSearchScreenRequestValue) => void;
 	readonly mutateCollection?: (request: CollectionAdapterRequest) => Promise<unknown>;
+	readonly accessStorage?: (request: StorageAdapterRequest) => Promise<unknown>;
 	readonly navigate?: (mode: "push" | "replace", target: RyotNavigationTarget) => void;
 	readonly navigatePageSearch?: (mode: "push" | "replace", update: RyotPageSearchUpdate) => void;
 	readonly overlays?: {
@@ -196,6 +200,25 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		}
 		mutationCompleted.hint();
 		return decodedOutput.success;
+	};
+	const accessStorage = async (request: unknown): Promise<JsonValue | null> => {
+		const decodedRequest = Schema.decodeUnknownResult(PluginStorageRequest)(request);
+		if (Result.isFailure(decodedRequest)) {
+			throw new RyotClientError("invalid-input");
+		}
+		if (!adapter.accessStorage) {
+			throw new RyotClientError("unsupported-capability");
+		}
+		let value: unknown;
+		try {
+			value = await adapter.accessStorage(decodedRequest.success);
+		} catch (error) {
+			throw asTransportError(error);
+		}
+		if (value !== null && !isJsonValue(value)) {
+			throw new RyotClientError("malformed-result");
+		}
+		return value;
 	};
 	let themeSnapshotInput: unknown;
 	let themeSnapshot: PluginThemeSnapshotValue | undefined;
@@ -282,6 +305,15 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				} catch (error) {
 					throw asTransportError(error);
 				}
+			},
+		},
+		storage: {
+			get: (pluginSlug: string, key: string) => accessStorage({ key, pluginSlug, action: "get" }),
+			remove: async (pluginSlug: string, key: string) => {
+				await accessStorage({ key, pluginSlug, action: "remove" });
+			},
+			set: async (pluginSlug: string, key: string, value: JsonValue) => {
+				await accessStorage({ key, value, pluginSlug, action: "set" });
 			},
 		},
 		collections: {

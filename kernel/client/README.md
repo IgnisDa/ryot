@@ -17,6 +17,12 @@ artifact identity. Plugin requests cross that port as narrow, schema-checked cap
 applies authentication, installation scope, and platform policy. A plugin upload sends only bytes with
 a proposed file name and content type; the kernel keeps intent creation, transfer, and completion.
 
+The opaque-origin iframe has no `localStorage`, so the kernel stores plugin storage values in its own
+`localStorage` through `ClientStorage`, one JSON entry per
+`ryot:plugin-storage:<api scope>:<plugin slug>:<key>`. Logout does not clear them. The kernel accepts
+only slugs of plugin contributors in the frame's prepared composition; it cannot tell same-realm
+plugins apart, so that check bounds the frame, not an individual plugin.
+
 Client artifacts are immutable, content-addressed outputs of a compile-only contributor graph.
 Shipped client-page builds are materialized during server boot, including when the database has no
 users. Plugin and renderer mutations materialize affected builds; user bootstrap checks that its

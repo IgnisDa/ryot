@@ -24,7 +24,8 @@ registrations.
 
 `RyotClientError.reason` is the complete public capability failure set:
 `disposed`, `protocol`, `transport`, `asset-failed`, `collection-failed`, `query-failed`,
-`invalid-input`, `operation-failed`, `malformed-result`, and `unsupported-capability`. Adapters must
+`invalid-input`, `operation-failed`, `malformed-result`, `unsupported-capability`,
+`invalid-request`, and `quota`. Adapters must
 preserve these reasons; callers must not infer failures from message text or expect capability-specific
 reasons outside this set.
 
@@ -32,6 +33,17 @@ reasons outside this set.
 completion. Bridge payloads are structured-clone values, so a plugin sends a `Blob` or `File` with a
 file name and content type, and the host keeps the intent, upload URL, headers, and credential. A
 non-`Blob` source fails with `invalid-input`. There is no cancellation; disposal aborts the transfer.
+
+`storage.get(pluginSlug, key)`, `storage.set(pluginSlug, key, value)`, and
+`storage.remove(pluginSlug, key)` keep JSON values on this device through the kernel, because the
+plugin iframe has no `localStorage`. Values are scoped to the server, user, plugin, and key, survive
+logout, and are not synchronized. Keys are 1 to 128 characters; a malformed key fails locally with
+`invalid-input`. The kernel rejects a value over 8 KiB of JSON, or a slug that is not a plugin
+contributing to the frame, with `invalid-request`, and a full browser store with `quota`. Plugins in
+one frame share a realm and cannot be isolated from each other, so the slug check is only against the
+frame's own contributors. `usePluginStorage({ pluginSlug, key, schema })` reads once per slug and key,
+treats an undecodable or unreadable value as `null`, and updates its value before persisting a `set`
+or `remove`. `createTestPluginStorage` from `./testing` supplies a Map-backed adapter capability.
 
 `assets.resolve` accepts 1 to 64 managed local or S3 locators and returns signed URLs with expiry.
 Remote images do not use it. `ManagedAssetProvider` owns stable sorting, deduplication, batches of at
