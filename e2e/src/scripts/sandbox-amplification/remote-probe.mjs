@@ -5,6 +5,9 @@
 // counter, CPU, and memory deltas for exactly the work it submitted. Output: /tmp/<label>.jsonl.
 import { appendFileSync, readFileSync } from "node:fs";
 
+// Probe polling and sampling require ordered awaits; parallel requests would change what is measured.
+/* oxlint-disable no-await-in-loop -- Sequential polls and measurements are part of the probe. */
+
 const [statePath, label, scenario, repetitionsText = "1"] = process.argv.slice(2);
 if (!statePath || !/^[a-z0-9.-]+$/.test(label ?? "") || !scenario) {
 	throw new Error("usage: remote-probe.mjs <state.json> <label> <direct:N|import|batch:N> <reps>");
@@ -183,11 +186,20 @@ for (let repetition = 0; repetition < repetitions; repetition += 1) {
 			cursor.value = Math.max(cursor.value, worker.sequence);
 		}
 	};
-	let sampling = true;
+	let stopSampler;
+	const samplerStopped = new Promise((resolve) => {
+		stopSampler = resolve;
+	});
 	const sampler = (async () => {
-		while (sampling) {
+		for (;;) {
 			observe(await sample(cursor.value));
-			await Bun.sleep(SAMPLE_INTERVAL_MS);
+			const stopped = await Promise.race([
+				Bun.sleep(SAMPLE_INTERVAL_MS).then(() => false),
+				samplerStopped.then(() => true),
+			]);
+			if (stopped) {
+				return;
+			}
 		}
 	})();
 	const probeCpuBefore = process.cpuUsage();
@@ -197,7 +209,7 @@ for (let repetition = 0; repetition < repetitions; repetition += 1) {
 			? await runDirect(amount, repetition)
 			: await runImports(kind === "batch" ? amount : 1, repetition, segmentCursor);
 	const submittedWorkMs = Date.now() - startedAt;
-	sampling = false;
+	stopSampler();
 	await sampler;
 	const after = await waitForDrain(cursor, observe);
 	const drainedMs = Date.now() - startedAt - IDLE_WINDOW_MS;
