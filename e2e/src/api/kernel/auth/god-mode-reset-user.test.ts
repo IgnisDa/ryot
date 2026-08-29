@@ -27,7 +27,6 @@ const godModeListQuery = (search?: string) => ({
 	offset: 0,
 	...(search ? { search } : {}),
 });
-const pluginListQuery = { includeDisabled: false };
 const unique = () => randomUUID();
 
 const getUserIdByEmail = (email: string) =>
@@ -118,12 +117,8 @@ describe("Reset user for credential user", () => {
 			const apiKey = yield* createApiKey(sessionCookie);
 
 			// Both auth methods work before the reset.
-			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-				Authorization: `Bearer ${authToken}`,
-			});
-			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-				"X-Api-Key": apiKey,
-			});
+			yield* client.call((c) => c.plugins.list(), { Authorization: `Bearer ${authToken}` });
+			yield* client.call((c) => c.plugins.list(), { "X-Api-Key": apiKey });
 
 			const plugin = yield* findBuiltinPluginBySlug(userClient, "media");
 			const configuredPlugin = yield* updatePluginState(userClient, plugin.slug, {
@@ -136,16 +131,12 @@ describe("Reset user for credential user", () => {
 			expect(accepted).toMatchObject({ userId, kind: "reset" });
 
 			const oldSession = yield* Effect.flip(
-				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-					Authorization: `Bearer ${authToken}`,
-				}),
+				client.call((c) => c.plugins.list(), { Authorization: `Bearer ${authToken}` }),
 			);
 			assertTaggedError(oldSession, "AuthUnauthorized");
 
 			const oldApiKey = yield* Effect.flip(
-				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-					"X-Api-Key": apiKey,
-				}),
+				client.call((c) => c.plugins.list(), { "X-Api-Key": apiKey }),
 			);
 			assertTaggedError(oldApiKey, "AuthUnauthorized");
 
@@ -169,10 +160,9 @@ describe("Reset user for credential user", () => {
 			expect(signInRes.error).toBeNull();
 			assertPresent(signInRes.token, "expected an auth token after sign-in");
 
-			const plugins = yield* client.call(
-				(c) => c.definitions.listPlugins({ query: { includeDisabled: true } }),
-				{ Authorization: `Bearer ${signInRes.token}` },
-			);
+			const plugins = yield* client.call((c) => c.plugins.list(), {
+				Authorization: `Bearer ${signInRes.token}`,
+			});
 			expect(plugins.some((candidate) => candidate.slug === "media")).toBe(true);
 			const resetPlugin = plugins.find((candidate) => candidate.slug === plugin.slug);
 			assertPresent(resetPlugin, "expected the installed plugin after reset");
@@ -256,9 +246,7 @@ describe("Reset user for mixed-auth user", () => {
 			expect(error.reason.code).toBe("mixed-auth-reset-unsupported");
 
 			// The reset is rejected before any mutation, so the pre-existing session keeps working.
-			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
-				Authorization: `Bearer ${token}`,
-			});
+			yield* client.call((c) => c.plugins.list(), { Authorization: `Bearer ${token}` });
 		}),
 	);
 });

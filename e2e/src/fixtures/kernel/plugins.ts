@@ -9,9 +9,13 @@ import type { Client } from "./auth";
 export const createPluginScope = (slug = `plugin-${crypto.randomUUID()}`) => PluginSlug.make(slug);
 
 export const listInstalledPlugins = (client: Client, options: { includeDisabled?: boolean } = {}) =>
-	client.call((c) =>
-		c.definitions.listPlugins({ query: { includeDisabled: options.includeDisabled ?? false } }),
-	);
+	client
+		.call((c) => c.plugins.list())
+		.pipe(
+			Effect.map((plugins) =>
+				options.includeDisabled ? plugins : plugins.filter((plugin) => !plugin.isDisabled),
+			),
+		);
 
 export const findBuiltinPluginBySlug = (client: Client, slug: string) =>
 	Effect.gen(function* () {

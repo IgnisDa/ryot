@@ -127,7 +127,7 @@ describe("Definitions E2E", () => {
 			const { client } = yield* createAuthenticatedClient();
 			const [schemas, plugins] = yield* Effect.all([
 				client.call((c) => c.definitions.listEntities({})),
-				client.call((c) => c.definitions.listPlugins({ query: { includeDisabled: true } })),
+				client.call((c) => c.plugins.list()),
 			]);
 			const selected = plugins.filter((plugin) => ["media", "fitness"].includes(plugin.slug));
 

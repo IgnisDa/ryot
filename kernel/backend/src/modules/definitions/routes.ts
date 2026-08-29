@@ -13,8 +13,6 @@ import { HttpApiBuilder } from "effect/unstable/httpapi";
 import { PluginInstallationService } from "#modules/plugins/installation-service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
-import { DefinitionsService } from "./service";
-
 export const DefinitionsRoutesLive = HttpApiBuilder.group(AppContract, "definitions", (handlers) =>
 	handlers
 		.handle("listEntities", () =>
@@ -62,13 +60,6 @@ export const DefinitionsRoutesLive = HttpApiBuilder.group(AppContract, "definiti
 								: EntitySchemaSlug.make(definition.targetEntitySchemaSlug),
 					}),
 				);
-			}),
-		)
-		.handle("listPlugins", ({ query }) =>
-			Effect.gen(function* () {
-				const user = yield* CurrentUser;
-				const service = yield* DefinitionsService;
-				return yield* service.listPlugins(user, query.includeDisabled).pipe(dieOnDbError);
 			}),
 		)
 		.handle("updatePluginState", ({ params, payload }) =>
