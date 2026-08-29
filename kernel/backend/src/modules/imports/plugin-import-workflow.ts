@@ -12,7 +12,7 @@ import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import type { ImportRunJobData } from "./jobs";
 import { markImportRunStarted } from "./runtime/import-run-status";
-import { claimImportSourceState } from "./runtime/source-state-store";
+import { ImportSourceStateStore } from "./runtime/source-state-store";
 import { ImportRunError, toWorkflowError } from "./runtime/workflow-errors";
 import { createImportRunLifecycle } from "./runtime/workflow-helpers";
 
@@ -67,9 +67,9 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 			error: ImportRunError,
 			name: "claim-import-source-state",
 			success: Schema.NullOr(ImportSourceState),
-			execute: claimImportSourceState(payload.sourceStateId, executionId).pipe(
-				Effect.mapError(toWorkflowError),
-			),
+			execute: Effect.flatMap(ImportSourceStateStore, (sourceStates) =>
+				sourceStates.claim(payload.sourceStateId, executionId),
+			).pipe(Effect.mapError(toWorkflowError)),
 		});
 		if (sourceState === null) {
 			return yield* new ImportRunError({ message: "Import source state is unavailable" });
