@@ -132,15 +132,12 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 			);
 			const publishInvalidation = Effect.fn("PluginIngestionService.publishInvalidation")(
 				(message: string) =>
-					redis
-						.publish(redisKeys.pluginRegistryChannel, message)
-						.pipe(
-							Effect.catchCause((cause) =>
-								Cause.hasInterrupts(cause)
-									? Effect.failCause(cause)
-									: Effect.logError("plugin registry invalidation publish failed", cause),
-							),
+					redis.publish(redisKeys.pluginRegistryChannel, message).pipe(
+						Effect.catchCauseIf(
+							(cause) => !Cause.hasInterrupts(cause),
+							(cause) => Effect.logError("plugin registry invalidation publish failed", cause),
 						),
+					),
 			);
 
 			const ingestSystemPluginUnlocked = Effect.fn(
@@ -383,15 +380,12 @@ export const runPluginRegistryReconciliation = (
 ) =>
 	tick.pipe(
 		Effect.andThen(
-			ingestion
-				.reconcile()
-				.pipe(
-					Effect.catchCause((cause) =>
-						Cause.hasInterrupts(cause)
-							? Effect.failCause(cause)
-							: Effect.logError("plugin registry reconciliation failed", cause),
-					),
+			ingestion.reconcile().pipe(
+				Effect.catchCauseIf(
+					(cause) => !Cause.hasInterrupts(cause),
+					(cause) => Effect.logError("plugin registry reconciliation failed", cause),
 				),
+			),
 		),
 		Effect.forever,
 	);

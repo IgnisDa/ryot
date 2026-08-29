@@ -199,7 +199,7 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 					return yield* badRequest("Signal identity fields must be non-empty");
 				}
 
-				const origin = yield* Schema.decodeUnknownEffect(AutomationOrigin)(input.origin).pipe(
+				const origin = yield* Schema.decodeEffect(AutomationOrigin)(input.origin).pipe(
 					Effect.mapError(() => badRequest("Invalid signal origin")),
 				);
 

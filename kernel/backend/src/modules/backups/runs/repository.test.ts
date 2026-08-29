@@ -137,11 +137,12 @@ it.effect("translates the concurrent active-run insert loser to Conflict", () =>
 
 	return Effect.gen(function* () {
 		const repository = yield* BackupsRepository;
-		const exits = yield* Effect.all(
+		const exits = yield* Effect.forEach(
 			[
 				repository.createRun({ userId, kind: "export" }),
 				repository.createRun({ userId, kind: "restore" }),
-			].map(Effect.exit),
+			],
+			Effect.exit,
 			{ concurrency: "unbounded" },
 		);
 		expect(exits.filter((exit) => exit._tag === "Success")).toHaveLength(1);

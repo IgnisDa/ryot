@@ -168,15 +168,13 @@ describe("GET /event-schemas", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const schemas = yield* listEntitySchemas(client, { pluginSlug: "media" });
-			const eventSchemasBySlug = yield* Effect.all(
-				["book", "anime", "manga"].map((slug) =>
-					Effect.gen(function* () {
-						const mediaSchema = schemas.find((schema) => schema.slug === slug);
-						assertPresent(mediaSchema, `Missing built-in ${slug} schema`);
+			const eventSchemasBySlug = yield* Effect.forEach(["book", "anime", "manga"], (slug) =>
+				Effect.gen(function* () {
+					const mediaSchema = schemas.find((schema) => schema.slug === slug);
+					assertPresent(mediaSchema, `Missing built-in ${slug} schema`);
 
-						return { slug, eventSchemas: yield* listEventSchemas(client, mediaSchema.id) };
-					}),
-				),
+					return { slug, eventSchemas: yield* listEventSchemas(client, mediaSchema.id) };
+				}),
 			);
 
 			for (const { slug, eventSchemas } of eventSchemasBySlug) {
@@ -412,10 +410,9 @@ describe("GET /event-schemas", () => {
 				},
 			});
 
-			const progressSchemas = yield* Effect.all(
-				["book", "comic-book", "audiobook", "video-game", "music", "visual-novel"].map((slug) =>
-					getProgressSchema(slug),
-				),
+			const progressSchemas = yield* Effect.forEach(
+				["book", "comic-book", "audiobook", "video-game", "music", "visual-novel"],
+				(slug) => getProgressSchema(slug),
 			);
 
 			for (const progressSchema of progressSchemas) {
@@ -460,16 +457,14 @@ describe("GET /event-schemas", () => {
 					);
 				});
 
-			const lifecycleSchemas = yield* Effect.all(
-				["anime", "manga", "movie", "book"].map((slug) =>
-					Effect.gen(function* () {
-						return {
-							onHoldSchema: yield* getSchemaBySlug(slug, "on_hold"),
-							droppedSchema: yield* getSchemaBySlug(slug, "dropped"),
-							progressSchema: yield* getSchemaBySlug(slug, "progress"),
-						};
-					}),
-				),
+			const lifecycleSchemas = yield* Effect.forEach(["anime", "manga", "movie", "book"], (slug) =>
+				Effect.gen(function* () {
+					return {
+						onHoldSchema: yield* getSchemaBySlug(slug, "on_hold"),
+						droppedSchema: yield* getSchemaBySlug(slug, "dropped"),
+						progressSchema: yield* getSchemaBySlug(slug, "progress"),
+					};
+				}),
 			);
 			const showDroppedSchema = yield* getSchemaBySlug("show", "dropped");
 			const showOnHoldSchema = yield* getSchemaBySlug("show", "on_hold");

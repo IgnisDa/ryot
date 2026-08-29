@@ -46,7 +46,7 @@ const makeLayer = (input: {
 				databaseLayer,
 				Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
 				Layer.mock(BackupAccountCleanliness, {
-					assertAccountIsClean: () => Effect.sync(() => undefined),
+					assertAccountIsClean: () => Effect.void.pipe(Effect.as(undefined)),
 				}),
 				mockUploads(input.uploads ?? {}),
 				mockRepository(input.repository),
