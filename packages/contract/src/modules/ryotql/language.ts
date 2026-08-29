@@ -53,6 +53,8 @@ export type ExistsExpression = { readonly type: "exists"; readonly query: Correl
 
 export type JsonElementExpression = { readonly type: "jsonElement" };
 
+export type CurrentDateExpression = { readonly type: "currentDate" };
+
 export type JsonArrayExistsExpression = {
 	readonly type: "jsonExists";
 	readonly array: ScalarExpression;
@@ -75,6 +77,7 @@ export type JsonArrayCountExpression = {
 
 export type ScalarExpression =
 	| ColumnExpression
+	| CurrentDateExpression
 	| ExistsExpression
 	| JsonArrayCountExpression
 	| JsonArrayExistsExpression
@@ -162,12 +165,17 @@ export const JsonElementExpression: Schema.Codec<JsonElementExpression, unknown>
 	type: Schema.Literal("jsonElement"),
 }).annotate({ identifier: "RyotQLJsonElementExpression" });
 
+export const CurrentDateExpression: Schema.Codec<CurrentDateExpression, unknown> = strictStruct({
+	type: Schema.Literal("currentDate"),
+}).annotate({ identifier: "RyotQLCurrentDateExpression" });
+
 export const ScalarExpression: Schema.Codec<ScalarExpression, unknown> = Schema.suspend(() =>
 	Schema.Union([
 		ColumnExpression,
 		LiteralExpression,
 		ExistsExpression,
 		JsonElementExpression,
+		CurrentDateExpression,
 		JsonArrayExistsExpression,
 		JsonArrayFirstExpression,
 		JsonArrayCountExpression,
