@@ -1,6 +1,11 @@
 import clsx from "clsx";
 import type { ComponentProps } from "react";
 
+export { Badge } from "./badge";
+export { useShortcut } from "./shortcut";
+export { SearchField } from "./search-field";
+export { SegmentedControl } from "./segmented-control";
+
 const variantClasses = {
 	text: "min-h-10 cursor-pointer font-semibold text-text-muted",
 	switch:
