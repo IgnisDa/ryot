@@ -1,5 +1,3 @@
-import type { ChildProcess } from "node:child_process";
-
 import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import { integrationWebhookUrl as buildIntegrationWebhookUrl } from "@ryot-app/contract/modules/integrations/schemas";
 import {
@@ -58,13 +56,14 @@ import {
 	stopCoreTestInfrastructure,
 	waitForHealthCheck,
 } from "~/support/provisioning";
+import { webRequest } from "~/support/web-request";
 
 const S3_BUCKET_NAME = "ryot-demo-access-test";
 const DEMO_COLLECTION_NAME = `Demo acceptance ${crypto.randomUUID()}`;
 
 let apiUrl: string;
 let apiOrigin: string;
-let apiProcess: ChildProcess | undefined;
+let apiProcess: ReturnType<typeof spawnApiProcess> | undefined;
 let demoApiKey: string;
 let demoUserId: string;
 let demoEmail: string;
@@ -72,7 +71,7 @@ let demoPassword: string;
 let integrationId: string;
 let integrationWebhookUrl: string;
 let ownerSessionCookie: string;
-let infrastructure: Awaited<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
+let infrastructure: Effect.Success<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
 
 const authControlPlaneRequests = (accountId: string, apiKeyId: string) =>
 	[
@@ -94,148 +93,171 @@ const callHostedAuth = (
 	sessionCookie: string,
 	request: ReturnType<typeof authControlPlaneRequests>[number],
 ) =>
-	fetch(`${apiOrigin}/api/auth${request.path}`, {
-		method: request.method,
-		headers: {
-			Cookie: sessionCookie,
-			...(request.method === "POST" ? { "content-type": "application/json" } : {}),
-		},
-		...(request.method === "POST" ? { body: JSON.stringify(request.body) } : {}),
+	Effect.gen(function* () {
+		return yield* webRequest(`${apiOrigin}/api/auth${request.path}`, {
+			method: request.method,
+			headers: {
+				Cookie: sessionCookie,
+				...(request.method === "POST" ? { "content-type": "application/json" } : {}),
+			},
+			...(request.method === "POST"
+				? { body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(request.body) }
+				: {}),
+		});
 	});
 
-const startApi = async (extraEnv: Record<string, string | undefined>) => {
-	const activeInfrastructure = requirePresent(
-		infrastructure,
-		"Demo access test infrastructure is not initialised",
-	);
-	apiProcess = spawnApiProcess(
-		buildApiEnv({
-			extraEnv,
-			frontendUrl: apiOrigin,
-			s3BucketName: S3_BUCKET_NAME,
-			label: "Demo access acceptance",
-			dbUrl: activeInfrastructure.dbUrl,
-			port: Number(new URL(apiOrigin).port),
-			redisUrl: activeInfrastructure.redisUrl,
-			s3Endpoint: activeInfrastructure.s3Endpoint,
-		}),
-	);
-	await waitForHealthCheck(`${apiUrl}/system/health`, "Demo access acceptance", 90);
-};
+const startApi = (extraEnv: Record<string, string | undefined>) =>
+	Effect.gen(function* () {
+		const activeInfrastructure = requirePresent(
+			infrastructure,
+			"Demo access test infrastructure is not initialised",
+		);
+		apiProcess = spawnApiProcess(
+			buildApiEnv({
+				extraEnv,
+				frontendUrl: apiOrigin,
+				s3BucketName: S3_BUCKET_NAME,
+				label: "Demo access acceptance",
+				dbUrl: activeInfrastructure.dbUrl,
+				port: Number(new URL(apiOrigin).port),
+				redisUrl: activeInfrastructure.redisUrl,
+				s3Endpoint: activeInfrastructure.s3Endpoint,
+			}),
+		);
+		yield* waitForHealthCheck(`${apiUrl}/system/health`, "Demo access acceptance", 90);
+	});
 
-const exchangeTokens = async (
+const exchangeTokens = (
 	pending: PendingOAuth,
 	authorizationResponse: Response,
 	clientId: OAuthClientId,
-) => {
-	const callback = new URL(
-		requirePresent(
-			authorizationResponse.headers.get("location"),
-			"OAuth authorization did not redirect",
+) =>
+	Effect.gen(function* () {
+		const callback = new URL(
+			requirePresent(
+				authorizationResponse.headers.get("location"),
+				"OAuth authorization did not redirect",
+			),
+			pending.serverOrigin,
+		);
+		const code = requirePresent(
+			callback.searchParams.get("code"),
+			"OAuth authorization returned no code",
+		);
+		const response = yield* webRequest(getOAuthEndpoint(pending.serverOrigin, OAUTH_TOKEN_PATH), {
+			method: "POST",
+			headers: { "content-type": "application/x-www-form-urlencoded" },
+			body: new URLSearchParams({
+				code,
+				client_id: clientId,
+				grant_type: "authorization_code",
+				redirect_uri: pending.redirectUri,
+				code_verifier: pending.codeVerifier,
+				resource: getOAuthResource(pending.frontendOrigin),
+			}),
+		});
+		expect(response.status).toBe(200);
+		return yield* Schema.decodeUnknownEffect(OAuthTokenResponse)(
+			yield* Effect.promise(() => response.json()),
+		);
+	});
+
+const authorize = (sessionCookie: string, clientId: OAuthClientId, redirectUri?: string) =>
+	Effect.gen(function* () {
+		const pending = yield* prepareOAuth(apiUrl);
+		const authorizationUrl = new URL(pending.authorizationUrl);
+		authorizationUrl.searchParams.set("client_id", clientId);
+		if (redirectUri) {
+			authorizationUrl.searchParams.set("redirect_uri", redirectUri);
+		}
+		const response = yield* webRequest(authorizationUrl, {
+			redirect: "manual",
+			headers: { Cookie: sessionCookie },
+		});
+		return { pending, response };
+	});
+
+const signInDemo = () =>
+	Effect.gen(function* () {
+		const response = yield* webRequest(`${apiOrigin}/api/auth/demo/sign-in`, {
+			method: "POST",
+			headers: { Origin: apiOrigin },
+		});
+		expect(response.status).toBe(200);
+		expect(yield* Effect.promise(() => response.json())).toEqual({ mode: "demo" });
+		return requirePresent(responseCookie(response), "Demo sign-in did not set a session cookie");
+	});
+
+const expectDemoSession = (sessionCookie: string) =>
+	Effect.gen(function* () {
+		const response = yield* webRequest(`${apiOrigin}/api/auth/get-session`, {
+			headers: { Cookie: sessionCookie },
+		});
+		expect(response.status).toBe(200);
+		expect(yield* Effect.promise(() => response.json())).toMatchObject({
+			user: { id: demoUserId },
+			session: { userId: demoUserId, accessClass: "demo" },
+		});
+	});
+
+const getDemoToken = (sessionCookie: string) =>
+	Effect.gen(function* () {
+		const { pending, response } = yield* authorize(sessionCookie, OAUTH_DEMO_WEB_CLIENT_ID);
+		expect(response.status).toBe(302);
+		const tokens = yield* exchangeTokens(pending, response, OAUTH_DEMO_WEB_CLIENT_ID);
+		return tokens.access_token;
+	});
+
+beforeAll(
+	() =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				const port = yield* Effect.promise(() => getPort());
+				apiOrigin = `http://127.0.0.1:${port}`;
+				apiUrl = `${apiOrigin}/api`;
+				infrastructure = yield* startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME });
+
+				yield* startApi({ USERS_ALLOW_REGISTRATION: "true", USERS_DEMO_ACCOUNT_ID: undefined });
+				const seeded = yield* createTestUser(apiUrl);
+				demoUserId = seeded.userId;
+				demoEmail = seeded.email;
+				demoPassword = seeded.password;
+				ownerSessionCookie = seeded.sessionCookie;
+				demoApiKey = yield* createApiKey(seeded.sessionCookie, "Demo account key", apiUrl);
+				const owner = makeSession(apiUrl, { Authorization: `Bearer ${seeded.token}` });
+				const integration = yield* createKodiIntegration(owner);
+				integrationId = integration.id;
+				const detail = requirePresent(
+					Option.getOrUndefined(
+						yield* executeRyotQLRecipe(owner, integrationRecipe({ id: integrationId })),
+					),
+					"Seeded integration detail is missing",
+				);
+				const { frontendOrigin } = yield* owner.call((c) => c.system.config());
+				integrationWebhookUrl = buildIntegrationWebhookUrl(
+					frontendOrigin,
+					requirePresent(
+						detail.webhookToken,
+						"Seeded integration did not expose its webhook token",
+					),
+				);
+
+				yield* stopApiProcess(apiProcess);
+				apiProcess = undefined;
+				yield* startApi({ USERS_ALLOW_REGISTRATION: "false", USERS_DEMO_ACCOUNT_ID: demoUserId });
+			}),
 		),
-		pending.serverOrigin,
-	);
-	const code = requirePresent(
-		callback.searchParams.get("code"),
-		"OAuth authorization returned no code",
-	);
-	const response = await fetch(getOAuthEndpoint(pending.serverOrigin, OAUTH_TOKEN_PATH), {
-		method: "POST",
-		headers: { "content-type": "application/x-www-form-urlencoded" },
-		body: new URLSearchParams({
-			code,
-			client_id: clientId,
-			grant_type: "authorization_code",
-			redirect_uri: pending.redirectUri,
-			code_verifier: pending.codeVerifier,
-			resource: getOAuthResource(pending.frontendOrigin),
+	300_000,
+);
+
+afterAll(() =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			yield* stopApiProcess(apiProcess);
+			yield* stopCoreTestInfrastructure(infrastructure);
 		}),
-	});
-	expect(response.status).toBe(200);
-	return Schema.decodeUnknownSync(OAuthTokenResponse)(await response.json());
-};
-
-const authorize = async (sessionCookie: string, clientId: OAuthClientId, redirectUri?: string) => {
-	const pending = await prepareOAuth(apiUrl);
-	const authorizationUrl = new URL(pending.authorizationUrl);
-	authorizationUrl.searchParams.set("client_id", clientId);
-	if (redirectUri) {
-		authorizationUrl.searchParams.set("redirect_uri", redirectUri);
-	}
-	const response = await fetch(authorizationUrl, {
-		redirect: "manual",
-		headers: { Cookie: sessionCookie },
-	});
-	return { pending, response };
-};
-
-const signInDemo = async () => {
-	const response = await fetch(`${apiOrigin}/api/auth/demo/sign-in`, {
-		method: "POST",
-		headers: { Origin: apiOrigin },
-	});
-	expect(response.status).toBe(200);
-	expect(await response.json()).toEqual({ mode: "demo" });
-	return requirePresent(responseCookie(response), "Demo sign-in did not set a session cookie");
-};
-
-const expectDemoSession = async (sessionCookie: string) => {
-	const response = await fetch(`${apiOrigin}/api/auth/get-session`, {
-		headers: { Cookie: sessionCookie },
-	});
-	expect(response.status).toBe(200);
-	expect(await response.json()).toMatchObject({
-		user: { id: demoUserId },
-		session: { userId: demoUserId, accessClass: "demo" },
-	});
-};
-
-const getDemoToken = async (sessionCookie: string) => {
-	const { pending, response } = await authorize(sessionCookie, OAUTH_DEMO_WEB_CLIENT_ID);
-	expect(response.status).toBe(302);
-	const tokens = await exchangeTokens(pending, response, OAUTH_DEMO_WEB_CLIENT_ID);
-	return tokens.access_token;
-};
-
-beforeAll(async () => {
-	const port = await getPort();
-	apiOrigin = `http://127.0.0.1:${port}`;
-	apiUrl = `${apiOrigin}/api`;
-	infrastructure = await startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME });
-
-	await startApi({ USERS_ALLOW_REGISTRATION: "true", USERS_DEMO_ACCOUNT_ID: undefined });
-	const seeded = await Effect.runPromise(createTestUser(apiUrl));
-	demoUserId = seeded.userId;
-	demoEmail = seeded.email;
-	demoPassword = seeded.password;
-	ownerSessionCookie = seeded.sessionCookie;
-	demoApiKey = await Effect.runPromise(
-		createApiKey(seeded.sessionCookie, "Demo account key", apiUrl),
-	);
-	const owner = makeSession(apiUrl, { Authorization: `Bearer ${seeded.token}` });
-	const integration = await Effect.runPromise(createKodiIntegration(owner));
-	integrationId = integration.id;
-	const detail = requirePresent(
-		Option.getOrUndefined(
-			await Effect.runPromise(executeRyotQLRecipe(owner, integrationRecipe({ id: integrationId }))),
-		),
-		"Seeded integration detail is missing",
-	);
-	const { frontendOrigin } = await Effect.runPromise(owner.call((c) => c.system.config()));
-	integrationWebhookUrl = buildIntegrationWebhookUrl(
-		frontendOrigin,
-		requirePresent(detail.webhookToken, "Seeded integration did not expose its webhook token"),
-	);
-
-	await stopApiProcess(apiProcess);
-	apiProcess = undefined;
-	await startApi({ USERS_ALLOW_REGISTRATION: "false", USERS_DEMO_ACCOUNT_ID: demoUserId });
-}, 300_000);
-
-afterAll(async () => {
-	await stopApiProcess(apiProcess);
-	await stopCoreTestInfrastructure(infrastructure);
-});
+	),
+);
 
 describe("shared demo access acceptance", () => {
 	it.live("enters the configured account and issues restricted demo OAuth authority", () =>
@@ -243,9 +265,9 @@ describe("shared demo access acceptance", () => {
 			const config = yield* makeSession(apiUrl).call((c) => c.system.config());
 			expect(config.auth.signupAllowed).toBe(false);
 
-			const sessionCookie = yield* Effect.promise(signInDemo);
-			yield* Effect.promise(() => expectDemoSession(sessionCookie));
-			const token = yield* Effect.promise(() => getDemoToken(sessionCookie));
+			const sessionCookie = yield* signInDemo();
+			yield* expectDemoSession(sessionCookie);
+			const token = yield* getDemoToken(sessionCookie);
 			const demoClient = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
 
 			const collection = yield* createCollection(demoClient, {
@@ -253,25 +275,23 @@ describe("shared demo access acceptance", () => {
 				description: "Persists between demo sessions",
 			});
 			expect(collection.name).toBe(DEMO_COLLECTION_NAME);
-			const rawProtectedResponse = yield* Effect.promise(() =>
-				fetch(`${apiUrl}/user-settings/preferences`, {
-					method: "PATCH",
-					body: JSON.stringify({ language: "de" }),
-					headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
-				}),
-			);
+			const rawProtectedResponse = yield* webRequest(`${apiUrl}/user-settings/preferences`, {
+				method: "PATCH",
+				headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+				body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({ language: "de" }),
+			});
 			expect(rawProtectedResponse.status).toBe(403);
 			expect(yield* Effect.promise(() => rawProtectedResponse.json())).toEqual({
 				_tag: "DemoOperationProtected",
 				reason: { code: "demo-operation-protected" },
 			});
-			const pluginStateResponse = yield* Effect.promise(() =>
-				fetch(`${apiUrl}/plugins/media/state`, {
-					method: "PATCH",
-					body: JSON.stringify({ isDisabled: true }),
-					headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+			const pluginStateResponse = yield* webRequest(`${apiUrl}/plugins/media/state`, {
+				method: "PATCH",
+				headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+				body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
+					isDisabled: true,
 				}),
-			);
+			});
 			expect(pluginStateResponse.status).toBe(403);
 			expect(yield* Effect.promise(() => pluginStateResponse.json())).toEqual({
 				_tag: "DemoOperationProtected",
@@ -285,7 +305,7 @@ describe("shared demo access acceptance", () => {
 				new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
 			);
 			expect((yield* getUserSettings(demoClient)).id).toBe(demoUserId);
-			yield* Effect.promise(() => expectDemoSession(sessionCookie));
+			yield* expectDemoSession(sessionCookie);
 		}),
 	);
 
@@ -297,9 +317,9 @@ describe("shared demo access acceptance", () => {
 				ownerSignIn.sessionCookie,
 				"Owner sign-in returned no session",
 			);
-			const sessionResponse = yield* Effect.promise(() =>
-				fetch(`${apiOrigin}/api/auth/get-session`, { headers: { Cookie: ownerCookie } }),
-			);
+			const sessionResponse = yield* webRequest(`${apiOrigin}/api/auth/get-session`, {
+				headers: { Cookie: ownerCookie },
+			});
 			expect(yield* Effect.promise(() => sessionResponse.json())).toMatchObject({
 				user: { id: demoUserId },
 				session: { accessClass: "standard" },
@@ -322,14 +342,12 @@ describe("shared demo access acceptance", () => {
 			assertTaggedError(apiKeyError, "DemoOperationProtected");
 			expect(apiKeyError.reason.code).toBe("demo-operation-protected");
 
-			const sessionCookie = yield* Effect.promise(signInDemo);
+			const sessionCookie = yield* signInDemo();
 			for (const [clientId, redirectUri] of [
 				[OAUTH_WEB_CLIENT_ID, undefined],
 				[OAUTH_NATIVE_CLIENT_ID, OAUTH_NATIVE_CALLBACK_URIS[0]],
 			] as const) {
-				const { response } = yield* Effect.promise(() =>
-					authorize(sessionCookie, clientId, redirectUri),
-				);
+				const { response } = yield* authorize(sessionCookie, clientId, redirectUri);
 				expect(response.status).toBe(403);
 				expect(yield* Effect.promise(() => response.json())).toMatchObject({
 					code: "DEMO_OPERATION_PROTECTED",
@@ -340,9 +358,9 @@ describe("shared demo access acceptance", () => {
 
 	it.live("protects Better Auth credential reads while preserving standard hosted access", () =>
 		Effect.gen(function* () {
-			const standardAccountsResponse = yield* Effect.promise(() =>
-				fetch(`${apiOrigin}/api/auth/list-accounts`, { headers: { Cookie: ownerSessionCookie } }),
-			);
+			const standardAccountsResponse = yield* webRequest(`${apiOrigin}/api/auth/list-accounts`, {
+				headers: { Cookie: ownerSessionCookie },
+			});
 			expect(standardAccountsResponse.status).toBe(200);
 			const standardAccounts: unknown = yield* Effect.promise(() =>
 				standardAccountsResponse.json(),
@@ -356,9 +374,9 @@ describe("shared demo access acceptance", () => {
 			);
 			const accountId = requireString(account.id, "Account ID was missing");
 
-			const standardApiKeysResponse = yield* Effect.promise(() =>
-				fetch(`${apiOrigin}/api/auth/api-key/list`, { headers: { Cookie: ownerSessionCookie } }),
-			);
+			const standardApiKeysResponse = yield* webRequest(`${apiOrigin}/api/auth/api-key/list`, {
+				headers: { Cookie: ownerSessionCookie },
+			});
 			expect(standardApiKeysResponse.status).toBe(200);
 			const standardApiKeys: unknown = yield* Effect.promise(() => standardApiKeysResponse.json());
 			const apiKeys = requireArray(
@@ -370,18 +388,16 @@ describe("shared demo access acceptance", () => {
 				"Standard API key was invalid",
 			);
 			const apiKeyId = requireString(apiKey.id, "API-key ID was missing");
-			const demoCookie = yield* Effect.promise(signInDemo);
+			const demoCookie = yield* signInDemo();
 
 			for (const request of authControlPlaneRequests(accountId, apiKeyId)) {
-				const demoResponse = yield* Effect.promise(() => callHostedAuth(demoCookie, request));
+				const demoResponse = yield* callHostedAuth(demoCookie, request);
 				expect(demoResponse.status).toBe(403);
 				expect(yield* Effect.promise(() => demoResponse.json())).toMatchObject({
 					code: "DEMO_OPERATION_PROTECTED",
 				});
 
-				const standardResponse = yield* Effect.promise(() =>
-					callHostedAuth(ownerSessionCookie, request),
-				);
+				const standardResponse = yield* callHostedAuth(ownerSessionCookie, request);
 				const standardBody = yield* Effect.promise(() => standardResponse.json());
 				expect(standardResponse.status).not.toBe(403);
 				expect(standardBody).not.toMatchObject({ code: "DEMO_OPERATION_PROTECTED" });
@@ -394,8 +410,8 @@ describe("shared demo access acceptance", () => {
 
 	it.live("allows provider, event tracking, and user-state routes to reach domain behavior", () =>
 		Effect.gen(function* () {
-			const sessionCookie = yield* Effect.promise(signInDemo);
-			const token = yield* Effect.promise(() => getDemoToken(sessionCookie));
+			const sessionCookie = yield* signInDemo();
+			const token = yield* getDemoToken(sessionCookie);
 			const demoClient = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
 			const missingProviderId = SandboxProviderId.make(crypto.randomUUID());
 			const searchError = yield* Effect.flip(
@@ -457,8 +473,8 @@ describe("shared demo access acceptance", () => {
 		"denies sensitive kernel RyotQL integration detail to demo users while preserving domain changes",
 		() =>
 			Effect.gen(function* () {
-				const sessionCookie = yield* Effect.promise(signInDemo);
-				const token = yield* Effect.promise(() => getDemoToken(sessionCookie));
+				const sessionCookie = yield* signInDemo();
+				const token = yield* getDemoToken(sessionCookie);
 				const demoClient = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
 
 				const detailRecipe = integrationRecipe({ id: integrationId });
@@ -467,7 +483,11 @@ describe("shared demo access acceptance", () => {
 				);
 				assertTaggedError(restricted, "RyotQLBadRequest");
 				expect(restricted.reason.code).toBe("invalid-query");
-				expect(JSON.stringify(restricted).includes(integrationWebhookUrl)).toBe(false);
+				expect(
+					(yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(restricted)).includes(
+						integrationWebhookUrl,
+					),
+				).toBe(false);
 
 				const outcome = yield* Effect.result(executeRyotQLRecipe(demoClient, detailRecipe));
 				if (Result.isSuccess(outcome)) {
@@ -476,7 +496,11 @@ describe("shared demo access acceptance", () => {
 				const integrationError = outcome.failure;
 				assertTaggedError(integrationError, "DemoOperationProtected");
 				expect(integrationError.reason.code).toBe("demo-operation-protected");
-				expect(JSON.stringify(integrationError).includes(integrationWebhookUrl)).toBe(false);
+				expect(
+					(yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(
+						integrationError,
+					)).includes(integrationWebhookUrl),
+				).toBe(false);
 
 				const collectionEntity = table("entity", "demoCollection");
 				const result = yield* executeRyotQL(

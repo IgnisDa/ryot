@@ -1,6 +1,3 @@
-import type { ChildProcess } from "node:child_process";
-import { randomUUID } from "node:crypto";
-
 import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { pluginClientCatalogRecipe } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { Effect } from "effect";
@@ -38,8 +35,8 @@ const S3_BUCKET_NAME = "ryot-plugin-catalog-events-test";
 const API_LABEL = "Plugin Catalog Events API";
 
 let apiPort: number;
-let apiProcess: ChildProcess | undefined;
-let coreInfrastructure: Awaited<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
+let apiProcess: ReturnType<typeof spawnApiProcess> | undefined;
+let coreInfrastructure: Effect.Success<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
 
 const apiUrl = () => `http://127.0.0.1:${apiPort}/api`;
 const adminSession = () => makeSession(apiUrl());
@@ -53,38 +50,52 @@ const fixtureCatalogEntry = (client: Parameters<typeof executeRyotQLRecipe>[0]) 
 		);
 	});
 
-beforeAll(async () => {
-	try {
-		const [infrastructure, port] = await Promise.all([
-			startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME }),
-			getPort(),
-		]);
-		apiPort = port;
-		coreInfrastructure = infrastructure;
-		const apiOrigin = `http://127.0.0.1:${apiPort}`;
-		apiProcess = spawnApiProcess(
-			buildApiEnv({
-				port: apiPort,
-				label: API_LABEL,
-				frontendUrl: apiOrigin,
-				dbUrl: infrastructure.dbUrl,
-				s3BucketName: S3_BUCKET_NAME,
-				redisUrl: infrastructure.redisUrl,
-				s3Endpoint: infrastructure.s3Endpoint,
-			}),
-		);
-		await waitForHealthCheck(`${apiOrigin}/api/system/health`, API_LABEL, 90);
-	} catch (error) {
-		await stopApiProcess(apiProcess);
-		await stopCoreTestInfrastructure(coreInfrastructure).catch(() => undefined);
-		throw error;
-	}
-}, 180_000);
+beforeAll(
+	() =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				const [infrastructure, port] = yield* Effect.all(
+					[
+						startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME }),
+						Effect.promise(() => getPort()),
+					],
+					{ concurrency: "unbounded" },
+				);
+				apiPort = port;
+				coreInfrastructure = infrastructure;
+				const apiOrigin = `http://127.0.0.1:${apiPort}`;
+				apiProcess = spawnApiProcess(
+					buildApiEnv({
+						port: apiPort,
+						label: API_LABEL,
+						frontendUrl: apiOrigin,
+						dbUrl: infrastructure.dbUrl,
+						s3BucketName: S3_BUCKET_NAME,
+						redisUrl: infrastructure.redisUrl,
+						s3Endpoint: infrastructure.s3Endpoint,
+					}),
+				);
+				yield* waitForHealthCheck(`${apiOrigin}/api/system/health`, API_LABEL, 90);
+			}).pipe(
+				Effect.onError(() =>
+					Effect.gen(function* () {
+						yield* stopApiProcess(apiProcess);
+						yield* stopCoreTestInfrastructure(coreInfrastructure).pipe(Effect.ignore);
+					}),
+				),
+			),
+		),
+	180_000,
+);
 
-afterAll(async () => {
-	await stopApiProcess(apiProcess);
-	await stopCoreTestInfrastructure(coreInfrastructure).catch(() => undefined);
-});
+afterAll(() =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			yield* stopApiProcess(apiProcess);
+			yield* stopCoreTestInfrastructure(coreInfrastructure).pipe(Effect.ignore);
+		}),
+	),
+);
 
 describe("plugin catalog events", () => {
 	it.live("streams isolated private changes, reconnect state, and global reconciliation", () =>
@@ -96,7 +107,7 @@ describe("plugin catalog events", () => {
 			yield* ownerEvents.waitForConnected();
 			yield* outsiderEvents.waitForConnected();
 
-			const variant = randomUUID();
+			const variant = crypto.randomUUID();
 			const packageA = yield* fixtureClientPluginPackage("A", variant);
 			yield* installPrivatePluginPackage({
 				config: {},
@@ -129,8 +140,8 @@ describe("plugin catalog events", () => {
 			yield* reconnected.waitForConnected();
 			expect((yield* fixtureCatalogEntry(owner.client)).sourceHash).not.toBe(after.sourceHash);
 
-			const pluginSlug = PluginSlug.make(`e2e-catalog-system-${randomUUID()}`);
-			const scriptSlug = `e2e-catalog-system-script-${randomUUID()}`;
+			const pluginSlug = PluginSlug.make(`e2e-catalog-system-${crypto.randomUUID()}`);
+			const scriptSlug = `e2e-catalog-system-script-${crypto.randomUUID()}`;
 			const entry = "backend/scripts/catalog-events.sandbox.ts";
 			const name = "E2E catalog events system plugin";
 			const manifest = testPluginManifest({

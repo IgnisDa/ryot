@@ -1,5 +1,3 @@
-import type { ChildProcess } from "node:child_process";
-
 import { Effect } from "effect";
 import getPort from "get-port";
 
@@ -78,10 +76,14 @@ const scenarioNames: ScenarioName[] = [
 	"cache",
 ];
 
-type ScenarioInstance = { apiUrl: string; fake?: FakeHttpServer; process: ChildProcess };
+type ScenarioInstance = {
+	apiUrl: string;
+	fake?: FakeHttpServer;
+	process: ReturnType<typeof spawnApiProcess>;
+};
 
 const scenarios = new Map<ScenarioName, ScenarioInstance>();
-let coreInfrastructure: Awaited<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
+let coreInfrastructure: Effect.Success<ReturnType<typeof startCoreTestInfrastructure>> | undefined;
 
 function requireScenario(name: ScenarioName) {
 	return requirePresent(scenarios.get(name), `Pro key scenario '${name}' is not initialised`);
@@ -91,56 +93,67 @@ function requireFake(instance: ScenarioInstance) {
 	return requirePresent(instance.fake, "Fake Unkey server is not initialised for this scenario");
 }
 
-beforeAll(async () => {
-	coreInfrastructure = await startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME });
-	const infrastructure = requirePresent(
-		coreInfrastructure,
-		"Pro key test infrastructure is not initialised",
-	);
+beforeAll(
+	() =>
+		Effect.runPromise(
+			Effect.gen(function* () {
+				coreInfrastructure = yield* startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME });
+				const infrastructure = requirePresent(
+					coreInfrastructure,
+					"Pro key test infrastructure is not initialised",
+				);
 
-	// Spawned sequentially, not via Promise.all: each api boot (migrations, plugin catalog,
-	// scheduler, sandbox runtime) is heavy enough that eight concurrent boots starve each other of
-	// CPU and stall past any reasonable health-check budget. Each instance is registered in
-	// `scenarios` immediately after it is spawned (before awaiting its health check) so a failure
-	// partway through still leaves every already-started process reachable for `afterAll` cleanup.
-	for (const name of scenarioNames) {
-		const config = scenarioConfigs[name];
-		// oxlint-disable-next-line no-await-in-loop -- intentionally sequential, see comment above
-		const port = await getPort();
-		const fake = config.unreachable
-			? undefined
-			: // oxlint-disable-next-line no-await-in-loop -- intentionally sequential, see comment above
-				await startFakeHttpServer(config.respond);
-		const verificationUrl = config.unreachable
-			? // oxlint-disable-next-line no-await-in-loop -- intentionally sequential, see comment above
-				`http://127.0.0.1:${await getPort()}`
-			: requirePresent(fake, `Fake Unkey server missing for scenario '${name}'`).url;
-		const apiOrigin = `http://127.0.0.1:${port}`;
-		const process = spawnApiProcess(
-			buildApiEnv({
-				port,
-				frontendUrl: apiOrigin,
-				label: `Pro key ${name}`,
-				dbUrl: infrastructure.dbUrl,
-				s3BucketName: S3_BUCKET_NAME,
-				redisUrl: infrastructure.redisUrl,
-				s3Endpoint: infrastructure.s3Endpoint,
-				extraEnv: { SERVER_PRO_KEY_VERIFICATION_URL: verificationUrl, ...config.extraEnv },
+				// Spawned sequentially, not via Promise.all: each api boot (migrations, plugin catalog,
+				// scheduler, sandbox runtime) is heavy enough that eight concurrent boots starve each other of
+				// CPU and stall past any reasonable health-check budget. Each instance is registered in
+				// `scenarios` immediately after it is spawned (before awaiting its health check) so a failure
+				// partway through still leaves every already-started process reachable for `afterAll` cleanup.
+				for (const name of scenarioNames) {
+					const config = scenarioConfigs[name];
+					const port = yield* Effect.promise(() => getPort());
+					const fake = config.unreachable ? undefined : yield* startFakeHttpServer(config.respond);
+					const verificationUrl = config.unreachable
+						? `http://127.0.0.1:${yield* Effect.promise(() => getPort())}`
+						: requirePresent(fake, `Fake Unkey server missing for scenario '${name}'`).url;
+					const apiOrigin = `http://127.0.0.1:${port}`;
+					const process = spawnApiProcess(
+						buildApiEnv({
+							port,
+							frontendUrl: apiOrigin,
+							label: `Pro key ${name}`,
+							dbUrl: infrastructure.dbUrl,
+							s3BucketName: S3_BUCKET_NAME,
+							redisUrl: infrastructure.redisUrl,
+							s3Endpoint: infrastructure.s3Endpoint,
+							extraEnv: { SERVER_PRO_KEY_VERIFICATION_URL: verificationUrl, ...config.extraEnv },
+						}),
+					);
+					scenarios.set(name, { fake, process, apiUrl: `${apiOrigin}/api` });
+					yield* waitForHealthCheck(`${apiOrigin}/api/system/health`, `Pro key ${name} setup`, 90);
+				}
 			}),
-		);
-		scenarios.set(name, { fake, process, apiUrl: `${apiOrigin}/api` });
-		// oxlint-disable-next-line no-await-in-loop -- intentionally sequential, see comment above
-		await waitForHealthCheck(`${apiOrigin}/api/system/health`, `Pro key ${name} setup`, 90);
-	}
-}, 360_000);
+		),
+	360_000,
+);
 
-afterAll(async () => {
-	await Promise.all([...scenarios.values()].map((instance) => stopApiProcess(instance.process)));
-	for (const instance of scenarios.values()) {
-		instance.fake?.stop();
-	}
-	await stopCoreTestInfrastructure(coreInfrastructure);
-});
+afterAll(() =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			yield* Effect.forEach(scenarios.values(), (instance) => stopApiProcess(instance.process), {
+				concurrency: "unbounded",
+			});
+			yield* Effect.forEach(
+				scenarios.values(),
+				(instance) => {
+					const fake = instance.fake;
+					return fake ? Effect.promise(() => fake.stop()) : Effect.void;
+				},
+				{ concurrency: "unbounded" },
+			);
+			yield* stopCoreTestInfrastructure(coreInfrastructure);
+		}),
+	),
+);
 
 describe("GET /system/config without SERVER_PRO_KEY", () => {
 	it.live("reports isServerKeyValidated: false and makes no Unkey request", () =>

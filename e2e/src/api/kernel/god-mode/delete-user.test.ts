@@ -40,6 +40,7 @@ import { enableMediaMonitoring, seedMediaEntity } from "~/fixtures/plugins/media
 import { assertCompleted, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
+import { webRequest } from "~/support/web-request";
 
 const WRONG_TOKEN = "wrong-token";
 
@@ -110,12 +111,10 @@ describe("Delete user", () => {
 			yield* listPluginsWithHeaders({ Authorization: `Bearer ${token}` });
 			yield* listPluginsWithHeaders({ "X-Api-Key": apiKey });
 
-			const acceptedResponse = yield* Effect.promise(() =>
-				fetch(`${getApiUrl()}/god-mode/users/${userId}`, {
-					method: "DELETE",
-					headers: adminHeaders(),
-				}),
-			);
+			const acceptedResponse = yield* webRequest(`${getApiUrl()}/god-mode/users/${userId}`, {
+				method: "DELETE",
+				headers: adminHeaders(),
+			});
 			expect(acceptedResponse.status).toBe(202);
 			const body = yield* Effect.promise(() => acceptedResponse.json());
 			expect(body).toEqual({ operationId: expect.any(String) });

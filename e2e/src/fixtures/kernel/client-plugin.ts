@@ -29,13 +29,13 @@ export const fixtureClientPluginPackage = (
 	presentationEvaluationSignal = false,
 ) =>
 	Effect.gen(function* () {
-		const archive = yield* Effect.promise(async () => {
-			const file = Bun.file(archiveUrl);
-			if (!(await file.exists())) {
-				throw new Error(`Build @ryot-app/fixture-plugin before this suite: ${archiveUrl.pathname}`);
-			}
-			return file.bytes();
-		});
+		const file = Bun.file(archiveUrl);
+		if (!(yield* Effect.promise(() => file.exists()))) {
+			return yield* Effect.die(
+				new Error(`Build @ryot-app/fixture-plugin before this suite: ${archiveUrl.pathname}`),
+			);
+		}
+		const archive = yield* Effect.promise(() => file.bytes());
 		const pluginPackage = yield* readPluginArchive(archive);
 		const homeBytes = pluginPackage.files[homeEntry];
 		const home = homeBytes ? decoder.decode(homeBytes) : undefined;

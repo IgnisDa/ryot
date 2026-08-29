@@ -17,6 +17,7 @@ import { seedMediaEntity } from "~/fixtures/plugins/media";
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
+import { webRequest } from "~/support/web-request";
 
 type SocketClose = { code: number; reason: string };
 
@@ -24,11 +25,12 @@ const createSocketTicket = (client: Client) =>
 	client.call((contract) => contract["entity-interest"].createSocketTicket());
 
 const waitForSocketClose = (firstFrame?: string, timeoutMs = 10_000) =>
-	new Promise<SocketClose>((resolve, reject) => {
+	Effect.callback<SocketClose>((resume) => {
 		const socket = new WebSocket(`${getApiUrl()}/entity-interest/ws`);
+		// oxlint-disable-next-line effecttsgo/global-timers-in-effect -- WebSocket close callback needs a cancelable timeout.
 		const timer = setTimeout(() => {
 			socket.close();
-			reject(new Error("Timed out waiting for entity interest WebSocket close"));
+			resume(Effect.die(new Error("Timed out waiting for entity interest WebSocket close")));
 		}, timeoutMs);
 		socket.addEventListener("open", () => {
 			if (firstFrame !== undefined) {
@@ -37,16 +39,21 @@ const waitForSocketClose = (firstFrame?: string, timeoutMs = 10_000) =>
 		});
 		socket.addEventListener("close", (event) => {
 			clearTimeout(timer);
-			resolve({ code: event.code, reason: event.reason });
+			resume(Effect.succeed({ code: event.code, reason: event.reason }));
+		});
+		return Effect.sync(() => {
+			clearTimeout(timer);
+			socket.close();
 		});
 	});
 
 const consumeTicket = (ticket: string) =>
-	new Promise<void>((resolve, reject) => {
+	Effect.callback<void>((resume) => {
 		const socket = new WebSocket(`${getApiUrl()}/entity-interest/ws`);
+		// oxlint-disable-next-line effecttsgo/global-timers-in-effect -- WebSocket readiness callback needs a cancelable timeout.
 		const timer = setTimeout(() => {
 			socket.close();
-			reject(new Error("Timed out consuming entity interest socket ticket"));
+			resume(Effect.die(new Error("Timed out consuming entity interest socket ticket")));
 		}, 10_000);
 		socket.addEventListener("open", () => {
 			socket.send(encodeEntityInterestClientMessage({ ticket, type: "authenticate" }));
@@ -56,8 +63,12 @@ const consumeTicket = (ticket: string) =>
 			if (Result.isSuccess(decoded) && decoded.success.type === "ready") {
 				clearTimeout(timer);
 				socket.close(1000);
-				resolve();
+				resume(Effect.void);
 			}
+		});
+		return Effect.sync(() => {
+			clearTimeout(timer);
+			socket.close();
 		});
 	});
 
@@ -84,13 +95,11 @@ describe("interest authorization", () => {
 			});
 
 			const socketB = yield* openInterestWebSocketScoped(authB);
-			expect(yield* Effect.promise(() => socketB.replaceInterest([privateEntity.id]))).toEqual({
+			expect(yield* socketB.replaceInterest([privateEntity.id])).toEqual({
 				revision: 1,
 				type: "applied",
 			});
-			yield* Effect.promise(() =>
-				socketB.expectNoEntityUpdated(privateEntity.id, { windowMs: 4000 }),
-			);
+			yield* socketB.expectNoEntityUpdated(privateEntity.id, { windowMs: 4000 });
 
 			const entity = yield* getEntity(authA.client, privateEntity.id);
 			expect(entity.populatedAt).toBeNull();
@@ -99,9 +108,9 @@ describe("interest authorization", () => {
 
 	it.live("rejects an unauthenticated socket-ticket request", () =>
 		Effect.gen(function* () {
-			const response = yield* Effect.promise(() =>
-				fetch(`${getApiUrl()}/entity-interest/socket-ticket`, { method: "POST" }),
-			);
+			const response = yield* webRequest(`${getApiUrl()}/entity-interest/socket-ticket`, {
+				method: "POST",
+			});
 			expect(response.status).toBe(401);
 		}),
 	);
@@ -123,12 +132,12 @@ describe("interest authorization", () => {
 			Effect.gen(function* () {
 				const auth = yield* createAuthenticatedClient();
 				const reused = yield* createSocketTicket(auth.client);
-				yield* Effect.promise(() => consumeTicket(reused.ticket));
+				yield* consumeTicket(reused.ticket);
 				const expired = yield* createSocketTicket(auth.client);
 				yield* Effect.sleep(Duration.seconds(31));
 
-				const closes = yield* Effect.promise(() =>
-					Promise.all([
+				const closes = yield* Effect.all(
+					[
 						waitForSocketClose(
 							encodeEntityInterestClientMessage({ type: "authenticate", ticket: "A".repeat(43) }),
 						),
@@ -141,7 +150,8 @@ describe("interest authorization", () => {
 						waitForSocketClose(
 							encodeEntityInterestClientMessage({ type: "authenticate", ticket: reused.ticket }),
 						),
-					]),
+					],
+					{ concurrency: "unbounded" },
 				);
 				expect(closes).toEqual([
 					{ code: 1008, reason: "Authentication failed" },
@@ -155,12 +165,10 @@ describe("interest authorization", () => {
 
 	it.live("requires authentication as the first frame and before the deadline", () =>
 		Effect.gen(function* () {
-			const firstFrame = yield* Effect.promise(() =>
-				waitForSocketClose(
-					encodeEntityInterestClientMessage({ revision: 1, entityIds: [], type: "replace" }),
-				),
+			const firstFrame = yield* waitForSocketClose(
+				encodeEntityInterestClientMessage({ revision: 1, entityIds: [], type: "replace" }),
 			);
-			const deadline = yield* Effect.promise(() => waitForSocketClose());
+			const deadline = yield* waitForSocketClose();
 			expect(firstFrame).toEqual({ code: 1002, reason: "Protocol error" });
 			expect(deadline).toEqual({ code: 1008, reason: "Authentication failed" });
 		}),

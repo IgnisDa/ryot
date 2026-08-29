@@ -4,10 +4,11 @@ import {
 	type RequestHeaders,
 } from "@ryot-app/contract/client";
 import type { UserId } from "@ryot-app/contract/schema/brands";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { FetchHttpClient } from "effect/unstable/http";
 
 import { getApiUrl } from "~/support/harness-target";
+import { webRequest } from "~/support/web-request";
 
 export type ContractSession = {
 	readonly userId?: UserId;
@@ -29,13 +30,14 @@ export const makeSession = (
 
 export const getApiClient = (baseUrl?: string): ContractSession => makeSession(baseUrl);
 
-export async function postApiJson(path: string, body: unknown, token?: string) {
-	return fetch(`${getApiUrl()}${path}`, {
-		method: "POST",
-		body: JSON.stringify(body),
-		headers: {
-			"Content-Type": "application/json",
-			...(token ? { Authorization: `Bearer ${token}` } : {}),
-		},
+export const postApiJson = (path: string, body: unknown, token?: string) =>
+	Effect.gen(function* () {
+		return yield* webRequest(`${getApiUrl()}${path}`, {
+			method: "POST",
+			body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(body),
+			headers: {
+				"Content-Type": "application/json",
+				...(token ? { Authorization: `Bearer ${token}` } : {}),
+			},
+		});
 	});
-}

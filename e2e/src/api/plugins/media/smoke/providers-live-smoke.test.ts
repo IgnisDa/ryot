@@ -86,11 +86,11 @@ describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 				expect(beforeInterest.translationStatus).toBe("pending");
 
 				const socket = yield* openInterestWebSocketScoped(auth);
-				yield* Effect.promise(() => socket.replaceInterest([movie.id]));
+				yield* socket.replaceInterest([movie.id]);
 
-				const event = yield* Effect.promise(() =>
-					socket.waitForEntityUpdated(movie.id, "translated", { timeoutMs: 90_000 }),
-				);
+				const event = yield* socket.waitForEntityUpdated(movie.id, "translated", {
+					timeoutMs: 90_000,
+				});
 				expect(event.reason).toBe("translated");
 
 				const localized = yield* pollEntityUntilTranslationStatus(client, movie.id, "ready");

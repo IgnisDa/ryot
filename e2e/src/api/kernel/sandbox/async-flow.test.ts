@@ -1,5 +1,5 @@
 import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import {
 	createAuthenticatedClient,
@@ -52,22 +52,24 @@ const configFixtureSchema = {
 	},
 } as const;
 
-beforeAll(async () => {
-	httpServer = await startFakeHttpServer((url) =>
-		url.pathname === "/sandbox-http-error"
-			? new Response(JSON.stringify({ error: "rate limited" }), {
-					status: 429,
-					headers: { "content-type": "application/json" },
-				})
-			: Response.json({ ok: true, source: "sandbox-test-server" }),
-	);
-	httpServerUrl = `${httpServer.url}/sandbox-http-call`;
-	httpErrorServerUrl = `${httpServer.url}/sandbox-http-error`;
-});
+beforeAll(() =>
+	Effect.runPromise(
+		Effect.gen(function* () {
+			httpServer = yield* startFakeHttpServer((url) =>
+				url.pathname === "/sandbox-http-error"
+					? new Response(JSON.stringify({ error: "rate limited" }), {
+							status: 429,
+							headers: { "content-type": "application/json" },
+						})
+					: Response.json({ ok: true, source: "sandbox-test-server" }),
+			);
+			httpServerUrl = `${httpServer.url}/sandbox-http-call`;
+			httpErrorServerUrl = `${httpServer.url}/sandbox-http-error`;
+		}),
+	),
+);
 
-afterAll(() => {
-	httpServer.stop();
-});
+afterAll(() => httpServer.stop());
 
 describe("sandbox async flow", () => {
 	it.live("completes a script that returns a plain value", () =>
@@ -131,7 +133,9 @@ describe("sandbox async flow", () => {
 			expect(value.success).toBe(true);
 			expect(data.status).toBe(200);
 			expect(
-				JSON.parse(requireString(data.body, "Expected sandbox httpCall body to be a string")),
+				yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(
+					requireString(data.body, "Expected sandbox httpCall body to be a string"),
+				),
 			).toEqual({ ok: true, source: "sandbox-test-server" });
 		}),
 	);
@@ -156,7 +160,12 @@ describe("sandbox async flow", () => {
 			expect(requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId))).toMatchObject({
 				success: false,
 				error: "HTTP 429",
-				data: { status: 429, body: JSON.stringify({ error: "rate limited" }) },
+				data: {
+					status: 429,
+					body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
+						error: "rate limited",
+					}),
+				},
 			});
 		}),
 	);

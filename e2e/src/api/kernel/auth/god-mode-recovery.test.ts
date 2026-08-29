@@ -361,7 +361,7 @@ describe("Reset link generation and completion for credential user", () => {
 			);
 			expect(resetError).toBeNull();
 
-			const refreshed = yield* Effect.promise(() => refreshOAuthTokens(getApiUrl(), refreshToken));
+			const refreshed = yield* refreshOAuthTokens(getApiUrl(), refreshToken);
 			expect(refreshed.status).toBe(400);
 			expect(yield* Effect.promise(() => refreshed.json())).toMatchObject({
 				error: "invalid_grant",

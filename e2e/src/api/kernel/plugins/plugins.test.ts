@@ -2,7 +2,7 @@ import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest
 import { EntityId, EventSchemaSlug, PluginSlug } from "@ryot-app/contract/schema/brands";
 import { entityDefinitionsRecipe } from "@ryot-app/ryotql-recipes/definitions";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import type { Client } from "~/fixtures/kernel";
 import {
@@ -123,7 +123,7 @@ export const manifest = defineManifest({
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
   name: "E2E Lifecycle Event Automation",
-  slug: ${JSON.stringify(automationSlug)},
+  slug: ${yield* Schema.encodeEffect(Schema.fromJsonString(Schema.String))(automationSlug)},
   capabilities: ["createEvents"],
   inputProjection: { event: { properties: ["note"], compareProperties: [] } },
 });
@@ -149,7 +149,7 @@ export default defineAutomation({
     if (typeof note !== "string") return null;
     yield* host.createEvents([{
       entityId: event.entityId,
-      eventSchemaSlug: ${JSON.stringify(resultEventSlug)},
+      eventSchemaSlug: ${yield* Schema.encodeEffect(Schema.fromJsonString(Schema.String))(resultEventSlug)},
       properties: {
         note,
         sourceEventId: event.id,

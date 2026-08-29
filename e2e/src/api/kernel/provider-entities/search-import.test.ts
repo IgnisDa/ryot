@@ -40,8 +40,8 @@ let bookProvider: InstalledTestProvider;
 let animeProvider: InstalledTestProvider;
 let companyProvider: InstalledTestProvider;
 
-beforeAll(async () => {
-	await Effect.runPromise(
+beforeAll(() =>
+	Effect.runPromise(
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			providerClient = client;
@@ -94,18 +94,18 @@ beforeAll(async () => {
 				]),
 			});
 		}),
-	);
-});
+	),
+);
 
-afterAll(async () => {
-	await Effect.runPromise(
+afterAll(() =>
+	Effect.runPromise(
 		Effect.gen(function* () {
 			yield* uninstallTestProvider(animeProvider);
 			yield* uninstallTestProvider(companyProvider);
 			yield* uninstallTestProvider(bookProvider);
 		}),
-	);
-});
+	),
+);
 
 describe("provider entity search result", () => {
 	it.live("returns the result from the configured provider", () =>

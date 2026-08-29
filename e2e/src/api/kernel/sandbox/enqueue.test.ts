@@ -1,5 +1,5 @@
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import {
 	adminHeaders,
@@ -14,15 +14,14 @@ import { findBuiltinSchemaWithProviders } from "~/fixtures/plugins/media";
 import { assertCompleted, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
+import { webRequest } from "~/support/web-request";
 
 const postEnqueue = (body: unknown) =>
-	Effect.promise(() =>
-		fetch(`${getApiUrl()}/test-support/sandbox/enqueue`, {
-			method: "POST",
-			body: JSON.stringify(body),
-			headers: { ...adminHeaders(), "Content-Type": "application/json" },
-		}),
-	);
+	webRequest(`${getApiUrl()}/test-support/sandbox/enqueue`, {
+		method: "POST",
+		headers: { ...adminHeaders(), "Content-Type": "application/json" },
+		body: Schema.encodeSync(Schema.fromJsonString(Schema.Unknown))(body),
+	});
 
 describe("sandbox enqueue by script ID", () => {
 	it.live("returns 404 when the scriptId does not exist", () =>

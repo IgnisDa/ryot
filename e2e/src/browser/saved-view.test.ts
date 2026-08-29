@@ -119,8 +119,8 @@ const openSavedView = (page: Playwright.Page) =>
 		return runtime;
 	});
 
-beforeAll(async () => {
-	const viewSlug = await Effect.runPromise(
+beforeAll(() =>
+	Effect.runPromise(
 		Effect.gen(function* () {
 			const user = yield* createAuthenticatedClient();
 			email = user.email;
@@ -203,15 +203,13 @@ beforeAll(async () => {
 				ENTITY_SCHEMA_SLUG,
 				ownerPluginId,
 			);
-			return (yield* findSavedViewById(client, view.id)).slug;
+			const viewSlug = (yield* findSavedViewById(client, view.id)).slug;
+			viewUrl = `${getFrontendUrl()}/v/${viewSlug}`;
 		}),
-	);
-	viewUrl = `${getFrontendUrl()}/v/${viewSlug}`;
-});
+	),
+);
 
-afterAll(async () => {
-	await Effect.runPromise(uninstallTestProvider(provider));
-});
+afterAll(() => Effect.runPromise(uninstallTestProvider(provider)));
 
 it.live("automatically populates and translates entities rendered by a saved view", () =>
 	Effect.gen(function* () {
