@@ -6,8 +6,11 @@ import { Clock, Effect, Schema } from "effect";
 import {
 	createAuthenticatedClient,
 	deleteUserAndWait,
+	makeSession,
+	signInWithPassword,
 	uninstallTestPlugin,
 } from "~/fixtures/kernel";
+import { requirePresent } from "~/support/assertions";
 
 import {
 	artifactPaths,
@@ -71,6 +74,14 @@ const buildManifest = (input: {
 	},
 });
 
+/** The OAuth access token expires well inside a canonical run, so every repetition signs in again. */
+const refreshedSession = (email: string, password: string) =>
+	Effect.gen(function* () {
+		const signIn = yield* signInWithPassword(email, password);
+		const token = requirePresent(signIn.token, "Benchmark sign-in did not return an access token");
+		return makeSession(undefined, { Authorization: `Bearer ${token}` });
+	});
+
 const driver = (config: DriverConfig) =>
 	Effect.gen(function* () {
 		const paths = artifactPaths(config.outputDirectory);
@@ -81,10 +92,9 @@ const driver = (config: DriverConfig) =>
 			paths.manifestPath,
 			buildManifest({ facts, config, startedAtUtc, completedAtUtc: null }),
 		);
-		const { client, userId } = yield* createAuthenticatedClient();
+		const { email, client, userId, password } = yield* createAuthenticatedClient();
 		const plugin = yield* installBenchmarkWorkloadPlugin({ client, runId: config.runId });
-		const context: ScenarioContext = {
-			client,
+		const baseContext = {
 			userId,
 			config,
 			runId: config.runId,
@@ -106,6 +116,10 @@ const driver = (config: DriverConfig) =>
 						scenarioId: scenario.id,
 					});
 				}
+				const context: ScenarioContext = {
+					...baseContext,
+					client: yield* refreshedSession(email, password),
+				};
 				const { artifact, rawRequests } = yield* runScenarioRepetition(
 					context,
 					scenario,
@@ -123,7 +137,14 @@ const driver = (config: DriverConfig) =>
 				stopped = artifact.outcome === "aborted";
 			}
 		}
-		yield* uninstallTestPlugin(plugin.installed);
+		yield* uninstallTestPlugin({
+			...plugin.installed,
+			client: yield* refreshedSession(email, password),
+		}).pipe(
+			Effect.catchCause((cause) =>
+				Effect.logWarning("sandbox-resource-baseline.plugin-cleanup-failed", cause),
+			),
+		);
 		yield* deleteUserAndWait(userId).pipe(
 			Effect.catchCause((cause) =>
 				Effect.logWarning("sandbox-resource-baseline.user-cleanup-failed", cause),
