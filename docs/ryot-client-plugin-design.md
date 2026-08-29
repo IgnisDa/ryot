@@ -1241,7 +1241,7 @@ The switcher lists every enabled installation in catalog order. Selecting the cu
 
 ### Shell chrome
 
-At `md` and above, a desktop workspace sidebar (~264px, hidden below `md`) is always present. Its shared `SidebarNav` contains a workspace trigger whose subtitle is the workspace view count, a command-center search row, workspace Views, global Saved Views, and Collections; the account/settings footer remains outside the shared body. Below `md`, a mobile header replaces the rail and opens a drawer that renders the same `SidebarNav` and footer, except that the search row omits the keyboard-shortcut chip.
+At `md` and above, a desktop workspace sidebar (~264px, hidden below `md`) is always present. Its shared `SidebarNav` contains a workspace trigger whose subtitle is the workspace view count, a command-center search row, workspace Views, global Saved Views, and Collections; the account/settings footer remains outside the shared body. The desktop trigger advertises and responds to `Mod+Shift+Space` (`Cmd+Shift+Space` on macOS and `Ctrl+Shift+Space` on Windows/Linux), opening the menu with the current workspace focused. The shortcut is desktop-only; below `md`, a mobile header replaces the rail and opens a drawer that renders the same `SidebarNav` and footer without the workspace or search keyboard-shortcut chips. Escape closes an open workspace menu.
 
 The mobile header is a 54px row with `size-11 rounded-pill` controls on a `bg-bg` surface. Its leading control is the menu button or a back chevron, chosen by the §25 edge rule. Its title is the remembered workspace's name, overridden by the plugin-supplied title described in §10 when one is set.
 
