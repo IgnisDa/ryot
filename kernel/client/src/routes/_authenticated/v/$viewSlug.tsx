@@ -19,6 +19,7 @@ import { createFileRoute, notFound, useRouter } from "@tanstack/react-router";
 import clsx from "clsx";
 import { Effect } from "effect";
 import { type ReactNode, useEffect, useEffectEvent, useReducer, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 
 import { collectManagedAssets, ManagedAssetsService } from "#/modules/assets/managed-assets";
 import { AppScreen } from "#/modules/navigation/app-screen";
@@ -205,6 +206,7 @@ function SavedViewContent(props: {
 	);
 	const stateRef = useRef(state);
 	const requestedIdentity = useRef(initialIdentity);
+	const searchTrigger = useRef<HTMLButtonElement>(null);
 	const countRequest = useRef<
 		{ readonly key: string; readonly controller: AbortController } | undefined
 	>(undefined);
@@ -315,12 +317,17 @@ function SavedViewContent(props: {
 		[],
 	);
 
+	const closeSearch = useEffectEvent(() => {
+		flushSync(() => setSearchOpen(false));
+		searchTrigger.current?.focus();
+	});
+
 	useEffect(() => {
 		if (!searchOpen) {
 			return undefined;
 		}
 		return backInterceptors.register(() => {
-			setSearchOpen(false);
+			closeSearch();
 			return true;
 		});
 	}, [backInterceptors, searchOpen]);
@@ -463,10 +470,11 @@ function SavedViewContent(props: {
 		);
 	}
 
-	const searchField = (className: string) => (
+	const searchField = (className: string, autoFocus = false) => (
 		<SearchField
 			shortcut="/"
 			value={searchText}
+			autoFocus={autoFocus}
 			className={className}
 			onChange={setSearchText}
 			label={`Search ${props.record.name}`}
@@ -502,20 +510,17 @@ function SavedViewContent(props: {
 				searchRow={
 					searchOpen ? (
 						<>
-							<ScreenBarButton
-								label="Exit search"
-								className="text-text"
-								onClick={() => setSearchOpen(false)}
-							>
+							<ScreenBarButton label="Exit search" onClick={closeSearch} className="text-text">
 								<AppIcon name="chevron-left" size={22} />
 							</ScreenBarButton>
-							{searchField("h-9.5 flex-1")}
+							{searchField("h-9.5 flex-1", true)}
 						</>
 					) : undefined
 				}
 				barActions={
 					<>
 						<ScreenBarButton
+							ref={searchTrigger}
 							label="Search this view"
 							className="text-text-muted"
 							onClick={() => setSearchOpen(true)}
