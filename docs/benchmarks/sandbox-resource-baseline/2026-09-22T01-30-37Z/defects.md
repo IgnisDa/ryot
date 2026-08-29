@@ -80,7 +80,8 @@ line, or explicitly exclude the invoking shell.
 
 ### 5. Deadlock retry is dead on every Drizzle query failure
 
-**Status:** fixed in `75970d6472`, not present in the image this run measured.
+**Status:** fixed in `75970d6472`, not present in the image this run measured. Verified
+under load by run `2026-09-22T11-45-22Z`; see the verification note at the end of this defect.
 
 Three of 252 live-matrix imports failed with `failureStage: "population"` — `live-c2.1` index 11,
 `live-c5.2` index 10, `live-c3.3` index 0 — each terminating in 196–279 s rather than hanging.
@@ -124,6 +125,69 @@ Two caveats stated rather than resolved: lock ordering is unchanged and `retryOn
 two retries, so three attempts may still not survive 20-way concurrency; and the claim that `rc.116`
 avoided these deadlocks because its stall serialized the imports is inference, not something proven
 against `rc.116` traces.
+
+#### Verification note (run `2026-09-22T11-45-22Z`)
+
+**Verdict: fix verified. No lock-ordering follow-up needed.**
+
+Unit check: `bun --bun run vitest run src/lib/infrastructure/db/service.test.ts` in
+`kernel/backend` passes 7/7 with the fix; with only the `Cause.isCause` branch removed it fails
+exactly the 3 new Drizzle-shape tests (`recovers PostgreSQL metadata…`, `recovers the violated
+constraint…`, `retries a deadlock reported through Drizzle`) while the 4 pre-existing bare-`SqlError`
+tests pass either way. Audit: `retryOnDeadlock` is still `times: 2` (3 attempts) at
+`kernel/backend/src/lib/infrastructure/db/service.ts:60`; all seven callers
+(`provider-entity-population-workflow.ts:228,339`, `population.ts:141`,
+`relationship-population.ts:179`, `relationships/mutation-support.ts:153`,
+`events/service.ts:58`, `events/event-create-workflow-live.ts:70`) still wrap
+`retryOnDeadlock(mapDatabaseErrors(database.transaction(…)))`. Advisory-lock acquisition order is
+unchanged (`lockProviderEntityMutations` and `lockRelationshipMutations` sort keys;
+`lockEntityReferencesByIds` orders by id).
+
+Load evidence, fix image `sha256:3df726ccc208b3ae18bb68cd0fa1fd063d91e158e0d703a9dd1ef7c3844d1605`
+(CI `236b163e1c`, Main run `35720755387`, `linux/amd64`, in-container Bun `1.4.0`, Deno `2.8.1`,
+Effect `4.0.0-rc.117`, `SANDBOX_PROCESS_MODE=on-demand`, `SCHEDULER_DISABLE_DISPATCHERS=true`):
+
+- Hermetic overlap gate (deterministic, local harness, fix code):
+  `RUN_OPERATIONAL_GATES=1 bun --bun run vitest run
+  src/api/plugins/media/imports/media-population-overlap-gate.test.ts` — 1 passed (≈209 s):
+  3× 5-import + 3× 20-import overlapping graphs (shared artists + album), all 75 imports
+  completed, PostgreSQL deadlock counter unchanged.
+- Live matrix on `ryot-benchmark` (same Williams design as the defect run, unmodified harness,
+  `BENCHMARK_REQUEST_TIMEOUT_MS=5400000`): 12/12 repetitions `completed`, 252/252 requests
+  completed (20 imports + 1 warm-up probe each), 0 failed, `failedByStage` empty everywhere, no
+  request over 600 s (max import latency 465.4 s at c1).
+
+| Rep | Reqs | Completed | Failed | 40P01 terminal | Window s | Max latency s |
+| --- | --: | --: | --: | --: | --: | --: |
+| live-c1.1/.2/.3 | 21 | 21 | 0 | 0 | 481.7 / 454.2 / 447.1 | 465.4 / 438.2 / 431.0 |
+| live-c2.1/.2/.3 | 21 | 21 | 0 | 0 | 332.2 / 354.3 / 327.3 | 314.1 / 337.9 / 311.1 |
+| live-c3.1/.2/.3 | 21 | 21 | 0 | 0 | 341.8 / 345.5 / 334.5 | 325.6 / 329.2 / 316.0 |
+| live-c5.1/.2/.3 | 21 | 21 | 0 | 0 | 323.7 / 313.9 / 331.2 | 307.5 / 297.8 / 315.2 |
+
+Trace evidence: the shared collector `traces.json` holds the defect run's 4 deadlock lines
+(`DeadlockError … deadlock detected` in `sync-related-entity-group:2:media-suggestion`, 07:51–09:30
+UTC) alongside 3 017 trace lines starting inside the verification window (12:00:42–14:45:53 UTC),
+of which 0 mention `deadlock` and 0 mention `40P01`. Trace export was therefore healthy and the
+zero is a measured zero, not a sampling gap.
+
+Artifacts: `../2026-09-22T11-45-22Z/manifest.json`, `../2026-09-22T11-45-22Z/summary.json`,
+`../2026-09-22T11-45-22Z/scenarios/live-c{1,2,3,5}.{1,2,3}.json`.
+
+Deviations from the plan: the fix image was deployed by editing the host compose file on the
+server (backup at `docker-compose.yml.pre-p01-verification`); the Coolify service record still
+pins the pre-fix digest, so a Coolify-triggered redeploy reverts until the record is updated. The
+benchmark database was recreated fresh (dropped `postgres` + `ryot_fixture`, flushed Redis):
+the new image crash-looped on the old database (`SchemaEvolutionError` in system-plugin
+ingestion, from co-shipped commits, not from the fix), and live imports require a fresh database
+so prior population does not turn imports into cache hits. The deployed image is CI `236b163e1c`
+(19 commits ahead of origin, not fix-only). The full 12-repetition matrix was run instead of a
+c2/c5-only subset because `run.ts live` has no subset selector; c2 and c5 each have the required
+≥3 repetitions.
+
+Remaining gap (observability, not correctness): no retry counter exists — `retry` appears 0 times
+in every scenario artifact — so a per-rep retry count cannot be reported. The retry path itself is
+proven by the `retries a deadlock reported through Drizzle` unit test; under this load there was
+no deadlock event for it to absorb.
 
 ### 6. Import throughput regressed about 2× against rc.116
 

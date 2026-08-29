@@ -1,0 +1,377 @@
+{
+  "runId": "2026-09-22T11-45-22Z",
+  "startedAtUtc": "2026-09-22T11:45:31.035Z",
+  "schemaVersion": 2,
+  "prNumber": 1832,
+  "branch": "ultra-rewrite",
+  "deviations": [],
+  "completedAtUtc": null,
+  "invocations": [
+    {
+      "command": "provenance",
+      "invocationId": "provenance-85b39361",
+      "startedAtUtc": "2026-09-22T11:45:40.590Z",
+      "scenarioIds": [],
+      "stopReason": null,
+      "completedAtUtc": "2026-09-22T11:45:52.133Z",
+      "outcome": "completed"
+    },
+    {
+      "command": "capture-fixture",
+      "invocationId": "capture-fixture-e7a0c600",
+      "startedAtUtc": "2026-09-22T11:46:19.813Z",
+      "scenarioIds": [],
+      "stopReason": null,
+      "completedAtUtc": "2026-09-22T11:46:39.663Z",
+      "outcome": "completed"
+    },
+    {
+      "command": "preflight",
+      "invocationId": "preflight-c7ea55b6",
+      "startedAtUtc": "2026-09-22T11:46:43.101Z",
+      "scenarioIds": [],
+      "stopReason": null,
+      "completedAtUtc": "2026-09-22T11:57:02.552Z",
+      "outcome": "completed"
+    },
+    {
+      "command": "live",
+      "invocationId": "live-0a3d5a88",
+      "startedAtUtc": "2026-09-22T11:57:16.464Z",
+      "scenarioIds": [],
+      "stopReason": null,
+      "completedAtUtc": "2026-09-22T14:51:05.267Z",
+      "outcome": "completed"
+    },
+    {
+      "command": "teardown",
+      "invocationId": "teardown-01d9706d",
+      "startedAtUtc": "2026-09-22T14:58:02.201Z",
+      "scenarioIds": [],
+      "stopReason": null,
+      "completedAtUtc": "2026-09-22T14:58:06.540Z",
+      "outcome": "completed"
+    }
+  ],
+  "constituentRunIds": [
+    "2026-09-22T11-45-22Z"
+  ],
+  "host": {
+    "kernel": "7.0.0-30-generic",
+    "imageId": "sha256:3df726ccc208b3ae18bb68cd0fa1fd063d91e158e0d703a9dd1ef7c3844d1605",
+    "imageCreated": "2026-09-22T11:20:44.731601567Z",
+    "hostCpuCount": "2",
+    "ryotNanoCpus": "0",
+    "ryotPidsLimit": "<nil>",
+    "hostMemTotalBytes": "4000043008",
+    "ryotMemoryLimitBytes": "0",
+    "otelMemoryLimitBytes": "134217728",
+    "imageSource": "https://github.com/oven-sh/bun"
+  },
+  "teardown": {
+    "processes": "none",
+    "remaining": "app.jsonl host.jsonl ryot-benchmark-host watchdog-drill.jsonl watchdog-triggers.jsonl",
+    "removedSampleFiles": false
+  },
+  "preflight": {
+    "drill": [
+      {
+        "drill": true,
+        "dryRun": true,
+        "reason": "memAvailableLow",
+        "timestampMs": 1790042180196.836,
+        "stopExitCode": null,
+        "kind": "watchdog-trigger",
+        "targetService": "ryot",
+        "targetContainerId": "6085c359a778a00ee69db70f52cca49137fd10606300ab3410fb4b0364a1b44f",
+        "targetContainerName": "ryot-a2dt5g6dbmpwqwllnzsho8jc",
+        "action": "would-stop"
+      },
+      {
+        "drill": true,
+        "dryRun": true,
+        "reason": "memAvailableLow",
+        "timestampMs": 1790077611320.766,
+        "stopExitCode": null,
+        "kind": "watchdog-trigger",
+        "targetService": "ryot",
+        "targetContainerId": "8971eaf54bcc0cc1dbe2c2acd1cbec74a509eb3b73b7e08a6f3c5050c8c2075d",
+        "targetContainerName": "ryot-a2dt5g6dbmpwqwllnzsho8jc",
+        "action": "would-stop"
+      }
+    ],
+    "metadata": {
+      "project": "a2dt5g6dbmpwqwllnzsho8jc",
+      "timestampMs": 1790078220646.9204,
+      "kind": "metadata",
+      "device": "sda",
+      "unresolved": [],
+      "containers": [
+        {
+          "pid": 856675,
+          "role": "ryot",
+          "service": "ryot",
+          "imageId": "sha256:3df726ccc208b3ae18bb68cd0fa1fd063d91e158e0d703a9dd1ef7c3844d1605",
+          "startedAt": "2026-09-22T11:46:27.658507465Z",
+          "restartCount": 0,
+          "oomKilled": false,
+          "cgroupPath": "/sys/fs/cgroup/system.slice/docker-8971eaf54bcc0cc1dbe2c2acd1cbec74a509eb3b73b7e08a6f3c5050c8c2075d.scope",
+          "containerId": "8971eaf54bcc0cc1dbe2c2acd1cbec74a509eb3b73b7e08a6f3c5050c8c2075d",
+          "containerName": "ryot-a2dt5g6dbmpwqwllnzsho8jc",
+          "ipAddress": "172.19.0.3",
+          "imageRepoDigests": [
+            "ghcr.io/ignisda/ryot@sha256:3df726ccc208b3ae18bb68cd0fa1fd063d91e158e0d703a9dd1ef7c3844d1605"
+          ]
+        },
+        {
+          "pid": 33830,
+          "role": "postgres",
+          "service": "ryot-db",
+          "imageId": "sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873",
+          "startedAt": "2026-09-22T01:39:26.748228761Z",
+          "restartCount": 0,
+          "oomKilled": false,
+          "cgroupPath": "/sys/fs/cgroup/system.slice/docker-2ccd8e0befe114876b9db182a6deafe41074a5c8896888077a4d17c0357e267b.scope",
+          "containerId": "2ccd8e0befe114876b9db182a6deafe41074a5c8896888077a4d17c0357e267b",
+          "containerName": "ryot-db-a2dt5g6dbmpwqwllnzsho8jc",
+          "ipAddress": "172.19.0.4",
+          "imageRepoDigests": [
+            "postgres@sha256:77f585114c32fbca283dc835b0596f4e52b51b4c6662d7810b2f4084f60a1873"
+          ]
+        },
+        {
+          "pid": 33659,
+          "role": "redis",
+          "service": "ryot-redis",
+          "imageId": "sha256:ba6e394f6acc2a695ef1b6944f161b9ca813711739be68319fa0db3470673f1d",
+          "startedAt": "2026-09-22T01:39:26.276132321Z",
+          "restartCount": 0,
+          "oomKilled": false,
+          "cgroupPath": "/sys/fs/cgroup/system.slice/docker-c635446c7afef95a31645e7d8f004e6c0210190289583bd60e6c7b690e15fc43.scope",
+          "containerId": "c635446c7afef95a31645e7d8f004e6c0210190289583bd60e6c7b690e15fc43",
+          "containerName": "ryot-redis-a2dt5g6dbmpwqwllnzsho8jc",
+          "ipAddress": "172.19.0.2",
+          "imageRepoDigests": [
+            "redis@sha256:ba6e394f6acc2a695ef1b6944f161b9ca813711739be68319fa0db3470673f1d"
+          ]
+        },
+        {
+          "pid": 33920,
+          "role": "otel",
+          "service": "otel-collector",
+          "imageId": "sha256:4935caa35e9a4cb387e35732e8fb22b2b5759af8d12e7043357f03837f6e8df5",
+          "startedAt": "2026-09-22T01:39:27.096298301Z",
+          "restartCount": 0,
+          "oomKilled": false,
+          "cgroupPath": "/sys/fs/cgroup/system.slice/docker-cef3e8a5f9f0b338442ee2fa7ac2dadc1d0c3dc4af449d71413b4e775cf59fd7.scope",
+          "containerId": "cef3e8a5f9f0b338442ee2fa7ac2dadc1d0c3dc4af449d71413b4e775cf59fd7",
+          "containerName": "otel-collector-a2dt5g6dbmpwqwllnzsho8jc",
+          "ipAddress": "172.19.0.5",
+          "imageRepoDigests": [
+            "otel/opentelemetry-collector-contrib@sha256:4935caa35e9a4cb387e35732e8fb22b2b5759af8d12e7043357f03837f6e8df5"
+          ]
+        }
+      ],
+      "reason": "manual"
+    },
+    "otlpAfter": {
+      "/var/lib/docker/volumes/a2dt5g6dbmpwqwllnzsho8jc_otel-output/_data/logs.json": 133621,
+      "/var/lib/docker/volumes/a2dt5g6dbmpwqwllnzsho8jc_otel-output/_data/metrics.json": 61858568,
+      "/var/lib/docker/volumes/a2dt5g6dbmpwqwllnzsho8jc_otel-output/_data/traces.json": 3816707747
+    },
+    "otlpBefore": {
+      "/var/lib/docker/volumes/a2dt5g6dbmpwqwllnzsho8jc_otel-output/_data/logs.json": 133621,
+      "/var/lib/docker/volumes/a2dt5g6dbmpwqwllnzsho8jc_otel-output/_data/metrics.json": 61503128,
+      "/var/lib/docker/volumes/a2dt5g6dbmpwqwllnzsho8jc_otel-output/_data/traces.json": 3806752627
+    },
+    "hostGate": {
+      "gate": {
+        "p50MinMs": 900,
+        "p50MaxMs": 1100,
+        "p95MaxMs": 1250,
+        "maxIntervalMs": 2000,
+        "maxMissedSlotRatio": 0.01
+      },
+      "statistics": {
+        "missedSlots": 0,
+        "scheduledSlots": 607,
+        "requestedIntervalMs": 1000,
+        "sampleCount": 607,
+        "intervalMs": {
+          "max": 1004.56396484375,
+          "p50": 999.99658203125,
+          "p95": 1001.52783203125
+        },
+        "longestGapMs": 1004.56396484375,
+        "requestDurationMs": {
+          "max": 38.16559000313282,
+          "p50": 3.856960006058216,
+          "p95": 8.447928994894028
+        },
+        "missedSlotRatio": 0
+      },
+      "violations": [],
+      "passed": true
+    },
+    "applicationGate": {
+      "gate": {
+        "p50MinMs": 0,
+        "p50MaxMs": 300,
+        "p95MaxMs": 500,
+        "maxIntervalMs": 2000,
+        "maxMissedSlotRatio": 0.01
+      },
+      "statistics": {
+        "missedSlots": 0,
+        "scheduledSlots": 3027,
+        "requestedIntervalMs": 200,
+        "sampleCount": 3027,
+        "intervalMs": {
+          "max": 259.893798828125,
+          "p50": 199.999267578125,
+          "p95": 201.2841796875
+        },
+        "longestGapMs": 259.893798828125,
+        "requestDurationMs": {
+          "max": 55.23463999480009,
+          "p50": 5.678991995751858,
+          "p95": 25.354749999940395
+        },
+        "missedSlotRatio": 0
+      },
+      "violations": [],
+      "passed": true
+    },
+    "undecodableHostLines": 0,
+    "applicationSampleFailures": 0
+  },
+  "watchdogDrill": {
+    "drill": true,
+    "dryRun": true,
+    "reason": "memAvailableLow",
+    "timestampMs": 1790042180196.836,
+    "stopExitCode": null,
+    "kind": "watchdog-trigger",
+    "targetService": "ryot",
+    "targetContainerId": "6085c359a778a00ee69db70f52cca49137fd10606300ab3410fb4b0364a1b44f",
+    "targetContainerName": "ryot-a2dt5g6dbmpwqwllnzsho8jc",
+    "action": "would-stop"
+  },
+  "counterbalancedOrders": {
+    "live": [
+      [
+        1,
+        2,
+        5,
+        3
+      ],
+      [
+        2,
+        3,
+        1,
+        5
+      ],
+      [
+        3,
+        5,
+        2,
+        1
+      ]
+    ],
+    "hermetic": [
+      [
+        1,
+        2,
+        5,
+        3
+      ],
+      [
+        2,
+        3,
+        1,
+        5
+      ],
+      [
+        3,
+        5,
+        2,
+        1
+      ],
+      [
+        5,
+        1,
+        3,
+        2
+      ],
+      [
+        3,
+        5,
+        2,
+        1
+      ]
+    ]
+  },
+  "retentionTolerance": {
+    "postGcGrowthRatio": 0.1,
+    "slopeBytesPerThousandOperations": 104857600
+  },
+  "runtime": {
+    "bunVersion": "1.4.0",
+    "denoVersion": "2.8.1",
+    "effectVersion": "4.0.0-rc.117"
+  },
+  "commits": {
+    "ciTrigger": "236b163e1cddd0c9ac523d9449f593fbb5f92167",
+    "implementation": "236b163e1cddd0c9ac523d9449f593fbb5f92167",
+    "workflowRunUrl": "https://github.com/IgnisDa/ryot/actions/runs/35720755387"
+  },
+  "profiles": {
+    "rawDeleted": null,
+    "verifiedAtUtc": null,
+    "remainingRawEntries": null
+  },
+  "image": {
+    "tag": "ghcr.io/ignisda/ryot@sha256:3df726ccc208b3ae18bb68cd0fa1fd063d91e158e0d703a9dd1ef7c3844d1605",
+    "digest": "sha256:3df726ccc208b3ae18bb68cd0fa1fd063d91e158e0d703a9dd1ef7c3844d1605",
+    "ociRevision": "34cbb9a40b4bd1bd767d134a7065e66c2432a676",
+    "architecture": "linux/amd64"
+  },
+  "deployment": {
+    "otelCollectorImage": "otel/opentelemetry-collector-contrib:0.155.0",
+    "redactedComposeSha256": "ae591600158664f68139780ceb53b281f8151c697c1190e7912592e5269beb52",
+    "resourceSettings": {
+      "kernel": "7.0.0-30-generic",
+      "imageId": "sha256:3df726ccc208b3ae18bb68cd0fa1fd063d91e158e0d703a9dd1ef7c3844d1605",
+      "imageCreated": "2026-09-22T11:20:44.731601567Z",
+      "hostCpuCount": "2",
+      "ryotNanoCpus": "0",
+      "ryotPidsLimit": "<nil>",
+      "hostMemTotalBytes": "4000043008",
+      "ryotMemoryLimitBytes": "0",
+      "otelMemoryLimitBytes": "134217728",
+      "imageSource": "https://github.com/oven-sh/bun",
+      "processMode": "on-demand",
+      "workerConcurrency": "1",
+      "benchmarkProfilingEnabled": "true",
+      "schedulerDispatchersDisabled": "true"
+    }
+  },
+  "sampling": {
+    "hostIntervalMs": 1000,
+    "applicationIntervalMs": 200,
+    "hostGate": {
+      "p50MinMs": 900,
+      "p50MaxMs": 1100,
+      "p95MaxMs": 1250,
+      "maxIntervalMs": 2000,
+      "maxMissedSlotRatio": 0.01
+    },
+    "applicationGate": {
+      "p50MinMs": 0,
+      "p50MaxMs": 300,
+      "p95MaxMs": 500,
+      "maxIntervalMs": 2000,
+      "maxMissedSlotRatio": 0.01
+    }
+  }
+}
