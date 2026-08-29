@@ -80,6 +80,12 @@ export const REQUIRED_THEME_TOKEN_NAMES = [
 	"accent-soft",
 	"accent-text",
 	"text-subtle",
+	"gold",
+	"overlay",
+	"nav-border",
+	"nav-surface",
+	"accent-deep",
+	"sheet-divider",
 	"success-soft",
 	"accent-border",
 	"border-strong",
@@ -201,6 +207,21 @@ export const PluginBridgeNavigate = strictStruct({
 });
 
 export type PluginBridgeNavigate = Schema.Schema.Type<typeof PluginBridgeNavigate>;
+
+export const PLUGIN_HEADER_TITLE_MAX = 120;
+
+export const PluginHeaderContent = strictStruct({
+	title: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(PLUGIN_HEADER_TITLE_MAX))),
+});
+
+export type PluginHeaderContent = Schema.Schema.Type<typeof PluginHeaderContent>;
+
+export const PluginBridgeHeader = strictStruct({
+	header: PluginHeaderContent,
+	type: Schema.Literal("header"),
+});
+
+export type PluginBridgeHeader = Schema.Schema.Type<typeof PluginBridgeHeader>;
 
 export const PluginBridgeTheme = strictStruct({
 	generation: Schema.Int,
@@ -343,6 +364,7 @@ export const PluginBridgeRyotQLResult = Schema.Union([
 export type PluginBridgeRyotQLResult = Schema.Schema.Type<typeof PluginBridgeRyotQLResult>;
 
 export const PluginBridgeClientMessage = Schema.Union([
+	PluginBridgeHeader,
 	PluginBridgeNavigate,
 	PluginBridgeThemeApplied,
 	PluginBridgeRyotQLCancel,

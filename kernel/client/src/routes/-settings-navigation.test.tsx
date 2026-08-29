@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { AuthenticatedApi } from "#/api/authenticated";
 import { PublicApi, PublicApiError } from "#/api/public";
 import type { AuthService } from "#/modules/auth/service";
+import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { ArtifactSessions } from "#/modules/plugins/artifact-sessions";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
@@ -65,7 +66,10 @@ const mountView = (
 		),
 	);
 	const initialEntries = typeof initialEntry === "string" ? [initialEntry] : initialEntry;
-	const router = getRouter({ runtime, theme }, createMemoryHistory({ initialEntries }));
+	const router = getRouter(
+		{ runtime, theme, backInterceptors: createBackInterceptors() },
+		createMemoryHistory({ initialEntries }),
+	);
 	const view = render(<RouterProvider router={router} />);
 	return { ...view, router };
 };
