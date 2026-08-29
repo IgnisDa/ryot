@@ -72,7 +72,7 @@ export type PluginArchiveCompiledScript = {
 };
 
 export type PluginArchivePackage = {
-	readonly manifest: typeof PluginManifest.Type;
+	readonly manifest: PluginManifest;
 	readonly files: Readonly<Record<string, Uint8Array>>;
 	readonly compiledScripts: ReadonlyArray<PluginArchiveCompiledScript>;
 	readonly compiledClient?: PluginClientArtifactType;
@@ -90,7 +90,7 @@ const compiledClientFilePrefix = "compiled-client/files/";
 const PluginArchiveCompiledScriptMetadataEntry = strictStruct({
 	hash: Schema.String,
 	entry: Schema.String,
-	format: Schema.Number,
+	format: Schema.Finite,
 });
 
 const PluginArchiveCompiledScriptsMetadata = strictStruct({
@@ -287,7 +287,7 @@ const validateCompiledClientFile = (name: string, contentType: string) => {
 const validateCompiledClientArtifact = (value: PluginClientArtifactType) => {
 	let artifact: PluginClientArtifactType;
 	try {
-		artifact = Schema.decodeUnknownSync(PluginClientArtifact)(value);
+		artifact = Schema.decodeSync(PluginClientArtifact)(value);
 	} catch {
 		throw failure("compiled-client-invalid");
 	}
@@ -675,7 +675,7 @@ class PluginArchiveReader {
 		let manifest: PluginArchivePackage["manifest"];
 		try {
 			const text = decoder.decode(concat(manifestEntry.chunks, manifestEntry.bytes));
-			manifest = Schema.decodeUnknownSync(Schema.fromJsonString(PluginManifest))(text);
+			manifest = Schema.decodeSync(Schema.fromJsonString(PluginManifest))(text);
 		} catch {
 			throw failure("manifest-invalid");
 		}
@@ -741,9 +741,9 @@ class PluginArchiveReader {
 
 		let metadata: typeof PluginArchiveCompiledScriptsMetadata.Type;
 		try {
-			metadata = Schema.decodeUnknownSync(
-				Schema.fromJsonString(PluginArchiveCompiledScriptsMetadata),
-			)(decoder.decode(concat(metadataEntry.chunks, metadataEntry.bytes)));
+			metadata = Schema.decodeSync(Schema.fromJsonString(PluginArchiveCompiledScriptsMetadata))(
+				decoder.decode(concat(metadataEntry.chunks, metadataEntry.bytes)),
+			);
 		} catch {
 			throw failure("compiled-script-invalid");
 		}
@@ -808,9 +808,9 @@ class PluginArchiveReader {
 		}
 		let metadata: typeof PluginClientArtifactArchiveMetadata.Type;
 		try {
-			metadata = Schema.decodeUnknownSync(
-				Schema.fromJsonString(PluginClientArtifactArchiveMetadata),
-			)(decoder.decode(concat(metadataEntry.chunks, metadataEntry.bytes)));
+			metadata = Schema.decodeSync(Schema.fromJsonString(PluginClientArtifactArchiveMetadata))(
+				decoder.decode(concat(metadataEntry.chunks, metadataEntry.bytes)),
+			);
 		} catch {
 			throw failure("compiled-client-invalid");
 		}
@@ -829,7 +829,7 @@ class PluginArchiveReader {
 			return { name, contents, contentType };
 		});
 		try {
-			return Schema.decodeUnknownSync(PluginClientArtifact)({ ...metadata, files });
+			return Schema.decodeSync(PluginClientArtifact)({ ...metadata, files });
 		} catch {
 			throw failure("compiled-client-invalid");
 		}

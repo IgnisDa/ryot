@@ -501,7 +501,7 @@ describe("plugin archive", () => {
 			// oxlint-disable-next-line effecttsgo/async-function
 			async *[Symbol.asyncIterator]() {
 				yield rawManifest;
-				throw new Error("transport closed");
+				await Promise.reject(new Error("transport closed"));
 			},
 		};
 		return Effect.runPromise(
