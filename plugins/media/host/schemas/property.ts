@@ -15,6 +15,22 @@ import { watchProviderOffers } from "../../shared/watch-provider";
 const booleanField = (label: string, description: string) =>
 	({ label, description, type: "boolean" }) as const;
 
+const required = <Field extends AppPropertyDefinition>(field: Field) => ({
+	...field,
+	validation: { required: true as const },
+});
+
+const objectItems = <Properties extends Record<string, AppPropertyDefinition>>(
+	properties: Properties,
+) =>
+	({
+		properties,
+		label: "Item",
+		type: "object",
+		description: "Item",
+		unknownKeys: "strict",
+	}) as const;
+
 const mediaImagesField = (description: string) =>
 	({
 		description,
@@ -25,13 +41,12 @@ const mediaImagesField = (description: string) =>
 			...managedAssetItemSchema,
 			properties: {
 				...managedAssetItemSchema.properties,
-				purpose: {
+				purpose: required({
 					type: "enum",
 					label: "Purpose",
 					description: "Purpose",
-					validation: { required: true },
 					choices: { kind: "static", values: mediaImagePurposes.map((value) => ({ value })) },
-				},
+				}),
 			},
 		},
 	}) satisfies AppPropertyDefinition;
@@ -41,51 +56,26 @@ const watchProvidersField = (description: string) =>
 		description,
 		type: "array",
 		label: "Watch Providers",
-		items: {
-			label: "Item",
-			type: "object",
-			description: "Item",
-			unknownKeys: "strict",
-			properties: {
-				link: { label: "Link", type: "string", description: "Where to see every offer here" },
-				country: {
-					type: "string",
-					label: "Country",
-					validation: { required: true },
-					description: "ISO 3166-1 alpha-2 country code",
-				},
-				providers: {
-					type: "array",
-					label: "Providers",
-					description: "Services carrying the title in this country",
-					items: {
-						label: "Item",
-						type: "object",
-						description: "Item",
-						unknownKeys: "strict",
-						properties: {
-							image: { type: "string", label: "Image", description: "Provider logo image URL" },
-							name: {
-								label: "Name",
-								type: "string",
-								description: "Name",
-								validation: { required: true },
-							},
-							offers: {
-								label: "Offers",
-								type: "enum-array",
-								validation: { minItems: 1 },
-								description: "How the title is offered here",
-								choices: {
-									kind: "static",
-									values: watchProviderOffers.map((value) => ({ value })),
-								},
-							},
-						},
+		items: objectItems({
+			link: stringField("Link", "Where to see every offer here"),
+			country: required(stringField("Country", "ISO 3166-1 alpha-2 country code")),
+			providers: {
+				type: "array",
+				label: "Providers",
+				description: "Services carrying the title in this country",
+				items: objectItems({
+					name: required(stringField("Name", "Name")),
+					image: stringField("Image", "Provider logo image URL"),
+					offers: {
+						label: "Offers",
+						type: "enum-array",
+						validation: { minItems: 1 },
+						description: "How the title is offered here",
+						choices: { kind: "static", values: watchProviderOffers.map((value) => ({ value })) },
 					},
-				},
+				}),
 			},
-		},
+		}),
 	}) satisfies AppPropertyDefinition;
 
 const mediaBaseFields = {
@@ -108,16 +98,10 @@ const mediaBaseFields = {
 	),
 };
 
-const unlinkedCreatorItemSchema: AppPropertyDefinition = {
-	label: "Item",
-	type: "object",
-	description: "Item",
-	unknownKeys: "strict",
-	properties: {
-		name: { label: "Name", type: "string", description: "Name", validation: { required: true } },
-		role: { label: "Role", type: "string", description: "Role", validation: { required: true } },
-	},
-};
+const unlinkedCreatorItemSchema = objectItems({
+	name: required(stringField("Name", "Name")),
+	role: required(stringField("Role", "Role")),
+});
 
 const mediaWithCreatorsBaseFields = {
 	...mediaBaseFields,
@@ -149,67 +133,34 @@ export const showPropertiesSchema: AppSchema = {
 			type: "array",
 			label: "Episode Orders",
 			description: "Alternative episode orders, each listing episode external ids by group",
-			items: {
-				label: "Item",
-				type: "object",
-				description: "Item",
-				unknownKeys: "strict",
-				properties: {
-					description: { type: "string", label: "Description", description: "Description" },
-					name: {
-						label: "Name",
-						type: "string",
-						description: "Name",
-						validation: { required: true },
-					},
-					externalId: {
-						type: "string",
-						label: "External Id",
-						validation: { required: true },
-						description: "Provider external id of this episode order",
-					},
-					type: {
-						type: "enum",
-						label: "Type",
-						validation: { required: true },
-						description: "Kind of order the provider reports",
-						choices: { kind: "static", values: showEpisodeOrderTypes.map((value) => ({ value })) },
-					},
-					groups: {
-						type: "array",
-						label: "Groups",
-						validation: { required: true },
-						description: "Groups of this order, sorted by position",
-						items: {
-							label: "Item",
-							type: "object",
-							description: "Item",
-							unknownKeys: "strict",
-							properties: {
-								name: {
-									label: "Name",
-									type: "string",
-									description: "Name",
-									validation: { required: true },
-								},
-								order: {
-									label: "Order",
-									type: "integer",
-									validation: { required: true },
-									description: "Position of this group within the order",
-								},
-								episodeExternalIds: {
-									...stringArrayField(
-										"Episode External Ids",
-										"Provider external ids of this group's episodes, in order",
-									),
-									validation: { required: true },
-								},
-							},
-						},
-					},
-				},
-			},
+			items: objectItems({
+				name: required(stringField("Name", "Name")),
+				description: stringField("Description", "Description"),
+				externalId: required(
+					stringField("External Id", "Provider external id of this episode order"),
+				),
+				type: required({
+					type: "enum",
+					label: "Type",
+					description: "Kind of order the provider reports",
+					choices: { kind: "static", values: showEpisodeOrderTypes.map((value) => ({ value })) },
+				}),
+				groups: required({
+					type: "array",
+					label: "Groups",
+					description: "Groups of this order, sorted by position",
+					items: objectItems({
+						name: required(stringField("Name", "Name")),
+						order: required(integerField("Order", "Position of this group within the order")),
+						episodeExternalIds: required(
+							stringArrayField(
+								"Episode External Ids",
+								"Provider external ids of this group's episodes, in order",
+							),
+						),
+					}),
+				}),
+			}),
 		},
 	},
 };
@@ -285,26 +236,10 @@ export const animePropertiesSchema: AppSchema = {
 			type: "array",
 			label: "Airing Schedule",
 			description: "Upcoming episode airing schedule",
-			items: {
-				label: "Item",
-				type: "object",
-				description: "Item",
-				unknownKeys: "strict",
-				properties: {
-					episode: {
-						type: "integer",
-						label: "Episode",
-						description: "Episode",
-						validation: { required: true },
-					},
-					airingAt: {
-						type: "datetime",
-						label: "Airing At",
-						description: "Airing At",
-						validation: { required: true },
-					},
-				},
-			},
+			items: objectItems({
+				episode: required(integerField("Episode", "Episode")),
+				airingAt: required({ type: "datetime", label: "Airing At", description: "Airing At" }),
+			}),
 		},
 	},
 };
@@ -386,6 +321,16 @@ export const videoGamePropertiesSchema: AppSchema = {
 	fields: {
 		...mediaBaseFields,
 		images: mediaImagesField("Cover and promotional images for this video game"),
+		platformReleases: {
+			type: "array",
+			label: "Platform Releases",
+			description: "Platform-specific release information",
+			items: objectItems({
+				name: required(stringField("Name", "Name")),
+				releaseDate: stringField("Release Date", "Release Date"),
+				releaseRegion: stringField("Release Region", "Release Region"),
+			}),
+		},
 		timeToBeat: {
 			type: "object",
 			label: "Time To Beat",
@@ -395,27 +340,6 @@ export const videoGamePropertiesSchema: AppSchema = {
 				hastily: { type: "integer", label: "Hastily", description: "Hastily" },
 				normally: { type: "integer", label: "Normally", description: "Normally" },
 				completely: { type: "integer", label: "Completely", description: "Completely" },
-			},
-		},
-		platformReleases: {
-			type: "array",
-			label: "Platform Releases",
-			description: "Platform-specific release information",
-			items: {
-				label: "Item",
-				type: "object",
-				description: "Item",
-				unknownKeys: "strict",
-				properties: {
-					releaseDate: { type: "string", label: "Release Date", description: "Release Date" },
-					releaseRegion: { type: "string", label: "Release Region", description: "Release Region" },
-					name: {
-						label: "Name",
-						type: "string",
-						description: "Name",
-						validation: { required: true },
-					},
-				},
 			},
 		},
 	},
