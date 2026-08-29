@@ -41,7 +41,7 @@ const decodeIdTokenNonce = (token: string) => {
 };
 
 const storedTokenSet = (
-	response: typeof OAuthTokenResponse.Type,
+	response: OAuthTokenResponse,
 	clientId: OAuthClientId,
 	current?: StoredTokenSet,
 ): StoredTokenSet => {
@@ -93,7 +93,7 @@ const makeTokenService = (
 		Effect.gen(function* () {
 			const current = yield* fromStorage(storage.getTokenSet(canonical));
 			if (!current) {
-				return yield* Effect.fail(new OAuthTokenError({ reason: "missing-authorization" }));
+				return yield* new OAuthTokenError({ reason: "missing-authorization" });
 			}
 			const response = yield* postOAuthForm(
 				fetcher,
@@ -114,9 +114,7 @@ const makeTokenService = (
 						cause.code === "invalid_grant"
 							? Effect.gen(function* () {
 									yield* fromStorage(storage.removeTokenSet(canonical));
-									return yield* Effect.fail(
-										new OAuthTokenError({ cause, reason: "invalid-grant" }),
-									);
+									return yield* new OAuthTokenError({ cause, reason: "invalid-grant" });
 								})
 							: Effect.fail(requestFailed(cause)),
 				}),
@@ -173,7 +171,7 @@ const makeTokenService = (
 		}
 		const response = first.status === 401 ? yield* request(true) : first;
 		if (response === null || !response.ok) {
-			return yield* Effect.fail(new OAuthTokenError({ reason: "request-failed" }));
+			return yield* new OAuthTokenError({ reason: "request-failed" });
 		}
 		const payload = yield* Effect.tryPromise({
 			catch: requestFailed,
@@ -184,7 +182,7 @@ const makeTokenService = (
 		);
 		const stored = yield* fromStorage(storage.getTokenSet(origin));
 		if (!stored) {
-			return yield* Effect.fail(new OAuthTokenError({ reason: "missing-authorization" }));
+			return yield* new OAuthTokenError({ reason: "missing-authorization" });
 		}
 		const accessClass: AccessClass =
 			stored.clientId === OAUTH_DEMO_WEB_CLIENT_ID ? "demo" : "standard";
@@ -200,7 +198,7 @@ const makeTokenService = (
 	) {
 		const pending = yield* storage.getPending(origin, state);
 		if (!pending) {
-			return yield* Effect.fail(new OAuthTokenError({ reason: "missing-authorization" }));
+			return yield* new OAuthTokenError({ reason: "missing-authorization" });
 		}
 		const terminalFailure = (error: OAuthTokenError) =>
 			storage.removePending(origin, state).pipe(Effect.andThen(Effect.fail(error)));
@@ -252,9 +250,9 @@ const makeTokenService = (
 		state: string,
 	) {
 		const pending = yield* fromStorage(storage.takePending(origin, state));
-		return yield* Effect.fail(
-			new OAuthTokenError({ reason: pending ? "authorization-rejected" : "missing-authorization" }),
-		);
+		return yield* new OAuthTokenError({
+			reason: pending ? "authorization-rejected" : "missing-authorization",
+		});
 	});
 
 	const logout = Effect.fn("OAuthTokenService.logout")(function* (
@@ -308,10 +306,7 @@ const makeTokenService = (
 		completeAuthorization,
 		clear: (origin) =>
 			Effect.all(
-				[
-					storage.removeTokenSet(origin).pipe(Effect.catch(() => Effect.void)),
-					storage.clearPending(origin),
-				],
+				[storage.removeTokenSet(origin).pipe(Effect.ignore), storage.clearPending(origin)],
 				{ discard: true },
 			),
 	};

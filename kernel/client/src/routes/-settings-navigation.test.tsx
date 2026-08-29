@@ -531,7 +531,7 @@ describe("account settings", () => {
 
 	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("disables the avatar action while it is pending", async () => {
-		const gate = Effect.runSync(Deferred.make<void>());
+		const gate = Deferred.makeUnsafe<void>();
 		mountView(
 			"/settings/account",
 			undefined,
@@ -596,7 +596,7 @@ describe("account settings", () => {
 
 	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("disables sign out while it is pending and navigates to /auth on success", async () => {
-		const gate = Effect.runSync(Deferred.make<boolean>());
+		const gate = Deferred.makeUnsafe<boolean>();
 		const view = mountView(
 			"/settings/account",
 			undefined,
@@ -788,7 +788,7 @@ describe("preferences settings", () => {
 
 	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("disables preference controls while a save is pending", async () => {
-		const gate = Effect.runSync(Deferred.make<void>());
+		const gate = Deferred.makeUnsafe<void>();
 		mountPreferences(makeUserSettingsStub({ updatePreferences: () => Deferred.await(gate) }));
 		await screen.findByRole("button", { name: "Save changes" });
 		fireEvent.click(screen.getByRole("switch", { name: "Show NSFW content" }));

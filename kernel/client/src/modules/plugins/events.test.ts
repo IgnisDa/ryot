@@ -96,15 +96,10 @@ const makeRuntime = (
 
 const waitUntil = (predicate: () => boolean, message: string) =>
 	Effect.runPromise(
-		Effect.gen(function* () {
-			for (let attempts = 0; attempts <= 500; attempts++) {
-				if (predicate()) {
-					return;
-				}
-				yield* Effect.sleep("2 millis");
-			}
-			return yield* Effect.die(message);
-		}),
+		Effect.suspend(() => (predicate() ? Effect.void : Effect.fail(message))).pipe(
+			Effect.retry({ times: 500, schedule: Schedule.spaced("2 millis") }),
+			Effect.orDie,
+		),
 	);
 
 describe("plugin catalog events service", () => {

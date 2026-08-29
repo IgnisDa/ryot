@@ -76,12 +76,13 @@ const request = <A>(operation: () => Promise<AuthResponse<A>>, fallback: string)
 		),
 	);
 
-const signInDemo = () => requestDemoSignIn(globalThis.fetch, window.location.origin);
-
 export class HostedAuthService extends Context.Service<HostedAuthService>()("HostedAuthService", {
 	make: Effect.sync(() => {
 		let hosted: ReturnType<typeof makeHostedClient> | undefined;
 		const client = () => (hosted ??= makeHostedClient());
+		const signInDemo = Effect.suspend(() =>
+			requestDemoSignIn(globalThis.fetch, window.location.origin),
+		);
 		const submitCredentials = Effect.fn("HostedAuthService.submitCredentials")(function* (input: {
 			readonly mode: "login" | "signup";
 			readonly values: CredentialsValues;
@@ -113,15 +114,14 @@ export class HostedAuthService extends Context.Service<HostedAuthService>()("Hos
 						: client().twoFactor.verifyTotp({ code }),
 				"Could not verify that code.",
 			).pipe(Effect.asVoid);
-		const signInWithOidc = () =>
-			request(
-				() =>
-					client().signIn.social({
-						provider: "oidc",
-						callbackURL: `${window.location.origin}/oauth/login`,
-					}),
-				"Could not open the identity provider.",
-			).pipe(Effect.asVoid);
+		const signInWithOidc = request(
+			() =>
+				client().signIn.social({
+					provider: "oidc",
+					callbackURL: `${window.location.origin}/oauth/login`,
+				}),
+			"Could not open the identity provider.",
+		).pipe(Effect.asVoid);
 		const resetPassword = (server: ServerOrigin, token: string, newPassword: string) =>
 			request(
 				() => makeHostedClient(server).resetPassword({ token, newPassword }),

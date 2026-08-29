@@ -72,7 +72,7 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 				runtime.runPromise(
 					Effect.flatMap(ClientStorage, (storage) =>
 						storage.getRememberedProvider(scope, schemaSlug),
-					).pipe(Effect.catch(() => Effect.succeed(null))),
+					),
 				),
 				runOutcome(
 					Effect.flatMap(ProviderAddService, (service) =>

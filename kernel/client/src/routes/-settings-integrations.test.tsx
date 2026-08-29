@@ -591,7 +591,7 @@ describe("integration detail", () => {
 		mountView(
 			"/settings/integrations/int_1",
 			makeIntegrationsApi(),
-			makeIntegrationQueries({ detail: () => Effect.succeed(undefined) }),
+			makeIntegrationQueries({ detail: () => Effect.undefined }),
 		);
 
 		await screen.findByText("Integration not found");

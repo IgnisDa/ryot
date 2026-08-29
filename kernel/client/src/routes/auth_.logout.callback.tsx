@@ -17,7 +17,7 @@ export const Route = createFileRoute("/auth_/logout/callback")({
 					? yield* Effect.flatMap(ServerService, (service) => service.selected)
 					: decodeServerOrigin(window.location.origin);
 				if (runtimeClient.isNative) {
-					yield* Effect.tryPromise(() => Browser.close()).pipe(Effect.catch(() => Effect.void));
+					yield* Effect.tryPromise(() => Browser.close()).pipe(Effect.ignore);
 				}
 				if (selected) {
 					yield* Effect.flatMap(OAuthTokenService, (tokens) => tokens.clear(selected));

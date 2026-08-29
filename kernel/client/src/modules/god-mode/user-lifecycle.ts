@@ -15,7 +15,7 @@ class UserLifecycleOperationPending {
 	readonly _tag = "UserLifecycleOperationPending";
 }
 
-export type GodModeUserLifecycleOperation = typeof UserLifecycleOperation.Type;
+export type GodModeUserLifecycleOperation = UserLifecycleOperation;
 
 export type GodModeUserResetResult = NonNullable<GodModeUserLifecycleOperation["resetResult"]>;
 

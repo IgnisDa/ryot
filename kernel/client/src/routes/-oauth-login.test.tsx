@@ -54,10 +54,9 @@ const mountLogin = (config: ReturnType<typeof systemConfig>) => {
 	const oauth = makeOAuthRouteStubs(
 		{},
 		{
-			signInWithOidc: () =>
-				Effect.sync(() => {
-					authCalls += 1;
-				}),
+			signInWithOidc: Effect.sync(() => {
+				authCalls += 1;
+			}),
 		},
 	);
 	const runtime = ManagedRuntime.make(
