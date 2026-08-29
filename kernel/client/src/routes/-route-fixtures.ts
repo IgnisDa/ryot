@@ -83,6 +83,7 @@ export const makeOAuthRouteStubs = (
 ) =>
 	Layer.mergeAll(
 		Layer.succeed(HostedAuthService, {
+			resetPassword: () => Effect.void,
 			signInWithOidc: () => Effect.void,
 			verifyTwoFactor: () => Effect.void,
 			submitCredentials: () => Effect.succeed({ _tag: "Authenticated" } as const),
