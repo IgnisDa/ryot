@@ -243,9 +243,9 @@ export const createPluginRuntime = (
 				return;
 			}
 			Match.value(decoded.success).pipe(
-				Match.when({ type: "location" }, ({ edgeBack, index, key, location }) => {
+				Match.when({ type: "location" }, ({ compact, edgeBack, index, key, location }) => {
 					hasLocation = true;
-					navigationStore.setEdgeBack(edgeBack);
+					navigationStore.setEdge({ compact, edgeBack });
 					navigationStore.setEntry({ index, key, location });
 					activate();
 				}),
