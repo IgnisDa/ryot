@@ -1,7 +1,18 @@
 import { Result, Schema } from "effect";
 
-export const strictStruct = <Fields extends Schema.Struct.Fields>(fields: Fields) =>
-	Schema.Struct(fields).annotate({ parseOptions: { onExcessProperty: "error" as const } });
+const excessProperty = Schema.Never.annotate({ identifier: "no excess property" });
+
+export const strictStruct = <Fields extends Schema.Struct.Fields>(
+	fields: Fields,
+): Schema.Struct<Fields> => {
+	const declared = new Set(Object.keys(fields));
+	const struct = Schema.Struct(fields);
+	const excessKey = Schema.String.check(
+		Schema.makeFilter((key: string) => (declared.has(key) ? "declared property" : undefined)),
+	);
+	const strict = Schema.StructWithRest(struct, [Schema.Record(excessKey, excessProperty)]);
+	return struct.rebuild(strict.ast);
+};
 
 export const IsoUtcString = Schema.String.pipe(
 	Schema.check(
