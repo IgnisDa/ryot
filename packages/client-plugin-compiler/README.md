@@ -5,6 +5,9 @@ artifact into the plugin archive. Server assembly builds the shared iframe runti
 modules with the same compiler. The running server imports these artifacts and composes page documents
 without invoking a compiler.
 
+`compileClientPluginModule` and `buildClientRuntime` require `FileSystem` and `ViteBuildService`;
+callers provide `clientPluginCompilerPlatformLayer` at their entrypoint.
+
 ## Source And Import Policy
 
 Validated archive-relative `client/**` and `shared/**` files are staged under the workspace source

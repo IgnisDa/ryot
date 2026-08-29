@@ -1,9 +1,10 @@
 import { BunServices } from "@effect/platform-bun";
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import type { AuthoredPluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { sandboxCompilerPlatformLayer } from "@ryot-app/sandbox-compiler/platform";
 import { derivePluginSandboxScripts } from "@ryot-app/sandbox-compiler/plugin-manifest";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
-import { Effect, FileSystem, Path, Schema, Stream } from "effect";
+import { Effect, FileSystem, Layer, Path, Schema, Stream } from "effect";
 import { ChildProcess } from "effect/unstable/process";
 
 import { loadPluginSource, PluginSourceError } from "#modules/plugins/source.test-support";
@@ -155,4 +156,4 @@ export const verifyPluginSandboxScriptsLoad = (
 				{ discard: true, concurrency: 5 },
 			);
 		}),
-	).pipe(Effect.provide(BunServices.layer));
+	).pipe(Effect.provide(Layer.merge(BunServices.layer, sandboxCompilerPlatformLayer)));
