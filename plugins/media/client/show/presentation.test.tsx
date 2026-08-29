@@ -4,7 +4,7 @@ import { createTestRyotClock } from "@ryot-app/client-sdk/testing";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { showPresentationRecipe } from "../../shared/show-recipes";
-import { mountRyotClient } from "../../tests/client/show/test-support";
+import { mountRyotClient } from "../../tests/client/test-support";
 import {
 	loadShowPresentations,
 	ShowCardContent,
