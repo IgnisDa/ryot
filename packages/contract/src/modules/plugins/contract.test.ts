@@ -1,6 +1,7 @@
-import { Result, Schema } from "effect";
+import { Context, Result, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
+import { LogRouteTemplate } from "../../http-annotations";
 import { UserId } from "../../schema/brands";
 import {
 	decodePluginCatalogInvalidatedMessage,
@@ -23,7 +24,7 @@ describe("PluginArtifactSessionsGroup", () => {
 
 		expect(endpoint.method).toBe("GET");
 		expect(endpoint.path).toBe("/plugin-artifact-sessions/:token/:fileName");
-		expect(endpoint.middlewares.size).toBe(0);
+		expect(Context.get(endpoint.annotations, LogRouteTemplate)).toBe(true);
 		expect(endpoint.success.size).toBe(1);
 	});
 
