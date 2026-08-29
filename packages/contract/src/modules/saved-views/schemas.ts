@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import { ClientRendererId, EntitySchemaSlug, PluginSlug, SavedViewId } from "../../schema/brands";
+import { EntitySchemaSlug, PluginSlug, SavedViewId } from "../../schema/brands";
 import { strictStruct } from "../../schema/utils";
 import { JsonValue, OutputFieldKey, RyotQLDocument } from "../ryotql/language";
 import { AssetLocator } from "../uploads/schemas";
@@ -78,7 +78,6 @@ export const AuthoredSavedViewRenderer = Schema.Union([
 export type AuthoredSavedViewRenderer = typeof AuthoredSavedViewRenderer.Type;
 
 export const SavedViewRenderer = Schema.Union([
-	strictStruct({ rendererId: ClientRendererId, kind: Schema.Literal("custom") }),
 	strictStruct({ kind: Schema.Literal("kernel"), name: KernelSavedViewRendererName }),
 	strictStruct({
 		pluginId: Schema.String,

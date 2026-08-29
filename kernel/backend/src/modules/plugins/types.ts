@@ -1,4 +1,6 @@
+import type { PluginClientArtifact } from "@ryot-app/client-plugin-contract";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import type { PluginArchiveCompiledScript } from "@ryot-app/plugin-archive";
 import type { PluginScriptMetadata } from "@ryot-app/sandbox-compiler/plugin-manifest";
 
 export type { PluginScriptMetadata };
@@ -6,6 +8,8 @@ export type { PluginScriptMetadata };
 export type PluginSource = {
 	readonly manifest: unknown;
 	readonly files: Readonly<Record<string, Uint8Array>>;
+	readonly compiledScripts?: ReadonlyArray<PluginArchiveCompiledScript>;
+	readonly compiledClient?: PluginClientArtifact;
 };
 
 export type PluginScriptDescriptor = {
@@ -31,6 +35,7 @@ export type PluginRevision = {
 export type NormalizedPlugin = Omit<PluginRevision, "scripts"> & {
 	readonly files: Readonly<Record<string, Uint8Array>>;
 	readonly scripts: ReadonlyArray<NormalizedPluginScript>;
+	readonly compiledClient?: PluginClientArtifact;
 };
 
 export type PluginPersistenceIdentity =

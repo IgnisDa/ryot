@@ -7,7 +7,7 @@ import {
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { UploadBadRequest } from "@ryot-app/contract/modules/uploads/schemas";
-import { ClientRendererId, SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
+import { SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
 import { writePluginArchive } from "@ryot-app/plugin-archive";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Cause, Context, Effect, Exit, Layer, Option, Stream } from "effect";
@@ -16,7 +16,6 @@ import { Database } from "#lib/infrastructure/db/service";
 import { databaseLayer } from "#lib/test-utils/effect";
 import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
-import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 import { UploadIntentsService } from "#modules/uploads/intents/service";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
@@ -45,6 +44,16 @@ class LoadedSystemPlugins extends Context.Service<
 
 const userId = UserId.make("user-1");
 const bytes = (value: string) => new TextEncoder().encode(value);
+const compiledScriptsFor = (
+	manifest: PluginManifest,
+	files: Readonly<Record<string, Uint8Array>>,
+) =>
+	manifest.scripts.map(({ entry }) => ({
+		entry,
+		format: 1,
+		javascript: "export {};",
+		source: files[entry] ? new TextDecoder("utf-8", { fatal: true }).decode(files[entry]) : "",
+	}));
 type HomeSavedView = Effect.Success<
 	ReturnType<PluginInstallationRepository["Service"]["lockHomeSavedView"]>
 >;
@@ -280,7 +289,6 @@ const makeLayer = (input?: {
 				),
 			),
 	});
-	const clientCompilerLayer = Layer.mock(ClientPluginCompiler)({});
 	const objectStorageLayer = Layer.mock(ObjectStorageService)({
 		openObject: () =>
 			input?.openUploadFails
@@ -299,7 +307,6 @@ const makeLayer = (input?: {
 				workflowReferenceLayer,
 				uploadIntentsLayer,
 				objectStorageLayer,
-				clientCompilerLayer,
 				lifecycleDispatcherLayer,
 				definitionMaterializerLayer,
 			),
@@ -452,7 +459,7 @@ it.effect("checks update ownership before claiming the upload", () => {
 	}).pipe(Effect.provide(makeLayer({ claimedUploads })));
 });
 
-it.effect("rejects an oversized package before compiling it", () => {
+it.effect("rejects an oversized package before persistence", () => {
 	const files = Object.fromEntries(
 		Array.from({ length: PLUGIN_PACKAGE_LIMITS.fileCount + 1 }, (_unused, index) => [
 			`scripts/file-${index}.ts`,
@@ -462,7 +469,13 @@ it.effect("rejects an oversized package before compiling it", () => {
 	return Effect.gen(function* () {
 		const service = yield* PluginInstallationService;
 		const exit = yield* Effect.exit(
-			service.installPrivatePlugin({ files, userId, config: {}, manifest: privateManifest() }),
+			service.installPrivatePlugin({
+				files,
+				userId,
+				config: {},
+				compiledScripts: [],
+				manifest: privateManifest(),
+			}),
 		);
 		const failure = failureOf(exit);
 		assert(failure instanceof PluginRequestError);
@@ -475,30 +488,33 @@ it.effect("rejects only the private manifest surfaces that cannot carry user sub
 		const service = yield* PluginInstallationService;
 		const fixture = fixtureManifest();
 		const script = requireFixtureScript();
+		const manifest = privateManifest({
+			hooks: fixture.hooks,
+			userBootstrap: [userBootstrapEntry],
+			entitySchemas: fixture.entitySchemas,
+			signalSchemas: fixture.signalSchemas,
+			scripts: [...fixture.scripts, bootstrapScript],
+			relationshipSchemas: fixture.relationshipSchemas,
+			httpRateLimits: [
+				{ requests: 1, key: "outbound", intervalMs: 1_000, origins: ["https://example.com"] },
+			],
+			crons: [
+				{
+					slug: "hourly",
+					description: "Hourly",
+					scriptSlug: script.slug,
+					schedule: { cron: "0 * * * *" },
+				},
+			],
+		});
+		const files = Object.fromEntries(manifest.scripts.map(({ entry }) => [entry, bytes("source")]));
 		const exit = yield* Effect.exit(
 			service.installPrivatePlugin({
+				files,
 				userId,
-				files: {},
+				manifest,
 				config: {},
-				manifest: privateManifest({
-					hooks: fixture.hooks,
-					userBootstrap: [userBootstrapEntry],
-					entitySchemas: fixture.entitySchemas,
-					signalSchemas: fixture.signalSchemas,
-					scripts: [...fixture.scripts, bootstrapScript],
-					relationshipSchemas: fixture.relationshipSchemas,
-					httpRateLimits: [
-						{ requests: 1, key: "outbound", intervalMs: 1_000, origins: ["https://example.com"] },
-					],
-					crons: [
-						{
-							slug: "hourly",
-							description: "Hourly",
-							scriptSlug: script.slug,
-							schedule: { cron: "0 * * * *" },
-						},
-					],
-				}),
+				compiledScripts: compiledScriptsFor(manifest, files),
 			}),
 		);
 		const failure = failureOf(exit);
@@ -519,6 +535,7 @@ it.effect("reserves slugs owned by active system plugins", () =>
 				userId,
 				files: {},
 				config: {},
+				compiledScripts: [],
 				manifest: privateManifest({ metadata: { ...privateManifest().metadata, slug: "example" } }),
 			}),
 		);
@@ -546,7 +563,15 @@ it.effect("rejects persistence when a system slug appears after install preparat
 	return Effect.gen(function* () {
 		const service = yield* PluginInstallationService;
 		const failure = failureOf(
-			yield* Effect.exit(service.installPrivatePlugin({ userId, manifest, files: {}, config: {} })),
+			yield* Effect.exit(
+				service.installPrivatePlugin({
+					userId,
+					manifest,
+					files: {},
+					config: {},
+					compiledScripts: [],
+				}),
+			),
 		);
 		assert(failure instanceof PluginRequestError);
 		expect(failure.reason).toEqual({ code: "slug-reserved", pluginSlug: manifest.metadata.slug });
@@ -587,6 +612,7 @@ it.effect("applies config defaults and persists validated config", () => {
 		const installed = yield* service.installPrivatePlugin({
 			userId,
 			files: {},
+			compiledScripts: [],
 			manifest: configuredManifest,
 			config: { token: "secret-value" },
 		});
@@ -608,7 +634,13 @@ it.effect("rejects config missing a required value before persisting", () => {
 	return Effect.gen(function* () {
 		const service = yield* PluginInstallationService;
 		const exit = yield* Effect.exit(
-			service.installPrivatePlugin({ userId, files: {}, config: {}, manifest: configuredManifest }),
+			service.installPrivatePlugin({
+				userId,
+				files: {},
+				config: {},
+				compiledScripts: [],
+				manifest: configuredManifest,
+			}),
 		);
 		const failure = failureOf(exit);
 		assert(failure instanceof PluginRequestError);
@@ -622,7 +654,13 @@ it.effect("refuses a second private plugin with the same slug", () => {
 	return Effect.gen(function* () {
 		const service = yield* PluginInstallationService;
 		const exit = yield* Effect.exit(
-			service.installPrivatePlugin({ userId, files: {}, config: {}, manifest: privateManifest() }),
+			service.installPrivatePlugin({
+				userId,
+				files: {},
+				config: {},
+				compiledScripts: [],
+				manifest: privateManifest(),
+			}),
 		);
 		const failure = failureOf(exit);
 		assert(failure instanceof PluginConflictError);
@@ -641,24 +679,7 @@ it.effect("sets and clears a usable home view without requiring workspace placem
 	const homeTargets = new Map<string, NonNullable<HomeSavedView>>([
 		[
 			savedViewId,
-			{
-				view: {
-					isDisabled: false,
-					renderer: { kind: "custom", rendererId: ClientRendererId.make("renderer-1") },
-				},
-				renderer: {
-					userId,
-					publishedRevision: 1,
-					publishedHash: "published-hash",
-					publishedDefinition: {
-						files: [],
-						entry: "client.tsx",
-						pluginDependencies: [],
-						settingsSchema: { fields: {} },
-						automaticEntityPresentations: false,
-					},
-				},
-			},
+			{ view: { isDisabled: false, renderer: { kind: "kernel", name: "entity-browser" } } },
 		],
 	]);
 	return Effect.gen(function* () {
@@ -723,7 +744,6 @@ it.effect("accepts a home view backed by an advertised plugin page", () => {
 					[
 						savedViewId,
 						{
-							renderer: null,
 							view: {
 								isDisabled: false,
 								renderer: { kind: "plugin", exportName: "summary", pluginId: privatePlugin.id },
@@ -746,18 +766,14 @@ it.effect("rejects missing, disabled, and unusable home views", () => {
 	const homeTargets = new Map<string, NonNullable<HomeSavedView>>([
 		[
 			disabledId,
-			{
-				renderer: null,
-				view: { isDisabled: true, renderer: { kind: "kernel", name: "entity-browser" } },
-			},
+			{ view: { isDisabled: true, renderer: { kind: "kernel", name: "entity-browser" } } },
 		],
 		[
 			unavailableId,
 			{
-				renderer: null,
 				view: {
 					isDisabled: false,
-					renderer: { kind: "custom", rendererId: ClientRendererId.make("unpublished") },
+					renderer: { kind: "plugin", exportName: "missing", pluginId: privatePlugin.id },
 				},
 			},
 		],
@@ -833,6 +849,7 @@ it.effect("rejects an update when the installation write affects no row", () => 
 			service.updatePrivatePlugin({
 				userId,
 				files: {},
+				compiledScripts: [],
 				manifest: privateManifest(),
 				pluginSlug: privatePlugin.slug,
 			}),
@@ -1173,6 +1190,9 @@ it.effect("updates source while retaining plugin, installation, and omitted secr
 			config: { region: "ca" },
 			pluginSlug: privatePlugin.slug,
 			files: { [operationScript.entry]: bytes(operationScriptSource) },
+			compiledScripts: compiledScriptsFor(nextManifest, {
+				[operationScript.entry]: bytes(operationScriptSource),
+			}),
 		});
 
 		expect(persisted).toHaveLength(1);
@@ -1214,6 +1234,7 @@ it.effect("fails a package update when generated views cannot be materialized", 
 				service.updatePrivatePlugin({
 					userId,
 					files: {},
+					compiledScripts: [],
 					manifest: configuredManifest,
 					pluginSlug: privatePlugin.slug,
 				}),
@@ -1268,6 +1289,7 @@ it.effect("rejects changed identity but activates an upgrade needing configurati
 				service.updatePrivatePlugin({
 					userId,
 					files: {},
+					compiledScripts: [],
 					pluginSlug: privatePlugin.slug,
 					manifest: {
 						...configuredManifest,
@@ -1285,6 +1307,7 @@ it.effect("rejects changed identity but activates an upgrade needing configurati
 		const invalidConfig = yield* service.updatePrivatePlugin({
 			userId,
 			files: {},
+			compiledScripts: [],
 			manifest: nextManifest,
 			pluginSlug: privatePlugin.slug,
 		});
@@ -1379,6 +1402,7 @@ it.effect("rejects package updates for system and foreign plugins", () => {
 					service.updatePrivatePlugin({
 						userId,
 						files: {},
+						compiledScripts: [],
 						pluginSlug: systemPlugin.slug,
 						manifest: systemPlugin.manifest,
 					}),
@@ -1394,6 +1418,7 @@ it.effect("rejects package updates for system and foreign plugins", () => {
 					service.updatePrivatePlugin({
 						userId,
 						files: {},
+						compiledScripts: [],
 						pluginSlug: "foreign",
 						manifest: configuredManifest,
 					}),
@@ -1408,25 +1433,28 @@ it.effect("rejects package updates for system and foreign plugins", () => {
 
 it.effect("rejects an operation referencing an undeclared script slug", () => {
 	const created: Array<Record<string, unknown>> = [];
+	const manifest = privateManifest({
+		scripts: [operationScript],
+		operations: [
+			{
+				auth: "user",
+				slug: "run.fixture",
+				demoAccess: "allowed",
+				description: "Run fixture",
+				scriptSlug: "does-not-exist",
+			},
+		],
+	});
+	const files = { [operationScript.entry]: bytes(operationScriptSource) };
 	return Effect.gen(function* () {
 		const service = yield* PluginInstallationService;
 		const exit = yield* Effect.exit(
 			service.installPrivatePlugin({
+				files,
 				userId,
+				manifest,
 				config: {},
-				files: { [operationScript.entry]: bytes(operationScriptSource) },
-				manifest: privateManifest({
-					scripts: [operationScript],
-					operations: [
-						{
-							auth: "user",
-							slug: "run.fixture",
-							demoAccess: "allowed",
-							description: "Run fixture",
-							scriptSlug: "does-not-exist",
-						},
-					],
-				}),
+				compiledScripts: compiledScriptsFor(manifest, files),
 			}),
 		);
 		const failure = failureOf(exit);
@@ -1436,7 +1464,7 @@ it.effect("rejects an operation referencing an undeclared script slug", () => {
 	}).pipe(Effect.provide(makeLayer({ created })));
 });
 
-it.effect("rejects duplicate operation slugs before compiling the package", () => {
+it.effect("rejects duplicate operation slugs before persistence", () => {
 	const created: Array<Record<string, unknown>> = [];
 	const operation = {
 		slug: "run.fixture",
@@ -1445,17 +1473,20 @@ it.effect("rejects duplicate operation slugs before compiling the package", () =
 		demoAccess: "allowed" as const,
 		scriptSlug: operationScript.slug,
 	};
+	const manifest = privateManifest({
+		scripts: [operationScript],
+		operations: [operation, operation],
+	});
+	const files = { [operationScript.entry]: bytes(operationScriptSource) };
 	return Effect.gen(function* () {
 		const service = yield* PluginInstallationService;
 		const exit = yield* Effect.exit(
 			service.installPrivatePlugin({
+				files,
 				userId,
+				manifest,
 				config: {},
-				files: { [operationScript.entry]: bytes(operationScriptSource) },
-				manifest: privateManifest({
-					scripts: [operationScript],
-					operations: [operation, operation],
-				}),
+				compiledScripts: compiledScriptsFor(manifest, files),
 			}),
 		);
 		const failure = failureOf(exit);
@@ -1480,6 +1511,8 @@ const operationManifest = privateManifest({
 		},
 	],
 });
+const operationFiles = { [operationScript.entry]: bytes(operationScriptSource) };
+const operationCompiledScripts = compiledScriptsFor(operationManifest, operationFiles);
 
 it.effect(
 	"installs a private package in installing health and dispatches its lifecycle once",
@@ -1491,8 +1524,9 @@ it.effect(
 			const installed = yield* service.installPrivatePlugin({
 				userId,
 				config: {},
+				files: operationFiles,
 				manifest: operationManifest,
-				files: { [operationScript.entry]: bytes(operationScriptSource) },
+				compiledScripts: operationCompiledScripts,
 			});
 			expect(installed).toEqual({
 				pluginId: "private-fixture-plugin-id",
@@ -1513,8 +1547,9 @@ it.effect("marks the installation failed when its lifecycle cannot be dispatched
 		const installed = yield* service.installPrivatePlugin({
 			userId,
 			config: {},
+			files: operationFiles,
 			manifest: operationManifest,
-			files: { [operationScript.entry]: bytes(operationScriptSource) },
+			compiledScripts: operationCompiledScripts,
 		});
 		expect(dispatched).toHaveLength(1);
 		expect(healthUpdates).toEqual([
@@ -1540,15 +1575,17 @@ it.effect("rejects user bootstrap for a private package update", () => {
 		userBootstrap: [userBootstrapEntry],
 		metadata: { ...privateManifest().metadata, version: "2.0.0" },
 	});
+	const files = { [bootstrapScript.entry]: bytes(bootstrapScriptSource) };
 	return Effect.gen(function* () {
 		const service = yield* PluginInstallationService;
 		const failure = failureOf(
 			yield* Effect.exit(
 				service.updatePrivatePlugin({
+					files,
 					userId,
 					manifest: nextManifest,
 					pluginSlug: privatePlugin.slug,
-					files: { [bootstrapScript.entry]: bytes(bootstrapScriptSource) },
+					compiledScripts: compiledScriptsFor(nextManifest, files),
 				}),
 			),
 		);
@@ -1830,6 +1867,7 @@ it.effect("clears incompatible health when a private package update succeeds", (
 		const result = yield* service.updatePrivatePlugin({
 			userId,
 			files: {},
+			compiledScripts: [],
 			pluginSlug: privatePlugin.slug,
 			manifest: privateManifest({ metadata: { ...privateManifest().metadata, version: "2.0.0" } }),
 		});

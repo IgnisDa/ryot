@@ -75,6 +75,7 @@ import { BackupsRepository } from "#modules/backups/runs/repository";
 import { BackupsService } from "#modules/backups/service";
 import { ClientPageBuildService } from "#modules/client-pages/build-service";
 import { ClientPageArtifactGrantService } from "#modules/client-pages/grant-service";
+import { ImageClientArtifacts } from "#modules/client-pages/image-artifacts";
 import { ClientPagesRepository } from "#modules/client-pages/repository";
 import { ClientPagesService } from "#modules/client-pages/service";
 import {
@@ -131,7 +132,6 @@ import {
 	PluginInvalidationSubscriber,
 } from "#modules/plugins/catalog-events";
 import { publishAfterCatalogMaterialization } from "#modules/plugins/catalog-materialization";
-import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 import { ClientSurfaceMaterializer } from "#modules/plugins/client-surface-materializer";
 import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
 import { PluginHttpRateLimitAuthority } from "#modules/plugins/http-rate-limit-authority";
@@ -266,7 +266,7 @@ const PluginRevisionActivationLive = IntegrationPluginRevisionActivationLive.pip
 );
 const ClientPageBuildServiceLive = ClientPageBuildService.layer.pipe(
 	Layer.provide(
-		Layer.mergeAll(ClientPagesRepository.layer, PluginRepository.layer, ClientPluginCompiler.layer),
+		Layer.mergeAll(ClientPagesRepository.layer, PluginRepository.layer, ImageClientArtifacts.layer),
 	),
 );
 const ClientPageArtifactGrantServiceLive = ClientPageArtifactGrantService.layer.pipe(
@@ -445,7 +445,6 @@ const PluginIngestionServiceLive = Layer.provide(
 		PluginRevisionActivationLive,
 		PluginRepository.layer,
 		DefinitionRepository.layer,
-		ClientPluginCompiler.layer,
 		SystemPlugins.layer,
 		MaterializingPluginCatalogInvalidatorLive,
 	),
@@ -471,9 +470,7 @@ const BackupAccountCleanlinessLive = BackupAccountCleanliness.layer.pipe(
 );
 const BackupServicesLive = Layer.mergeAll(
 	BackupRestoreWriter.layer,
-	PluginBackupRestore.layer.pipe(
-		Layer.provide(Layer.mergeAll(PluginIngestionLockLive, ClientPluginCompiler.layer)),
-	),
+	PluginBackupRestore.layer.pipe(Layer.provide(PluginIngestionLockLive)),
 	BackupExportSnapshotLive,
 	BackupAccountCleanlinessLive,
 	BackupsService.layer.pipe(Layer.provide([BackupAccountCleanlinessLive, UploadServicesLive])),
@@ -484,7 +481,6 @@ const pluginInstallationServiceDependencies = Layer.mergeAll(
 	ObjectStorageServiceLive,
 	PluginRepository.layer,
 	PluginIngestionLockLive,
-	ClientPluginCompiler.layer,
 	PluginDefinitionMaterializerLive,
 	PluginInstallationRepository.layer,
 	SandboxWorkflowReferenceRepository.layer,

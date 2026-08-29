@@ -1,10 +1,9 @@
-import { compilePluginSandboxSourceEntries } from "@ryot-app/sandbox-compiler/plugins";
+import type { PluginArchiveCompiledScript } from "@ryot-app/plugin-archive";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
-import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
-import { kernelScriptSources } from "#modules/definition-registry/kernel-scripts.generated";
+import { kernelScriptCompiledOutputs } from "#modules/definition-registry/kernel-scripts.compiled.generated";
 import { kernelDefinitionSource, kernelScripts } from "#modules/definition-registry/kernel-source";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 
@@ -29,39 +28,40 @@ export class SystemPluginBootstrap extends Context.Service<SystemPluginBootstrap
 			const installations = yield* PluginInstallationService;
 			const scriptGarbageCollector = yield* ScriptGarbageCollector;
 			const surfaces = yield* ClientSurfaceMaterializer;
-			const compileKernelScripts = Effect.fn("SystemPluginBootstrap.compileKernelScripts")(
-				function* () {
-					const outputs = yield* compilePluginSandboxSourceEntries(
-						kernelScriptSources,
-						kernelScripts,
+			const loadKernelScripts = Effect.fn("SystemPluginBootstrap.loadKernelScripts")(function* () {
+				const declaredScripts: ReadonlyArray<(typeof kernelScripts)[number]> = kernelScripts;
+				const outputs = new Map<string, PluginArchiveCompiledScript>(
+					(kernelScriptCompiledOutputs satisfies ReadonlyArray<PluginArchiveCompiledScript>).map(
+						(output: PluginArchiveCompiledScript) => [output.entry, output],
+					),
+				);
+				if (
+					outputs.size !== kernelScriptCompiledOutputs.length ||
+					outputs.size !== declaredScripts.length
+				) {
+					return yield* Effect.die(
+						new Error("Generated kernel compiled scripts do not match declarations"),
 					);
-					return yield* Effect.forEach(kernelScripts, (script) =>
-						Effect.gen(function* () {
-							const output = outputs.find(({ entry }) => entry === script.entry);
-							if (!output) {
-								return yield* Effect.die(
-									new Error(`Compiler returned no output for ${script.entry}`),
-								);
-							}
-							const { entry: _entry, ...declaredMetadata } = script;
-							if (stableStringify(declaredMetadata) !== stableStringify(output.compiled.manifest)) {
-								return yield* Effect.die(
-									new Error(`Declared kernel script metadata does not match ${script.entry}`),
-								);
-							}
-							return {
-								slug: script.slug,
-								name: script.name,
-								source: output.source,
-								metadata: declaredMetadata,
-								compiledFormat: output.compiled.format,
-								compiledCode: output.compiled.javascript,
-								contentHash: digest(output.compiled.javascript),
-							};
-						}),
-					);
-				},
-			);
+				}
+				return yield* Effect.forEach(declaredScripts, (script) => {
+					const output = outputs.get(script.entry);
+					if (!output) {
+						return Effect.die(
+							new Error(`Generated kernel script output is missing ${script.entry}`),
+						);
+					}
+					const { entry: _entry, ...metadata } = script;
+					return Effect.succeed({
+						metadata,
+						slug: script.slug,
+						name: script.name,
+						source: output.source,
+						compiledFormat: output.format,
+						compiledCode: output.javascript,
+						contentHash: digest(output.javascript),
+					});
+				});
+			});
 			const inTransaction = <A, E>(effect: Effect.Effect<A, E, Database>) =>
 				mapDatabaseErrors(
 					database.transaction((transaction) =>
@@ -73,7 +73,7 @@ export class SystemPluginBootstrap extends Context.Service<SystemPluginBootstrap
 
 			const ingest = Effect.fn("SystemPluginBootstrap.ingest")(function* () {
 				yield* repository.validateConfigurationKeys();
-				const compiledScripts = yield* compileKernelScripts();
+				const compiledScripts = yield* loadKernelScripts();
 				yield* inTransaction(
 					Effect.gen(function* () {
 						yield* Effect.forEach(

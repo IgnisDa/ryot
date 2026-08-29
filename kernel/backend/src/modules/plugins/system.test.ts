@@ -4,8 +4,9 @@ import type { Path } from "effect";
 import { Effect, FileSystem } from "effect";
 import { assert, expect, it } from "vitest";
 
+import { loadPluginSource } from "./source.test-support";
 import { discoverSystemPlugins } from "./system";
-import { fixtureManifest } from "./test-support";
+import { fixtureManifest, fixturePackageRoot } from "./test-support";
 
 const withRoot = <A, E>(
 	run: (root: string) => Effect.Effect<A, E, FileSystem.FileSystem | Path.Path>,
@@ -20,17 +21,24 @@ const withRoot = <A, E>(
 
 const writeArchive = Effect.fn("writeArchive")(function* (root: string, slug: string) {
 	const fs = yield* FileSystem.FileSystem;
+	const base = fixtureManifest();
 	const manifest = {
-		...fixtureManifest(),
-		metadata: { ...fixtureManifest().metadata, slug, name: slug },
+		...base,
+		metadata: { ...base.metadata, slug, name: slug },
+		client: {
+			homeView: null,
+			apiVersion: 1 as const,
+			exports: {
+				card: {
+					entry: "client/index.ts",
+					kind: "component" as const,
+					automaticEntityPresentations: false,
+				},
+			},
+		},
 	};
-	yield* fs.writeFile(
-		`${root}/${slug}.zip`,
-		writePluginArchive({
-			manifest,
-			files: { "backend/source.ts": new TextEncoder().encode("export const source = true;\n") },
-		}),
-	);
+	const source = yield* loadPluginSource(fixturePackageRoot(), manifest);
+	yield* fs.writeFile(`${root}/${slug}.zip`, writePluginArchive({ ...source, manifest }));
 });
 
 it("discovers valid archives in sorted filename order", () =>
@@ -42,7 +50,17 @@ it("discovers valid archives in sorted filename order", () =>
 				const sources = yield* discoverSystemPlugins(root);
 
 				expect(sources.map(({ manifest }) => manifest.metadata.slug)).toEqual(["alpha", "zeta"]);
-				expect(Object.keys(sources[0]?.files ?? {})).toEqual(["backend/source.ts"]);
+				expect(Object.keys(sources[0]?.files ?? {})).toEqual([
+					"backend/automations/fixture.sandbox.ts",
+					"backend/bootstrap/user-bootstrap.sandbox.ts",
+					"backend/providers/fixture/provider/details.sandbox.ts",
+					"backend/providers/fixture/provider/search.sandbox.ts",
+					"client/index.ts",
+				]);
+				expect(sources[0]?.compiledScripts.map(({ entry }) => entry)).toEqual([
+					"backend/automations/fixture.sandbox.ts",
+				]);
+				expect(sources[0]?.compiledClient?.hash).toMatch(/^[a-f0-9]{64}$/);
 			}),
 		),
 	));

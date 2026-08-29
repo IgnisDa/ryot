@@ -1,12 +1,11 @@
 import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import type { ListedSavedView } from "@ryot-app/contract/modules/saved-views/schemas";
-import { ClientRendererId, SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
+import { SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
 import { column, document, field, rows, table } from "@ryot-app/ryotql";
 import { Effect, Layer } from "effect";
 
 import { databaseLayer, type MockOverrides } from "#lib/test-utils/effect";
-import { ClientPagesRepository } from "#modules/client-pages/repository";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { PluginCatalogInvalidator } from "#modules/plugins/catalog-events";
 import { ClientSurfaceMaterializer } from "#modules/plugins/client-surface-materializer";
@@ -70,7 +69,6 @@ const makeLayer = (
 	> = [],
 	onMaterializeRenderer?: () => void,
 	onInvalidate?: () => void,
-	clientPageRepository: Layer.Layer<ClientPagesRepository> = ClientPagesRepository.layer,
 ) =>
 	SavedViewsService.layer.pipe(
 		Layer.provideMerge(
@@ -78,7 +76,6 @@ const makeLayer = (
 				databaseLayer,
 				repository,
 				installations,
-				clientPageRepository,
 				Layer.succeed(PluginCatalogInvalidator, {
 					all: Effect.void,
 					user: () => Effect.sync(() => onInvalidate?.()),
@@ -210,61 +207,6 @@ it.effect("clones renderer settings and data sources without copying source code
 	);
 });
 
-it.effect("reports an unpublished renderer before attempting to materialize its saved view", () => {
-	const rendererId = ClientRendererId.make("unpublished-renderer");
-	const renderer = {
-		id: rendererId,
-		userId: user.id,
-		draftRevision: 1,
-		publishedHash: null,
-		createdAt: new Date(0),
-		updatedAt: new Date(0),
-		publishedRevision: null,
-		publishedDefinition: null,
-		slug: "unpublished-renderer",
-		name: "Unpublished renderer",
-		draftDefinition: {
-			files: [],
-			pluginDependencies: [],
-			entry: "client/page.tsx",
-			settingsSchema: { fields: {} },
-			automaticEntityPresentations: false,
-		},
-	} satisfies NonNullable<
-		Effect.Success<ReturnType<ClientPagesRepository["Service"]["lockRenderer"]>>
-	>;
-	let materializations = 0;
-	return Effect.gen(function* () {
-		const error = yield* Effect.flip(
-			(yield* SavedViewsService).create(user, {
-				settings: {},
-				icon: "record",
-				dataSources: null,
-				name: "Unpublished view",
-				renderer: { rendererId, kind: "custom" },
-			}),
-		);
-		expect(error).toMatchObject({
-			_tag: "SavedViewBadRequest",
-			reason: { code: "renderer-unpublished" },
-		});
-		expect(materializations).toBe(0);
-	}).pipe(
-		Effect.provide(
-			makeLayer(
-				makeRepository({ findBySlug: () => Effect.succeed(null) }),
-				undefined,
-				[],
-				() => {
-					materializations++;
-				},
-				undefined,
-				Layer.mock(ClientPagesRepository)({ lockRenderer: () => Effect.succeed(renderer) }),
-			),
-		),
-	);
-});
-
 it.effect("clears home references when disabling a saved view", () => {
 	const events: string[] = [];
 	return Effect.gen(function* () {
@@ -391,7 +333,6 @@ it.effect("materializes canonical builtin definitions and preserves repository-o
 							definitions = views;
 						}),
 				}),
-				ClientPagesRepository.layer,
 				PluginCatalogInvalidator.layer,
 				Layer.succeed(ClientSurfaceMaterializer, {
 					materializeUser: () => Effect.void,
