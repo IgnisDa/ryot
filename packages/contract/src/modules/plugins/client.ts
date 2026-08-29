@@ -228,8 +228,10 @@ export const PluginHeaderContent = strictStruct({
 export type PluginHeaderContent = Schema.Schema.Type<typeof PluginHeaderContent>;
 
 export const PluginBridgeHeader = strictStruct({
-	header: PluginHeaderContent,
+	index: Schema.Int,
+	key: Schema.String,
 	type: Schema.Literal("header"),
+	header: Schema.NullOr(PluginHeaderContent),
 });
 
 export type PluginBridgeHeader = Schema.Schema.Type<typeof PluginBridgeHeader>;
