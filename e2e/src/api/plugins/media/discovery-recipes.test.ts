@@ -2,7 +2,7 @@ import {
 	latestCompletionSuggestionsRecipe,
 	trendingLatestMediaRecipe,
 } from "@ryot-app/media-plugin/shared/discovery-recipes";
-import { Effect } from "effect";
+import { Clock, Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
@@ -119,7 +119,7 @@ describe("Trending latest media", () => {
 				findBuiltinSchemaBySlug(client, "book"),
 			]);
 			const trending = yield* relationshipSchemaId(client, "media-trending");
-			const base = Date.UTC(2900, 0, 1) + Date.now();
+			const base = Date.UTC(2900, 0, 1) + (yield* Clock.currentTimeMillis);
 			const at = (days: number) => new Date(base + days * 86_400_000).toISOString();
 			const [movieOne, movieTwo, staleMovie, showOne, showTwo, adultShow, newestBook] =
 				yield* Effect.all([
