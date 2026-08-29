@@ -32,7 +32,6 @@ type SandboxDefinition<
 };
 
 const reflectGet = Reflect.get;
-const decoder = new TextDecoder();
 const encoder = new TextEncoder();
 const nativeDate = globalThis.Date;
 const arrayIsArray = Array.isArray;
@@ -55,7 +54,9 @@ const encodeComponent = globalThis.encodeURIComponent;
 const writeStdout = Deno.stdout.write.bind(Deno.stdout);
 const writeStdoutSync = Deno.stdout.writeSync.bind(Deno.stdout);
 const encodeText = encoder.encode.bind(encoder);
-const decodeText = decoder.decode.bind(decoder);
+// Stdin chunks can split a multibyte character, so they share one streaming decoder.
+const stdinDecoder = new TextDecoder();
+const decodeStdin = (chunk: Uint8Array) => stdinDecoder.decode(chunk, { stream: true });
 const jsonStringify = JSON.stringify.bind(JSON);
 const bridgeFetch = globalThis.fetch.bind(globalThis);
 const exitDeno: (code?: number) => never = Deno.exit.bind(Deno);
@@ -403,7 +404,7 @@ async function readLine(): Promise<string> {
 		if (count === null) {
 			exitDeno(0);
 		}
-		buffer += decodeText(chunk.subarray(0, count));
+		buffer += decodeStdin(chunk.subarray(0, count));
 	}
 }
 
@@ -422,7 +423,7 @@ function readLineSync(): string {
 		if (count === null) {
 			exitDeno(0);
 		}
-		buffer += decodeText(chunk.subarray(0, count));
+		buffer += decodeStdin(chunk.subarray(0, count));
 	}
 }
 
