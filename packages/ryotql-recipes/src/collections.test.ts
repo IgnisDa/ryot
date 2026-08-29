@@ -15,7 +15,7 @@ import {
 const pageInfo = { limit: 7, hasMore: false, nextCursor: null };
 
 /* oxlint-disable perfectionist/sort-objects -- field declaration order is test input */
-const membershipPropertiesSchema = Schema.decodeUnknownSync(AppSchema)({
+const membershipPropertiesSchema = Schema.decodeSync(AppSchema)({
 	fields: {
 		rank: { position: 0, label: "Rank", type: "integer", description: "Rank" },
 		notes: { position: 2, label: "Notes", type: "string", description: "Notes" },
@@ -235,7 +235,7 @@ describe("collections recipes", () => {
 
 	/* oxlint-disable perfectionist/sort-objects -- column order is the behavior under test */
 	it("keeps fixed and template name and type column keys unique", () => {
-		const collisionSchema = Schema.decodeUnknownSync(AppSchema)({
+		const collisionSchema = Schema.decodeSync(AppSchema)({
 			fields: {
 				name: { label: "Template Name", type: "string", description: "Name" },
 				type: { label: "Template Type", type: "boolean", description: "Type" },

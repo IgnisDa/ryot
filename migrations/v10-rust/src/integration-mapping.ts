@@ -34,9 +34,7 @@ export const readLegacyIntegrationSettings = Effect.fn("readLegacyIntegrationSet
 		[],
 		undefined,
 	);
-	return yield* Effect.orDie(
-		Schema.decodeUnknownEffect(Schema.Array(LegacyIntegrationSettings))(rows),
-	);
+	return yield* Effect.orDie(Schema.decodeEffect(Schema.Array(LegacyIntegrationSettings))(rows));
 });
 
 export const buildIntegrationMigrationSql = (input: {

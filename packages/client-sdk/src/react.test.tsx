@@ -1,4 +1,4 @@
-import { fireEvent, waitFor } from "@testing-library/dom";
+import { fireEvent, getByRole, waitFor } from "@testing-library/dom";
 import { Effect, Schema } from "effect";
 import { act, useEffect, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
@@ -276,7 +276,7 @@ describe("Effect-native React definitions", () => {
 		await waitFor(() => expect(container.textContent).toBe("dvd"));
 		// oxlint-disable-next-line effecttsgo/async-function -- React act flushes Promise-based atom updates.
 		await act(async () => {
-			fireEvent.click(container.querySelector("button")!);
+			fireEvent.click(getByRole(container, "button"));
 			await Promise.resolve();
 		});
 		expect(storage.entries.get("fixture:order")).toEqual({ order: "aired" });
