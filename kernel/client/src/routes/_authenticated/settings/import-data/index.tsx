@@ -5,7 +5,6 @@ import { Effect } from "effect";
 import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";
 
 import { ImportsApi } from "#/api/imports";
-import { createKernelRyotClient } from "#/api/ryot-client";
 import {
 	IMPORT_LOAD_ERROR,
 	ImportDataView,
@@ -34,11 +33,10 @@ export const Route = createFileRoute("/_authenticated/settings/import-data/")({
 		start: search.start === true || search.start === "true" ? true : undefined,
 	}),
 	loader: async ({ abortController, context }) => {
-		const ryot = createKernelRyotClient(context.runtime, context.scope, context.theme);
 		const [page, sources] = await Promise.all([
 			context.runtime.runPromise(
 				Effect.flatMap(ImportsService, (service) =>
-					service.loadRuns(ryot, { limit: IMPORT_RUNS_PAGE_SIZE }),
+					service.loadRuns(context.ryot, { limit: IMPORT_RUNS_PAGE_SIZE }),
 				),
 				{ signal: abortController.signal },
 			),

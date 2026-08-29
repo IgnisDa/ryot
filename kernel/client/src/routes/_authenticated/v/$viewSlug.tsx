@@ -23,7 +23,9 @@ import { Effect } from "effect";
 import { type ReactNode, useEffect, useEffectEvent, useReducer, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 
+import { ClientPagesApi } from "#/api/client-pages";
 import { collectManagedAssets, ManagedAssetsService } from "#/modules/assets/managed-assets";
+import { ClientPageHost } from "#/modules/client-pages/page-host";
 import { AppScreen } from "#/modules/navigation/app-screen";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
@@ -58,25 +60,32 @@ export const Route = createFileRoute("/_authenticated/v/$viewSlug")({
 		add: search.add === true || search.add === "true" ? true : undefined,
 		q: typeof search.q === "string" && search.q !== "" ? search.q : undefined,
 	}),
-	loader: async ({ abortController, context, params, parentMatchPromise }) => {
+	loader: async ({ abortController, context, params }) => {
 		const slug = params.viewSlug.trim();
 		if (slug.length === 0) {
 			// oxlint-disable-next-line typescript/only-throw-error
 			throw notFound();
 		}
-		const parentMatch = await parentMatchPromise;
-		const parentData = parentMatch.loaderData;
-		if (parentData === undefined) {
-			throw new SavedViewLoadError({
-				stage: "record",
-				cause: new Error("Authenticated route data is unavailable"),
-			});
-		}
 		const record = await context.runtime.runPromise(
-			Effect.flatMap(SavedViewsService, (service) => service.loadRecord(parentData.ryot, slug)),
+			Effect.flatMap(SavedViewsService, (service) => service.loadRecord(context.ryot, slug)),
 			{ signal: abortController.signal },
 		);
 		if (record === undefined) {
+			// oxlint-disable-next-line typescript/only-throw-error
+			throw notFound();
+		}
+		if (record.renderer !== null) {
+			const prepared = await context.runtime.runPromise(
+				Effect.flatMap(ClientPagesApi, (api) =>
+					api.prepare(context.scope, {
+						payload: { target: { kind: "saved-view", savedViewId: record.id } },
+					}),
+				),
+				{ signal: abortController.signal },
+			);
+			return { kind: "page" as const, record, prepared };
+		}
+		if (record.layouts === null) {
 			// oxlint-disable-next-line typescript/only-throw-error
 			throw notFound();
 		}
@@ -87,7 +96,7 @@ export const Route = createFileRoute("/_authenticated/v/$viewSlug")({
 		const definition = record.layouts[layout];
 		const page = await context.runtime.runPromise(
 			Effect.flatMap(SavedViewsService, (service) =>
-				service.loadPage(parentData.ryot, layout, definition, definition.queryDocument),
+				service.loadPage(context.ryot, layout, definition, definition.queryDocument),
 			),
 			{ signal: abortController.signal },
 		);
@@ -98,6 +107,7 @@ export const Route = createFileRoute("/_authenticated/v/$viewSlug")({
 			{ signal: abortController.signal },
 		);
 		return {
+			kind: "legacy" as const,
 			layout,
 			record,
 			data: appendSavedViewPage(undefined, page, definition.queryDocument, managedUrls),
@@ -121,10 +131,30 @@ const layoutOptions = (["grid", "list", "table"] as const).map((layout) => ({
 }));
 
 function SavedViewPage() {
+	const loaded = Route.useLoaderData();
+	if (loaded.kind === "page") {
+		return <CustomSavedViewPage name={loaded.record.name} prepared={loaded.prepared} />;
+	}
+	return <LegacySavedViewPage />;
+}
+
+function CustomSavedViewPage(props: {
+	readonly name: string;
+	readonly prepared: Parameters<typeof ClientPageHost>[0]["prepared"];
+}) {
+	usePageTitle(props.name);
+	return <ClientPageHost prepared={props.prepared} />;
+}
+
+function LegacySavedViewPage() {
 	const router = useRouter();
 	const { add, q } = Route.useSearch();
 	const navigate = Route.useNavigate();
-	const { data, layout, record } = Route.useLoaderData();
+	const loaded = Route.useLoaderData();
+	if (loaded.kind !== "legacy") {
+		throw new Error("Expected legacy saved-view data");
+	}
+	const { data, layout, record } = loaded;
 	const imported = useRef(false);
 	const pushedAdd = useRef(false);
 	const loadedData = useRef(data);
@@ -784,7 +814,7 @@ function SavedViewItems(props: {
 	readonly data: SavedViewData;
 	readonly settled: EntitySettle;
 	readonly layout: SavedViewLayoutName;
-	readonly layouts: SavedViewRecord["layouts"];
+	readonly layouts: NonNullable<SavedViewRecord["layouts"]>;
 }) {
 	if (props.layout === "table") {
 		return (

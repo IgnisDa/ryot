@@ -17,6 +17,7 @@ import { RequestLogUrl } from "#lib/infrastructure/request-log-url";
 import { AdminMiddlewareLive, AuthMiddlewareLive, AuthService } from "#modules/auth/service";
 import { AutomationsRoutesLive } from "#modules/automations/routes";
 import { BackupsRoutesLive } from "#modules/backups/routes";
+import { ClientPageArtifactsRoutesLive, ClientPagesRoutesLive } from "#modules/client-pages/routes";
 import { CollectionsRoutesLive } from "#modules/collections/routes";
 import { DefinitionsRoutesLive } from "#modules/definitions/routes";
 import { EntitiesRoutesLive } from "#modules/entities/routes";
@@ -93,7 +94,9 @@ const ApiLive = HttpApiBuilder.layer(AppContract).pipe(
 	Layer.provide(PluginArtifactSessionsRoutesLive),
 	Layer.provide(SavedViewsRoutesLive),
 	Layer.provide(PluginsRoutesLive),
-	Layer.provide(CollectionsRoutesLive),
+	Layer.provide(
+		Layer.mergeAll(CollectionsRoutesLive, ClientPagesRoutesLive, ClientPageArtifactsRoutesLive),
+	),
 	Layer.provide(Layer.mergeAll(GodModeRoutesLive, TestSupportRoutesLive)),
 	Layer.provide(ImportsRoutesLive),
 	Layer.provide(Layer.mergeAll(IntegrationsRoutesLive, NotificationsRoutesLive)),
