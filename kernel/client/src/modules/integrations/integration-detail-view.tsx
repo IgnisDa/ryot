@@ -1,4 +1,5 @@
 import { Button, FieldMessage } from "@ryot-app/client-ui-sdk";
+import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import type { SchemaFileUpload, SchemaFormApi } from "@ryot-app/client-ui-sdk/schema-form";
 import type {
 	ListedIntegration,
@@ -10,7 +11,6 @@ import clsx from "clsx";
 import { importRunOutcomeLabel } from "#/modules/imports/run-presentation";
 import { integrationLotDetail } from "#/modules/integrations/provider-selection";
 import { IntegrationSettingsForm } from "#/modules/integrations/settings-form";
-import { AppIcon } from "#/modules/navigation/app-icon";
 import { formatRelativeTime } from "#/modules/ui/run/run-status";
 import { RunStatusGlyph } from "#/modules/ui/run/run-status-pill";
 

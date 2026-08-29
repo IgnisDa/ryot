@@ -11,6 +11,15 @@ shared compiler mode, bridge, or fallback.
 The trusted module allowlist is fixed. Any other bare import fails compilation rather than passing
 through, so a plugin cannot reach a module the artifact does not carry.
 
+The bare-specifier resolver sees every package import in the graph, not only the ones a plugin wrote,
+and declining one is not free: when Bun is offered a re-export barrel and the resolver returns
+nothing, it links the barrel's names but drops the modules behind them, so the artifact bundles
+cleanly and then throws `ReferenceError` on its first evaluation. `effect` and `lucide-react` reach
+the graph that way — through `@ryot-app/client-sdk` and the icon registry — so both are resolved to
+a concrete path instead of declined, which for `lucide-react` also picks its ES module build over
+the CommonJS one Bun's own resolution prefers. A bundling test cannot catch this class of failure;
+only running the emitted `plugin.js` can.
+
 ## Stylesheet Composition
 
 The Tailwind entry is injected into the generated stylesheet rather than left to the plugin to
