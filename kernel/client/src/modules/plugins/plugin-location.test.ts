@@ -47,6 +47,16 @@ describe("plugin logical locations", () => {
 		).toEqual({ replace: true, href: "/media/shows" });
 	});
 
+	it("navigates a kernel page target to its kernel route", () => {
+		expect(
+			toNavigationRequest({
+				mode: "push",
+				type: "navigate",
+				target: { kind: "kernel-page", page: "import-data" },
+			}),
+		).toEqual({ replace: false, href: "/settings/import-data" });
+	});
+
 	it("rejects route traversal and an empty entity ID", () => {
 		expect(
 			validatePluginLocation({ search: "", kind: "route", path: "/../settings" }),
