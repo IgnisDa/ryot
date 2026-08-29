@@ -27,6 +27,7 @@ import {
 	makeOAuthRouteStubs,
 	NavigationRouteStubs,
 	ProviderAddRouteStubs,
+	IntegrationRouteStubs,
 } from "#/routes/-route-fixtures";
 
 type Exchange = {
@@ -69,6 +70,7 @@ const mountCallback = (
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
 			ProviderAddRouteStubs,
+			IntegrationRouteStubs,
 			makeAuthStub(),
 			GodModeRouteStubs,
 			ServerStub,

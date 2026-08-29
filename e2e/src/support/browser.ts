@@ -5,8 +5,8 @@ import { PlaywrightSpawner, chromium } from "effect-playwright";
 import { getFrontendUrl } from "~/support/frontend";
 
 type BrowserSignInOptions = {
-	readonly captureHistory?: boolean;
 	readonly entryPath?: string;
+	readonly captureHistory?: boolean;
 };
 
 export const browserLayer = PlaywrightSpawner.layer(chromium);
@@ -31,8 +31,5 @@ export const signInThroughHostedOAuth = (
 		const homePath = yield* page
 			.getByRole("link", { name: "Home", exact: true })
 			.getAttribute("href");
-		return {
-			homeUrl: new URL(homePath ?? "/", frontendUrl).toString(),
-			historyLengthBeforeSubmit,
-		};
+		return { historyLengthBeforeSubmit, homeUrl: new URL(homePath ?? "/", frontendUrl).toString() };
 	});
