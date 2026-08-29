@@ -6,7 +6,7 @@ import { strictStruct } from "../../schema/utils";
 import { RyotQLDocument, RyotQLResponse } from "../ryotql/language";
 
 export const CLIENT_API_VERSION = 1 as const;
-export const CLIENT_BRIDGE_PROTOCOL_VERSION = 2 as const;
+export const CLIENT_BRIDGE_PROTOCOL_VERSION = 1 as const;
 export const CLIENT_ARTIFACT_FORMAT = 1 as const;
 export const CLIENT_COMPILER_VERSION = 1 as const;
 export const CLIENT_BRIDGE_MAX_PENDING_REQUESTS = 64;

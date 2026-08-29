@@ -25,12 +25,13 @@ type CompileClientStylesInput = {
 };
 
 const clientBaseStylesheet = `@layer base {
+	/* Vertical only: suppressing the x axis would disable the browser's own back-swipe. */
 	html,
 	body {
 		height: 100%;
 		margin: 0;
 		overflow: hidden;
-		overscroll-behavior: none;
+		overscroll-behavior-y: none;
 		-webkit-tap-highlight-color: transparent;
 	}
 
