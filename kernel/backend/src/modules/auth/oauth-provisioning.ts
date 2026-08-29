@@ -84,14 +84,12 @@ export const internalOAuthRecords = (frontendOrigin: string, now: Date, demoEnab
 		accessTokenTtl: OAUTH_ACCESS_TOKEN_TTL_SECONDS,
 		refreshTokenTtl: OAUTH_REFRESH_TOKEN_TTL_SECONDS,
 	} satisfies InternalOAuthResource;
-	const links = clients.map(
-		({ clientId }): InternalOAuthClientResource => ({
-			clientId,
-			createdAt: now,
-			resourceId: resource.identifier,
-			id: `internal-oauth-client-resource:${clientId}`,
-		}),
-	);
+	const links = clients.map(({ clientId }): InternalOAuthClientResource => ({
+		clientId,
+		createdAt: now,
+		resourceId: resource.identifier,
+		id: `internal-oauth-client-resource:${clientId}`,
+	}));
 	return { links, clients, resource };
 };
 
