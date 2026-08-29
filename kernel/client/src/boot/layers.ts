@@ -2,6 +2,7 @@ import { Layer } from "effect";
 
 import { AuthenticatedApi } from "#/api/authenticated";
 import { PublicApi } from "#/api/public";
+import { ManagedAssetsService } from "#/modules/assets/managed-assets";
 import { HostedAuthService } from "#/modules/auth/hosted-service";
 import { OAuthLauncher } from "#/modules/auth/oauth-launcher";
 import { OAuthStorage } from "#/modules/auth/oauth-storage";
@@ -13,6 +14,7 @@ import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { PluginCatalogEventsService } from "#/modules/plugins/events";
 import { PluginOperationsService } from "#/modules/plugins/operations";
 import { PluginQueriesService } from "#/modules/plugins/queries";
+import { SavedViewsService } from "#/modules/saved-views/service";
 import { ServerService } from "#/modules/server/service";
 import { ClientStorage } from "#/persistence/storage";
 
@@ -43,6 +45,7 @@ export const ClientLive = Layer.mergeAll(
 	AuthLive,
 	OAuthLauncherLive,
 	HostedAuthService.layer,
+	ManagedAssetsService.layer,
 	ServerLive,
 	ArtifactSessions.layer,
 	PluginCatalogService.layer,
@@ -52,6 +55,7 @@ export const ClientLive = Layer.mergeAll(
 	),
 	PluginOperationsService.layer,
 	PluginQueriesService.layer,
+	SavedViewsService.layer,
 	OAuthTokenLive,
 	RuntimeOAuthClientService.layer,
 ).pipe(Layer.provideMerge(InfrastructureLive));
