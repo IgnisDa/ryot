@@ -28,7 +28,7 @@ const COMPANY_COLUMN_CLASS = "md:w-72 md:shrink-0 md:border-t-0 md:pt-0";
 function ShowRail(props: { readonly children: ReactNode }) {
 	return (
 		<div className="overflow-x-auto">
-			<div className="flex gap-3 md:gap-4">{props.children}</div>
+			<div className="flex w-max gap-3 md:gap-4">{props.children}</div>
 		</div>
 	);
 }

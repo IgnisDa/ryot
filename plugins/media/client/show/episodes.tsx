@@ -49,7 +49,7 @@ function ShowSeasonSelector(props: {
 	}
 	return (
 		<div className="overflow-x-auto">
-			<div role="radiogroup" className="flex gap-2">
+			<div role="radiogroup" className="flex w-max gap-2">
 				{props.seasons.map((season) => {
 					const isSelected = season.id === props.selectedId;
 					return (
