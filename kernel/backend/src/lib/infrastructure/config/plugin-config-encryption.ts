@@ -7,6 +7,13 @@ export class PluginConfigCryptoError extends Data.TaggedError("PluginConfigCrypt
 
 const encode = (value: unknown) => new TextEncoder().encode(stableStringify(value));
 
+const operation = <A>(run: () => Promise<A>) =>
+	Effect.tryPromise({
+		try: run,
+		catch: () =>
+			new PluginConfigCryptoError({ message: "Plugin configuration cryptography failed" }),
+	});
+
 export const createPluginConfigEncryption = (entry: { id: string; key: Uint8Array }) => {
 	if (!/^[a-zA-Z0-9_-]{1,64}$/.test(entry.id) || entry.key.length !== 32) {
 		throw new Error("Invalid persisted plugin configuration encryption key");
@@ -19,12 +26,6 @@ export const createPluginConfigEncryption = (entry: { id: string; key: Uint8Arra
 		}
 		return keyMaterial;
 	};
-	const operation = <A>(run: () => Promise<A>) =>
-		Effect.tryPromise({
-			try: run,
-			catch: () =>
-				new PluginConfigCryptoError({ message: "Plugin configuration cryptography failed" }),
-		});
 	const fingerprint = (value: unknown) =>
 		Effect.gen(function* () {
 			const material = yield* operation(() =>

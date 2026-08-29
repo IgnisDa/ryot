@@ -19,6 +19,7 @@ import { AuthService } from "#modules/auth/service";
 import { IntegrationOperationScopeResolverLive } from "#modules/integrations/operation-scope-resolver-live";
 import type { IntegrationRecord } from "#modules/integrations/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
+import { makeIntegration as integrationRecord } from "#modules/integrations/test-support";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import { OperationsService } from "./operations-service";
@@ -107,14 +108,13 @@ const makeIntegration = (input: {
 	isDisabled?: boolean;
 	pluginInstallationId: string;
 }) =>
-	// oxlint-disable-next-line no-unsafe-type-assertion -- the scope resolver only reads these fields
-	({
+	integrationRecord({
 		userId: input.userId,
 		lot: input.lot ?? "push",
 		id: IntegrationId.make("int-1"),
 		isDisabled: input.isDisabled ?? false,
 		pluginInstallationId: input.pluginInstallationId,
-	}) as unknown as IntegrationRecord;
+	});
 
 const makeLayer = (input: {
 	events?: string[];

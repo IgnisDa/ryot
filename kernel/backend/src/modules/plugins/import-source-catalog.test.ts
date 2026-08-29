@@ -36,6 +36,19 @@ const packageWithSources = (slug: string, version = "v1") => {
 	};
 };
 
+const clashing = (slug: string) => {
+	const plugin = packageWithSources(slug);
+	return {
+		...plugin,
+		manifest: {
+			...plugin.manifest,
+			importSources: plugin.manifest.importSources.map((source) =>
+				Object.assign({}, source, { slug: `shared-${source.name}` }),
+			),
+		},
+	};
+};
+
 describe("revision-backed import sources", () => {
 	it.effect(
 		"lists system and private sources in stable order with executable workflow status",
@@ -104,18 +117,6 @@ describe("revision-backed import sources", () => {
 	it.effect("lets the executable system source win a private slug clash", () =>
 		withRevisionDatabase(
 			Effect.gen(function* () {
-				const clashing = (slug: string) => {
-					const plugin = packageWithSources(slug);
-					return {
-						...plugin,
-						manifest: {
-							...plugin.manifest,
-							importSources: plugin.manifest.importSources.map((source) =>
-								Object.assign({}, source, { slug: `shared-${source.name}` }),
-							),
-						},
-					};
-				};
 				yield* installRevisionPackage(clashing("notes"), owner);
 				const system = yield* installRevisionPackage(clashing("zebra"));
 				const catalog = yield* ImportSourceCatalog.make;

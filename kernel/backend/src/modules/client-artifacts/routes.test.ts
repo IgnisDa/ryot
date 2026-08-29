@@ -110,12 +110,12 @@ it.effect("routes public and authorized requests without HTTP authentication", (
 	);
 	return Effect.acquireUseRelease(
 		Effect.sync(() => HttpRouter.toWebHandler(route, { disableLogger: true })),
-		({ handler }) =>
-			Effect.gen(function* () {
-				const request = (hash: string, accessKey: string, name: string) =>
-					Effect.promise(() =>
-						handler(new Request(`http://server.test/client-assets/${hash}/${accessKey}/${name}`)),
-					);
+		({ handler }) => {
+			const request = (hash: string, accessKey: string, name: string) =>
+				Effect.promise(() =>
+					handler(new Request(`http://server.test/client-assets/${hash}/${accessKey}/${name}`)),
+				);
+			return Effect.gen(function* () {
 				const publicFile = yield* request(publicHash, "public", "module.js");
 				expect(publicFile.status).toBe(200);
 				expect(publicFile.headers.get("cache-control")).toBe("public, max-age=31536000, immutable");
@@ -134,7 +134,8 @@ it.effect("routes public and authorized requests without HTTP authentication", (
 					`${privateHash}/module.js`,
 					`${publicHash}/some module.js`,
 				]);
-			}),
+			});
+		},
 		({ dispose }) => Effect.promise(dispose),
 	);
 });
