@@ -25,12 +25,13 @@ import type {
 	AutomationHistoryPageResult,
 } from "#/modules/automation-history/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
-import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
-import { PluginOperationsService } from "#/modules/plugins/operations";
-import { PluginQueriesService } from "#/modules/plugins/queries";
+import {
+	makePluginCatalog,
+	makePluginOperations,
+	makePluginQueries,
+} from "#/modules/plugins/services.test-layer";
 import { RUN_LIST_POLL_MS, RUN_POLL_MS } from "#/modules/ui/run/use-run-polling";
-import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
 import {
 	theme,
@@ -41,7 +42,7 @@ import {
 	OAuthRouteStubs,
 	ImportsRouteStubs,
 	GodModeRouteStubs,
-	makeStorageStub,
+	makeStorageStubLayer,
 	makePublicApiStub,
 	CustomizeRouteStubs,
 	SavedViewRouteStubs,
@@ -214,16 +215,16 @@ const mountView = (
 			ClientPageSessionsRouteStubs,
 			makeUserSettingsStub(),
 			events.layer,
-			Layer.succeed(PluginCatalogService, { load: () => Effect.succeed(catalog) }),
+			makePluginCatalog(catalog),
 			NavigationRouteStubs,
 			CustomizeRouteStubs,
-			Layer.succeed(PluginOperationsService, { invoke: () => Effect.die("not used") }),
-			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
+			makePluginOperations(),
+			makePluginQueries(),
 			automationHistoryApi,
 			queries,
 		).pipe(
 			Layer.provideMerge(OAuthRouteStubs),
-			Layer.provideMerge(Layer.succeed(ClientStorage, makeStorageStub("fixture"))),
+			Layer.provideMerge(makeStorageStubLayer("fixture")),
 		),
 	);
 	const router = getRouter(

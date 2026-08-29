@@ -6,18 +6,19 @@ import { describe, expect, it } from "vitest";
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import { PublicApi } from "#/api/public";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
-import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
-import { PluginOperationsService } from "#/modules/plugins/operations";
-import { PluginQueriesService } from "#/modules/plugins/queries";
-import { ClientStorage } from "#/persistence/storage";
+import {
+	makePluginCatalog,
+	makePluginOperations,
+	makePluginQueries,
+} from "#/modules/plugins/services.test-layer";
 import { getRouter } from "#/router";
 import {
 	theme,
 	catalog,
 	ServerStub,
 	makeAuthStub,
-	makeStorageStub,
+	makeStorageStubLayer,
 	GodModeRouteStubs,
 	CustomizeRouteStubs,
 	SavedViewRouteStubs,
@@ -79,19 +80,16 @@ const mountLogin = (config: ReturnType<typeof systemConfig>) => {
 						return config;
 					}),
 			}),
-			Layer.succeed(PluginCatalogService, { load: () => Effect.succeed(catalog) }),
+			makePluginCatalog(catalog),
 			NavigationRouteStubs,
 			CustomizeRouteStubs,
-			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
-			Layer.succeed(PluginOperationsService, { invoke: () => Effect.die("not used") }),
+			makePluginQueries(),
+			makePluginOperations(),
 			makePluginCatalogEventsTestLayer().layer,
 			KernelApiTestLayer,
 			ClientPagesApiRouteStubs,
 			ClientPageSessionsRouteStubs,
-		).pipe(
-			Layer.provideMerge(oauth),
-			Layer.provideMerge(Layer.succeed(ClientStorage, makeStorageStub())),
-		),
+		).pipe(Layer.provideMerge(oauth), Layer.provideMerge(makeStorageStubLayer())),
 	);
 	const router = getRouter(
 		{ theme, runtime, backInterceptors: createBackInterceptors() },
