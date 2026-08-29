@@ -562,6 +562,34 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			return Object.fromEntries(rows.map(({ path, contents }) => [path, new Uint8Array(contents)]));
 		});
 
+		const listAuthorizedSourceFiles = Effect.fn("PluginRepository.listAuthorizedSourceFiles")(
+			function* (input: {
+				readonly userId: string;
+				readonly pluginId: string;
+				readonly sourceHash: string;
+				readonly installationId: string;
+			}) {
+				const db = yield* Database;
+				const [authorized] = yield* mapDatabaseErrors(
+					db
+						.select({ id: schema.plugin.id })
+						.from(schema.pluginInstallation)
+						.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginInstallation.pluginId))
+						.where(
+							and(
+								eq(schema.plugin.id, input.pluginId),
+								eq(schema.plugin.status, "active"),
+								eq(schema.plugin.sourceHash, input.sourceHash),
+								eq(schema.pluginInstallation.userId, input.userId),
+								eq(schema.pluginInstallation.id, input.installationId),
+							),
+						)
+						.limit(1),
+				);
+				return authorized ? yield* listSourceFiles(input.pluginId) : null;
+			},
+		);
+
 		const persistClientArtifact = Effect.fn("PluginRepository.persistClientArtifact")(function* (
 			artifact: PluginClientArtifact,
 		) {
@@ -1063,6 +1091,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			findPrivateByIdForUser,
 			hasDefinitionReferences,
 			hasIntegrationReferences,
+			listAuthorizedSourceFiles,
 			deleteUnreferencedScripts,
 			findPrivateClientArtifact,
 			listPortablePluginMetadata,

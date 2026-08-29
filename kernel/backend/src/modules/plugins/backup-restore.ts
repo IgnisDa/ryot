@@ -82,7 +82,7 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 							systemSlugs: new Set(system.map(({ slug }) => slug)),
 						}),
 					);
-					yield* asInvalidBackup(validatePluginSourcePaths(files, manifest.scripts));
+					yield* asInvalidBackup(validatePluginSourcePaths(files, manifest));
 					const normalized = yield* asInvalidBackup(
 						compilePluginPackage({ files, manifest, sourceHash: item.sourceHash }).pipe(
 							Effect.provideService(ClientPluginCompiler, clientCompiler),

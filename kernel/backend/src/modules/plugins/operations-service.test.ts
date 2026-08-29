@@ -75,8 +75,10 @@ const resolvedOperation = (available: AvailableOperation) => ({
 	},
 	plugin: {
 		config: {},
+		isDisabled: false,
 		scope: available.scope,
 		sourceHash: SOURCE_HASH,
+		health: "ready" as const,
 		slug: available.pluginSlug,
 		manifest: fixtureManifest(),
 		id: `${available.pluginSlug}-plugin-id`,

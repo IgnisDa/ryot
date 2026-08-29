@@ -1,3 +1,4 @@
+import { ClientPageCodeContributor } from "@ryot-app/contract/modules/client-pages/schemas";
 import { jsonValueSchema } from "@ryot-app/contract/modules/sandbox/wire";
 import {
 	ClientRendererId,
@@ -52,12 +53,14 @@ export const PluginClientArtifactSessionPayloadFromJson = Schema.fromJsonString(
 export const ClientPageSessionPayload = Schema.Struct({
 	userId: UserId,
 	buildId: Schema.String,
+	graphHash: Schema.String,
 	savedViewId: SavedViewId,
 	viewRevision: Schema.Int,
 	artifactHash: Schema.String,
 	publishedHash: Schema.String,
 	rendererId: ClientRendererId,
 	publishedRevision: Schema.Int,
+	contributors: Schema.Array(ClientPageCodeContributor),
 }).annotate({ parseOptions: { onExcessProperty: "error" as const } });
 
 export const ClientPageSessionPayloadFromJson = Schema.fromJsonString(ClientPageSessionPayload);

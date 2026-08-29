@@ -463,6 +463,8 @@ it.effect("persists exact private plugin ownership for builtin and custom views"
 								id: pluginId,
 								scope: "user",
 								installationId,
+								health: "ready",
+								isDisabled: false,
 								compiledHashes: {},
 								slug: "private-plugin",
 								sourceHash: "source-hash",
