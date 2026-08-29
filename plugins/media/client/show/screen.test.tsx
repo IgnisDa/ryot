@@ -4,29 +4,32 @@ import { fireEvent, waitFor } from "@testing-library/dom";
 import { useEffect, type ReactNode } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { ShowActivity } from "./activity";
-import { decodeShowActivity } from "./activity-fixture";
-import { mapShowActivity, type ShowActivityState } from "./activity-state";
-import { ShowEpisodes } from "./episodes";
-import { decodeShowEpisodesResult, decodeShowSeasonEpisodesResult } from "./episodes-fixture";
-import { mapShowEpisodes, mapShowSeasonEpisodes, type ShowEpisodesState } from "./episodes-state";
+import { decodeShowActivity } from "../../tests/client/show/activity-fixture";
+import {
+	decodeShowEpisodesResult,
+	decodeShowSeasonEpisodesResult,
+} from "../../tests/client/show/episodes-fixture";
 import {
 	decodeShowOverview,
 	emptyShowOverview,
 	showCompanyRow,
 	showPersonRow,
-} from "./overview-fixture";
-import { mapShowOverview, type ShowOverviewState } from "./overview-state";
+} from "../../tests/client/show/overview-fixture";
 import {
 	errorQueryResult,
 	malformedQueryResult,
 	pendingQueryResult,
 	readyQueryResult,
-} from "./query-result-fixture";
+} from "../../tests/client/show/query-result-fixture";
+import { decodeShowSummaryResult, showSummaryRow } from "../../tests/client/show/summary-fixture";
+import { mountRyotClient } from "../../tests/client/show/test-support";
+import { ShowActivity } from "./activity";
+import { mapShowActivity, type ShowActivityState } from "./activity-state";
+import { ShowEpisodes } from "./episodes";
+import { mapShowEpisodes, mapShowSeasonEpisodes, type ShowEpisodesState } from "./episodes-state";
+import { mapShowOverview, type ShowOverviewState } from "./overview-state";
 import { ShowScreenBody } from "./screen";
-import { decodeShowSummaryResult, showSummaryRow } from "./summary-fixture";
 import { mapShowSummary, type ShowSummaryState } from "./summary-state";
-import { mountRyotClient } from "./test-support";
 
 const noopAdapter = { query: () => Promise.resolve({}) };
 

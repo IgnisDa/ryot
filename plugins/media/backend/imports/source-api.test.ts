@@ -1,8 +1,8 @@
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { expect, it } from "vitest";
 
+import { stubHttpHost } from "../../tests/backend/imports/source-test-utils";
 import { normalizeSourceApiUrl, sourceApiUrl, withSourceRequestOptions } from "./source-api";
-import { stubHttpHost } from "./source-test-utils";
 
 it("normalizes source URLs before building API requests", () => {
 	expect(normalizeSourceApiUrl(" https://user:secret@example.com/root/?stale=1#hash ")).toBe(
