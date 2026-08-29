@@ -1,5 +1,6 @@
 import { useRyotQuery } from "@ryot-app/client-sdk/react";
 import { Chip } from "@ryot-app/client-ui-sdk";
+import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/client-ui-sdk/sync";
 import clsx from "clsx";
 import { useState, type ReactNode } from "react";
 
@@ -90,7 +91,9 @@ function ShowSeasonHeader(props: {
 		<div className="flex flex-col gap-3">
 			<div className={clsx("flex items-start", props.compact ? "gap-3" : "gap-4")}>
 				<ManagedAssetImage
+					monogram={season.name}
 					asset={showSeasonAsset(season)}
+					state={fieldSyncState(showSeasonAsset(season), season)}
 					className={clsx("aspect-2/3 shrink-0", props.compact ? "w-11" : "w-14")}
 				/>
 				<div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -101,6 +104,7 @@ function ShowSeasonHeader(props: {
 						)}
 					>
 						{showSeasonLabel(season)}
+						{isTitleProvisional(season) && <SyncPip reason="translating" className="ml-1.5" />}
 					</p>
 					{meta === "" ? null : <p className="font-ui text-[12px] text-text-subtle">{meta}</p>}
 				</div>
@@ -134,7 +138,9 @@ function ShowEpisodeRow(props: {
 			)}
 		>
 			<ManagedAssetImage
+				monogram={episode.name}
 				asset={showEpisodeAsset(episode)}
+				state={fieldSyncState(showEpisodeAsset(episode), episode)}
 				className={clsx("aspect-video shrink-0", props.compact ? "w-28" : "w-44")}
 			/>
 			<div className="flex min-w-0 flex-1 flex-col gap-1">
@@ -144,6 +150,7 @@ function ShowEpisodeRow(props: {
 					</span>
 					<span className="line-clamp-1 min-w-0 flex-1 font-ui font-medium text-[14px] text-text">
 						{episode.name}
+						{isTitleProvisional(episode) && <SyncPip reason="translating" className="ml-1.5" />}
 					</span>
 					{lifecycle === undefined ? null : (
 						<span

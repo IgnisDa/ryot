@@ -1,4 +1,8 @@
 import {
+	EntitySyncState,
+	type EntitySyncState as EntitySyncStateValue,
+} from "@ryot-app/contract/modules/entities/schemas";
+import {
 	JsonValue,
 	rowsResultSchema,
 	type FieldSelection,
@@ -7,6 +11,7 @@ import {
 	type Predicate,
 	type RyotQLDocument,
 	type ScalarExpression,
+	type TableReference,
 } from "@ryot-app/contract/modules/ryotql/language";
 import type {
 	SavedViewCardMapping,
@@ -56,14 +61,24 @@ type TableColumnExpression = Omit<SavedViewTableMapping["columns"][number], "fie
 
 type CardProjectionInput = {
 	readonly card: CardExpressions;
-	readonly entityId: ScalarExpression;
+	readonly entity: TableReference;
 };
 
 type TableProjectionInput = {
-	readonly entityId: ScalarExpression;
+	readonly entity: TableReference;
 	readonly image: ScalarExpression | null;
 	readonly columns: readonly [TableColumnExpression, ...TableColumnExpression[]];
 };
+
+const populationStatusField = "populationStatus";
+
+const translationStatusField = "translationStatus";
+
+const syncSelections = (entity: TableReference) =>
+	[
+		field(populationStatusField, column(entity, populationStatusField)),
+		field(translationStatusField, column(entity, translationStatusField)),
+	] satisfies readonly FieldSelection[];
 
 export type SavedViewLayoutProjectionsInput = {
 	readonly grid: CardProjectionInput;
@@ -81,7 +96,7 @@ const cardProjection = (input: CardProjectionInput) => {
 	const secondaryMetadata = "secondaryMetadata";
 	return {
 		fields: [
-			field(entityId, input.entityId),
+			field(entityId, column(input.entity, "id")),
 			field(title, input.card.title),
 			...(input.card.image === null ? [] : [field(image, input.card.image)]),
 			...(input.card.overline === null ? [] : [field(overline, input.card.overline.expression)]),
@@ -92,6 +107,7 @@ const cardProjection = (input: CardProjectionInput) => {
 			...(input.card.secondaryMetadata === null
 				? []
 				: [field(secondaryMetadata, input.card.secondaryMetadata.expression)]),
+			...syncSelections(input.entity),
 		] satisfies readonly FieldSelection[],
 		mappings: {
 			titleField: title,
@@ -136,9 +152,10 @@ const tableProjection = (input: TableProjectionInput) => {
 
 	return {
 		fields: [
-			field(entityId, input.entityId),
+			field(entityId, column(input.entity, "id")),
 			...(input.image === null ? [] : [field(image, input.image)]),
 			...input.columns.map((tableColumn, index) => field(`column${index}`, tableColumn.expression)),
+			...syncSelections(input.entity),
 		] satisfies readonly FieldSelection[],
 		mappings: {
 			columns,
@@ -197,6 +214,7 @@ type SavedViewRecipeInput = {
 export type SavedViewCardResultItem = {
 	readonly title: string;
 	readonly entityId: string;
+	readonly sync: EntitySyncStateValue;
 	readonly image: AssetLocatorType | null | undefined;
 	readonly callout?: SavedViewDisplayValue | undefined;
 	readonly overline?: SavedViewDisplayValue | undefined;
@@ -206,6 +224,7 @@ export type SavedViewCardResultItem = {
 
 export type SavedViewTableResultItem = {
 	readonly entityId: string;
+	readonly sync: EntitySyncStateValue;
 	readonly image: AssetLocatorType | null | undefined;
 	readonly cells: readonly {
 		readonly key: string;
@@ -324,11 +343,19 @@ const optionalDisplayField = (row: SavedViewRawRow, mapping: SavedViewCardMappin
 	);
 };
 
+const syncField = (row: SavedViewRawRow) =>
+	Result.flatMap(
+		Result.all([rawField(row, populationStatusField), rawField(row, translationStatusField)]),
+		([populationStatus, translationStatus]) =>
+			Schema.decodeUnknownResult(EntitySyncState)({ populationStatus, translationStatus }),
+	);
+
 const cardItem = (
 	row: SavedViewRawRow,
 	mapping: SavedViewCardMapping & { readonly entityIdField: string },
 ) =>
 	Result.gen(function* () {
+		const sync = yield* syncField(row);
 		const title = yield* textField(row, mapping.titleField);
 		const entityId = yield* textField(row, mapping.entityIdField);
 		const image = yield* imageField(row, mapping.imageField);
@@ -336,7 +363,7 @@ const cardItem = (
 		const overline = yield* optionalDisplayField(row, mapping.overline);
 		const primaryMetadata = yield* optionalDisplayField(row, mapping.primaryMetadata);
 		const secondaryMetadata = yield* optionalDisplayField(row, mapping.secondaryMetadata);
-		return { title, entityId, image, callout, overline, primaryMetadata, secondaryMetadata };
+		return { sync, title, entityId, image, callout, overline, primaryMetadata, secondaryMetadata };
 	});
 
 const tableItem = (
@@ -344,6 +371,7 @@ const tableItem = (
 	mapping: SavedViewTableMapping & { readonly entityIdField: string },
 ) =>
 	Result.gen(function* () {
+		const sync = yield* syncField(row);
 		const entityId = yield* textField(row, mapping.entityIdField);
 		const image = yield* imageField(row, mapping.imageField);
 		const cells = yield* Result.all(
@@ -357,7 +385,7 @@ const tableItem = (
 				),
 			),
 		);
-		return { entityId, image, cells };
+		return { sync, entityId, image, cells };
 	});
 
 const savedViewRows = rowsResultSchema(Schema.Record(Schema.String, JsonValue));
