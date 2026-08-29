@@ -6,8 +6,10 @@ import { Duration, Effect, Result } from "effect";
 
 import {
 	createAuthenticatedClient,
+	createApiKey,
 	findBuiltinSchemaBySlug,
 	getEntity,
+	makeSession,
 	openInterestWebSocketScoped,
 	type Client,
 } from "~/fixtures/kernel";
@@ -101,6 +103,17 @@ describe("interest authorization", () => {
 				fetch(`${getApiUrl()}/entity-interest/socket-ticket`, { method: "POST" }),
 			);
 			expect(response.status).toBe(401);
+		}),
+	);
+
+	it.live("authenticates a socket ticket and WebSocket with an API key", () =>
+		Effect.gen(function* () {
+			const auth = yield* createAuthenticatedClient();
+			const apiKey = yield* createApiKey(auth.sessionCookie);
+			const socket = yield* openInterestWebSocketScoped({
+				client: makeSession(getApiUrl(), { "X-Api-Key": apiKey }),
+			});
+			expect(socket.ready.sessionId).toEqual(expect.any(String));
 		}),
 	);
 
