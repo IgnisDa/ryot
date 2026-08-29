@@ -57,7 +57,7 @@ export function DesktopSidebar(props: DesktopSidebarProps) {
 							onNavigateHome={props.onNavigateHome}
 							onNavigateItem={props.onNavigateItem}
 							onSelectWorkspace={props.onSelectWorkspace}
-							onCustomize={() => props.onEditSection("views")}
+							onCustomize={() => props.onEditSection("workspaces")}
 						/>
 					</div>
 
