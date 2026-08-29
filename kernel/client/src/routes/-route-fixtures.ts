@@ -2,8 +2,8 @@ import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { Effect, Layer } from "effect";
 
-import { AdminApi } from "#/api/admin";
 import { decodeServerOrigin } from "#/api/origin";
+import { makeGodModeApi } from "#/api/ports.test-layer";
 import { PublicApi } from "#/api/public";
 import type { ApiScope } from "#/api/scope";
 import { ManagedAssetsService } from "#/modules/assets/managed-assets";
@@ -189,12 +189,12 @@ const GodModeSessionStub = Layer.succeed(
 	GodModeSessionService,
 	makeGodModeSessionService(() => "session-fixture"),
 );
-const AdminApiStub = Layer.succeed(AdminApi, { run: () => Effect.die("not used") });
+const GodModeApiStub = makeGodModeApi();
 
 export const GodModeRouteStubs = Layer.mergeAll(
 	GodModeSessionStub,
-	AdminApiStub,
-	GodModeService.layer.pipe(Layer.provide(GodModeSessionStub), Layer.provide(AdminApiStub)),
+	GodModeApiStub,
+	GodModeService.layer.pipe(Layer.provide(GodModeSessionStub), Layer.provide(GodModeApiStub)),
 );
 
 export const SavedViewRouteStubs = Layer.mergeAll(
