@@ -42,7 +42,7 @@ export const navigationRecipe = defineRecipe(() => ({
 			orderBy: [
 				ascending(column(savedView, "pluginSlug")),
 				ascending(column(savedView, "sortOrder")),
-				ascending(column(savedView, "createdAt")),
+				ascending(column(savedView, "slug")),
 			],
 			selection: {
 				slug: selectedField(column(savedView, "slug"), Schema.String),

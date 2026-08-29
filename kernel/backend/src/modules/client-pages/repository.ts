@@ -3,7 +3,7 @@ import type {
 	ClientPageCompositionManifest,
 } from "@ryot-app/contract/modules/client-pages/schemas";
 import { SavedViewId, type UserId } from "@ryot-app/contract/schema/brands";
-import { and, eq, getTableColumns } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -20,12 +20,17 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 				const db = yield* Database;
 				const [row] = yield* mapDatabaseErrors(
 					db
-						.select({ view: getTableColumns(schema.savedView) })
-						.from(schema.savedView)
-						.where(and(eq(schema.savedView.slug, savedViewId), eq(schema.savedView.userId, userId)))
+						.select()
+						.from(schema.userSavedViewEffective)
+						.where(
+							and(
+								eq(schema.userSavedViewEffective.slug, savedViewId),
+								eq(schema.userSavedViewEffective.userId, userId),
+							),
+						)
 						.limit(1),
 				);
-				return row ? { ...row, viewId: SavedViewId.make(row.view.id) } : null;
+				return row ? { view: row, viewId: SavedViewId.make(row.id) } : null;
 			});
 
 			const listPreparedTargets = Effect.fn("ClientPagesRepository.listPreparedTargets")(function* (
@@ -34,13 +39,16 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 				const db = yield* Database;
 				const rows = yield* mapDatabaseErrors(
 					db
-						.select({ view: getTableColumns(schema.savedView) })
-						.from(schema.savedView)
+						.select()
+						.from(schema.userSavedViewEffective)
 						.where(
-							and(eq(schema.savedView.userId, userId), eq(schema.savedView.isDisabled, false)),
+							and(
+								eq(schema.userSavedViewEffective.userId, userId),
+								eq(schema.userSavedViewEffective.isDisabled, false),
+							),
 						),
 				);
-				return rows.map((row) => Object.assign(row, { viewId: SavedViewId.make(row.view.id) }));
+				return rows.map((view) => ({ view, viewId: SavedViewId.make(view.id) }));
 			});
 
 			const findComposition = Effect.fn("ClientPagesRepository.findComposition")(function* (

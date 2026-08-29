@@ -26,12 +26,12 @@ const selection = {
 	name: selectedField(column(savedView, "name"), Schema.String),
 	icon: selectedField(column(savedView, "icon"), Schema.String),
 	sortOrder: selectedField(column(savedView, "sortOrder"), Schema.Number),
-	createdAt: selectedField(column(savedView, "createdAt"), IsoDateString),
-	updatedAt: selectedField(column(savedView, "updatedAt"), IsoDateString),
 	isBuiltin: selectedField(column(savedView, "isBuiltin"), Schema.Boolean),
 	renderer: selectedField(column(savedView, "renderer"), SavedViewRenderer),
 	isDisabled: selectedField(column(savedView, "isDisabled"), Schema.Boolean),
 	pluginSlug: selectedField(column(savedView, "pluginSlug"), Schema.NullOr(PluginSlug)),
+	createdAt: selectedField(column(savedView, "createdAt"), Schema.NullOr(IsoDateString)),
+	updatedAt: selectedField(column(savedView, "updatedAt"), Schema.NullOr(IsoDateString)),
 	dataSources: selectedField(column(savedView, "dataSources"), Schema.NullOr(RyotQLDocument)),
 	settings: selectedField(column(savedView, "settings"), Schema.Record(Schema.String, JsonValue)),
 };
@@ -60,7 +60,7 @@ export const savedViewRecordsRecipe = defineRecipe(
 					orderBy: [
 						ascending(column(savedView, "pluginSlug")),
 						ascending(column(savedView, "sortOrder")),
-						ascending(column(savedView, "createdAt")),
+						ascending(column(savedView, "slug")),
 					],
 				}),
 			},

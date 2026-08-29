@@ -43,7 +43,7 @@ export const collectReferencedPluginKeys = (records: ArchiveRecords) => {
 	}
 	for (const view of records.savedViews) {
 		add(view.pluginKey);
-		if (view.renderer.kind === "plugin") {
+		if (view.kind === "custom" && view.renderer.kind === "plugin") {
 			add(view.renderer.pluginKey);
 		}
 	}
