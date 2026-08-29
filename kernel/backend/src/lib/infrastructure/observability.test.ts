@@ -48,7 +48,13 @@ it.effect("writes only configured levels and flushes on shutdown", () =>
 			Effect.logDebug("excluded-debug-entry"),
 			Effect.logInfo("excluded-info-entry"),
 			Effect.logError("included-error-entry"),
-		]).pipe(Effect.provide(observabilityLayer({ server: { logFile, logLevel: "Error" } })));
+		]).pipe(
+			Effect.provide(
+				observabilityLayer({
+					observability: { logging: { level: "Error", file: { path: logFile } } },
+				}),
+			),
+		);
 
 		const contents = yield* fs.readFileString(logFile);
 		expect(contents).not.toContain("excluded-debug-entry");
@@ -71,7 +77,11 @@ it.effect("rotates and compresses the structured log file", () =>
 			yield* TestClock.adjust("1 second");
 		}).pipe(
 			Effect.provide(
-				observabilityLayer({ server: { logFile, logLevel: "Debug", logRotationSize: "300B" } }),
+				observabilityLayer({
+					observability: {
+						logging: { level: "Debug", file: { path: logFile, rotationSize: "300B" } },
+					},
+				}),
 			),
 		);
 
@@ -91,7 +101,9 @@ it.effect("fails startup when the log directory cannot be created", () =>
 
 		const exit = yield* Effect.void.pipe(
 			Effect.provide(
-				observabilityLayer({ server: { logFile: path.join(parentFile, "ryot.log") } }),
+				observabilityLayer({
+					observability: { logging: { file: { path: path.join(parentFile, "ryot.log") } } },
+				}),
 			),
 			Effect.exit,
 		);
