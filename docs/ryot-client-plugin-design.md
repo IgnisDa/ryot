@@ -681,26 +681,40 @@ ryot.navigation.replace({ path: "/workouts/456" });
 
 ### Header
 
-The kernel owns the mobile header chrome; a plugin route supplies only its semantic content through a
-declarative `header` resolver. The resolver receives that screen's logical location and decoded route
-parameters and returns either `{ title }` or `null`. The title is a strict `NonEmptyString` capped at
-`PLUGIN_HEADER_TITLE_MAX`; `null` selects the workspace name.
+Each document draws its own mobile header. `ScreenFrame` lives in `@ryot-app/client-ui-sdk` and is
+the only implementation: the kernel mounts it through `AppScreen`, and a plugin screen mounts the
+same component through `PluginScreenFrame` on the `./screen` subpath. The two cannot drift, because
+the compiler already scans the UI SDK for Tailwind classes and inlines `theme.css` and `palette.css`
+into every artifact.
 
-The SDK resolves the header when it reconciles a location into the screen stack and stores the value
-on that retained screen. Only the active screen's value is published. A pop therefore restores the
-exact retained header without remounting the component or rerunning an effect. Header publication is
-router/runtime lifecycle, not a public `RyotClient` capability, and plugin components cannot mutate
-kernel chrome imperatively.
+This is not the slot injection §4 forbids. Nothing is injected into kernel internals; the plugin
+renders its own chrome inside its own document, which is also why plugin-owned header actions and a
+floating action button become possible rather than deferred.
 
-The `header` bridge message carries the active screen's history `index` and `key`. The kernel applies
-it only while both fields match its current navigation entry, so delayed publication from a replaced
-or popped screen is ignored. The shell also associates accepted content with the owning plugin; a
-workspace switch cannot display the previous plugin's title while the next document starts.
+A screen names itself once, through the `title` it passes the frame, and that one string becomes
+both the `<h1>` and the published `header` message. `usePluginTitle` does the publishing and is
+exported separately so a screen that renders no frame can still name itself. A title is published
+only while its screen is the active one, and stamped with the active history `index` and `key`; the
+kernel applies it only while both still match its current entry, and associates it with the owning
+plugin, so neither a popped screen nor a previous workspace can leave its title standing. A pop
+republishes from the retained screen rather than restoring a value the router cached.
 
-This is deliberately narrow. §4 forbids a general-purpose slot-injection system for kernel internals,
-headers included, so route metadata carries a validated scalar rather than markup, elements, or
-arbitrary React nodes. Header actions and a floating action button are not part of it; they follow the
-deferred surfaces in §16 that would drive them.
+The leading control follows §25's arbitration: the plugin receives `edgeBack` and draws back or
+menu from it, then posts `navigate-back` or `open-drawer` and lets the kernel act. Both stay off
+`RyotClient`, because opening kernel chrome is not a capability a plugin may call. The cost is that
+closing the drawer can only return focus to the iframe element, not the button inside it.
+
+The safe-area inset travels as a discrete number: `safeAreaTop` on init, and a `viewport` message
+when it changes. `env(safe-area-inset-top)` is zero inside an iframe, and §19 resolves an entity
+route to a plugin-owned renderer, so a hero that bleeds behind the status bar needs a value the
+plugin was told rather than one it can measure.
+
+The bar is `sticky`, transparent at rest, and turns opaque once a zero-height sentinel passes under
+it — one `IntersectionObserver` and a CSS transition, not scroll-linked progress, because
+`animation-timeline: scroll()` is unavailable on the iOS baseline and the alternative is a per-frame
+scroll listener in both documents. The frame creates no scroll container; it sticks against the one
+its caller owns, which is the plugin's per-screen scroll div here and the route's `<main>` in the
+kernel.
 
 ### Current data and operations API
 
@@ -1243,7 +1257,7 @@ The switcher lists every enabled installation in catalog order. Selecting the cu
 
 At `md` and above, a desktop workspace sidebar (~264px, hidden below `md`) is always present. Its shared `SidebarNav` contains a workspace trigger whose subtitle is the workspace view count, a command-center search row, workspace Views, global Saved Views, and Collections; the account/settings footer remains outside the shared body. The desktop trigger advertises and responds to `Mod+Shift+Space` (`Cmd+Shift+Space` on macOS and `Ctrl+Shift+Space` on Windows/Linux), opening the menu with the current workspace focused. The shortcut is desktop-only; below `md`, a mobile header replaces the rail and opens a drawer that renders the same `SidebarNav` and footer without the workspace or search keyboard-shortcut chips. Escape closes an open workspace menu.
 
-The mobile header is a 54px row with `size-11 rounded-pill` controls on a `bg-bg` surface. Its leading control is the menu button or a back chevron, chosen by the §25 edge rule. Its title is the remembered workspace's name, overridden by the plugin-supplied title described in §10 when one is set.
+The mobile header is a 54px row with `size-11 rounded-pill` controls, transparent until the screen scrolls under it. Its leading control is the menu button or a back chevron, chosen by the §25 edge rule. Its title is the screen's own, declared once by whoever renders the frame; the remembered workspace's name never appears in a header, and the manifest name is the plugin's identity in the sidebar and switcher only.
 
 The drawer is a controlled overlay rather than a modal `<dialog>`, because `showModal()` is binary and cannot be dragged progressively open. Its panel and scrim are driven by one shared progress value, so the button and the edge gesture animate through the same path. It supports Escape, scrim, and close-button dismissal, traps focus while open, restores focus to the menu trigger on close, locks body scroll, leaves the accessibility tree as soon as it closes rather than when its exit animation ends, and respects reduced motion. Selecting a destination commits the close before the navigation runs, so the destination never appears behind an open drawer. Neither the mobile header nor the drawer belongs to settings routes, but the drawer unmounts on its progress value reaching zero rather than on the route changing, so choosing settings from inside it animates the panel out instead of cutting it away, and returning to a workspace never remounts a panel that is still part-way open.
 
@@ -2036,7 +2050,10 @@ Per-route document titles, the polite route announcer, the skip link, and one `<
 - dialog focus trapping, including a menu opened from inside a dialog
 - destructive-action alternatives to gesture-only UI
 
-Any action available only by swipe must also have a non-gesture accessible affordance.
+Any action available only by swipe must also have a non-gesture accessible affordance. There is one
+deliberate exception: a plugin screen may render no header frame, and it then draws no leading
+control, so on a workspace root the drawer is reachable only by the left-edge gesture (§25). The
+plugin author owns that trade, and such a screen is expected to provide its own way back.
 
 `crates/client` is out of scope for these guarantees. It is a parked Expo client outside the npm workspace and the turbo graph, and it keeps its own duplicate palette.
 

@@ -2,7 +2,13 @@ import { createFileRoute, useLocation, useNavigate, useRouter } from "@tanstack/
 import { Effect } from "effect";
 import { useCallback, useLayoutEffect } from "react";
 
-import { useEdge, usePluginHeader, usePluginTitle } from "#/modules/navigation/authenticated-shell";
+import { useScreenLeadingControl } from "#/modules/navigation/app-screen";
+import {
+	useEdge,
+	usePluginHeader,
+	usePluginTitle,
+	useShellChrome,
+} from "#/modules/navigation/authenticated-shell";
 import { historyEntry } from "#/modules/navigation/history-entry";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
@@ -37,9 +43,11 @@ function PluginInstallation(props: {
 	const edge = useEdge();
 	const router = useRouter();
 	const navigate = useNavigate();
+	const chrome = useShellChrome();
 	const header = usePluginHeader();
 	const publishedTitle = usePluginTitle();
 	const { pluginSlug } = Route.useParams();
+	const chromeLeading = useScreenLeadingControl();
 	const { pathname, searchStr, state } = useLocation();
 	const { runtime, scope, theme } = Route.useRouteContext();
 	const { installation, refetch } = props;
@@ -101,6 +109,10 @@ function PluginInstallation(props: {
 			theme={theme}
 			onStaleSession={refetch}
 			installation={installation}
+			chromeLeading={chromeLeading}
+			safeAreaTop={chrome.safeAreaTop}
+			onOpenDrawer={chrome.onOpenDrawer}
+			chromeTriggerRef={chrome.triggerRef}
 			onNavigateBack={() => router.history.back()}
 			onRenewArtifactSession={onRenewArtifactSession}
 			onCreateArtifactSession={onCreateArtifactSession}
