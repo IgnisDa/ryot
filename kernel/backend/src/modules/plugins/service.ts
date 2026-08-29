@@ -115,9 +115,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 			});
 			const inTransaction = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 				Effect.uninterruptible(
-					mapDatabaseErrors(
-						database.transaction(repository.lockIngestion().pipe(Effect.andThen(effect))),
-					),
+					database.transaction(repository.lockIngestion().pipe(Effect.andThen(effect))),
 				).pipe(
 					Effect.catchTag("DatabaseSessionStateError", () =>
 						Effect.fail(new DbError({ message: "Plugin ingestion requires a root transaction" })),

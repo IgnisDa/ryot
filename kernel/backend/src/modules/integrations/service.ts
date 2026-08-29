@@ -20,7 +20,6 @@ import { generateId } from "better-auth";
 import { Context, Effect, Result, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { ProKeyService } from "#lib/infrastructure/pro-key";
 import {
@@ -158,22 +157,20 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					return yield* new IntegrationRequestError({ reason: thresholdError });
 				}
 
-				const created = yield* mapDatabaseErrors(
-					transaction(
-						repository.createForUser({
-							lot,
-							userId: user.id,
-							name: body.name ?? null,
-							provider: body.provider,
-							isDisabled: body.isDisabled ?? false,
-							minimumProgress: String(minimumProgress),
-							maximumProgress: String(maximumProgress),
-							providerSpecifics: body.providerSpecifics,
-							syncOwnership: body.syncOwnership ?? false,
-							pluginInstallationId: registered.installationId,
-							extraSettings: body.extraSettings ?? defaultExtraSettings,
-						}),
-					),
+				const created = yield* transaction(
+					repository.createForUser({
+						lot,
+						userId: user.id,
+						name: body.name ?? null,
+						provider: body.provider,
+						isDisabled: body.isDisabled ?? false,
+						minimumProgress: String(minimumProgress),
+						maximumProgress: String(maximumProgress),
+						providerSpecifics: body.providerSpecifics,
+						syncOwnership: body.syncOwnership ?? false,
+						pluginInstallationId: registered.installationId,
+						extraSettings: body.extraSettings ?? defaultExtraSettings,
+					}),
 				);
 
 				return created;
@@ -210,23 +207,21 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					}
 				}
 
-				const updated = yield* mapDatabaseErrors(
-					transaction(
-						repository.updateForUser({
-							userId,
-							integrationId,
-							name: body.name,
-							providerSpecifics,
-							isDisabled: body.isDisabled,
-							extraSettings: body.extraSettings,
-							syncOwnership: body.syncOwnership,
-							lastFinishedAt: body.lastFinishedAt,
-							minimumProgress:
-								body.minimumProgress !== undefined ? String(body.minimumProgress) : undefined,
-							maximumProgress:
-								body.maximumProgress !== undefined ? String(body.maximumProgress) : undefined,
-						}),
-					),
+				const updated = yield* transaction(
+					repository.updateForUser({
+						userId,
+						integrationId,
+						name: body.name,
+						providerSpecifics,
+						isDisabled: body.isDisabled,
+						extraSettings: body.extraSettings,
+						syncOwnership: body.syncOwnership,
+						lastFinishedAt: body.lastFinishedAt,
+						minimumProgress:
+							body.minimumProgress !== undefined ? String(body.minimumProgress) : undefined,
+						maximumProgress:
+							body.maximumProgress !== undefined ? String(body.maximumProgress) : undefined,
+					}),
 				);
 
 				if (!updated) {
@@ -243,20 +238,18 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				integrationId: IntegrationId,
 				importRunId: ImportRunId,
 			) {
-				return yield* mapDatabaseErrors(
-					transaction(
-						Effect.gen(function* () {
-							if (yield* repository.hasAutoDisableClaim(importRunId)) {
-								return true;
-							}
-							const disabled = yield* repository.disableForUserIfEnabled({ userId, integrationId });
-							if (!disabled) {
-								return yield* repository.hasAutoDisableClaim(importRunId);
-							}
-							yield* repository.insertAutoDisableClaim({ importRunId, integrationId });
+				return yield* transaction(
+					Effect.gen(function* () {
+						if (yield* repository.hasAutoDisableClaim(importRunId)) {
 							return true;
-						}),
-					),
+						}
+						const disabled = yield* repository.disableForUserIfEnabled({ userId, integrationId });
+						if (!disabled) {
+							return yield* repository.hasAutoDisableClaim(importRunId);
+						}
+						yield* repository.insertAutoDisableClaim({ importRunId, integrationId });
+						return true;
+					}),
 				);
 			});
 
