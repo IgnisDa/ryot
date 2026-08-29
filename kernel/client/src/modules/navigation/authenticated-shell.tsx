@@ -295,7 +295,7 @@ export function AuthenticatedShell(props: {
 		}
 	}, [workspaceChrome]);
 	useDesktopEffect(() => setDrawerOpen(false));
-	useShortcut("Meta+K", () => setSearchOpen(true), { enabled: !searchOpen });
+	useShortcut("Meta+K", () => setSearchOpen(true));
 
 	return (
 		<div data-testid="authenticated-shell" className="flex h-dvh min-h-0 flex-col md:flex-row">
