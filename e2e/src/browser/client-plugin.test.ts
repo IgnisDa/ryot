@@ -12,7 +12,7 @@ import {
 } from "~/fixtures/kernel";
 import { seedGlobalShowEpisodeTree } from "~/fixtures/plugins/media";
 import { requirePresent } from "~/support/assertions";
-import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
+import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
 
@@ -463,5 +463,5 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		expect((yield* readDocumentGrant(mediaFrame, apiUrl)).src).toContain(
 			"/api/client-pages/documents/",
 		);
-	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	}).pipe(PlaywrightSpawner.withBrowser),
 );

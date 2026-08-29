@@ -18,7 +18,7 @@ import {
 	type PendingOAuth,
 } from "~/fixtures/kernel";
 import { requirePresent } from "~/support/assertions";
-import { beforeAll, describe, expect, it } from "~/support/effect-test";
+import { beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
 import { webRequest } from "~/support/web-request";
 
@@ -60,7 +60,7 @@ const exchangeCode = (pending: PendingOAuth, code: string, codeVerifier: string)
 	});
 
 beforeAll(() =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			const user = yield* createTestUser();
 			sessionCookie = user.sessionCookie;

@@ -22,8 +22,7 @@ import {
 	stopMockOidcServer,
 } from "~/fixtures/kernel";
 import { requirePresent } from "~/support/assertions";
-import { browserLayer } from "~/support/browser";
-import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
+import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import {
 	buildApiEnv,
 	startCoreTestInfrastructure,
@@ -112,7 +111,7 @@ const waitForApi = (port: number) =>
 	waitForHealthCheck(`http://127.0.0.1:${port}/api/system/health`, "OIDC Setup", 90);
 
 beforeAll(() =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			coreInfrastructure = yield* startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME });
 			mockOidcServer = yield* startMockOidcServer;
@@ -127,7 +126,7 @@ beforeAll(() =>
 );
 
 afterAll(() =>
-	Effect.runPromise(
+	runPromise(
 		Effect.all(
 			[stopApiProcess(apiProcessA), stopApiProcess(apiProcessB), stopApiProcess(apiProcessC)],
 			{ discard: true, concurrency: "unbounded" },
@@ -162,7 +161,7 @@ describe("GET /system/config with OIDC enabled (API A)", () => {
 
 describe("Local auth disabled (API B)", () => {
 	beforeAll(() =>
-		Effect.runPromise(
+		runPromise(
 			stopApiProcess(apiProcessA).pipe(
 				Effect.andThen(
 					Effect.sync(() => {
@@ -255,11 +254,11 @@ describe("Local auth disabled (API B)", () => {
 			expect(oauthResponse.ok()).toBe(true);
 			yield* page.getByTestId("authenticated-shell").waitFor({ state: "visible" });
 			expect(new URL(page.url()).pathname).not.toMatch(/^\/auth(?:\/|$)/);
-		}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+		}).pipe(PlaywrightSpawner.withBrowser),
 	);
 
 	afterAll(() =>
-		Effect.runPromise(
+		runPromise(
 			stopApiProcess(apiProcessB).pipe(
 				Effect.andThen(
 					Effect.sync(() => {
@@ -373,7 +372,7 @@ describe("OIDC idempotency (API A)", () => {
 
 describe("Registration gating for OIDC (API C)", () => {
 	beforeAll(() =>
-		Effect.runPromise(
+		runPromise(
 			oidcSignIn(requireMockOidcServer(), existingOidcUsername, getApiUrlA()).pipe(
 				Effect.andThen(stopApiProcess(apiProcessA)),
 				Effect.andThen(

@@ -2,7 +2,7 @@ import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import { createAuthenticatedClient, createCollection } from "~/fixtures/kernel";
-import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
+import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
 
@@ -44,7 +44,7 @@ it.live("opens a kernel-owned collection instead of reporting an unavailable plu
 		yield* summary.waitFor({ state: "visible" });
 		yield* summary.getByText("1 total", { exact: true }).waitFor({ state: "visible" });
 		yield* detail.getByText(memberName, { exact: true }).first().waitFor({ state: "visible" });
-	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
 it.live("shows an empty state for a collection without members", () =>
@@ -69,7 +69,7 @@ it.live("shows an empty state for a collection without members", () =>
 		yield* detail
 			.getByText("This collection is empty.", { exact: true })
 			.waitFor({ state: "visible" });
-	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
 it.live("browses collection members with membership properties", () =>
@@ -175,5 +175,5 @@ it.live("browses collection members with membership properties", () =>
 		yield* page.waitForURL((url) => url.searchParams.get("sort") === "name-desc");
 		yield* rows.nth(0).getByText(zuluName, { exact: true }).waitFor({ state: "visible" });
 		yield* rows.nth(1).getByText(alphaName, { exact: true }).waitFor({ state: "visible" });
-	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	}).pipe(PlaywrightSpawner.withBrowser),
 );

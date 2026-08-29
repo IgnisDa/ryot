@@ -11,14 +11,14 @@ export const defineOperationRecipe = <Input, InputEncoded, Output, OutputEncoded
 	recipe: OperationRecipe<Input, InputEncoded, Output, OutputEncoded>,
 ): OperationRecipe<Input, InputEncoded, Output, OutputEncoded> => recipe;
 
-export const invokeOperationRecipe = <Input, InputEncoded, Output, OutputEncoded, E>(
+export const invokeOperationRecipe = <Input, InputEncoded, Output, OutputEncoded, E, R>(
 	recipe: OperationRecipe<Input, InputEncoded, Output, OutputEncoded>,
 	input: Input,
 	transport: (request: {
 		readonly pluginSlug: string;
 		readonly payload: InputEncoded;
 		readonly operationSlug: string;
-	}) => Effect.Effect<unknown, E>,
+	}) => Effect.Effect<unknown, E, R>,
 ) =>
 	Schema.encodeEffect(recipe.input)(input).pipe(
 		Effect.flatMap((payload) =>

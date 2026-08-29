@@ -47,7 +47,7 @@ import {
 	requirePresent,
 	requireString,
 } from "~/support/assertions";
-import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
+import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import {
 	buildApiEnv,
 	spawnApiProcess,
@@ -210,7 +210,7 @@ const getDemoToken = (sessionCookie: string) =>
 
 beforeAll(
 	() =>
-		Effect.runPromise(
+		runPromise(
 			Effect.gen(function* () {
 				const port = yield* Effect.promise(() => getPort());
 				apiOrigin = `http://127.0.0.1:${port}`;
@@ -251,7 +251,7 @@ beforeAll(
 );
 
 afterAll(() =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			yield* stopApiProcess(apiProcess);
 			yield* stopCoreTestInfrastructure(infrastructure);

@@ -17,7 +17,7 @@ import {
 	postIntegrationWebhookAndWait,
 } from "~/fixtures/kernel";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
-import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
+import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import { type FakeHttpServer, startFakeHttpServer } from "~/support/fake-http-server";
 import {
 	buildApiEnv,
@@ -63,7 +63,7 @@ let coreInfrastructure: Effect.Success<ReturnType<typeof startCoreTestInfrastruc
 
 beforeAll(
 	() =>
-		Effect.runPromise(
+		runPromise(
 			Effect.gen(function* () {
 				coreInfrastructure = yield* startCoreTestInfrastructure({ bucketName: S3_BUCKET_NAME });
 				const infrastructure = requirePresent(
@@ -146,7 +146,7 @@ beforeAll(
 );
 
 afterAll(() =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			yield* Effect.all(
 				[

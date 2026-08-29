@@ -5,14 +5,17 @@ import {
 } from "@ryot-app/contract/client";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "effect";
-import { FetchHttpClient } from "effect/unstable/http";
+import type { HttpClient } from "effect/unstable/http";
 
 import { getApiUrl } from "~/support/harness-target";
 import { webRequest } from "~/support/web-request";
 
 export type ContractSession = {
 	readonly userId?: UserId;
-	call: <A, E>(program: ContractProgram<A, E>, headers?: RequestHeaders) => Effect.Effect<A, E>;
+	call: <A, E>(
+		program: ContractProgram<A, E>,
+		headers?: RequestHeaders,
+	) => Effect.Effect<A, E, HttpClient.HttpClient>;
 };
 
 export const makeSession = (
@@ -22,10 +25,7 @@ export const makeSession = (
 ): ContractSession => ({
 	userId,
 	call: (program, headers = {}) =>
-		makeContractClient(baseUrl, { ...defaultHeaders, ...headers }).pipe(
-			Effect.flatMap(program),
-			Effect.provide(FetchHttpClient.layer),
-		),
+		makeContractClient(baseUrl, { ...defaultHeaders, ...headers }).pipe(Effect.flatMap(program)),
 });
 
 export const getApiClient = (baseUrl?: string): ContractSession => makeSession(baseUrl);

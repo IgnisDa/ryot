@@ -21,7 +21,7 @@ import {
 import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
 import { queryInMediaLibraryRelationship } from "~/fixtures/plugins/media";
 import { assertCompleted, assertPresent, assertTaggedError } from "~/support/assertions";
-import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
+import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 
 const IMPORT_EXTERNAL_ID = "e2e-private-record-1";
 const IMPORTED_NAME = "E2E Imported Private Record";
@@ -35,7 +35,7 @@ let audiobookProvider: InstalledTestProvider;
 let workoutProvider: InstalledTestProvider;
 
 beforeAll(() =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			providerClient = client;
@@ -87,7 +87,7 @@ beforeAll(() =>
 );
 
 afterAll(() =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			yield* uninstallTestProvider(workoutProvider);
 			yield* uninstallTestProvider(audiobookProvider);

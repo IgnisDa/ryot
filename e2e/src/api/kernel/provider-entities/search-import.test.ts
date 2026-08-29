@@ -26,7 +26,7 @@ import {
 	assertTaggedError,
 	requireObjectRecord,
 } from "~/support/assertions";
-import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
+import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 
 const BOOK_IMPORT_NAME = "E2E Imported Book";
 const ANIME_IMPORT_NAME = "E2E Imported Anime";
@@ -41,7 +41,7 @@ let animeProvider: InstalledTestProvider;
 let companyProvider: InstalledTestProvider;
 
 beforeAll(() =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			providerClient = client;
@@ -98,7 +98,7 @@ beforeAll(() =>
 );
 
 afterAll(() =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			yield* uninstallTestProvider(animeProvider);
 			yield* uninstallTestProvider(companyProvider);

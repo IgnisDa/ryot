@@ -15,7 +15,7 @@ import {
 } from "~/fixtures/kernel";
 import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
 import { assertCondition, assertPresent, assertTaggedError } from "~/support/assertions";
-import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
+import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 
 const DYNAMIC_SEARCH_OPTIONS_SCHEMA = {
 	unknownKeys: "strict",
@@ -63,7 +63,7 @@ let staticProvider: InstalledTestProvider;
 let providerClient: Client;
 
 beforeAll(() =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			providerClient = client;
@@ -108,7 +108,7 @@ beforeAll(() =>
 );
 
 afterAll(() =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			yield* uninstallTestProvider(staticProvider);
 			yield* uninstallTestProvider(failingProvider);

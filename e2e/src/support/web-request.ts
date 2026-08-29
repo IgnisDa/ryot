@@ -20,4 +20,4 @@ export const webRequest = (url: string | URL, init?: RequestInit, options?: { st
 			headers.append("set-cookie", cookie);
 		}
 		return new Response(body, { headers, status: response.status });
-	}).pipe(Effect.provide(FetchHttpClient.layer));
+	});
