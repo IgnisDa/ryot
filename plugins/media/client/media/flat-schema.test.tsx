@@ -191,6 +191,21 @@ describe("flat media detail screen", () => {
 		unmount();
 	});
 
+	it("frames the descriptor's facts with the rating first and production status last", () => {
+		const rated = renderBody(readyState());
+		const text = rated.container.textContent;
+		expect(text.indexOf("TMDB rating")).toBeGreaterThanOrEqual(0);
+		expect(text.indexOf("TMDB rating")).toBeLessThan(text.indexOf("Fixture count"));
+		expect(text.indexOf("Fixture count")).toBeLessThan(text.indexOf("Production status"));
+		rated.unmount();
+
+		const unrated = renderBody(readyState({ providerRating: null, productionStatus: null }));
+		expect(unrated.container.textContent).toContain("Fixture count");
+		expect(unrated.container.textContent).not.toContain("TMDB rating");
+		expect(unrated.container.textContent).not.toContain("Production status");
+		unrated.unmount();
+	});
+
 	it("shows the flat lifecycle label on the status rail", () => {
 		const { unmount, container } = renderBody(readyState());
 

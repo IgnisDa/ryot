@@ -147,6 +147,7 @@ export type MediaFlatSchemaDescriptor<
 		readonly segmentNoun: string;
 		readonly emptyDetail: string;
 		readonly loadingDetail: string;
+		readonly progressVerb: string;
 		readonly completionsLabel: string;
 		readonly rowLabels: {
 			readonly review: string;
@@ -162,7 +163,6 @@ export type MediaFlatSchemaDescriptor<
 	readonly creditCopy: MediaCreditCopy;
 	readonly overviewLoadingDetail: string;
 	readonly group?: { readonly actionLabel: string; readonly title: (name: string) => string };
-	readonly progressVerb: string;
 	readonly facts: (summary: Summary) => readonly MediaSummaryFact[];
 	readonly presentationFacts: (data: Presentation) => readonly string[];
 	readonly overviewTrailing?: (input: {
@@ -482,7 +482,7 @@ export const defineFlatMediaSchema = <
 		const release = mediaReleaseLabel(data);
 		const progress =
 			data.state === "in_progress" && data.progressPercent !== null
-				? `${decimalLabel(data.progressPercent)}% ${descriptor.progressVerb}`
+				? `${decimalLabel(data.progressPercent)}% ${descriptor.activityCopy.progressVerb}`
 				: undefined;
 		return (
 			<div className={clsx("flex min-w-0 flex-col", props.compact ? "gap-1" : "gap-1.5")}>

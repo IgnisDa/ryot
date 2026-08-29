@@ -1,18 +1,17 @@
 import { afterEach, describe, expect, it } from "vitest";
 
 import { movieRecipes } from "../../shared/movie-recipes";
-import { decodeFlatActivity } from "../../tests/client/flat-media/activity-fixture";
 import {
 	decodeFlatOverview,
 	FLAT_OVERVIEW_INPUT,
 } from "../../tests/client/flat-media/overview-fixture";
+import { decodeFlatPresentation } from "../../tests/client/flat-media/presentation-fixture";
+import { renderFlatScreenBody } from "../../tests/client/flat-media/screen-fixture";
 import {
 	decodeFlatSummary,
 	FLAT_SUMMARY_INPUT,
 } from "../../tests/client/flat-media/summary-fixture";
-import { readyQueryResult, rowsResult } from "../../tests/client/query-result-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
-import { mapMediaOverview } from "../media/overview-state";
 import { moviePresentationFacts, movieSchema, movieSummaryFacts } from "./schema";
 
 const noopAdapter = { query: () => Promise.resolve({}) };
@@ -25,49 +24,24 @@ const movieSummary = (overrides: Record<string, unknown> = {}) =>
 		...overrides,
 	});
 
-const renderBody = () =>
-	mountRyotClient(
-		noopAdapter,
-		<movieSchema.ScreenBody
-			compact
-			safeAreaTop={0}
-			settled={undefined}
-			refresh={() => undefined}
-			refreshOverview={() => undefined}
-			state={{ status: "ready", summary: movieSummary() }}
-			overview={mapMediaOverview(
-				readyQueryResult(decodeFlatOverview(movieRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT))),
-			)}
-			activity={
-				<movieSchema.Activity
-					compact
-					refresh={() => undefined}
-					state={movieSchema.mapActivity(readyQueryResult(decodeFlatActivity()))}
-				/>
-			}
-		/>,
-	);
-
 afterEach(() => {
 	document.body.innerHTML = "";
 });
 
 describe("movie schema", () => {
-	it("lists the rating, runtime and production status and drops the unrecorded ones", () => {
+	it("lists the runtime and drops it when unrecorded", () => {
 		expect(movieSummaryFacts(movieSummary())).toEqual([
-			expect.objectContaining({ label: "TMDB rating" }),
 			{ icon: "clock", value: "2h 49m", label: "Runtime" },
-			{ value: "Released", icon: "clapperboard", label: "Production status" },
 		]);
-		expect(
-			movieSummaryFacts(
-				movieSummary({ runtime: null, providerRating: null, productionStatus: null }),
-			),
-		).toEqual([]);
+		expect(movieSummaryFacts(movieSummary({ runtime: null }))).toEqual([]);
 	});
 
 	it("titles the credits as cast and crew and the group as a collection", () => {
-		const { unmount, container } = renderBody();
+		const { unmount, container } = renderFlatScreenBody(
+			movieSchema,
+			movieSummary(),
+			decodeFlatOverview(movieRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT)),
+		);
 
 		expect(container.textContent).toContain("Movie");
 		expect(container.textContent).toContain("Cast & crew");
@@ -77,35 +51,7 @@ describe("movie schema", () => {
 	});
 
 	it("reads the runtime on rows and hints how much was watched", () => {
-		const decoded = movieRecipes
-			.presentationRecipe(["media-1"])
-			.decode({
-				data: {
-					rows: rowsResult(
-						[
-							{
-								runtime: 169,
-								images: null,
-								id: "media-1",
-								publishDate: null,
-								publishYear: 1999,
-								name: "Fight Club",
-								schemaSlug: "movie",
-								progressPercent: 42,
-								state: "in_progress",
-								populationStatus: "ready",
-								translationStatus: "none",
-								productionStatus: "Released",
-							},
-						],
-						{ limit: 100, hasMore: false, nextCursor: null },
-					),
-				},
-			});
-		if (decoded._tag === "Failure" || decoded.success[0] === undefined) {
-			throw new Error("Expected decoded presentation data");
-		}
-		const data = { ...decoded.success[0], batchAssets: [] };
+		const data = decodeFlatPresentation(movieRecipes, { runtime: 169, schemaSlug: "movie" });
 
 		expect(moviePresentationFacts(data)).toEqual(["2h 49m"]);
 		expect(moviePresentationFacts({ ...data, runtime: null })).toEqual([]);

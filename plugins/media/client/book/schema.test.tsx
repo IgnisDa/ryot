@@ -7,13 +7,14 @@ import {
 	FLAT_OVERVIEW_INPUT,
 	flatGroupRow,
 } from "../../tests/client/flat-media/overview-fixture";
+import { decodeFlatPresentation } from "../../tests/client/flat-media/presentation-fixture";
+import { renderFlatScreenBody } from "../../tests/client/flat-media/screen-fixture";
 import {
 	decodeFlatSummary,
 	FLAT_SUMMARY_INPUT,
 } from "../../tests/client/flat-media/summary-fixture";
-import { readyQueryResult, rowsResult } from "../../tests/client/query-result-fixture";
+import { readyQueryResult } from "../../tests/client/query-result-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
-import { mapMediaOverview } from "../media/overview-state";
 import { bookPresentationFacts, bookSchema, bookSummaryFacts } from "./schema";
 
 const noopAdapter = { query: () => Promise.resolve({}) };
@@ -25,55 +26,6 @@ const bookSummary = (overrides: Record<string, unknown> = {}) =>
 		...overrides,
 	});
 
-const renderBody = () =>
-	mountRyotClient(
-		noopAdapter,
-		<bookSchema.ScreenBody
-			compact
-			activity={null}
-			safeAreaTop={0}
-			settled={undefined}
-			refresh={() => undefined}
-			refreshOverview={() => undefined}
-			state={{ status: "ready", summary: bookSummary() }}
-			overview={mapMediaOverview(
-				readyQueryResult(decodeFlatOverview(bookRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT))),
-			)}
-		/>,
-	);
-
-const presentationData = () => {
-	const decoded = bookRecipes
-		.presentationRecipe(["media-1"])
-		.decode({
-			data: {
-				rows: rowsResult(
-					[
-						{
-							pages: 320,
-							images: null,
-							id: "media-1",
-							publishDate: null,
-							publishYear: 2014,
-							schemaSlug: "book",
-							progressPercent: 42,
-							name: "The Martian",
-							state: "in_progress",
-							productionStatus: null,
-							populationStatus: "ready",
-							translationStatus: "none",
-						},
-					],
-					{ limit: 100, hasMore: false, nextCursor: null },
-				),
-			},
-		});
-	if (decoded._tag === "Failure" || decoded.success[0] === undefined) {
-		throw new Error("Expected decoded presentation data");
-	}
-	return { ...decoded.success[0], batchAssets: [] };
-};
-
 afterEach(() => {
 	document.body.innerHTML = "";
 });
@@ -81,30 +33,19 @@ afterEach(() => {
 describe("book schema", () => {
 	it("lists the pages and compilation facts and drops the unrecorded ones", () => {
 		expect(bookSummaryFacts(bookSummary())).toEqual([
-			expect.objectContaining({ label: "TMDB rating" }),
 			{ value: "320", label: "Pages", icon: "book-open" },
 			{ value: "No", icon: "layers", label: "Compilation" },
-			{ value: "Released", icon: "clapperboard", label: "Production status" },
 		]);
 		expect(bookSummaryFacts(bookSummary({ isCompilation: true }))).toContainEqual({
 			value: "Yes",
 			icon: "layers",
 			label: "Compilation",
 		});
-		expect(
-			bookSummaryFacts(
-				bookSummary({
-					pages: null,
-					isCompilation: null,
-					providerRating: null,
-					productionStatus: null,
-				}),
-			),
-		).toEqual([]);
+		expect(bookSummaryFacts(bookSummary({ pages: null, isCompilation: null }))).toEqual([]);
 	});
 
 	it("reads the page count on rows, hints how much was read and draws poster art", () => {
-		const data = presentationData();
+		const data = decodeFlatPresentation(bookRecipes, { pages: 320, schemaSlug: "book" });
 
 		expect(bookPresentationFacts(data)).toEqual(["320 pages"]);
 		expect(bookPresentationFacts({ ...data, pages: 1 })).toEqual(["1 page"]);
@@ -142,7 +83,11 @@ describe("book schema", () => {
 	});
 
 	it("presents the group as the series the book is part of", () => {
-		const { unmount, container } = renderBody();
+		const { unmount, container } = renderFlatScreenBody(
+			bookSchema,
+			bookSummary(),
+			decodeFlatOverview(bookRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT)),
+		);
 
 		expect(container.textContent).toContain("Authors & contributors");
 		expect(container.textContent).toContain(`Part of ${flatGroupRow.name}`);

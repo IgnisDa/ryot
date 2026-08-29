@@ -12,13 +12,7 @@ import {
 import { defineEpisodicMediaSchema } from "../media/episodic-schema";
 import { MEDIA_ART_HEIGHT, MEDIA_BACKDROP_HEIGHT } from "../media/hero";
 import { mediaWatchProvidersTrailing } from "../media/overview";
-import {
-	mediaCountFact,
-	mediaCountLabel,
-	mediaProductionStatusFact,
-	mediaRatingFact,
-	type MediaSummaryFact,
-} from "../media/summary-state";
+import { mediaCountFact, mediaCountLabel, type MediaSummaryFact } from "../media/summary-state";
 import { ShowEpisodesTab } from "./episodes";
 import {
 	isSpecialsSeason,
@@ -70,16 +64,11 @@ export const showActivityCoverage = (result: ShowActivity): MediaEpisodicCoverag
 	};
 };
 
-export const showSummaryFacts = (show: ShowSummary): readonly MediaSummaryFact[] => {
-	const seasons = mediaCountFact(show.totalSeasons, "Season");
-	const episodes = mediaCountFact(show.totalEpisodes, "Episode");
-	return [
-		mediaRatingFact(show),
-		mediaProductionStatusFact(show),
-		seasons === undefined ? undefined : { icon: "layers-3", ...seasons },
-		episodes === undefined ? undefined : { icon: "tv", ...episodes },
+export const showSummaryFacts = (show: ShowSummary): readonly MediaSummaryFact[] =>
+	[
+		mediaCountFact(show.totalSeasons, "Season", "layers-3"),
+		mediaCountFact(show.totalEpisodes, "Episode", "tv"),
 	].filter((fact) => fact !== undefined);
-};
 
 export const showPresentationFacts = (show: ShowPresentation) =>
 	show.productionStatus === null ? [] : [show.productionStatus];
