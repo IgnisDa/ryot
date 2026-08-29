@@ -7,9 +7,22 @@ schema; saved views do not declare sandbox scripts.
 
 ## Client
 
-The plugin client supplies a workspace home and a `show` entity renderer. The Show screen uses five
-client-owned RyotQL recipes for summary, overview, seasons, episodes, and activity. Entity links use
-`PluginLink` so the kernel resolves canonical entity routes.
+The plugin client supplies a workspace home and `show` and `movie` entity renderers. The Show screen
+uses five client-owned RyotQL recipes for summary, overview, seasons, episodes, and activity; the
+Movie screen uses three, for summary, overview, and activity. Entity links use `PluginLink` so the
+kernel resolves canonical entity routes.
+
+`client/media/` owns everything both screens share: the primitives, hero, tab bar, summary header,
+overview sections, image gallery, managed-asset wrappers, and the activity timeline engine. It is
+schema-agnostic, so screen-specific copy - lifecycle labels, beat wording, row labels - stays in
+`client/show/` and `client/movie/` and is passed in. `shared/media-recipes.ts` is the query-side
+counterpart: `shared/show-recipes.ts` and `shared/movie-recipes.ts` compose their own recipes over
+its selections rather than parameterizing one recipe, so each result type keeps its exact field set.
+
+The Movie overview adds a "Part of" section listing the movie's `movie-group` and the other films in
+it. The relationship is authoritative from the group side, so the subject movie is excluded from its
+own rail, the section is hidden when the group is absent or has no other members, and the siblings'
+cover locators join the overview's managed-asset set so their tiles resolve real artwork.
 
 Layout uses only the `compact` value from `useRyotViewport()`, not responsive Tailwind variants,
 because iframe media queries measure the content frame rather than the kernel viewport. Hero art fills
@@ -21,12 +34,13 @@ Managed artwork uses `ManagedAssetProvider` and `useManagedAssetUrl` from
 resolved URLs while refreshing, and renews them before expiry. Media code only collects domain image
 locators and adapts remote images, which load directly.
 
-Show queries declare entity interest only for loaded recipe results: the show and selected season are
-foreground, while displayed related entities are visible. Activity declares entity IDs referenced by
+Detail queries declare entity interest only for loaded recipe results: the subject entity and, for
+Show, the selected season are foreground, while displayed related entities - collections, credits,
+recommendations, and movie-group siblings - are visible. Activity declares entity IDs referenced by
 events, not event IDs. Update hints refresh active queries without promising general realtime updates
 for unloaded data or arbitrary mutations.
 
-The Show overview reads watch providers from the summary recipe and shows only the viewer's region,
+Both overviews read watch providers from their summary recipe and show only the viewer's region,
 derived from `Intl`. The section is hidden when that region is unknown or does not carry the title,
 because a global list answers no question the reader asked. Providers are grouped by offer kind in
 contract order and named alphabetically within a group. TMDB sources this data from JustWatch, which
@@ -129,6 +143,14 @@ For shows and podcasts, current state means:
 | `backlog`, `on_hold`, `dropped`, `complete` | The latest aggregate signal has that state                            |
 | `in_progress`                               | Latest regular-episode activity has incomplete current-cycle coverage |
 | `caught_up`                                 | Latest regular-episode activity has complete current-cycle coverage   |
+
+Flat, non-episodic media has no coverage to derive from, so its state is the slug of its latest
+`backlog`, `progress`, `complete`, `dropped`, or `on_hold` event, with `progress` reading as
+`in_progress` and no event at all reading as `untracked`. There is no `caught_up` state. Movie events
+carry no `sessionEntityId` - `policy.media-episodic-session` assigns one only for shows, podcasts,
+and their episodes - so the completion boundary for flat media is entity-scoped rather than
+session-scoped, and the reported `progressPercent` is the latest progress strictly after that
+boundary, or null when the only progress precedes it.
 
 Parent aggregate signals interrupt episode-derived activity; later regular-episode progress resumes
 it. An episode is `untracked`, `in_progress`, or `complete` from its latest progress/completion event.

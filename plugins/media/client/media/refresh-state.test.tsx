@@ -2,26 +2,26 @@ import { RyotClientError } from "@ryot-app/client-sdk";
 import { fireEvent, getByRole } from "@testing-library/dom";
 import { assert, describe, expect, it } from "vitest";
 
+import {
+	errorQueryResult,
+	pendingQueryResult,
+	readyQueryResult,
+} from "../../tests/client/query-result-fixture";
 import { decodeShowActivity } from "../../tests/client/show/activity-fixture";
 import {
 	decodeShowEpisodesResult,
 	decodeShowSeasonEpisodesResult,
 } from "../../tests/client/show/episodes-fixture";
 import { decodeShowOverview } from "../../tests/client/show/overview-fixture";
-import {
-	errorQueryResult,
-	pendingQueryResult,
-	readyQueryResult,
-} from "../../tests/client/show/query-result-fixture";
 import { decodeShowSummaryResult, showSummaryRow } from "../../tests/client/show/summary-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
-import { mapShowActivity } from "./activity-state";
-import { mapShowEpisodes, mapShowSeasonEpisodes } from "./episodes-state";
-import { mapShowOverview } from "./overview-state";
-import { ShowRefreshStatus } from "./primitives";
+import { mapShowActivity } from "../show/activity-state";
+import { mapShowEpisodes, mapShowSeasonEpisodes } from "../show/episodes-state";
+import { ShowScreenBody } from "../show/screen";
+import { mapShowSummary } from "../show/summary-state";
+import { mapMediaOverview } from "./overview-state";
+import { MediaRefreshStatus } from "./primitives";
 import { classifyRyotQueryResult } from "./query-state";
-import { ShowScreenBody } from "./screen";
-import { mapShowSummary } from "./summary-state";
 
 describe("show refresh failures", () => {
 	it.each(["transport", "malformed-result"] as const)(
@@ -53,9 +53,9 @@ describe("show refresh failures", () => {
 					settled={undefined}
 					refreshOverview={retry}
 					state={mapShowSummary(summary)}
-					overview={mapShowOverview(overview)}
-					summaryRefreshStatus={<ShowRefreshStatus result={{ ...summary, refetch: retry }} />}
-					overviewRefreshStatus={<ShowRefreshStatus result={{ ...overview, refetch: retry }} />}
+					overview={mapMediaOverview(overview)}
+					summaryRefreshStatus={<MediaRefreshStatus result={{ ...summary, refetch: retry }} />}
+					overviewRefreshStatus={<MediaRefreshStatus result={{ ...overview, refetch: retry }} />}
 				/>,
 			);
 			expect(view.container.textContent).toContain("Adolescence");
@@ -80,9 +80,9 @@ describe("show refresh failures", () => {
 		const view = mountRyotClient(
 			{ query: () => Promise.resolve({}) },
 			<>
-				<ShowRefreshStatus result={errorQueryResult(error)} />
-				<ShowRefreshStatus result={pendingQueryResult()} />
-				<ShowRefreshStatus result={readyQueryResult(null)} />
+				<MediaRefreshStatus result={errorQueryResult(error)} />
+				<MediaRefreshStatus result={pendingQueryResult()} />
+				<MediaRefreshStatus result={readyQueryResult(null)} />
 			</>,
 		);
 		expect(view.container.textContent).toBe("");

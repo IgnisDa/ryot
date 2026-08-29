@@ -11,14 +11,10 @@ import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/client-ui
 import clsx from "clsx";
 
 import { showPresentationRecipe, type ShowPresentationData } from "../../shared/show-recipes";
-import { ManagedAssetImage } from "../managed-assets";
-import { collectManagedAssetLocators } from "../media-image";
-import {
-	showCountLabel,
-	showLifecycleLabel,
-	showPosterAsset,
-	showReleaseLabel,
-} from "./summary-state";
+import { collectManagedAssetLocators } from "../media/image";
+import { ManagedAssetImage } from "../media/managed-assets";
+import { mediaCountLabel, mediaPosterAsset, mediaReleaseLabel } from "../media/summary-state";
+import { showLifecycleLabel } from "./summary-state";
 
 export type ShowPresentationViewData = ShowPresentationData & {
 	readonly batchAssets: readonly ManagedAssetLocator[];
@@ -31,7 +27,7 @@ export const loadShowPresentations: EntityPresentationLoader<ShowPresentationVie
 }) => {
 	const entityIds = [...new Set(references.map(({ entityId }) => entityId))];
 	const shows = await client.data.query(showPresentationRecipe(entityIds), { signal });
-	const batchAssets = collectManagedAssetLocators(shows.map(showPosterAsset));
+	const batchAssets = collectManagedAssetLocators(shows.map(mediaPosterAsset));
 	return Object.fromEntries(shows.map((show) => [show.id, { ...show, batchAssets }]));
 };
 
@@ -40,7 +36,7 @@ const episodeProgressLabel = (show: ShowPresentationData) => {
 		return undefined;
 	}
 	if (show.watchedEpisodes === 0) {
-		return showCountLabel(show.storedEpisodes, "stored episode");
+		return mediaCountLabel(show.storedEpisodes, "stored episode");
 	}
 	return `${show.watchedEpisodes} of ${show.storedEpisodes} episodes watched`;
 };
@@ -57,7 +53,7 @@ function ShowArtwork(props: {
 	readonly show: ShowPresentationViewData;
 	readonly layout: "grid" | "list";
 }) {
-	const poster = showPosterAsset(props.show);
+	const poster = mediaPosterAsset(props.show);
 	return (
 		<ManagedAssetImage
 			asset={poster}
@@ -69,7 +65,7 @@ function ShowArtwork(props: {
 }
 
 function ShowFacts(props: { readonly show: ShowPresentationData; readonly compact: boolean }) {
-	const release = showReleaseLabel(props.show);
+	const release = mediaReleaseLabel(props.show);
 	const progress = episodeProgressLabel(props.show);
 	return (
 		<div className={clsx("flex min-w-0 flex-col", props.compact ? "gap-1" : "gap-1.5")}>
@@ -82,11 +78,11 @@ function ShowFacts(props: { readonly show: ShowPresentationData; readonly compac
 				<p className="font-ui text-[12px] leading-5 text-text-subtle">
 					{props.show.storedSeasons === 0
 						? null
-						: showCountLabel(props.show.storedSeasons, "stored season")}
+						: mediaCountLabel(props.show.storedSeasons, "stored season")}
 					{props.show.storedSeasons > 0 && progress !== undefined ? " · " : null}
 					{progress}
 					{props.show.inProgressEpisodes > 0
-						? ` · ${showCountLabel(props.show.inProgressEpisodes, "episode")} in progress`
+						? ` · ${mediaCountLabel(props.show.inProgressEpisodes, "episode")} in progress`
 						: null}
 				</p>
 			)}

@@ -21,3 +21,5 @@ const WatchProviderCountrySchema = Schema.Struct({
 export const WatchProviderListSchema = Schema.NullOr(Schema.Array(WatchProviderCountrySchema));
 
 export type WatchProvider = Schema.Schema.Type<typeof WatchProviderSchema>;
+
+export type WatchProviderList = Schema.Schema.Type<typeof WatchProviderListSchema>;

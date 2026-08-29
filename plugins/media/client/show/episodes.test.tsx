@@ -2,17 +2,17 @@ import { fireEvent, waitFor } from "@testing-library/dom";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+	malformedQueryResult,
+	pendingQueryResult,
+	readyQueryResult,
+	transportErrorQueryResult,
+} from "../../tests/client/query-result-fixture";
+import {
 	decodeShowEpisodesResult,
 	decodeShowSeasonEpisodesResult,
 	showEpisodeRow,
 	showSeasonRow,
 } from "../../tests/client/show/episodes-fixture";
-import {
-	malformedQueryResult,
-	pendingQueryResult,
-	readyQueryResult,
-	transportErrorQueryResult,
-} from "../../tests/client/show/query-result-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
 import { ShowEpisodes } from "./episodes";
 import {
