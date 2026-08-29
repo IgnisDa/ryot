@@ -20,10 +20,10 @@ import {
 	mediaOverviewError,
 	mediaOverviewManagedAssets,
 	mediaPersonAsset,
-	mediaRecommendationAsset,
 	mediaRelationsAreEmpty,
 	mediaRolesLabel,
 } from "./overview-state";
+import { mediaPosterAsset } from "./summary-state";
 
 describe("media overview state", () => {
 	it("maps a pending query to the loading state", () => {
@@ -74,7 +74,7 @@ describe("media overview state", () => {
 
 		expect(mediaPersonAsset(person)).toEqual({ type: "s3", key: "still" });
 		expect(mediaCompanyAsset(company)).toEqual({ key: "logo", type: "local" });
-		expect(mediaRecommendationAsset(recommendation)).toEqual({
+		expect(mediaPosterAsset(recommendation)).toEqual({
 			type: "remote",
 			url: "https://images.test/bad-girls.jpg",
 		});
@@ -93,7 +93,7 @@ describe("media overview state", () => {
 
 		expect(mediaPersonAsset(person)).toBeUndefined();
 		expect(mediaCompanyAsset(company)).toBeUndefined();
-		expect(mediaRecommendationAsset(recommendation)).toBeUndefined();
+		expect(mediaPosterAsset(recommendation)).toBeUndefined();
 		expect(mediaOverviewManagedAssets(overview)).toEqual([]);
 	});
 
