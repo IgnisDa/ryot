@@ -95,21 +95,20 @@ const makeRuntime = (
 };
 
 const waitUntil = (predicate: () => boolean, message: string) =>
-	new Promise<void>((resolve, reject) => {
-		let attempts = 0;
-		const timer = setInterval(() => {
-			attempts += 1;
-			if (predicate()) {
-				clearInterval(timer);
-				resolve();
-			} else if (attempts > 500) {
-				clearInterval(timer);
-				reject(new Error(message));
+	Effect.runPromise(
+		Effect.gen(function* () {
+			for (let attempts = 0; attempts <= 500; attempts++) {
+				if (predicate()) {
+					return;
+				}
+				yield* Effect.sleep("2 millis");
 			}
-		}, 2);
-	});
+			return yield* Effect.die(message);
+		}),
+	);
 
 describe("plugin catalog events service", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("does not refresh on connection and refreshes only on invalidation", async () => {
 		const { runtime, streams, requests } = makeRuntime({ token: "token-1" });
 		let refreshes = 0;
@@ -140,6 +139,7 @@ describe("plugin catalog events service", () => {
 		}
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("routes events split across chunk boundaries", async () => {
 		const { runtime, streams } = makeRuntime({ token: "token-1" });
 		let refreshes = 0;
@@ -164,6 +164,7 @@ describe("plugin catalog events service", () => {
 		}
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("reconnects with a fresh token when the stream ends", async () => {
 		const { runtime, streams, requests, setToken } = makeRuntime({ token: "token-1" });
 		let refreshes = 0;
@@ -190,6 +191,7 @@ describe("plugin catalog events service", () => {
 		}
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("reconnects when the server rejects the stream", async () => {
 		const { runtime, streams, requests } = makeRuntime({ token: "token-1", rejectAttempts: 2 });
 		const subscription = runtime.runFork(
@@ -207,6 +209,7 @@ describe("plugin catalog events service", () => {
 		}
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("aborts the stream on interruption and stops reconnecting", async () => {
 		const { runtime, streams, requests } = makeRuntime({ token: "token-1" });
 		const subscription = runtime.runFork(
@@ -219,11 +222,12 @@ describe("plugin catalog events service", () => {
 		await Effect.runPromise(Fiber.interrupt(subscription));
 		expect(streams[0]?.aborted).toBe(true);
 
-		await new Promise((resolve) => setTimeout(resolve, 50));
+		await Effect.runPromise(Effect.sleep("50 millis"));
 		expect(requests).toHaveLength(1);
 		await runtime.dispose();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("does not open a stream when no token is stored", async () => {
 		const { runtime, requests, tokenRequests } = makeRuntime();
 		const subscription = runtime.runFork(
@@ -241,6 +245,7 @@ describe("plugin catalog events service", () => {
 		}
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("force-refreshes once and retries once after an unauthorized response", async () => {
 		const { runtime, streams, requests, tokenRequests } = makeRuntime({
 			token: "token-1",
@@ -265,6 +270,7 @@ describe("plugin catalog events service", () => {
 		}
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("stops after a second unauthorized response", async () => {
 		const { runtime, requests, tokenRequests } = makeRuntime({
 			token: "token-1",
@@ -279,7 +285,7 @@ describe("plugin catalog events service", () => {
 
 		try {
 			await waitUntil(() => requests.length === 2, "unauthorized stream was never retried");
-			await new Promise((resolve) => setTimeout(resolve, 20));
+			await Effect.runPromise(Effect.sleep("20 millis"));
 			expect(requests).toHaveLength(2);
 			expect(tokenRequests).toEqual([false, true]);
 		} finally {

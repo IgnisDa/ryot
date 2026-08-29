@@ -69,7 +69,7 @@ const isBacklogFull = (error: unknown) =>
 
 /** Only running polls count toward the timeout, because a queued import waits for other imports. */
 const pollProviderEntityImport = Effect.fnUntraced(function* (
-	poll: (jobId: string) => Effect.Effect<ImportEntityRunResult, unknown>,
+	poll: (jobId: string) => Effect.Effect<ImportEntityRunResult, ProviderAddLoadError>,
 	jobId: string,
 	onProgress: (entry: ProviderEntityImportEntry) => void,
 ) {
@@ -95,8 +95,8 @@ const pollProviderEntityImport = Effect.fnUntraced(function* (
 });
 
 export const importProviderEntity = (input: {
-	readonly start: Effect.Effect<{ readonly jobId: string }, unknown>;
-	readonly poll: (jobId: string) => Effect.Effect<ImportEntityRunResult, unknown>;
+	readonly start: Effect.Effect<{ readonly jobId: string }, ProviderAddLoadError>;
+	readonly poll: (jobId: string) => Effect.Effect<ImportEntityRunResult, ProviderAddLoadError>;
 	readonly onProgress: (entry: ProviderEntityImportEntry) => void;
 }) =>
 	Effect.gen(function* () {

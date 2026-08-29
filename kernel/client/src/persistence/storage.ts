@@ -37,6 +37,7 @@ const isWorkspaceSlug = Schema.is(Slug);
 const isSavedViewLayout = Schema.is(EntityBrowserLayout);
 const isSandboxProviderId = Schema.is(SandboxProviderId);
 const decodePluginValue = Schema.decodeUnknownOption(Schema.fromJsonString(JsonValue));
+const encodePluginValue = Schema.encodeSync(Schema.fromJsonString(JsonValue));
 
 const makeStorage = (storage: BrowserStorage | undefined): ClientStorage["Service"] => ({
 	clearServerSelection: Effect.sync(() => storage?.removeItem(SERVER_SELECTION_KEY)),
@@ -78,7 +79,8 @@ const makeStorage = (storage: BrowserStorage | undefined): ClientStorage["Servic
 	setPluginValue: (scope, pluginSlug, key, value) =>
 		Effect.try({
 			catch: () => new PluginStorageQuotaError(),
-			try: () => storage?.setItem(pluginStorageKey(scope, pluginSlug, key), JSON.stringify(value)),
+			try: () =>
+				storage?.setItem(pluginStorageKey(scope, pluginSlug, key), encodePluginValue(value)),
 		}),
 	getServerSelection: Effect.sync(() => {
 		const value = storage?.getItem(SERVER_SELECTION_KEY);

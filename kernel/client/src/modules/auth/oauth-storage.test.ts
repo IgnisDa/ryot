@@ -1,6 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import { OAUTH_WEB_CLIENT_ID } from "@ryot-app/contract/oauth";
-import { Effect } from "effect";
+import { Clock, Effect } from "effect";
+import { TestClock } from "effect/testing";
 
 import { decodeServerOrigin } from "#/api/origin";
 import {
@@ -35,11 +36,11 @@ describe("OAuth storage", () => {
 			const pending = {
 				state: "state",
 				nonce: "nonce",
-				createdAt: Date.now(),
 				destination: "/library",
 				codeVerifier: "verifier",
 				clientId: OAUTH_WEB_CLIENT_ID,
 				serverOrigin: "https://ryot.example",
+				createdAt: yield* Clock.currentTimeMillis,
 				redirectUri: "https://ryot.example/auth/callback",
 			} as const;
 			const tokens = {
@@ -88,6 +89,7 @@ describe("OAuth storage", () => {
 		);
 
 		return Effect.gen(function* () {
+			yield* TestClock.adjust("20 minutes");
 			const service = yield* OAuthStorage;
 			expect(yield* service.getTokenSet(origin)).toBeNull();
 			expect(yield* service.takePending(origin, "expired")).toBeNull();
@@ -116,8 +118,8 @@ describe("OAuth storage", () => {
 			nonce: "nonce",
 			state: "fresh",
 			destination: "/",
-			createdAt: Date.now(),
 			codeVerifier: "verifier",
+			createdAt: 20 * 60 * 1000,
 			clientId: OAUTH_WEB_CLIENT_ID,
 			serverOrigin: "https://ryot.example",
 			redirectUri: "https://ryot.example/auth/callback",
@@ -135,6 +137,7 @@ describe("OAuth storage", () => {
 		);
 
 		return Effect.gen(function* () {
+			yield* TestClock.adjust("20 minutes");
 			const service = yield* OAuthStorage;
 			yield* service.setPending({ ...fresh, state: "new" });
 

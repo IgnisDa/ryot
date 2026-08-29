@@ -16,7 +16,7 @@ import {
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { PluginSlug } from "@ryot-app/contract/schema/brands";
-import { Effect } from "effect";
+import { Effect, Layer, Schema } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { decodeServerOrigin } from "#/api/origin";
@@ -65,7 +65,7 @@ describe("plugin operations service", () => {
 					payload: { sourceHash: "source-hash", payload: { greeting: "hi" } },
 				},
 			]);
-		}).pipe(Effect.provide(PluginOperationsService.layer), Effect.provide(dependencies));
+		}).pipe(Effect.provide(Layer.provide(PluginOperationsService.layer, dependencies)));
 	});
 
 	it.effect("maps a successful response to a success outcome", () => {
@@ -80,7 +80,7 @@ describe("plugin operations service", () => {
 			});
 
 			expect(outcome).toEqual({ outcome: "success", value: { greeted: "hi" } });
-		}).pipe(Effect.provide(PluginOperationsService.layer), Effect.provide(dependencies));
+		}).pipe(Effect.provide(Layer.provide(PluginOperationsService.layer, dependencies)));
 	});
 
 	it.effect("returns a kernel-only stale session result for a changed source revision", () => {
@@ -99,7 +99,7 @@ describe("plugin operations service", () => {
 			});
 
 			expect(outcome).toEqual({ outcome: "stale-session" });
-		}).pipe(Effect.provide(PluginOperationsService.layer), Effect.provide(dependencies));
+		}).pipe(Effect.provide(Layer.provide(PluginOperationsService.layer, dependencies)));
 	});
 
 	const declaredFailures = [
@@ -129,7 +129,7 @@ describe("plugin operations service", () => {
 				});
 
 				expect(outcome).toEqual({ outcome: "failure", reason: "operation-failed" });
-			}).pipe(Effect.provide(PluginOperationsService.layer), Effect.provide(dependencies));
+			}).pipe(Effect.provide(Layer.provide(PluginOperationsService.layer, dependencies)));
 		});
 	}
 
@@ -146,7 +146,9 @@ describe("plugin operations service", () => {
 
 			expect(outcome).toEqual({ outcome: "failure", reason: "transport" });
 			expect(outcome).not.toHaveProperty("cause");
-			expect(JSON.stringify(outcome)).not.toContain("network down");
-		}).pipe(Effect.provide(PluginOperationsService.layer), Effect.provide(dependencies));
+			expect(
+				yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(outcome),
+			).not.toContain("network down");
+		}).pipe(Effect.provide(Layer.provide(PluginOperationsService.layer, dependencies)));
 	});
 });

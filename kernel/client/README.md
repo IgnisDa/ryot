@@ -17,6 +17,12 @@ artifact identity. Plugin requests cross that port as narrow, schema-checked cap
 applies authentication, installation scope, and platform policy. A plugin upload sends only bytes with
 a proposed file name and content type; the kernel keeps intent creation, transfer, and completion.
 
+Client SDK query, operation, collection, upload, asset, and storage capabilities return Effects. The
+kernel runs each incoming bridge request in a fiber and interrupts its work on document replacement
+or session close. The existing RyotQL and asset cancel messages interrupt their matching fibers;
+other requests keep the same wire behavior. Only framework boundaries, such as a React callback or
+route loader, run an Effect as a Promise. The port never carries credentials or server identity.
+
 The opaque-origin iframe has no `localStorage`, so the kernel stores plugin storage values in its own
 `localStorage` through `ClientStorage`, one JSON entry per
 `ryot:plugin-storage:<api scope>:<plugin slug>:<key>`. Logout does not clear them. The kernel accepts
@@ -64,8 +70,12 @@ checks. Permanent direct-service exceptions are pre-authentication routes, which
 API scope; God Mode, whose administration calls are scoped by its token; and the catalog-dependent
 workspace redirect, which must resolve before rendering.
 
-Every `ClientLive` layer must be synchronously constructible because `main.tsx` creates the runtime
-with `runSync`. Asynchronous setup belongs inside service operations.
+`boot/layers.ts` merges feature-owned layers for authentication, server selection, navigation,
+plugin requests, entity interest, client pages, assets, and other features. `api/layer.ts` builds the
+shared contract transport and group ports. Feature layers capture their own implementation ports;
+the boot graph does not construct each dependency for them. Every `ClientLive` layer must be
+synchronously constructible because `main.tsx` creates the runtime with `runSync`. Asynchronous
+setup belongs inside service operations.
 
 Server access normally goes through a contract group port. Backup archive download is the one
 exception: an authenticated byte stream cannot carry its bearer header through an `<a href>`, so

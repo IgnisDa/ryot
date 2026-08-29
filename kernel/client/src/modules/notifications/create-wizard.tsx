@@ -168,6 +168,7 @@ export function NotificationChannelCreateWizard(props: {
 	const [state, dispatch] = useReducer(wizardReducer, undefined, createWizardState);
 	const definition = findBySlug(notificationChannelList, state.slug);
 
+	// oxlint-disable-next-line effecttsgo/async-function -- React notification form handler.
 	const add = async (values: SchemaFormValues) => {
 		if (definition === undefined) {
 			return;

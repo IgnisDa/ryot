@@ -1,4 +1,4 @@
-import { createRyotClient } from "@ryot-app/client-sdk";
+import { createRyotClient, RyotClientError } from "@ryot-app/client-sdk";
 import { createTestRyotAdapter } from "@ryot-app/client-sdk/testing";
 import { Effect, Layer, ManagedRuntime } from "effect";
 import { describe, expect, it } from "vitest";
@@ -33,6 +33,7 @@ const response = {
 } as const;
 
 describe("EntitiesService", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("executes one focused provenance query through the kernel client", async () => {
 		const calls: unknown[] = [];
 		const api = makeRyotQLApi({
@@ -76,22 +77,25 @@ describe("EntitiesService", () => {
 		}
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("aborts one in-flight provenance query when its caller cancels", async () => {
 		let queryCount = 0;
 		let querySignal: AbortSignal | undefined;
-		const pending = new Promise<never>(() => undefined);
 		let resolveQueryStarted!: () => void;
+		// oxlint-disable-next-line effecttsgo/new-promise -- This controllable test gate stays pending until the host callback or test releases it.
 		const queryStarted = new Promise<void>((resolve) => {
 			resolveQueryStarted = resolve;
 		});
 		const client = createRyotClient(
 			createTestRyotAdapter({
-				query: (_document, signal) => {
-					queryCount += 1;
-					querySignal = signal;
-					resolveQueryStarted();
-					return pending;
-				},
+				query: () =>
+					Effect.promise((signal) => {
+						queryCount += 1;
+						querySignal = signal;
+						resolveQueryStarted();
+						// oxlint-disable-next-line effecttsgo/new-promise -- This test keeps the injected host request pending to verify cancellation or admission.
+						return new Promise<never>(() => undefined);
+					}),
 			}),
 		);
 		const runtime = ManagedRuntime.make(EntitiesService.layer);
@@ -116,9 +120,10 @@ describe("EntitiesService", () => {
 		}
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("maps query failures to the route error", async () => {
 		const client = createRyotClient(
-			createTestRyotAdapter({ query: () => Promise.reject(new Error("query unavailable")) }),
+			createTestRyotAdapter({ query: () => Effect.fail(new RyotClientError("transport")) }),
 		);
 		const runtime = ManagedRuntime.make(EntitiesService.layer);
 

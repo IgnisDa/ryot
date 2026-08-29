@@ -95,8 +95,8 @@ it.effect("reports a stable message when the job cannot be started", () =>
 	Effect.gen(function* () {
 		const entry = yield* importProviderEntity({
 			onProgress: () => undefined,
-			start: Effect.fail("offline"),
 			poll: () => Effect.die("unreachable"),
+			start: Effect.fail(new ProviderAddLoadError({ stage: "import", cause: "offline" })),
 		});
 
 		expect(entry).toEqual({ status: "failed", message: PROVIDER_IMPORT_UNAVAILABLE_MESSAGE });

@@ -87,6 +87,7 @@ const makeView = (
 };
 
 describe("God Mode route", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("is outside the OAuth gate and redirects the index to users", async () => {
 		const view = makeView();
 
@@ -97,6 +98,7 @@ describe("God Mode route", () => {
 		expect(screen.queryByTitle("fixture plugin")).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("redirects a native client without a selected server to onboarding with a return path", async () => {
 		const native = Capacitor.isNativePlatform;
 		Capacitor.isNativePlatform = () => true;
@@ -109,6 +111,7 @@ describe("God Mode route", () => {
 		}
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("requires a trimmed token, clears errors on edit, and submits with Enter", async () => {
 		const user = userEvent.setup();
 		const view = makeView("/god-mode/users");
@@ -134,6 +137,7 @@ describe("God Mode route", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("locks, clears the memory session, and shows the token gate again", async () => {
 		const user = userEvent.setup();
 		const view = makeView("/god-mode/users");
@@ -143,11 +147,13 @@ describe("God Mode route", () => {
 		await user.click(screen.getByRole("button", { name: "Lock" }));
 		await screen.findByLabelText("Admin access token");
 		expect(screen.queryByRole("alert")).toBeNull();
+		// oxlint-disable-next-line effecttsgo/async-function -- Testing Library awaits this Promise-based assertion callback.
 		await waitFor(async () =>
 			expect(await view.runtime.runPromise(view.sessions.get("god-session"))).toBeNull(),
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("relocks on an unauthorized request with an invalid-token message that editing clears", async () => {
 		const user = userEvent.setup();
 		const view = makeView("/god-mode/users", server, {
@@ -162,6 +168,7 @@ describe("God Mode route", () => {
 		await user.type(await screen.findByLabelText("Admin access token"), "token{Enter}");
 		const alert = await screen.findByRole("alert");
 		expect(alert.textContent).toBe("The admin access token is invalid or expired.");
+		// oxlint-disable-next-line effecttsgo/async-function -- Testing Library awaits this Promise-based assertion callback.
 		await waitFor(async () =>
 			expect(await view.runtime.runPromise(view.sessions.get("god-session"))).toBeNull(),
 		);
@@ -170,6 +177,7 @@ describe("God Mode route", () => {
 		expect(screen.queryByRole("alert")).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("navigates between sections from the standalone shell", async () => {
 		const user = userEvent.setup();
 		const view = makeView("/god-mode/users");

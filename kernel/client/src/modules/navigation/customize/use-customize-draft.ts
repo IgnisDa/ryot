@@ -58,6 +58,7 @@ export function useCustomizeDraft(props: {
 
 	const isDirty = isCustomizeDraftDirty(session);
 
+	// oxlint-disable-next-line effecttsgo/async-function -- React sidebar customization callback.
 	const save = async () => {
 		if (!isDirty) {
 			return true;

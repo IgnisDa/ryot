@@ -71,6 +71,7 @@ function Onboarding() {
 		submitLabel = "Retry";
 	}
 
+	// oxlint-disable-next-line effecttsgo/async-function -- React onboarding form handler.
 	async function connect() {
 		setValidationError(undefined);
 

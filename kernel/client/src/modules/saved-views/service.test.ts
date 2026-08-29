@@ -12,6 +12,7 @@ const rowsResult = (items: readonly unknown[]) => ({
 });
 
 describe("SavedViewsService", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback.
 	it("loads a renderer-backed saved-view record", async () => {
 		const record = {
 			id: "view-1",
@@ -30,7 +31,7 @@ describe("SavedViewsService", () => {
 		};
 		const client = createRyotClient(
 			createTestRyotAdapter({
-				query: () => Promise.resolve({ data: { savedView: rowsResult([record]) } }),
+				query: () => Effect.succeed({ data: { savedView: rowsResult([record]) } }),
 			}),
 		);
 		const runtime = ManagedRuntime.make(SavedViewsService.layer);
@@ -45,10 +46,11 @@ describe("SavedViewsService", () => {
 		}
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback.
 	it("returns undefined when the record does not exist", async () => {
 		const client = createRyotClient(
 			createTestRyotAdapter({
-				query: () => Promise.resolve({ data: { savedView: rowsResult([]) } }),
+				query: () => Effect.succeed({ data: { savedView: rowsResult([]) } }),
 			}),
 		);
 		const runtime = ManagedRuntime.make(SavedViewsService.layer);

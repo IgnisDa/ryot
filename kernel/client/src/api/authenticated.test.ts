@@ -2,7 +2,11 @@ import { AuthUnauthorized, DemoOperationProtected } from "@ryot-app/contract/aut
 import { Effect } from "effect";
 import { describe, expect, it } from "vitest";
 
-import { isDemoOperationProtectedError, makeAuthenticatedApi } from "#/api/authenticated";
+import {
+	AuthenticatedApiError,
+	isDemoOperationProtectedError,
+	makeAuthenticatedApi,
+} from "#/api/authenticated";
 import { decodeServerOrigin } from "#/api/origin";
 import type { OAuthTokenService } from "#/modules/auth/token-service";
 
@@ -19,6 +23,7 @@ const tokens = (
 });
 
 describe("authenticated API", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback.
 	it("retries one authentication failure after forcing a refresh", async () => {
 		const forceRefresh: boolean[] = [];
 		let attempts = 0;
@@ -43,6 +48,7 @@ describe("authenticated API", () => {
 		expect(attempts).toBe(2);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback.
 	it("does not retry a non-authentication failure", async () => {
 		const api = makeAuthenticatedApi(tokens(() => Effect.succeed("token")));
 		let attempts = 0;
@@ -51,13 +57,14 @@ describe("authenticated API", () => {
 			Effect.runPromise(
 				api.run(scope, () => {
 					attempts += 1;
-					return Effect.fail(new TypeError("offline"));
+					return Effect.fail(new AuthenticatedApiError({ cause: "offline" }));
 				}),
 			),
 		).rejects.toBeDefined();
 		expect(attempts).toBe(1);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback.
 	it("preserves a demo operation failure without forcing a token refresh", async () => {
 		const forceRefresh: boolean[] = [];
 		let attempts = 0;
@@ -88,6 +95,7 @@ describe("authenticated API", () => {
 		}
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback.
 	it("does not infer the stored token client from the runtime platform", async () => {
 		const calls: boolean[] = [];
 		const api = makeAuthenticatedApi(

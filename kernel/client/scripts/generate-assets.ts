@@ -1,5 +1,8 @@
+// oxlint-disable-next-line effecttsgo/node-builtin-import -- Native asset generation invokes the capacitor-assets CLI synchronously.
 import { spawnSync } from "node:child_process";
+// oxlint-disable-next-line effecttsgo/node-builtin-import -- Generated platform resources are written through Node's filesystem API.
 import { mkdir, readdir, rename, rm, writeFile } from "node:fs/promises";
+// oxlint-disable-next-line effecttsgo/node-builtin-import -- Build-time native resource paths use Node path utilities.
 import { join } from "node:path";
 
 import sharp from "sharp";

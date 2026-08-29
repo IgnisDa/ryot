@@ -131,6 +131,7 @@ describe("CustomizePanel", () => {
 		expect(screen.getByText("Views · 1 of 1 shown")).toBeDefined();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("passes an axe pass", async () => {
 		render(<Harness />);
 

@@ -179,6 +179,7 @@ export function IntegrationCreateWizard(props: CreateWizardProps) {
 	const listed = props.providers.status === "ready" ? props.providers.sources : [];
 	const provider = findBySlug(listed, state.slug);
 
+	// oxlint-disable-next-line effecttsgo/async-function -- React integration form handler.
 	const connect = async (values: SchemaFormValues) => {
 		if (provider === undefined) {
 			return;

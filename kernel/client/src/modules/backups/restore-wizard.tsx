@@ -3,6 +3,7 @@ import type { BackupRunIdResponse } from "@ryot-app/contract/modules/backups/sch
 import { Effect, Match } from "effect";
 import { useState } from "react";
 
+import type { AuthenticatedApiError } from "#/api/authenticated";
 import { BackupsApi } from "#/api/backups";
 import type { KernelHostServices } from "#/host-services";
 import { BackupRestoreConfirmStep } from "#/modules/backups/restore-confirm-step";
@@ -24,17 +25,16 @@ const stepHeadings = {
 	choose: "Choose your backup file",
 } as const satisfies Record<BackupRestoreStep, string>;
 
-const createRestoreMutation = createRyotMutation<string, BackupRunIdResponse, KernelHostServices>(
-	async ({ input, client, signal, hostServices }) => {
-		const result = await hostServices.runtime.runPromise(
-			Effect.flatMap(BackupsApi, (api) =>
-				api.createRestore(hostServices.scope, { payload: { uploadToken: input } }),
-			),
-			{ signal },
-		);
-		client.mutationCompleted.hint();
-		return result;
-	},
+const createRestoreMutation = createRyotMutation<
+	string,
+	BackupRunIdResponse,
+	KernelHostServices,
+	AuthenticatedApiError
+>(({ input, client, hostServices }) =>
+	hostServices.runtime
+		.runSync(BackupsApi)
+		.createRestore(hostServices.scope, { payload: { uploadToken: input } })
+		.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
 );
 
 export function BackupRestoreWizard(props: {
@@ -47,6 +47,7 @@ export function BackupRestoreWizard(props: {
 	const [uploadToken, setUploadToken] = useState<string | undefined>();
 	const [failure, setFailure] = useState<BackupRestoreFailure | undefined>();
 
+	// oxlint-disable-next-line effecttsgo/async-function -- React restore confirmation handler.
 	const startRestore = async () => {
 		if (props.disabled || uploadToken === undefined) {
 			return;

@@ -125,12 +125,18 @@ const mountCallback = (
 	return { router, rejected, exchanges };
 };
 
-const settledPath = async (router: ReturnType<typeof mountCallback>["router"]) => {
-	await waitFor(() => expect(router.state.location.pathname).not.toBe("/auth/callback"));
-	return router.state.location;
-};
+const settledPath = (router: ReturnType<typeof mountCallback>["router"]) =>
+	Effect.runPromise(
+		Effect.map(
+			Effect.promise(() =>
+				waitFor(() => expect(router.state.location.pathname).not.toBe("/auth/callback")),
+			),
+			() => router.state.location,
+		),
+	);
 
 describe("OAuth callback", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("exchanges the code against the expected web client and drops callback parameters", async () => {
 		const { router, exchanges } = mountCallback("/auth/callback?code=code-1&state=state", {
 			destination: "/settings",
@@ -149,12 +155,14 @@ describe("OAuth callback", () => {
 		expect(location.searchStr).toBe("");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("rejects replayed or unknown state", async () => {
 		const { router } = mountCallback("/auth/callback?code=code-1&state=spent", { fail: true });
 		await screen.findByText("Could not complete sign-in");
 		expect(router.state.location.pathname).toBe("/auth/callback");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("permits only the native client and registered redirect on native", async () => {
 		const { router, exchanges } = mountCallback("/auth/callback?code=code-1&state=state", {
 			native: true,
@@ -171,12 +179,14 @@ describe("OAuth callback", () => {
 		]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("consumes an authorization error by state", async () => {
 		const { rejected } = mountCallback("/auth/callback?error=access_denied&state=state");
 		await screen.findByText("Could not complete sign-in");
 		expect(rejected).toEqual(["state"]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("replaces the callback history entry", async () => {
 		const { router } = mountCallback(["/settings", "/auth/callback?code=code-1&state=state"]);
 		await settledPath(router);

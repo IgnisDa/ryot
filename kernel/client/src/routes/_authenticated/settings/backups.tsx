@@ -16,6 +16,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
+import type { AuthenticatedApiError } from "#/api/authenticated";
 import { backupArchiveFileName, BackupsApi } from "#/api/backups";
 import type { KernelHostServices } from "#/host-services";
 import { AuthService } from "#/modules/auth/service";
@@ -49,35 +50,33 @@ const DOWNLOAD_FAILURE_DETAIL = "Could not download this backup. Try again.";
 const PAGE_SIZE = 50;
 
 const backupRunsQuery = createRyotQuery<void, BackupRunsPage, KernelHostServices>(
-	({ client, signal }) => client.data.query(backupRunsRecipe({ limit: PAGE_SIZE }), { signal }),
+	({ client }) => client.data.query(backupRunsRecipe({ limit: PAGE_SIZE })),
 	{ cancelOnUnmount: true },
 );
 
-const createBackupMutation = createRyotMutation<void, BackupRunIdResponse, KernelHostServices>(
-	async ({ client, signal, hostServices }) => {
-		const result = await hostServices.runtime.runPromise(
-			Effect.flatMap(BackupsApi, (api) => api.createExport(hostServices.scope)),
-			{ signal },
-		);
-		client.mutationCompleted.hint();
-		return result;
-	},
+const createBackupMutation = createRyotMutation<
+	void,
+	BackupRunIdResponse,
+	KernelHostServices,
+	AuthenticatedApiError
+>(({ client, hostServices }) =>
+	hostServices.runtime
+		.runSync(BackupsApi)
+		.createExport(hostServices.scope)
+		.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
 );
 
 const deleteBackupMutation = createRyotMutation<
 	BackupRunItem,
 	BackupRunIdResponse,
-	KernelHostServices
->(async ({ input, client, signal, hostServices }) => {
-	const result = await hostServices.runtime.runPromise(
-		Effect.flatMap(BackupsApi, (api) =>
-			api.deleteRun(hostServices.scope, { params: { id: input.id } }),
-		),
-		{ signal },
-	);
-	client.mutationCompleted.hint();
-	return result;
-});
+	KernelHostServices,
+	AuthenticatedApiError
+>(({ input, client, hostServices }) =>
+	hostServices.runtime
+		.runSync(BackupsApi)
+		.deleteRun(hostServices.scope, { params: { id: input.id } })
+		.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
+);
 
 export const Route = createFileRoute("/_authenticated/settings/backups")({
 	component: BackupsRoute,
@@ -155,6 +154,7 @@ function BackupsStandard() {
 		close: () => void navigate({ replace: true, search: { restore: undefined } }),
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- React backup export handler.
 	const startExport = async () => {
 		if (live !== undefined) {
 			return;
@@ -168,6 +168,7 @@ function BackupsStandard() {
 		}
 	};
 
+	// oxlint-disable-next-line effecttsgo/async-function -- React backup deletion handler.
 	const confirmDelete = async (run: BackupRunItem) => {
 		if (!canDeleteBackupRun(run.status)) {
 			setPendingDelete(undefined);
@@ -185,6 +186,7 @@ function BackupsStandard() {
 		setNextCursor(undefined);
 	};
 
+	// oxlint-disable-next-line effecttsgo/async-function -- React browser download handler.
 	const startDownload = async (run: BackupRunItem) => {
 		if (downloading.current !== undefined) {
 			return;
@@ -207,6 +209,7 @@ function BackupsStandard() {
 		saveBackupArchive(blob, backupArchiveFileName(run.id));
 	};
 
+	// oxlint-disable-next-line effecttsgo/async-function -- React backup pagination handler.
 	const loadMore = async () => {
 		if (cursor === null || cursor === undefined || loadingMore) {
 			return;
@@ -214,9 +217,10 @@ function BackupsStandard() {
 		setLoadingMore(true);
 		setLoadMoreFailed(false);
 		try {
-			const page = await client.data.query(backupRunsRecipe({ after: cursor, limit: PAGE_SIZE }), {
-				signal: controller.current.signal,
-			});
+			const page = await Effect.runPromise(
+				client.data.query(backupRunsRecipe({ after: cursor, limit: PAGE_SIZE })),
+				{ signal: controller.current.signal },
+			);
 			setOlderRuns((current) => [...current, ...page.items]);
 			setNextCursor(page.pageInfo.nextCursor);
 		} catch {

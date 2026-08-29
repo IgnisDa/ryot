@@ -1,3 +1,4 @@
+import { Effect } from "@ryot-app/client-sdk/effect";
 import {
 	EntityResults,
 	usePageRefresh,
@@ -128,6 +129,9 @@ const syncSummary = (items: BrowserResult["items"]) => ({
 	translating: items.filter(({ sync }) => sync.translationStatus === "pending").length,
 });
 
+const browserIdentity = (key: string, search: string, sort: string) =>
+	JSON.stringify([key, search, sort]);
+
 export function EntityBrowserController<Meta>({
 	add,
 	name,
@@ -183,14 +187,15 @@ export function EntityBrowserController<Meta>({
 	const searchTrigger = useRef<HTMLButtonElement>(null);
 	const optionsTrigger = useRef<HTMLButtonElement>(null);
 	const filtersTrigger = useRef<HTMLButtonElement>(null);
-	const identity = JSON.stringify([identityKey, searchText, sortChoice]);
+	const identity = browserIdentity(identityKey, searchText, sortChoice);
 	const [state, setState] = useState<BrowserState<Meta> | undefined>();
 	const stateRef = useRef(state);
 	const appliedPages = useRef(new Set<string>());
 	const refreshReplay = useRef<RefreshReplay<Meta> | undefined>(undefined);
 	const activeIdentity = useRef(identity);
 	const refresh = () =>
-		new Promise<void>((complete) => {
+		Effect.callback<void>((resume) => {
+			const complete = () => resume(Effect.void);
 			refreshReplay.current?.complete();
 			const next = ++refreshGenerationRef.current;
 			refreshReplay.current = {
@@ -210,13 +215,18 @@ export function EntityBrowserController<Meta>({
 			if (pending) {
 				pendingSearch.current = {
 					...pending,
-					identity: JSON.stringify([
+					identity: browserIdentity(
 						identityKey,
 						controlsRef.current.search,
 						controlsRef.current.sort,
-					]),
+					),
 				};
 			}
+			return Effect.sync(() => {
+				if (refreshReplay.current?.generation === next) {
+					refreshReplay.current = undefined;
+				}
+			});
 		});
 	usePageRefresh(refresh);
 	useEffect(() => () => refreshReplay.current?.complete(), []);
@@ -368,7 +378,7 @@ export function EntityBrowserController<Meta>({
 		controlsRef.current = next;
 		pendingSearch.current = {
 			requestedKey,
-			identity: JSON.stringify([identityKey, next.search, next.sort]),
+			identity: browserIdentity(identityKey, next.search, next.sort),
 			update: { sort: next.sort || null, search: next.search || null },
 		};
 		setControls(next);

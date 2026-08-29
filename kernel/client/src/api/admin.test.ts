@@ -12,6 +12,7 @@ import { decodeServerOrigin } from "#/api/origin";
 const origin = decodeServerOrigin("https://ryot.example");
 
 describe("admin API", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback.
 	it("runs a typed contract program at the server API with only the admin token header", async () => {
 		const requests: RunContractOptions[] = [];
 		const api = makeAdminApi(
@@ -32,6 +33,7 @@ describe("admin API", () => {
 		expect(requests[0]?.signal).toBeInstanceOf(AbortSignal);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback.
 	it("wraps contract failures without exposing the token", async () => {
 		const cause = new TypeError("offline");
 		const api = makeAdminApi(() => Promise.reject(cause));

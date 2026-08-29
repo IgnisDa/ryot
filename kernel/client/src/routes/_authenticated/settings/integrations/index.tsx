@@ -62,6 +62,7 @@ function IntegrationsRoute() {
 		providers = { status: "failed" };
 	}
 
+	// oxlint-disable-next-line effecttsgo/async-function -- React integration sync handler.
 	const syncAll = async () => {
 		setSyncDetail(undefined);
 		setSyncSucceeded(false);

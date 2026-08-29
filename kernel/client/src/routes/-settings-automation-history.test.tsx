@@ -236,6 +236,7 @@ const mountView = (
 };
 
 describe("automation history", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("loads older runs with the opaque cursor and opens a selected run", async () => {
 		const cursors: Array<string | undefined> = [];
 		const older = makeRun({
@@ -281,6 +282,7 @@ describe("automation history", () => {
 
 	it(
 		"refreshes the first page while preserving loaded older runs",
+		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 		async () => {
 			const cursors: Array<string | undefined> = [];
 			const older = makeRun({
@@ -323,6 +325,7 @@ describe("automation history", () => {
 
 	it(
 		"drops retained pages when first-page insertion and removal changes the cursor boundary",
+		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 		async () => {
 			const cursors: Array<string | undefined> = [];
 			const first = makeRun({
@@ -380,6 +383,7 @@ describe("automation history", () => {
 
 	it(
 		"polls an active older page until the run reaches a terminal state",
+		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 		async () => {
 			const cursors: Array<string | undefined> = [];
 			let olderReads = 0;
@@ -425,6 +429,7 @@ describe("automation history", () => {
 		RUN_LIST_POLL_MS + 2_000,
 	);
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("shows bounded retained trigger, error, and log diagnostics", async () => {
 		mountView("/settings/automation-history/automation-run-1", makeAutomationHistoryApi());
 
@@ -436,6 +441,7 @@ describe("automation history", () => {
 		expect(screen.getByText("Some diagnostics exceeded the retained limit.")).toBeTruthy();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("sends the displayed attempt count and refetches after retry", async () => {
 		let detailReads = 0;
 		const retryBodies: number[] = [];
@@ -462,6 +468,7 @@ describe("automation history", () => {
 		expect(retryBodies).toEqual([2]);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("keeps retry visible but disabled for demo sessions", async () => {
 		let retries = 0;
 		mountView(
@@ -484,6 +491,7 @@ describe("automation history", () => {
 		expect(retries).toBe(0);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("polls a retried run through queued and running states until it succeeds", async () => {
 		let detailReads = 0;
 		mountView(
@@ -522,6 +530,7 @@ describe("automation history", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("explains when retained artifacts make retry unavailable", async () => {
 		mountView(
 			"/settings/automation-history/automation-run-1",

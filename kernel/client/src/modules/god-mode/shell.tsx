@@ -87,6 +87,7 @@ function GodModeTokenGate(props: {
 	const [error, setError] = useState(props.initialError);
 	const [submitting, setSubmitting] = useState(false);
 
+	// oxlint-disable-next-line effecttsgo/async-function -- React God Mode unlock handler.
 	async function unlock() {
 		const trimmedToken = token.trim();
 		if (!trimmedToken) {

@@ -75,6 +75,7 @@ const makeView = (
 };
 
 describe("plugin catalog provider", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("does not query when the catalog stream acknowledges its connection", async () => {
 		let controller: ReadableStreamDefaultController<Uint8Array> | undefined;
 		let loads = 0;
@@ -142,6 +143,7 @@ describe("plugin catalog provider", () => {
 		}
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("hydrates without a duplicate load and publishes event refreshes", async () => {
 		let loads = 0;
 		let current = catalog;
@@ -168,6 +170,7 @@ describe("plugin catalog provider", () => {
 		await view.runtime.dispose();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("keeps one subscription across child rerenders and multiple consumers", async () => {
 		const view = makeView(
 			() => Effect.die("not used"),
@@ -196,6 +199,7 @@ describe("plugin catalog provider", () => {
 		await view.runtime.dispose();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("interrupts the subscription and prevents refreshes after unmount", async () => {
 		let loads = 0;
 		const view = makeView(() =>
@@ -215,6 +219,7 @@ describe("plugin catalog provider", () => {
 		await view.runtime.dispose();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("interrupts an in-flight event refresh when the provider unmounts", async () => {
 		const started = Effect.runSync(Deferred.make<void>());
 		const cancelled = Effect.runSync(Deferred.make<void>());
