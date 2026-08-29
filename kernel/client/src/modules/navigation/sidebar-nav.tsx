@@ -6,6 +6,7 @@ import clsx from "clsx";
 import type { ReactNode } from "react";
 
 import { AppIcon } from "#/modules/navigation/app-icon";
+import type { CustomizeSection } from "#/modules/navigation/customize/customize-state";
 import { activateLink } from "#/modules/navigation/link-activation";
 import {
 	sidebarItemKey,
@@ -22,10 +23,12 @@ type SidebarNavProps = {
 	readonly sections: SidebarSections;
 	readonly showSearchShortcut: boolean;
 	readonly catalog: PluginClientCatalog;
+	readonly onCustomize?: (() => void) | undefined;
 	readonly current: PluginClientCatalogEntry | null;
 	readonly onNavigateHome: () => void | Promise<void>;
 	readonly onSelectWorkspace: (slug: string) => void | Promise<void>;
 	readonly onNavigateItem: (item: SidebarItem) => void | Promise<void>;
+	readonly onEditSection?: ((section: CustomizeSection) => void) | undefined;
 };
 
 function SidebarRow(props: {
@@ -67,15 +70,26 @@ function SidebarSection(props: {
 	readonly className: string;
 	readonly children: ReactNode;
 	readonly emptyMessage?: string;
+	readonly onEdit?: (() => void) | undefined;
 }) {
 	return (
-		<section className="flex flex-col gap-1.5">
+		<section className="group flex flex-col gap-1.5">
 			<header className="flex items-center gap-2 px-1">
 				<h2 className="text-xs font-semibold uppercase tracking-[1.6px] text-text-subtle">
 					{props.title}
 				</h2>
 				{props.count !== undefined && (
 					<span className="font-mono text-xs text-text-subtle">{props.count}</span>
+				)}
+				{props.onEdit !== undefined && (
+					<button
+						type="button"
+						onClick={props.onEdit}
+						aria-label={`Edit ${props.title} section`}
+						className="ml-auto rounded px-1.5 py-0.5 text-xs font-medium text-text-muted opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+					>
+						Edit
+					</button>
 				)}
 			</header>
 			<div className={clsx("flex flex-col gap-0.5 overflow-y-auto", props.className)}>
@@ -104,6 +118,7 @@ export function SidebarNav(props: SidebarNavProps) {
 			<WorkspaceSwitcher
 				current={props.current}
 				catalog={props.catalog}
+				onCustomize={props.onCustomize}
 				onSelect={props.onSelectWorkspace}
 				summary={workspaceSummary(props.sections)}
 			/>
@@ -122,7 +137,13 @@ export function SidebarNav(props: SidebarNavProps) {
 				)}
 			</button>
 
-			<SidebarSection title="Views" className="max-h-83.5">
+			<SidebarSection
+				title="Views"
+				className="max-h-83.5"
+				onEdit={
+					props.onEditSection === undefined ? undefined : () => props.onEditSection?.("views")
+				}
+			>
 				{props.sections.views
 					.filter((item) => item.kind !== "home" || props.current !== null)
 					.map((item) => (
@@ -145,6 +166,9 @@ export function SidebarNav(props: SidebarNavProps) {
 				emptyMessage="No saved views yet."
 				count={props.sections.savedViews.length}
 				isEmpty={props.sections.savedViews.length === 0}
+				onEdit={
+					props.onEditSection === undefined ? undefined : () => props.onEditSection?.("savedViews")
+				}
 			>
 				{props.sections.savedViews.map((item) => (
 					<SidebarRow

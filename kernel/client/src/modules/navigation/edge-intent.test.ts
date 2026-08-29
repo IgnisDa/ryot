@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { isSettingsPath, resolveEdge } from "#/modules/navigation/edge-intent";
+import {
+	hasWorkspaceChrome,
+	isCustomizeSidebarPath,
+	isSettingsPath,
+	resolveEdge,
+} from "#/modules/navigation/edge-intent";
 
 const resolve = (input: Partial<Parameters<typeof resolveEdge>[0]> = {}) =>
 	resolveEdge({
@@ -54,6 +59,20 @@ describe("resolveEdge", () => {
 		});
 	});
 
+	it("keeps back in the kernel on the customize route, which owns its own back control", () => {
+		expect(resolve({ pathname: "/customize-sidebar", hasPluginDocument: false })).toEqual({
+			compact: true,
+			intent: "back",
+			owner: "kernel",
+		});
+	});
+
+	it("offers no drawer on the customize route even with nothing to pop", () => {
+		expect(
+			resolve({ pathname: "/customize-sidebar", canGoBack: false, hasPluginDocument: false }),
+		).toEqual({ compact: true, intent: "none", owner: "kernel" });
+	});
+
 	it("binds nothing on a settings route with no history", () => {
 		expect(resolve({ pathname: "/settings", canGoBack: false, hasPluginDocument: false })).toEqual({
 			compact: true,
@@ -69,5 +88,23 @@ describe("isSettingsPath", () => {
 		expect(isSettingsPath("/settings/preferences")).toBe(true);
 		expect(isSettingsPath("/settings-workspace")).toBe(false);
 		expect(isSettingsPath("/media")).toBe(false);
+	});
+});
+
+describe("isCustomizeSidebarPath", () => {
+	it("matches the customize route and nothing that merely starts with it", () => {
+		expect(isCustomizeSidebarPath("/customize-sidebar")).toBe(true);
+		expect(isCustomizeSidebarPath("/customize-sidebar/views")).toBe(true);
+		expect(isCustomizeSidebarPath("/customize-sidebars")).toBe(false);
+		expect(isCustomizeSidebarPath("/media")).toBe(false);
+	});
+});
+
+describe("hasWorkspaceChrome", () => {
+	it("withholds the workspace chrome from every route that owns its own back control", () => {
+		expect(hasWorkspaceChrome("/media")).toBe(true);
+		expect(hasWorkspaceChrome("/v/all-shows")).toBe(true);
+		expect(hasWorkspaceChrome("/settings/account")).toBe(false);
+		expect(hasWorkspaceChrome("/customize-sidebar")).toBe(false);
 	});
 });
