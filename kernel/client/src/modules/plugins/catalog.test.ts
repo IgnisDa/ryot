@@ -1,10 +1,7 @@
 import { createRyotClient } from "@ryot-app/client-sdk";
 import type { ContractClient, ContractPayload } from "@ryot-app/contract/client";
-import {
-	REQUIRED_THEME_TOKEN_NAMES,
-	PluginThemeSnapshot,
-} from "@ryot-app/contract/modules/plugins/client";
-import { Effect, Layer, ManagedRuntime, Schema } from "effect";
+import type { PluginThemeSnapshot } from "@ryot-app/contract/modules/plugins/client";
+import { Effect, Layer, ManagedRuntime } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";
@@ -15,10 +12,7 @@ import { PluginCatalogError, PluginCatalogService } from "#/modules/plugins/cata
 import type { ThemeStore } from "#/modules/theme/store";
 
 const scope: ApiScope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
-const themeSnapshot = Schema.decodeUnknownSync(PluginThemeSnapshot)({
-	resolvedMode: "light",
-	tokens: Object.fromEntries(REQUIRED_THEME_TOKEN_NAMES.map((name) => [name, name])),
-});
+const themeSnapshot: PluginThemeSnapshot = { resolvedMode: "light" };
 const theme: ThemeStore = {
 	destroy: () => undefined,
 	getPreference: () => "light",
