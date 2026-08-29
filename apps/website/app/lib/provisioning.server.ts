@@ -2,7 +2,6 @@ import { UserId } from "@ryot-app/contract/schema/brands";
 import PurchaseCompleteEmail, {
 	type PurchaseCompleteEmailProps,
 } from "@ryot-app/transactional/emails/purchase-complete";
-import { formatDateToNaiveDate } from "@ryot-app/ts-utils/format";
 import { and, eq, type InferSelectModel, isNull } from "drizzle-orm";
 
 import {
@@ -15,7 +14,12 @@ import {
 
 import { provisionUser, resetUserPassword, setUserDisabled } from "./api.server";
 import { GRACE_PERIOD, getDb, getUnkeyClient } from "./config.server";
-import { calculateRenewalDate, createUnkeyKey, sendEmail } from "./utilities.server";
+import {
+	calculateRenewalDate,
+	createUnkeyKey,
+	formatDateToNaiveDate,
+	sendEmail,
+} from "./utilities.server";
 
 type Customer = InferSelectModel<typeof customers>;
 
