@@ -12,7 +12,7 @@ export function getRouter(context: RouterApplicationContext, history?: RouterHis
 		routeTree,
 		scrollRestoration: true,
 		defaultPreload: "intent",
-		defaultPreloadStaleTime: 0,
+		defaultPreloadStaleTime: 30_000,
 		context: {
 			...context,
 			ryotClients: createKernelRyotClientStore(context.runtime, context.theme),

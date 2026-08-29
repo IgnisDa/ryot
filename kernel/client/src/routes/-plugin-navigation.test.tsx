@@ -153,6 +153,7 @@ function mount(options: {
 }) {
 	const targets: ClientPageTarget[] = [];
 	const sessions: PreparedClientPage["identity"][] = [];
+	const revoked: string[] = [];
 	const operations: Parameters<PluginOperationsService["Service"]["invoke"]>[0][] = [];
 	const prepare: ClientPagesApi["Service"]["prepare"] =
 		options.prepare ??
@@ -191,8 +192,8 @@ function mount(options: {
 				createSession: () => Effect.die("not used"),
 			}),
 			Layer.succeed(ClientPageSessions, {
-				revoke: () => Effect.void,
 				renew: options.renew ?? (() => Effect.die("not used")),
+				revoke: (_scope, sessionId) => Effect.sync(() => revoked.push(sessionId)),
 				create: (_scope, identity) => {
 					sessions.push(identity);
 					return Effect.succeed({
@@ -219,7 +220,7 @@ function mount(options: {
 		createMemoryHistory({ initialEntries: [options.entry] }),
 	);
 	const view = render(<RouterProvider router={router} />);
-	return { ...view, events, router, targets, sessions, operations };
+	return { ...view, events, router, targets, revoked, sessions, operations };
 }
 
 function connectFrame(frame: HTMLIFrameElement) {
@@ -373,6 +374,59 @@ describe("client page routes", () => {
 			sourceHash: "operations-only-source",
 			request: { input: null, operationSlug: "mutate", pluginSlug: "operations-only" },
 		});
+	});
+
+	it("retains plugin and entity frames across navigation and reuses one entity realm", async () => {
+		const view = mount({ entry: "/fixture/details/one" });
+		const pluginFrame = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
+		await waitFor(() => expect(view.sessions).toHaveLength(1));
+
+		await view.router.navigate({ href: "/e/entity-1" });
+		await waitFor(() => expect(view.sessions).toHaveLength(2));
+		const entityFrame = screen
+			.getAllByTitle<HTMLIFrameElement>("fixture plugin")
+			.find((frame) => frame !== pluginFrame);
+		expect(entityFrame).toBeDefined();
+
+		await view.router.navigate({ href: "/e/entity-2" });
+		await waitFor(() =>
+			expect(view.targets.at(-1)).toEqual({ kind: "entity", entityId: "entity-2" }),
+		);
+		expect(view.sessions).toHaveLength(2);
+		expect(screen.getAllByTitle("fixture plugin")).toContain(entityFrame);
+
+		await view.router.navigate({ href: "/fixture/details/one" });
+		await waitFor(() => expect(view.router.state.location.pathname).toBe("/fixture/details/one"));
+		expect(view.sessions).toHaveLength(2);
+		expect(screen.getAllByTitle("fixture plugin")).toContain(pluginFrame);
+	});
+
+	it("evicts the least recently active frame after retaining three realms", async () => {
+		const entries = Array.from({ length: 4 }, (_, index) => ({
+			...catalog[0],
+			name: `Plugin ${index + 1}`,
+			slug: `plugin-${index + 1}`,
+			pluginId: `plugin-${index + 1}`,
+			installationId: `installation-${index + 1}`,
+		}));
+		const view = mount({ entries, entry: "/plugin-1" });
+		await screen.findByTitle("fixture plugin");
+		await view.router.navigate({ href: "/plugin-2" });
+		await waitFor(() => expect(view.sessions).toHaveLength(2));
+		await view.router.navigate({ href: "/plugin-3" });
+		await waitFor(() => expect(view.sessions).toHaveLength(3));
+		await view.router.navigate({ href: "/plugin-4" });
+		await waitFor(() => expect(view.sessions).toHaveLength(4));
+		expect(document.querySelectorAll("iframe")).toHaveLength(3);
+		await waitFor(() => expect(view.revoked).toContain("session-1"));
+
+		await view.router.navigate({ href: "/plugin-2" });
+		await waitFor(() => expect(view.router.state.location.pathname).toBe("/plugin-2"));
+		expect(view.sessions).toHaveLength(4);
+
+		await view.router.navigate({ href: "/plugin-1" });
+		await waitFor(() => expect(view.sessions).toHaveLength(5));
+		expect(document.querySelectorAll("iframe")).toHaveLength(3);
 	});
 
 	it("adopts changed operation targets only after an explicit update reload", async () => {
