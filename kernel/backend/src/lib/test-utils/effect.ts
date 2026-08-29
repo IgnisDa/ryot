@@ -99,8 +99,8 @@ export const makeAppConfigLayer = (
 		disableTelemetry: false,
 		redisUrl: Redacted.make("unused"),
 		frontendUrl: "http://localhost:3000",
-		sandbox: { denoDir: "./tmp", processMode: "on-demand" },
 		users: { allowRegistration: true, disableLocalAuth: false },
+		sandbox: { denoDir: "./tmp", workerConcurrency: 2, processMode: "on-demand" },
 		database: { poolMax: 10, connectionTimeoutMs: 10_000, url: Redacted.make("unused") },
 		frontend: {
 			oidcButtonLabel: Option.none(),
