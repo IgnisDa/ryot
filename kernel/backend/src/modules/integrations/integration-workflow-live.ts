@@ -4,7 +4,6 @@ import { UserId } from "@ryot-app/contract/schema/brands";
 import { Cause, DateTime, Effect, Schema } from "effect";
 import { Activity } from "effect/unstable/workflow";
 
-import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
 import { markImportRunStarted } from "#modules/imports/runtime/import-run-status";
 import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
 import { SandboxExecutionService } from "#modules/sandbox/service";
@@ -63,7 +62,7 @@ const runIntegrationImport = Effect.fn("runIntegrationImport")(function* (
 			executionId: `${executionId}-import`,
 			subject: { type: "user", userId: integration.userId, integrationId: integration.id },
 		})
-		.pipe(withoutWorkflowParent, Effect.mapError(toIntegrationWorkflowError));
+		.pipe(Effect.mapError(toIntegrationWorkflowError));
 });
 
 const runIntegrationRun = Effect.fn("runIntegrationRun")(function* (

@@ -8,7 +8,6 @@ import { WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { ImportSourceState } from "#lib/infrastructure/redis";
 import { SandboxArtifactStore } from "#lib/infrastructure/sandbox-runtime/artifacts";
-import { withoutWorkflowParent } from "#lib/infrastructure/workflow";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import type { ImportRunJobData } from "./jobs";
@@ -120,7 +119,7 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 				...(pinnedGrants ? { grants: pinnedGrants } : {}),
 				subject: { type: "user", userId: payload.userId },
 			})
-			.pipe(withoutWorkflowParent, Effect.mapError(toWorkflowError));
+			.pipe(Effect.mapError(toWorkflowError));
 
 		yield* releaseImportDispatchArtifacts;
 		yield* releaseImportArtifacts;
