@@ -1,0 +1,543 @@
+{
+  "runId": "2026-09-13T20-19-50Z",
+  "scalingRatios": [
+    {
+      "delta": 111415296,
+      "metric": "concurrency:peakDenoAggregateRssBytes",
+      "baselineValue": 106729472,
+      "comparedValue": 218144768,
+      "baselineScenarioId": "07-concurrency-1",
+      "comparedScenarioId": "08-concurrency-2",
+      "ratio": 2.0439037494723107
+    },
+    {
+      "delta": 406487040,
+      "metric": "concurrency:peakDenoAggregateRssBytes",
+      "baselineValue": 106729472,
+      "comparedValue": 513216512,
+      "baselineScenarioId": "07-concurrency-1",
+      "comparedScenarioId": "09-concurrency-5",
+      "ratio": 4.808573511916184
+    },
+    {
+      "delta": 483545088,
+      "metric": "concurrency:peakDenoAggregateRssBytes",
+      "baselineValue": 106729472,
+      "comparedValue": 590274560,
+      "baselineScenarioId": "07-concurrency-1",
+      "comparedScenarioId": "10-concurrency-20",
+      "ratio": 5.530567601796062
+    },
+    {
+      "delta": 149905408,
+      "metric": "concurrency:peakBackendRssBytes",
+      "baselineValue": 873951232,
+      "comparedValue": 1023856640,
+      "baselineScenarioId": "07-concurrency-1",
+      "comparedScenarioId": "10-concurrency-20",
+      "ratio": 1.1715260560442806
+    },
+    {
+      "delta": 835,
+      "metric": "replay:replayJournalBytes",
+      "baselineValue": 2,
+      "comparedValue": 837,
+      "baselineScenarioId": "01-direct-no-host",
+      "comparedScenarioId": "02-direct-1-host-call",
+      "ratio": 418.5
+    },
+    {
+      "delta": 46255,
+      "metric": "replay:replayJournalBytes",
+      "baselineValue": 2,
+      "comparedValue": 46257,
+      "baselineScenarioId": "01-direct-no-host",
+      "comparedScenarioId": "03-direct-5-host-calls",
+      "ratio": 23128.5
+    },
+    {
+      "delta": 324530,
+      "metric": "replay:replayJournalBytes",
+      "baselineValue": 2,
+      "comparedValue": 324532,
+      "baselineScenarioId": "01-direct-no-host",
+      "comparedScenarioId": "04-direct-10-host-calls",
+      "ratio": 162266
+    },
+    {
+      "delta": 34443264,
+      "metric": "payload:peakBackendRssBytes",
+      "baselineValue": 908374016,
+      "comparedValue": 942817280,
+      "baselineScenarioId": "01-direct-no-host",
+      "comparedScenarioId": "05-direct-1mib-payload",
+      "ratio": 1.0379174914664226
+    },
+    {
+      "delta": 35717120,
+      "metric": "import-fan-out:peakBackendRssBytes",
+      "baselineValue": 961007616,
+      "comparedValue": 996724736,
+      "baselineScenarioId": "11-import-no-related",
+      "comparedScenarioId": "12-import-10-related",
+      "ratio": 1.0371663235601247
+    },
+    {
+      "delta": 234901504,
+      "metric": "import-fan-out:peakBackendRssBytes",
+      "baselineValue": 961007616,
+      "comparedValue": 1195909120,
+      "baselineScenarioId": "11-import-no-related",
+      "comparedScenarioId": "13-import-100-related",
+      "ratio": 1.2444325103038518
+    },
+    {
+      "delta": 525742080,
+      "metric": "import-fan-out:peakDenoAggregateRssBytes",
+      "baselineValue": 131047424,
+      "comparedValue": 656789504,
+      "baselineScenarioId": "11-import-no-related",
+      "comparedScenarioId": "16-import-concurrency-20",
+      "ratio": 5.011845971119585
+    }
+  ],
+  "scenarios": [
+    {
+      "repetitions": 1,
+      "concurrency": 1,
+      "outcome": "completed",
+      "requestCount": 0,
+      "failureCount": 0,
+      "successCount": 0,
+      "scenarioId": "00-idle",
+      "peakWorkerCount": 0,
+      "replayJournalBytes": 0,
+      "peakBackendRssBytes": 930430976,
+      "peakDenoAggregateRssBytes": 0,
+      "stopReason": null,
+      "recoveredAfterMs": 145,
+      "latencyMs": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "repetitions": 5,
+      "concurrency": 1,
+      "outcome": "completed",
+      "requestCount": 5,
+      "failureCount": 0,
+      "successCount": 5,
+      "scenarioId": "01-direct-no-host",
+      "peakWorkerCount": 0,
+      "replayJournalBytes": 2,
+      "peakBackendRssBytes": 908374016,
+      "peakDenoAggregateRssBytes": 0,
+      "stopReason": null,
+      "recoveredAfterMs": 83,
+      "latencyMs": {
+        "p50": 955,
+        "p95": 968
+      }
+    },
+    {
+      "repetitions": 5,
+      "concurrency": 1,
+      "outcome": "completed",
+      "requestCount": 5,
+      "failureCount": 0,
+      "successCount": 5,
+      "scenarioId": "02-direct-1-host-call",
+      "peakWorkerCount": 1,
+      "replayJournalBytes": 837,
+      "peakBackendRssBytes": 909107200,
+      "peakDenoAggregateRssBytes": 105222144,
+      "stopReason": null,
+      "recoveredAfterMs": 350,
+      "latencyMs": {
+        "p50": 1421,
+        "p95": 1759
+      }
+    },
+    {
+      "repetitions": 5,
+      "concurrency": 1,
+      "outcome": "completed",
+      "requestCount": 5,
+      "failureCount": 0,
+      "successCount": 5,
+      "scenarioId": "03-direct-5-host-calls",
+      "peakWorkerCount": 1,
+      "replayJournalBytes": 46257,
+      "peakBackendRssBytes": 944906240,
+      "peakDenoAggregateRssBytes": 108269568,
+      "stopReason": null,
+      "recoveredAfterMs": 220,
+      "latencyMs": {
+        "p50": 3998,
+        "p95": 4088
+      }
+    },
+    {
+      "repetitions": 5,
+      "concurrency": 1,
+      "outcome": "completed",
+      "requestCount": 5,
+      "failureCount": 0,
+      "successCount": 5,
+      "scenarioId": "04-direct-10-host-calls",
+      "peakWorkerCount": 1,
+      "replayJournalBytes": 324532,
+      "peakBackendRssBytes": 939986944,
+      "peakDenoAggregateRssBytes": 129175552,
+      "stopReason": null,
+      "recoveredAfterMs": 278,
+      "latencyMs": {
+        "p50": 7936,
+        "p95": 8002
+      }
+    },
+    {
+      "repetitions": 1,
+      "concurrency": 1,
+      "outcome": "aborted",
+      "requestCount": 0,
+      "failureCount": 0,
+      "successCount": 0,
+      "scenarioId": "05-direct-1mib-payload",
+      "peakWorkerCount": 0,
+      "replayJournalBytes": 0,
+      "peakBackendRssBytes": 942817280,
+      "peakDenoAggregateRssBytes": 0,
+      "stopReason": "request-timeout",
+      "recoveredAfterMs": 342,
+      "latencyMs": {
+        "p50": 0,
+        "p95": 0
+      }
+    },
+    {
+      "repetitions": 5,
+      "concurrency": 1,
+      "outcome": "completed",
+      "requestCount": 5,
+      "failureCount": 0,
+      "successCount": 5,
+      "scenarioId": "07-concurrency-1",
+      "peakWorkerCount": 1,
+      "replayJournalBytes": 46257,
+      "peakBackendRssBytes": 873951232,
+      "peakDenoAggregateRssBytes": 106729472,
+      "stopReason": null,
+      "recoveredAfterMs": 183,
+      "latencyMs": {
+        "p50": 4035,
+        "p95": 4049
+      }
+    },
+    {
+      "repetitions": 5,
+      "concurrency": 2,
+      "outcome": "completed",
+      "requestCount": 10,
+      "failureCount": 0,
+      "successCount": 10,
+      "scenarioId": "08-concurrency-2",
+      "peakWorkerCount": 2,
+      "replayJournalBytes": 92514,
+      "peakBackendRssBytes": 884056064,
+      "peakDenoAggregateRssBytes": 218144768,
+      "stopReason": null,
+      "recoveredAfterMs": 151,
+      "latencyMs": {
+        "p50": 4056,
+        "p95": 4351
+      }
+    },
+    {
+      "repetitions": 5,
+      "concurrency": 5,
+      "outcome": "completed",
+      "requestCount": 25,
+      "failureCount": 0,
+      "successCount": 25,
+      "scenarioId": "09-concurrency-5",
+      "peakWorkerCount": 5,
+      "replayJournalBytes": 231285,
+      "peakBackendRssBytes": 949514240,
+      "peakDenoAggregateRssBytes": 513216512,
+      "stopReason": null,
+      "recoveredAfterMs": 261,
+      "latencyMs": {
+        "p50": 8832,
+        "p95": 9791
+      }
+    },
+    {
+      "repetitions": 5,
+      "concurrency": 20,
+      "outcome": "completed",
+      "requestCount": 100,
+      "failureCount": 0,
+      "successCount": 100,
+      "scenarioId": "10-concurrency-20",
+      "peakWorkerCount": 5,
+      "replayJournalBytes": 925140,
+      "peakBackendRssBytes": 1023856640,
+      "peakDenoAggregateRssBytes": 590274560,
+      "stopReason": null,
+      "recoveredAfterMs": 108,
+      "latencyMs": {
+        "p50": 34700,
+        "p95": 35424
+      }
+    },
+    {
+      "repetitions": 5,
+      "concurrency": 1,
+      "outcome": "completed",
+      "requestCount": 5,
+      "failureCount": 0,
+      "successCount": 5,
+      "scenarioId": "11-import-no-related",
+      "peakWorkerCount": 1,
+      "replayJournalBytes": 49008,
+      "peakBackendRssBytes": 961007616,
+      "peakDenoAggregateRssBytes": 131047424,
+      "stopReason": null,
+      "recoveredAfterMs": 3,
+      "latencyMs": {
+        "p50": 7559,
+        "p95": 7626
+      }
+    },
+    {
+      "repetitions": 5,
+      "concurrency": 1,
+      "outcome": "completed",
+      "requestCount": 5,
+      "failureCount": 0,
+      "successCount": 5,
+      "scenarioId": "12-import-10-related",
+      "peakWorkerCount": 5,
+      "replayJournalBytes": 150800,
+      "peakBackendRssBytes": 996724736,
+      "peakDenoAggregateRssBytes": 562655232,
+      "stopReason": null,
+      "recoveredAfterMs": 323,
+      "latencyMs": {
+        "p50": 12641,
+        "p95": 13730
+      }
+    },
+    {
+      "repetitions": 5,
+      "concurrency": 1,
+      "outcome": "completed",
+      "requestCount": 5,
+      "failureCount": 0,
+      "successCount": 5,
+      "scenarioId": "13-import-100-related",
+      "peakWorkerCount": 5,
+      "replayJournalBytes": 897833,
+      "peakBackendRssBytes": 1195909120,
+      "peakDenoAggregateRssBytes": 612741120,
+      "stopReason": null,
+      "recoveredAfterMs": 20851,
+      "latencyMs": {
+        "p50": 64855,
+        "p95": 65477
+      }
+    },
+    {
+      "repetitions": 5,
+      "concurrency": 2,
+      "outcome": "completed",
+      "requestCount": 10,
+      "failureCount": 0,
+      "successCount": 10,
+      "scenarioId": "14-import-concurrency-2",
+      "peakWorkerCount": 5,
+      "replayJournalBytes": 253531,
+      "peakBackendRssBytes": 1117483008,
+      "peakDenoAggregateRssBytes": 662093824,
+      "stopReason": null,
+      "recoveredAfterMs": 53,
+      "latencyMs": {
+        "p50": 18854,
+        "p95": 19777
+      }
+    },
+    {
+      "repetitions": 5,
+      "concurrency": 5,
+      "outcome": "completed",
+      "requestCount": 25,
+      "failureCount": 0,
+      "successCount": 25,
+      "scenarioId": "15-import-concurrency-5",
+      "peakWorkerCount": 5,
+      "replayJournalBytes": 706034,
+      "peakBackendRssBytes": 1228664832,
+      "peakDenoAggregateRssBytes": 587661312,
+      "stopReason": null,
+      "recoveredAfterMs": 18482,
+      "latencyMs": {
+        "p50": 42502,
+        "p95": 42859
+      }
+    },
+    {
+      "repetitions": 4,
+      "concurrency": 20,
+      "outcome": "completed",
+      "requestCount": 80,
+      "failureCount": 0,
+      "successCount": 80,
+      "scenarioId": "16-import-concurrency-20",
+      "peakWorkerCount": 5,
+      "replayJournalBytes": 2639731,
+      "peakBackendRssBytes": 1419268096,
+      "peakDenoAggregateRssBytes": 656789504,
+      "stopReason": null,
+      "recoveredAfterMs": 284,
+      "latencyMs": {
+        "p50": 167328,
+        "p95": 176794
+      }
+    },
+    {
+      "repetitions": 5,
+      "concurrency": 5,
+      "outcome": "failed",
+      "requestCount": 25,
+      "failureCount": 25,
+      "successCount": 0,
+      "scenarioId": "17-typed-failures-5",
+      "peakWorkerCount": 5,
+      "replayJournalBytes": 229860,
+      "peakBackendRssBytes": 1165262848,
+      "peakDenoAggregateRssBytes": 475623424,
+      "stopReason": null,
+      "recoveredAfterMs": 84,
+      "latencyMs": {
+        "p50": 10427,
+        "p95": 11130
+      }
+    },
+    {
+      "repetitions": 5,
+      "concurrency": 5,
+      "outcome": "failed",
+      "requestCount": 25,
+      "failureCount": 25,
+      "successCount": 0,
+      "scenarioId": "18-sandbox-timeouts-5",
+      "peakWorkerCount": 5,
+      "replayJournalBytes": 0,
+      "peakBackendRssBytes": 1102929920,
+      "peakDenoAggregateRssBytes": 633159680,
+      "stopReason": null,
+      "recoveredAfterMs": 312,
+      "latencyMs": {
+        "p50": 33839,
+        "p95": 34073
+      }
+    },
+    {
+      "repetitions": 5,
+      "concurrency": 20,
+      "outcome": "failed",
+      "requestCount": 100,
+      "failureCount": 100,
+      "successCount": 0,
+      "scenarioId": "19-typed-failures-20",
+      "peakWorkerCount": 5,
+      "replayJournalBytes": 919440,
+      "peakBackendRssBytes": 1324527616,
+      "peakDenoAggregateRssBytes": 578138112,
+      "stopReason": null,
+      "recoveredAfterMs": 19926,
+      "latencyMs": {
+        "p50": 41225,
+        "p95": 41860
+      }
+    },
+    {
+      "repetitions": 1,
+      "concurrency": 20,
+      "outcome": "completed",
+      "requestCount": 20,
+      "failureCount": 0,
+      "successCount": 20,
+      "scenarioId": "20-restart-recovery",
+      "peakWorkerCount": 5,
+      "replayJournalBytes": -237756,
+      "peakBackendRssBytes": 909275136,
+      "peakDenoAggregateRssBytes": 664862720,
+      "stopReason": null,
+      "recoveredAfterMs": 15113,
+      "latencyMs": {
+        "p50": 185810,
+        "p95": 195312
+      }
+    },
+    {
+      "repetitions": 1,
+      "concurrency": 1,
+      "outcome": "completed",
+      "requestCount": 1,
+      "failureCount": 0,
+      "successCount": 1,
+      "scenarioId": "21-live-youtube-music-single",
+      "peakWorkerCount": 2,
+      "replayJournalBytes": 25290190,
+      "peakBackendRssBytes": 915214336,
+      "peakDenoAggregateRssBytes": 414961664,
+      "stopReason": null,
+      "recoveredAfterMs": 390,
+      "latencyMs": {
+        "p50": 11236,
+        "p95": 11236
+      }
+    },
+    {
+      "repetitions": 1,
+      "concurrency": 5,
+      "outcome": "failed",
+      "requestCount": 5,
+      "failureCount": 1,
+      "successCount": 4,
+      "scenarioId": "22-live-youtube-music-five",
+      "peakWorkerCount": 5,
+      "replayJournalBytes": 92954015,
+      "peakBackendRssBytes": 1061928960,
+      "peakDenoAggregateRssBytes": 1786015744,
+      "stopReason": null,
+      "recoveredAfterMs": 10846,
+      "latencyMs": {
+        "p50": 35701,
+        "p95": 36357
+      }
+    },
+    {
+      "repetitions": 1,
+      "concurrency": 20,
+      "outcome": "failed",
+      "requestCount": 20,
+      "failureCount": 4,
+      "successCount": 16,
+      "scenarioId": "23-live-youtube-music-twenty",
+      "peakWorkerCount": 5,
+      "replayJournalBytes": 346792567,
+      "peakBackendRssBytes": 1126354944,
+      "peakDenoAggregateRssBytes": 1982656512,
+      "stopReason": null,
+      "recoveredAfterMs": 145941,
+      "latencyMs": {
+        "p50": 141788,
+        "p95": 145095
+      }
+    }
+  ]
+}
