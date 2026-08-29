@@ -5,11 +5,8 @@ import type { RyotQLDocument } from "@ryot-app/sandbox-sdk/ryotql";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
-import type {
-	CurrentCycleChildEvent,
-	EpisodicLifecycleState,
-	EventOrderTuple,
-} from "../contracts/lifecycle-recipes";
+import type { EpisodicLifecycleState } from "../../shared/lifecycle-expressions";
+import type { CurrentCycleChildEvent, EventOrderTuple } from "../contracts/lifecycle-recipes";
 import definition, {
 	manifest,
 	PARENT_COMPLETION_CLAIM_TTL_SECONDS,

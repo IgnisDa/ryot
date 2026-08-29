@@ -1,10 +1,10 @@
 import { castDate, eventIsAfter, literal, table } from "@ryot-app/sandbox-sdk/ryotql";
 import { describe, expect, it } from "vitest";
 
+import { showEpisodicKindConfig } from "../../shared/lifecycle-expressions";
 import {
 	currentCycleChildEventsRecipe,
 	replayCurrentCycleCoverage,
-	showEpisodicKindConfig,
 	type CurrentCycleChildEvent,
 } from "./lifecycle-recipes";
 
