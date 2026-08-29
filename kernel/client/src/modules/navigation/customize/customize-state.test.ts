@@ -20,9 +20,7 @@ const view = (slug: string, pluginSlug: string | null, sortOrder: number, isDisa
 	name: slug.toUpperCase(),
 });
 
-// A recipe row carries more branded structure than a fixture needs, so the fixture is widened once
-// here rather than at every call site.
-const data = {
+const data: NavigationData = {
 	collections: [],
 	savedViews: [
 		view("shows", "media", 2),
@@ -30,7 +28,7 @@ const data = {
 		view("all", null, 1),
 		view("recent", null, 0),
 	],
-} as unknown as NavigationData;
+};
 
 const draft = initCustomizeDraft({ data, workspaceSlug: "media" });
 
