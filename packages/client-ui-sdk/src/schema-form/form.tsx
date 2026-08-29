@@ -38,7 +38,7 @@ export function useSchemaForm(props: {
 	onSubmit: (values: SchemaFormValues) => void;
 }) {
 	return useForm({
-		defaultValues: {} as SchemaFormValues,
+		defaultValues: {},
 		onSubmit: ({ value }) => props.onSubmit(value),
 		errorVisibility: ({ state }) => state.submissionAttempts > 0,
 		validators: [
