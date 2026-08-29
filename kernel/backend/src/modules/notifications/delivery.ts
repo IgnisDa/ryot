@@ -1,9 +1,6 @@
-import { render } from "@react-email/components";
 import type { NotificationChannelSpecifics } from "@ryot-app/contract/modules/notifications/schemas";
-import GenericEmail from "@ryot-app/transactional/emails/generic";
 import { Context, Data, Duration, Effect, Layer, Match, Option, Redacted } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/unstable/http";
-import { createTransport } from "nodemailer";
 
 import { AppConfig, getSmtpCredentials } from "#lib/infrastructure/config/service";
 
@@ -46,7 +43,8 @@ export class NotificationMailer extends Context.Service<NotificationMailer>()(
 	"NotificationMailer",
 	{
 		make: Effect.succeed({
-			send: (input: NotificationMailerInput) => {
+			send: Effect.fn("NotificationMailer.send")(function* (input: NotificationMailerInput) {
+				const { createTransport } = yield* Effect.promise(() => import("nodemailer"));
 				const transport = createTransport({
 					port: 465,
 					secure: true,
@@ -56,12 +54,11 @@ export class NotificationMailer extends Context.Service<NotificationMailer>()(
 					connectionTimeout: HTTP_TIMEOUT_MS,
 					auth: { user: input.credentials.user, pass: input.credentials.password },
 				});
-
-				return Effect.tryPromise({
+				yield* Effect.tryPromise({
 					try: () => transport.sendMail(input.mail),
 					catch: () => new NotificationDeliveryError({ message: "SMTP request failed" }),
-				}).pipe(Effect.asVoid);
-			},
+				});
+			}),
 		}),
 	},
 ) {
@@ -100,6 +97,12 @@ export class NotificationDeliveryService extends Context.Service<NotificationDel
 
 				const { mailbox } = config.server.smtp;
 				const { user, server, password } = credentials.value;
+				const [{ render }, { default: GenericEmail }] = yield* Effect.promise(() =>
+					Promise.all([
+						import("@react-email/components"),
+						import("@ryot-app/transactional/emails/generic"),
+					]),
+				);
 				const email = GenericEmail({ message: input.message });
 				const [html, text] = yield* Effect.tryPromise({
 					try: () => Promise.all([render(email), render(email, { plainText: true })]),
