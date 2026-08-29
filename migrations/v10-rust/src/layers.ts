@@ -1,3 +1,5 @@
+import { UserBootstrap } from "@ryot-app/kernel-backend/modules/user-bootstrap/bootstrap";
+import { PluginUserBootstrapDispatcher } from "@ryot-app/kernel-backend/modules/user-bootstrap/plugin-dispatch";
 import { Effect, Layer } from "effect";
 
 import { dropLegacyTables } from "./drop-tables";
@@ -6,6 +8,10 @@ import { renameLegacyTables } from "./rename-tables";
 
 export const LegacyTableRenameLive = Layer.effectDiscard(renameLegacyTables);
 
+const LegacyUserBootstrapLive = Layer.fresh(UserBootstrap.layer).pipe(
+	Layer.provide(Layer.succeed(PluginUserBootstrapDispatcher, { dispatchAll: () => Effect.void })),
+);
+
 export const LegacyDataMigrationLive = Layer.effectDiscard(
 	migrateLegacyTables.pipe(Effect.andThen(dropLegacyTables)),
-);
+).pipe(Layer.provide(LegacyUserBootstrapLive));

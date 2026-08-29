@@ -4,8 +4,7 @@ import {
 	parseAppSchemaProperties,
 } from "@ryot-app/kernel-backend/lib/property-schema/property-schema-runtime";
 import { IntegrationsRepository } from "@ryot-app/kernel-backend/modules/integrations/repository";
-import { bootstrapNewUser } from "@ryot-app/kernel-backend/modules/user-bootstrap/bootstrap";
-import { PluginUserBootstrapDispatcher } from "@ryot-app/kernel-backend/modules/user-bootstrap/plugin-dispatch";
+import { UserBootstrap } from "@ryot-app/kernel-backend/modules/user-bootstrap/bootstrap";
 import { Clock, Effect } from "effect";
 
 import {
@@ -361,17 +360,14 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		logReportRows(connection, reportSequence),
 	);
 
-	// Phase 2: Backfill bootstrap data for migrated users
 	if (migratedUserRows.length > 0) {
 		yield* Effect.logInfo("legacy user bootstrap backfill started").pipe(
 			Effect.annotateLogs({ userCount: migratedUserRows.length }),
 		);
 
+		const userBootstrap = yield* UserBootstrap;
 		for (const user of migratedUserRows) {
-			yield* bootstrapNewUser(user.id).pipe(
-				Effect.provideService(PluginUserBootstrapDispatcher, {
-					dispatchAll: () => Effect.undefined,
-				}),
+			yield* userBootstrap.perform(user.id).pipe(
 				Effect.tapError((error) =>
 					Effect.logError("legacy user bootstrap failed", error).pipe(
 						Effect.annotateLogs({ userId: user.id }),
@@ -398,8 +394,6 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		logReportRows(connection, reportSequence),
 	);
 
-	// Phase 3: Migrate entities, events, and relationships
-	//
 	// Slim migration: provider-sourced ("global") entities are reconstructed on demand by V2's
 	// entity population workflow, so we materialize only the subset referenced by user data (plus
 	// all user-authored custom entities). The referenced-id set is collected up front and consumed
