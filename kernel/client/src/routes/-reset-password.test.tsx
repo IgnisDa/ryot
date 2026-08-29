@@ -20,13 +20,14 @@ import { getRouter } from "#/router";
 import {
 	GodModeRouteStubs,
 	SavedViewRouteStubs,
+	ProviderAddRouteStubs,
+	theme,
+	server,
 	catalog,
 	makeAuthStub,
-	makeOAuthRouteStubs,
-	makePublicApiStub,
 	makeStorageStub,
-	server,
-	theme,
+	makePublicApiStub,
+	makeOAuthRouteStubs,
 } from "#/routes/-route-fixtures";
 
 type ResetCall = {
@@ -52,6 +53,7 @@ const makeView = (
 	);
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
+			ProviderAddRouteStubs,
 			makeAuthStub({ settledSession: () => Effect.die("OAuth guard must not run") }),
 			GodModeRouteStubs,
 			SavedViewRouteStubs,
