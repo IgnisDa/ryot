@@ -1,0 +1,1328 @@
+{
+	"runId": "2026-09-22-ytm-initialization-candidate-2",
+	"schemaVersion": 2,
+	"scalingRatios": [],
+	"scenarios": [
+		{
+			"kind": "live-variance",
+			"repetitions": 1,
+			"scenarioId": "ytm-details-variance",
+			"workerConcurrency": 1,
+			"requiredRepetitions": 1,
+			"metrics": {
+				"bun.lifetimeHwmBytes": {
+					"n": 1,
+					"p95": 941764608,
+					"min": 941764608,
+					"max": 941764608,
+					"median": 941764608
+				},
+				"cadence.applicationSampleFailures": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"cgroup.scenarioPeakDeltaBytes": {
+					"n": 1,
+					"p95": 231706624,
+					"min": 231706624,
+					"max": 231706624,
+					"median": 231706624
+				},
+				"counters.durableRequests": { "n": 1, "p95": 150, "min": 150, "max": 150, "median": 150 },
+				"counters.executions": { "n": 1, "p95": 90, "min": 90, "max": 90, "median": 90 },
+				"counters.processesCompleted": { "n": 1, "p95": 90, "min": 90, "max": 90, "median": 90 },
+				"counters.processesSpawned": { "n": 1, "p95": 90, "min": 90, "max": 90, "median": 90 },
+				"counters.replayJournalBytes": {
+					"n": 1,
+					"p95": 21300103,
+					"min": 21300103,
+					"max": 21300103,
+					"median": 21300103
+				},
+				"counters.replaysCompleted": { "n": 1, "p95": 30, "min": 30, "max": 30, "median": 30 },
+				"counters.replaysFailed": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"counters.replaysStarted": { "n": 1, "p95": 270, "min": 270, "max": 270, "median": 270 },
+				"cpu.bunSystemMs": {
+					"n": 1,
+					"p95": 20856.337,
+					"min": 20856.337,
+					"max": 20856.337,
+					"median": 20856.337
+				},
+				"cpu.bunUserMs": {
+					"n": 1,
+					"p95": 52659.467,
+					"min": 52659.467,
+					"max": 52659.467,
+					"median": 52659.467
+				},
+				"db.activeConnectionsMax": {
+					"n": 0,
+					"p95": null,
+					"min": null,
+					"max": null,
+					"median": null
+				},
+				"db.deadlocksDelta": { "n": 0, "p95": null, "min": null, "max": null, "median": null },
+				"db.lockWaitingMax": { "n": 0, "p95": null, "min": null, "max": null, "median": null },
+				"db.totalConnectionsMax": { "n": 0, "p95": null, "min": null, "max": null, "median": null },
+				"health.failures": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"health.latencyMs.max": {
+					"n": 1,
+					"p95": 31.28787500038743,
+					"min": 31.28787500038743,
+					"max": 31.28787500038743,
+					"median": 31.28787500038743
+				},
+				"health.latencyMs.p50": {
+					"n": 1,
+					"p95": 4.832094000652432,
+					"min": 4.832094000652432,
+					"max": 4.832094000652432,
+					"median": 4.832094000652432
+				},
+				"health.latencyMs.p95": {
+					"n": 1,
+					"p95": 14.529103999957442,
+					"min": 14.529103999957442,
+					"max": 14.529103999957442,
+					"median": 14.529103999957442
+				},
+				"host.cpuPsiSomeAvg10Max": {
+					"n": 1,
+					"p95": 18.24,
+					"min": 18.24,
+					"max": 18.24,
+					"median": 18.24
+				},
+				"host.cpuPsiSomeStallMs": {
+					"n": 1,
+					"p95": 29642.594000000507,
+					"min": 29642.594000000507,
+					"max": 29642.594000000507,
+					"median": 29642.594000000507
+				},
+				"host.diskReadsDelta": { "n": 1, "p95": 12, "min": 12, "max": 12, "median": 12 },
+				"host.diskSectorsReadDelta": { "n": 1, "p95": 136, "min": 136, "max": 136, "median": 136 },
+				"host.diskSectorsWrittenDelta": {
+					"n": 1,
+					"p95": 1365008,
+					"min": 1365008,
+					"max": 1365008,
+					"median": 1365008
+				},
+				"host.ioPsiSomeAvg10Max": { "n": 1, "p95": 0.51, "min": 0.51, "max": 0.51, "median": 0.51 },
+				"host.ioPsiSomeStallMs": {
+					"n": 1,
+					"p95": 1259.863000000012,
+					"min": 1259.863000000012,
+					"max": 1259.863000000012,
+					"median": 1259.863000000012
+				},
+				"host.memAvailableMinBytes": {
+					"n": 1,
+					"p95": 2079965184,
+					"min": 2079965184,
+					"max": 2079965184,
+					"median": 2079965184
+				},
+				"host.memoryPsiFullAvg10Max": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"host.memoryPsiFullStallMs": {
+					"n": 1,
+					"p95": 4.327000000001135,
+					"min": 4.327000000001135,
+					"max": 4.327000000001135,
+					"median": 4.327000000001135
+				},
+				"host.memoryPsiSomeAvg10Max": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"host.oomKillDelta": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"host.pgmajfaultDelta": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"host.pgscanDelta": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"host.pgstealDelta": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"host.samplerRssBytes": {
+					"n": 1,
+					"p95": 47394816,
+					"min": 47394816,
+					"max": 47394816,
+					"median": 47394816
+				},
+				"imports.maxExecutingBodies": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"otel.cgroupCpuMs": {
+					"n": 1,
+					"p95": 2789.1240000000034,
+					"min": 2789.1240000000034,
+					"max": 2789.1240000000034,
+					"median": 2789.1240000000034
+				},
+				"otel.sampledPeakBytes": {
+					"n": 1,
+					"p95": 134209536,
+					"min": 134209536,
+					"max": 134209536,
+					"median": 134209536
+				},
+				"peak.bunArrayBuffersBytes": {
+					"n": 1,
+					"p95": 72502273,
+					"min": 72502273,
+					"max": 72502273,
+					"median": 72502273
+				},
+				"peak.bunExternalBytes": {
+					"n": 1,
+					"p95": 197872692,
+					"min": 197872692,
+					"max": 197872692,
+					"median": 197872692
+				},
+				"peak.bunHeapTotalBytes": {
+					"n": 1,
+					"p95": 124023808,
+					"min": 124023808,
+					"max": 124023808,
+					"median": 124023808
+				},
+				"peak.bunHeapUsedBytes": {
+					"n": 1,
+					"p95": 288406703,
+					"min": 288406703,
+					"max": 288406703,
+					"median": 288406703
+				},
+				"peak.bunRssBytes": {
+					"n": 1,
+					"p95": 850468864,
+					"min": 850468864,
+					"max": 850468864,
+					"median": 850468864
+				},
+				"peak.cgroupMemoryBytes": {
+					"n": 1,
+					"p95": 960348160,
+					"min": 960348160,
+					"max": 960348160,
+					"median": 960348160
+				},
+				"peak.denoAggregateRssBytes": {
+					"n": 1,
+					"p95": 198483968,
+					"min": 198483968,
+					"max": 198483968,
+					"median": 198483968
+				},
+				"peak.workerCount": { "n": 1, "p95": 1, "min": 1, "max": 1, "median": 1 },
+				"peakDelta.bunArrayBuffersBytes": {
+					"n": 1,
+					"p95": 71717333,
+					"min": 71717333,
+					"max": 71717333,
+					"median": 71717333
+				},
+				"peakDelta.bunExternalBytes": {
+					"n": 1,
+					"p95": 90947653,
+					"min": 90947653,
+					"max": 90947653,
+					"median": 90947653
+				},
+				"peakDelta.bunHeapTotalBytes": {
+					"n": 1,
+					"p95": 6095872,
+					"min": 6095872,
+					"max": 6095872,
+					"median": 6095872
+				},
+				"peakDelta.bunHeapUsedBytes": {
+					"n": 1,
+					"p95": 102799664,
+					"min": 102799664,
+					"max": 102799664,
+					"median": 102799664
+				},
+				"peakDelta.bunRssBytes": {
+					"n": 1,
+					"p95": 81960960,
+					"min": 81960960,
+					"max": 81960960,
+					"median": 81960960
+				},
+				"peakDelta.cgroupMemoryBytes": {
+					"n": 1,
+					"p95": 224051200,
+					"min": 224051200,
+					"max": 224051200,
+					"median": 224051200
+				},
+				"peakDelta.denoAggregateRssBytes": {
+					"n": 1,
+					"p95": 198483968,
+					"min": 198483968,
+					"max": 198483968,
+					"median": 198483968
+				},
+				"post.bunArrayBuffersBytes": {
+					"n": 1,
+					"p95": 6058535,
+					"min": 6058535,
+					"max": 6058535,
+					"median": 6058535
+				},
+				"post.bunExternalBytes": {
+					"n": 1,
+					"p95": 70948693,
+					"min": 70948693,
+					"max": 70948693,
+					"median": 70948693
+				},
+				"post.bunHeapTotalBytes": {
+					"n": 1,
+					"p95": 123492352,
+					"min": 123492352,
+					"max": 123492352,
+					"median": 123492352
+				},
+				"post.bunHeapUsedBytes": {
+					"n": 1,
+					"p95": 161839787,
+					"min": 161839787,
+					"max": 161839787,
+					"median": 161839787
+				},
+				"post.bunRssBytes": {
+					"n": 1,
+					"p95": 791433216,
+					"min": 791433216,
+					"max": 791433216,
+					"median": 791433216
+				},
+				"post.cgroupMemoryBytes": {
+					"n": 1,
+					"p95": 773947392,
+					"min": 773947392,
+					"max": 773947392,
+					"median": 773947392
+				},
+				"post.denoAggregateRssBytes": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"postDelta.bunArrayBuffersBytes": {
+					"n": 1,
+					"p95": 5273595,
+					"min": 5273595,
+					"max": 5273595,
+					"median": 5273595
+				},
+				"postDelta.bunExternalBytes": {
+					"n": 1,
+					"p95": -35976346,
+					"min": -35976346,
+					"max": -35976346,
+					"median": -35976346
+				},
+				"postDelta.bunHeapTotalBytes": {
+					"n": 1,
+					"p95": 5564416,
+					"min": 5564416,
+					"max": 5564416,
+					"median": 5564416
+				},
+				"postDelta.bunHeapUsedBytes": {
+					"n": 1,
+					"p95": -23767252,
+					"min": -23767252,
+					"max": -23767252,
+					"median": -23767252
+				},
+				"postDelta.bunRssBytes": {
+					"n": 1,
+					"p95": 22925312,
+					"min": 22925312,
+					"max": 22925312,
+					"median": 22925312
+				},
+				"postDelta.cgroupMemoryBytes": {
+					"n": 1,
+					"p95": 37650432,
+					"min": 37650432,
+					"max": 37650432,
+					"median": 37650432
+				},
+				"postDelta.denoAggregateRssBytes": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"postgres.cgroupCpuMs": {
+					"n": 1,
+					"p95": 11488.560999999987,
+					"min": 11488.560999999987,
+					"max": 11488.560999999987,
+					"median": 11488.560999999987
+				},
+				"postgres.sampledPeakBytes": {
+					"n": 1,
+					"p95": 300814336,
+					"min": 300814336,
+					"max": 300814336,
+					"median": 300814336
+				},
+				"pre.bunArrayBuffersBytes": {
+					"n": 1,
+					"p95": 784940,
+					"min": 784940,
+					"max": 784940,
+					"median": 784940
+				},
+				"pre.bunExternalBytes": {
+					"n": 1,
+					"p95": 106925039,
+					"min": 106925039,
+					"max": 106925039,
+					"median": 106925039
+				},
+				"pre.bunHeapTotalBytes": {
+					"n": 1,
+					"p95": 117927936,
+					"min": 117927936,
+					"max": 117927936,
+					"median": 117927936
+				},
+				"pre.bunHeapUsedBytes": {
+					"n": 1,
+					"p95": 185607039,
+					"min": 185607039,
+					"max": 185607039,
+					"median": 185607039
+				},
+				"pre.bunRssBytes": {
+					"n": 1,
+					"p95": 768507904,
+					"min": 768507904,
+					"max": 768507904,
+					"median": 768507904
+				},
+				"pre.cgroupMemoryBytes": {
+					"n": 1,
+					"p95": 736296960,
+					"min": 736296960,
+					"max": 736296960,
+					"median": 736296960
+				},
+				"pre.denoAggregateRssBytes": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"recovery.bunRssRecoveredAfterMs": {
+					"n": 1,
+					"p95": 118.037109375,
+					"min": 118.037109375,
+					"max": 118.037109375,
+					"median": 118.037109375
+				},
+				"recovery.workersDrainedAfterMs": {
+					"n": 1,
+					"p95": 118.037109375,
+					"min": 118.037109375,
+					"max": 118.037109375,
+					"median": 118.037109375
+				},
+				"redis.cgroupCpuMs": {
+					"n": 1,
+					"p95": 7513.396999999997,
+					"min": 7513.396999999997,
+					"max": 7513.396999999997,
+					"median": 7513.396999999997
+				},
+				"redis.sampledPeakBytes": {
+					"n": 1,
+					"p95": 35868672,
+					"min": 35868672,
+					"max": 35868672,
+					"median": 35868672
+				},
+				"requests.completed": { "n": 1, "p95": 30, "min": 30, "max": 30, "median": 30 },
+				"requests.count": { "n": 1, "p95": 30, "min": 30, "max": 30, "median": 30 },
+				"requests.executionMs.max": {
+					"n": 1,
+					"p95": 3186,
+					"min": 3186,
+					"max": 3186,
+					"median": 3186
+				},
+				"requests.executionMs.p50": {
+					"n": 1,
+					"p95": 2184,
+					"min": 2184,
+					"max": 2184,
+					"median": 2184
+				},
+				"requests.executionMs.p95": {
+					"n": 1,
+					"p95": 2632,
+					"min": 2632,
+					"max": 2632,
+					"median": 2632
+				},
+				"requests.failed": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"requests.latencyMs.max": { "n": 1, "p95": 5637, "min": 5637, "max": 5637, "median": 5637 },
+				"requests.latencyMs.p50": { "n": 1, "p95": 4353, "min": 4353, "max": 4353, "median": 4353 },
+				"requests.latencyMs.p95": { "n": 1, "p95": 4500, "min": 4500, "max": 4500, "median": 4500 },
+				"requests.loadDurationMs": {
+					"n": 1,
+					"p95": 132365,
+					"min": 132365,
+					"max": 132365,
+					"median": 132365
+				},
+				"requests.queueWaitMs.max": { "n": 1, "p95": 360, "min": 360, "max": 360, "median": 360 },
+				"requests.queueWaitMs.p50": { "n": 1, "p95": 219, "min": 219, "max": 219, "median": 219 },
+				"requests.queueWaitMs.p95": { "n": 1, "p95": 282, "min": 282, "max": 282, "median": 282 },
+				"requests.throughputPerMinute": {
+					"n": 1,
+					"p95": 13.598761001775394,
+					"min": 13.598761001775394,
+					"max": 13.598761001775394,
+					"median": 13.598761001775394
+				},
+				"ryot.cgroupCpuMs": {
+					"n": 1,
+					"p95": 140945.011,
+					"min": 140945.011,
+					"max": 140945.011,
+					"median": 140945.011
+				},
+				"ryot.cgroupIoReadBytesDelta": {
+					"n": 1,
+					"p95": 4096,
+					"min": 4096,
+					"max": 4096,
+					"median": 4096
+				},
+				"ryot.cgroupLifetimePeakBytes": {
+					"n": 1,
+					"p95": 1418985472,
+					"min": 1418985472,
+					"max": 1418985472,
+					"median": 1418985472
+				},
+				"ryot.cgroupOomKillDelta": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"ryot.cgroupPgmajfaultDelta": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"ryot.cgroupPgscanDelta": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"ryot.cgroupSampledPeakBytes": {
+					"n": 1,
+					"p95": 947097600,
+					"min": 947097600,
+					"max": 947097600,
+					"median": 947097600
+				},
+				"ryot.cgroupScenarioPeakBytes": {
+					"n": 1,
+					"p95": 968003584,
+					"min": 968003584,
+					"max": 968003584,
+					"median": 968003584
+				},
+				"workers.lifetimePeakRssMaxBytes": {
+					"n": 1,
+					"p95": 203673600,
+					"min": 203673600,
+					"max": 203673600,
+					"median": 203673600
+				},
+				"workers.lifetimePeakRssMedianBytes": {
+					"n": 1,
+					"p95": 177676288,
+					"min": 177676288,
+					"max": 177676288,
+					"median": 177676288
+				},
+				"workers.lifetimePeakUnobserved": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"workers.maxConcurrent": { "n": 1, "p95": 1, "min": 1, "max": 1, "median": 1 },
+				"workers.sampledPeakRssMaxBytes": {
+					"n": 1,
+					"p95": 198483968,
+					"min": 198483968,
+					"max": 198483968,
+					"median": 198483968
+				}
+			},
+			"outcomes": { "failed": 0, "aborted": 0, "skipped": 0, "completed": 1, "truncated": 0 },
+			"repetitionResults": [
+				{
+					"metrics": {
+						"pre.bunRssBytes": 768507904,
+						"pre.bunHeapUsedBytes": 185607039,
+						"pre.bunHeapTotalBytes": 117927936,
+						"pre.bunExternalBytes": 106925039,
+						"pre.bunArrayBuffersBytes": 784940,
+						"pre.denoAggregateRssBytes": 0,
+						"pre.cgroupMemoryBytes": 736296960,
+						"peak.bunRssBytes": 850468864,
+						"peak.bunHeapUsedBytes": 288406703,
+						"peak.bunHeapTotalBytes": 124023808,
+						"peak.bunExternalBytes": 197872692,
+						"peak.bunArrayBuffersBytes": 72502273,
+						"peak.denoAggregateRssBytes": 198483968,
+						"peak.cgroupMemoryBytes": 960348160,
+						"peak.workerCount": 1,
+						"post.bunRssBytes": 791433216,
+						"post.bunHeapUsedBytes": 161839787,
+						"post.bunHeapTotalBytes": 123492352,
+						"post.bunExternalBytes": 70948693,
+						"post.bunArrayBuffersBytes": 6058535,
+						"post.denoAggregateRssBytes": 0,
+						"post.cgroupMemoryBytes": 773947392,
+						"peakDelta.bunRssBytes": 81960960,
+						"peakDelta.bunHeapUsedBytes": 102799664,
+						"peakDelta.bunHeapTotalBytes": 6095872,
+						"peakDelta.bunExternalBytes": 90947653,
+						"peakDelta.bunArrayBuffersBytes": 71717333,
+						"peakDelta.denoAggregateRssBytes": 198483968,
+						"peakDelta.cgroupMemoryBytes": 224051200,
+						"postDelta.bunRssBytes": 22925312,
+						"postDelta.bunHeapUsedBytes": -23767252,
+						"postDelta.bunHeapTotalBytes": 5564416,
+						"postDelta.bunExternalBytes": -35976346,
+						"postDelta.bunArrayBuffersBytes": 5273595,
+						"postDelta.denoAggregateRssBytes": 0,
+						"postDelta.cgroupMemoryBytes": 37650432,
+						"bun.lifetimeHwmBytes": 941764608,
+						"counters.processesSpawned": 90,
+						"counters.processesCompleted": 90,
+						"counters.replaysFailed": 0,
+						"counters.executions": 90,
+						"workers.lifetimePeakUnobserved": 0,
+						"counters.replaysStarted": 270,
+						"counters.durableRequests": 150,
+						"workers.sampledPeakRssMaxBytes": 198483968,
+						"counters.replaysCompleted": 30,
+						"workers.lifetimePeakRssMaxBytes": 203673600,
+						"workers.maxConcurrent": 1,
+						"cgroup.scenarioPeakDeltaBytes": 231706624,
+						"workers.lifetimePeakRssMedianBytes": 177676288,
+						"counters.replayJournalBytes": 21300103,
+						"imports.maxExecutingBodies": 0,
+						"recovery.bunRssRecoveredAfterMs": 118.037109375,
+						"cpu.bunUserMs": 52659.467,
+						"recovery.workersDrainedAfterMs": 118.037109375,
+						"cpu.bunSystemMs": 20856.337,
+						"requests.count": 30,
+						"requests.completed": 30,
+						"requests.loadDurationMs": 132365,
+						"requests.failed": 0,
+						"requests.throughputPerMinute": 13.598761001775394,
+						"requests.latencyMs.p95": 4500,
+						"requests.latencyMs.p50": 4353,
+						"requests.latencyMs.max": 5637,
+						"requests.queueWaitMs.p95": 282,
+						"requests.queueWaitMs.p50": 219,
+						"requests.queueWaitMs.max": 360,
+						"requests.executionMs.p95": 2632,
+						"requests.executionMs.p50": 2184,
+						"requests.executionMs.max": 3186,
+						"health.latencyMs.p95": 14.529103999957442,
+						"health.latencyMs.p50": 4.832094000652432,
+						"health.latencyMs.max": 31.28787500038743,
+						"health.failures": 0,
+						"db.deadlocksDelta": null,
+						"db.totalConnectionsMax": null,
+						"db.activeConnectionsMax": null,
+						"db.lockWaitingMax": null,
+						"otel.sampledPeakBytes": 134209536,
+						"redis.sampledPeakBytes": 35868672,
+						"ryot.cgroupSampledPeakBytes": 947097600,
+						"postgres.sampledPeakBytes": 300814336,
+						"host.pgscanDelta": 0,
+						"ryot.cgroupCpuMs": 140945.011,
+						"otel.cgroupCpuMs": 2789.1240000000034,
+						"host.pgstealDelta": 0,
+						"host.oomKillDelta": 0,
+						"ryot.cgroupLifetimePeakBytes": 1418985472,
+						"redis.cgroupCpuMs": 7513.396999999997,
+						"host.samplerRssBytes": 47394816,
+						"host.pgmajfaultDelta": 0,
+						"postgres.cgroupCpuMs": 11488.560999999987,
+						"host.diskReadsDelta": 12,
+						"host.diskSectorsReadDelta": 136,
+						"host.ioPsiSomeAvg10Max": 0.51,
+						"host.memAvailableMinBytes": 2079965184,
+						"host.cpuPsiSomeAvg10Max": 18.24,
+						"host.diskSectorsWrittenDelta": 1365008,
+						"host.memoryPsiSomeAvg10Max": 0,
+						"host.memoryPsiFullAvg10Max": 0,
+						"ryot.cgroupPgscanDelta": 0,
+						"ryot.cgroupIoReadBytesDelta": 4096,
+						"ryot.cgroupOomKillDelta": 0,
+						"ryot.cgroupScenarioPeakBytes": 968003584,
+						"host.ioPsiSomeStallMs": 1259.863000000012,
+						"ryot.cgroupPgmajfaultDelta": 0,
+						"host.cpuPsiSomeStallMs": 29642.594000000507,
+						"host.memoryPsiFullStallMs": 4.327000000001135,
+						"cadence.applicationSampleFailures": 0
+					},
+					"repetition": 1,
+					"outcome": "completed",
+					"stopReason": null
+				}
+			]
+		},
+		{
+			"kind": "live-variance",
+			"repetitions": 1,
+			"scenarioId": "ytm-search-variance",
+			"workerConcurrency": 1,
+			"requiredRepetitions": 1,
+			"metrics": {
+				"bun.lifetimeHwmBytes": {
+					"n": 1,
+					"p95": 897765376,
+					"min": 897765376,
+					"max": 897765376,
+					"median": 897765376
+				},
+				"cadence.applicationSampleFailures": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"cgroup.scenarioPeakDeltaBytes": {
+					"n": 1,
+					"p95": 235810816,
+					"min": 235810816,
+					"max": 235810816,
+					"median": 235810816
+				},
+				"counters.durableRequests": { "n": 1, "p95": 60, "min": 60, "max": 60, "median": 60 },
+				"counters.executions": { "n": 1, "p95": 60, "min": 60, "max": 60, "median": 60 },
+				"counters.processesCompleted": { "n": 1, "p95": 60, "min": 60, "max": 60, "median": 60 },
+				"counters.processesSpawned": { "n": 1, "p95": 60, "min": 60, "max": 60, "median": 60 },
+				"counters.replayJournalBytes": {
+					"n": 1,
+					"p95": 6609304,
+					"min": 6609304,
+					"max": 6609304,
+					"median": 6609304
+				},
+				"counters.replaysCompleted": { "n": 1, "p95": 30, "min": 30, "max": 30, "median": 30 },
+				"counters.replaysFailed": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"counters.replaysStarted": { "n": 1, "p95": 150, "min": 150, "max": 150, "median": 150 },
+				"cpu.bunSystemMs": {
+					"n": 1,
+					"p95": 18450.032,
+					"min": 18450.032,
+					"max": 18450.032,
+					"median": 18450.032
+				},
+				"cpu.bunUserMs": {
+					"n": 1,
+					"p95": 46936.877,
+					"min": 46936.877,
+					"max": 46936.877,
+					"median": 46936.877
+				},
+				"db.activeConnectionsMax": {
+					"n": 0,
+					"p95": null,
+					"min": null,
+					"max": null,
+					"median": null
+				},
+				"db.deadlocksDelta": { "n": 0, "p95": null, "min": null, "max": null, "median": null },
+				"db.lockWaitingMax": { "n": 0, "p95": null, "min": null, "max": null, "median": null },
+				"db.totalConnectionsMax": { "n": 0, "p95": null, "min": null, "max": null, "median": null },
+				"health.failures": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"health.latencyMs.max": {
+					"n": 1,
+					"p95": 72.98235299997032,
+					"min": 72.98235299997032,
+					"max": 72.98235299997032,
+					"median": 72.98235299997032
+				},
+				"health.latencyMs.p50": {
+					"n": 1,
+					"p95": 5.366769999265671,
+					"min": 5.366769999265671,
+					"max": 5.366769999265671,
+					"median": 5.366769999265671
+				},
+				"health.latencyMs.p95": {
+					"n": 1,
+					"p95": 16.0342599991709,
+					"min": 16.0342599991709,
+					"max": 16.0342599991709,
+					"median": 16.0342599991709
+				},
+				"host.cpuPsiSomeAvg10Max": {
+					"n": 1,
+					"p95": 16.46,
+					"min": 16.46,
+					"max": 16.46,
+					"median": 16.46
+				},
+				"host.cpuPsiSomeStallMs": {
+					"n": 1,
+					"p95": 25921.539000000805,
+					"min": 25921.539000000805,
+					"max": 25921.539000000805,
+					"median": 25921.539000000805
+				},
+				"host.diskReadsDelta": { "n": 1, "p95": 812, "min": 812, "max": 812, "median": 812 },
+				"host.diskSectorsReadDelta": {
+					"n": 1,
+					"p95": 33552,
+					"min": 33552,
+					"max": 33552,
+					"median": 33552
+				},
+				"host.diskSectorsWrittenDelta": {
+					"n": 1,
+					"p95": 838008,
+					"min": 838008,
+					"max": 838008,
+					"median": 838008
+				},
+				"host.ioPsiSomeAvg10Max": { "n": 1, "p95": 0.51, "min": 0.51, "max": 0.51, "median": 0.51 },
+				"host.ioPsiSomeStallMs": {
+					"n": 1,
+					"p95": 1049.9859999999753,
+					"min": 1049.9859999999753,
+					"max": 1049.9859999999753,
+					"median": 1049.9859999999753
+				},
+				"host.memAvailableMinBytes": {
+					"n": 1,
+					"p95": 2062065664,
+					"min": 2062065664,
+					"max": 2062065664,
+					"median": 2062065664
+				},
+				"host.memoryPsiFullAvg10Max": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"host.memoryPsiFullStallMs": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"host.memoryPsiSomeAvg10Max": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"host.oomKillDelta": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"host.pgmajfaultDelta": { "n": 1, "p95": 75, "min": 75, "max": 75, "median": 75 },
+				"host.pgscanDelta": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"host.pgstealDelta": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"host.samplerRssBytes": {
+					"n": 1,
+					"p95": 47771648,
+					"min": 47771648,
+					"max": 47771648,
+					"median": 47771648
+				},
+				"imports.maxExecutingBodies": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"otel.cgroupCpuMs": {
+					"n": 1,
+					"p95": 2416.1820000000007,
+					"min": 2416.1820000000007,
+					"max": 2416.1820000000007,
+					"median": 2416.1820000000007
+				},
+				"otel.sampledPeakBytes": {
+					"n": 1,
+					"p95": 132427776,
+					"min": 132427776,
+					"max": 132427776,
+					"median": 132427776
+				},
+				"peak.bunArrayBuffersBytes": {
+					"n": 1,
+					"p95": 80659703,
+					"min": 80659703,
+					"max": 80659703,
+					"median": 80659703
+				},
+				"peak.bunExternalBytes": {
+					"n": 1,
+					"p95": 177629465,
+					"min": 177629465,
+					"max": 177629465,
+					"median": 177629465
+				},
+				"peak.bunHeapTotalBytes": {
+					"n": 1,
+					"p95": 127580160,
+					"min": 127580160,
+					"max": 127580160,
+					"median": 127580160
+				},
+				"peak.bunHeapUsedBytes": {
+					"n": 1,
+					"p95": 283227621,
+					"min": 283227621,
+					"max": 283227621,
+					"median": 283227621
+				},
+				"peak.bunRssBytes": {
+					"n": 1,
+					"p95": 892624896,
+					"min": 892624896,
+					"max": 892624896,
+					"median": 892624896
+				},
+				"peak.cgroupMemoryBytes": {
+					"n": 1,
+					"p95": 994611200,
+					"min": 994611200,
+					"max": 994611200,
+					"median": 994611200
+				},
+				"peak.denoAggregateRssBytes": {
+					"n": 1,
+					"p95": 198172672,
+					"min": 198172672,
+					"max": 198172672,
+					"median": 198172672
+				},
+				"peak.workerCount": { "n": 1, "p95": 1, "min": 1, "max": 1, "median": 1 },
+				"peakDelta.bunArrayBuffersBytes": {
+					"n": 1,
+					"p95": 77056860,
+					"min": 77056860,
+					"max": 77056860,
+					"median": 77056860
+				},
+				"peakDelta.bunExternalBytes": {
+					"n": 1,
+					"p95": 113011623,
+					"min": 113011623,
+					"max": 113011623,
+					"median": 113011623
+				},
+				"peakDelta.bunHeapTotalBytes": {
+					"n": 1,
+					"p95": 6582272,
+					"min": 6582272,
+					"max": 6582272,
+					"median": 6582272
+				},
+				"peakDelta.bunHeapUsedBytes": {
+					"n": 1,
+					"p95": 130451985,
+					"min": 130451985,
+					"max": 130451985,
+					"median": 130451985
+				},
+				"peakDelta.bunRssBytes": {
+					"n": 1,
+					"p95": 109064192,
+					"min": 109064192,
+					"max": 109064192,
+					"median": 109064192
+				},
+				"peakDelta.cgroupMemoryBytes": {
+					"n": 1,
+					"p95": 231473152,
+					"min": 231473152,
+					"max": 231473152,
+					"median": 231473152
+				},
+				"peakDelta.denoAggregateRssBytes": {
+					"n": 1,
+					"p95": 198172672,
+					"min": 198172672,
+					"max": 198172672,
+					"median": 198172672
+				},
+				"post.bunArrayBuffersBytes": {
+					"n": 1,
+					"p95": 1655227,
+					"min": 1655227,
+					"max": 1655227,
+					"median": 1655227
+				},
+				"post.bunExternalBytes": {
+					"n": 1,
+					"p95": 66272984,
+					"min": 66272984,
+					"max": 66272984,
+					"median": 66272984
+				},
+				"post.bunHeapTotalBytes": {
+					"n": 1,
+					"p95": 120702976,
+					"min": 120702976,
+					"max": 120702976,
+					"median": 120702976
+				},
+				"post.bunHeapUsedBytes": {
+					"n": 1,
+					"p95": 148757114,
+					"min": 148757114,
+					"max": 148757114,
+					"median": 148757114
+				},
+				"post.bunRssBytes": {
+					"n": 1,
+					"p95": 824774656,
+					"min": 824774656,
+					"max": 824774656,
+					"median": 824774656
+				},
+				"post.cgroupMemoryBytes": {
+					"n": 1,
+					"p95": 818536448,
+					"min": 818536448,
+					"max": 818536448,
+					"median": 818536448
+				},
+				"post.denoAggregateRssBytes": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"postDelta.bunArrayBuffersBytes": {
+					"n": 1,
+					"p95": -1947616,
+					"min": -1947616,
+					"max": -1947616,
+					"median": -1947616
+				},
+				"postDelta.bunExternalBytes": {
+					"n": 1,
+					"p95": 1655142,
+					"min": 1655142,
+					"max": 1655142,
+					"median": 1655142
+				},
+				"postDelta.bunHeapTotalBytes": {
+					"n": 1,
+					"p95": -294912,
+					"min": -294912,
+					"max": -294912,
+					"median": -294912
+				},
+				"postDelta.bunHeapUsedBytes": {
+					"n": 1,
+					"p95": -4018522,
+					"min": -4018522,
+					"max": -4018522,
+					"median": -4018522
+				},
+				"postDelta.bunRssBytes": {
+					"n": 1,
+					"p95": 41213952,
+					"min": 41213952,
+					"max": 41213952,
+					"median": 41213952
+				},
+				"postDelta.cgroupMemoryBytes": {
+					"n": 1,
+					"p95": 55398400,
+					"min": 55398400,
+					"max": 55398400,
+					"median": 55398400
+				},
+				"postDelta.denoAggregateRssBytes": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"postgres.cgroupCpuMs": {
+					"n": 1,
+					"p95": 9233.925000000017,
+					"min": 9233.925000000017,
+					"max": 9233.925000000017,
+					"median": 9233.925000000017
+				},
+				"postgres.sampledPeakBytes": {
+					"n": 1,
+					"p95": 294400000,
+					"min": 294400000,
+					"max": 294400000,
+					"median": 294400000
+				},
+				"pre.bunArrayBuffersBytes": {
+					"n": 1,
+					"p95": 3602843,
+					"min": 3602843,
+					"max": 3602843,
+					"median": 3602843
+				},
+				"pre.bunExternalBytes": {
+					"n": 1,
+					"p95": 64617842,
+					"min": 64617842,
+					"max": 64617842,
+					"median": 64617842
+				},
+				"pre.bunHeapTotalBytes": {
+					"n": 1,
+					"p95": 120997888,
+					"min": 120997888,
+					"max": 120997888,
+					"median": 120997888
+				},
+				"pre.bunHeapUsedBytes": {
+					"n": 1,
+					"p95": 152775636,
+					"min": 152775636,
+					"max": 152775636,
+					"median": 152775636
+				},
+				"pre.bunRssBytes": {
+					"n": 1,
+					"p95": 783560704,
+					"min": 783560704,
+					"max": 783560704,
+					"median": 783560704
+				},
+				"pre.cgroupMemoryBytes": {
+					"n": 1,
+					"p95": 763138048,
+					"min": 763138048,
+					"max": 763138048,
+					"median": 763138048
+				},
+				"pre.denoAggregateRssBytes": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"recovery.bunRssRecoveredAfterMs": {
+					"n": 1,
+					"p95": 92.418701171875,
+					"min": 92.418701171875,
+					"max": 92.418701171875,
+					"median": 92.418701171875
+				},
+				"recovery.workersDrainedAfterMs": {
+					"n": 1,
+					"p95": 92.418701171875,
+					"min": 92.418701171875,
+					"max": 92.418701171875,
+					"median": 92.418701171875
+				},
+				"redis.cgroupCpuMs": {
+					"n": 1,
+					"p95": 6781.203000000009,
+					"min": 6781.203000000009,
+					"max": 6781.203000000009,
+					"median": 6781.203000000009
+				},
+				"redis.sampledPeakBytes": {
+					"n": 1,
+					"p95": 19668992,
+					"min": 19668992,
+					"max": 19668992,
+					"median": 19668992
+				},
+				"requests.completed": { "n": 1, "p95": 30, "min": 30, "max": 30, "median": 30 },
+				"requests.count": { "n": 1, "p95": 30, "min": 30, "max": 30, "median": 30 },
+				"requests.executionMs.max": {
+					"n": 0,
+					"p95": null,
+					"min": null,
+					"max": null,
+					"median": null
+				},
+				"requests.executionMs.p50": {
+					"n": 0,
+					"p95": null,
+					"min": null,
+					"max": null,
+					"median": null
+				},
+				"requests.executionMs.p95": {
+					"n": 0,
+					"p95": null,
+					"min": null,
+					"max": null,
+					"median": null
+				},
+				"requests.failed": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"requests.latencyMs.max": { "n": 1, "p95": 5014, "min": 5014, "max": 5014, "median": 5014 },
+				"requests.latencyMs.p50": { "n": 1, "p95": 2549, "min": 2549, "max": 2549, "median": 2549 },
+				"requests.latencyMs.p95": { "n": 1, "p95": 3496, "min": 3496, "max": 3496, "median": 3496 },
+				"requests.loadDurationMs": {
+					"n": 1,
+					"p95": 85265,
+					"min": 85265,
+					"max": 85265,
+					"median": 85265
+				},
+				"requests.queueWaitMs.max": {
+					"n": 0,
+					"p95": null,
+					"min": null,
+					"max": null,
+					"median": null
+				},
+				"requests.queueWaitMs.p50": {
+					"n": 0,
+					"p95": null,
+					"min": null,
+					"max": null,
+					"median": null
+				},
+				"requests.queueWaitMs.p95": {
+					"n": 0,
+					"p95": null,
+					"min": null,
+					"max": null,
+					"median": null
+				},
+				"requests.throughputPerMinute": {
+					"n": 1,
+					"p95": 21.110655016712602,
+					"min": 21.110655016712602,
+					"max": 21.110655016712602,
+					"median": 21.110655016712602
+				},
+				"ryot.cgroupCpuMs": {
+					"n": 1,
+					"p95": 109220.718,
+					"min": 109220.718,
+					"max": 109220.718,
+					"median": 109220.718
+				},
+				"ryot.cgroupIoReadBytesDelta": {
+					"n": 1,
+					"p95": 7385088,
+					"min": 7385088,
+					"max": 7385088,
+					"median": 7385088
+				},
+				"ryot.cgroupLifetimePeakBytes": {
+					"n": 1,
+					"p95": 1464197120,
+					"min": 1464197120,
+					"max": 1464197120,
+					"median": 1464197120
+				},
+				"ryot.cgroupOomKillDelta": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"ryot.cgroupPgmajfaultDelta": { "n": 1, "p95": 16, "min": 16, "max": 16, "median": 16 },
+				"ryot.cgroupPgscanDelta": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"ryot.cgroupSampledPeakBytes": {
+					"n": 1,
+					"p95": 988086272,
+					"min": 988086272,
+					"max": 988086272,
+					"median": 988086272
+				},
+				"ryot.cgroupScenarioPeakBytes": {
+					"n": 1,
+					"p95": 998948864,
+					"min": 998948864,
+					"max": 998948864,
+					"median": 998948864
+				},
+				"workers.lifetimePeakRssMaxBytes": {
+					"n": 1,
+					"p95": 203542528,
+					"min": 203542528,
+					"max": 203542528,
+					"median": 203542528
+				},
+				"workers.lifetimePeakRssMedianBytes": {
+					"n": 1,
+					"p95": 176476160,
+					"min": 176476160,
+					"max": 176476160,
+					"median": 176476160
+				},
+				"workers.lifetimePeakUnobserved": { "n": 1, "p95": 0, "min": 0, "max": 0, "median": 0 },
+				"workers.maxConcurrent": { "n": 1, "p95": 1, "min": 1, "max": 1, "median": 1 },
+				"workers.sampledPeakRssMaxBytes": {
+					"n": 1,
+					"p95": 198172672,
+					"min": 198172672,
+					"max": 198172672,
+					"median": 198172672
+				}
+			},
+			"outcomes": { "failed": 0, "aborted": 0, "skipped": 0, "completed": 1, "truncated": 0 },
+			"repetitionResults": [
+				{
+					"metrics": {
+						"pre.bunRssBytes": 783560704,
+						"pre.bunHeapUsedBytes": 152775636,
+						"pre.bunHeapTotalBytes": 120997888,
+						"pre.bunExternalBytes": 64617842,
+						"pre.bunArrayBuffersBytes": 3602843,
+						"pre.denoAggregateRssBytes": 0,
+						"pre.cgroupMemoryBytes": 763138048,
+						"peak.bunRssBytes": 892624896,
+						"peak.bunHeapUsedBytes": 283227621,
+						"peak.bunHeapTotalBytes": 127580160,
+						"peak.bunExternalBytes": 177629465,
+						"peak.bunArrayBuffersBytes": 80659703,
+						"peak.denoAggregateRssBytes": 198172672,
+						"peak.cgroupMemoryBytes": 994611200,
+						"peak.workerCount": 1,
+						"post.bunRssBytes": 824774656,
+						"post.bunHeapUsedBytes": 148757114,
+						"post.bunHeapTotalBytes": 120702976,
+						"post.bunExternalBytes": 66272984,
+						"post.bunArrayBuffersBytes": 1655227,
+						"post.denoAggregateRssBytes": 0,
+						"post.cgroupMemoryBytes": 818536448,
+						"peakDelta.bunRssBytes": 109064192,
+						"peakDelta.bunHeapUsedBytes": 130451985,
+						"peakDelta.bunHeapTotalBytes": 6582272,
+						"peakDelta.bunExternalBytes": 113011623,
+						"peakDelta.bunArrayBuffersBytes": 77056860,
+						"peakDelta.denoAggregateRssBytes": 198172672,
+						"peakDelta.cgroupMemoryBytes": 231473152,
+						"postDelta.bunRssBytes": 41213952,
+						"postDelta.bunHeapUsedBytes": -4018522,
+						"postDelta.bunHeapTotalBytes": -294912,
+						"postDelta.bunExternalBytes": 1655142,
+						"postDelta.bunArrayBuffersBytes": -1947616,
+						"postDelta.denoAggregateRssBytes": 0,
+						"postDelta.cgroupMemoryBytes": 55398400,
+						"bun.lifetimeHwmBytes": 897765376,
+						"counters.processesSpawned": 60,
+						"counters.processesCompleted": 60,
+						"counters.replaysFailed": 0,
+						"counters.executions": 60,
+						"workers.lifetimePeakUnobserved": 0,
+						"counters.replaysStarted": 150,
+						"counters.durableRequests": 60,
+						"workers.sampledPeakRssMaxBytes": 198172672,
+						"counters.replaysCompleted": 30,
+						"workers.lifetimePeakRssMaxBytes": 203542528,
+						"workers.maxConcurrent": 1,
+						"cgroup.scenarioPeakDeltaBytes": 235810816,
+						"workers.lifetimePeakRssMedianBytes": 176476160,
+						"counters.replayJournalBytes": 6609304,
+						"imports.maxExecutingBodies": 0,
+						"recovery.bunRssRecoveredAfterMs": 92.418701171875,
+						"cpu.bunUserMs": 46936.877,
+						"recovery.workersDrainedAfterMs": 92.418701171875,
+						"cpu.bunSystemMs": 18450.032,
+						"requests.count": 30,
+						"requests.completed": 30,
+						"requests.loadDurationMs": 85265,
+						"requests.failed": 0,
+						"requests.throughputPerMinute": 21.110655016712602,
+						"requests.latencyMs.p95": 3496,
+						"requests.latencyMs.p50": 2549,
+						"requests.latencyMs.max": 5014,
+						"requests.queueWaitMs.p95": null,
+						"requests.queueWaitMs.p50": null,
+						"requests.queueWaitMs.max": null,
+						"requests.executionMs.p95": null,
+						"requests.executionMs.p50": null,
+						"requests.executionMs.max": null,
+						"health.latencyMs.p95": 16.0342599991709,
+						"health.latencyMs.p50": 5.366769999265671,
+						"health.latencyMs.max": 72.98235299997032,
+						"health.failures": 0,
+						"db.deadlocksDelta": null,
+						"db.totalConnectionsMax": null,
+						"db.activeConnectionsMax": null,
+						"db.lockWaitingMax": null,
+						"otel.sampledPeakBytes": 132427776,
+						"redis.sampledPeakBytes": 19668992,
+						"ryot.cgroupSampledPeakBytes": 988086272,
+						"postgres.sampledPeakBytes": 294400000,
+						"host.pgscanDelta": 0,
+						"ryot.cgroupCpuMs": 109220.718,
+						"otel.cgroupCpuMs": 2416.1820000000007,
+						"host.pgstealDelta": 0,
+						"host.oomKillDelta": 0,
+						"ryot.cgroupLifetimePeakBytes": 1464197120,
+						"redis.cgroupCpuMs": 6781.203000000009,
+						"host.samplerRssBytes": 47771648,
+						"host.pgmajfaultDelta": 75,
+						"postgres.cgroupCpuMs": 9233.925000000017,
+						"host.diskReadsDelta": 812,
+						"host.diskSectorsReadDelta": 33552,
+						"host.ioPsiSomeAvg10Max": 0.51,
+						"host.memAvailableMinBytes": 2062065664,
+						"host.cpuPsiSomeAvg10Max": 16.46,
+						"host.diskSectorsWrittenDelta": 838008,
+						"host.memoryPsiSomeAvg10Max": 0,
+						"host.memoryPsiFullAvg10Max": 0,
+						"ryot.cgroupPgscanDelta": 0,
+						"ryot.cgroupIoReadBytesDelta": 7385088,
+						"ryot.cgroupOomKillDelta": 0,
+						"ryot.cgroupScenarioPeakBytes": 998948864,
+						"host.ioPsiSomeStallMs": 1049.9859999999753,
+						"ryot.cgroupPgmajfaultDelta": 16,
+						"host.cpuPsiSomeStallMs": 25921.539000000805,
+						"host.memoryPsiFullStallMs": 0,
+						"cadence.applicationSampleFailures": 0
+					},
+					"repetition": 1,
+					"outcome": "completed",
+					"stopReason": null
+				}
+			]
+		}
+	],
+	"extra": { "purpose": "YouTube Music initialization comparison" }
+}
