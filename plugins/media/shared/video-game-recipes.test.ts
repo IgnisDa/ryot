@@ -1,15 +1,14 @@
 import type { PreparedRecipe } from "@ryot-app/plugin-kit/ryotql";
 import { describe, expect, it } from "vitest";
 
-import {
-	videoGameActivityRecipe,
-	videoGamePresentationRecipe,
-	videoGameSummaryRecipe,
-} from "./video-game-recipes";
+import { videoGameRecipes } from "./video-game-recipes";
 
-const SUMMARY_RECIPE = videoGameSummaryRecipe({ collectionLimit: 6, entityId: "video-game-1" });
+const SUMMARY_RECIPE = videoGameRecipes.summaryRecipe({
+	collectionLimit: 6,
+	entityId: "video-game-1",
+});
 
-const TOTALS = videoGameActivityRecipe({
+const TOTALS = videoGameRecipes.activityRecipe({
 	eventLimit: 60,
 	entityId: "video-game-1",
 	collectionEventLimit: 60,
@@ -44,7 +43,7 @@ describe("media video game query recipes", () => {
 	});
 
 	it("reaches into the nested time to beat for the presentation row", () => {
-		const presentation = videoGamePresentationRecipe(["video-game-1"]);
+		const presentation = videoGameRecipes.presentationRecipe(["video-game-1"]);
 
 		expect(keys(presentation, "rows")).toContain("timeToBeatNormally");
 		expect(fieldExpr(presentation, "rows", "timeToBeatNormally")).toMatchObject({

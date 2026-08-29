@@ -1,14 +1,9 @@
 import type { PreparedRecipe } from "@ryot-app/plugin-kit/ryotql";
 import { describe, expect, it } from "vitest";
 
-import {
-	mangaActivityRecipe,
-	mangaOverviewRecipe,
-	mangaPresentationRecipe,
-	mangaSummaryRecipe,
-} from "./manga-recipes";
+import { mangaRecipes } from "./manga-recipes";
 
-const ACTIVITY_RECIPE = mangaActivityRecipe({
+const ACTIVITY_RECIPE = mangaRecipes.activityRecipe({
 	eventLimit: 60,
 	entityId: "manga-1",
 	collectionEventLimit: 60,
@@ -36,12 +31,12 @@ const keys = (recipe: PreparedRecipe<unknown>, name: string) =>
 describe("media manga query recipes", () => {
 	it("selects the chapter and volume counts the manga schema declares", () => {
 		const summary = keys(
-			mangaSummaryRecipe({ collectionLimit: 6, entityId: "manga-1" }),
+			mangaRecipes.summaryRecipe({ collectionLimit: 6, entityId: "manga-1" }),
 			"summary",
 		);
 
 		expect(summary.slice(-3)).toEqual(["progressPercent", "volumes", "chapters"]);
-		expect(keys(mangaPresentationRecipe(["manga-1"]), "rows")).toContain("chapters");
+		expect(keys(mangaRecipes.presentationRecipe(["manga-1"]), "rows")).toContain("chapters");
 	});
 
 	it("carries the recorded volume and chapter on every activity event", () => {
@@ -70,7 +65,7 @@ describe("media manga query recipes", () => {
 	});
 
 	it("asks for no group because manga has none", () => {
-		const overview = mangaOverviewRecipe({
+		const overview = mangaRecipes.overviewRecipe({
 			groupLimit: 20,
 			peopleLimit: 12,
 			companyLimit: 6,

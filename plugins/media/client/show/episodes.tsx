@@ -4,11 +4,7 @@ import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/client-ui
 import clsx from "clsx";
 import { useState } from "react";
 
-import {
-	showSeasonEpisodesRecipe,
-	showSeasonsRecipe,
-	type ShowSeasonsResult,
-} from "../../shared/show-recipes";
+import { showSeasonEpisodesRecipe, showSeasonsRecipe } from "../../shared/show-recipes";
 import {
 	MediaEpisodePages,
 	type MediaEpisodePageInput,
@@ -39,6 +35,7 @@ import {
 	type ShowEpisode,
 	type ShowSeason,
 	type ShowSeasonList,
+	type ShowSeasonsResult,
 	type ShowSeasonsState,
 } from "./episodes-state";
 
