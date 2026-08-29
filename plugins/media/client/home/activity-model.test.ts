@@ -12,7 +12,7 @@ import {
 
 describe("resolveTimeZone", () => {
 	it.each([
-		["Asia/Kolkata", "Asia/Kolkata"],
+		["Asia/Tokyo", "Asia/Tokyo"],
 		[undefined, "UTC"],
 		["", "UTC"],
 		["Not/AZone", "UTC"],
