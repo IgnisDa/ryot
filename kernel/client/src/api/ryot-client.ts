@@ -12,9 +12,11 @@ import {
 	classifyManagedAssetFailure,
 	mapManagedAssetResolutions,
 } from "#/modules/assets/managed-assets";
+import { EntityInterestService } from "#/modules/entity-interest/service";
 import type { ThemeStore } from "#/modules/theme/store";
 
 type KernelApiRuntime = {
+	readonly runSync: <A>(effect: Effect.Effect<A, never, EntityInterestService>) => A;
 	readonly runPromise: <A, E>(
 		effect: Effect.Effect<A, E, RyotQLApi | UploadsApi>,
 		options?: Effect.RunOptions,
@@ -47,6 +49,10 @@ export const createKernelRyotClient = (
 
 	return createRyotClient({
 		theme,
+		watchEntities: (interest, onUpdate) =>
+			runtime.runSync(
+				Effect.map(EntityInterestService, (service) => service.watch(scope, interest, onUpdate)),
+			),
 		resolveAssets: async (assets, signal) => {
 			try {
 				const response = await runtime.runPromise(

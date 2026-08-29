@@ -38,6 +38,58 @@ const data = (
 });
 
 describe("saved-view controller", () => {
+	it("keeps displayed data on refresh failure and retries refresh atomically", () => {
+		const original = data([item("one", "One"), item("removed", "Removed")], 2);
+		let state = createSavedViewController({ data: original, identity: "first", layout: "grid" });
+		const token = { identity: "first", layout: "grid", generation: 1 } as const;
+		state = savedViewControllerReducer(state, {
+			type: "request-started",
+			operation: { token, phase: "refresh" },
+		});
+		expect(state.visible?.data).toBe(original);
+		state = savedViewControllerReducer(state, {
+			token,
+			type: "request-failed",
+			cause: new Error("offline"),
+		});
+		expect(state.visible?.data).toBe(original);
+		expect(state.failedPhase).toBe("refresh");
+		const retry = { ...token, generation: 2 };
+		state = savedViewControllerReducer(state, {
+			type: "request-started",
+			operation: { token: retry, phase: "refresh" },
+		});
+		expect(
+			savedViewControllerReducer(state, { token, type: "request-succeeded", data: original }),
+		).toBe(state);
+		const refreshed = data([item("new", "New"), item("one", "Updated")], 2);
+		state = savedViewControllerReducer(state, {
+			token: retry,
+			type: "request-succeeded",
+			data: refreshed,
+		});
+		expect(state.visible?.data).toBe(refreshed);
+		expect(state.failure).toBeUndefined();
+	});
+
+	it("invalidates alternate caches without cancelling load-more", () => {
+		const original = data([item("one", "One")]);
+		const token = { identity: "first", layout: "grid", generation: 1 } as const;
+		const initial = createSavedViewController({
+			data: original,
+			layout: "grid",
+			identity: "first",
+		});
+		const state = savedViewControllerReducer(
+			{ ...initial, layouts: { grid: original, list: original } },
+			{ type: "request-started", operation: { token, phase: "load-more" } },
+		);
+		const invalidated = savedViewControllerReducer(state, { type: "interest-updated" });
+		expect(invalidated.layouts).toEqual({ grid: original });
+		expect(invalidated.visible).toBe(state.visible);
+		expect(invalidated.operation).toBe(state.operation);
+	});
+
 	it("appends pages in first-seen order and keeps the latest duplicate values", () => {
 		const firstPage = page([
 			item("one", "One"),

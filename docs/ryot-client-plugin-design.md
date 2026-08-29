@@ -698,7 +698,7 @@ The package has four public surfaces:
 
 The kernel supplies a direct adapter to kernel services. The plugin runtime supplies a `MessageChannel` adapter. Both use the same environment-neutral client contract.
 
-The React integration is backed internally by `@effect/atom-react`. Each `RyotProvider` owns one `RegistryProvider`, and therefore one atom registry and query/mutation cache for that provider/session. Query definitions use `Atom.family`; query atoms use SWR revalidation on mount when unhydrated and on browser focus, with a five-minute idle TTL. Initial data hydrates a query without a duplicate mount request. These implementation details remain local to the React surface and are not part of the client or bridge ABI. There is no compatibility or manual plugin-request-state path.
+The React integration is backed internally by `@effect/atom-react`. Each `RyotProvider` owns one `RegistryProvider`, and therefore one atom registry and query/mutation cache for that provider/session. Query definitions use `Atom.family`; ordinary query atoms use SWR revalidation on mount when unhydrated and on browser focus, with a five-minute idle TTL. Interested queries use active-consumer refresh coordination instead, as described below. Initial data hydrates a query without a duplicate mount request. These implementation details remain local to the React surface and are not part of the client or bridge ABI. There is no compatibility or manual plugin-request-state path.
 
 Each mounted plugin document has exactly one per-session client plugin runtime. That runtime owns the session `MessagePort`, its lifecycle state, one message dispatcher, logical location, pending asset, query, and operation calls, all session listeners, the bridge-backed `RyotClient`, and disposal. Theme synchronization and fatal reporting use this runtime; they do not create separate bridge clients or listener/teardown paths.
 
@@ -735,6 +735,41 @@ ryot.navigation.push({ kind: "route", path: "/workouts/456" });
 ryot.navigation.replace({ kind: "route", path: "/workouts/456" });
 ryot.navigation.push({ kind: "entity", entityId: "entity123" });
 ```
+
+### Entity interest
+
+`ryot.entities.watch({ foreground, visible }, onUpdate)` declares demand for entity population and
+translation. It returns a handle with `update(interest)` and idempotent `dispose()`. Registration is
+synchronous local demand, not an acknowledgement that the backend has completed work. Updates carry
+only `{ entityId, reason: "populated" | "translated" }`; consumers rerun their authoritative queries.
+This is not a general mutation subscription, and ordinary RyotQL reads remain side-effect-free.
+
+The authenticated kernel layout owns one ticket-authenticated WebSocket session, independently of
+loader-created clients. The service combines owners, selects up to 500 IDs with foreground priority
+before visible priority, batches changes, and briefly retains removed memberships to reduce churn.
+It reconnects with a fresh ticket and full snapshot after disconnection, app resume, or a successful
+metadata-language change. Logout and scope changes release owners. Tickets and credentials never
+cross the plugin bridge.
+
+Plugin runtimes aggregate local watches into a bounded `entity-interest` snapshot with `foreground`
+and `visible` arrays. The kernel owns one watch per plugin document and sends matching
+`entity-updated` hints through the existing dispatcher. These are subscription messages, not
+request/response calls: they have no request IDs, acknowledgements, or pending-call entries. Common
+session teardown removes the document's watch. The bridge protocol remains exactly version 1.
+
+`createRyotQuery` accepts an optional `entityInterest({ input, data })` selector. It declares root
+IDs before a result exists and related IDs from decoded data. One controller per registry and query
+atom shares demand between active consumers, coalesces hints for 250 ms, and defers refresh while a
+request is running. A hint during that request schedules one follow-up rather than cancelling it.
+Unchanged dependencies do not recreate membership. Prior successful data survives refresh failure;
+retry, subsequent hints, and reactivation can recover without an immediate retry loop.
+
+Only active plugin screens contribute query demand. Retained screens keep state, cached results,
+and existing in-flight work, but do not independently refresh or populate hidden content. Returning
+to a retained screen, remounting a cached query, or foregrounding an active screen triggers catch-up.
+`PluginRouter` supplies activity internally, so plugin authors do not gate individual query hooks.
+Controller-owned surfaces use `useEntityRefresh` from the React SDK with an explicit identity,
+interest declaration, blocked state, and asynchronous refresh operation.
 
 ### Header
 
@@ -1658,9 +1693,11 @@ links (cast, companies, recommendations) navigate through `PluginLink`.
 
 A handful of affordances are deliberately inert placeholders pending real operation wiring: the
 monitoring toggle, Manage collections, Log activity, Write review, View all images, and View complete
-history. The client does not subscribe to entity-interest or WebSocket invalidation — the old
-React Native screen's interest/invalidation system was deliberately not ported, and each tab refetches
-only on its own explicit retry.
+history. Each Show query declares entity interest beside its recipe invocation: the root Show,
+displayed related entities, seasons, selected-season episodes, and Activity entity references.
+Population and translation hints refresh the matching queries without reloading the iframe.
+Failed background refreshes retain content and expose a nonblocking retry status. There is no
+dependency on the old React Native interest implementation.
 
 Managed artwork is resolved in batches rather than per image. `client.assets.resolve` accepts
 1–64 locators, so the page canonicalizes the locator list it needs (sorted, deduped) into a stable
@@ -1719,6 +1756,14 @@ kernel saved-view renderer
 ```
 
 This deliberately keeps the generic saved-view system separate from arbitrary plugin application UI.
+
+The active result declares all loaded row IDs as visible interest, not just rows inside the viewport,
+subject to the shared 500-ID selection bound. Completion hints invalidate alternate layout caches
+and computed counts. Refresh waits for an active page operation, reloads from the first page through
+the loaded depth using fresh cursors, and replaces the result atomically. It preserves search,
+layout, the content component, and its scroll container rather than invalidating the router.
+Shorter results stop at their new end. Refresh failure retains the previous result and offers retry;
+search/layout changes discard stale completions. Managed-asset resolution remains best effort.
 
 ---
 

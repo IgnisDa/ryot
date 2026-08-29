@@ -13,6 +13,7 @@ import type { PluginClientCatalogEntry } from "@ryot-app/ryotql-recipes/plugin-c
 import clsx from "clsx";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 
+import type { WatchEntities } from "#/modules/entity-interest/service";
 import { mainContentProps } from "#/modules/navigation/skip-link";
 import {
 	openPluginBridge,
@@ -129,6 +130,7 @@ export function PluginHost(props: {
 	readonly chromeLeading: ReactNode;
 	readonly onStaleSession: () => void;
 	readonly onNavigateBack: () => void;
+	readonly watchEntities: WatchEntities;
 	readonly artifactSessionScopeKey: string;
 	readonly viewport: PluginBridgeViewportInsets;
 	readonly installation: PluginClientCatalogEntry;
@@ -176,6 +178,7 @@ export function PluginHost(props: {
 			navigation={props.navigation}
 			onOpenDrawer={props.onOpenDrawer}
 			onScreenState={props.onScreenState}
+			watchEntities={props.watchEntities}
 			chromeLeading={props.chromeLeading}
 			pluginSlug={props.installation.slug}
 			onNavigateBack={props.onNavigateBack}
@@ -205,6 +208,7 @@ function PluginFrame(props: {
 	readonly onOpenDrawer: () => void;
 	readonly onStaleSession: () => void;
 	readonly onNavigateBack: () => void;
+	readonly watchEntities: WatchEntities;
 	readonly artifactSessionScopeKey: string;
 	readonly viewport: PluginBridgeViewportInsets;
 	readonly navigation: PluginBridgeNavigationState;
@@ -453,6 +457,7 @@ function PluginFrame(props: {
 			onRyotQL: (request, signal) => latest.current.onQuery(request, signal),
 			onAssets: (request, signal) => latest.current.onAssets(request, signal),
 			onKernelShortcut: (shortcut) => latest.current.onKernelShortcut(shortcut),
+			watchEntities: (interest, onUpdate) => latest.current.watchEntities(interest, onUpdate),
 			onScreenState: (state) => {
 				if (bridge.current === connection.session) {
 					latest.current.onScreenState(state);
