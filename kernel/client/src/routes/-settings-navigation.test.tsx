@@ -21,6 +21,7 @@ import {
 	makePluginCatalog,
 	makePluginOperations,
 	makePluginQueries,
+	makePluginStorage,
 } from "#/modules/plugins/services.test-layer";
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
@@ -123,6 +124,7 @@ const mountView = (
 			CustomizeRouteStubs,
 			makePluginOperations(),
 			makePluginQueries(),
+			makePluginStorage(),
 		).pipe(
 			Layer.provideMerge(oauthLayer),
 			Layer.provideMerge(Layer.succeed(ClientStorage, storage)),

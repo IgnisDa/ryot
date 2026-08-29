@@ -11,6 +11,7 @@ import {
 	makePluginCatalog,
 	makePluginOperations,
 	makePluginQueries,
+	makePluginStorage,
 } from "#/modules/plugins/services.test-layer";
 import { getRouter } from "#/router";
 import {
@@ -108,6 +109,7 @@ const mountCallback = (
 			NavigationRouteStubs,
 			CustomizeRouteStubs,
 			makePluginQueries(),
+			makePluginStorage(),
 			makePluginOperations(),
 			makePluginCatalogEventsTestLayer().layer,
 			KernelApiTestLayer,

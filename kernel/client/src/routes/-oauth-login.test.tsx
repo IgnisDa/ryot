@@ -11,6 +11,7 @@ import {
 	makePluginCatalog,
 	makePluginOperations,
 	makePluginQueries,
+	makePluginStorage,
 } from "#/modules/plugins/services.test-layer";
 import { getRouter } from "#/router";
 import {
@@ -83,6 +84,7 @@ const mountLogin = (config: ReturnType<typeof systemConfig>) => {
 			NavigationRouteStubs,
 			CustomizeRouteStubs,
 			makePluginQueries(),
+			makePluginStorage(),
 			makePluginOperations(),
 			makePluginCatalogEventsTestLayer().layer,
 			KernelApiTestLayer,

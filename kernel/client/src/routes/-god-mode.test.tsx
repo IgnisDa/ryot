@@ -17,6 +17,7 @@ import {
 	makePluginCatalog,
 	makePluginOperations,
 	makePluginQueries,
+	makePluginStorage,
 } from "#/modules/plugins/services.test-layer";
 import { ServerService } from "#/modules/server/service";
 import { getRouter } from "#/router";
@@ -76,6 +77,7 @@ const makeView = (
 			CustomizeRouteStubs,
 			makePluginOperations(),
 			makePluginQueries(),
+			makePluginStorage(),
 		).pipe(Layer.provideMerge(OAuthRouteStubs), Layer.provideMerge(makeStorageStubLayer())),
 	);
 	const router = getRouter(

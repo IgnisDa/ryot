@@ -13,7 +13,7 @@ import {
 } from "#/modules/assets/managed-assets";
 import {
 	classifyTemporaryUploadFailure,
-	temporaryUpload,
+	TemporaryUploads,
 } from "#/modules/assets/temporary-uploads";
 import { EntityInterestService } from "#/modules/entity-interest/service";
 import type { ThemeStore } from "#/modules/theme/store";
@@ -24,7 +24,7 @@ type KernelApiRuntime = {
 		effect: Effect.Effect<
 			A,
 			never,
-			EntityInterestService | CollectionsApi | RyotQLApi | UploadsApi
+			EntityInterestService | CollectionsApi | RyotQLApi | UploadsApi | TemporaryUploads
 		>,
 	) => A;
 };
@@ -46,10 +46,12 @@ export const createKernelRyotClient = (
 				.execute(scope, { payload: document })
 				.pipe(Effect.mapError((error) => new RyotClientError(classifyRyotQLFailure(error)))),
 		uploadTemporary: (request) =>
-			temporaryUpload(scope, request).pipe(
-				Effect.provideService(UploadsApi, runtime.runSync(UploadsApi)),
-				Effect.mapError((error) => new RyotClientError(classifyTemporaryUploadFailure(error))),
-			),
+			runtime
+				.runSync(TemporaryUploads)
+				.upload(scope, request)
+				.pipe(
+					Effect.mapError((error) => new RyotClientError(classifyTemporaryUploadFailure(error))),
+				),
 		resolveAssets: (assets) =>
 			runtime
 				.runSync(UploadsApi)

@@ -30,6 +30,7 @@ import {
 	makePluginCatalog,
 	makePluginOperations,
 	makePluginQueries,
+	makePluginStorage,
 } from "#/modules/plugins/services.test-layer";
 import { RUN_LIST_POLL_MS, RUN_POLL_MS } from "#/modules/ui/run/use-run-polling";
 import { getRouter } from "#/router";
@@ -220,6 +221,7 @@ const mountView = (
 			CustomizeRouteStubs,
 			makePluginOperations(),
 			makePluginQueries(),
+			makePluginStorage(),
 			automationHistoryApi,
 			queries,
 		).pipe(

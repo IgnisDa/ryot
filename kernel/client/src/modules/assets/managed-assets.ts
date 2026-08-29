@@ -58,22 +58,20 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 					Effect.mapError((error) => new ManagedAssetResolutionError({ cause: error.cause })),
 				);
 			});
-			return { read };
+			const outcome = (
+				scope: ApiScope,
+				assets: readonly ManagedAssetLocator[],
+			): Effect.Effect<PluginAssetOutcome> =>
+				read(scope, assets).pipe(
+					Effect.match({
+						onSuccess: (resolutions) => ({ resolutions, outcome: "success" }) as const,
+						onFailure: (error) =>
+							({ outcome: "failure", reason: classifyManagedAssetCause(error.cause) }) as const,
+					}),
+				);
+			return { read, outcome };
 		}),
 	},
 ) {
 	static readonly layer = Layer.effect(this, this.make);
 }
-
-export const resolveManagedAssetOutcome = (
-	scope: ApiScope,
-	assets: readonly ManagedAssetLocator[],
-): Effect.Effect<PluginAssetOutcome, never, ManagedAssetsService> =>
-	ManagedAssetsService.pipe(
-		Effect.flatMap((service) => service.read(scope, assets)),
-		Effect.match({
-			onSuccess: (resolutions) => ({ resolutions, outcome: "success" }) as const,
-			onFailure: (error) =>
-				({ outcome: "failure", reason: classifyManagedAssetCause(error.cause) }) as const,
-		}),
-	);
