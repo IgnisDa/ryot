@@ -193,6 +193,13 @@ no deadlock event for it to absorb.
 
 **Status:** open, cause not established.
 
+Follow-up: [narrow throughput diagnosis, 2026-09-23](../throughput-diagnostic-2026-09-23/README.md).
+Controlled probes separate Deno loading, durable handoff/resume, SQL/Redis, Bun CPU, and collection
+overhead. Neither an Effect-only local backend comparison nor same-host Deno probes of the original
+images reproduced a twofold version-specific slowdown. Repeated worker loading and durable
+coordination dominate the small-unit cost; the historical increase remains unexplained. This remains
+a cross-run observation, not proof of an Effect regression.
+
 Per unit of working time the hermetic soak runs at 2.21–2.45 executions per second against `rc.116`'s
 4.32. Because `rc.117` is busy 91–99.5 percent of each wave and `rc.116` was busy 53–73 percent, the two
 effects cancel and wall-clock wave duration is unchanged at about 26 minutes.
