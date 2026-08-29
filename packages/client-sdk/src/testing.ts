@@ -120,8 +120,8 @@ export const createTestRyotClock = (
 	};
 };
 
-const artifactMetadata = {
-	hash: "test-artifact-hash",
+const compositionMetadata = {
+	hash: "test-composition-hash",
 	format: CLIENT_ARTIFACT_FORMAT,
 	apiVersion: CLIENT_API_VERSION,
 	compilerVersion: CLIENT_COMPILER_VERSION,
@@ -231,7 +231,7 @@ export const mountPluginPage = (
 	const metadataElement = document.createElement("script");
 	metadataElement.type = "application/json";
 	metadataElement.id = CLIENT_COMPOSITION_METADATA_ELEMENT_ID;
-	metadataElement.textContent = JSON.stringify(artifactMetadata);
+	metadataElement.textContent = JSON.stringify(compositionMetadata);
 	document.head.append(metadataElement);
 
 	const bootstrap = bootstrapClientPage(component);
@@ -250,11 +250,11 @@ export const mountPluginPage = (
 				page: options.page,
 				sessionId: "test-session",
 				documentKey: "test-document",
-				format: artifactMetadata.format,
-				compositionHash: artifactMetadata.hash,
-				apiVersion: artifactMetadata.apiVersion,
-				bridgeVersion: artifactMetadata.bridgeVersion,
-				compilerVersion: artifactMetadata.compilerVersion,
+				format: compositionMetadata.format,
+				compositionHash: compositionMetadata.hash,
+				apiVersion: compositionMetadata.apiVersion,
+				bridgeVersion: compositionMetadata.bridgeVersion,
+				compilerVersion: compositionMetadata.compilerVersion,
 			},
 		}),
 	);
