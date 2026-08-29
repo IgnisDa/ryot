@@ -1,17 +1,34 @@
+import {
+	PluginEntityLocation,
+	type PluginLogicalLocation,
+	type PluginRouteLocation,
+} from "@ryot-app/contract/modules/plugins/client";
+import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
 import { createPluginNavigationStore } from "./store";
 
 const Home = () => null;
 const Detail = () => null;
-const resolve = (location: { readonly path: string; readonly search: string }) => ({
+const resolve = (location: PluginLogicalLocation) => ({
 	params: {},
-	component: location.path === "/" ? Home : Detail,
+	component: location.kind === "route" && location.path === "/" ? Home : Detail,
 });
+const routeLocation = (path: string, search = ""): PluginRouteLocation => ({
+	path,
+	search,
+	kind: "route",
+});
+const entityLocation = (entityId: string) =>
+	Schema.decodeUnknownSync(PluginEntityLocation)({
+		entityId,
+		kind: "entity",
+		entitySchemaSlug: "media-movie",
+	});
 const location = (index: number, path: string, key = `k${index}`) => ({
 	compact: true,
 	edgeBack: index > 0,
-	entry: { index, key, location: { path, search: "" } },
+	entry: { index, key, location: routeLocation(path) },
 });
 
 describe("plugin navigation store", () => {
@@ -27,7 +44,7 @@ describe("plugin navigation store", () => {
 			compact: true,
 			edgeBack: false,
 			entry: { index: 0, key: "k0" },
-			screens: [{ key: "k0", location: { path: "/" } }],
+			screens: [{ key: "k0", location: { kind: "route", path: "/" } }],
 		});
 	});
 
@@ -48,7 +65,30 @@ describe("plugin navigation store", () => {
 		const popped = store.setLocation(location(1, "/items/1"));
 
 		expect(popped.screens.at(-1)).toBe(retained);
-		expect(popped.transition?.leaving.location.path).toBe("/items/2");
+		const leaving = popped.transition?.leaving.location;
+		if (leaving?.kind !== "route") {
+			throw new Error("expected a route location");
+		}
+		expect(leaving.path).toBe("/items/2");
+	});
+
+	it("restores the retained entity screen by history index and key", () => {
+		const store = createPluginNavigationStore(resolve);
+		const setEntityLocation = (index: number, key = `k${index}`) =>
+			store.setLocation({
+				compact: true,
+				edgeBack: index > 0,
+				entry: { index, key, location: entityLocation(`entity-${index}`) },
+			});
+
+		setEntityLocation(0);
+		setEntityLocation(1);
+		const retained = store.getSnapshot().screens.at(-1);
+		setEntityLocation(2);
+		const popped = setEntityLocation(1);
+
+		expect(popped.screens.at(-1)).toBe(retained);
+		expect(popped.transition?.leaving.location).toEqual(entityLocation("entity-2"));
 	});
 
 	it("keeps the viewport inset across locations and clears", () => {

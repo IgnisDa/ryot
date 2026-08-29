@@ -160,6 +160,37 @@ describe("plugin client bridge contract", () => {
 		expect(Result.isFailure(decodeClient({ safeAreaTop: 0, type: "viewport" }))).toBe(true);
 	});
 
+	it("uses tagged logical locations by bridge direction", () => {
+		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
+		const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
+		const hostFields = { compact: false, edgeBack: false, index: 0, key: "k0", type: "location" };
+		const route = { kind: "route", path: "/details", search: "tab=stats" };
+		const entity = { entityId: "entity-1", entitySchemaSlug: "show", kind: "entity" };
+
+		expect(Result.isSuccess(decodeHost({ ...hostFields, location: route }))).toBe(true);
+		expect(Result.isSuccess(decodeHost({ ...hostFields, location: entity }))).toBe(true);
+		expect(
+			Result.isFailure(
+				decodeHost({ ...hostFields, location: { path: route.path, search: route.search } }),
+			),
+		).toBe(true);
+		expect(
+			Result.isFailure(decodeHost({ ...hostFields, location: { ...route, kind: "unknown" } })),
+		).toBe(true);
+		expect(
+			Result.isFailure(decodeHost({ ...hostFields, location: { ...route, extra: true } })),
+		).toBe(true);
+		expect(
+			Result.isFailure(decodeHost({ ...hostFields, location: { ...entity, extra: true } })),
+		).toBe(true);
+		expect(
+			Result.isSuccess(decodeClient({ location: route, mode: "push", type: "navigate" })),
+		).toBe(true);
+		expect(
+			Result.isFailure(decodeClient({ location: entity, mode: "push", type: "navigate" })),
+		).toBe(true);
+	});
+
 	it("admits a theme mode event and no applied acknowledgement", () => {
 		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
 		const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
