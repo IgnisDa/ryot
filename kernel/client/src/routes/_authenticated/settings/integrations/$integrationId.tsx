@@ -1,10 +1,6 @@
 import { useRyot } from "@ryot-app/client-sdk/react";
 import { Button, Menu, type MenuItem } from "@ryot-app/client-ui-sdk";
-import {
-	useSchemaForm,
-	type SchemaFileUpload,
-	type SchemaFormValues,
-} from "@ryot-app/client-ui-sdk/schema-form";
+import { useSchemaForm, type SchemaFormValues } from "@ryot-app/client-ui-sdk/schema-form";
 import {
 	IntegrationNotFoundError,
 	type ListedIntegration,
@@ -19,7 +15,6 @@ import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "rea
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { IntegrationsApi } from "#/api/integrations";
 import { createKernelRyotClient } from "#/api/ryot-client";
-import { IntegrationDeleteConfirmation } from "#/modules/integrations/delete-confirmation";
 import { IntegrationDetailView } from "#/modules/integrations/integration-detail-view";
 import { storedIntegrationFormValues, updateIntegrationBody } from "#/modules/integrations/payload";
 import {
@@ -35,12 +30,12 @@ import { integrationSaveFailure } from "#/modules/integrations/save-failure";
 import { INTEGRATION_RUNS_PAGE_SIZE, IntegrationsService } from "#/modules/integrations/service";
 import { AppIcon } from "#/modules/navigation/app-icon";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
+import { DestructiveConfirmation } from "#/modules/ui/destructive-confirmation";
 import { isTerminalRunStatus } from "#/modules/ui/run/run-status";
+import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
 import { StatusState } from "#/modules/ui/status-state";
 
 const RUN_LIST_POLL_MS = 10_000;
-
-const UPLOAD_FAILURE_MESSAGE = "Could not upload this file. Try again.";
 
 const isNotFound = (error: unknown) =>
 	error instanceof AuthenticatedApiError && error.cause instanceof IntegrationNotFoundError;
@@ -122,6 +117,7 @@ function IntegrationFrame(props: {
 
 function IntegrationDetailRoute() {
 	const ryot = useRyot();
+	const uploadFile = useSchemaFileUpload();
 	const router = useRouter();
 	const navigate = Route.useNavigate();
 	const loaded = Route.useLoaderData();
@@ -142,15 +138,6 @@ function IntegrationDetailRoute() {
 	const title = integrationTitle(integration, providerNames);
 
 	useEffect(() => () => controller.current.abort(), []);
-
-	const uploadFile: SchemaFileUpload = async (request) => {
-		try {
-			const uploaded = await ryot.uploads.uploadTemporary(request);
-			return { kind: "uploaded", token: uploaded.token };
-		} catch {
-			return { kind: "failed", message: UPLOAD_FAILURE_MESSAGE };
-		}
-	};
 
 	const save = useEffectEvent(async (values: SchemaFormValues) => {
 		if (provider === undefined) {
@@ -329,9 +316,12 @@ function IntegrationDetailRoute() {
 				onCopy={(value) => void navigator.clipboard.writeText(value)}
 			/>
 			{isConfirming && (
-				<IntegrationDeleteConfirmation
+				<DestructiveConfirmation
 					pending={deleting}
 					triggerRef={menuTrigger}
+					pendingLabel="Deleting..."
+					title="Delete this integration?"
+					actionLabel="Delete integration"
 					onConfirm={() => void confirmDelete()}
 					detail={integrationDeleteConfirmation(integration, providerNames)}
 					errorMessage={

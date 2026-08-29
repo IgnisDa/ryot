@@ -1,5 +1,4 @@
 import { useRyot } from "@ryot-app/client-sdk/react";
-import { Button } from "@ryot-app/client-ui-sdk";
 import type { IntegrationList } from "@ryot-app/ryotql-recipes/integrations";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { Effect } from "effect";
@@ -12,12 +11,15 @@ import {
 	type IntegrationProviderPickerState,
 } from "#/modules/integrations/create-wizard";
 import {
+	INTEGRATION_LOAD_ERROR,
 	IntegrationsView,
 	type IntegrationListState,
 } from "#/modules/integrations/integrations-view";
 import { integrationProviderNames } from "#/modules/integrations/provider-selection";
 import { INTEGRATIONS_PAGE_SIZE, IntegrationsService } from "#/modules/integrations/service";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
+import { LoadErrorState } from "#/modules/ui/load-error-state";
+import { useSearchParamModal } from "#/modules/ui/search-param-modal";
 import { StatusState } from "#/modules/ui/status-state";
 
 const listState = (page: IntegrationList): IntegrationListState =>
@@ -66,13 +68,10 @@ function IntegrationsFrame(props: { readonly children: ReactNode }) {
 
 function IntegrationsRoute() {
 	const ryot = useRyot();
-	const router = useRouter();
 	const navigate = Route.useNavigate();
 	const { create } = Route.useSearch();
 	const loaded = Route.useLoaderData();
 	const { runtime, scope } = Route.useRouteContext();
-	const created = useRef(false);
-	const pushedCreate = useRef(false);
 	const controller = useRef(new AbortController());
 	const [isSyncing, setIsSyncing] = useState(false);
 	const [isLoadingMore, setIsLoadingMore] = useState(false);
@@ -137,31 +136,12 @@ function IntegrationsRoute() {
 		await reload(limit);
 	});
 
-	const openWizard = () => {
-		pushedCreate.current = true;
-		void navigate({ search: { create: true } });
-	};
-
-	const closeWizard = () => {
-		if (pushedCreate.current) {
-			pushedCreate.current = false;
-			router.history.back();
-			return;
-		}
-		void navigate({ replace: true, search: { create: undefined } });
-	};
-
-	useEffect(() => {
-		if (create === true) {
-			return;
-		}
-		pushedCreate.current = false;
-		if (!created.current) {
-			return;
-		}
-		created.current = false;
-		void reload(INTEGRATIONS_PAGE_SIZE);
-	}, [create]);
+	const wizard = useSearchParamModal({
+		isOpen: create === true,
+		open: () => void navigate({ search: { create: true } }),
+		onCompleted: () => void reload(INTEGRATIONS_PAGE_SIZE),
+		close: () => void navigate({ replace: true, search: { create: undefined } }),
+	});
 
 	return (
 		<IntegrationsFrame>
@@ -169,7 +149,7 @@ function IntegrationsRoute() {
 				state={state}
 				nowMs={Date.now()}
 				isSyncing={isSyncing}
-				onConnect={openWizard}
+				onConnect={wizard.open}
 				syncDetail={syncDetail}
 				isLoadingMore={isLoadingMore}
 				syncSucceeded={syncSucceeded}
@@ -182,12 +162,10 @@ function IntegrationsRoute() {
 			/>
 			{create === true && (
 				<IntegrationCreateWizard
-					onClose={closeWizard}
 					providers={providers}
+					onClose={wizard.close}
+					onCreated={wizard.markCompleted}
 					onRetryProviders={() => void reloadProviders()}
-					onCreated={() => {
-						created.current = true;
-					}}
 				/>
 			)}
 		</IntegrationsFrame>
@@ -206,16 +184,10 @@ function IntegrationsLoadError() {
 	const router = useRouter();
 	return (
 		<IntegrationsFrame>
-			<StatusState
-				detailTone="danger"
-				title="Unable to load integrations"
-				className="rounded-xl border border-border bg-surface p-6"
-				detail="Your integrations could not be loaded. Check the server and try again."
-				action={
-					<Button type="button" variant="secondary" onClick={() => void router.invalidate()}>
-						Try again
-					</Button>
-				}
+			<LoadErrorState
+				title={INTEGRATION_LOAD_ERROR.title}
+				detail={INTEGRATION_LOAD_ERROR.detail}
+				onRetry={() => void router.invalidate()}
 			/>
 		</IntegrationsFrame>
 	);

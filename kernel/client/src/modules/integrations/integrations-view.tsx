@@ -11,7 +11,13 @@ import {
 } from "#/modules/integrations/presentation";
 import { integrationLotLabel } from "#/modules/integrations/provider-selection";
 import { AppIcon } from "#/modules/navigation/app-icon";
+import { LoadErrorState } from "#/modules/ui/load-error-state";
 import { StatusState } from "#/modules/ui/status-state";
+
+export const INTEGRATION_LOAD_ERROR = {
+	title: "Unable to load integrations",
+	detail: "Your integrations could not be loaded. Check the server and try again.",
+};
 
 const INTRO =
 	"Keep Ryot in step with the services you already use. Integrations run on your own server, on a schedule or as events arrive.";
@@ -74,16 +80,10 @@ function IntegrationRow(props: {
 export function IntegrationsView(props: IntegrationsViewProps) {
 	if (props.state.status === "failed") {
 		return (
-			<StatusState
-				detailTone="danger"
-				title="Unable to load integrations"
-				className="rounded-xl border border-border bg-surface p-6"
-				detail="Your integrations could not be loaded. Check the server and try again."
-				action={
-					<Button type="button" variant="secondary" onClick={props.onRetry}>
-						Try again
-					</Button>
-				}
+			<LoadErrorState
+				onRetry={props.onRetry}
+				title={INTEGRATION_LOAD_ERROR.title}
+				detail={INTEGRATION_LOAD_ERROR.detail}
 			/>
 		);
 	}
