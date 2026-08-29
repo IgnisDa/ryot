@@ -27,10 +27,12 @@ import {
 	usePluginParams,
 	usePluginSearch,
 	usePluginLocation,
+	type EntityRendererProps,
 	type PluginRouterDefinition,
 } from "./routing";
 
 let mountCount = 0;
+let entityMountCount = 0;
 
 const ItemRoute = () => {
 	const { itemId } = usePluginParams();
@@ -40,6 +42,22 @@ const ItemRoute = () => {
 const NotFound = () => <p>Fixture page not found.</p>;
 
 const FramedHome = () => <PluginScreenFrame title="Home">Content</PluginScreenFrame>;
+
+const EntityRenderer = ({ entityId, entitySchemaSlug }: EntityRendererProps) => {
+	const [count, setCount] = useState(0);
+	useState(() => {
+		entityMountCount += 1;
+	});
+
+	return (
+		<div>
+			<p>{`${entityId}:${entitySchemaSlug}:${count}`}</p>
+			<button type="button" onClick={() => setCount((value) => value + 1)}>
+				Increment entity
+			</button>
+		</div>
+	);
+};
 
 const Home = () => {
 	const [greetings, setGreetings] = useState(0);
@@ -92,12 +110,16 @@ const routeLocation = (path: string, search = ""): PluginRouteLocation => ({
 const entityLocation = (entityId: string, entitySchemaSlug: string) =>
 	Schema.decodeUnknownSync(PluginEntityLocation)({ entityId, entitySchemaSlug, kind: "entity" });
 
-let observedLocation: PluginLogicalLocation | undefined;
 let observedSearch: URLSearchParams | undefined;
+let observedParams: Record<string, string> | undefined;
+let observedLocation: PluginLogicalLocation | undefined;
+
 const LocationProbe = () => {
-	const location = usePluginLocation();
+	const params = usePluginParams();
 	const search = usePluginSearch();
+	const location = usePluginLocation();
 	observedLocation = location;
+	observedParams = params;
 	observedSearch = search;
 	return <p>{`${location.kind}:${search.toString()}`}</p>;
 };
@@ -243,6 +265,8 @@ afterEach(() => {
 	}
 	roots = [];
 	mountCount = 0;
+	entityMountCount = 0;
+	observedParams = undefined;
 	observedSearch = undefined;
 	observedLocation = undefined;
 });
@@ -299,23 +323,77 @@ describe("PluginRouter", () => {
 		await waitFor(() => expect(container.textContent).toContain("Tab stats"));
 	});
 
-	it("renders one stable unavailable component for entity locations", async () => {
+	it("renders one stable unavailable component for unregistered entity locations", async () => {
 		const { container, sendEntityLocation, store } = mount([
 			{ path: "/items/$itemId", component: ItemRoute },
 		]);
 		sendEntityLocation("entity-1", "media-movie");
 		await waitFor(() => expect(container.textContent).toContain("Entity renderer unavailable"));
-		const component = store.getSnapshot().screens[0]?.component;
+		const component = store.getSnapshot().screens[0]?.element.type;
 
 		sendEntityLocation("entity-2", "media-movie", { index: 0, key: "k0" });
 		await waitFor(() => expect(container.textContent).toContain("Entity renderer unavailable"));
 
-		expect(store.getSnapshot().screens[0]?.component).toBe(component);
+		expect(store.getSnapshot().screens[0]?.element.type).toBe(component);
 		expect(store.getSnapshot().screens[0]?.params).toEqual({});
 	});
 
+	it("selects a registered entity renderer and passes its location props", async () => {
+		const channel = openChannel({
+			home: { component: Home },
+			entities: { "media-movie": { component: EntityRenderer } },
+		});
+		const container = renderRouter(channel);
+
+		act(() => channel.sendEntity("movie-1", "media-movie"));
+		await waitFor(() => expect(container.textContent).toContain("movie-1:media-movie:0"));
+
+		expect(channel.store.getSnapshot().screens[0]?.element.type).toBe(EntityRenderer);
+		expect(channel.store.getSnapshot().screens[0]?.params).toEqual({});
+	});
+
+	it("uses the unavailable renderer for an unrelated entity schema", async () => {
+		const channel = openChannel({
+			home: { component: Home },
+			entities: { "media-movie": { component: EntityRenderer } },
+		});
+		const container = renderRouter(channel);
+
+		act(() => channel.sendEntity("show-1", "media-show"));
+		await waitFor(() => expect(container.textContent).toContain("Entity renderer unavailable"));
+
+		expect(channel.store.getSnapshot().screens[0]?.element.type).not.toBe(EntityRenderer);
+	});
+
+	it("retains the registered renderer state across a pop without a wrapper remount", async () => {
+		const channel = openChannel({
+			home: { component: Home },
+			entities: { "media-movie": { component: EntityRenderer } },
+		});
+		const container = renderRouter(channel);
+
+		act(() => channel.sendEntity("movie-1", "media-movie", { index: 0, key: "movie-1" }));
+		await waitFor(() => expect(container.textContent).toContain("movie-1:media-movie:0"));
+		const increment = container.querySelector("button");
+		if (!increment) {
+			throw new Error("expected an entity renderer button");
+		}
+		void act(() => increment.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+		await waitFor(() => expect(container.textContent).toContain("movie-1:media-movie:1"));
+
+		act(() => channel.sendEntity("movie-2", "media-movie", { index: 1, key: "movie-2" }));
+		await waitFor(() => expect(container.textContent).toContain("movie-2:media-movie:0"));
+		expect(entityMountCount).toBe(2);
+
+		act(() => channel.sendEntity("movie-1", "media-movie", { index: 0, key: "movie-1" }));
+		await waitFor(() => expect(container.textContent).toContain("movie-1:media-movie:1"));
+
+		expect(entityMountCount).toBe(2);
+		expect(channel.store.getSnapshot().screens.at(-1)?.element.type).toBe(EntityRenderer);
+	});
+
 	it("exposes an entity location and empty search through routing hooks", async () => {
-		const channel = openChannel(undefined, () => ({ component: LocationProbe, params: {} }));
+		const channel = openChannel(undefined, () => ({ element: <LocationProbe />, params: {} }));
 		const container = renderRouter(channel);
 
 		channel.sendEntity("entity-1", "media-movie");
@@ -326,6 +404,7 @@ describe("PluginRouter", () => {
 			entityId: "entity-1",
 			entitySchemaSlug: "media-movie",
 		});
+		expect(observedParams).toEqual({});
 		expect(observedSearch?.toString()).toBe("");
 	});
 
