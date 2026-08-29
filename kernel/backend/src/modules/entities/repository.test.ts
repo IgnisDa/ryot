@@ -11,7 +11,7 @@ import { Effect, Layer } from "effect";
 
 import { Database } from "#lib/infrastructure/db/service";
 import type { MockOverrides } from "#lib/test-utils/effect";
-import { DefinitionRegistry } from "#modules/definition-registry/service";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { EntitiesRepository } from "./repository";
@@ -24,7 +24,7 @@ const makePluginRuntime = (overrides: MockOverrides<typeof mockPluginRuntime> = 
 const makeLayer = (db: object, pluginRuntime = makePluginRuntime()) =>
 	Layer.mergeAll(
 		EntitiesRepository.layer.pipe(
-			Layer.provide(Layer.mergeAll(DefinitionRegistry.layer, pluginRuntime)),
+			Layer.provide(Layer.mergeAll(Layer.mock(DefinitionRepository)({}), pluginRuntime)),
 		),
 		Layer.succeed(Database, Object.assign(Object.create(null), db)),
 	);

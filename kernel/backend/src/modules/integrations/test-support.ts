@@ -28,7 +28,6 @@ export const makeIntegration = (overrides: Partial<IntegrationRecord> = {}): Int
 	pluginInstallationId: "inst_1",
 	id: IntegrationId.make("int_1"),
 	extraSettings: { disableOnContinuousErrors: true },
-	webhookUrl: `http://localhost:3000/_i/${testWebhookToken}`,
 	...overrides,
 });
 

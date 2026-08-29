@@ -255,7 +255,7 @@ it.effect("provides both authentication services to handlers", () => {
 				expect(authorization.credential).toEqual({ kind: "oauth", clientId: "ryot-web" });
 				return HttpServerResponse.empty();
 			}),
-			{ credential: Redacted.make("token"), endpoint: PluginsGroup.endpoints.list },
+			{ credential: Redacted.make("token"), endpoint: PluginsGroup.endpoints.events },
 		),
 	);
 
@@ -283,7 +283,7 @@ it.effect("rejects authenticated writes while a lifecycle operation is active", 
 				handlerCalled = true;
 				return HttpServerResponse.empty();
 			}),
-			{ credential: Redacted.make("token"), endpoint: PluginsGroup.endpoints.list },
+			{ credential: Redacted.make("token"), endpoint: PluginsGroup.endpoints.events },
 		),
 	);
 
@@ -305,7 +305,10 @@ it.effect("rejects authenticated writes while a lifecycle operation is active", 
 it.effect("enforces representative demo endpoint policies with a typed 403", () => {
 	const request = (
 		accessClass: "standard" | "demo",
-		endpoint: typeof PluginsGroup.endpoints.list | typeof PluginsGroup.endpoints.install,
+		endpoint:
+			| typeof PluginsGroup.endpoints.events
+			| typeof PluginsGroup.endpoints.install
+			| typeof PluginsGroup.endpoints.updatePluginState,
 	) => {
 		let handlerCalled = false;
 		const middleware = makeAuthMiddleware(
@@ -338,7 +341,7 @@ it.effect("enforces representative demo endpoint policies with a typed 403", () 
 
 	return Effect.gen(function* () {
 		for (const accessClass of ["demo", "standard"] as const) {
-			const allowed = request(accessClass, PluginsGroup.endpoints.list);
+			const allowed = request(accessClass, PluginsGroup.endpoints.events);
 			expect((yield* allowed.effect).status).toBe(204);
 			expect(allowed.handlerCalled()).toBe(true);
 		}
@@ -353,5 +356,11 @@ it.effect("enforces representative demo endpoint policies with a typed 403", () 
 		);
 		expect(error).not.toBeInstanceOf(AuthUnauthorized);
 		expect(demo.handlerCalled()).toBe(false);
+
+		const stateUpdate = request("demo", PluginsGroup.endpoints.updatePluginState);
+		expect(yield* Effect.flip(stateUpdate.effect)).toEqual(
+			new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
+		);
+		expect(stateUpdate.handlerCalled()).toBe(false);
 	});
 });

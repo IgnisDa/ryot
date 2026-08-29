@@ -182,18 +182,6 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 				return row ? yield* toInternal(row) : null;
 			});
 
-			const getById = Effect.fn("UserLifecycleRepository.getById")(function* (operationId: string) {
-				const db = yield* Database;
-				const [row] = yield* mapDatabaseErrors(
-					db
-						.select()
-						.from(lifecycleSchema.userLifecycleOperation)
-						.where(eq(lifecycleSchema.userLifecycleOperation.id, operationId))
-						.limit(1),
-				);
-				return row ? toOperation(row) : null;
-			});
-
 			const getInternalById = Effect.fn("UserLifecycleRepository.getInternalById")(function* (
 				operationId: string,
 			) {
@@ -580,7 +568,6 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 
 			return {
 				create,
-				getById,
 				userExists,
 				markFailed,
 				markRunning,

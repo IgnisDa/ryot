@@ -1,15 +1,9 @@
-import { Schema, Effect, SchemaGetter } from "effect";
+import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AdminMiddleware } from "../../auth-middleware";
 import { UserId } from "../../schema/brands";
 import { Email } from "../../schema/utils";
-import {
-	MigrationReportAnomalyCode,
-	MigrationReportDetail,
-	MigrationReportLevel,
-} from "./migration-report";
-import { UserLifecycleOperation } from "./user-lifecycle";
 
 const UserAuthState = Schema.Literals(["credential", "oidc", "none", "mixed"]);
 
@@ -20,13 +14,10 @@ const GodModeRequestFailureReason = Schema.Union([
 	Schema.Struct({ authState: UserAuthState, code: Schema.Literal("password-reset-unsupported") }),
 	Schema.Struct({ code: Schema.Literal("mixed-auth-reset-unsupported") }),
 ]);
-const GodModeNotFoundReason = Schema.Union([
-	Schema.Struct({ userId: UserId, code: Schema.Literal("user-not-found") }),
-	Schema.Struct({
-		operationId: Schema.String,
-		code: Schema.Literal("lifecycle-operation-not-found"),
-	}),
-]);
+const GodModeNotFoundReason = Schema.Struct({
+	userId: UserId,
+	code: Schema.Literal("user-not-found"),
+});
 const GodModeInternalFailureReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("persistence-failed") }),
 	Schema.Struct({ code: Schema.Literal("access-revocation-failed") }),
@@ -51,36 +42,6 @@ const requestFailure = GodModeRequestFailure.pipe(HttpApiSchema.status(400));
 const notFoundFailure = GodModeNotFound.pipe(HttpApiSchema.status(404));
 const internalFailure = GodModeInternalFailure.pipe(HttpApiSchema.status(500));
 
-const MigrationReportEntry = Schema.Struct({
-	seq: Schema.Number,
-	phase: Schema.String,
-	message: Schema.String,
-	createdAt: Schema.String,
-	level: MigrationReportLevel,
-	count: Schema.NullOr(Schema.Number),
-	totalDetails: Schema.NullOr(Schema.Number),
-	elapsedSeconds: Schema.NullOr(Schema.Number),
-	details: Schema.Array(MigrationReportDetail),
-	code: Schema.NullOr(MigrationReportAnomalyCode),
-});
-
-const MigrationReportResponse = Schema.Struct({ entries: Schema.Array(MigrationReportEntry) });
-
-const UserListItem = Schema.Struct({
-	id: Schema.String,
-	name: Schema.String,
-	email: Schema.String,
-	authState: UserAuthState,
-	createdAt: Schema.String,
-	disabledAt: Schema.NullOr(Schema.String),
-	twoFactorEnabled: Schema.NullOr(Schema.Boolean),
-});
-
-const ListUsersResponse = Schema.Struct({
-	total: Schema.Number,
-	users: Schema.Array(UserListItem),
-});
-
 const ProvisionUserBody = Schema.Union([
 	Schema.Struct({ email: Email, name: Schema.String, provider: Schema.Literal("credential") }).pipe(
 		Schema.annotate({
@@ -104,55 +65,12 @@ const ResetPasswordResponse = Schema.Struct({ email: Schema.String, resetUrl: Sc
 
 const SetDisabledBody = Schema.Struct({ disabled: Schema.Boolean });
 
-const SetDisabledResponse = Schema.Struct({
-	id: Schema.String,
-	disabledAt: Schema.NullOr(Schema.String),
-});
+const SetDisabledResponse = Schema.Struct({ id: UserId });
+
+export const UserLifecycleRequestResponse = Schema.Struct({ operationId: Schema.String });
 
 export const GodModeGroup = HttpApiGroup.make("godMode")
-	.annotate(
-		OpenApi.Description,
-		"Provides administrative management and migration reporting operations",
-	)
-	.add(
-		HttpApiEndpoint.get("getMigrationReport", "/god-mode/migration-report", {
-			error: internalFailure,
-			success: MigrationReportResponse,
-		})
-			.middleware(AdminMiddleware)
-			.annotate(OpenApi.Description, "Gets the legacy migration report by severity and time"),
-	)
-	.add(
-		HttpApiEndpoint.get("listUsers", "/god-mode/users", {
-			error: internalFailure,
-			success: ListUsersResponse,
-			query: {
-				search: Schema.optional(Schema.String),
-				offset: Schema.NumberFromString.pipe(
-					(schema) =>
-						Schema.optional(schema).pipe(
-							Schema.decodeTo(Schema.toType(schema), {
-								encode: SchemaGetter.required(),
-								decode: SchemaGetter.withDefault(Effect.sync(() => 0)),
-							}),
-						),
-					Schema.withConstructorDefault(Effect.sync(() => 0)),
-				),
-				limit: Schema.NumberFromString.pipe(
-					(schema) =>
-						Schema.optional(schema).pipe(
-							Schema.decodeTo(Schema.toType(schema), {
-								encode: SchemaGetter.required(),
-								decode: SchemaGetter.withDefault(Effect.sync(() => 50)),
-							}),
-						),
-					Schema.withConstructorDefault(Effect.sync(() => 50)),
-				),
-			},
-		})
-			.middleware(AdminMiddleware)
-			.annotate(OpenApi.Description, "Lists users with pagination and optional search"),
-	)
+	.annotate(OpenApi.Description, "Provides administrative management operations")
 	.add(
 		HttpApiEndpoint.post("provisionUser", "/god-mode/users/provision", {
 			payload: ProvisionUserBody,
@@ -166,7 +84,7 @@ export const GodModeGroup = HttpApiGroup.make("godMode")
 		HttpApiEndpoint.post("resetUser", "/god-mode/users/:userId/reset", {
 			params: { userId: UserId },
 			error: [requestFailure, notFoundFailure, internalFailure],
-			success: UserLifecycleOperation.pipe(HttpApiSchema.status(202)),
+			success: UserLifecycleRequestResponse.pipe(HttpApiSchema.status(202)),
 		})
 			.middleware(AdminMiddleware)
 			.annotate(OpenApi.Description, "Resets a user account"),
@@ -194,21 +112,8 @@ export const GodModeGroup = HttpApiGroup.make("godMode")
 		HttpApiEndpoint.delete("deleteUser", "/god-mode/users/:userId", {
 			params: { userId: UserId },
 			error: [requestFailure, notFoundFailure, internalFailure],
-			success: UserLifecycleOperation.pipe(HttpApiSchema.status(202)),
+			success: UserLifecycleRequestResponse.pipe(HttpApiSchema.status(202)),
 		})
 			.middleware(AdminMiddleware)
 			.annotate(OpenApi.Description, "Deletes a user account"),
-	)
-	.add(
-		HttpApiEndpoint.get(
-			"getUserLifecycleOperation",
-			"/god-mode/user-lifecycle-operations/:operationId",
-			{
-				success: UserLifecycleOperation,
-				params: { operationId: Schema.String },
-				error: [notFoundFailure, internalFailure],
-			},
-		)
-			.middleware(AdminMiddleware)
-			.annotate(OpenApi.Description, "Gets a user lifecycle operation"),
 	);

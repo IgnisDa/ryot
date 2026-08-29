@@ -14,7 +14,6 @@ import { assert, describe } from "vitest";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, DatabaseLive } from "#lib/infrastructure/db/service";
-import { PluginEnvironmentConfig } from "#lib/infrastructure/plugin-environment-config";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
 import { SandboxRepository } from "#modules/sandbox/repository";
@@ -38,7 +37,7 @@ const services = Layer.mergeAll(
 	PluginInstallationRepository.layer,
 	PluginConfigRevisions.layer,
 	SandboxRepository.layer,
-).pipe(Layer.provideMerge(PluginEnvironmentConfig.layer));
+);
 
 describe("immutable revisions in PostgreSQL (isolated, rolled back schema)", () => {
 	it.effect(
@@ -487,24 +486,31 @@ describe("immutable revisions in PostgreSQL (isolated, rolled back schema)", () 
 								.persist(environmentPackage, { ownerId: null, scope: "system", slug: "fixture" })
 								.pipe(Effect.provide(environment("environment-secret")));
 							expect(yield* transaction.select().from(tables.pluginConfigRevision)).toEqual([]);
-							const resolved = yield* plugins
+							const environmentPointer = transaction
+								.select()
+								.from(tables.plugin)
+								.pipe(Effect.map(([row]) => row?.environmentConfigRevisionId));
+							yield* plugins
 								.resolveEnvironmentConfigs()
 								.pipe(Effect.provide(environment("environment-secret")));
+							const configRevisionId = yield* environmentPointer;
+							assert(configRevisionId);
+							const [configRevision] = yield* transaction
+								.select()
+								.from(tables.pluginConfigRevision)
+								.where(eq(tables.pluginConfigRevision.id, configRevisionId));
 							const [systemPlugin] = yield* transaction.select().from(tables.plugin);
-							assert(systemPlugin?.activeRevisionId);
-							const entry = resolved[systemPlugin.id];
-							assert(entry);
-							expect(entry.pluginRevisionId).toBe(systemPlugin.activeRevisionId);
-							expect(
-								(yield* plugins
-									.resolveEnvironmentConfigs()
-									.pipe(Effect.provide(environment("environment-secret"))))[systemPlugin.id],
-							).toEqual(entry);
+							expect(configRevision?.pluginRevisionId).toBe(systemPlugin?.activeRevisionId);
+							yield* plugins
+								.resolveEnvironmentConfigs()
+								.pipe(Effect.provide(environment("environment-secret")));
+							expect(yield* environmentPointer).toBe(configRevisionId);
 							expect(yield* transaction.select().from(tables.pluginConfigRevision)).toHaveLength(1);
-							const replaced = yield* plugins
+							yield* plugins
 								.resolveEnvironmentConfigs()
 								.pipe(Effect.provide(environment("different-secret")));
-							expect(replaced[systemPlugin.id]?.configRevisionId).not.toBe(entry.configRevisionId);
+							const replacedConfigRevisionId = yield* environmentPointer;
+							expect(replacedConfigRevisionId).not.toBe(configRevisionId);
 							expect(yield* transaction.select().from(tables.pluginConfigRevision)).toHaveLength(2);
 							const missingEnvironment = yield* Effect.result(
 								transaction.transaction((savepoint) =>
@@ -528,8 +534,8 @@ describe("immutable revisions in PostgreSQL (isolated, rolled back schema)", () 
 								),
 							).toEqual(
 								expect.arrayContaining([
-									[entry.configRevisionId, false],
-									[replaced[systemPlugin.id]?.configRevisionId, false],
+									[configRevisionId, false],
+									[replacedConfigRevisionId, false],
 								]),
 							);
 							return yield* new RollbackValidation();

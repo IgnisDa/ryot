@@ -12,7 +12,6 @@ import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
-import { PluginEnvironmentConfig } from "#lib/infrastructure/plugin-environment-config";
 import type {
 	SandboxExecutionPrincipal,
 	SandboxPluginRevision,
@@ -22,34 +21,17 @@ type SandboxScriptPin = Omit<SandboxExecutionPrincipal, "subject">;
 
 const sandboxScriptPin = <T extends SandboxScriptPin>(pin: T) => pin;
 
-const storedScriptSelection = {
-	id: schema.sandboxScript.id,
-	slug: schema.sandboxScript.slug,
-	name: schema.sandboxScript.name,
-	source: schema.sandboxScript.source,
-	metadata: schema.sandboxScript.metadata,
-	providerId: schema.sandboxScript.providerId,
-	compiledCode: schema.sandboxScript.compiledCode,
-	compiledFormat: schema.sandboxScript.compiledFormat,
-};
-
-type StoredScriptRow = Pick<
-	typeof schema.sandboxScript.$inferSelect,
-	"id" | "slug" | "name" | "source" | "metadata" | "providerId" | "compiledCode" | "compiledFormat"
->;
-
-const toStoredScript = (row: StoredScriptRow) => ({ ...row, id: SandboxScriptId.make(row.id) });
+type StoredScriptMetadata = (typeof schema.sandboxScript.$inferSelect)["metadata"];
 
 export const isWorkflowCallTargetKind = (
 	request: WorkflowDurableCallRequest,
-	kind: StoredScriptRow["metadata"]["kind"],
+	kind: StoredScriptMetadata["kind"],
 ) =>
 	((request.kind === "child" || request.kind === "workflow-child") && kind === "workflow") ||
 	(request.kind === "activity" && kind === "script");
 
 export class SandboxRepository extends Context.Service<SandboxRepository>()("SandboxRepository", {
-	make: Effect.gen(function* () {
-		const environmentConfig = yield* PluginEnvironmentConfig;
+	make: Effect.sync(() => {
 		const getScript = Effect.fn("SandboxRepository.getScript")(function* (
 			scriptId: SandboxScriptId,
 		) {
@@ -111,6 +93,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 						activeRevisionId: schema.plugin.activeRevisionId,
 						providerPluginId: schema.sandboxProvider.pluginId,
 						pluginRevisionId: schema.sandboxScript.pluginRevisionId,
+						environmentConfigRevisionId: schema.plugin.environmentConfigRevisionId,
 					})
 					.from(schema.sandboxScript)
 					.leftJoin(
@@ -177,7 +160,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 			let configRevisionId: string | undefined = expectedRevision?.configRevisionId;
 			if (!expectedRevision) {
 				if (row.pluginScope === "system") {
-					configRevisionId = environmentConfig.find(row.pluginId)?.configRevisionId;
+					configRevisionId = row.environmentConfigRevisionId ?? undefined;
 				} else {
 					const [state] = yield* mapDatabaseErrors(
 						db
@@ -303,36 +286,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 			},
 		);
 
-		const getStoredScript = Effect.fn("SandboxRepository.getStoredScript")(function* (
-			scriptId: SandboxScriptId,
-		) {
-			const db = yield* Database;
-			const [row] = yield* mapDatabaseErrors(
-				db
-					.select(storedScriptSelection)
-					.from(schema.sandboxScript)
-					.where(eq(schema.sandboxScript.id, scriptId))
-					.limit(1),
-			);
-			return row ? toStoredScript(row) : null;
-		});
-
-		const listStoredScripts = Effect.fn("SandboxRepository.listStoredScripts")(function* () {
-			const db = yield* Database;
-			const rows = yield* mapDatabaseErrors(
-				db.select(storedScriptSelection).from(schema.sandboxScript),
-			);
-			return rows.map(toStoredScript);
-		});
-
-		return {
-			getScript,
-			getScriptPin,
-			isPluginScript,
-			getStoredScript,
-			listStoredScripts,
-			resolveWorkflowCallScript,
-		};
+		return { getScript, getScriptPin, isPluginScript, resolveWorkflowCallScript };
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);

@@ -44,23 +44,3 @@ export const automaticRetryAt = (
 	const next = new Date(now.getTime() + delay);
 	return next.getTime() < Date.parse(run.artifactsExpireAt) ? next : null;
 };
-
-export const manualRetryEligibility = (
-	run: Pick<AutomationRun, "stage" | "status" | "artifactsExpireAt">,
-	now: Date,
-	artifactsAvailable: boolean,
-) => {
-	if (run.stage === "before") {
-		return "before-policy" as const;
-	}
-	if (run.status !== "failed") {
-		return "not-failed" as const;
-	}
-	if (!(now.getTime() < Date.parse(run.artifactsExpireAt))) {
-		return "expired" as const;
-	}
-	if (!artifactsAvailable) {
-		return "missing-artifact" as const;
-	}
-	return null;
-};

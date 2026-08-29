@@ -9,24 +9,13 @@ export const AutomationHistoryRoutesLive = HttpApiBuilder.group(
 	AppContract,
 	"automationHistory",
 	(handlers) =>
-		handlers
-			.handle("listRuns", ({ query }) =>
-				Effect.gen(function* () {
-					return yield* (yield* AutomationHistoryService).listRuns(yield* CurrentUser, query);
-				}),
-			)
-			.handle("getRun", ({ params }) =>
-				Effect.gen(function* () {
-					return yield* (yield* AutomationHistoryService).getRun(yield* CurrentUser, params.runId);
-				}),
-			)
-			.handle("retryRun", ({ params, payload }) =>
-				Effect.gen(function* () {
-					return yield* (yield* AutomationHistoryService).retryRun(
-						yield* CurrentUser,
-						params.runId,
-						payload,
-					);
-				}),
-			),
+		handlers.handle("retryRun", ({ params, payload }) =>
+			Effect.gen(function* () {
+				return yield* (yield* AutomationHistoryService).retryRun(
+					yield* CurrentUser,
+					params.runId,
+					payload,
+				);
+			}),
+		),
 );

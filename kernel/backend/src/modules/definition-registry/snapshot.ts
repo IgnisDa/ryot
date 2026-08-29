@@ -7,16 +7,14 @@ import {
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { AppSchema, type PropertyValidationError } from "@ryot-app/contract/schema/property-schema";
-import { Context, Data, Effect, Layer, Result, Schema } from "effect";
+import { Data, Effect, Result, Schema } from "effect";
 
 import {
 	formatPropertyIssues,
 	parseAppSchemaProperties,
 	validateAppSchemaDefinition,
 } from "#lib/property-schema/property-schema-runtime";
-import { validateRyotQLDocument } from "#modules/ryotql/validator";
-
-import { kernelDefinitionSource } from "./kernel-source";
+import { savedViewDataSourceAccess, validateRyotQLDocument } from "#modules/ryotql/validator";
 
 const pluginIdField = { pluginId: Schema.optional(Schema.NullOr(Schema.String)) };
 
@@ -164,7 +162,7 @@ const assertSchemaDefinition = (kind: string, slug: string, schema: AppSchema) =
 
 const validateSavedViewDefinition = (savedView: SourceDefinition<SavedViewDefinition>) => {
 	if (savedView.dataSources !== null) {
-		const issue = validateRyotQLDocument(savedView.dataSources);
+		const issue = validateRyotQLDocument(savedView.dataSources, savedViewDataSourceAccess);
 		if (issue) {
 			throw new Error(`Invalid saved view ${savedView.slug}: ${issue}`);
 		}
@@ -325,12 +323,7 @@ export const definitionSourceFromSnapshot = (snapshot: DefinitionSnapshot): Defi
 	),
 });
 
-export const makeDefinitionRegistry = (source: DefinitionSource = kernelDefinitionSource()) => {
-	let snapshot = buildDefinitionSnapshot(source);
-	const getSnapshot = () => snapshot;
-	const replace = (nextSource: DefinitionSource) => {
-		snapshot = buildDefinitionSnapshot(nextSource);
-	};
+export const definitionLookup = (snapshot: DefinitionSnapshot) => {
 	const getEntitySchema = (slug: string) => snapshot.entitySchemas[slug];
 	const getSignalSchema = (slug: string) => snapshot.signalSchemas[slug];
 	const getSavedView = (slug: string) => snapshot.savedViews[slug];
@@ -370,8 +363,6 @@ export const makeDefinitionRegistry = (source: DefinitionSource = kernelDefiniti
 		);
 
 	return {
-		replace,
-		getSnapshot,
 		getSavedView,
 		getEventSchema,
 		getEntitySchema,
@@ -383,10 +374,3 @@ export const makeDefinitionRegistry = (source: DefinitionSource = kernelDefiniti
 		validateRelationshipProperties,
 	};
 };
-
-export class DefinitionRegistry extends Context.Service<DefinitionRegistry>()(
-	"DefinitionRegistry",
-	{ make: Effect.sync(makeDefinitionRegistry) },
-) {
-	static readonly layer = Layer.effect(this, this.make);
-}

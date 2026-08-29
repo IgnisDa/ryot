@@ -2,7 +2,6 @@ import { Schema } from "effect";
 
 import { ImportRunId } from "../../schema/brands";
 import { RunStatus } from "../../schema/run-status";
-import { PluginImportSource } from "../plugins/manifest";
 import { jsonValueSchema } from "../sandbox/wire";
 
 export const ImportRequestFailureReason = Schema.Union([
@@ -67,15 +66,6 @@ export const isImportUploadTokenField = (field: string) =>
 	field === "uploadToken" || field.endsWith("UploadToken");
 
 const InputSummary = Schema.Record(Schema.String, Schema.Unknown);
-
-export const ListedImportSource = Schema.Struct({
-	...PluginImportSource.fields,
-	pluginSlug: Schema.String,
-	isStartable: Schema.Boolean,
-	missingPluginConfigKeys: Schema.Array(Schema.String),
-});
-
-export type ListedImportSource = typeof ListedImportSource.Type;
 
 export const ListedImportRun = Schema.Struct({
 	id: ImportRunId,

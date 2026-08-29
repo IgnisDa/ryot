@@ -6,7 +6,7 @@ import {
 } from "@ryot-app/ryotql-recipes/saved-views";
 
 import { manifest as notificationManifest } from "./kernel-scripts/notification.sandbox";
-import type { DefinitionSource } from "./service";
+import type { DefinitionSource } from "./snapshot";
 
 export const kernelNotificationHook = {
 	stage: "after",

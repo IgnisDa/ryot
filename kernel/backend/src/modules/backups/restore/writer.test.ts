@@ -16,13 +16,13 @@ import { ClientPagesRepository } from "#modules/client-pages/repository";
 import {
 	buildDefinitionSnapshot,
 	type DefinitionSnapshot,
-} from "#modules/definition-registry/service";
+} from "#modules/definition-registry/snapshot";
+import { mergeManifestDefinitions } from "#modules/definition-registry/source";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { TranslationsRepository } from "#modules/entity-translation/repository";
 import { EventsRepository, RESTORE_EVENT_BATCH_SIZE } from "#modules/events/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
-import { mergeManifestDefinitions } from "#modules/plugins/loader";
 import { pluginSourceHash } from "#modules/plugins/pipeline";
 import { PluginRepository } from "#modules/plugins/repository";
 import { revisionPackage, withRevisionDatabase } from "#modules/plugins/revision.test-support";

@@ -1,7 +1,12 @@
 import {
+	Database,
+	mapDatabaseErrors,
+} from "@ryot-app/kernel-backend/lib/infrastructure/db/service";
+import {
 	formatPropertyIssues,
 	parseAppSchemaProperties,
 } from "@ryot-app/kernel-backend/lib/property-schema/property-schema-runtime";
+import { IntegrationsRepository } from "@ryot-app/kernel-backend/modules/integrations/repository";
 import { bootstrapNewUser } from "@ryot-app/kernel-backend/modules/user-bootstrap/bootstrap";
 import { PluginUserBootstrapDispatcher } from "@ryot-app/kernel-backend/modules/user-bootstrap/plugin-dispatch";
 import { Clock, Effect } from "effect";
@@ -554,6 +559,15 @@ export const migrateLegacyTables = Effect.gen(function* () {
 				providerSlugs: integrationProviderSlugs,
 			}),
 			[],
+		),
+	);
+	const integrations = yield* IntegrationsRepository;
+	const database = yield* Database;
+	yield* mapDatabaseErrors(
+		database.transaction((transaction) =>
+			integrations
+				.refreshClientProviderSpecificsForPlugin(mediaPluginId)
+				.pipe(Effect.provideService(Database, transaction)),
 		),
 	);
 	yield* migrateIntegrationProgressCache({

@@ -59,13 +59,7 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 				return yield* repository.upsertOverlay(input);
 			});
 
-			const listByEntity = Effect.fn("TranslationsService.listByEntity")(function* (
-				entityId: EntityId,
-			) {
-				return yield* repository.listByEntity(entityId);
-			});
-
-			return { upsert, requestFill, listByEntity };
+			return { upsert, requestFill };
 		}),
 	},
 ) {

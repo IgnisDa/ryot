@@ -7,12 +7,9 @@ import {
 	Database,
 	mapDatabaseErrors,
 } from "@ryot-app/kernel-backend/lib/infrastructure/db/service";
-import { PluginEnvironmentConfig } from "@ryot-app/kernel-backend/lib/infrastructure/plugin-environment-config";
-import type { DefinitionSnapshot } from "@ryot-app/kernel-backend/modules/definition-registry/service";
-import {
-	PluginLoader,
-	type PluginRegistryEntry,
-} from "@ryot-app/kernel-backend/modules/plugins/loader";
+import { DefinitionRepository } from "@ryot-app/kernel-backend/modules/definition-registry/repository";
+import type { DefinitionSnapshot } from "@ryot-app/kernel-backend/modules/definition-registry/snapshot";
+import { PluginRepository } from "@ryot-app/kernel-backend/modules/plugins/repository";
 import { and, eq, inArray } from "drizzle-orm";
 import { Effect } from "effect";
 
@@ -40,26 +37,23 @@ const eventKey = (pluginId: string | null, entitySchemaSlug: string, slug: strin
 	JSON.stringify([pluginId, entitySchemaSlug, slug]);
 const installationKey = (userId: string, pluginId: string) => `${userId}\0${pluginId}`;
 
-type ActivePackage = { id: string; slug: string; manifest: PluginManifest; revisionId: string };
+type ActivePackage = {
+	id: string;
+	slug: string;
+	revisionId: string;
+	manifest: PluginManifest;
+	configRevisionId: string | null;
+};
 
-const requireSystemPlugin = (
-	plugins: Readonly<Record<string, PluginRegistryEntry>>,
-	slug: "fitness" | "media",
-) => {
-	const matches = Object.values(plugins).filter(
-		(plugin) => plugin.slug === slug && plugin.scope === "system",
-	);
-	if (matches.length !== 1) {
+const requireSystemPlugin = Effect.fn(function* (slug: "fitness" | "media") {
+	const plugin = yield* (yield* PluginRepository).findActiveSystemPlugin(slug);
+	if (!plugin) {
 		throw new Error(
-			`Legacy bootstrap: this build has ${matches.length} active trusted system "${slug}" plugins, and the migration resolves every schema and provider through exactly one. Use a build with a single system "${slug}" plugin, then start the server again.`,
+			`Legacy bootstrap: this build has 0 active trusted system "${slug}" plugins, and the migration resolves every schema and provider through exactly one. Use a build with a single system "${slug}" plugin, then start the server again.`,
 		);
 	}
-	const match = matches[0];
-	if (match === undefined) {
-		throw new Error(`Expected exactly one active trusted system plugin "${slug}", found 0`);
-	}
-	return match;
-};
+	return plugin;
+});
 
 const addUnique = <Value>(map: Map<string, Value>, key: string, value: Value, kind: string) => {
 	if (map.has(key)) {
@@ -120,11 +114,9 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 	userIds: ReadonlyArray<string>,
 ) {
 	const database = yield* Database;
-	const loader = yield* PluginLoader;
-	const environmentConfig = yield* PluginEnvironmentConfig;
-	const snapshot = loader.getSnapshot();
-	const media = requireSystemPlugin(snapshot.plugins, "media");
-	const fitness = requireSystemPlugin(snapshot.plugins, "fitness");
+	const definitions = yield* (yield* DefinitionRepository).getGlobalSnapshot;
+	const media = yield* requireSystemPlugin("media");
+	const fitness = yield* requireSystemPlugin("fitness");
 	const pluginIds = [media.id, fitness.id];
 
 	const persistedPlugins = yield* mapDatabaseErrors(
@@ -134,6 +126,7 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 				slug: schema.plugin.slug,
 				revisionId: schema.pluginRevision.id,
 				manifest: schema.pluginRevision.manifest,
+				configRevisionId: schema.plugin.environmentConfigRevisionId,
 			})
 			.from(schema.plugin)
 			.innerJoin(
@@ -173,14 +166,13 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 		throw new Error("Expected active persisted revisions for the media and fitness plugins");
 	}
 
-	const resolvedEnvironmentConfigs = pluginIds.map((pluginId) => {
-		const entry = environmentConfig.find(pluginId);
-		if (!entry) {
+	const resolvedEnvironmentConfigs = [activeMedia, activeFitness].map((plugin) => {
+		if (!plugin.configRevisionId) {
 			throw new Error(
-				`Legacy bootstrap: no resolved environment configuration for plugin "${pluginId}". System plugin ingestion must complete before legacy data migration; keep the dump and report this startup-order defect.`,
+				`Legacy bootstrap: no resolved environment configuration for plugin "${plugin.id}". System plugin ingestion must complete before legacy data migration; keep the dump and report this startup-order defect.`,
 			);
 		}
-		return { pluginId, configRevisionId: entry.configRevisionId };
+		return { pluginId: plugin.id, configRevisionId: plugin.configRevisionId };
 	});
 	const activeConfigStates = yield* Effect.forEach(
 		resolvedEnvironmentConfigs,
@@ -366,7 +358,7 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 	}
 
 	return {
-		...buildSchemaMaps(snapshot.definitions),
+		...buildSchemaMaps(definitions),
 		scripts,
 		providers,
 		installations,

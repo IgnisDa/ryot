@@ -16,16 +16,16 @@ import { databaseLayer } from "#lib/test-utils/effect";
 import { AuthRepository } from "#modules/auth/repository";
 import { AutomationsRepository } from "#modules/automations/repository";
 import { ClientPagesRepository } from "#modules/client-pages/repository";
-import { buildDefinitionSnapshot } from "#modules/definition-registry/service";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { buildDefinitionSnapshot } from "#modules/definition-registry/snapshot";
+import { mergeManifestDefinitions } from "#modules/definition-registry/source";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { TranslationsRepository } from "#modules/entity-translation/repository";
 import { EventsRepository } from "#modules/events/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
-import { mergeManifestDefinitions } from "#modules/plugins/loader";
 import { pluginSourceHash } from "#modules/plugins/pipeline";
 import { PluginRepository } from "#modules/plugins/repository";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
@@ -342,11 +342,11 @@ it.effect(
 					databaseLayer,
 					BunFileSystem.layer,
 					Layer.mock(ClientPagesRepository, { listRenderers: () => Effect.succeed([]) }),
-					Layer.mock(PluginRuntimeResolver, {
-						getEffectiveDefinitions: (_userId, includeUnavailable) =>
+					Layer.mock(DefinitionRepository, {
+						getUserSnapshot: (_userId, options) =>
 							Effect.sync(() => {
 								effectiveDefinitionReads += 1;
-								expect(includeUnavailable).toBe(true);
+								expect(options.listed).toBe(true);
 								return effectiveDefinitions;
 							}),
 					}),
@@ -692,8 +692,8 @@ it.effect("reuses one export context across every event page", () => {
 				databaseLayer,
 				BunFileSystem.layer,
 				Layer.mock(ClientPagesRepository, { listRenderers: () => Effect.succeed([]) }),
-				Layer.mock(PluginRuntimeResolver, {
-					getEffectiveDefinitions: () =>
+				Layer.mock(DefinitionRepository, {
+					getUserSnapshot: () =>
 						Effect.succeed(
 							buildDefinitionSnapshot(
 								mergeManifestDefinitions(

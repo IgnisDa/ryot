@@ -1,6 +1,9 @@
 import { assert, expect, it } from "@effect/vitest";
+import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import { DbError } from "@ryot-app/contract/errors";
+import { RyotQLBadRequest } from "@ryot-app/contract/modules/ryotql/contract";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import {
 	aggregate,
 	and,
@@ -44,6 +47,7 @@ import {
 	not,
 	rows,
 	round,
+	star,
 	sum,
 	table,
 	timeSeries,
@@ -106,16 +110,16 @@ it.effect("executes named queries sequentially in one configured transaction", (
 
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		const response = yield* service.executeForUser("user-1", null, doc);
+		const response = yield* service.executeForUser("user-1", null, "kernel", doc);
 
 		expect(Object.keys(response.data)).toEqual(["first", "second"]);
 		expect(statements[0]).toBe("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY");
 		expect(statements[1]).toContain("set_config('statement_timeout'");
 		expect(statements.slice(2)).toHaveLength(2);
-		expect(statements[2]).toMatch(/user_id = \$\d+ OR user_id IS NULL/);
+		expect(statements[2]).toMatch(/"user_id" = \$\d+ OR "user_id" IS NULL/);
 		expect(statements[2]).not.toContain("COUNT(*)");
 		expect(statements[2]).not.toContain("OFFSET");
-		expect(statements[2]).toContain('t0.id COLLATE "C" ASC NULLS LAST');
+		expect(statements[2]).toContain('t0."id" COLLATE "C" ASC NULLS LAST');
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 
@@ -124,7 +128,7 @@ it.effect("returns an empty cursor page directly", () => {
 	const recipe = allCollectionsRecipe({ limit: 1 });
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		const response = yield* service.executeForUser("user-1", null, recipe.document);
+		const response = yield* service.executeForUser("user-1", null, "kernel", recipe.document);
 
 		expect(Result.getOrThrow(recipe.decode(response))).toEqual({
 			items: [],
@@ -142,13 +146,13 @@ it.effect("returns a cursor from the last returned row and compiles mixed keyset
 		orderBy: [descending(column(entity, "createdAt")), ascending(column(entity, "name"))],
 	});
 	const resultRows = [
-		{ o2: "entity-1", o1: "duplicate", f0v: "entity-1", o0: new Date("2026-08-10T00:00:00.000Z") },
-		{ o1: null, o2: "entity-2", f0v: "entity-2", o0: new Date("2026-08-09T00:00:00.000Z") },
+		{ o2: "entity-1", o1: "duplicate", f0v: "entity-1", o0: "2026-08-10T00:00:00.000000Z" },
+		{ o1: null, o2: "entity-2", f0v: "entity-2", o0: "2026-08-09T00:00:00.000000Z" },
 	];
 
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		const firstExecution = yield* service.executeForUser("user-1", null, {
+		const firstExecution = yield* service.executeForUser("user-1", null, "kernel", {
 			queries: { entities: query },
 		});
 		const result = firstExecution.data["entities"];
@@ -158,7 +162,7 @@ it.effect("returns a cursor from the last returned row and compiles mixed keyset
 		expect(result.items).toEqual([{ id: "entity-1" }]);
 		expect(result.pageInfo).toEqual({ limit: 1, hasMore: true, nextCursor: expect.any(String) });
 
-		yield* service.executeForUser("user-1", null, {
+		yield* service.executeForUser("user-1", null, "kernel", {
 			queries: {
 				entities: {
 					...query,
@@ -191,7 +195,7 @@ it.effect("rejects malformed cursor envelopes before row SQL", () => {
 		const service = yield* RyotQLService;
 		for (const after of cases) {
 			const exit = yield* Effect.exit(
-				service.executeForUser("user-1", null, {
+				service.executeForUser("user-1", null, "kernel", {
 					queries: { entities: rows(entity, { after, limit: 1, fields: [] }) },
 				}),
 			);
@@ -217,9 +221,118 @@ it.effect("validates the complete document before opening a transaction", () => 
 	};
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		const error = yield* Effect.flip(service.executeForUser("user-1", null, invalid));
+		const error = yield* Effect.flip(service.executeForUser("user-1", null, "kernel", invalid));
 
 		expect(error).toMatchObject({ reason: { code: "invalid-query" } });
+		expect(statements).toEqual([]);
+	}).pipe(Effect.provide(makeServiceLayer(statements)));
+});
+
+it.effect(
+	"distinguishes demo-protected reads from invalid queries before opening a transaction",
+	() => {
+		const statements: string[] = [];
+		const backup = table("backupRun", "backup");
+		const integration = table("integration", "integration");
+		const protectedDocuments = [
+			{ queries: { runs: rows(backup, { fields: [field("id", column(backup, "id"))] }) } },
+			{
+				queries: {
+					integrations: rows(integration, {
+						fields: [],
+						where: isNotNull(column(integration, "providerSpecifics")),
+					}),
+				},
+			},
+		];
+		const invalid = {
+			queries: {
+				runs: rows(backup, { fields: [field("id", column(backup, "id"))] }),
+				secret: rows(integration, { fields: [field("secret", column(integration, "secret"))] }),
+			},
+		};
+
+		return Effect.gen(function* () {
+			const service = yield* RyotQLService;
+			for (const candidate of protectedDocuments) {
+				const error = yield* Effect.flip(
+					service.executeForUser("user-1", null, "kernel", candidate, "demo"),
+				);
+				expect(error).toBeInstanceOf(DemoOperationProtected);
+				expect(error).toMatchObject({ reason: { code: "demo-operation-protected" } });
+			}
+			const error = yield* Effect.flip(
+				service.executeForUser("user-1", null, "kernel", invalid, "demo"),
+			);
+			expect(error).toBeInstanceOf(RyotQLBadRequest);
+			expect(error).toMatchObject({ reason: { code: "invalid-query" } });
+			expect(statements).toEqual([]);
+		}).pipe(Effect.provide(makeServiceLayer(statements)));
+	},
+);
+
+it.effect("preserves standard detail access and safe demo integration wildcards", () => {
+	const statements: string[] = [];
+	const integration = table("integration", "integration");
+	const details = {
+		queries: {
+			integrations: rows(integration, {
+				fields: [
+					field("webhookToken", column(integration, "webhookToken")),
+					field("providerSpecifics", column(integration, "providerSpecifics")),
+				],
+			}),
+		},
+	};
+	const summary = { queries: { integrations: rows(integration, { fields: [star(integration)] }) } };
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		yield* service.executeForUser("user-1", null, "kernel", details, "standard");
+		yield* service.executeForUser("user-1", null, "kernel", summary, "demo");
+		expect(statements[2]).toContain('"webhook_token"');
+		expect(statements[2]).toContain('"client_provider_specifics"');
+		expect(statements[5]).toContain('"name"');
+		expect(statements[5]).not.toContain('"webhook_token"');
+		expect(statements[5]).not.toContain('"client_provider_specifics"');
+	}).pipe(Effect.provide(makeServiceLayer(statements)));
+});
+
+it.effect("keeps plugin audience restrictions independent of credential class", () => {
+	const statements: string[] = [];
+	const backup = table("backupRun", "backup");
+	const integration = table("integration", "integration");
+	const user = {
+		image: null,
+		name: "User",
+		id: UserId.make("user-1"),
+		email: "user@example.com",
+		preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+	};
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		for (const accessClass of ["standard", "demo"] as const) {
+			for (const candidate of [
+				{ queries: { backups: rows(backup, { fields: [] }) } },
+				{
+					queries: {
+						integrations: rows(integration, {
+							fields: [field("token", column(integration, "webhookToken"))],
+						}),
+					},
+				},
+			]) {
+				const error = yield* Effect.flip(
+					service.executeForPluginAudience(user, candidate, accessClass),
+				);
+				expect(error).toBeInstanceOf(RyotQLBadRequest);
+			}
+		}
+		const sandboxError = yield* Effect.flip(
+			service.executeForUser("user-1", null, "plugin", {
+				queries: { backups: rows(backup, { fields: [] }) },
+			}),
+		);
+		expect(sandboxError).toBeInstanceOf(RyotQLBadRequest);
 		expect(statements).toEqual([]);
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
@@ -240,12 +353,12 @@ it.effect("collates text predicates and authorizes every joined table occurrence
 
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		yield* service.executeForUser("user-1", null, document);
+		yield* service.executeForUser("user-1", null, "kernel", document);
 
 		const statement = statements[2];
-		expect(statement).toContain("LEFT JOIN (SELECT * FROM entity");
+		expect(statement).toContain('LEFT JOIN (SELECT * FROM "entity"');
 		expect(statement).not.toContain('COLLATE "C" IN');
-		expect(statement?.match(/SELECT \* FROM entity WHERE/g)).toHaveLength(2);
+		expect(statement?.match(/SELECT \* FROM "entity" WHERE/g)).toHaveLength(2);
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 
@@ -253,28 +366,28 @@ it.effect("applies user-only policies to navigation tables", () => {
 	const statements: string[] = [];
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		yield* service.executeForUser("user-1", null, navigationRecipe().document);
+		yield* service.executeForUser("user-1", null, "kernel", navigationRecipe().document);
 
 		const savedViews = statements[3];
-		expect(savedViews).toMatch(/FROM \(SELECT \* FROM saved_view WHERE user_id = \$\d+\)/);
-		expect(savedViews).not.toContain("saved_view WHERE (user_id");
+		expect(savedViews).toMatch(/FROM \(SELECT \* FROM "saved_view" WHERE "user_id" = \$\d+\)/);
+		expect(savedViews).not.toContain('"saved_view" WHERE ("user_id"');
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 
-it.effect("applies public and user-only policies to plugin catalog tables", () => {
+it.effect("applies installed-only and user-owned policies to plugin catalog tables", () => {
 	const statements: string[] = [];
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		yield* service.executeForUser("user-1", null, pluginClientCatalogRecipe().document);
+		yield* service.executeForUser("user-1", null, "kernel", pluginClientCatalogRecipe().document);
 
 		const installations = statements[2];
 		expect(installations).toMatch(
-			/FROM \(SELECT \* FROM plugin_installation WHERE user_id = \$\d+\)/,
+			/FROM \(SELECT \* FROM "plugin_installation" WHERE "user_id" = \$\d+ AND \(uninstalled_at IS NULL\)\)/,
 		);
 		expect(installations).toMatch(
-			/INNER JOIN \(SELECT \* FROM plugin WHERE \(owner_user_id = \$\d+ OR owner_user_id IS NULL\)\)/,
+			/INNER JOIN \(SELECT \* FROM "plugin" WHERE \("owner_user_id" = \$\d+ OR "owner_user_id" IS NULL\)\)/,
 		);
-		expect(installations).not.toContain("plugin_installation WHERE (user_id");
+		expect(installations).not.toContain('"plugin_installation" WHERE ("user_id"');
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 
@@ -318,14 +431,16 @@ it.effect(
 
 		return Effect.gen(function* () {
 			const service = yield* RyotQLService;
-			const response = yield* service.executeForUser("user-1", null, document);
+			const response = yield* service.executeForUser("user-1", null, "kernel", document);
 
-			expect(statements[2]).toMatch(/FROM \(SELECT \* FROM sandbox_provider WHERE EXISTS \(/);
 			expect(statements[2]).toMatch(
-				/INNER JOIN \(SELECT \* FROM sandbox_provider_operation WHERE EXISTS \(/,
+				/FROM \(SELECT \* FROM "user_sandbox_provider" WHERE "user_id" = \$\d+\)/,
 			);
 			expect(statements[2]).toMatch(
-				/INNER JOIN \(SELECT \* FROM plugin WHERE \(owner_user_id = \$\d+ OR owner_user_id IS NULL\)\)/,
+				/INNER JOIN \(SELECT \* FROM "sandbox_provider_operation" WHERE EXISTS \(/,
+			);
+			expect(statements[2]).toMatch(
+				/INNER JOIN \(SELECT \* FROM "plugin" WHERE \("owner_user_id" = \$\d+ OR "owner_user_id" IS NULL\)\)/,
 			);
 			expect(response.data["providers"]).toEqual({
 				type: "rows",
@@ -350,7 +465,7 @@ it.effect("rejects malformed runtime field kinds", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		const exit = yield* Effect.exit(service.executeForUser("user-1", null, document));
+		const exit = yield* Effect.exit(service.executeForUser("user-1", null, "kernel", document));
 
 		expect(exit._tag).toBe("Failure");
 	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
@@ -408,10 +523,10 @@ it.effect("returns plain aggregate and time-series values", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		const response = yield* service.executeForUser("user-1", null, document);
+		const response = yield* service.executeForUser("user-1", null, "kernel", document);
 		const groupedStatement = statements.find((statement) => statement.includes('AS "g0v"'));
 
-		expect(groupedStatement).toContain("date_trunc($1, t0.created_at, $2)");
+		expect(groupedStatement).toContain('date_trunc($1, t0."created_at", $2)');
 		expect(groupedStatement).toContain('ORDER BY "g0v" DESC NULLS LAST, "m0" DESC NULLS LAST');
 		expect(response.data["totals"]).toEqual({
 			type: "aggregate",
@@ -454,7 +569,7 @@ it.effect("compares dates against kind-preserving maximum aggregates", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		const response = yield* service.executeForUser("user-1", null, document);
+		const response = yield* service.executeForUser("user-1", null, "kernel", document);
 
 		for (const statement of statements.slice(2)) {
 			expect(statement).toContain("MAX(");
@@ -484,7 +599,7 @@ it.effect("selects notification channel descriptions with text output", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		const response = yield* service.executeForUser("user-1", null, document);
+		const response = yield* service.executeForUser("user-1", null, "kernel", document);
 
 		expect(response.data["channels"]).toEqual({
 			type: "rows",
@@ -551,7 +666,7 @@ it.effect("selects integrations with useful output kinds", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		const response = yield* service.executeForUser("user-1", null, document);
+		const response = yield* service.executeForUser("user-1", null, "kernel", document);
 
 		expect(response.data["integrations"]).toEqual({
 			type: "rows",
@@ -610,7 +725,7 @@ it.effect("selects notification subscriptions with useful output kinds", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		const response = yield* service.executeForUser("user-1", null, document);
+		const response = yield* service.executeForUser("user-1", null, "kernel", document);
 
 		expect(response.data["subscriptions"]).toEqual({
 			type: "rows",
@@ -655,12 +770,12 @@ it.effect("authorizes notification channels in every query occurrence", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		yield* service.executeForUser("user-1", null, document);
+		yield* service.executeForUser("user-1", null, "kernel", document);
 
 		const statement = statements[2];
-		expect(statement?.match(/SELECT \* FROM notification_channel WHERE user_id =/g)).toHaveLength(
-			4,
-		);
+		expect(
+			statement?.match(/SELECT \* FROM "notification_channel" WHERE "user_id" =/g),
+		).toHaveLength(4);
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 
@@ -691,10 +806,10 @@ it.effect("authorizes integrations in every query occurrence", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		yield* service.executeForUser("user-1", null, document);
+		yield* service.executeForUser("user-1", null, "kernel", document);
 
 		const statement = statements[2];
-		expect(statement?.match(/SELECT \* FROM integration WHERE user_id =/g)).toHaveLength(4);
+		expect(statement?.match(/SELECT \* FROM "integration" WHERE "user_id" =/g)).toHaveLength(4);
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 
@@ -725,11 +840,11 @@ it.effect("authorizes notification subscriptions in every query occurrence", () 
 
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		yield* service.executeForUser("user-1", null, document);
+		yield* service.executeForUser("user-1", null, "kernel", document);
 
 		const statement = statements[2];
 		expect(
-			statement?.match(/SELECT \* FROM notification_subscription WHERE user_id =/g),
+			statement?.match(/SELECT \* FROM "notification_subscription" WHERE "user_id" =/g),
 		).toHaveLength(4);
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
@@ -753,10 +868,10 @@ it.effect("constrains own and cross-user import run roots to the current user", 
 
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		const response = yield* service.executeForUser("user-1", null, document);
+		const response = yield* service.executeForUser("user-1", null, "kernel", document);
 
 		for (const statement of statements.slice(2)) {
-			expect(statement).toMatch(/FROM \(SELECT \* FROM import_run WHERE user_id = \$\d+\)/);
+			expect(statement).toMatch(/FROM \(SELECT \* FROM "import_run" WHERE "user_id" = \$\d+\)/);
 		}
 		const empty = {
 			items: [],
@@ -803,15 +918,15 @@ it.effect("authorizes import runs and failures in every query occurrence", () =>
 
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		const response = yield* service.executeForUser("user-1", null, document);
+		const response = yield* service.executeForUser("user-1", null, "kernel", document);
 
 		const statement = statements[2];
-		expect(statement).toContain("INNER JOIN (SELECT * FROM import_run_failure WHERE EXISTS");
-		expect(statement).toContain("LEFT JOIN (SELECT * FROM import_run_failure WHERE EXISTS");
-		expect(statement).toMatch(/SELECT \* FROM import_run WHERE user_id = \$\d+/);
-		expect(statement?.match(/SELECT \* FROM import_run_failure WHERE EXISTS/g)).toHaveLength(5);
+		expect(statement).toContain('INNER JOIN (SELECT * FROM "import_run_failure" WHERE EXISTS');
+		expect(statement).toContain('LEFT JOIN (SELECT * FROM "import_run_failure" WHERE EXISTS');
+		expect(statement).toMatch(/SELECT \* FROM "import_run" WHERE "user_id" = \$\d+/);
+		expect(statement?.match(/SELECT \* FROM "import_run_failure" WHERE EXISTS/g)).toHaveLength(5);
 		expect(statement).toMatch(
-			/import_run\.id = import_run_failure\.run_id AND import_run\.user_id = \$\d+/,
+			/"import_run"\."id" = "import_run_failure"\."run_id" AND "import_run"\."user_id" = \$\d+/,
 		);
 		expect(response.data["failures"]).toEqual({
 			items: [],
@@ -874,17 +989,17 @@ it.effect("applies plugin ownership to every allowed table occurrence", () => {
 
 		const statement = statements[2];
 		expect(statement).toContain(
-			"FROM (SELECT * FROM entity WHERE user_id IS NULL AND entity_schema_slug IN",
+			'FROM (SELECT * FROM "entity" WHERE "user_id" IS NULL AND "entity_schema_slug" IN',
 		);
 		expect(statement).toContain(
-			"FROM (SELECT * FROM relationship WHERE relationship_schema_slug IN",
+			'FROM (SELECT * FROM "relationship" WHERE "relationship_schema_slug" IN',
 		);
-		expect(statement).toContain("LEFT JOIN (\n\t\t\tSELECT * FROM event");
-		expect(statement).toContain("event.event_schema_slug =");
+		expect(statement).toContain('LEFT JOIN (SELECT * FROM "event" WHERE EXISTS');
+		expect(statement).toContain('"event"."event_schema_slug" =');
 		expect(statement).toContain("event_scope_entity.entity_schema_slug =");
-		expect(statement).toContain("FROM (SELECT * FROM relationship WHERE");
-		expect(statement).not.toContain("relationship WHERE (user_id");
-		expect(statement).not.toContain("event WHERE (user_id");
+		expect(statement).toContain('FROM (SELECT * FROM "relationship" WHERE');
+		expect(statement).not.toContain('"relationship" WHERE ("user_id"');
+		expect(statement).not.toContain('"event" WHERE ("user_id"');
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 
@@ -910,6 +1025,48 @@ it.effect("denies application tables to plugin execution before opening a transa
 	}).pipe(Effect.provide(makeServiceLayer(statements)));
 });
 
+it.effect("compiles admin reads without user policies and with admin-only fields", () => {
+	const statements: string[] = [];
+	const installation = table("pluginInstallation", "installation");
+	const subscription = table("notificationSubscription", "subscription");
+	const document = {
+		queries: {
+			subscriptions: rows(subscription, { fields: [star(subscription)] }),
+			installations: rows(installation, { fields: [field("id", column(installation, "id"))] }),
+		},
+	};
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		yield* service.executeForAdmin(document);
+		yield* service.executeForUser("user-1", null, "kernel", document);
+
+		const [adminSubscriptions, adminInstallations] = statements.slice(2, 4);
+		expect(adminSubscriptions).toContain('FROM (SELECT * FROM "notification_subscription") t0');
+		expect(adminSubscriptions).toContain('t0."user_id" AS');
+		expect(adminInstallations).toContain('FROM (SELECT * FROM "plugin_installation") t0');
+		const [userSubscriptions, userInstallations] = statements.slice(6, 8);
+		expect(userSubscriptions).not.toContain('t0."user_id" AS');
+		expect(userInstallations).toContain("uninstalled_at IS NULL");
+	}).pipe(Effect.provide(makeServiceLayer(statements)));
+});
+
+it.effect(
+	"denies tables without an admin policy to admin execution before opening a transaction",
+	() => {
+		const statements: string[] = [];
+		const entity = table("entity", "entity");
+		return Effect.gen(function* () {
+			const service = yield* RyotQLService;
+			const error = yield* Effect.flip(
+				service.executeForAdmin({ queries: { entities: rows(entity, { fields: [] }) } }),
+			);
+
+			expect(error).toMatchObject({ reason: { code: "invalid-query" } });
+			expect(statements).toEqual([]);
+		}).pipe(Effect.provide(makeServiceLayer(statements)));
+	},
+);
+
 it.effect("preserves reserved result keys and non-text runtime kinds", () => {
 	const statements: string[] = [];
 	const entity = table("entity", "entity");
@@ -924,7 +1081,7 @@ it.effect("preserves reserved result keys and non-text runtime kinds", () => {
 	const resultRows = [{ f1k: "json", f0k: "date", f0v: createdAt, f1v: { rating: 5 } }];
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		const response = yield* service.executeForUser("user-1", null, document);
+		const response = yield* service.executeForUser("user-1", null, "kernel", document);
 		const result = response.data["__proto__"];
 		if (result?.type !== "rows") {
 			throw new Error("Expected reserved query result");
@@ -970,7 +1127,7 @@ it.effect("pushes typed JSON expressions into one rows statement", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		yield* service.executeForUser("user-1", null, document);
+		yield* service.executeForUser("user-1", null, "kernel", document);
 
 		const statement = statements[2];
 		expect(statement).toContain("jsonb_extract_path");
@@ -1006,7 +1163,7 @@ it.effect("compiles scalar text, conditional, and unary operations", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		yield* service.executeForUser("user-1", null, document);
+		yield* service.executeForUser("user-1", null, "kernel", document);
 
 		const statement = statements[2];
 		expect(statement).toContain("concat(");
@@ -1045,8 +1202,8 @@ it.effect("resolves localized fields and emits translation-status SQL only when 
 
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		yield* service.executeForUser("user-1", "es", localizedDocument);
-		yield* service.executeForUser("user-1", "es", statusDocument);
+		yield* service.executeForUser("user-1", "es", "kernel", localizedDocument);
+		yield* service.executeForUser("user-1", "es", "kernel", statusDocument);
 
 		const localizedStatement = statements[2];
 		const statusStatement = statements[5];
@@ -1115,13 +1272,16 @@ it.effect("compiles and reconstructs nested correlated includes in one statement
 
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		const response = yield* service.executeForUser("user-1", null, document);
+		const response = yield* service.executeForUser("user-1", null, "kernel", document);
 
 		expect(statements.slice(2)).toHaveLength(1);
-		expect(statements[2]?.match(/SELECT \* FROM relationship WHERE/g)).toHaveLength(1);
-		expect(statements[2]?.match(/SELECT \* FROM event WHERE/g)).toHaveLength(1);
+		expect(statements[2]?.match(/SELECT \* FROM "relationship" WHERE/g)).toHaveLength(1);
+		expect(statements[2]?.match(/SELECT \* FROM "event" WHERE/g)).toHaveLength(1);
 		expect(statements[2]).toContain("ROW_NUMBER() OVER");
 		expect(statements[2]).toContain("jsonb_build_object");
+		expect(statements[2]).toContain(
+			'ORDER BY i0t1.name COLLATE "C" ASC NULLS LAST, i0t1."id" COLLATE "C" ASC NULLS LAST, i0t0."id" COLLATE "C" ASC NULLS LAST',
+		);
 		const courses = response.data["courses"];
 		if (courses?.type !== "rows") {
 			throw new Error("Expected courses rows result");
@@ -1208,14 +1368,14 @@ it.effect("compiles correlated scalar expressions with authorized query sets", (
 
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		const response = yield* service.executeForUser("user-1", null, document);
+		const response = yield* service.executeForUser("user-1", null, "kernel", document);
 
 		const statement = statements[2];
 		expect(statement).toContain("EXISTS (SELECT 1");
 		expect(statement).toContain("COUNT(DISTINCT");
 		expect(statement).toContain("SUM(");
 		expect(statement).toContain("NULLIF");
-		expect(statement?.match(/SELECT \* FROM event WHERE/g)?.length).toBeGreaterThan(0);
+		expect(statement?.match(/SELECT \* FROM "event" WHERE/g)?.length).toBeGreaterThan(0);
 		const entities = response.data["entities"];
 		if (entities?.type !== "rows") {
 			throw new Error("Expected entities rows result");
@@ -1261,7 +1421,7 @@ it.effect("compiles JSON array operators into element subqueries", () => {
 
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		const response = yield* service.executeForUser("user-1", null, document);
+		const response = yield* service.executeForUser("user-1", null, "kernel", document);
 
 		const statement = statements[2];
 		expect(statement).toContain("jsonb_array_elements");
@@ -1307,7 +1467,7 @@ it.effect("maps statement timeouts to a bad request", () => {
 	return Effect.gen(function* () {
 		const service = yield* RyotQLService;
 		const error = yield* Effect.flip(
-			service.executeForUser("user-1", null, allCollectionsRecipe().document),
+			service.executeForUser("user-1", null, "kernel", allCollectionsRecipe().document),
 		);
 
 		expect(error).toMatchObject({ reason: { limitMs: 30_000, code: "query-timeout" } });

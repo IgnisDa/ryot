@@ -45,6 +45,7 @@ export const integration = snakeCase.table(
 		extraSettings: jsonb().$type<IntegrationExtraSettings>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		providerSpecifics: jsonb().$type<IntegrationProviderSettings>().notNull(),
+		clientProviderSpecifics: jsonb().$type<IntegrationProviderSettings>().notNull(),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),

@@ -86,29 +86,7 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 				if (!row) {
 					return yield* new DbError({ message: "Translation overlay upsert returned no row" });
 				}
-				return undefined;
-			});
-
-			const listByEntity = Effect.fn("TranslationsRepository.listByEntity")(function* (
-				entityId: EntityId,
-			) {
-				const db = yield* Database;
-				const rows = yield* mapDatabaseErrors(
-					db
-						.select({
-							name: schema.entityTranslation.name,
-							language: schema.entityTranslation.language,
-							properties: schema.entityTranslation.properties,
-							populatedAt: schema.entityTranslation.populatedAt,
-						})
-						.from(schema.entityTranslation)
-						.where(eq(schema.entityTranslation.entityId, entityId)),
-				);
-				return yield* Effect.forEach(rows, (row) =>
-					row.populatedAt
-						? Effect.succeed({ ...row, populatedAt: row.populatedAt.toISOString() })
-						: Effect.fail(new DbError({ message: "Translation overlay has no populated date" })),
-				);
+				return row.id;
 			});
 
 			const findUserLanguage = Effect.fn("TranslationsRepository.findUserLanguage")(function* (
@@ -126,7 +104,7 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 				return row ? extractLanguage(row.preferences) : null;
 			});
 
-			return { listByEntity, upsertOverlay, listForBackup, findUserLanguage, restoreTranslation };
+			return { upsertOverlay, listForBackup, findUserLanguage, restoreTranslation };
 		}),
 	},
 ) {

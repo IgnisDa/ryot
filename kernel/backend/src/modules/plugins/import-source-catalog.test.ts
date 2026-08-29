@@ -1,10 +1,16 @@
 import { expect, it } from "@effect/vitest";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { eq } from "drizzle-orm";
 import { Effect } from "effect";
 import { assert, describe } from "vitest";
 
+import * as tables from "#lib/infrastructure/db/schema/tables/combined";
+import { Database } from "#lib/infrastructure/db/service";
+
+import { PluginConfigRevisions } from "./config-revisions";
 import { ImportSourceCatalog } from "./import-source-catalog";
 import { PluginInstallationRepository } from "./installation-repository";
+import { PluginRepository } from "./repository";
 import {
 	installRevisionPackage,
 	revisionPackage,
@@ -92,6 +98,65 @@ describe("revision-backed import sources", () => {
 				expect(after.script.pluginRevisionId).toBe(upgraded.revisionId);
 				expect(after.source.configContext.pluginRevisionId).toBe(after.script.pluginRevisionId);
 				expect(after.script.id).not.toBe(before.script.id);
+			}),
+		),
+	);
+	it.effect("lets the executable system source win a private slug clash", () =>
+		withRevisionDatabase(
+			Effect.gen(function* () {
+				const clashing = (slug: string) => {
+					const plugin = packageWithSources(slug);
+					return {
+						...plugin,
+						manifest: {
+							...plugin.manifest,
+							importSources: plugin.manifest.importSources.map((source) =>
+								Object.assign({}, source, { slug: `shared-${source.name}` }),
+							),
+						},
+					};
+				};
+				yield* installRevisionPackage(clashing("notes"), owner);
+				const system = yield* installRevisionPackage(clashing("zebra"));
+				const catalog = yield* ImportSourceCatalog.make;
+				expect(
+					(yield* catalog.listForUser(owner)).map(({ source }) => [source.slug, source.pluginId]),
+				).toEqual([
+					["shared-alpha", system.pluginId],
+					["shared-zeta", system.pluginId],
+				]);
+				expect((yield* catalog.resolveForUser(owner, "shared-alpha"))?.source.pluginId).toBe(
+					system.pluginId,
+				);
+			}),
+		),
+	);
+	it.effect("carries only the configured key names of the system environment revision", () =>
+		withRevisionDatabase(
+			Effect.gen(function* () {
+				const installed = yield* installRevisionPackage(packageWithSources("notes"));
+				const catalog = yield* ImportSourceCatalog.make;
+				const configuredKeys = catalog
+					.resolveForUser(owner, "notes-alpha")
+					.pipe(Effect.map((resolved) => resolved?.source.configuredPluginConfigKeys));
+				expect(yield* configuredKeys).toEqual([]);
+				const configRevisionId = yield* (yield* PluginConfigRevisions).create({
+					ownerUserId: null,
+					scope: "environment",
+					pluginInstallationId: null,
+					pluginRevisionId: installed.revisionId,
+					properties: { token: "environment-secret" },
+				});
+				yield* (yield* PluginRepository).setEnvironmentConfigRevision(
+					installed.pluginId,
+					configRevisionId,
+				);
+				expect(yield* configuredKeys).toEqual(["token"]);
+				const [stored] = yield* (yield* Database)
+					.select({ configuredKeys: tables.pluginConfigRevision.configuredKeys })
+					.from(tables.pluginConfigRevision)
+					.where(eq(tables.pluginConfigRevision.id, configRevisionId));
+				expect(stored).toEqual({ configuredKeys: ["token"] });
 			}),
 		),
 	);

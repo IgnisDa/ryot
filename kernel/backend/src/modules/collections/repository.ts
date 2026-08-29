@@ -10,7 +10,7 @@ import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
-import { DefinitionRegistry } from "#modules/definition-registry/service";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
 
 type CollectionRow = Pick<
 	typeof schema.entity.$inferSelect,
@@ -50,20 +50,18 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 	"CollectionsRepository",
 	{
 		make: Effect.gen(function* () {
-			const definitions = yield* DefinitionRegistry;
+			const definitions = yield* DefinitionRepository;
 			const getBuiltinCollectionSchema = Effect.fn(
 				"CollectionsRepository.getBuiltinCollectionSchema",
-			)(() => {
-				const definition = definitions.getEntitySchema("collection");
-				return Effect.succeed(
-					definition
-						? {
-								id: EntitySchemaSlug.make(definition.slug),
-								propertiesSchema: definition.propertiesSchema,
-								entitySchemaSlug: EntitySchemaSlug.make(definition.slug),
-							}
-						: null,
-				);
+			)(function* () {
+				const definition = yield* definitions.findGlobalEntitySchema("collection");
+				return definition
+					? {
+							id: EntitySchemaSlug.make(definition.slug),
+							propertiesSchema: definition.propertiesSchema,
+							entitySchemaSlug: EntitySchemaSlug.make(definition.slug),
+						}
+					: null;
 			});
 
 			const findCollectionByNameForUser = Effect.fn(
@@ -137,9 +135,9 @@ export class CollectionsRepository extends Context.Service<CollectionsRepository
 
 			const findBuiltinEventSchemaBySlug = Effect.fn(
 				"CollectionsRepository.findBuiltinEventSchemaBySlug",
-			)((entitySchemaSlug: EntitySchemaSlug, slug: string) => {
-				const event = definitions.getEventSchema(entitySchemaSlug, slug);
-				return Effect.succeed(event ? { ...event, id: EventSchemaSlug.make(event.slug) } : null);
+			)(function* (entitySchemaSlug: EntitySchemaSlug, slug: string) {
+				const event = yield* definitions.findGlobalEventSchema(entitySchemaSlug, slug);
+				return event ? { ...event, id: EventSchemaSlug.make(event.slug) } : null;
 			});
 
 			return {

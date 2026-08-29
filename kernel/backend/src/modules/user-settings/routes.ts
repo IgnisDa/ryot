@@ -11,15 +11,6 @@ export const UserSettingsRoutesLive = HttpApiBuilder.group(
 	"userSettings",
 	(handlers) =>
 		handlers
-			.handle("get", () =>
-				Effect.map(CurrentUser, (user) => ({
-					id: user.id,
-					name: user.name,
-					email: user.email,
-					image: user.image,
-					preferences: user.preferences,
-				})),
-			)
 			.handle("updatePreferences", ({ payload }) =>
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;

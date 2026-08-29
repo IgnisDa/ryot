@@ -7,7 +7,7 @@ import { Effect, Layer } from "effect";
 
 import { databaseLayer, type MockOverrides } from "#lib/test-utils/effect";
 import { ClientPagesRepository } from "#modules/client-pages/repository";
-import { makeDefinitionRegistry } from "#modules/definition-registry/service";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { PluginCatalogInvalidator } from "#modules/plugins/catalog-events";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -53,12 +53,6 @@ const baseView = {
 	},
 } satisfies ListedSavedView & { readonly pluginInstallationId: string | null };
 
-const registry = makeDefinitionRegistry({
-	savedViews: [],
-	entitySchemas: [],
-	signalSchemas: [],
-	relationshipSchemas: [],
-});
 const repositoryMock = Layer.mock(SavedViewsRepository);
 const makeRepository = (overrides: MockOverrides<typeof repositoryMock>) =>
 	repositoryMock(overrides);
@@ -82,8 +76,8 @@ const makeLayer = (
 				installations,
 				ClientPagesRepository.layer,
 				PluginCatalogInvalidator.layer,
+				Layer.mock(DefinitionRepository)({ listUserSavedViews: () => Effect.succeed([]) }),
 				Layer.mock(PluginRuntimeResolver)({
-					getEffectiveDefinitions: () => Effect.succeed(registry.getSnapshot()),
 					listPluginsAvailableToUser: () => Effect.succeed([...availablePlugins]),
 				}),
 			),
@@ -132,7 +126,7 @@ it.effect("clones a validated plugin-rendered builtin with its stable runtime re
 	return Effect.gen(function* () {
 		const service = yield* SavedViewsService;
 		const cloned = yield* service.clone(user, pluginView.slug);
-		expect(cloned.renderer).toEqual(renderer);
+		expect(cloned).toEqual({ id: SavedViewId.make("plugin-copy-id") });
 		expect(created).toMatchObject([{ renderer, settings: { title: "Fixture" } }]);
 	}).pipe(
 		Effect.provide(
@@ -143,7 +137,7 @@ it.effect("clones a validated plugin-rendered builtin with its stable runtime re
 					create: (_userId, input) =>
 						Effect.sync(() => {
 							created.push(input);
-							return { ...pluginView, ...input, id: SavedViewId.make("plugin-copy-id") };
+							return { id: SavedViewId.make("plugin-copy-id") };
 						}),
 				}),
 				undefined,
@@ -173,14 +167,10 @@ it.effect("clones renderer settings and data sources without copying source code
 	return Effect.gen(function* () {
 		const service = yield* SavedViewsService;
 		const cloned = yield* service.clone(user, baseView.slug);
-		expect(cloned).toMatchObject({
-			name: "My View (Copy)",
-			renderer: baseView.renderer,
-			settings: baseView.settings,
-			dataSources: baseView.dataSources,
-		});
+		expect(cloned).toEqual({ id: SavedViewId.make("copy-id") });
 		expect(created).toMatchObject([
 			{
+				name: "My View (Copy)",
 				renderer: baseView.renderer,
 				settings: baseView.settings,
 				dataSources: baseView.dataSources,
@@ -194,7 +184,7 @@ it.effect("clones renderer settings and data sources without copying source code
 					create: (_userId, input) =>
 						Effect.sync(() => {
 							created.push(input);
-							return { ...baseView, ...input, pluginSlug: null, id: SavedViewId.make("copy-id") };
+							return { id: SavedViewId.make("copy-id") };
 						}),
 				}),
 			),
@@ -211,17 +201,17 @@ it.effect("clears home references when disabling a saved view", () => {
 			icon: baseView.icon,
 			name: baseView.name,
 		});
-		expect(updated.isDisabled).toBe(true);
+		expect(updated).toEqual({ id: baseView.id });
 		expect(events).toEqual(["update", `clear:${baseView.id}`]);
 	}).pipe(
 		Effect.provide(
 			makeLayer(
 				makeRepository({
 					lockBySlug: () => Effect.succeed(baseView),
-					updateBySlug: (_userId, _slug, data) =>
+					updateBySlug: () =>
 						Effect.sync(() => {
 							events.push("update");
-							return { ...baseView, isDisabled: data.isDisabled };
+							return { id: baseView.id };
 						}),
 				}),
 				Layer.mock(PluginInstallationRepository)({
@@ -236,24 +226,17 @@ it.effect("clears home references when disabling a saved view", () => {
 
 it.effect("materializes canonical builtin definitions and preserves repository-owned state", () => {
 	const builtin = { ...baseView, slug: "builtin", isBuiltin: true };
-	const builtinRegistry = makeDefinitionRegistry({
-		entitySchemas: [],
-		signalSchemas: [],
-		relationshipSchemas: [],
-		savedViews: [
-			{
-				sortOrder: 3,
-				pluginId: null,
-				pluginSlug: null,
-				slug: builtin.slug,
-				name: builtin.name,
-				icon: builtin.icon,
-				renderer: builtin.renderer,
-				settings: builtin.settings,
-				dataSources: builtin.dataSources,
-			},
-		],
-	});
+	const builtinView = {
+		sortOrder: 3,
+		pluginId: null,
+		pluginSlug: null,
+		slug: builtin.slug,
+		name: builtin.name,
+		icon: builtin.icon,
+		renderer: builtin.renderer,
+		settings: builtin.settings,
+		dataSources: builtin.dataSources,
+	};
 	let definitions: readonly unknown[] = [];
 	const layer = SavedViewsService.layer.pipe(
 		Layer.provideMerge(
@@ -268,8 +251,9 @@ it.effect("materializes canonical builtin definitions and preserves repository-o
 				ClientPagesRepository.layer,
 				PluginCatalogInvalidator.layer,
 				Layer.mock(PluginInstallationRepository)({ listForUser: () => Effect.succeed([]) }),
-				Layer.mock(PluginRuntimeResolver)({
-					getEffectiveDefinitions: () => Effect.succeed(builtinRegistry.getSnapshot()),
+				Layer.mock(PluginRuntimeResolver)({}),
+				Layer.mock(DefinitionRepository)({
+					listUserSavedViews: () => Effect.succeed([builtinView]),
 				}),
 			),
 		),

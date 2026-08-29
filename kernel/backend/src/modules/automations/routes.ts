@@ -8,20 +8,6 @@ import { NotificationSubscriptionsService } from "./notification-subscriptions-s
 
 export const AutomationsRoutesLive = HttpApiBuilder.group(AppContract, "automations", (handlers) =>
 	handlers
-		.handle("listCatalog", () =>
-			Effect.gen(function* () {
-				const user = yield* CurrentUser;
-				const service = yield* NotificationSubscriptionsService;
-				return yield* service.listCatalog(user.id).pipe(dieOnDbError);
-			}),
-		)
-		.handle("getCatalog", ({ params }) =>
-			Effect.gen(function* () {
-				const user = yield* CurrentUser;
-				const service = yield* NotificationSubscriptionsService;
-				return yield* service.getCatalog(user.id, params.signalSchemaSlug).pipe(dieOnDbError);
-			}),
-		)
 		.handle("installRule", ({ payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;

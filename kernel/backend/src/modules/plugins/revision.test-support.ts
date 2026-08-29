@@ -7,16 +7,14 @@ import { assert } from "vitest";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, DatabaseLive } from "#lib/infrastructure/db/service";
-import { PluginEnvironmentConfig } from "#lib/infrastructure/plugin-environment-config";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
-import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { SandboxRepository } from "#modules/sandbox/repository";
 
 import { PluginConfigEncryptionKey } from "./config-encryption-key";
 import { PluginConfigRevisions } from "./config-revisions";
 import { PluginInstallationRepository } from "./installation-repository";
-import { makePluginLoader, PluginLoader } from "./loader";
 import { PluginRepository } from "./repository";
 import { PluginRuntimeResolver } from "./runtime-resolver";
 import { fixtureManifest } from "./test-support";
@@ -26,34 +24,24 @@ class RollbackTestSchema extends Data.TaggedError("RollbackTestSchema") {}
 type Services =
 	| Database
 	| PluginRepository
+	| DefinitionRepository
 	| PluginInstallationRepository
 	| PluginRuntimeResolver
 	| PluginConfigRevisions
 	| PluginConfigEncryptionKey
-	| SandboxRepository
-	| DefinitionRegistry
-	| PluginEnvironmentConfig
-	| PluginLoader;
+	| SandboxRepository;
 
 export const withRevisionDatabase = <E>(test: Effect.Effect<void, E, Services>) => {
 	const name = `revision_test_${crypto.randomUUID().replaceAll("-", "")}`;
-	const registry = makeDefinitionRegistry({
-		savedViews: [],
-		signalSchemas: [],
-		entitySchemas: [],
-		relationshipSchemas: [],
-	});
-	const loader = makePluginLoader(registry);
 	const config = makeAppConfigLayer({ database: { url: Redacted.make(testDatabaseUrl()) } });
 	const dependencies = Layer.mergeAll(
 		PluginRepository.layer,
+		DefinitionRepository.layer,
 		PluginInstallationRepository.layer,
 		PluginConfigRevisions.layer,
 		PluginConfigEncryptionKey.layer,
 		SandboxRepository.layer,
-		Layer.succeed(PluginLoader, loader),
-		Layer.succeed(DefinitionRegistry, registry),
-	).pipe(Layer.provideMerge(PluginEnvironmentConfig.layer));
+	);
 	const services = Layer.merge(
 		dependencies,
 		PluginRuntimeResolver.layer.pipe(Layer.provide(dependencies)),
@@ -228,8 +216,6 @@ export const installRevisionPackage = Effect.fn(function* (
 ) {
 	const plugins = yield* PluginRepository;
 	const installations = yield* PluginInstallationRepository;
-	const loader = yield* PluginLoader;
-	const environmentConfig = yield* PluginEnvironmentConfig;
 	const db = yield* Database;
 	const pluginId = yield* plugins.persist(
 		packageValue,
@@ -249,8 +235,7 @@ export const installRevisionPackage = Effect.fn(function* (
 	const [plugin] = yield* db.select().from(tables.plugin).where(eq(tables.plugin.id, pluginId));
 	assert(plugin?.activeRevisionId);
 	if (!owner) {
-		loader.rebuild(yield* plugins.list());
-		environmentConfig.replace(yield* plugins.resolveEnvironmentConfigs());
+		yield* plugins.resolveEnvironmentConfigs();
 	}
 	return { pluginId, installation, revisionId: plugin.activeRevisionId };
 });

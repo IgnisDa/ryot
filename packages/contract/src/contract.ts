@@ -4,7 +4,6 @@ import { AutomationHistoryGroup, AutomationsGroup } from "./modules/automations/
 import { BackupsGroup } from "./modules/backups/contract";
 import { ClientPageArtifactsGroup, ClientPagesGroup } from "./modules/client-pages/contract";
 import { CollectionsGroup } from "./modules/collections/contract";
-import { DefinitionsGroup } from "./modules/definitions/contract";
 import { EntitiesGroup } from "./modules/entities/contract";
 import { InterestGroup } from "./modules/entity-interest/contract";
 import { EventsGroup } from "./modules/events/contract";
@@ -15,7 +14,7 @@ import { NotificationsGroup } from "./modules/notifications/contract";
 import { PluginsGroup } from "./modules/plugins/contract";
 import { ProviderEntitiesGroup } from "./modules/provider-entities/contract";
 import { RelationshipsGroup } from "./modules/relationships/contract";
-import { RyotQLGroup } from "./modules/ryotql/contract";
+import { AdminRyotQLGroup, RyotQLGroup } from "./modules/ryotql/contract";
 import { SavedViewsGroup } from "./modules/saved-views/contract";
 import { SystemGroup } from "./modules/system/contract";
 import { TestSupportGroup } from "./modules/test-support/contract";
@@ -28,7 +27,6 @@ export type AppGroups =
 	| typeof AutomationsGroup
 	| typeof AutomationHistoryGroup
 	| typeof BackupsGroup
-	| typeof DefinitionsGroup
 	| typeof RelationshipsGroup
 	| typeof EntitiesGroup
 	| typeof ProviderEntitiesGroup
@@ -46,6 +44,7 @@ export type AppGroups =
 	| typeof ImportsGroup
 	| typeof IntegrationsGroup
 	| typeof RyotQLGroup
+	| typeof AdminRyotQLGroup
 	| typeof InterestGroup
 	| typeof NotificationsGroup
 	| typeof PluginsGroup;
@@ -55,7 +54,6 @@ export const AppContract: HttpApi.HttpApi<"ryot", AppGroups> = HttpApi.make("ryo
 	.add(AutomationsGroup)
 	.add(AutomationHistoryGroup)
 	.add(BackupsGroup)
-	.add(DefinitionsGroup)
 	.add(RelationshipsGroup)
 	.add(EntitiesGroup)
 	.add(ProviderEntitiesGroup)
@@ -73,6 +71,7 @@ export const AppContract: HttpApi.HttpApi<"ryot", AppGroups> = HttpApi.make("ryo
 	.add(ImportsGroup)
 	.add(IntegrationsGroup)
 	.add(RyotQLGroup)
+	.add(AdminRyotQLGroup)
 	.add(InterestGroup)
 	.add(NotificationsGroup)
 	.add(PluginsGroup)

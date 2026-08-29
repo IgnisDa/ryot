@@ -1,122 +1,12 @@
 import type { UserId } from "@ryot-app/contract/schema/brands";
-import { asc, desc, eq, ilike, inArray, sql } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/auth";
-import {
-	migrationReport,
-	migrationReportDetail,
-} from "#lib/infrastructure/db/schema/tables/migration-reports";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
-
-const migrationReportDetailPageSize = 100;
-
-const userSearchClause = (search?: string) =>
-	search ? ilike(schema.user.email, `%${search.trim()}%`) : undefined;
 
 export class GodModeRepository extends Context.Service<GodModeRepository>()("GodModeRepository", {
 	make: Effect.sync(() => {
-		const listMigrationReportEntries = Effect.fn("GodModeRepository.listMigrationReportEntries")(
-			function* () {
-				const db = yield* Database;
-				const rows = yield* mapDatabaseErrors(
-					db
-						.select()
-						.from(migrationReport)
-						.orderBy(
-							desc(sql`case when ${migrationReport.level} = 'warning' then 1 else 0 end`),
-							desc(migrationReport.createdAt),
-							desc(migrationReport.seq),
-						),
-				);
-
-				const codedSeqs = rows.filter((row) => row.code !== null).map((row) => row.seq);
-				const details =
-					codedSeqs.length === 0
-						? []
-						: yield* mapDatabaseErrors(
-								db
-									.select({
-										seq: migrationReportDetail.seq,
-										detail: migrationReportDetail.detail,
-										reportSeq: migrationReportDetail.reportSeq,
-										rank: sql<string>`row_number() over (
-											partition by ${migrationReportDetail.reportSeq}
-											order by ${migrationReportDetail.seq}
-										)`.as("rank"),
-									})
-									.from(migrationReportDetail)
-									.where(inArray(migrationReportDetail.reportSeq, codedSeqs))
-									.orderBy(asc(migrationReportDetail.reportSeq), asc(migrationReportDetail.seq)),
-							);
-
-				const detailsByReportSeq = new Map<number, (typeof details)[number]["detail"][]>();
-				for (const row of details) {
-					if (Number(row.rank) > migrationReportDetailPageSize) {
-						continue;
-					}
-					const existing = detailsByReportSeq.get(row.reportSeq);
-					if (existing === undefined) {
-						detailsByReportSeq.set(row.reportSeq, [row.detail]);
-						continue;
-					}
-					existing.push(row.detail);
-				}
-
-				return rows.map((row) =>
-					Object.assign(row, {
-						createdAt: row.createdAt.toISOString(),
-						details: detailsByReportSeq.get(row.seq) ?? [],
-						totalDetails: row.code === null ? null : (row.count ?? 0),
-					}),
-				);
-			},
-		);
-
-		const countUsers = Effect.fn("GodModeRepository.countUsers")(function* (search?: string) {
-			const db = yield* Database;
-			const rows = yield* mapDatabaseErrors(
-				db
-					.select({ count: sql<string>`count(*)` })
-					.from(schema.user)
-					.where(userSearchClause(search)),
-			);
-			return Number(rows[0]?.count ?? 0);
-		});
-
-		const listUserRows = Effect.fn("GodModeRepository.listUserRows")(function* (input: {
-			limit: number;
-			offset: number;
-			search?: string | undefined;
-		}) {
-			const db = yield* Database;
-			const rows = yield* mapDatabaseErrors(
-				db
-					.select({
-						id: schema.user.id,
-						name: schema.user.name,
-						email: schema.user.email,
-						createdAt: schema.user.createdAt,
-						disabledAt: schema.user.disabledAt,
-						twoFactorEnabled: schema.user.twoFactorEnabled,
-					})
-					.from(schema.user)
-					.where(userSearchClause(input.search))
-					.limit(input.limit)
-					.offset(input.offset)
-					.orderBy(asc(schema.user.createdAt)),
-			);
-
-			return rows.map((row) => ({
-				id: row.id,
-				name: row.name,
-				email: row.email,
-				createdAt: row.createdAt.toISOString(),
-				twoFactorEnabled: row.twoFactorEnabled ?? null,
-				disabledAt: row.disabledAt?.toISOString() ?? null,
-			}));
-		});
-
 		const listAccountsForUsers = Effect.fn("GodModeRepository.listAccountsForUsers")(function* (
 			userIds: string[],
 		) {
@@ -169,15 +59,7 @@ export class GodModeRepository extends Context.Service<GodModeRepository>()("God
 			return row ?? null;
 		});
 
-		return {
-			countUsers,
-			listUserRows,
-			findUserById,
-			findUserIdByEmail,
-			listAccountsForUsers,
-			findUserDisabledState,
-			listMigrationReportEntries,
-		};
+		return { findUserById, findUserIdByEmail, listAccountsForUsers, findUserDisabledState };
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);

@@ -96,6 +96,7 @@ export class InterestReconciler extends Context.Service<InterestReconciler>()(
 				const response = yield* ryotql.executeForUser(
 					principal.userId,
 					principal.preferredLanguage,
+					"kernel",
 					recipe.document,
 				);
 				const rows = yield* Effect.sync(() => Result.getOrThrow(recipe.decode(response)));

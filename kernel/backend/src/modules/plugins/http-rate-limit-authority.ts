@@ -41,11 +41,11 @@ export class PluginHttpRateLimitAuthority extends Context.Service<PluginHttpRate
 					if (!("origin" in requested)) {
 						return requested satisfies HttpRateLimitAuthorityResolution;
 					}
-					const manifests = yield* repository
-						.listActiveManifests()
+					const declarations = yield* repository
+						.listActiveHttpRateLimits()
 						.pipe(Effect.provideService(Database, database));
 					const lookups = yield* Effect.try({
-						try: () => buildHttpRateLimitLookups(manifests),
+						try: () => buildHttpRateLimitLookups(declarations),
 						catch: (error) => new PluginValidationError({ issues: [String(error)] }),
 					});
 					const policy = lookups.byOrigin[requested.origin];

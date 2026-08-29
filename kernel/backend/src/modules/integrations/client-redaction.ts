@@ -1,8 +1,5 @@
+import type { IntegrationProviderSettings } from "@ryot-app/contract/modules/integrations/schemas";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
-
-import type { RegisteredIntegrationProvider } from "#modules/plugins/integration-provider-catalog";
-
-import type { IntegrationRecord } from "./repository";
 
 const isRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
@@ -35,24 +32,13 @@ const redactSecretValues = (
 	return redacted;
 };
 
-/**
- * Client-facing boundary. `repository.normalizeIntegration` deliberately returns credentials
- * verbatim because integration scripts read them through the `getCurrentIntegration` host function.
- * Only service methods backing client-facing `create` / `get` / `update` contract endpoints
- * route through here.
- */
 export const redactIntegrationForClient = (
-	registered: RegisteredIntegrationProvider | null,
-	integration: IntegrationRecord,
-): IntegrationRecord => {
-	if (!registered) {
-		const kind = integration.providerSpecifics["kind"];
-		const providerSpecifics = typeof kind === "string" ? { kind } : {};
-		return { ...integration, providerSpecifics };
+	settingsSchema: AppSchema | null,
+	providerSpecifics: IntegrationProviderSettings,
+): IntegrationProviderSettings => {
+	if (!settingsSchema) {
+		const kind = providerSpecifics["kind"];
+		return typeof kind === "string" ? { kind } : {};
 	}
-	const providerSpecifics = redactSecretValues(
-		registered.settingsSchema.fields,
-		integration.providerSpecifics,
-	);
-	return { ...integration, providerSpecifics };
+	return redactSecretValues(settingsSchema.fields, providerSpecifics);
 };

@@ -1,5 +1,9 @@
 import { DbError } from "@ryot-app/contract/errors";
 import {
+	AUTOMATION_HISTORY_LIMITS,
+	type AutomationHistoryAttempt,
+} from "@ryot-app/contract/modules/automations/history-schemas";
+import {
 	AutomationRunAttempt,
 	AutomationRunSkipReason,
 } from "@ryot-app/contract/modules/automations/lifecycle";
@@ -13,28 +17,20 @@ import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, asc, eq, inArray, isNull, lte, notInArray, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Schema } from "effect";
 
+import { automationRunRetryEligibility } from "#lib/infrastructure/db/automation-retry-eligibility";
 import { user } from "#lib/infrastructure/db/schema/tables/auth";
 import {
 	automationRun,
 	automationRunAttempt as table,
-	automationTrigger,
 } from "#lib/infrastructure/db/schema/tables/automations";
-import {
-	pluginRevision,
-	pluginConfigRevision,
-	pluginConfigEncryptionKey,
-	sandboxScript,
-} from "#lib/infrastructure/db/schema/tables/core";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
+import { makeSandboxObservabilityCollector } from "#lib/infrastructure/sandbox-runtime/observability-host-functions";
 
-import {
-	automaticRetryAt,
-	isRetryableAutomationFailure,
-	manualRetryEligibility,
-} from "./retry-policy";
+import { automaticRetryAt, isRetryableAutomationFailure } from "./retry-policy";
 
 export const AUTOMATION_ATTEMPT_ARTIFACT_BYTES = SANDBOX_LIMITS.logs.totalBytes;
 export const AUTOMATION_ATTEMPT_TRUNCATION_MARKER = "[automation attempt artifact truncated]";
@@ -89,6 +85,67 @@ export const boundAutomationAttemptArtifacts = (
 	};
 };
 
+const historyBytes = (value: unknown) => Buffer.byteLength(JSON.stringify(value), "utf8");
+const DiagnosticLog = Schema.Struct(AutomationRunAttempt.fields.logs.members[0].value.fields);
+
+export const projectAutomationAttemptHistory = (
+	attempt: Pick<AutomationRunAttempt, "logs" | "error" | "failureKind">,
+): {
+	historyLogs: AutomationHistoryAttempt["logs"];
+	historyError: AutomationHistoryAttempt["error"];
+	historyArtifactsTruncated: boolean;
+} => {
+	const limit = AUTOMATION_HISTORY_LIMITS.attemptBytes;
+	const collector = makeSandboxObservabilityCollector();
+	let truncated = false;
+	const sanitize = (entry: typeof DiagnosticLog.Type) => {
+		if (historyBytes(entry) > limit || collector.record("log", [entry]) !== null) {
+			truncated = true;
+			return null;
+		}
+		const serialized = collector.logs[collector.logs.length - 1];
+		const sanitized = Schema.decodeSync(Schema.fromJsonString(DiagnosticLog))(serialized ?? "null");
+		if (historyBytes(sanitized) > limit) {
+			truncated = true;
+			return null;
+		}
+		return sanitized;
+	};
+	let error =
+		attempt.error === null
+			? null
+			: {
+					code: attempt.failureKind ?? "execution-failed",
+					message:
+						sanitize({ level: "error", message: attempt.error.message })?.message ??
+						"[History error omitted: size limit]",
+				};
+	if (error !== null && historyBytes({ error, logs: [] }) > limit) {
+		error = { ...error, message: "[History error omitted: size limit]" };
+		truncated = true;
+	}
+	let used = historyBytes({ error, logs: [] });
+	let count = 0;
+	const logs =
+		attempt.logs === null
+			? null
+			: attempt.logs.flatMap((entry) => {
+					const value = sanitize(entry);
+					if (value === null) {
+						return [];
+					}
+					const size = historyBytes(value) + (count === 0 ? 0 : 1);
+					if (used + size > limit) {
+						truncated = true;
+						return [];
+					}
+					used += size;
+					count += 1;
+					return [value];
+				});
+	return { historyLogs: logs, historyError: error, historyArtifactsTruncated: truncated };
+};
+
 export const automationAttemptIdentity = (runId: AutomationRunId, attemptNumber: number) => {
 	const hash = sha256Base64Url(stableStringify([runId, attemptNumber]));
 	return {
@@ -97,7 +154,12 @@ export const automationAttemptIdentity = (runId: AutomationRunId, attemptNumber:
 	};
 };
 
-const decodeRow = (row: typeof table.$inferSelect) =>
+const decodeRow = ({
+	historyLogs: _historyLogs,
+	historyError: _historyError,
+	historyArtifactsTruncated: _historyArtifactsTruncated,
+	...row
+}: typeof table.$inferSelect) =>
 	decodeStoredSchema(
 		{
 			...row,
@@ -135,71 +197,22 @@ const lockRun = Effect.fn(function* (runId: AutomationRunId) {
 	return run;
 });
 
-const artifactsAvailable = Effect.fn(function* (run: typeof automationRun.$inferSelect) {
+const retryRun = alias(automationRun, "retry_run");
+
+const lockedRetryEligibility = Effect.fn(function* (runId: AutomationRunId, now: Date) {
 	const db = yield* Database;
-	if (!run.sandboxScriptId) {
-		return false;
-	}
-	const [trigger] = yield* db
-		.select()
-		.from(automationTrigger)
-		.where(eq(automationTrigger.id, run.triggerId))
-		.for("share");
-	const [script] = yield* db
+	const [row] = yield* db
 		.select({
-			id: sandboxScript.id,
-			slug: sandboxScript.slug,
-			contentHash: sandboxScript.contentHash,
-			pluginRevisionId: sandboxScript.pluginRevisionId,
+			reason: automationRunRetryEligibility("retry_run", sql`${now.toISOString()}::timestamptz`, {
+				lockArtifacts: true,
+			}),
 		})
-		.from(sandboxScript)
-		.where(eq(sandboxScript.id, run.sandboxScriptId))
-		.for("share");
-	if (
-		!trigger?.payload ||
-		!script ||
-		script.slug !== run.scriptSlug ||
-		script.contentHash !== run.scriptContentHash ||
-		script.pluginRevisionId !== run.pluginRevisionId
-	) {
-		return false;
+		.from(retryRun)
+		.where(eq(retryRun.id, runId));
+	if (!row) {
+		return yield* conflict(`Automation run not found: ${runId}`);
 	}
-	if (run.pluginId === null) {
-		return run.pluginRevisionId === null && run.pluginConfigRevisionId === null;
-	}
-	if (!run.pluginRevisionId || !run.pluginConfigRevisionId) {
-		return false;
-	}
-	const [revision] = yield* db
-		.select({ pluginId: pluginRevision.pluginId })
-		.from(pluginRevision)
-		.where(eq(pluginRevision.id, run.pluginRevisionId))
-		.for("share");
-	const [config] = yield* db
-		.select({
-			scope: pluginConfigRevision.scope,
-			ownerUserId: pluginConfigRevision.ownerUserId,
-			encryptionKeyId: pluginConfigRevision.encryptionKeyId,
-			pluginRevisionId: pluginConfigRevision.pluginRevisionId,
-			hasPayload: sql<boolean>`${pluginConfigRevision.encryptedPayload} is not null`,
-		})
-		.from(pluginConfigRevision)
-		.where(eq(pluginConfigRevision.id, run.pluginConfigRevisionId))
-		.for("share");
-	if (
-		revision?.pluginId !== run.pluginId ||
-		!config?.hasPayload ||
-		config.pluginRevisionId !== run.pluginRevisionId ||
-		(config.scope === "installation" && config.ownerUserId !== run.executionUserId)
-	) {
-		return false;
-	}
-	const [key] = yield* db
-		.select({ keyLength: sql<number>`octet_length(${pluginConfigEncryptionKey.key})` })
-		.from(pluginConfigEncryptionKey)
-		.where(eq(pluginConfigEncryptionKey.id, config.encryptionKeyId))
-		.for("share");
-	return key?.keyLength === 32;
+	return row.reason;
 });
 
 export class AutomationAttemptRepository extends Context.Service<AutomationAttemptRepository>()(
@@ -374,7 +387,7 @@ export class AutomationAttemptRepository extends Context.Service<AutomationAttem
 						const db = yield* Database;
 						yield* db
 							.update(table)
-							.set({ ...outcome, finishedAt: now })
+							.set({ ...outcome, ...projectAutomationAttemptHistory(outcome), finishedAt: now })
 							.where(and(eq(table.id, attempt.id), eq(table.status, "running")));
 						const rejected =
 							run.stage === "before" &&
@@ -399,12 +412,8 @@ export class AutomationAttemptRepository extends Context.Service<AutomationAttem
 				atomic(
 					Effect.gen(function* () {
 						yield* validateTime(now);
-						const run = yield* lockRun(runId);
-						return manualRetryEligibility(
-							{ ...run, artifactsExpireAt: run.artifactsExpireAt.toISOString() },
-							now,
-							yield* artifactsAvailable(run),
-						);
+						yield* lockRun(runId);
+						return yield* lockedRetryEligibility(runId, now);
 					}),
 				);
 			const pruneArtifacts = Effect.fn(function* (input: {
@@ -434,7 +443,10 @@ export class AutomationAttemptRepository extends Context.Service<AutomationAttem
 						.set({
 							logs: null,
 							error: null,
+							historyLogs: null,
+							historyError: null,
 							returnedValue: null,
+							historyArtifactsTruncated: false,
 							artifactsPrunedAt: input.prunedAt,
 						})
 						.where(inArray(table.id, candidates))
@@ -453,11 +465,7 @@ export class AutomationAttemptRepository extends Context.Service<AutomationAttem
 						if (run.attemptCount !== input.expectedAttemptCount || run.attemptCount < 1) {
 							return yield* conflict("Manual retry attempt count conflict");
 						}
-						const reason = manualRetryEligibility(
-							{ ...run, artifactsExpireAt: run.artifactsExpireAt.toISOString() },
-							input.now,
-							yield* artifactsAvailable(run),
-						);
+						const reason = yield* lockedRetryEligibility(input.runId, input.now);
 						if (reason) {
 							return yield* conflict(`Manual retry unavailable: ${reason}`);
 						}

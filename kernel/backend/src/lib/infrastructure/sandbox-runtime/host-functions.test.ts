@@ -32,7 +32,12 @@ import { selectSandboxHostFunctions } from "#lib/infrastructure/sandbox-runtime/
 import type { SandboxRunInput } from "#lib/infrastructure/sandbox-runtime/shared";
 import { databaseLayer, makeAppConfigLayer, makeRedisService } from "#lib/test-utils/effect";
 import { withLifecycleBatchPlanning } from "#modules/automations/lifecycle.test-support";
-import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
+import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
+import {
+	buildDefinitionSnapshot,
+	type DefinitionSource,
+} from "#modules/definition-registry/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
@@ -46,6 +51,16 @@ import {
 	normalizePreferences,
 	toSandboxCreateEventsResult,
 } from "./host-functions";
+
+const definitionRepository = (source: DefinitionSource = kernelDefinitionSource()) => {
+	const snapshot = buildDefinitionSnapshot(source);
+	return Layer.mock(DefinitionRepository)({
+		findUserEntitySchemas: () => Effect.succeed(snapshot.entitySchemas),
+		findUserRelationshipSchemas: () => Effect.succeed(snapshot.relationshipSchemas),
+		findGlobalRelationshipSchema: (slug) =>
+			Effect.succeed(snapshot.relationshipSchemas[slug] ?? null),
+	});
+};
 
 class HostFunctionsTestTransaction extends Context.Service<HostFunctionsTestTransaction, object>()(
 	"HostFunctionsTestTransaction",
@@ -195,7 +210,7 @@ const runGetCurrentIntegration = (
 				Layer.mock(EntitiesService)({}),
 				Layer.mock(EntitiesRepository)({ lockEntityReferencesByIds: () => Effect.void }),
 				Layer.mock(RyotQLService)({}),
-				Layer.succeed(DefinitionRegistry, { ...makeDefinitionRegistry() }),
+				definitionRepository(),
 				Layer.mock(PluginRuntimeResolver)({}),
 				Layer.mock(RelationshipsRepository)({}),
 				Layer.mock(IntegrationsRepository)({ getForUser }),
@@ -363,7 +378,7 @@ const runGetPluginConfig = (
 				Layer.mock(EntitiesService)({}),
 				Layer.mock(EntitiesRepository)({ lockEntityReferencesByIds: () => Effect.void }),
 				Layer.mock(RyotQLService)({}),
-				Layer.succeed(DefinitionRegistry, makeDefinitionRegistry()),
+				definitionRepository(),
 				resolver,
 				Layer.mock(IntegrationsRepository)({}),
 				Layer.mock(RelationshipsRepository)({}),
@@ -440,15 +455,15 @@ const runExecuteRyotql = (input: SandboxRunInput, document: RyotQLDocument = ryo
 				Layer.mock(EntitiesRepository)({ lockEntityReferencesByIds: () => Effect.void }),
 				Layer.mock(IntegrationsRepository)({}),
 				Layer.mock(RelationshipsRepository)({}),
-				Layer.succeed(DefinitionRegistry, makeDefinitionRegistry()),
+				definitionRepository(),
 				Layer.mock(PluginRuntimeResolver)({}),
 				Layer.mock(RyotQLService)({
 					executeForPlugin: (scope, doc) => {
 						pluginCalls.push({ scope, document: doc });
 						return Effect.succeed(ryotqlResponse);
 					},
-					executeForUser: (userId, language, doc) => {
-						userCalls.push({ userId, language, document: doc });
+					executeForUser: (userId, language, audience, doc) => {
+						userCalls.push({ userId, language, audience, document: doc });
 						return Effect.succeed(ryotqlResponse);
 					},
 				}),
@@ -492,14 +507,14 @@ describe("executeRyotql", () => {
 		}),
 	);
 
-	it.effect("keeps delegated execution in user scope", () =>
+	it.effect("keeps delegated execution in the user scope with the plugin audience", () =>
 		Effect.gen(function* () {
 			const execution = yield* runExecuteRyotql(runInput(automationSubject({ kind: "api" })));
 
 			expect(Result.getOrThrow(execution.result)).toEqual(ryotqlResponse);
 			expect(execution.pluginCalls).toEqual([]);
 			expect(execution.userCalls).toEqual([
-				{ language: null, userId: "user-1", document: ryotqlDocument },
+				{ language: null, userId: "user-1", audience: "plugin", document: ryotqlDocument },
 			]);
 		}),
 	);
@@ -590,13 +605,10 @@ const runChangeUserRelationships = (
 				Layer.mock(EventsService)({}),
 				Layer.mock(EntitiesService)({}),
 				Layer.mock(RyotQLService)({}),
-				Layer.mock(PluginRuntimeResolver)({
-					lockCatalog: () => Effect.void,
-					getEffectiveDefinitions: () => Effect.succeed(makeDefinitionRegistry().getSnapshot()),
-				}),
+				Layer.mock(PluginRuntimeResolver)({ lockCatalog: () => Effect.void }),
 				Layer.mock(IntegrationsRepository)({}),
 				repository,
-				Layer.succeed(DefinitionRegistry, { ...makeDefinitionRegistry() }),
+				definitionRepository(),
 				Layer.mock(EntitiesRepository)({
 					getEntityScopeForUser,
 					lockEntityReferencesByIds: () => Effect.void,
@@ -803,7 +815,7 @@ const runEnsureUserEntities = (options: {
 		Array<{ entityId: EntityId; wasInserted: boolean; warnings: AutomationWarning[] }>
 	>;
 }) => {
-	const definitions = makeDefinitionRegistry({
+	const definitions = definitionRepository({
 		savedViews: [],
 		signalSchemas: [],
 		relationshipSchemas: [],
@@ -859,12 +871,8 @@ const runEnsureUserEntities = (options: {
 								{ warnings: [], wasInserted: true, entityId: EntityId.make("workspace-id") },
 							])),
 				}),
-				Layer.mock(PluginRuntimeResolver)({
-					lockCatalog: () => Effect.void,
-					getGlobalDefinitions: () => Effect.succeed(definitions.getSnapshot()),
-					getEffectiveDefinitions: () => Effect.succeed(definitions.getSnapshot()),
-				}),
-				Layer.succeed(DefinitionRegistry, definitions),
+				Layer.mock(PluginRuntimeResolver)({ lockCatalog: () => Effect.void }),
+				definitions,
 			),
 		),
 	);

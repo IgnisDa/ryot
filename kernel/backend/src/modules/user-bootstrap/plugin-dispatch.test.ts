@@ -6,22 +6,16 @@ import { Effect, Layer } from "effect";
 import { assert } from "vitest";
 
 import { databaseLayer } from "#lib/test-utils/effect";
-import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 import {
 	PluginInstallationRepository,
 	type PluginInstallationState,
 } from "#modules/plugins/installation-repository";
-import { makePluginLoader, PluginLoader } from "#modules/plugins/loader";
-import type { PluginRegistryEntry } from "#modules/plugins/loader";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
 
 import { makePluginUserBootstrapDispatcher, userBootstrapExecutionId } from "./plugin-dispatch";
 
-const normalizedPlugin = (
-	pluginSlug: string,
-	entries: PluginManifest["userBootstrap"],
-): PluginRegistryEntry => {
+const normalizedPlugin = (pluginSlug: string, entries: PluginManifest["userBootstrap"]) => {
 	const base = fixtureManifest();
 	const declared = base.scripts[0];
 	assert(declared);
@@ -63,16 +57,13 @@ const normalizedPlugin = (
 	};
 };
 
-const loader = makePluginLoader(makeDefinitionRegistry());
-loader.load(
+const plugins = [
 	normalizedPlugin("example", [
 		{ slug: "second", description: "Second", scriptSlug: "bootstrap.second" },
 		{ slug: "first", description: "First", scriptSlug: "bootstrap.first" },
 	]),
-);
-loader.load(
 	normalizedPlugin("sample", [{ slug: "only", description: "Only", scriptSlug: "bootstrap.only" }]),
-);
+];
 
 const systemInstallation = (pluginSlug: string): PluginInstallationState => ({
 	pluginSlug,
@@ -93,12 +84,27 @@ const systemInstallation = (pluginSlug: string): PluginInstallationState => ({
 
 const baseLayer = Layer.mergeAll(
 	databaseLayer,
-	Layer.succeed(PluginLoader, { ...loader }),
 	Layer.mock(PluginRuntimeResolver)({
+		listSystemUserBootstraps: () =>
+			Effect.succeed(
+				plugins
+					.flatMap((plugin) =>
+						plugin.manifest.userBootstrap.map((bootstrap) => ({
+							bootstrap,
+							pluginId: plugin.id,
+							pluginSlug: plugin.slug,
+						})),
+					)
+					.sort(
+						(left, right) =>
+							left.pluginSlug.localeCompare(right.pluginSlug) ||
+							left.bootstrap.slug.localeCompare(right.bootstrap.slug),
+					),
+			),
 		resolveActivePluginUserBootstrap: ({ pluginSlug, bootstrapSlug }) => {
-			const bootstrap = loader
-				.getSnapshot()
-				.plugins[pluginSlug]?.manifest.userBootstrap.find(({ slug }) => slug === bootstrapSlug);
+			const bootstrap = plugins
+				.find(({ slug }) => slug === pluginSlug)
+				?.manifest.userBootstrap.find(({ slug }) => slug === bootstrapSlug);
 			return bootstrap
 				? Effect.succeed({
 						bootstrap,
@@ -119,8 +125,10 @@ const baseLayer = Layer.mergeAll(
 								requiredSystemConfigKeys: [],
 							},
 						} satisfies NonNullable<
-							Effect.Success<ReturnType<PluginRuntimeResolver["Service"]["findActiveScript"]>>
-						>,
+							Effect.Success<
+								ReturnType<PluginRuntimeResolver["Service"]["resolveActivePluginUserBootstrap"]>
+							>
+						>["script"],
 					})
 				: Effect.succeed(null);
 		},

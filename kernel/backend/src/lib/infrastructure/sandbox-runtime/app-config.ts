@@ -94,16 +94,6 @@ export const getPluginConfig = Effect.fn("getPluginConfig")(function* (input: {
 	return values;
 });
 
-export const isPluginConfigKeyConfigured = Effect.fn("isPluginConfigKeyConfigured")(
-	function* (input: { key: string; context: PluginConfigContext }) {
-		if (!Object.hasOwn(input.context.configSchema.fields, input.key)) {
-			return false;
-		}
-		const result = yield* Effect.result(resolveContextConfig(input.context));
-		return result._tag === "Success" && result.success[input.key] !== undefined;
-	},
-);
-
 export const getSystemConfig = Effect.fn("getSystemConfig")(function* (
 	keys: ReadonlyArray<string>,
 	metadata: unknown,

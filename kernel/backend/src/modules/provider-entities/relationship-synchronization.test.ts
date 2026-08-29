@@ -11,11 +11,7 @@ import { Effect, Layer } from "effect";
 
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { databaseLayer } from "#lib/test-utils/effect";
-import {
-	DefinitionRegistry,
-	definitionSourceFromSnapshot,
-	makeDefinitionRegistry,
-} from "#modules/definition-registry/service";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
@@ -34,17 +30,9 @@ const command = rootLifecycleCommand({
 	occurredAt: IsoUtcString.make("2026-09-16T00:00:00.000Z"),
 	executionId: AutomationExecutionId.make("relationship-sync"),
 });
-const registry = makeDefinitionRegistry(
-	definitionSourceFromSnapshot({
-		savedViews: {},
-		entitySchemas: {},
-		signalSchemas: {},
-		relationshipSchemas: {},
-	}),
-);
 const support = Layer.mergeAll(
 	databaseLayer,
-	Layer.succeed(DefinitionRegistry, registry),
+	Layer.mock(DefinitionRepository)({}),
 	Layer.mock(EntitiesRepository)({}),
 );
 

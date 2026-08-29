@@ -20,12 +20,11 @@ import { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import type { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { Database, mapDatabaseErrors, retryOnDeadlock } from "#lib/infrastructure/db/service";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
-import type { RelationshipSchemaDefinition } from "#modules/definition-registry/service";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
+import type { RelationshipSchemaDefinition } from "#modules/definition-registry/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
-import {
-	CatalogDefinitionFingerprint,
-	PluginRuntimeResolver,
-} from "#modules/plugins/runtime-resolver";
+import type { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { CatalogDefinitionFingerprint } from "#modules/plugins/runtime-resolver";
 
 import {
 	RelationshipIdentityInput,
@@ -222,9 +221,10 @@ export const validateUserIdentity = Effect.fnUntraced(function* (
 	userId: UserId,
 	input: UserRelationshipIdentity,
 ) {
-	const runtime = yield* PluginRuntimeResolver;
-	const definitions = yield* runtime.getEffectiveDefinitions(userId);
-	const definition = definitions.relationshipSchemas[input.relationshipSchemaSlug];
+	const definitions = yield* DefinitionRepository;
+	const definition = (yield* definitions.findUserRelationshipSchemas(userId, [
+		input.relationshipSchemaSlug,
+	]))[input.relationshipSchemaSlug];
 	if (!definition) {
 		return yield* new RelationshipNotFound({
 			reason: {
@@ -243,6 +243,7 @@ export type RelationshipMutationDependencies = {
 	readonly planner: LifecyclePlanner["Service"];
 	readonly repository: RelationshipsRepository["Service"];
 	readonly runtime: PluginRuntimeResolver["Service"];
+	readonly definitions: DefinitionRepository["Service"];
 };
 
 /** Persistence phases run inside the caller's transaction rather than opening their own. */

@@ -10,16 +10,19 @@ import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-r
 import { AuthRepository } from "#modules/auth/repository";
 import { AutomationsRepository } from "#modules/automations/repository";
 import { ClientPagesRepository } from "#modules/client-pages/repository";
-import type { DefinitionSnapshot, SavedViewDefinition } from "#modules/definition-registry/service";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
+import type {
+	DefinitionSnapshot,
+	SavedViewDefinition,
+} from "#modules/definition-registry/snapshot";
+import { materializeSavedView } from "#modules/definition-registry/source";
 import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities/repository";
 import { TranslationsRepository } from "#modules/entity-translation/repository";
 import { EventsRepository } from "#modules/events/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { concretePluginConfigSecretPaths } from "#modules/plugins/config-redaction";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
-import { materializeSavedView } from "#modules/plugins/loader";
 import { PluginRepository } from "#modules/plugins/repository";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { ManagedAssetsService } from "#modules/uploads/managed-assets/service";
@@ -332,7 +335,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 			const plugins = yield* PluginRepository;
 			const entities = yield* EntitiesRepository;
 			const uploads = yield* ManagedAssetsService;
-			const runtime = yield* PluginRuntimeResolver;
+			const definitionRepository = yield* DefinitionRepository;
 			const savedViews = yield* SavedViewsRepository;
 			const automations = yield* AutomationsRepository;
 			const integrations = yield* IntegrationsRepository;
@@ -727,7 +730,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 
 			const prepareExportSnapshot = Effect.fn("BackupExportSnapshot.prepareExportSnapshot")(
 				function* (userId: UserId, eventsPath: string) {
-					const definitions = yield* runtime.getEffectiveDefinitions(userId, true);
+					const definitions = yield* definitionRepository.getUserSnapshot(userId, { listed: true });
 					const context = yield* readExportContext(userId, definitions);
 					const data = yield* readExportData(userId, context);
 					const { pluginByKey, pluginKeyById, pluginIdForKey } = context;

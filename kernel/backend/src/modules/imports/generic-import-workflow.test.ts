@@ -34,10 +34,12 @@ import {
 	makeWorkflowActivityEngine,
 } from "#lib/test-utils/effect";
 import { CollectionsService } from "#modules/collections/service";
+import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
 import {
+	buildDefinitionSnapshot,
 	type DefinitionSource,
-	makeDefinitionRegistry,
-} from "#modules/definition-registry/service";
+} from "#modules/definition-registry/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
@@ -57,13 +59,17 @@ import {
 import { ImportsService } from "./service";
 
 const collectionsLayer = Layer.mock(CollectionsService)({});
-const makePluginRuntime = (
-	definitions = makeDefinitionRegistry().getSnapshot(),
+const makeDefinitions = (
+	definitions = buildDefinitionSnapshot(kernelDefinitionSource()),
 	onResolve: () => void = () => {},
 ) =>
-	Layer.mock(PluginRuntimeResolver)({
-		getEffectiveDefinitions: () => Effect.sync(onResolve).pipe(Effect.as(definitions)),
+	Layer.mock(DefinitionRepository)({
+		getUserSnapshot: () => Effect.sync(onResolve).pipe(Effect.as(definitions)),
 	});
+const makePluginRuntime = (
+	definitions?: Parameters<typeof makeDefinitions>[0],
+	onResolve?: () => void,
+) => Layer.merge(Layer.mock(PluginRuntimeResolver)({}), makeDefinitions(definitions, onResolve));
 const artifactStoreLayer = Layer.mock(SandboxArtifactStore)({
 	retain: () => Effect.void,
 	release: () => Effect.void,
@@ -688,7 +694,7 @@ it.effect("imports private event and relationship schemas from one effective sna
 			},
 		],
 	} satisfies DefinitionSource;
-	const definitions = makeDefinitionRegistry(definitionSource);
+	const definitions = buildDefinitionSnapshot(definitionSource);
 
 	return Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
@@ -780,7 +786,7 @@ it.effect("imports private event and relationship schemas from one effective sna
 				BunServices.layer,
 				makeAppConfigLayer(),
 				collectionsLayer,
-				makePluginRuntime(definitions.getSnapshot(), () => {
+				makePluginRuntime(definitions, () => {
 					definitionResolutions += 1;
 				}),
 				Layer.mock(EntitiesRepository)({}),
@@ -867,7 +873,7 @@ it.effect("resolves provider entities and preserves generic fallbacks and failur
 	const directory = `/tmp/ryot-sandbox-harvest-test/${executionId}-activity-0`;
 	const path = `${directory}/chunk-0.json`;
 	const instance = WorkflowInstance.initial(ProcessGenericImportChunksWorkflow, executionId);
-	const definitions = makeDefinitionRegistry({
+	const definitions = buildDefinitionSnapshot({
 		savedViews: [],
 		signalSchemas: [],
 		relationshipSchemas: [],
@@ -888,7 +894,7 @@ it.effect("resolves provider entities and preserves generic fallbacks and failur
 				],
 			},
 		],
-	} satisfies DefinitionSource).getSnapshot();
+	} satisfies DefinitionSource);
 	return Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
 		yield* fs.makeDirectory(directory, { recursive: true });
@@ -996,8 +1002,8 @@ it.effect("resolves provider entities and preserves generic fallbacks and failur
 				BunServices.layer,
 				makeAppConfigLayer(),
 				collectionsLayer,
+				makeDefinitions(definitions),
 				Layer.mock(PluginRuntimeResolver)({
-					getEffectiveDefinitions: () => Effect.succeed(definitions),
 					findProviderAvailableToUserBySlug: () =>
 						Effect.succeed({
 							id: providerId,

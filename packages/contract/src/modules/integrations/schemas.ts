@@ -1,7 +1,7 @@
 import { Schema } from "effect";
 
 import { IntegrationId } from "../../schema/brands";
-import { AppSchema } from "../../schema/property-schema";
+import type { AppSchema } from "../../schema/property-schema";
 import { integrationLots } from "./types";
 
 const IntegrationLot = Schema.Literals([...integrationLots]);
@@ -55,35 +55,66 @@ const IntegrationExtraSettings = Schema.Struct({ disableOnContinuousErrors: Sche
 
 export type IntegrationExtraSettings = typeof IntegrationExtraSettings.Type;
 
+const baseCommonFields = {
+	name: { label: "Name", type: "string", description: "Optional name for this integration" },
+	isDisabled: {
+		type: "boolean",
+		label: "Disabled",
+		defaultValue: false,
+		description: "Disable this integration",
+	},
+	disableOnContinuousErrors: {
+		type: "boolean",
+		defaultValue: false,
+		label: "Disable on continuous errors",
+		description: "Disable this integration after continuous errors",
+	},
+} satisfies AppSchema["fields"];
+
+const progressCommonFields = {
+	minimumProgress: {
+		type: "number",
+		defaultValue: 2,
+		label: "Minimum progress",
+		validation: { minimum: 0, maximum: 100 },
+		description: "Minimum progress percentage to synchronize",
+	},
+	maximumProgress: {
+		type: "number",
+		defaultValue: 95,
+		label: "Maximum progress",
+		validation: { minimum: 0, maximum: 100 },
+		description: "Maximum progress percentage to synchronize",
+	},
+} satisfies AppSchema["fields"];
+
+export const integrationCommonSchema = (lot: (typeof integrationLots)[number]): AppSchema => ({
+	fields: {
+		...baseCommonFields,
+		...(lot === "push" ? {} : progressCommonFields),
+		...(lot === "yank"
+			? {
+					syncOwnership: {
+						defaultValue: false,
+						label: "Sync ownership",
+						type: "boolean" as const,
+						description: "Synchronize ownership from this integration",
+					},
+				}
+			: {}),
+	},
+});
+
 /**
  * A provider form renders `commonSchema` and `settingsSchema` against one flat value record, so a
  * `settingsSchema` field sharing a name with a common one would silently collide. Plugin manifest
  * validation rejects those names.
  */
-export const integrationCommonPropertyNames: ReadonlySet<string> = new Set([
-	"name",
-	"isDisabled",
-	"syncOwnership",
-	"minimumProgress",
-	"maximumProgress",
-	"disableOnContinuousErrors",
-]);
+export const integrationCommonPropertyNames: ReadonlySet<string> = new Set(
+	Object.keys(integrationCommonSchema("yank").fields),
+);
 
-export const ListedIntegrationProvider = Schema.Struct({
-	slug: Schema.String,
-	name: Schema.String,
-	lot: IntegrationLot,
-	commonSchema: AppSchema,
-	settingsSchema: AppSchema,
-	pluginSlug: Schema.String,
-	description: Schema.String,
-	isCreatable: Schema.Boolean,
-	requiresProKey: Schema.Boolean,
-});
-
-export type ListedIntegrationProvider = typeof ListedIntegrationProvider.Type;
-
-export const ListedIntegration = Schema.Struct({
+export const IntegrationSnapshot = Schema.Struct({
 	id: IntegrationId,
 	lot: IntegrationLot,
 	createdAt: Schema.String,
@@ -96,12 +127,11 @@ export const ListedIntegration = Schema.Struct({
 	maximumProgress: Schema.Number,
 	name: Schema.NullOr(Schema.String),
 	extraSettings: IntegrationExtraSettings,
-	webhookUrl: Schema.optional(Schema.String),
 	lastFinishedAt: Schema.NullOr(Schema.String),
 	providerSpecifics: IntegrationProviderSettings,
 });
 
-export type ListedIntegration = typeof ListedIntegration.Type;
+export type IntegrationSnapshot = typeof IntegrationSnapshot.Type;
 
 export const CreateIntegrationBody = Schema.Struct({
 	provider: IntegrationProvider,
@@ -127,6 +157,9 @@ export const UpdateIntegrationBody = Schema.Struct({
 });
 
 export type UpdateIntegrationBody = typeof UpdateIntegrationBody.Type;
+
+export const integrationWebhookUrl = (frontendOrigin: string, token: string): string =>
+	`${frontendOrigin.replace(/\/$/, "")}/_i/${token}`;
 
 export const integrationWebhookContentTypes = ["application/json", "multipart/form-data"] as const;
 

@@ -38,11 +38,8 @@ import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-sc
 import { slugify } from "#lib/shared/slug";
 import { AddEntityToCollectionWorkflow } from "#modules/collections/add-entity-to-collection-workflow";
 import { CollectionEntityResult, CollectionsService } from "#modules/collections/service";
-import {
-	DefinitionSnapshot,
-	definitionSourceFromSnapshot,
-	makeDefinitionRegistry,
-} from "#modules/definition-registry/service";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { DefinitionSnapshot, definitionLookup } from "#modules/definition-registry/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService, PendingEntityMutation } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
@@ -348,7 +345,7 @@ const resolveProviderEntity = Effect.fn("imports.resolveProviderEntity")(functio
 	return matchesImportIntent(providerEntity, intent) ? providerEntity.id : undefined;
 });
 
-type GenericImportDefinitions = ReturnType<typeof makeDefinitionRegistry>;
+type GenericImportDefinitions = ReturnType<typeof definitionLookup>;
 
 const validateGenericItem = (
 	item: GenericImportWriteItem,
@@ -651,8 +648,8 @@ const resolveGenericImportDefinitions = (userId: UserId) =>
 		name: "resolve-generic-import-definitions",
 		error: ImportRunError satisfies DurableSchema,
 		success: DefinitionSnapshot satisfies DurableSchema,
-		execute: Effect.flatMap(PluginRuntimeResolver, (runtime) =>
-			runtime.getEffectiveDefinitions(userId),
+		execute: Effect.flatMap(DefinitionRepository, (definitions) =>
+			definitions.getUserSnapshot(userId, { listed: false }),
 		).pipe(Effect.mapError(toWorkflowError)),
 	});
 
@@ -667,7 +664,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 	let failureReason: ImportRunFailureReason | undefined;
 	const runId = ImportRunId.make(payload.runId);
 	const snapshot = yield* resolveGenericImportDefinitions(payload.userId);
-	const definitions = makeDefinitionRegistry(definitionSourceFromSnapshot(snapshot));
+	const definitions = definitionLookup(snapshot);
 
 	const process = Effect.gen(function* () {
 		yield* updateRun("record-generic-import-total", { runId, totalItems: payload.totalItems });

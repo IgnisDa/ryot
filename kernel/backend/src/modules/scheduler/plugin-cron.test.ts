@@ -8,11 +8,9 @@ import { assert } from "vitest";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { databaseLayer, makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
-import { makeDefinitionRegistry } from "#modules/definition-registry/service";
-import { makePluginLoader, PluginLoader } from "#modules/plugins/loader";
-import type { PluginRegistryEntry } from "#modules/plugins/loader";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
+import type { PluginRevision, StoredPluginIdentity } from "#modules/plugins/types";
 
 import {
 	pluginCronExecutionId,
@@ -21,6 +19,21 @@ import {
 } from "./plugin-cron";
 
 type CapturedRun = Parameters<WorkflowEngine["Service"]["execute"]>[1];
+
+type PluginRegistryEntry = PluginRevision & StoredPluginIdentity;
+
+const makeCatalog = () => {
+	let plugins: Readonly<Record<string, PluginRegistryEntry>> = {};
+	return {
+		current: () => ({ plugins }),
+		load: (plugin: PluginRegistryEntry) => {
+			plugins = { ...plugins, [plugin.slug]: plugin };
+		},
+		rebuild: (next: ReadonlyArray<PluginRegistryEntry>) => {
+			plugins = Object.fromEntries(next.map((plugin) => [plugin.slug, plugin]));
+		},
+	};
+};
 
 const testDate = new Date(0);
 
@@ -94,7 +107,7 @@ const normalizedWorkflowPlugin = (pluginSlug: string): PluginRegistryEntry => {
 };
 
 const makeLayer = (
-	loader: ReturnType<typeof makePluginLoader>,
+	catalog: ReturnType<typeof makeCatalog>,
 	captured: Array<CapturedRun>,
 	failingExecutionId?: string,
 	infrequentCronJobsSchedule = "0 0 * * *",
@@ -107,13 +120,24 @@ const makeLayer = (
 			Layer.mergeAll(
 				makeAppConfigLayer({ scheduler: { infrequentCronJobsSchedule } }),
 				databaseLayer,
-				Layer.succeed(PluginLoader, { ...loader }),
 				Layer.mock(PluginRuntimeResolver)({
 					listPrivateCronSchedules,
+					listSystemCronSchedules: () =>
+						Effect.sync(() =>
+							Object.values(catalog.current().plugins)
+								.flatMap((plugin) =>
+									plugin.manifest.crons.map((cron) => ({ cron, pluginSlug: plugin.slug })),
+								)
+								.sort(
+									(left, right) =>
+										left.pluginSlug.localeCompare(right.pluginSlug) ||
+										left.cron.slug.localeCompare(right.cron.slug),
+								),
+						),
 					resolveActivePluginCron:
 						resolveActivePluginCron ??
 						(({ cronSlug, pluginSlug }) => {
-							const plugin = loader.getSnapshot().plugins[pluginSlug];
+							const plugin = catalog.current().plugins[pluginSlug];
 							const cron = plugin?.manifest.crons.find(({ slug }) => slug === cronSlug);
 							if (!cron) {
 								return Effect.succeed(null);
@@ -166,8 +190,8 @@ const makeLayer = (
 
 it.effect("dispatches due plugin crons as deterministic system sandbox runs", () => {
 	const captured: Array<CapturedRun> = [];
-	const loader = makePluginLoader(makeDefinitionRegistry());
-	loader.load(normalizedPlugin("fixture"));
+	const catalog = makeCatalog();
+	catalog.load(normalizedPlugin("fixture"));
 
 	return Effect.gen(function* () {
 		const service = yield* PluginCronService;
@@ -184,37 +208,37 @@ it.effect("dispatches due plugin crons as deterministic system sandbox runs", ()
 				},
 			},
 		]);
-	}).pipe(Effect.provide(makeLayer(loader, captured)));
+	}).pipe(Effect.provide(makeLayer(catalog, captured)));
 });
 
 it.effect("resolves infrequent plugin cron schedules from application config", () => {
 	const captured: Array<CapturedRun> = [];
-	const loader = makePluginLoader(makeDefinitionRegistry());
-	loader.load(normalizedPlugin("fixture", { tier: "infrequent" }));
+	const catalog = makeCatalog();
+	catalog.load(normalizedPlugin("fixture", { tier: "infrequent" }));
 
 	return Effect.gen(function* () {
 		const service = yield* PluginCronService;
 		yield* service.dispatchDue(60_000);
 		expect(captured).toHaveLength(1);
-	}).pipe(Effect.provide(makeLayer(loader, captured, undefined, "* * * * *")));
+	}).pipe(Effect.provide(makeLayer(catalog, captured, undefined, "* * * * *")));
 });
 
 it.effect("skips infrequent plugin crons when the configured schedule is invalid", () => {
 	const captured: Array<CapturedRun> = [];
-	const loader = makePluginLoader(makeDefinitionRegistry());
-	loader.load(normalizedPlugin("fixture", { tier: "infrequent" }));
+	const catalog = makeCatalog();
+	catalog.load(normalizedPlugin("fixture", { tier: "infrequent" }));
 
 	return Effect.gen(function* () {
 		const service = yield* PluginCronService;
 		yield* service.dispatchDue(60_000);
 		expect(captured).toEqual([]);
-	}).pipe(Effect.provide(makeLayer(loader, captured, undefined, "not a cron")));
+	}).pipe(Effect.provide(makeLayer(catalog, captured, undefined, "not a cron")));
 });
 
 it.effect("fails the tick when private cron discovery fails", () => {
 	const captured: Array<CapturedRun> = [];
-	const loader = makePluginLoader(makeDefinitionRegistry());
-	loader.load(normalizedPlugin("fixture"));
+	const catalog = makeCatalog();
+	catalog.load(normalizedPlugin("fixture"));
 	const error = new DbError({ message: "private cron discovery failed" });
 
 	return Effect.gen(function* () {
@@ -224,15 +248,15 @@ it.effect("fails the tick when private cron discovery fails", () => {
 		expect(captured).toEqual([]);
 	}).pipe(
 		Effect.provide(
-			makeLayer(loader, captured, undefined, "0 0 * * *", undefined, () => Effect.fail(error)),
+			makeLayer(catalog, captured, undefined, "0 0 * * *", undefined, () => Effect.fail(error)),
 		),
 	);
 });
 
 it.effect("targets exactly one script cron", () => {
 	const captured: Array<CapturedRun> = [];
-	const loader = makePluginLoader(makeDefinitionRegistry());
-	loader.rebuild([normalizedPlugin("first"), normalizedPlugin("second")]);
+	const catalog = makeCatalog();
+	catalog.rebuild([normalizedPlugin("first"), normalizedPlugin("second")]);
 
 	return Effect.gen(function* () {
 		const service = yield* PluginCronService;
@@ -248,13 +272,13 @@ it.effect("targets exactly one script cron", () => {
 			subject: { type: "system" },
 			scriptId: SandboxScriptId.make("second-script-id"),
 		});
-	}).pipe(Effect.provide(makeLayer(loader, captured)));
+	}).pipe(Effect.provide(makeLayer(catalog, captured)));
 });
 
 it.effect("targets one workflow cron through the durable workflow shell", () => {
 	const captured: Array<CapturedRun> = [];
-	const loader = makePluginLoader(makeDefinitionRegistry());
-	loader.load(normalizedWorkflowPlugin("fixture"));
+	const catalog = makeCatalog();
+	catalog.load(normalizedWorkflowPlugin("fixture"));
 
 	return Effect.gen(function* () {
 		const service = yield* PluginCronService;
@@ -272,13 +296,13 @@ it.effect("targets one workflow cron through the durable workflow shell", () => 
 			subject: { type: "system" },
 			scriptId: SandboxScriptId.make("fixture-script-id"),
 		});
-	}).pipe(Effect.provide(makeLayer(loader, captured)));
+	}).pipe(Effect.provide(makeLayer(catalog, captured)));
 });
 
 it.effect("returns notFound without dispatching an unknown cron", () => {
 	const captured: Array<CapturedRun> = [];
-	const loader = makePluginLoader(makeDefinitionRegistry());
-	loader.load(normalizedPlugin("fixture"));
+	const catalog = makeCatalog();
+	catalog.load(normalizedPlugin("fixture"));
 
 	return Effect.gen(function* () {
 		const service = yield* PluginCronService;
@@ -288,13 +312,13 @@ it.effect("returns notFound without dispatching an unknown cron", () => {
 			pluginSlug: "fixture",
 		});
 		expect(captured).toEqual([]);
-	}).pipe(Effect.provide(makeLayer(loader, captured)));
+	}).pipe(Effect.provide(makeLayer(catalog, captured)));
 });
 
 it.effect("reports workflow failures from manual cron triggers", () => {
 	const captured: Array<CapturedRun> = [];
-	const loader = makePluginLoader(makeDefinitionRegistry());
-	loader.load(normalizedPlugin("fixture"));
+	const catalog = makeCatalog();
+	catalog.load(normalizedPlugin("fixture"));
 
 	return Effect.gen(function* () {
 		const service = yield* PluginCronService;
@@ -307,31 +331,31 @@ it.effect("reports workflow failures from manual cron triggers", () => {
 		});
 		expect(captured).toEqual([]);
 	}).pipe(
-		Effect.provide(makeLayer(loader, captured, "plugin-cron-7-fixture-12-fixture-cron-parent-id")),
+		Effect.provide(makeLayer(catalog, captured, "plugin-cron-7-fixture-12-fixture-cron-parent-id")),
 	);
 });
 
 it.effect("observes hot-loaded snapshots without scheduler registration", () => {
 	const captured: Array<CapturedRun> = [];
-	const loader = makePluginLoader(makeDefinitionRegistry());
+	const catalog = makeCatalog();
 
 	return Effect.gen(function* () {
 		const service = yield* PluginCronService;
 		yield* service.dispatchDue(60_000);
-		loader.load(normalizedPlugin("hot"));
+		catalog.load(normalizedPlugin("hot"));
 		yield* service.dispatchDue(120_000);
 		expect(captured.map(({ executionId }) => executionId)).toEqual([
 			"plugin-cron-3-hot-8-hot-cron-120000",
 		]);
-	}).pipe(Effect.provide(makeLayer(loader, captured)));
+	}).pipe(Effect.provide(makeLayer(catalog, captured)));
 });
 
 it.effect(
 	"dispatches a manifest entry and script selected from one snapshot during replacement",
 	() => {
 		const captured: Array<CapturedRun> = [];
-		const loader = makePluginLoader(makeDefinitionRegistry());
-		loader.load(normalizedPlugin("fixture"));
+		const catalog = makeCatalog();
+		catalog.load(normalizedPlugin("fixture"));
 		const replacement = normalizedPlugin("fixture");
 		const replacementScript = replacement.scripts[0];
 		assert(replacementScript);
@@ -343,7 +367,7 @@ it.effect(
 				identity,
 			) =>
 				Effect.gen(function* () {
-					const plugin = loader.getSnapshot().plugins[identity.pluginSlug];
+					const plugin = catalog.current().plugins[identity.pluginSlug];
 					const cron = plugin?.manifest.crons.find(({ slug }) => slug === identity.cronSlug);
 					assert(plugin);
 					assert(cron);
@@ -363,7 +387,7 @@ it.effect(
 						},
 					};
 				});
-			const layer = makeLayer(loader, captured, undefined, "0 0 * * *", resolveActivePluginCron);
+			const layer = makeLayer(catalog, captured, undefined, "0 0 * * *", resolveActivePluginCron);
 			const fiber = yield* Effect.forkChild(
 				Effect.gen(function* () {
 					const service = yield* PluginCronService;
@@ -371,7 +395,7 @@ it.effect(
 				}).pipe(Effect.provide(layer)),
 			);
 			yield* Deferred.await(selected);
-			loader.load({
+			catalog.load({
 				...replacement,
 				scripts: [{ ...replacementScript, contentHash: "new-compiled" }],
 			});
@@ -386,8 +410,8 @@ it.effect(
 
 it.effect("isolates unavailable and failed cron dispatches", () => {
 	const captured: Array<CapturedRun> = [];
-	const loader = makePluginLoader(makeDefinitionRegistry());
-	loader.rebuild([normalizedPlugin("missing"), normalizedPlugin("working")]);
+	const catalog = makeCatalog();
+	catalog.rebuild([normalizedPlugin("missing"), normalizedPlugin("working")]);
 	const failingExecutionId = "plugin-cron-7-missing-12-missing-cron-60000";
 
 	return Effect.gen(function* () {
@@ -396,7 +420,7 @@ it.effect("isolates unavailable and failed cron dispatches", () => {
 		expect(captured.map(({ executionId }) => executionId)).toEqual([
 			"plugin-cron-7-working-12-working-cron-60000",
 		]);
-	}).pipe(Effect.provide(makeLayer(loader, captured, failingExecutionId)));
+	}).pipe(Effect.provide(makeLayer(catalog, captured, failingExecutionId)));
 });
 
 it("builds stable execution ids", () => {
@@ -453,8 +477,8 @@ const makePrivateCronLayer = (
 			Layer.mergeAll(
 				databaseLayer,
 				makeAppConfigLayer({ scheduler: { infrequentCronJobsSchedule: "0 0 * * *" } }),
-				Layer.succeed(PluginLoader, { ...makePluginLoader(makeDefinitionRegistry()) }),
 				Layer.mock(PluginRuntimeResolver)({
+					listSystemCronSchedules: () => Effect.succeed([]),
 					listPrivateCronSchedules: () => Effect.succeed([...schedules]),
 					resolvePrivatePluginCron: ({ cronSlug, installationId }) => {
 						const schedule = schedules.find(

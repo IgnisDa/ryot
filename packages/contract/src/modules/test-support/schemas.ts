@@ -2,32 +2,19 @@ import { Schema } from "effect";
 
 import { CanonicalBase64 } from "../../schema/base64";
 import {
-	AutomationExecutionId,
-	AutomationHookSlug,
-	AutomationRunId,
-	AutomationTriggerId,
-	EntityId,
 	EntitySchemaSlug,
-	EventId,
 	ImportRunId,
 	PluginConfigRevisionId,
 	PluginId,
 	PluginRevisionId,
 	PluginSlug,
-	RelationshipId,
-	RelationshipSchemaSlug,
 	SandboxProviderId,
 	SandboxScriptId,
 	UserId,
 } from "../../schema/brands";
 import { strictStruct } from "../../schema/utils";
-import {
-	AutomationRunAttempt,
-	AutomationRunStatus,
-	AutomationTriggerPayload,
-} from "../automations/lifecycle";
 import { PluginManifest } from "../plugins/manifest";
-import { EnqueueSandboxBody, SandboxScriptMetadata } from "../sandbox/schemas";
+import { EnqueueSandboxBody } from "../sandbox/schemas";
 
 const TestSupportDiagnosticReason = Schema.Union([
 	Schema.Struct({ diagnostic: Schema.String, code: Schema.Literal("invalid-request") }),
@@ -61,37 +48,13 @@ export const TestSupportInstallSystemPluginBodyBase64 = Schema.Struct({
 export type TestSupportInstallSystemPluginBodyBase64 =
 	typeof TestSupportInstallSystemPluginBodyBase64.Type;
 
-export const TestSupportSystemPlugin = Schema.Struct({
-	slug: PluginSlug,
+export const TestSupportPluginWriteResult = Schema.Struct({
 	pluginId: PluginId,
-	icon: Schema.String,
-	name: Schema.String,
-	version: Schema.String,
-	sourceHash: Schema.String,
-	description: Schema.String,
 	activePluginRevisionId: PluginRevisionId,
-	scope: Schema.Literals(["system", "user"]),
 	installationId: Schema.NullOr(Schema.String),
 	configRevisionId: Schema.NullOr(PluginConfigRevisionId),
-	scripts: Schema.Array(
-		Schema.Struct({ slug: Schema.String, id: SandboxScriptId, contentHash: Schema.String }),
-	),
+	scripts: Schema.Array(Schema.Struct({ slug: Schema.String, id: SandboxScriptId })),
 });
-
-export type TestSupportSystemPlugin = typeof TestSupportSystemPlugin.Type;
-
-export const TestSupportStoredSandboxScript = Schema.Struct({
-	id: SandboxScriptId,
-	slug: Schema.String,
-	name: Schema.String,
-	source: Schema.String,
-	compiledCode: Schema.String,
-	compiledFormat: Schema.Number,
-	metadata: SandboxScriptMetadata,
-	providerId: Schema.NullOr(SandboxProviderId),
-});
-
-export type TestSupportStoredSandboxScript = typeof TestSupportStoredSandboxScript.Type;
 
 export const TestSupportEnqueueSandboxBody = strictStruct({
 	...EnqueueSandboxBody.fields,
@@ -394,66 +357,4 @@ export const TestSupportBackendCheckpoint = Schema.Struct({
 		protectedObjectCount: Schema.Number,
 		topObjectTypes: Schema.Array(Schema.Struct({ type: Schema.String, count: Schema.Number })),
 	}),
-});
-
-export const TestSupportGlobalRelationship = Schema.Struct({
-	id: RelationshipId,
-	sourceEntityId: EntityId,
-	targetEntityId: EntityId,
-	createdAt: Schema.String,
-	properties: Schema.Unknown,
-	relationshipSchemaSlug: RelationshipSchemaSlug,
-});
-
-export const TestSupportAutomationSourceRecord = Schema.Union([
-	strictStruct({ id: EntityId, resource: Schema.Literal("entity") }),
-	strictStruct({ id: EventId, resource: Schema.Literal("event") }),
-	strictStruct({ id: RelationshipId, resource: Schema.Literal("relationship") }),
-	strictStruct({ id: EntityId, resource: Schema.Literal("provider-entity-import") }),
-]);
-
-const automationTriggerFilterFields = {
-	triggerId: Schema.optional(AutomationTriggerId),
-	payload: Schema.optional(AutomationTriggerPayload),
-	rootExecutionId: Schema.optional(AutomationExecutionId),
-	sourceRecord: Schema.optional(TestSupportAutomationSourceRecord),
-};
-
-export const TestSupportListAutomationTriggersBody = strictStruct(automationTriggerFilterFields);
-export type TestSupportListAutomationTriggersBody =
-	typeof TestSupportListAutomationTriggersBody.Type;
-
-export const TestSupportListAutomationTriggerRecipientsBody = strictStruct({
-	triggerId: AutomationTriggerId,
-	userId: Schema.optional(UserId),
-});
-export type TestSupportListAutomationTriggerRecipientsBody =
-	typeof TestSupportListAutomationTriggerRecipientsBody.Type;
-
-export const TestSupportListAutomationRunsBody = strictStruct({
-	...automationTriggerFilterFields,
-	status: Schema.optional(AutomationRunStatus),
-	hookSlug: Schema.optional(AutomationHookSlug),
-	executionUserId: Schema.optional(Schema.NullOr(UserId)),
-});
-export type TestSupportListAutomationRunsBody = typeof TestSupportListAutomationRunsBody.Type;
-
-export const TestSupportListAutomationRunAttemptsBody = strictStruct({
-	runId: AutomationRunId,
-	status: Schema.optional(AutomationRunAttempt.fields.status),
-});
-export type TestSupportListAutomationRunAttemptsBody =
-	typeof TestSupportListAutomationRunAttemptsBody.Type;
-
-export const TestSupportBuiltinEntitySchema = Schema.Struct({
-	slug: Schema.String,
-	name: Schema.String,
-	id: EntitySchemaSlug,
-});
-
-export const TestSupportEntityTranslation = Schema.Struct({
-	language: Schema.String,
-	populatedAt: Schema.String,
-	name: Schema.NullOr(Schema.String),
-	properties: Schema.NullOr(Schema.Record(Schema.String, Schema.Unknown)),
 });

@@ -9,14 +9,14 @@ import { TestClock } from "effect/testing";
 import Redis from "ioredis";
 
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
-import { databaseLayer, makeRedisService } from "#lib/test-utils/effect";
+import { makeRedisService } from "#lib/test-utils/effect";
 
 import {
 	PluginCatalogHub,
 	PluginCatalogInvalidator,
 	PluginCatalogInvalidatorLive,
+	PluginInvalidationSubscriber,
 } from "./catalog-events";
-import { PluginIngestionService, PluginInvalidationSubscriber } from "./service";
 
 const decode = (value: Uint8Array) => new TextDecoder().decode(value);
 
@@ -86,7 +86,7 @@ it.effect(
 			yield* invalidator.all;
 			expect(published.map(({ channel }) => channel)).toEqual([
 				redisKeys.pluginCatalogUserChannel,
-				redisKeys.pluginRegistryChannel,
+				redisKeys.pluginCatalogChannel,
 			]);
 			const decoded = decodePluginCatalogInvalidatedMessage(published[0]?.message);
 			expect(Result.isSuccess(decoded) && decoded.success.userId).toBe(userId);
@@ -111,7 +111,6 @@ it.effect(
 
 it.effect("routes Redis invalidations by user and refreshes all streams after recovery", () => {
 	let subscriptions = 0;
-	let rebuilds = 0;
 	const redisSubscriber = Object.assign(Object.create(Redis.prototype), {
 		on: () => redisSubscriber,
 		quit: () => Promise.resolve("OK"),
@@ -125,14 +124,8 @@ it.effect("routes Redis invalidations by user and refreshes all streams after re
 		duplicate: () => redisSubscriber,
 	}) satisfies Redis;
 	const dependencies = Layer.mergeAll(
-		databaseLayer,
 		PluginCatalogHub.layer,
 		Layer.succeed(RedisService, makeRedisService({ client })),
-		Layer.mock(PluginIngestionService)({
-			reconcile: () => Effect.succeed(false),
-			rebuild: () =>
-				Effect.sync(() => void (rebuilds += 1)).pipe(Effect.andThen(Effect.die("rebuilt"))),
-		}),
 	);
 
 	return Effect.gen(function* () {
@@ -159,10 +152,7 @@ it.effect("routes Redis invalidations by user and refreshes all streams after re
 				expect(Option.isNone(yield* Queue.poll(first))).toBe(true);
 				expect(Option.isNone(yield* Queue.poll(second))).toBe(true);
 
-				yield* subscriber
-					.dispatch(redisKeys.pluginRegistryChannel, "registry changed")
-					.pipe(Effect.ignoreCause);
-				expect(rebuilds).toBe(1);
+				yield* subscriber.dispatch(redisKeys.pluginCatalogChannel, "plugin-catalog-invalidated");
 				expect(decode(yield* Queue.take(first))).toBe("event: catalog-invalidated\ndata:\n\n");
 				expect(decode(yield* Queue.take(second))).toBe("event: catalog-invalidated\ndata:\n\n");
 
@@ -193,19 +183,9 @@ it.effect("fails subscriber layer acquisition when the initial Redis subscriptio
 	const client = Object.assign(Object.create(Redis.prototype), {
 		duplicate: () => redisSubscriber,
 	}) satisfies Redis;
-	const ingestion = {
-		rebuild: () => Effect.die("unused"),
-		reconcile: () => Effect.succeed(false),
-		listPlugins: () => Effect.die("unused"),
-		installPlugin: () => Effect.die("unused"),
-		uninstallPlugin: () => Effect.die("unused"),
-		ingestSystemPlugin: () => Effect.die("unused"),
-	} satisfies PluginIngestionService["Service"];
 	const dependencies = Layer.mergeAll(
-		databaseLayer,
 		PluginCatalogHub.layer,
 		Layer.succeed(RedisService, makeRedisService({ client })),
-		Layer.succeed(PluginIngestionService, ingestion),
 	);
 
 	return Effect.gen(function* () {

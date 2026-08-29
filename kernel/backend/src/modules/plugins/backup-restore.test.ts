@@ -6,13 +6,16 @@ import { describe } from "vitest";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { Database } from "#lib/infrastructure/db/service";
-import { DefinitionRegistry, type DefinitionSnapshot } from "#modules/definition-registry/service";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
+import type { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
 import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 
 import { PluginBackupRestore } from "./backup-restore";
 import { PluginIngestionLock } from "./ingestion-lock";
+import { PluginInstallationRepository } from "./installation-repository";
 import { pluginSourceHash } from "./pipeline";
 import { PluginRepository } from "./repository";
+import { PluginRevisionActivation } from "./revision-activation";
 import { withRevisionDatabase } from "./revision.test-support";
 import { fixtureManifest } from "./test-support";
 
@@ -32,17 +35,18 @@ const privateManifest = () => ({
 });
 
 const snapshot = {
-	plugins: {},
-	httpRateLimits: { byKey: {}, byOrigin: {} },
 	definitions: { savedViews: {}, entitySchemas: {}, signalSchemas: {}, relationshipSchemas: {} },
 };
 const database = Object.create(null);
+const noRevisionActivation = Layer.succeed(PluginRevisionActivation, {
+	activated: () => Effect.void,
+});
 
 const makeLayer = (input?: {
 	readonly definitions?: DefinitionSnapshot;
 	readonly persist?: () => Effect.Effect<string>;
 	readonly lockIngestion?: () => Effect.Effect<void>;
-	readonly listActiveManifests?: () => Effect.Effect<Array<ReturnType<typeof privateManifest>>>;
+	readonly listActiveSystemSlugs?: () => Effect.Effect<Array<string>>;
 }) => {
 	const repositoryLayer = Layer.succeed(
 		PluginRepository,
@@ -50,10 +54,20 @@ const makeLayer = (input?: {
 			persist: input?.persist,
 			listPortablePluginMetadata: () => Effect.succeed([]),
 			lockIngestion: () => input?.lockIngestion?.() ?? Effect.void,
-			listActiveManifests: () => input?.listActiveManifests?.() ?? Effect.succeed([]),
+			listActiveSystemSlugs: () => input?.listActiveSystemSlugs?.() ?? Effect.succeed([]),
 		}),
 	);
-	const ingestionLockLayer = PluginIngestionLock.layer.pipe(Layer.provide(repositoryLayer));
+	const ingestionLockLayer = PluginIngestionLock.layer.pipe(
+		Layer.provide(
+			Layer.mergeAll(
+				repositoryLayer,
+				noRevisionActivation,
+				Layer.mock(PluginInstallationRepository)({
+					refreshClientConfigsForPlugin: () => Effect.void,
+				}),
+			),
+		),
+	);
 	const clientCompilerLayer = Layer.mock(ClientPluginCompiler)({});
 	return PluginBackupRestore.layer.pipe(
 		Layer.provide(
@@ -61,14 +75,8 @@ const makeLayer = (input?: {
 				repositoryLayer,
 				ingestionLockLayer,
 				clientCompilerLayer,
-				Layer.mock(DefinitionRegistry)({
-					replace: () => undefined,
-					getSavedView: () => undefined,
-					getEventSchema: () => undefined,
-					getEntitySchema: () => undefined,
-					getSignalSchema: () => undefined,
-					getRelationshipSchema: () => undefined,
-					getSnapshot: () => input?.definitions ?? snapshot.definitions,
+				Layer.mock(DefinitionRepository)({
+					getGlobalSnapshot: Effect.succeed(input?.definitions ?? snapshot.definitions),
 				}),
 			),
 		),
@@ -253,12 +261,13 @@ it.effect("rejects persistence when a system slug appears after backup preparati
 		Effect.provide(
 			makeLayer({
 				lockIngestion: () => Effect.sync(() => void (systemSlugExists = true)),
-				listActiveManifests: () => Effect.succeed(systemSlugExists ? [manifest] : []),
 				persist: () =>
 					Effect.sync(() => {
 						persists += 1;
 						return "plugin-id";
 					}),
+				listActiveSystemSlugs: () =>
+					Effect.succeed(systemSlugExists ? [manifest.metadata.slug] : []),
 			}),
 		),
 		Effect.provideService(Database, database),
@@ -275,7 +284,10 @@ describe("private package backup restore in PostgreSQL", () => {
 		};
 		const layer = PluginBackupRestore.layer.pipe(
 			Layer.provide(
-				Layer.mergeAll(PluginIngestionLock.layer, Layer.mock(ClientPluginCompiler)({})),
+				Layer.mergeAll(
+					PluginIngestionLock.layer.pipe(Layer.provide(noRevisionActivation)),
+					Layer.mock(ClientPluginCompiler)({}),
+				),
 			),
 		);
 		return withRevisionDatabase(

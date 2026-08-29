@@ -7,7 +7,6 @@ import { MigrationsComplete } from "#lib/infrastructure/db/migrate";
 import { DatabaseLive } from "#lib/infrastructure/db/service";
 import { LocalStorageService } from "#lib/infrastructure/local-storage";
 import { ObservabilityLive } from "#lib/infrastructure/observability";
-import { PluginEnvironmentConfig } from "#lib/infrastructure/plugin-environment-config";
 import { ProKeyService } from "#lib/infrastructure/pro-key";
 import { ProviderHttpAdmissionService } from "#lib/infrastructure/provider-http-admission";
 import { RedisService } from "#lib/infrastructure/redis";
@@ -55,7 +54,6 @@ import {
 	AutomationRunWorkflowDefinitionsLive,
 	AutomationRunWorkflowOperationsLive,
 } from "#modules/automations/run-workflow-live";
-import { AutomationsService } from "#modules/automations/service";
 import { SignalEmissionService } from "#modules/automations/signal-service";
 import { AutomationTriggerRepository } from "#modules/automations/trigger-repository";
 import { BackupExportSnapshot } from "#modules/backups/export/snapshot";
@@ -80,7 +78,7 @@ import {
 } from "#modules/collections/add-entity-to-collection-workflow-live";
 import { CollectionsRepository } from "#modules/collections/repository";
 import { CollectionsService } from "#modules/collections/service";
-import { DefinitionRegistry } from "#modules/definition-registry/service";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { LocalInterestSessions } from "#modules/entity-interest/connections";
@@ -109,7 +107,10 @@ import { ImportsService } from "#modules/imports/service";
 import { ImportWorkflowPinning } from "#modules/imports/workflow-pinning";
 import { IntegrationWorkflowDefinitionsLive } from "#modules/integrations/integration-workflow-live";
 import { IntegrationOperationScopeResolverLive } from "#modules/integrations/operation-scope-resolver-live";
-import { IntegrationsRepository } from "#modules/integrations/repository";
+import {
+	IntegrationPluginRevisionActivationLive,
+	IntegrationsRepository,
+} from "#modules/integrations/repository";
 import { IntegrationsService } from "#modules/integrations/service";
 import { IntegrationSyncWorkflowDefinitionsLive } from "#modules/integrations/sync-workflow-live";
 import { NotificationDeliveryService, NotificationMailer } from "#modules/notifications/delivery";
@@ -122,11 +123,12 @@ import {
 	PluginCatalogHub,
 	PluginCatalogInvalidator,
 	PluginCatalogInvalidatorLive,
+	PluginInvalidationSubscriber,
 } from "#modules/plugins/catalog-events";
 import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
 import { PluginHttpRateLimitAuthority } from "#modules/plugins/http-rate-limit-authority";
-import { ImportSourceCatalogLive } from "#modules/plugins/import-source-catalog";
+import { ImportSourceCatalog } from "#modules/plugins/import-source-catalog";
 import { PluginIngestionLock } from "#modules/plugins/ingestion-lock";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginInstallationService } from "#modules/plugins/installation-service";
@@ -137,14 +139,13 @@ import {
 	PluginInstallationWorkflowDefinitionsLive,
 	PluginInstallationWorkflowOperationsLive,
 } from "#modules/plugins/installation-workflow";
-import { IntegrationProviderCatalogLive } from "#modules/plugins/integration-provider-catalog";
-import { PluginLoaderLive } from "#modules/plugins/loader";
+import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
 import { OperationsService } from "#modules/plugins/operations-service";
 import { PluginRepository } from "#modules/plugins/repository";
 import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
 import { PluginSandboxScriptResolverLive } from "#modules/plugins/sandbox-plugin-script-resolver-live";
 import { ScriptGarbageCollector } from "#modules/plugins/script-garbage-collector";
-import { PluginIngestionService, PluginInvalidationSubscriber } from "#modules/plugins/service";
+import { PluginIngestionService } from "#modules/plugins/service";
 import { SystemPlugins } from "#modules/plugins/system";
 import { EntityImportWorkflowDefinitionsLive } from "#modules/provider-entities/entity-import-workflow";
 import { EntityImportWorkflowOperationsLive } from "#modules/provider-entities/operations-workflow";
@@ -250,34 +251,33 @@ const SandboxPluginScriptResolverLive = Layer.provideMerge(
 );
 const ScriptGarbageCollectorLive = Layer.provide(
 	ScriptGarbageCollector.layer,
-	Layer.mergeAll(
-		PluginLoaderLive,
-		PluginRepository.layer,
-		PackageCacheManager.layer,
-		SandboxWorkflowReferenceRepository.layer,
-	),
+	Layer.mergeAll(PluginRepository.layer, PackageCacheManager.layer),
 );
-// `PluginEnvironmentConfig` is listed here as well as in `PluginRuntimeResolverLive` because
-// `MigrationBootstrapServicesLive` provides that resolver with plain `Layer.provide`.
+const PluginRevisionActivationLive = IntegrationPluginRevisionActivationLive.pipe(
+	Layer.provide(IntegrationsRepository.layer),
+);
 const PluginIngestionServiceLive = Layer.provide(
 	PluginIngestionService.layer,
 	Layer.mergeAll(
-		PluginLoaderLive,
+		PluginRevisionActivationLive,
 		PluginRepository.layer,
+		DefinitionRepository.layer,
 		ClientPluginCompiler.layer,
-		ScriptGarbageCollectorLive,
 		SystemPlugins.layer,
-		PluginEnvironmentConfig.layer,
-		SandboxWorkflowReferenceRepository.layer,
+		PluginCatalogInvalidatorLive,
 	),
 );
 const PluginCatalogStateLive = Layer.mergeAll(PluginCatalogHub.layer, PluginIngestionServiceLive);
 const PluginInvalidationSubscriberLive = PluginInvalidationSubscriber.layer.pipe(
-	Layer.provide(PluginCatalogStateLive),
+	Layer.provide(PluginCatalogHub.layer),
 );
 const RepositoriesLive = Layer.provideMerge(
 	Layer.mergeAll(ContentRepositoriesLive, PlatformRepositoriesLive),
-	Layer.mergeAll(SandboxPluginScriptResolverLive, PluginRuntimeResolverLive),
+	Layer.mergeAll(
+		SandboxPluginScriptResolverLive,
+		PluginRuntimeResolverLive,
+		DefinitionRepository.layer,
+	),
 );
 
 const MigrationBootstrapRepositoriesLive = Layer.provideMerge(
@@ -292,7 +292,7 @@ const MigrationBootstrapRepositoriesLive = Layer.provideMerge(
 		PluginInstallationRepository.layer,
 		PluginRepository.layer,
 	),
-	PluginRuntimeResolverLive,
+	Layer.merge(PluginRuntimeResolverLive, DefinitionRepository.layer),
 );
 
 const CoreInfrastructureDependenciesLive = BaseInfrastructureServicesLive.pipe(
@@ -312,7 +312,7 @@ const ApplicationInfrastructureLive = CoreInfrastructureServicesLive.pipe(
 const PluginConfigEncryptionKeyLive = PluginConfigEncryptionKey.layer;
 
 const LifecyclePlannerServiceLive = LifecyclePlannerLive.pipe(
-	Layer.provide(DefinitionRegistry.layer),
+	Layer.provide(DefinitionRepository.layer),
 );
 const AutomationExecutionOperationsServiceLive = AutomationExecutionOperationsLive.pipe(
 	Layer.provide(AutomationRunRepository.layer),
@@ -349,6 +349,7 @@ const SavedViewsServiceLive = SavedViewsService.layer.pipe(
 			RyotQLServiceLive,
 			SavedViewsRepository.layer,
 			ClientPagesRepository.layer,
+			DefinitionRepository.layer,
 			PluginRuntimeResolverLive,
 			PluginInstallationRepository.layer,
 			PluginCatalogInvalidatorLive,
@@ -360,7 +361,13 @@ const PluginDefinitionMaterializerLive = SavedViewPluginDefinitionMaterializerLi
 	Layer.provide(SavedViewsServiceLive),
 );
 const PluginIngestionLockLive = PluginIngestionLock.layer.pipe(
-	Layer.provide(PluginRepository.layer),
+	Layer.provide(
+		Layer.mergeAll(
+			PluginRepository.layer,
+			PluginRevisionActivationLive,
+			PluginInstallationRepository.layer,
+		),
+	),
 );
 const BackupExportSnapshotLive = BackupExportSnapshot.layer.pipe(
 	Layer.provide(Layer.mergeAll(UploadServicesLive, PluginRuntimeResolverLive)),
@@ -378,7 +385,7 @@ const BackupServicesLive = Layer.mergeAll(
 	BackupsService.layer.pipe(Layer.provide([BackupAccountCleanlinessLive, UploadServicesLive])),
 );
 const pluginInstallationServiceDependencies = Layer.mergeAll(
-	PluginLoaderLive,
+	DefinitionRepository.layer,
 	UploadServicesLive,
 	ObjectStorageServiceLive,
 	PluginRepository.layer,
@@ -574,7 +581,6 @@ const ContentServicesLive = Layer.mergeAll(
 	EventsServiceLive,
 	SavedViewsServiceLive,
 	RyotQLServiceLive,
-	AutomationsService.layer,
 	NotificationSubscriptionsServiceLive,
 	SignalEmissionServiceLive,
 	SignalSchemasService.layer,
@@ -585,7 +591,6 @@ const UserStateServiceLive = UserStateService.layer.pipe(
 	Layer.provide([
 		Layer.mergeAll(EventsServiceLive, RelationshipsServiceLive),
 		PluginRuntimeResolverLive,
-		PluginLoaderLive,
 	]),
 );
 
@@ -593,7 +598,7 @@ const ImportsServiceLive = ImportsService.layer.pipe(
 	Layer.provideMerge(
 		Layer.mergeAll(
 			UploadServicesLive,
-			ImportSourceCatalogLive,
+			ImportSourceCatalog.layer,
 			ImportRunFailuresService.layer,
 			ImportWorkflowPinningLive,
 		),
@@ -606,7 +611,7 @@ const PlatformServicesLive = Layer.mergeAll(
 	UserStateServiceLive,
 	ImportsServiceLive,
 	IntegrationsService.layer.pipe(
-		Layer.provide([ImportsServiceLive, IntegrationProviderCatalogLive]),
+		Layer.provide([ImportsServiceLive, IntegrationProviderCatalog.layer]),
 	),
 	NotificationsService.layer,
 	NotificationDeliveryService.layer.pipe(Layer.provide(NotificationMailer.layer)),
@@ -698,7 +703,7 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 	RestoreBackupWorkflowDefinitionsLive,
 	UserLifecycleWorkflowDefinitionsLive,
 	PluginInstallationWorkflowDefinitionsLive,
-	Layer.provide(IntegrationWorkflowDefinitionsLive, IntegrationProviderCatalogLive),
+	Layer.provide(IntegrationWorkflowDefinitionsLive, IntegrationProviderCatalog.layer),
 	Layer.provide(SandboxWorkflowDefinitionsLive, KernelWorkflowReferencesLive),
 	TranslateEntityWorkflowDefinitionsLive,
 );
@@ -716,6 +721,7 @@ export const SystemPluginIngestionLive = SystemPluginBootstrap.layer.pipe(
 	Layer.provide([
 		PluginIngestionServiceLive,
 		PluginRepository.layer,
+		DefinitionRepository.layer,
 		ScriptGarbageCollectorLive,
 		PluginInstallationServiceLive,
 		SystemPlugins.layer,
@@ -727,12 +733,12 @@ const MigrationBootstrapDependenciesLive = MigrationBootstrapRepositoriesLive.pi
 );
 
 const MigrationBootstrapServicesLive = Layer.mergeAll(
-	NotificationSubscriptionsService.layer.pipe(Layer.provideMerge(AutomationsService.layer)),
+	NotificationSubscriptionsService.layer,
 	SavedViewsServiceLive,
 	Layer.fresh(EntitiesService.layer).pipe(Layer.provide(MigrationLifecycleServicesLive)),
 	SignalSchemasService.layer,
 ).pipe(
-	Layer.provideMerge(Layer.mergeAll(PluginLoaderLive, PluginEnvironmentConfig.layer)),
+	Layer.provideMerge(Layer.merge(DefinitionRepository.layer, PluginRepository.layer)),
 	Layer.provide(MigrationBootstrapDependenciesLive),
 );
 
@@ -746,6 +752,7 @@ export const InternalOAuthProvisioningLive = InternalOAuthProvisioningComplete.l
 export const MigrationInfrastructureLive = Layer.mergeAll(
 	MigrationBootstrapServicesLive,
 	PluginInstallationServiceLive,
+	IntegrationsRepository.layer,
 ).pipe(
 	Layer.provideMerge(DatabaseLive),
 	Layer.provideMerge(ManagedAssetsRepository.layer),

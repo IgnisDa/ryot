@@ -3,26 +3,21 @@ import { DbError } from "@ryot-app/contract/errors";
 import { Cause, Effect, Exit, Layer, Option } from "effect";
 
 import { databaseLayer } from "#lib/test-utils/effect";
-import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 
 import { PluginHttpRateLimitAuthority } from "./http-rate-limit-authority";
-import { makePluginLoader, PluginLoader } from "./loader";
 import { PluginRepository } from "./repository";
-import { fixtureManifest, fixturePluginIdentity } from "./test-support";
 
-const manifest = (slug: string, key: string, origin: string) => {
-	const value = fixtureManifest();
-	return {
-		...value,
-		metadata: { ...value.metadata, slug },
-		httpRateLimits: [{ key, requests: 5, origins: [origin], intervalMs: 1_000 }],
-	};
-};
+const declarations = (slug: string, key: string, origin: string) => ({
+	slug,
+	httpRateLimits: [{ key, requests: 5, origins: [origin], intervalMs: 1_000 }],
+});
 
-const authorityLayer = (listActiveManifests: PluginRepository["Service"]["listActiveManifests"]) =>
+const authorityLayer = (
+	listActiveHttpRateLimits: PluginRepository["Service"]["listActiveHttpRateLimits"],
+) =>
 	PluginHttpRateLimitAuthority.layer.pipe(
 		Layer.provide(
-			Layer.mergeAll(databaseLayer, Layer.mock(PluginRepository)({ listActiveManifests })),
+			Layer.mergeAll(databaseLayer, Layer.mock(PluginRepository)({ listActiveHttpRateLimits })),
 		),
 	);
 
@@ -57,42 +52,11 @@ it.effect("resolves matched and unmatched request origins from active database m
 	}).pipe(
 		Effect.provide(
 			authorityLayer(() =>
-				Effect.succeed([manifest("database", "catalog.api", "https://api.example.com")]),
+				Effect.succeed([declarations("database", "catalog.api", "https://api.example.com")]),
 			),
 		),
 	),
 );
-
-it.effect("ignores a stale loader snapshot and resolves only database authority", () => {
-	const loaderLayer = Layer.succeed(PluginLoader, makePluginLoader(makeDefinitionRegistry()));
-	const layer = Layer.mergeAll(
-		loaderLayer,
-		authorityLayer(() =>
-			Effect.succeed([manifest("database", "database.policy", "https://database.example.com")]),
-		),
-	);
-
-	return Effect.gen(function* () {
-		const loader = yield* PluginLoader;
-		const authority = yield* PluginHttpRateLimitAuthority;
-		const stale = manifest("stale", "stale.policy", "https://stale.example.com");
-		loader.load({
-			scripts: [],
-			manifest: stale,
-			sourceHash: "stale-source",
-			...fixturePluginIdentity(),
-		});
-
-		expect(yield* authority.resolve("https://stale.example.com/request")).toMatchObject({
-			matched: false,
-			reason: "undeclared-origin",
-		});
-		expect(yield* authority.resolve("https://database.example.com/request")).toMatchObject({
-			matched: true,
-			declaration: { key: "database.policy" },
-		});
-	}).pipe(Effect.provide(layer));
-});
 
 it.effect("propagates database failures instead of returning unmatched", () =>
 	Effect.gen(function* () {

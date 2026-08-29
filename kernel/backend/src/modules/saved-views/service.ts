@@ -15,6 +15,7 @@ import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { slugify } from "#lib/shared/slug";
 import { trimToNull } from "#lib/shared/validation";
 import { ClientPagesRepository } from "#modules/client-pages/repository";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { PluginCatalogInvalidator } from "#modules/plugins/catalog-events";
 import { PluginDefinitionMaterializer } from "#modules/plugins/definition-materializer";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
@@ -28,10 +29,9 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 		const repository = yield* SavedViewsRepository;
 		const clientPages = yield* ClientPagesRepository;
 		const pluginRuntime = yield* PluginRuntimeResolver;
+		const definitions = yield* DefinitionRepository;
 		const invalidator = yield* PluginCatalogInvalidator;
 		const installations = yield* PluginInstallationRepository;
-		const effectiveForUser = (userId: CurrentUserValue["id"], includeUnavailable = false) =>
-			pluginRuntime.getEffectiveDefinitions(userId, includeUnavailable);
 		const resolvePluginInstallation = Effect.fn(function* (
 			userId: CurrentUserValue["id"],
 			pluginSlug: PluginSlug,
@@ -47,8 +47,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 		});
 
 		const ensureBuiltinViews = Effect.fn(function* (userId: CurrentUserValue["id"]) {
-			const effective = yield* effectiveForUser(userId, true);
-			const views = Object.values(effective.savedViews);
+			const views = yield* definitions.listUserSavedViews(userId, { listed: true });
 			const installationByPluginId = new Map(
 				(yield* installations.listForUser(userId)).map((state) => [state.pluginId, state.id]),
 			);
@@ -119,8 +118,11 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 					reason: { field: "slug", code: "required-field" },
 				});
 			}
-			const effective = yield* effectiveForUser(user.id);
-			if (effective.savedViews[slug] || (yield* repository.findBySlug(user.id, slug))) {
+			const effective = yield* definitions.listUserSavedViews(user.id, { listed: false });
+			if (
+				effective.some((view) => view.slug === slug) ||
+				(yield* repository.findBySlug(user.id, slug))
+			) {
 				return yield* new SavedViewBadRequest({ reason: { code: "duplicate-name" } });
 			}
 			const database = yield* Database;

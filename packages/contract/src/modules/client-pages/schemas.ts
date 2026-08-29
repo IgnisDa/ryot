@@ -24,29 +24,11 @@ export const ClientRendererDefinition = strictStruct({
 });
 export type ClientRendererDefinition = typeof ClientRendererDefinition.Type;
 
-export const ClientRendererRecord = strictStruct({
-	slug: Schema.String,
-	name: Schema.String,
-	id: ClientRendererId,
-	createdAt: Schema.String,
-	updatedAt: Schema.String,
-	draftRevision: Schema.Int,
-	draftDefinition: ClientRendererDefinition,
-	publishedHash: Schema.NullOr(Schema.String),
-	publishedRevision: Schema.NullOr(Schema.Int),
-	publishedDefinition: Schema.NullOr(ClientRendererDefinition),
-});
-export type ClientRendererRecord = typeof ClientRendererRecord.Type;
+export const ClientRendererCommandResponse = strictStruct({ id: ClientRendererId });
 
-export const ClientRendererMetadata = strictStruct({
-	slug: Schema.String,
-	name: Schema.String,
+export const ReplaceClientRendererDraftResponse = strictStruct({
 	id: ClientRendererId,
-	createdAt: Schema.String,
-	updatedAt: Schema.String,
 	draftRevision: Schema.Int,
-	publishedHash: Schema.NullOr(Schema.String),
-	publishedRevision: Schema.NullOr(Schema.Int),
 });
 
 export const CreateClientRendererBody = strictStruct({

@@ -23,9 +23,8 @@ const makeTranslationsRepository = (
 	overrides: MockOverrides<typeof mockTranslationsRepository> = {},
 ) =>
 	mockTranslationsRepository({
-		listByEntity: () => Effect.succeed([]),
 		findUserLanguage: () => Effect.succeed(null),
-		upsertOverlay: () => Effect.void.pipe(Effect.as(undefined)),
+		upsertOverlay: () => Effect.succeed("translation-id"),
 		...overrides,
 	});
 
@@ -116,14 +115,14 @@ it.effect("delegates overlay upserts to the repository", () => {
 			upsertOverlay: (received) =>
 				Effect.sync(() => {
 					upsertedInput = received;
-					return undefined;
+					return "translation-id";
 				}),
 		}),
 	);
 
 	return Effect.gen(function* () {
 		const service = yield* TranslationsService;
-		yield* service.upsert(input);
+		expect(yield* service.upsert(input)).toBe("translation-id");
 		expect(upsertedInput).toEqual(input);
 	}).pipe(Effect.provide(layer));
 });

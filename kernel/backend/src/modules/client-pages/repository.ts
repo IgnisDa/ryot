@@ -56,9 +56,9 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 						.onConflictDoNothing({
 							target: [schema.clientRenderer.userId, schema.clientRenderer.slug],
 						})
-						.returning(),
+						.returning({ id: schema.clientRenderer.id }),
 				);
-				return row ? toRecord(row) : null;
+				return row ? { id: ClientRendererId.make(row.id) } : null;
 			});
 
 			const listRenderers = Effect.fn("ClientPagesRepository.listRenderers")(function* (
@@ -134,9 +134,12 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 								eq(schema.clientRenderer.draftRevision, input.expectedRevision),
 							),
 						)
-						.returning(),
+						.returning({
+							id: schema.clientRenderer.id,
+							draftRevision: schema.clientRenderer.draftRevision,
+						}),
 				);
-				return row ? toRecord(row) : null;
+				return row ? { draftRevision: row.draftRevision, id: ClientRendererId.make(row.id) } : null;
 			});
 
 			const listDependentSettings = Effect.fn("ClientPagesRepository.listDependentSettings")(
@@ -212,9 +215,9 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 								eq(schema.clientRenderer.userId, userId),
 							),
 						)
-						.returning(),
+						.returning({ id: schema.clientRenderer.id }),
 				);
-				return row ? toRecord(row) : null;
+				return row ? { id: ClientRendererId.make(row.id) } : null;
 			});
 
 			const findPreparedTarget = Effect.fn("ClientPagesRepository.findPreparedTarget")(function* (

@@ -1,8 +1,6 @@
 import { Result, Schema } from "effect";
 import { assert, describe, expect, it } from "vitest";
 
-import { ImportsGroup } from "../imports/contract";
-import { ListedImportSource } from "../imports/schemas";
 import { uploadContentTypeExtensions } from "../uploads/upload-policy";
 import { CLIENT_API_VERSION, definePlugin, PluginManifest } from "./manifest";
 
@@ -579,30 +577,6 @@ describe("definePlugin", () => {
 				],
 			}),
 		).toThrow("Unsupported import upload file extension: exe");
-	});
-
-	it("exposes listed import sources from the authenticated imports endpoint", () => {
-		const listedSource = {
-			...manifest.importSources[0],
-			pluginSlug: "test",
-			isStartable: false,
-			missingPluginConfigKeys: ["TEST_KEY"],
-		};
-		const endpoint = ImportsGroup.endpoints.listSources;
-
-		expect(endpoint.method).toBe("GET");
-		expect(endpoint.path).toBe("/imports/sources");
-		expect(endpoint.middlewares.size).toBeGreaterThan(0);
-		expect(Schema.decodeUnknownSync(ListedImportSource)(listedSource)).toEqual(listedSource);
-		expect(() =>
-			Schema.decodeUnknownSync(ListedImportSource)({
-				...listedSource,
-				lot: "single",
-				input: "file",
-				inputSchema: undefined,
-				allowedFileExtensions: ["json"],
-			}),
-		).toThrow();
 	});
 
 	it("requires and decodes saved-view renderer settings and data sources", () => {

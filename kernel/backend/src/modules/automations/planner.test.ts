@@ -18,8 +18,7 @@ import { LifecyclePlanner, lifecycleRunId } from "#lib/domain/lifecycle";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { Database } from "#lib/infrastructure/db/service";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
-import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
-import { DefinitionRegistry } from "#modules/definition-registry/service";
+import { seedKernelDefinitions } from "#modules/definition-registry/test-support";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginRepository } from "#modules/plugins/repository";
 import {
@@ -878,10 +877,9 @@ describe("LifecyclePlanner PostgreSQL", () => {
 			withRevisionDatabase(
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
-					const registry = yield* DefinitionRegistry;
 					const plugins = yield* PluginRepository;
 					const db = yield* Database;
-					registry.replace(kernelDefinitionSource());
+					yield* seedKernelDefinitions();
 					const script = {
 						source: "v1",
 						name: "Notify",

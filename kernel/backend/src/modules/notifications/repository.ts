@@ -1,5 +1,4 @@
 import type {
-	ListedNotificationChannel,
 	NotificationChannelSpecifics,
 	UpdateNotificationChannelBody,
 } from "@ryot-app/contract/modules/notifications/schemas";
@@ -10,11 +9,6 @@ import { Context, Effect, Layer, Match, Option } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
-
-export type NotificationChannelRecord = ListedNotificationChannel & {
-	readonly userId: UserId;
-	readonly channelSpecifics: NotificationChannelSpecifics;
-};
 
 type NotificationChannelRow = typeof schema.notificationChannel.$inferSelect;
 
@@ -53,7 +47,7 @@ export const describeNotificationChannel = (specifics: NotificationChannelSpecif
 		Match.exhaustive,
 	);
 
-const toRecord = (row: NotificationChannelRow): NotificationChannelRecord => {
+const toRecord = (row: NotificationChannelRow) => {
 	const channelSpecifics = row.channelSpecifics;
 	return {
 		channelSpecifics,
@@ -67,11 +61,7 @@ const toRecord = (row: NotificationChannelRow): NotificationChannelRecord => {
 	};
 };
 
-const toListed = ({
-	userId: _userId,
-	channelSpecifics: _channelSpecifics,
-	...record
-}: NotificationChannelRecord) => record;
+export type NotificationChannelRecord = ReturnType<typeof toRecord>;
 
 const ownedChannelWhere = (input: { channelId: NotificationChannelId; userId: UserId }) =>
 	and(
@@ -120,17 +110,6 @@ export class NotificationsRepository extends Context.Service<NotificationsReposi
 					: yield* Effect.die("Notification channel insert returned no row");
 			});
 
-			const getForUser = Effect.fn("NotificationsRepository.getForUser")(function* (input: {
-				userId: UserId;
-				channelId: NotificationChannelId;
-			}) {
-				const db = yield* Database;
-				const [row] = yield* mapDatabaseErrors(
-					db.select().from(schema.notificationChannel).where(ownedChannelWhere(input)).limit(1),
-				);
-				return row ? toRecord(row) : null;
-			});
-
 			const updateForUser = Effect.fn("NotificationsRepository.updateForUser")(function* (input: {
 				userId: UserId;
 				channelId: NotificationChannelId;
@@ -143,8 +122,14 @@ export class NotificationsRepository extends Context.Service<NotificationsReposi
 				}
 
 				if (Object.keys(updates).length === 0) {
-					const existing = yield* getForUser(input);
-					return existing ? toListed(existing) : null;
+					const [row] = yield* mapDatabaseErrors(
+						db
+							.select({ id: schema.notificationChannel.id })
+							.from(schema.notificationChannel)
+							.where(ownedChannelWhere(input))
+							.limit(1),
+					);
+					return row ? { id: NotificationChannelId.make(row.id) } : null;
 				}
 
 				const [row] = yield* mapDatabaseErrors(
@@ -152,9 +137,9 @@ export class NotificationsRepository extends Context.Service<NotificationsReposi
 						.update(schema.notificationChannel)
 						.set(updates)
 						.where(ownedChannelWhere(input))
-						.returning(),
+						.returning({ id: schema.notificationChannel.id }),
 				);
-				return row ? toListed(toRecord(row)) : null;
+				return row ? { id: NotificationChannelId.make(row.id) } : null;
 			});
 
 			const deleteForUser = Effect.fn("NotificationsRepository.deleteForUser")(function* (input: {

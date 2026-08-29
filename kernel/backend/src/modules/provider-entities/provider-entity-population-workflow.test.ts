@@ -25,12 +25,8 @@ import {
 	makeWorkflowActivityEngine,
 } from "#lib/test-utils/effect";
 import { planFixture } from "#modules/automations/lifecycle.test-support";
-import {
-	DefinitionRegistry,
-	definitionSourceFromSnapshot,
-	makeDefinitionRegistry,
-	type DefinitionSnapshot,
-} from "#modules/definition-registry/service";
+import { DefinitionRepository } from "#modules/definition-registry/repository";
+import type { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -180,10 +176,10 @@ const populationLayer = (options: {
 	};
 	return Layer.mergeAll(
 		passthroughDatabase,
-		Layer.succeed(
-			DefinitionRegistry,
-			makeDefinitionRegistry(definitionSourceFromSnapshot(definitions)),
-		),
+		Layer.mock(DefinitionRepository)({
+			getGlobalSnapshot: Effect.succeed(definitions),
+			getUserSnapshot: () => Effect.succeed(definitions),
+		}),
 		Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(1) })),
 		Layer.mock(PluginRuntimeResolver)({
 			findProviderAvailableToUserBySlug: () => Effect.succeed(null),

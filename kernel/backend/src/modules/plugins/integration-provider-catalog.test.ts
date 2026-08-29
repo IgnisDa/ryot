@@ -123,4 +123,29 @@ describe("revision-backed integration providers", () => {
 			}),
 		),
 	);
+	it.effect("lets the executable system provider win a private slug clash", () =>
+		withRevisionDatabase(
+			Effect.gen(function* () {
+				const clashing = (slug: string) => {
+					const plugin = packageWithProviders(slug);
+					return {
+						...plugin,
+						manifest: {
+							...plugin.manifest,
+							integrationProviders: plugin.manifest.integrationProviders.map((provider) =>
+								Object.assign({}, provider, { slug: `shared-${provider.lot}` }),
+							),
+						},
+					};
+				};
+				yield* installRevisionPackage(clashing("notes"), owner);
+				const system = yield* installRevisionPackage(clashing("zebra"));
+				const catalog = yield* IntegrationProviderCatalog.make;
+				expect(
+					(yield* catalog.listResolvedForUser(owner)).map(({ provider }) => provider.pluginId),
+				).toEqual([system.pluginId, system.pluginId, system.pluginId]);
+				expect((yield* catalog.findForUser(owner, "shared-sink"))?.pluginId).toBe(system.pluginId);
+			}),
+		),
+	);
 });

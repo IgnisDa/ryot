@@ -1,6 +1,6 @@
 # RyotQL
 
-`POST /ryotql/execute` is the authenticated relational read API. Metadata, commands, administration, streaming, test support, and other operational endpoints remain explicit exceptions.
+RyotQL is the only read surface for persisted rows. `POST /ryotql/execute` and `POST /ryotql/plugin/execute` are the authenticated user APIs for the kernel and plugin audiences; `POST /god-mode/ryotql/execute` is the admin API. Only non-row data (streams, file bytes, workflow job results, process state, health, and public config) stays on dedicated HTTP endpoints.
 
 ## Document And Result Shape
 
@@ -27,29 +27,37 @@ Rows select `{ key, expr }` fields or `{ type: "wildcard", tableAlias }`. A wild
 | `aggregate`  | Non-empty `measures`; optional `groupBy`, `orderBy`, and `limit`                | `{ type: "aggregate", items, pageInfo? }`                           |
 | `timeSeries` | `time: { expr, range: { startAt, endAt }, bucket }`, `measure: { aggregation }` | `{ type: "timeSeries", buckets: [{ startAt, endAt, value }] }`      |
 
-## Catalog And Visibility
+## Scopes And Visibility
 
-HTTP execution always uses the authenticated user. A document cannot provide a user ID, plugin slug, execution scope, or grant. Authorization applies independently to every root, join, include, and correlated query before caller predicates.
+A document cannot provide a user ID, plugin slug, execution scope, or grant. Authorization applies independently to every root, join, include, and correlated query before caller predicates. Visibility is default-deny: a table is readable only in scopes it declares, and restricted fields fail validation as unknown fields and are omitted from wildcards.
 
-| Table                      | Queryable fields                                                                                                                                                                                            | User visibility                        |
-| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
-| `entity`                   | `id`, `name`, `userId`, `createdAt`, `updatedAt`, `properties`, `externalId`, `populatedAt`, `providerId`, `populationStatus`, `translationStatus`, `entitySchemaPluginId`, `entitySchemaSlug`              | User-owned and global                  |
-| `event`                    | `id`, `userId`, `entityId`, `createdAt`, `updatedAt`, `properties`, `occurredAt`, `eventSchemaSlug`, `sessionEntityId`                                                                                      | User-owned                             |
-| `relationship`             | `id`, `userId`, `sourceEntityId`, `targetEntityId`, `createdAt`, `properties`, `relationshipSchemaSlug`                                                                                                     | User-owned and global                  |
-| `plugin`                   | `id`, `slug`, `name`, `icon`, `scope`, `status`, `version`, `sourceHash`, `clientApiVersion`, `ingestedAt`                                                                                                  | User-owned and global packages         |
-| `pluginInstallation`       | `id`, `pluginId`, `health`, `homeSavedViewId`, `sortOrder`, `isDisabled`, `createdAt`, `updatedAt`                                                                                                          | User-owned                             |
-| `savedView`                | `id`, `slug`, `name`, `icon`, `sortOrder`, `isBuiltin`, `isDisabled`, `pluginSlug`, `renderer`, `settings`, `dataSources`, `createdAt`, `updatedAt`                                                         | User-owned                             |
-| `sandboxProvider`          | `id`, `slug`, `name`, `pluginId`, `rootEntitySchemaSlug`, `information`, `createdAt`, `updatedAt`                                                                                                           | Effective ready, enabled installations |
-| `sandboxProviderOperation` | `id`, `providerId`, `operation`, `optionsSchema`, `createdAt`, `updatedAt`                                                                                                                                  | Operations of visible providers        |
-| `notificationChannel`      | `id`, `channel`, `description`, `isDisabled`, `createdAt`, `updatedAt`                                                                                                                                      | User-owned                             |
-| `integration`              | `id`, `lot`, `name`, `provider`, `pluginSlug`, `isDisabled`, `syncOwnership`, `minimumProgress`, `maximumProgress`, `extraSettings`, `lastFinishedAt`, `createdAt`, `updatedAt`                             | User-owned                             |
-| `importRun`                | `id`, `integrationId`, `source`, `status`, `progress`, `failedItems`, `inputSummary`, `importedItems`, `processedItems`, `totalItems`, `failureReason`, `startedAt`, `finishedAt`, `createdAt`, `updatedAt` | User-owned                             |
-| `importRunFailure`         | `id`, `runId`, `stage`, `reason`, `itemIndex`, `sourceLabel`, `eventSchemaSlug`, `entitySchemaSlug`, `sourceIdentifier`, `createdAt`                                                                        | Through the owned import run           |
-| `notificationSubscription` | `id`, `signalSchemaSlug`, `isActive`, `createdAt`, `updatedAt`                                                                                                                                              | User-owned                             |
+| Scope          | Callers                                                                                           | Reads                                                                                                |
+| -------------- | ------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| User, `kernel` | Kernel UI, API keys, and OAuth through `/ryotql/execute`                                          | Tables with a user policy, except `admin` fields                                                     |
+| User, `plugin` | Client-plugin iframes through `/ryotql/plugin/execute`, user-subject sandbox scripts, saved views | Plugin-readable tables only, except `kernel` and `admin` fields                                      |
+| Admin          | `/god-mode/ryotql/execute`                                                                        | Tables with an admin policy and all their fields; entity text is canonical                           |
+| System plugin  | Pinned system-scope scripts with `executeRyotql`                                                  | Global entities whose schema the plugin owns, plus events and relationships whose definition it owns |
 
-`plugin.name`, `plugin.icon`, `plugin.clientApiVersion`, `plugin.version`, `plugin.sourceHash`, and `plugin.ingestedAt` derive from the plugin's active immutable revision and are null while no revision is active. `savedView.pluginSlug` and `integration.pluginSlug` derive from the exact installation. Provider operations join through `providerId`; script IDs, package manifests, installation configuration, raw channel/integration specifics, and ownership columns are not queryable unless listed above.
+| Table                                                                                                                                    | User visibility                            | Plugin | Admin | Restricted fields                                                     |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | :----: | :---: | --------------------------------------------------------------------- |
+| `entity`                                                                                                                                 | Owned and global                           |  yes   |  no   | —                                                                     |
+| `relationship`                                                                                                                           | Owned and global                           |  yes   |  yes  | —                                                                     |
+| `event`, `savedView`, `notificationChannel`, `importRun`                                                                                 | Owned                                      |  yes   |  no   | —                                                                     |
+| `importRunFailure`                                                                                                                       | Through the owned import run               |  yes   |  no   | —                                                                     |
+| `plugin`                                                                                                                                 | Owned and system packages                  |  yes   |  yes  | admin: `environmentConfigRevisionId`                                  |
+| `pluginInstallation`                                                                                                                     | Owned, not uninstalled                     |  yes   |  yes  | kernel: `config`, `configuredSecrets`                                 |
+| `integration`                                                                                                                            | Owned                                      |  yes   |  no   | kernel: `providerSpecifics`, `webhookToken`                           |
+| `notificationSubscription`                                                                                                               | Owned                                      |  yes   |  yes  | admin: `userId`                                                       |
+| `entitySchema`, `eventSchema`, `relationshipSchema`, `signalSchema`                                                                      | Effective definitions of the user          |  yes   |  no   | —                                                                     |
+| `sandboxProvider`, `sandboxProviderOperation`                                                                                            | Providers of the user's executable plugins |  yes   |  no   | —                                                                     |
+| `user`                                                                                                                                   | Self                                       |   no   |  yes  | admin: `disabledAt`, `twoFactorEnabled`, `authState`                  |
+| `backupRun`, `clientRenderer`                                                                                                            | Owned                                      |   no   |  no   | —                                                                     |
+| `importSource`, `integrationProvider`                                                                                                    | Of the user's executable plugins           |   no   |  no   | —                                                                     |
+| `automationRun`                                                                                                                          | Executed for the user                      |   no   |  yes  | admin: script pin, retry policy, and config revision                  |
+| `automationTrigger`, `automationRunAttempt`                                                                                              | Through a run executed for the user        |   no   |  yes  | admin: raw payload, causation, `logs`, `error`, `workflowExecutionId` |
+| `automationTriggerRecipient`, `entityTranslation`, `sandboxScript`, `userLifecycleOperation`, `migrationReport`, `migrationReportDetail` | —                                          |   no   |  yes  | —                                                                     |
 
-Sandbox scripts require `executeRyotql`. Scripts with a trusted user subject retain user visibility. System execution requires a persisted pinned system-scope plugin script and may read only global entities whose schema belongs to that plugin, plus events and relationships whose discriminator definition belongs to it. All application/catalog tables are denied in system scope. Automation trigger, run, and attempt history is available only through the bounded automation-history API.
+`catalog.ts` lists each table's fields. Sandbox script bodies are never fields, including for admin readers. Editable client-renderer definitions contain owner-uploaded source files but are available only to the owning user's kernel audience, not to plugins or admins. Artifact keys, raw or decrypted configuration and integration settings, and the script and configuration pins of executable definitions are never fields; configuration and integration settings are read through their write-time redacted projections.
 
 ## Expressions And Predicates
 
@@ -78,6 +86,14 @@ Root rows use `{ limit, after? }` and return `{ items, pageInfo: { limit, hasMor
 For users with a non-canonical language, entity `name` falls back to canonical text and translated `properties` overlay canonical keys. Selection, filtering, ordering, and JSON paths see the same resolved values.
 
 `populationStatus` is `ready` when `populatedAt` exists, `none` without provider or external ID, and `pending` otherwise. `translationStatus` is `pending` only when populated provider content needs a missing requested translation, `ready` when an overlay exists, and `none` for canonical readers, inapplicable providers, unpopulated entities, or negative-cache translations.
+
+`plugin` revision fields (`name`, `icon`, `description`, `version`, `sourceHash`, `ingestedAt`, `clientApiVersion`, `configSchema`) come from the active revision and are null without one. `savedView.pluginSlug` and `integration.pluginSlug` derive from the exact installation.
+
+`pluginInstallation.homeSavedViewId` is the effective home view: the selected view when usable, otherwise the installation's built-in view named by the active manifest's `client.homeView` when usable, otherwise null. A usable view is enabled and uses a kernel renderer, a `page` export of a ready and enabled plugin of the same user, or a published custom renderer of that user.
+
+`importSource.missingPluginConfigKeys` lists, for system plugins, the `RYOT_PLUGIN_*` variables of required keys absent from the resolved environment configuration, and for private plugins every required key only while the installation has no configuration. `isStartable` requires a workflow script and no missing keys. `integrationProvider.hasScript` is true for push providers or when the provider script exists.
+
+`automationRun.retryEligibility` is `{ reason }` with the retry command's rule evaluated at statement time: `before-policy`, `not-failed`, `expired`, `missing-artifact`, or null when retryable. `user.authState` is `credential`, `oidc`, `mixed`, or `none` from linked accounts, and `migrationReport.totalDetails` is null for uncoded rows and otherwise the stored count or zero.
 
 ## Aggregate And Time Series
 
