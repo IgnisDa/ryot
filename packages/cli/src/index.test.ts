@@ -1,7 +1,7 @@
 import { BunServices } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { PLUGIN_ARCHIVE_LIMITS, readPluginArchive } from "@ryot-app/plugin-archive";
-import { Effect, FileSystem, Path, Stream } from "effect";
+import { Data, Effect, FileSystem, Path, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 const decoder = new TextDecoder();
@@ -41,18 +41,18 @@ const run = Effect.fn("runCli")(function* (cwd: string, args: ReadonlyArray<stri
 	return { stdout, stderr, exitCode };
 });
 
-const waitFor = Effect.fn("waitFor")(function* (
-	check: Effect.Effect<boolean, unknown>,
-	attempts = 150,
-): Effect.fn.Return<void, unknown> {
-	if (yield* check) {
-		return yield* Effect.void;
+class CliOutputTimeout extends Data.TaggedError("CliOutputTimeout")<{ readonly message: string }> {}
+
+const waitFor = Effect.fn("waitFor")(function* <E>(check: Effect.Effect<boolean, E>) {
+	for (let attempt = 0; attempt < 150; attempt++) {
+		if (yield* check) {
+			return yield* Effect.void;
+		}
+		if (attempt < 149) {
+			yield* Effect.sleep("100 millis");
+		}
 	}
-	if (attempts === 1) {
-		return yield* Effect.fail(new Error("Timed out waiting for CLI output"));
-	}
-	yield* Effect.sleep("100 millis");
-	return yield* waitFor(check, attempts - 1);
+	return yield* new CliOutputTimeout({ message: "Timed out waiting for CLI output" });
 });
 
 it.layer(BunServices.layer)("ryot plugin build", (test) => {
@@ -301,12 +301,12 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 				yield* fs.writeFileString(output, "keep");
 				const manifestPath = path.join(plugin, "manifest.ts");
 				const manifest = yield* fs.readFileString(manifestPath);
+				const longDescription = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.String))(
+					"a".repeat(PLUGIN_ARCHIVE_LIMITS.maxManifestBytes),
+				);
 				yield* fs.writeFileString(
 					manifestPath,
-					manifest.replace(
-						'"A fixture for the CLI tests."',
-						JSON.stringify("a".repeat(PLUGIN_ARCHIVE_LIMITS.maxManifestBytes)),
-					),
+					manifest.replace('"A fixture for the CLI tests."', longDescription),
 				);
 
 				const result = yield* run(plugin, ["plugin", "build"]);

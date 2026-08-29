@@ -1,3 +1,5 @@
+// Tests construct native paths to exercise workspace staging.
+// oxlint-disable-next-line effecttsgo/node-builtin-import
 import { join } from "node:path";
 
 import { BunFileSystem } from "@effect/platform-bun";
