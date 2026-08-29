@@ -4,10 +4,8 @@ import {
 	MigrationReportDetail,
 	MigrationReportLevel,
 } from "@ryot-app/contract/modules/god-mode/migration-report";
-import {
-	Database,
-	mapDatabaseErrors,
-} from "@ryot-app/kernel-backend/lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "@ryot-app/kernel-backend/lib/infrastructure/db/service";
+import { DatabaseSession } from "@ryot-app/kernel-backend/lib/infrastructure/db/session";
 import { sql } from "drizzle-orm";
 import { Data, Effect, Match, Schema } from "effect";
 import type * as SqlConnection from "effect/unstable/sql/SqlConnection";
@@ -35,7 +33,7 @@ export type ResolvedRelationshipTarget = {
 };
 
 export const legacyBootstrapGate = Effect.gen(function* () {
-	const database = yield* Database;
+	const database = yield* (yield* DatabaseSession).current;
 	const result = yield* mapDatabaseErrors(
 		database.execute<{ present: boolean }>(
 			sql`SELECT to_regclass('"seaql_migrations"') IS NOT NULL AS "present"`,

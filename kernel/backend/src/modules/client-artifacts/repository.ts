@@ -10,7 +10,8 @@ import {
 	clientArtifact,
 	clientArtifactFile,
 } from "#lib/infrastructure/db/schema/tables/client-artifacts";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 type ArtifactRow = typeof clientArtifact.$inferSelect;
 type FileRow = typeof clientArtifactFile.$inferSelect;
@@ -41,124 +42,134 @@ export const clientArtifactMatches = (
 export class ClientArtifactsRepository extends Context.Service<ClientArtifactsRepository>()(
 	"ClientArtifactsRepository",
 	{
-		make: Effect.succeed({
-			findArtifactFile: Effect.fn("ClientArtifactsRepository.findArtifactFile")(function* (
-				hash: string,
-				name: string,
-			) {
-				const db = yield* Database;
-				const [row] = yield* mapDatabaseErrors(
-					db
-						.select({
-							contents: clientArtifactFile.contents,
-							contentType: clientArtifactFile.contentType,
-						})
-						.from(clientArtifactFile)
-						.where(
-							and(eq(clientArtifactFile.artifactHash, hash), eq(clientArtifactFile.name, name)),
-						)
-						.limit(1),
-				);
-				return row
-					? { contentType: row.contentType, contents: new Uint8Array(row.contents) }
-					: null;
-			}),
-			describe: Effect.fn("ClientArtifactsRepository.describe")(function* (hash: string) {
-				const db = yield* Database;
-				const [metadata] = yield* mapDatabaseErrors(
-					db.select().from(clientArtifact).where(eq(clientArtifact.hash, hash)).limit(1),
-				);
-				if (!metadata) {
-					return null;
-				}
-				const files = yield* mapDatabaseErrors(
-					db
-						.select({ name: clientArtifactFile.name, contentType: clientArtifactFile.contentType })
-						.from(clientArtifactFile)
-						.where(eq(clientArtifactFile.artifactHash, hash))
-						.orderBy(asc(clientArtifactFile.name)),
-				);
-				return { ...metadata, files };
-			}),
-			loadClientArtifact: Effect.fn("ClientArtifactsRepository.loadClientArtifact")(function* (
-				hash: string,
-			) {
-				const db = yield* Database;
-				const [metadata] = yield* mapDatabaseErrors(
-					db.select().from(clientArtifact).where(eq(clientArtifact.hash, hash)).limit(1),
-				);
-				if (!metadata) {
-					return yield* new DbError({ message: `Client artifact ${hash} is missing` });
-				}
-				const files = yield* mapDatabaseErrors(
-					db.select().from(clientArtifactFile).where(eq(clientArtifactFile.artifactHash, hash)),
-				);
-				const artifact = yield* Schema.decodeUnknownEffect(PluginClientArtifactSchema)({
-					...metadata,
-					files: files.map(({ name, contents, contentType }) => ({
-						name,
-						contentType,
-						contents: new Uint8Array(contents),
-					})),
-				}).pipe(
-					Effect.mapError(() => new DbError({ message: `Client artifact ${hash} is invalid` })),
-				);
-				if (!clientArtifactMatches(artifact, metadata, files)) {
-					return yield* new DbError({
-						message: `Client artifact ${hash} conflicts with immutable stored data`,
-					});
-				}
-				return artifact;
-			}),
-			persistClientArtifact: Effect.fn("ClientArtifactsRepository.persistClientArtifact")(
-				function* (artifact: PluginClientArtifact) {
-					const db = yield* Database;
-					const [inserted] = yield* mapDatabaseErrors(
+		make: Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			return {
+				findArtifactFile: Effect.fn("ClientArtifactsRepository.findArtifactFile")(function* (
+					hash: string,
+					name: string,
+				) {
+					const db = yield* session.current;
+					const [row] = yield* mapDatabaseErrors(
 						db
-							.insert(clientArtifact)
-							.values({
-								hash: artifact.hash,
-								format: artifact.format,
-								apiVersion: artifact.apiVersion,
-								bridgeVersion: artifact.bridgeVersion,
-								compilerVersion: artifact.compilerVersion,
+							.select({
+								contents: clientArtifactFile.contents,
+								contentType: clientArtifactFile.contentType,
 							})
-							.onConflictDoNothing()
-							.returning({ hash: clientArtifact.hash }),
+							.from(clientArtifactFile)
+							.where(
+								and(eq(clientArtifactFile.artifactHash, hash), eq(clientArtifactFile.name, name)),
+							)
+							.limit(1),
 					);
-					if (inserted) {
-						if (artifact.files.length > 0) {
-							yield* mapDatabaseErrors(
-								db
-									.insert(clientArtifactFile)
-									.values(
-										artifact.files.map((file) => ({
-											...file,
-											artifactHash: artifact.hash,
-											contents: Buffer.from(file.contents),
-										})),
-									),
-							);
-						}
-						return yield* Effect.void;
-					}
+					return row
+						? { contentType: row.contentType, contents: new Uint8Array(row.contents) }
+						: null;
+				}),
+				describe: Effect.fn("ClientArtifactsRepository.describe")(function* (hash: string) {
+					const db = yield* session.current;
 					const [metadata] = yield* mapDatabaseErrors(
-						db.select().from(clientArtifact).where(eq(clientArtifact.hash, artifact.hash)).limit(1),
+						db.select().from(clientArtifact).where(eq(clientArtifact.hash, hash)).limit(1),
 					);
+					if (!metadata) {
+						return null;
+					}
 					const files = yield* mapDatabaseErrors(
 						db
-							.select()
+							.select({
+								name: clientArtifactFile.name,
+								contentType: clientArtifactFile.contentType,
+							})
 							.from(clientArtifactFile)
-							.where(eq(clientArtifactFile.artifactHash, artifact.hash)),
+							.where(eq(clientArtifactFile.artifactHash, hash))
+							.orderBy(asc(clientArtifactFile.name)),
 					);
-					if (!metadata || !clientArtifactMatches(artifact, metadata, files)) {
+					return { ...metadata, files };
+				}),
+				loadClientArtifact: Effect.fn("ClientArtifactsRepository.loadClientArtifact")(function* (
+					hash: string,
+				) {
+					const db = yield* session.current;
+					const [metadata] = yield* mapDatabaseErrors(
+						db.select().from(clientArtifact).where(eq(clientArtifact.hash, hash)).limit(1),
+					);
+					if (!metadata) {
+						return yield* new DbError({ message: `Client artifact ${hash} is missing` });
+					}
+					const files = yield* mapDatabaseErrors(
+						db.select().from(clientArtifactFile).where(eq(clientArtifactFile.artifactHash, hash)),
+					);
+					const artifact = yield* Schema.decodeUnknownEffect(PluginClientArtifactSchema)({
+						...metadata,
+						files: files.map(({ name, contents, contentType }) => ({
+							name,
+							contentType,
+							contents: new Uint8Array(contents),
+						})),
+					}).pipe(
+						Effect.mapError(() => new DbError({ message: `Client artifact ${hash} is invalid` })),
+					);
+					if (!clientArtifactMatches(artifact, metadata, files)) {
 						return yield* new DbError({
-							message: `Client artifact ${artifact.hash} conflicts with immutable stored data`,
+							message: `Client artifact ${hash} conflicts with immutable stored data`,
 						});
 					}
-					return yield* Effect.void;
-				},
-			),
+					return artifact;
+				}),
+				persistClientArtifact: Effect.fn("ClientArtifactsRepository.persistClientArtifact")(
+					function* (artifact: PluginClientArtifact) {
+						const db = yield* session.current;
+						const [inserted] = yield* mapDatabaseErrors(
+							db
+								.insert(clientArtifact)
+								.values({
+									hash: artifact.hash,
+									format: artifact.format,
+									apiVersion: artifact.apiVersion,
+									bridgeVersion: artifact.bridgeVersion,
+									compilerVersion: artifact.compilerVersion,
+								})
+								.onConflictDoNothing()
+								.returning({ hash: clientArtifact.hash }),
+						);
+						if (inserted) {
+							if (artifact.files.length > 0) {
+								yield* mapDatabaseErrors(
+									db
+										.insert(clientArtifactFile)
+										.values(
+											artifact.files.map((file) => ({
+												...file,
+												artifactHash: artifact.hash,
+												contents: Buffer.from(file.contents),
+											})),
+										),
+								);
+							}
+							return yield* Effect.void;
+						}
+						const [metadata] = yield* mapDatabaseErrors(
+							db
+								.select()
+								.from(clientArtifact)
+								.where(eq(clientArtifact.hash, artifact.hash))
+								.limit(1),
+						);
+						const files = yield* mapDatabaseErrors(
+							db
+								.select()
+								.from(clientArtifactFile)
+								.where(eq(clientArtifactFile.artifactHash, artifact.hash)),
+						);
+						if (!metadata || !clientArtifactMatches(artifact, metadata, files)) {
+							return yield* new DbError({
+								message: `Client artifact ${artifact.hash} conflicts with immutable stored data`,
+							});
+						}
+						return yield* Effect.void;
+					},
+				),
+			};
 		}),
 	},
 ) {

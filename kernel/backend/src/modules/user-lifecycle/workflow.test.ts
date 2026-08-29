@@ -1,11 +1,14 @@
+import { PgClient } from "@effect/sql-pg";
 import { expect, it } from "@effect/vitest";
 import { BadRequest, internalError } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { Effect, Layer } from "effect";
+import { sql } from "drizzle-orm";
+import { Effect, Layer, Redacted } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
-import { Database } from "#lib/infrastructure/db/service";
-import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { testDatabaseUrl } from "#lib/test-utils/database";
+import { databaseLayer, makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 import { AuthService } from "#modules/auth/service";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
 import { ClientSurfaceMaterializer } from "#modules/plugins/client-surface-materializer";
@@ -155,7 +158,7 @@ it.effect(
 		const layer = UserLifecycleWorkflowOperationsLive.pipe(
 			Layer.provide(
 				Layer.mergeAll(
-					Layer.succeed(Database, Object.create(null)),
+					databaseLayer,
 					Layer.mock(AuthService)({ auth: Object.create(null) }),
 					Layer.mock(SavedViewsService)({}),
 					Layer.succeed(ClientSurfaceMaterializer, {
@@ -231,29 +234,19 @@ it.effect("keeps a recreated reset user disabled until completion", () => {
 			},
 		},
 	};
-	const transaction = Object.assign(Object.create(null), {
-		execute: () => Effect.void,
-		select: () => ({
-			from: () => ({
-				where: () => ({
-					for: () =>
-						Effect.succeed([
-							{ image: null, bootstrapCompletedAt: new Date("2026-08-24T00:00:02.000Z") },
-						]),
-				}),
-			}),
-		}),
-	});
-	const database = Database.of(
-		Object.assign(Object.create(null), {
-			transaction: (run: (tx: typeof transaction) => Effect.Effect<unknown, unknown, unknown>) =>
-				run(transaction),
-		}),
+	const singleConnection = Layer.effect(DatabaseSession, DatabaseSession.make).pipe(
+		Layer.provideMerge(
+			Layer.unwrap(
+				Effect.sync(() =>
+					PgClient.layer({ maxConnections: 1, url: Redacted.make(testDatabaseUrl()) }),
+				),
+			),
+		),
 	);
 	const layer = UserLifecycleWorkflowOperationsLive.pipe(
 		Layer.provide(
 			Layer.mergeAll(
-				Layer.succeed(Database, database),
+				singleConnection,
 				Layer.mock(UserLifecycleRepository)({
 					getInternalById: () => Effect.succeed(operation),
 					loadRecreatedIdentity: () =>
@@ -298,7 +291,15 @@ it.effect("keeps a recreated reset user disabled until completion", () => {
 			),
 		),
 	);
+	const bootstrapCompletedAt = new Date("2026-08-24T00:00:02.000Z");
 	return Effect.gen(function* () {
+		const db = yield* (yield* DatabaseSession).current;
+		yield* db.execute(
+			sql`create temporary table "user" (id text primary key, image text, bootstrap_completed_at timestamptz)`,
+		);
+		yield* db.execute(
+			sql`insert into "user" (id, bootstrap_completed_at) values (${userId}, ${bootstrapCompletedAt})`,
+		);
 		const operations = yield* UserLifecycleWorkflowOperations;
 		expect(yield* operations.recreateResetUser("operation-1")).toEqual({
 			userId,
@@ -306,28 +307,24 @@ it.effect("keeps a recreated reset user disabled until completion", () => {
 			resetUrl: "https://example.com/reset",
 		});
 		expect(calls).toEqual(["created-disabled", "disabled", "reset-link"]);
-	}).pipe(Effect.provide(Layer.merge(layer, Layer.succeed(Database, database))));
+	}).pipe(Effect.provide(Layer.merge(layer, singleConnection)));
 });
 
 it.effect("uses one database transaction for reset enablement and completion", () => {
-	const transaction = Object.create(null);
-	const database = Database.of(
-		Object.assign(Object.create(null), {
-			transaction: (run: (tx: typeof transaction) => Effect.Effect<unknown, unknown, unknown>) =>
-				run(transaction),
-		}),
-	);
+	let session: DatabaseSession["Service"];
 	let usedTransaction = false;
 	const layer = UserLifecycleWorkflowOperationsLive.pipe(
 		Layer.provide(
 			Layer.mergeAll(
-				Layer.succeed(Database, database),
+				databaseLayer,
 				Layer.mock(UserLifecycleRepository)({
 					markCompleted: () =>
-						Effect.gen(function* () {
-							usedTransaction = (yield* Database) === transaction;
-							return undefined;
-						}),
+						session.isTransactionActive.pipe(
+							Effect.map((active) => {
+								usedTransaction = active;
+								return undefined;
+							}),
+						),
 				}),
 				Layer.mock(AuthService)({ auth: Object.create(null) }),
 				Layer.mock(SavedViewsService)({}),
@@ -346,6 +343,7 @@ it.effect("uses one database transaction for reset enablement and completion", (
 		),
 	);
 	return Effect.gen(function* () {
+		session = yield* DatabaseSession;
 		const operations = yield* UserLifecycleWorkflowOperations;
 		yield* operations.complete("operation-1", {
 			userId,
@@ -353,5 +351,5 @@ it.effect("uses one database transaction for reset enablement and completion", (
 			resetUrl: "https://example.com/reset",
 		});
 		expect(usedTransaction).toBe(true);
-	}).pipe(Effect.provide(Layer.merge(layer, Layer.succeed(Database, database))));
+	}).pipe(Effect.provide(Layer.merge(layer, databaseLayer)));
 });

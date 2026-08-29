@@ -18,7 +18,8 @@ import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { automationRun as table } from "#lib/infrastructure/db/schema/tables/automations";
 import { pluginRevision } from "#lib/infrastructure/db/schema/tables/core";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { redactPluginConfig } from "#modules/plugins/config-redaction";
 
 const policyChainStopped = Schema.decodeSync(AutomationRunSkipReason)({
@@ -125,10 +126,11 @@ export const redactAutomationHistoryPayload = (
 };
 
 const historyPayload = Effect.fn(function* (
+	session: DatabaseSession["Service"],
 	run: Pick<AutomationRun, "pluginId" | "pluginRevisionId">,
 	payload: AutomationTriggerPayload,
 ) {
-	const db = yield* Database;
+	const db = yield* session.current;
 	const [manifest] =
 		run.pluginRevisionId === null
 			? []
@@ -174,9 +176,10 @@ const immutableFields = (run: AutomationRun) => ({
 export class AutomationRunRepository extends Context.Service<AutomationRunRepository>()(
 	"AutomationRunRepository",
 	{
-		make: Effect.sync(() => {
+		make: Effect.gen(function* () {
+			const session = yield* DatabaseSession;
 			const findById = Effect.fn(function* (id: AutomationRunId) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const [row] = yield* mapDatabaseErrors(db.select().from(table).where(eq(table.id, id)));
 				return row ? yield* decodeRow(row) : null;
 			});
@@ -203,13 +206,13 @@ export class AutomationRunRepository extends Context.Service<AutomationRunReposi
 							"New automation runs must be queued with a pinned script and no execution state",
 					});
 				}
-				const db = yield* Database;
+				const db = yield* session.current;
 				yield* mapDatabaseErrors(
 					db
 						.insert(table)
 						.values({
 							...value,
-							...(yield* historyPayload(value, triggerPayload)),
+							...(yield* historyPayload(session, value, triggerPayload)),
 							startedAt: null,
 							finishedAt: null,
 							nextAttemptAt: null,
@@ -229,7 +232,7 @@ export class AutomationRunRepository extends Context.Service<AutomationRunReposi
 				return stored;
 			});
 			const listByTrigger = Effect.fn(function* (triggerId: AutomationTriggerId) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const rows = yield* mapDatabaseErrors(
 					db
 						.select()
@@ -249,7 +252,7 @@ export class AutomationRunRepository extends Context.Service<AutomationRunReposi
 						message: "Queued candidate query requires a valid time and positive integer limit",
 					});
 				}
-				const db = yield* Database;
+				const db = yield* session.current;
 				const rows = yield* mapDatabaseErrors(
 					db
 						.select()
@@ -268,16 +271,16 @@ export class AutomationRunRepository extends Context.Service<AutomationRunReposi
 				return yield* Effect.forEach(rows, decodeRow);
 			});
 			const skipQueuedPolicies = Effect.fn(function* (input: { triggerId: AutomationTriggerId }) {
-				const db = yield* Database;
 				const queuedPolicy = and(
 					eq(table.triggerId, input.triggerId),
 					eq(table.stage, "before"),
 					eq(table.status, "queued"),
 					eq(table.attemptCount, 0),
 				);
-				return yield* mapDatabaseErrors(
-					db.transaction((transaction) =>
+				return yield* session
+					.transaction(
 						Effect.gen(function* () {
+							const transaction = yield* session.current;
 							const rows = yield* transaction
 								.select({ id: table.id })
 								.from(table)
@@ -301,11 +304,17 @@ export class AutomationRunRepository extends Context.Service<AutomationRunReposi
 									),
 								);
 						}),
-					),
-				);
+					)
+					.pipe(
+						Effect.mapError((error) =>
+							error._tag === "DatabaseSessionStateError"
+								? new DbError({ message: "Automation run transaction already active" })
+								: error,
+						),
+					);
 			});
 			const clearExpiredScriptPins = Effect.fn(function* (input: { now: Date; limit: number }) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const expiredTerminal = and(
 					isNotNull(table.sandboxScriptId),
 					lte(table.artifactsExpireAt, input.now),
@@ -330,7 +339,7 @@ export class AutomationRunRepository extends Context.Service<AutomationRunReposi
 				if (triggerIds.length === 0) {
 					return;
 				}
-				const db = yield* Database;
+				const db = yield* session.current;
 				yield* mapDatabaseErrors(
 					db
 						.update(table)
@@ -343,7 +352,7 @@ export class AutomationRunRepository extends Context.Service<AutomationRunReposi
 				before: Date;
 				limit: number;
 			}) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const expiredHistory = and(
 					lte(table.queuedAt, input.before),
 					lte(table.artifactsExpireAt, input.now),

@@ -9,7 +9,7 @@ import { LifecyclePlanner } from "#lib/domain/lifecycle";
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -85,7 +85,7 @@ const privateSignalPackage = (slug: string) => {
 };
 
 const setup = Effect.gen(function* () {
-	const db = yield* Database;
+	const db = yield* (yield* DatabaseSession).current;
 	const value = revisionPackage();
 	const installed = yield* installRevisionPackage({
 		...value,
@@ -176,7 +176,7 @@ describe("Signal emission PostgreSQL", () => {
 				Effect.gen(function* () {
 					yield* setup;
 					const service = yield* SignalEmissionService;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const first = yield* service.emitSignal(input);
 					expect(first.wasCreated).toBe(true);
 					expect(
@@ -218,7 +218,7 @@ describe("Signal emission PostgreSQL", () => {
 		return withRevisionDatabase(
 			Effect.gen(function* () {
 				yield* setup;
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				yield* db.update(tables.user).set({ disabledAt: DateTime.toDate(yield* DateTime.now) });
 				const result = yield* (yield* SignalEmissionService).emitSignal(input);
 				expect(result.wasCreated).toBe(true);
@@ -242,7 +242,7 @@ describe("Signal emission PostgreSQL", () => {
 					privateSignalPackage("private-b"),
 					recipient,
 				);
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				yield* db
 					.insert(tables.entity)
 					.values({
@@ -321,7 +321,7 @@ describe("Signal emission PostgreSQL", () => {
 			return withRevisionDatabase(
 				Effect.gen(function* () {
 					yield* setup;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					assertExitFails(
 						yield* (yield* SignalEmissionService).emitSignal(input).pipe(Effect.exit),
 						failure,

@@ -9,7 +9,7 @@ import {
 import { Cause, Context, DateTime, Effect, Layer, Result, Schema } from "effect";
 import { Activity, Workflow } from "effect/unstable/workflow";
 
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { AuthService } from "#modules/auth/service";
@@ -68,7 +68,7 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 	UserLifecycleWorkflowOperations,
 	Effect.gen(function* () {
 		const auth = yield* AuthService;
-		const database = yield* Database;
+		const database = yield* DatabaseSession;
 		const savedViews = yield* SavedViewsService;
 		const repository = yield* UserLifecycleRepository;
 		const objectStorage = yield* ObjectStorageService;
@@ -178,6 +178,7 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 					}
 
 					yield* performBootstrap(operation.operation.userId).pipe(
+						Effect.provideService(DatabaseSession, database),
 						Effect.provideService(PluginInstallationService, pluginInstallations),
 						Effect.provideService(PluginUserBootstrapDispatcher, pluginBootstrap),
 						Effect.provideService(NotificationSubscriptionsService, notificationSubscriptions),
@@ -194,11 +195,7 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 
 		const complete = (operationId: string, result: UserResetResult | null) =>
 			asInternal(
-				database.transaction((transaction) =>
-					repository
-						.markCompleted(operationId, result)
-						.pipe(Effect.provideService(Database, transaction)),
-				),
+				database.transaction(repository.markCompleted(operationId, result)),
 				"User lifecycle completion could not be recorded",
 			);
 		const fail = (operationId: string, failure: UserLifecycleOperationFailure) =>
@@ -206,16 +203,13 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 				repository.markFailed(operationId, failure),
 				"User lifecycle failure could not be recorded",
 			);
-		const provideDatabase = <A, E>(effect: Effect.Effect<A, E, Database>) =>
-			effect.pipe(Effect.provideService(Database, database));
-
 		return {
-			begin: (operationId) => provideDatabase(begin(operationId)),
-			fail: (operationId, failure) => provideDatabase(fail(operationId, failure)),
-			cleanupObjects: (operationId) => provideDatabase(cleanupObjects(operationId)),
-			complete: (operationId, result) => provideDatabase(complete(operationId, result)),
-			recreateResetUser: (operationId) => provideDatabase(recreateResetUser(operationId)),
-			deleteDatabaseUser: (operationId) => provideDatabase(deleteDatabaseUser(operationId)),
+			fail,
+			begin,
+			complete,
+			cleanupObjects,
+			recreateResetUser,
+			deleteDatabaseUser,
 		} satisfies UserLifecycleWorkflowOperationsValue;
 	}),
 );

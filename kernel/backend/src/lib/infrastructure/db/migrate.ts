@@ -1,10 +1,13 @@
 import { migrate } from "drizzle-orm/effect-postgres/migrator";
 import { Context, Effect, Layer } from "effect";
 
-import { Database, databaseError } from "./service";
+import { databaseError } from "./service";
+import { DatabaseSession } from "./session";
 
 const migrateDB = Effect.gen(function* () {
-	const database = yield* Database;
+	const session = yield* DatabaseSession;
+	yield* session.requireRoot;
+	const database = yield* session.current;
 
 	yield* Effect.logInfo("running database migrations");
 	const migrationsFolder = `${process.cwd()}/src/drizzle`;

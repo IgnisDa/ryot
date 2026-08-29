@@ -1,4 +1,3 @@
-import { PgClient } from "@effect/sql-pg";
 import { DbError } from "@ryot-app/contract/errors";
 import {
 	AutomationEntitySnapshot,
@@ -20,7 +19,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Context, DateTime, Effect, Layer, Option, Schema } from "effect";
+import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import {
 	type CommittedLifecycleWork,
@@ -38,7 +37,8 @@ import {
 	applyLifecyclePolicyPatch,
 	canonicalLifecyclePolicyPatch,
 } from "#lib/domain/lifecycle-policy-patch";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { retryOnDeadlock } from "#lib/infrastructure/db/service";
+import { DatabaseSession, DatabaseSessionStateError } from "#lib/infrastructure/db/session";
 import {
 	runLifecycleWriteInline,
 	type LifecycleCommittedStep,
@@ -163,6 +163,11 @@ const bad = (
 		| "invalid-policy-transform",
 	message: string,
 ) => new EntityBadRequest({ reason: { code, message } });
+const enclosingTransaction = () =>
+	bad(
+		"enclosing-transaction",
+		"EntitiesService must own the transaction and post-commit execution",
+	);
 const snapshot = (entity: ListedEntity) =>
 	Schema.decodeUnknownSync(AutomationEntitySnapshot)(entity);
 const draftOf = ({
@@ -192,40 +197,23 @@ const committedStep = (saved: {
 	result: { entity: saved.entity, outcome: saved.outcome, wasInserted: saved.wasInserted },
 });
 
-const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
-	Effect.gen(function* () {
-		const database = yield* Database;
-		return yield* mapDatabaseErrors(
-			database.transaction((tx) => work.pipe(Effect.provideService(Database, tx))),
-		);
-	});
-
 export class EntitiesService extends Context.Service<EntitiesService>()("EntitiesService", {
 	make: Effect.gen(function* () {
-		const sqlClient = yield* PgClient.PgClient;
+		const session = yield* DatabaseSession;
 		const planner = yield* LifecyclePlanner;
 		const repository = yield* EntitiesRepository;
 		const execution = yield* LifecycleExecution;
 
-		const assertOwner = Effect.serviceOption(sqlClient.transactionService).pipe(
-			Effect.flatMap((active) =>
-				Option.isSome(active)
-					? Effect.fail(
-							bad(
-								"enclosing-transaction",
-								"EntitiesService must own the transaction and post-commit execution",
-							),
-						)
-					: Effect.void,
-			),
+		const assertOwner = session.requireRoot.pipe(Effect.mapError(enclosingTransaction));
+		const assertActiveTransaction = session.requireTransaction.pipe(
+			Effect.mapError(() => new LifecyclePersistenceError({ code: "active-transaction-required" })),
 		);
-		const assertActiveTransaction = Effect.serviceOption(sqlClient.transactionService).pipe(
-			Effect.flatMap((active) =>
-				Option.isSome(active)
-					? Effect.void
-					: Effect.fail(new LifecyclePersistenceError({ code: "active-transaction-required" })),
-			),
-		);
+		const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
+			retryOnDeadlock(session.transaction(work)).pipe(
+				Effect.mapError((error) =>
+					error instanceof DatabaseSessionStateError ? enclosingTransaction() : error,
+				),
+			);
 
 		const entitySchema = Effect.fnUntraced(function* (
 			scopeUserId: UserId | null,
@@ -945,22 +933,21 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 						userId,
 						entitySchemaSlug: item.entitySchemaSlug,
 					});
+					if (existing) {
+						return { item, existing, prepared: null };
+					}
+					const planned = yield* planCreate({
+						...item,
+						userId,
+						scope: "user",
+						lifecycle: itemCommand(lifecycle, item.entitySchemaSlug),
+					});
 					return {
 						item,
 						existing,
-						prepared: existing
-							? null
-							: yield* Effect.gen(function* () {
-									const planned = yield* planCreate({
-										...item,
-										userId,
-										scope: "user",
-										lifecycle: itemCommand(lifecycle, item.entitySchemaSlug),
-									});
-									return planned.pending
-										? yield* acceptedMutation(yield* applyMutationPolicies(planned.pending))
-										: null;
-								}),
+						prepared: planned.pending
+							? yield* acceptedMutation(yield* applyMutationPolicies(planned.pending))
+							: null,
 					};
 				}),
 			);
@@ -1199,4 +1186,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);
+	static readonly layerRuntime = Layer.effect(this, this.make);
+	static readonly layerMigration = Layer.effect(this, this.make);
 }

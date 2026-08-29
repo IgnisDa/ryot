@@ -15,6 +15,7 @@ import {
 	defaultUserPreferences,
 	normalizeUserPreferences,
 } from "@ryot-app/contract/auth-middleware";
+import type { DbError } from "@ryot-app/contract/errors";
 import { badRequest, internalError, unknownToDbError } from "@ryot-app/contract/errors";
 import { DemoAccessPolicy } from "@ryot-app/contract/http-annotations";
 import {
@@ -43,7 +44,7 @@ import type Redis from "ioredis";
 
 import { AppConfig, type AppConfigValue, isOidcEnabled } from "#lib/infrastructure/config/service";
 import * as authSchema from "#lib/infrastructure/db/schema/tables/auth";
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { logHttpResponse } from "#lib/infrastructure/http-response-logger";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 
@@ -132,8 +133,13 @@ const parseResetLinkMessage = (message: string) => {
 
 export class AuthUserBootstrap extends Context.Service<
 	AuthUserBootstrap,
-	{ run: (userId: string) => Effect.Effect<void, unknown> }
+	{ run: (userId: string) => Effect.Effect<void, AuthBootstrapError> }
 >()("AuthUserBootstrap") {}
+
+export class AuthBootstrapError extends Schema.TaggedError<AuthBootstrapError>()(
+	"AuthBootstrapError",
+	{ message: Schema.String },
+) {}
 
 const makeOAuthProviderPlugin = (frontendUrl: string) => {
 	const { endpoints, ...plugin } = oauthProvider({
@@ -156,14 +162,14 @@ const makeOAuthProviderPlugin = (frontendUrl: string) => {
 const makeAuthInstance = (args: {
 	readonly redis: Redis;
 	readonly config: AppConfigValue;
-	readonly db: Database["Service"];
-	readonly runtime: Context.Context<Database | RedisService>;
-	readonly bootstrapNewUser: (userId: string) => Effect.Effect<void, unknown>;
-	readonly revokeOAuthTokens: (userId: UserId) => Effect.Effect<void, unknown, Database>;
+	readonly session: DatabaseSession["Service"];
+	readonly runtime: Context.Context<DatabaseSession | RedisService>;
+	readonly bootstrapNewUser: (userId: string) => Effect.Effect<void, AuthBootstrapError>;
+	readonly revokeOAuthTokens: (userId: UserId) => Effect.Effect<void, DbError>;
 }) => {
 	const oidcEnabled = isOidcEnabled(args.config);
 
-	const database = effectPostgresAuthAdapter({ db: args.db, context: args.runtime });
+	const database = effectPostgresAuthAdapter({ session: args.session, context: args.runtime });
 	const auth = betterAuth({
 		database,
 		appName: "Ryot",
@@ -440,11 +446,11 @@ export const getOAuthVerificationOptions = (frontendUrl: string) => ({
 	verifyOptions: { issuer: getOAuthIssuer(frontendUrl), audience: getOAuthResource(frontendUrl) },
 });
 
-export const resolveCredential = (
+export const resolveCredential = <E>(
 	credential: CredentialInput,
 	verifyOAuth: (token: string) => Promise<unknown>,
 	verifyApiKey: (key: string) => Promise<ApiKeyVerification>,
-	findUserById: (userId: string) => Effect.Effect<AuthUserRecord | null, unknown>,
+	findUserById: (userId: string) => Effect.Effect<AuthUserRecord | null, E>,
 	demoAccountId: string | null = null,
 ) =>
 	Effect.gen(function* () {
@@ -484,34 +490,36 @@ export const resolveCredential = (
 
 export class AuthService extends Context.Service<AuthService>()("AuthService", {
 	make: Effect.gen(function* () {
-		const db = yield* Database;
+		const session = yield* DatabaseSession;
 		const config = yield* AppConfig;
 		const redis = yield* RedisService;
 		const repository = yield* AuthRepository;
 		const userBootstrap = yield* AuthUserBootstrap;
-		const runtime = yield* Effect.context<Database | RedisService>();
+		const runtime = yield* Effect.context<DatabaseSession | RedisService>();
 		const auth = makeAuthInstance({
-			db,
 			config,
+			session,
 			runtime,
 			redis: redis.client,
 			bootstrapNewUser: userBootstrap.run,
 			revokeOAuthTokens: repository.revokeUserOAuthTokens,
 		});
 		const findUserById = (userId: string) =>
-			db
-				.select({
-					id: authSchema.user.id,
-					name: authSchema.user.name,
-					email: authSchema.user.email,
-					image: authSchema.user.image,
-					disabledAt: authSchema.user.disabledAt,
-					preferences: authSchema.user.preferences,
-				})
-				.from(authSchema.user)
-				.where(eq(authSchema.user.id, userId))
-				.limit(1)
-				.pipe(Effect.map((users) => users[0] ?? null));
+			Effect.flatMap(session.current, (db) =>
+				db
+					.select({
+						id: authSchema.user.id,
+						name: authSchema.user.name,
+						email: authSchema.user.email,
+						image: authSchema.user.image,
+						disabledAt: authSchema.user.disabledAt,
+						preferences: authSchema.user.preferences,
+					})
+					.from(authSchema.user)
+					.where(eq(authSchema.user.id, userId))
+					.limit(1)
+					.pipe(Effect.map((users) => users[0] ?? null)),
+			);
 		const authenticate = (credential: CredentialInput) =>
 			resolveCredential(
 				credential,

@@ -5,7 +5,7 @@ import { Data, DateTime, Effect } from "effect";
 import { describe } from "vitest";
 
 import { automationTrigger } from "#lib/infrastructure/db/schema/tables/automations";
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { withRevisionDatabase } from "#modules/plugins/revision.test-support";
 
 import { triggerFixture } from "./lifecycle.test-support";
@@ -34,7 +34,7 @@ describe("AutomationTriggerRepository", () => {
 					{ userId: owner, triggerId: trigger.id },
 					{ userId: recipient, triggerId: trigger.id },
 				]);
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				yield* db
 					.update(automationTrigger)
 					.set({
@@ -54,15 +54,15 @@ describe("AutomationTriggerRepository", () => {
 		withRevisionDatabase(
 			Effect.gen(function* () {
 				const repo = yield* AutomationTriggerRepository;
-				const db = yield* Database;
+				const session = yield* DatabaseSession;
 				const trigger = triggerFixture("rolled-back");
-				yield* db
-					.transaction((transaction) =>
+				yield* session
+					.transaction(
 						Effect.gen(function* () {
 							yield* repo.insert(trigger);
 							yield* repo.insertRecipients(trigger.id, [UserId.make("owner")]);
 							return yield* new Rollback();
-						}).pipe(Effect.provideService(Database, transaction)),
+						}),
 					)
 					.pipe(Effect.catchTag("TriggerTestRollback", () => Effect.void));
 				expect(yield* repo.findById(trigger.id)).toBeNull();

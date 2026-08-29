@@ -39,6 +39,8 @@ Restore validation spools events and assets into the caller's scoped temp direct
 
 All database writes occur in one transaction: restore is atomic. Local event-file reads and batched inserts occur inside it. Temp deletion failure is logged and swallowed so it cannot turn a committed restore into a failed run.
 
+`restore/writer.ts` validates and maps archive records; `restore/persistence.ts` owns historical inserts, updates, installation config revisions, and client projections. Ordinary repositories expose runtime writes and backup reads, not historical restore writes. Both the restore writer and its persistence layer use the active database session inside the workflow's transaction.
+
 Private packages and exact installation identities are restored without lifecycle dispatch. Complete installations retain archived disabled intent; missing redacted required secrets produce `needs-configuration`. Integrations missing required secrets are disabled. Integration and saved-view provenance resolve to the exact installation.
 
 Client page compositions are derived from restored compiled artifacts and current runtime state. The archive contains custom views and only non-default built-in state overrides (or a selected built-in home), not copies of built-in content. Restore resolves built-ins from current definitions, rejects custom slug conflicts and missing definitions, then resolves installation home views by slug. The archive format version remains 1.

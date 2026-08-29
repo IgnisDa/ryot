@@ -3,7 +3,8 @@ import { Context, Duration, Effect, Layer, Option, Queue, Schema } from "effect"
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 import { ProviderImportAdmissionRepository } from "./admission-repository";
 import { EntityImportWorkflow } from "./entity-import-workflow";
@@ -23,7 +24,7 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 	{
 		make: Effect.gen(function* () {
 			const config = yield* AppConfig;
-			const database = yield* Database;
+			const session = yield* DatabaseSession;
 			const engine = yield* WorkflowEngine;
 			const repository = yield* ProviderImportAdmissionRepository;
 			const limit = config.sandbox.importConcurrency;
@@ -53,15 +54,11 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 					}
 				}
 				const admitted = yield* mapDatabaseErrors(
-					database.transaction((transaction) =>
-						repository
-							.admit({ limit, finished })
-							.pipe(Effect.provideService(Database, transaction)),
-					),
+					session.transaction(repository.admit({ limit, finished })),
 				);
 				yield* Effect.forEach(admitted, start, { discard: true });
 				return yield* repository.hasPending();
-			}).pipe(Effect.provideService(Database, database));
+			}).pipe(Effect.provideService(DatabaseSession, session));
 
 			const run = Effect.gen(function* () {
 				const busy = yield* reconcile.pipe(
@@ -78,18 +75,16 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 			}) {
 				const encoded = yield* encodePayload(input.payload).pipe(Effect.orDie);
 				const outcome = yield* mapDatabaseErrors(
-					database.transaction((transaction) =>
-						repository
-							.enqueue({
-								payload: encoded,
-								userId: input.userId,
-								id: input.payload.executionId,
-								externalId: input.payload.externalId,
-								providerId: input.payload.providerId,
-								backlogLimit: PROVIDER_IMPORT_USER_BACKLOG_LIMIT,
-								entitySchemaSlug: input.payload.entitySchemaSlug,
-							})
-							.pipe(Effect.provideService(Database, transaction)),
+					session.transaction(
+						repository.enqueue({
+							payload: encoded,
+							userId: input.userId,
+							id: input.payload.executionId,
+							externalId: input.payload.externalId,
+							providerId: input.payload.providerId,
+							backlogLimit: PROVIDER_IMPORT_USER_BACKLOG_LIMIT,
+							entitySchemaSlug: input.payload.entitySchemaSlug,
+						}),
 					),
 				);
 				if (outcome.status === "queued") {
@@ -101,7 +96,7 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 			const status = (input: { id: string; userId: UserId }) =>
 				repository.find(input).pipe(
 					Effect.map((row) => row?.status ?? null),
-					Effect.provideService(Database, database),
+					Effect.provideService(DatabaseSession, session),
 				);
 
 			/** A queued import is removed before it starts; an admitted one is interrupted. */
@@ -111,7 +106,7 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 			}) {
 				const removed = yield* repository
 					.cancelQueued(input)
-					.pipe(Effect.provideService(Database, database));
+					.pipe(Effect.provideService(DatabaseSession, session));
 				if (!removed) {
 					yield* engine.interrupt(EntityImportWorkflow, input.id);
 				}

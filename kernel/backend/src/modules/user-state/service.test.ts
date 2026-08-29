@@ -1,4 +1,3 @@
-import { PgClient } from "@effect/sql-pg";
 import { expect, it } from "@effect/vitest";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { DbError } from "@ryot-app/contract/errors";
@@ -26,7 +25,7 @@ import { assert } from "vitest";
 import { LifecyclePlanner, type LifecyclePlan } from "#lib/domain/lifecycle";
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { databaseLayer } from "#lib/test-utils/effect";
@@ -148,7 +147,6 @@ const makeDefinitionsLayer = (
 
 const makeServiceLayer = (
 	options: {
-		database?: Layer.Layer<Database>;
 		eventsService?: ReturnType<typeof makeEventsService>;
 		definitions?: ReturnType<typeof makeDefinitionsLayer>;
 		eventsRepository?: ReturnType<typeof makeEventsRepository>;
@@ -162,8 +160,7 @@ const makeServiceLayer = (
 	UserStateService.layer.pipe(
 		Layer.provideMerge(
 			Layer.mergeAll(
-				options.database ?? databaseLayer,
-				Layer.succeed(PgClient.PgClient, Object.create(null)),
+				databaseLayer,
 				options.planner ??
 					Layer.mock(LifecyclePlanner)(
 						withLifecycleBatchPlanning({ plan: () => Effect.die("unused") }),
@@ -316,6 +313,7 @@ it.effect(
 	"prepares all clear mutations before one persistence phase and aggregates warnings",
 	() => {
 		const calls: string[] = [];
+		let session: DatabaseSession["Service"];
 		const batches: AutomationTrigger[] = [];
 		const eventPlans = [
 			deletePlan("event-trigger-1", "event"),
@@ -332,7 +330,6 @@ it.effect(
 			runId: AutomationRunId.make("relationship-run"),
 			hookSlug: AutomationHookSlug.make("relationship-hook"),
 		};
-		const transactionDatabase = Object.create(null);
 		const layer = makeServiceLayer({
 			eventsRepository: makeEventsRepository({
 				listUserEventIdsForEntity: () =>
@@ -354,17 +351,6 @@ it.effect(
 						return [eventWarning, relationshipWarning];
 					}),
 			}),
-			database: Layer.succeed(
-				Database,
-				Database.of(
-					Object.assign(Object.create(null), {
-						transaction: ((callback) => {
-							calls.push("transaction");
-							return callback(transactionDatabase);
-						}) satisfies Database["Service"]["transaction"],
-					}),
-				),
-			),
 			entitiesRepository: makeEntitiesRepository({
 				getEntityScopeForUser: () =>
 					Effect.succeed({
@@ -384,7 +370,8 @@ it.effect(
 						return preparedRelationshipDelete;
 					}),
 				persistPreparedUserDelete: () =>
-					Effect.sync(() => {
+					Effect.gen(function* () {
+						expect(yield* session.isTransactionActive).toBe(true);
 						calls.push("persist:relationship");
 						return { plans: [relationshipPlan], result: persistedRelationship };
 					}),
@@ -396,7 +383,8 @@ it.effect(
 						return preparedEventDelete;
 					}),
 				persistPreparedDelete: () =>
-					Effect.sync(() => {
+					Effect.gen(function* () {
+						expect(yield* session.isTransactionActive).toBe(true);
 						calls.push("persist:event");
 						const plan = eventPlans[calls.filter((call) => call === "persist:event").length - 1];
 						assert(plan);
@@ -421,8 +409,10 @@ it.effect(
 		});
 
 		return Effect.gen(function* () {
+			session = yield* DatabaseSession;
 			const service = yield* UserStateService;
 			const result = yield* service.clearUserState(user, EntityId.make("entity-1"), command);
+			expect(yield* session.isTransactionActive).toBe(false);
 
 			expect(result.warnings).toEqual([eventWarning, relationshipWarning]);
 			expect(
@@ -437,7 +427,6 @@ it.effect(
 				"prepare:event",
 				"prepare:event",
 				"prepare:relationship",
-				"transaction",
 				"persist:event",
 				"persist:event",
 				"persist:relationship",

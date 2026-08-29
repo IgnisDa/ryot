@@ -26,7 +26,8 @@ import {
 	automationRun,
 	automationRunAttempt as table,
 } from "#lib/infrastructure/db/schema/tables/automations";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession, DatabaseSessionStateError } from "#lib/infrastructure/db/session";
 import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import { makeSandboxObservabilityCollector } from "#lib/infrastructure/sandbox-runtime/observability-host-functions";
 
@@ -177,16 +178,19 @@ const userDisabled = Schema.decodeSync(AutomationRunSkipReason)({ code: "user-di
 const validateTime = (now: Date) =>
 	Number.isFinite(now.getTime()) ? Effect.void : Effect.fail(conflict("Invalid attempt time"));
 
-const atomic = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-	Effect.gen(function* () {
-		const db = yield* Database;
-		return yield* mapDatabaseErrors(
-			db.transaction((tx) => effect.pipe(Effect.provideService(Database, tx))),
+const atomic = <A, E, R>(session: DatabaseSession["Service"], effect: Effect.Effect<A, E, R>) =>
+	session
+		.transaction(effect)
+		.pipe(
+			Effect.mapError((error) =>
+				error instanceof DatabaseSessionStateError
+					? conflict("Automation attempt transaction already active")
+					: error,
+			),
 		);
-	});
 
-const lockRun = Effect.fn(function* (runId: AutomationRunId) {
-	const db = yield* Database;
+const lockRun = Effect.fn(function* (session: DatabaseSession["Service"], runId: AutomationRunId) {
+	const db = yield* session.current;
 	const [run] = yield* db
 		.select()
 		.from(automationRun)
@@ -200,8 +204,12 @@ const lockRun = Effect.fn(function* (runId: AutomationRunId) {
 
 const retryRun = alias(automationRun, "retry_run");
 
-const lockedRetryEligibility = Effect.fn(function* (runId: AutomationRunId, now: Date) {
-	const db = yield* Database;
+const lockedRetryEligibility = Effect.fn(function* (
+	session: DatabaseSession["Service"],
+	runId: AutomationRunId,
+	now: Date,
+) {
+	const db = yield* session.current;
 	const [row] = yield* db
 		.select({
 			reason: automationRunRetryEligibility("retry_run", sql`${now.toISOString()}::timestamptz`, {
@@ -216,28 +224,33 @@ const lockedRetryEligibility = Effect.fn(function* (runId: AutomationRunId, now:
 	return row.reason;
 });
 
-const retryEligibility = (runId: AutomationRunId, now: Date) =>
+const retryEligibility = (session: DatabaseSession["Service"], runId: AutomationRunId, now: Date) =>
 	atomic(
+		session,
 		Effect.gen(function* () {
 			yield* validateTime(now);
-			yield* lockRun(runId);
-			return yield* lockedRetryEligibility(runId, now);
+			yield* lockRun(session, runId);
+			return yield* lockedRetryEligibility(session, runId, now);
 		}),
 	);
 
-const queueRetry = (input: { runId: AutomationRunId; expectedAttemptCount: number; now: Date }) =>
+const queueRetry = (
+	session: DatabaseSession["Service"],
+	input: { runId: AutomationRunId; expectedAttemptCount: number; now: Date },
+) =>
 	atomic(
+		session,
 		Effect.gen(function* () {
 			yield* validateTime(input.now);
-			const run = yield* lockRun(input.runId);
+			const run = yield* lockRun(session, input.runId);
 			if (run.attemptCount !== input.expectedAttemptCount || run.attemptCount < 1) {
 				return yield* conflict("Manual retry attempt count conflict");
 			}
-			const reason = yield* lockedRetryEligibility(input.runId, input.now);
+			const reason = yield* lockedRetryEligibility(session, input.runId, input.now);
 			if (reason) {
 				return yield* conflict(`Manual retry unavailable: ${reason}`);
 			}
-			const db = yield* Database;
+			const db = yield* session.current;
 			yield* db
 				.update(automationRun)
 				.set({ status: "queued", finishedAt: null, nextAttemptAt: input.now })
@@ -259,9 +272,10 @@ const queueRetry = (input: { runId: AutomationRunId; expectedAttemptCount: numbe
 export class AutomationAttemptRepository extends Context.Service<AutomationAttemptRepository>()(
 	"AutomationAttemptRepository",
 	{
-		make: Effect.sync(() => {
+		make: Effect.gen(function* () {
+			const session = yield* DatabaseSession;
 			const findAttempt = Effect.fn(function* (runId: AutomationRunId, attemptNumber: number) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select()
@@ -276,9 +290,10 @@ export class AutomationAttemptRepository extends Context.Service<AutomationAttem
 				now: Date;
 			}) =>
 				atomic(
+					session,
 					Effect.gen(function* () {
 						yield* validateTime(input.now);
-						const run = yield* lockRun(input.runId);
+						const run = yield* lockRun(session, input.runId);
 						const existing = yield* findAttempt(input.runId, input.attemptNumber);
 						if (existing) {
 							return { claimed: false, attempt: existing };
@@ -308,7 +323,7 @@ export class AutomationAttemptRepository extends Context.Service<AutomationAttem
 						) {
 							return yield* conflict("Automation attempt claim conflict or not due");
 						}
-						const db = yield* Database;
+						const db = yield* session.current;
 						if (run.executionUserId !== null) {
 							const [executionUser] = yield* db
 								.select({ disabledAt: user.disabledAt })
@@ -370,9 +385,10 @@ export class AutomationAttemptRepository extends Context.Service<AutomationAttem
 				);
 			const finalizeAttempt = (input: FinalizeAutomationAttempt, now: Date) =>
 				atomic(
+					session,
 					Effect.gen(function* () {
 						yield* validateTime(now);
-						const run = yield* lockRun(input.runId);
+						const run = yield* lockRun(session, input.runId);
 						const attempt = yield* findAttempt(input.runId, input.attemptNumber);
 						if (!attempt) {
 							return yield* conflict("Automation attempt not found");
@@ -425,7 +441,7 @@ export class AutomationAttemptRepository extends Context.Service<AutomationAttem
 										now,
 									)
 								: null;
-						const db = yield* Database;
+						const db = yield* session.current;
 						yield* db
 							.update(table)
 							.set({ ...outcome, ...projectAutomationAttemptHistory(outcome), finishedAt: now })
@@ -454,7 +470,7 @@ export class AutomationAttemptRepository extends Context.Service<AutomationAttem
 				prunedAt: Date;
 				limit: number;
 			}) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const candidates = db
 					.select({ id: table.id })
 					.from(table)
@@ -487,12 +503,13 @@ export class AutomationAttemptRepository extends Context.Service<AutomationAttem
 				);
 			});
 			return {
-				queueRetry,
 				findAttempt,
 				pruneArtifacts,
 				finalizeAttempt,
 				claimNextAttempt,
-				retryEligibility,
+				queueRetry: (input: Parameters<typeof queueRetry>[1]) => queueRetry(session, input),
+				retryEligibility: (runId: AutomationRunId, now: Date) =>
+					retryEligibility(session, runId, now),
 			};
 		}),
 	},

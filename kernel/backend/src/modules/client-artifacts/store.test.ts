@@ -7,8 +7,6 @@ import {
 } from "@ryot-app/client-plugin-contract";
 import { Effect, Layer } from "effect";
 
-import { Database } from "#lib/infrastructure/db/service";
-
 import { ImageClientArtifacts } from "./image-artifacts";
 import { ClientArtifactsRepository } from "./repository";
 import { ClientArtifactStore } from "./store";
@@ -62,7 +60,6 @@ it.effect(
 				Layer.mergeAll(
 					Layer.succeed(ImageClientArtifacts, image),
 					Layer.succeed(ClientArtifactsRepository, repository),
-					Layer.succeed(Database, Database.of(Object.create(null))),
 				),
 			),
 		);
@@ -79,9 +76,6 @@ it.effect(
 			expect(store.isPublic(shippedHash)).toBe(true);
 			expect(store.isPublic(privateHash)).toBe(false);
 			expect(databaseReads).toEqual([`file:${shippedHash}/module.js`, `describe:${privateHash}`]);
-		}).pipe(
-			Effect.provide(layer),
-			Effect.provideService(Database, Database.of(Object.create(null))),
-		);
+		}).pipe(Effect.provide(layer));
 	},
 );

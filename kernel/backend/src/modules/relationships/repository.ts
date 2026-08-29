@@ -12,7 +12,8 @@ import { and, asc, eq, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 type RelationshipSnapshotRow = Pick<
 	typeof schema.relationship.$inferSelect,
@@ -63,18 +64,6 @@ export const relationshipMutationLockKey = (input: RelationshipIdentityInput) =>
 		input.sourceEntityId,
 		input.targetEntityId,
 	]);
-
-type RestoreRelationshipInput = Pick<
-	typeof schema.relationship.$inferInsert,
-	| "id"
-	| "userId"
-	| "createdAt"
-	| "properties"
-	| "sourceEntityId"
-	| "targetEntityId"
-	| "relationshipSchemaPluginId"
-	| "relationshipSchemaSlug"
->;
 
 const globalRelationshipListFields = {
 	relationshipSchemaSlug: RelationshipSchemaSlug,
@@ -221,10 +210,11 @@ const relationshipReconciliationLockKey = (input: RelationshipReconciliationList
 export class RelationshipsRepository extends Context.Service<RelationshipsRepository>()(
 	"RelationshipsRepository",
 	{
-		make: Effect.sync(() => {
+		make: Effect.gen(function* () {
+			const session = yield* DatabaseSession;
 			const findLifecyclePayload = Effect.fn("RelationshipsRepository.findLifecyclePayload")(
 				function* (id: AutomationTriggerId) {
-					const db = yield* Database;
+					const db = yield* session.current;
 					const [row] = yield* mapDatabaseErrors(
 						db
 							.select({ payload: schema.automationTrigger.payload })
@@ -244,7 +234,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const findRelationship = Effect.fn("RelationshipsRepository.findRelationship")(function* (
 				input: RelationshipIdentityInput,
 			) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select(relationshipSnapshotSelection)
@@ -258,7 +248,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const findUserRelationshipById = Effect.fn(
 				"RelationshipsRepository.findUserRelationshipById",
 			)(function* (userId: UserId, relationshipId: RelationshipId) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select(relationshipSnapshotWithProvenanceSelection)
@@ -276,7 +266,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const lockRelationshipMutations = Effect.fn(
 				"RelationshipsRepository.lockRelationshipMutations",
 			)(function* (inputs: ReadonlyArray<RelationshipIdentityInput>) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const keys = [...new Set(inputs.map(relationshipMutationLockKey))].sort();
 				for (const key of keys) {
 					yield* mapDatabaseErrors(
@@ -287,7 +277,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const listUserRelationshipsForBackup = Effect.fn(
 				"RelationshipsRepository.listUserRelationshipsForBackup",
 			)(function* (userId: UserId) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				return yield* mapDatabaseErrors(
 					db
 						.select(relationshipSnapshotWithProvenanceSelection)
@@ -296,18 +286,6 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 						.orderBy(asc(schema.relationship.id)),
 				);
 			});
-
-			const restoreRelationship = Effect.fn("RelationshipsRepository.restoreRelationship")(
-				function* (input: RestoreRelationshipInput) {
-					const db = yield* Database;
-					const [row] = yield* mapDatabaseErrors(
-						db.insert(schema.relationship).values(input).returning({ id: schema.relationship.id }),
-					);
-					return row
-						? RelationshipId.make(row.id)
-						: yield* new DbError({ message: "Relationship restore returned no row" });
-				},
-			);
 
 			const findRelationshipProperties = Effect.fn(
 				"RelationshipsRepository.findRelationshipProperties",
@@ -318,7 +296,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				relationshipSchemaSlug: RelationshipSchemaSlug;
 				relationshipSchemaPluginId?: string | null | undefined;
 			}) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({ properties: schema.relationship.properties })
@@ -333,7 +311,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const createRelationship = Effect.fn("RelationshipsRepository.createRelationship")(function* (
 				input: CreateRelationshipInput,
 			) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const values = {
 					properties: input.properties,
 					sourceEntityId: input.sourceEntityId,
@@ -374,7 +352,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const updateRelationship = Effect.fn("RelationshipsRepository.updateRelationship")(function* (
 				input: UpdateRelationshipInput,
 			) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.update(schema.relationship)
@@ -389,7 +367,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const updatePreparedRelationship = Effect.fn(
 				"RelationshipsRepository.updatePreparedRelationship",
 			)(function* (input: UpdateRelationshipInput & { before: ReturnType<typeof toRelationship> }) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.update(schema.relationship)
@@ -404,7 +382,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const deleteRelationship = Effect.fn("RelationshipsRepository.deleteRelationship")(function* (
 				input: RelationshipIdentityInput,
 			) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.delete(schema.relationship)
@@ -420,7 +398,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			)(function* (
 				input: RelationshipIdentityInput & { before: ReturnType<typeof toRelationship> },
 			) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.delete(schema.relationship)
@@ -434,7 +412,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const deleteUserRelationshipById = Effect.fn(
 				"RelationshipsRepository.deleteUserRelationshipById",
 			)(function* (userId: UserId, relationshipId: RelationshipId) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.delete(schema.relationship)
@@ -452,7 +430,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const listUserRelationshipsForEntity = Effect.fn(
 				"RelationshipsRepository.listUserRelationshipsForEntity",
 			)(function* (input: { userId: UserId; entityId: EntityId }) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const rows = yield* mapDatabaseErrors(
 					db
 						.select(relationshipSnapshotSelection)
@@ -474,7 +452,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const listUserRelationshipsForEntityWithProvenance = Effect.fn(
 				"RelationshipsRepository.listUserRelationshipsForEntityWithProvenance",
 			)(function* (input: { userId: UserId; entityId: EntityId }) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const rows = yield* mapDatabaseErrors(
 					db
 						.select(relationshipSnapshotWithProvenanceSelection)
@@ -501,7 +479,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				relationshipSchemaSlug: RelationshipSchemaSlug;
 				relationshipSchemaPluginId?: string | null | undefined;
 			}) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const rows = yield* mapDatabaseErrors(
 					db
 						.selectDistinct({ userId: schema.relationship.userId })
@@ -529,7 +507,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 			const listRelationshipsForReconciliation = Effect.fn(
 				"RelationshipsRepository.listRelationshipsForReconciliation",
 			)(function* (input: RelationshipReconciliationListInput) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				yield* mapDatabaseErrors(
 					db.execute(
 						sql`select pg_advisory_xact_lock(hashtextextended(${relationshipReconciliationLockKey(input)}, 0))`,
@@ -554,7 +532,6 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				createRelationship,
 				updateRelationship,
 				deleteRelationship,
-				restoreRelationship,
 				findLifecyclePayload,
 				listGlobalRelationships,
 				findUserRelationshipById,

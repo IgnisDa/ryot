@@ -9,7 +9,7 @@ import { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 import { describe, it as vitestIt } from "vitest";
 
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { RedisService } from "#lib/infrastructure/redis";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeAppConfigLayer, makeRedisService } from "#lib/test-utils/effect";
@@ -87,36 +87,8 @@ const makeRedisMock = () =>
 		}),
 	});
 
-const makeBootstrapDb = () =>
-	Object.assign(Object.create(null), {
-		execute: () => Effect.succeed({}),
-		update: () => ({ set: () => ({ where: () => Effect.succeed({}) }) }),
-		insert: () => ({
-			values: () =>
-				Object.assign(Effect.succeed({}), {
-					onConflictDoUpdate: () => Effect.succeed({}),
-					onConflictDoNothing: () => Effect.succeed({}),
-				}),
-		}),
-		select: () => ({
-			from: () => ({
-				where: () =>
-					Object.assign(Effect.succeed([]), {
-						for: () => Effect.succeed([]),
-						limit: () => Effect.succeed([]),
-					}),
-			}),
-		}),
-	});
-
-const makeDatabaseLayer = (db: object, transactionDb = db) =>
-	Layer.succeed(
-		Database,
-		Object.assign(Object.create(null), db, {
-			transaction: (callback: (database: Database["Service"]) => Effect.Effect<unknown>) =>
-				callback(Object.assign(Object.create(null), transactionDb)),
-		}),
-	);
+const makeDatabaseLayer = (db: object) =>
+	Layer.mock(DatabaseSession)({ current: Effect.succeed(Object.assign(Object.create(null), db)) });
 
 const bootstrapEntitiesServiceLayer = Layer.mock(EntitiesService)({
 	create: () => Effect.succeed(Object.create(null)),
@@ -137,36 +109,22 @@ const makeServiceLayer = (
 	db: object,
 	disableLocalAuth = false,
 	authState?: Parameters<typeof makeAuthMock>[0],
-	transactionDb = makeBootstrapDb(),
 	auth: ReturnType<typeof makeAuthMock> = makeAuthMock(authState),
 	lifecycleLayer = defaultUserLifecycleServiceLayer,
 ) =>
 	GodModeService.layer.pipe(
 		Layer.provideMerge(
 			Layer.mergeAll(
-				makeDatabaseLayer(db, transactionDb),
 				GodModeRepository.layer,
 				makeAppConfigLayer({ users: { disableLocalAuth } }),
-				Layer.succeed(
-					AuthService,
-					Object.assign(auth, {
-						transaction: <A, E>(
-							callback: (operations: {
-								createAuthUser: typeof auth.createAuthUser;
-							}) => Effect.Effect<A, E, Database>,
-						) =>
-							callback({ createAuthUser: auth.createAuthUser }).pipe(
-								Effect.provideService(Database, Object.assign(Object.create(null), transactionDb)),
-							),
-					}),
-				),
+				Layer.succeed(AuthService, auth),
 				Layer.succeed(RedisService, makeRedisMock()),
 				bootstrapEntitiesServiceLayer,
 				bootstrapNotificationSubscriptionsServiceLayer,
 				bootstrapSavedViewsServiceLayer,
 				pluginUserBootstrapDispatcherLayer,
 				lifecycleLayer,
-			),
+			).pipe(Layer.provideMerge(makeDatabaseLayer(db))),
 		),
 	);
 
@@ -174,7 +132,6 @@ const makeProvisionLayer = (db: object, auth: ReturnType<typeof makeProvisionAut
 	GodModeService.layer.pipe(
 		Layer.provideMerge(
 			Layer.mergeAll(
-				makeDatabaseLayer(db, makeBootstrapDb()),
 				GodModeRepository.layer,
 				makeAppConfigLayer(),
 				Layer.succeed(AuthService, auth),
@@ -184,7 +141,7 @@ const makeProvisionLayer = (db: object, auth: ReturnType<typeof makeProvisionAut
 				bootstrapSavedViewsServiceLayer,
 				pluginUserBootstrapDispatcherLayer,
 				defaultUserLifecycleServiceLayer,
-			),
+			).pipe(Layer.provideMerge(makeDatabaseLayer(db))),
 		),
 	);
 
@@ -404,11 +361,7 @@ it.effect("delegates deletion to the durable lifecycle service", () => {
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
 		expect(yield* service.deleteUser(UserId.make("user_1"))).toEqual(operation);
-	}).pipe(
-		Effect.provide(
-			makeServiceLayer(db, false, undefined, makeBootstrapDb(), makeAuthMock(), lifecycle),
-		),
-	);
+	}).pipe(Effect.provide(makeServiceLayer(db, false, undefined, makeAuthMock(), lifecycle)));
 });
 
 vitestIt("creates a credential user without an account row", () => {

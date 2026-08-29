@@ -7,17 +7,19 @@ import { and, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 export class ClientPagesRepository extends Context.Service<ClientPagesRepository>()(
 	"ClientPagesRepository",
 	{
-		make: Effect.sync(() => {
+		make: Effect.gen(function* () {
+			const session = yield* DatabaseSession;
 			const findPreparedTarget = Effect.fn("ClientPagesRepository.findPreparedTarget")(function* (
 				userId: UserId,
 				savedViewId: string,
 			) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select()
@@ -36,7 +38,7 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 			const listPreparedTargets = Effect.fn("ClientPagesRepository.listPreparedTargets")(function* (
 				userId: UserId,
 			) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const rows = yield* mapDatabaseErrors(
 					db
 						.select()
@@ -54,7 +56,7 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 			const findComposition = Effect.fn("ClientPagesRepository.findComposition")(function* (
 				compositionKey: string,
 			) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select()
@@ -67,7 +69,7 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 
 			const findCompositionByHash = Effect.fn("ClientPagesRepository.findCompositionByHash")(
 				function* (compositionHash: string) {
-					const db = yield* Database;
+					const db = yield* session.current;
 					const [row] = yield* mapDatabaseErrors(
 						db
 							.select()
@@ -86,7 +88,7 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 					readonly identity: ClientPageCompositionIdentity;
 					readonly manifest: ClientPageCompositionManifest;
 				}) {
-					const db = yield* Database;
+					const db = yield* session.current;
 					const [row] = yield* mapDatabaseErrors(
 						db
 							.insert(schema.clientPageComposition)

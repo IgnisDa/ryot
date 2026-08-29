@@ -3,9 +3,9 @@
 ## Boundaries
 
 - Routes validate request data and call one service handler. Services own business rules and access control; repositories own persistence and row normalization.
-- Define services and repositories as Effect service classes and provide dependencies through layers.
+- Define services and repositories as Effect service classes; feature-owned Layers provide implementation dependencies, and boot Layers compose features.
 - Do not add barrel exports. Import from the defining module.
-- Each table has one writing repository. Cross-module writes go through the owning service, except repository access required for one shared transaction.
+- Each table has one writing repository for runtime writes. Cross-module writes go through the owning service, except repository access required for one shared transaction and backup-owned historical restore persistence.
 - Importers, jobs, sandbox callbacks, bootstrap code, and HTTP handlers use the same write paths.
 - Modules depend only on more generic modules. Invert upward effects through a generic `DurableQueue` hook, its worker, and layer wiring.
 - Provider search, resolution, details, and population use sandbox provider scripts. Source connectors may fetch user data but must not call provider enrichment APIs.
@@ -17,10 +17,10 @@
 
 - Keep runtime schemas, persisted JSON, and TypeScript types aligned. Store timezone-aware timestamps and emit ISO 8601 UTC dates.
 - Validate schema-backed entity, event, and relationship properties before writes.
-- Services set transaction boundaries; repositories use the active executor from context.
+- Services own transaction boundaries; repositories capture `DatabaseSession` and use its current executor. Shared writes participate in the owner's transaction without manual injection; owning services reject an already active transaction where required.
 - Lifecycle planning may invert module dependencies through the generic `LifecyclePlanner` transaction-scoped persistence port. Source writes, immutable triggers, recipients, and pinned runs share the caller's transaction; the port must not execute sandbox code or start workflows. Start execution only after commit.
 - Every change-producing write also plans batch change triggers through `LifecyclePlanner.planBatch`, in the same transaction as its item plans, and dispatches item plans before batch plans. A single-item write emits a batch of one; batch identity and chunk boundaries must stay replay-stable.
-- The backup restore writer is the only kernel production caller allowed to use repository restore methods. The architecture check enforces this historical-write boundary; runtime callers use owning services.
+- Historical backup writes belong to `modules/backups/restore/persistence.ts`; ordinary repositories do not expose restore methods. Runtime callers use owning services.
 - Never hold a transaction across sandbox execution, network I/O, workflow boundaries, sleeps, or fan-out.
 - Provider population composes the import workflow. External event creation runs before-stage policy hooks, then plans pinned after-hook runs in the committing transaction.
 - Catalog reads query persisted revision content and definition views directly and never select sandbox script bodies; execution loads compiled code by script id.
@@ -32,7 +32,7 @@
 - Derive child `executionId` values deterministically from the parent; random IDs can create children on replay.
 - Durable owners remain idempotent because ownership does not guarantee single-flight execution.
 - Background work uses the workflow engine, durable queues, and durable deferred signals; do not add another job queue.
-- Create activities with `makeActivity` and register workflows with `implementWorkflow` from `src/lib/infrastructure/workflow-scope.ts`; `LifecycleExecution.after` and `executePolicy` die inside activity bodies. The architecture check enforces this.
+- Create activities with `makeActivity` and register workflows with `implementWorkflow` from `src/lib/infrastructure/workflow-scope.ts`; `LifecycleExecution.after` and `executePolicy` die inside activity bodies.
 
 ## Infrastructure
 

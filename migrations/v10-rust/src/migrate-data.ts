@@ -1,7 +1,4 @@
-import {
-	Database,
-	mapDatabaseErrors,
-} from "@ryot-app/kernel-backend/lib/infrastructure/db/service";
+import { DatabaseSession } from "@ryot-app/kernel-backend/lib/infrastructure/db/session";
 import {
 	formatPropertyIssues,
 	parseAppSchemaProperties,
@@ -562,14 +559,8 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		),
 	);
 	const integrations = yield* IntegrationsRepository;
-	const database = yield* Database;
-	yield* mapDatabaseErrors(
-		database.transaction((transaction) =>
-			integrations
-				.refreshClientProviderSpecificsForPlugin(mediaPluginId)
-				.pipe(Effect.provideService(Database, transaction)),
-		),
-	);
+	const session = yield* DatabaseSession;
+	yield* session.transaction(integrations.refreshClientProviderSpecificsForPlugin(mediaPluginId));
 	yield* migrateIntegrationProgressCache({
 		scriptId: integrationProgressScript.id,
 		cacheRows: legacyIntegrationProgressCache,

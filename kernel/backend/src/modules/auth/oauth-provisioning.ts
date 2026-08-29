@@ -15,7 +15,8 @@ import {
 import { Context, DateTime, Effect, Layer, Option } from "effect";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 import {
 	AuthRepository,
@@ -98,7 +99,7 @@ export class OAuthProvisioningService extends Context.Service<OAuthProvisioningS
 	{
 		make: Effect.gen(function* () {
 			const config = yield* AppConfig;
-			const database = yield* Database;
+			const database = yield* DatabaseSession;
 			const repository = yield* AuthRepository;
 			const provision = Effect.fn("OAuthProvisioningService.provision")(function* () {
 				const now = yield* DateTime.nowAsDate;
@@ -108,7 +109,7 @@ export class OAuthProvisioningService extends Context.Service<OAuthProvisioningS
 					Option.isSome(config.users.demoAccountId),
 				);
 				yield* mapDatabaseErrors(
-					database.transaction((transaction) =>
+					database.transaction(
 						Effect.gen(function* () {
 							for (const client of records.clients) {
 								yield* repository.upsertInternalOAuthClient(client);
@@ -120,7 +121,7 @@ export class OAuthProvisioningService extends Context.Service<OAuthProvisioningS
 							for (const link of records.links) {
 								yield* repository.upsertInternalOAuthClientResource(link);
 							}
-						}).pipe(Effect.provideService(Database, transaction)),
+						}),
 					),
 				);
 				yield* Effect.logInfo("internal OAuth provisioning complete").pipe(

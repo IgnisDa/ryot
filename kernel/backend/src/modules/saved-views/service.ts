@@ -13,7 +13,8 @@ import { eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { acquireUserWriteLock } from "#lib/infrastructure/db/user-write-lock";
 import { slugify } from "#lib/shared/slug";
 import { trimToNull } from "#lib/shared/validation";
@@ -37,6 +38,14 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 		const surfaces = yield* ClientSurfaceMaterializer;
 		const installations = yield* PluginInstallationRepository;
 		const pluginRepository = yield* PluginRepository;
+		const session = yield* DatabaseSession;
+		const transact = <A, E, R>(work: Effect.Effect<A, E, R>) =>
+			session
+				.transaction(work)
+				.pipe(
+					Effect.provideService(DatabaseSession, session),
+					Effect.catchTag("DatabaseSessionStateError", Effect.die),
+				);
 		const resolvePluginInstallation = Effect.fn(function* (
 			userId: CurrentUserValue["id"],
 			pluginSlug: PluginSlug,
@@ -112,10 +121,10 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 				payload.dataSources,
 			);
 			yield* surfaces.materializeRenderer(user.id, payload.renderer);
-			const database = yield* Database;
 			const created = yield* mapDatabaseErrors(
-				database.transaction((transaction) =>
+				transact(
 					Effect.gen(function* () {
+						const transaction = yield* session.current;
 						yield* pluginRepository.lockIngestionShared();
 						const [builtin] = yield* mapDatabaseErrors(
 							transaction
@@ -146,7 +155,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 								: null,
 						});
 						return row ?? (yield* new SavedViewBadRequest({ reason: { code: "duplicate-name" } }));
-					}).pipe(Effect.provideService(Database, transaction)),
+					}),
 				),
 			);
 			yield* invalidator.user(user.id);
@@ -222,9 +231,8 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 				if (previous.isDisabled && !payload.isDisabled) {
 					yield* surfaces.materializeRenderer(user.id, previous.renderer);
 				}
-				const database = yield* Database;
 				const updated = yield* mapDatabaseErrors(
-					database.transaction((transaction) =>
+					transact(
 						Effect.gen(function* () {
 							yield* acquireUserWriteLock(user.id);
 							const current = yield* repository.findBySlug(user.id, viewSlug);
@@ -256,7 +264,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 								yield* installations.clearHomeSavedViewReferences(user.id, viewSlug);
 							}
 							return result;
-						}).pipe(Effect.provideService(Database, transaction)),
+						}),
 					),
 				);
 				if (previous.isDisabled !== payload.isDisabled) {
@@ -277,9 +285,8 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 				);
 				yield* surfaces.materializeRenderer(user.id, nextRenderer);
 			}
-			const database = yield* Database;
 			const { updated, reenabled, rendererChanged } = yield* mapDatabaseErrors(
-				database.transaction((transaction) =>
+				transact(
 					Effect.gen(function* () {
 						yield* acquireUserWriteLock(user.id);
 						const current = yield* repository.lockBySlug(user.id, viewSlug);
@@ -304,7 +311,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 							yield* installations.clearHomeSavedViewReferences(user.id, viewSlug);
 						}
 						return { updated: result, reenabled: becameEnabled, rendererChanged: changedRenderer };
-					}).pipe(Effect.provideService(Database, transaction)),
+					}),
 				),
 			);
 			if (rendererChanged || reenabled || (payload.isDisabled && !previous.isDisabled)) {
@@ -314,9 +321,8 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 		});
 
 		const deleteView = Effect.fn(function* (user: CurrentUserValue, viewSlug: string) {
-			const database = yield* Database;
 			const deleted = yield* mapDatabaseErrors(
-				database.transaction((transaction) =>
+				transact(
 					Effect.gen(function* () {
 						yield* acquireUserWriteLock(user.id);
 						const effectiveView = yield* repository.findBySlug(user.id, viewSlug);
@@ -336,7 +342,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 							(yield* repository.deleteBySlug(user.id, viewSlug)) ??
 							(yield* new SavedViewNotFound({ reason: { viewSlug, code: "saved-view-not-found" } }))
 						);
-					}).pipe(Effect.provideService(Database, transaction)),
+					}),
 				),
 			);
 			yield* invalidator.user(user.id);
@@ -356,9 +362,8 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 		});
 
 		const reorder = Effect.fn(function* (user: CurrentUserValue, payload: ReorderSavedViewsBody) {
-			const database = yield* Database;
 			return yield* mapDatabaseErrors(
-				database.transaction((transaction) =>
+				transact(
 					Effect.gen(function* () {
 						yield* acquireUserWriteLock(user.id);
 						const pluginInstallationId = payload.pluginSlug
@@ -402,7 +407,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 							});
 						}
 						return { viewSlugs: reordered };
-					}).pipe(Effect.provideService(Database, transaction)),
+					}),
 				),
 			);
 		});

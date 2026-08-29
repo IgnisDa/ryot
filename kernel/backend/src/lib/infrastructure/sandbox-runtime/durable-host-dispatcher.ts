@@ -14,7 +14,7 @@ import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import {
 	runLifecycleWriteStep,
 	type LifecyclePreparedStep,
@@ -235,7 +235,7 @@ const recordHostCall = <E, R>(
 export const SandboxDurableHostDispatcherLive = Layer.effect(
 	SandboxDurableHostDispatcher,
 	Effect.gen(function* () {
-		const database = yield* Database;
+		const session = yield* DatabaseSession;
 		const engine = yield* WorkflowEngine;
 		const repository = yield* SandboxRepository;
 		const admission = yield* ProviderHttpAdmissionService;
@@ -244,7 +244,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 		const rateLimitAuthority = yield* PluginHttpRateLimitAuthority;
 		const provideDispatchServices = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 			effect.pipe(
-				Effect.provideService(Database, database),
+				Effect.provideService(DatabaseSession, session),
 				Effect.provideService(SandboxRepository, repository),
 				Effect.provideService(SandboxHostImplementations, implementations),
 			);
@@ -747,7 +747,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 								executionId,
 								startedAt,
 							).pipe(
-								Effect.provideService(Database, database),
+								Effect.provideService(DatabaseSession, session),
 								Effect.provideService(SandboxRepository, repository),
 							),
 						});
@@ -803,7 +803,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 							executionId,
 							startedAt,
 						).pipe(
-							Effect.provideService(Database, database),
+							Effect.provideService(DatabaseSession, session),
 							Effect.provideService(SandboxRepository, repository),
 						),
 					});

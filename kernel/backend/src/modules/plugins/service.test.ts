@@ -6,7 +6,6 @@ import { PluginConflictError } from "@ryot-app/contract/modules/plugins/schemas"
 import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { Cause, Deferred, Effect, Exit, Fiber, Layer, Option } from "effect";
 
-import { Database } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { databaseLayer, makeRedisService, type MockOverrides } from "#lib/test-utils/effect";
@@ -156,7 +155,6 @@ const makeLayer = (input?: {
 	readonly integrationFences?: Array<unknown>;
 	readonly afterPersist?: Effect.Effect<void>;
 	readonly persisted?: Array<NormalizedPlugin>;
-	readonly databaseLayer?: Layer.Layer<Database>;
 	readonly hasWorkflowReferences?: () => boolean;
 	readonly systemPluginSlugs?: ReadonlySet<string>;
 	readonly publish?: RedisService["Service"]["publish"];
@@ -246,7 +244,7 @@ const makeLayer = (input?: {
 				return input?.hasWorkflowReferences?.() ?? false;
 			}),
 	});
-	const testDatabaseLayer = input?.databaseLayer ?? databaseLayer;
+	const testDatabaseLayer = databaseLayer;
 	const systemPluginsLayer = Layer.succeed(SystemPlugins, {
 		sources: [],
 		slugs: input?.systemPluginSlugs ?? new Set(),
@@ -680,30 +678,17 @@ it.effect("serializes workflow pin registration with refused and successful unin
 				events.push("registered");
 				return { status: "registered" as const };
 			});
-			const transactionDatabaseLayer = Layer.succeed(
-				Database,
-				Database.of(
-					Object.assign(Object.create(null), {
-						transaction: ((callback) =>
-							callback(Object.create(null)).pipe(
-								Effect.ensuring(
-									Effect.suspend(() => {
-										if (!exclusive) {
-											return Effect.void;
-										}
-										exclusive = false;
-										events.push("exclusive-released");
-										return Deferred.succeed(exclusiveReleased, undefined);
-									}),
-								),
-							)) satisfies Database["Service"]["transaction"],
-					}),
-				),
-			);
+			const releaseExclusive = Effect.suspend(() => {
+				if (!exclusive) {
+					return Effect.void;
+				}
+				exclusive = false;
+				events.push("exclusive-released");
+				return Deferred.succeed(exclusiveReleased, undefined);
+			});
 			const layer = makeLayer({
 				events,
 				initialInstalled: [stored],
-				databaseLayer: transactionDatabaseLayer,
 				hasEntityReferences: hasExistingReference,
 				deactivate: () =>
 					Effect.sync(() => {
@@ -722,7 +707,7 @@ it.effect("serializes workflow pin registration with refused and successful unin
 			const program = Effect.gen(function* () {
 				const ingestion = yield* PluginIngestionService;
 				const uninstall = yield* Effect.forkChild(
-					Effect.exit(ingestion.uninstallPlugin("fixture")),
+					Effect.exit(ingestion.uninstallPlugin("fixture")).pipe(Effect.tap(releaseExclusive)),
 				);
 				yield* Deferred.await(exclusiveAcquired);
 				expect(events).toEqual(["exclusive-acquired"]);
@@ -763,8 +748,8 @@ it.effect("serializes workflow pin registration with refused and successful unin
 						"exclusive-acquired",
 						"shared-attempt",
 						"deactivated",
-						"exclusive-released",
 						"publish",
+						"exclusive-released",
 						"shared-acquired",
 					]);
 				}

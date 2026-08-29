@@ -11,7 +11,6 @@ import { Effect, Layer } from "effect";
 import { HttpRouter, HttpServer } from "effect/unstable/http";
 import { HttpApi, HttpApiBuilder } from "effect/unstable/httpapi";
 
-import { Database } from "#lib/infrastructure/db/service";
 import { ClientArtifactGrantService } from "#modules/client-artifacts/grant-service";
 import { ClientArtifactStore } from "#modules/client-artifacts/store";
 
@@ -30,7 +29,6 @@ it.effect("serves a no-store document from a capability without HTTP authenticat
 		runtimeEntries: { sdk: "runtime.js", bootstrap: "bootstrap.js" },
 	});
 	const services = Layer.mergeAll(
-		Layer.succeed(Database, Database.of(Object.create(null))),
 		Layer.succeed(
 			ClientDocumentGrantService,
 			ClientDocumentGrantService.of({

@@ -9,14 +9,16 @@ import {
 	automationRun as run,
 	automationRunAttempt as attempt,
 } from "#lib/infrastructure/db/schema/tables/automations";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 export class AutomationHistoryRepository extends Context.Service<AutomationHistoryRepository>()(
 	"AutomationHistoryRepository",
 	{
-		make: Effect.sync(() => {
+		make: Effect.gen(function* () {
+			const session = yield* DatabaseSession;
 			const findOwnedRun = Effect.fn(function* (userId: UserId, runId: AutomationRunId) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({ attemptCount: run.attemptCount })
@@ -26,7 +28,7 @@ export class AutomationHistoryRepository extends Context.Service<AutomationHisto
 				return row ?? null;
 			});
 			const attempts = Effect.fn(function* (runId: AutomationRunId) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const rows = yield* mapDatabaseErrors(
 					db
 						.select({

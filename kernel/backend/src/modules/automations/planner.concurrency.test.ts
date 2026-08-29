@@ -11,7 +11,7 @@ import { assert, describe } from "vitest";
 
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, DatabaseLive, setLocalStatementTimeout } from "#lib/infrastructure/db/service";
+import { setLocalStatementTimeout, DatabaseSession } from "#lib/infrastructure/db/session";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
 import { makeRecordingTracer } from "#lib/test-utils/tracer";
@@ -27,7 +27,8 @@ import { LifecyclePlannerLive } from "./planner";
 const pluginId = "fixture-plugin";
 
 const bootstrap = Effect.gen(function* () {
-	const db = yield* Database;
+	const session = yield* DatabaseSession;
+	const db = yield* session.current;
 	const planner = yield* LifecyclePlanner;
 	const plugins = yield* PluginRepository;
 	const name = `planner_test_${crypto.randomUUID().replaceAll("-", "")}`;
@@ -39,12 +40,13 @@ const bootstrap = Effect.gen(function* () {
 		catch: () => new DbError({ message: "Cannot read generated baseline" }),
 	});
 	yield* db.execute(sql`create schema ${sql.identifier(name)}`);
-	const transaction = <A, E>(body: Effect.Effect<A, E, Database>) =>
-		db.transaction((tx) =>
+	const transaction = <A, E, R>(body: Effect.Effect<A, E, R>) =>
+		session.transaction(
 			Effect.gen(function* () {
+				const tx = yield* session.current;
 				yield* tx.execute(sql`set local search_path to ${sql.identifier(name)}, public`);
 				return yield* body;
-			}).pipe(Effect.provideService(Database, tx)),
+			}),
 		);
 	return { db, ddl, name, planner, plugins, transaction };
 });
@@ -63,7 +65,7 @@ const withPlannerSchema = <A, E, R>(body: (harness: PlannerHarness) => Effect.Ef
 	);
 	const services = LifecyclePlannerLive.pipe(
 		Layer.provideMerge(dependencies),
-		Layer.provideMerge(DatabaseLive),
+		Layer.provideMerge(DatabaseSession.layer),
 		Layer.provide(config),
 	);
 	return Effect.gen(function* () {
@@ -85,7 +87,7 @@ const withPlannerSchema = <A, E, R>(body: (harness: PlannerHarness) => Effect.Ef
 // while `lockCatalog` still takes one real `plugin-config:` key.
 const seedCatalog = (ddl: string) =>
 	Effect.gen(function* () {
-		const tx = yield* Database;
+		const tx = yield* (yield* DatabaseSession).current;
 		for (const statement of ddl.split("--> statement-breakpoint")) {
 			yield* tx.execute(sql.raw(statement));
 		}
@@ -150,7 +152,7 @@ describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 			Effect.gen(function* () {
 				yield* transaction(
 					Effect.gen(function* () {
-						const tx = yield* Database;
+						const tx = yield* (yield* DatabaseSession).current;
 						for (const statement of ddl.split("--> statement-breakpoint")) {
 							yield* tx.execute(sql.raw(statement));
 						}
@@ -217,7 +219,7 @@ describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 				);
 				yield* transaction(
 					Effect.gen(function* () {
-						const tx = yield* Database;
+						const tx = yield* (yield* DatabaseSession).current;
 						expect(yield* tx.select().from(tables.automationRun)).toHaveLength(1);
 						const triggers = yield* tx.select().from(tables.automationTrigger);
 						expect(triggers).toHaveLength(2);

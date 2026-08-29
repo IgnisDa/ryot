@@ -3,7 +3,8 @@ import { and, asc, count, eq, inArray, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { acquireUserWriteLock } from "#lib/infrastructure/db/user-write-lock";
 
 export type ProviderImportAdmissionRow = typeof schema.providerImportAdmission.$inferSelect;
@@ -13,7 +14,8 @@ const ADMISSION_LOCK_KEY = "ryot-provider-import-admission";
 export class ProviderImportAdmissionRepository extends Context.Service<ProviderImportAdmissionRepository>()(
 	"ProviderImportAdmissionRepository",
 	{
-		make: Effect.sync(() => {
+		make: Effect.gen(function* () {
+			const session = yield* DatabaseSession;
 			const table = schema.providerImportAdmission;
 
 			/** Runs inside the caller's transaction; the user lock makes the backlog check exact. */
@@ -26,8 +28,10 @@ export class ProviderImportAdmissionRepository extends Context.Service<ProviderI
 				backlogLimit: number;
 				entitySchemaSlug: string;
 			}) {
-				const db = yield* Database;
-				yield* acquireUserWriteLock(input.userId);
+				const db = yield* session.current;
+				yield* acquireUserWriteLock(input.userId).pipe(
+					Effect.provideService(DatabaseSession, session),
+				);
 				const [existing] = yield* mapDatabaseErrors(
 					db
 						.select({ id: table.id })
@@ -71,7 +75,7 @@ export class ProviderImportAdmissionRepository extends Context.Service<ProviderI
 				id: string;
 				userId: UserId;
 			}) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({ status: table.status })
@@ -83,14 +87,14 @@ export class ProviderImportAdmissionRepository extends Context.Service<ProviderI
 			});
 
 			const listRunning = Effect.fn("ProviderImportAdmissionRepository.listRunning")(function* () {
-				const db = yield* Database;
+				const db = yield* session.current;
 				return yield* mapDatabaseErrors(
 					db.select().from(table).where(eq(table.status, "running")).orderBy(asc(table.admittedAt)),
 				);
 			});
 
 			const hasPending = Effect.fn("ProviderImportAdmissionRepository.hasPending")(function* () {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const [row] = yield* mapDatabaseErrors(db.select({ id: table.id }).from(table).limit(1));
 				return row !== undefined;
 			});
@@ -98,7 +102,7 @@ export class ProviderImportAdmissionRepository extends Context.Service<ProviderI
 			/** Deletes the row only while it is still queued, so an admitted import is never lost. */
 			const cancelQueued = Effect.fn("ProviderImportAdmissionRepository.cancelQueued")(
 				function* (input: { id: string; userId: UserId }) {
-					const db = yield* Database;
+					const db = yield* session.current;
 					const deleted = yield* mapDatabaseErrors(
 						db
 							.delete(table)
@@ -125,7 +129,7 @@ export class ProviderImportAdmissionRepository extends Context.Service<ProviderI
 				limit: number;
 				finished: ReadonlyArray<string>;
 			}) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				yield* mapDatabaseErrors(
 					db.execute(sql`select pg_advisory_xact_lock(hashtext(${ADMISSION_LOCK_KEY}))`),
 				);

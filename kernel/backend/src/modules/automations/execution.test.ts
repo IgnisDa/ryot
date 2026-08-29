@@ -1,10 +1,8 @@
-import { PgClient } from "@effect/sql-pg";
 import { expect, it } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import { AutomationRunId } from "@ryot-app/contract/schema/brands";
 import { Cause, Deferred, Duration, Effect, Exit, Fiber, Layer, Schema } from "effect";
 import { TestClock } from "effect/testing";
-import { SqlClient } from "effect/unstable/sql";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
@@ -17,6 +15,7 @@ import {
 	AutomationPolicyExecutionError,
 	LifecycleExecution,
 } from "#lib/domain/lifecycle-execution";
+import { DatabaseSession, DatabaseSessionStateError } from "#lib/infrastructure/db/session";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import {
@@ -65,16 +64,21 @@ const result = (
 		failureKind: status === "failed" ? "sandbox-timeout" : null,
 	},
 });
-const transactionService = SqlClient.TransactionConnection(0);
-const layer = (operations: AutomationExecutionOperations["Service"]) =>
+const layer = (
+	operations: AutomationExecutionOperations["Service"],
+	isTransactionActive = () => false,
+) =>
 	LifecycleExecutionLive.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				Layer.succeed(AutomationExecutionOperations, operations),
-				Layer.succeed(
-					PgClient.PgClient,
-					Object.assign(Object.create(null), { transactionService }),
-				),
+				Layer.mock(DatabaseSession)({
+					requireRoot: Effect.suspend(() =>
+						isTransactionActive()
+							? Effect.fail(new DatabaseSessionStateError({ reason: "transaction-already-active" }))
+							: Effect.void,
+					),
+				}),
 			),
 		),
 	);
@@ -325,8 +329,7 @@ it.effect("submits deterministic workflow IDs and sets discard only for async de
 					Layer.provide(
 						Layer.mergeAll(
 							Layer.succeed(WorkflowEngine, engine),
-							AutomationRunRepository.layer,
-							databaseLayer,
+							AutomationRunRepository.layer.pipe(Layer.provide(databaseLayer)),
 						),
 					),
 				),
@@ -375,6 +378,7 @@ it.effect(
 it.effect("dispatches plans in order with blocked warnings and rejects an open transaction", () =>
 	Effect.gen(function* () {
 		const executed: string[] = [];
+		let transactionActive = false;
 		const operations = AutomationExecutionOperations.of({
 			submit: () => Effect.void,
 			skipQueuedPolicies: () => Effect.void,
@@ -404,15 +408,13 @@ it.effect("dispatches plans in order with blocked warnings and rejects an open t
 				{ ...blockedReason, triggerId: trigger.id },
 				{ runId: "second", hookSlug: "second", code: "required-hook-failed" },
 			]);
+			transactionActive = true;
 			assertExitFails(
-				yield* Effect.exit(
-					service
-						.dispatch(plans)
-						.pipe(Effect.provideService(transactionService, [Object.create(null), 1])),
-				),
+				yield* Effect.exit(service.dispatch(plans)),
 				new LifecyclePersistenceError({ code: "postcommit-requires-root" }),
 			);
-		}).pipe(Effect.provide(layer(operations)));
+			transactionActive = false;
+		}).pipe(Effect.provide(layer(operations, () => transactionActive)));
 		expect(executed).toEqual(["first", "second"]);
 	}),
 );

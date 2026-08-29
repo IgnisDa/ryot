@@ -31,7 +31,8 @@ import {
 	pluginConfigRevision,
 	pluginConfigEncryptionKey,
 } from "#lib/infrastructure/db/schema/tables/core";
-import { Database, DatabaseLive, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
@@ -58,17 +59,20 @@ const withDatabase = <E>(
 	test: Effect.Effect<
 		void,
 		E,
-		Database | AutomationHistoryService | AutomationRunRepository | AutomationTriggerRepository
+		| DatabaseSession
+		| AutomationHistoryService
+		| AutomationRunRepository
+		| AutomationTriggerRepository
 	>,
 	submit?: AutomationExecutionOperations["Service"]["submit"],
 ) => {
 	const name = `history_test_${crypto.randomUUID().replaceAll("-", "")}`;
 	const url = testDatabaseUrl();
-	const layer = DatabaseLive.pipe(
+	const layer = DatabaseSession.layer.pipe(
 		Layer.provide(makeAppConfigLayer({ database: { url: Redacted.make(url) } })),
 	);
 	return Effect.gen(function* () {
-		const root = yield* Database;
+		const root = yield* (yield* DatabaseSession).current;
 		const directory = new URL("../../drizzle/", import.meta.url).pathname;
 		const paths = [...new Bun.Glob("*/migration.sql").scanSync({ cwd: directory })];
 		assert(paths.length === 1);
@@ -77,7 +81,7 @@ const withDatabase = <E>(
 		yield* Effect.gen(function* () {
 			const scopedUrl = new URL(url);
 			scopedUrl.pathname = `/${name}`;
-			const database = DatabaseLive.pipe(
+			const database = DatabaseSession.layer.pipe(
 				Layer.provide(
 					makeAppConfigLayer({ database: { url: Redacted.make(scopedUrl.toString()) } }),
 				),
@@ -91,19 +95,17 @@ const withDatabase = <E>(
 					skipQueuedPolicies: () => Effect.void,
 				}),
 			);
+			const repositories = Layer.mergeAll(
+				AutomationHistoryRepository.layer,
+				AutomationAttemptRepository.layer,
+				AutomationRunRepository.layer,
+				AutomationTriggerRepository.layer,
+			).pipe(Layer.provideMerge(database));
 			const services = AutomationHistoryService.layer.pipe(
-				Layer.provide(
-					Layer.mergeAll(
-						database,
-						execution,
-						AutomationHistoryRepository.layer,
-						AutomationAttemptRepository.layer,
-						AutomationTriggerRepository.layer,
-					),
-				),
+				Layer.provide(Layer.merge(repositories, execution)),
 			);
 			yield* Effect.gen(function* () {
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				for (const statement of ddl.split("--> statement-breakpoint")) {
 					yield* db.execute(sql.raw(statement));
 				}
@@ -153,16 +155,7 @@ const withDatabase = <E>(
 						},
 					});
 				yield* test;
-			}).pipe(
-				Effect.provide(
-					Layer.mergeAll(
-						database,
-						services,
-						AutomationRunRepository.layer,
-						AutomationTriggerRepository.layer,
-					),
-				),
-			);
+			}).pipe(Effect.provide(Layer.merge(services, repositories)));
 		}).pipe(
 			Effect.ensuring(root.execute(sql`drop database ${sql.identifier(name)}`).pipe(Effect.orDie)),
 		);
@@ -180,7 +173,7 @@ const seedRun = (
 	} | null = null,
 ) =>
 	Effect.gen(function* () {
-		const db = yield* Database;
+		const db = yield* (yield* DatabaseSession).current;
 		const trigger = yield* (yield* AutomationTriggerRepository).findById(
 			AutomationTriggerId.make("trigger"),
 		);
@@ -229,7 +222,7 @@ describe("automation retry persistence", () => {
 					yield* service.retryRun(other, runId, { expectedAttemptCount: 1 }).pipe(Effect.exit),
 					new AutomationHistoryNotFound({ reason: { runId, code: "run-not-found" } }),
 				);
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				const [stored] = yield* db.select().from(automationRun).where(eq(automationRun.id, runId));
 				expect(stored?.status).toBe("failed");
 			}),
@@ -248,7 +241,7 @@ describe("automation retry persistence", () => {
 				Effect.gen(function* () {
 					yield* seedRun("run");
 					const service = yield* AutomationHistoryService;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					verifyCommitted = mapDatabaseErrors(
 						db
 							.select({ status: automationRun.status })
@@ -303,7 +296,7 @@ describe("automation retry persistence", () => {
 				yield* seedRun("expired");
 				yield* seedRun("policy", owner.id, "before");
 				yield* seedRun("stale");
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				yield* db
 					.update(automationRun)
 					.set({ artifactsExpireAt: now })
@@ -330,7 +323,7 @@ describe("automation retry persistence", () => {
 	it.effect("retries an inactive plugin only with its pinned encryption key", () =>
 		withDatabase(
 			Effect.gen(function* () {
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				const base = fixtureManifest();
 				yield* db
 					.insert(plugin)
@@ -439,7 +432,7 @@ describe("automation retry persistence", () => {
 	it.effect("omits oversized retained payloads and clears history payloads after pruning", () =>
 		withDatabase(
 			Effect.gen(function* () {
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				yield* db
 					.update(automationTrigger)
 					.set({

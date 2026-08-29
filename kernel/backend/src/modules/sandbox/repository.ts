@@ -11,7 +11,8 @@ import { and, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import type {
 	SandboxExecutionPrincipal,
 	SandboxPluginRevision,
@@ -31,11 +32,12 @@ export const isWorkflowCallTargetKind = (
 	(request.kind === "activity" && kind === "script");
 
 export class SandboxRepository extends Context.Service<SandboxRepository>()("SandboxRepository", {
-	make: Effect.sync(() => {
+	make: Effect.gen(function* () {
+		const database = yield* DatabaseSession;
 		const getScript = Effect.fn("SandboxRepository.getScript")(function* (
 			scriptId: SandboxScriptId,
 		) {
-			const db = yield* Database;
+			const db = yield* database.current;
 			const [row] = yield* mapDatabaseErrors(
 				db
 					.select({
@@ -60,7 +62,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 		const isPluginScript = Effect.fn("SandboxRepository.isPluginScript")(function* (
 			scriptId: SandboxScriptId,
 		) {
-			const db = yield* Database;
+			const db = yield* database.current;
 			const [row] = yield* mapDatabaseErrors(
 				db
 					.select({ pluginId: schema.sandboxScript.pluginRevisionId })
@@ -75,7 +77,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 			scriptId: SandboxScriptId,
 			expectedRevision?: Pick<SandboxPluginRevision, "id" | "revisionId" | "configRevisionId">,
 		) {
-			const db = yield* Database;
+			const db = yield* database.current;
 			const [row] = yield* mapDatabaseErrors(
 				db
 					.select({
@@ -265,7 +267,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 				if (!contentHash) {
 					return null;
 				}
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [target] = yield* mapDatabaseErrors(
 					db
 						.select({ id: schema.sandboxScript.id, metadata: schema.sandboxScript.metadata })

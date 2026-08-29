@@ -93,14 +93,14 @@ export type PreparedUserRelationshipDelete = {
  * keeps binding the exact instances the service layer was built with.
  */
 export const makePreparedRelationshipMutations = ({
-	client,
+	session,
 	planner,
 	runtime,
 	execution,
 	repository,
 	definitions,
 }: RelationshipMutationDependencies) => {
-	const assertActiveTransaction = activeTransactionGuard(client);
+	const assertActiveTransaction = activeTransactionGuard(session);
 	const committedReplay = Effect.fnUntraced(function* (
 		input: RelationshipIdentityInput,
 		command: LifecycleCommand,

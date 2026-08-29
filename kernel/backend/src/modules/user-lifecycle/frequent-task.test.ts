@@ -1,8 +1,6 @@
 import { expect, it } from "@effect/vitest";
 import { Effect, Layer } from "effect";
 
-import { Database } from "#lib/infrastructure/db/service";
-
 import { userLifecycleFrequentTask } from "./frequent-task";
 import { UserLifecycleService } from "./service";
 
@@ -11,7 +9,6 @@ it.effect("reconciles pending lifecycle outbox rows on a frequent tick", () => {
 	return userLifecycleFrequentTask.run({ executionId: "tick-1" }).pipe(
 		Effect.provide(
 			Layer.mergeAll(
-				Layer.succeed(Database, Database.of(Object.create(null))),
 				Layer.mock(UserLifecycleService)({
 					reconcilePending: (value) => Effect.sync(() => void (limit = value)),
 				}),
@@ -25,7 +22,6 @@ it.effect("keeps the frequent tick alive when reconciliation fails", () =>
 	userLifecycleFrequentTask.run({ executionId: "tick-1" }).pipe(
 		Effect.provide(
 			Layer.mergeAll(
-				Layer.succeed(Database, Database.of(Object.create(null))),
 				Layer.mock(UserLifecycleService)({ reconcilePending: () => Effect.die("database down") }),
 			),
 		),

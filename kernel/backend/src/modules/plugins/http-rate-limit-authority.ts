@@ -2,8 +2,6 @@ import type { DbError } from "@ryot-app/contract/errors";
 import type { PluginHttpRateLimit } from "@ryot-app/contract/modules/plugins/manifest";
 import { Context, Effect, Layer, Result } from "effect";
 
-import { Database } from "#lib/infrastructure/db/service";
-
 import { buildHttpRateLimitLookups } from "./http-rate-limits";
 import { PluginRepository } from "./repository";
 import { PluginValidationError } from "./validation";
@@ -31,7 +29,6 @@ export class PluginHttpRateLimitAuthority extends Context.Service<PluginHttpRate
 	"PluginHttpRateLimitAuthority",
 	{
 		make: Effect.gen(function* () {
-			const database = yield* Database;
 			const repository = yield* PluginRepository;
 			const resolve: (
 				requestUrl: string,
@@ -41,9 +38,7 @@ export class PluginHttpRateLimitAuthority extends Context.Service<PluginHttpRate
 					if (!("origin" in requested)) {
 						return requested satisfies HttpRateLimitAuthorityResolution;
 					}
-					const declarations = yield* repository
-						.listActiveHttpRateLimits()
-						.pipe(Effect.provideService(Database, database));
+					const declarations = yield* repository.listActiveHttpRateLimits();
 					const lookups = yield* Effect.try({
 						try: () => buildHttpRateLimitLookups(declarations),
 						catch: (error) => new PluginValidationError({ issues: [String(error)] }),

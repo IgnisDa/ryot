@@ -16,7 +16,7 @@ import { assert, describe } from "vitest";
 
 import { LifecyclePlanner, lifecycleRunId } from "#lib/domain/lifecycle";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { seedKernelDefinitions } from "#modules/definition-registry/test-support";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
@@ -31,10 +31,9 @@ import { triggerFixture } from "./lifecycle.test-support";
 import { LifecyclePlannerLive } from "./planner";
 import { AutomationTriggerRepository } from "./trigger-repository";
 
-const nested = <A, E>(body: Effect.Effect<A, E, Database>) =>
+const nested = <A, E, R>(body: Effect.Effect<A, E, R>) =>
 	Effect.gen(function* () {
-		const db = yield* Database;
-		return yield* db.transaction((tx) => body.pipe(Effect.provideService(Database, tx)));
+		return yield* (yield* DatabaseSession).transaction(body);
 	});
 const owner = UserId.make("owner");
 const recipient = UserId.make("recipient");
@@ -257,7 +256,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 			withRevisionDatabase(
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const installed = yield* installRevisionPackage(
 						eventPolicyPackage("v1", 7, "once-per-subject"),
 					);
@@ -328,7 +327,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 			withRevisionDatabase(
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const value = eventPolicyPackage("v1", 7, "item");
 					const mixed = {
 						...value,
@@ -565,7 +564,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 		withRevisionDatabase(
 			Effect.gen(function* () {
 				const planner = yield* LifecyclePlanner;
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				const value = hookPackage();
 				const hook = value.manifest.hooks.find(({ slug }) => slug === "fixture.changed");
 				assert(hook?.stage === "after");
@@ -678,7 +677,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 			withRevisionDatabase(
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const installed = yield* installRevisionPackage(hookPackage());
 					const policies = yield* planner.plan({ trigger: entityTrigger("request", "request") });
 					expect(
@@ -752,7 +751,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 			withRevisionDatabase(
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const installed = yield* installRevisionPackage(hookPackage(), owner);
 					const ready = yield* planner.plan({ trigger: entityTrigger("ready") });
 					expect(ready.runs).toHaveLength(1);
@@ -813,7 +812,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 			withRevisionDatabase(
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const installations = yield* PluginInstallationRepository;
 					const installed = yield* installRevisionPackage(revisionPackage());
 					yield* installations.upsertState({
@@ -878,7 +877,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
 					const plugins = yield* PluginRepository;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					yield* seedKernelDefinitions();
 					const script = {
 						source: "v1",
@@ -945,7 +944,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
 					const triggers = yield* AutomationTriggerRepository;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					yield* installRevisionPackage(hookPackage());
 					const firstTrigger = asDescendant(entityTrigger("first"));
 					const first = yield* planner.plan({ trigger: firstTrigger });
@@ -977,9 +976,10 @@ describe("LifecyclePlanner PostgreSQL", () => {
 							blockedReason: { hasRequiredHooks: true, code: "automation-limit-reached" },
 						},
 					});
-					const failed = yield* db
-						.transaction((transaction) =>
+					const failed = yield* (yield* DatabaseSession)
+						.transaction(
 							Effect.gen(function* () {
+								const transaction = yield* (yield* DatabaseSession).current;
 								yield* transaction
 									.update(tables.user)
 									.set({ name: "must roll back" })
@@ -988,7 +988,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 								return yield* planner.plan({
 									trigger: { ...firstTrigger, scopeUserId: recipient },
 								});
-							}).pipe(Effect.provideService(Database, transaction)),
+							}),
 						)
 						.pipe(Effect.flip);
 					expect(failed).toMatchObject({ _tag: "DbError" });

@@ -14,7 +14,7 @@ import { DateTime, Effect, Exit, Layer, Schema } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { LifecycleCommand, rootLifecycleCommand } from "#lib/domain/lifecycle-command";
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import {
 	EventCreateWorkflow,
 	EventCreateWorkflowPayload,
@@ -119,7 +119,7 @@ const requireOwned = <A, E, R>(lookup: Effect.Effect<A | null, E, R>, message: s
 export const KernelWorkflowReferencesLive = Layer.effect(
 	KernelWorkflowReferences,
 	Effect.gen(function* () {
-		const database = yield* Database;
+		const session = yield* DatabaseSession;
 		const imports = yield* ImportsRepository;
 		const integrations = yield* IntegrationsRepository;
 		const pluginRuntime = yield* PluginRuntimeResolver;
@@ -472,7 +472,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 								new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
 						),
 					);
-				}).pipe(Effect.provideService(Database, database)),
+				}).pipe(Effect.provideService(DatabaseSession, session)),
 		};
 	}),
 );

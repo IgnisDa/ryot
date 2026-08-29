@@ -1,6 +1,6 @@
 import { BunHttpServer } from "@effect/platform-bun";
 import { AppContract } from "@ryot-app/contract/contract";
-import { BadRequest } from "@ryot-app/contract/errors";
+import { BadRequest, internalError, unknownToMessage } from "@ryot-app/contract/errors";
 import { Cause, Effect, FileSystem, Layer, Result, Schema } from "effect";
 import {
 	HttpEffect,
@@ -8,6 +8,7 @@ import {
 	HttpRouter,
 	HttpServer,
 	HttpServerRequest,
+	HttpServerRespondable,
 	HttpServerResponse,
 } from "effect/unstable/http";
 import { HttpApiBuilder, HttpApiError, HttpApiScalar } from "effect/unstable/httpapi";
@@ -70,18 +71,22 @@ const mimeType = (path: string) => {
 	return mimeTypes[extension] ?? "text/html; charset=utf-8";
 };
 
-const decodeErrorsAsBadRequest = Effect.catchCause((cause) => {
-	const defect = Cause.findDefect(cause);
-	if (Result.isSuccess(defect) && HttpApiError.HttpApiSchemaError.is(defect.success)) {
-		return Schema.encodeUnknownEffect(BadRequest)(
-			new BadRequest({ message: String(defect.success.cause) }),
-		).pipe(
-			Effect.flatMap((body) => HttpServerResponse.json(body, { status: 400 })),
-			Effect.orDie,
-		);
-	}
-	return Effect.failCause(cause);
-});
+const mapRouterError = (error: unknown) =>
+	HttpServerRespondable.isRespondable(error) ? error : internalError(unknownToMessage(error));
+
+const decodeErrorsAsBadRequest = <A, E, R>(self: Effect.Effect<A, E, R>) =>
+	Effect.catchCause(self, (cause) => {
+		const defect = Cause.findDefect(cause);
+		if (Result.isSuccess(defect) && HttpApiError.HttpApiSchemaError.is(defect.success)) {
+			return Schema.encodeUnknownEffect(BadRequest)(
+				new BadRequest({ message: String(defect.success.cause) }),
+			).pipe(
+				Effect.flatMap((body) => HttpServerResponse.json(body, { status: 400 })),
+				Effect.orDie,
+			);
+		}
+		return Effect.failCause(cause);
+	});
 
 const ApiLive = HttpApiBuilder.layer(AppContract).pipe(
 	Layer.provide(
@@ -179,7 +184,9 @@ const RootRoutesLive = HttpRouter.use((router) =>
 		const auth = yield* AuthService;
 		const config = yield* AppConfig;
 		const fs = yield* FileSystem.FileSystem;
-		const api = yield* HttpRouter.toHttpEffect(ApiWithScalarLive);
+		const api = yield* HttpRouter.toHttpEffect(ApiWithScalarLive).pipe(
+			Effect.mapError(mapRouterError),
+		);
 
 		const serveStatic = Effect.fn("serveStatic")(function* (pathname: string) {
 			const path =
@@ -192,7 +199,13 @@ const RootRoutesLive = HttpRouter.use((router) =>
 			return HttpServerResponse.uint8Array(bytes, { contentType: mimeType(target) });
 		});
 
-		yield* registerRootRoutes(router, api, auth.auth.handler, serveStatic, config.frontendUrl);
+		yield* registerRootRoutes(
+			router,
+			api.pipe(Effect.mapError(mapRouterError)),
+			auth.auth.handler,
+			serveStatic,
+			config.frontendUrl,
+		);
 	}),
 );
 

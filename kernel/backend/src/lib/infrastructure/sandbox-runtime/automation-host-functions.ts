@@ -2,7 +2,7 @@ import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import type { AutomationSandboxHostImplementationMap } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "effect";
 
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import {
 	requireSandboxCapabilityInput,
 	reportSandboxLifecycleWarnings,
@@ -17,9 +17,9 @@ import { NotificationsService } from "#modules/notifications/service";
 export const makeAutomationSandboxApiFunctions: Effect.Effect<
 	AutomationSandboxHostImplementationMap<SandboxRunInput>,
 	never,
-	Database | NotificationsService | SignalEmissionService
+	DatabaseSession | NotificationsService | SignalEmissionService
 > = Effect.gen(function* () {
-	const database = yield* Database;
+	const session = yield* DatabaseSession;
 	const signals = yield* SignalEmissionService;
 	const notifications = yield* NotificationsService;
 
@@ -68,7 +68,7 @@ export const makeAutomationSandboxApiFunctions: Effect.Effect<
 												}
 											: { kind: "system" },
 								})
-								.pipe(Effect.provideService(Database, database)),
+								.pipe(Effect.provideService(DatabaseSession, session)),
 						);
 						yield* reportSandboxLifecycleWarnings("emitSignal", result.warnings);
 						return { triggerId: result.triggerId, wasCreated: result.wasCreated };

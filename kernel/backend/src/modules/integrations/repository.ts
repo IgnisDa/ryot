@@ -12,7 +12,8 @@ import { Context, Effect, Layer } from "effect";
 
 import { user } from "#lib/infrastructure/db/schema/tables/auth";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { PluginRevisionActivation } from "#modules/plugins/revision-activation";
 
 import { redactIntegrationForClient } from "./client-redaction";
@@ -100,11 +101,12 @@ const ownedIntegrationWhere = (input: { integrationId: IntegrationId; userId: Us
 export class IntegrationsRepository extends Context.Service<IntegrationsRepository>()(
 	"IntegrationsRepository",
 	{
-		make: Effect.sync(() => {
+		make: Effect.gen(function* () {
+			const database = yield* DatabaseSession;
 			const hasAnyForUser = Effect.fn("IntegrationsRepository.hasAnyForUser")(function* (
 				userId: UserId,
 			) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({ id: schema.integration.id })
@@ -116,7 +118,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 			});
 
 			const lockInstallationPlugin = Effect.fn(function* (pluginInstallationId: string) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				yield* mapDatabaseErrors(
 					db
 						.select({ id: schema.plugin.id })
@@ -135,7 +137,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				provider: IntegrationProvider;
 				providerSpecifics: IntegrationProviderSettings;
 			}) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({ settingsSchema: providerSettingsSchema })
@@ -154,7 +156,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 			const refreshClientProviderSpecificsForPlugin = Effect.fn(
 				"IntegrationsRepository.refreshClientProviderSpecificsForPlugin",
 			)(function* (pluginId: string) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				yield* mapDatabaseErrors(
 					db
 						.select({ id: schema.plugin.id })
@@ -232,7 +234,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				extraSettings: IntegrationExtraSettings;
 				providerSpecifics: IntegrationProviderSettings;
 			}) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				yield* lockInstallationPlugin(input.pluginInstallationId);
 				const [row] = yield* mapDatabaseErrors(
 					db
@@ -263,7 +265,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 			const getByIdAnyUser = Effect.fn("IntegrationsRepository.getByIdAnyUser")(function* (input: {
 				integrationId: IntegrationId;
 			}) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select(integrationSelection)
@@ -278,7 +280,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 			const getByWebhookToken = Effect.fn("IntegrationsRepository.getByWebhookToken")(function* (
 				webhookToken: IntegrationWebhookToken,
 			) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select(integrationSelection)
@@ -299,7 +301,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				userId: UserId;
 				integrationId: IntegrationId;
 			}) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select(integrationSelection)
@@ -313,7 +315,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 
 			const getClientForUser = Effect.fn("IntegrationsRepository.getClientForUser")(
 				function* (input: { userId: UserId; integrationId: IntegrationId }) {
-					const db = yield* Database;
+					const db = yield* database.current;
 					const [row] = yield* mapDatabaseErrors(
 						db
 							.select(clientIntegrationSelection)
@@ -329,7 +331,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 			const getUserDisableIntegrations = Effect.fn(
 				"IntegrationsRepository.getUserDisableIntegrations",
 			)(function* (input: { userId: UserId }) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({ preferences: user.preferences })
@@ -344,7 +346,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 			const listEnabledYankIntegrations = Effect.fn(
 				"IntegrationsRepository.listEnabledYankIntegrations",
 			)(function* (input: { userId: UserId | null }) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const conditions = [
 					eq(schema.integration.lot, "yank"),
 					eq(schema.integration.isDisabled, false),
@@ -368,7 +370,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				isDisabled?: boolean | undefined;
 				provider?: IntegrationProvider | undefined;
 			}) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const conditions = [eq(schema.integration.userId, input.userId)];
 				if (input.provider !== undefined) {
 					conditions.push(eq(schema.integration.provider, input.provider));
@@ -391,43 +393,13 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 			const listForBackup = Effect.fn("IntegrationsRepository.listForBackup")(function* (
 				userId: UserId,
 			) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				return yield* mapDatabaseErrors(
 					db
 						.select(integrationBackupSelection)
 						.from(schema.integration)
 						.where(eq(schema.integration.userId, userId))
 						.orderBy(asc(schema.integration.id)),
-				);
-			});
-
-			const restoreForUser = Effect.fn("IntegrationsRepository.restoreForUser")(function* (input: {
-				readonly id: string;
-				readonly userId: UserId;
-				readonly createdAt: Date;
-				readonly updatedAt: Date;
-				readonly lot: IntegrationLot;
-				readonly name: string | null;
-				readonly isDisabled: boolean;
-				readonly syncOwnership: boolean;
-				readonly minimumProgress: string;
-				readonly maximumProgress: string;
-				readonly lastFinishedAt: Date | null;
-				readonly pluginInstallationId: string;
-				readonly provider: IntegrationProvider;
-				readonly extraSettings: IntegrationExtraSettings;
-				readonly providerSpecifics: IntegrationProviderSettings;
-			}) {
-				const db = yield* Database;
-				yield* lockInstallationPlugin(input.pluginInstallationId);
-				yield* mapDatabaseErrors(
-					db
-						.insert(schema.integration)
-						.values({
-							...input,
-							webhookToken: webhookTokenForLot(input.lot),
-							clientProviderSpecifics: yield* clientProviderSpecifics(input),
-						}),
 				);
 			});
 
@@ -443,7 +415,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				extraSettings?: IntegrationExtraSettings | undefined;
 				providerSpecifics?: IntegrationProviderSettings | undefined;
 			}) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				type UpdateSet = Partial<typeof schema.integration.$inferInsert>;
 				const updates: UpdateSet = {};
 				if (input.name !== undefined) {
@@ -520,7 +492,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 
 			const disableForUserIfEnabled = Effect.fn("IntegrationsRepository.disableForUserIfEnabled")(
 				function* (input: { userId: UserId; integrationId: IntegrationId }) {
-					const db = yield* Database;
+					const db = yield* database.current;
 					const [row] = yield* mapDatabaseErrors(
 						db
 							.update(schema.integration)
@@ -534,7 +506,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 
 			const hasAutoDisableClaim = Effect.fn("IntegrationsRepository.hasAutoDisableClaim")(
 				function* (importRunId: ImportRunId) {
-					const db = yield* Database;
+					const db = yield* database.current;
 					const [row] = yield* mapDatabaseErrors(
 						db
 							.select({ importRunId: schema.integrationAutoDisableClaim.importRunId })
@@ -548,7 +520,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 
 			const insertAutoDisableClaim = Effect.fn("IntegrationsRepository.insertAutoDisableClaim")(
 				function* (input: { importRunId: ImportRunId; integrationId: IntegrationId }) {
-					const db = yield* Database;
+					const db = yield* database.current;
 					yield* mapDatabaseErrors(
 						db.insert(schema.integrationAutoDisableClaim).values(input).onConflictDoNothing(),
 					);
@@ -559,7 +531,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				userId: UserId;
 				integrationId: IntegrationId;
 			}) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				yield* mapDatabaseErrors(db.delete(schema.integration).where(ownedIntegrationWhere(input)));
 			});
 
@@ -571,7 +543,6 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				hasAnyForUser,
 				updateForUser,
 				deleteForUser,
-				restoreForUser,
 				getByIdAnyUser,
 				getClientForUser,
 				getByWebhookToken,

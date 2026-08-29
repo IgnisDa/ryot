@@ -14,7 +14,8 @@ import { Effect, Layer } from "effect";
 import { HttpClientRequest, HttpRouter, HttpServer } from "effect/unstable/http";
 import { HttpApiMiddleware, HttpApiTest } from "effect/unstable/httpapi";
 
-import { Database } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { makeAuthMiddleware } from "#modules/auth/service";
 
 import { RyotQLRoutesLive } from "./routes";
@@ -44,11 +45,10 @@ const credential = (accessClass: AccessClass, kind: "oauth" | "api-key") => ({
 
 const makeRoutes = (credentials: string[] = []) => {
 	const db = Object.assign(Object.create(null), { execute: () => Effect.succeed([]) });
-	const database = Database.of(
-		Object.assign(Object.create(null), {
-			transaction: ((callback) => callback(db)) satisfies Database["Service"]["transaction"],
-		}),
-	);
+	const database = Layer.mock(DatabaseSession)({
+		current: Effect.succeed(db),
+		transaction: (work) => mapDatabaseErrors(work),
+	});
 	const auth = makeAuthMiddleware(
 		{
 			apiKeyUser: (key) => {
@@ -67,7 +67,7 @@ const makeRoutes = (credentials: string[] = []) => {
 		{ isActive: () => Effect.succeed(false) },
 	);
 	const serviceLayer: Layer.Layer<RyotQLService> = RyotQLService.layer.pipe(
-		Layer.provide(Layer.succeed(Database, database)),
+		Layer.provide(database),
 	);
 	return Layer.mergeAll(
 		RyotQLRoutesLive,

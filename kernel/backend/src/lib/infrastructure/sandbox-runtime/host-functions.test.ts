@@ -1,4 +1,3 @@
-import { PgClient } from "@effect/sql-pg";
 import { expect, it } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
@@ -20,7 +19,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { ChangeUserRelationshipBatch } from "@ryot-app/sandbox-sdk/core";
-import { Context, Effect, Result, Layer, Option } from "effect";
+import { Effect, Result, Layer, Option } from "effect";
 import { describe } from "vitest";
 
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
@@ -62,16 +61,8 @@ const definitionRepository = (source: DefinitionSource = kernelDefinitionSource(
 	});
 };
 
-class HostFunctionsTestTransaction extends Context.Service<HostFunctionsTestTransaction, object>()(
-	"HostFunctionsTestTransaction",
-) {}
-
 const hostDatabaseLayer = Layer.mergeAll(
 	databaseLayer,
-	Layer.succeed(
-		PgClient.PgClient,
-		Object.assign(Object.create(null), { transactionService: HostFunctionsTestTransaction }),
-	),
 	Layer.mock(LifecyclePlanner)(
 		withLifecycleBatchPlanning({
 			plan: ({ trigger }) => Effect.succeed({ trigger, runs: [], policies: [], wasCreated: true }),

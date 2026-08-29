@@ -1,5 +1,4 @@
 import { createLocalAccountIssuer, createOAuthAccountIssuer } from "@better-auth/core/db";
-import { PgClient } from "@effect/sql-pg";
 import { PluginClientArtifactFromBase64 } from "@ryot-app/client-plugin-contract";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import type {
@@ -33,13 +32,9 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { generateId } from "better-auth";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
-import { LifecyclePlanner } from "#lib/domain/lifecycle";
 import { type LifecycleCommand, rootLifecycleCommand } from "#lib/domain/lifecycle-command";
-import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { Database } from "#lib/infrastructure/db/service";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { AuthService } from "#modules/auth/service";
-import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { InterestService } from "#modules/entity-interest/service";
 import { TranslationsService } from "#modules/entity-translation/service";
@@ -102,11 +97,6 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 	"TestSupportService",
 	{
 		make: Effect.gen(function* () {
-			const database = yield* Database;
-			const sqlClient = yield* PgClient.PgClient;
-			const planner = yield* LifecyclePlanner;
-			const lifecycleExecution = yield* LifecycleExecution;
-			const entitiesRepository = yield* EntitiesRepository;
 			const auth = yield* AuthService;
 			const redis = yield* RedisService;
 			const entities = yield* EntitiesService;
@@ -119,20 +109,6 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 			const pluginInstallations = yield* PluginInstallationService;
 			const pluginRepository = yield* PluginRepository;
 			const relationshipSchemas = yield* RelationshipSchemasRepository;
-			const provideMutation = <A, E>(
-				effect: Effect.Effect<
-					A,
-					E,
-					Database | EntitiesRepository | LifecycleExecution | LifecyclePlanner | PgClient.PgClient
-				>,
-			) =>
-				effect.pipe(
-					Effect.provideService(Database, database),
-					Effect.provideService(PgClient.PgClient, sqlClient),
-					Effect.provideService(LifecyclePlanner, planner),
-					Effect.provideService(LifecycleExecution, lifecycleExecution),
-					Effect.provideService(EntitiesRepository, entitiesRepository),
-				);
 			const getPluginOperationResult = Effect.fn("TestSupportService.getPluginOperationResult")(
 				function* (
 					identity: Parameters<PluginRepository["Service"]["findTestSupportOperationResult"]>[0],
@@ -233,31 +209,27 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				input: CreateGlobalEntityInput,
 			) {
 				const command = yield* systemApiCommand("test-support:create-global-entity");
-				const created = yield* provideMutation(
-					entities.createGlobal({
-						name: input.name,
-						populatedAt: null,
-						properties: input.properties,
-						externalId: input.externalId,
-						providerId: input.providerId,
-						entitySchemaSlug: input.entitySchemaSlug,
-						lifecycle: childCommand(command, "create"),
-					}),
-				);
+				const created = yield* entities.createGlobal({
+					name: input.name,
+					populatedAt: null,
+					properties: input.properties,
+					externalId: input.externalId,
+					providerId: input.providerId,
+					entitySchemaSlug: input.entitySchemaSlug,
+					lifecycle: childCommand(command, "create"),
+				});
 				if (input.populatedAt === undefined) {
 					yield* reportWarnings("create-global-entity", created.warnings);
 					return created.entity;
 				}
-				const updated = yield* provideMutation(
-					entities.update({
-						scope: "global",
-						name: created.entity.name,
-						entityId: created.entity.id,
-						properties: created.entity.properties,
-						lifecycle: childCommand(command, "set-populated-at"),
-						populatedAt: input.populatedAt === null ? null : yield* parseDate(input.populatedAt),
-					}),
-				);
+				const updated = yield* entities.update({
+					scope: "global",
+					name: created.entity.name,
+					entityId: created.entity.id,
+					properties: created.entity.properties,
+					lifecycle: childCommand(command, "set-populated-at"),
+					populatedAt: input.populatedAt === null ? null : yield* parseDate(input.populatedAt),
+				});
 				yield* reportWarnings("create-global-entity", [...created.warnings, ...updated.warnings]);
 				return updated.entity;
 			});
@@ -267,18 +239,16 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				populatedAt: string | null,
 			) {
 				const entity = yield* entities.getByIdAnyScope(entityId);
-				const updated = yield* provideMutation(
-					entities.update({
-						entityId,
-						scope: "global",
-						name: entity.name,
-						properties: entity.properties,
-						populatedAt: populatedAt === null ? null : yield* parseDate(populatedAt),
-						lifecycle: yield* systemApiCommand(
-							stableStringify(["test-support:set-entity-populated-at", entityId]),
-						),
-					}),
-				);
+				const updated = yield* entities.update({
+					entityId,
+					scope: "global",
+					name: entity.name,
+					properties: entity.properties,
+					populatedAt: populatedAt === null ? null : yield* parseDate(populatedAt),
+					lifecycle: yield* systemApiCommand(
+						stableStringify(["test-support:set-entity-populated-at", entityId]),
+					),
+				});
 				yield* reportWarnings("set-entity-populated-at", updated.warnings);
 				return updated.entity;
 			});
@@ -299,24 +269,22 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 							reason: { code: "invalid-request", diagnostic: "Relationship schema not found" },
 						});
 					}
-					const result = yield* provideMutation(
-						relationships.create(
-							{
-								scope: "global",
-								properties: input.properties ?? {},
-								sourceEntityId: input.sourceEntityId,
-								targetEntityId: input.targetEntityId,
-								relationshipSchemaSlug: input.relationshipSchemaSlug,
-								relationshipSchemaPluginId: relationshipSchema.pluginId ?? null,
-							},
-							yield* systemApiCommand(
-								stableStringify([
-									"test-support:upsert-global-relationship",
-									input.relationshipSchemaSlug,
-									input.sourceEntityId,
-									input.targetEntityId,
-								]),
-							),
+					const result = yield* relationships.create(
+						{
+							scope: "global",
+							properties: input.properties ?? {},
+							sourceEntityId: input.sourceEntityId,
+							targetEntityId: input.targetEntityId,
+							relationshipSchemaSlug: input.relationshipSchemaSlug,
+							relationshipSchemaPluginId: relationshipSchema.pluginId ?? null,
+						},
+						yield* systemApiCommand(
+							stableStringify([
+								"test-support:upsert-global-relationship",
+								input.relationshipSchemaSlug,
+								input.sourceEntityId,
+								input.targetEntityId,
+							]),
 						),
 					);
 					yield* reportWarnings("upsert-global-relationship", result.warnings);
@@ -335,8 +303,9 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 			const deleteGlobalEntities = Effect.fn("TestSupportService.deleteGlobalEntities")(function* (
 				ids: readonly [EntityId, ...EntityId[]],
 			) {
-				const result = yield* provideMutation(
-					entities.deleteByIds(ids, yield* systemApiCommand("test-support:delete-global-entities")),
+				const result = yield* entities.deleteByIds(
+					ids,
+					yield* systemApiCommand("test-support:delete-global-entities"),
 				);
 				yield* reportWarnings("delete-global-entities", result.warnings);
 				return result.deletedCount;

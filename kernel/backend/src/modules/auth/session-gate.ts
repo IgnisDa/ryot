@@ -4,13 +4,14 @@ import { eq } from "drizzle-orm";
 import { Cause, Effect } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/auth";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 import { isUserLifecycleActive } from "./lifecycle-write-guard";
 
-export const gateSessionCreation = (
+export const gateSessionCreation = <E>(
 	userId: string,
-	runBootstrap: (userId: string) => Effect.Effect<void, unknown>,
+	runBootstrap: (userId: string) => Effect.Effect<void, E>,
 ) =>
 	Effect.gen(function* () {
 		if (yield* isUserLifecycleActive(UserId.make(userId))) {
@@ -21,7 +22,8 @@ export const gateSessionCreation = (
 				}),
 			);
 		}
-		const db = yield* Database;
+		const database = yield* DatabaseSession;
+		const db = yield* database.current;
 		const [foundUser] = yield* mapDatabaseErrors(
 			db
 				.select({

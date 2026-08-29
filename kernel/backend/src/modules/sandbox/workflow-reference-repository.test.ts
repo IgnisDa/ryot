@@ -4,7 +4,7 @@ import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";
 
 import type * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { assertExitFails } from "#lib/test-utils/assertions";
 
 import {
@@ -79,7 +79,7 @@ const makeRegisterLayer = (options: {
 	};
 	const executor = Object.assign(Object.create(null), db);
 	return SandboxWorkflowReferenceRepository.layer.pipe(
-		Layer.provideMerge(Layer.succeed(Database, executor)),
+		Layer.provideMerge(Layer.mock(DatabaseSession)({ current: Effect.succeed(executor) })),
 	);
 };
 
@@ -181,7 +181,11 @@ it.effect("exposes reusable reference liveness queries and idempotent release", 
 		}),
 	};
 	const layer = SandboxWorkflowReferenceRepository.layer.pipe(
-		Layer.provideMerge(Layer.succeed(Database, Object.assign(Object.create(null), db))),
+		Layer.provideMerge(
+			Layer.mock(DatabaseSession)({
+				current: Effect.succeed(Object.assign(Object.create(null), db)),
+			}),
+		),
 	);
 	return Effect.gen(function* () {
 		const repository = yield* SandboxWorkflowReferenceRepository;

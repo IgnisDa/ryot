@@ -5,10 +5,8 @@ import {
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { entity } from "@ryot-app/kernel-backend/lib/infrastructure/db/schema/tables/entities";
 import { event } from "@ryot-app/kernel-backend/lib/infrastructure/db/schema/tables/events";
-import {
-	Database,
-	mapDatabaseErrors,
-} from "@ryot-app/kernel-backend/lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "@ryot-app/kernel-backend/lib/infrastructure/db/service";
+import { DatabaseSession } from "@ryot-app/kernel-backend/lib/infrastructure/db/session";
 import { S3Service } from "@ryot-app/kernel-backend/lib/infrastructure/s3";
 import { ManagedAssetsRepository } from "@ryot-app/kernel-backend/modules/uploads/managed-assets/repository";
 import { CryptoHasher } from "bun";
@@ -158,7 +156,7 @@ const migrateAsset = (
 	}).pipe(Effect.catchCause(() => Effect.succeed(null)));
 
 export const migrateLegacyS3Assets = Effect.gen(function* () {
-	const database = yield* Database;
+	const database = yield* (yield* DatabaseSession).current;
 	const s3 = yield* S3Service;
 	const repository = yield* ManagedAssetsRepository;
 	const rows = yield* mapDatabaseErrors(

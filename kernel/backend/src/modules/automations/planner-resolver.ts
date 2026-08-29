@@ -11,7 +11,8 @@ import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { PluginRepository } from "#modules/plugins/repository";
 
@@ -107,11 +108,12 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 	"AutomationPlannerResolver",
 	{
 		make: Effect.gen(function* () {
+			const session = yield* DatabaseSession;
 			const repository = yield* PluginRepository;
 			const definitions = yield* DefinitionRepository;
 			const lockCatalogUncached = Effect.fn(function* (users: ReadonlyArray<UserId | null>) {
 				yield* repository.lockIngestionShared();
-				const db = yield* Database;
+				const db = yield* session.current;
 				const userIds = users.filter((id) => id !== null);
 				const rows = yield* mapDatabaseErrors(
 					db
@@ -174,8 +176,8 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 			});
 			const catalogUncached = Effect.fn(function* (
 				userId: UserId | null,
-			): Effect.fn.Return<ReadonlyArray<PlannerPlugin>, DbError, Database> {
-				const db = yield* Database;
+			): Effect.fn.Return<ReadonlyArray<PlannerPlugin>, DbError> {
+				const db = yield* session.current;
 				if (userId === null) {
 					return yield* mapDatabaseErrors(
 						db
@@ -221,7 +223,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 			// `plugin` and `plugin_installation` for the rest of the transaction, so no other transaction
 			// can move the pointers a catalog read resolved: a second read within the same transaction
 			// cannot observe anything different, so both are worth resolving once. Callers must plan
-			// inside `database.transaction(...)`; entries are keyed on that transaction's `Database`
+			// inside `session.transaction(...)`; entries are keyed on that transaction's executor
 			// value and die with it.
 			const memos = new WeakMap<object, TransactionCatalogMemo>();
 			const memoFor = (db: object) => {
@@ -234,7 +236,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 				return created;
 			};
 			const lockCatalog = Effect.fn(function* (users: ReadonlyArray<UserId | null>) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const memo = memoFor(db);
 				const key = [...new Set(users.map((id) => id ?? " system"))].sort().join("\u0000");
 				if (memo.lockedSets.has(key)) {
@@ -244,7 +246,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 				memo.lockedSets.add(key);
 			});
 			const catalog = Effect.fn(function* (userId: UserId | null) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const memo = memoFor(db);
 				const cached = memo.catalogs.get(userId);
 				if (cached) {
@@ -258,7 +260,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 				trigger: AutomationTrigger,
 				executionUserId: UserId | null,
 			) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const available = yield* catalog(executionUserId);
 				const result: Array<{
 					hook: PluginHook;

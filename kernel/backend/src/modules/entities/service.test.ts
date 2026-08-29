@@ -1,4 +1,3 @@
-import { PgClient } from "@effect/sql-pg";
 import { expect, it } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import type {
@@ -16,7 +15,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { eq, sql } from "drizzle-orm";
-import { DateTime, Effect, Layer, Option, Redacted } from "effect";
+import { DateTime, Effect, Layer, Redacted } from "effect";
 import { assert, describe } from "vitest";
 
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
@@ -26,7 +25,7 @@ import {
 	LifecycleExecution,
 } from "#lib/domain/lifecycle-execution";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, DatabaseLive } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
 import {
@@ -75,6 +74,7 @@ type TestOptions = {
 	blocked?: boolean;
 	blockedRequiredChange?: boolean;
 	activateSchemaOnWrite?: boolean;
+	deadlockOnce?: boolean;
 	failChange?: boolean | number;
 	warnings?: ReadonlyArray<AutomationWarning>;
 	policies?: ReadonlyArray<AutomationPolicyOutput | "fail">;
@@ -86,7 +86,7 @@ const withEntities = <E>(
 	test: Effect.Effect<
 		void,
 		E,
-		EntitiesService | EntitiesRepository | Database | AutomationTriggerRepository
+		EntitiesService | EntitiesRepository | DatabaseSession | AutomationTriggerRepository
 	>,
 	options: TestOptions = {},
 ) => {
@@ -168,14 +168,12 @@ const withEntities = <E>(
 		LifecyclePlanner,
 		Effect.gen(function* () {
 			const triggers = yield* AutomationTriggerRepository;
-			const client = yield* PgClient.PgClient;
+			const session = yield* DatabaseSession;
 			return LifecyclePlanner.of(
 				withLifecycleBatchPlanning({
 					plan: ({ trigger }) =>
 						Effect.gen(function* () {
-							expect(Option.isSome(yield* Effect.serviceOption(client.transactionService))).toBe(
-								true,
-							);
+							expect(yield* session.isTransactionActive).toBe(true);
 							let blockedReason: AutomationBlockedReason | null = null;
 							if (trigger.kind.category === "request" && options.blocked) {
 								blockedReason = {
@@ -193,6 +191,12 @@ const withEntities = <E>(
 							const persisted = yield* triggers.insert({ ...trigger, blockedReason });
 							if (trigger.kind.category === "change") {
 								changePlans += 1;
+							}
+							if (trigger.kind.category === "change" && options.deadlockOnce && changePlans === 1) {
+								return yield* new DbError({
+									code: "40P01",
+									message: "Injected deadlock after insert",
+								});
 							}
 							if (
 								trigger.kind.category === "change" &&
@@ -220,8 +224,7 @@ const withEntities = <E>(
 	const execution = Layer.effect(
 		LifecycleExecution,
 		Effect.gen(function* () {
-			const client = yield* PgClient.PgClient;
-			const db = yield* Database;
+			const session = yield* DatabaseSession;
 			return withLifecycleDispatch(
 				{
 					skipQueuedPolicies: ({ triggerId }) =>
@@ -230,9 +233,8 @@ const withEntities = <E>(
 						}),
 					after: ({ triggerId }) =>
 						Effect.gen(function* () {
-							expect(Option.isNone(yield* Effect.serviceOption(client.transactionService))).toBe(
-								true,
-							);
+							expect(yield* session.isTransactionActive).toBe(false);
+							const db = yield* session.current;
 							const [trigger] = yield* db
 								.select()
 								.from(tables.automationTrigger)
@@ -244,9 +246,8 @@ const withEntities = <E>(
 					executePolicy: ({ runId, acceptedPatches }) =>
 						Effect.gen(function* () {
 							options.policyCalls?.push(runId);
-							expect(Option.isNone(yield* Effect.serviceOption(client.transactionService))).toBe(
-								true,
-							);
+							expect(yield* session.isTransactionActive).toBe(false);
+							const db = yield* session.current;
 							const requests = yield* db
 								.select()
 								.from(tables.automationTrigger)
@@ -273,7 +274,7 @@ const withEntities = <E>(
 							return output;
 						}),
 				},
-				client,
+				session,
 			);
 		}),
 	);
@@ -281,13 +282,13 @@ const withEntities = <E>(
 		repositories,
 		EntitiesService.layer.pipe(Layer.provide(Layer.mergeAll(repositories, ports, execution))),
 	).pipe(
-		Layer.provideMerge(DatabaseLive),
+		Layer.provideMerge(DatabaseSession.layer),
 		Layer.provide(
 			makeAppConfigLayer({ database: { poolMax: 1, url: Redacted.make(testDatabaseUrl()) } }),
 		),
 	);
 	return Effect.gen(function* () {
-		const db = yield* Database;
+		const db = yield* (yield* DatabaseSession).current;
 		const directory = new URL("../../drizzle/", import.meta.url).pathname;
 		const paths = [...new Bun.Glob("*/migration.sql").scanSync({ cwd: directory })];
 		assert(paths.length === 1);
@@ -324,7 +325,7 @@ describe("EntitiesService committed lifecycle", () => {
 		withEntities(
 			Effect.gen(function* () {
 				const service = yield* EntitiesService;
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				const result = yield* service.create({
 					...createInput("normalized"),
 					properties: { score: 25.555, title: "numeric" },
@@ -371,7 +372,7 @@ describe("EntitiesService committed lifecycle", () => {
 		withEntities(
 			Effect.gen(function* () {
 				const service = yield* EntitiesService;
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				const fast = yield* service.prepareCreateStep(createInput("step-fast"));
 				assert(fast._tag === "Committed");
 				expect(fast.result.wasInserted).toBe(true);
@@ -393,7 +394,7 @@ describe("EntitiesService committed lifecycle", () => {
 		withEntities(
 			Effect.gen(function* () {
 				const service = yield* EntitiesService;
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				const prepared = yield* service.prepareCreateStep(createInput("step-policies"));
 				assert(prepared._tag === "PoliciesRequired");
 				expect(yield* db.select().from(tables.entity)).toEqual([]);
@@ -416,7 +417,7 @@ describe("EntitiesService committed lifecycle", () => {
 		withEntities(
 			Effect.gen(function* () {
 				const service = yield* EntitiesService;
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				expect(yield* service.create(createInput("schema-race")).pipe(Effect.flip)).toMatchObject({
 					reason: { code: "mutation-conflict" },
 				});
@@ -432,7 +433,7 @@ describe("EntitiesService committed lifecycle", () => {
 			withEntities(
 				Effect.gen(function* () {
 					const service = yield* EntitiesService;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					expect(
 						yield* service.create({ ...createInput("name"), name: "   " }).pipe(Effect.flip),
 					).toMatchObject({ reason: { code: "name-required" } });
@@ -463,7 +464,7 @@ describe("EntitiesService committed lifecycle", () => {
 			Effect.gen(function* () {
 				yield* seedProvider;
 				const service = yield* EntitiesService;
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				const items = ["one", "two"].map((externalId) => ({
 					externalId,
 					name: externalId,
@@ -488,7 +489,7 @@ describe("EntitiesService committed lifecycle", () => {
 		withEntities(
 			Effect.gen(function* () {
 				const service = yield* EntitiesService;
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				const created = yield* service.create(createInput("before-delete"));
 				expect(
 					yield* service
@@ -507,7 +508,7 @@ describe("EntitiesService committed lifecycle", () => {
 	);
 	const providerId = SandboxProviderId.make("fixture-provider");
 	const seedProvider = Effect.gen(function* () {
-		const db = yield* Database;
+		const db = yield* (yield* DatabaseSession).current;
 		yield* db
 			.insert(tables.plugin)
 			.values({ scope: "system", slug: "provider", status: "disabled", id: "provider-plugin" });
@@ -529,7 +530,7 @@ describe("EntitiesService committed lifecycle", () => {
 				Effect.gen(function* () {
 					yield* seedProvider;
 					const service = yield* EntitiesService;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const input = {
 						providerId,
 						name: "Global",
@@ -588,7 +589,7 @@ describe("EntitiesService committed lifecycle", () => {
 			Effect.gen(function* () {
 				yield* seedProvider;
 				const service = yield* EntitiesService;
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				const items = ["one", "two", "three"].map((externalId) => ({
 					externalId,
 					name: externalId,
@@ -629,7 +630,7 @@ describe("EntitiesService committed lifecycle", () => {
 			withEntities(
 				Effect.gen(function* () {
 					const service = yield* EntitiesService;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					expect(yield* service.create(createInput("rollback")).pipe(Effect.flip)).toMatchObject({
 						_tag: "DbError",
 						message: "Injected planning failure after insert",
@@ -642,13 +643,37 @@ describe("EntitiesService committed lifecycle", () => {
 			),
 	);
 
+	it.effect("retries the entire source write and change plan after a deadlock", () =>
+		withEntities(
+			Effect.gen(function* () {
+				const service = yield* EntitiesService;
+				const db = yield* (yield* DatabaseSession).current;
+				const saved = yield* service.create(createInput("deadlock-retry"));
+				expect((yield* db.select().from(tables.entity)).map(({ id }) => id)).toEqual([
+					saved.entity.id,
+				]);
+				expect(
+					(yield* db.select().from(tables.automationTrigger)).map(({ category, operation }) => ({
+						category,
+						operation,
+					})),
+				).toEqual([
+					{ category: "request", operation: "create" },
+					{ category: "change", operation: "create" },
+					{ category: "change", operation: "batch" },
+				]);
+			}),
+			{ deadlockOnce: true },
+		),
+	);
+
 	it.effect(
 		"returns warnings after commit, replays create once and rejects conflicting command content",
 		() =>
 			withEntities(
 				Effect.gen(function* () {
 					const service = yield* EntitiesService;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const first = yield* service.create(createInput("replay"));
 					expect(first.warnings).toEqual([warning, warning]);
 					expect(first.entity.name).toBe("Original");
@@ -684,7 +709,7 @@ describe("EntitiesService committed lifecycle", () => {
 			withEntities(
 				Effect.gen(function* () {
 					const service = yield* EntitiesService;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const created = yield* service.create(createInput("create"));
 					const input = {
 						userId: owner,
@@ -750,7 +775,7 @@ describe("EntitiesService committed lifecycle", () => {
 			withEntities(
 				Effect.gen(function* () {
 					const service = yield* EntitiesService;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const error = yield* service.create(createInput(name)).pipe(Effect.flip);
 					expect(error).toMatchObject({ reason: { code }, _tag: "EntityBadRequest" });
 					if (name === "rejected") {
@@ -805,7 +830,7 @@ describe("EntitiesService committed lifecycle", () => {
 		withEntities(
 			Effect.gen(function* () {
 				const service = yield* EntitiesService;
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				expect(yield* service.create(createInput("invalid")).pipe(Effect.flip)).toMatchObject({
 					reason: { code: "invalid-properties" },
 				});
@@ -829,11 +854,10 @@ describe("EntitiesService committed lifecycle", () => {
 		withEntities(
 			Effect.gen(function* () {
 				const service = yield* EntitiesService;
-				const db = yield* Database;
-				const error = yield* db
-					.transaction((tx) =>
-						service.create(createInput("nested")).pipe(Effect.provideService(Database, tx)),
-					)
+				const db = yield* (yield* DatabaseSession).current;
+				const session = yield* DatabaseSession;
+				const error = yield* session
+					.transaction(service.create(createInput("nested")))
 					.pipe(Effect.flip);
 				expect(error).toMatchObject({ reason: { code: "enclosing-transaction" } });
 				expect(yield* db.select().from(tables.automationTrigger)).toEqual([]);
@@ -848,7 +872,7 @@ describe("EntitiesService committed lifecycle", () => {
 				Effect.gen(function* () {
 					yield* seedProvider;
 					const service = yield* EntitiesService;
-					const db = yield* Database;
+					const session = yield* DatabaseSession;
 					const input = {
 						providerId,
 						name: "Planned",
@@ -863,9 +887,7 @@ describe("EntitiesService committed lifecycle", () => {
 					expect(
 						yield* service.persistPlannedProviderUpsert(input).pipe(Effect.flip),
 					).toMatchObject({ code: "active-transaction-required" });
-					const work = yield* db.transaction((tx) =>
-						service.persistPlannedProviderUpsert(input).pipe(Effect.provideService(Database, tx)),
-					);
+					const work = yield* session.transaction(service.persistPlannedProviderUpsert(input));
 					expect(work.result).toMatchObject({
 						wasInserted: true,
 						outcome: { operation: "create" },
@@ -886,7 +908,7 @@ describe("EntitiesService committed lifecycle", () => {
 			Effect.gen(function* () {
 				yield* seedProvider;
 				const service = yield* EntitiesService;
-				const db = yield* Database;
+				const session = yield* DatabaseSession;
 				const lifecycle = command("planned-batch");
 				const item = (externalId: string) => ({
 					providerId,
@@ -899,13 +921,11 @@ describe("EntitiesService committed lifecycle", () => {
 					properties: { title: externalId },
 					lifecycle: { ...lifecycle, itemIdentity: `${lifecycle.itemIdentity}:${externalId}` },
 				});
-				const work = yield* db.transaction((tx) =>
-					service
-						.persistPlannedProviderUpserts({
-							items: [item("first"), item("second")],
-							batch: { command: lifecycle, identity: ["children"] },
-						})
-						.pipe(Effect.provideService(Database, tx)),
+				const work = yield* session.transaction(
+					service.persistPlannedProviderUpserts({
+						items: [item("first"), item("second")],
+						batch: { command: lifecycle, identity: ["children"] },
+					}),
 				);
 				expect(work.results.map(({ entity }) => entity.externalId)).toEqual(["first", "second"]);
 				expect(work.plans.map(({ trigger }) => trigger.kind.operation)).toEqual([
@@ -925,22 +945,21 @@ describe("EntitiesService committed lifecycle", () => {
 			Effect.gen(function* () {
 				yield* seedProvider;
 				const service = yield* EntitiesService;
-				const db = yield* Database;
-				const error = yield* db
-					.transaction((tx) =>
-						service
-							.persistPlannedProviderUpsert({
-								providerId,
-								name: "Policy",
-								scope: "global",
-								populatedAt: null,
-								externalId: "policy",
-								updateExisting: true,
-								entitySchemaSlug: slug,
-								properties: { title: "policy" },
-								lifecycle: command("planned-policy"),
-							})
-							.pipe(Effect.provideService(Database, tx)),
+				const db = yield* (yield* DatabaseSession).current;
+				const session = yield* DatabaseSession;
+				const error = yield* session
+					.transaction(
+						service.persistPlannedProviderUpsert({
+							providerId,
+							name: "Policy",
+							scope: "global",
+							populatedAt: null,
+							externalId: "policy",
+							updateExisting: true,
+							entitySchemaSlug: slug,
+							properties: { title: "policy" },
+							lifecycle: command("planned-policy"),
+						}),
 					)
 					.pipe(Effect.flip);
 				expect(error).toMatchObject({ code: "before-policy-requires-owner" });
@@ -955,7 +974,7 @@ describe("EntitiesService committed lifecycle", () => {
 		withEntities(
 			Effect.gen(function* () {
 				const service = yield* EntitiesService;
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				const items = [
 					{ name: "Routine", entitySchemaSlug: slug, properties: { title: "routine" } },
 				];
@@ -979,7 +998,7 @@ describe("EntitiesService committed lifecycle", () => {
 		withEntities(
 			Effect.gen(function* () {
 				const service = yield* EntitiesService;
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				yield* service
 					.ensureUserEntities(
 						owner,
