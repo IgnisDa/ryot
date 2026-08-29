@@ -241,6 +241,32 @@ export const mediaCountFact = (
 		? undefined
 		: { icon, value: String(count), label: count === 1 ? singular : `${singular}s` };
 
+/** Episode progress over the aired set, e.g. "10/10 aired · 3 upcoming". */
+export const mediaEpisodicAiredLabel = (counts: {
+	readonly aired: number;
+	readonly watched: number;
+	readonly upcoming: number;
+}) => {
+	const parts = [
+		counts.aired === 0 ? undefined : `${counts.watched}/${counts.aired} aired`,
+		counts.upcoming === 0 ? undefined : `${counts.upcoming} upcoming`,
+	].filter((part) => part !== undefined);
+	return parts.length === 0 ? undefined : parts.join(" · ");
+};
+
+export const mediaEpisodicAiredFact = (summary: {
+	readonly airedEpisodes: number;
+	readonly watchedEpisodes: number;
+	readonly upcomingEpisodes: number;
+}): MediaSummaryFact | undefined => {
+	const value = mediaEpisodicAiredLabel({
+		aired: summary.airedEpisodes,
+		watched: summary.watchedEpisodes,
+		upcoming: summary.upcomingEpisodes,
+	});
+	return value === undefined ? undefined : { value, label: "Progress", icon: "circle-check" };
+};
+
 export const mediaCountLabels = (count: number | null, singular: string) =>
 	count === null ? [] : [mediaCountLabel(count, singular)];
 

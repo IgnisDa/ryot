@@ -30,6 +30,7 @@ export const showSeasonRow = {
 	episodeTotal: 1,
 	watchedTotal: 1,
 	seasonNumber: 1,
+	upcomingTotal: 0,
 	name: "Season 1",
 	watchedMinutes: 66,
 	watchedUnknownRuntime: 0,
