@@ -533,8 +533,13 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 							);
 						const processExit = worker.process.exitCode.pipe(
 							Effect.flatMap((exitCode) =>
-								processFailure(
-									`Sandbox process exited with code ${Number(exitCode)} before returning a response`,
+								Effect.logWarning("sandbox worker exited before returning a response").pipe(
+									Effect.annotateLogs({ exitCode: Number(exitCode) }),
+									Effect.andThen(
+										processFailure(
+											`Sandbox process exited with code ${Number(exitCode)} before returning a response`,
+										),
+									),
 								),
 							),
 							Effect.catchIf(
