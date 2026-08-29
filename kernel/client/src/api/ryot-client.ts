@@ -8,6 +8,10 @@ import { resolveApiUrl } from "#/api/origin";
 import { classifyRyotQLFailure, RyotQLApi } from "#/api/ryotql";
 import type { ApiScope } from "#/api/scope";
 import { UploadsApi } from "#/api/uploads";
+import {
+	classifyManagedAssetFailure,
+	mapManagedAssetResolutions,
+} from "#/modules/assets/managed-assets";
 import type { ThemeStore } from "#/modules/theme/store";
 
 type KernelApiRuntime = {
@@ -43,6 +47,24 @@ export const createKernelRyotClient = (
 
 	return createRyotClient({
 		theme,
+		resolveAssets: async (assets, signal) => {
+			try {
+				const response = await runtime.runPromise(
+					UploadsApi.pipe(
+						Effect.flatMap((api) =>
+							api.resolveDownloads(scope, { payload: { assets: [...assets] } }),
+						),
+					),
+					{ signal },
+				);
+				return mapManagedAssetResolutions(scope, response);
+			} catch (error) {
+				if (signal?.aborted) {
+					throw signal.reason;
+				}
+				throw new RyotClientError(classifyManagedAssetFailure(error));
+			}
+		},
 		query: async (document, signal) => {
 			try {
 				return await runtime.runPromise(

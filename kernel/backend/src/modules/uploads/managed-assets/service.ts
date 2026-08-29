@@ -10,7 +10,7 @@ import {
 } from "@ryot-app/contract/modules/uploads/upload-policy";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { CryptoHasher } from "bun";
-import { Clock, Context, Effect, Layer, Stream } from "effect";
+import { Clock, Context, DateTime, Effect, Layer, Stream } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { acquireUserWriteLock } from "#lib/infrastructure/db/user-write-lock";
@@ -32,8 +32,11 @@ export type StagedPermanentAsset = {
 const isUploadContentType = (value: string): value is UploadContentType =>
 	(uploadContentTypes as readonly string[]).includes(value);
 
+const normalizeContentType = (contentType: string) =>
+	contentType.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+
 const resolvePermanentExtension = (contentType: string) => {
-	const normalized = contentType.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+	const normalized = normalizeContentType(contentType);
 	if (isUploadContentType(normalized)) {
 		return uploadContentTypeExtensions[normalized][0];
 	}
@@ -147,6 +150,7 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 				}
 				const metadata: RegisterManagedAssetInput = {
 					...input,
+					contentType: normalizeContentType(input.contentType),
 					key: `permanent/${ownerNamespace(input.ownerUserId)}_${input.sha256}.${extension}`,
 				};
 				yield* validateManagedAsset(metadata);
@@ -233,6 +237,9 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 					owned.map((asset) => [`${asset.provider}\0${asset.key}`, asset] as const),
 				);
 				const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
+				const expiresAt = DateTime.formatIso(
+					DateTime.makeUnsafe((now + UPLOAD_URL_EXPIRY_SECONDS) * 1000),
+				);
 				return yield* Effect.forEach(assets, (asset) =>
 					Effect.gen(function* () {
 						const managed = ownedByLocator.get(`${asset.type}\0${asset.key}`);
@@ -253,8 +260,12 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 											() => new UploadBadRequest({ reason: { code: "invalid-download-target" } }),
 										),
 									)
-								: yield* s3Service.presignDownload(asset.key, UPLOAD_URL_EXPIRY_SECONDS);
-						return { asset, downloadUrl };
+								: yield* s3Service.presignDownload(
+										asset.key,
+										UPLOAD_URL_EXPIRY_SECONDS,
+										managed.contentType === "image/svg+xml" ? "attachment" : undefined,
+									);
+						return { asset, downloadUrl, expiresAt };
 					}),
 				);
 			});
