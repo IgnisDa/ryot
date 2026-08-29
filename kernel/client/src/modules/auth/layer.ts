@@ -12,7 +12,7 @@ import { ClientStorage } from "#/persistence/storage";
 
 const auth = AuthService.layer.pipe(
 	Layer.provideMerge(ClientStorage.layer),
-	Layer.provideMerge(OAuthTokenService.layer.pipe(Layer.provide(OAuthStorage.layer))),
+	Layer.provideMerge(OAuthTokenService.layer),
 	Layer.provideMerge(RuntimeOAuthClientService.layer),
 );
 

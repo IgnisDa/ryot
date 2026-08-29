@@ -351,7 +351,7 @@ export class OAuthTokenService extends Context.Service<
 	static readonly layer = Layer.effect(
 		this,
 		Effect.map(OAuthStorage, (storage) => makeTokenService(storage, fetch, Date.now)),
-	);
+	).pipe(Layer.provide(OAuthStorage.layer));
 }
 
 export const oauthTokenServiceLayer = (fetcher: OAuthFetch, now: () => number = Date.now) =>
