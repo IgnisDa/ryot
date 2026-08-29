@@ -1,5 +1,3 @@
-import { randomBytes } from "node:crypto";
-
 import { TTLCache } from "@isaacs/ttlcache";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
@@ -12,8 +10,10 @@ const otpCodesCache = new TTLCache<string, string>({ max: 1000, ttl: commonTtl }
 
 const generateOtp = (length: number) => {
 	const max = 10 ** length;
-	const buffer = randomBytes(Math.ceil(length / 2));
-	const otp = Number.parseInt(buffer.toString("hex"), 16) % max;
+	const buffer = crypto.getRandomValues(new Uint8Array(Math.ceil(length / 2)));
+	const otp =
+		Number.parseInt(Array.from(buffer, (byte) => byte.toString(16).padStart(2, "0")).join(""), 16) %
+		max;
 	return otp.toString().padStart(length, "0");
 };
 

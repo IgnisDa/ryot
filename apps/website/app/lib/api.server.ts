@@ -2,14 +2,17 @@ import { type ContractPayload, type ContractProgram, runContract } from "@ryot-a
 import type { UserId } from "@ryot-app/contract/schema/brands";
 
 import { getServerVariables } from "./config.server";
+import { fromPromise } from "./effect.server";
 
 const runAdmin = <A, E>(program: ContractProgram<A, E>) => {
 	const serverVariables = getServerVariables();
 
-	return runContract(program, {
-		baseUrl: `${serverVariables.RYOT_BASE_URL}/api`,
-		headers: { "Admin-Access-Token": serverVariables.SERVER_ADMIN_ACCESS_TOKEN },
-	});
+	return fromPromise(() =>
+		runContract(program, {
+			baseUrl: `${serverVariables.RYOT_BASE_URL}/api`,
+			headers: { "Admin-Access-Token": serverVariables.SERVER_ADMIN_ACCESS_TOKEN },
+		}),
+	);
 };
 
 export const provisionUser = (payload: ContractPayload<"godMode", "provisionUser">) =>
