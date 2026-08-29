@@ -8,7 +8,11 @@ import { Effect } from "effect";
 import { fixtureManifest } from "#modules/plugins/test-support";
 
 import type { AvailablePlugin } from "../plugins/runtime-resolver";
-import { resolveClientPageArtifactGraph, resolveClientPageGraph } from "./graph";
+import {
+	clientPageCodeContributors,
+	resolveClientPageArtifactGraph,
+	resolveClientPageGraph,
+} from "./graph";
 import { resolvePluginPageTarget } from "./prepare";
 
 const bytes = (value: string) => new TextEncoder().encode(value);
@@ -66,7 +70,6 @@ const resolve = (
 ) =>
 	resolveClientPageGraph({
 		plugins,
-		userId: UserId.make("user-1"),
 		definition: rendererDefinition,
 		publishedHash: "renderer-source",
 		rendererName: "Composed renderer",
@@ -99,7 +102,6 @@ it.effect(
 				exportName: "page",
 				application: "page",
 				plugins: [candidate],
-				userId: UserId.make(candidate.installationId),
 				loadPluginFiles: () =>
 					Effect.succeed({ "client/page.tsx": bytes("export default function Page() {}") }),
 			});
@@ -110,7 +112,6 @@ it.effect(
 				plugins: [initial],
 				exportName: "page",
 				application: "page",
-				userId: UserId.make("user-1"),
 			});
 			expect(metadata.artifactKey).toBe(first.artifactKey);
 			expect(metadata.identity).toEqual(first.identity);
@@ -118,7 +119,11 @@ it.effect(
 			expect(second.artifactKey).toBe(first.artifactKey);
 			expect(second.identity).toEqual(first.identity);
 			expect(second.compilerInput).toEqual(first.compilerInput);
-			expect(second.contributors).not.toEqual(first.contributors);
+			expect(
+				clientPageCodeContributors(second.identity, [
+					{ ...initial, installationId: "installation-2" },
+				]),
+			).not.toEqual(clientPageCodeContributors(first.identity, [initial]));
 			const changed = yield* graph({ ...initial, sourceHash: "source-2" });
 			expect(changed.artifactKey).not.toBe(first.artifactKey);
 		});
@@ -170,7 +175,6 @@ it.effect("resolves recursive explicit dependencies to exact installation revisi
 		);
 		const metadata = yield* resolveClientPageArtifactGraph({
 			plugins: [fixture, media],
-			userId: UserId.make("user-1"),
 			publishedHash: "renderer-source",
 			rendererName: "Composed renderer",
 			rendererId: ClientRendererId.make("renderer-1"),
@@ -195,7 +199,7 @@ it.effect("resolves recursive explicit dependencies to exact installation revisi
 			fixtureContributor?.namespace,
 			mediaContributor?.namespace,
 		]);
-		expect(graph.contributors).toContainEqual({
+		expect(clientPageCodeContributors(graph.identity, [fixture, media])).toContainEqual({
 			kind: "plugin",
 			pluginId: fixture.id,
 			pluginSlug: "fixture",
@@ -255,7 +259,6 @@ it.effect("roots a page graph at the selected plugin page export", () => {
 			plugins: [fixture],
 			application: "page",
 			exportName: "details",
-			userId: UserId.make("user-1"),
 			loadPluginFiles: () =>
 				Effect.succeed({ "client/details.tsx": bytes("export default function Details() {}") }),
 		});
@@ -305,7 +308,6 @@ it.effect("uses one compiler graph for every route in a plugin revision", () => 
 				plugins: [fixture],
 				plugin: resolved.plugin,
 				application: "plugin-route",
-				userId: UserId.make("user-1"),
 				exportName: resolved.exportName,
 				loadPluginFiles: () => Effect.succeed(files),
 			});
@@ -337,7 +339,6 @@ it.effect("separates page and plugin route compiler graphs", () => {
 		plugin: fixture,
 		plugins: [fixture],
 		exportName: "details",
-		userId: UserId.make("user-1"),
 		loadPluginFiles: () =>
 			Effect.succeed({ "client/details.tsx": bytes("export default function Details() {}") }),
 	} as const;
@@ -436,7 +437,6 @@ it.effect("records a kernel renderer as a production-owned graph contributor", (
 			plugins: [],
 			kernel: true,
 			sourceHash: "kernel-source",
-			userId: UserId.make("user-1"),
 			rendererName: "Entity browser",
 			loadPluginFiles: () => Effect.succeed(null),
 			definition: definition("", { automaticEntityPresentations: true }),
@@ -453,7 +453,7 @@ it.effect("records a kernel renderer as a production-owned graph contributor", (
 				namespace: graph.identity.entry.contributor,
 			},
 		]);
-		expect(graph.contributors).toEqual([
+		expect(clientPageCodeContributors(graph.identity, [])).toEqual([
 			{ name: "Entity browser", kind: "kernel-renderer", sourceHash: "kernel-source" },
 		]);
 	}),
