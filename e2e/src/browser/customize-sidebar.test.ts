@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import type { Page } from "playwright";
+import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import {
 	buildSavedViewLayouts,
@@ -14,7 +14,7 @@ import {
 	type InstalledTestProvider,
 } from "~/fixtures/kernel";
 import { getApiUrl } from "~/support/api";
-import { signInThroughHostedOAuth, withBrowser } from "~/support/browser";
+import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
 import { afterAll, beforeAll, expect, it } from "~/support/effect-test";
 
 const SUITE_ID = crypto.randomUUID();
@@ -31,25 +31,36 @@ let email: string;
 let password: string;
 let provider: InstalledTestProvider;
 
-const sidebar = (page: Page) => page.getByTestId("desktop-sidebar");
+const sidebar = (page: Playwright.Page) => page.getByTestId("desktop-sidebar");
 
-const savedViewSection = (page: Page) =>
-	sidebar(page)
-		.locator("section")
-		.filter({ has: page.getByRole("heading", { name: "Saved Views", exact: true }) });
+const savedViewSection = (page: Playwright.Page) =>
+	sidebar(page).locator("section").filter({ hasText: "Saved Views" });
 
 // A fresh account already owns the builtin "All Collections" saved view, so every assertion is
 // scoped to this suite's own views rather than to the whole section.
-const sidebarSavedViews = async (page: Page) => {
-	const innerTexts = await savedViewSection(page).getByRole("link").allInnerTexts();
-	return innerTexts.filter((name) => name.includes(SUITE_ID));
-};
+const sidebarSavedViews = (page: Playwright.Page) =>
+	Effect.gen(function* () {
+		const innerTexts = yield* savedViewSection(page).getByRole("link").allInnerTexts();
+		return innerTexts.filter((name) => name.includes(SUITE_ID));
+	});
 
-const openPanel = async (page: Page) => {
-	await page.getByRole("button", { name: /workspace,/ }).click();
-	await page.getByRole("menuitem", { name: "Customize sidebar" }).click();
-	await page.getByRole("heading", { name: "Customize sidebar" }).waitFor({ state: "visible" });
-};
+const openPanel = (page: Playwright.Page) =>
+	Effect.gen(function* () {
+		yield* page.getByRole("button", { name: /workspace,/ }).click();
+		yield* page.getByRole("menuitem", { name: "Customize sidebar" }).click();
+		yield* page.getByRole("heading", { name: "Customize sidebar" }).waitFor({ state: "visible" });
+	});
+
+const waitForSidebarSavedViews = (page: Playwright.Page, names: ReadonlyArray<string>) =>
+	savedViewSection(page).waitForFunction(
+		(section, expected: { readonly names: ReadonlyArray<string>; readonly suiteId: string }) => {
+			const actual = Array.from(section.querySelectorAll("a"))
+				.map((link) => (link as HTMLElement).innerText)
+				.filter((name) => name.includes(expected.suiteId));
+			return JSON.stringify(actual) === JSON.stringify(expected.names);
+		},
+		{ names, suiteId: SUITE_ID },
+	);
 
 beforeAll(async () => {
 	await Effect.runPromise(
@@ -93,67 +104,53 @@ afterAll(async () => {
 
 it.live("reorders and hides saved views, and keeps both across a reload", () =>
 	Effect.gen(function* () {
-		yield* withBrowser({ viewport: { width: 1280, height: 900 } }, ({ page }) =>
-			Effect.gen(function* () {
-				const { homeUrl } = yield* signInThroughHostedOAuth(page, email, password);
-				yield* Effect.promise(async () => {
-					expect(await sidebarSavedViews(page)).toEqual([ALPHA, BETA, GAMMA]);
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });
+		const { homeUrl } = yield* signInThroughHostedOAuth(page, email, password);
+		expect(yield* sidebarSavedViews(page)).toEqual([ALPHA, BETA, GAMMA]);
 
-					await openPanel(page);
-					await page
-						.getByRole("button", { name: `Reorder ${ALPHA}` })
-						.waitFor({ state: "visible" });
+		yield* openPanel(page);
+		yield* page.getByRole("button", { name: `Reorder ${ALPHA}` }).waitFor({ state: "visible" });
 
-					await page.getByRole("button", { name: `Reorder ${ALPHA}` }).focus();
-					await page.keyboard.press("End");
-					await page.getByRole("switch", { name: `Show ${BETA} in sidebar` }).click();
-					await page.getByRole("button", { name: "Save sidebar changes" }).click();
+		yield* page.getByRole("button", { name: `Reorder ${ALPHA}` }).focus();
+		yield* page.keyboard.press("End");
+		yield* page.getByRole("switch", { name: `Show ${BETA} in sidebar` }).click();
+		yield* page.getByRole("button", { name: "Save sidebar changes" }).click();
 
-					await page.waitForURL((url) => url.pathname === new URL(homeUrl).pathname);
-					await expect.poll(() => sidebarSavedViews(page)).toEqual([GAMMA, ALPHA]);
+		yield* page.waitForURL((url) => url.pathname === new URL(homeUrl).pathname);
+		yield* waitForSidebarSavedViews(page, [GAMMA, ALPHA]);
 
-					await page.reload();
-					await page.getByTestId("authenticated-shell").waitFor({ state: "visible" });
-					expect(await sidebarSavedViews(page)).toEqual([GAMMA, ALPHA]);
-				});
-			}),
-		);
-	}),
+		yield* page.reload;
+		yield* page.getByTestId("authenticated-shell").waitFor({ state: "visible" });
+		expect(yield* sidebarSavedViews(page)).toEqual([GAMMA, ALPHA]);
+	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );
 
 it.live("restores a hidden view from the panel", () =>
 	Effect.gen(function* () {
-		yield* withBrowser({ viewport: { width: 1280, height: 900 } }, ({ page }) =>
-			Effect.gen(function* () {
-				const { homeUrl } = yield* signInThroughHostedOAuth(page, email, password);
-				yield* Effect.promise(async () => {
-					await openPanel(page);
-					await page.getByRole("switch", { name: `Show ${BETA} in sidebar` }).click();
-					await page.getByRole("button", { name: "Save sidebar changes" }).click();
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });
+		const { homeUrl } = yield* signInThroughHostedOAuth(page, email, password);
+		yield* openPanel(page);
+		yield* page.getByRole("switch", { name: `Show ${BETA} in sidebar` }).click();
+		yield* page.getByRole("button", { name: "Save sidebar changes" }).click();
 
-					await page.waitForURL((url) => url.pathname === new URL(homeUrl).pathname);
-					await expect.poll(() => sidebarSavedViews(page)).toEqual([BETA, GAMMA, ALPHA]);
-				});
-			}),
-		);
-	}),
+		yield* page.waitForURL((url) => url.pathname === new URL(homeUrl).pathname);
+		yield* waitForSidebarSavedViews(page, [BETA, GAMMA, ALPHA]);
+	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );
 
 it.live("leaves the draft untouched when the customization is cancelled", () =>
 	Effect.gen(function* () {
-		yield* withBrowser({ viewport: { width: 1280, height: 900 } }, ({ page }) =>
-			Effect.gen(function* () {
-				const { homeUrl } = yield* signInThroughHostedOAuth(page, email, password);
-				yield* Effect.promise(async () => {
-					await openPanel(page);
-					await page.getByRole("switch", { name: `Show ${GAMMA} in sidebar` }).click();
-					await page.getByRole("button", { name: "Cancel sidebar customization" }).click();
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });
+		const { homeUrl } = yield* signInThroughHostedOAuth(page, email, password);
+		yield* openPanel(page);
+		yield* page.getByRole("switch", { name: `Show ${GAMMA} in sidebar` }).click();
+		yield* page.getByRole("button", { name: "Cancel sidebar customization" }).click();
 
-					await page.getByRole("button", { name: "Discard", exact: true }).click();
-					await page.waitForURL((url) => url.pathname === new URL(homeUrl).pathname);
-					await expect.poll(() => sidebarSavedViews(page)).toEqual([BETA, GAMMA, ALPHA]);
-				});
-			}),
-		);
-	}),
+		yield* page.getByRole("button", { name: "Discard", exact: true }).click();
+		yield* page.waitForURL((url) => url.pathname === new URL(homeUrl).pathname);
+		yield* waitForSidebarSavedViews(page, [BETA, GAMMA, ALPHA]);
+	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );

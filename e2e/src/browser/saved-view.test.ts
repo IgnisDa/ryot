@@ -1,5 +1,5 @@
-import { Effect } from "effect";
-import type { Page } from "playwright";
+import { Effect, Fiber } from "effect";
+import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import {
 	buildSavedViewLayouts,
@@ -14,7 +14,7 @@ import {
 	type InstalledTestProvider,
 } from "~/fixtures/kernel";
 import { getApiUrl } from "~/support/api";
-import { signInThroughHostedOAuth, withBrowser } from "~/support/browser";
+import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
 import { afterAll, beforeAll, expect, it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/frontend";
 
@@ -42,67 +42,105 @@ let password: string;
 let viewUrl: string;
 let provider: InstalledTestProvider;
 
-const activeElementAttribute = (page: Page, attribute: string) =>
+const activeElementAttribute = (page: Playwright.Page, attribute: string) =>
 	page.evaluate((name) => document.activeElement?.getAttribute(name) ?? null, attribute);
 
-const modalSearch = (page: Page) => dialog(page).getByLabel("Search providers");
-const dialog = (page: Page) => page.getByRole("dialog", { name: MODAL_LABEL });
-const fab = (page: Page) => page.getByRole("button", { name: "Add to this view" });
-const closeModal = (page: Page) => dialog(page).getByRole("button", { name: /^(Close|Cancel)$/ });
-const headerAdd = (page: Page) => page.getByRole("button", { name: "Add", exact: true });
-const providerChip = (page: Page) => dialog(page).getByRole("radio", { name: PROVIDER_NAME });
-const pageSearch = (page: Page) => page.getByRole("searchbox", { name: `Search ${VIEW_NAME}` });
+const modalSearch = (page: Playwright.Page) => dialog(page).getByLabel("Search providers");
+const dialog = (page: Playwright.Page) => page.getByRole("dialog", { name: MODAL_LABEL });
+const fab = (page: Playwright.Page) => page.getByRole("button", { name: "Add to this view" });
+const closeModal = (page: Playwright.Page) =>
+	dialog(page).getByRole("button", { name: /^(Close|Cancel)$/ });
+const headerAdd = (page: Playwright.Page) => page.getByRole("button", { name: "Add", exact: true });
+const providerChip = (page: Playwright.Page) =>
+	dialog(page).getByRole("radio", { name: PROVIDER_NAME });
+const pageSearch = (page: Playwright.Page) =>
+	page.getByRole("searchbox", { name: `Search ${VIEW_NAME}` });
 
-const openSavedView = async (
-	page: Page,
-	viewUrl: string,
+const openSavedView = (
+	page: Playwright.Page,
+	urlForView: string,
 	workspaceUrl: string,
 	options: { compact?: boolean; coldLoad?: boolean } = {},
-) => {
-	if (options.coldLoad) {
-		await page.goto(workspaceUrl);
-		await page.getByTestId("authenticated-shell").waitFor({ state: "visible" });
-	}
-	if (options.compact) {
-		await page.getByRole("button", { name: "Open navigation" }).click();
-		await page.getByTestId("mobile-drawer").waitFor({ state: "visible" });
-	}
-	const row = page.getByRole("link", { name: VIEW_NAME, exact: true });
-	await row.waitFor({ state: "visible" });
-	expect(await row.count()).toBe(1);
-	await row.click();
-	await page.waitForURL((url) => url.pathname === new URL(viewUrl).pathname);
-	if (options.compact) {
-		await page.getByTestId("mobile-drawer").waitFor({ state: "hidden" });
-	}
-	await pageSearch(page).waitFor({ state: "visible" });
-};
+) =>
+	Effect.gen(function* () {
+		if (options.coldLoad) {
+			yield* page.goto(workspaceUrl);
+			yield* page.getByTestId("authenticated-shell").waitFor({ state: "visible" });
+		}
+		if (options.compact) {
+			yield* page.getByRole("button", { name: "Open navigation" }).click();
+			yield* page.getByTestId("mobile-drawer").waitFor({ state: "visible" });
+		}
+		const row = page.getByRole("link", { name: VIEW_NAME, exact: true });
+		yield* row.waitFor({ state: "visible" });
+		expect(yield* row.count).toBe(1);
+		yield* row.click();
+		yield* page.waitForURL((url) => url.pathname === new URL(urlForView).pathname);
+		if (options.compact) {
+			yield* page.getByTestId("mobile-drawer").waitFor({ state: "hidden" });
+		}
+		yield* pageSearch(page).waitFor({ state: "visible" });
+	});
 
-const waitForAddParam = (page: Page, present: boolean) =>
+const waitForAddParam = (page: Playwright.Page, present: boolean) =>
 	page.waitForURL((url) => url.searchParams.has("add") === present);
 
-const openedDialog = async (page: Page) => {
-	await dialog(page).waitFor({ state: "visible" });
-	await waitForAddParam(page, true);
-	expect(new URL(page.url()).searchParams.get("add")).toBe("true");
-};
+const waitForActiveElementAttribute = (
+	page: Playwright.Page,
+	attribute: string,
+	value: string,
+	matches = true,
+	options?: Parameters<Playwright.Locator["waitForFunction"]>[2],
+) =>
+	page
+		.locator("body")
+		.waitForFunction(
+			(
+				_body,
+				expected: { readonly attribute: string; readonly matches: boolean; readonly value: string },
+			) =>
+				expected.matches
+					? document.activeElement?.getAttribute(expected.attribute) === expected.value
+					: document.activeElement?.getAttribute(expected.attribute) !== expected.value,
+			{ attribute, matches, value },
+			options,
+		);
 
-const closedDialog = async (page: Page) => {
-	await closeModal(page).click();
-	await dialog(page).waitFor({ state: "hidden" });
-	await waitForAddParam(page, false);
-};
+const waitForInputValue = (
+	locator: Playwright.Locator,
+	value: string,
+	options?: Parameters<Playwright.Locator["waitForFunction"]>[2],
+) =>
+	locator.waitForFunction(
+		(element, expected: string) => Reflect.get(element, "value") === expected,
+		value,
+		options,
+	);
 
-const withSavedViewBrowser = (
-	run: (page: Page, workspaceUrl: string) => Effect.Effect<void>,
+const openedDialog = (page: Playwright.Page) =>
+	Effect.gen(function* () {
+		yield* dialog(page).waitFor({ state: "visible" });
+		yield* waitForAddParam(page, true);
+		expect(new URL(page.url()).searchParams.get("add")).toBe("true");
+	});
+
+const closedDialog = (page: Playwright.Page) =>
+	Effect.gen(function* () {
+		yield* closeModal(page).click();
+		yield* dialog(page).waitFor({ state: "hidden" });
+		yield* waitForAddParam(page, false);
+	});
+
+const withSavedViewBrowser = <E, R>(
+	run: (page: Playwright.Page, workspaceUrl: string) => Effect.Effect<void, E, R>,
 	options = { viewport: { width: 1280, height: 800 } },
 ) =>
-	withBrowser(options, ({ page }) =>
-		Effect.gen(function* () {
-			const { homeUrl } = yield* signInThroughHostedOAuth(page, email, password);
-			yield* run(page, homeUrl);
-		}),
-	);
+	Effect.gen(function* () {
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage(options);
+		const { homeUrl } = yield* signInThroughHostedOAuth(page, email, password);
+		yield* run(page, homeUrl);
+	});
 
 beforeAll(async () => {
 	const viewSlug = await Effect.runPromise(
@@ -159,141 +197,133 @@ afterAll(async () => {
 });
 
 it.live("opens the provider add flow from every saved-view affordance", () =>
-	Effect.gen(function* () {
-		yield* withSavedViewBrowser((page, workspaceUrl) =>
-			Effect.promise(async () => {
-				await openSavedView(page, viewUrl, workspaceUrl);
-				await headerAdd(page).waitFor({ state: "visible" });
-				await fab(page).waitFor({ state: "hidden" });
+	withSavedViewBrowser((page, workspaceUrl) =>
+		Effect.gen(function* () {
+			yield* openSavedView(page, viewUrl, workspaceUrl);
+			yield* headerAdd(page).waitFor({ state: "visible" });
+			yield* fab(page).waitFor({ state: "hidden" });
 
-				await headerAdd(page).click();
-				await openedDialog(page);
-				await expect
-					.poll(() => providerChip(page).getAttribute("aria-checked"), { timeout: 15_000 })
-					.toBe("true");
-				await closedDialog(page);
+			yield* headerAdd(page).click();
+			yield* openedDialog(page);
+			yield* providerChip(page).waitForFunction(
+				(element) => element.getAttribute("aria-checked") === "true",
+				undefined,
+				{ timeout: 15_000 },
+			);
+			yield* closedDialog(page);
 
-				await page.keyboard.press("a");
-				await openedDialog(page);
-				await closedDialog(page);
+			yield* page.keyboard.press("a");
+			yield* openedDialog(page);
+			yield* closedDialog(page);
 
-				const searchOnline = page.getByRole("button", { name: "Search online" });
-				await searchOnline.click();
-				await openedDialog(page);
-				expect(await modalSearch(page).inputValue()).toBe("");
-				await closedDialog(page);
+			const searchOnline = page.getByRole("button", { name: "Search online" });
+			yield* searchOnline.click();
+			yield* openedDialog(page);
+			expect(yield* modalSearch(page).inputValue()).toBe("");
+			yield* closedDialog(page);
 
-				await page.keyboard.press("/");
-				await expect.poll(() => activeElementAttribute(page, "type")).toBe("search");
-				expect(await pageSearch(page).inputValue()).toBe("");
-			}),
-		);
-	}),
+			yield* page.keyboard.press("/");
+			yield* waitForActiveElementAttribute(page, "type", "search");
+			expect(yield* pageSearch(page).inputValue()).toBe("");
+		}),
+	).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );
 
 it.live("clears then releases the search field on Escape so page shortcuts return", () =>
-	Effect.gen(function* () {
-		yield* withSavedViewBrowser((page, workspaceUrl) =>
-			Effect.promise(async () => {
-				await openSavedView(page, viewUrl, workspaceUrl);
+	withSavedViewBrowser((page, workspaceUrl) =>
+		Effect.gen(function* () {
+			yield* openSavedView(page, viewUrl, workspaceUrl);
 
-				await page.keyboard.press("/");
-				await expect.poll(() => activeElementAttribute(page, "type")).toBe("search");
-				await page.keyboard.type("dune");
-				await expect.poll(() => pageSearch(page).inputValue()).toBe("dune");
+			yield* page.keyboard.press("/");
+			yield* waitForActiveElementAttribute(page, "type", "search");
+			yield* page.keyboard.type("dune");
+			yield* waitForInputValue(pageSearch(page), "dune");
 
-				await page.keyboard.press("Escape");
-				await expect.poll(() => pageSearch(page).inputValue()).toBe("");
-				expect(await activeElementAttribute(page, "type")).toBe("search");
+			yield* page.keyboard.press("Escape");
+			yield* waitForInputValue(pageSearch(page), "");
+			expect(yield* activeElementAttribute(page, "type")).toBe("search");
 
-				await page.keyboard.press("Escape");
-				await expect.poll(() => activeElementAttribute(page, "type")).not.toBe("search");
+			yield* page.keyboard.press("Escape");
+			yield* waitForActiveElementAttribute(page, "type", "search", false);
 
-				await page.keyboard.press("a");
-				await openedDialog(page);
-				await closedDialog(page);
-			}),
-		);
-	}),
+			yield* page.keyboard.press("a");
+			yield* openedDialog(page);
+			yield* closedDialog(page);
+		}),
+	).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );
 
 it.live("seeds the provider search from the no-matches action and guards page shortcuts", () =>
-	Effect.gen(function* () {
-		yield* withSavedViewBrowser((page, workspaceUrl) =>
-			Effect.promise(async () => {
-				await openSavedView(page, viewUrl, workspaceUrl, { coldLoad: true });
-				await pageSearch(page).fill(NO_MATCH_QUERY);
-				const noMatches = page.getByRole("button", {
-					name: `Search online for “${NO_MATCH_QUERY}”`,
-				});
-				await noMatches.waitFor({ state: "visible" });
-				await noMatches.click();
-				await openedDialog(page);
-				await page.waitForURL((url) => url.searchParams.get("q") === NO_MATCH_QUERY);
-				await expect
-					.poll(() => modalSearch(page).inputValue(), { timeout: 15_000 })
-					.toBe(NO_MATCH_QUERY);
+	withSavedViewBrowser((page, workspaceUrl) =>
+		Effect.gen(function* () {
+			yield* openSavedView(page, viewUrl, workspaceUrl, { coldLoad: true });
+			yield* pageSearch(page).fill(NO_MATCH_QUERY);
+			const noMatches = page.getByRole("button", {
+				name: `Search online for “${NO_MATCH_QUERY}”`,
+			});
+			yield* noMatches.waitFor({ state: "visible" });
+			yield* noMatches.click();
+			yield* openedDialog(page);
+			yield* page.waitForURL((url) => url.searchParams.get("q") === NO_MATCH_QUERY);
+			yield* waitForInputValue(modalSearch(page), NO_MATCH_QUERY, { timeout: 15_000 });
 
-				await providerChip(page).click();
-				await expect.poll(() => activeElementAttribute(page, "aria-label")).toBe(PROVIDER_NAME);
+			yield* providerChip(page).click();
+			yield* waitForActiveElementAttribute(page, "aria-label", PROVIDER_NAME);
 
-				const pageSearchFocused = page
-					.waitForFunction(() => document.activeElement?.getAttribute("type") === "search", null, {
-						timeout: GUARD_TIMEOUT,
-					})
-					.then(
-						() => true,
-						() => false,
-					);
-				await page.keyboard.press("/");
-				expect(await pageSearchFocused).toBe(false);
-				expect(await activeElementAttribute(page, "aria-label")).toBe(PROVIDER_NAME);
+			const pageSearchFocused = yield* waitForActiveElementAttribute(page, "type", "search", true, {
+				timeout: GUARD_TIMEOUT,
+			}).pipe(
+				Effect.as(true),
+				Effect.orElseSucceed(() => false),
+				Effect.forkChild({ startImmediately: true }),
+			);
+			yield* page.keyboard.press("/");
+			expect(yield* Fiber.join(pageSearchFocused)).toBe(false);
+			expect(yield* activeElementAttribute(page, "aria-label")).toBe(PROVIDER_NAME);
 
-				const reopened = page
-					.waitForURL((url) => !url.searchParams.has("q"), { timeout: GUARD_TIMEOUT })
-					.then(
-						() => true,
-						() => false,
-					);
-				await page.keyboard.press("a");
-				expect(await reopened).toBe(false);
-				await dialog(page).waitFor({ state: "visible" });
+			const reopened = yield* page
+				.waitForURL((url) => !url.searchParams.has("q"), { timeout: GUARD_TIMEOUT })
+				.pipe(
+					Effect.as(true),
+					Effect.orElseSucceed(() => false),
+					Effect.forkChild({ startImmediately: true }),
+				);
+			yield* page.keyboard.press("a");
+			expect(yield* Fiber.join(reopened)).toBe(false);
+			yield* dialog(page).waitFor({ state: "visible" });
 
-				await page.goBack();
-				await dialog(page).waitFor({ state: "hidden" });
-				await waitForAddParam(page, false);
-			}),
-		);
-	}),
+			yield* page.goBack();
+			yield* dialog(page).waitFor({ state: "hidden" });
+			yield* waitForAddParam(page, false);
+		}),
+	).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );
 
 it.live("adds a provider result to the saved view and swaps the mobile affordance", () =>
-	Effect.gen(function* () {
-		yield* withSavedViewBrowser((page, workspaceUrl) =>
-			Effect.promise(async () => {
-				await page.setViewportSize({ width: 480, height: 900 });
-				await openSavedView(page, viewUrl, workspaceUrl, { coldLoad: true, compact: true });
-				await fab(page).waitFor({ state: "visible" });
-				await headerAdd(page).waitFor({ state: "hidden" });
+	withSavedViewBrowser((page, workspaceUrl) =>
+		Effect.gen(function* () {
+			yield* page.setViewportSize({ width: 480, height: 900 });
+			yield* openSavedView(page, viewUrl, workspaceUrl, { coldLoad: true, compact: true });
+			yield* fab(page).waitFor({ state: "visible" });
+			yield* headerAdd(page).waitFor({ state: "hidden" });
 
-				await fab(page).click();
-				await openedDialog(page);
-				await modalSearch(page).fill("result");
-				const addFirst = dialog(page).getByRole("button", { name: `Add ${FIRST_RESULT_TITLE}` });
-				await addFirst.waitFor({ state: "visible" });
-				await dialog(page)
-					.getByRole("button", { name: `Add ${SECOND_RESULT_TITLE}` })
-					.waitFor({ state: "visible" });
+			yield* fab(page).click();
+			yield* openedDialog(page);
+			yield* modalSearch(page).fill("result");
+			const addFirst = dialog(page).getByRole("button", { name: `Add ${FIRST_RESULT_TITLE}` });
+			yield* addFirst.waitFor({ state: "visible" });
+			yield* dialog(page)
+				.getByRole("button", { name: `Add ${SECOND_RESULT_TITLE}` })
+				.waitFor({ state: "visible" });
 
-				await addFirst.click();
-				await dialog(page)
-					.getByRole("link", { name: `Open ${FIRST_RESULT_TITLE} in library` })
-					.waitFor({ state: "visible", timeout: IMPORT_TIMEOUT });
+			yield* addFirst.click();
+			yield* dialog(page)
+				.getByRole("link", { name: `Open ${FIRST_RESULT_TITLE} in library` })
+				.waitFor({ state: "visible", timeout: IMPORT_TIMEOUT });
 
-				await closedDialog(page);
-				await page.getByText(IMPORTED_NAME).waitFor({ state: "visible" });
-				await page.setViewportSize({ width: 1280, height: 800 });
-			}),
-		);
-	}),
+			yield* closedDialog(page);
+			yield* page.getByText(IMPORTED_NAME).waitFor({ state: "visible" });
+			yield* page.setViewportSize({ width: 1280, height: 800 });
+		}),
+	).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );
