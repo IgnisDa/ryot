@@ -127,14 +127,14 @@ export type RyotQueryResult<Data> = {
 
 export type RyotQueryHookOptions = { readonly refreshOnMutation?: boolean };
 
-export type RyotMutationResult<Input, Data> = {
+export type RyotMutationResult<Input, Data, Failure extends Error = Error> = {
 	readonly reset: () => void;
 	readonly isPending: boolean;
 	readonly error: Error | null;
 	readonly data: Data | undefined;
 	readonly mutate: (input: Input) => void;
-	readonly mutateAsync: (input: Input) => Promise<Data>;
 	readonly status: "idle" | "pending" | "error" | "success";
+	readonly mutateEffect: (input: Input) => Effect.Effect<Data, Failure>;
 };
 
 const browserFocusSignal = Atom.readable((get) => {
@@ -910,8 +910,9 @@ export function useRyotQuery<Data, HostServices, Failure extends Error>(
 
 export const useRyotMutation = <Input, Data, HostServices, Failure extends Error>(
 	mutation: RyotMutation<Input, Data, HostServices, Failure>,
-): RyotMutationResult<Input, Data> => {
+): RyotMutationResult<Input, Data, Failure> => {
 	const context = useContext(RyotContext);
+	const registry = useContext(RegistryContext);
 	if (!context) {
 		throw new Error("useRyotMutation must be used within RyotProvider");
 	}
@@ -933,9 +934,11 @@ export const useRyotMutation = <Input, Data, HostServices, Failure extends Error
 	);
 	const result = useAtomValue(atom);
 	const set = useAtomSet(atom);
-	const execute = useAtomSet(atom, { mode: "promise" });
-	const mutateAsync = (input: Input) => execute(input);
-	let status: RyotMutationResult<Input, Data>["status"] = "idle";
+	const mutateEffect = (input: Input) =>
+		Effect.sync(() => registry.set(atom, input)).pipe(
+			Effect.andThen(AtomRegistry.getResult(registry, atom, { suspendOnWaiting: true })),
+		);
+	let status: RyotMutationResult<Input, Data, Failure>["status"] = "idle";
 	if (result.waiting) {
 		status = "pending";
 	} else if (AsyncResult.isFailure(result)) {
@@ -945,14 +948,12 @@ export const useRyotMutation = <Input, Data, HostServices, Failure extends Error
 	}
 	return {
 		status,
-		mutateAsync,
+		mutate: set,
+		mutateEffect,
 		isPending: result.waiting,
 		reset: () => set(Atom.Reset),
 		data: AsyncResult.isSuccess(result) ? result.value : undefined,
 		error: AsyncResult.isFailure(result) ? asError(result.cause) : null,
-		mutate: (input) => {
-			void mutateAsync(input).catch(() => undefined);
-		},
 	};
 };
 

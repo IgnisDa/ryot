@@ -1,6 +1,6 @@
 import { createRyotMutation, useRyotMutation } from "@ryot-app/client-sdk/react";
 import type { BackupRunIdResponse } from "@ryot-app/contract/modules/backups/schemas";
-import { Effect, Match } from "effect";
+import { Cause, Effect, Match } from "effect";
 import { useState } from "react";
 
 import type { AuthenticatedApiError } from "#/api/authenticated";
@@ -48,27 +48,30 @@ export function BackupRestoreWizard(props: {
 	const [failure, setFailure] = useState<BackupRestoreFailure | undefined>();
 
 	const startRestore = () => {
-		if (props.disabled || uploadToken === undefined) {
-			return Promise.resolve();
-		}
-		setFailure(undefined);
-		return mutation
-			.mutateAsync(uploadToken)
-			.then(() => true)
-			.catch((error: unknown) => {
-				const nextFailure = backupRestoreFailure(error);
-				setFailure(nextFailure);
-				if (nextFailure.step !== undefined) {
-					setStep(nextFailure.step);
+		return Effect.runPromise(
+			Effect.gen(function* () {
+				if (props.disabled || uploadToken === undefined) {
+					return;
 				}
-				return false;
-			})
-			.then((restored) => {
+				setFailure(undefined);
+				const restored = yield* mutation.mutateEffect(uploadToken).pipe(
+					Effect.as(true),
+					Effect.catchCause((cause) =>
+						Effect.sync(() => {
+							const nextFailure = backupRestoreFailure(Cause.squash(cause));
+							setFailure(nextFailure);
+							if (nextFailure.step !== undefined) {
+								setStep(nextFailure.step);
+							}
+							return false;
+						}),
+					),
+				);
 				if (restored) {
 					props.onClose();
 				}
-				return undefined;
-			});
+			}),
+		);
 	};
 
 	const changeToken = (token: string | undefined) => {

@@ -12,6 +12,7 @@ import type {
 	UserPreferences,
 } from "@ryot-app/contract/modules/user-settings/schemas";
 import { useForm } from "@tanstack/react-form";
+import { Effect } from "effect";
 import { useState } from "react";
 
 import { makePreferenceDraft, preferencePayload } from "#/modules/settings/preference-draft";
@@ -113,30 +114,34 @@ function LanguageField(props: {
 export function PreferencesForm(props: {
 	disabled?: boolean;
 	preferences: UserPreferences;
-	onSave: (payload: UpdateUserPreferencesBody) => Promise<void>;
+	onSave: (payload: UpdateUserPreferencesBody) => Effect.Effect<void, Error>;
 }) {
 	const [saved, setSaved] = useState(false);
 	const [failed, setFailed] = useState(false);
 	const [initial, setInitial] = useState(props.preferences);
 	const form = useForm({
 		defaultValues: makePreferenceDraft(props.preferences),
-		onSubmit: ({ value }) => {
-			const payload = preferencePayload(initial, value);
-			if (Object.keys(payload).length === 0) {
-				return Promise.resolve();
-			}
-			setFailed(false);
-			return props.onSave(payload).then(
-				() => {
-					const updated = { ...initial, ...payload };
-					setInitial(updated);
-					form.reset(makePreferenceDraft(updated));
-					setSaved(true);
-					return undefined;
-				},
-				() => setFailed(true),
-			);
-		},
+		onSubmit: ({ value }) =>
+			Effect.runPromise(
+				Effect.gen(function* () {
+					const payload = preferencePayload(initial, value);
+					if (Object.keys(payload).length === 0) {
+						return;
+					}
+					setFailed(false);
+					yield* props.onSave(payload).pipe(
+						Effect.tap(() =>
+							Effect.sync(() => {
+								const updated = { ...initial, ...payload };
+								setInitial(updated);
+								form.reset(makePreferenceDraft(updated));
+								setSaved(true);
+							}),
+						),
+						Effect.catchCause(() => Effect.sync(() => setFailed(true))),
+					);
+				}),
+			),
 	});
 
 	function changed() {

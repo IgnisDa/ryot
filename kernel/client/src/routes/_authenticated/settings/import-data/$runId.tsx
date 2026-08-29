@@ -140,17 +140,25 @@ function ImportRunRoute() {
 
 	const confirmDelete = () => {
 		deletion.reset();
-		return deletion.mutateAsync(runId).then(
-			() => {
-				setIsConfirming(false);
-				if (router.history.canGoBack()) {
-					router.history.back();
-					return undefined;
-				}
-				void navigate({ replace: true, to: "/settings/import-data", search: { start: undefined } });
-				return undefined;
-			},
-			() => undefined,
+		return Effect.runPromise(
+			deletion.mutateEffect(runId).pipe(
+				Effect.tap(() =>
+					Effect.sync(() => {
+						setIsConfirming(false);
+						if (router.history.canGoBack()) {
+							router.history.back();
+							return;
+						}
+						void navigate({
+							replace: true,
+							to: "/settings/import-data",
+							search: { start: undefined },
+						});
+					}),
+				),
+				Effect.ignoreCause,
+				Effect.asVoid,
+			),
 		);
 	};
 

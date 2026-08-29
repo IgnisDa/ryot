@@ -155,37 +155,43 @@ function BackupsStandard() {
 	});
 
 	const startExport = () => {
-		if (live !== undefined) {
-			return Promise.resolve();
-		}
-		return createMutation.mutateAsync().then(
-			() => {
-				setOlderRuns([]);
-				setNextCursor(undefined);
-				return undefined;
-			},
-			() => undefined,
+		return Effect.runPromise(
+			Effect.gen(function* () {
+				if (live !== undefined) {
+					return;
+				}
+				yield* createMutation.mutateEffect().pipe(
+					Effect.tap(() =>
+						Effect.sync(() => {
+							setOlderRuns([]);
+							setNextCursor(undefined);
+						}),
+					),
+					Effect.ignoreCause,
+				);
+			}),
 		);
 	};
 
 	const confirmDelete = (run: BackupRunItem) => {
-		if (!canDeleteBackupRun(run.status)) {
-			setPendingDelete(undefined);
-			return Promise.resolve();
-		}
-		return deleteMutation
-			.mutateAsync(run)
-			.then(() => true)
-			.catch(() => false)
-			.then((deleted) => {
+		return Effect.runPromise(
+			Effect.gen(function* () {
+				if (!canDeleteBackupRun(run.status)) {
+					setPendingDelete(undefined);
+					return;
+				}
+				const deleted = yield* deleteMutation.mutateEffect(run).pipe(
+					Effect.as(true),
+					Effect.catchCause(() => Effect.succeed(false)),
+				);
 				if (!deleted) {
-					return undefined;
+					return;
 				}
 				setPendingDelete(undefined);
 				setOlderRuns([]);
 				setNextCursor(undefined);
-				return undefined;
-			});
+			}),
+		);
 	};
 
 	const startDownload = (run: BackupRunItem) => {

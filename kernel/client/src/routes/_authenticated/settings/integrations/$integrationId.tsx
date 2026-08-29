@@ -3,7 +3,7 @@ import { Button, Menu, type MenuItem } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { useSchemaForm, type SchemaFormValues } from "@ryot-app/client-ui-sdk/schema-form";
 import { createFileRoute, notFound, useRouter } from "@tanstack/react-router";
-import { Effect, Option } from "effect";
+import { Cause, Effect, Option } from "effect";
 import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";
 
 import { AuthService } from "#/modules/auth/service";
@@ -128,13 +128,25 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 	const provider = findOwnedIntegrationProvider(providers.data ?? [], integration);
 
 	const save = (values: SchemaFormValues) => {
-		if (provider === undefined) {
-			return Promise.resolve();
-		}
-		setSaveDetail(undefined);
-		return update
-			.mutateAsync({ id: integration.id, payload: updateIntegrationBody({ values, provider }) })
-			.catch((error: unknown) => setSaveDetail(integrationSaveFailure(error).detail));
+		return Effect.runPromise(
+			Effect.gen(function* () {
+				if (provider === undefined) {
+					return;
+				}
+				setSaveDetail(undefined);
+				yield* update
+					.mutateEffect({
+						id: integration.id,
+						payload: updateIntegrationBody({ values, provider }),
+					})
+					.pipe(
+						Effect.catchCause((cause) =>
+							Effect.sync(() => setSaveDetail(integrationSaveFailure(Cause.squash(cause)).detail)),
+						),
+						Effect.asVoid,
+					);
+			}),
+		);
 	};
 
 	const form = useSchemaForm({
@@ -179,21 +191,25 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 
 	const confirmDelete = () => {
 		setDeleteFailed(false);
-		return remove.mutateAsync(integration.id).then(
-			() => {
-				setIsConfirming(false);
-				if (router.history.canGoBack()) {
-					router.history.back();
-					return undefined;
-				}
-				void navigate({
-					replace: true,
-					to: "/settings/integrations",
-					search: { create: undefined },
-				});
-				return undefined;
-			},
-			() => setDeleteFailed(true),
+		return Effect.runPromise(
+			remove.mutateEffect(integration.id).pipe(
+				Effect.tap(() =>
+					Effect.sync(() => {
+						setIsConfirming(false);
+						if (router.history.canGoBack()) {
+							router.history.back();
+							return;
+						}
+						void navigate({
+							replace: true,
+							to: "/settings/integrations",
+							search: { create: undefined },
+						});
+					}),
+				),
+				Effect.catchCause(() => Effect.sync(() => setDeleteFailed(true))),
+				Effect.asVoid,
+			),
 		);
 	};
 
