@@ -1,7 +1,6 @@
 import { Button } from "@ryot/client-ui-sdk";
-import { CLIENT_API_VERSION } from "@ryot/contract/modules/plugins/client";
+import { CLIENT_API_VERSION, PLUGIN_BACK_SETTLE_MS } from "@ryot/contract/modules/plugins/client";
 import type {
-	PluginLogicalLocation,
 	PluginOperationOutcome,
 	PluginOperationRequest,
 	PluginRyotQLOutcome,
@@ -11,7 +10,11 @@ import type { PluginClientCatalogEntry } from "@ryot/ryotql-recipes/plugin-clien
 import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 
-import { openPluginBridge, type PluginBridgeSession } from "#/modules/plugins/bridge";
+import {
+	openPluginBridge,
+	type PluginBridgeNavigationState,
+	type PluginBridgeSession,
+} from "#/modules/plugins/bridge";
 import type { PluginOperationDispatchOutcome } from "#/modules/plugins/operations";
 import {
 	toNavigationRequest,
@@ -110,9 +113,10 @@ function resolvePluginArtifact(installation: PluginClientCatalogEntry): PluginAr
 export function PluginHost(props: {
 	readonly theme: ThemeStore;
 	readonly onStaleSession: () => void;
+	readonly onNavigateBack: () => void;
 	readonly artifactSessionScopeKey: string;
-	readonly location: PluginLogicalLocation;
 	readonly installation: PluginClientCatalogEntry;
+	readonly navigation: PluginBridgeNavigationState;
 	readonly onHeader: (title: string | null) => void;
 	readonly onRenewArtifactSession: RenewPluginArtifactSession;
 	readonly onCreateArtifactSession: CreatePluginArtifactSession;
@@ -137,10 +141,11 @@ export function PluginHost(props: {
 		<PluginFrame
 			theme={props.theme}
 			onQuery={props.onQuery}
-			location={props.location}
 			onHeader={props.onHeader}
 			onNavigate={props.onNavigate}
+			navigation={props.navigation}
 			pluginSlug={props.installation.slug}
+			onNavigateBack={props.onNavigateBack}
 			onStaleSession={props.onStaleSession}
 			artifactHash={resolution.artifactHash}
 			sourceHash={props.installation.sourceHash}
@@ -162,8 +167,9 @@ function PluginFrame(props: {
 	readonly artifactHash: string;
 	readonly installationId: string;
 	readonly onStaleSession: () => void;
-	readonly location: PluginLogicalLocation;
+	readonly onNavigateBack: () => void;
 	readonly artifactSessionScopeKey: string;
+	readonly navigation: PluginBridgeNavigationState;
 	readonly onHeader: (title: string | null) => void;
 	readonly onRenewArtifactSession: RenewPluginArtifactSession;
 	readonly onCreateArtifactSession: CreatePluginArtifactSession;
@@ -179,9 +185,11 @@ function PluginFrame(props: {
 		signal: AbortSignal,
 	) => Promise<PluginOperationDispatchOutcome>;
 }) {
-	const { path, search } = props.location;
+	const { edgeBack, index, key, location } = props.navigation;
+	const { path, search } = location;
 	const latest = useRef(props);
 	const frame = useRef<HTMLIFrameElement>(null);
+	const backSettle = useRef<number>(undefined);
 	const bridge = useRef<PluginBridgeSession>(undefined);
 	const [frameStatus, setFrameStatus] = useState<"ready" | "loading" | "handshake-failure">(
 		"loading",
@@ -352,8 +360,9 @@ function PluginFrame(props: {
 	]);
 
 	useEffect(() => {
-		bridge.current?.sendLocation({ path, search });
-	}, [path, search]);
+		window.clearTimeout(backSettle.current);
+		bridge.current?.sendLocation({ edgeBack, index, key, location: { path, search } });
+	}, [edgeBack, index, key, path, search]);
 
 	useEffect(
 		() =>
@@ -379,11 +388,30 @@ function PluginFrame(props: {
 		const nextBridge = openPluginBridge({
 			target: plugin,
 			artifactHash: props.artifactHash,
-			location: latest.current.location,
+			navigation: latest.current.navigation,
 			theme: latest.current.theme.getSnapshot(),
 			onReady: () => setFrameStatus("ready"),
 			onHeader: (request) => latest.current.onHeader(request.header.title),
 			onRyotQL: (request, signal) => latest.current.onQuery(request, signal),
+			onFailure: () => {
+				connection.failed = true;
+				closeBridge();
+				setFrameStatus("handshake-failure");
+			},
+			onNavigate: (request) => {
+				const navigation = toNavigationRequest(latest.current.pluginSlug, request);
+				if (navigation !== undefined) {
+					latest.current.onNavigate(navigation);
+				}
+			},
+			onNavigateBack: () => {
+				latest.current.onNavigateBack();
+				window.clearTimeout(backSettle.current);
+				backSettle.current = window.setTimeout(
+					() => bridge.current?.sendLocation(latest.current.navigation),
+					PLUGIN_BACK_SETTLE_MS,
+				);
+			},
 			onOperation: async (request, signal) => {
 				const outcome = await latest.current.onInvokeOperation(request, sourceHash, signal);
 				if (outcome.outcome !== "stale-session") {
@@ -396,17 +424,6 @@ function PluginFrame(props: {
 					setReload((value) => value + 1);
 				}
 				return { outcome: "failure", reason: "transport" } satisfies PluginOperationOutcome;
-			},
-			onFailure: () => {
-				connection.failed = true;
-				closeBridge();
-				setFrameStatus("handshake-failure");
-			},
-			onNavigate: (request) => {
-				const navigation = toNavigationRequest(latest.current.pluginSlug, request);
-				if (navigation !== undefined) {
-					latest.current.onNavigate(navigation);
-				}
 			},
 		});
 		if (!connection.failed) {

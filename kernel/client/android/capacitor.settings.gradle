@@ -10,3 +10,6 @@ project(':capacitor-app').projectDir = new File('../../../node_modules/.bun/@cap
 
 include ':capacitor-browser'
 project(':capacitor-browser').projectDir = new File('../../../node_modules/.bun/@capacitor+browser@8.0.4+6139e07751574bda/node_modules/@capacitor/browser/android')
+
+include ':capacitor-haptics'
+project(':capacitor-haptics').projectDir = new File('../../../node_modules/.bun/@capacitor+haptics@8.0.2+6139e07751574bda/node_modules/@capacitor/haptics/android')
