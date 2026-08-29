@@ -14,7 +14,6 @@ import {
 	type LifecyclePlan,
 } from "#lib/domain/lifecycle";
 import { lifecycleTrigger, type LifecycleCommand } from "#lib/domain/lifecycle-command";
-import { EntitiesRepository } from "#modules/entities/repository";
 
 import {
 	activeTransactionGuard,
@@ -43,6 +42,7 @@ export const makePlannedRelationshipReconciliation = ({
 	session,
 	planner,
 	runtime,
+	entities,
 	repository,
 	definitions,
 }: Omit<RelationshipMutationDependencies, "execution">) => {
@@ -55,7 +55,6 @@ export const makePlannedRelationshipReconciliation = ({
 		scope: RelationshipReconciliationScope,
 	) {
 		yield* assertActiveTransaction;
-		const entities = yield* EntitiesRepository;
 		yield* runtime.lockCatalog();
 		const slugs = groups.map(({ relationshipSchemaSlug }) => relationshipSchemaSlug);
 		const schemas =
@@ -108,7 +107,7 @@ export const makePlannedRelationshipReconciliation = ({
 				}
 				seen.add(key);
 				if (scope.scope === "user") {
-					yield* validateUserRelationshipEntities(scope.userId, relationship, definition);
+					yield* validateUserRelationshipEntities(entities, scope.userId, relationship, definition);
 				}
 				desired.push({
 					...relationship,

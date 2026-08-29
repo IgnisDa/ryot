@@ -91,8 +91,8 @@ export const runLifecycleWriteInline = <
 		return yield* dispatchCommitted(execution, prepared);
 	});
 
-export const runLifecycleWriteStep = <Result, Pending, Failure, RPrepare, RPolicies, RCommit>(
-	options: LifecycleWriteStep<
+type DurableLifecycleWriteStep<Result, Pending, Failure, RPrepare, RPolicies, RCommit> =
+	LifecycleWriteStep<
 		Result,
 		Pending,
 		NoInfer<Failure>,
@@ -106,10 +106,13 @@ export const runLifecycleWriteStep = <Result, Pending, Failure, RPrepare, RPolic
 		readonly result: DurableCodec<Result>;
 		readonly pending: DurableCodec<Pending>;
 		readonly error: DurableCodec<Failure>;
-	},
+	};
+
+export const runLifecycleWriteStepWith = <Result, Pending, Failure, RPrepare, RPolicies, RCommit>(
+	execution: LifecycleExecution["Service"],
+	options: DurableLifecycleWriteStep<Result, Pending, Failure, RPrepare, RPolicies, RCommit>,
 ) =>
 	Effect.gen(function* () {
-		const execution = yield* LifecycleExecution;
 		const success = LifecyclePreparedStep(options.result, options.pending);
 		let prepared = yield* makeActivity({
 			success,
@@ -143,3 +146,8 @@ export const runLifecycleWriteStep = <Result, Pending, Failure, RPrepare, RPolic
 		}
 		return yield* dispatchCommitted(execution, prepared);
 	});
+
+export const runLifecycleWriteStep = <Result, Pending, Failure, RPrepare, RPolicies, RCommit>(
+	options: DurableLifecycleWriteStep<Result, Pending, Failure, RPrepare, RPolicies, RCommit>,
+) =>
+	Effect.flatMap(LifecycleExecution, (execution) => runLifecycleWriteStepWith(execution, options));

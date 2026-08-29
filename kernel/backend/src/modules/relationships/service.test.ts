@@ -41,8 +41,8 @@ import {
 	userId,
 	relationshipDatabaseLayer,
 	RelationshipFixture,
+	relationshipsServiceWith,
 } from "./lifecycle.test-support";
-import { changeUserRelationships } from "./mutation-pipeline";
 import { RelationshipsRepository } from "./repository";
 import { RelationshipsService } from "./service";
 
@@ -76,9 +76,17 @@ describe("Relationships lifecycle owner", () => {
 					expect(yield* db.select().from(tables.relationship)).toHaveLength(1);
 
 					const policyRunId = AutomationRunId.make("step-policy");
-					const withPolicies = Effect.provideService(
-						LifecyclePlanner,
-						withLifecycleBatchPlanning({
+					const executed: string[] = [];
+					const policyService = yield* relationshipsServiceWith({
+						execution: withLifecycleDispatch({
+							...execution,
+							executePolicy: ({ runId }) =>
+								Effect.sync(() => {
+									executed.push(runId);
+									return { action: "allow" as const };
+								}),
+						}),
+						planner: withLifecycleBatchPlanning({
 							plan: (input) =>
 								planner
 									.plan(input)
@@ -92,31 +100,16 @@ describe("Relationships lifecycle owner", () => {
 										})),
 									),
 						}),
+					});
+					const prepared = yield* policyService.prepareCreate(
+						{ ...baseInput, properties: { rank: 5 } },
+						command("step-policies"),
 					);
-					const executed: string[] = [];
-					const withPolicyExecution = Effect.provideService(
-						LifecycleExecution,
-						withLifecycleDispatch({
-							...execution,
-							executePolicy: ({ runId }) =>
-								Effect.sync(() => {
-									executed.push(runId);
-									return { action: "allow" as const };
-								}),
-						}),
-					);
-					const prepared = yield* service
-						.prepareCreate({ ...baseInput, properties: { rank: 5 } }, command("step-policies"))
-						.pipe(withPolicies, withPolicyExecution);
 					assert(prepared._tag === "PoliciesRequired");
 					expect(executed).toEqual([]);
-					const accepted = yield* service
-						.applyPolicies(prepared.pending)
-						.pipe(withPolicies, withPolicyExecution);
+					const accepted = yield* policyService.applyPolicies(prepared.pending);
 					expect(executed).toEqual([policyRunId]);
-					const committed = yield* service
-						.commitSingle(accepted)
-						.pipe(withPolicies, withPolicyExecution);
+					const committed = yield* policyService.commitSingle(accepted);
 					assert(committed._tag === "Committed");
 					expect(committed.result.relationship?.properties).toEqual({ rank: 5 });
 					expect(
@@ -197,7 +190,6 @@ describe("Relationships lifecycle owner", () => {
 			"uses lifecycle snapshots and warning results for merge, update, and delete by ID",
 			() =>
 				Effect.gen(function* () {
-					const service = yield* RelationshipsService;
 					const db = yield* (yield* DatabaseSession).current;
 					const execution = yield* LifecycleExecution;
 					const warning = {
@@ -205,73 +197,72 @@ describe("Relationships lifecycle owner", () => {
 						runId: AutomationRunId.make("pending-merge"),
 						hookSlug: AutomationHookSlug.make("required"),
 					};
+					const service = yield* relationshipsServiceWith({
+						execution: withLifecycleDispatch({
+							...execution,
+							after: () => Effect.succeed([warning]),
+						}),
+					});
 					const input = { ...baseInput, properties: { rank: 1, labels: ["a"] } };
-					yield* Effect.gen(function* () {
-						const created = yield* service.mergeUserProperties(input, command("merge-create"));
-						assert(created.relationship);
-						expect(created.warnings).toEqual([warning, warning]);
-						const merged = yield* service.mergeUserProperties(
+					const created = yield* service.mergeUserProperties(input, command("merge-create"));
+					assert(created.relationship);
+					expect(created.warnings).toEqual([warning, warning]);
+					const merged = yield* service.mergeUserProperties(
+						{ ...input, properties: { labels: ["a", "b"] } },
+						command("merge-update"),
+					);
+					expect(merged).toMatchObject({
+						warnings: [warning, warning],
+						relationship: {
+							wasInserted: false,
+							id: created.relationship.id,
+							properties: { rank: 1, labels: ["a", "b"] },
+						},
+					});
+					expect(
+						yield* service.mergeUserProperties(
 							{ ...input, properties: { labels: ["a", "b"] } },
 							command("merge-update"),
-						);
-						expect(merged).toMatchObject({
-							warnings: [warning, warning],
-							relationship: {
-								wasInserted: false,
-								id: created.relationship.id,
-								properties: { rank: 1, labels: ["a", "b"] },
-							},
-						});
-						expect(
-							yield* service.mergeUserProperties(
-								{ ...input, properties: { labels: ["a", "b"] } },
-								command("merge-update"),
-							),
-						).toEqual(merged);
-						const noop = yield* service.mergeUserProperties(
-							{ ...input, properties: { labels: ["a", "b"] } },
-							command("merge-noop"),
-						);
-						expect(noop.warnings).toEqual([]);
-						expect(yield* db.select().from(tables.automationTrigger)).toHaveLength(6);
-						const updated = yield* service.update(
-							{ ...input, properties: { rank: 3, labels: ["b"] } },
-							command("explicit-update"),
-						);
-						expect(updated.warnings).toEqual([warning, warning]);
-						expect(
-							yield* service.deleteUserRelationshipById(
-								UserId.make("other-owner"),
-								created.relationship.id,
-								command("foreign-delete"),
-							),
-						).toEqual({ warnings: [], relationship: null });
-						const deleted = yield* service.deleteUserRelationshipById(
-							userId,
-							created.relationship.id,
-							command("delete-id"),
-						);
-						expect(deleted).toEqual(updated);
-						expect(yield* db.select().from(tables.relationship)).toEqual([]);
-						const changes = (yield* db.select().from(tables.automationTrigger)).filter(
-							({ category }) => category === "change",
-						);
-						expect(changes.map(({ operation }) => operation).sort()).toEqual([
-							"batch",
-							"batch",
-							"batch",
-							"batch",
-							"create",
-							"delete",
-							"update",
-							"update",
-						]);
-					}).pipe(
-						Effect.provideService(
-							LifecycleExecution,
-							withLifecycleDispatch({ ...execution, after: () => Effect.succeed([warning]) }),
 						),
+					).toEqual(merged);
+					const noop = yield* service.mergeUserProperties(
+						{ ...input, properties: { labels: ["a", "b"] } },
+						command("merge-noop"),
 					);
+					expect(noop.warnings).toEqual([]);
+					expect(yield* db.select().from(tables.automationTrigger)).toHaveLength(6);
+					const updated = yield* service.update(
+						{ ...input, properties: { rank: 3, labels: ["b"] } },
+						command("explicit-update"),
+					);
+					expect(updated.warnings).toEqual([warning, warning]);
+					expect(
+						yield* service.deleteUserRelationshipById(
+							UserId.make("other-owner"),
+							created.relationship.id,
+							command("foreign-delete"),
+						),
+					).toEqual({ warnings: [], relationship: null });
+					const deleted = yield* service.deleteUserRelationshipById(
+						userId,
+						created.relationship.id,
+						command("delete-id"),
+					);
+					expect(deleted).toEqual(updated);
+					expect(yield* db.select().from(tables.relationship)).toEqual([]);
+					const changes = (yield* db.select().from(tables.automationTrigger)).filter(
+						({ category }) => category === "change",
+					);
+					expect(changes.map(({ operation }) => operation).sort()).toEqual([
+						"batch",
+						"batch",
+						"batch",
+						"batch",
+						"create",
+						"delete",
+						"update",
+						"update",
+					]);
 				}),
 		);
 	});
@@ -339,7 +330,68 @@ describe("Relationships lifecycle owner", () => {
 						const cleanup: string[] = [];
 						const invoked: AutomationRunId[] = [];
 						const exit = yield* Effect.exit(
-							changeUserRelationships(
+							(yield* relationshipsServiceWith({
+								execution: withLifecycleDispatch({
+									...execution,
+									after: () => Effect.die("A rejected batch cannot dispatch after runs"),
+									skipQueuedPolicies: (input) =>
+										Effect.gen(function* () {
+											expect(!(yield* session.isTransactionActive)).toBe(true);
+											cleanup.push(input.triggerId);
+											yield* execution.skipQueuedPolicies(input);
+										}),
+									executePolicy: ({ runId }) =>
+										Effect.gen(function* () {
+											expect(!(yield* session.isTransactionActive)).toBe(true);
+											invoked.push(runId);
+											const now = DateTime.toDate(DateTime.makeUnsafe("2026-09-15T00:00:01.000Z"));
+											yield* attempts
+												.claimNextAttempt({ now, runId, attemptNumber: 1 })
+												.pipe(Effect.orDie);
+											if (invoked.length === 2 && mode === "failure") {
+												yield* attempts
+													.finalizeAttempt(
+														{
+															runId,
+															logs: null,
+															timing: null,
+															attemptNumber: 1,
+															status: "failed",
+															returnedValue: null,
+															failureKind: "sandbox-infrastructure",
+															error: { message: "Policy failed", code: "policy-test-failure" },
+														},
+														now,
+													)
+													.pipe(Effect.orDie);
+												return yield* new AutomationPolicyExecutionError({
+													runId,
+													code: "policy-execution-failed",
+												});
+											}
+											const output =
+												invoked.length === 2
+													? { reason: "Rejected", action: "reject" as const }
+													: { action: "allow" as const };
+											yield* attempts
+												.finalizeAttempt(
+													{
+														runId,
+														logs: null,
+														error: null,
+														timing: null,
+														attemptNumber: 1,
+														failureKind: null,
+														status: "succeeded",
+														returnedValue: output,
+													},
+													now,
+												)
+												.pipe(Effect.orDie);
+											return output;
+										}),
+								}),
+							})).changeUser(
 								userId,
 								[
 									{
@@ -361,72 +413,6 @@ describe("Relationships lifecycle owner", () => {
 									},
 								],
 								command(`policy-batch-${mode}`),
-							).pipe(
-								Effect.provideService(
-									LifecycleExecution,
-									withLifecycleDispatch({
-										...execution,
-										after: () => Effect.die("A rejected batch cannot dispatch after runs"),
-										skipQueuedPolicies: (input) =>
-											Effect.gen(function* () {
-												expect(!(yield* session.isTransactionActive)).toBe(true);
-												cleanup.push(input.triggerId);
-												yield* execution.skipQueuedPolicies(input);
-											}),
-										executePolicy: ({ runId }) =>
-											Effect.gen(function* () {
-												expect(!(yield* session.isTransactionActive)).toBe(true);
-												invoked.push(runId);
-												const now = DateTime.toDate(
-													DateTime.makeUnsafe("2026-09-15T00:00:01.000Z"),
-												);
-												yield* attempts
-													.claimNextAttempt({ now, runId, attemptNumber: 1 })
-													.pipe(Effect.orDie);
-												if (invoked.length === 2 && mode === "failure") {
-													yield* attempts
-														.finalizeAttempt(
-															{
-																runId,
-																logs: null,
-																timing: null,
-																attemptNumber: 1,
-																status: "failed",
-																returnedValue: null,
-																failureKind: "sandbox-infrastructure",
-																error: { message: "Policy failed", code: "policy-test-failure" },
-															},
-															now,
-														)
-														.pipe(Effect.orDie);
-													return yield* new AutomationPolicyExecutionError({
-														runId,
-														code: "policy-execution-failed",
-													});
-												}
-												const output =
-													invoked.length === 2
-														? { reason: "Rejected", action: "reject" as const }
-														: { action: "allow" as const };
-												yield* attempts
-													.finalizeAttempt(
-														{
-															runId,
-															logs: null,
-															error: null,
-															timing: null,
-															attemptNumber: 1,
-															failureKind: null,
-															status: "succeeded",
-															returnedValue: output,
-														},
-														now,
-													)
-													.pipe(Effect.orDie);
-												return output;
-											}),
-									}),
-								),
 							),
 						);
 						const rejectingRunId = invoked[1];
@@ -496,7 +482,6 @@ describe("Relationships lifecycle owner", () => {
 			() =>
 				Effect.gen(function* () {
 					const { observer, runLimitedPlanner } = yield* RelationshipFixture;
-					const service = yield* RelationshipsService;
 					const db = yield* (yield* DatabaseSession).current;
 					const planner = yield* LifecyclePlanner;
 					const fixture = revisionPackage("relationship-hooks", "v1", "fixture");
@@ -548,68 +533,62 @@ describe("Relationships lifecycle owner", () => {
 						relationshipSchemaSlug: RelationshipSchemaSlug.make(target.slug),
 					};
 					const failed = yield* Effect.exit(
-						service.create(input, command("runs")).pipe(
-							Effect.provideService(
-								LifecyclePlanner,
-								withLifecycleBatchPlanning({
-									plan: (value) =>
-										Effect.gen(function* () {
-											const plan = yield* planner.plan(value);
-											if (value.trigger.kind.category === "change") {
-												expect(plan.runs.map(({ delivery }) => delivery).sort()).toEqual([
-													"async",
-													"required",
-												]);
-												return yield* new DbError({ message: "Fail after run insertion" });
-											}
-											return plan;
-										}),
-								}),
-							),
-						),
+						(yield* relationshipsServiceWith({
+							planner: withLifecycleBatchPlanning({
+								plan: (value) =>
+									Effect.gen(function* () {
+										const plan = yield* planner.plan(value);
+										if (value.trigger.kind.category === "change") {
+											expect(plan.runs.map(({ delivery }) => delivery).sort()).toEqual([
+												"async",
+												"required",
+											]);
+											return yield* new DbError({ message: "Fail after run insertion" });
+										}
+										return plan;
+									}),
+							}),
+						})).create(input, command("runs")),
 					);
 					assertExitFails(failed, new DbError({ message: "Fail after run insertion" }));
 					const execution = yield* LifecycleExecution;
 					expect(yield* db.select().from(tables.relationship)).toEqual([]);
 					expect(yield* db.select().from(tables.automationRun)).toEqual([]);
 					const runCounts: number[] = [];
-					yield* service.create(input, command("runs")).pipe(
-						Effect.provideService(
-							LifecycleExecution,
-							withLifecycleDispatch({
-								...execution,
-								executePolicy: () => Effect.die("Unexpected policy"),
-								after: ({ runs, triggerId }) =>
-									Effect.gen(function* () {
-										runCounts.push(runs.length);
-										if (runs.length === 0) {
-											return [];
-										}
-										const rows = yield* Effect.tryPromise(() =>
-											observer.query(
-												"select plugin_revision_id as revision from automation_run where trigger_id = $1",
-												[triggerId],
-											),
-										).pipe(Effect.mapError(() => new DbError({ message: "Observer failed" })));
-										expect(rows.rows).toEqual([
-											{ revision: installed.revisionId },
-											{ revision: installed.revisionId },
-										]);
+					yield* (yield* relationshipsServiceWith({
+						execution: withLifecycleDispatch({
+							...execution,
+							executePolicy: () => Effect.die("Unexpected policy"),
+							after: ({ runs, triggerId }) =>
+								Effect.gen(function* () {
+									runCounts.push(runs.length);
+									if (runs.length === 0) {
 										return [];
-									}),
-							}),
-						),
-					);
+									}
+									const rows = yield* Effect.tryPromise(() =>
+										observer.query(
+											"select plugin_revision_id as revision from automation_run where trigger_id = $1",
+											[triggerId],
+										),
+									).pipe(Effect.mapError(() => new DbError({ message: "Observer failed" })));
+									expect(rows.rows).toEqual([
+										{ revision: installed.revisionId },
+										{ revision: installed.revisionId },
+									]);
+									return [];
+								}),
+						}),
+					})).create(input, command("runs"));
 					expect(runCounts).toEqual([2, 0]);
 					expect(yield* db.select().from(tables.relationship)).toHaveLength(1);
 					expect(yield* db.select().from(tables.automationRun)).toHaveLength(2);
 					const limitedCommand = command("limited");
-					const limited = yield* service
-						.create(
-							{ ...input, sourceEntityId: targetEntityId, targetEntityId: sourceEntityId },
-							{ ...limitedCommand, causation: { ...limitedCommand.causation, depth: 1 } },
-						)
-						.pipe(Effect.provideService(LifecyclePlanner, runLimitedPlanner));
+					const limited = yield* (yield* relationshipsServiceWith({
+						planner: runLimitedPlanner,
+					})).create(
+						{ ...input, sourceEntityId: targetEntityId, targetEntityId: sourceEntityId },
+						{ ...limitedCommand, causation: { ...limitedCommand.causation, depth: 1 } },
+					);
 					const blocked = (yield* db.select().from(tables.automationTrigger)).find(
 						({ blockedReason }) => blockedReason !== null,
 					);
@@ -735,7 +714,18 @@ describe("Relationships lifecycle owner", () => {
 					const db = yield* (yield* DatabaseSession).current;
 					let changes = 0;
 					const exit = yield* Effect.exit(
-						changeUserRelationships(
+						(yield* relationshipsServiceWith({
+							planner: withLifecycleBatchPlanning({
+								plan: (input) =>
+									Effect.gen(function* () {
+										const result = yield* planner.plan(input);
+										if (input.trigger.kind.category === "change" && ++changes === 2) {
+											return yield* new DbError({ message: "Injected planning failure" });
+										}
+										return result;
+									}),
+							}),
+						})).changeUser(
 							userId,
 							[
 								{
@@ -751,20 +741,6 @@ describe("Relationships lifecycle owner", () => {
 								},
 							],
 							command("batch-failure"),
-						).pipe(
-							Effect.provideService(
-								LifecyclePlanner,
-								withLifecycleBatchPlanning({
-									plan: (input) =>
-										Effect.gen(function* () {
-											const result = yield* planner.plan(input);
-											if (input.trigger.kind.category === "change" && ++changes === 2) {
-												return yield* new DbError({ message: "Injected planning failure" });
-											}
-											return result;
-										}),
-								}),
-							),
 						),
 					);
 					assertExitFails(exit, new DbError({ message: "Injected planning failure" }));
@@ -786,28 +762,25 @@ describe("Relationships lifecycle owner", () => {
 					const session = yield* DatabaseSession;
 					const calls: string[] = [];
 					const execution = yield* LifecycleExecution;
-					yield* service.create(baseInput, command("commit")).pipe(
-						Effect.provideService(
-							LifecycleExecution,
-							withLifecycleDispatch({
-								...execution,
-								executePolicy: () => Effect.die("Unexpected policy"),
-								after: ({ triggerId }) =>
-									Effect.gen(function* () {
-										expect(!(yield* session.isTransactionActive)).toBe(true);
-										const observed = yield* Effect.tryPromise(() =>
-											observer.query(
-												"select (select count(*)::int from relationship) as relationships, (select count(*)::int from automation_trigger where id = $1) as triggers",
-												[triggerId],
-											),
-										).pipe(Effect.mapError(() => new DbError({ message: "Observer failed" })));
-										expect(observed.rows).toEqual([{ triggers: 1, relationships: 1 }]);
-										calls.push(triggerId);
-										return [];
-									}),
-							}),
-						),
-					);
+					yield* (yield* relationshipsServiceWith({
+						execution: withLifecycleDispatch({
+							...execution,
+							executePolicy: () => Effect.die("Unexpected policy"),
+							after: ({ triggerId }) =>
+								Effect.gen(function* () {
+									expect(!(yield* session.isTransactionActive)).toBe(true);
+									const observed = yield* Effect.tryPromise(() =>
+										observer.query(
+											"select (select count(*)::int from relationship) as relationships, (select count(*)::int from automation_trigger where id = $1) as triggers",
+											[triggerId],
+										),
+									).pipe(Effect.mapError(() => new DbError({ message: "Observer failed" })));
+									expect(observed.rows).toEqual([{ triggers: 1, relationships: 1 }]);
+									calls.push(triggerId);
+									return [];
+								}),
+						}),
+					})).create(baseInput, command("commit"));
 					expect(calls).toHaveLength(2);
 					const db = yield* (yield* DatabaseSession).current;
 					const nested = yield* Effect.exit(
@@ -831,51 +804,44 @@ describe("Relationships lifecycle owner", () => {
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
 					const session = yield* DatabaseSession;
-					const service = yield* RelationshipsService;
 					const seen: unknown[] = [];
 					const execution = yield* LifecycleExecution;
-					const result = yield* service.create(baseInput, command("policies")).pipe(
-						Effect.provideService(
-							LifecyclePlanner,
-							withLifecycleBatchPlanning({
-								plan: (input) =>
-									planner.plan(input).pipe(
-										Effect.map((plan) =>
-											input.trigger.kind.category === "request"
-												? {
-														...plan,
-														policies: [
-															{ position: 1, runId: AutomationRunId.make("first") },
-															{ position: 2, runId: AutomationRunId.make("second") },
-														],
-													}
-												: plan,
-										),
+					const result = yield* (yield* relationshipsServiceWith({
+						planner: withLifecycleBatchPlanning({
+							plan: (input) =>
+								planner.plan(input).pipe(
+									Effect.map((plan) =>
+										input.trigger.kind.category === "request"
+											? {
+													...plan,
+													policies: [
+														{ position: 1, runId: AutomationRunId.make("first") },
+														{ position: 2, runId: AutomationRunId.make("second") },
+													],
+												}
+											: plan,
 									),
-							}),
-						),
-						Effect.provideService(
-							LifecycleExecution,
-							withLifecycleDispatch({
-								...execution,
-								after: () => Effect.succeed([]),
-								executePolicy: ({ runId, acceptedPatches }) =>
-									Effect.gen(function* () {
-										expect(!(yield* session.isTransactionActive)).toBe(true);
-										seen.push(acceptedPatches);
-										return {
-											action: "transform" as const,
-											patch: {
-												resource: "relationship",
-												draft: {
-													properties: { remove: [], set: { rank: runId === "first" ? 2 : 3 } },
-												},
+								),
+						}),
+						execution: withLifecycleDispatch({
+							...execution,
+							after: () => Effect.succeed([]),
+							executePolicy: ({ runId, acceptedPatches }) =>
+								Effect.gen(function* () {
+									expect(!(yield* session.isTransactionActive)).toBe(true);
+									seen.push(acceptedPatches);
+									return {
+										action: "transform" as const,
+										patch: {
+											resource: "relationship",
+											draft: {
+												properties: { remove: [], set: { rank: runId === "first" ? 2 : 3 } },
 											},
-										};
-									}),
-							}),
-						),
-					);
+										},
+									};
+								}),
+						}),
+					})).create(baseInput, command("policies"));
 					expect(seen).toEqual([
 						[],
 						[{ resource: "relationship", draft: { properties: { remove: [], set: { rank: 2 } } } }],
@@ -898,41 +864,31 @@ describe("Relationships lifecycle owner", () => {
 				const execution = yield* LifecycleExecution;
 				yield* service.create(baseInput, command("seed"));
 				const exit = yield* Effect.exit(
-					service
-						.update({ ...baseInput, properties: { rank: 2 } }, command("stale"))
-						.pipe(
-							Effect.provideService(
-								LifecyclePlanner,
-								withLifecycleBatchPlanning({
-									plan: (input) =>
-										planner
-											.plan(input)
-											.pipe(
-												Effect.map((plan) =>
-													input.trigger.kind.category === "request"
-														? {
-																...plan,
-																policies: [
-																	{ position: 1, runId: AutomationRunId.make("concurrent") },
-																],
-															}
-														: plan,
-												),
-											),
-								}),
-							),
-							Effect.provideService(
-								LifecycleExecution,
-								withLifecycleDispatch({
-									...execution,
-									after: () => Effect.succeed([]),
-									executePolicy: () =>
-										repository
-											.updateRelationship({ ...baseInput, properties: { rank: 9 } })
-											.pipe(Effect.as({ action: "allow" as const }), Effect.orDie),
-								}),
-							),
-						),
+					(yield* relationshipsServiceWith({
+						execution: withLifecycleDispatch({
+							...execution,
+							after: () => Effect.succeed([]),
+							executePolicy: () =>
+								repository
+									.updateRelationship({ ...baseInput, properties: { rank: 9 } })
+									.pipe(Effect.as({ action: "allow" as const }), Effect.orDie),
+						}),
+						planner: withLifecycleBatchPlanning({
+							plan: (input) =>
+								planner
+									.plan(input)
+									.pipe(
+										Effect.map((plan) =>
+											input.trigger.kind.category === "request"
+												? {
+														...plan,
+														policies: [{ position: 1, runId: AutomationRunId.make("concurrent") }],
+													}
+												: plan,
+										),
+									),
+						}),
+					})).update({ ...baseInput, properties: { rank: 2 } }, command("stale")),
 				);
 				assertExitFails(
 					exit,
@@ -976,26 +932,23 @@ describe("Relationships lifecycle owner", () => {
 						],
 					},
 				];
-				const result = yield* changeUserRelationships(userId, batches, child).pipe(
-					Effect.provideService(
-						LifecycleExecution,
-						withLifecycleDispatch({
-							...execution,
-							after: () => Effect.succeed([warning]),
-							executePolicy: () => Effect.die("Unexpected policy"),
-						}),
-					),
-				);
+				const result = yield* (yield* relationshipsServiceWith({
+					execution: withLifecycleDispatch({
+						...execution,
+						after: () => Effect.succeed([warning]),
+						executePolicy: () => Effect.die("Unexpected policy"),
+					}),
+				})).changeUser(userId, batches, child);
 				expect(result).toEqual([
 					{ created: 1, updated: 1, deleted: 0, warnings: [warning, warning, warning] },
 				]);
 				expect(
-					yield* changeUserRelationships(userId, batches, child).pipe(
-						Effect.provideService(
-							LifecycleExecution,
-							withLifecycleDispatch({ ...execution, after: () => Effect.succeed([warning]) }),
-						),
-					),
+					yield* (yield* relationshipsServiceWith({
+						execution: withLifecycleDispatch({
+							...execution,
+							after: () => Effect.succeed([warning]),
+						}),
+					})).changeUser(userId, batches, child),
 				).toEqual([{ created: 0, updated: 0, deleted: 0, warnings: [warning, warning, warning] }]);
 				const changes = yield* db
 					.select()
@@ -1064,59 +1017,52 @@ describe("Relationships lifecycle owner", () => {
 			"retains request history on policy rejection, invalid transforms, and planning limits",
 			() =>
 				Effect.gen(function* () {
-					const service = yield* RelationshipsService;
 					const planner = yield* LifecyclePlanner;
 					const db = yield* (yield* DatabaseSession).current;
 					for (const mode of ["reject", "invalid", "limit"] as const) {
 						const execution = yield* LifecycleExecution;
 						const exit = yield* Effect.exit(
-							service.create(baseInput, command(mode)).pipe(
-								Effect.provideService(
-									LifecyclePlanner,
-									withLifecycleBatchPlanning({
-										plan: (input) =>
-											planner
-												.plan(input)
-												.pipe(
-													Effect.map((plan) => ({
-														...plan,
-														policies: [{ position: 1, runId: AutomationRunId.make(mode) }],
-														trigger:
-															mode === "limit"
-																? {
-																		...plan.trigger,
-																		blockedReason: {
-																			omittedHooks: [],
-																			hasRequiredHooks: false,
-																			code: "automation-limit-reached" as const,
-																		},
-																	}
-																: plan.trigger,
-													})),
-												),
-									}),
-								),
-								Effect.provideService(
-									LifecycleExecution,
-									withLifecycleDispatch({
-										...execution,
-										after: () => Effect.die("A rejected write cannot dispatch"),
-										executePolicy: () => {
-											return Effect.succeed(
-												mode === "reject"
-													? { reason: "Rejected", action: "reject" as const }
-													: {
-															action: "transform" as const,
-															patch: {
-																resource: "relationship",
-																draft: { properties: { remove: [], set: { rank: "invalid" } } },
-															},
+							(yield* relationshipsServiceWith({
+								execution: withLifecycleDispatch({
+									...execution,
+									after: () => Effect.die("A rejected write cannot dispatch"),
+									executePolicy: () => {
+										return Effect.succeed(
+											mode === "reject"
+												? { reason: "Rejected", action: "reject" as const }
+												: {
+														action: "transform" as const,
+														patch: {
+															resource: "relationship",
+															draft: { properties: { remove: [], set: { rank: "invalid" } } },
 														},
-											);
-										},
-									}),
-								),
-							),
+													},
+										);
+									},
+								}),
+								planner: withLifecycleBatchPlanning({
+									plan: (input) =>
+										planner
+											.plan(input)
+											.pipe(
+												Effect.map((plan) => ({
+													...plan,
+													policies: [{ position: 1, runId: AutomationRunId.make(mode) }],
+													trigger:
+														mode === "limit"
+															? {
+																	...plan.trigger,
+																	blockedReason: {
+																		omittedHooks: [],
+																		hasRequiredHooks: false,
+																		code: "automation-limit-reached" as const,
+																	},
+																}
+															: plan.trigger,
+												})),
+											),
+								}),
+							})).create(baseInput, command(mode)),
 						);
 						switch (mode) {
 							case "reject":
@@ -1239,22 +1185,19 @@ describe("Relationships lifecycle owner", () => {
 					const db = yield* (yield* DatabaseSession).current;
 					const planner = yield* LifecyclePlanner;
 					const service = yield* RelationshipsService;
-					const policyService = yield* RelationshipsService.make.pipe(
-						Effect.provideService(
-							LifecyclePlanner,
-							withLifecycleBatchPlanning({
-								plan: (input) =>
-									planner
-										.plan(input)
-										.pipe(
-											Effect.map((plan) => ({
-												...plan,
-												policies: [{ position: 1, runId: AutomationRunId.make("policy") }],
-											})),
-										),
-							}),
-						),
-					);
+					const policyService = yield* relationshipsServiceWith({
+						planner: withLifecycleBatchPlanning({
+							plan: (input) =>
+								planner
+									.plan(input)
+									.pipe(
+										Effect.map((plan) => ({
+											...plan,
+											policies: [{ position: 1, runId: AutomationRunId.make("policy") }],
+										})),
+									),
+						}),
+					});
 					const groups = [
 						{
 							relationshipSchemaSlug,
@@ -1666,35 +1609,27 @@ describe("Relationships lifecycle owner", () => {
 
 				const rejectedInput = { ...baseInput, targetEntityId, sourceEntityId: targetEntityId };
 				yield* repository.createRelationship(rejectedInput);
-				const rejectingService = yield* RelationshipsService.make.pipe(
-					Effect.provideService(
-						LifecyclePlanner,
-						withLifecycleBatchPlanning({
-							plan: (input) =>
-								planner
-									.plan(input)
-									.pipe(
-										Effect.map((plan) => ({
-											...plan,
-											policies: [
-												{ position: 1, runId: AutomationRunId.make("reject-relationship") },
-											],
-										})),
-									),
-						}),
-					),
-					Effect.provideService(
-						LifecycleExecution,
-						withLifecycleDispatch({
-							...execution,
-							executePolicy: () =>
-								Effect.gen(function* () {
-									expect(!(yield* session.isTransactionActive)).toBe(true);
-									return { reason: "Rejected", action: "reject" as const };
-								}),
-						}),
-					),
-				);
+				const rejectingService = yield* relationshipsServiceWith({
+					execution: withLifecycleDispatch({
+						...execution,
+						executePolicy: () =>
+							Effect.gen(function* () {
+								expect(!(yield* session.isTransactionActive)).toBe(true);
+								return { reason: "Rejected", action: "reject" as const };
+							}),
+					}),
+					planner: withLifecycleBatchPlanning({
+						plan: (input) =>
+							planner
+								.plan(input)
+								.pipe(
+									Effect.map((plan) => ({
+										...plan,
+										policies: [{ position: 1, runId: AutomationRunId.make("reject-relationship") }],
+									})),
+								),
+					}),
+				});
 				const rejected = yield* rejectingService
 					.prepareUserDelete(rejectedInput, command("prepared-rejected"))
 					.pipe(Effect.flip);
