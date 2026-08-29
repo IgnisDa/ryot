@@ -1,11 +1,18 @@
 import { EntityId, RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
 import {
-	podcastDetailRecipe,
-	podcastsByLifecycleStateRecipe,
-	showsByLifecycleStateRecipe,
-} from "@ryot-app/media-plugin/query-recipes";
+	podcastEpisodicKindConfig,
+	showEpisodicKindConfig,
+	type EpisodicKindConfig,
+} from "@ryot-app/media-plugin/shared/lifecycle-expressions";
+import {
+	episodicByLifecycleStateRecipe,
+	flatByLifecycleStateRecipe,
+} from "@ryot-app/media-plugin/shared/lifecycle-list-recipes";
 import { movieRecipes } from "@ryot-app/media-plugin/shared/movie-recipes";
-import { podcastRecipes } from "@ryot-app/media-plugin/shared/podcast-recipes";
+import {
+	podcastEpisodesRecipe,
+	podcastRecipes,
+} from "@ryot-app/media-plugin/shared/podcast-recipes";
 import { showRecipes, showSeasonEpisodesRecipe } from "@ryot-app/media-plugin/shared/show-recipes";
 import { column, descending, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
 import { Effect } from "effect";
@@ -296,31 +303,34 @@ const readSeasonStates = (client: Client, seasonId: string) =>
 		return page.items.map((episode) => episode.state);
 	});
 
-const assertShowState = (client: Client, entityId: string, expected: LifecycleState) =>
+const assertEpisodicState = (
+	client: Client,
+	config: EpisodicKindConfig,
+	entityId: string,
+	expected: LifecycleState,
+) =>
 	Effect.gen(function* () {
 		const results = yield* Effect.all(
 			lifecycleStates.map((state) =>
-				executeRyotQLRecipe(client, showsByLifecycleStateRecipe({ state, entityId, limit: 1 })),
+				executeRyotQLRecipe(
+					client,
+					episodicByLifecycleStateRecipe({ config, entityId, limit: 1, states: [state] }),
+				),
 			),
 		);
 		const memberships = results.flatMap((result, index) =>
-			result.items.some((item) => item.id === entityId) ? [lifecycleStates[index]] : [],
+			result.items.some((item) => item.id === entityId && item.state === expected)
+				? [lifecycleStates[index]]
+				: [],
 		);
 		expect(memberships).toEqual([expected]);
 	});
 
+const assertShowState = (client: Client, entityId: string, expected: LifecycleState) =>
+	assertEpisodicState(client, showEpisodicKindConfig, entityId, expected);
+
 const assertPodcastState = (client: Client, entityId: string, expected: LifecycleState) =>
-	Effect.gen(function* () {
-		const results = yield* Effect.all(
-			lifecycleStates.map((state) =>
-				executeRyotQLRecipe(client, podcastsByLifecycleStateRecipe({ state, entityId, limit: 1 })),
-			),
-		);
-		const memberships = results.flatMap((result, index) =>
-			result.items.some((item) => item.id === entityId) ? [lifecycleStates[index]] : [],
-		);
-		expect(memberships).toEqual([expected]);
-	});
+	assertEpisodicState(client, podcastEpisodicKindConfig, entityId, expected);
 
 const createProgress = (
 	client: Client,
@@ -736,19 +746,13 @@ describe("Media episodic lifecycle query recipes", () => {
 			);
 			yield* assertPodcastState(client, podcast.id, "caught_up");
 
+			const summary = yield* readPodcastSummary(client, podcast.id);
+			expect(summary.state).toBe("caught_up");
 			const detail = yield* executeRyotQLRecipe(
 				client,
-				podcastDetailRecipe({ episodeLimit: 10, entityId: podcast.id }),
+				podcastEpisodesRecipe({ limit: 10, containerId: podcast.id }),
 			);
-			assertPresent(detail, "Expected podcast detail");
-			expect(detail.state).toBe("caught_up");
-			expect(detail).not.toHaveProperty("hasProgress");
-			expect(detail).not.toHaveProperty("isComplete");
-			for (const episode of detail.episodes.items) {
-				expect(episode.state).toBe("complete");
-				expect(episode).not.toHaveProperty("hasProgress");
-				expect(episode).not.toHaveProperty("isComplete");
-			}
+			expect(detail.items.map((episode) => episode.state)).toEqual(["complete", "complete"]);
 		}),
 	);
 
@@ -1289,6 +1293,160 @@ describe("Media flat lifecycle query recipes", () => {
 			const rewatching = yield* readMovieSummary(client, movie.id);
 			expect(rewatching.state).toBe("in_progress");
 			expect(rewatching.progressPercent).toBe(20);
+		}),
+	);
+});
+
+describe("Media lifecycle list recipes", () => {
+	it.live("lists episodic parents with their latest activity and next up", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const schemas = yield* loadLifecycleSchemas(client);
+			const { show, episodes } = yield* seedShow(client, schemas, {
+				productionStatus: "Continuing",
+				seasons: [{ seasonNumber: 1, episodeCount: 2 }],
+			});
+			const [first, second] = episodes.map(({ entity }) => entity);
+			assertPresent(first, "Expected E1");
+			assertPresent(second, "Expected E2");
+			const { podcast, episodes: podcastEpisodes } = yield* seedPodcast(client, schemas, {
+				episodeCount: 2,
+				productionStatus: "Continuing",
+			});
+			const [, newest] = podcastEpisodes;
+			assertPresent(newest, "Expected the newest podcast episode");
+
+			yield* createComplete(
+				client,
+				first.id,
+				schemas.showEpisodeEvents.complete,
+				"2026-06-03T01:00:00.000Z",
+			);
+			yield* createProgress(
+				client,
+				newest.id,
+				schemas.podcastEpisodeEvents.progress,
+				"2026-06-03T02:00:00.000Z",
+			);
+
+			const shows = yield* executeRyotQLRecipe(
+				client,
+				episodicByLifecycleStateRecipe({
+					limit: 20,
+					states: ["in_progress"],
+					config: showEpisodicKindConfig,
+				}),
+			);
+			expect(shows.items).toEqual([
+				expect.objectContaining({
+					id: show.id,
+					state: "in_progress",
+					latestActivityAt: "2026-06-03T01:00:00.000Z",
+					nextUp: expect.objectContaining({ id: second.id, seasonNumber: 1 }),
+				}),
+			]);
+
+			const podcasts = yield* executeRyotQLRecipe(
+				client,
+				episodicByLifecycleStateRecipe({
+					limit: 20,
+					states: ["in_progress"],
+					config: podcastEpisodicKindConfig,
+				}),
+			);
+			expect(podcasts.items).toEqual([
+				expect.objectContaining({
+					id: podcast.id,
+					latestActivityAt: "2026-06-03T02:00:00.000Z",
+					nextUp: expect.objectContaining({ id: newest.id, seasonNumber: null }),
+				}),
+			]);
+
+			yield* createEventFixture(client, {
+				properties: {},
+				entityId: show.id,
+				occurredAt: "2026-06-03T03:00:00.000Z",
+				eventSchemaSlug: schemas.showEvents.backlog,
+			});
+			const backlog = yield* executeRyotQLRecipe(
+				client,
+				episodicByLifecycleStateRecipe({
+					limit: 20,
+					states: ["backlog"],
+					config: showEpisodicKindConfig,
+				}),
+			);
+			expect(backlog.items.map((item) => [item.id, item.latestActivityAt])).toEqual([
+				[show.id, "2026-06-03T03:00:00.000Z"],
+			]);
+		}),
+	);
+
+	it.live("lists flat media across schemas with their recorded position", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const schemas = yield* loadMovieLifecycleSchemas(client);
+			const animeSchemaId = yield* getBuiltinEntitySchemaSlug(client, "anime");
+			const animeEvents = yield* listEventSchemas(client, animeSchemaId);
+			const movie = yield* seedMovie(schemas.movieSchemaId);
+			const suffix = crypto.randomUUID();
+			const anime = yield* seedMediaEntity({
+				userId: null,
+				properties: {},
+				providerId: null,
+				entitySchemaSlug: animeSchemaId,
+				name: `Lifecycle Anime ${suffix}`,
+				externalId: `lifecycle-anime-${suffix}`,
+			});
+			const backlogged = yield* seedMovie(schemas.movieSchemaId);
+			yield* Effect.all([
+				insertLibraryMembership(client, { mediaEntityId: movie.id }),
+				insertLibraryMembership(client, { mediaEntityId: anime.id }),
+				insertLibraryMembership(client, { mediaEntityId: backlogged.id }),
+			]);
+
+			yield* createProgress(
+				client,
+				movie.id,
+				schemas.movieEvents.progress,
+				"2026-06-04T01:00:00.000Z",
+			);
+			yield* createEventFixture(client, {
+				entityId: anime.id,
+				occurredAt: "2026-06-04T02:00:00.000Z",
+				properties: { animeEpisode: 5, progressPercent: 40 },
+				eventSchemaSlug: requireEventSchemaBySlug(animeEvents, "progress").id,
+			});
+			yield* createEventFixture(client, {
+				properties: {},
+				entityId: backlogged.id,
+				occurredAt: "2026-06-04T03:00:00.000Z",
+				eventSchemaSlug: schemas.movieEvents.backlog,
+			});
+
+			const inProgress = yield* executeRyotQLRecipe(
+				client,
+				flatByLifecycleStateRecipe({ limit: 20, states: ["in_progress"] }),
+			);
+			expect(
+				inProgress.items.map((item) => [
+					item.id,
+					item.progressPercent,
+					item.animeEpisode,
+					item.latestActivityAt,
+				]),
+			).toEqual([
+				[anime.id, 40, 5, "2026-06-04T02:00:00.000Z"],
+				[movie.id, 50, null, "2026-06-04T01:00:00.000Z"],
+			]);
+
+			const backlog = yield* executeRyotQLRecipe(
+				client,
+				flatByLifecycleStateRecipe({ limit: 20, states: ["backlog"] }),
+			);
+			expect(backlog.items.map((item) => [item.id, item.state])).toEqual([
+				[backlogged.id, "backlog"],
+			]);
 		}),
 	);
 });

@@ -86,6 +86,7 @@ export type MediaEpisodicSummaryValue = MediaSummaryValue &
 	EpisodicCounts & {
 		readonly state: EpisodicLifecycleState;
 		readonly totalEpisodes: number | null;
+		readonly nextUp: { readonly id: string } | null;
 		readonly collections: { readonly items: readonly { readonly id: string }[] };
 	};
 
@@ -188,7 +189,9 @@ export const defineEpisodicMediaSchema = <
 ) => {
 	const { nouns, recipes, activityCopy } = descriptor;
 
-	const summaryQuery = createMediaSummaryQuery(recipes.summaryRecipe);
+	const summaryQuery = createMediaSummaryQuery(recipes.summaryRecipe, ({ nextUp }) =>
+		nextUp === null ? [] : [nextUp.id],
+	);
 
 	const overviewQuery = createMediaEntityQuery(
 		(input) =>
