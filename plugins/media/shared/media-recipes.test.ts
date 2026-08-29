@@ -1,3 +1,4 @@
+import { table } from "@ryot-app/plugin-kit/ryotql";
 import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 import { describe, expect, it } from "vitest";
 
@@ -5,6 +6,8 @@ import {
 	flatFixtureRecipes,
 	flatUngroupedFixtureRecipes,
 } from "../tests/client/flat-media/recipes";
+import { propertyNumber } from "./entity-selections";
+import { mediaEntityCountMeasure, mediaTimeSpentMeasure } from "./media-recipes";
 
 const singleRows = (items: readonly Record<string, unknown>[]) =>
 	rowsResult(items, { limit: 1, hasMore: false, nextCursor: null });
@@ -216,6 +219,7 @@ describe("media flat recipes", () => {
 			OVERVIEW_RECIPE.decode({
 				data: {
 					group: singleRows([]),
+					creators: singleRows([]),
 					people: activityRows([]),
 					companies: activityRows([]),
 					recommendations: activityRows([]),
@@ -424,5 +428,56 @@ describe("media flat recipes", () => {
 			"publishYear",
 			"productionStatus",
 		]);
+	});
+});
+
+const MEASURE_EVENT = table("event", "measureEvent");
+
+const MEASURE_ENTITY = table("entity", "measureEntity");
+
+const propertyRead = (tableAlias: string, property: string) => ({
+	type: "cast",
+	target: "number",
+	expr: { type: "jsonPath", path: [property], expr: { tableAlias, field: "properties" } },
+});
+
+describe("media flat measures", () => {
+	it("measures only the event's time spent when no fallback is given", () => {
+		const timeSpent = propertyRead("measureEvent", "timeSpent");
+
+		expect(mediaTimeSpentMeasure()(MEASURE_EVENT, MEASURE_ENTITY)).toMatchObject({
+			amount: timeSpent,
+			isUnknown: { type: "isNull", expr: timeSpent },
+		});
+	});
+
+	it("falls back to the entity amount and is unknown only when both are missing", () => {
+		const timeSpent = propertyRead("measureEvent", "timeSpent");
+		const runtime = propertyRead("measureEntity", "runtime");
+
+		expect(
+			mediaTimeSpentMeasure((entity) => propertyNumber(entity, "runtime"))(
+				MEASURE_EVENT,
+				MEASURE_ENTITY,
+			),
+		).toMatchObject({
+			amount: { type: "coalesce", values: [timeSpent, runtime] },
+			isUnknown: {
+				type: "and",
+				predicates: [
+					{ type: "isNull", expr: timeSpent },
+					{ expr: runtime, type: "isNull" },
+				],
+			},
+		});
+	});
+
+	it("counts the named entity property", () => {
+		const pages = propertyRead("measureEntity", "pages");
+
+		expect(mediaEntityCountMeasure("pages")(MEASURE_EVENT, MEASURE_ENTITY)).toMatchObject({
+			amount: pages,
+			isUnknown: { expr: pages, type: "isNull" },
+		});
 	});
 });

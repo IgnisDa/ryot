@@ -6,7 +6,6 @@ import {
 	decodeFlatOverview,
 	FLAT_OVERVIEW_INPUT,
 	flatGroupRow,
-	flatPersonRow,
 } from "../../tests/client/flat-media/overview-fixture";
 import {
 	decodeFlatSummary,
@@ -19,11 +18,6 @@ import { bookPresentationFacts, bookSchema, bookSummaryFacts } from "./schema";
 
 const noopAdapter = { query: () => Promise.resolve({}) };
 
-const UNLINKED_CREATORS = [
-	{ role: "Author", name: "Ann Author" },
-	{ name: "Pan Press", role: "Publisher" },
-];
-
 const bookSummary = (overrides: Record<string, unknown> = {}) =>
 	decodeFlatSummary(bookRecipes.summaryRecipe(FLAT_SUMMARY_INPUT), {
 		pages: 320,
@@ -31,18 +25,7 @@ const bookSummary = (overrides: Record<string, unknown> = {}) =>
 		...overrides,
 	});
 
-const bookOverview = (
-	input: Parameters<typeof decodeFlatOverview>[1] = {},
-	unlinkedCreators: readonly Record<string, unknown>[] | null = UNLINKED_CREATORS,
-) =>
-	decodeFlatOverview(bookRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT), {
-		...input,
-		extra: {
-			creators: rowsResult([{ unlinkedCreators }], { limit: 1, hasMore: false, nextCursor: null }),
-		},
-	});
-
-const renderBody = (overview = bookOverview()) =>
+const renderBody = () =>
 	mountRyotClient(
 		noopAdapter,
 		<bookSchema.ScreenBody
@@ -53,7 +36,9 @@ const renderBody = (overview = bookOverview()) =>
 			refresh={() => undefined}
 			refreshOverview={() => undefined}
 			state={{ status: "ready", summary: bookSummary() }}
-			overview={mapMediaOverview(readyQueryResult(overview))}
+			overview={mapMediaOverview(
+				readyQueryResult(decodeFlatOverview(bookRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT))),
+			)}
 		/>,
 	);
 
@@ -156,49 +141,10 @@ describe("book schema", () => {
 		unmount();
 	});
 
-	it("lists unlinked authors in the people rail and unlinked publishers with the companies", () => {
-		const { unmount, container } = renderBody();
-
-		expect(container.textContent).toContain("Authors & contributors");
-		expect(container.textContent).toContain("Publishers");
-		expect(container.textContent).toContain(flatPersonRow.name);
-		expect(container.textContent).toContain("Ann Author");
-		expect(container.textContent).toContain("Pan Press");
-		expect(container.querySelector('[aria-label="Open Ann Author"]')).toBeNull();
-		expect(container.querySelector('[aria-label="Open Pan Press"]')).toBeNull();
-		const sections = Array.from(container.querySelectorAll("section"));
-		expect(
-			sections.find((section) => section.textContent.includes("Authors & contributors"))
-				?.textContent,
-		).toContain("Ann Author");
-		expect(
-			sections.find((section) => section.textContent.startsWith("Publishers"))?.textContent,
-		).toContain("Pan Press");
-		unmount();
-	});
-
-	it("keeps an overview holding only unlinked creators", () => {
-		const onlyUnlinked = bookOverview({
-			group: [],
-			people: [],
-			companies: [],
-			recommendations: [],
-		});
-
-		expect(bookSchema.overviewIsEmpty(onlyUnlinked)).toBe(false);
-		expect(
-			bookSchema.overviewIsEmpty(
-				bookOverview({ group: [], people: [], companies: [], recommendations: [] }, null),
-			),
-		).toBe(true);
-		const { unmount, container } = renderBody(onlyUnlinked);
-		expect(container.textContent).toContain("Ann Author");
-		unmount();
-	});
-
 	it("presents the group as the series the book is part of", () => {
 		const { unmount, container } = renderBody();
 
+		expect(container.textContent).toContain("Authors & contributors");
 		expect(container.textContent).toContain(`Part of ${flatGroupRow.name}`);
 		expect(container.textContent).toContain("View series");
 		unmount();

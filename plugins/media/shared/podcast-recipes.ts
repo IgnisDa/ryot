@@ -4,7 +4,7 @@ import {
 	mediaEpisodicRecipes,
 } from "./episodic-recipes";
 import { podcastEpisodicKindConfig } from "./lifecycle-expressions";
-import { mediaUnlinkedCreatorsQuery } from "./media-recipes";
+import { mediaUnlinkedCreatorsOverviewQueries } from "./media-recipes";
 
 const PODCAST_EPISODE_RELATIONSHIP = "podcast-to-podcast-episode";
 
@@ -24,7 +24,7 @@ export const podcastRecipes = mediaEpisodicRecipes({
 	presentationFields: () => ({}),
 	config: podcastEpisodicKindConfig,
 	coverageQuery: podcastCoverageQuery,
-	extraOverviewQueries: (input) => ({ creators: mediaUnlinkedCreatorsQuery(input.entityId) }),
+	extraOverviewQueries: mediaUnlinkedCreatorsOverviewQueries,
 	activityEpisode: (row) => ({
 		id: row.episodeId,
 		name: row.episodeName,

@@ -1,6 +1,6 @@
 import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
 
-import type { MediaOverviewRows } from "../../shared/media-recipes";
+import type { MediaOverviewRows, MediaUnlinkedCreatorsOverview } from "../../shared/media-recipes";
 import { collectManagedAssetLocators, preferredMediaImageAsset } from "./image";
 import { classifyRyotQueryResult, type MappedRyotQueryState } from "./query-state";
 
@@ -11,6 +11,9 @@ export type MediaCompany = MediaOverviewRows["companies"]["items"][number];
 export type MediaRecommendation = MediaOverviewRows["recommendations"]["items"][number];
 
 export type MediaUnlinkedCreator = { readonly name: string; readonly role: string };
+
+export const mediaUnlinkedCreators = (overview: MediaUnlinkedCreatorsOverview) =>
+	overview.creators?.unlinkedCreators ?? [];
 
 export type MediaOverviewState<Overview> = MappedRyotQueryState<{
 	readonly status: "ready";
