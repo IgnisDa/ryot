@@ -50,8 +50,10 @@ const deleteProperty = Reflect.deleteProperty;
 const nativeUint8Array = globalThis.Uint8Array;
 const jsonParse = JSON.parse.bind(JSON);
 const readStdin = Deno.stdin.read.bind(Deno.stdin);
+const readStdinSync = Deno.stdin.readSync.bind(Deno.stdin);
 const encodeComponent = globalThis.encodeURIComponent;
 const writeStdout = Deno.stdout.write.bind(Deno.stdout);
+const writeStdoutSync = Deno.stdout.writeSync.bind(Deno.stdout);
 const encodeText = encoder.encode.bind(encoder);
 const decodeText = decoder.decode.bind(decoder);
 const jsonStringify = JSON.stringify.bind(JSON);
@@ -405,6 +407,32 @@ async function readLine(): Promise<string> {
 	}
 }
 
+// Blocking reads and writes freeze every script fiber while the host settles an inline durable
+// batch, so the script observes the batch exactly as a replay observes recorded journal entries.
+function readLineSync(): string {
+	const chunk = new Uint8Array(65536);
+	for (;;) {
+		const newlineIdx = buffer.indexOf("\n");
+		if (newlineIdx !== -1) {
+			const line = buffer.slice(0, newlineIdx);
+			buffer = buffer.slice(newlineIdx + 1);
+			return line;
+		}
+		const count = readStdinSync(chunk);
+		if (count === null) {
+			exitDeno(0);
+		}
+		buffer += decodeText(chunk.subarray(0, count));
+	}
+}
+
+const writeStdoutAllSync = (bytes: Uint8Array) => {
+	let offset = 0;
+	while (offset < bytes.byteLength) {
+		offset += writeStdoutSync(bytes.subarray(offset));
+	}
+};
+
 const hostFailure = (error: string) => ({ error, success: false as const });
 
 const PHASE_FAILURE_KINDS: Record<string, string> = {
@@ -611,10 +639,43 @@ const createDurableHost = async (definition: SandboxDefinition, payload: Sandbox
 	}
 	await profileCheckpoint("journal-loaded");
 
+	const journalLength = journal.length;
 	const calls: DurableCall[] = [];
 	const requests: Array<Record<string, unknown>> = [];
 	const budget: HostBudget = { http: 0, total: 0 };
+	const inlineCapabilities = arrayIsArray(payload.inlineDurableCapabilities)
+		? payload.inlineDurableCapabilities
+		: [];
 	let pendingObserved = false;
+	// Every unrecorded request registered so far forms the batch a replay would end with. When the
+	// host may settle all of it, it answers with durable results that extend the local journal;
+	// otherwise the replay ends pending exactly as it would without inline dispatch.
+	const settleInline = () => {
+		const batch = requests.slice(journal.length);
+		if (
+			batch.length === 0 ||
+			!batch.every(
+				(request) =>
+					request.kind === "host" &&
+					typeof request.name === "string" &&
+					inlineCapabilities.includes(request.name),
+			)
+		) {
+			return false;
+		}
+		writeStdoutAllSync(encodeText(jsonStringify({ inline: { requests: batch } }) + "\n"));
+		const response = jsonParse(readLineSync()) as unknown;
+		if (!isRecord(response) || !arrayIsArray(response.results)) {
+			return false;
+		}
+		if (response.results.length !== batch.length) {
+			throw new nativeError("Sandbox inline durable results do not match the batch");
+		}
+		for (let offset = 0; offset < batch.length; offset += 1) {
+			journal.push({ request: batch[offset], value: response.results[offset] });
+		}
+		return true;
+	};
 	const consumeBudget = (capability: string) => {
 		budget.total += 1;
 		if (capability === "httpCall") {
@@ -639,7 +700,8 @@ const createDurableHost = async (definition: SandboxDefinition, payload: Sandbox
 		requests.push(request);
 		return Effect.suspend(() => {
 			call.started = true;
-			const entry = journal[index];
+			const entry =
+				journal[index] ?? (!pendingObserved && settleInline() ? journal[index] : undefined);
 			if (entry === undefined) {
 				pendingObserved = true;
 				call.settled = true;
@@ -730,7 +792,7 @@ const createDurableHost = async (definition: SandboxDefinition, payload: Sandbox
 	return {
 		host,
 		requests,
-		journalLength: journal.length,
+		journalLength,
 		isPending: () => pendingObserved,
 		startedRequests: () => {
 			const started: Array<Record<string, unknown>> = [];

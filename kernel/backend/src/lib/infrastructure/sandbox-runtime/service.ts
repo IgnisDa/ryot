@@ -1,7 +1,12 @@
 import { SandboxRunError, TimeoutError, unknownToMessage } from "@ryot-app/contract/errors";
 import { SandboxExecutionError } from "@ryot-app/contract/modules/sandbox/schemas";
 import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/sandbox/wire";
-import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
+import { jsonByteLength, utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
+import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
+import {
+	workflowHostRequestSchema,
+	type WorkflowReplayJournalEntry,
+} from "@ryot-app/sandbox-sdk/workflow";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { generateId } from "better-auth";
 import {
@@ -81,7 +86,9 @@ import {
 	sandboxMetadataKind,
 	sandboxPlatformFailureKind,
 	type BoundHostFunction,
+	type SandboxInlineDurableHost,
 	type SandboxRunInput,
+	type WorkflowHostRequest,
 } from "./shared";
 import { makeWorkflowReplayJournalHostFunction } from "./workflow-journal";
 
@@ -141,6 +148,7 @@ const SandboxRunnerRequest = Schema.Struct({
 	apiFunctions: Schema.Array(Schema.String),
 	profiling: Schema.optional(Schema.Boolean),
 	workflowExecutionId: Schema.optional(Schema.String),
+	inlineDurableCapabilities: Schema.optional(Schema.Array(Schema.String)),
 	limits: Schema.Record(Schema.String, Schema.Union([Schema.Finite, Schema.String])),
 	filesystem: Schema.optional(
 		Schema.Struct({
@@ -189,6 +197,73 @@ const encodeProfileCheckpointRecord = Schema.encodeSync(
 const decodeSandboxRunnerResponse = Schema.decodeUnknownSync(
 	Schema.fromJsonString(SandboxRunnerResponse),
 );
+
+const decodeInlineDurableBatch = Schema.decodeUnknownOption(
+	Schema.fromJsonString(
+		Schema.Struct({
+			inline: Schema.Struct({ requests: Schema.NonEmptyArray(workflowHostRequestSchema) }),
+		}),
+	),
+);
+
+const encodeInlineDurableReply = Schema.encodeSync(
+	Schema.fromJsonString(
+		Schema.Union([
+			Schema.Struct({ defer: Schema.Literal(true) }),
+			Schema.Struct({ results: Schema.Array(jsonValueSchema) }),
+		]),
+	),
+);
+const decodeInlineDurableResults = Schema.decodeUnknownOption(Schema.Array(jsonValueSchema));
+
+const inlineDeferredLine = `${encodeInlineDurableReply({ defer: true })}\n`;
+
+/**
+ * Settles one inline batch against the entries already recorded in this replay. Anything the
+ * host cannot accept (a non-contiguous index, an oversized batch or journal, or a batch the
+ * dispatcher declines) is deferred so the replay ends and the workflow dispatches it instead.
+ */
+const settleInlineDurableBatch = (
+	inline: SandboxInlineDurableHost,
+	settled: { readonly entries: Array<WorkflowReplayJournalEntry>; bytes: number },
+	line: string,
+	requests: ReadonlyArray<WorkflowHostRequest>,
+) =>
+	Effect.gen(function* () {
+		const firstIndex = inline.journalLength + settled.entries.length;
+		if (
+			utf8ByteLength(line) > SANDBOX_LIMITS.bridge.requestBytes ||
+			requests.some(
+				(request, offset) =>
+					request.index !== firstIndex + offset ||
+					!inline.capabilities.includes(request.args.capability),
+			)
+		) {
+			return inlineDeferredLine;
+		}
+		const settledResults = yield* inline.settle(requests);
+		const results =
+			settledResults === null || settledResults.length !== requests.length
+				? Option.none()
+				: decodeInlineDurableResults(settledResults);
+		if (Option.isNone(results)) {
+			return inlineDeferredLine;
+		}
+		const entries = requests.map((request, offset) => ({
+			request,
+			value: results.value[offset] ?? null,
+		}));
+		const bytes = entries.reduce(
+			(total, entry) => total + (jsonByteLength(entry) ?? Number.POSITIVE_INFINITY),
+			settled.bytes,
+		);
+		if (bytes > SANDBOX_LIMITS.journalBytes) {
+			return inlineDeferredLine;
+		}
+		settled.entries.push(...entries);
+		settled.bytes = bytes;
+		return `${encodeInlineDurableReply({ results: results.value })}\n`;
+	});
 
 export class SandboxService extends Context.Service<SandboxService>()("SandboxService", {
 	make: Effect.gen(function* () {
@@ -360,6 +435,14 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 							);
 						}
 
+						const dedicated =
+							artifactPath !== undefined ||
+							namedArtifactPaths !== undefined ||
+							scratchDirectory !== undefined;
+						const dedicatedProcess = dedicated || profiling !== undefined;
+						// Grant-carrying and profiled executions keep one replay per process: grants are
+						// replay-scoped and profiles attribute a single attempt.
+						const inline = dedicatedProcess ? undefined : input.inlineDurableHost;
 						const token = generateId();
 						const modulePath = yield* acquireSandboxCompiledModule(
 							processes.runtimePaths,
@@ -383,6 +466,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 							...(input.workflowExecutionId
 								? { workflowExecutionId: input.workflowExecutionId }
 								: {}),
+							...(inline ? { inlineDurableCapabilities: inline.capabilities } : {}),
 							...(artifactPath !== undefined ||
 							namedArtifactPaths !== undefined ||
 							scratchDirectory !== undefined
@@ -399,12 +483,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 							...(scratchDirectory !== undefined ? { scratchDirectory } : {}),
 							...(namedArtifactPaths !== undefined ? { namedArtifactPaths } : {}),
 						};
-						const dedicated =
-							artifactPath !== undefined ||
-							namedArtifactPaths !== undefined ||
-							scratchDirectory !== undefined;
 						let workerOutcome: SandboxProcessOutcome = "failure";
-						const dedicatedProcess = dedicated || profiling !== undefined;
 						const worker = dedicatedProcess
 							? yield* processes.spawnDedicated(() => workerOutcome, grants, profiling)
 							: yield* processes.acquire;
@@ -425,7 +504,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 							SANDBOX_LIMITS.execution.timeoutMs + (profile ? profiledTimeoutExtensionMs : 0);
 						const now = yield* Clock.currentTimeMillis;
 						const parentSpan = yield* Effect.currentSpan;
-						yield* bridge.addSession(input.executionId, {
+						const session = yield* bridge.addSession(input.executionId, {
 							token,
 							parentSpan,
 							apiFunctions: selectedApiFunctions,
@@ -464,21 +543,44 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 							),
 						);
 
-						const responseLine = yield* Effect.raceFirst(
-							Queue.take(worker.responseQueue),
-							Effect.raceFirst(
-								processExit,
-								Effect.sleep(Duration.millis(timeoutMs)).pipe(
-									Effect.andThen(
-										Effect.fail(
-											new TimeoutError({
-												message: withProcessStderr(`Sandbox timed out after ${timeoutMs}ms`),
-											}),
+						// The timeout budget covers script time only: it pauses while the host settles an
+						// inline batch, so a live replay spends no more script time than a recovery replay.
+						const inlineSettled = { bytes: 0, entries: new Array<WorkflowReplayJournalEntry>() };
+						let remainingMs = timeoutMs;
+						let responseLine: string | undefined;
+						while (responseLine === undefined) {
+							const waitStartedAt = yield* Clock.currentTimeMillis;
+							const line = yield* Effect.raceFirst(
+								Queue.take(worker.responseQueue),
+								Effect.raceFirst(
+									processExit,
+									Effect.sleep(Duration.millis(Math.max(0, remainingMs))).pipe(
+										Effect.andThen(
+											Effect.fail(
+												new TimeoutError({
+													message: withProcessStderr(`Sandbox timed out after ${timeoutMs}ms`),
+												}),
+											),
 										),
 									),
 								),
-							),
-						);
+							);
+							const settleStartedAt = yield* Clock.currentTimeMillis;
+							remainingMs -= settleStartedAt - waitStartedAt;
+							const batch = inline ? decodeInlineDurableBatch(line) : Option.none();
+							if (!inline || Option.isNone(batch)) {
+								responseLine = line;
+								continue;
+							}
+							const reply = yield* settleInlineDurableBatch(
+								inline,
+								inlineSettled,
+								line,
+								batch.value.inline.requests,
+							);
+							yield* Queue.offer(worker.stdinQueue, encoder.encode(reply));
+							yield* session.extend((yield* Clock.currentTimeMillis) - settleStartedAt);
+						}
 
 						// The profiled runner exits by itself after responding so Deno flushes `--cpu-prof`.
 						if (profile) {
@@ -571,6 +673,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 							logs,
 							error,
 							success: raw.success,
+							inline: inlineSettled.entries,
 							executionId: input.executionId,
 							value: raw.success ? (raw.value ?? null) : null,
 							harvest: harvest && input.workflowExecutionId ? { chunkHandles } : null,

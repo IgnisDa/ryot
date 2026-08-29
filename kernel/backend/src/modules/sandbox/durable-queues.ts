@@ -3,31 +3,45 @@ import {
 	SandboxExecutionGrants,
 	type SandboxExecutionPayload,
 } from "@ryot-app/contract/modules/sandbox/schemas";
-import { Clock, DateTime, Effect, Layer, Schedule, Schema } from "effect";
+import { workflowReplayJournalEntrySchema } from "@ryot-app/sandbox-sdk/workflow";
+import { Effect, Layer, Schedule, Schema } from "effect";
 import { DurableQueue } from "effect/unstable/workflow";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 
+import {
+	SandboxDurableHostDispatcher,
+	sandboxInlineDurableCapabilities,
+} from "./durable-host-dispatcher";
 import { SandboxExecutionResult } from "./execution-result";
 import { SandboxPluginScriptResolver } from "./plugin-script-resolver";
 import { SandboxRepository } from "./repository";
 
 const SandboxExecutionQueuePayload = Schema.Struct({
 	context: Schema.Unknown,
+	startedAt: Schema.String,
+	/** Entries the workflow has journaled before this replay; inline results must extend it. */
+	journalLength: Schema.Int,
 	executionId: Schema.String,
+	workflowExecutionId: Schema.String,
 	principal: SandboxExecutionPrincipal,
-	startedAt: Schema.optional(Schema.String),
 	grants: Schema.optional(SandboxExecutionGrants),
-	workflowExecutionId: Schema.optional(Schema.String),
 });
 export type SandboxExecutionQueuePayload = Schema.Schema.Type<typeof SandboxExecutionQueuePayload>;
 
+/** One replay's result, plus the durable host results it settled without ending. */
+const SandboxReplayResult = Schema.Struct({
+	...SandboxExecutionResult.fields,
+	inline: Schema.Array(workflowReplayJournalEntrySchema),
+});
+export type SandboxReplayResult = Schema.Schema.Type<typeof SandboxReplayResult>;
+
 export const SandboxExecutionQueue = DurableQueue.make({
 	error: SandboxRunError,
+	success: SandboxReplayResult,
 	name: "SandboxExecutionQueue",
-	success: SandboxExecutionResult,
 	payload: SandboxExecutionQueuePayload,
 	idempotencyKey: ({ executionId }) => executionId,
 });
@@ -78,6 +92,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 	});
 	const repository = yield* SandboxRepository;
 	const sandbox = yield* RuntimeSandboxService;
+	const dispatcher = yield* SandboxDurableHostDispatcher;
 
 	const script = yield* repository.getScript(payload.principal.scriptId);
 	if (!script || script.contentHash !== payload.principal.contentHash) {
@@ -86,23 +101,33 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 			message: "Sandbox script not found",
 		});
 	}
-	const workflowExecutionId =
-		payload.workflowExecutionId ??
-		(payload.principal.metadata.kind === "workflow"
-			? /^(.*)-replay-\d+$/.exec(payload.executionId)?.[1]
-			: undefined);
-	const startedAt =
-		payload.startedAt ?? DateTime.formatIso(DateTime.makeUnsafe(yield* Clock.currentTimeMillis));
+	const inlineCapabilities = sandboxInlineDurableCapabilities(payload.principal);
 
 	const result = yield* sandbox.run({
-		startedAt,
 		context: payload.context,
+		startedAt: payload.startedAt,
 		principal: payload.principal,
 		executionId: payload.executionId,
 		compiledCode: script.compiledCode,
 		compiledFormat: script.compiledFormat,
+		workflowExecutionId: payload.workflowExecutionId,
 		...(payload.grants ? { grants: payload.grants } : {}),
-		...(workflowExecutionId ? { workflowExecutionId } : {}),
+		...(inlineCapabilities.length > 0
+			? {
+					inlineDurableHost: {
+						capabilities: inlineCapabilities,
+						journalLength: payload.journalLength,
+						settle: (requests) =>
+							dispatcher.settleInline(
+								requests,
+								payload.context,
+								payload.principal,
+								payload.workflowExecutionId,
+								payload.startedAt,
+							),
+					},
+				}
+			: {}),
 	});
 
 	return {
@@ -110,6 +135,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 		error: result.error,
 		value: result.value,
 		timing: result.timing,
+		inline: result.inline,
 		harvest: result.harvest,
 		status: "completed" as const,
 	};

@@ -43,6 +43,7 @@ import {
 	processSandboxExecutionQueue,
 	resolveSandboxExecutionPayload,
 	type SandboxExecutionQueuePayload,
+	type SandboxReplayResult,
 } from "./durable-queues";
 import { SandboxExecutionResult as SandboxExecutionResultSchema } from "./execution-result";
 import type { SandboxExecutionResult } from "./execution-result";
@@ -249,10 +250,24 @@ const nondeterminismMessage = (
 	return `SandboxWorkflowNondeterminism: journal[${index}] recorded ${entry.request.kind}:${entry.request.name} args#${recordedHash} but the script requested ${request.kind}:${request.name} args#${requestedHash}`;
 };
 
+/**
+ * `inline` holds the entries the replay settled after the journal it loaded; the envelope must
+ * list their requests at the same positions, so they join the journal only in replay order.
+ */
 export const validateWorkflowReplayEnvelope = (
 	envelope: WorkflowReplayEnvelope,
 	journal: ReadonlyArray<WorkflowReplayJournalEntry>,
+	inline: ReadonlyArray<WorkflowReplayJournalEntry>,
 ): Effect.Effect<ObservedWorkflowReplay, SandboxRunError> => {
+	if (inline.length > 0 && envelope.journalLength !== journal.length) {
+		return Effect.fail(
+			sandboxFailure(
+				"infrastructure",
+				"Sandbox workflow inline results do not extend the recorded journal",
+			),
+		);
+	}
+	const recorded = [...journal, ...inline];
 	for (let index = 0; index < envelope.requests.length; index += 1) {
 		const request = envelope.requests[index];
 		if (!request || request.index !== index) {
@@ -263,7 +278,7 @@ export const validateWorkflowReplayEnvelope = (
 				),
 			);
 		}
-		const entry = journal[index];
+		const entry = recorded[index];
 		if (!entry) {
 			break;
 		}
@@ -286,8 +301,8 @@ export const validateWorkflowReplayEnvelope = (
 	) {
 		return Effect.succeed({ state: "projection-stale" as const });
 	}
-	if (envelope.requests.length < journal.length) {
-		const entry = journal[envelope.requests.length];
+	if (envelope.requests.length < recorded.length) {
+		const entry = recorded[envelope.requests.length];
 		return Effect.fail(
 			sandboxFailure(
 				"script-failure",
@@ -296,7 +311,7 @@ export const validateWorkflowReplayEnvelope = (
 		);
 	}
 	if (envelope.state === "pending") {
-		const requests = envelope.requests.slice(journal.length);
+		const requests = envelope.requests.slice(recorded.length);
 		return requests.length > 0
 			? Effect.succeed({
 					state: "pending" as const,
@@ -309,7 +324,7 @@ export const validateWorkflowReplayEnvelope = (
 					),
 				);
 	}
-	if (envelope.requests.length !== journal.length) {
+	if (envelope.requests.length !== recorded.length) {
 		const failure = envelope.state === "failed" ? `: ${envelope.error}` : "";
 		return Effect.fail(
 			sandboxFailure(
@@ -328,6 +343,7 @@ export const validateWorkflowReplayEnvelope = (
 const observeWorkflowReplay = (
 	replayValue: unknown,
 	journal: ReadonlyArray<WorkflowReplayJournalEntry>,
+	inline: ReadonlyArray<WorkflowReplayJournalEntry>,
 	pluginRevision: SandboxExecutionPrincipal["pluginRevision"],
 	step: number,
 ) =>
@@ -346,7 +362,7 @@ const observeWorkflowReplay = (
 					),
 				),
 			);
-			const validated = yield* validateWorkflowReplayEnvelope(envelope, journal);
+			const validated = yield* validateWorkflowReplayEnvelope(envelope, journal, inline);
 			if (validated.state !== "pending") {
 				return validated;
 			}
@@ -510,7 +526,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 	executionId: string,
 	processReplay: (
 		payload: SandboxExecutionQueuePayload,
-	) => Effect.Effect<SandboxExecutionResult, SandboxRunError, R>,
+	) => Effect.Effect<SandboxReplayResult, SandboxRunError, R>,
 ) {
 	const pin = yield* makeActivity({
 		error: SandboxRunError,
@@ -548,6 +564,35 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 		let journalBytes = 2;
 		let projectionRetries = 0;
 		let replayStartedAt = 0;
+		const appendJournalEntry = (request: WorkflowDurableCallRequest, value: unknown) =>
+			Effect.gen(function* () {
+				const journalValue = yield* Schema.decodeUnknownEffect(jsonValueSchema)(value).pipe(
+					Effect.mapError((error) =>
+						sandboxFailure(
+							"invalid-output",
+							`Sandbox workflow durable result is invalid: ${unknownToMessage(error)}`,
+						),
+					),
+				);
+				const entryBytes = jsonByteLength({ request, value: journalValue });
+				if (entryBytes === null) {
+					return yield* sandboxFailure(
+						"script-failure",
+						`Sandbox workflow durable journal exceeds ${SANDBOX_LIMITS.journalBytes} UTF-8 bytes`,
+					);
+				}
+				const journalByteError = sandboxWorkflowJournalByteError(
+					journalBytes,
+					entryBytes,
+					journal.length,
+				);
+				if (journalByteError) {
+					return yield* sandboxFailure("script-failure", journalByteError);
+				}
+				journalBytes += entryBytes + (journal.length === 0 ? 0 : 1);
+				journal.push({ request, value: journalValue });
+				return undefined;
+			});
 		const finishReplay = (outcome: SandboxReplayOutcome) =>
 			Effect.flatMap(Clock.currentTimeMillis, (finishedAt) =>
 				recordSandboxWorkflowReplayFinished({
@@ -567,6 +612,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 				context: payload.input,
 				startedAt: pin.startedAt,
 				principal: pin.principal,
+				journalLength: journal.length,
 				executionId: replayExecutionId,
 				workflowExecutionId: executionId,
 				...(payload.grants ? { grants: payload.grants } : {}),
@@ -592,9 +638,17 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 			const observed = yield* observeWorkflowReplay(
 				replay.value,
 				journal,
+				replay.inline,
 				pin.principal.pluginRevision,
 				step,
 			);
+			if (journal.length + replay.inline.length > SANDBOX_WORKFLOW_MAX_STEPS) {
+				break;
+			}
+			yield* recordSandboxDurableRequests(replay.inline.length);
+			for (const entry of replay.inline) {
+				yield* appendJournalEntry(entry.request, entry.value);
+			}
 			if (observed.state === "failed") {
 				yield* finishReplay("failed");
 				if (payload.resultMode === "execution") {
@@ -664,34 +718,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 						"Sandbox workflow durable batch returned incomplete results",
 					);
 				}
-				const journalValue = yield* Schema.decodeUnknownEffect(jsonValueSchema)(value).pipe(
-					Effect.mapError((error) =>
-						sandboxFailure(
-							"invalid-output",
-							`Sandbox workflow durable result is invalid: ${unknownToMessage(error)}`,
-						),
-					),
-				);
-				const entryBytes = jsonByteLength({
-					value: journalValue,
-					request: observedRequest.request,
-				});
-				if (entryBytes === null) {
-					return yield* sandboxFailure(
-						"script-failure",
-						`Sandbox workflow durable journal exceeds ${SANDBOX_LIMITS.journalBytes} UTF-8 bytes`,
-					);
-				}
-				const journalByteError = sandboxWorkflowJournalByteError(
-					journalBytes,
-					entryBytes,
-					journal.length,
-				);
-				if (journalByteError) {
-					return yield* sandboxFailure("script-failure", journalByteError);
-				}
-				journalBytes += entryBytes + (journal.length === 0 ? 0 : 1);
-				journal.push({ value: journalValue, request: observedRequest.request });
+				yield* appendJournalEntry(observedRequest.request, value);
 			}
 		}
 
