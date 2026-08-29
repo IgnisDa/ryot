@@ -13,7 +13,6 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 type NotificationSubscriptionRow = typeof schema.notificationSubscription.$inferSelect;
@@ -72,8 +71,7 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 			const listNotificationSubscriptionsForBackup = Effect.fn(
 				"AutomationsRepository.listNotificationSubscriptionsForBackup",
 			)(function* (userId: UserId) {
-				const db = yield* session.current;
-				const rows = yield* mapDatabaseErrors(
+				const rows = yield* session.run((db) =>
 					db
 						.select()
 						.from(schema.notificationSubscription)
@@ -90,8 +88,7 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 				signalSchemaSlug: SignalSchemaSlug;
 				signalSchemaPluginId: string | null;
 			}) {
-				const db = yield* session.current;
-				const rows = yield* mapDatabaseErrors(
+				const rows = yield* session.run((db) =>
 					db
 						.select()
 						.from(schema.notificationSubscription)
@@ -111,8 +108,7 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 			const findNotificationSubscription = Effect.fn(
 				"AutomationsRepository.findNotificationSubscription",
 			)(function* (input: { userId: UserId; ruleId: NotificationSubscriptionId }) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db
 						.select()
 						.from(schema.notificationSubscription)
@@ -130,8 +126,7 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 			const insertNotificationSubscription = Effect.fn(
 				"AutomationsRepository.insertNotificationSubscription",
 			)(function* (input: InsertNotificationSubscriptionInput) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db
 						.insert(schema.notificationSubscription)
 						.values(input)
@@ -148,8 +143,7 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 				ruleId: NotificationSubscriptionId;
 				isActive: boolean;
 			}) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db
 						.update(schema.notificationSubscription)
 						.set({ isActive: input.isActive })
@@ -167,8 +161,7 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 			const deleteNotificationSubscription = Effect.fn(
 				"AutomationsRepository.deleteNotificationSubscription",
 			)(function* (input: { userId: UserId; ruleId: NotificationSubscriptionId }) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db
 						.delete(schema.notificationSubscription)
 						.where(

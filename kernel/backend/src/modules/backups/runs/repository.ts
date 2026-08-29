@@ -10,7 +10,7 @@ import { and, asc, eq, inArray, isNotNull, lte, notInArray } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/backups";
-import { isUniqueConstraintError, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { isUniqueConstraintError } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 type BackupRunRow = typeof schema.backupRun.$inferSelect;
@@ -57,17 +57,18 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 			userId: UserId;
 			kind: BackupRunKind;
 		}) {
-			const db = yield* database.current;
-			const [row] = yield* mapDatabaseErrors(
-				db
-					.insert(schema.backupRun)
-					.values({ progress: 0, kind: input.kind, status: "pending", userId: input.userId })
-					.returning(),
-			).pipe(
-				Effect.catchIf(isUniqueConstraintError("backup_run_user_active_unique"), () =>
-					Effect.fail(new BackupConflict({ reason: { code: "active-run-exists" } })),
-				),
-			);
+			const [row] = yield* database
+				.run((db) =>
+					db
+						.insert(schema.backupRun)
+						.values({ progress: 0, kind: input.kind, status: "pending", userId: input.userId })
+						.returning(),
+				)
+				.pipe(
+					Effect.catchIf(isUniqueConstraintError("backup_run_user_active_unique"), () =>
+						Effect.fail(new BackupConflict({ reason: { code: "active-run-exists" } })),
+					),
+				);
 			if (!row) {
 				return yield* new DbError({ message: "Backup run insert returned no row" });
 			}
@@ -78,8 +79,7 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 			userId: UserId;
 			runId: BackupRunId;
 		}) {
-			const db = yield* database.current;
-			const [row] = yield* mapDatabaseErrors(
+			const [row] = yield* database.run((db) =>
 				db
 					.select()
 					.from(schema.backupRun)
@@ -95,8 +95,7 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 			runId: BackupRunId;
 			userId: UserId;
 		}) {
-			const db = yield* database.current;
-			const [row] = yield* mapDatabaseErrors(
+			const [row] = yield* database.run((db) =>
 				db
 					.select()
 					.from(schema.backupRun)
@@ -119,9 +118,8 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 			progress?: number;
 			runId: BackupRunId;
 		}) {
-			const db = yield* database.current;
 			const startedAt = yield* DateTime.nowAsDate;
-			const [row] = yield* mapDatabaseErrors(
+			const [row] = yield* database.run((db) =>
 				db
 					.update(schema.backupRun)
 					.set({ startedAt, status: "running", progress: boundedProgress(input.progress ?? 0) })
@@ -146,8 +144,7 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 			userId: UserId;
 			progress: number;
 		}) {
-			const db = yield* database.current;
-			const [row] = yield* mapDatabaseErrors(
+			const [row] = yield* database.run((db) =>
 				db
 					.update(schema.backupRun)
 					.set({ progress: boundedProgress(input.progress) })
@@ -174,7 +171,6 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 						artifactProvider: BackupRunArtifactProvider;
 				  },
 		) {
-			const db = yield* database.current;
 			const finishedAt = yield* DateTime.nowAsDate;
 			const artifact =
 				"artifactKey" in input
@@ -184,7 +180,7 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 							artifactProvider: input.artifactProvider,
 						}
 					: { expiresAt: null, artifactKey: null, artifactProvider: null };
-			const [row] = yield* mapDatabaseErrors(
+			const [row] = yield* database.run((db) =>
 				db
 					.update(schema.backupRun)
 					.set({ status: "completed", ...artifact, finishedAt, progress: 100 })
@@ -205,9 +201,8 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 			userId: UserId;
 			runId: BackupRunId;
 		}) {
-			const db = yield* database.current;
 			const finishedAt = yield* DateTime.nowAsDate;
-			const [row] = yield* mapDatabaseErrors(
+			const [row] = yield* database.run((db) =>
 				db
 					.update(schema.backupRun)
 					.set({ finishedAt, status: "failed", failure: input.failure })
@@ -229,9 +224,8 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 				if (limit === 0) {
 					return [];
 				}
-				const db = yield* database.current;
 				const now = yield* DateTime.nowAsDate;
-				const rows = yield* mapDatabaseErrors(
+				const rows = yield* database.run((db) =>
 					db
 						.select()
 						.from(schema.backupRun)
@@ -257,8 +251,7 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 			userId: UserId;
 			runId: BackupRunId;
 		}) {
-			const db = yield* database.current;
-			const [row] = yield* mapDatabaseErrors(
+			const [row] = yield* database.run((db) =>
 				db
 					.delete(schema.backupRun)
 					.where(
@@ -275,9 +268,8 @@ export class BackupsRepository extends Context.Service<BackupsRepository>()("Bac
 
 		const deleteExpiredRunById = Effect.fn("BackupsRepository.deleteExpiredRunById")(
 			function* (input: { runId: BackupRunId }) {
-				const db = yield* database.current;
 				const now = yield* DateTime.nowAsDate;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* database.run((db) =>
 					db
 						.delete(schema.backupRun)
 						.where(

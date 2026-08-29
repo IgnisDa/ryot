@@ -1,4 +1,3 @@
-import { mapDatabaseErrors } from "@ryot-app/kernel-backend/lib/infrastructure/db/service";
 import { DatabaseSession } from "@ryot-app/kernel-backend/lib/infrastructure/db/session";
 import { sql } from "drizzle-orm";
 import { Effect } from "effect";
@@ -69,8 +68,8 @@ export const buildGroupPersonRelationshipMigrationSql = (targets: ResolvedRelati
 	buildLegacyGroupPersonRelationshipInsertSql(targets);
 
 export const getUnsupportedPersonSources = Effect.gen(function* () {
-	const database = yield* (yield* DatabaseSession).current;
-	const result = yield* mapDatabaseErrors(
+	const session = yield* DatabaseSession;
+	const result = yield* session.run((database) =>
 		database.execute<{ source: string; entity_kind: string }>(
 			sql`
 			WITH person_targets (source, entity_schema_slug, provider_slug) AS (

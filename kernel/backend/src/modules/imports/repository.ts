@@ -14,7 +14,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { isUniqueConstraintError, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { isUniqueConstraintError } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 type ImportRunRow = typeof schema.importRun.$inferSelect;
@@ -47,8 +47,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			inputSummary: Record<string, unknown>;
 			integrationLot?: IntegrationLot | null;
 		}) {
-			const db = yield* database.current;
-			const [row] = yield* mapDatabaseErrors(
+			const [row] = yield* database.run((db) =>
 				db
 					.insert(schema.importRun)
 					.values({
@@ -87,8 +86,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			userId: UserId;
 			runId: ImportRunId;
 		}) {
-			const db = yield* database.current;
-			const [row] = yield* mapDatabaseErrors(
+			const [row] = yield* database.run((db) =>
 				db
 					.select()
 					.from(schema.importRun)
@@ -103,8 +101,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 		const listRecentStatusesByIntegrationId = Effect.fn(
 			"ImportsRepository.listRecentStatusesByIntegrationId",
 		)(function* (input: { integrationId: IntegrationId; limit: number }) {
-			const db = yield* database.current;
-			return yield* mapDatabaseErrors(
+			return yield* database.run((db) =>
 				db
 					.select({ status: schema.importRun.status })
 					.from(schema.importRun)
@@ -127,7 +124,6 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			inputSummary?: Record<string, unknown>;
 			failureReason?: ImportRunFailureReason;
 		}) {
-			const db = yield* database.current;
 			const updates: Partial<typeof schema.importRun.$inferInsert> = {};
 			if (input.status !== undefined) {
 				updates.status = input.status;
@@ -162,7 +158,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			if (Object.keys(updates).length === 0) {
 				return;
 			}
-			yield* mapDatabaseErrors(
+			yield* database.run((db) =>
 				db.update(schema.importRun).set(updates).where(eq(schema.importRun.id, input.runId)),
 			);
 		});
@@ -171,8 +167,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			userId: UserId;
 			runId: ImportRunId;
 		}) {
-			const db = yield* database.current;
-			yield* mapDatabaseErrors(
+			yield* database.run((db) =>
 				db
 					.delete(schema.importRun)
 					.where(
@@ -191,8 +186,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			sourceIdentifier?: string | null | undefined;
 			entitySchemaSlug?: string | null | undefined;
 		}) {
-			const db = yield* database.current;
-			yield* mapDatabaseErrors(
+			yield* database.run((db) =>
 				db
 					.insert(schema.importRunFailure)
 					.values({

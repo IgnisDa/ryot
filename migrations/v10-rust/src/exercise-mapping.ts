@@ -1,4 +1,3 @@
-import { mapDatabaseErrors } from "@ryot-app/kernel-backend/lib/infrastructure/db/service";
 import { DatabaseSession } from "@ryot-app/kernel-backend/lib/infrastructure/db/session";
 import { sql } from "drizzle-orm";
 import { Effect } from "effect";
@@ -39,8 +38,8 @@ const supportedExerciseLotValuesSql = sql.join(
 );
 
 export const getUnsupportedExerciseSources = Effect.gen(function* () {
-	const database = yield* (yield* DatabaseSession).current;
-	const result = yield* mapDatabaseErrors(
+	const session = yield* DatabaseSession;
+	const result = yield* session.run((database) =>
 		database.execute<{ source: string }>(
 			sql`
 			WITH exercise_targets (source, entity_schema_slug, provider_slug) AS (
@@ -61,8 +60,8 @@ export const getUnsupportedExerciseSources = Effect.gen(function* () {
 });
 
 export const getUnsupportedExerciseLots = Effect.gen(function* () {
-	const database = yield* (yield* DatabaseSession).current;
-	const result = yield* mapDatabaseErrors(
+	const session = yield* DatabaseSession;
+	const result = yield* session.run((database) =>
 		database.execute<{ lot: string }>(
 			sql`
 			WITH supported_lots (lot) AS (
@@ -83,8 +82,8 @@ export const getUnsupportedExerciseLots = Effect.gen(function* () {
 });
 
 export const getInvalidExerciseGithubOwnership = Effect.gen(function* () {
-	const database = yield* (yield* DatabaseSession).current;
-	const result = yield* mapDatabaseErrors(
+	const session = yield* DatabaseSession;
+	const result = yield* session.run((database) =>
 		database.execute<{ id: string }>(
 			sql`
 			SELECT DISTINCT

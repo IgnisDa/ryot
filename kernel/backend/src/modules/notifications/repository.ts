@@ -8,7 +8,6 @@ import { and, desc, eq } from "drizzle-orm";
 import { Context, Effect, Layer, Match, Option } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 type NotificationChannelRow = typeof schema.notificationChannel.$inferSelect;
@@ -78,8 +77,7 @@ export class NotificationsRepository extends Context.Service<NotificationsReposi
 			const hasAnyForUser = Effect.fn("NotificationsRepository.hasAnyForUser")(function* (
 				userId: UserId,
 			) {
-				const db = yield* database.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* database.run((db) =>
 					db
 						.select({ id: schema.notificationChannel.id })
 						.from(schema.notificationChannel)
@@ -94,8 +92,7 @@ export class NotificationsRepository extends Context.Service<NotificationsReposi
 				channel: NotificationChannelKind;
 				channelSpecifics: NotificationChannelSpecifics;
 			}) {
-				const db = yield* database.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* database.run((db) =>
 					db
 						.insert(schema.notificationChannel)
 						.values({
@@ -117,14 +114,13 @@ export class NotificationsRepository extends Context.Service<NotificationsReposi
 				channelId: NotificationChannelId;
 				body: UpdateNotificationChannelBody;
 			}) {
-				const db = yield* database.current;
 				const updates: Partial<typeof schema.notificationChannel.$inferInsert> = {};
 				if (input.body.isDisabled !== undefined) {
 					updates.isDisabled = input.body.isDisabled;
 				}
 
 				if (Object.keys(updates).length === 0) {
-					const [row] = yield* mapDatabaseErrors(
+					const [row] = yield* database.run((db) =>
 						db
 							.select({ id: schema.notificationChannel.id })
 							.from(schema.notificationChannel)
@@ -134,7 +130,7 @@ export class NotificationsRepository extends Context.Service<NotificationsReposi
 					return row ? { id: NotificationChannelId.make(row.id) } : null;
 				}
 
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* database.run((db) =>
 					db
 						.update(schema.notificationChannel)
 						.set(updates)
@@ -148,8 +144,7 @@ export class NotificationsRepository extends Context.Service<NotificationsReposi
 				userId: UserId;
 				channelId: NotificationChannelId;
 			}) {
-				const db = yield* database.current;
-				const rows = yield* mapDatabaseErrors(
+				const rows = yield* database.run((db) =>
 					db
 						.delete(schema.notificationChannel)
 						.where(ownedChannelWhere(input))
@@ -160,8 +155,7 @@ export class NotificationsRepository extends Context.Service<NotificationsReposi
 
 			const listEnabledForUser = Effect.fn("NotificationsRepository.listEnabledForUser")(
 				function* (input: { userId: UserId }) {
-					const db = yield* database.current;
-					const rows = yield* mapDatabaseErrors(
+					const rows = yield* database.run((db) =>
 						db
 							.select()
 							.from(schema.notificationChannel)

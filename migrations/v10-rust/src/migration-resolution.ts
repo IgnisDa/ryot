@@ -3,7 +3,6 @@ import type {
 	PluginManifest,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import * as schema from "@ryot-app/kernel-backend/lib/infrastructure/db/schema/tables/combined";
-import { mapDatabaseErrors } from "@ryot-app/kernel-backend/lib/infrastructure/db/service";
 import { DatabaseSession } from "@ryot-app/kernel-backend/lib/infrastructure/db/session";
 import { DefinitionRepository } from "@ryot-app/kernel-backend/modules/definition-registry/repository";
 import type { DefinitionSnapshot } from "@ryot-app/kernel-backend/modules/definition-registry/snapshot";
@@ -111,13 +110,13 @@ const buildSchemaMaps = (definitions: DefinitionSnapshot) => {
 export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolution")(function* (
 	userIds: ReadonlyArray<string>,
 ) {
-	const database = yield* (yield* DatabaseSession).current;
+	const session = yield* DatabaseSession;
 	const definitions = yield* (yield* DefinitionRepository).getGlobalSnapshot;
 	const media = yield* requireSystemPlugin("media");
 	const fitness = yield* requireSystemPlugin("fitness");
 	const pluginIds = [media.id, fitness.id];
 
-	const persistedPlugins = yield* mapDatabaseErrors(
+	const persistedPlugins = yield* session.run((database) =>
 		database
 			.select({
 				id: schema.plugin.id,
@@ -175,22 +174,24 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 	const activeConfigStates = yield* Effect.forEach(
 		resolvedEnvironmentConfigs,
 		({ pluginId, configRevisionId }) =>
-			mapDatabaseErrors(
-				database
-					.select({
-						scope: schema.pluginConfigRevision.scope,
-						ownerUserId: schema.pluginConfigRevision.ownerUserId,
-						encryptionKeyId: schema.pluginConfigRevision.encryptionKeyId,
-						payloadPrunedAt: schema.pluginConfigRevision.payloadPrunedAt,
-						encryptedPayload: schema.pluginConfigRevision.encryptedPayload,
-						pluginRevisionId: schema.pluginConfigRevision.pluginRevisionId,
-						pluginInstallationId: schema.pluginConfigRevision.pluginInstallationId,
-					})
-					.from(schema.pluginConfigRevision)
-					.where(eq(schema.pluginConfigRevision.id, configRevisionId)),
-			).pipe(Effect.map((rows) => rows.map((row) => ({ ...row, pluginId })))),
+			session
+				.run((database) =>
+					database
+						.select({
+							scope: schema.pluginConfigRevision.scope,
+							ownerUserId: schema.pluginConfigRevision.ownerUserId,
+							encryptionKeyId: schema.pluginConfigRevision.encryptionKeyId,
+							payloadPrunedAt: schema.pluginConfigRevision.payloadPrunedAt,
+							encryptedPayload: schema.pluginConfigRevision.encryptedPayload,
+							pluginRevisionId: schema.pluginConfigRevision.pluginRevisionId,
+							pluginInstallationId: schema.pluginConfigRevision.pluginInstallationId,
+						})
+						.from(schema.pluginConfigRevision)
+						.where(eq(schema.pluginConfigRevision.id, configRevisionId)),
+				)
+				.pipe(Effect.map((rows) => rows.map((row) => ({ ...row, pluginId })))),
 	).pipe(Effect.map((groups) => groups.flat()));
-	const encryptionKeys = yield* mapDatabaseErrors(
+	const encryptionKeys = yield* session.run((database) =>
 		database
 			.select({ id: schema.pluginConfigEncryptionKey.id })
 			.from(schema.pluginConfigEncryptionKey),
@@ -236,7 +237,7 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 		);
 	}
 
-	const persistedProviders = yield* mapDatabaseErrors(
+	const persistedProviders = yield* session.run((database) =>
 		database
 			.select({
 				id: schema.sandboxProvider.id,
@@ -246,7 +247,7 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 			.from(schema.sandboxProvider)
 			.where(inArray(schema.sandboxProvider.pluginId, pluginIds)),
 	);
-	const persistedScripts = yield* mapDatabaseErrors(
+	const persistedScripts = yield* session.run((database) =>
 		database
 			.select({
 				id: schema.sandboxScript.id,
@@ -273,7 +274,7 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 
 	const installations = new Map<string, string>();
 	if (userIds.length > 0) {
-		const rows = yield* mapDatabaseErrors(
+		const rows = yield* session.run((database) =>
 			database
 				.select({
 					id: schema.pluginInstallation.id,

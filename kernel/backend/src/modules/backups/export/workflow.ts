@@ -5,7 +5,6 @@ import { Context, DateTime, Effect, FileSystem, Layer, Result, Schema, Stream } 
 import { Workflow } from "effect/unstable/workflow";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
@@ -116,8 +115,7 @@ export const ExportBackupWorkflowOperationsLive = Layer.effect(
 					const eventsPath = `${directory}/events.ndjson`;
 					const snapshot = yield* database.transaction(
 						Effect.gen(function* () {
-							const db = yield* database.current;
-							yield* mapDatabaseErrors(
+							yield* database.run((db) =>
 								db.execute(sql`set transaction isolation level repeatable read, read only`),
 							);
 							return yield* snapshotService

@@ -10,7 +10,6 @@ import { and, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { ImageClientArtifacts } from "#modules/client-artifacts/image-artifacts";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -457,8 +456,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 			});
 			const materializeSystemCompositions = Effect.fn("ClientPages.materializeSystemCompositions")(
 				function* () {
-					const db = yield* session.current;
-					const rows = yield* mapDatabaseErrors(
+					const rows = yield* session.run((db) =>
 						db
 							.select({
 								id: schema.plugin.id,
@@ -489,7 +487,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 							})),
 						),
 					);
-					const views = yield* mapDatabaseErrors(
+					const views = yield* session.run((db) =>
 						db.select({ renderer: schema.globalSavedView.renderer }).from(schema.globalSavedView),
 					);
 					yield* materializeGraphs(

@@ -14,7 +14,6 @@ import {
 	automationTrigger as table,
 	automationTriggerRecipient as recipientTable,
 } from "#lib/infrastructure/db/schema/tables/automations";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 const decodeRow = (row: typeof table.$inferSelect) =>
@@ -59,8 +58,7 @@ export class AutomationTriggerRepository extends Context.Service<AutomationTrigg
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const findById = Effect.fn(function* (id: AutomationTriggerId) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(db.select().from(table).where(eq(table.id, id)));
+				const [row] = yield* session.run((db) => db.select().from(table).where(eq(table.id, id)));
 				return row ? yield* decodeRow(row) : null;
 			});
 			const insert = Effect.fn(function* (input: AutomationTrigger) {
@@ -69,10 +67,9 @@ export class AutomationTriggerRepository extends Context.Service<AutomationTrigg
 					AutomationTrigger,
 					"Invalid automation trigger input",
 				);
-				const db = yield* session.current;
 				const { kind, causation, ...snapshot } = value;
 				const { initiator, ...attribution } = causation;
-				yield* mapDatabaseErrors(
+				yield* session.run((db) =>
 					db
 						.insert(table)
 						.values({
@@ -101,8 +98,7 @@ export class AutomationTriggerRepository extends Context.Service<AutomationTrigg
 				return stored;
 			});
 			const listRecipients = Effect.fn(function* (triggerId: AutomationTriggerId) {
-				const db = yield* session.current;
-				const rows = yield* mapDatabaseErrors(
+				const rows = yield* session.run((db) =>
 					db
 						.select()
 						.from(recipientTable)
@@ -117,7 +113,6 @@ export class AutomationTriggerRepository extends Context.Service<AutomationTrigg
 				triggerId: AutomationTriggerId,
 				userIds: ReadonlyArray<UserId>,
 			) {
-				const db = yield* session.current;
 				const rows = yield* Effect.forEach([...new Set(userIds)], (userId) =>
 					decodeStoredSchema(
 						{ userId, triggerId },
@@ -126,7 +121,7 @@ export class AutomationTriggerRepository extends Context.Service<AutomationTrigg
 					),
 				);
 				if (rows.length) {
-					yield* mapDatabaseErrors(db.insert(recipientTable).values(rows).onConflictDoNothing());
+					yield* session.run((db) => db.insert(recipientTable).values(rows).onConflictDoNothing());
 				}
 				return yield* listRecipients(triggerId);
 			});
@@ -135,51 +130,49 @@ export class AutomationTriggerRepository extends Context.Service<AutomationTrigg
 				prunedAt: Date;
 				limit: number;
 			}) {
-				const db = yield* session.current;
-				const candidates = db
-					.select({ id: table.id })
-					.from(table)
-					.where(
-						and(
-							isNotNull(table.payload),
-							lte(table.createdAt, input.before),
-							notExists(
-								db
-									.select({ id: automationRun.id })
-									.from(automationRun)
-									.where(
-										and(
-											eq(automationRun.triggerId, table.id),
-											or(
-												inArray(automationRun.status, ["queued", "running"]),
-												gt(automationRun.artifactsExpireAt, input.prunedAt),
+				return yield* session.run((db) => {
+					const candidates = db
+						.select({ id: table.id })
+						.from(table)
+						.where(
+							and(
+								isNotNull(table.payload),
+								lte(table.createdAt, input.before),
+								notExists(
+									db
+										.select({ id: automationRun.id })
+										.from(automationRun)
+										.where(
+											and(
+												eq(automationRun.triggerId, table.id),
+												or(
+													inArray(automationRun.status, ["queued", "running"]),
+													gt(automationRun.artifactsExpireAt, input.prunedAt),
+												),
 											),
 										),
-									),
+								),
 							),
-						),
-					)
-					.orderBy(asc(table.createdAt), asc(table.id))
-					.limit(input.limit);
-				return yield* mapDatabaseErrors(
-					db
+						)
+						.orderBy(asc(table.createdAt), asc(table.id))
+						.limit(input.limit);
+					return db
 						.update(table)
 						.set({ payload: null, payloadPrunedAt: input.prunedAt })
 						.where(inArray(table.id, candidates))
-						.returning({ id: table.id }),
-				);
+						.returning({ id: table.id });
+				});
 			});
 			const deleteExpired = Effect.fn(function* (input: { before: Date; limit: number }) {
-				const db = yield* session.current;
-				const candidates = db
-					.select({ id: table.id })
-					.from(table)
-					.where(and(lte(table.createdAt, input.before), notExists(hasRuns(db))))
-					.orderBy(asc(table.createdAt), asc(table.id))
-					.limit(input.limit);
-				return yield* mapDatabaseErrors(
-					db.delete(table).where(inArray(table.id, candidates)).returning({ id: table.id }),
-				);
+				return yield* session.run((db) => {
+					const candidates = db
+						.select({ id: table.id })
+						.from(table)
+						.where(and(lte(table.createdAt, input.before), notExists(hasRuns(db))))
+						.orderBy(asc(table.createdAt), asc(table.id))
+						.limit(input.limit);
+					return db.delete(table).where(inArray(table.id, candidates)).returning({ id: table.id });
+				});
 			});
 			return { insert, findById, deleteExpired, prunePayloads, listRecipients, insertRecipients };
 		}),

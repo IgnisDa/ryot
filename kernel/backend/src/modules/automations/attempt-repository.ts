@@ -275,8 +275,7 @@ export class AutomationAttemptRepository extends Context.Service<AutomationAttem
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const findAttempt = Effect.fn(function* (runId: AutomationRunId, attemptNumber: number) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db
 						.select()
 						.from(table)
