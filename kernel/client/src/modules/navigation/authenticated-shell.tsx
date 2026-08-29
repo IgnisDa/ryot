@@ -2,36 +2,35 @@ import { Modal, useShortcut } from "@ryot-app/client-ui-sdk";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import {
 	Outlet,
-	useLocation,
 	useNavigate,
 	useRouteContext,
 	useRouter,
+	useRouterState,
 } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { motion, useMotionValue, useTransform } from "motion/react";
-import {
-	createContext,
-	useContext,
-	useEffect,
-	useEffectEvent,
-	useId,
-	useMemo,
-	useRef,
-	useState,
-	type RefObject,
-} from "react";
+import { useCallback, useEffect, useEffectEvent, useId, useMemo, useRef, useState } from "react";
 
 import { AuthService } from "#/modules/auth/service";
+import {
+	CustomizeContext,
+	EdgeContext,
+	PluginHeaderContext,
+	PluginTitleContext,
+	RememberedWorkspaceContext,
+	ShellChromeContext,
+	type CustomizeController,
+	type PluginHeaderController,
+	type PluginHeaderState,
+	type ShellChrome,
+} from "#/modules/navigation/authenticated-shell-context";
 import { useDesktopEffect, useIsDesktop } from "#/modules/navigation/breakpoint";
 import { CustomizeSidebarPanel } from "#/modules/navigation/customize/customize-sidebar-panel";
 import {
 	customizeSearchSection,
 	type CustomizeSection,
 } from "#/modules/navigation/customize/customize-state";
-import {
-	useCustomizeDraft,
-	type CustomizeDraftState,
-} from "#/modules/navigation/customize/use-customize-draft";
+import { useCustomizeDraft } from "#/modules/navigation/customize/use-customize-draft";
 import { DesktopSidebar } from "#/modules/navigation/desktop-sidebar";
 import { CONTENT_SHIFT } from "#/modules/navigation/drawer-metrics";
 import { EdgeGesture } from "#/modules/navigation/edge-gesture";
@@ -40,7 +39,6 @@ import {
 	isCustomizeSidebarPath,
 	isSettingsPath,
 	resolveEdge,
-	type EdgeResolution,
 } from "#/modules/navigation/edge-intent";
 import { impactLight } from "#/modules/navigation/haptics";
 import { historyEntry } from "#/modules/navigation/history-entry";
@@ -56,91 +54,13 @@ import {
 	resolvePluginRouteWorkspace,
 	resolveRememberedWorkspace,
 } from "#/modules/navigation/workspace-state";
+import { useActivePluginDestination } from "#/modules/plugins/active-plugin-destination";
 import { usePluginCatalog } from "#/modules/plugins/catalog-provider";
-import type { PluginHeaderPublication } from "#/modules/plugins/plugin-host";
+import {
+	PluginDestination,
+	type PluginDestinationScreenState,
+} from "#/modules/plugins/plugin-destination";
 import { ClientStorage } from "#/persistence/storage";
-
-const RememberedWorkspaceContext = createContext<string | null | undefined>(undefined);
-
-type PluginHeaderState = PluginHeaderPublication & { readonly owner: string };
-
-type PluginHeaderController = {
-	readonly clear: (owner: string) => void;
-	readonly publish: (owner: string, header: PluginHeaderPublication) => void;
-};
-
-const PluginHeaderContext = createContext<PluginHeaderController | undefined>(undefined);
-
-const PluginTitleContext = createContext<string | null | undefined>(undefined);
-
-const EdgeContext = createContext<EdgeResolution | undefined>(undefined);
-
-export type ShellChrome = {
-	readonly drawerId: string;
-	readonly onBack: () => void;
-	readonly safeAreaTop: number;
-	readonly isDrawerOpen: boolean;
-	readonly onOpenDrawer: () => void;
-	readonly triggerRef: RefObject<HTMLElement | null>;
-};
-
-const ShellChromeContext = createContext<ShellChrome | undefined>(undefined);
-
-export const useShellChrome = () => {
-	const chrome = useContext(ShellChromeContext);
-	if (chrome === undefined) {
-		throw new Error("useShellChrome must be used inside AuthenticatedShell");
-	}
-	return chrome;
-};
-
-export type CustomizeController = {
-	readonly onSave: () => void;
-	readonly onLeave: () => void;
-	readonly customize: CustomizeDraftState;
-};
-
-const CustomizeContext = createContext<CustomizeController | undefined>(undefined);
-
-export const useCustomizeController = () => {
-	const controller = useContext(CustomizeContext);
-	if (controller === undefined) {
-		throw new Error("useCustomizeController must be used inside AuthenticatedShell");
-	}
-	return controller;
-};
-
-export const useEdge = () => {
-	const edge = useContext(EdgeContext);
-	if (edge === undefined) {
-		throw new Error("useEdge must be used inside AuthenticatedShell");
-	}
-	return edge;
-};
-
-export const useRememberedWorkspaceSlug = () => {
-	const slug = useContext(RememberedWorkspaceContext);
-	if (slug === undefined) {
-		throw new Error("useRememberedWorkspaceSlug must be used inside AuthenticatedShell");
-	}
-	return slug;
-};
-
-export const usePluginTitle = () => {
-	const title = useContext(PluginTitleContext);
-	if (title === undefined) {
-		throw new Error("usePluginTitle must be used inside AuthenticatedShell");
-	}
-	return title;
-};
-
-export const usePluginHeader = () => {
-	const header = useContext(PluginHeaderContext);
-	if (header === undefined) {
-		throw new Error("usePluginHeader must be used inside AuthenticatedShell");
-	}
-	return header;
-};
 
 export function AuthenticatedShell(props: {
 	readonly isPro: boolean;
@@ -154,20 +74,27 @@ export function AuthenticatedShell(props: {
 	const safeAreaTop = useSafeAreaTop();
 	const { catalog } = usePluginCatalog();
 	const progress = useMotionValue(0);
-	const { pathname, search, state } = useLocation();
+	const activePluginDestination = useActivePluginDestination();
+	const { pathname, search, state } = useRouterState({
+		select: (routerState) => routerState.resolvedLocation ?? routerState.location,
+	});
 	const contentShift = useTransform(progress, [0, 1], [0, CONTENT_SHIFT]);
 	const triggerRef = useRef<HTMLElement>(null);
 	const { backInterceptors, runtime, scope, server } = useRouteContext({ from: "/_authenticated" });
 	const [drawerOpen, setDrawerOpen] = useState(false);
 	const [searchOpen, setSearchOpen] = useState(false);
 	const [pluginHeader, setPluginHeader] = useState<PluginHeaderState | null>(null);
+	const [pluginScreenState, setPluginScreenState] = useState<PluginDestinationScreenState | null>(
+		null,
+	);
 	const [discarding, setDiscarding] = useState(false);
 	const [rememberedSlug, setRememberedSlug] = useState(props.initialRememberedSlug);
 	const settingsActive = isSettingsPath(pathname);
 	const customizeActive = isCustomizeSidebarPath(pathname);
 	const customizeSection = customizeSearchSection(search);
 	const workspaceChrome = hasWorkspaceChrome(pathname);
-	const routeSlug = pathname.split("/")[1] ?? "";
+	const committedPathname = activePluginDestination?.pathname ?? pathname;
+	const routeSlug = committedPathname.split("/")[1] ?? "";
 	const routeWorkspace = resolvePluginRouteWorkspace(catalog, routeSlug);
 	const current = resolveRememberedWorkspace(catalog, rememberedSlug);
 	const homeActive = isWorkspaceRoot(pathname, current);
@@ -178,7 +105,8 @@ export function AuthenticatedShell(props: {
 	);
 	const entry = historyEntry(state);
 	const pluginTitle =
-		pluginHeader?.owner === routeSlug &&
+		pluginHeader !== null &&
+		pluginHeader.owner === activePluginDestination?.installation.installationId &&
 		pluginHeader.index === entry.index &&
 		pluginHeader.key === entry.key
 			? pluginHeader.title
@@ -310,13 +238,28 @@ export function AuthenticatedShell(props: {
 		}),
 		[drawerId, drawerOpen, safeAreaTop],
 	);
+	const publishPluginScreenState = useCallback(
+		(publication: PluginDestinationScreenState | null) => setPluginScreenState(publication),
+		[],
+	);
+	const hasPluginBackScreen =
+		activePluginDestination !== null &&
+		pluginScreenState?.installationId === activePluginDestination.installation.installationId &&
+		pluginScreenState.sourceHash === activePluginDestination.installation.sourceHash &&
+		pluginScreenState.artifactHash === activePluginDestination.installation.clientArtifactHash &&
+		pluginScreenState.index === entry.index &&
+		pluginScreenState.key === entry.key &&
+		pluginScreenState.hasPreviousScreen;
 
 	const edge = resolveEdge({
-		pathname,
 		isDesktop,
-		canGoBack: router.history.canGoBack(),
-		atRoot: isWorkspaceRoot(pathname, routeWorkspace),
-		hasPluginDocument: !settingsActive && routeWorkspace !== null,
+		hasPluginBackScreen,
+		pathname: committedPathname,
+		atRoot: isWorkspaceRoot(committedPathname, routeWorkspace),
+		canGoBack:
+			activePluginDestination === null
+				? router.history.canGoBack()
+				: activePluginDestination.entry.index > 0,
 	});
 
 	useEffect(() => {
@@ -348,6 +291,19 @@ export function AuthenticatedShell(props: {
 			setDrawerOpen(false);
 		}
 	}, [workspaceChrome]);
+	useEffect(() => {
+		setPluginScreenState(null);
+	}, [entry.index, entry.key]);
+	useEffect(() => {
+		setPluginHeader((currentHeader) =>
+			currentHeader !== null &&
+			currentHeader.owner === activePluginDestination?.installation.installationId &&
+			currentHeader.index === entry.index &&
+			currentHeader.key === entry.key
+				? currentHeader
+				: null,
+		);
+	}, [activePluginDestination?.installation.installationId, entry.index, entry.key]);
 	useDesktopEffect(() => setDrawerOpen(false));
 	useShortcut("Meta+K", () => setSearchOpen(true));
 
@@ -422,7 +378,12 @@ export function AuthenticatedShell(props: {
 										data-testid="shell-content"
 										className="min-h-0 min-w-0 flex-1 overflow-hidden"
 									>
-										<Outlet />
+										<PluginDestination
+											target={activePluginDestination}
+											onScreenState={publishPluginScreenState}
+										>
+											<Outlet />
+										</PluginDestination>
 									</motion.div>
 								</ShellChromeContext>
 							</EdgeContext>

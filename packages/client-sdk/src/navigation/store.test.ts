@@ -29,6 +29,7 @@ const location = (index: number, path: string, key = `k${index}`) => ({
 	compact: true,
 	edgeBack: index > 0,
 	entry: { index, key, location: routeLocation(path) },
+	leading: index > 0 ? ("back" as const) : ("drawer" as const),
 });
 
 describe("plugin navigation store", () => {
@@ -43,6 +44,7 @@ describe("plugin navigation store", () => {
 		expect(store.getSnapshot()).toMatchObject({
 			compact: true,
 			edgeBack: false,
+			leading: "drawer",
 			entry: { index: 0, key: "k0" },
 			screens: [{ key: "k0", location: { kind: "route", path: "/" } }],
 		});
@@ -78,6 +80,7 @@ describe("plugin navigation store", () => {
 			store.setLocation({
 				compact: true,
 				edgeBack: index > 0,
+				leading: index > 0 ? "back" : "drawer",
 				entry: { index, key, location: entityLocation(`entity-${index}`) },
 			});
 
