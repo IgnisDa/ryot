@@ -2,7 +2,7 @@ import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
-import { DemoAccessPolicy } from "../../http-annotations";
+import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
 import { ImportRunId, IntegrationId, IntegrationWebhookToken } from "../../schema/brands";
 import {
 	CreateIntegrationBody,
@@ -16,16 +16,14 @@ import {
 export const IntegrationsGroup = HttpApiGroup.make("integrations")
 	.annotate(OpenApi.Description, "Manage external service integrations and their import runs.")
 	.add(
-		HttpApiEndpoint.post("create", "/integrations", {
+		AuthenticatedMutationEndpoint.post("protected")("create", "/integrations", {
 			payload: CreateIntegrationBody,
 			error: [IntegrationRequestError.pipe(HttpApiSchema.status(400))],
 			success: Schema.Struct({ id: IntegrationId }).pipe(HttpApiSchema.status(201)),
-		})
-			.annotate(DemoAccessPolicy, "protected")
-			.annotate(OpenApi.Description, "Create an external service integration."),
+		}).annotate(OpenApi.Description, "Create an external service integration."),
 	)
 	.add(
-		HttpApiEndpoint.patch("update", "/integrations/:integrationId", {
+		AuthenticatedMutationEndpoint.patch("protected")("update", "/integrations/:integrationId", {
 			payload: UpdateIntegrationBody,
 			params: { integrationId: IntegrationId },
 			success: Schema.Struct({ id: IntegrationId }),
@@ -33,26 +31,20 @@ export const IntegrationsGroup = HttpApiGroup.make("integrations")
 				IntegrationRequestError.pipe(HttpApiSchema.status(400)),
 				IntegrationNotFoundError.pipe(HttpApiSchema.status(404)),
 			],
-		})
-			.annotate(DemoAccessPolicy, "protected")
-			.annotate(OpenApi.Description, "Update an integration by ID."),
+		}).annotate(OpenApi.Description, "Update an integration by ID."),
 	)
 	.add(
-		HttpApiEndpoint.delete("delete", "/integrations/:integrationId", {
+		AuthenticatedMutationEndpoint.delete("protected")("delete", "/integrations/:integrationId", {
 			params: { integrationId: IntegrationId },
 			success: Schema.Struct({ id: Schema.String }),
 			error: [IntegrationNotFoundError.pipe(HttpApiSchema.status(404))],
-		})
-			.annotate(DemoAccessPolicy, "protected")
-			.annotate(OpenApi.Description, "Delete an integration by ID."),
+		}).annotate(OpenApi.Description, "Delete an integration by ID."),
 	)
 	.add(
-		HttpApiEndpoint.post("sync", "/integrations/sync", {
+		AuthenticatedMutationEndpoint.post("protected")("sync", "/integrations/sync", {
 			error: [IntegrationRequestError.pipe(HttpApiSchema.status(400))],
 			success: Schema.Struct({ executionId: Schema.String }).pipe(HttpApiSchema.status(202)),
-		})
-			.annotate(DemoAccessPolicy, "protected")
-			.annotate(OpenApi.Description, "Start synchronization for the current user's integrations."),
+		}).annotate(OpenApi.Description, "Start synchronization for the current user's integrations."),
 	)
 	.middleware(AuthMiddleware)
 	.add(

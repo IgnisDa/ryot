@@ -2,7 +2,8 @@ import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
-import { DemoAccessPolicy, LogRouteTemplate } from "../../http-annotations";
+import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
+import { LogRouteTemplate } from "../../http-annotations";
 import {
 	ClientAssetNotFound,
 	ClientDocumentGrantNotFound,
@@ -44,26 +45,22 @@ export const ClientAssetsGroup = HttpApiGroup.make("clientAssets")
 export const ClientPagesGroup = HttpApiGroup.make("clientPages")
 	.annotate(OpenApi.Description, "Prepares client pages")
 	.add(
-		HttpApiEndpoint.post("prepare", "/client-pages/prepare", {
+		AuthenticatedMutationEndpoint.post("allowed")("prepare", "/client-pages/prepare", {
 			success: PreparedClientPage,
 			payload: PrepareClientPageBody,
 			error: [ClientPagePreparationError.pipe(HttpApiSchema.status(404))],
-		})
-			.annotate(DemoAccessPolicy, "allowed")
-			.annotate(
-				OpenApi.Description,
-				"Resolves a client page, looks up its composition, and issues a document grant",
-			),
+		}).annotate(
+			OpenApi.Description,
+			"Resolves a client page, looks up its composition, and issues a document grant",
+		),
 	)
 	.add(
-		HttpApiEndpoint.post("checkFreshness", "/client-pages/freshness", {
+		AuthenticatedMutationEndpoint.post("allowed")("checkFreshness", "/client-pages/freshness", {
 			payload: CheckClientPageFreshnessBody,
 			success: CheckClientPageFreshnessResponse,
-		})
-			.annotate(DemoAccessPolicy, "allowed")
-			.annotate(
-				OpenApi.Description,
-				"Checks whether a prepared page still matches current catalog state",
-			),
+		}).annotate(
+			OpenApi.Description,
+			"Checks whether a prepared page still matches current catalog state",
+		),
 	)
 	.middleware(AuthMiddleware);
