@@ -6,6 +6,7 @@ import {
 	CLIENT_ARTIFACT_FORMAT,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
+	ClientPageContext,
 	KERNEL_SHORTCUTS,
 	KernelShortcut,
 	PluginAssetBridgeErrorReason,
@@ -21,6 +22,7 @@ import {
 	PluginBridgeHostMessage,
 	PluginManagedAssetResolution,
 	PluginBridgeOperationResult,
+	PluginBridgePageSearch,
 	PluginBridgeUploadResult,
 	PluginBridgeRyotQLCancel,
 	PluginBridgeRyotQLResult,
@@ -132,14 +134,14 @@ describe("plugin client bridge contract", () => {
 		expect(Result.isFailure(client({ ...interest, foreground: [123] }))).toBe(true);
 		expect(
 			Result.isFailure(
-				Schema.decodeUnknownResult(PluginBridgeReady)({ ...identity, bridgeVersion: 2 }),
+				Schema.decodeUnknownResult(PluginBridgeReady)({ ...identity, bridgeVersion: 3 }),
 			),
 		).toBe(true);
 	});
 
 	it("pins the protocol and compiler versions it stamps into an artifact", () => {
-		expect(CLIENT_BRIDGE_PROTOCOL_VERSION).toBe(1);
-		expect(CLIENT_COMPILER_VERSION).toBe(1);
+		expect(CLIENT_BRIDGE_PROTOCOL_VERSION).toBe(2);
+		expect(CLIENT_COMPILER_VERSION).toBe(3);
 	});
 
 	it("defines and admits semantic kernel shortcuts only from the plugin", () => {
@@ -255,6 +257,66 @@ describe("plugin client bridge contract", () => {
 		expect(Result.isFailure(decodeReady(init))).toBe(true);
 	});
 
+	it("carries saved-view, plugin-route, and entity page identities", () => {
+		const decode = Schema.decodeUnknownResult(ClientPageContext);
+		const base = {
+			settings: {},
+			dataSources: null,
+			route: { params: {} },
+			renderer: { exportName: "detail", pluginId: "plugin-1", kind: "plugin" },
+		};
+
+		expect(
+			Result.isSuccess(decode({ ...base, target: { kind: "saved-view", savedViewId: "view-1" } })),
+		).toBe(true);
+		expect(
+			Result.isSuccess(
+				decode({
+					...base,
+					route: { params: { itemId: "item-1" } },
+					target: {
+						path: "/items/1",
+						search: "tab=stats",
+						pluginId: "plugin-1",
+						kind: "plugin-route",
+					},
+				}),
+			),
+		).toBe(true);
+		expect(
+			Result.isSuccess(
+				decode({
+					...base,
+					target: {
+						kind: "entity",
+						entityId: "entity-1",
+						entitySchemaSlug: "show",
+						entitySchemaPluginId: "plugin-1",
+					},
+				}),
+			),
+		).toBe(true);
+		expect(
+			Result.isSuccess(
+				decode({
+					...base,
+					renderer: { kind: "custom", id: "renderer-1" },
+					target: {
+						kind: "entity",
+						entityId: "entity-1",
+						entitySchemaSlug: "system",
+						entitySchemaPluginId: null,
+					},
+				}),
+			),
+		).toBe(true);
+		expect(
+			Result.isFailure(
+				decode({ ...base, target: { path: "/", search: "", kind: "plugin-route" } }),
+			),
+		).toBe(true);
+	});
+
 	it("admits viewport insets from the host and a drawer request from the plugin", () => {
 		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
 		const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
@@ -268,6 +330,30 @@ describe("plugin client bridge contract", () => {
 		expect(Result.isSuccess(decodeClient({ type: "open-drawer" }))).toBe(true);
 		expect(Result.isFailure(decodeHost({ type: "open-drawer" }))).toBe(true);
 		expect(Result.isFailure(decodeClient(viewport))).toBe(true);
+	});
+
+	it("admits merged page-search push and replace updates with explicit deletions", () => {
+		const decode = Schema.decodeUnknownResult(PluginBridgePageSearch);
+
+		expect(
+			Result.isSuccess(
+				decode({
+					mode: "push",
+					type: "page-search",
+					update: { dialog: "add-to-collection", entityId: "entity-1" },
+				}),
+			),
+		).toBe(true);
+		expect(
+			Result.isSuccess(
+				decode({ mode: "replace", type: "page-search", update: { dialog: null, entityId: null } }),
+			),
+		).toBe(true);
+		expect(
+			Result.isFailure(
+				decode({ mode: "replace", type: "page-search", update: { dialog: undefined } }),
+			),
+		).toBe(true);
 	});
 
 	it("uses tagged logical locations by bridge direction", () => {
@@ -284,14 +370,33 @@ describe("plugin client bridge contract", () => {
 		};
 		const targetEntity = { entityId: "entity-1", kind: "entity" };
 		const route = { kind: "route", path: "/details", search: "tab=stats" };
-		const entity = { entityId: "entity-1", entitySchemaSlug: "show", kind: "entity" };
+		const pluginRoute = {
+			path: "/details",
+			search: "tab=stats",
+			kind: "plugin-route",
+			pluginSlug: "fixture",
+		};
+		const savedView = { kind: "saved-view", savedViewId: "view-1" };
+		const entity = {
+			kind: "entity",
+			entityId: "entity-1",
+			entitySchemaSlug: "show",
+			search: "dialog=details",
+		};
 
 		expect(Result.isSuccess(decodeHost({ ...hostFields, location: route }))).toBe(true);
 		expect(Result.isSuccess(decodeHost({ ...hostFields, location: entity }))).toBe(true);
-		expect(Result.isSuccess(decodeTarget(route))).toBe(true);
+		const { search: _entitySearch, ...entityWithoutSearch } = entity;
+		expect(Result.isFailure(decodeHost({ ...hostFields, location: entityWithoutSearch }))).toBe(
+			true,
+		);
+		expect(Result.isSuccess(decodeTarget(pluginRoute))).toBe(true);
+		expect(Result.isSuccess(decodeTarget(savedView))).toBe(true);
 		expect(Result.isSuccess(decodeTarget(targetEntity))).toBe(true);
+		expect(Result.isFailure(decodeTarget(route))).toBe(true);
 		expect(Result.isFailure(decodeTarget({ path: route.path, search: route.search }))).toBe(true);
-		expect(Result.isFailure(decodeTarget({ ...route, extra: true }))).toBe(true);
+		expect(Result.isFailure(decodeTarget({ ...pluginRoute, extra: true }))).toBe(true);
+		expect(Result.isFailure(decodeTarget({ ...pluginRoute, pluginSlug: undefined }))).toBe(true);
 		expect(Result.isFailure(decodeTarget({ ...targetEntity, entitySchemaSlug: "show" }))).toBe(
 			true,
 		);
@@ -309,19 +414,22 @@ describe("plugin client bridge contract", () => {
 		expect(
 			Result.isFailure(decodeHost({ ...hostFields, location: { ...entity, extra: true } })),
 		).toBe(true);
-		expect(Result.isSuccess(decodeClient({ target: route, mode: "push", type: "navigate" }))).toBe(
-			true,
-		);
+		expect(
+			Result.isSuccess(decodeClient({ target: pluginRoute, mode: "push", type: "navigate" })),
+		).toBe(true);
+		expect(
+			Result.isSuccess(decodeClient({ target: savedView, mode: "replace", type: "navigate" })),
+		).toBe(true);
 		expect(
 			Result.isSuccess(decodeClient({ target: targetEntity, mode: "push", type: "navigate" })),
 		).toBe(true);
 		expect(
 			Result.isFailure(
-				decodeClient({ leading: "back", target: route, mode: "push", type: "navigate" }),
+				decodeClient({ leading: "back", target: pluginRoute, mode: "push", type: "navigate" }),
 			),
 		).toBe(true);
 		expect(
-			Result.isFailure(decodeClient({ location: route, mode: "push", type: "navigate" })),
+			Result.isFailure(decodeClient({ location: pluginRoute, mode: "push", type: "navigate" })),
 		).toBe(true);
 		expect(
 			Result.isFailure(
@@ -455,6 +563,7 @@ describe("plugin client bridge contract", () => {
 		expect(
 			Result.isSuccess(
 				decodeRequest({
+					pluginSlug: "fixture",
 					requestId: "request-1",
 					operationSlug: "greet",
 					type: "operation-request",
@@ -466,6 +575,7 @@ describe("plugin client bridge contract", () => {
 			Result.isFailure(
 				decodeRequest({
 					input: null,
+					pluginSlug: "fixture",
 					requestId: "request-1",
 					operationSlug: "greet",
 					type: "operation-request",
@@ -476,6 +586,7 @@ describe("plugin client bridge contract", () => {
 		expect(
 			Result.isFailure(
 				decodeRequest({
+					pluginSlug: "fixture",
 					requestId: "request-1",
 					operationSlug: "greet",
 					type: "operation-request",
@@ -485,10 +596,21 @@ describe("plugin client bridge contract", () => {
 		expect(
 			Result.isFailure(
 				decodeRequest({
+					pluginSlug: "fixture",
 					requestId: "request-1",
 					operationSlug: "greet",
 					type: "operation-request",
 					input: { invalid: undefined },
+				}),
+			),
+		).toBe(true);
+		expect(
+			Result.isFailure(
+				decodeRequest({
+					input: null,
+					requestId: "request-1",
+					operationSlug: "greet",
+					type: "operation-request",
 				}),
 			),
 		).toBe(true);

@@ -5,9 +5,12 @@ import {
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
 	type PluginBridgeInit,
+	type ClientPageContext,
+	type PluginLogicalLocation,
 	type PluginRouteLocation,
 } from "@ryot-app/client-plugin-contract";
 import { Modal } from "@ryot-app/client-ui-sdk";
+import { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { fireEvent, waitFor } from "@testing-library/dom";
 import { Schema } from "effect";
 import { useEffect, useState } from "react";
@@ -15,6 +18,8 @@ import { afterEach, assert, describe, expect, it } from "vitest";
 
 import {
 	bootstrapClientPlugin,
+	bootstrapClientPage,
+	usePageContext,
 	usePluginParams,
 	usePluginTitle,
 	type EntityRendererProps,
@@ -59,13 +64,26 @@ const Home = () => {
 	const [result, setResult] = useState("pending");
 	useEffect(() => {
 		void ryot.operations
-			.invoke({ slug: "greet", input: {}, output: Schema.String })
+			.invoke({ pluginSlug: "fixture", slug: "greet", input: {}, output: Schema.String })
 			.then(setResult);
 	}, [ryot]);
 	return <p>{`${ryotTheme.resolvedMode}:${result}`}</p>;
 };
 
 const StaticHome = () => <p>Mounted</p>;
+
+const PageContextHome = () => {
+	const { renderer, target } = usePageContext();
+	return <p>{`${target.kind}:${renderer.kind}`}</p>;
+};
+
+const SelectedPage = ({ entityId, entitySchemaSlug }: Partial<EntityRendererProps>) => {
+	const { target } = usePageContext();
+	const params = usePluginParams();
+	return (
+		<p>{`${target.kind}:${params.itemId ?? "none"}:${entityId ?? "none"}:${entitySchemaSlug ?? "none"}`}</p>
+	);
+};
 
 const OverlayHome = () => {
 	const [open, setOpen] = useState(false);
@@ -108,6 +126,32 @@ const embedMetadata = () => {
 	element.id = CLIENT_ARTIFACT_METADATA_ELEMENT_ID;
 	element.textContent = JSON.stringify(metadata);
 	document.head.append(element);
+};
+
+const mountSelectedPage = (page: ClientPageContext, location: PluginLogicalLocation) => {
+	document.body.innerHTML = '<div id="app"></div>';
+	embedMetadata();
+	bootstraps.push(bootstrapClientPage(SelectedPage));
+	const channel = new MessageChannel();
+	channels.push(channel);
+	channel.port1.start();
+	window.dispatchEvent(
+		new MessageEvent("message", {
+			source: window.parent,
+			ports: [channel.port2],
+			data: { ...init, page },
+		}),
+	);
+	channel.port1.postMessage({
+		index: 0,
+		location,
+		key: "k0",
+		compact: false,
+		edgeBack: false,
+		type: "location",
+		leading: "drawer",
+	});
+	return channel;
 };
 
 afterEach(() => {
@@ -179,6 +223,145 @@ describe("bootstrapClientPlugin", () => {
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("light:Hello"));
 		channel.port1.postMessage({ mode: "dark", type: "theme" });
 		await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("dark:Hello"));
+	});
+
+	it("supplies plugin-route page context through the shared page hook", async () => {
+		document.body.innerHTML = '<div id="app"></div>';
+		embedMetadata();
+		bootstraps.push(bootstrapClientPlugin({ home: { component: PageContextHome } }));
+		const channel = new MessageChannel();
+		channels.push(channel);
+		channel.port1.start();
+		window.dispatchEvent(
+			new MessageEvent("message", {
+				source: window.parent,
+				ports: [channel.port2],
+				data: {
+					...init,
+					page: {
+						settings: {},
+						dataSources: null,
+						route: { params: {} },
+						renderer: { exportName: "home", pluginId: "plugin-1", kind: "plugin" },
+						target: { path: "/", search: "tab=stats", pluginId: "plugin-1", kind: "plugin-route" },
+					},
+				},
+			}),
+		);
+		channel.port1.postMessage({
+			index: 0,
+			key: "k0",
+			compact: false,
+			edgeBack: false,
+			type: "location",
+			leading: "drawer",
+			location: routeLocation("/", "tab=stats"),
+		});
+
+		await waitFor(() =>
+			expect(document.getElementById("app")?.textContent).toBe("plugin-route:plugin"),
+		);
+	});
+
+	it("renders a selected dynamic page at its logical route with prepared params", async () => {
+		mountSelectedPage(
+			{
+				settings: {},
+				dataSources: null,
+				route: { params: { itemId: "item-1" } },
+				renderer: { exportName: "details", pluginId: "plugin-1", kind: "plugin" },
+				target: {
+					search: "tab=stats",
+					pluginId: "plugin-1",
+					kind: "plugin-route",
+					path: "/details/item-1",
+				},
+			},
+			routeLocation("/details/item-1", "tab=stats"),
+		);
+
+		await waitFor(() =>
+			expect(document.getElementById("app")?.textContent).toBe("plugin-route:item-1:none:none"),
+		);
+	});
+
+	it("renders an already-selected not-found page at the unmatched logical route", async () => {
+		mountSelectedPage(
+			{
+				settings: {},
+				dataSources: null,
+				route: { params: {} },
+				renderer: { exportName: "not-found", pluginId: "plugin-1", kind: "plugin" },
+				target: { search: "", path: "/missing", pluginId: "plugin-1", kind: "plugin-route" },
+			},
+			routeLocation("/missing"),
+		);
+
+		await waitFor(() =>
+			expect(document.getElementById("app")?.textContent).toBe("plugin-route:none:none:none"),
+		);
+	});
+
+	it("renders a selected entity page with entity renderer props", async () => {
+		const channel = mountSelectedPage(
+			{
+				settings: {},
+				dataSources: null,
+				route: { params: {} },
+				renderer: { exportName: "detail", pluginId: "plugin-1", kind: "plugin" },
+				target: {
+					kind: "entity",
+					entitySchemaPluginId: "plugin-1",
+					entityId: EntityId.make("entity-1"),
+					entitySchemaSlug: EntitySchemaSlug.make("show"),
+				},
+			},
+			{
+				kind: "entity",
+				search: "tab=history",
+				entityId: EntityId.make("entity-1"),
+				entitySchemaSlug: EntitySchemaSlug.make("show"),
+			},
+		);
+
+		await waitFor(() =>
+			expect(document.getElementById("app")?.textContent).toBe("entity:none:entity-1:show"),
+		);
+
+		channel.port1.postMessage({
+			index: 1,
+			key: "k1",
+			compact: false,
+			edgeBack: true,
+			type: "location",
+			leading: "back",
+			location: {
+				search: "",
+				kind: "entity",
+				entityId: EntityId.make("entity-2"),
+				entitySchemaSlug: EntitySchemaSlug.make("show"),
+			},
+		});
+		await waitFor(() =>
+			expect(document.getElementById("app")?.textContent).toContain("entity:none:entity-2:show"),
+		);
+		channel.port1.postMessage({
+			index: 0,
+			key: "k0",
+			compact: false,
+			edgeBack: false,
+			type: "location",
+			leading: "drawer",
+			location: {
+				kind: "entity",
+				search: "tab=history",
+				entityId: EntityId.make("entity-1"),
+				entitySchemaSlug: EntitySchemaSlug.make("show"),
+			},
+		});
+		await waitFor(() =>
+			expect(document.getElementById("app")?.textContent).toContain("entity:none:entity-1:show"),
+		);
 	});
 
 	it("forwards root kernel shortcuts, gates the workspace switcher, and respects overlays", async () => {
@@ -258,7 +441,12 @@ describe("bootstrapClientPlugin", () => {
 			edgeBack: false,
 			type: "location",
 			leading: "drawer",
-			location: { entityId: "movie-1", entitySchemaSlug: "media-movie", kind: "entity" },
+			location: {
+				search: "",
+				kind: "entity",
+				entityId: "movie-1",
+				entitySchemaSlug: "media-movie",
+			},
 		});
 
 		await waitFor(() =>

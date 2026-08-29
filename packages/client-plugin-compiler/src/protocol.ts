@@ -12,7 +12,6 @@ import { ClientPluginCompilerFailure } from "./diagnostics";
 const ClientCompilerWorkerRequestFields = {
 	name: Schema.String,
 	apiVersion: Schema.Literal(CLIENT_API_VERSION),
-	application: Schema.optional(Schema.Literals(["page", "plugin"])),
 };
 
 const ClientCompilerPublicExport = Schema.Struct({
@@ -32,13 +31,14 @@ export const ClientCompilerWorkerRequestBase64 = Schema.Union([
 		entry: Schema.String,
 		files: Schema.Record(Schema.String, CanonicalBase64),
 		pluginDependencies: Schema.optional(Schema.Array(Schema.String)),
+		application: Schema.optional(Schema.Literals(["page", "plugin"])),
 		publicExports: Schema.optional(Schema.Record(Schema.String, ClientCompilerPackageExport)),
 	}),
 	Schema.Struct({
 		...ClientCompilerWorkerRequestFields,
-		application: Schema.Literal("page"),
-		entry: Schema.Struct({ contributor: Schema.String, path: Schema.String }),
 		contributorOrder: Schema.Array(Schema.String),
+		application: Schema.Literals(["page", "plugin-route"]),
+		entry: Schema.Struct({ contributor: Schema.String, path: Schema.String }),
 		publicExports: Schema.Record(Schema.String, ClientCompilerPublicExport),
 		contributors: Schema.Record(
 			Schema.String,
@@ -53,6 +53,15 @@ export const ClientCompilerWorkerRequestBase64 = Schema.Union([
 					layout: Schema.Literals(["grid", "list"]),
 				}),
 			),
+		),
+		routeRegistry: Schema.optional(
+			Schema.Struct({
+				home: Schema.String,
+				notFound: Schema.optional(Schema.String),
+				routes: Schema.Array(
+					Schema.Struct({ path: Schema.String, exportSpecifier: Schema.String }),
+				),
+			}),
 		),
 	}),
 ]);
@@ -137,6 +146,17 @@ export const decodeClientCompilerWorkerRequest = (input: string) =>
 					...(request.automaticRegistry === undefined
 						? {}
 						: { automaticRegistry: request.automaticRegistry }),
+					...(request.routeRegistry === undefined
+						? {}
+						: {
+								routeRegistry: {
+									home: request.routeRegistry.home,
+									routes: request.routeRegistry.routes,
+									...(request.routeRegistry.notFound === undefined
+										? {}
+										: { notFound: request.routeRegistry.notFound }),
+								},
+							}),
 					contributors: Object.fromEntries(
 						Object.entries(request.contributors).map(([namespace, contributor]) => [
 							namespace,

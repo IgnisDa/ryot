@@ -11,9 +11,15 @@ import { Result, Schema } from "effect";
 import { createContext, useContext, useSyncExternalStore, type ComponentType } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
+import type { ResolvePluginScreen } from "./navigation/stack";
 import { createPluginNavigationStore } from "./navigation/store";
 import { RyotProvider } from "./react";
-import { createPluginRouteResolver, PluginRouter, type PluginRouterDefinition } from "./routing";
+import {
+	createClientPageRouteResolver,
+	createPluginRouteResolver,
+	PluginRouter,
+	type PluginRouterDefinition,
+} from "./routing";
 import { createPluginRuntime } from "./runtime";
 
 type ClientPluginDefinition = PluginRouterDefinition;
@@ -23,7 +29,7 @@ const PageContext = createContext<ClientPageContext | undefined>(undefined);
 export const usePageContext = () => {
 	const context = useContext(PageContext);
 	if (!context) {
-		throw new Error("Page context is only available in a saved-view page");
+		throw new Error("Page context is only available in a mounted page");
 	}
 	return context;
 };
@@ -53,8 +59,9 @@ const KernelShortcutForwarder = ({
 	return null;
 };
 
-const bootstrapClientApplication = (definition: ClientPluginDefinition) => {
-	const navigationStore = createPluginNavigationStore(createPluginRouteResolver(definition));
+const bootstrapClientApplication = (
+	createResolver: (page: ClientPageContext | undefined) => ResolvePluginScreen,
+) => {
 	const listener = new AbortController();
 	let root: Root | undefined;
 	let runtime: ReturnType<typeof createPluginRuntime> | undefined;
@@ -128,6 +135,7 @@ const bootstrapClientApplication = (definition: ClientPluginDefinition) => {
 				signal: sessionListener.signal,
 			});
 			const init = decoded.success;
+			const navigationStore = createPluginNavigationStore(createResolver(init.page));
 			runtime = createPluginRuntime(
 				port,
 				init,
@@ -148,10 +156,14 @@ const bootstrapClientApplication = (definition: ClientPluginDefinition) => {
 };
 
 export const bootstrapClientPlugin = (definition: ClientPluginDefinition) =>
-	bootstrapClientApplication(definition);
+	bootstrapClientApplication(() => createPluginRouteResolver(definition));
 
 export const bootstrapClientPage = (component: ComponentType) =>
-	bootstrapClientApplication({ home: { component } });
+	bootstrapClientApplication((page) =>
+		page === undefined
+			? createPluginRouteResolver({ home: { component } })
+			: createClientPageRouteResolver(component, page),
+	);
 
 export {
 	PluginLink,
