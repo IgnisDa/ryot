@@ -1,10 +1,21 @@
 import { TemporaryUploadToken } from "@ryot-app/contract/modules/uploads/schemas";
 import {
+	ascending,
+	column,
+	defineRecipe,
+	eq,
+	literal,
+	selectedField,
+	selectedRows,
+	table,
+} from "@ryot-app/ryotql";
+import {
 	importRunRecipe,
 	integrationImportRunsRecipe,
 	manualImportRunsRecipe,
 } from "@ryot-app/ryotql-recipes/import-runs";
-import { Effect, Schema } from "effect";
+import type { GenericImportWriteItem } from "@ryot-app/sandbox-sdk/imports";
+import { Effect, Result, Schema } from "effect";
 
 import { requirePresent } from "~/support/assertions";
 import { getApiUrl } from "~/support/harness-target";
@@ -14,11 +25,14 @@ import type { Client } from "./auth";
 import { getApiClient } from "./contract-client";
 import { pollUntil } from "./polling";
 import { executeRyotQLRecipe } from "./ryotql";
+import { providerSandboxSource } from "./sandbox-provider";
 import { installTestPluginBundle } from "./test-plugin";
 
 export const FIXTURE_IMPORT_SOURCE = "e2e_archive_import_v2";
 export const FIXTURE_CONFIG_IMPORT_SOURCE = "e2e_archive_import_config_v2";
 export const FIXTURE_HANDLE_IMPORT_SOURCE = "e2e_harvest_handle_import_v1";
+
+const PARTIAL_RESULT_COMMITTED_ITEM_COUNT = 10;
 
 const FIXTURE_IMPORT_WORKFLOW_SOURCE = `
 import {
@@ -300,6 +314,245 @@ export const installTestHarvestHandleImportPlugin = Effect.suspend(() =>
 	}),
 );
 
+const partialResultCancellationWorkflowSource = (
+	workflowScriptSlug: string,
+	chunkScriptSlug: string,
+) => `
+import {
+  genericImportKernelInputSchema,
+  genericImportWorkflowInputSchema,
+  genericImportWorkflowManifestSchema,
+  genericImportWorkflowResultSchema,
+} from "@ryot-app/sandbox-sdk/imports";
+import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
+
+export const manifest = defineManifest({
+  kind: "workflow",
+  capabilities: [],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
+  name: "E2E partial-result cancellation import",
+  slug: ${JSON.stringify(workflowScriptSlug)},
+});
+
+const writeChunk = {
+  input: Schema.Struct({}),
+  output: genericImportWorkflowManifestSchema,
+  scriptSlug: ${JSON.stringify(chunkScriptSlug)},
+};
+
+const kernelImport = {
+  input: genericImportKernelInputSchema,
+  output: genericImportWorkflowResultSchema,
+  workflowSlug: "kernel:process-import-chunks",
+};
+
+export default defineWorkflow({
+  manifest,
+  input: genericImportWorkflowInputSchema,
+  output: genericImportWorkflowResultSchema,
+  run: (input, replay) =>
+    Effect.gen(function* () {
+      const chunk = yield* replay.activity("write-chunk", writeChunk, {});
+      return yield* replay.child("process-chunk", kernelImport, {
+        ...chunk,
+        runId: input.runId,
+        command: input.command,
+      });
+    }),
+});
+`;
+
+const partialResultCancellationChunkSource = (
+	chunkScriptSlug: string,
+	items: GenericImportWriteItem[],
+) => `
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { writeScratchChunks } from "@ryot-app/sandbox-sdk/filesystem";
+import { genericImportAdapterManifestSchema } from "@ryot-app/sandbox-sdk/imports";
+
+export const manifest = defineManifest({
+  kind: "script",
+  capabilities: ["scratch"],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
+  name: "E2E partial-result cancellation chunk",
+  slug: ${JSON.stringify(chunkScriptSlug)},
+});
+
+export default defineScript({
+  manifest,
+  input: Schema.Struct({}),
+  output: genericImportAdapterManifestSchema,
+  run: () =>
+    writeScratchChunks([
+      {
+        name: "partial-result-cancellation.json",
+        contents: ${JSON.stringify(JSON.stringify({ items, failures: [] }))},
+      },
+    ]).pipe(
+      Effect.map(({ chunkFiles }) => ({
+        chunkFiles,
+        totalItems: ${items.length},
+        failureCount: 0,
+        writeItemCount: ${items.length},
+      })),
+    ),
+});
+`;
+
+export const installTestPartialResultCancellationImportPlugin = Effect.suspend(() => {
+	const suffix = crypto.randomUUID();
+	const entitySchemaSlug = `e2e-import-cancellation-${suffix}`;
+	const providerSlug = `${entitySchemaSlug}.provider`;
+	const source = `e2e_partial_result_cancellation_${suffix.replaceAll("-", "_")}`;
+	const workflowSlug = `partial-result-cancellation-${suffix}`;
+	const workflowScriptSlug = `workflow.e2e-partial-result-cancellation-${suffix}`;
+	const chunkScriptSlug = `import.e2e-partial-result-cancellation-chunk-${suffix}`;
+	const detailsScriptSlug = `${providerSlug}.details`;
+	const resolveScriptSlug = `${providerSlug}.resolve`;
+	const workflowEntry = `backend/scripts/${workflowSlug}.sandbox.ts`;
+	const chunkEntry = `backend/scripts/${chunkScriptSlug}.sandbox.ts`;
+	const detailsEntry = `backend/providers/${providerSlug}/details.sandbox.ts`;
+	const resolveEntry = `backend/providers/${providerSlug}/resolve.sandbox.ts`;
+	const namePrefix = `E2E partial cancellation ${suffix}`;
+	const committedNames = Array.from(
+		{ length: PARTIAL_RESULT_COMMITTED_ITEM_COUNT },
+		(_, index) => `${namePrefix} committed ${String(index + 1).padStart(2, "0")}`,
+	);
+	const blockedName = `${namePrefix} blocked`;
+	const laterName = `${namePrefix} later`;
+	const directItem = (name: string, itemIndex: number): GenericImportWriteItem => ({
+		itemIndex,
+		events: [],
+		relationships: [],
+		sourceLabel: name,
+		subjectEntityAlias: "record",
+		sourceIdentifier: String(itemIndex),
+		entities: [{ name, properties: {}, alias: "record", entitySchemaSlug }],
+	});
+	const items: GenericImportWriteItem[] = [
+		...committedNames.map(directItem),
+		{
+			...directItem(blockedName, PARTIAL_RESULT_COMMITTED_ITEM_COUNT),
+			entities: [
+				{
+					properties: {},
+					alias: "record",
+					entitySchemaSlug,
+					name: blockedName,
+					providerResolution: { providerSlug, value: "blocked", identifierType: "source-id" },
+				},
+			],
+		},
+		directItem(laterName, PARTIAL_RESULT_COMMITTED_ITEM_COUNT + 1),
+	];
+	const detailsSource = providerSandboxSource({
+		delayMs: 120_000,
+		operation: "details",
+		slug: detailsScriptSlug,
+		result: { properties: {}, name: blockedName },
+		name: "E2E partial-result cancellation provider details",
+	});
+	const resolveSource = providerSandboxSource({
+		operation: "resolve",
+		slug: resolveScriptSlug,
+		result: { externalId: `blocked-${suffix}` },
+		name: "E2E partial-result cancellation provider resolve",
+	});
+
+	return installTestPluginBundle({
+		scope: "system",
+		workflows: [{ slug: workflowSlug, scriptSlug: workflowScriptSlug }],
+		entitySchemas: [
+			{
+				icon: "file",
+				eventSchemas: [],
+				slug: entitySchemaSlug,
+				name: "E2E partial-result cancellation record",
+				propertiesSchema: { fields: {}, unknownKeys: "strict" },
+			},
+		],
+		files: {
+			[detailsEntry]: detailsSource,
+			[resolveEntry]: resolveSource,
+			[chunkEntry]: partialResultCancellationChunkSource(chunkScriptSlug, items),
+			[workflowEntry]: partialResultCancellationWorkflowSource(workflowScriptSlug, chunkScriptSlug),
+		},
+		providers: [
+			{
+				slug: providerSlug,
+				information: { source: "e2e" },
+				rootEntitySchemaSlug: entitySchemaSlug,
+				name: "E2E partial-result cancellation provider",
+				operations: { details: detailsScriptSlug, resolve: resolveScriptSlug },
+			},
+		],
+		importSources: [
+			{
+				slug: source,
+				workflowSlug,
+				requiredPluginConfigKeys: [],
+				name: "E2E partial-result cancellation import",
+				inputSchema: { fields: {}, unknownKeys: "strict" },
+				description: "Block after a durable generic-import progress checkpoint",
+			},
+		],
+		scripts: [
+			{
+				kind: "workflow",
+				capabilities: [],
+				entry: workflowEntry,
+				slug: workflowScriptSlug,
+				requiredPluginConfigKeys: [],
+				requiredSystemConfigKeys: [],
+				name: "E2E partial-result cancellation import",
+			},
+			{
+				kind: "script",
+				entry: chunkEntry,
+				slug: chunkScriptSlug,
+				capabilities: ["scratch"],
+				requiredPluginConfigKeys: [],
+				requiredSystemConfigKeys: [],
+				name: "E2E partial-result cancellation chunk",
+			},
+			{
+				providerSlug,
+				kind: "provider",
+				capabilities: [],
+				entry: detailsEntry,
+				slug: detailsScriptSlug,
+				providerOperation: "details",
+				requiredPluginConfigKeys: [],
+				requiredSystemConfigKeys: [],
+				name: "E2E partial-result cancellation provider details",
+			},
+			{
+				providerSlug,
+				kind: "provider",
+				capabilities: [],
+				entry: resolveEntry,
+				slug: resolveScriptSlug,
+				providerOperation: "resolve",
+				requiredPluginConfigKeys: [],
+				requiredSystemConfigKeys: [],
+				name: "E2E partial-result cancellation provider resolve",
+			},
+		],
+	}).pipe(
+		Effect.map((plugin) => ({
+			plugin,
+			source,
+			laterName,
+			blockedName,
+			committedNames,
+			entitySchemaSlug,
+		})),
+	);
+});
+
 const testImportPinningWorkflowSource = (scriptSlug: string) => `
 import {
   genericImportKernelInputSchema,
@@ -426,13 +679,31 @@ export const getImportRun = (
 	failureLimit: number,
 ) => executeRyotQLRecipe(client, importRunRecipe({ runId, failureAfter, failureLimit }));
 
+const importedEntity = table("entity", "importedEntity");
+const importedEntityNamesRecipe = defineRecipe((entitySchemaSlug: string) => ({
+	map: ({ entities }) => Result.succeed(entities),
+	queries: {
+		entities: selectedRows(importedEntity, {
+			limit: 100,
+			orderBy: [ascending(column(importedEntity, "name"))],
+			where: eq(column(importedEntity, "entitySchemaSlug"), literal(entitySchemaSlug)),
+			selection: { name: selectedField(column(importedEntity, "name"), Schema.String) },
+		}),
+	},
+}));
+
+export const listImportedEntityNames = (client: Client, entitySchemaSlug: string) =>
+	executeRyotQLRecipe(client, importedEntityNamesRecipe(entitySchemaSlug)).pipe(
+		Effect.map(({ items }) => items.map(({ name }) => name)),
+	);
+
 export const pollImportRunUntilTerminal = (client: Client, runId: string) =>
 	pollUntil(
-		`Import run '${runId}' to complete`,
+		`Import run '${runId}' to become terminal`,
 		Effect.gen(function* () {
 			const detail = yield* getImportRun(client, runId, undefined, 100);
 			const run = requirePresent(detail.run, `Import run '${runId}' not found`);
-			if (run.status === "completed" || run.status === "failed") {
+			if (run.status === "completed" || run.status === "failed" || run.status === "cancelled") {
 				return run;
 			}
 			return null;
