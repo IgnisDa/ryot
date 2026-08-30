@@ -348,6 +348,6 @@ export const appConfigDefinition = defineConfig(
 	{ description: "Application configuration" },
 );
 
-export const sandboxDenoDirConfig = Config.string("SANDBOX_DENO_DIR").pipe(
+export const sandboxDenoDirConfig = Config.String("SANDBOX_DENO_DIR").pipe(
 	Config.withDefault("./tmp"),
 );

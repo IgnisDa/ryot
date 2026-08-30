@@ -193,6 +193,7 @@ const BunServerLive = Layer.unwrap(
 		BunHttpServer.layer({
 			idleTimeout: 60,
 			port: config.port,
+			hostname: "0.0.0.0",
 			websocket: { idleTimeout: 60, maxPayloadLength: 1024 * 1024 },
 		}),
 	),
