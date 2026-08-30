@@ -23,8 +23,7 @@ export default defineScript({
 });
 `;
 
-export const compileSandboxSourceForTest = (source: string) =>
-	Effect.gen(function* () {
-		const compiler = yield* SandboxCompiler;
-		return yield* compiler.compile(source);
-	}).pipe(Effect.provide(SandboxCompiler.layer));
+export const compileSandboxSourceForTest = Effect.fnUntraced(function* (source: string) {
+	const compiler = yield* SandboxCompiler;
+	return yield* compiler.compile(source);
+});
