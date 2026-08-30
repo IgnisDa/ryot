@@ -4,46 +4,19 @@ import { describe, expect, it } from "vitest";
 import {
 	EntityBrowserSavedViewSettings,
 	ResultsTableSavedViewSettings,
-	SavedViewCardMapping,
+	CreateSavedViewBody,
 	SavedViewDisplayValue,
-	SavedViewTableMapping,
 } from "./schemas";
 
-describe("saved-view mappings", () => {
-	it("decodes persisted display metadata", () => {
-		expect(
-			Result.getOrThrow(
-				Schema.decodeUnknownResult(SavedViewCardMapping)({
-					callout: null,
-					imageField: null,
-					titleField: "title",
-					overline: { field: "overline", displayKind: "text" },
-					primaryMetadata: { field: "year", displayKind: "number" },
-					secondaryMetadata: { field: "published", displayKind: "date" },
-				}),
-			),
-		).toMatchObject({ primaryMetadata: { displayKind: "number" } });
-
-		expect(
-			Result.getOrThrow(
-				Schema.decodeUnknownResult(SavedViewTableMapping)({
-					imageField: null,
-					columns: [{ field: "details", label: "Details", displayKind: "json" }],
-				}),
-			),
-		).toMatchObject({ columns: [{ displayKind: "json" }] });
-	});
-
-	it("rejects legacy field-only mappings", () => {
+describe("saved-view schemas", () => {
+	it("rejects removed layout payloads", () => {
 		expect(
 			Result.isFailure(
-				Schema.decodeUnknownResult(SavedViewCardMapping)({
-					imageField: null,
-					titleField: "title",
-					calloutField: null,
-					overlineField: "overline",
-					primaryMetadataField: null,
-					secondaryMetadataField: null,
+				Schema.decodeUnknownResult(CreateSavedViewBody)({
+					icon: "table",
+					name: "Old view",
+					entitySchemaSlug: null,
+					layouts: {},
 				}),
 			),
 		).toBe(true);

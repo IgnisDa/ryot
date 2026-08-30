@@ -1,4 +1,3 @@
-import type { PluginClientArtifact } from "@ryot-app/client-plugin-contract";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import type { PluginScriptMetadata } from "@ryot-app/sandbox-compiler/plugin-manifest";
 
@@ -23,13 +22,11 @@ export type NormalizedPluginScript = {
 export type PluginRevision = {
 	readonly sourceHash: string;
 	readonly manifest: PluginManifest;
-	readonly clientArtifactHash: string | null;
 	readonly scripts: Array<NormalizedPluginScript>;
 };
 
-export type NormalizedPlugin = Omit<PluginRevision, "clientArtifactHash"> & {
+export type NormalizedPlugin = PluginRevision & {
 	readonly files: Readonly<Record<string, Uint8Array>>;
-	readonly clientArtifact: PluginClientArtifact | null;
 };
 
 export type PluginPersistenceIdentity =

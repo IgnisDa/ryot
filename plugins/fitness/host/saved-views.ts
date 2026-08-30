@@ -1,5 +1,5 @@
 import type { OrderBy } from "@ryot-app/contract/modules/ryotql/language";
-import { column, descending, castDate, jsonPath, table } from "@ryot-app/ryotql";
+import { column, descending, castDate, field, jsonPath, table } from "@ryot-app/ryotql";
 import {
 	buildSavedViewLayoutProjections,
 	savedViewRecipe,
@@ -51,45 +51,42 @@ export const fitnessSavedViews = () => {
 			grid: { entity, card: expressions.grid },
 			list: { entity, card: expressions.list },
 		});
-		const cardQueryDocument = (projection: typeof projections.grid) =>
-			savedViewRecipe({
-				layout: { type: "card", mapping: projection.mappings },
-				source: {
-					type: "generated",
-					fields: projection.fields,
-					orderBy: input.orderBy,
-					entitySchemaSlugs: [input.entitySchemaSlug],
-				},
-			}).document;
-		const tableQueryDocument = (projection: typeof projections.table) =>
-			savedViewRecipe({
-				layout: { type: "table", mapping: projection.mappings },
-				source: {
-					type: "generated",
-					fields: projection.fields,
-					orderBy: input.orderBy,
-					entitySchemaSlugs: [input.entitySchemaSlug],
-				},
-			}).document;
+		const dataSources = savedViewRecipe({
+			layout: { type: "table", mapping: projections.table.mappings },
+			source: {
+				type: "generated",
+				fields: [
+					...projections.table.fields,
+					field("ownerPluginId", column(entity, "entitySchemaPluginId")),
+					field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
+				],
+				orderBy: input.orderBy,
+				entitySchemaSlugs: [input.entitySchemaSlug],
+			},
+		}).document;
 		return {
 			sortOrder,
 			name: input.name,
 			slug: input.slug,
 			icon: schema.icon,
 			pluginSlug: "fitness",
-			entitySchemaSlug: input.entitySchemaSlug,
-			layouts: {
-				grid: {
-					...projections.grid.mappings,
-					queryDocument: cardQueryDocument(projections.grid),
-				},
-				list: {
-					...projections.list.mappings,
-					queryDocument: cardQueryDocument(projections.list),
-				},
-				table: {
-					...projections.table.mappings,
-					queryDocument: tableQueryDocument(projections.table),
+			renderer: { kind: "kernel", name: "entity-browser" } as const,
+			dataSources,
+			settings: {
+				pageSize: 20,
+				sourceName: "savedView",
+				defaultLayout: "grid",
+				layouts: ["grid", "list", "table"],
+				entityIdField: "entityId",
+				ownerPluginIdField: "ownerPluginId",
+				entitySchemaSlugField: "entitySchemaSlug",
+				searchFields: ["column0"],
+				sortChoices: [],
+				tableColumns: projections.table.mappings.columns,
+				addAction: {
+					type: "provider-search",
+					ownerPluginId: "fitness",
+					entitySchemaSlug: input.entitySchemaSlug,
 				},
 			},
 		};

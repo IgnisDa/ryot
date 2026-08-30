@@ -45,7 +45,7 @@ it.effect("selects a declared dynamic route from a disabled but ready direct ins
 		isDisabled: true,
 		client: {
 			apiVersion: 1,
-			entry: "client/index.tsx",
+			homeView: null,
 			exports: { details: page },
 			routes: { "/details/$itemId": "details" },
 		},
@@ -70,7 +70,7 @@ it("records disabled ready installations as operation targets without making the
 	const target = plugin({
 		isDisabled: true,
 		id: "operations-only",
-		client: { apiVersion: 1, entry: "client/index.tsx" },
+		client: { apiVersion: 1, exports: {}, homeView: null },
 	});
 	expect(clientPageOperationTargets([target])).toEqual([
 		{
@@ -87,7 +87,7 @@ it.effect("decodes dynamic route parameters", () => {
 		id: "fixture",
 		client: {
 			apiVersion: 1,
-			entry: "client/index.tsx",
+			homeView: null,
 			exports: { details: page },
 			routes: { "/details/$itemId": "details" },
 		},
@@ -107,7 +107,7 @@ it.effect("selects a static route before an overlapping dynamic route", () => {
 		id: "fixture",
 		client: {
 			apiVersion: 1,
-			entry: "client/index.tsx",
+			homeView: null,
 			exports: { item: page, "new-item": page },
 			routes: { "/items/$itemId": "item", "/items/new": "new-item" },
 		},
@@ -128,7 +128,7 @@ it.effect("selects the persisted provenance owner's registered entity page", () 
 		id: "owner",
 		client: {
 			apiVersion: 1,
-			entry: "client/index.tsx",
+			homeView: null,
 			exports: { "pokemon-page": page },
 			entities: { pokemon: { detailPage: "pokemon-page" } },
 		},
@@ -159,7 +159,7 @@ it.effect(
 			entitySchemaPluginId: "owner",
 			entitySchemaSlug: EntitySchemaSlug.make("pokemon"),
 		};
-		const owner = plugin({ id: "owner", client: { apiVersion: 1, entry: "client/index.tsx" } });
+		const owner = plugin({ id: "owner", client: { apiVersion: 1, exports: {}, homeView: null } });
 		return Effect.gen(function* () {
 			const missing = yield* Effect.flip(
 				resolvePluginPageTarget({ target, plugins: [], findEntity: () => Effect.succeed(null) }),

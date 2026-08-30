@@ -36,24 +36,35 @@ export default defineWorkflow({
 const clientRequest = encodeClientCompilerWorkerRequest({
 	apiVersion: 1,
 	name: "Smoke plugin",
-	entry: "client/index.tsx",
-	files: {
-		"client/index.tsx": new TextEncoder().encode(`
+	application: "plugin-route",
+	contributorOrder: ["smoke"],
+	entry: { contributor: "smoke", path: "client/index.tsx" },
+	routeRegistry: { home: "@ryot-app/plugins/smoke/home", routes: [] },
+	publicExports: {
+		"@ryot-app/plugins/smoke/home": {
+			kind: "page",
+			contributor: "smoke",
+			entry: "client/index.tsx",
+		},
+	},
+	contributors: {
+		smoke: {
+			files: {
+				"client/styles.css": new TextEncoder().encode('@import "tailwindcss";\n'),
+				"client/logo.svg": new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg" />'),
+				"client/index.tsx": new TextEncoder().encode(`
 import "./styles.css";
-import { bootstrapClientPlugin } from "@ryot-app/client-sdk/plugin";
 import { Button } from "@ryot-app/client-ui-sdk";
 import { useState } from "react";
 import logo from "./logo.svg";
 
-const Home = () => {
+export default function Home() {
 	const [count, setCount] = useState(0);
 	return <Button className="bg-accent" onClick={() => setCount(count + 1)}><img alt="" src={logo} />{count}</Button>;
-};
-
-bootstrapClientPlugin({ home: { component: Home } });
+}
 `),
-		"client/styles.css": new TextEncoder().encode('@import "tailwindcss";\n'),
-		"client/logo.svg": new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg" />'),
+			},
+		},
 	},
 });
 
@@ -66,11 +77,7 @@ const runWorker = (name: string, workerPath: string, input: string) =>
 		const command = ChildProcess.make(
 			process.execPath,
 			["--smol", "--no-orphans", "--no-install", "--no-env-file", workerPath],
-			{
-				stdout: "pipe",
-				stderr: "pipe",
-				stdin: Stream.succeed(new TextEncoder().encode(input)),
-			},
+			{ stdout: "pipe", stderr: "pipe", stdin: Stream.succeed(new TextEncoder().encode(input)) },
 		);
 		const worker = yield* command;
 		yield* Effect.addFinalizer(() => worker.kill({ killSignal: "SIGKILL" }).pipe(Effect.ignore));

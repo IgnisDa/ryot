@@ -3,10 +3,7 @@ import type {
 	ClientRendererDefinition,
 } from "@ryot-app/contract/modules/client-pages/schemas";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
-import type {
-	SavedViewLayouts,
-	SavedViewRenderer,
-} from "@ryot-app/contract/modules/saved-views/schemas";
+import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { generateId } from "better-auth";
 import {
@@ -22,7 +19,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
-import { plugin, pluginClientArtifact, pluginInstallation } from "./core";
+import { pluginClientArtifact, pluginInstallation } from "./core";
 
 export const clientRenderer = snakeCase.table(
 	"client_renderer",
@@ -63,10 +60,10 @@ export const clientPageBuild = snakeCase.table(
 		publishedHash: text().notNull(),
 		graphIdentity: jsonb().$type<ClientPageGraphIdentity>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		rendererId: text().references(() => clientRenderer.id, { onDelete: "cascade" }),
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		rendererId: text().references(() => clientRenderer.id, { onDelete: "cascade" }),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
@@ -97,17 +94,14 @@ export const savedView = snakeCase.table(
 		slug: text().notNull(),
 		name: text().notNull(),
 		icon: text().notNull(),
-		entitySchemaSlug: text(),
-		layouts: jsonb().$type<SavedViewLayouts>(),
 		dataSources: jsonb().$type<RyotQLDocument>(),
-		renderer: jsonb().$type<SavedViewRenderer>(),
 		revision: integer().notNull().default(1),
 		sortOrder: integer().notNull().default(0),
 		isBuiltin: boolean().notNull().default(false),
 		isDisabled: boolean().notNull().default(false),
-		settings: jsonb().$type<Readonly<Record<string, JsonValue>>>(),
+		renderer: jsonb().$type<SavedViewRenderer>().notNull(),
+		settings: jsonb().$type<Readonly<Record<string, JsonValue>>>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-		entitySchemaPluginId: text().references(() => plugin.id, { onDelete: "restrict" }),
 		clientRendererId: text().references(() => clientRenderer.id, { onDelete: "restrict" }),
 		pluginInstallationId: text(),
 		id: text()
@@ -123,14 +117,13 @@ export const savedView = snakeCase.table(
 	},
 	(table) => [
 		index("saved_view_user_id_idx").on(table.userId),
-		index("saved_view_entity_schema_plugin_id_idx").on(table.entitySchemaPluginId),
 		index("saved_view_plugin_installation_id_idx").on(table.pluginInstallationId),
 		index("saved_view_client_renderer_id_idx").on(table.clientRendererId),
 		unique("saved_view_user_slug_unique").on(table.userId, table.slug),
 		foreignKey({
+			name: "saved_view_plugin_installation_owner_fk",
 			columns: [table.pluginInstallationId, table.userId],
 			foreignColumns: [pluginInstallation.id, pluginInstallation.userId],
-			name: "saved_view_plugin_installation_owner_fk",
 		}).onDelete("restrict"),
 	],
 );

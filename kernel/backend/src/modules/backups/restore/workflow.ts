@@ -21,13 +21,13 @@ import {
 } from "#modules/uploads/managed-assets/service";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
-import { validateV2ArchiveStream } from "../archive-v2/archive";
-import { BackupArchiveError, type BackupArchiveErrorReason } from "../archive-v2/error";
+import { validateArchiveStream } from "../archive/archive";
+import { BackupArchiveError, type BackupArchiveErrorReason } from "../archive/error";
 import { BackupsRepository } from "../runs/repository";
 import { BackupAccountCleanliness } from "./account-cleanliness";
 import {
 	BackupRestoreWriter,
-	preflightV2Provenance,
+	preflightProvenance,
 	RequiredBackupPluginUnavailable,
 } from "./writer";
 
@@ -213,7 +213,7 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 						key: archive.key,
 						type: archive.provider,
 					});
-					const validated = yield* validateV2ArchiveStream(source, {
+					const validated = yield* validateArchiveStream(source, {
 						directory: config.fileStorage.localTempDir,
 					}).pipe(Effect.provideService(FileSystem.FileSystem, fs));
 					const stagedBySha = new Map<string, StagedPermanentAsset>();
@@ -230,7 +230,7 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 							preparedPlugins,
 							preflightPluginIds,
 						);
-						yield* preflightV2Provenance(
+						yield* preflightProvenance(
 							validated.records,
 							validated.events,
 							preflightPluginIds,

@@ -459,7 +459,7 @@ export const mediaPlugin = definePlugin({
 	signalSchemas: mediaSignalSchemas("media-monitoring"),
 	client: {
 		apiVersion: 1,
-		entry: "client/index.tsx",
+		homeView: null,
 		routes: { "/": "media-home" },
 		entities: {
 			show: {

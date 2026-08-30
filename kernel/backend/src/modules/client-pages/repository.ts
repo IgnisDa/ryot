@@ -26,6 +26,22 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 	"ClientPagesRepository",
 	{
 		make: Effect.sync(() => {
+			const restoreRenderer = Effect.fn("ClientPagesRepository.restoreRenderer")(function* (
+				input: Omit<
+					typeof schema.clientRenderer.$inferInsert,
+					"userId" | "publishedArtifactHash"
+				> & { readonly userId: UserId },
+			) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.insert(schema.clientRenderer)
+						.values({ ...input, publishedArtifactHash: null })
+						.returning(),
+				);
+				return row ? toRecord(row) : null;
+			});
+
 			const createRenderer = Effect.fn("ClientPagesRepository.createRenderer")(function* (input: {
 				readonly slug: string;
 				readonly name: string;
@@ -416,6 +432,7 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 				listRenderers,
 				lockSavedView,
 				createRenderer,
+				restoreRenderer,
 				deleteRenderer,
 				findKernelBuild,
 				findArtifactFile,
