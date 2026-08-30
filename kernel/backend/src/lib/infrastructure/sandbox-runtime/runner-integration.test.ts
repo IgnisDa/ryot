@@ -1,4 +1,5 @@
 import { BunServices, BunHttpServer } from "@effect/platform-bun";
+import { assert, expect, layer } from "@effect/vitest";
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import { sandboxCompilerPlatformLayer } from "@ryot-app/sandbox-compiler/platform";
 import { compilePluginSandboxSourceEntries } from "@ryot-app/sandbox-compiler/plugins";
@@ -7,10 +8,9 @@ import { SANDBOX_RUNTIME_REGISTRY } from "@ryot-app/sandbox-sdk/runtime-registry
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import type { Cause } from "effect";
-import { Effect, Layer, Queue, Schema, Stream, FileSystem, Path } from "effect";
+import { Context, Effect, FileSystem, Layer, Path, Queue, Schema, Stream } from "effect";
 import { HttpEffect, HttpServer } from "effect/unstable/http";
 import { ChildProcess } from "effect/unstable/process";
-import { afterAll, assert, beforeAll, expect, it } from "vitest";
 
 import { materializeSandboxCompiledModule } from "#lib/infrastructure/sandbox-runtime/compiled-modules";
 import {
@@ -23,42 +23,30 @@ import { sandboxRunnerSource } from "#lib/infrastructure/sandbox-runtime/runner.
 import { kernelScripts } from "#modules/definition-registry/kernel-source";
 import { SandboxCompiler } from "#modules/sandbox/sandbox-compiler";
 
-let dependencyRuntimeRoot: string | undefined;
-let dependencyRuntime: SandboxRuntimePaths | undefined;
-let runnerPath: string | undefined;
+class RunnerRuntime extends Context.Service<
+	RunnerRuntime,
+	{ readonly runtime: SandboxRuntimePaths; readonly runnerPath: string }
+>()("test/RunnerRuntime") {}
 
-beforeAll(
-	() =>
-		Effect.runPromise(
-			Effect.gen(function* () {
-				const fs = yield* FileSystem.FileSystem;
-				const root = yield* fs.makeTempDirectory({ prefix: "ryot-sandbox-runner-" });
-				const runtime = yield* materializeShippedSandboxRuntime(root);
-				const compiledRunnerPath = `${root}/runner.mjs`;
-				yield* fs.writeFileString(compiledRunnerPath, sandboxRunnerSource);
-				dependencyRuntimeRoot = root;
-				dependencyRuntime = runtime;
-				runnerPath = compiledRunnerPath;
-			}).pipe(Effect.provide(BunServices.layer)),
-		),
-	120_000,
+const runnerRuntimeLayer = Layer.effect(
+	RunnerRuntime,
+	Effect.gen(function* () {
+		const fs = yield* FileSystem.FileSystem;
+		const root = yield* Effect.acquireRelease(
+			fs.makeTempDirectory({ prefix: "ryot-sandbox-runner-" }),
+			(directory) => fs.remove(directory, { recursive: true }).pipe(Effect.ignore),
+		);
+		const runtime = yield* materializeShippedSandboxRuntime(root);
+		yield* Effect.addFinalizer(() => fs.chmod(runtime.directory, 0o755).pipe(Effect.ignore));
+		const runnerPath = `${root}/runner.mjs`;
+		yield* fs.writeFileString(runnerPath, sandboxRunnerSource);
+		return { runtime, runnerPath };
+	}),
 );
 
-afterAll(() => {
-	const root = dependencyRuntimeRoot;
-	const runtime = dependencyRuntime;
-	if (!root || !runtime) {
-		return Promise.resolve();
-	}
-
-	return Effect.runPromise(
-		Effect.gen(function* () {
-			const fs = yield* FileSystem.FileSystem;
-			yield* fs.chmod(runtime.directory, 0o755).pipe(Effect.ignore);
-			yield* fs.remove(root, { recursive: true });
-		}).pipe(Effect.provide(BunServices.layer)),
-	);
-});
+const runnerIntegrationLayer = Layer.merge(runnerRuntimeLayer, SandboxCompiler.layer).pipe(
+	Layer.provideMerge(Layer.merge(BunServices.layer, sandboxCompilerPlatformLayer)),
+);
 
 const source = `
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
@@ -615,9 +603,7 @@ type RunnerRequest = {
 const runInDenoRequest = ({ context, compiled, options = {} }: RunnerRequest) =>
 	Effect.scoped(
 		Effect.gen(function* () {
-			const runtime = dependencyRuntime;
-			assert(runtime);
-			assert(runnerPath);
+			const { runtime, runnerPath } = yield* RunnerRuntime;
 			const path = yield* Path.Path;
 			const filesystem = options.filesystem;
 			const apiBase = options.apiBase ?? "http://127.0.0.1:1";
@@ -743,7 +729,7 @@ const runInDenoRequest = ({ context, compiled, options = {} }: RunnerRequest) =>
 					new SandboxRunError({ kind: "script-failure", message: unknownToMessage(error) }),
 			});
 		}),
-	).pipe(Effect.provide(BunServices.layer));
+	);
 
 const runInDeno = (compiled: RunnerCompiledModule, context: unknown, options: RunnerOptions = {}) =>
 	runInDenoRequest({ context, options, compiled });
@@ -871,557 +857,6 @@ const startCoreHostBridge = (
 		};
 	});
 
-it("loads compiled ESM in Deno and validates definition input and output", () =>
-	Effect.runPromise(
-		Effect.gen(function* () {
-			const compiler = yield* SandboxCompiler;
-			const compiled = yield* compiler.compile(source);
-
-			const success = yield* runInDeno(compiled, { value: 42 });
-			assert(success !== null && typeof success === "object");
-			expect(Reflect.get(success, "error")).toBeUndefined();
-			expect(success).toMatchObject({ value: 42, success: true });
-
-			const invalidInput = yield* runInDeno(compiled, { value: "wrong" });
-			assert(invalidInput !== null && typeof invalidInput === "object");
-			expect(Reflect.get(invalidInput, "error")).toMatchObject({
-				phase: "input",
-				message: expect.stringContaining("Definition input validation failed"),
-			});
-
-			const promiseManifest = {
-				kind: "script",
-				capabilities: [],
-				requiredPluginConfigKeys: [],
-				requiredSystemConfigKeys: [],
-				name: "Promise definition rejection",
-				slug: "promise-definition-rejection",
-			} as const;
-			const promiseManifestSource = yield* Schema.encodeUnknownEffect(
-				Schema.fromJsonString(Schema.Unknown),
-			)(promiseManifest);
-			const promiseOutput = yield* runInDeno(
-				{
-					format: 1,
-					manifest: promiseManifest,
-					javascript: `import { Schema } from "@ryot-app/sandbox-sdk/effect";
-export default {
-	output: Schema.Boolean,
-	input: Schema.Struct({}),
-	run: () => Promise.resolve(true),
-  manifest: ${promiseManifestSource},
-  definitionType: "ryot:sandbox-script",
-};`,
-				},
-				{},
-			);
-			assert(promiseOutput !== null && typeof promiseOutput === "object");
-			expect(Reflect.get(promiseOutput, "error")).toEqual({
-				phase: "execute",
-				kind: "script-failure",
-				message: "Sandbox definition must return an Effect",
-			});
-
-			const unsupported = yield* runInDeno({ ...compiled, format: 2 }, { value: 42 });
-			assert(unsupported !== null && typeof unsupported === "object");
-			expect(Reflect.get(unsupported, "error")).toEqual({
-				phase: "load",
-				kind: "missing-artifact",
-				message: "Unsupported sandbox compiled format: 2",
-			});
-		}).pipe(Effect.provide(SandboxCompiler.layer)),
-	));
-
-it("returns source-mapped, sanitized execution and load errors", () =>
-	Effect.runPromise(
-		Effect.gen(function* () {
-			const compiler = yield* SandboxCompiler;
-			const compiled = yield* compiler.compile(failureSource);
-			const throwingLine = failureSource
-				.slice(0, failureSource.indexOf('throw new Error("mapped execution failure execution-1")'))
-				.split("\n").length;
-			const result = yield* runInDeno(compiled, {});
-			assert(result !== null && typeof result === "object");
-			expect(Reflect.get(result, "error")).toMatchObject({
-				phase: "execute",
-				line: throwingLine,
-				message: "mapped execution failure [redacted]",
-			});
-
-			const loadSource = failureSource.replace(
-				"export default defineScript",
-				'throw new Error("mapped load failure execution-1");\n\nexport default defineScript',
-			);
-			const loadLine = loadSource
-				.slice(0, loadSource.indexOf('throw new Error("mapped load failure execution-1")'))
-				.split("\n").length;
-			const loadResult = yield* runInDeno(yield* compiler.compile(loadSource), {});
-			assert(loadResult !== null && typeof loadResult === "object");
-			expect(Reflect.get(loadResult, "error")).toMatchObject({
-				phase: "load",
-				line: loadLine,
-				message: "mapped load failure [redacted]",
-			});
-
-			assert(dependencyRuntime);
-			const path = yield* Path.Path;
-			const missingModulePath = `${dependencyRuntime.moduleDirectory}/${"0".repeat(64)}.mjs`;
-			const missingResult = yield* runInDeno(
-				compiled,
-				{},
-				{ moduleUrl: (yield* path.toFileUrl(missingModulePath)).href },
-			);
-			assert(missingResult !== null && typeof missingResult === "object");
-			const missingError = Reflect.get(missingResult, "error");
-			const encodedMissingError = encodeRunnerRequest(missingError);
-			expect(missingError).toMatchObject({ phase: "load" });
-			expect(encodedMissingError).not.toContain("file://");
-			expect(encodedMissingError).not.toContain(dependencyRuntime.directory);
-
-			const pathLeakSource = failureSource.replace(
-				'throw new Error("mapped execution failure execution-1")',
-				'throw new Error(new URL(".", import.meta.url).pathname)',
-			);
-			const pathLeakResult = yield* runInDeno(yield* compiler.compile(pathLeakSource), {});
-			assert(pathLeakResult !== null && typeof pathLeakResult === "object");
-			const encodedPathLeakError = encodeRunnerRequest(Reflect.get(pathLeakResult, "error"));
-			expect(encodedPathLeakError).not.toContain(dependencyRuntime.moduleDirectory);
-		}).pipe(Effect.provide(Layer.merge(SandboxCompiler.layer, BunServices.layer))),
-	));
-
-it("enforces direct-definition output and log limits", () =>
-	Effect.runPromise(
-		Effect.gen(function* () {
-			const compiler = yield* SandboxCompiler;
-			const compiled = yield* compiler.compile(limitsSource);
-			const output = yield* runInDeno(compiled, { mode: "output" });
-			assert(output !== null && typeof output === "object");
-			expect(Reflect.get(output, "error")).toEqual({
-				phase: "output",
-				kind: "invalid-output",
-				message: `Sandbox definition result exceeds ${SANDBOX_LIMITS.execution.resultBytes} UTF-8 bytes`,
-			});
-
-			const logged = yield* runInDeno(compiled, { mode: "logs" });
-			assert(logged !== null && typeof logged === "object");
-			const logs = Reflect.get(logged, "logs");
-			assert(Array.isArray(logs));
-			expect(logs).toHaveLength(SANDBOX_LIMITS.logs.entryCount);
-			expect(logs.at(-1)).toBe("[sandbox logs truncated]");
-		}).pipe(Effect.provide(SandboxCompiler.layer)),
-	));
-
-it("exposes only granted artifact reads and named scratch chunk writes", () =>
-	Effect.runPromise(
-		Effect.scoped(
-			Effect.gen(function* () {
-				const fs = yield* FileSystem.FileSystem;
-				const compiler = yield* SandboxCompiler;
-				const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-runner-filesystem-" });
-				const artifactPath = `${root}/artifact.json`;
-				const namedArtifactPath = `${root}/history.json`;
-				const scratchDirectory = `${root}/scratch`;
-				yield* fs.makeDirectory(scratchDirectory);
-				yield* fs.writeFileString(artifactPath, "[1,2]");
-				yield* fs.writeFileString(namedArtifactPath, "[3,4]");
-				const compiled = yield* compiler.compile(filesystemSource);
-
-				const unavailable = yield* runInDeno(compiled, { chunkName: "chunk.json" });
-				assert(unavailable !== null && typeof unavailable === "object");
-				expect(Reflect.get(unavailable, "error")).toMatchObject({
-					phase: "execute",
-					message: "Sandbox artifact grant is unavailable",
-				});
-
-				const options = { filesystem: { artifactPath, scratchDirectory } };
-				const success = yield* runInDeno(compiled, { chunkName: "chunk.json" }, options);
-				expect(success).toMatchObject({ success: true, value: { chunkFiles: ["chunk.json"] } });
-				expect(yield* fs.readFileString(`${scratchDirectory}/chunk.json`)).toBe("[1,2]");
-
-				const namedOptions = {
-					filesystem: {
-						scratchDirectory,
-						namedArtifactPaths: { historyFilePath: namedArtifactPath },
-					},
-				};
-				const named = yield* runInDeno(
-					compiled,
-					{ chunkName: "named.json", artifactKey: "historyFilePath" },
-					namedOptions,
-				);
-				expect(named).toMatchObject({ success: true, value: { chunkFiles: ["named.json"] } });
-				expect(yield* fs.readFileString(`${scratchDirectory}/named.json`)).toBe("[3,4]");
-				const missingNamed = yield* runInDeno(
-					compiled,
-					{ chunkName: "missing.json", artifactKey: "ratingsFilePath" },
-					namedOptions,
-				);
-				assert(missingNamed !== null && typeof missingNamed === "object");
-				expect(Reflect.get(missingNamed, "error")).toMatchObject({
-					phase: "execute",
-					message: 'Sandbox named artifact grant "ratingsFilePath" is unavailable',
-				});
-
-				const traversal = yield* runInDeno(compiled, { chunkName: "../outside.json" }, options);
-				assert(traversal !== null && typeof traversal === "object");
-				expect(Reflect.get(traversal, "error")).toMatchObject({
-					phase: "execute",
-					message: "Sandbox scratch chunk names must be plain file names",
-				});
-				expect(yield* fs.exists(`${root}/outside.json`)).toBe(false);
-			}).pipe(Effect.provide(Layer.merge(SandboxCompiler.layer, BunServices.layer))),
-		),
-	));
-
-it(
-	"loads one compiled fixture for each approved SDK dependency without remote modules",
-	() =>
-		Effect.runPromise(
-			Effect.gen(function* () {
-				const compiler = yield* SandboxCompiler;
-				for (const dependency of SANDBOX_RUNTIME_REGISTRY) {
-					const compiled = yield* compiler.compile(
-						dependencySource(dependency.name, dependency.sdkImport),
-					);
-					const result = yield* runInDeno(compiled, {});
-					assert(result !== null && typeof result === "object");
-					expect(Reflect.get(result, "error"), dependency.name).toBeUndefined();
-					expect(result).toMatchObject({ value: null, success: true });
-				}
-			}).pipe(Effect.provide(SandboxCompiler.layer)),
-		),
-	50_000,
-);
-
-it("preserves Effect and RyotQL identity across SDK and plugin-kit aliases", () =>
-	Effect.runPromise(
-		Effect.gen(function* () {
-			const result = yield* runInDeno(
-				{
-					format: 1,
-					javascript: aliasIdentitySource,
-					manifest: {
-						kind: "script",
-						capabilities: [],
-						requiredPluginConfigKeys: [],
-						requiredSystemConfigKeys: [],
-						name: "Runtime alias identity",
-						slug: "runtime-alias-identity",
-					},
-				},
-				{},
-			);
-			expect(result).toMatchObject({ value: true, success: true });
-		}),
-	));
-
-it("disables obfuscated string-generated imports at runtime", () =>
-	Effect.runPromise(
-		Effect.gen(function* () {
-			const compiler = yield* SandboxCompiler;
-			const compiled = yield* compiler.compile(generatedNpmImportSource);
-			const result = yield* runInDeno(compiled, {});
-			assert(result !== null && typeof result === "object");
-			expect(Reflect.get(result, "error")).toMatchObject({
-				phase: "execute",
-				message: expect.stringContaining("Function is not a function"),
-			});
-		}).pipe(Effect.provide(SandboxCompiler.layer)),
-	));
-
-it("executes typed core host methods and builds the Deno host from approved capabilities", () =>
-	Effect.runPromise(
-		Effect.scoped(
-			Effect.gen(function* () {
-				const bridge = yield* startCoreHostBridge();
-				const compiler = yield* SandboxCompiler;
-				const compiled = yield* compiler.compile(coreHostSource);
-				const approved = yield* compiler.compile(approvedHostSource);
-				const apiBase = `http://127.0.0.1:${bridge.port}`;
-				const apiFunctions = compiled.manifest.capabilities;
-
-				bridge.register("execution-a-1", "script-a");
-				const first = yield* runInDeno(
-					compiled,
-					{ write: true },
-					{ apiBase, apiFunctions, scriptId: "script-a", executionId: "execution-a-1" },
-				);
-				assert(first !== null && typeof first === "object");
-				expect(Reflect.get(first, "value")).toMatchObject({
-					before: null,
-					after: { value: 42 },
-					claim: { claimed: true },
-					config: { timezone: "Etc/GMT" },
-					preferences: { allowNsfw: false, disableIntegrations: true },
-				});
-
-				bridge.register("execution-b-1", "script-b");
-				const isolated = yield* runInDeno(
-					compiled,
-					{ write: false },
-					{ apiBase, apiFunctions, scriptId: "script-b", executionId: "execution-b-1" },
-				);
-				assert(isolated !== null && typeof isolated === "object");
-				expect(Reflect.get(isolated, "value")).toMatchObject({
-					after: null,
-					before: null,
-					claim: { claimed: true },
-				});
-
-				bridge.register("execution-a-2", "script-a");
-				const persistent = yield* runInDeno(
-					compiled,
-					{ write: false },
-					{ apiBase, apiFunctions, scriptId: "script-a", executionId: "execution-a-2" },
-				);
-				assert(persistent !== null && typeof persistent === "object");
-				expect(Reflect.get(persistent, "value")).toMatchObject({
-					after: { value: 42 },
-					before: { value: 42 },
-					http: { status: 200 },
-					claim: { claimed: false, value: { owner: "script-a" } },
-				});
-
-				const approvedResult = yield* runInDeno(
-					approved,
-					{},
-					{ apiBase, apiFunctions: ["getCachedValue", "setCachedValue", "getSystemConfig"] },
-				);
-				assert(approvedResult !== null && typeof approvedResult === "object");
-				expect(Reflect.get(approvedResult, "value")).toEqual({
-					value: null,
-					keys: ["getCachedValue", "getSystemConfig", "setCachedValue"],
-				});
-
-				expect(new Set(bridge.calls.map((call) => call.fnName))).toEqual(new Set(apiFunctions));
-			}).pipe(Effect.provide(SandboxCompiler.layer)),
-		),
-	));
-
-it("rejects malformed private host wire responses", () =>
-	Effect.runPromise(
-		Effect.scoped(
-			Effect.gen(function* () {
-				const bridge = yield* startCoreHostBridge({ getCachedValueResult: { success: true } });
-				const compiler = yield* SandboxCompiler;
-				const compiled = yield* compiler.compile(approvedHostSource);
-				const result = yield* runInDeno(
-					compiled,
-					{},
-					{
-						apiBase: `http://127.0.0.1:${bridge.port}`,
-						apiFunctions: compiled.manifest.capabilities,
-					},
-				);
-				assert(result !== null && typeof result === "object");
-				expect(Reflect.get(result, "error")).toMatchObject({
-					phase: "execute",
-					message: expect.stringContaining("Missing key"),
-				});
-			}).pipe(Effect.provide(SandboxCompiler.layer)),
-		),
-	));
-
-it(
-	"loads every kernel script in Deno",
-	() =>
-		Effect.runPromise(
-			Effect.gen(function* () {
-				const fs = yield* FileSystem.FileSystem;
-				const path = yield* Path.Path;
-				const kernelFiles = Object.fromEntries(
-					yield* Effect.forEach(kernelScripts, (script) =>
-						Effect.gen(function* () {
-							const filePath = yield* path.fromFileUrl(
-								new URL(`../../../../${script.entry}`, import.meta.url),
-							);
-							const scriptSource = yield* fs.readFileString(filePath);
-							return [script.entry, scriptSource] as const;
-						}),
-					),
-				);
-				const kernelOutputs = yield* compilePluginSandboxSourceEntries(kernelFiles, kernelScripts);
-				yield* Effect.forEach(
-					kernelOutputs,
-					({ compiled }) =>
-						Effect.gen(function* () {
-							const slug = compiled.manifest.slug;
-							const result = yield* runInDeno(compiled, {});
-							assert(result !== null && typeof result === "object", slug);
-							const error = Reflect.get(result, "error");
-							if (error !== null && typeof error === "object") {
-								expect(
-									Reflect.get(error, "phase"),
-									`${slug}: ${String(Reflect.get(error, "message"))}`,
-								).not.toBe("load");
-							}
-						}),
-					{ concurrency: 5 },
-				);
-			}).pipe(Effect.provide(Layer.merge(BunServices.layer, sandboxCompilerPlatformLayer))),
-		),
-	120_000,
-);
-
-it(
-	"executes a kernel-owned compiled host bridge fixture in Deno",
-	() =>
-		Effect.runPromise(
-			Effect.scoped(
-				Effect.gen(function* () {
-					const bridge = yield* startCoreHostBridge({
-						pluginConfigValue: "configured",
-						httpResponse: () => ({ ready: true }),
-					});
-					const compiled = yield* compileHostBridgeFixture;
-					const result = yield* runInDeno(
-						compiled,
-						{},
-						{
-							apiBase: `http://127.0.0.1:${bridge.port}`,
-							apiFunctions: compiled.manifest.capabilities,
-						},
-					);
-					assert(result !== null && typeof result === "object");
-					expect(result).toMatchObject({ success: true });
-					expect(Reflect.get(result, "value")).toMatchObject({
-						cached: null,
-						config: { fixtureValue: "configured" },
-					});
-					const cacheWrite = bridge.calls.find((call) => call.fnName === "setCachedValue");
-					expect(cacheWrite?.args).toEqual(["fixture-key", { ready: true }, 60]);
-				}).pipe(Effect.provide(Layer.merge(BunServices.layer, sandboxCompilerPlatformLayer))),
-			),
-		),
-	120_000,
-);
-
-it("keeps caught durable pending control flow pending and collects parallel calls in source order", () =>
-	Effect.runPromise(
-		Effect.scoped(
-			Effect.gen(function* () {
-				const bridge = yield* startCoreHostBridge({ replayJournalResult: [] });
-				const manifest = {
-					name: "Durable role",
-					slug: "durable-role",
-					kind: "operation" as const,
-					requiredPluginConfigKeys: [] as const,
-					requiredSystemConfigKeys: [] as const,
-					capabilities: ["getCachedValue"] as const,
-				};
-				const options = {
-					apiFunctions: ["replayJournal"],
-					workflowExecutionId: "durable-parent",
-					apiBase: `http://127.0.0.1:${bridge.port}`,
-				};
-				const caught = yield* runInDeno(
-					{ manifest, format: 1, javascript: durableRoleSource },
-					{ mode: "caught" },
-					options,
-				);
-				const parallel = yield* runInDeno(
-					{ manifest, format: 1, javascript: durableRoleSource },
-					{ mode: "parallel" },
-					options,
-				);
-				expect(caught).toMatchObject({
-					success: true,
-					value: {
-						state: "pending",
-						journalLength: 0,
-						requests: [
-							{
-								index: 0,
-								kind: "host",
-								name: "getCachedValue",
-								args: { args: ["first"], capability: "getCachedValue" },
-							},
-						],
-					},
-				});
-				expect(parallel).toMatchObject({
-					success: true,
-					value: {
-						journalLength: 0,
-						state: "pending",
-						requests: [
-							{ index: 0, args: { args: ["first"] } },
-							{ index: 1, args: { args: ["second"] } },
-						],
-					},
-				});
-				expect(bridge.calls.map(({ fnName }) => fnName)).toEqual([
-					"replayJournal",
-					"replayJournal",
-				]);
-			}),
-		),
-	));
-
-it("replays durable host successes and typed failures without bridge redispatch", () =>
-	Effect.runPromise(
-		Effect.scoped(
-			Effect.gen(function* () {
-				const bridge = yield* startCoreHostBridge({
-					replayJournalResult: [
-						{
-							value: { state: "success", value: "recorded" },
-							request: {
-								index: 0,
-								kind: "host",
-								name: "getCachedValue",
-								args: { args: ["first"], capability: "getCachedValue" },
-							},
-						},
-						{
-							value: {
-								state: "failure",
-								error: { data: { code: 7 }, message: "recorded failure" },
-							},
-							request: {
-								index: 1,
-								kind: "host",
-								name: "getCachedValue",
-								args: { args: ["second"], capability: "getCachedValue" },
-							},
-						},
-					],
-				});
-				const manifest = {
-					name: "Durable role",
-					slug: "durable-role",
-					kind: "operation" as const,
-					requiredPluginConfigKeys: [] as const,
-					requiredSystemConfigKeys: [] as const,
-					capabilities: ["getCachedValue"] as const,
-				};
-				const result = yield* runInDeno(
-					{ manifest, format: 1, javascript: durableRoleSource },
-					{ mode: "replay" },
-					{
-						apiFunctions: ["replayJournal"],
-						workflowExecutionId: "durable-parent",
-						apiBase: `http://127.0.0.1:${bridge.port}`,
-					},
-				);
-
-				expect(result).toMatchObject({
-					success: true,
-					value: {
-						journalLength: 2,
-						state: "completed",
-						output: {
-							first: "recorded",
-							startedAt: "2026-08-06T00:00:00.000Z",
-							second: { data: { code: 7 }, error: "recorded failure" },
-						},
-					},
-				});
-				expect(bridge.calls.map(({ fnName }) => fnName)).toEqual(["replayJournal"]);
-			}),
-		),
-	));
-
 const durableRoleManifest = {
 	name: "Durable role",
 	slug: "durable-role",
@@ -1437,401 +872,6 @@ const cachedValueKey = (request: unknown) => {
 	assert(Array.isArray(args));
 	return String(args[0]);
 };
-
-it("continues a live replay through host-settled inline batches, including typed failures", () =>
-	Effect.runPromise(
-		Effect.scoped(
-			Effect.gen(function* () {
-				const bridge = yield* startCoreHostBridge({ replayJournalResult: [] });
-				const batches: Array<ReadonlyArray<string>> = [];
-				const result = yield* runInDeno(
-					{ format: 1, manifest: durableRoleManifest, javascript: durableRoleSource },
-					{ mode: "replay" },
-					{
-						apiFunctions: ["replayJournal"],
-						workflowExecutionId: "durable-parent",
-						apiBase: `http://127.0.0.1:${bridge.port}`,
-						inlineDurableCapabilities: ["getCachedValue"],
-						settleInline: (requests) => {
-							const keys = requests.map(cachedValueKey);
-							batches.push(keys);
-							return {
-								results: keys.map((key) =>
-									key === "first"
-										? { state: "success", value: "inline-first" }
-										: { state: "failure", error: { data: { code: 9 }, message: "inline failure" } },
-								),
-							};
-						},
-					},
-				);
-
-				expect(batches).toEqual([["first"], ["second"]]);
-				expect(result).toMatchObject({
-					success: true,
-					value: {
-						journalLength: 0,
-						state: "completed",
-						output: {
-							first: "inline-first",
-							second: { data: { code: 9 }, error: "inline failure" },
-						},
-						requests: [
-							{ index: 0, args: { args: ["first"] } },
-							{ index: 1, args: { args: ["second"] } },
-						],
-					},
-				});
-				expect(bridge.calls.map(({ fnName }) => fnName)).toEqual(["replayJournal"]);
-			}),
-		),
-	));
-
-it("delivers large multibyte inline results intact across stdin reads", () =>
-	Effect.runPromise(
-		Effect.scoped(
-			Effect.gen(function* () {
-				const bridge = yield* startCoreHostBridge({ replayJournalResult: [] });
-				const value = "日本語".repeat(40_000);
-				const result = yield* runInDeno(
-					{ format: 1, manifest: durableRoleManifest, javascript: durableRoleSource },
-					{ mode: "parallel" },
-					{
-						apiFunctions: ["replayJournal"],
-						workflowExecutionId: "durable-parent",
-						apiBase: `http://127.0.0.1:${bridge.port}`,
-						inlineDurableCapabilities: ["getCachedValue"],
-						settleInline: (requests) => ({
-							results: requests.map(() => ({ value, state: "success" })),
-						}),
-					},
-				);
-
-				expect(result).toMatchObject({
-					success: true,
-					value: { state: "completed", output: { values: [value, value] } },
-				});
-			}),
-		),
-	));
-
-it("settles concurrently registered durable calls as one inline batch", () =>
-	Effect.runPromise(
-		Effect.scoped(
-			Effect.gen(function* () {
-				const bridge = yield* startCoreHostBridge({ replayJournalResult: [] });
-				const batches: Array<ReadonlyArray<string>> = [];
-				const result = yield* runInDeno(
-					{ format: 1, manifest: durableRoleManifest, javascript: durableRoleSource },
-					{ mode: "parallel" },
-					{
-						apiFunctions: ["replayJournal"],
-						workflowExecutionId: "durable-parent",
-						apiBase: `http://127.0.0.1:${bridge.port}`,
-						inlineDurableCapabilities: ["getCachedValue"],
-						settleInline: (requests) => {
-							const keys = requests.map(cachedValueKey);
-							batches.push(keys);
-							return { results: keys.map((key) => ({ value: key, state: "success" })) };
-						},
-					},
-				);
-
-				expect(batches).toEqual([["first", "second"]]);
-				expect(result).toMatchObject({
-					success: true,
-					value: { state: "completed", output: { values: ["first", "second"] } },
-				});
-			}),
-		),
-	));
-
-it("ends a live replay pending when the host defers or the capability is not inline", () =>
-	Effect.runPromise(
-		Effect.scoped(
-			Effect.gen(function* () {
-				const bridge = yield* startCoreHostBridge({ replayJournalResult: [] });
-				const batches: Array<ReadonlyArray<string>> = [];
-				const settleInline = (requests: ReadonlyArray<unknown>) => {
-					batches.push(requests.map(cachedValueKey));
-					return { defer: true };
-				};
-				const options = {
-					settleInline,
-					apiFunctions: ["replayJournal"],
-					workflowExecutionId: "durable-parent",
-					apiBase: `http://127.0.0.1:${bridge.port}`,
-				};
-				const deferred = yield* runInDeno(
-					{ format: 1, manifest: durableRoleManifest, javascript: durableRoleSource },
-					{ mode: "parallel" },
-					{ ...options, inlineDurableCapabilities: ["getCachedValue"] },
-				);
-				const notInline = yield* runInDeno(
-					{ format: 1, manifest: durableRoleManifest, javascript: durableRoleSource },
-					{ mode: "parallel" },
-					{ ...options, inlineDurableCapabilities: ["setCachedValue"] },
-				);
-
-				expect(batches).toEqual([["first", "second"]]);
-				for (const result of [deferred, notInline]) {
-					expect(result).toMatchObject({
-						success: true,
-						value: {
-							journalLength: 0,
-							state: "pending",
-							requests: [{ args: { args: ["first"] } }, { args: { args: ["second"] } }],
-						},
-					});
-				}
-			}),
-		),
-	));
-
-it("rejects a durable role that returns with detached host work", () =>
-	Effect.runPromise(
-		Effect.scoped(
-			Effect.gen(function* () {
-				const bridge = yield* startCoreHostBridge({ replayJournalResult: [] });
-				const manifest = {
-					name: "Durable role",
-					slug: "durable-role",
-					kind: "operation" as const,
-					requiredPluginConfigKeys: [] as const,
-					requiredSystemConfigKeys: [] as const,
-					capabilities: ["getCachedValue"] as const,
-				};
-				const result = yield* runInDeno(
-					{ manifest, format: 1, javascript: durableRoleSource },
-					{ mode: "detached" },
-					{
-						apiFunctions: ["replayJournal"],
-						workflowExecutionId: "durable-parent",
-						apiBase: `http://127.0.0.1:${bridge.port}`,
-					},
-				);
-
-				expect(result).toMatchObject({
-					success: true,
-					value: {
-						state: "failed",
-						journalLength: 0,
-						error: "Sandbox body returned with detached or in-flight durable host work",
-					},
-				});
-			}),
-		),
-	));
-
-it("exposes only kernel-selected workflow host functions despite an empty manifest", () =>
-	Effect.runPromise(
-		Effect.scoped(
-			Effect.gen(function* () {
-				const bridge = yield* startCoreHostBridge({ replayJournalResult: [{ recorded: true }] });
-				const manifest = {
-					name: "Workflow host",
-					slug: "workflow-host",
-					kind: "workflow" as const,
-					capabilities: [] as const,
-					requiredPluginConfigKeys: [] as const,
-					requiredSystemConfigKeys: [] as const,
-				};
-				const result = yield* runInDeno(
-					{ manifest, format: 1, javascript: workflowHostSource },
-					{},
-					{ apiFunctions: ["replayJournal"], apiBase: `http://127.0.0.1:${bridge.port}` },
-				);
-
-				expect(result).toMatchObject({
-					success: true,
-					value: { keys: ["replayJournal"], journal: [{ recorded: true }] },
-				});
-				expect(bridge.calls).toEqual([
-					expect.objectContaining({ args: [], fnName: "replayJournal" }),
-				]);
-			}),
-		),
-	));
-
-it("blocks ambient workflow nondeterminism through aliases and call helpers at runtime", () =>
-	Effect.runPromise(
-		Effect.forEach(
-			[
-				["date-call", "Date()"],
-				["date-new", "new Date()"],
-				["math-random", "Math.random"],
-				["temporal-now", "Temporal.Now"],
-				["performance-now", "performance.now"],
-				["crypto-random-uuid", "crypto.randomUUID"],
-				["crypto-random-values", "crypto.getRandomValues"],
-			] as const,
-			([operation, expected]) =>
-				Effect.gen(function* () {
-					const manifest = {
-						kind: "workflow" as const,
-						capabilities: [] as const,
-						name: "Workflow nondeterminism",
-						slug: "workflow-nondeterminism",
-						requiredPluginConfigKeys: [] as const,
-						requiredSystemConfigKeys: [] as const,
-					};
-					const result = yield* runInDeno(
-						{ manifest, format: 1, javascript: workflowNondeterminismSource },
-						{ operation, timestamp: "2024-01-01T00:00:00.000Z" },
-					);
-					assert(result !== null && typeof result === "object");
-					expect(Reflect.get(result, "error")).toMatchObject({
-						phase: "execute",
-						message: expect.stringContaining(expected),
-					});
-				}),
-			{ concurrency: 4 },
-		),
-	));
-
-it("keeps the deterministic workflow clock active through Effect callbacks", () =>
-	Effect.runPromise(
-		Effect.forEach(["date-now", "date-now-callback"], (operation) =>
-			Effect.gen(function* () {
-				const manifest = {
-					kind: "workflow" as const,
-					capabilities: [] as const,
-					name: "Workflow nondeterminism",
-					slug: "workflow-nondeterminism",
-					requiredPluginConfigKeys: [] as const,
-					requiredSystemConfigKeys: [] as const,
-				};
-				const result = yield* runInDeno(
-					{ manifest, format: 1, javascript: workflowNondeterminismSource },
-					{ operation, timestamp: "2024-01-01T00:00:00.000Z" },
-				);
-
-				expect(result).toMatchObject({ value: 0, success: true });
-			}),
-		),
-	));
-
-it("allows deterministic workflow dates without changing ambient APIs for scripts", () =>
-	Effect.runPromise(
-		Effect.gen(function* () {
-			const workflowManifest = {
-				kind: "workflow" as const,
-				capabilities: [] as const,
-				name: "Workflow nondeterminism",
-				slug: "workflow-nondeterminism",
-				requiredPluginConfigKeys: [] as const,
-				requiredSystemConfigKeys: [] as const,
-			};
-			const scriptManifest = {
-				name: "Ambient script",
-				slug: "ambient-script",
-				kind: "script" as const,
-				capabilities: [] as const,
-				requiredPluginConfigKeys: [] as const,
-				requiredSystemConfigKeys: [] as const,
-			};
-			const workflowResult = yield* runInDeno(
-				{ format: 1, manifest: workflowManifest, javascript: workflowNondeterminismSource },
-				{ operation: "parse", timestamp: "2024-01-01T00:00:00.000Z" },
-			);
-			const scriptResult = yield* runInDeno(
-				{ format: 1, manifest: scriptManifest, javascript: ambientScriptSource },
-				{},
-			);
-			expect(workflowResult).toMatchObject({
-				success: true,
-				value: {
-					utc: 1_704_067_200_000,
-					parsed: 1_704_067_200_000,
-					instanceConstructor: true,
-					prototypeConstructor: true,
-					iso: "2024-01-01T00:00:00.000Z",
-				},
-			});
-			expect(scriptResult).toMatchObject({ value: true, success: true });
-		}),
-	));
-
-it("resets approved Youtubei randomness for each replay", () =>
-	Effect.runPromise(
-		Effect.gen(function* () {
-			const compiler = yield* SandboxCompiler;
-			const compiled = yield* compiler.compile(approvedYoutubeiDeterminismSource);
-			const run = (executionId: string) =>
-				runInDeno(compiled, {}, { executionId, startedAt: "2026-08-06T00:00:00.000Z" });
-			const first = yield* run("youtubei-replay");
-			const second = yield* run("youtubei-replay");
-			const other = yield* run("youtubei-other");
-			assert(first !== null && typeof first === "object");
-			assert(second !== null && typeof second === "object");
-			assert(other !== null && typeof other === "object");
-			expect(first).toMatchObject({ success: true, value: expect.any(String) });
-			expect(second).toMatchObject({ success: true, value: expect.any(String) });
-			expect(other).toMatchObject({ success: true, value: expect.any(String) });
-			expect(Reflect.get(second, "value")).toBe(Reflect.get(first, "value"));
-			expect(Reflect.get(other, "value")).not.toBe(Reflect.get(first, "value"));
-		}).pipe(Effect.provide(SandboxCompiler.layer)),
-	));
-
-it("does not expose Effect Clock or Random services to workflows at runtime", () =>
-	Effect.runPromise(
-		Effect.gen(function* () {
-			const manifest = {
-				kind: "workflow" as const,
-				capabilities: [] as const,
-				name: "Workflow nondeterminism",
-				slug: "workflow-nondeterminism",
-				requiredPluginConfigKeys: [] as const,
-				requiredSystemConfigKeys: [] as const,
-			};
-			const result = yield* runInDeno(
-				{ manifest, format: 1, javascript: workflowNondeterminismSource },
-				{ operation: "effect-services", timestamp: "2024-01-01T00:00:00.000Z" },
-			);
-
-			expect(result).toMatchObject({
-				success: true,
-				value: { clockWith: "undefined", randomWith: "undefined" },
-			});
-		}),
-	));
-
-it("counts failed host-call attempts against total and HTTP budgets", () =>
-	Effect.runPromise(
-		Effect.scoped(
-			Effect.gen(function* () {
-				const bridge = yield* startCoreHostBridge();
-				const compiler = yield* SandboxCompiler;
-				const compiled = yield* compiler.compile(hostBudgetSource);
-				const options = {
-					apiBase: `http://127.0.0.1:${bridge.port}`,
-					apiFunctions: compiled.manifest.capabilities,
-				};
-
-				const hostResult = yield* runInDeno(compiled, { kind: "host" }, options);
-				assert(hostResult !== null && typeof hostResult === "object");
-				expect(Reflect.get(hostResult, "error")).toEqual({
-					phase: "execute",
-					kind: "script-failure",
-					message: `Sandbox execution exceeds ${SANDBOX_LIMITS.hostCalls.total} host calls`,
-				});
-				expect(bridge.calls.filter((call) => call.fnName === "getCachedValue")).toHaveLength(
-					SANDBOX_LIMITS.hostCalls.total,
-				);
-
-				const httpResult = yield* runInDeno(compiled, { kind: "http" }, options);
-				assert(httpResult !== null && typeof httpResult === "object");
-				expect(Reflect.get(httpResult, "error")).toEqual({
-					phase: "execute",
-					kind: "script-failure",
-					message: `Sandbox execution exceeds ${SANDBOX_LIMITS.hostCalls.http} httpCall calls`,
-				});
-				expect(bridge.calls.filter((call) => call.fnName === "httpCall")).toHaveLength(
-					SANDBOX_LIMITS.hostCalls.http,
-				);
-			}).pipe(Effect.provide(SandboxCompiler.layer)),
-		),
-	));
 
 const domainIntegrationRecord = {
 	name: null,
@@ -1947,8 +987,941 @@ const startDomainHostBridge = () =>
 		return { createdEvents, port: address.port };
 	});
 
-it("executes typed domain host methods through Deno", () =>
-	Effect.runPromise(
+layer(runnerIntegrationLayer, { timeout: 120_000, excludeTestServices: true })((test) => {
+	test.effect("loads compiled ESM in Deno and validates definition input and output", () =>
+		Effect.gen(function* () {
+			const compiler = yield* SandboxCompiler;
+			const compiled = yield* compiler.compile(source);
+
+			const success = yield* runInDeno(compiled, { value: 42 });
+			assert(success !== null && typeof success === "object");
+			expect(Reflect.get(success, "error")).toBeUndefined();
+			expect(success).toMatchObject({ value: 42, success: true });
+
+			const invalidInput = yield* runInDeno(compiled, { value: "wrong" });
+			assert(invalidInput !== null && typeof invalidInput === "object");
+			expect(Reflect.get(invalidInput, "error")).toMatchObject({
+				phase: "input",
+				message: expect.stringContaining("Definition input validation failed"),
+			});
+
+			const promiseManifest = {
+				kind: "script",
+				capabilities: [],
+				requiredPluginConfigKeys: [],
+				requiredSystemConfigKeys: [],
+				name: "Promise definition rejection",
+				slug: "promise-definition-rejection",
+			} as const;
+			const promiseManifestSource = yield* Schema.encodeUnknownEffect(
+				Schema.fromJsonString(Schema.Unknown),
+			)(promiseManifest);
+			const promiseOutput = yield* runInDeno(
+				{
+					format: 1,
+					manifest: promiseManifest,
+					javascript: `import { Schema } from "@ryot-app/sandbox-sdk/effect";
+	export default {
+		output: Schema.Boolean,
+		input: Schema.Struct({}),
+		run: () => Promise.resolve(true),
+	  manifest: ${promiseManifestSource},
+	  definitionType: "ryot:sandbox-script",
+	};`,
+				},
+				{},
+			);
+			assert(promiseOutput !== null && typeof promiseOutput === "object");
+			expect(Reflect.get(promiseOutput, "error")).toEqual({
+				phase: "execute",
+				kind: "script-failure",
+				message: "Sandbox definition must return an Effect",
+			});
+
+			const unsupported = yield* runInDeno({ ...compiled, format: 2 }, { value: 42 });
+			assert(unsupported !== null && typeof unsupported === "object");
+			expect(Reflect.get(unsupported, "error")).toEqual({
+				phase: "load",
+				kind: "missing-artifact",
+				message: "Unsupported sandbox compiled format: 2",
+			});
+		}),
+	);
+
+	test.effect("returns source-mapped, sanitized execution and load errors", () =>
+		Effect.gen(function* () {
+			const compiler = yield* SandboxCompiler;
+			const compiled = yield* compiler.compile(failureSource);
+			const throwingLine = failureSource
+				.slice(0, failureSource.indexOf('throw new Error("mapped execution failure execution-1")'))
+				.split("\n").length;
+			const result = yield* runInDeno(compiled, {});
+			assert(result !== null && typeof result === "object");
+			expect(Reflect.get(result, "error")).toMatchObject({
+				phase: "execute",
+				line: throwingLine,
+				message: "mapped execution failure [redacted]",
+			});
+
+			const loadSource = failureSource.replace(
+				"export default defineScript",
+				'throw new Error("mapped load failure execution-1");\n\nexport default defineScript',
+			);
+			const loadLine = loadSource
+				.slice(0, loadSource.indexOf('throw new Error("mapped load failure execution-1")'))
+				.split("\n").length;
+			const loadResult = yield* runInDeno(yield* compiler.compile(loadSource), {});
+			assert(loadResult !== null && typeof loadResult === "object");
+			expect(Reflect.get(loadResult, "error")).toMatchObject({
+				phase: "load",
+				line: loadLine,
+				message: "mapped load failure [redacted]",
+			});
+
+			const { runtime: dependencyRuntime } = yield* RunnerRuntime;
+			const path = yield* Path.Path;
+			const missingModulePath = `${dependencyRuntime.moduleDirectory}/${"0".repeat(64)}.mjs`;
+			const missingResult = yield* runInDeno(
+				compiled,
+				{},
+				{ moduleUrl: (yield* path.toFileUrl(missingModulePath)).href },
+			);
+			assert(missingResult !== null && typeof missingResult === "object");
+			const missingError = Reflect.get(missingResult, "error");
+			const encodedMissingError = encodeRunnerRequest(missingError);
+			expect(missingError).toMatchObject({ phase: "load" });
+			expect(encodedMissingError).not.toContain("file://");
+			expect(encodedMissingError).not.toContain(dependencyRuntime.directory);
+
+			const pathLeakSource = failureSource.replace(
+				'throw new Error("mapped execution failure execution-1")',
+				'throw new Error(new URL(".", import.meta.url).pathname)',
+			);
+			const pathLeakResult = yield* runInDeno(yield* compiler.compile(pathLeakSource), {});
+			assert(pathLeakResult !== null && typeof pathLeakResult === "object");
+			const encodedPathLeakError = encodeRunnerRequest(Reflect.get(pathLeakResult, "error"));
+			expect(encodedPathLeakError).not.toContain(dependencyRuntime.moduleDirectory);
+		}),
+	);
+
+	test.effect("enforces direct-definition output and log limits", () =>
+		Effect.gen(function* () {
+			const compiler = yield* SandboxCompiler;
+			const compiled = yield* compiler.compile(limitsSource);
+			const output = yield* runInDeno(compiled, { mode: "output" });
+			assert(output !== null && typeof output === "object");
+			expect(Reflect.get(output, "error")).toEqual({
+				phase: "output",
+				kind: "invalid-output",
+				message: `Sandbox definition result exceeds ${SANDBOX_LIMITS.execution.resultBytes} UTF-8 bytes`,
+			});
+
+			const logged = yield* runInDeno(compiled, { mode: "logs" });
+			assert(logged !== null && typeof logged === "object");
+			const logs = Reflect.get(logged, "logs");
+			assert(Array.isArray(logs));
+			expect(logs).toHaveLength(SANDBOX_LIMITS.logs.entryCount);
+			expect(logs.at(-1)).toBe("[sandbox logs truncated]");
+		}),
+	);
+
+	test.effect("exposes only granted artifact reads and named scratch chunk writes", () =>
+		Effect.scoped(
+			Effect.gen(function* () {
+				const fs = yield* FileSystem.FileSystem;
+				const compiler = yield* SandboxCompiler;
+				const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-runner-filesystem-" });
+				const artifactPath = `${root}/artifact.json`;
+				const namedArtifactPath = `${root}/history.json`;
+				const scratchDirectory = `${root}/scratch`;
+				yield* fs.makeDirectory(scratchDirectory);
+				yield* fs.writeFileString(artifactPath, "[1,2]");
+				yield* fs.writeFileString(namedArtifactPath, "[3,4]");
+				const compiled = yield* compiler.compile(filesystemSource);
+
+				const unavailable = yield* runInDeno(compiled, { chunkName: "chunk.json" });
+				assert(unavailable !== null && typeof unavailable === "object");
+				expect(Reflect.get(unavailable, "error")).toMatchObject({
+					phase: "execute",
+					message: "Sandbox artifact grant is unavailable",
+				});
+
+				const options = { filesystem: { artifactPath, scratchDirectory } };
+				const success = yield* runInDeno(compiled, { chunkName: "chunk.json" }, options);
+				expect(success).toMatchObject({ success: true, value: { chunkFiles: ["chunk.json"] } });
+				expect(yield* fs.readFileString(`${scratchDirectory}/chunk.json`)).toBe("[1,2]");
+
+				const namedOptions = {
+					filesystem: {
+						scratchDirectory,
+						namedArtifactPaths: { historyFilePath: namedArtifactPath },
+					},
+				};
+				const named = yield* runInDeno(
+					compiled,
+					{ chunkName: "named.json", artifactKey: "historyFilePath" },
+					namedOptions,
+				);
+				expect(named).toMatchObject({ success: true, value: { chunkFiles: ["named.json"] } });
+				expect(yield* fs.readFileString(`${scratchDirectory}/named.json`)).toBe("[3,4]");
+				const missingNamed = yield* runInDeno(
+					compiled,
+					{ chunkName: "missing.json", artifactKey: "ratingsFilePath" },
+					namedOptions,
+				);
+				assert(missingNamed !== null && typeof missingNamed === "object");
+				expect(Reflect.get(missingNamed, "error")).toMatchObject({
+					phase: "execute",
+					message: 'Sandbox named artifact grant "ratingsFilePath" is unavailable',
+				});
+
+				const traversal = yield* runInDeno(compiled, { chunkName: "../outside.json" }, options);
+				assert(traversal !== null && typeof traversal === "object");
+				expect(Reflect.get(traversal, "error")).toMatchObject({
+					phase: "execute",
+					message: "Sandbox scratch chunk names must be plain file names",
+				});
+				expect(yield* fs.exists(`${root}/outside.json`)).toBe(false);
+			}),
+		),
+	);
+
+	test.effect(
+		"loads one compiled fixture for each approved SDK dependency without remote modules",
+		() =>
+			Effect.gen(function* () {
+				const compiler = yield* SandboxCompiler;
+				for (const dependency of SANDBOX_RUNTIME_REGISTRY) {
+					const compiled = yield* compiler.compile(
+						dependencySource(dependency.name, dependency.sdkImport),
+					);
+					const result = yield* runInDeno(compiled, {});
+					assert(result !== null && typeof result === "object");
+					expect(Reflect.get(result, "error"), dependency.name).toBeUndefined();
+					expect(result).toMatchObject({ value: null, success: true });
+				}
+			}),
+		50_000,
+	);
+
+	test.effect("preserves Effect and RyotQL identity across SDK and plugin-kit aliases", () =>
+		Effect.gen(function* () {
+			const result = yield* runInDeno(
+				{
+					format: 1,
+					javascript: aliasIdentitySource,
+					manifest: {
+						kind: "script",
+						capabilities: [],
+						requiredPluginConfigKeys: [],
+						requiredSystemConfigKeys: [],
+						name: "Runtime alias identity",
+						slug: "runtime-alias-identity",
+					},
+				},
+				{},
+			);
+			expect(result).toMatchObject({ value: true, success: true });
+		}),
+	);
+
+	test.effect("disables obfuscated string-generated imports at runtime", () =>
+		Effect.gen(function* () {
+			const compiler = yield* SandboxCompiler;
+			const compiled = yield* compiler.compile(generatedNpmImportSource);
+			const result = yield* runInDeno(compiled, {});
+			assert(result !== null && typeof result === "object");
+			expect(Reflect.get(result, "error")).toMatchObject({
+				phase: "execute",
+				message: expect.stringContaining("Function is not a function"),
+			});
+		}),
+	);
+
+	test.effect(
+		"executes typed core host methods and builds the Deno host from approved capabilities",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const bridge = yield* startCoreHostBridge();
+					const compiler = yield* SandboxCompiler;
+					const compiled = yield* compiler.compile(coreHostSource);
+					const approved = yield* compiler.compile(approvedHostSource);
+					const apiBase = `http://127.0.0.1:${bridge.port}`;
+					const apiFunctions = compiled.manifest.capabilities;
+
+					bridge.register("execution-a-1", "script-a");
+					const first = yield* runInDeno(
+						compiled,
+						{ write: true },
+						{ apiBase, apiFunctions, scriptId: "script-a", executionId: "execution-a-1" },
+					);
+					assert(first !== null && typeof first === "object");
+					expect(Reflect.get(first, "value")).toMatchObject({
+						before: null,
+						after: { value: 42 },
+						claim: { claimed: true },
+						config: { timezone: "Etc/GMT" },
+						preferences: { allowNsfw: false, disableIntegrations: true },
+					});
+
+					bridge.register("execution-b-1", "script-b");
+					const isolated = yield* runInDeno(
+						compiled,
+						{ write: false },
+						{ apiBase, apiFunctions, scriptId: "script-b", executionId: "execution-b-1" },
+					);
+					assert(isolated !== null && typeof isolated === "object");
+					expect(Reflect.get(isolated, "value")).toMatchObject({
+						after: null,
+						before: null,
+						claim: { claimed: true },
+					});
+
+					bridge.register("execution-a-2", "script-a");
+					const persistent = yield* runInDeno(
+						compiled,
+						{ write: false },
+						{ apiBase, apiFunctions, scriptId: "script-a", executionId: "execution-a-2" },
+					);
+					assert(persistent !== null && typeof persistent === "object");
+					expect(Reflect.get(persistent, "value")).toMatchObject({
+						after: { value: 42 },
+						before: { value: 42 },
+						http: { status: 200 },
+						claim: { claimed: false, value: { owner: "script-a" } },
+					});
+
+					const approvedResult = yield* runInDeno(
+						approved,
+						{},
+						{ apiBase, apiFunctions: ["getCachedValue", "setCachedValue", "getSystemConfig"] },
+					);
+					assert(approvedResult !== null && typeof approvedResult === "object");
+					expect(Reflect.get(approvedResult, "value")).toEqual({
+						value: null,
+						keys: ["getCachedValue", "getSystemConfig", "setCachedValue"],
+					});
+
+					expect(new Set(bridge.calls.map((call) => call.fnName))).toEqual(new Set(apiFunctions));
+				}),
+			),
+	);
+
+	test.effect("rejects malformed private host wire responses", () =>
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* startCoreHostBridge({ getCachedValueResult: { success: true } });
+				const compiler = yield* SandboxCompiler;
+				const compiled = yield* compiler.compile(approvedHostSource);
+				const result = yield* runInDeno(
+					compiled,
+					{},
+					{
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+						apiFunctions: compiled.manifest.capabilities,
+					},
+				);
+				assert(result !== null && typeof result === "object");
+				expect(Reflect.get(result, "error")).toMatchObject({
+					phase: "execute",
+					message: expect.stringContaining("Missing key"),
+				});
+			}),
+		),
+	);
+
+	test.effect(
+		"loads every kernel script in Deno",
+		() =>
+			Effect.gen(function* () {
+				const fs = yield* FileSystem.FileSystem;
+				const path = yield* Path.Path;
+				const kernelFiles = Object.fromEntries(
+					yield* Effect.forEach(kernelScripts, (script) =>
+						Effect.gen(function* () {
+							const filePath = yield* path.fromFileUrl(
+								new URL(`../../../../${script.entry}`, import.meta.url),
+							);
+							const scriptSource = yield* fs.readFileString(filePath);
+							return [script.entry, scriptSource] as const;
+						}),
+					),
+				);
+				const kernelOutputs = yield* compilePluginSandboxSourceEntries(kernelFiles, kernelScripts);
+				yield* Effect.forEach(
+					kernelOutputs,
+					({ compiled }) =>
+						Effect.gen(function* () {
+							const slug = compiled.manifest.slug;
+							const result = yield* runInDeno(compiled, {});
+							assert(result !== null && typeof result === "object", slug);
+							const error = Reflect.get(result, "error");
+							if (error !== null && typeof error === "object") {
+								expect(
+									Reflect.get(error, "phase"),
+									`${slug}: ${String(Reflect.get(error, "message"))}`,
+								).not.toBe("load");
+							}
+						}),
+					{ concurrency: 5 },
+				);
+			}),
+		120_000,
+	);
+
+	test.effect(
+		"executes a kernel-owned compiled host bridge fixture in Deno",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const bridge = yield* startCoreHostBridge({
+						pluginConfigValue: "configured",
+						httpResponse: () => ({ ready: true }),
+					});
+					const compiled = yield* compileHostBridgeFixture;
+					const result = yield* runInDeno(
+						compiled,
+						{},
+						{
+							apiBase: `http://127.0.0.1:${bridge.port}`,
+							apiFunctions: compiled.manifest.capabilities,
+						},
+					);
+					assert(result !== null && typeof result === "object");
+					expect(result).toMatchObject({ success: true });
+					expect(Reflect.get(result, "value")).toMatchObject({
+						cached: null,
+						config: { fixtureValue: "configured" },
+					});
+					const cacheWrite = bridge.calls.find((call) => call.fnName === "setCachedValue");
+					expect(cacheWrite?.args).toEqual(["fixture-key", { ready: true }, 60]);
+				}),
+			),
+		120_000,
+	);
+
+	test.effect(
+		"keeps caught durable pending control flow pending and collects parallel calls in source order",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const bridge = yield* startCoreHostBridge({ replayJournalResult: [] });
+					const manifest = {
+						name: "Durable role",
+						slug: "durable-role",
+						kind: "operation" as const,
+						requiredPluginConfigKeys: [] as const,
+						requiredSystemConfigKeys: [] as const,
+						capabilities: ["getCachedValue"] as const,
+					};
+					const options = {
+						apiFunctions: ["replayJournal"],
+						workflowExecutionId: "durable-parent",
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+					};
+					const caught = yield* runInDeno(
+						{ manifest, format: 1, javascript: durableRoleSource },
+						{ mode: "caught" },
+						options,
+					);
+					const parallel = yield* runInDeno(
+						{ manifest, format: 1, javascript: durableRoleSource },
+						{ mode: "parallel" },
+						options,
+					);
+					expect(caught).toMatchObject({
+						success: true,
+						value: {
+							state: "pending",
+							journalLength: 0,
+							requests: [
+								{
+									index: 0,
+									kind: "host",
+									name: "getCachedValue",
+									args: { args: ["first"], capability: "getCachedValue" },
+								},
+							],
+						},
+					});
+					expect(parallel).toMatchObject({
+						success: true,
+						value: {
+							journalLength: 0,
+							state: "pending",
+							requests: [
+								{ index: 0, args: { args: ["first"] } },
+								{ index: 1, args: { args: ["second"] } },
+							],
+						},
+					});
+					expect(bridge.calls.map(({ fnName }) => fnName)).toEqual([
+						"replayJournal",
+						"replayJournal",
+					]);
+				}),
+			),
+	);
+
+	test.effect("replays durable host successes and typed failures without bridge redispatch", () =>
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* startCoreHostBridge({
+					replayJournalResult: [
+						{
+							value: { state: "success", value: "recorded" },
+							request: {
+								index: 0,
+								kind: "host",
+								name: "getCachedValue",
+								args: { args: ["first"], capability: "getCachedValue" },
+							},
+						},
+						{
+							value: {
+								state: "failure",
+								error: { data: { code: 7 }, message: "recorded failure" },
+							},
+							request: {
+								index: 1,
+								kind: "host",
+								name: "getCachedValue",
+								args: { args: ["second"], capability: "getCachedValue" },
+							},
+						},
+					],
+				});
+				const manifest = {
+					name: "Durable role",
+					slug: "durable-role",
+					kind: "operation" as const,
+					requiredPluginConfigKeys: [] as const,
+					requiredSystemConfigKeys: [] as const,
+					capabilities: ["getCachedValue"] as const,
+				};
+				const result = yield* runInDeno(
+					{ manifest, format: 1, javascript: durableRoleSource },
+					{ mode: "replay" },
+					{
+						apiFunctions: ["replayJournal"],
+						workflowExecutionId: "durable-parent",
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+					},
+				);
+
+				expect(result).toMatchObject({
+					success: true,
+					value: {
+						journalLength: 2,
+						state: "completed",
+						output: {
+							first: "recorded",
+							startedAt: "2026-08-06T00:00:00.000Z",
+							second: { data: { code: 7 }, error: "recorded failure" },
+						},
+					},
+				});
+				expect(bridge.calls.map(({ fnName }) => fnName)).toEqual(["replayJournal"]);
+			}),
+		),
+	);
+
+	test.effect(
+		"continues a live replay through host-settled inline batches, including typed failures",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const bridge = yield* startCoreHostBridge({ replayJournalResult: [] });
+					const batches: Array<ReadonlyArray<string>> = [];
+					const result = yield* runInDeno(
+						{ format: 1, manifest: durableRoleManifest, javascript: durableRoleSource },
+						{ mode: "replay" },
+						{
+							apiFunctions: ["replayJournal"],
+							workflowExecutionId: "durable-parent",
+							apiBase: `http://127.0.0.1:${bridge.port}`,
+							inlineDurableCapabilities: ["getCachedValue"],
+							settleInline: (requests) => {
+								const keys = requests.map(cachedValueKey);
+								batches.push(keys);
+								return {
+									results: keys.map((key) =>
+										key === "first"
+											? { state: "success", value: "inline-first" }
+											: {
+													state: "failure",
+													error: { data: { code: 9 }, message: "inline failure" },
+												},
+									),
+								};
+							},
+						},
+					);
+
+					expect(batches).toEqual([["first"], ["second"]]);
+					expect(result).toMatchObject({
+						success: true,
+						value: {
+							journalLength: 0,
+							state: "completed",
+							output: {
+								first: "inline-first",
+								second: { data: { code: 9 }, error: "inline failure" },
+							},
+							requests: [
+								{ index: 0, args: { args: ["first"] } },
+								{ index: 1, args: { args: ["second"] } },
+							],
+						},
+					});
+					expect(bridge.calls.map(({ fnName }) => fnName)).toEqual(["replayJournal"]);
+				}),
+			),
+	);
+
+	test.effect("delivers large multibyte inline results intact across stdin reads", () =>
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* startCoreHostBridge({ replayJournalResult: [] });
+				const value = "日本語".repeat(40_000);
+				const result = yield* runInDeno(
+					{ format: 1, manifest: durableRoleManifest, javascript: durableRoleSource },
+					{ mode: "parallel" },
+					{
+						apiFunctions: ["replayJournal"],
+						workflowExecutionId: "durable-parent",
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+						inlineDurableCapabilities: ["getCachedValue"],
+						settleInline: (requests) => ({
+							results: requests.map(() => ({ value, state: "success" })),
+						}),
+					},
+				);
+
+				expect(result).toMatchObject({
+					success: true,
+					value: { state: "completed", output: { values: [value, value] } },
+				});
+			}),
+		),
+	);
+
+	test.effect("settles concurrently registered durable calls as one inline batch", () =>
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* startCoreHostBridge({ replayJournalResult: [] });
+				const batches: Array<ReadonlyArray<string>> = [];
+				const result = yield* runInDeno(
+					{ format: 1, manifest: durableRoleManifest, javascript: durableRoleSource },
+					{ mode: "parallel" },
+					{
+						apiFunctions: ["replayJournal"],
+						workflowExecutionId: "durable-parent",
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+						inlineDurableCapabilities: ["getCachedValue"],
+						settleInline: (requests) => {
+							const keys = requests.map(cachedValueKey);
+							batches.push(keys);
+							return { results: keys.map((key) => ({ value: key, state: "success" })) };
+						},
+					},
+				);
+
+				expect(batches).toEqual([["first", "second"]]);
+				expect(result).toMatchObject({
+					success: true,
+					value: { state: "completed", output: { values: ["first", "second"] } },
+				});
+			}),
+		),
+	);
+
+	test.effect(
+		"ends a live replay pending when the host defers or the capability is not inline",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const bridge = yield* startCoreHostBridge({ replayJournalResult: [] });
+					const batches: Array<ReadonlyArray<string>> = [];
+					const settleInline = (requests: ReadonlyArray<unknown>) => {
+						batches.push(requests.map(cachedValueKey));
+						return { defer: true };
+					};
+					const options = {
+						settleInline,
+						apiFunctions: ["replayJournal"],
+						workflowExecutionId: "durable-parent",
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+					};
+					const deferred = yield* runInDeno(
+						{ format: 1, manifest: durableRoleManifest, javascript: durableRoleSource },
+						{ mode: "parallel" },
+						{ ...options, inlineDurableCapabilities: ["getCachedValue"] },
+					);
+					const notInline = yield* runInDeno(
+						{ format: 1, manifest: durableRoleManifest, javascript: durableRoleSource },
+						{ mode: "parallel" },
+						{ ...options, inlineDurableCapabilities: ["setCachedValue"] },
+					);
+
+					expect(batches).toEqual([["first", "second"]]);
+					for (const result of [deferred, notInline]) {
+						expect(result).toMatchObject({
+							success: true,
+							value: {
+								journalLength: 0,
+								state: "pending",
+								requests: [{ args: { args: ["first"] } }, { args: { args: ["second"] } }],
+							},
+						});
+					}
+				}),
+			),
+	);
+
+	test.effect("rejects a durable role that returns with detached host work", () =>
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* startCoreHostBridge({ replayJournalResult: [] });
+				const manifest = {
+					name: "Durable role",
+					slug: "durable-role",
+					kind: "operation" as const,
+					requiredPluginConfigKeys: [] as const,
+					requiredSystemConfigKeys: [] as const,
+					capabilities: ["getCachedValue"] as const,
+				};
+				const result = yield* runInDeno(
+					{ manifest, format: 1, javascript: durableRoleSource },
+					{ mode: "detached" },
+					{
+						apiFunctions: ["replayJournal"],
+						workflowExecutionId: "durable-parent",
+						apiBase: `http://127.0.0.1:${bridge.port}`,
+					},
+				);
+
+				expect(result).toMatchObject({
+					success: true,
+					value: {
+						state: "failed",
+						journalLength: 0,
+						error: "Sandbox body returned with detached or in-flight durable host work",
+					},
+				});
+			}),
+		),
+	);
+
+	test.effect(
+		"exposes only kernel-selected workflow host functions despite an empty manifest",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const bridge = yield* startCoreHostBridge({ replayJournalResult: [{ recorded: true }] });
+					const manifest = {
+						name: "Workflow host",
+						slug: "workflow-host",
+						kind: "workflow" as const,
+						capabilities: [] as const,
+						requiredPluginConfigKeys: [] as const,
+						requiredSystemConfigKeys: [] as const,
+					};
+					const result = yield* runInDeno(
+						{ manifest, format: 1, javascript: workflowHostSource },
+						{},
+						{ apiFunctions: ["replayJournal"], apiBase: `http://127.0.0.1:${bridge.port}` },
+					);
+
+					expect(result).toMatchObject({
+						success: true,
+						value: { keys: ["replayJournal"], journal: [{ recorded: true }] },
+					});
+					expect(bridge.calls).toEqual([
+						expect.objectContaining({ args: [], fnName: "replayJournal" }),
+					]);
+				}),
+			),
+	);
+
+	test.effect(
+		"blocks ambient workflow nondeterminism through aliases and call helpers at runtime",
+		() =>
+			Effect.forEach(
+				[
+					["date-call", "Date()"],
+					["date-new", "new Date()"],
+					["math-random", "Math.random"],
+					["temporal-now", "Temporal.Now"],
+					["performance-now", "performance.now"],
+					["crypto-random-uuid", "crypto.randomUUID"],
+					["crypto-random-values", "crypto.getRandomValues"],
+				] as const,
+				([operation, expected]) =>
+					Effect.gen(function* () {
+						const manifest = {
+							kind: "workflow" as const,
+							capabilities: [] as const,
+							name: "Workflow nondeterminism",
+							slug: "workflow-nondeterminism",
+							requiredPluginConfigKeys: [] as const,
+							requiredSystemConfigKeys: [] as const,
+						};
+						const result = yield* runInDeno(
+							{ manifest, format: 1, javascript: workflowNondeterminismSource },
+							{ operation, timestamp: "2024-01-01T00:00:00.000Z" },
+						);
+						assert(result !== null && typeof result === "object");
+						expect(Reflect.get(result, "error")).toMatchObject({
+							phase: "execute",
+							message: expect.stringContaining(expected),
+						});
+					}),
+				{ concurrency: 4 },
+			),
+	);
+
+	test.effect("keeps the deterministic workflow clock active through Effect callbacks", () =>
+		Effect.forEach(["date-now", "date-now-callback"], (operation) =>
+			Effect.gen(function* () {
+				const manifest = {
+					kind: "workflow" as const,
+					capabilities: [] as const,
+					name: "Workflow nondeterminism",
+					slug: "workflow-nondeterminism",
+					requiredPluginConfigKeys: [] as const,
+					requiredSystemConfigKeys: [] as const,
+				};
+				const result = yield* runInDeno(
+					{ manifest, format: 1, javascript: workflowNondeterminismSource },
+					{ operation, timestamp: "2024-01-01T00:00:00.000Z" },
+				);
+
+				expect(result).toMatchObject({ value: 0, success: true });
+			}),
+		),
+	);
+
+	test.effect("allows deterministic workflow dates without changing ambient APIs for scripts", () =>
+		Effect.gen(function* () {
+			const workflowManifest = {
+				kind: "workflow" as const,
+				capabilities: [] as const,
+				name: "Workflow nondeterminism",
+				slug: "workflow-nondeterminism",
+				requiredPluginConfigKeys: [] as const,
+				requiredSystemConfigKeys: [] as const,
+			};
+			const scriptManifest = {
+				name: "Ambient script",
+				slug: "ambient-script",
+				kind: "script" as const,
+				capabilities: [] as const,
+				requiredPluginConfigKeys: [] as const,
+				requiredSystemConfigKeys: [] as const,
+			};
+			const workflowResult = yield* runInDeno(
+				{ format: 1, manifest: workflowManifest, javascript: workflowNondeterminismSource },
+				{ operation: "parse", timestamp: "2024-01-01T00:00:00.000Z" },
+			);
+			const scriptResult = yield* runInDeno(
+				{ format: 1, manifest: scriptManifest, javascript: ambientScriptSource },
+				{},
+			);
+			expect(workflowResult).toMatchObject({
+				success: true,
+				value: {
+					utc: 1_704_067_200_000,
+					parsed: 1_704_067_200_000,
+					instanceConstructor: true,
+					prototypeConstructor: true,
+					iso: "2024-01-01T00:00:00.000Z",
+				},
+			});
+			expect(scriptResult).toMatchObject({ value: true, success: true });
+		}),
+	);
+
+	test.effect("resets approved Youtubei randomness for each replay", () =>
+		Effect.gen(function* () {
+			const compiler = yield* SandboxCompiler;
+			const compiled = yield* compiler.compile(approvedYoutubeiDeterminismSource);
+			const run = (executionId: string) =>
+				runInDeno(compiled, {}, { executionId, startedAt: "2026-08-06T00:00:00.000Z" });
+			const first = yield* run("youtubei-replay");
+			const second = yield* run("youtubei-replay");
+			const other = yield* run("youtubei-other");
+			assert(first !== null && typeof first === "object");
+			assert(second !== null && typeof second === "object");
+			assert(other !== null && typeof other === "object");
+			expect(first).toMatchObject({ success: true, value: expect.any(String) });
+			expect(second).toMatchObject({ success: true, value: expect.any(String) });
+			expect(other).toMatchObject({ success: true, value: expect.any(String) });
+			expect(Reflect.get(second, "value")).toBe(Reflect.get(first, "value"));
+			expect(Reflect.get(other, "value")).not.toBe(Reflect.get(first, "value"));
+		}),
+	);
+
+	test.effect("does not expose Effect Clock or Random services to workflows at runtime", () =>
+		Effect.gen(function* () {
+			const manifest = {
+				kind: "workflow" as const,
+				capabilities: [] as const,
+				name: "Workflow nondeterminism",
+				slug: "workflow-nondeterminism",
+				requiredPluginConfigKeys: [] as const,
+				requiredSystemConfigKeys: [] as const,
+			};
+			const result = yield* runInDeno(
+				{ manifest, format: 1, javascript: workflowNondeterminismSource },
+				{ operation: "effect-services", timestamp: "2024-01-01T00:00:00.000Z" },
+			);
+
+			expect(result).toMatchObject({
+				success: true,
+				value: { clockWith: "undefined", randomWith: "undefined" },
+			});
+		}),
+	);
+
+	test.effect("counts failed host-call attempts against total and HTTP budgets", () =>
+		Effect.scoped(
+			Effect.gen(function* () {
+				const bridge = yield* startCoreHostBridge();
+				const compiler = yield* SandboxCompiler;
+				const compiled = yield* compiler.compile(hostBudgetSource);
+				const options = {
+					apiBase: `http://127.0.0.1:${bridge.port}`,
+					apiFunctions: compiled.manifest.capabilities,
+				};
+
+				const hostResult = yield* runInDeno(compiled, { kind: "host" }, options);
+				assert(hostResult !== null && typeof hostResult === "object");
+				expect(Reflect.get(hostResult, "error")).toEqual({
+					phase: "execute",
+					kind: "script-failure",
+					message: `Sandbox execution exceeds ${SANDBOX_LIMITS.hostCalls.total} host calls`,
+				});
+				expect(bridge.calls.filter((call) => call.fnName === "getCachedValue")).toHaveLength(
+					SANDBOX_LIMITS.hostCalls.total,
+				);
+
+				const httpResult = yield* runInDeno(compiled, { kind: "http" }, options);
+				assert(httpResult !== null && typeof httpResult === "object");
+				expect(Reflect.get(httpResult, "error")).toEqual({
+					phase: "execute",
+					kind: "script-failure",
+					message: `Sandbox execution exceeds ${SANDBOX_LIMITS.hostCalls.http} httpCall calls`,
+				});
+				expect(bridge.calls.filter((call) => call.fnName === "httpCall")).toHaveLength(
+					SANDBOX_LIMITS.hostCalls.http,
+				);
+			}),
+		),
+	);
+
+	test.effect("executes typed domain host methods through Deno", () =>
 		Effect.scoped(
 			Effect.gen(function* () {
 				const bridge = yield* startDomainHostBridge();
@@ -1972,6 +1945,7 @@ it("executes typed domain host methods through Deno", () =>
 					},
 				});
 				expect(bridge.createdEvents).toHaveLength(1);
-			}).pipe(Effect.provide(SandboxCompiler.layer)),
+			}),
 		),
-	));
+	);
+});

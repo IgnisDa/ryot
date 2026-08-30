@@ -1,9 +1,18 @@
-import { expect, it } from "@effect/vitest";
+import { describe, expect, it, layer } from "@effect/vitest";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { hostSuccess } from "@ryot-app/sandbox-sdk/wire";
-import { Effect, Layer, Logger, Option, Tracer, References } from "effect";
+import {
+	Context,
+	Effect,
+	Layer,
+	Logger,
+	MutableRef,
+	Option,
+	Ref,
+	References,
+	Tracer,
+} from "effect";
 import type { Logger as LoggerType } from "effect/Logger";
-import { describe } from "vitest";
 
 import { makeRecordingTracer } from "#lib/test-utils/tracer";
 
@@ -21,6 +30,37 @@ type CapturedLog = {
 	options: Parameters<LoggerType<unknown, unknown>["log"]>[0];
 	annotations: Readonly<Record<string, unknown>>;
 };
+
+class RecordedTelemetry extends Context.Service<
+	RecordedTelemetry,
+	{
+		readonly spans: Effect.Effect<ReadonlyArray<Tracer.Span>>;
+		readonly logs: Effect.Effect<ReadonlyArray<CapturedLog>>;
+	}
+>()("test/RecordedTelemetry") {}
+
+const recordedTelemetryLayer = Layer.unwrap(
+	Effect.gen(function* () {
+		const spans: Tracer.Span[] = [];
+		const logs = yield* Ref.make<ReadonlyArray<CapturedLog>>([]);
+		const logger = Logger.make<unknown, void>((options) =>
+			MutableRef.update(logs.ref, (all) => [
+				...all,
+				{ options, annotations: options.fiber.getRef(References.CurrentLogAnnotations) },
+			]),
+		);
+		return Layer.mergeAll(
+			Layer.succeed(RecordedTelemetry, {
+				logs: Ref.get(logs),
+				spans: Effect.sync(() => [...spans]),
+			}),
+			Layer.succeed(Tracer.Tracer, makeRecordingTracer(spans)),
+			Layer.succeed(References.MinimumLogLevel, "Debug"),
+			Logger.layer([logger, Logger.tracerLogger]),
+		);
+	}),
+);
+
 const selectedHostFunction: BoundHostFunction = () => Effect.succeed(null);
 
 const input: SandboxRunInput = {
@@ -138,87 +178,75 @@ describe("sandbox observability host functions", () => {
 		expect(totalCollector.logs).toEqual(before);
 	});
 
-	it.effect(
-		"emits correlated structured logs and completed child spans under the execution trace",
-		() => {
-			const spans: Tracer.Span[] = [];
-			const logEntries: CapturedLog[] = [];
-			const collector = makeSandboxObservabilityCollector();
-			const host = makeObservabilitySandboxApiFunctions(collector);
-			const logger = Logger.make<unknown, void>((options) =>
-				logEntries.push({
-					options,
-					annotations: options.fiber.getRef(References.CurrentLogAnnotations),
+	layer(recordedTelemetryLayer)((test) => {
+		test.effect(
+			"emits correlated structured logs and completed child spans under the execution trace",
+			() =>
+				Effect.gen(function* () {
+					const collector = makeSandboxObservabilityCollector();
+					const host = makeObservabilitySandboxApiFunctions(collector);
+
+					yield* Effect.gen(function* () {
+						const parentSpan = yield* Effect.currentSpan;
+						const log: BoundHostFunction = () =>
+							host
+								.log(input, [
+									{
+										level: "warning",
+										message: "plugin warning",
+										attributes: { plugin: "example", executionId: "plugin-value" },
+									},
+								])
+								.pipe(Effect.map(hostSuccess));
+						const span: BoundHostFunction = () =>
+							host
+								.span(input, [
+									{
+										name: "provider.run",
+										attributes: { plugin: "example", scriptId: "plugin-value" },
+									},
+								])
+								.pipe(Effect.map(hostSuccess));
+
+						yield* runSandboxBridgeHostFunction(log, [], {
+							parentSpan,
+							fnName: "log",
+							executionId: input.executionId,
+						});
+						yield* runSandboxBridgeHostFunction(span, [], {
+							parentSpan,
+							fnName: "span",
+							executionId: input.executionId,
+						});
+					}).pipe(Effect.withSpan("sandbox.execution"));
+
+					const telemetry = yield* RecordedTelemetry;
+					const logEntries = yield* telemetry.logs;
+					const spans = yield* telemetry.spans;
+					const warning = logEntries.find(
+						({ options }) => String(options.message) === "plugin warning",
+					);
+					expect(warning?.options.logLevel).toBe("Warn");
+					expect(warning?.annotations).toMatchObject({
+						plugin: "example",
+						executionId: input.executionId,
+						scriptId: input.principal.scriptId,
+					});
+
+					const execution = spans.find((span) => span.name === "sandbox.execution");
+					const hostLog = spans.find((span) => span.name === "sandbox.host.log");
+					const hostSpan = spans.find((span) => span.name === "sandbox.host.span");
+					const pluginSpan = spans.find((span) => span.name === "provider.run");
+					expect(hostLog?.parent.pipe(Option.getOrUndefined)).toBe(execution);
+					expect(hostSpan?.parent.pipe(Option.getOrUndefined)).toBe(execution);
+					expect(pluginSpan?.parent.pipe(Option.getOrUndefined)).toBe(hostSpan);
+					expect(pluginSpan?.status._tag).toBe("Ended");
+					expect(Object.fromEntries(pluginSpan?.attributes ?? [])).toMatchObject({
+						plugin: "example",
+						executionId: input.executionId,
+						scriptId: input.principal.scriptId,
+					});
 				}),
-			);
-			const tracer = makeRecordingTracer(spans);
-
-			return Effect.gen(function* () {
-				const parentSpan = yield* Effect.currentSpan;
-				const log: BoundHostFunction = () =>
-					host
-						.log(input, [
-							{
-								level: "warning",
-								message: "plugin warning",
-								attributes: { plugin: "example", executionId: "plugin-value" },
-							},
-						])
-						.pipe(Effect.map(hostSuccess));
-				const span: BoundHostFunction = () =>
-					host
-						.span(input, [
-							{ name: "provider.run", attributes: { plugin: "example", scriptId: "plugin-value" } },
-						])
-						.pipe(Effect.map(hostSuccess));
-
-				yield* runSandboxBridgeHostFunction(log, [], {
-					parentSpan,
-					fnName: "log",
-					executionId: input.executionId,
-				});
-				yield* runSandboxBridgeHostFunction(span, [], {
-					parentSpan,
-					fnName: "span",
-					executionId: input.executionId,
-				});
-			}).pipe(
-				Effect.withSpan("sandbox.execution"),
-				Effect.provide(
-					Layer.mergeAll(
-						Layer.succeed(Tracer.Tracer, tracer),
-						Layer.succeed(References.MinimumLogLevel, "Debug"),
-						Logger.layer([logger, Logger.tracerLogger]),
-					),
-				),
-				Effect.tap(() =>
-					Effect.sync(() => {
-						const warning = logEntries.find(
-							({ options }) => String(options.message) === "plugin warning",
-						);
-						expect(warning?.options.logLevel).toBe("Warn");
-						expect(warning?.annotations).toMatchObject({
-							plugin: "example",
-							executionId: input.executionId,
-							scriptId: input.principal.scriptId,
-						});
-
-						const execution = spans.find((span) => span.name === "sandbox.execution");
-						const hostLog = spans.find((span) => span.name === "sandbox.host.log");
-						const hostSpan = spans.find((span) => span.name === "sandbox.host.span");
-						const pluginSpan = spans.find((span) => span.name === "provider.run");
-						expect(hostLog?.parent.pipe(Option.getOrUndefined)).toBe(execution);
-						expect(hostSpan?.parent.pipe(Option.getOrUndefined)).toBe(execution);
-						expect(pluginSpan?.parent.pipe(Option.getOrUndefined)).toBe(hostSpan);
-						expect(pluginSpan?.status._tag).toBe("Ended");
-						expect(Object.fromEntries(pluginSpan?.attributes ?? [])).toMatchObject({
-							plugin: "example",
-							executionId: input.executionId,
-							scriptId: input.principal.scriptId,
-						});
-					}),
-				),
-			);
-		},
-	);
+		);
+	});
 });

@@ -1,5 +1,5 @@
-import { describe, expect, it } from "@effect/vitest";
-import { Effect, Layer } from "effect";
+import { describe, expect, layer } from "@effect/vitest";
+import { Context, Effect, Layer, MutableRef, Ref } from "effect";
 
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeRedisService } from "#lib/test-utils/effect";
@@ -15,11 +15,15 @@ import { redisKeys, RedisService } from "./redis";
 type RedisClient = RedisService["Service"]["client"];
 
 type AdmissionState = {
-	hash: string;
-	expiresAtMs: number;
-	nextEligibleMs: number;
-	blockedUntilMs: number;
+	readonly hash: string;
+	readonly expiresAtMs: number;
+	readonly nextEligibleMs: number;
+	readonly blockedUntilMs: number;
 };
+
+type AdmissionCall = { readonly key: string; readonly operation: string; readonly ttlMs: number };
+
+type EvalResponse = () => Promise<unknown>;
 
 const declaration = {
 	requests: 3,
@@ -28,240 +32,255 @@ const declaration = {
 	key: "global/provider:one",
 } satisfies ProviderHttpAdmissionDeclaration;
 
-const makeLayer = (client: RedisClient) =>
-	ProviderHttpAdmissionService.layer.pipe(
-		Layer.provide(Layer.succeed(RedisService, makeRedisService({ client }))),
+class FakeAdmissionRedis extends Context.Service<
+	FakeAdmissionRedis,
+	{
+		readonly states: Effect.Effect<ReadonlyMap<string, AdmissionState>>;
+		readonly calls: Effect.Effect<ReadonlyArray<AdmissionCall>>;
+		readonly setNow: (nowMs: number) => Effect.Effect<void>;
+		readonly respondWith: (respond: EvalResponse) => Effect.Effect<void>;
+	}
+>()("test/FakeAdmissionRedis") {}
+
+const fakeAdmissionRedisLayer = (respond?: EvalResponse) =>
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const states = yield* Ref.make<ReadonlyMap<string, AdmissionState>>(new Map());
+			const calls = yield* Ref.make<ReadonlyArray<AdmissionCall>>([]);
+			const now = yield* Ref.make(1_000);
+			const response = yield* Ref.make<EvalResponse | undefined>(respond);
+
+			const store = (key: string, state: AdmissionState) =>
+				MutableRef.update(states.ref, (all) => new Map(all).set(key, state));
+
+			const simulate = (
+				key: string,
+				operation: string,
+				hash: string,
+				value: number,
+				ttlMs: number,
+			): ReadonlyArray<string> => {
+				const nowMs = MutableRef.get(now.ref);
+				MutableRef.update(calls.ref, (all) => [...all, { key, ttlMs, operation }]);
+				const current = MutableRef.get(states.ref).get(key);
+
+				if (operation === "reserve") {
+					const blockedUntilMs = current?.blockedUntilMs ?? 0;
+					const nextEligibleMs = current?.hash === hash ? current.nextEligibleMs : nowMs;
+					const eligibleAtMs = Math.max(nowMs, nextEligibleMs, blockedUntilMs);
+					store(key, {
+						hash,
+						blockedUntilMs,
+						nextEligibleMs: eligibleAtMs + value,
+						expiresAtMs: Math.max(nowMs, blockedUntilMs) + ttlMs,
+					});
+					return ["reserved", String(eligibleAtMs), hash, String(nowMs)];
+				}
+
+				if (!current || current.hash !== hash) {
+					return ["stale"];
+				}
+
+				if (operation === "confirm") {
+					store(key, { ...current, expiresAtMs: Math.max(nowMs, current.blockedUntilMs) + ttlMs });
+					const eligibleAtMs = Math.max(value, current.blockedUntilMs);
+					return eligibleAtMs > nowMs
+						? ["later", String(eligibleAtMs), String(nowMs)]
+						: ["admitted"];
+				}
+
+				if (operation === "block") {
+					const blockedUntilMs = Math.max(current.blockedUntilMs, value);
+					store(key, {
+						...current,
+						blockedUntilMs,
+						expiresAtMs: Math.max(nowMs, blockedUntilMs) + ttlMs,
+					});
+					return ["blocked", String(blockedUntilMs), String(nowMs)];
+				}
+
+				return ["corrupt"];
+			};
+
+			const client = Object.assign(Object.create(null), {
+				eval: (
+					_script: string,
+					_numKeys: number,
+					key: string,
+					operation: string,
+					hash: string,
+					valueText: string,
+					ttlText: string,
+				) => {
+					const canned = MutableRef.get(response.ref);
+					return canned === undefined
+						? Promise.resolve(simulate(key, operation, hash, Number(valueText), Number(ttlText)))
+						: canned();
+				},
+			}) satisfies RedisClient;
+
+			return Layer.merge(
+				ProviderHttpAdmissionService.layer,
+				Layer.succeed(FakeAdmissionRedis, {
+					calls: Ref.get(calls),
+					states: Ref.get(states),
+					setNow: (nowMs) => Ref.set(now, nowMs),
+					respondWith: (next) => Ref.set(response, next),
+				}),
+			).pipe(Layer.provideMerge(Layer.succeed(RedisService, makeRedisService({ client }))));
+		}),
 	);
-
-const withAdmission = <A, E>(
-	client: RedisClient,
-	f: (service: ProviderHttpAdmissionService["Service"]) => Effect.Effect<A, E>,
-) =>
-	Effect.gen(function* () {
-		return yield* f(yield* ProviderHttpAdmissionService);
-	}).pipe(Effect.provide(makeLayer(client)));
-
-class SharedAdmissionRedis {
-	readonly states = new Map<string, AdmissionState>();
-	readonly calls: Array<{ key: string; operation: string; ttlMs: number }> = [];
-	nowMs = 1_000;
-
-	readonly client = Object.assign(Object.create(null), {
-		eval: (
-			_script: string,
-			_numKeys: number,
-			key: string,
-			operation: string,
-			hash: string,
-			valueText: string,
-			ttlText: string,
-		) => {
-			const value = Number(valueText);
-			const ttlMs = Number(ttlText);
-			this.calls.push({ key, ttlMs, operation });
-			const current = this.states.get(key);
-
-			if (operation === "reserve") {
-				const blockedUntilMs = current?.blockedUntilMs ?? 0;
-				const nextEligibleMs = current?.hash === hash ? current.nextEligibleMs : this.nowMs;
-				const eligibleAtMs = Math.max(this.nowMs, nextEligibleMs, blockedUntilMs);
-				this.states.set(key, {
-					hash,
-					blockedUntilMs,
-					nextEligibleMs: eligibleAtMs + value,
-					expiresAtMs: Math.max(this.nowMs, blockedUntilMs) + ttlMs,
-				});
-				return Promise.resolve(["reserved", String(eligibleAtMs), hash, String(this.nowMs)]);
-			}
-
-			if (!current || current.hash !== hash) {
-				return Promise.resolve(["stale"]);
-			}
-
-			if (operation === "confirm") {
-				current.expiresAtMs = Math.max(this.nowMs, current.blockedUntilMs) + ttlMs;
-				const eligibleAtMs = Math.max(value, current.blockedUntilMs);
-				return Promise.resolve(
-					eligibleAtMs > this.nowMs
-						? ["later", String(eligibleAtMs), String(this.nowMs)]
-						: ["admitted"],
-				);
-			}
-
-			if (operation === "block") {
-				current.blockedUntilMs = Math.max(current.blockedUntilMs, value);
-				current.expiresAtMs = Math.max(this.nowMs, current.blockedUntilMs) + ttlMs;
-				return Promise.resolve(["blocked", String(current.blockedUntilMs), String(this.nowMs)]);
-			}
-
-			return Promise.resolve(["corrupt"]);
-		},
-	}) satisfies RedisClient;
-}
 
 describe("ProviderHttpAdmissionService", () => {
-	it.effect(
-		"constructs a safe centralized key, rounds spacing up, and applies the minimum TTL",
-		() => {
-			const redis = new SharedAdmissionRedis();
-
-			return Effect.gen(function* () {
-				const tokens = yield* withAdmission(redis.client, (service) =>
-					Effect.all([
+	layer(fakeAdmissionRedisLayer())((test) => {
+		test.effect(
+			"constructs a safe centralized key, rounds spacing up, and applies the minimum TTL",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* ProviderHttpAdmissionService;
+					const tokens = yield* Effect.all([
 						service.reserve(declaration),
 						service.reserve(declaration),
 						service.reserve(declaration),
-					]),
-				);
+					]);
 
-				expect(tokens).toEqual([
-					{ eligibleAtMs: 1_000, observedAtMs: 1_000, declarationHash: declaration.hash },
-					{ eligibleAtMs: 1_334, observedAtMs: 1_000, declarationHash: declaration.hash },
-					{ eligibleAtMs: 1_668, observedAtMs: 1_000, declarationHash: declaration.hash },
-				]);
-				expect(redis.calls).toEqual([
-					{
-						ttlMs: 60_000,
-						operation: "reserve",
-						key: "ryot:provider-http-admission:global%2Fprovider%3Aone",
-					},
-					{
-						ttlMs: 60_000,
-						operation: "reserve",
-						key: "ryot:provider-http-admission:global%2Fprovider%3Aone",
-					},
-					{
-						ttlMs: 60_000,
-						operation: "reserve",
-						key: "ryot:provider-http-admission:global%2Fprovider%3Aone",
-					},
-				]);
-			});
-		},
-	);
-
-	it.effect(
-		"shares unique slots across service instances and never reclaims abandoned reservations",
-		() => {
-			const redis = new SharedAdmissionRedis();
-			const reserveFour = () =>
-				withAdmission(redis.client, (service) =>
-					Effect.all(Array.from({ length: 4 }, () => service.reserve(declaration))),
-				);
-
-			return Effect.gen(function* () {
-				const tokens = (yield* Effect.all([reserveFour(), reserveFour()], {
-					concurrency: "unbounded",
-				})).flat();
-
-				expect(tokens.map((token) => token.eligibleAtMs).sort((a, b) => a - b)).toEqual([
-					1_000, 1_334, 1_668, 2_002, 2_336, 2_670, 3_004, 3_338,
-				]);
-				expect(new Set(tokens.map((token) => token.eligibleAtMs))).toHaveLength(8);
-				expect(tokens.every((token) => token.observedAtMs === 1_000)).toBe(true);
-			});
-		},
-	);
-
-	it.effect(
-		"confirms against the latest block without consuming a slot and advances blocks monotonically",
-		() => {
-			const redis = new SharedAdmissionRedis();
-			const key = redisKeys.providerHttpAdmission(declaration.key);
-			return Effect.gen(function* () {
-				const token = yield* withAdmission(redis.client, (service) => service.reserve(declaration));
-				const nextEligibleMs = redis.states.get(key)?.nextEligibleMs;
-				const firstBlock = yield* withAdmission(redis.client, (service) =>
-					service.block(declaration, 5_000),
-				);
-				const lowerBlock = yield* withAdmission(redis.client, (service) =>
-					service.block(declaration, 4_000),
-				);
-				const delayed = yield* withAdmission(redis.client, (service) =>
-					service.confirm(declaration, token),
-				);
-
-				expect(firstBlock).toEqual({
-					status: "blocked",
-					observedAtMs: 1_000,
-					blockedUntilMs: 5_000,
-				});
-				expect(lowerBlock).toEqual({
-					status: "blocked",
-					observedAtMs: 1_000,
-					blockedUntilMs: 5_000,
-				});
-				expect(delayed).toEqual({ status: "later", eligibleAtMs: 5_000, observedAtMs: 1_000 });
-				expect(redis.states.get(key)?.nextEligibleMs).toBe(nextEligibleMs);
-				expect(redis.states.get(key)?.expiresAtMs).toBe(65_000);
-
-				redis.nowMs = 5_000;
-				expect(
-					yield* withAdmission(redis.client, (service) => service.confirm(declaration, token)),
-				).toEqual({ status: "admitted" });
-				expect(redis.states.get(key)?.nextEligibleMs).toBe(nextEligibleMs);
-			});
-		},
-	);
-
-	it.effect("resets spacing on a hash change while preserving a live block", () => {
-		const redis = new SharedAdmissionRedis();
-		return Effect.gen(function* () {
-			const oldToken = yield* withAdmission(redis.client, (service) =>
-				service.reserve(declaration),
-			);
-			yield* withAdmission(redis.client, (service) => service.block(declaration, 8_000));
-			const changed = { ...declaration, hash: "declaration-v2" };
-			const newToken = yield* withAdmission(redis.client, (service) => service.reserve(changed));
-			const oldConfirmation = yield* withAdmission(redis.client, (service) =>
-				service.confirm(changed, oldToken),
-			);
-			const oldBlock = yield* withAdmission(redis.client, (service) =>
-				service.block(declaration, 9_000),
-			);
-
-			expect(newToken).toEqual({
-				eligibleAtMs: 8_000,
-				observedAtMs: 1_000,
-				declarationHash: "declaration-v2",
-			});
-			expect(oldConfirmation).toEqual({ status: "stale" });
-			expect(oldBlock).toEqual({ status: "stale" });
-			expect(redis.states.get(redisKeys.providerHttpAdmission(declaration.key))).toMatchObject({
-				expiresAtMs: 68_000,
-				blockedUntilMs: 8_000,
-				nextEligibleMs: 8_334,
-				hash: "declaration-v2",
-			});
-		});
-	});
-
-	it.effect("uses ten intervals when that exceeds the minimum TTL", () => {
-		const redis = new SharedAdmissionRedis();
-		return Effect.gen(function* () {
-			yield* withAdmission(redis.client, (service) =>
-				service.reserve({ ...declaration, intervalMs: 10_000 }),
-			);
-			expect(redis.calls[0]?.ttlMs).toBe(100_000);
-		});
-	});
-
-	it.effect("returns a typed unavailable failure for operational Redis errors", () => {
-		const client = Object.assign(Object.create(null), {
-			eval: () => Promise.reject(new Error("connection lost")),
-		}) satisfies RedisClient;
-
-		return Effect.gen(function* () {
-			const exit = yield* Effect.exit(
-				withAdmission(client, (service) => service.reserve(declaration)),
-			);
-			assertExitFails(
-				exit,
-				new ProviderHttpAdmissionUnavailable({
-					message: "Redis admission command failed: connection lost",
+					expect(tokens).toEqual([
+						{ eligibleAtMs: 1_000, observedAtMs: 1_000, declarationHash: declaration.hash },
+						{ eligibleAtMs: 1_334, observedAtMs: 1_000, declarationHash: declaration.hash },
+						{ eligibleAtMs: 1_668, observedAtMs: 1_000, declarationHash: declaration.hash },
+					]);
+					expect(yield* (yield* FakeAdmissionRedis).calls).toEqual([
+						{
+							ttlMs: 60_000,
+							operation: "reserve",
+							key: "ryot:provider-http-admission:global%2Fprovider%3Aone",
+						},
+						{
+							ttlMs: 60_000,
+							operation: "reserve",
+							key: "ryot:provider-http-admission:global%2Fprovider%3Aone",
+						},
+						{
+							ttlMs: 60_000,
+							operation: "reserve",
+							key: "ryot:provider-http-admission:global%2Fprovider%3Aone",
+						},
+					]);
 				}),
-			);
-		});
+		);
+	});
+
+	layer(fakeAdmissionRedisLayer())((test) => {
+		test.effect(
+			"shares unique slots across service instances and never reclaims abandoned reservations",
+			() =>
+				Effect.gen(function* () {
+					const reserveFour = Effect.gen(function* () {
+						const service = yield* ProviderHttpAdmissionService.make;
+						return yield* Effect.all(Array.from({ length: 4 }, () => service.reserve(declaration)));
+					});
+
+					const tokens = (yield* Effect.all([reserveFour, reserveFour], {
+						concurrency: "unbounded",
+					})).flat();
+
+					expect(tokens.map((token) => token.eligibleAtMs).sort((a, b) => a - b)).toEqual([
+						1_000, 1_334, 1_668, 2_002, 2_336, 2_670, 3_004, 3_338,
+					]);
+					expect(new Set(tokens.map((token) => token.eligibleAtMs))).toHaveLength(8);
+					expect(tokens.every((token) => token.observedAtMs === 1_000)).toBe(true);
+				}),
+		);
+	});
+
+	layer(fakeAdmissionRedisLayer())((test) => {
+		test.effect(
+			"confirms against the latest block without consuming a slot and advances blocks monotonically",
+			() =>
+				Effect.gen(function* () {
+					const redis = yield* FakeAdmissionRedis;
+					const service = yield* ProviderHttpAdmissionService;
+					const key = redisKeys.providerHttpAdmission(declaration.key);
+					const token = yield* service.reserve(declaration);
+					const nextEligibleMs = (yield* redis.states).get(key)?.nextEligibleMs;
+					const firstBlock = yield* service.block(declaration, 5_000);
+					const lowerBlock = yield* service.block(declaration, 4_000);
+					const delayed = yield* service.confirm(declaration, token);
+
+					expect(firstBlock).toEqual({
+						status: "blocked",
+						observedAtMs: 1_000,
+						blockedUntilMs: 5_000,
+					});
+					expect(lowerBlock).toEqual({
+						status: "blocked",
+						observedAtMs: 1_000,
+						blockedUntilMs: 5_000,
+					});
+					expect(delayed).toEqual({ status: "later", eligibleAtMs: 5_000, observedAtMs: 1_000 });
+					expect((yield* redis.states).get(key)?.nextEligibleMs).toBe(nextEligibleMs);
+					expect((yield* redis.states).get(key)?.expiresAtMs).toBe(65_000);
+
+					yield* redis.setNow(5_000);
+					expect(yield* service.confirm(declaration, token)).toEqual({ status: "admitted" });
+					expect((yield* redis.states).get(key)?.nextEligibleMs).toBe(nextEligibleMs);
+				}),
+		);
+	});
+
+	layer(fakeAdmissionRedisLayer())((test) => {
+		test.effect("resets spacing on a hash change while preserving a live block", () =>
+			Effect.gen(function* () {
+				const service = yield* ProviderHttpAdmissionService;
+				const oldToken = yield* service.reserve(declaration);
+				yield* service.block(declaration, 8_000);
+				const changed = { ...declaration, hash: "declaration-v2" };
+				const newToken = yield* service.reserve(changed);
+				const oldConfirmation = yield* service.confirm(changed, oldToken);
+				const oldBlock = yield* service.block(declaration, 9_000);
+
+				expect(newToken).toEqual({
+					eligibleAtMs: 8_000,
+					observedAtMs: 1_000,
+					declarationHash: "declaration-v2",
+				});
+				expect(oldConfirmation).toEqual({ status: "stale" });
+				expect(oldBlock).toEqual({ status: "stale" });
+				const states = yield* (yield* FakeAdmissionRedis).states;
+				expect(states.get(redisKeys.providerHttpAdmission(declaration.key))).toMatchObject({
+					expiresAtMs: 68_000,
+					blockedUntilMs: 8_000,
+					nextEligibleMs: 8_334,
+					hash: "declaration-v2",
+				});
+			}),
+		);
+	});
+
+	layer(fakeAdmissionRedisLayer())((test) => {
+		test.effect("uses ten intervals when that exceeds the minimum TTL", () =>
+			Effect.gen(function* () {
+				const service = yield* ProviderHttpAdmissionService;
+				yield* service.reserve({ ...declaration, intervalMs: 10_000 });
+				const calls = yield* (yield* FakeAdmissionRedis).calls;
+				expect(calls[0]?.ttlMs).toBe(100_000);
+			}),
+		);
+	});
+
+	layer(fakeAdmissionRedisLayer(() => Promise.reject(new Error("connection lost"))))((test) => {
+		test.effect("returns a typed unavailable failure for operational Redis errors", () =>
+			Effect.gen(function* () {
+				const service = yield* ProviderHttpAdmissionService;
+				const exit = yield* Effect.exit(service.reserve(declaration));
+				assertExitFails(
+					exit,
+					new ProviderHttpAdmissionUnavailable({
+						message: "Redis admission command failed: connection lost",
+					}),
+				);
+			}),
+		);
 	});
 
 	const invalidResponses = [
@@ -285,17 +304,17 @@ describe("ProviderHttpAdmissionService", () => {
 		{ response: { status: "reserved" }, message: "Redis returned an invalid admission response" },
 	];
 
-	it.effect("strictly validates Lua responses", () => {
-		return Effect.gen(function* () {
-			for (const { message, response } of invalidResponses) {
-				const client = Object.assign(Object.create(null), {
-					eval: () => Promise.resolve(response),
-				}) satisfies RedisClient;
-				const exit = yield* Effect.exit(
-					withAdmission(client, (service) => service.reserve(declaration)),
-				);
-				assertExitFails(exit, new ProviderHttpAdmissionCorruptState({ message }));
-			}
-		});
+	layer(fakeAdmissionRedisLayer())((test) => {
+		test.effect("strictly validates Lua responses", () =>
+			Effect.gen(function* () {
+				const redis = yield* FakeAdmissionRedis;
+				const service = yield* ProviderHttpAdmissionService;
+				for (const { message, response } of invalidResponses) {
+					yield* redis.respondWith(() => Promise.resolve(response));
+					const exit = yield* Effect.exit(service.reserve(declaration));
+					assertExitFails(exit, new ProviderHttpAdmissionCorruptState({ message }));
+				}
+			}),
+		);
 	});
 });
