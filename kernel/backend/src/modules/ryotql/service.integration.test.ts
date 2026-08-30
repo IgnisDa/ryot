@@ -46,7 +46,11 @@ import {
 import { migrationReport } from "#lib/infrastructure/db/schema/tables/migration-reports";
 import { savedView, savedViewOverride } from "#lib/infrastructure/db/schema/tables/views";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { testDatabaseUrl } from "#lib/test-utils/database";
+import {
+	applyBaselineMigration,
+	baselineMigrationStatements,
+} from "#lib/test-utils/baseline-migration";
+import { testDatabaseUrl, withIsolatedDatabase } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
 import { fixtureManifest } from "#modules/plugins/test-support";
 
@@ -571,36 +575,26 @@ const withCatalogDatabase = <E>(test: Effect.Effect<void, E, RyotQLService>) => 
 		Layer.provide(makeAppConfigLayer({ database: { url: Redacted.make(url) } })),
 	);
 	return Effect.gen(function* () {
-		const rootDatabase = yield* (yield* DatabaseSession).current;
-		const directory = new URL("../../drizzle/", import.meta.url).pathname;
-		const paths = [...new Bun.Glob("*/migration.sql").scanSync({ cwd: directory })];
-		assert(paths.length === 1);
-		const ddl = yield* Effect.promise(() => Bun.file(directory + paths[0]).text());
-		yield* rootDatabase.execute(sql`create database ${sql.identifier(name)}`);
-		yield* Effect.gen(function* () {
-			const db = yield* (yield* DatabaseSession).current;
-			for (const statement of ddl.split("--> statement-breakpoint")) {
-				yield* db.execute(sql.raw(statement));
-			}
-			yield* seedCatalog;
-			yield* test;
-		}).pipe(
-			Effect.provide(
-				RyotQLService.layer.pipe(
-					Layer.provideMerge(
-						DatabaseSession.layer.pipe(
-							Layer.provide(
-								makeAppConfigLayer({
-									database: { url: Redacted.make(new URL(`/${name}`, url).toString()) },
-								}),
+		const statements = yield* baselineMigrationStatements();
+		yield* withIsolatedDatabase(name, url, (isolatedUrl) =>
+			Effect.gen(function* () {
+				const db = yield* (yield* DatabaseSession).current;
+				yield* applyBaselineMigration(statements, (statement) => db.execute(sql.raw(statement)));
+				yield* seedCatalog;
+				yield* test;
+			}).pipe(
+				Effect.provide(
+					RyotQLService.layer.pipe(
+						Layer.provideMerge(
+							DatabaseSession.layer.pipe(
+								Layer.provide(
+									makeAppConfigLayer({ database: { url: Redacted.make(isolatedUrl) } }),
+								),
+								Layer.fresh,
 							),
-							Layer.fresh,
 						),
 					),
 				),
-			),
-			Effect.ensuring(
-				rootDatabase.execute(sql`drop database ${sql.identifier(name)}`).pipe(Effect.orDie),
 			),
 		);
 	}).pipe(Effect.provide(root.pipe(Layer.provideMerge(makeConfigProviderLayer()))));

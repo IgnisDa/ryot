@@ -1,4 +1,3 @@
-import { DbError } from "@ryot-app/contract/errors";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { eq, sql } from "drizzle-orm";
@@ -7,6 +6,10 @@ import { assert } from "vitest";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import {
+	applyBaselineMigration,
+	baselineMigrationStatements,
+} from "#lib/test-utils/baseline-migration";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
 import { ClientArtifactsRepository } from "#modules/client-artifacts/repository";
@@ -60,21 +63,15 @@ export const withRevisionDatabase = <E>(test: Effect.Effect<void, E, Services>) 
 	return Effect.gen(function* () {
 		const session = yield* DatabaseSession;
 		const db = yield* session.current;
-		const directory = new URL("../../drizzle/", import.meta.url).pathname;
-		const paths = [...new Bun.Glob("*/migration.sql").scanSync({ cwd: directory })];
-		assert(paths.length === 1);
-		const ddl = yield* Effect.tryPromise({
-			try: () => Bun.file(directory + paths[0]).text(),
-			catch: () => new DbError({ message: "Cannot read generated baseline" }),
-		});
+		const statements = yield* baselineMigrationStatements();
 		yield* db.execute(sql`create schema ${sql.identifier(name)}`);
 		yield* Effect.gen(function* () {
 			yield* session.transaction(
 				Effect.gen(function* () {
 					const transaction = yield* session.current;
-					for (const statement of ddl.split("--> statement-breakpoint")) {
-						yield* transaction.execute(sql.raw(statement));
-					}
+					yield* applyBaselineMigration(statements, (statement) =>
+						transaction.execute(sql.raw(statement)),
+					);
 					yield* transaction.insert(tables.user).values([
 						{ id: "owner", name: "Owner", preferences: {}, email: "owner@example.test" },
 						{
