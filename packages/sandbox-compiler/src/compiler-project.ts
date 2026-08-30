@@ -3,6 +3,9 @@ import { Data, Effect } from "effect";
 
 const virtualRoot = "/__ryot_sandbox__";
 
+export const sandboxSourcePath = (fileName: string) =>
+	fileName.startsWith(`${virtualRoot}/`) ? fileName.slice(virtualRoot.length + 1) : fileName;
+
 class TypeScriptProjectError extends Data.TaggedError("TypeScriptProjectError")<{
 	message: string;
 }> {}
