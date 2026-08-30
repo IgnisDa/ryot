@@ -279,14 +279,10 @@ export class AutomationsService extends Context.Service<AutomationsService>()(
 
 							const inserted = yield* repository.insertRun({
 								id,
-								sourceKind,
 								executionUserId,
 								ruleId: rule.id,
 								ruleName: rule.name,
 								ruleMetadata: rule.metadata,
-								recordId: occurrence.recordId,
-								signalId: occurrence.signalId,
-								operation: occurrence.operation,
 								occurrenceId: input.occurrenceId,
 								sandboxScriptId: rule.sandboxScriptId,
 							});

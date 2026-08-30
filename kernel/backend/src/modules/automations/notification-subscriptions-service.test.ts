@@ -155,7 +155,7 @@ it.effect("rejects hidden catalog schemas and duplicate installs", () => {
 	});
 });
 
-it.effect("does not reveal inaccessible notification state through mutations", () => {
+it.effect("does not reveal inaccessible notification subscription through mutations", () => {
 	const layer = makeLayer({
 		findNotificationSubscription: () => Effect.succeed(null),
 		deleteNotificationSubscription: () => Effect.succeed(null),

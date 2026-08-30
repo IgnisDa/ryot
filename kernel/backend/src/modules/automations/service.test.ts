@@ -307,9 +307,9 @@ it.effect("treats state with no live formatter as inert", () => {
 			findRunById: () => Effect.succeed(null),
 			isUserEnabled: () => Effect.succeed(true),
 			findOccurrence: () => Effect.succeed(staleOccurrence),
-			insertRun: () => Effect.die("stale notification state inserted a run"),
 			lockActiveNotificationSubscription: () => Effect.succeed(storedState()),
 			listActiveNotificationSubscriptions: () => Effect.succeed([storedState()]),
+			insertRun: () => Effect.die("stale notification subscription inserted a run"),
 		}),
 	);
 
@@ -389,10 +389,6 @@ it.effect("does not insert a run after its rule was deactivated or deleted", () 
 it.effect("lists durable run attribution by its sole rule ID", () => {
 	const retained = storedRunFromInsert({
 		ruleId,
-		signalId,
-		recordId: null,
-		operation: "signal",
-		sourceKind: "signal",
 		executionUserId: userId,
 		sandboxScriptId: scriptId,
 		ruleName: definition.name,
@@ -451,13 +447,9 @@ it.effect("resolves user and row-owner execution principals", () => {
 	});
 });
 
-it.effect("resumes an inserted run without re-reading deleted notification state", () => {
+it.effect("resumes an inserted run without re-reading deleted notification subscription", () => {
 	const existing = storedRunFromInsert({
 		ruleId,
-		signalId,
-		recordId: null,
-		operation: "signal",
-		sourceKind: "signal",
 		executionUserId: userId,
 		sandboxScriptId: scriptId,
 		ruleName: definition.name,
@@ -470,7 +462,7 @@ it.effect("resumes an inserted run without re-reading deleted notification state
 			findRunById: () => Effect.succeed(existing),
 			findOccurrence: () => Effect.succeed(occurrence()),
 			lockActiveNotificationSubscription: () =>
-				Effect.die("existing run re-read its deleted notification state"),
+				Effect.die("existing run re-read its deleted notification subscription"),
 		}),
 	);
 
@@ -491,10 +483,6 @@ it.effect("resumes an inserted run without re-reading deleted notification state
 it.effect("skips a queued run when its execution user is disabled", () => {
 	const queued = storedRunFromInsert({
 		ruleId,
-		signalId,
-		recordId: null,
-		operation: "signal",
-		sourceKind: "signal",
 		executionUserId: userId,
 		sandboxScriptId: scriptId,
 		ruleName: definition.name,
@@ -533,10 +521,6 @@ it.effect("skips a queued run when its execution user is disabled", () => {
 it.effect("transitions an enabled queued run to running with script audit timing", () => {
 	const queued = storedRunFromInsert({
 		ruleId,
-		signalId,
-		recordId: null,
-		operation: "signal",
-		sourceKind: "signal",
 		executionUserId: userId,
 		sandboxScriptId: scriptId,
 		ruleName: definition.name,
@@ -578,10 +562,6 @@ it.effect("resumes an already running run without rechecking a newly disabled us
 	const running = {
 		...storedRunFromInsert({
 			ruleId,
-			signalId,
-			recordId: null,
-			operation: "signal",
-			sourceKind: "signal",
 			executionUserId: userId,
 			ruleName: definition.name,
 			sandboxScriptId: scriptId,
@@ -613,10 +593,6 @@ it.effect("truncates every oversized artifact without changing a successful stat
 	const running = {
 		...storedRunFromInsert({
 			ruleId,
-			signalId,
-			recordId: null,
-			operation: "signal",
-			sourceKind: "signal",
 			executionUserId: userId,
 			ruleName: definition.name,
 			sandboxScriptId: scriptId,
@@ -659,10 +635,6 @@ it.effect("truncates an oversized UTF-8 sandbox error while preserving failed st
 	const running = {
 		...storedRunFromInsert({
 			ruleId,
-			signalId,
-			recordId: null,
-			operation: "signal",
-			sourceKind: "signal",
 			executionUserId: userId,
 			sandboxScriptId: scriptId,
 			ruleName: definition.name,

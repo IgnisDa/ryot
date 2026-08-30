@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "edc053a7-10bf-4b91-a4a6-a83b0e88b0de",
+	"id": "97756d1b-c599-4e21-8b8d-09ca57da3945",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -69,7 +69,7 @@
 		},
 		{
 			"isRlsEnabled": false,
-			"name": "notification_subscription_state",
+			"name": "notification_subscription",
 			"entityType": "tables",
 			"schema": "public"
 		},
@@ -935,32 +935,6 @@
 			"entityType": "columns",
 			"schema": "public",
 			"table": "backup_run"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "published_hash",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "client_page_build"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "kernel_renderer_name",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "client_page_build"
 		},
 		{
 			"type": "text",
@@ -2650,7 +2624,7 @@
 			"name": "signal_schema_slug",
 			"entityType": "columns",
 			"schema": "public",
-			"table": "notification_subscription_state"
+			"table": "notification_subscription"
 		},
 		{
 			"type": "boolean",
@@ -2663,7 +2637,7 @@
 			"name": "is_active",
 			"entityType": "columns",
 			"schema": "public",
-			"table": "notification_subscription_state"
+			"table": "notification_subscription"
 		},
 		{
 			"type": "jsonb",
@@ -2676,7 +2650,7 @@
 			"name": "metadata",
 			"entityType": "columns",
 			"schema": "public",
-			"table": "notification_subscription_state"
+			"table": "notification_subscription"
 		},
 		{
 			"type": "timestamp with time zone",
@@ -2689,7 +2663,7 @@
 			"name": "created_at",
 			"entityType": "columns",
 			"schema": "public",
-			"table": "notification_subscription_state"
+			"table": "notification_subscription"
 		},
 		{
 			"type": "text",
@@ -2702,7 +2676,7 @@
 			"name": "signal_schema_plugin_id",
 			"entityType": "columns",
 			"schema": "public",
-			"table": "notification_subscription_state"
+			"table": "notification_subscription"
 		},
 		{
 			"type": "text",
@@ -2715,7 +2689,7 @@
 			"name": "user_id",
 			"entityType": "columns",
 			"schema": "public",
-			"table": "notification_subscription_state"
+			"table": "notification_subscription"
 		},
 		{
 			"type": "timestamp with time zone",
@@ -2728,7 +2702,7 @@
 			"name": "updated_at",
 			"entityType": "columns",
 			"schema": "public",
-			"table": "notification_subscription_state"
+			"table": "notification_subscription"
 		},
 		{
 			"type": "text",
@@ -2741,7 +2715,7 @@
 			"name": "id",
 			"entityType": "columns",
 			"schema": "public",
-			"table": "notification_subscription_state"
+			"table": "notification_subscription"
 		},
 		{
 			"type": "text",
@@ -5450,19 +5424,6 @@
 		{
 			"type": "text",
 			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "record_id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "subscription_run"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
 			"default": null,
@@ -5630,32 +5591,6 @@
 			"table": "subscription_run"
 		},
 		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "operation",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "subscription_run"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "source_kind",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "subscription_run"
-		},
-		{
 			"type": "timestamp with time zone",
 			"typeSchema": null,
 			"notNull": true,
@@ -5664,19 +5599,6 @@
 			"generated": null,
 			"identity": null,
 			"name": "queued_at",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "subscription_run"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "signal_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "subscription_run"
@@ -7452,10 +7374,10 @@
 			"with": "",
 			"method": "btree",
 			"concurrently": false,
-			"name": "notification_subscription_state_user_id_idx",
+			"name": "notification_subscription_user_id_idx",
 			"entityType": "indexes",
 			"schema": "public",
-			"table": "notification_subscription_state"
+			"table": "notification_subscription"
 		},
 		{
 			"nameExplicit": true,
@@ -7473,10 +7395,10 @@
 			"with": "",
 			"method": "btree",
 			"concurrently": false,
-			"name": "notification_subscription_state_signal_schema_plugin_id_idx",
+			"name": "notification_subscription_signal_schema_plugin_id_idx",
 			"entityType": "indexes",
 			"schema": "public",
-			"table": "notification_subscription_state"
+			"table": "notification_subscription"
 		},
 		{
 			"nameExplicit": true,
@@ -8490,27 +8412,6 @@
 			"nameExplicit": true,
 			"columns": [
 				{
-					"value": "signal_id",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				}
-			],
-			"isUnique": false,
-			"where": null,
-			"with": "",
-			"method": "btree",
-			"concurrently": false,
-			"name": "subscription_run_signal_id_idx",
-			"entityType": "indexes",
-			"schema": "public",
-			"table": "subscription_run"
-		},
-		{
-			"nameExplicit": true,
-			"columns": [
-				{
 					"value": "user_id",
 					"isExpression": false,
 					"asc": true,
@@ -8942,10 +8843,10 @@
 			"columnsTo": ["id"],
 			"onUpdate": "NO ACTION",
 			"onDelete": "RESTRICT",
-			"name": "notification_subscription_state_6cYqs9dCUQns_fkey",
+			"name": "notification_subscription_uHCTRrCak7Fg_fkey",
 			"entityType": "fks",
 			"schema": "public",
-			"table": "notification_subscription_state"
+			"table": "notification_subscription"
 		},
 		{
 			"nameExplicit": false,
@@ -8955,10 +8856,10 @@
 			"columnsTo": ["id"],
 			"onUpdate": "NO ACTION",
 			"onDelete": "CASCADE",
-			"name": "notification_subscription_state_user_id_user_id_fkey",
+			"name": "notification_subscription_user_id_user_id_fkey",
 			"entityType": "fks",
 			"schema": "public",
-			"table": "notification_subscription_state"
+			"table": "notification_subscription"
 		},
 		{
 			"nameExplicit": false,
@@ -9456,19 +9357,6 @@
 		},
 		{
 			"nameExplicit": false,
-			"columns": ["signal_id"],
-			"schemaTo": "public",
-			"tableTo": "signal",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "CASCADE",
-			"name": "subscription_run_signal_id_signal_id_fkey",
-			"entityType": "fks",
-			"schema": "public",
-			"table": "subscription_run"
-		},
-		{
-			"nameExplicit": false,
 			"columns": ["execution_user_id"],
 			"schemaTo": "public",
 			"tableTo": "user",
@@ -9677,9 +9565,9 @@
 		{
 			"columns": ["id"],
 			"nameExplicit": false,
-			"name": "notification_subscription_state_pkey",
+			"name": "notification_subscription_pkey",
 			"schema": "public",
-			"table": "notification_subscription_state",
+			"table": "notification_subscription",
 			"entityType": "pks"
 		},
 		{
@@ -9897,10 +9785,10 @@
 			"nameExplicit": true,
 			"columns": ["user_id", "signal_schema_slug", "signal_schema_plugin_id"],
 			"nullsNotDistinct": true,
-			"name": "notification_subscription_state_user_signal_unique",
+			"name": "notification_subscription_user_signal_unique",
 			"entityType": "uniques",
 			"schema": "public",
-			"table": "notification_subscription_state"
+			"table": "notification_subscription"
 		},
 		{
 			"nameExplicit": true,
@@ -10070,29 +9958,8 @@
 			"table": "plugin"
 		},
 		{
-			"value": "\"operation\" in ('create', 'update', 'delete', 'signal')",
-			"name": "subscription_run_operation_check",
-			"entityType": "checks",
-			"schema": "public",
-			"table": "subscription_run"
-		},
-		{
-			"value": "\"source_kind\" in ('entity', 'event', 'relationship', 'signal')",
-			"name": "subscription_run_source_kind_check",
-			"entityType": "checks",
-			"schema": "public",
-			"table": "subscription_run"
-		},
-		{
 			"value": "\"status\" in ('queued', 'running', 'succeeded', 'failed', 'skipped')",
 			"name": "subscription_run_status_check",
-			"entityType": "checks",
-			"schema": "public",
-			"table": "subscription_run"
-		},
-		{
-			"value": "((\"source_kind\" = 'signal' and \"operation\" = 'signal' and \"signal_id\" is not null and \"record_id\" is null) or (\"source_kind\" <> 'signal' and \"operation\" <> 'signal' and \"signal_id\" is null and \"record_id\" is not null))",
-			"name": "subscription_run_source_check",
 			"entityType": "checks",
 			"schema": "public",
 			"table": "subscription_run"

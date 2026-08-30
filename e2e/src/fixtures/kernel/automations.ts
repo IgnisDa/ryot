@@ -7,9 +7,9 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import {
-	notificationSubscriptionStateRecipe,
-	notificationSubscriptionStatesRecipe,
-} from "@ryot-app/ryotql-recipes/notification-subscription-states";
+	notificationSubscriptionRecipe,
+	notificationSubscriptionsRecipe,
+} from "@ryot-app/ryotql-recipes/notification-subscriptions";
 import { Effect } from "effect";
 
 import { adminHeaders } from "./admin";
@@ -28,16 +28,16 @@ export const getAutomationCatalogSchema = (client: Client, signalSchemaSlug: str
 		}),
 	);
 
-export const listNotificationSubscriptionStates = (
+export const listNotificationSubscriptions = (
 	client: Client,
-	input: Parameters<typeof notificationSubscriptionStatesRecipe>[0],
+	input: Parameters<typeof notificationSubscriptionsRecipe>[0],
 ) =>
-	executeRyotQLRecipe(client, notificationSubscriptionStatesRecipe(input)).pipe(
+	executeRyotQLRecipe(client, notificationSubscriptionsRecipe(input)).pipe(
 		Effect.map((result) => result.items),
 	);
 
-export const getNotificationSubscriptionState = (client: Client, ruleId: string) =>
-	executeRyotQLRecipe(client, notificationSubscriptionStateRecipe({ id: ruleId }));
+export const getNotificationSubscription = (client: Client, ruleId: string) =>
+	executeRyotQLRecipe(client, notificationSubscriptionRecipe({ id: ruleId }));
 
 export const installNotificationRule = (client: Client, signalSchemaSlug: string) =>
 	client.call((c) =>

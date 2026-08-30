@@ -359,9 +359,9 @@ const notificationChannel: CatalogTable = {
 	},
 };
 
-const notificationSubscriptionState: CatalogTable = {
+const notificationSubscription: CatalogTable = {
 	primaryKey: "id",
-	name: "notification_subscription_state",
+	name: "notification_subscription",
 	visibility: { user: { type: "owned", column: "user_id", includeGlobal: false } },
 	fields: {
 		id: physicalField("id", "text", false),
@@ -457,7 +457,7 @@ const tables: Readonly<Record<string, CatalogTable>> = {
 	notificationChannel,
 	automationOccurrence,
 	sandboxProviderOperation,
-	notificationSubscriptionState,
+	notificationSubscription,
 };
 
 export const getCatalogTable = (name: string) => tables[name];
