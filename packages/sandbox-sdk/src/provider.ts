@@ -202,10 +202,9 @@ export const defineProvider = <
 	readonly manifest: Manifest;
 	readonly operation: Operation;
 	readonly run: ProviderDefinition<Manifest, Operation>["run"];
-}): ProviderDefinition<Manifest, Operation> =>
-	({
-		...definition,
-		definitionType: SANDBOX_SCRIPT_DEFINITION,
-		input: providerOperationContracts[definition.operation].input,
-		output: providerOperationContracts[definition.operation].output,
-	}) as ProviderDefinition<Manifest, Operation>;
+}): ProviderDefinition<Manifest, Operation> => ({
+	...definition,
+	definitionType: SANDBOX_SCRIPT_DEFINITION,
+	input: providerOperationContracts[definition.operation].input,
+	output: providerOperationContracts[definition.operation].output,
+});
