@@ -4,7 +4,7 @@
 		"./*": "./src/*.ts"
 	},
 	"scripts": {
-		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
+		"check": "tsc && oxfmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
 		"@better-auth/core": "1.7.2",

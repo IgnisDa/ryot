@@ -21,7 +21,7 @@
 		}
 	},
 	"scripts": {
-		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
+		"check": "tsc && oxfmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
 		"effect": "4.0.0-rc.117",

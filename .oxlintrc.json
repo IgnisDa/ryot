@@ -2,6 +2,7 @@
 	"env": { "node": true, "browser": true },
 	"jsPlugins": ["eslint-plugin-perfectionist"],
 	"settings": { "react": { "version": "19.0.0" } },
+	"options": { "typeAware": true, "denyWarnings": true },
 	"$schema": "./node_modules/oxlint/configuration_schema.json",
 	"extends": ["./node_modules/@effect/tsgo/oxlint-presets/recommended.json"],
 	"categories": { "perf": "warn", "suspicious": "warn", "correctness": "error" },

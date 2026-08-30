@@ -110,7 +110,7 @@
 	"scripts": {
 		"build": "ryot plugin build",
 		"test": "bun --bun run vitest run",
-		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
+		"check": "tsc && oxfmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
 		"@ryot-app/config": "workspace:*",
