@@ -24,6 +24,14 @@ const recordingAdapter = () => {
 	return { adapter, requests, interests };
 };
 
+const Probe = <Data,>({
+	query,
+	entityId,
+}: {
+	readonly entityId: string;
+	readonly query: RyotQuery<{ readonly entityId: string }, Data>;
+}) => <p>{classifyRyotQueryResult(useRyotQuery(query, { entityId })).status}</p>;
+
 export const declaresEntityInterest =
 	(entityId: string) =>
 	<Data,>(
@@ -34,10 +42,7 @@ export const declaresEntityInterest =
 	) => {
 		it(`${name} watches every entity it renders`, () => {
 			const recording = recordingAdapter();
-			function Probe() {
-				return <p>{classifyRyotQueryResult(useRyotQuery(query, { entityId })).status}</p>;
-			}
-			const view = mountRyotClient(recording.adapter, <Probe />);
+			const view = mountRyotClient(recording.adapter, <Probe query={query} entityId={entityId} />);
 			return Promise.resolve(flushRyotClient())
 				.then(() =>
 					act(() => {
