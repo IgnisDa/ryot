@@ -2,13 +2,54 @@
 	"$schema": "https://turbo.build/schema.json",
 	"tasks": {
 		"dev": { "cache": false, "persistent": true },
-		"check": { "dependsOn": ["^check"], "outputLogs": "errors-only" },
+		"check": { "dependsOn": ["^check", "^build"], "outputLogs": "errors-only" },
 		"test": { "outputLogs": "errors-only", "dependsOn": ["^build", "^check", "^test"] },
 		"build": {
 			"dependsOn": ["^build"],
 			"env": ["UNKEY_ROOT_KEY"],
 			"outputLogs": "errors-only",
 			"outputs": ["out/**", "dist/**", "build/**", ".vitepress/dist/**"]
+		},
+		"@ryot-app/kernel-backend#build": {
+			"dependsOn": ["^build"],
+			"outputs": [
+				"src/lib/infrastructure/sandbox-runtime/*.generated.ts",
+				"src/modules/definition-registry/*.generated.ts"
+			],
+			"inputs": [
+				"src/**/*.ts",
+				"!src/**/*.generated.ts",
+				"scripts/**/*.ts",
+				"!scripts/**/*.test.ts",
+				"package.json"
+			]
+		},
+		"@ryot-app/kernel-backend#check": {
+			"outputLogs": "errors-only",
+			"dependsOn": ["^check", "^build", "build"]
+		},
+		"@ryot-app/kernel-backend#test": {
+			"outputLogs": "errors-only",
+			"dependsOn": ["build", "^build", "^check", "^test"]
+		},
+		"@ryot-app/kernel-renderers#build": {
+			"dependsOn": ["^build"],
+			"outputs": ["src/sources.generated.ts"],
+			"inputs": [
+				"src/**/*.ts",
+				"src/**/*.tsx",
+				"!src/**/*.generated.ts",
+				"scripts/**/*.ts",
+				"package.json"
+			]
+		},
+		"@ryot-app/kernel-renderers#check": {
+			"outputLogs": "errors-only",
+			"dependsOn": ["^check", "^build", "build"]
+		},
+		"@ryot-app/kernel-renderers#test": {
+			"outputLogs": "errors-only",
+			"dependsOn": ["build", "^build", "^check", "^test"]
 		}
 	}
 }

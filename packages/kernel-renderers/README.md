@@ -4,7 +4,7 @@ The saved-view renderers the kernel ships: `entity-browser` and `results-table`.
 client-plugin sources — typechecked, formatted, linted, and unit-tested here — not string literals
 embedded in backend code.
 
-`bun run generate` walks `src/*.{ts,tsx}` and writes `src/sources.generated.ts`, a record from the
+`bun run build` walks `src/*.{ts,tsx}` and writes `src/sources.generated.ts`, a record from the
 archive path (`client/<file>`) to the exact source text. `src/index.ts` turns that record into the
 `{ files, name, sourceHash, definition }` shape `kernel/backend` hands to the client plugin
 compiler, so `sourceHash` covers precisely the bytes that get compiled. The generator runs from this

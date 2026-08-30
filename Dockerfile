@@ -6,7 +6,7 @@ WORKDIR /app
 FROM base AS prepare
 RUN --mount=type=cache,target=/root/.bun/install/cache bun install --global turbo@2.10.12
 COPY . .
-RUN turbo prune @ryot-app/fitness-plugin @ryot-app/kernel-client @ryot-app/media-plugin @ryot-app/server @ryot-app/v10-rust-migration --docker
+RUN turbo prune @ryot-app/kernel-client @ryot-app/server --docker
 
 FROM base AS builder-base
 COPY --from=prepare /app/out/json/ .
@@ -18,9 +18,6 @@ FROM builder-base AS backend-builder
 ARG UNKEY_ROOT_KEY=""
 ENV UNKEY_ROOT_KEY=$UNKEY_ROOT_KEY
 RUN bun turbo --filter=@ryot-app/server build
-
-FROM builder-base AS plugin-builder
-RUN bun turbo --filter=@ryot-app/fitness-plugin --filter=@ryot-app/media-plugin build
 RUN bun run --cwd apps/server assemble
 
 FROM builder-base AS client-builder
@@ -61,7 +58,7 @@ COPY --from=client-builder --chown=ryot:ryot /app/kernel/client/dist ./client
 COPY --from=backend-builder --chown=ryot:ryot /app/apps/server/dist ./dist
 COPY --from=backend-builder --chown=ryot:ryot /app/packages/sandbox-compiler/dist/sandbox-compiler-worker.js* ./dist/
 COPY --from=backend-builder --chown=ryot:ryot /app/packages/client-plugin-compiler/dist/client-plugin-compiler-worker.js* ./dist/
-COPY --from=plugin-builder --chown=ryot:ryot /app/apps/server/plugins ./plugins
+COPY --from=backend-builder --chown=ryot:ryot /app/apps/server/plugins ./plugins
 COPY --from=compiler-runtime --chown=ryot:ryot /app/node_modules ./node_modules
 COPY --from=compiler-runtime --chown=ryot:ryot /app/packages ./packages
 USER ryot
@@ -69,7 +66,7 @@ RUN bun run dist/smoke-compiler-workers.js \
     /home/ryot/dist/sandbox-compiler-worker.js \
     /home/ryot/dist/client-plugin-compiler-worker.js
 # Build the read-only sandbox dependency runtime so startup requires no registry access.
-RUN bun run dist/prepare-sandbox-runtime.js
+RUN bun run dist/warm-sandbox-runtime-cache.js
 RUN bun run dist/smoke-sandbox-runtime.js
 ENV NODE_ENV=production
 CMD ["bun", "run", "dist/main.js"]
