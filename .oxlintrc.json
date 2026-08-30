@@ -1,9 +1,9 @@
 {
 	"env": { "node": true, "browser": true },
-	"jsPlugins": ["eslint-plugin-perfectionist"],
 	"settings": { "react": { "version": "19.0.0" } },
 	"options": { "typeAware": true, "denyWarnings": true },
 	"$schema": "./node_modules/oxlint/configuration_schema.json",
+	"jsPlugins": ["eslint-plugin-perfectionist", "./ci/oxlint/ryot-plugin.mjs"],
 	"extends": ["./node_modules/@effect/tsgo/oxlint-presets/recommended.json"],
 	"categories": { "perf": "warn", "suspicious": "warn", "correctness": "error" },
 	"plugins": ["react", "typescript", "unicorn", "import", "oxc", "node", "promise"],
@@ -29,6 +29,7 @@
 		"import/no-duplicates": "error",
 		"import/no-self-import": "error",
 		"promise/no-return-wrap": "error",
+		"ryot/prefer-await-to-then": "error",
 		"effecttsgo/new-promise": "error",
 		"effecttsgo/leaking-requirements": "error",
 		"effecttsgo/layer-merge-all-with-dependencies": "error",
