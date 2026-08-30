@@ -577,6 +577,34 @@ describe("preferences settings", () => {
 		expect(view.interestEvents).toEqual(["acquire", "reconnect"]);
 	});
 
+	it("disables preference controls while a save is pending", async () => {
+		const gate = Effect.runSync(Deferred.make<typeof userSettings.preferences>());
+		mountPreferences(makeUserSettingsStub({ updatePreferences: () => Deferred.await(gate) }));
+		await screen.findByRole("heading", { name: "Content and data" });
+		fireEvent.click(screen.getByRole("switch", { name: "Show NSFW content" }));
+		fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+		expect(
+			(await screen.findByRole("button", { name: "Saving..." })).hasAttribute("disabled"),
+		).toBe(true);
+		expect(screen.getByRole("switch", { name: "Show NSFW content" }).hasAttribute("disabled")).toBe(
+			true,
+		);
+		expect(
+			screen.getByRole("switch", { name: "Disable integrations" }).hasAttribute("disabled"),
+		).toBe(true);
+		expect(
+			screen
+				.getByRole("button", { name: "Metadata language: Provider default" })
+				.hasAttribute("disabled"),
+		).toBe(true);
+
+		await Effect.runPromise(
+			Deferred.succeed(gate, { ...userSettings.preferences, allowNsfw: true }),
+		);
+		await screen.findByText("Preferences saved.");
+	});
+
 	it("does not reconnect when a metadata language save fails", async () => {
 		const view = mountPreferences(
 			makeUserSettingsStub({ updatePreferences: () => Effect.die("save failed") }),
