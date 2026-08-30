@@ -3,13 +3,17 @@ import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import {
 	buildSavedViewLayouts,
+	createEntity,
 	createSavedView,
 	createTestUser,
 	fakeProviderDetailsResult,
 	fakeProviderSearchResult,
+	fakeProviderTranslations,
+	getEntity,
 	installTestProvider,
 	makeEntitySchemaSlug,
 	makeSession,
+	setUserLanguage,
 	uninstallTestProvider,
 	type InstalledTestProvider,
 } from "~/fixtures/kernel";
@@ -197,6 +201,62 @@ beforeAll(async () => {
 afterAll(async () => {
 	await Effect.runPromise(uninstallTestProvider(provider));
 });
+
+it.live("automatically populates and translates partial entities visible in a saved view", () =>
+	Effect.gen(function* () {
+		const id = crypto.randomUUID();
+		const schemaSlug = `browser-interest-${id}`;
+		const translatedName = `Registro traducido ${id}`;
+		const user = yield* createTestUser();
+		const client = makeSession(getApiUrl(), { Authorization: `Bearer ${user.token}` });
+		yield* setUserLanguage(client, "es");
+		const offlineProvider = yield* installTestProvider({
+			client,
+			rootEntitySchemaSlug: schemaSlug,
+			information: { source: "e2e", canonicalLanguage: "en" },
+			translations: fakeProviderTranslations({ es: { name: translatedName, properties: {} } }),
+			details: fakeProviderDetailsResult({
+				name: `Populated record ${id}`,
+				properties: { publishYear: 2042 },
+			}),
+			entitySchemas: [
+				{
+					icon: "file",
+					eventSchemas: [],
+					slug: schemaSlug,
+					name: "Browser Interest Record",
+					propertiesSchema: {
+						fields: {
+							publishYear: { type: "integer", label: "Year", description: "Publication year" },
+						},
+					},
+				},
+			],
+		});
+		yield* Effect.addFinalizer(() => uninstallTestProvider(offlineProvider));
+		const entity = yield* createEntity(client, {
+			properties: {},
+			externalId: id,
+			name: `Partial record ${id}`,
+			providerId: offlineProvider.providerId,
+			entitySchemaSlug: makeEntitySchemaSlug(schemaSlug),
+		});
+		const view = yield* createSavedView(client, {
+			name: `Interest View ${id}`,
+			entitySchemaSlug: makeEntitySchemaSlug(schemaSlug),
+			layouts: buildSavedViewLayouts({}, [schemaSlug]),
+		});
+		expect((yield* getEntity(client, entity.id)).populatedAt).toBeNull();
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage({ locale: "en-US" });
+		yield* signInThroughHostedOAuth(page, user.email, user.password);
+		yield* page.goto(`${getFrontendUrl()}/v/${view.slug}`);
+		const card = page.getByRole("link", { name: `Open ${translatedName}`, exact: true });
+		yield* card.waitFor({ state: "visible", timeout: IMPORT_TIMEOUT });
+		yield* page.getByText("2,042", { exact: true }).waitFor({ state: "visible" });
+		expect(yield* card.isVisible()).toBe(true);
+	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+);
 
 it.live("opens the provider add flow from every saved-view affordance", () =>
 	withSavedViewBrowser((page, workspaceUrl) =>

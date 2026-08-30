@@ -20,13 +20,20 @@ import {
 	type PluginThemeSnapshot,
 	type RyotClientErrorReason,
 } from "@ryot-app/client-plugin-contract";
+import { MAX_INTEREST_ENTITY_IDS } from "@ryot-app/contract/modules/entity-interest/messages";
 import type { ManagedAssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Match, Result, Schema } from "effect";
 
-import { createRyotClient, RyotClientError, type RyotNavigationTarget } from "./index";
+import {
+	createRyotClient,
+	RyotClientError,
+	type RyotNavigationTarget,
+	type EntityInterest,
+	type EntityUpdate,
+} from "./index";
 import type { PluginNavigationController, PluginNavigationSnapshot } from "./navigation/store";
 
 type PluginRuntimeState = "ready" | "active" | "closing" | "failed" | "disposed";
@@ -92,6 +99,27 @@ export const createPluginRuntime = (
 	const queries = new Map<string, PendingCall>();
 	const assets = new Map<string, PendingCall>();
 	const themeListeners = new Set<() => void>();
+	const interestOwners = new Set<{
+		interest: EntityInterest;
+		onUpdate: (update: EntityUpdate) => void;
+	}>();
+	let postedInterest = JSON.stringify({ foreground: [], visible: [] });
+	const publishInterest = () => {
+		const roots = new Set([...interestOwners].flatMap(({ interest }) => interest.foreground));
+		const foreground = [...roots].sort().slice(0, MAX_INTEREST_ENTITY_IDS);
+		const visible = [...new Set([...interestOwners].flatMap(({ interest }) => interest.visible))]
+			.filter((id) => !roots.has(id))
+			.sort()
+			.slice(0, MAX_INTEREST_ENTITY_IDS - foreground.length);
+		const serialized = JSON.stringify({ foreground, visible });
+		if (serialized === postedInterest) {
+			return;
+		}
+		if (!post({ type: "entity-interest", foreground, visible })) {
+			throw new RyotClientError(terminalReason ?? "transport");
+		}
+		postedInterest = serialized;
+	};
 
 	const activate = () => {
 		if (state === "ready" && hasLocation) {
@@ -119,6 +147,7 @@ export const createPluginRuntime = (
 		terminalReason = reason;
 		rejectPending(reason);
 		themeListeners.clear();
+		interestOwners.clear();
 		hasLocation = false;
 		navigationStore.clear();
 		if (notify) {
@@ -295,6 +324,28 @@ export const createPluginRuntime = (
 				return () => themeListeners.delete(listener);
 			},
 		},
+		watchEntities: (interest, onUpdate) => {
+			if (state !== "active") {
+				throw new RyotClientError(terminalReason ?? "transport");
+			}
+			const owner = { interest, onUpdate };
+			interestOwners.add(owner);
+			publishInterest();
+			return {
+				update: (next) => {
+					if (state !== "active") {
+						throw new RyotClientError(terminalReason ?? "transport");
+					}
+					owner.interest = next;
+					publishInterest();
+				},
+				dispose: () => {
+					if (interestOwners.delete(owner)) {
+						publishInterest();
+					}
+				},
+			};
+		},
 	});
 
 	const fatal = () => finish("failed", "protocol", true);
@@ -316,6 +367,17 @@ export const createPluginRuntime = (
 				return;
 			}
 			Match.value(decoded.success).pipe(
+				Match.when({ type: "entity-updated" }, ({ entityId, reason }) => {
+					for (const owner of Array.from(interestOwners)) {
+						if (
+							interestOwners.has(owner) &&
+							(owner.interest.foreground.includes(entityId) ||
+								owner.interest.visible.includes(entityId))
+						) {
+							owner.onUpdate({ entityId, reason });
+						}
+					}
+				}),
 				Match.when({ type: "location" }, ({ compact, edgeBack, index, key, leading, location }) => {
 					let accepted: PluginNavigationSnapshot;
 					try {

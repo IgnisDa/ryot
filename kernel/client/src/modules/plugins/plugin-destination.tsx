@@ -1,4 +1,5 @@
 import type { KernelShortcut } from "@ryot-app/client-plugin-contract";
+import { useRyot } from "@ryot-app/client-sdk/react";
 import { useNavigate, useRouteContext, useRouter } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useCallback, useLayoutEffect, useMemo, type ReactNode } from "react";
@@ -49,6 +50,7 @@ function PluginInstallation(props: {
 	readonly onScreenState: (state: PluginDestinationScreenState | null) => void;
 }) {
 	const edge = useEdge();
+	const ryot = useRyot();
 	const router = useRouter();
 	const navigate = useNavigate();
 	const chrome = useShellChrome();
@@ -138,6 +140,7 @@ function PluginInstallation(props: {
 			installation={installation}
 			chromeLeading={chromeLeading}
 			onOpenDrawer={chrome.onOpenDrawer}
+			watchEntities={ryot.entities.watch}
 			chromeTriggerRef={chrome.triggerRef}
 			onKernelShortcut={props.onKernelShortcut}
 			onNavigateBack={() => router.history.back()}

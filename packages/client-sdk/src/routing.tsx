@@ -23,6 +23,7 @@ import {
 	type RefObject,
 } from "react";
 
+import { ActiveScreenContext } from "./active-screen";
 import type { RyotNavigationTarget } from "./index";
 import { applyProgress, prefersReducedMotion, settleProgress } from "./navigation/animator";
 import { EDGE_SWIPE_WIDTH, dragProgress, shouldCommit, shouldEngage } from "./navigation/gesture";
@@ -520,7 +521,9 @@ function Screen(props: {
 			}}
 		>
 			<PluginScreenContext.Provider value={surface}>
-				<RouterContext.Provider value={value}>{props.screen.element}</RouterContext.Provider>
+				<ActiveScreenContext.Provider value={active}>
+					<RouterContext.Provider value={value}>{props.screen.element}</RouterContext.Provider>
+				</ActiveScreenContext.Provider>
 			</PluginScreenContext.Provider>
 		</div>
 	);

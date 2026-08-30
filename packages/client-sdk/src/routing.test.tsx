@@ -16,10 +16,15 @@ import { afterEach, describe, expect, it } from "vitest";
 	globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
 ).IS_REACT_ACT_ENVIRONMENT = true;
 
-import { createRyotClient, type RyotNavigationTarget } from "./index";
+import {
+	createRyotClient,
+	type RyotNavigationTarget,
+	type EntityInterest,
+	type EntityUpdate,
+} from "./index";
 import { createPluginNavigationStore } from "./navigation/store";
 import { PluginScreenFrame } from "./plugin-screen";
-import { RyotProvider, useRyot } from "./react";
+import { RyotProvider, useRyot, useEntityRefresh } from "./react";
 import {
 	createPluginRouteResolver,
 	PluginLink,
@@ -272,6 +277,57 @@ afterEach(() => {
 });
 
 describe("PluginRouter", () => {
+	it("withdraws retained-screen interest and waits for running refresh before pop catch-up", async () => {
+		let hint!: (event: EntityUpdate) => void;
+		let watches = 0;
+		let disposals = 0;
+		const watchEntities = (_interest: EntityInterest, listener: typeof hint) => {
+			watches++;
+			hint = listener;
+			return {
+				dispose: () => {
+					disposals++;
+				},
+				update: () => undefined,
+			};
+		};
+		const pending: Array<() => void> = [];
+		const onRefresh = () => new Promise<void>((resolve) => pending.push(resolve));
+		const InterestedHome = () => {
+			useEntityRefresh({
+				identity: "home",
+				blocked: false,
+				onRefresh,
+				interest: { foreground: ["root"], visible: [] },
+			});
+			return <p>Interested home</p>;
+		};
+		const channel = openChannel({
+			home: { component: InterestedHome },
+			routes: [{ path: "/item", component: ItemRoute }],
+		});
+		const container = renderRouter({
+			...channel,
+			client: createRyotClient({ watchEntities, query: () => Promise.resolve({}) }),
+		});
+		act(() => channel.send("/", "", { index: 0, key: "home" }));
+		expect(watches).toBe(1);
+		act(() => hint({ entityId: "root", reason: "populated" }));
+		await waitFor(() => expect(pending).toHaveLength(1));
+		act(() => channel.send("/item"));
+		expect(disposals).toBe(1);
+		expect(container.textContent).toContain("Interested home");
+		act(() => channel.send("/", "", { index: 0, key: "home" }));
+		expect(watches).toBe(2);
+		await new Promise((resolve) => setTimeout(resolve, 300));
+		expect(pending).toHaveLength(1);
+		await act(async () => {
+			pending[0]?.();
+			await Promise.resolve();
+		});
+		await waitFor(() => expect(pending).toHaveLength(2));
+	});
+
 	it("renders nothing before the first location message", () => {
 		const { container } = mount();
 		expect(container.textContent).toBe("");
