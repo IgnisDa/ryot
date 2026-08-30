@@ -238,8 +238,7 @@ const makeProjectionRedis = () =>
 	makeRedisService({
 		client: Object.assign(Object.create(null), {
 			eval: () => Promise.resolve(1),
-			hmget: () => Promise.resolve([]),
-			hget: () => Promise.resolve(null),
+			hgetall: () => Promise.resolve({}),
 		}),
 	});
 
@@ -290,9 +289,7 @@ fi
 	const executedContent: string[] = [];
 	const hashes = new Map<string, Map<string, string>>();
 	const redisClient: RedisService["Service"]["client"] = Object.assign(Object.create(null), {
-		hget: (key: string, field: string) => Promise.resolve(hashes.get(key)?.get(field) ?? null),
-		hmget: (key: string, ...fields: string[]) =>
-			Promise.resolve(fields.map((field) => hashes.get(key)?.get(field) ?? null)),
+		hgetall: (key: string) => Promise.resolve(Object.fromEntries(hashes.get(key) ?? [])),
 		eval: (
 			_script: string,
 			_numberOfKeys: number,
