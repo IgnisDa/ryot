@@ -90,7 +90,7 @@ export const runAppCollector = async (options: AppCollectorOptions) => {
 						{ headers },
 					);
 		let sample: unknown = null;
-		if (result.status === 200 && result.body !== null) {
+		if (result.status === 200) {
 			sample = JSON.parse(result.body);
 			const sequence =
 				typeof sample === "object" && sample !== null && "completedWorkerSequence" in sample
@@ -131,8 +131,7 @@ export const runAppCollector = async (options: AppCollectorOptions) => {
 			kind: "app-aux",
 			startedMs: slot.startedMs,
 			timestampMs: wallClockMs(),
-			pressure:
-				pressure?.status === 200 && pressure.body !== null ? JSON.parse(pressure.body) : null,
+			pressure: pressure?.status === 200 ? JSON.parse(pressure.body) : null,
 			health:
 				health === null
 					? null
