@@ -102,10 +102,16 @@ export const makeAppConfigLayer = (
 		users: { allowRegistration: true, disableLocalAuth: false },
 		sandbox: { denoDir: "./tmp", workerConcurrency: 2, processMode: "on-demand" },
 		database: { poolMax: 10, connectionTimeoutMs: 10_000, url: Redacted.make("unused") },
-		automations: { maxDepth: 8, maxRuns: 100, retryWindowDays: 7, historyRetentionDays: 30 },
 		frontend: {
 			oidcButtonLabel: Option.none(),
 			umami: { hostUrl: Option.none(), websiteId: Option.none() },
+		},
+		automations: {
+			maxDepth: 8,
+			maxRuns: 100,
+			batchMaxItems: 200,
+			retryWindowDays: 7,
+			historyRetentionDays: 30,
 		},
 		scheduler: {
 			disableDispatchers: false,

@@ -31,6 +31,7 @@ import type { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runt
 import { selectSandboxHostFunctions } from "#lib/infrastructure/sandbox-runtime/service";
 import type { SandboxRunInput } from "#lib/infrastructure/sandbox-runtime/shared";
 import { databaseLayer, makeAppConfigLayer, makeRedisService } from "#lib/test-utils/effect";
+import { withLifecycleBatchPlanning } from "#modules/automations/lifecycle.test-support";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
@@ -56,9 +57,11 @@ const hostDatabaseLayer = Layer.mergeAll(
 		PgClient.PgClient,
 		Object.assign(Object.create(null), { transactionService: HostFunctionsTestTransaction }),
 	),
-	Layer.mock(LifecyclePlanner)({
-		plan: ({ trigger }) => Effect.succeed({ trigger, runs: [], policies: [], wasCreated: true }),
-	}),
+	Layer.mock(LifecyclePlanner)(
+		withLifecycleBatchPlanning({
+			plan: ({ trigger }) => Effect.succeed({ trigger, runs: [], policies: [], wasCreated: true }),
+		}),
+	),
 	Layer.mock(LifecycleExecution)({
 		after: () => Effect.succeed([]),
 		dispatch: () => Effect.succeed([]),

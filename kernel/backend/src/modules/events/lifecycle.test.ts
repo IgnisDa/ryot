@@ -28,7 +28,10 @@ import {
 	makeConfigProviderLayer,
 	makeWorkflowEngine,
 } from "#lib/test-utils/effect";
-import { withLifecycleDispatch } from "#modules/automations/lifecycle.test-support";
+import {
+	withLifecycleBatchPlanning,
+	withLifecycleDispatch,
+} from "#modules/automations/lifecycle.test-support";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 
@@ -114,58 +117,61 @@ const withDatabase = <E, R>(test: (observer: Client) => Effect.Effect<void, E, R
 	);
 
 const planner = (failChange = false) =>
-	Layer.succeed(LifecyclePlanner, {
-		plan: ({ trigger }) =>
-			Effect.gen(function* () {
-				const db = yield* Database;
-				const { kind, causation } = trigger;
-				yield* mapDatabaseErrors(
-					db
-						.insert(tables.automationTrigger)
-						.values({
-							id: trigger.id,
-							depth: causation.depth,
-							category: kind.category,
-							payload: trigger.payload,
-							source: causation.source,
-							operation: kind.operation,
-							resourceKind: kind.resource,
-							scopeUserId: trigger.scopeUserId,
-							executionId: causation.executionId,
-							parentRunId: causation.parentRunId,
-							initiatorId: causation.initiator.id,
-							initiatorKind: causation.initiator.kind,
-							rootExecutionId: causation.rootExecutionId,
-							parentTriggerId: causation.parentTriggerId,
-							createdAt: DateTime.toDate(DateTime.makeUnsafe(trigger.createdAt)),
-							occurredAt: DateTime.toDate(DateTime.makeUnsafe(trigger.occurredAt)),
-						}),
-				);
-				if (kind.category === "change") {
+	Layer.succeed(
+		LifecyclePlanner,
+		withLifecycleBatchPlanning({
+			plan: ({ trigger }) =>
+				Effect.gen(function* () {
+					const db = yield* Database;
+					const { kind, causation } = trigger;
 					yield* mapDatabaseErrors(
 						db
-							.insert(tables.automationRun)
+							.insert(tables.automationTrigger)
 							.values({
-								stage: "after",
-								delivery: "async",
-								hookSlug: "fixture",
-								hookName: "Fixture",
-								triggerId: trigger.id,
-								scriptSlug: "fixture",
-								id: `run-${trigger.id}`,
-								sandboxScriptId: "script",
-								scriptContentHash: "hash",
-								retryPolicy: DEFAULT_AUTOMATION_RETRY_POLICY,
-								artifactsExpireAt: DateTime.toDate(DateTime.makeUnsafe(now)),
+								id: trigger.id,
+								depth: causation.depth,
+								category: kind.category,
+								payload: trigger.payload,
+								source: causation.source,
+								operation: kind.operation,
+								resourceKind: kind.resource,
+								scopeUserId: trigger.scopeUserId,
+								executionId: causation.executionId,
+								parentRunId: causation.parentRunId,
+								initiatorId: causation.initiator.id,
+								initiatorKind: causation.initiator.kind,
+								rootExecutionId: causation.rootExecutionId,
+								parentTriggerId: causation.parentTriggerId,
+								createdAt: DateTime.toDate(DateTime.makeUnsafe(trigger.createdAt)),
+								occurredAt: DateTime.toDate(DateTime.makeUnsafe(trigger.occurredAt)),
 							}),
 					);
-					if (failChange) {
-						return yield* new DbError({ message: "planning failed after run insertion" });
+					if (kind.category === "change") {
+						yield* mapDatabaseErrors(
+							db
+								.insert(tables.automationRun)
+								.values({
+									stage: "after",
+									delivery: "async",
+									hookSlug: "fixture",
+									hookName: "Fixture",
+									triggerId: trigger.id,
+									scriptSlug: "fixture",
+									id: `run-${trigger.id}`,
+									sandboxScriptId: "script",
+									scriptContentHash: "hash",
+									retryPolicy: DEFAULT_AUTOMATION_RETRY_POLICY,
+									artifactsExpireAt: DateTime.toDate(DateTime.makeUnsafe(now)),
+								}),
+						);
+						if (failChange) {
+							return yield* new DbError({ message: "planning failed after run insertion" });
+						}
 					}
-				}
-				return { trigger, runs: [], policies: [], wasCreated: true };
-			}),
-	});
+					return { trigger, runs: [], policies: [], wasCreated: true };
+				}),
+		}),
+	);
 
 const workflowLayer = Layer.mergeAll(
 	Layer.mock(EntitiesRepository)({
@@ -210,8 +216,9 @@ describe("Event lifecycle PostgreSQL", () => {
 	it.effect("event, change trigger and queued runs commit together and roll back together", () =>
 		withDatabase((observer) =>
 			Effect.gen(function* () {
-				const run = (id: string, fail: boolean) =>
-					runEventCreateWorkflow(
+				const run = (id: string, fail: boolean) => {
+					let dispatched = 0;
+					return runEventCreateWorkflow(
 						{
 							userId,
 							command: command(id),
@@ -232,17 +239,21 @@ describe("Event lifecycle PostgreSQL", () => {
 								executePolicy: () => Effect.die("Unexpected policy"),
 								after: () =>
 									Effect.gen(function* () {
+										dispatched += 1;
 										const result = yield* Effect.promise(() =>
 											observer.query(
 												`SELECT (SELECT count(*) FROM event)::int AS events, (SELECT count(*) FROM automation_trigger WHERE category='change')::int AS changes, (SELECT count(*) FROM automation_run)::int AS runs`,
 											),
 										);
-										expect(result.rows).toEqual([{ runs: 1, events: 1, changes: 1 }]);
+										expect(result.rows).toEqual([
+											{ events: 1, runs: dispatched, changes: dispatched },
+										]);
 										return [];
 									}),
 							}),
 						),
 					);
+				};
 				assertExitFails(
 					yield* Effect.exit(run("failed", true)),
 					new DbError({ message: "planning failed after run insertion" }),
@@ -367,10 +378,19 @@ describe("Event lifecycle PostgreSQL", () => {
 				});
 				const result = yield* Effect.promise(() =>
 					observer.query(
-						`SELECT payload FROM automation_trigger WHERE category = 'change' ORDER BY operation DESC`,
+						`SELECT payload FROM automation_trigger WHERE category = 'change' AND operation <> 'batch' ORDER BY operation DESC`,
 					),
 				);
 				expect(result.rows).toHaveLength(2);
+				const batches = yield* Effect.promise(() =>
+					observer.query(
+						`SELECT payload->'items'->0->>'operation' AS item, jsonb_array_length(payload->'items')::int AS items FROM automation_trigger WHERE category = 'change' AND operation = 'batch' ORDER BY item`,
+					),
+				);
+				expect(batches.rows).toEqual([
+					{ items: 1, item: "delete" },
+					{ items: 1, item: "update" },
+				]);
 				expect(result.rows[0]?.["payload"]).toMatchObject({
 					after: snapshot,
 					operation: "update",
@@ -501,17 +521,20 @@ describe("Event lifecycle PostgreSQL", () => {
 				const rejected = yield* service
 					.prepareDelete({ userId, eventId: rejectedId }, command("prepared-rejected"))
 					.pipe(
-						Effect.provideService(LifecyclePlanner, {
-							plan: (input) =>
-								lifecyclePlanner
-									.plan(input)
-									.pipe(
-										Effect.map((plan) => ({
-											...plan,
-											policies: [{ position: 1, runId: AutomationRunId.make("reject-event") }],
-										})),
-									),
-						}),
+						Effect.provideService(
+							LifecyclePlanner,
+							withLifecycleBatchPlanning({
+								plan: (input) =>
+									lifecyclePlanner
+										.plan(input)
+										.pipe(
+											Effect.map((plan) => ({
+												...plan,
+												policies: [{ position: 1, runId: AutomationRunId.make("reject-event") }],
+											})),
+										),
+							}),
+						),
 						Effect.provideService(LifecycleExecution, {
 							...lifecycleExecution,
 							executePolicy: () =>

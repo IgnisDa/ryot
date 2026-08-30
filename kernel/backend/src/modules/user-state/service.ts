@@ -80,13 +80,27 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 		type RelationshipRow = Effect.Success<
 			ReturnType<typeof relationshipsRepository.listUserRelationshipsForEntityWithProvenance>
 		>[number];
-		const executePlans = Effect.fnUntraced(function* (
+		const withBatches = Effect.fnUntraced(function* (
+			command: LifecycleCommand,
 			eventPlans: ReadonlyArray<LifecyclePlan>,
 			relationshipPlans: ReadonlyArray<LifecyclePlan>,
 		) {
-			return yield* lifecycleExecution.dispatch(
-				[...eventPlans, ...relationshipPlans].map(toLifecycleDispatchPlan),
-			);
+			return [
+				...eventPlans,
+				...relationshipPlans,
+				...(yield* planner.planBatch({
+					command,
+					resource: "event",
+					plans: eventPlans,
+					identity: ["events"],
+				})),
+				...(yield* planner.planBatch({
+					command,
+					resource: "relationship",
+					plans: relationshipPlans,
+					identity: ["relationships"],
+				})),
+			];
 		});
 
 		const prepareRelationshipMove = Effect.fnUntraced(function* (input: {
@@ -232,11 +246,11 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 							relationshipPlans.push(...work.plans);
 						}
 
-						return { eventPlans, relationshipPlans };
+						return yield* withBatches(command, eventPlans, relationshipPlans);
 					}).pipe(Effect.provideService(Database, transaction)),
 				),
 			);
-			const warnings = yield* executePlans(committed.eventPlans, committed.relationshipPlans);
+			const warnings = yield* lifecycleExecution.dispatch(committed.map(toLifecycleDispatchPlan));
 			return {
 				warnings,
 				entityId,
@@ -363,11 +377,16 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 							}
 						}
 
-						return { eventPlans, relationshipPlans, movedRelationshipsCount };
+						return {
+							movedRelationshipsCount,
+							plans: yield* withBatches(command, eventPlans, relationshipPlans),
+						};
 					}).pipe(Effect.provideService(Database, transaction)),
 				),
 			);
-			const warnings = yield* executePlans(committed.eventPlans, committed.relationshipPlans);
+			const warnings = yield* lifecycleExecution.dispatch(
+				committed.plans.map(toLifecycleDispatchPlan),
+			);
 			return {
 				warnings,
 				mergeFrom,

@@ -2,7 +2,7 @@ import { PgClient } from "@effect/sql-pg";
 import { DbError } from "@ryot-app/contract/errors";
 import {
 	AutomationEventDraft,
-	type AutomationChangePayload,
+	type AutomationEventChangePayload,
 	type AutomationEventSnapshot,
 	type AutomationRequestPayload,
 	type AutomationWarning,
@@ -220,7 +220,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			yield* assertActiveTransaction;
 			const planner = yield* LifecyclePlanner;
 			let eventId: EventId;
-			let change: Extract<AutomationChangePayload, { resource: "event" }>;
+			let change: AutomationEventChangePayload;
 			if (prepared.operation === "update") {
 				const updated = yield* repository.updatePreparedEventEntityReferences({
 					...prepared.move,
@@ -281,6 +281,24 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 		) {
 			return yield* persist(prepared[preparedEventDelete]);
 		});
+		const withBatch = Effect.fnUntraced(function* (
+			command: LifecycleCommand,
+			persisted: Effect.Effect<
+				CommittedLifecycleWork<EventId>,
+				Effect.Error<ReturnType<typeof persist>>,
+				Effect.Services<ReturnType<typeof persist>>
+			>,
+		) {
+			const planner = yield* LifecyclePlanner;
+			const work = yield* persisted;
+			const batch = yield* planner.planBatch({
+				command,
+				plans: work.plans,
+				resource: "event",
+				identity: [command.itemIdentity],
+			});
+			return { ...work, plans: [...work.plans, ...batch] };
+		});
 		const mutate = Effect.fn("EventsService.mutate")(function* (
 			input: EventIdentityInput,
 			command: LifecycleCommand,
@@ -289,11 +307,15 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			const work = move
 				? yield* Effect.gen(function* () {
 						const prepared = yield* prepareUpdate(move, command);
-						return prepared ? yield* transaction(persistPreparedUpdate(prepared)) : null;
+						return prepared
+							? yield* transaction(withBatch(command, persistPreparedUpdate(prepared)))
+							: null;
 					})
 				: yield* Effect.gen(function* () {
 						const prepared = yield* prepareDelete(input, command);
-						return prepared ? yield* transaction(persistPreparedDelete(prepared)) : null;
+						return prepared
+							? yield* transaction(withBatch(command, persistPreparedDelete(prepared)))
+							: null;
 					});
 			if (!work) {
 				return { eventId: null, warnings: [] as AutomationWarning[] };

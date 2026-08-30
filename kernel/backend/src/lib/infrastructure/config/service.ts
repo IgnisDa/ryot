@@ -162,6 +162,9 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 			!Number.isInteger(limits.maxRuns) ||
 			limits.maxRuns < 1 ||
 			limits.maxRuns > 10000 ||
+			!Number.isInteger(limits.batchMaxItems) ||
+			limits.batchMaxItems < 1 ||
+			limits.batchMaxItems > 1000 ||
 			!Number.isInteger(limits.retryWindowDays) ||
 			limits.retryWindowDays < 1 ||
 			limits.retryWindowDays > 90 ||
