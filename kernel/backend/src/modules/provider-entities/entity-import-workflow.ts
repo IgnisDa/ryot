@@ -3,7 +3,7 @@ import { Effect, Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { type DurableSchema, withoutWorkflowParent } from "#lib/infrastructure/workflow";
+import type { DurableSchema } from "#lib/infrastructure/workflow";
 
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 import { ProviderEntityPopulationWorkflow } from "./provider-entity-population-workflow";
@@ -48,7 +48,6 @@ export const runEntityImportWorkflow = Effect.fn("EntityImportWorkflow")(functio
 			},
 		})
 		.pipe(
-			withoutWorkflowParent,
 			Effect.mapError(
 				(error) => new EntityImportError({ stage: "population", message: error.message }),
 			),
