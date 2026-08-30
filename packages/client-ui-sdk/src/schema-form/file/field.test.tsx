@@ -27,18 +27,17 @@ const pickingFile =
 
 const deferredUpload = () => {
 	const requests: { readonly fileName: string }[] = [];
-	const settlers: ((outcome: SchemaFileUploadOutcome) => void)[] = [];
+	const settlers: Array<PromiseWithResolvers<SchemaFileUploadOutcome>> = [];
 	const uploadFile: SchemaFileUpload = (request) => {
 		requests.push({ fileName: request.fileName });
-		// oxlint-disable-next-line effecttsgo/new-promise -- Test gate controls upload completion.
-		return new Promise((resolve) => {
-			settlers.push(resolve);
-		});
+		const deferred = Promise.withResolvers<SchemaFileUploadOutcome>();
+		settlers.push(deferred);
+		return deferred.promise;
 	};
 	return {
 		requests,
 		uploadFile,
-		resolve: (index: number, outcome: SchemaFileUploadOutcome) => settlers[index]?.(outcome),
+		resolve: (index: number, outcome: SchemaFileUploadOutcome) => settlers[index]?.resolve(outcome),
 	};
 };
 
@@ -198,11 +197,12 @@ describe("SchemaFileField", () => {
 
 	it.live("lets only the latest overlapping picker result start an upload", () =>
 		Effect.gen(function* () {
-			const picks: ((outcome: Awaited<ReturnType<SchemaFilePicker>>) => void)[] = [];
+			const picks: Array<PromiseWithResolvers<Awaited<ReturnType<SchemaFilePicker>>>> = [];
 			const uploaded: string[] = [];
 			const pickFile: SchemaFilePicker = () => {
-				// oxlint-disable-next-line effecttsgo/new-promise -- Test gate controls the browser picker response.
-				return new Promise((resolve) => picks.push(resolve));
+				const deferred = Promise.withResolvers<Awaited<ReturnType<SchemaFilePicker>>>();
+				picks.push(deferred);
+				return deferred.promise;
 			};
 			render(
 				<FileFieldHarness
@@ -218,8 +218,8 @@ describe("SchemaFileField", () => {
 			const choose = screen.getByRole("button", { name: "Choose a file for Archive" });
 			fireEvent.click(choose);
 			fireEvent.click(choose);
-			picks[0]?.({ kind: "picked", file: candidate("stale.zip", 100) });
-			picks[1]?.({ kind: "picked", file: candidate("latest.zip", 200) });
+			picks[0]?.resolve({ kind: "picked", file: candidate("stale.zip", 100) });
+			picks[1]?.resolve({ kind: "picked", file: candidate("latest.zip", 200) });
 
 			expect(yield* Effect.promise(() => screen.findByText("latest.zip"))).toBeTruthy();
 			expect(uploaded).toEqual(["latest.zip"]);

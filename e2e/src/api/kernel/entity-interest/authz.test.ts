@@ -27,50 +27,46 @@ const createSocketTicket = (client: Client) =>
 const waitForSocketClose = (firstFrame?: string, timeoutMs = 10_000) =>
 	Effect.callback<SocketClose>((resume) => {
 		const socket = new WebSocket(`${getApiUrl()}/entity-interest/ws`);
-		// oxlint-disable-next-line effecttsgo/global-timers-in-effect -- WebSocket close callback needs a cancelable timeout.
-		const timer = setTimeout(() => {
-			socket.close();
-			resume(Effect.die(new Error("Timed out waiting for entity interest WebSocket close")));
-		}, timeoutMs);
 		socket.addEventListener("open", () => {
 			if (firstFrame !== undefined) {
 				socket.send(firstFrame);
 			}
 		});
 		socket.addEventListener("close", (event) => {
-			clearTimeout(timer);
 			resume(Effect.succeed({ code: event.code, reason: event.reason }));
 		});
 		return Effect.sync(() => {
-			clearTimeout(timer);
 			socket.close();
 		});
-	});
+	}).pipe(
+		Effect.timeoutOrElse({
+			duration: Duration.millis(timeoutMs),
+			orElse: () => Effect.die(new Error("Timed out waiting for entity interest WebSocket close")),
+		}),
+	);
 
 const consumeTicket = (ticket: string) =>
 	Effect.callback<void>((resume) => {
 		const socket = new WebSocket(`${getApiUrl()}/entity-interest/ws`);
-		// oxlint-disable-next-line effecttsgo/global-timers-in-effect -- WebSocket readiness callback needs a cancelable timeout.
-		const timer = setTimeout(() => {
-			socket.close();
-			resume(Effect.die(new Error("Timed out consuming entity interest socket ticket")));
-		}, 10_000);
 		socket.addEventListener("open", () => {
 			socket.send(encodeEntityInterestClientMessage({ ticket, type: "authenticate" }));
 		});
 		socket.addEventListener("message", (event) => {
 			const decoded = decodeEntityInterestServerMessage(String(event.data));
 			if (Result.isSuccess(decoded) && decoded.success.type === "ready") {
-				clearTimeout(timer);
 				socket.close(1000);
 				resume(Effect.void);
 			}
 		});
 		return Effect.sync(() => {
-			clearTimeout(timer);
 			socket.close();
 		});
-	});
+	}).pipe(
+		Effect.timeoutOrElse({
+			duration: Duration.seconds(10),
+			orElse: () => Effect.die(new Error("Timed out consuming entity interest socket ticket")),
+		}),
+	);
 
 describe("interest authorization", () => {
 	it.live("ignores interest declared in another user's private entity", () =>

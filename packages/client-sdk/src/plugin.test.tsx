@@ -26,6 +26,7 @@ import {
 } from "./plugin";
 import * as pluginSurface from "./plugin";
 import { useRyot, useRyotTheme } from "./react";
+import { waitForMessagePortMacrotask } from "./testing";
 
 const metadata = {
 	hash: "composition-hash",
@@ -204,8 +205,7 @@ describe("bootstrapClientPlugin", () => {
 			window.dispatchEvent(
 				new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
 			);
-			// oxlint-disable-next-line effecttsgo/new-promise -- Test waits for MessagePort delivery.
-			yield* Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 0)));
+			yield* waitForMessagePortMacrotask;
 			expect(messages).toEqual([]);
 		}),
 	);
@@ -536,8 +536,7 @@ describe("bootstrapClientPlugin", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => expect(document.querySelector("button")?.textContent).toBe("Open")),
 				);
-				// oxlint-disable-next-line effecttsgo/new-promise -- Test waits for MessagePort delivery.
-				yield* Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 0)));
+				yield* waitForMessagePortMacrotask;
 				pressMod("k");
 				pressMod(" ", { code: "Space", shiftKey: true });
 				yield* Effect.promise(() => waitFor(() => expect(shortcuts()).toHaveLength(2)));
@@ -546,8 +545,7 @@ describe("bootstrapClientPlugin", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => expect(document.getElementById("app")?.textContent).toContain("Open")),
 				);
-				// oxlint-disable-next-line effecttsgo/new-promise -- Test waits for MessagePort delivery.
-				yield* Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 0)));
+				yield* waitForMessagePortMacrotask;
 				pressMod("k");
 				pressMod(" ", { code: "Space", shiftKey: true });
 				yield* Effect.promise(() => waitFor(() => expect(shortcuts()).toHaveLength(3)));
@@ -559,11 +557,9 @@ describe("bootstrapClientPlugin", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => expect(document.querySelector('[role="dialog"]')).not.toBeNull()),
 				);
-				// oxlint-disable-next-line effecttsgo/new-promise -- Test waits for MessagePort delivery.
-				yield* Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 0)));
+				yield* waitForMessagePortMacrotask;
 				pressMod("k");
-				// oxlint-disable-next-line effecttsgo/new-promise -- Test waits for MessagePort delivery.
-				yield* Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 0)));
+				yield* waitForMessagePortMacrotask;
 				expect(shortcuts()).toHaveLength(3);
 			}),
 	);
@@ -692,12 +688,10 @@ describe("bootstrapClientPlugin", () => {
 			window.dispatchEvent(
 				new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
 			);
-			// oxlint-disable-next-line effecttsgo/new-promise -- Test waits for MessagePort delivery.
-			yield* Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 0)));
+			yield* waitForMessagePortMacrotask;
 			expect(document.getElementById("app")?.textContent).toBe("");
 
-			// oxlint-disable-next-line effecttsgo/new-promise -- Test waits for MessagePort delivery.
-			yield* Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 0)));
+			yield* waitForMessagePortMacrotask;
 			expect(document.getElementById("app")?.textContent).toBe("");
 
 			channel.port1.postMessage({
@@ -909,8 +903,7 @@ describe("bootstrapClientPlugin", () => {
 			window.dispatchEvent(
 				new MessageEvent("message", { data: init, source: window.parent, ports: [channel.port2] }),
 			);
-			// oxlint-disable-next-line effecttsgo/new-promise -- Test waits for MessagePort delivery.
-			yield* Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 0)));
+			yield* waitForMessagePortMacrotask;
 
 			expect(messages).toEqual([]);
 		}),

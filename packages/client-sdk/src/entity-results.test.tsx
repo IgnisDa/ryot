@@ -241,8 +241,8 @@ describe("EntityResults", () => {
 		"loads one presentation for 20 entities before running any data query, and retains it across page remounts",
 		() =>
 			Effect.gen(function* () {
-				let resolveDefinition:
-					| ((definition: ReturnType<typeof defineEntityPresentation<string>>) => void)
+				let definitionLoad:
+					| PromiseWithResolvers<ReturnType<typeof defineEntityPresentation<string>>>
 					| undefined;
 				let definitionLoads = 0;
 				let dataLoads = 0;
@@ -267,10 +267,9 @@ describe("EntityResults", () => {
 					entitySchemaSlug: "item",
 					load: () => {
 						definitionLoads++;
-						// oxlint-disable-next-line effecttsgo/new-promise -- Test gate holds a presentation load to verify scheduling.
-						return new Promise((resolve) => {
-							resolveDefinition = resolve;
-						});
+						definitionLoad =
+							Promise.withResolvers<ReturnType<typeof defineEntityPresentation<string>>>();
+						return definitionLoad.promise;
 					},
 				};
 				const { draw, clock, container } = render([registration], gridPage());
@@ -278,7 +277,7 @@ describe("EntityResults", () => {
 				expect(definitionLoads).toBe(1);
 				expect(dataLoads).toBe(0);
 				expect(container.querySelectorAll('[role="status"]')).toHaveLength(20);
-				act(() => resolveDefinition?.(definition));
+				act(() => definitionLoad?.resolve(definition));
 				yield* flush(clock);
 				expect({ mounts, dataLoads, definitionLoads }).toEqual({
 					mounts: 20,
