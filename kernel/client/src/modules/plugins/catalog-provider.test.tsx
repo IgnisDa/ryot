@@ -221,8 +221,8 @@ describe("plugin catalog provider", () => {
 
 	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("interrupts an in-flight event refresh when the provider unmounts", async () => {
-		const started = Effect.runSync(Deferred.make<void>());
-		const cancelled = Effect.runSync(Deferred.make<void>());
+		const started = Deferred.makeUnsafe<void>();
+		const cancelled = Deferred.makeUnsafe<void>();
 		const view = makeView(() =>
 			Effect.acquireRelease(Deferred.succeed(started, undefined), () =>
 				Deferred.succeed(cancelled, undefined),

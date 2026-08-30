@@ -17,6 +17,7 @@ import { UploadsApi } from "#/api/uploads";
 import { UserSettingsApi } from "#/api/user-settings";
 import { EntityInterestService } from "#/modules/entity-interest/service";
 
+// oxlint-disable-next-line effecttsgo/lazy-effect -- Fills service method slots of any arity
 export const unused = () => Effect.die("not used");
 
 export const makeAutomationHistoryApi = (
