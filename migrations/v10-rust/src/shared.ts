@@ -265,7 +265,10 @@ const logDetailSample = (
 		const rows = yield* connection.execute(selectDetailSampleSql(row.seq), [], undefined);
 		const sampled = yield* Effect.orDie(decodeReportDetails(rows));
 		for (const { detail } of sampled) {
-			yield* Effect.logWarning(`  ${JSON.stringify(detail)}`).pipe(
+			const encoded = yield* Schema.encodeEffect(Schema.fromJsonString(MigrationReportDetail))(
+				detail,
+			).pipe(Effect.orDie);
+			yield* Effect.logWarning(`  ${encoded}`).pipe(
 				Effect.annotateLogs({ phase: row.phase, code: detail.code }),
 			);
 		}

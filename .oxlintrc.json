@@ -29,6 +29,9 @@
 		"import/no-self-import": "error",
 		"promise/no-return-wrap": "error",
 		"effecttsgo/new-promise": "error",
+		"effecttsgo/any-unknown-in-error-context": "error",
+		"effecttsgo/strict-effect-provide": "warn",
+		"effecttsgo/unsafe-effect-type-assertion": "error",
 		"react/self-closing-comp": "error",
 		"typescript/require-await": "warn",
 		"react/no-array-index-key": "warn",
@@ -123,5 +126,151 @@
 				"message": "Do not set system time. Read time from an injected clock and drive it with TestClock."
 			}
 		]
-	}
+	},
+	"overrides": [
+		{
+			"files": ["apps/browser-extension/src/**"],
+			"rules": { "effecttsgo/async-function": "warn", "effecttsgo/new-promise": "warn" }
+		},
+		{ "files": ["apps/website/app/**"], "rules": { "effecttsgo/async-function": "warn" } },
+		{
+			"files": ["apps/website/app/lib/caches.server.ts", "apps/website/app/routes/health.tsx"],
+			"rules": { "effecttsgo/node-builtin-import": "warn" }
+		},
+		{
+			"files": ["kernel/backend/src/**", "kernel/backend/scripts/sandbox-runtime-inputs.test.ts"],
+			"rules": { "effecttsgo/any-unknown-in-error-context": "warn" }
+		},
+		{
+			"files": ["kernel/client/src/**"],
+			"rules": {
+				"effecttsgo/any-unknown-in-error-context": "warn",
+				"effecttsgo/async-function": "warn",
+				"effecttsgo/global-date-in-effect": "warn",
+				"effecttsgo/global-error-in-effect-failure": "warn",
+				"effecttsgo/global-fetch-in-effect": "warn",
+				"effecttsgo/new-promise": "warn",
+				"effecttsgo/prefer-schema-over-json": "warn"
+			}
+		},
+		{
+			"files": ["kernel/client/scripts/generate-assets.ts"],
+			"rules": { "effecttsgo/node-builtin-import": "warn" }
+		},
+		{
+			"files": ["packages/cli/src/index.ts"],
+			"rules": {
+				"effecttsgo/global-date-in-effect": "warn",
+				"effecttsgo/prefer-schema-over-json": "warn"
+			}
+		},
+		{
+			"files": ["packages/cli/src/index.test.ts"],
+			"rules": {
+				"effecttsgo/any-unknown-in-error-context": "warn",
+				"effecttsgo/global-error-in-effect-failure": "warn",
+				"effecttsgo/prefer-schema-over-json": "warn"
+			}
+		},
+		{
+			"files": ["packages/client-plugin-compiler/src/**"],
+			"rules": {
+				"effecttsgo/async-function": "warn",
+				"effecttsgo/node-builtin-import": "warn",
+				"effecttsgo/prefer-schema-over-json": "warn"
+			}
+		},
+		{
+			"files": ["packages/client-sdk/src/**"],
+			"rules": {
+				"effecttsgo/async-function": "warn",
+				"effecttsgo/global-error-in-effect-failure": "warn",
+				"effecttsgo/new-promise": "warn"
+			}
+		},
+		{
+			"files": ["packages/client-ui-sdk/src/**"],
+			"rules": { "effecttsgo/async-function": "warn", "effecttsgo/new-promise": "warn" }
+		},
+		{
+			"files": ["packages/client-ui-sdk/src/palette-contrast.test.ts"],
+			"rules": { "effecttsgo/node-builtin-import": "warn" }
+		},
+		{
+			"files": ["packages/kernel-renderers/src/**"],
+			"rules": { "effecttsgo/async-function": "warn", "effecttsgo/new-promise": "warn" }
+		},
+		{
+			"files": ["packages/kernel-renderers/scripts/generate-sources.ts"],
+			"rules": { "effecttsgo/async-function": "warn" }
+		},
+		{
+			"files": [
+				"packages/plugin-archive/src/index.ts",
+				"packages/plugin-archive/src/index.test.ts"
+			],
+			"rules": { "effecttsgo/async-function": "warn", "effecttsgo/node-builtin-import": "warn" }
+		},
+		{
+			"files": ["packages/sandbox-sdk/src/**", "packages/sandbox-sdk/tests/**"],
+			"rules": {
+				"effecttsgo/any-unknown-in-error-context": "warn",
+				"effecttsgo/async-function": "warn",
+				"effecttsgo/global-error-in-effect-failure": "warn"
+			}
+		},
+		{
+			"files": ["packages/sandbox-sdk/tests/youtubei.test.ts"],
+			"rules": { "effecttsgo/prefer-schema-over-json": "warn" }
+		},
+		{
+			"files": ["packages/testing/src/postgres-container.ts"],
+			"rules": { "effecttsgo/async-function": "warn", "effecttsgo/node-builtin-import": "warn" }
+		},
+		{
+			"files": ["packages/vite-compiler/src/**"],
+			"rules": {
+				"effecttsgo/any-unknown-in-error-context": "warn",
+				"effecttsgo/async-function": "warn",
+				"effecttsgo/node-builtin-import": "warn",
+				"effecttsgo/prefer-schema-over-json": "warn"
+			}
+		},
+		{
+			"files": ["plugins/fixture/backend/lib/**"],
+			"rules": {
+				"effecttsgo/global-error-in-effect-failure": "warn",
+				"effecttsgo/prefer-schema-over-json": "warn"
+			}
+		},
+		{
+			"files": ["plugins/fixture/backend/providers/**"],
+			"rules": { "effecttsgo/global-error-in-effect-failure": "warn" }
+		},
+		{ "files": ["plugins/fixture/client/**"], "rules": { "effecttsgo/async-function": "warn" } },
+		{
+			"files": ["plugins/fitness/backend/**"],
+			"rules": {
+				"effecttsgo/any-unknown-in-error-context": "warn",
+				"effecttsgo/async-function": "warn",
+				"effecttsgo/global-error-in-effect-failure": "warn",
+				"effecttsgo/prefer-schema-over-json": "warn"
+			}
+		},
+		{ "files": ["plugins/fitness/client/**"], "rules": { "effecttsgo/async-function": "warn" } },
+		{
+			"files": ["plugins/media/backend/**"],
+			"rules": {
+				"effecttsgo/any-unknown-in-error-context": "warn",
+				"effecttsgo/async-function": "warn",
+				"effecttsgo/global-date-in-effect": "warn",
+				"effecttsgo/global-error-in-effect-failure": "warn",
+				"effecttsgo/prefer-schema-over-json": "warn"
+			}
+		},
+		{
+			"files": ["plugins/media/client/**", "plugins/media/tests/client/**"],
+			"rules": { "effecttsgo/async-function": "warn", "effecttsgo/new-promise": "warn" }
+		}
+	]
 }
