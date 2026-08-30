@@ -96,6 +96,31 @@ it.effect("reconciles generated views while preserving user-controlled state", (
 	}).pipe(Effect.provide(layer));
 });
 
+it.effect("keeps a generated view revision stable when the desired definition is unchanged", () => {
+	const mutations = { deletes: 0, inserts: [] as unknown[], updates: [] as unknown[] };
+	const current = savedViewRow({
+		id: "current",
+		isBuiltin: true,
+		slug: "generated",
+		pluginInstallationId: "installation-id",
+	});
+	const layer = makeLayer(
+		[
+			{
+				...current,
+				name: desiredView.name,
+				icon: desiredView.icon,
+				renderer: desiredView.renderer,
+			},
+		],
+		mutations,
+	);
+	return Effect.gen(function* () {
+		yield* (yield* SavedViewsRepository).ensureBuiltinViews(userId, [desiredView]);
+		expect(mutations).toEqual({ deletes: 0, inserts: [], updates: [] });
+	}).pipe(Effect.provide(layer));
+});
+
 it.effect("rejects a generated view slug owned by a custom view", () => {
 	const mutations = { deletes: 0, inserts: [] as unknown[], updates: [] as unknown[] };
 	const layer = makeLayer(

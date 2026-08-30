@@ -7,6 +7,7 @@ import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { AuthUserBootstrap } from "#modules/auth/service";
 import { generateUserAvatar } from "#modules/auth/user-avatar";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
+import { ClientSurfaceMaterializer } from "#modules/plugins/client-surface-materializer";
 import { PluginInstallationService } from "#modules/plugins/installation-service";
 import { SavedViewsService } from "#modules/saved-views/service";
 
@@ -67,6 +68,8 @@ export const performBootstrap = Effect.fn(function* (userId: string) {
 	const pluginInstallations = yield* PluginInstallationService;
 	yield* pluginInstallations.provisionSystemInstallations(user);
 	yield* pluginBootstrap.dispatchAll(user);
+	yield* savedViews.ensureBuiltinViews(user);
+	yield* (yield* ClientSurfaceMaterializer).materializeUser(user);
 	yield* mapDatabaseErrors(
 		database.transaction((transaction) =>
 			Effect.gen(function* () {
@@ -75,7 +78,6 @@ export const performBootstrap = Effect.fn(function* (userId: string) {
 				if (state.bootstrapCompletedAt !== null) {
 					return;
 				}
-				yield* savedViews.ensureBuiltinViews(user);
 				const notificationSubscriptions = yield* NotificationSubscriptionsService;
 				yield* notificationSubscriptions.ensureDefaultRules(user);
 				const avatar =
@@ -97,6 +99,7 @@ export const AuthUserBootstrapLive = Layer.effect(
 		const pluginBootstrap = yield* PluginUserBootstrapDispatcher;
 		const pluginInstallations = yield* PluginInstallationService;
 		const notificationSubscriptions = yield* NotificationSubscriptionsService;
+		const materializer = yield* ClientSurfaceMaterializer;
 
 		return {
 			run: (userId: string) =>
@@ -106,6 +109,7 @@ export const AuthUserBootstrapLive = Layer.effect(
 					Effect.provideService(PluginUserBootstrapDispatcher, pluginBootstrap),
 					Effect.provideService(NotificationSubscriptionsService, notificationSubscriptions),
 					Effect.provideService(SavedViewsService, savedViews),
+					Effect.provideService(ClientSurfaceMaterializer, materializer),
 				),
 		};
 	}),

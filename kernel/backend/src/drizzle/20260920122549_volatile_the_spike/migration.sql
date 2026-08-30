@@ -146,14 +146,10 @@ CREATE TABLE "backup_run" (
 );
 --> statement-breakpoint
 CREATE TABLE "client_page_build" (
-	"graph_hash" text NOT NULL,
-	"graph_identity" jsonb NOT NULL,
+	"artifact_key" text PRIMARY KEY,
+	"artifact_identity" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"id" text PRIMARY KEY,
-	"renderer_id" text,
-	"user_id" text NOT NULL,
-	"artifact_hash" text NOT NULL,
-	CONSTRAINT "client_page_build_user_graph_unique" UNIQUE("user_id","graph_hash")
+	"artifact_hash" text NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "client_renderer" (
@@ -167,7 +163,6 @@ CREATE TABLE "client_renderer" (
 	"draft_definition" jsonb NOT NULL,
 	"id" text PRIMARY KEY,
 	"user_id" text NOT NULL,
-	"published_artifact_hash" text,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "client_renderer_user_slug_unique" UNIQUE("user_id","slug")
 );
@@ -839,7 +834,6 @@ CREATE INDEX "backup_run_user_id_idx" ON "backup_run" ("user_id");--> statement-
 CREATE INDEX "backup_run_status_idx" ON "backup_run" ("status");--> statement-breakpoint
 CREATE INDEX "backup_run_expires_at_idx" ON "backup_run" ("expires_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "backup_run_user_active_unique" ON "backup_run" ("user_id") WHERE "status" in ('pending', 'running');--> statement-breakpoint
-CREATE INDEX "client_page_build_user_id_idx" ON "client_page_build" ("user_id");--> statement-breakpoint
 CREATE INDEX "client_renderer_user_id_idx" ON "client_renderer" ("user_id");--> statement-breakpoint
 CREATE INDEX "definition_entity_schema_slug_idx" ON "definition_entity_schema" ("slug");--> statement-breakpoint
 CREATE INDEX "definition_import_source_slug_idx" ON "definition_import_source" ("slug");--> statement-breakpoint
@@ -949,11 +943,8 @@ ALTER TABLE "automation_trigger" ADD CONSTRAINT "automation_trigger_scope_user_i
 ALTER TABLE "automation_trigger_recipient" ADD CONSTRAINT "automation_trigger_recipient_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "automation_trigger_recipient" ADD CONSTRAINT "automation_trigger_recipient_79FlgkqvTsH0_fkey" FOREIGN KEY ("trigger_id") REFERENCES "automation_trigger"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "backup_run" ADD CONSTRAINT "backup_run_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "client_page_build" ADD CONSTRAINT "client_page_build_renderer_id_client_renderer_id_fkey" FOREIGN KEY ("renderer_id") REFERENCES "client_renderer"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "client_page_build" ADD CONSTRAINT "client_page_build_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "client_page_build" ADD CONSTRAINT "client_page_build_h5bSY8fiMNIQ_fkey" FOREIGN KEY ("artifact_hash") REFERENCES "plugin_client_artifact"("hash") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "client_renderer" ADD CONSTRAINT "client_renderer_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "client_renderer" ADD CONSTRAINT "client_renderer_2daUrxvoruES_fkey" FOREIGN KEY ("published_artifact_hash") REFERENCES "plugin_client_artifact"("hash") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "definition_entity_schema" ADD CONSTRAINT "definition_entity_schema_revision_fk" FOREIGN KEY ("plugin_revision_id","plugin_id") REFERENCES "plugin_revision"("id","plugin_id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "definition_event_schema" ADD CONSTRAINT "definition_event_schema_teyj1WWBsLDW_fkey" FOREIGN KEY ("entity_schema_id") REFERENCES "definition_entity_schema"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "definition_import_source" ADD CONSTRAINT "definition_import_source_revision_fk" FOREIGN KEY ("plugin_revision_id","plugin_id") REFERENCES "plugin_revision"("id","plugin_id") ON DELETE CASCADE;--> statement-breakpoint
