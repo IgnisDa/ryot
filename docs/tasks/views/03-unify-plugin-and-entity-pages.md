@@ -55,3 +55,14 @@ Record any runtime/bridge format changes and generation commands. Do not leave i
 - Preparation identities record exact operation target revisions separately from executable contributors. The host snapshots them for the accepted document so updates fail stale until an explicit document reload rather than silently substituting a revision.
 - Static route segments sort ahead of dynamic segments in backend matching and generated client routing. Dynamic route parameters are decoded into page route context.
 - No schema or route generation command was required. Verified the focused renderer-publication, artifact-access, and client-plugin browser E2E files, all non-E2E package tests, and the complete repository check.
+- Follow-up: tests inject dependencies through Effect instead of mocking. `packages/client-sdk` schedules every
+  delay and clock read through a `Clock`-backed `RyotScheduleService`; `RyotProvider` takes a `ManagedRuntime`
+  rather than a bare client, and `useRyotSchedule` is the plugin-facing accessor. `TestClock` replaces fake timers,
+  and it governs SDK scheduling only, never `AtomRegistry` idle-TTL or `Atom.swr` staleness.
+- Follow-up: `@ryot-app/client-sdk/testing` now owns the bridge bootstrap harness, so plugin page tests drive the
+  real `bootstrapClientPage` handshake instead of stubbing SDK modules. Media sandbox automations report non-fatal
+  push failures through the `log` host capability, changing those persisted run-history entries from a bare
+  `[warn] ` string to a structured, redacted entry that also reaches the kernel logger.
+- Fixed here: `PreparedClientPageTarget` listed `PluginClientPageTarget.members[0]` (the bare entity variant)
+  instead of `members[1]`, so `plugin-route` was missing from the prepared union and `kernel/client` did not
+  typecheck at 6f4c0906be.

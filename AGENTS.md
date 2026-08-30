@@ -30,3 +30,4 @@
 - Keep assertions inline; extract duplicated setup, not test intent.
 - Use assertion functions from the package's test surface for test-only narrowing.
 - Do not test schema libraries, TypeScript assignments, or passthrough type checks.
+- Do not use module mocks, spies, mock functions, or fake timers. Inject dependencies instead: deterministic Effect `Layer` implementations, `TestClock` for time, plain recording functions, and the harnesses on each package's own test surface.
