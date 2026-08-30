@@ -35,7 +35,7 @@ const absentFields = {
 	availableSummary: Schema.String,
 };
 
-const ambiguousFields = { ...episodeIdentityFields, candidateCount: Schema.Number };
+const ambiguousFields = { ...episodeIdentityFields, candidateCount: Schema.Finite };
 
 export const MigrationReportDetail = Schema.Union([
 	Schema.Struct({ ...absentFields, code: Schema.Literal("seen-episode-absent") }),
