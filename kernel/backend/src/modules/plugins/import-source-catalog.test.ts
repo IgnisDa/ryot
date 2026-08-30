@@ -1,4 +1,4 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { eq } from "drizzle-orm";
 import { Effect } from "effect";
@@ -14,7 +14,7 @@ import { PluginRepository } from "./repository";
 import {
 	installRevisionPackage,
 	revisionPackage,
-	withRevisionDatabase,
+	revisionDatabaseLayer,
 } from "./revision.test-support";
 
 const owner = UserId.make("owner");
@@ -50,10 +50,10 @@ const clashing = (slug: string) => {
 };
 
 describe("revision-backed import sources", () => {
-	it.effect(
-		"lists system and private sources in stable order with executable workflow status",
-		() =>
-			withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect(
+			"lists system and private sources in stable order with executable workflow status",
+			() =>
 				Effect.gen(function* () {
 					yield* installRevisionPackage(packageWithSources("zebra"));
 					yield* installRevisionPackage(packageWithSources("apple"), owner);
@@ -67,10 +67,10 @@ describe("revision-backed import sources", () => {
 					]);
 					expect(rows.every(({ hasActiveWorkflow }) => hasActiveWorkflow)).toBe(true);
 				}),
-			),
-	);
-	it.effect("carries immutable config references without exposing private configuration", () =>
-		withRevisionDatabase(
+		);
+	});
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("carries immutable config references without exposing private configuration", () =>
 			Effect.gen(function* () {
 				const installed = yield* installRevisionPackage(packageWithSources("notes"), owner);
 				const installations = yield* PluginInstallationRepository;
@@ -97,10 +97,10 @@ describe("revision-backed import sources", () => {
 				expect(resolved.source.configContext).not.toHaveProperty("config");
 				expect(yield* catalog.resolveForUser(UserId.make("recipient"), "notes-alpha")).toBeNull();
 			}),
-		),
-	);
-	it.effect("resolves matching source and workflow pins after a package upgrade", () =>
-		withRevisionDatabase(
+		);
+	});
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("resolves matching source and workflow pins after a package upgrade", () =>
 			Effect.gen(function* () {
 				yield* installRevisionPackage(packageWithSources("notes", "v1"), owner);
 				const catalog = yield* ImportSourceCatalog.make;
@@ -112,10 +112,10 @@ describe("revision-backed import sources", () => {
 				expect(after.source.configContext.pluginRevisionId).toBe(after.script.pluginRevisionId);
 				expect(after.script.id).not.toBe(before.script.id);
 			}),
-		),
-	);
-	it.effect("lets the executable system source win a private slug clash", () =>
-		withRevisionDatabase(
+		);
+	});
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("lets the executable system source win a private slug clash", () =>
 			Effect.gen(function* () {
 				yield* installRevisionPackage(clashing("notes"), owner);
 				const system = yield* installRevisionPackage(clashing("zebra"));
@@ -130,10 +130,10 @@ describe("revision-backed import sources", () => {
 					system.pluginId,
 				);
 			}),
-		),
-	);
-	it.effect("carries only the configured key names of the system environment revision", () =>
-		withRevisionDatabase(
+		);
+	});
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("carries only the configured key names of the system environment revision", () =>
 			Effect.gen(function* () {
 				const installed = yield* installRevisionPackage(packageWithSources("notes"));
 				const catalog = yield* ImportSourceCatalog.make;
@@ -159,6 +159,6 @@ describe("revision-backed import sources", () => {
 					.where(eq(tables.pluginConfigRevision.id, configRevisionId));
 				expect(stored).toEqual({ configuredKeys: ["token"] });
 			}),
-		),
-	);
+		);
+	});
 });
