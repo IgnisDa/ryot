@@ -43,37 +43,39 @@ const resolution = {
 const channels: MessageChannel[] = [];
 // oxlint-disable-next-line effecttsgo/new-promise -- Test waits for a browser MessagePort macrotask.
 const delay = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
-const openRuntime = () => {
-	const channel = new MessageChannel();
-	channels.push(channel);
-	const messages: unknown[] = [];
-	channel.port1.addEventListener("message", ({ data }) => messages.push(data));
-	channel.port1.start();
-	const navigation = createPluginNavigationStore(() => ({
-		params: {},
-		element: createElement(Fragment),
-	}));
-	const runtime = createPluginRuntime(
-		channel.port2,
-		init,
-		metadata,
-		{ setAttribute: () => {} },
-		navigation,
-		undefined,
-		undefined,
-		() => navigation.replaceDocument(() => ({ params: {}, element: createElement(Fragment) })),
-	);
-	channel.port1.postMessage({
-		index: 0,
-		key: "k0",
-		compact: false,
-		edgeBack: false,
-		type: "location",
-		leading: "drawer",
-		location: { path: "/", search: "", kind: "route" },
+const openRuntime = () =>
+	Effect.gen(function* () {
+		const channel = new MessageChannel();
+		channels.push(channel);
+		const messages: unknown[] = [];
+		channel.port1.addEventListener("message", ({ data }) => messages.push(data));
+		channel.port1.start();
+		const navigation = createPluginNavigationStore(() => ({
+			params: {},
+			element: createElement(Fragment),
+		}));
+		const runtime = createPluginRuntime(
+			channel.port2,
+			init,
+			metadata,
+			{ setAttribute: () => {} },
+			navigation,
+			undefined,
+			undefined,
+			() => navigation.replaceDocument(() => ({ params: {}, element: createElement(Fragment) })),
+		);
+		channel.port1.postMessage({
+			index: 0,
+			key: "k0",
+			compact: false,
+			edgeBack: false,
+			type: "location",
+			leading: "drawer",
+			location: { path: "/", search: "", kind: "route" },
+		});
+		yield* Effect.promise(() => delay());
+		return { channel, runtime, messages };
 	});
-	return delay().then(() => ({ channel, runtime, messages }));
-};
 const query = (runtime: ReturnType<typeof createPluginRuntime>) =>
 	runtime.client.data.query({
 		document,
@@ -95,7 +97,7 @@ afterEach(() => {
 describe("plugin Effect request engine", () => {
 	it.live("reports embedded metadata and correlates successful and failed queries", () =>
 		Effect.gen(function* () {
-			const { channel, runtime, messages } = yield* Effect.promise(() => openRuntime());
+			const { channel, runtime, messages } = yield* openRuntime();
 			expect(messages[0]).toEqual({
 				format: metadata.format,
 				sessionId: init.sessionId,
@@ -136,7 +138,7 @@ describe("plugin Effect request engine", () => {
 
 	it.live("cancels an interrupted query exactly once and ignores its late result", () =>
 		Effect.gen(function* () {
-			const { channel, runtime, messages } = yield* Effect.promise(() => openRuntime());
+			const { channel, runtime, messages } = yield* openRuntime();
 			const fiber = yield* Effect.forkChild(query(runtime), { startImmediately: true });
 			yield* Effect.promise(() => delay());
 			yield* Fiber.interrupt(fiber);
@@ -169,7 +171,7 @@ describe("plugin Effect request engine", () => {
 
 	it.live("cancels interrupted asset resolution and retains its correlation", () =>
 		Effect.gen(function* () {
-			const { channel, runtime, messages } = yield* Effect.promise(() => openRuntime());
+			const { channel, runtime, messages } = yield* openRuntime();
 			const fiber = yield* Effect.forkChild(runtime.client.assets.resolve([asset]), {
 				startImmediately: true,
 			});
@@ -201,7 +203,7 @@ describe("plugin Effect request engine", () => {
 
 	it.live("does not introduce a cancel wire message for operations, storage, or uploads", () =>
 		Effect.gen(function* () {
-			const { runtime, messages } = yield* Effect.promise(() => openRuntime());
+			const { runtime, messages } = yield* openRuntime();
 			const operation = yield* Effect.forkChild(
 				runtime.client.operations.invoke({
 					input: {},
@@ -235,7 +237,7 @@ describe("plugin Effect request engine", () => {
 
 	it.live("sends Blob uploads and accepts storage results", () =>
 		Effect.gen(function* () {
-			const { channel, runtime, messages } = yield* Effect.promise(() => openRuntime());
+			const { channel, runtime, messages } = yield* openRuntime();
 			const source = new Blob(["id,title"], { type: "text/csv" });
 			const upload = yield* Effect.forkChild(
 				runtime.client.uploads.uploadTemporary({
@@ -282,7 +284,7 @@ describe("plugin Effect request engine", () => {
 
 	it.live("fails all pending requests on replacement and disposal, ignoring late responses", () =>
 		Effect.gen(function* () {
-			const { channel, runtime } = yield* Effect.promise(() => openRuntime());
+			const { channel, runtime } = yield* openRuntime();
 			const pending = yield* Effect.forkChild(Effect.result(query(runtime)), {
 				startImmediately: true,
 			});
@@ -321,7 +323,7 @@ describe("plugin Effect request engine", () => {
 
 	it.live("fails the session at the aggregate pending limit", () =>
 		Effect.gen(function* () {
-			const { runtime, messages } = yield* Effect.promise(() => openRuntime());
+			const { runtime, messages } = yield* openRuntime();
 			const fibers = yield* Effect.forEach(
 				Array.from({ length: CLIENT_BRIDGE_MAX_PENDING_REQUESTS }),
 				() => Effect.forkChild(Effect.result(query(runtime)), { startImmediately: true }),
@@ -342,7 +344,7 @@ describe("plugin Effect request engine", () => {
 
 	it.live("classifies malformed host results as protocol failures", () =>
 		Effect.gen(function* () {
-			const { channel, runtime } = yield* Effect.promise(() => openRuntime());
+			const { channel, runtime } = yield* openRuntime();
 			const pending = yield* Effect.forkChild(
 				Effect.result(
 					runtime.client.operations.invoke({
@@ -369,7 +371,7 @@ describe("plugin Effect request engine", () => {
 
 	it.live("dispatches operation and collection results with semantic mutation hints", () =>
 		Effect.gen(function* () {
-			const { channel, runtime, messages } = yield* Effect.promise(() => openRuntime());
+			const { channel, runtime, messages } = yield* openRuntime();
 			let hints = 0;
 			runtime.client.mutationCompleted.subscribe(() => hints++);
 			const operation = yield* Effect.forkChild(
@@ -429,7 +431,7 @@ describe("plugin Effect request engine", () => {
 
 	it.live("keeps theme, page refresh, and entity-interest subscriptions synchronous", () =>
 		Effect.gen(function* () {
-			const { channel, runtime, messages } = yield* Effect.promise(() => openRuntime());
+			const { channel, runtime, messages } = yield* openRuntime();
 			let themes = 0;
 			let hints = 0;
 			const updates: unknown[] = [];

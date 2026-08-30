@@ -123,10 +123,12 @@ const render = (
 	return { draw, clock, navigate, container };
 };
 
-const flush = (clock: Clock, turns = 6): Promise<void> =>
-	turns > 0
-		? Promise.resolve(clock.advance(0)).then(() => flush(clock, turns - 1))
-		: Promise.resolve();
+const flush = (clock: Clock) =>
+	Effect.replicateEffect(
+		Effect.promise(() => Promise.resolve(clock.advance(0))),
+		6,
+		{ discard: true },
+	);
 
 const clickRetry = (container: HTMLElement) => {
 	const button = container.querySelector("button");
@@ -143,13 +145,20 @@ afterEach(() => {
 		act(() => root.unmount());
 	}
 	roots = [];
-	const disposals = Promise.all(clocks.map((clock) => clock.dispose()));
+	const disposing = clocks;
 	clocks = [];
-	return disposals.then(() => {
-		globalThis.IntersectionObserver = originalIntersectionObserver;
-		document.body.innerHTML = "";
-		return undefined;
-	});
+	return Effect.runPromise(
+		Effect.andThen(
+			Effect.forEach(disposing, (clock) => Effect.promise(() => clock.dispose()), {
+				discard: true,
+				concurrency: "unbounded",
+			}),
+			Effect.sync(() => {
+				globalThis.IntersectionObserver = originalIntersectionObserver;
+				document.body.innerHTML = "";
+			}),
+		),
+	);
 });
 
 const installIntersectionObserver = () => {
@@ -265,12 +274,12 @@ describe("EntityResults", () => {
 					},
 				};
 				const { draw, clock, container } = render([registration], gridPage());
-				yield* Effect.promise(() => flush(clock));
+				yield* flush(clock);
 				expect(definitionLoads).toBe(1);
 				expect(dataLoads).toBe(0);
 				expect(container.querySelectorAll('[role="status"]')).toHaveLength(20);
 				act(() => resolveDefinition?.(definition));
-				yield* Effect.promise(() => flush(clock));
+				yield* flush(clock);
 				expect({ mounts, dataLoads, definitionLoads }).toEqual({
 					mounts: 20,
 					dataLoads: 1,
@@ -278,13 +287,13 @@ describe("EntityResults", () => {
 				});
 				draw(null);
 				draw(gridPage());
-				yield* Effect.promise(() => flush(clock));
+				yield* flush(clock);
 				expect(definitionLoads).toBe(1);
 				expect(mounts).toBe(40);
 				act(() => roots[0]?.unmount());
 				roots = [];
 				const fresh = render([registration], gridPage());
-				yield* Effect.promise(() => flush(fresh.clock));
+				yield* flush(fresh.clock);
 				expect(definitionLoads).toBe(2);
 			}),
 	);
@@ -305,13 +314,13 @@ describe("EntityResults", () => {
 				<EntityResults layout="list" viewContext={null} references={[reference("one")]} />
 			);
 			const { draw, clock, container } = render([registration], item);
-			yield* Effect.promise(() => flush(clock));
+			yield* flush(clock);
 			expect(container.textContent).toContain("This presentation is unavailable.");
 			expect(container.querySelector('a[href="/e/one"]')).not.toBeNull();
 			expect(container.querySelector("button")).toBeNull();
 			draw(null);
 			draw(item);
-			yield* Effect.promise(() => flush(clock));
+			yield* flush(clock);
 			expect(attempts).toBe(1);
 		}),
 	);
@@ -367,7 +376,7 @@ describe("EntityResults", () => {
 					},
 				},
 			);
-			yield* Effect.promise(() => flush(clock));
+			yield* flush(clock);
 			expect(observers).toHaveLength(1);
 			const observer = observers[0];
 			expect(observer?.root).toBe(
@@ -379,7 +388,7 @@ describe("EntityResults", () => {
 			const [one, two] = [...(observer?.targets ?? [])];
 			if (one && two && observer) {
 				act(() => observer.emit(one, true));
-				yield* Effect.promise(() => flush(clock));
+				yield* flush(clock);
 				expect(interests.at(-1)).toEqual({ foreground: [], visible: ["one"] });
 				act(() => completion?.({ entityId: "one", reason: "populated" }));
 				yield* Effect.promise(() => clock.advance(499));
@@ -388,22 +397,22 @@ describe("EntityResults", () => {
 				expect(loads).toBe(2);
 				expect({ loads, mounts }).toEqual({ loads: 2, mounts: 2 });
 				act(() => observer.emit(two, false));
-				yield* Effect.promise(() => flush(clock));
+				yield* flush(clock);
 				expect(interests.at(-1)).toEqual({ foreground: [], visible: ["one"] });
 				draw(<EntityResults layout="grid" viewContext={null} references={[reference("two")]} />);
-				yield* Effect.promise(() => flush(clock));
+				yield* flush(clock);
 				expect(interests.at(-1)).toEqual({ visible: [], foreground: [] });
 				const remaining = [...observer.targets][0];
 				if (remaining) {
 					act(() => observer.emit(remaining, true));
-					yield* Effect.promise(() => flush(clock));
+					yield* flush(clock);
 					expect(interests.at(-1)).toEqual({ foreground: [], visible: ["two"] });
 				}
 				yield* Effect.promise(() => navigate("/inactive", 1, "inactive"));
-				yield* Effect.promise(() => flush(clock));
+				yield* flush(clock);
 				expect(observer.disconnected).toBe(true);
 				yield* Effect.promise(() => navigate("/", 0, "home"));
-				yield* Effect.promise(() => flush(clock));
+				yield* flush(clock);
 				expect(observers).toHaveLength(2);
 				expect(interests.at(-1)).toEqual({ visible: [], foreground: [] });
 			}
@@ -465,11 +474,11 @@ describe("EntityResults", () => {
 					references={[reference("b"), reference("a")]}
 				/>,
 			);
-			yield* Effect.promise(() => flush(clock));
+			yield* flush(clock);
 			expect(requests).toHaveLength(1);
 			expect(requests[0]?.ids).toEqual(["a", "b"]);
 			act(() => requests[0]?.resolve({ a: "first", b: "second" }));
-			yield* Effect.promise(() => flush(clock));
+			yield* flush(clock);
 			expect(container.textContent).toBe("exact:secondexact:first");
 		}),
 	);
@@ -510,7 +519,7 @@ describe("EntityResults", () => {
 				registrations,
 				<EntityResults layout="grid" viewContext={null} references={[...many, ...extras]} />,
 			);
-			yield* Effect.promise(() => flush(clock));
+			yield* flush(clock);
 			expect(requests).toHaveLength(4);
 			expect(
 				requests
@@ -522,7 +531,7 @@ describe("EntityResults", () => {
 				expect(ids).toEqual([...ids].sort());
 			}
 			act(() => requests[0]?.resolve(Object.fromEntries(requests[0].ids.map((id) => [id, id]))));
-			yield* Effect.promise(() => flush(clock));
+			yield* flush(clock);
 			expect(requests).toHaveLength(5);
 		}),
 	);
@@ -557,7 +566,7 @@ describe("EntityResults", () => {
 				reference(`entity-${index}`, { ownerPluginId: registration.ownerPluginId }),
 			);
 			const { draw, clock } = render(registrations, gridFor(items));
-			yield* Effect.promise(() => flush(clock));
+			yield* flush(clock);
 			expect(requests.map(({ id }) => id)).toEqual([
 				"entity-0",
 				"entity-1",
@@ -565,12 +574,12 @@ describe("EntityResults", () => {
 				"entity-3",
 			]);
 			draw(gridFor(items.slice(0, 4)));
-			yield* Effect.promise(() => flush(clock));
+			yield* flush(clock);
 			act(() => requests[0]?.resolve({ "entity-0": "loaded" }));
-			yield* Effect.promise(() => flush(clock));
+			yield* flush(clock);
 			expect(requests).toHaveLength(4);
 			draw(gridFor([]));
-			yield* Effect.promise(() => flush(clock));
+			yield* flush(clock);
 			expect(requests.slice(1).every(({ signal }) => signal.aborted)).toBe(true);
 			const staleCount = requests.length;
 			const replacement = items[4];
@@ -578,7 +587,7 @@ describe("EntityResults", () => {
 				throw new Error("Expected the fifth entity");
 			}
 			draw(gridFor([replacement]));
-			yield* Effect.promise(() => flush(clock));
+			yield* flush(clock);
 			expect(requests).toHaveLength(staleCount + 1);
 			expect(requests.at(-1)).toMatchObject({ id: "entity-4" });
 			expect(requests.at(-1)?.signal.aborted).toBe(false);
@@ -618,7 +627,7 @@ describe("EntityResults", () => {
 				/>,
 			);
 
-			yield* Effect.promise(() => flush(clock));
+			yield* flush(clock);
 			expect(calls).toEqual(["entity-0", "entity-1", "entity-2", "entity-3", "entity-4"]);
 			expect(container.textContent).toContain("healthy");
 		}),
@@ -659,10 +668,10 @@ describe("EntityResults", () => {
 				</>
 			);
 			const { draw, clock, container } = render([registration], equivalentConsumers());
-			yield* Effect.promise(() => flush(clock));
+			yield* flush(clock);
 			expect(requests).toHaveLength(1);
 			draw(equivalentConsumers());
-			yield* Effect.promise(() => flush(clock));
+			yield* flush(clock);
 			expect(requests).toHaveLength(1);
 			draw(
 				<>
@@ -674,11 +683,11 @@ describe("EntityResults", () => {
 					<EntityResults layout="grid" viewContext={null} references={[reference("one")]} />
 				</>,
 			);
-			yield* Effect.promise(() => flush(clock));
+			yield* flush(clock);
 			expect(requests).toHaveLength(2);
 			expect(requests[1]).toMatchObject({ id: "one", name: "Changed" });
 			draw(<EntityResults layout="grid" viewContext={null} references={[reference("two")]} />);
-			yield* Effect.promise(() => flush(clock));
+			yield* flush(clock);
 			expect(requests[0]?.signal.aborted).toBe(true);
 			expect(requests[1]?.signal.aborted).toBe(true);
 			expect(requests).toHaveLength(3);
@@ -686,7 +695,7 @@ describe("EntityResults", () => {
 				requests[2]?.resolve({ two: "current" });
 				requests[0]?.resolve({ one: "stale" });
 			});
-			yield* Effect.promise(() => flush(clock));
+			yield* flush(clock);
 			expect(container.textContent).toBe("current");
 		}),
 	);
@@ -734,9 +743,9 @@ describe("EntityResults", () => {
 				[registration],
 				<EntityResults layout="grid" viewContext={null} references={[reference("one")]} />,
 			);
-			yield* Effect.promise(() => flush(clock));
+			yield* flush(clock);
 			act(() => requests[0]?.resolve({ one: "old" }));
-			yield* Effect.promise(() => flush(clock));
+			yield* flush(clock);
 			const expand = [...container.querySelectorAll("button")].find(
 				(button) => button.textContent === "Expand",
 			);
@@ -751,7 +760,7 @@ describe("EntityResults", () => {
 			yield* Effect.promise(() => clock.advance(250));
 			expect(requests).toHaveLength(2);
 			act(() => requests[1]?.reject(new Error("offline")));
-			yield* Effect.promise(() => flush(clock));
+			yield* flush(clock);
 			expect(container.textContent).toContain("Refresh failed.");
 			expect(container.textContent).toContain("old:expanded");
 			expect(mounts).toBe(1);
@@ -764,10 +773,10 @@ describe("EntityResults", () => {
 					fireEvent.click(retry);
 				});
 			}
-			yield* Effect.promise(() => flush(clock));
+			yield* flush(clock);
 			expect(requests).toHaveLength(3);
 			act(() => requests[2]?.resolve({ one: "new" }));
-			yield* Effect.promise(() => flush(clock));
+			yield* flush(clock);
 			expect(container.textContent).toContain("new:expanded");
 			expect(container.textContent).not.toContain("Refresh failed.");
 			expect(mounts).toBe(1);
@@ -813,20 +822,20 @@ describe("EntityResults", () => {
 					[registration],
 					<EntityResults layout="list" viewContext={null} references={[reference("batch")]} />,
 				);
-				yield* Effect.promise(() => flush(clock));
+				yield* flush(clock);
 				expect(container.textContent).toContain("could not be loaded");
 				clickRetry(container);
-				yield* Effect.promise(() => flush(clock));
+				yield* flush(clock);
 				draw(<EntityResults layout="list" viewContext={null} references={[reference("extra")]} />);
-				yield* Effect.promise(() => flush(clock));
+				yield* flush(clock);
 				expect(container.textContent).toContain("could not be loaded");
 				draw(
 					<EntityResults layout="list" viewContext={null} references={[reference("missing")]} />,
 				);
-				yield* Effect.promise(() => flush(clock));
+				yield* flush(clock);
 				expect(container.textContent).toContain("did not return this entity");
 				draw(<EntityResults layout="list" viewContext={null} references={[reference("crash")]} />);
-				yield* Effect.promise(() => flush(clock));
+				yield* flush(clock);
 				expect(container.textContent).toContain("could not be displayed");
 				const attemptsBeforeRetry = renderAttempts;
 				clickRetry(container);
