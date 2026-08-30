@@ -1,5 +1,6 @@
 import { validateEvent, WebhookVerificationError } from "@polar-sh/sdk/webhooks";
 import { Effect } from "effect";
+import type { HttpClient } from "effect/unstable/http";
 import { data } from "react-router";
 import { match } from "ts-pattern";
 
@@ -12,6 +13,7 @@ import {
 } from "~/lib/customer-lookup.server";
 import { fromPromise, WebsiteFailure } from "~/lib/effect.server";
 import { handlePurchaseOrRenewal, revokePurchase } from "~/lib/provisioning.server";
+import { runPromise } from "~/lib/runtime.server";
 import { getProductAndPlanTypeByPolarIds } from "~/lib/utilities.server";
 
 import type { Route } from "./+types/polar-webhook";
@@ -27,7 +29,7 @@ function findCustomer(polarCustomerId: string | undefined, externalCustomerId: s
 
 function handleOrderPaid(
 	event: ReturnType<typeof validateEvent>,
-): Effect.Effect<{ error?: string; message?: string }, WebsiteFailure> {
+): Effect.Effect<{ error?: string; message?: string }, WebsiteFailure, HttpClient.HttpClient> {
 	return Effect.gen(function* () {
 		if (event.type !== "order.paid") {
 			return { error: "Invalid event type" };
@@ -70,7 +72,7 @@ function handleOrderPaid(
 
 function handleSubscriptionRevoked(
 	event: ReturnType<typeof validateEvent>,
-): Effect.Effect<{ error?: string; message?: string }, WebsiteFailure> {
+): Effect.Effect<{ error?: string; message?: string }, WebsiteFailure, HttpClient.HttpClient> {
 	return Effect.gen(function* () {
 		if (event.type !== "subscription.revoked") {
 			return { error: "Invalid event type" };
@@ -98,7 +100,7 @@ function handleSubscriptionRevoked(
 }
 
 export const action = ({ request }: Route.ActionArgs) =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			const body = yield* fromPromise(() => request.text());
 			const headers: Record<string, string> = {};

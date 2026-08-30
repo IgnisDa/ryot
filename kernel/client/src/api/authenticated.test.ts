@@ -1,5 +1,6 @@
 import { AuthUnauthorized, DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import { Effect } from "effect";
+import { HttpClient } from "effect/unstable/http";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -11,6 +12,7 @@ import { decodeServerOrigin } from "#/api/origin";
 import type { OAuthTokenService } from "#/modules/auth/token-service";
 
 const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
+const unusedHttp = HttpClient.make(() => Effect.die("not used"));
 const tokens = (
 	accessToken: OAuthTokenService["Service"]["accessToken"],
 ): OAuthTokenService["Service"] => ({
@@ -32,6 +34,7 @@ describe("authenticated API", () => {
 				forceRefresh.push(force);
 				return Effect.succeed(force ? "fresh" : "stale");
 			}),
+			unusedHttp,
 		);
 
 		await expect(
@@ -50,7 +53,10 @@ describe("authenticated API", () => {
 
 	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback.
 	it("does not retry a non-authentication failure", async () => {
-		const api = makeAuthenticatedApi(tokens(() => Effect.succeed("token")));
+		const api = makeAuthenticatedApi(
+			tokens(() => Effect.succeed("token")),
+			unusedHttp,
+		);
 		let attempts = 0;
 
 		await expect(
@@ -76,6 +82,7 @@ describe("authenticated API", () => {
 				forceRefresh.push(force);
 				return Effect.succeed("token");
 			}),
+			unusedHttp,
 		);
 
 		const error = await Effect.runPromise(
@@ -103,6 +110,7 @@ describe("authenticated API", () => {
 				calls.push(force);
 				return Effect.succeed("token");
 			}),
+			unusedHttp,
 		);
 
 		await Effect.runPromise(api.run(scope, () => Effect.succeed("completed")));

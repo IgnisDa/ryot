@@ -1,10 +1,8 @@
-import { runContract, type ContractProgram } from "@ryot-app/contract/client";
+import { makeContractClient, type ContractProgram } from "@ryot-app/contract/client";
 import { IntegrationWebhookToken, PluginSlug } from "@ryot-app/contract/schema/brands";
 import { metadataLookupRecipe } from "@ryot-app/media-plugin/contracts/operation-recipes";
 import { invokeOperationRecipe } from "@ryot-app/plugin-kit/operations";
 import { Effect } from "effect";
-
-import { fromPlatform } from "./platform";
 
 const resolveConnection = (integrationUrl: string) => {
 	const url = new URL(integrationUrl);
@@ -20,27 +18,23 @@ const resolveConnection = (integrationUrl: string) => {
 	};
 };
 
-const runForIntegration = <A, E>(integrationUrl: string, program: ContractProgram<A, E>) => {
-	const { baseUrl } = resolveConnection(integrationUrl);
-	return runContract(program, { baseUrl });
-};
+const runForIntegration = <A, E>(integrationUrl: string, program: ContractProgram<A, E>) =>
+	makeContractClient(resolveConnection(integrationUrl).baseUrl).pipe(Effect.flatMap(program));
 
 export const lookupMetadata = (integrationUrl: string, title: string) =>
 	Effect.gen(function* () {
 		const { webhookToken } = resolveConnection(integrationUrl);
-		const { results } = yield* fromPlatform(() =>
-			runForIntegration(integrationUrl, (client) =>
-				invokeOperationRecipe(metadataLookupRecipe, { webhookToken, titles: [title] }, (request) =>
-					client.plugins
-						.invoke({
-							payload: { payload: request.payload },
-							params: {
-								operationSlug: request.operationSlug,
-								pluginSlug: PluginSlug.make(request.pluginSlug),
-							},
-						})
-						.pipe(Effect.map(({ result }) => result)),
-				),
+		const { results } = yield* runForIntegration(integrationUrl, (client) =>
+			invokeOperationRecipe(metadataLookupRecipe, { webhookToken, titles: [title] }, (request) =>
+				client.plugins
+					.invoke({
+						payload: { payload: request.payload },
+						params: {
+							operationSlug: request.operationSlug,
+							pluginSlug: PluginSlug.make(request.pluginSlug),
+						},
+					})
+					.pipe(Effect.map(({ result }) => result)),
 			),
 		);
 
@@ -54,9 +48,7 @@ export const lookupMetadata = (integrationUrl: string, title: string) =>
 
 export const postIntegrationWebhook = (integrationUrl: string, payload: unknown) => {
 	const { webhookToken } = resolveConnection(integrationUrl);
-	return fromPlatform(() =>
-		runForIntegration(integrationUrl, (client) =>
-			client.integrations.webhook({ params: { webhookToken }, payload: JSON.stringify(payload) }),
-		),
+	return runForIntegration(integrationUrl, (client) =>
+		client.integrations.webhook({ params: { webhookToken }, payload: JSON.stringify(payload) }),
 	);
 };

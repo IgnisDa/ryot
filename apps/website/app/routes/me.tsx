@@ -35,6 +35,7 @@ import {
 } from "~/lib/config.server";
 import { fromPromise, WebsiteFailure } from "~/lib/effect.server";
 import { initializePaddleForApplication, startUrl } from "~/lib/general";
+import { runPromise } from "~/lib/runtime.server";
 import {
 	createUnkeyKey,
 	getActionIntent,
@@ -47,7 +48,7 @@ import { changeCase } from "~/lib/utils";
 import type { Route } from "./+types/me";
 
 export const loader = ({ request }: Route.LoaderArgs) =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			const customerDetails = yield* getCustomerWithActivePurchase(request);
 			if (!customerDetails) {
@@ -97,7 +98,7 @@ const getAllPolarSubscriptionsForCustomer = (customerId: string) =>
 	});
 
 export const action = ({ request }: Route.ActionArgs) =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			const intent = getActionIntent(request);
 			const customer = yield* getCustomerWithActivePurchase(request);
