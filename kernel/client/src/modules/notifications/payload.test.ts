@@ -13,8 +13,8 @@ const complete = {
 	push_bullet: { accessToken: "access-token" },
 	discord: { webhookUrl: "https://discord.com/api/webhooks/1/abc" },
 	telegram: { chatId: "-1001234567890", botToken: "123:bot-token" },
-	gotify: { baseUrl: "https://gotify.example.com", token: "app-token" },
-	apprise: { baseUrl: "https://apprise.example.com", key: "config-key" },
+	gotify: { token: "app-token", baseUrl: "https://gotify.example.com" },
+	apprise: { key: "config-key", baseUrl: "https://apprise.example.com" },
 } as const;
 
 const succeed = (kind: keyof typeof complete, values: SchemaFormValues) => {
@@ -60,7 +60,7 @@ describe("createNotificationChannelBody", () => {
 	});
 
 	it("fails when a required field is missing", () => {
-		expect(Result.isFailure(createNotificationChannelBody({ kind: "ntfy", values: {} }))).toBe(
+		expect(Result.isFailure(createNotificationChannelBody({ values: {}, kind: "ntfy" }))).toBe(
 			true,
 		);
 	});

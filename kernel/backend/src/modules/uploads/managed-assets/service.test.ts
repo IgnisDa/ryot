@@ -29,7 +29,7 @@ const user: CurrentUserValue = {
 	image: null,
 	name: "Test User",
 	email: "user@example.com",
-	preferences: { allowNsfw: false, language: null, disableIntegrations: false },
+	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
 };
 const managedAssetCreatedAt = new Date("2026-01-01T00:00:00.000Z");
 const localFileInfo = {
@@ -66,8 +66,8 @@ const makeLayer = (locators: ReadonlyArray<{ key: string; type: "local" | "s3" }
 								size: 100,
 								ownerUserId,
 								provider: type,
-								contentType: "image/png",
 								sha256: "a".repeat(64),
+								contentType: "image/png",
 								createdAt: new Date("2026-01-01T00:00:00.000Z"),
 							})),
 						),
@@ -184,6 +184,22 @@ it.effect("assigns concurrent staging ownership only to the conditional-create w
 				mockUserLifecycleGuard({ isActive: () => Effect.succeed(false) }),
 				mockManagedAssetsRepository({ getByLocator: () => Effect.succeed(null) }),
 				mockObjectStorage({
+					deleteObject: () =>
+						Effect.sync(() => {
+							deletes += 1;
+							stored = null;
+						}),
+					openObject: () =>
+						stored === null
+							? Effect.fail(new BadRequest({ message: "missing" }))
+							: Effect.succeed(Stream.make(stored)),
+					statObject: () =>
+						stored === null
+							? Effect.fail(new BadRequest({ message: "missing" }))
+							: Effect.succeed({
+									size: stored.byteLength,
+									contentType: "application/octet-stream",
+								}),
 					writeObjectIfAbsent: (_locator, stream) =>
 						Effect.gen(function* () {
 							const chunks = yield* Stream.runCollect(stream).pipe(
@@ -199,22 +215,6 @@ it.effect("assigns concurrent staging ownership only to the conditional-create w
 								stored = body;
 								return true;
 							});
-						}),
-					statObject: () =>
-						stored === null
-							? Effect.fail(new BadRequest({ message: "missing" }))
-							: Effect.succeed({
-									size: stored.byteLength,
-									contentType: "application/octet-stream",
-								}),
-					openObject: () =>
-						stored === null
-							? Effect.fail(new BadRequest({ message: "missing" }))
-							: Effect.succeed(Stream.make(stored)),
-					deleteObject: () =>
-						Effect.sync(() => {
-							deletes += 1;
-							stored = null;
 						}),
 				}),
 			),
@@ -289,9 +289,9 @@ it.effect("blocks managed asset registration while the owner lifecycle is active
 				size: 1,
 				provider: "s3",
 				ownerUserId: userId,
+				sha256: "a".repeat(64),
 				contentType: "image/png",
 				key: "permanent/image.png",
-				sha256: "a".repeat(64),
 			}),
 		);
 		assertExitFails(exit, new UploadBadRequest({ reason: { code: "lifecycle-active" } }));
@@ -332,19 +332,19 @@ it.effect(
 						registerPermanentOwnedObject: () => Effect.die("registration must be blocked"),
 					}),
 					mockObjectStorage({
+						deleteObject: () =>
+							Effect.sync(() => {
+								deletes += 1;
+								stored = false;
+							}),
+						statObject: () =>
+							Effect.succeed({ size: bytes.byteLength, contentType: "application/octet-stream" }),
 						writeObjectIfAbsent: (_locator, stream) =>
 							Stream.runDrain(stream).pipe(
 								Effect.mapError(() => new BadRequest({ message: "stream failed" })),
 								Effect.as(true),
 								Effect.tap(() => Effect.sync(() => void (stored = true))),
 							),
-						statObject: () =>
-							Effect.succeed({ size: bytes.byteLength, contentType: "application/octet-stream" }),
-						deleteObject: () =>
-							Effect.sync(() => {
-								deletes += 1;
-								stored = false;
-							}),
 					}),
 				),
 			),

@@ -121,8 +121,8 @@ it.effect("updates only built-in display fields", () => {
 		const service = yield* SignalSchemasService;
 		expect(yield* service.ensureBuiltin(definition)).toEqual(scope);
 		expect(update).toEqual({
-			name: definition.name,
 			id: scope.id,
+			name: definition.name,
 			catalogState: definition.catalogState,
 		});
 	}).pipe(Effect.provide(layer));

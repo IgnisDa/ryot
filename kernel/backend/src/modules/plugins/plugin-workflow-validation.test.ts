@@ -13,6 +13,7 @@ const workflowManifest = () => {
 	assert(script);
 	return {
 		...manifest,
+		workflows: [{ slug: "refresh.fixture", scriptSlug: "workflow.fixture" }],
 		scripts: [
 			...manifest.scripts,
 			{
@@ -23,7 +24,6 @@ const workflowManifest = () => {
 				capabilities: [] as const,
 			},
 		],
-		workflows: [{ slug: "refresh.fixture", scriptSlug: "workflow.fixture" }],
 	};
 };
 

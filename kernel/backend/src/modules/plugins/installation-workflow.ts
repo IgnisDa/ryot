@@ -100,7 +100,7 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 					if (installation) {
 						yield* Effect.uninterruptible(
 							installations
-								.updateHealth({ healthReason, id: installationId, health: "failed" })
+								.updateHealth({ healthReason, health: "failed", id: installationId })
 								.pipe(Effect.andThen(invalidator.user(UserId.make(installation.userId)))),
 						);
 					}

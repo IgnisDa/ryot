@@ -24,7 +24,7 @@ const userRecord = {
 	id: "user-1",
 	disabledAt: null,
 	email: "user@example.com",
-	preferences: { allowNsfw: false, language: null, disableIntegrations: false },
+	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
 };
 
 const resolvedOAuth = {
@@ -36,8 +36,8 @@ const resolvedOAuth = {
 		name: userRecord.name,
 		image: userRecord.image,
 		email: userRecord.email,
-		preferences: userRecord.preferences,
 		id: UserId.make(userRecord.id),
+		preferences: userRecord.preferences,
 	},
 };
 const disabledUserRecord = { ...userRecord, disabledAt: new Date("2026-08-31T00:00:00.000Z") };
@@ -89,7 +89,7 @@ it.effect("resolves an OAuth credential and its authorization context", () =>
 it.effect("resolves an API key and its authorization context", () =>
 	Effect.gen(function* () {
 		const resolved = yield* resolveCredential(
-			{ kind: "api-key", key: "key" },
+			{ key: "key", kind: "api-key" },
 			() => Effect.die("unused").pipe(Effect.runPromise),
 			() =>
 				Promise.resolve({ valid: true, error: null, key: { id: "key-1", referenceId: "user-1" } }),
@@ -97,7 +97,7 @@ it.effect("resolves an API key and its authorization context", () =>
 		);
 		expect(resolved.authorization).toEqual({
 			userId: "user-1",
-			credential: { kind: "api-key", keyId: "key-1" },
+			credential: { keyId: "key-1", kind: "api-key" },
 		});
 	}),
 );
@@ -132,7 +132,7 @@ it.effect("returns safe rate-limit metadata from API-key verification", () =>
 	Effect.gen(function* () {
 		const error = yield* Effect.flip(
 			resolveCredential(
-				{ kind: "api-key", key: "key" },
+				{ key: "key", kind: "api-key" },
 				() => Effect.die("unused").pipe(Effect.runPromise),
 				() =>
 					Promise.resolve({
@@ -144,7 +144,7 @@ it.effect("returns safe rate-limit metadata from API-key verification", () =>
 			),
 		);
 		expect(error).toEqual(
-			new AuthRateLimited({ reason: { code: "api-key-rate-limited", retryAfterMs: 1_250 } }),
+			new AuthRateLimited({ reason: { retryAfterMs: 1_250, code: "api-key-rate-limited" } }),
 		);
 	}),
 );

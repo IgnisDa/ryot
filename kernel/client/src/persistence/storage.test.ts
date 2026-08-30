@@ -24,12 +24,12 @@ const makeStorage = (entries: readonly (readonly [string, string])[] = []) => {
 		getItem: (key) => values.get(key) ?? null,
 		setItem: (key, value) => values.set(key, value),
 	};
-	return { storage, values };
+	return { values, storage };
 };
 
 describe("browser persistence", () => {
 	it.effect("changes and clears only the server selection", () => {
-		const { storage, values } = makeStorage([
+		const { values, storage } = makeStorage([
 			["unrelated", "keep"],
 			[THEME_PREFERENCE_KEY, "dark"],
 			["ryot:other-setting", "keep-too"],
@@ -51,7 +51,7 @@ describe("browser persistence", () => {
 	});
 
 	it.effect("persists valid themes and defaults invalid values to system", () => {
-		const { storage, values } = makeStorage();
+		const { values, storage } = makeStorage();
 		return Effect.gen(function* () {
 			const service = yield* ClientStorage;
 			yield* service.setThemePreference("light");
@@ -63,10 +63,10 @@ describe("browser persistence", () => {
 	});
 
 	it.effect("partitions the last workspace by canonical server and user scope", () => {
-		const { storage, values } = makeStorage();
-		const secondUser = { serverUrl: oneOrigin, userId: "user-2" };
-		const secondServer = { serverUrl: twoOrigin, userId: "user-1" };
-		const firstScope = { serverUrl: oneOrigin, userId: "user-1" };
+		const { values, storage } = makeStorage();
+		const secondUser = { userId: "user-2", serverUrl: oneOrigin };
+		const secondServer = { userId: "user-1", serverUrl: twoOrigin };
+		const firstScope = { userId: "user-1", serverUrl: oneOrigin };
 
 		return Effect.gen(function* () {
 			const service = yield* ClientStorage;
@@ -82,8 +82,8 @@ describe("browser persistence", () => {
 	});
 
 	it.effect("returns null for missing or malformed last workspaces", () => {
-		const scope = { serverUrl: oneOrigin, userId: "user-1" };
-		const { storage, values } = makeStorage();
+		const scope = { userId: "user-1", serverUrl: oneOrigin };
+		const { values, storage } = makeStorage();
 
 		return Effect.gen(function* () {
 			const service = yield* ClientStorage;
@@ -96,10 +96,10 @@ describe("browser persistence", () => {
 	});
 
 	it.effect("partitions saved-view layouts by server, user, and slug", () => {
-		const firstScope = { serverUrl: oneOrigin, userId: "user-1" };
-		const secondUser = { serverUrl: oneOrigin, userId: "user-2" };
-		const secondServer = { serverUrl: twoOrigin, userId: "user-1" };
-		const { storage, values } = makeStorage();
+		const firstScope = { userId: "user-1", serverUrl: oneOrigin };
+		const secondUser = { userId: "user-2", serverUrl: oneOrigin };
+		const secondServer = { userId: "user-1", serverUrl: twoOrigin };
+		const { values, storage } = makeStorage();
 
 		return Effect.gen(function* () {
 			const service = yield* ClientStorage;
@@ -125,8 +125,8 @@ describe("browser persistence", () => {
 	});
 
 	it.effect("defaults missing and invalid saved-view layouts to grid", () => {
-		const scope = { serverUrl: oneOrigin, userId: "user-1" };
-		const { storage, values } = makeStorage();
+		const scope = { userId: "user-1", serverUrl: oneOrigin };
+		const { values, storage } = makeStorage();
 
 		return Effect.gen(function* () {
 			const service = yield* ClientStorage;
@@ -137,8 +137,8 @@ describe("browser persistence", () => {
 	});
 
 	it.effect("roundtrips every valid saved-view layout", () => {
-		const scope = { serverUrl: oneOrigin, userId: "user-1" };
-		const { storage, values } = makeStorage();
+		const scope = { userId: "user-1", serverUrl: oneOrigin };
+		const { values, storage } = makeStorage();
 
 		return Effect.gen(function* () {
 			const service = yield* ClientStorage;
@@ -151,10 +151,10 @@ describe("browser persistence", () => {
 	});
 
 	it.effect("partitions the remembered provider by server, user, and entity schema", () => {
-		const firstScope = { serverUrl: oneOrigin, userId: "user-1" };
-		const secondUser = { serverUrl: oneOrigin, userId: "user-2" };
-		const secondServer = { serverUrl: twoOrigin, userId: "user-1" };
-		const { storage, values } = makeStorage();
+		const firstScope = { userId: "user-1", serverUrl: oneOrigin };
+		const secondUser = { userId: "user-2", serverUrl: oneOrigin };
+		const secondServer = { userId: "user-1", serverUrl: twoOrigin };
+		const { values, storage } = makeStorage();
 
 		return Effect.gen(function* () {
 			const service = yield* ClientStorage;
@@ -196,7 +196,7 @@ describe("browser persistence", () => {
 	});
 
 	it.effect("returns null when no provider is remembered for the entity schema", () => {
-		const scope = { serverUrl: oneOrigin, userId: "user-1" };
+		const scope = { userId: "user-1", serverUrl: oneOrigin };
 		const { storage } = makeStorage();
 
 		return Effect.gen(function* () {

@@ -109,7 +109,7 @@ describe("backup lifecycle", () => {
 			const entry = "scripts/fixture.sandbox.ts";
 			const propertiesSchema = {
 				fields: {
-					title: { type: "string" as const, label: "Title", description: "Title" },
+					title: { label: "Title", description: "Title", type: "string" as const },
 					attachment: {
 						...managedAssetItemSchema,
 						label: "Attachment",
@@ -119,8 +119,8 @@ describe("backup lifecycle", () => {
 			};
 			yield* Effect.acquireRelease(
 				installTestPluginBundle({
-					scope: "system",
 					pluginSlug,
+					scope: "system",
 					files: {
 						[entry]: literalSandboxSource({
 							value: true,
@@ -128,6 +128,15 @@ describe("backup lifecycle", () => {
 							name: "Backup asset fixture",
 						}),
 					},
+					entitySchemas: [
+						{
+							icon: "book",
+							slug: schemaSlug,
+							eventSchemas: [],
+							propertiesSchema,
+							name: "Backup Asset Fixture",
+						},
+					],
 					scripts: [
 						{
 							entry,
@@ -137,15 +146,6 @@ describe("backup lifecycle", () => {
 							name: "Backup asset fixture",
 							requiredPluginConfigKeys: [],
 							requiredSystemConfigKeys: [],
-						},
-					],
-					entitySchemas: [
-						{
-							icon: "book",
-							slug: schemaSlug,
-							eventSchemas: [],
-							propertiesSchema,
-							name: "Backup Asset Fixture",
 						},
 					],
 				}),

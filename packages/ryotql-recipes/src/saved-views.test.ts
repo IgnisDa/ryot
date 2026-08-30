@@ -58,7 +58,7 @@ const browserSettings = {
 		{
 			name: "name-desc",
 			label: "Name descending",
-			orderBy: [{ field: "nameAlias", direction: "desc" }],
+			orderBy: [{ direction: "desc", field: "nameAlias" }],
 		},
 	],
 } as const;
@@ -95,7 +95,7 @@ describe("saved-view recipes", () => {
 		expect(prepared.document.queries.savedView).toMatchObject({
 			output: {
 				type: "rows",
-				pagination: { after: "cursor", limit: 2 },
+				pagination: { limit: 2, after: "cursor" },
 				orderBy: [{ direction: "asc", expr: { field: "createdAt", tableAlias: "entity" } }],
 			},
 			where: {
@@ -103,10 +103,10 @@ describe("saved-view recipes", () => {
 				predicates: [
 					{
 						type: "in",
-						expr: { field: "entitySchemaSlug", tableAlias: "entity" },
 						values: [{ value: "smartphone" }, { value: "tablet" }],
+						expr: { tableAlias: "entity", field: "entitySchemaSlug" },
 					},
-					{ type: "comparison", operator: "eq", right: { value: "active" } },
+					{ operator: "eq", type: "comparison", right: { value: "active" } },
 				],
 			},
 		});
@@ -121,8 +121,8 @@ describe("saved-view recipes", () => {
 			prepared.decode({
 				data: {
 					savedView: {
-						pageInfo: { ...pageInfo, hasMore: false, nextCursor: null },
 						type: "rows",
+						pageInfo: { ...pageInfo, hasMore: false, nextCursor: null },
 						items: [
 							{
 								image: null,
@@ -142,13 +142,13 @@ describe("saved-view recipes", () => {
 		);
 
 		expect(decoded.items[0]).toEqual({
-			entityId: "book-1",
 			image: null,
-			sync: { populationStatus: "pending", translationStatus: "none" },
+			entityId: "book-1",
+			sync: { translationStatus: "none", populationStatus: "pending" },
 			cells: [
-				{ key: "column0", label: "Name", value: { displayKind: "text", value: "Piranesi" } },
-				{ key: "column1", label: "Score", value: { displayKind: "number", value: null } },
-				{ key: "column2", label: "Active", value: { displayKind: "boolean", value: true } },
+				{ label: "Name", key: "column0", value: { value: "Piranesi", displayKind: "text" } },
+				{ key: "column1", label: "Score", value: { value: null, displayKind: "number" } },
+				{ key: "column2", label: "Active", value: { value: true, displayKind: "boolean" } },
 				{ key: "column3", label: "Published", value: { displayKind: "date", value: "2026-08-12" } },
 				{ key: "column4", label: "Details", value: { displayKind: "json", value: { pages: 272 } } },
 			],
@@ -158,7 +158,7 @@ describe("saved-view recipes", () => {
 	it("rejects malformed plain values according to display metadata", () => {
 		const prepared = savedViewRecipe({
 			layout: { type: "table", mapping: projections.table.mappings },
-			source: { type: "generated", fields: projections.table.fields, entitySchemaSlugs: ["book"] },
+			source: { type: "generated", entitySchemaSlugs: ["book"], fields: projections.table.fields },
 		});
 
 		expect(
@@ -171,8 +171,8 @@ describe("saved-view recipes", () => {
 							items: [
 								{
 									image: null,
-									column1: "4.5",
 									column2: true,
+									column1: "4.5",
 									entityId: "book-1",
 									column0: "Piranesi",
 									column3: "not-a-date",
@@ -353,7 +353,7 @@ describe("saved-view recipes", () => {
 			__entityBrowserTranslationStatus: "pending",
 		};
 		const decoded = Result.getOrThrow(
-			prepared.decode({ data: { entityBrowser: { type: "rows", pageInfo, items: [row] } } }),
+			prepared.decode({ data: { entityBrowser: { pageInfo, type: "rows", items: [row] } } }),
 		);
 		expect(decoded).toEqual({
 			pageInfo,
@@ -370,7 +370,7 @@ describe("saved-view recipes", () => {
 		});
 
 		const duplicate = prepared.decode({
-			data: { entityBrowser: { type: "rows", pageInfo, items: [row, row] } },
+			data: { entityBrowser: { pageInfo, type: "rows", items: [row, row] } },
 		});
 		if (Result.isSuccess(duplicate)) {
 			throw new Error("Expected duplicate entity IDs to fail");
@@ -396,8 +396,8 @@ describe("saved-view recipes", () => {
 			prepared.decode({
 				data: {
 					entityBrowser: {
-						type: "rows",
 						pageInfo,
+						type: "rows",
 						items: [
 							{
 								details: null,
@@ -416,8 +416,8 @@ describe("saved-view recipes", () => {
 		);
 
 		expect(decoded.items[0]?.cells).toEqual([
-			{ key: "nameAlias", label: "Name", value: { displayKind: "text", value: "Piranesi" } },
-			{ key: "details", label: "Details", value: { displayKind: "json", value: null } },
+			{ label: "Name", key: "nameAlias", value: { value: "Piranesi", displayKind: "text" } },
+			{ key: "details", label: "Details", value: { value: null, displayKind: "json" } },
 		]);
 	});
 
@@ -484,7 +484,7 @@ describe("saved-view recipes", () => {
 		});
 		const storedSource = structuredClone(source);
 		const prepared = Result.getOrThrow(
-			resultsTableRecipe({ settings, after: "runtime-cursor", queryDocument: source }),
+			resultsTableRecipe({ settings, queryDocument: source, after: "runtime-cursor" }),
 		);
 		expect(prepared.document.queries.resultsTable?.output).toMatchObject({
 			type: "rows",
@@ -521,11 +521,11 @@ describe("saved-view recipes", () => {
 		);
 
 		expect(decoded.items.map(({ key }) => key)).toEqual([
-			'[{"type":"number","value":1},{"type":"string","value":"1"}]',
-			'[{"type":"string","value":"1"},{"type":"number","value":1}]',
+			'[{"value":1,"type":"number"},{"value":"1","type":"string"}]',
+			'[{"value":"1","type":"string"},{"value":1,"type":"number"}]',
 		]);
 		expect(decoded.items.map(({ entityId }) => entityId)).toEqual(["same", "same"]);
-		expect(decoded.items[0]?.cells[1]?.value).toEqual({ displayKind: "number", value: null });
+		expect(decoded.items[0]?.cells[1]?.value).toEqual({ value: null, displayKind: "number" });
 		expect(decoded.items[0]?.cells[2]?.value).toEqual({
 			displayKind: "managed-asset",
 			value: { type: "local", key: "covers/book.webp" },
@@ -539,6 +539,11 @@ describe("saved-view recipes", () => {
 	it("rejects missing, null, and duplicate general result row keys", () => {
 		const prepared = Result.getOrThrow(
 			resultsTableRecipe({
+				queryDocument: document({
+					events: rows(entity, {
+						fields: [field("key", column(entity, "id")), field("value", column(entity, "name"))],
+					}),
+				}),
 				settings: {
 					pageSize: 2,
 					entityLink: null,
@@ -546,15 +551,10 @@ describe("saved-view recipes", () => {
 					rowKeyFields: ["key"],
 					columns: [{ label: "Value", field: "value", displayKind: "text" }],
 				},
-				queryDocument: document({
-					events: rows(entity, {
-						fields: [field("key", column(entity, "id")), field("value", column(entity, "name"))],
-					}),
-				}),
 			}),
 		);
 		const decode = (items: readonly Record<string, unknown>[]) =>
-			prepared.decode({ data: { resultsTable: { type: "rows", pageInfo, items } } });
+			prepared.decode({ data: { resultsTable: { items, pageInfo, type: "rows" } } });
 
 		expect(Result.isFailure(decode([{ value: "Missing" }]))).toBe(true);
 		expect(Result.isFailure(decode([{ key: null, value: "Null" }]))).toBe(true);

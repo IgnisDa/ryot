@@ -25,7 +25,7 @@ it.effect("accepts the source byte boundary and rejects ASCII and multi-byte ove
 		]) {
 			const failure = yield* compile(source).pipe(Effect.flip);
 			expect(failure.diagnostics).toEqual([
-				expect.objectContaining({ code: "RYOT_SOURCE_SIZE", file: "script.ts" }),
+				expect.objectContaining({ file: "script.ts", code: "RYOT_SOURCE_SIZE" }),
 			]);
 		}
 	}),
@@ -45,7 +45,7 @@ it.effect("rejects a static manifest over its JSON byte boundary", () =>
 		).pipe(Effect.flip);
 
 		expect(failure.diagnostics).toEqual([
-			expect.objectContaining({ code: "RYOT_MANIFEST_SIZE", file: "script.ts" }),
+			expect.objectContaining({ file: "script.ts", code: "RYOT_MANIFEST_SIZE" }),
 		]);
 	}),
 );
@@ -91,7 +91,7 @@ export default defineScript({
 		const failure = yield* compile(source).pipe(Effect.flip);
 
 		expect(failure.diagnostics).toEqual([
-			expect.objectContaining({ code: "RYOT_COMPILED_SIZE", file: "script.ts" }),
+			expect.objectContaining({ file: "script.ts", code: "RYOT_COMPILED_SIZE" }),
 		]);
 	}),
 );

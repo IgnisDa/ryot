@@ -89,7 +89,7 @@ export function OverlayScope(props: {
 }) {
 	const back = useContext(OverlayBackContext);
 	const parent = useContext(ShortcutScopeContext);
-	const scope = useRef<ShortcutScope>({ id: Symbol("shortcut-scope"), parent }).current;
+	const scope = useRef<ShortcutScope>({ parent, id: Symbol("shortcut-scope") }).current;
 	const escape = useEffectEvent(() => props.onEscape());
 	const dismiss = useEffectEvent(() => {
 		if (props.onBack !== undefined) {
@@ -120,7 +120,7 @@ export function OverlayScope(props: {
 		if (!enabled || !(props.backEnabled ?? true) || back === undefined) {
 			return undefined;
 		}
-		const entry = { dismiss, scope };
+		const entry = { scope, dismiss };
 		backStack.push(entry);
 		const unregister = back.register(dismissTop);
 		return () => {
@@ -132,7 +132,7 @@ export function OverlayScope(props: {
 		};
 	}, [back, enabled, props.backEnabled, scope]);
 
-	useShortcut("Escape", escape, { enabled, scope });
+	useShortcut("Escape", escape, { scope, enabled });
 
 	return (
 		<ShortcutScopeContext.Provider value={scope}>{props.children}</ShortcutScopeContext.Provider>

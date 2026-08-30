@@ -66,7 +66,7 @@ const pluginDefinitionSource = (): DefinitionSource => {
 		],
 		entitySchemas: [
 			...kernel.entitySchemas,
-			...plugins.flatMap(({ entitySchemas, metadata }) =>
+			...plugins.flatMap(({ metadata, entitySchemas }) =>
 				entitySchemas.map((definition) => ({ ...definition, pluginSlug: metadata.slug })),
 			),
 		],

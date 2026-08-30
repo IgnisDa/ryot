@@ -82,10 +82,10 @@ const invalidArchiveIssues = {
 
 const archiveFailure = (error: BackupArchiveError): BackupRunFailureValue => {
 	if (error.reason === "unsupported_compression") {
-		return { code: "archive-unsupported", feature: "compression" };
+		return { feature: "compression", code: "archive-unsupported" };
 	}
 	if (error.reason === "unsupported_format") {
-		return { code: "archive-unsupported", feature: "format" };
+		return { feature: "format", code: "archive-unsupported" };
 	}
 	return { code: "archive-invalid", issue: invalidArchiveIssues[error.reason] };
 };
@@ -105,9 +105,9 @@ const restoreFailure = (error: unknown): BackupRunFailureValue => {
 		return error.reason;
 	}
 	if (error instanceof BadRequest) {
-		return { code: "archive-invalid", issue: "invalid-entry" };
+		return { issue: "invalid-entry", code: "archive-invalid" };
 	}
-	return { code: "unexpected-failure", operation: "restore" };
+	return { operation: "restore", code: "unexpected-failure" };
 };
 
 const asWorkflowError = <A, E, R>(
@@ -183,7 +183,7 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 					}
 					return true;
 				}),
-				{ code: "unexpected-failure", operation: "restore" },
+				{ operation: "restore", code: "unexpected-failure" },
 				restoreFailure,
 			);
 
@@ -192,7 +192,7 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 				uploadIntents
 					.claimTemporaryUpload(payload.uploadToken, payload.userId, payload.runId)
 					.pipe(
-						Effect.map(({ intentId, locator }) => ({
+						Effect.map(({ locator, intentId }) => ({
 							intentId,
 							key: locator.key,
 							provider: locator.type,
@@ -294,7 +294,7 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 										}
 										return yield* Effect.void;
 									}).pipe(Effect.provideService(Database, transaction)),
-								{ isolationLevel: "read committed", accessMode: "read write" },
+								{ accessMode: "read write", isolationLevel: "read committed" },
 							),
 						).pipe(
 							Effect.retry({
@@ -313,7 +313,7 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 					);
 					return yield* Effect.void;
 				}).pipe(Effect.scoped, Effect.annotateLogs({ runId: payload.runId })),
-				{ code: "unexpected-failure", operation: "restore" },
+				{ operation: "restore", code: "unexpected-failure" },
 				restoreFailure,
 			);
 
@@ -337,7 +337,7 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 					);
 					return yield* Effect.void;
 				}),
-				{ code: "unexpected-failure", operation: "restore" },
+				{ operation: "restore", code: "unexpected-failure" },
 			);
 
 		const fail = (
@@ -354,7 +354,7 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 							.pipe(Effect.retry(Schedule.recurs(2)), Effect.ignore);
 					}
 				}),
-				{ code: "unexpected-failure", operation: "restore" },
+				{ operation: "restore", code: "unexpected-failure" },
 			);
 
 		const provideDatabase = <A, E>(effect: Effect.Effect<A, E, Database>) =>

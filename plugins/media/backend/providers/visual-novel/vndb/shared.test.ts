@@ -44,13 +44,13 @@ describe("visual-novel.vndb sandbox script", () => {
 			});
 		});
 		return Effect.runPromise(
-			runSandboxTestScript(search, { query: "ever", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { page: 1, pageSize: 20, query: "ever" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{ title: "Ever17", metadata: [2002], externalId: "v17", imageUrl: "https://i/17.jpg" },
 						{ title: "Partial", metadata: [2005], externalId: "v18" },
 					]);
-					expect(result.details).toEqual({ totalItems: 3, nextPage: 2 });
+					expect(result.details).toEqual({ nextPage: 2, totalItems: 3 });
 					return undefined;
 				}),
 			),
@@ -62,23 +62,23 @@ describe("visual-novel.vndb sandbox script", () => {
 				results: [
 					{
 						id: "v17",
-						title: "Ever17",
 						rating: 85.5,
 						devstatus: 0,
-						released: "2002-08-29",
+						title: "Ever17",
 						length_minutes: 3000,
+						released: "2002-08-29",
 						description: "A time-loop mystery.",
 						image: { url: "https://i/cover.jpg" },
-						screenshots: [
-							{ url: "https://i/shot1.jpg" },
-							{ url: "https://i/shot1.jpg" },
-							{ url: "https://i/shot2.jpg" },
-						],
 						tags: [{ name: "Mystery" }, { name: "Science Fiction" }, { name: "" }],
 						developers: [
 							{ id: "p1", name: "KID" },
 							{ id: "p1", name: "KID" },
 							{ id: "p2", name: "" },
+						],
+						screenshots: [
+							{ url: "https://i/shot1.jpg" },
+							{ url: "https://i/shot1.jpg" },
+							{ url: "https://i/shot2.jpg" },
 						],
 					},
 				],
@@ -104,18 +104,18 @@ describe("visual-novel.vndb sandbox script", () => {
 						},
 					]);
 					expect(result.properties).toEqual({
-						lengthMinutes: 3000,
 						publishYear: 2002,
+						lengthMinutes: 3000,
 						providerRating: 85.5,
-						productionStatus: "Finished",
 						publishDate: "2002-08-29",
+						productionStatus: "Finished",
+						sourceUrl: "https://vndb.org/v17",
 						description: "A time-loop mystery.",
 						genres: ["Mystery", "Science Fiction"],
-						sourceUrl: "https://vndb.org/v17",
 						images: [
-							{ type: "remote", url: "https://i/cover.jpg", purpose: "cover" },
-							{ type: "remote", url: "https://i/shot1.jpg", purpose: "screenshot" },
-							{ type: "remote", url: "https://i/shot2.jpg", purpose: "screenshot" },
+							{ type: "remote", purpose: "cover", url: "https://i/cover.jpg" },
+							{ type: "remote", purpose: "screenshot", url: "https://i/shot1.jpg" },
+							{ type: "remote", purpose: "screenshot", url: "https://i/shot2.jpg" },
 						],
 					});
 					return undefined;

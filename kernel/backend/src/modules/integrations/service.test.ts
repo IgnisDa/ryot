@@ -30,7 +30,7 @@ const user: CurrentUserValue = {
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-id"),
-	preferences: { allowNsfw: false, language: null, disableIntegrations: false },
+	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
 };
 
 const mockProKey = (isValidated: boolean) =>
@@ -42,7 +42,7 @@ const systemPlugin = (pluginSlug: string) =>
 		pluginScope: "system",
 		pluginId: `${pluginSlug}-plugin-id`,
 		installationId: `${pluginSlug}-installation-id`,
-		configContext: { kind: "environment", pluginSlug, configSchema: { fields: {} } },
+		configContext: { pluginSlug, kind: "environment", configSchema: { fields: {} } },
 	}) satisfies Partial<RegisteredIntegrationProvider>;
 
 const integrationsServiceLayer = IntegrationsService.layer;
@@ -126,8 +126,8 @@ describe("client endpoints", () => {
 				updatedAt: now,
 				source: "source",
 				providerId: null,
-				pluginId: "example",
 				compiledFormat: 1,
+				pluginId: "example",
 				compiledCode: "compiled",
 				slug: "integration.theta",
 				contentHash: "content-hash",
@@ -140,14 +140,14 @@ describe("client endpoints", () => {
 				listResolvedForUser: () =>
 					Effect.succeed([
 						{ provider: yank, script: activeScript },
-						{ provider: inactiveSink, script: null },
-						{ provider: push, script: null },
+						{ script: null, provider: inactiveSink },
+						{ script: null, provider: push },
 					]),
 				resolveOwnedForUser: (_userId, providerSlug) =>
 					Effect.succeed(
 						providerSlug === yank.slug
 							? { provider: yank, script: activeScript }
-							: { provider: inactiveSink, script: null },
+							: { script: null, provider: inactiveSink },
 					),
 			});
 			const layer = integrationsServiceLayer.pipe(
@@ -200,7 +200,7 @@ describe("client endpoints", () => {
 			provider: "theta",
 			pluginSlug: "example",
 			pluginInstallationId: "example-installation-id",
-			providerSpecifics: { kind: "theta", baseUrl: "https://theta.test", token: "secret" },
+			providerSpecifics: { kind: "theta", token: "secret", baseUrl: "https://theta.test" },
 		});
 		const registered = {
 			lot: "yank",
@@ -211,9 +211,9 @@ describe("client endpoints", () => {
 			scriptSlug: "integration.theta",
 			settingsSchema: {
 				fields: {
-					kind: { type: "string", label: "Kind", description: "Kind" },
+					kind: { label: "Kind", type: "string", description: "Kind" },
 					baseUrl: { type: "string", label: "Base URL", description: "Base URL" },
-					token: { type: "string", label: "Token", description: "Token", secret: true },
+					token: { secret: true, type: "string", label: "Token", description: "Token" },
 				},
 			},
 		} satisfies RegisteredIntegrationProvider;
@@ -246,11 +246,11 @@ describe("client endpoints", () => {
 	});
 
 	it.effect.each([
-		{ isValidated: true, expected: true },
-		{ isValidated: false, expected: false },
+		{ expected: true, isValidated: true },
+		{ expected: false, isValidated: false },
 	])(
 		"marks a requiresProKey provider creatable only when the pro key is validated ($isValidated)",
-		({ isValidated, expected }) => {
+		({ expected, isValidated }) => {
 			const proGatedPush = {
 				lot: "push",
 				slug: "pro-push",
@@ -274,7 +274,7 @@ describe("client endpoints", () => {
 							findOwnedForUser: () => Effect.succeed(null),
 							resolveOwnedForUser: () => Effect.succeed(null),
 							listForUser: () => Effect.succeed([proGatedPush]),
-							listResolvedForUser: () => Effect.succeed([{ provider: proGatedPush, script: null }]),
+							listResolvedForUser: () => Effect.succeed([{ script: null, provider: proGatedPush }]),
 						}),
 					),
 				),
@@ -300,13 +300,6 @@ describe("update", () => {
 			scriptSlug: "integration.mu",
 			settingsSchema: {
 				fields: {
-					kind: {
-						type: "enum",
-						label: "Provider kind",
-						validation: { required: true },
-						description: "Integration provider discriminator",
-						choices: { kind: "static", values: [{ value: "mu" }] },
-					},
 					baseUrl: {
 						type: "string",
 						label: "Base URL",
@@ -320,15 +313,22 @@ describe("update", () => {
 						validation: { required: true },
 						description: "Mu access token",
 					},
+					kind: {
+						type: "enum",
+						label: "Provider kind",
+						validation: { required: true },
+						description: "Integration provider discriminator",
+						choices: { kind: "static", values: [{ value: "mu" }] },
+					},
 				},
 			},
 		} satisfies RegisteredIntegrationProvider;
 		let state = makeIntegration({
 			lot: "yank",
-			pluginSlug: "example",
 			provider: "mu",
+			pluginSlug: "example",
 			pluginInstallationId: "example-installation-id",
-			providerSpecifics: { token: "stored-token", kind: "mu", baseUrl: "https://old.example.com" },
+			providerSpecifics: { kind: "mu", token: "stored-token", baseUrl: "https://old.example.com" },
 		});
 		const repository = Layer.mock(IntegrationsRepository)({
 			getForUser: () => Effect.succeed(state),
@@ -341,7 +341,7 @@ describe("update", () => {
 			findForUser: () => Effect.succeed(registered),
 			listForUser: () => Effect.succeed([registered]),
 			findOwnedForUser: () => Effect.succeed(registered),
-			resolveOwnedForUser: () => Effect.succeed({ provider: registered, script: null }),
+			resolveOwnedForUser: () => Effect.succeed({ script: null, provider: registered }),
 		});
 		const layer = integrationsServiceLayer.pipe(
 			Layer.provideMerge(
@@ -363,8 +363,8 @@ describe("update", () => {
 			});
 
 			expect(updated.providerSpecifics).toEqual({
-				token: "stored-token",
 				kind: "mu",
+				token: "stored-token",
 				baseUrl: "https://new.example.com",
 			});
 			expect(state.providerSpecifics).toEqual(updated.providerSpecifics);
@@ -444,8 +444,8 @@ describe("update", () => {
 			} satisfies RegisteredIntegrationProvider;
 			const existing = makeIntegration({
 				lot: "sink",
-				pluginSlug: "example",
 				provider: "pro-sink",
+				pluginSlug: "example",
 				pluginInstallationId: "example-installation-id",
 			});
 			const repository = Layer.mock(IntegrationsRepository)({
@@ -456,7 +456,7 @@ describe("update", () => {
 				findForUser: () => Effect.succeed(registered),
 				listForUser: () => Effect.succeed([registered]),
 				findOwnedForUser: () => Effect.succeed(registered),
-				resolveOwnedForUser: () => Effect.succeed({ provider: registered, script: null }),
+				resolveOwnedForUser: () => Effect.succeed({ script: null, provider: registered }),
 			});
 			const layer = integrationsServiceLayer.pipe(
 				Layer.provideMerge(
@@ -480,7 +480,7 @@ describe("update", () => {
 				assertExitFails(
 					exit,
 					new IntegrationRequestError({
-						reason: { code: "pro-key-required", provider: "pro-sink" },
+						reason: { provider: "pro-sink", code: "pro-key-required" },
 					}),
 				);
 			}).pipe(Effect.provide(layer));
@@ -504,7 +504,7 @@ describe("create", () => {
 			findForUser: () => Effect.succeed(registered),
 			listForUser: () => Effect.succeed([registered]),
 			findOwnedForUser: () => Effect.succeed(registered),
-			resolveOwnedForUser: () => Effect.succeed({ provider: registered, script: null }),
+			resolveOwnedForUser: () => Effect.succeed({ script: null, provider: registered }),
 		});
 		const repository = Layer.mock(IntegrationsRepository)({
 			createForUser: () => Effect.die("create should not be reached"),
@@ -530,7 +530,7 @@ describe("create", () => {
 
 			assertExitFails(
 				exit,
-				new IntegrationRequestError({ reason: { code: "pro-key-required", provider: "pro-sink" } }),
+				new IntegrationRequestError({ reason: { provider: "pro-sink", code: "pro-key-required" } }),
 			);
 		}).pipe(Effect.provide(layer));
 	});
@@ -552,9 +552,9 @@ describe("installation availability", () => {
 					Layer.mock(IntegrationsRepository)({ getByIdAnyUser: () => Effect.succeed(integration) }),
 					Layer.mock(IntegrationProviderCatalog)({
 						listForUser: () => Effect.succeed([]),
-						listResolvedForUser: () => Effect.succeed([]),
 						findForUser: () => Effect.succeed(null),
 						findOwnedForUser: () => Effect.succeed(null),
+						listResolvedForUser: () => Effect.succeed([]),
 						resolveOwnedForUser: () => Effect.succeed(null),
 					}),
 					Layer.mock(ImportsService)({
@@ -650,7 +650,7 @@ describe("prepareYankRuns", () => {
 						listEnabledYankIntegrations: () => Effect.succeed([yankIntegration]),
 					}),
 					Layer.mock(IntegrationProviderCatalog)({
-						listResolvedForUser: () => Effect.succeed([{ provider: registeredYank, script: null }]),
+						listResolvedForUser: () => Effect.succeed([{ script: null, provider: registeredYank }]),
 					}),
 					Layer.mock(ImportsService)({ createRunForIntegrationIfIdle }),
 					Layer.succeed(WorkflowEngine, makeWorkflowEngine()),
@@ -670,8 +670,8 @@ describe("prepareYankRuns", () => {
 			expect(yield* service.prepareYankRuns(null)).toEqual([
 				{
 					userId: yankIntegration.userId,
-					integrationId: yankIntegration.id,
 					runId: makeRun("completed").id,
+					integrationId: yankIntegration.id,
 				},
 			]);
 			expect(captured).toMatchObject({
@@ -724,11 +724,11 @@ describe("handleWebhook", () => {
 						findOwnedForUser: () => Effect.succeed(registeredSink),
 					}),
 					Layer.mock(ImportsService)({
+						createRunForIntegrationIfIdle: () => Effect.die("sink runs must not be idle-gated"),
 						createRunForIntegration: (input) => {
 							captured = input;
 							return Effect.succeed(makeRun("completed"));
 						},
-						createRunForIntegrationIfIdle: () => Effect.die("sink runs must not be idle-gated"),
 					}),
 					Layer.succeed(
 						WorkflowEngine,

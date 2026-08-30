@@ -198,7 +198,7 @@ describe("parseAppSchemaPropertiesSafe - managed assets", () => {
 		expect(parse(fields, { images: [{ type: "remote" }] }).success).toBe(false);
 		expect(
 			parse(fields, {
-				images: [{ type: "remote", url: "https://example.com/image.jpg", key: "key" }],
+				images: [{ key: "key", type: "remote", url: "https://example.com/image.jpg" }],
 			}).success,
 		).toBe(false);
 	});
@@ -208,9 +208,9 @@ describe("parseAppSchemaPropertiesSafe - example images", () => {
 	it("accepts remote, local, and S3 image locators with purposes", () => {
 		const result = parseItem({
 			images: [
-				{ type: "remote", url: "https://example.com/cover.jpg", purpose: "cover" },
-				{ type: "local", key: "permanent/backdrop.jpg", purpose: "backdrop" },
-				{ type: "s3", key: "permanent/still.jpg", purpose: "still" },
+				{ type: "remote", purpose: "cover", url: "https://example.com/cover.jpg" },
+				{ type: "local", purpose: "backdrop", key: "permanent/backdrop.jpg" },
+				{ type: "s3", purpose: "still", key: "permanent/still.jpg" },
 			],
 		});
 
@@ -227,7 +227,7 @@ describe("parseAppSchemaPropertiesSafe - example images", () => {
 
 	it("rejects an unknown example image purpose", () => {
 		const result = parseItem({
-			images: [{ type: "remote", url: "https://example.com/image.jpg", purpose: "thumbnail" }],
+			images: [{ type: "remote", purpose: "thumbnail", url: "https://example.com/image.jpg" }],
 		});
 
 		expect(result.success).toBe(false);
@@ -394,7 +394,7 @@ describe("parseAppSchemaPropertiesSafe - number property", () => {
 	});
 
 	it("normalizes before maximum validation", () => {
-		const field = num({ normalize: { round: { scale: 2 } }, validation: { maximum: 100 } });
+		const field = num({ validation: { maximum: 100 }, normalize: { round: { scale: 2 } } });
 		const result = parse({ n: field }, { n: 100.004 });
 		expect(result).toMatchObject({ success: true, data: { n: 100 } });
 	});
@@ -505,7 +505,7 @@ describe("parseAppSchemaPropertiesSafe - enum-array property", () => {
 
 	it("rejects unresolved dynamic choices before parsing items", () => {
 		const result = parse(
-			{ tags: enumArrayProp(["a"], { choices: { kind: "dynamic", source: "tags" } }) },
+			{ tags: enumArrayProp(["a"], { choices: { source: "tags", kind: "dynamic" } }) },
 			{ tags: ["a"] },
 		);
 
@@ -563,7 +563,7 @@ describe("parseAppSchemaPropertiesSafe - object property", () => {
 
 	it("rejects extra keys under the strict policy", () => {
 		const field = objectProp({ name: str() }, { unknownKeys: "strict" });
-		const result = parse({ meta: field }, { meta: { name: "test", extra: true } });
+		const result = parse({ meta: field }, { meta: { extra: true, name: "test" } });
 		expect(result.success).toBe(false);
 		if (!result.success) {
 			expect(formatPropertyIssues(result.issues)).toContain("extra");
@@ -572,8 +572,8 @@ describe("parseAppSchemaPropertiesSafe - object property", () => {
 
 	it("passes extra keys through under the passthrough policy", () => {
 		const field = objectProp({ name: str() }, { unknownKeys: "passthrough" });
-		const result = parse({ meta: field }, { meta: { name: "test", extra: true } });
-		expect(result).toMatchObject({ success: true, data: { meta: { name: "test", extra: true } } });
+		const result = parse({ meta: field }, { meta: { extra: true, name: "test" } });
+		expect(result).toMatchObject({ success: true, data: { meta: { extra: true, name: "test" } } });
 	});
 });
 
@@ -581,18 +581,18 @@ describe("parseAppSchemaPropertiesSafe - rule conditions", () => {
 	it("allows an omitted required property while it is hidden", () => {
 		const s = schema(
 			{ enabled: bool(), secret: str({ validation: { required: true } }) },
-			{ rules: [visibilityRule(["secret"], { operator: "eq", path: ["enabled"], value: false })] },
+			{ rules: [visibilityRule(["secret"], { value: false, operator: "eq", path: ["enabled"] })] },
 		);
 
 		expect(
-			parseAppSchemaPropertiesSafe({ properties: { enabled: false }, propertiesSchema: s }),
+			parseAppSchemaPropertiesSafe({ propertiesSchema: s, properties: { enabled: false } }),
 		).toEqual({ success: true, data: { enabled: false } });
 	});
 
 	it("rejects a submitted hidden property with the rule message", () => {
 		const rule = visibilityRule(["secret"], { value: false, operator: "eq", path: ["enabled"] });
 		const s = schema(
-			{ enabled: bool(), secret: str() },
+			{ secret: str(), enabled: bool() },
 			{ rules: [{ ...rule, message: "secret is not accepted while disabled" }] },
 		);
 		const result = parseAppSchemaPropertiesSafe({
@@ -611,12 +611,12 @@ describe("parseAppSchemaPropertiesSafe - rule conditions", () => {
 	it("rejects a type-invalid hidden property with the visibility message", () => {
 		const rule = visibilityRule(["secret"], { value: false, operator: "eq", path: ["enabled"] });
 		const s = schema(
-			{ enabled: bool(), secret: str() },
+			{ secret: str(), enabled: bool() },
 			{ rules: [{ ...rule, message: "secret is not accepted while disabled" }] },
 		);
 		const result = parseAppSchemaPropertiesSafe({
 			propertiesSchema: s,
-			properties: { enabled: false, secret: 42 },
+			properties: { secret: 42, enabled: false },
 		});
 
 		expect(result).toEqual({
@@ -632,7 +632,7 @@ describe("parseAppSchemaPropertiesSafe - rule conditions", () => {
 				settings: objectProp({ secret: str({ validation: { required: true } }) }),
 			},
 			{
-				rules: [visibilityRule(["settings"], { operator: "eq", path: ["enabled"], value: false })],
+				rules: [visibilityRule(["settings"], { value: false, operator: "eq", path: ["enabled"] })],
 			},
 		);
 
@@ -645,17 +645,17 @@ describe("parseAppSchemaPropertiesSafe - rule conditions", () => {
 		const fields = { status: str(), secret: str({ validation: { required: true } }) };
 		const s = schema(fields, {
 			rules: [
-				requiredRule(["secret"], { operator: "eq", path: ["status"], value: "hidden" }),
+				requiredRule(["secret"], { operator: "eq", value: "hidden", path: ["status"] }),
 				visibilityRule(["secret"], { operator: "eq", value: "hidden", path: ["status"] }),
 			],
 		});
 
 		expect(
-			parseAppSchemaPropertiesSafe({ properties: { status: "hidden" }, propertiesSchema: s })
+			parseAppSchemaPropertiesSafe({ propertiesSchema: s, properties: { status: "hidden" } })
 				.success,
 		).toBe(true);
 		expect(
-			parseAppSchemaPropertiesSafe({ properties: { status: "visible" }, propertiesSchema: s })
+			parseAppSchemaPropertiesSafe({ propertiesSchema: s, properties: { status: "visible" } })
 				.success,
 		).toBe(false);
 	});
@@ -677,7 +677,7 @@ describe("parseAppSchemaPropertiesSafe - rule conditions", () => {
 	it("eq: enforces required when condition matches", () => {
 		const s = schema(
 			{ status: str(), progress: num() },
-			{ rules: [requiredRule(["progress"], { operator: "eq", path: ["status"], value: "done" })] },
+			{ rules: [requiredRule(["progress"], { value: "done", operator: "eq", path: ["status"] })] },
 		);
 
 		const match = parseAppSchemaPropertiesSafe({
@@ -696,7 +696,7 @@ describe("parseAppSchemaPropertiesSafe - rule conditions", () => {
 	it("treats null as missing for a conditionally required property", () => {
 		const s = schema(
 			{ status: str(), progress: num() },
-			{ rules: [requiredRule(["progress"], { operator: "eq", path: ["status"], value: "done" })] },
+			{ rules: [requiredRule(["progress"], { value: "done", operator: "eq", path: ["status"] })] },
 		);
 
 		expect(
@@ -722,7 +722,7 @@ describe("parseAppSchemaPropertiesSafe - rule conditions", () => {
 		);
 
 		expect(
-			parseAppSchemaPropertiesSafe({ properties: { status: "done" }, propertiesSchema: s }).success,
+			parseAppSchemaPropertiesSafe({ propertiesSchema: s, properties: { status: "done" } }).success,
 		).toBe(false);
 	});
 
@@ -736,15 +736,15 @@ describe("parseAppSchemaPropertiesSafe - rule conditions", () => {
 						path: ["progress"],
 						validation: { required: true },
 						message: "progress is required when done",
-						when: { operator: "eq", path: ["status"], value: "done" },
+						when: { value: "done", operator: "eq", path: ["status"] },
 					},
 				],
 			},
 		);
 
 		const result = parseAppSchemaPropertiesSafe({
-			properties: { status: "done" },
 			propertiesSchema: s,
+			properties: { status: "done" },
 		});
 		expect(result.success).toBe(false);
 		if (!result.success) {
@@ -762,15 +762,15 @@ describe("parseAppSchemaPropertiesSafe - rule conditions", () => {
 						path: ["progress"],
 						validation: { required: true },
 						message: "progress is required when done",
-						when: { operator: "eq", path: ["status"], value: "done" },
+						when: { value: "done", operator: "eq", path: ["status"] },
 					},
 				],
 			},
 		);
 
 		const result = parseAppSchemaPropertiesSafe({
-			properties: { status: "done" },
 			propertiesSchema: s,
+			properties: { status: "done" },
 		});
 
 		expect(result).toEqual({
@@ -795,7 +795,7 @@ describe("validateAppSchemaDefinition", () => {
 						kind: "validation",
 						path: ["progress"],
 						validation: { required: true },
-						when: { operator: "eq", path: ["status"], value: "done" },
+						when: { value: "done", operator: "eq", path: ["status"] },
 					},
 				],
 			},
@@ -812,7 +812,7 @@ describe("validateAppSchemaDefinition", () => {
 						kind: "validation",
 						path: ["nonexistent"],
 						validation: { required: true },
-						when: { operator: "eq", path: ["status"], value: "done" },
+						when: { value: "done", operator: "eq", path: ["status"] },
 					},
 				],
 			},
@@ -831,7 +831,7 @@ describe("validateAppSchemaDefinition", () => {
 						kind: "validation",
 						path: ["progress"],
 						validation: { required: true },
-						when: { operator: "eq", path: ["missingField"], value: "done" },
+						when: { value: "done", operator: "eq", path: ["missingField"] },
 					},
 				],
 			},
@@ -843,14 +843,14 @@ describe("validateAppSchemaDefinition", () => {
 
 	it("returns an issue when comparing a non-comparable property type", () => {
 		const s = schema(
-			{ meta: objectProp({ name: str() }), progress: num() },
+			{ progress: num(), meta: objectProp({ name: str() }) },
 			{
 				rules: [
 					{
 						kind: "validation",
 						path: ["progress"],
 						validation: { required: true },
-						when: { operator: "eq", path: ["meta"], value: "x" },
+						when: { value: "x", operator: "eq", path: ["meta"] },
 					},
 				],
 			},
@@ -921,7 +921,7 @@ describe("formatPropertyIssues", () => {
 	});
 
 	it("prefixes issues that have a path", () => {
-		const formatted = formatPropertyIssues([{ path: ["meta", "title"], message: "too short" }]);
+		const formatted = formatPropertyIssues([{ message: "too short", path: ["meta", "title"] }]);
 		expect(formatted).toBe("meta.title: too short");
 	});
 

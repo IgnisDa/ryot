@@ -6,12 +6,12 @@ import { asRecord, numberValue, stringValue } from "../../../lib/records";
 import { getIdentifier, loadMetronJson } from "../../../lib/vendors/metron";
 
 export const manifest = defineManifest({
-	kind: "provider",
 	name: "Metron",
+	kind: "provider",
 	slug: "person.metron",
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["metronUsername", "metronPassword"],
-	requiredSystemConfigKeys: [],
 });
 
 const parseYear = (value: unknown) => {
@@ -100,7 +100,7 @@ export const details = defineProvider({
 						description: stringValue(payload?.["desc"]),
 						sourceUrl: `https://metron.cloud/creator/${input.externalId}`,
 						images: image
-							? [{ type: "remote" as const, url: image, purpose: "profile" as const }]
+							? [{ url: image, type: "remote" as const, purpose: "profile" as const }]
 							: [],
 					},
 				};

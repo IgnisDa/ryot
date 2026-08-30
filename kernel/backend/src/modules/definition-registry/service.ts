@@ -88,9 +88,9 @@ export const SavedViewDefinition = Schema.Struct({
 	slug: Schema.String,
 	sortOrder: Schema.Finite,
 	renderer: SavedViewRenderer,
+	pluginSlug: Schema.NullOr(Schema.String),
 	dataSources: Schema.NullOr(RyotQLDocument),
 	settings: Schema.Record(Schema.String, JsonValue),
-	pluginSlug: Schema.NullOr(Schema.String),
 });
 
 export type SavedViewDefinition = typeof SavedViewDefinition.Type;

@@ -7,8 +7,8 @@ import { Select } from "./select";
 
 const choices = [
 	{ value: "default", label: "Provider default" },
-	{ value: "es", label: "Spanish", hint: "es" },
-	{ value: "fr", label: "French", hint: "fr" },
+	{ hint: "es", value: "es", label: "Spanish" },
+	{ hint: "fr", value: "fr", label: "French" },
 ];
 
 function LanguageSelect() {

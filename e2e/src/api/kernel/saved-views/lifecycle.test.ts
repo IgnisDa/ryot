@@ -70,7 +70,7 @@ describe("Saved views lifecycle E2E", () => {
 					savedView: {
 						where: {
 							right: { type: "literal", value: "collection" },
-							left: { field: "entitySchemaSlug", tableAlias: "entity" },
+							left: { tableAlias: "entity", field: "entitySchemaSlug" },
 						},
 					},
 				},
@@ -244,8 +244,8 @@ describe("Saved views lifecycle E2E", () => {
 			const updateError = yield* Effect.flip(
 				client.call((c) =>
 					c.savedViews.update({
-						params: { viewSlug: missingViewSlug },
 						payload: buildUpdatedSavedViewBody(),
+						params: { viewSlug: missingViewSlug },
 					}),
 				),
 			);

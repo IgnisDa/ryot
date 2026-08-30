@@ -30,17 +30,17 @@ export const clientRenderer = snakeCase.table(
 		publishedRevision: integer(),
 		draftRevision: integer().notNull().default(1),
 		publishedDefinition: jsonb().$type<ClientRendererDefinition>(),
-		draftDefinition: jsonb().$type<ClientRendererDefinition>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-		publishedArtifactHash: text().references(() => pluginClientArtifact.hash, {
-			onDelete: "restrict",
-		}),
+		draftDefinition: jsonb().$type<ClientRendererDefinition>().notNull(),
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
+		publishedArtifactHash: text().references(() => pluginClientArtifact.hash, {
+			onDelete: "restrict",
+		}),
 		updatedAt: timestamp({ withTimezone: true })
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ new Date())
@@ -60,10 +60,10 @@ export const clientPageBuild = snakeCase.table(
 		publishedHash: text().notNull(),
 		graphIdentity: jsonb().$type<ClientPageGraphIdentity>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-		rendererId: text().references(() => clientRenderer.id, { onDelete: "cascade" }),
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
+		rendererId: text().references(() => clientRenderer.id, { onDelete: "cascade" }),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
@@ -94,22 +94,22 @@ export const savedView = snakeCase.table(
 		slug: text().notNull(),
 		name: text().notNull(),
 		icon: text().notNull(),
-		dataSources: jsonb().$type<RyotQLDocument>(),
+		pluginInstallationId: text(),
 		revision: integer().notNull().default(1),
 		sortOrder: integer().notNull().default(0),
+		dataSources: jsonb().$type<RyotQLDocument>(),
 		isBuiltin: boolean().notNull().default(false),
 		isDisabled: boolean().notNull().default(false),
 		renderer: jsonb().$type<SavedViewRenderer>().notNull(),
-		settings: jsonb().$type<Readonly<Record<string, JsonValue>>>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-		clientRendererId: text().references(() => clientRenderer.id, { onDelete: "restrict" }),
-		pluginInstallationId: text(),
+		settings: jsonb().$type<Readonly<Record<string, JsonValue>>>().notNull(),
 		id: text()
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ generateId()),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
+		clientRendererId: text().references(() => clientRenderer.id, { onDelete: "restrict" }),
 		updatedAt: timestamp({ withTimezone: true })
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ new Date())

@@ -33,7 +33,7 @@ const user = {
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-id"),
-	preferences: { allowNsfw: false, language: null, disableIntegrations: false },
+	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
 } satisfies CurrentUserValue;
 
 const mockEntitiesRepository = Layer.mock(EntitiesRepository);
@@ -89,7 +89,7 @@ const makePluginRuntimeLayer = (
 							pluginSlug: "test",
 							mergeIdentityProperties,
 							propertiesSchema: {
-								fields: { kind: { type: "string", label: "Kind", description: "Record kind" } },
+								fields: { kind: { label: "Kind", type: "string", description: "Record kind" } },
 							},
 							userState: deniedOperationsBySchema["record"]
 								? { deniedOperations: deniedOperationsBySchema["record"] }
@@ -99,8 +99,8 @@ const makePluginRuntimeLayer = (
 							.filter(([slug]) => slug !== "record")
 							.map(([slug, deniedOperations]) => ({
 								slug,
-								icon: "box",
 								name: slug,
+								icon: "box",
 								eventSchemas: [],
 								pluginSlug: "test",
 								userState: { deniedOperations },
@@ -171,7 +171,7 @@ it.effect("rejects clearing user state when the entity schema denies it", () => 
 
 		assertExitFails(
 			exit,
-			new UserStateBadRequest({ reason: { code: "operation-denied", operation: "clear" } }),
+			new UserStateBadRequest({ reason: { operation: "clear", code: "operation-denied" } }),
 		);
 	}).pipe(Effect.provide(layer));
 });
@@ -179,16 +179,8 @@ it.effect("rejects clearing user state when the entity schema denies it", () => 
 it.effect("deletes matching events through EventsService when clearing user state", () => {
 	const deletedEventIds: EventId[] = [];
 	const layer = makeServiceLayer({
-		entitiesRepository: makeEntitiesRepository({
-			getEntityScopeForUser: () =>
-				Effect.succeed({
-					isBuiltin: false,
-					entityName: "Dune",
-					entityUserId: user.id,
-					entitySchemaSlug: EntitySchemaSlug.make("record"),
-					propertiesSchema: { fields: {} },
-					entityId: EntityId.make("entity-1"),
-				}),
+		relationshipsRepository: makeRelationshipsRepository({
+			listUserRelationshipsForEntityWithProvenance: () => Effect.succeed([]),
 		}),
 		eventsRepository: makeEventsRepository({
 			listUserEventIdsForEntity: () =>
@@ -201,8 +193,16 @@ it.effect("deletes matching events through EventsService when clearing user stat
 					return input.eventId;
 				}),
 		}),
-		relationshipsRepository: makeRelationshipsRepository({
-			listUserRelationshipsForEntityWithProvenance: () => Effect.succeed([]),
+		entitiesRepository: makeEntitiesRepository({
+			getEntityScopeForUser: () =>
+				Effect.succeed({
+					isBuiltin: false,
+					entityName: "Dune",
+					entityUserId: user.id,
+					propertiesSchema: { fields: {} },
+					entityId: EntityId.make("entity-1"),
+					entitySchemaSlug: EntitySchemaSlug.make("record"),
+				}),
 		}),
 	});
 
@@ -294,7 +294,7 @@ it.effect("rejects merging when either source or destination schema denies it", 
 		);
 
 		const expected = new UserStateBadRequest({
-			reason: { code: "operation-denied", operation: "merge" },
+			reason: { operation: "merge", code: "operation-denied" },
 		});
 		assertExitFails(sourceDenied, expected);
 		assertExitFails(destinationDenied, expected);
@@ -330,13 +330,13 @@ it.effect("rejects merging entities from different schemas", () => {
 it.effect("allows merging entities with matching declared identity properties", () => {
 	const layer = makeServiceLayer({
 		pluginRuntime: makePluginRuntimeLayer(["kind"]),
-		entitiesRepository: makeEntitiesRepository({
-			getEntityMergeScopeForUser: ({ entityId }) =>
-				Effect.succeed(makeMergeScope({ entityId, properties: { kind: "novel" } })),
-		}),
 		eventsRepository: makeEventsRepository({ listUserEventIdsForEntity: () => Effect.succeed([]) }),
 		relationshipsRepository: makeRelationshipsRepository({
 			listUserRelationshipsForEntityWithProvenance: () => Effect.succeed([]),
+		}),
+		entitiesRepository: makeEntitiesRepository({
+			getEntityMergeScopeForUser: ({ entityId }) =>
+				Effect.succeed(makeMergeScope({ entityId, properties: { kind: "novel" } })),
 		}),
 	});
 
@@ -381,7 +381,7 @@ it.effect("rejects merging entities with mismatched declared identity properties
 
 		assertExitFails(
 			exit,
-			new UserStateBadRequest({ reason: { code: "identity-property-mismatch", property: "kind" } }),
+			new UserStateBadRequest({ reason: { property: "kind", code: "identity-property-mismatch" } }),
 		);
 	}).pipe(Effect.provide(layer));
 });
@@ -415,13 +415,40 @@ it.effect("moves events and relationships when the schema has no merge identity 
 					id: RelationshipSchemaSlug.make("relationship-schema"),
 				}),
 		}),
+		relationshipsService: makeRelationshipsService({
+			delete: (input) =>
+				Effect.sync(() => {
+					calls.push(`${input.sourceEntityId}->${input.targetEntityId}:delete`);
+					return {
+						properties: {},
+						id: RelationshipId.make("deleted"),
+						sourceEntityId: input.sourceEntityId,
+						targetEntityId: input.targetEntityId,
+						createdAt: "2026-01-01T00:00:00.000Z",
+						relationshipSchemaSlug: input.relationshipSchemaSlug,
+					};
+				}),
+			create: (input) =>
+				Effect.sync(() => {
+					calls.push(`${input.sourceEntityId}->${input.targetEntityId}:create`);
+					return {
+						properties: {},
+						wasInserted: true,
+						id: RelationshipId.make("created"),
+						sourceEntityId: input.sourceEntityId,
+						targetEntityId: input.targetEntityId,
+						createdAt: "2026-01-01T00:00:00.000Z",
+						relationshipSchemaSlug: input.relationshipSchemaSlug,
+					};
+				}),
+		}),
 		relationshipsRepository: makeRelationshipsRepository({
 			listUserRelationshipsForEntityWithProvenance: () =>
 				Effect.succeed([
 					{
 						properties: {},
-						createdAt: "2026-01-01T00:00:00.000Z",
 						relationshipSchemaPluginId: null,
+						createdAt: "2026-01-01T00:00:00.000Z",
 						sourceEntityId: EntityId.make("from"),
 						id: RelationshipId.make("relationship-1"),
 						targetEntityId: EntityId.make("target-1"),
@@ -429,8 +456,8 @@ it.effect("moves events and relationships when the schema has no merge identity 
 					},
 					{
 						properties: {},
-						createdAt: "2026-01-01T00:00:00.000Z",
 						relationshipSchemaPluginId: null,
+						createdAt: "2026-01-01T00:00:00.000Z",
 						targetEntityId: EntityId.make("from"),
 						id: RelationshipId.make("relationship-2"),
 						sourceEntityId: EntityId.make("target-2"),
@@ -438,41 +465,14 @@ it.effect("moves events and relationships when the schema has no merge identity 
 					},
 					{
 						properties: {},
-						createdAt: "2026-01-01T00:00:00.000Z",
 						relationshipSchemaPluginId: null,
+						createdAt: "2026-01-01T00:00:00.000Z",
 						sourceEntityId: EntityId.make("from"),
 						targetEntityId: EntityId.make("from"),
 						id: RelationshipId.make("relationship-3"),
 						relationshipSchemaSlug: RelationshipSchemaSlug.make("relationship-schema"),
 					},
 				]),
-		}),
-		relationshipsService: makeRelationshipsService({
-			create: (input) =>
-				Effect.sync(() => {
-					calls.push(`${input.sourceEntityId}->${input.targetEntityId}:create`);
-					return {
-						properties: {},
-						wasInserted: true,
-						sourceEntityId: input.sourceEntityId,
-						targetEntityId: input.targetEntityId,
-						id: RelationshipId.make("created"),
-						createdAt: "2026-01-01T00:00:00.000Z",
-						relationshipSchemaSlug: input.relationshipSchemaSlug,
-					};
-				}),
-			delete: (input) =>
-				Effect.sync(() => {
-					calls.push(`${input.sourceEntityId}->${input.targetEntityId}:delete`);
-					return {
-						properties: {},
-						sourceEntityId: input.sourceEntityId,
-						targetEntityId: input.targetEntityId,
-						id: RelationshipId.make("deleted"),
-						createdAt: "2026-01-01T00:00:00.000Z",
-						relationshipSchemaSlug: input.relationshipSchemaSlug,
-					};
-				}),
 		}),
 	});
 

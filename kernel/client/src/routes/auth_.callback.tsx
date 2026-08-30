@@ -25,7 +25,7 @@ export const Route = createFileRoute("/auth_/callback")({
 			state: searchValue(search.state),
 			error_description: searchValue(search.error_description),
 		}),
-	beforeLoad: async ({ context, search }) => {
+	beforeLoad: async ({ search, context }) => {
 		const destination = await context.runtime.runPromise(
 			Effect.gen(function* () {
 				const runtimeClient = yield* RuntimeOAuthClientService;

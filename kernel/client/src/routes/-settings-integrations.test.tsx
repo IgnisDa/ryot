@@ -92,8 +92,8 @@ const komgaProvider: ListedIntegrationProvider = {
 			baseUrl: { ...described("Base URL"), type: "string", validation: { required: true } },
 			apiKey: {
 				...described("API key"),
-				type: "string",
 				secret: true,
+				type: "string",
 				validation: { required: true },
 			},
 		},
@@ -122,9 +122,9 @@ const makeSummary = (overrides: Partial<IntegrationSummary> = {}): IntegrationSu
 	lastFinishedAt: null,
 	syncOwnership: false,
 	id: IntegrationId.make("int_1"),
+	pluginSlug: PluginSlug.make("media"),
 	createdAt: "2026-08-20T10:00:00.000Z",
 	updatedAt: "2026-08-20T10:00:00.000Z",
-	pluginSlug: PluginSlug.make("media"),
 	extraSettings: { disableOnContinuousErrors: false },
 	...overrides,
 });
@@ -144,7 +144,7 @@ const listResponse = (
 		integrations: {
 			items: integrations,
 			type: "rows" as const,
-			pageInfo: { hasMore, limit, nextCursor: hasMore ? "next" : null },
+			pageInfo: { limit, hasMore, nextCursor: hasMore ? "next" : null },
 		},
 	},
 });
@@ -154,7 +154,7 @@ const runsResponse = (runs: readonly Record<string, unknown>[]) => ({
 		importRuns: {
 			items: runs,
 			type: "rows" as const,
-			pageInfo: { hasMore: false, limit: RUNS_LIMIT, nextCursor: null },
+			pageInfo: { hasMore: false, nextCursor: null, limit: RUNS_LIMIT },
 		},
 	},
 });
@@ -240,7 +240,7 @@ const mountView = (
 		),
 	);
 	const router = getRouter(
-		{ runtime, theme, backInterceptors: createBackInterceptors() },
+		{ theme, runtime, backInterceptors: createBackInterceptors() },
 		createMemoryHistory({ initialEntries: [initialEntry] }),
 	);
 	const view = render(<RouterProvider router={router} />);
@@ -252,8 +252,8 @@ describe("integrations list", () => {
 		const view = mountView(
 			"/settings/integrations",
 			makeIntegrationsApi({
-				listProviders: () => Effect.succeed([komgaProvider]),
 				get: () => Effect.succeed(makeListed()),
+				listProviders: () => Effect.succeed([komgaProvider]),
 			}),
 			makeIntegrationQueries({
 				list: () =>
@@ -320,7 +320,7 @@ describe("integrations list", () => {
 					return listResponse(
 						created.length === 0
 							? [makeSummary()]
-							: [makeSummary(), makeSummary({ id: IntegrationId.make("int_2"), name: "Created" })],
+							: [makeSummary(), makeSummary({ name: "Created", id: IntegrationId.make("int_2") })],
 						limit === LIMIT,
 						limit,
 					);
@@ -454,6 +454,7 @@ describe("integration detail", () => {
 			"/settings/integrations/int_1",
 			makeIntegrationsApi({
 				listProviders: () => Effect.succeed([komgaProvider]),
+				update: () => Effect.succeed(makeListed({ name: "Updated integration" })),
 				get: () => {
 					gets += 1;
 					if (gets === 1) {
@@ -464,7 +465,6 @@ describe("integration detail", () => {
 					}
 					return Effect.fail(new AuthenticatedApiError({ cause: new Error("refresh failed") }));
 				},
-				update: () => Effect.succeed(makeListed({ name: "Updated integration" })),
 			}),
 			makeIntegrationQueries(),
 		);

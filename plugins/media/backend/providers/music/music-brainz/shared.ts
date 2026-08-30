@@ -14,10 +14,10 @@ import {
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "MusicBrainz",
-	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall"],
 	slug: "music.music-brainz",
+	requiredPluginConfigKeys: [],
+	requiredSystemConfigKeys: [],
 });
 
 export const search = defineProvider({
@@ -115,8 +115,8 @@ export const details = defineProvider({
 				accumulator.add({
 					externalId: releaseGroupId,
 					providerSlug: "music-group.music-brainz",
-					relationshipProperties: { roles: ["Member"] },
 					name: trimmedString(releaseGroup?.["title"]),
+					relationshipProperties: { roles: ["Member"] },
 				});
 			}
 
@@ -125,6 +125,16 @@ export const details = defineProvider({
 			const duration = durationMs === null ? null : Math.trunc(durationMs / 1000);
 			return {
 				name: title,
+				properties: {
+					duration,
+					genres: [],
+					publishYear,
+					byVariousArtists,
+					sourceUrl: `https://musicbrainz.org/recording/${input.externalId}`,
+					images: coverUrl
+						? [{ url: coverUrl, type: "remote" as const, purpose: "cover" as const }]
+						: [],
+				},
 				relatedEntityGroups: [
 					{
 						direction: "incoming" as const,
@@ -143,16 +153,6 @@ export const details = defineProvider({
 						),
 					},
 				],
-				properties: {
-					duration,
-					genres: [],
-					publishYear,
-					byVariousArtists,
-					images: coverUrl
-						? [{ type: "remote" as const, url: coverUrl, purpose: "cover" as const }]
-						: [],
-					sourceUrl: `https://musicbrainz.org/recording/${input.externalId}`,
-				},
 			};
 		}),
 });

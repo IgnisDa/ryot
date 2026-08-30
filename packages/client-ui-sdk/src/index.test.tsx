@@ -6,7 +6,7 @@ import { Button, StatusMessage } from "./index";
 describe("Button", () => {
 	it("renders a button and forwards its attributes", () => {
 		render(
-			<Button type="submit" disabled aria-label="Save">
+			<Button disabled type="submit" aria-label="Save">
 				Save
 			</Button>,
 		);
@@ -39,12 +39,12 @@ describe("Button", () => {
 
 	it("reports its pressed state to assistive technology through the switch variant", () => {
 		render(
-			<Button variant="switch" aria-pressed>
+			<Button aria-pressed variant="switch">
 				Compact
 			</Button>,
 		);
 
-		expect(screen.getByRole("button", { name: "Compact", pressed: true })).toBeTruthy();
+		expect(screen.getByRole("button", { pressed: true, name: "Compact" })).toBeTruthy();
 	});
 });
 

@@ -98,7 +98,7 @@ export const PokemonCard = ({
 					{isTitleProvisional(reference) && <SyncPip reason="translating" />}
 				</span>
 				<PokemonTypes name={data.name} types={data.types ?? []} />
-				<PokemonExpandedDetails data={data} entityId={reference.entityId} layout="card" />
+				<PokemonExpandedDetails data={data} layout="card" entityId={reference.entityId} />
 			</article>
 		</ManagedAssetProvider>
 	);
@@ -135,7 +135,7 @@ export const PokemonRow = ({
 					<PokemonTypes name={data.name} types={data.types ?? []} />
 				</div>
 				<div className="w-full min-w-0">
-					<PokemonExpandedDetails data={data} entityId={reference.entityId} layout="row" />
+					<PokemonExpandedDetails data={data} layout="row" entityId={reference.entityId} />
 				</div>
 			</article>
 		</ManagedAssetProvider>

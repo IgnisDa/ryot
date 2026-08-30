@@ -44,7 +44,7 @@ describe("music.music-brainz sandbox script", () => {
 			};
 		});
 		return Effect.runPromise(
-			runSandboxTestScript(search, { query: "song", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { page: 1, pageSize: 20, query: "song" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([{ metadata: [2001], externalId: "r1", title: "Song One" }]);
 					expect(result.details).toEqual({ totalItems: 2, nextPage: null });

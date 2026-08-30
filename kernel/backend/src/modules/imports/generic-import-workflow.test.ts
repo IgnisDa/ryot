@@ -125,6 +125,16 @@ it.effect("processes generic entity, relationship, event, and collection writes"
 						sourceIdentifier: "collection-1",
 						sourceLabel: "Imported collection",
 						collectionMemberships: [{ entityAlias: "direct", collectionName: "Favorites" }],
+						events: [
+							{
+								entityAlias: "existing",
+								eventSchemaSlug: "review",
+								sessionEntityAlias: "session",
+								occurredAt: "2026-01-02T03:04:05.000Z",
+								subjectEntityId: "existing-collection",
+								properties: { rating: 90, isSpoiler: false, text: "Imported body" },
+							},
+						],
 						relationships: [
 							{
 								sourceAlias: "session",
@@ -133,21 +143,11 @@ it.effect("processes generic entity, relationship, event, and collection writes"
 								relationshipSchemaSlug: "member-of",
 							},
 							{
-								properties: { rank: 0 },
 								sourceAlias: "direct",
 								targetAlias: "library",
+								properties: { rank: 0 },
 								propertiesMode: "merge",
 								relationshipSchemaSlug: "member-of",
-							},
-						],
-						events: [
-							{
-								entityAlias: "existing",
-								eventSchemaSlug: "review",
-								sessionEntityAlias: "session",
-								occurredAt: "2026-01-02T03:04:05.000Z",
-								subjectEntityId: "existing-collection",
-								properties: { rating: 90, text: "Imported body", isSpoiler: false },
 							},
 						],
 						entities: [
@@ -182,7 +182,7 @@ it.effect("processes generic entity, relationship, event, and collection writes"
 								alias: "library",
 								existingOnly: true,
 								entitySchemaSlug: "collection",
-								match: { name: "Library", properties: {} },
+								match: { properties: {}, name: "Library" },
 							},
 						],
 					},
@@ -195,9 +195,9 @@ it.effect("processes generic entity, relationship, event, and collection writes"
 						sourceLabel: "Imported example",
 						relationships: [
 							{
-								properties: { rank: 0 },
 								sourceAlias: "example",
 								targetAlias: "library",
+								properties: { rank: 0 },
 								propertiesMode: "merge",
 								relationshipSchemaSlug: "member-of",
 							},
@@ -207,8 +207,8 @@ it.effect("processes generic entity, relationship, event, and collection writes"
 								properties: {},
 								alias: "example",
 								name: "Failed example",
-								entityId: "failed-example",
 								entitySchemaSlug: "group",
+								entityId: "failed-example",
 							},
 							{
 								scope: "user",
@@ -217,7 +217,7 @@ it.effect("processes generic entity, relationship, event, and collection writes"
 								alias: "library",
 								existingOnly: true,
 								entitySchemaSlug: "collection",
-								match: { name: "Library", properties: {} },
+								match: { properties: {}, name: "Library" },
 							},
 						],
 					},
@@ -228,14 +228,14 @@ it.effect("processes generic entity, relationship, event, and collection writes"
 		const result = yield* runProcessGenericImportChunksWorkflow(
 			{
 				executionId,
-				artifactOwnerExecutionId: executionId,
-				artifactReferenceExecutionId: executionId,
 				totalItems: 3,
 				failureCount: 1,
 				writeItemCount: 2,
 				chunkHandles: [path],
 				userId: UserId.make("user-1"),
 				runId: ImportRunId.make("run-1"),
+				artifactOwnerExecutionId: executionId,
+				artifactReferenceExecutionId: executionId,
 			},
 			executionId,
 		);
@@ -284,7 +284,7 @@ it.effect("processes generic entity, relationship, event, and collection writes"
 							entityId: "existing-collection",
 							sessionEntityId: "created-collection",
 							occurredAt: "2026-01-02T03:04:05.000Z",
-							properties: { rating: 90, text: "Imported body", isSpoiler: false },
+							properties: { rating: 90, isSpoiler: false, text: "Imported body" },
 						},
 					],
 				},
@@ -370,6 +370,14 @@ it.effect("processes generic entity, relationship, event, and collection writes"
 						}),
 				}),
 				Layer.mock(EntitiesRepository)({
+					getEntityScopeForUser: ({ entityId }) =>
+						Effect.succeed({
+							entityId,
+							isBuiltin: true,
+							entityName: "Library",
+							entitySchemaSlug: EntitySchemaSlug.make("collection"),
+							entityUserId: entityId === "global-library" ? null : UserId.make("user-1"),
+						}),
 					getByIdForUser: ({ entityId }) =>
 						Effect.succeed({
 							id: entityId,
@@ -383,14 +391,6 @@ it.effect("processes generic entity, relationship, event, and collection writes"
 							entitySchemaSlug: EntitySchemaSlug.make(
 								entityId === "failed-example" ? "group" : "collection",
 							),
-						}),
-					getEntityScopeForUser: ({ entityId }) =>
-						Effect.succeed({
-							entityId,
-							isBuiltin: true,
-							entityName: "Library",
-							entitySchemaSlug: EntitySchemaSlug.make("collection"),
-							entityUserId: entityId === "global-library" ? null : UserId.make("user-1"),
 						}),
 					listMatchCandidatesBySchema: () =>
 						Effect.succeed([
@@ -411,9 +411,9 @@ it.effect("processes generic entity, relationship, event, and collection writes"
 								providerId: null,
 								externalId: null,
 								populatedAt: null,
+								id: EntityId.make("global-library"),
 								createdAt: "2026-01-01T00:00:00.000Z",
 								updatedAt: "2026-01-01T00:00:00.000Z",
-								id: EntityId.make("global-library"),
 								entitySchemaSlug: EntitySchemaSlug.make("collection"),
 							},
 							{
@@ -475,15 +475,15 @@ it.effect("imports private event and relationship schemas from one effective sna
 		signalSchemas: [],
 		entitySchemas: ["source", "target", "other"].map((slug) => ({
 			slug,
+			pluginId,
 			name: slug,
 			icon: "circle",
-			pluginId,
+			propertiesSchema,
 			pluginSlug: "private-plugin",
 			eventSchemas:
 				slug === "other"
-					? [{ name: "Private Event", slug: "private-event", propertiesSchema }]
+					? [{ propertiesSchema, name: "Private Event", slug: "private-event" }]
 					: [],
-			propertiesSchema,
 		})),
 		relationshipSchemas: [
 			{
@@ -542,13 +542,13 @@ it.effect("imports private event and relationship schemas from one effective sna
 		const result = yield* runProcessGenericImportChunksWorkflow(
 			{
 				executionId,
-				artifactOwnerExecutionId: executionId,
-				artifactReferenceExecutionId: executionId,
 				totalItems: 3,
 				failureCount: 0,
 				writeItemCount: 3,
 				chunkHandles: [path],
 				userId: UserId.make("user-1"),
+				artifactOwnerExecutionId: executionId,
+				artifactReferenceExecutionId: executionId,
 				runId: ImportRunId.make("run-relationship-schemas"),
 			},
 			executionId,
@@ -562,16 +562,16 @@ it.effect("imports private event and relationship schemas from one effective sna
 		expect(entityWrites).toEqual(["source-2", "target-2"]);
 		expect(relationshipWrites).toEqual([
 			expect.objectContaining({
-				relationshipSchemaPluginId: pluginId,
 				sourceEntityId: "source-2-id",
 				targetEntityId: "target-2-id",
+				relationshipSchemaPluginId: pluginId,
 				relationshipSchemaSlug: "unrestricted",
 			}),
 		]);
 		expect(eventExecutions).toEqual([
 			expect.objectContaining({
 				payload: expect.objectContaining({
-					payload: [expect.objectContaining({ eventSchemaSlug: "private-event", properties: {} })],
+					payload: [expect.objectContaining({ properties: {}, eventSchemaSlug: "private-event" })],
 				}),
 			}),
 		]);
@@ -657,13 +657,13 @@ it.effect("fails before reading chunks when the initial run update fails", () =>
 			runProcessGenericImportChunksWorkflow(
 				{
 					executionId,
-					artifactOwnerExecutionId: executionId,
-					artifactReferenceExecutionId: executionId,
 					totalItems: 0,
 					failureCount: 0,
 					writeItemCount: 0,
 					chunkHandles: [path],
 					userId: UserId.make("user-1"),
+					artifactOwnerExecutionId: executionId,
+					artifactReferenceExecutionId: executionId,
 					runId: ImportRunId.make("run-update-failure"),
 				},
 				executionId,

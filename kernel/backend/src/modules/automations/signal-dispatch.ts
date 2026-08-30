@@ -31,11 +31,11 @@ export const SignalDispatchLive = Layer.effect(
 								rowUserId,
 								operation: "signal",
 								target: {
-									id: SignalSchemaSlug.make(input.signalSchemaSlug),
 									kind: "signal_schema",
+									id: SignalSchemaSlug.make(input.signalSchemaSlug),
 								},
 							})
-							.pipe(Effect.map((rules) => rules.map((rule) => ({ rowUserId, rule })))),
+							.pipe(Effect.map((rules) => rules.map((rule) => ({ rule, rowUserId })))),
 					);
 					const uniqueMatches = matches
 						.flat()
@@ -46,7 +46,7 @@ export const SignalDispatchLive = Layer.effect(
 
 					const starts = yield* Effect.forEach(
 						uniqueMatches,
-						({ rowUserId, rule }) =>
+						({ rule, rowUserId }) =>
 							engine
 								.execute(SubscriptionExecutionWorkflow, {
 									discard: true,

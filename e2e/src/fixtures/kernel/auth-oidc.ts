@@ -48,10 +48,10 @@ export const startMockOidcServer = Effect.gen(function* () {
 
 	return {
 		server,
-		issuerUrl: requirePresent(server.issuer.url, "Mock OIDC server failed to expose an issuer URL"),
 		setNextClaims: (claims: Record<string, unknown>) => {
 			nextClaims = claims;
 		},
+		issuerUrl: requirePresent(server.issuer.url, "Mock OIDC server failed to expose an issuer URL"),
 	};
 });
 
@@ -70,7 +70,7 @@ export const performOidcSignIn = (
 			fetch(`${apiUrl}/auth/sign-in/social`, {
 				method: "POST",
 				redirect: "manual",
-				headers: { "Content-Type": "application/json", Origin: pending.frontendOrigin },
+				headers: { Origin: pending.frontendOrigin, "Content-Type": "application/json" },
 				body: JSON.stringify({
 					provider: "oidc",
 					callbackURL: `${pending.frontendOrigin}/oauth/login`,

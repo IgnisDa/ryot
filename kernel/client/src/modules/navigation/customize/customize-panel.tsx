@@ -58,8 +58,8 @@ function CustomizeSection(props: SectionProps) {
 						scrollRef={props.scrollRef}
 						itemKey={(item) => item.slug}
 						itemLabel={(item) => item.name}
-						handleIcon={<AppIcon name="grip-vertical" size={18} />}
-						renderItem={({ handle, index, item }) => (
+						handleIcon={<AppIcon size={18} name="grip-vertical" />}
+						renderItem={({ item, index, handle }) => (
 							<CustomizeRow
 								item={item}
 								handle={handle}
@@ -102,8 +102,8 @@ export function CustomizePanel(props: CustomizePanelProps) {
 					title="Workspaces"
 					scrollRef={scrollRef}
 					items={props.draft.workspaces}
-					emptyMessage="No workspaces available."
 					anchorRef={anchorRef("workspaces")}
+					emptyMessage="No workspaces available."
 					onToggle={(slug) => props.onToggle("workspaces", slug)}
 					toggleDisabled={(item) => !item.isDisabled && enabledWorkspaceCount === 1}
 					counts={customizeSectionCounts({ draft: props.draft, section: "workspaces" })}
@@ -116,7 +116,7 @@ export function CustomizePanel(props: CustomizePanelProps) {
 					leading={<CustomizeHomeRow />}
 					anchorRef={anchorRef("views")}
 					onToggle={(slug) => props.onToggle("views", slug)}
-					counts={customizeSectionCounts({ draft: props.draft, section: "views" })}
+					counts={customizeSectionCounts({ section: "views", draft: props.draft })}
 					onMove={(fromIndex, toIndex) => props.onMove("views", fromIndex, toIndex)}
 				/>
 				<CustomizeSection
@@ -130,7 +130,7 @@ export function CustomizePanel(props: CustomizePanelProps) {
 					onMove={(fromIndex, toIndex) => props.onMove("savedViews", fromIndex, toIndex)}
 				/>
 				<p className="flex items-start gap-2 rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-xs leading-5 text-text-muted">
-					<AppIcon name="info" size={15} className="mt-0.5 shrink-0" />
+					<AppIcon size={15} name="info" className="mt-0.5 shrink-0" />
 					<span className="min-w-0 flex-1">
 						Collections are always shown and are not included in sidebar customization.
 					</span>

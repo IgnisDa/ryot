@@ -36,6 +36,22 @@ export const createSettleTracker = (schedule: RyotSchedule, durationMs: number) 
 				staged.set(update.entityId, settleReason(update.reason));
 			}
 		},
+		subscribe: (listener: () => void) => {
+			listeners.add(listener);
+			return () => {
+				listeners.delete(listener);
+			};
+		},
+		dispose: () => {
+			disposed = true;
+			staged = new Map();
+			visible = new Map();
+			listeners.clear();
+			for (const cancel of timers.values()) {
+				cancel();
+			}
+			timers.clear();
+		},
 		commit: () => {
 			if (disposed || staged.size === 0) {
 				return;
@@ -52,22 +68,6 @@ export const createSettleTracker = (schedule: RyotSchedule, durationMs: number) 
 			staged = new Map();
 			visible = next;
 			emit();
-		},
-		subscribe: (listener: () => void) => {
-			listeners.add(listener);
-			return () => {
-				listeners.delete(listener);
-			};
-		},
-		dispose: () => {
-			disposed = true;
-			staged = new Map();
-			visible = new Map();
-			listeners.clear();
-			for (const cancel of timers.values()) {
-				cancel();
-			}
-			timers.clear();
 		},
 	};
 };

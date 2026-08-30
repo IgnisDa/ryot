@@ -11,7 +11,7 @@ describe("JsonValue", () => {
 	it("accepts canonical values, null-prototype records, and shared references", () => {
 		const shared = { enabled: true };
 		const nullPrototype = Object.assign(Object.create(null), { value: shared });
-		const value = { left: shared, list: [null, "text", 42, false], right: nullPrototype };
+		const value = { left: shared, right: nullPrototype, list: [null, "text", 42, false] };
 
 		expect(isJsonValue(value)).toBe(true);
 		expect(Schema.decodeUnknownSync(JsonValue)(value)).toBe(value);

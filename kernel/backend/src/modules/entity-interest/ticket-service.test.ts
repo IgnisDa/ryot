@@ -21,14 +21,6 @@ const makeLayer = (
 	const values = new Map<string, string>();
 	const expiries = new Map<string, number>();
 	const client: RedisService["Service"]["client"] = Object.assign(Object.create(Redis.prototype), {
-		set: (key: string, value: string, _expiryMode: "EX", ttlSeconds: number) => {
-			if (options.createUnavailable) {
-				return Promise.reject(new Error("Redis unavailable"));
-			}
-			values.set(key, value);
-			expiries.set(key, ttlSeconds);
-			return Promise.resolve("OK");
-		},
 		eval: (_script: string, _keyCount: number, key: string) => {
 			if (options.consumeUnavailable) {
 				return Promise.reject(new Error("Redis unavailable"));
@@ -37,12 +29,20 @@ const makeLayer = (
 			values.delete(key);
 			return Promise.resolve(value);
 		},
+		set: (key: string, value: string, _expiryMode: "EX", ttlSeconds: number) => {
+			if (options.createUnavailable) {
+				return Promise.reject(new Error("Redis unavailable"));
+			}
+			values.set(key, value);
+			expiries.set(key, ttlSeconds);
+			return Promise.resolve("OK");
+		},
 	});
 	const layer = Layer.provideMerge(
 		EntityInterestTicketService.layer,
 		Layer.succeed(RedisService, makeRedisService({ client })),
 	);
-	return { values, expiries, layer };
+	return { layer, values, expiries };
 };
 
 const failure = <A, E>(exit: Exit.Exit<A, E>) => {
@@ -54,7 +54,7 @@ const failure = <A, E>(exit: Exit.Exit<A, E>) => {
 
 describe("EntityInterestTicketService", () => {
 	it.effect("creates a 32-byte opaque ticket with a 30-second expiry", () => {
-		const { values, expiries, layer } = makeLayer();
+		const { layer, values, expiries } = makeLayer();
 		return Effect.gen(function* () {
 			const service = yield* EntityInterestTicketService;
 			const created = yield* service.create({
@@ -137,7 +137,7 @@ describe("EntityInterestTicketService", () => {
 	});
 
 	it.effect("returns the same generic failure for missing, expired, and malformed tickets", () => {
-		const { values, layer } = makeLayer();
+		const { layer, values } = makeLayer();
 		return Effect.gen(function* () {
 			const service = yield* EntityInterestTicketService;
 			const created = yield* service.create({
@@ -154,7 +154,7 @@ describe("EntityInterestTicketService", () => {
 	});
 
 	it.effect("rejects malformed Redis values without exposing the ticket", () => {
-		const { values, layer } = makeLayer();
+		const { layer, values } = makeLayer();
 		return Effect.gen(function* () {
 			const service = yield* EntityInterestTicketService;
 			const created = yield* service.create({

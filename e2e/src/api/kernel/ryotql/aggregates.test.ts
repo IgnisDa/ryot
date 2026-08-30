@@ -47,7 +47,7 @@ describe("RyotQL aggregate outputs", () => {
 	it.live("groups joined metadata by timezone-aware local dates across DST", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createPluginEntitySchema(client, {
+			const { slug, schemaId } = yield* createPluginEntitySchema(client, {
 				schemaName: "RyotQLDateBucketEpisode",
 			});
 			const eventSchema = yield* createEventSchema(client, {
@@ -61,8 +61,8 @@ describe("RyotQL aggregate outputs", () => {
 				},
 			});
 			const [episodeOne, episodeTwo] = yield* Effect.all([
-				createEntityFixture(client, { entitySchemaSlug: schemaId, name: "Episode One" }),
-				createEntityFixture(client, { entitySchemaSlug: schemaId, name: "Episode Two" }),
+				createEntityFixture(client, { name: "Episode One", entitySchemaSlug: schemaId }),
+				createEntityFixture(client, { name: "Episode Two", entitySchemaSlug: schemaId }),
 			]);
 			for (const [entityId, occurredAt, timeSpent] of [
 				[episodeOne.id, "2026-03-08T04:30:00.000Z", 20],
@@ -92,14 +92,14 @@ describe("RyotQL aggregate outputs", () => {
 						eq(column(episode, "entitySchemaSlug"), literal(slug)),
 					),
 					groupBy: [
-						field("day", dateBucket(column(event, "occurredAt"), { bucket: "day", timeZone })),
+						field("day", dateBucket(column(event, "occurredAt"), { timeZone, bucket: "day" })),
 						field("episodeId", column(episode, "id")),
 						field("episodeName", column(episode, "name")),
 					],
 				});
 			const result = yield* executeRyotQL(
 				client,
-				document({ newYork: query("America/New_York"), utc: query("UTC") }),
+				document({ utc: query("UTC"), newYork: query("America/New_York") }),
 			);
 
 			expect(requireAggregate(result.data["newYork"], "newYork").items).toEqual([
@@ -148,7 +148,7 @@ describe("RyotQL aggregate outputs", () => {
 	it.live("returns grouped, ungrouped, empty, null, and typed aggregate values", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createPluginEntitySchema(client, {
+			const { slug, schemaId } = yield* createPluginEntitySchema(client, {
 				schemaName: "RyotQLAggregateLesson",
 				propertiesSchema: {
 					unknownKeys: "passthrough",
@@ -173,12 +173,12 @@ describe("RyotQL aggregate outputs", () => {
 				createEntityFixture(client, {
 					name: "Advanced Two",
 					entitySchemaSlug: schemaId,
-					properties: { featured: false, difficulty: "advanced", durationMinutes: 60 },
+					properties: { featured: false, durationMinutes: 60, difficulty: "advanced" },
 				}),
 				createEntityFixture(client, {
 					name: "Beginner",
 					entitySchemaSlug: schemaId,
-					properties: { featured: false, difficulty: "beginner", durationMinutes: 90 },
+					properties: { featured: false, durationMinutes: 90, difficulty: "beginner" },
 				}),
 				createEntityFixture(client, {
 					name: "Unclassified",
@@ -193,11 +193,11 @@ describe("RyotQL aggregate outputs", () => {
 			const difficulty = jsonPath(properties, "difficulty");
 			const measures = [
 				measure("count", { function: "count" }),
-				measure("difficultyCount", { function: "countDistinct", expr: difficulty }),
-				measure("totalDuration", { function: "sum", expr: duration }),
-				measure("averageDuration", { function: "average", expr: duration }),
-				measure("minimumDuration", { function: "minimum", expr: duration }),
-				measure("maximumDuration", { function: "maximum", expr: duration }),
+				measure("difficultyCount", { expr: difficulty, function: "countDistinct" }),
+				measure("totalDuration", { expr: duration, function: "sum" }),
+				measure("averageDuration", { expr: duration, function: "average" }),
+				measure("minimumDuration", { expr: duration, function: "minimum" }),
+				measure("maximumDuration", { expr: duration, function: "maximum" }),
 			] as const;
 			const schemaFilter = eq(column(lesson, "entitySchemaSlug"), literal(slug));
 			const result = yield* executeRyotQL(
@@ -228,16 +228,16 @@ describe("RyotQL aggregate outputs", () => {
 					nullMeasureAscending: aggregate(lesson, {
 						limit: 10,
 						where: schemaFilter,
-						orderBy: [measureAscending("totalDuration")],
 						groupBy: [field("difficulty", difficulty)],
-						measures: [measure("totalDuration", { function: "sum", expr: duration })],
+						orderBy: [measureAscending("totalDuration")],
+						measures: [measure("totalDuration", { expr: duration, function: "sum" })],
 					}),
 					nullMeasureDescending: aggregate(lesson, {
 						limit: 10,
 						where: schemaFilter,
-						orderBy: [measureDescending("totalDuration")],
 						groupBy: [field("difficulty", difficulty)],
-						measures: [measure("totalDuration", { function: "sum", expr: duration })],
+						orderBy: [measureDescending("totalDuration")],
+						measures: [measure("totalDuration", { expr: duration, function: "sum" })],
 					}),
 					kindGroup: aggregate(lesson, {
 						limit: 10,
@@ -386,20 +386,37 @@ describe("RyotQL aggregate outputs", () => {
 			const result = yield* executeRyotQL(
 				owner.client,
 				document({
-					joined: aggregate(entity, {
+					hiddenLeftJoin: aggregate(entity, {
+						where: eq(column(entity, "id"), literal(ownerSource.id)),
+						joins: [
+							join(
+								"left",
+								relationship,
+								eq(column(relationship, "id"), literal(hiddenRelationship.id)),
+							),
+						],
 						measures: [
-							measure("count", { function: "count" }),
-							measure("distinctEntities", {
+							measure("rootCount", { function: "count" }),
+							measure("hiddenRelationshipCount", {
 								function: "countDistinct",
-								expr: column(entity, "id"),
+								expr: column(relationship, "id"),
 							}),
 						],
+					}),
+					joined: aggregate(entity, {
 						joins: [
 							join(
 								"inner",
 								relationship,
 								eq(column(entity, "id"), column(relationship, "sourceEntityId")),
 							),
+						],
+						measures: [
+							measure("count", { function: "count" }),
+							measure("distinctEntities", {
+								function: "countDistinct",
+								expr: column(entity, "id"),
+							}),
 						],
 						where: and(
 							inArray(column(entity, "id"), [literal(ownerSource.id), literal(otherSource.id)]),
@@ -408,23 +425,6 @@ describe("RyotQL aggregate outputs", () => {
 								literal(otherRelationship.id),
 							]),
 						),
-					}),
-					hiddenLeftJoin: aggregate(entity, {
-						where: eq(column(entity, "id"), literal(ownerSource.id)),
-						measures: [
-							measure("rootCount", { function: "count" }),
-							measure("hiddenRelationshipCount", {
-								function: "countDistinct",
-								expr: column(relationship, "id"),
-							}),
-						],
-						joins: [
-							join(
-								"left",
-								relationship,
-								eq(column(relationship, "id"), literal(hiddenRelationship.id)),
-							),
-						],
 					}),
 				}),
 			);

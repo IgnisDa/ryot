@@ -44,7 +44,7 @@ describe("adaptImdbCsv", () => {
 
 		expect(result.entityGroups).toEqual([]);
 		expect(result.failures).toEqual([
-			{ itemIndex: 0, sourceLabel: "Broken Movie", message: "Const is empty" },
+			{ itemIndex: 0, message: "Const is empty", sourceLabel: "Broken Movie" },
 			{
 				itemIndex: 1,
 				sourceLabel: "Odd Item",

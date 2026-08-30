@@ -17,10 +17,10 @@ export default function Index() {
 					<SectionHeader
 						as="h1"
 						icon={Scale}
-						badgeVariant="secondary"
-						subtitle="Legal Information"
-						title="Terms of Service"
 						maxWidth="max-w-2xl"
+						badgeVariant="secondary"
+						title="Terms of Service"
+						subtitle="Legal Information"
 						description="Please read these terms carefully before using Ryot. By accessing or using our service, you agree to be bound by these terms and conditions."
 					/>
 				</div>

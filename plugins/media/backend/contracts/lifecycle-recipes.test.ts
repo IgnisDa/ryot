@@ -37,13 +37,13 @@ describe("media lifecycle recipes", () => {
 		expect(query.output.orderBy).toEqual([
 			{
 				direction: "asc",
-				expr: { field: "occurredAt", tableAlias: "currentCycleEvent", type: "column" },
+				expr: { type: "column", field: "occurredAt", tableAlias: "currentCycleEvent" },
 			},
 			{
 				direction: "asc",
-				expr: { field: "createdAt", tableAlias: "currentCycleEvent", type: "column" },
+				expr: { type: "column", field: "createdAt", tableAlias: "currentCycleEvent" },
 			},
-			{ direction: "asc", expr: { field: "id", tableAlias: "currentCycleEvent", type: "column" } },
+			{ direction: "asc", expr: { field: "id", type: "column", tableAlias: "currentCycleEvent" } },
 		]);
 	});
 
@@ -87,8 +87,8 @@ describe("media lifecycle recipes", () => {
 				],
 			),
 		).toEqual({
-			agreedConsumedOn: "Jellyfin",
 			coverageComplete: true,
+			agreedConsumedOn: "Jellyfin",
 			coverageClosingEvent: {
 				id: "2",
 				createdAt: "2026-01-01T00:00:02.000Z",
@@ -110,8 +110,8 @@ describe("media lifecycle recipes", () => {
 		);
 
 		expect(replay).toEqual({
-			agreedConsumedOn: "Plex",
 			coverageComplete: true,
+			agreedConsumedOn: "Plex",
 			coverageClosingEvent: {
 				id: "5",
 				createdAt: "2026-01-01T00:00:05.000Z",

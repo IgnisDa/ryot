@@ -21,7 +21,7 @@ type EdgeGestureProps = {
 
 export function EdgeGesture(props: EdgeGestureProps) {
 	const width = useRef(0);
-	const { intent, owner } = props.edge;
+	const { owner, intent } = props.edge;
 	const engaged = useRef(false);
 	const reduceMotion = useReducedMotion() === true;
 
@@ -46,20 +46,7 @@ export function EdgeGesture(props: EdgeGestureProps) {
 			aria-hidden="true"
 			data-testid="edge-gesture"
 			className="fixed inset-y-0 left-0 z-30 md:hidden"
-			style={{ width: EDGE_SWIPE_WIDTH, touchAction: "pan-y" }}
-			onPan={(_event, info) => {
-				if (!engaged.current) {
-					const horizontal = Math.abs(info.offset.x) > Math.abs(info.offset.y);
-					if (info.offset.x <= ACTIVATION_DISTANCE || !horizontal) {
-						return;
-					}
-					engaged.current = true;
-					width.current = drawerWidth(window.innerWidth);
-				}
-				if (intent === "drawer") {
-					props.progress.set(Math.min(1, Math.max(0, info.offset.x / width.current)));
-				}
-			}}
+			style={{ touchAction: "pan-y", width: EDGE_SWIPE_WIDTH }}
 			onPanEnd={(_event, info) => {
 				if (!engaged.current) {
 					return;
@@ -76,6 +63,19 @@ export function EdgeGesture(props: EdgeGestureProps) {
 					return;
 				}
 				settle(completed, info.velocity.x / width.current);
+			}}
+			onPan={(_event, info) => {
+				if (!engaged.current) {
+					const horizontal = Math.abs(info.offset.x) > Math.abs(info.offset.y);
+					if (info.offset.x <= ACTIVATION_DISTANCE || !horizontal) {
+						return;
+					}
+					engaged.current = true;
+					width.current = drawerWidth(window.innerWidth);
+				}
+				if (intent === "drawer") {
+					props.progress.set(Math.min(1, Math.max(0, info.offset.x / width.current)));
+				}
 			}}
 		/>
 	);

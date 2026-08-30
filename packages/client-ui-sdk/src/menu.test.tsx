@@ -17,8 +17,8 @@ function MenuHarness(props: {
 			</button>
 			<div data-testid="outside">outside</div>
 			<Menu
-				label="User actions"
 				items={props.items}
+				label="User actions"
 				triggerRef={trigger}
 				onClose={props.onClose}
 				activeIndex={activeIndex}
@@ -29,9 +29,9 @@ function MenuHarness(props: {
 }
 
 const items: ReadonlyArray<MenuItem> = [
-	{ key: "password", label: "Send password reset", onSelect: () => {} },
-	{ key: "disabled", label: "Disable user", disabled: true, onSelect: () => {} },
-	{ key: "delete", label: "Delete user", destructive: true, onSelect: () => {} },
+	{ key: "password", onSelect: () => {}, label: "Send password reset" },
+	{ disabled: true, key: "disabled", onSelect: () => {}, label: "Disable user" },
+	{ key: "delete", destructive: true, onSelect: () => {}, label: "Delete user" },
 ];
 
 describe("Menu", () => {
@@ -86,9 +86,9 @@ describe("Menu", () => {
 		render(
 			<Menu
 				items={items}
+				activeIndex={0}
 				label="User actions"
 				triggerRef={trigger}
-				activeIndex={0}
 				onActiveIndexChange={() => {}}
 				onClose={(restore) => closes.push(restore)}
 				onInterceptBack={() => {

@@ -18,8 +18,8 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: TvdbHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
-		getCachedValue: () => Effect.succeed("Bearer test-token"),
 		setCachedValue: () => Effect.succeed(null),
+		getCachedValue: () => Effect.succeed("Bearer test-token"),
 		getPluginConfig: (keys) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "test-api-key"]))),
 	});
@@ -45,13 +45,13 @@ describe("movie.tvdb sandbox script", () => {
 							name: "Movie",
 							companies: { studio: [{ id: 5, name: "Studio X" }] },
 							characters: [
-								{ peopleId: 1, personName: "Actor A", peopleType: "Actor" },
+								{ peopleId: 1, peopleType: "Actor", personName: "Actor A" },
 								{ peopleId: 1, personName: "Actor A", peopleType: "Director" },
-								{ personName: "Unlinked Person", peopleType: "Writer" },
+								{ peopleType: "Writer", personName: "Unlinked Person" },
 							],
 							lists: [
-								{ id: 10, name: "Official List", is_official: true },
-								{ id: "20", name: "String Id List", isOfficial: true },
+								{ id: 10, is_official: true, name: "Official List" },
+								{ id: "20", isOfficial: true, name: "String Id List" },
 								{ id: 30, name: "Unofficial", is_official: false },
 								{ name: "No Id", is_official: true },
 							],
@@ -81,8 +81,8 @@ describe("movie.tvdb sandbox script", () => {
 							relationshipSchemaSlug: "company-to-movie",
 							entities: [
 								{
-									name: "Studio X",
 									externalId: "5",
+									name: "Studio X",
 									providerSlug: "company.tvdb",
 									relationshipProperties: { roles: ["Studio"] },
 								},
@@ -109,7 +109,7 @@ describe("movie.tvdb sandbox script", () => {
 						},
 					]);
 					expect(result.properties).toMatchObject({
-						unlinkedCreators: [{ name: "Unlinked Person", role: "Writer" }],
+						unlinkedCreators: [{ role: "Writer", name: "Unlinked Person" }],
 					});
 					return undefined;
 				}),
@@ -120,7 +120,7 @@ describe("movie.tvdb sandbox script", () => {
 		const host = makeHost((_method, url) =>
 			url.includes("/translations/")
 				? httpSuccess({ data: { name: "Translated Name", overview: "Translated overview" } })
-				: httpSuccess({ data: { name: "Base Name", overview: "Base overview", year: "2020" } }),
+				: httpSuccess({ data: { year: "2020", name: "Base Name", overview: "Base overview" } }),
 		);
 		return Effect.runPromise(
 			runSandboxTestScript(details, { externalId: "1" }, host, execution).pipe(
@@ -170,8 +170,8 @@ describe("movie.tvdb sandbox script", () => {
 							artworks: [
 								{ image: "http://b" },
 								{ image: "http://a" },
-								{ image: "http://c", type: "backdrop" },
-								{ image: "http://d", type: "poster" },
+								{ type: "backdrop", image: "http://c" },
+								{ type: "poster", image: "http://d" },
 							],
 						},
 					}),
@@ -208,7 +208,7 @@ describe("movie.tvdb sandbox script", () => {
 		return Effect.runPromise(
 			runSandboxTestScript(
 				translate,
-				{ externalId: "1", language: "es", entitySchemaSlug: "movie" },
+				{ language: "es", externalId: "1", entitySchemaSlug: "movie" },
 				host,
 				execution,
 			).pipe(
@@ -217,7 +217,7 @@ describe("movie.tvdb sandbox script", () => {
 						name: "Nombre",
 						properties: {
 							description: "Descripción",
-							images: [{ type: "remote", url: "http://poster-es", purpose: "cover" }],
+							images: [{ type: "remote", purpose: "cover", url: "http://poster-es" }],
 						},
 					});
 					return undefined;
@@ -234,7 +234,7 @@ describe("movie.tvdb sandbox script", () => {
 		return Effect.runPromise(
 			runSandboxTestScript(
 				translate,
-				{ externalId: "1", language: "es", entitySchemaSlug: "movie" },
+				{ language: "es", externalId: "1", entitySchemaSlug: "movie" },
 				host,
 				execution,
 			).pipe(
@@ -248,20 +248,20 @@ describe("movie.tvdb sandbox script", () => {
 	it("search maps items from tvdb_id with totalItems fallback and links.next", () => {
 		const host = makeHost(() =>
 			httpSuccess({
-				data: [{ tvdb_id: "movie-1", name: "Batman" }],
-				links: { next: "http://next", total_items: null },
+				data: [{ name: "Batman", tvdb_id: "movie-1" }],
+				links: { total_items: null, next: "http://next" },
 			}),
 		);
 		return Effect.runPromise(
 			runSandboxTestScript(
 				search,
-				{ query: "batman", page: 1, pageSize: 20 },
+				{ page: 1, pageSize: 20, query: "batman" },
 				host,
 				execution,
 			).pipe(
 				Effect.map((result) => {
 					expect(result).toEqual({
-						details: { totalItems: 1, nextPage: 2 },
+						details: { nextPage: 2, totalItems: 1 },
 						items: [{ title: "Batman", externalId: "movie-1" }],
 					});
 					return undefined;

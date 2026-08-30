@@ -44,13 +44,13 @@ export const httpCallOptionsSchema = strictStruct({
 });
 export const httpCallResponseSchema = strictStruct({
 	body: Schema.String,
-	status: Schema.Number.pipe(Schema.check(Schema.isInt())),
 	headers: Schema.Record(Schema.String, Schema.String),
+	status: Schema.Number.pipe(Schema.check(Schema.isInt())),
 });
 export const httpCallFailureDetailsSchema = strictStruct({
 	body: Schema.String,
-	status: Schema.Number.pipe(Schema.check(Schema.isInt())),
 	headers: Schema.Record(Schema.String, Schema.String),
+	status: Schema.Number.pipe(Schema.check(Schema.isInt())),
 });
 export const httpCallArgsSchema = Schema.Tuple([
 	Schema.String,
@@ -123,21 +123,6 @@ export const coreSandboxHostContracts = {
 		result: httpCallResultSchema,
 		success: httpCallResponseSchema,
 	},
-	getCachedValue: {
-		args: getCachedValueArgsSchema,
-		success: getCachedValueDataSchema,
-		result: getCachedValueResultSchema,
-	},
-	setCachedValue: {
-		args: setCachedValueArgsSchema,
-		success: setCachedValueDataSchema,
-		result: setCachedValueResultSchema,
-	},
-	claimPersistentValue: {
-		success: cacheClaimSchema,
-		args: claimPersistentValueArgsSchema,
-		result: claimPersistentValueResultSchema,
-	},
 	getPluginConfig: {
 		success: configValuesSchema,
 		args: getPluginConfigArgsSchema,
@@ -148,10 +133,25 @@ export const coreSandboxHostContracts = {
 		args: getSystemConfigArgsSchema,
 		result: getSystemConfigResultSchema,
 	},
+	getCachedValue: {
+		args: getCachedValueArgsSchema,
+		success: getCachedValueDataSchema,
+		result: getCachedValueResultSchema,
+	},
+	setCachedValue: {
+		args: setCachedValueArgsSchema,
+		success: setCachedValueDataSchema,
+		result: setCachedValueResultSchema,
+	},
 	getUserPreferences: {
 		success: userPreferencesSchema,
 		args: getUserPreferencesArgsSchema,
 		result: getUserPreferencesResultSchema,
+	},
+	claimPersistentValue: {
+		success: cacheClaimSchema,
+		args: claimPersistentValueArgsSchema,
+		result: claimPersistentValueResultSchema,
 	},
 } as const;
 
@@ -285,8 +285,8 @@ export const integrationRecordSchema = strictStruct({
 	syncOwnership: Schema.Boolean,
 	minimumProgress: Schema.Number,
 	maximumProgress: Schema.Number,
-	provider: integrationProviderSchema,
 	name: Schema.NullOr(Schema.String),
+	provider: integrationProviderSchema,
 	webhookUrl: Schema.optional(Schema.String),
 	lastFinishedAt: Schema.NullOr(Schema.String),
 	providerSpecifics: integrationProviderSettingsSchema,
@@ -489,35 +489,15 @@ export const upsertGlobalEntitiesArgsSchema = Schema.Tuple([
 ]);
 
 export const domainSandboxHostContracts = {
-	changeUserRelationships: {
-		args: changeUserRelationshipsArgsSchema,
-		success: changeUserRelationshipsDataSchema,
-		result: changeUserRelationshipsResultSchema,
-	},
-	ensureUserEntities: {
-		args: ensureUserEntitiesArgsSchema,
-		success: ensureUserEntitiesDataSchema,
-		result: ensureUserEntitiesResultSchema,
+	executeRyotql: {
+		args: executeRyotqlArgsSchema,
+		success: executeRyotqlDataSchema,
+		result: executeRyotqlResultSchema,
 	},
 	createEvents: {
 		args: createEventsArgsSchema,
 		result: createEventsResultSchema,
 		success: createEventsResultDataSchema,
-	},
-	upsertGlobalEntities: {
-		args: upsertGlobalEntitiesArgsSchema,
-		success: upsertGlobalEntitiesDataSchema,
-		result: upsertGlobalEntitiesResultSchema,
-	},
-	getCurrentIntegration: {
-		args: getCurrentIntegrationArgsSchema,
-		success: integrationRecordSchema,
-		result: getCurrentIntegrationResultSchema,
-	},
-	getEntitySchemas: {
-		args: getEntitySchemasArgsSchema,
-		result: getEntitySchemasResultSchema,
-		success: Schema.Array(entitySchemaRecordSchema),
 	},
 	listEventSchemas: {
 		args: listEventSchemasArgsSchema,
@@ -529,15 +509,35 @@ export const domainSandboxHostContracts = {
 		success: listIntegrationsDataSchema,
 		result: listIntegrationsResultSchema,
 	},
+	ensureUserEntities: {
+		args: ensureUserEntitiesArgsSchema,
+		success: ensureUserEntitiesDataSchema,
+		result: ensureUserEntitiesResultSchema,
+	},
+	getCurrentIntegration: {
+		success: integrationRecordSchema,
+		args: getCurrentIntegrationArgsSchema,
+		result: getCurrentIntegrationResultSchema,
+	},
+	getEntitySchemas: {
+		args: getEntitySchemasArgsSchema,
+		result: getEntitySchemasResultSchema,
+		success: Schema.Array(entitySchemaRecordSchema),
+	},
+	upsertGlobalEntities: {
+		args: upsertGlobalEntitiesArgsSchema,
+		success: upsertGlobalEntitiesDataSchema,
+		result: upsertGlobalEntitiesResultSchema,
+	},
+	changeUserRelationships: {
+		args: changeUserRelationshipsArgsSchema,
+		success: changeUserRelationshipsDataSchema,
+		result: changeUserRelationshipsResultSchema,
+	},
 	upsertGlobalRelationships: {
 		args: upsertGlobalRelationshipsArgsSchema,
 		success: upsertGlobalRelationshipsDataSchema,
 		result: upsertGlobalRelationshipsResultSchema,
-	},
-	executeRyotql: {
-		args: executeRyotqlArgsSchema,
-		success: executeRyotqlDataSchema,
-		result: executeRyotqlResultSchema,
 	},
 } as const;
 
@@ -660,8 +660,8 @@ export type OperationManifest = Extract<SandboxManifest, { readonly kind: "opera
 
 export const executionMetadataSchema = strictStruct({
 	metadata: jsonValueSchema,
-	startedAt: Schema.optional(nonEmptyString),
 	sandboxScriptId: nonEmptyString,
+	startedAt: Schema.optional(nonEmptyString),
 });
 
 export type ExecutionMetadata = Schema.Schema.Type<typeof executionMetadataSchema>;

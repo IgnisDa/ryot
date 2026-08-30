@@ -16,7 +16,7 @@ it("dispatches every fitness source to its matching parser activity", async () =
 		).map(async ([source, scriptSlug]) => {
 			const envelope = await Effect.runPromise(
 				workflow.run(
-					{ runId: `run-${source}`, source },
+					{ source, runId: `run-${source}` },
 					{ replayJournal: () => Effect.succeed([]) } satisfies WorkflowReplayHost,
 					{ metadata: {}, sandboxScriptId: "fitness-import" },
 				),

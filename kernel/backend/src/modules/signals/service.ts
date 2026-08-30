@@ -209,8 +209,8 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 							const principalUserId =
 								input.principal.kind === "user" ? input.principal.userId : null;
 							const signalSchema = yield* signalSchemasRepository.findVisibleBySlug({
-								userId: principalUserId,
 								slug: input.schemaSlug,
+								userId: principalUserId,
 							});
 							if (!signalSchema) {
 								return yield* notFound("Signal schema not found");

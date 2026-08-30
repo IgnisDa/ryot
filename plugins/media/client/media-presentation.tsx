@@ -70,7 +70,7 @@ function MediaFacts(props: { readonly schemaName: string; readonly data: MediaPr
 				{props.schemaName}
 			</span>
 			<span className="flex min-w-0 items-baseline gap-1.5">
-				<PluginLink to={{ kind: "entity", entityId: props.data.id }} className="min-w-0">
+				<PluginLink className="min-w-0" to={{ kind: "entity", entityId: props.data.id }}>
 					<span className="line-clamp-2 min-w-0 text-[15px] font-semibold text-text">
 						{props.data.name}
 					</span>
@@ -108,7 +108,7 @@ export function MediaCardContent(props: {
 					aria-label={`Open ${props.data.name}`}
 					to={{ kind: "entity", entityId: props.data.id }}
 				>
-					<MediaArtwork compact={props.compact} layout="grid" data={props.data} />
+					<MediaArtwork layout="grid" data={props.data} compact={props.compact} />
 				</PluginLink>
 				<MediaFacts data={props.data} schemaName={schemaLabel(props.data.schemaSlug)} />
 			</article>
@@ -135,7 +135,7 @@ export function MediaRowContent(props: {
 					aria-label={`Open ${props.data.name}`}
 					to={{ kind: "entity", entityId: props.data.id }}
 				>
-					<MediaArtwork compact={props.compact} layout="list" data={props.data} />
+					<MediaArtwork layout="list" data={props.data} compact={props.compact} />
 				</PluginLink>
 				<div className="min-w-0 flex-1">
 					<MediaFacts data={props.data} schemaName={schemaLabel(props.data.schemaSlug)} />
@@ -147,12 +147,12 @@ export function MediaRowContent(props: {
 
 function MediaCard({ data }: EntityPresentationComponentProps<MediaPresentationViewData>) {
 	const { compact } = useRyotViewport();
-	return <MediaCardContent compact={compact} data={data} />;
+	return <MediaCardContent data={data} compact={compact} />;
 }
 
 function MediaRow({ data }: EntityPresentationComponentProps<MediaPresentationViewData>) {
 	const { compact } = useRyotViewport();
-	return <MediaRowContent compact={compact} data={data} />;
+	return <MediaRowContent data={data} compact={compact} />;
 }
 
 export const mediaCardPresentation = defineEntityPresentation({

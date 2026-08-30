@@ -23,8 +23,8 @@ describe("adaptMovaryExports", () => {
 					kind: "resolved",
 					externalId: "42",
 					sourceLabel: "Arrival",
-					providerSlug: "movie.tmdb",
 					entitySchemaSlug: "movie",
+					providerSlug: "movie.tmdb",
 				},
 				events: [
 					{
@@ -42,8 +42,8 @@ describe("adaptMovaryExports", () => {
 					},
 					{
 						eventSchemaSlug: "review",
-						occurredAt: "2026-01-10T00:00:00.000Z",
 						properties: { rating: 85 },
+						occurredAt: "2026-01-10T00:00:00.000Z",
 					},
 					{ properties: {}, eventSchemaSlug: "backlog", occurredAt: "2026-01-10T00:00:00.000Z" },
 				],
@@ -91,8 +91,8 @@ describe("adaptMovaryExports", () => {
 		expect(result.entityGroups).toHaveLength(1);
 		expect(result.entityGroups[0]?.entityRef).toMatchObject({
 			externalId: "55",
-			providerSlug: "movie.tmdb",
 			entitySchemaSlug: "movie",
+			providerSlug: "movie.tmdb",
 		});
 	});
 });

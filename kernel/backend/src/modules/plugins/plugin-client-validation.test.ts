@@ -12,8 +12,8 @@ import { validatePluginSourcePaths } from "./validation";
 const manifest = () => ({
 	...fixtureManifest(),
 	client: {
-		apiVersion: 1 as const,
 		homeView: null,
+		apiVersion: 1 as const,
 		exports: {
 			card: {
 				entry: "client/card.tsx",
@@ -44,9 +44,9 @@ it.effect("requires every advertised public client export to exist in the packag
 const compileDependencyImport = (pluginDependencies: readonly string[]) =>
 	Effect.gen(function* () {
 		const client = {
+			homeView: null,
 			pluginDependencies,
 			apiVersion: 1 as const,
-			homeView: null,
 			exports: {
 				card: {
 					kind: "component" as const,

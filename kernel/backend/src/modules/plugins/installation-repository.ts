@@ -447,9 +447,9 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 						db
 							.update(schema.pluginInstallation)
 							.set({
+								healthReason: null,
 								health: input.health,
 								updatedAt: input.updatedAt,
-								healthReason: null,
 								isDisabled: input.isDisabled,
 							})
 							.where(
@@ -478,9 +478,9 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				listSystemForUser,
 				lockHomeSavedView,
 				findHomeSavedView,
-				findHomeSavedViewBySlug,
 				findByUserAndPlugin,
 				listPendingLifecycle,
+				findHomeSavedViewBySlug,
 				listPrivateInstallations,
 				clearHomeSavedViewReferences,
 				provisionSystemInstallationsForUser,

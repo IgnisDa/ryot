@@ -57,7 +57,7 @@ describe("saved views management", () => {
 	it.live("filters and reorders canonical views within a workspace", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { pluginSlug, schemaId } = yield* createPluginEntitySchema(client, {
+			const { schemaId, pluginSlug } = yield* createPluginEntitySchema(client, {
 				schemaName: `Saved View Workspace ${crypto.randomUUID()}`,
 			});
 			const dataSources = buildSavedViewDataSources([schemaId]);

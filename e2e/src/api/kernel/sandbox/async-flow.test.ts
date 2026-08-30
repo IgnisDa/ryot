@@ -38,16 +38,16 @@ const configFixturePluginSlug = "e2e-sandbox-config-9d6f4b2a";
 const configFixtureSchema = {
 	unknownKeys: "strict",
 	fields: {
-		fixtureValue: {
-			type: "string",
-			label: "Fixture value",
-			description: "Deterministic sandbox plugin config fixture",
-			validation: { required: true },
-		},
 		fixtureLimit: {
 			type: "integer",
 			label: "Fixture limit",
 			description: "Deterministic sandbox plugin config batch fixture",
+		},
+		fixtureValue: {
+			type: "string",
+			label: "Fixture value",
+			validation: { required: true },
+			description: "Deterministic sandbox plugin config fixture",
 		},
 	},
 } as const;
@@ -74,7 +74,7 @@ describe("sandbox async flow", () => {
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const slug = `plain-value-${crypto.randomUUID()}`;
-			const source = literalSandboxSource({ name: "Plain value", slug, value: 42 });
+			const source = literalSandboxSource({ slug, value: 42, name: "Plain value" });
 			const script = yield* installSandboxScriptScoped({
 				slug,
 				client,
@@ -91,11 +91,11 @@ describe("sandbox async flow", () => {
 			expect(result.value).toBe(42);
 			expect(result.error).toBeNull();
 
-			const updatedSource = literalSandboxSource({ name: "Plain value", slug, value: 43 });
+			const updatedSource = literalSandboxSource({ slug, value: 43, name: "Plain value" });
 			const reinstalled = yield* reinstallTestPluginScript(scriptId, updatedSource, {
 				slug,
-				capabilities: [],
 				kind: "script",
+				capabilities: [],
 				name: "Plain value",
 				requiredPluginConfigKeys: [],
 				requiredSystemConfigKeys: [],
@@ -116,7 +116,7 @@ describe("sandbox async flow", () => {
 				client,
 				name: "http-call",
 				capabilities: ["httpCall"],
-				source: httpCallSandboxSource({ name: "http-call", slug, url: httpServerUrl }),
+				source: httpCallSandboxSource({ slug, name: "http-call", url: httpServerUrl }),
 			});
 			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
 
@@ -141,8 +141,8 @@ describe("sandbox async flow", () => {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const slug = `http-call-error-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
-				client,
 				slug,
+				client,
 				name: "http-call-error",
 				capabilities: ["httpCall"],
 				source: httpCallFailureSandboxSource({
@@ -156,7 +156,7 @@ describe("sandbox async flow", () => {
 			expect(requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId))).toMatchObject({
 				success: false,
 				error: "HTTP 429",
-				data: { body: JSON.stringify({ error: "rate limited" }), status: 429 },
+				data: { status: 429, body: JSON.stringify({ error: "rate limited" }) },
 			});
 		}),
 	);
@@ -165,7 +165,7 @@ describe("sandbox async flow", () => {
 		Effect.gen(function* () {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const pluginSlug = createPluginScope();
-			const { data: schema, slug } = yield* createEntitySchema(client, {
+			const { slug, data: schema } = yield* createEntitySchema(client, {
 				pluginSlug,
 				name: "Sandbox Schema",
 				slug: `sandbox-schema-${crypto.randomUUID()}`,
@@ -183,15 +183,15 @@ describe("sandbox async flow", () => {
 				capabilities: ["executeRyotql"],
 				source: ryotqlSandboxSource({
 					slug: sandboxSlug,
-					name: "execute-ryotql",
 					queryName: "entities",
+					name: "execute-ryotql",
 					query: (() => {
 						const entity = table("entity", "entity");
 						return document({
 							entities: rows(entity, {
 								limit: 10,
-								fields: [field("id", column(entity, "id")), field("name", column(entity, "name"))],
 								where: eq(column(entity, "entitySchemaSlug"), literal(slug)),
+								fields: [field("id", column(entity, "id")), field("name", column(entity, "name"))],
 							}),
 						});
 					})(),
@@ -215,14 +215,14 @@ describe("sandbox async flow", () => {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const slug = `get-plugin-config-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
-				client,
-				config: { fixtureValue: "sandbox-plugin-config-value", fixtureLimit: 17 },
 				slug,
+				client,
 				name: "get-plugin-config",
 				configSchema: configFixtureSchema,
 				capabilities: ["getPluginConfig"],
 				pluginSlug: configFixturePluginSlug,
 				requiredPluginConfigKeys: ["fixtureValue", "fixtureLimit"],
+				config: { fixtureLimit: 17, fixtureValue: "sandbox-plugin-config-value" },
 				source: pluginConfigSandboxSource({
 					slug,
 					name: "get-plugin-config",
@@ -232,7 +232,7 @@ describe("sandbox async flow", () => {
 			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
 
 			const value = requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId));
-			expect(value).toEqual({ fixtureValue: "sandbox-plugin-config-value", fixtureLimit: 17 });
+			expect(value).toEqual({ fixtureLimit: 17, fixtureValue: "sandbox-plugin-config-value" });
 		}),
 	);
 
@@ -241,14 +241,14 @@ describe("sandbox async flow", () => {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const slug = `undeclared-plugin-config-value-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
-				client,
-				config: { fixtureValue: "sandbox-plugin-config-value", fixtureLimit: 17 },
 				slug,
+				client,
 				requiredPluginConfigKeys: [],
 				name: "undeclared-plugin-config",
 				capabilities: ["getPluginConfig"],
 				configSchema: configFixtureSchema,
 				pluginSlug: configFixturePluginSlug,
+				config: { fixtureLimit: 17, fixtureValue: "sandbox-plugin-config-value" },
 				source: pluginConfigSandboxSource({
 					slug,
 					keys: ["fixtureValue"],
@@ -318,11 +318,11 @@ describe("sandbox async flow", () => {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const slug = `get-user-prefs-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
-				client,
 				slug,
+				client,
 				name: "get-user-prefs",
 				capabilities: ["getUserPreferences"],
-				source: userPreferencesSandboxSource({ name: "get-user-prefs", slug }),
+				source: userPreferencesSandboxSource({ slug, name: "get-user-prefs" }),
 			});
 			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
 
@@ -340,10 +340,10 @@ describe("sandbox async flow", () => {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const slug = `throws-error-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
-				client,
 				slug,
+				client,
 				name: "throws-error",
-				source: throwingSandboxSource({ name: "throws-error", slug, message: "intentional" }),
+				source: throwingSandboxSource({ slug, name: "throws-error", message: "intentional" }),
 			});
 			const { jobId } = yield* enqueueSandboxScript(userId, { scriptId });
 
@@ -369,8 +369,8 @@ describe("sandbox async flow", () => {
 			const { client, userId } = yield* createAuthenticatedClient();
 			const slug = `deep-throws-error-${crypto.randomUUID()}`;
 			const { scriptId } = yield* installSandboxScriptScoped({
-				client,
 				slug,
+				client,
 				name: "deep-throws-error",
 				source: deepThrowingSandboxSource({
 					slug,

@@ -10,15 +10,15 @@ export const makeTestThemeStore = (initial: ThemePreference): ThemeStore => {
 		getSnapshot: () => {
 			throw new Error("not used");
 		},
+		subscribe: (listener) => {
+			listeners.add(listener);
+			return () => listeners.delete(listener);
+		},
 		setPreference: (next) => {
 			preference = next;
 			for (const listener of listeners) {
 				listener();
 			}
-		},
-		subscribe: (listener) => {
-			listeners.add(listener);
-			return () => listeners.delete(listener);
 		},
 	};
 };

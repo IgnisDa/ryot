@@ -70,7 +70,7 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 					providerId: input.providerId,
 					entitySchemaSlug: input.entitySchemaSlug,
 					externalId: `${input.identifierPrefix}-${index}`,
-					origin: { kind: "import" as const, importRunId: run.id },
+					origin: { importRunId: run.id, kind: "import" as const },
 				}));
 				const chunks: Array<typeof items> = [];
 				let chunk: typeof items = [];
@@ -212,7 +212,7 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 
 				return {
 					sandbox: getSandboxProcessMetrics(),
-					redis: { projectionCount, projectionErrors, maxHighWater },
+					redis: { maxHighWater, projectionCount, projectionErrors },
 					locks: {
 						advisoryLocks: pressure.advisory_locks,
 						waitingAdvisoryLocks: pressure.waiting_advisory_locks,
@@ -229,7 +229,7 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 				() => getSandboxRuntimeMetrics,
 			);
 
-			return { samplePressure, sampleSandboxRuntime, startWorkflowLoad, getWorkflowLoadResult };
+			return { samplePressure, startWorkflowLoad, sampleSandboxRuntime, getWorkflowLoadResult };
 		}),
 	},
 ) {

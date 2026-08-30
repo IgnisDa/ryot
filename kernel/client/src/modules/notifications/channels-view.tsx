@@ -85,8 +85,8 @@ function NotificationChannelRow(props: {
 				type="button"
 				ref={triggerRef}
 				disabled={props.isPending}
-				aria-label={`Delete the ${name} channel`}
 				onClick={() => setIsConfirming(true)}
+				aria-label={`Delete the ${name} channel`}
 				className="shrink-0 p-1.5 text-text-subtle disabled:opacity-50"
 			>
 				<AppIcon size={16} name="trash-2" />
@@ -171,7 +171,7 @@ export function NotificationChannelsView(props: NotificationChannelsViewProps) {
 						</Button>
 					</div>
 					{props.testDetail === undefined ? null : (
-						<StatusMessage tone={props.testSucceeded ? "success" : "error"} className="text-sm">
+						<StatusMessage className="text-sm" tone={props.testSucceeded ? "success" : "error"}>
 							{props.testDetail}
 						</StatusMessage>
 					)}

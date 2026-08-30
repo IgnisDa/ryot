@@ -32,10 +32,10 @@ afterEach(() => {
 describe("ManagedAssetImage", () => {
 	it("shows a placeholder until the managed asset resolves, then renders the resolved image", async () => {
 		const asset = { type: "s3", key: "cover" } as const;
-		const { container, unmount } = mountRyotClient(
+		const { unmount, container } = mountRyotClient(
 			recordingAdapter([]),
 			<ManagedAssetProvider assets={[asset]}>
-				<ManagedAssetImage asset={asset} className="w-10" monogram="Cover" state="absent" />
+				<ManagedAssetImage asset={asset} state="absent" className="w-10" monogram="Cover" />
 			</ManagedAssetProvider>,
 		);
 
@@ -52,10 +52,10 @@ describe("ManagedAssetImage", () => {
 			resolveAssets: () => Promise.reject(new Error("offline")),
 		};
 		const asset = { type: "s3", key: "cover" } as const;
-		const { container, unmount } = mountRyotClient(
+		const { unmount, container } = mountRyotClient(
 			adapter,
 			<ManagedAssetProvider assets={[asset]}>
-				<ManagedAssetImage asset={asset} className="w-10" monogram="Cover" state="absent" />
+				<ManagedAssetImage asset={asset} state="absent" className="w-10" monogram="Cover" />
 			</ManagedAssetProvider>,
 		);
 

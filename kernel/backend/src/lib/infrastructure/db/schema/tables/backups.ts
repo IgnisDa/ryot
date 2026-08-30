@@ -22,11 +22,11 @@ export const backupRun = snakeCase.table(
 	"backup_run",
 	{
 		artifactKey: text(),
-		failure: jsonb().$type<BackupRunFailure>(),
-		kind: text().notNull().$type<BackupRunKind>(),
 		progress: integer().notNull().default(0),
+		failure: jsonb().$type<BackupRunFailure>(),
 		expiresAt: timestamp({ withTimezone: true }),
 		startedAt: timestamp({ withTimezone: true }),
+		kind: text().notNull().$type<BackupRunKind>(),
 		finishedAt: timestamp({ withTimezone: true }),
 		artifactProvider: text().$type<BackupRunArtifactProvider>(),
 		status: text().notNull().$type<RunStatus>().default("pending"),

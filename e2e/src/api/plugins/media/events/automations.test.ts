@@ -95,8 +95,8 @@ describe("Event automations", () => {
 					payload: [
 						{
 							entityId,
-							eventSchemaSlug: progressEventSchemaSlug,
 							properties: { progressPercent: 100 },
+							eventSchemaSlug: progressEventSchemaSlug,
 						},
 					],
 				}),
@@ -141,13 +141,13 @@ describe("Event automations", () => {
 							entityId,
 							occurredAt: isoAt(1),
 							eventSchemaSlug: progressEventSchemaSlug,
-							properties: { progressPercent: 100, animeEpisode: 1 },
+							properties: { animeEpisode: 1, progressPercent: 100 },
 						},
 						{
 							entityId,
 							occurredAt: isoAt(2),
 							eventSchemaSlug: progressEventSchemaSlug,
-							properties: { progressPercent: 100, animeEpisode: 2 },
+							properties: { animeEpisode: 2, progressPercent: 100 },
 						},
 					],
 				}),
@@ -213,7 +213,7 @@ describe("Event automations", () => {
 							entityId,
 							occurredAt: isoAt(1),
 							eventSchemaSlug: progressEventSchemaSlug,
-							properties: { progressPercent: 100, animeEpisode: 1 },
+							properties: { animeEpisode: 1, progressPercent: 100 },
 						},
 					],
 				}),
@@ -232,7 +232,7 @@ describe("Event automations", () => {
 
 			const { entityId, progressEventSchemaSlug } = yield* createBuiltinMediaLifecycleFixture(
 				client,
-				{ entitySchemaSlug: "manga", properties: { images: [], volumes: null, chapters: 2 } },
+				{ entitySchemaSlug: "manga", properties: { images: [], chapters: 2, volumes: null } },
 			);
 
 			yield* client.call((c) =>
@@ -241,12 +241,12 @@ describe("Event automations", () => {
 						{
 							entityId,
 							eventSchemaSlug: progressEventSchemaSlug,
-							properties: { progressPercent: 100, mangaChapter: 1 },
+							properties: { mangaChapter: 1, progressPercent: 100 },
 						},
 						{
 							entityId,
 							eventSchemaSlug: progressEventSchemaSlug,
-							properties: { progressPercent: 100, mangaChapter: 2 },
+							properties: { mangaChapter: 2, progressPercent: 100 },
 						},
 					],
 				}),
@@ -274,7 +274,7 @@ describe("Event automations", () => {
 							entityId,
 							occurredAt: isoAt(1),
 							eventSchemaSlug: progressEventSchemaSlug,
-							properties: { progressPercent: 100, mangaChapter: 1 },
+							properties: { mangaChapter: 1, progressPercent: 100 },
 						},
 					],
 				}),
@@ -440,8 +440,8 @@ describe("Event automations", () => {
 				const completeEvent = yield* waitForEventWithSchema(client, entityId, "complete");
 
 				expect(completeEvent.properties).toMatchObject({
-					consumedOn: "Jellyfin",
 					completedOn: isoAt(1),
+					consumedOn: "Jellyfin",
 					completionMode: "custom_timestamps",
 				});
 				expect(completeEvent.occurredAt).toBe(isoAt(1));

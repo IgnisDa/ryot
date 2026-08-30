@@ -8,18 +8,18 @@ import { UsersAdministration } from "#/modules/god-mode/users-administration";
 export const Route = createFileRoute("/god-mode/users")({ component: GodModeUsers });
 
 function GodModeUsers() {
-	const { backInterceptors, runtime } = Route.useRouteContext();
+	const { runtime, backInterceptors } = Route.useRouteContext();
 	const { sessionId, unauthorized } = useGodMode();
 	const service = runtime.runSync(GodModeService);
 	const operations = {
-		listUsers: (search: string, offset: number, limit: number) =>
-			runtime.runPromiseExit(service.listUsers(sessionId, search, offset, limit)),
 		resetUser: (userId: string) => runtime.runPromiseExit(service.resetUser(sessionId, userId)),
 		deleteUser: (userId: string) => runtime.runPromiseExit(service.deleteUser(sessionId, userId)),
 		resetUserPassword: (userId: string) =>
 			runtime.runPromiseExit(service.resetUserPassword(sessionId, userId)),
 		setUserDisabled: (userId: string, disabled: boolean) =>
 			runtime.runPromiseExit(service.setUserDisabled(sessionId, userId, disabled)),
+		listUsers: (search: string, offset: number, limit: number) =>
+			runtime.runPromiseExit(service.listUsers(sessionId, search, offset, limit)),
 	};
 
 	return (

@@ -16,7 +16,7 @@ const resolveOccurredAt = (occurredAt?: string) => {
 
 	const parsed = DateTime.make(occurredAt);
 	if (Option.isNone(parsed)) {
-		return new EventCreateItemError({ reason: { code: "invalid-occurred-at", occurredAt } });
+		return new EventCreateItemError({ reason: { occurredAt, code: "invalid-occurred-at" } });
 	}
 
 	return Effect.succeed(DateTime.toDate(parsed.value));
@@ -64,13 +64,13 @@ export const resolveEventCreateItemScopes = Effect.fn("resolveEventCreateItemSco
 		});
 		if (!eventSchemaScope) {
 			return yield* new EventCreateItemError({
-				reason: { code: "event-schema-not-found", eventSchemaSlug },
+				reason: { eventSchemaSlug, code: "event-schema-not-found" },
 			});
 		}
 
 		if (eventSchemaScope.entitySchemaSlug !== entityScope.entitySchemaSlug) {
 			return yield* new EventCreateItemError({
-				reason: { code: "event-schema-mismatch", entityId, eventSchemaSlug },
+				reason: { entityId, eventSchemaSlug, code: "event-schema-mismatch" },
 			});
 		}
 

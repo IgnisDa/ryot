@@ -52,7 +52,7 @@ const buildSeason = (
 					description: stringValue(episode["overview"]),
 					publishDate: stringValue(episode["air_date"]),
 					...(imageUrl
-						? { images: [{ type: "remote" as const, url: imageUrl, purpose: "still" as const }] }
+						? { images: [{ url: imageUrl, type: "remote" as const, purpose: "still" as const }] }
 						: {}),
 				},
 			},
@@ -61,8 +61,8 @@ const buildSeason = (
 	return {
 		childEntities,
 		entitySchemaSlug: "show-season",
-		expectedChildEntitySchemaSlug: "show-episode",
 		externalId: String(Math.trunc(idValue)),
+		expectedChildEntitySchemaSlug: "show-episode",
 		name: stringValue(seasonData["name"]) ?? `Season ${seasonNumber}`,
 		properties: {
 			seasonNumber,
@@ -70,7 +70,7 @@ const buildSeason = (
 			description: stringValue(seasonData["overview"]),
 			releaseDate: stringValue(seasonData["air_date"]),
 			...(posterUrl
-				? { images: [{ type: "remote" as const, url: posterUrl, purpose: "cover" as const }] }
+				? { images: [{ url: posterUrl, type: "remote" as const, purpose: "cover" as const }] }
 				: {}),
 		},
 	};
@@ -98,7 +98,7 @@ const buildDetailsResult = (
 	);
 	const voteAverage = numberValue(showData["vote_average"]);
 	const providerRating = voteAverage !== null && voteAverage > 0 ? voteAverage * 10 : null;
-	const { relatedEntities: people, unlinkedCreators } = collectPeople(
+	const { unlinkedCreators, relatedEntities: people } = collectPeople(
 		creditsData["cast"],
 		creditsData["crew"],
 		showData["created_by"],
@@ -107,6 +107,24 @@ const buildDetailsResult = (
 		name: title,
 		childEntities,
 		expectedChildEntitySchemaSlug: "show-season",
+		properties: {
+			totalEpisodes,
+			providerRating,
+			unlinkedCreators,
+			totalSeasons: childEntities.length,
+			genres: collectGenres(showData["genres"]),
+			description: stringValue(showData["overview"]),
+			isNsfw: showData["adult"] === true ? true : null,
+			productionStatus: stringValue(showData["status"]),
+			publishYear: parsePublishYear(showData["first_air_date"]),
+			sourceUrl: `https://www.themoviedb.org/tv/${input.externalId}`,
+			images: collectImages(
+				showData["poster_path"],
+				showData["backdrop_path"],
+				imagesData["posters"],
+				imagesData["backdrops"],
+			),
+		},
 		relatedEntityGroups: [
 			{
 				entities: people,
@@ -133,24 +151,6 @@ const buildDetailsResult = (
 				}),
 			},
 		],
-		properties: {
-			providerRating,
-			totalEpisodes,
-			unlinkedCreators,
-			totalSeasons: childEntities.length,
-			isNsfw: showData["adult"] === true ? true : null,
-			genres: collectGenres(showData["genres"]),
-			description: stringValue(showData["overview"]),
-			productionStatus: stringValue(showData["status"]),
-			sourceUrl: `https://www.themoviedb.org/tv/${input.externalId}`,
-			publishYear: parsePublishYear(showData["first_air_date"]),
-			images: collectImages(
-				showData["poster_path"],
-				showData["backdrop_path"],
-				imagesData["posters"],
-				imagesData["backdrops"],
-			),
-		},
 	};
 };
 
@@ -192,6 +192,7 @@ export const getTmdbShowDetails = (
 			Effect.succeed([]),
 		);
 		return yield* Effect.try({
+			catch: (error) => (error instanceof Error ? error : new Error(String(error))),
 			try: () =>
 				buildDetailsResult(
 					input,
@@ -201,7 +202,6 @@ export const getTmdbShowDetails = (
 					recommendationsData,
 					seasonDataList,
 				),
-			catch: (error) => (error instanceof Error ? error : new Error(String(error))),
 		});
 	});
 };

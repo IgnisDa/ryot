@@ -5,13 +5,13 @@ import { assert, describe, expect, it } from "vitest";
 import { eventHistoryRecipe, eventIsAfter, eventOrderDescending, latestEventField } from "./events";
 import { rowsResponse } from "./test-utils";
 
-const pageInfo = { hasMore: false, limit: 25, nextCursor: null };
+const pageInfo = { limit: 25, hasMore: false, nextCursor: null };
 const event = {
 	id: "event-1",
 	entityId: "entity-1",
+	sessionEntityId: null,
 	entitySchemaSlug: "book",
 	eventSchemaSlug: "review",
-	sessionEntityId: null,
 	properties: { rating: 5 },
 	createdAt: "2026-01-01T01:00:00+02:00",
 	updatedAt: "2026-01-02T01:00:00+02:00",
@@ -103,7 +103,7 @@ describe("event recipes", () => {
 
 		expect(expression).toMatchObject({
 			type: "first",
-			select: { field: "eventSchemaSlug", tableAlias: "source" },
+			select: { tableAlias: "source", field: "eventSchemaSlug" },
 			orderBy: [
 				{ direction: "desc", expr: { field: "occurredAt", tableAlias: "source" } },
 				{ direction: "desc", expr: { field: "createdAt", tableAlias: "source" } },
@@ -124,13 +124,13 @@ describe("event recipes", () => {
 		).toEqual([
 			"id",
 			"entityId",
+			"properties",
 			"createdAt",
 			"updatedAt",
 			"occurredAt",
-			"properties",
 			"eventSchemaSlug",
-			"sessionEntityId",
 			"entitySchemaSlug",
+			"sessionEntityId",
 		]);
 		expect(query.where).toMatchObject({
 			type: "and",

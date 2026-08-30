@@ -66,7 +66,7 @@ describe("show overview state", () => {
 	it("prefers the purpose that suits each relationship and falls back to provider order", () => {
 		const overview = decodeShowOverview({
 			people: [{ ...showPersonRow, images: [{ type: "s3", key: "still", purpose: "still" }] }],
-			companies: [{ ...showCompanyRow, images: [{ type: "local", key: "logo", purpose: "logo" }] }],
+			companies: [{ ...showCompanyRow, images: [{ key: "logo", type: "local", purpose: "logo" }] }],
 		});
 		const [person] = overview.people.items;
 		const [company] = overview.companies.items;
@@ -74,7 +74,7 @@ describe("show overview state", () => {
 		assert(person !== undefined && company !== undefined && recommendation !== undefined);
 
 		expect(showPersonAsset(person)).toEqual({ type: "s3", key: "still" });
-		expect(showCompanyAsset(company)).toEqual({ type: "local", key: "logo" });
+		expect(showCompanyAsset(company)).toEqual({ key: "logo", type: "local" });
 		expect(showRecommendationAsset(recommendation)).toEqual({
 			type: "remote",
 			url: "https://images.test/bad-girls.jpg",
@@ -108,8 +108,8 @@ describe("show overview state", () => {
 				{
 					...showPersonRow,
 					images: [
-						{ type: "s3", key: "person-profile", purpose: "profile" },
-						{ type: "s3", key: "person-still", purpose: "still" },
+						{ type: "s3", purpose: "profile", key: "person-profile" },
+						{ type: "s3", purpose: "still", key: "person-still" },
 					],
 				},
 			],

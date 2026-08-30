@@ -20,9 +20,9 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "GiantBomb",
 	slug: "person.giant-bomb",
+	requiredSystemConfigKeys: [],
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["giantBombApiKey"],
-	requiredSystemConfigKeys: [],
 });
 
 const lastNonEmptySegment = (value: unknown) => {
@@ -168,6 +168,17 @@ export const details = defineProvider({
 
 				return {
 					name,
+					properties: {
+						alternateNames: [],
+						birthPlace: hometown,
+						deathDate: formatBirthDate(person["death_date"]),
+						sourceUrl: stringValue(person["site_detail_url"]),
+						description: combineDescription(person["deck"], person["description"]),
+						birthDate: formatBirthDate(person["birth_date"] ?? person["date_of_birth"]),
+						images: primaryImage
+							? [{ url: primaryImage, type: "remote" as const, purpose: "profile" as const }]
+							: [],
+					},
 					relatedEntityGroups: [
 						{
 							direction: "outgoing" as const,
@@ -182,17 +193,6 @@ export const details = defineProvider({
 							entities: collectRelated(person["franchises"], "video-game-group.giant-bomb"),
 						},
 					],
-					properties: {
-						alternateNames: [],
-						birthPlace: hometown,
-						deathDate: formatBirthDate(person["death_date"]),
-						sourceUrl: stringValue(person["site_detail_url"]),
-						birthDate: formatBirthDate(person["birth_date"] ?? person["date_of_birth"]),
-						images: primaryImage
-							? [{ type: "remote" as const, url: primaryImage, purpose: "profile" as const }]
-							: [],
-						description: combineDescription(person["deck"], person["description"]),
-					},
 				};
 			}),
 		);

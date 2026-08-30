@@ -20,9 +20,9 @@ const httpSuccess = (body: unknown) =>
 const makeHost = (httpCall: TmdbHost["httpCall"]) =>
 	defineSandboxTestHost(manifest, {
 		httpCall,
+		getUserPreferences: () => Effect.succeed({ allowNsfw: false, disableIntegrations: false }),
 		getPluginConfig: (keys) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "token"]))),
-		getUserPreferences: () => Effect.succeed({ allowNsfw: false, disableIntegrations: false }),
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("show.tmdb sandbox script", () => {
@@ -43,13 +43,13 @@ describe("show.tmdb sandbox script", () => {
 		expect({
 			kind: trendingManifest.kind,
 			slug: trendingManifest.slug,
-			operation: "operation" in trending ? trending.operation : null,
 			capabilities: trendingManifest.capabilities,
+			operation: "operation" in trending ? trending.operation : null,
 			requiredPluginConfigKeys: trendingManifest.requiredPluginConfigKeys,
 		}).toEqual({
 			kind: "script",
-			slug: "show.tmdb.trending",
 			operation: null,
+			slug: "show.tmdb.trending",
 			capabilities: ["httpCall", "getPluginConfig"],
 			requiredPluginConfigKeys: ["tmdbAccessToken"],
 		});
@@ -59,12 +59,12 @@ describe("show.tmdb sandbox script", () => {
 			const requestUrl = new URL(url);
 			expect(requestUrl.host).toBe("api.themoviedb.org");
 			expect(requestUrl.pathname).toBe("/3/search/tv");
-			return httpSuccess({ page: 1, total_results: 0, results: [] });
+			return httpSuccess({ page: 1, results: [], total_results: 0 });
 		});
 		return Effect.runPromise(
-			runSandboxTestScript(search, { query: "show", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { page: 1, pageSize: 20, query: "show" }, host, execution).pipe(
 				Effect.map((result) => {
-					expect(result).toEqual({ details: { totalItems: 0, nextPage: null }, items: [] });
+					expect(result).toEqual({ items: [], details: { totalItems: 0, nextPage: null } });
 					return undefined;
 				}),
 			),
@@ -75,8 +75,8 @@ describe("show.tmdb sandbox script", () => {
 			if (url.includes("/tv/1/recommendations")) {
 				return httpSuccess({
 					results: [
-						{ id: 2, title: "Pick One", name: "Pick One" },
-						{ id: 3, title: "Pick Two", name: "Pick Two" },
+						{ id: 2, name: "Pick One", title: "Pick One" },
+						{ id: 3, name: "Pick Two", title: "Pick Two" },
 					],
 				});
 			}
@@ -127,8 +127,8 @@ describe("show.tmdb sandbox script", () => {
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [
-								{ name: "Pick One", externalId: "2", providerSlug: "show.tmdb" },
-								{ name: "Pick Two", externalId: "3", providerSlug: "show.tmdb" },
+								{ externalId: "2", name: "Pick One", providerSlug: "show.tmdb" },
+								{ externalId: "3", name: "Pick Two", providerSlug: "show.tmdb" },
 							],
 						},
 					]);
@@ -152,21 +152,21 @@ describe("show.tmdb sandbox script", () => {
 				return httpSuccess({
 					id: 101,
 					name: "Season 1",
-					poster_path: "/season.jpg",
 					season_number: 1,
+					poster_path: "/season.jpg",
 					episodes: [{ id: 11, name: "Pilot", episode_number: 1, still_path: "/still.jpg" }],
 				});
 			}
 			return httpSuccess({
 				id: 1,
-				name: "Source",
-				seasons: [{ season_number: 1 }],
-				poster_path: "/show.jpg",
-				backdrop_path: "/show-backdrop.jpg",
 				genres: [],
-				created_by: [],
 				networks: [],
+				name: "Source",
+				created_by: [],
+				poster_path: "/show.jpg",
 				production_companies: [],
+				seasons: [{ season_number: 1 }],
+				backdrop_path: "/show-backdrop.jpg",
 			});
 		});
 		return Effect.runPromise(
@@ -177,13 +177,13 @@ describe("show.tmdb sandbox script", () => {
 							images: [
 								{
 									type: "remote",
-									url: "https://image.tmdb.org/t/p/original/show.jpg",
 									purpose: "cover",
+									url: "https://image.tmdb.org/t/p/original/show.jpg",
 								},
 								{
 									type: "remote",
-									url: "https://image.tmdb.org/t/p/original/show-backdrop.jpg",
 									purpose: "backdrop",
+									url: "https://image.tmdb.org/t/p/original/show-backdrop.jpg",
 								},
 							],
 						},
@@ -194,8 +194,8 @@ describe("show.tmdb sandbox script", () => {
 								images: [
 									{
 										type: "remote",
-										url: "https://image.tmdb.org/t/p/original/season.jpg",
 										purpose: "cover",
+										url: "https://image.tmdb.org/t/p/original/season.jpg",
 									},
 								],
 							},
@@ -205,8 +205,8 @@ describe("show.tmdb sandbox script", () => {
 										images: [
 											{
 												type: "remote",
-												url: "https://image.tmdb.org/t/p/original/still.jpg",
 												purpose: "still",
+												url: "https://image.tmdb.org/t/p/original/still.jpg",
 											},
 										],
 									},
@@ -224,14 +224,14 @@ describe("show.tmdb sandbox script", () => {
 			url.includes("/translations")
 				? httpSuccess({ translations: [{ iso_639_1: "fr", data: { name: "Série" } }] })
 				: httpSuccess({
-						posters: [{ iso_639_1: "fr", file_path: "/poster-fr.jpg" }],
 						stills: [{ iso_639_1: "fr", file_path: "/still-fr.jpg" }],
+						posters: [{ iso_639_1: "fr", file_path: "/poster-fr.jpg" }],
 					}),
 		);
 		return Effect.runPromise(
 			runSandboxTestScript(
 				translate,
-				{ externalId: "1", language: "fr", entitySchemaSlug: "show" },
+				{ language: "fr", externalId: "1", entitySchemaSlug: "show" },
 				host,
 				execution,
 			).pipe(
@@ -240,18 +240,18 @@ describe("show.tmdb sandbox script", () => {
 						images: [
 							{
 								type: "remote",
-								url: "https://image.tmdb.org/t/p/original/poster-fr.jpg",
 								purpose: "cover",
+								url: "https://image.tmdb.org/t/p/original/poster-fr.jpg",
 							},
 						],
 					});
 					return runSandboxTestScript(
 						translate,
 						{
-							externalId: "2",
 							language: "fr",
+							externalId: "2",
 							entitySchemaSlug: "show-episode",
-							properties: { parentShowExternalId: "1", seasonNumber: 1, episodeNumber: 2 },
+							properties: { seasonNumber: 1, episodeNumber: 2, parentShowExternalId: "1" },
 						},
 						host,
 						execution,
@@ -262,8 +262,8 @@ describe("show.tmdb sandbox script", () => {
 						images: [
 							{
 								type: "remote",
-								url: "https://image.tmdb.org/t/p/original/still-fr.jpg",
 								purpose: "still",
+								url: "https://image.tmdb.org/t/p/original/still-fr.jpg",
 							},
 						],
 					});
@@ -297,10 +297,10 @@ describe("show.tmdb sandbox script", () => {
 					expect(requestedPages).toEqual(["1", "2", "3"]);
 					expect(result).toEqual({
 						items: [
-							{ name: "First Show", externalId: "10" },
-							{ name: "Second Show", externalId: "20" },
-							{ name: "Third Show", externalId: "40" },
-							{ name: "Fourth Show", externalId: "50" },
+							{ externalId: "10", name: "First Show" },
+							{ externalId: "20", name: "Second Show" },
+							{ externalId: "40", name: "Third Show" },
+							{ externalId: "50", name: "Fourth Show" },
 						],
 					});
 					return undefined;

@@ -50,7 +50,7 @@ it("keeps restored installations inactive when required secrets were redacted", 
 				},
 			},
 		),
-	).toEqual({ health: "needs-configuration", isDisabled: true });
+	).toEqual({ isDisabled: true, health: "needs-configuration" });
 });
 
 it("preserves needs-configuration health when the secret was already absent", () => {
@@ -59,14 +59,14 @@ it("preserves needs-configuration health when the secret was already absent", ()
 			{ disabledIntent: true, configuredSecretPaths: [], lifecycleIntent: "needs-configuration" },
 			{ fields: {}, unknownKeys: "strict" },
 		),
-	).toEqual({ health: "needs-configuration", isDisabled: true });
+	).toEqual({ isDisabled: true, health: "needs-configuration" });
 });
 
 it.effect("requires an exact system plugin version and source hash", () =>
 	Effect.gen(function* () {
 		const required = [{ slug: "system", version: "1.0.0", sourceHash: "a".repeat(64) }];
 		const installed = [
-			{ id: "plugin-id", slug: "system", version: "1.0.0", sourceHash: "b".repeat(64) },
+			{ slug: "system", id: "plugin-id", version: "1.0.0", sourceHash: "b".repeat(64) },
 		];
 		const error = yield* resolveRequiredPluginIds(required, installed).pipe(Effect.flip);
 		expect(error).toMatchObject({ pluginSlug: "system", requiredVersion: "1.0.0" });
@@ -78,15 +78,15 @@ it("detects nested required installation secrets in objects and arrays", () => {
 		unknownKeys: "strict" as const,
 		fields: {
 			credentials: {
-				type: "object" as const,
 				label: "Credentials",
+				type: "object" as const,
 				description: "Credentials",
 				properties: {
 					token: {
-						secret: true as const,
-						type: "string" as const,
 						label: "Token",
 						description: "Token",
+						secret: true as const,
+						type: "string" as const,
 						validation: { required: true },
 					},
 				},
@@ -118,7 +118,7 @@ it("detects nested required installation secrets in objects and arrays", () => {
 				{ disabledIntent: false, lifecycleIntent: "ready", configuredSecretPaths: [path] },
 				schema,
 			),
-		).toEqual({ health: "needs-configuration", isDisabled: true });
+		).toEqual({ isDisabled: true, health: "needs-configuration" });
 		expect(
 			resolveRestoredIntegrationDisabled(
 				{ isDisabled: false, configuredSecretPaths: [path] },
@@ -148,8 +148,8 @@ const bootstrapEntity = (
 	name: "Arbitrary name",
 	properties: { arbitrary: true },
 	externalId: "arbitrary-external-id",
-	entitySchemaSlug: "arbitrary-schema",
 	entitySchemaPluginKey: "plugin-key",
+	entitySchemaSlug: "arbitrary-schema",
 	origin: { kind: "bootstrap" as const },
 	...overrides,
 });
@@ -247,8 +247,8 @@ it.effect("rejects a crafted provider dependency whose schema belongs to another
 			createdAt: "2026-08-23T12:00:00.000Z",
 			updatedAt: "2026-08-23T12:00:00.000Z",
 			entitySchemaPluginKey: "provider-owner",
-			provider: { pluginKey: "provider-owner", providerSlug: "provider" },
-			identity: { kind: "provider", pluginKey: "provider-owner", providerSlug: "provider" },
+			provider: { providerSlug: "provider", pluginKey: "provider-owner" },
+			identity: { kind: "provider", providerSlug: "provider", pluginKey: "provider-owner" },
 		},
 		"foreign-owner",
 	).pipe(
@@ -277,29 +277,11 @@ const provenanceRecords = (
 		readonly subscriptionKey?: string | null;
 	} = {},
 ): ArchiveRecords => ({
-	savedViews: [
-		{
-			renderer: { kind: "kernel", name: "entity-browser" },
-			settings: {},
-			dataSources: provenanceQuery,
-			icon: "list",
-			...(input.builtinView
-				? { kind: "builtin-override" as const, isBuiltin: true as const }
-				: { kind: "custom" as const, isBuiltin: false as const }),
-			pluginKey: input.viewKey === undefined ? "owner-key" : input.viewKey,
-			isDisabled: false,
-			id: "saved-view-id",
-			slug: "owner-view",
-			name: "Owner view",
-			sortOrder: 0,
-			createdAt: "2026-08-23T12:00:00.000Z",
-			updatedAt: "2026-08-23T12:00:00.000Z",
-		},
-	],
 	integrations: [],
 	installations: [],
 	privatePlugins: [],
 	clientRenderers: [],
+	profile: { image: null, name: "User", preferences: {} },
 	notificationSubscriptions: [
 		{
 			metadata: null,
@@ -309,7 +291,19 @@ const provenanceRecords = (
 				input.subscriptionKey === undefined ? "owner-key" : input.subscriptionKey,
 		},
 	],
-	profile: { name: "User", image: null, preferences: {} },
+	relationships: [
+		{
+			scope: "user",
+			properties: {},
+			id: "relationship-id",
+			sourceEntityId: "user-entity",
+			targetEntityId: "global-entity",
+			relationshipSchemaSlug: "owner-link",
+			createdAt: "2026-08-23T12:00:00.000Z",
+			relationshipSchemaPluginKey:
+				input.relationshipKey === undefined ? "owner-key" : input.relationshipKey,
+		},
+	],
 	entities: [
 		{
 			origin: null,
@@ -341,17 +335,23 @@ const provenanceRecords = (
 			entitySchemaPluginKey: input.dependencyKey === undefined ? "owner-key" : input.dependencyKey,
 		},
 	],
-	relationships: [
+	savedViews: [
 		{
-			scope: "user",
-			properties: {},
-			id: "relationship-id",
-			sourceEntityId: "user-entity",
-			targetEntityId: "global-entity",
-			relationshipSchemaSlug: "owner-link",
+			settings: {},
+			icon: "list",
+			dataSources: provenanceQuery,
+			renderer: { kind: "kernel", name: "entity-browser" },
+			...(input.builtinView
+				? { isBuiltin: true as const, kind: "builtin-override" as const }
+				: { kind: "custom" as const, isBuiltin: false as const }),
+			sortOrder: 0,
+			isDisabled: false,
+			slug: "owner-view",
+			name: "Owner view",
+			id: "saved-view-id",
 			createdAt: "2026-08-23T12:00:00.000Z",
-			relationshipSchemaPluginKey:
-				input.relationshipKey === undefined ? "owner-key" : input.relationshipKey,
+			updatedAt: "2026-08-23T12:00:00.000Z",
+			pluginKey: input.viewKey === undefined ? "owner-key" : input.viewKey,
 		},
 	],
 });
@@ -376,17 +376,14 @@ const provenanceEntityDefinition: DefinitionSnapshot["entitySchemas"][string] = 
 
 const provenanceDefinitions: DefinitionSnapshot = {
 	entitySchemas: { "owner-entity": provenanceEntityDefinition },
-	savedViews: {
-		"owner-view": {
-			icon: "list",
-			sortOrder: 0,
-			slug: "owner-view",
-			name: "Owner view",
-			pluginSlug: "owner",
+	relationshipSchemas: {
+		"owner-link": {
+			name: "Owner link",
+			slug: "owner-link",
 			pluginId: "owner-id",
-			renderer: { kind: "kernel", name: "entity-browser" },
-			settings: {},
-			dataSources: provenanceQuery,
+			propertiesSchema: { fields: {} },
+			sourceEntitySchemaSlug: "owner-entity",
+			targetEntitySchemaSlug: "owner-entity",
 		},
 	},
 	signalSchemas: {
@@ -400,14 +397,17 @@ const provenanceDefinitions: DefinitionSnapshot = {
 			notificationScriptSlug: "owner.notify",
 		},
 	},
-	relationshipSchemas: {
-		"owner-link": {
-			name: "Owner link",
-			slug: "owner-link",
+	savedViews: {
+		"owner-view": {
+			icon: "list",
+			sortOrder: 0,
+			settings: {},
+			slug: "owner-view",
+			name: "Owner view",
+			pluginSlug: "owner",
 			pluginId: "owner-id",
-			propertiesSchema: { fields: {} },
-			sourceEntitySchemaSlug: "owner-entity",
-			targetEntitySchemaSlug: "owner-entity",
+			dataSources: provenanceQuery,
+			renderer: { kind: "kernel", name: "entity-browser" },
 		},
 	},
 };
@@ -444,7 +444,7 @@ it.effect("preflights all qualified schema provenance including streamed events"
 			{
 				event: provenanceEvent(),
 				name: "plugin-owned builtin view with null key",
-				records: provenanceRecords({ builtinView: true, viewKey: null }),
+				records: provenanceRecords({ viewKey: null, builtinView: true }),
 			},
 			{
 				event: provenanceEvent(),
@@ -453,8 +453,8 @@ it.effect("preflights all qualified schema provenance including streamed events"
 			},
 			{
 				records: provenanceRecords(),
-				name: "plugin-owned event with null key",
 				event: provenanceEvent(null),
+				name: "plugin-owned event with null key",
 			},
 			{
 				event: provenanceEvent(),
@@ -529,16 +529,16 @@ it.effect(
 				rendererId: ClientRendererId.make("mapped-renderer"),
 			};
 			const published = {
-				id: "mapped-renderer",
 				publishedRevision: 1,
+				id: "mapped-renderer",
 				publishedDefinition: {
 					settingsSchema: {
 						unknownKeys: "strict" as const,
 						fields: {
 							label: {
-								type: "string" as const,
 								label: "Label",
 								description: "Label",
+								type: "string" as const,
 								validation: { required: true },
 							},
 						},
@@ -566,7 +566,7 @@ it.effect(
 
 it.effect("rejects unavailable plugin renderers through the canonical rule", () =>
 	validateSavedViewDefinition(
-		{ kind: "plugin", pluginId: "plugin-id", exportName: "page" },
+		{ kind: "plugin", exportName: "page", pluginId: "plugin-id" },
 		{},
 		provenanceQuery,
 		null,
@@ -638,7 +638,7 @@ const restoreArchivedEvents = (
 				clientRenderers: [],
 				entityDependencies: [],
 				notificationSubscriptions: [],
-				profile: { name: "User", image: null, preferences: {} },
+				profile: { image: null, name: "User", preferences: {} },
 				entities: [
 					{
 						properties: {},
@@ -656,7 +656,7 @@ const restoreArchivedEvents = (
 				],
 			},
 			new Map(),
-			{ count: events.length, sha256: "", read: () => Stream.fromIterable(events) },
+			{ sha256: "", count: events.length, read: () => Stream.fromIterable(events) },
 			new Map(),
 			{
 				savedViews: {},
@@ -678,8 +678,8 @@ const restoreArchivedEvents = (
 						Layer.mock(ClientPagesRepository, {}),
 						Layer.mock(EventsRepository, { restoreEvents }),
 						Layer.mock(EntitiesRepository, {
-							listUserEntitiesForBackup: () => Effect.succeed([...targetEntities]),
 							restoreEntity,
+							listUserEntitiesForBackup: () => Effect.succeed([...targetEntities]),
 						}),
 						Layer.mock(SavedViewsRepository, { restoreBuiltinViews: () => Effect.void }),
 						Layer.mock(IntegrationsRepository, {}),

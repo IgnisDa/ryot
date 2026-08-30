@@ -23,7 +23,7 @@ export const Route = createFileRoute("/oauth/login")({
 	pendingComponent: () => (
 		<AuthStatus title="Loading sign-in options" message="Reading this server's settings..." />
 	),
-	loader: ({ abortController, context }) =>
+	loader: ({ context, abortController }) =>
 		context.runtime.runPromise(
 			Effect.flatMap(PublicApi, (api) => api.getSystemConfig(context.server)),
 			{ signal: abortController.signal },
@@ -52,7 +52,7 @@ function OAuthLoginUnavailable() {
 
 function OAuthLogin() {
 	const config = Route.useLoaderData();
-	const { runtime, server } = Route.useRouteContext();
+	const { server, runtime } = Route.useRouteContext();
 	const auth = runtime.runSync(HostedAuthService);
 	const controller = useRef(new AbortController());
 	const oidcAutoLaunched = useRef(false);

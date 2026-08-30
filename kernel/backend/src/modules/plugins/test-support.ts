@@ -26,33 +26,6 @@ export const fixtureManifest = () =>
 			version: "1.0.0",
 			description: "Fixture plugin",
 		},
-		entitySchemas: [
-			{
-				icon: "box",
-				name: "Fixture",
-				slug: "fixture-entity",
-				propertiesSchema: {
-					fields: {
-						name: { type: "string", label: "Name", description: "Fixture name" },
-						kind: {
-							type: "enum",
-							label: "Kind",
-							description: "Fixture kind",
-							choices: { kind: "static", values: [{ value: "one" }, { value: "two" }] },
-						},
-					},
-				},
-				eventSchemas: [
-					{
-						name: "Changed",
-						slug: "changed",
-						propertiesSchema: {
-							fields: { value: { type: "string", label: "Value", description: "Changed value" } },
-						},
-					},
-				],
-			},
-		],
 		relationshipSchemas: [
 			{
 				name: "Fixture Link",
@@ -96,4 +69,31 @@ export const fixtureManifest = () =>
 				},
 			],
 		},
+		entitySchemas: [
+			{
+				icon: "box",
+				name: "Fixture",
+				slug: "fixture-entity",
+				eventSchemas: [
+					{
+						name: "Changed",
+						slug: "changed",
+						propertiesSchema: {
+							fields: { value: { type: "string", label: "Value", description: "Changed value" } },
+						},
+					},
+				],
+				propertiesSchema: {
+					fields: {
+						name: { label: "Name", type: "string", description: "Fixture name" },
+						kind: {
+							type: "enum",
+							label: "Kind",
+							description: "Fixture kind",
+							choices: { kind: "static", values: [{ value: "one" }, { value: "two" }] },
+						},
+					},
+				},
+			},
+		],
 	}) satisfies PluginManifest;

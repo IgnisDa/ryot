@@ -21,7 +21,7 @@ const user = {
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-id"),
-	preferences: { allowNsfw: false, language: null, disableIntegrations: false },
+	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
 } satisfies CurrentUserValue;
 
 const entity = table("entity", "entity");
@@ -31,33 +31,33 @@ const dataSources = document({
 	}),
 });
 const baseView = {
+	dataSources,
 	sortOrder: 0,
 	icon: "record",
 	slug: "my-view",
 	name: "My View",
+	isBuiltin: false,
+	pluginSlug: null,
+	isDisabled: false,
+	pluginInstallationId: null,
+	id: SavedViewId.make("sv-id"),
+	createdAt: "2026-01-01T00:00:00.000Z",
+	updatedAt: "2026-01-01T00:00:00.000Z",
+	renderer: { kind: "kernel", name: "results-table" },
 	settings: {
 		pageSize: 20,
 		sourceName: "entities",
 		rowKeyFields: ["entityId"],
-		columns: [{ label: "Name", field: "name", displayKind: "text" }],
 		entityLink: { entityIdField: "entityId" },
+		columns: [{ label: "Name", field: "name", displayKind: "text" }],
 	},
-	isBuiltin: false,
-	isDisabled: false,
-	pluginSlug: null,
-	dataSources,
-	pluginInstallationId: null,
-	renderer: { kind: "kernel", name: "results-table" },
-	createdAt: "2026-01-01T00:00:00.000Z",
-	updatedAt: "2026-01-01T00:00:00.000Z",
-	id: SavedViewId.make("sv-id"),
 } satisfies ListedSavedView & { readonly pluginInstallationId: string | null };
 
 const registry = makeDefinitionRegistry({
+	savedViews: [],
 	entitySchemas: [],
 	signalSchemas: [],
 	relationshipSchemas: [],
-	savedViews: [],
 });
 const repositoryMock = Layer.mock(SavedViewsRepository);
 const makeRepository = (overrides: MockOverrides<typeof repositoryMock>) =>
@@ -93,16 +93,16 @@ const makeLayer = (
 it.effect("clones a validated plugin-rendered builtin with its stable runtime reference", () => {
 	const created: unknown[] = [];
 	const renderer = {
+		exportName: "summary",
 		kind: "plugin" as const,
 		pluginId: "fixture-plugin-id",
-		exportName: "summary",
 	};
 	const pluginView = {
 		...baseView,
-		isBuiltin: true,
-		settings: { title: "Fixture" },
-		dataSources: null,
 		renderer,
+		isBuiltin: true,
+		dataSources: null,
+		settings: { title: "Fixture" },
 	};
 	const manifest = {
 		...fixtureManifest(),
@@ -118,8 +118,8 @@ it.effect("clones a validated plugin-rendered builtin with its stable runtime re
 						unknownKeys: "strict" as const,
 						fields: {
 							title: {
-								type: "string" as const,
 								label: "Title",
+								type: "string" as const,
 								description: "Summary title",
 								validation: { required: true as const },
 							},
@@ -150,13 +150,13 @@ it.effect("clones a validated plugin-rendered builtin with its stable runtime re
 				[
 					{
 						manifest,
-						id: "fixture-plugin-id",
+						config: {},
 						slug: "fixture",
 						scope: "system",
 						health: "ready",
-						config: {},
-						compiledHashes: {},
 						isDisabled: false,
+						compiledHashes: {},
+						id: "fixture-plugin-id",
 						sourceHash: "source-hash",
 						installationId: "fixture-installation-id",
 					},
@@ -192,7 +192,7 @@ it.effect("clones renderer settings and data sources without copying source code
 					create: (_userId, input) =>
 						Effect.sync(() => {
 							created.push(input);
-							return { ...baseView, ...input, id: SavedViewId.make("copy-id"), pluginSlug: null };
+							return { ...baseView, ...input, pluginSlug: null, id: SavedViewId.make("copy-id") };
 						}),
 				}),
 			),
@@ -205,9 +205,9 @@ it.effect("clears home references when disabling a saved view", () => {
 	return Effect.gen(function* () {
 		const service = yield* SavedViewsService;
 		const updated = yield* service.update(user, baseView.slug, {
+			isDisabled: true,
 			icon: baseView.icon,
 			name: baseView.name,
-			isDisabled: true,
 		});
 		expect(updated.isDisabled).toBe(true);
 		expect(events).toEqual(["update", `clear:${baseView.id}`]);
@@ -240,8 +240,8 @@ it.effect("materializes canonical builtin definitions and preserves repository-o
 		relationshipSchemas: [],
 		savedViews: [
 			{
-				pluginId: null,
 				sortOrder: 3,
+				pluginId: null,
 				pluginSlug: null,
 				slug: builtin.slug,
 				name: builtin.name,

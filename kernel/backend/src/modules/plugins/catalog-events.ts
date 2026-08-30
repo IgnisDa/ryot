@@ -65,7 +65,7 @@ export class PluginCatalogHub extends Context.Service<PluginCatalogHub>()("Plugi
 				),
 			).pipe(Stream.scoped);
 
-		return { broadcast, broadcastAll, stream, subscribe };
+		return { stream, broadcast, subscribe, broadcastAll };
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);

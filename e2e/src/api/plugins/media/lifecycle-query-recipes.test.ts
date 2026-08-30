@@ -74,26 +74,6 @@ const loadLifecycleSchemas = (client: Client) =>
 		]);
 		return {
 			...loaded,
-			showEvents: {
-				onHold: requireEventSchemaBySlug(showEvents, "on_hold").id,
-				backlog: requireEventSchemaBySlug(showEvents, "backlog").id,
-				dropped: requireEventSchemaBySlug(showEvents, "dropped").id,
-				complete: requireEventSchemaBySlug(showEvents, "complete").id,
-			},
-			showEpisodeEvents: {
-				complete: requireEventSchemaBySlug(showEpisodeEvents, "complete").id,
-				progress: requireEventSchemaBySlug(showEpisodeEvents, "progress").id,
-			},
-			podcastEvents: {
-				onHold: requireEventSchemaBySlug(podcastEvents, "on_hold").id,
-				dropped: requireEventSchemaBySlug(podcastEvents, "dropped").id,
-				backlog: requireEventSchemaBySlug(podcastEvents, "backlog").id,
-				complete: requireEventSchemaBySlug(podcastEvents, "complete").id,
-			},
-			podcastEpisodeEvents: {
-				complete: requireEventSchemaBySlug(podcastEpisodeEvents, "complete").id,
-				progress: requireEventSchemaBySlug(podcastEpisodeEvents, "progress").id,
-			},
 			showToSeasonRelationship: requireRelationshipSchemaBySlug(
 				loaded.relationshipSchemas,
 				"show-to-show-season",
@@ -106,6 +86,26 @@ const loadLifecycleSchemas = (client: Client) =>
 				loaded.relationshipSchemas,
 				"podcast-to-podcast-episode",
 			).id,
+			showEpisodeEvents: {
+				complete: requireEventSchemaBySlug(showEpisodeEvents, "complete").id,
+				progress: requireEventSchemaBySlug(showEpisodeEvents, "progress").id,
+			},
+			podcastEpisodeEvents: {
+				complete: requireEventSchemaBySlug(podcastEpisodeEvents, "complete").id,
+				progress: requireEventSchemaBySlug(podcastEpisodeEvents, "progress").id,
+			},
+			showEvents: {
+				onHold: requireEventSchemaBySlug(showEvents, "on_hold").id,
+				backlog: requireEventSchemaBySlug(showEvents, "backlog").id,
+				dropped: requireEventSchemaBySlug(showEvents, "dropped").id,
+				complete: requireEventSchemaBySlug(showEvents, "complete").id,
+			},
+			podcastEvents: {
+				onHold: requireEventSchemaBySlug(podcastEvents, "on_hold").id,
+				dropped: requireEventSchemaBySlug(podcastEvents, "dropped").id,
+				backlog: requireEventSchemaBySlug(podcastEvents, "backlog").id,
+				complete: requireEventSchemaBySlug(podcastEvents, "complete").id,
+			},
 		};
 	});
 
@@ -169,7 +169,7 @@ const seedShow = (
 				});
 			}
 		}
-		return { episodes, seasons, show };
+		return { show, seasons, episodes };
 	});
 
 const seedPodcast = (
@@ -206,14 +206,14 @@ const seedPodcast = (
 				relationshipSchemaSlug: schemas.podcastToEpisodeRelationship,
 			});
 		}
-		return { episodes, podcast };
+		return { podcast, episodes };
 	});
 
 const assertShowState = (client: Client, entityId: string, expected: LifecycleState) =>
 	Effect.gen(function* () {
 		const results = yield* Effect.all(
 			lifecycleStates.map((state) =>
-				executeRyotQLRecipe(client, showsByLifecycleStateRecipe({ entityId, limit: 1, state })),
+				executeRyotQLRecipe(client, showsByLifecycleStateRecipe({ state, entityId, limit: 1 })),
 			),
 		);
 		const memberships = results.flatMap((result, index) =>
@@ -226,7 +226,7 @@ const assertPodcastState = (client: Client, entityId: string, expected: Lifecycl
 	Effect.gen(function* () {
 		const results = yield* Effect.all(
 			lifecycleStates.map((state) =>
-				executeRyotQLRecipe(client, podcastsByLifecycleStateRecipe({ entityId, limit: 1, state })),
+				executeRyotQLRecipe(client, podcastsByLifecycleStateRecipe({ state, entityId, limit: 1 })),
 			),
 		);
 		const memberships = results.flatMap((result, index) =>
@@ -294,7 +294,7 @@ describe("Media episodic lifecycle query recipes", () => {
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
 				const schemas = yield* loadLifecycleSchemas(client);
-				const { episodes, show } = yield* seedShow(schemas, {
+				const { show, episodes } = yield* seedShow(schemas, {
 					productionStatus: "Continuing",
 					seasons: [{ seasonNumber: 1, episodeCount: 2 }],
 				});
@@ -454,7 +454,7 @@ describe("Media episodic lifecycle query recipes", () => {
 			assertPresent(season, "Expected show season");
 			const detail = yield* executeRyotQLRecipe(
 				client,
-				showSeasonEpisodesRecipe({ seasonId: season.id, episodeLimit: 10 }),
+				showSeasonEpisodesRecipe({ episodeLimit: 10, seasonId: season.id }),
 			);
 			assertPresent(detail, "Expected season episodes");
 			const episode = detail.episodes.items[0];
@@ -545,7 +545,7 @@ describe("Media episodic lifecycle query recipes", () => {
 			assertPresent(specialSeason, "Expected specials season");
 			const specialDetail = yield* executeRyotQLRecipe(
 				client,
-				showSeasonEpisodesRecipe({ seasonId: specialSeason.id, episodeLimit: 10 }),
+				showSeasonEpisodesRecipe({ episodeLimit: 10, seasonId: specialSeason.id }),
 			);
 			assertPresent(specialDetail, "Expected specials season episodes");
 			const specialEpisode = specialDetail.episodes.items[0];
@@ -566,7 +566,7 @@ describe("Media episodic lifecycle query recipes", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const schemas = yield* loadLifecycleSchemas(client);
-			const { episodes, podcast } = yield* seedPodcast(schemas, {
+			const { podcast, episodes } = yield* seedPodcast(schemas, {
 				episodeCount: 2,
 				productionStatus: "Continuing",
 			});
@@ -649,7 +649,7 @@ describe("Media episodic lifecycle query recipes", () => {
 
 			const detail = yield* executeRyotQLRecipe(
 				client,
-				podcastDetailRecipe({ entityId: podcast.id, episodeLimit: 10 }),
+				podcastDetailRecipe({ episodeLimit: 10, entityId: podcast.id }),
 			);
 			assertPresent(detail, "Expected podcast detail");
 			expect(detail.state).toBe("caught_up");
@@ -667,7 +667,7 @@ describe("Media episodic lifecycle query recipes", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const schemas = yield* loadLifecycleSchemas(client);
-			const { episodes, podcast } = yield* seedPodcast(schemas, {
+			const { podcast, episodes } = yield* seedPodcast(schemas, {
 				episodeCount: 1,
 				productionStatus: "Ended",
 			});
@@ -710,8 +710,8 @@ describe("Media episodic lifecycle query recipes", () => {
 				const secondEpisodeExternalId = `lifecycle-relationship-episode-2-${suffix}`;
 				const details = (episodeExternalIds: readonly string[]) =>
 					fakeProviderDetailsResult({
-						name: `Lifecycle Relationship Show ${suffix}`,
 						properties: { productionStatus: "Ended" },
+						name: `Lifecycle Relationship Show ${suffix}`,
 						childEntities: [
 							{
 								name: "Season 1",
@@ -730,8 +730,8 @@ describe("Media episodic lifecycle query recipes", () => {
 				const provider = yield* installTestProvider({
 					scope: "system",
 					name: providerName,
-					client: auth.client,
 					slug: providerSlug,
+					client: auth.client,
 					rootEntitySchemaSlug: schemas.showSchemaId,
 					details: details([firstEpisodeExternalId, secondEpisodeExternalId]),
 				});

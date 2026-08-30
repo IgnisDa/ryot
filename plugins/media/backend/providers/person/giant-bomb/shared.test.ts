@@ -38,7 +38,7 @@ describe("person.giant-bomb sandbox script", () => {
 
 		return runSandboxTestScript(
 			search,
-			{ query: "jane", page: 1, pageSize: 20 },
+			{ page: 1, pageSize: 20, query: "jane" },
 			host,
 			execution,
 		).pipe(
@@ -63,12 +63,12 @@ describe("person.giant-bomb sandbox script", () => {
 			httpSuccess({
 				error: "OK",
 				results: {
-					name: "Jane Dev",
 					deck: "A dev.",
-					hometown: "Tokyo",
+					name: "Jane Dev",
 					death_date: null,
-					description: "<p>bio</p>",
+					hometown: "Tokyo",
 					birth_date: "1980-05-02",
+					description: "<p>bio</p>",
 					image: { original_url: "https://img/p.jpg" },
 					site_detail_url: "https://www.giantbomb.com/jane/",
 					games: [{ name: "Game A", api_detail_url: "https://www.giantbomb.com/api/game/3030-9/" }],
@@ -111,13 +111,13 @@ describe("person.giant-bomb sandbox script", () => {
 					},
 				]);
 				expect(result.properties).toEqual({
+					deathDate: null,
 					alternateNames: [],
 					birthPlace: "Tokyo",
-					deathDate: null,
 					birthDate: "1980-05-02",
 					description: "A dev.\n\n<p>bio</p>",
 					sourceUrl: "https://www.giantbomb.com/jane/",
-					images: [{ type: "remote", url: "https://img/p.jpg", purpose: "profile" }],
+					images: [{ type: "remote", purpose: "profile", url: "https://img/p.jpg" }],
 				});
 				return undefined;
 			}),

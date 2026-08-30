@@ -104,7 +104,7 @@ const showSeasonCompletion = (season: ShowSeasonEpisodes) => ({
 });
 
 export const showSeasonCompletionPercent = (season: ShowSeasonEpisodes) => {
-	const { total, completed, hasMore } = showSeasonCompletion(season);
+	const { total, hasMore, completed } = showSeasonCompletion(season);
 	return hasMore || total === 0 ? undefined : Math.round((completed / total) * 100);
 };
 

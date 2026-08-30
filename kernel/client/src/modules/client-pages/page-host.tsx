@@ -61,12 +61,12 @@ export function ClientPageHost(props: {
 	const publishedTitle = usePluginTitle();
 	const chromeLeading = useScreenLeadingControl();
 	const { invalidationRevision } = usePluginCatalog();
-	const { backInterceptors, runtime, scope, theme } = useRouteContext({ from: "/_authenticated" });
+	const { scope, theme, runtime, backInterceptors } = useRouteContext({ from: "/_authenticated" });
 	const location = useRouterState({
 		select: (current) => current.resolvedLocation ?? current.location,
 	});
 	const entry = historyEntry(location.state);
-	const { identity, context } = props.prepared;
+	const { context, identity } = props.prepared;
 	const documentId = identity.target.kind === "saved-view" ? identity.target.savedViewId : "";
 	const documentRevision = "viewRevision" in identity ? identity.viewRevision : 0;
 	const baseOwner = `${identity.kind}:${identity.buildId}:${identity.graphHash}:${identity.artifactHash}:${documentId}:${documentRevision}`;
@@ -88,7 +88,7 @@ export function ClientPageHost(props: {
 		Match.when({ kind: "plugin-route" }, ({ path }) =>
 			rendererContributor?.kind === "plugin"
 				? toPluginLocation(rendererContributor.pluginSlug, location.pathname, location.searchStr)
-				: { kind: "route" as const, path, search },
+				: { path, search, kind: "route" as const },
 		),
 		Match.when({ kind: "entity" }, ({ entityId, entitySchemaSlug }) => ({
 			search,
@@ -181,22 +181,35 @@ export function ClientPageHost(props: {
 			freshnessCheckRevision={invalidationRevision}
 			onScreenState={(state) => screen.publish(owner, state)}
 			onOverlayState={(count) => overlay.publish(owner, count)}
+			onHeader={(publication) => header.publish(owner, publication)}
 			artifactSessionScopeKey={`${scope.serverUrl}\0${scope.userId}`}
 			onProviderSearch={(request) => props.onProviderSearch?.(request)}
-			onHeader={(publication) => header.publish(owner, publication)}
-			onNavigate={(request) =>
-				void navigate({
-					href: request.href,
-					replace: request.replace,
-					state: (current) => ({ ...current, ryotEntryKey: crypto.randomUUID() }),
-				})
-			}
 			title={rendererContributor?.kind === "plugin" ? rendererContributor.pluginSlug : props.title}
 			onUpload={(request, signal) =>
 				runtime.runPromise(temporaryUploadOutcome(scope, request), { signal })
 			}
 			onAssets={(request, signal) =>
 				runtime.runPromise(resolveManagedAssetOutcome(scope, request.assets), { signal })
+			}
+			onQuery={(request, signal) =>
+				runtime.runPromise(
+					Effect.flatMap(PluginQueriesService, (service) => service.query({ scope, request })),
+					{ signal },
+				)
+			}
+			navigation={{
+				...entry,
+				leading: edge.intent,
+				compact: edge.compact,
+				location: logicalLocation,
+				edgeBack: edge.owner === "plugin" && edge.intent === "back",
+			}}
+			onNavigate={(request) =>
+				void navigate({
+					href: request.href,
+					replace: request.replace,
+					state: (current) => ({ ...current, ryotEntryKey: crypto.randomUUID() }),
+				})
 			}
 			onPageSearch={({ mode, update }) => {
 				const nextSearch = mergePageSearch(location.searchStr, update);
@@ -210,19 +223,6 @@ export function ClientPageHost(props: {
 					}),
 				});
 			}}
-			navigation={{
-				...entry,
-				leading: edge.intent,
-				compact: edge.compact,
-				location: logicalLocation,
-				edgeBack: edge.owner === "plugin" && edge.intent === "back",
-			}}
-			onQuery={(request, signal) =>
-				runtime.runPromise(
-					Effect.flatMap(PluginQueriesService, (service) => service.query({ scope, request })),
-					{ signal },
-				)
-			}
 			onInvokeOperation={(request, signal) => {
 				const target = operationTargets.current.targets.find(
 					(candidate) => candidate.pluginSlug === request.pluginSlug,
@@ -250,7 +250,7 @@ export function ClientPageHost(props: {
 					} else {
 						response = await ryot.collections.removeMembership(request.input);
 					}
-					return { outcome: "success" as const, response };
+					return { response, outcome: "success" as const };
 				} catch (error) {
 					return {
 						outcome: "failure" as const,

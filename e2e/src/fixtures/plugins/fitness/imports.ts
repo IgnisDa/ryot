@@ -13,7 +13,7 @@ const OPENSCALE_SAMPLE_CSV = `dateTime,weight,bmi,fat,water,muscle,comment
 export const startOpenScaleImport = (client: Client, uploadToken: string) =>
 	Effect.gen(function* () {
 		const result = yield* client.call((c) =>
-			c.imports.createRun({ payload: { source: "open_scale", uploadToken } }),
+			c.imports.createRun({ payload: { uploadToken, source: "open_scale" } }),
 		);
 
 		return requirePresent(result.id, "Import run id is missing");
@@ -49,7 +49,7 @@ export const runHevyImportFixture = (client: Client, token: string) =>
 		);
 
 		const result = yield* client.call((c) =>
-			c.imports.createRun({ payload: { source: "hevy", uploadToken } }),
+			c.imports.createRun({ payload: { uploadToken, source: "hevy" } }),
 		);
 		const runId = requirePresent(result.id, "Import run id is missing");
 

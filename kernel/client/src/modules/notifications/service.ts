@@ -49,7 +49,7 @@ export const notificationChannelsQuery = createRyotQuery<
 	NotificationChannelsResult,
 	KernelHostServices
 >(
-	({ client, hostServices, input, signal }) =>
+	({ input, client, signal, hostServices }) =>
 		hostServices.runtime.runPromise(
 			Effect.flatMap(NotificationChannelsService, (service) =>
 				service.loadChannels(client, { limit: input }),
@@ -60,7 +60,7 @@ export const notificationChannelsQuery = createRyotQuery<
 );
 
 export const notificationSmtpEnabledQuery = createRyotQuery<void, boolean, KernelHostServices>(
-	({ hostServices, signal }) =>
+	({ signal, hostServices }) =>
 		hostServices.runtime.runPromise(
 			Effect.flatMap(PublicApi, (api) => api.getSystemConfig(hostServices.scope.serverUrl)).pipe(
 				Effect.match({
@@ -74,7 +74,7 @@ export const notificationSmtpEnabledQuery = createRyotQuery<void, boolean, Kerne
 );
 
 export const testNotificationChannelsMutation = createRyotMutation<void, void, KernelHostServices>(
-	async ({ client, hostServices, signal }) => {
+	async ({ client, signal, hostServices }) => {
 		const result = await hostServices.runtime.runPromise(
 			Effect.flatMap(NotificationsApi, (api) => api.testChannels(hostServices.scope)),
 			{ signal },
@@ -88,7 +88,7 @@ export const createNotificationChannelMutation = createRyotMutation<
 	CreateNotificationChannelBody,
 	ContractSuccess<"notifications", "createChannel">,
 	KernelHostServices
->(async ({ client, hostServices, input, signal }) => {
+>(async ({ input, client, signal, hostServices }) => {
 	const result = await hostServices.runtime.runPromise(
 		Effect.flatMap(NotificationsApi, (api) =>
 			api.createChannel(hostServices.scope, { payload: input }),
@@ -103,7 +103,7 @@ export const updateNotificationChannelMutation = createRyotMutation<
 	{ readonly id: string; readonly isDisabled: boolean },
 	ListedNotificationChannel,
 	KernelHostServices
->(async ({ client, hostServices, input, signal }) => {
+>(async ({ input, client, signal, hostServices }) => {
 	const result = await hostServices.runtime.runPromise(
 		Effect.flatMap(NotificationsApi, (api) =>
 			api.updateChannel(hostServices.scope, {
@@ -121,7 +121,7 @@ export const deleteNotificationChannelMutation = createRyotMutation<
 	string,
 	ContractSuccess<"notifications", "deleteChannel">,
 	KernelHostServices
->(async ({ client, hostServices, input, signal }) => {
+>(async ({ input, client, signal, hostServices }) => {
 	const result = await hostServices.runtime.runPromise(
 		Effect.flatMap(NotificationsApi, (api) =>
 			api.deleteChannel(hostServices.scope, {

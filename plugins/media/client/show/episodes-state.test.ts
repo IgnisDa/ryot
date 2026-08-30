@@ -198,7 +198,7 @@ describe("show episodes state", () => {
 		const [first, second] = readyEpisodes({
 			episodes: [
 				showEpisodeRow,
-				episode({ id: "episode-2", runtime: null, publishDate: null, description: "  " }),
+				episode({ runtime: null, id: "episode-2", publishDate: null, description: "  " }),
 			],
 		});
 		assert(first !== undefined && second !== undefined);
@@ -228,14 +228,14 @@ describe("show episodes state", () => {
 
 	it("collects only the managed locators the episodes tab renders", () => {
 		const seasons = readySeasons([
-			{ ...showSeasonRow, images: [{ type: "s3", key: "season-cover", purpose: "cover" }] },
+			{ ...showSeasonRow, images: [{ type: "s3", purpose: "cover", key: "season-cover" }] },
 		]);
 		const seasonEpisodes = mapShowSeasonEpisodes(
 			readyQueryResult(
 				decodeShowSeasonEpisodesResult({
 					episodes: [
-						episode({ images: [{ type: "local", key: "episode-still", purpose: "still" }] }),
-						episode({ id: "episode-2", images: null }),
+						episode({ images: [{ type: "local", purpose: "still", key: "episode-still" }] }),
+						episode({ images: null, id: "episode-2" }),
 					],
 				}),
 			),

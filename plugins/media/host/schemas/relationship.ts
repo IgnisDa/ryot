@@ -36,8 +36,8 @@ const buildCreditRelationshipSchemas = (input: {
 	targetEntitySchemaSlugs?: ReadonlyArray<string>;
 }) =>
 	(input.targetEntitySchemaSlugs ?? builtinMediaEntitySchemaSlugs).map((mediaSlug) => ({
-		sourceEntitySchemaSlug: input.sourceSlug,
 		targetEntitySchemaSlug: mediaSlug,
+		sourceEntitySchemaSlug: input.sourceSlug,
 		slug: slugify(`${input.sourceSlug} to ${mediaSlug}`),
 		name: `${input.sourceSlug.charAt(0).toUpperCase() + input.sourceSlug.slice(1)} to ${mediaSlug.charAt(0).toUpperCase() + mediaSlug.slice(1)}`,
 		propertiesSchema: {
@@ -221,24 +221,24 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 	...buildCreditRelationshipSchemas({
 		sourceSlug: "company",
 		targetEntitySchemaSlugs: ["music-group", "video-game-group"],
-		orderDescription: "Display order of this company in the group credits",
 		rolesItemDescription: "A specific role name (e.g. Label, Publisher)",
+		orderDescription: "Display order of this company in the group credits",
 		rolesDescription: "Roles this company filled in this group (e.g. Label, Publisher)",
 	}),
 	...(
 		[
-			{ group: "book-group", media: "book", name: "Book Series to Book" },
-			{ group: "music-group", media: "music", name: "Music Album to Music" },
-			{ group: "movie-group", media: "movie", name: "Movie Collection to Movie" },
-			{ group: "audiobook-group", media: "audiobook", name: "Audiobook Series to Audiobook" },
-			{ group: "comic-book-group", media: "comic-book", name: "Comic Book Series to Comic Book" },
+			{ media: "book", group: "book-group", name: "Book Series to Book" },
+			{ media: "music", group: "music-group", name: "Music Album to Music" },
+			{ media: "movie", group: "movie-group", name: "Movie Collection to Movie" },
+			{ media: "audiobook", group: "audiobook-group", name: "Audiobook Series to Audiobook" },
+			{ media: "comic-book", group: "comic-book-group", name: "Comic Book Series to Comic Book" },
 			{
 				media: "video-game",
 				group: "video-game-group",
 				name: "Video Game Collection to Video Game",
 			},
 		] as const
-	).map(({ group, media, name }) => ({
+	).map(({ name, group, media }) => ({
 		name,
 		slug: `${group}-to-${media}`,
 		sourceEntitySchemaSlug: group,

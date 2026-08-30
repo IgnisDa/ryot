@@ -22,7 +22,7 @@ import type { MediaImportAdapterFailure } from "./schemas";
 const sanitizeListName = (value: string) => value.replace(/\s*\(#\d+\)\s*$/, "").trim();
 
 export const adaptHardcoverCsv = (csvText: string) => {
-	const { headers, rows } = parseCsvText(csvText);
+	const { rows, headers } = parseCsvText(csvText);
 	assertRequiredHeaders(headers, ["Title", "Status", "Hardcover Book ID"], "Hardcover");
 	const failures: MediaImportAdapterFailure[] = [];
 	const groupMap = new Map<string, ImportMediaEntityGroupBuilder>();
@@ -51,9 +51,9 @@ export const adaptHardcoverCsv = (csvText: string) => {
 			groupMap,
 			{
 				sourceLabel,
+				kind: "resolved",
 				externalId: hardcoverId,
 				entitySchemaSlug: "book",
-				kind: "resolved",
 				providerSlug: "book.hardcover",
 			},
 			itemIndex,
@@ -76,9 +76,9 @@ export const adaptHardcoverCsv = (csvText: string) => {
 		} else if (lifecycleStatus === "backlog") {
 			group.events.push(createBacklogEvent(occurredAt));
 		} else if (lifecycleStatus === "dropped") {
-			group.events.push(createDroppedEvent({ occurredAt, startedOn }));
+			group.events.push(createDroppedEvent({ startedOn, occurredAt }));
 		} else if (lifecycleStatus === "on_hold") {
-			group.events.push(createOnHoldEvent({ occurredAt, startedOn }));
+			group.events.push(createOnHoldEvent({ startedOn, occurredAt }));
 		}
 		const review = createReviewEvent({
 			text: row["Review"] ?? "",
@@ -102,8 +102,8 @@ export const adaptHardcoverCsv = (csvText: string) => {
 		}
 	}
 	return {
+		failures,
 		totalItems: rows.length,
 		entityGroups: finalizeEntityGroups(groupMap.values()),
-		failures,
 	};
 };

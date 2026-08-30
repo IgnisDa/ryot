@@ -78,7 +78,7 @@ const mountView = (
 		),
 	);
 	const router = getRouter(
-		{ runtime, theme, backInterceptors: createBackInterceptors() },
+		{ theme, runtime, backInterceptors: createBackInterceptors() },
 		createMemoryHistory({ initialEntries: [initialEntry] }),
 	);
 	const view = render(<RouterProvider router={router} />);

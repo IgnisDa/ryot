@@ -30,8 +30,8 @@ describe("generic script definitions", () => {
 		});
 		const definition = defineScript({
 			manifest,
-			input: Schema.Struct({ value: Schema.Number }),
 			output: Schema.Number,
+			input: Schema.Struct({ value: Schema.Number }),
 			run: (input) => Effect.succeed(input.value + 1),
 		});
 
@@ -39,7 +39,7 @@ describe("generic script definitions", () => {
 		expect(definition.manifest).toBe(manifest);
 		expect(
 			await Effect.runPromise(
-				definition.run({ value: 41 }, {}, { sandboxScriptId: "script-1", metadata: {} }),
+				definition.run({ value: 41 }, {}, { metadata: {}, sandboxScriptId: "script-1" }),
 			),
 		).toBe(42);
 	});
@@ -70,19 +70,19 @@ describe("shared value contracts", () => {
 			decode(httpCallResultSchema)({
 				success: false,
 				error: "HTTP 429",
-				data: { body: "rate limited", status: 429, headers: { "retry-after": "10" } },
+				data: { status: 429, body: "rate limited", headers: { "retry-after": "10" } },
 			}),
 		).toEqual({
-			error: "HTTP 429",
 			success: false,
-			data: { body: "rate limited", status: 429, headers: { "retry-after": "10" } },
+			error: "HTTP 429",
+			data: { status: 429, body: "rate limited", headers: { "retry-after": "10" } },
 		});
 		expect(
 			decode(claimPersistentValueResultSchema)({
 				success: true,
 				data: { claimed: false, value: { owner: "other" } },
 			}),
-		).toEqual({ data: { claimed: false, value: { owner: "other" } }, success: true });
+		).toEqual({ success: true, data: { claimed: false, value: { owner: "other" } } });
 	});
 
 	test("accepts valid log and span batches", () => {
@@ -112,12 +112,12 @@ describe("shared value contracts", () => {
 
 	test("rejects malformed or excess log and span entries", () => {
 		expect(() => decode(logArgsSchema)([[{ level: "notice", message: "message" }]])).toThrow();
-		expect(() => decode(logArgsSchema)([[{ level: "error", message: "" }]])).toThrow();
+		expect(() => decode(logArgsSchema)([[{ message: "", level: "error" }]])).toThrow();
 		expect(() =>
-			decode(logArgsSchema)([[{ level: "debug", message: "message", extra: true }]]),
+			decode(logArgsSchema)([[{ extra: true, level: "debug", message: "message" }]]),
 		).toThrow();
 		expect(() => decode(spanArgsSchema)([[{ name: "", attributes: {} }]])).toThrow();
-		expect(() => decode(spanArgsSchema)([[{ name: "span", extra: true }]])).toThrow();
+		expect(() => decode(spanArgsSchema)([[{ extra: true, name: "span" }]])).toThrow();
 	});
 
 	test("validates global write batches and reconciliation selectors", () => {
@@ -144,7 +144,7 @@ describe("shared value contracts", () => {
 						relationshipSchemaSlug: "acted-in",
 						selector: { type: "anchored", direction: "outgoing", anchorEntityId: "person-1" },
 						relationships: [
-							{ properties: { order: 1 }, sourceEntityId: "person-1", targetEntityId: "movie-1" },
+							{ properties: { order: 1 }, targetEntityId: "movie-1", sourceEntityId: "person-1" },
 						],
 					},
 				],
@@ -177,8 +177,8 @@ describe("shared value contracts", () => {
 			decode(changeUserRelationshipsArgsSchema)([
 				[
 					{
-						creates: Array.from({ length: 51 }, () => ({ ...identity, properties: {} })),
 						deletes: Array.from({ length: 50 }, () => identity),
+						creates: Array.from({ length: 51 }, () => ({ ...identity, properties: {} })),
 					},
 				],
 			]),
@@ -212,8 +212,8 @@ describe("sandbox test hosts", () => {
 		});
 		const definition = defineScript({
 			manifest,
-			input: Schema.Struct({ key: Schema.String }),
 			output: Schema.NullOr(Schema.Number),
+			input: Schema.Struct({ key: Schema.String }),
 			run: (input, host) =>
 				host
 					.getCachedValue(input.key)

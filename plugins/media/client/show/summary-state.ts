@@ -32,7 +32,7 @@ export const mapShowSummary = (result: RyotQueryResult<ShowSummaryResult>): Show
 	if (show === null) {
 		return { status: "unavailable", reason: entitySchemaSlug === null ? "missing" : "unsupported" };
 	}
-	return { status: "ready", show };
+	return { show, status: "ready" };
 };
 
 export const showSummaryError = (state: ShowSummaryFailure) =>

@@ -31,6 +31,12 @@ export function sidebarSections(props: {
 	readonly workspaceSlug: string | undefined;
 }): SidebarSections {
 	return {
+		collections: enabledItems(props.data.collections.map((item) => withKind(item, "collection"))),
+		savedViews: enabledItems(
+			props.data.savedViews
+				.filter((item) => item.pluginSlug === null)
+				.map((item) => withKind(item, "view")),
+		),
 		views: [
 			homeItem,
 			...enabledItems(
@@ -39,12 +45,6 @@ export function sidebarSections(props: {
 					.map((item) => withKind(item, "view")),
 			),
 		],
-		savedViews: enabledItems(
-			props.data.savedViews
-				.filter((item) => item.pluginSlug === null)
-				.map((item) => withKind(item, "view")),
-		),
-		collections: enabledItems(props.data.collections.map((item) => withKind(item, "collection"))),
 	};
 }
 

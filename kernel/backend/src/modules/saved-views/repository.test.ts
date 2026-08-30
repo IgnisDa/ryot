@@ -16,18 +16,18 @@ const savedViewRow = (input: {
 }) => ({
 	...input,
 	userId,
-	settings: {},
-	dataSources: null,
-	clientRendererId: null,
-	renderer: { kind: "kernel", name: "results-table" } as const,
 	icon: "old",
 	name: "Old",
+	revision: 1,
+	settings: {},
 	sortOrder: 9,
 	isDisabled: true,
+	dataSources: null,
 	pluginSlug: "private",
+	clientRendererId: null,
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
-	revision: 1,
+	renderer: { kind: "kernel", name: "results-table" } as const,
 });
 
 const makeLayer = (
@@ -54,13 +54,13 @@ const makeLayer = (
 
 const desiredView = {
 	settings: {},
-	dataSources: null,
-	renderer: { kind: "kernel", name: "results-table" } as const,
 	sortOrder: 1,
 	icon: "updated",
 	name: "Updated",
+	dataSources: null,
 	slug: "generated",
 	pluginInstallationId: "installation-id",
+	renderer: { kind: "kernel", name: "results-table" } as const,
 };
 
 it.effect("reconciles generated views while preserving user-controlled state", () => {
@@ -88,7 +88,7 @@ it.effect("reconciles generated views while preserving user-controlled state", (
 		expect(mutations.deletes).toBe(1);
 		expect(mutations.inserts).toEqual([]);
 		expect(mutations.updates).toEqual([
-			expect.not.objectContaining({ isDisabled: expect.anything(), sortOrder: expect.anything() }),
+			expect.not.objectContaining({ sortOrder: expect.anything(), isDisabled: expect.anything() }),
 		]);
 		expect(mutations.updates).toMatchObject([
 			{ name: "Updated", icon: "updated", renderer: desiredView.renderer },
@@ -167,7 +167,7 @@ it.effect("reorders a scope with one set-based statement", () => {
 				set: (values: { sortOrder: Parameters<PgDialect["sqlToQuery"]>[0] }) => ({
 					where: (condition: Parameters<PgDialect["sqlToQuery"]>[0]) => ({
 						returning: () => {
-							statements.push({ set: values.sortOrder, where: condition });
+							statements.push({ where: condition, set: values.sortOrder });
 							return Effect.succeed([{ slug: "view-b" }, { slug: "view-a" }]);
 						},
 					}),

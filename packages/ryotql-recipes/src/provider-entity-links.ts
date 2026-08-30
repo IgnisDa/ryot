@@ -30,6 +30,7 @@ export const providerEntityLinksRecipe = defineRecipe(
 		const relationship = table("relationship", "inLibrary");
 
 		return {
+			map: ({ links }) => Result.succeed(links.items),
 			queries: {
 				links: selectedRows(entity, {
 					limit: input.externalIds.length,
@@ -62,7 +63,6 @@ export const providerEntityLinksRecipe = defineRecipe(
 					),
 				}),
 			},
-			map: ({ links }) => Result.succeed(links.items),
 		};
 	},
 );

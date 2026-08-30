@@ -44,7 +44,7 @@ const watch = Effect.gen(function* () {
 			ChildProcess.make(
 				"ryot",
 				["plugin", "build", "--watch", "--output", `../../apps/server/plugins/${slug}.zip`],
-				{ cwd: packageRoot(slug), stderr: "inherit", stdin: "inherit", stdout: "inherit" },
+				{ stdin: "inherit", stderr: "inherit", stdout: "inherit", cwd: packageRoot(slug) },
 			).pipe(
 				Effect.flatMap((process) => process.exitCode),
 				Effect.scoped,

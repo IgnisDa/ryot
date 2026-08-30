@@ -39,7 +39,7 @@ const dependencyUnavailable = (pluginSlug: string) =>
 	});
 
 const exportNotFound = (exportName: string) =>
-	new ClientRendererBadRequest({ reason: { code: "export-not-found", exportName } });
+	new ClientRendererBadRequest({ reason: { exportName, code: "export-not-found" } });
 
 const namespaceFor = (kind: "kernel" | "plugin" | "renderer", id: string) =>
 	`${kind}-${sha256Hex(id)}`;
@@ -373,10 +373,10 @@ export const resolveClientPageGraph = <E, R>(
 			),
 		);
 		const entry = isRenderer
-			? { contributor: rendererNamespace ?? "", path: input.definition.entry }
+			? { path: input.definition.entry, contributor: rendererNamespace ?? "" }
 			: {
-					contributor: namespaceFor("plugin", input.plugin.id),
 					path: selectedPluginExport?.entry ?? "",
+					contributor: namespaceFor("plugin", input.plugin.id),
 				};
 		const rendererContributors: Array<ClientPageGraphIdentity["contributors"][number]> = [];
 		if (isKernel) {
@@ -409,7 +409,7 @@ export const resolveClientPageGraph = <E, R>(
 			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 			selectedExports: sortBy([...selectedExports]),
 			kernelAutomaticFallback: automaticEntityPresentations
-				? { provider: "kernel", runtimeVersion: CLIENT_API_VERSION, layouts: ["grid", "list"] }
+				? { provider: "kernel", layouts: ["grid", "list"], runtimeVersion: CLIENT_API_VERSION }
 				: null,
 			automaticRegistry: sortBy(
 				automaticRegistry,
@@ -469,8 +469,8 @@ export const resolveClientPageGraph = <E, R>(
 				...(routeRegistry ? { routeRegistry } : {}),
 				automaticRegistry: identity.automaticRegistry,
 				application: isRenderer ? "page" : input.application,
-				name: isRenderer ? input.rendererName : input.plugin.manifest.metadata.name,
 				contributorOrder: identity.contributors.map(({ namespace }) => namespace),
+				name: isRenderer ? input.rendererName : input.plugin.manifest.metadata.name,
 				contributors: {
 					...(isRenderer && rendererNamespace
 						? { [rendererNamespace]: { files: input.rendererFiles } }

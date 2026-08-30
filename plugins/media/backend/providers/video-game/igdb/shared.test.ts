@@ -11,20 +11,20 @@ import { manifest } from "./shared";
 
 type IgdbVideoGameHost = SandboxHost<typeof manifest.capabilities>;
 const httpSuccess = (body: unknown, headers: Record<string, string> = {}) =>
-	Effect.succeed({ status: 200, headers, body: JSON.stringify(body) });
+	Effect.succeed({ headers, status: 200, body: JSON.stringify(body) });
 const tokenResponse = () =>
-	httpSuccess({ access_token: "token", token_type: "bearer", expires_in: 3600 });
+	httpSuccess({ expires_in: 3600, token_type: "bearer", access_token: "token" });
 const makeHost = (overrides: Partial<IgdbVideoGameHost>): IgdbVideoGameHost =>
 	defineSandboxTestHost(manifest, {
 		getCachedValue: () => Effect.succeed(null),
 		setCachedValue: () => Effect.succeed(null),
+		httpCall: () => Effect.fail(new Error("no route")),
 		getPluginConfig: (keys) =>
 			Effect.succeed(
 				Object.fromEntries(
 					keys.map((key) => [key, key === "twitchClientId" ? "client-id" : "client-secret"]),
 				),
 			),
-		httpCall: () => Effect.fail(new Error("no route")),
 		...overrides,
 	});
 
@@ -57,14 +57,6 @@ describe("video-game.igdb sandbox script", () => {
 
 	it("loads, normalizes, deduplicates, and sorts search choices", () => {
 		const responses: Record<string, unknown> = {
-			"/v4/themes": [
-				{ id: 2, name: "Zelda" },
-				{ id: 1, name: "Alpha" },
-				{ id: 2, name: "Duplicate" },
-				{ id: "invalid", name: "Invalid ID" },
-				{ id: 3, name: " " },
-				null,
-			],
 			"/v4/genres": [
 				{ id: 4, name: "Strategy" },
 				{ id: 3, name: "Action" },
@@ -84,6 +76,14 @@ describe("video-game.igdb sandbox script", () => {
 			"/v4/release_date_regions": [
 				{ id: 12, region: "North America" },
 				{ id: 11, region: "Europe" },
+			],
+			"/v4/themes": [
+				{ id: 2, name: "Zelda" },
+				{ id: 1, name: "Alpha" },
+				{ id: 2, name: "Duplicate" },
+				{ id: "invalid", name: "Invalid ID" },
+				{ id: 3, name: " " },
+				null,
 			],
 		};
 		const requestedPaths: Array<string> = [];
@@ -262,7 +262,7 @@ describe("video-game.igdb sandbox script", () => {
 			},
 		});
 		return Effect.runPromise(
-			runSandboxTestScript(search, { query: "game", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { page: 1, pageSize: 20, query: "game" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(result.items).toEqual([
 						{
@@ -272,7 +272,7 @@ describe("video-game.igdb sandbox script", () => {
 							imageUrl: "https://images.igdb.com/igdb/image/upload/t_cover_big/abc.jpg",
 						},
 					]);
-					expect(result.details).toEqual({ totalItems: 5, nextPage: 2 });
+					expect(result.details).toEqual({ nextPage: 2, totalItems: 5 });
 					return undefined;
 				}),
 			),
@@ -368,7 +368,7 @@ describe("video-game.igdb sandbox script", () => {
 					Effect.runPromise(
 						runSandboxTestScript(
 							search,
-							{ page: 1, pageSize: 20, query: "game", options },
+							{ page: 1, options, pageSize: 20, query: "game" },
 							host,
 							execution,
 						),
@@ -395,11 +395,11 @@ describe("video-game.igdb sandbox script", () => {
 			},
 		});
 		return Effect.runPromise(
-			runSandboxTestScript(search, { query: "game", page: 1, pageSize: 20 }, host, execution).pipe(
+			runSandboxTestScript(search, { page: 1, pageSize: 20, query: "game" }, host, execution).pipe(
 				Effect.map((result) => {
 					expect(tokenPosts).toBe(1);
 					expect(cacheWrites).toEqual([
-						["access_token", { accessToken: "Bearer token", clientId: "client-id" }, 3300],
+						["access_token", { clientId: "client-id", accessToken: "Bearer token" }, 3300],
 					]);
 					expect(result.items).toEqual([]);
 					return undefined;
@@ -457,7 +457,7 @@ describe("video-game.igdb sandbox script", () => {
 							direction: "outgoing",
 							synchronization: "authoritative",
 							relationshipSchemaSlug: "media-suggestion",
-							entities: [{ name: "Pick One", externalId: "2", providerSlug: "video-game.igdb" }],
+							entities: [{ externalId: "2", name: "Pick One", providerSlug: "video-game.igdb" }],
 						},
 					]);
 					return undefined;

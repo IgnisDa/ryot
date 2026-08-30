@@ -31,7 +31,7 @@ describe("company.hardcover sandbox script", () => {
 
 		return runSandboxTestScript(
 			search,
-			{ query: "pub", page: 2, pageSize: 20 },
+			{ page: 2, query: "pub", pageSize: 20 },
 			host,
 			execution,
 		).pipe(

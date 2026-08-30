@@ -10,17 +10,17 @@ import {
 
 export const manifest = defineManifest({
 	kind: "operation",
-	name: "Disable media monitoring",
-	slug: "operation.media-monitoring-disable",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
+	name: "Disable media monitoring",
+	slug: "operation.media-monitoring-disable",
 	capabilities: ["executeRyotql", "changeUserRelationships"],
 });
 
 export default defineOperation({
 	manifest,
-	input: MediaMonitoringDisableInput,
 	output: MediaMonitoringOutput,
+	input: MediaMonitoringDisableInput,
 	run: (input, host) =>
 		Effect.gen(function* () {
 			const targets = yield* queryMediaMonitoringTargets(input.entityIds, host.executeRyotql);
@@ -36,7 +36,7 @@ export default defineOperation({
 					: [],
 			);
 			if (deletes.length > 0) {
-				yield* host.changeUserRelationships([{ creates: [], deletes }]);
+				yield* host.changeUserRelationships([{ deletes, creates: [] }]);
 			}
 			return { results: alignedMediaMonitoringResults(input.entityIds, targets, () => false) };
 		}),

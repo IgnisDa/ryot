@@ -54,7 +54,7 @@ const render = (children: ReactNode, runtime = plainClock().runtime, hostService
 	roots.push(root);
 	act(() =>
 		root.render(
-			<RyotProvider hostServices={hostServices} runtime={runtime}>
+			<RyotProvider runtime={runtime} hostServices={hostServices}>
 				{children}
 			</RyotProvider>,
 		),
@@ -81,7 +81,7 @@ describe("useRyotQuery", () => {
 		});
 		const query = createRyotQuery(() => Promise.resolve(++calls), {
 			initialData: () => 0,
-			entityInterest: () => ({ foreground: ["root"], visible: [] }),
+			entityInterest: () => ({ visible: [], foreground: ["root"] }),
 		});
 		const View = () => <p>{useRyotQuery(query).data}</p>;
 		const container = document.createElement("div");
@@ -121,7 +121,7 @@ describe("useRyotQuery", () => {
 			});
 			const query = createRyotQuery<{ id: string }, number>(() => Promise.resolve(++calls), {
 				...(hydrated ? { initialData: () => 0 } : {}),
-				entityInterest: ({ input }) => ({ foreground: [input.id], visible: [] }),
+				entityInterest: ({ input }) => ({ visible: [], foreground: [input.id] }),
 			});
 			const View = () => <p>{useRyotQuery(query, { id: "root" }).data ?? "pending"}</p>;
 			const views = (
@@ -162,7 +162,7 @@ describe("useRyotQuery", () => {
 				calls.push(input);
 				return Promise.resolve(input);
 			},
-			{ entityInterest: ({ input }) => ({ foreground: [input], visible: [] }) },
+			{ entityInterest: ({ input }) => ({ visible: [], foreground: [input] }) },
 		);
 		const View = ({ id }: { id: string }) => <p>{useRyotQuery(query, id).data}</p>;
 		render(
@@ -180,15 +180,15 @@ describe("useRyotQuery", () => {
 		const visibility = Object.getOwnPropertyDescriptor(document, "visibilityState");
 		try {
 			act(() => {
-				Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+				Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
 				document.dispatchEvent(new Event("visibilitychange"));
 			});
 			await clock.advance(250);
 			expect(calls).toEqual(["active", "hidden"]);
 			act(() => {
 				Object.defineProperty(document, "visibilityState", {
-					configurable: true,
 					value: "visible",
+					configurable: true,
 				});
 				document.dispatchEvent(new Event("visibilitychange"));
 				document.dispatchEvent(new Event("visibilitychange"));
@@ -251,7 +251,7 @@ describe("useRyotQuery", () => {
 		const requests: Array<{ signal: AbortSignal; resolve: (value: number) => void }> = [];
 		const query = createRyotQuery(
 			({ signal }) => new Promise<number>((resolve) => requests.push({ signal, resolve })),
-			{ initialData: () => 0, entityInterest: () => ({ foreground: ["root"], visible: [] }) },
+			{ initialData: () => 0, entityInterest: () => ({ visible: [], foreground: ["root"] }) },
 		);
 		const View = () => {
 			latest = useRyotQuery(query);
@@ -304,8 +304,8 @@ describe("useRyotQuery", () => {
 		}> = [];
 		const query = createRyotQuery(
 			({ signal }) =>
-				new Promise<string[]>((resolve, reject) => requests.push({ resolve, reject, signal })),
-			{ entityInterest: ({ data }) => ({ foreground: ["root"], visible: data ?? [] }) },
+				new Promise<string[]>((resolve, reject) => requests.push({ reject, signal, resolve })),
+			{ entityInterest: ({ data }) => ({ visible: data ?? [], foreground: ["root"] }) },
 		);
 		const View = () => <p>{useRyotQuery(query).data?.join(",") ?? "pending"}</p>;
 		const container = render(
@@ -317,7 +317,7 @@ describe("useRyotQuery", () => {
 		);
 		await clock.advance(0);
 		expect(watches).toBe(1);
-		expect(updates[0]).toEqual({ foreground: ["root"], visible: [] });
+		expect(updates[0]).toEqual({ visible: [], foreground: ["root"] });
 		act(() => {
 			hint({ entityId: "root", reason: "populated" });
 			hint({ entityId: "root", reason: "translated" });
@@ -330,7 +330,7 @@ describe("useRyotQuery", () => {
 		});
 		await clock.advance(0);
 		expect(container.textContent).toBe("childchild");
-		expect(updates.at(-1)).toEqual({ foreground: ["root"], visible: ["child"] });
+		expect(updates.at(-1)).toEqual({ visible: ["child"], foreground: ["root"] });
 		await clock.advance(250);
 		expect(requests).toHaveLength(2);
 		act(() => {
@@ -339,7 +339,7 @@ describe("useRyotQuery", () => {
 		await clock.advance(1000);
 		expect(requests).toHaveLength(2);
 		expect(container.textContent).toBe("childchild");
-		expect(updates.at(-1)).toEqual({ foreground: ["root"], visible: ["child"] });
+		expect(updates.at(-1)).toEqual({ visible: ["child"], foreground: ["root"] });
 		act(() => roots[0]?.unmount());
 		roots = [];
 		expect(disposals).toBe(1);
@@ -351,17 +351,17 @@ describe("useRyotQuery", () => {
 		const watchEntities = () => {
 			watches++;
 			return {
+				update: () => undefined,
 				dispose: () => {
 					disposals++;
 				},
-				update: () => undefined,
 			};
 		};
 		const clock = makeClock({ watchEntities });
 		const requests: Array<{ resolve: (value: number) => void; signal: AbortSignal }> = [];
 		const query = createRyotQuery(
 			({ signal }) => new Promise<number>((resolve) => requests.push({ signal, resolve })),
-			{ cancelOnUnmount: true, entityInterest: () => ({ foreground: ["root"], visible: [] }) },
+			{ cancelOnUnmount: true, entityInterest: () => ({ visible: [], foreground: ["root"] }) },
 		);
 		const View = () => <p>{useRyotQuery(query).data ?? "pending"}</p>;
 		const view = <View />;
@@ -403,7 +403,7 @@ describe("useRyotQuery", () => {
 
 	it("supplies host services to query definitions", async () => {
 		type HostServices = { readonly read: (input: string) => Promise<string> };
-		const query = createRyotQuery<string, string, HostServices>(({ hostServices, input }) =>
+		const query = createRyotQuery<string, string, HostServices>(({ input, hostServices }) =>
 			hostServices.read(input),
 		);
 		const View = () => <p>{useRyotQuery(query, "settings").data ?? "pending"}</p>;
@@ -748,10 +748,10 @@ describe("useRyotQuery", () => {
 		act(() =>
 			root.render(
 				<>
-					<RyotProvider hostServices={{ value: "left" }} runtime={runtime}>
+					<RyotProvider runtime={runtime} hostServices={{ value: "left" }}>
 						<View />
 					</RyotProvider>
-					<RyotProvider hostServices={{ value: "right" }} runtime={runtime}>
+					<RyotProvider runtime={runtime} hostServices={{ value: "right" }}>
 						<View />
 					</RyotProvider>
 				</>,
@@ -767,7 +767,7 @@ describe("useRyotQuery", () => {
 		let calls = 0;
 		let latest: RyotQueryResult<string> | undefined;
 		const query = createRyotQuery<{ readonly page: number }, string, HostServices>(
-			({ hostServices, input }) => {
+			({ input, hostServices }) => {
 				calls++;
 				return Promise.resolve(`${hostServices.value}:${input.page}`);
 			},
@@ -783,7 +783,7 @@ describe("useRyotQuery", () => {
 		roots.push(root);
 		act(() =>
 			root.render(
-				<RyotProvider hostServices={{ value: "first" }} runtime={clock.runtime}>
+				<RyotProvider runtime={clock.runtime} hostServices={{ value: "first" }}>
 					<View />
 				</RyotProvider>,
 			),
@@ -792,7 +792,7 @@ describe("useRyotQuery", () => {
 
 		act(() =>
 			root.render(
-				<RyotProvider hostServices={{ value: "second" }} runtime={clock.runtime}>
+				<RyotProvider runtime={clock.runtime} hostServices={{ value: "second" }}>
 					<View />
 				</RyotProvider>,
 			),
@@ -816,10 +816,10 @@ describe("useEntityRefresh", () => {
 			watches++;
 			hint = listener;
 			return {
+				update: () => undefined,
 				dispose: () => {
 					disposals++;
 				},
-				update: () => undefined,
 			};
 		};
 		const clock = makeClock({ watchEntities });
@@ -827,16 +827,16 @@ describe("useEntityRefresh", () => {
 			refreshes++;
 			return Promise.reject(new Error("offline"));
 		};
-		const View = ({ identity, blocked }: { identity: string; blocked: boolean }) => {
+		const View = ({ blocked, identity }: { identity: string; blocked: boolean }) => {
 			useEntityRefresh({
-				identity,
 				blocked,
+				identity,
 				onRefresh,
-				interest: { foreground: [identity], visible: [] },
+				interest: { visible: [], foreground: [identity] },
 			});
 			return null;
 		};
-		render(<View identity="a" blocked />, clock.runtime);
+		render(<View blocked identity="a" />, clock.runtime);
 		act(() => hint({ entityId: "a", reason: "populated" }));
 		await clock.advance(500);
 		expect(refreshes).toBe(0);
@@ -886,7 +886,7 @@ describe("useEntityRefresh", () => {
 				onRefresh,
 				blocked: false,
 				identity: "root",
-				interest: { foreground: ["root"], visible: [] },
+				interest: { visible: [], foreground: ["root"] },
 			});
 			return <p>available</p>;
 		};
@@ -899,7 +899,7 @@ describe("useRyotMutation", () => {
 	it("supplies host services to mutation definitions", async () => {
 		type HostServices = { readonly write: (input: string) => Promise<string> };
 		let latest: RyotMutationResult<string, string> | undefined;
-		const mutation = createRyotMutation<string, string, HostServices>(({ hostServices, input }) =>
+		const mutation = createRyotMutation<string, string, HostServices>(({ input, hostServices }) =>
 			hostServices.write(input),
 		);
 		const View = () => {

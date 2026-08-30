@@ -47,7 +47,7 @@ const installOtherOperationPlugin = (client: Client) => {
 					manifest,
 					files: {
 						[entry]: new TextEncoder().encode(
-							operationSandboxSource({ name: "E2E Echo Operation", slug: scriptSlug }),
+							operationSandboxSource({ slug: scriptSlug, name: "E2E Echo Operation" }),
 						),
 					},
 				},
@@ -70,7 +70,7 @@ describe("client plugin operations", () => {
 			const { result } = yield* client.call((c) =>
 				c.plugins.invoke({
 					payload: { payload: { name: "Ryot" } },
-					params: { pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG, operationSlug: "greet" },
+					params: { operationSlug: "greet", pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG },
 				}),
 			);
 
@@ -87,7 +87,7 @@ describe("client plugin operations", () => {
 				client.call((c) =>
 					c.plugins.invoke({
 						payload: { payload: { name: "" } },
-						params: { pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG, operationSlug: "greet" },
+						params: { operationSlug: "greet", pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG },
 					}),
 				),
 			);
@@ -109,7 +109,7 @@ describe("client plugin operations", () => {
 				getApiClient().call((c) =>
 					c.plugins.invoke({
 						payload: { payload: { name: "Ryot" } },
-						params: { pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG, operationSlug: "greet" },
+						params: { operationSlug: "greet", pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG },
 					}),
 				),
 			);
@@ -128,7 +128,7 @@ describe("client plugin operations", () => {
 				client.call((c) =>
 					c.plugins.invoke({
 						payload: { payload: { name: "Ryot" } },
-						params: { pluginSlug: other.pluginSlug, operationSlug: "greet" },
+						params: { operationSlug: "greet", pluginSlug: other.pluginSlug },
 					}),
 				),
 			);

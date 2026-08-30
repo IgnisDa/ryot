@@ -14,11 +14,11 @@ import {
 } from "../../../lib/vendors/igdb";
 
 export const manifest = defineManifest({
-	kind: "provider",
 	name: "IGDB",
+	kind: "provider",
 	slug: "video-game.igdb",
-	requiredPluginConfigKeys: ["twitchClientId", "twitchClientSecret"],
 	requiredSystemConfigKeys: [],
+	requiredPluginConfigKeys: ["twitchClientId", "twitchClientSecret"],
 	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 });
 const IMAGE_BASE_URL = "https://images.igdb.com/igdb/image/upload/t_cover_big";
@@ -72,7 +72,7 @@ const buildPlatformReleases = (releaseDates: unknown) => {
 		}
 		const releaseDate = unixToIsoDate(record["date"]);
 		const releaseRegion = stringValue(asRecord(record["release_region"])?.["region"]);
-		return [{ name: platformName, releaseDate, releaseRegion }];
+		return [{ releaseDate, releaseRegion, name: platformName }];
 	});
 	if (releases.length === 0) {
 		return null;
@@ -105,8 +105,8 @@ const collectCompanies = (involvedCompanies: unknown) => {
 		}
 		accumulator.add({
 			name,
-			externalId: String(Math.trunc(id)),
 			providerSlug: "company.igdb",
+			externalId: String(Math.trunc(id)),
 			relationshipProperties: { roles: [role] },
 		});
 	}
@@ -141,7 +141,7 @@ const collectSuggestions = (similarGames: unknown) =>
 		if (id === null || !name) {
 			return [];
 		}
-		return [{ name, externalId: String(Math.trunc(id)), providerSlug: "video-game.igdb" }];
+		return [{ name, providerSlug: "video-game.igdb", externalId: String(Math.trunc(id)) }];
 	});
 const SEARCH_FIELDS = "id, name, cover.image_id, first_release_date";
 const DETAIL_FIELDS = [
@@ -169,9 +169,9 @@ const DETAIL_FIELDS = [
 ].join(", ");
 const IGDB_OPTIONS_PAGE_SIZE = 500;
 const searchOptionSources = {
-	themes: { fields: "id,name", labelField: "name", path: "themes" },
-	genres: { fields: "id,name", labelField: "name", path: "genres" },
-	platforms: { fields: "id,name", labelField: "name", path: "platforms" },
+	themes: { path: "themes", fields: "id,name", labelField: "name" },
+	genres: { path: "genres", fields: "id,name", labelField: "name" },
+	platforms: { fields: "id,name", path: "platforms", labelField: "name" },
 	gameModes: { fields: "id,name", labelField: "name", path: "game_modes" },
 	gameTypes: { fields: "id,type", labelField: "type", path: "game_types" },
 	releaseDateRegions: { fields: "id,region", labelField: "region", path: "release_date_regions" },
@@ -248,7 +248,7 @@ export const search = defineProvider({
 				`offset ${offset};`,
 			].join("\n");
 			return yield* makeIgdbRequest(host, "games", body).pipe(
-				Effect.flatMap(({ data: results, headers }) => {
+				Effect.flatMap(({ headers, data: results }) => {
 					if (!Array.isArray(results)) {
 						return Effect.fail(new Error("IGDB search returned unexpected response format"));
 					}
@@ -333,8 +333,8 @@ export const details = defineProvider({
 					if (coverImageId) {
 						images.push({
 							type: "remote",
-							url: getImageUrl(coverImageId),
 							purpose: "cover" as const,
+							url: getImageUrl(coverImageId),
 						});
 					}
 					for (const artwork of Array.isArray(game?.["artworks"]) ? game["artworks"] : []) {
@@ -342,8 +342,8 @@ export const details = defineProvider({
 						if (artworkImageId) {
 							images.push({
 								type: "remote",
-								url: getImageUrl(artworkImageId),
 								purpose: "artwork" as const,
+								url: getImageUrl(artworkImageId),
 							});
 						}
 					}
@@ -364,12 +364,22 @@ export const details = defineProvider({
 					const gameSlug = stringValue(game?.["slug"]) ?? toSlug(name);
 					return {
 						name,
+						properties: {
+							images,
+							genres,
+							timeToBeat,
+							description: stringValue(game?.["summary"]),
+							providerRating: numberValue(game?.["rating"]),
+							sourceUrl: `https://www.igdb.com/games/${gameSlug}`,
+							publishYear: extractYear(game?.["first_release_date"]),
+							platformReleases: buildPlatformReleases(game?.["release_dates"]),
+						},
 						relatedEntityGroups: [
 							{
 								direction: "incoming" as const,
 								synchronization: "additive" as const,
-								entities: collectCompanies(game?.["involved_companies"]),
 								relationshipSchemaSlug: "company-to-video-game",
+								entities: collectCompanies(game?.["involved_companies"]),
 							},
 							{
 								direction: "incoming" as const,
@@ -380,20 +390,10 @@ export const details = defineProvider({
 							{
 								direction: "outgoing" as const,
 								synchronization: "authoritative" as const,
-								entities: collectSuggestions(game?.["similar_games"]),
 								relationshipSchemaSlug: "media-suggestion",
+								entities: collectSuggestions(game?.["similar_games"]),
 							},
 						],
-						properties: {
-							images,
-							genres,
-							timeToBeat,
-							description: stringValue(game?.["summary"]),
-							providerRating: numberValue(game?.["rating"]),
-							platformReleases: buildPlatformReleases(game?.["release_dates"]),
-							sourceUrl: `https://www.igdb.com/games/${gameSlug}`,
-							publishYear: extractYear(game?.["first_release_date"]),
-						},
 					};
 				}),
 			),

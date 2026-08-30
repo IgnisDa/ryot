@@ -22,6 +22,15 @@ const makeBootstrapDb = (options?: {
 	const userRows = [{ bootstrapCompletedAt: marker }];
 
 	return Object.assign(Object.create(null), {
+		execute: () => Effect.succeed({}),
+		update: () => ({
+			set: () => ({
+				where: () => {
+					options?.onMarkComplete?.();
+					return Effect.succeed({});
+				},
+			}),
+		}),
 		select: () => ({
 			from: (table: unknown) => {
 				if (table !== schema.user) {
@@ -33,15 +42,6 @@ const makeBootstrapDb = (options?: {
 				};
 			},
 		}),
-		update: () => ({
-			set: () => ({
-				where: () => {
-					options?.onMarkComplete?.();
-					return Effect.succeed({});
-				},
-			}),
-		}),
-		execute: () => Effect.succeed({}),
 	});
 };
 
@@ -128,14 +128,14 @@ it.effect("short-circuits when the completion marker is already set", () => {
 	}).pipe(
 		Effect.provide(
 			makeLayer({
+				onDefaultRules: () => {
+					defaultRulesEnsured = true;
+				},
 				db: makeBootstrapDb({ bootstrapCompletedAt: new Date("2026-01-01T00:00:00Z") }),
 				dispatch: () =>
 					Effect.sync(() => {
 						dispatched = true;
 					}).pipe(Effect.as(undefined)),
-				onDefaultRules: () => {
-					defaultRulesEnsured = true;
-				},
 			}),
 		),
 	);
@@ -156,13 +156,13 @@ it.effect("does not complete after plugin failure and reruns the plugin safely o
 	}).pipe(
 		Effect.provide(
 			makeLayer({
+				db: makeBootstrapDb({ onMarkComplete: () => (markerUpdated = true) }),
 				dispatch: () => {
 					attempts += 1;
 					return attempts === 1
 						? Effect.fail(new SandboxRunError({ message: "bootstrap failed" }))
 						: Effect.sync((): undefined => undefined);
 				},
-				db: makeBootstrapDb({ onMarkComplete: () => (markerUpdated = true) }),
 			}),
 		),
 	);

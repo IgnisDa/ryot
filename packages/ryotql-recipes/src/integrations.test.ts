@@ -6,42 +6,42 @@ import { requireRowsQuery, rowsResult } from "./test-utils";
 
 const item = {
 	lot: "yank",
-	id: "integration-1",
 	isDisabled: false,
+	id: "integration-1",
 	maximumProgress: 95,
-	provider: "provider-1",
-	pluginSlug: "plugin-1",
 	syncOwnership: true,
 	minimumProgress: 2.5,
+	provider: "provider-1",
+	pluginSlug: "plugin-1",
 	name: "Primary integration",
 	createdAt: "2026-01-01T01:00:00+02:00",
 	updatedAt: "2026-01-02T01:00:00+02:00",
 	lastFinishedAt: "2026-01-03T01:00:00+02:00",
 	extraSettings: { disableOnContinuousErrors: true },
 };
-const pageInfo = { hasMore: true, limit: 2, nextCursor: "next" };
+const pageInfo = { limit: 2, hasMore: true, nextCursor: "next" };
 const rows = (items: readonly unknown[], limit = 2) => rowsResult(items, { ...pageInfo, limit });
 
 describe("integration recipes", () => {
 	it("prepares list fields, filters, pagination, and stable ordering", () => {
 		const query = requireRowsQuery(
-			integrationsRecipe({ after: "cursor", limit: 7, isDisabled: false, provider: "provider-1" })
+			integrationsRecipe({ limit: 7, after: "cursor", isDisabled: false, provider: "provider-1" })
 				.document.queries.integrations,
 		);
 
-		expect(query.output.pagination).toEqual({ after: "cursor", limit: 7 });
+		expect(query.output.pagination).toEqual({ limit: 7, after: "cursor" });
 		expect(query.where).toMatchObject({
 			predicates: [
 				{ left: { field: "provider" }, right: { value: "provider-1" } },
-				{ left: { field: "isDisabled" }, right: { value: false } },
+				{ right: { value: false }, left: { field: "isDisabled" } },
 			],
 		});
 		expect(query.output.orderBy).toEqual([
 			{
 				direction: "desc",
-				expr: { field: "createdAt", tableAlias: "integration", type: "column" },
+				expr: { type: "column", field: "createdAt", tableAlias: "integration" },
 			},
-			{ direction: "desc", expr: { field: "id", tableAlias: "integration", type: "column" } },
+			{ direction: "desc", expr: { field: "id", type: "column", tableAlias: "integration" } },
 		]);
 		expect(
 			requireRowsQuery(integrationsRecipe({ limit: 5 }).document.queries.integrations).where,
@@ -54,7 +54,7 @@ describe("integration recipes", () => {
 		);
 
 		expect(query.output.pagination).toEqual({ limit: 2 });
-		expect(query.where).toMatchObject({ right: { value: "integration-1" }, left: { field: "id" } });
+		expect(query.where).toMatchObject({ left: { field: "id" }, right: { value: "integration-1" } });
 	});
 
 	it("decodes plain values, JSON, nulls, page info, and normalized dates", () => {

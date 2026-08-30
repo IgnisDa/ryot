@@ -60,7 +60,7 @@ describe("bindSandboxHostFunctions", () => {
 			const result = bindSandboxHostFunctions(makeImplementations(), input).getCachedValue(["key"]);
 			expect(Effect.isEffect(result)).toBe(true);
 			expect(result).not.toBeInstanceOf(Promise);
-			expect(yield* result).toEqual({ error: "unused", success: false });
+			expect(yield* result).toEqual({ success: false, error: "unused" });
 		}),
 	);
 
@@ -69,7 +69,7 @@ describe("bindSandboxHostFunctions", () => {
 			const calls: unknown[] = [];
 			const implementations = makeImplementations({
 				setCachedValue: (runInput, key, value, expiry) => {
-					calls.push({ runInput, key, value, expiry });
+					calls.push({ key, value, expiry, runInput });
 					return Effect.succeed(null);
 				},
 			});
@@ -77,7 +77,7 @@ describe("bindSandboxHostFunctions", () => {
 			const result = yield* bound.setCachedValue(["answer", { value: 42 }, 60]);
 
 			expect(result).toEqual({ data: null, success: true });
-			expect(calls).toEqual([{ runInput: input, key: "answer", value: { value: 42 }, expiry: 60 }]);
+			expect(calls).toEqual([{ expiry: 60, key: "answer", runInput: input, value: { value: 42 } }]);
 		}),
 	);
 
@@ -123,7 +123,7 @@ describe("bindSandboxHostFunctions", () => {
 			});
 			const bound = bindSandboxHostFunctions(implementations, input);
 
-			expect(yield* bound.log([[{ level: "verbose", message: "nope" }]])).toEqual({
+			expect(yield* bound.log([[{ message: "nope", level: "verbose" }]])).toEqual({
 				success: false,
 				error: '0.0.level: Expected "debug" | "info" | "warning" | "error"',
 			});
@@ -145,7 +145,7 @@ describe("bindSandboxHostFunctions", () => {
 				httpCall: () =>
 					Effect.fail({
 						message: "HTTP 429",
-						data: { body: "rate limited", status: 429, headers: { "retry-after": "10" } },
+						data: { status: 429, body: "rate limited", headers: { "retry-after": "10" } },
 					}),
 			});
 			const bound = bindSandboxHostFunctions(implementations, input);
@@ -154,7 +154,7 @@ describe("bindSandboxHostFunctions", () => {
 			expect(result).toEqual({
 				success: false,
 				error: "HTTP 429",
-				data: { body: "rate limited", status: 429, headers: { "retry-after": "10" } },
+				data: { status: 429, body: "rate limited", headers: { "retry-after": "10" } },
 			});
 		}),
 	);
@@ -164,16 +164,16 @@ describe("bindSandboxHostFunctions", () => {
 			const calls: Array<{ fnName: string; value: unknown }> = [];
 			const implementations = makeImplementations({
 				createEvents: (_runInput, items) => {
-					calls.push({ fnName: "createEvents", value: items });
+					calls.push({ value: items, fnName: "createEvents" });
+					return Effect.fail({ message: "reached" });
+				},
+				listIntegrations: (_runInput, options) => {
+					calls.push({ value: options, fnName: "listIntegrations" });
 					return Effect.fail({ message: "reached" });
 				},
 				upsertGlobalEntities: (_runInput, items, options) => {
-					calls.push({ fnName: "upsertGlobalEntities", value: { items, options } });
+					calls.push({ value: { items, options }, fnName: "upsertGlobalEntities" });
 					return Effect.succeed([{ status: "skipped" as const }]);
-				},
-				listIntegrations: (_runInput, options) => {
-					calls.push({ fnName: "listIntegrations", value: options });
-					return Effect.fail({ message: "reached" });
 				},
 			});
 			const bound = bindSandboxHostFunctions(implementations, input);
@@ -182,7 +182,7 @@ describe("bindSandboxHostFunctions", () => {
 				yield* bound.createEvents([
 					[{ entityId: "e-1", eventSchemaSlug: "es-1", properties: { watched: true } }],
 				]),
-			).toEqual({ error: "reached", success: false });
+			).toEqual({ success: false, error: "reached" });
 			expect(yield* bound.createEvents(["nope"])).toEqual({
 				success: false,
 				error: "0: Expected array",
@@ -200,15 +200,15 @@ describe("bindSandboxHostFunctions", () => {
 					],
 					{ maximumTotal: 0 },
 				]),
-			).toEqual({ data: [{ status: "skipped" }], success: true });
+			).toEqual({ success: true, data: [{ status: "skipped" }] });
 			expect(yield* bound.upsertGlobalEntities([[], { maximumTotal: -1 }])).toEqual({
 				success: false,
 				error: "1.maximumTotal: Expected a value greater than or equal to 0",
 			});
 
 			expect(yield* bound.listIntegrations([{ provider: "plugin_defined_provider" }])).toEqual({
-				error: "reached",
 				success: false,
+				error: "reached",
 			});
 			expect(yield* bound.listIntegrations([{ provider: 1 }])).toEqual({
 				success: false,
@@ -245,7 +245,7 @@ describe("bindSandboxHostFunctions", () => {
 			const calls: unknown[] = [];
 			const implementations = makeImplementations({
 				changeUserRelationships: (runInput, batches) => {
-					calls.push({ runInput, batches });
+					calls.push({ batches, runInput });
 					return Effect.succeed([{ created: 2, deleted: 0 }]);
 				},
 			});
@@ -263,8 +263,8 @@ describe("bindSandboxHostFunctions", () => {
 			};
 
 			expect(yield* bound.changeUserRelationships([[batch]])).toEqual({
-				data: [{ created: 2, deleted: 0 }],
 				success: true,
+				data: [{ created: 2, deleted: 0 }],
 			});
 			expect(calls).toEqual([{ runInput: input, batches: [batch] }]);
 			expect(
@@ -278,8 +278,8 @@ describe("bindSandboxHostFunctions", () => {
 			const calls: unknown[] = [];
 			const implementations = makeImplementations({
 				ensureUserEntities: (runInput, items) => {
-					calls.push({ runInput, items });
-					return Effect.succeed([{ entityId: "entity-1", wasInserted: true }]);
+					calls.push({ items, runInput });
+					return Effect.succeed([{ wasInserted: true, entityId: "entity-1" }]);
 				},
 			});
 			const bound = bindSandboxHostFunctions(implementations, input);
@@ -287,9 +287,9 @@ describe("bindSandboxHostFunctions", () => {
 
 			expect(yield* bound.ensureUserEntities([[item]])).toEqual({
 				success: true,
-				data: [{ entityId: "entity-1", wasInserted: true }],
+				data: [{ wasInserted: true, entityId: "entity-1" }],
 			});
-			expect(calls).toEqual([{ runInput: input, items: [item] }]);
+			expect(calls).toEqual([{ items: [item], runInput: input }]);
 			expect(yield* bound.ensureUserEntities([[{ ...item, userId: "caller-selected" }]])).toEqual({
 				success: false,
 				error: "0.0.userId: Expected no excess property",
@@ -367,19 +367,19 @@ describe("bindSandboxHostFunctions", () => {
 			const calls: Array<{ fnName: string; value: unknown }> = [];
 			const implementations = makeImplementations({
 				httpCall: (_runInput, _method, _url, options) => {
-					calls.push({ fnName: "httpCall", value: options });
+					calls.push({ value: options, fnName: "httpCall" });
 					return Effect.fail({ message: "reached" });
 				},
 				listIntegrations: (_runInput, options) => {
-					calls.push({ fnName: "listIntegrations", value: options });
+					calls.push({ value: options, fnName: "listIntegrations" });
 					return Effect.fail({ message: "reached" });
 				},
 			});
 			const bound = bindSandboxHostFunctions(implementations, input);
 
 			expect(yield* bound.httpCall(["GET", "https://example.com", null])).toEqual({
-				error: "reached",
 				success: false,
+				error: "reached",
 			});
 			expect(yield* bound.listIntegrations([null])).toEqual({ success: false, error: "reached" });
 			expect(yield* bound.getPluginConfig([[null]])).toEqual({
@@ -391,8 +391,8 @@ describe("bindSandboxHostFunctions", () => {
 				error: "0.0: Expected string",
 			});
 			expect(calls).toEqual([
-				{ fnName: "httpCall", value: undefined },
-				{ fnName: "listIntegrations", value: undefined },
+				{ value: undefined, fnName: "httpCall" },
+				{ value: undefined, fnName: "listIntegrations" },
 			]);
 		}),
 	);
@@ -419,17 +419,17 @@ describe("bindSandboxHostFunctions", () => {
 		Effect.gen(function* () {
 			const calls: Array<{ fnName: string; value: unknown }> = [];
 			const implementations = makeImplementations({
-				claimPersistentValue: (_runInput, key, value, ttlSeconds) => {
-					calls.push({ fnName: "claimPersistentValue", value: { key, ttlSeconds, value } });
-					return Effect.succeed({ claimed: true as const });
+				getSystemConfig: (_runInput, keys) => {
+					calls.push({ value: keys, fnName: "getSystemConfig" });
+					return Effect.succeed({ timezone: "UTC" });
 				},
 				getPluginConfig: (_runInput, keys) => {
-					calls.push({ fnName: "getPluginConfig", value: keys });
+					calls.push({ value: keys, fnName: "getPluginConfig" });
 					return Effect.succeed({ apiToken: "token" });
 				},
-				getSystemConfig: (_runInput, keys) => {
-					calls.push({ fnName: "getSystemConfig", value: keys });
-					return Effect.succeed({ timezone: "UTC" });
+				claimPersistentValue: (_runInput, key, value, ttlSeconds) => {
+					calls.push({ fnName: "claimPersistentValue", value: { key, value, ttlSeconds } });
+					return Effect.succeed({ claimed: true as const });
 				},
 			});
 			const bound = bindSandboxHostFunctions(implementations, input);
@@ -467,8 +467,8 @@ describe("bindSandboxHostFunctions", () => {
 					fnName: "claimPersistentValue",
 					value: { key: "lock", ttlSeconds: 60, value: { owner: "user-1" } },
 				},
-				{ fnName: "getPluginConfig", value: ["apiToken"] },
-				{ fnName: "getSystemConfig", value: ["timezone"] },
+				{ value: ["apiToken"], fnName: "getPluginConfig" },
+				{ value: ["timezone"], fnName: "getSystemConfig" },
 			]);
 		}),
 	);

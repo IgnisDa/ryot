@@ -9,7 +9,7 @@ import type { ThemeStore } from "#/modules/theme/store";
 const THEME_OPTIONS = [
 	{ icon: "sun", text: "Light", value: "light", label: "Use Light theme" },
 	{ icon: "moon", text: "Dark", value: "dark", label: "Use Dark theme" },
-	{ icon: "monitor", text: "System", value: "system", label: "Use System theme" },
+	{ text: "System", icon: "monitor", value: "system", label: "Use System theme" },
 ] as const satisfies readonly {
 	readonly icon: string;
 	readonly text: string;
@@ -32,17 +32,17 @@ export function Appearance(props: { readonly theme: ThemeStore }) {
 			onChange={props.theme.setPreference}
 			className="flex gap-2 rounded-xl border border-border bg-surface p-2"
 			renderOption={(option, selected) => ({
-				className: clsx(
-					"flex flex-1 flex-col items-center justify-center gap-1.5 rounded-lg border py-3.5",
-					selected
-						? "border-accent-deep bg-accent-soft text-accent-text"
-						: "border-transparent text-text-muted",
-				),
 				content: (
 					<>
 						<AppIcon size={18} name={option.icon} />
 						<span className="text-xs font-medium">{option.text}</span>
 					</>
+				),
+				className: clsx(
+					"flex flex-1 flex-col items-center justify-center gap-1.5 rounded-lg border py-3.5",
+					selected
+						? "border-accent-deep bg-accent-soft text-accent-text"
+						: "border-transparent text-text-muted",
 				),
 			})}
 		/>

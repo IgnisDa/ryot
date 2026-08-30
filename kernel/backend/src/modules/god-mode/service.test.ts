@@ -69,6 +69,7 @@ const makeAuthMock = (state?: {
 		createAuthUser: () => Effect.die("unused"),
 		deleteAuthUser: () => Effect.die("unused"),
 		linkAuthAccount: () => Effect.die("unused"),
+		purgeApiKeyCaches: () => Effect.die("unused"),
 		auth: { api: { requestPasswordReset: () => Promise.resolve(undefined) } },
 		deleteUserSessions: () => {
 			if (state) {
@@ -87,7 +88,6 @@ const makeAuthMock = (state?: {
 				? Effect.fail(new DbError({ message: state.updateAuthUserDisabledError.message }))
 				: Effect.void;
 		},
-		purgeApiKeyCaches: () => Effect.die("unused"),
 	});
 
 const makeProvisionAuthMock = (
@@ -117,19 +117,21 @@ const makeRedisMock = () =>
 		client: Object.assign(Object.create(null), {
 			del: () => Promise.resolve(0),
 			eval: () => Promise.resolve(0),
-			duplicate: () => Object.create(null),
 			get: () => Promise.resolve(null),
 			set: () => Promise.resolve("OK"),
+			duplicate: () => Object.create(null),
 		}),
 	});
 
 const makeBootstrapDb = () =>
 	Object.assign(Object.create(null), {
+		execute: () => Effect.succeed({}),
+		update: () => ({ set: () => ({ where: () => Effect.succeed({}) }) }),
 		insert: () => ({
 			values: () =>
 				Object.assign(Effect.succeed({}), {
-					onConflictDoNothing: () => Effect.succeed({}),
 					onConflictDoUpdate: () => Effect.succeed({}),
+					onConflictDoNothing: () => Effect.succeed({}),
 				}),
 		}),
 		select: () => ({
@@ -141,8 +143,6 @@ const makeBootstrapDb = () =>
 					}),
 			}),
 		}),
-		update: () => ({ set: () => ({ where: () => Effect.succeed({}) }) }),
-		execute: () => Effect.succeed({}),
 	});
 
 const makeDatabaseLayer = (db: object, transactionDb = db) =>
@@ -342,7 +342,7 @@ const makeProvisionUserDb = (options?: {
 		}),
 	});
 
-	return { auth: makeProvisionAuthMock(state, options), db, state };
+	return { db, state, auth: makeProvisionAuthMock(state, options) };
 };
 
 describe("classifyAuthState", () => {
@@ -439,10 +439,10 @@ it.effect("returns migration report entries ordered by severity and newest time"
 	const row = {
 		seq: 12,
 		count: null,
-		phase: "review -> event",
 		level: "warning",
-		message: "rows skipped",
 		elapsedSeconds: 4.2,
+		message: "rows skipped",
+		phase: "review -> event",
 		createdAt: new Date("2026-08-24T12:34:56Z"),
 	} as const satisfies MigrationReportRow;
 	const { db, state } = makeMigrationReportDb([row]);
@@ -461,7 +461,7 @@ it.effect("returns migration report entries ordered by severity and newest time"
 });
 
 it.effect("classifies users with no accounts as none", () => {
-	const { db } = makeListUsersDb({ total: 1, users: [baseUser], accounts: [] });
+	const { db } = makeListUsersDb({ total: 1, accounts: [], users: [baseUser] });
 
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
@@ -474,7 +474,7 @@ it.effect("classifies users with oidc accounts correctly", () => {
 	const { db } = makeListUsersDb({
 		total: 1,
 		users: [baseUser],
-		accounts: [{ userId: baseUser.id, providerId: "oidc" }],
+		accounts: [{ providerId: "oidc", userId: baseUser.id }],
 	});
 
 	return Effect.gen(function* () {
@@ -490,7 +490,7 @@ it.effect("classifies users with both credential and oidc accounts as mixed", ()
 		users: [baseUser],
 		accounts: [
 			{ userId: baseUser.id, providerId: "credential" },
-			{ userId: baseUser.id, providerId: "oidc" },
+			{ providerId: "oidc", userId: baseUser.id },
 		],
 	});
 
@@ -517,7 +517,7 @@ it.effect("returns a db error when listing users fails", () => {
 });
 
 it.effect("applies the search filter to user queries", () => {
-	const { db, state } = makeListUsersDb({ total: 1, users: [baseUser], accounts: [] });
+	const { db, state } = makeListUsersDb({ total: 1, accounts: [], users: [baseUser] });
 
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
@@ -533,7 +533,7 @@ it.effect("applies the search filter to user queries", () => {
 });
 
 it.effect("trims whitespace from the search input", () => {
-	const { db, state } = makeListUsersDb({ total: 1, users: [baseUser], accounts: [] });
+	const { db, state } = makeListUsersDb({ total: 1, accounts: [], users: [baseUser] });
 
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
@@ -688,7 +688,7 @@ it.effect("delegates deletion to the durable lifecycle service", () => {
 });
 
 vitestIt("creates a credential user without an account row", () => {
-	const { auth, db, state } = makeProvisionUserDb();
+	const { db, auth, state } = makeProvisionUserDb();
 
 	return Effect.runPromise(
 		Effect.gen(function* () {
@@ -712,7 +712,7 @@ vitestIt("creates a credential user without an account row", () => {
 });
 
 vitestIt("creates an oidc user with an account stub", () => {
-	const { auth, db, state } = makeProvisionUserDb();
+	const { db, auth, state } = makeProvisionUserDb();
 
 	return Effect.runPromise(
 		Effect.gen(function* () {
@@ -735,7 +735,7 @@ vitestIt("creates an oidc user with an account stub", () => {
 });
 
 vitestIt("returns a bad request when provisioning a user that already exists", () => {
-	const { auth, db } = makeProvisionUserDb({ existingUserId: "existing" });
+	const { db, auth } = makeProvisionUserDb({ existingUserId: "existing" });
 
 	return Effect.runPromise(
 		Effect.gen(function* () {
@@ -759,7 +759,7 @@ vitestIt("returns a bad request when provisioning a user that already exists", (
 });
 
 vitestIt("returns a db error when user creation fails during provisioning", () => {
-	const { auth, db } = makeProvisionUserDb({ createUserError: new Error("db down") });
+	const { db, auth } = makeProvisionUserDb({ createUserError: new Error("db down") });
 
 	return Effect.runPromise(
 		Effect.gen(function* () {
@@ -778,7 +778,7 @@ vitestIt("returns a db error when user creation fails during provisioning", () =
 });
 
 vitestIt("returns a db error when oidc account creation fails during provisioning", () => {
-	const { auth, db } = makeProvisionUserDb({ createAccountError: new Error("db down") });
+	const { db, auth } = makeProvisionUserDb({ createAccountError: new Error("db down") });
 
 	return Effect.runPromise(
 		Effect.gen(function* () {
