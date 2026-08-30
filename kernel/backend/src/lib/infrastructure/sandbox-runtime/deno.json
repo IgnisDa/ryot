@@ -1,6 +1,6 @@
 {
 	"lock": false,
-	"imports": { "@ryot-app/sandbox-sdk/effect": "npm:effect@4.0.0-rc.113" },
+	"imports": { "@ryot-app/sandbox-sdk/effect": "npm:effect@4.0.0-rc.111" },
 	"compilerOptions": {
 		"strict": true,
 		"noImplicitReturns": true,
