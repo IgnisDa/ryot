@@ -5,6 +5,7 @@ import { axe } from "vitest-axe";
 
 import { Menu } from "./menu";
 import { Modal } from "./modal";
+import { OverlayBackProvider, type OverlayBackAdapter } from "./shortcut";
 
 function TriggeredModal(props: {
 	readonly open?: boolean;
@@ -57,7 +58,91 @@ function MenuInModal() {
 	);
 }
 
+function NestedModals(props: { readonly adapter: OverlayBackAdapter }) {
+	const [outerOpen, setOuterOpen] = useState(true);
+	const [innerOpen, setInnerOpen] = useState(true);
+	return (
+		<OverlayBackProvider adapter={props.adapter}>
+			{outerOpen ? (
+				<Modal label="Outer" closeLabel="Close outer" onClose={() => setOuterOpen(false)}>
+					<button type="button">Outer action</button>
+					{innerOpen ? (
+						<Modal label="Inner" closeLabel="Close inner" onClose={() => setInnerOpen(false)}>
+							<button type="button">Inner action</button>
+						</Modal>
+					) : null}
+				</Modal>
+			) : null}
+		</OverlayBackProvider>
+	);
+}
+
 describe("Modal", () => {
+	it("dismisses a nested modal before its parent on document Back", () => {
+		const handlers: Array<() => boolean> = [];
+		const adapter: OverlayBackAdapter = {
+			register: (handler) => {
+				handlers.push(handler);
+				return () => {
+					const index = handlers.lastIndexOf(handler);
+					if (index !== -1) {
+						handlers.splice(index, 1);
+					}
+				};
+			},
+		};
+		render(<NestedModals adapter={adapter} />);
+
+		act(() => expect(handlers.at(-1)?.()).toBe(true));
+		expect(screen.queryByRole("dialog", { name: "Inner" })).toBeNull();
+		expect(screen.getByRole("dialog", { name: "Outer" })).toBeTruthy();
+
+		act(() => expect(handlers.at(-1)?.()).toBe(true));
+		expect(screen.queryByRole("dialog")).toBeNull();
+	});
+
+	it("restores trigger focus after document Back dismisses it", async () => {
+		let dismiss: (() => boolean) | undefined;
+		const adapter: OverlayBackAdapter = {
+			register: (handler) => {
+				dismiss = handler;
+				return () => {
+					dismiss = undefined;
+				};
+			},
+		};
+		function Page() {
+			const trigger = useRef<HTMLButtonElement>(null);
+			const [open, setOpen] = useState(false);
+			return (
+				<OverlayBackProvider adapter={adapter}>
+					<button ref={trigger} type="button" onClick={() => setOpen(true)}>
+						Open overlay
+					</button>
+					{open ? (
+						<Modal
+							label="Overlay"
+							triggerRef={trigger}
+							closeLabel="Close overlay"
+							onClose={() => setOpen(false)}
+						>
+							<button type="button">Inside overlay</button>
+						</Modal>
+					) : null}
+				</OverlayBackProvider>
+			);
+		}
+		render(<Page />);
+		const trigger = screen.getByRole("button", { name: "Open overlay" });
+		fireEvent.click(trigger);
+
+		act(() => expect(dismiss?.()).toBe(true));
+		await act(async () => {});
+
+		expect(screen.queryByRole("dialog")).toBeNull();
+		expect(document.activeElement).toBe(trigger);
+	});
+
 	it("focuses its first control and restores focus to the trigger when it closes", async () => {
 		const view = render(<TriggeredModal onClose={() => {}} />);
 

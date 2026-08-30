@@ -15,6 +15,7 @@ import { useCallback, useEffect, useEffectEvent, useId, useMemo, useRef, useStat
 import { AuthService } from "#/modules/auth/service";
 import {
 	CustomizeContext,
+	ClientPageOverlayContext,
 	ClientPageScreenContext,
 	EdgeContext,
 	PluginHeaderContext,
@@ -83,6 +84,7 @@ export function AuthenticatedShell(props: {
 	const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = useState(false);
 	const [pluginHeader, setPluginHeader] = useState<PluginHeaderState | null>(null);
 	const [pluginScreenState, setPluginScreenState] = useState<ClientPageScreenState | null>(null);
+	const [pluginOverlayCount, setPluginOverlayCount] = useState(0);
 	const activeDocumentOwner = useRef<string | null>(null);
 	const [discarding, setDiscarding] = useState(false);
 	const [rememberedSlug, setRememberedSlug] = useState(props.initialRememberedSlug);
@@ -131,6 +133,8 @@ export function AuthenticatedShell(props: {
 				sort: undefined,
 				layout: undefined,
 				search: undefined,
+				dialog: undefined,
+				entityId: undefined,
 			},
 			replace: activeKey?.startsWith("view:") === true,
 		});
@@ -231,9 +235,18 @@ export function AuthenticatedShell(props: {
 		() => ({ customize, onSave: saveCustomize, onLeave: requestLeaveCustomize }),
 		[customize],
 	);
-	const { header, screen: pageScreen } = useMemo(
+	const {
+		header,
+		screen: pageScreen,
+		overlay: pageOverlay,
+	} = useMemo(
 		() =>
-			createClientDocumentControllers(activeDocumentOwner, setPluginHeader, setPluginScreenState),
+			createClientDocumentControllers(
+				activeDocumentOwner,
+				setPluginHeader,
+				setPluginScreenState,
+				setPluginOverlayCount,
+			),
 		[],
 	);
 	const shellChrome = useMemo<ShellChrome>(
@@ -257,8 +270,9 @@ export function AuthenticatedShell(props: {
 		isDesktop,
 		hasPluginBackScreen,
 		pathname: committedPathname,
-		atRoot: isWorkspaceRoot(committedPathname, routeWorkspace),
 		canGoBack: router.history.canGoBack(),
+		hasIframeOverlay: pluginOverlayCount > 0,
+		atRoot: isWorkspaceRoot(committedPathname, routeWorkspace),
 	});
 
 	useEffect(() => {
@@ -374,14 +388,16 @@ export function AuthenticatedShell(props: {
 							<EdgeContext value={edge}>
 								<ShellChromeContext value={shellChrome}>
 									<ClientPageScreenContext value={pageScreen}>
-										<motion.div
-											inert={drawerOpen}
-											style={{ x: contentShift }}
-											data-testid="shell-content"
-											className="min-h-0 min-w-0 flex-1 overflow-hidden"
-										>
-											<Outlet />
-										</motion.div>
+										<ClientPageOverlayContext value={pageOverlay}>
+											<motion.div
+												inert={drawerOpen}
+												style={{ x: contentShift }}
+												data-testid="shell-content"
+												className="min-h-0 min-w-0 flex-1 overflow-hidden"
+											>
+												<Outlet />
+											</motion.div>
+										</ClientPageOverlayContext>
 									</ClientPageScreenContext>
 								</ShellChromeContext>
 							</EdgeContext>

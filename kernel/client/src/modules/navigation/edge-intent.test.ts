@@ -12,6 +12,7 @@ const resolve = (input: Partial<Parameters<typeof resolveEdge>[0]> = {}) =>
 		atRoot: false,
 		canGoBack: true,
 		isDesktop: false,
+		hasIframeOverlay: false,
 		hasPluginBackScreen: true,
 		pathname: "/media/search",
 		...input,
@@ -66,6 +67,19 @@ describe("resolveEdge", () => {
 	it("reports a compact viewport even where the kernel keeps the edge", () => {
 		expect(resolve({ atRoot: true, pathname: "/media" }).compact).toBe(true);
 		expect(resolve({ isDesktop: true, atRoot: true, pathname: "/media" }).compact).toBe(false);
+	});
+
+	it("suspends edge Back while an iframe overlay owns Back and resumes afterward", () => {
+		expect(resolve({ hasIframeOverlay: true })).toEqual({
+			compact: true,
+			intent: "back",
+			owner: "iframe-overlay",
+		});
+		expect(resolve({ hasIframeOverlay: false })).toEqual({
+			compact: true,
+			intent: "back",
+			owner: "plugin",
+		});
 	});
 
 	it("keeps back in the kernel on the customize route, which owns its own back control", () => {
