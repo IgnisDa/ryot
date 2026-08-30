@@ -22,5 +22,5 @@ export const startMediaPopulationGate = (input: {
 					executingUserId: UserId.make(input.executingUserId),
 				},
 			}),
-		adminHeaders,
+		adminHeaders(),
 	);

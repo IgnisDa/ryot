@@ -286,7 +286,7 @@ const pollSandboxResult = (executingUserId: string, jobId: string) =>
 						params: { jobId },
 						query: { executingUserId: UserId.make(executingUserId) },
 					}),
-				adminHeaders,
+				adminHeaders(),
 			);
 			if (result.status !== "pending") {
 				return result;

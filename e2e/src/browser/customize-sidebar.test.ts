@@ -12,9 +12,9 @@ import {
 	uninstallTestProvider,
 	type InstalledTestProvider,
 } from "~/fixtures/kernel";
-import { getApiUrl } from "~/support/api";
 import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
 import { afterAll, beforeAll, expect, it } from "~/support/effect-test";
+import { getApiUrl } from "~/support/harness-target";
 
 const SUITE_ID = crypto.randomUUID();
 

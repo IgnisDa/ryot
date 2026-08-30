@@ -2,7 +2,7 @@ import { Effect } from "effect";
 import type { Playwright } from "effect-playwright";
 import { PlaywrightSpawner, chromium } from "effect-playwright";
 
-import { getFrontendUrl } from "~/support/frontend";
+import { getFrontendUrl } from "~/support/harness-target";
 
 type BrowserSignInOptions = {
 	readonly entryPath?: string;

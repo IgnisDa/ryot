@@ -138,7 +138,7 @@ describe("entity population via client-declared interest", () => {
 										entityIds: [EntityId.make(entity.id)],
 									},
 								}),
-							adminHeaders,
+							adminHeaders(),
 						)
 						.pipe(Effect.result);
 					return Result.isFailure(result) ? true : null;

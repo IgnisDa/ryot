@@ -4,8 +4,8 @@ import { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import {
-	ADMIN_TOKEN,
 	adminAccessTokenHeaders,
+	adminHeaders,
 	createAuthenticatedClient,
 	createApiKey,
 	createTestAuthClient,
@@ -34,7 +34,7 @@ const getUserIdByEmail = (email: string) =>
 	Effect.gen(function* () {
 		const data = yield* getApiClient().call(
 			(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
-			adminAccessTokenHeaders(ADMIN_TOKEN),
+			adminHeaders(),
 		);
 		const user = data.users[0];
 		assertPresent(user, "missing user row");
@@ -46,7 +46,7 @@ const createNoAccountUser = (name: string) =>
 		const email = `${name.toLowerCase()}-${unique()}@example.com`;
 		const { userId } = yield* getApiClient().call(
 			(c) => c.godMode.provisionUser({ payload: { provider: "credential", email, name } }),
-			adminAccessTokenHeaders(ADMIN_TOKEN),
+			adminHeaders(),
 		);
 		return { email, userId: UserId.make(userId) };
 	});
@@ -59,7 +59,7 @@ const createOidcUser = (name: string) =>
 				c.godMode.provisionUser({
 					payload: { name, email, provider: "oidc", oidcIssuerId: `oidc-sub-${unique()}` },
 				}),
-			adminAccessTokenHeaders(ADMIN_TOKEN),
+			adminHeaders(),
 		);
 		return { email, userId: UserId.make(userId) };
 	});
@@ -94,7 +94,7 @@ describe("Reset user admin token enforcement", () => {
 			const error = yield* Effect.flip(
 				client.call(
 					(c) => c.godMode.resetUser({ params: { userId: UserId.make(`missing-${unique()}`) } }),
-					adminAccessTokenHeaders(ADMIN_TOKEN),
+					adminHeaders(),
 				),
 			);
 			assertTaggedError(error, "GodModeNotFound");
@@ -208,7 +208,7 @@ describe("Reset user for no-account user", () => {
 
 			const listData = yield* client.call(
 				(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
-				adminAccessTokenHeaders(ADMIN_TOKEN),
+				adminHeaders(),
 			);
 			expect(listData.users[0]?.authState).toBe("credential");
 			expect(listData.users[0]?.id).toBe(userId);
@@ -229,7 +229,7 @@ describe("Reset user for OIDC user", () => {
 
 			const listData = yield* client.call(
 				(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
-				adminAccessTokenHeaders(ADMIN_TOKEN),
+				adminHeaders(),
 			);
 			expect(listData.users[0]?.authState).toBe("oidc");
 			expect(listData.users[0]?.id).toBe(userId);
@@ -249,14 +249,11 @@ describe("Reset user for mixed-auth user", () => {
 					c.testSupport.linkAuthAccount({
 						payload: { userId, providerId: "oidc", accountId: `oidc-sub-${unique()}` },
 					}),
-				adminAccessTokenHeaders(ADMIN_TOKEN),
+				adminHeaders(),
 			);
 
 			const error = yield* Effect.flip(
-				client.call(
-					(c) => c.godMode.resetUser({ params: { userId } }),
-					adminAccessTokenHeaders(ADMIN_TOKEN),
-				),
+				client.call((c) => c.godMode.resetUser({ params: { userId } }), adminHeaders()),
 			);
 			assertTaggedError(error, "GodModeRequestFailure");
 			expect(error.reason.code).toBe("mixed-auth-reset-unsupported");
