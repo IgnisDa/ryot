@@ -554,10 +554,12 @@ describe("saved-view route", () => {
 
 			fireEvent.click(screen.getByRole("button", { name: "Search this view" }));
 
-			expect(screen.getByRole("searchbox", { name: "Search Books" })).toBeTruthy();
 			expect(screen.getAllByRole("heading", { name: "Books" })).toHaveLength(1);
 			expect(screen.queryByText("1+ results")).toBeNull();
 			expect(bar.hasAttribute("data-solid")).toBe(true);
+			expect(globalThis.document.activeElement).toBe(
+				screen.getByRole("searchbox", { name: "Search Books" }),
+			);
 
 			fireEvent.click(screen.getByRole("button", { name: "Exit search" }));
 
@@ -565,6 +567,9 @@ describe("saved-view route", () => {
 			expect(screen.getAllByRole("heading", { name: "Books" })).toHaveLength(1);
 			expect(screen.getByText("1+ results")).toBeTruthy();
 			expect(bar.hasAttribute("data-solid")).toBe(false);
+			expect(globalThis.document.activeElement).toBe(
+				screen.getByRole("button", { name: "Search this view" }),
+			);
 		} finally {
 			view.unmount();
 			await view.runtime.dispose();
