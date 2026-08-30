@@ -395,7 +395,8 @@ export function ShowOverview(props: {
 }) {
 	const region = useMemo(viewerRegion, []);
 	const gallery = showGalleryAssets(props.show);
-	const groups = watchProviderGroups(props.show, region);
+	const relations =
+		props.overview.status !== "ready" || !showOverviewIsEmpty(props.overview.overview);
 	return (
 		<div className={clsx("flex flex-col", props.compact ? "gap-7 pt-6" : "gap-9 pt-8")}>
 			{props.refreshStatus}
@@ -405,21 +406,21 @@ export function ShowOverview(props: {
 				name={props.show.name}
 				compact={props.compact}
 			/>
-			{region === undefined ? null : (
-				<ShowWatchProvidersSection
-					groups={groups}
-					region={region}
-					compact={props.compact}
-					divided={gallery.length > 0}
-					link={watchProviderLink(props.show, region)}
-				/>
-			)}
 			<ShowOverviewBody
 				state={props.overview}
 				compact={props.compact}
+				divided={gallery.length > 0}
 				refresh={props.refreshOverview}
-				divided={gallery.length > 0 || groups.length > 0}
 			/>
+			{region === undefined ? null : (
+				<ShowWatchProvidersSection
+					region={region}
+					compact={props.compact}
+					divided={gallery.length > 0 || relations}
+					link={watchProviderLink(props.show, region)}
+					groups={watchProviderGroups(props.show, region)}
+				/>
+			)}
 		</div>
 	);
 }
