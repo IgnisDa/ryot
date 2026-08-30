@@ -44,6 +44,7 @@ export const Route = createFileRoute("/_authenticated/settings/integrations/$int
 	errorComponent: IntegrationLoadError,
 	pendingComponent: IntegrationPending,
 	notFoundComponent: IntegrationNotFound,
+	// oxlint-disable-next-line effecttsgo/async-function -- TanStack integration route loader.
 	loader: async ({ params, context, abortController }) => {
 		const trimmed = params.integrationId.trim();
 		if (trimmed.length === 0) {
@@ -125,6 +126,7 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 	const { backInterceptors } = Route.useRouteContext();
 	const provider = findOwnedIntegrationProvider(providers.data ?? [], integration);
 
+	// oxlint-disable-next-line effecttsgo/async-function -- React integration form handler.
 	const save = async (values: SchemaFormValues) => {
 		if (provider === undefined) {
 			return;
@@ -180,6 +182,7 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 		});
 	}, [backInterceptors, remove.isPending, isConfirming, menuOpen]);
 
+	// oxlint-disable-next-line effecttsgo/async-function -- React confirmation handler.
 	const confirmDelete = async () => {
 		setDeleteFailed(false);
 		try {

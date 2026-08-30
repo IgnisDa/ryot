@@ -74,6 +74,7 @@ function NotificationChannelsRoute() {
 		state?.status === "ready" ? enabledNotificationChannelCount(state.channels) : 0;
 
 	/** Delivery is enqueued and the endpoint returns at once, so "queued" is all that can be said. */
+	// oxlint-disable-next-line effecttsgo/async-function -- React test-notification handler.
 	const sendTest = async () => {
 		setTestDetail(undefined);
 		setTestSucceeded(false);
@@ -89,6 +90,7 @@ function NotificationChannelsRoute() {
 		);
 	};
 
+	// oxlint-disable-next-line effecttsgo/async-function -- React channel-status handler.
 	const toggleChannel = async (id: string, isDisabled: boolean) => {
 		setPendingChannelId(id);
 		setTestDetail(undefined);
@@ -97,6 +99,7 @@ function NotificationChannelsRoute() {
 		setPendingChannelId(undefined);
 	};
 
+	// oxlint-disable-next-line effecttsgo/async-function -- React channel deletion handler.
 	const deleteChannel = async (id: string) => {
 		setPendingChannelId(id);
 		setDeleteFailedId(undefined);

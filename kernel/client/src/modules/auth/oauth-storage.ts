@@ -4,7 +4,7 @@ import {
 	StoredTokenSet,
 	type StoredTokenSet as StoredTokenSetValue,
 } from "@ryot-app/contract/oauth";
-import { Context, Data, Effect, Layer, Schema } from "effect";
+import { Clock, Context, Data, Effect, Layer, Schema } from "effect";
 
 import { normalizeServerOrigin, type ServerOrigin } from "#/api/origin";
 import { isNativePlatform } from "#/modules/navigation/native-navigation";
@@ -48,22 +48,24 @@ const browserOAuthStorage = (): OAuthStorageAdapter => {
 };
 
 const secureOAuthStorage = (): OAuthStorageAdapter => {
-	const ready = import("@aparajita/capacitor-secure-storage").then(
-		async ({ SecureStorage, KeychainAccess }) => {
-			await SecureStorage.setKeyPrefix(SECURE_KEY_PREFIX);
-			await SecureStorage.setSynchronize(false);
-			await SecureStorage.setDefaultKeychainAccess(KeychainAccess.afterFirstUnlockThisDeviceOnly);
-			return { plugin: SecureStorage };
-		},
-	);
-	void ready.catch(() => undefined);
+	// Capacitor configuration must finish before any storage operation; defer it until first use.
+	const setup = () =>
+		import("@aparajita/capacitor-secure-storage").then(({ SecureStorage, KeychainAccess }) =>
+			SecureStorage.setKeyPrefix(SECURE_KEY_PREFIX)
+				.then(() => SecureStorage.setSynchronize(false))
+				.then(() =>
+					SecureStorage.setDefaultKeychainAccess(KeychainAccess.afterFirstUnlockThisDeviceOnly),
+				)
+				.then(() => ({ plugin: SecureStorage })),
+		);
+	let ready: ReturnType<typeof setup> | undefined;
 	const attempt = <A>(
 		reason: OAuthStorageError["reason"],
-		operation: (storage: Awaited<typeof ready>["plugin"]) => Promise<A>,
+		operation: (storage: Awaited<ReturnType<typeof setup>>["plugin"]) => Promise<A>,
 	) =>
 		Effect.tryPromise({
-			try: () => ready.then(({ plugin }) => operation(plugin)),
 			catch: (cause) => new OAuthStorageError({ cause, reason }),
+			try: () => (ready ??= setup()).then(({ plugin }) => operation(plugin)),
 		});
 	return {
 		keys: attempt("read-failed", (storage) => storage.keys()),
@@ -73,24 +75,24 @@ const secureOAuthStorage = (): OAuthStorageAdapter => {
 	};
 };
 
-const isFresh = (pending: PendingAuthorizationValue) =>
-	Date.now() - pending.createdAt <= PENDING_AUTHORIZATION_TTL_MS;
+const isFresh = (pending: PendingAuthorizationValue, now: number) =>
+	now - pending.createdAt <= PENDING_AUTHORIZATION_TTL_MS;
 
 const makeStorage = (adapter: OAuthStorageAdapter): OAuthStorage["Service"] => {
+	const pendingJson = Schema.fromJsonString(PendingAuthorization);
+	const tokenJson = Schema.fromJsonString(StoredTokenSet);
 	const evict = (key: string) => adapter.removeItem(key).pipe(Effect.catch(() => Effect.void));
 	const readUnverified = (key: string) =>
 		adapter.getItem(key).pipe(Effect.catch(() => Effect.succeed(undefined)));
-	const decodeOrEvict = <A>(schema: Schema.Codec<A, unknown>, key: string, value: string) =>
-		Effect.try(() => Schema.decodeUnknownSync(schema)(JSON.parse(value))).pipe(
-			Effect.catch(() => Effect.as(evict(key), null)),
-		);
+	const decodeOrEvict = <A>(schema: Schema.Codec<A, string>, key: string, value: string) =>
+		Schema.decodeEffect(schema)(value).pipe(Effect.catch(() => Effect.as(evict(key), null)));
 	const readPending = (key: string) =>
 		Effect.gen(function* () {
 			const value = yield* readUnverified(key);
 			if (value === undefined || value === null) {
 				return value;
 			}
-			return yield* decodeOrEvict(PendingAuthorization, key, value);
+			return yield* decodeOrEvict(pendingJson, key, value);
 		});
 	const getPending = (origin: ServerOrigin, state: string) =>
 		Effect.gen(function* () {
@@ -99,7 +101,7 @@ const makeStorage = (adapter: OAuthStorageAdapter): OAuthStorage["Service"] => {
 			if (pending === undefined || pending === null) {
 				return null;
 			}
-			if (!isFresh(pending)) {
+			if (!isFresh(pending, yield* Clock.currentTimeMillis)) {
 				yield* evict(key);
 				return null;
 			}
@@ -111,12 +113,13 @@ const makeStorage = (adapter: OAuthStorageAdapter): OAuthStorage["Service"] => {
 			const keys = yield* adapter.keys.pipe(
 				Effect.catch(() => Effect.succeed<readonly string[]>([])),
 			);
+			const now = yield* Clock.currentTimeMillis;
 			yield* Effect.forEach(
 				keys.filter((key) => key.startsWith(prefix)),
 				(key) =>
 					Effect.gen(function* () {
 						const pending = yield* readPending(key);
-						if (pending !== undefined && pending !== null && !isFresh(pending)) {
+						if (pending !== undefined && pending !== null && !isFresh(pending, now)) {
 							yield* evict(key);
 						}
 					}),
@@ -127,16 +130,6 @@ const makeStorage = (adapter: OAuthStorageAdapter): OAuthStorage["Service"] => {
 		getPending,
 		removeTokenSet: (origin) => adapter.removeItem(oauthTokenKey(origin)),
 		removePending: (origin, state) => evict(oauthPendingKey(origin, state)),
-		setTokenSet: (origin, tokenSet) =>
-			adapter.setItem(oauthTokenKey(origin), JSON.stringify(tokenSet)),
-		setPending: (pending) =>
-			Effect.gen(function* () {
-				yield* prunePending(pending.serverOrigin);
-				yield* adapter.setItem(
-					oauthPendingKey(pending.serverOrigin, pending.state),
-					JSON.stringify(pending),
-				);
-			}),
 		takePending: (origin, state) =>
 			Effect.gen(function* () {
 				const pending = yield* getPending(origin, state);
@@ -146,6 +139,11 @@ const makeStorage = (adapter: OAuthStorageAdapter): OAuthStorage["Service"] => {
 				yield* evict(oauthPendingKey(origin, state));
 				return pending;
 			}),
+		setTokenSet: (origin, tokenSet) =>
+			Schema.encodeEffect(tokenJson)(tokenSet).pipe(
+				Effect.mapError((cause) => new OAuthStorageError({ cause, reason: "write-failed" })),
+				Effect.flatMap((value) => adapter.setItem(oauthTokenKey(origin), value)),
+			),
 		getTokenSet: (origin) =>
 			Effect.gen(function* () {
 				const key = oauthTokenKey(origin);
@@ -153,7 +151,15 @@ const makeStorage = (adapter: OAuthStorageAdapter): OAuthStorage["Service"] => {
 				if (value === undefined || value === null) {
 					return null;
 				}
-				return yield* decodeOrEvict(StoredTokenSet, key, value);
+				return yield* decodeOrEvict(tokenJson, key, value);
+			}),
+		setPending: (pending) =>
+			Effect.gen(function* () {
+				yield* prunePending(pending.serverOrigin);
+				const value = yield* Schema.encodeEffect(pendingJson)(pending).pipe(
+					Effect.mapError((cause) => new OAuthStorageError({ cause, reason: "write-failed" })),
+				);
+				yield* adapter.setItem(oauthPendingKey(pending.serverOrigin, pending.state), value);
 			}),
 		clearPending: (origin) =>
 			Effect.gen(function* () {

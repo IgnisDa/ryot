@@ -270,36 +270,34 @@ const makeTokenService = (
 			yield* clearLocal;
 			return null;
 		}
-		return yield* Effect.gen(function* () {
-			yield* Effect.all(
-				(
-					[
-						[current.refreshToken, "refresh_token"],
-						[current.accessToken, "access_token"],
-					] as const
-				).map(([token, tokenTypeHint]) =>
-					postOAuthFormRequest(
-						fetcher,
-						origin,
-						OAUTH_REVOKE_PATH,
-						new URLSearchParams({
-							token,
-							client_id: current.clientId,
-							token_type_hint: tokenTypeHint,
-						}),
-					).pipe(Effect.catch(() => Effect.void)),
-				),
-				{ discard: true },
-			);
-			const url = new URL(getOAuthEndpoint(origin, OAUTH_END_SESSION_PATH));
-			url.search = new URLSearchParams({
-				client_id: current.clientId,
-				id_token_hint: current.idToken,
-				post_logout_redirect_uri: postLogoutRedirectUri,
-			}).toString();
-			yield* clearLocal;
-			return url.toString();
-		});
+		yield* Effect.all(
+			(
+				[
+					[current.refreshToken, "refresh_token"],
+					[current.accessToken, "access_token"],
+				] as const
+			).map(([token, tokenTypeHint]) =>
+				postOAuthFormRequest(
+					fetcher,
+					origin,
+					OAUTH_REVOKE_PATH,
+					new URLSearchParams({
+						token,
+						client_id: current.clientId,
+						token_type_hint: tokenTypeHint,
+					}),
+				).pipe(Effect.catch(() => Effect.void)),
+			),
+			{ discard: true },
+		);
+		const url = new URL(getOAuthEndpoint(origin, OAUTH_END_SESSION_PATH));
+		url.search = new URLSearchParams({
+			client_id: current.clientId,
+			id_token_hint: current.idToken,
+			post_logout_redirect_uri: postLogoutRedirectUri,
+		}).toString();
+		yield* clearLocal;
+		return url.toString();
 	});
 
 	return {

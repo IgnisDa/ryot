@@ -315,6 +315,7 @@ function UserRow(props: {
 		[],
 	);
 
+	// oxlint-disable-next-line effecttsgo/async-function -- React administration action coordinator.
 	const run = async <A,>(
 		kind: NonNullable<typeof pending>,
 		operation: () => OperationResult<A>,
@@ -338,6 +339,7 @@ function UserRow(props: {
 		}
 		return null;
 	};
+	// oxlint-disable-next-line effecttsgo/async-function -- React reset-password handler.
 	const resetPassword = async () => {
 		setCopied(false);
 		setResult(null);
@@ -348,6 +350,7 @@ function UserRow(props: {
 			setError("Could not generate a reset link. Try again.");
 		}
 	};
+	// oxlint-disable-next-line effecttsgo/async-function -- React account-status handler.
 	const toggleDisabled = async () => {
 		const value = await run("disabled", () =>
 			props.operations.setUserDisabled(props.user.id, !isDisabled),
@@ -358,6 +361,7 @@ function UserRow(props: {
 			setError(`Could not ${isDisabled ? "enable" : "disable"} this user. Try again.`);
 		}
 	};
+	// oxlint-disable-next-line effecttsgo/async-function -- React confirmation handler.
 	const confirm = async () => {
 		setResult(null);
 		const kind = confirmation;
@@ -386,6 +390,7 @@ function UserRow(props: {
 		setConfirmation(null);
 		props.onRefresh();
 	};
+	// oxlint-disable-next-line effecttsgo/async-function -- React share/clipboard handler.
 	const transfer = async () => {
 		if (result?.resetUrl == null) {
 			return;

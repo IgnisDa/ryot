@@ -49,6 +49,7 @@ describe("provider search panel", () => {
 		});
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("exposes the providers as a single-tab-stop radiogroup", async () => {
 		renderPanel();
 
@@ -64,6 +65,7 @@ describe("provider search panel", () => {
 		);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("passes an axe pass on the rendered panel", async () => {
 		const view = renderPanel();
 

@@ -34,6 +34,7 @@ export const Route = createFileRoute("/auth_/callback")({
 			state: searchValue(search.state),
 			error_description: searchValue(search.error_description),
 		}),
+	// oxlint-disable-next-line effecttsgo/async-function -- TanStack OAuth callback loader.
 	beforeLoad: async ({ search, context }) => {
 		const destination = await context.runtime.runPromise(
 			Effect.gen(function* () {

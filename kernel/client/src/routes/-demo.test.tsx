@@ -129,6 +129,7 @@ const mountDemo = (
 describe("demo entry route", () => {
 	it.each(["standard", "demo"] as const)(
 		"keeps an existing %s application session",
+		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 		async (accessClass) => {
 			const mounted = mountDemo({ accessClass });
 
@@ -141,6 +142,7 @@ describe("demo entry route", () => {
 	it.each([
 		["demo", "ryot-demo-web"],
 		["standard", "ryot-web"],
+		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	] as const)("uses the %s hosted mode to launch %s", async (mode, clientId) => {
 		const mounted = mountDemo({ mode });
 
@@ -155,6 +157,7 @@ describe("demo entry route", () => {
 		expect(mounted.launched[0]?.client.clientId).toBe(clientId);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("shows the dedicated unavailable state for a rejected hosted request", async () => {
 		mountDemo({ failHosted: true });
 
@@ -165,6 +168,7 @@ describe("demo entry route", () => {
 		expect(screen.queryByText("sensitive server detail")).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
 	it("routes native invocation through ordinary authentication", async () => {
 		const mounted = mountDemo({ native: true });
 

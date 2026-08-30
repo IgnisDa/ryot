@@ -10,10 +10,9 @@ export class NavigationLoadError extends Data.TaggedError("NavigationLoadError")
 export class NavigationService extends Context.Service<NavigationService>()("NavigationService", {
 	make: Effect.sync(() => ({
 		load: Effect.fn("NavigationService.load")((ryot: KernelRyotClient) =>
-			Effect.tryPromise({
-				catch: (cause) => new NavigationLoadError({ cause }),
-				try: (signal) => ryot.data.query(navigationRecipe(), { signal }),
-			}),
+			ryot.data
+				.query(navigationRecipe())
+				.pipe(Effect.mapError((cause) => new NavigationLoadError({ cause }))),
 		),
 	})),
 }) {

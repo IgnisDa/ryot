@@ -9,7 +9,8 @@ import { Effect, Match } from "effect";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import type { ApiScope } from "#/api/scope";
-import { resolveManagedAssetOutcome } from "#/modules/assets/managed-assets";
+import { UploadsApi } from "#/api/uploads";
+import { ManagedAssetsService, resolveManagedAssetOutcome } from "#/modules/assets/managed-assets";
 import { temporaryUploadOutcome } from "#/modules/assets/temporary-uploads";
 import {
 	type ClientPageDocument,
@@ -42,6 +43,7 @@ import { toPluginLocation } from "#/modules/plugins/plugin-location";
 import { PluginQueriesService } from "#/modules/plugins/queries";
 import { pluginStorageOutcome } from "#/modules/plugins/storage";
 import type { ThemeStore } from "#/modules/theme/store";
+import { ClientStorage } from "#/persistence/storage";
 import type { ClientRuntime } from "#/runtime";
 
 const MAX_RETAINED_FRAMES = 3;
@@ -486,23 +488,19 @@ function ClientPageFrame(props: {
 			onOverlayState={(count) => props.overlay.publish(props.owner, count)}
 			onHeader={(publication) => props.header.publish(props.owner, publication)}
 			onProviderSearch={(request) => props.document.onProviderSearch?.(request)}
+			onQuery={(request) =>
+				props.runtime.runSync(PluginQueriesService).query({ request, scope: props.scope })
+			}
 			title={
 				rendererContributor?.kind === "plugin"
 					? rendererContributor.pluginSlug
 					: props.document.title
 			}
-			onUpload={(request, signal) =>
-				props.runtime.runPromise(temporaryUploadOutcome(props.scope, request), { signal })
-			}
-			onAssets={(request, signal) =>
-				props.runtime.runPromise(resolveManagedAssetOutcome(props.scope, request.assets), {
-					signal,
-				})
-			}
-			onStorage={(request, signal) =>
-				props.runtime.runPromise(
-					pluginStorageOutcome(props.scope, identity.contributors, request),
-					{ signal },
+			onUpload={(request) =>
+				Effect.provideService(
+					temporaryUploadOutcome(props.scope, request),
+					UploadsApi,
+					props.runtime.runSync(UploadsApi),
 				)
 			}
 			documentGrant={{
@@ -516,12 +514,18 @@ function ClientPageFrame(props: {
 					state: (current) => ({ ...current, ryotEntryKey: crypto.randomUUID() }),
 				})
 			}
-			onQuery={(request, signal) =>
-				props.runtime.runPromise(
-					Effect.flatMap(PluginQueriesService, (service) =>
-						service.query({ request, scope: props.scope }),
-					),
-					{ signal },
+			onStorage={(request) =>
+				Effect.provideService(
+					pluginStorageOutcome(props.scope, identity.contributors, request),
+					ClientStorage,
+					props.runtime.runSync(ClientStorage),
+				)
+			}
+			onAssets={(request) =>
+				Effect.provideService(
+					resolveManagedAssetOutcome(props.scope, request.assets),
+					ManagedAssetsService,
+					props.runtime.runSync(ManagedAssetsService),
 				)
 			}
 			onPageSearch={({ mode, update }) => {
@@ -536,43 +540,52 @@ function ClientPageFrame(props: {
 					}),
 				});
 			}}
-			onInvokeOperation={(request, signal) => {
+			onInvokeOperation={(request) => {
 				const target = props.operationTargets.find(
 					(candidate) => candidate.pluginSlug === request.pluginSlug,
 				);
 				if (target === undefined) {
-					return Promise.resolve({
+					return Effect.succeed({
 						outcome: "failure" as const,
 						reason: "operation-failed" as const,
 					});
 				}
-				return props.runtime.runPromise(
-					Effect.flatMap(PluginOperationsService, (service) =>
-						service.invoke({ request, scope: props.scope, sourceHash: target.sourceHash }),
-					),
-					{ signal },
-				);
+				return props.runtime
+					.runSync(PluginOperationsService)
+					.invoke({ request, scope: props.scope, sourceHash: target.sourceHash });
 			}}
-			onCollection={async (request) => {
-				try {
-					let response;
+			onCollection={(request) => {
+				const operation = Effect.gen(function* () {
 					if (request.action === "create") {
-						response = await ryot.collections.create(request.input);
-					} else if (request.action === "upsert-membership") {
-						response = await ryot.collections.upsertMembership(request.input);
-					} else {
-						response = await ryot.collections.removeMembership(request.input);
+						return {
+							outcome: "success",
+							response: yield* ryot.collections.create(request.input),
+						} as const;
 					}
-					return { response, outcome: "success" as const };
-				} catch (error) {
+					if (request.action === "upsert-membership") {
+						return {
+							outcome: "success",
+							response: yield* ryot.collections.upsertMembership(request.input),
+						} as const;
+					}
 					return {
-						outcome: "failure" as const,
-						reason:
-							error instanceof RyotClientError && error.reason === "collection-failed"
-								? "collection-failed"
-								: "transport",
-					};
-				}
+						outcome: "success",
+						response: yield* ryot.collections.removeMembership(request.input),
+					} as const;
+				});
+				return operation.pipe(
+					Effect.match({
+						onSuccess: (response) => response,
+						onFailure: (error) =>
+							({
+								outcome: "failure",
+								reason:
+									error instanceof RyotClientError && error.reason === "collection-failed"
+										? "collection-failed"
+										: "transport",
+							}) as const,
+					}),
+				);
 			}}
 		/>
 	);

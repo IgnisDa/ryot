@@ -6,10 +6,10 @@ import { notificationChannelsRecipe } from "@ryot-app/ryotql-recipes/notificatio
 import type { NotificationChannelsResult } from "@ryot-app/ryotql-recipes/notification-channels";
 import { Context, Data, Effect, Layer } from "effect";
 
+import type { AuthenticatedApiError } from "#/api/authenticated";
 import { NotificationsApi } from "#/api/notifications";
 import { PublicApi } from "#/api/public";
 import type { KernelRyotClient } from "#/api/ryot-client";
-import type { ApiScope } from "#/api/scope";
 import type { KernelHostServices } from "#/host-services";
 
 export const NOTIFICATION_CHANNELS_PAGE_SIZE = 20;
@@ -28,11 +28,9 @@ export class NotificationChannelsService extends Context.Service<NotificationCha
 				client: NotificationChannelsClient,
 				input: { readonly limit: number },
 			) {
-				return yield* Effect.tryPromise({
-					catch: (cause) => new NotificationChannelsLoadError({ cause }),
-					try: (signal) =>
-						client.data.query(notificationChannelsRecipe({ limit: input.limit }), { signal }),
-				});
+				return yield* client.data
+					.query(notificationChannelsRecipe({ limit: input.limit }))
+					.pipe(Effect.mapError((cause) => new NotificationChannelsLoadError({ cause })));
 			});
 
 			return { loadChannels };
@@ -42,120 +40,80 @@ export class NotificationChannelsService extends Context.Service<NotificationCha
 	static readonly layer = Layer.effect(this, this.make);
 }
 
-const loadNotificationChannels = Effect.fnUntraced(function* (
-	client: NotificationChannelsClient,
-	input: { readonly limit: number },
-) {
-	const service = yield* NotificationChannelsService;
-	return yield* service.loadChannels(client, input);
-});
-
-const getSystemConfig = Effect.fnUntraced(function* (serverUrl: ApiScope["serverUrl"]) {
-	const api = yield* PublicApi;
-	return yield* api.getSystemConfig(serverUrl);
-});
-
-const testNotificationChannels = Effect.fnUntraced(function* (scope: ApiScope) {
-	const api = yield* NotificationsApi;
-	return yield* api.testChannels(scope);
-});
-
-const createNotificationChannel = Effect.fnUntraced(function* (
-	scope: ApiScope,
-	payload: CreateNotificationChannelBody,
-) {
-	const api = yield* NotificationsApi;
-	return yield* api.createChannel(scope, { payload });
-});
-
-const updateNotificationChannel = Effect.fnUntraced(function* (
-	scope: ApiScope,
-	channelId: string,
-	isDisabled: boolean,
-) {
-	const api = yield* NotificationsApi;
-	return yield* api.updateChannel(scope, {
-		payload: { isDisabled },
-		params: { channelId: NotificationChannelId.make(channelId) },
-	});
-});
-
-const deleteNotificationChannel = Effect.fnUntraced(function* (scope: ApiScope, channelId: string) {
-	const api = yield* NotificationsApi;
-	return yield* api.deleteChannel(scope, {
-		params: { channelId: NotificationChannelId.make(channelId) },
-	});
-});
-
 export const notificationChannelsQuery = createRyotQuery<
 	number,
 	NotificationChannelsResult,
-	KernelHostServices
+	KernelHostServices,
+	NotificationChannelsLoadError
 >(
-	({ input, client, signal, hostServices }) =>
-		hostServices.runtime.runPromise(loadNotificationChannels(client, { limit: input }), { signal }),
+	({ input, client, hostServices }) =>
+		hostServices.runtime
+			.runSync(NotificationChannelsService)
+			.loadChannels(client, { limit: input }),
 	{ cancelOnUnmount: true },
 );
 
 export const notificationSmtpEnabledQuery = createRyotQuery<void, boolean, KernelHostServices>(
-	({ signal, hostServices }) =>
-		hostServices.runtime.runPromise(
-			getSystemConfig(hostServices.scope.serverUrl).pipe(
+	({ hostServices }) =>
+		hostServices.runtime
+			.runSync(PublicApi)
+			.getSystemConfig(hostServices.scope.serverUrl)
+			.pipe(
 				Effect.match({
 					onFailure: () => false,
 					onSuccess: (config) => config.notifications.smtpEnabled,
 				}),
 			),
-			{ signal },
-		),
 	{ cancelOnUnmount: true },
 );
 
-export const testNotificationChannelsMutation = createRyotMutation<void, void, KernelHostServices>(
-	async ({ client, signal, hostServices }) => {
-		const result = await hostServices.runtime.runPromise(
-			testNotificationChannels(hostServices.scope),
-			{ signal },
-		);
-		client.mutationCompleted.hint();
-		return result;
-	},
+export const testNotificationChannelsMutation = createRyotMutation<
+	void,
+	void,
+	KernelHostServices,
+	AuthenticatedApiError
+>(({ client, hostServices }) =>
+	hostServices.runtime
+		.runSync(NotificationsApi)
+		.testChannels(hostServices.scope)
+		.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
 );
 
 export const createNotificationChannelMutation = createRyotMutation<
 	CreateNotificationChannelBody,
 	ContractSuccess<"notifications", "createChannel">,
-	KernelHostServices
->(async ({ input, client, signal, hostServices }) => {
-	const result = await hostServices.runtime.runPromise(
-		createNotificationChannel(hostServices.scope, input),
-		{ signal },
-	);
-	client.mutationCompleted.hint();
-	return result;
-});
+	KernelHostServices,
+	AuthenticatedApiError
+>(({ input, client, hostServices }) =>
+	hostServices.runtime
+		.runSync(NotificationsApi)
+		.createChannel(hostServices.scope, { payload: input })
+		.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
+);
 
 export const updateNotificationChannelMutation = createRyotMutation<
 	{ readonly id: string; readonly isDisabled: boolean },
 	void,
-	KernelHostServices
->(async ({ input, client, signal, hostServices }) => {
-	await hostServices.runtime.runPromise(
-		updateNotificationChannel(hostServices.scope, input.id, input.isDisabled),
-		{ signal },
-	);
-	client.mutationCompleted.hint();
-});
+	KernelHostServices,
+	AuthenticatedApiError
+>(({ input, client, hostServices }) =>
+	hostServices.runtime
+		.runSync(NotificationsApi)
+		.updateChannel(hostServices.scope, {
+			payload: { isDisabled: input.isDisabled },
+			params: { channelId: NotificationChannelId.make(input.id) },
+		})
+		.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
+);
 
 export const deleteNotificationChannelMutation = createRyotMutation<
 	string,
 	ContractSuccess<"notifications", "deleteChannel">,
-	KernelHostServices
->(async ({ input, client, signal, hostServices }) => {
-	const result = await hostServices.runtime.runPromise(
-		deleteNotificationChannel(hostServices.scope, input),
-		{ signal },
-	);
-	client.mutationCompleted.hint();
-	return result;
-});
+	KernelHostServices,
+	AuthenticatedApiError
+>(({ input, client, hostServices }) =>
+	hostServices.runtime
+		.runSync(NotificationsApi)
+		.deleteChannel(hostServices.scope, { params: { channelId: NotificationChannelId.make(input) } })
+		.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
+);

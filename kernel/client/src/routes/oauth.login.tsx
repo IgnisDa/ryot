@@ -65,6 +65,7 @@ function OAuthLogin() {
 
 	const methods = deriveAuthMethods(config);
 
+	// oxlint-disable-next-line effecttsgo/async-function -- React credential form handler.
 	async function submitCredentials(values: CredentialsValues) {
 		const outcome = await runtime
 			.runPromise(
@@ -95,6 +96,7 @@ function OAuthLogin() {
 		return undefined;
 	}
 
+	// oxlint-disable-next-line effecttsgo/async-function -- React two-factor form handler.
 	async function submitTwoFactor(code: string) {
 		return runtime
 			.runPromise(
@@ -109,6 +111,7 @@ function OAuthLogin() {
 			);
 	}
 
+	// oxlint-disable-next-line effecttsgo/async-function -- React OIDC sign-in handler.
 	async function signInWithOidc() {
 		if (oidcPending) {
 			return;
