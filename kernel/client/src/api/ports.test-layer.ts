@@ -58,6 +58,7 @@ export const makePluginInstallationsApi = (
 
 export const makeUploadsApi = (overrides: Partial<UploadsApi["Service"]> = {}) =>
 	Layer.succeed(UploadsApi, {
+		putBytes: unused,
 		createIntent: unused,
 		completeIntent: unused,
 		resolveDownloads: unused,
