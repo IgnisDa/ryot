@@ -12,7 +12,7 @@ RyotQL is the focused read API at `POST /ryotql/execute`. `POST /ryotql/execute`
 - Internal field kinds are `text`, `date`, `number`, `boolean`, `json`, and `null`. `expression-kind.ts` owns kind inference for every expression variant; the validator and the executor supply their own alias resolution and share that one function, so a document can never validate as one kind and compile as another. Unresolved aliases or fields are a validation error for the validator and a compiler invariant for the executor.
 - Row and include fields may use the SDK `star(table)` helper to select every approved catalog field for that table alias.
 
-The entity catalog currently exposes `id`, `name`, `userId`, `createdAt`, `updatedAt`, `properties`, `externalId`, `populatedAt`, `providerId`, `translationStatus`, and `entitySchemaSlug`. Other physical columns are not queryable.
+The entity catalog currently exposes `id`, `name`, `userId`, `createdAt`, `updatedAt`, `properties`, `externalId`, `populatedAt`, `providerId`, `populationStatus`, `translationStatus`, and `entitySchemaSlug`. Other physical columns are not queryable.
 
 The event catalog exposes `id`, `userId`, `entityId`, `createdAt`, `updatedAt`, `properties`, `occurredAt`, `eventSchemaSlug`, and `sessionEntityId`.
 
@@ -226,6 +226,8 @@ rows(course, {
 Catalog fields resolve through one backend-owned interface. Most fields map directly to physical columns. `name`, `properties`, and `translationStatus` are resolved fields whose SQL depends on the authenticated user's language. RyotQL documents use them as ordinary columns and cannot provide custom field resolvers.
 
 For a user with a non-canonical language preference, `name` uses the translated name when present and otherwise falls back to the canonical name. Translated properties merge over canonical properties, so untranslated canonical keys remain available. The same resolved values are used in selection, predicates, ordering, and JSON paths. Users without a language preference read canonical values without translation SQL.
+
+`populationStatus` is `ready` once `populatedAt` is stamped, `none` when the entity has no provider or no external identifier and is therefore never populated, and `pending` otherwise. It does not depend on the reader's language.
 
 `translationStatus` is `none` for canonical-language readers, entities without a provider, providers without a canonical language, and unpopulated entities. It is `pending` when a translation is required but absent, `none` for a negative-cache translation, and `ready` when translated content exists. Its provider and translation SQL is emitted only when an expression references `translationStatus`.
 

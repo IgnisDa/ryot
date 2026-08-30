@@ -1,4 +1,5 @@
 import { PluginLink } from "@ryot-app/client-sdk/plugin";
+import { fieldSyncState } from "@ryot-app/client-ui-sdk/sync";
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
@@ -20,6 +21,7 @@ import {
 } from "./overview-state";
 import { ShowLinkButton, ShowOverviewSection } from "./primitives";
 import { showGalleryAssets, type ShowSummary } from "./summary-state";
+import { showSyncCounts } from "./sync-counts";
 
 const CREDIT_COLUMN_CLASS = "min-w-0 flex-1 border-t-0 pt-0";
 
@@ -34,6 +36,7 @@ function ShowRail(props: { readonly compact: boolean; readonly children: ReactNo
 }
 
 export function ShowImageGallery(props: {
+	readonly name: string;
 	readonly compact: boolean;
 	readonly divided: boolean;
 	readonly assets: readonly ShowImageAsset[];
@@ -56,7 +59,9 @@ export function ShowImageGallery(props: {
 			<ShowRail compact={props.compact}>
 				{props.assets.map((asset) => (
 					<ManagedAssetImage
+						state="ready"
 						asset={asset}
+						monogram={props.name}
 						key={imageAssetKey(asset)}
 						className={clsx("aspect-video", props.compact ? "w-64" : "w-96")}
 					/>
@@ -80,6 +85,7 @@ export function ShowPeopleSection(props: {
 			divided={props.divided}
 			compact={props.compact}
 			className={props.compact ? undefined : CREDIT_COLUMN_CLASS}
+			sync={showSyncCounts(props.people, showPersonAsset)}
 			action={
 				<ShowLinkButton
 					label="View all people"
@@ -103,8 +109,10 @@ export function ShowPeopleSection(props: {
 						>
 							<ManagedAssetImage
 								shape="circle"
+								monogram={person.name}
 								asset={showPersonAsset(person)}
 								className="aspect-square w-full"
+								state={fieldSyncState(showPersonAsset(person), person)}
 							/>
 							<div className="flex flex-col gap-1">
 								<p className="line-clamp-2 text-center font-ui font-medium text-[13px] leading-4.5 text-text">
@@ -143,6 +151,7 @@ export function ShowCompaniesSection(props: {
 			compact={props.compact}
 			title="Production companies"
 			className={props.compact ? undefined : COMPANY_COLUMN_CLASS}
+			sync={showSyncCounts(props.companies, showCompanyAsset)}
 		>
 			<div className="flex flex-col gap-3.5">
 				{props.companies.map((company) => {
@@ -154,7 +163,12 @@ export function ShowCompaniesSection(props: {
 							to={{ kind: "entity", entityId: company.id }}
 							className="flex items-center gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-accent"
 						>
-							<ManagedAssetImage className="h-9 w-9 shrink-0" asset={showCompanyAsset(company)} />
+							<ManagedAssetImage
+								monogram={company.name}
+								className="h-9 w-9 shrink-0"
+								asset={showCompanyAsset(company)}
+								state={fieldSyncState(showCompanyAsset(company), company)}
+							/>
 							<div className="flex min-w-0 flex-1 flex-col">
 								<p className="line-clamp-1 font-ui font-medium text-[13px] leading-4.5 text-text">
 									{company.name}
@@ -182,7 +196,12 @@ export function ShowRecommendationsSection(props: {
 		return null;
 	}
 	return (
-		<ShowOverviewSection title="More like this" divided={props.divided} compact={props.compact}>
+		<ShowOverviewSection
+			title="More like this"
+			divided={props.divided}
+			compact={props.compact}
+			sync={showSyncCounts(props.recommendations, showRecommendationAsset)}
+		>
 			<ShowRail compact={props.compact}>
 				{props.recommendations.map((recommendation) => (
 					<PluginLink
@@ -196,7 +215,9 @@ export function ShowRecommendationsSection(props: {
 					>
 						<ManagedAssetImage
 							className="aspect-2/3 w-full"
+							monogram={recommendation.name}
 							asset={showRecommendationAsset(recommendation)}
+							state={fieldSyncState(showRecommendationAsset(recommendation), recommendation)}
 						/>
 						<p className="line-clamp-2 font-ui text-[12px] leading-4.25 text-text">
 							{recommendation.name}
@@ -315,7 +336,12 @@ export function ShowOverview(props: {
 	return (
 		<div className={clsx("flex flex-col", props.compact ? "gap-7 pt-6" : "gap-9 pt-8")}>
 			{props.refreshStatus}
-			<ShowImageGallery divided={false} assets={gallery} compact={props.compact} />
+			<ShowImageGallery
+				divided={false}
+				assets={gallery}
+				name={props.show.name}
+				compact={props.compact}
+			/>
 			<ShowOverviewBody
 				state={props.overview}
 				compact={props.compact}

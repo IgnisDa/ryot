@@ -1,4 +1,4 @@
-import { column, table } from "@ryot-app/ryotql";
+import { table } from "@ryot-app/ryotql";
 import { buildSavedViewLayoutProjections } from "@ryot-app/ryotql-recipes/saved-views";
 
 import { slugify } from "../backend/contracts/slug";
@@ -64,12 +64,11 @@ export const mediaSavedViews = () => {
 		if (!schema) {
 			throw new Error(`Missing media entity schema: ${view.entitySchemaSlug}`);
 		}
-		const entityId = column(entity, "id");
 		const expressions = buildViewExpressions(view.entitySchemaSlug, schema.name);
 		const projections = buildSavedViewLayoutProjections({
-			table: { entityId, ...expressions.table },
-			grid: { entityId, card: expressions.grid },
-			list: { entityId, card: expressions.list },
+			table: { ...expressions.table, entity },
+			grid: { entity, card: expressions.grid },
+			list: { entity, card: expressions.list },
 		});
 		return {
 			sortOrder,

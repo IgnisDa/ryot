@@ -86,7 +86,9 @@ export function ProviderSearchResultRow(props: {
 	return (
 		<div className="flex items-center gap-3 rounded-lg bg-surface-2 px-3 py-2.5 md:bg-transparent">
 			<ManagedImage
+				state="absent"
 				urls={NO_MANAGED_URLS}
+				monogram={display.title}
 				className={IMAGE_CLASS_NAME}
 				asset={display.imageUrl === undefined ? null : { type: "remote", url: display.imageUrl }}
 			/>
