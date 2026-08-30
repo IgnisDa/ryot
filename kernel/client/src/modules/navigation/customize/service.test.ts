@@ -1,11 +1,11 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect, layer } from "@effect/vitest";
 import type {
 	ContractPathParams,
 	ContractPayload,
 	ContractSuccess,
 } from "@ryot-app/contract/client";
 import { PluginId, PluginSlug, SavedViewId } from "@ryot-app/contract/schema/brands";
-import { Effect, Layer } from "effect";
+import { Context, Effect, Layer, Ref } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { decodeServerOrigin } from "#/api/origin";
@@ -38,25 +38,37 @@ const installation: ContractSuccess<"plugins", "updatePluginState"> = {
 
 const authFailure = Effect.fail(new AuthenticatedApiError({ cause: "boom" }));
 
-const makeApi = (calls: Call[], fail?: Call["kind"]) =>
-	Layer.mergeAll(
-		makeSavedViewsApi({
-			update: (_scope, request) => {
-				calls.push({ kind: "update", ...request });
-				return fail === "update" ? authFailure : Effect.succeed(savedView);
-			},
-			reorder: (_scope, request) => {
-				calls.push({ kind: "reorder", ...request });
-				return fail === "reorder"
-					? authFailure
-					: Effect.succeed({ viewSlugs: request.payload.viewSlugs });
-			},
-		}),
-		makePluginInstallationsApi({
-			update: (_scope, request) => {
-				calls.push({ kind: "workspace", ...request });
-				return fail === "workspace" ? authFailure : Effect.succeed(installation);
-			},
+class FakeCustomizeApis extends Context.Service<
+	FakeCustomizeApis,
+	{ readonly calls: Effect.Effect<ReadonlyArray<Call>> }
+>()("test/FakeCustomizeApis") {}
+
+const customizeLayer = (fail?: Call["kind"]) =>
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const calls = yield* Ref.make<ReadonlyArray<Call>>([]);
+			const record = <A>(call: Call, succeed: A) =>
+				Ref.update(calls, (all) => [...all, call]).pipe(
+					Effect.andThen(fail === call.kind ? authFailure : Effect.succeed(succeed)),
+				);
+			return Layer.merge(
+				CustomizeSidebarService.layer.pipe(
+					Layer.provide(
+						Layer.mergeAll(
+							makeSavedViewsApi({
+								update: (_scope, request) => record({ kind: "update", ...request }, savedView),
+								reorder: (_scope, request) =>
+									record({ kind: "reorder", ...request }, { viewSlugs: request.payload.viewSlugs }),
+							}),
+							makePluginInstallationsApi({
+								update: (_scope, request) =>
+									record({ kind: "workspace", ...request }, installation),
+							}),
+						),
+					),
+				),
+				Layer.succeed(FakeCustomizeApis, { calls: Ref.get(calls) }),
+			);
 		}),
 	);
 
@@ -72,74 +84,73 @@ const plan: CustomizePlan = {
 };
 
 describe("customize sidebar service", () => {
-	it.effect("applies every visibility update before any reorder", () => {
-		const calls: Call[] = [];
+	layer(customizeLayer())((test) => {
+		test.effect("applies every visibility update before any reorder", () =>
+			Effect.gen(function* () {
+				const service = yield* CustomizeSidebarService;
+				yield* service.save(scope, plan);
 
-		return Effect.gen(function* () {
-			const service = yield* CustomizeSidebarService;
-			yield* service.save(scope, plan);
-
-			expect(calls).toEqual([
-				{
-					kind: "update",
-					params: { viewSlug: "shows" },
-					payload: { icon: "list", name: "Shows", isDisabled: true },
-				},
-				{
-					kind: "update",
-					params: { viewSlug: "all" },
-					payload: { name: "All", icon: "list", isDisabled: false },
-				},
-				{ kind: "reorder", payload: { viewSlugs: ["all", "recent"] } },
-				{
-					kind: "workspace",
-					params: { pluginSlug: "media" },
-					payload: { sortOrder: 0, isDisabled: false },
-				},
-			]);
-		}).pipe(Effect.provide(CustomizeSidebarService.layer.pipe(Layer.provide(makeApi(calls)))));
-	});
-
-	it.effect("stops at the first failed update rather than reordering a half-applied plan", () => {
-		const calls: Call[] = [];
-
-		return Effect.gen(function* () {
-			const service = yield* CustomizeSidebarService;
-			const failure = yield* Effect.flip(service.save(scope, plan));
-
-			expect(failure.stage).toBe("update");
-			expect(calls.map((call) => call.kind)).toEqual(["update"]);
-		}).pipe(
-			Effect.provide(CustomizeSidebarService.layer.pipe(Layer.provide(makeApi(calls, "update")))),
+				expect(yield* (yield* FakeCustomizeApis).calls).toEqual([
+					{
+						kind: "update",
+						params: { viewSlug: "shows" },
+						payload: { icon: "list", name: "Shows", isDisabled: true },
+					},
+					{
+						kind: "update",
+						params: { viewSlug: "all" },
+						payload: { name: "All", icon: "list", isDisabled: false },
+					},
+					{ kind: "reorder", payload: { viewSlugs: ["all", "recent"] } },
+					{
+						kind: "workspace",
+						params: { pluginSlug: "media" },
+						payload: { sortOrder: 0, isDisabled: false },
+					},
+				]);
+			}),
 		);
 	});
 
-	it.effect("reports a failed reorder as a reorder failure", () => {
-		const calls: Call[] = [];
+	layer(customizeLayer("update"))((test) => {
+		test.effect("stops at the first failed update rather than reordering a half-applied plan", () =>
+			Effect.gen(function* () {
+				const service = yield* CustomizeSidebarService;
+				const failure = yield* Effect.flip(service.save(scope, plan));
 
-		return Effect.gen(function* () {
-			const service = yield* CustomizeSidebarService;
-			const failure = yield* Effect.flip(service.save(scope, plan));
-
-			expect(failure.stage).toBe("reorder");
-		}).pipe(
-			Effect.provide(CustomizeSidebarService.layer.pipe(Layer.provide(makeApi(calls, "reorder")))),
+				expect(failure.stage).toBe("update");
+				expect((yield* (yield* FakeCustomizeApis).calls).map((call) => call.kind)).toEqual([
+					"update",
+				]);
+			}),
 		);
 	});
 
-	it.effect("reports a failed workspace update as a workspace failure", () => {
-		const calls: Call[] = [];
+	layer(customizeLayer("reorder"))((test) => {
+		test.effect("reports a failed reorder as a reorder failure", () =>
+			Effect.gen(function* () {
+				const service = yield* CustomizeSidebarService;
+				const failure = yield* Effect.flip(service.save(scope, plan));
 
-		return Effect.gen(function* () {
-			const service = yield* CustomizeSidebarService;
-			const failure = yield* Effect.flip(service.save(scope, plan));
+				expect(failure.stage).toBe("reorder");
+			}),
+		);
+	});
 
-			expect(failure.stage).toBe("workspace");
-			expect(calls.map((call) => call.kind)).toEqual(["update", "update", "reorder", "workspace"]);
-		}).pipe(
-			Effect.provide(
-				CustomizeSidebarService.layer.pipe(Layer.provide(makeApi(calls, "workspace"))),
-			),
+	layer(customizeLayer("workspace"))((test) => {
+		test.effect("reports a failed workspace update as a workspace failure", () =>
+			Effect.gen(function* () {
+				const service = yield* CustomizeSidebarService;
+				const failure = yield* Effect.flip(service.save(scope, plan));
+
+				expect(failure.stage).toBe("workspace");
+				expect((yield* (yield* FakeCustomizeApis).calls).map((call) => call.kind)).toEqual([
+					"update",
+					"update",
+					"reorder",
+					"workspace",
+				]);
+			}),
 		);
 	});
 });

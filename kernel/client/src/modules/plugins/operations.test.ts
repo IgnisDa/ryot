@@ -1,4 +1,4 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect, layer } from "@effect/vitest";
 import {
 	AuthRateLimited,
 	AuthUnauthorized,
@@ -16,7 +16,7 @@ import {
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { PluginSlug } from "@ryot-app/contract/schema/brands";
-import { Effect, Layer, Schema } from "effect";
+import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { decodeServerOrigin } from "#/api/origin";
@@ -33,73 +33,92 @@ type InvokeRequest = {
 
 type InvokeResult = Effect.Effect<ContractSuccess<"plugins", "invoke">, AuthenticatedApiError>;
 
-const makeApi = (invoke: (request: InvokeRequest) => InvokeResult) =>
-	makePluginsApi({ invoke: (_scope, request) => invoke(request) });
+class FakePluginsApi extends Context.Service<
+	FakePluginsApi,
+	{ readonly requests: Effect.Effect<ReadonlyArray<InvokeRequest>> }
+>()("test/FakePluginsApi") {}
+
+const operationsLayer = (reply: () => InvokeResult) =>
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const requests = yield* Ref.make<ReadonlyArray<InvokeRequest>>([]);
+			return Layer.merge(
+				Layer.provide(
+					PluginOperationsService.layer,
+					makePluginsApi({
+						invoke: (_scope, request) =>
+							Ref.update(requests, (all) => [...all, request]).pipe(Effect.andThen(reply())),
+					}),
+				),
+				Layer.succeed(FakePluginsApi, { requests: Ref.get(requests) }),
+			);
+		}),
+	);
 
 const failing = (cause: unknown) =>
-	makeApi(() => Effect.fail(new AuthenticatedApiError({ cause })));
+	operationsLayer(() => Effect.fail(new AuthenticatedApiError({ cause })));
 
 describe("plugin operations service", () => {
-	it.effect("invokes the explicitly targeted plugin and operation at the recorded revision", () => {
-		const calls: InvokeRequest[] = [];
-		const dependencies = makeApi((request) => {
-			calls.push(request);
-			return Effect.succeed({ result: "ignored" });
-		});
+	layer(operationsLayer(() => Effect.succeed({ result: "ignored" })))((test) => {
+		test.effect(
+			"invokes the explicitly targeted plugin and operation at the recorded revision",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* PluginOperationsService;
+					yield* service.invoke({
+						scope,
+						sourceHash: "source-hash",
+						request: {
+							operationSlug: "greet",
+							input: { greeting: "hi" },
+							pluginSlug: PluginSlug.make("fixture"),
+						},
+					});
 
-		return Effect.gen(function* () {
-			const service = yield* PluginOperationsService;
-			yield* service.invoke({
-				scope,
-				sourceHash: "source-hash",
-				request: {
-					operationSlug: "greet",
-					input: { greeting: "hi" },
-					pluginSlug: PluginSlug.make("fixture"),
-				},
-			});
-
-			expect(calls).toEqual([
-				{
-					params: { pluginSlug: "fixture", operationSlug: "greet" },
-					payload: { sourceHash: "source-hash", payload: { greeting: "hi" } },
-				},
-			]);
-		}).pipe(Effect.provide(Layer.provide(PluginOperationsService.layer, dependencies)));
+					expect(yield* (yield* FakePluginsApi).requests).toEqual([
+						{
+							params: { pluginSlug: "fixture", operationSlug: "greet" },
+							payload: { sourceHash: "source-hash", payload: { greeting: "hi" } },
+						},
+					]);
+				}),
+		);
 	});
 
-	it.effect("maps a successful response to a success outcome", () => {
-		const dependencies = makeApi(() => Effect.succeed({ result: { greeted: "hi" } }));
+	layer(operationsLayer(() => Effect.succeed({ result: { greeted: "hi" } })))((test) => {
+		test.effect("maps a successful response to a success outcome", () =>
+			Effect.gen(function* () {
+				const service = yield* PluginOperationsService;
+				const outcome = yield* service.invoke({
+					scope,
+					sourceHash: "source-hash",
+					request: { input: null, operationSlug: "greet", pluginSlug: PluginSlug.make("fixture") },
+				});
 
-		return Effect.gen(function* () {
-			const service = yield* PluginOperationsService;
-			const outcome = yield* service.invoke({
-				scope,
-				sourceHash: "source-hash",
-				request: { input: null, operationSlug: "greet", pluginSlug: PluginSlug.make("fixture") },
-			});
-
-			expect(outcome).toEqual({ outcome: "success", value: { greeted: "hi" } });
-		}).pipe(Effect.provide(Layer.provide(PluginOperationsService.layer, dependencies)));
+				expect(outcome).toEqual({ outcome: "success", value: { greeted: "hi" } });
+			}),
+		);
 	});
 
-	it.effect("returns a kernel-only stale session result for a changed source revision", () => {
-		const dependencies = failing(
+	layer(
+		failing(
 			new PluginConflictError({
 				reason: { code: "source-revision-stale", pluginSlug: PluginSlug.make("fixture") },
 			}),
+		),
+	)((test) => {
+		test.effect("returns a kernel-only stale session result for a changed source revision", () =>
+			Effect.gen(function* () {
+				const service = yield* PluginOperationsService;
+				const outcome = yield* service.invoke({
+					scope,
+					sourceHash: "source-hash",
+					request: { input: null, operationSlug: "greet", pluginSlug: PluginSlug.make("fixture") },
+				});
+
+				expect(outcome).toEqual({ outcome: "stale-session" });
+			}),
 		);
-
-		return Effect.gen(function* () {
-			const service = yield* PluginOperationsService;
-			const outcome = yield* service.invoke({
-				scope,
-				sourceHash: "source-hash",
-				request: { input: null, operationSlug: "greet", pluginSlug: PluginSlug.make("fixture") },
-			});
-
-			expect(outcome).toEqual({ outcome: "stale-session" });
-		}).pipe(Effect.provide(Layer.provide(PluginOperationsService.layer, dependencies)));
 	});
 
 	const declaredFailures = [
@@ -117,10 +136,29 @@ describe("plugin operations service", () => {
 	];
 
 	for (const cause of declaredFailures) {
-		it.effect(`classifies ${cause._tag} as a declared platform operation failure`, () => {
-			const dependencies = failing(cause);
+		layer(failing(cause))((test) => {
+			test.effect(`classifies ${cause._tag} as a declared platform operation failure`, () =>
+				Effect.gen(function* () {
+					const service = yield* PluginOperationsService;
+					const outcome = yield* service.invoke({
+						scope,
+						sourceHash: "source-hash",
+						request: {
+							input: null,
+							operationSlug: "greet",
+							pluginSlug: PluginSlug.make("fixture"),
+						},
+					});
 
-			return Effect.gen(function* () {
+					expect(outcome).toEqual({ outcome: "failure", reason: "operation-failed" });
+				}),
+			);
+		});
+	}
+
+	layer(failing(new TypeError("network down")))((test) => {
+		test.effect("classifies an unrelated cause as a transport failure without leaking it", () =>
+			Effect.gen(function* () {
 				const service = yield* PluginOperationsService;
 				const outcome = yield* service.invoke({
 					scope,
@@ -128,27 +166,12 @@ describe("plugin operations service", () => {
 					request: { input: null, operationSlug: "greet", pluginSlug: PluginSlug.make("fixture") },
 				});
 
-				expect(outcome).toEqual({ outcome: "failure", reason: "operation-failed" });
-			}).pipe(Effect.provide(Layer.provide(PluginOperationsService.layer, dependencies)));
-		});
-	}
-
-	it.effect("classifies an unrelated cause as a transport failure without leaking it", () => {
-		const dependencies = failing(new TypeError("network down"));
-
-		return Effect.gen(function* () {
-			const service = yield* PluginOperationsService;
-			const outcome = yield* service.invoke({
-				scope,
-				sourceHash: "source-hash",
-				request: { input: null, operationSlug: "greet", pluginSlug: PluginSlug.make("fixture") },
-			});
-
-			expect(outcome).toEqual({ outcome: "failure", reason: "transport" });
-			expect(outcome).not.toHaveProperty("cause");
-			expect(
-				yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(outcome),
-			).not.toContain("network down");
-		}).pipe(Effect.provide(Layer.provide(PluginOperationsService.layer, dependencies)));
+				expect(outcome).toEqual({ outcome: "failure", reason: "transport" });
+				expect(outcome).not.toHaveProperty("cause");
+				expect(
+					yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(outcome),
+				).not.toContain("network down");
+			}),
+		);
 	});
 });

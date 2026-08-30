@@ -1,9 +1,9 @@
-import { describe, expect, it } from "@effect/vitest";
+import { describe, expect, layer } from "@effect/vitest";
 import { createRyotClient, RyotClientError } from "@ryot-app/client-sdk";
 import { createTestRyotAdapter } from "@ryot-app/client-sdk/testing";
 import type { ContractSuccess } from "@ryot-app/contract/client";
 import { EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
-import { Effect, Layer } from "effect";
+import { Context, Effect, Layer, Ref } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { decodeServerOrigin } from "#/api/origin";
@@ -32,38 +32,48 @@ const providerRow = {
 type ProviderEntitiesMethod = keyof ProviderEntitiesApi["Service"];
 type ContractCall = { readonly method: ProviderEntitiesMethod; readonly request: unknown };
 
-const makeApi = (calls: ContractCall[], offline = false) => {
-	const record =
-		<M extends ProviderEntitiesMethod>(
-			method: M,
-			response: ContractSuccess<"providerEntities", M>,
-		) =>
-		(_scope: ApiScope, request: unknown) => {
-			calls.push({ method, request });
-			return offline
-				? Effect.fail(new AuthenticatedApiError({ cause: "offline" }))
-				: Effect.succeed(response);
-		};
-	return ProviderAddService.layer.pipe(
-		Layer.provide(
-			makeProviderEntitiesApi({
-				import: record("import", { jobId: "job-1" }),
-				searchOptions: record("searchOptions", { schema: null }),
-				getImportResult: record("getImportResult", { status: "running" }),
-				search: record("search", {
-					items: [],
-					providerId,
-					providerName: "Open Library",
-					rootEntitySchemaSlug: entitySchemaSlug,
-				}),
-			}),
-		),
+class FakeProviderEntitiesApi extends Context.Service<
+	FakeProviderEntitiesApi,
+	{ readonly calls: Effect.Effect<ReadonlyArray<ContractCall>> }
+>()("test/FakeProviderEntitiesApi") {}
+
+const providerAddLayer = (offline = false) =>
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const calls = yield* Ref.make<ReadonlyArray<ContractCall>>([]);
+			const record =
+				<M extends ProviderEntitiesMethod>(
+					method: M,
+					response: ContractSuccess<"providerEntities", M>,
+				) =>
+				(_scope: ApiScope, request: unknown) =>
+					Ref.update(calls, (all) => [...all, { method, request }]).pipe(
+						Effect.andThen(
+							offline
+								? Effect.fail(new AuthenticatedApiError({ cause: "offline" }))
+								: Effect.succeed(response),
+						),
+					);
+			return Layer.merge(
+				ProviderAddService.layer.pipe(
+					Layer.provide(
+						makeProviderEntitiesApi({
+							import: record("import", { jobId: "job-1" }),
+							searchOptions: record("searchOptions", { schema: null }),
+							getImportResult: record("getImportResult", { status: "running" }),
+							search: record("search", {
+								items: [],
+								providerId,
+								providerName: "Open Library",
+								rootEntitySchemaSlug: entitySchemaSlug,
+							}),
+						}),
+					),
+				),
+				Layer.succeed(FakeProviderEntitiesApi, { calls: Ref.get(calls) }),
+			);
+		}),
 	);
-};
-
-const workingApi = (calls: ContractCall[]) => makeApi(calls);
-
-const failingApi = () => makeApi([], true);
 
 const dataClient = (queries: unknown[]) =>
 	createRyotClient(
@@ -86,91 +96,95 @@ const failingDataClient = () =>
 	);
 
 describe("ProviderAddService", () => {
-	it.effect("loads provider summaries and entity links through the RyotQL client", () => {
-		const queries: unknown[] = [];
-		const client = dataClient(queries);
+	layer(providerAddLayer())((test) => {
+		test.effect("loads provider summaries and entity links through the RyotQL client", () => {
+			const queries: unknown[] = [];
+			const client = dataClient(queries);
 
-		return Effect.gen(function* () {
-			const service = yield* ProviderAddService;
-			const providers = yield* service.loadProviders(client, entitySchemaSlug, ownerPluginId);
-			const links = yield* service.loadEntityLinks(client, {
-				providerId,
-				entitySchemaSlug,
-				relationshipSlug,
-				librarySchemaSlug,
-				externalIds: ["ext-1"],
-			});
+			return Effect.gen(function* () {
+				const service = yield* ProviderAddService;
+				const providers = yield* service.loadProviders(client, entitySchemaSlug, ownerPluginId);
+				const links = yield* service.loadEntityLinks(client, {
+					providerId,
+					entitySchemaSlug,
+					relationshipSlug,
+					librarySchemaSlug,
+					externalIds: ["ext-1"],
+				});
 
-			expect(providers.items).toEqual([providerRow]);
-			expect(links).toEqual([{ externalId: "ext-1", entityId: "entity-1" }]);
-			expect(queries).toHaveLength(2);
-			expect(queries[0]).toMatchObject({
-				queries: {
-					providers: {
-						where: {
-							predicates: [
-								{},
-								{
-									right: { value: ownerPluginId },
-									left: { field: "pluginId", tableAlias: "provider" },
-								},
-								{},
-								{},
-							],
+				expect(providers.items).toEqual([providerRow]);
+				expect(links).toEqual([{ externalId: "ext-1", entityId: "entity-1" }]);
+				expect(queries).toHaveLength(2);
+				expect(queries[0]).toMatchObject({
+					queries: {
+						providers: {
+							where: {
+								predicates: [
+									{},
+									{
+										right: { value: ownerPluginId },
+										left: { field: "pluginId", tableAlias: "provider" },
+									},
+									{},
+									{},
+								],
+							},
 						},
 					},
-				},
+				});
+				expect(queries[1]).toMatchObject({ queries: { links: {} } });
 			});
-			expect(queries[1]).toMatchObject({ queries: { links: {} } });
-		}).pipe(Effect.provide(workingApi([])));
+		});
 	});
 
-	it.effect("routes every provider entity operation to its contract endpoint", () => {
-		const calls: ContractCall[] = [];
+	layer(providerAddLayer())((test) => {
+		test.effect("routes every provider entity operation to its contract endpoint", () => {
+			return Effect.gen(function* () {
+				const service = yield* ProviderAddService;
+				yield* service.loadSearchOptions(scope, providerId);
+				yield* service.search(scope, { page: 1, providerId, pageSize: 20, query: "dune" });
+				yield* service.startImport(scope, { providerId, externalId: "ext-1" });
+				yield* service.pollImport(scope, "job-1");
 
-		return Effect.gen(function* () {
-			const service = yield* ProviderAddService;
-			yield* service.loadSearchOptions(scope, providerId);
-			yield* service.search(scope, { page: 1, providerId, pageSize: 20, query: "dune" });
-			yield* service.startImport(scope, { providerId, externalId: "ext-1" });
-			yield* service.pollImport(scope, "job-1");
-
-			expect(calls).toEqual([
-				{ method: "searchOptions", request: { payload: { providerId } } },
-				{
-					method: "search",
-					request: { payload: { page: 1, providerId, pageSize: 20, query: "dune" } },
-				},
-				{ method: "import", request: { payload: { providerId, externalId: "ext-1" } } },
-				{ method: "getImportResult", request: { params: { jobId: "job-1" } } },
-			]);
-		}).pipe(Effect.provide(workingApi(calls)));
+				expect(yield* (yield* FakeProviderEntitiesApi).calls).toEqual([
+					{ method: "searchOptions", request: { payload: { providerId } } },
+					{
+						method: "search",
+						request: { payload: { page: 1, providerId, pageSize: 20, query: "dune" } },
+					},
+					{ method: "import", request: { payload: { providerId, externalId: "ext-1" } } },
+					{ method: "getImportResult", request: { params: { jobId: "job-1" } } },
+				]);
+			});
+		});
 	});
 
-	it.effect("classifies a failure by the stage that produced it", () =>
-		Effect.gen(function* () {
-			const service = yield* ProviderAddService;
-			const client = failingDataClient();
-			const stages = [
-				yield* Effect.flip(service.loadProviders(client, entitySchemaSlug)),
-				yield* Effect.flip(
-					service.loadEntityLinks(client, {
-						providerId,
-						entitySchemaSlug,
-						relationshipSlug,
-						librarySchemaSlug,
-						externalIds: ["ext-1"],
-					}),
-				),
-				yield* Effect.flip(service.loadSearchOptions(scope, providerId)),
-				yield* Effect.flip(
-					service.search(scope, { page: 1, providerId, pageSize: 20, query: "dune" }),
-				),
-				yield* Effect.flip(service.startImport(scope, { providerId, externalId: "ext-1" })),
-				yield* Effect.flip(service.pollImport(scope, "job-1")),
-			].map((error) => error.stage);
+	layer(providerAddLayer(true))((test) => {
+		test.effect("classifies a failure by the stage that produced it", () =>
+			Effect.gen(function* () {
+				const service = yield* ProviderAddService;
+				const client = failingDataClient();
+				const stages = [
+					yield* Effect.flip(service.loadProviders(client, entitySchemaSlug)),
+					yield* Effect.flip(
+						service.loadEntityLinks(client, {
+							providerId,
+							entitySchemaSlug,
+							relationshipSlug,
+							librarySchemaSlug,
+							externalIds: ["ext-1"],
+						}),
+					),
+					yield* Effect.flip(service.loadSearchOptions(scope, providerId)),
+					yield* Effect.flip(
+						service.search(scope, { page: 1, providerId, pageSize: 20, query: "dune" }),
+					),
+					yield* Effect.flip(service.startImport(scope, { providerId, externalId: "ext-1" })),
+					yield* Effect.flip(service.pollImport(scope, "job-1")),
+				].map((error) => error.stage);
 
-			expect(stages).toEqual(["providers", "links", "options", "search", "import", "import"]);
-		}).pipe(Effect.provide(failingApi())),
-	);
+				expect(stages).toEqual(["providers", "links", "options", "search", "import", "import"]);
+			}),
+		);
+	});
 });
