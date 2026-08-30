@@ -4,6 +4,7 @@ import { renderToReadableStream } from "react-dom/server";
 import { type AppLoadContext, type EntryContext, ServerRouter } from "react-router";
 
 import { WebsiteFailure } from "~/lib/effect.server";
+import { runPromise } from "~/lib/runtime.server";
 
 const ABORT_DELAY = 5_000;
 
@@ -14,7 +15,7 @@ export default function handleRequest(
 	reactRouterContext: EntryContext,
 	_loadContext: AppLoadContext,
 ) {
-	return Effect.runPromise(
+	return runPromise(
 		Effect.gen(function* () {
 			if (request.method.toUpperCase() === "HEAD") {
 				return new Response(null, { headers: responseHeaders, status: responseStatusCode });

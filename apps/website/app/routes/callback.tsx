@@ -13,12 +13,13 @@ import {
 	websiteAuthCookie,
 } from "~/lib/config.server";
 import { fromPromise } from "~/lib/effect.server";
+import { runPromise } from "~/lib/runtime.server";
 import { oauthConfig } from "~/lib/utilities.server";
 
 import type { Route } from "./+types/callback";
 
 export const loader = ({ request }: Route.LoaderArgs) =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			const config = yield* oauthConfig;
 			const requestUrl = new URL(request.url);
