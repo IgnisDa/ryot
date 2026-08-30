@@ -85,6 +85,7 @@ export const privatePluginPackage = (
 				scriptSlug,
 				auth: "user",
 				slug: operationSlug,
+				demoAccess: "allowed",
 				description: "Returns a value derived from the caller's own plugin config",
 			},
 		],
@@ -180,7 +181,13 @@ export const privateBootstrapPluginPackage = (): PrivateBootstrapPluginPackage =
 		pluginSlug,
 		userBootstrap: [{ description: name, slug: bootstrapSlug, scriptSlug: bootstrapScriptSlug }],
 		operations: [
-			{ auth: "user", description: name, slug: operationSlug, scriptSlug: operationScriptSlug },
+			{
+				auth: "user",
+				description: name,
+				slug: operationSlug,
+				demoAccess: "allowed",
+				scriptSlug: operationScriptSlug,
+			},
 		],
 		scripts: [
 			{

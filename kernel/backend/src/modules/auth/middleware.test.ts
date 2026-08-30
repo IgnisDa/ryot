@@ -4,15 +4,22 @@ import {
 	AuthUnauthorized,
 	AuthorizationContext,
 	CurrentUser,
+	DemoOperationProtected,
 } from "@ryot-app/contract/auth-middleware";
 import { PluginsGroup } from "@ryot-app/contract/modules/plugins/contract";
+import {
+	OAUTH_DEMO_WEB_CLIENT_ID,
+	OAUTH_NATIVE_CLIENT_ID,
+	OAUTH_WEB_CLIENT_ID,
+} from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Redacted } from "effect";
-import { HttpRouter, HttpServerResponse } from "effect/unstable/http";
+import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
 
 import {
 	credentialFromHeaders,
 	getOAuthVerificationOptions,
+	isDemoProtectedAuthRequest,
 	isLifecycleProtectedAuthPath,
 	makeAuthMiddleware,
 	resolveCredential,
@@ -30,6 +37,7 @@ const userRecord = {
 const resolvedOAuth = {
 	authorization: {
 		userId: userRecord.id,
+		accessClass: "standard" as const,
 		credential: { kind: "oauth", clientId: "ryot-web" } as const,
 	},
 	user: {
@@ -45,8 +53,46 @@ const disabledUserRecord = { ...userRecord, disabledAt: new Date("2026-08-31T00:
 it("gates Better Auth user-owned mutations without blocking unrelated auth routes", () => {
 	expect(isLifecycleProtectedAuthPath("/api-key/create")).toBe(true);
 	expect(isLifecycleProtectedAuthPath("/update-user")).toBe(true);
+	expect(isLifecycleProtectedAuthPath("/delete-user")).toBe(true);
+	expect(isLifecycleProtectedAuthPath("/revoke-other-sessions")).toBe(true);
 	expect(isLifecycleProtectedAuthPath("/sign-in/email")).toBe(false);
 	expect(isLifecycleProtectedAuthPath("/get-session")).toBe(false);
+});
+
+it("protects demo hosted-session mutations and non-demo OAuth authorization", () => {
+	for (const path of [
+		"/api-key/create",
+		"/api-key/update",
+		"/api-key/delete",
+		"/change-email",
+		"/change-password",
+		"/set-password",
+		"/update-user",
+		"/delete-user",
+		"/update-session",
+		"/link-social",
+		"/unlink-account",
+		"/two-factor/enable",
+		"/two-factor/disable",
+		"/two-factor/generate-backup-codes",
+		"/revoke-session",
+		"/revoke-sessions",
+		"/revoke-other-sessions",
+	]) {
+		expect(isDemoProtectedAuthRequest(path, "demo")).toBe(true);
+		expect(isDemoProtectedAuthRequest(path, "standard")).toBe(false);
+	}
+	expect(isDemoProtectedAuthRequest("/oauth2/authorize", "demo", OAUTH_WEB_CLIENT_ID)).toBe(true);
+	expect(isDemoProtectedAuthRequest("/oauth2/authorize", "demo", OAUTH_NATIVE_CLIENT_ID)).toBe(
+		true,
+	);
+	expect(isDemoProtectedAuthRequest("/oauth2/authorize", "demo", "unexpected-client")).toBe(true);
+	expect(isDemoProtectedAuthRequest("/oauth2/authorize", "demo", OAUTH_DEMO_WEB_CLIENT_ID)).toBe(
+		false,
+	);
+	for (const path of ["/sign-out", "/sign-in/email", "/two-factor/verify-totp"]) {
+		expect(isDemoProtectedAuthRequest(path, "demo")).toBe(false);
+	}
 });
 
 it("extracts only explicit application credentials", () => {
@@ -97,8 +143,42 @@ it.effect("resolves an API key and its authorization context", () =>
 		);
 		expect(resolved.authorization).toEqual({
 			userId: "user-1",
+			accessClass: "standard",
 			credential: { keyId: "key-1", kind: "api-key" },
 		});
+	}),
+);
+
+it.effect("classifies credential authority from provenance and demo configuration", () =>
+	Effect.gen(function* () {
+		const oauth = (clientId: string, userId = "user-1") =>
+			resolveCredential(
+				{ kind: "oauth", token: "token" },
+				() => Promise.resolve({ sub: userId, client_id: clientId }),
+				() => Effect.die("unused").pipe(Effect.runPromise),
+				() => Effect.succeed({ ...userRecord, id: userId }),
+				"user-1",
+			);
+		expect((yield* oauth(OAUTH_DEMO_WEB_CLIENT_ID)).authorization.accessClass).toBe("demo");
+		expect((yield* oauth(OAUTH_WEB_CLIENT_ID)).authorization.accessClass).toBe("standard");
+		expect((yield* oauth(OAUTH_NATIVE_CLIENT_ID)).authorization.accessClass).toBe("standard");
+		expect((yield* oauth("unexpected-client")).authorization.accessClass).toBe("demo");
+		expect((yield* oauth("unexpected-client", "other-user")).authorization.accessClass).toBe(
+			"standard",
+		);
+
+		const apiKey = (userId: string, demoAccountId: string | null) =>
+			resolveCredential(
+				{ key: "key", kind: "api-key" },
+				() => Effect.die("unused").pipe(Effect.runPromise),
+				() =>
+					Promise.resolve({ valid: true, error: null, key: { id: "key-1", referenceId: userId } }),
+				() => Effect.succeed({ ...userRecord, id: userId }),
+				demoAccountId,
+			);
+		expect((yield* apiKey("user-1", "user-1")).authorization.accessClass).toBe("demo");
+		expect((yield* apiKey("other-user", "user-1")).authorization.accessClass).toBe("standard");
+		expect((yield* apiKey("user-1", null)).authorization.accessClass).toBe("standard");
 	}),
 );
 
@@ -210,4 +290,58 @@ it.effect("rejects authenticated writes while a lifecycle operation is active", 
 			),
 		({ dispose }) => Effect.promise(dispose),
 	);
+});
+
+it.effect("enforces representative demo endpoint policies with a typed 403", () => {
+	const request = (
+		accessClass: "standard" | "demo",
+		endpoint: typeof PluginsGroup.endpoints.list | typeof PluginsGroup.endpoints.install,
+	) => {
+		let handlerCalled = false;
+		const middleware = makeAuthMiddleware(
+			{
+				apiKeyUser: () => Effect.die("unused"),
+				oauthUser: () =>
+					Effect.succeed({
+						...resolvedOAuth,
+						authorization: { ...resolvedOAuth.authorization, accessClass },
+					}),
+			},
+			{ isActive: () => Effect.succeed(false) },
+		);
+		const effect = middleware
+			.oauth(
+				Effect.sync(() => {
+					handlerCalled = true;
+					return HttpServerResponse.empty();
+				}),
+				{ endpoint, credential: Redacted.make("token") },
+			)
+			.pipe(
+				Effect.provideService(
+					HttpServerRequest.HttpServerRequest,
+					HttpServerRequest.fromWeb(new Request("http://localhost/", { method: "POST" })),
+				),
+			);
+		return { effect, handlerCalled: () => handlerCalled };
+	};
+
+	return Effect.gen(function* () {
+		for (const accessClass of ["demo", "standard"] as const) {
+			const allowed = request(accessClass, PluginsGroup.endpoints.list);
+			expect((yield* allowed.effect).status).toBe(204);
+			expect(allowed.handlerCalled()).toBe(true);
+		}
+		const standard = request("standard", PluginsGroup.endpoints.install);
+		expect((yield* standard.effect).status).toBe(204);
+		expect(standard.handlerCalled()).toBe(true);
+
+		const demo = request("demo", PluginsGroup.endpoints.install);
+		const error = yield* Effect.flip(demo.effect);
+		expect(error).toEqual(
+			new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
+		);
+		expect(error).not.toBeInstanceOf(AuthUnauthorized);
+		expect(demo.handlerCalled()).toBe(false);
+	});
 });

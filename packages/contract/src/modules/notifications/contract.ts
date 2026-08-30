@@ -2,6 +2,7 @@ import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
+import { DemoAccessPolicy } from "../../http-annotations";
 import { NotificationChannelId } from "../../schema/brands";
 import {
 	CreateNotificationChannelBody,
@@ -18,7 +19,9 @@ export const NotificationsGroup = HttpApiGroup.make("notifications")
 			payload: CreateNotificationChannelBody,
 			error: [NotificationRequestError.pipe(HttpApiSchema.status(400))],
 			success: Schema.Struct({ id: NotificationChannelId }).pipe(HttpApiSchema.status(201)),
-		}).annotate(OpenApi.Description, "Create a notification channel."),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Create a notification channel."),
 	)
 	.add(
 		HttpApiEndpoint.patch("updateChannel", "/notifications/channels/:channelId", {
@@ -26,18 +29,24 @@ export const NotificationsGroup = HttpApiGroup.make("notifications")
 			payload: UpdateNotificationChannelBody,
 			params: { channelId: NotificationChannelId },
 			error: [NotificationNotFoundError.pipe(HttpApiSchema.status(404))],
-		}).annotate(OpenApi.Description, "Update a notification channel by ID."),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Update a notification channel by ID."),
 	)
 	.add(
 		HttpApiEndpoint.delete("deleteChannel", "/notifications/channels/:channelId", {
 			params: { channelId: NotificationChannelId },
 			success: Schema.Struct({ id: NotificationChannelId }),
 			error: [NotificationNotFoundError.pipe(HttpApiSchema.status(404))],
-		}).annotate(OpenApi.Description, "Delete a notification channel by ID."),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Delete a notification channel by ID."),
 	)
 	.add(
 		HttpApiEndpoint.post("testChannels", "/notifications/channels/test", {
 			success: Schema.Void.pipe(HttpApiSchema.status(202)),
-		}).annotate(OpenApi.Description, "Send a test notification through configured channels."),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Send a test notification through configured channels."),
 	)
 	.middleware(AuthMiddleware);
