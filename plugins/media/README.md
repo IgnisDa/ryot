@@ -257,9 +257,10 @@ one visible candidate resolves; zero or multiple candidates return `null`. Candi
 in PostgreSQL rather than loading episodes for in-memory filtering.
 
 Monitoring status, enable, and disable accept at most 50 entity IDs and enforce global,
-provider-backed, monitorable, and user-visible targets. Enable atomically creates `in-library` and
-`media-monitoring`; disable removes only `media-monitoring`; invalid or invisible targets return
-input-aligned `notFound` results.
+provider-backed, monitorable, and user-visible targets, so the header hides the Monitoring toggle
+for an entity without a provider. Enable atomically creates `in-library` and `media-monitoring`;
+disable removes only `media-monitoring`; invalid or invisible targets return input-aligned
+`notFound` results.
 
 The monitoring cron pages the pinned target query, deduplicates global entity IDs, and refreshes
 providers in batches of at most 100. The pinned query may expose global plugin-owned media and
