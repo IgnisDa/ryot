@@ -49,6 +49,7 @@ describe("MultiSelect", () => {
 		expect(screen.queryByRole("button", { name: "Clear selections in Genres" })).toBeNull();
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the axe Promise.
 	it("passes an axe pass with its options modal open", async () => {
 		render(<GenreSelect />);
 		openOptions();

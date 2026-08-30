@@ -1,1 +1,1 @@
-export { DateTime, Match, Option, Result, Schema, SchemaGetter } from "effect";
+export { DateTime, Effect, Match, Option, Result, Schema, SchemaGetter } from "effect";

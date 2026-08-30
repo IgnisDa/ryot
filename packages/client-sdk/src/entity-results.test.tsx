@@ -1,4 +1,5 @@
 import { fireEvent } from "@testing-library/dom";
+import { Effect } from "effect";
 import { act, type ReactNode, useState, useSyncExternalStore } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it } from "vitest";
@@ -10,7 +11,12 @@ import {
 	type EntityPresentationRegistration,
 	type EntityReference,
 } from "./entity-results";
-import type { EntityInterest, EntityUpdate, RyotClientAdapter } from "./index";
+import {
+	RyotClientError,
+	type EntityInterest,
+	type EntityUpdate,
+	type RyotClientAdapter,
+} from "./index";
 import { createPluginNavigationStore } from "./navigation/store";
 import { RyotProvider } from "./react";
 import { createPluginRouteResolver, PluginRouter } from "./routing";
@@ -117,6 +123,7 @@ const render = (
 	return { draw, clock, navigate, container };
 };
 
+// oxlint-disable-next-line effecttsgo/async-function -- Test helper flushes React and TestClock turns.
 const flush = async (clock: Clock, turns = 6) => {
 	if (turns > 0) {
 		await clock.advance(0);
@@ -134,6 +141,7 @@ const clickRetry = (container: HTMLElement) => {
 	}
 };
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest teardown awaits the clock runtime.
 afterEach(async () => {
 	for (const root of roots) {
 		act(() => root.unmount());
@@ -216,7 +224,12 @@ const gridPage = () => (
 	/>
 );
 
+const gridFor = (references: readonly EntityReference[]) => (
+	<EntityResults layout="grid" viewContext={null} references={references} />
+);
+
 describe("EntityResults", () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React and bridge updates.
 	it("loads one presentation for 20 entities before running any data query, and retains it across page remounts", async () => {
 		let resolveDefinition:
 			| ((definition: ReturnType<typeof defineEntityPresentation<string>>) => void)
@@ -233,7 +246,7 @@ describe("EntityResults", () => {
 			},
 			loader: ({ references }) => {
 				dataLoads++;
-				return Promise.resolve(
+				return Effect.succeed(
 					Object.fromEntries(references.map(({ entityId }) => [entityId, entityId])),
 				);
 			},
@@ -244,6 +257,7 @@ describe("EntityResults", () => {
 			entitySchemaSlug: "item",
 			load: () => {
 				definitionLoads++;
+				// oxlint-disable-next-line effecttsgo/new-promise -- Test gate holds a presentation load to verify scheduling.
 				return new Promise((resolve) => {
 					resolveDefinition = resolve;
 				});
@@ -273,6 +287,7 @@ describe("EntityResults", () => {
 		expect(definitionLoads).toBe(2);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React and bridge updates.
 	it("uses a stable linked fallback after a definition load failure", async () => {
 		let attempts = 0;
 		const registration: EntityPresentationRegistration = {
@@ -296,6 +311,7 @@ describe("EntityResults", () => {
 		expect(attempts).toBe(1);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React and bridge updates.
 	it("declares only intersecting entities from the shared screen root and cleans up", async () => {
 		const observers = installIntersectionObserver();
 		const interests: EntityInterest[] = [];
@@ -319,7 +335,7 @@ describe("EntityResults", () => {
 						component: Presentation,
 						loader: ({ references }) => {
 							loads++;
-							return Promise.resolve(
+							return Effect.succeed(
 								Object.fromEntries(references.map(({ entityId }) => [entityId, entityId])),
 							);
 						},
@@ -390,6 +406,7 @@ describe("EntityResults", () => {
 		expect(disposals).toBeGreaterThan(0);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React and bridge updates.
 	it("uses the exact owner, schema, and layout while preserving visible order", async () => {
 		const requests: Array<{
 			readonly ids: readonly string[];
@@ -399,9 +416,12 @@ describe("EntityResults", () => {
 			defineEntityPresentation<string>({
 				component: ({ data }) => <p>{`${label}:${data}`}</p>,
 				loader: ({ references }) =>
-					new Promise<Readonly<Record<string, string>>>((resolve) =>
-						requests.push({ resolve, ids: references.map(({ entityId }) => entityId) }),
-					),
+					Effect.callback<Readonly<Record<string, string>>>((resume) => {
+						requests.push({
+							ids: references.map(({ entityId }) => entityId),
+							resolve: (value) => resume(Effect.succeed(value)),
+						});
+					}),
 			});
 		const registrations = [
 			{
@@ -445,6 +465,7 @@ describe("EntityResults", () => {
 		expect(container.textContent).toBe("exact:secondexact:first");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React and bridge updates.
 	it("chunks sorted IDs at 100 and admits only four batches at once", async () => {
 		const requests: Array<{
 			readonly ids: readonly string[];
@@ -459,9 +480,12 @@ describe("EntityResults", () => {
 					defineEntityPresentation<string>({
 						component: ({ data }) => <p>{data}</p>,
 						loader: ({ references }) =>
-							new Promise<Readonly<Record<string, string>>>((resolve) =>
-								requests.push({ resolve, ids: references.map(({ entityId }) => entityId) }),
-							),
+							Effect.callback<Readonly<Record<string, string>>>((resume) => {
+								requests.push({
+									ids: references.map(({ entityId }) => entityId),
+									resolve: (value) => resume(Effect.succeed(value)),
+								});
+							}),
 					}),
 				),
 		}));
@@ -493,7 +517,60 @@ describe("EntityResults", () => {
 		expect(requests).toHaveLength(5);
 	});
 
-	it("releases scheduler slots after synchronous loader failures", async () => {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React and bridge updates.
+	it("interrupts discarded batches and frees their slots for the replacement", async () => {
+		const requests: Array<{
+			readonly id: string;
+			readonly signal: AbortSignal;
+			readonly resolve: (value: Readonly<Record<string, string>>) => void;
+		}> = [];
+		const registrations = Array.from({ length: 5 }, (_, index) => ({
+			layout: "grid" as const,
+			entitySchemaSlug: "item",
+			ownerPluginId: `owner-${index}`,
+			load: () =>
+				Promise.resolve(
+					defineEntityPresentation<string>({
+						component: ({ data }) => <p>{data}</p>,
+						loader: ({ references }) =>
+							Effect.callback<Readonly<Record<string, string>>>((resume, signal) => {
+								requests.push({
+									signal,
+									id: references[0]?.entityId ?? "",
+									resolve: (value) => resume(Effect.succeed(value)),
+								});
+							}),
+					}),
+				),
+		}));
+		const items = registrations.map((registration, index) =>
+			reference(`entity-${index}`, { ownerPluginId: registration.ownerPluginId }),
+		);
+		const { draw, clock } = render(registrations, gridFor(items));
+		await flush(clock);
+		expect(requests.map(({ id }) => id)).toEqual(["entity-0", "entity-1", "entity-2", "entity-3"]);
+		draw(gridFor(items.slice(0, 4)));
+		await flush(clock);
+		act(() => requests[0]?.resolve({ "entity-0": "loaded" }));
+		await flush(clock);
+		expect(requests).toHaveLength(4);
+		draw(gridFor([]));
+		await flush(clock);
+		expect(requests.slice(1).every(({ signal }) => signal.aborted)).toBe(true);
+		const staleCount = requests.length;
+		const replacement = items[4];
+		if (!replacement) {
+			throw new Error("Expected the fifth entity");
+		}
+		draw(gridFor([replacement]));
+		await flush(clock);
+		expect(requests).toHaveLength(staleCount + 1);
+		expect(requests.at(-1)).toMatchObject({ id: "entity-4" });
+		expect(requests.at(-1)?.signal.aborted).toBe(false);
+	});
+
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React and bridge updates.
+	it("releases scheduler slots after typed loader failures", async () => {
 		const calls: string[] = [];
 		const registrations = Array.from({ length: 5 }, (_, index) => ({
 			layout: "grid" as const,
@@ -507,9 +584,9 @@ describe("EntityResults", () => {
 							const id = references[0]?.entityId ?? "";
 							calls.push(id);
 							if (index < 4) {
-								throw new Error("synchronous failure");
+								return Effect.fail(new RyotClientError("transport"));
 							}
-							return Promise.resolve({ [id]: "healthy" });
+							return Effect.succeed({ [id]: "healthy" });
 						},
 					}),
 				),
@@ -530,6 +607,7 @@ describe("EntityResults", () => {
 		expect(container.textContent).toContain("healthy");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React and bridge updates.
 	it("stabilizes equivalent batches across rerenders and consumers", async () => {
 		const requests: Array<{
 			readonly id: string;
@@ -545,15 +623,15 @@ describe("EntityResults", () => {
 				Promise.resolve(
 					defineEntityPresentation<string>({
 						component: ({ data }) => <p>{data}</p>,
-						loader: ({ signal, references }) =>
-							new Promise<Readonly<Record<string, string>>>((resolve) =>
+						loader: ({ references }) =>
+							Effect.callback<Readonly<Record<string, string>>>((resume, signal) => {
 								requests.push({
 									signal,
-									resolve,
 									id: references[0]?.entityId ?? "",
 									name: references[0]?.name ?? null,
-								}),
-							),
+									resolve: (value) => resume(Effect.succeed(value)),
+								});
+							}),
 					}),
 				),
 		};
@@ -595,6 +673,7 @@ describe("EntityResults", () => {
 		expect(container.textContent).toBe("current");
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React and bridge updates.
 	it("keeps presentation state and prior data when a refresh fails", async () => {
 		const requests: Array<{
 			readonly resolve: (value: Readonly<Record<string, string>>) => void;
@@ -624,9 +703,12 @@ describe("EntityResults", () => {
 					defineEntityPresentation<string>({
 						component: Presentation,
 						loader: () =>
-							new Promise<Readonly<Record<string, string>>>((resolve, reject) =>
-								requests.push({ reject, resolve }),
-							),
+							Effect.callback<Readonly<Record<string, string>>, RyotClientError>((resume) => {
+								requests.push({
+									resolve: (value) => resume(Effect.succeed(value)),
+									reject: () => resume(Effect.fail(new RyotClientError("transport"))),
+								});
+							}),
 					}),
 				),
 		};
@@ -673,6 +755,7 @@ describe("EntityResults", () => {
 		expect(mounts).toBe(1);
 	});
 
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React and bridge updates.
 	it("contains missing providers, missing items, batch errors, and render errors with retry", async () => {
 		let calls = 0;
 		let renderAttempts = 0;
@@ -692,13 +775,13 @@ describe("EntityResults", () => {
 						},
 						loader: ({ references }) => {
 							if (references[0]?.entityId === "extra") {
-								return Promise.resolve({ unrequested: "extra" });
+								return Effect.succeed({ unrequested: "extra" });
 							}
 							calls++;
 							if (calls === 1) {
-								return Promise.reject(new Error("offline"));
+								return Effect.fail(new RyotClientError("transport"));
 							}
-							return Promise.resolve(
+							return Effect.succeed(
 								references[0]?.entityId === "missing" ? {} : { crash: "crash" },
 							);
 						},

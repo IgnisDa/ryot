@@ -40,9 +40,9 @@ import {
 export const createTestRyotAdapter = (
 	overrides: Partial<RyotClientAdapter> = {},
 ): RyotClientAdapter => ({
-	query: () => Promise.resolve({}),
+	query: () => Effect.succeed({}),
 	uploadTemporary: () =>
-		Promise.resolve({ token: "test-upload-token", expiresAt: "2026-01-01T00:00:00.000Z" }),
+		Effect.succeed({ token: "test-upload-token", expiresAt: "2026-01-01T00:00:00.000Z" }),
 	...overrides,
 });
 
@@ -59,9 +59,9 @@ export const createTestPluginStorage = (initial: Iterable<readonly [string, Json
 		} else if (request.action === "remove") {
 			entries.delete(entry);
 		} else {
-			return Promise.resolve(entries.get(entry) ?? null);
+			return Effect.succeed(entries.get(entry) ?? null);
 		}
-		return Promise.resolve(null);
+		return Effect.succeed(null);
 	};
 	return { entries, accessStorage };
 };
@@ -70,6 +70,7 @@ export const createTestPluginStorage = (initial: Iterable<readonly [string, Json
 // synchronous callback but not for the promise chain `createEntityRefresh` starts. One real
 // macrotask turn drains the whole microtask queue, including links enqueued while draining.
 const drainMicrotasks = Effect.promise(
+	// oxlint-disable-next-line effecttsgo/new-promise -- Test harness needs a real macrotask after TestClock adjustments.
 	() => new Promise<void>((resolve) => setTimeout(resolve, 0)),
 );
 
@@ -126,15 +127,18 @@ export const createTestRyotClock = (
 	return {
 		client,
 		runtime,
+		// oxlint-disable-next-line effecttsgo/async-function -- Test teardown awaits ManagedRuntime's Promise disposal.
 		dispose: async () => {
 			setBootstrapRyotRuntimeFactory(undefined);
 			await runtime.dispose();
 		},
 		advance: (millis: Duration.Input) =>
+			// oxlint-disable-next-line effecttsgo/async-function -- React act requires a Promise callback to flush updates.
 			act(async () => {
 				await runtime.runPromise(advanceRyotSchedule(millis));
 			}),
 		setTime: (timestamp: number) =>
+			// oxlint-disable-next-line effecttsgo/async-function -- React act requires a Promise callback to flush updates.
 			act(async () => {
 				await runtime.runPromise(Effect.andThen(TestClock.setTime(timestamp), drainMicrotasks));
 			}),
