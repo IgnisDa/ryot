@@ -102,11 +102,11 @@ export const collectGenres = (genres: unknown) =>
 		return name ? [name] : [];
 	});
 
-type TmdbWatchProviderAvailability = { country: string; offers: WatchProviderOffer[] };
-type TmdbWatchProvider = {
-	name: string;
-	image: string | null;
-	availability: TmdbWatchProviderAvailability[];
+type TmdbWatchProvider = { name: string; image: string | null; offers: WatchProviderOffer[] };
+type TmdbWatchProviderCountry = {
+	country: string;
+	link: string | null;
+	providers: TmdbWatchProvider[];
 };
 
 const tmdbOfferKeys: ReadonlyArray<readonly [string, WatchProviderOffer]> = [
@@ -117,41 +117,45 @@ const tmdbOfferKeys: ReadonlyArray<readonly [string, WatchProviderOffer]> = [
 	["buy", "buy"],
 ];
 
+const collectCountryWatchProviders = (countryOffers: UnknownRecord) => {
+	const providers = new Map<string, TmdbWatchProvider>();
+	for (const [key, offer] of tmdbOfferKeys) {
+		for (const entry of recordsValue(countryOffers[key])) {
+			const name = stringValue(entry["provider_name"]);
+			if (!name) {
+				continue;
+			}
+			const provider = providers.get(name) ?? {
+				name,
+				offers: [],
+				image: getImageUrl(entry["logo_path"]),
+			};
+			providers.set(name, provider);
+			if (!provider.offers.includes(offer)) {
+				provider.offers.push(offer);
+			}
+		}
+	}
+	return [...providers.values()];
+};
+
 export const collectWatchProviders = (payload: unknown) => {
 	const results = asRecord(asRecord(payload)?.["results"]);
 	if (!results) {
 		return [];
 	}
-	const providers = new Map<string, TmdbWatchProvider>();
+	const countries: TmdbWatchProviderCountry[] = [];
 	for (const country of Object.keys(results).sort()) {
 		const countryOffers = asRecord(results[country]);
 		if (!countryOffers) {
 			continue;
 		}
-		for (const [key, offer] of tmdbOfferKeys) {
-			for (const entry of recordsValue(countryOffers[key])) {
-				const name = stringValue(entry["provider_name"]);
-				if (!name) {
-					continue;
-				}
-				const provider = providers.get(name) ?? {
-					name,
-					availability: [],
-					image: getImageUrl(entry["logo_path"]),
-				};
-				providers.set(name, provider);
-				const availability = provider.availability.at(-1);
-				if (availability?.country === country) {
-					if (!availability.offers.includes(offer)) {
-						availability.offers.push(offer);
-					}
-					continue;
-				}
-				provider.availability.push({ country, offers: [offer] });
-			}
+		const providers = collectCountryWatchProviders(countryOffers);
+		if (providers.length > 0) {
+			countries.push({ country, providers, link: stringValue(countryOffers["link"]) });
 		}
 	}
-	return [...providers.values()];
+	return countries;
 };
 
 export const collectSuggestions = (
