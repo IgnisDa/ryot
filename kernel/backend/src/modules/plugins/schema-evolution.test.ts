@@ -159,10 +159,7 @@ it.each([
 				entitySchemas: [
 					entityWithFields(previous, {
 						...entity.propertiesSchema.fields,
-						kind: {
-							...kind,
-							choices: { kind: "static", values: kind.choices.values.slice(0, 1) },
-						},
+						kind: { ...kind, choices: { kind: "static", values: kind.choices.values.slice(0, 1) } },
 					}),
 				],
 			};

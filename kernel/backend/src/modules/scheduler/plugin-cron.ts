@@ -10,10 +10,7 @@ import { PluginLoader } from "#modules/plugins/loader";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { SandboxScriptWorkflow } from "#modules/sandbox/sandbox-script-workflow";
 
-type ActivePluginCron = {
-	readonly cron: PluginCron;
-	readonly pluginSlug: string;
-};
+type ActivePluginCron = { readonly cron: PluginCron; readonly pluginSlug: string };
 
 type PluginCronTarget = {
 	readonly cronSlug: string;

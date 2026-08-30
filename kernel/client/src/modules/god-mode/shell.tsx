@@ -17,10 +17,7 @@ const sections = [
 	{ path: "/god-mode/migration-report", label: "Migration report", icon: "file-text" },
 ] as const;
 
-type GodModeShellProps = {
-	readonly server: ServerOrigin;
-	readonly runtime: ClientRuntime;
-};
+type GodModeShellProps = { readonly server: ServerOrigin; readonly runtime: ClientRuntime };
 
 export function GodModeShell({ runtime, server }: GodModeShellProps) {
 	const sessionService = runtime.runSync(GodModeSessionService);

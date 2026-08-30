@@ -2,21 +2,11 @@ import { Effect, FileSystem, Path } from "effect";
 
 type FileKind = "runtime" | "test";
 
-type FileEntry = {
-	path: string;
-	kind: FileKind;
-};
+type FileEntry = { path: string; kind: FileKind };
 
-export type ModuleEdge = {
-	to: string;
-	from: string;
-	kind: FileKind;
-};
+export type ModuleEdge = { to: string; from: string; kind: FileKind };
 
-export type ModuleSource = FileEntry & {
-	content: string;
-	moduleName: string;
-};
+export type ModuleSource = FileEntry & { content: string; moduleName: string };
 
 const importPattern =
 	/(?:import|export)\s+(type\s+)?(?:[^"']*?\s+from\s+)?["']([^"']+)["']|import\(\s*["']([^"']+)["']\s*\)/g;

@@ -232,11 +232,7 @@ export default defineScript({
 	);
 	const queued = await apiClient.runAdmin((c) =>
 		c.testSupport.enqueueSandbox({
-			payload: {
-				context: {},
-				scriptId: script.id,
-				executingUserId: UserId.make(executingUserId),
-			},
+			payload: { context: {}, scriptId: script.id, executingUserId: UserId.make(executingUserId) },
 		}),
 	);
 	const startedAt = dayjs();
@@ -288,13 +284,7 @@ async function createPluginScope(
 	description?: string,
 ) {
 	console.log(`  Creating plugin scope: ${name}...`);
-	const definition = {
-		name,
-		slug,
-		icon,
-		description: description ?? null,
-		sortOrder: 0,
-	};
+	const definition = { name, slug, icon, description: description ?? null, sortOrder: 0 };
 	const plugin = { ...definition, id: PluginSlug.make(slug) };
 
 	console.log(`  ✓ Created plugin scope: ${name} (${plugin.id})`);
@@ -519,10 +509,7 @@ function tableColumn(
 	return { label, displayKind: "text", expression: expression ?? literal(null) };
 }
 
-function generateWhiskey(): {
-	name: string;
-	properties: Record<string, unknown>;
-} {
+function generateWhiskey(): { name: string; properties: Record<string, unknown> } {
 	const types = ["Bourbon", "Scotch", "Rye", "Irish", "Japanese", "Canadian"];
 	const regions = [
 		"Kentucky",
@@ -547,10 +534,7 @@ function generateWhiskey(): {
 	return { name, properties };
 }
 
-function generatePlace(): {
-	name: string;
-	properties: Record<string, unknown>;
-} {
+function generatePlace(): { name: string; properties: Record<string, unknown> } {
 	const types = ["Restaurant", "Cafe", "Park", "Museum", "Gallery", "Theater"];
 	const name = faker.company.name();
 	const properties = {
@@ -565,10 +549,7 @@ function generatePlace(): {
 	return { name, properties };
 }
 
-function generateSmartphone(): {
-	name: string;
-	properties: Record<string, unknown>;
-} {
+function generateSmartphone(): { name: string; properties: Record<string, unknown> } {
 	const manufacturers = ["Apple", "Samsung", "Google", "OnePlus", "Xiaomi", "Sony"];
 	const osList = ["iOS", "Android"];
 	const manufacturer = randomChoice(manufacturers);
@@ -587,10 +568,7 @@ function generateSmartphone(): {
 	return { name: model, properties };
 }
 
-function generateFeaturePhone(): {
-	name: string;
-	properties: Record<string, unknown>;
-} {
+function generateFeaturePhone(): { name: string; properties: Record<string, unknown> } {
 	const manufacturers = ["Nokia", "Alcatel", "Samsung", "LG", "Motorola"];
 	const manufacturer = randomChoice(manufacturers);
 	const model = `${manufacturer} ${faker.commerce.productName()}`;
@@ -606,10 +584,7 @@ function generateFeaturePhone(): {
 	return { name: model, properties };
 }
 
-function generateTablet(): {
-	name: string;
-	properties: Record<string, unknown>;
-} {
+function generateTablet(): { name: string; properties: Record<string, unknown> } {
 	const osList = ["iPadOS", "Android", "Windows"];
 	const manufacturers = ["Apple", "Samsung", "Microsoft", "Amazon", "Lenovo"];
 
@@ -662,10 +637,7 @@ function generatePlaceRating(): Record<string, unknown> {
 }
 
 function generatePlacePhoto(): Record<string, unknown> {
-	return {
-		photo_url: faker.image.url(),
-		caption: faker.lorem.sentence(),
-	};
+	return { photo_url: faker.image.url(), caption: faker.lorem.sentence() };
 }
 
 async function seedWhiskeys(client: APIClient) {
@@ -693,26 +665,14 @@ async function seedWhiskeys(client: APIClient) {
 					description: "Distillery that produced the whiskey",
 					validation: { required: true },
 				},
-				age: {
-					type: "integer",
-					label: "Age",
-					description: "Age of the whiskey in years",
-				},
+				age: { type: "integer", label: "Age", description: "Age of the whiskey in years" },
 				region: {
 					type: "string",
 					label: "Region",
 					description: "Region where the whiskey was produced",
 				},
-				proof: {
-					type: "number",
-					label: "Proof",
-					description: "Proof of the whiskey",
-				},
-				type: {
-					type: "string",
-					label: "Type",
-					description: "Type of whiskey",
-				},
+				proof: { type: "number", label: "Proof", description: "Proof of the whiskey" },
+				type: { type: "string", label: "Type", description: "Type of whiskey" },
 			},
 		},
 	);
@@ -725,11 +685,7 @@ async function seedWhiskeys(client: APIClient) {
 				description: "Rating for the tasting",
 				validation: { required: true, maximum: 10, minimum: 1 },
 			},
-			notes: {
-				type: "string",
-				label: "Notes",
-				description: "Tasting notes",
-			},
+			notes: { type: "string", label: "Notes", description: "Tasting notes" },
 			location: {
 				type: "string",
 				label: "Location",
@@ -751,11 +707,7 @@ async function seedWhiskeys(client: APIClient) {
 				label: "Store",
 				description: "Store where the whiskey was purchased",
 			},
-			bottle_size: {
-				type: "integer",
-				label: "Bottle Size",
-				description: "Bottle size in ml",
-			},
+			bottle_size: { type: "integer", label: "Bottle Size", description: "Bottle size in ml" },
 		},
 	});
 
@@ -784,11 +736,7 @@ async function seedWhiskeys(client: APIClient) {
 					const properties =
 						schema.id === tastingSchema.id ? generateWhiskeyTasting() : generateWhiskeyPurchase();
 
-					events.push({
-						properties,
-						entityId: entity.id,
-						eventSchemaSlug: schema.id,
-					});
+					events.push({ properties, entityId: entity.id, eventSchemaSlug: schema.id });
 				}
 
 				await createEvents(client, events);
@@ -840,26 +788,10 @@ async function seedPlaces(client: APIClient) {
 					description: "Country where the place is located",
 					validation: { required: true },
 				},
-				type: {
-					type: "string",
-					label: "Type",
-					description: "Type of place",
-				},
-				address: {
-					type: "string",
-					label: "Address",
-					description: "Street address of the place",
-				},
-				latitude: {
-					type: "number",
-					label: "Latitude",
-					description: "Latitude coordinate",
-				},
-				longitude: {
-					type: "number",
-					label: "Longitude",
-					description: "Longitude coordinate",
-				},
+				type: { type: "string", label: "Type", description: "Type of place" },
+				address: { type: "string", label: "Address", description: "Street address of the place" },
+				latitude: { type: "number", label: "Latitude", description: "Latitude coordinate" },
+				longitude: { type: "number", label: "Longitude", description: "Longitude coordinate" },
 			},
 		},
 	);
@@ -882,11 +814,7 @@ async function seedPlaces(client: APIClient) {
 				label: "Companions",
 				description: "People who accompanied you",
 			},
-			notes: {
-				type: "string",
-				label: "Notes",
-				description: "Notes about the visit",
-			},
+			notes: { type: "string", label: "Notes", description: "Notes about the visit" },
 		},
 	});
 
@@ -898,11 +826,7 @@ async function seedPlaces(client: APIClient) {
 				description: "Rating for the place",
 				validation: { required: true, maximum: 5, minimum: 1 },
 			},
-			review: {
-				type: "string",
-				label: "Review",
-				description: "Written review",
-			},
+			review: { type: "string", label: "Review", description: "Written review" },
 			would_return: {
 				type: "boolean",
 				label: "Would Return",
@@ -913,16 +837,8 @@ async function seedPlaces(client: APIClient) {
 
 	const photoSchema = await createEventSchema(client, "Photo", "photo", entitySchema.id, {
 		fields: {
-			photo_url: {
-				type: "string",
-				label: "Photo URL",
-				description: "URL of the photo",
-			},
-			caption: {
-				type: "string",
-				label: "Caption",
-				description: "Caption for the photo",
-			},
+			photo_url: { type: "string", label: "Photo URL", description: "URL of the photo" },
+			caption: { type: "string", label: "Caption", description: "Caption for the photo" },
 		},
 	});
 
@@ -958,11 +874,7 @@ async function seedPlaces(client: APIClient) {
 						properties = generatePlacePhoto();
 					}
 
-					events.push({
-						properties,
-						entityId: entity.id,
-						eventSchemaSlug: schema.id,
-					});
+					events.push({ properties, entityId: entity.id, eventSchemaSlug: schema.id });
 				}
 
 				await createEvents(client, events);
@@ -1008,36 +920,12 @@ async function seedMobilePhones(client: APIClient) {
 					description: "Manufacturer of the smartphone",
 					validation: { required: true },
 				},
-				year: {
-					type: "integer",
-					label: "Year",
-					description: "Release year",
-				},
-				os: {
-					type: "string",
-					label: "OS",
-					description: "Operating system",
-				},
-				screen_size: {
-					type: "number",
-					label: "Screen Size",
-					description: "Screen size in inches",
-				},
-				storage_gb: {
-					type: "integer",
-					label: "Storage GB",
-					description: "Storage capacity in GB",
-				},
-				ram_gb: {
-					type: "integer",
-					label: "RAM GB",
-					description: "RAM capacity in GB",
-				},
-				price_usd: {
-					type: "number",
-					label: "Price USD",
-					description: "Price in USD",
-				},
+				year: { type: "integer", label: "Year", description: "Release year" },
+				os: { type: "string", label: "OS", description: "Operating system" },
+				screen_size: { type: "number", label: "Screen Size", description: "Screen size in inches" },
+				storage_gb: { type: "integer", label: "Storage GB", description: "Storage capacity in GB" },
+				ram_gb: { type: "integer", label: "RAM GB", description: "RAM capacity in GB" },
+				price_usd: { type: "number", label: "Price USD", description: "Price in USD" },
 			},
 		},
 	);
@@ -1056,11 +944,7 @@ async function seedMobilePhones(client: APIClient) {
 					description: "Manufacturer of the feature phone",
 					validation: { required: true },
 				},
-				year: {
-					type: "integer",
-					label: "Year",
-					description: "Release year",
-				},
+				year: { type: "integer", label: "Year", description: "Release year" },
 				has_camera: {
 					type: "boolean",
 					label: "Has Camera",
@@ -1071,11 +955,7 @@ async function seedMobilePhones(client: APIClient) {
 					label: "Battery mAh",
 					description: "Battery capacity in mAh",
 				},
-				color: {
-					type: "string",
-					label: "Color",
-					description: "Color of the phone",
-				},
+				color: { type: "string", label: "Color", description: "Color of the phone" },
 			},
 		},
 	);
@@ -1094,26 +974,10 @@ async function seedMobilePhones(client: APIClient) {
 					description: "Manufacturer of the tablet",
 					validation: { required: true },
 				},
-				year: {
-					type: "integer",
-					label: "Year",
-					description: "Release year",
-				},
-				screen_size: {
-					type: "number",
-					label: "Screen Size",
-					description: "Screen size in inches",
-				},
-				os: {
-					type: "string",
-					label: "OS",
-					description: "Operating system",
-				},
-				storage_gb: {
-					type: "integer",
-					label: "Storage GB",
-					description: "Storage capacity in GB",
-				},
+				year: { type: "integer", label: "Year", description: "Release year" },
+				screen_size: { type: "number", label: "Screen Size", description: "Screen size in inches" },
+				os: { type: "string", label: "OS", description: "Operating system" },
+				storage_gb: { type: "integer", label: "Storage GB", description: "Storage capacity in GB" },
 				has_cellular: {
 					type: "boolean",
 					label: "Has Cellular",
@@ -1230,10 +1094,7 @@ async function listMediaEntitySchemas(apiClient: APIClient, pluginSlug: PluginSl
 	const schemas = await apiClient.run((c) => c.definitions.listEntities({}));
 	return schemas
 		.filter((schema) => schema.pluginSlug === pluginSlug)
-		.map((schema) => ({
-			...schema,
-			id: schema.slug as EntitySchemaSlug,
-		}));
+		.map((schema) => ({ ...schema, id: schema.slug as EntitySchemaSlug }));
 }
 
 async function getMediaLifecycleEventSchemas(
@@ -1418,11 +1279,7 @@ async function seedMedia(client: APIClient) {
 
 		if (lifecycle === "backlog") {
 			mediaEvents = [
-				{
-					properties: {},
-					entityId: entity.id,
-					eventSchemaSlug: eventSchemas.backlog.id,
-				},
+				{ properties: {}, entityId: entity.id, eventSchemaSlug: eventSchemas.backlog.id },
 			];
 		} else if (lifecycle === "progress" && eventSchemas.progress) {
 			const slug = entitySchemaSlug as MediaEntitySchemaSlug;
@@ -1534,11 +1391,7 @@ async function seedMedia(client: APIClient) {
 
 async function seedCollections(
 	client: APIClient,
-	input: {
-		phones: SeedEntity[];
-		places: SeedEntity[];
-		whiskeys: SeedEntity[];
-	},
+	input: { phones: SeedEntity[]; places: SeedEntity[]; whiskeys: SeedEntity[] },
 ) {
 	console.log("\n🗂️ Seeding Collections...");
 
@@ -1551,17 +1404,9 @@ async function seedCollections(
 					type: "array" as const,
 					label: "Tags",
 					description: "Tags for the whiskey",
-					items: {
-						type: "string" as const,
-						label: "Tag",
-						description: "A single tag",
-					},
+					items: { type: "string" as const, label: "Tag", description: "A single tag" },
 				},
-				notes: {
-					type: "string" as const,
-					label: "Notes",
-					description: "Notes about the whiskey",
-				},
+				notes: { type: "string" as const, label: "Notes", description: "Notes about the whiskey" },
 				rating: {
 					type: "integer" as const,
 					label: "Rating",
@@ -1573,11 +1418,7 @@ async function seedCollections(
 					description: "Context for the recommendation",
 					unknownKeys: "passthrough" as const,
 					properties: {
-						mood: {
-							type: "string" as const,
-							label: "Mood",
-							description: "Mood while drinking",
-						},
+						mood: { type: "string" as const, label: "Mood", description: "Mood while drinking" },
 						venue: {
 							type: "string" as const,
 							label: "Venue",
@@ -1599,16 +1440,8 @@ async function seedCollections(
 		description: "Places worth a short trip or a spontaneous Saturday",
 		membershipPropertiesSchema: {
 			fields: {
-				notes: {
-					type: "string" as const,
-					label: "Notes",
-					description: "Notes about the place",
-				},
-				priority: {
-					type: "integer" as const,
-					label: "Priority",
-					description: "Visit priority",
-				},
+				notes: { type: "string" as const, label: "Notes", description: "Notes about the place" },
+				priority: { type: "integer" as const, label: "Priority", description: "Visit priority" },
 				idealSeason: {
 					type: "string" as const,
 					label: "Ideal Season",
@@ -1628,11 +1461,7 @@ async function seedCollections(
 		description: "Phones and tablets that feel great to keep around",
 		membershipPropertiesSchema: {
 			fields: {
-				notes: {
-					type: "string" as const,
-					label: "Notes",
-					description: "Notes about the device",
-				},
+				notes: { type: "string" as const, label: "Notes", description: "Notes about the device" },
 				status: {
 					type: "string" as const,
 					label: "Status",
@@ -1667,11 +1496,7 @@ async function seedCollections(
 					label: "Section",
 					description: "Section this collection belongs to",
 				},
-				priority: {
-					type: "integer" as const,
-					label: "Priority",
-					description: "Display priority",
-				},
+				priority: { type: "integer" as const, label: "Priority", description: "Display priority" },
 			},
 		},
 	});
@@ -1797,11 +1622,7 @@ async function seedCollections(
 		`  ✓ Created 5 collections and ${membershipCount} memberships (${nestedCollectionMembershipCount} nested collections)`,
 	);
 
-	return {
-		collectionCount: 5,
-		membershipCount,
-		nestedCollectionMembershipCount,
-	};
+	return { collectionCount: 5, membershipCount, nestedCollectionMembershipCount };
 }
 
 async function seedSavedViews(

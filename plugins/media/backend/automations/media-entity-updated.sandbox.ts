@@ -83,12 +83,7 @@ export default defineAutomation({
 			properties: Record<string, JsonValue>,
 		) =>
 			emissions.push(
-				host.emitSignal({
-					properties,
-					schemaSlug,
-					discriminator,
-					subjectEntityId: scope.id,
-				}),
+				host.emitSignal({ properties, schemaSlug, discriminator, subjectEntityId: scope.id }),
 			);
 
 		if (parentMediaSlugs.has(after.entitySchemaSlug)) {

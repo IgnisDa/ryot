@@ -103,9 +103,7 @@ describe("AppSchema presentation metadata", () => {
 	])("accepts the $kind string format", (format) => {
 		expect(
 			decodeSchema({
-				fields: {
-					value: { type: "string", label: "Value", format, description: "A value" },
-				},
+				fields: { value: { type: "string", label: "Value", format, description: "A value" } },
 			}),
 		).toMatchObject({ fields: { value: { format } } });
 	});
@@ -392,14 +390,8 @@ describe("AppSchema enum choices", () => {
 	});
 
 	it.each([
-		{
-			name: "empty choice values",
-			field: enumField({ kind: "static", values: [] }),
-		},
-		{
-			name: "blank choice value",
-			field: enumField({ kind: "static", values: [{ value: "  " }] }),
-		},
+		{ name: "empty choice values", field: enumField({ kind: "static", values: [] }) },
+		{ name: "blank choice value", field: enumField({ kind: "static", values: [{ value: "  " }] }) },
 		{
 			name: "blank choice label",
 			field: enumField({ kind: "static", values: [{ value: "active", label: " " }] }),
@@ -408,10 +400,7 @@ describe("AppSchema enum choices", () => {
 			name: "duplicate choice values",
 			field: enumField({ kind: "static", values: [{ value: "active" }, { value: "active" }] }),
 		},
-		{
-			name: "blank dynamic source",
-			field: enumField({ kind: "dynamic", source: " " }),
-		},
+		{ name: "blank dynamic source", field: enumField({ kind: "dynamic", source: " " }) },
 		{
 			name: "static default outside choices",
 			field: enumField({ kind: "static", values: [{ value: "active" }] }, "inactive"),

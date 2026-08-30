@@ -51,12 +51,7 @@ const readySeasonEpisodes = (input: SeasonEpisodesInput = {}) => {
 const readyEpisodes = (input: SeasonEpisodesInput = {}) =>
 	readySeasonEpisodes(input).episodes.items;
 
-const specialsSeason = {
-	...showSeasonRow,
-	id: "season-0",
-	seasonNumber: 0,
-	name: "Specials",
-};
+const specialsSeason = { ...showSeasonRow, id: "season-0", seasonNumber: 0, name: "Specials" };
 
 describe("show episodes state", () => {
 	it("maps a pending query to the loading state", () => {

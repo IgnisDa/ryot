@@ -20,10 +20,7 @@ const getSystemConfig = (origin: ServerOrigin) =>
 	Effect.tryPromise({
 		catch: (cause) => new PublicApiError({ cause }),
 		try: (signal) =>
-			runContract((client) => client.system.config(), {
-				signal,
-				baseUrl: serverApiUrl(origin),
-			}),
+			runContract((client) => client.system.config(), { signal, baseUrl: serverApiUrl(origin) }),
 	});
 
 export class PublicApi extends Context.Service<

@@ -297,10 +297,7 @@ describe("notification delivery", () => {
 				schemaSlug: "workout.created",
 				actorUserId: userId,
 			});
-			const runs = yield* pollTerminalSubscriptionRuns({
-				signalId,
-				executionUserId: userId,
-			});
+			const runs = yield* pollTerminalSubscriptionRuns({ signalId, executionUserId: userId });
 			expect(runs.map((run) => run.status)).toEqual(["succeeded"]);
 		}),
 	);

@@ -180,12 +180,7 @@ export const privateBootstrapPluginPackage = (): PrivateBootstrapPluginPackage =
 		pluginSlug,
 		userBootstrap: [{ slug: bootstrapSlug, scriptSlug: bootstrapScriptSlug, description: name }],
 		operations: [
-			{
-				auth: "user",
-				description: name,
-				slug: operationSlug,
-				scriptSlug: operationScriptSlug,
-			},
+			{ auth: "user", description: name, slug: operationSlug, scriptSlug: operationScriptSlug },
 		],
 		scripts: [
 			{
@@ -318,10 +313,7 @@ export default defineOperation({
 });
 `;
 
-type PrivateSurfaceInput = {
-	readonly name?: string;
-	readonly pluginSlug?: string;
-};
+type PrivateSurfaceInput = { readonly name?: string; readonly pluginSlug?: string };
 
 export type PrivateImportPluginPackage = {
 	readonly sourceSlug: string;
@@ -444,11 +436,7 @@ export const installPrivateImportPlugin = (
 ) =>
 	Effect.gen(function* () {
 		const plugin = privateImportPluginPackage(input);
-		yield* installPrivatePluginPackage({
-			config: {},
-			pluginPackage: plugin,
-			client: input.client,
-		});
+		yield* installPrivatePluginPackage({ config: {}, pluginPackage: plugin, client: input.client });
 		const installation = yield* settledPrivateInstallation(input.client, plugin.pluginSlug);
 		return { ...plugin, installation };
 	});
@@ -458,11 +446,7 @@ export const installPrivateIntegrationPlugin = (
 ) =>
 	Effect.gen(function* () {
 		const plugin = privateIntegrationPluginPackage(input);
-		yield* installPrivatePluginPackage({
-			config: {},
-			pluginPackage: plugin,
-			client: input.client,
-		});
+		yield* installPrivatePluginPackage({ config: {}, pluginPackage: plugin, client: input.client });
 		const installation = yield* settledPrivateInstallation(input.client, plugin.pluginSlug);
 		return { ...plugin, installation };
 	});

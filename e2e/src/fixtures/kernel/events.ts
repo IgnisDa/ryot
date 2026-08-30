@@ -94,11 +94,7 @@ export const createRuleEventFixture = (client: Client) =>
 						path: ["progressPercent"],
 						kind: "validation" as const,
 						validation: { required: true as const },
-						when: {
-							path: ["status"],
-							value: "completed",
-							operator: "eq" as const,
-						},
+						when: { path: ["status"], value: "completed", operator: "eq" as const },
 					},
 				],
 			},

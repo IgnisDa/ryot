@@ -102,9 +102,7 @@ export const integrationDetailQuery = createRyotQuery<
 >(({ hostServices, input, signal }) =>
 	hostServices.runtime.runPromise(
 		Effect.flatMap(IntegrationsApi, (api) =>
-			api.get(hostServices.scope, {
-				params: { integrationId: IntegrationId.make(input) },
-			}),
+			api.get(hostServices.scope, { params: { integrationId: IntegrationId.make(input) } }),
 		),
 		{ signal },
 	),

@@ -183,10 +183,7 @@ describe("schema form state", () => {
 			["collection", "username", "mode"],
 		);
 		expect(validateSchemaFormValues(uploadSchema, values).has("collection")).toBe(false);
-		expect(toSchemaFormPayload(uploadSchema, values)).toEqual({
-			mode: "user",
-			username: "ryot",
-		});
+		expect(toSchemaFormPayload(uploadSchema, values)).toEqual({ mode: "user", username: "ryot" });
 	});
 
 	it("describes supported fields and reports unsupported property types", () => {

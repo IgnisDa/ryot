@@ -125,9 +125,7 @@ it.effect("fails the import when a provider-import automation fails", () => {
 	}).pipe(
 		Effect.provideService(
 			WorkflowEngine,
-			makeWorkflowActivityEngine(instance, {
-				execute: () => Effect.succeed(entity),
-			}),
+			makeWorkflowActivityEngine(instance, { execute: () => Effect.succeed(entity) }),
 		),
 		Effect.provideService(WorkflowInstance, instance),
 		Effect.provideService(EntityImportWorkflowOperations, {

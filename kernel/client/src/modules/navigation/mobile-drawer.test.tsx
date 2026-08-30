@@ -35,10 +35,7 @@ const snapshot = {
 	user: { id: "user-1", name: "Test User", email: "user@ryot.test", image: null },
 } as const;
 
-const session: AuthSessionStore = {
-	getSnapshot: () => snapshot,
-	subscribe: () => () => undefined,
-};
+const session: AuthSessionStore = { getSnapshot: () => snapshot, subscribe: () => () => undefined };
 
 const sections: SidebarSections = {
 	savedViews: [],

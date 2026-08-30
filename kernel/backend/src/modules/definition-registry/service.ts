@@ -386,9 +386,7 @@ export const makeDefinitionRegistry = (source: DefinitionSource = kernelDefiniti
 
 export class DefinitionRegistry extends Context.Service<DefinitionRegistry>()(
 	"DefinitionRegistry",
-	{
-		make: Effect.sync(makeDefinitionRegistry),
-	},
+	{ make: Effect.sync(makeDefinitionRegistry) },
 ) {
 	static readonly layer = Layer.effect(this, this.make);
 }

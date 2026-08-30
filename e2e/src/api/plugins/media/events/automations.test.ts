@@ -131,10 +131,7 @@ describe("Event automations", () => {
 
 			const { entityId, progressEventSchemaSlug } = yield* createBuiltinMediaLifecycleFixture(
 				client,
-				{
-					entitySchemaSlug: "anime",
-					properties: { images: [], episodes: 2 },
-				},
+				{ entitySchemaSlug: "anime", properties: { images: [], episodes: 2 } },
 			);
 
 			yield* client.call((c) =>
@@ -206,10 +203,7 @@ describe("Event automations", () => {
 
 			const { entityId, progressEventSchemaSlug } = yield* createBuiltinMediaLifecycleFixture(
 				client,
-				{
-					entitySchemaSlug: "anime",
-					properties: { images: [], episodes: null },
-				},
+				{ entitySchemaSlug: "anime", properties: { images: [], episodes: null } },
 			);
 
 			yield* client.call((c) =>
@@ -238,10 +232,7 @@ describe("Event automations", () => {
 
 			const { entityId, progressEventSchemaSlug } = yield* createBuiltinMediaLifecycleFixture(
 				client,
-				{
-					entitySchemaSlug: "manga",
-					properties: { images: [], volumes: null, chapters: 2 },
-				},
+				{ entitySchemaSlug: "manga", properties: { images: [], volumes: null, chapters: 2 } },
 			);
 
 			yield* client.call((c) =>
@@ -273,10 +264,7 @@ describe("Event automations", () => {
 
 			const { entityId, progressEventSchemaSlug } = yield* createBuiltinMediaLifecycleFixture(
 				client,
-				{
-					entitySchemaSlug: "manga",
-					properties: { images: [], volumes: null, chapters: null },
-				},
+				{ entitySchemaSlug: "manga", properties: { images: [], volumes: null, chapters: null } },
 			);
 
 			yield* client.call((c) =>

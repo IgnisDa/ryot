@@ -184,10 +184,7 @@ describe("POST /test-support/plugin-boot (custom plugin boot dispatch)", () => {
 				const result = requireRows(data.entities, "entities");
 				const row = result.items[0];
 
-				expect(row).toMatchObject({
-					entitySchemaSlug: "movie",
-					name: "E2E Test Boot",
-				});
+				expect(row).toMatchObject({ entitySchemaSlug: "movie", name: "E2E Test Boot" });
 			}),
 	);
 });

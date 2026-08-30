@@ -337,10 +337,7 @@ export default defineAutomation({
 			);
 			expect(automatedEvent).toMatchObject({
 				eventSchemaSlug: resultEventSlug,
-				properties: {
-					note: "lifecycle-observed",
-					sourceEventId: eventOutcome.eventId,
-				},
+				properties: { note: "lifecycle-observed", sourceEventId: eventOutcome.eventId },
 			});
 			const reingestedPlugin = (yield* getApiClient().call(
 				(c) => c.testSupport.listSystemPlugins({}),

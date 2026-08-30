@@ -649,10 +649,7 @@ const runInDenoRequest = ({ compiled, context, options = {} }: RunnerRequest) =>
 					stdout: "pipe",
 					stderr: "pipe",
 					extendEnv: false,
-					env: {
-						DENO_DIR: runtime.cacheDirectory,
-						PATH: Bun.env["PATH"] ?? "/usr/bin:/bin",
-					},
+					env: { DENO_DIR: runtime.cacheDirectory, PATH: Bun.env["PATH"] ?? "/usr/bin:/bin" },
 				},
 			);
 			const denoProcess = yield* command.pipe(
@@ -978,10 +975,7 @@ it("exposes only granted artifact reads and named scratch chunk writes", () =>
 
 				const options = { filesystem: { artifactPath, scratchDirectory } };
 				const success = yield* runInDeno(compiled, { chunkName: "chunk.json" }, options);
-				expect(success).toMatchObject({
-					success: true,
-					value: { chunkFiles: ["chunk.json"] },
-				});
+				expect(success).toMatchObject({ success: true, value: { chunkFiles: ["chunk.json"] } });
 				expect(yield* fs.readFileString(`${scratchDirectory}/chunk.json`)).toBe("[1,2]");
 
 				const namedOptions = {
@@ -995,10 +989,7 @@ it("exposes only granted artifact reads and named scratch chunk writes", () =>
 					{ chunkName: "named.json", artifactKey: "historyFilePath" },
 					namedOptions,
 				);
-				expect(named).toMatchObject({
-					success: true,
-					value: { chunkFiles: ["named.json"] },
-				});
+				expect(named).toMatchObject({ success: true, value: { chunkFiles: ["named.json"] } });
 				expect(yield* fs.readFileString(`${scratchDirectory}/named.json`)).toBe("[3,4]");
 				const missingNamed = yield* runInDeno(
 					compiled,
@@ -1067,12 +1058,7 @@ it("executes typed core host methods and builds the Deno host from approved capa
 				const first = yield* runInDeno(
 					compiled,
 					{ write: true },
-					{
-						apiBase,
-						apiFunctions,
-						scriptId: "script-a",
-						executionId: "execution-a-1",
-					},
+					{ apiBase, apiFunctions, scriptId: "script-a", executionId: "execution-a-1" },
 				);
 				assert(first !== null && typeof first === "object");
 				expect(Reflect.get(first, "value")).toMatchObject({
@@ -1130,9 +1116,7 @@ it("rejects malformed private host wire responses", () =>
 	Effect.runPromise(
 		Effect.scoped(
 			Effect.gen(function* () {
-				const bridge = yield* startCoreHostBridge({
-					getCachedValueResult: { success: true },
-				});
+				const bridge = yield* startCoreHostBridge({ getCachedValueResult: { success: true } });
 				const compiler = yield* SandboxCompiler;
 				const compiled = yield* compiler.compile(approvedHostSource);
 				const result = yield* runInDeno(
@@ -1391,9 +1375,7 @@ it("exposes only kernel-selected workflow host functions despite an empty manife
 	Effect.runPromise(
 		Effect.scoped(
 			Effect.gen(function* () {
-				const bridge = yield* startCoreHostBridge({
-					replayJournalResult: [{ recorded: true }],
-				});
+				const bridge = yield* startCoreHostBridge({ replayJournalResult: [{ recorded: true }] });
 				const manifest = {
 					name: "Workflow host",
 					slug: "workflow-host",

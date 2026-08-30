@@ -236,12 +236,7 @@ describe("system plugin reconciliation", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient(apiUrl());
 			const pluginSlug = PluginSlug.make(`e2e-shadowed-removable-${randomUUID()}`);
-			yield* installPrivatePlugin({
-				client,
-				pluginSlug,
-				config: privateConfig,
-				baseUrl: apiUrl(),
-			});
+			yield* installPrivatePlugin({ client, pluginSlug, config: privateConfig, baseUrl: apiUrl() });
 			yield* installShippedPlugin(pluginSlug);
 			yield* reconcilePluginInstallations();
 			expect((yield* ownedInstallation(client, pluginSlug)).health).toBe("incompatible");

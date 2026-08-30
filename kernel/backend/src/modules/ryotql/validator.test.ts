@@ -52,9 +52,7 @@ const nested = (depth: number): ReturnType<typeof include> => {
 
 const nestedExists = (depth: number, maximum: number): ReturnType<typeof exists> => {
 	const child = table("entity", `correlated${depth}`);
-	return exists(child, {
-		where: depth < maximum ? nestedExists(depth + 1, maximum) : undefined,
-	});
+	return exists(child, { where: depth < maximum ? nestedExists(depth + 1, maximum) : undefined });
 };
 
 it("exposes only approved entity fields", () => {
@@ -329,9 +327,7 @@ it("denies user-only catalog tables to plugin execution", () => {
 	for (const tableName of ["importRun", "importRunFailure"] as const) {
 		const source = table(tableName, "source");
 		expect(
-			validateRyotQLDocument(document({ rows: rows(source, { fields: [] }) }), {
-				type: "plugin",
-			}),
+			validateRyotQLDocument(document({ rows: rows(source, { fields: [] }) }), { type: "plugin" }),
 		).toBe(`Query 'rows': Table '${tableName}' is not available to plugin execution`);
 	}
 });
@@ -378,9 +374,7 @@ it("denies sandbox catalog tables in every plugin query occurrence", () => {
 		).toContain(`Table '${tableName}' is not available to plugin execution`);
 		expect(
 			validateRyotQLDocument(
-				document({
-					root: rows(root, { fields: [field("hasProvider", exists(correlated))] }),
-				}),
+				document({ root: rows(root, { fields: [field("hasProvider", exists(correlated))] }) }),
 				pluginScope,
 			),
 		).toContain(`Table '${tableName}' is not available to plugin execution`);
@@ -467,9 +461,7 @@ it("expands qualified wildcards and validates their output keys", () => {
 	expect(
 		validateRyotQLDocument(
 			document({
-				entities: rows(entity, {
-					fields: [star(entity), field("id", column(entity, "id"))],
-				}),
+				entities: rows(entity, { fields: [star(entity), field("id", column(entity, "id"))] }),
 			}),
 		),
 	).toBe("Query 'entities': Duplicate output field key 'id'");
@@ -631,9 +623,7 @@ it("validates time-series ranges, expressions, measures, and bucket limits", () 
 	);
 	expect(
 		validateRyotQLDocument(
-			document({
-				entities: timeSeries(entity, { ...input, endAt: "2026-01-01T00:00:00.000Z" }),
-			}),
+			document({ entities: timeSeries(entity, { ...input, endAt: "2026-01-01T00:00:00.000Z" }) }),
 		),
 	).toBe("Query 'entities': Time-series range startAt must be before endAt");
 	expect(
@@ -643,9 +633,7 @@ it("validates time-series ranges, expressions, measures, and bucket limits", () 
 	).toBe("Query 'entities': Time-series range startAt and endAt must be valid dates");
 	expect(
 		validateRyotQLDocument(
-			document({
-				entities: timeSeries(entity, { ...input, endAt: "2028-10-01T00:00:00.000Z" }),
-			}),
+			document({ entities: timeSeries(entity, { ...input, endAt: "2028-10-01T00:00:00.000Z" }) }),
 		),
 	).toBe("Query 'entities': Time-series bucket count exceeds maximum of 1000");
 	expect(
@@ -915,9 +903,7 @@ it("validates correlated expression scopes and ordering", () => {
 	const course = table("entity", "course");
 	const event = table("event", "event");
 	const relationship = table("relationship", "relationship");
-	const related = {
-		where: eq(column(event, "entityId"), column(course, "id")),
-	};
+	const related = { where: eq(column(event, "entityId"), column(course, "id")) };
 	expect(
 		validateRyotQLDocument(
 			document({
@@ -943,9 +929,7 @@ it("validates correlated expression scopes and ordering", () => {
 	expect(
 		validateRyotQLDocument(
 			document({
-				courses: rows(course, {
-					fields: [field("duplicate", count(table("event", "course")))],
-				}),
+				courses: rows(course, { fields: [field("duplicate", count(table("event", "course")))] }),
 			}),
 		),
 	).toBe("Query 'courses': Duplicate table alias 'course'");

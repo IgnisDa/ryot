@@ -112,9 +112,7 @@ export type KernelRyotSession = {
 	readonly hostServices: KernelHostServices;
 };
 
-export type KernelRyotClientStore = {
-	readonly get: (scope: ApiScope) => KernelRyotSession;
-};
+export type KernelRyotClientStore = { readonly get: (scope: ApiScope) => KernelRyotSession };
 
 export const createKernelRyotClientStore = (
 	runtime: ClientRuntime,

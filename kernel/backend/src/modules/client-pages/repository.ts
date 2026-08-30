@@ -126,10 +126,7 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.update(schema.clientRenderer)
-						.set({
-							draftDefinition: input.definition,
-							draftRevision: input.expectedRevision + 1,
-						})
+						.set({ draftDefinition: input.definition, draftRevision: input.expectedRevision + 1 })
 						.where(
 							and(
 								eq(schema.clientRenderer.id, input.rendererId),

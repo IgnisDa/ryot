@@ -105,10 +105,7 @@ export const prepareOAuth = async (baseUrl: string): Promise<PendingOAuth> => {
 };
 
 export const continueOAuthAuthorization = (pending: PendingOAuth, sessionCookie: string) =>
-	fetch(pending.authorizationUrl, {
-		redirect: "manual",
-		headers: { Cookie: sessionCookie },
-	});
+	fetch(pending.authorizationUrl, { redirect: "manual", headers: { Cookie: sessionCookie } });
 
 export const exchangeOAuthTokens = async (response: Response, pending: PendingOAuth) => {
 	const location = requirePresent(

@@ -19,10 +19,7 @@ export class PluginQueriesService extends Context.Service<PluginQueriesService>(
 						Effect.match({
 							onSuccess: (response) => ({ outcome: "success", response }) as const,
 							onFailure: (error) =>
-								({
-									outcome: "failure",
-									reason: classifyRyotQLFailure(error),
-								}) as const,
+								({ outcome: "failure", reason: classifyRyotQLFailure(error) }) as const,
 						}),
 					);
 				return outcome satisfies PluginRyotQLOutcome;

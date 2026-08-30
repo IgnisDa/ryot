@@ -7,15 +7,9 @@ import { PluginLoader } from "#modules/plugins/loader";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { SandboxScriptWorkflow } from "#modules/sandbox/sandbox-script-workflow";
 
-type ActivePluginBoot = {
-	readonly boot: PluginBoot;
-	readonly pluginSlug: string;
-};
+type ActivePluginBoot = { readonly boot: PluginBoot; readonly pluginSlug: string };
 
-type PluginBootIdentity = {
-	readonly bootSlug: string;
-	readonly pluginSlug: string;
-};
+type PluginBootIdentity = { readonly bootSlug: string; readonly pluginSlug: string };
 
 export const pluginBootExecutionId = (
 	pluginSlug: string,

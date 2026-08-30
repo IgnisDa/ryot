@@ -34,10 +34,7 @@ export class EntityInterestSubscriber extends Context.Service<EntityInterestSubs
 				if (update.reason === "populated") {
 					yield* progression.populated(update.entityId).pipe(
 						Effect.sandbox,
-						Effect.retry({
-							times: 2,
-							while: (cause) => !Cause.hasInterrupts(cause),
-						}),
+						Effect.retry({ times: 2, while: (cause) => !Cause.hasInterrupts(cause) }),
 						Effect.catch((cause) =>
 							store
 								.markPending({ entityId: update.entityId, sessionIds })

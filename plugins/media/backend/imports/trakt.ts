@@ -559,9 +559,5 @@ export const adaptTraktData = (target: TraktApiTarget, clientId: string, host: H
 				);
 			}
 		}
-		return {
-			failures,
-			totalItems: itemIndex,
-			entityGroups: finalizeEntityGroups(groups.values()),
-		};
+		return { failures, totalItems: itemIndex, entityGroups: finalizeEntityGroups(groups.values()) };
 	});

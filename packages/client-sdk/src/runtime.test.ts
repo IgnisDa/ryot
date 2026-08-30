@@ -80,9 +80,7 @@ const openRuntime = () => {
 	channel.port1.start();
 	channels.push(channel);
 	const attributes = new Map<string, string>();
-	const root = {
-		setAttribute: (name: string, value: string) => attributes.set(name, value),
-	};
+	const root = { setAttribute: (name: string, value: string) => attributes.set(name, value) };
 	return {
 		channel,
 		messages,
@@ -401,18 +399,12 @@ describe("plugin runtime", () => {
 	it("tracks the safe-area insets from init and from a viewport message", async () => {
 		const { channel, runtime } = openRuntime();
 
-		expect(runtime.navigation.getSnapshot()).toMatchObject({
-			safeAreaTop: 0,
-			safeAreaBottom: 0,
-		});
+		expect(runtime.navigation.getSnapshot()).toMatchObject({ safeAreaTop: 0, safeAreaBottom: 0 });
 
 		channel.port1.postMessage({ safeAreaTop: 59, safeAreaBottom: 34, type: "viewport" });
 		await delay();
 
-		expect(runtime.navigation.getSnapshot()).toMatchObject({
-			safeAreaTop: 59,
-			safeAreaBottom: 34,
-		});
+		expect(runtime.navigation.getSnapshot()).toMatchObject({ safeAreaTop: 59, safeAreaBottom: 34 });
 	});
 
 	it("owns handshake, activation, dispatch, and correlated calls", async () => {

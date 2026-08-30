@@ -83,11 +83,7 @@ const render = (
 		compact: false,
 		leading: "none",
 		edgeBack: false,
-		entry: {
-			index: 0,
-			key: "home",
-			location: { kind: "route", path: "/", search: "" },
-		},
+		entry: { index: 0, key: "home", location: { kind: "route", path: "/", search: "" } },
 	});
 	const container = document.createElement("div");
 	document.body.append(container);

@@ -41,14 +41,12 @@ async function getCloudAuthDetails(
 
 	const reset = await resetUserPassword(UserId.make(userId));
 
-	return {
-		username: email,
-		provider: "password",
-		passwordChangeUrl: reset.resetUrl,
-	};
+	return { username: email, provider: "password", passwordChangeUrl: reset.resetUrl };
 }
 
-async function handleCloudPurchase(customer: Customer): Promise<{
+async function handleCloudPurchase(
+	customer: Customer,
+): Promise<{
 	ryotUserId: string;
 	unkeyKeyId: null;
 	details: PurchaseCompleteEmailProps["details"];
@@ -58,11 +56,7 @@ async function handleCloudPurchase(customer: Customer): Promise<{
 	if (customer.ryotUserId) {
 		await setUserDisabled(UserId.make(customer.ryotUserId), false);
 		const auth = await getCloudAuthDetails(customer.ryotUserId, email, oidcIssuerId);
-		return {
-			unkeyKeyId: null,
-			ryotUserId: customer.ryotUserId,
-			details: { auth, kind: "cloud" },
-		};
+		return { unkeyKeyId: null, ryotUserId: customer.ryotUserId, details: { auth, kind: "cloud" } };
 	}
 
 	const provisioned = await provisionUser(
@@ -73,11 +67,7 @@ async function handleCloudPurchase(customer: Customer): Promise<{
 
 	const auth = await getCloudAuthDetails(provisioned.userId, email, oidcIssuerId);
 
-	return {
-		unkeyKeyId: null,
-		details: { auth, kind: "cloud" },
-		ryotUserId: provisioned.userId,
-	};
+	return { unkeyKeyId: null, details: { auth, kind: "cloud" }, ryotUserId: provisioned.userId };
 }
 
 async function handleSelfHostedPurchase(
@@ -96,9 +86,7 @@ async function handleSelfHostedPurchase(
 			enabled: true,
 			keyId: customer.unkeyKeyId,
 			meta: renewalDate
-				? {
-						expiry: formatDateToNaiveDate(renewalDate.add(GRACE_PERIOD, "days")),
-					}
+				? { expiry: formatDateToNaiveDate(renewalDate.add(GRACE_PERIOD, "days")) }
 				: undefined,
 		});
 		return {
@@ -214,9 +202,7 @@ export async function provisionRenewal(
 			enabled: true,
 			keyId: customer.unkeyKeyId,
 			meta: renewalDate
-				? {
-						expiry: formatDateToNaiveDate(renewalDate.add(GRACE_PERIOD, "days")),
-					}
+				? { expiry: formatDateToNaiveDate(renewalDate.add(GRACE_PERIOD, "days")) }
 				: undefined,
 		});
 	}
@@ -225,10 +211,7 @@ export async function provisionRenewal(
 export async function revokePurchase(customer: Customer) {
 	await getDb()
 		.update(customerPurchases)
-		.set({
-			cancelledOn: new Date(),
-			updatedOn: new Date(),
-		})
+		.set({ cancelledOn: new Date(), updatedOn: new Date() })
 		.where(
 			and(eq(customerPurchases.customerId, customer.id), isNull(customerPurchases.cancelledOn)),
 		);
@@ -273,11 +256,7 @@ export async function handlePurchaseOrRenewal(
 			providerIdentity,
 		);
 	} else {
-		console.log("Customer renewed plan:", {
-			planType,
-			productType,
-			paymentProviderCustomerId,
-		});
+		console.log("Customer renewed plan:", { planType, productType, paymentProviderCustomerId });
 		await provisionRenewal(customer, planType, productType, activePurchase, providerIdentity);
 	}
 }

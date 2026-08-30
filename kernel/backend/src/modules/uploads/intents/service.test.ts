@@ -134,9 +134,7 @@ it.effect("cleans up an expired upload intent holding only the intent lock", () 
 	const deletedKeys: string[] = [];
 	const removedMembers: string[] = [];
 	const deletedObjects: Array<{ key: string; type: string }> = [];
-	const record = makeIntentRecord({
-		completion: { token: "upload-token", expiresAt: 900 },
-	});
+	const record = makeIntentRecord({ completion: { token: "upload-token", expiresAt: 900 } });
 	const layer = makeCleanupLayer(
 		{
 			get: () => Effect.succeed(record),

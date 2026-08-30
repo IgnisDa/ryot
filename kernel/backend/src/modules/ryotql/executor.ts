@@ -44,10 +44,7 @@ type CompileTable = {
 	readonly joinedNullable: boolean;
 	readonly executionScope: RyotQLExecutionScope;
 };
-type Order = {
-	readonly expr: ScalarExpression;
-	readonly direction: "asc" | "desc";
-};
+type Order = { readonly expr: ScalarExpression; readonly direction: "asc" | "desc" };
 type CursorValue =
 	| { readonly kind: "null"; readonly value: null }
 	| { readonly kind: "boolean"; readonly value: boolean }
@@ -640,10 +637,7 @@ const isPrimaryKeyOrder = (expr: ScalarExpression, alias: string, table: Catalog
 	expr.type === "column" && expr.tableAlias === alias && expr.field === table.primaryKey;
 
 const orderSql = (
-	orders: readonly {
-		readonly direction: "asc" | "desc";
-		readonly kind: ScalarKind;
-	}[],
+	orders: readonly { readonly direction: "asc" | "desc"; readonly kind: ScalarKind }[],
 ) =>
 	sql.join(
 		orders.map((order, index) => {

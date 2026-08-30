@@ -141,11 +141,7 @@ const makeBootstrapDb = () =>
 					}),
 			}),
 		}),
-		update: () => ({
-			set: () => ({
-				where: () => Effect.succeed({}),
-			}),
-		}),
+		update: () => ({ set: () => ({ where: () => Effect.succeed({}) }) }),
 		execute: () => Effect.succeed({}),
 	});
 
@@ -455,9 +451,7 @@ it.effect("returns migration report entries ordered by severity and newest time"
 		const service = yield* GodModeService;
 		const result = yield* service.getMigrationReport();
 
-		expect(result).toEqual({
-			entries: [{ ...row, createdAt: "2026-08-24T12:34:56.000Z" }],
-		});
+		expect(result).toEqual({ entries: [{ ...row, createdAt: "2026-08-24T12:34:56.000Z" }] });
 		expect(state.orderBy.map((order) => dialect.sqlToQuery(order).sql.toLowerCase())).toEqual([
 			expect.stringContaining("case when"),
 			expect.stringContaining('"created_at" desc'),
@@ -586,9 +580,7 @@ it.effect("disables an enabled user and deletes sessions", () => {
 
 it.effect("preserves an existing disabledAt when disabling an already-disabled user", () => {
 	const existingDisabledAt = new Date("2024-01-02T00:00:00Z");
-	const { db } = makeSetUserDisabledDb({
-		user: { id: "user_1", disabledAt: existingDisabledAt },
-	});
+	const { db } = makeSetUserDisabledDb({ user: { id: "user_1", disabledAt: existingDisabledAt } });
 	const authState = {
 		deleteUserSessionsCalled: false,
 		updateInput: undefined as { disabledAt: Date | null; updatedAt: Date } | undefined,

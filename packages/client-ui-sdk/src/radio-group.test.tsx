@@ -103,9 +103,7 @@ describe("RadioGroup", () => {
 	it("passes an axe pass on the rendered group", async () => {
 		const view = render(<ThemeChoice initial="dark" />);
 
-		const results = await axe(view.container, {
-			rules: { "color-contrast": { enabled: false } },
-		});
+		const results = await axe(view.container, { rules: { "color-contrast": { enabled: false } } });
 
 		expect(results.violations.map((violation) => violation.id)).toEqual([]);
 	});

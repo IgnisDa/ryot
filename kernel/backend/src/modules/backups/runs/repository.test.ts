@@ -84,9 +84,7 @@ it.effect("returns an existing running run without resetting its start time", ()
 				}),
 			}),
 		}),
-		select: () => ({
-			from: () => ({ where: () => ({ limit: () => Effect.succeed([row]) }) }),
-		}),
+		select: () => ({ from: () => ({ where: () => ({ limit: () => Effect.succeed([row]) }) }) }),
 	};
 
 	return Effect.gen(function* () {

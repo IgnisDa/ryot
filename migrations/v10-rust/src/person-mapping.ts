@@ -25,11 +25,7 @@ export const personEntityTargets = [
 	{ source: "custom", entitySchemaSlug: "person", providerSlug: null },
 	{ source: "giant_bomb", entitySchemaSlug: "person", providerSlug: "person.giant-bomb" },
 	{ source: "hardcover", entitySchemaSlug: "person", providerSlug: "person.hardcover" },
-	{
-		source: "manga_updates",
-		entitySchemaSlug: "person",
-		providerSlug: "person.manga-updates",
-	},
+	{ source: "manga_updates", entitySchemaSlug: "person", providerSlug: "person.manga-updates" },
 	{ source: "metron", entitySchemaSlug: "person", providerSlug: "person.metron" },
 	{ source: "music_brainz", entitySchemaSlug: "person", providerSlug: "person.music-brainz" },
 	{ source: "openlibrary", entitySchemaSlug: "person", providerSlug: "person.openlibrary" },
@@ -37,20 +33,12 @@ export const personEntityTargets = [
 	{ source: "tmdb", entitySchemaSlug: "person", providerSlug: "person.tmdb" },
 	{ source: "tvdb", entitySchemaSlug: "person", providerSlug: "person.tvdb" },
 	{ source: "vndb", entitySchemaSlug: "person", providerSlug: "person.vndb" },
-	{
-		source: "youtube_music",
-		entitySchemaSlug: "person",
-		providerSlug: "person.youtube-music",
-	},
+	{ source: "youtube_music", entitySchemaSlug: "person", providerSlug: "person.youtube-music" },
 ] as const satisfies readonly EntityMigrationTarget[];
 
 export const companyEntityTargets = [
 	{ source: "anilist", entitySchemaSlug: "company", providerSlug: "company.anilist" },
-	{
-		source: "giant_bomb",
-		entitySchemaSlug: "company",
-		providerSlug: "company.giant-bomb",
-	},
+	{ source: "giant_bomb", entitySchemaSlug: "company", providerSlug: "company.giant-bomb" },
 	{ source: "hardcover", entitySchemaSlug: "company", providerSlug: "company.hardcover" },
 	{ source: "igdb", entitySchemaSlug: "company", providerSlug: "company.igdb" },
 	{ source: "tmdb", entitySchemaSlug: "company", providerSlug: "company.tmdb" },
