@@ -597,6 +597,7 @@ it.live("keeps configured entity-browser controls within their declared source",
 		expect(new URL(page.url()).searchParams.get("keep")).toBe("1");
 		yield* runtime.getByText("02 Zulu member", { exact: true }).waitFor({ state: "hidden" });
 		yield* runtime.getByRole("searchbox", { name: "Search Configured entity browser" }).fill("");
+		yield* page.waitForURL((url) => url.searchParams.get("search") === null);
 
 		yield* runtime.getByRole("button", { name: "Sort results: Default order" }).click();
 		yield* runtime.getByRole("radio", { name: "Name descending" }).click();
@@ -969,8 +970,8 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 		const workoutList = runtime.locator(`[data-entity-id="${workoutId}"][data-layout="list"]`);
 		const pokemonList = runtime.locator(`[data-entity-id="${pokemon.id}"][data-layout="row"]`);
 		yield* pokemonList.waitFor({ state: "visible" });
-		expect(yield* runtime.locator("article").count).toBe(5);
 		yield* expectRichEntities(showList, workoutList, pokemonList);
+		expect(yield* runtime.locator("article").count).toBe(5);
 		expect(yield* pokemonList.getAttribute("data-view-context")).toBe(
 			JSON.stringify({ savedViewId: view.id }),
 		);
