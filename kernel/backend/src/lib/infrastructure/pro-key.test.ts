@@ -18,15 +18,25 @@ const verifyKeyResponse = (data: { valid: boolean; meta?: Record<string, unknown
 
 const makeFetcher = (respond: () => Response) => {
 	const calls: Array<Request> = [];
-	const fetcher = (input: RequestInfo | URL, init?: RequestInit) => {
-		calls.push(input instanceof Request && init == null ? input : new Request(input, init));
+	const fetcher = (input: Request | string | URL, init?: RequestInit) => {
+		let request: Request;
+		if (input instanceof Request) {
+			if (init == null) {
+				request = input;
+			} else {
+				request = new Request(input, init);
+			}
+		} else {
+			request = new Request(input.toString(), init);
+		}
+		calls.push(request);
 		return Promise.resolve(respond());
 	};
 	return { calls, fetcher };
 };
 
 const makeLayer = (
-	fetcher: (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>,
+	fetcher: (input: Request | string | URL, init?: RequestInit) => Promise<Response>,
 	proKey: Option.Option<Redacted.Redacted>,
 ) =>
 	ProKeyService.layerWithHttpClient(new HTTPClient({ fetcher })).pipe(
