@@ -90,9 +90,10 @@ export const runSoak = (
 		/**
 		 * Profiling a concurrent wave costs about 1.9 GB on top of the load itself, which drove host
 		 * available memory under the watchdog floor and had the ryot container stopped mid-soak. The
-		 * profile phase already covers concurrent execution, so only sequential waves are profiled.
+		 * profile phase already covers concurrent execution, so only sequential waves are profiled,
+		 * and a scenario whose waves are long enough for the profile itself to matter opts out.
 		 */
-		const profiledWave = scenario.sequential;
+		const profiledWave = scenario.sequential && scenario.profileWaveTwo !== false;
 
 		for (let wave = 1; wave <= scenario.waves; wave += 1) {
 			if (wave === 2 && profiledWave) {
