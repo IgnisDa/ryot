@@ -574,7 +574,7 @@ describe("createRyotClient", () => {
 			search: { tab: "stats" },
 		});
 		client.navigation.replace({ kind: "entity", entityId: "entity-1" });
-		client.navigation.push({ kind: "saved-view", savedViewId: "view-1" });
+		client.navigation.push({ slug: "view-1", kind: "saved-view" });
 
 		expect(navigations).toEqual([
 			{
@@ -582,7 +582,7 @@ describe("createRyotClient", () => {
 				target: { pluginSlug, path: "/items", kind: "plugin-route", search: { tab: "stats" } },
 			},
 			{ mode: "replace", target: { kind: "entity", entityId: "entity-1" } },
-			{ mode: "push", target: { kind: "saved-view", savedViewId: "view-1" } },
+			{ mode: "push", target: { slug: "view-1", kind: "saved-view" } },
 		]);
 	});
 

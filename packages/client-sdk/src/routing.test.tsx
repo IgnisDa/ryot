@@ -5,7 +5,7 @@ import {
 	type PluginLogicalLocation,
 	type PluginRouteLocation,
 } from "@ryot-app/client-plugin-contract";
-import { EntityId, PluginSlug, SavedViewId } from "@ryot-app/contract/schema/brands";
+import { EntityId, PluginSlug } from "@ryot-app/contract/schema/brands";
 import { waitFor } from "@testing-library/dom";
 import { Match, Schema } from "effect";
 import { useState, act } from "react";
@@ -216,10 +216,7 @@ const openChannel = (
 				kind: "entity" as const,
 				entityId: EntityId.make(entityId),
 			})),
-			Match.when({ kind: "saved-view" }, ({ savedViewId }) => ({
-				kind: "saved-view" as const,
-				savedViewId: SavedViewId.make(savedViewId),
-			})),
+			Match.when({ kind: "saved-view" }, ({ slug }) => ({ slug, kind: "saved-view" as const })),
 			Match.exhaustive,
 		);
 		messages.push({ mode, target, type: "navigate" });

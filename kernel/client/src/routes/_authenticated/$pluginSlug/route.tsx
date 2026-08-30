@@ -1,61 +1,36 @@
-import { createFileRoute, notFound } from "@tanstack/react-router";
-import { Effect } from "effect";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 
 import {
 	useClearClientPageDocument,
 	useClientPageDocument,
 	useHasPublishedClientPageDocument,
 } from "#/modules/client-pages/document";
-import { prepareClientPage } from "#/modules/client-pages/preparation";
+import type { ClientPagePreparation } from "#/modules/client-pages/preparation";
 import { AppScreen } from "#/modules/navigation/app-screen";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
-import { PluginCatalogService } from "#/modules/plugins/catalog";
-import { toPluginLocation } from "#/modules/plugins/plugin-location";
+import { usePluginCatalog } from "#/modules/plugins/catalog-provider";
 
 export const Route = createFileRoute("/_authenticated/$pluginSlug")({
-	shouldReload: true,
-	component: PluginRoute,
+	component: Outlet,
 	pendingComponent: PluginPending,
 	notFoundComponent: PluginNotFound,
 	errorComponent: () => <PluginNotice clear title="Plugin page unavailable" />,
-	loader: async ({ params, context, location, abortController }) => {
-		const catalog = await context.runtime.runPromise(
-			Effect.flatMap(PluginCatalogService, (service) => service.load(context.ryot)),
-			{ signal: abortController.signal },
-		);
-		const installation = catalog.find((candidate) => candidate.slug === params.pluginSlug);
-		if (installation === undefined) {
-			// oxlint-disable-next-line typescript/only-throw-error
-			throw notFound();
-		}
-		const pluginLocation = toPluginLocation(
-			params.pluginSlug,
-			location.pathname,
-			location.searchStr,
-		);
-		const target =
-			pluginLocation.path === "/" && installation.homeSavedViewId !== null
-				? ({ kind: "saved-view", savedViewId: installation.homeSavedViewId } as const)
-				: ({
-						kind: "plugin-route",
-						path: pluginLocation.path,
-						search: pluginLocation.search,
-						pluginId: installation.pluginId,
-					} as const);
-		const preparation = await context.runtime.runPromise(prepareClientPage(context.scope, target), {
-			signal: abortController.signal,
-		});
-		return { preparation, installation };
-	},
 });
 
-function PluginRoute() {
-	const loaded = Route.useLoaderData();
-	if (loaded.preparation.kind === "unavailable") {
+export function PluginRoutePage({
+	pluginSlug,
+	preparation,
+}: {
+	readonly preparation: ClientPagePreparation;
+	readonly pluginSlug: string;
+}) {
+	const { catalog } = usePluginCatalog();
+	if (preparation.kind === "unavailable") {
 		return <PluginNotice clear title="Plugin page not found" />;
 	}
-	return <PluginDocument title={loaded.installation.name} prepared={loaded.preparation.prepared} />;
+	const installation = catalog.find((candidate) => candidate.slug === pluginSlug);
+	return <PluginDocument prepared={preparation.prepared} title={installation?.name ?? "Plugin"} />;
 }
 
 function PluginDocument(props: Parameters<typeof useClientPageDocument>[0]) {

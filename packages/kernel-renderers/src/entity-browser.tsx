@@ -93,13 +93,13 @@ const Browser = ({ input }: { readonly input: typeof EntityBrowserPageInput.Type
 		<EntityBrowserController
 			query={query}
 			name={() => viewName}
+			identityKey={input.target.slug}
 			layouts={input.settings.layouts}
 			errorTitle="Saved view unavailable"
 			icon={input.view?.icon ?? "library"}
-			identityKey={input.target.savedViewId}
 			tableColumns={input.settings.tableColumns}
+			viewContext={{ savedViewId: input.target.slug }}
 			canSearch={input.settings.searchFields.length > 0}
-			viewContext={{ savedViewId: input.target.savedViewId }}
 			errorMessage="The saved view results could not be loaded."
 			sortChoices={input.settings.sortChoices.map(({ name, label }) => ({ label, value: name }))}
 			defaultLayout={
@@ -113,7 +113,7 @@ const Browser = ({ input }: { readonly input: typeof EntityBrowserPageInput.Type
 					input={input}
 					onTotal={onTotal}
 					searchText={search}
-					key={JSON.stringify([input.target.savedViewId, search])}
+					key={JSON.stringify([input.target.slug, search])}
 				/>
 			)}
 			add={
