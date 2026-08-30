@@ -19,7 +19,7 @@ import { Workflow } from "effect/unstable/workflow";
 import { LifecycleDispatchPlan, toLifecycleDispatchPlan } from "#lib/domain/lifecycle";
 import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { retryOnDeadlock } from "#lib/infrastructure/db/service";
+import { retryOnDeadlock } from "#lib/infrastructure/db/errors";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import type { DurableSchema } from "#lib/infrastructure/workflow";

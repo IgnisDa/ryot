@@ -1,20 +1,7 @@
-import { PgClient } from "@effect/sql-pg";
 import { DbError, unknownToDbError } from "@ryot-app/contract/errors";
 import { EffectDrizzleQueryError } from "drizzle-orm/effect-core";
-import { Cause, Duration, Effect, Layer } from "effect";
+import { Cause, Effect } from "effect";
 import { SqlError } from "effect/unstable/sql/SqlError";
-
-import { AppConfig } from "#lib/infrastructure/config/service";
-
-export const PgClientLive = Layer.unwrap(
-	Effect.map(AppConfig, (config) =>
-		PgClient.layer({
-			url: config.database.url,
-			maxConnections: config.database.poolMax,
-			connectTimeout: Duration.millis(config.database.connectionTimeoutMs),
-		}),
-	),
-);
 
 const unwrapDatabaseFailure = (failure: unknown): unknown => {
 	if (Cause.isCause(failure)) {

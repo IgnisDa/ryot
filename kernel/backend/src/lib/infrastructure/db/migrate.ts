@@ -1,7 +1,7 @@
 import { migrate } from "drizzle-orm/effect-postgres/migrator";
 import { Context, Effect, Layer } from "effect";
 
-import { databaseError } from "./service";
+import { databaseError } from "./errors";
 import { DatabaseSession } from "./session";
 
 const migrateDB = Effect.gen(function* () {

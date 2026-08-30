@@ -3,8 +3,8 @@ import { SandboxRunError } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
 
+import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { fakeDatabaseSession } from "#lib/test-utils/effect";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
 import { ClientSurfaceMaterializer } from "#modules/plugins/client-surface-materializer";

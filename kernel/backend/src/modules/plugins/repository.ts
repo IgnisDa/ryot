@@ -26,8 +26,8 @@ import {
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { PLUGIN_INGESTION_ADVISORY_LOCK_KEY } from "#lib/infrastructure/db/advisory-locks";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { ClientArtifactsRepository } from "#modules/client-artifacts/repository";
 import { DefinitionRepository } from "#modules/definition-registry/repository";

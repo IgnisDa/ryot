@@ -14,7 +14,7 @@ import { DateTime, Effect, Schema } from "effect";
 
 import { LifecycleDispatchPlan, toLifecycleDispatchPlan } from "#lib/domain/lifecycle";
 import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
-import { retryOnDeadlock } from "#lib/infrastructure/db/service";
+import { retryOnDeadlock } from "#lib/infrastructure/db/errors";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import type { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
 import { EntityMutationOutcome } from "#modules/entities/mutation-outcomes";

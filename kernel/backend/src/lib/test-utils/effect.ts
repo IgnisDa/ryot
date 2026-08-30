@@ -8,7 +8,7 @@ import {
 } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig, type AppConfigValue } from "#lib/infrastructure/config/service";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
 import { DatabaseSession, userWriteLockStatement } from "#lib/infrastructure/db/session";
 import type { RedisService } from "#lib/infrastructure/redis";
 import { testDatabaseUrl } from "#lib/test-utils/database";

@@ -17,7 +17,7 @@ import { generateId } from "better-auth";
 import { Context, Effect, Layer, Option, Result } from "effect";
 import type { Headers as PlatformHeaders } from "effect/unstable/http";
 
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { AuthService } from "#modules/auth/service";
 import { SandboxExecutionService } from "#modules/sandbox/service";

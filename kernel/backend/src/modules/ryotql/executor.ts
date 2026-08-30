@@ -22,7 +22,7 @@ import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { DateTime, Effect, Option, Schema } from "effect";
 
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
 
 import {
 	canAccessCatalogTable,

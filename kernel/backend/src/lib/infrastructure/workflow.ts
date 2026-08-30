@@ -5,7 +5,7 @@ import { ClusterWorkflowEngine, SingleRunner } from "effect/unstable/cluster";
 import { PersistedQueue } from "effect/unstable/persistence";
 
 import { AppConfig } from "./config/service";
-import { PgClientLive } from "./db/service";
+import { PgClientLive } from "./db/postgres";
 
 export type DurableSchema = Schema.ConstraintCodec<unknown, unknown>;
 

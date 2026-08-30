@@ -20,7 +20,7 @@ import {
 } from "#lib/domain/lifecycle";
 import { lifecycleTrigger, LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { retryOnDeadlock } from "#lib/infrastructure/db/service";
+import { retryOnDeadlock } from "#lib/infrastructure/db/errors";
 import { DatabaseSession, DatabaseSessionStateError } from "#lib/infrastructure/db/session";
 
 import { enqueueEventCreate } from "./event-create-workflow";

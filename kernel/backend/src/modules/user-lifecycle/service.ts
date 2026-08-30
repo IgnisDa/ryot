@@ -9,7 +9,7 @@ import { Cause, Context, DateTime, Effect, Layer, Result } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { AuthService } from "#modules/auth/service";
 
