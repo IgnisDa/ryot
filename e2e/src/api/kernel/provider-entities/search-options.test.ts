@@ -62,8 +62,8 @@ let failingProvider: InstalledTestProvider;
 let staticProvider: InstalledTestProvider;
 let providerClient: Client;
 
-beforeAll(async () => {
-	await Effect.runPromise(
+beforeAll(() =>
+	Effect.runPromise(
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			providerClient = client;
@@ -104,18 +104,18 @@ beforeAll(async () => {
 				]),
 			});
 		}),
-	);
-});
+	),
+);
 
-afterAll(async () => {
-	await Effect.runPromise(
+afterAll(() =>
+	Effect.runPromise(
 		Effect.gen(function* () {
 			yield* uninstallTestProvider(staticProvider);
 			yield* uninstallTestProvider(failingProvider);
 			yield* uninstallTestProvider(dynamicProvider);
 		}),
-	);
-});
+	),
+);
 
 describe("POST /provider-entities/search-options", () => {
 	it.live("materializes dynamic enum-array choices with separate values and labels", () =>

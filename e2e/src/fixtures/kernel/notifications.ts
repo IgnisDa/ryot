@@ -3,7 +3,7 @@ import { NotificationChannelId } from "@ryot-app/contract/schema/brands";
 import { notificationChannelsRecipe } from "@ryot-app/ryotql-recipes/notification-channels";
 import { Effect } from "effect";
 
-import { startFakeHttpServer } from "~/support/fake-http-server";
+import { startFakeHttpServer, startFakeHttpServerScoped } from "~/support/fake-http-server";
 
 import type { Client } from "./auth";
 import { executeRyotQLRecipe } from "./ryotql";
@@ -40,15 +40,11 @@ export const deleteNotificationChannel = (client: Client, channelId: string) =>
 export const testNotificationChannels = (client: Client) =>
 	client.call((c) => c.notifications.testChannels());
 
-export function startFakeAppriseServer() {
-	return startFakeHttpServer((url) =>
-		url.pathname.endsWith("/fail")
-			? new Response("failed", { status: 500 })
-			: Response.json({ ok: true }),
-	);
-}
+const respondToApprise = (url: URL) =>
+	url.pathname.endsWith("/fail")
+		? new Response("failed", { status: 500 })
+		: Response.json({ ok: true });
 
-export const startFakeAppriseServerScoped = Effect.acquireRelease(
-	Effect.promise(() => startFakeAppriseServer()),
-	(server) => Effect.sync(() => server.stop()),
-);
+export const startFakeAppriseServer = startFakeHttpServer(respondToApprise);
+
+export const startFakeAppriseServerScoped = startFakeHttpServerScoped(respondToApprise);

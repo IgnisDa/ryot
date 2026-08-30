@@ -113,34 +113,38 @@ export const openPluginCatalogEventsScoped = (
 				}
 			};
 			const waitFor = (event: CatalogEvent, waitOptions: WaitOptions = {}) =>
-				Effect.promise(
-					() =>
-						new Promise<CatalogEvent>((resolve, reject) => {
-							if (failure) {
-								reject(failure);
-								return;
-							}
-							const index = queued.indexOf(event);
-							if (index >= 0) {
-								queued.splice(index, 1);
-								resolve(event);
-								return;
-							}
-							const waiter: EventWaiter = {
-								event,
-								reject,
-								resolve,
-								timer: setTimeout(
-									() => {
-										waiters.delete(waiter);
-										reject(new Error(`Timed out waiting for plugin catalog '${event}' event`));
-									},
-									waitOptions.timeoutMs ?? options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-								),
-							};
-							waiters.add(waiter);
-						}),
-				);
+				Effect.callback<CatalogEvent>((resume) => {
+					if (failure) {
+						resume(Effect.die(failure));
+						return Effect.void;
+					}
+					const index = queued.indexOf(event);
+					if (index >= 0) {
+						queued.splice(index, 1);
+						resume(Effect.succeed(event));
+						return Effect.void;
+					}
+					const waiter: EventWaiter = {
+						event,
+						reject: (error) => resume(Effect.die(error)),
+						resolve: (value) => resume(Effect.succeed(value)),
+						// oxlint-disable-next-line effecttsgo/global-timers-in-effect -- external SSE callbacks need a cancelable wait timer.
+						timer: setTimeout(
+							() => {
+								waiters.delete(waiter);
+								resume(
+									Effect.die(new Error(`Timed out waiting for plugin catalog '${event}' event`)),
+								);
+							},
+							waitOptions.timeoutMs ?? options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+						),
+					};
+					waiters.add(waiter);
+					return Effect.sync(() => {
+						clearTimeout(waiter.timer);
+						waiters.delete(waiter);
+					});
+				});
 
 			const fiber = yield* Stream.runForEach(response.stream, (chunk) =>
 				Effect.sync(() => consume(chunk)),
@@ -182,29 +186,32 @@ export const openPluginCatalogEventsScoped = (
 						return events;
 					}),
 				assertNoInvalidation: (assertOptions = {}) =>
-					Effect.promise(
-						() =>
-							new Promise<void>((resolve, reject) => {
-								if (failure) {
-									reject(failure);
-									return;
-								}
-								if (queued.includes(PLUGIN_CATALOG_INVALIDATED_EVENT)) {
-									reject(new Error("Unexpected queued plugin catalog invalidation"));
-									return;
-								}
-								const waiter: EventWaiter = {
-									reject,
-									event: PLUGIN_CATALOG_INVALIDATED_EVENT,
-									resolve: () => reject(new Error("Unexpected plugin catalog invalidation")),
-									timer: setTimeout(() => {
-										waiters.delete(waiter);
-										resolve();
-									}, assertOptions.windowMs ?? 500),
-								};
-								waiters.add(waiter);
-							}),
-					),
+					Effect.callback<void>((resume) => {
+						if (failure) {
+							resume(Effect.die(failure));
+							return Effect.void;
+						}
+						if (queued.includes(PLUGIN_CATALOG_INVALIDATED_EVENT)) {
+							resume(Effect.die(new Error("Unexpected queued plugin catalog invalidation")));
+							return Effect.void;
+						}
+						const waiter: EventWaiter = {
+							event: PLUGIN_CATALOG_INVALIDATED_EVENT,
+							reject: (error) => resume(Effect.die(error)),
+							resolve: () =>
+								resume(Effect.die(new Error("Unexpected plugin catalog invalidation"))),
+							// oxlint-disable-next-line effecttsgo/global-timers-in-effect -- external SSE callbacks need a cancelable observation window.
+							timer: setTimeout(() => {
+								waiters.delete(waiter);
+								resume(Effect.void);
+							}, assertOptions.windowMs ?? 500),
+						};
+						waiters.add(waiter);
+						return Effect.sync(() => {
+							clearTimeout(waiter.timer);
+							waiters.delete(waiter);
+						});
+					}),
 			} satisfies PluginCatalogEventStream;
 		}),
 		(stream) => stream.close(),

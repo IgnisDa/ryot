@@ -262,7 +262,7 @@ describe("Saved views lifecycle E2E", () => {
 			const created = yield* createSavedView(client, { name: "Immutable Fields View" });
 			const createdView = yield* findSavedViewById(client, created.id);
 
-			yield* Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 100)));
+			yield* Effect.sleep(100);
 			yield* updateSavedView(client, createdView.slug, { name: "Immutable Fields View Updated" });
 			const refreshedView = yield* getSavedView(client, createdView.slug);
 

@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import { TemporaryUploadToken } from "@ryot-app/contract/modules/uploads/schemas";
 import {
 	importRunRecipe,
@@ -10,6 +8,7 @@ import { Effect, Schema } from "effect";
 
 import { requirePresent } from "~/support/assertions";
 import { getApiUrl } from "~/support/harness-target";
+import { webRequest } from "~/support/web-request";
 
 import type { Client } from "./auth";
 import { getApiClient } from "./contract-client";
@@ -344,7 +343,7 @@ export default defineWorkflow({
 `;
 
 export const installTestImportPinningPlugin = Effect.suspend(() => {
-	const suffix = randomUUID();
+	const suffix = crypto.randomUUID();
 	const source = `e2e_pinned_import_${suffix.replaceAll("-", "_")}`;
 	const workflowSlug = `pinning-import-${suffix}`;
 	const scriptSlug = `workflow.e2e-pinning-import-${suffix}`;
@@ -393,13 +392,11 @@ export const uploadImportFile = (
 			headers,
 		);
 
-		const uploadResponse = yield* Effect.promise(() =>
-			fetch(new URL(intent.uploadUrl, `${getApiUrl()}/`), {
-				body: content,
-				method: intent.method,
-				headers: intent.headers,
-			}),
-		);
+		const uploadResponse = yield* webRequest(new URL(intent.uploadUrl, `${getApiUrl()}/`), {
+			body: content,
+			method: intent.method,
+			headers: intent.headers,
+		});
 		if (!uploadResponse.ok) {
 			throw new Error(`Could not upload import file (${uploadResponse.status})`);
 		}

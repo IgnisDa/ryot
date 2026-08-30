@@ -10,6 +10,7 @@ import { Effect } from "effect";
 
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
+import { webRequest } from "~/support/web-request";
 
 // Better Auth coerces a non-loopback http issuer to https; issued tokens keep http.
 const advertisedIssuer = (origin: string) =>
@@ -22,9 +23,7 @@ describe("GET /auth/.well-known/openid-configuration", () => {
 		Effect.gen(function* () {
 			const apiUrl = getApiUrl();
 			const frontendOrigin = getFrontendUrl();
-			const response = yield* Effect.promise(() =>
-				fetch(`${apiUrl}/auth/.well-known/openid-configuration`),
-			);
+			const response = yield* webRequest(`${apiUrl}/auth/.well-known/openid-configuration`);
 
 			expect(response.status).toBe(200);
 			expect(response.headers.get("content-type")).toContain("application/json");

@@ -1,4 +1,4 @@
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import {
 	createAuthenticatedClient,
@@ -301,7 +301,7 @@ describe("Episodic lifecycle sessions", () => {
 			});
 			const uploadToken = yield* uploadImportFile(
 				token,
-				JSON.stringify([
+				yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))([
 					{
 						rating: 0,
 						activity: [],

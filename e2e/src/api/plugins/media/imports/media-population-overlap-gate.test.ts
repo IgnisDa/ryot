@@ -1,5 +1,3 @@
-import { randomUUID } from "node:crypto";
-
 import { MediaImportPopulationWorkflowOutput } from "@ryot-app/media-plugin/contracts/workflows";
 import { Clock, Effect, Schema } from "effect";
 
@@ -70,11 +68,13 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population overlap gate", () => {
 						],
 					}),
 				});
-				const baseline = yield* sampleOperationalPressure([`overlap-baseline-${randomUUID()}`]);
+				const baseline = yield* sampleOperationalPressure([
+					`overlap-baseline-${crypto.randomUUID()}`,
+				]);
 
 				for (const concurrency of CONCURRENCY_LEVELS) {
 					for (let repetition = 0; repetition < REPETITIONS; repetition += 1) {
-						const prefix = `overlap-${concurrency}-${repetition}-${randomUUID()}`;
+						const prefix = `overlap-${concurrency}-${repetition}-${crypto.randomUUID()}`;
 						const runs = yield* Effect.forEach(
 							Array.from({ length: concurrency }, (_, index) => index),
 							(index) =>
@@ -118,7 +118,9 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population overlap gate", () => {
 					}
 				}
 
-				const finalPressure = yield* sampleOperationalPressure([`overlap-final-${randomUUID()}`]);
+				const finalPressure = yield* sampleOperationalPressure([
+					`overlap-final-${crypto.randomUUID()}`,
+				]);
 				expect(finalPressure.database.deadlocks - baseline.database.deadlocks).toBe(0);
 				expect(finalPressure.database.lockWaitingConnections).toBe(0);
 				expect(finalPressure.locks.waitingAdvisoryLocks).toBe(0);

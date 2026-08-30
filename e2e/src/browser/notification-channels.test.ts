@@ -51,15 +51,15 @@ const withNotificationsBrowser = <E, R>(
 		yield* run(page);
 	});
 
-beforeAll(async () => {
-	await Effect.runPromise(
+beforeAll(() =>
+	Effect.runPromise(
 		Effect.gen(function* () {
 			const user = yield* createTestUser();
 			email = user.email;
 			password = user.password;
 		}),
-	);
-});
+	),
+);
 
 it.live("adds, pauses, tests and deletes a notification channel", () =>
 	withNotificationsBrowser((page) =>
