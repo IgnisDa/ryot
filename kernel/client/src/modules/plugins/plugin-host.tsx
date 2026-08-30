@@ -142,7 +142,7 @@ export function PluginFrame(props: {
 		signal: AbortSignal,
 	) => Promise<PluginOperationDispatchOutcome>;
 }) {
-	const { compact, edgeBack, index, key, leading, location, screenKey } = props.navigation;
+	const { compact, edgeBack, index, key, leading, location } = props.navigation;
 	const routePath = location.kind === "route" ? location.path : undefined;
 	const entityId = location.kind === "entity" ? location.entityId : undefined;
 	const routeSearch = location.kind === "route" ? location.search : undefined;
@@ -385,18 +385,7 @@ export function PluginFrame(props: {
 	useEffect(() => {
 		window.clearTimeout(backSettle.current);
 		bridge.current?.sendLocation(latest.current.navigation);
-	}, [
-		compact,
-		edgeBack,
-		entityId,
-		entitySchemaSlug,
-		index,
-		key,
-		leading,
-		routePath,
-		routeSearch,
-		screenKey,
-	]);
+	}, [compact, edgeBack, entityId, entitySchemaSlug, index, key, leading, routePath, routeSearch]);
 
 	useEffect(
 		() =>

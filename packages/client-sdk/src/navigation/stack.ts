@@ -6,7 +6,6 @@ export const PLUGIN_SCREEN_STACK_LIMIT = 5;
 export type PluginScreen = {
 	readonly key: string;
 	readonly index: number;
-	readonly historyKey: string;
 	readonly element: ReactElement;
 	readonly params: Record<string, string>;
 	readonly location: PluginLogicalLocation;
@@ -34,7 +33,6 @@ export type Presentation =
 export type StackEntry = {
 	readonly key: string;
 	readonly index: number;
-	readonly screenKey: string;
 	readonly location: PluginLogicalLocation;
 };
 
@@ -53,24 +51,21 @@ export function reconcileStack(
 	incoming: StackEntry,
 	resolve: ResolvePluginScreen,
 ): StackResult {
-	const { key: historyKey, screenKey: key, ...entry } = incoming;
 	const screen = {
-		...entry,
-		key,
-		historyKey,
+		...incoming,
 		...resolve(incoming.location),
 	};
 	const top = stack.at(-1);
 	if (top === undefined) {
 		return { stack: [screen], transition: "reset" };
 	}
-	if (incoming.key === top.historyKey) {
+	if (incoming.key === top.key) {
 		return { stack: [...stack.slice(0, -1), screen], transition: "same" };
 	}
 	if (incoming.index === top.index) {
 		return {
 			stack: [...stack.slice(0, -1), screen],
-			transition: incoming.screenKey === top.key ? "same" : "replace",
+			transition: "replace",
 		};
 	}
 	if (incoming.index === top.index + 1) {
@@ -81,7 +76,7 @@ export function reconcileStack(
 		};
 	}
 	const retained = stack.findIndex(
-		(en) => en.index === incoming.index && en.historyKey === incoming.key,
+		(entry) => entry.index === incoming.index && entry.key === incoming.key,
 	);
 	if (retained !== -1 && incoming.index < top.index) {
 		return { stack: stack.slice(0, retained + 1), transition: "pop" };
