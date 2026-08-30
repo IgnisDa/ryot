@@ -7,7 +7,6 @@ import type { AccessClass } from "@ryot-app/contract/oauth";
 import { sql } from "drizzle-orm";
 import { Context, Effect, Layer, Match } from "effect";
 
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 import type { RyotQLAudience, RyotQLExecutionScope } from "./catalog";
@@ -32,8 +31,8 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 			}
 			const normalizedDocument = normalizeRyotQLDocument(document, scope);
 
-			return yield* mapDatabaseErrors(
-				session.transaction(
+			return yield* session
+				.transaction(
 					Effect.gen(function* () {
 						const transaction = yield* session.current;
 						yield* transaction.execute(
@@ -48,33 +47,35 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 						}
 						return { data: Object.fromEntries(results) };
 					}),
-				),
-			).pipe(
-				Effect.catchTag(
-					"DatabaseSessionStateError",
-					() => new RyotQLInternalError({ reason: { code: "execution-failed" } }),
-				),
-				Effect.catchIf(
-					(error): error is DbError => error instanceof DbError,
-					(error) =>
-						Effect.logError("RyotQL database execution failed", error).pipe(
-							Effect.andThen(
-								Match.value(error.code).pipe(
-									Match.when("57014", () =>
-										Effect.fail(
-											new RyotQLBadRequest({
-												reason: { code: "query-timeout", limitMs: RYOTQL_STATEMENT_TIMEOUT_MS },
-											}),
+				)
+				.pipe(
+					Effect.catchTag(
+						"DatabaseSessionStateError",
+						() => new RyotQLInternalError({ reason: { code: "execution-failed" } }),
+					),
+					Effect.catchIf(
+						(error): error is DbError => error instanceof DbError,
+						(error) =>
+							Effect.logError("RyotQL database execution failed", error).pipe(
+								Effect.andThen(
+									Match.value(error.code).pipe(
+										Match.when("57014", () =>
+											Effect.fail(
+												new RyotQLBadRequest({
+													reason: { code: "query-timeout", limitMs: RYOTQL_STATEMENT_TIMEOUT_MS },
+												}),
+											),
 										),
-									),
-									Match.orElse(() =>
-										Effect.fail(new RyotQLInternalError({ reason: { code: "execution-failed" } })),
+										Match.orElse(() =>
+											Effect.fail(
+												new RyotQLInternalError({ reason: { code: "execution-failed" } }),
+											),
+										),
 									),
 								),
 							),
-						),
-				),
-			);
+					),
+				);
 		});
 
 		const executeForUser = (

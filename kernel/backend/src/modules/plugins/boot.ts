@@ -2,7 +2,6 @@ import type { PluginArchiveCompiledScript } from "@ryot-app/plugin-archive";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Context, Effect, Layer } from "effect";
 
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { kernelScriptCompiledOutputs } from "#modules/definition-registry/kernel-scripts.compiled.generated";
 import { kernelDefinitionSource, kernelScripts } from "#modules/definition-registry/kernel-source";
@@ -64,9 +63,7 @@ export class SystemPluginBootstrap extends Context.Service<SystemPluginBootstrap
 				});
 			});
 			const inTransaction = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-				mapDatabaseErrors(
-					database.transaction(repository.lockIngestion().pipe(Effect.andThen(effect))),
-				);
+				database.transaction(repository.lockIngestion().pipe(Effect.andThen(effect)));
 
 			const ingest = Effect.fn("SystemPluginBootstrap.ingest")(function* () {
 				yield* repository.validateConfigurationKeys();

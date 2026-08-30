@@ -20,7 +20,6 @@ import {
 } from "#lib/domain/lifecycle";
 import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { trimToNull } from "#lib/shared/validation";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
@@ -219,24 +218,22 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 				}
 			}
 
-			const committed = yield* mapDatabaseErrors(
-				transaction(
-					Effect.gen(function* () {
-						const eventPlans: LifecyclePlan[] = [];
-						for (const prepared of preparedEvents) {
-							eventPlans.push(...(yield* events.persistPreparedDelete(prepared)).plans);
-						}
-						const relationshipPlans: LifecyclePlan[] = [];
-						for (const prepared of preparedRelationships) {
-							const work = yield* relationships
-								.persistPreparedUserDelete(prepared)
-								.pipe(Effect.catchTag("RelationshipBadRequest", relationshipFailure("clear")));
-							relationshipPlans.push(...work.plans);
-						}
+			const committed = yield* transaction(
+				Effect.gen(function* () {
+					const eventPlans: LifecyclePlan[] = [];
+					for (const prepared of preparedEvents) {
+						eventPlans.push(...(yield* events.persistPreparedDelete(prepared)).plans);
+					}
+					const relationshipPlans: LifecyclePlan[] = [];
+					for (const prepared of preparedRelationships) {
+						const work = yield* relationships
+							.persistPreparedUserDelete(prepared)
+							.pipe(Effect.catchTag("RelationshipBadRequest", relationshipFailure("clear")));
+						relationshipPlans.push(...work.plans);
+					}
 
-						return yield* withBatches(command, eventPlans, relationshipPlans);
-					}),
-				),
+					return yield* withBatches(command, eventPlans, relationshipPlans);
+				}),
 			);
 			const warnings = yield* lifecycleExecution.dispatch(committed.map(toLifecycleDispatchPlan));
 			return {
@@ -342,37 +339,35 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 				);
 			}
 
-			const committed = yield* mapDatabaseErrors(
-				transaction(
-					Effect.gen(function* () {
-						const eventPlans: LifecyclePlan[] = [];
-						for (const prepared of preparedEvents) {
-							eventPlans.push(...(yield* events.persistPreparedUpdate(prepared)).plans);
+			const committed = yield* transaction(
+				Effect.gen(function* () {
+					const eventPlans: LifecyclePlan[] = [];
+					for (const prepared of preparedEvents) {
+						eventPlans.push(...(yield* events.persistPreparedUpdate(prepared)).plans);
+					}
+					const relationshipPlans: LifecyclePlan[] = [];
+					let movedRelationshipsCount = 0;
+					for (const prepared of preparedRelationships) {
+						if (prepared.create) {
+							const work = yield* relationships
+								.persistPreparedUserCreate(prepared.create)
+								.pipe(Effect.catchTag("RelationshipBadRequest", relationshipFailure("merge")));
+							relationshipPlans.push(...work.plans);
 						}
-						const relationshipPlans: LifecyclePlan[] = [];
-						let movedRelationshipsCount = 0;
-						for (const prepared of preparedRelationships) {
-							if (prepared.create) {
-								const work = yield* relationships
-									.persistPreparedUserCreate(prepared.create)
-									.pipe(Effect.catchTag("RelationshipBadRequest", relationshipFailure("merge")));
-								relationshipPlans.push(...work.plans);
-							}
-							if (prepared.deletion) {
-								const work = yield* relationships
-									.persistPreparedUserDelete(prepared.deletion)
-									.pipe(Effect.catchTag("RelationshipBadRequest", relationshipFailure("merge")));
-								relationshipPlans.push(...work.plans);
-								movedRelationshipsCount += 1;
-							}
+						if (prepared.deletion) {
+							const work = yield* relationships
+								.persistPreparedUserDelete(prepared.deletion)
+								.pipe(Effect.catchTag("RelationshipBadRequest", relationshipFailure("merge")));
+							relationshipPlans.push(...work.plans);
+							movedRelationshipsCount += 1;
 						}
+					}
 
-						return {
-							movedRelationshipsCount,
-							plans: yield* withBatches(command, eventPlans, relationshipPlans),
-						};
-					}),
-				),
+					return {
+						movedRelationshipsCount,
+						plans: yield* withBatches(command, eventPlans, relationshipPlans),
+					};
+				}),
 			);
 			const warnings = yield* lifecycleExecution.dispatch(
 				committed.plans.map(toLifecycleDispatchPlan),
