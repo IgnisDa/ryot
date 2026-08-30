@@ -32,6 +32,14 @@ const RESULT_POLL_MS = 2_000;
 const OTHER_USER_DELAY_MS = 30_000;
 const SLOW_LEAD_MS = 2_000;
 const TIMEOUT_MS = 60 * 60_000;
+// Fail fast: a run that makes no sandbox progress, or cannot reach health, never finishes usefully.
+const STALL_MS = Number(process.env.PROBE_STALL_MS ?? 180_000);
+const UNREACHABLE_MS = 120_000;
+
+const fatal = (message) => {
+	console.error(`probe failed: ${label} ${scenario}: ${message}`);
+	process.exit(1);
+};
 
 const call = async (path, headers, body, method) => {
 	const startedAt = performance.now();
@@ -53,11 +61,20 @@ const admin = async (path) => {
 };
 // The cursor skips completed-worker records already seen, keeping each 250 ms sample small.
 let workerCursor = 0;
+// Any new spawn or execution counts as progress. Active work without progress is a stall here;
+// pending imports without progress are a stall in `awaitTerminal`.
+let progress = { key: null, at: Date.now() };
 const sample = async () => {
 	const current = await admin(
 		`sandbox/runtime?includeSmaps=false&completedAfterSequence=${workerCursor}`,
 	);
 	workerCursor = Math.max(workerCursor, current.completedWorkerSequence);
+	const key = `${current.totalSpawned}:${current.executions.total}`;
+	if (key !== progress.key) {
+		progress = { key, at: Date.now() };
+	} else if (!isIdle(current) && Date.now() - progress.at > STALL_MS) {
+		fatal(`no sandbox progress for ${STALL_MS / 1000}s with work active`);
+	}
 	return current;
 };
 const phaseSegments = (after) => admin(`provider-imports/phase-segments?afterSequence=${after}`);
@@ -77,7 +94,7 @@ const waitForDrain = async (observe) => {
 	let spawned = null;
 	for (;;) {
 		if (Date.now() - startedAt > TIMEOUT_MS) {
-			throw new Error("runtime did not drain");
+			fatal(`runtime did not drain within ${TIMEOUT_MS / 60_000} minutes`);
 		}
 		const current = await sample();
 		observe(current);
@@ -109,18 +126,22 @@ const every = (intervalMs, stopped, step) =>
 			await Promise.race([Bun.sleep(wait), stopped]);
 		}
 		return results;
-	})();
+	})().catch((error) => fatal(`background probe failed: ${error}`));
 
+let healthyAt = Date.now();
 const probeHealth = async () => {
 	const startedAt = performance.now();
-	try {
-		const response = await fetch(`${base}/system/health`, {
-			signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS),
-		});
-		return { ok: response.ok, latencyMs: performance.now() - startedAt };
-	} catch {
-		return { ok: false, latencyMs: performance.now() - startedAt };
+	const ok = await fetch(`${base}/system/health`, {
+		signal: AbortSignal.timeout(HEALTH_TIMEOUT_MS),
+	})
+		.then((response) => response.ok)
+		.catch(() => false);
+	if (ok) {
+		healthyAt = Date.now();
+	} else if (Date.now() - healthyAt > UNREACHABLE_MS) {
+		fatal(`health has failed for ${UNREACHABLE_MS / 1000}s`);
 	}
+	return { ok, latencyMs: performance.now() - startedAt };
 };
 
 const probeSearch = async () => {
@@ -139,7 +160,10 @@ const submit = async (user, providerId, nonce, role) => {
 		providerId,
 		externalId: externalId(nonce),
 	});
-	const jobId = response.status === 200 ? response.value.jobId : null;
+	if (response.status !== 200) {
+		fatal(`${role} import submission returned HTTP ${response.status}`);
+	}
+	const { jobId } = response.value;
 	return {
 		role,
 		user,
@@ -154,18 +178,34 @@ const submit = async (user, providerId, nonce, role) => {
 /** Polls every accepted job like the client does, until each reports a terminal status. */
 const awaitTerminal = async (jobs) => {
 	const startedAt = Date.now();
-	const pending = new Set(jobs.filter((job) => job.jobId !== null));
+	const pending = new Set(jobs);
+	let changedAt = Date.now();
 	while (pending.size > 0) {
 		if (Date.now() - startedAt > TIMEOUT_MS) {
-			throw new Error("imports did not finish");
+			fatal(`${pending.size} imports did not finish within ${TIMEOUT_MS / 60_000} minutes`);
+		}
+		if (Date.now() - Math.max(changedAt, progress.at) > STALL_MS) {
+			fatal(`${pending.size} imports pending with no progress for ${STALL_MS / 1000}s`);
 		}
 		for (const job of pending) {
 			const result = await call(
 				`/provider-entities/imports/${encodeURIComponent(job.jobId)}`,
 				userHeaders(job.user),
 			);
+			if (result.status >= 400 && result.status < 500) {
+				fatal(`${job.role} import result returned HTTP ${result.status}`);
+			}
 			const status = result.value?.status;
+			if (status !== job.observedStatus) {
+				job.observedStatus = status;
+				changedAt = Date.now();
+			}
 			if (status !== undefined && status !== "queued" && status !== "running") {
+				if (status !== "completed") {
+					fatal(
+						`${job.role} import ended ${status}: ${JSON.stringify(result.value.error ?? null)}`,
+					);
+				}
 				job.status = status;
 				job.observedTerminalAt = Date.now();
 				pending.delete(job);
@@ -304,6 +344,7 @@ for (let repetition = 0; repetition < repetitions; repetition += 1) {
 		stop = resolve;
 	});
 	const sampler = every(SAMPLE_INTERVAL_MS, stopped, async () => observe(await sample()));
+	healthyAt = Date.now();
 	const health = every(HEALTH_INTERVAL_MS, stopped, probeHealth);
 	const searches = scenario === "mixed" ? every(SEARCH_INTERVAL_MS, stopped, probeSearch) : null;
 	const probeCpuBefore = process.cpuUsage();
