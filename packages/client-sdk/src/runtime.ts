@@ -4,6 +4,8 @@ import {
 	PluginBridgeHostMessage,
 	type PluginBridgeAssetCancel,
 	type PluginBridgeAssetRequest,
+	type PluginBridgeCollectionRequest,
+	type PluginBridgeDismissOverlayResult,
 	type PluginBridgeHeader,
 	type PluginBridgeInit,
 	type KernelShortcut,
@@ -18,6 +20,7 @@ import {
 	type PluginBridgeRyotQLCancel,
 	type PluginBridgeRyotQLRequest,
 	type PluginBridgeScreenState,
+	type PluginBridgeOverlayState,
 	type PluginBridgeUploadRequest,
 	type PluginClientArtifactMetadata,
 	type PluginThemeSnapshot,
@@ -38,6 +41,7 @@ import {
 	createRyotClient,
 	RyotClientError,
 	type OperationAdapterRequest,
+	type CollectionAdapterRequest,
 	type RyotPageSearchUpdate,
 	type RyotProviderSearchScreenRequest,
 	type RyotNavigationTarget,
@@ -58,6 +62,7 @@ type PendingCall = {
 type PluginThemeRoot = { readonly setAttribute: (name: string, value: string) => void };
 
 const decodeHostMessage = Schema.decodeUnknownResult(PluginBridgeHostMessage);
+const noOverlayToDismiss = () => false;
 
 const normalizeHeaderTitle = (title: string) => {
 	const trimmed = title.trim();
@@ -84,6 +89,8 @@ export const createPluginRuntime = (
 	let nextRequestId = 0;
 	let state: PluginRuntimeState = "ready";
 	let terminalReason: RyotClientErrorReason | undefined;
+	let dismissOverlay = noOverlayToDismiss;
+	let overlayCount = 0;
 	const listeners = new AbortController();
 	const navigation = {
 		subscribe: navigationStore.subscribe,
@@ -109,10 +116,10 @@ export const createPluginRuntime = (
 		root.setAttribute("data-theme", mode);
 	const themeListeners = new Set<() => void>();
 	const assets = new Map<string, PendingCall>();
+	const collections = new Map<string, PendingCall>();
 	const queries = new Map<string, PendingCall>();
 	const uploads = new Map<string, PendingCall>();
 	const operations = new Map<string, PendingCall>();
-	const pageRefreshListeners = new Set<() => void>();
 	const interestOwners = new Set<{
 		interest: EntityInterest;
 		onUpdate: (update: EntityUpdate) => void;
@@ -144,12 +151,14 @@ export const createPluginRuntime = (
 
 	const rejectPending = (reason: RyotClientErrorReason) => {
 		const pendingCalls = [
+			...collections.values(),
 			...operations.values(),
 			...queries.values(),
 			...assets.values(),
 			...uploads.values(),
 		];
 		operations.clear();
+		collections.clear();
 		queries.clear();
 		assets.clear();
 		uploads.clear();
@@ -167,7 +176,6 @@ export const createPluginRuntime = (
 		terminalReason = reason;
 		rejectPending(reason);
 		themeListeners.clear();
-		pageRefreshListeners.clear();
 		interestOwners.clear();
 		hasLocation = false;
 		navigationStore.clear();
@@ -200,7 +208,7 @@ export const createPluginRuntime = (
 
 	const admit = (pending: Map<string, PendingCall>, requestId: string, call: PendingCall) => {
 		if (
-			operations.size + queries.size + assets.size + uploads.size >=
+			operations.size + collections.size + queries.size + assets.size + uploads.size >=
 			CLIENT_BRIDGE_MAX_PENDING_REQUESTS
 		) {
 			finish("failed", "protocol", true);
@@ -305,6 +313,24 @@ export const createPluginRuntime = (
 			} satisfies PluginBridgeOperationRequest);
 		});
 
+	const mutateCollection = (request: CollectionAdapterRequest) =>
+		new Promise<unknown>((resolve, reject) => {
+			if (state !== "active") {
+				reject(new RyotClientError(terminalReason ?? "transport"));
+				return;
+			}
+			nextRequestId += 1;
+			const requestId = `collection-${nextRequestId}`;
+			if (!admit(collections, requestId, { reject, resolve })) {
+				return;
+			}
+			post({
+				...request,
+				requestId,
+				type: "collection-request",
+			} satisfies PluginBridgeCollectionRequest);
+		});
+
 	const uploadTemporary = (request: TemporaryUploadRequest) =>
 		new Promise<unknown>((resolve, reject) => {
 			if (state !== "active") {
@@ -379,8 +405,20 @@ export const createPluginRuntime = (
 		resolveAssets,
 		invokeOperation,
 		uploadTemporary,
+		mutateCollection,
 		navigatePageSearch,
 		openProviderSearch,
+		overlays: {
+			setDismissHandler: (handler) => {
+				dismissOverlay = handler;
+			},
+			setCount: (count) => {
+				overlayCount = count;
+				if (state === "active") {
+					post({ count, type: "overlay-state" } satisfies PluginBridgeOverlayState);
+				}
+			},
+		},
 		theme: {
 			getSnapshot: () => {
 				if (state === "closing" || state === "failed" || state === "disposed") {
@@ -439,6 +477,19 @@ export const createPluginRuntime = (
 				return;
 			}
 			Match.value(decoded.success).pipe(
+				Match.when({ type: "dismiss-overlay" }, ({ requestId }) => {
+					let dismissed = false;
+					try {
+						dismissed = dismissOverlay();
+					} catch {
+						// A failed overlay callback is acknowledged without taking down the document.
+					}
+					post({
+						dismissed,
+						requestId,
+						type: "dismiss-overlay-result",
+					} satisfies PluginBridgeDismissOverlayResult);
+				}),
 				Match.when({ type: "entity-updated" }, ({ entityId, reason }) => {
 					for (const owner of Array.from(interestOwners)) {
 						if (
@@ -481,8 +532,12 @@ export const createPluginRuntime = (
 					) {
 						return;
 					}
+					const activating = state === "ready";
 					hasLocation = true;
 					activate();
+					if (activating && overlayCount > 0) {
+						post({ count: overlayCount, type: "overlay-state" } satisfies PluginBridgeOverlayState);
+					}
 				}),
 				Match.when({ type: "viewport" }, ({ safeAreaBottom, safeAreaTop }) =>
 					navigationStore.setViewport({ safeAreaTop, safeAreaBottom }),
@@ -495,9 +550,7 @@ export const createPluginRuntime = (
 					}
 				}),
 				Match.when({ type: "page-refresh" }, () => {
-					for (const listener of pageRefreshListeners) {
-						listener();
-					}
+					client.mutationCompleted.hint();
 				}),
 				Match.when({ type: "lifecycle-close" }, ({ reason }) =>
 					finish(reason, reason === "disposed" ? "disposed" : "protocol", false),
@@ -512,6 +565,17 @@ export const createPluginRuntime = (
 						pending.reject(new RyotClientError(result.reason));
 					} else {
 						pending.resolve(result.value);
+					}
+				}),
+				Match.when({ type: "collection-result" }, (result) => {
+					const pending = collections.get(result.requestId);
+					if (!pending || !collections.delete(result.requestId)) {
+						return;
+					}
+					if (result.outcome === "failure") {
+						pending.reject(new RyotClientError(result.reason));
+					} else {
+						pending.resolve(result.response);
 					}
 				}),
 				Match.when({ type: "upload-result" }, (result) => {
@@ -585,11 +649,5 @@ export const createPluginRuntime = (
 		navigation,
 		forwardKernelShortcut,
 		dispose: () => finish("disposed", "disposed", true),
-		pageRefresh: {
-			subscribe: (listener: () => void) => {
-				pageRefreshListeners.add(listener);
-				return () => pageRefreshListeners.delete(listener);
-			},
-		},
 	};
 };

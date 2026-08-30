@@ -1,5 +1,6 @@
 import {
 	EntityInterest,
+	PluginCollectionRequest,
 	type PluginOperationRequest,
 	type PluginPageSearchUpdate,
 	ProviderSearchScreenRequest,
@@ -10,6 +11,13 @@ import {
 	type PluginManagedAssetResolution as PluginManagedAssetResolutionValue,
 	type RyotClientErrorReason,
 } from "@ryot-app/client-plugin-contract";
+import {
+	CollectionResponse,
+	type CreateCollectionBody,
+	type CreateMembershipBody,
+	type DeleteMembershipBody,
+	MembershipResponse,
+} from "@ryot-app/contract/modules/collections/schemas";
 import { EntityUpdatedMessage } from "@ryot-app/contract/modules/entity-interest/messages";
 import {
 	AssetLocator,
@@ -68,6 +76,8 @@ export type OperationAdapterRequest = Omit<OperationRequest, "operationSlug"> & 
 	readonly slug: OperationRequest["operationSlug"];
 };
 
+export type CollectionAdapterRequest = PluginCollectionRequest;
+
 export type RyotPageSearchUpdate = PluginPageSearchUpdate;
 export type RyotProviderSearchScreenRequest = Schema.Codec.Encoded<
 	typeof ProviderSearchScreenRequest
@@ -101,8 +111,13 @@ export type RyotClientAdapter = {
 	readonly uploadTemporary: (request: TemporaryUploadRequest) => Promise<unknown>;
 	readonly invokeOperation?: (request: OperationAdapterRequest) => Promise<unknown>;
 	readonly openProviderSearch?: (request: ProviderSearchScreenRequestValue) => void;
+	readonly mutateCollection?: (request: CollectionAdapterRequest) => Promise<unknown>;
 	readonly navigate?: (mode: "push" | "replace", target: RyotNavigationTarget) => void;
 	readonly navigatePageSearch?: (mode: "push" | "replace", update: RyotPageSearchUpdate) => void;
+	readonly overlays?: {
+		readonly setCount: (count: number) => void;
+		readonly setDismissHandler: (handler: () => boolean) => void;
+	};
 	readonly watchEntities?: (
 		interest: EntityInterest,
 		onUpdate: (update: EntityUpdate) => void,
@@ -122,6 +137,59 @@ export type RyotClientAdapter = {
 };
 
 export const createRyotClient = (adapter: RyotClientAdapter) => {
+	const overlays: Array<() => boolean> = [];
+	adapter.overlays?.setDismissHandler(() => overlays.at(-1)?.() ?? false);
+	const overlayBack = {
+		register: (dismiss: () => boolean) => {
+			overlays.push(dismiss);
+			adapter.overlays?.setCount(overlays.length);
+			return () => {
+				const index = overlays.lastIndexOf(dismiss);
+				if (index !== -1) {
+					overlays.splice(index, 1);
+					adapter.overlays?.setCount(overlays.length);
+				}
+			};
+		},
+	};
+	const mutationCompletedListeners = new Set<() => void>();
+	const mutationCompleted = {
+		hint: () => {
+			for (const listener of mutationCompletedListeners) {
+				listener();
+			}
+		},
+		subscribe: (listener: () => void) => {
+			mutationCompletedListeners.add(listener);
+			return () => {
+				mutationCompletedListeners.delete(listener);
+			};
+		},
+	};
+	const mutateCollection = async <Output extends Schema.Codec<unknown, unknown>>(
+		request: unknown,
+		outputSchema: Output,
+	): Promise<Output["Type"]> => {
+		const decodedRequest = Schema.decodeUnknownResult(PluginCollectionRequest)(request);
+		if (Result.isFailure(decodedRequest)) {
+			throw new RyotClientError("invalid-input");
+		}
+		if (!adapter.mutateCollection) {
+			throw new RyotClientError("unsupported-capability");
+		}
+		let value: unknown;
+		try {
+			value = await adapter.mutateCollection(decodedRequest.success);
+		} catch (error) {
+			throw asTransportError(error);
+		}
+		const decodedOutput = Schema.decodeUnknownResult(outputSchema)(value);
+		if (Result.isFailure(decodedOutput)) {
+			throw new RyotClientError("malformed-result");
+		}
+		mutationCompleted.hint();
+		return decodedOutput.success;
+	};
 	let themeSnapshotInput: unknown;
 	let themeSnapshot: PluginThemeSnapshotValue | undefined;
 	const decodeThemeSnapshot = (value: unknown): PluginThemeSnapshotValue => {
@@ -182,6 +250,16 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 	};
 
 	return {
+		overlayBack,
+		mutationCompleted,
+		collections: {
+			create: (input: typeof CreateCollectionBody.Encoded) =>
+				mutateCollection({ action: "create", input }, CollectionResponse),
+			upsertMembership: (input: typeof CreateMembershipBody.Encoded) =>
+				mutateCollection({ action: "upsert-membership", input }, MembershipResponse),
+			removeMembership: (input: typeof DeleteMembershipBody.Encoded) =>
+				mutateCollection({ action: "remove-membership", input }, MembershipResponse),
+		},
 		screens: { openProviderSearch },
 		entities: {
 			watch: (
@@ -341,6 +419,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				if (Result.isFailure(decoded)) {
 					throw new RyotClientError("malformed-result");
 				}
+				mutationCompleted.hint();
 				return decoded.success;
 			},
 		},

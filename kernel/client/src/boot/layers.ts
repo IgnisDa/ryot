@@ -4,6 +4,7 @@ import { AdminApi } from "#/api/admin";
 import { AuthenticatedApi } from "#/api/authenticated";
 import { BackupsApi } from "#/api/backups";
 import { ClientPagesApi } from "#/api/client-pages";
+import { CollectionsApi } from "#/api/collections";
 import { EntityInterestApi } from "#/api/entity-interest";
 import { GodModeApi } from "#/api/god-mode";
 import { ImportsApi } from "#/api/imports";
@@ -57,6 +58,7 @@ const InfrastructureLive = Layer.mergeAll(
 	RyotQLApi.layer,
 	BackupsApi.layer,
 	ClientPagesApi.layer,
+	CollectionsApi.layer,
 	UploadsApi.layer,
 	PluginsApi.layer,
 	ImportsApi.layer,
