@@ -1,22 +1,14 @@
 # Saved View Renderer
 
-- Treat each entry in `layouts` as an independent query document and flattened mapping from projected RyotQL fields to presentation slots. Execute and decode only the persisted active layout.
-- Apply these card slot semantics consistently in grid and list layouts:
-  - `titleField` is the primary identifying text.
-  - `imageField` is the layout's independently configured `AssetLocator` source.
-  - `overline` is short contextual text shown with less emphasis than the title.
-  - `primaryMetadata` and `secondaryMetadata` are ordered supporting values.
-  - `callout` is a supporting value that the layout may emphasize.
-- `table.imageField` is independent from the grid and list image fields. Render it as an unlabeled leading visual in the first configured column's cell; it is not a data column. Render `table.columns` in their configured order.
-- A null field mapping means that the layout has no such slot. A null card value omits that card content; a null table value preserves an empty cell.
-- Split a missing value by whether it is coming or is all there is, through `fieldSyncState` and never a raw status read. A mapped slot with no value while `populationStatus` is `pending` is _pending_: the art well shows the shimmer and the pip, and a card metadata row reserves its height so the card does not resize under the reader when the value lands. The same slot on a settled row is _absent_ and renders nothing. An unmapped slot is always absent — a layout that has no callout must never reserve space for one, which is why the card layouts take the mapping rather than inferring the slot from an `undefined` value.
-- Draw every image region with `EntityArtWell` from `@ryot-app/client-ui-sdk/sync`, through `ManagedImage`, which only resolves the locator. It preserves the region's dimensions and is the one missing-image placeholder; never draw another.
-- A mid-population row with complete values renders exactly like a settled one, mark for mark. Only `savedViewSyncSummary` decides who is counted, and it counts a populating row only when at least one mapped value is actually missing.
-- The count line shares the meta row's one `role="status"` region with the result count and the transitioning message. Individual rows announce nothing: their pips and rings are `aria-hidden` decoration, and a per-row live region would read the whole grid out on every refresh.
-- Image fields carry `AssetLocator` values: use remote URLs directly and resolve local and S3 locators through `ManagedAssetsService`. Managed resolution loading or failure shows placeholders and must not fail the saved-view screen.
-- The renderer owns slot placement, typography, truncation, and layout-specific image size and crop. Do not infer these choices from projected field names or entity schemas.
-- Format scalar values by `displayKind` through `formatSavedViewValue`. Keep general date and number localization here; a definition that needs composed text or domain-specific units uses a projected RyotQL expression instead.
-- Keep the selected grid, list, or table layout in client storage and default it to grid. Search, filters, sort controls, empty states, and responsive behavior are outside the saved-view definition.
-- The online-search affordances key off the record's `entitySchemaSlug`, never off whether a handler happens to exist.
-- Every add affordance — the header button, the mobile FAB, the empty and no-match calls to action, and the `A` shortcut — opens the provider add flow, and all of them go through one handler so they can never drift apart. The flow's open state lives in the route's `add` search param so browser and Android back dismiss it, and it mounts outside the record-keyed content subtree so a refetch cannot unmount it mid-import. Refresh the view once when the flow closes having imported something, never once per import.
-- The filters control remains deliberately inert: it renders the shape the screen keeps and logs a TODO until saved-view filters exist. Do not delete it as dead code, and do not give it a stand-in implementation. Because it does nothing, it carries `aria-disabled` and must not advertise a filter count it cannot compute — the visible `0` badge stays `aria-hidden`, and the accessible name is just its visible text.
+- Treat each layout as an independent query document and field-to-slot mapping. Execute and decode only the persisted active layout.
+- Keep card slot meanings stable: title is identity; image is an independent `AssetLocator`; overline is context; primary and secondary metadata are ordered support; callout is optional emphasis.
+- Keep `table.imageField` independent from card images. Render it as an unlabeled visual in the first configured cell, not as a data column, and preserve column order.
+- A null mapping removes a slot. A null card value omits content; a null table value preserves an empty cell.
+- Resolve missing mapped values through `fieldSyncState`. Pending slots reserve required layout space; absent and unmapped slots do not.
+- Render image regions through `ManagedImage` and `EntityArtWell`. Managed-asset loading or failure remains a placeholder and does not fail the screen.
+- A row with complete values renders as ready even while population continues. `savedViewSyncSummary` counts only rows missing a mapped value.
+- Keep one status region for result count, transition text, and sync count. Per-row marks remain `aria-hidden`.
+- Keep placement, typography, truncation, image geometry, and scalar formatting renderer-owned. Domain text and units belong in projected RyotQL expressions.
+- Persist the selected grid, list, or table layout locally and default to grid. Do not infer presentation from entity schemas or projected field names.
+- Key online-search affordances by `entitySchemaSlug`, not handler presence.
+- Route every add affordance through one handler and the URL-owned `add` state. Keep the flow outside record-keyed content and refresh once after successful imports close.

@@ -1,14 +1,13 @@
 # Audiobookshelf
 
 ::: info
-This will only import media that are in progress. Perform an
-[import](../importing/audiobookshelf.md) if you want to import media that are finished.
+This integration reads only in-progress media. Use an [import](../importing/audiobookshelf.md) for
+finished media.
 :::
 
-The [Audiobookshelf](https://www.audiobookshelf.org) integration can sync all media if they
-have a valid provider ID (Audible, ITunes or ISBN).
+Media must have an Audible ID, iTunes ID, or ISBN.
 
-1. Obtain an API token as described in the Audiobookshelf
+1. Get an API token from the Audiobookshelf
    [authentication](https://api.audiobookshelf.org/#authentication) docs.
-2. Go to your Ryot integrations settings and add the correct details as described in the
-   [yank](./overview.md#yank-integrations) section.
+2. Under **Settings > Integrations**, create an Audiobookshelf integration with the server details
+   and token.

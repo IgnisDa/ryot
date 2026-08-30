@@ -1,345 +1,127 @@
-# Sandbox subsystem
+# Sandbox Runtime
 
-This folder implements the backend sandbox runtime used by plugin and kernel scripts.
+The backend executes plugin and source-zero kernel scripts as untrusted TypeScript modules. `SandboxScriptWorkflow` owns every invocation: it pins code, replays the body from the start, and converts mutable host calls into durable requests. Durable waits retain no Deno process, bridge session, transaction, or worker.
 
-Every sandbox invocation is owned by `SandboxScriptWorkflow`. The workflow pins the root script,
-replays its body from the top, and turns mutable host calls into durable requests. Each replay runs
-untrusted code in a single-use Deno subprocess and uses the localhost bridge only for the duration of
-that replay. Durable waits happen in the workflow engine; no sandbox process or bridge session is held
-while a request is dispatched.
+## Build And Execution
 
-## Components
+Plugin ingestion validates `.sandbox.ts` manifest entries, compiles format-1 JavaScript, and stores immutable rows keyed by script provenance and content hash. Kernel scripts use the same compiler and content-addressed rows under definition source zero. Root scripts are pinned before first execution; child targets resolve from the active pinned plugin revision when first observed and are then pinned to that durable step.
 
-- `service.ts`: builds execution payloads, registers bridge sessions, checks out Deno subprocesses, and returns sandbox results.
-- `modules/sandbox/sandbox-script-workflow.ts`: pins scripts, replays bodies, dispatches durable requests, and retains workflow-owned artifacts through suspension.
-- `modules/sandbox/durable-host-dispatcher.ts`: maps typed host capabilities to their owning activity, child workflow, artifact operation, or diagnostic path.
-- `workflow-journal.ts`: projects completed durable request results to Redis for replay and validates bounded journal state.
-- `runtime.ts`: owns the Deno runner file, process pool, package cache, and bridge server.
-- `runner-source.sandbox.ts` + `runner-utilities.sandbox.ts`: the TypeScript-authored Deno runner. `sandbox:compile-runner` bundles them ahead of execution into the ignored `runner.generated.ts`, and `sandbox:check-runner` (`deno check` with `deno.json`) type-checks them with Deno globals outside the backend `tsc`.
-- `host-implementations.ts`: typed injection contract for app-owned host implementation maps.
-- `shared.ts`: runtime contracts and helpers used by app-owned host implementations.
-- `host-functions.ts` and `automation-host-functions.ts`: app-bound bridge functions for user, entity, event, integration, RyotQL, config, signal, and notification access.
-- `durable-host-dispatcher.ts`: application wiring that maps durable host requests to infrastructure, activities, and module-owned workflows.
-- Plugin scripts and script-side helpers live under `plugins/*/scripts/`; the generic notification script lives under `modules/definition-registry/kernel-scripts/`. This folder owns only execution runtime code.
+`sandbox:compile-runner` bundles `runner-source.sandbox.ts` and `runner-utilities.sandbox.ts` into ignored `runner.generated.ts`. `sandbox:check-runner` type-checks Deno globals separately. Normal `check`, `test`, `build`, and `dev` regenerate the runner.
 
-## Compilation Pipeline
+Before execution, the backend verifies compiled bytes against SHA-256, atomically materializes a read-only `<hash>.mjs`, and hard-links it into an execution directory. A single-use Deno process imports it through a local approved-dependency map. The runner validates definition input and output and returns a completed, failed, or pending envelope.
 
-- **Plugin scripts** are TypeScript `.sandbox.ts` ES modules. Plugin ingestion validates each manifest entry, compiles its package source to format-1 JavaScript, and persists an immutable row keyed by the plugin, script slug, and compiled-content hash. The active loader snapshot resolves the hashes selected by each installed plugin.
-- **Kernel scripts** are ingested from definition source zero at boot. They use the same compiler and immutable content-addressed row shape, but have no `pluginSlug` because source zero is not a synthetic plugin.
-- **Deno runner**: `sandbox:compile-runner` bundles `runner-source.sandbox.ts` + `runner-utilities.sandbox.ts` into the ignored `runner.generated.ts` (a `sandboxRunnerSource` string), which `runtime.ts` writes to a temp file and runs in Deno. Before execution, the backend verifies compiled bytes against their SHA-256 content hash, atomically materializes an immutable read-only `<hash>.mjs`, and hard-links it into an execution-scoped directory. Successful canonical-file verification is memoized for the process lifetime by module path; later executions still validate supplied bytes, then check only that the canonical path exists before reusing its verification, allowing garbage collection to evict missing entries before rematerialization. The runner imports that file module and approved dependencies through the runtime import map without dynamic function construction.
-- **Integration coverage**: backend tests compile canonical boot-configured plugin and kernel sources in memory and load every resulting module through the Deno runner. Plugin packages own provider and automation behavior tests.
-- **Type-checking**: the runner sources use Deno globals, so they are excluded from the backend `tsc` and `oxlint`, and type-checked separately by `sandbox:check-runner` (`deno check` with `sandbox-runtime/deno.json`). `check` runs `sandbox:compile-runner`, `sandbox:check-runner`, `tsc`, `oxfmt`, and `oxlint`; the runner is regenerated by `check`, `test`, `build`, and `dev` so it cannot go stale.
+An unrecorded mutable `host.*` call ends that replay. The workflow dispatches it through its owning activity, child workflow, artifact operation, or diagnostic path, journals the typed success or failure, then replays. Recorded calls return their journaled results and never repeat the backend dispatch.
 
-## Execution Flow
+## Durable State
 
-1. Plugin or kernel ingestion validates and compiles source, then persists source and immutable format-1 JavaScript separately.
-2. A trusted caller starts `SandboxScriptWorkflow` with a persisted `scriptId`, optional context, a `SandboxExecutionSubject`, and an execution identity. The subject describes whose data and context the execution uses; it is not plugin privilege or trust classification. It is schema-defined in `@ryot-app/contract/modules/sandbox/schemas` as a `system`, `user`, or `subscription` variant, and only kernel dispatch constructs it.
-3. The workflow pins the root script and records its `startedAt` value before the first replay. Plugin `scope` (`system` or `user`) is established at ingestion and is the single plugin trust classification. From the immutable script pin, the backend derives a backend-only `SandboxExecutionPrincipal` containing the script identity, subject, and exact plugin revision needed for capability, schema-scope, configuration, and child-target decisions. Nested script targets resolve from that pinned revision on first observation and are then pinned for the durable request.
-4. Each replay checks out a pre-warmed or dedicated single-use Deno process, acquires an execution-scoped hard link to the verified module, and registers a short-lived bridge session. The runner receives the context, metadata, limits, and filesystem grants in one JSON request.
-5. The runner captures diagnostics, imports the compiled module, validates the definition and input, and returns a completed, failed, or pending replay envelope. A mutable `host.*` call becomes a typed durable request; an unrecorded request ends the replay without waiting inside Deno.
-6. The workflow dispatches each pending request through the owning activity, child workflow, artifact operation, or diagnostic path. Completed successes and typed failures are appended to the workflow journal and projected to Redis for the next replay.
-7. The workflow replays the body from the top. Recorded requests return their journaled results without repeating the backend operation; once no request remains, the validated role-specific output is returned through the existing async job contract.
-8. Process, bridge-session, and temporary filesystem finalizers run after every replay. Workflow completion releases pinned references and artifacts; active workflow references retain them through suspension.
-
-## Durable Boundaries And Storage
-
-- PostgreSQL workflow persistence is authoritative for workflow execution, durable request completion,
-  child/activity results, and terminal output.
-- Redis stores only the reconstructible replay projection with request identity, argument hashes, and
-  encoded results. The projection may be rebuilt from workflow persistence after loss or expiry.
-- The durable host dispatcher preserves backend ownership: idempotent services run as activities,
-  workflow-owning services compose as deterministic children, and artifact publication returns opaque
-  workflow-scoped handles.
-- `httpCall` uses the global provider admission flow below and executes each bounded network attempt
-  as a durable activity. External mutations are explicitly at-least-once across the crash window
-  before result persistence.
+- PostgreSQL workflow persistence is authoritative for execution, request completion, child/activity results, and terminal output.
+- Redis contains only a reconstructible replay projection: request identity, argument hashes, and encoded results. Loss or expiry may rebuild it from workflow persistence.
+- Request identity and argument hashes detect replay nondeterminism.
+- Idempotent service operations run as activities; workflow-owning services compose as deterministic children.
+- Each bounded `httpCall` network attempt is durable. External mutation is at-least-once across the crash window before its result persists.
+- Input artifacts are pinned through workflow completion or cancellation. Generated chunks use opaque workflow-scoped handles; TTL is leak cleanup, not normal lifetime.
 - Logs, spans, and console diagnostics are replay-tagged operational data, not journal entries.
-- Immutable input artifacts are pinned for the active workflow lifetime. Generated chunk handles remain
-  resolvable until terminal completion or cancellation cleanup; TTLs are leak cleanup only.
 
-Compilation uses two separate compiler engines: `@ryot-app/sandbox-compiler` compiles backend sandbox definitions, while `@ryot-app/client-plugin-compiler` compiles browser plugin artifacts. Both workers use the server-owned process supervision boundary for lifecycle, concurrency, timeout, process-tree memory, and termination controls. Each compiler package owns its production dependencies, limits, and output contract.
+Workflow code cannot use ambient time or randomness. Expected workflow failure uses the SDK's deterministic `Effect.fail`; a throw is a defect and becomes an execute-phase error. Trusted subjects override script-supplied `userId`; relayed import, integration, and automation attribution is owner-validated before dispatch.
+
+## Security Boundary
+
+- Every replay uses a separate single-use Deno process. Timeout, failure, cancellation, and success all kill it.
+- Deno denies subprocesses, environment access, FFI, writes, prompts, npm, remote modules, ambient config, and lock files by default.
+- Format 1 hides `Deno` and disables `eval`, string code generation, and workers before importing plugin code.
+- Read access is limited to the runner, one execution-linked module, approved local dependencies, and explicit per-execution grants. Network access is limited to the authenticated localhost bridge; scripts use `httpCall` for external traffic.
+- Bridge requests require a per-execution bearer token and fail after in-memory expiry.
+- Processes receive only `PATH` and `DENO_DIR`; script code cannot read either because environment access is denied.
+- Each Deno process has a 256 MiB V8 old-space limit.
+
+`SANDBOX_PROCESS_MODE=on-demand` is the default. `warm` retains `workerConcurrency + 2` prepared processes, but each is still checked out once and invalidated. Grant-carrying executions always spawn dedicated processes because permissions are execution-specific.
+
+## Filesystem And Dependencies
+
+Filesystem access is capability-gated and deny-by-default:
+
+| Capability      | Grant                                                 |
+| --------------- | ----------------------------------------------------- |
+| `artifact-read` | Read-only path to one kernel-materialized artifact.   |
+| `scratch`       | Read/write execution directory under `config.tmpDir`. |
+
+Grant paths must be absolute, normalized, and contained by `config.tmpDir`. These capabilities are Deno permissions, not bridge functions. Scratch is checked after execution; exceeding 5 MiB fails before harvest. Cleanup is kernel-owned and runs after process death on every exit path.
+
+Oversized results may be chunked into named scratch files. The kernel, never another sandbox run, copies exactly those files to workflow storage and returns opaque handles. Consumers resolve a handle only against its trusted parent execution. Public results omit harvest metadata.
+
+Format-1 modules may import the SDK root and `/driver`, `/wire`, `/operation`, `/effect`, `/cheerio`, `/youtubei`, `/fflate`, `/papaparse`, and `/fast-xml-parser`. Exact pinned versions are built atomically into immutable, content-addressed ESM files under `SANDBOX_DENO_DIR`. Deno runs cached-only with no npm, registry, remote URL, project config, or lock file. Backend and browser plugin compilers remain separate engines.
+
+## Capabilities
+
+The manifest declares an exact capability tuple. The backend intersects it with an exhaustive policy and implementation registry; domain services still enforce user, schema, provider, and integration ownership.
+
+| Principal or role                   | Available bridge capabilities                                                                                                                                         |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| All valid subjects                  | `log`, `span`, `httpCall`, `getCachedValue`, `setCachedValue`, `getPluginConfig`, `getSystemConfig`, `claimPersistentValue`                                           |
+| User or subscription                | `createEvents`, `getEntitySchemas`, `listEventSchemas`, `listIntegrations`, `getUserPreferences`, `getCurrentIntegration`, `changeUserRelationships`, `executeRyotql` |
+| System-plugin user-bootstrap script | `ensureUserEntities` for that plugin's entity schemas                                                                                                                 |
+| Pinned system-scope plugin script   | `executeRyotql`, `upsertGlobalEntities`, `upsertGlobalRelationships` within plugin ownership                                                                          |
+| Subscription or system automation   | `emitSignal`; `sendNotification` is subscription-only                                                                                                                 |
+
+`scratch` and `artifact-read` are non-bridge permissions. System elevation requires a persisted pinned system-scope plugin principal. User capabilities require a trusted user subject. `getEntitySchemas` uses that user's effective ready, enabled plugin catalog. Entity and event data reads use RyotQL; schema calls expose metadata only.
+
+`upsertGlobalEntities` additionally requires provider association. `ensureUserEntities` is available only to the declared user-bootstrap script and remains scoped to entity schemas owned by that plugin.
+
+Plugin config reads are restricted to the owning plugin's declared `requiredPluginConfigKeys`; kernel fields require `requiredSystemConfigKeys`. Batches reject any undeclared, unreadable, or missing key. Normalized environment-key collisions reject plugin loading.
+
+Cache keys are isolated by executing user and logical provider ID, falling back to script ID only when no provider exists. Ordinary cache values are refreshed after backend restart; `claimPersistentValue` survives restart and writes only if absent.
 
 ## Global HTTP Admission
 
-Installed plugin `httpRateLimits` declarations apply across every user, workflow, script, and backend
-instance in one deployment. Requests match only by normalized HTTP(S) origin. Identical canonical
-declarations from multiple plugins coexist; any different declaration sharing a key or origin rejects
-the prospective plugin state atomically. Policies are live rather than workflow-pinned, so a committed
-install, update, or uninstall affects the next reservation in an already-running workflow.
+Installed plugin `httpRateLimits` apply across all users, scripts, workflows, and backend instances in a deployment. Matching uses normalized HTTP(S) origin. Equal canonical declarations may coexist; conflicting declarations sharing a key or origin reject the entire proposed plugin state. Policies are live, so install, update, or uninstall affects the next reservation of an active workflow.
 
-PostgreSQL active plugin manifests are the authoritative data source for policy classification and canonical hashes.
-Redis stores only operational admission state for each policy key: declaration hash (`h`), next
-eligible time (`n`), and blocked-until time (`b`). A Redis Lua `EVAL` obtains Redis server time with
-`TIME` and atomically reserves, confirms, or advances a block. Idle state expires after
-`max(10 * intervalMs, 60 seconds)`, extended beyond an active blocked-until time. Redis loss can forget
-schedule state, but it does not change PostgreSQL policy data; matched calls fail closed and
-durably retry unavailable coordination, while proven-unmatched calls continue.
+PostgreSQL active manifests are authoritative. Redis stores operational declaration hash, next eligible time, and blocked-until time. Lua uses Redis server time to reserve or confirm an evenly spaced GCRA slot and update blocks atomically. Idle state expires after `max(10 * intervalMs, 60 seconds)`, extended through an active block.
 
-The exact durable sequence for each `httpCall` is:
+Each call re-resolves policy from PostgreSQL. Unmatched origins run one bounded durable attempt without Redis. Matched calls reserve a slot, durably sleep until eligible, re-resolve and confirm the unchanged policy, then run one attempt. A changed policy discards the old reservation.
 
-1. Resolve the request URL against authoritative active manifests in a short PostgreSQL activity.
-2. If the origin is unmatched, run one bounded durable network activity without Redis admission.
-3. If matched, atomically reserve the next Redis GCRA slot using the declaration key and hash.
-4. If the slot is future-dated, durably sleep without retaining a sandbox process, bridge session,
-   activity worker, network attempt, or database transaction.
-5. After waking, re-resolve PostgreSQL policy. Discard the old reservation if the declaration changed
-   or became unmatched; otherwise atomically confirm it against the hash and current blocked time.
-   A later block causes another durable sleep and confirmation without consuming another slot.
-6. Run one bounded network attempt activity with a deterministic parent-call/attempt identity.
-7. Return success or any non-`429` failure as the durable call result. Unmatched failures receive no
-   automatic retry.
-8. For a policy-matched HTTP `429`, parse generic `Retry-After` as delta seconds or an HTTP date. Use
-   the full policy interval when it is missing or invalid, atomically advance the global Redis block,
-   durably sleep, re-resolve policy, and retry with a new deterministic attempt identity until success
-   or cancellation.
+Only a matched HTTP `429` retries automatically. `Retry-After` accepts delta seconds or an HTTP date; missing or invalid values use the full policy interval. The global block advances atomically before durable sleep and retry with a new deterministic attempt identity. Non-`429` failures and unmatched calls do not retry. Coordination failures retry with deterministic one-second exponential durable backoff capped at 30 seconds; matched calls fail closed while coordination is unavailable, but proven-unmatched calls continue.
 
-Coordination failures use deterministic one-second exponential durable backoff capped at 30 seconds
-and a new activity identity per attempt. Admission is evenly spaced and conservative: abandoned slots
-are not reclaimed, configurable bursts are unsupported, and there is no tenant fairness, priority, or
-reserved-capacity guarantee. Provider-specific quota headers are not interpreted.
+Admission has no bursts, slot reclamation, tenant fairness, priority, or reserved capacity. Provider-specific quota headers are ignored. First-party policies are AniList, 90 requests/minute at `https://graphql.anilist.co`, and MusicBrainz, one request/second at `https://musicbrainz.org`; other origins are unmatched.
 
-First-party declarations are exactly AniList at 90 requests per minute for
-`https://graphql.anilist.co` and MusicBrainz at one request per second for
-`https://musicbrainz.org`. Cover Art Archive and every other origin are unmatched. MusicBrainz may
-return HTTP `503`; it is a normal non-`429` failure and receives no automatic retry. Generic automatic
-recovery applies only to policy-matched HTTP `429` responses.
+HTTP logs contain only workflow execution ID, policy key, normalized origin, stage, attempt, wait/duration, and status. URLs, query strings, headers, bodies, credentials, and user IDs are excluded.
 
-HTTP observability logs contain only the sandbox workflow execution ID, policy key, normalized
-origin, stage, attempt, duration/wait, and status. They separately report active policy
-resolution, Redis reservation, and durable network-attempt duration for benchmark correlation; URLs,
-query strings, headers, bodies, credentials, and user IDs are excluded.
+## Failures
 
-Scripts declare an exact manifest `capabilities` tuple. The SDK exposes only those methods on the definition's `host` parameter. Completed results include `timing` as `{ totalMs, executionMs }`.
+- Completed script failures identify `load`, `input`, `execute`, or `output` phase and may include allowlisted source-mapped `script.ts` frames.
+- Returned stacks remove data URLs, runner/dependency paths, bridge URLs, execution IDs, and tokens.
+- Bridge validation uses 400 for invalid body, 401 for token failure, 404 for unknown function, and 410 for expired session.
+- Timeout and unexpected process death are workflow job failures. Raw compiler/runtime diagnostics stay on explicit plugin-author, admin, and test surfaces; unexpected causes stay in logs.
+- Console, `log`, and `span` output share bounded completed-result diagnostics. Oversized console logs append `[sandbox logs truncated]`; an oversized final value fails the output phase without partial data.
+- Normal APIs and persisted workflows use structured module-owned kebab-case reasons, never diagnostic prose.
 
-## Security
+Completed results include `timing: { totalMs, executionMs }`.
 
-- Script code runs in a separate Deno process per execution.
-- Deno denies subprocess, env, FFI, write, prompt, npm, and remote module access and ignores ambient config and lock files.
-- Format-1 execution hides the `Deno` global and disables string code-generation constructors, `eval`, and workers before importing script code.
-- Deno can only read the generated runner file, its execution-scoped compiled-module link, the read-only dependency runtime, any per-execution filesystem grant, and call the localhost bridge port.
-- Sandbox script network access must go through explicit host functions such as `httpCall`.
-- App-side source connectors are outside the sandbox runtime and use app runtime HTTP helpers.
-- Bridge calls require the per-execution bearer token and are rejected after the in-memory expiry timestamp.
-- Timeouts kill the process for the current execution.
-- Each Deno process starts with a 256 MiB V8 old-space limit.
-- Sandbox processes receive only `PATH` and `DENO_DIR`; script code cannot read env values because `--deny-env` is enabled.
+## Limits
 
-## Process Lifecycle
+Limits are fixed in `limits.ts` and compiler-owned limits, not environment settings.
 
-`SANDBOX_PROCESS_MODE` defaults to `on-demand`. In this mode, each execution spawns one Deno process
-after its filesystem grants are known. The process is single-use and killed by the execution scope
-finalizer, whether the run succeeds, fails, times out, or is cancelled. No idle Deno processes are
-retained between executions.
+| Boundary                                                           |                                  Limit |
+| ------------------------------------------------------------------ | -------------------------------------: |
+| Sandbox worker concurrency                                         |                                      5 |
+| Source / manifest / compiled JavaScript                            |               256 KiB / 16 KiB / 1 MiB |
+| Compiler concurrency / timeout / sampled Linux process-tree memory |                2 / 5 seconds / 256 MiB |
+| Compiler diagnostics                                               |                  100 entries / 256 KiB |
+| Local replay timeout / context / final result                      |            30 seconds / 64 KiB / 4 MiB |
+| Runner request                                                     |                                  2 MiB |
+| Host calls / HTTP subset / concurrent in-flight calls              |                         1,000 / 50 / 4 |
+| Durable workflow steps / encoded journal                           |                        1,000 / 100 MiB |
+| Bridge request / response / durable response                       |               1 MiB / 10 MiB / 101 MiB |
+| HTTP request / streamed response / attempt timeout                 |             1 MiB / 10 MiB / 8 seconds |
+| Deno stderr                                                        |                      20 lines / 64 KiB |
+| Console logs                                                       | 500 entries, 8 KiB each, 256 KiB total |
+| `log` and `span` observability                                     | 500 entries, 8 KiB each, 256 KiB total |
+| Cache key / value / maximum TTL                                    |          256 bytes / 256 KiB / 30 days |
+| Scratch                                                            |         5 MiB, depth 32, 4,096 entries |
 
-Set `SANDBOX_PROCESS_MODE=warm` to keep `SANDBOX_LIMITS.workerConcurrency + 2` single-use Deno
-processes ready. A warm process is checked out for one execution and invalidated afterward so the pool
-replaces it instead of reusing it across executions. This preserves process isolation while reducing
-startup latency at the cost of retaining worker memory.
-
-## Filesystem Grants
-
-Filesystem access is deny-by-default and granted per execution. A script requests grants through its manifest `capabilities`:
-
-- `artifact-read`: the kernel materializes an artifact and appends its path to `--allow-read`. The capability is the gate and the dispatched `grants.artifactPath` is only its parameter, so a script that did not declare the capability receives no grant even when a path is supplied, and a script that declared it receives none when no path is dispatched.
-- `scratch`: the kernel creates a per-execution scratch directory and replaces the blanket `--deny-write` with `--allow-write=<scratchDir>` for that execution alone, plus read access on the same directory.
-
-Both capabilities are permission grants, never bridge-callable host functions: `selectSandboxHostFunctions` skips them and they are excluded from the `SandboxHost` type a script sees. Grant paths must be absolute, normalized, and inside `config.tmpDir` before they can reach a Deno flag.
-
-Grant-carrying executions always use a dedicated process because their Deno permissions are known only
-after the execution is prepared. The dedicated process is killed by the same scope finalizer.
-
-The scratch quota is 5 MiB (`SANDBOX_LIMITS.scratch.totalBytes`), enforced after the run because Deno offers no preventive filesystem quota; exceeding it fails the execution before anything is harvested.
-
-An execution whose output exceeds `execution.resultBytes` writes chunk files into its scratch directory and returns a manifest naming those scratch-local files. The kernel — never a second sandbox execution — copies exactly the named files into workflow-owned storage under `config.tmpDir`, registers opaque workflow-scoped handles in Redis, and exposes handles rather than host paths to workflow scripts. Kernel consumers resolve handles only against their trusted parent execution and reject missing or escaping paths. Public sandbox results omit harvest metadata. Scratch cleanup is unconditional and kernel-owned: the removal finalizer is registered before the process and bridge-session finalizers, so LIFO teardown deletes the directory last, after the script's process is dead, on success, quota failure, script error, timeout, and process kill alike. Artifact references retain active parent/child data through suspension and are released after terminal completion or cancellation.
-
-## Approved Dependencies
-
-Format-1 modules can import the SDK root plus the explicit `/driver`, `/wire`, `/operation`, `/effect`, `/cheerio`, `/youtubei`, `/fflate`, `/papaparse`, and `/fast-xml-parser` entry points. The compiler bundles the small SDK definition runtime into each script and leaves approved dependency imports external.
-
-`PackageCacheManager` builds the exact pinned package versions into self-contained ESM files under an immutable, content-addressed, read-only directory in `SANDBOX_DENO_DIR`. Its Deno import map resolves approved SDK imports to those local files. A separate content-addressed Deno cache starts without registry packages. Concurrent builders publish atomically and reuse the same verified module set.
-
-Plugin and kernel scripts use the same approved SDK entry points. The runtime's `/youtubei` module uses youtubei.js's Deno/server platform.
-
-Deno receives the import map and runs with `--cached-only`, `--no-npm`, `--no-remote`, `--no-config`, and `--no-lock`; execution never resolves a registry, npm cache, ambient project configuration, or remote URL. Updating an approved package changes the generated content hash automatically; the manual runtime format is reserved for incompatible loader-policy changes.
-
-## Host Functions
-
-Host functions are bridge handlers exposed only when listed in the compiled module's manifest `capabilities`. The backend intersects those declarations with its implementation registry and one backend-owned capability policy; domain modules still enforce schema, provider, user, and integration ownership. The runner intersects the approved names with the compiled definition's manifest before constructing the script host.
-
-| Scope                                              | Functions                                                                                                                                                             |
-| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Universal sandbox workflow                         | `httpCall`, `log`, `span`, `getPluginConfig`, `getSystemConfig`, `getCachedValue`, `setCachedValue`, `claimPersistentValue`                                           |
-| User or subscription                               | `changeUserRelationships`, `createEvents`, `executeRyotql`, `getCurrentIntegration`, `getEntitySchemas`, `getUserPreferences`, `listEventSchemas`, `listIntegrations` |
-| System-scope plugin user bootstrap                 | `ensureUserEntities`                                                                                                                                                  |
-| Pinned system-scope plugin script                  | `executeRyotql`, `upsertGlobalEntities`, `upsertGlobalRelationships`                                                                                                  |
-| Automation subscription or system-scope automation | `emitSignal`; `sendNotification` remains subscription-only                                                                                                            |
-
-System-only elevated operations, including global entity and relationship writes, require a pinned system-scope plugin principal. System `executeRyotql` remains plugin-schema scoped. User-scoped functions require the executing user's `userId` and are unavailable for system executions. `getEntitySchemas` resolves entity definitions and provider links from that user's effective, ready, enabled plugin catalog rather than the process-wide system snapshot. Entity and event data reads use `executeRyotql`; schema functions expose metadata only. `claimPersistentValue` atomically writes a persistent value only when the key does not already exist. During a workflow replay, the runner observes these calls and the backend dispatcher records their result; the private `replayJournal` bridge method is only the SDK/runtime bootstrap for named workflow replay and is not a general authoring API.
-
-`executeRyotql` is available to user, subscription, and pinned plugin script executions. `ensureUserEntities` is narrower than ordinary user scope: only a system-scope plugin's declared
-`userBootstrap` script receives it, and it remains plugin-entity-schema scoped, writing only entity
-schemas owned by that plugin.
-The backend capability-policy table is exhaustive and drives host selection and runtime input
-narrowing. Provider association and system-bootstrap designation remain kernel-side checks.
-
-Plugin scripts may read only their owning plugin's fields listed in `requiredPluginConfigKeys`.
-The runtime derives environment variable names from pinned script provenance and rejects normalized
-name collisions when loading plugins. Explicitly exported kernel fields require a matching
-`requiredSystemConfigKeys` declaration. First-party and runtime-installed plugins use the same grants.
-`getPluginConfig` and `getSystemConfig` accept key arrays and return key-indexed records. Duplicate keys
-are coalesced, empty batches return empty records, and a batch fails when any requested key is not
-declared, readable, or configured.
-
-Automation functions require declared capabilities and pinned execution context. `emitSignal` is available to subscription runs and system-scope automation scripts; system automation derives origin from its server-provided automation context. `sendNotification` remains subscription-only and requires its user principal.
-
-Cache keys are isolated per `(executing user, providerId)`. Cache host functions derive their namespace from the script's logical `providerId`, falling back to its `scriptId` only for a standalone script that belongs to no provider. Every script of one provider therefore shares that provider's cache, and executing the same script for two users produces disjoint entries even when both use the same script cache key; script ownership is not part of the cache key. `getCachedValue` and `setCachedValue` are refreshed after a backend restart, while `claimPersistentValue` remains persistent across restarts.
-
-### Adding A Host Function
-
-1. Define the script-facing schema and method in `@ryot-app/sandbox-sdk`.
-2. Implement app-bound context-first methods in `host-functions.ts` or `automation-host-functions.ts`; runtime-owned methods go in `runtime-host-functions.ts`.
-3. Decode its untrusted RPC argument array in `bridge-adapter.ts`; implementation functions must not accept unknown argument arrays.
-4. Use `requireSandboxCapabilityInput(input, capability)` for capability authorization.
-5. Add the function name to this section.
-
-## Script Definitions
-
-A format-1 script default-exports exactly one definition carrying its `manifest` plus SDK `input`, `output`, and `run`. There is no driver map and no driver name on the wire: starting `SandboxScriptWorkflow` with a `scriptId` selects the definition, and the runner validates `input` before invoking `run` and `output` before returning it. Provider, automation, operation, generic script, and named workflow definitions all use this same workflow shell while retaining their role-specific contracts.
-
-```ts
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-
-export const manifest = defineManifest({ kind: "script" /* … */ });
-
-export default defineScript({
-	manifest,
-	output: Schema.Number,
-	input: Schema.Struct({ value: Schema.Number }),
-	run: (input) => Effect.succeed(input.value + 1),
-});
-```
-
-`defineAutomation`, `defineOperation`, `defineProvider`, and `defineWorkflow` are the kind-specific wrappers over the same shape. The SDK run function receives `(input, host, execution)`. `execution` contains `{ metadata, sandboxScriptId }` — the direct execution identity, which is distinct from the logical `providerId` used for provenance and cache isolation.
-
-## Errors And Debugging
-
-- Host-function failures cross the private bridge wire format and become typed `Effect` failures
-  in the runner stub.
-- Completed script failures contain structured failure data with a `load`, `input`, `execute`, or
-  `output` phase, optional mapped `script.ts` line and column, and an allowlisted source stack.
-- Returned stacks contain only mapped `script.ts` frames. Data URLs, runner and dependency paths, bridge URLs, execution identifiers, and bearer tokens are removed.
-- Bridge validation returns 400 for bad body, 401 for invalid token, 404 for unknown function, and 410 for expired session.
-- Timeout and unexpected process termination remain workflow-level job failures. Their bounded Deno
-  stderr tail and other raw compiler/runtime diagnostics are exposed only on explicit plugin-author,
-  admin, and test surfaces; unexpected causes stay in backend logs. Module import failures are
-  completed results in the `load` phase.
-- Normal application APIs and persisted workflow failures use structured module-owned reasons with
-  kebab-case codes and parameters, not diagnostic prose.
-- Console calls are captured in the completed result's `logs` field. Oversized logs append one `[sandbox logs truncated]` marker and do not fail execution.
-- Accepted `log` and `span` entries are deterministically serialized into the same completed-result `logs` field after console logs. Their shared observability budget rejects an entire host-call batch before emitting or recording any item.
-- An oversized final value is rejected as an `output`-phase error and is never returned partially.
-
-## Durable Workflow Semantics
-
-The workflow shell pins its script row before the first replay, so a hot swap cannot change that
-execution's root module. Durable script and plugin-child targets are resolved when each
-step is first observed and that exact target is then memoized with the step. A long-running workflow
-can therefore use script versions from different active plugin installations when those steps are
-first reached at different times; each individual step still executes exactly once against its
-resolved version.
-
-A workflow body signals an expected failure with `Effect.fail` from `@ryot-app/sandbox-sdk/workflow`,
-which the definition wrapper turns into a `state: "failed"` envelope carrying the durable-call
-requests accumulated for that attempt. That deterministic-only surface exposes `as`, `gen`, `fail`,
-and `succeed`; a bare `throw` is a defect instead, so it bypasses the envelope and surfaces as an
-`execute`-phase runner error with a mapped `script.ts` location — the right outcome for a genuine bug,
-the wrong one for a validation guard.
-
-Workflow-authored ambient time and randomness are compiler errors. The runner also guards aliases at
-runtime. `Date.now()` remains a deterministic zero-valued shim because Effect itself reads it while
-executing the restricted workflow subset; authored workflow modules cannot call it because compiler
-validation rejects the reference.
-
-Kernel workflow references bind `userId` from the execution's trusted subject, overriding any
-script-supplied value, and reject system executions outright. The remaining attribution ids
-(`importRunId`, `integrationId`, and the ids reachable through an `AutomationOrigin`) cannot be
-injected the same way: neither the execution subject nor the workflow payload carries them, and a
-script legitimately relays an app-supplied origin. They are therefore validated against the
-subject user through the owner-scoped import-run and integration lookups before dispatch.
-
-Workflow context and durable-call ceilings are defined under Resource Limits. Callers with bulk
-input must split work before dispatch. Media imports pack ordered chunks against both ceilings and
-fan out those independent child executions under the global sandbox worker bound.
-
-## Resource Limits
-
-`@ryot-app/sandbox-compiler/limits` owns compiler limits and UTF-8 measurement. `limits.ts` composes those values with the execution, bridge, HTTP, log, result, and cache limits used by the backend. Limits are fixed in this phase rather than exposed as environment settings.
-
-Every definition uses one universal execution profile. Local replay computation is bounded by a
-30-second timeout, 64 KiB context, 4 MiB final result, 1,000 host calls, 50 HTTP calls, and 1,000
-durable requests. Durable waits happen outside the sandbox process and bridge session.
-
-| Boundary                                              | Limit                         |
-| ----------------------------------------------------- | ----------------------------- |
-| TypeScript source / static manifest / compiled module | 256 KiB / 16 KiB / 1 MiB      |
-| Compiler concurrency / time / process-tree memory     | 2 / 5 seconds / 256 MiB       |
-| Runner request                                        | 2 MiB                         |
-| Bridge request / response                             | 1 MiB / 10 MiB                |
-| Durable workflow journal                              | 100 MiB encoded               |
-| Concurrent in-flight host calls per execution         | 4                             |
-| Deno stderr diagnostics                               | 20 lines / 64 KiB             |
-| HTTP request / streamed response body / call timeout  | 1 MiB / 10 MiB / 8 seconds    |
-| Log entry / count / total                             | 8 KiB / 500 / 256 KiB         |
-| Observability entry / count / total                   | 8 KiB / 500 / 256 KiB         |
-| Cache key / value / TTL                               | 256 bytes / 256 KiB / 30 days |
-
-These values retain distinct failure boundaries:
-
-| Resource              | Rationale                                                                                                                                                           | Limit and sizing symptoms                                                                                                                                                                                                                                        |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Timeout               | Thirty seconds bounds local replay CPU and buggy code while leaving room for orchestration.                                                                         | A hit is a workflow-level `Sandbox timed out` job failure with a bounded Deno stderr tail when available, not a completed script error. Repeated valid work timing out indicates an undersized value; raising it lets runaway executions occupy capacity longer. |
-| Context               | The 64 KiB ceiling leaves headroom for measured workflow contexts while requiring bulk work to be split.                                                            | Oversized or non-JSON context is rejected before execution. Valid dispatches rejected at this boundary indicate undersizing; routinely tiny contexts provide no evidence for raising it.                                                                         |
-| Final result          | Workflow envelopes include orchestration state: a five-step workflow failed at 1 MiB and succeeded at 4 MiB.                                                        | A hit is an `output`-phase oversized-result error and no partial value is returned. Valid envelopes failing indicate undersizing; a larger ceiling increases serialization, transfer, and retained-result cost.                                                  |
-| Host calls            | The total and HTTP subset bound bridge and network amplification. Replay reads the journal through one internal bulk bootstrap rather than one host call per entry. | Exceeding either counter is an `execute`-phase error naming the exhausted budget. Valid bounded scripts failing indicate undersizing; replay approaching 1,000 host calls indicates a bug, while higher ceilings increase amplification risk.                    |
-| Durable calls         | One thousand supports established workflow fan-out while forcing larger batches into separate child executions.                                                     | An attempt cannot emit more than 1,000 durable requests; hitting the ceiling means the input must be chunked before dispatch. A lower value breaks valid fan-out, while a higher value enlarges replay journals and result envelopes.                            |
-| Concurrent host calls | Four matches the largest observed intentional per-execution fan-out.                                                                                                | Additional calls wait instead of failing. Excess queueing that contributes to timeout indicates undersizing; raising the limit creates larger bridge and downstream bursts without an observed workload requiring them.                                          |
-
-The compiler supervisor samples proportional set size for each Bun worker and its TypeScript descendants in the Linux production image. This avoids double-counting shared pages but is a sampled process supervisor, not a cgroup hard ceiling. Non-Linux development retains the process, timeout, and concurrency boundaries without claiming a portable memory ceiling; Bun's `--smol` flag reduces baseline memory but is not treated as enforcement.
-
-Each active bridge session owns its concurrency permits. Calls beyond the in-flight limit wait within
-that session while cumulative host-call and `httpCall` budgets continue counting independently.
-Session removal interrupts active and queued calls; permit release remains safe across success,
-failure, defects, timeout, and cancellation.
-
-Registration is scoped and owns its own removal: `addSession` installs the session and its finalizer
-in one uninterruptible acquisition, so an interruption immediately after registration cannot leave a
-session behind. Registering the same execution identifier again closes the session it replaces, and a
-finalizer removes only the exact instance its scope installed, so a late finalizer cannot evict a
-newer registration. Expiry eviction during a request is identity-aware for the same reason.
+Compiler memory is sampled proportional set size in the Linux production image, not a cgroup hard ceiling. Non-Linux development keeps process, timeout, and concurrency bounds without claiming portable memory enforcement. Calls beyond per-session concurrency wait; cumulative budgets still apply. Session registration and removal are identity-aware so replacement, expiry, interruption, or a late finalizer cannot evict a newer session.
 
 ## Liveness And Garbage Collection
 
-Compiled database rows and materialized `<contentHash>.mjs` files use the same liveness set. Live
-hashes include current persisted plugins, current loader snapshot, source-zero kernel scripts, and
-running or suspended durable-workflow references. Collection does not start until kernel hashes have
-been recorded. It then takes the plugin-ingestion lock, computes liveness and deletes unreferenced
-rows in one transaction, and removes only hash-shaped module files outside that set.
+Database rows and `<contentHash>.mjs` files share one liveness set: persisted current plugins, the active loader snapshot, source-zero kernel scripts, and running or suspended workflow references. GC starts only after kernel hashes exist, takes the plugin-ingestion lock, computes liveness and deletes rows in one transaction, then removes only unreferenced hash-shaped files.
 
-Each execution hard-links its selected module into a scoped temporary directory. This protects an
-in-flight import if concurrent GC removes canonical directory entry; acquisition retries once if GC
-wins between materialization and linking. Cached canonical verification is trusted while its path
-exists, and missing paths are lazily evicted before rematerialization. Scope cleanup removes
-execution link after process exits.
-Durable workflow uninstall guards and persisted references keep pinned replay content live beyond any
-single process.
-
-## Effect And Private Promise Interop
-
-Public sandbox definitions, SDK host methods, backend host-function implementations, and typed bridge
-dispatch are Effect-only. Definition `run` functions and host implementations must not return raw
-Promises. Promise interop remains private where platform APIs require it: compiler/process adapters,
-Deno runner import and stdin/stdout plumbing, filesystem bindings behind Effect SDK functions,
-localhost HTTP/fetch handling, Redis clients, and test execution adapters. These boundaries wrap
-Promises with Effect before values reach authoring or host contracts; they are implementation details,
-not compatibility APIs.
+Execution hard links protect in-flight imports if canonical files are collected. Acquisition retries once if GC wins the materialize/link race. Missing memoized files are evicted and rebuilt. Workflow uninstall guards and persisted references keep replay code live across process restarts and suspension; completion or cancellation releases it.

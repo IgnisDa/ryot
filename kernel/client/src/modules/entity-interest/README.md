@@ -1,48 +1,37 @@
 # Entity Interest
 
-`EntityInterestService` is an Effect service with synchronously constructed state and direct operations:
+`EntityInterestService` is synchronously constructed. `watch` returns a mutable, idempotently
+disposable owner; `acquire` starts the authenticated server/user session and returns its release
+function; `reconnect` affects only the matching active scope.
 
-- `watch(scope, { foreground, visible }, onUpdate)` returns `{ update(interest), dispose() }`.
-- `acquire(scope)` starts the authenticated layout session and returns its idempotent release function.
-- `reconnect(scope)` reconnects only the active matching server/user scope.
+Owners can declare interest before session acquisition. Scopes compare by `apiScopeKey`. Releasing a
+session clears its owners, and changing scope discards declarations for the previous scope.
 
-Owners can declare interest before the layout effect starts. Scope matching uses `apiScopeKey`, not
-object identity. Releasing a session clears its owners and makes their old handles inert. A new scope
-also discards declarations for other scopes. Runtime disposal releases the active session.
+## Selection
 
-## Selection And Protocol
+Selection deduplicates IDs, orders them lexically within priority, and chooses foreground before
+visible up to 500 IDs. Additions batch for 100 ms. Removed IDs remain selected for a two-second grace
+period but receive no callbacks; new demand evicts grace entries when capacity is full.
 
-Selection deduplicates IDs, sorts within each priority, and selects foreground before visible, up to
-500 IDs. Additions batch for 100 ms. Removed IDs remain selected for two seconds, but receive no
-callbacks after their owner drops them. New demand evicts grace entries when the selection is full.
+## Transport
 
-The ticket port runs through `AuthenticatedApi`. The WebSocket URL comes from `serverApiUrl` and has
-no credentials or query string. Its first frame is `authenticate` with a fresh ticket. After `ready`,
-the first command is `replace` revision 1, even for an empty selection. Later commands are diffs,
-with at most one unacknowledged command. Reconnect always gets another ticket and replays selection
-from revision 1; server fixed-lease expiry uses the same reconnect path.
+The authenticated ticket port supplies a fresh ticket for each connection. The WebSocket URL has no
+credentials or query string; its first frame authenticates with the ticket. After `ready`, the client
+sends a full `replace` at revision 1, then sends diffs with at most one unacknowledged command.
+Reconnect always restarts at revision 1 with current selection.
 
-All server frames pass the contract decoder. Invalid frames, duplicate readiness, rejected commands,
-and mismatched acknowledgements close and retry. Ticket/open/readiness has a 15-second timeout.
-Application `ping` gets the matching `pong`; missed heartbeats also reconnect. Backoff starts at one
-second and caps at 30 seconds. Ready resets backoff. Socket callbacks check both attempt and socket
-identity, so a closed connection cannot deliver updates or affect its replacement.
+All frames use contract decoders. Invalid frames, duplicate readiness, rejected commands, mismatched
+acknowledgements, timeout, or missed heartbeat close and retry. Connection, authentication, and
+readiness share a 15-second timeout. Backoff starts at one second, caps at 30 seconds, and resets on
+ready. Attempt and socket identity checks prevent closed connections from affecting replacements.
 
-## Lifecycle And Adapters
+`EntityInterestTransport` owns WebSocket creation, scheduling, browser visibility and online events,
+and native Capacitor resume. Hidden or offline state stops transport; resume obtains a new ticket.
+Cleanup cancels pending tickets, timers, listeners, handlers, and late native-listener registration.
 
-`EntityInterestTransport` owns WebSocket construction, scheduling, browser visibility and online
-listeners, and native Capacitor resume. Hidden/offline state stops transport; resuming gets a fresh
-ticket. Cleanup cancels tickets, timers, socket handlers, browser listeners, and native listeners,
-including native listener registration that resolves after release.
+The authenticated layout owns the session, not loader-created clients. A successful preference save
+containing `language` reconnects it; startup does not fetch preferences.
 
-The direct adapter attaches watches through the kernel runtime's narrow `runSync` capability.
-The authenticated layout owns socket lifetime, not the loader-created client. Preferences saves
-reconnect only after a successful update containing the language field; startup never reads settings.
-
-Bridge version 1 accepts `entity-interest` declarations and sends matching `entity-updated` frames.
-Each plugin document has one mutable owner and no request IDs or acknowledgements for interest.
-Interest is separate from the 64 pending requests. Common bridge finish disposes the owner. Transport
-failure never fails the iframe or UI, and listener exceptions cannot stop other owners' delivery.
-
-Tests inject an API layer, a plain recording socket factory, a deterministic scheduler, and lifecycle
-signals. `KernelApiTestLayer` supplies a harmless service for unrelated authenticated route tests.
+Bridge version 1 gives each plugin document one mutable owner. Interest messages have no request IDs
+or acknowledgements and do not consume one of the 64 pending requests. Common bridge teardown disposes
+the owner. Transport or listener failure does not fail the iframe or other owners.

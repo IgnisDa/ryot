@@ -1,7 +1,3 @@
-# Legacy App Client Reference - TO BE DELETED SOON
+# Legacy Client Reference
 
-This directory is retained solely as reference for the replacement client; deletion remains explicitly deferred. Do not treat it as active client or synchronize it with `app-client`. Preserve local patterns during targeted maintenance.
-
-I put this directory because I did not want it to be included in the package.json tree.
-
-<!-- TODO: Remove this later -->
+This inactive directory is retained as an explicit legacy-reference exception. Do not synchronize it with `kernel/client`; deletion is deferred until the exception is lifted.
