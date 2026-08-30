@@ -674,7 +674,7 @@ it.effect(
 );
 
 it.effect(
-	"titles the plugin document with the manifest name without changing artifact identity",
+	"titles the plugin document with the manifest name and folds the name into artifact identity",
 	() =>
 		Effect.gen(function* () {
 			const files = { "client/index.tsx": bytes("export {};") };
@@ -696,7 +696,7 @@ it.effect(
 			expect(documentOf(plain.artifact)).toContain("<title>Anime &amp; Manga</title>");
 			expect(documentOf(other.artifact)).toContain("<title>Fitness</title>");
 			expect(documentOf(plain.artifact)).toContain('<html lang="en">');
-			expect(other.artifact.hash).toBe(plain.artifact.hash);
+			expect(other.artifact.hash).not.toBe(plain.artifact.hash);
 		}),
 	30_000,
 );

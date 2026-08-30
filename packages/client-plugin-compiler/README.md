@@ -33,8 +33,9 @@ compiled; stale artifacts are not patched at runtime.
 ## Artifact Identity
 
 The compiler embeds format, client API version, bridge version, compiler version, and content hash;
-plugin source cannot declare or override them. `plugin.js`, `plugin.css`, and assets are hashed.
-`index.html` is emitted last and excluded because it embeds that hash.
+plugin source cannot declare or override them. `plugin.js`, `plugin.css`, assets, and the plugin
+name that titles the document are hashed. `index.html` is emitted last and excluded because it
+embeds that hash, so a rename yields a new artifact instead of colliding with the stored one.
 
 The bridge protocol and `CLIENT_COMPILER_VERSION` are currently exactly 1. Cached artifacts are
 reused only when format, client API, bridge, and compiler metadata all match current constants.
