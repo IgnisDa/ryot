@@ -112,12 +112,6 @@ export const makeAppConfigLayer = (
 			retryWindowDays: 7,
 			historyRetentionDays: 30,
 		},
-		sandbox: {
-			denoDir: "./tmp",
-			workerConcurrency: 2,
-			processMode: "on-demand",
-			benchmarkProfileDir: Option.none(),
-		},
 		scheduler: {
 			disableDispatchers: false,
 			infrequentCronJobsSchedule: "0 0 * * *",
@@ -138,6 +132,15 @@ export const makeAppConfigLayer = (
 			bucketName: Option.none(),
 			accessKeyId: Option.none(),
 			secretAccessKey: Option.none(),
+		},
+		sandbox: {
+			denoDir: "./tmp",
+			workerConcurrency: 2,
+			processMode: "on-demand",
+			experimentWorkerPriority: false,
+			experimentInteractiveLane: false,
+			experimentImportAdmissionLimit: 0,
+			benchmarkProfileDir: Option.none(),
 		},
 		server: {
 			proKey: Option.none(),

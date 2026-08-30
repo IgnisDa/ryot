@@ -384,7 +384,11 @@ const importRequest = (
 			} else {
 				consecutiveFailures = 0;
 			}
-			if (result !== null && result.value.status !== "pending") {
+			if (
+				result !== null &&
+				result.value.status !== "queued" &&
+				result.value.status !== "running"
+			) {
 				const terminalAtMs = yield* Clock.currentTimeMillis;
 				const completed = result.value.status === "completed";
 				const failureStage = result.value.status === "failed" ? result.value.reason.stage : null;

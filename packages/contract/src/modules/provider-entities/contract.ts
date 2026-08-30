@@ -7,6 +7,7 @@ import {
 	ImportEntityBody,
 	ImportEntityRunResult,
 	ProviderEntityBadRequest,
+	ProviderEntityImportBacklogFull,
 	ProviderEntityInternalError,
 	ProviderEntityNotFound,
 	SearchProviderEntitiesBody,
@@ -44,11 +45,17 @@ export const ProviderEntitiesGroup = HttpApiGroup.make("providerEntities")
 	.add(
 		HttpApiEndpoint.post("import", "/provider-entities/imports", {
 			payload: ImportEntityBody,
-			error: providerEntityErrors,
 			success: Schema.Struct({ jobId: Schema.String }),
+			error: [
+				...providerEntityErrors,
+				ProviderEntityImportBacklogFull.pipe(HttpApiSchema.status(429)),
+			],
 		})
 			.annotate(DemoAccessPolicy, "allowed")
-			.annotate(OpenApi.Description, "Start an entity import job."),
+			.annotate(
+				OpenApi.Description,
+				"Queue an entity import job. Repeating a queued or running import returns its job.",
+			),
 	)
 	.add(
 		HttpApiEndpoint.get("getImportResult", "/provider-entities/imports/:jobId", {
@@ -56,5 +63,14 @@ export const ProviderEntitiesGroup = HttpApiGroup.make("providerEntities")
 			success: ImportEntityRunResult,
 			params: { jobId: Schema.String },
 		}).annotate(OpenApi.Description, "Retrieve the result of an entity import job."),
+	)
+	.add(
+		HttpApiEndpoint.delete("cancelImport", "/provider-entities/imports/:jobId", {
+			error: providerEntityErrors,
+			params: { jobId: Schema.String },
+			success: Schema.Struct({ jobId: Schema.String }),
+		})
+			.annotate(DemoAccessPolicy, "allowed")
+			.annotate(OpenApi.Description, "Cancel a queued or running entity import job."),
 	)
 	.middleware(AuthMiddleware);

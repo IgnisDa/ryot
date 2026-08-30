@@ -1,7 +1,9 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import {
 	type ImportEntityBody,
+	type ImportEntityRunResult,
 	ProviderEntityBadRequest,
+	ProviderEntityImportBacklogFull,
 	ProviderEntityNotFound,
 } from "@ryot-app/contract/modules/provider-entities/schemas";
 import {
@@ -26,6 +28,7 @@ import { trimToNull } from "#lib/shared/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
+import { PROVIDER_IMPORT_USER_BACKLOG_LIMIT, ProviderImportAdmission } from "./admission";
 import { EntityImportWorkflow } from "./entity-import-workflow";
 import { toEntityImportRunResult } from "./result-workflow";
 
@@ -37,6 +40,7 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 			const engine = yield* WorkflowEngine;
 			const repository = yield* EntitiesRepository;
 			const pluginRuntime = yield* PluginRuntimeResolver;
+			const admission = yield* ProviderImportAdmission;
 			const jobIdSecret = deriveJobIdSecret(Redacted.value(config.server.adminAccessToken));
 
 			const importEntity = Effect.fn("EntityImportService.import")(function* (
@@ -78,65 +82,97 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 
 				const executionId = generateId();
 				const occurredAt = IsoUtcString.make((yield* DateTime.nowAsDate).toISOString());
-				yield* engine
-					.execute(EntityImportWorkflow, {
-						executionId,
-						discard: true,
-						payload: {
+				const workflowPayload = {
+					providerId,
+					externalId,
+					executionId,
+					entitySchemaSlug,
+					entityScope: {
+						userId: user.id,
+						type: provider.pluginScope === "user" ? ("user" as const) : ("global" as const),
+					},
+					command: rootLifecycleCommand({
+						occurredAt,
+						source: "api",
+						initiator: { id: user.id, kind: "user" },
+						executionId: AutomationExecutionId.make(executionId),
+						itemIdentity: stableStringify([
+							"provider-entity-import",
+							user.id,
 							providerId,
-							externalId,
-							executionId,
 							entitySchemaSlug,
-							entityScope: {
-								userId: user.id,
-								type: provider.pluginScope === "user" ? "user" : "global",
-							},
-							command: rootLifecycleCommand({
-								occurredAt,
-								source: "api",
-								initiator: { id: user.id, kind: "user" },
-								executionId: AutomationExecutionId.make(executionId),
-								itemIdentity: stableStringify([
-									"provider-entity-import",
-									user.id,
-									providerId,
-									entitySchemaSlug,
-									externalId,
-								]),
-							}),
+							externalId,
+						]),
+					}),
+				};
+				if (!admission.enabled) {
+					yield* engine
+						.execute(EntityImportWorkflow, { executionId, discard: true, payload: workflowPayload })
+						.pipe(Effect.orDie);
+					return { jobId: createWorkflowJobId(jobIdSecret, executionId, user.id) };
+				}
+				const admitted = yield* admission.submit({ userId: user.id, payload: workflowPayload });
+				if (admitted.status === "backlog-full") {
+					return yield* new ProviderEntityImportBacklogFull({
+						reason: {
+							retryAfterSeconds: 30,
+							code: "import-backlog-full",
+							limit: PROVIDER_IMPORT_USER_BACKLOG_LIMIT,
 						},
-					})
-					.pipe(Effect.orDie);
+					});
+				}
+				return { jobId: createWorkflowJobId(jobIdSecret, admitted.id, user.id) };
+			});
 
-				return { jobId: createWorkflowJobId(jobIdSecret, executionId, user.id) };
+			const resolveJob = Effect.fn("EntityImportService.resolveJob")(function* (
+				user: CurrentUserValue,
+				jobId: string,
+			) {
+				const resolvedJobId = trimToNull(jobId);
+				const executionId = resolvedJobId
+					? resolveWorkflowExecutionId(jobIdSecret, user.id, resolvedJobId)
+					: null;
+				if (!executionId) {
+					return yield* new ProviderEntityNotFound({
+						reason: { jobId, code: "import-job-not-found" },
+					});
+				}
+				return executionId;
 			});
 
 			const getImportResult = Effect.fn("EntityImportService.getImportResult")(function* (
 				user: CurrentUserValue,
 				jobId: string,
 			) {
-				const resolvedJobId = trimToNull(jobId);
-				if (!resolvedJobId) {
-					return yield* new ProviderEntityNotFound({
-						reason: { jobId, code: "import-job-not-found" },
-					});
+				const executionId = yield* resolveJob(user, jobId);
+				const admitted = admission.enabled
+					? yield* admission.status({ id: executionId, userId: user.id })
+					: null;
+				if (admitted === "queued") {
+					return { status: "queued" } satisfies ImportEntityRunResult;
 				}
-
-				const executionId = resolveWorkflowExecutionId(jobIdSecret, user.id, resolvedJobId);
-				if (!executionId) {
-					return yield* new ProviderEntityNotFound({
-						reason: { jobId, code: "import-job-not-found" },
-					});
+				const result = Option.getOrUndefined(yield* engine.poll(EntityImportWorkflow, executionId));
+				// A signed job with neither a ledger row nor a workflow was cancelled before admission.
+				if (result === undefined && admission.enabled && admitted === null) {
+					return { status: "cancelled" } satisfies ImportEntityRunResult;
 				}
-
-				return toEntityImportRunResult(
-					Option.getOrUndefined(yield* engine.poll(EntityImportWorkflow, executionId)),
-				);
+				return toEntityImportRunResult(result);
 			});
 
-			return { getImportResult, import: importEntity };
+			const cancelImport = Effect.fn("EntityImportService.cancelImport")(function* (
+				user: CurrentUserValue,
+				jobId: string,
+			) {
+				const executionId = yield* resolveJob(user, jobId);
+				yield* admission.cancel({ id: executionId, userId: user.id });
+				return { jobId };
+			});
+
+			return { cancelImport, getImportResult, import: importEntity };
 		}),
 	},
 ) {
-	static readonly layer = Layer.effect(this, this.make);
+	static readonly layer = Layer.effect(this, this.make).pipe(
+		Layer.provide(ProviderImportAdmission.layer),
+	);
 }

@@ -223,7 +223,7 @@ const main = async () => {
 						const result = yield* client.call((api) =>
 							api.providerEntities.getImportResult({ params: { jobId } }),
 						);
-						if (result.status !== "pending") {
+						if (result.status !== "queued" && result.status !== "running") {
 							return result.status;
 						}
 						yield* Effect.sleep("200 millis");

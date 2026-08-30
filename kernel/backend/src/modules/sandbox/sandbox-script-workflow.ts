@@ -234,8 +234,9 @@ export const establishSandboxWorkflowPin = Effect.fn("establishSandboxWorkflowPi
 	).pipe(Effect.mapError(rethrowSandboxFailure("infrastructure")));
 });
 
-const processPinnedSandbox = (payload: SandboxExecutionQueuePayload) =>
-	processSandboxExecutionQueue(payload);
+const processPinnedSandbox =
+	(lane: SandboxScriptWorkflowPayloadValue["lane"]) => (payload: SandboxExecutionQueuePayload) =>
+		processSandboxExecutionQueue(payload, lane);
 
 export const sandboxWorkflowChildExecutionId = (executionId: string, name: string, index: number) =>
 	`${executionId}-child-${sanitizeSandboxExecutionSegment(name)}-${index}`;
@@ -743,7 +744,11 @@ export const runSandboxScriptWorkflow = Effect.fn("SandboxScriptWorkflow")(funct
 	payload: SandboxScriptWorkflowPayloadValue,
 	executionId: string,
 ) {
-	return yield* runSandboxScriptWorkflowBody(payload, executionId, processPinnedSandbox);
+	return yield* runSandboxScriptWorkflowBody(
+		payload,
+		executionId,
+		processPinnedSandbox(payload.lane),
+	);
 });
 
 export const executeSandboxScriptWorkflow = Effect.fn("executeSandboxScriptWorkflow")(function* (
