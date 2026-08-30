@@ -21,6 +21,8 @@ import {
 	type PluginBridgeHeader,
 	type PluginBridgeNavigate,
 	type PluginBridgePageSearch,
+	type PluginBridgePageRefresh,
+	type PluginBridgeProviderSearchScreen,
 	type PluginBridgeTheme,
 	type PluginBridgeViewport,
 	type PluginBridgeOperationRequest,
@@ -57,8 +59,9 @@ export type PluginScreenReadiness = Omit<PluginBridgeScreenState, "type">;
 
 export type PluginBridgeSession = {
 	readonly close: () => void;
-	readonly sendViewport: (insets: PluginBridgeViewportInsets) => void;
+	readonly sendPageRefresh: () => void;
 	readonly sendTheme: (theme: PluginThemeSnapshot) => void;
+	readonly sendViewport: (insets: PluginBridgeViewportInsets) => void;
 	readonly sendLocation: (navigation: PluginBridgeNavigationState) => void;
 };
 
@@ -84,9 +87,10 @@ type PluginBridgeOptions = {
 	readonly navigation: PluginBridgeNavigationState;
 	readonly onHeader: (request: PluginBridgeHeader) => void;
 	readonly onNavigate: (request: PluginBridgeNavigate) => void;
-	readonly onPageSearch: (request: PluginBridgePageSearch) => void;
 	readonly onKernelShortcut: (shortcut: KernelShortcut) => void;
 	readonly onScreenState: (state: PluginScreenReadiness) => void;
+	readonly onPageSearch: (request: PluginBridgePageSearch) => void;
+	readonly onProviderSearch: (request: PluginBridgeProviderSearchScreen) => void;
 	readonly onAssets: (
 		request: PluginAssetRequest,
 		signal: AbortSignal,
@@ -216,6 +220,12 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 			return;
 		}
 		post({ ...navigation, type: "location" } satisfies PluginBridgeLocation);
+	}
+
+	function sendPageRefresh() {
+		if (state === "active") {
+			post({ type: "page-refresh" } satisfies PluginBridgePageRefresh);
+		}
 	}
 
 	function handleLifecycleClose(reason: "disposed" | "failed") {
@@ -449,6 +459,9 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 					Match.when({ type: "header" }, (request) => options.onHeader(request)),
 					Match.when({ type: "navigate" }, (request) => options.onNavigate(request)),
 					Match.when({ type: "page-search" }, (request) => options.onPageSearch(request)),
+					Match.when({ type: "provider-search-screen" }, (request) =>
+						options.onProviderSearch(request),
+					),
 					Match.when({ type: "lifecycle-close" }, ({ reason }) => handleLifecycleClose(reason)),
 					Match.when({ type: "ryotql-cancel" }, (request) => handleRyotQLCancel(request)),
 					Match.when({ type: "ryotql-request" }, (request) => handleRyotQL(request)),
@@ -493,5 +506,5 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		fail(false);
 	}
 
-	return { close, sendTheme, sendLocation, sendViewport };
+	return { close, sendTheme, sendLocation, sendViewport, sendPageRefresh };
 }

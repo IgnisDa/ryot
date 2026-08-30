@@ -563,6 +563,30 @@ describe("plugin runtime", () => {
 		});
 	});
 
+	it("sends provider-search requests and receives page refresh signals after activation", async () => {
+		const { channel, messages, runtime } = openRuntime();
+		let refreshes = 0;
+		runtime.pageRefresh.subscribe(() => refreshes++);
+		activate(channel);
+		await delay();
+
+		runtime.client.screens.openProviderSearch({
+			initialQuery: "Dune",
+			entitySchemaSlug: "movie",
+			ownerPluginId: "media-installation",
+		});
+		channel.port1.postMessage({ type: "page-refresh" });
+		await delay();
+
+		expect(messages).toContainEqual({
+			initialQuery: "Dune",
+			entitySchemaSlug: "movie",
+			type: "provider-search-screen",
+			ownerPluginId: "media-installation",
+		});
+		expect(refreshes).toBe(1);
+	});
+
 	it("rejects every pending call once and blocks new admissions after disposal", async () => {
 		const { channel, messages, runtime } = openRuntime();
 		activate(channel);

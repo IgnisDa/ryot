@@ -1,3 +1,4 @@
+import { PluginBridgeInit } from "@ryot-app/client-plugin-contract";
 import type { EntityInterest, EntityUpdate } from "@ryot-app/client-sdk";
 import {
 	EntityId,
@@ -9,9 +10,10 @@ import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { column, document, field, rows, table } from "@ryot-app/ryotql";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { Effect, Layer, ManagedRuntime } from "effect";
+import { Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
+import { ClientPagesApi } from "#/api/client-pages";
 import { KernelApiTestLayer, makeEntityInterestService } from "#/api/ports.test-layer";
 import { ManagedAssetResolutionError, ManagedAssetsService } from "#/modules/assets/managed-assets";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
@@ -46,6 +48,7 @@ import {
 	stubCompactMatchMedia,
 	ClientPagesApiRouteStubs,
 	ClientPageSessionsRouteStubs,
+	preparePluginPage,
 } from "#/routes/-route-fixtures";
 
 const entity = table("entity", "entity");
@@ -236,11 +239,42 @@ const mountAddableView = (
 const addDialog = () => screen.queryByRole("dialog", { name: "Add from a provider" });
 const findAddDialog = () => screen.findByRole("dialog", { name: "Add from a provider" });
 
+const connectSavedViewFrame = (
+	frame: HTMLIFrameElement,
+	onInit?: (message: PluginBridgeInit) => void,
+) => {
+	let init: PluginBridgeInit | undefined;
+	let port: MessagePort | undefined;
+	Object.defineProperty(frame, "contentWindow", {
+		configurable: true,
+		value: {
+			postMessage: (message: unknown, _origin: string, transfer: Transferable[]) => {
+				init = Schema.decodeUnknownSync(PluginBridgeInit)(message);
+				const transferred = transfer[0];
+				if (transferred instanceof MessagePort) {
+					port = transferred;
+					port.start();
+				}
+			},
+		},
+	});
+	fireEvent.load(frame);
+	if (init === undefined || port === undefined) {
+		throw new Error("Bridge did not connect");
+	}
+	onInit?.(init);
+	const { mode: _mode, page: _page, safeAreaTop: _top, safeAreaBottom: _bottom, ...ready } = init;
+	port.postMessage(ready);
+	return port;
+};
+
 const mountView = (
 	overrides: Partial<SavedViewService> = {},
 	resolve: Resolve = () => Effect.succeed(new Map()),
 	storage: StorageService = makeStorageStub("fixture"),
 	providerAdd: Layer.Layer<ProviderAddService> = ProviderAddRouteStubs,
+	clientPages: Layer.Layer<ClientPagesApi> = ClientPagesApiRouteStubs,
+	initialEntry = "/v/books",
 ) => {
 	const events = makePluginCatalogEventsTestLayer();
 	const watchers = new Set<{
@@ -273,7 +307,7 @@ const mountView = (
 			ServerStub,
 			makePublicApiStub(),
 			KernelApiTestLayer,
-			ClientPagesApiRouteStubs,
+			clientPages,
 			ClientPageSessionsRouteStubs,
 			interests,
 			events.layer,
@@ -304,7 +338,7 @@ const mountView = (
 	const backInterceptors = createBackInterceptors();
 	const router = getRouter(
 		{ runtime, theme, backInterceptors },
-		createMemoryHistory({ initialEntries: ["/v/books"] }),
+		createMemoryHistory({ initialEntries: [initialEntry] }),
 	);
 	const view = render(<RouterProvider router={router} />);
 	return {
@@ -955,6 +989,124 @@ describe("saved-view route", () => {
 });
 
 describe("saved-view provider add flow", () => {
+	it("opens only the configured renderer provider search and preserves unrelated search", async () => {
+		const persistedLayouts: string[] = [];
+		const providerOwners: Array<string | undefined> = [];
+		const addAction = {
+			type: "provider-search" as const,
+			ownerPluginId: "media-plugin-id",
+			entitySchemaSlug: EntitySchemaSlug.make("book"),
+		};
+		const rendererRecord = {
+			...record,
+			layouts: null,
+			dataSources: queryDocument,
+			renderer: { kind: "kernel" as const, name: "entity-browser" },
+			settings: {
+				addAction,
+				pageSize: 2,
+				sortChoices: [],
+				tableColumns: null,
+				sourceName: "items",
+				searchFields: ["title"],
+				entityIdField: "entityId",
+				defaultLayout: "grid" as const,
+				ownerPluginIdField: "ownerPluginId",
+				entitySchemaSlugField: "entitySchemaSlug",
+				layouts: ["grid", "list", "table"] as const,
+			},
+		};
+		const storage: StorageService = {
+			...makeStorageStub("fixture"),
+			getSavedViewLayout: () => Effect.succeed("list" as const),
+			setSavedViewLayout: (_scope, _slug, layout) =>
+				Effect.sync(() => {
+					persistedLayouts.push(layout);
+				}),
+		};
+		const prepared = preparePluginPage({
+			path: "/v/books",
+			search: "keep=1",
+			pluginId: "plugin-1",
+			kind: "plugin-route",
+		});
+		const view = mountView(
+			{ loadRecord: () => Effect.succeed(rendererRecord) },
+			undefined,
+			storage,
+			makeProviderAdd({
+				loadProviders: (_client, _entitySchemaSlug, ownerPluginId) =>
+					Effect.sync(() => {
+						providerOwners.push(ownerPluginId);
+						return providerResult([providerFixture(1)]);
+					}),
+			}),
+			Layer.succeed(ClientPagesApi, {
+				renewSession: () => Effect.die("not used"),
+				revokeSession: () => Effect.die("not used"),
+				createSession: () => Effect.die("not used"),
+				prepare: () =>
+					Effect.succeed({
+						...prepared,
+						identity: {
+							viewRevision: 1,
+							savedViewId: record.id,
+							sourceHash: "source-hash",
+							rendererName: "entity-browser",
+							kind: "kernel-saved-view" as const,
+							buildId: prepared.identity.buildId,
+							graphHash: prepared.identity.graphHash,
+							artifactHash: prepared.identity.artifactHash,
+							contributors: prepared.identity.contributors,
+							operationTargets: prepared.identity.operationTargets,
+							target: { kind: "saved-view", savedViewId: record.id },
+						},
+						context: {
+							...prepared.context,
+							settings: rendererRecord.settings,
+							renderer: rendererRecord.renderer,
+							target: { kind: "saved-view", savedViewId: record.id },
+						},
+					}),
+			}),
+			"/v/books?keep=1",
+		);
+		try {
+			const frame = await screen.findByTitle<HTMLIFrameElement>("Books plugin");
+			let initializedPage: PluginBridgeInit["page"];
+			const port = connectSavedViewFrame(frame, (init) => {
+				initializedPage = init.page;
+			});
+			await waitFor(() => expect(frame.className).not.toContain("invisible"));
+			expect(initializedPage?.settings).toMatchObject({ defaultLayout: "list" });
+			port.postMessage({ type: "page-search", mode: "replace", update: { layout: "table" } });
+			await waitFor(() => expect(persistedLayouts).toEqual(["table"]));
+			expect(view.router.state.location.searchStr).toBe("?keep=1&layout=table");
+			port.postMessage({
+				entitySchemaSlug: "book",
+				type: "provider-search-screen",
+				ownerPluginId: "other-installation",
+			});
+			await act(() => Promise.resolve());
+			expect(addDialog()).toBeNull();
+
+			port.postMessage({
+				initialQuery: "Dune",
+				type: "provider-search-screen",
+				ownerPluginId: addAction.ownerPluginId,
+				entitySchemaSlug: addAction.entitySchemaSlug,
+			});
+
+			expect(await findAddDialog()).toBeTruthy();
+			await waitFor(() => expect(providerOwners).toEqual([addAction.ownerPluginId]));
+			expect(frame.hasAttribute("inert")).toBe(true);
+			expect(view.router.state.location.searchStr).toBe("?keep=1&layout=table&add=true&q=Dune");
+		} finally {
+			view.unmount();
+			await view.runtime.dispose();
+		}
+	});
+
 	it("opens the flow from the header Add button and closes it without reloading the record", async () => {
 		let records = 0;
 		const view = mountAddableView(makeProviderAdd(), {
