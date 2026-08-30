@@ -22,7 +22,11 @@ import { waitFor } from "@testing-library/dom";
 import { Schema } from "effect";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { openPluginBridge, type PluginBridgeSession } from "#/modules/plugins/bridge";
+import {
+	openPluginBridge,
+	type PluginBridgeSession,
+	type PluginScreenReadiness,
+} from "#/modules/plugins/bridge";
 
 const decodeInit = Schema.decodeUnknownSync(PluginBridgeInit);
 
@@ -37,6 +41,7 @@ const entity: PluginLogicalLocation = {
 const nav = (location: PluginLogicalLocation = home, index = 0) => ({
 	index,
 	location,
+	leading: "none" as const,
 	compact: false,
 	edgeBack: false,
 	key: `k${index}`,
@@ -103,6 +108,7 @@ const connect = (
 	let init: PluginBridgeInit | undefined;
 	let pluginPort: MessagePort | undefined;
 	const navigations: PluginBridgeNavigate[] = [];
+	const screenStates: PluginScreenReadiness[] = [];
 	const operationCalls: Array<{
 		readonly input: unknown;
 		readonly signal: AbortSignal;
@@ -120,6 +126,7 @@ const connect = (
 		onFailure: () => failures.push(null),
 		onNavigateBack: () => backs.push(null),
 		onOpenDrawer: () => drawers.push(null),
+		onScreenState: (state) => screenStates.push(state),
 		onNavigate: (request) => navigations.push(request),
 		onRyotQL: options.onRyotQL ?? (() => new Promise(() => {})),
 		onOperation:
@@ -163,6 +170,7 @@ const connect = (
 		received,
 		pluginPort,
 		navigations,
+		screenStates,
 		operationCalls,
 	};
 };
@@ -206,6 +214,7 @@ describe("plugin bridge", () => {
 			onReady: () => undefined,
 			onNavigate: () => undefined,
 			onOpenDrawer: () => undefined,
+			onScreenState: () => undefined,
 			onNavigateBack: () => undefined,
 			onFailure: () => failures.push(null),
 			onRyotQL: () => new Promise(() => {}),
@@ -231,6 +240,58 @@ describe("plugin bridge", () => {
 		await waitFor(() => expect(readies).toHaveLength(1));
 		expect(messages).toEqual([at()]);
 		expect(failures).toEqual([]);
+	});
+
+	it("forwards matching active screen readiness without protocol policy", async () => {
+		const { init, pluginPort, readies, screenStates } = connect();
+
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(readies).toHaveLength(1));
+		pluginPort.postMessage({ index: 0, key: "k0", type: "screen-state", hasPreviousScreen: true });
+
+		await waitFor(() =>
+			expect(screenStates).toEqual([{ index: 0, key: "k0", hasPreviousScreen: true }]),
+		);
+	});
+
+	it("ignores screen readiness that no longer matches the latest navigation", async () => {
+		const { init, pluginPort, readies, screenStates, session } = connect();
+
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(readies).toHaveLength(1));
+		session.sendLocation(nav(detail, 1));
+		pluginPort.postMessage({ index: 0, key: "k0", type: "screen-state", hasPreviousScreen: true });
+		pluginPort.postMessage({ index: 1, key: "k1", type: "screen-state", hasPreviousScreen: false });
+
+		await waitFor(() =>
+			expect(screenStates).toEqual([{ index: 1, key: "k1", hasPreviousScreen: false }]),
+		);
+	});
+
+	it("does not process screen readiness before activation or after close", async () => {
+		const premature = connect();
+		premature.pluginPort.postMessage({
+			index: 0,
+			key: "k0",
+			type: "screen-state",
+			hasPreviousScreen: false,
+		});
+		await waitFor(() => expect(premature.failures).toHaveLength(1));
+
+		const closed = connect();
+		closed.pluginPort.postMessage(readyFor(closed.init));
+		await waitFor(() => expect(closed.readies).toHaveLength(1));
+		closed.session.close();
+		closed.pluginPort.postMessage({
+			index: 0,
+			key: "k0",
+			type: "screen-state",
+			hasPreviousScreen: true,
+		});
+		await delay(10);
+
+		expect(premature.screenStates).toEqual([]);
+		expect(closed.screenStates).toEqual([]);
 	});
 
 	it("fails a ready from another session or another artifact", async () => {

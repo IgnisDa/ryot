@@ -14,6 +14,7 @@ import {
 	PluginBridgeOperationResult,
 	PluginBridgeRyotQLCancel,
 	PluginBridgeRyotQLResult,
+	PluginLeadingIntent,
 	PluginOperationBridgeErrorReason,
 	PluginRyotQLFailureReason,
 	PluginThemeSnapshot,
@@ -93,8 +94,45 @@ describe("plugin client artifact contract", () => {
 });
 
 describe("plugin client bridge contract", () => {
-	it("uses exact protocol version 1", () => {
+	it("uses exact protocol and compiler version 1", () => {
 		expect(CLIENT_BRIDGE_PROTOCOL_VERSION).toBe(1);
+		expect(CLIENT_COMPILER_VERSION).toBe(1);
+	});
+
+	it("accepts only strict leading intents and requires location ownership fields", () => {
+		const decodeLeading = Schema.decodeUnknownResult(PluginLeadingIntent);
+		const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
+		const location = { kind: "route", path: "/", search: "" };
+		const message = {
+			index: 0,
+			location,
+			key: "k0",
+			compact: false,
+			edgeBack: false,
+			type: "location",
+			leading: "drawer",
+		};
+
+		for (const leading of ["back", "drawer", "none"]) {
+			expect(Result.isSuccess(decodeLeading(leading))).toBe(true);
+			expect(Result.isSuccess(decodeHost({ ...message, leading }))).toBe(true);
+		}
+		expect(Result.isFailure(decodeLeading("menu"))).toBe(true);
+		expect(Result.isFailure(decodeHost({ ...message, leading: "menu" }))).toBe(true);
+		const { leading: _leading, ...withoutLeading } = message;
+		const { edgeBack: _edgeBack, ...withoutEdgeBack } = message;
+		expect(Result.isFailure(decodeHost(withoutLeading))).toBe(true);
+		expect(Result.isFailure(decodeHost(withoutEdgeBack))).toBe(true);
+	});
+
+	it("admits only strict screen-state messages stamped with an index and key", () => {
+		const decode = Schema.decodeUnknownResult(PluginBridgeClientMessage);
+		const message = { index: 2, key: "k2", type: "screen-state", hasPreviousScreen: true };
+
+		expect(Result.isSuccess(decode(message))).toBe(true);
+		expect(Result.isFailure(decode({ ...message, index: undefined }))).toBe(true);
+		expect(Result.isFailure(decode({ ...message, key: undefined }))).toBe(true);
+		expect(Result.isFailure(decode({ ...message, extra: true }))).toBe(true);
 	});
 
 	it("admits lifecycle close messages in both directions", () => {
@@ -163,7 +201,14 @@ describe("plugin client bridge contract", () => {
 	it("uses tagged logical locations by bridge direction", () => {
 		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
 		const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
-		const hostFields = { compact: false, edgeBack: false, index: 0, key: "k0", type: "location" };
+		const hostFields = {
+			index: 0,
+			key: "k0",
+			compact: false,
+			leading: "none",
+			edgeBack: false,
+			type: "location",
+		};
 		const route = { kind: "route", path: "/details", search: "tab=stats" };
 		const entity = { entityId: "entity-1", entitySchemaSlug: "show", kind: "entity" };
 
@@ -188,6 +233,11 @@ describe("plugin client bridge contract", () => {
 		).toBe(true);
 		expect(
 			Result.isFailure(decodeClient({ location: entity, mode: "push", type: "navigate" })),
+		).toBe(true);
+		expect(
+			Result.isFailure(
+				decodeClient({ leading: "back", location: route, mode: "push", type: "navigate" }),
+			),
 		).toBe(true);
 	});
 
