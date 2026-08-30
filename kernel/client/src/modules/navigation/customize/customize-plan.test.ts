@@ -11,9 +11,17 @@ const item = (slug: string, pluginSlug: string | null, isDisabled = false) => ({
 	name: slug.toUpperCase(),
 });
 
+const workspace = (slug: string, isDisabled = false) => ({
+	slug,
+	isDisabled,
+	icon: "plugin",
+	name: slug.toUpperCase(),
+});
+
 const initial: CustomizeDraft = {
 	savedViews: [item("recent", null), item("all", null, true)],
 	views: [item("shows", "media"), item("movies", "media")],
+	workspaces: [workspace("media"), workspace("fitness")],
 };
 
 const build = (draft: CustomizeDraft) =>
@@ -21,7 +29,7 @@ const build = (draft: CustomizeDraft) =>
 
 describe("buildCustomizePlan", () => {
 	it("plans nothing for an untouched draft", () => {
-		expect(build(initial)).toEqual({ updates: [], reorders: [] });
+		expect(build(initial)).toEqual({ updates: [], reorders: [], workspaceUpdates: [] });
 	});
 
 	it("updates only the views whose visibility changed", () => {
@@ -37,6 +45,30 @@ describe("buildCustomizePlan", () => {
 			},
 		]);
 		expect(plan.reorders).toEqual([]);
+		expect(plan.workspaceUpdates).toEqual([]);
+	});
+
+	it("updates only the workspaces whose visibility changed", () => {
+		const plan = build({
+			...initial,
+			workspaces: [workspace("media", true), workspace("fitness")],
+		});
+
+		expect(plan.workspaceUpdates).toEqual([{ pluginSlug: "media", payload: { isDisabled: true } }]);
+		expect(plan.updates).toEqual([]);
+		expect(plan.reorders).toEqual([]);
+	});
+
+	it("updates every workspace when its order changes", () => {
+		const plan = build({
+			...initial,
+			workspaces: [workspace("fitness"), workspace("media", true)],
+		});
+
+		expect(plan.workspaceUpdates).toEqual([
+			{ pluginSlug: "fitness", payload: { sortOrder: 0 } },
+			{ pluginSlug: "media", payload: { sortOrder: 1, isDisabled: true } },
+		]);
 	});
 
 	it("omits the plugin slug for a global saved view", () => {
@@ -49,6 +81,7 @@ describe("buildCustomizePlan", () => {
 
 	it("scopes a workspace reorder to the workspace and a global reorder to no plugin", () => {
 		const plan = build({
+			workspaces: initial.workspaces,
 			views: [item("movies", "media"), item("shows", "media")],
 			savedViews: [item("all", null, true), item("recent", null)],
 		});
@@ -57,12 +90,14 @@ describe("buildCustomizePlan", () => {
 			{ pluginSlug: "media", viewSlugs: ["movies", "shows"] },
 			{ viewSlugs: ["all", "recent"] },
 		]);
+		expect(plan.workspaceUpdates).toEqual([]);
 	});
 
 	it("reorders hidden views alongside visible ones", () => {
 		const plan = build({ ...initial, savedViews: [item("all", null, true), item("recent", null)] });
 
 		expect(plan.reorders).toEqual([{ viewSlugs: ["all", "recent"] }]);
+		expect(plan.workspaceUpdates).toEqual([]);
 	});
 
 	it("skips the workspace reorder when no workspace is selected", () => {
@@ -73,5 +108,6 @@ describe("buildCustomizePlan", () => {
 		});
 
 		expect(plan.reorders).toEqual([]);
+		expect(plan.workspaceUpdates).toEqual([]);
 	});
 });
