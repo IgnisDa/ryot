@@ -93,7 +93,7 @@ const isTransportFailure = (error: unknown) =>
  * A pooled keep-alive socket closed by the proxy surfaces as a transport error before any response,
  * so a single reset is retried instead of ending a multi-hour phase.
  */
-const retryTransport = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
+export const retryTransport = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 	Effect.retry(effect, {
 		times: 3,
 		while: isTransportFailure,
@@ -157,12 +157,14 @@ export const resilientSession = (email: string, password: string) =>
 	});
 
 export const sampleRuntime = (options: { readonly includeSmaps?: boolean } = {}) =>
-	getApiClient().call(
-		(client) =>
-			client.testSupport.sampleSandboxRuntime({
-				query: options.includeSmaps === true ? { includeSmaps: "true" } : {},
-			}),
-		adminHeaders(),
+	retryTransport(
+		getApiClient().call(
+			(client) =>
+				client.testSupport.sampleSandboxRuntime({
+					query: options.includeSmaps === true ? { includeSmaps: "true" } : {},
+				}),
+			adminHeaders(),
+		),
 	);
 
 export const waitForHealth = (config: DriverConfig, timeoutMs = 300_000) =>
@@ -289,13 +291,15 @@ const directRequest = (
 const pollSandboxResult = (context: RunContext, jobId: string) =>
 	Effect.gen(function* () {
 		for (;;) {
-			const result = yield* getApiClient().call(
-				(client) =>
-					client.testSupport.getSandboxResult({
-						params: { jobId },
-						query: { executingUserId: UserId.make(context.state.userId) },
-					}),
-				adminHeaders(),
+			const result = yield* retryTransport(
+				getApiClient().call(
+					(client) =>
+						client.testSupport.getSandboxResult({
+							params: { jobId },
+							query: { executingUserId: UserId.make(context.state.userId) },
+						}),
+					adminHeaders(),
+				),
 			);
 			if (result.status !== "pending") {
 				return result;
@@ -541,12 +545,12 @@ export const submitWave = (
 	});
 
 export const listPhaseSegments = (afterSequence: number) =>
-	getApiClient()
-		.call(
+	retryTransport(
+		getApiClient().call(
 			(client) => client.testSupport.listProviderImportPhaseSegments({ query: { afterSequence } }),
 			adminHeaders(),
-		)
-		.pipe(Effect.map(({ segments }) => segments as ReadonlyArray<PhaseSegment>));
+		),
+	).pipe(Effect.map(({ segments }) => segments as ReadonlyArray<PhaseSegment>));
 
 export type CaptureInput = {
 	readonly round: number | null;
@@ -802,9 +806,11 @@ export const armProfile = (input: {
 	);
 
 export const profileStatus = (token: string) =>
-	getApiClient().call(
-		(client) => client.testSupport.getSandboxProfileStatus({ params: { token } }),
-		adminHeaders(),
+	retryTransport(
+		getApiClient().call(
+			(client) => client.testSupport.getSandboxProfileStatus({ params: { token } }),
+			adminHeaders(),
+		),
 	);
 
 export const profiledScriptSlug = (context: RunContext, scenario: ScenarioDefinition) => {
