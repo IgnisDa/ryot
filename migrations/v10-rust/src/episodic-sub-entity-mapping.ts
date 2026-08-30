@@ -126,11 +126,17 @@ BEGIN
 	ANALYZE _legacy_podcast_episodes;
 	ANALYZE _legacy_podcast_episode_entities;
 
+	IF to_regclass('pg_temp._legacy_show_episode_coordinates') IS NOT NULL THEN
+		DROP TABLE _legacy_show_episode_coordinates;
+	END IF;
+
 	IF to_regclass('pg_temp._legacy_show_episode_resolution') IS NOT NULL THEN
 		DROP TABLE _legacy_show_episode_resolution;
 	END IF;
 
-	CREATE TEMP TABLE _legacy_show_episode_resolution AS
+	-- Keeps the duplicate count that resolution filters out, so a later phase can tell a coordinate
+	-- that is absent from the cached seasons apart from one that appears more than once.
+	CREATE TEMP TABLE _legacy_show_episode_coordinates AS
 	WITH candidates AS (
 		SELECT DISTINCT
 			parent_entity_id,
@@ -139,18 +145,27 @@ BEGIN
 			entity_id,
 			${quoteSqlString(input.showEpisodeEntitySchema.slug)} AS entity_schema_slug
 		FROM _legacy_show_episodes
-	), unique_candidates AS (
-		SELECT parent_entity_id, season_number, episode_number
-		FROM candidates
-		GROUP BY parent_entity_id, season_number, episode_number
-		HAVING count(*) = 1
 	)
-	SELECT candidates.*
+	SELECT
+		parent_entity_id,
+		season_number,
+		episode_number,
+		count(*)::int AS candidate_count,
+		min(entity_id) AS entity_id,
+		min(entity_schema_slug) AS entity_schema_slug
 	FROM candidates
-	INNER JOIN unique_candidates
-		ON  unique_candidates.parent_entity_id = candidates.parent_entity_id
-		AND unique_candidates.season_number    = candidates.season_number
-		AND unique_candidates.episode_number   = candidates.episode_number;
+	GROUP BY parent_entity_id, season_number, episode_number;
+
+	CREATE UNIQUE INDEX ON _legacy_show_episode_coordinates (
+		parent_entity_id,
+		season_number,
+		episode_number
+	);
+
+	CREATE TEMP TABLE _legacy_show_episode_resolution AS
+	SELECT parent_entity_id, season_number, episode_number, entity_id, entity_schema_slug
+	FROM _legacy_show_episode_coordinates
+	WHERE candidate_count = 1;
 
 	CREATE UNIQUE INDEX ON _legacy_show_episode_resolution (
 		parent_entity_id,
@@ -158,11 +173,15 @@ BEGIN
 		episode_number
 	);
 
+	IF to_regclass('pg_temp._legacy_podcast_episode_coordinates') IS NOT NULL THEN
+		DROP TABLE _legacy_podcast_episode_coordinates;
+	END IF;
+
 	IF to_regclass('pg_temp._legacy_podcast_episode_resolution') IS NOT NULL THEN
 		DROP TABLE _legacy_podcast_episode_resolution;
 	END IF;
 
-	CREATE TEMP TABLE _legacy_podcast_episode_resolution AS
+	CREATE TEMP TABLE _legacy_podcast_episode_coordinates AS
 	WITH candidates AS (
 		SELECT DISTINCT
 			parent_entity_id,
@@ -170,24 +189,59 @@ BEGIN
 			entity_id,
 			${quoteSqlString(input.podcastEpisodeEntitySchema.slug)} AS entity_schema_slug
 		FROM _legacy_podcast_episodes
-	), unique_candidates AS (
-		SELECT parent_entity_id, episode_number
-		FROM candidates
-		GROUP BY parent_entity_id, episode_number
-		HAVING count(*) = 1
 	)
-	SELECT candidates.*
+	SELECT
+		parent_entity_id,
+		episode_number,
+		count(*)::int AS candidate_count,
+		min(entity_id) AS entity_id,
+		min(entity_schema_slug) AS entity_schema_slug
 	FROM candidates
-	INNER JOIN unique_candidates
-		ON  unique_candidates.parent_entity_id = candidates.parent_entity_id
-		AND unique_candidates.episode_number   = candidates.episode_number;
+	GROUP BY parent_entity_id, episode_number;
+
+	CREATE UNIQUE INDEX ON _legacy_podcast_episode_coordinates (
+		parent_entity_id,
+		episode_number
+	);
+
+	CREATE TEMP TABLE _legacy_podcast_episode_resolution AS
+	SELECT parent_entity_id, episode_number, entity_id, entity_schema_slug
+	FROM _legacy_podcast_episode_coordinates
+	WHERE candidate_count = 1;
 
 	CREATE UNIQUE INDEX ON _legacy_podcast_episode_resolution (
 		parent_entity_id,
 		episode_number
 	);
+
+	IF to_regclass('pg_temp._legacy_episodic_inventory') IS NOT NULL THEN
+		DROP TABLE _legacy_episodic_inventory;
+	END IF;
+
+	-- What the cached provider metadata actually holds for each parent, as prose an operator can
+	-- read directly in a report. The legacy tables it derives from are dropped after the migration.
+	CREATE TEMP TABLE _legacy_episodic_inventory AS
+	SELECT
+		parent_entity_id,
+		'seasons ' || string_agg(season_number, ', ' ORDER BY season_number::int) AS available_summary
+	FROM (
+		SELECT DISTINCT parent_entity_id, season_number FROM _legacy_show_episode_coordinates
+	) distinct_seasons
+	GROUP BY parent_entity_id
+	UNION ALL
+	SELECT
+		parent_entity_id,
+		'episodes ' || min(episode_number::int)::text || '-' || max(episode_number::int)::text
+	FROM _legacy_podcast_episode_coordinates
+	GROUP BY parent_entity_id;
+
+	CREATE UNIQUE INDEX ON _legacy_episodic_inventory (parent_entity_id);
+
+	ANALYZE _legacy_show_episode_coordinates;
+	ANALYZE _legacy_podcast_episode_coordinates;
 	ANALYZE _legacy_show_episode_resolution;
 	ANALYZE _legacy_podcast_episode_resolution;
+	ANALYZE _legacy_episodic_inventory;
 
 	INSERT INTO "entity" (
 		"id",
