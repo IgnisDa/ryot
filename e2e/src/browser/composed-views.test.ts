@@ -53,6 +53,9 @@ const expectVisibleText = (locator: Playwright.Locator, text: string) =>
 		expect(yield* match.isVisible()).toBe(true);
 	});
 
+const activeClientFrame = (page: Playwright.Page) =>
+	page.locator('main > div:not([aria-hidden="true"]) iframe');
+
 it.live("opens a published saved-view renderer in one sandboxed iframe", () =>
 	Effect.gen(function* () {
 		const apiUrl = getApiUrl();
@@ -179,7 +182,7 @@ it.live("uses the deterministic collection dashboard as media home and persists 
 		yield* signInThroughHostedOAuth(page, email, password);
 		yield* page.goto(`${getFrontendUrl()}/v/${view.slug}?keep=preserved`);
 		yield* page.waitForURL(`**/v/${view.slug}?keep=preserved`);
-		let runtime = page.locator("iframe").contentFrame();
+		let runtime = activeClientFrame(page).contentFrame();
 		yield* runtime.getByRole("heading", { level: 1, name: "Collection dashboard" }).waitFor();
 		expect(yield* page.locator("#app").count).toBe(1);
 		expect(yield* page.locator("iframe").count).toBe(1);
@@ -201,7 +204,7 @@ it.live("uses the deterministic collection dashboard as media home and persists 
 			.waitFor({ state: "visible" });
 		yield* page.goto(dashboardUrl);
 		yield* page.waitForURL(dashboardUrl);
-		runtime = page.locator("iframe").contentFrame();
+		runtime = activeClientFrame(page).contentFrame();
 		yield* runtime.getByRole("heading", { level: 1, name: "Collection dashboard" }).waitFor();
 		yield* runtime.getByRole("button", { name: "Invoke fixture greeting" }).click();
 		yield* expectVisibleText(runtime.locator("body"), "Hello, Media collection page");
@@ -222,7 +225,7 @@ it.live("uses the deterministic collection dashboard as media home and persists 
 		yield* expectVisibleText(pokemonFrame.contentFrame().locator("body"), "Grass");
 		yield* page.goto(dashboardUrl);
 		yield* page.waitForURL(dashboardUrl);
-		runtime = page.locator("iframe").contentFrame();
+		runtime = activeClientFrame(page).contentFrame();
 		yield* runtime.getByRole("heading", { level: 1, name: "Collection dashboard" }).waitFor();
 		yield* runtime.getByRole("button", { name: "Load next page" }).click();
 
@@ -235,7 +238,7 @@ it.live("uses the deterministic collection dashboard as media home and persists 
 				url.searchParams.get("dialog") === "add-to-collection" &&
 				url.searchParams.get("entityId") === pokemonB.id,
 		);
-		runtime = page.locator("iframe").contentFrame();
+		runtime = activeClientFrame(page).contentFrame();
 		const firstDialog = runtime.getByRole("dialog", { name: "Choose a collection" });
 		yield* firstDialog.waitFor();
 		expect(yield* firstDialog.evaluate((dialog) => dialog.contains(document.activeElement))).toBe(
@@ -245,19 +248,19 @@ it.live("uses the deterministic collection dashboard as media home and persists 
 		expect(yield* runtime.locator("#app").getAttribute("inert")).toBe("");
 		yield* page.goBack();
 		yield* page.waitForURL((url) => url.searchParams.get("dialog") === null);
-		runtime = page.locator("iframe").contentFrame();
+		runtime = activeClientFrame(page).contentFrame();
 		expect(new URL(page.url()).searchParams.get("keep")).toBe("preserved");
 		expect(yield* runtime.getByRole("dialog").count).toBe(0);
 		yield* expectVisibleText(runtime.locator("body"), "3 total");
 
 		yield* runtime.getByRole("button", { name: "Add 04 Task 10 Pokemon B to collection" }).click();
-		runtime = page.locator("iframe").contentFrame();
+		runtime = activeClientFrame(page).contentFrame();
 		yield* runtime.getByRole("radio", { name: collection.name }).click();
 		yield* runtime.getByRole("button", { name: "Review" }).click();
 		yield* runtime.getByRole("heading", { name: "Review collection change" }).waitFor();
 		yield* runtime.getByRole("button", { name: "Confirm" }).click();
 		yield* page.waitForURL((url) => url.searchParams.get("dialog") === null);
-		runtime = page.locator("iframe").contentFrame();
+		runtime = activeClientFrame(page).contentFrame();
 		yield* expectVisibleText(runtime.locator("body"), "4 total");
 		yield* expectVisibleText(runtime.locator("body"), "2 Pokemon");
 		yield* runtime
@@ -265,7 +268,7 @@ it.live("uses the deterministic collection dashboard as media home and persists 
 			.waitFor({ state: "visible" });
 
 		yield* page.reload;
-		runtime = page.locator("iframe").contentFrame();
+		runtime = activeClientFrame(page).contentFrame();
 		yield* expectVisibleText(runtime.locator("body"), "4 total");
 		yield* expectVisibleText(runtime.locator("body"), "2 Pokemon");
 		yield* runtime.getByRole("button", { name: "Load next page" }).click();
@@ -275,18 +278,17 @@ it.live("uses the deterministic collection dashboard as media home and persists 
 
 		yield* page.goto(`${getFrontendUrl()}/media`);
 		yield* page.waitForURL(`**/media`);
-		yield* page.locator("iframe").waitFor({ state: "visible" });
+		yield* activeClientFrame(page).waitFor({ state: "visible" });
 		expect(yield* page.getByRole("button", { name: "Media workspace, media" }).count).toBe(1);
 		expect(
 			yield* page.getByRole("link", { exact: true, name: "Home" }).getAttribute("aria-current"),
 		).toBe("page");
-		yield* expectVisibleText(page.locator("iframe").contentFrame().locator("body"), "4 total");
+		yield* expectVisibleText(activeClientFrame(page).contentFrame().locator("body"), "4 total");
 
 		yield* page.setViewportSize({ width: 390, height: 844 });
 		expect(yield* page.locator("iframe").count).toBe(1);
 		expect(
-			yield* page
-				.locator("iframe")
+			yield* activeClientFrame(page)
 				.contentFrame()
 				.locator("body")
 				.evaluate((body) => body.scrollWidth <= document.documentElement.clientWidth),
@@ -296,19 +298,19 @@ it.live("uses the deterministic collection dashboard as media home and persists 
 
 		yield* page.goto(`${getFrontendUrl()}/v/${secondaryView.slug}`);
 		yield* page.waitForURL(`**/v/${secondaryView.slug}`);
-		yield* expectVisibleText(page.locator("iframe").contentFrame().locator("body"), "4 total");
+		yield* expectVisibleText(activeClientFrame(page).contentFrame().locator("body"), "4 total");
 		expect(yield* page.locator("iframe").count).toBe(1);
 
 		const directDialogUrl = `${getFrontendUrl()}/v/${view.slug}?keep=preserved&dialog=add-to-collection&entityId=${pokemonB.id}`;
 		yield* page.goto(directDialogUrl);
 		yield* page.waitForURL(directDialogUrl);
-		runtime = page.locator("iframe").contentFrame();
+		runtime = activeClientFrame(page).contentFrame();
 		const directDialog = runtime.getByRole("dialog", { name: "Choose a collection" });
 		yield* directDialog.waitFor();
 		yield* directDialog.getByRole("button", { exact: true, name: "Cancel" }).click();
 		yield* page.waitForURL(dashboardUrl);
 		expect(new URL(page.url()).search).toBe("?keep=preserved");
-		runtime = page.locator("iframe").contentFrame();
+		runtime = activeClientFrame(page).contentFrame();
 		expect(yield* runtime.getByRole("dialog").count).toBe(0);
 	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );
@@ -568,7 +570,7 @@ it.live("keeps configured entity-browser controls within their declared source",
 		const page = yield* browser.newPage();
 		yield* signInThroughHostedOAuth(page, email, password);
 		yield* page.goto(`${getFrontendUrl()}/v/${view.slug}?keep=1&layout=table`);
-		const runtime = page.locator("iframe").contentFrame();
+		const runtime = activeClientFrame(page).contentFrame();
 		yield* runtime.getByRole("heading", { level: 1, name: "Configured entity browser" }).waitFor();
 		yield* runtime.getByText(alpha.name, { exact: true }).waitFor({ state: "visible" });
 		expect(yield* runtime.getByRole("button", { name: "Add", exact: true }).count).toBe(0);
@@ -646,15 +648,15 @@ it.live(
 			const page = yield* browser.newPage();
 			yield* signInThroughHostedOAuth(page, email, password);
 			yield* page.goto(`${getFrontendUrl()}/v/${view.slug}`);
-			const runtime = page.locator("iframe").contentFrame();
+			const runtime = activeClientFrame(page).contentFrame();
 			yield* runtime.getByRole("heading", { level: 1, name: view.name }).waitFor();
+			const rows = runtime.locator("tbody tr");
+			yield* rows.nth(1).waitFor();
 			expect(yield* runtime.getByRole("columnheader").allInnerTexts()).toEqual([
 				"Note",
 				"Occurred",
 				"Missing",
 			]);
-			const rows = runtime.locator("tbody tr");
-			yield* rows.nth(1).waitFor();
 			expect(yield* rows.count).toBe(2);
 			expect(yield* rows.allInnerTexts()).toEqual([
 				expect.stringContaining("First row"),
@@ -720,7 +722,7 @@ it.live("decodes native, grouped, and time-series named data sources in a publis
 		const page = yield* browser.newPage();
 		yield* signInThroughHostedOAuth(page, email, password);
 		yield* page.goto(`${getFrontendUrl()}/v/${view.slug}`);
-		const runtime = page.locator("iframe").contentFrame();
+		const runtime = activeClientFrame(page).contentFrame();
 		yield* runtime.getByRole("heading", { level: 1, name: "Named data sources" }).waitFor();
 		yield* expectVisibleText(runtime.locator("body"), "Native rows: Named Alpha | Named Beta");
 		yield* expectVisibleText(runtime.locator("body"), `Grouped aggregate: ${schema.slug}=2`);
@@ -864,11 +866,10 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 		yield* signInThroughHostedOAuth(page, email, password);
 		yield* page.goto(`${getFrontendUrl()}/v/${view.slug}`);
 
-		const frames = page.locator("iframe");
-		yield* frames.waitFor({ state: "visible" });
-		expect(yield* frames.count).toBe(1);
-		const iframe = Option.getOrThrow(yield* frames.first().elementHandle());
-		const runtime = frames.first().contentFrame();
+		const frame = activeClientFrame(page);
+		yield* frame.waitFor({ state: "visible" });
+		const iframe = Option.getOrThrow(yield* frame.elementHandle());
+		const runtime = frame.contentFrame();
 		yield* runtime
 			.getByRole("heading", { level: 1, name: "Mixed entity browser" })
 			.waitFor({ state: "visible" });
@@ -962,10 +963,8 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 			JSON.stringify({ savedViewId: view.id }),
 		);
 		expect(yield* runtime.locator("body").getAttribute("data-e2e-page")).toBe("stable");
-		expect(yield* frames.first().evaluate((current, initial) => current === initial, iframe)).toBe(
-			true,
-		);
-		expect(yield* frames.count).toBe(1);
+		expect(yield* frame.evaluate((current, initial) => current === initial, iframe)).toBe(true);
+		expect(yield* frame.count).toBe(1);
 		expect(yield* runtime.locator("#app").count).toBe(1);
 	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );

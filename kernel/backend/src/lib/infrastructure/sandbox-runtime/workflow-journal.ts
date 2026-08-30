@@ -51,10 +51,7 @@ return redis.call('EXPIRE', KEYS[1], ARGV[2])
 `;
 
 type WorkflowJournalBridgeRedis = {
-	readonly client: {
-		hget: (key: string, field: string) => Promise<string | null>;
-		hmget: (key: string, ...fields: string[]) => Promise<Array<string | null>>;
-	};
+	readonly client: { hgetall: (key: string) => Promise<Record<string, string>> };
 };
 
 type WorkflowJournalProjectionRedis = {
@@ -117,8 +114,9 @@ export const makeWorkflowReplayJournalHostFunction =
 				return hostFailure("replayJournal is available only to workflow executions");
 			}
 			const key = redisKeys.sandboxWorkflowJournal(workflowExecutionId);
-			const rawHighWater = yield* Effect.promise(() => redis.client.hget(key, highWaterField));
-			const highWater = rawHighWater === null ? 0 : Number(rawHighWater);
+			const fields = yield* Effect.promise(() => redis.client.hgetall(key));
+			const rawHighWater = fields[highWaterField];
+			const highWater = rawHighWater === undefined ? 0 : Number(rawHighWater);
 			if (
 				!Number.isSafeInteger(highWater) ||
 				highWater < 0 ||
@@ -126,14 +124,11 @@ export const makeWorkflowReplayJournalHostFunction =
 			) {
 				return hostFailure("Sandbox workflow journal high-water mark is corrupt");
 			}
-			const fields = Array.from({ length: highWater }, (_, index) => String(index));
-			const rawEntries =
-				fields.length === 0 ? [] : yield* Effect.promise(() => redis.client.hmget(key, ...fields));
 			const entries: WorkflowReplayJournalEntry[] = [];
 			let encodedBytes = 2;
-			for (let index = 0; index < rawEntries.length; index += 1) {
-				const raw = rawEntries[index];
-				if (raw === null || raw === undefined) {
+			for (let index = 0; index < highWater; index += 1) {
+				const raw = fields[String(index)];
+				if (raw === undefined) {
 					return hostFailure(`Sandbox workflow journal[${index}] is missing`);
 				}
 				encodedBytes += utf8ByteLength(raw) + (index === 0 ? 0 : 1);
