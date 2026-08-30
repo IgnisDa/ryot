@@ -37,6 +37,7 @@ import {
 } from "./validation";
 
 type SystemSetEntry = Pick<StoredPlugin, "id" | "manifest" | "scripts" | "slug">;
+type EnvironmentResolutionTiming = "deferred" | "immediate";
 
 const toSystemPluginItem = (plugin: Pick<NormalizedPlugin, "manifest" | "sourceHash">) => ({
 	...plugin.manifest.metadata,
@@ -122,7 +123,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 
 			const ingestSystemPluginUnlocked = Effect.fn(
 				"PluginIngestionService.ingestSystemPluginUnlocked",
-			)(function* (source: PluginSource) {
+			)(function* (source: PluginSource, environmentResolution: EnvironmentResolutionTiming) {
 				const normalizedSource = yield* normalizePluginSource(source);
 				const { files, manifest, sourceHash } = normalizedSource;
 				yield* validatePluginManifestPolicy(manifest, { scope: "system" });
@@ -154,7 +155,9 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 								return null;
 							}
 							yield* validateSystemSet(plugins);
-							yield* repository.resolveEnvironmentConfig(authoritative);
+							if (environmentResolution === "immediate") {
+								yield* repository.resolveEnvironmentConfig(authoritative);
+							}
 							return authoritative;
 						}),
 					);
@@ -186,15 +189,29 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 								issues: [`System plugin ${slug} is not active after ingestion`],
 							});
 						}
-						yield* repository.resolveEnvironmentConfig(entry);
+						if (environmentResolution === "immediate") {
+							yield* repository.resolveEnvironmentConfig(entry);
+						}
 						return entry;
 					}),
 				);
 				yield* invalidator.all;
 				return stored;
 			});
+			const ingestSystemPluginSource = (
+				source: PluginSource,
+				environmentResolution: EnvironmentResolutionTiming,
+			) => ingestSystemPluginUnlocked(source, environmentResolution).pipe(structurePluginFailure);
 			const ingestSystemPlugin = Effect.fn("PluginIngestionService.ingestSystemPlugin")(
-				(source: PluginSource) => ingestSystemPluginUnlocked(source).pipe(structurePluginFailure),
+				(source: PluginSource) => ingestSystemPluginSource(source, "immediate"),
+			);
+			const synchronizeSystemPlugins = Effect.fn("PluginIngestionService.synchronizeSystemPlugins")(
+				function* (sources: ReadonlyArray<PluginSource>) {
+					for (const source of sources) {
+						yield* ingestSystemPluginSource(source, "deferred");
+					}
+					yield* inTransaction(repository.resolveEnvironmentConfigs());
+				},
 			);
 
 			const listPlugins = Effect.fn("PluginIngestionService.listPlugins")(function* () {
@@ -278,6 +295,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 				installPlugin,
 				uninstallPlugin,
 				ingestSystemPlugin,
+				synchronizeSystemPlugins,
 				validateActiveSystemPlugins,
 			};
 		}),
