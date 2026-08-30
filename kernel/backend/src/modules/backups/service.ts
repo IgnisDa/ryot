@@ -8,7 +8,7 @@ import {
 	type CreateRestoreBody,
 } from "@ryot-app/contract/modules/backups/schemas";
 import type { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
-import { Context, DateTime, Effect, Layer, Result } from "effect";
+import { Cause, Context, DateTime, Effect, Layer, Result } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
@@ -36,11 +36,14 @@ const storageFailure = <A, E, R>(
 	code: "artifact-storage-unavailable" | "artifact-delete-failed",
 ) =>
 	effect.pipe(
-		Effect.catchCause((cause) =>
-			Effect.logError("backup artifact storage operation failed", cause).pipe(
-				Effect.andThen(Effect.fail(new BackupInternalError({ reason: { code } }))),
-			),
+		Effect.catchCauseIf(
+			(cause) => !Cause.hasInterruptsOnly(cause),
+			(cause) =>
+				Effect.logError("backup artifact storage operation failed", cause).pipe(
+					Effect.andThen(Effect.fail(new BackupInternalError({ reason: { code } }))),
+				),
 		),
+		Effect.mapError(() => new BackupInternalError({ reason: { code } })),
 	);
 
 export class BackupsService extends Context.Service<BackupsService>()("BackupsService", {
@@ -194,10 +197,12 @@ export class BackupsService extends Context.Service<BackupsService>()("BackupsSe
 						});
 						yield* repository.deleteExpiredRunById({ runId: artifact.id });
 					}).pipe(
-						Effect.catchCause((cause) =>
-							Effect.logWarning("backup artifact cleanup failed", cause).pipe(
-								Effect.annotateLogs({ runId: artifact.id }),
-							),
+						Effect.catchCauseIf(
+							(cause) => !Cause.hasInterruptsOnly(cause),
+							(cause) =>
+								Effect.logWarning("backup artifact cleanup failed", cause).pipe(
+									Effect.annotateLogs({ runId: artifact.id }),
+								),
 						),
 					),
 				{ discard: true },

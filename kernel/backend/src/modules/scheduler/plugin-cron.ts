@@ -182,8 +182,8 @@ export class PluginCronService extends Context.Service<PluginCronService>()("Plu
 			return dueAt === scheduledAt ? [[target, executionId] as DueDispatch] : [];
 		});
 
-		const dispatchDue = Effect.fn("PluginCronService.dispatchDue")(function* (scheduledAt: number) {
-			const system = yield* Effect.forEach(list(), (entry) =>
+		const dueSystemDispatches = Effect.fnUntraced(function* (scheduledAt: number) {
+			const entries = yield* Effect.forEach(list(), (entry) =>
 				dueDispatches(
 					entry,
 					scheduledAt,
@@ -191,29 +191,30 @@ export class PluginCronService extends Context.Service<PluginCronService>()("Plu
 					pluginCronExecutionId(entry.pluginSlug, entry.cron.slug, scheduledAt),
 				),
 			);
-			const owned = yield* runtime.listPrivateCronSchedules().pipe(
-				Effect.flatMap((schedules) =>
-					Effect.forEach(schedules, (entry) =>
-						dueDispatches(
-							entry,
-							scheduledAt,
-							{
-								cronSlug: entry.cron.slug,
-								pluginSlug: entry.pluginSlug,
-								installationId: entry.installationId,
-							},
-							privatePluginCronExecutionId(entry.installationId, entry.cron.slug, scheduledAt),
-						),
-					),
-				),
-				Effect.map((entries) => entries.flat()),
-				Effect.catchCause((cause) =>
-					Effect.logError("private plugin cron discovery failed", cause).pipe(
-						Effect.as([] as ReadonlyArray<DueDispatch>),
-					),
+			return entries.flat();
+		});
+
+		const duePrivateDispatches = Effect.fnUntraced(function* (scheduledAt: number) {
+			const schedules = yield* runtime.listPrivateCronSchedules();
+			const entries = yield* Effect.forEach(schedules, (entry) =>
+				dueDispatches(
+					entry,
+					scheduledAt,
+					{
+						cronSlug: entry.cron.slug,
+						pluginSlug: entry.pluginSlug,
+						installationId: entry.installationId,
+					},
+					privatePluginCronExecutionId(entry.installationId, entry.cron.slug, scheduledAt),
 				),
 			);
-			yield* dispatchAll([...system.flat(), ...owned]);
+			return entries.flat();
+		});
+
+		const dispatchDue = Effect.fn("PluginCronService.dispatchDue")(function* (scheduledAt: number) {
+			const system = yield* dueSystemDispatches(scheduledAt);
+			const owned = yield* duePrivateDispatches(scheduledAt);
+			yield* dispatchAll([...system, ...owned]);
 		});
 
 		const trigger = Effect.fn("PluginCronService.trigger")(function* (
@@ -256,7 +257,12 @@ export const PluginCronSchedulerLive = Layer.effectDiscard(
 			const nowMs = yield* Clock.currentTimeMillis;
 			const scheduledAt = (Math.floor(nowMs / MINUTE_MS) + 1) * MINUTE_MS;
 			yield* Effect.sleep(Duration.millis(scheduledAt - nowMs));
-			yield* crons.dispatchDue(scheduledAt);
+			yield* crons.dispatchDue(scheduledAt).pipe(
+				Effect.catchCauseIf(
+					(cause) => !Cause.hasInterruptsOnly(cause),
+					(cause) => Effect.logError("plugin cron dispatch failed", cause),
+				),
+			);
 		});
 		yield* tick.pipe(Effect.forever, Effect.forkScoped);
 	}),
