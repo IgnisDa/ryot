@@ -248,7 +248,7 @@ const mountView = (
 				revoke: () => Effect.die("not used"),
 				create: () => Effect.die("not used"),
 			}),
-			Layer.succeed(ManagedAssetsService, { resolve }),
+			Layer.succeed(ManagedAssetsService, { read: () => Effect.die("not used"), resolve }),
 			EntityRouteStubs,
 			Layer.succeed(PluginCatalogService, { load: () => Effect.succeed(catalog) }),
 			NavigationRouteStubs,

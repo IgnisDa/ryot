@@ -6,11 +6,14 @@ import {
 	CLIENT_BRIDGE_MAX_PENDING_REQUESTS,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
+	type PluginAssetBridgeErrorReason,
 	type PluginBridgeNavigate,
 	type PluginBridgeReady,
 	type PluginLogicalLocation,
 	type PluginRouteLocation,
 	type PluginThemeSnapshot,
+	type PluginAssetOutcome,
+	type PluginAssetRequest,
 	type PluginOperationBridgeErrorReason,
 	type PluginOperationOutcome,
 	type PluginOperationRequest,
@@ -88,6 +91,7 @@ function deferred<T>() {
 const connect = (
 	options: {
 		readonly timeoutMs?: number;
+		readonly onAssets?: Parameters<typeof openPluginBridge>[0]["onAssets"];
 		readonly onOperation?: (
 			request: PluginOperationRequest,
 			signal: AbortSignal,
@@ -128,6 +132,7 @@ const connect = (
 		onOpenDrawer: () => drawers.push(null),
 		onScreenState: (state) => screenStates.push(state),
 		onNavigate: (request) => navigations.push(request),
+		onAssets: options.onAssets ?? (() => new Promise(() => {})),
 		onRyotQL: options.onRyotQL ?? (() => new Promise(() => {})),
 		onOperation:
 			options.onOperation ??
@@ -217,6 +222,7 @@ describe("plugin bridge", () => {
 			onScreenState: () => undefined,
 			onNavigateBack: () => undefined,
 			onFailure: () => failures.push(null),
+			onAssets: () => new Promise(() => {}),
 			onRyotQL: () => new Promise(() => {}),
 			onOperation: () => new Promise(() => {}),
 			target: {
@@ -432,6 +438,163 @@ describe("plugin bridge", () => {
 
 		await waitFor(() => expect(navigations).toEqual([request]));
 		expect(failures).toEqual([]);
+	});
+
+	it("round-trips a managed asset request and result without identity details", async () => {
+		const assets = [{ type: "local", key: "permanent/cover.png" }] as const;
+		const resolutions = [
+			{
+				asset: assets[0],
+				expiresAt: "2026-09-04T12:15:00.000Z",
+				url: "https://ryot.example/api/uploads/local/download?key=permanent/cover.png",
+			},
+		] as const;
+		const calls: PluginAssetRequest[] = [];
+		const { init, pluginPort, received } = connect({
+			onAssets: (request) => {
+				calls.push(request);
+				return Promise.resolve({ outcome: "success", resolutions });
+			},
+		});
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toHaveLength(1));
+
+		pluginPort.postMessage({ assets, requestId: "asset-1", type: "asset-request" });
+
+		await waitFor(() => expect(received).toHaveLength(2));
+		expect(calls).toEqual([{ assets }]);
+		expect(received[1]).toEqual({
+			resolutions,
+			outcome: "success",
+			requestId: "asset-1",
+			type: "asset-result",
+		});
+	});
+
+	for (const reason of ["asset-failed", "transport"] satisfies PluginAssetBridgeErrorReason[]) {
+		it(`round-trips an ${reason} asset bridge error without extra details`, async () => {
+			const { init, pluginPort, received, failures } = connect({
+				onAssets: () => Promise.resolve({ outcome: "failure", reason }),
+			});
+			pluginPort.postMessage(readyFor(init));
+			await waitFor(() => expect(received).toHaveLength(1));
+
+			pluginPort.postMessage({
+				requestId: "asset-1",
+				type: "asset-request",
+				assets: [{ type: "s3", key: "permanent/cover.png" }],
+			});
+
+			await waitFor(() => expect(received).toHaveLength(2));
+			expect(received[1]).toEqual({
+				reason,
+				outcome: "failure",
+				requestId: "asset-1",
+				type: "asset-result",
+			});
+			expect(failures).toEqual([]);
+		});
+	}
+
+	it("rejects an asset request carrying installation or authentication identity", async () => {
+		const calls: PluginAssetRequest[] = [];
+		const { init, pluginPort, received, failures } = connect({
+			onAssets: (request) => {
+				calls.push(request);
+				return Promise.resolve({ outcome: "success", resolutions: [] });
+			},
+		});
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toHaveLength(1));
+
+		pluginPort.postMessage({
+			userId: "user-1",
+			requestId: "asset-1",
+			type: "asset-request",
+			installationId: "installation-1",
+			authorization: "Bearer private-token",
+			assets: [{ type: "local", key: "permanent/cover.png" }],
+		});
+
+		await waitFor(() => expect(failures).toHaveLength(1));
+		expect(calls).toEqual([]);
+		expect(received).toEqual([at(), { reason: "failed", type: "lifecycle-close" }]);
+	});
+
+	it("cancels only matching asset work, releases admission, and ignores late results", async () => {
+		const signals: AbortSignal[] = [];
+		const calls: Array<ReturnType<typeof deferred<PluginAssetOutcome>>> = [];
+		const { init, pluginPort, received, failures } = connect({
+			onAssets: (_request, signal) => {
+				signals.push(signal);
+				const call = deferred<PluginAssetOutcome>();
+				calls.push(call);
+				return call.promise;
+			},
+		});
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toHaveLength(1));
+
+		for (let index = 0; index < CLIENT_BRIDGE_MAX_PENDING_REQUESTS; index += 1) {
+			pluginPort.postMessage({
+				type: "asset-request",
+				requestId: `asset-${index}`,
+				assets: [{ type: "local", key: `permanent/asset-${index}.png` }],
+			});
+		}
+		await waitFor(() => expect(signals).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS));
+
+		pluginPort.postMessage({ requestId: "unknown", type: "asset-cancel" });
+		pluginPort.postMessage({ requestId: "asset-0", type: "asset-cancel" });
+		pluginPort.postMessage({ requestId: "asset-0", type: "asset-cancel" });
+		await waitFor(() => expect(signals[0]?.aborted).toBe(true));
+
+		pluginPort.postMessage({
+			type: "asset-request",
+			requestId: "replacement",
+			assets: [{ type: "s3", key: "permanent/replacement.png" }],
+		});
+		await waitFor(() => expect(signals).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS + 1));
+
+		calls[0]?.resolve({ outcome: "success", resolutions: [] });
+		calls.at(-1)?.resolve({ outcome: "success", resolutions: [] });
+		await waitFor(() =>
+			expect(received).toContainEqual({
+				resolutions: [],
+				outcome: "success",
+				type: "asset-result",
+				requestId: "replacement",
+			}),
+		);
+
+		expect(received).not.toContainEqual(expect.objectContaining({ requestId: "asset-0" }));
+		expect(failures).toEqual([]);
+	});
+
+	it("aborts pending asset work on disposal and suppresses its late result", async () => {
+		let signal: AbortSignal | undefined;
+		const call = deferred<PluginAssetOutcome>();
+		const { init, pluginPort, received, session } = connect({
+			onAssets: (_request, requestSignal) => {
+				signal = requestSignal;
+				return call.promise;
+			},
+		});
+		pluginPort.postMessage(readyFor(init));
+		await waitFor(() => expect(received).toHaveLength(1));
+		pluginPort.postMessage({
+			requestId: "asset-1",
+			type: "asset-request",
+			assets: [{ type: "local", key: "permanent/cover.png" }],
+		});
+		await waitFor(() => expect(signal).toBeDefined());
+
+		session.close();
+		expect(signal?.aborted).toBe(true);
+		call.resolve({ outcome: "success", resolutions: [] });
+		await delay(10);
+
+		expect(received).toEqual([at(), { reason: "disposed", type: "lifecycle-close" }]);
 	});
 
 	it("sends only lifecycle close after teardown or a failed handshake", async () => {

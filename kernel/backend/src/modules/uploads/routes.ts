@@ -72,26 +72,22 @@ const localDownloadResponse = (
 		const length = parsedRange.end - parsedRange.start + 1;
 		const headers = {
 			"accept-ranges": "bytes",
-			"content-disposition": "inline",
 			"content-type": file.contentType,
+			"x-content-type-options": "nosniff",
 			"content-length": String(length),
+			"content-disposition": file.contentType === "image/svg+xml" ? "attachment" : "inline",
+			...(file.contentType === "image/svg+xml" ? { "content-security-policy": "sandbox" } : {}),
 			...(range
 				? { "content-range": `bytes ${parsedRange.start}-${parsedRange.end}/${file.size}` }
 				: {}),
 		};
 		if (method === "HEAD") {
-			return HttpServerResponse.empty({
-				headers,
-				status: range ? 206 : 200,
-			});
+			return HttpServerResponse.empty({ headers, status: range ? 206 : 200 });
 		}
 		const fs = yield* FileSystem.FileSystem;
 		return HttpServerResponse.stream(
 			fs.stream(file.path, { offset: parsedRange.start, bytesToRead: length }),
-			{
-				headers,
-				status: range ? 206 : 200,
-			},
+			{ headers, status: range ? 206 : 200 },
 		);
 	}).pipe(mapUploadError);
 
