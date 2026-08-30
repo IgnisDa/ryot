@@ -56,7 +56,7 @@ const makeView = (
 		Layer.mergeAll(events.layer, Layer.succeed(PluginCatalogService, { load })),
 	);
 	const tree = (content: ReactNode) => (
-		<RyotProvider runtime={ryot.runtime}>
+		<RyotProvider runtime={ryot.runtime} hostServices={{ runtime, scope }}>
 			<PluginCatalogProvider scope={scope} runtime={runtime} initialCatalog={catalog}>
 				{content}
 			</PluginCatalogProvider>
