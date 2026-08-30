@@ -167,7 +167,7 @@ export const bundleClientPlugin = (sources: ClientPluginSources, compilerRoot: s
 					namespace: EFFECT_NAMESPACE,
 				}));
 				builder.onResolve(
-					{ filter: /^effect\/(?:DateTime|Match|Result|Schema|SchemaGetter)$/ },
+					{ filter: /^effect\/(?:DateTime|Match|Option|Result|Schema|SchemaGetter)$/ },
 					({ path }) => ({
 						namespace: "file",
 						path: Bun.resolveSync(path, compilerRoot),
@@ -178,6 +178,7 @@ export const bundleClientPlugin = (sources: ClientPluginSources, compilerRoot: s
 					contents: `
 export * as DateTime from "effect/DateTime";
 export * as Match from "effect/Match";
+export * as Option from "effect/Option";
 export * as Result from "effect/Result";
 export * as Schema from "effect/Schema";
 export * as SchemaGetter from "effect/SchemaGetter";
