@@ -6,7 +6,7 @@ import {
 	type SchemaFormApi,
 	type SchemaFormValues,
 } from "@ryot-app/client-ui-sdk/schema-form";
-import { Match } from "effect";
+import { Cause, Effect, Match } from "effect";
 import { useReducer, useState } from "react";
 
 import {
@@ -180,24 +180,30 @@ export function IntegrationCreateWizard(props: CreateWizardProps) {
 	const provider = findBySlug(listed, state.slug);
 
 	const connect = (values: SchemaFormValues) => {
-		if (provider === undefined) {
-			return Promise.resolve();
-		}
-		setFailure(undefined);
-		return create.mutateAsync(createIntegrationBody({ values, provider })).then(
-			() => {
-				props.onCreated();
-				props.onClose();
-				return undefined;
-			},
-			(error) => {
-				const saveFailure = integrationSaveFailure(error);
-				setFailure(saveFailure);
-				if (saveFailure.step !== undefined) {
-					dispatch({ type: "recover-at", step: saveFailure.step });
+		return Effect.runPromise(
+			Effect.gen(function* () {
+				if (provider === undefined) {
+					return;
 				}
-				return undefined;
-			},
+				setFailure(undefined);
+				yield* create.mutateEffect(createIntegrationBody({ values, provider })).pipe(
+					Effect.tap(() =>
+						Effect.sync(() => {
+							props.onCreated();
+							props.onClose();
+						}),
+					),
+					Effect.catchCause((cause) =>
+						Effect.sync(() => {
+							const saveFailure = integrationSaveFailure(Cause.squash(cause));
+							setFailure(saveFailure);
+							if (saveFailure.step !== undefined) {
+								dispatch({ type: "recover-at", step: saveFailure.step });
+							}
+						}),
+					),
+				);
+			}),
 		);
 	};
 

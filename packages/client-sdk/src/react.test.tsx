@@ -232,7 +232,10 @@ describe("Effect-native React definitions", () => {
 				return <p>{result.status}</p>;
 			};
 			const { container } = render(<View />, clock);
-			const result = yield* Effect.promise(() => act(() => latest?.mutateAsync("saved")));
+			const context = yield* Effect.context();
+			const effect =
+				latest?.mutateEffect("saved") ?? Effect.die(new Error("Mutation hook did not mount"));
+			const result = yield* Effect.promise(() => act(() => Effect.runPromiseWith(context)(effect)));
 			expect(result).toBe("saved");
 			expect(container.textContent).toBe("success");
 			expect(hints).toBe(2);
@@ -255,9 +258,17 @@ describe("Effect-native React definitions", () => {
 				);
 			};
 			const { container } = render(<View />);
-			yield* Effect.promise(() =>
-				act(() => expect(latest?.mutateAsync("failed")).rejects.toMatchObject({ reason: "quota" })),
+			const context = yield* Effect.context();
+			const effect =
+				latest?.mutateEffect("failed") ?? Effect.die(new Error("Mutation hook did not mount"));
+			const failure = yield* Effect.promise(() =>
+				act(() =>
+					Effect.runPromiseWith(context)(
+						effect.pipe(Effect.match({ onFailure: (error) => error, onSuccess: (value) => value })),
+					),
+				),
 			);
+			expect(failure).toMatchObject({ reason: "quota" });
 			expect(container.textContent).toBe("error:quota");
 			act(() => latest?.reset());
 			expect(container.textContent).toBe("idle:none");

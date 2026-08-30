@@ -1,6 +1,7 @@
 import { useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
 import type { NotificationChannelsResult } from "@ryot-app/ryotql-recipes/notification-channels";
 import { createFileRoute } from "@tanstack/react-router";
+import { Effect } from "effect";
 import { useState, type ReactNode } from "react";
 
 import { AuthService } from "#/modules/auth/service";
@@ -77,47 +78,53 @@ function NotificationChannelsRoute() {
 	const sendTest = () => {
 		setTestDetail(undefined);
 		setTestSucceeded(false);
-		return sendTestMutation
-			.mutateAsync()
-			.then(() => true)
-			.catch(() => false)
-			.then((queued) => {
+		return Effect.runPromise(
+			Effect.gen(function* () {
+				const queued = yield* sendTestMutation.mutateEffect().pipe(
+					Effect.as(true),
+					Effect.catchCause(() => Effect.succeed(false)),
+				);
 				setTestSucceeded(queued);
 				setTestDetail(
 					queued
 						? testedChannelsDetail(enabledCount)
 						: "The test notification could not be sent. Try again.",
 				);
-				return undefined;
-			});
+			}),
+		);
 	};
 
 	const toggleChannel = (id: string, isDisabled: boolean) => {
 		setPendingChannelId(id);
 		setTestDetail(undefined);
 		setDeleteFailedId(undefined);
-		return updateMutation
-			.mutateAsync({ id, isDisabled })
-			.catch(() => undefined)
-			.then(() => setPendingChannelId(undefined));
+		return Effect.runPromise(
+			updateMutation
+				.mutateEffect({ id, isDisabled })
+				.pipe(
+					Effect.ignoreCause,
+					Effect.ensuring(Effect.sync(() => setPendingChannelId(undefined))),
+				),
+		);
 	};
 
 	const deleteChannel = (id: string) => {
 		setPendingChannelId(id);
 		setDeleteFailedId(undefined);
-		return deleteMutation
-			.mutateAsync(id)
-			.then(() => true)
-			.catch(() => false)
-			.then((removed) => {
+		return Effect.runPromise(
+			Effect.gen(function* () {
+				const removed = yield* deleteMutation.mutateEffect(id).pipe(
+					Effect.as(true),
+					Effect.catchCause(() => Effect.succeed(false)),
+				);
 				setPendingChannelId(undefined);
 				if (!removed) {
 					setDeleteFailedId(id);
-					return undefined;
+					return;
 				}
 				setTestDetail(undefined);
-				return undefined;
-			});
+			}),
+		);
 	};
 
 	const wizard = useSearchParamModal({
