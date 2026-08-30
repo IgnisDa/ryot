@@ -274,6 +274,19 @@ it.effect(
 );
 
 it.effect(
+	"scans the client SDK so its own utilities reach the artifact stylesheet",
+	() =>
+		Effect.gen(function* () {
+			const { artifact } = yield* compileFixture({ "client/index.tsx": bytes("export {};") });
+			const css = text(artifact.files.find(({ name }) => name === "plugin.css")?.contents);
+
+			expect(css).toContain("@container");
+			expect(css).toContain("grid-cols-2");
+		}),
+	30_000,
+);
+
+it.effect(
 	"does not duplicate the Tailwind entry a plugin stylesheet also imports",
 	() =>
 		Effect.gen(function* () {
@@ -688,6 +701,7 @@ export default function Home() { return (
 			edgeBack: false,
 			type: "location",
 			leading: "drawer",
+			screenKey: "home",
 			location: { kind: "route", path: "/", search: "" },
 		});
 		yield* Effect.promise(() =>
@@ -1552,6 +1566,7 @@ export default function Details() {
 		edgeBack: false,
 		type: "location",
 		leading: "drawer",
+		screenKey: "details",
 		location: { kind: "route", path: "/items/new", search: "" },
 	});
 	await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("New item"), {
@@ -1560,6 +1575,7 @@ export default function Details() {
 	channel.port1.postMessage({
 		index: 1,
 		key: "missing",
+		screenKey: "missing",
 		compact: false,
 		edgeBack: true,
 		type: "location",

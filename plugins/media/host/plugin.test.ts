@@ -10,6 +10,7 @@ import { manifest as igdbSearchOptionsManifest } from "../backend/providers/vide
 import { manifest as igdbSearchManifest } from "../backend/providers/video-game/igdb/search.sandbox";
 import { manifest as monitoringTargetsManifest } from "../backend/workflows/media-monitoring-targets.sandbox";
 import { mediaPlugin } from "./plugin";
+import { mediaSavedViews } from "./saved-views";
 
 const PROVIDER_OPERATIONS = new Set([
 	"details",
@@ -67,13 +68,7 @@ it("declares the complete media-owned source", () => {
 		apiVersion: 1,
 		homeView: null,
 		routes: { "/": "media-home" },
-		entities: {
-			show: {
-				detailPage: "show-detail",
-				gridPresentation: "show-card",
-				listPresentation: "show-row",
-			},
-		},
+		entities: expect.any(Object),
 		exports: {
 			"media-home": {
 				kind: "page",
@@ -102,8 +97,31 @@ it("declares the complete media-owned source", () => {
 				automaticEntityPresentations: false,
 				entry: "client/show-row-presentation.ts",
 			},
+			"media-card": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/media-card-presentation.ts",
+			},
+			"media-row": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/media-row-presentation.ts",
+			},
 		},
 	});
+	const registrations = mediaPlugin.client.entities;
+	expect(Object.keys(registrations)).toHaveLength(mediaSavedViews().length);
+	for (const [slug, registration] of Object.entries(registrations)) {
+		expect(registration).toEqual(
+			slug === "show"
+				? {
+						detailPage: "show-detail",
+						gridPresentation: "show-card",
+						listPresentation: "show-row",
+					}
+				: { gridPresentation: "media-card", listPresentation: "media-row" },
+		);
+	}
 	expect(mediaPlugin.entitySchemas.map(({ slug }) => slug)).toContain("library");
 	expect(mediaPlugin.relationshipSchemas.map(({ slug }) => slug)).toContain("in-library");
 	expect(mediaPlugin.entitySchemas.find(({ slug }) => slug === "library")).toEqual(

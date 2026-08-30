@@ -1,6 +1,14 @@
 import { Button, StatusMessage } from "@ryot-app/client-ui-sdk";
-import type { EntitySyncState } from "@ryot-app/client-ui-sdk/sync";
+import {
+	EntityArtWell,
+	SettleHighlight,
+	SyncPip,
+	fieldSyncState,
+	isTitleProvisional,
+	type EntitySyncState,
+} from "@ryot-app/client-ui-sdk/sync";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import * as Schema from "effect/Schema";
 import {
 	Component,
 	createContext,
@@ -68,7 +76,7 @@ export type EntityPresentationRegistration = {
 	readonly definition: EntityPresentationDefinition;
 };
 
-type BatchInput = { readonly references: readonly EntityReference[] };
+type BatchInput = string;
 type PresentationRuntime = {
 	readonly definition: EntityPresentationDefinition;
 	readonly query: RyotQuery<BatchInput, Readonly<Record<string, unknown>>>;
@@ -155,6 +163,43 @@ const registryKey = (
 	layout: EntityResultsLayout,
 ) => `${ownerPluginId}\u0000${entitySchemaSlug}\u0000${layout}`;
 
+const BatchReferences = Schema.Array(
+	Schema.Tuple([
+		Schema.String,
+		Schema.NullOr(Schema.String),
+		Schema.String,
+		Schema.NullOr(Schema.String),
+		Schema.Literals(["pending", "ready", "none"]),
+		Schema.Literals(["pending", "ready", "none"]),
+	]),
+);
+
+const decodeBatchInput = Schema.decodeUnknownSync(Schema.fromJsonString(BatchReferences));
+
+const encodeBatchInput = (references: readonly EntityReference[]) =>
+	JSON.stringify(
+		references.map((reference) => [
+			reference.entityId,
+			reference.ownerPluginId,
+			reference.entitySchemaSlug,
+			reference.name,
+			reference.populationStatus,
+			reference.translationStatus,
+		]),
+	);
+
+const referencesFromBatchInput = (input: BatchInput): readonly EntityReference[] =>
+	decodeBatchInput(input).map(
+		([entityId, ownerPluginId, entitySchemaSlug, name, populationStatus, translationStatus]) => ({
+			name,
+			entityId,
+			ownerPluginId,
+			entitySchemaSlug,
+			populationStatus,
+			translationStatus,
+		}),
+	);
+
 const PresentationRegistryContext = createContext<ReadonlyMap<string, PresentationRuntime> | null>(
 	null,
 );
@@ -174,9 +219,10 @@ export const EntityPresentationRegistryProvider = ({
 			const definition = registration.definition;
 			const query = createRyotQuery<BatchInput, Readonly<Record<string, unknown>>>(
 				async ({ client, input, signal }) => {
-					const requested = new Set(input.references.map(({ entityId }) => entityId));
+					const references = referencesFromBatchInput(input);
+					const requested = new Set(references.map(({ entityId }) => entityId));
 					const result = await scheduler.run(signal, () =>
-						definition.loader({ client, signal, references: input.references }),
+						definition.loader({ client, signal, references }),
 					);
 					for (const entityId of Object.keys(result)) {
 						if (!requested.has(entityId)) {
@@ -208,10 +254,57 @@ const BasicEntityLink = ({ reference }: { readonly reference: EntityReference })
 	</PluginLink>
 );
 
-const ItemFailure = ({
+const schemaLabel = (entitySchemaSlug: string) => entitySchemaSlug.split("-").join(" ");
+
+const GenericEntityCard = ({
+	layout,
 	reference,
+}: {
+	readonly reference: EntityReference;
+	readonly layout: EntityResultsLayout;
+}) => {
+	const title = reference.name ?? schemaLabel(reference.entitySchemaSlug);
+	return (
+		<article
+			data-layout={layout}
+			data-entity-id={reference.entityId}
+			className={
+				layout === "grid" ? "grid min-w-0 content-start gap-2" : "flex min-w-0 items-center gap-3.5"
+			}
+		>
+			<PluginLink
+				aria-label={`Open ${title}`}
+				to={{ kind: "entity", entityId: reference.entityId }}
+				className={layout === "grid" ? "block min-w-0" : "block shrink-0"}
+			>
+				<EntityArtWell
+					url={undefined}
+					monogram={title}
+					state={fieldSyncState(null, reference)}
+					className={layout === "grid" ? "aspect-3/4 w-full rounded-lg" : "h-16 w-11 rounded-sm"}
+				/>
+			</PluginLink>
+			<div className="grid min-w-0 flex-1 gap-1">
+				<span className="truncate text-[11px] font-semibold tracking-wide text-text-subtle uppercase">
+					{schemaLabel(reference.entitySchemaSlug)}
+				</span>
+				<span className="flex min-w-0 items-baseline gap-1.5">
+					<PluginLink to={{ kind: "entity", entityId: reference.entityId }} className="min-w-0">
+						<span className="line-clamp-2 min-w-0 text-[15px] font-semibold text-text">
+							{title}
+						</span>
+					</PluginLink>
+					{isTitleProvisional(reference) && <SyncPip reason="translating" />}
+				</span>
+			</div>
+		</article>
+	);
+};
+
+const ItemFailure = ({
 	message,
 	onRetry,
+	reference,
 }: {
 	readonly reference: EntityReference;
 	readonly message: string;
@@ -439,7 +532,7 @@ export const EntityResults = ({
 		[visibleEntityIds],
 	);
 	const refreshIdentity = JSON.stringify([layout, references.map(({ entityId }) => entityId)]);
-	useEntityRefresh({
+	const { settled } = useEntityRefresh({
 		interest,
 		blocked: false,
 		identity: refreshIdentity,
@@ -471,8 +564,9 @@ export const EntityResults = ({
 			];
 			unique.sort((left, right) => left.entityId.localeCompare(right.entityId));
 			for (let offset = 0; offset < unique.length; offset += 100) {
-				const input = { references: unique.slice(offset, offset + 100) };
-				for (const reference of input.references) {
+				const batchReferences = unique.slice(offset, offset + 100);
+				const input = encodeBatchInput(batchReferences);
+				for (const reference of batchReferences) {
 					runtimeInputs.set(reference.entityId, input);
 				}
 			}
@@ -490,41 +584,35 @@ export const EntityResults = ({
 		});
 	}, [layout, references, registry]);
 	return (
-		<div
-			style={
-				layout === "grid"
-					? {
-							gap: "1rem",
-							display: "grid",
-							gridTemplateColumns: "repeat(auto-fill, minmax(12rem, 1fr))",
-						}
-					: { display: "grid", gap: "0.75rem" }
-			}
-		>
-			{items.map((item) => (
-				<ObservedEntity
-					register={register}
-					key={item.reference.entityId}
-					entityId={item.reference.entityId}
-				>
-					{item.runtime === null ? (
-						<article>
-							<BasicEntityLink reference={item.reference} />
-							{(item.reference.populationStatus === "pending" ||
-								item.reference.translationStatus === "pending") && (
-								<StatusMessage tone="pending">Syncing...</StatusMessage>
+		<div className="@container">
+			<div
+				className={
+					layout === "grid"
+						? "grid grid-cols-2 gap-x-3 gap-y-5 @lg:grid-cols-3 @2xl:grid-cols-4 @4xl:grid-cols-5 @6xl:grid-cols-6"
+						: "grid gap-3"
+				}
+			>
+				{items.map((item) => (
+					<SettleHighlight
+						className="rounded-lg"
+						key={item.reference.entityId}
+						reason={settled.get(item.reference.entityId)}
+					>
+						<ObservedEntity register={register} entityId={item.reference.entityId}>
+							{item.runtime === null ? (
+								<GenericEntityCard layout={layout} reference={item.reference} />
+							) : (
+								<PresentedEntity
+									input={item.input}
+									runtime={item.runtime}
+									viewContext={viewContext}
+									reference={item.reference}
+								/>
 							)}
-						</article>
-					) : (
-						<PresentedEntity
-							input={item.input}
-							runtime={item.runtime}
-							viewContext={viewContext}
-							reference={item.reference}
-						/>
-					)}
-				</ObservedEntity>
-			))}
+						</ObservedEntity>
+					</SettleHighlight>
+				))}
+			</div>
 		</div>
 	);
 };

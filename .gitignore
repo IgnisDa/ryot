@@ -67,6 +67,7 @@ apps/server/work
 apps/server/src/drizzle
 kernel/backend/src/lib/infrastructure/sandbox-runtime/runner.generated.ts
 kernel/backend/src/modules/definition-registry/kernel-scripts.generated.ts
+packages/kernel-renderers/src/sources.generated.ts
 .env*.local
 *.tsbuildinfo
 .claude/settings.local.json

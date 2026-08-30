@@ -15,6 +15,7 @@
 - `packages/sandbox-compiler` and `packages/client-plugin-compiler` are independent engines sharing generic infrastructure from `packages/typescript-compiler`.
 - `packages/cli` builds canonical plugin archives for first-party and third-party plugins; `packages/plugin-archive` owns the shared deterministic archive reader and writer.
 - `packages/ryotql` builds query documents and `packages/ryotql-recipes` owns the named recipes.
+- `packages/kernel-renderers` owns the kernel-shipped saved-view renderers as real client plugin sources.
 
 ## Engineering
 
