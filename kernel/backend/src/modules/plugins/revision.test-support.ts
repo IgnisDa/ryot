@@ -84,10 +84,6 @@ export const revisionDatabaseLayer = Layer.unwrap(
 	}),
 );
 
-export const withRevisionDatabase = <E>(
-	test: Effect.Effect<void, E, Layer.Success<typeof revisionDatabaseLayer>>,
-) => test.pipe(Effect.provide(revisionDatabaseLayer));
-
 export const revisionPackage = (
 	slug = "fixture",
 	version = "v1",
