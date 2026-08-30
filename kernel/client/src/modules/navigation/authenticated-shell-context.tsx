@@ -2,6 +2,7 @@ import { createContext, useContext, type RefObject } from "react";
 
 import type { CustomizeDraftState } from "#/modules/navigation/customize/use-customize-draft";
 import type { EdgeResolution } from "#/modules/navigation/edge-intent";
+import type { SafeAreaInsets } from "#/modules/navigation/safe-area";
 import type { PluginHeaderPublication } from "#/modules/plugins/plugin-host";
 
 export const RememberedWorkspaceContext = createContext<string | null | undefined>(undefined);
@@ -19,10 +20,9 @@ export const PluginTitleContext = createContext<string | null | undefined>(undef
 
 export const EdgeContext = createContext<EdgeResolution | undefined>(undefined);
 
-export type ShellChrome = {
+export type ShellChrome = SafeAreaInsets & {
 	readonly drawerId: string;
 	readonly onBack: () => void;
-	readonly safeAreaTop: number;
 	readonly isDrawerOpen: boolean;
 	readonly onOpenDrawer: () => void;
 	readonly triggerRef: RefObject<HTMLElement | null>;

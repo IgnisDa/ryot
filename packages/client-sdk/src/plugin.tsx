@@ -139,7 +139,7 @@ export {
 	usePluginTitle,
 	usePluginParams,
 	usePluginSearch,
-	useRyotSafeArea,
+	useRyotViewport,
 	usePluginLocation,
 	type EntityRendererProps,
 	type PluginEntityDefinition,

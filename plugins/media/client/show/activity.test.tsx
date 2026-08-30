@@ -25,8 +25,12 @@ const noopAdapter = { query: () => Promise.resolve({}) };
 const readyState = (input: Parameters<typeof decodeShowActivity>[0] = {}): ShowActivityState =>
 	mapShowActivity(readyQueryResult(decodeShowActivity(input)));
 
-const renderActivity = (state: ShowActivityState, refresh: () => void = () => undefined) =>
-	mountRyotClient(noopAdapter, <ShowActivity state={state} refresh={refresh} />);
+const renderActivity = (
+	state: ShowActivityState,
+	refresh: () => void = () => undefined,
+	compact = true,
+) =>
+	mountRyotClient(noopAdapter, <ShowActivity state={state} compact={compact} refresh={refresh} />);
 
 afterEach(() => {
 	document.body.innerHTML = "";

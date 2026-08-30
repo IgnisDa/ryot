@@ -123,8 +123,8 @@ const connect = (
 
 	const session = openPluginBridge({
 		artifactHash,
-		safeAreaTop: 0,
 		navigation: nav(),
+		viewport: { safeAreaTop: 0, safeAreaBottom: 0 },
 		theme: lightTheme,
 		onHeader: () => {},
 		timeoutMs: options.timeoutMs,
@@ -202,6 +202,7 @@ describe("plugin bridge", () => {
 			artifactHash,
 			mode: "light",
 			safeAreaTop: 0,
+			safeAreaBottom: 0,
 			sessionId: init.sessionId,
 			format: CLIENT_ARTIFACT_FORMAT,
 			apiVersion: CLIENT_API_VERSION,
@@ -216,8 +217,8 @@ describe("plugin bridge", () => {
 		const session = openPluginBridge({
 			artifactHash,
 			timeoutMs: 10,
-			safeAreaTop: 0,
 			navigation: nav(),
+			viewport: { safeAreaTop: 0, safeAreaBottom: 0 },
 			theme: lightTheme,
 			onHeader: () => {},
 			onReady: () => undefined,

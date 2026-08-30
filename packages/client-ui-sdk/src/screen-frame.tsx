@@ -51,6 +51,7 @@ export function ScreenFrame({
 	const [sentinel, setSentinel] = useState<HTMLDivElement | null>(null);
 	const [isScrolled, setIsScrolled] = useState(false);
 	const collapsible = hero !== undefined || searchRow === undefined;
+	const chromeTop = compact ? safeAreaTop + SCREEN_BAR_HEIGHT : 0;
 	const hasTitleBlock = searchRow === undefined && hideTitle !== true;
 	const column = width === "readable" ? "mx-auto w-full max-w-2xl" : undefined;
 
@@ -78,6 +79,26 @@ export function ScreenFrame({
 		observer.observe(sentinel);
 		return () => observer.disconnect();
 	}, [compact, safeAreaTop, scrollRootRef, sentinel]);
+
+	const heroBlock =
+		hero === undefined ? null : (
+			<div className="relative">
+				<div
+					className="absolute inset-x-0"
+					style={{ top: -chromeTop, height: chromeTop + hero.height }}
+				>
+					{hero.node}
+				</div>
+				{compact && (
+					<div
+						ref={setSentinel}
+						aria-hidden="true"
+						style={{ top: hero.height }}
+						className="absolute h-px w-px"
+					/>
+				)}
+			</div>
+		);
 
 	const heading = (
 		<div className="flex min-w-0 items-center gap-2.5">
@@ -108,7 +129,7 @@ export function ScreenFrame({
 			);
 		return (
 			<>
-				{hero === undefined ? null : <div className="relative">{hero.node}</div>}
+				{heroBlock}
 				<div className="relative px-8 pt-8">
 					<div className={column}>
 						{titleRow === undefined ? null : (
@@ -156,17 +177,7 @@ export function ScreenFrame({
 					)}
 				</div>
 			</div>
-			{hero !== undefined && (
-				<div className="relative" style={{ marginTop: -(safeAreaTop + SCREEN_BAR_HEIGHT) }}>
-					{hero.node}
-					<div
-						ref={setSentinel}
-						aria-hidden="true"
-						className="absolute h-px w-px"
-						style={{ top: safeAreaTop + SCREEN_BAR_HEIGHT + hero.height }}
-					/>
-				</div>
-			)}
+			{heroBlock}
 			<div className={clsx("relative", column)}>
 				{hasTitleBlock && (
 					<div className="grid gap-1 px-4 pb-4">

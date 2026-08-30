@@ -21,19 +21,20 @@ import {
 import { ShowLinkButton, ShowOverviewSection } from "./primitives";
 import { showGalleryAssets, type ShowSummary } from "./summary-state";
 
-const CREDIT_COLUMN_CLASS = "md:min-w-0 md:flex-1 md:border-t-0 md:pt-0";
+const CREDIT_COLUMN_CLASS = "min-w-0 flex-1 border-t-0 pt-0";
 
-const COMPANY_COLUMN_CLASS = "md:w-72 md:shrink-0 md:border-t-0 md:pt-0";
+const COMPANY_COLUMN_CLASS = "w-72 shrink-0 border-t-0 pt-0";
 
-function ShowRail(props: { readonly children: ReactNode }) {
+function ShowRail(props: { readonly compact: boolean; readonly children: ReactNode }) {
 	return (
 		<div className="overflow-x-auto">
-			<div className="flex w-max gap-3 md:gap-4">{props.children}</div>
+			<div className={clsx("flex w-max", props.compact ? "gap-3" : "gap-4")}>{props.children}</div>
 		</div>
 	);
 }
 
 export function ShowImageGallery(props: {
+	readonly compact: boolean;
 	readonly divided: boolean;
 	readonly assets: readonly ShowImageAsset[];
 }) {
@@ -44,6 +45,7 @@ export function ShowImageGallery(props: {
 		<ShowOverviewSection
 			title="Images"
 			divided={props.divided}
+			compact={props.compact}
 			action={
 				<ShowLinkButton
 					label="View all images"
@@ -51,12 +53,12 @@ export function ShowImageGallery(props: {
 				/>
 			}
 		>
-			<ShowRail>
+			<ShowRail compact={props.compact}>
 				{props.assets.map((asset) => (
 					<ManagedAssetImage
 						asset={asset}
 						key={imageAssetKey(asset)}
-						className="aspect-video w-64 sm:w-72 md:w-96"
+						className={clsx("aspect-video", props.compact ? "w-64" : "w-96")}
 					/>
 				))}
 			</ShowRail>
@@ -65,6 +67,7 @@ export function ShowImageGallery(props: {
 }
 
 export function ShowPeopleSection(props: {
+	readonly compact: boolean;
 	readonly divided: boolean;
 	readonly people: readonly ShowPerson[];
 }) {
@@ -75,7 +78,8 @@ export function ShowPeopleSection(props: {
 		<ShowOverviewSection
 			title="Cast & crew"
 			divided={props.divided}
-			className={CREDIT_COLUMN_CLASS}
+			compact={props.compact}
+			className={props.compact ? undefined : CREDIT_COLUMN_CLASS}
 			action={
 				<ShowLinkButton
 					label="View all people"
@@ -83,7 +87,7 @@ export function ShowPeopleSection(props: {
 				/>
 			}
 		>
-			<ShowRail>
+			<ShowRail compact={props.compact}>
 				{props.people.map((person) => {
 					const roles = showRolesLabel(person.roles);
 					const character = showCharacterLabel(person.character);
@@ -92,7 +96,10 @@ export function ShowPeopleSection(props: {
 							key={person.id}
 							aria-label={`Open ${person.name}`}
 							to={{ kind: "entity", entityId: person.id }}
-							className="flex w-24 flex-col gap-2.5 rounded-lg focus-visible:outline-2 focus-visible:outline-accent md:w-28"
+							className={clsx(
+								"flex flex-col gap-2.5 rounded-lg focus-visible:outline-2 focus-visible:outline-accent",
+								props.compact ? "w-24" : "w-28",
+							)}
 						>
 							<ManagedAssetImage
 								shape="circle"
@@ -123,6 +130,7 @@ export function ShowPeopleSection(props: {
 }
 
 export function ShowCompaniesSection(props: {
+	readonly compact: boolean;
 	readonly divided: boolean;
 	readonly companies: readonly ShowCompany[];
 }) {
@@ -132,8 +140,9 @@ export function ShowCompaniesSection(props: {
 	return (
 		<ShowOverviewSection
 			divided={props.divided}
+			compact={props.compact}
 			title="Production companies"
-			className={COMPANY_COLUMN_CLASS}
+			className={props.compact ? undefined : COMPANY_COLUMN_CLASS}
 		>
 			<div className="flex flex-col gap-3.5">
 				{props.companies.map((company) => {
@@ -165,6 +174,7 @@ export function ShowCompaniesSection(props: {
 }
 
 export function ShowRecommendationsSection(props: {
+	readonly compact: boolean;
 	readonly divided: boolean;
 	readonly recommendations: readonly ShowRecommendation[];
 }) {
@@ -172,14 +182,17 @@ export function ShowRecommendationsSection(props: {
 		return null;
 	}
 	return (
-		<ShowOverviewSection title="More like this" divided={props.divided}>
-			<ShowRail>
+		<ShowOverviewSection title="More like this" divided={props.divided} compact={props.compact}>
+			<ShowRail compact={props.compact}>
 				{props.recommendations.map((recommendation) => (
 					<PluginLink
 						key={recommendation.id}
 						aria-label={`Open ${recommendation.name}`}
 						to={{ kind: "entity", entityId: recommendation.id }}
-						className="flex w-28 flex-col gap-2 rounded-lg focus-visible:outline-2 focus-visible:outline-accent md:w-32"
+						className={clsx(
+							"flex flex-col gap-2 rounded-lg focus-visible:outline-2 focus-visible:outline-accent",
+							props.compact ? "w-28" : "w-32",
+						)}
 					>
 						<ManagedAssetImage
 							className="aspect-2/3 w-full"
@@ -198,11 +211,16 @@ export function ShowRecommendationsSection(props: {
 function ShowOverviewNotice(props: {
 	readonly title: string;
 	readonly detail: string;
+	readonly compact: boolean;
 	readonly divided: boolean;
 	readonly onRetry?: () => void;
 }) {
 	return (
-		<ShowOverviewSection divided={props.divided} title="Cast, companies and recommendations">
+		<ShowOverviewSection
+			divided={props.divided}
+			compact={props.compact}
+			title="Cast, companies and recommendations"
+		>
 			<div className="flex flex-col items-start gap-2">
 				<p className="font-ui text-[13px] text-text-muted">{props.title}</p>
 				<p className="max-w-xl font-ui text-[13px] text-text-subtle">{props.detail}</p>
@@ -215,6 +233,7 @@ function ShowOverviewNotice(props: {
 }
 
 function ShowOverviewRelations(props: {
+	readonly compact: boolean;
 	readonly divided: boolean;
 	readonly overview: ShowOverviewData;
 }) {
@@ -227,18 +246,21 @@ function ShowOverviewRelations(props: {
 		<>
 			<div
 				className={clsx(
-					"flex flex-col gap-7 md:flex-row md:gap-10",
-					hasCredits && "md:pt-5",
-					hasCredits && props.divided && "md:border-t md:border-border",
+					"flex gap-7",
+					props.compact ? "flex-col" : "flex-row gap-10",
+					!props.compact && hasCredits && "pt-5",
+					!props.compact && hasCredits && props.divided && "border-t border-border",
 				)}
 			>
-				<ShowPeopleSection people={people.items} divided={props.divided} />
+				<ShowPeopleSection people={people.items} compact={props.compact} divided={props.divided} />
 				<ShowCompaniesSection
+					compact={props.compact}
 					companies={companies.items}
 					divided={props.divided || people.items.length > 0}
 				/>
 			</div>
 			<ShowRecommendationsSection
+				compact={props.compact}
 				divided={props.divided || hasCredits}
 				recommendations={recommendations.items}
 			/>
@@ -247,6 +269,7 @@ function ShowOverviewRelations(props: {
 }
 
 function ShowOverviewBody(props: {
+	readonly compact: boolean;
 	readonly divided: boolean;
 	readonly refresh: () => void;
 	readonly state: ShowOverviewState;
@@ -256,6 +279,7 @@ function ShowOverviewBody(props: {
 		return (
 			<ShowOverviewNotice
 				divided={props.divided}
+				compact={props.compact}
 				title="Loading details..."
 				detail="Fetching the cast, companies and recommendations for this show."
 			/>
@@ -265,25 +289,34 @@ function ShowOverviewBody(props: {
 		return (
 			<ShowOverviewNotice
 				divided={props.divided}
+				compact={props.compact}
 				onRetry={props.refresh}
 				{...showOverviewError(state)}
 			/>
 		);
 	}
-	return <ShowOverviewRelations divided={props.divided} overview={state.overview} />;
+	return (
+		<ShowOverviewRelations
+			compact={props.compact}
+			divided={props.divided}
+			overview={state.overview}
+		/>
+	);
 }
 
 export function ShowOverview(props: {
+	readonly compact: boolean;
 	readonly show: ShowSummary;
 	readonly refreshOverview: () => void;
 	readonly overview: ShowOverviewState;
 }) {
 	const gallery = showGalleryAssets(props.show);
 	return (
-		<div className="flex flex-col gap-7 pt-6 md:gap-9 md:pt-8">
-			<ShowImageGallery divided={false} assets={gallery} />
+		<div className={clsx("flex flex-col", props.compact ? "gap-7 pt-6" : "gap-9 pt-8")}>
+			<ShowImageGallery divided={false} assets={gallery} compact={props.compact} />
 			<ShowOverviewBody
 				state={props.overview}
+				compact={props.compact}
 				divided={gallery.length > 0}
 				refresh={props.refreshOverview}
 			/>
