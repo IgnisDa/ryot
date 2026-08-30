@@ -43,6 +43,10 @@ it("preloads all eager code and leaves public presentation-only artifacts unfetc
 	expect(html).toContain(
 		`"stylesheets":["/api/client-assets/${"c".repeat(64)}/public/module.css"]`,
 	);
+	expect(html).toContain('<script type="importmap"');
+	expect(html.indexOf('<script type="importmap"')).toBeLessThan(
+		html.indexOf('<link rel="modulepreload"'),
+	);
 	expect(renderClientDocument(manifest(), descriptions(), access([]), "composition-hash")).toBe(
 		html,
 	);
