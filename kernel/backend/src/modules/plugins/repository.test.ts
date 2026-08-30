@@ -302,6 +302,7 @@ describe("plugin repository revisions", () => {
 						userId: owner,
 						providerSpecifics: {},
 						provider: "notes-sink",
+						webhookToken: crypto.randomUUID(),
 						pluginInstallationId: first.installation.id,
 						extraSettings: { disableOnContinuousErrors: false },
 					});

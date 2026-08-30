@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "fde3b2ff-07ef-471b-af00-3ea70e3a6804",
+	"id": "235f9a65-1a18-4878-920c-292481407a4f",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -2575,6 +2575,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "name",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "integration"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "webhook_token",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "integration"
@@ -8116,6 +8129,27 @@
 			"nameExplicit": true,
 			"columns": [
 				{
+					"value": "webhook_token",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": true,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "integration_webhook_token_unique",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "integration"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
 					"value": "integration_id",
 					"isExpression": false,
 					"asc": true,
@@ -10997,6 +11031,13 @@
 			"entityType": "checks",
 			"schema": "public",
 			"table": "automation_trigger"
+		},
+		{
+			"value": "(\"lot\" = 'sink') = (\"webhook_token\" is not null)",
+			"name": "integration_webhook_token_lot_check",
+			"entityType": "checks",
+			"schema": "public",
+			"table": "integration"
 		},
 		{
 			"value": "\"level\" in ('info', 'warning')",

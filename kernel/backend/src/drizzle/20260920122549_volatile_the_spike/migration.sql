@@ -242,6 +242,7 @@ CREATE TABLE "import_run_failure" (
 --> statement-breakpoint
 CREATE TABLE "integration" (
 	"name" text,
+	"webhook_token" text,
 	"plugin_installation_id" text NOT NULL,
 	"lot" text NOT NULL,
 	"is_disabled" boolean DEFAULT false NOT NULL,
@@ -255,7 +256,8 @@ CREATE TABLE "integration" (
 	"provider_specifics" jsonb NOT NULL,
 	"user_id" text NOT NULL,
 	"id" text PRIMARY KEY,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "integration_webhook_token_lot_check" CHECK (("lot" = 'sink') = ("webhook_token" is not null))
 );
 --> statement-breakpoint
 CREATE TABLE "integration_auto_disable_claim" (
@@ -739,6 +741,7 @@ CREATE INDEX "integration_user_id_provider_idx" ON "integration" ("user_id","pro
 CREATE INDEX "integration_plugin_installation_id_idx" ON "integration" ("plugin_installation_id");--> statement-breakpoint
 CREATE INDEX "integration_lot_is_disabled_idx" ON "integration" ("lot","is_disabled");--> statement-breakpoint
 CREATE INDEX "integration_provider_is_disabled_idx" ON "integration" ("provider","is_disabled");--> statement-breakpoint
+CREATE UNIQUE INDEX "integration_webhook_token_unique" ON "integration" ("webhook_token");--> statement-breakpoint
 CREATE INDEX "integration_auto_disable_claim_integration_id_idx" ON "integration_auto_disable_claim" ("integration_id");--> statement-breakpoint
 CREATE INDEX "managed_asset_owner_user_id_idx" ON "managed_asset" ("owner_user_id");--> statement-breakpoint
 CREATE INDEX "migration_report_detail_report_seq_seq_idx" ON "migration_report_detail" ("report_seq","seq");--> statement-breakpoint

@@ -14,7 +14,6 @@ import {
 import { seedGlobalShowEpisodeTree } from "~/fixtures/plugins/media";
 import { requireObjectRecord, requirePresent, requireString } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-import { getApiUrl } from "~/support/harness-target";
 
 const plexMultipartBody = (boundary: string, payload: unknown) =>
 	[
@@ -28,17 +27,17 @@ const plexMultipartBody = (boundary: string, payload: unknown) =>
 
 describe("Webhook routes", () => {
 	it.live(
-		"POST /api/webhooks/integrations/{validKodiIntegrationId} attaches show progress to the resolved episode",
+		"POST /api/webhooks/integrations/{validKodiWebhookToken} attaches show progress to the resolved episode",
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const { id } = yield* createKodiIntegration(client);
+				const integration = yield* createKodiIntegration(client);
 
 				const { tmdbId, showId, episodeId } = yield* seedGlobalShowEpisodeTree(client, {
 					showName: "Live Sink Test Show",
 				});
 
-				const { run: completedRun } = yield* postIntegrationWebhookAndWait(client, id, {
+				const { run: completedRun } = yield* postIntegrationWebhookAndWait(client, integration, {
 					lot: "show",
 					progress: 45,
 					identifier: tmdbId,
@@ -56,10 +55,10 @@ describe("Webhook routes", () => {
 			}),
 	);
 
-	it.live("POST /_i/{validPlexIntegrationId} parses the multipart body Plex actually sends", () =>
+	it.live("POST /_i/{validPlexWebhookToken} parses the multipart body Plex actually sends", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { id } = yield* createIntegration(client, {
+			const integration = yield* createIntegration(client, {
 				provider: "plex_sink",
 				providerSpecifics: { kind: "plex_sink" },
 			});
@@ -69,8 +68,12 @@ describe("Webhook routes", () => {
 			});
 
 			const boundary = "----RyotPlexBoundary";
+			const webhookUrl = requirePresent(
+				integration.webhookUrl,
+				"Expected sink integration webhook URL",
+			);
 			const response = yield* Effect.promise(() =>
-				fetch(`${getApiUrl().replace(/\/api$/, "")}/_i/${id}`, {
+				fetch(webhookUrl, {
 					method: "POST",
 					headers: { "Content-Type": `multipart/form-data; boundary=${boundary}` },
 					body: plexMultipartBody(boundary, {
@@ -109,7 +112,7 @@ describe("Progress normalization", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const { id } = yield* createIntegration(client, {
+				const integration = yield* createIntegration(client, {
 					provider: "kodi",
 					maximumProgress: 90,
 					providerSpecifics: { kind: "kodi" },
@@ -119,7 +122,7 @@ describe("Progress normalization", () => {
 					showName: "Progress Clamp Test Show",
 				});
 
-				const { run: completedRun } = yield* postIntegrationWebhookAndWait(client, id, {
+				const { run: completedRun } = yield* postIntegrationWebhookAndWait(client, integration, {
 					lot: "show",
 					progress: 97,
 					identifier: tmdbId,
@@ -153,7 +156,7 @@ describe("Progress normalization", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const { id } = yield* createIntegration(client, {
+				const integration = yield* createIntegration(client, {
 					provider: "kodi",
 					minimumProgress: 10,
 					providerSpecifics: { kind: "kodi" },
@@ -163,7 +166,7 @@ describe("Progress normalization", () => {
 					showName: "Progress Filter Test Show",
 				});
 
-				const { run: firstRun } = yield* postIntegrationWebhookAndWait(client, id, {
+				const { run: firstRun } = yield* postIntegrationWebhookAndWait(client, integration, {
 					lot: "show",
 					progress: 5,
 					identifier: tmdbId,
@@ -173,7 +176,7 @@ describe("Progress normalization", () => {
 				expect(firstRun).toMatchObject({ status: "completed", failureReason: null });
 				expect(firstRun.failedItems).toBe(0);
 
-				const { run: secondRun } = yield* postIntegrationWebhookAndWait(client, id, {
+				const { run: secondRun } = yield* postIntegrationWebhookAndWait(client, integration, {
 					lot: "show",
 					progress: 50,
 					identifier: tmdbId,
