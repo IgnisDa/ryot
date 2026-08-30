@@ -217,31 +217,35 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				data: UpdateSavedViewData,
 				currentPluginInstallationId: string | null,
 			) {
-				const db = yield* session.current;
-				let sortOrder = data.sortOrder;
-				if (sortOrder === undefined && currentPluginInstallationId !== data.pluginInstallationId) {
-					sortOrder = yield* getNextSortOrder(db, userId, data.pluginInstallationId);
-				}
+				return yield* session.run((db) =>
+					Effect.gen(function* () {
+						let sortOrder = data.sortOrder;
+						if (
+							sortOrder === undefined &&
+							currentPluginInstallationId !== data.pluginInstallationId
+						) {
+							sortOrder = yield* getNextSortOrder(db, userId, data.pluginInstallationId);
+						}
 
-				const [row] = yield* mapDatabaseErrors(
-					db
-						.update(schema.savedView)
-						.set({
-							icon: data.icon,
-							name: data.name,
-							renderer: data.renderer,
-							settings: data.settings,
-							isDisabled: data.isDisabled,
-							dataSources: data.dataSources,
-							revision: sql`${schema.savedView.revision} + 1`,
-							pluginInstallationId: data.pluginInstallationId,
-							...(sortOrder === undefined ? {} : { sortOrder }),
-						})
-						.where(and(eq(schema.savedView.slug, viewSlug), eq(schema.savedView.userId, userId)))
-						.returning({ id: schema.savedView.id }),
+						const [row] = yield* db
+							.update(schema.savedView)
+							.set({
+								icon: data.icon,
+								name: data.name,
+								renderer: data.renderer,
+								settings: data.settings,
+								isDisabled: data.isDisabled,
+								dataSources: data.dataSources,
+								revision: sql`${schema.savedView.revision} + 1`,
+								pluginInstallationId: data.pluginInstallationId,
+								...(sortOrder === undefined ? {} : { sortOrder }),
+							})
+							.where(and(eq(schema.savedView.slug, viewSlug), eq(schema.savedView.userId, userId)))
+							.returning({ id: schema.savedView.id });
+
+						return row ? { id: SavedViewId.make(row.id) } : null;
+					}),
 				);
-
-				return row ? { id: SavedViewId.make(row.id) } : null;
 			});
 
 			const setBuiltinState = Effect.fn("SavedViewsRepository.setBuiltinState")(function* (

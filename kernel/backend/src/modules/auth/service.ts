@@ -511,7 +511,7 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			revokeOAuthTokens: repository.revokeUserOAuthTokens,
 		});
 		const findUserById = (userId: string) =>
-			Effect.flatMap(session.current, (db) =>
+			session.run((db) =>
 				db
 					.select({
 						id: authSchema.user.id,
