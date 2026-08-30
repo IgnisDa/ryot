@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 12 of 13 tasks completed
+**Overall Progress:** 13 of 13 tasks completed
 
-**Current Task:** [Task 13](./13-final-codebase-cleanup.md) (todo)
+**Current Task:** complete
 
 ### Task List
 
@@ -22,9 +22,9 @@
 | 10  | [Deliver The Complete Dashboard Journey](./10-deliver-the-complete-dashboard-journey.md)                 | done   |
 | 11  | [Unify Kernel Screen Data Access](./11-unify-kernel-screen-data-access.md)                               | done   |
 | 12  | [Replace Remaining Old Paths](./12-replace-remaining-old-paths.md)                                       | done   |
-| 13  | [Final Codebase Cleanup](./13-final-codebase-cleanup.md)                                                 | todo   |
+| 13  | [Final Codebase Cleanup](./13-final-codebase-cleanup.md)                                                 | done   |
 
-Status: agreed system design, not a description of the current implementation.
+Status: implemented system design.
 
 The companion [tracer plan](./tracer.md) defines the complete first implementation. This document explains the system and its boundaries. It is design reference material; maintained product documentation belongs in the application and package documentation updated by that implementation.
 

@@ -45,7 +45,7 @@ type CustomRendererId = Extract<
 	{ kind: "custom" }
 >["rendererId"];
 
-export const clientRendererSource = `
+const clientRendererSource = `
 import { usePageContext } from "@ryot-app/client-sdk/plugin";
 
 export default function Page() {
@@ -59,7 +59,7 @@ export default function Page() {
 }
 `;
 
-export const composedClientRendererSource = `
+const composedClientRendererSource = `
 import { usePageContext } from "@ryot-app/client-sdk/plugin";
 import PokemonTypes from "@ryot-app/plugins/fixture/pokemon-types";
 import ShowProgress from "@ryot-app/plugins/media/show-progress";
@@ -77,7 +77,7 @@ export default function Page() {
 }
 `;
 
-export const namedDataSourcesRendererSource = `
+const namedDataSourcesRendererSource = `
 import { Result, Schema } from "@ryot-app/client-sdk/effect";
 import { usePageContext } from "@ryot-app/client-sdk/plugin";
 import { createRyotQuery, useRyotQuery } from "@ryot-app/client-sdk/react";
@@ -366,7 +366,7 @@ export default function Page() {
 }
 `;
 
-export const clientRendererSettingsSchema = {
+const clientRendererSettingsSchema = {
 	unknownKeys: "strict",
 	fields: {
 		label: { type: "string", label: "Label", description: "Text displayed by the renderer" },
