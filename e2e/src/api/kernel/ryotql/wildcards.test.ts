@@ -162,6 +162,7 @@ describe("RyotQL wildcard projections", () => {
 			expect(Object.keys(entityItem).sort()).toEqual(
 				[
 					"createdAt",
+					"entitySchemaPluginId",
 					"entitySchemaSlug",
 					"events",
 					"externalId",
