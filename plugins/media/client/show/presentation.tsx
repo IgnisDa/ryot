@@ -11,8 +11,8 @@ import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/client-ui
 import clsx from "clsx";
 
 import { showPresentationRecipe, type ShowPresentationData } from "../../shared/show-recipes";
-import { ManagedAssetImage } from "./managed-assets";
-import { collectManagedAssetLocators } from "./media-image";
+import { ManagedAssetImage } from "../managed-assets";
+import { collectManagedAssetLocators } from "../media-image";
 import {
 	showCountLabel,
 	showLifecycleLabel,

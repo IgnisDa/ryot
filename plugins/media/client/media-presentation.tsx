@@ -14,8 +14,8 @@ import {
 	mediaPresentationRecipe,
 	type MediaPresentationData,
 } from "../shared/entity-presentations";
-import { ManagedAssetImage } from "./show/managed-assets";
-import { collectManagedAssetLocators, preferredMediaImageAsset } from "./show/media-image";
+import { ManagedAssetImage } from "./managed-assets";
+import { collectManagedAssetLocators, preferredMediaImageAsset } from "./media-image";
 
 export type MediaPresentationViewData = MediaPresentationData & {
 	readonly batchAssets: readonly ManagedAssetLocator[];
