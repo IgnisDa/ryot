@@ -48,9 +48,8 @@ The compiler injects Tailwind's entry once, then emits all reachable contributor
 namespaced source order and inlines
 `@ryot-app/client-ui-sdk/theme.css` followed by `palette.css`. This gives every plugin Preflight,
 shared accessibility rules, layer order, and concrete token values even when it has no stylesheet.
-The compiler scans reachable contributor client sources and the UI SDK's TypeScript sources so
-SDK-only classes are emitted. Visual implementations stay in the UI SDK; client SDK sources are not
-added to the visual scan set.
+The compiler scans reachable contributor client sources plus the UI SDK's and client SDK's
+TypeScript sources, so utility classes written in either SDK reach every artifact.
 
 Palette values are baked into artifacts. A palette change therefore requires current artifacts to be
 compiled; stale artifacts are not patched at runtime.

@@ -67,6 +67,7 @@ const render = (
 		openDrawer: () => undefined,
 		publishTitle: () => undefined,
 		getSnapshot: store.getSnapshot,
+		registerShortcut: () => () => undefined,
 		completeTransition: store.completeTransition,
 	};
 	const clock = createTestRyotClock(
@@ -82,7 +83,12 @@ const render = (
 		compact: false,
 		leading: "none",
 		edgeBack: false,
-		entry: { index: 0, key: "home", location: { kind: "route", path: "/", search: "" } },
+		entry: {
+			index: 0,
+			key: "home",
+			screenKey: "home",
+			location: { kind: "route", path: "/", search: "" },
+		},
 	});
 	const container = document.createElement("div");
 	document.body.append(container);
@@ -108,9 +114,9 @@ const render = (
 		act(() =>
 			store.setLocation({
 				compact: false,
-				edgeBack: false,
 				leading: "none",
-				entry: { index, key, location: { kind: "route", path, search: "" } },
+				edgeBack: false,
+				entry: { index, key, screenKey: key, location: { kind: "route", path, search: "" } },
 			}),
 		);
 	return { clock, container, draw, navigate };
@@ -258,7 +264,7 @@ describe("EntityResults", () => {
 		await flush(clock);
 		expect(observers).toHaveLength(1);
 		const observer = observers[0];
-		expect(observer?.root).toBe(container.firstElementChild?.firstElementChild);
+		expect(observer?.root).toBe(container.firstElementChild?.firstElementChild?.firstElementChild);
 		expect(observer?.targets.size).toBe(2);
 		expect(interests.at(-1)).toEqual({ foreground: [], visible: [] });
 		expect({ loads, mounts }).toEqual({ loads: 1, mounts: 2 });
@@ -433,10 +439,11 @@ describe("EntityResults", () => {
 		expect(container.textContent).toContain("healthy");
 	});
 
-	it("deduplicates consumers and cancels obsolete batch inputs", async () => {
+	it("stabilizes equivalent batches across rerenders and consumers", async () => {
 		const requests: Array<{
-			readonly signal: AbortSignal;
 			readonly id: string;
+			readonly name: string | null;
+			readonly signal: AbortSignal;
 			readonly resolve: (value: Readonly<Record<string, string>>) => void;
 		}> = [];
 		const registration = {
@@ -446,27 +453,48 @@ describe("EntityResults", () => {
 			definition: defineEntityPresentation({
 				loader: ({ references, signal }) =>
 					new Promise<Readonly<Record<string, string>>>((resolve) =>
-						requests.push({ id: references[0]?.entityId ?? "", signal, resolve }),
+						requests.push({
+							signal,
+							resolve,
+							id: references[0]?.entityId ?? "",
+							name: references[0]?.name ?? null,
+						}),
 					),
 				component: ({ data }) => <p>{data}</p>,
 			}),
 		};
-		const one = <EntityResults layout="grid" references={[reference("one")]} viewContext={null} />;
-		const { clock, container, draw } = render(
-			[registration],
+		const equivalentConsumers = () => (
 			<>
-				{one}
-				{one}
+				<EntityResults layout="grid" references={[reference("one")]} viewContext={null} />
+				<EntityResults layout="grid" references={[reference("one")]} viewContext={null} />
+			</>
+		);
+		const { clock, container, draw } = render([registration], equivalentConsumers());
+		await flush(clock);
+		expect(requests).toHaveLength(1);
+		draw(equivalentConsumers());
+		await flush(clock);
+		expect(requests).toHaveLength(1);
+		draw(
+			<>
+				<EntityResults
+					layout="grid"
+					viewContext={null}
+					references={[reference("one", { name: "Changed" })]}
+				/>
+				<EntityResults layout="grid" references={[reference("one")]} viewContext={null} />
 			</>,
 		);
 		await flush(clock);
-		expect(requests).toHaveLength(1);
+		expect(requests).toHaveLength(2);
+		expect(requests[1]).toMatchObject({ id: "one", name: "Changed" });
 		draw(<EntityResults layout="grid" references={[reference("two")]} viewContext={null} />);
 		await flush(clock);
 		expect(requests[0]?.signal.aborted).toBe(true);
-		expect(requests).toHaveLength(2);
+		expect(requests[1]?.signal.aborted).toBe(true);
+		expect(requests).toHaveLength(3);
 		act(() => {
-			requests[1]?.resolve({ two: "current" });
+			requests[2]?.resolve({ two: "current" });
 			requests[0]?.resolve({ one: "stale" });
 		});
 		await flush(clock);
@@ -553,8 +581,8 @@ describe("EntityResults", () => {
 		let renderAttempts = 0;
 		const registration = {
 			ownerPluginId: "owner",
-			entitySchemaSlug: "item",
 			layout: "list" as const,
+			entitySchemaSlug: "item",
 			definition: defineEntityPresentation({
 				loader: ({ references }) => {
 					if (references[0]?.entityId === "extra") {
@@ -602,14 +630,15 @@ describe("EntityResults", () => {
 				viewContext={null}
 				references={[
 					reference("fallback", {
-						name: "Fallback name",
 						ownerPluginId: null,
+						name: "Fallback name",
 						populationStatus: "pending",
 					}),
 				]}
 			/>,
 		);
-		expect(container.textContent).toBe("Fallback nameSyncing...");
+		expect(container.textContent).toBe("FitemFallback name");
+		expect(container.querySelector(".animate-sync-pulse")).not.toBeNull();
 		expect(container.querySelector("a")?.getAttribute("href")).toBe("/e/fallback");
 	});
 });

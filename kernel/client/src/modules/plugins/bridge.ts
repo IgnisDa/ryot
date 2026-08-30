@@ -10,7 +10,9 @@ import {
 	PluginCollectionBridgeErrorReason,
 	PluginOperationBridgeErrorReason,
 	PluginBridgeReady,
+	isPageShortcut,
 	type KernelShortcut,
+	type PageShortcutKey,
 	type ClientPageContext,
 	type PluginAssetOutcome,
 	type PluginAssetRequest,
@@ -27,6 +29,7 @@ import {
 	type PluginBridgeNavigate,
 	type PluginBridgePageSearch,
 	type PluginBridgePageRefresh,
+	type PluginBridgePageShortcutPress,
 	type PluginBridgeProviderSearchScreen,
 	type PluginBridgeTheme,
 	type PluginBridgeViewport,
@@ -71,6 +74,7 @@ export type PluginBridgeSession = {
 	readonly sendPageRefresh: () => void;
 	readonly requestOverlayDismiss: () => boolean;
 	readonly sendTheme: (theme: PluginThemeSnapshot) => void;
+	readonly sendShortcut: (shortcut: PageShortcutKey) => void;
 	readonly sendViewport: (insets: PluginBridgeViewportInsets) => void;
 	readonly sendLocation: (navigation: PluginBridgeNavigationState) => void;
 };
@@ -101,6 +105,7 @@ type PluginBridgeOptions = {
 	readonly onKernelShortcut: (shortcut: KernelShortcut) => void;
 	readonly onScreenState: (state: PluginScreenReadiness) => void;
 	readonly onPageSearch: (request: PluginBridgePageSearch) => void;
+	readonly onPageShortcuts: (shortcuts: readonly PageShortcutKey[]) => void;
 	readonly scheduleOverlayDismissTimeout?: (onTimeout: () => void) => () => void;
 	readonly onProviderSearch: (request: PluginBridgeProviderSearchScreen) => void;
 	readonly onAssets: (
@@ -253,6 +258,12 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 	function sendPageRefresh() {
 		if (state === "active") {
 			post({ type: "page-refresh" } satisfies PluginBridgePageRefresh);
+		}
+	}
+
+	function sendShortcut(shortcut: PageShortcutKey) {
+		if (state === "active") {
+			post({ shortcut, type: "page-shortcut-press" } satisfies PluginBridgePageShortcutPress);
 		}
 	}
 
@@ -547,58 +558,64 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 					fail();
 					return;
 				}
-				Match.value(decoded.success).pipe(
-					Match.when({ type: "entity-interest" }, ({ foreground, visible }) => {
-						const declaration = { foreground, visible };
-						interestIds = new Set([...declaration.foreground, ...declaration.visible]);
-						try {
-							if (interest) {
-								interest.update(declaration);
-							} else {
-								interest = options.watchEntities(declaration, (update) => {
-									if (state === "active" && interestIds.has(update.entityId)) {
-										post({ ...update, type: "entity-updated" });
-									}
-								});
+				Match.value(decoded.success)
+					.pipe(
+						Match.when({ type: "entity-interest" }, ({ foreground, visible }) => {
+							const declaration = { foreground, visible };
+							interestIds = new Set([...declaration.foreground, ...declaration.visible]);
+							try {
+								if (interest) {
+									interest.update(declaration);
+								} else {
+									interest = options.watchEntities(declaration, (update) => {
+										if (state === "active" && interestIds.has(update.entityId)) {
+											post({ ...update, type: "entity-updated" });
+										}
+									});
+								}
+							} catch {
+								/* Interest transport must not fail the document. */
 							}
-						} catch {
-							/* Interest transport must not fail the document. */
-						}
-					}),
-					Match.when({ type: "asset-cancel" }, (request) => handleAssetCancel(request)),
-					Match.when({ type: "asset-request" }, (request) => handleAssets(request)),
-					Match.when({ type: "navigate-back" }, () => {
-						if (!requestOverlayDismiss()) {
-							options.onNavigateBack();
-						}
-					}),
-					Match.when({ type: "overlay-state" }, (request) => handleOverlayState(request)),
-					Match.when({ type: "dismiss-overlay-result" }, (result) =>
-						handleOverlayDismissResult(result),
-					),
-					Match.when({ type: "open-drawer" }, () => options.onOpenDrawer()),
-					Match.when({ type: "kernel-shortcut" }, ({ shortcut }) =>
-						options.onKernelShortcut(shortcut),
-					),
-					Match.when({ type: "screen-state" }, ({ hasPreviousScreen, index, key }) => {
-						if (index === navigation.index && key === navigation.key) {
-							options.onScreenState({ hasPreviousScreen, index, key });
-						}
-					}),
-					Match.when({ type: "header" }, (request) => options.onHeader(request)),
-					Match.when({ type: "navigate" }, (request) => options.onNavigate(request)),
-					Match.when({ type: "page-search" }, (request) => options.onPageSearch(request)),
-					Match.when({ type: "provider-search-screen" }, (request) =>
-						options.onProviderSearch(request),
-					),
-					Match.when({ type: "lifecycle-close" }, ({ reason }) => handleLifecycleClose(reason)),
-					Match.when({ type: "ryotql-cancel" }, (request) => handleRyotQLCancel(request)),
-					Match.when({ type: "ryotql-request" }, (request) => handleRyotQL(request)),
-					Match.when({ type: "operation-request" }, (request) => handleOperation(request)),
-					Match.when({ type: "collection-request" }, (request) => handleCollection(request)),
-					Match.when({ type: "upload-request" }, (request) => handleUpload(request)),
-					Match.exhaustive,
-				);
+						}),
+						Match.when({ type: "asset-cancel" }, (request) => handleAssetCancel(request)),
+						Match.when({ type: "asset-request" }, (request) => handleAssets(request)),
+						Match.when({ type: "navigate-back" }, () => {
+							if (!requestOverlayDismiss()) {
+								options.onNavigateBack();
+							}
+						}),
+						Match.when({ type: "overlay-state" }, (request) => handleOverlayState(request)),
+						Match.when({ type: "dismiss-overlay-result" }, (result) =>
+							handleOverlayDismissResult(result),
+						),
+						Match.when({ type: "open-drawer" }, () => options.onOpenDrawer()),
+						Match.when({ type: "kernel-shortcut" }, ({ shortcut }) =>
+							options.onKernelShortcut(shortcut),
+						),
+						Match.when({ type: "page-shortcuts" }, ({ shortcuts }) =>
+							options.onPageShortcuts([...new Set(shortcuts.filter(isPageShortcut))].sort()),
+						),
+						Match.when({ type: "screen-state" }, ({ hasPreviousScreen, index, key }) => {
+							if (index === navigation.index && key === navigation.key) {
+								options.onScreenState({ hasPreviousScreen, index, key });
+							}
+						}),
+					)
+					.pipe(
+						Match.when({ type: "header" }, (request) => options.onHeader(request)),
+						Match.when({ type: "navigate" }, (request) => options.onNavigate(request)),
+						Match.when({ type: "page-search" }, (request) => options.onPageSearch(request)),
+						Match.when({ type: "provider-search-screen" }, (request) =>
+							options.onProviderSearch(request),
+						),
+						Match.when({ type: "lifecycle-close" }, ({ reason }) => handleLifecycleClose(reason)),
+						Match.when({ type: "ryotql-cancel" }, (request) => handleRyotQLCancel(request)),
+						Match.when({ type: "ryotql-request" }, (request) => handleRyotQL(request)),
+						Match.when({ type: "operation-request" }, (request) => handleOperation(request)),
+						Match.when({ type: "collection-request" }, (request) => handleCollection(request)),
+						Match.when({ type: "upload-request" }, (request) => handleUpload(request)),
+						Match.exhaustive,
+					);
 				return;
 			}
 			const lifecycleClose = decodeLifecycleClose(event.data);
@@ -639,6 +656,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 	return {
 		close,
 		sendTheme,
+		sendShortcut,
 		sendLocation,
 		sendViewport,
 		sendPageRefresh,

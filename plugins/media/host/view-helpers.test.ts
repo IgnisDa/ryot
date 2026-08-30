@@ -3,65 +3,14 @@ import { describe, expect, it } from "vitest";
 import { buildViewExpressions } from "./view-helpers";
 
 describe("buildViewExpressions", () => {
-	it("uses the entity alias and a schema-name literal", () => {
-		const config = buildViewExpressions("movie", "Movie");
-
-		expect(config.grid.title).toEqual({
-			field: "name",
-			type: "column",
-			tableAlias: "entity",
-		});
-		expect(config.grid.overline).toEqual({
-			displayKind: "text",
-			expression: { type: "literal", value: "Movie" },
-		});
-		expect(config.grid.image).toEqual({
+	it("projects the first entity image for the table thumbnail", () => {
+		expect(buildViewExpressions("movie").table.image).toEqual({
 			type: "cast",
 			target: "json",
 			expr: {
 				type: "jsonPath",
 				path: ["images", 0],
 				expr: { type: "column", field: "properties", tableAlias: "entity" },
-			},
-		});
-	});
-
-	it("uses conditional unit subtitles", () => {
-		const expression = buildViewExpressions("movie", "Movie").grid.secondaryMetadata?.expression;
-
-		expect(expression).toMatchObject({
-			type: "conditional",
-			whenTrue: { type: "concat" },
-			condition: { type: "isNotNull" },
-			whenFalse: { type: "literal", value: null },
-		});
-	});
-
-	it("uses review events for media callouts", () => {
-		const expression = buildViewExpressions("movie", "Movie").grid.callout?.expression;
-
-		expect(expression).toMatchObject({
-			type: "aggregate",
-			aggregation: {
-				function: "average",
-				expr: {
-					type: "cast",
-					target: "number",
-					expr: {
-						path: ["rating"],
-						type: "jsonPath",
-						expr: { field: "properties", tableAlias: "review" },
-					},
-				},
-			},
-			query: {
-				from: { table: "event", alias: "review" },
-				where: {
-					type: "and",
-					predicates: expect.arrayContaining([
-						expect.objectContaining({ right: { type: "literal", value: "review" } }),
-					]),
-				},
 			},
 		});
 	});
@@ -74,21 +23,12 @@ describe("buildViewExpressions", () => {
 		["custom-schema", ["Name", "Year"]],
 		["anime", ["Name", "Year", "Episodes"]],
 	] as const)("builds the expected %s table columns", (slug, labels) => {
-		expect(buildViewExpressions(slug, "Schema").table.columns.map(({ label }) => label)).toEqual(
-			labels,
-		);
+		expect(buildViewExpressions(slug).table.columns.map(({ label }) => label)).toEqual(labels);
 	});
 
 	it("assigns persisted display kinds to media values", () => {
-		const person = buildViewExpressions("person", "Person");
-		const book = buildViewExpressions("book", "Book");
-
-		expect(person.grid.secondaryMetadata?.displayKind).toBe("date");
-		expect(book.grid.callout?.displayKind).toBe("number");
-		expect(book.table.columns.map(({ displayKind }) => displayKind)).toEqual([
-			"text",
-			"number",
-			"number",
-		]);
+		expect(
+			buildViewExpressions("book").table.columns.map(({ displayKind }) => displayKind),
+		).toEqual(["text", "number", "number"]);
 	});
 });
