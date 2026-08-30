@@ -9,7 +9,7 @@
 	},
 	"scripts": {
 		"test": "bun --bun run vitest run",
-		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
+		"check": "tsc && oxfmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
 		"@ryot-app/client-plugin-contract": "workspace:*",

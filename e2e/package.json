@@ -4,7 +4,7 @@
 	"type": "module",
 	"scripts": {
 		"test": "bun --bun run vitest run",
-		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
+		"check": "tsc && oxfmt . --write && oxlint . --fix"
 	},
 	"devDependencies": {
 		"@aws-sdk/client-s3": "3.1032.0",
