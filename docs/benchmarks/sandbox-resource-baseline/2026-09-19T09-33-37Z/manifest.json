@@ -9,7 +9,9 @@
     "The live phase required six attempts. Attempts 1 through 5 aborted and their artifacts are not in this run directory; attempt 6 completed all 12 units and is the live evidence here.",
     "The harness was changed mid-run, after the profiles phase and before soak-control, to stop losing progress to stale watchdog triggers and a dead backend, to stop profiling concurrent soak waves, and to retry idempotent admin calls on transport reset. Scenarios before and after that change ran on different harness revisions. Commits carry the [resource-data-gathering] tag.",
     "soak-hermetic-import stalled 171 of its 200 imports above 600 s on Effect 4.0.0-rc.116, upstream issue 8312. Its latency, throughput and retention figures measure the defect, not the sandbox. See effect-workflow-stall.md.",
-    "This manifest was completed by hand. The soak-hermetic-import run exited 1 when its final updateManifest hit EPERM opening this file during a host filesystem fault; the scenario itself had already completed all 10 waves and written its artifact."
+    "This manifest was completed by hand. The soak-hermetic-import run exited 1 when its final updateManifest hit EPERM opening this file during a host filesystem fault; the scenario itself had already completed all 10 waves and written its artifact.",
+    "The seven phase invocation records were reconstructed from the scenario artifacts. Each phase command recorded itself in this manifest when it started, but those writes did not survive: the file on disk matched its last committed state, which predates the idle phase. Every field is derived from the artifacts that invocation produced, so the start and end times bound the scenario work rather than the process lifetime.",
+    "The manifest profiles block was filled by hand from profiles/summary.json. No command writes it, so a verified raw-profile deletion would otherwise not be recorded in the manifest."
   ],
   "completedAtUtc": null,
   "invocations": [
@@ -47,6 +49,94 @@
       "scenarioIds": [],
       "stopReason": null,
       "completedAtUtc": "2026-09-19T09:36:15.475Z",
+      "outcome": "completed"
+    },
+    {
+      "command": "idle",
+      "invocationId": "idle-07a39c7a",
+      "startedAtUtc": "2026-09-19T09:56:26.745Z",
+      "scenarioIds": [
+        "idle-dispatchers-disabled",
+        "idle-dispatchers-enabled"
+      ],
+      "stopReason": null,
+      "completedAtUtc": "2026-09-19T12:05:44.668Z",
+      "outcome": "completed"
+    },
+    {
+      "command": "hermetic",
+      "invocationId": "hermetic-b17b2278",
+      "startedAtUtc": "2026-09-19T12:08:38.145Z",
+      "scenarioIds": [
+        "hermetic-c1",
+        "hermetic-c2",
+        "hermetic-c3",
+        "hermetic-c5"
+      ],
+      "stopReason": null,
+      "completedAtUtc": "2026-09-19T14:55:40.395Z",
+      "outcome": "completed"
+    },
+    {
+      "command": "live",
+      "invocationId": "live-3971339c",
+      "startedAtUtc": "2026-09-19T19:42:16.284Z",
+      "scenarioIds": [
+        "live-c1",
+        "live-c2",
+        "live-c3",
+        "live-c5"
+      ],
+      "stopReason": null,
+      "completedAtUtc": "2026-09-19T22:49:32.326Z",
+      "outcome": "completed"
+    },
+    {
+      "command": "variance",
+      "invocationId": "variance-a6efd164",
+      "startedAtUtc": "2026-09-19T22:52:04.145Z",
+      "scenarioIds": [
+        "ytm-details-variance",
+        "ytm-search-variance"
+      ],
+      "stopReason": null,
+      "completedAtUtc": "2026-09-19T23:12:58.551Z",
+      "outcome": "completed"
+    },
+    {
+      "command": "profiles",
+      "invocationId": "profiles-c271c7ea",
+      "startedAtUtc": "2026-09-19T23:15:37.744Z",
+      "scenarioIds": [
+        "profile-hermetic-noop",
+        "profile-ytm-details-five",
+        "profile-ytm-details",
+        "profile-ytm-search"
+      ],
+      "stopReason": null,
+      "completedAtUtc": "2026-09-19T23:46:31.543Z",
+      "outcome": "completed"
+    },
+    {
+      "command": "soak",
+      "invocationId": "soak-f1f5f664",
+      "startedAtUtc": "2026-09-20T00:06:05.620Z",
+      "scenarioIds": [
+        "soak-control"
+      ],
+      "stopReason": null,
+      "completedAtUtc": "2026-09-20T02:50:44.345Z",
+      "outcome": "completed"
+    },
+    {
+      "command": "soak",
+      "invocationId": "soak-a5c43994",
+      "startedAtUtc": "2026-09-20T05:18:34.254Z",
+      "scenarioIds": [
+        "soak-hermetic-import"
+      ],
+      "stopReason": null,
+      "completedAtUtc": "2026-09-20T11:57:31.039Z",
       "outcome": "completed"
     }
   ],
@@ -137,9 +227,9 @@
     "workflowRunUrl": "https://github.com/IgnisDa/ryot/actions/runs/35434289866"
   },
   "profiles": {
-    "rawDeleted": null,
-    "verifiedAtUtc": null,
-    "remainingRawEntries": null
+    "rawDeleted": true,
+    "verifiedAtUtc": "2026-09-20T12:29:17.194Z",
+    "remainingRawEntries": 0
   },
   "image": {
     "tag": "ghcr.io/ignisda/ryot@sha256:48fdd57223c44a7dd22bc2aa2f0b6c60471df2058d203ddb3392e7e5d2550a71",
