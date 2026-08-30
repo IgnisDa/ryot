@@ -428,9 +428,10 @@ export const makePreparedRelationshipMutations = ({
 		if (value?.operation !== "create") {
 			return null;
 		}
-		return Object.freeze({
+		const prepared: PreparedUserRelationshipCreate = Object.freeze({
 			[preparedUserRelationshipCreate]: { ...value, operation: "create" as const },
-		}) as PreparedUserRelationshipCreate;
+		});
+		return prepared;
 	});
 	const prepareUserDelete = Effect.fn("RelationshipsService.prepareUserDelete")(function* (
 		input: RelationshipIdentityInput,

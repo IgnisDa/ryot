@@ -9,6 +9,7 @@ export { Switch } from "./switch";
 export { Select } from "./select";
 export type { MenuItem } from "./menu";
 export { useFieldEscape } from "./field-escape";
+export { useValueChange } from "./value-change";
 export { RadioGroup } from "./radio-group";
 export { MultiSelect } from "./multi-select";
 export type { SelectChoice } from "./select";

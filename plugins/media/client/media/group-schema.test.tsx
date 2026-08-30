@@ -192,13 +192,13 @@ describe("group members tab", () => {
 	});
 });
 
-describe("group activity tab", () => {
-	const renderActivity = (state: Parameters<typeof groupFixtureSchema.Activity>[0]["state"]) =>
-		mountRyotClient(
-			noopAdapter,
-			<groupFixtureSchema.Activity compact state={state} refresh={() => undefined} />,
-		);
+const renderActivity = (state: Parameters<typeof groupFixtureSchema.Activity>[0]["state"]) =>
+	mountRyotClient(
+		noopAdapter,
+		<groupFixtureSchema.Activity compact state={state} refresh={() => undefined} />,
+	);
 
+describe("group activity tab", () => {
 	it("lists the group's reviews", () => {
 		const { unmount, container } = renderActivity(
 			groupFixtureSchema.mapActivity(readyQueryResult(decodeGroupActivity())),

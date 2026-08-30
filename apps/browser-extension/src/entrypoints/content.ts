@@ -382,23 +382,23 @@ export default defineContentScript({
 			});
 		}
 
+		const handleVisibilityChange = async () => {
+			if (document.hidden) {
+				logger.debug("Page hidden, stopping loop");
+				stopMainLoop();
+				clearRetryTimeout();
+				await setHasFoundVideo(false);
+				retryAttempts = 0;
+				return;
+			}
+
+			logger.debug("Page visible, restarting loop");
+			if (!isRunning) {
+				await startMainLoop();
+			}
+		};
+
 		function setupVisibilityListener() {
-			const handleVisibilityChange = async () => {
-				if (document.hidden) {
-					logger.debug("Page hidden, stopping loop");
-					stopMainLoop();
-					clearRetryTimeout();
-					await setHasFoundVideo(false);
-					retryAttempts = 0;
-					return;
-				}
-
-				logger.debug("Page visible, restarting loop");
-				if (!isRunning) {
-					await startMainLoop();
-				}
-			};
-
 			document.addEventListener("visibilitychange", () => void handleVisibilityChange(), {
 				signal: cleanup.abortController.signal,
 			});

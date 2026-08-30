@@ -196,25 +196,25 @@ describe("media server sinks", () => {
 	});
 });
 
-describe("Plex sink", () => {
-	const runPlex = (payload: unknown, username?: string) =>
-		Effect.runPromise(
-			runSandboxTestScript(
-				plexDefinition,
-				sinkInput(multipart(payload), "multipart/form-data; boundary=abc"),
-				defineSandboxTestHost(plexManifest, {
-					getCurrentIntegration: () =>
-						hostSuccess(
-							integrationRecord({
-								provider: "plex_sink",
-								providerSpecifics: username === undefined ? {} : { username },
-							}),
-						),
-				}),
-				execution,
-			),
-		);
+const runPlex = (payload: unknown, username?: string) =>
+	Effect.runPromise(
+		runSandboxTestScript(
+			plexDefinition,
+			sinkInput(multipart(payload), "multipart/form-data; boundary=abc"),
+			defineSandboxTestHost(plexManifest, {
+				getCurrentIntegration: () =>
+					hostSuccess(
+						integrationRecord({
+							provider: "plex_sink",
+							providerSpecifics: username === undefined ? {} : { username },
+						}),
+					),
+			}),
+			execution,
+		),
+	);
 
+describe("Plex sink", () => {
 	it("maps a Plex scrobble multipart webhook to a movie ref", async () => {
 		const result = await runPlex({
 			event: "media.scrobble",
@@ -274,20 +274,20 @@ describe("Plex sink", () => {
 	});
 });
 
-describe("browser extension sink", () => {
-	const runBrowser = (rawBody: string, disabledSites: string[] = []) =>
-		Effect.runPromise(
-			runSandboxTestScript(
-				browserDefinition,
-				sinkInput(rawBody),
-				defineSandboxTestHost(browserManifest, {
-					getCurrentIntegration: () =>
-						hostSuccess(integrationRecord({ providerSpecifics: { disabledSites } })),
-				}),
-				execution,
-			),
-		);
+const runBrowser = (rawBody: string, disabledSites: string[] = []) =>
+	Effect.runPromise(
+		runSandboxTestScript(
+			browserDefinition,
+			sinkInput(rawBody),
+			defineSandboxTestHost(browserManifest, {
+				getCurrentIntegration: () =>
+					hostSuccess(integrationRecord({ providerSpecifics: { disabledSites } })),
+			}),
+			execution,
+		),
+	);
 
+describe("browser extension sink", () => {
 	it("ignores browser extension events from disabled sites", async () => {
 		const result = await runBrowser(
 			JSON.stringify({
