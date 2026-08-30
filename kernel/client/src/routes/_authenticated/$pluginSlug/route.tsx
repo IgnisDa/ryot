@@ -11,6 +11,7 @@ import { toPluginLocation } from "#/modules/plugins/plugin-location";
 
 export const Route = createFileRoute("/_authenticated/$pluginSlug")({
 	component: PluginRoute,
+	errorComponent: () => <PluginNotice title="Plugin page unavailable" />,
 	notFoundComponent: PluginNotFound,
 	pendingComponent: () => <PluginNotice title="Plugin loading" />,
 	shouldReload: true,
@@ -28,15 +29,18 @@ export const Route = createFileRoute("/_authenticated/$pluginSlug")({
 			location.pathname,
 			location.searchStr,
 		);
-		const preparation = await context.runtime.runPromise(
-			prepareClientPage(context.scope, {
-				kind: "plugin-route",
-				path: pluginLocation.path,
-				search: pluginLocation.search,
-				pluginId: installation.pluginId,
-			}),
-			{ signal: abortController.signal },
-		);
+		const target =
+			pluginLocation.path === "/" && installation.homeSavedViewId !== null
+				? ({ kind: "saved-view", savedViewId: installation.homeSavedViewId } as const)
+				: ({
+						kind: "plugin-route",
+						path: pluginLocation.path,
+						search: pluginLocation.search,
+						pluginId: installation.pluginId,
+					} as const);
+		const preparation = await context.runtime.runPromise(prepareClientPage(context.scope, target), {
+			signal: abortController.signal,
+		});
 		return { installation, preparation, kind: "resolved" as const };
 	},
 });

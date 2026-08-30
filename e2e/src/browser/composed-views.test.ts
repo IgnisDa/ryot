@@ -21,6 +21,8 @@ import {
 	fakeProviderDetailsResult,
 	getBuiltinEntitySchemaSlug,
 	getEntity,
+	findBuiltinPluginBySlug,
+	findPluginInstallationBySlug,
 	installFixtureClientPlugin,
 	installTestProvider,
 	listEntitySchemas,
@@ -30,6 +32,7 @@ import {
 	publishClientRenderer,
 	replaceClientRendererDraft,
 	requireEventSchemaBySlug,
+	setPluginHomeView,
 } from "~/fixtures/kernel";
 import {
 	createWorkoutEntityFixture,
@@ -37,6 +40,7 @@ import {
 	waitForSeededExerciseId,
 	waitForSessionEventCount,
 } from "~/fixtures/plugins/fitness";
+import { createPokemonEntityFixture } from "~/fixtures/plugins/fixture";
 import { seedGlobalShowEpisodeTree } from "~/fixtures/plugins/media";
 import { getApiUrl } from "~/support/api";
 import { requirePresent } from "~/support/assertions";
@@ -134,38 +138,23 @@ it.live("renders system and private public components in one shared page runtime
 	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );
 
-it.live("adds an outside Pokemon through the published collection workflow and persists it", () =>
+it.live("uses the deterministic collection dashboard as media home and persists its workflow", () =>
 	Effect.gen(function* () {
 		const apiUrl = getApiUrl();
 		const { token, email, password } = yield* createTestUser(apiUrl);
 		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
 		yield* installFixtureClientPlugin(client, "A", "", apiUrl);
-		const pokemonSchema = requirePresent(
-			(yield* listEntitySchemas(client, {
-				slugs: ["pokemon"],
-				pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG,
-			}))[0],
-			"Fixture Pokemon schema was not registered",
-		);
 		const { showId } = yield* seedGlobalShowEpisodeTree(client, {
-			showName: "01 Task 07 Show",
+			showName: "01 Task 10 Show",
 		});
 		const { workoutId } = yield* createWorkoutEntityFixture(client, {
-			name: "02 Task 07 Workout",
+			name: "02 Task 10 Workout",
 		});
 		const [pokemonA, pokemonB] = yield* Effect.all([
-			createEntity(client, {
-				name: "03 Task 07 Pokemon A",
-				properties: { types: ["Grass"] },
-				entitySchemaSlug: pokemonSchema.id,
-			}),
-			createEntity(client, {
-				name: "04 Task 07 Pokemon B",
-				properties: { types: ["Fire"] },
-				entitySchemaSlug: pokemonSchema.id,
-			}),
+			createPokemonEntityFixture(client, { types: ["Grass"], name: "03 Task 10 Pokemon A" }),
+			createPokemonEntityFixture(client, { types: ["Fire"], name: "04 Task 10 Pokemon B" }),
 		]);
-		const collection = yield* createCollection(client, { name: "Task 07 collection" });
+		const collection = yield* createCollection(client, { name: "Task 10 collection" });
 		yield* Effect.forEach([showId, workoutId, pokemonA.id], (entityId) =>
 			client.call((contract) =>
 				contract.collections.createMembership({
@@ -181,28 +170,72 @@ it.live("adds an outside Pokemon through the published collection workflow and p
 			client,
 			renderer.id,
 			{ collectionId: collection.id, pageSize: 2 },
-			{ name: "Task 07 collection workflow" },
+			{ name: "Task 10 primary dashboard" },
 		);
+		const secondaryView = yield* createRendererSavedView(
+			client,
+			renderer.id,
+			{ collectionId: collection.id, pageSize: 3 },
+			{ name: "Task 10 secondary dashboard" },
+		);
+		const media = yield* findBuiltinPluginBySlug(client, "media");
+		expect(yield* setPluginHomeView(client, media.slug, view.id)).toEqual({ savedViewId: view.id });
+		expect((yield* findPluginInstallationBySlug(client, "media")).homeSavedViewId).toBe(view.id);
 
 		const browser = yield* Playwright.Browser;
-		const page = yield* browser.newPage();
+		const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });
 		yield* signInThroughHostedOAuth(page, email, password);
 		yield* page.goto(`${getFrontendUrl()}/v/${view.slug}?keep=preserved`);
+		yield* page.waitForURL(`**/v/${view.slug}?keep=preserved`);
 		let runtime = page.locator("iframe").contentFrame();
-		yield* runtime
-			.getByRole("heading", { level: 1, name: "Task 07 collection workflow" })
-			.waitFor();
+		yield* runtime.getByRole("heading", { level: 1, name: "Collection dashboard" }).waitFor();
+		expect(yield* page.locator("#app").count).toBe(1);
+		expect(yield* page.locator("iframe").count).toBe(1);
+		expect(yield* runtime.locator("#app").count).toBe(1);
+		expect(yield* runtime.locator("main").count).toBe(1);
+		expect(yield* runtime.locator("[data-domain-presentations='2']").count).toBe(1);
 		yield* expectVisibleText(runtime.locator("body"), "3 total");
 		yield* expectVisibleText(runtime.locator("body"), "1 Pokemon");
+		const dashboardUrl = `${getFrontendUrl()}/v/${view.slug}?keep=preserved`;
+		const showLink = runtime.getByRole("link", { name: "01 Task 10 Show", exact: true }).first();
+		expect(yield* showLink.getAttribute("href")).toBe(`/e/${showId}`);
+		yield* showLink.click();
+		yield* page.waitForURL(`${getFrontendUrl()}/e/${showId}`);
+		const showFrame = page.locator('iframe[title="media plugin"]');
+		yield* showFrame.waitFor({ state: "visible" });
+		yield* showFrame
+			.contentFrame()
+			.getByRole("heading", { level: 1, name: "01 Task 10 Show", exact: true })
+			.waitFor({ state: "visible" });
+		yield* page.goto(dashboardUrl);
+		yield* page.waitForURL(dashboardUrl);
+		runtime = page.locator("iframe").contentFrame();
+		yield* runtime.getByRole("heading", { level: 1, name: "Collection dashboard" }).waitFor();
 		yield* runtime.getByRole("button", { name: "Invoke fixture greeting" }).click();
 		yield* expectVisibleText(runtime.locator("body"), "Hello, Media collection page");
 		yield* runtime.getByRole("button", { name: "Load next page" }).click();
-		yield* runtime
-			.getByRole("link", { name: "03 Task 07 Pokemon A", exact: true })
+		const pokemonALink = runtime
+			.getByRole("link", { exact: true, name: "03 Task 10 Pokemon A" })
+			.first();
+		yield* pokemonALink.waitFor({ state: "visible" });
+		expect(yield* pokemonALink.getAttribute("href")).toBe(`/e/${pokemonA.id}`);
+		yield* pokemonALink.click();
+		yield* page.waitForURL(`${getFrontendUrl()}/e/${pokemonA.id}`);
+		const pokemonFrame = page.locator('iframe[title="fixture plugin"]');
+		yield* pokemonFrame.waitFor({ state: "visible" });
+		yield* pokemonFrame
+			.contentFrame()
+			.getByRole("heading", { level: 1, name: pokemonA.name, exact: true })
 			.waitFor({ state: "visible" });
+		yield* expectVisibleText(pokemonFrame.contentFrame().locator("body"), "Grass");
+		yield* page.goto(dashboardUrl);
+		yield* page.waitForURL(dashboardUrl);
+		runtime = page.locator("iframe").contentFrame();
+		yield* runtime.getByRole("heading", { level: 1, name: "Collection dashboard" }).waitFor();
+		yield* runtime.getByRole("button", { name: "Load next page" }).click();
 
 		const addPokemon = runtime.getByRole("button", {
-			name: "Add 04 Task 07 Pokemon B to collection",
+			name: "Add 04 Task 10 Pokemon B to collection",
 		});
 		yield* addPokemon.click();
 		yield* page.waitForURL(
@@ -225,7 +258,7 @@ it.live("adds an outside Pokemon through the published collection workflow and p
 		expect(yield* runtime.getByRole("dialog").count).toBe(0);
 		yield* expectVisibleText(runtime.locator("body"), "3 total");
 
-		yield* runtime.getByRole("button", { name: "Add 04 Task 07 Pokemon B to collection" }).click();
+		yield* runtime.getByRole("button", { name: "Add 04 Task 10 Pokemon B to collection" }).click();
 		runtime = page.locator("iframe").contentFrame();
 		yield* runtime.getByRole("radio", { name: collection.name }).click();
 		yield* runtime.getByRole("button", { name: "Review" }).click();
@@ -236,7 +269,7 @@ it.live("adds an outside Pokemon through the published collection workflow and p
 		yield* expectVisibleText(runtime.locator("body"), "4 total");
 		yield* expectVisibleText(runtime.locator("body"), "2 Pokemon");
 		yield* runtime
-			.getByRole("link", { name: "04 Task 07 Pokemon B", exact: true })
+			.getByRole("link", { name: "04 Task 10 Pokemon B", exact: true })
 			.waitFor({ state: "visible" });
 
 		yield* page.reload;
@@ -245,8 +278,46 @@ it.live("adds an outside Pokemon through the published collection workflow and p
 		yield* expectVisibleText(runtime.locator("body"), "2 Pokemon");
 		yield* runtime.getByRole("button", { name: "Load next page" }).click();
 		yield* runtime
-			.getByRole("link", { name: "04 Task 07 Pokemon B", exact: true })
+			.getByRole("link", { name: "04 Task 10 Pokemon B", exact: true })
 			.waitFor({ state: "visible" });
+
+		yield* page.goto(`${getFrontendUrl()}/media`);
+		yield* page.waitForURL(`**/media`);
+		yield* page.locator("iframe").waitFor({ state: "visible" });
+		expect(yield* page.getByRole("button", { name: "Media workspace, media" }).count).toBe(1);
+		expect(
+			yield* page.getByRole("link", { name: "Home", exact: true }).getAttribute("aria-current"),
+		).toBe("page");
+		yield* expectVisibleText(page.locator("iframe").contentFrame().locator("body"), "4 total");
+
+		yield* page.setViewportSize({ width: 390, height: 844 });
+		expect(yield* page.locator("iframe").count).toBe(1);
+		expect(
+			yield* page
+				.locator("iframe")
+				.contentFrame()
+				.locator("body")
+				.evaluate((body) => body.scrollWidth <= document.documentElement.clientWidth),
+		).toBe(true);
+		yield* page.setViewportSize({ width: 900, height: 800 });
+		expect(yield* page.locator("iframe").count).toBe(1);
+
+		yield* page.goto(`${getFrontendUrl()}/v/${secondaryView.slug}`);
+		yield* page.waitForURL(`**/v/${secondaryView.slug}`);
+		yield* expectVisibleText(page.locator("iframe").contentFrame().locator("body"), "4 total");
+		expect(yield* page.locator("iframe").count).toBe(1);
+
+		const directDialogUrl = `${getFrontendUrl()}/v/${view.slug}?keep=preserved&dialog=add-to-collection&entityId=${pokemonB.id}`;
+		yield* page.goto(directDialogUrl);
+		yield* page.waitForURL(directDialogUrl);
+		runtime = page.locator("iframe").contentFrame();
+		const directDialog = runtime.getByRole("dialog", { name: "Choose a collection" });
+		yield* directDialog.waitFor();
+		yield* directDialog.getByRole("button", { name: "Cancel", exact: true }).click();
+		yield* page.waitForURL(dashboardUrl);
+		expect(new URL(page.url()).search).toBe("?keep=preserved");
+		runtime = page.locator("iframe").contentFrame();
+		expect(yield* runtime.getByRole("dialog").count).toBe(0);
 	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );
 
@@ -315,9 +386,7 @@ it.live("preserves expanded and dialog state when provider population completes"
 		yield* frames.waitFor({ state: "visible" });
 		const iframe = Option.getOrThrow(yield* frames.first().elementHandle());
 		let runtime = frames.contentFrame();
-		yield* runtime
-			.getByRole("heading", { level: 1, name: "Task 07 collection workflow" })
-			.waitFor();
+		yield* runtime.getByRole("heading", { level: 1, name: "Collection dashboard" }).waitFor();
 		const application = runtime.locator("#app");
 		const app = Option.getOrThrow(yield* application.elementHandle());
 		const pokemon = runtime

@@ -143,10 +143,14 @@ import { and, ascending, column, defineRecipe, eq, groupAscending, join, literal
 import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
 import { Button, StatusMessage } from "@ryot-app/client-ui-sdk";
 import PokemonPicker from "@ryot-app/plugins/fixture/pokemon-picker";
+import WorkoutRowPresentation from "@ryot-app/plugins/fitness/workout-row";
+import ShowProgress from "@ryot-app/plugins/media/show-progress";
+import ShowRowPresentation from "@ryot-app/plugins/media/show-row";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 const Settings = Schema.Struct({ collectionId: Schema.String, pageSize: Schema.Number });
 const Greeting = Schema.Struct({ greeting: Schema.String });
+const importedDomainPresentations = [ShowRowPresentation, WorkoutRowPresentation];
 type CollectionPageInput = {
   readonly collectionId: string;
   readonly pageSize: number;
@@ -320,8 +324,9 @@ const CollectionPage = ({ collectionId, pageSize }: typeof Settings.Type) => {
   }, [state]);
   const total = state?.grouped.reduce((sum, group) => sum + group.count, 0) ?? 0;
   return (
-    <PluginScreenFrame title="Task 07 collection workflow">
-      <div className="flex flex-col gap-5 text-text">
+    <PluginScreenFrame title="Collection dashboard">
+      <div className="flex flex-col gap-5 text-text" data-domain-presentations={importedDomainPresentations.length}>
+        <ShowProgress name="Dashboard show summary" totalEpisodes={1} watchedEpisodes={0} />
         <section aria-labelledby="collection-summary">
           <h2 id="collection-summary" className="font-display text-xl">Collection summary</h2>
           <p>{total} total</p>
@@ -409,7 +414,11 @@ export const buildNamedDataSourcesRendererDefinition = () =>
 export const buildCollectionWorkflowRendererDefinition = () =>
 	buildClientRendererDefinition({
 		automaticEntityPresentations: true,
-		pluginDependencies: [PluginSlug.make("fixture")],
+		pluginDependencies: [
+			PluginSlug.make("fixture"),
+			PluginSlug.make("fitness"),
+			PluginSlug.make("media"),
+		],
 		settingsSchema: {
 			unknownKeys: "strict",
 			fields: {
