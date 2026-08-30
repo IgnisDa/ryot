@@ -4,14 +4,15 @@
 # service, creates fresh benchmark users and plugins, then runs `run-arm.sh` on the host and copies
 # the results back. Usage (from `e2e/`):
 #   run-campaign.sh <output-dir> <label>:<admission-limit>:<interactive-lane>:<worker-priority>...
-# Environment: COOLIFY_TOKEN, SERVER_IP, BENCHMARK_ADMIN_TOKEN_FILE (mode 0600), and optionally
-# ARM_SCENARIOS (default "warmup 1 single 2 mixed 1 slow 1").
+# Environment: COOLIFY_TOKEN, SERVER_IP, BENCHMARK_ADMIN_TOKEN_FILE (mode 0600), BENCHMARK_IMAGE (the
+# pinned image reference in the service compose), and optionally ARM_SCENARIOS (default "warmup 1 single 2 mixed 1 slow 1").
 set -eu
 OUTPUT="$1"
 shift
 SERVICE=a2dt5g6dbmpwqwllnzsho8jc
 API="https://admin.ryot.io/api/v1/services/$SERVICE"
 HOST="root@$SERVER_IP"
+IMAGE="$BENCHMARK_IMAGE"
 SCENARIOS="${ARM_SCENARIOS:-warmup 1 single 2 mixed 1 slow 1}"
 HERE=$(dirname "$0")
 mkdir -p "$OUTPUT"
@@ -109,6 +110,12 @@ for arm in "$@"; do
 		docker start ryot-$SERVICE >/dev/null"
 	wait_healthy
 	step="settings check"
+	# A compose edited during the campaign would otherwise run arms against another build.
+	deployed=$(remote "docker inspect ryot-$SERVICE --format '{{.Config.Image}}'")
+	[ "$deployed" = "$IMAGE" ] || {
+		echo "deployed image $deployed is not $IMAGE" >&2
+		exit 1
+	}
 	remote "docker exec ryot-$SERVICE printenv" |
 		grep -E '^(EXPERIMENT_|SANDBOX_WORKER_CONCURRENCY|SCHEDULER_DISABLE)' >"$OUTPUT/$label.env"
 	# An arm that silently ran with the previous arm's settings would corrupt the comparison.
