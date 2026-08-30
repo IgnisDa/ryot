@@ -560,6 +560,7 @@
     "packages/sandbox-sdk": {
       "name": "@ryot-app/sandbox-sdk",
       "dependencies": {
+        "@nodable/entities": "2.1.1",
         "@ryot-app/contract": "workspace:*",
         "@ryot-app/ryotql": "workspace:*",
         "@ryot-app/ryotql-recipes": "workspace:*",
