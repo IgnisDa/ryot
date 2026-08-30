@@ -168,30 +168,32 @@ export function NotificationChannelCreateWizard(props: {
 	const [state, dispatch] = useReducer(wizardReducer, undefined, createWizardState);
 	const definition = findBySlug(notificationChannelList, state.slug);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- React notification form handler.
-	const add = async (values: SchemaFormValues) => {
+	const add = (values: SchemaFormValues) => {
 		if (definition === undefined) {
-			return;
+			return Promise.resolve();
 		}
 		const body = createNotificationChannelBody({ values, kind: definition.slug });
 		if (Result.isFailure(body)) {
 			setFailure({ step: "configure", detail: INVALID_CHANNEL_DETAILS_MESSAGE });
 			dispatch({ step: "configure", type: "recover-at" });
-			return;
+			return Promise.resolve();
 		}
 		setFailure(undefined);
-		try {
-			await create.mutateAsync(body.success);
-		} catch (error) {
-			const saveFailure = notificationChannelSaveFailure(error);
-			setFailure(saveFailure);
-			if (saveFailure.step !== undefined) {
-				dispatch({ type: "recover-at", step: saveFailure.step });
-			}
-			return;
-		}
-		props.onCreated();
-		props.onClose();
+		return create.mutateAsync(body.success).then(
+			() => {
+				props.onCreated();
+				props.onClose();
+				return undefined;
+			},
+			(error) => {
+				const saveFailure = notificationChannelSaveFailure(error);
+				setFailure(saveFailure);
+				if (saveFailure.step !== undefined) {
+					dispatch({ type: "recover-at", step: saveFailure.step });
+				}
+				return undefined;
+			},
+		);
 	};
 
 	const requestReview = () => {

@@ -1,7 +1,7 @@
+import { describe, expect, it } from "@effect/vitest";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
-import { describe, expect, it } from "vitest";
 
 import { execution } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./resolve-episodes.sandbox";
@@ -51,81 +51,82 @@ const podcastRef = {
 } as const;
 
 describe("resolve episodes operation", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("builds a relational show query with explicit episode, season, and show joins", async () => {
-		const { host, documents } = createHost([["episode-1"]]);
+	it.live("builds a relational show query with explicit episode, season, and show joins", () =>
+		Effect.gen(function* () {
+			const { host, documents } = createHost([["episode-1"]]);
 
-		await expect(
-			Effect.runPromise(runSandboxTestScript(definition, { refs: [showRef] }, host, execution)),
-		).resolves.toEqual({ results: [{ index: 0, entityId: "episode-1" }] });
-		const query = documents[0]?.queries["episodes"];
-		expect(query).toMatchObject({
-			from: { table: "entity", alias: "episode" },
-			output: { type: "rows", pagination: { limit: 2 } },
-		});
-		expect(query?.joins?.map((join) => join.table.alias)).toEqual([
-			"seasonEpisode",
-			"season",
-			"showSeason",
-			"show",
-		]);
-	});
+			expect(yield* runSandboxTestScript(definition, { refs: [showRef] }, host, execution)).toEqual(
+				{ results: [{ index: 0, entityId: "episode-1" }] },
+			);
+			const query = documents[0]?.queries["episodes"];
+			expect(query).toMatchObject({
+				from: { table: "entity", alias: "episode" },
+				output: { type: "rows", pagination: { limit: 2 } },
+			});
+			expect(query?.joins?.map((join) => join.table.alias)).toEqual([
+				"seasonEpisode",
+				"season",
+				"showSeason",
+				"show",
+			]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("builds a relational podcast query with the podcast episode join", async () => {
-		const { host, documents } = createHost([["episode-9"]]);
+	it.live("builds a relational podcast query with the podcast episode join", () =>
+		Effect.gen(function* () {
+			const { host, documents } = createHost([["episode-9"]]);
 
-		await expect(
-			Effect.runPromise(runSandboxTestScript(definition, { refs: [podcastRef] }, host, execution)),
-		).resolves.toEqual({ results: [{ index: 0, entityId: "episode-9" }] });
-		const query = documents[0]?.queries["episodes"];
-		expect(query?.joins?.map((join) => join.table.alias)).toEqual(["podcastEpisode", "podcast"]);
-	});
+			expect(
+				yield* runSandboxTestScript(definition, { refs: [podcastRef] }, host, execution),
+			).toEqual({ results: [{ index: 0, entityId: "episode-9" }] });
+			const query = documents[0]?.queries["episodes"];
+			expect(query?.joins?.map((join) => join.table.alias)).toEqual(["podcastEpisode", "podcast"]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("builds a relational show season query", async () => {
-		const { host, documents } = createHost([["season-2"]]);
+	it.live("builds a relational show season query", () =>
+		Effect.gen(function* () {
+			const { host, documents } = createHost([["season-2"]]);
 
-		await expect(
-			Effect.runPromise(runSandboxTestScript(definition, { refs: [seasonRef] }, host, execution)),
-		).resolves.toEqual({ results: [{ index: 0, entityId: "season-2" }] });
-		const query = documents[0]?.queries["episodes"];
-		expect(query).toMatchObject({
-			from: { alias: "season", table: "entity" },
-			output: { type: "rows", pagination: { limit: 2 } },
-		});
-		expect(query?.joins?.map((join) => join.table.alias)).toEqual(["showSeason", "show"]);
-	});
+			expect(
+				yield* runSandboxTestScript(definition, { refs: [seasonRef] }, host, execution),
+			).toEqual({ results: [{ index: 0, entityId: "season-2" }] });
+			const query = documents[0]?.queries["episodes"];
+			expect(query).toMatchObject({
+				from: { alias: "season", table: "entity" },
+				output: { type: "rows", pagination: { limit: 2 } },
+			});
+			expect(query?.joins?.map((join) => join.table.alias)).toEqual(["showSeason", "show"]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("emits documents accepted by the RyotQL contract", async () => {
-		const { host, documents } = createHost([[], []]);
+	it.live("emits documents accepted by the RyotQL contract", () =>
+		Effect.gen(function* () {
+			const { host, documents } = createHost([[], []]);
 
-		await Effect.runPromise(
-			runSandboxTestScript(
+			yield* runSandboxTestScript(
 				definition,
 				{ refs: [showRef, { ...podcastRef, index: 1 }] },
 				host,
 				execution,
-			),
-		);
-		for (const document of documents) {
-			expect(Schema.is(RyotQLDocument)(document)).toBe(true);
-		}
-	});
+			);
+			for (const document of documents) {
+				expect(Schema.is(RyotQLDocument)(document)).toBe(true);
+			}
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("resolves only unique matches and echoes each caller index with its own result", async () => {
-		const { host, documents } = createHost([
-			["episode-1"],
-			[],
-			["episode-2", "episode-3"],
-			["episode-4"],
-		]);
+	it.live("resolves only unique matches and echoes each caller index with its own result", () =>
+		Effect.gen(function* () {
+			const { host, documents } = createHost([
+				["episode-1"],
+				[],
+				["episode-2", "episode-3"],
+				["episode-4"],
+			]);
 
-		await expect(
-			Effect.runPromise(
-				runSandboxTestScript(
+			expect(
+				yield* runSandboxTestScript(
 					definition,
 					{
 						refs: [
@@ -138,15 +139,15 @@ describe("resolve episodes operation", () => {
 					host,
 					execution,
 				),
-			),
-		).resolves.toEqual({
-			results: [
-				{ index: 7, entityId: "episode-1" },
-				{ index: 4, entityId: null },
-				{ index: 2, entityId: null },
-				{ index: 9, entityId: "episode-4" },
-			],
-		});
-		expect(documents).toHaveLength(4);
-	});
+			).toEqual({
+				results: [
+					{ index: 7, entityId: "episode-1" },
+					{ index: 4, entityId: null },
+					{ index: 2, entityId: null },
+					{ index: 9, entityId: "episode-4" },
+				],
+			});
+			expect(documents).toHaveLength(4);
+		}),
+	);
 });

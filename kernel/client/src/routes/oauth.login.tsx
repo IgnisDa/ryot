@@ -65,9 +65,8 @@ function OAuthLogin() {
 
 	const methods = deriveAuthMethods(config);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- React credential form handler.
-	async function submitCredentials(values: CredentialsValues) {
-		const outcome = await runtime
+	function submitCredentials(values: CredentialsValues) {
+		return runtime
 			.runPromise(
 				auth
 					.submitCredentials({ mode, values })
@@ -82,22 +81,23 @@ function OAuthLogin() {
 			.then(
 				(result) => result,
 				() => ROUTE_ABORTED,
-			);
-		if ("_tag" in outcome) {
-			return undefined;
-		}
-		if ("error" in outcome) {
-			return outcome.error.message;
-		}
-		if (outcome.result._tag === "TwoFactor") {
-			setTwoFactorMethods(outcome.result.methods);
-			setTwoFactorMethod(outcome.result.methods[0]);
-		}
-		return undefined;
+			)
+			.then((outcome) => {
+				if ("_tag" in outcome) {
+					return undefined;
+				}
+				if ("error" in outcome) {
+					return outcome.error.message;
+				}
+				if (outcome.result._tag === "TwoFactor") {
+					setTwoFactorMethods(outcome.result.methods);
+					setTwoFactorMethod(outcome.result.methods[0]);
+				}
+				return undefined;
+			});
 	}
 
-	// oxlint-disable-next-line effecttsgo/async-function -- React two-factor form handler.
-	async function submitTwoFactor(code: string) {
+	function submitTwoFactor(code: string) {
 		return runtime
 			.runPromise(
 				auth
@@ -111,14 +111,13 @@ function OAuthLogin() {
 			);
 	}
 
-	// oxlint-disable-next-line effecttsgo/async-function -- React OIDC sign-in handler.
-	async function signInWithOidc() {
+	function signInWithOidc() {
 		if (oidcPending) {
-			return;
+			return Promise.resolve();
 		}
 		setOidcError(undefined);
 		setOidcPending(true);
-		const error = await runtime
+		return runtime
 			.runPromise(
 				auth.signInWithOidc.pipe(
 					Effect.match({ onSuccess: () => undefined, onFailure: (failure) => failure.message }),
@@ -128,11 +127,14 @@ function OAuthLogin() {
 			.then(
 				(result) => result,
 				() => undefined,
-			);
-		if (error) {
-			setOidcError(error);
-			setOidcPending(false);
-		}
+			)
+			.then((error) => {
+				if (error) {
+					setOidcError(error);
+					setOidcPending(false);
+				}
+				return undefined;
+			});
 	}
 
 	const launchOidc = useEffectEvent(signInWithOidc);

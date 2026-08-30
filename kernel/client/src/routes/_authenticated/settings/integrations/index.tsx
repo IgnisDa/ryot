@@ -62,18 +62,17 @@ function IntegrationsRoute() {
 		providers = { status: "failed" };
 	}
 
-	// oxlint-disable-next-line effecttsgo/async-function -- React integration sync handler.
-	const syncAll = async () => {
+	const syncAll = () => {
 		setSyncDetail(undefined);
 		setSyncSucceeded(false);
-		try {
-			await sync.mutateAsync();
-		} catch {
-			setSyncDetail("Integration sync could not be started. Try again.");
-			return;
-		}
-		setSyncSucceeded(true);
-		setSyncDetail("Sync started. Updates will appear as integrations finish.");
+		return sync.mutateAsync().then(
+			() => {
+				setSyncSucceeded(true);
+				setSyncDetail("Sync started. Updates will appear as integrations finish.");
+				return undefined;
+			},
+			() => setSyncDetail("Integration sync could not be started. Try again."),
+		);
 	};
 
 	const wizard = useSearchParamModal({

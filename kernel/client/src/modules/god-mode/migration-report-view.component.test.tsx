@@ -1,7 +1,7 @@
+import { assert, describe, expect, it } from "@effect/vitest";
 import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { Cause, Exit } from "effect";
-import { assert, describe, expect, it } from "vitest";
+import { Effect, Cause, Exit } from "effect";
 
 import { AdminApiError } from "#/api/admin";
 import { MigrationReportView } from "#/modules/god-mode/migration-report-view";
@@ -62,154 +62,166 @@ const emptyReport: GodModeMigrationReport = {
 };
 
 describe("MigrationReportView", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("loads on mount and renders the semantic report table", async () => {
-		const requests: Array<{ after: string | undefined; signal: AbortSignal }> = [];
-		render(
-			<MigrationReportView
-				unauthorized={() => undefined}
-				load={(after, signal) => {
-					requests.push({ after, signal });
-					return Promise.resolve(Exit.succeed(report));
-				}}
-			/>,
-		);
+	it.live("loads on mount and renders the semantic report table", () =>
+		Effect.gen(function* () {
+			const requests: Array<{ after: string | undefined; signal: AbortSignal }> = [];
+			render(
+				<MigrationReportView
+					unauthorized={() => undefined}
+					load={(after, signal) => {
+						requests.push({ after, signal });
+						return Promise.resolve(Exit.succeed(report));
+					}}
+				/>,
+			);
 
-		const table = await screen.findByRole("table");
-		expect(requests).toHaveLength(1);
-		expect(requests[0]?.after).toBeUndefined();
-		expect(
-			within(table)
-				.getAllByRole("columnheader")
-				.map((cell) => cell.textContent),
-		).toEqual(["Time", "Severity", "Phase", "Message", "Count", "Elapsed"]);
-		expect(within(table).getByText("Jan 2, 2025 at 3:04:05 AM")).toBeTruthy();
-		expect(within(table).getByText("Warning").className).toContain("text-warning");
-		expect(within(table).getByText("metadata")).toBeTruthy();
-		expect(within(table).getByText("Skipped malformed item")).toBeTruthy();
-		expect(within(table).getByText("1,234")).toBeTruthy();
-		expect(within(table).getByText("12.5s")).toBeTruthy();
-	});
+			const table = yield* Effect.promise(() => screen.findByRole("table"));
+			expect(requests).toHaveLength(1);
+			expect(requests[0]?.after).toBeUndefined();
+			expect(
+				within(table)
+					.getAllByRole("columnheader")
+					.map((cell) => cell.textContent),
+			).toEqual(["Time", "Severity", "Phase", "Message", "Count", "Elapsed"]);
+			expect(within(table).getByText("Jan 2, 2025 at 3:04:05 AM")).toBeTruthy();
+			expect(within(table).getByText("Warning").className).toContain("text-warning");
+			expect(within(table).getByText("metadata")).toBeTruthy();
+			expect(within(table).getByText("Skipped malformed item")).toBeTruthy();
+			expect(within(table).getByText("1,234")).toBeTruthy();
+			expect(within(table).getByText("12.5s")).toBeTruthy();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("expands a coded warning to reveal its per-record detail and total", async () => {
-		render(
-			<MigrationReportView
-				unauthorized={() => undefined}
-				load={() => Promise.resolve(Exit.succeed(report))}
-			/>,
-		);
+	it.live("expands a coded warning to reveal its per-record detail and total", () =>
+		Effect.gen(function* () {
+			render(
+				<MigrationReportView
+					unauthorized={() => undefined}
+					load={() => Promise.resolve(Exit.succeed(report))}
+				/>,
+			);
 
-		const toggle = await screen.findByRole("button", { name: /Skipped malformed item/ });
-		expect(toggle.getAttribute("aria-expanded")).toBe("false");
-		expect(screen.queryByText("Black Mirror — season 0, episode 1")).toBeNull();
+			const toggle = yield* Effect.promise(() =>
+				screen.findByRole("button", { name: /Skipped malformed item/ }),
+			);
+			expect(toggle.getAttribute("aria-expanded")).toBe("false");
+			expect(screen.queryByText("Black Mirror — season 0, episode 1")).toBeNull();
 
-		fireEvent.click(toggle);
+			fireEvent.click(toggle);
 
-		expect(toggle.getAttribute("aria-expanded")).toBe("true");
-		expect(screen.getByText("Black Mirror — season 0, episode 1")).toBeTruthy();
-		expect(screen.getByText("met_WYGquxnbOnHd")).toBeTruthy();
-		expect(screen.getByText(/and 1,233 more, queryable in migration_report_detail/)).toBeTruthy();
-	});
+			expect(toggle.getAttribute("aria-expanded")).toBe("true");
+			expect(screen.getByText("Black Mirror — season 0, episode 1")).toBeTruthy();
+			expect(screen.getByText("met_WYGquxnbOnHd")).toBeTruthy();
+			expect(screen.getByText(/and 1,233 more, queryable in migration_report_detail/)).toBeTruthy();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("gives rows without a code no expand affordance", async () => {
-		render(
-			<MigrationReportView
-				unauthorized={() => undefined}
-				load={() => Promise.resolve(Exit.succeed(report))}
-			/>,
-		);
+	it.live("gives rows without a code no expand affordance", () =>
+		Effect.gen(function* () {
+			render(
+				<MigrationReportView
+					unauthorized={() => undefined}
+					load={() => Promise.resolve(Exit.succeed(report))}
+				/>,
+			);
 
-		await screen.findByRole("table");
-		expect(screen.queryByRole("button", { name: /row\(s\) migrated total/ })).toBeNull();
-	});
+			yield* Effect.promise(() => screen.findByRole("table"));
+			expect(screen.queryByRole("button", { name: /row\(s\) migrated total/ })).toBeNull();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("loads the next cursor and keeps previous reports visible after a failure and retry", async () => {
-		const nextEntry = report.items.at(-1);
-		assert(nextEntry);
-		const requests: Array<string | undefined> = [];
-		let nextAttempts = 0;
-		render(
-			<MigrationReportView
-				unauthorized={() => undefined}
-				load={(after) => {
-					requests.push(after);
-					if (after === undefined) {
+	it.live(
+		"loads the next cursor and keeps previous reports visible after a failure and retry",
+		() =>
+			Effect.gen(function* () {
+				const nextEntry = report.items.at(-1);
+				assert(nextEntry);
+				const requests: Array<string | undefined> = [];
+				let nextAttempts = 0;
+				render(
+					<MigrationReportView
+						unauthorized={() => undefined}
+						load={(after) => {
+							requests.push(after);
+							if (after === undefined) {
+								return Promise.resolve(
+									Exit.succeed({
+										...report,
+										pageInfo: { limit: 50, hasMore: true, nextCursor: "next" },
+									}),
+								);
+							}
+							nextAttempts += 1;
+							return Promise.resolve(
+								nextAttempts === 1
+									? Exit.fail(new AdminApiError({ cause: "offline" }))
+									: Exit.succeed({
+											pageInfo: { limit: 50, hasMore: false, nextCursor: null },
+											items: [{ ...nextEntry, seq: 5, message: "Completed another phase" }],
+										}),
+							);
+						}}
+					/>,
+				);
+
+				yield* Effect.promise(() => screen.findByText("Skipped malformed item"));
+				fireEvent.click(screen.getByRole("button", { name: "Load more reports" }));
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Retry" })),
+				);
+				expect(screen.getByText("Skipped malformed item")).toBeTruthy();
+				yield* Effect.promise(() => screen.findByText("Completed another phase"));
+				expect(requests).toEqual([undefined, "next", "next"]);
+				expect(screen.queryByRole("button", { name: "Load more reports" })).toBeNull();
+			}),
+	);
+
+	it.live("retries an initial non-auth failure and shows the empty state", () =>
+		Effect.gen(function* () {
+			let calls = 0;
+			render(
+				<MigrationReportView
+					unauthorized={() => undefined}
+					load={() => {
+						calls += 1;
 						return Promise.resolve(
-							Exit.succeed({
-								...report,
-								pageInfo: { limit: 50, hasMore: true, nextCursor: "next" },
-							}),
+							calls === 1
+								? Exit.fail(new AdminApiError({ cause: "offline" }))
+								: Exit.succeed(emptyReport),
 						);
+					}}
+				/>,
+			);
+
+			fireEvent.click(yield* Effect.promise(() => screen.findByRole("button", { name: "Retry" })));
+			yield* Effect.promise(() => screen.findByRole("heading", { name: "No migration report" }));
+			expect(calls).toBe(2);
+		}),
+	);
+
+	it.live("relocks on unauthorized without showing a retry state", () =>
+		Effect.gen(function* () {
+			let relocks = 0;
+			render(
+				<MigrationReportView
+					unauthorized={() => {
+						relocks += 1;
+					}}
+					load={() =>
+						Promise.resolve(
+							Exit.failCause(
+								Cause.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } })),
+							),
+						)
 					}
-					nextAttempts += 1;
-					return Promise.resolve(
-						nextAttempts === 1
-							? Exit.fail(new AdminApiError({ cause: "offline" }))
-							: Exit.succeed({
-									pageInfo: { limit: 50, hasMore: false, nextCursor: null },
-									items: [{ ...nextEntry, seq: 5, message: "Completed another phase" }],
-								}),
-					);
-				}}
-			/>,
-		);
+				/>,
+			);
 
-		await screen.findByText("Skipped malformed item");
-		fireEvent.click(screen.getByRole("button", { name: "Load more reports" }));
-		fireEvent.click(await screen.findByRole("button", { name: "Retry" }));
-		expect(screen.getByText("Skipped malformed item")).toBeTruthy();
-		await screen.findByText("Completed another phase");
-		expect(requests).toEqual([undefined, "next", "next"]);
-		expect(screen.queryByRole("button", { name: "Load more reports" })).toBeNull();
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("retries an initial non-auth failure and shows the empty state", async () => {
-		let calls = 0;
-		render(
-			<MigrationReportView
-				unauthorized={() => undefined}
-				load={() => {
-					calls += 1;
-					return Promise.resolve(
-						calls === 1
-							? Exit.fail(new AdminApiError({ cause: "offline" }))
-							: Exit.succeed(emptyReport),
-					);
-				}}
-			/>,
-		);
-
-		fireEvent.click(await screen.findByRole("button", { name: "Retry" }));
-		await screen.findByRole("heading", { name: "No migration report" });
-		expect(calls).toBe(2);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("relocks on unauthorized without showing a retry state", async () => {
-		let relocks = 0;
-		render(
-			<MigrationReportView
-				unauthorized={() => {
-					relocks += 1;
-				}}
-				load={() =>
-					Promise.resolve(
-						Exit.failCause(
-							Cause.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } })),
-						),
-					)
-				}
-			/>,
-		);
-
-		await waitFor(() => expect(relocks).toBe(1));
-		expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
-		expect(screen.queryByRole("heading", { name: "Migration report" })).toBeNull();
-	});
+			yield* Effect.promise(() => waitFor(() => expect(relocks).toBe(1)));
+			expect(screen.queryByRole("button", { name: "Retry" })).toBeNull();
+			expect(screen.queryByRole("heading", { name: "Migration report" })).toBeNull();
+		}),
+	);
 
 	it("cancels an in-flight load on unmount", () => {
 		let signal: AbortSignal | undefined;

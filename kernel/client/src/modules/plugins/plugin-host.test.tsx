@@ -1,3 +1,4 @@
+import { describe, expect, it } from "@effect/vitest";
 // oxlint-disable unicorn/require-post-message-target-origin -- MessagePort has no target origin
 import {
 	CLIENT_BRIDGE_BOOTSTRAP_READY,
@@ -8,7 +9,6 @@ import {
 import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Effect, Schema } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import type { PluginOperationDispatchOutcome } from "#/modules/plugins/operations";
@@ -193,159 +193,176 @@ function connect(frame: HTMLIFrameElement) {
 }
 
 describe("PluginFrame", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("uses one grant and bridge while location and global history change", async () => {
-		const host = mount();
-		await flush();
-		const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
-		const bridge = connect(frame);
-		bridge.port.postMessage(bridge.ready);
-		await waitFor(() => expect(bridge.messages).toHaveLength(1));
+	it.live("uses one grant and bridge while location and global history change", () =>
+		Effect.gen(function* () {
+			const host = mount();
+			yield* Effect.promise(() => flush());
+			const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
+			const bridge = connect(frame);
+			bridge.port.postMessage(bridge.ready);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 
-		host.move({ kind: "route", path: "/details", search: "keep=1&tab=stats" }, 1);
-		await waitFor(() => expect(bridge.messages).toHaveLength(2));
+			host.move({ kind: "route", path: "/details", search: "keep=1&tab=stats" }, 1);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(2)));
 
-		expect(screen.getByTitle("Fixture plugin")).toBe(frame);
-		expect(bridge.init).toMatchObject({ safeAreaTop: 7, safeAreaBottom: 11 });
-		expect(bridge.messages[1]).toMatchObject({
-			index: 1,
-			key: "k1",
-			compact: true,
-			edgeBack: true,
-			location: { kind: "route", path: "/details", search: "keep=1&tab=stats" },
-		});
-	});
+			expect(screen.getByTitle("Fixture plugin")).toBe(frame);
+			expect(bridge.init).toMatchObject({ safeAreaTop: 7, safeAreaBottom: 11 });
+			expect(bridge.messages[1]).toMatchObject({
+				index: 1,
+				key: "k1",
+				compact: true,
+				edgeBack: true,
+				location: { kind: "route", path: "/details", search: "keep=1&tab=stats" },
+			});
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("replaces a document without reloading the iframe and clears page-owned state", async () => {
-		const host = mount();
-		const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
-		const bridge = connect(frame);
-		bridge.port.postMessage(bridge.ready);
-		await waitFor(() => expect(bridge.messages).toHaveLength(1));
-		bridge.port.postMessage({ count: 1, type: "overlay-state" });
-		bridge.port.postMessage({ shortcuts: ["A"], type: "page-shortcuts" });
-		await waitFor(() => expect(host.backInterceptors.run()).toBe(true));
-		host.replace("page-2");
-		await waitFor(() =>
-			expect(bridge.messages).toContainEqual(
-				expect.objectContaining({
-					type: "document",
-					documentKey: "page-2",
-					page: expect.objectContaining({ target: expect.objectContaining({ path: "page-2" }) }),
-				}),
-			),
-		);
-		expect(screen.getByTitle("Fixture plugin")).toBe(frame);
-		expect(host.backInterceptors.run()).toBe(false);
-	});
+	it.live("replaces a document without reloading the iframe and clears page-owned state", () =>
+		Effect.gen(function* () {
+			const host = mount();
+			const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
+			const bridge = connect(frame);
+			bridge.port.postMessage(bridge.ready);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+			bridge.port.postMessage({ count: 1, type: "overlay-state" });
+			bridge.port.postMessage({ shortcuts: ["A"], type: "page-shortcuts" });
+			yield* Effect.promise(() => waitFor(() => expect(host.backInterceptors.run()).toBe(true)));
+			host.replace("page-2");
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(bridge.messages).toContainEqual(
+						expect.objectContaining({
+							type: "document",
+							documentKey: "page-2",
+							page: expect.objectContaining({
+								target: expect.objectContaining({ path: "page-2" }),
+							}),
+						}),
+					),
+				),
+			);
+			expect(screen.getByTitle("Fixture plugin")).toBe(frame);
+			expect(host.backInterceptors.run()).toBe(false);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("forwards explicit route, page-search, operation target, and matching readiness", async () => {
-		const host = mount();
-		await flush();
-		const bridge = connect(screen.getByTitle("Fixture plugin"));
-		bridge.port.postMessage(bridge.ready);
-		await waitFor(() => expect(bridge.messages).toHaveLength(1));
-		bridge.port.postMessage({
-			mode: "push",
-			type: "navigate",
-			target: { search: "q=x", path: "/shows", pluginSlug: "media", kind: "plugin-route" },
-		});
-		bridge.port.postMessage({
-			entitySchemaSlug: "movie",
-			type: "provider-search-screen",
-			ownerPluginId: "media-installation",
-		});
-		bridge.port.postMessage({
-			mode: "replace",
-			type: "page-search",
-			update: { q: "dune", dialog: null },
-		});
-		bridge.port.postMessage({
-			input: null,
-			requestId: "op-1",
-			pluginSlug: "fixture",
-			operationSlug: "greet",
-			type: "operation-request",
-		});
-		bridge.port.postMessage({ index: 0, key: "k0", type: "screen-state", hasPreviousScreen: true });
-
-		await waitFor(() => expect(host.operations).toHaveLength(1));
-		expect(host.navigations).toEqual([{ replace: false, href: "/media/shows?q=x" }]);
-		expect(host.searches).toEqual([
-			{ mode: "replace", type: "page-search", update: { q: "dune", dialog: null } },
-		]);
-		expect(host.providerSearches).toEqual([
-			{
+	it.live("forwards explicit route, page-search, operation target, and matching readiness", () =>
+		Effect.gen(function* () {
+			const host = mount();
+			yield* Effect.promise(() => flush());
+			const bridge = connect(screen.getByTitle("Fixture plugin"));
+			bridge.port.postMessage(bridge.ready);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+			bridge.port.postMessage({
+				mode: "push",
+				type: "navigate",
+				target: { search: "q=x", path: "/shows", pluginSlug: "media", kind: "plugin-route" },
+			});
+			bridge.port.postMessage({
 				entitySchemaSlug: "movie",
 				type: "provider-search-screen",
 				ownerPluginId: "media-installation",
-			},
-		]);
-		expect(host.operations).toEqual([
-			{ input: null, operationSlug: "greet", pluginSlug: PluginSlug.make("fixture") },
-		]);
-		expect(host.states).toContainEqual({ index: 0, key: "k0", hasPreviousScreen: true });
-	});
+			});
+			bridge.port.postMessage({
+				mode: "replace",
+				type: "page-search",
+				update: { q: "dune", dialog: null },
+			});
+			bridge.port.postMessage({
+				input: null,
+				requestId: "op-1",
+				pluginSlug: "fixture",
+				operationSlug: "greet",
+				type: "operation-request",
+			});
+			bridge.port.postMessage({
+				index: 0,
+				key: "k0",
+				type: "screen-state",
+				hasPreviousScreen: true,
+			});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("sends one page refresh for a host mutation-completed hint", async () => {
-		const host = mount();
-		await flush();
-		const bridge = connect(screen.getByTitle("Fixture plugin"));
-		bridge.port.postMessage(bridge.ready);
-		await waitFor(() => expect(bridge.messages).toHaveLength(1));
+			yield* Effect.promise(() => waitFor(() => expect(host.operations).toHaveLength(1)));
+			expect(host.navigations).toEqual([{ replace: false, href: "/media/shows?q=x" }]);
+			expect(host.searches).toEqual([
+				{ mode: "replace", type: "page-search", update: { q: "dune", dialog: null } },
+			]);
+			expect(host.providerSearches).toEqual([
+				{
+					entitySchemaSlug: "movie",
+					type: "provider-search-screen",
+					ownerPluginId: "media-installation",
+				},
+			]);
+			expect(host.operations).toEqual([
+				{ input: null, operationSlug: "greet", pluginSlug: PluginSlug.make("fixture") },
+			]);
+			expect(host.states).toContainEqual({ index: 0, key: "k0", hasPreviousScreen: true });
+		}),
+	);
 
-		host.refresh();
-
-		await waitFor(() => expect(bridge.messages).toContainEqual({ type: "page-refresh" }));
-		expect(
-			bridge.messages.filter(
-				(message) =>
-					typeof message === "object" &&
-					message !== null &&
-					Reflect.get(message, "type") === "page-refresh",
-			),
-		).toHaveLength(1);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("suppresses retained frame effects and refreshes once after a missed mutation", async () => {
-		const host = mount();
-		await flush();
-		const bridge = connect(screen.getByTitle("Fixture plugin"));
-		bridge.port.postMessage(bridge.ready);
-		await waitFor(() => expect(bridge.messages).toHaveLength(1));
-		bridge.port.postMessage({ count: 1, type: "overlay-state" });
-		await waitFor(() => expect(host.backInterceptors.run()).toBe(true));
-
-		host.setActive(false);
-		host.refresh();
-		expect(host.backInterceptors.run()).toBe(false);
-		expect(bridge.messages).not.toContainEqual({ type: "page-refresh" });
-
-		host.setActive(true);
-		await waitFor(() => expect(bridge.messages).toContainEqual({ type: "page-refresh" }));
-		expect(
-			bridge.messages.filter(
-				(message) =>
-					typeof message === "object" &&
-					message !== null &&
-					Reflect.get(message, "type") === "page-refresh",
-			),
-		).toHaveLength(1);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("sends one lifecycle page refresh only when the application becomes visible", async () => {
-		const visibility = Object.getOwnPropertyDescriptor(document, "visibilityState");
-		try {
-			mount();
-			await flush();
+	it.live("sends one page refresh for a host mutation-completed hint", () =>
+		Effect.gen(function* () {
+			const host = mount();
+			yield* Effect.promise(() => flush());
 			const bridge = connect(screen.getByTitle("Fixture plugin"));
 			bridge.port.postMessage(bridge.ready);
-			await waitFor(() => expect(bridge.messages).toHaveLength(1));
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+
+			host.refresh();
+
+			yield* Effect.promise(() =>
+				waitFor(() => expect(bridge.messages).toContainEqual({ type: "page-refresh" })),
+			);
+			expect(
+				bridge.messages.filter(
+					(message) =>
+						typeof message === "object" &&
+						message !== null &&
+						Reflect.get(message, "type") === "page-refresh",
+				),
+			).toHaveLength(1);
+		}),
+	);
+
+	it.live("suppresses retained frame effects and refreshes once after a missed mutation", () =>
+		Effect.gen(function* () {
+			const host = mount();
+			yield* Effect.promise(() => flush());
+			const bridge = connect(screen.getByTitle("Fixture plugin"));
+			bridge.port.postMessage(bridge.ready);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+			bridge.port.postMessage({ count: 1, type: "overlay-state" });
+			yield* Effect.promise(() => waitFor(() => expect(host.backInterceptors.run()).toBe(true)));
+
+			host.setActive(false);
+			host.refresh();
+			expect(host.backInterceptors.run()).toBe(false);
+			expect(bridge.messages).not.toContainEqual({ type: "page-refresh" });
+
+			host.setActive(true);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(bridge.messages).toContainEqual({ type: "page-refresh" })),
+			);
+			expect(
+				bridge.messages.filter(
+					(message) =>
+						typeof message === "object" &&
+						message !== null &&
+						Reflect.get(message, "type") === "page-refresh",
+				),
+			).toHaveLength(1);
+		}),
+	);
+
+	it.live("sends one lifecycle page refresh only when the application becomes visible", () => {
+		const visibility = Object.getOwnPropertyDescriptor(document, "visibilityState");
+		return Effect.gen(function* () {
+			mount();
+			yield* Effect.promise(() => flush());
+			const bridge = connect(screen.getByTitle("Fixture plugin"));
+			bridge.port.postMessage(bridge.ready);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 
 			act(() => {
 				Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
@@ -360,7 +377,9 @@ describe("PluginFrame", () => {
 				});
 				document.dispatchEvent(new Event("visibilitychange"));
 			});
-			await waitFor(() => expect(bridge.messages).toContainEqual({ type: "page-refresh" }));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(bridge.messages).toContainEqual({ type: "page-refresh" })),
+			);
 			expect(
 				bridge.messages.filter(
 					(message) =>
@@ -369,170 +388,193 @@ describe("PluginFrame", () => {
 						Reflect.get(message, "type") === "page-refresh",
 				),
 			).toHaveLength(1);
-		} finally {
-			if (visibility) {
-				Object.defineProperty(document, "visibilityState", visibility);
-			} else {
-				Reflect.deleteProperty(document, "visibilityState");
-			}
-		}
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("sends the same page refresh on native resume and releases the listener", async () => {
-		let resume: (() => void) | undefined;
-		let released = false;
-		const host = mount({
-			subscribeResume: (resumed) => {
-				resume = resumed;
-				return () => {
-					released = true;
-				};
-			},
-		});
-		await flush();
-		const bridge = connect(screen.getByTitle("Fixture plugin"));
-		bridge.port.postMessage(bridge.ready);
-		await waitFor(() => expect(bridge.messages).toHaveLength(1));
-
-		act(() => resume?.());
-		await waitFor(() => expect(bridge.messages).toContainEqual({ type: "page-refresh" }));
-		expect(
-			bridge.messages.filter(
-				(message) =>
-					typeof message === "object" &&
-					message !== null &&
-					Reflect.get(message, "type") === "page-refresh",
+		}).pipe(
+			Effect.ensuring(
+				Effect.sync(() => {
+					if (visibility) {
+						Object.defineProperty(document, "visibilityState", visibility);
+					} else {
+						Reflect.deleteProperty(document, "visibilityState");
+					}
+				}),
 			),
-		).toHaveLength(1);
-
-		host.unmount();
-		expect(released).toBe(true);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("registers iframe overlay Back ownership and releases it after acknowledgement", async () => {
-		const host = mount();
-		await flush();
-		const bridge = connect(screen.getByTitle("Fixture plugin"));
-		bridge.port.postMessage(bridge.ready);
-		await waitFor(() => expect(bridge.messages).toHaveLength(1));
-		bridge.port.postMessage({ count: 1, type: "overlay-state" });
-		await waitFor(() => expect(host.backInterceptors.run()).toBe(true));
-		await waitFor(() =>
-			expect(bridge.messages).toContainEqual({ requestId: "overlay-1", type: "dismiss-overlay" }),
 		);
-
-		bridge.port.postMessage({
-			dismissed: true,
-			requestId: "overlay-1",
-			type: "dismiss-overlay-result",
-		});
-		await waitFor(() => expect(host.backInterceptors.run()).toBe(false));
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("keeps the current frame mounted when an invalidation reports an update", async () => {
-		let reloads = 0;
-		let checks = 0;
-		const host = mount({
-			onReloadCurrent: () => {
-				reloads += 1;
-			},
-			onCheckFreshness: () => {
-				checks += 1;
-				return Promise.resolve(false);
-			},
-		});
-		await flush();
-		const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
-		const bridge = connect(frame);
-		bridge.port.postMessage(bridge.ready);
-		await waitFor(() => expect(bridge.messages).toHaveLength(1));
+	it.live("sends the same page refresh on native resume and releases the listener", () =>
+		Effect.gen(function* () {
+			let resume: (() => void) | undefined;
+			let released = false;
+			const host = mount({
+				subscribeResume: (resumed) => {
+					resume = resumed;
+					return () => {
+						released = true;
+					};
+				},
+			});
+			yield* Effect.promise(() => flush());
+			const bridge = connect(screen.getByTitle("Fixture plugin"));
+			bridge.port.postMessage(bridge.ready);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 
-		host.move(home, 0, 1);
+			act(() => resume?.());
+			yield* Effect.promise(() =>
+				waitFor(() => expect(bridge.messages).toContainEqual({ type: "page-refresh" })),
+			);
+			expect(
+				bridge.messages.filter(
+					(message) =>
+						typeof message === "object" &&
+						message !== null &&
+						Reflect.get(message, "type") === "page-refresh",
+				),
+			).toHaveLength(1);
 
-		await screen.findByText("An update is available. Reloading will discard unsaved local state.");
-		expect(checks).toBe(1);
-		expect(screen.getByTitle("Fixture plugin")).toBe(frame);
-		expect(reloads).toBe(0);
-		fireEvent.click(screen.getByRole("button", { name: "Reload updated page" }));
-		expect(reloads).toBe(1);
-	});
+			host.unmount();
+			expect(released).toBe(true);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("keeps the bridge mounted and reports a clear failure when an operation is stale", async () => {
-		let reloads = 0;
-		mount({
-			onReloadCurrent: () => {
-				reloads += 1;
-			},
-			onInvokeOperation: () => Effect.succeed({ outcome: "stale-session" }),
-		});
-		await flush();
-		const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
-		const bridge = connect(frame);
-		bridge.port.postMessage(bridge.ready);
-		await waitFor(() => expect(bridge.messages).toHaveLength(1));
+	it.live("registers iframe overlay Back ownership and releases it after acknowledgement", () =>
+		Effect.gen(function* () {
+			const host = mount();
+			yield* Effect.promise(() => flush());
+			const bridge = connect(screen.getByTitle("Fixture plugin"));
+			bridge.port.postMessage(bridge.ready);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+			bridge.port.postMessage({ count: 1, type: "overlay-state" });
+			yield* Effect.promise(() => waitFor(() => expect(host.backInterceptors.run()).toBe(true)));
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(bridge.messages).toContainEqual({
+						requestId: "overlay-1",
+						type: "dismiss-overlay",
+					}),
+				),
+			);
 
-		bridge.port.postMessage({
-			input: null,
-			pluginSlug: "fixture",
-			operationSlug: "mutate",
-			type: "operation-request",
-			requestId: "stale-operation",
-		});
+			bridge.port.postMessage({
+				dismissed: true,
+				requestId: "overlay-1",
+				type: "dismiss-overlay-result",
+			});
+			yield* Effect.promise(() => waitFor(() => expect(host.backInterceptors.run()).toBe(false)));
+		}),
+	);
 
-		await screen.findByText("An update is available. Reloading will discard unsaved local state.");
-		expect(screen.getByTitle("Fixture plugin")).toBe(frame);
-		expect(reloads).toBe(0);
-		await waitFor(() =>
-			expect(bridge.messages).toContainEqual({
-				outcome: "failure",
-				type: "operation-result",
-				reason: "operation-failed",
+	it.live("keeps the current frame mounted when an invalidation reports an update", () =>
+		Effect.gen(function* () {
+			let reloads = 0;
+			let checks = 0;
+			const host = mount({
+				onReloadCurrent: () => {
+					reloads += 1;
+				},
+				onCheckFreshness: () => {
+					checks += 1;
+					return Promise.resolve(false);
+				},
+			});
+			yield* Effect.promise(() => flush());
+			const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
+			const bridge = connect(frame);
+			bridge.port.postMessage(bridge.ready);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+
+			host.move(home, 0, 1);
+
+			yield* Effect.promise(() =>
+				screen.findByText("An update is available. Reloading will discard unsaved local state."),
+			);
+			expect(checks).toBe(1);
+			expect(screen.getByTitle("Fixture plugin")).toBe(frame);
+			expect(reloads).toBe(0);
+			fireEvent.click(screen.getByRole("button", { name: "Reload updated page" }));
+			expect(reloads).toBe(1);
+		}),
+	);
+
+	it.live("keeps the bridge mounted and reports a clear failure when an operation is stale", () =>
+		Effect.gen(function* () {
+			let reloads = 0;
+			mount({
+				onReloadCurrent: () => {
+					reloads += 1;
+				},
+				onInvokeOperation: () => Effect.succeed({ outcome: "stale-session" }),
+			});
+			yield* Effect.promise(() => flush());
+			const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
+			const bridge = connect(frame);
+			bridge.port.postMessage(bridge.ready);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
+
+			bridge.port.postMessage({
+				input: null,
+				pluginSlug: "fixture",
+				operationSlug: "mutate",
+				type: "operation-request",
 				requestId: "stale-operation",
-			}),
-		);
-	});
+			});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("requests a new document grant when the bridge fails", async () => {
-		let parentReloads = 0;
-		const host = mount({
-			onReloadCurrent: () => {
-				parentReloads += 1;
-			},
-		});
-		await flush();
-		const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
-		const bridge = connect(frame);
-		bridge.port.postMessage(bridge.ready);
-		await waitFor(() => expect(bridge.messages).toHaveLength(1));
+			yield* Effect.promise(() =>
+				screen.findByText("An update is available. Reloading will discard unsaved local state."),
+			);
+			expect(screen.getByTitle("Fixture plugin")).toBe(frame);
+			expect(reloads).toBe(0);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(bridge.messages).toContainEqual({
+						outcome: "failure",
+						type: "operation-result",
+						reason: "operation-failed",
+						requestId: "stale-operation",
+					}),
+				),
+			);
+		}),
+	);
 
-		bridge.port.postMessage({ reason: "failed", type: "lifecycle-close" });
+	it.live("requests a new document grant when the bridge fails", () =>
+		Effect.gen(function* () {
+			let parentReloads = 0;
+			const host = mount({
+				onReloadCurrent: () => {
+					parentReloads += 1;
+				},
+			});
+			yield* Effect.promise(() => flush());
+			const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
+			const bridge = connect(frame);
+			bridge.port.postMessage(bridge.ready);
+			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 
-		await screen.findByText("This plugin stopped working.");
-		expect(screen.queryByTitle("Fixture plugin")).toBeNull();
-		fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-		expect(screen.queryByTitle("Fixture plugin")).toBeNull();
-		expect(parentReloads).toBe(1);
-		host.unmount();
-	});
+			bridge.port.postMessage({ reason: "failed", type: "lifecycle-close" });
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("offers a retry when the initial document cannot load", async () => {
-		let reloads = 0;
-		mount({
-			onReloadCurrent: () => {
-				reloads++;
-			},
-		});
-		const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
-		fireEvent.error(frame);
-		await screen.findByText("This plugin stopped working.");
-		expect(screen.queryByTitle("Fixture plugin")).toBeNull();
-		fireEvent.click(screen.getByRole("button", { name: "Retry" }));
-		expect(reloads).toBe(1);
-	});
+			yield* Effect.promise(() => screen.findByText("This plugin stopped working."));
+			expect(screen.queryByTitle("Fixture plugin")).toBeNull();
+			fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+			expect(screen.queryByTitle("Fixture plugin")).toBeNull();
+			expect(parentReloads).toBe(1);
+			host.unmount();
+		}),
+	);
+
+	it.live("offers a retry when the initial document cannot load", () =>
+		Effect.gen(function* () {
+			let reloads = 0;
+			mount({
+				onReloadCurrent: () => {
+					reloads++;
+				},
+			});
+			const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
+			fireEvent.error(frame);
+			yield* Effect.promise(() => screen.findByText("This plugin stopped working."));
+			expect(screen.queryByTitle("Fixture plugin")).toBeNull();
+			fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+			expect(reloads).toBe(1);
+		}),
+	);
 });

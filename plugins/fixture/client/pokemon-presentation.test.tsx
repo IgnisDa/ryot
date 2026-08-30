@@ -1,3 +1,4 @@
+import { afterEach, describe, expect, it } from "@effect/vitest";
 import { Effect } from "@ryot-app/client-sdk/effect";
 import {
 	createTestRyotClock,
@@ -8,7 +9,6 @@ import {
 } from "@ryot-app/client-sdk/testing";
 import { fireEvent, waitFor } from "@testing-library/dom";
 import { useState } from "react";
-import { afterEach, describe, expect, it } from "vitest";
 
 import {
 	loadPokemonPresentations,
@@ -81,41 +81,40 @@ const ReplacementPage = () => {
 describe("Pokemon presentations", () => {
 	afterEach(disposePluginBridges);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test clock's Promise-based disposal.
-	it("loads Pokemon once and shares one deduplicated managed-artwork list", async () => {
-		const documents: unknown[] = [];
-		const clock = createTestRyotClock({
-			query: (document) => {
-				documents.push(document);
-				return Effect.succeed({
-					data: {
-						pokemon: rows([
-							{ ...bulbasaur, artwork: [{ type: "local", key: "pokemon/shared.png" }] },
-							{
-								...bulbasaur,
-								id: "pokemon-2",
-								name: "Ivysaur",
-								artwork: [{ type: "local", key: "pokemon/shared.png" }],
-							},
-							{
-								...bulbasaur,
-								id: "pokemon-3",
-								name: "Venusaur",
-								artwork: [{ type: "s3", key: "pokemon/venusaur.png" }],
-							},
-							{
-								...bulbasaur,
-								id: "pokemon-4",
-								name: "Charmander",
-								artwork: [{ type: "remote", url: "https://images.test/charmander.png" }],
-							},
-						]),
-					},
-				});
-			},
-		});
-		const loaded = await Effect.runPromise(
-			loadPokemonPresentations({
+	it.live("loads Pokemon once and shares one deduplicated managed-artwork list", () =>
+		Effect.gen(function* () {
+			const documents: unknown[] = [];
+			const clock = createTestRyotClock({
+				query: (document) => {
+					documents.push(document);
+					return Effect.succeed({
+						data: {
+							pokemon: rows([
+								{ ...bulbasaur, artwork: [{ type: "local", key: "pokemon/shared.png" }] },
+								{
+									...bulbasaur,
+									id: "pokemon-2",
+									name: "Ivysaur",
+									artwork: [{ type: "local", key: "pokemon/shared.png" }],
+								},
+								{
+									...bulbasaur,
+									id: "pokemon-3",
+									name: "Venusaur",
+									artwork: [{ type: "s3", key: "pokemon/venusaur.png" }],
+								},
+								{
+									...bulbasaur,
+									id: "pokemon-4",
+									name: "Charmander",
+									artwork: [{ type: "remote", url: "https://images.test/charmander.png" }],
+								},
+							]),
+						},
+					});
+				},
+			});
+			const loaded = yield* loadPokemonPresentations({
 				client: clock.client,
 				references: [
 					reference("pokemon-4", "Charmander"),
@@ -124,55 +123,54 @@ describe("Pokemon presentations", () => {
 					reference("pokemon-3", "Venusaur"),
 					reference("pokemon-1", "Bulbasaur"),
 				],
-			}),
-		);
+			});
 
-		expect(documents).toHaveLength(1);
-		expect(Object.keys(loaded).sort()).toEqual([
-			"pokemon-1",
-			"pokemon-2",
-			"pokemon-3",
-			"pokemon-4",
-		]);
-		expect(loaded["pokemon-1"]?.batchAssets).toEqual([
-			{ type: "local", key: "pokemon/shared.png" },
-			{ type: "s3", key: "pokemon/venusaur.png" },
-		]);
-		for (const pokemon of Object.values(loaded)) {
-			expect(pokemon.batchAssets).toBe(loaded["pokemon-1"]?.batchAssets);
-		}
-		await clock.dispose();
-	});
+			expect(documents).toHaveLength(1);
+			expect(Object.keys(loaded).sort()).toEqual([
+				"pokemon-1",
+				"pokemon-2",
+				"pokemon-3",
+				"pokemon-4",
+			]);
+			expect(loaded["pokemon-1"]?.batchAssets).toEqual([
+				{ type: "local", key: "pokemon/shared.png" },
+				{ type: "s3", key: "pokemon/venusaur.png" },
+			]);
+			for (const pokemon of Object.values(loaded)) {
+				expect(pokemon.batchAssets).toBe(loaded["pokemon-1"]?.batchAssets);
+			}
+			yield* Effect.promise(() => clock.dispose());
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test clock's Promise-based disposal.
-	it("interrupts an in-flight presentation query with its loader Effect", async () => {
-		let started = false;
-		let interrupted = false;
-		const clock = createTestRyotClock({
-			query: () =>
-				Effect.sync(() => {
-					started = true;
-				}).pipe(
-					Effect.andThen(Effect.never),
-					Effect.ensuring(
-						Effect.sync(() => {
-							interrupted = true;
-						}),
+	it.live("interrupts an in-flight presentation query with its loader Effect", () =>
+		Effect.gen(function* () {
+			let started = false;
+			let interrupted = false;
+			const clock = createTestRyotClock({
+				query: () =>
+					Effect.sync(() => {
+						started = true;
+					}).pipe(
+						Effect.andThen(Effect.never),
+						Effect.ensuring(
+							Effect.sync(() => {
+								interrupted = true;
+							}),
+						),
 					),
-				),
-		});
-		await Effect.runPromise(
-			Effect.race(
+			});
+			yield* Effect.race(
 				loadPokemonPresentations({
 					client: clock.client,
 					references: [reference("pokemon-1", "Bulbasaur")],
 				}),
 				Effect.promise(() => waitFor(() => expect(started).toBe(true))),
-			),
-		);
-		expect(interrupted).toBe(true);
-		await clock.dispose();
-	});
+			);
+			expect(interrupted).toBe(true);
+			yield* Effect.promise(() => clock.dispose());
+		}),
+	);
 
 	it("selects all presentation fields in one deterministic batch query", () => {
 		const recipe = pokemonPresentationRecipe(["pokemon-2", "pokemon-1"]);
@@ -214,93 +212,109 @@ describe("Pokemon presentations", () => {
 		});
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits Testing Library's Promise-based waitFor.
-	it("renders artwork and keeps expansion local to each entity item", async () => {
-		const page = mountPluginPage(ExpansionPage, {
-			location: entityLocation("pokemon-1", "pokemon"),
-			page: entityPageContext({
-				pluginId: "fixture",
-				entityId: "pokemon-1",
-				exportName: "pokemon-card",
-				entitySchemaSlug: "pokemon",
-			}),
-		});
+	it.live("renders artwork and keeps expansion local to each entity item", () =>
+		Effect.gen(function* () {
+			const page = mountPluginPage(ExpansionPage, {
+				location: entityLocation("pokemon-1", "pokemon"),
+				page: entityPageContext({
+					pluginId: "fixture",
+					entityId: "pokemon-1",
+					exportName: "pokemon-card",
+					entitySchemaSlug: "pokemon",
+				}),
+			});
 
-		await waitFor(() => expect(page.container?.querySelectorAll("button")).toHaveLength(2));
-		await waitFor(() => expect(page.assetRequests()).toHaveLength(1));
-		const assetRequest = page.assetRequests()[0];
-		if (!assetRequest) {
-			throw new Error("Pokemon artwork resolution was not requested");
-		}
-		expect(assetRequest.assets).toEqual([{ type: "local", key: "pokemon/bulbasaur.png" }]);
-		page.replyAssets(assetRequest.requestId, {
-			outcome: "success",
-			resolutions: [
-				{
-					expiresAt: "2099-01-01T00:00:00.000Z",
-					url: "https://images.test/bulbasaur.png",
-					asset: { type: "local", key: "pokemon/bulbasaur.png" },
-				},
-			],
-		});
-		await waitFor(() =>
-			expect(page.container?.querySelector("img")?.getAttribute("src")).toBe(
-				"https://images.test/bulbasaur.png",
-			),
-		);
-		const buttons = page.container?.querySelectorAll("button");
-		const cardButton = buttons?.item(0);
-		const rowButton = buttons?.item(1);
-		if (!rowButton) {
-			throw new Error("Pokemon row expansion control was not rendered");
-		}
-		expect(cardButton?.getAttribute("aria-expanded")).toBe("false");
-		expect(rowButton.getAttribute("aria-expanded")).toBe("false");
+			yield* Effect.promise(() =>
+				waitFor(() => expect(page.container?.querySelectorAll("button")).toHaveLength(2)),
+			);
+			yield* Effect.promise(() => waitFor(() => expect(page.assetRequests()).toHaveLength(1)));
+			const assetRequest = page.assetRequests()[0];
+			if (!assetRequest) {
+				throw new Error("Pokemon artwork resolution was not requested");
+			}
+			expect(assetRequest.assets).toEqual([{ type: "local", key: "pokemon/bulbasaur.png" }]);
+			page.replyAssets(assetRequest.requestId, {
+				outcome: "success",
+				resolutions: [
+					{
+						expiresAt: "2099-01-01T00:00:00.000Z",
+						url: "https://images.test/bulbasaur.png",
+						asset: { type: "local", key: "pokemon/bulbasaur.png" },
+					},
+				],
+			});
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(page.container?.querySelector("img")?.getAttribute("src")).toBe(
+						"https://images.test/bulbasaur.png",
+					),
+				),
+			);
+			const buttons = page.container?.querySelectorAll("button");
+			const cardButton = buttons?.item(0);
+			const rowButton = buttons?.item(1);
+			if (!rowButton) {
+				throw new Error("Pokemon row expansion control was not rendered");
+			}
+			expect(cardButton?.getAttribute("aria-expanded")).toBe("false");
+			expect(rowButton.getAttribute("aria-expanded")).toBe("false");
 
-		fireEvent.click(rowButton);
-		await waitFor(() => expect(rowButton.getAttribute("aria-expanded")).toBe("true"));
-		expect(cardButton?.getAttribute("aria-expanded")).toBe("false");
-		expect(page.container?.textContent).toContain("Unavailable");
-		expect(
-			page.container?.querySelector('[data-layout="row"] [aria-hidden="true"]'),
-		).not.toBeNull();
-
-		page.navigate(entityLocation("pokemon-1", "pokemon"), { compact: true });
-		await waitFor(() =>
+			fireEvent.click(rowButton);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(rowButton.getAttribute("aria-expanded")).toBe("true")),
+			);
+			expect(cardButton?.getAttribute("aria-expanded")).toBe("false");
+			expect(page.container?.textContent).toContain("Unavailable");
 			expect(
-				page.container?.querySelector('[data-layout="row"]')?.getAttribute("data-compact"),
-			).toBe("true"),
-		);
-		expect(rowButton.getAttribute("aria-expanded")).toBe("true");
-	});
+				page.container?.querySelector('[data-layout="row"] [aria-hidden="true"]'),
+			).not.toBeNull();
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits Testing Library's Promise-based waitFor.
-	it("keeps details expanded when replacement data has the same entity identity", async () => {
-		const page = mountPluginPage(ReplacementPage, {
-			location: entityLocation("pokemon-1", "pokemon"),
-			page: entityPageContext({
-				pluginId: "fixture",
-				entityId: "pokemon-1",
-				exportName: "pokemon-row",
-				entitySchemaSlug: "pokemon",
-			}),
-		});
+			page.navigate(entityLocation("pokemon-1", "pokemon"), { compact: true });
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(
+						page.container?.querySelector('[data-layout="row"]')?.getAttribute("data-compact"),
+					).toBe("true"),
+				),
+			);
+			expect(rowButton.getAttribute("aria-expanded")).toBe("true");
+		}),
+	);
 
-		await waitFor(() => expect(page.container?.querySelectorAll("button")).toHaveLength(2));
-		const buttons = page.container?.querySelectorAll("button");
-		const replaceButton = buttons?.item(0);
-		const detailsButton = buttons?.item(1);
-		if (!replaceButton || !detailsButton) {
-			throw new Error("Pokemon replacement controls were not rendered");
-		}
-		fireEvent.click(detailsButton);
-		await waitFor(() => expect(detailsButton.getAttribute("aria-expanded")).toBe("true"));
+	it.live("keeps details expanded when replacement data has the same entity identity", () =>
+		Effect.gen(function* () {
+			const page = mountPluginPage(ReplacementPage, {
+				location: entityLocation("pokemon-1", "pokemon"),
+				page: entityPageContext({
+					pluginId: "fixture",
+					entityId: "pokemon-1",
+					exportName: "pokemon-row",
+					entitySchemaSlug: "pokemon",
+				}),
+			});
 
-		fireEvent.click(replaceButton);
-		await waitFor(() => expect(page.container?.textContent).toContain("Bulbasaur updated"));
-		expect(
-			page.container?.querySelector('[data-layout="row"] button')?.getAttribute("aria-expanded"),
-		).toBe("true");
-		expect(page.container?.textContent).toContain("Overgrow");
-	});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(page.container?.querySelectorAll("button")).toHaveLength(2)),
+			);
+			const buttons = page.container?.querySelectorAll("button");
+			const replaceButton = buttons?.item(0);
+			const detailsButton = buttons?.item(1);
+			if (!replaceButton || !detailsButton) {
+				throw new Error("Pokemon replacement controls were not rendered");
+			}
+			fireEvent.click(detailsButton);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(detailsButton.getAttribute("aria-expanded")).toBe("true")),
+			);
+
+			fireEvent.click(replaceButton);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(page.container?.textContent).toContain("Bulbasaur updated")),
+			);
+			expect(
+				page.container?.querySelector('[data-layout="row"] button')?.getAttribute("aria-expanded"),
+			).toBe("true");
+			expect(page.container?.textContent).toContain("Overgrow");
+		}),
+	);
 });

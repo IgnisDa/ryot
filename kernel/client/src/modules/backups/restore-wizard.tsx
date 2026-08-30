@@ -47,13 +47,12 @@ export function BackupRestoreWizard(props: {
 	const [uploadToken, setUploadToken] = useState<string | undefined>();
 	const [failure, setFailure] = useState<BackupRestoreFailure | undefined>();
 
-	// oxlint-disable-next-line effecttsgo/async-function -- React restore confirmation handler.
-	const startRestore = async () => {
+	const startRestore = () => {
 		if (props.disabled || uploadToken === undefined) {
-			return;
+			return Promise.resolve();
 		}
 		setFailure(undefined);
-		const restored = await mutation
+		return mutation
 			.mutateAsync(uploadToken)
 			.then(() => true)
 			.catch((error: unknown) => {
@@ -63,11 +62,13 @@ export function BackupRestoreWizard(props: {
 					setStep(nextFailure.step);
 				}
 				return false;
+			})
+			.then((restored) => {
+				if (restored) {
+					props.onClose();
+				}
+				return undefined;
 			});
-		if (!restored) {
-			return;
-		}
-		props.onClose();
 	};
 
 	const changeToken = (token: string | undefined) => {

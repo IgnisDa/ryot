@@ -1,5 +1,5 @@
+import { describe, expect, it } from "@effect/vitest";
 import { Effect, Layer, ManagedRuntime } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { decodeServerOrigin, resolveApiUrl } from "#/api/origin";
 import { makeUploadsApi } from "#/api/ports.test-layer";
@@ -23,8 +23,7 @@ describe("managed assets", () => {
 		);
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("reads absolute local and S3 URLs with their expiry", async () => {
+	it.live("reads absolute local and S3 URLs with their expiry", () => {
 		const runtime = ManagedRuntime.make(
 			ManagedAssetsService.layer.pipe(
 				Layer.provide(
@@ -44,12 +43,14 @@ describe("managed assets", () => {
 				),
 			),
 		);
-		try {
-			await expect(
-				runtime.runPromise(
-					Effect.flatMap(ManagedAssetsService, (service) => service.read(scope, assets)),
+		return Effect.gen(function* () {
+			expect(
+				yield* Effect.promise(() =>
+					runtime.runPromise(
+						Effect.flatMap(ManagedAssetsService, (service) => service.read(scope, assets)),
+					),
 				),
-			).resolves.toEqual([
+			).toEqual([
 				{
 					expiresAt,
 					asset: assets[0],
@@ -57,13 +58,10 @@ describe("managed assets", () => {
 				},
 				{ expiresAt, asset: assets[1], url: "https://s3.example/permanent/remote.png" },
 			]);
-		} finally {
-			await runtime.dispose();
-		}
+		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("returns the plugin asset outcome without server identity", async () => {
+	it.live("returns the plugin asset outcome without server identity", () => {
 		const runtime = ManagedRuntime.make(
 			ManagedAssetsService.layer.pipe(
 				Layer.provide(
@@ -80,8 +78,10 @@ describe("managed assets", () => {
 				),
 			),
 		);
-		try {
-			await expect(runtime.runPromise(resolveManagedAssetOutcome(scope, assets))).resolves.toEqual({
+		return Effect.gen(function* () {
+			expect(
+				yield* Effect.promise(() => runtime.runPromise(resolveManagedAssetOutcome(scope, assets))),
+			).toEqual({
 				outcome: "success",
 				resolutions: assets.map((asset) => ({
 					asset,
@@ -89,8 +89,6 @@ describe("managed assets", () => {
 					url: "https://s3.example/permanent/remote.png",
 				})),
 			});
-		} finally {
-			await runtime.dispose();
-		}
+		}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));
 	});
 });

@@ -90,33 +90,34 @@ function ResetPasswordForm(props: {
 	const form = useForm({
 		errorVisibility,
 		defaultValues: { password: "", confirmation: "" },
-		// oxlint-disable-next-line effecttsgo/async-function -- React form callback.
-		onSubmit: async ({ value }) => {
+		onSubmit: ({ value }) => {
 			setServerError(undefined);
 			if (value.password !== value.confirmation) {
 				setServerError("Passwords do not match.");
-				return;
+				return Promise.resolve();
 			}
-			let error;
-			try {
-				error = await props.runtime.runPromise(
+			return props.runtime
+				.runPromise(
 					auth
 						.resetPassword(props.server, props.token, value.password)
 						.pipe(Effect.match({ onSuccess: () => undefined, onFailure: (failure) => failure })),
 					{ signal: controller.current.signal },
+				)
+				.then(
+					(error) => {
+						if (error) {
+							setServerError(
+								error.code === "INVALID_TOKEN"
+									? "This password reset link is invalid or has expired."
+									: "Could not reset your password.",
+							);
+							return undefined;
+						}
+						setDone(true);
+						return undefined;
+					},
+					() => undefined,
 				);
-			} catch {
-				return;
-			}
-			if (error) {
-				setServerError(
-					error.code === "INVALID_TOKEN"
-						? "This password reset link is invalid or has expired."
-						: "Could not reset your password.",
-				);
-				return;
-			}
-			setDone(true);
 		},
 	});
 

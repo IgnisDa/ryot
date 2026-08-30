@@ -20,6 +20,7 @@
 		"@ryot-app/sandbox-sdk": "workspace:*"
 	},
 	"devDependencies": {
+		"@effect/vitest": "4.0.0-rc.117",
 		"@ryot-app/cli": "workspace:*",
 		"@ryot-app/client-sdk": "workspace:*",
 		"@ryot-app/client-ui-sdk": "workspace:*",
@@ -28,6 +29,7 @@
 		"@types/react": "^19.2.0",
 		"@types/react-dom": "^19.2.0",
 		"clsx": "2.1.1",
+		"effect": "4.0.0-rc.117",
 		"jsdom": "^30.0.1",
 		"react": "^19.2.0",
 		"react-dom": "^19.2.0",

@@ -1,3 +1,4 @@
+import { describe, expect, it } from "@effect/vitest";
 import { AUTOMATION_HISTORY_LIMITS } from "@ryot-app/contract/modules/automations/history-schemas";
 import {
 	AutomationHookSlug,
@@ -11,7 +12,6 @@ import type { AutomationHistoryRunsPage } from "@ryot-app/ryotql-recipes/automat
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime } from "effect";
-import { describe, expect, it } from "vitest";
 
 import type { AutomationHistoryApi } from "#/api/automation-history";
 import {
@@ -236,315 +236,343 @@ const mountView = (
 };
 
 describe("automation history", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("loads older runs with the opaque cursor and opens a selected run", async () => {
-		const cursors: Array<string | undefined> = [];
-		const older = makeRun({
-			attemptCount: 1,
-			status: "succeeded",
-			hookName: "Library Update Hook",
-			queuedAt: "2026-09-15T10:00:00.000Z",
-			id: AutomationRunId.make("automation-run-older"),
-		});
-		const view = mountView(
-			"/settings/automation-history",
-			makeAutomationHistoryApi(),
-			undefined,
-			makeAutomationQueries({
-				list: (cursor) => {
-					cursors.push(cursor);
-					return Effect.succeed(
-						cursor === undefined
-							? { items: [makeRun()], nextCursor: "opaque-next" }
-							: { items: [older], nextCursor: null },
-					);
-				},
-			}),
-		);
-
-		await screen.findByText("Media Watch Hook");
-		expect(screen.getByText(/Media ·/)).toBeTruthy();
-		expect(screen.getByRole("link", { name: /Open Media Watch Hook run/ }).textContent).toContain(
-			"2 attempts",
-		);
-		fireEvent.click(screen.getByRole("button", { name: "Show older runs" }));
-		await screen.findByText("Library Update Hook");
-		expect(cursors).toEqual([undefined, "opaque-next"]);
-
-		fireEvent.click(screen.getByRole("link", { name: /Open Media Watch Hook run/ }));
-		await waitFor(() =>
-			expect(view.router.state.location.pathname).toBe(
-				"/settings/automation-history/automation-run-1",
-			),
-		);
-		await screen.findByRole("heading", { level: 1, name: "Media Watch Hook" });
-	});
-
-	it(
-		"refreshes the first page while preserving loaded older runs",
-		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-		async () => {
+	it.live("loads older runs with the opaque cursor and opens a selected run", () =>
+		Effect.gen(function* () {
 			const cursors: Array<string | undefined> = [];
 			const older = makeRun({
-				status: "failed",
+				attemptCount: 1,
+				status: "succeeded",
 				hookName: "Library Update Hook",
+				queuedAt: "2026-09-15T10:00:00.000Z",
 				id: AutomationRunId.make("automation-run-older"),
 			});
-			mountView(
+			const view = mountView(
 				"/settings/automation-history",
 				makeAutomationHistoryApi(),
 				undefined,
 				makeAutomationQueries({
 					list: (cursor) => {
 						cursors.push(cursor);
-						if (cursor !== undefined) {
-							return Effect.succeed({ items: [older], nextCursor: null });
-						}
-						return Effect.succeed({
-							nextCursor: "opaque-next",
-							items: [makeRun({ status: cursors.length === 1 ? "queued" : "succeeded" })],
-						});
+						return Effect.succeed(
+							cursor === undefined
+								? { items: [makeRun()], nextCursor: "opaque-next" }
+								: { items: [older], nextCursor: null },
+						);
 					},
 				}),
 			);
 
-			await screen.findByText("Queued");
-			fireEvent.click(screen.getByRole("button", { name: "Show older runs" }));
-			await screen.findByText("Library Update Hook");
-			await waitFor(
-				() => {
-					expect(screen.getByText("Succeeded")).toBeTruthy();
-					expect(screen.getByText("Library Update Hook")).toBeTruthy();
-					expect(cursors).toEqual([undefined, "opaque-next", undefined]);
-				},
-				{ timeout: RUN_LIST_POLL_MS + 1_000 },
+			yield* Effect.promise(() => screen.findByText("Media Watch Hook"));
+			expect(screen.getByText(/Media ·/)).toBeTruthy();
+			expect(screen.getByRole("link", { name: /Open Media Watch Hook run/ }).textContent).toContain(
+				"2 attempts",
 			);
-		},
+			fireEvent.click(screen.getByRole("button", { name: "Show older runs" }));
+			yield* Effect.promise(() => screen.findByText("Library Update Hook"));
+			expect(cursors).toEqual([undefined, "opaque-next"]);
+
+			fireEvent.click(screen.getByRole("link", { name: /Open Media Watch Hook run/ }));
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(view.router.state.location.pathname).toBe(
+						"/settings/automation-history/automation-run-1",
+					),
+				),
+			);
+			yield* Effect.promise(() =>
+				screen.findByRole("heading", { level: 1, name: "Media Watch Hook" }),
+			);
+		}),
+	);
+
+	it.live(
+		"refreshes the first page while preserving loaded older runs",
+		() =>
+			Effect.gen(function* () {
+				const cursors: Array<string | undefined> = [];
+				const older = makeRun({
+					status: "failed",
+					hookName: "Library Update Hook",
+					id: AutomationRunId.make("automation-run-older"),
+				});
+				mountView(
+					"/settings/automation-history",
+					makeAutomationHistoryApi(),
+					undefined,
+					makeAutomationQueries({
+						list: (cursor) => {
+							cursors.push(cursor);
+							if (cursor !== undefined) {
+								return Effect.succeed({ items: [older], nextCursor: null });
+							}
+							return Effect.succeed({
+								nextCursor: "opaque-next",
+								items: [makeRun({ status: cursors.length === 1 ? "queued" : "succeeded" })],
+							});
+						},
+					}),
+				);
+
+				yield* Effect.promise(() => screen.findByText("Queued"));
+				fireEvent.click(screen.getByRole("button", { name: "Show older runs" }));
+				yield* Effect.promise(() => screen.findByText("Library Update Hook"));
+				yield* Effect.promise(() =>
+					waitFor(
+						() => {
+							expect(screen.getByText("Succeeded")).toBeTruthy();
+							expect(screen.getByText("Library Update Hook")).toBeTruthy();
+							expect(cursors).toEqual([undefined, "opaque-next", undefined]);
+						},
+						{ timeout: RUN_LIST_POLL_MS + 1_000 },
+					),
+				);
+			}),
 		RUN_LIST_POLL_MS + 2_000,
 	);
 
-	it(
+	it.live(
 		"drops retained pages when first-page insertion and removal changes the cursor boundary",
-		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-		async () => {
-			const cursors: Array<string | undefined> = [];
-			const first = makeRun({
-				status: "queued",
-				hookName: "First page run",
-				id: AutomationRunId.make("automation-run-first"),
-			});
-			const removed = makeRun({
-				hookName: "Removed at boundary",
-				id: AutomationRunId.make("automation-run-removed"),
-			});
-			const inserted = makeRun({
-				hookName: "Inserted first-page run",
-				id: AutomationRunId.make("automation-run-inserted"),
-			});
-			const staleOlder = makeRun({
-				hookName: "Stale older run",
-				id: AutomationRunId.make("automation-run-stale-older"),
-			});
-			mountView(
-				"/settings/automation-history",
-				makeAutomationHistoryApi(),
-				undefined,
-				makeAutomationQueries({
-					list: (cursor) => {
-						cursors.push(cursor);
-						if (cursor === undefined) {
-							return Effect.succeed(
-								cursors.filter((pageCursor) => pageCursor === undefined).length === 1
-									? { items: [first, removed], nextCursor: "before-insert" }
-									: { items: [inserted, first], nextCursor: "after-insert" },
-							);
-						}
-						return Effect.succeed({ nextCursor: null, items: [staleOlder] });
-					},
-				}),
-			);
+		() =>
+			Effect.gen(function* () {
+				const cursors: Array<string | undefined> = [];
+				const first = makeRun({
+					status: "queued",
+					hookName: "First page run",
+					id: AutomationRunId.make("automation-run-first"),
+				});
+				const removed = makeRun({
+					hookName: "Removed at boundary",
+					id: AutomationRunId.make("automation-run-removed"),
+				});
+				const inserted = makeRun({
+					hookName: "Inserted first-page run",
+					id: AutomationRunId.make("automation-run-inserted"),
+				});
+				const staleOlder = makeRun({
+					hookName: "Stale older run",
+					id: AutomationRunId.make("automation-run-stale-older"),
+				});
+				mountView(
+					"/settings/automation-history",
+					makeAutomationHistoryApi(),
+					undefined,
+					makeAutomationQueries({
+						list: (cursor) => {
+							cursors.push(cursor);
+							if (cursor === undefined) {
+								return Effect.succeed(
+									cursors.filter((pageCursor) => pageCursor === undefined).length === 1
+										? { items: [first, removed], nextCursor: "before-insert" }
+										: { items: [inserted, first], nextCursor: "after-insert" },
+								);
+							}
+							return Effect.succeed({ nextCursor: null, items: [staleOlder] });
+						},
+					}),
+				);
 
-			await screen.findByText("First page run");
-			fireEvent.click(screen.getByRole("button", { name: "Show older runs" }));
-			await screen.findByText("Stale older run");
-			await waitFor(
-				() => {
-					expect(screen.getByText("Inserted first-page run")).toBeTruthy();
-					expect(screen.getAllByText("First page run")).toHaveLength(1);
-					expect(screen.queryByText("Removed at boundary")).toBeNull();
-					expect(screen.queryByText("Stale older run")).toBeNull();
-					expect(cursors).toEqual([undefined, "before-insert", undefined]);
-				},
-				{ timeout: RUN_LIST_POLL_MS + 1_000 },
-			);
-		},
+				yield* Effect.promise(() => screen.findByText("First page run"));
+				fireEvent.click(screen.getByRole("button", { name: "Show older runs" }));
+				yield* Effect.promise(() => screen.findByText("Stale older run"));
+				yield* Effect.promise(() =>
+					waitFor(
+						() => {
+							expect(screen.getByText("Inserted first-page run")).toBeTruthy();
+							expect(screen.getAllByText("First page run")).toHaveLength(1);
+							expect(screen.queryByText("Removed at boundary")).toBeNull();
+							expect(screen.queryByText("Stale older run")).toBeNull();
+							expect(cursors).toEqual([undefined, "before-insert", undefined]);
+						},
+						{ timeout: RUN_LIST_POLL_MS + 1_000 },
+					),
+				);
+			}),
 		RUN_LIST_POLL_MS + 2_000,
 	);
 
-	it(
+	it.live(
 		"polls an active older page until the run reaches a terminal state",
-		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-		async () => {
-			const cursors: Array<string | undefined> = [];
-			let olderReads = 0;
-			const recent = makeRun({
-				hookName: "Recent terminal run",
-				id: AutomationRunId.make("automation-run-recent"),
-			});
-			const older = makeRun({
-				hookName: "Active older run",
-				id: AutomationRunId.make("automation-run-active-older"),
-			});
+		() =>
+			Effect.gen(function* () {
+				const cursors: Array<string | undefined> = [];
+				let olderReads = 0;
+				const recent = makeRun({
+					hookName: "Recent terminal run",
+					id: AutomationRunId.make("automation-run-recent"),
+				});
+				const older = makeRun({
+					hookName: "Active older run",
+					id: AutomationRunId.make("automation-run-active-older"),
+				});
+				mountView(
+					"/settings/automation-history",
+					makeAutomationHistoryApi(),
+					undefined,
+					makeAutomationQueries({
+						list: (cursor) => {
+							cursors.push(cursor);
+							if (cursor === undefined) {
+								return Effect.succeed({ items: [recent], nextCursor: "older-page" });
+							}
+							olderReads += 1;
+							return Effect.succeed({
+								nextCursor: null,
+								items: [makeRun({ ...older, status: olderReads === 1 ? "queued" : "succeeded" })],
+							});
+						},
+					}),
+				);
+
+				yield* Effect.promise(() => screen.findByText("Recent terminal run"));
+				fireEvent.click(screen.getByRole("button", { name: "Show older runs" }));
+				yield* Effect.promise(() => screen.findByText("Queued"));
+				yield* Effect.promise(() =>
+					waitFor(
+						() => {
+							expect(screen.getByText("Succeeded")).toBeTruthy();
+							expect(olderReads).toBe(2);
+							expect(cursors).toEqual([undefined, "older-page", undefined, "older-page"]);
+						},
+						{ timeout: RUN_LIST_POLL_MS + 1_000 },
+					),
+				);
+			}),
+		RUN_LIST_POLL_MS + 2_000,
+	);
+
+	it.live("shows bounded retained trigger, error, and log diagnostics", () =>
+		Effect.gen(function* () {
+			mountView("/settings/automation-history/automation-run-1", makeAutomationHistoryApi());
+
+			yield* Effect.promise(() => screen.findByText("hook-failed"));
+			expect(screen.getByText("The hook rejected this event.")).toBeTruthy();
+			expect(screen.getByText("Provider returned a partial response")).toBeTruthy();
+			expect(screen.getByText(/"provider": "fixture"/)).toBeTruthy();
+			expect(screen.getByText(/"title": "Arrival"/)).toBeTruthy();
+			expect(screen.getByText("Some diagnostics exceeded the retained limit.")).toBeTruthy();
+		}),
+	);
+
+	it.live("sends the displayed attempt count and refetches after retry", () =>
+		Effect.gen(function* () {
+			let detailReads = 0;
+			const retryBodies: number[] = [];
 			mountView(
-				"/settings/automation-history",
-				makeAutomationHistoryApi(),
+				"/settings/automation-history/automation-run-1",
+				makeAutomationHistoryApi({
+					retryRun: (_scope, request) => {
+						retryBodies.push(request.payload.expectedAttemptCount);
+						return Effect.succeed({ runId, attemptNumber: 3, dispatch: "pending" });
+					},
+				}),
 				undefined,
 				makeAutomationQueries({
-					list: (cursor) => {
-						cursors.push(cursor);
-						if (cursor === undefined) {
-							return Effect.succeed({ items: [recent], nextCursor: "older-page" });
-						}
-						olderReads += 1;
-						return Effect.succeed({
-							nextCursor: null,
-							items: [makeRun({ ...older, status: olderReads === 1 ? "queued" : "succeeded" })],
-						});
+					detail: () => {
+						detailReads += 1;
+						return Effect.succeed(makeDetail());
 					},
 				}),
 			);
 
-			await screen.findByText("Recent terminal run");
-			fireEvent.click(screen.getByRole("button", { name: "Show older runs" }));
-			await screen.findByText("Queued");
-			await waitFor(
-				() => {
-					expect(screen.getByText("Succeeded")).toBeTruthy();
-					expect(olderReads).toBe(2);
-					expect(cursors).toEqual([undefined, "older-page", undefined, "older-page"]);
-				},
-				{ timeout: RUN_LIST_POLL_MS + 1_000 },
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Retry run" })),
 			);
-		},
-		RUN_LIST_POLL_MS + 2_000,
+			yield* Effect.promise(() =>
+				screen.findByText("Retry queued as attempt 3. Dispatch is pending."),
+			);
+			yield* Effect.promise(() => waitFor(() => expect(detailReads).toBe(2)));
+			expect(retryBodies).toEqual([2]);
+		}),
 	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("shows bounded retained trigger, error, and log diagnostics", async () => {
-		mountView("/settings/automation-history/automation-run-1", makeAutomationHistoryApi());
+	it.live("keeps retry visible but disabled for demo sessions", () =>
+		Effect.gen(function* () {
+			let retries = 0;
+			mountView(
+				"/settings/automation-history/automation-run-1",
+				makeAutomationHistoryApi({
+					retryRun: () => {
+						retries += 1;
+						return Effect.succeed({ runId, attemptNumber: 3, dispatch: "pending" });
+					},
+				}),
+				makeAuthStub({}, { ...authenticated, accessClass: "demo" }),
+			);
 
-		await screen.findByText("hook-failed");
-		expect(screen.getByText("The hook rejected this event.")).toBeTruthy();
-		expect(screen.getByText("Provider returned a partial response")).toBeTruthy();
-		expect(screen.getByText(/"provider": "fixture"/)).toBeTruthy();
-		expect(screen.getByText(/"title": "Arrival"/)).toBeTruthy();
-		expect(screen.getByText("Some diagnostics exceeded the retained limit.")).toBeTruthy();
-	});
+			const retry = yield* Effect.promise(() => screen.findByRole("button", { name: "Retry run" }));
+			expect(retry.hasAttribute("disabled")).toBe(true);
+			expect(
+				screen.getByText("This operation is unavailable while using the shared demo account."),
+			).toBeTruthy();
+			fireEvent.click(retry);
+			expect(retries).toBe(0);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("sends the displayed attempt count and refetches after retry", async () => {
-		let detailReads = 0;
-		const retryBodies: number[] = [];
-		mountView(
-			"/settings/automation-history/automation-run-1",
-			makeAutomationHistoryApi({
-				retryRun: (_scope, request) => {
-					retryBodies.push(request.payload.expectedAttemptCount);
-					return Effect.succeed({ runId, attemptNumber: 3, dispatch: "pending" });
-				},
-			}),
-			undefined,
-			makeAutomationQueries({
-				detail: () => {
-					detailReads += 1;
-					return Effect.succeed(makeDetail());
-				},
-			}),
-		);
+	it.live("polls a retried run through queued and running states until it succeeds", () =>
+		Effect.gen(function* () {
+			let detailReads = 0;
+			mountView(
+				"/settings/automation-history/automation-run-1",
+				makeAutomationHistoryApi({
+					retryRun: () => Effect.succeed({ runId, attemptNumber: 3, dispatch: "pending" }),
+				}),
+				undefined,
+				makeAutomationQueries({
+					detail: () => {
+						detailReads += 1;
+						const statuses = ["failed", "queued", "running", "succeeded"] as const;
+						const status = statuses[Math.min(detailReads - 1, statuses.length - 1)] ?? "succeeded";
+						return Effect.succeed(
+							makeDetail({
+								run: makeRun({ status }),
+								retryEligibility: { reason: status === "failed" ? null : "not-failed" },
+							}),
+						);
+					},
+				}),
+			);
 
-		fireEvent.click(await screen.findByRole("button", { name: "Retry run" }));
-		await screen.findByText("Retry queued as attempt 3. Dispatch is pending.");
-		await waitFor(() => expect(detailReads).toBe(2));
-		expect(retryBodies).toEqual([2]);
-	});
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Retry run" })),
+			);
+			yield* Effect.promise(() =>
+				screen.findByText("Retry queued as attempt 3. Dispatch is pending."),
+			);
+			yield* Effect.promise(() => screen.findByText("Queued", { selector: "span" }));
+			yield* Effect.promise(() =>
+				waitFor(() => expect(screen.getByText("Running")).toBeTruthy(), {
+					timeout: RUN_POLL_MS + 1_000,
+				}),
+			);
+			yield* Effect.promise(() =>
+				waitFor(
+					() => {
+						expect(screen.getByText("Succeeded")).toBeTruthy();
+						expect(detailReads).toBe(4);
+					},
+					{ timeout: RUN_POLL_MS + 1_000 },
+				),
+			);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("keeps retry visible but disabled for demo sessions", async () => {
-		let retries = 0;
-		mountView(
-			"/settings/automation-history/automation-run-1",
-			makeAutomationHistoryApi({
-				retryRun: () => {
-					retries += 1;
-					return Effect.succeed({ runId, attemptNumber: 3, dispatch: "pending" });
-				},
-			}),
-			makeAuthStub({}, { ...authenticated, accessClass: "demo" }),
-		);
+	it.live("explains when retained artifacts make retry unavailable", () =>
+		Effect.gen(function* () {
+			mountView(
+				"/settings/automation-history/automation-run-1",
+				makeAutomationHistoryApi(),
+				undefined,
+				makeAutomationQueries({
+					detail: () =>
+						Effect.succeed(makeDetail({ retryEligibility: { reason: "missing-artifact" } })),
+				}),
+			);
 
-		const retry = await screen.findByRole("button", { name: "Retry run" });
-		expect(retry.hasAttribute("disabled")).toBe(true);
-		expect(
-			screen.getByText("This operation is unavailable while using the shared demo account."),
-		).toBeTruthy();
-		fireEvent.click(retry);
-		expect(retries).toBe(0);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("polls a retried run through queued and running states until it succeeds", async () => {
-		let detailReads = 0;
-		mountView(
-			"/settings/automation-history/automation-run-1",
-			makeAutomationHistoryApi({
-				retryRun: () => Effect.succeed({ runId, attemptNumber: 3, dispatch: "pending" }),
-			}),
-			undefined,
-			makeAutomationQueries({
-				detail: () => {
-					detailReads += 1;
-					const statuses = ["failed", "queued", "running", "succeeded"] as const;
-					const status = statuses[Math.min(detailReads - 1, statuses.length - 1)] ?? "succeeded";
-					return Effect.succeed(
-						makeDetail({
-							run: makeRun({ status }),
-							retryEligibility: { reason: status === "failed" ? null : "not-failed" },
-						}),
-					);
-				},
-			}),
-		);
-
-		fireEvent.click(await screen.findByRole("button", { name: "Retry run" }));
-		await screen.findByText("Retry queued as attempt 3. Dispatch is pending.");
-		await screen.findByText("Queued", { selector: "span" });
-		await waitFor(() => expect(screen.getByText("Running")).toBeTruthy(), {
-			timeout: RUN_POLL_MS + 1_000,
-		});
-		await waitFor(
-			() => {
-				expect(screen.getByText("Succeeded")).toBeTruthy();
-				expect(detailReads).toBe(4);
-			},
-			{ timeout: RUN_POLL_MS + 1_000 },
-		);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("explains when retained artifacts make retry unavailable", async () => {
-		mountView(
-			"/settings/automation-history/automation-run-1",
-			makeAutomationHistoryApi(),
-			undefined,
-			makeAutomationQueries({
-				detail: () =>
-					Effect.succeed(makeDetail({ retryEligibility: { reason: "missing-artifact" } })),
-			}),
-		);
-
-		await screen.findByText(
-			"The exact script or configuration needed for this run is unavailable.",
-		);
-		expect(screen.queryByRole("button", { name: "Retry run" })).toBeNull();
-	});
+			yield* Effect.promise(() =>
+				screen.findByText("The exact script or configuration needed for this run is unavailable."),
+			);
+			expect(screen.queryByRole("button", { name: "Retry run" })).toBeNull();
+		}),
+	);
 });

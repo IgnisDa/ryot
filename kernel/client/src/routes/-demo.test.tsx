@@ -1,8 +1,8 @@
+import { describe, expect, it } from "@effect/vitest";
 import type { AccessClass } from "@ryot-app/contract/oauth";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { render, screen, waitFor } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime } from "effect";
-import { describe, expect, it } from "vitest";
 
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import { HostedAuthError } from "#/modules/auth/hosted-service";
@@ -127,53 +127,60 @@ const mountDemo = (
 };
 
 describe("demo entry route", () => {
-	it.each(["standard", "demo"] as const)(
+	it.live.each(["standard", "demo"] as const)(
 		"keeps an existing %s application session",
-		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-		async (accessClass) => {
-			const mounted = mountDemo({ accessClass });
+		(accessClass) =>
+			Effect.gen(function* () {
+				const mounted = mountDemo({ accessClass });
 
-			await waitFor(() => expect(mounted.router.state.location.pathname).toBe("/"));
-			expect(mounted.hostedCallCount()).toBe(0);
-			expect(mounted.prepared).toEqual([]);
-		},
+				yield* Effect.promise(() =>
+					waitFor(() => expect(mounted.router.state.location.pathname).toBe("/")),
+				);
+				expect(mounted.hostedCallCount()).toBe(0);
+				expect(mounted.prepared).toEqual([]);
+			}),
 	);
 
-	it.each([
+	it.live.each([
 		["demo", "ryot-demo-web"],
 		["standard", "ryot-web"],
-		// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	] as const)("uses the %s hosted mode to launch %s", async (mode, clientId) => {
-		const mounted = mountDemo({ mode });
+	] as const)("uses the %s hosted mode to launch %s", ([mode, clientId]) =>
+		Effect.gen(function* () {
+			const mounted = mountDemo({ mode });
 
-		await waitFor(() => expect(mounted.launched).toHaveLength(1));
-		expect(mounted.hostedCallCount()).toBe(1);
-		expect(mounted.prepared).toHaveLength(1);
-		expect(mounted.prepared[0]?.client).toMatchObject({
-			clientId,
-			nativeApplicationId: null,
-			callbackUri: `${window.location.origin}/auth/callback`,
-		});
-		expect(mounted.launched[0]?.client.clientId).toBe(clientId);
-	});
+			yield* Effect.promise(() => waitFor(() => expect(mounted.launched).toHaveLength(1)));
+			expect(mounted.hostedCallCount()).toBe(1);
+			expect(mounted.prepared).toHaveLength(1);
+			expect(mounted.prepared[0]?.client).toMatchObject({
+				clientId,
+				nativeApplicationId: null,
+				callbackUri: `${window.location.origin}/auth/callback`,
+			});
+			expect(mounted.launched[0]?.client.clientId).toBe(clientId);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("shows the dedicated unavailable state for a rejected hosted request", async () => {
-		mountDemo({ failHosted: true });
+	it.live("shows the dedicated unavailable state for a rejected hosted request", () =>
+		Effect.gen(function* () {
+			mountDemo({ failHosted: true });
 
-		await screen.findByText("Demo unavailable");
-		expect(
-			screen.getByText("The shared demo account is not available on this server."),
-		).not.toBeNull();
-		expect(screen.queryByText("sensitive server detail")).toBeNull();
-	});
+			yield* Effect.promise(() => screen.findByText("Demo unavailable"));
+			expect(
+				screen.getByText("The shared demo account is not available on this server."),
+			).not.toBeNull();
+			expect(screen.queryByText("sensitive server detail")).toBeNull();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("routes native invocation through ordinary authentication", async () => {
-		const mounted = mountDemo({ native: true });
+	it.live("routes native invocation through ordinary authentication", () =>
+		Effect.gen(function* () {
+			const mounted = mountDemo({ native: true });
 
-		await waitFor(() => expect(mounted.router.state.location.pathname).toBe("/auth"));
-		expect(mounted.hostedCallCount()).toBe(0);
-		expect(mounted.prepared).toEqual([undefined]);
-	});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(mounted.router.state.location.pathname).toBe("/auth")),
+			);
+			expect(mounted.hostedCallCount()).toBe(0);
+			expect(mounted.prepared).toEqual([undefined]);
+		}),
+	);
 });

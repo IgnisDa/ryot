@@ -1,7 +1,7 @@
+import { describe, expect, it } from "@effect/vitest";
 import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
-import { describe, expect, it } from "vitest";
 
 import details, { manifest as detailsManifest } from "./details.sandbox";
 import resolve, { manifest as resolveManifest } from "./resolve.sandbox";
@@ -83,31 +83,32 @@ describe("book.google-books sandbox script", () => {
 			),
 		);
 	});
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("rejects invalid search options", async () => {
-		const host = makeHost(() => httpSuccess({ items: [], totalItems: 0 }));
+	it.live("rejects invalid search options", () =>
+		Effect.gen(function* () {
+			const host = makeHost(() => httpSuccess({ items: [], totalItems: 0 }));
 
-		await expect(
-			Effect.runPromise(
-				runSandboxTestScript(
-					search,
-					{ page: 1, pageSize: 20, query: "book", options: { passRawQuery: "yes" } },
-					host,
-					execution,
+			expect(
+				yield* Effect.flip(
+					runSandboxTestScript(
+						search,
+						{ page: 1, pageSize: 20, query: "book", options: { passRawQuery: "yes" } },
+						host,
+						execution,
+					),
 				),
-			),
-		).rejects.toBeDefined();
-		await expect(
-			Effect.runPromise(
-				runSandboxTestScript(
-					search,
-					{ page: 1, pageSize: 20, query: "book", options: { unsupported: true } },
-					host,
-					execution,
+			).toBeDefined();
+			expect(
+				yield* Effect.flip(
+					runSandboxTestScript(
+						search,
+						{ page: 1, pageSize: 20, query: "book", options: { unsupported: true } },
+						host,
+						execution,
+					),
 				),
-			),
-		).rejects.toBeDefined();
-	});
+			).toBeDefined();
+		}),
+	);
 
 	it("maps categories, unlinked creators, images and pages on details", () => {
 		const host = makeHost(() =>

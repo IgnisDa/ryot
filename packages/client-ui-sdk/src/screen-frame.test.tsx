@@ -1,6 +1,7 @@
+import { beforeEach, describe, expect, it } from "@effect/vitest";
 import { act, render, screen } from "@testing-library/react";
+import { Effect } from "effect";
 import { useRef, type ReactNode } from "react";
-import { beforeEach, describe, expect, it } from "vitest";
 import { axe } from "vitest-axe";
 
 import { SCREEN_BAR_HEIGHT, ScreenFrame } from "./screen-frame";
@@ -238,14 +239,17 @@ describe("ScreenFrame", () => {
 		expect(disconnects).toBe(1);
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the axe Promise.
-	it("passes an axe pass on the compact bar", async () => {
-		render(<Harness compact />);
+	it.live("passes an axe pass on the compact bar", () =>
+		Effect.gen(function* () {
+			render(<Harness compact />);
 
-		const results = await axe(document.body, {
-			rules: { region: { enabled: false }, "color-contrast": { enabled: false } },
-		});
+			const results = yield* Effect.promise(() =>
+				axe(document.body, {
+					rules: { region: { enabled: false }, "color-contrast": { enabled: false } },
+				}),
+			);
 
-		expect(results.violations.map((violation) => violation.id)).toEqual([]);
-	});
+			expect(results.violations.map((violation) => violation.id)).toEqual([]);
+		}),
+	);
 });

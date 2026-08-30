@@ -1,8 +1,8 @@
+import { afterEach, describe, expect, it } from "@effect/vitest";
 import { fireEvent } from "@testing-library/dom";
 import { Effect } from "effect";
 import { act, type ReactNode, useState, useSyncExternalStore } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it } from "vitest";
 
 import {
 	defineEntityPresentation,
@@ -123,13 +123,8 @@ const render = (
 	return { draw, clock, navigate, container };
 };
 
-// oxlint-disable-next-line effecttsgo/async-function -- Test helper flushes React and TestClock turns.
-const flush = async (clock: Clock, turns = 6) => {
-	if (turns > 0) {
-		await clock.advance(0);
-		await flush(clock, turns - 1);
-	}
-};
+const flush = (clock: Clock, turns = 6): Promise<void> =>
+	turns > 0 ? clock.advance(0).then(() => flush(clock, turns - 1)) : Promise.resolve();
 
 const clickRetry = (container: HTMLElement) => {
 	const button = container.querySelector("button");
@@ -141,16 +136,18 @@ const clickRetry = (container: HTMLElement) => {
 	}
 };
 
-// oxlint-disable-next-line effecttsgo/async-function -- Vitest teardown awaits the clock runtime.
-afterEach(async () => {
+afterEach(() => {
 	for (const root of roots) {
 		act(() => root.unmount());
 	}
 	roots = [];
-	await Promise.all(clocks.map((clock) => clock.dispose()));
+	const disposals = Promise.all(clocks.map((clock) => clock.dispose()));
 	clocks = [];
-	globalThis.IntersectionObserver = originalIntersectionObserver;
-	document.body.innerHTML = "";
+	return disposals.then(() => {
+		globalThis.IntersectionObserver = originalIntersectionObserver;
+		document.body.innerHTML = "";
+		return undefined;
+	});
 });
 
 const installIntersectionObserver = () => {
@@ -229,601 +226,626 @@ const gridFor = (references: readonly EntityReference[]) => (
 );
 
 describe("EntityResults", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React and bridge updates.
-	it("loads one presentation for 20 entities before running any data query, and retains it across page remounts", async () => {
-		let resolveDefinition:
-			| ((definition: ReturnType<typeof defineEntityPresentation<string>>) => void)
-			| undefined;
-		let definitionLoads = 0;
-		let dataLoads = 0;
-		let mounts = 0;
-		const definition = defineEntityPresentation<string>({
-			component: function Presentation({ data }) {
+	it.live(
+		"loads one presentation for 20 entities before running any data query, and retains it across page remounts",
+		() =>
+			Effect.gen(function* () {
+				let resolveDefinition:
+					| ((definition: ReturnType<typeof defineEntityPresentation<string>>) => void)
+					| undefined;
+				let definitionLoads = 0;
+				let dataLoads = 0;
+				let mounts = 0;
+				const definition = defineEntityPresentation<string>({
+					component: function Presentation({ data }) {
+						useState(() => {
+							mounts++;
+						});
+						return <p>{data}</p>;
+					},
+					loader: ({ references }) => {
+						dataLoads++;
+						return Effect.succeed(
+							Object.fromEntries(references.map(({ entityId }) => [entityId, entityId])),
+						);
+					},
+				});
+				const registration: EntityPresentationRegistration = {
+					layout: "grid",
+					ownerPluginId: "owner",
+					entitySchemaSlug: "item",
+					load: () => {
+						definitionLoads++;
+						// oxlint-disable-next-line effecttsgo/new-promise -- Test gate holds a presentation load to verify scheduling.
+						return new Promise((resolve) => {
+							resolveDefinition = resolve;
+						});
+					},
+				};
+				const { draw, clock, container } = render([registration], gridPage());
+				yield* Effect.promise(() => flush(clock));
+				expect(definitionLoads).toBe(1);
+				expect(dataLoads).toBe(0);
+				expect(container.querySelectorAll('[role="status"]')).toHaveLength(20);
+				act(() => resolveDefinition?.(definition));
+				yield* Effect.promise(() => flush(clock));
+				expect({ mounts, dataLoads, definitionLoads }).toEqual({
+					mounts: 20,
+					dataLoads: 1,
+					definitionLoads: 1,
+				});
+				draw(null);
+				draw(gridPage());
+				yield* Effect.promise(() => flush(clock));
+				expect(definitionLoads).toBe(1);
+				expect(mounts).toBe(40);
+				act(() => roots[0]?.unmount());
+				roots = [];
+				const fresh = render([registration], gridPage());
+				yield* Effect.promise(() => flush(fresh.clock));
+				expect(definitionLoads).toBe(2);
+			}),
+	);
+
+	it.live("uses a stable linked fallback after a definition load failure", () =>
+		Effect.gen(function* () {
+			let attempts = 0;
+			const registration: EntityPresentationRegistration = {
+				layout: "list",
+				ownerPluginId: "owner",
+				entitySchemaSlug: "item",
+				load: () => {
+					attempts++;
+					return Promise.reject(new Error("offline"));
+				},
+			};
+			const item = (
+				<EntityResults layout="list" viewContext={null} references={[reference("one")]} />
+			);
+			const { draw, clock, container } = render([registration], item);
+			yield* Effect.promise(() => flush(clock));
+			expect(container.textContent).toContain("This presentation is unavailable.");
+			expect(container.querySelector('a[href="/e/one"]')).not.toBeNull();
+			expect(container.querySelector("button")).toBeNull();
+			draw(null);
+			draw(item);
+			yield* Effect.promise(() => flush(clock));
+			expect(attempts).toBe(1);
+		}),
+	);
+
+	it.live("declares only intersecting entities from the shared screen root and cleans up", () =>
+		Effect.gen(function* () {
+			const observers = installIntersectionObserver();
+			const interests: EntityInterest[] = [];
+			let completion: ((update: EntityUpdate) => void) | undefined;
+			let disposals = 0;
+			let loads = 0;
+			let mounts = 0;
+			const Presentation = ({ data }: { readonly data: string }) => {
 				useState(() => {
 					mounts++;
 				});
 				return <p>{data}</p>;
-			},
-			loader: ({ references }) => {
-				dataLoads++;
-				return Effect.succeed(
-					Object.fromEntries(references.map(({ entityId }) => [entityId, entityId])),
-				);
-			},
-		});
-		const registration: EntityPresentationRegistration = {
-			layout: "grid",
-			ownerPluginId: "owner",
-			entitySchemaSlug: "item",
-			load: () => {
-				definitionLoads++;
-				// oxlint-disable-next-line effecttsgo/new-promise -- Test gate holds a presentation load to verify scheduling.
-				return new Promise((resolve) => {
-					resolveDefinition = resolve;
-				});
-			},
-		};
-		const { draw, clock, container } = render([registration], gridPage());
-		await flush(clock);
-		expect(definitionLoads).toBe(1);
-		expect(dataLoads).toBe(0);
-		expect(container.querySelectorAll('[role="status"]')).toHaveLength(20);
-		act(() => resolveDefinition?.(definition));
-		await flush(clock);
-		expect({ mounts, dataLoads, definitionLoads }).toEqual({
-			mounts: 20,
-			dataLoads: 1,
-			definitionLoads: 1,
-		});
-		draw(null);
-		draw(gridPage());
-		await flush(clock);
-		expect(definitionLoads).toBe(1);
-		expect(mounts).toBe(40);
-		act(() => roots[0]?.unmount());
-		roots = [];
-		const fresh = render([registration], gridPage());
-		await flush(fresh.clock);
-		expect(definitionLoads).toBe(2);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React and bridge updates.
-	it("uses a stable linked fallback after a definition load failure", async () => {
-		let attempts = 0;
-		const registration: EntityPresentationRegistration = {
-			layout: "list",
-			ownerPluginId: "owner",
-			entitySchemaSlug: "item",
-			load: () => {
-				attempts++;
-				return Promise.reject(new Error("offline"));
-			},
-		};
-		const item = <EntityResults layout="list" viewContext={null} references={[reference("one")]} />;
-		const { draw, clock, container } = render([registration], item);
-		await flush(clock);
-		expect(container.textContent).toContain("This presentation is unavailable.");
-		expect(container.querySelector('a[href="/e/one"]')).not.toBeNull();
-		expect(container.querySelector("button")).toBeNull();
-		draw(null);
-		draw(item);
-		await flush(clock);
-		expect(attempts).toBe(1);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React and bridge updates.
-	it("declares only intersecting entities from the shared screen root and cleans up", async () => {
-		const observers = installIntersectionObserver();
-		const interests: EntityInterest[] = [];
-		let completion: ((update: EntityUpdate) => void) | undefined;
-		let disposals = 0;
-		let loads = 0;
-		let mounts = 0;
-		const Presentation = ({ data }: { readonly data: string }) => {
-			useState(() => {
-				mounts++;
-			});
-			return <p>{data}</p>;
-		};
-		const registration = {
-			ownerPluginId: "owner",
-			layout: "grid" as const,
-			entitySchemaSlug: "item",
-			load: () =>
-				Promise.resolve(
-					defineEntityPresentation({
-						component: Presentation,
-						loader: ({ references }) => {
-							loads++;
-							return Effect.succeed(
-								Object.fromEntries(references.map(({ entityId }) => [entityId, entityId])),
-							);
-						},
-					}),
-				),
-		};
-		const { draw, clock, navigate, container } = render(
-			[registration],
-			<EntityResults
-				layout="grid"
-				viewContext={null}
-				references={[reference("one"), reference("two")]}
-			/>,
-			{
-				watchEntities: (interest, listener) => {
-					interests.push(interest);
-					completion = listener;
-					return {
-						update: (next) => interests.push(next),
-						dispose: () => {
-							disposals++;
-						},
-					};
-				},
-			},
-		);
-		await flush(clock);
-		expect(observers).toHaveLength(1);
-		const observer = observers[0];
-		expect(observer?.root).toBe(container.firstElementChild?.firstElementChild?.firstElementChild);
-		expect(observer?.targets.size).toBe(2);
-		expect(interests.at(-1)).toEqual({ visible: [], foreground: [] });
-		expect({ loads, mounts }).toEqual({ loads: 1, mounts: 2 });
-		const [one, two] = [...(observer?.targets ?? [])];
-		if (one && two && observer) {
-			act(() => observer.emit(one, true));
-			await flush(clock);
-			expect(interests.at(-1)).toEqual({ foreground: [], visible: ["one"] });
-			act(() => completion?.({ entityId: "one", reason: "populated" }));
-			await clock.advance(499);
-			expect(loads).toBe(1);
-			await clock.advance(1);
-			expect(loads).toBe(2);
-			expect({ loads, mounts }).toEqual({ loads: 2, mounts: 2 });
-			act(() => observer.emit(two, false));
-			await flush(clock);
-			expect(interests.at(-1)).toEqual({ foreground: [], visible: ["one"] });
-			draw(<EntityResults layout="grid" viewContext={null} references={[reference("two")]} />);
-			await flush(clock);
-			expect(interests.at(-1)).toEqual({ visible: [], foreground: [] });
-			const remaining = [...observer.targets][0];
-			if (remaining) {
-				act(() => observer.emit(remaining, true));
-				await flush(clock);
-				expect(interests.at(-1)).toEqual({ foreground: [], visible: ["two"] });
-			}
-			await navigate("/inactive", 1, "inactive");
-			await flush(clock);
-			expect(observer.disconnected).toBe(true);
-			await navigate("/", 0, "home");
-			await flush(clock);
-			expect(observers).toHaveLength(2);
-			expect(interests.at(-1)).toEqual({ visible: [], foreground: [] });
-		}
-		act(() => roots[0]?.unmount());
-		roots = [];
-		expect(observers.every(({ disconnected }) => disconnected)).toBe(true);
-		expect(disposals).toBeGreaterThan(0);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React and bridge updates.
-	it("uses the exact owner, schema, and layout while preserving visible order", async () => {
-		const requests: Array<{
-			readonly ids: readonly string[];
-			readonly resolve: (value: Readonly<Record<string, string>>) => void;
-		}> = [];
-		const presentation = (label: string) =>
-			defineEntityPresentation<string>({
-				component: ({ data }) => <p>{`${label}:${data}`}</p>,
-				loader: ({ references }) =>
-					Effect.callback<Readonly<Record<string, string>>>((resume) => {
-						requests.push({
-							ids: references.map(({ entityId }) => entityId),
-							resolve: (value) => resume(Effect.succeed(value)),
-						});
-					}),
-			});
-		const registrations = [
-			{
-				layout: "grid",
-				ownerPluginId: "other",
-				entitySchemaSlug: "item",
-				load: () => Promise.resolve(presentation("wrong-owner")),
-			},
-			{
-				layout: "grid",
+			};
+			const registration = {
 				ownerPluginId: "owner",
-				entitySchemaSlug: "other",
-				load: () => Promise.resolve(presentation("wrong-schema")),
-			},
-			{
-				layout: "list",
-				ownerPluginId: "owner",
+				layout: "grid" as const,
 				entitySchemaSlug: "item",
-				load: () => Promise.resolve(presentation("wrong-layout")),
-			},
-			{
-				layout: "grid",
-				ownerPluginId: "owner",
-				entitySchemaSlug: "item",
-				load: () => Promise.resolve(presentation("exact")),
-			},
-		] as const;
-		const { clock, container } = render(
-			registrations,
-			<EntityResults
-				layout="grid"
-				viewContext={{ savedViewId: "view" }}
-				references={[reference("b"), reference("a")]}
-			/>,
-		);
-		await flush(clock);
-		expect(requests).toHaveLength(1);
-		expect(requests[0]?.ids).toEqual(["a", "b"]);
-		act(() => requests[0]?.resolve({ a: "first", b: "second" }));
-		await flush(clock);
-		expect(container.textContent).toBe("exact:secondexact:first");
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React and bridge updates.
-	it("chunks sorted IDs at 100 and admits only four batches at once", async () => {
-		const requests: Array<{
-			readonly ids: readonly string[];
-			readonly resolve: (value: Readonly<Record<string, string>>) => void;
-		}> = [];
-		const registrations = Array.from({ length: 5 }, (_, index) => ({
-			layout: "grid" as const,
-			entitySchemaSlug: "item",
-			ownerPluginId: `owner-${index}`,
-			load: () =>
-				Promise.resolve(
-					defineEntityPresentation<string>({
-						component: ({ data }) => <p>{data}</p>,
-						loader: ({ references }) =>
-							Effect.callback<Readonly<Record<string, string>>>((resume) => {
-								requests.push({
-									ids: references.map(({ entityId }) => entityId),
-									resolve: (value) => resume(Effect.succeed(value)),
-								});
-							}),
-					}),
-				),
-		}));
-		const many = Array.from({ length: 201 }, (_, index) =>
-			reference(String(200 - index).padStart(3, "0"), { ownerPluginId: "owner-0" }),
-		);
-		const extras = registrations
-			.slice(1)
-			.map((registration, index) =>
-				reference(`extra-${index}`, { ownerPluginId: registration.ownerPluginId }),
-			);
-		const { clock } = render(
-			registrations,
-			<EntityResults layout="grid" viewContext={null} references={[...many, ...extras]} />,
-		);
-		await flush(clock);
-		expect(requests).toHaveLength(4);
-		expect(
-			requests
-				.slice(0, 3)
-				.map(({ ids }) => ids.length)
-				.sort((a, b) => a - b),
-		).toEqual([1, 100, 100]);
-		for (const { ids } of requests.slice(0, 3)) {
-			expect(ids).toEqual([...ids].sort());
-		}
-		act(() => requests[0]?.resolve(Object.fromEntries(requests[0].ids.map((id) => [id, id]))));
-		await flush(clock);
-		expect(requests).toHaveLength(5);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React and bridge updates.
-	it("interrupts discarded batches and frees their slots for the replacement", async () => {
-		const requests: Array<{
-			readonly id: string;
-			readonly signal: AbortSignal;
-			readonly resolve: (value: Readonly<Record<string, string>>) => void;
-		}> = [];
-		const registrations = Array.from({ length: 5 }, (_, index) => ({
-			layout: "grid" as const,
-			entitySchemaSlug: "item",
-			ownerPluginId: `owner-${index}`,
-			load: () =>
-				Promise.resolve(
-					defineEntityPresentation<string>({
-						component: ({ data }) => <p>{data}</p>,
-						loader: ({ references }) =>
-							Effect.callback<Readonly<Record<string, string>>>((resume, signal) => {
-								requests.push({
-									signal,
-									id: references[0]?.entityId ?? "",
-									resolve: (value) => resume(Effect.succeed(value)),
-								});
-							}),
-					}),
-				),
-		}));
-		const items = registrations.map((registration, index) =>
-			reference(`entity-${index}`, { ownerPluginId: registration.ownerPluginId }),
-		);
-		const { draw, clock } = render(registrations, gridFor(items));
-		await flush(clock);
-		expect(requests.map(({ id }) => id)).toEqual(["entity-0", "entity-1", "entity-2", "entity-3"]);
-		draw(gridFor(items.slice(0, 4)));
-		await flush(clock);
-		act(() => requests[0]?.resolve({ "entity-0": "loaded" }));
-		await flush(clock);
-		expect(requests).toHaveLength(4);
-		draw(gridFor([]));
-		await flush(clock);
-		expect(requests.slice(1).every(({ signal }) => signal.aborted)).toBe(true);
-		const staleCount = requests.length;
-		const replacement = items[4];
-		if (!replacement) {
-			throw new Error("Expected the fifth entity");
-		}
-		draw(gridFor([replacement]));
-		await flush(clock);
-		expect(requests).toHaveLength(staleCount + 1);
-		expect(requests.at(-1)).toMatchObject({ id: "entity-4" });
-		expect(requests.at(-1)?.signal.aborted).toBe(false);
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React and bridge updates.
-	it("releases scheduler slots after typed loader failures", async () => {
-		const calls: string[] = [];
-		const registrations = Array.from({ length: 5 }, (_, index) => ({
-			layout: "grid" as const,
-			entitySchemaSlug: "item",
-			ownerPluginId: `owner-${index}`,
-			load: () =>
-				Promise.resolve(
-					defineEntityPresentation<string>({
-						component: ({ data }) => <p>{data}</p>,
-						loader: ({ references }) => {
-							const id = references[0]?.entityId ?? "";
-							calls.push(id);
-							if (index < 4) {
-								return Effect.fail(new RyotClientError("transport"));
-							}
-							return Effect.succeed({ [id]: "healthy" });
-						},
-					}),
-				),
-		}));
-		const { clock, container } = render(
-			registrations,
-			<EntityResults
-				layout="grid"
-				viewContext={null}
-				references={registrations.map((registration, index) =>
-					reference(`entity-${index}`, { ownerPluginId: registration.ownerPluginId }),
-				)}
-			/>,
-		);
-
-		await flush(clock);
-		expect(calls).toEqual(["entity-0", "entity-1", "entity-2", "entity-3", "entity-4"]);
-		expect(container.textContent).toContain("healthy");
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React and bridge updates.
-	it("stabilizes equivalent batches across rerenders and consumers", async () => {
-		const requests: Array<{
-			readonly id: string;
-			readonly name: string | null;
-			readonly signal: AbortSignal;
-			readonly resolve: (value: Readonly<Record<string, string>>) => void;
-		}> = [];
-		const registration = {
-			ownerPluginId: "owner",
-			layout: "grid" as const,
-			entitySchemaSlug: "item",
-			load: () =>
-				Promise.resolve(
-					defineEntityPresentation<string>({
-						component: ({ data }) => <p>{data}</p>,
-						loader: ({ references }) =>
-							Effect.callback<Readonly<Record<string, string>>>((resume, signal) => {
-								requests.push({
-									signal,
-									id: references[0]?.entityId ?? "",
-									name: references[0]?.name ?? null,
-									resolve: (value) => resume(Effect.succeed(value)),
-								});
-							}),
-					}),
-				),
-		};
-		const equivalentConsumers = () => (
-			<>
-				<EntityResults layout="grid" viewContext={null} references={[reference("one")]} />
-				<EntityResults layout="grid" viewContext={null} references={[reference("one")]} />
-			</>
-		);
-		const { draw, clock, container } = render([registration], equivalentConsumers());
-		await flush(clock);
-		expect(requests).toHaveLength(1);
-		draw(equivalentConsumers());
-		await flush(clock);
-		expect(requests).toHaveLength(1);
-		draw(
-			<>
+				load: () =>
+					Promise.resolve(
+						defineEntityPresentation({
+							component: Presentation,
+							loader: ({ references }) => {
+								loads++;
+								return Effect.succeed(
+									Object.fromEntries(references.map(({ entityId }) => [entityId, entityId])),
+								);
+							},
+						}),
+					),
+			};
+			const { draw, clock, navigate, container } = render(
+				[registration],
 				<EntityResults
 					layout="grid"
 					viewContext={null}
-					references={[reference("one", { name: "Changed" })]}
-				/>
-				<EntityResults layout="grid" viewContext={null} references={[reference("one")]} />
-			</>,
-		);
-		await flush(clock);
-		expect(requests).toHaveLength(2);
-		expect(requests[1]).toMatchObject({ id: "one", name: "Changed" });
-		draw(<EntityResults layout="grid" viewContext={null} references={[reference("two")]} />);
-		await flush(clock);
-		expect(requests[0]?.signal.aborted).toBe(true);
-		expect(requests[1]?.signal.aborted).toBe(true);
-		expect(requests).toHaveLength(3);
-		act(() => {
-			requests[2]?.resolve({ two: "current" });
-			requests[0]?.resolve({ one: "stale" });
-		});
-		await flush(clock);
-		expect(container.textContent).toBe("current");
-	});
-
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React and bridge updates.
-	it("keeps presentation state and prior data when a refresh fails", async () => {
-		const requests: Array<{
-			readonly resolve: (value: Readonly<Record<string, string>>) => void;
-			readonly reject: (error: Error) => void;
-		}> = [];
-		let mounts = 0;
-		const Presentation = ({ data }: { readonly data: string }) => {
-			const [expanded, setExpanded] = useState(false);
-			useState(() => {
-				mounts++;
-			});
-			return (
-				<section>
-					<p>{`${data}:${expanded ? "expanded" : "collapsed"}`}</p>
-					<button type="button" onClick={() => setExpanded(true)}>
-						Expand
-					</button>
-				</section>
+					references={[reference("one"), reference("two")]}
+				/>,
+				{
+					watchEntities: (interest, listener) => {
+						interests.push(interest);
+						completion = listener;
+						return {
+							update: (next) => interests.push(next),
+							dispose: () => {
+								disposals++;
+							},
+						};
+					},
+				},
 			);
-		};
-		const registration = {
-			ownerPluginId: "owner",
-			layout: "grid" as const,
-			entitySchemaSlug: "item",
-			load: () =>
-				Promise.resolve(
-					defineEntityPresentation<string>({
-						component: Presentation,
-						loader: () =>
-							Effect.callback<Readonly<Record<string, string>>, RyotClientError>((resume) => {
-								requests.push({
-									resolve: (value) => resume(Effect.succeed(value)),
-									reject: () => resume(Effect.fail(new RyotClientError("transport"))),
-								});
-							}),
-					}),
-				),
-		};
-		const { clock, container } = render(
-			[registration],
-			<EntityResults layout="grid" viewContext={null} references={[reference("one")]} />,
-		);
-		await flush(clock);
-		act(() => requests[0]?.resolve({ one: "old" }));
-		await flush(clock);
-		const expand = [...container.querySelectorAll("button")].find(
-			(button) => button.textContent === "Expand",
-		);
-		expect(expand).toBeDefined();
-		if (expand) {
-			act(() => {
-				fireEvent.click(expand);
-			});
-		}
-		expect(container.textContent).toContain("old:expanded");
-		act(() => clock.client.mutationCompleted.hint());
-		await clock.advance(250);
-		expect(requests).toHaveLength(2);
-		act(() => requests[1]?.reject(new Error("offline")));
-		await flush(clock);
-		expect(container.textContent).toContain("Refresh failed.");
-		expect(container.textContent).toContain("old:expanded");
-		expect(mounts).toBe(1);
-		const retry = [...container.querySelectorAll("button")].find(
-			(button) => button.textContent === "Retry",
-		);
-		expect(retry).toBeDefined();
-		if (retry) {
-			act(() => {
-				fireEvent.click(retry);
-			});
-		}
-		await flush(clock);
-		expect(requests).toHaveLength(3);
-		act(() => requests[2]?.resolve({ one: "new" }));
-		await flush(clock);
-		expect(container.textContent).toContain("new:expanded");
-		expect(container.textContent).not.toContain("Refresh failed.");
-		expect(mounts).toBe(1);
-	});
+			yield* Effect.promise(() => flush(clock));
+			expect(observers).toHaveLength(1);
+			const observer = observers[0];
+			expect(observer?.root).toBe(
+				container.firstElementChild?.firstElementChild?.firstElementChild,
+			);
+			expect(observer?.targets.size).toBe(2);
+			expect(interests.at(-1)).toEqual({ visible: [], foreground: [] });
+			expect({ loads, mounts }).toEqual({ loads: 1, mounts: 2 });
+			const [one, two] = [...(observer?.targets ?? [])];
+			if (one && two && observer) {
+				act(() => observer.emit(one, true));
+				yield* Effect.promise(() => flush(clock));
+				expect(interests.at(-1)).toEqual({ foreground: [], visible: ["one"] });
+				act(() => completion?.({ entityId: "one", reason: "populated" }));
+				yield* Effect.promise(() => clock.advance(499));
+				expect(loads).toBe(1);
+				yield* Effect.promise(() => clock.advance(1));
+				expect(loads).toBe(2);
+				expect({ loads, mounts }).toEqual({ loads: 2, mounts: 2 });
+				act(() => observer.emit(two, false));
+				yield* Effect.promise(() => flush(clock));
+				expect(interests.at(-1)).toEqual({ foreground: [], visible: ["one"] });
+				draw(<EntityResults layout="grid" viewContext={null} references={[reference("two")]} />);
+				yield* Effect.promise(() => flush(clock));
+				expect(interests.at(-1)).toEqual({ visible: [], foreground: [] });
+				const remaining = [...observer.targets][0];
+				if (remaining) {
+					act(() => observer.emit(remaining, true));
+					yield* Effect.promise(() => flush(clock));
+					expect(interests.at(-1)).toEqual({ foreground: [], visible: ["two"] });
+				}
+				yield* Effect.promise(() => navigate("/inactive", 1, "inactive"));
+				yield* Effect.promise(() => flush(clock));
+				expect(observer.disconnected).toBe(true);
+				yield* Effect.promise(() => navigate("/", 0, "home"));
+				yield* Effect.promise(() => flush(clock));
+				expect(observers).toHaveLength(2);
+				expect(interests.at(-1)).toEqual({ visible: [], foreground: [] });
+			}
+			act(() => roots[0]?.unmount());
+			roots = [];
+			expect(observers.every(({ disconnected }) => disconnected)).toBe(true);
+			expect(disposals).toBeGreaterThan(0);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React and bridge updates.
-	it("contains missing providers, missing items, batch errors, and render errors with retry", async () => {
-		let calls = 0;
-		let renderAttempts = 0;
-		const registration = {
-			ownerPluginId: "owner",
-			layout: "list" as const,
-			entitySchemaSlug: "item",
-			load: () =>
-				Promise.resolve(
-					defineEntityPresentation<string>({
-						component: ({ data }) => {
-							if (data === "crash") {
-								renderAttempts++;
-								throw new Error("render failed");
-							}
-							return <p>{data}</p>;
-						},
-						loader: ({ references }) => {
-							if (references[0]?.entityId === "extra") {
-								return Effect.succeed({ unrequested: "extra" });
-							}
-							calls++;
-							if (calls === 1) {
-								return Effect.fail(new RyotClientError("transport"));
-							}
-							return Effect.succeed(
-								references[0]?.entityId === "missing" ? {} : { crash: "crash" },
-							);
-						},
-					}),
-				),
-		};
-		const { draw, clock, container } = render(
-			[registration],
-			<EntityResults layout="list" viewContext={null} references={[reference("batch")]} />,
-		);
-		await flush(clock);
-		expect(container.textContent).toContain("could not be loaded");
-		clickRetry(container);
-		await flush(clock);
-		draw(<EntityResults layout="list" viewContext={null} references={[reference("extra")]} />);
-		await flush(clock);
-		expect(container.textContent).toContain("could not be loaded");
-		draw(<EntityResults layout="list" viewContext={null} references={[reference("missing")]} />);
-		await flush(clock);
-		expect(container.textContent).toContain("did not return this entity");
-		draw(<EntityResults layout="list" viewContext={null} references={[reference("crash")]} />);
-		await flush(clock);
-		expect(container.textContent).toContain("could not be displayed");
-		const attemptsBeforeRetry = renderAttempts;
-		clickRetry(container);
-		expect(renderAttempts).toBeGreaterThan(attemptsBeforeRetry);
-		expect(container.textContent).toContain("could not be displayed");
-		draw(
-			<EntityResults
-				layout="grid"
-				viewContext={null}
-				references={[
-					reference("fallback", {
-						ownerPluginId: null,
-						name: "Fallback name",
-						populationStatus: "pending",
-					}),
-				]}
-			/>,
-		);
-		expect(container.textContent).toBe("FitemFallback name");
-		expect(container.querySelector(".animate-sync-pulse")).not.toBeNull();
-		expect(container.querySelector("a")?.getAttribute("href")).toBe("/e/fallback");
-	});
+	it.live("uses the exact owner, schema, and layout while preserving visible order", () =>
+		Effect.gen(function* () {
+			const requests: Array<{
+				readonly ids: readonly string[];
+				readonly resolve: (value: Readonly<Record<string, string>>) => void;
+			}> = [];
+			const presentation = (label: string) =>
+				defineEntityPresentation<string>({
+					component: ({ data }) => <p>{`${label}:${data}`}</p>,
+					loader: ({ references }) =>
+						Effect.callback<Readonly<Record<string, string>>>((resume) => {
+							requests.push({
+								ids: references.map(({ entityId }) => entityId),
+								resolve: (value) => resume(Effect.succeed(value)),
+							});
+						}),
+				});
+			const registrations = [
+				{
+					layout: "grid",
+					ownerPluginId: "other",
+					entitySchemaSlug: "item",
+					load: () => Promise.resolve(presentation("wrong-owner")),
+				},
+				{
+					layout: "grid",
+					ownerPluginId: "owner",
+					entitySchemaSlug: "other",
+					load: () => Promise.resolve(presentation("wrong-schema")),
+				},
+				{
+					layout: "list",
+					ownerPluginId: "owner",
+					entitySchemaSlug: "item",
+					load: () => Promise.resolve(presentation("wrong-layout")),
+				},
+				{
+					layout: "grid",
+					ownerPluginId: "owner",
+					entitySchemaSlug: "item",
+					load: () => Promise.resolve(presentation("exact")),
+				},
+			] as const;
+			const { clock, container } = render(
+				registrations,
+				<EntityResults
+					layout="grid"
+					viewContext={{ savedViewId: "view" }}
+					references={[reference("b"), reference("a")]}
+				/>,
+			);
+			yield* Effect.promise(() => flush(clock));
+			expect(requests).toHaveLength(1);
+			expect(requests[0]?.ids).toEqual(["a", "b"]);
+			act(() => requests[0]?.resolve({ a: "first", b: "second" }));
+			yield* Effect.promise(() => flush(clock));
+			expect(container.textContent).toBe("exact:secondexact:first");
+		}),
+	);
+
+	it.live("chunks sorted IDs at 100 and admits only four batches at once", () =>
+		Effect.gen(function* () {
+			const requests: Array<{
+				readonly ids: readonly string[];
+				readonly resolve: (value: Readonly<Record<string, string>>) => void;
+			}> = [];
+			const registrations = Array.from({ length: 5 }, (_, index) => ({
+				layout: "grid" as const,
+				entitySchemaSlug: "item",
+				ownerPluginId: `owner-${index}`,
+				load: () =>
+					Promise.resolve(
+						defineEntityPresentation<string>({
+							component: ({ data }) => <p>{data}</p>,
+							loader: ({ references }) =>
+								Effect.callback<Readonly<Record<string, string>>>((resume) => {
+									requests.push({
+										ids: references.map(({ entityId }) => entityId),
+										resolve: (value) => resume(Effect.succeed(value)),
+									});
+								}),
+						}),
+					),
+			}));
+			const many = Array.from({ length: 201 }, (_, index) =>
+				reference(String(200 - index).padStart(3, "0"), { ownerPluginId: "owner-0" }),
+			);
+			const extras = registrations
+				.slice(1)
+				.map((registration, index) =>
+					reference(`extra-${index}`, { ownerPluginId: registration.ownerPluginId }),
+				);
+			const { clock } = render(
+				registrations,
+				<EntityResults layout="grid" viewContext={null} references={[...many, ...extras]} />,
+			);
+			yield* Effect.promise(() => flush(clock));
+			expect(requests).toHaveLength(4);
+			expect(
+				requests
+					.slice(0, 3)
+					.map(({ ids }) => ids.length)
+					.sort((a, b) => a - b),
+			).toEqual([1, 100, 100]);
+			for (const { ids } of requests.slice(0, 3)) {
+				expect(ids).toEqual([...ids].sort());
+			}
+			act(() => requests[0]?.resolve(Object.fromEntries(requests[0].ids.map((id) => [id, id]))));
+			yield* Effect.promise(() => flush(clock));
+			expect(requests).toHaveLength(5);
+		}),
+	);
+
+	it.live("interrupts discarded batches and frees their slots for the replacement", () =>
+		Effect.gen(function* () {
+			const requests: Array<{
+				readonly id: string;
+				readonly signal: AbortSignal;
+				readonly resolve: (value: Readonly<Record<string, string>>) => void;
+			}> = [];
+			const registrations = Array.from({ length: 5 }, (_, index) => ({
+				layout: "grid" as const,
+				entitySchemaSlug: "item",
+				ownerPluginId: `owner-${index}`,
+				load: () =>
+					Promise.resolve(
+						defineEntityPresentation<string>({
+							component: ({ data }) => <p>{data}</p>,
+							loader: ({ references }) =>
+								Effect.callback<Readonly<Record<string, string>>>((resume, signal) => {
+									requests.push({
+										signal,
+										id: references[0]?.entityId ?? "",
+										resolve: (value) => resume(Effect.succeed(value)),
+									});
+								}),
+						}),
+					),
+			}));
+			const items = registrations.map((registration, index) =>
+				reference(`entity-${index}`, { ownerPluginId: registration.ownerPluginId }),
+			);
+			const { draw, clock } = render(registrations, gridFor(items));
+			yield* Effect.promise(() => flush(clock));
+			expect(requests.map(({ id }) => id)).toEqual([
+				"entity-0",
+				"entity-1",
+				"entity-2",
+				"entity-3",
+			]);
+			draw(gridFor(items.slice(0, 4)));
+			yield* Effect.promise(() => flush(clock));
+			act(() => requests[0]?.resolve({ "entity-0": "loaded" }));
+			yield* Effect.promise(() => flush(clock));
+			expect(requests).toHaveLength(4);
+			draw(gridFor([]));
+			yield* Effect.promise(() => flush(clock));
+			expect(requests.slice(1).every(({ signal }) => signal.aborted)).toBe(true);
+			const staleCount = requests.length;
+			const replacement = items[4];
+			if (!replacement) {
+				throw new Error("Expected the fifth entity");
+			}
+			draw(gridFor([replacement]));
+			yield* Effect.promise(() => flush(clock));
+			expect(requests).toHaveLength(staleCount + 1);
+			expect(requests.at(-1)).toMatchObject({ id: "entity-4" });
+			expect(requests.at(-1)?.signal.aborted).toBe(false);
+		}),
+	);
+
+	it.live("releases scheduler slots after typed loader failures", () =>
+		Effect.gen(function* () {
+			const calls: string[] = [];
+			const registrations = Array.from({ length: 5 }, (_, index) => ({
+				layout: "grid" as const,
+				entitySchemaSlug: "item",
+				ownerPluginId: `owner-${index}`,
+				load: () =>
+					Promise.resolve(
+						defineEntityPresentation<string>({
+							component: ({ data }) => <p>{data}</p>,
+							loader: ({ references }) => {
+								const id = references[0]?.entityId ?? "";
+								calls.push(id);
+								if (index < 4) {
+									return Effect.fail(new RyotClientError("transport"));
+								}
+								return Effect.succeed({ [id]: "healthy" });
+							},
+						}),
+					),
+			}));
+			const { clock, container } = render(
+				registrations,
+				<EntityResults
+					layout="grid"
+					viewContext={null}
+					references={registrations.map((registration, index) =>
+						reference(`entity-${index}`, { ownerPluginId: registration.ownerPluginId }),
+					)}
+				/>,
+			);
+
+			yield* Effect.promise(() => flush(clock));
+			expect(calls).toEqual(["entity-0", "entity-1", "entity-2", "entity-3", "entity-4"]);
+			expect(container.textContent).toContain("healthy");
+		}),
+	);
+
+	it.live("stabilizes equivalent batches across rerenders and consumers", () =>
+		Effect.gen(function* () {
+			const requests: Array<{
+				readonly id: string;
+				readonly name: string | null;
+				readonly signal: AbortSignal;
+				readonly resolve: (value: Readonly<Record<string, string>>) => void;
+			}> = [];
+			const registration = {
+				ownerPluginId: "owner",
+				layout: "grid" as const,
+				entitySchemaSlug: "item",
+				load: () =>
+					Promise.resolve(
+						defineEntityPresentation<string>({
+							component: ({ data }) => <p>{data}</p>,
+							loader: ({ references }) =>
+								Effect.callback<Readonly<Record<string, string>>>((resume, signal) => {
+									requests.push({
+										signal,
+										id: references[0]?.entityId ?? "",
+										name: references[0]?.name ?? null,
+										resolve: (value) => resume(Effect.succeed(value)),
+									});
+								}),
+						}),
+					),
+			};
+			const equivalentConsumers = () => (
+				<>
+					<EntityResults layout="grid" viewContext={null} references={[reference("one")]} />
+					<EntityResults layout="grid" viewContext={null} references={[reference("one")]} />
+				</>
+			);
+			const { draw, clock, container } = render([registration], equivalentConsumers());
+			yield* Effect.promise(() => flush(clock));
+			expect(requests).toHaveLength(1);
+			draw(equivalentConsumers());
+			yield* Effect.promise(() => flush(clock));
+			expect(requests).toHaveLength(1);
+			draw(
+				<>
+					<EntityResults
+						layout="grid"
+						viewContext={null}
+						references={[reference("one", { name: "Changed" })]}
+					/>
+					<EntityResults layout="grid" viewContext={null} references={[reference("one")]} />
+				</>,
+			);
+			yield* Effect.promise(() => flush(clock));
+			expect(requests).toHaveLength(2);
+			expect(requests[1]).toMatchObject({ id: "one", name: "Changed" });
+			draw(<EntityResults layout="grid" viewContext={null} references={[reference("two")]} />);
+			yield* Effect.promise(() => flush(clock));
+			expect(requests[0]?.signal.aborted).toBe(true);
+			expect(requests[1]?.signal.aborted).toBe(true);
+			expect(requests).toHaveLength(3);
+			act(() => {
+				requests[2]?.resolve({ two: "current" });
+				requests[0]?.resolve({ one: "stale" });
+			});
+			yield* Effect.promise(() => flush(clock));
+			expect(container.textContent).toBe("current");
+		}),
+	);
+
+	it.live("keeps presentation state and prior data when a refresh fails", () =>
+		Effect.gen(function* () {
+			const requests: Array<{
+				readonly resolve: (value: Readonly<Record<string, string>>) => void;
+				readonly reject: (error: Error) => void;
+			}> = [];
+			let mounts = 0;
+			const Presentation = ({ data }: { readonly data: string }) => {
+				const [expanded, setExpanded] = useState(false);
+				useState(() => {
+					mounts++;
+				});
+				return (
+					<section>
+						<p>{`${data}:${expanded ? "expanded" : "collapsed"}`}</p>
+						<button type="button" onClick={() => setExpanded(true)}>
+							Expand
+						</button>
+					</section>
+				);
+			};
+			const registration = {
+				ownerPluginId: "owner",
+				layout: "grid" as const,
+				entitySchemaSlug: "item",
+				load: () =>
+					Promise.resolve(
+						defineEntityPresentation<string>({
+							component: Presentation,
+							loader: () =>
+								Effect.callback<Readonly<Record<string, string>>, RyotClientError>((resume) => {
+									requests.push({
+										resolve: (value) => resume(Effect.succeed(value)),
+										reject: () => resume(Effect.fail(new RyotClientError("transport"))),
+									});
+								}),
+						}),
+					),
+			};
+			const { clock, container } = render(
+				[registration],
+				<EntityResults layout="grid" viewContext={null} references={[reference("one")]} />,
+			);
+			yield* Effect.promise(() => flush(clock));
+			act(() => requests[0]?.resolve({ one: "old" }));
+			yield* Effect.promise(() => flush(clock));
+			const expand = [...container.querySelectorAll("button")].find(
+				(button) => button.textContent === "Expand",
+			);
+			expect(expand).toBeDefined();
+			if (expand) {
+				act(() => {
+					fireEvent.click(expand);
+				});
+			}
+			expect(container.textContent).toContain("old:expanded");
+			act(() => clock.client.mutationCompleted.hint());
+			yield* Effect.promise(() => clock.advance(250));
+			expect(requests).toHaveLength(2);
+			act(() => requests[1]?.reject(new Error("offline")));
+			yield* Effect.promise(() => flush(clock));
+			expect(container.textContent).toContain("Refresh failed.");
+			expect(container.textContent).toContain("old:expanded");
+			expect(mounts).toBe(1);
+			const retry = [...container.querySelectorAll("button")].find(
+				(button) => button.textContent === "Retry",
+			);
+			expect(retry).toBeDefined();
+			if (retry) {
+				act(() => {
+					fireEvent.click(retry);
+				});
+			}
+			yield* Effect.promise(() => flush(clock));
+			expect(requests).toHaveLength(3);
+			act(() => requests[2]?.resolve({ one: "new" }));
+			yield* Effect.promise(() => flush(clock));
+			expect(container.textContent).toContain("new:expanded");
+			expect(container.textContent).not.toContain("Refresh failed.");
+			expect(mounts).toBe(1);
+		}),
+	);
+
+	it.live(
+		"contains missing providers, missing items, batch errors, and render errors with retry",
+		() =>
+			Effect.gen(function* () {
+				let calls = 0;
+				let renderAttempts = 0;
+				const registration = {
+					ownerPluginId: "owner",
+					layout: "list" as const,
+					entitySchemaSlug: "item",
+					load: () =>
+						Promise.resolve(
+							defineEntityPresentation<string>({
+								component: ({ data }) => {
+									if (data === "crash") {
+										renderAttempts++;
+										throw new Error("render failed");
+									}
+									return <p>{data}</p>;
+								},
+								loader: ({ references }) => {
+									if (references[0]?.entityId === "extra") {
+										return Effect.succeed({ unrequested: "extra" });
+									}
+									calls++;
+									if (calls === 1) {
+										return Effect.fail(new RyotClientError("transport"));
+									}
+									return Effect.succeed(
+										references[0]?.entityId === "missing" ? {} : { crash: "crash" },
+									);
+								},
+							}),
+						),
+				};
+				const { draw, clock, container } = render(
+					[registration],
+					<EntityResults layout="list" viewContext={null} references={[reference("batch")]} />,
+				);
+				yield* Effect.promise(() => flush(clock));
+				expect(container.textContent).toContain("could not be loaded");
+				clickRetry(container);
+				yield* Effect.promise(() => flush(clock));
+				draw(<EntityResults layout="list" viewContext={null} references={[reference("extra")]} />);
+				yield* Effect.promise(() => flush(clock));
+				expect(container.textContent).toContain("could not be loaded");
+				draw(
+					<EntityResults layout="list" viewContext={null} references={[reference("missing")]} />,
+				);
+				yield* Effect.promise(() => flush(clock));
+				expect(container.textContent).toContain("did not return this entity");
+				draw(<EntityResults layout="list" viewContext={null} references={[reference("crash")]} />);
+				yield* Effect.promise(() => flush(clock));
+				expect(container.textContent).toContain("could not be displayed");
+				const attemptsBeforeRetry = renderAttempts;
+				clickRetry(container);
+				expect(renderAttempts).toBeGreaterThan(attemptsBeforeRetry);
+				expect(container.textContent).toContain("could not be displayed");
+				draw(
+					<EntityResults
+						layout="grid"
+						viewContext={null}
+						references={[
+							reference("fallback", {
+								ownerPluginId: null,
+								name: "Fallback name",
+								populationStatus: "pending",
+							}),
+						]}
+					/>,
+				);
+				expect(container.textContent).toBe("FitemFallback name");
+				expect(container.querySelector(".animate-sync-pulse")).not.toBeNull();
+				expect(container.querySelector("a")?.getAttribute("href")).toBe("/e/fallback");
+			}),
+	);
 });

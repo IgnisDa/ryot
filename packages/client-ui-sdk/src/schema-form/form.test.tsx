@@ -1,7 +1,8 @@
+import { describe, expect, it } from "@effect/vitest";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { Effect } from "effect";
 import { useEffect } from "react";
-import { describe, expect, it } from "vitest";
 
 import type { SchemaFileUpload } from "./file/upload";
 import { SchemaForm, useSchemaForm, type SchemaFormIcons } from "./form";
@@ -190,54 +191,59 @@ describe("SchemaForm", () => {
 		expect(screen.getByRole("radio", { name: "us" }).getAttribute("aria-checked")).toBe("true");
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React test updates.
-	it("marks required fields and shows validation errors only after a submit attempt", async () => {
-		const submitted: SchemaFormValues[] = [];
-		render(<SchemaFormHarness onSubmit={(values) => submitted.push(values)} />);
+	it.live("marks required fields and shows validation errors only after a submit attempt", () =>
+		Effect.gen(function* () {
+			const submitted: SchemaFormValues[] = [];
+			render(<SchemaFormHarness onSubmit={(values) => submitted.push(values)} />);
 
-		const label = screen.getByText("Title").closest("span");
-		expect(label?.textContent).toBe("Title *");
-		expect(screen.queryByRole("alert")).toBeNull();
+			const label = screen.getByText("Title").closest("span");
+			expect(label?.textContent).toBe("Title *");
+			expect(screen.queryByRole("alert")).toBeNull();
 
-		fireEvent.click(screen.getByRole("button", { name: "Search" }));
+			fireEvent.click(screen.getByRole("button", { name: "Search" }));
 
-		const element = await screen.findByRole("alert");
-		expect(element.textContent).toContain("Title is required");
-		expect(submitted).toEqual([]);
+			const element = yield* Effect.promise(() => screen.findByRole("alert"));
+			expect(element.textContent).toContain("Title is required");
+			expect(submitted).toEqual([]);
 
-		fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Dune" } });
+			fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Dune" } });
 
-		expect(screen.queryByRole("alert")).toBeNull();
-	});
+			expect(screen.queryByRole("alert")).toBeNull();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React test updates.
-	it("submits typed values after validation succeeds", async () => {
-		const submitted: SchemaFormValues[] = [];
-		render(<SchemaFormHarness onSubmit={(values) => submitted.push(values)} />);
+	it.live("submits typed values after validation succeeds", () =>
+		Effect.gen(function* () {
+			const submitted: SchemaFormValues[] = [];
+			render(<SchemaFormHarness onSubmit={(values) => submitted.push(values)} />);
 
-		fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Dune" } });
-		fireEvent.click(screen.getByRole("button", { name: "Search" }));
+			fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Dune" } });
+			fireEvent.click(screen.getByRole("button", { name: "Search" }));
 
-		await waitFor(() => expect(submitted).toEqual([{ adult: false, region: "us", title: "Dune" }]));
-	});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(submitted).toEqual([{ adult: false, region: "us", title: "Dune" }])),
+			);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React test updates.
-	it("routes scalar property validation errors to their own field", async () => {
-		const submitted: SchemaFormValues[] = [];
-		render(
-			<SchemaFormHarness
-				schema={scalarValidationSchema}
-				onSubmit={(values) => submitted.push(values)}
-			/>,
-		);
+	it.live("routes scalar property validation errors to their own field", () =>
+		Effect.gen(function* () {
+			const submitted: SchemaFormValues[] = [];
+			render(
+				<SchemaFormHarness
+					schema={scalarValidationSchema}
+					onSubmit={(values) => submitted.push(values)}
+				/>,
+			);
 
-		fireEvent.change(screen.getByLabelText("Handle"), { target: { value: "ab" } });
-		fireEvent.click(screen.getByRole("button", { name: "Search" }));
+			fireEvent.change(screen.getByLabelText("Handle"), { target: { value: "ab" } });
+			fireEvent.click(screen.getByRole("button", { name: "Search" }));
 
-		const element = await screen.findByRole("alert");
-		expect(element.textContent).toContain("Handle is too short");
-		expect(submitted).toEqual([]);
-	});
+			const element = yield* Effect.promise(() => screen.findByRole("alert"));
+			expect(element.textContent).toContain("Handle is too short");
+			expect(submitted).toEqual([]);
+		}),
+	);
 
 	it("recomputes visible fields from current form values", () => {
 		render(<SchemaFormHarness schema={visibilitySchema} onSubmit={() => undefined} />);
@@ -260,66 +266,83 @@ describe("SchemaForm", () => {
 		expect(screen.queryByText("Some fields are not supported in this app version.")).toBeNull();
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React test updates.
-	it("lets a blank required secret stand for the stored value when editing, but not when creating", async () => {
-		const submitted: SchemaFormValues[] = [];
-		render(
-			<SchemaFormHarness
-				mode="edit"
-				schema={credentialsSchema}
-				onSubmit={(values) => submitted.push(values)}
-			/>,
-		);
+	it.live(
+		"lets a blank required secret stand for the stored value when editing, but not when creating",
+		() =>
+			Effect.gen(function* () {
+				const submitted: SchemaFormValues[] = [];
+				render(
+					<SchemaFormHarness
+						mode="edit"
+						schema={credentialsSchema}
+						onSubmit={(values) => submitted.push(values)}
+					/>,
+				);
 
-		expect(screen.getByText("Leave blank to keep the current value.")).toBeTruthy();
+				expect(screen.getByText("Leave blank to keep the current value.")).toBeTruthy();
 
-		fireEvent.change(screen.getByLabelText("Base URL"), { target: { value: "https://a.example" } });
-		fireEvent.click(screen.getByRole("button", { name: "Search" }));
+				fireEvent.change(screen.getByLabelText("Base URL"), {
+					target: { value: "https://a.example" },
+				});
+				fireEvent.click(screen.getByRole("button", { name: "Search" }));
 
-		await waitFor(() =>
-			expect(submitted).toEqual([{ apiKey: undefined, baseUrl: "https://a.example" }]),
-		);
-	});
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(submitted).toEqual([{ apiKey: undefined, baseUrl: "https://a.example" }]),
+					),
+				);
+			}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React test updates.
-	it("still demands a required secret when creating", async () => {
-		const submitted: SchemaFormValues[] = [];
-		render(
-			<SchemaFormHarness
-				schema={credentialsSchema}
-				onSubmit={(values) => submitted.push(values)}
-			/>,
-		);
+	it.live("still demands a required secret when creating", () =>
+		Effect.gen(function* () {
+			const submitted: SchemaFormValues[] = [];
+			render(
+				<SchemaFormHarness
+					schema={credentialsSchema}
+					onSubmit={(values) => submitted.push(values)}
+				/>,
+			);
 
-		expect(screen.queryByText("Leave blank to keep the current value.")).toBeNull();
+			expect(screen.queryByText("Leave blank to keep the current value.")).toBeNull();
 
-		fireEvent.change(screen.getByLabelText("Base URL"), { target: { value: "https://a.example" } });
-		fireEvent.click(screen.getByRole("button", { name: "Search" }));
+			fireEvent.change(screen.getByLabelText("Base URL"), {
+				target: { value: "https://a.example" },
+			});
+			fireEvent.click(screen.getByRole("button", { name: "Search" }));
 
-		expect(await screen.findByText("API key is required")).toBeTruthy();
-		expect(submitted).toEqual([]);
-	});
+			expect(yield* Effect.promise(() => screen.findByText("API key is required"))).toBeTruthy();
+			expect(submitted).toEqual([]);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React test updates.
-	it("adds, edits and removes list rows within the declared bounds, and submits an emptied list", async () => {
-		const submitted: SchemaFormValues[] = [];
-		render(<SchemaFormHarness schema={listSchema} onSubmit={(values) => submitted.push(values)} />);
+	it.live(
+		"adds, edits and removes list rows within the declared bounds, and submits an emptied list",
+		() =>
+			Effect.gen(function* () {
+				const submitted: SchemaFormValues[] = [];
+				render(
+					<SchemaFormHarness schema={listSchema} onSubmit={(values) => submitted.push(values)} />,
+				);
 
-		fireEvent.click(screen.getByRole("button", { name: "Add Sites item" }));
-		fireEvent.change(screen.getByLabelText("Sites item 1"), { target: { value: "a.example" } });
-		fireEvent.click(screen.getByRole("button", { name: "Add Sites item" }));
-		fireEvent.change(screen.getByLabelText("Sites item 2"), { target: { value: "b.example" } });
+				fireEvent.click(screen.getByRole("button", { name: "Add Sites item" }));
+				fireEvent.change(screen.getByLabelText("Sites item 1"), { target: { value: "a.example" } });
+				fireEvent.click(screen.getByRole("button", { name: "Add Sites item" }));
+				fireEvent.change(screen.getByLabelText("Sites item 2"), { target: { value: "b.example" } });
 
-		expect(screen.getByRole("button", { name: "Add Sites item" }).hasAttribute("disabled")).toBe(
-			true,
-		);
+				expect(
+					screen.getByRole("button", { name: "Add Sites item" }).hasAttribute("disabled"),
+				).toBe(true);
 
-		fireEvent.click(screen.getByRole("button", { name: "Remove Sites item 1" }));
-		fireEvent.click(screen.getByRole("button", { name: "Search" }));
+				fireEvent.click(screen.getByRole("button", { name: "Remove Sites item 1" }));
+				fireEvent.click(screen.getByRole("button", { name: "Search" }));
 
-		expect(screen.queryByLabelText("Sites item 2")).toBeNull();
-		await waitFor(() => expect(submitted).toEqual([{ sites: ["b.example"] }]));
-	});
+				expect(screen.queryByLabelText("Sites item 2")).toBeNull();
+				yield* Effect.promise(() =>
+					waitFor(() => expect(submitted).toEqual([{ sites: ["b.example"] }])),
+				);
+			}),
+	);
 
 	it("renders a larger static enum as chips and reports the clicked choice", () => {
 		render(<SchemaFormHarness schema={chipsSchema} onSubmit={() => undefined} />);

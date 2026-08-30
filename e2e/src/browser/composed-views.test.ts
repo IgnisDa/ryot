@@ -156,14 +156,16 @@ it.live("renders a saved view from an installed client plugin page", () =>
 		);
 		const runtimeUrl = yield* clientImportUrl(frame, "@ryot-app/client-sdk/plugin");
 		expect(runtimeUrl).toMatch(/^\/api\/client-assets\/[a-f0-9]{64}\/public\//);
-		// oxlint-disable-next-line effecttsgo/async-function -- effect-playwright page.use awaits a native Playwright request callback.
-		const runtimeCache = yield* page.use(async (nativePage) => {
-			const response = await nativePage.context().request.get(new URL(runtimeUrl, apiUrl).href);
-			const cache = response.headers()["cache-control"];
-			const status = response.status();
-			await response.dispose();
-			return { cache, status };
-		});
+		const runtimeCache = yield* page.use((nativePage) =>
+			nativePage
+				.context()
+				.request.get(new URL(runtimeUrl, apiUrl).href)
+				.then((response) => {
+					const cache = response.headers()["cache-control"];
+					const status = response.status();
+					return response.dispose().then(() => ({ cache, status }));
+				}),
+		);
 		expect(runtimeCache.status).toBe(200);
 		expect(runtimeCache.cache).toBe("public, max-age=31536000, immutable");
 
@@ -366,9 +368,8 @@ it.live("warms private Pokemon presentation files without evaluating them until 
 		expect(
 			warmedFiles.some((path) => path.startsWith(`${privateBase}asset-`) && path.endsWith(".png")),
 		).toBe(true);
-		// oxlint-disable-next-line effecttsgo/async-function -- effect-playwright page.use awaits native Playwright request events.
-		yield* page.use(async (nativePage) => {
-			await Promise.all(
+		yield* page.use((nativePage) =>
+			Promise.all(
 				warmedFiles.map((path) =>
 					finished.includes(path)
 						? Promise.resolve()
@@ -376,8 +377,8 @@ it.live("warms private Pokemon presentation files without evaluating them until 
 								predicate: (request) => new URL(request.url()).pathname === path,
 							}),
 				),
-			);
-		});
+			).then(() => undefined),
+		);
 		expect(warmedFiles.every((path) => requested.includes(path))).toBe(true);
 		for (const path of warmedFiles) {
 			expect(responseStatuses.get(path)).toBe(200);
@@ -388,10 +389,9 @@ it.live("warms private Pokemon presentation files without evaluating them until 
 
 		const blocked: string[] = [];
 		yield* page.use((nativePage) =>
-			// oxlint-disable-next-line effecttsgo/async-function -- Playwright route handlers require a Promise callback to abort a browser request.
-			nativePage.route(`**${privateBase}*`, async (route) => {
+			nativePage.route(`**${privateBase}*`, (route) => {
 				blocked.push(new URL(route.request().url()).pathname);
-				await route.abort();
+				return route.abort();
 			}),
 		);
 		yield* runtime.getByRole("button", { name: "Load more" }).click();

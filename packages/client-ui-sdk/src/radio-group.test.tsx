@@ -1,6 +1,7 @@
+import { describe, expect, it } from "@effect/vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { Effect } from "effect";
 import { useState } from "react";
-import { describe, expect, it } from "vitest";
 import { axe } from "vitest-axe";
 
 import { RadioGroup } from "./radio-group";
@@ -100,12 +101,15 @@ describe("RadioGroup", () => {
 		expect(checked().map((radio) => radio.getAttribute("aria-label"))).toEqual(["System"]);
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the axe Promise.
-	it("passes an axe pass on the rendered group", async () => {
-		const view = render(<ThemeChoice initial="dark" />);
+	it.live("passes an axe pass on the rendered group", () =>
+		Effect.gen(function* () {
+			const view = render(<ThemeChoice initial="dark" />);
 
-		const results = await axe(view.container, { rules: { "color-contrast": { enabled: false } } });
+			const results = yield* Effect.promise(() =>
+				axe(view.container, { rules: { "color-contrast": { enabled: false } } }),
+			);
 
-		expect(results.violations.map((violation) => violation.id)).toEqual([]);
-	});
+			expect(results.violations.map((violation) => violation.id)).toEqual([]);
+		}),
+	);
 });
