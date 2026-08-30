@@ -33,7 +33,7 @@ import {
 	uninstallTestPlugin,
 } from "~/fixtures/kernel";
 import { requirePresent } from "~/support/assertions";
-import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
+import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 
 type CreateEventsPayload = ContractPayload<"events", "create">;
 type CreateEventsResult = ContractSuccess<"events", "create">;
@@ -619,14 +619,14 @@ const inspectCommittedCreate = (sourceRecord: SourceRecord, hookSlug: string) =>
 let installed: InstalledTestPlugin | undefined;
 
 beforeAll(() =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			installed = yield* installLifecyclePlugin();
 		}),
 	),
 );
 
-afterAll(() => installed && Effect.runPromise(uninstallTestPlugin(installed)));
+afterAll(() => installed && runPromise(uninstallTestPlugin(installed)));
 
 describe("automation lifecycle triggers", () => {
 	it.live("runs request policies and commits only accepted or transformed event drafts", () =>

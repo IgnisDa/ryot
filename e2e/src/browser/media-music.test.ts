@@ -11,7 +11,7 @@ import {
 } from "~/fixtures/kernel";
 import { insertLibraryMembership, seedGlobalMusicWithAlbum } from "~/fixtures/plugins/media";
 import { requirePresent } from "~/support/assertions";
-import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
+import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
 import { webRequest } from "~/support/web-request";
@@ -163,7 +163,7 @@ it.live("renders a populated Music detail with its album rail and no watch provi
 		expect(yield* body.getByText("Coverage", { exact: true }).count).toBe(0);
 		expect(yield* body.getByText("Listens", { exact: true }).count).toBe(1);
 		expect(yield* body.getByText("Watches", { exact: true }).count).toBe(0);
-	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
 it.live("renders the Music presentation facts in the canonical saved view", () =>
@@ -207,5 +207,5 @@ it.live("renders the Music presentation facts in the canonical saved view", () =
 			.contentFrame()
 			.getByRole("heading", { level: 1, exact: true, name: trackName })
 			.waitFor({ state: "visible", timeout: 150_000 });
-	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+	}).pipe(PlaywrightSpawner.withBrowser),
 );

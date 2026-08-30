@@ -26,7 +26,7 @@ import {
 	installTestSupportSystemPlugin,
 } from "~/fixtures/kernel";
 import { requirePresent } from "~/support/assertions";
-import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
+import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import {
 	buildApiEnv,
 	spawnApiProcess,
@@ -155,7 +155,7 @@ const ownedInstallation = (client: Client, pluginSlug: string) =>
 
 beforeAll(
 	() =>
-		Effect.runPromise(
+		runPromise(
 			Effect.gen(function* () {
 				const [infrastructure, port] = yield* Effect.all(
 					[
@@ -192,7 +192,7 @@ beforeAll(
 );
 
 afterAll(() =>
-	Effect.runPromise(
+	runPromise(
 		Effect.gen(function* () {
 			yield* stopApiProcess(apiProcess);
 			yield* stopCoreTestInfrastructure(coreInfrastructure).pipe(Effect.ignore);
