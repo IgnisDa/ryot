@@ -346,6 +346,7 @@
         "@effect/vitest": "4.0.0-beta.107",
         "@ryot-app/testing": "workspace:*",
         "bun-types": "1.4.0",
+        "jsdom": "^30.0.1",
         "typescript": "7.0.2",
         "vitest": "4.1.9",
       },
@@ -619,9 +620,13 @@
         "@ryot-app/cli": "workspace:*",
         "@ryot-app/client-sdk": "workspace:*",
         "@ryot-app/client-ui-sdk": "workspace:*",
+        "@ryot-app/testing": "workspace:*",
         "@types/react": "^19.2.0",
         "@types/react-dom": "^19.2.0",
         "clsx": "2.1.1",
+        "react": "^19.2.0",
+        "react-dom": "^19.2.0",
+        "vitest": "4.1.9",
       },
     },
     "plugins/media": {
@@ -3715,6 +3720,10 @@
     "@ryot-app/client-ui-sdk/react-dom": ["react-dom@19.2.6", "", { "dependencies": { "scheduler": "^0.27.0" }, "peerDependencies": { "react": "^19.2.6" } }, "sha512-0prMI+hvBbPjsWnxDLxlCGyM8PN6UuWjEUCYmZhO67xIV9Xasa/r/vDnq+Xyq4Lo27g8QSbO5YzARu0D1Sps3g=="],
 
     "@ryot-app/fixture-plugin/@types/react": ["@types/react@19.2.15", "", { "dependencies": { "csstype": "^3.2.2" } }, "sha512-eRwcGNHve+E8qtEQSSRl6urh+rFop4v8gm6O8rGv25CodbvFdLjA1vVQ1KkiFE0w0UPOnb8tDiFKL5lp0rtY5Q=="],
+
+    "@ryot-app/fixture-plugin/react": ["react@19.2.6", "", {}, "sha512-sfWGGfavi0xr8Pg0sVsyHMAOziVYKgPLNrS7ig+ivMNb3wbCBw3KxtflsGBAwD3gYQlE/AEZsTLgToRrSCjb0Q=="],
+
+    "@ryot-app/fixture-plugin/react-dom": ["react-dom@19.2.6", "", { "dependencies": { "scheduler": "^0.27.0" }, "peerDependencies": { "react": "^19.2.6" } }, "sha512-0prMI+hvBbPjsWnxDLxlCGyM8PN6UuWjEUCYmZhO67xIV9Xasa/r/vDnq+Xyq4Lo27g8QSbO5YzARu0D1Sps3g=="],
 
     "@ryot-app/kernel-client/@tailwindcss/vite": ["@tailwindcss/vite@4.3.0", "", { "dependencies": { "@tailwindcss/node": "4.3.0", "@tailwindcss/oxide": "4.3.0", "tailwindcss": "4.3.0" }, "peerDependencies": { "vite": "^5.2.0 || ^6 || ^7 || ^8" } }, "sha512-t6J3OrB5Fc0ExuhohouH0fWUGMYL6PTLhW+E7zIk/pdbnJARZDCwjBznFnkh5ynRnIRSI4YjtTH0t6USjJISrw=="],
 

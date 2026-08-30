@@ -35,9 +35,10 @@ export const Route = createFileRoute("/auth")({
 	},
 });
 
-function OAuthLaunchUnavailable({ error }: { error: Error }) {
+function OAuthLaunchUnavailable({ error }: { error: unknown }) {
 	const router = useRouter();
-	const reason = "reason" in error ? error.reason : undefined;
+	const reason =
+		typeof error === "object" && error !== null && "reason" in error ? error.reason : undefined;
 	const message = Match.value(reason).pipe(
 		Match.when(
 			"unknown-native-application",

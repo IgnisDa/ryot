@@ -4,7 +4,7 @@
 
 **System Design:** [Composable Views](./README.md)
 
-**Status:** todo
+**Status:** done
 
 **Depends On:** [02 - Compose Public Plugin Components](./02-compose-public-plugin-components.md)
 
@@ -22,17 +22,17 @@ Preserve history index/key reconciliation, bounded within-document screen retent
 
 ## Acceptance Criteria
 
-- [ ] Existing plugin routes and custom saved views enter the same host/bootstrap/session implementation.
-- [ ] `/e/:entityId` selects the correct show or Pokemon page from real provenance, not the currently active workspace.
-- [ ] Pokemon has an entity-page registration, not just the fixture's local demonstration details route.
-- [ ] Missing entities, unavailable owners, disabled direct installations, and unregistered entity pages follow explicit route branches.
-- [ ] Public page modules do not mount their own application roots.
-- [ ] Route and operation calls identify their target plugin explicitly; existing callers no longer depend on a current-plugin default.
-- [ ] Page-search updates merge specified keys and preserve unrelated query parameters.
-- [ ] Global history and within-document retained screen state continue to work using kernel history index/key.
-- [ ] Titles, frame ownership, compact mode, safe-area values, and reduced-motion behaviour remain correct.
-- [ ] Moving across application documents makes no unsupported promise to preserve arbitrary form or scroll state.
-- [ ] Routing, bridge, host, and browser tests cover system and private entity navigation through the shared path.
+- [x] Existing plugin routes and custom saved views enter the same host/bootstrap/session implementation.
+- [x] `/e/:entityId` selects the correct show or Pokemon page from real provenance, not the currently active workspace.
+- [x] Pokemon has an entity-page registration, not just the fixture's local demonstration details route.
+- [x] Missing entities, unavailable owners, disabled direct installations, and unregistered entity pages follow explicit route branches.
+- [x] Public page modules do not mount their own application roots.
+- [x] Route and operation calls identify their target plugin explicitly; existing callers no longer depend on a current-plugin default.
+- [x] Page-search updates merge specified keys and preserve unrelated query parameters.
+- [x] Global history and within-document retained screen state continue to work using kernel history index/key.
+- [x] Titles, frame ownership, compact mode, safe-area values, and reduced-motion behaviour remain correct.
+- [x] Moving across application documents makes no unsupported promise to preserve arbitrary form or scroll state.
+- [x] Routing, bridge, host, and browser tests cover system and private entity navigation through the shared path.
 
 ## Verification
 
@@ -47,3 +47,11 @@ Adapt existing kernel plugin-navigation, SDK routing/stack, host, and browser cl
 ## Implementor Notes
 
 Record any runtime/bridge format changes and generation commands. Do not leave implicit-plugin adapters after converting callers.
+
+- Client page preparation accepts saved-view, plugin-route, and entity targets. Entity preparation resolves persisted schema provenance and the owning plugin's registered detail-page export.
+- Plugin-route builds generate one manifest-backed route registry and one compiler-owned `bootstrapClientPlugin` call, so route changes retain the iframe, history-keyed screen stack, and shared SDK runtime. Selected saved-view and entity pages use the compiler-owned `bootstrapClientPage` entry.
+- Authored media and fixture bootstraps were removed. Media registers its home and show detail pages; fixture registers home, full-bleed, details, not-found, and Pokemon detail pages while preserving its existing demonstrations.
+- Bridge protocol version 2 requires explicit plugin-route and operation targets and adds merged page-search updates. Compiler version 3 invalidates artifacts built before the generated route registry and selected-page runtime changes.
+- Preparation identities record exact operation target revisions separately from executable contributors. The host snapshots them for the accepted document so updates fail stale until an explicit document reload rather than silently substituting a revision.
+- Static route segments sort ahead of dynamic segments in backend matching and generated client routing. Dynamic route parameters are decoded into page route context.
+- No schema or route generation command was required. Verified the focused renderer-publication, artifact-access, and client-plugin browser E2E files, all non-E2E package tests, and the complete repository check.

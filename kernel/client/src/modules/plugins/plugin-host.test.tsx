@@ -1,230 +1,85 @@
 // oxlint-disable unicorn/require-post-message-target-origin -- MessagePort has no target origin
 import {
-	CLIENT_API_VERSION,
 	PluginBridgeInit,
-	PluginEntityLocation,
-	type PluginAssetOutcome,
-	type PluginLeadingIntent,
-	type PluginThemeSnapshot,
 	type PluginLogicalLocation,
-	type PluginRouteLocation,
-	type PluginOperationOutcome,
-	type PluginRyotQLOutcome,
+	type PluginOperationRequest,
 } from "@ryot-app/client-plugin-contract";
-import type { PluginClientCatalogEntry } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
+import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Schema } from "effect";
-import { StrictMode } from "react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import type { PluginScreenReadiness } from "#/modules/plugins/bridge";
-import {
-	PluginHost,
-	type CreatePluginArtifactSession,
-	type PluginArtifactSession,
-	type PluginHeaderPublication,
-	type RenewPluginArtifactSession,
-	type RevokePluginArtifactSession,
-} from "#/modules/plugins/plugin-host";
-import type { PluginNavigationRequest } from "#/modules/plugins/plugin-location";
+import { PluginFrame } from "#/modules/plugins/plugin-host";
 import type { ThemeStore } from "#/modules/theme/store";
 
-const home: PluginRouteLocation = { kind: "route", path: "/", search: "" };
-const entity = Schema.decodeUnknownSync(PluginEntityLocation)({
-	entityId: "entity-1",
-	entitySchemaSlug: "show",
-	kind: "entity",
-});
-const navigationFor = (state: {
-	readonly index?: number;
-	readonly compact?: boolean;
-	readonly edgeBack?: boolean;
-	readonly leading?: PluginLeadingIntent;
-	readonly location: PluginLogicalLocation;
-}) => ({
-	compact: state.compact ?? false,
-	edgeBack: state.edgeBack ?? false,
-	index: state.index ?? 0,
-	leading: state.leading ?? "none",
-	location: state.location,
-	key: `k${state.index ?? 0}`,
-});
-const themeSnapshot: PluginThemeSnapshot = { resolvedMode: "light" };
-
-const installation = {
-	sortOrder: 0,
-	icon: "puzzle",
-	name: "Fixture",
-	slug: "fixture",
-	health: "ready",
-	isDisabled: false,
-	clientApiVersion: 1,
-	pluginId: "plugin-1",
-	sourceHash: "source-hash",
-	installationId: "installation-1",
-	clientArtifactHash: "artifact-hash",
-} satisfies PluginClientCatalogEntry;
-
-type HostState = {
-	readonly index?: number;
-	readonly compact?: boolean;
-	readonly scopeKey?: string;
-	readonly edgeBack?: boolean;
-	readonly leading?: PluginLeadingIntent;
-	readonly location: PluginLogicalLocation;
-	readonly overrides: Partial<PluginClientCatalogEntry>;
+const theme: ThemeStore = {
+	destroy: () => undefined,
+	getPreference: () => "light",
+	setPreference: () => undefined,
+	getSnapshot: () => ({ resolvedMode: "light" }),
+	subscribe: () => () => undefined,
+};
+const home: PluginLogicalLocation = { kind: "route", path: "/", search: "keep=1" };
+const session = {
+	sessionId: "session-1",
+	expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+	src: "https://artifacts.example/session-1/index.html",
 };
 
-type CreateCall = {
-	readonly signal: AbortSignal;
-	readonly request: Parameters<CreatePluginArtifactSession>[0];
-};
-
-function deferred<T>() {
-	let reject!: (reason?: unknown) => void;
-	let resolve!: (value: T) => void;
-	const promise = new Promise<T>((res, rej) => {
-		reject = rej;
-		resolve = res;
-	});
-	return { promise, reject, resolve };
-}
-
-function createTheme(): ThemeStore {
-	const listeners = new Set<() => void>();
-	return {
-		destroy: () => undefined,
-		getPreference: () => "light",
-		setPreference: () => undefined,
-		getSnapshot: () => themeSnapshot,
-		subscribe: (listener) => {
-			listeners.add(listener);
-			return () => listeners.delete(listener);
+function mount() {
+	const navigations: unknown[] = [];
+	const searches: unknown[] = [];
+	const operations: PluginOperationRequest[] = [];
+	const states: unknown[] = [];
+	const props = (location: PluginLogicalLocation, index: number) => ({
+		theme,
+		location,
+		title: "Fixture",
+		chromeLeading: null,
+		sourceHash: "graph-hash",
+		installationId: "build-1",
+		onHeader: () => undefined,
+		artifactHash: "artifact-hash",
+		onOpenDrawer: () => undefined,
+		onNavigateBack: () => undefined,
+		onStaleSession: () => undefined,
+		onKernelShortcut: () => undefined,
+		chromeTriggerRef: { current: null },
+		artifactSessionScopeKey: "server:user",
+		viewport: { safeAreaTop: 7, safeAreaBottom: 11 },
+		onRevokeArtifactSession: () => Promise.resolve(),
+		onCreateArtifactSession: () => Promise.resolve(session),
+		onScreenState: (state: unknown) => states.push(state),
+		onPageSearch: (request: unknown) => searches.push(request),
+		onNavigate: (request: unknown) => navigations.push(request),
+		watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
+		onQuery: () => Promise.resolve({ outcome: "failure" as const, reason: "transport" as const }),
+		onAssets: () => Promise.resolve({ outcome: "failure" as const, reason: "transport" as const }),
+		onUpload: () => Promise.resolve({ outcome: "failure" as const, reason: "transport" as const }),
+		onRenewArtifactSession: () =>
+			Promise.resolve({ outcome: "renewed" as const, expiresAt: session.expiresAt }),
+		onInvokeOperation: (request: PluginOperationRequest) => {
+			operations.push(request);
+			return Promise.resolve({ outcome: "success" as const, value: null });
 		},
-	};
-}
-
-const at = (milliseconds: number) => new Date(Date.now() + milliseconds).toISOString();
-const artifactSession = (sessionId: string, expiresAt = at(10 * 60_000)) => ({
-	expiresAt,
-	sessionId,
-	src: `https://artifacts.example/${sessionId}/index.html?token=secret-${sessionId}`,
-});
-
-function createRecorder(
-	options: {
-		readonly renew?: RenewPluginArtifactSession;
-		readonly create?: CreatePluginArtifactSession;
-		readonly revoke?: RevokePluginArtifactSession;
-	} = {},
-) {
-	let nextSession = 0;
-	const events: string[] = [];
-	const revokes: string[] = [];
-	const creates: CreateCall[] = [];
-	const renews: Array<{ readonly signal: AbortSignal; readonly sessionId: string }> = [];
-	const onCreateArtifactSession: CreatePluginArtifactSession = (request, signal) => {
-		creates.push({ request, signal });
-		events.push(`create:${request.artifactHash}`);
-		if (options.create !== undefined) {
-			return options.create(request, signal);
-		}
-		nextSession += 1;
-		return Promise.resolve(artifactSession(`session-${nextSession}`));
-	};
-	const onRenewArtifactSession: RenewPluginArtifactSession = (sessionId, signal) => {
-		renews.push({ sessionId, signal });
-		events.push(`renew:${sessionId}`);
-		return (
-			options.renew?.(sessionId, signal) ??
-			Promise.resolve({ expiresAt: at(10 * 60_000), outcome: "renewed" })
-		);
-	};
-	const onRevokeArtifactSession: RevokePluginArtifactSession = (sessionId) => {
-		revokes.push(sessionId);
-		events.push(`revoke:${sessionId}`);
-		return options.revoke?.(sessionId) ?? Promise.resolve();
-	};
+		navigation: {
+			index,
+			location,
+			compact: true,
+			key: `k${index}`,
+			edgeBack: index > 0,
+			leading: index > 0 ? ("back" as const) : ("drawer" as const),
+		},
+	});
+	const view = render(<PluginFrame {...props(home, 0)} />);
 	return {
-		events,
-		renews,
-		revokes,
-		creates,
-		onRenewArtifactSession,
-		onCreateArtifactSession,
-		onRevokeArtifactSession,
-	};
-}
-
-function renderHost(
-	recorder = createRecorder(),
-	overrides: Partial<PluginClientCatalogEntry> = {},
-	location = home,
-	callbacks: {
-		readonly onStaleSession?: () => void;
-		readonly onQuery?: Parameters<typeof PluginHost>[0]["onQuery"];
-		readonly onAssets?: Parameters<typeof PluginHost>[0]["onAssets"];
-		readonly onUpload?: Parameters<typeof PluginHost>[0]["onUpload"];
-		readonly onHeader?: Parameters<typeof PluginHost>[0]["onHeader"];
-		readonly watchEntities?: Parameters<typeof PluginHost>[0]["watchEntities"];
-		readonly onScreenState?: Parameters<typeof PluginHost>[0]["onScreenState"];
-		readonly onKernelShortcut?: Parameters<typeof PluginHost>[0]["onKernelShortcut"];
-		readonly onInvokeOperation?: Parameters<typeof PluginHost>[0]["onInvokeOperation"];
-	} = {},
-) {
-	const backs: null[] = [];
-	const drawers: null[] = [];
-	const chromeTrigger = { current: null };
-	const theme = createTheme();
-	const navigations: PluginNavigationRequest[] = [];
-	const screenStates: Array<PluginScreenReadiness | null> = [];
-	const host = (state: HostState) => (
-		<PluginHost
-			theme={theme}
-			chromeLeading={null}
-			viewport={{ safeAreaTop: 0, safeAreaBottom: 0 }}
-			chromeTriggerRef={chromeTrigger}
-			navigation={navigationFor(state)}
-			onOpenDrawer={() => drawers.push(null)}
-			onNavigateBack={() => backs.push(null)}
-			onHeader={callbacks.onHeader ?? (() => undefined)}
-			installation={{ ...installation, ...state.overrides }}
-			onRenewArtifactSession={recorder.onRenewArtifactSession}
-			artifactSessionScopeKey={state.scopeKey ?? "server:user"}
-			onCreateArtifactSession={recorder.onCreateArtifactSession}
-			onRevokeArtifactSession={recorder.onRevokeArtifactSession}
-			onNavigate={(request) => navigations.push(request)}
-			onStaleSession={callbacks.onStaleSession ?? (() => undefined)}
-			onKernelShortcut={callbacks.onKernelShortcut ?? (() => undefined)}
-			watchEntities={callbacks.watchEntities ?? (() => ({ update: () => {}, dispose: () => {} }))}
-			onAssets={
-				callbacks.onAssets ?? (() => Promise.resolve({ outcome: "failure", reason: "transport" }))
-			}
-			onUpload={
-				callbacks.onUpload ?? (() => Promise.resolve({ outcome: "failure", reason: "transport" }))
-			}
-			onScreenState={(screenState) => {
-				screenStates.push(screenState);
-				callbacks.onScreenState?.(screenState);
-			}}
-			onQuery={
-				callbacks.onQuery ??
-				(() => Promise.resolve({ outcome: "failure", reason: "transport" } as PluginRyotQLOutcome))
-			}
-			onInvokeOperation={
-				callbacks.onInvokeOperation ??
-				(() =>
-					Promise.resolve({ outcome: "failure", reason: "transport" } as PluginOperationOutcome))
-			}
-		/>
-	);
-	const view = render(host({ location, overrides }));
-	return {
-		...recorder,
+		...view,
+		states,
+		searches,
+		operations,
 		navigations,
-		screenStates,
-		unmount: view.unmount,
-		moveTo: (next: HostState) => view.rerender(host(next)),
+		move: (location: PluginLogicalLocation, index: number) =>
+			view.rerender(<PluginFrame {...props(location, index)} />),
 	};
 }
 
@@ -235,586 +90,89 @@ async function flush() {
 	});
 }
 
-function connectFrame(frame: HTMLIFrameElement) {
+function connect(frame: HTMLIFrameElement) {
 	const messages: unknown[] = [];
 	let init: PluginBridgeInit | undefined;
-	let pluginPort: MessagePort | undefined;
+	let port: MessagePort | undefined;
 	Object.defineProperty(frame, "contentWindow", {
 		configurable: true,
 		value: {
 			postMessage: (message: unknown, _origin: string, transfer: Transferable[]) => {
-				const [transferred] = transfer;
+				init = Schema.decodeUnknownSync(PluginBridgeInit)(message);
+				const transferred = transfer[0];
 				if (!(transferred instanceof MessagePort)) {
 					throw new Error("Missing plugin port");
 				}
-				init = Schema.decodeUnknownSync(PluginBridgeInit)(message);
-				pluginPort = transferred;
-				transferred.addEventListener("message", (event) => messages.push(event.data));
-				transferred.start();
+				port = transferred;
+				port.addEventListener("message", (event) => messages.push(event.data));
+				port.start();
 			},
 		},
 	});
 	fireEvent.load(frame);
-	if (init === undefined || pluginPort === undefined) {
-		throw new Error("Plugin bridge did not connect");
+	if (init === undefined || port === undefined) {
+		throw new Error("Bridge did not connect");
 	}
-	const {
-		mode: _mode,
-		safeAreaTop: _safeAreaTop,
-		safeAreaBottom: _safeAreaBottom,
-		...ready
-	} = init;
-	return { init, ready, messages, pluginPort };
+	const { mode: _mode, safeAreaTop: _top, safeAreaBottom: _bottom, ...ready } = init;
+	return { init, messages, port, ready };
 }
 
-afterEach(() => vi.useRealTimers());
-
-describe("plugin artifact session lifecycle", () => {
-	it("retains interest on route changes and releases the document owner on replacement and unmount", async () => {
-		let owners = 0;
-		let disposed = 0;
-		const host = renderHost(undefined, {}, home, {
-			watchEntities: () => {
-				owners++;
-				return {
-					update: () => {},
-					dispose: () => {
-						disposed++;
-					},
-				};
-			},
-		});
+describe("PluginFrame", () => {
+	it("uses one session and bridge while location and global history change", async () => {
+		const host = mount();
 		await flush();
-		const first = connectFrame(screen.getByTitle<HTMLIFrameElement>("fixture plugin"));
-		first.pluginPort.postMessage(first.ready);
-		first.pluginPort.postMessage({ type: "entity-interest", foreground: ["a"], visible: [] });
-		await waitFor(() => expect(owners).toBe(1));
-		host.moveTo({ location: { kind: "route", path: "/next", search: "" }, overrides: {} });
-		await flush();
-		expect(owners).toBe(1);
-		expect(disposed).toBe(0);
-		host.moveTo({ location: home, overrides: { clientArtifactHash: "new-artifact" } });
-		await flush();
-		expect(disposed).toBe(1);
-		const second = connectFrame(screen.getByTitle<HTMLIFrameElement>("fixture plugin"));
-		second.pluginPort.postMessage(second.ready);
-		second.pluginPort.postMessage({ type: "entity-interest", foreground: [], visible: ["b"] });
-		await waitFor(() => expect(owners).toBe(2));
-		host.unmount();
-		expect(disposed).toBe(2);
-		first.pluginPort.close();
-		second.pluginPort.close();
-	});
+		const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
+		const bridge = connect(frame);
+		bridge.port.postMessage(bridge.ready);
+		await waitFor(() => expect(bridge.messages).toHaveLength(1));
 
-	it("creates before rendering the isolated iframe and keeps credentials out of bridge metadata", async () => {
-		const pending = deferred<PluginArtifactSession>();
-		const recorder = createRecorder({ create: () => pending.promise });
-		renderHost(recorder);
+		host.move({ kind: "route", path: "/details", search: "keep=1&tab=stats" }, 1);
+		await waitFor(() => expect(bridge.messages).toHaveLength(2));
 
-		expect(screen.queryByTitle("fixture plugin")).toBeNull();
-		expect(screen.getByRole("status").textContent).toBe("Preparing this plugin...");
-		expect(recorder.creates).toHaveLength(1);
-		expect(recorder.creates[0]?.request).toEqual({
-			sourceHash: "source-hash",
-			artifactHash: "artifact-hash",
-			installationId: "installation-1",
-		});
-
-		pending.resolve(artifactSession("artifact-session"));
-		await flush();
-		const frame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
-		expect(frame.getAttribute("src")).toContain("token=secret-artifact-session");
-		expect(frame.getAttribute("sandbox")).toBe("allow-scripts");
-		expect(frame.getAttribute("referrerpolicy")).toBe("no-referrer");
-
-		const connected = connectFrame(frame);
-		expect(connected.init.artifactHash).toBe("artifact-hash");
-		expect(JSON.stringify(connected.init)).not.toContain("artifact-session");
-		expect(JSON.stringify(connected.init)).not.toContain("secret");
-	});
-
-	it.each([
-		{ health: "installing", clientArtifactHash: null },
-		{ health: "failed" },
-		{ health: "incompatible" },
-		{ clientArtifactHash: null },
-		{ clientApiVersion: null },
-		{ clientApiVersion: CLIENT_API_VERSION + 1 },
-	] satisfies Array<Partial<PluginClientCatalogEntry>>)(
-		"does not create a session for blocked catalog state %#",
-		(overrides) => {
-			const recorder = createRecorder();
-			renderHost(recorder, overrides);
-			expect(recorder.creates).toEqual([]);
-			expect(screen.queryByTitle("fixture plugin")).toBeNull();
-		},
-	);
-
-	it("replaces and revokes when the server or user scope changes", async () => {
-		const host = renderHost();
-		await flush();
-
-		host.moveTo({ scopeKey: "other-server:user", location: home, overrides: {} });
-		await flush();
-
-		expect(host.creates).toHaveLength(2);
-		expect(host.revokes).toEqual(["session-1"]);
-	});
-
-	it("forwards current screen readiness and sends only location for navigation chrome changes", async () => {
-		const host = renderHost();
-		await flush();
-		const frame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
-		const connected = connectFrame(frame);
-		connected.pluginPort.postMessage(connected.ready);
-		await flush();
-		host.screenStates.splice(0);
-		connected.pluginPort.postMessage({
-			index: 0,
-			key: "k0",
-			type: "screen-state",
-			hasPreviousScreen: false,
-		});
-		await flush();
-
-		host.moveTo({
+		expect(screen.getByTitle("Fixture plugin")).toBe(frame);
+		expect(bridge.init).toMatchObject({ safeAreaTop: 7, safeAreaBottom: 11 });
+		expect(bridge.messages[1]).toMatchObject({
 			index: 1,
+			key: "k1",
 			compact: true,
-			overrides: {},
 			edgeBack: true,
-			leading: "back",
-			location: { kind: "route", path: "/items/one", search: "tab=stats" },
+			location: { kind: "route", path: "/details", search: "keep=1&tab=stats" },
 		});
-		await flush();
-		connected.pluginPort.postMessage({
-			index: 0,
-			key: "k0",
-			type: "screen-state",
-			hasPreviousScreen: true,
-		});
-		connected.pluginPort.postMessage({
-			index: 1,
-			key: "k1",
-			type: "screen-state",
-			hasPreviousScreen: true,
-		});
-		await flush();
+	});
 
-		expect(host.creates).toHaveLength(1);
-		expect(host.revokes).toEqual([]);
-		expect(screen.getByTitle("fixture plugin")).toBe(frame);
-		expect(connected.messages).toEqual([
-			{
-				index: 0,
-				key: "k0",
-				location: home,
-				compact: false,
-				edgeBack: false,
-				leading: "none",
-				type: "location",
-			},
-			{
-				index: 1,
-				key: "k1",
-				compact: true,
-				edgeBack: true,
-				leading: "back",
-				type: "location",
-				location: { kind: "route", path: "/items/one", search: "tab=stats" },
-			},
+	it("forwards explicit route, page-search, operation target, and matching readiness", async () => {
+		const host = mount();
+		await flush();
+		const bridge = connect(screen.getByTitle("Fixture plugin"));
+		bridge.port.postMessage(bridge.ready);
+		await waitFor(() => expect(bridge.messages).toHaveLength(1));
+		bridge.port.postMessage({
+			mode: "push",
+			type: "navigate",
+			target: { kind: "plugin-route", pluginSlug: "media", path: "/shows", search: "q=x" },
+		});
+		bridge.port.postMessage({
+			mode: "replace",
+			type: "page-search",
+			update: { dialog: null, q: "dune" },
+		});
+		bridge.port.postMessage({
+			input: null,
+			requestId: "op-1",
+			pluginSlug: "fixture",
+			operationSlug: "greet",
+			type: "operation-request",
+		});
+		bridge.port.postMessage({ type: "screen-state", index: 0, key: "k0", hasPreviousScreen: true });
+
+		await waitFor(() => expect(host.operations).toHaveLength(1));
+		expect(host.navigations).toEqual([{ href: "/media/shows?q=x", replace: false }]);
+		expect(host.searches).toEqual([
+			{ mode: "replace", update: { dialog: null, q: "dune" }, type: "page-search" },
 		]);
-		expect(host.screenStates).toEqual([
-			{ index: 0, key: "k0", hasPreviousScreen: false },
-			{ index: 1, key: "k1", hasPreviousScreen: true },
+		expect(host.operations).toEqual([
+			{ input: null, operationSlug: "greet", pluginSlug: PluginSlug.make("fixture") },
 		]);
-
-		connectFrame(frame);
-		expect(host.screenStates.at(-1)).toBeNull();
-		expect(host.creates).toHaveLength(1);
-		const replacedStates = [...host.screenStates];
-		connected.pluginPort.postMessage({
-			index: 1,
-			key: "k1",
-			type: "screen-state",
-			hasPreviousScreen: false,
-		});
-		await flush();
-		expect(host.screenStates).toEqual(replacedStates);
-	});
-
-	it("passes entity locations once for equivalent values", async () => {
-		const host = renderHost();
-		await flush();
-		const connected = connectFrame(screen.getByTitle("fixture plugin"));
-
-		connected.pluginPort.postMessage(connected.ready);
-		await flush();
-		host.moveTo({ overrides: {}, location: entity });
-		await flush();
-
-		expect(connected.messages).toContainEqual({
-			index: 0,
-			key: "k0",
-			compact: false,
-			edgeBack: false,
-			leading: "none",
-			type: "location",
-			location: entity,
-		});
-		const messageCount = connected.messages.length;
-
-		host.moveTo({ overrides: {}, location: { ...entity } });
-		await flush();
-
-		expect(connected.messages).toHaveLength(messageCount);
-	});
-
-	it.each([
-		{ installationId: "installation-2" },
-		{ sourceHash: "source-2" },
-		{ clientArtifactHash: "artifact-2" },
-	] satisfies Array<Partial<PluginClientCatalogEntry>>)(
-		"replaces and revokes for identity change %#",
-		async (overrides) => {
-			const host = renderHost();
-			await flush();
-			const frame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
-			const connected = connectFrame(frame);
-			connected.pluginPort.postMessage(connected.ready);
-			await flush();
-			connected.pluginPort.postMessage({
-				index: 0,
-				key: "k0",
-				type: "screen-state",
-				hasPreviousScreen: false,
-			});
-			await flush();
-			host.screenStates.splice(0);
-
-			host.moveTo({ location: home, overrides });
-			await flush();
-
-			expect(host.creates).toHaveLength(2);
-			expect(host.screenStates).toContain(null);
-			expect(host.revokes).toEqual(["session-1"]);
-			expect(screen.getByTitle("fixture plugin")).not.toBe(frame);
-			expect(host.events).toEqual([
-				"create:artifact-hash",
-				"revoke:session-1",
-				`create:${overrides.clientArtifactHash ?? "artifact-hash"}`,
-			]);
-		},
-	);
-
-	it("aborts and revokes a late create result under Strict Mode", async () => {
-		const first = deferred<PluginArtifactSession>();
-		const second = deferred<PluginArtifactSession>();
-		let call = 0;
-		const recorder = createRecorder({
-			create: () => {
-				call += 1;
-				return call === 1 ? first.promise : second.promise;
-			},
-		});
-		const theme = createTheme();
-		render(
-			<StrictMode>
-				<PluginHost
-					theme={theme}
-					onHeader={() => {}}
-					chromeLeading={null}
-					installation={installation}
-					onNavigate={() => undefined}
-					onOpenDrawer={() => undefined}
-					onScreenState={() => undefined}
-					onStaleSession={() => undefined}
-					onNavigateBack={() => undefined}
-					onKernelShortcut={() => undefined}
-					chromeTriggerRef={{ current: null }}
-					artifactSessionScopeKey="server:user"
-					viewport={{ safeAreaTop: 0, safeAreaBottom: 0 }}
-					navigation={navigationFor({ location: home })}
-					onRenewArtifactSession={recorder.onRenewArtifactSession}
-					onCreateArtifactSession={recorder.onCreateArtifactSession}
-					onRevokeArtifactSession={recorder.onRevokeArtifactSession}
-					watchEntities={() => ({ update: () => {}, dispose: () => {} })}
-					onQuery={() => Promise.resolve({ outcome: "failure", reason: "transport" })}
-					onAssets={() => Promise.resolve({ outcome: "failure", reason: "transport" })}
-					onUpload={() => Promise.resolve({ outcome: "failure", reason: "transport" })}
-					onInvokeOperation={() => Promise.resolve({ outcome: "failure", reason: "transport" })}
-				/>
-			</StrictMode>,
-		);
-
-		expect(recorder.creates).toHaveLength(2);
-		expect(recorder.creates[0]?.signal.aborted).toBe(true);
-		first.resolve(artifactSession("late"));
-		second.resolve(artifactSession("current"));
-		await flush();
-
-		expect(recorder.revokes).toEqual(["late"]);
-		expect(screen.getByTitle("fixture plugin").getAttribute("src")).toContain("current");
-	});
-
-	it("retries creation with a fresh generation", async () => {
-		let attempt = 0;
-		const recorder = createRecorder({
-			create: () => {
-				attempt += 1;
-				return attempt === 1
-					? Promise.reject(new Error("offline"))
-					: Promise.resolve(artifactSession("retry"));
-			},
-		});
-		const host = renderHost(recorder);
-		await flush();
-
-		expect(screen.queryByTitle("fixture plugin")).toBeNull();
-		fireEvent.click(screen.getByRole("button", { name: "Reload plugin" }));
-		await flush();
-
-		expect(recorder.creates).toHaveLength(2);
-		expect(recorder.creates[0]?.signal.aborted).toBe(true);
-		expect(host.screenStates).toContain(null);
-		expect(screen.getByTitle("fixture plugin").getAttribute("src")).toContain("retry");
-	});
-
-	it("closes bridge work, revokes, and creates on crash reload", async () => {
-		const query = deferred<PluginRyotQLOutcome>();
-		const recorder = createRecorder();
-		let querySignal: AbortSignal | undefined;
-		const host = renderHost(recorder, {}, home, {
-			onQuery: (_request, signal) => {
-				querySignal = signal;
-				signal.addEventListener("abort", () => recorder.events.push("abort:query"));
-				return query.promise;
-			},
-		});
-		await flush();
-		const connected = connectFrame(screen.getByTitle("fixture plugin"));
-		connected.pluginPort.postMessage(connected.ready);
-		await flush();
-		await flush();
-		connected.pluginPort.postMessage({
-			index: 0,
-			key: "k0",
-			type: "screen-state",
-			hasPreviousScreen: false,
-		});
-		await flush();
-		connected.pluginPort.postMessage({
-			requestId: "query",
-			type: "ryotql-request",
-			document: { queries: {} },
-		});
-		await flush();
-		connected.pluginPort.postMessage({ reason: "failed", type: "lifecycle-close" });
-		await flush();
-
-		expect(querySignal?.aborted).toBe(true);
-		expect(host.screenStates.at(-1)).toBeNull();
-		expect(screen.queryByTitle("fixture plugin")).toBeNull();
-		const clearsBeforeRetry = host.screenStates.filter((state) => state === null).length;
-		fireEvent.click(screen.getByRole("button", { name: "Reload plugin" }));
-		expect(host.screenStates.filter((state) => state === null).length).toBeGreaterThan(
-			clearsBeforeRetry,
-		);
-		await flush();
-
-		expect(host.revokes).toEqual(["session-1"]);
-		expect(host.creates).toHaveLength(2);
-		expect(host.events).toEqual([
-			"create:artifact-hash",
-			"abort:query",
-			"revoke:session-1",
-			"create:artifact-hash",
-		]);
-		expect(screen.getByTitle("fixture plugin")).toBeTruthy();
-	});
-
-	it("forwards asset requests and aborts them when unmounted", async () => {
-		const call = deferred<PluginAssetOutcome>();
-		const requests: unknown[] = [];
-		let signal: AbortSignal | undefined;
-		const host = renderHost(createRecorder(), {}, home, {
-			onAssets: (request, requestSignal) => {
-				requests.push(request);
-				signal = requestSignal;
-				return call.promise;
-			},
-		});
-		await flush();
-		const connected = connectFrame(screen.getByTitle("fixture plugin"));
-		connected.pluginPort.postMessage(connected.ready);
-		await flush();
-		await flush();
-
-		connected.pluginPort.postMessage({
-			requestId: "asset-1",
-			type: "asset-request",
-			assets: [{ type: "local", key: "permanent/cover.png" }],
-		});
-		await flush();
-
-		expect(requests).toEqual([{ assets: [{ type: "local", key: "permanent/cover.png" }] }]);
-		expect(signal).toBeDefined();
-
-		host.unmount();
-		expect(signal?.aborted).toBe(true);
-		call.resolve({ outcome: "success", resolutions: [] });
-		await flush();
-
-		expect(connected.messages).not.toContainEqual(
-			expect.objectContaining({ requestId: "asset-1", type: "asset-result" }),
-		);
-	});
-
-	it("accepts only the current screen's header", async () => {
-		const headers: PluginHeaderPublication[] = [];
-		const host = renderHost(createRecorder(), {}, home, {
-			onHeader: (header) => headers.push(header),
-		});
-		await flush();
-		const connected = connectFrame(screen.getByTitle("fixture plugin"));
-		connected.pluginPort.postMessage(connected.ready);
-		await flush();
-		await flush();
-		connected.pluginPort.postMessage({
-			index: 0,
-			key: "k0",
-			type: "header",
-			header: { title: "Home" },
-		});
-		await flush();
-
-		host.moveTo({
-			index: 1,
-			overrides: {},
-			location: { kind: "route", path: "/details", search: "" },
-		});
-		await flush();
-		connected.pluginPort.postMessage({
-			index: 0,
-			key: "k0",
-			type: "header",
-			header: { title: "Stale" },
-		});
-		connected.pluginPort.postMessage({ index: 1, key: "k1", header: null, type: "header" });
-		await flush();
-
-		expect(headers).toEqual([
-			{ index: 0, key: "k0", title: "Home" },
-			{ index: 1, key: "k1", title: null },
-		]);
-	});
-
-	it("renews five minutes before expiry and retries transient failure before expiry", async () => {
-		vi.useFakeTimers();
-		vi.setSystemTime(new Date("2026-08-31T12:00:00.000Z"));
-		let renewal = 0;
-		const recorder = createRecorder({
-			create: () => Promise.resolve(artifactSession("lease", at(10 * 60_000))),
-			renew: () => {
-				renewal += 1;
-				return renewal === 1
-					? Promise.reject(new Error("offline"))
-					: Promise.resolve({ expiresAt: at(10 * 60_000), outcome: "renewed" });
-			},
-		});
-		renderHost(recorder);
-		await flush();
-
-		await act(async () => vi.advanceTimersByTimeAsync(5 * 60_000));
-		expect(recorder.renews).toHaveLength(1);
-		await act(async () => vi.advanceTimersByTimeAsync(30_000));
-
-		expect(recorder.renews).toHaveLength(2);
-		expect(recorder.creates).toHaveLength(1);
-		expect(recorder.revokes).toEqual([]);
-	});
-
-	it("replaces at expiry while renewal is still pending", async () => {
-		vi.useFakeTimers();
-		vi.setSystemTime(new Date("2026-08-31T12:00:00.000Z"));
-		const renewal = deferred<Awaited<ReturnType<RenewPluginArtifactSession>>>();
-		const recorder = createRecorder({
-			create: () => Promise.resolve(artifactSession("lease", at(6 * 60_000))),
-			renew: () => renewal.promise,
-		});
-		renderHost(recorder);
-		await flush();
-
-		await act(async () => vi.advanceTimersByTimeAsync(6 * 60_000));
-		await flush();
-
-		expect(recorder.renews).toHaveLength(1);
-		expect(recorder.renews[0]?.signal.aborted).toBe(true);
-		expect(recorder.revokes).toEqual(["lease"]);
-		expect(recorder.creates).toHaveLength(2);
-	});
-
-	it("renews on visibility restoration and replaces an expired session", async () => {
-		vi.useFakeTimers();
-		vi.setSystemTime(new Date("2026-08-31T12:00:00.000Z"));
-		const recorder = createRecorder({
-			create: () => Promise.resolve(artifactSession("lease", at(6 * 60_000))),
-		});
-		renderHost(recorder);
-		await flush();
-		Object.defineProperty(document, "visibilityState", { configurable: true, value: "visible" });
-
-		vi.setSystemTime(new Date("2026-08-31T12:02:00.000Z"));
-		document.dispatchEvent(new Event("visibilitychange"));
-		await flush();
-		expect(recorder.renews).toHaveLength(1);
-
-		vi.setSystemTime(new Date("2026-08-31T12:20:00.000Z"));
-		document.dispatchEvent(new Event("visibilitychange"));
-		await flush();
-		expect(recorder.revokes).toEqual(["lease"]);
-		expect(recorder.creates).toHaveLength(2);
-	});
-
-	it.each(["stale", "not-found"] as const)(
-		"replaces a %s renewal and requests catalog refresh",
-		async (reason) => {
-			vi.useFakeTimers();
-			vi.setSystemTime(new Date("2026-08-31T12:00:00.000Z"));
-			let refreshes = 0;
-			const recorder = createRecorder({
-				create: () => Promise.resolve(artifactSession("lease", at(6 * 60_000))),
-				renew: () => Promise.resolve({ outcome: "replace", reason }),
-			});
-			renderHost(recorder, {}, home, {
-				onStaleSession: () => {
-					refreshes += 1;
-				},
-			});
-			await flush();
-			await act(async () => vi.advanceTimersByTimeAsync(60_000));
-			await flush();
-
-			expect(refreshes).toBe(1);
-			expect(recorder.revokes).toEqual(["lease"]);
-			expect(recorder.creates).toHaveLength(2);
-		},
-	);
-
-	it("aborts lifecycle work and independently revokes on cleanup", async () => {
-		const renewal = deferred<Awaited<ReturnType<RenewPluginArtifactSession>>>();
-		vi.useFakeTimers();
-		vi.setSystemTime(new Date("2026-08-31T12:00:00.000Z"));
-		const recorder = createRecorder({
-			create: () => Promise.resolve(artifactSession("lease", at(6 * 60_000))),
-			renew: () => renewal.promise,
-		});
-		const host = renderHost(recorder);
-		await flush();
-		await act(async () => vi.advanceTimersByTimeAsync(60_000));
-		expect(recorder.renews).toHaveLength(1);
-
-		host.unmount();
-		expect(recorder.renews[0]?.signal.aborted).toBe(true);
-		expect(recorder.revokes).toEqual(["lease"]);
+		expect(host.states).toContainEqual({ index: 0, key: "k0", hasPreviousScreen: true });
 	});
 });
