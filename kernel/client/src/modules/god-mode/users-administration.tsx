@@ -315,94 +315,99 @@ function UserRow(props: {
 		[],
 	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- React administration action coordinator.
-	const run = async <A,>(
-		kind: NonNullable<typeof pending>,
-		operation: () => OperationResult<A>,
-	) => {
+	const run = <A,>(kind: NonNullable<typeof pending>, operation: () => OperationResult<A>) => {
 		if (pendingRef.current !== null) {
-			return null;
+			return Promise.resolve(null);
 		}
 		pendingRef.current = kind;
 		setPending(kind);
 		setError(undefined);
-		const exit = await operation();
-		pendingRef.current = null;
-		setPending(null);
-		if (Exit.isSuccess(exit)) {
-			return exit.value;
-		}
-		if (isUnauthorizedCause(exit.cause)) {
-			props.onUnauthorized();
-		} else {
-			logFailure(`god-mode user ${kind} request failed`, exit.cause);
-		}
-		return null;
+		return operation().then((exit) => {
+			pendingRef.current = null;
+			setPending(null);
+			if (Exit.isSuccess(exit)) {
+				return exit.value;
+			}
+			if (isUnauthorizedCause(exit.cause)) {
+				props.onUnauthorized();
+			} else {
+				logFailure(`god-mode user ${kind} request failed`, exit.cause);
+			}
+			return null;
+		});
 	};
-	// oxlint-disable-next-line effecttsgo/async-function -- React reset-password handler.
-	const resetPassword = async () => {
+	const resetPassword = () => {
 		setCopied(false);
 		setResult(null);
-		const value = await run("password", () => props.operations.resetUserPassword(props.user.id));
-		if (value !== null) {
-			setResult(value);
-		} else if (pendingRef.current === null) {
-			setError("Could not generate a reset link. Try again.");
-		}
-	};
-	// oxlint-disable-next-line effecttsgo/async-function -- React account-status handler.
-	const toggleDisabled = async () => {
-		const value = await run("disabled", () =>
-			props.operations.setUserDisabled(props.user.id, !isDisabled),
+		return run("password", () => props.operations.resetUserPassword(props.user.id)).then(
+			(value) => {
+				if (value !== null) {
+					setResult(value);
+				} else if (pendingRef.current === null) {
+					setError("Could not generate a reset link. Try again.");
+				}
+				return undefined;
+			},
 		);
-		if (value !== null) {
-			props.onRefresh();
-		} else if (pendingRef.current === null) {
-			setError(`Could not ${isDisabled ? "enable" : "disable"} this user. Try again.`);
-		}
 	};
-	// oxlint-disable-next-line effecttsgo/async-function -- React confirmation handler.
-	const confirm = async () => {
+	const toggleDisabled = () =>
+		run("disabled", () => props.operations.setUserDisabled(props.user.id, !isDisabled)).then(
+			(value) => {
+				if (value !== null) {
+					props.onRefresh();
+				} else if (pendingRef.current === null) {
+					setError(`Could not ${isDisabled ? "enable" : "disable"} this user. Try again.`);
+				}
+				return undefined;
+			},
+		);
+	const confirm = () => {
 		setResult(null);
 		const kind = confirmation;
 		if (kind === null) {
-			return;
+			return Promise.resolve();
 		}
 		if (kind === "reset") {
-			const value = await run("reset", () => props.operations.resetUser(props.user.id));
+			return run("reset", () => props.operations.resetUser(props.user.id)).then((value) => {
+				if (value === null) {
+					if (pendingRef.current === null) {
+						setError("Could not reset this user. Try again.");
+					}
+					return undefined;
+				}
+				setConfirmation(null);
+				setResult(value);
+				return undefined;
+			});
+		}
+		return run("delete", () => props.operations.deleteUser(props.user.id)).then((value) => {
 			if (value === null) {
 				if (pendingRef.current === null) {
-					setError("Could not reset this user. Try again.");
+					setError("Could not delete this user. Try again.");
 				}
-				return;
+				return undefined;
 			}
 			setConfirmation(null);
-			setResult(value);
-			return;
-		}
-		const value = await run("delete", () => props.operations.deleteUser(props.user.id));
-		if (value === null) {
-			if (pendingRef.current === null) {
-				setError("Could not delete this user. Try again.");
-			}
-			return;
-		}
-		setConfirmation(null);
-		props.onRefresh();
+			props.onRefresh();
+			return undefined;
+		});
 	};
-	// oxlint-disable-next-line effecttsgo/async-function -- React share/clipboard handler.
-	const transfer = async () => {
+	const transfer = () => {
 		if (result?.resetUrl == null) {
-			return;
+			return Promise.resolve();
 		}
-		try {
-			await props.transferResetLink(result.resetUrl);
-			setCopied(true);
-			copyTimer.current = setTimeout(() => setCopied(false), 2000);
-		} catch (cause) {
-			Effect.runSync(Effect.logWarning("god-mode reset link transfer failed", cause));
-			setError("Could not copy or share the reset link. Try again.");
-		}
+		return props.transferResetLink(result.resetUrl).then(
+			() => {
+				setCopied(true);
+				copyTimer.current = setTimeout(() => setCopied(false), 2000);
+				return undefined;
+			},
+			(cause) => {
+				Effect.runSync(Effect.logWarning("god-mode reset link transfer failed", cause));
+				setError("Could not copy or share the reset link. Try again.");
+				return undefined;
+			},
+		);
 	};
 	const closeMenu = (restoreFocus: boolean) => {
 		setMenuOpen(false);

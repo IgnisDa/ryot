@@ -1,8 +1,8 @@
+import { afterEach, describe, expect, it } from "@effect/vitest";
 import { RyotClientError, type RyotClientAdapter } from "@ryot-app/client-sdk";
 import { Effect } from "@ryot-app/client-sdk/effect";
 import { createTestPluginStorage } from "@ryot-app/client-sdk/testing";
 import { fireEvent, waitFor } from "@testing-library/dom";
-import { afterEach, describe, expect, it } from "vitest";
 
 import { rowsResult } from "../../tests/client/query-result-fixture";
 import {
@@ -181,257 +181,309 @@ afterEach(() => {
 });
 
 describe("show season browser", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("heads the season with the counts the season query reports, not the loaded page", async () => {
-		const view = renderTab(
-			showAdapter({
-				seasons: [{ ...showSeasonRow, episodeTotal: 6, watchedTotal: 2, upcomingTotal: 3 }],
-			}),
-		);
-		await flushRyotClient();
+	it.live("heads the season with the counts the season query reports, not the loaded page", () =>
+		Effect.gen(function* () {
+			const view = renderTab(
+				showAdapter({
+					seasons: [{ ...showSeasonRow, episodeTotal: 6, watchedTotal: 2, upcomingTotal: 3 }],
+				}),
+			);
+			yield* Effect.promise(() => flushRyotClient());
 
-		await waitFor(() => expect(view.container.textContent).toContain("Season 1"));
-		expect(
-			textOf(view.container, "Released Mar 13, 2025 • 2/6 aired · 3 upcoming"),
-		).not.toBeUndefined();
-		expect(view.container.textContent).toContain("The complete limited series.");
-		expect(view.container.textContent).toContain("Episode 1: The Arrest");
-		view.unmount();
-	});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.container.textContent).toContain("Season 1")),
+			);
+			expect(
+				textOf(view.container, "Released Mar 13, 2025 • 2/6 aired · 3 upcoming"),
+			).not.toBeUndefined();
+			expect(view.container.textContent).toContain("The complete limited series.");
+			expect(view.container.textContent).toContain("Episode 1: The Arrest");
+			view.unmount();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("selects seasons from the season list and keeps specials last", async () => {
-		const view = renderTab(
-			showAdapter({
-				seasons: [specialsSeason, showSeasonRow, secondSeason],
-				episodes: (seasonId) =>
-					seasonId === "season-2"
-						? [{ ...showEpisodeRow, id: "episode-3", name: "Episode 1: Aftermath" }]
-						: [showEpisodeRow],
-			}),
-		);
-		await flushRyotClient();
-		await waitFor(() => expect(view.container.textContent).toContain("Episode 1: The Arrest"));
+	it.live("selects seasons from the season list and keeps specials last", () =>
+		Effect.gen(function* () {
+			const view = renderTab(
+				showAdapter({
+					seasons: [specialsSeason, showSeasonRow, secondSeason],
+					episodes: (seasonId) =>
+						seasonId === "season-2"
+							? [{ ...showEpisodeRow, id: "episode-3", name: "Episode 1: Aftermath" }]
+							: [showEpisodeRow],
+				}),
+			);
+			yield* Effect.promise(() => flushRyotClient());
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.container.textContent).toContain("Episode 1: The Arrest")),
+			);
 
-		expect(
-			Array.from(view.container.querySelectorAll('[role="radio"]')).map(
-				(element) => element.textContent,
-			),
-		).toEqual(["Season 1", "Season 2", "Specials"]);
-		expect(radio(view.container, "Season 1")?.getAttribute("aria-checked")).toBe("true");
+			expect(
+				Array.from(view.container.querySelectorAll('[role="radio"]')).map(
+					(element) => element.textContent,
+				),
+			).toEqual(["Season 1", "Season 2", "Specials"]);
+			expect(radio(view.container, "Season 1")?.getAttribute("aria-checked")).toBe("true");
 
-		const seasonTwo = radio(view.container, "Season 2");
-		if (seasonTwo === undefined) {
-			throw new Error("Expected the Season 2 radio");
-		}
-		fireEvent.click(seasonTwo);
-		await flushRyotClient();
+			const seasonTwo = radio(view.container, "Season 2");
+			if (seasonTwo === undefined) {
+				throw new Error("Expected the Season 2 radio");
+			}
+			fireEvent.click(seasonTwo);
+			yield* Effect.promise(() => flushRyotClient());
 
-		await waitFor(() => expect(view.container.textContent).toContain("Episode 1: Aftermath"));
-		expect(radio(view.container, "Season 2")?.getAttribute("aria-checked")).toBe("true");
-		expect(view.container.textContent).not.toContain("Episode 1: The Arrest");
-		view.unmount();
-	});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.container.textContent).toContain("Episode 1: Aftermath")),
+			);
+			expect(radio(view.container, "Season 2")?.getAttribute("aria-checked")).toBe("true");
+			expect(view.container.textContent).not.toContain("Episode 1: The Arrest");
+			view.unmount();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("leads only the season that holds the summary's next up with it", async () => {
-		const view = renderTab(
-			showAdapter({
-				seasons: [specialsSeason, showSeasonRow],
-				episodes: (seasonId) =>
-					seasonId === "season-0"
-						? [{ ...showEpisodeRow, id: "special-1", seasonNumber: 0, state: "untracked" }]
-						: [showEpisodeRow],
-			}),
-			summaryNextUp,
-		);
-		await flushRyotClient();
-		await waitFor(() => expect(view.container.textContent).toContain("Next up"));
+	it.live("leads only the season that holds the summary's next up with it", () =>
+		Effect.gen(function* () {
+			const view = renderTab(
+				showAdapter({
+					seasons: [specialsSeason, showSeasonRow],
+					episodes: (seasonId) =>
+						seasonId === "season-0"
+							? [{ ...showEpisodeRow, id: "special-1", seasonNumber: 0, state: "untracked" }]
+							: [showEpisodeRow],
+				}),
+				summaryNextUp,
+			);
+			yield* Effect.promise(() => flushRyotClient());
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.container.textContent).toContain("Next up")),
+			);
 
-		expect(textOf(view.container, "S1 • E2")).not.toBeUndefined();
+			expect(textOf(view.container, "S1 • E2")).not.toBeUndefined();
 
-		const specials = radio(view.container, "Specials");
-		if (specials === undefined) {
-			throw new Error("Expected the Specials radio");
-		}
-		fireEvent.click(specials);
-		await flushRyotClient();
+			const specials = radio(view.container, "Specials");
+			if (specials === undefined) {
+				throw new Error("Expected the Specials radio");
+			}
+			fireEvent.click(specials);
+			yield* Effect.promise(() => flushRyotClient());
 
-		await waitFor(() => expect(view.container.textContent).not.toContain("Next up"));
-		expect(view.container.textContent).not.toContain("Released");
-		view.unmount();
-	});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.container.textContent).not.toContain("Next up")),
+			);
+			expect(view.container.textContent).not.toContain("Released");
+			view.unmount();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("keeps a show with only specials readable and without a selector", async () => {
-		const view = renderTab(
-			showAdapter({
-				seasons: [specialsSeason],
-				episodes: () => [{ ...showEpisodeRow, id: "special-1", seasonNumber: 0 }],
-			}),
-		);
-		await flushRyotClient();
+	it.live("keeps a show with only specials readable and without a selector", () =>
+		Effect.gen(function* () {
+			const view = renderTab(
+				showAdapter({
+					seasons: [specialsSeason],
+					episodes: () => [{ ...showEpisodeRow, id: "special-1", seasonNumber: 0 }],
+				}),
+			);
+			yield* Effect.promise(() => flushRyotClient());
 
-		await waitFor(() => expect(view.container.textContent).toContain("Specials"));
-		expect(view.container.querySelector('[role="radio"]')).toBeNull();
-		view.unmount();
-	});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.container.textContent).toContain("Specials")),
+			);
+			expect(view.container.querySelector('[role="radio"]')).toBeNull();
+			view.unmount();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("explains a show that has no seasons at all", async () => {
-		const view = renderTab(showAdapter({ seasons: [] }));
-		await flushRyotClient();
+	it.live("explains a show that has no seasons at all", () =>
+		Effect.gen(function* () {
+			const view = renderTab(showAdapter({ seasons: [] }));
+			yield* Effect.promise(() => flushRyotClient());
 
-		await waitFor(() => expect(view.container.textContent).toContain("No episodes yet"));
-		view.unmount();
-	});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.container.textContent).toContain("No episodes yet")),
+			);
+			view.unmount();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("offers a retry when the seasons query fails", async () => {
-		const view = mountRyotClient(
-			{
-				query: () => Effect.fail(new RyotClientError("transport")),
-				watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
-			},
-			<ShowEpisodesTab compact entityId="show-1" summary={undefined} />,
-		);
-		await flushRyotClient();
+	it.live("offers a retry when the seasons query fails", () =>
+		Effect.gen(function* () {
+			const view = mountRyotClient(
+				{
+					query: () => Effect.fail(new RyotClientError("transport")),
+					watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
+				},
+				<ShowEpisodesTab compact entityId="show-1" summary={undefined} />,
+			);
+			yield* Effect.promise(() => flushRyotClient());
 
-		await waitFor(() => expect(view.container.textContent).toContain("Unable to load episodes"));
-		expect(
-			Array.from(view.container.querySelectorAll("button")).some(
-				(button) => button.textContent === "Try again",
-			),
-		).toBe(true);
-		view.unmount();
-	});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.container.textContent).toContain("Unable to load episodes")),
+			);
+			expect(
+				Array.from(view.container.querySelectorAll("button")).some(
+					(button) => button.textContent === "Try again",
+				),
+			).toBe(true);
+			view.unmount();
+		}),
+	);
 });
 
 describe("show episode orders", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("hides the order picker when the show has no episode orders", async () => {
-		const view = renderTab(showAdapter({}));
-		await flushRyotClient();
+	it.live("hides the order picker when the show has no episode orders", () =>
+		Effect.gen(function* () {
+			const view = renderTab(showAdapter({}));
+			yield* Effect.promise(() => flushRyotClient());
 
-		await waitFor(() => expect(view.container.textContent).toContain("Episode 1: The Arrest"));
-		expect(view.container.querySelector('[aria-label="Episode order"]')).toBeNull();
-		view.unmount();
-	});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.container.textContent).toContain("Episode 1: The Arrest")),
+			);
+			expect(view.container.querySelector('[aria-label="Episode order"]')).toBeNull();
+			view.unmount();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("restores the stored order before querying the seasons", async () => {
-		const storage = createTestPluginStorage([[STORAGE_ENTRY, "order-dvd"]]);
-		const pending: (() => void)[] = [];
-		const queries: string[] = [];
-		const view = renderTab({
-			...showAdapter({ queries, episodeOrders: [dvdOrder] }),
-			accessStorage: (request) =>
-				Effect.callback<unknown, RyotClientError>((resume) => {
-					pending.push(() => resume(storage.accessStorage(request)));
-				}),
-		});
-		await flushRyotClient();
+	it.live("restores the stored order before querying the seasons", () =>
+		Effect.gen(function* () {
+			const storage = createTestPluginStorage([[STORAGE_ENTRY, "order-dvd"]]);
+			const pending: (() => void)[] = [];
+			const queries: string[] = [];
+			const view = renderTab({
+				...showAdapter({ queries, episodeOrders: [dvdOrder] }),
+				accessStorage: (request) =>
+					Effect.callback<unknown, RyotClientError>((resume) => {
+						pending.push(() => resume(storage.accessStorage(request)));
+					}),
+			});
+			yield* Effect.promise(() => flushRyotClient());
 
-		expect(view.container.textContent).toContain("Restoring your episode order.");
-		expect(queries).toEqual([]);
+			expect(view.container.textContent).toContain("Restoring your episode order.");
+			expect(queries).toEqual([]);
 
-		pending.forEach((resume) => resume());
-		await flushRyotClient();
+			pending.forEach((resume) => resume());
+			yield* Effect.promise(() => flushRyotClient());
 
-		await waitFor(() => expect(view.container.textContent).toContain("Episode 1"));
-		expect(radio(view.container, "DVD Order")?.getAttribute("aria-checked")).toBe("true");
-		expect(radioLabels(view.container, "Episode group")).toEqual(["Volume 1", "Volume 2"]);
-		view.unmount();
-	});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.container.textContent).toContain("Episode 1")),
+			);
+			expect(radio(view.container, "DVD Order")?.getAttribute("aria-checked")).toBe("true");
+			expect(radioLabels(view.container, "Episode group")).toEqual(["Volume 1", "Volume 2"]);
+			view.unmount();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("shows the picked order's groups with episodes in the group's order", async () => {
-		const storage = createTestPluginStorage();
-		const view = renderTab({
-			...showAdapter({ episodeOrders: [dvdOrder, absoluteOrder] }),
-			accessStorage: storage.accessStorage,
-		});
-		await flushRyotClient();
-		await waitFor(() => expect(view.container.textContent).toContain("Episode 1: The Arrest"));
+	it.live("shows the picked order's groups with episodes in the group's order", () =>
+		Effect.gen(function* () {
+			const storage = createTestPluginStorage();
+			const view = renderTab({
+				...showAdapter({ episodeOrders: [dvdOrder, absoluteOrder] }),
+				accessStorage: storage.accessStorage,
+			});
+			yield* Effect.promise(() => flushRyotClient());
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.container.textContent).toContain("Episode 1: The Arrest")),
+			);
 
-		expect(radioLabels(view.container, "Episode order")).toEqual([
-			"Aired order",
-			"DVD Order",
-			"Absolute Order",
-		]);
-		expect(radio(view.container, "Aired order")?.getAttribute("aria-checked")).toBe("true");
+			expect(radioLabels(view.container, "Episode order")).toEqual([
+				"Aired order",
+				"DVD Order",
+				"Absolute Order",
+			]);
+			expect(radio(view.container, "Aired order")?.getAttribute("aria-checked")).toBe("true");
 
-		await click(radio(view.container, "DVD Order"));
+			yield* Effect.promise(() => click(radio(view.container, "DVD Order")));
 
-		await waitFor(() =>
-			expect(episodeNames(view.container)).toEqual(["Open Episode 3", "Open Episode 1"]),
-		);
-		expect(storage.entries.get(STORAGE_ENTRY)).toBe("order-dvd");
-		expect(view.container.querySelector('[aria-label="Season"]')).toBeNull();
-		expect(textOf(view.container, "Volume 1")).not.toBeUndefined();
-		expect(textOf(view.container, "S1 • E3")).not.toBeUndefined();
-		expect(textOf(view.container, "1/2 aired")).not.toBeUndefined();
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(episodeNames(view.container)).toEqual(["Open Episode 3", "Open Episode 1"]),
+				),
+			);
+			expect(storage.entries.get(STORAGE_ENTRY)).toBe("order-dvd");
+			expect(view.container.querySelector('[aria-label="Season"]')).toBeNull();
+			expect(textOf(view.container, "Volume 1")).not.toBeUndefined();
+			expect(textOf(view.container, "S1 • E3")).not.toBeUndefined();
+			expect(textOf(view.container, "1/2 aired")).not.toBeUndefined();
 
-		await click(radio(view.container, "Volume 2"));
+			yield* Effect.promise(() => click(radio(view.container, "Volume 2")));
 
-		await waitFor(() => expect(episodeNames(view.container)).toEqual(["Open Episode 2"]));
-		view.unmount();
-	});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(episodeNames(view.container)).toEqual(["Open Episode 2"])),
+			);
+			view.unmount();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("leaves next up to aired order and forgets the order when aired order is picked", async () => {
-		const storage = createTestPluginStorage([[STORAGE_ENTRY, "order-dvd"]]);
-		const view = renderTab(
-			{ ...showAdapter({ episodeOrders: [dvdOrder] }), accessStorage: storage.accessStorage },
-			summaryNextUp,
-		);
-		await flushRyotClient();
-		await waitFor(() => expect(view.container.textContent).toContain("Episode 3"));
+	it.live("leaves next up to aired order and forgets the order when aired order is picked", () =>
+		Effect.gen(function* () {
+			const storage = createTestPluginStorage([[STORAGE_ENTRY, "order-dvd"]]);
+			const view = renderTab(
+				{ ...showAdapter({ episodeOrders: [dvdOrder] }), accessStorage: storage.accessStorage },
+				summaryNextUp,
+			);
+			yield* Effect.promise(() => flushRyotClient());
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.container.textContent).toContain("Episode 3")),
+			);
 
-		expect(view.container.textContent).not.toContain("Next up");
+			expect(view.container.textContent).not.toContain("Next up");
 
-		await click(radio(view.container, "Aired order"));
+			yield* Effect.promise(() => click(radio(view.container, "Aired order")));
 
-		await waitFor(() => expect(view.container.textContent).toContain("Next up"));
-		expect(storage.entries.has(STORAGE_ENTRY)).toBe(false);
-		view.unmount();
-	});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.container.textContent).toContain("Next up")),
+			);
+			expect(storage.entries.has(STORAGE_ENTRY)).toBe(false);
+			view.unmount();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("falls back to aired order and forgets a stored order the show no longer offers", async () => {
-		const storage = createTestPluginStorage([[STORAGE_ENTRY, "order-gone"]]);
-		const view = renderTab({
-			...showAdapter({ episodeOrders: [dvdOrder] }),
-			accessStorage: storage.accessStorage,
-		});
-		await flushRyotClient();
+	it.live("falls back to aired order and forgets a stored order the show no longer offers", () =>
+		Effect.gen(function* () {
+			const storage = createTestPluginStorage([[STORAGE_ENTRY, "order-gone"]]);
+			const view = renderTab({
+				...showAdapter({ episodeOrders: [dvdOrder] }),
+				accessStorage: storage.accessStorage,
+			});
+			yield* Effect.promise(() => flushRyotClient());
 
-		await waitFor(() => expect(view.container.textContent).toContain("Episode 1: The Arrest"));
-		expect(radio(view.container, "Aired order")?.getAttribute("aria-checked")).toBe("true");
-		await waitFor(() => expect(storage.entries.has(STORAGE_ENTRY)).toBe(false));
-		view.unmount();
-	});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.container.textContent).toContain("Episode 1: The Arrest")),
+			);
+			expect(radio(view.container, "Aired order")?.getAttribute("aria-checked")).toBe("true");
+			yield* Effect.promise(() =>
+				waitFor(() => expect(storage.entries.has(STORAGE_ENTRY)).toBe(false)),
+			);
+			view.unmount();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("loads more of a group past one page of episode ids", async () => {
-		const storage = createTestPluginStorage([[STORAGE_ENTRY, "order-absolute"]]);
-		const view = renderTab({
-			...showAdapter({ episodeOrders: [absoluteOrder] }),
-			accessStorage: storage.accessStorage,
-		});
-		await flushRyotClient();
+	it.live("loads more of a group past one page of episode ids", () =>
+		Effect.gen(function* () {
+			const storage = createTestPluginStorage([[STORAGE_ENTRY, "order-absolute"]]);
+			const view = renderTab({
+				...showAdapter({ episodeOrders: [absoluteOrder] }),
+				accessStorage: storage.accessStorage,
+			});
+			yield* Effect.promise(() => flushRyotClient());
 
-		await waitFor(() => expect(episodeNames(view.container)).toHaveLength(60));
-		expect(view.container.textContent).not.toContain("Episode 61");
+			yield* Effect.promise(() =>
+				waitFor(() => expect(episodeNames(view.container)).toHaveLength(60)),
+			);
+			expect(view.container.textContent).not.toContain("Episode 61");
 
-		await click(
-			Array.from(view.container.querySelectorAll("button")).find(
-				(button) => button.textContent === "Load more",
-			),
-		);
+			yield* Effect.promise(() =>
+				click(
+					Array.from(view.container.querySelectorAll("button")).find(
+						(button) => button.textContent === "Load more",
+					),
+				),
+			);
 
-		await waitFor(() => expect(episodeNames(view.container)).toHaveLength(61));
-		expect(episodeNames(view.container).at(-1)).toBe("Open Episode 61");
-		view.unmount();
-	});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(episodeNames(view.container)).toHaveLength(61)),
+			);
+			expect(episodeNames(view.container).at(-1)).toBe("Open Episode 61");
+			view.unmount();
+		}),
+	);
 });

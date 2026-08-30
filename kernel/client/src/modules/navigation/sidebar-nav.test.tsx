@@ -1,7 +1,8 @@
+import { assert, describe, expect, it } from "@effect/vitest";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type { PluginClientCatalogEntry } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { assert, describe, expect, it } from "vitest";
+import { Effect } from "effect";
 import { axe } from "vitest-axe";
 
 import { SidebarNav } from "#/modules/navigation/sidebar-nav";
@@ -137,12 +138,15 @@ describe("sidebar navigation", () => {
 		expect(screen.getByRole("link", { name: "Home" }).getAttribute("aria-current")).toBe("page");
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("has no accessibility violations", async () => {
-		const view = renderSidebar(true);
-		const results = await axe(view.container, { rules: { "color-contrast": { enabled: false } } });
-		expect(results.violations.map((violation) => violation.id)).toEqual([]);
-	});
+	it.live("has no accessibility violations", () =>
+		Effect.gen(function* () {
+			const view = renderSidebar(true);
+			const results = yield* Effect.promise(() =>
+				axe(view.container, { rules: { "color-contrast": { enabled: false } } }),
+			);
+			expect(results.violations.map((violation) => violation.id)).toEqual([]);
+		}),
+	);
 
 	it("offers no customize affordances when the consumer supplies no handlers", () => {
 		renderSidebar(true);

@@ -1,9 +1,9 @@
+import { describe, expect, it } from "@effect/vitest";
 import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Exit } from "effect";
-import { describe, expect, it } from "vitest";
+import { Effect, Exit } from "effect";
 
 import { AdminApiError } from "#/api/admin";
 import type { ResetLinkTransfer } from "#/modules/god-mode/reset-link-transfer";
@@ -102,338 +102,419 @@ const renderUsers = (
 };
 
 describe("God Mode users administration", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("loads 50-user pages, preserves loaded rows, and trims debounced searches", async () => {
-		const user = userEvent.setup();
-		const users = Array.from({ length: 51 }, (_, index) => makeUser(index));
-		const view = renderUsers(users);
+	it.live("loads 50-user pages, preserves loaded rows, and trims debounced searches", () =>
+		Effect.gen(function* () {
+			const user = userEvent.setup();
+			const users = Array.from({ length: 51 }, (_, index) => makeUser(index));
+			const view = renderUsers(users);
 
-		await screen.findByText("reader-0@example.com");
-		expect(screen.getByText("Showing 50 of 51 users")).toBeTruthy();
-		expect(screen.queryByText("reader-50@example.com")).toBeNull();
-		await user.click(screen.getByRole("button", { name: "Load more users" }));
-		await screen.findByText("reader-50@example.com");
-		expect(view.calls).toContainEqual({ limit: 50, search: "", after: "50" });
-		expect(screen.getByText("Showing 51 of 51 users")).toBeTruthy();
-		expect(screen.queryByRole("button", { name: "Load more users" })).toBeNull();
-		expect(screen.getByText("reader-0@example.com")).toBeTruthy();
+			yield* Effect.promise(() => screen.findByText("reader-0@example.com"));
+			expect(screen.getByText("Showing 50 of 51 users")).toBeTruthy();
+			expect(screen.queryByText("reader-50@example.com")).toBeNull();
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("button", { name: "Load more users" })),
+			);
+			yield* Effect.promise(() => screen.findByText("reader-50@example.com"));
+			expect(view.calls).toContainEqual({ limit: 50, search: "", after: "50" });
+			expect(screen.getByText("Showing 51 of 51 users")).toBeTruthy();
+			expect(screen.queryByRole("button", { name: "Load more users" })).toBeNull();
+			expect(screen.getByText("reader-0@example.com")).toBeTruthy();
 
-		fireEvent.change(screen.getByRole("searchbox"), {
-			target: { value: "  reader-50@example.com  " },
-		});
-		await waitFor(
-			() =>
-				expect(view.calls).toContainEqual({
-					limit: 50,
-					after: undefined,
-					search: "reader-50@example.com",
-				}),
-			{ timeout: 700 },
-		);
-		expect(await screen.findByText("reader-50@example.com")).toBeTruthy();
-		expect(screen.queryByText("reader-0@example.com")).toBeNull();
-	});
+			fireEvent.change(screen.getByRole("searchbox"), {
+				target: { value: "  reader-50@example.com  " },
+			});
+			yield* Effect.promise(() =>
+				waitFor(
+					() =>
+						expect(view.calls).toContainEqual({
+							limit: 50,
+							after: undefined,
+							search: "reader-50@example.com",
+						}),
+					{ timeout: 700 },
+				),
+			);
+			expect(yield* Effect.promise(() => screen.findByText("reader-50@example.com"))).toBeTruthy();
+			expect(screen.queryByText("reader-0@example.com")).toBeNull();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("keeps the first cursor page visible when loading more fails and retries that cursor", async () => {
-		const users = Array.from({ length: 51 }, (_, index) => makeUser(index));
-		const list = makeOperations(users, []).listUsers;
-		const requested: Array<string | undefined> = [];
-		let failures = 0;
-		renderUsers(users, undefined, {
-			listUsers: (search, after, limit) => {
-				requested.push(after);
-				if (after === "50" && failures++ === 0) {
-					return Promise.resolve(Exit.fail(new AdminApiError({ cause: "offline" })));
-				}
-				return list(search, after, limit);
-			},
-		});
+	it.live(
+		"keeps the first cursor page visible when loading more fails and retries that cursor",
+		() =>
+			Effect.gen(function* () {
+				const users = Array.from({ length: 51 }, (_, index) => makeUser(index));
+				const list = makeOperations(users, []).listUsers;
+				const requested: Array<string | undefined> = [];
+				let failures = 0;
+				renderUsers(users, undefined, {
+					listUsers: (search, after, limit) => {
+						requested.push(after);
+						if (after === "50" && failures++ === 0) {
+							return Promise.resolve(Exit.fail(new AdminApiError({ cause: "offline" })));
+						}
+						return list(search, after, limit);
+					},
+				});
 
-		await screen.findByText("reader-0@example.com");
-		fireEvent.click(screen.getByRole("button", { name: "Load more users" }));
-		fireEvent.click(await screen.findByRole("button", { name: "Retry" }));
-		expect(screen.getByText("reader-0@example.com")).toBeTruthy();
-		await screen.findByText("reader-50@example.com");
-		expect(requested).toEqual([undefined, "50", "50"]);
-	});
+				yield* Effect.promise(() => screen.findByText("reader-0@example.com"));
+				fireEvent.click(screen.getByRole("button", { name: "Load more users" }));
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Retry" })),
+				);
+				expect(screen.getByText("reader-0@example.com")).toBeTruthy();
+				yield* Effect.promise(() => screen.findByText("reader-50@example.com"));
+				expect(requested).toEqual([undefined, "50", "50"]);
+			}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("shows the empty state when the first page has no users", async () => {
-		renderUsers([]);
-		await screen.findByRole("heading", { name: "No users found" });
-		expect(screen.queryByRole("button", { name: "Load more users" })).toBeNull();
-	});
+	it.live("shows the empty state when the first page has no users", () =>
+		Effect.gen(function* () {
+			renderUsers([]);
+			yield* Effect.promise(() => screen.findByRole("heading", { name: "No users found" }));
+			expect(screen.queryByRole("button", { name: "Load more users" })).toBeNull();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("shows a reset-password result and injects reset-link transfer", async () => {
-		const user = userEvent.setup();
-		const transferred: string[] = [];
-		renderUsers([makeUser(0)], (url) => {
-			transferred.push(url);
-			return Promise.resolve("copied");
-		});
-		await screen.findByText("reader-0@example.com");
+	it.live("shows a reset-password result and injects reset-link transfer", () =>
+		Effect.gen(function* () {
+			const user = userEvent.setup();
+			const transferred: string[] = [];
+			renderUsers([makeUser(0)], (url) => {
+				transferred.push(url);
+				return Promise.resolve("copied");
+			});
+			yield* Effect.promise(() => screen.findByText("reader-0@example.com"));
 
-		await user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" }));
-		await user.click(screen.getByRole("menuitem", { name: "Generate reset link" }));
-		const resetLink = await screen.findByLabelText<HTMLInputElement>("Password reset link");
-		expect(resetLink.value).toBe("https://example.com/reset");
-		await user.click(screen.getByRole("button", { name: "Copy or share" }));
-		expect(transferred).toEqual(["https://example.com/reset"]);
-		expect(screen.getByRole<HTMLButtonElement>("button", { name: "Copied!" }).disabled).toBe(true);
-	});
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" })),
+			);
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("menuitem", { name: "Generate reset link" })),
+			);
+			const resetLink = yield* Effect.promise(() =>
+				screen.findByLabelText<HTMLInputElement>("Password reset link"),
+			);
+			expect(resetLink.value).toBe("https://example.com/reset");
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("button", { name: "Copy or share" })),
+			);
+			expect(transferred).toEqual(["https://example.com/reset"]);
+			expect(screen.getByRole<HTMLButtonElement>("button", { name: "Copied!" }).disabled).toBe(
+				true,
+			);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("opens and dismisses the accessible action menu", async () => {
-		const user = userEvent.setup();
-		const view = renderUsers([makeUser(0)]);
-		await screen.findByText("reader-0@example.com");
-		const trigger = screen.getByRole("button", { name: "Actions for reader-0@example.com" });
-		expect(trigger.getAttribute("aria-haspopup")).toBe("menu");
-		expect(trigger.getAttribute("aria-expanded")).toBe("false");
-		await user.click(trigger);
-		const menu = await screen.findByRole("menu", { name: "User actions" });
-		const generate = within(menu).getByRole("menuitem", { name: "Generate reset link" });
-		expect(trigger.getAttribute("aria-expanded")).toBe("true");
-		expect(trigger.getAttribute("aria-controls")).toBe(menu.id);
-		expect(document.activeElement).toBe(generate);
+	it.live("opens and dismisses the accessible action menu", () =>
+		Effect.gen(function* () {
+			const user = userEvent.setup();
+			const view = renderUsers([makeUser(0)]);
+			yield* Effect.promise(() => screen.findByText("reader-0@example.com"));
+			const trigger = screen.getByRole("button", { name: "Actions for reader-0@example.com" });
+			expect(trigger.getAttribute("aria-haspopup")).toBe("menu");
+			expect(trigger.getAttribute("aria-expanded")).toBe("false");
+			yield* Effect.promise(() => user.click(trigger));
+			const menu = yield* Effect.promise(() => screen.findByRole("menu", { name: "User actions" }));
+			const generate = within(menu).getByRole("menuitem", { name: "Generate reset link" });
+			expect(trigger.getAttribute("aria-expanded")).toBe("true");
+			expect(trigger.getAttribute("aria-controls")).toBe(menu.id);
+			expect(document.activeElement).toBe(generate);
 
-		await user.keyboard("{ArrowDown}");
-		expect(document.activeElement).toBe(
-			within(menu).getByRole("menuitem", { name: "Disable user" }),
-		);
-		await user.keyboard("{End}");
-		expect(document.activeElement).toBe(
-			within(menu).getByRole("menuitem", { name: "Delete user" }),
-		);
-		await user.keyboard("{Home}");
-		expect(document.activeElement).toBe(generate);
+			yield* Effect.promise(() => user.keyboard("{ArrowDown}"));
+			expect(document.activeElement).toBe(
+				within(menu).getByRole("menuitem", { name: "Disable user" }),
+			);
+			yield* Effect.promise(() => user.keyboard("{End}"));
+			expect(document.activeElement).toBe(
+				within(menu).getByRole("menuitem", { name: "Delete user" }),
+			);
+			yield* Effect.promise(() => user.keyboard("{Home}"));
+			expect(document.activeElement).toBe(generate);
 
-		fireEvent.keyDown(menu, { key: "Escape" });
-		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
-		await waitFor(() => expect(document.activeElement).toBe(trigger));
+			fireEvent.keyDown(menu, { key: "Escape" });
+			yield* Effect.promise(() => waitFor(() => expect(screen.queryByRole("menu")).toBeNull()));
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(trigger)));
 
-		await user.click(trigger);
-		await user.click(document.body);
-		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
+			yield* Effect.promise(() => user.click(trigger));
+			yield* Effect.promise(() => user.click(document.body));
+			yield* Effect.promise(() => waitFor(() => expect(screen.queryByRole("menu")).toBeNull()));
 
-		await user.click(trigger);
-		expect(view.backInterceptors.run()).toBe(true);
-		await waitFor(() => expect(screen.queryByRole("menu")).toBeNull());
-		await waitFor(() => expect(document.activeElement).toBe(trigger));
-	});
+			yield* Effect.promise(() => user.click(trigger));
+			expect(view.backInterceptors.run()).toBe(true);
+			yield* Effect.promise(() => waitFor(() => expect(screen.queryByRole("menu")).toBeNull()));
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(trigger)));
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("restores focus to the action trigger after destructive confirmation", async () => {
-		const user = userEvent.setup();
-		const view = renderUsers([makeUser(0)]);
-		await screen.findByText("reader-0@example.com");
-		const trigger = screen.getByRole("button", { name: "Actions for reader-0@example.com" });
+	it.live("restores focus to the action trigger after destructive confirmation", () =>
+		Effect.gen(function* () {
+			const user = userEvent.setup();
+			const view = renderUsers([makeUser(0)]);
+			yield* Effect.promise(() => screen.findByText("reader-0@example.com"));
+			const trigger = screen.getByRole("button", { name: "Actions for reader-0@example.com" });
 
-		await user.click(trigger);
-		await user.click(screen.getByRole("menuitem", { name: "Reset account" }));
-		const dialog = await screen.findByRole("dialog", { name: "Reset this user?" });
-		expect(screen.queryByRole("menu")).toBeNull();
-		expect(document.activeElement).toBe(within(dialog).getByRole("button", { name: "Cancel" }));
+			yield* Effect.promise(() => user.click(trigger));
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("menuitem", { name: "Reset account" })),
+			);
+			const dialog = yield* Effect.promise(() =>
+				screen.findByRole("dialog", { name: "Reset this user?" }),
+			);
+			expect(screen.queryByRole("menu")).toBeNull();
+			expect(document.activeElement).toBe(within(dialog).getByRole("button", { name: "Cancel" }));
 
-		await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
-		await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-		await waitFor(() => expect(document.activeElement).toBe(trigger));
+			yield* Effect.promise(() =>
+				user.click(within(dialog).getByRole("button", { name: "Cancel" })),
+			);
+			yield* Effect.promise(() => waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()));
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(trigger)));
 
-		await user.click(trigger);
-		await user.click(screen.getByRole("menuitem", { name: "Delete user" }));
-		const deleteDialog = await screen.findByRole("dialog", { name: "Delete this user?" });
-		expect(view.backInterceptors.run()).toBe(true);
-		await waitFor(() => expect(deleteDialog.isConnected).toBe(false));
-		await waitFor(() => expect(document.activeElement).toBe(trigger));
-	});
+			yield* Effect.promise(() => user.click(trigger));
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("menuitem", { name: "Delete user" })),
+			);
+			const deleteDialog = yield* Effect.promise(() =>
+				screen.findByRole("dialog", { name: "Delete this user?" }),
+			);
+			expect(view.backInterceptors.run()).toBe(true);
+			yield* Effect.promise(() => waitFor(() => expect(deleteDialog.isConnected).toBe(false)));
+			yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(trigger)));
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("contains dialog Tab focus and closes the confirmation on Escape", async () => {
-		const user = userEvent.setup();
-		renderUsers([makeUser(0)]);
-		await screen.findByText("reader-0@example.com");
+	it.live("contains dialog Tab focus and closes the confirmation on Escape", () =>
+		Effect.gen(function* () {
+			const user = userEvent.setup();
+			renderUsers([makeUser(0)]);
+			yield* Effect.promise(() => screen.findByText("reader-0@example.com"));
 
-		await user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" }));
-		await user.click(screen.getByRole("menuitem", { name: "Reset account" }));
-		const dialog = await screen.findByRole("dialog", { name: "Reset this user?" });
-		const cancel = within(dialog).getByRole("button", { name: "Cancel" });
-		const confirm = within(dialog).getByRole("button", { name: "Reset account" });
-		expect(document.activeElement).toBe(cancel);
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" })),
+			);
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("menuitem", { name: "Reset account" })),
+			);
+			const dialog = yield* Effect.promise(() =>
+				screen.findByRole("dialog", { name: "Reset this user?" }),
+			);
+			const cancel = within(dialog).getByRole("button", { name: "Cancel" });
+			const confirm = within(dialog).getByRole("button", { name: "Reset account" });
+			expect(document.activeElement).toBe(cancel);
 
-		fireEvent.keyDown(dialog, { key: "Tab", shiftKey: true });
-		expect(document.activeElement).toBe(confirm);
-		fireEvent.keyDown(dialog, { key: "Tab" });
-		expect(document.activeElement).toBe(cancel);
+			fireEvent.keyDown(dialog, { key: "Tab", shiftKey: true });
+			expect(document.activeElement).toBe(confirm);
+			fireEvent.keyDown(dialog, { key: "Tab" });
+			expect(document.activeElement).toBe(cancel);
 
-		fireEvent.keyDown(document, { key: "Escape" });
-		await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
-	});
+			fireEvent.keyDown(document, { key: "Escape" });
+			yield* Effect.promise(() => waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()));
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("refuses every dismissal while the destructive operation is pending", async () => {
-		const user = userEvent.setup();
-		let settle: (() => void) | undefined;
-		const view = renderUsers([makeUser(0)], undefined, {
-			deleteUser: () =>
-				// oxlint-disable-next-line effecttsgo/new-promise -- This controllable test gate stays pending until the host callback or test releases it.
-				new Promise((resolve) => {
-					settle = () =>
-						resolve(
-							Exit.succeed({
-								failure: null,
-								startedAt: null,
-								finishedAt: null,
-								id: "operation-1",
-								resetResult: null,
-								kind: "delete" as const,
-								status: "completed" as const,
-								userId: UserId.make("user-0"),
-								createdAt: "2026-09-01T00:00:00.000Z",
-							}),
-						);
-				}),
-		});
-		await screen.findByText("reader-0@example.com");
+	it.live("refuses every dismissal while the destructive operation is pending", () =>
+		Effect.gen(function* () {
+			const user = userEvent.setup();
+			let settle: (() => void) | undefined;
+			const view = renderUsers([makeUser(0)], undefined, {
+				deleteUser: () =>
+					// oxlint-disable-next-line effecttsgo/new-promise -- This controllable test gate stays pending until the host callback or test releases it.
+					new Promise((resolve) => {
+						settle = () =>
+							resolve(
+								Exit.succeed({
+									failure: null,
+									startedAt: null,
+									finishedAt: null,
+									id: "operation-1",
+									resetResult: null,
+									kind: "delete" as const,
+									status: "completed" as const,
+									userId: UserId.make("user-0"),
+									createdAt: "2026-09-01T00:00:00.000Z",
+								}),
+							);
+					}),
+			});
+			yield* Effect.promise(() => screen.findByText("reader-0@example.com"));
 
-		await user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" }));
-		await user.click(screen.getByRole("menuitem", { name: "Delete user" }));
-		const dialog = await screen.findByRole("dialog", { name: "Delete this user?" });
-		fireEvent.click(within(dialog).getByRole("button", { name: "Delete user" }));
-		await screen.findByRole("button", { name: "Deleting..." });
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" })),
+			);
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("menuitem", { name: "Delete user" })),
+			);
+			const dialog = yield* Effect.promise(() =>
+				screen.findByRole("dialog", { name: "Delete this user?" }),
+			);
+			fireEvent.click(within(dialog).getByRole("button", { name: "Delete user" }));
+			yield* Effect.promise(() => screen.findByRole("button", { name: "Deleting..." }));
 
-		fireEvent.keyDown(document, { key: "Escape" });
-		fireEvent.click(screen.getByRole("button", { name: "Close" }));
-		expect(view.backInterceptors.run()).toBe(true);
-		expect(dialog.isConnected).toBe(true);
-		expect(within(dialog).getByRole<HTMLButtonElement>("button", { name: "Cancel" }).disabled).toBe(
-			true,
-		);
-
-		settle?.();
-		await waitFor(() => expect(dialog.isConnected).toBe(false));
-		await waitFor(() =>
+			fireEvent.keyDown(document, { key: "Escape" });
+			fireEvent.click(screen.getByRole("button", { name: "Close" }));
+			expect(view.backInterceptors.run()).toBe(true);
+			expect(dialog.isConnected).toBe(true);
 			expect(
-				view.calls.filter((call) => typeof call === "object" && call !== null && "limit" in call),
-			).toHaveLength(2),
-		);
-		expect(screen.getByText("reader-0@example.com")).toBeTruthy();
-	});
+				within(dialog).getByRole<HTMLButtonElement>("button", { name: "Cancel" }).disabled,
+			).toBe(true);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("refetches disabled state from the admin users recipe and discards shifted cursor pages", async () => {
-		const user = userEvent.setup();
-		const view = renderUsers(Array.from({ length: 51 }, (_, index) => makeUser(index)));
-		await screen.findByText("reader-0@example.com");
-		await user.click(screen.getByRole("button", { name: "Load more users" }));
-		await screen.findByText("reader-50@example.com");
+			settle?.();
+			yield* Effect.promise(() => waitFor(() => expect(dialog.isConnected).toBe(false)));
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(
+						view.calls.filter(
+							(call) => typeof call === "object" && call !== null && "limit" in call,
+						),
+					).toHaveLength(2),
+				),
+			);
+			expect(screen.getByText("reader-0@example.com")).toBeTruthy();
+		}),
+	);
 
-		await user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" }));
-		await user.click(screen.getByRole("menuitem", { name: "Disable user" }));
+	it.live(
+		"refetches disabled state from the admin users recipe and discards shifted cursor pages",
+		() =>
+			Effect.gen(function* () {
+				const user = userEvent.setup();
+				const view = renderUsers(Array.from({ length: 51 }, (_, index) => makeUser(index)));
+				yield* Effect.promise(() => screen.findByText("reader-0@example.com"));
+				yield* Effect.promise(() =>
+					user.click(screen.getByRole("button", { name: "Load more users" })),
+				);
+				yield* Effect.promise(() => screen.findByText("reader-50@example.com"));
 
-		await screen.findByText("Disabled");
-		expect(view.calls.at(-1)).toEqual({ limit: 50, search: "", after: undefined });
-		expect(screen.getByText("Showing 50 of 51 users")).toBeTruthy();
-		expect(screen.queryByText("reader-50@example.com")).toBeNull();
-		await user.click(screen.getByRole("button", { name: "Load more users" }));
-		await screen.findByText("reader-50@example.com");
-	});
+				yield* Effect.promise(() =>
+					user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" })),
+				);
+				yield* Effect.promise(() =>
+					user.click(screen.getByRole("menuitem", { name: "Disable user" })),
+				);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("refetches after deletion so the first page and total reflect shifted users", async () => {
-		const user = userEvent.setup();
-		const view = renderUsers(Array.from({ length: 51 }, (_, index) => makeUser(index)));
-		await screen.findByText("reader-0@example.com");
-		await user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" }));
-		await user.click(screen.getByRole("menuitem", { name: "Delete user" }));
-		await user.click(
-			within(screen.getByRole("dialog")).getByRole("button", { name: "Delete user" }),
-		);
+				yield* Effect.promise(() => screen.findByText("Disabled"));
+				expect(view.calls.at(-1)).toEqual({ limit: 50, search: "", after: undefined });
+				expect(screen.getByText("Showing 50 of 51 users")).toBeTruthy();
+				expect(screen.queryByText("reader-50@example.com")).toBeNull();
+				yield* Effect.promise(() =>
+					user.click(screen.getByRole("button", { name: "Load more users" })),
+				);
+				yield* Effect.promise(() => screen.findByText("reader-50@example.com"));
+			}),
+	);
 
-		await screen.findByText("reader-50@example.com");
-		expect(view.calls.at(-1)).toEqual({ limit: 50, search: "", after: undefined });
-		expect(screen.queryByText("reader-0@example.com")).toBeNull();
-		expect(screen.getByText("Showing 50 of 50 users")).toBeTruthy();
-		expect(screen.queryByRole("button", { name: "Load more users" })).toBeNull();
-	});
+	it.live("refetches after deletion so the first page and total reflect shifted users", () =>
+		Effect.gen(function* () {
+			const user = userEvent.setup();
+			const view = renderUsers(Array.from({ length: 51 }, (_, index) => makeUser(index)));
+			yield* Effect.promise(() => screen.findByText("reader-0@example.com"));
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" })),
+			);
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("menuitem", { name: "Delete user" })),
+			);
+			yield* Effect.promise(() =>
+				user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Delete user" })),
+			);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("shows a retryable error if the admin list refresh fails after disabling", async () => {
-		const user = userEvent.setup();
-		const users = [makeUser(0)];
-		const list = makeOperations(users, []).listUsers;
-		let requests = 0;
-		renderUsers(users, undefined, {
-			listUsers: (search, after, limit) => {
-				requests += 1;
-				return requests === 2
-					? Promise.resolve(Exit.fail(new AdminApiError({ cause: "offline" })))
-					: list(search, after, limit);
-			},
-		});
-		await screen.findByText("reader-0@example.com");
-		await user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" }));
-		await user.click(screen.getByRole("menuitem", { name: "Disable user" }));
+			yield* Effect.promise(() => screen.findByText("reader-50@example.com"));
+			expect(view.calls.at(-1)).toEqual({ limit: 50, search: "", after: undefined });
+			expect(screen.queryByText("reader-0@example.com")).toBeNull();
+			expect(screen.getByText("Showing 50 of 50 users")).toBeTruthy();
+			expect(screen.queryByRole("button", { name: "Load more users" })).toBeNull();
+		}),
+	);
 
-		await screen.findByRole("alert");
-		expect(screen.queryByText("reader-0@example.com")).toBeNull();
-		await user.click(screen.getByRole("button", { name: "Retry" }));
-		await screen.findByText("reader-0@example.com");
-		expect(requests).toBe(3);
-		expect(screen.getByText("Enabled")).toBeTruthy();
-	});
+	it.live("shows a retryable error if the admin list refresh fails after disabling", () =>
+		Effect.gen(function* () {
+			const user = userEvent.setup();
+			const users = [makeUser(0)];
+			const list = makeOperations(users, []).listUsers;
+			let requests = 0;
+			renderUsers(users, undefined, {
+				listUsers: (search, after, limit) => {
+					requests += 1;
+					return requests === 2
+						? Promise.resolve(Exit.fail(new AdminApiError({ cause: "offline" })))
+						: list(search, after, limit);
+				},
+			});
+			yield* Effect.promise(() => screen.findByText("reader-0@example.com"));
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" })),
+			);
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("menuitem", { name: "Disable user" })),
+			);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("rejects a list refresh when admin authorization expires after deletion", async () => {
-		const user = userEvent.setup();
-		const users = [makeUser(0)];
-		const list = makeOperations(users, []).listUsers;
-		let requests = 0;
-		const view = renderUsers(users, undefined, {
-			listUsers: (search, after, limit) => {
-				requests += 1;
-				return requests === 2
-					? Promise.resolve(
-							Exit.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } })),
-						)
-					: list(search, after, limit);
-			},
-		});
-		await screen.findByText("reader-0@example.com");
-		await user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" }));
-		await user.click(screen.getByRole("menuitem", { name: "Delete user" }));
-		await user.click(
-			within(screen.getByRole("dialog")).getByRole("button", { name: "Delete user" }),
-		);
+			yield* Effect.promise(() => screen.findByRole("alert"));
+			expect(screen.queryByText("reader-0@example.com")).toBeNull();
+			yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Retry" })));
+			yield* Effect.promise(() => screen.findByText("reader-0@example.com"));
+			expect(requests).toBe(3);
+			expect(screen.getByText("Enabled")).toBeTruthy();
+		}),
+	);
 
-		await waitFor(() => expect(view.calls).toContain("unauthorized"));
-		expect(requests).toBe(2);
-		expect(screen.queryByText("reader-0@example.com")).toBeNull();
-	});
+	it.live("rejects a list refresh when admin authorization expires after deletion", () =>
+		Effect.gen(function* () {
+			const user = userEvent.setup();
+			const users = [makeUser(0)];
+			const list = makeOperations(users, []).listUsers;
+			let requests = 0;
+			const view = renderUsers(users, undefined, {
+				listUsers: (search, after, limit) => {
+					requests += 1;
+					return requests === 2
+						? Promise.resolve(
+								Exit.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } })),
+							)
+						: list(search, after, limit);
+				},
+			});
+			yield* Effect.promise(() => screen.findByText("reader-0@example.com"));
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("button", { name: "Actions for reader-0@example.com" })),
+			);
+			yield* Effect.promise(() =>
+				user.click(screen.getByRole("menuitem", { name: "Delete user" })),
+			);
+			yield* Effect.promise(() =>
+				user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Delete user" })),
+			);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("disables unavailable reset links and keeps the note in the menu", async () => {
-		const user = userEvent.setup();
-		renderUsers([makeUser(0, "oidc")]);
-		await screen.findByText("reader-0@example.com");
-		const trigger = screen.getByRole("button", { name: "Actions for reader-0@example.com" });
+			yield* Effect.promise(() => waitFor(() => expect(view.calls).toContain("unauthorized")));
+			expect(requests).toBe(2);
+			expect(screen.queryByText("reader-0@example.com")).toBeNull();
+		}),
+	);
 
-		await user.click(trigger);
-		const menu = screen.getByRole("menu", { name: "User actions" });
-		const resetLink = within(menu).getByRole<HTMLButtonElement>("menuitem", {
-			name: "Generate reset link",
-		});
-		expect(resetLink.disabled).toBe(true);
-		expect(
-			within(menu).getByText("OIDC-only user: password reset links are unavailable."),
-		).toBeTruthy();
+	it.live("disables unavailable reset links and keeps the note in the menu", () =>
+		Effect.gen(function* () {
+			const user = userEvent.setup();
+			renderUsers([makeUser(0, "oidc")]);
+			yield* Effect.promise(() => screen.findByText("reader-0@example.com"));
+			const trigger = screen.getByRole("button", { name: "Actions for reader-0@example.com" });
 
-		await user.keyboard("{Escape}");
-		await waitFor(() =>
+			yield* Effect.promise(() => user.click(trigger));
+			const menu = screen.getByRole("menu", { name: "User actions" });
+			const resetLink = within(menu).getByRole<HTMLButtonElement>("menuitem", {
+				name: "Generate reset link",
+			});
+			expect(resetLink.disabled).toBe(true);
 			expect(
-				screen.queryByText("OIDC-only user: password reset links are unavailable."),
-			).toBeNull(),
-		);
-	});
+				within(menu).getByText("OIDC-only user: password reset links are unavailable."),
+			).toBeTruthy();
+
+			yield* Effect.promise(() => user.keyboard("{Escape}"));
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(
+						screen.queryByText("OIDC-only user: password reset links are unavailable."),
+					).toBeNull(),
+				),
+			);
+		}),
+	);
 });

@@ -1,6 +1,7 @@
+import { describe, expect, it } from "@effect/vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { Effect } from "effect";
 import { useState } from "react";
-import { describe, expect, it } from "vitest";
 import { axe } from "vitest-axe";
 
 import { CustomizePanel } from "#/modules/navigation/customize/customize-panel";
@@ -131,14 +132,17 @@ describe("CustomizePanel", () => {
 		expect(screen.getByText("Views · 1 of 1 shown")).toBeDefined();
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-based test callback and its framework assertions.
-	it("passes an axe pass", async () => {
-		render(<Harness />);
+	it.live("passes an axe pass", () =>
+		Effect.gen(function* () {
+			render(<Harness />);
 
-		const results = await axe(document.body, {
-			rules: { region: { enabled: false }, "color-contrast": { enabled: false } },
-		});
+			const results = yield* Effect.promise(() =>
+				axe(document.body, {
+					rules: { region: { enabled: false }, "color-contrast": { enabled: false } },
+				}),
+			);
 
-		expect(results.violations.map((violation) => violation.id)).toEqual([]);
-	});
+			expect(results.violations.map((violation) => violation.id)).toEqual([]);
+		}),
+	);
 });

@@ -51,6 +51,7 @@
 		"react-dom": "^19.2.0"
 	},
 	"devDependencies": {
+		"@effect/vitest": "4.0.0-rc.117",
 		"@ryot-app/testing": "workspace:*",
 		"@testing-library/react": "^16.3.3",
 		"@types/react": "^19.2.0",

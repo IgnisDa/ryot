@@ -1,7 +1,7 @@
+import { describe, expect, it } from "@effect/vitest";
 import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
-import { describe, expect, it } from "vitest";
 
 import definition, { manifest } from "./media-trending.sandbox";
 
@@ -97,59 +97,66 @@ describe("media trending cron", () => {
 		);
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
-	it("continues after a provider failure and preserves existing edges when all providers fail", async () => {
-		const relationshipWrites: unknown[] = [];
-		const logs: unknown[] = [];
-		let failMovie = false;
-		const host = defineSandboxTestHost(manifest, {
-			log: (entries) =>
-				Effect.sync(() => {
-					logs.push(entries);
-					return null;
-				}),
-			getPluginConfig: (keys) =>
-				Effect.succeed(Object.fromEntries(keys.map((key) => [key, "token"]))),
-			upsertGlobalEntities: (items) =>
-				Effect.succeed(
-					items.map(({ externalId }) => ({
-						wasInserted: true,
-						status: "upserted" as const,
-						entityId: `movie-${externalId}`,
-					})),
-				),
-			upsertGlobalRelationships: (groups) =>
-				Effect.sync(() => {
-					relationshipWrites.push(groups);
-					return groups.map(({ relationships }) => ({
-						deleted: 0,
-						upserted: relationships.length,
-					}));
-				}),
-			httpCall: (_method, url) => {
-				const requestUrl = new URL(url);
-				const isShow = requestUrl.pathname.includes("/trending/tv/");
-				if (isShow || failMovie) {
-					return Effect.fail({ message: "provider unavailable" });
-				}
-				return httpSuccess(
-					requestUrl.searchParams.get("page") === "1"
-						? { results: [{ id: 2, title: "Movie One" }] }
-						: { results: [] },
-				);
-			},
-		});
+	it.live(
+		"continues after a provider failure and preserves existing edges when all providers fail",
+		() =>
+			Effect.gen(function* () {
+				const relationshipWrites: unknown[] = [];
+				const logs: unknown[] = [];
+				let failMovie = false;
+				const host = defineSandboxTestHost(manifest, {
+					log: (entries) =>
+						Effect.sync(() => {
+							logs.push(entries);
+							return null;
+						}),
+					getPluginConfig: (keys) =>
+						Effect.succeed(Object.fromEntries(keys.map((key) => [key, "token"]))),
+					upsertGlobalEntities: (items) =>
+						Effect.succeed(
+							items.map(({ externalId }) => ({
+								wasInserted: true,
+								status: "upserted" as const,
+								entityId: `movie-${externalId}`,
+							})),
+						),
+					upsertGlobalRelationships: (groups) =>
+						Effect.sync(() => {
+							relationshipWrites.push(groups);
+							return groups.map(({ relationships }) => ({
+								deleted: 0,
+								upserted: relationships.length,
+							}));
+						}),
+					httpCall: (_method, url) => {
+						const requestUrl = new URL(url);
+						const isShow = requestUrl.pathname.includes("/trending/tv/");
+						if (isShow || failMovie) {
+							return Effect.fail({ message: "provider unavailable" });
+						}
+						return httpSuccess(
+							requestUrl.searchParams.get("page") === "1"
+								? { results: [{ id: 2, title: "Movie One" }] }
+								: { results: [] },
+						);
+					},
+				});
 
-		await expect(
-			Effect.runPromise(runSandboxTestScript(definition, {}, host, execution)),
-		).resolves.toEqual({ synced: true, itemCount: 1, providerCount: 1 });
-		expect(relationshipWrites).toHaveLength(1);
+				expect(yield* runSandboxTestScript(definition, {}, host, execution)).toEqual({
+					synced: true,
+					itemCount: 1,
+					providerCount: 1,
+				});
+				expect(relationshipWrites).toHaveLength(1);
 
-		failMovie = true;
-		await expect(
-			Effect.runPromise(runSandboxTestScript(definition, {}, host, execution)),
-		).resolves.toEqual({ itemCount: 0, synced: false, providerCount: 0 });
-		expect(relationshipWrites).toHaveLength(1);
-		expect(logs).toHaveLength(3);
-	});
+				failMovie = true;
+				expect(yield* runSandboxTestScript(definition, {}, host, execution)).toEqual({
+					itemCount: 0,
+					synced: false,
+					providerCount: 0,
+				});
+				expect(relationshipWrites).toHaveLength(1);
+				expect(logs).toHaveLength(3);
+			}),
+	);
 });

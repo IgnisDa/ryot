@@ -1,6 +1,7 @@
+import { afterEach, describe, expect, it } from "@effect/vitest";
+import { Effect } from "@ryot-app/client-sdk/effect";
 import { disposePluginBridges, mountPluginPage, routeLocation } from "@ryot-app/client-sdk/testing";
 import { waitFor } from "@testing-library/dom";
-import { afterEach, describe, expect, it } from "vitest";
 
 import { WorkoutPresentation } from "./workout-presentation";
 import type { WorkoutPresentationData } from "./workout-presentation-query";
@@ -60,31 +61,37 @@ const renderWorkout = (data: WorkoutPresentationData, compact: boolean) => {
 };
 
 describe("workout presentation", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits Testing Library's Promise-based waitFor.
-	it("renders date, derived duration, stored set summary, and expandable detail", async () => {
-		const page = renderWorkout(workout, false);
-		await waitFor(() => expect(page.container?.textContent).toContain("Push day"));
+	it.live("renders date, derived duration, stored set summary, and expandable detail", () =>
+		Effect.gen(function* () {
+			const page = renderWorkout(workout, false);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(page.container?.textContent).toContain("Push day")),
+			);
 
-		expect(page.container?.textContent).toContain("Sep 7, 2026");
-		expect(page.container?.textContent).toContain("1h 30m");
-		expect(page.container?.textContent).toContain("1 exercise · 1 set");
-		expect(page.container?.textContent).toContain("Bench Press");
-		expect(page.container?.textContent).toContain("8 reps · 60 kg");
-		expect(page.container?.querySelector("details")).not.toBeNull();
-		expect(page.container?.querySelector("img")).toBeNull();
-	});
+			expect(page.container?.textContent).toContain("Sep 7, 2026");
+			expect(page.container?.textContent).toContain("1h 30m");
+			expect(page.container?.textContent).toContain("1 exercise · 1 set");
+			expect(page.container?.textContent).toContain("Bench Press");
+			expect(page.container?.textContent).toContain("8 reps · 60 kg");
+			expect(page.container?.querySelector("details")).not.toBeNull();
+			expect(page.container?.querySelector("img")).toBeNull();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits Testing Library's Promise-based waitFor.
-	it("omits invalid dates, durations, and empty summaries in compact layout", async () => {
-		const page = renderWorkout(
-			{ ...workout, endedAt: null, exercises: [], startedAt: "invalid" },
-			true,
-		);
-		await waitFor(() => expect(page.container?.textContent).toContain("Push day"));
+	it.live("omits invalid dates, durations, and empty summaries in compact layout", () =>
+		Effect.gen(function* () {
+			const page = renderWorkout(
+				{ ...workout, endedAt: null, exercises: [], startedAt: "invalid" },
+				true,
+			);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(page.container?.textContent).toContain("Push day")),
+			);
 
-		expect(page.container?.querySelector("time")).toBeNull();
-		expect(page.container?.querySelector("details")).toBeNull();
-		expect(page.container?.querySelector("article")?.getAttribute("data-compact")).toBe("true");
-		expect(page.container?.textContent).not.toContain("exercise");
-	});
+			expect(page.container?.querySelector("time")).toBeNull();
+			expect(page.container?.querySelector("details")).toBeNull();
+			expect(page.container?.querySelector("article")?.getAttribute("data-compact")).toBe("true");
+			expect(page.container?.textContent).not.toContain("exercise");
+		}),
+	);
 });

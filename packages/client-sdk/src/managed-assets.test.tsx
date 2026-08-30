@@ -1,8 +1,8 @@
+import { afterEach, describe, expect, it } from "@effect/vitest";
 import { waitFor } from "@testing-library/dom";
 import { Effect } from "effect";
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it } from "vitest";
 
 import { RyotClientError, type ManagedAssetLocator, type RyotClientAdapter } from "./index";
 import {
@@ -53,13 +53,14 @@ const successfulAdapter = (
 	},
 });
 
-// oxlint-disable-next-line effecttsgo/async-function -- Vitest teardown awaits the clock runtime.
-afterEach(async () => {
+afterEach(() => {
 	for (const root of roots.splice(0)) {
 		act(() => root.unmount());
 	}
-	await Promise.all(clocks.splice(0).map((clock) => clock.dispose()));
-	document.body.innerHTML = "";
+	return Promise.all(clocks.splice(0).map((clock) => clock.dispose())).then(() => {
+		document.body.innerHTML = "";
+		return undefined;
+	});
 });
 
 describe("managedAssetBatches", () => {
@@ -94,102 +95,110 @@ describe("managedAssetBatches", () => {
 });
 
 describe("ManagedAssetProvider", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React asset updates.
-	it("issues one resolve query per batch and none for an empty provider", async () => {
-		const calls: (readonly ManagedAssetLocator[])[] = [];
-		render(
-			successfulAdapter(calls),
-			<>
-				<ManagedAssetProvider assets={makeLocators(65)}>content</ManagedAssetProvider>
-				<ManagedAssetProvider assets={[]}>empty</ManagedAssetProvider>
-			</>,
-		);
+	it.live("issues one resolve query per batch and none for an empty provider", () =>
+		Effect.gen(function* () {
+			const calls: (readonly ManagedAssetLocator[])[] = [];
+			render(
+				successfulAdapter(calls),
+				<>
+					<ManagedAssetProvider assets={makeLocators(65)}>content</ManagedAssetProvider>
+					<ManagedAssetProvider assets={[]}>empty</ManagedAssetProvider>
+				</>,
+			);
 
-		await waitFor(() => expect(calls.map((batch) => batch.length)).toEqual([64, 1]));
-	});
+			yield* Effect.promise(() =>
+				waitFor(() => expect(calls.map((batch) => batch.length)).toEqual([64, 1])),
+			);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React asset updates.
-	it("does not query again for an equivalent reordered locator list", async () => {
-		const calls: (readonly ManagedAssetLocator[])[] = [];
-		const locators = makeLocators(3);
-		const mounted = render(
-			successfulAdapter(calls),
-			<ManagedAssetProvider assets={locators}>content</ManagedAssetProvider>,
-		);
-		await waitFor(() => expect(calls).toHaveLength(1));
+	it.live("does not query again for an equivalent reordered locator list", () =>
+		Effect.gen(function* () {
+			const calls: (readonly ManagedAssetLocator[])[] = [];
+			const locators = makeLocators(3);
+			const mounted = render(
+				successfulAdapter(calls),
+				<ManagedAssetProvider assets={locators}>content</ManagedAssetProvider>,
+			);
+			yield* Effect.promise(() => waitFor(() => expect(calls).toHaveLength(1)));
 
-		mounted.rerender(
-			<ManagedAssetProvider assets={[...locators].toReversed()}>content</ManagedAssetProvider>,
-		);
-		await mounted.clock.advance(0);
+			mounted.rerender(
+				<ManagedAssetProvider assets={[...locators].toReversed()}>content</ManagedAssetProvider>,
+			);
+			yield* Effect.promise(() => mounted.clock.advance(0));
 
-		expect(calls).toHaveLength(1);
-	});
+			expect(calls).toHaveLength(1);
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React asset updates.
-	it("refreshes one minute before the earliest expiry", async () => {
-		const calls: (readonly ManagedAssetLocator[])[] = [];
-		const clock = createTestRyotClock(successfulAdapter(calls, "2026-09-04T12:05:00.000Z"));
-		clocks.push(clock);
-		await clock.setTime(Date.parse("2026-09-04T12:00:00.000Z"));
-		const container = document.createElement("div");
-		document.body.append(container);
-		const root = createRoot(container);
-		roots.push(root);
-		act(() =>
-			root.render(
-				<RyotProvider runtime={clock.runtime}>
-					<ManagedAssetProvider assets={makeLocators(1)}>content</ManagedAssetProvider>
-				</RyotProvider>,
-			),
-		);
-		await waitFor(() => expect(calls).toHaveLength(1));
+	it.live("refreshes one minute before the earliest expiry", () =>
+		Effect.gen(function* () {
+			const calls: (readonly ManagedAssetLocator[])[] = [];
+			const clock = createTestRyotClock(successfulAdapter(calls, "2026-09-04T12:05:00.000Z"));
+			clocks.push(clock);
+			yield* Effect.promise(() => clock.setTime(Date.parse("2026-09-04T12:00:00.000Z")));
+			const container = document.createElement("div");
+			document.body.append(container);
+			const root = createRoot(container);
+			roots.push(root);
+			act(() =>
+				root.render(
+					<RyotProvider runtime={clock.runtime}>
+						<ManagedAssetProvider assets={makeLocators(1)}>content</ManagedAssetProvider>
+					</RyotProvider>,
+				),
+			);
+			yield* Effect.promise(() => waitFor(() => expect(calls).toHaveLength(1)));
 
-		await clock.advance(4 * 60_000 - 1);
-		expect(calls).toHaveLength(1);
-		await clock.advance(1);
-		await waitFor(() => expect(calls).toHaveLength(2));
-	});
+			yield* Effect.promise(() => clock.advance(4 * 60_000 - 1));
+			expect(calls).toHaveLength(1);
+			yield* Effect.promise(() => clock.advance(1));
+			yield* Effect.promise(() => waitFor(() => expect(calls).toHaveLength(2)));
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits React asset updates.
-	it("retains the cached URL when an expiry refresh fails", async () => {
-		const asset = { type: "s3", key: "cover" } as const;
-		let calls = 0;
-		const clock = createTestRyotClock({
-			resolveAssets: (assets) => {
-				calls++;
-				if (calls > 1) {
-					return Effect.fail(new RyotClientError("transport"));
-				}
-				return Effect.succeed(
-					assets.map((requested) => ({
-						asset: requested,
-						url: "https://cdn.test/stable-cover",
-						expiresAt: "2026-09-04T12:05:00.000Z",
-					})),
-				);
-			},
-		});
-		clocks.push(clock);
-		await clock.setTime(Date.parse("2026-09-04T12:00:00.000Z"));
-		const Probe = () => <p>{useManagedAssetUrl(asset) ?? "placeholder"}</p>;
-		const container = document.createElement("div");
-		document.body.append(container);
-		const root = createRoot(container);
-		roots.push(root);
-		act(() =>
-			root.render(
-				<RyotProvider runtime={clock.runtime}>
-					<ManagedAssetProvider assets={[asset]}>
-						<Probe />
-					</ManagedAssetProvider>
-				</RyotProvider>,
-			),
-		);
-		await waitFor(() => expect(container.textContent).toBe("https://cdn.test/stable-cover"));
+	it.live("retains the cached URL when an expiry refresh fails", () =>
+		Effect.gen(function* () {
+			const asset = { type: "s3", key: "cover" } as const;
+			let calls = 0;
+			const clock = createTestRyotClock({
+				resolveAssets: (assets) => {
+					calls++;
+					if (calls > 1) {
+						return Effect.fail(new RyotClientError("transport"));
+					}
+					return Effect.succeed(
+						assets.map((requested) => ({
+							asset: requested,
+							url: "https://cdn.test/stable-cover",
+							expiresAt: "2026-09-04T12:05:00.000Z",
+						})),
+					);
+				},
+			});
+			clocks.push(clock);
+			yield* Effect.promise(() => clock.setTime(Date.parse("2026-09-04T12:00:00.000Z")));
+			const Probe = () => <p>{useManagedAssetUrl(asset) ?? "placeholder"}</p>;
+			const container = document.createElement("div");
+			document.body.append(container);
+			const root = createRoot(container);
+			roots.push(root);
+			act(() =>
+				root.render(
+					<RyotProvider runtime={clock.runtime}>
+						<ManagedAssetProvider assets={[asset]}>
+							<Probe />
+						</ManagedAssetProvider>
+					</RyotProvider>,
+				),
+			);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(container.textContent).toBe("https://cdn.test/stable-cover")),
+			);
 
-		await clock.advance(4 * 60_000);
-		await waitFor(() => expect(calls).toBe(2));
-		expect(container.textContent).toBe("https://cdn.test/stable-cover");
-	});
+			yield* Effect.promise(() => clock.advance(4 * 60_000));
+			yield* Effect.promise(() => waitFor(() => expect(calls).toBe(2)));
+			expect(container.textContent).toBe("https://cdn.test/stable-cover");
+		}),
+	);
 });

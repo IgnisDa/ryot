@@ -1,8 +1,8 @@
+import { afterEach, assert, describe, expect, it } from "@effect/vitest";
 import { RyotClientError, type EntityInterest } from "@ryot-app/client-sdk";
 import { Effect } from "@ryot-app/client-sdk/effect";
 import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
 import { fireEvent, getByRole, waitFor } from "@testing-library/dom";
-import { afterEach, assert, describe, expect, it } from "vitest";
 
 import { animeAiringSoonRecipe, showsAiringSoonRecipe } from "../../shared/airing-recipes";
 import {
@@ -255,38 +255,39 @@ function AiringToday(props: { readonly data: ReturnType<typeof airingData> }) {
 }
 
 describe("AiringRail", () => {
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("merges shows and anime by local day and recaptions them at local midnight", async () => {
-		const mondayMorning = new Date(2026, 8, 28, 10).toISOString();
-		const data = airingData({
-			shows: [airingShow("2026-09-26", 3)],
-			anime: [
-				airingAnime("anime-1", "Frieren", mondayMorning, null),
-				airingAnime("anime-2", "Dandadan", "2026-10-05T00:00:00.000Z", "2026-10-05"),
-			],
-		});
-		const view = mountRyotClient(noopAdapter, null);
-		await view.setTime(new Date(2026, 8, 25, 23, 30).getTime());
-		view.rerender(<AiringToday data={data} />);
+	it.live("merges shows and anime by local day and recaptions them at local midnight", () =>
+		Effect.gen(function* () {
+			const mondayMorning = new Date(2026, 8, 28, 10).toISOString();
+			const data = airingData({
+				shows: [airingShow("2026-09-26", 3)],
+				anime: [
+					airingAnime("anime-1", "Frieren", mondayMorning, null),
+					airingAnime("anime-2", "Dandadan", "2026-10-05T00:00:00.000Z", "2026-10-05"),
+				],
+			});
+			const view = mountRyotClient(noopAdapter, null);
+			yield* Effect.promise(() => view.setTime(new Date(2026, 8, 25, 23, 30).getTime()));
+			view.rerender(<AiringToday data={data} />);
 
-		expect(tileLines(view.container)).toEqual([
-			["Open Severance", "Severance", "S2 E10", "Tomorrow · +2 more"],
-			["Open Frieren", "Frieren", "Episode 4", "Monday"],
-			["Open Dandadan", "Dandadan", "Episode 4", "Oct 5"],
-		]);
-		expect(view.container.querySelector("img")?.getAttribute("src")).toBe(
-			"https://images.test/still.jpg",
-		);
+			expect(tileLines(view.container)).toEqual([
+				["Open Severance", "Severance", "S2 E10", "Tomorrow · +2 more"],
+				["Open Frieren", "Frieren", "Episode 4", "Monday"],
+				["Open Dandadan", "Dandadan", "Episode 4", "Oct 5"],
+			]);
+			expect(view.container.querySelector("img")?.getAttribute("src")).toBe(
+				"https://images.test/still.jpg",
+			);
 
-		await view.advance("30 minutes");
+			yield* Effect.promise(() => view.advance("30 minutes"));
 
-		expect(tileLines(view.container).map((tile) => tile.at(-1))).toEqual([
-			"Today · +2 more",
-			"Monday",
-			"Oct 5",
-		]);
-		view.unmount();
-	});
+			expect(tileLines(view.container).map((tile) => tile.at(-1))).toEqual([
+				"Today · +2 more",
+				"Monday",
+				"Oct 5",
+			]);
+			view.unmount();
+		}),
+	);
 
 	it("hides itself when nothing airs in the window", () => {
 		const view = mountRyotClient(
@@ -348,66 +349,76 @@ describe("lazily queried rails", () => {
 		view.unmount();
 	});
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it.each(lazyRails)("$title offers a retry after an error", async ({ Rail }) => {
-		const view = mountRyotClient(
-			respondingAdapter(() => Effect.fail(new RyotClientError("transport"))),
-			<Rail compact />,
-		);
-		await waitFor(() => expect(view.container.querySelector('[role="alert"]')).not.toBeNull());
-		view.unmount();
-	});
+	it.live.each(lazyRails)("$title offers a retry after an error", ({ Rail }) =>
+		Effect.gen(function* () {
+			const view = mountRyotClient(
+				respondingAdapter(() => Effect.fail(new RyotClientError("transport"))),
+				<Rail compact />,
+			);
+			yield* Effect.promise(() =>
+				waitFor(() => expect(view.container.querySelector('[role="alert"]')).not.toBeNull()),
+			);
+			view.unmount();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it.each(lazyRails)("$title hides itself when it has nothing to show", async ({ Rail, empty }) => {
-		const view = mountRyotClient(respondingAdapter(respondWith(empty)), <Rail compact />);
-		await flushRyotClient();
-		await waitFor(() => expect(view.container.textContent).toBe(""));
-		view.unmount();
-	});
+	it.live.each(lazyRails)("$title hides itself when it has nothing to show", ({ Rail, empty }) =>
+		Effect.gen(function* () {
+			const view = mountRyotClient(respondingAdapter(respondWith(empty)), <Rail compact />);
+			yield* Effect.promise(() => flushRyotClient());
+			yield* Effect.promise(() => waitFor(() => expect(view.container.textContent).toBe("")));
+			view.unmount();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("titles suggestions after the completion they come from and watches both", async () => {
-		const interests: EntityInterest[] = [];
-		const view = mountRyotClient(
-			respondingAdapter(
-				respondWith({
-					"suggestions.source": rows([mediaIdentity("movie-1", "Heat", "movie")]),
-					"suggestions.items": rows([mediaIdentity("movie-2", "Collateral", "movie")]),
-				}),
-				interests,
-			),
-			<SuggestionsRail compact />,
-		);
-		await waitFor(() =>
-			expect(view.container.querySelector("h2")?.textContent).toBe("Because you finished Heat"),
-		);
-		expect(tileLines(view.container)).toEqual([["Open Collateral", "Collateral"]]);
-		expect(interests.at(-1)).toEqual({ foreground: [], visible: ["movie-1", "movie-2"] });
-		view.unmount();
-	});
+	it.live("titles suggestions after the completion they come from and watches both", () =>
+		Effect.gen(function* () {
+			const interests: EntityInterest[] = [];
+			const view = mountRyotClient(
+				respondingAdapter(
+					respondWith({
+						"suggestions.source": rows([mediaIdentity("movie-1", "Heat", "movie")]),
+						"suggestions.items": rows([mediaIdentity("movie-2", "Collateral", "movie")]),
+					}),
+					interests,
+				),
+				<SuggestionsRail compact />,
+			);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(view.container.querySelector("h2")?.textContent).toBe("Because you finished Heat"),
+				),
+			);
+			expect(tileLines(view.container)).toEqual([["Open Collateral", "Collateral"]]);
+			expect(interests.at(-1)).toEqual({ foreground: [], visible: ["movie-1", "movie-2"] });
+			view.unmount();
+		}),
+	);
 
-	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits the client test harness's Promise callbacks.
-	it("numbers trending titles by rank", async () => {
-		const view = mountRyotClient(
-			respondingAdapter(
-				respondWith({
-					"trending.trending": rows([
-						trending("movie-1", "Heat", "movie", 1),
-						trending("show-1", "Severance", "show", 1),
-						trending("movie-2", "Collateral", "movie", 2),
+	it.live("numbers trending titles by rank", () =>
+		Effect.gen(function* () {
+			const view = mountRyotClient(
+				respondingAdapter(
+					respondWith({
+						"trending.trending": rows([
+							trending("movie-1", "Heat", "movie", 1),
+							trending("show-1", "Severance", "show", 1),
+							trending("movie-2", "Collateral", "movie", 2),
+						]),
+					}),
+				),
+				<TrendingRail compact />,
+			);
+			yield* Effect.promise(() =>
+				waitFor(() =>
+					expect(tileLines(view.container)).toEqual([
+						["Open Heat", "Heat", "1"],
+						["Open Severance", "Severance", "1"],
+						["Open Collateral", "Collateral", "2"],
 					]),
-				}),
-			),
-			<TrendingRail compact />,
-		);
-		await waitFor(() =>
-			expect(tileLines(view.container)).toEqual([
-				["Open Heat", "Heat", "1"],
-				["Open Severance", "Severance", "1"],
-				["Open Collateral", "Collateral", "2"],
-			]),
-		);
-		view.unmount();
-	});
+				),
+			);
+			view.unmount();
+		}),
+	);
 });

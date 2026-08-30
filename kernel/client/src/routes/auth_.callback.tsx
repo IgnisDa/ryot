@@ -34,52 +34,53 @@ export const Route = createFileRoute("/auth_/callback")({
 			state: searchValue(search.state),
 			error_description: searchValue(search.error_description),
 		}),
-	// oxlint-disable-next-line effecttsgo/async-function -- TanStack OAuth callback loader.
-	beforeLoad: async ({ search, context }) => {
-		const destination = await context.runtime.runPromise(
-			Effect.gen(function* () {
-				const runtimeClient = yield* RuntimeOAuthClientService;
-				const selected = runtimeClient.isNative
-					? yield* Effect.flatMap(ServerService, (service) => service.selected)
-					: decodeServerOrigin(window.location.origin);
-				if (selected === null) {
-					return yield* new OAuthTokenError({ reason: "missing-authorization" });
-				}
-				const origin = selected;
-				const client = yield* runtimeClient
-					.forServer(origin)
-					.pipe(
-						Effect.catchTag("RuntimeOAuthClientError", () =>
-							Effect.fail(new OAuthTokenError({ reason: "invalid-callback" })),
-						),
+	beforeLoad: ({ search, context }) =>
+		context.runtime
+			.runPromise(
+				Effect.gen(function* () {
+					const runtimeClient = yield* RuntimeOAuthClientService;
+					const selected = runtimeClient.isNative
+						? yield* Effect.flatMap(ServerService, (service) => service.selected)
+						: decodeServerOrigin(window.location.origin);
+					if (selected === null) {
+						return yield* new OAuthTokenError({ reason: "missing-authorization" });
+					}
+					const origin = selected;
+					const client = yield* runtimeClient
+						.forServer(origin)
+						.pipe(
+							Effect.catchTag("RuntimeOAuthClientError", () =>
+								Effect.fail(new OAuthTokenError({ reason: "invalid-callback" })),
+							),
+						);
+					if (!search.state) {
+						return yield* new OAuthTokenError({ reason: "invalid-callback" });
+					}
+					if (client.nativeApplicationId !== null) {
+						yield* Effect.tryPromise(() => Browser.close()).pipe(Effect.ignore);
+					}
+					const tokens = yield* OAuthTokenService;
+					if (search.error) {
+						return yield* tokens.rejectAuthorization(origin, search.state);
+					}
+					if (!search.code) {
+						return yield* new OAuthTokenError({ reason: "invalid-callback" });
+					}
+					const pending = yield* tokens.completeAuthorization(
+						origin,
+						client.nativeApplicationId === null ? OAUTH_WEB_CLIENT_IDS : [OAUTH_NATIVE_CLIENT_ID],
+						client.callbackUri,
+						search.state,
+						search.code,
 					);
-				if (!search.state) {
-					return yield* new OAuthTokenError({ reason: "invalid-callback" });
-				}
-				if (client.nativeApplicationId !== null) {
-					yield* Effect.tryPromise(() => Browser.close()).pipe(Effect.ignore);
-				}
-				const tokens = yield* OAuthTokenService;
-				if (search.error) {
-					return yield* tokens.rejectAuthorization(origin, search.state);
-				}
-				if (!search.code) {
-					return yield* new OAuthTokenError({ reason: "invalid-callback" });
-				}
-				const pending = yield* tokens.completeAuthorization(
-					origin,
-					client.nativeApplicationId === null ? OAUTH_WEB_CLIENT_IDS : [OAUTH_NATIVE_CLIENT_ID],
-					client.callbackUri,
-					search.state,
-					search.code,
-				);
-				yield* Effect.flatMap(AuthService, (auth) => auth.settledSession(origin, true));
-				return sanitizeRedirect(pending.destination) ?? "/";
+					yield* Effect.flatMap(AuthService, (auth) => auth.settledSession(origin, true));
+					return sanitizeRedirect(pending.destination) ?? "/";
+				}),
+			)
+			.then((destination) => {
+				// oxlint-disable-next-line typescript/only-throw-error
+				throw redirect({ replace: true, to: destination });
 			}),
-		);
-		// oxlint-disable-next-line typescript/only-throw-error
-		throw redirect({ replace: true, to: destination });
-	},
 });
 
 function CompletingSignIn() {
