@@ -32,6 +32,11 @@ import { triggerFixture } from "./lifecycle.test-support";
 import { LifecyclePlannerLive } from "./planner";
 import { AutomationTriggerRepository } from "./trigger-repository";
 
+const nested = <A, E>(body: Effect.Effect<A, E, Database>) =>
+	Effect.gen(function* () {
+		const db = yield* Database;
+		return yield* db.transaction((tx) => body.pipe(Effect.provideService(Database, tx)));
+	});
 const owner = UserId.make("owner");
 const recipient = UserId.make("recipient");
 const plannerLayer = (maxRuns = 100, batchMaxItems = 200) =>
@@ -407,10 +412,12 @@ describe("LifecyclePlanner PostgreSQL", () => {
 							}),
 						},
 					});
-					const defaultItems = yield* planner.plan({
-						excludedOncePerSubjectPolicies: exclusions,
-						trigger: yield* eventPolicyTrigger("default-items"),
-					});
+					const defaultItems = yield* nested(
+						planner.plan({
+							excludedOncePerSubjectPolicies: exclusions,
+							trigger: yield* eventPolicyTrigger("default-items"),
+						}),
+					);
 					expect(defaultItems.runs).toHaveLength(2);
 					expect(defaultItems.policies).toEqual([
 						{ position: 7, runId: defaultItems.runs[0]?.id },
@@ -643,9 +650,11 @@ describe("LifecyclePlanner PostgreSQL", () => {
 					);
 					yield* installRevisionPackage(eventPolicyPackage("v2", 99, "item"));
 					expect(yield* planner.plan({ trigger })).toEqual({ ...first, wasCreated: false });
-					const fresh = yield* planner.plan({
-						trigger: { ...trigger, id: AutomationTriggerId.make("new-event-policy") },
-					});
+					const fresh = yield* nested(
+						planner.plan({
+							trigger: { ...trigger, id: AutomationTriggerId.make("new-event-policy") },
+						}),
+					);
 					expect(
 						fresh.policies.map(({ position, batchFrequency }) => ({ position, batchFrequency })),
 					).toEqual([
@@ -701,7 +710,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						...original,
 						wasCreated: false,
 					});
-					const next = yield* planner.plan({ trigger: entityTrigger("new") });
+					const next = yield* nested(planner.plan({ trigger: entityTrigger("new") }));
 					expect(next.runs[0]?.pluginRevisionId).not.toBe(original.runs[0]?.pluginRevisionId);
 					expect(next.runs[0]?.sandboxScriptId).not.toBe(original.runs[0]?.sandboxScriptId);
 					expect(next.runs[0]?.pluginConfigRevisionId).not.toBe(
@@ -763,7 +772,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 							.update(tables.pluginInstallation)
 							.set(state)
 							.where(eq(tables.pluginInstallation.id, installed.installation.id));
-						expect(yield* planner.plan({ trigger: entityTrigger(id) })).toMatchObject({
+						expect(yield* nested(planner.plan({ trigger: entityTrigger(id) }))).toMatchObject({
 							runs: [],
 							policies: [],
 						});
@@ -780,10 +789,9 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						.update(tables.pluginInstallation)
 						.set({ activeConfigRevisionId: ready.runs[0].pluginConfigRevisionId })
 						.where(eq(tables.pluginInstallation.id, installed.installation.id));
-					expect(yield* planner.plan({ trigger: entityTrigger("mismatch") })).toMatchObject({
-						runs: [],
-						policies: [],
-					});
+					expect(yield* nested(planner.plan({ trigger: entityTrigger("mismatch") }))).toMatchObject(
+						{ runs: [], policies: [] },
+					);
 					expect(yield* planner.plan({ trigger: entityTrigger("ready") })).toEqual({
 						...ready,
 						wasCreated: false,
@@ -992,8 +1000,12 @@ describe("LifecyclePlanner PostgreSQL", () => {
 				expect((yield* planner.plan({ trigger: entityTrigger("user-a") })).runs).toHaveLength(1);
 				expect((yield* planner.plan({ trigger: globalTrigger("global-a") })).runs).toEqual([]);
 				yield* installRevisionPackage(afterHookPackage("v2", { executionScope: "global" }));
-				expect((yield* planner.plan({ trigger: entityTrigger("user-b") })).runs).toEqual([]);
-				expect((yield* planner.plan({ trigger: globalTrigger("global-b") })).runs).toHaveLength(1);
+				expect((yield* nested(planner.plan({ trigger: entityTrigger("user-b") }))).runs).toEqual(
+					[],
+				);
+				expect(
+					(yield* nested(planner.plan({ trigger: globalTrigger("global-b") }))).runs,
+				).toHaveLength(1);
 			}).pipe(Effect.provide(plannerLayer())),
 		),
 	);
@@ -1009,22 +1021,28 @@ describe("LifecyclePlanner PostgreSQL", () => {
 					[],
 				);
 				yield* installRevisionPackage(afterHookPackage("v2", { frequency: "batch" }));
-				expect((yield* planner.plan({ trigger: entityTrigger("item-2") })).runs).toEqual([]);
+				expect((yield* nested(planner.plan({ trigger: entityTrigger("item-2") }))).runs).toEqual(
+					[],
+				);
 				expect(
-					(yield* planner.plan({ trigger: entityBatchTrigger("batch-2", items) })).runs,
+					(yield* nested(planner.plan({ trigger: entityBatchTrigger("batch-2", items) }))).runs,
 				).toHaveLength(1);
 				expect(
-					(yield* planner.plan({
-						trigger: entityBatchTrigger("batch-partial", [
-							entityChange("other", "absent-entity"),
-							entityChange("entity-3"),
-						]),
-					})).runs,
+					(yield* nested(
+						planner.plan({
+							trigger: entityBatchTrigger("batch-partial", [
+								entityChange("other", "absent-entity"),
+								entityChange("entity-3"),
+							]),
+						}),
+					)).runs,
 				).toHaveLength(1);
 				expect(
-					(yield* planner.plan({
-						trigger: entityBatchTrigger("batch-none", [entityChange("other", "absent-entity")]),
-					})).runs,
+					(yield* nested(
+						planner.plan({
+							trigger: entityBatchTrigger("batch-none", [entityChange("other", "absent-entity")]),
+						}),
+					)).runs,
 				).toEqual([]);
 			}).pipe(Effect.provide(plannerLayer())),
 		),
