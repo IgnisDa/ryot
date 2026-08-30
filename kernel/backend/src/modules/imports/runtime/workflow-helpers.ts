@@ -1,8 +1,8 @@
 import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
 import { Context, Effect, Layer } from "effect";
-import { Activity } from "effect/unstable/workflow";
 
 import { RedisService } from "#lib/infrastructure/redis";
+import { makeActivity } from "#lib/infrastructure/workflow-scope";
 import { UploadIntentsService } from "#modules/uploads/intents/service";
 
 import type { ImportRunJobData } from "../jobs";
@@ -52,27 +52,27 @@ export const createImportRunLifecycle = (
 			const artifacts = yield* ImportRunArtifacts;
 			yield* artifacts.cleanupArtifacts({ claimId, sourceStateId: payload.sourceStateId });
 		}).pipe(Effect.mapError(toWorkflowError));
-		return Activity.make({ name, error: ImportRunError, execute: cleanupEffect });
+		return makeActivity({ name, error: ImportRunError, execute: cleanupEffect });
 	};
 	const cleanupArtifactsBestEffort = (name: string) => {
 		const cleanupBestEffortEffect = Effect.gen(function* () {
 			const artifacts = yield* ImportRunArtifacts;
 			yield* artifacts.cleanupArtifacts({ claimId, sourceStateId: payload.sourceStateId });
 		}).pipe(Effect.ignore);
-		return Activity.make({ name, execute: cleanupBestEffortEffect });
+		return makeActivity({ name, execute: cleanupBestEffortEffect });
 	};
 	const cleanupUploadsBestEffort = (name: string, intentIds: ReadonlyArray<string>) => {
 		const cleanupBestEffortEffect = Effect.gen(function* () {
 			const artifacts = yield* ImportRunArtifacts;
 			yield* artifacts.cleanupUploads(intentIds);
 		}).pipe(Effect.ignore);
-		return Activity.make({ name, execute: cleanupBestEffortEffect });
+		return makeActivity({ name, execute: cleanupBestEffortEffect });
 	};
 	const markRunFailed = (name: string, reason: ImportRunFailureReason) => {
 		const markFailedEffect = failImportRun(payload.runId, reason).pipe(
 			Effect.mapError(toWorkflowError),
 		);
-		return Activity.make({ name, error: ImportRunError, execute: markFailedEffect });
+		return makeActivity({ name, error: ImportRunError, execute: markFailedEffect });
 	};
 
 	const failRunAndCleanup = Effect.fn(function* (input: {

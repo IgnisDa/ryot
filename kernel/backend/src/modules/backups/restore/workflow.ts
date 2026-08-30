@@ -7,12 +7,13 @@ import {
 import type { AssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, FileSystem, Layer, Result, Schedule, Schema } from "effect";
-import { Activity, Workflow } from "effect/unstable/workflow";
+import { Workflow } from "effect/unstable/workflow";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { acquireUserWriteLock } from "#lib/infrastructure/db/user-write-lock";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
+import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { PluginBackupRestore } from "#modules/plugins/backup-restore";
 import { UploadIntentsService } from "#modules/uploads/intents/service";
 import {
@@ -377,14 +378,14 @@ export const runRestoreBackupWorkflow = Effect.fn("RestoreBackupWorkflow")(
 			userId: payload.userId,
 		});
 		const operations = yield* RestoreBackupWorkflowOperations;
-		const started = yield* Activity.make({
+		const started = yield* makeActivity({
 			name: "begin-backup-restore",
 			execute: operations.begin(payload),
 			success: Schema.Boolean satisfies DurableSchema,
 			error: BackupWorkflowError satisfies DurableSchema,
 		}).pipe(Effect.result);
 		if (Result.isFailure(started)) {
-			yield* Activity.make({
+			yield* makeActivity({
 				name: "fail-unstarted-backup-restore",
 				success: Schema.Void satisfies DurableSchema,
 				error: BackupWorkflowError satisfies DurableSchema,
@@ -395,14 +396,14 @@ export const runRestoreBackupWorkflow = Effect.fn("RestoreBackupWorkflow")(
 		if (!started.success) {
 			return;
 		}
-		const claimed = yield* Activity.make({
+		const claimed = yield* makeActivity({
 			name: "claim-backup-restore",
 			execute: operations.claim(payload),
 			success: ClaimedArchive satisfies DurableSchema,
 			error: BackupWorkflowError satisfies DurableSchema,
 		}).pipe(Effect.result);
 		if (Result.isFailure(claimed)) {
-			yield* Activity.make({
+			yield* makeActivity({
 				name: "fail-unclaimed-backup-restore",
 				success: Schema.Void satisfies DurableSchema,
 				error: BackupWorkflowError satisfies DurableSchema,
@@ -410,14 +411,14 @@ export const runRestoreBackupWorkflow = Effect.fn("RestoreBackupWorkflow")(
 			});
 			return;
 		}
-		const restored = yield* Activity.make({
+		const restored = yield* makeActivity({
 			name: "write-backup-restore",
 			success: Schema.Void satisfies DurableSchema,
 			error: BackupWorkflowError satisfies DurableSchema,
 			execute: operations.restore(payload, claimed.success),
 		}).pipe(Effect.result);
 		if (Result.isFailure(restored)) {
-			yield* Activity.make({
+			yield* makeActivity({
 				name: "fail-backup-restore",
 				success: Schema.Void satisfies DurableSchema,
 				error: BackupWorkflowError satisfies DurableSchema,
@@ -425,7 +426,7 @@ export const runRestoreBackupWorkflow = Effect.fn("RestoreBackupWorkflow")(
 			});
 			return;
 		}
-		yield* Activity.make({
+		yield* makeActivity({
 			name: "cleanup-backup-restore",
 			success: Schema.Void satisfies DurableSchema,
 			error: BackupWorkflowError satisfies DurableSchema,
@@ -436,5 +437,7 @@ export const runRestoreBackupWorkflow = Effect.fn("RestoreBackupWorkflow")(
 		Effect.annotateLogs(effect, { executionId, workflow: "RestoreBackupWorkflow" }),
 );
 
-export const RestoreBackupWorkflowDefinitionsLive =
-	RestoreBackupWorkflow.toLayer(runRestoreBackupWorkflow);
+export const RestoreBackupWorkflowDefinitionsLive = implementWorkflow(
+	RestoreBackupWorkflow,
+	runRestoreBackupWorkflow,
+);

@@ -30,6 +30,7 @@ import { Database, DatabaseLive } from "#lib/infrastructure/db/service";
 import { PluginEnvironmentConfig } from "#lib/infrastructure/plugin-environment-config";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
+import { withLifecycleDispatch } from "#modules/automations/lifecycle.test-support";
 import { AutomationTriggerRepository } from "#modules/automations/trigger-repository";
 import { DefinitionRegistry, makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
@@ -214,51 +215,54 @@ const withEntities = <E>(
 		Effect.gen(function* () {
 			const client = yield* PgClient.PgClient;
 			const db = yield* Database;
-			return LifecycleExecution.of({
-				skipQueuedPolicies: ({ triggerId }) =>
-					Effect.sync(() => {
-						options.skippedPolicyTriggers?.push(triggerId);
-					}),
-				after: ({ triggerId }) =>
-					Effect.gen(function* () {
-						expect(Option.isNone(yield* Effect.serviceOption(client.transactionService))).toBe(
-							true,
-						);
-						const [trigger] = yield* db
-							.select()
-							.from(tables.automationTrigger)
-							.where(eq(tables.automationTrigger.id, triggerId));
-						assert(trigger);
-						expect(trigger.category).toBe("change");
-						return options.warnings ?? [];
-					}).pipe(Effect.mapError((error) => new DbError({ message: String(error) }))),
-				executePolicy: ({ runId, payload }) =>
-					Effect.gen(function* () {
-						options.policyCalls?.push(runId);
-						expect(Option.isNone(yield* Effect.serviceOption(client.transactionService))).toBe(
-							true,
-						);
-						const requests = yield* db
-							.select()
-							.from(tables.automationTrigger)
-							.where(eq(tables.automationTrigger.category, "request"))
-							.pipe(Effect.orDie);
-						expect(requests.length).toBeGreaterThan(0);
-						const index = Number(runId.split("-")[1]);
-						if (index === 1) {
-							expect(payload.draft).toMatchObject({ name: "First" });
-						}
-						const output = options.policies?.[index];
-						assert(output);
-						if (output === "fail") {
-							return yield* new AutomationPolicyExecutionError({
-								runId,
-								code: "policy-execution-failed",
-							});
-						}
-						return output;
-					}),
-			});
+			return withLifecycleDispatch(
+				{
+					skipQueuedPolicies: ({ triggerId }) =>
+						Effect.sync(() => {
+							options.skippedPolicyTriggers?.push(triggerId);
+						}),
+					after: ({ triggerId }) =>
+						Effect.gen(function* () {
+							expect(Option.isNone(yield* Effect.serviceOption(client.transactionService))).toBe(
+								true,
+							);
+							const [trigger] = yield* db
+								.select()
+								.from(tables.automationTrigger)
+								.where(eq(tables.automationTrigger.id, triggerId));
+							assert(trigger);
+							expect(trigger.category).toBe("change");
+							return options.warnings ?? [];
+						}).pipe(Effect.mapError((error) => new DbError({ message: String(error) }))),
+					executePolicy: ({ runId, payload }) =>
+						Effect.gen(function* () {
+							options.policyCalls?.push(runId);
+							expect(Option.isNone(yield* Effect.serviceOption(client.transactionService))).toBe(
+								true,
+							);
+							const requests = yield* db
+								.select()
+								.from(tables.automationTrigger)
+								.where(eq(tables.automationTrigger.category, "request"))
+								.pipe(Effect.orDie);
+							expect(requests.length).toBeGreaterThan(0);
+							const index = Number(runId.split("-")[1]);
+							if (index === 1) {
+								expect(payload.draft).toMatchObject({ name: "First" });
+							}
+							const output = options.policies?.[index];
+							assert(output);
+							if (output === "fail") {
+								return yield* new AutomationPolicyExecutionError({
+									runId,
+									code: "policy-execution-failed",
+								});
+							}
+							return output;
+						}),
+				},
+				client,
+			);
 		}),
 	);
 	const services = Layer.mergeAll(
@@ -341,6 +345,48 @@ describe("EntitiesService committed lifecycle", () => {
 				]);
 			}),
 			{ blockedRequiredChange: true },
+		),
+	);
+
+	it.effect("commits in prepare without policies and after policies with the same rows", () =>
+		withEntities(
+			Effect.gen(function* () {
+				const service = yield* EntitiesService;
+				const db = yield* Database;
+				const fast = yield* service.prepareCreateStep(createInput("step-fast"));
+				assert(fast._tag === "Committed");
+				expect(fast.result.wasInserted).toBe(true);
+				expect(fast.dispatch.map(({ triggerId }) => typeof triggerId)).toEqual(["string"]);
+				const replay = yield* service.prepareCreateStep(createInput("step-fast"));
+				assert(replay._tag === "Committed");
+				expect(replay.result.entity.id).toBe(fast.result.entity.id);
+				expect((yield* db.select().from(tables.entity)).map(({ id }) => id)).toEqual([
+					fast.result.entity.id,
+				]);
+			}),
+		),
+	);
+
+	it.effect("runs prepared policies outside the commit and keeps the recorded rows", () =>
+		withEntities(
+			Effect.gen(function* () {
+				const service = yield* EntitiesService;
+				const db = yield* Database;
+				const prepared = yield* service.prepareCreateStep(createInput("step-policies"));
+				assert(prepared._tag === "PoliciesRequired");
+				expect(yield* db.select().from(tables.entity)).toEqual([]);
+				const accepted = yield* service.applyMutationPolicies(prepared.pending);
+				const committed = yield* service.commitMutation(accepted);
+				expect(committed.result.entity.name).toBe("Original");
+				expect((yield* db.select().from(tables.entity)).map(({ name }) => name)).toEqual([
+					"Original",
+				]);
+				expect(
+					(yield* db.select().from(tables.automationTrigger)).map(({ category }) => category),
+				).toEqual(["request", "change"]);
+				expect(committed.dispatch).toHaveLength(1);
+			}),
+			{ policies: [{ action: "allow" }] },
 		),
 	);
 
@@ -515,7 +561,7 @@ describe("EntitiesService committed lifecycle", () => {
 				}),
 			),
 	);
-	it.effect("caps global bulk writes under lock and returns per-item warnings", () =>
+	it.effect("caps global bulk writes under lock and returns dispatched warnings", () =>
 		withEntities(
 			Effect.gen(function* () {
 				yield* seedProvider;
@@ -531,12 +577,16 @@ describe("EntitiesService committed lifecycle", () => {
 				const result = yield* service.upsertGlobalEntities(items, providerId, command("bulk"), {
 					maximumTotal: 2,
 				});
-				expect(result.map((item) => item.status)).toEqual(["upserted", "upserted", "skipped"]);
-				expect(result.map((item) => item.warnings)).toEqual([[warning], [warning], []]);
+				expect(result.results.map((item) => item.status)).toEqual([
+					"upserted",
+					"upserted",
+					"skipped",
+				]);
+				expect(result.warnings).toEqual([warning, warning]);
 				const replay = yield* service.upsertGlobalEntities(items, providerId, command("bulk"), {
 					maximumTotal: 2,
 				});
-				expect(replay).toMatchObject([
+				expect(replay.results).toMatchObject([
 					{ wasInserted: false },
 					{ wasInserted: false },
 					{ status: "skipped" },
@@ -801,42 +851,38 @@ describe("EntitiesService committed lifecycle", () => {
 		),
 	);
 
-	it.effect("requires an active transaction and defers after execution until commit", () =>
-		withEntities(
-			Effect.gen(function* () {
-				yield* seedProvider;
-				const service = yield* EntitiesService;
-				const db = yield* Database;
-				const input = {
-					providerId,
-					name: "Planned",
-					populatedAt: null,
-					updateExisting: true,
-					externalId: "planned",
-					entitySchemaSlug: slug,
-					scope: "global" as const,
-					lifecycle: command("planned"),
-					properties: { title: "planned" },
-				};
-				expect(yield* service.persistPlannedProviderUpsert(input).pipe(Effect.flip)).toMatchObject({
-					code: "active-transaction-required",
-				});
-				const work = yield* db.transaction((tx) =>
-					service.persistPlannedProviderUpsert(input).pipe(Effect.provideService(Database, tx)),
-				);
-				expect(work.result).toMatchObject({ wasInserted: true, outcome: { operation: "create" } });
-				expect(work.plans).toHaveLength(1);
-				expect(
-					yield* db
-						.transaction((tx) =>
-							service.executeCommittedPlans(work.plans).pipe(Effect.provideService(Database, tx)),
-						)
-						.pipe(Effect.flip),
-				).toMatchObject({ code: "postcommit-requires-root" });
-				expect(yield* service.executeCommittedPlans(work.plans)).toEqual([warning]);
-			}),
-			{ warnings: [warning] },
-		),
+	it.effect(
+		"requires an active transaction and returns committed plans for post-commit dispatch",
+		() =>
+			withEntities(
+				Effect.gen(function* () {
+					yield* seedProvider;
+					const service = yield* EntitiesService;
+					const db = yield* Database;
+					const input = {
+						providerId,
+						name: "Planned",
+						populatedAt: null,
+						updateExisting: true,
+						externalId: "planned",
+						entitySchemaSlug: slug,
+						scope: "global" as const,
+						lifecycle: command("planned"),
+						properties: { title: "planned" },
+					};
+					expect(
+						yield* service.persistPlannedProviderUpsert(input).pipe(Effect.flip),
+					).toMatchObject({ code: "active-transaction-required" });
+					const work = yield* db.transaction((tx) =>
+						service.persistPlannedProviderUpsert(input).pipe(Effect.provideService(Database, tx)),
+					);
+					expect(work.result).toMatchObject({
+						wasInserted: true,
+						outcome: { operation: "create" },
+					});
+					expect(work.plans).toHaveLength(1);
+				}),
+			),
 	);
 
 	it.effect("rolls back transaction-scoped provider persistence when a before policy matches", () =>

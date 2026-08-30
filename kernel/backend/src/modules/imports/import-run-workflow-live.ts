@@ -1,5 +1,7 @@
 import { Effect, Layer } from "effect";
 
+import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
+
 import { ProcessImportRunWorkflow } from "./import-run-workflow";
 import type { ImportRunJobData } from "./jobs";
 import { runPluginImportWorkflow } from "./plugin-import-workflow";
@@ -19,7 +21,10 @@ export const runProcessImportRunWorkflow = Effect.fn("ProcessImportRunWorkflow")
 		Effect.annotateLogs(effect, { executionId, workflow: "ProcessImportRunWorkflow" }),
 );
 
-const ProcessImportRunWorkflowLive = ProcessImportRunWorkflow.toLayer(runProcessImportRunWorkflow);
+const ProcessImportRunWorkflowLive = implementWorkflow(
+	ProcessImportRunWorkflow,
+	runProcessImportRunWorkflow,
+);
 
 export const ImportWorkflowDefinitionsLive = ProcessImportRunWorkflowLive.pipe(
 	Layer.provide(ImportRunArtifacts.layer),
