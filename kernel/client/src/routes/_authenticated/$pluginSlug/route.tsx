@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, notFound } from "@tanstack/react-router";
 import { Effect } from "effect";
 
 import { ClientPageHost } from "#/modules/client-pages/page-host";
@@ -22,7 +22,8 @@ export const Route = createFileRoute("/_authenticated/$pluginSlug")({
 		);
 		const installation = catalog.find((candidate) => candidate.slug === params.pluginSlug);
 		if (installation === undefined) {
-			return { kind: "missing" as const };
+			// oxlint-disable-next-line typescript/only-throw-error
+			throw notFound();
 		}
 		const pluginLocation = toPluginLocation(
 			params.pluginSlug,
@@ -41,15 +42,12 @@ export const Route = createFileRoute("/_authenticated/$pluginSlug")({
 		const preparation = await context.runtime.runPromise(prepareClientPage(context.scope, target), {
 			signal: abortController.signal,
 		});
-		return { preparation, installation, kind: "resolved" as const };
+		return { preparation, installation };
 	},
 });
 
 function PluginRoute() {
 	const loaded = Route.useLoaderData();
-	if (loaded.kind === "missing") {
-		return <PluginNotFound />;
-	}
 	if (loaded.preparation.kind === "unavailable") {
 		return <PluginNotice title="Plugin page not found" />;
 	}
