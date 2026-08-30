@@ -14,6 +14,8 @@ import { Effect } from "effect";
 
 import { UserSettingsApi } from "#/api/user-settings";
 import type { KernelHostServices } from "#/host-services";
+import { AuthService } from "#/modules/auth/service";
+import { DemoProtectionMessage, useIsDemoSession } from "#/modules/demo-protection";
 import { EntityInterestService } from "#/modules/entity-interest/service";
 import { Appearance } from "#/modules/settings/appearance";
 import { PreferencesForm } from "#/modules/settings/preferences-form";
@@ -56,13 +58,15 @@ const updatePreferencesMutation = createRyotMutation<
 );
 
 function PreferencesRoute() {
-	const { theme } = Route.useRouteContext();
+	const { theme, server, runtime } = Route.useRouteContext();
+	const isDemo = useIsDemoSession(runtime.runSync(AuthService).session(server));
 	const preferences = useRyotQuery(preferencesQuery);
 	const updatePreferences = useRyotMutation(updatePreferencesMutation);
 	let content = <StatusMessage tone="pending">Loading your settings...</StatusMessage>;
 	if (preferences.data !== undefined) {
 		content = (
 			<PreferencesForm
+				disabled={isDemo}
 				preferences={preferences.data}
 				onSave={(payload) => updatePreferences.mutateAsync(payload)}
 			/>
@@ -85,6 +89,7 @@ function PreferencesRoute() {
 					title="Content and data"
 					detail="Control metadata and background connections."
 				>
+					{isDemo && <DemoProtectionMessage />}
 					{content}
 				</SettingsSection>
 			</div>

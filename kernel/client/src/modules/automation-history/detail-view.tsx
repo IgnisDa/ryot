@@ -7,6 +7,7 @@ import type {
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 
 import { AutomationStatusPill } from "#/modules/automation-history/status";
+import { DemoProtectionMessage } from "#/modules/demo-protection";
 import { formatRunDuration, runTimestampLabel } from "#/modules/ui/run/run-status";
 
 type AutomationHistoryDetailViewProps = {
@@ -15,6 +16,7 @@ type AutomationHistoryDetailViewProps = {
 	readonly retryFailed: boolean;
 	readonly retryResult: AutomationHistoryRetryResult | undefined;
 	readonly onRetry: () => void;
+	readonly isDemoProtected: boolean;
 };
 
 type RetryUnavailableReason = Exclude<AutomationHistoryDetail["retryEligibility"]["reason"], null>;
@@ -184,15 +186,18 @@ export function AutomationHistoryDetailView(props: AutomationHistoryDetailViewPr
 					<Definition label="Artifacts expire" value={runTimestampLabel(run.artifactsExpireAt)} />
 				</dl>
 				{unavailable === null ? (
-					<Button
-						type="button"
-						variant="primary"
-						onClick={props.onRetry}
-						disabled={props.isRetrying}
-						className="w-full sm:w-auto sm:self-start sm:px-6"
-					>
-						{props.isRetrying ? "Retrying..." : "Retry run"}
-					</Button>
+					<>
+						{props.isDemoProtected ? <DemoProtectionMessage /> : null}
+						<Button
+							type="button"
+							variant="primary"
+							onClick={props.onRetry}
+							className="w-full sm:w-auto sm:self-start sm:px-6"
+							disabled={props.isDemoProtected || props.isRetrying}
+						>
+							{props.isRetrying ? "Retrying..." : "Retry run"}
+						</Button>
+					</>
 				) : (
 					<p className="text-sm text-text-muted">{unavailableLabels[unavailable]}</p>
 				)}
