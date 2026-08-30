@@ -1,18 +1,20 @@
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	PluginConflictError,
+	type PluginHomeViewSelection,
 	PluginNotFoundError,
 	PluginRequestError,
 	type PluginInstallationItem,
 	type UpdatePrivatePluginBody,
 	type UpdatePluginInstallationBody,
 } from "@ryot-app/contract/modules/plugins/schemas";
-import { PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
+import { KernelSavedViewRendererName } from "@ryot-app/contract/modules/saved-views/schemas";
+import { PluginSlug, SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
 import { isJsonValue } from "@ryot-app/contract/schema/json";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { readPluginArchiveStream, type PluginArchivePackage } from "@ryot-app/plugin-archive";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
-import { Context, Effect, Layer, Result } from "effect";
+import { Context, Effect, Layer, Result, Schema } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import {
@@ -76,7 +78,22 @@ type InstallationView = {
 	readonly defaultSortOrder: number;
 	readonly scope: "system" | "user";
 	readonly state: PluginInstallationRow | null;
+	readonly homeSavedViewId?: PluginHomeViewSelection["savedViewId"];
 };
+
+type HomeSavedViewTarget = NonNullable<
+	Effect.Success<ReturnType<PluginInstallationRepository["Service"]["findHomeSavedView"]>>
+>;
+
+const isUsableHomeSavedView = (userId: UserId, target: HomeSavedViewTarget) =>
+	!target.view.isDisabled &&
+	(target.view.renderer?.kind === "kernel"
+		? Schema.is(KernelSavedViewRendererName)(target.view.renderer.name)
+		: target.view.renderer?.kind === "custom" &&
+			target.renderer?.userId === userId &&
+			target.renderer.publishedHash !== null &&
+			target.renderer.publishedRevision !== null &&
+			target.renderer.publishedDefinition !== null);
 
 const buildEffectiveDefinitions = (
 	systemDefinitions: Parameters<typeof definitionSourceFromSnapshot>[0],
@@ -304,6 +321,7 @@ const toInstallationItem = (view: InstallationView): PluginInstallationItem => {
 		sourceHash: view.sourceHash,
 		health: view.state?.health ?? "ready",
 		isDisabled: view.state?.isDisabled ?? false,
+		homeSavedViewId: view.homeSavedViewId ?? null,
 		healthReason: view.state?.healthReason ?? null,
 		configuredSecrets: [...configuredSecrets].sort(),
 		slug: PluginSlug.make(view.manifest.metadata.slug),
@@ -513,6 +531,23 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				userId: UserId,
 			) {
 				const states = yield* installations.listForUser(userId);
+				const effectiveHomeViews = new Map(
+					yield* Effect.forEach(states, (state) =>
+						Effect.gen(function* () {
+							const selectedId = state.homeSavedViewId;
+							if (selectedId == null) {
+								return [state.id, null] as const;
+							}
+							const target = yield* installations.findHomeSavedView(userId, selectedId);
+							return [
+								state.id,
+								target && isUsableHomeSavedView(userId, target)
+									? SavedViewId.make(selectedId)
+									: null,
+							] as const;
+						}),
+					),
+				);
 				const privatePlugins = yield* repository.listPrivateForUser(userId);
 				const stateByPluginId = new Map(states.map((state) => [state.pluginId, state]));
 				const systemPlugins = Object.values(loader.getSnapshot().plugins);
@@ -523,6 +558,8 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						manifest: plugin.manifest,
 						sourceHash: plugin.sourceHash,
 						state: stateByPluginId.get(plugin.id) ?? null,
+						homeSavedViewId:
+							effectiveHomeViews.get(stateByPluginId.get(plugin.id)?.id ?? "") ?? null,
 					}),
 				);
 				const privateItems = privatePlugins.map((plugin, index) =>
@@ -532,11 +569,69 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						sourceHash: plugin.sourceHash,
 						defaultSortOrder: systemPlugins.length + index,
 						state: stateByPluginId.get(plugin.id) ?? null,
+						homeSavedViewId:
+							effectiveHomeViews.get(stateByPluginId.get(plugin.id)?.id ?? "") ?? null,
 					}),
 				);
 				return [...systemItems, ...privateItems].sort(
 					(left, right) => left.sortOrder - right.sortOrder || left.slug.localeCompare(right.slug),
 				);
+			});
+
+			const setHomeView = Effect.fn("PluginInstallationService.setHomeView")(function* (
+				userId: UserId,
+				slug: string,
+				payload: PluginHomeViewSelection,
+			) {
+				const pluginSlug = PluginSlug.make(slug);
+				const systemPlugin = loader.getSnapshot().plugins[slug];
+				const privatePlugin = systemPlugin
+					? undefined
+					: (yield* repository.listPrivateForUser(userId)).find(
+							(candidate) => candidate.slug === slug,
+						);
+				const plugin = systemPlugin ?? privatePlugin;
+				const state = plugin ? yield* installations.findByUserAndPlugin(userId, plugin.id) : null;
+				if (!state) {
+					return yield* new PluginNotFoundError({
+						reason: { code: "plugin-not-found", pluginSlug },
+					});
+				}
+				const updated = yield* mapDatabaseErrors(
+					database.transaction((transaction) =>
+						Effect.gen(function* () {
+							if (payload.savedViewId !== null) {
+								const target = yield* installations.lockHomeSavedView(userId, payload.savedViewId);
+								if (!target) {
+									return yield* new PluginRequestError({
+										reason: { code: "home-view-not-found", savedViewId: payload.savedViewId },
+									});
+								}
+								if (target.view.isDisabled) {
+									return yield* new PluginRequestError({
+										reason: { code: "home-view-disabled", savedViewId: payload.savedViewId },
+									});
+								}
+								if (!isUsableHomeSavedView(userId, target)) {
+									return yield* new PluginRequestError({
+										reason: {
+											savedViewId: payload.savedViewId,
+											code: "home-view-renderer-unavailable",
+										},
+									});
+								}
+							}
+							return yield* installations.setHomeSavedView(userId, state.id, payload.savedViewId);
+						}).pipe(Effect.provideService(Database, transaction)),
+					),
+				);
+				if (!updated) {
+					return yield* new PluginNotFoundError({
+						reason: { code: "plugin-not-found", pluginSlug },
+					});
+				}
+				yield* invalidator.user(userId);
+				return payload;
 			});
 
 			const dispatchInstallationLifecycle = Effect.fn(
@@ -994,6 +1089,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			});
 
 			return {
+				setHomeView,
 				uninstallPlugin,
 				listInstallations,
 				updateInstallation,
