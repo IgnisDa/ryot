@@ -24,6 +24,7 @@ const normalizedPlugin = (pluginSlug: string): PluginRegistryEntry => {
 	const script = { ...declared, slug: scriptSlug };
 	const normalizedManifest = {
 		...manifest,
+		hooks: [],
 		savedViews: [],
 		scripts: [script],
 		entitySchemas: [],
@@ -31,13 +32,6 @@ const normalizedPlugin = (pluginSlug: string): PluginRegistryEntry => {
 		relationshipSchemas: [],
 		metadata: { ...manifest.metadata, slug: pluginSlug },
 		boot: [{ scriptSlug, slug: `${pluginSlug}-boot`, description: `${pluginSlug} boot` }],
-		bindings: {
-			eventAutomations: [],
-			entityAutomations: [],
-			signalAutomations: [],
-			relationshipAutomations: [],
-			providerEntityImportAutomations: [],
-		},
 	} satisfies PluginManifest;
 	const { entry, ...metadata } = script;
 	return {
@@ -90,9 +84,9 @@ const makeLayer = (
 											slug: boot.scriptSlug,
 											name: boot.scriptSlug,
 											createdAt: new Date(0),
-											updatedAt: new Date(0),
 											compiledCode: "compiled",
 											contentHash: `${boot.scriptSlug}-hash`,
+											pluginRevisionId: `${pluginSlug}-revision-id`,
 											id: SandboxScriptId.make(`${boot.scriptSlug}-id`),
 											metadata: {
 												capabilities: [],

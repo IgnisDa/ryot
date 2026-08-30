@@ -203,7 +203,6 @@ const eventsInput = (events: ReadonlyArray<ArchiveEvent>) => {
 };
 
 const entity = (): ArchiveRecords["entities"][number] => ({
-	origin: null,
 	id: "entity-1",
 	name: "Entity",
 	properties: {},
@@ -252,6 +251,18 @@ const rawZip = (paths: ReadonlyArray<string>) => {
 	return bytes(chunks);
 };
 
+const excludedAccountArchiveSections = [
+	"automation-triggers.ndjson",
+	"automation-trigger-recipients.ndjson",
+	"automation-runs.ndjson",
+	"automation-run-attempts.ndjson",
+	"automation-artifacts.ndjson",
+	"automation-retry-state.ndjson",
+	"plugin-config-revisions.ndjson",
+	"plugin-environment-config.ndjson",
+	"plugin-config-encryption-key.json",
+] as const;
+
 it.effect("creates deterministic V1 archives and validates the round trip", () =>
 	Effect.gen(function* () {
 		const first = yield* archiveBytes();
@@ -263,19 +274,17 @@ it.effect("creates deterministic V1 archives and validates the round trip", () =
 	}).pipe(Effect.scoped, Effect.provide(BunFileSystem.layer)),
 );
 
-it.effect("encodes and retains entity creation origin", () =>
+it.effect("excludes automation history and configuration revision sections", () =>
 	Effect.gen(function* () {
-		const origin = { kind: "bootstrap" as const };
-		const archive = yield* archiveBytes({
-			...input(),
-			records: { ...records, entities: [{ ...entity(), origin }] },
-		});
-		const validated = yield* validateArchive(asChunks(archive));
-		expect(validated.records.entities[0]?.origin).toEqual(origin);
-		expect(validated.records.clientRenderers).toEqual(records.clientRenderers);
-		expect(validated.records.savedViews).toEqual(records.savedViews);
-		expect(validated.records.installations[0]?.homeSavedViewId).toBe("view-1");
-	}).pipe(Effect.scoped, Effect.provide(BunFileSystem.layer)),
+		const files = unzipSync(yield* archiveBytes());
+		const manifestFile = files["manifest.json"];
+		assert(manifestFile);
+		const sectionPaths = decodeManifest(manifestFile).sections.map(({ path }) => path);
+		for (const path of excludedAccountArchiveSections) {
+			expect(files).not.toHaveProperty(path);
+			expect(sectionPaths).not.toContain(path);
+		}
+	}).pipe(Effect.provide(BunFileSystem.layer)),
 );
 
 it.effect("validates the V1 golden fixture", () =>

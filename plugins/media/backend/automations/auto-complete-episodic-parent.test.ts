@@ -8,10 +8,10 @@ import { describe, expect, it } from "vitest";
 import type { EpisodicLifecycleState } from "../../shared/lifecycle-expressions";
 import {
 	eventAutomationContext,
-	automationOccurrenceForContext,
+	automationContext,
+	entityRecord,
 	execution,
 	hostSuccess,
-	registerAutomationOccurrence,
 } from "../../tests/backend/automations/automation-test-utils";
 import type { CurrentCycleChildEvent, EventOrderTuple } from "../contracts/lifecycle-recipes";
 import definition, {
@@ -96,12 +96,13 @@ const eventContext = (
 	entitySchemaSlug = "show-episode",
 ) =>
 	eventAutomationContext({
+		entitySchemaSlug,
 		id: "trigger-event",
+		entityId: "episode-2",
 		sessionEntityId: "show-1",
 		eventSchemaSlug: "complete",
 		createdAt: "2026-01-04T00:00:00.000Z",
 		occurredAt: "2026-01-04T00:00:00.000Z",
-		subject: { name: "Finale", id: "episode-2", entitySchemaSlug },
 		...overrides,
 	});
 
@@ -110,30 +111,22 @@ const entityContext = (
 	afterStatus: string | null,
 	entitySchemaSlug = "show",
 ): AutomationInput => {
-	const context: AutomationInput = {
-		automation: {
-			operation: "update",
-			ruleId: "automation-rule-1",
-			occurrenceId: "occurrence-1",
-			origin: { kind: "provider_refresh" },
-			occurredAt: "2026-01-10T00:00:00.000Z",
-			source: { kind: "entity", entityId: "show-1" },
-		},
-	};
-	return registerAutomationOccurrence(context, {
-		kind: "entity",
-		after: {
+	return automationContext({
+		category: "change",
+		resource: "entity",
+		operation: "update",
+		after: entityRecord({
 			id: "show-1",
 			name: "Show",
 			entitySchemaSlug,
 			properties: afterStatus === null ? {} : { productionStatus: afterStatus },
-		},
-		before: {
+		}),
+		before: entityRecord({
 			id: "show-1",
 			name: "Show",
 			entitySchemaSlug,
 			properties: beforeStatus === null ? {} : { productionStatus: beforeStatus },
-		},
+		}),
 	});
 };
 
@@ -241,22 +234,13 @@ const createHost = (
 };
 
 const run = (context: AutomationInput, host: ReturnType<typeof createHost>["host"]) =>
-	definition.run(
-		context,
-		{
-			...host,
-			executeRyotql: (document) =>
-				"occurrences" in document.queries
-					? hostSuccess(automationOccurrenceForContext(context))
-					: host.executeRyotql(document),
-		},
-		execution,
-	);
+	definition.run(context, host, execution);
 
 describe("auto-complete-episodic-parent sandbox script", () => {
 	it("declares the exact automation manifest", () => {
 		expect(manifest).toEqual({
 			kind: "automation",
+			automationType: "automation",
 			requiredPluginConfigKeys: [],
 			requiredSystemConfigKeys: [],
 			name: "Auto-Complete Episodic Parent",

@@ -14,6 +14,7 @@ import type { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
+import type { SandboxPluginRevision } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { sandboxContextError } from "#lib/infrastructure/sandbox-runtime/limits";
 import {
 	createWorkflowJobId,
@@ -44,7 +45,7 @@ const sandboxExecutionFailure = (error: SandboxRunError) => ({
 	logs: [],
 	value: null,
 	status: "completed" as const,
-	error: { message: error.message, phase: "execute" as const },
+	error: { kind: error.kind, message: error.message, phase: "execute" as const },
 });
 
 const toPluginWorkflowResult = (result: Workflow.Result<JsonValue, SandboxRunError> | undefined) =>
@@ -185,13 +186,14 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 								script
 									? Effect.succeed(script.id)
 									: new SandboxRunError({
+											kind: "missing-artifact",
 											message: `Plugin workflow not found: ${input.pluginId}/${input.workflowSlug}`,
 										}),
 							),
 							Effect.mapError((error) =>
 								error instanceof SandboxRunError
 									? error
-									: new SandboxRunError({ message: String(error) }),
+									: new SandboxRunError({ kind: "infrastructure", message: String(error) }),
 							),
 						),
 					});
@@ -204,11 +206,12 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 					executionId: string;
 					scriptId: SandboxScriptId;
 					grants?: SandboxExecutionGrants;
+					pluginRevision?: SandboxPluginRevision;
 					subject: SandboxExecutionSubject;
 				}) {
 					const contextError = sandboxContextError(input.input);
 					if (contextError) {
-						return yield* new SandboxRunError({ message: contextError });
+						return yield* new SandboxRunError({ message: contextError, kind: "invalid-input" });
 					}
 					return yield* engine.execute(SandboxScriptWorkflow, {
 						executionId: input.executionId,
@@ -219,6 +222,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 							scriptId: input.scriptId,
 							executionId: input.executionId,
 							...(input.grants ? { grants: input.grants } : {}),
+							...(input.pluginRevision ? { pluginRevision: input.pluginRevision } : {}),
 						},
 					});
 				},
@@ -234,11 +238,15 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 				return yield* Effect.gen(function* () {
 					const contextError = sandboxContextError(input.input);
 					if (contextError) {
-						return yield* new SandboxRunError({ message: contextError });
+						return yield* new SandboxRunError({ message: contextError, kind: "invalid-input" });
 					}
 					const scriptInput = yield* Schema.decodeUnknownEffect(jsonValueSchema)(input.input).pipe(
 						Effect.mapError(
-							() => new SandboxRunError({ message: "Sandbox script input must be JSON" }),
+							() =>
+								new SandboxRunError({
+									kind: "invalid-input",
+									message: "Sandbox script input must be JSON",
+								}),
 						),
 					);
 					return yield* executeSandboxScriptWorkflow({
@@ -265,7 +273,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 				executingUserId: UserId;
 				scriptId: SandboxScriptId;
 			}) {
-				return yield* establishSandboxWorkflowPin(
+				const pin = yield* establishSandboxWorkflowPin(
 					{
 						input: {},
 						resolutionMode: "exact",
@@ -280,6 +288,13 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 					Effect.provideService(SandboxPluginScriptResolver, pluginScriptResolver),
 					Effect.provideService(SandboxWorkflowReferenceRepository, workflowReferences),
 				);
+				if (!pin.principal.pluginRevision) {
+					return yield* new SandboxRunError({
+						kind: "missing-artifact",
+						message: "Sandbox workflow plugin pin not found",
+					});
+				}
+				return { ...pin, pluginRevision: pin.principal.pluginRevision };
 			});
 
 			const releaseWorkflowRegistration = (executionId: string) =>
@@ -296,7 +311,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 				}) {
 					const contextError = sandboxContextError(input.input);
 					if (contextError) {
-						return yield* new SandboxRunError({ message: contextError });
+						return yield* new SandboxRunError({ message: contextError, kind: "invalid-input" });
 					}
 					const script = yield* pluginScriptResolver.findWorkflowScriptAvailableToUser(
 						input.executingUserId,
@@ -331,7 +346,14 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 						.execute(SandboxScriptWorkflow, {
 							discard: true,
 							executionId: input.executionId,
-							payload: { ...payload, resolutionMode: "exact", scriptId: pin.principal.scriptId },
+							payload: {
+								...payload,
+								resolutionMode: "exact",
+								scriptId: pin.principal.scriptId,
+								...(pin.principal.pluginRevision
+									? { pluginRevision: pin.principal.pluginRevision }
+									: {}),
+							},
 						})
 						.pipe(
 							Effect.matchCauseEffect({

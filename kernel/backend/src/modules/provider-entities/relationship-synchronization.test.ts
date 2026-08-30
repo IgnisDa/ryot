@@ -1,357 +1,194 @@
-import { assert, expect, it } from "@effect/vitest";
+import { expect, it } from "@effect/vitest";
 import {
+	AutomationExecutionId,
 	EntityId,
 	RelationshipId,
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { Effect, Layer } from "effect";
 
+import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { databaseLayer } from "#lib/test-utils/effect";
+import {
+	DefinitionRegistry,
+	definitionSourceFromSnapshot,
+	makeDefinitionRegistry,
+} from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 
-import { synchronizeGlobalRelationships } from "./relationship-synchronization";
+import { persistPlannedRelationshipSynchronization } from "./relationship-synchronization";
 
+const userId = UserId.make("user-1");
 const anchorEntityId = EntityId.make("anchor");
+const relatedEntityId = EntityId.make("related");
+const staleEntityId = EntityId.make("stale");
 const relationshipSchemaSlug = RelationshipSchemaSlug.make("credits");
-const entityId = (value: string) => EntityId.make(value);
-const assertRecord: (value: unknown) => asserts value is Record<string, unknown> = (value) => {
-	assert(typeof value === "object" && value !== null && !Array.isArray(value));
-};
+const command = rootLifecycleCommand({
+	source: "api",
+	itemIdentity: "relationship-sync",
+	initiator: { id: userId, kind: "user" },
+	occurredAt: IsoUtcString.make("2026-09-16T00:00:00.000Z"),
+	executionId: AutomationExecutionId.make("relationship-sync"),
+});
+const registry = makeDefinitionRegistry(
+	definitionSourceFromSnapshot({
+		savedViews: {},
+		entitySchemas: {},
+		signalSchemas: {},
+		relationshipSchemas: {},
+	}),
+);
+const support = Layer.mergeAll(
+	databaseLayer,
+	Layer.succeed(DefinitionRegistry, registry),
+	Layer.mock(EntitiesRepository)({}),
+);
 
-it.effect("creates user-owned relationships with exact plugin provenance", () => {
-	const userId = UserId.make("user-1");
-	const created: unknown[] = [];
+const row = (targetEntityId: typeof relatedEntityId, properties: Record<string, unknown>) => ({
+	properties,
+	targetEntityId,
+	relationshipSchemaSlug,
+	sourceEntityId: anchorEntityId,
+	createdAt: "2026-09-16T00:00:00.000Z",
+	updatedAt: "2026-09-16T00:00:00.000Z",
+	id: RelationshipId.make(`relationship-${targetEntityId}`),
+});
+
+it.effect("passes authoritative global synchronization to planned reconciliation", () => {
+	const calls: unknown[] = [];
 	const layer = Layer.mergeAll(
-		databaseLayer,
-		Layer.mock(EntitiesRepository)({
-			lockEntityReferencesByIds: () => Effect.void,
-			listEntityReferencesByIds: (ids) =>
-				Effect.succeed(ids.map((id) => ({ id, name: String(id), entitySchemaSlug: "entity" }))),
-		}),
-		Layer.mock(RelationshipsRepository)({
-			lockRelationshipMutations: () => Effect.void,
-			listUserRelationshipsForEntityWithProvenance: () => Effect.succeed([]),
-		}),
+		support,
+		Layer.mock(RelationshipsRepository)({}),
 		Layer.mock(RelationshipsService)({
-			create: (input) => {
-				created.push(input);
-				return Effect.succeed(
-					relationship({
-						id: "created",
-						properties: {},
-						target: "related",
-						wasInserted: true,
-						createdAt: "2026-01-01T00:00:00.000Z",
-					}),
-				);
-			},
+			persistPlannedReconciliation: (groups, receivedCommand, scope) =>
+				Effect.sync(() => {
+					calls.push({ scope, groups, command: receivedCommand });
+					return { plans: [], result: [{ created: 1, updated: 0, deleted: 0, upserted: 1 }] };
+				}),
 		}),
 	);
 
 	return Effect.gen(function* () {
-		yield* synchronizeGlobalRelationships({
+		const result = yield* persistPlannedRelationshipSynchronization({
+			command,
+			anchorEntityId,
+			scope: "global",
+			direction: "outgoing",
+			relationshipSchemaSlug,
+			onConflict: "replaceProperties",
+			synchronization: "authoritative",
+			entries: [{ entityId: relatedEntityId, properties: { role: "director" } }],
+		});
+		expect(result.result).toEqual([{ created: 1, updated: 0, deleted: 0, upserted: 1 }]);
+		expect(calls).toEqual([
+			{
+				command,
+				scope: { scope: "global" },
+				groups: [
+					{
+						relationshipSchemaSlug,
+						selector: { anchorEntityId, type: "anchored", direction: "outgoing" },
+						relationships: [
+							{
+								sourceEntityId: anchorEntityId,
+								targetEntityId: relatedEntityId,
+								properties: { role: "director" },
+							},
+						],
+					},
+				],
+			},
+		]);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("preserves private additive relationships and their stored properties", () => {
+	let received: unknown;
+	const layer = Layer.mergeAll(
+		support,
+		Layer.mock(RelationshipsRepository)({
+			listRelationshipsForReconciliation: (input) =>
+				Effect.sync(() => {
+					expect(input).toMatchObject({ userId, scope: "user", relationshipSchemaPluginId: "p1" });
+					return [
+						row(relatedEntityId, { role: "actor" }),
+						row(staleEntityId, { role: "producer" }),
+					];
+				}),
+		}),
+		Layer.mock(RelationshipsService)({
+			persistPlannedReconciliation: (groups, _command, scope) =>
+				Effect.sync(() => {
+					received = { scope, groups };
+					return { plans: [], result: [{ created: 0, updated: 0, deleted: 0, upserted: 2 }] };
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		yield* persistPlannedRelationshipSynchronization({
 			userId,
+			command,
 			scope: "user",
 			anchorEntityId,
 			direction: "outgoing",
 			relationshipSchemaSlug,
 			synchronization: "additive",
 			onConflict: "preserveExisting",
-			propertiesSchema: { fields: {} },
-			relationshipSchemaPluginId: "private-plugin-id",
-			entries: [{ properties: {}, entityId: entityId("related") }],
+			relationshipSchemaPluginId: "p1",
+			entries: [{ entityId: relatedEntityId, properties: { role: "director" } }],
 		});
-		expect(created).toMatchObject([
-			{ userId, scope: "user", relationshipSchemaPluginId: "private-plugin-id" },
-		]);
+		expect(received).toMatchObject({
+			scope: { userId, scope: "user" },
+			groups: [
+				{
+					relationships: [
+						{ properties: { role: "actor" }, targetEntityId: relatedEntityId },
+						{ targetEntityId: staleEntityId, properties: { role: "producer" } },
+					],
+				},
+			],
+		});
 	}).pipe(Effect.provide(layer));
 });
 
-const relationship = (input: {
-	id: string;
-	target: string;
-	createdAt: string;
-	wasInserted?: boolean;
-	properties: Record<string, unknown>;
-}) => ({
-	relationshipSchemaSlug,
-	createdAt: input.createdAt,
-	properties: input.properties,
-	sourceEntityId: anchorEntityId,
-	id: RelationshipId.make(input.id),
-	targetEntityId: entityId(input.target),
-	wasInserted: input.wasInserted ?? false,
-});
-
-it.effect(
-	"returns ordered create, update, delete, and noop outcomes with endpoint snapshots",
-	() => {
-		const updates: string[] = [];
-		const existing = [
-			relationship({
-				id: "stale",
-				target: "stale",
-				properties: { roles: ["producer"] },
-				createdAt: "2026-01-01T00:00:00.000Z",
-			}),
-			relationship({
-				id: "same",
-				target: "same",
-				properties: { roles: ["actor"] },
-				createdAt: "2026-01-03T00:00:00.000Z",
-			}),
-			relationship({
-				id: "changed",
-				target: "changed",
-				properties: { roles: ["actor"] },
-				createdAt: "2026-01-02T00:00:00.000Z",
-			}),
-		];
-		const stale = existing[0];
-		assert(stale);
-		const entitiesRepository = Layer.mock(EntitiesRepository)({
-			lockEntityReferencesByIds: () => Effect.void,
-			listEntityReferencesByIds: (ids) =>
-				Effect.succeed(
-					ids.map((id) => ({
-						id,
-						name: id === anchorEntityId ? "Item" : `Person ${id}`,
-						entitySchemaSlug: id === anchorEntityId ? "item" : "person",
-					})),
-				),
-		});
-		const relationshipsRepository = Layer.mock(RelationshipsRepository)({
-			lockRelationshipMutations: () => Effect.void,
-			listGlobalRelationships: () => Effect.succeed(existing),
-		});
-		const relationshipsService = Layer.mock(RelationshipsService)({
-			delete: () => Effect.succeed(stale),
-			update: (input) => {
-				assertRecord(input.properties);
-				updates.push(input.targetEntityId);
-				return Effect.succeed(
-					relationship({
-						wasInserted: false,
-						target: input.targetEntityId,
-						properties: input.properties,
-						id: `updated-${input.targetEntityId}`,
-						createdAt: "2026-01-06T00:00:00.000Z",
-					}),
-				);
-			},
-			create: (input) => {
-				assertRecord(input.properties);
-				if (input.targetEntityId === "created") {
-					return Effect.succeed(
-						relationship({
-							id: "created",
-							target: "created",
-							wasInserted: true,
-							properties: input.properties,
-							createdAt: "2026-01-04T00:00:00.000Z",
-						}),
-					);
-				}
-				const properties =
-					input.targetEntityId === "conflict-update" ? { roles: ["actor"] } : input.properties;
-				return Effect.succeed(
-					relationship({
-						properties,
-						wasInserted: false,
-						target: input.targetEntityId,
-						createdAt: "2026-01-05T00:00:00.000Z",
-						id: `relationship-${input.targetEntityId}`,
-					}),
-				);
-			},
-		});
-		const layer = Layer.mergeAll(
-			databaseLayer,
-			entitiesRepository,
-			relationshipsRepository,
-			relationshipsService,
-		);
-
-		return Effect.gen(function* () {
-			const outcomes = yield* synchronizeGlobalRelationships({
-				anchorEntityId,
-				scope: "global",
-				direction: "outgoing",
-				onConflict: "replaceProperties",
-				synchronization: "authoritative",
-				propertiesSchema: { fields: {} },
-				relationshipSchemaSlug: RelationshipSchemaSlug.make("credits"),
-				entries: [
-					{ entityId: entityId("created"), properties: { roles: ["actor"] } },
-					{ entityId: entityId("same"), properties: { roles: ["actor"] } },
-					{ entityId: entityId("changed"), properties: { roles: ["actor", "director"] } },
-					{ entityId: entityId("conflict-update"), properties: { roles: ["actor", "director"] } },
-					{ properties: { roles: ["actor"] }, entityId: entityId("conflict-noop") },
-				],
-			});
-
-			expect(outcomes.map((outcome) => outcome.operation)).toEqual([
-				"create",
-				"noop",
-				"update",
-				"update",
-				"noop",
-				"delete",
-			]);
-			expect(updates).toEqual(["changed", "conflict-update"]);
-			expect(outcomes[0]?.after).toMatchObject({
-				relationshipSchemaSlug: "credits",
-				sourceEntity: { name: "Item", id: anchorEntityId, entitySchemaSlug: "item" },
-				targetEntity: {
-					name: "Person created",
-					id: entityId("created"),
-					entitySchemaSlug: "person",
-				},
-			});
-			expect(outcomes[3]?.before?.properties).toEqual({ roles: ["actor"] });
-			expect(outcomes[3]?.after?.properties).toEqual({ roles: ["actor", "director"] });
-			const deleted = outcomes[5];
-			assert(deleted?.operation === "delete");
-			expect(deleted.before.id).toBe("stale");
-			expect(deleted.after).toBeNull();
-		}).pipe(Effect.provide(layer));
-	},
-);
-
-it.effect("preserves different existing properties as a noop", () => {
-	let updated = false;
-	const current = relationship({
-		id: "existing",
-		target: "person",
-		properties: { roles: ["actor"] },
-		createdAt: "2026-01-01T00:00:00.000Z",
-	});
+it.effect("preserves matching properties but omits stale authoritative relationships", () => {
+	let relationships: ReadonlyArray<unknown> = [];
 	const layer = Layer.mergeAll(
-		databaseLayer,
-		Layer.mock(EntitiesRepository)({
-			lockEntityReferencesByIds: () => Effect.void,
-			listEntityReferencesByIds: (ids) =>
-				Effect.succeed(ids.map((id) => ({ id, name: `Entity ${id}`, entitySchemaSlug: "person" }))),
-		}),
+		support,
 		Layer.mock(RelationshipsRepository)({
-			lockRelationshipMutations: () => Effect.void,
-			listGlobalRelationships: () => Effect.succeed([current]),
+			listRelationshipsForReconciliation: () =>
+				Effect.succeed([
+					row(relatedEntityId, { role: "actor" }),
+					row(staleEntityId, { role: "producer" }),
+				]),
 		}),
 		Layer.mock(RelationshipsService)({
-			update: () =>
+			persistPlannedReconciliation: (groups) =>
 				Effect.sync(() => {
-					updated = true;
-					return current;
+					relationships = groups[0]?.relationships ?? [];
+					return { plans: [], result: [{ created: 0, updated: 0, deleted: 1, upserted: 1 }] };
 				}),
 		}),
 	);
 
 	return Effect.gen(function* () {
-		const outcomes = yield* synchronizeGlobalRelationships({
+		yield* persistPlannedRelationshipSynchronization({
+			command,
 			anchorEntityId,
 			scope: "global",
 			direction: "outgoing",
-			synchronization: "additive",
+			relationshipSchemaSlug,
 			onConflict: "preserveExisting",
-			propertiesSchema: { fields: {} },
-			relationshipSchemaSlug: RelationshipSchemaSlug.make("credits"),
-			entries: [{ entityId: entityId("person"), properties: { roles: ["director"] } }],
+			synchronization: "authoritative",
+			entries: [{ entityId: relatedEntityId, properties: { role: "director" } }],
 		});
-
-		expect(outcomes).toHaveLength(1);
-		expect(outcomes[0]?.operation).toBe("noop");
-		expect(outcomes[0]?.before).toEqual(outcomes[0]?.after);
-		expect(updated).toBe(false);
+		expect(relationships).toMatchObject([
+			{ properties: { role: "actor" }, targetEntityId: relatedEntityId },
+		]);
 	}).pipe(Effect.provide(layer));
 });
-
-it.effect(
-	"converges example-first, subject-first, and concurrent credit writes on one create",
-	() => {
-		const personId = entityId("person");
-		const itemId = entityId("item");
-		const runScenario = (mode: "example-first" | "subject-first" | "concurrent") => {
-			let stored: ReturnType<typeof relationship> | null = null;
-			const credit = (wasInserted: boolean) => ({
-				wasInserted,
-				relationshipSchemaSlug,
-				targetEntityId: itemId,
-				sourceEntityId: personId,
-				properties: { roles: ["Director"] },
-				createdAt: "2026-01-01T00:00:00.000Z",
-				id: RelationshipId.make("person-item"),
-			});
-			const layer = Layer.mergeAll(
-				databaseLayer,
-				Layer.mock(EntitiesRepository)({
-					lockEntityReferencesByIds: () => Effect.void,
-					listEntityReferencesByIds: (ids) =>
-						Effect.succeed(
-							ids.map((id) => ({
-								id,
-								name: id === personId ? "Greta Gerwig" : "Barbie",
-								entitySchemaSlug: id === personId ? "person" : "item",
-							})),
-						),
-				}),
-				Layer.mock(RelationshipsRepository)({
-					lockRelationshipMutations: () => Effect.void,
-					listGlobalRelationships: () => Effect.succeed(stored ? [stored] : []),
-				}),
-				Layer.mock(RelationshipsService)({
-					create: () =>
-						Effect.sync(() => {
-							if (stored) {
-								return { ...stored, wasInserted: false };
-							}
-							stored = credit(true);
-							return stored;
-						}),
-				}),
-			);
-			const synchronize = (direction: "incoming" | "outgoing") =>
-				synchronizeGlobalRelationships({
-					direction,
-					scope: "global",
-					synchronization: "additive",
-					onConflict: "preserveExisting",
-					propertiesSchema: { fields: {} },
-					anchorEntityId: direction === "incoming" ? itemId : personId,
-					relationshipSchemaSlug: RelationshipSchemaSlug.make("person-to-item"),
-					entries: [
-						{
-							properties: { roles: ["Director"] },
-							entityId: direction === "incoming" ? personId : itemId,
-						},
-					],
-				}).pipe(Effect.provide(layer));
-			let writes;
-			if (mode === "example-first") {
-				writes = Effect.all([synchronize("incoming"), synchronize("outgoing")]);
-			} else if (mode === "subject-first") {
-				writes = Effect.all([synchronize("outgoing"), synchronize("incoming")]);
-			} else {
-				writes = Effect.all([synchronize("incoming"), synchronize("outgoing")], {
-					concurrency: "unbounded",
-				});
-			}
-			return Effect.gen(function* () {
-				const outcomes = (yield* writes).flat();
-				const repeated = yield* synchronize("incoming");
-				expect(outcomes.map(({ operation }) => operation).sort()).toEqual(["create", "noop"]);
-				expect(repeated.map(({ operation }) => operation)).toEqual(["noop"]);
-				expect(outcomes[0]?.after).toMatchObject({
-					targetEntity: { id: itemId, entitySchemaSlug: "item" },
-					sourceEntity: { id: personId, entitySchemaSlug: "person" },
-				});
-			});
-		};
-
-		return Effect.forEach(["example-first", "subject-first", "concurrent"] as const, runScenario, {
-			discard: true,
-		});
-	},
-);

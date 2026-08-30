@@ -3,6 +3,7 @@ import { Duration, Effect, Match, Schema } from "effect";
 import {
 	FetchHttpClient,
 	HttpClient,
+	HttpClientError,
 	HttpClientRequest,
 	HttpMethod,
 	type HttpClientResponse,
@@ -45,6 +46,20 @@ export const encodePersistentClaimEnvelope = Schema.encodeUnknownEffect(
 const decodePersistentClaimEnvelope = Schema.decodeUnknownEffect(
 	Schema.fromJsonString(persistentClaimEnvelopeSchema),
 );
+
+// A request that may have reached the server carries `external-uncertain` so the kernel can refuse
+// to auto-retry it unless the hook declared run-ID idempotency.
+const CERTAIN_HTTP_FAILURE_REASONS = new Set(["EncodeError", "InvalidUrlError"]);
+
+const httpRequestFailure = (error: unknown) => {
+	const certain =
+		error instanceof HttpClientError.HttpClientError &&
+		CERTAIN_HTTP_FAILURE_REASONS.has(error.reason._tag);
+	return {
+		message: unknownToMessage(error),
+		...(certain ? {} : { data: { code: "external-uncertain" } }),
+	};
+};
 
 export const readSandboxHttpResponseText = (response: HttpClientResponse.HttpClientResponse) =>
 	readSandboxByteLimitedText(
@@ -241,7 +256,7 @@ export const makeRuntimeSandboxApiFunctions: Effect.Effect<
 							Effect.map(readSandboxHttpResponseText(res), (text) => [res, text] as const),
 						),
 						Effect.timeout(Duration.millis(SANDBOX_LIMITS.http.timeoutMs)),
-						Effect.mapError(unknownToMessage),
+						Effect.mapError(httpRequestFailure),
 					);
 
 					if (response.status < 200 || response.status >= 300) {

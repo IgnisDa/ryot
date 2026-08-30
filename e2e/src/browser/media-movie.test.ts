@@ -2,11 +2,10 @@ import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import {
+	createAuthenticatedClient,
 	createEventFixture,
-	createTestUser,
 	findBuiltinSchemaBySlug,
 	listEventSchemas,
-	makeSession,
 	requireEventSchemaBySlug,
 	type Client,
 } from "~/fixtures/kernel";
@@ -65,8 +64,7 @@ it.live("renders a populated Movie detail with its collection rail", () =>
 		const movieName = `Browser Tracer Movie ${suffix}`;
 		const siblingName = `Browser Tracer Sequel ${suffix}`;
 		const collectionName = `Browser Tracer Collection ${suffix}`;
-		const { token, email, password } = yield* createTestUser(apiUrl);
-		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
+		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
 		const cover = yield* uploadPermanentAsset(apiUrl, client, MOVIE_COVER);
 		const siblingCover = yield* uploadPermanentAsset(apiUrl, client, SIBLING_COVER);
 		const seeded = yield* seedGlobalMovieWithCollection(client, {
@@ -186,8 +184,7 @@ it.live("keeps the collection rail for a Movie with no credits or recommendation
 		const movieName = `Bare Tracer Movie ${suffix}`;
 		const siblingName = `Bare Tracer Sequel ${suffix}`;
 		const collectionName = `Bare Tracer Collection ${suffix}`;
-		const { token, email, password } = yield* createTestUser(apiUrl);
-		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
+		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
 		const seeded = yield* seedGlobalMovieWithCollection(client, {
 			movieName,
 			siblingName,
@@ -229,8 +226,7 @@ it.live("renders the Movie presentation facts in the canonical saved view", () =
 		const frontendUrl = getFrontendUrl();
 		const suffix = crypto.randomUUID();
 		const movieName = `Row Tracer Movie ${suffix}`;
-		const { token, email, password } = yield* createTestUser(apiUrl);
-		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
+		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
 		const seeded = yield* seedGlobalMovieWithCollection(client, {
 			movieName,
 			siblingName: `Row Tracer Sequel ${suffix}`,

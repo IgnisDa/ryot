@@ -1,161 +1,62 @@
-import { assert, expect, it } from "@effect/vitest";
-import { SandboxRunError } from "@ryot-app/contract/errors";
-import { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
+import { expect, it } from "@effect/vitest";
+import type { AutomationPopulationContext } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
+import { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
+import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import {
+	AutomationExecutionId,
 	EntityId,
 	EntitySchemaSlug,
-	RelationshipId,
 	RelationshipSchemaSlug,
 	SandboxProviderId,
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { Cause, Effect, Exit, Layer, Option } from "effect";
-import { Workflow } from "effect/unstable/workflow";
+import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { Effect, Exit, Layer } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
+import { rootLifecycleCommand, type LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { Database } from "#lib/infrastructure/db/service";
 import { RedisService } from "#lib/infrastructure/redis";
-import type { MockOverrides } from "#lib/test-utils/effect";
-import {
-	databaseLayer,
-	makeRedisService,
-	makeWorkflowEngine,
-	makeWorkflowActivityEngine,
-} from "#lib/test-utils/effect";
+import { makeRedisService, makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 import {
 	DefinitionRegistry,
 	type DefinitionSnapshot,
 	definitionSourceFromSnapshot,
 	makeDefinitionRegistry,
 } from "#modules/definition-registry/service";
-import {
-	LifecycleDispatch,
-	type LifecycleDispatchInput,
-	LifecycleDispatchNoop,
-} from "#modules/entities/lifecycle-dispatch";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
-import { EntitySchemasRepository } from "#modules/entity-schemas/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 
-import {
-	EntityImportWorkflowOperations,
-	type EntityImportWorkflowOperationsValue,
-} from "./operations-workflow";
+import { EntityImportWorkflowOperations } from "./operations-workflow";
 import { writeChildEntitySet } from "./population";
 import {
-	type ProviderEntityPopulationPayload,
+	ProviderEntityPopulationWorkflow,
 	runProviderEntityPopulationWorkflow,
 } from "./provider-entity-population-workflow";
-import { EntityImportPayload } from "./schemas";
+import { syncRelatedEntityGroup } from "./relationship-population";
 
-const TestEntityImportWorkflow = Workflow.make("TestEntityImportWorkflow", {
-	success: ListedEntity,
-	error: SandboxRunError,
-	payload: EntityImportPayload,
-	idempotencyKey: ({ executionId }) => executionId,
+const now = IsoUtcString.make("2026-09-16T00:00:00.000Z");
+const userId = UserId.make("user-1");
+const providerId = SandboxProviderId.make("provider-1");
+const rootEntityId = EntityId.make("root-1");
+const rootSchemaSlug = EntitySchemaSlug.make("record");
+const childSchemaSlug = EntitySchemaSlug.make("part");
+const relationshipSchemaSlug = RelationshipSchemaSlug.make("record-part");
+const epoch = new Date(0);
+
+const command = rootLifecycleCommand({
+	occurredAt: now,
+	source: "provider-refresh",
+	itemIdentity: "provider-population",
+	initiator: { id: userId, kind: "user" },
+	executionId: AutomationExecutionId.make("provider-population"),
+	providerExecutionId: AutomationExecutionId.make("provider-workflow"),
 });
-
-const now = "2026-06-14T00:00:00.000Z";
-
-const baseEntity = {
-	createdAt: now,
-	updatedAt: now,
-	populatedAt: now,
-	name: "Test Record",
-	externalId: "ext-1",
-	id: EntityId.make("entity-1"),
-	properties: { title: "Test Record" },
-	providerId: SandboxProviderId.make("provider-1"),
-	entitySchemaSlug: EntitySchemaSlug.make("schema-1"),
-} satisfies ListedEntity;
-
-type ProviderEntity = Omit<ListedEntity, "properties"> & { properties: Record<string, unknown> };
-
-type ProviderEntitySaveResult =
-	ReturnType<EntitiesService["Service"]["upsert"]> extends Effect.Effect<
-		infer Success,
-		unknown,
-		unknown
-	>
-		? Success
-		: never;
-
-const providerSnapshot = (entity: ProviderEntity) => ({
-	id: entity.id,
-	name: entity.name,
-	properties: entity.properties,
-	entitySchemaSlug: entity.entitySchemaSlug,
-});
-
-const savedRelationship = {
-	properties: {},
-	createdAt: now,
-	wasInserted: true,
-	id: RelationshipId.make("relationship-1"),
-	sourceEntityId: EntityId.make("source-entity-id"),
-	targetEntityId: EntityId.make("target-entity-id"),
-	relationshipSchemaSlug: RelationshipSchemaSlug.make("relationship-schema-id"),
-};
-
-const relationshipForInput = (
-	input: {
-		sourceEntityId: EntityId;
-		targetEntityId: EntityId;
-		properties?: Record<string, unknown>;
-		relationshipSchemaSlug: RelationshipSchemaSlug;
-	},
-	wasInserted = true,
-) => ({
-	...savedRelationship,
-	wasInserted,
-	properties: input.properties ?? {},
-	sourceEntityId: input.sourceEntityId,
-	targetEntityId: input.targetEntityId,
-	relationshipSchemaSlug: input.relationshipSchemaSlug,
-});
-
-const relatedSuggestionSchema = {
-	isBuiltin: true,
-	name: "Related Suggestion",
-	slug: "related-suggestion",
-	sourceEntitySchemaSlug: null,
-	targetEntitySchemaSlug: null,
-	propertiesSchema: { fields: {} },
-	id: RelationshipSchemaSlug.make("related-suggestion-schema-id"),
-};
-
-const relationshipDefinition = (
-	slug: string,
-	sourceEntitySchemaSlug: string | null = null,
-	targetEntitySchemaSlug: string | null = null,
-) => ({
-	slug,
-	name: "Relationship",
-	sourceEntitySchemaSlug,
-	targetEntitySchemaSlug,
-	propertiesSchema: { fields: {} },
-});
-
-const effectiveRelationshipSchemas = Object.fromEntries(
-	[
-		"cast-member-schema-id",
-		"cast-member",
-		"authored-by",
-		"related-suggestion",
-		"related-suggestion-schema-id",
-		"rel-schema-1",
-		"rel-part-part-item",
-		"rel-group-part",
-		"relationship-schema-id",
-		"group-part-to-group-part-item",
-		"group-to-group-part",
-	].map((slug) => [slug, relationshipDefinition(slug)]),
-);
 
 const entityDefinition = (slug: string) => ({
 	slug,
@@ -167,2682 +68,515 @@ const entityDefinition = (slug: string) => ({
 	propertiesSchema: { fields: {} },
 });
 
-const effectiveEntitySchemas = Object.fromEntries(
-	[
-		"group",
-		"group-part",
-		"group-part-item",
-		"person",
-		"record",
-		"schema-1",
-		"schema-group",
-		"schema-item",
-		"schema-person",
-		"schema-related",
-		"test-entity",
-	].map((slug) => [slug, entityDefinition(slug)]),
-);
-
-const testDefinitions = {
+const definitions = {
 	savedViews: {},
 	signalSchemas: {},
-	entitySchemas: effectiveEntitySchemas,
+	entitySchemas: {
+		person: entityDefinition("person"),
+		[rootSchemaSlug]: entityDefinition(rootSchemaSlug),
+		[childSchemaSlug]: entityDefinition(childSchemaSlug),
+	},
 	relationshipSchemas: {
-		...effectiveRelationshipSchemas,
-		"rel-group-part": relationshipDefinition("rel-group-part", "schema-1", "group-part"),
-		"group-to-group-part": relationshipDefinition("group-to-group-part", "group", "group-part"),
-		"rel-part-part-item": relationshipDefinition(
-			"rel-part-part-item",
-			"group-part",
-			"group-part-item",
-		),
+		credits: {
+			slug: "credits",
+			name: "Credits",
+			pluginId: "private-plugin",
+			propertiesSchema: { fields: {} },
+			targetEntitySchemaSlug: "person",
+			sourceEntitySchemaSlug: rootSchemaSlug,
+		},
+		[relationshipSchemaSlug]: {
+			name: "Parts",
+			slug: relationshipSchemaSlug,
+			propertiesSchema: { fields: {} },
+			sourceEntitySchemaSlug: rootSchemaSlug,
+			targetEntitySchemaSlug: childSchemaSlug,
+		},
 	},
 } satisfies DefinitionSnapshot;
+const registry = makeDefinitionRegistry(definitionSourceFromSnapshot(definitions));
 
-const withRelationshipDefinition = (
-	definition: DefinitionSnapshot["relationshipSchemas"][string],
-): DefinitionSnapshot => ({
-	...testDefinitions,
-	relationshipSchemas: { ...testDefinitions.relationshipSchemas, [definition.slug]: definition },
-});
+const population = {
+	rootPreviouslyPopulated: true,
+	parentEntity: { name: "Record", properties: {}, entitySchemaSlug: rootSchemaSlug },
+	scopeEntity: { name: "Record", id: rootEntityId, entitySchemaSlug: rootSchemaSlug },
+} satisfies AutomationPopulationContext;
 
-const withChildRelationshipDefinitions = (
-	rootEntitySchemaSlug: string,
-	rootRelationshipSchemaSlug: string,
-	childRelationshipSchemaSlug: string,
-): DefinitionSnapshot => {
-	const relationshipSchemas = Object.fromEntries(
-		Object.entries(testDefinitions.relationshipSchemas).filter(
-			([, definition]) =>
-				!(
-					definition.sourceEntitySchemaSlug === rootEntitySchemaSlug &&
-					definition.targetEntitySchemaSlug === "group-part"
-				) &&
-				!(
-					definition.sourceEntitySchemaSlug === "group-part" &&
-					definition.targetEntitySchemaSlug === "group-part-item"
-				),
-		),
-	);
-	return {
-		...testDefinitions,
-		relationshipSchemas: {
-			...relationshipSchemas,
-			[childRelationshipSchemaSlug]: relationshipDefinition(
-				childRelationshipSchemaSlug,
-				"group-part",
-				"group-part-item",
-			),
-			[rootRelationshipSchemaSlug]: relationshipDefinition(
-				rootRelationshipSchemaSlug,
-				rootEntitySchemaSlug,
-				"group-part",
-			),
-		},
-	};
-};
-
-const baseEntitySchema = {
-	slug: "record",
-	propertiesSchema: {
-		fields: { title: { label: "Title", description: "Title", type: "string" as const } },
-	},
-};
-
-type StoredEntity = Omit<typeof baseEntity, "populatedAt" | "properties"> & {
-	populatedAt: string | null;
-	properties: Record<string, unknown>;
-};
-
-const assertRecord: (value: unknown) => asserts value is Record<string, unknown> = (value) => {
-	assert(typeof value === "object" && value !== null && !Array.isArray(value));
-};
-
-const entityKey = (entitySchemaSlug: string, externalId: string) =>
-	`${entitySchemaSlug}:${externalId}`;
-
-const childEntitySchemaSlugs = new Map([
-	["group-part", EntitySchemaSlug.make("group-part")],
-	["group-part-item", EntitySchemaSlug.make("group-part-item")],
-]);
-
-const findChildEntitySchemaBySlug = (slug: string) => {
-	const id = childEntitySchemaSlugs.get(slug);
-	return Effect.succeed(id ? { id, propertiesSchema: { fields: {} } } : null);
-};
-
-const makePartItemChild = (externalId: string) => ({
-	externalId,
-	name: "Part Item",
-	properties: { partItemNumber: 1 },
-	entitySchemaSlug: "group-part-item",
-});
-
-const mockEntitiesRepository = Layer.mock(EntitiesRepository);
-const mockEntitiesService = Layer.mock(EntitiesService);
-const mockRelationshipsRepository = Layer.mock(RelationshipsRepository);
-const mockEntitySchemasRepository = Layer.mock(EntitySchemasRepository);
-const mockRelationshipSchemasRepository = Layer.mock(RelationshipSchemasRepository);
-
-const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepository> = {}) =>
-	mockEntitiesRepository({
-		lockEntityReferencesByIds: () => Effect.void,
-		lockProviderEntityMutations: () => Effect.void,
-		findEntityByExternalId: () => Effect.succeed(null),
-		findEntitySchemaProviderBySlug: () => Effect.succeed(null),
-		findSystemEntitySchemaById: () => Effect.succeed(baseEntitySchema),
-		listEntityReferencesByIds: (entityIds) =>
-			Effect.succeed(
-				entityIds.map((id) => ({ id, name: `Entity ${id}`, entitySchemaSlug: "test-entity" })),
-			),
-		...overrides,
-	});
-
-type EntitiesServiceOverrides = Omit<MockOverrides<typeof mockEntitiesService>, "upsert"> & {
-	upsert?: (
-		input: Parameters<EntitiesService["Service"]["upsert"]>[0],
-	) => Effect.Effect<ProviderEntity>;
-	upsertResult?: (
-		input: Parameters<EntitiesService["Service"]["upsert"]>[0],
-	) => Effect.Effect<ProviderEntitySaveResult>;
-};
-
-const toProviderSaveResult = (entity: ProviderEntity) => {
-	const snapshot = {
-		id: entity.id,
-		name: entity.name,
-		properties: entity.properties,
-		entitySchemaSlug: EntitySchemaSlug.make("test-entity"),
-	};
-	return { entity, outcome: { after: snapshot, before: snapshot, operation: "noop" as const } };
-};
-
-const makeEntitiesService = (overrides: EntitiesServiceOverrides = {}) => {
-	const { upsert, upsertResult, ...serviceOverrides } = overrides;
-	return mockEntitiesService({
-		create: () => Effect.succeed(baseEntity),
-		update: () => Effect.succeed(baseEntity),
-		upsert: (input) =>
-			upsertResult
-				? upsertResult(input)
-				: (upsert ? upsert(input) : Effect.succeed(baseEntity)).pipe(
-						Effect.map(toProviderSaveResult),
-					),
-		...serviceOverrides,
-	});
-};
-
-const makeRelationshipsRepository = (
-	overrides: MockOverrides<typeof mockRelationshipsRepository> = {},
-) =>
-	mockRelationshipsRepository({
-		lockRelationshipMutations: () => Effect.void,
-		deleteRelationship: () => Effect.succeed(null),
-		listGlobalRelationships: () => Effect.succeed([]),
-		createRelationship: (input) => Effect.succeed(relationshipForInput(input)),
-		updateRelationship: (input) => Effect.succeed(relationshipForInput(input, false)),
-		...overrides,
-	});
-
-const makeEntitySchemasRepository = (
-	overrides: MockOverrides<typeof mockEntitySchemasRepository> = {},
-) => mockEntitySchemasRepository({ getBuiltinBySlug: () => Effect.succeed(null), ...overrides });
-
-const makeRelationshipSchemasRepository = (
-	overrides: MockOverrides<typeof mockRelationshipSchemasRepository> = {},
-) =>
-	mockRelationshipSchemasRepository({
-		findGlobalBySchemaIds: () => Effect.succeed(null),
-		findBuiltinBySlug: (slug: string) =>
-			Effect.succeed(slug === "related-suggestion" ? relatedSuggestionSchema : null),
-		...overrides,
-	});
-
-type TestLayerOptions = {
-	definitions?: DefinitionSnapshot;
-	onReadDefinitionRegistry?: () => void;
-	onResolveDefinitions?: () => void;
-	entitiesService?: Layer.Layer<EntitiesService>;
-	lifecycleDispatch?: Layer.Layer<LifecycleDispatch>;
-	databaseLayer?: Layer.Layer<Database>;
-	entitiesRepository?: Layer.Layer<EntitiesRepository>;
-	entitySchemasRepository?: Layer.Layer<EntitySchemasRepository>;
-	relationshipsRepository?: Layer.Layer<RelationshipsRepository>;
-	processSandbox?: EntityImportWorkflowOperationsValue["processSandbox"];
-	relationshipSchemasRepository?: Layer.Layer<RelationshipSchemasRepository>;
-};
-
-const makeTestLayer = (options: TestLayerOptions) => {
-	const relationshipsRepository = options.relationshipsRepository ?? makeRelationshipsRepository();
-	const definitions = options.definitions ?? testDefinitions;
-	const registry = makeDefinitionRegistry(definitionSourceFromSnapshot(definitions));
-	const definitionRegistry = {
-		...registry,
-		getSnapshot: () => {
-			options.onReadDefinitionRegistry?.();
-			return registry.getSnapshot();
-		},
-	};
-
-	const relationshipsServiceLayer = RelationshipsService.layer.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				options.databaseLayer ?? databaseLayer,
-				relationshipsRepository,
-				Layer.mock(PluginRuntimeResolver)({
-					getEffectiveDefinitions: () =>
-						Effect.succeed({
-							savedViews: {},
-							entitySchemas: {},
-							signalSchemas: {},
-							relationshipSchemas: effectiveRelationshipSchemas,
-						}),
-				}),
-			),
-		),
-	);
-
-	return Layer.mergeAll(
-		options.databaseLayer ?? databaseLayer,
-		Layer.succeed(DefinitionRegistry, definitionRegistry),
-		Layer.mock(PluginRuntimeResolver)({
-			getEffectiveDefinitions: () =>
-				Effect.sync(options.onResolveDefinitions ?? (() => {})).pipe(Effect.as(definitions)),
-		}),
-		relationshipsServiceLayer,
-		Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(0) })),
-		options.lifecycleDispatch ?? LifecycleDispatchNoop,
-		Layer.mock(EntityImportWorkflowOperations, {
-			runProviderImportAutomations: () => Effect.void,
-			processSandbox: options.processSandbox ?? (() => Effect.die("unused")),
-		}),
-		options.entitiesService ?? makeEntitiesService(),
-		options.entitiesRepository ?? makeEntitiesRepository(),
-		options.entitySchemasRepository ?? makeEntitySchemasRepository(),
-		relationshipsRepository,
-		options.relationshipSchemasRepository ?? makeRelationshipSchemasRepository(),
-	);
-};
-
-const withTestLayer = <A, E, R>(
-	options: TestLayerOptions,
-	executionId: string,
-	effect: Effect.Effect<A, E, R>,
-) => {
-	const instance = WorkflowInstance.initial(TestEntityImportWorkflow, executionId);
-	const engine = makeWorkflowActivityEngine(instance);
-
-	return effect.pipe(
-		Effect.provideService(WorkflowEngine, engine),
-		Effect.provideService(WorkflowInstance, instance),
-		Effect.provide(makeTestLayer(options)),
-	);
-};
-
-const importPayload = {
-	externalId: "ext-1",
-	executionId: "exec-1",
-	origin: { kind: "api" } as const,
-	providerId: SandboxProviderId.make("provider-1"),
-	entitySchemaSlug: EntitySchemaSlug.make("schema-1"),
-	entityScope: { type: "global" as const, userId: UserId.make("user-1") },
-};
-
-it.effect("resolves and reuses a populated entity from a private schema", () => {
-	const pluginId = "private-plugin-id";
-	const payload = {
-		...importPayload,
-		executionId: "exec-private-schema",
-		entityScope: { type: "user" as const, userId: UserId.make("user-1") },
-	};
-
-	return withTestLayer(
-		{
-			definitions: {
-				...testDefinitions,
-				entitySchemas: {
-					...testDefinitions.entitySchemas,
-					[payload.entitySchemaSlug]: { ...entityDefinition(payload.entitySchemaSlug), pluginId },
-				},
-			},
-			entitiesRepository: makeEntitiesRepository({
-				findEntityByExternalId: (input) => {
-					expect(input).toMatchObject({
-						scope: "user",
-						entitySchemaPluginId: pluginId,
-						userId: payload.entityScope.userId,
-					});
-					return Effect.succeed(baseEntity);
-				},
-			}),
-		},
-		payload.executionId,
-		Effect.gen(function* () {
-			const result = yield* runProviderEntityPopulationWorkflow(
-				{ ...payload, mode: "ensure" },
-				payload.executionId,
-			);
-			expect(result.id).toBe(baseEntity.id);
-		}),
-	);
-});
-
-it.effect("populates and stamps a private root entity in the user scope", () => {
-	const writes: Array<Parameters<EntitiesService["Service"]["upsert"]>[0]> = [];
-	let definitionResolutions = 0;
-	const payload = {
-		...importPayload,
-		executionId: "exec-private-root",
-		entityScope: { type: "user" as const, userId: UserId.make("user-1") },
-	};
-	const definitions = {
-		...testDefinitions,
-		entitySchemas: {
-			...testDefinitions.entitySchemas,
-			[payload.entitySchemaSlug]: {
-				...entityDefinition(payload.entitySchemaSlug),
-				pluginId: "private-plugin-id",
-			},
-		},
-	} satisfies DefinitionSnapshot;
-
-	return withTestLayer(
-		{
-			definitions,
-			onResolveDefinitions: () => {
-				definitionResolutions += 1;
-			},
-			processSandbox: () =>
-				Effect.succeed({
-					logs: [],
-					error: null,
-					status: "completed" as const,
-					value: { properties: {}, name: "Private Record" },
-				}),
-			entitiesService: makeEntitiesService({
-				upsert: (input) => {
-					writes.push(input);
-					return Effect.succeed({
-						...baseEntity,
-						properties: {},
-						name: input.name,
-						entitySchemaSlug: input.entitySchemaSlug,
-						populatedAt: input.populatedAt?.toISOString() ?? null,
-					});
-				},
-			}),
-		},
-		payload.executionId,
-		Effect.gen(function* () {
-			const result = yield* runProviderEntityPopulationWorkflow(
-				{ ...payload, mode: "ensure" },
-				payload.executionId,
-			);
-
-			expect(result.populatedAt).not.toBeNull();
-			expect(writes).toHaveLength(2);
-			expect(writes).toEqual([
-				expect.objectContaining({
-					scope: "user",
-					populatedAt: null,
-					userId: payload.entityScope.userId,
-				}),
-				expect.objectContaining({ scope: "user", userId: payload.entityScope.userId }),
-			]);
-			expect(definitionResolutions).toBe(1);
-		}),
-	);
-});
-
-it.effect("populates entity and writes related entities", () => {
-	let definitionRegistryReads = 0;
-	let relationshipWritten = false;
-	let staleRelationshipDeleted = false;
-	let globalEntityWritten = false;
-	let relatedEntityWritten = false;
-
-	const payload = { ...importPayload, executionId: "exec-full" };
-	const relatedEntitySchemaSandboxScript = {
-		providerId: SandboxProviderId.make("person-provider"),
-		detailsScriptId: SandboxScriptId.make("person-details"),
-		entitySchemaSlug: EntitySchemaSlug.make("schema-person"),
-	};
-	const relationshipSchema = {
-		isBuiltin: true,
-		slug: "authored-by",
-		name: "Authored By",
-		propertiesSchema: { fields: {} },
-		id: RelationshipSchemaSlug.make("rel-schema-1"),
-		targetEntitySchemaSlug: EntitySchemaSlug.make("schema-1"),
-		sourceEntitySchemaSlug: EntitySchemaSlug.make("schema-person"),
-	};
-	const relatedEntity = {
-		name: "Author",
+const listedEntity = (input: {
+	id: EntityId;
+	name: string;
+	externalId: string;
+	properties?: Record<string, JsonValue>;
+	populatedAt?: string | null;
+	entitySchemaSlug: EntitySchemaSlug;
+	providerId?: SandboxProviderId;
+}) =>
+	({
+		id: input.id,
 		createdAt: now,
 		updatedAt: now,
-		properties: {},
-		populatedAt: null,
-		externalId: "person-ext-1",
-		id: EntityId.make("person-1"),
-		providerId: SandboxProviderId.make("person-provider"),
-		entitySchemaSlug: EntitySchemaSlug.make("schema-person"),
-	} satisfies ListedEntity;
-	const options = {
-		onReadDefinitionRegistry: () => {
-			definitionRegistryReads += 1;
-		},
-		relationshipSchemasRepository: makeRelationshipSchemasRepository({
-			findBuiltinBySlug: () => Effect.succeed(relationshipSchema),
-		}),
-		entitiesRepository: makeEntitiesRepository({
-			findEntitySchemaProviderBySlug: () => Effect.succeed(relatedEntitySchemaSandboxScript),
-		}),
-		processSandbox: () =>
-			Effect.succeed({
-				logs: [],
-				error: null,
-				status: "completed" as const,
-				value: {
-					name: "Test Record",
-					properties: { title: "Test Record" },
-					relatedEntityGroups: [
-						{
-							direction: "incoming",
-							synchronization: "authoritative",
-							relationshipSchemaSlug: "authored-by",
-							entities: [
-								{
-									name: "Author",
-									externalId: "person-ext-1",
-									providerSlug: "person.test",
-									relationshipProperties: { roles: ["Author"] },
-								},
-							],
-						},
-					],
-				},
-			}),
-		relationshipsRepository: makeRelationshipsRepository({
-			deleteRelationship: () =>
-				Effect.sync(() => {
-					staleRelationshipDeleted = true;
-					return savedRelationship;
-				}),
-			createRelationship: (input) =>
-				Effect.sync(() => {
-					relationshipWritten = true;
-					return relationshipForInput(input);
-				}),
-			listGlobalRelationships: () =>
-				Effect.succeed([
-					{
-						...savedRelationship,
-						targetEntityId: baseEntity.id,
-						relationshipSchemaSlug: relationshipSchema.id,
-						sourceEntityId: EntityId.make("person-stale"),
-					},
-				]),
-		}),
-		entitiesService: makeEntitiesService({
-			update: () => {
-				globalEntityWritten = true;
-				return Effect.succeed(baseEntity);
-			},
-			create: (input) => {
-				if (input.scope !== "global") {
-					return Effect.die("unexpected user entity create");
-				}
-				relatedEntityWritten = true;
-				return Effect.succeed(relatedEntity);
-			},
-			upsert: (input) => {
-				if (input.entitySchemaSlug !== "schema-1") {
-					return Effect.die("unexpected upsert for non-primary entity");
-				}
-				globalEntityWritten = true;
-				return Effect.succeed({
-					...baseEntity,
-					populatedAt: input.populatedAt === null ? null : now,
-				});
-			},
-		}),
-	} satisfies TestLayerOptions;
+		name: input.name,
+		externalId: input.externalId,
+		properties: input.properties ?? {},
+		entitySchemaSlug: input.entitySchemaSlug,
+		providerId: input.providerId ?? providerId,
+		populatedAt: input.populatedAt === undefined ? now : input.populatedAt,
+	}) satisfies ListedEntity;
 
-	return withTestLayer(
-		options,
-		payload.executionId,
-		Effect.gen(function* () {
-			const result = yield* runProviderEntityPopulationWorkflow(
-				{ ...payload, mode: "ensure" },
-				payload.executionId,
-			);
-			expect(result.id).toBe("entity-1");
-			expect(result.name).toBe("Test Record");
-			expect(result.populatedAt).toBe(now);
-			expect(globalEntityWritten).toBe(true);
-			expect(relatedEntityWritten).toBe(true);
-			expect(relationshipWritten).toBe(true);
-			expect(staleRelationshipDeleted).toBe(true);
-			expect(definitionRegistryReads).toBe(1);
-		}),
-	);
+type TestEntity = ReturnType<typeof listedEntity>;
+
+const snapshot = (entity: TestEntity) => ({
+	id: entity.id,
+	name: entity.name,
+	createdAt: entity.createdAt,
+	updatedAt: entity.updatedAt,
+	properties: entity.properties,
+	externalId: entity.externalId,
+	providerId: entity.providerId,
+	populatedAt: entity.populatedAt,
+	entitySchemaSlug: entity.entitySchemaSlug,
 });
 
-it.effect("preserves stale relationships during additive related-entity sync", () => {
-	let created = false;
-	let deleted = false;
-	const payload = { ...importPayload, executionId: "exec-additive-related" };
-	const options = {
-		entitiesService: makeEntitiesService({
-			create: () =>
-				Effect.succeed({
-					...baseEntity,
-					id: EntityId.make("suggested-item"),
-					providerId: SandboxProviderId.make("item-provider"),
-					entitySchemaSlug: EntitySchemaSlug.make("schema-item"),
-				}),
-		}),
-		entitiesRepository: makeEntitiesRepository({
-			findEntitySchemaProviderBySlug: () =>
-				Effect.succeed({
-					providerId: SandboxProviderId.make("item-provider"),
-					detailsScriptId: SandboxScriptId.make("item-details"),
-					entitySchemaSlug: EntitySchemaSlug.make("schema-item"),
-				}),
-		}),
-		processSandbox: () =>
-			Effect.succeed({
-				logs: [],
-				error: null,
-				status: "completed" as const,
-				value: {
-					name: "Test Record",
-					properties: { title: "Test Record" },
-					relatedEntityGroups: [
-						{
-							direction: "outgoing" as const,
-							synchronization: "additive" as const,
-							relationshipSchemaSlug: "related-suggestion",
-							entities: [
-								{ externalId: "item-1", name: "Suggested Item", providerSlug: "item.test" },
-							],
-						},
-					],
-				},
-			}),
-		relationshipsRepository: makeRelationshipsRepository({
-			deleteRelationship: () =>
-				Effect.sync(() => {
-					deleted = true;
-					return savedRelationship;
-				}),
-			createRelationship: (input) =>
-				Effect.sync(() => {
-					created = true;
-					return relationshipForInput(input);
-				}),
-			listGlobalRelationships: () =>
-				Effect.succeed([
-					{
-						...savedRelationship,
-						sourceEntityId: baseEntity.id,
-						targetEntityId: EntityId.make("stale-target"),
-						relationshipSchemaSlug: relatedSuggestionSchema.id,
-					},
-				]),
-		}),
-	} satisfies TestLayerOptions;
-
-	return withTestLayer(
-		options,
-		payload.executionId,
-		Effect.gen(function* () {
-			yield* runProviderEntityPopulationWorkflow(
-				{ ...payload, mode: "ensure" },
-				payload.executionId,
-			);
-			expect(created).toBe(true);
-			expect(deleted).toBe(false);
-		}),
-	);
-});
-
-it.effect("walks the child entity tree one scope per parent and upserts each node", () => {
-	const relationshipOperations: string[] = [];
-	const storedRelationships = new Map<string, typeof savedRelationship>();
-	const entityWrites: Array<{
-		name: string;
-		externalId: string;
-		properties: unknown;
-		updateExisting: boolean;
-		entitySchemaSlug: EntitySchemaSlug;
-		providerId: SandboxProviderId;
-	}> = [];
-	const relationshipSchemas = new Map([
-		[
-			"schema-1->group-part",
-			{
-				isBuiltin: true,
-				name: "Group to Group Part",
-				slug: "group-to-group-part",
-				propertiesSchema: { fields: {} },
-				id: RelationshipSchemaSlug.make("rel-group-part"),
-				sourceEntitySchemaSlug: EntitySchemaSlug.make("schema-1"),
-				targetEntitySchemaSlug: EntitySchemaSlug.make("group-part"),
-			},
-		],
-		[
-			"group-part->group-part-item",
-			{
-				isBuiltin: true,
-				propertiesSchema: { fields: {} },
-				name: "Group Part to Group Part Item",
-				slug: "group-part-to-group-part-item",
-				id: RelationshipSchemaSlug.make("rel-part-part-item"),
-				sourceEntitySchemaSlug: EntitySchemaSlug.make("group-part"),
-				targetEntitySchemaSlug: EntitySchemaSlug.make("group-part-item"),
-			},
-		],
-	]);
-	const options = {
-		relationshipSchemasRepository: makeRelationshipSchemasRepository({
-			findGlobalBySchemaIds: (input) =>
-				Effect.succeed(
-					relationshipSchemas.get(
-						`${input.sourceEntitySchemaSlug}->${input.targetEntitySchemaSlug}`,
-					) ?? null,
-				),
-		}),
-		entitySchemasRepository: makeEntitySchemasRepository({
-			getBuiltinBySlug: (slug: string) => {
-				let result: { id: EntitySchemaSlug; propertiesSchema: { fields: {} } } | null = null;
-				switch (slug) {
-					case "group-part": {
-						result = { propertiesSchema: { fields: {} }, id: EntitySchemaSlug.make("group-part") };
-						break;
-					}
-					case "group-part-item": {
-						result = {
-							propertiesSchema: { fields: {} },
-							id: EntitySchemaSlug.make("group-part-item"),
-						};
-						break;
-					}
-				}
-				return Effect.succeed(result);
-			},
-		}),
-		entitiesService: makeEntitiesService({
-			upsert: (input) => {
-				const properties: unknown = input.properties;
-				assertRecord(properties);
-				entityWrites.push({
-					properties,
-					name: input.name,
-					externalId: input.externalId,
-					providerId: input.providerId,
-					updateExisting: input.updateExisting,
-					entitySchemaSlug: input.entitySchemaSlug,
-				});
-				return Effect.succeed({
-					...baseEntity,
-					properties,
-					name: input.name,
-					externalId: input.externalId,
-					providerId: input.providerId,
-					entitySchemaSlug: input.entitySchemaSlug,
-					populatedAt: input.populatedAt?.toISOString() ?? null,
-					id: EntityId.make(`${input.entitySchemaSlug}-${input.externalId}`),
-				});
-			},
-		}),
-		relationshipsRepository: makeRelationshipsRepository({
-			deleteRelationship: (input) =>
-				Effect.sync(() => {
-					const identity = `${input.relationshipSchemaSlug}:${input.sourceEntityId}->${input.targetEntityId}`;
-					relationshipOperations.push(`delete:${identity}`);
-					const relationship = storedRelationships.get(identity) ?? savedRelationship;
-					storedRelationships.delete(identity);
-					return relationship;
-				}),
-			listGlobalRelationships: (input) =>
-				Effect.sync(() => {
-					relationshipOperations.push(
-						`list:${input.relationshipSchemaSlug}:${input.type === "anchored" ? input.anchorEntityId : "self"}`,
-					);
-					return [...storedRelationships.values()].filter((relationship) => {
-						if (relationship.relationshipSchemaSlug !== input.relationshipSchemaSlug) {
-							return false;
-						}
-						if (input.type === "self") {
-							return relationship.sourceEntityId === relationship.targetEntityId;
-						}
-						return input.direction === "outgoing"
-							? relationship.sourceEntityId === input.anchorEntityId
-							: relationship.targetEntityId === input.anchorEntityId;
-					});
-				}),
-			createRelationship: (input) =>
-				Effect.sync(() => {
-					const identity = `${input.relationshipSchemaSlug}:${input.sourceEntityId}->${input.targetEntityId}`;
-					relationshipOperations.push(`create:${identity}`);
-					const existing = storedRelationships.get(identity);
-					if (existing) {
-						return { ...existing, wasInserted: false };
-					}
-					const relationship = {
-						...savedRelationship,
-						properties: input.properties,
-						sourceEntityId: input.sourceEntityId,
-						targetEntityId: input.targetEntityId,
-						relationshipSchemaSlug: input.relationshipSchemaSlug,
-						id: RelationshipId.make(`relationship-${storedRelationships.size + 1}`),
-					};
-					storedRelationships.set(identity, relationship);
-					return relationship;
-				}),
-		}),
-	} satisfies TestLayerOptions;
-
-	const runScopes = (executionId: string, syncExisting: boolean, discoverPartItem: boolean) => {
-		const part = {
-			name: "Part 1",
-			externalId: "part-1",
-			entitySchemaSlug: "group-part",
-			properties: {
-				partNumber: 1,
-				description: "Part",
-				releaseDate: "2026-01-01",
-				images: [{ type: "remote", purpose: "cover", url: "https://example.com/part.jpg" }],
-			},
-			childEntities: [
-				{
-					name: "Part Item 1",
-					externalId: "part-item-1",
-					entitySchemaSlug: "group-part-item",
-					properties: {
-						runtime: 45,
-						partNumber: 1,
-						partItemNumber: 1,
-						description: "Part Item",
-						publishDate: "2026-01-02",
-					},
-				},
-				...(discoverPartItem
-					? [
-							{
-								name: "Part Item 2",
-								externalId: "part-item-2",
-								entitySchemaSlug: "group-part-item",
-								properties: {
-									runtime: 45,
-									partNumber: 1,
-									partItemNumber: 2,
-									description: "Part Item",
-									publishDate: "2026-01-09",
-								},
-							},
-						]
-					: []),
-			],
-		};
-		return withTestLayer(
-			options,
-			executionId,
-			Effect.gen(function* () {
-				const processedParts = yield* writeChildEntitySet({
-					syncExisting,
-					scope: "global",
-					childEntities: [part],
-					definitions: testDefinitions,
-					parentEntityId: baseEntity.id,
-					providerId: SandboxProviderId.make("provider-1"),
-					parentEntitySchemaSlug: EntitySchemaSlug.make("schema-1"),
-				});
-				const processedPart = processedParts.processedChildren[0];
-				assert(processedPart);
-				yield* writeChildEntitySet({
-					syncExisting,
-					scope: "global",
-					definitions: testDefinitions,
-					childEntities: part.childEntities,
-					parentEntityId: processedPart.entity.id,
-					providerId: SandboxProviderId.make("provider-1"),
-					parentEntitySchemaSlug: processedPart.entitySchemaSlug,
-				});
-			}),
-		);
-	};
-
-	return Effect.gen(function* () {
-		yield* runScopes("exec-child-tree-initial", false, false);
-
-		expect(storedRelationships.size).toBe(2);
-		expect(entityWrites).toHaveLength(2);
-		expect(entityWrites.every((write) => !write.updateExisting)).toBe(true);
-		expect(relationshipOperations).toEqual([
-			"list:rel-group-part:entity-1",
-			"create:rel-group-part:entity-1->group-part-part-1",
-			"list:rel-part-part-item:group-part-part-1",
-			"create:rel-part-part-item:group-part-part-1->group-part-item-part-item-1",
-		]);
-
-		const part = entityWrites.find((write) => write.externalId === "part-1");
-		const partItem = entityWrites.find((write) => write.externalId === "part-item-1");
-
-		expect(part?.providerId).toBe("provider-1");
-		expect(part?.entitySchemaSlug).toBe("group-part");
-		expect(part?.properties).toEqual({
-			partNumber: 1,
-			description: "Part",
-			releaseDate: "2026-01-01",
-			images: [{ type: "remote", purpose: "cover", url: "https://example.com/part.jpg" }],
-		});
-		expect(partItem?.entitySchemaSlug).toBe("group-part-item");
-		expect(partItem?.properties).toEqual({
-			runtime: 45,
-			partNumber: 1,
-			partItemNumber: 1,
-			description: "Part Item",
-			publishDate: "2026-01-02",
-		});
-
-		relationshipOperations.length = 0;
-		entityWrites.length = 0;
-		yield* runScopes("exec-child-tree-refresh", true, true);
-
-		expect(storedRelationships.size).toBe(3);
-		expect(entityWrites).toHaveLength(3);
-		expect(entityWrites.every((write) => write.updateExisting)).toBe(true);
-		expect(relationshipOperations).toEqual([
-			"list:rel-group-part:entity-1",
-			"list:rel-part-part-item:group-part-part-1",
-			"create:rel-part-part-item:group-part-part-1->group-part-item-part-item-2",
-		]);
-
-		entityWrites.length = 0;
-		const mismatch = yield* Effect.flip(
-			withTestLayer(
-				options,
-				"exec-mismatched-children",
-				writeChildEntitySet({
-					scope: "global",
-					syncExisting: true,
-					definitions: testDefinitions,
-					parentEntityId: baseEntity.id,
-					providerId: SandboxProviderId.make("provider-1"),
-					parentEntitySchemaSlug: EntitySchemaSlug.make("schema-1"),
-					childEntities: [
-						{
-							properties: {},
-							name: "Container",
-							entitySchemaSlug: "group-part",
-							externalId: "container-mismatch",
-						},
-						{
-							properties: {},
-							name: "Part Item",
-							externalId: "part-item-mismatch",
-							entitySchemaSlug: "group-part-item",
-						},
-					],
-				}),
-			),
-		);
-		expect(mismatch).toBeInstanceOf(SandboxRunError);
-		expect(mismatch.message).toBe("Child entities must use one entity schema");
-		expect(entityWrites).toEqual([]);
-		const declaredMismatch = yield* Effect.flip(
-			withTestLayer(
-				options,
-				"exec-declared-child-mismatch",
-				writeChildEntitySet({
-					scope: "global",
-					syncExisting: true,
-					definitions: testDefinitions,
-					parentEntityId: baseEntity.id,
-					providerId: SandboxProviderId.make("provider-1"),
-					expectedChildEntitySchemaSlug: "group-part-item",
-					parentEntitySchemaSlug: EntitySchemaSlug.make("schema-1"),
-					childEntities: [
-						{
-							properties: {},
-							name: "Container",
-							entitySchemaSlug: "group-part",
-							externalId: "declared-mismatch",
-						},
-					],
-				}),
-			),
-		);
-		expect(declaredMismatch).toBeInstanceOf(SandboxRunError);
-		expect(declaredMismatch.message).toBe(
-			"Child entity schema does not match declared schema: group-part !== group-part-item",
-		);
-		expect(entityWrites).toEqual([]);
-
-		relationshipOperations.length = 0;
-		yield* withTestLayer(
-			options,
-			"exec-empty-authoritative-children",
-			writeChildEntitySet({
-				scope: "global",
-				childEntities: [],
-				syncExisting: true,
-				definitions: testDefinitions,
-				expectedChildEntitySchemaSlug: "group-part-item",
-				providerId: SandboxProviderId.make("provider-1"),
-				parentEntityId: EntityId.make("group-part-part-1"),
-				parentEntitySchemaSlug: EntitySchemaSlug.make("group-part"),
-			}),
-		);
-		expect(relationshipOperations).toEqual([
-			"list:rel-part-part-item:group-part-part-1",
-			"delete:rel-part-part-item:group-part-part-1->group-part-item-part-item-1",
-			"delete:rel-part-part-item:group-part-part-1->group-part-item-part-item-2",
-		]);
-		expect(storedRelationships.size).toBe(1);
-	});
-});
-
-it.effect("propagates images through properties for the primary entity", () => {
-	const savedProperties: unknown[] = [];
-
-	const payload = { ...importPayload, executionId: "exec-images-properties" };
-	const images = [{ purpose: "cover", type: "local" as const, key: "permanent/test-record.jpg" }];
-	const options = {
-		processSandbox: () =>
-			Effect.succeed({
-				logs: [],
-				error: null,
-				status: "completed" as const,
-				value: { name: "Test Record", properties: { images, title: "Test Record" } },
-			}),
-		entitiesService: makeEntitiesService({
-			upsert: (input) => {
-				const properties: unknown = input.properties;
-				assertRecord(properties);
-				savedProperties.push(input.properties);
-				return Effect.succeed({
-					...baseEntity,
-					properties,
-					populatedAt: input.populatedAt === null ? null : now,
-				});
-			},
-			update: (input) => {
-				const properties: unknown = input.properties;
-				assertRecord(properties);
-				savedProperties.push(input.properties);
-				return Effect.succeed({
-					...baseEntity,
-					properties,
-					populatedAt: input.populatedAt === null ? null : now,
-				});
-			},
-		}),
-	} satisfies TestLayerOptions;
-
-	return withTestLayer(
-		options,
-		payload.executionId,
-		Effect.gen(function* () {
-			yield* runProviderEntityPopulationWorkflow(
-				{ ...payload, mode: "ensure" },
-				payload.executionId,
-			);
-
-			expect(savedProperties).toEqual([
-				{ images, title: "Test Record" },
-				{ images, title: "Test Record" },
-			]);
-		}),
-	);
-});
-
-it.effect("creates placeholder suggestion entities and syncs source suggestions", () => {
-	const relationshipWrites: unknown[] = [];
-	const placeholderWrites: Array<{
-		name: string;
-		externalId: string;
-		populatedAt: string | null;
-		entitySchemaSlug: EntitySchemaSlug;
-		providerId: SandboxProviderId;
-		properties: Record<string, unknown>;
-	}> = [];
-	const itemSchemaScript = {
-		providerId: SandboxProviderId.make("item-provider"),
-		detailsScriptId: SandboxScriptId.make("item-details"),
-		entitySchemaSlug: EntitySchemaSlug.make("schema-item"),
-	};
-	const payload = { ...importPayload, executionId: "exec-suggestions" };
-	const options = {
-		entitiesRepository: makeEntitiesRepository({
-			findEntitySchemaProviderBySlug: (slug: string) =>
-				Effect.succeed(slug === "item.alpha" ? itemSchemaScript : null),
-		}),
-		relationshipsRepository: makeRelationshipsRepository({
-			createRelationship: (input) =>
-				Effect.sync(() => {
-					relationshipWrites.push(input);
-					return {
-						...savedRelationship,
-						sourceEntityId: input.sourceEntityId,
-						targetEntityId: input.targetEntityId,
-						relationshipSchemaSlug: input.relationshipSchemaSlug,
-					};
-				}),
-		}),
-		processSandbox: () =>
-			Effect.succeed({
-				logs: [],
-				error: null,
-				status: "completed" as const,
-				value: {
-					name: "Test Record",
-					properties: { title: "Test Record" },
-					relatedEntityGroups: [
-						{
-							direction: "outgoing",
-							synchronization: "authoritative",
-							relationshipSchemaSlug: "related-suggestion",
-							entities: [
-								{ externalId: "item-1", name: "Recommended Item", providerSlug: "item.alpha" },
-								{
-									externalId: "missing-1",
-									name: "Missing Suggestion",
-									providerSlug: "missing.provider",
-								},
-							],
-						},
-					],
-				},
-			}),
-		entitiesService: makeEntitiesService({
-			upsert: (input) =>
-				Effect.succeed({ ...baseEntity, populatedAt: input.populatedAt === null ? null : now }),
-			update: (input) =>
-				Effect.succeed({ ...baseEntity, populatedAt: input.populatedAt === null ? null : now }),
-			create: (input) => {
-				if (input.scope !== "global") {
-					return Effect.die("unexpected user entity create");
-				}
-				const properties: unknown = input.properties;
-				assertRecord(properties);
-				placeholderWrites.push({
-					properties,
-					name: input.name,
-					externalId: input.externalId,
-					providerId: input.providerId,
-					entitySchemaSlug: input.entitySchemaSlug,
-					populatedAt: input.populatedAt?.toISOString() ?? null,
-				});
-				return Effect.succeed({
-					...baseEntity,
-					properties,
-					name: input.name,
-					populatedAt: null,
-					externalId: input.externalId,
-					providerId: input.providerId,
-					entitySchemaSlug: input.entitySchemaSlug,
-					id: EntityId.make(`suggestion-${input.externalId}`),
-				});
-			},
-		}),
-	} satisfies TestLayerOptions;
-
-	return withTestLayer(
-		options,
-		payload.executionId,
-		Effect.gen(function* () {
-			const result = yield* runProviderEntityPopulationWorkflow(
-				{ ...payload, mode: "ensure" },
-				payload.executionId,
-			);
-
-			expect(result.id).toBe("entity-1");
-			expect(result.populatedAt).toBe(now);
-			expect(placeholderWrites).toEqual([
-				{
-					properties: {},
-					populatedAt: null,
-					externalId: "item-1",
-					name: "Recommended Item",
-					providerId: SandboxProviderId.make("item-provider"),
-					entitySchemaSlug: EntitySchemaSlug.make("schema-item"),
-				},
-			]);
-			expect(relationshipWrites).toEqual([
-				expect.objectContaining({
-					properties: {},
-					scope: "global",
-					sourceEntityId: EntityId.make("entity-1"),
-					targetEntityId: EntityId.make("suggestion-item-1"),
-					relationshipSchemaSlug: RelationshipSchemaSlug.make("related-suggestion"),
-				}),
-			]);
-		}),
-	);
-});
-
-it.effect("replaces stale synced suggestions on a later import run", () => {
-	let storedPrimaryEntity: StoredEntity | null = null;
-	const currentTargets = new Set<string>();
-	const syncCalls: Array<ReadonlyArray<EntityId>> = [];
-	const itemSchemaScript = {
-		providerId: SandboxProviderId.make("item-provider"),
-		detailsScriptId: SandboxScriptId.make("item-details"),
-		entitySchemaSlug: EntitySchemaSlug.make("schema-item"),
-	};
-	const makeStoredRelationship = (targetEntityId: EntityId) => ({
-		targetEntityId,
-		properties: {},
-		createdAt: now,
-		wasInserted: true,
-		sourceEntityId: baseEntity.id,
-		id: RelationshipId.make("relationship-1"),
-		relationshipSchemaSlug: relatedSuggestionSchema.id,
-	});
-
-	const runAttempt = (
-		executionId: string,
-		suggestions: ReadonlyArray<{ name: string; externalId: string; providerSlug: string }>,
-	) =>
-		withTestLayer(
-			{
-				entitiesRepository: makeEntitiesRepository({
-					findEntityByExternalId: () => Effect.succeed(storedPrimaryEntity),
-					findEntitySchemaProviderBySlug: (slug: string) =>
-						Effect.succeed(slug === "item.alpha" ? itemSchemaScript : null),
-				}),
-				processSandbox: () =>
-					Effect.succeed({
-						logs: [],
-						error: null,
-						status: "completed" as const,
-						value: {
-							name: "Test Record",
-							properties: { title: "Test Record" },
-							relatedEntityGroups: [
-								{
-									entities: suggestions,
-									direction: "outgoing",
-									synchronization: "authoritative",
-									relationshipSchemaSlug: "related-suggestion",
-								},
-							],
-						},
-					}),
-				relationshipsRepository: makeRelationshipsRepository({
-					listGlobalRelationships: () =>
-						Effect.succeed(
-							[...currentTargets].map((targetEntityId) =>
-								makeStoredRelationship(EntityId.make(targetEntityId)),
-							),
-						),
-					deleteRelationship: (input) =>
-						Effect.sync(() => {
-							currentTargets.delete(input.targetEntityId);
-							return {
-								...savedRelationship,
-								sourceEntityId: input.sourceEntityId,
-								targetEntityId: input.targetEntityId,
-								relationshipSchemaSlug: input.relationshipSchemaSlug,
-							};
-						}),
-					createRelationship: (input) =>
-						Effect.sync(() => {
-							syncCalls.push([input.targetEntityId]);
-							currentTargets.add(input.targetEntityId);
-							return {
-								...savedRelationship,
-								sourceEntityId: input.sourceEntityId,
-								targetEntityId: input.targetEntityId,
-								relationshipSchemaSlug: input.relationshipSchemaSlug,
-							};
-						}),
-				}),
-				entitiesService: makeEntitiesService({
-					update: (input) => {
-						assert(storedPrimaryEntity);
-						return Effect.succeed({
-							...storedPrimaryEntity,
-							populatedAt: input.populatedAt === null ? null : now,
-						});
-					},
-					create: (input) => {
-						if (input.scope !== "global") {
-							return Effect.die("unexpected user entity create");
-						}
-						return Effect.succeed({
-							...baseEntity,
-							properties: {},
-							name: input.name,
-							populatedAt: null,
-							externalId: input.externalId,
-							providerId: input.providerId,
-							entitySchemaSlug: input.entitySchemaSlug,
-							id: EntityId.make(`suggestion-${input.externalId}`),
-						});
-					},
-					upsert: (input) => {
-						if (input.entitySchemaSlug !== importPayload.entitySchemaSlug) {
-							return Effect.die("unexpected upsert for non-primary entity");
-						}
-						storedPrimaryEntity = {
-							...baseEntity,
-							name: input.name,
-							populatedAt: null,
-							externalId: input.externalId,
-							providerId: input.providerId,
-							properties: { title: "Test Record" },
-							entitySchemaSlug: input.entitySchemaSlug,
-						};
-						return Effect.succeed({
-							...storedPrimaryEntity,
-							populatedAt: input.populatedAt === null ? null : now,
-						});
-					},
-				}),
-			},
-			executionId,
-			runProviderEntityPopulationWorkflow(
-				{ ...importPayload, executionId, mode: "ensure" },
-				executionId,
-			),
-		);
-
-	return Effect.gen(function* () {
-		yield* runAttempt("exec-suggestions-replace-1", [
-			{ externalId: "item-1", providerSlug: "item.alpha", name: "First Recommendation" },
-		]);
-		yield* runAttempt("exec-suggestions-replace-2", [
-			{ externalId: "item-2", providerSlug: "item.alpha", name: "Second Recommendation" },
-		]);
-
-		expect(syncCalls).toEqual([
-			[EntityId.make("suggestion-item-1")],
-			[EntityId.make("suggestion-item-2")],
-		]);
-		expect([...currentTargets]).toEqual(["suggestion-item-2"]);
-	});
-});
-
-it.effect("does not synchronize relationships when the provider declares no groups", () => {
-	let relationshipWrites = 0;
-
-	const payload = { ...importPayload, executionId: "exec-no-explicit-slug" };
-	const options = {
-		relationshipsRepository: makeRelationshipsRepository({
-			createRelationship: () =>
-				Effect.sync(() => {
-					relationshipWrites += 1;
-					return savedRelationship;
-				}),
-		}),
-		processSandbox: () =>
-			Effect.succeed({
-				logs: [],
-				error: null,
-				status: "completed" as const,
-				value: {
-					name: "Test Record",
-					relatedEntityGroups: [],
-					properties: { title: "Test Record" },
-				},
-			}),
-	} satisfies TestLayerOptions;
-
-	return withTestLayer(
-		options,
-		payload.executionId,
-		Effect.gen(function* () {
-			yield* runProviderEntityPopulationWorkflow(
-				{ ...payload, mode: "ensure" },
-				payload.executionId,
-			);
-
-			expect(relationshipWrites).toBe(0);
-		}),
-	);
-});
-
-it.effect("short-circuits sandbox when global entity is already populated", () => {
-	let sandboxCalled = false;
-
-	const populatedEntity = { ...baseEntity, populatedAt: now };
-	const payload = { ...importPayload, executionId: "exec-short-circuit" };
-	const options = {
-		entitiesRepository: makeEntitiesRepository({
-			findEntityByExternalId: () => Effect.succeed(populatedEntity),
-		}),
-		processSandbox: () => {
-			sandboxCalled = true;
-			return Effect.succeed({ logs: [], value: {}, error: null, status: "completed" as const });
-		},
-	} satisfies TestLayerOptions;
-
-	return withTestLayer(
-		options,
-		payload.executionId,
-		Effect.gen(function* () {
-			const result = yield* runProviderEntityPopulationWorkflow(
-				{ ...payload, mode: "ensure" },
-				payload.executionId,
-			);
-
-			expect(result.id).toBe("entity-1");
-			expect(sandboxCalled).toBe(false);
-		}),
-	);
-});
-
-it.effect("fails workflow when sandbox returns an error", () => {
-	const payload = { ...importPayload, executionId: "exec-sandbox-failure" };
-	const options = {
-		processSandbox: () =>
-			Effect.succeed({
-				logs: [],
-				value: null,
-				status: "completed" as const,
-				error: { phase: "execute" as const, message: "Sandbox script execution failed" },
-			}),
-	} satisfies TestLayerOptions;
-
-	return withTestLayer(
-		options,
-		payload.executionId,
-		Effect.gen(function* () {
-			const exit = yield* Effect.exit(
-				runProviderEntityPopulationWorkflow({ ...payload, mode: "ensure" }, payload.executionId),
-			);
-
-			assert(Exit.isFailure(exit));
-			const failure = Cause.findErrorOption(exit.cause);
-			assert(Option.isSome(failure));
-			assert(failure.value instanceof Error);
-			expect(failure.value.message).toBe("Sandbox script execution failed");
-		}),
-	);
-});
-
-it.effect("workflow body executes the sandbox step as part of orchestration", () => {
-	let sandboxStepExecuted = false;
-
-	const payload = { ...importPayload, executionId: "exec-orchestration" };
-	const options = {
-		entitiesService: makeEntitiesService({ upsert: () => Effect.succeed(baseEntity) }),
-		processSandbox: () => {
-			sandboxStepExecuted = true;
-			return Effect.succeed({
-				logs: [],
-				error: null,
-				status: "completed" as const,
-				value: { name: "Test", properties: { title: "Test" } },
-			});
-		},
-	} satisfies TestLayerOptions;
-
-	return withTestLayer(
-		options,
-		payload.executionId,
-		Effect.gen(function* () {
-			yield* runProviderEntityPopulationWorkflow(
-				{ ...payload, mode: "ensure" },
-				payload.executionId,
-			);
-
-			expect(sandboxStepExecuted).toBe(true);
-		}),
-	);
-});
-
-it.effect("keeps the refresh baseline when related relationship properties are invalid", () => {
-	let relationshipWritten = false;
-	let primaryWritten = false;
-	let storedEntity: StoredEntity | null = {
-		...baseEntity,
-		properties: { title: "Previous Record" },
-	};
-	const payload = { ...importPayload, executionId: "exec-related-validation" };
-	const options = {
-		definitions: withRelationshipDefinition({
-			slug: "authored-by",
-			name: "Authored By",
-			targetEntitySchemaSlug: "record",
-			sourceEntitySchemaSlug: "person",
-			propertiesSchema: {
-				fields: {
-					rating: {
-						type: "number",
-						label: "Rating",
-						description: "Rating",
-						validation: { required: true },
-					},
-				},
-			},
-		}),
-		entitiesRepository: makeEntitiesRepository({
-			findEntityByExternalId: () => Effect.succeed(storedEntity),
-			findEntitySchemaProviderBySlug: () =>
-				Effect.succeed({
-					entitySchemaSlug: EntitySchemaSlug.make("person"),
-					providerId: SandboxProviderId.make("person-provider"),
-					detailsScriptId: SandboxScriptId.make("person-details"),
-				}),
-		}),
-		processSandbox: () =>
-			Effect.succeed({
-				logs: [],
-				error: null,
-				status: "completed" as const,
-				value: {
-					name: "Test Record",
-					properties: { title: "Test Record" },
-					relatedEntityGroups: [
-						{
-							direction: "incoming",
-							synchronization: "authoritative",
-							relationshipSchemaSlug: "authored-by",
-							entities: [
-								{
-									name: "Author",
-									externalId: "person-ext-1",
-									relationshipProperties: {},
-									providerSlug: "person.test",
-								},
-							],
-						},
-					],
-				},
-			}),
-		relationshipSchemasRepository: makeRelationshipSchemasRepository({
-			findBuiltinBySlug: () =>
-				Effect.succeed({
-					isBuiltin: true,
-					slug: "authored-by",
-					name: "Authored By",
-					id: RelationshipSchemaSlug.make("rel-schema-1"),
-					targetEntitySchemaSlug: EntitySchemaSlug.make("record"),
-					sourceEntitySchemaSlug: EntitySchemaSlug.make("person"),
-					propertiesSchema: {
-						fields: {
-							rating: {
-								type: "number",
-								label: "Rating",
-								description: "Rating",
-								validation: { required: true },
-							},
-						},
-					},
-				}),
-		}),
-		entitiesService: makeEntitiesService({
-			upsert: (input) => {
-				if (input.entitySchemaSlug !== "record") {
-					return Effect.die("unexpected upsert for non-primary entity");
-				}
-				assert(storedEntity);
-				return Effect.succeed(storedEntity);
-			},
-			update: (input) => {
-				primaryWritten = true;
-				assert(storedEntity);
-				const properties: unknown = input.properties;
-				assertRecord(properties);
-				storedEntity = {
-					...storedEntity,
-					properties,
-					name: input.name,
-					populatedAt: input.populatedAt?.toISOString() ?? null,
-				};
-				return Effect.succeed(storedEntity);
-			},
-			create: (input) => {
-				if (input.scope !== "global") {
-					return Effect.die("unexpected user entity create");
-				}
-				const properties: unknown = input.properties;
-				assertRecord(properties);
-				return Effect.succeed({
-					...baseEntity,
-					properties,
-					name: input.name,
-					populatedAt: null,
-					externalId: input.externalId,
-					providerId: input.providerId,
-					id: EntityId.make("person-1"),
-					entitySchemaSlug: input.entitySchemaSlug,
-				});
-			},
-		}),
-	} satisfies TestLayerOptions;
-
-	return withTestLayer(
-		options,
-		payload.executionId,
-		Effect.gen(function* () {
-			const exit = yield* Effect.exit(
-				runProviderEntityPopulationWorkflow(
-					{ ...payload, mode: "refresh", entitySchemaSlug: EntitySchemaSlug.make("record") },
-					payload.executionId,
-				),
-			);
-
-			expect(relationshipWritten).toBe(false);
-			expect(primaryWritten).toBe(false);
-			expect(storedEntity).toMatchObject({
-				populatedAt: now,
-				properties: { title: "Previous Record" },
-			});
-			assert(Exit.isFailure(exit));
-			const failure = Cause.findErrorOption(exit.cause);
-			assert(Option.isSome(failure));
-			assert(failure.value instanceof Error);
-			expect(failure.value.message).toContain("rating");
-		}),
-	);
-});
-
-it.effect("fails workflow when related relationship properties are not objects", () => {
-	let relationshipWritten = false;
-	const payload = { ...importPayload, executionId: "exec-related-type-validation" };
-	const options = {
-		entitiesRepository: makeEntitiesRepository({
-			findEntitySchemaProviderBySlug: () =>
-				Effect.succeed({
-					providerId: SandboxProviderId.make("person-provider"),
-					detailsScriptId: SandboxScriptId.make("person-details"),
-					entitySchemaSlug: EntitySchemaSlug.make("schema-person"),
-				}),
-		}),
-		relationshipSchemasRepository: makeRelationshipSchemasRepository({
-			findBuiltinBySlug: () =>
-				Effect.succeed({
-					isBuiltin: true,
-					slug: "authored-by",
-					name: "Authored By",
-					propertiesSchema: { fields: {} },
-					id: RelationshipSchemaSlug.make("rel-schema-1"),
-					targetEntitySchemaSlug: EntitySchemaSlug.make("schema-1"),
-					sourceEntitySchemaSlug: EntitySchemaSlug.make("schema-person"),
-				}),
-		}),
-		processSandbox: () =>
-			Effect.succeed({
-				logs: [],
-				error: null,
-				status: "completed" as const,
-				value: {
-					name: "Test Record",
-					properties: { title: "Test Record" },
-					relatedEntityGroups: [
-						{
-							direction: "incoming",
-							synchronization: "authoritative",
-							relationshipSchemaSlug: "authored-by",
-							entities: [
-								{
-									name: "Author",
-									externalId: "person-ext-1",
-									relationshipProperties: [],
-									providerSlug: "person.test",
-								},
-							],
-						},
-					],
-				},
-			}),
-	} satisfies TestLayerOptions;
-
-	return withTestLayer(
-		options,
-		payload.executionId,
-		Effect.gen(function* () {
-			const exit = yield* Effect.exit(
-				runProviderEntityPopulationWorkflow({ ...payload, mode: "ensure" }, payload.executionId),
-			);
-
-			expect(relationshipWritten).toBe(false);
-			assert(Exit.isFailure(exit));
-			const failure = Cause.findErrorOption(exit.cause);
-			assert(Option.isSome(failure));
-			assert(failure.value instanceof Error);
-			expect(failure.value.message.length).toBeGreaterThan(0);
-		}),
-	);
-});
-
-it.effect("retries related writes after a failed related validation", () => {
-	let sandboxCalls = 0;
-	let relationshipWriteCount = 0;
-	let storedEntity: StoredEntity | null = null;
-
-	const options = {
-		relationshipsRepository: makeRelationshipsRepository({
-			createRelationship: (input) =>
-				Effect.sync(() => {
-					relationshipWriteCount += 1;
-					return relationshipForInput(input);
-				}),
-		}),
-		definitions: withRelationshipDefinition({
-			slug: "authored-by",
-			name: "Authored By",
-			targetEntitySchemaSlug: "schema-1",
-			sourceEntitySchemaSlug: "schema-person",
-			propertiesSchema: {
-				fields: {
-					rating: {
-						type: "number",
-						label: "Rating",
-						description: "Rating",
-						validation: { required: true },
-					},
-				},
-			},
-		}),
-		entitiesRepository: makeEntitiesRepository({
-			findEntityByExternalId: () => Effect.succeed(storedEntity),
-			findEntitySchemaProviderBySlug: () =>
-				Effect.succeed({
-					providerId: SandboxProviderId.make("person-provider"),
-					detailsScriptId: SandboxScriptId.make("person-details"),
-					entitySchemaSlug: EntitySchemaSlug.make("schema-person"),
-				}),
-		}),
-		relationshipSchemasRepository: makeRelationshipSchemasRepository({
-			findBuiltinBySlug: () =>
-				Effect.succeed({
-					isBuiltin: true,
-					slug: "authored-by",
-					name: "Authored By",
-					id: RelationshipSchemaSlug.make("rel-schema-1"),
-					targetEntitySchemaSlug: EntitySchemaSlug.make("schema-1"),
-					sourceEntitySchemaSlug: EntitySchemaSlug.make("schema-person"),
-					propertiesSchema: {
-						fields: {
-							rating: {
-								type: "number",
-								label: "Rating",
-								description: "Rating",
-								validation: { required: true },
-							},
-						},
-					},
-				}),
-		}),
-		entitiesService: makeEntitiesService({
-			update: (input) => {
-				assert(storedEntity);
-				const properties: unknown = input.properties;
-				assertRecord(properties);
-				storedEntity = {
-					...storedEntity,
-					properties,
-					name: input.name,
-					populatedAt: input.populatedAt?.toISOString() ?? null,
-				};
-				return Effect.succeed(storedEntity);
-			},
-			create: (input) => {
-				if (input.scope !== "global") {
-					return Effect.die("unexpected user entity create");
-				}
-				const properties: unknown = input.properties;
-				assertRecord(properties);
-				return Effect.succeed({
-					...baseEntity,
-					properties,
-					name: input.name,
-					populatedAt: null,
-					externalId: input.externalId,
-					providerId: input.providerId,
-					id: EntityId.make("person-1"),
-					entitySchemaSlug: input.entitySchemaSlug,
-				});
-			},
-			upsert: (input) => {
-				const properties: unknown = input.properties;
-				assertRecord(properties);
-				const nextEntity = {
-					...baseEntity,
-					properties,
-					name: input.name,
-					externalId: input.externalId,
-					providerId: input.providerId,
-					id: EntityId.make("entity-1"),
-					entitySchemaSlug: input.entitySchemaSlug,
-					populatedAt: input.populatedAt?.toISOString() ?? null,
-				};
-				storedEntity = nextEntity;
-				return Effect.succeed(nextEntity);
-			},
-		}),
-	} satisfies TestLayerOptions;
-
-	const runAttempt = (executionId: string, relationshipProperties: unknown) =>
-		withTestLayer(
-			{
-				...options,
-				processSandbox: () => {
-					sandboxCalls += 1;
-					return Effect.succeed({
-						logs: [],
-						error: null,
-						status: "completed" as const,
-						value: {
-							name: "Test Record",
-							properties: { title: "Test Record" },
-							relatedEntityGroups: [
-								{
-									direction: "incoming",
-									synchronization: "authoritative",
-									relationshipSchemaSlug: "authored-by",
-									entities: [
-										{
-											name: "Author",
-											relationshipProperties,
-											externalId: "person-ext-1",
-											providerSlug: "person.test",
-										},
-									],
-								},
-							],
-						},
-					});
-				},
-			},
-			executionId,
-			runProviderEntityPopulationWorkflow(
-				{ ...importPayload, executionId, mode: "ensure" },
-				executionId,
-			),
-		);
-
-	return Effect.gen(function* () {
-		const firstExit = yield* Effect.exit(runAttempt("exec-related-retry-1", {}));
-
-		expect(firstExit._tag).toBe("Failure");
-		expect(storedEntity?.populatedAt).toBeNull();
-
-		const secondResult = yield* runAttempt("exec-related-retry-2", { rating: 5 });
-
-		expect(sandboxCalls).toBe(2);
-		expect(relationshipWriteCount).toBe(1);
-		expect(secondResult.id).toBe("entity-1");
-		expect(secondResult.populatedAt).not.toBeNull();
-	});
-});
-
-it.effect("commits earlier population scopes when a later scope fails", () => {
-	const writes: string[] = [];
-	let stamped = false;
-	const transactionDatabaseLayer = Layer.succeed(
-		Database,
-		Database.of(
-			Object.assign(Object.create(null), {
-				transaction: ((callback) => {
-					const initialLength = writes.length;
-					return callback(Object.create(null)).pipe(
-						Effect.tapCause(() =>
+const makeTransaction = (rollback: () => void = () => {}) => {
+	let inTransaction = false;
+	const transaction: Parameters<Parameters<Database["Service"]["transaction"]>[0]>[0] =
+		Object.create(null);
+	const database = Database.of(
+		Object.assign(Object.create(null), {
+			transaction: ((body) =>
+				Effect.suspend(() => {
+					inTransaction = true;
+					return body(transaction).pipe(
+						Effect.onExit((exit) =>
 							Effect.sync(() => {
-								writes.length = initialLength;
+								if (Exit.isFailure(exit)) {
+									rollback();
+								}
 							}),
 						),
+						Effect.ensuring(Effect.sync(() => (inTransaction = false))),
 					);
-				}) satisfies Database["Service"]["transaction"],
-			}),
-		),
-	);
-	const payload = { ...importPayload, executionId: "partial-scope-commit" };
-	const options = {
-		databaseLayer: transactionDatabaseLayer,
-		entitySchemasRepository: makeEntitySchemasRepository({
-			getBuiltinBySlug: () => Effect.succeed(null),
+				})) satisfies Database["Service"]["transaction"],
 		}),
-		relationshipsRepository: makeRelationshipsRepository({
-			createRelationship: (input) =>
+	);
+	return { database, inTransaction: () => inTransaction };
+};
+
+type PlannedEntityWork = Effect.Success<
+	ReturnType<EntitiesService["Service"]["persistPlannedProviderUpsert"]>
+>;
+
+const childEntityWork = (
+	input: Parameters<EntitiesService["Service"]["persistPlannedProviderUpsert"]>[0],
+): PlannedEntityWork => {
+	const entity = listedEntity({
+		name: input.name,
+		externalId: input.externalId,
+		providerId: input.providerId,
+		entitySchemaSlug: input.entitySchemaSlug,
+		id: EntityId.make(`entity-${input.externalId}`),
+		populatedAt: input.populatedAt?.toISOString() ?? null,
+		// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- provider upsert input carries the plain JSON records these tests supply
+		properties: input.properties as Record<string, JsonValue>,
+	});
+	return {
+		plans: [],
+		result: {
+			entity,
+			wasInserted: true,
+			outcome: { before: null, after: snapshot(entity), operation: "create" as const },
+		},
+	};
+};
+
+it.effect("commits a child set atomically and executes all plans after commit", () => {
+	const transaction = makeTransaction();
+	const entityWrites: string[] = [];
+	const reconciliations: Array<{
+		command: LifecycleCommand;
+		scope: unknown;
+		groups: ReadonlyArray<unknown>;
+	}> = [];
+	let entityPostCommit = 0;
+	let relationshipPostCommit = 0;
+	const layer = Layer.mergeAll(
+		Layer.succeed(Database, transaction.database),
+		Layer.succeed(DefinitionRegistry, registry),
+		Layer.mock(EntitiesRepository)({}),
+		Layer.mock(EntitiesService)({
+			executeCommittedPlans: () =>
 				Effect.sync(() => {
-					writes.push("relationship:related-suggestion");
-					return relationshipForInput(input);
+					expect(transaction.inTransaction()).toBe(false);
+					entityPostCommit += 1;
+					return [];
+				}),
+			persistPlannedProviderUpsert: (input) =>
+				Effect.sync(() => {
+					expect(transaction.inTransaction()).toBe(true);
+					entityWrites.push(input.externalId);
+					return childEntityWork(input);
 				}),
 		}),
-		entitiesRepository: makeEntitiesRepository({
+		Layer.mock(RelationshipsRepository)({
+			listRelationshipsForReconciliation: () => Effect.succeed([]),
+		}),
+		Layer.mock(RelationshipsService)({
+			executeCommittedPlans: () =>
+				Effect.sync(() => {
+					expect(transaction.inTransaction()).toBe(false);
+					relationshipPostCommit += 1;
+					return [];
+				}),
+			persistPlannedReconciliation: (groups, receivedCommand, scope) =>
+				Effect.sync(() => {
+					expect(transaction.inTransaction()).toBe(true);
+					reconciliations.push({ scope, groups, command: receivedCommand });
+					return { plans: [], result: [{ created: 2, updated: 0, deleted: 0, upserted: 2 }] };
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const result = yield* writeChildEntitySet({
+			command,
+			population,
+			providerId,
+			definitions,
+			scope: "global",
+			parentEntityId: rootEntityId,
+			parentEntitySchemaSlug: rootSchemaSlug,
+			expectedChildEntitySchemaSlug: childSchemaSlug,
+			childEntities: [
+				{ name: "Second", properties: {}, externalId: "b", entitySchemaSlug: childSchemaSlug },
+				{ name: "First", properties: {}, externalId: "a", entitySchemaSlug: childSchemaSlug },
+			],
+		});
+		expect(entityWrites).toEqual(["a", "b"]);
+		expect(result.processedChildren.map(({ entity }) => entity.externalId)).toEqual(["b", "a"]);
+		expect(result.relationshipResults).toEqual([
+			{ created: 2, updated: 0, deleted: 0, upserted: 2 },
+		]);
+		expect(entityPostCommit).toBe(1);
+		expect(relationshipPostCommit).toBe(1);
+		expect(reconciliations[0]).toMatchObject({
+			scope: { scope: "global" },
+			command: {
+				causation: command.causation,
+				population: {
+					...population,
+					batch: {
+						afterCount: 0,
+						isLeader: true,
+						beforeCount: 0,
+						createdCount: 0,
+						deletedCount: 0,
+						updatedCount: 0,
+					},
+				},
+			},
+		});
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("rolls back every child entity when relationship planning fails", () => {
+	const persisted: string[] = [];
+	const transaction = makeTransaction(() => persisted.splice(0));
+	let postCommit = false;
+	const layer = Layer.mergeAll(
+		Layer.succeed(Database, transaction.database),
+		Layer.succeed(DefinitionRegistry, registry),
+		Layer.mock(EntitiesRepository)({}),
+		Layer.mock(EntitiesService)({
+			executeCommittedPlans: () => Effect.sync(() => void (postCommit = true)).pipe(Effect.as([])),
+			persistPlannedProviderUpsert: (input) =>
+				Effect.sync(() => {
+					persisted.push(input.externalId);
+					return childEntityWork(input);
+				}),
+		}),
+		Layer.mock(RelationshipsRepository)({
+			listRelationshipsForReconciliation: () => Effect.succeed([]),
+		}),
+		Layer.mock(RelationshipsService)({
+			executeCommittedPlans: () => Effect.sync(() => void (postCommit = true)).pipe(Effect.as([])),
+			persistPlannedReconciliation: () =>
+				Effect.fail(
+					new RelationshipBadRequest({ reason: { code: "reconciliation-selector-mismatch" } }),
+				),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const exit = yield* Effect.exit(
+			writeChildEntitySet({
+				command,
+				population,
+				providerId,
+				definitions,
+				scope: "global",
+				parentEntityId: rootEntityId,
+				parentEntitySchemaSlug: rootSchemaSlug,
+				expectedChildEntitySchemaSlug: childSchemaSlug,
+				childEntities: [
+					{ name: "First", properties: {}, externalId: "a", entitySchemaSlug: childSchemaSlug },
+					{ name: "Second", properties: {}, externalId: "b", entitySchemaSlug: childSchemaSlug },
+				],
+			}),
+		);
+		expect(Exit.isFailure(exit)).toBe(true);
+		expect(persisted).toEqual([]);
+		expect(postCommit).toBe(false);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("keeps private related entities and reconciliation in one user transaction", () => {
+	const transaction = makeTransaction();
+	const entityScopes: unknown[] = [];
+	let reconciliationScope: unknown;
+	let reconciliationCommand: LifecycleCommand | undefined;
+	const privateProviderId = SandboxProviderId.make("private-provider");
+	const layer = Layer.mergeAll(
+		Layer.succeed(Database, transaction.database),
+		Layer.succeed(DefinitionRegistry, registry),
+		Layer.mock(PluginRuntimeResolver)({
+			findProviderAvailableToUserBySlug: () =>
+				Effect.sync(() => {
+					expect(transaction.inTransaction()).toBe(false);
+					return {
+						name: "Private",
+						createdAt: epoch,
+						updatedAt: epoch,
+						id: privateProviderId,
+						slug: "private.person",
+						pluginId: "private-plugin",
+						pluginScope: "user" as const,
+						providerId: privateProviderId,
+						rootEntitySchemaSlug: "person",
+						information: { source: "provider" },
+					};
+				}),
+		}),
+		Layer.mock(EntitiesRepository)({}),
+		Layer.mock(EntitiesService)({
+			executeCommittedPlans: () => Effect.succeed([]),
+			persistPlannedProviderUpsert: (input) =>
+				Effect.sync(() => {
+					expect(transaction.inTransaction()).toBe(true);
+					entityScopes.push({
+						scope: input.scope,
+						userId: input.scope === "user" ? input.userId : null,
+					});
+					return childEntityWork(input);
+				}),
+		}),
+		Layer.mock(RelationshipsRepository)({
+			listRelationshipsForReconciliation: () => Effect.succeed([]),
+		}),
+		Layer.mock(RelationshipsService)({
+			executeCommittedPlans: () => Effect.succeed([]),
+			persistPlannedReconciliation: (_groups, receivedCommand, scope) =>
+				Effect.sync(() => {
+					expect(transaction.inTransaction()).toBe(true);
+					reconciliationScope = scope;
+					reconciliationCommand = receivedCommand;
+					return { plans: [], result: [{ created: 1, updated: 0, deleted: 0, upserted: 1 }] };
+				}),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const result = yield* syncRelatedEntityGroup({
+			userId,
+			command,
+			population,
+			definitions,
+			scope: "user",
+			primaryEntityId: rootEntityId,
+			primaryEntitySchemaSlug: rootSchemaSlug,
+			group: {
+				direction: "outgoing",
+				synchronization: "additive",
+				relationshipSchemaSlug: "credits",
+				entities: [
+					{
+						name: "Person",
+						externalId: "person-1",
+						providerSlug: "private.person",
+						relationshipProperties: { role: "actor" },
+					},
+				],
+			},
+		});
+		expect(result).toEqual([{ created: 1, updated: 0, deleted: 0, upserted: 1 }]);
+		expect(entityScopes).toEqual([{ userId, scope: "user" }]);
+		expect(reconciliationScope).toEqual({ userId, scope: "user" });
+		expect(reconciliationCommand).toMatchObject({
+			causation: command.causation,
+			population: { rootPreviouslyPopulated: true, scopeEntity: population.scopeEntity },
+		});
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("rolls back a complete related group when reconciliation fails", () => {
+	const persisted: string[] = [];
+	const transaction = makeTransaction(() => persisted.splice(0));
+	let postCommit = false;
+	const relatedProviderId = SandboxProviderId.make("person-provider");
+	const layer = Layer.mergeAll(
+		Layer.succeed(Database, transaction.database),
+		Layer.succeed(DefinitionRegistry, registry),
+		Layer.mock(PluginRuntimeResolver)({}),
+		Layer.mock(EntitiesRepository)({
 			findEntitySchemaProviderBySlug: () =>
 				Effect.succeed({
-					providerId: SandboxProviderId.make("provider-related"),
-					detailsScriptId: SandboxScriptId.make("related-details"),
-					entitySchemaSlug: EntitySchemaSlug.make("schema-related"),
+					providerId: relatedProviderId,
+					entitySchemaSlug: EntitySchemaSlug.make("person"),
+					detailsScriptId: SandboxScriptId.make("person-details"),
 				}),
 		}),
-		processSandbox: () =>
-			Effect.succeed({
-				logs: [],
-				error: null,
-				status: "completed" as const,
-				value: {
-					name: "Test Record",
-					properties: { title: "Test Record" },
-					childEntities: [
-						{
-							properties: {},
-							name: "Missing Child",
-							externalId: "missing-child",
-							entitySchemaSlug: "missing-child",
-						},
-					],
-					relatedEntityGroups: [
-						{
-							direction: "outgoing" as const,
-							synchronization: "authoritative" as const,
-							relationshipSchemaSlug: "related-suggestion",
-							entities: [
-								{ name: "Suggestion", externalId: "suggestion-1", providerSlug: "example.test" },
-							],
-						},
+		Layer.mock(EntitiesService)({
+			executeCommittedPlans: () => Effect.sync(() => void (postCommit = true)).pipe(Effect.as([])),
+			persistPlannedProviderUpsert: (input) =>
+				Effect.sync(() => {
+					expect(transaction.inTransaction()).toBe(true);
+					persisted.push(input.externalId);
+					return childEntityWork(input);
+				}),
+		}),
+		Layer.mock(RelationshipsRepository)({}),
+		Layer.mock(RelationshipsService)({
+			executeCommittedPlans: () => Effect.sync(() => void (postCommit = true)).pipe(Effect.as([])),
+			persistPlannedReconciliation: () =>
+				Effect.fail(
+					new RelationshipBadRequest({ reason: { code: "reconciliation-selector-mismatch" } }),
+				),
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const exit = yield* Effect.exit(
+			syncRelatedEntityGroup({
+				command,
+				population,
+				definitions,
+				scope: "global",
+				primaryEntityId: rootEntityId,
+				primaryEntitySchemaSlug: rootSchemaSlug,
+				group: {
+					direction: "outgoing",
+					synchronization: "authoritative",
+					relationshipSchemaSlug: "credits",
+					entities: [
+						{ name: "First", externalId: "person-1", providerSlug: "person.provider" },
+						{ name: "Second", externalId: "person-2", providerSlug: "person.provider" },
 					],
 				},
 			}),
-		entitiesService: makeEntitiesService({
-			update: () =>
-				Effect.sync(() => {
-					stamped = true;
-					return baseEntity;
-				}),
-			upsert: (input) =>
-				Effect.sync(() => {
-					writes.push(`entity:${input.name}`);
-					return {
-						...baseEntity,
-						name: input.name,
-						externalId: input.externalId,
-						providerId: input.providerId,
-						id: EntityId.make("entity-1"),
-						entitySchemaSlug: input.entitySchemaSlug,
-						populatedAt: input.populatedAt?.toISOString() ?? null,
-					};
-				}),
-			create: (input) =>
-				Effect.sync(() => {
-					writes.push(`entity:${input.name}`);
-					return {
-						...baseEntity,
-						name: input.name,
-						id: EntityId.make("suggestion-1"),
-						entitySchemaSlug: input.entitySchemaSlug,
-						externalId: input.scope === "global" ? input.externalId : null,
-						populatedAt:
-							input.scope === "global" ? (input.populatedAt?.toISOString() ?? null) : null,
-						providerId:
-							input.scope === "global" ? input.providerId : SandboxProviderId.make("provider-1"),
-					};
-				}),
-		}),
-	} satisfies TestLayerOptions;
-
-	return withTestLayer(
-		options,
-		payload.executionId,
-		Effect.gen(function* () {
-			const exit = yield* Effect.exit(
-				runProviderEntityPopulationWorkflow({ ...payload, mode: "ensure" }, payload.executionId),
-			);
-
-			expect(exit._tag).toBe("Failure");
-			expect(stamped).toBe(false);
-			expect(writes).toEqual([
-				"entity:Test Record",
-				"entity:Suggestion",
-				"relationship:related-suggestion",
-			]);
-		}),
-	);
+		);
+		expect(Exit.isFailure(exit)).toBe(true);
+		expect(persisted).toEqual([]);
+		expect(postCommit).toBe(false);
+	}).pipe(Effect.provide(layer));
 });
 
-it.effect("refresh synchronization replaces provider-owned primary and child values", () => {
-	const writes: Array<{
-		name: string;
-		populatedAt: Date | null;
-		entitySchemaSlug: EntitySchemaSlug;
-		properties: Record<string, unknown>;
-	}> = [];
-	const relationshipSchema = {
-		isBuiltin: true,
-		name: "Group to Part",
-		slug: "group-to-group-part",
-		propertiesSchema: { fields: {} },
-		id: RelationshipSchemaSlug.make("group-to-group-part"),
-		sourceEntitySchemaSlug: EntitySchemaSlug.make("group"),
-		targetEntitySchemaSlug: EntitySchemaSlug.make("group-part"),
-	};
-	const payload = { ...importPayload, executionId: "refresh-overwrite" };
-	const options = {
-		definitions: withChildRelationshipDefinitions(
-			"group",
-			"group-to-group-part",
-			"group-part-to-group-part-item",
-		),
-		relationshipSchemasRepository: makeRelationshipSchemasRepository({
-			findGlobalBySchemaIds: () => Effect.succeed(relationshipSchema),
-		}),
-		entitySchemasRepository: makeEntitySchemasRepository({
-			getBuiltinBySlug: () =>
-				Effect.succeed({
-					propertiesSchema: { fields: {} },
-					id: EntitySchemaSlug.make("group-part"),
-				}),
-		}),
-		entitiesRepository: makeEntitiesRepository({
-			findEntityByExternalId: (input) =>
-				Effect.succeed({
-					...baseEntity,
-					populatedAt: now,
-					entitySchemaSlug: input.entitySchemaSlug,
-					id:
-						input.entitySchemaSlug === "group"
-							? EntityId.make("entity-1")
-							: EntityId.make("part-1"),
-				}),
-		}),
-		processSandbox: () =>
-			Effect.succeed({
-				logs: [],
-				error: null,
-				status: "completed" as const,
-				value: {
-					name: "Updated Group",
-					properties: { title: "Updated Group", productionStatus: "Ended" },
-					childEntities: [
-						{
-							name: "Updated Part",
-							externalId: "part-1",
-							properties: { partNumber: 1 },
-							entitySchemaSlug: "group-part",
-						},
-					],
-				},
-			}),
-		entitiesService: makeEntitiesService({
-			create: () => Effect.die("unexpected create when refreshing existing entities"),
-			upsert: (input) => {
-				assertRecord(input.properties);
-				if (input.updateExisting) {
-					writes.push({
-						name: input.name,
-						properties: input.properties,
-						populatedAt: input.populatedAt,
-						entitySchemaSlug: input.entitySchemaSlug,
-					});
-				}
-				return Effect.succeed({
-					...baseEntity,
-					name: input.name,
-					properties: input.properties,
-					entitySchemaSlug: input.entitySchemaSlug,
-					populatedAt: input.populatedAt?.toISOString() ?? null,
-					id:
-						input.entitySchemaSlug === "group"
-							? EntityId.make("entity-1")
-							: EntityId.make("part-1"),
-				});
-			},
-		}),
-	} satisfies TestLayerOptions;
-
-	return withTestLayer(
-		options,
-		payload.executionId,
-		Effect.gen(function* () {
-			yield* runProviderEntityPopulationWorkflow(
-				{ ...payload, mode: "refresh", entitySchemaSlug: EntitySchemaSlug.make("group") },
-				payload.executionId,
-			);
-
-			expect(writes).toHaveLength(2);
-			expect(writes[0]).toMatchObject({
-				name: "Updated Part",
-				properties: { partNumber: 1 },
-				populatedAt: expect.any(Date),
-				entitySchemaSlug: EntitySchemaSlug.make("group-part"),
-			});
-			expect(writes[1]).toMatchObject({
-				name: "Updated Group",
-				populatedAt: expect.any(Date),
-				entitySchemaSlug: EntitySchemaSlug.make("group"),
-				properties: { title: "Updated Group", productionStatus: "Ended" },
-			});
-		}),
-	);
-});
-
-it.effect("dies when a refresh payload omits entitySchemaSlug", () => {
-	let sandboxCalled = false;
-	const payload = { ...importPayload, executionId: "exec-refresh-missing-slug" };
-	const invalidPayload: ProviderEntityPopulationPayload = { ...payload, mode: "refresh" };
-	Reflect.deleteProperty(invalidPayload, "entitySchemaSlug");
-	const options = {
-		processSandbox: () =>
+it.effect("uses command causation for deterministic root and final lifecycle writes", () => {
+	const transaction = makeTransaction();
+	const commands: LifecycleCommand[] = [];
+	let postCommitCount = 0;
+	const entityRepository = Layer.mock(EntitiesRepository)({
+		findEntityByExternalId: () => Effect.succeed(null),
+	});
+	const entitiesService = Layer.mock(EntitiesService)({
+		executeCommittedPlans: () =>
 			Effect.sync(() => {
-				sandboxCalled = true;
-				return {
-					logs: [],
-					error: null,
-					status: "completed" as const,
-					value: { name: "Test Record", properties: { title: "Test Record" } },
-				};
+				expect(transaction.inTransaction()).toBe(false);
+				postCommitCount += 1;
+				return [];
 			}),
-	} satisfies TestLayerOptions;
-
-	return withTestLayer(
-		options,
-		payload.executionId,
-		Effect.gen(function* () {
-			const exit = yield* Effect.exit(
-				runProviderEntityPopulationWorkflow(invalidPayload, payload.executionId),
-			);
-
-			assert(Exit.isFailure(exit));
-			const dieReason = exit.cause.reasons.find(Cause.isDieReason);
-			assert(dieReason);
-			expect(String(dieReason.defect)).toContain("entitySchemaSlug is required");
-			expect(sandboxCalled).toBe(false);
-		}),
-	);
-});
-
-it.effect("clears an explicit empty relationship group", () => {
-	const calls: unknown[] = [];
-	const payload = { ...importPayload, executionId: "clear-empty-group" };
-	const options = {
-		processSandbox: () =>
-			Effect.succeed({
-				logs: [],
-				error: null,
-				status: "completed" as const,
-				value: {
-					name: "Test Record",
-					properties: { title: "Test Record" },
-					relatedEntityGroups: [
-						{
-							entities: [],
-							direction: "outgoing",
-							synchronization: "authoritative",
-							relationshipSchemaSlug: "related-suggestion",
-						},
-					],
-				},
-			}),
-		relationshipsRepository: makeRelationshipsRepository({
-			listGlobalRelationships: () =>
-				Effect.succeed([
-					{
-						...savedRelationship,
-						sourceEntityId: EntityId.make("entity-1"),
-						targetEntityId: EntityId.make("stale-target"),
-						relationshipSchemaSlug: relatedSuggestionSchema.id,
-					},
-				]),
-			deleteRelationship: (input) =>
-				Effect.sync(() => {
-					calls.push(input);
-					return {
-						...savedRelationship,
-						sourceEntityId: input.sourceEntityId,
-						targetEntityId: input.targetEntityId,
-						relationshipSchemaSlug: input.relationshipSchemaSlug,
-					};
-				}),
-		}),
-	} satisfies TestLayerOptions;
-
-	return withTestLayer(
-		options,
-		payload.executionId,
-		Effect.gen(function* () {
-			yield* runProviderEntityPopulationWorkflow(
-				{ ...payload, mode: "ensure" },
-				payload.executionId,
-			);
-			expect(calls).toEqual([
-				{
-					scope: "global",
-					relationshipSchemaPluginId: null,
-					sourceEntityId: EntityId.make("entity-1"),
-					targetEntityId: EntityId.make("stale-target"),
-					relationshipSchemaSlug: relatedSuggestionSchema.id,
-				},
-			]);
-		}),
-	);
-});
-
-it.effect("resumes from the failed population scope without duplicating committed work", () => {
-	let failPartTwo = true;
-	let stamped = false;
-	const storedEntities = new Map<string, StoredEntity>();
-	const storedRelationships = new Map<string, typeof savedRelationship>();
-	const relationshipSchemas = new Map([
-		[
-			"schema-group->group-part",
-			{
-				isBuiltin: true,
-				name: "Group to Group Part",
-				slug: "group-to-group-part",
-				propertiesSchema: { fields: {} },
-				id: RelationshipSchemaSlug.make("rel-group-part"),
-				targetEntitySchemaSlug: EntitySchemaSlug.make("group-part"),
-				sourceEntitySchemaSlug: EntitySchemaSlug.make("schema-group"),
-			},
-		],
-		[
-			"group-part->group-part-item",
-			{
-				isBuiltin: true,
-				propertiesSchema: { fields: {} },
-				name: "Group Part to Group Part Item",
-				slug: "group-part-to-group-part-item",
-				id: RelationshipSchemaSlug.make("rel-part-part-item"),
-				sourceEntitySchemaSlug: EntitySchemaSlug.make("group-part"),
-				targetEntitySchemaSlug: EntitySchemaSlug.make("group-part-item"),
-			},
-		],
-	]);
-	const sandboxValue = {
-		name: "Severance",
-		properties: { title: "Severance" },
-		childEntities: [
-			{
-				name: "Part 1",
-				externalId: "part-1",
-				properties: { partNumber: 1 },
-				entitySchemaSlug: "group-part",
-				childEntities: [
-					{
-						name: "Part Item 1",
-						externalId: "part-item-1",
-						properties: { partItemNumber: 1 },
-						entitySchemaSlug: "group-part-item",
-					},
-				],
-			},
-			{
-				name: "Part 2",
-				externalId: "part-2",
-				properties: { partNumber: 2 },
-				entitySchemaSlug: "group-part",
-				childEntities: [
-					{
-						name: "Part Item 3",
-						externalId: "part-item-3",
-						properties: { partItemNumber: 1 },
-						entitySchemaSlug: "group-part-item",
-					},
-				],
-			},
-		],
-	};
-	const options = {
-		entitySchemasRepository: makeEntitySchemasRepository({
-			getBuiltinBySlug: findChildEntitySchemaBySlug,
-		}),
-		processSandbox: () =>
-			Effect.succeed({ logs: [], error: null, value: sandboxValue, status: "completed" as const }),
-		definitions: withChildRelationshipDefinitions(
-			"schema-group",
-			"group-to-group-part",
-			"group-part-to-group-part-item",
-		),
-		entitiesRepository: makeEntitiesRepository({
-			findEntityByExternalId: (input) =>
-				Effect.succeed(
-					storedEntities.get(entityKey(input.entitySchemaSlug, input.externalId)) ?? null,
-				),
-		}),
-		relationshipSchemasRepository: makeRelationshipSchemasRepository({
-			findGlobalBySchemaIds: (input) =>
-				Effect.succeed(
-					relationshipSchemas.get(
-						`${input.sourceEntitySchemaSlug}->${input.targetEntitySchemaSlug}`,
-					) ?? null,
-				),
-		}),
-		entitiesService: makeEntitiesService({
-			update: (input) => {
-				stamped = true;
-				const entry = [...storedEntities.values()].find((entity) => entity.id === input.entityId);
-				assert(entry);
-				const next = { ...entry, populatedAt: input.populatedAt?.toISOString() ?? null };
-				storedEntities.set(entityKey(entry.entitySchemaSlug, entry.externalId), next);
-				return Effect.succeed(next);
-			},
-			upsert: (input) => {
-				if (failPartTwo && input.externalId === "part-item-3") {
-					return Effect.die(new Error("transient store failure"));
-				}
-				const properties: unknown = input.properties;
-				assertRecord(properties);
-				const key = entityKey(input.entitySchemaSlug, input.externalId);
-				const entity = {
-					...baseEntity,
-					properties,
+		persistPlannedProviderUpsert: (input) =>
+			Effect.sync(() => {
+				expect(transaction.inTransaction()).toBe(true);
+				commands.push(input.lifecycle);
+				const entity = listedEntity({
 					name: input.name,
 					externalId: input.externalId,
 					providerId: input.providerId,
 					entitySchemaSlug: input.entitySchemaSlug,
 					populatedAt: input.populatedAt?.toISOString() ?? null,
-					id:
-						storedEntities.get(key)?.id ??
-						EntityId.make(`${input.entitySchemaSlug}-${input.externalId}`),
-				};
-				storedEntities.set(key, entity);
-				return Effect.succeed(entity);
-			},
-		}),
-		relationshipsRepository: makeRelationshipsRepository({
-			listGlobalRelationships: (input) =>
-				Effect.sync(() =>
-					[...storedRelationships.values()].filter((relationship) => {
-						if (relationship.relationshipSchemaSlug !== input.relationshipSchemaSlug) {
-							return false;
-						}
-						if (input.type === "self") {
-							return relationship.sourceEntityId === relationship.targetEntityId;
-						}
-						return input.direction === "outgoing"
-							? relationship.sourceEntityId === input.anchorEntityId
-							: relationship.targetEntityId === input.anchorEntityId;
-					}),
-				),
-			createRelationship: (input) =>
-				Effect.sync(() => {
-					const identity = `${input.relationshipSchemaSlug}:${input.sourceEntityId}->${input.targetEntityId}`;
-					const existing = storedRelationships.get(identity);
-					if (existing) {
-						return { ...existing, wasInserted: false };
-					}
-					const relationship = {
-						...savedRelationship,
-						properties: input.properties,
-						sourceEntityId: input.sourceEntityId,
-						targetEntityId: input.targetEntityId,
-						relationshipSchemaSlug: input.relationshipSchemaSlug,
-						id: RelationshipId.make(`relationship-${storedRelationships.size + 1}`),
-					};
-					storedRelationships.set(identity, relationship);
-					return relationship;
-				}),
-		}),
-	} satisfies TestLayerOptions;
-
-	const runPopulation = (executionId: string) =>
-		withTestLayer(
-			options,
-			executionId,
-			runProviderEntityPopulationWorkflow(
-				{
-					...importPayload,
-					executionId,
-					mode: "ensure",
-					externalId: "alpha-group-1",
-					entitySchemaSlug: EntitySchemaSlug.make("schema-group"),
-				},
-				executionId,
-			),
-		);
-
-	return Effect.gen(function* () {
-		const firstExit = yield* Effect.exit(runPopulation("exec-scope-resume-1"));
-
-		expect(firstExit._tag).toBe("Failure");
-		expect(stamped).toBe(false);
-		expect(storedEntities.size).toBe(4);
-		expect(storedRelationships.size).toBe(3);
-		expect(storedEntities.get(entityKey("schema-group", "alpha-group-1"))?.populatedAt).toBeNull();
-
-		failPartTwo = false;
-		const result = yield* runPopulation("exec-scope-resume-2");
-
-		expect(result.populatedAt).not.toBeNull();
-		expect(storedEntities.size).toBe(5);
-		expect(storedRelationships.size).toBe(4);
-		expect(
-			storedEntities.get(entityKey("schema-group", "alpha-group-1"))?.populatedAt,
-		).not.toBeNull();
-	});
-});
-
-it.effect("uses unique deterministic activity names per population scope", () => {
-	const relationshipSchemas = new Map([
-		[
-			"schema-group->group-part",
-			{
-				isBuiltin: true,
-				name: "Group to Group Part",
-				slug: "group-to-group-part",
-				propertiesSchema: { fields: {} },
-				id: RelationshipSchemaSlug.make("rel-group-part"),
-				targetEntitySchemaSlug: EntitySchemaSlug.make("group-part"),
-				sourceEntitySchemaSlug: EntitySchemaSlug.make("schema-group"),
-			},
-		],
-		[
-			"group-part->group-part-item",
-			{
-				isBuiltin: true,
-				propertiesSchema: { fields: {} },
-				name: "Group Part to Group Part Item",
-				slug: "group-part-to-group-part-item",
-				id: RelationshipSchemaSlug.make("rel-part-part-item"),
-				sourceEntitySchemaSlug: EntitySchemaSlug.make("group-part"),
-				targetEntitySchemaSlug: EntitySchemaSlug.make("group-part-item"),
-			},
-		],
-	]);
-	const castMemberSchema = {
-		isBuiltin: true,
-		name: "Cast Member",
-		slug: "cast-member",
-		sourceEntitySchemaSlug: null,
-		targetEntitySchemaSlug: null,
-		propertiesSchema: { fields: {} },
-		id: RelationshipSchemaSlug.make("cast-member-schema-id"),
-	};
-	const builtinRelationshipSchemas = new Map([
-		["cast-member", castMemberSchema],
-		["related-suggestion", relatedSuggestionSchema],
-	]);
-	const sandboxValue = {
-		name: "Severance",
-		properties: { title: "Severance" },
-		relatedEntityGroups: [
-			{
-				entities: [],
-				direction: "outgoing",
-				synchronization: "authoritative",
-				relationshipSchemaSlug: "related-suggestion",
-			},
-			{
-				entities: [],
-				direction: "incoming",
-				synchronization: "additive",
-				relationshipSchemaSlug: "cast-member",
-			},
-		],
-		childEntities: [
-			{
-				name: "Part 1",
-				externalId: "part-1",
-				properties: { partNumber: 1 },
-				entitySchemaSlug: "group-part",
-				childEntities: [makePartItemChild("part-item-1")],
-			},
-			{
-				name: "Part 2",
-				externalId: "part-2",
-				properties: { partNumber: 2 },
-				entitySchemaSlug: "group-part",
-				childEntities: [makePartItemChild("part-item-3")],
-			},
-		],
-	};
-	const options = {
-		entitySchemasRepository: makeEntitySchemasRepository({
-			getBuiltinBySlug: findChildEntitySchemaBySlug,
-		}),
-		processSandbox: () =>
-			Effect.succeed({ logs: [], error: null, value: sandboxValue, status: "completed" as const }),
-		definitions: withChildRelationshipDefinitions(
-			"schema-group",
-			"group-to-group-part",
-			"group-part-to-group-part-item",
-		),
-		relationshipSchemasRepository: makeRelationshipSchemasRepository({
-			findBuiltinBySlug: (slug: string) =>
-				Effect.succeed(builtinRelationshipSchemas.get(slug) ?? null),
-			findGlobalBySchemaIds: (input) =>
-				Effect.succeed(
-					relationshipSchemas.get(
-						`${input.sourceEntitySchemaSlug}->${input.targetEntitySchemaSlug}`,
-					) ?? null,
-				),
-		}),
-	} satisfies TestLayerOptions;
-
-	const runObserved = (activityNames: string[]) => {
-		const instance = WorkflowInstance.initial(TestEntityImportWorkflow, "exec-activity-names");
-		let engine: WorkflowEngine["Service"];
-		engine = makeWorkflowEngine({
-			activityExecute: (activity) =>
-				Effect.gen(function* () {
-					activityNames.push(activity.name);
-					const exit = yield* Effect.exit(
-						activity.execute.pipe(
-							Effect.provideService(WorkflowEngine, engine),
-							Effect.provideService(WorkflowInstance, instance),
-						),
-					);
-					return new Workflow.Complete({ exit });
-				}),
-		});
-		return runProviderEntityPopulationWorkflow(
-			{
-				...importPayload,
-				mode: "ensure",
-				externalId: "alpha-group-1",
-				executionId: "exec-activity-names",
-				entitySchemaSlug: EntitySchemaSlug.make("schema-group"),
-			},
-			"exec-activity-names",
-		).pipe(
-			Effect.provideService(WorkflowEngine, engine),
-			Effect.provideService(WorkflowInstance, instance),
-			Effect.provide(makeTestLayer(options)),
-		);
-	};
-
-	return Effect.gen(function* () {
-		const firstRunNames: string[] = [];
-		yield* runObserved(firstRunNames);
-
-		expect(firstRunNames).toEqual([
-			"resolve-provider-entity-definitions",
-			"check-existing-entity",
-			"validate-entity-details",
-			"upsert-root-entity",
-			"sync-related-entity-group:0:related-suggestion",
-			"sync-related-entity-group:1:cast-member",
-			"write-child-entity-set:alpha-group-1",
-			"write-child-entity-set:part-1",
-			"write-child-entity-set:part-2",
-			"stamp-root-populated-at",
-			"publish-primary-entity",
-		]);
-		expect(new Set(firstRunNames).size).toBe(firstRunNames.length);
-
-		const secondRunNames: string[] = [];
-		yield* runObserved(secondRunNames);
-
-		expect(secondRunNames).toEqual(firstRunNames);
-	});
-});
-
-it.effect("dispatches only material nested entity updates with the root population scope", () => {
-	const dispatched: LifecycleDispatchInput[] = [];
-	const rootEntity = {
-		...baseEntity,
-		name: "Old Severance",
-		externalId: "group-1",
-		id: EntityId.make("group-1"),
-		entitySchemaSlug: EntitySchemaSlug.make("group"),
-	};
-	const partEntity = {
-		...baseEntity,
-		name: "Part 1",
-		externalId: "part-1",
-		id: EntityId.make("part-1"),
-		properties: { partNumber: 1 },
-		entitySchemaSlug: EntitySchemaSlug.make("group-part"),
-	};
-	const secondPartEntity = {
-		...partEntity,
-		name: "Part 2",
-		externalId: "part-2",
-		id: EntityId.make("part-2"),
-		properties: { partNumber: 2 },
-	};
-	const partItemBefore = {
-		...baseEntity,
-		name: "Pilot",
-		externalId: "part-item-1",
-		id: EntityId.make("part-item-1"),
-		properties: { partItemNumber: 1 },
-		entitySchemaSlug: EntitySchemaSlug.make("group-part-item"),
-	};
-	const partItemAfter = { ...partItemBefore, name: "Premiere" };
-	const noop = (entity: ProviderEntity): ProviderEntitySaveResult => {
-		const value = providerSnapshot(entity);
-		return { entity, outcome: { after: value, before: value, operation: "noop" } };
-	};
-	const relationshipSchemas = new Map([
-		[
-			"group->group-part",
-			{
-				isBuiltin: true,
-				name: "Group Parts",
-				slug: "group-to-group-part",
-				propertiesSchema: { fields: {} },
-				sourceEntitySchemaSlug: EntitySchemaSlug.make("group"),
-				id: RelationshipSchemaSlug.make("group-to-group-part"),
-				targetEntitySchemaSlug: EntitySchemaSlug.make("group-part"),
-			},
-		],
-		[
-			"group-part->group-part-item",
-			{
-				isBuiltin: true,
-				name: "Group Part Items",
-				propertiesSchema: { fields: {} },
-				slug: "group-part-to-group-part-item",
-				sourceEntitySchemaSlug: EntitySchemaSlug.make("group-part"),
-				targetEntitySchemaSlug: EntitySchemaSlug.make("group-part-item"),
-				id: RelationshipSchemaSlug.make("group-part-to-group-part-item"),
-			},
-		],
-	]);
-	const options = {
-		entitiesRepository: makeEntitiesRepository({
-			findEntityByExternalId: () => Effect.succeed(rootEntity),
-		}),
-		definitions: withChildRelationshipDefinitions(
-			"group",
-			"group-to-group-part",
-			"group-part-to-group-part-item",
-		),
-		lifecycleDispatch: Layer.succeed(LifecycleDispatch, {
-			dispatch: (input) => Effect.sync(() => dispatched.push(input)).pipe(Effect.asVoid),
-		}),
-		relationshipSchemasRepository: makeRelationshipSchemasRepository({
-			findGlobalBySchemaIds: (input) =>
-				Effect.succeed(
-					relationshipSchemas.get(
-						`${input.sourceEntitySchemaSlug}->${input.targetEntitySchemaSlug}`,
-					) ?? null,
-				),
-		}),
-		entitySchemasRepository: makeEntitySchemasRepository({
-			getBuiltinBySlug: (slug: string) =>
-				Effect.succeed(
-					slug === "group-part" || slug === "group-part-item"
-						? { id: EntitySchemaSlug.make(slug), propertiesSchema: { fields: {} } }
-						: null,
-				),
-		}),
-		entitiesService: makeEntitiesService({
-			upsertResult: (input) => {
-				if (input.externalId === "part-1") {
-					return Effect.succeed(noop(partEntity));
-				}
-				if (input.externalId === "part-2") {
-					return Effect.succeed(noop(secondPartEntity));
-				}
-				if (input.externalId === "part-item-1") {
-					return Effect.succeed({
-						entity: partItemAfter,
-						outcome: {
-							operation: "update",
-							after: providerSnapshot(partItemAfter),
-							before: providerSnapshot(partItemBefore),
-						},
-					});
-				}
-				return Effect.succeed(noop(rootEntity));
-			},
-		}),
-		processSandbox: () =>
-			Effect.succeed({
-				logs: [],
-				error: null,
-				status: "completed" as const,
-				value: {
-					properties: {},
-					name: "Severance",
-					expectedChildEntitySchemaSlug: "group-part",
-					childEntities: [
-						{
-							name: "Part 1",
-							externalId: "part-1",
-							properties: { partNumber: 1 },
-							entitySchemaSlug: "group-part",
-							expectedChildEntitySchemaSlug: "group-part-item",
-							childEntities: [
-								{
-									name: "Premiere",
-									externalId: "part-item-1",
-									properties: { partItemNumber: 1 },
-									entitySchemaSlug: "group-part-item",
-								},
-							],
-						},
-						{
-							name: "Part 2",
-							childEntities: [],
-							externalId: "part-2",
-							properties: { partNumber: 2 },
-							entitySchemaSlug: "group-part",
-							expectedChildEntitySchemaSlug: "group-part-item",
-						},
-					],
-				},
-			}),
-	} satisfies TestLayerOptions;
-	const payload = {
-		...importPayload,
-		externalId: "group-1",
-		mode: "refresh" as const,
-		origin: { kind: "provider_refresh" as const },
-		entitySchemaSlug: EntitySchemaSlug.make("group"),
-	};
-
-	return withTestLayer(
-		options,
-		payload.executionId,
-		Effect.gen(function* () {
-			yield* runProviderEntityPopulationWorkflow(payload, payload.executionId);
-			expect(dispatched).toHaveLength(4);
-			const entityDispatch = dispatched.find(({ source }) => source.kind === "entity");
-			assert(entityDispatch);
-			expect(entityDispatch).toMatchObject({
-				operation: "update",
-				recordId: "part-item-1",
-				origin: { kind: "provider_refresh" },
-				source: { kind: "entity", before: { name: "Pilot" }, after: { name: "Premiere" } },
-				population: {
-					rootPreviouslyPopulated: true,
-					scopeEntity: { id: "group-1", name: "Severance", entitySchemaSlug: "group" },
-					parentEntity: {
-						name: "Part 1",
-						properties: { partNumber: 1 },
-						entitySchemaSlug: "group-part",
-					},
-				},
-			});
-			const relationshipDispatches = dispatched.filter(
-				({ source }) => source.kind === "relationship",
-			);
-			const partDispatches = relationshipDispatches.filter(
-				({ source }) =>
-					source.kind === "relationship" &&
-					source.after?.relationshipSchemaSlug === "group-to-group-part",
-			);
-			expect(partDispatches).toHaveLength(2);
-			expect(partDispatches.filter(({ population }) => population?.batch?.isLeader)).toHaveLength(
-				1,
-			);
-			expect(new Set(partDispatches.map(({ population }) => population?.batch?.id)).size).toBe(1);
-			for (const dispatch of partDispatches) {
-				expect(dispatch.population?.batch).toMatchObject({
-					afterCount: 2,
-					beforeCount: 0,
-					createdCount: 2,
-					deletedCount: 0,
-					updatedCount: 0,
+					// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- provider upsert input carries the plain JSON records these tests supply
+					properties: input.properties as Record<string, JsonValue>,
+					id: input.lifecycle.population?.scopeEntity.id ?? rootEntityId,
 				});
-			}
-			const partItemDispatch = relationshipDispatches.find(
-				({ source }) =>
-					source.kind === "relationship" &&
-					source.after?.relationshipSchemaSlug === "group-part-to-group-part-item",
-			);
-			assert(partItemDispatch);
-			expect(partItemDispatch.population?.batch).toMatchObject({
-				afterCount: 1,
-				isLeader: true,
-				beforeCount: 0,
-				createdCount: 1,
-				deletedCount: 0,
-				updatedCount: 0,
-			});
-			expect(new Set(relationshipDispatches.map(({ occurrenceId }) => occurrenceId)).size).toBe(3);
+				return {
+					plans: [],
+					result: {
+						entity,
+						wasInserted: commands.length === 1,
+						outcome: { before: null, after: snapshot(entity), operation: "create" as const },
+					},
+				} satisfies PlannedEntityWork;
+			}),
+	});
+	const instance = WorkflowInstance.initial(ProviderEntityPopulationWorkflow, "population-root");
+	const layer = Layer.mergeAll(
+		Layer.succeed(Database, transaction.database),
+		Layer.succeed(DefinitionRegistry, registry),
+		Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(1) })),
+		Layer.mock(PluginRuntimeResolver)({
+			getEffectiveDefinitions: () => Effect.succeed(definitions),
 		}),
+		Layer.mock(RelationshipsRepository)({}),
+		Layer.mock(RelationshipsService)({
+			executeCommittedPlans: () => Effect.succeed([]),
+			persistPlannedReconciliation: () => Effect.die("unexpected reconciliation"),
+		}),
+		Layer.mock(EntityImportWorkflowOperations)({
+			completeProviderEntityImport: () => Effect.void,
+			processSandbox: () =>
+				Effect.sync(() => {
+					expect(transaction.inTransaction()).toBe(false);
+					return {
+						logs: [],
+						error: null,
+						status: "completed" as const,
+						value: { name: "Record", properties: {}, childEntities: [], relatedEntityGroups: [] },
+					};
+				}),
+		}),
+		entityRepository,
+		entitiesService,
+	);
+	const payload = {
+		command,
+		providerId,
+		externalId: "record-1",
+		mode: "refresh" as const,
+		executionId: "population-root",
+		entitySchemaSlug: rootSchemaSlug,
+		entityScope: { userId, type: "global" as const },
+	};
+
+	return Effect.gen(function* () {
+		const result = yield* runProviderEntityPopulationWorkflow(payload, payload.executionId);
+		expect(result.populatedAt).not.toBeNull();
+		expect(commands).toHaveLength(2);
+		expect(commands.map(({ causation }) => causation)).toEqual([
+			command.causation,
+			command.causation,
+		]);
+		expect(commands.map(({ itemIdentity }) => itemIdentity)).toEqual([
+			'["provider-population","root","upsert"]',
+			'["provider-population","root","stamp"]',
+		]);
+		expect(commands[0]?.population).toMatchObject({
+			rootPreviouslyPopulated: false,
+			scopeEntity: { name: "Record", entitySchemaSlug: rootSchemaSlug },
+		});
+		expect(commands[1]?.population).toEqual(commands[0]?.population);
+		expect(postCommitCount).toBe(2);
+	}).pipe(
+		Effect.provideService(WorkflowInstance, instance),
+		Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
+		Effect.provide(layer),
 	);
 });

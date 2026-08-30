@@ -1,3 +1,4 @@
+import { LifecycleCommand } from "@ryot-app/sandbox-sdk/imports";
 import { Schema } from "@ryot-app/sandbox-sdk/workflow";
 
 export const MediaImportResolutionActivityInput = Schema.Struct({
@@ -44,21 +45,12 @@ export const MediaImportResolutionWorkflowOutput = Schema.Struct({
 	),
 });
 
-const AutomationOrigin = Schema.Union([
-	Schema.Struct({ importRunId: Schema.String, kind: Schema.Literal("import") }),
-	Schema.Struct({
-		importRunId: Schema.String,
-		integrationId: Schema.String,
-		kind: Schema.Literal("integration"),
-	}),
-]);
-
 export const MediaImportPopulationWorkflowInput = Schema.Struct({
 	items: Schema.Array(
 		Schema.Union([
 			Schema.Struct({
 				index: Schema.Number,
-				origin: AutomationOrigin,
+				command: LifecycleCommand,
 				externalId: Schema.String,
 				providerId: Schema.String,
 				entitySchemaSlug: Schema.String,
@@ -66,7 +58,7 @@ export const MediaImportPopulationWorkflowInput = Schema.Struct({
 			}),
 			Schema.Struct({
 				index: Schema.Number,
-				origin: AutomationOrigin,
+				command: LifecycleCommand,
 				externalId: Schema.String,
 				providerSlug: Schema.String,
 				entitySchemaSlug: Schema.String,

@@ -1,8 +1,25 @@
 import { Schema, SchemaGetter } from "effect";
 
-import { EntityId, EntitySchemaSlug, SandboxProviderId } from "../../schema/brands";
+import {
+	AutomationRunId,
+	EntityId,
+	EntitySchemaSlug,
+	SandboxProviderId,
+} from "../../schema/brands";
+import { AutomationWarning } from "../automations/lifecycle";
 
 const EntityBadRequestReason = Schema.Union([
+	Schema.Struct({
+		message: Schema.String,
+		code: Schema.Literals([
+			"automation-limit",
+			"policy-rejected",
+			"invalid-policy-transform",
+			"mutation-conflict",
+			"enclosing-transaction",
+		]),
+	}),
+	Schema.Struct({ runId: AutomationRunId, code: Schema.Literal("policy-execution-failed") }),
 	Schema.Struct({ field: Schema.Literal("name"), code: Schema.Literal("name-required") }),
 	Schema.Struct({
 		code: Schema.Literal("incomplete-provenance"),
@@ -47,6 +64,12 @@ export const ListedEntity = Schema.Struct({
 });
 
 export type ListedEntity = typeof ListedEntity.Type;
+
+export const EntityMutationResult = Schema.Struct({
+	entity: ListedEntity,
+	warnings: Schema.Array(AutomationWarning),
+});
+export type EntityMutationResult = typeof EntityMutationResult.Type;
 
 export const TranslationStatus = Schema.Literals(["pending", "ready", "none"]);
 

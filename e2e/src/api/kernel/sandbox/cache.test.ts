@@ -274,11 +274,11 @@ describe("sandbox cache functions", () => {
 			const foreignProviderResult = yield* runProviderCache(userIdA, otherProviderReaderScriptId);
 			expect(foreignUserResult).toMatchObject({
 				status: "failed",
-				error: expect.stringContaining("requires an exact user installation"),
+				error: expect.stringContaining("plugin owner does not match execution user"),
 			});
 			expect(foreignProviderResult).toMatchObject({
 				status: "failed",
-				error: expect.stringContaining("requires an exact user installation"),
+				error: expect.stringContaining("plugin owner does not match execution user"),
 			});
 		}),
 	);

@@ -154,6 +154,27 @@ export const isS3Configured = (config: AppConfigValue): boolean => {
 
 export const validateSystemConfig = (config: AppConfigValue) =>
 	Effect.gen(function* () {
+		const limits = config.automations;
+		if (
+			!Number.isInteger(limits.maxDepth) ||
+			limits.maxDepth < 1 ||
+			limits.maxDepth > 64 ||
+			!Number.isInteger(limits.maxRuns) ||
+			limits.maxRuns < 1 ||
+			limits.maxRuns > 10000 ||
+			!Number.isInteger(limits.retryWindowDays) ||
+			limits.retryWindowDays < 1 ||
+			limits.retryWindowDays > 90 ||
+			!Number.isInteger(limits.historyRetentionDays) ||
+			limits.historyRetentionDays < limits.retryWindowDays ||
+			limits.historyRetentionDays > 365
+		) {
+			return yield* Effect.fail(
+				configError(
+					"Automation limits are out of range or history retention is shorter than the retry window.",
+				),
+			);
+		}
 		const logging = config.observability.logging;
 		const otlp = config.observability.otlp;
 		const frontendUrl = yield* Effect.try({

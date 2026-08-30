@@ -42,7 +42,6 @@ describe("plugins", () => {
 			const schemaSlug = `e2e-lifecycle-entity-${suffix}`;
 			const providerSlug = `e2e-lifecycle-provider-${suffix}`;
 			const automationSlug = `automation.e2e-lifecycle-${suffix}`;
-			const eventSchemaSlug = `${schemaSlug}:${eventSlug}`;
 			const detailsSlug = `${providerSlug}.details`;
 			const searchSlug = `${providerSlug}.search`;
 			const detailsEntry = `backend/providers/${providerSlug}/details.sandbox.ts`;
@@ -76,8 +75,9 @@ describe("plugins", () => {
 				kind: "automation" as const,
 				requiredPluginConfigKeys: [],
 				requiredSystemConfigKeys: [],
+				capabilities: ["createEvents"],
+				automationType: "automation" as const,
 				name: "E2E Lifecycle Event Automation",
-				capabilities: ["createEvents", "executeRyotql"],
 			} satisfies PluginScript;
 			const initialDetailsSource = providerSandboxSource({
 				slug: detailsSlug,
@@ -98,54 +98,49 @@ describe("plugins", () => {
 import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import {
-  automationOccurrenceRecipe,
-  automationRunRecipe,
-  executeRyotqlRecipe,
-} from "@ryot-app/sandbox-sdk/ryotql";
+import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
+
+const isJsonObject = (value: JsonValue): value is Readonly<Record<string, JsonValue>> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
 
 export const manifest = defineManifest({
   kind: "automation",
+  automationType: "automation",
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
   name: "E2E Lifecycle Event Automation",
   slug: ${JSON.stringify(automationSlug)},
-  capabilities: ["createEvents", "executeRyotql"],
+  capabilities: ["createEvents"],
 });
 
 export default defineAutomation({
   manifest,
   run: ({ automation }, host) => Effect.gen(function* () {
-    if (automation.origin.kind !== "api" || automation.source.kind !== "event" || !automation.runId) {
+    const payload = automation.payload;
+    if (
+      automation.causation.source !== "api" ||
+      payload.category !== "change" ||
+      payload.resource !== "event" ||
+      payload.operation !== "create"
+    ) {
       return null;
     }
-    const occurrence = yield* executeRyotqlRecipe(
-      host.executeRyotql,
-      automationOccurrenceRecipe(automation.occurrenceId),
-    );
-    const run = yield* executeRyotqlRecipe(host.executeRyotql, automationRunRecipe(automation.runId));
-    const foreignOccurrence = yield* executeRyotqlRecipe(
-      host.executeRyotql,
-      automationOccurrenceRecipe("not-the-current-occurrence"),
-    );
-    const foreignRun = yield* executeRyotqlRecipe(
-      host.executeRyotql,
-      automationRunRecipe("not-the-current-run"),
-    );
-    const event = occurrence?.source.kind === "event" ? occurrence.source.after : undefined;
-    if (!event || !run) return null;
+    const event = payload.after;
+    const hookMetadata = automation.hookMetadata;
+    if (hookMetadata === undefined || !isJsonObject(hookMetadata)) return null;
+    const hookLabel = hookMetadata["label"];
+    if (typeof hookLabel !== "string") return null;
     const note = event.properties.note;
     if (typeof note !== "string") return null;
     yield* host.createEvents([{
-      entityId: event.subject.id,
+      entityId: event.entityId,
       eventSchemaSlug: ${JSON.stringify(resultEventSlug)},
       properties: {
         note,
         sourceEventId: event.id,
         runId: automation.runId,
-        occurrenceId: automation.occurrenceId,
-        foreignRunVisible: foreignRun !== null,
-        foreignOccurrenceVisible: foreignOccurrence !== null,
+        hookLabel,
+        hookSlug: automation.hookSlug,
       },
     }]);
     return null;
@@ -158,7 +153,6 @@ export default defineAutomation({
 					pluginSlug,
 					scope: "system",
 					scripts: [detailsScript, searchScript, automationScript],
-					eventAutomations: [{ eventSchemaSlug, kind: "subscription", scriptSlug: automationSlug }],
 					files: {
 						[searchEntry]: initialSearchSource,
 						[automationEntry]: automationSource,
@@ -171,6 +165,25 @@ export default defineAutomation({
 							name: "E2E Lifecycle Provider",
 							rootEntitySchemaSlug: schemaSlug,
 							operations: { search: searchSlug, details: detailsSlug },
+						},
+					],
+					hooks: [
+						{
+							stage: "after",
+							delivery: "async",
+							slug: automationSlug,
+							causationSources: ["api"],
+							scriptSlug: automationSlug,
+							name: "E2E lifecycle event hook",
+							metadata: { label: "lifecycle-hook" },
+							targets: [
+								{
+									resource: "event",
+									operation: "create",
+									eventSchemaSlug: eventSlug,
+									entitySchemaSlug: schemaSlug,
+								},
+							],
 						},
 					],
 					entitySchemas: [
@@ -207,25 +220,20 @@ export default defineAutomation({
 												label: "Run ID",
 												description: "Bound automation run ID",
 											},
+											hookSlug: {
+												type: "string",
+												label: "Hook slug",
+												description: "Invoked automation hook slug",
+											},
 											sourceEventId: {
 												type: "string",
 												label: "Source event ID",
 												description: "Triggering event ID",
 											},
-											occurrenceId: {
+											hookLabel: {
 												type: "string",
-												label: "Occurrence ID",
-												description: "Bound automation occurrence ID",
-											},
-											foreignRunVisible: {
-												type: "boolean",
-												label: "Foreign run visible",
-												description: "Whether an unbound run was visible",
-											},
-											foreignOccurrenceVisible: {
-												type: "boolean",
-												label: "Foreign occurrence visible",
-												description: "Whether an unbound occurrence was visible",
+												label: "Hook label",
+												description: "Inline automation hook metadata",
 											},
 										},
 									},
@@ -299,16 +307,22 @@ export default defineAutomation({
 				name: searchScript.name,
 				result: fakeProviderSearchResult([{ externalId, title: "Reingested Lifecycle Entity" }]),
 			});
-			yield* reinstallTestPluginScript(
+			const detailsRevision = yield* reinstallTestPluginScript(
 				originalDetailsScriptId,
 				updatedDetailsSource,
 				detailsScript,
 			);
-			yield* reinstallTestPluginScript(originalSearchScriptId, updatedSearchSource, searchScript);
-			const reingestedDetailsScriptId = provider.scriptIds[detailsSlug];
-			const reingestedSearchScriptId = provider.scriptIds[searchSlug];
+			const reingested = yield* reinstallTestPluginScript(
+				originalSearchScriptId,
+				updatedSearchSource,
+				searchScript,
+			);
+			const reingestedDetailsScriptId = reingested.scriptIds[detailsSlug];
+			const reingestedSearchScriptId = reingested.scriptIds[searchSlug];
 			assertPresent(reingestedDetailsScriptId, "Missing reingested provider details script ID");
 			assertPresent(reingestedSearchScriptId, "Missing reingested provider search script ID");
+			expect(detailsRevision.activePluginRevisionId).not.toBe(provider.activePluginRevisionId);
+			expect(reingested.activePluginRevisionId).not.toBe(detailsRevision.activePluginRevisionId);
 			const [reingestedDetails, reingestedSearch] = yield* Effect.all([
 				getApiClient().call(
 					(c) =>
@@ -387,9 +401,9 @@ export default defineAutomation({
 			expect(automatedEvent).toMatchObject({
 				eventSchemaSlug: resultEventSlug,
 				properties: {
-					foreignRunVisible: false,
+					hookSlug: automationSlug,
 					note: "lifecycle-observed",
-					foreignOccurrenceVisible: false,
+					hookLabel: "lifecycle-hook",
 					sourceEventId: eventOutcome.eventId,
 				},
 			});
@@ -397,7 +411,6 @@ export default defineAutomation({
 				automatedEvent.properties,
 				"Missing automation execution properties",
 			);
-			expect(automatedProperties["occurrenceId"]).toEqual(expect.any(String));
 			expect(automatedProperties["runId"]).toEqual(expect.any(String));
 			const reingestedPlugin = (yield* getApiClient().call(
 				(c) => c.testSupport.listSystemPlugins({}),

@@ -1,6 +1,6 @@
 import { BunServices } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
-import { readPluginArchive } from "@ryot-app/plugin-archive";
+import { PLUGIN_ARCHIVE_LIMITS, readPluginArchive } from "@ryot-app/plugin-archive";
 import { Effect, FileSystem, Path, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
@@ -56,6 +56,43 @@ const waitFor = Effect.fn("waitFor")(function* (
 });
 
 it.layer(BunServices.layer)("ryot plugin build", (test) => {
+	test.effect("preserves policy and after automation metadata in the archive", () =>
+		Effect.gen(function* () {
+			const path = yield* Path.Path;
+			const fs = yield* FileSystem.FileSystem;
+			const plugin = yield* createPlugin();
+			for (const automationType of ["policy", "automation"] as const) {
+				const helper = automationType === "policy" ? "defineAutomationPolicy" : "defineAutomation";
+				yield* fs.writeFileString(
+					path.join(plugin, "backend", `${automationType}.sandbox.ts`),
+					`
+import { ${helper} } from "@ryot-app/sandbox-sdk/automation";
+import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
+import { Effect } from "@ryot-app/sandbox-sdk/effect";
+export const manifest = defineManifest({
+  kind: "automation", automationType: "${automationType}", slug: "${automationType}", name: "${automationType}",
+  capabilities: [], requiredPluginConfigKeys: [], requiredSystemConfigKeys: [],
+});
+export default ${helper}({ manifest, run: () => Effect.succeed(${automationType === "policy" ? '{ action: "allow" as const }' : "null"}) });
+`,
+				);
+			}
+			const result = yield* run(plugin, ["plugin", "build"]);
+			expect(result.exitCode, result.stdout + result.stderr).toBe(0);
+			const archive = yield* readPluginArchive(
+				yield* fs.readFile(path.join(plugin, "dist", "cli-test.zip")),
+			);
+			expect(archive.manifest.scripts.filter(({ kind }) => kind === "automation")).toMatchObject([
+				{
+					slug: "automation",
+					automationType: "automation",
+					entry: "backend/automation.sandbox.ts",
+				},
+				{ slug: "policy", automationType: "policy", entry: "backend/policy.sandbox.ts" },
+			]);
+		}),
+	);
+
 	test.effect(
 		"builds a deterministic slug archive with canonical manifest data and filtered sources",
 		() =>
@@ -77,6 +114,9 @@ it.layer(BunServices.layer)("ryot plugin build", (test) => {
 				]) {
 					yield* fs.writeFile(path.join(plugin, "client", `asset.${extension}`), assetBytes);
 				}
+				yield* fs.writeFileString(path.join(plugin, "backend", "data.json"), "{}\n");
+				yield* fs.writeFileString(path.join(plugin, "shared", "data.json"), "{}\n");
+				yield* fs.writeFileString(path.join(plugin, "client", "data.json"), "{}\n");
 				yield* fs.writeFile(path.join(plugin, "client", "ignored.PNG"), assetBytes);
 				const result = yield* run(plugin, ["plugin", "build"]);
 				const output = path.join(plugin, "dist", "cli-test.zip");
@@ -95,6 +135,7 @@ it.layer(BunServices.layer)("ryot plugin build", (test) => {
 					'"initial"',
 				);
 				expect(decoder.decode(pluginPackage.files["backend/nested/worker.ts"])).toContain("worker");
+				expect(pluginPackage.files["backend/data.json"]).toBeUndefined();
 				expect(pluginPackage.files["backend/ignored.test.ts"]).toBeUndefined();
 				expect(Object.keys(pluginPackage.files)).toEqual([
 					"backend/main.sandbox.ts",
@@ -114,9 +155,11 @@ it.layer(BunServices.layer)("ryot plugin build", (test) => {
 					"shared/util.ts",
 				]);
 				expect(pluginPackage.files["client/asset.png"]).toEqual(assetBytes);
+				expect(pluginPackage.files["client/data.json"]).toBeUndefined();
 				expect(pluginPackage.files["client/ignored.PNG"]).toBeUndefined();
 				expect(pluginPackage.files["client/ignored.test.tsx"]).toBeUndefined();
 				expect(decoder.decode(pluginPackage.files["shared/util.ts"])).toContain("sharedLabel");
+				expect(pluginPackage.files["shared/data.json"]).toBeUndefined();
 				expect(pluginPackage.files["shared/ignored.test.ts"]).toBeUndefined();
 			}),
 	);
@@ -155,6 +198,34 @@ it.layer(BunServices.layer)("ryot plugin build", (test) => {
 			expect(result.exitCode).not.toBe(0);
 			expect(yield* fs.readFileString(output)).toBe("keep");
 		}),
+	);
+
+	test.effect(
+		"does not mutate an existing output when the archive manifest exceeds its limit",
+		() =>
+			Effect.gen(function* () {
+				const path = yield* Path.Path;
+				const fs = yield* FileSystem.FileSystem;
+				const plugin = yield* createPlugin();
+				const output = path.join(plugin, "dist", "cli-test.zip");
+				yield* fs.makeDirectory(path.dirname(output), { recursive: true });
+				yield* fs.writeFileString(output, "keep");
+				const manifestPath = path.join(plugin, "manifest.ts");
+				const manifest = yield* fs.readFileString(manifestPath);
+				yield* fs.writeFileString(
+					manifestPath,
+					manifest.replace(
+						'"A fixture for the CLI tests."',
+						JSON.stringify("a".repeat(PLUGIN_ARCHIVE_LIMITS.maxManifestBytes)),
+					),
+				);
+
+				const result = yield* run(plugin, ["plugin", "build"]);
+
+				expect(result.exitCode).not.toBe(0);
+				expect(result.stdout + result.stderr).toContain("manifest-bytes-exceeded");
+				expect(yield* fs.readFileString(output)).toBe("keep");
+			}),
 	);
 
 	test.effect("does not mutate an existing output when a script does not compile", () =>

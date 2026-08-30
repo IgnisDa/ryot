@@ -1,111 +1,158 @@
+import { PgClient } from "@effect/sql-pg";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
+import { DbError } from "@ryot-app/contract/errors";
+import type {
+	RelationshipBadRequest,
+	RelationshipNotFound,
+} from "@ryot-app/contract/modules/relationships/schemas";
 import {
 	type MergeUserStateBody,
 	UserStateBadRequest,
 	UserStateNotFound,
 } from "@ryot-app/contract/modules/user-state/schemas";
 import { EntityId } from "@ryot-app/contract/schema/brands";
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Context, Effect, Layer } from "effect";
 
+import {
+	LifecyclePlanner,
+	type LifecyclePersistenceError,
+	type LifecyclePlan,
+} from "#lib/domain/lifecycle";
+import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
+import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { trimToNull } from "#lib/shared/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
-import { EventsService } from "#modules/events/service";
+import {
+	EventsService,
+	type PreparedEventDelete,
+	type PreparedEventUpdate,
+} from "#modules/events/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
-import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
+import type {
+	PreparedUserRelationshipCreate,
+	PreparedUserRelationshipDelete,
+} from "#modules/relationships/prepared-mutations";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 
+const itemCommand = (command: LifecycleCommand, identity: string): LifecycleCommand => ({
+	...command,
+	itemIdentity: `${command.itemIdentity}:${identity}`,
+});
+
+const lifecyclePersistenceFailure = (error: LifecyclePersistenceError) =>
+	new DbError({ message: `User-state lifecycle persistence failed: ${error.code}` });
+const relationshipFailure =
+	(operation: "clear" | "merge") => (error: RelationshipBadRequest | RelationshipNotFound) =>
+		Effect.logWarning(`relationship ${operation} failed`, error).pipe(
+			Effect.andThen(new UserStateBadRequest({ reason: { code: "relationship-merge-failed" } })),
+		);
+
 export class UserStateService extends Context.Service<UserStateService>()("UserStateService", {
 	make: Effect.gen(function* () {
+		const database = yield* Database;
+		const sqlClient = yield* PgClient.PgClient;
+		const planner = yield* LifecyclePlanner;
+		const lifecycleExecution = yield* LifecycleExecution;
 		const eventsRepository = yield* EventsRepository;
 		const events = yield* EventsService;
 		const relationships = yield* RelationshipsService;
 		const pluginRuntime = yield* PluginRuntimeResolver;
 		const entitiesRepository = yield* EntitiesRepository;
 		const relationshipsRepository = yield* RelationshipsRepository;
-		const relationshipSchemasRepository = yield* RelationshipSchemasRepository;
+		const provideMutation = <A, E>(
+			effect: Effect.Effect<
+				A,
+				E,
+				Database | EntitiesRepository | LifecycleExecution | LifecyclePlanner | PgClient.PgClient
+			>,
+		) =>
+			effect.pipe(
+				Effect.provideService(Database, database),
+				Effect.provideService(PgClient.PgClient, sqlClient),
+				Effect.provideService(LifecyclePlanner, planner),
+				Effect.provideService(LifecycleExecution, lifecycleExecution),
+				Effect.provideService(EntitiesRepository, entitiesRepository),
+			);
 		type RelationshipRow = Effect.Success<
 			ReturnType<typeof relationshipsRepository.listUserRelationshipsForEntityWithProvenance>
 		>[number];
-
-		const getRelationshipPropertiesSchema = Effect.fnUntraced(function* (input: {
-			cache: Map<RelationshipRow["relationshipSchemaSlug"], AppSchema>;
-			relationshipSchemaSlug: RelationshipRow["relationshipSchemaSlug"];
-			userId: CurrentUserValue["id"];
-		}) {
-			const cached = input.cache.get(input.relationshipSchemaSlug);
-			if (cached) {
-				return cached;
+		const executePlans = Effect.fnUntraced(function* (
+			eventPlans: ReadonlyArray<LifecyclePlan>,
+			relationshipPlans: ReadonlyArray<LifecyclePlan>,
+		) {
+			const warnings = [];
+			if (eventPlans.length > 0) {
+				warnings.push(...(yield* events.executeCommittedPlans(eventPlans)));
 			}
-
-			const relationshipSchema = yield* relationshipSchemasRepository.findById(
-				input.relationshipSchemaSlug,
-				input.userId,
-			);
-			if (!relationshipSchema) {
-				return yield* Effect.die("Relationship schema not found during entity merge");
+			if (relationshipPlans.length > 0) {
+				warnings.push(...(yield* relationships.executeCommittedPlans(relationshipPlans)));
 			}
-
-			input.cache.set(input.relationshipSchemaSlug, relationshipSchema.propertiesSchema);
-			return relationshipSchema.propertiesSchema;
+			return warnings;
 		});
 
-		const moveRelationship = Effect.fnUntraced(function* (input: {
+		const prepareRelationshipMove = Effect.fnUntraced(function* (input: {
 			relationship: RelationshipRow;
 			mergeFrom: EntityId;
 			mergeInto: EntityId;
 			userId: CurrentUserValue["id"];
-			propertiesSchemas: Map<RelationshipRow["relationshipSchemaSlug"], AppSchema>;
+			command: LifecycleCommand;
 		}) {
-			const { userId, mergeFrom, mergeInto, relationship } = input;
+			const { userId, command, mergeFrom, mergeInto, relationship } = input;
 			const sourceEntityId =
 				relationship.sourceEntityId === mergeFrom ? mergeInto : relationship.sourceEntityId;
 			const targetEntityId =
 				relationship.targetEntityId === mergeFrom ? mergeInto : relationship.targetEntityId;
-
+			let create: PreparedUserRelationshipCreate | null = null;
 			if (sourceEntityId !== targetEntityId) {
-				yield* relationships
-					.create({
-						userId,
-						scope: "user",
-						sourceEntityId,
-						targetEntityId,
-						properties: relationship.properties,
-						relationshipSchemaSlug: relationship.relationshipSchemaSlug,
-						relationshipSchemaPluginId: relationship.relationshipSchemaPluginId,
-						propertiesSchema: yield* getRelationshipPropertiesSchema({
+				create = yield* relationships
+					.prepareUserCreate(
+						{
 							userId,
-							cache: input.propertiesSchemas,
+							scope: "user",
+							sourceEntityId,
+							targetEntityId,
+							properties: relationship.properties,
 							relationshipSchemaSlug: relationship.relationshipSchemaSlug,
-						}),
-					})
+							relationshipSchemaPluginId: relationship.relationshipSchemaPluginId,
+						},
+						itemCommand(command, `relationship:${relationship.id}:create`),
+					)
 					.pipe(
-						Effect.catchTag("RelationshipBadRequest", (error) =>
-							Effect.logWarning("relationship merge validation failed", error).pipe(
-								Effect.andThen(
-									new UserStateBadRequest({ reason: { code: "relationship-merge-failed" } }),
-								),
-							),
-						),
+						Effect.catchTags({
+							RelationshipNotFound: relationshipFailure("merge"),
+							RelationshipBadRequest: relationshipFailure("merge"),
+						}),
 					);
 			}
 
-			return yield* relationships.delete({
-				userId,
-				scope: "user",
-				sourceEntityId: relationship.sourceEntityId,
-				targetEntityId: relationship.targetEntityId,
-				relationshipSchemaSlug: relationship.relationshipSchemaSlug,
-				relationshipSchemaPluginId: relationship.relationshipSchemaPluginId,
-			});
+			const deletion = yield* relationships
+				.prepareUserDelete(
+					{
+						userId,
+						scope: "user",
+						sourceEntityId: relationship.sourceEntityId,
+						targetEntityId: relationship.targetEntityId,
+						relationshipSchemaSlug: relationship.relationshipSchemaSlug,
+						relationshipSchemaPluginId: relationship.relationshipSchemaPluginId,
+					},
+					itemCommand(command, `relationship:${relationship.id}:delete`),
+				)
+				.pipe(
+					Effect.catchTags({
+						RelationshipNotFound: relationshipFailure("merge"),
+						RelationshipBadRequest: relationshipFailure("merge"),
+					}),
+				);
+			return { create, deletion };
 		});
 
 		const clearUserState = Effect.fn("UserStateService.clearUserState")(function* (
 			user: CurrentUserValue,
 			entityIdInput: EntityId,
+			command: LifecycleCommand,
 		) {
 			const trimmedEntityId = trimToNull(entityIdInput);
 			if (!trimmedEntityId) {
@@ -130,50 +177,82 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 				});
 			}
 
-			const database = yield* Database;
-			return yield* mapDatabaseErrors(
+			const eventIds = yield* eventsRepository.listUserEventIdsForEntity({
+				entityId,
+				userId: user.id,
+			});
+			const preparedEvents: PreparedEventDelete[] = [];
+			for (const eventId of eventIds) {
+				const prepared = yield* events.prepareDelete(
+					{ eventId, userId: user.id },
+					itemCommand(command, `event:${eventId}:delete`),
+				);
+				if (prepared) {
+					preparedEvents.push(prepared);
+				}
+			}
+			const relationshipRows =
+				yield* relationshipsRepository.listUserRelationshipsForEntityWithProvenance({
+					entityId,
+					userId: user.id,
+				});
+			const preparedRelationships: PreparedUserRelationshipDelete[] = [];
+			for (const relationship of relationshipRows) {
+				const prepared = yield* relationships
+					.prepareUserDelete(
+						{
+							scope: "user",
+							userId: user.id,
+							sourceEntityId: relationship.sourceEntityId,
+							targetEntityId: relationship.targetEntityId,
+							relationshipSchemaSlug: relationship.relationshipSchemaSlug,
+							relationshipSchemaPluginId: relationship.relationshipSchemaPluginId,
+						},
+						itemCommand(command, `relationship:${relationship.id}:delete`),
+					)
+					.pipe(
+						Effect.catchTags({
+							RelationshipNotFound: relationshipFailure("clear"),
+							RelationshipBadRequest: relationshipFailure("clear"),
+						}),
+					);
+				if (prepared) {
+					preparedRelationships.push(prepared);
+				}
+			}
+
+			const committed = yield* mapDatabaseErrors(
 				database.transaction((transaction) =>
 					Effect.gen(function* () {
-						const eventIds = yield* eventsRepository.listUserEventIdsForEntity({
-							entityId,
-							userId: user.id,
-						});
-						let deletedEventsCount = 0;
-						for (const eventId of eventIds) {
-							const deleted = yield* events.delete({ eventId, userId: user.id });
-							if (deleted) {
-								deletedEventsCount += 1;
-							}
+						const eventPlans: LifecyclePlan[] = [];
+						for (const prepared of preparedEvents) {
+							eventPlans.push(...(yield* events.persistPreparedDelete(prepared)).plans);
 						}
-						const relationshipRows =
-							yield* relationshipsRepository.listUserRelationshipsForEntityWithProvenance({
-								entityId,
-								userId: user.id,
-							});
-						let deletedRelationshipsCount = 0;
-						for (const relationship of relationshipRows) {
-							const deleted = yield* relationships.delete({
-								scope: "user",
-								userId: user.id,
-								sourceEntityId: relationship.sourceEntityId,
-								targetEntityId: relationship.targetEntityId,
-								relationshipSchemaSlug: relationship.relationshipSchemaSlug,
-								relationshipSchemaPluginId: relationship.relationshipSchemaPluginId,
-							});
-							if (deleted) {
-								deletedRelationshipsCount += 1;
-							}
+						const relationshipPlans: LifecyclePlan[] = [];
+						for (const prepared of preparedRelationships) {
+							const work = yield* relationships
+								.persistPreparedUserDelete(prepared)
+								.pipe(Effect.catchTag("RelationshipBadRequest", relationshipFailure("clear")));
+							relationshipPlans.push(...work.plans);
 						}
 
-						return { entityId, deletedEventsCount, deletedRelationshipsCount };
+						return { eventPlans, relationshipPlans };
 					}).pipe(Effect.provideService(Database, transaction)),
 				),
 			);
+			const warnings = yield* executePlans(committed.eventPlans, committed.relationshipPlans);
+			return {
+				warnings,
+				entityId,
+				deletedEventsCount: preparedEvents.length,
+				deletedRelationshipsCount: preparedRelationships.length,
+			};
 		});
 
 		const mergeUserState = Effect.fn("UserStateService.mergeUserState")(function* (
 			user: CurrentUserValue,
 			payload: MergeUserStateBody,
+			command: LifecycleCommand,
 		) {
 			const trimmedMergeFrom = trimToNull(payload.mergeFrom);
 			const trimmedMergeInto = trimToNull(payload.mergeInto);
@@ -228,56 +307,94 @@ export class UserStateService extends Context.Service<UserStateService>()("UserS
 					});
 				}
 			}
-			const database = yield* Database;
-			return yield* mapDatabaseErrors(
+			const eventIds = yield* eventsRepository.listUserEventIdsForEntity({
+				userId: user.id,
+				entityId: mergeFrom,
+			});
+			const preparedEvents: PreparedEventUpdate[] = [];
+			for (const eventId of eventIds) {
+				const prepared = yield* events.prepareUpdate(
+					{ eventId, mergeFrom, mergeInto, userId: user.id },
+					itemCommand(command, `event:${eventId}:update`),
+				);
+				if (prepared) {
+					preparedEvents.push(prepared);
+				}
+			}
+			const relationshipRows =
+				yield* relationshipsRepository.listUserRelationshipsForEntityWithProvenance({
+					userId: user.id,
+					entityId: mergeFrom,
+				});
+			const preparedRelationships: Array<{
+				create: PreparedUserRelationshipCreate | null;
+				deletion: PreparedUserRelationshipDelete | null;
+			}> = [];
+			for (const relationship of relationshipRows) {
+				preparedRelationships.push(
+					yield* prepareRelationshipMove({
+						command,
+						mergeFrom,
+						mergeInto,
+						relationship,
+						userId: user.id,
+					}),
+				);
+			}
+
+			const committed = yield* mapDatabaseErrors(
 				database.transaction((transaction) =>
 					Effect.gen(function* () {
-						const eventIds = yield* eventsRepository.listUserEventIdsForEntity({
-							userId: user.id,
-							entityId: mergeFrom,
-						});
-						let movedEventsCount = 0;
-						for (const eventId of eventIds) {
-							const updated = yield* events.update({
-								eventId,
-								mergeFrom,
-								mergeInto,
-								userId: user.id,
-							});
-							if (updated) {
-								movedEventsCount += 1;
-							}
+						const eventPlans: LifecyclePlan[] = [];
+						for (const prepared of preparedEvents) {
+							eventPlans.push(...(yield* events.persistPreparedUpdate(prepared)).plans);
 						}
-						const relationshipRows =
-							yield* relationshipsRepository.listUserRelationshipsForEntityWithProvenance({
-								userId: user.id,
-								entityId: mergeFrom,
-							});
-						const propertiesSchemas = new Map<
-							RelationshipRow["relationshipSchemaSlug"],
-							AppSchema
-						>();
+						const relationshipPlans: LifecyclePlan[] = [];
 						let movedRelationshipsCount = 0;
-						for (const relationship of relationshipRows) {
-							const deleted = yield* moveRelationship({
-								mergeFrom,
-								mergeInto,
-								relationship,
-								userId: user.id,
-								propertiesSchemas,
-							});
-							if (deleted) {
+						for (const prepared of preparedRelationships) {
+							if (prepared.create) {
+								const work = yield* relationships
+									.persistPreparedUserCreate(prepared.create)
+									.pipe(Effect.catchTag("RelationshipBadRequest", relationshipFailure("merge")));
+								relationshipPlans.push(...work.plans);
+							}
+							if (prepared.deletion) {
+								const work = yield* relationships
+									.persistPreparedUserDelete(prepared.deletion)
+									.pipe(Effect.catchTag("RelationshipBadRequest", relationshipFailure("merge")));
+								relationshipPlans.push(...work.plans);
 								movedRelationshipsCount += 1;
 							}
 						}
 
-						return { mergeFrom, mergeInto, movedEventsCount, movedRelationshipsCount };
+						return { eventPlans, relationshipPlans, movedRelationshipsCount };
 					}).pipe(Effect.provideService(Database, transaction)),
 				),
 			);
+			const warnings = yield* executePlans(committed.eventPlans, committed.relationshipPlans);
+			return {
+				warnings,
+				mergeFrom,
+				mergeInto,
+				movedEventsCount: preparedEvents.length,
+				movedRelationshipsCount: committed.movedRelationshipsCount,
+			};
 		});
 
-		return { clearUserState, mergeUserState };
+		return {
+			clearUserState: (user: CurrentUserValue, entityId: EntityId, command: LifecycleCommand) =>
+				provideMutation(clearUserState(user, entityId, command)).pipe(
+					Effect.catchTag("LifecyclePersistenceError", lifecyclePersistenceFailure),
+				),
+			mergeUserState: (
+				user: CurrentUserValue,
+				payload: MergeUserStateBody,
+				command: LifecycleCommand,
+			) =>
+				provideMutation(mergeUserState(user, payload, command)).pipe(
+					Effect.catchTag("LifecyclePersistenceError", lifecyclePersistenceFailure),
+				),
+		};
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);

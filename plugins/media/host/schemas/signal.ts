@@ -32,7 +32,7 @@ export const mediaSignalSchemas = (mediaMonitoringRelationshipSchemaSlug: string
 			slug: "review.created",
 			name: "Review Created",
 			audiencePolicy: { kind: "actor" },
-			notificationScriptSlug: "automation.media-notification",
+			notificationHookSlug: "media.notification",
 			propertiesSchema: {
 				unknownKeys: "strict",
 				fields: {
@@ -74,7 +74,7 @@ export const mediaSignalSchemas = (mediaMonitoringRelationshipSchemaSlug: string
 			name,
 			slug,
 			catalogState: "active" as const,
-			notificationScriptSlug: "automation.media-notification" as const,
+			notificationHookSlug: "media.notification" as const,
 			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaSlug),
 			propertiesSchema: {
 				unknownKeys: "strict" as const,
@@ -89,7 +89,7 @@ export const mediaSignalSchemas = (mediaMonitoringRelationshipSchemaSlug: string
 			catalogState: "active",
 			slug: "media.status.changed",
 			name: "Media Status Changed",
-			notificationScriptSlug: "automation.media-notification",
+			notificationHookSlug: "media.notification",
 			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaSlug),
 			propertiesSchema: {
 				unknownKeys: "strict",
@@ -104,7 +104,7 @@ export const mediaSignalSchemas = (mediaMonitoringRelationshipSchemaSlug: string
 			catalogState: "active",
 			slug: "media.content-count.changed",
 			name: "Media Content Count Changed",
-			notificationScriptSlug: "automation.media-notification",
+			notificationHookSlug: "media.notification",
 			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaSlug),
 			propertiesSchema: {
 				unknownKeys: "strict",
@@ -126,7 +126,7 @@ export const mediaSignalSchemas = (mediaMonitoringRelationshipSchemaSlug: string
 			catalogState: "active",
 			slug: "media.release-date.changed",
 			name: "Media Release Date Changed",
-			notificationScriptSlug: "automation.media-notification",
+			notificationHookSlug: "media.notification",
 			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaSlug),
 			propertiesSchema: {
 				unknownKeys: "strict",
@@ -177,7 +177,7 @@ export const mediaSignalSchemas = (mediaMonitoringRelationshipSchemaSlug: string
 			catalogState: "active",
 			slug: "media.episode.name.changed",
 			name: "Media Episode Name Changed",
-			notificationScriptSlug: "automation.media-notification",
+			notificationHookSlug: "media.notification",
 			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaSlug),
 			propertiesSchema: {
 				unknownKeys: "strict",
@@ -198,7 +198,7 @@ export const mediaSignalSchemas = (mediaMonitoringRelationshipSchemaSlug: string
 			catalogState: "active",
 			slug: "media.episode.images.changed",
 			name: "Media Episode Images Changed",
-			notificationScriptSlug: "automation.media-notification",
+			notificationHookSlug: "media.notification",
 			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaSlug),
 			propertiesSchema: {
 				unknownKeys: "strict",
@@ -217,7 +217,7 @@ export const mediaSignalSchemas = (mediaMonitoringRelationshipSchemaSlug: string
 			catalogState: "active",
 			slug: "media.season-count.changed",
 			name: "Media Season Count Changed",
-			notificationScriptSlug: "automation.media-notification",
+			notificationHookSlug: "media.notification",
 			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaSlug),
 			propertiesSchema: {
 				unknownKeys: "strict",
@@ -232,7 +232,7 @@ export const mediaSignalSchemas = (mediaMonitoringRelationshipSchemaSlug: string
 			catalogState: "active",
 			slug: "media.episode.discovered",
 			name: "Media Episode Discovered",
-			notificationScriptSlug: "automation.media-notification",
+			notificationHookSlug: "media.notification",
 			audiencePolicy: mediaAudience(mediaMonitoringRelationshipSchemaSlug),
 			propertiesSchema: {
 				unknownKeys: "strict",

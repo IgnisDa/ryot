@@ -2,13 +2,12 @@ import { Effect, Option } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import {
-	createTestUser,
+	createAuthenticatedClient,
 	createEntity,
 	FIXTURE_CLIENT_REVISION_MARKERS,
 	FIXTURE_CLIENT_PLUGIN_SLUG,
 	installFixtureClientPlugin,
 	listEntitySchemas,
-	makeSession,
 	updateFixtureClientPlugin,
 } from "~/fixtures/kernel";
 import { seedGlobalShowEpisodeTree } from "~/fixtures/plugins/media";
@@ -211,8 +210,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 	Effect.gen(function* () {
 		const apiUrl = getApiUrl();
 		const frontendUrl = getFrontendUrl();
-		const { token, email, password } = yield* createTestUser(apiUrl);
-		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
+		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
 		yield* installFixtureClientPlugin(client, "A", "", apiUrl);
 		const pokemonSchema = requirePresent(
 			(yield* listEntitySchemas(client, {

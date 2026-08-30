@@ -2,20 +2,30 @@ import { Schema } from "effect";
 
 import { CanonicalBase64 } from "../../schema/base64";
 import {
+	AutomationExecutionId,
+	AutomationHookSlug,
+	AutomationRunId,
+	AutomationTriggerId,
 	EntityId,
 	EntitySchemaSlug,
+	EventId,
 	ImportRunId,
+	PluginConfigRevisionId,
+	PluginId,
+	PluginRevisionId,
 	PluginSlug,
 	RelationshipId,
 	RelationshipSchemaSlug,
 	SandboxProviderId,
 	SandboxScriptId,
-	SignalId,
-	SubscriptionRunId,
 	UserId,
 } from "../../schema/brands";
 import { strictStruct } from "../../schema/utils";
-import { SubscriptionRunStatus } from "../automations/schemas";
+import {
+	AutomationRunAttempt,
+	AutomationRunStatus,
+	AutomationTriggerPayload,
+} from "../automations/lifecycle";
 import { PluginManifest } from "../plugins/manifest";
 import { EnqueueSandboxBody, SandboxScriptMetadata } from "../sandbox/schemas";
 
@@ -53,11 +63,19 @@ export type TestSupportInstallSystemPluginBodyBase64 =
 
 export const TestSupportSystemPlugin = Schema.Struct({
 	slug: PluginSlug,
+	pluginId: PluginId,
 	icon: Schema.String,
 	name: Schema.String,
 	version: Schema.String,
 	sourceHash: Schema.String,
 	description: Schema.String,
+	activePluginRevisionId: PluginRevisionId,
+	scope: Schema.Literals(["system", "user"]),
+	installationId: Schema.NullOr(Schema.String),
+	configRevisionId: Schema.NullOr(PluginConfigRevisionId),
+	scripts: Schema.Array(
+		Schema.Struct({ slug: Schema.String, id: SandboxScriptId, contentHash: Schema.String }),
+	),
 });
 
 export type TestSupportSystemPlugin = typeof TestSupportSystemPlugin.Type;
@@ -248,18 +266,45 @@ export const TestSupportGlobalRelationship = Schema.Struct({
 	relationshipSchemaSlug: RelationshipSchemaSlug,
 });
 
-export const TestSupportSignal = Schema.Struct({
-	id: SignalId,
-	createdAt: Schema.String,
-	actorUserId: Schema.NullOr(UserId),
-	recipientUserIds: Schema.Array(UserId),
-	subjectEntityId: Schema.NullOr(EntityId),
-});
+export const TestSupportAutomationSourceRecord = Schema.Union([
+	strictStruct({ id: EntityId, resource: Schema.Literal("entity") }),
+	strictStruct({ id: EventId, resource: Schema.Literal("event") }),
+	strictStruct({ id: RelationshipId, resource: Schema.Literal("relationship") }),
+	strictStruct({ id: EntityId, resource: Schema.Literal("provider-entity-import") }),
+]);
 
-export const TestSupportSubscriptionRun = Schema.Struct({
-	id: SubscriptionRunId,
-	status: SubscriptionRunStatus,
+const automationTriggerFilterFields = {
+	triggerId: Schema.optional(AutomationTriggerId),
+	payload: Schema.optional(AutomationTriggerPayload),
+	rootExecutionId: Schema.optional(AutomationExecutionId),
+	sourceRecord: Schema.optional(TestSupportAutomationSourceRecord),
+};
+
+export const TestSupportListAutomationTriggersBody = strictStruct(automationTriggerFilterFields);
+export type TestSupportListAutomationTriggersBody =
+	typeof TestSupportListAutomationTriggersBody.Type;
+
+export const TestSupportListAutomationTriggerRecipientsBody = strictStruct({
+	triggerId: AutomationTriggerId,
+	userId: Schema.optional(UserId),
 });
+export type TestSupportListAutomationTriggerRecipientsBody =
+	typeof TestSupportListAutomationTriggerRecipientsBody.Type;
+
+export const TestSupportListAutomationRunsBody = strictStruct({
+	...automationTriggerFilterFields,
+	status: Schema.optional(AutomationRunStatus),
+	hookSlug: Schema.optional(AutomationHookSlug),
+	executionUserId: Schema.optional(Schema.NullOr(UserId)),
+});
+export type TestSupportListAutomationRunsBody = typeof TestSupportListAutomationRunsBody.Type;
+
+export const TestSupportListAutomationRunAttemptsBody = strictStruct({
+	runId: AutomationRunId,
+	status: Schema.optional(AutomationRunAttempt.fields.status),
+});
+export type TestSupportListAutomationRunAttemptsBody =
+	typeof TestSupportListAutomationRunAttemptsBody.Type;
 
 export const TestSupportBuiltinEntitySchema = Schema.Struct({
 	slug: Schema.String,

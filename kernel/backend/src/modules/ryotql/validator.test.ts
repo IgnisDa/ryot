@@ -330,35 +330,6 @@ it("denies user-only catalog tables to plugin execution", () => {
 	}
 });
 
-it("requires the matching execution ID for execution-scoped catalog tables", () => {
-	const occurrence = table("automationOccurrence", "occurrence");
-	const occurrenceDocument = document({
-		rows: rows(occurrence, {
-			fields: [field("source", jsonPath(column(occurrence, "source"), "id"))],
-		}),
-	});
-	const run = table("subscriptionRun", "run");
-	const runDocument = document({ rows: rows(run, { fields: [field("id", column(run, "id"))] }) });
-	const occurrenceScope = { type: "user", automationOccurrenceId: "occurrence-1" } as const;
-	const runScope = { type: "user", automationRunId: "run-1" } as const;
-
-	expect(validateRyotQLDocument(occurrenceDocument)).toBe(
-		"Query 'rows': Table 'automationOccurrence' is not available to plugin execution",
-	);
-	expect(validateRyotQLDocument(occurrenceDocument, runScope)).toBe(
-		"Query 'rows': Table 'automationOccurrence' is not available to plugin execution",
-	);
-	expect(validateRyotQLDocument(occurrenceDocument, occurrenceScope)).toBeNull();
-
-	expect(validateRyotQLDocument(runDocument)).toBe(
-		"Query 'rows': Table 'subscriptionRun' is not available to plugin execution",
-	);
-	expect(validateRyotQLDocument(runDocument, occurrenceScope)).toBe(
-		"Query 'rows': Table 'subscriptionRun' is not available to plugin execution",
-	);
-	expect(validateRyotQLDocument(runDocument, runScope)).toBeNull();
-});
-
 it("denies sandbox catalog tables in every plugin query occurrence", () => {
 	for (const tableName of ["sandboxProvider", "sandboxProviderOperation"] as const) {
 		const root = table("entity", "root");
