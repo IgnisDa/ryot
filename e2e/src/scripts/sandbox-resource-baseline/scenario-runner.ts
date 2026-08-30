@@ -3,7 +3,7 @@ import {
 	type SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { Clock, Data, Effect, Schedule } from "effect";
+import { Clock, Data, Effect, Schedule, Semaphore } from "effect";
 
 import type { ContractSession } from "~/fixtures/kernel";
 import { adminHeaders, getApiClient, makeSession, signInWithPassword } from "~/fixtures/kernel";
@@ -79,44 +79,62 @@ const isUnauthorized = (error: unknown) =>
 	error._tag === "AuthUnauthorized";
 
 /**
- * Recreating Ryot between repetitions leaves a window where sign-in reaches a stopped process, so
- * the attempt is retried and the server-reported failure is kept for the message.
+ * The auth endpoints answer a burst of sign-ins with 429, which the OAuth authorize step raises as a
+ * thrown error rather than a returned one, so both forms are retried past the rate-limit window.
  */
 const signInToken = (email: string, password: string) =>
 	Effect.retry(
-		Effect.flatMap(signInWithPassword(email, password), (signIn) =>
-			signIn.token === undefined
-				? Effect.fail(
-						new ScenarioPreparationError({
-							message: `benchmark sign-in failed with status ${signIn.error?.status ?? "unknown"}: ${signIn.error?.message ?? "no token returned"}`,
-						}),
-					)
-				: Effect.succeed(signIn.token),
+		Effect.flatMap(
+			Effect.catchDefect(signInWithPassword(email, password), (defect) =>
+				Effect.fail(
+					new ScenarioPreparationError({ message: `benchmark sign-in failed: ${String(defect)}` }),
+				),
+			),
+			(signIn) =>
+				signIn.token === undefined
+					? Effect.fail(
+							new ScenarioPreparationError({
+								message: `benchmark sign-in failed with status ${signIn.error?.status ?? "unknown"}: ${signIn.error?.message ?? "no token returned"}`,
+							}),
+						)
+					: Effect.succeed(signIn.token),
 		),
-		{ times: 12, schedule: Schedule.spaced("5 seconds") },
+		{ times: 8, schedule: Schedule.spaced("15 seconds") },
 	).pipe(Effect.orDie);
 
-/** The OAuth access token expires inside long scenarios, so an unauthorized call signs in again. */
+/**
+ * The OAuth access token expires inside long scenarios and every concurrent poll sees it at once, so
+ * one refresh runs under a permit and callers queued behind it reuse the session it installed.
+ */
 export const resilientSession = (email: string, password: string) =>
-	Effect.map(
-		Effect.map(signInToken(email, password), (token) =>
-			makeSession(undefined, { Authorization: `Bearer ${token}` }),
-		),
-		(initial): ContractSession => {
-			let session = initial;
-			return {
-				call: (program, headers) =>
-					session.call(program, headers).pipe(
-						Effect.catchIf(isUnauthorized, () =>
-							Effect.flatMap(resilientSession(email, password), (next) => {
-								session = next;
-								return next.call(program, headers);
+	Effect.map(signInToken(email, password), (token): ContractSession => {
+		let session = makeSession(undefined, { Authorization: `Bearer ${token}` });
+		let generation = 0;
+		const refresh = Semaphore.makeUnsafe(1);
+		const renew = (seen: number) =>
+			refresh.withPermits(1)(
+				Effect.suspend(() =>
+					generation !== seen
+						? Effect.void
+						: Effect.map(signInToken(email, password), (next) => {
+								session = makeSession(undefined, { Authorization: `Bearer ${next}` });
+								generation += 1;
 							}),
+				),
+			);
+		return {
+			call: (program, headers) => {
+				const seen = generation;
+				return session
+					.call(program, headers)
+					.pipe(
+						Effect.catchIf(isUnauthorized, () =>
+							Effect.flatMap(renew(seen), () => session.call(program, headers)),
 						),
-					),
-			};
-		},
-	);
+					);
+			},
+		};
+	});
 
 export const sampleRuntime = (options: { readonly includeSmaps?: boolean } = {}) =>
 	getApiClient().call(
