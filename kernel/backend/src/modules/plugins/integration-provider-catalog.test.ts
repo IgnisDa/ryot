@@ -1,4 +1,4 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
@@ -8,7 +8,7 @@ import { IntegrationProviderCatalog } from "./integration-provider-catalog";
 import {
 	installRevisionPackage,
 	revisionPackage,
-	withRevisionDatabase,
+	revisionDatabaseLayer,
 } from "./revision.test-support";
 
 const owner = UserId.make("owner");
@@ -56,10 +56,10 @@ const clashing = (slug: string) => {
 };
 
 describe("revision-backed integration providers", () => {
-	it.effect(
-		"lists providers by plugin and slug and resolves each lot's executable declaration",
-		() =>
-			withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect(
+			"lists providers by plugin and slug and resolves each lot's executable declaration",
+			() =>
 				Effect.gen(function* () {
 					yield* installRevisionPackage(packageWithProviders("zebra"));
 					yield* installRevisionPackage(packageWithProviders("apple"), owner);
@@ -81,12 +81,12 @@ describe("revision-backed integration providers", () => {
 						}
 					}
 				}),
-			),
-	);
-	it.effect(
-		"requires the caller's exact installation and excludes other users' private providers",
-		() =>
-			withRevisionDatabase(
+		);
+	});
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect(
+			"requires the caller's exact installation and excludes other users' private providers",
+			() =>
 				Effect.gen(function* () {
 					const first = yield* installRevisionPackage(packageWithProviders("notes"), owner);
 					const second = yield* installRevisionPackage(
@@ -109,10 +109,10 @@ describe("revision-backed integration providers", () => {
 					expect(resolved.script.pluginRevisionId).toBe(first.revisionId);
 					expect(resolved.provider.configContext.ownerUserId).toBe(owner);
 				}),
-			),
-	);
-	it.effect("switches both script and config references on upgrade", () =>
-		withRevisionDatabase(
+		);
+	});
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("switches both script and config references on upgrade", () =>
 			Effect.gen(function* () {
 				const installed = yield* installRevisionPackage(packageWithProviders("notes", "v1"), owner);
 				const catalog = yield* IntegrationProviderCatalog.make;
@@ -134,10 +134,10 @@ describe("revision-backed integration providers", () => {
 				);
 				expect(after.script.pluginRevisionId).toBe(updated.revisionId);
 			}),
-		),
-	);
-	it.effect("lets the executable system provider win a private slug clash", () =>
-		withRevisionDatabase(
+		);
+	});
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("lets the executable system provider win a private slug clash", () =>
 			Effect.gen(function* () {
 				yield* installRevisionPackage(clashing("notes"), owner);
 				const system = yield* installRevisionPackage(clashing("zebra"));
@@ -147,6 +147,6 @@ describe("revision-backed integration providers", () => {
 				).toEqual([system.pluginId, system.pluginId, system.pluginId]);
 				expect((yield* catalog.findForUser(owner, "shared-sink"))?.pluginId).toBe(system.pluginId);
 			}),
-		),
-	);
+		);
+	});
 });
