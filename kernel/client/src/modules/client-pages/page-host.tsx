@@ -59,7 +59,8 @@ export function ClientPageHost(props: {
 	});
 	const entry = historyEntry(location.state);
 	const { identity, context } = props.prepared;
-	const owner = `${identity.kind}:${identity.buildId}:${identity.graphHash}:${identity.artifactHash}`;
+	const documentId = identity.target.kind === "saved-view" ? identity.target.savedViewId : "";
+	const owner = `${identity.kind}:${identity.buildId}:${identity.graphHash}:${identity.artifactHash}:${documentId}`;
 	const operationTargets = useRef({ owner, targets: identity.operationTargets });
 	if (operationTargets.current.owner !== owner) {
 		operationTargets.current = { owner, targets: identity.operationTargets };
@@ -136,6 +137,7 @@ export function ClientPageHost(props: {
 
 	return (
 		<PluginFrame
+			key={owner}
 			theme={theme}
 			page={context}
 			viewport={viewport}
@@ -153,9 +155,8 @@ export function ClientPageHost(props: {
 			onNavigateBack={() => router.history.back()}
 			onStaleSession={() => void router.invalidate()}
 			onScreenState={(state) => screen.publish(owner, state)}
-			onHeader={(publication) => header.publish(owner, publication)}
 			artifactSessionScopeKey={`${scope.serverUrl}\0${scope.userId}`}
-			key={`${identity.buildId}:${identity.graphHash}:${identity.artifactHash}`}
+			onHeader={(publication) => header.publish(owner, publication)}
 			onNavigate={(request) => void navigate({ href: request.href, replace: request.replace })}
 			title={rendererContributor?.kind === "plugin" ? rendererContributor.pluginSlug : props.title}
 			onUpload={(request, signal) =>
