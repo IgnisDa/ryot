@@ -73,6 +73,7 @@ describe("Effect-native client capabilities", () => {
 				client.uploads.uploadTemporary({
 					fileName: "x",
 					contentType: "text/plain",
+					// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- The test feeds a non-Blob to exercise runtime input validation
 					source: "not a Blob" as unknown as Blob,
 				}),
 			),
@@ -102,7 +103,7 @@ describe("Effect-native client capabilities", () => {
 					input: {},
 					slug: "save",
 					pluginSlug: "fixture",
-					output: Schema.Number,
+					output: Schema.Finite,
 				}),
 			),
 		).rejects.toMatchObject({ reason: "malformed-result" });

@@ -27,7 +27,7 @@ const selection = {
 	id: selectedField(column(run, "id"), BackupRunId),
 	kind: selectedField(column(run, "kind"), BackupRunKind),
 	status: selectedField(column(run, "status"), RunStatus),
-	progress: selectedField(column(run, "progress"), Schema.Number),
+	progress: selectedField(column(run, "progress"), Schema.Finite),
 	createdAt: selectedField(column(run, "createdAt"), IsoDateString),
 	failure: selectedField(column(run, "failure"), Schema.NullOr(BackupRunFailure)),
 	startedAt: selectedField(column(run, "startedAt"), Schema.NullOr(IsoDateString)),

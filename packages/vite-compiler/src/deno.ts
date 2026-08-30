@@ -280,7 +280,7 @@ const buildStagedEntry = Effect.fn("buildDenoEsmEntry")(function* (
 	});
 	const output = result.files[0];
 	if (result.files.length !== 1 || output?.path !== options.outputFile) {
-		return yield* Effect.fail(diagnosticError(`Vite did not emit exactly ${options.outputFile}`));
+		return yield* diagnosticError(`Vite did not emit exactly ${options.outputFile}`);
 	}
 	const javascript = new TextDecoder()
 		.decode(output.bytes)
