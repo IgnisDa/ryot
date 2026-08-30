@@ -102,8 +102,8 @@ export const episodeTraversal = (input: {
 export const episodicEpisodeSelection = (episode: Table, parent: Table, alias: string) => ({
 	...entityIdentitySelection(episode),
 	images: selectedField(propertyJson(episode, "images"), MediaImageListSchema),
-	episodeNumber: selectedField(propertyNumber(episode, "episodeNumber"), Schema.Number),
-	runtime: selectedField(propertyNumber(episode, "runtime"), Schema.NullOr(Schema.Number)),
+	episodeNumber: selectedField(propertyNumber(episode, "episodeNumber"), Schema.Finite),
+	runtime: selectedField(propertyNumber(episode, "runtime"), Schema.NullOr(Schema.Finite)),
 	publishDate: selectedField(propertyText(episode, "publishDate"), Schema.NullOr(Schema.String)),
 	description: selectedField(propertyText(episode, "description"), Schema.NullOr(Schema.String)),
 	state: selectedField(
@@ -146,19 +146,19 @@ export const episodicScopedCoverageSelection = (input: {
 		),
 	});
 	return {
-		episodeTotal: selectedField(count(episode, { joins, where }), Schema.Number),
-		watchedTotal: selectedField(count(episode, { joins, where: isWatched }), Schema.Number),
+		episodeTotal: selectedField(count(episode, { joins, where }), Schema.Finite),
+		watchedTotal: selectedField(count(episode, { joins, where: isWatched }), Schema.Finite),
 		watchedUnknownRuntime: selectedField(
 			count(episode, { joins, where: and(isWatched, isNull(runtime)) }),
-			Schema.Number,
+			Schema.Finite,
 		),
 		upcomingTotal: selectedField(
 			count(episode, { joins, where: and(scope.where, episodeIsUpcoming(episode)) }),
-			Schema.Number,
+			Schema.Finite,
 		),
 		watchedMinutes: selectedField(
 			sum(episode, coalesce(loggedMinutes, runtime), { joins, where: isWatched }),
-			Schema.NullOr(Schema.Number),
+			Schema.NullOr(Schema.Finite),
 		),
 	};
 };
@@ -254,27 +254,27 @@ const episodicEpisodeCount = (
 const episodicCountSelection = (config: EpisodicKindConfig, parent: Table, alias: string) => ({
 	airedEpisodes: selectedField(
 		episodicEpisodeCount(config, parent, `${alias}Aired`),
-		Schema.Number,
+		Schema.Finite,
 	),
 	watchedEpisodes: selectedField(
 		episodicEpisodeCount(config, parent, `${alias}Watched`, "complete"),
-		Schema.Number,
+		Schema.Finite,
 	),
 	upcomingEpisodes: selectedField(
 		episodicEpisodeCount(config, parent, `${alias}Upcoming`, "upcoming"),
-		Schema.Number,
+		Schema.Finite,
 	),
 	inProgressEpisodes: selectedField(
 		episodicEpisodeCount(config, parent, `${alias}Progress`, "in_progress"),
-		Schema.Number,
+		Schema.Finite,
 	),
 });
 
 export const episodicActivityEpisodeSelection = (episode: Table) => ({
 	episodeId: selectedField(column(episode, "id"), EntityId),
 	episodeName: selectedField(column(episode, "name"), Schema.String),
-	episodeNumber: selectedField(propertyNumber(episode, "episodeNumber"), Schema.Number),
-	episodeRuntime: selectedField(propertyNumber(episode, "runtime"), Schema.NullOr(Schema.Number)),
+	episodeNumber: selectedField(propertyNumber(episode, "episodeNumber"), Schema.Finite),
+	episodeRuntime: selectedField(propertyNumber(episode, "runtime"), Schema.NullOr(Schema.Finite)),
 });
 
 export type EpisodicActivityEpisodeSelection = ReturnType<typeof episodicActivityEpisodeSelection>;
@@ -378,7 +378,7 @@ export const episodicEpisodeProgressQuery = <const EpisodeFields extends Selecte
 					),
 					progressPercent: selectedField(
 						propertyNumber(event, "progressPercent"),
-						Schema.NullOr(Schema.Number),
+						Schema.NullOr(Schema.Finite),
 					),
 				},
 			}),
@@ -408,7 +408,7 @@ export const episodicWatchDaysQuery = <const EpisodeFields extends SelectedSelec
 		measures: {
 			minutes: selectedMeasure(
 				{ function: "sum", expr: propertyNumber(event, "timeSpent") },
-				Schema.NullOr(Schema.Number),
+				Schema.NullOr(Schema.Finite),
 			),
 		},
 		where: and(
@@ -420,8 +420,8 @@ export const episodicWatchDaysQuery = <const EpisodeFields extends SelectedSelec
 			...input.episodeFields(episode),
 			episodeId: selectedField(column(episode, "id"), EntityId),
 			episodeName: selectedField(column(episode, "name"), Schema.String),
-			episodeNumber: selectedField(propertyNumber(episode, "episodeNumber"), Schema.Number),
-			runtime: selectedField(propertyNumber(episode, "runtime"), Schema.NullOr(Schema.Number)),
+			episodeNumber: selectedField(propertyNumber(episode, "episodeNumber"), Schema.Finite),
+			runtime: selectedField(propertyNumber(episode, "runtime"), Schema.NullOr(Schema.Finite)),
 			consumedOn: selectedField(propertyText(event, "consumedOn"), Schema.NullOr(Schema.String)),
 			day: selectedField(
 				dateBucket(column(event, "occurredAt"), { bucket: "day", timeZone: input.timeZone }),
@@ -620,7 +620,7 @@ export const mediaEpisodicRecipes = <
 						state: selectedField(lifecycle.state, EpisodicLifecycleStateSchema),
 						totalEpisodes: selectedField(
 							propertyNumber(entity, "totalEpisodes"),
-							Schema.NullOr(Schema.Number),
+							Schema.NullOr(Schema.Finite),
 						),
 						...episodicCountSelection(config.config, entity, `${config.alias}Summary`),
 						...config.summaryFields(entity),
@@ -740,7 +740,7 @@ export const mediaEpisodicRecipes = <
 									eq(column(watchEvent, "eventSchemaSlug"), literal("complete")),
 								),
 							}),
-							Schema.Number,
+							Schema.Finite,
 						),
 					},
 				}),
@@ -778,7 +778,7 @@ export const mediaEpisodicRecipes = <
 						),
 						publishYear: selectedField(
 							propertyNumber(entity, "publishYear"),
-							Schema.NullOr(Schema.Number),
+							Schema.NullOr(Schema.Finite),
 						),
 						productionStatus: selectedField(
 							propertyText(entity, "productionStatus"),

@@ -63,9 +63,9 @@ export default defineAutomation({
 				payload.resource === "provider-entity-import" &&
 				payload.userId !== automation.executionUserId
 			) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "Provider import user does not match execution user" }),
-				);
+				return yield* new MediaSandboxError({
+					message: "Provider import user does not match execution user",
+				});
 			}
 			const target = mediaLibraryTarget(payload);
 			if (!target || !libraryMemberEntitySchemaSlugs.has(target.entitySchemaSlug)) {

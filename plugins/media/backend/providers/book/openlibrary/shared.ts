@@ -115,7 +115,7 @@ const loadAuthorName = (host: OpenLibraryHost, cache: Map<string, string>, autho
 		"OpenLibrary author",
 	).pipe(
 		Effect.map((payload) => stringValue(asRecord(payload)?.["name"]) ?? "Loading..."),
-		Effect.catch(() => Effect.succeed("Loading...")),
+		Effect.orElseSucceed(() => "Loading..."),
 		Effect.map((name) => {
 			cache.set(authorIdentifier, name);
 			return name;
@@ -180,13 +180,13 @@ export const details = defineProvider({
 				host,
 				`https://openlibrary.org/works/${requestedIdentifier}/editions.json`,
 				"OpenLibrary editions",
-			).pipe(Effect.catch(() => Effect.succeed(null)));
+			).pipe(Effect.orElseSucceed(() => null));
 			const workPayload = asRecord(workValue);
 			const title = typeof workPayload?.["title"] === "string" ? workPayload["title"] : "";
 			if (!title) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "OpenLibrary work payload is missing title" }),
-				);
+				return yield* new MediaSandboxError({
+					message: "OpenLibrary work payload is missing title",
+				});
 			}
 			const externalId = getKeySegment(workPayload?.["key"]) || requestedIdentifier;
 
@@ -283,9 +283,9 @@ export const resolve = defineProvider({
 	run: (input, host) =>
 		Effect.gen(function* () {
 			if (input.identifierType !== "isbn") {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "OpenLibrary resolve supports only isbn identifiers" }),
-				);
+				return yield* new MediaSandboxError({
+					message: "OpenLibrary resolve supports only isbn identifiers",
+				});
 			}
 			const response = yield* host.httpCall(
 				"GET",
@@ -303,6 +303,7 @@ export const resolve = defineProvider({
 				typeof key === "string" && key.startsWith("/works/") ? getKeySegment(key) : "";
 			return { externalId: fromWorks || fromKey || null };
 		}).pipe(
+			// oxlint-disable-next-line effecttsgo/catch-conditional-refail-to-catch-if -- The linter infers `unknown` for this catchIf error channel although tsc does not
 			Effect.catch((error) =>
 				error.message === "not found" ? Effect.succeed({ externalId: null }) : Effect.fail(error),
 			),

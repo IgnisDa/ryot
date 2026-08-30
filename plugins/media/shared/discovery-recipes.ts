@@ -175,7 +175,7 @@ export const trendingLatestMediaRecipe = defineRecipe(
 					],
 					selection: {
 						...discoveredMediaSelection(target),
-						rank: selectedField(rank, Schema.Number),
+						rank: selectedField(rank, Schema.Finite),
 						fetchedAt: selectedField(fetchedAt, IsoDateString),
 					},
 					where: and(

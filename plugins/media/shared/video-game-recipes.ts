@@ -13,7 +13,7 @@ export const videoGameRecipes = mediaFlatRecipes({
 	presentationFields: (entity) => ({
 		timeToBeatNormally: selectedField(
 			propertyNumber(entity, "timeToBeat", "normally"),
-			Schema.NullOr(Schema.Number),
+			Schema.NullOr(Schema.Finite),
 		),
 	}),
 	summaryFields: (entity) => ({

@@ -63,7 +63,7 @@ const authenticateJellyfin = (
 					? { userId, accessToken }
 					: null;
 			}),
-			Effect.catch(() => Effect.succeed(null)),
+			Effect.orElseSucceed(() => null),
 		);
 
 const findJellyfinItemId = (
@@ -112,7 +112,7 @@ const findJellyfinItemId = (
 				}
 				return null;
 			}),
-			Effect.catch(() => Effect.succeed(null)),
+			Effect.orElseSucceed(() => null),
 		);
 };
 

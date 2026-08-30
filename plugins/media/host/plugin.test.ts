@@ -69,7 +69,7 @@ it.effect("backs every declared provider operation with its entry file", () =>
 );
 
 it("declares the complete media-owned source", () => {
-	expect(() => Schema.decodeUnknownSync(AuthoredPluginManifest)(mediaPlugin)).not.toThrow();
+	expect(() => Schema.decodeSync(AuthoredPluginManifest)(mediaPlugin)).not.toThrow();
 	expect(mediaPlugin.client).toEqual({
 		homeView: null,
 		entities: expect.any(Object),

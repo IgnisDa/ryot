@@ -361,51 +361,48 @@ describe("show.tvdb sandbox script", () => {
 				},
 				host,
 				execution,
-			)
-				.pipe(
-					Effect.flatMap((seasonResult) => {
-						expect(requested).toContainEqual({ method: "GET", path: "/v4/seasons/555/extended" });
-						expect(requested).toContainEqual({
-							method: "GET",
-							path: "/v4/seasons/555/translations/eng",
-						});
-						expect(seasonResult).toEqual({
-							name: "Localized",
-							properties: {
-								description: "Localized Desc",
-								images: [{ type: "remote", url: "art.jpg", purpose: "cover" }],
-							},
-						});
-						return runSandboxTestScript(
-							translate,
-							{
-								language: "en",
-								externalId: "777",
-								entitySchemaSlug: "show-episode",
-								properties: { parentShowExternalId: "10" },
-							},
-							host,
-							execution,
-						);
-					}),
-				)
-				.pipe(
-					Effect.map((episodeResult) => {
-						expect(requested).toContainEqual({ method: "GET", path: "/v4/episodes/777/extended" });
-						expect(requested).toContainEqual({
-							method: "GET",
-							path: "/v4/episodes/777/translations/eng",
-						});
-						expect(episodeResult).toEqual({
-							name: "Localized",
-							properties: {
-								description: "Localized Desc",
-								images: [{ type: "remote", url: "art.jpg", purpose: "still" }],
-							},
-						});
-						return undefined;
-					}),
-				),
+			).pipe(
+				Effect.flatMap((seasonResult) => {
+					expect(requested).toContainEqual({ method: "GET", path: "/v4/seasons/555/extended" });
+					expect(requested).toContainEqual({
+						method: "GET",
+						path: "/v4/seasons/555/translations/eng",
+					});
+					expect(seasonResult).toEqual({
+						name: "Localized",
+						properties: {
+							description: "Localized Desc",
+							images: [{ type: "remote", url: "art.jpg", purpose: "cover" }],
+						},
+					});
+					return runSandboxTestScript(
+						translate,
+						{
+							language: "en",
+							externalId: "777",
+							entitySchemaSlug: "show-episode",
+							properties: { parentShowExternalId: "10" },
+						},
+						host,
+						execution,
+					);
+				}),
+				Effect.map((episodeResult) => {
+					expect(requested).toContainEqual({ method: "GET", path: "/v4/episodes/777/extended" });
+					expect(requested).toContainEqual({
+						method: "GET",
+						path: "/v4/episodes/777/translations/eng",
+					});
+					expect(episodeResult).toEqual({
+						name: "Localized",
+						properties: {
+							description: "Localized Desc",
+							images: [{ type: "remote", url: "art.jpg", purpose: "still" }],
+						},
+					});
+					return undefined;
+				}),
+			),
 		);
 	});
 	it("rejects an unsupported translation entity schema", () => {

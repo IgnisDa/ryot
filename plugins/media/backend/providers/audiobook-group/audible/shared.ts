@@ -45,15 +45,13 @@ export const details = defineProvider({
 			);
 			const product = asRecord(asRecord(payloadValue)?.["product"]);
 			if (!product) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "Audible returned no product data for this series" }),
-				);
+				return yield* new MediaSandboxError({
+					message: "Audible returned no product data for this series",
+				});
 			}
 			const title = stringValue(product["title"]);
 			if (!title) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "Audible series product is missing title" }),
-				);
+				return yield* new MediaSandboxError({ message: "Audible series product is missing title" });
 			}
 
 			const rawRelationships = product["relationships"];

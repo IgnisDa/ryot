@@ -102,8 +102,8 @@ export const mediaGroupRecipes = <
 		const completion = table("event", `${alias}CompletionEvent`);
 		const cover = membership(group, `${alias}Cover`);
 		return {
-			memberCount: selectedField(count(all.member, all), Schema.Number),
-			parts: selectedField(propertyNumber(group, "parts"), Schema.NullOr(Schema.Number)),
+			memberCount: selectedField(count(all.member, all), Schema.Finite),
+			parts: selectedField(propertyNumber(group, "parts"), Schema.NullOr(Schema.Finite)),
 			memberImages: selectedField(
 				castJson(
 					first(cover.member, {
@@ -131,7 +131,7 @@ export const mediaGroupRecipes = <
 						}),
 					),
 				}),
-				Schema.Number,
+				Schema.Finite,
 			),
 		};
 	};
@@ -192,7 +192,7 @@ export const mediaGroupRecipes = <
 							...config.member.presentationSelection(member, `${config.alias}Member`),
 							position: selectedField(
 								propertyNumber(relationship, "order"),
-								Schema.NullOr(Schema.Number),
+								Schema.NullOr(Schema.Finite),
 							),
 						},
 					}),

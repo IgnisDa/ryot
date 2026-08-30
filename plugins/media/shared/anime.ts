@@ -1,7 +1,7 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
 
 const AiringScheduleEntrySchema = Schema.Struct({
-	episode: Schema.Number,
+	episode: Schema.Finite,
 	airingAt: Schema.String,
 });
 

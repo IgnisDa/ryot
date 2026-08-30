@@ -76,7 +76,7 @@ const loadInBatches = <A, B, Failure>(
 	).reduce<Effect.Effect<B[], Failure>>(
 		(loaded, batch) =>
 			Effect.flatMap(loaded, (results) =>
-				Effect.map(Effect.all(batch.map(load)), (batchResults) => [...results, ...batchResults]),
+				Effect.map(Effect.forEach(batch, load), (batchResults) => [...results, ...batchResults]),
 			),
 		Effect.succeed([]),
 	);

@@ -61,7 +61,7 @@ const ImportMediaEvent = Schema.Struct({
 export type ImportMediaEvent = typeof ImportMediaEvent.Type;
 
 const mediaEntityGroupFields = {
-	itemIndex: Schema.Number,
+	itemIndex: Schema.Finite,
 	entityRef: ImportEntityRef,
 	ownershipProvider: Schema.optional(Schema.String),
 	collectionMemberships: Schema.Array(Schema.Struct({ collectionName: Schema.String })),
@@ -76,7 +76,7 @@ export type ImportMediaEntityGroup = typeof ImportMediaEntityGroup.Type;
 
 export const MediaImportAdapterFailure = Schema.Struct({
 	message: Schema.String,
-	itemIndex: Schema.Number,
+	itemIndex: Schema.Finite,
 	sourceLabel: Schema.optional(Schema.String),
 	stage: genericImportFailureSchema.fields.stage,
 	sourceIdentifier: Schema.optional(Schema.String),
@@ -95,7 +95,7 @@ export type MediaIntegrationAdapterResult = typeof MediaIntegrationAdapterResult
 
 export const MediaImportAdapterBatch = Schema.Struct({
 	...MediaIntegrationAdapterResult.fields,
-	totalItems: Schema.Number,
+	totalItems: Schema.Finite,
 });
 
 const traktUserTarget = strictStruct({
@@ -122,7 +122,7 @@ export const TraktImportTarget = Schema.Union([
 
 export type TraktImportTarget = typeof TraktImportTarget.Type;
 
-export const MediaImportParserInput = Schema.Struct({ start: Schema.Number, limit: Schema.Number });
+export const MediaImportParserInput = Schema.Struct({ start: Schema.Finite, limit: Schema.Finite });
 
 export const MediaImportDispatchParserInput = Schema.Struct({
 	...MediaImportParserInput.fields,
