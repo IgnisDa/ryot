@@ -1,0 +1,63 @@
+{
+  "runId": "2026-09-19T05-06-19Z",
+  "scalingRatios": [],
+  "scenarios": [
+    {
+      "repetitions": 5,
+      "concurrency": 1,
+      "outcome": "completed",
+      "requestCount": 5,
+      "failureCount": 0,
+      "successCount": 5,
+      "scenarioId": "05a-direct-64kib-payload",
+      "peakWorkerCount": 0,
+      "replayJournalBytes": 2,
+      "peakBackendRssBytes": 846336000,
+      "peakDenoAggregateRssBytes": 0,
+      "stopReason": null,
+      "recoveredAfterMs": 109,
+      "latencyMs": {
+        "p50": 1398,
+        "p95": 1455
+      }
+    },
+    {
+      "repetitions": 5,
+      "concurrency": 1,
+      "outcome": "completed",
+      "requestCount": 5,
+      "failureCount": 0,
+      "successCount": 5,
+      "scenarioId": "05-direct-1mib-payload",
+      "peakWorkerCount": 1,
+      "replayJournalBytes": 2,
+      "peakBackendRssBytes": 870604800,
+      "peakDenoAggregateRssBytes": 83935232,
+      "stopReason": null,
+      "recoveredAfterMs": 141,
+      "latencyMs": {
+        "p50": 2342,
+        "p95": 2406
+      }
+    },
+    {
+      "repetitions": 5,
+      "concurrency": 1,
+      "outcome": "completed",
+      "requestCount": 5,
+      "failureCount": 0,
+      "successCount": 5,
+      "scenarioId": "06-direct-large-payload",
+      "peakWorkerCount": 1,
+      "replayJournalBytes": 2,
+      "peakBackendRssBytes": 925073408,
+      "peakDenoAggregateRssBytes": 258629632,
+      "stopReason": null,
+      "recoveredAfterMs": 340,
+      "latencyMs": {
+        "p50": 3770,
+        "p95": 3981
+      }
+    }
+  ]
+}
