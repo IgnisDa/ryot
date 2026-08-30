@@ -35,6 +35,7 @@ export type ClientTypeScriptDependencies = {
 export const checkClientPluginTypes = (
 	files: Readonly<Record<string, string>>,
 	dependencies: ClientTypeScriptDependencies,
+	virtualEntries: Readonly<Record<string, string>> = {},
 ) => {
 	const entries = Object.keys(files).filter(
 		(path) => TYPESCRIPT_SOURCE.test(path) && !TEST_SOURCE.test(path),
@@ -63,10 +64,12 @@ export const checkClientPluginTypes = (
 			allowSyntheticDefaultImports: true,
 			lib: ["ES2022", "DOM", "DOM.Iterable"],
 			paths: Object.fromEntries(
-				Object.entries(dependencies.typeScriptEntries).map(([specifier, entry]) => [
-					specifier,
-					[entry],
-				]),
+				Object.entries({ ...dependencies.typeScriptEntries, ...virtualEntries }).map(
+					([specifier, entry]) => [
+						specifier,
+						[entry.startsWith("/") ? entry : `${VIRTUAL_ROOT}/${entry}`],
+					],
+				),
 			),
 		},
 	}).pipe(

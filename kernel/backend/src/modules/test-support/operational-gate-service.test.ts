@@ -55,8 +55,10 @@ const importRun = {
 
 const availablePlugin = {
 	config: {},
+	isDisabled: false,
 	compiledHashes: {},
 	scope: "system" as const,
+	health: "ready" as const,
 	sourceHash: "source-hash",
 	slug: gateInput.pluginSlug,
 	manifest: fixtureManifest(),
