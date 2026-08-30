@@ -9,6 +9,7 @@ import {
 	integrationsDisabledForUser,
 	jsonObject,
 	listActiveIntegrations,
+	logPushFailure,
 	normalizeBaseUrl,
 	resolveEntityProviderName,
 	type IntegrationPushHost,
@@ -21,6 +22,7 @@ export const manifest = defineManifest({
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
 	capabilities: [
+		"log",
 		"httpCall",
 		"executeRyotql",
 		"getEntitySchemas",
@@ -57,9 +59,7 @@ const pushMovieToRadarr = (
 		})
 		.pipe(
 			Effect.asVoid,
-			Effect.catch((error) =>
-				Effect.sync(() => console.warn(`Radarr push failed: ${error.message}`)),
-			),
+			Effect.catch((error) => logPushFailure(host, "Radarr", error)),
 		);
 };
 

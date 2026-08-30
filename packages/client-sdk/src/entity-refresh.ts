@@ -1,4 +1,5 @@
 import { RyotClientError, type EntityUpdate } from "./index";
+import type { RyotSchedule } from "./schedule";
 
 export const entityTransport = <A>(run: () => A) => {
 	try {
@@ -15,13 +16,14 @@ export const entityTransport = <A>(run: () => A) => {
 };
 
 export const createEntityRefresh = (
+	schedule: RyotSchedule,
 	refresh: (updates: readonly EntityUpdate[]) => Promise<void>,
 ) => {
 	let running = false;
 	let blocked = false;
 	let disposed = false;
+	let cancel: (() => void) | undefined;
 	let queued: Map<string, EntityUpdate> | undefined;
-	let timer: ReturnType<typeof setTimeout> | undefined;
 	const requeue = (batch: readonly EntityUpdate[]) => {
 		const restored = new Map(batch.map((update) => [update.entityId, update]));
 		for (const [entityId, update] of queued ?? []) {
@@ -29,12 +31,12 @@ export const createEntityRefresh = (
 		}
 		queued = restored;
 	};
-	const schedule = () => {
-		if (disposed || queued === undefined || blocked || running || timer !== undefined) {
+	const arm = () => {
+		if (disposed || queued === undefined || blocked || running || cancel !== undefined) {
 			return;
 		}
-		timer = setTimeout(() => {
-			timer = undefined;
+		cancel = schedule.after(250, () => {
+			cancel = undefined;
 			if (disposed || blocked || running || queued === undefined) {
 				return;
 			}
@@ -55,26 +57,26 @@ export const createEntityRefresh = (
 				.catch(() => undefined)
 				.finally(() => {
 					running = false;
-					schedule();
+					arm();
 				});
-		}, 250);
+		});
 	};
 	return {
 		block: (value: boolean) => {
 			blocked = value;
-			schedule();
+			arm();
 		},
 		dispose: () => {
 			disposed = true;
 			queued = undefined;
-			clearTimeout(timer);
+			cancel?.();
 		},
 		hint: (update?: EntityUpdate) => {
 			queued ??= new Map();
 			if (update !== undefined) {
 				queued.set(update.entityId, update);
 			}
-			schedule();
+			arm();
 		},
 	};
 };
