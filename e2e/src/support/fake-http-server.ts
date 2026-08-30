@@ -1,6 +1,6 @@
 import { BunHttpServer } from "@effect/platform-bun";
 import { Effect, Exit, Scope } from "effect";
-import { HttpEffect, HttpServer } from "effect/unstable/http";
+import { HttpServer, HttpServerRequest, HttpServerResponse } from "effect/unstable/http";
 
 type ScopedFakeHttpServer = {
 	url: string;
@@ -12,10 +12,9 @@ export type FakeHttpServer = ScopedFakeHttpServer & { stop: () => Promise<void> 
 const closeFakeHttpServer = (scope: Scope.Closeable) =>
 	Effect.runPromise(Scope.close(scope, Exit.void));
 
-export const startFakeHttpServerScoped = (
-	respond: (url: URL, request: Request) => Response | Promise<Response> = () =>
-		Response.json({ ok: true }),
-) =>
+type Respond = (url: URL, request: Request) => Response | Effect.Effect<Response>;
+
+export const startFakeHttpServerScoped = (respond: Respond = () => Response.json({ ok: true })) =>
 	Effect.gen(function* () {
 		const scope = yield* Effect.acquireRelease(Scope.make(), (serverScope) =>
 			Scope.close(serverScope, Exit.void),
@@ -25,19 +24,23 @@ export const startFakeHttpServerScoped = (
 				const recorded: ScopedFakeHttpServer["requests"] = [];
 				const server = yield* BunHttpServer.make({ port: 0, hostname: "127.0.0.1" });
 				yield* HttpServer.serveEffect(
-					HttpEffect.fromWebHandler((request) => {
+					Effect.gen(function* () {
+						const request = yield* HttpServerRequest.toWeb(
+							yield* HttpServerRequest.HttpServerRequest,
+						);
 						const reqUrl = new URL(request.url);
-						return request
-							.json()
-							.catch(() => null)
-							.then((body) => {
-								recorded.push({
-									body,
-									path: reqUrl.pathname,
-									headers: Object.fromEntries(request.headers),
-								});
-								return respond(reqUrl, request);
-							});
+						const body = yield* Effect.tryPromise(() => request.json()).pipe(
+							Effect.orElseSucceed(() => null),
+						);
+						recorded.push({
+							body,
+							path: reqUrl.pathname,
+							headers: Object.fromEntries(request.headers),
+						});
+						const response = respond(reqUrl, request);
+						return HttpServerResponse.fromWeb(
+							Effect.isEffect(response) ? yield* response : response,
+						);
 					}),
 				).pipe(Effect.provideService(HttpServer.HttpServer, server));
 
@@ -52,9 +55,7 @@ export const startFakeHttpServerScoped = (
 	});
 
 // Vitest hooks cannot receive the per-test Scope provided by it.live.
-export const startFakeHttpServer = (
-	respond?: (url: URL, request: Request) => Response | Promise<Response>,
-) =>
+export const startFakeHttpServer = (respond?: Respond) =>
 	Effect.gen(function* () {
 		const scope = yield* Scope.make();
 		const server = yield* Scope.provide(startFakeHttpServerScoped(respond), scope).pipe(
