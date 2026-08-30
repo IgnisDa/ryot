@@ -739,7 +739,6 @@ describe("account backup restore in PostgreSQL", () => {
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
 				const persistence = yield* BackupRestorePersistence;
-				const db = yield* session.current;
 				const userId = UserId.make("recipient");
 				yield* session
 					.transaction(
@@ -771,15 +770,13 @@ describe("account backup restore in PostgreSQL", () => {
 						}),
 					)
 					.pipe(Effect.flip);
-				const [profile] = yield* db
-					.select({ name: tables.user.name })
-					.from(tables.user)
-					.where(eq(tables.user.id, userId));
+				const [profile] = yield* session.run((db) =>
+					db.select({ name: tables.user.name }).from(tables.user).where(eq(tables.user.id, userId)),
+				);
 				expect(profile?.name).toBe("Recipient");
-				const views = yield* db
-					.select()
-					.from(tables.savedView)
-					.where(eq(tables.savedView.id, "archived-view"));
+				const views = yield* session.run((db) =>
+					db.select().from(tables.savedView).where(eq(tables.savedView.id, "archived-view")),
+				);
 				expect(views).toEqual([]);
 			}),
 		);
@@ -807,7 +804,7 @@ describe("account backup restore in PostgreSQL", () => {
 			"restores redacted required private config and historical records without automation history",
 			() =>
 				Effect.gen(function* () {
-					const db = yield* (yield* DatabaseSession).current;
+					const session = yield* DatabaseSession;
 					const plugins = yield* PluginRepository;
 					const installations = yield* PluginInstallationRepository;
 					const basePackage = revisionPackage("portable", "v1", "portable-entity");
@@ -961,27 +958,36 @@ describe("account backup restore in PostgreSQL", () => {
 						pluginId,
 					);
 					assert(restoredInstallation?.activeConfigRevisionId);
+					const activeConfigRevisionId = restoredInstallation.activeConfigRevisionId;
 					expect(restoredInstallation).toMatchObject({
 						isDisabled: true,
 						health: "needs-configuration",
 					});
 					expect(restoredInstallation.config).toEqual({ unit: "metric" });
-					const [configRevision] = yield* db
-						.select()
-						.from(tables.pluginConfigRevision)
-						.where(eq(tables.pluginConfigRevision.id, restoredInstallation.activeConfigRevisionId));
-					const [encryptionKey] = yield* db.select().from(tables.pluginConfigEncryptionKey);
+					const [configRevision] = yield* session.run((db) =>
+						db
+							.select()
+							.from(tables.pluginConfigRevision)
+							.where(eq(tables.pluginConfigRevision.id, activeConfigRevisionId)),
+					);
+					const [encryptionKey] = yield* session.run((db) =>
+						db.select().from(tables.pluginConfigEncryptionKey),
+					);
 					assert(configRevision?.encryptedPayload);
 					assert(encryptionKey);
 					expect(configRevision.encryptionKeyId).toBe(encryptionKey.id);
 					expect(new TextDecoder().decode(configRevision.encryptedPayload)).not.toContain("metric");
 					expect(records.installations[0]?.config).not.toHaveProperty("token");
 					expect(records.installations[0]).not.toHaveProperty("activeConfigRevisionId");
-					expect(yield* db.select().from(tables.pluginConfigRevision)).toHaveLength(1);
-					const subscriptions = yield* db
-						.select()
-						.from(tables.notificationSubscription)
-						.where(eq(tables.notificationSubscription.userId, "recipient"));
+					expect(
+						yield* session.run((db) => db.select().from(tables.pluginConfigRevision)),
+					).toHaveLength(1);
+					const subscriptions = yield* session.run((db) =>
+						db
+							.select()
+							.from(tables.notificationSubscription)
+							.where(eq(tables.notificationSubscription.userId, "recipient")),
+					);
 					expect(
 						subscriptions
 							.map(({ isActive, signalSchemaSlug }) => ({ isActive, signalSchemaSlug }))
@@ -996,7 +1002,7 @@ describe("account backup restore in PostgreSQL", () => {
 						tables.automationRun,
 						tables.automationRunAttempt,
 					]) {
-						const [row] = yield* db.select({ count: count() }).from(tableName);
+						const [row] = yield* session.run((db) => db.select({ count: count() }).from(tableName));
 						expect(row?.count).toBe(0);
 					}
 				}),

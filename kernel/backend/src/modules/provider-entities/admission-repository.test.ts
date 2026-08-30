@@ -39,7 +39,7 @@ const enqueueInOrder = (requests: ReadonlyArray<readonly [string, UserId]>) =>
 		request(id, userId).pipe(
 			Effect.andThen(
 				Effect.flatMap(DatabaseSession, (session) =>
-					Effect.flatMap(session.current, (db) =>
+					session.run((db) =>
 						db.execute(
 							sql`update provider_import_admission set created_at = to_timestamp(${index}) where id = ${id}`,
 						),

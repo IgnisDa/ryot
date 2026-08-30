@@ -92,14 +92,12 @@ const makeRun = (trigger: AutomationTrigger) =>
 const planned: AutomationTrigger[] = [];
 const executed: Array<{ triggerId: string; runIds: string[] }> = [];
 let inTransaction = false;
-const transaction = Object.create(null);
 const database = DatabaseSession.of({
 	requireRoot: Effect.void,
 	requireTransaction: Effect.void,
-	current: Effect.succeed(transaction),
 	acquireUserWriteLock: () => Effect.void,
 	isTransactionActive: Effect.sync(() => inTransaction),
-	run: (statement) => mapDatabaseErrors(statement(transaction)),
+	run: (statement) => mapDatabaseErrors(statement(Object.create(null))),
 	transaction: (work) =>
 		Effect.suspend(() => {
 			inTransaction = true;
@@ -111,9 +109,8 @@ const database = DatabaseSession.of({
 const planner = LifecyclePlanner.of(
 	withLifecycleBatchPlanning({
 		plan: ({ trigger }) =>
-			Effect.gen(function* () {
+			Effect.sync(() => {
 				expect(inTransaction).toBe(true);
-				expect(yield* database.current).toBe(transaction);
 				planned.push(trigger);
 				return { trigger, policies: [], wasCreated: true, runs: [makeRun(trigger)] };
 			}),

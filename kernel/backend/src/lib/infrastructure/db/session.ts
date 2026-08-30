@@ -20,9 +20,10 @@ export class DatabaseSession extends Context.Service<DatabaseSession>()("Databas
 			"DatabaseSession.TransactionExecutor",
 			{ defaultValue: () => null },
 		);
-		const current = Effect.map(transactionExecutor, (executor) => executor ?? root);
-		const run = <A, E, R>(statement: (db: PgDrizzle.EffectPgDatabase) => Effect.Effect<A, E, R>) =>
-			mapDatabaseErrors(Effect.flatMap(current, statement));
+		const run = <A, E, R>(operation: (db: PgDrizzle.EffectPgDatabase) => Effect.Effect<A, E, R>) =>
+			mapDatabaseErrors(
+				Effect.flatMap(transactionExecutor, (executor) => operation(executor ?? root)),
+			);
 		const acquireUserWriteLock = Effect.fn("acquireUserWriteLock")(function* (userId: UserId) {
 			yield* run(userWriteLockStatement(userId));
 		});
@@ -48,7 +49,6 @@ export class DatabaseSession extends Context.Service<DatabaseSession>()("Databas
 			});
 		return {
 			run,
-			current,
 			requireRoot,
 			transaction,
 			requireTransaction,

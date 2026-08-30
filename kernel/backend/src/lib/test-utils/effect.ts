@@ -32,7 +32,6 @@ export const fakeDatabaseSession = (
 		mapDatabaseErrors(statement(executor));
 	return Layer.mock(DatabaseSession)({
 		run,
-		current: Effect.succeed(executor),
 		acquireUserWriteLock: (userId) => Effect.asVoid(run(userWriteLockStatement(userId))),
 		...overrides,
 	});
