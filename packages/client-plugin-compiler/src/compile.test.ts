@@ -701,7 +701,6 @@ export default function Home() { return (
 			edgeBack: false,
 			type: "location",
 			leading: "drawer",
-			screenKey: "home",
 			location: { kind: "route", path: "/", search: "" },
 		});
 		yield* Effect.promise(() =>
@@ -1566,7 +1565,6 @@ export default function Details() {
 		edgeBack: false,
 		type: "location",
 		leading: "drawer",
-		screenKey: "details",
 		location: { kind: "route", path: "/items/new", search: "" },
 	});
 	await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("New item"), {
@@ -1575,7 +1573,6 @@ export default function Details() {
 	channel.port1.postMessage({
 		index: 1,
 		key: "missing",
-		screenKey: "missing",
 		compact: false,
 		edgeBack: true,
 		type: "location",
