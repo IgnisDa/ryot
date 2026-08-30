@@ -43,9 +43,7 @@ describe("RyotQL sandbox SDK", () => {
 			document({ entities: rows(entity, { fields: [field("id", column(entity, "id"))] }) }),
 		).toMatchObject({ queries: { entities: { from: entity } } });
 		expect(entityReadRecipe({ entityIds: ["entity-1"] }).document).toMatchObject({
-			queries: {
-				entities: { from: entity, output: { type: "rows", pagination: { limit: 100 } } },
-			},
+			queries: { entities: { from: entity, output: { type: "rows", pagination: { limit: 100 } } } },
 		});
 		expect(
 			eventReadRecipe({ entitySchemaSlug: "book", eventSchemaSlug: "progress" }).document,
@@ -102,10 +100,7 @@ describe("RyotQL sandbox SDK", () => {
 
 		await expect(
 			Effect.runPromise(
-				runSandboxTestScript(definition, {}, host, {
-					metadata: {},
-					sandboxScriptId: "script-1",
-				}),
+				runSandboxTestScript(definition, {}, host, { metadata: {}, sandboxScriptId: "script-1" }),
 			),
 		).resolves.toBe(1);
 	});

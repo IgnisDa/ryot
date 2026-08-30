@@ -15,11 +15,7 @@ import {
 
 export const exerciseEntityTargets = [
 	{ source: "custom", entitySchemaSlug: "exercise", providerSlug: null },
-	{
-		source: "github",
-		entitySchemaSlug: "exercise",
-		providerSlug: "exercise.free-exercise-db",
-	},
+	{ source: "github", entitySchemaSlug: "exercise", providerSlug: "exercise.free-exercise-db" },
 ] as const satisfies readonly EntityMigrationTarget[];
 
 const exerciseEntityTargetValuesSql = sql.join(

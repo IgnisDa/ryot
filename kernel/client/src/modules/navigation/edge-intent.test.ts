@@ -99,11 +99,7 @@ describe("resolveEdge", () => {
 	it("binds nothing on a settings route with no history", () => {
 		expect(
 			resolve({ pathname: "/settings", canGoBack: false, hasPluginBackScreen: false }),
-		).toEqual({
-			compact: true,
-			intent: "none",
-			owner: "kernel",
-		});
+		).toEqual({ compact: true, intent: "none", owner: "kernel" });
 	});
 });
 

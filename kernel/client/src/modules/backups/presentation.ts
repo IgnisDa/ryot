@@ -16,10 +16,7 @@ type BackupRunProgress = Pick<BackupRun, "status" | "progress">;
 
 type BackupRunExpiry = Pick<BackupRun, "kind" | "status" | "expiresAt">;
 
-type BackupRunFailureNotice = {
-	readonly label: string;
-	readonly detail: string;
-};
+type BackupRunFailureNotice = { readonly label: string; readonly detail: string };
 
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;

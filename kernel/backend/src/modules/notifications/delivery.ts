@@ -19,13 +19,7 @@ export class NotificationDeliveryError extends Data.TaggedError("NotificationDel
 
 type NotificationMailerInput = {
 	credentials: { user: string; server: string; password: string };
-	mail: {
-		to: string;
-		from: string;
-		html: string;
-		text: string;
-		subject: string;
-	};
+	mail: { to: string; from: string; html: string; text: string; subject: string };
 };
 
 const encodePathSegment = (value: string) => encodeURIComponent(value);

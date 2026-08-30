@@ -72,9 +72,7 @@ describe("notification subscription catalog and rules", () => {
 			const owner = yield* createAuthenticatedClient();
 			const other = yield* createAuthenticatedClient();
 			const catalog = yield* listAutomationCatalog(owner.client);
-			const ownerRules = yield* listNotificationSubscriptionStates(owner.client, {
-				limit: 100,
-			});
+			const ownerRules = yield* listNotificationSubscriptionStates(owner.client, { limit: 100 });
 			const reviewSchema = requirePresent(
 				catalog.find((schema) => schema.id === "review.created"),
 				"Expected the review notification schema",
@@ -113,9 +111,7 @@ describe("notification subscription catalog and rules", () => {
 
 			const conflict = yield* Effect.flip(
 				owner.client.call((c) =>
-					c.automations.installRule({
-						payload: { signalSchemaSlug: reviewRule.signalSchemaSlug },
-					}),
+					c.automations.installRule({ payload: { signalSchemaSlug: reviewRule.signalSchemaSlug } }),
 				),
 			);
 			assertTaggedError(conflict, "AutomationConflictError");

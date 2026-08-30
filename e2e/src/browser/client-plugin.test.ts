@@ -17,15 +17,9 @@ import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
 
-type ArtifactSession = {
-	readonly src: string;
-	readonly credential: string;
-};
+type ArtifactSession = { readonly src: string; readonly credential: string };
 
-type BridgeObservation = {
-	readonly serialized: string;
-	readonly bridgeSessionId: string | null;
-};
+type BridgeObservation = { readonly serialized: string; readonly bridgeSessionId: string | null };
 
 const artifactSessionPath = /^\/api\/client-pages\/artifacts\/([A-Za-z0-9_-]{43})\/index\.html$/;
 
@@ -338,11 +332,13 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		yield* fixture.getByRole("button", { name: "Fetch with invalid payload" }).click();
 		yield* expectVisibleText(home, "Greetings are unavailable right now.");
 
-		yield* fixture.getByLabel("Choose a file to upload").setInputFiles({
-			mimeType: "text/csv",
-			name: "fixture-upload.csv",
-			buffer: Buffer.from("id,title\n1,Fixture\n", "utf8"),
-		});
+		yield* fixture
+			.getByLabel("Choose a file to upload")
+			.setInputFiles({
+				mimeType: "text/csv",
+				name: "fixture-upload.csv",
+				buffer: Buffer.from("id,title\n1,Fixture\n", "utf8"),
+			});
 		const uploaded = home
 			.getByText(/^Uploaded fixture-upload\.csv as token .+/)
 			.filter({ visible: true });

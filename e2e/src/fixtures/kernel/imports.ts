@@ -387,9 +387,7 @@ export const uploadImportFile = (
 		const client = getApiClient();
 		const intent = yield* client.call(
 			(c) =>
-				c.uploads.createIntent({
-					payload: { fileName, kind: "temporary", contentType: mimeType },
-				}),
+				c.uploads.createIntent({ payload: { fileName, kind: "temporary", contentType: mimeType } }),
 			headers,
 		);
 

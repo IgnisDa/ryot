@@ -115,9 +115,7 @@ const program = Effect.gen(function* () {
 	if (!process.argv.includes("--skip-initial")) {
 		yield* Effect.all(
 			[compileRunner(sandboxRuntimeDirectory), embedKernelScripts(kernelDirectory)],
-			{
-				discard: true,
-			},
+			{ discard: true },
 		);
 	}
 	if (!process.argv.includes("--watch")) {

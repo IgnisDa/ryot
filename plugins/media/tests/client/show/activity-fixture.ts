@@ -145,10 +145,7 @@ export const secondWatchDayRow = {
 	episodeName: "Episode 2: The Interview",
 };
 
-export const sameDayWatchRow = {
-	...secondWatchDayRow,
-	day: firstWatchDayRow.day,
-};
+export const sameDayWatchRow = { ...secondWatchDayRow, day: firstWatchDayRow.day };
 
 export const rewatchWatchDayRow = {
 	...firstWatchDayRow,

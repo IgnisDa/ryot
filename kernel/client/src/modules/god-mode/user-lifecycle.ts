@@ -36,13 +36,15 @@ export const runUserLifecycleOperation = (input: {
 			Effect.catchIf(
 				(error) => error instanceof UserLifecycleOperationPending,
 				() =>
-					input.poll(started.id).pipe(
-						Effect.flatMap(operationOutcome),
-						Effect.retry({
-							while: (error) => error instanceof UserLifecycleOperationPending,
-							schedule: userLifecyclePollSchedule,
-						}),
-					),
+					input
+						.poll(started.id)
+						.pipe(
+							Effect.flatMap(operationOutcome),
+							Effect.retry({
+								while: (error) => error instanceof UserLifecycleOperationPending,
+								schedule: userLifecyclePollSchedule,
+							}),
+						),
 			),
 		);
 	});

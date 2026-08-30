@@ -82,11 +82,7 @@ describe("Email sign-up", () => {
 		Effect.gen(function* () {
 			const { email } = yield* createTestUser();
 			const { error } = yield* Effect.promise(() =>
-				createTestAuthClient().signUp.email({
-					email,
-					name: "Test User",
-					password: "password123",
-				}),
+				createTestAuthClient().signUp.email({ email, name: "Test User", password: "password123" }),
 			);
 			expect(error).toBeDefined();
 		}),

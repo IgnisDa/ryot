@@ -7,10 +7,7 @@ import { EntityPopulationTrigger } from "#modules/entities/population-trigger";
 import { TranslationsService } from "#modules/entity-translation/service";
 import { RyotQLService } from "#modules/ryotql/service";
 
-type TerminalUpdate = {
-	readonly entityId: EntityId;
-	readonly reason: EntityUpdatedReason;
-};
+type TerminalUpdate = { readonly entityId: EntityId; readonly reason: EntityUpdatedReason };
 
 type ReconciliationResult = {
 	readonly terminal: readonly TerminalUpdate[];

@@ -136,11 +136,7 @@ const formatFuzzyDate = (value: unknown) => {
 	return DateTime.formatIsoDateUtc(dt);
 };
 
-type StaffPages = {
-	staffData: UnknownRecord;
-	staffEdges: unknown[];
-	characterEdges: unknown[];
-};
+type StaffPages = { staffData: UnknownRecord; staffEdges: unknown[]; characterEdges: unknown[] };
 
 const getStaffPage = (host: AnilistHost, staffId: number, page: number) =>
 	anilistGraphql(host, "person details", STAFF_DETAILS_QUERY, { id: staffId, page }).pipe(

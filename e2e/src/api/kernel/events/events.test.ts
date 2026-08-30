@@ -19,21 +19,9 @@ describe("Events bulk POST", () => {
 			const result = yield* apiClient.call((c) =>
 				c.events.create({
 					payload: [
-						{
-							entityId,
-							eventSchemaSlug,
-							properties: { rating: 4 },
-						},
-						{
-							entityId,
-							eventSchemaSlug,
-							properties: { rating: 5 },
-						},
-						{
-							entityId,
-							eventSchemaSlug,
-							properties: { rating: 3 },
-						},
+						{ entityId, eventSchemaSlug, properties: { rating: 4 } },
+						{ entityId, eventSchemaSlug, properties: { rating: 5 } },
+						{ entityId, eventSchemaSlug, properties: { rating: 3 } },
 					],
 				}),
 			);
@@ -78,11 +66,7 @@ describe("Events bulk POST", () => {
 			const acceptedResult = yield* apiClient.call((c) =>
 				c.events.create({
 					payload: [
-						{
-							entityId,
-							eventSchemaSlug,
-							properties: { status: "completed", progressPercent: 75 },
-						},
+						{ entityId, eventSchemaSlug, properties: { status: "completed", progressPercent: 75 } },
 					],
 				}),
 			);

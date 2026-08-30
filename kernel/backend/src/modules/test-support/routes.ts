@@ -39,9 +39,7 @@ const mapTestSupportFailure = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 				),
 				Match.orElse(
 					() =>
-						new TestSupportOperationFailure({
-							reason: { code: "operation-failed", diagnostic },
-						}),
+						new TestSupportOperationFailure({ reason: { code: "operation-failed", diagnostic } }),
 				),
 			);
 		}),
@@ -116,9 +114,7 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 				if (!first) {
 					return { deleted: 0 };
 				}
-				return {
-					deleted: yield* svc.deleteGlobalEntities([first, ...rest]),
-				};
+				return { deleted: yield* svc.deleteGlobalEntities([first, ...rest]) };
 			}).pipe(mapTestSupportFailure),
 		)
 		.handle("upsertGlobalRelationship", ({ payload }) =>

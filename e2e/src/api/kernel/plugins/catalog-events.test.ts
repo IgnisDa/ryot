@@ -105,10 +105,7 @@ describe("plugin catalog events", () => {
 				baseUrl: apiUrl(),
 				pluginPackage: packageA,
 			});
-			expect(installing).toMatchObject({
-				health: "installing",
-				slug: FIXTURE_CLIENT_PLUGIN_SLUG,
-			});
+			expect(installing).toMatchObject({ health: "installing", slug: FIXTURE_CLIENT_PLUGIN_SLUG });
 			yield* ownerEvents.waitForCatalogInvalidated();
 			yield* outsiderEvents.assertNoInvalidation();
 

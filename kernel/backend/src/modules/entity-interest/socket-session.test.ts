@@ -251,9 +251,7 @@ describe("entity interest socket session", () => {
 					Layer.mock(EntityInterestTicketService)({
 						consume: () =>
 							Effect.fail(
-								new EntityInterestTicketFailure({
-									reason: { code: "ticket-store-unavailable" },
-								}),
+								new EntityInterestTicketFailure({ reason: { code: "ticket-store-unavailable" } }),
 							),
 					}),
 					Layer.mock(EntityInterestStore)({}),
@@ -497,10 +495,7 @@ describe("entity interest socket session", () => {
 								},
 							]),
 					}),
-					Layer.mock(LocalInterestSessions)({
-						add: () => Effect.void,
-						remove: () => Effect.void,
-					}),
+					Layer.mock(LocalInterestSessions)({ add: () => Effect.void, remove: () => Effect.void }),
 				);
 				const fiber = yield* runEntityInterestSocketSession(socket.socket).pipe(
 					Effect.provide(layer),

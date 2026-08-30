@@ -419,12 +419,7 @@ export const measurementPropertiesSchema: AppSchema = {
 						description: "Label",
 						validation: { required: true },
 					},
-					key: {
-						label: "Key",
-						type: "string",
-						description: "Key",
-						validation: { required: true },
-					},
+					key: { label: "Key", type: "string", description: "Key", validation: { required: true } },
 				},
 			},
 		},

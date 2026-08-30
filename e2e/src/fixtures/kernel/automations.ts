@@ -131,10 +131,7 @@ export const pollTerminalSubscriptionRuns = (input: SubscriptionRunFilter) =>
 export const getAutomationRuleCount = (userId: string) =>
 	Effect.gen(function* () {
 		const { count } = yield* getApiClient().call(
-			(c) =>
-				c.testSupport.countAutomationRules({
-					params: { userId: UserId.make(userId) },
-				}),
+			(c) => c.testSupport.countAutomationRules({ params: { userId: UserId.make(userId) } }),
 			adminHeaders(),
 		);
 		return count;

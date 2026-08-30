@@ -8,24 +8,9 @@
 			"name": "contact_submission",
 			"schema": "",
 			"columns": {
-				"is_spam": {
-					"name": "is_spam",
-					"type": "boolean",
-					"primaryKey": false,
-					"notNull": false
-				},
-				"email": {
-					"name": "email",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
-				"message": {
-					"name": "message",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
+				"is_spam": { "name": "is_spam", "type": "boolean", "primaryKey": false, "notNull": false },
+				"email": { "name": "email", "type": "text", "primaryKey": false, "notNull": true },
+				"message": { "name": "message", "type": "text", "primaryKey": false, "notNull": true },
 				"is_addressed": {
 					"name": "is_addressed",
 					"type": "boolean",
@@ -142,12 +127,7 @@
 				"customer_purchase_customer_id_idx": {
 					"name": "customer_purchase_customer_id_idx",
 					"columns": [
-						{
-							"expression": "customer_id",
-							"isExpression": false,
-							"asc": true,
-							"nulls": "last"
-						}
+						{ "expression": "customer_id", "isExpression": false, "asc": true, "nulls": "last" }
 					],
 					"isUnique": false,
 					"concurrently": false,
@@ -175,12 +155,7 @@
 							"asc": true,
 							"nulls": "last"
 						},
-						{
-							"expression": "cancelled_on",
-							"isExpression": false,
-							"asc": true,
-							"nulls": "last"
-						}
+						{ "expression": "cancelled_on", "isExpression": false, "asc": true, "nulls": "last" }
 					],
 					"isUnique": false,
 					"concurrently": false,
@@ -221,12 +196,7 @@
 					"primaryKey": false,
 					"notNull": false
 				},
-				"email": {
-					"name": "email",
-					"type": "text",
-					"primaryKey": false,
-					"notNull": true
-				},
+				"email": { "name": "email", "type": "text", "primaryKey": false, "notNull": true },
 				"oidc_issuer_id": {
 					"name": "oidc_issuer_id",
 					"type": "text",
@@ -331,9 +301,5 @@
 	"roles": {},
 	"policies": {},
 	"views": {},
-	"_meta": {
-		"columns": {},
-		"schemas": {},
-		"tables": {}
-	}
+	"_meta": { "columns": {}, "schemas": {}, "tables": {} }
 }

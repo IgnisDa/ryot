@@ -130,16 +130,8 @@ const bindingPluginFromEntry = (plugin: PluginRegistryEntry): BindingPlugin => (
 
 export const pluginConfigContextFor = (plugin: AvailablePlugin): PluginConfigContext =>
 	plugin.scope === "system"
-		? {
-				kind: "environment",
-				pluginSlug: plugin.slug,
-				configSchema: plugin.manifest.configSchema,
-			}
-		: {
-				kind: "installation",
-				config: plugin.config,
-				configSchema: plugin.manifest.configSchema,
-			};
+		? { kind: "environment", pluginSlug: plugin.slug, configSchema: plugin.manifest.configSchema }
+		: { kind: "installation", config: plugin.config, configSchema: plugin.manifest.configSchema };
 
 export type ResolvedProviderEntityImportAutomation = {
 	readonly ruleId: AutomationRuleId;
@@ -593,11 +585,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				if (installation?.health !== "ready" || installation.isDisabled) {
 					return null;
 				}
-				return yield* findCompiledScriptRow({
-					scriptSlug,
-					contentHash,
-					pluginId: plugin.id,
-				});
+				return yield* findCompiledScriptRow({ scriptSlug, contentHash, pluginId: plugin.id });
 			});
 			const findActiveWorkflowScript = Effect.fn("PluginRuntimeResolver.findActiveWorkflowScript")(
 				function* (input: { pluginSlug: string; workflowSlug: string }) {

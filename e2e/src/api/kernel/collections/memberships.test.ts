@@ -36,10 +36,7 @@ describe("POST /collections/memberships", () => {
 
 			const data = yield* client.call((c) =>
 				c.collections.createMembership({
-					payload: {
-						entityId: childCollection.id,
-						collectionId: parentCollection.id,
-					},
+					payload: { entityId: childCollection.id, collectionId: parentCollection.id },
 				}),
 			);
 
@@ -319,10 +316,7 @@ describe("POST /collections/memberships", () => {
 			);
 
 			expect(second.memberOf.id).toBe(first.memberOf.id);
-			expect(second.memberOf.properties).toMatchObject({
-				rating: 5,
-				recommendedBy: "Bob",
-			});
+			expect(second.memberOf.properties).toMatchObject({ rating: 5, recommendedBy: "Bob" });
 		}),
 	);
 
@@ -369,10 +363,7 @@ describe("POST /collections/memberships", () => {
 			);
 
 			assertTaggedError(error, "CollectionNotFound");
-			expect(error.reason).toEqual({
-				code: "entity-not-found",
-				entityId: "nonexistent-entity-id",
-			});
+			expect(error.reason).toEqual({ code: "entity-not-found", entityId: "nonexistent-entity-id" });
 		}),
 	);
 
@@ -395,10 +386,7 @@ describe("POST /collections/memberships", () => {
 			);
 
 			assertTaggedError(error, "CollectionNotFound");
-			expect(error.reason).toEqual({
-				code: "collection-not-found",
-				collectionId: collection.id,
-			});
+			expect(error.reason).toEqual({ code: "collection-not-found", collectionId: collection.id });
 		}),
 	);
 
@@ -517,10 +505,7 @@ describe("DELETE /collections/memberships", () => {
 			);
 
 			assertTaggedError(error, "CollectionNotFound");
-			expect(error.reason).toEqual({
-				code: "collection-not-found",
-				collectionId: collection.id,
-			});
+			expect(error.reason).toEqual({ code: "collection-not-found", collectionId: collection.id });
 		}),
 	);
 

@@ -322,10 +322,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 							if (yield* repository.hasAutoDisableClaim(importRunId)) {
 								return true;
 							}
-							const disabled = yield* repository.disableForUserIfEnabled({
-								userId,
-								integrationId,
-							});
+							const disabled = yield* repository.disableForUserIfEnabled({ userId, integrationId });
 							if (!disabled) {
 								return yield* repository.hasAutoDisableClaim(importRunId);
 							}

@@ -102,9 +102,7 @@ type ActiveScript = NonNullable<
 
 const baseLayer = Layer.mergeAll(
 	databaseLayer,
-	Layer.succeed(PluginLoader, {
-		...loader,
-	}),
+	Layer.succeed(PluginLoader, { ...loader }),
 	Layer.mock(PluginRuntimeResolver)({
 		resolveActivePluginUserBootstrap: ({ bootstrapSlug, pluginSlug }) => {
 			const bootstrap = loader
@@ -224,9 +222,7 @@ it.effect("propagates a sandbox result error and reruns the same deterministic i
 		const dispatcher = yield* makePluginUserBootstrapDispatcher((payload) => {
 			executionIds.push(payload.executionId);
 			attempts += 1;
-			return Effect.succeed({
-				error: attempts === 1 ? { message: "script failed" } : null,
-			});
+			return Effect.succeed({ error: attempts === 1 ? { message: "script failed" } : null });
 		});
 		const first = yield* Effect.exit(dispatcher.dispatchAll(UserId.make("user-1")));
 		expect(first._tag).toBe("Failure");

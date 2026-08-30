@@ -1,10 +1,6 @@
 import type { TPlanTypes, TProductTypes } from "~/drizzle/schema.server";
 
-export type PricingMetadata = {
-	trial?: number;
-	amount?: number;
-	linkToGithub?: boolean;
-};
+export type PricingMetadata = { trial?: number; amount?: number; linkToGithub?: boolean };
 
 export type PaymentPrice = PricingMetadata & {
 	name: TPlanTypes;
@@ -12,10 +8,7 @@ export type PaymentPrice = PricingMetadata & {
 	productId?: string;
 };
 
-export type PaymentProduct = {
-	type: TProductTypes;
-	prices: PaymentPrice[];
-};
+export type PaymentProduct = { type: TProductTypes; prices: PaymentPrice[] };
 
 export type PaymentProvider = "paddle" | "polar";
 export type PaymentCatalogStatus = "active" | "legacy";
@@ -46,29 +39,17 @@ export const PAYMENT_CATALOG: PaymentCatalog = {
 				{
 					type: "cloud",
 					prices: [
-						paddlePrice("monthly", "pri_01kzgt4b5zv0tg75f2e5ss8nrk", {
-							amount: 6,
-							trial: 7,
-						}),
-						paddlePrice("yearly", "pri_01kzgt5r9rwatck1yrk58v79fg", {
-							amount: 50,
-							trial: 14,
-						}),
+						paddlePrice("monthly", "pri_01kzgt4b5zv0tg75f2e5ss8nrk", { amount: 6, trial: 7 }),
+						paddlePrice("yearly", "pri_01kzgt5r9rwatck1yrk58v79fg", { amount: 50, trial: 14 }),
 					],
 				},
 				{
 					type: "self_hosted",
 					prices: [
 						{ name: "free", linkToGithub: true },
-						paddlePrice("monthly", "pri_01kzgte98z6tjatyjxkfkdb9c9", {
-							amount: 4,
-						}),
-						paddlePrice("yearly", "pri_01kzgtctzch547svd5cnk0p8b6", {
-							amount: 35,
-						}),
-						paddlePrice("lifetime", "pri_01kzgt9sztgq4jrd6sc408mbse", {
-							amount: 120,
-						}),
+						paddlePrice("monthly", "pri_01kzgte98z6tjatyjxkfkdb9c9", { amount: 4 }),
+						paddlePrice("yearly", "pri_01kzgtctzch547svd5cnk0p8b6", { amount: 35 }),
+						paddlePrice("lifetime", "pri_01kzgt9sztgq4jrd6sc408mbse", { amount: 120 }),
 					],
 				},
 			],
@@ -76,31 +57,17 @@ export const PAYMENT_CATALOG: PaymentCatalog = {
 				{
 					type: "cloud",
 					prices: [
-						paddlePrice("monthly", "pri_01j3jpqer93vdzwzdw6a3frefy", {
-							amount: 3,
-							trial: 7,
-						}),
-						paddlePrice("yearly", "pri_01j3jppmjzaeb4wxraeptzqk3q", {
-							amount: 30,
-							trial: 14,
-						}),
-						paddlePrice("lifetime", "pri_01j3jpnpbkfdsbn5e7f38vs66b", {
-							amount: 90,
-						}),
+						paddlePrice("monthly", "pri_01j3jpqer93vdzwzdw6a3frefy", { amount: 3, trial: 7 }),
+						paddlePrice("yearly", "pri_01j3jppmjzaeb4wxraeptzqk3q", { amount: 30, trial: 14 }),
+						paddlePrice("lifetime", "pri_01j3jpnpbkfdsbn5e7f38vs66b", { amount: 90 }),
 					],
 				},
 				{
 					type: "self_hosted",
 					prices: [
-						paddlePrice("monthly", "pri_01j237s5y1hz6061fayt8z504d", {
-							amount: 2,
-						}),
-						paddlePrice("yearly", "pri_01j237tn2knfdpxc9c6tmhf08f", {
-							amount: 20,
-						}),
-						paddlePrice("lifetime", "pri_01j237vrsqzxr5g0ctwr226tr6", {
-							amount: 60,
-						}),
+						paddlePrice("monthly", "pri_01j237s5y1hz6061fayt8z504d", { amount: 2 }),
+						paddlePrice("yearly", "pri_01j237tn2knfdpxc9c6tmhf08f", { amount: 20 }),
+						paddlePrice("lifetime", "pri_01j237vrsqzxr5g0ctwr226tr6", { amount: 60 }),
 					],
 				},
 			],
@@ -110,29 +77,17 @@ export const PAYMENT_CATALOG: PaymentCatalog = {
 				{
 					type: "cloud",
 					prices: [
-						paddlePrice("monthly", "pri_01kzgtkkpsqy9dz1pv3yw18rgm", {
-							amount: 6,
-							trial: 7,
-						}),
-						paddlePrice("yearly", "pri_01kzgtmrjyb0twwd3hwv92p97y", {
-							amount: 50,
-							trial: 14,
-						}),
+						paddlePrice("monthly", "pri_01kzgtkkpsqy9dz1pv3yw18rgm", { amount: 6, trial: 7 }),
+						paddlePrice("yearly", "pri_01kzgtmrjyb0twwd3hwv92p97y", { amount: 50, trial: 14 }),
 					],
 				},
 				{
 					type: "self_hosted",
 					prices: [
 						{ name: "free", linkToGithub: true },
-						paddlePrice("monthly", "pri_01kzgtr1ct5nxzhmdery5xhgc7", {
-							amount: 4,
-						}),
-						paddlePrice("yearly", "pri_01kzgtq7g4qexnaz041w0fdsqz", {
-							amount: 35,
-						}),
-						paddlePrice("lifetime", "pri_01kzgtp9hxx594bfdfnzg1ds3j", {
-							amount: 120,
-						}),
+						paddlePrice("monthly", "pri_01kzgtr1ct5nxzhmdery5xhgc7", { amount: 4 }),
+						paddlePrice("yearly", "pri_01kzgtq7g4qexnaz041w0fdsqz", { amount: 35 }),
+						paddlePrice("lifetime", "pri_01kzgtp9hxx594bfdfnzg1ds3j", { amount: 120 }),
 					],
 				},
 			],
@@ -140,31 +95,17 @@ export const PAYMENT_CATALOG: PaymentCatalog = {
 				{
 					type: "cloud",
 					prices: [
-						paddlePrice("monthly", "pri_01j3jhddt6kejw8b03qb0480n6", {
-							amount: 3,
-							trial: 7,
-						}),
-						paddlePrice("yearly", "pri_01j3jhee8h0z6b1r1y7k7xqac8", {
-							amount: 30,
-							trial: 14,
-						}),
-						paddlePrice("lifetime", "pri_01j3jhfa4g6ctw3610hj7accjc", {
-							amount: 90,
-						}),
+						paddlePrice("monthly", "pri_01j3jhddt6kejw8b03qb0480n6", { amount: 3, trial: 7 }),
+						paddlePrice("yearly", "pri_01j3jhee8h0z6b1r1y7k7xqac8", { amount: 30, trial: 14 }),
+						paddlePrice("lifetime", "pri_01j3jhfa4g6ctw3610hj7accjc", { amount: 90 }),
 					],
 				},
 				{
 					type: "self_hosted",
 					prices: [
-						paddlePrice("monthly", "pri_01j0sxqx6b25vywf1xvm808gv3", {
-							amount: 2,
-						}),
-						paddlePrice("yearly", "pri_01j0sxsgqcapxkfdbh3g8a6973", {
-							amount: 20,
-						}),
-						paddlePrice("lifetime", "pri_01j0sxtqjt50ckf17jcxex8wft", {
-							amount: 60,
-						}),
+						paddlePrice("monthly", "pri_01j0sxqx6b25vywf1xvm808gv3", { amount: 2 }),
+						paddlePrice("yearly", "pri_01j0sxsgqcapxkfdbh3g8a6973", { amount: 20 }),
+						paddlePrice("lifetime", "pri_01j0sxtqjt50ckf17jcxex8wft", { amount: 60 }),
 					],
 				},
 			],

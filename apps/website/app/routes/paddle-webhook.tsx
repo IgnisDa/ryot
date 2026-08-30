@@ -113,10 +113,7 @@ async function handleSubscriptionResumed(
 	if (cancelledPurchase) {
 		await getDb()
 			.update(customerPurchases)
-			.set({
-				cancelledOn: null,
-				updatedOn: new Date(),
-			})
+			.set({ cancelledOn: null, updatedOn: new Date() })
 			.where(eq(customerPurchases.id, cancelledPurchase.id));
 	}
 
@@ -145,9 +142,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			error instanceof Error &&
 			error.message.toLowerCase().includes("signature verification failed");
 		return data(
-			{
-				error: isInvalidSignature ? "Invalid paddle signature" : "Invalid webhook payload",
-			},
+			{ error: isInvalidSignature ? "Invalid paddle signature" : "Invalid webhook payload" },
 			{ status: isInvalidSignature ? 401 : 400 },
 		);
 	}
@@ -176,7 +171,5 @@ export const action = async ({ request }: Route.ActionArgs) => {
 
 	console.log("Webhook handling result:", result);
 
-	return data(result, {
-		status: result.error === "Price ID not found" ? 400 : 200,
-	});
+	return data(result, { status: result.error === "Price ID not found" ? 400 : 200 });
 };

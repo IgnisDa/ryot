@@ -31,19 +31,13 @@ export type AppSchemaRulePath = ReadonlyArray<string>;
 
 export type AppSchemaRuleValue = boolean | null | number | string;
 
-export type AppPropertyRoundNormalization = {
-	readonly scale: number;
-};
+export type AppPropertyRoundNormalization = { readonly scale: number };
 
-export type AppPropertyNormalization = {
-	readonly round: AppPropertyRoundNormalization;
-};
+export type AppPropertyNormalization = { readonly round: AppPropertyRoundNormalization };
 
 export type AppSchemaUnknownKeysPolicy = "strip" | "strict" | "passthrough";
 
-type AppPropertyValidationBase = {
-	readonly required?: true | undefined;
-};
+type AppPropertyValidationBase = { readonly required?: true | undefined };
 
 type AppObjectPropertyValidation = AppPropertyValidationBase & {
 	readonly asset?: true | undefined;
@@ -121,10 +115,7 @@ export type AppDateTimeProperty = AppPropertyBase<AppPropertyValidationBase> & {
 	readonly defaultValue?: string | undefined;
 };
 
-export type AppChoice = {
-	readonly value: string;
-	readonly label?: string | undefined;
-};
+export type AppChoice = { readonly value: string; readonly label?: string | undefined };
 
 export type AppChoices =
 	| { readonly kind: "dynamic"; readonly source: string }
@@ -300,9 +291,7 @@ const arrayValidationSchema = strictStruct({
 
 const roundNormalizationSchema = strictStruct({ scale: nonNegativeInteger });
 
-const numberNormalizationSchema = strictStruct({
-	round: roundNormalizationSchema,
-});
+const numberNormalizationSchema = strictStruct({ round: roundNormalizationSchema });
 
 const rulePathSchema = Schema.Array(nonEmptyTrimmedString).pipe(
 	Schema.check(Schema.isMinLength(1)),

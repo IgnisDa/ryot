@@ -20,11 +20,7 @@ const configSchema = {
 			label: "Alpha access token",
 			description: "Alpha access token",
 		},
-		deltaApiKey: {
-			type: "string",
-			label: "Delta API key",
-			description: "Delta API key",
-		},
+		deltaApiKey: { type: "string", label: "Delta API key", description: "Delta API key" },
 	},
 } as const;
 

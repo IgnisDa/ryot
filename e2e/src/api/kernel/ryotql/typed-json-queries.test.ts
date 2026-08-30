@@ -214,10 +214,7 @@ describe("RyotQL typed JSON entity queries", () => {
 				["Movie Gamma", "Director G"],
 			]);
 			expect(requireRows(result.data["courses"], "courses").items).toEqual([
-				{
-					name: "Course Advanced",
-					duration: 90,
-				},
+				{ name: "Course Advanced", duration: 90 },
 			]);
 			expect(requireRows(result.data["structuralBooks"], "structuralBooks").items).toHaveLength(1);
 			expect(requireRows(result.data["allBooks"], "allBooks").items).toHaveLength(2);

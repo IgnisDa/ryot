@@ -1,9 +1,6 @@
 import { Star } from "lucide-react";
 
-type StarRatingProps = {
-	filled: number;
-	total?: number;
-};
+type StarRatingProps = { filled: number; total?: number };
 
 export function StarRating(props: StarRatingProps) {
 	const total = props.total ?? 5;

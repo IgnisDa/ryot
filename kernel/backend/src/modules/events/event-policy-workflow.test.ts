@@ -131,9 +131,7 @@ const run = (input: {
 	const layer = Layer.mergeAll(
 		databaseLayer,
 		LifecycleDispatchNoop,
-		Layer.mock(AutomationsService, {
-			resolveActivePolicies: () => Effect.succeed(input.policies),
-		}),
+		Layer.mock(AutomationsService, { resolveActivePolicies: () => Effect.succeed(input.policies) }),
 		Layer.mock(EventCreateWorkflowOperations, {
 			dispatchLifecycleOccurrence: () => Effect.void,
 			executeSandboxScript: (sandboxPayload) => {
@@ -273,10 +271,7 @@ it.effect("runs subject-batched policies once per subject in an event-create pay
 	assert(second);
 	assert(third);
 	const test = run({
-		payload: {
-			...batchedPayload,
-			payload: [first, second, { ...third, entityId: otherEntityId }],
-		},
+		payload: { ...batchedPayload, payload: [first, second, { ...third, entityId: otherEntityId }] },
 		policies: [{ ...policy("subject-batched", 10), metadata: { batchMode: "subject" } }],
 		process: () => ({ action: "allow" }),
 	});
@@ -340,10 +335,7 @@ it.effect("rejects replacement fields outside the event-create policy contract",
 	return Effect.gen(function* () {
 		const result = yield* test.effect;
 		expect(test.created).toHaveLength(0);
-		expect(result.failure).toEqual({
-			index: 0,
-			reason: { code: "policy-failed" },
-		});
+		expect(result.failure).toEqual({ index: 0, reason: { code: "policy-failed" } });
 	});
 });
 

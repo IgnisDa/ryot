@@ -1069,11 +1069,7 @@ describe("Media RyotQL query recipe results", () => {
 
 				const result = yield* executeRyotQLRecipe(
 					client,
-					trendingMediaRecipe({
-						limit: 10,
-						fetchedAt,
-						entitySchemaSlug: bookSchema.slug,
-					}),
+					trendingMediaRecipe({ limit: 10, fetchedAt, entitySchemaSlug: bookSchema.slug }),
 				);
 				expect(result.items).toHaveLength(2);
 				const first = result.items[0];

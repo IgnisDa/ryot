@@ -19,14 +19,9 @@ type EventRow = Pick<
 	| "eventSchemaPluginId"
 	| "eventSchemaSlug"
 	| "sessionEntityId"
-> & {
-	readonly eventSchemaName: string;
-};
+> & { readonly eventSchemaName: string };
 
-export type EventIdentityInput = {
-	readonly eventId: EventId;
-	readonly userId: UserId;
-};
+export type EventIdentityInput = { readonly eventId: EventId; readonly userId: UserId };
 
 export type UpdateEventEntityReferencesInput = EventIdentityInput & {
 	readonly mergeFrom: EntityId;
@@ -162,10 +157,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()("Event
 				return yield* new DbError({ message: "Event insert returned no row" });
 			}
 
-			return toListedEvent({
-				...row,
-				eventSchemaName: input.eventSchemaName,
-			});
+			return toListedEvent({ ...row, eventSchemaName: input.eventSchemaName });
 		});
 
 		const listUserEventIdsForEntity = Effect.fn("EventsRepository.listUserEventIdsForEntity")(

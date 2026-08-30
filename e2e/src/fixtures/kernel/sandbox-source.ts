@@ -1,10 +1,7 @@
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import type { JsonPrimitive, SandboxHostCapability } from "@ryot-app/contract/modules/sandbox/wire";
 
-export type SandboxSourceIdentity = {
-	readonly name: string;
-	readonly slug: string;
-};
+export type SandboxSourceIdentity = { readonly name: string; readonly slug: string };
 
 type ScriptModuleSourceInput = SandboxSourceIdentity & {
 	readonly run: string;
@@ -479,10 +476,7 @@ export function cacheSandboxSource(input: CacheSandboxSourceInput) {
 }
 
 export function bootSandboxSource(
-	input: SandboxSourceIdentity & {
-		readonly externalId: string;
-		readonly entitySchemaSlug: string;
-	},
+	input: SandboxSourceIdentity & { readonly externalId: string; readonly entitySchemaSlug: string },
 ) {
 	return `
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";

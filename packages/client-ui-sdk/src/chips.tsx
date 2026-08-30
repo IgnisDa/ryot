@@ -1,10 +1,6 @@
 import clsx from "clsx";
 
-type ChipProps = {
-	readonly label: string;
-	readonly checked: boolean;
-	readonly className?: string;
-};
+type ChipProps = { readonly label: string; readonly checked: boolean; readonly className?: string };
 
 export function Chip({ label, checked, className }: ChipProps) {
 	return (

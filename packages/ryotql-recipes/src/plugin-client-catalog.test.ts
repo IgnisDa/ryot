@@ -19,9 +19,7 @@ const entry = {
 };
 
 const response = {
-	data: {
-		installations: rowsResult([entry], { hasMore: false, limit: 100, nextCursor: null }),
-	},
+	data: { installations: rowsResult([entry], { hasMore: false, limit: 100, nextCursor: null }) },
 };
 
 describe("plugin client catalog recipe", () => {

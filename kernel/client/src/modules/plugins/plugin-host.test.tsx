@@ -261,10 +261,7 @@ describe("PluginFrame", () => {
 			await waitFor(() => expect(bridge.messages).toHaveLength(1));
 
 			act(() => {
-				Object.defineProperty(document, "visibilityState", {
-					value: "hidden",
-					configurable: true,
-				});
+				Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
 				document.dispatchEvent(new Event("visibilitychange"));
 			});
 			expect(bridge.messages).not.toContainEqual({ type: "page-refresh" });

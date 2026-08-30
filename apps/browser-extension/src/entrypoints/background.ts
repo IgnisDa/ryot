@@ -15,10 +15,7 @@ async function handleMetadataLookup(data: { title: string }) {
 		throw new Error("Integration URL not found in storage");
 	}
 
-	logger.debug("Making metadata lookup request", {
-		title: data.title,
-		url: integrationUrl,
-	});
+	logger.debug("Making metadata lookup request", { title: data.title, url: integrationUrl });
 
 	const result = await lookupMetadata(integrationUrl, data.title);
 
@@ -53,15 +50,9 @@ async function handleProgressData(progressData: ProgressDataWithMetadata, tabUrl
 				: {}),
 		};
 
-		const integrationPayload = {
-			url: tabUrl,
-			data: mediaSeen,
-		};
+		const integrationPayload = { url: tabUrl, data: mediaSeen };
 
-		logger.debug("Sending integration data", {
-			url: integrationUrl,
-			payload: integrationPayload,
-		});
+		logger.debug("Sending integration data", { url: integrationUrl, payload: integrationPayload });
 
 		await postIntegrationWebhook(integrationUrl, integrationPayload);
 
@@ -70,10 +61,7 @@ async function handleProgressData(progressData: ProgressDataWithMetadata, tabUrl
 		return { success: true };
 	} catch (error) {
 		logger.error("Integration data request failed", { error });
-		return {
-			success: false,
-			error: error instanceof Error ? error.message : "Unknown error",
-		};
+		return { success: false, error: error instanceof Error ? error.message : "Unknown error" };
 	}
 }
 

@@ -106,12 +106,7 @@ export class ManagedAssetsRepository extends Context.Service<ManagedAssetsReposi
 				},
 			);
 
-			return {
-				listByOwner,
-				getByLocator,
-				listByOwnerAndLocators,
-				registerPermanentOwnedObject,
-			};
+			return { listByOwner, getByLocator, listByOwnerAndLocators, registerPermanentOwnedObject };
 		}),
 	},
 ) {
