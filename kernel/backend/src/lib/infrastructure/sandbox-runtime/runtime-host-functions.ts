@@ -143,11 +143,10 @@ export const makeRuntimeSandboxApiFunctions: Effect.Effect<
 						if (valueError) {
 							return Effect.fail(valueError);
 						}
-						return Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(cached).pipe(
-							Effect.flatMap((value) =>
-								isJsonValue(value)
-									? Effect.succeed(value)
-									: Effect.fail("getCachedValue: stored value is not valid JSON"),
+						return Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(cached).pipe(
+							Effect.filterOrFail(
+								isJsonValue,
+								() => "getCachedValue: stored value is not valid JSON",
 							),
 							Effect.mapError(() => "getCachedValue: stored value is not valid JSON"),
 						);

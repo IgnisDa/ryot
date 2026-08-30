@@ -36,7 +36,7 @@ export const claimImportSourceState = Effect.fn("imports.claimImportSourceState"
 	if (raw === null) {
 		return null;
 	}
-	return yield* Schema.decodeUnknownEffect(ImportSourceStateFromJson)(raw).pipe(
+	return yield* Schema.decodeEffect(ImportSourceStateFromJson)(raw).pipe(
 		Effect.orElseSucceed(() => null),
 	);
 });

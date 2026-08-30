@@ -86,14 +86,12 @@ const seedPodcast = (client: Client, episodeCount: number) =>
 				}),
 			),
 		);
-		yield* Effect.all(
-			episodes.map((episode) =>
-				insertGlobalRelationship({
-					targetEntityId: episode.id,
-					sourceEntityId: podcast.id,
-					relationshipSchemaSlug: podcastEpisodeRelationship.id,
-				}),
-			),
+		yield* Effect.forEach(episodes, (episode) =>
+			insertGlobalRelationship({
+				targetEntityId: episode.id,
+				sourceEntityId: podcast.id,
+				relationshipSchemaSlug: podcastEpisodeRelationship.id,
+			}),
 		);
 		const episodeEventSchemas = yield* listEventSchemas(client, podcastEpisodeSchemaId);
 		const podcastEventSchemas = yield* listEventSchemas(client, podcastSchema.id);
@@ -146,24 +144,23 @@ const seedActivityShow = (client: Client) =>
 			externalId: `activity-show-${suffix}`,
 			properties: { totalSeasons: 1, totalEpisodes: 2 },
 		});
-		const [regularSeason, specialsSeason] = yield* Effect.all(
-			[1, 0].map((seasonNumber) =>
-				seedMediaEntity({
-					userId: null,
-					providerId: null,
-					properties: { seasonNumber },
-					entitySchemaSlug: showSeasonSchemaId,
-					name: `Activity Season ${seasonNumber} ${suffix}`,
-					externalId: `activity-season-${seasonNumber}-${suffix}`,
-				}),
-			),
+		const [regularSeason, specialsSeason] = yield* Effect.forEach([1, 0], (seasonNumber) =>
+			seedMediaEntity({
+				userId: null,
+				providerId: null,
+				properties: { seasonNumber },
+				entitySchemaSlug: showSeasonSchemaId,
+				name: `Activity Season ${seasonNumber} ${suffix}`,
+				externalId: `activity-season-${seasonNumber}-${suffix}`,
+			}),
 		);
-		const [firstEpisode, secondEpisode, specialEpisode] = yield* Effect.all(
+		const [firstEpisode, secondEpisode, specialEpisode] = yield* Effect.forEach(
 			[
 				{ seasonNumber: 1, episodeNumber: 1 },
 				{ seasonNumber: 1, episodeNumber: 2 },
 				{ seasonNumber: 0, episodeNumber: 1 },
-			].map(({ seasonNumber, episodeNumber }) =>
+			],
+			({ seasonNumber, episodeNumber }) =>
 				seedMediaEntity({
 					userId: null,
 					providerId: null,
@@ -172,7 +169,6 @@ const seedActivityShow = (client: Client) =>
 					properties: { seasonNumber, episodeNumber, runtime: 30 + episodeNumber },
 					externalId: `activity-episode-${seasonNumber}-${episodeNumber}-${suffix}`,
 				}),
-			),
 		);
 		assertPresent(regularSeason, "Missing regular activity season");
 		assertPresent(specialsSeason, "Missing specials activity season");
@@ -279,28 +275,26 @@ describe("Media RyotQL query recipe results", () => {
 					productionStatus: null,
 				},
 			});
-			const [seasonOne, seasonTwo, seasonThree] = yield* Effect.all(
-				[1, 2, 3].map((seasonNumber) =>
-					seedMediaEntity({
-						userId: null,
-						providerId: null,
-						name: `Season ${seasonNumber}`,
-						entitySchemaSlug: showSeasonSchemaId,
-						externalId: `query-recipe-season-${seasonNumber}-${suffix}`,
-						properties: {
-							seasonNumber,
-							releaseDate: `2024-0${seasonNumber}-01`,
-							description: `Season ${seasonNumber} overview`,
-							images: [
-								{
-									type: "remote",
-									purpose: "cover",
-									url: `https://images.test/season-${seasonNumber}.jpg`,
-								},
-							],
-						},
-					}),
-				),
+			const [seasonOne, seasonTwo, seasonThree] = yield* Effect.forEach([1, 2, 3], (seasonNumber) =>
+				seedMediaEntity({
+					userId: null,
+					providerId: null,
+					name: `Season ${seasonNumber}`,
+					entitySchemaSlug: showSeasonSchemaId,
+					externalId: `query-recipe-season-${seasonNumber}-${suffix}`,
+					properties: {
+						seasonNumber,
+						releaseDate: `2024-0${seasonNumber}-01`,
+						description: `Season ${seasonNumber} overview`,
+						images: [
+							{
+								type: "remote",
+								purpose: "cover",
+								url: `https://images.test/season-${seasonNumber}.jpg`,
+							},
+						],
+					},
+				}),
 			);
 			const episodes = yield* Effect.all(
 				[1, 2, 3].flatMap((seasonNumber) =>

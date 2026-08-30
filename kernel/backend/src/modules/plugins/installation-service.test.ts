@@ -239,7 +239,7 @@ const makeLayer = (input?: {
 				Effect.andThen(
 					input?.deleteUploadFails
 						? Effect.fail(new UploadBadRequest({ reason: { intentId, code: "intent-busy" } }))
-						: Effect.sync(() => undefined),
+						: Effect.void.pipe(Effect.as(undefined)),
 				),
 			),
 		claimTemporaryUpload: (token, ownerId, claimId) =>
