@@ -101,7 +101,10 @@ const makeTracerLayer = (config: AppConfigValue) => {
 				},
 			}).pipe(Layer.provide(Layer.mergeAll(FetchHttpClient.layer, OtlpSerialization.layerJson))),
 	});
-	if (!LogLevel.isLessThanOrEqualTo(config.server.logLevel, "Debug")) {
+	if (
+		Option.isNone(config.server.otlpEndpoint) ||
+		!LogLevel.isLessThanOrEqualTo(config.server.logLevel, "Debug")
+	) {
 		return inner;
 	}
 	const decorator = Layer.unwrap(
