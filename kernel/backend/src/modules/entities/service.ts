@@ -3,6 +3,7 @@ import { DbError } from "@ryot-app/contract/errors";
 import {
 	AutomationEntitySnapshot,
 	AutomationEntityDraft,
+	type AutomationPolicyPatch,
 	AutomationRequestPayload,
 	AutomationTrigger,
 } from "@ryot-app/contract/modules/automations/lifecycle";
@@ -33,6 +34,10 @@ import {
 } from "#lib/domain/lifecycle";
 import { LifecycleCommand, lifecycleTrigger } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
+import {
+	applyLifecyclePolicyPatch,
+	canonicalLifecyclePolicyPatch,
+} from "#lib/domain/lifecycle-policy-patch";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import {
 	runLifecycleWriteInline,
@@ -317,10 +322,11 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 			pending: PendingEntityMutation,
 		) {
 			let payload = pending.request;
+			const acceptedPatches: AutomationPolicyPatch[] = [];
 			yield* Effect.gen(function* () {
 				for (const policy of pending.policies) {
 					const output = yield* execution
-						.executePolicy({ payload, runId: policy.runId })
+						.executePolicy({ runId: policy.runId, acceptedPatches: [...acceptedPatches] })
 						.pipe(
 							Effect.catchTag("AutomationPolicyExecutionError", (error) =>
 								Effect.fail(
@@ -334,29 +340,20 @@ export class EntitiesService extends Context.Service<EntitiesService>()("Entitie
 						return yield* bad("policy-rejected", output.reason);
 					}
 					if (output.action === "transform") {
-						const next = output.payload;
-						if (
-							next.resource !== "entity" ||
-							next.operation !== payload.operation ||
-							!same(
-								{
-									...next,
-									draft: {
-										...next.draft,
-										name: payload.draft.name,
-										properties: payload.draft.properties,
-									},
-								},
-								payload,
-							) ||
-							(payload.operation === "delete" && !same(next, payload))
-						) {
+						const patched = applyLifecyclePolicyPatch(payload, output.patch);
+						if (!patched.ok || patched.request.operation === "delete") {
 							return yield* bad(
 								"invalid-policy-transform",
-								"Entity policy changed trusted mutation identity",
+								patched.ok ? "Entity delete policies cannot transform requests" : patched.reason,
 							);
 						}
-						payload = next;
+						const validated = yield* validateDraft(patched.request.draft, pending.scopeUserId);
+						const successor = { ...patched.request, draft: validated.draft };
+						const acceptedPatch = canonicalLifecyclePolicyPatch(payload, successor);
+						payload = successor;
+						if (acceptedPatch) {
+							acceptedPatches.push(acceptedPatch);
+						}
 					}
 				}
 				return undefined;

@@ -24,6 +24,7 @@ export const manifest = defineManifest({
   capabilities: [],
   kind: "automation",
   automationType: "automation",
+  inputProjection: { signal: { properties: [] } },
   name: "Automation",
   slug: "automation.test",
   requiredPluginConfigKeys: [],

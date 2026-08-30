@@ -13,6 +13,20 @@ export const manifest = defineManifest({
 	capabilities: ["emitSignal"],
 	name: "Media Entity Updated Detector",
 	slug: "automation.media-entity-updated",
+	inputProjection: {
+		entity: {
+			parentEntityProperties: ["seasonNumber"],
+			compareProperties: [{ property: "images", equality: "unordered-array" }],
+			properties: [
+				"productionStatus",
+				"publishYear",
+				"episodes",
+				"chapters",
+				"episodeNumber",
+				"publishDate",
+			],
+		},
+	},
 });
 
 const parentMediaSlugs = new Set([
@@ -32,31 +46,6 @@ const parentMediaSlugs = new Set([
 const stringValue = (value: JsonValue | undefined) => (typeof value === "string" ? value : null);
 const numberValue = (value: JsonValue | undefined) =>
 	typeof value === "number" && Number.isFinite(value) ? value : null;
-
-const isJsonObject = (value: JsonValue): value is Readonly<Record<string, JsonValue>> =>
-	value !== null && typeof value === "object" && !Array.isArray(value);
-
-const canonicalJson = (value: JsonValue): string => {
-	if (Array.isArray(value)) {
-		return `[${value.map(canonicalJson).join(",")}]`;
-	}
-	if (isJsonObject(value)) {
-		return `{${Object.keys(value)
-			.sort()
-			.map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key] ?? null)}`)
-			.join(",")}}`;
-	}
-	return JSON.stringify(value);
-};
-
-const imageSet = (value: JsonValue | undefined) =>
-	new Set((Array.isArray(value) ? value : []).map(canonicalJson));
-
-const sameImages = (before: JsonValue | undefined, after: JsonValue | undefined) => {
-	const beforeSet = imageSet(before);
-	const afterSet = imageSet(after);
-	return beforeSet.size === afterSet.size && [...beforeSet].every((image) => afterSet.has(image));
-};
 
 export default defineAutomation({
 	manifest,
@@ -151,7 +140,7 @@ export default defineAutomation({
 							oldName: before.name,
 						});
 					}
-					if (!sameImages(before.properties["images"], after.properties["images"])) {
+					if (source.changedProperties.includes("images")) {
 						emit("media.episode.images.changed", `${after.id}:images`, episodeProperties);
 					}
 					if (after.entitySchemaSlug === "show-episode") {

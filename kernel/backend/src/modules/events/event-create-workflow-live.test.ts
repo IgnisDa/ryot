@@ -2,6 +2,7 @@ import { assert, expect, it } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import {
 	AutomationEventSnapshot,
+	type AutomationPolicyOutput,
 	AutomationRun,
 	type AutomationRequestPayload,
 	type AutomationTrigger,
@@ -32,6 +33,7 @@ import {
 	AutomationPolicyExecutionError,
 	LifecycleExecution,
 } from "#lib/domain/lifecycle-execution";
+import { applyLifecyclePolicyPatches } from "#lib/domain/lifecycle-policy-patch";
 import { Database } from "#lib/infrastructure/db/service";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeWorkflowEngine } from "#lib/test-utils/effect";
@@ -75,7 +77,11 @@ const harness = (
 		unreadableEntity?: EntityId;
 		revokeEntityBeforeWrite?: EntityId;
 		policies?: Policy[];
-		execute?: LifecycleExecution["Service"]["executePolicy"];
+		execute?: (
+			input: Parameters<LifecycleExecution["Service"]["executePolicy"]>[0] & {
+				payload: AutomationRequestPayload;
+			},
+		) => Effect.Effect<AutomationPolicyOutput, AutomationPolicyExecutionError>;
 		blocked?: "request" | "change";
 		warnings?: AutomationWarning[];
 		failChange?: boolean;
@@ -90,6 +96,7 @@ const harness = (
 	const exclusions: unknown[] = [];
 	const queued = new Set<string>();
 	const identities = new Map<string, string>();
+	const policyRequests = new Map<string, AutomationRequestPayload>();
 	const executed: string[] = [];
 	const lockedEntityIds: EntityId[][] = [];
 	let activeTransaction = false;
@@ -220,6 +227,9 @@ const harness = (
 					for (const run of runs) {
 						queued.add(run.id);
 						identities.set(run.id, `${run.pluginId}/${run.hookSlug}`);
+						if (trigger.payload?.category === "request") {
+							policyRequests.set(run.id, trigger.payload);
+						}
 					}
 					assert(trigger.payload?.category === "request" && trigger.payload.resource === "event");
 					return {
@@ -259,11 +269,18 @@ const harness = (
 			Effect.gen(function* () {
 				expect(activeTransaction).toBe(false);
 				expect(activeActivity).toBe(false);
-				inputs.push(input.payload);
+				const retained = policyRequests.get(input.runId);
+				assert(retained?.category === "request");
+				const patched = applyLifecyclePolicyPatches(retained, input.acceptedPatches);
+				assert(patched.ok);
+				inputs.push(patched.request);
 				executed.push(identities.get(input.runId) ?? "missing");
 				calls.push("policy");
 				queued.delete(input.runId);
-				return yield* options.execute?.(input) ?? Effect.succeed({ action: "allow" as const });
+				return yield* (
+					options.execute?.({ ...input, payload: patched.request }) ??
+						Effect.succeed({ action: "allow" as const })
+				);
 			}),
 	});
 	const dependencies = Layer.mergeAll(
@@ -467,15 +484,11 @@ it.effect(
 				step += 1;
 				return Effect.succeed({
 					action: "transform",
-					payload: {
-						...request,
+					patch: {
+						resource: "event",
 						draft: {
-							...request.draft,
-							properties: { rating: step + 1 },
-							entityId: EntityId.make("untrusted"),
-							occurredAt: "1999-01-01T00:00:00.000Z",
 							sessionEntityId: EntityId.make("session"),
-							eventSchemaSlug: EventSchemaSlug.make("untrusted"),
+							properties: { remove: [], set: { rating: step + 1 } },
 						},
 					},
 				});
@@ -552,7 +565,10 @@ it.effect("revalidates final transformed properties before writing", () => {
 			assert(request.resource === "event" && request.operation === "create");
 			return Effect.succeed({
 				action: "transform",
-				payload: { ...request, draft: { ...request.draft, properties: { rating: "invalid" } } },
+				patch: {
+					resource: "event",
+					draft: { properties: { remove: [], set: { rating: "invalid" } } },
+				},
 			});
 		},
 	});
@@ -572,7 +588,7 @@ it.effect("revalidates a transformed session reference before writing", () => {
 			assert(request.resource === "event" && request.operation === "create");
 			return Effect.succeed({
 				action: "transform",
-				payload: { ...request, draft: { ...request.draft, sessionEntityId: session } },
+				patch: { resource: "event", draft: { sessionEntityId: session } },
 			});
 		},
 	});
@@ -593,7 +609,7 @@ it.effect("normalizes an empty transformed session reference before writing", ()
 			assert(request.resource === "event" && request.operation === "create");
 			return Effect.succeed({
 				action: "transform",
-				payload: { ...request, draft: { ...request.draft, sessionEntityId: EntityId.make("   ") } },
+				patch: { resource: "event", draft: { sessionEntityId: EntityId.make("   ") } },
 			});
 		},
 	});
@@ -615,7 +631,7 @@ it.effect(
 				assert(request.resource === "event" && request.operation === "create");
 				return Effect.succeed({
 					action: "transform",
-					payload: { ...request, draft: { ...request.draft, sessionEntityId: session } },
+					patch: { resource: "event", draft: { sessionEntityId: session } },
 				});
 			},
 		});
@@ -657,39 +673,33 @@ it.effect(
 	},
 );
 
-it.effect(
-	"allows a later policy to repair intermediate properties and normalizes the final value",
-	() => {
-		let step = 0;
-		const h = harness({
-			policies: [
-				{ position: 1, slug: "first" },
-				{ position: 2, slug: "repair" },
-			],
-			execute: ({ payload: request }) => {
-				assert(request.resource === "event" && request.operation === "create");
-				step += 1;
-				if (step === 2) {
-					expect(request.draft.properties).toEqual({ rating: "intermediate" });
-				}
-				return Effect.succeed({
-					action: "transform",
-					payload: {
-						...request,
-						draft: {
-							...request.draft,
-							properties: { rating: step === 1 ? "intermediate" : 1.2345 },
-						},
+it.effect("rejects an invalid intermediate patch before running the next policy", () => {
+	let step = 0;
+	const h = harness({
+		policies: [
+			{ position: 1, slug: "first" },
+			{ position: 2, slug: "repair" },
+		],
+		execute: ({ payload: request }) => {
+			assert(request.resource === "event" && request.operation === "create");
+			step += 1;
+			return Effect.succeed({
+				action: "transform",
+				patch: {
+					resource: "event",
+					draft: {
+						properties: { remove: [], set: { rating: step === 1 ? "intermediate" : 1.2345 } },
 					},
-				});
-			},
-		});
-		return Effect.gen(function* () {
-			expect((yield* h.run()).count).toBe(1);
-			expect(h.created[0]?.properties).toEqual({ rating: 1.23 });
-		});
-	},
-);
+				},
+			});
+		},
+	});
+	return Effect.gen(function* () {
+		expect((yield* h.run()).failure).toEqual({ index: 0, reason: { code: "invalid-properties" } });
+		expect(step).toBe(1);
+		expect(h.created).toEqual([]);
+	});
+});
 
 it.effect(
 	"consumes a rejecting subject policy on the first eligible item, but keeps later unstarted policies eligible",

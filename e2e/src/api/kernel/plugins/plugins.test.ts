@@ -78,6 +78,7 @@ describe("plugins", () => {
 				capabilities: ["createEvents"],
 				automationType: "automation" as const,
 				name: "E2E Lifecycle Event Automation",
+				inputProjection: { event: { properties: ["note"], compareProperties: [] } },
 			} satisfies PluginScript;
 			const initialDetailsSource = providerSandboxSource({
 				slug: detailsSlug,
@@ -111,6 +112,7 @@ export const manifest = defineManifest({
   name: "E2E Lifecycle Event Automation",
   slug: ${JSON.stringify(automationSlug)},
   capabilities: ["createEvents"],
+  inputProjection: { event: { properties: ["note"], compareProperties: [] } },
 });
 
 export default defineAutomation({
