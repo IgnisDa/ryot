@@ -9,6 +9,7 @@ import {
 	collectImages,
 	collectPeople,
 	collectSuggestions,
+	collectWatchProviders,
 	tmdbGet,
 	type TmdbHost,
 } from "../../../lib/vendors/tmdb";
@@ -19,6 +20,7 @@ const buildDetailsResult = (
 	creditsData: UnknownRecord,
 	imagesData: UnknownRecord,
 	recommendationsData: UnknownRecord,
+	watchProvidersData: UnknownRecord,
 ): ProviderDetailsResult => {
 	const title = stringValue(movieData["title"]);
 	if (!title) {
@@ -56,6 +58,7 @@ const buildDetailsResult = (
 			isNsfw: movieData["adult"] === true ? true : null,
 			productionStatus: stringValue(movieData["status"]),
 			publishYear: parsePublishYear(movieData["release_date"]),
+			watchProviders: collectWatchProviders(watchProvidersData),
 			sourceUrl: `https://www.themoviedb.org/movie/${input.externalId}`,
 			images: collectImages(
 				movieData["poster_path"],
@@ -111,15 +114,24 @@ export const getTmdbMovieDetails = (
 			tmdbGet(host, `/movie/${input.externalId}/credits`, { language }, token),
 			tmdbGet(host, `/movie/${input.externalId}/images`, {}, token),
 			tmdbGet(host, `/movie/${input.externalId}/recommendations`, { language }, token),
+			tmdbGet(host, `/movie/${input.externalId}/watch/providers`, {}, token),
 		],
 		{ concurrency: "unbounded" },
 	).pipe(
-		Effect.flatMap(([movieData, creditsData, imagesData, recommendationsData]) =>
-			Effect.try({
-				catch: (error) => (error instanceof Error ? error : new Error(String(error))),
-				try: () =>
-					buildDetailsResult(input, movieData, creditsData, imagesData, recommendationsData),
-			}),
+		Effect.flatMap(
+			([movieData, creditsData, imagesData, recommendationsData, watchProvidersData]) =>
+				Effect.try({
+					catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+					try: () =>
+						buildDetailsResult(
+							input,
+							movieData,
+							creditsData,
+							imagesData,
+							recommendationsData,
+							watchProvidersData,
+						),
+				}),
 		),
 	);
 };
