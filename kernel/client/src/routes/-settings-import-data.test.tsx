@@ -678,11 +678,17 @@ describe("import run detail", () => {
 		}),
 	);
 
-	it.live("offers no delete action while a run is still going", () =>
+	it.live("requires the exact phrase before cancelling an active import", () =>
 		Effect.gen(function* () {
+			const cancelled: string[] = [];
 			mountView(
 				"/settings/import-data/run_1",
-				makeImportsApi(),
+				makeImportsApi({
+					cancelRun: (_scope, request) => {
+						cancelled.push(request.params.runId);
+						return Effect.succeed({ id: request.params.runId });
+					},
+				}),
 				makeImportsStub({
 					loadRun: () =>
 						Effect.succeed(decodeRun([makeRun({ finishedAt: null, status: "running" })])),
@@ -690,9 +696,28 @@ describe("import run detail", () => {
 			);
 
 			yield* Effect.promise(() => screen.findByRole("heading", { level: 1, name: "Hevy" }));
-			expect(screen.queryByRole("button", { name: "Import actions" })).toBeNull();
+			fireEvent.click(screen.getByRole("button", { name: "Import actions" }));
+			fireEvent.click(
+				yield* Effect.promise(() => screen.findByRole("menuitem", { name: "Cancel import" })),
+			);
+			const dialog = yield* Effect.promise(() => screen.findByRole("dialog"));
+			const confirm = within(dialog).getByRole<HTMLButtonElement>("button", {
+				name: "Cancel import",
+			});
+			const phrase = within(dialog).getByRole("textbox", {
+				name: 'Type "Cancel this import" to confirm',
+			});
+			expect(confirm.disabled).toBe(true);
+			fireEvent.change(phrase, { target: { value: "cancel this import" } });
+			expect(confirm.disabled).toBe(true);
+			fireEvent.change(phrase, { target: { value: "Cancel this import" } });
+			expect(confirm.disabled).toBe(false);
+			fireEvent.click(confirm);
+			yield* Effect.promise(() => waitFor(() => expect(cancelled).toEqual(["run_1"])));
 			expect(
-				screen.getByText("This runs on your server and can't be stopped once started."),
+				screen.getByText(
+					"This keeps running on your server, even if you close Ryot or the server restarts.",
+				),
 			).not.toBeNull();
 		}),
 	);

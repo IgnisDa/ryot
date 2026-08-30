@@ -1,4 +1,5 @@
-import type { RunStatus } from "@ryot-app/contract/schema/run-status";
+import type { BackupRunStatus } from "@ryot-app/contract/modules/backups/schemas";
+import type { ImportRunStatus } from "@ryot-app/contract/modules/imports/schemas";
 import { DateTime, Match } from "effect";
 
 /**
@@ -11,7 +12,11 @@ type RunTiming = {
 	readonly finishedAt: string | null;
 };
 
-type RunDuration = Pick<RunTiming, "startedAt" | "finishedAt"> & { readonly status: RunStatus };
+export type PresentedRunStatus = ImportRunStatus | BackupRunStatus;
+
+type RunDuration = Pick<RunTiming, "startedAt" | "finishedAt"> & {
+	readonly status: PresentedRunStatus;
+};
 
 export type RunStatusTone = "info" | "muted" | "danger" | "success";
 
@@ -40,16 +45,20 @@ const formatDateLabel = (value: string) =>
 		locale: "en-US",
 	});
 
-export const isTerminalRunStatus = (status: RunStatus) =>
-	status === "completed" || status === "failed";
+export const isTerminalRunStatus = (status: PresentedRunStatus) =>
+	status === "completed" || status === "failed" || status === "cancelled";
 
 export const formatRunCount = (value: number) =>
 	Math.max(Math.round(value), 0).toLocaleString("en-US");
 
-export const runStatusPill = (status: RunStatus) =>
+export const runStatusPill = (status: PresentedRunStatus) =>
 	Match.value(status).pipe(
 		Match.when("pending", () => ({ icon: "clock", tone: "muted", label: "Queued" }) as const),
 		Match.when("running", () => ({ tone: "info", label: "Running", icon: "rotate-ccw" }) as const),
+		Match.when(
+			"cancelling",
+			() => ({ tone: "info", icon: "rotate-ccw", label: "Cancelling" }) as const,
+		),
 		Match.when(
 			"completed",
 			() => ({ tone: "success", label: "Completed", icon: "circle-check" }) as const,
@@ -57,6 +66,10 @@ export const runStatusPill = (status: RunStatus) =>
 		Match.when(
 			"failed",
 			() => ({ tone: "danger", label: "Failed", icon: "circle-alert" }) as const,
+		),
+		Match.when(
+			"cancelled",
+			() => ({ tone: "muted", icon: "circle-x", label: "Cancelled" }) as const,
 		),
 		Match.exhaustive,
 	);

@@ -10,6 +10,8 @@ export class ImportsApi extends Context.Service<ImportsApi>()("ImportsApi", {
 		return {
 			createRun: (scope: ApiScope, request: ContractRequest<"imports", "createRun">) =>
 				api.run(scope, (client) => client.imports.createRun(request)),
+			cancelRun: (scope: ApiScope, request: ContractRequest<"imports", "cancelRun">) =>
+				api.run(scope, (client) => client.imports.cancelRun(request)),
 			deleteRun: (scope: ApiScope, request: ContractRequest<"imports", "deleteRun">) =>
 				api.run(scope, (client) => client.imports.deleteRun(request)),
 		};

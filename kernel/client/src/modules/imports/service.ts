@@ -124,3 +124,15 @@ export const deleteImportRunMutation = createRyotMutation<
 		.deleteRun(hostServices.scope, { params: { runId: ImportRunId.make(input) } })
 		.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
 );
+
+export const cancelImportRunMutation = createRyotMutation<
+	string,
+	unknown,
+	KernelHostServices,
+	AuthenticatedApiError
+>(({ input, client, hostServices }) =>
+	hostServices.runtime
+		.runSync(ImportsApi)
+		.cancelRun(hostServices.scope, { params: { runId: ImportRunId.make(input) } })
+		.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
+);

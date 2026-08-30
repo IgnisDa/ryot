@@ -1,4 +1,4 @@
-import { Button, StatusMessage, Switch } from "@ryot-app/client-ui-sdk";
+import { Button, DestructiveConfirmation, StatusMessage, Switch } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import type { NotificationChannelSummary } from "@ryot-app/ryotql-recipes/notification-channels";
 import clsx from "clsx";
@@ -10,7 +10,6 @@ import {
 	notificationChannelDeleteConfirmation,
 	notificationChannelDetail,
 } from "#/modules/notifications/presentation";
-import { DestructiveConfirmation } from "#/modules/ui/destructive-confirmation";
 import { LoadErrorState } from "#/modules/ui/load-error-state";
 import { StatusState } from "#/modules/ui/status-state";
 

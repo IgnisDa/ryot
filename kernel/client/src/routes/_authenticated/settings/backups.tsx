@@ -5,7 +5,7 @@ import {
 	useRyotMutation,
 	useRyotQuery,
 } from "@ryot-app/client-sdk/react";
-import { Button } from "@ryot-app/client-ui-sdk";
+import { Button, DestructiveConfirmation } from "@ryot-app/client-ui-sdk";
 import type { BackupRunIdResponse } from "@ryot-app/contract/modules/backups/schemas";
 import {
 	backupRunsRecipe,
@@ -34,7 +34,6 @@ import { BackupRestoreWizard } from "#/modules/backups/restore-wizard";
 import { saveBackupArchive } from "#/modules/backups/save-archive";
 import { DEMO_PROTECTION_MESSAGE, useIsDemoSession } from "#/modules/demo-protection";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
-import { DestructiveConfirmation } from "#/modules/ui/destructive-confirmation";
 import { LoadErrorState } from "#/modules/ui/load-error-state";
 import { RUN_LIST_POLL_MS, useRunPolling } from "#/modules/ui/run/use-run-polling";
 import { useSearchParamModal } from "#/modules/ui/search-param-modal";

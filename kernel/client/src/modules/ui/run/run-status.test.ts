@@ -28,8 +28,16 @@ const running = {
 
 describe("run status presentation", () => {
 	it("treats only finished runs as terminal", () => {
-		expect((["pending", "running"] as const).map(isTerminalRunStatus)).toEqual([false, false]);
-		expect((["completed", "failed"] as const).map(isTerminalRunStatus)).toEqual([true, true]);
+		expect((["pending", "running", "cancelling"] as const).map(isTerminalRunStatus)).toEqual([
+			false,
+			false,
+			false,
+		]);
+		expect((["completed", "failed", "cancelled"] as const).map(isTerminalRunStatus)).toEqual([
+			true,
+			true,
+			true,
+		]);
 	});
 
 	it("clamps and rounds run counts", () => {
