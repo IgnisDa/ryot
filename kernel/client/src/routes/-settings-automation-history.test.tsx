@@ -1,7 +1,4 @@
-import type {
-	AutomationHistoryDetail,
-	AutomationHistoryRun,
-} from "@ryot-app/contract/modules/automations/history-schemas";
+import { AUTOMATION_HISTORY_LIMITS } from "@ryot-app/contract/modules/automations/history-schemas";
 import {
 	AutomationHookSlug,
 	AutomationRunAttemptId,
@@ -10,13 +7,23 @@ import {
 	PluginId,
 	PluginRevisionId,
 } from "@ryot-app/contract/schema/brands";
+import type { AutomationHistoryRunsPage } from "@ryot-app/ryotql-recipes/automation-history";
 import { RouterProvider, createMemoryHistory } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime } from "effect";
 import { describe, expect, it } from "vitest";
 
 import type { AutomationHistoryApi } from "#/api/automation-history";
-import { KernelApiTestLayer, makeAutomationHistoryApi } from "#/api/ports.test-layer";
+import {
+	KernelApiTestLayer,
+	makeAutomationHistoryApi,
+	makeRyotQLApi,
+} from "#/api/ports.test-layer";
+import type { RyotQLApi } from "#/api/ryotql";
+import type {
+	AutomationRunDetail,
+	AutomationHistoryPageResult,
+} from "#/modules/automation-history/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
@@ -48,6 +55,9 @@ import {
 	ClientPageSessionsRouteStubs,
 } from "#/routes/-route-fixtures";
 
+type AutomationHistoryRun = AutomationHistoryRunsPage["items"][number];
+type AutomationRunPage = AutomationHistoryPageResult["page"];
+
 const runId = AutomationRunId.make("automation-run-1");
 const triggerId = AutomationTriggerId.make("automation-trigger-1");
 
@@ -74,7 +84,7 @@ const makeRun = (overrides: Partial<AutomationHistoryRun> = {}): AutomationHisto
 	...overrides,
 });
 
-const makeDetail = (overrides: Partial<AutomationHistoryDetail> = {}): AutomationHistoryDetail => ({
+const makeDetail = (overrides: Partial<AutomationRunDetail> = {}): AutomationRunDetail => ({
 	run: makeRun(),
 	attemptsTruncated: false,
 	retryEligibility: { reason: null },
@@ -112,10 +122,79 @@ const makeDetail = (overrides: Partial<AutomationHistoryDetail> = {}): Automatio
 	...overrides,
 });
 
+const makeAutomationQueries = (
+	options: {
+		readonly list?: (cursor?: string) => Effect.Effect<AutomationRunPage>;
+		readonly detail?: () => Effect.Effect<AutomationRunDetail>;
+	} = {},
+): Layer.Layer<RyotQLApi> =>
+	makeRyotQLApi({
+		execute: (_scope, request) => {
+			if ("runs" in request.payload.queries) {
+				const query = request.payload.queries.runs;
+				if (query.output.type !== "rows") {
+					throw new Error("Expected automation runs rows query");
+				}
+				const { after, limit } = query.output.pagination;
+				return Effect.map(
+					options.list?.(after) ?? Effect.succeed({ items: [], nextCursor: null }),
+					(page) => ({
+						data: {
+							runs: {
+								items: page.items,
+								type: "rows" as const,
+								pageInfo: { limit, nextCursor: page.nextCursor, hasMore: page.nextCursor !== null },
+							},
+						},
+					}),
+				);
+			}
+			if ("run" in request.payload.queries) {
+				return Effect.map(options.detail?.() ?? Effect.succeed(makeDetail()), (detail) => ({
+					data: {
+						run: {
+							type: "rows" as const,
+							pageInfo: { limit: 2, hasMore: false, nextCursor: null },
+							items: [
+								{
+									...detail.run,
+									historyPayload: detail.trigger.payload,
+									retryEligibility: detail.retryEligibility,
+									historyPayloadTruncated: detail.trigger.payloadTruncated,
+									attempts: {
+										items: detail.attempts,
+										pageInfo: {
+											hasMore: detail.attemptsTruncated,
+											limit: AUTOMATION_HISTORY_LIMITS.maxAttempts,
+											nextCursor: detail.attemptsTruncated ? "next" : null,
+										},
+									},
+									triggers: {
+										pageInfo: { limit: 1, hasMore: false, nextCursor: null },
+										items: [
+											{
+												id: detail.trigger.id,
+												kind: detail.trigger.kind,
+												occurredAt: detail.trigger.occurredAt,
+												payloadPrunedAt: detail.trigger.payloadPrunedAt,
+											},
+										],
+									},
+								},
+							],
+						},
+					},
+				}));
+			}
+			return Effect.die("Unexpected RyotQL document");
+		},
+	});
+
 const mountView = (
 	initialEntry: string,
 	automationHistoryApi: Layer.Layer<AutomationHistoryApi>,
 	auth = makeAuthStub(),
+	queries: Layer.Layer<RyotQLApi> = makeAutomationQueries(),
 ) => {
 	const events = makePluginCatalogEventsTestLayer();
 	const runtime = ManagedRuntime.make(
@@ -141,6 +220,7 @@ const mountView = (
 			Layer.succeed(PluginOperationsService, { invoke: () => Effect.die("not used") }),
 			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
 			automationHistoryApi,
+			queries,
 		).pipe(
 			Layer.provideMerge(OAuthRouteStubs),
 			Layer.provideMerge(Layer.succeed(ClientStorage, makeStorageStub("fixture"))),
@@ -166,12 +246,13 @@ describe("automation history", () => {
 		});
 		const view = mountView(
 			"/settings/automation-history",
-			makeAutomationHistoryApi({
-				getRun: () => Effect.succeed(makeDetail()),
-				listRuns: (_scope, request) => {
-					cursors.push(request.query.cursor);
+			makeAutomationHistoryApi(),
+			undefined,
+			makeAutomationQueries({
+				list: (cursor) => {
+					cursors.push(cursor);
 					return Effect.succeed(
-						request.query.cursor === undefined
+						cursor === undefined
 							? { items: [makeRun()], nextCursor: "opaque-next" }
 							: { items: [older], nextCursor: null },
 					);
@@ -208,10 +289,12 @@ describe("automation history", () => {
 			});
 			mountView(
 				"/settings/automation-history",
-				makeAutomationHistoryApi({
-					listRuns: (_scope, request) => {
-						cursors.push(request.query.cursor);
-						if (request.query.cursor !== undefined) {
+				makeAutomationHistoryApi(),
+				undefined,
+				makeAutomationQueries({
+					list: (cursor) => {
+						cursors.push(cursor);
+						if (cursor !== undefined) {
 							return Effect.succeed({ items: [older], nextCursor: null });
 						}
 						return Effect.succeed({
@@ -260,12 +343,14 @@ describe("automation history", () => {
 			});
 			mountView(
 				"/settings/automation-history",
-				makeAutomationHistoryApi({
-					listRuns: (_scope, request) => {
-						cursors.push(request.query.cursor);
-						if (request.query.cursor === undefined) {
+				makeAutomationHistoryApi(),
+				undefined,
+				makeAutomationQueries({
+					list: (cursor) => {
+						cursors.push(cursor);
+						if (cursor === undefined) {
 							return Effect.succeed(
-								cursors.filter((cursor) => cursor === undefined).length === 1
+								cursors.filter((pageCursor) => pageCursor === undefined).length === 1
 									? { items: [first, removed], nextCursor: "before-insert" }
 									: { items: [inserted, first], nextCursor: "after-insert" },
 							);
@@ -307,10 +392,12 @@ describe("automation history", () => {
 			});
 			mountView(
 				"/settings/automation-history",
-				makeAutomationHistoryApi({
-					listRuns: (_scope, request) => {
-						cursors.push(request.query.cursor);
-						if (request.query.cursor === undefined) {
+				makeAutomationHistoryApi(),
+				undefined,
+				makeAutomationQueries({
+					list: (cursor) => {
+						cursors.push(cursor);
+						if (cursor === undefined) {
 							return Effect.succeed({ items: [recent], nextCursor: "older-page" });
 						}
 						olderReads += 1;
@@ -338,10 +425,7 @@ describe("automation history", () => {
 	);
 
 	it("shows bounded retained trigger, error, and log diagnostics", async () => {
-		mountView(
-			"/settings/automation-history/automation-run-1",
-			makeAutomationHistoryApi({ getRun: () => Effect.succeed(makeDetail()) }),
-		);
+		mountView("/settings/automation-history/automation-run-1", makeAutomationHistoryApi());
 
 		await screen.findByText("hook-failed");
 		expect(screen.getByText("The hook rejected this event.")).toBeTruthy();
@@ -357,13 +441,16 @@ describe("automation history", () => {
 		mountView(
 			"/settings/automation-history/automation-run-1",
 			makeAutomationHistoryApi({
-				getRun: () => {
-					detailReads += 1;
-					return Effect.succeed(makeDetail());
-				},
 				retryRun: (_scope, request) => {
 					retryBodies.push(request.payload.expectedAttemptCount);
 					return Effect.succeed({ runId, attemptNumber: 3, dispatch: "pending" });
+				},
+			}),
+			undefined,
+			makeAutomationQueries({
+				detail: () => {
+					detailReads += 1;
+					return Effect.succeed(makeDetail());
 				},
 			}),
 		);
@@ -379,7 +466,6 @@ describe("automation history", () => {
 		mountView(
 			"/settings/automation-history/automation-run-1",
 			makeAutomationHistoryApi({
-				getRun: () => Effect.succeed(makeDetail()),
 				retryRun: () => {
 					retries += 1;
 					return Effect.succeed({ runId, attemptNumber: 3, dispatch: "pending" });
@@ -403,7 +489,10 @@ describe("automation history", () => {
 			"/settings/automation-history/automation-run-1",
 			makeAutomationHistoryApi({
 				retryRun: () => Effect.succeed({ runId, attemptNumber: 3, dispatch: "pending" }),
-				getRun: () => {
+			}),
+			undefined,
+			makeAutomationQueries({
+				detail: () => {
 					detailReads += 1;
 					const statuses = ["failed", "queued", "running", "succeeded"] as const;
 					const status = statuses[Math.min(detailReads - 1, statuses.length - 1)] ?? "succeeded";
@@ -435,8 +524,10 @@ describe("automation history", () => {
 	it("explains when retained artifacts make retry unavailable", async () => {
 		mountView(
 			"/settings/automation-history/automation-run-1",
-			makeAutomationHistoryApi({
-				getRun: () =>
+			makeAutomationHistoryApi(),
+			undefined,
+			makeAutomationQueries({
+				detail: () =>
 					Effect.succeed(makeDetail({ retryEligibility: { reason: "missing-artifact" } })),
 			}),
 		);

@@ -1,6 +1,5 @@
 import { createRyotMutation, createRyotQuery } from "@ryot-app/client-sdk/react";
 import type { ContractRequest } from "@ryot-app/contract/client";
-import type { ListedImportSource } from "@ryot-app/contract/modules/imports/schemas";
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import {
 	importRunRecipe,
@@ -8,6 +7,10 @@ import {
 	type ImportRunDetail,
 	type ImportRunList,
 } from "@ryot-app/ryotql-recipes/import-runs";
+import {
+	importSourcesRecipe,
+	type ImportSourcesPage,
+} from "@ryot-app/ryotql-recipes/import-sources";
 import { Context, Data, Effect, Layer } from "effect";
 
 import { ImportsApi } from "#/api/imports";
@@ -80,14 +83,29 @@ export const importRunQuery = createRyotQuery<
 
 export const importSourcesQuery = createRyotQuery<
 	void,
-	readonly ListedImportSource[],
+	readonly ImportSourceItem[],
 	KernelHostServices
->(({ signal, hostServices }) =>
-	hostServices.runtime.runPromise(
-		Effect.flatMap(ImportsApi, (api) => api.listSources(hostServices.scope)),
-		{ signal },
-	),
-);
+>(({ client, signal }) => {
+	const load = async (
+		after?: string,
+		previous: readonly ImportSourceItem[] = [],
+	): Promise<readonly ImportSourceItem[]> => {
+		const page = await client.data.query(importSourcesRecipe({ after, limit: 100 }), { signal });
+		const sources = [
+			...previous,
+			...page.items.map(({ id: _id, exportHelp, ...source }) => ({
+				...source,
+				...(exportHelp === null ? {} : { exportHelp }),
+			})),
+		];
+		return page.pageInfo.nextCursor === null ? sources : load(page.pageInfo.nextCursor, sources);
+	};
+	return load();
+});
+
+export type ImportSourceItem = Omit<ImportSourcesPage["items"][number], "id" | "exportHelp"> & {
+	readonly exportHelp?: NonNullable<ImportSourcesPage["items"][number]["exportHelp"]>;
+};
 
 type CreateRunPayload = ContractRequest<"imports", "createRun">["payload"];
 

@@ -1,17 +1,16 @@
 import { Button, StatusMessage } from "@ryot-app/client-ui-sdk";
-import type {
-	AutomationHistoryAttempt,
-	AutomationHistoryDetail,
-	AutomationHistoryRetryResult,
-} from "@ryot-app/contract/modules/automations/history-schemas";
+import type { AutomationHistoryRetryResult } from "@ryot-app/contract/modules/automations/history-schemas";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 
+import type { AutomationRunDetail } from "#/modules/automation-history/service";
 import { AutomationStatusPill } from "#/modules/automation-history/status";
 import { DemoProtectionMessage } from "#/modules/demo-protection";
 import { formatRunDuration, runTimestampLabel } from "#/modules/ui/run/run-status";
 
+type AutomationHistoryAttempt = AutomationRunDetail["attempts"][number];
+
 type AutomationHistoryDetailViewProps = {
-	readonly detail: AutomationHistoryDetail;
+	readonly detail: AutomationRunDetail;
 	readonly isRetrying: boolean;
 	readonly retryFailed: boolean;
 	readonly retryResult: AutomationHistoryRetryResult | undefined;
@@ -19,7 +18,7 @@ type AutomationHistoryDetailViewProps = {
 	readonly isDemoProtected: boolean;
 };
 
-type RetryUnavailableReason = Exclude<AutomationHistoryDetail["retryEligibility"]["reason"], null>;
+type RetryUnavailableReason = Exclude<AutomationRunDetail["retryEligibility"]["reason"], null>;
 
 const unavailableLabels: Record<RetryUnavailableReason, string> = {
 	"not-failed": "Only failed runs can be retried.",
@@ -93,7 +92,7 @@ function AttemptLogs(props: { readonly attempt: AutomationHistoryAttempt }) {
 	);
 }
 
-function TriggerPayload(props: { readonly trigger: AutomationHistoryDetail["trigger"] }) {
+function TriggerPayload(props: { readonly trigger: AutomationRunDetail["trigger"] }) {
 	const { trigger } = props;
 	if (trigger.payload !== null) {
 		return <JsonBlock value={trigger.payload} />;

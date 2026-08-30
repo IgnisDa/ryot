@@ -18,8 +18,8 @@ function GodModeUsers() {
 			runtime.runPromiseExit(service.resetUserPassword(sessionId, userId)),
 		setUserDisabled: (userId: string, disabled: boolean) =>
 			runtime.runPromiseExit(service.setUserDisabled(sessionId, userId, disabled)),
-		listUsers: (search: string, offset: number, limit: number) =>
-			runtime.runPromiseExit(service.listUsers(sessionId, search, offset, limit)),
+		listUsers: (search: string, after: string | undefined, limit: number) =>
+			runtime.runPromiseExit(service.listUsers(sessionId, search, after, limit)),
 	};
 
 	return (

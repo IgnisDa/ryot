@@ -113,7 +113,7 @@ function LanguageField(props: {
 export function PreferencesForm(props: {
 	disabled?: boolean;
 	preferences: UserPreferences;
-	onSave: (payload: UpdateUserPreferencesBody) => Promise<UserPreferences>;
+	onSave: (payload: UpdateUserPreferencesBody) => Promise<void>;
 }) {
 	const [saved, setSaved] = useState(false);
 	const [failed, setFailed] = useState(false);
@@ -126,11 +126,13 @@ export function PreferencesForm(props: {
 				return;
 			}
 			setFailed(false);
-			const updated = await props.onSave(payload).catch(() => null);
-			if (updated === null) {
+			try {
+				await props.onSave(payload);
+			} catch {
 				setFailed(true);
 				return;
 			}
+			const updated = { ...initial, ...payload };
 			setInitial(updated);
 			form.reset(makePreferenceDraft(updated));
 			setSaved(true);

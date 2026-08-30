@@ -8,7 +8,6 @@ export class ImportsApi extends Context.Service<ImportsApi>()("ImportsApi", {
 	make: Effect.gen(function* () {
 		const api = yield* AuthenticatedApi;
 		return {
-			listSources: (scope: ApiScope) => api.run(scope, (client) => client.imports.listSources()),
 			createRun: (scope: ApiScope, request: ContractRequest<"imports", "createRun">) =>
 				api.run(scope, (client) => client.imports.createRun(request)),
 			deleteRun: (scope: ApiScope, request: ContractRequest<"imports", "deleteRun">) =>

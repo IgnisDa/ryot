@@ -2,17 +2,10 @@ import { useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
 import { Button, Menu, type MenuItem } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import { useSchemaForm, type SchemaFormValues } from "@ryot-app/client-ui-sdk/schema-form";
-import {
-	IntegrationNotFoundError,
-	type ListedIntegration,
-} from "@ryot-app/contract/modules/integrations/schemas";
-import { IntegrationId } from "@ryot-app/contract/schema/brands";
 import { createFileRoute, notFound, useRouter } from "@tanstack/react-router";
-import { Effect } from "effect";
+import { Option } from "effect";
 import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";
 
-import { AuthenticatedApiError } from "#/api/authenticated";
-import { IntegrationsApi } from "#/api/integrations";
 import { AuthService } from "#/modules/auth/service";
 import { DEMO_PROTECTION_MESSAGE } from "#/modules/demo-protection";
 import { IntegrationDetailView } from "#/modules/integrations/integration-detail-view";
@@ -27,8 +20,10 @@ import {
 	integrationProviderNames,
 } from "#/modules/integrations/provider-selection";
 import { integrationSaveFailure } from "#/modules/integrations/save-failure";
+import type { IntegrationClientDetail } from "#/modules/integrations/service";
 import {
 	deleteIntegrationMutation,
+	getIntegration,
 	integrationDetailQuery,
 	integrationProvidersQuery,
 	integrationRunsQuery,
@@ -41,9 +36,6 @@ import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
 import { StatusState } from "#/modules/ui/status-state";
 
 const RUN_LIST_POLL_MS = 10_000;
-
-const isNotFound = (error: unknown) =>
-	error instanceof AuthenticatedApiError && error.cause instanceof IntegrationNotFoundError;
 
 export const Route = createFileRoute("/_authenticated/settings/integrations/$integrationId")({
 	component: IntegrationDetailRoute,
@@ -61,21 +53,14 @@ export const Route = createFileRoute("/_authenticated/settings/integrations/$int
 			return { access: "demo" as const };
 		}
 		const outcome = await context.runtime.runPromise(
-			Effect.flatMap(IntegrationsApi, (api) =>
-				api.get(context.scope, { params: { integrationId: IntegrationId.make(trimmed) } }),
-			).pipe(
-				Effect.match({
-					onFailure: (failure) => ({ failure, integration: undefined }),
-					onSuccess: (integration) => ({ integration, failure: undefined }),
-				}),
-			),
+			getIntegration(context.ryot, context.server, trimmed),
 			{ signal: abortController.signal },
 		);
-		if (outcome.integration === undefined) {
+		if (Option.isNone(outcome)) {
 			// oxlint-disable-next-line typescript/only-throw-error
-			throw isNotFound(outcome.failure) ? notFound() : outcome.failure;
+			throw notFound();
 		}
-		return { access: "standard" as const, integration: outcome.integration };
+		return { integration: outcome.value, access: "standard" as const };
 	},
 });
 
@@ -117,7 +102,7 @@ function DemoIntegrationDetail() {
 	);
 }
 
-function StandardIntegrationDetail(props: { readonly integration: ListedIntegration }) {
+function StandardIntegrationDetail(props: { readonly integration: IntegrationClientDetail }) {
 	const router = useRouter();
 	const navigate = Route.useNavigate();
 	const uploadFile = useSchemaFileUpload();

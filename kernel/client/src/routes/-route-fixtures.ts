@@ -5,10 +5,10 @@ import {
 	CLIENT_COMPILER_VERSION,
 } from "@ryot-app/client-plugin-contract";
 import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
-import type { UserSettings } from "@ryot-app/contract/modules/user-settings/schemas";
 import { EntitySchemaSlug, PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
+import type { UserSettingsResult } from "@ryot-app/ryotql-recipes/user-settings";
 import { Effect, Layer } from "effect";
 
 import { ClientPagesApi } from "#/api/client-pages";
@@ -114,7 +114,7 @@ export const authenticated = {
 
 export const unauthenticated = { status: "missing" } as const;
 
-export const userSettings: UserSettings = {
+export const userSettings: UserSettingsResult = {
 	image: null,
 	name: "Test User",
 	id: UserId.make("user-1"),
@@ -123,7 +123,7 @@ export const userSettings: UserSettings = {
 };
 
 export const makeUserSettingsStub = (overrides: Partial<UserSettingsApi["Service"]> = {}) =>
-	makeUserSettingsApi({ get: () => Effect.succeed(userSettings), ...overrides });
+	makeUserSettingsApi(overrides);
 
 export const makeAuthStub = (
 	overrides: Partial<AuthService["Service"]> = {},
@@ -254,6 +254,8 @@ export const ImportsRouteStubs = makeImportsStub();
 export const makeIntegrationsStub = (overrides: Partial<IntegrationsService["Service"]> = {}) =>
 	Layer.succeed(IntegrationsService, {
 		loadRuns: () => Effect.die("not used"),
+		loadProviders: () => Effect.die("not used"),
+		loadIntegration: () => Effect.die("not used"),
 		loadIntegrations: () => Effect.die("not used"),
 		...overrides,
 	});

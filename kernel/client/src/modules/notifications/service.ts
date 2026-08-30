@@ -1,9 +1,6 @@
 import { createRyotMutation, createRyotQuery } from "@ryot-app/client-sdk/react";
 import type { ContractSuccess } from "@ryot-app/contract/client";
-import type {
-	CreateNotificationChannelBody,
-	ListedNotificationChannel,
-} from "@ryot-app/contract/modules/notifications/schemas";
+import type { CreateNotificationChannelBody } from "@ryot-app/contract/modules/notifications/schemas";
 import { NotificationChannelId } from "@ryot-app/contract/schema/brands";
 import { notificationChannelsRecipe } from "@ryot-app/ryotql-recipes/notification-channels";
 import type { NotificationChannelsResult } from "@ryot-app/ryotql-recipes/notification-channels";
@@ -140,15 +137,14 @@ export const createNotificationChannelMutation = createRyotMutation<
 
 export const updateNotificationChannelMutation = createRyotMutation<
 	{ readonly id: string; readonly isDisabled: boolean },
-	ListedNotificationChannel,
+	void,
 	KernelHostServices
 >(async ({ input, client, signal, hostServices }) => {
-	const result = await hostServices.runtime.runPromise(
+	await hostServices.runtime.runPromise(
 		updateNotificationChannel(hostServices.scope, input.id, input.isDisabled),
 		{ signal },
 	);
 	client.mutationCompleted.hint();
-	return result;
 });
 
 export const deleteNotificationChannelMutation = createRyotMutation<

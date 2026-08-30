@@ -1,7 +1,7 @@
-import type { ListedIntegrationProvider } from "@ryot-app/contract/modules/integrations/schemas";
 import type { IntegrationLot } from "@ryot-app/contract/modules/integrations/types";
 
 import { integrationProviderKey } from "#/modules/integrations/presentation";
+import type { IntegrationProviderItem } from "#/modules/integrations/service";
 import { pluginCatalogGroup, type CatalogEntry } from "#/modules/ui/catalog/selection";
 
 export const PRO_REQUIRED_INTEGRATION_MESSAGE = "Ryot Pro is required to use this integration.";
@@ -22,7 +22,7 @@ export const integrationLotDetail = (lot: IntegrationLot) => {
 		: "Ryot pushes changes out to this service as your library changes.";
 };
 
-const integrationProviderRequirement = (provider: ListedIntegrationProvider) => {
+const integrationProviderRequirement = (provider: IntegrationProviderItem) => {
 	if (provider.isCreatable) {
 		return undefined;
 	}
@@ -31,7 +31,7 @@ const integrationProviderRequirement = (provider: ListedIntegrationProvider) => 
 		: "This service is not ready on your server yet.";
 };
 
-export const integrationProviderEntry = (provider: ListedIntegrationProvider): CatalogEntry => ({
+export const integrationProviderEntry = (provider: IntegrationProviderItem): CatalogEntry => ({
 	slug: provider.slug,
 	name: provider.name,
 	description: provider.description,
@@ -44,7 +44,7 @@ export const integrationProviderEntry = (provider: ListedIntegrationProvider): C
 export const integrationProviderChooseLabel = (entry: CatalogEntry) =>
 	entry.isAvailable ? `Connect ${entry.name}` : `${entry.name} is unavailable`;
 
-export const integrationProviderNames = (providers: readonly ListedIntegrationProvider[]) =>
+export const integrationProviderNames = (providers: readonly IntegrationProviderItem[]) =>
 	new Map(
 		providers.map((provider) => [
 			integrationProviderKey({ provider: provider.slug, pluginSlug: provider.pluginSlug }),
@@ -54,7 +54,7 @@ export const integrationProviderNames = (providers: readonly ListedIntegrationPr
 
 /** Provider slugs are only unique within a plugin, so an owned integration matches on both. */
 export const findOwnedIntegrationProvider = (
-	providers: readonly ListedIntegrationProvider[],
+	providers: readonly IntegrationProviderItem[],
 	owner: { readonly provider: string; readonly pluginSlug: string } | undefined,
 ) =>
 	owner === undefined

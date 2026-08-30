@@ -7,12 +7,15 @@ import {
 } from "@ryot-app/client-ui-sdk/schema-form";
 import type {
 	CreateIntegrationBody,
-	ListedIntegration,
-	ListedIntegrationProvider,
 	UpdateIntegrationBody,
 } from "@ryot-app/contract/modules/integrations/schemas";
 import type { JsonValue } from "@ryot-app/contract/modules/sandbox/wire";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+
+import type {
+	IntegrationClientDetail,
+	IntegrationProviderItem,
+} from "#/modules/integrations/service";
 
 const isArrayItem = (value: unknown): value is SchemaFormArrayValue =>
 	typeof value === "string" || typeof value === "number" || typeof value === "boolean";
@@ -66,7 +69,7 @@ const integrationCommonBody = (commonSchema: AppSchema, values: SchemaFormValues
 
 export const createIntegrationBody = (input: {
 	readonly values: SchemaFormValues;
-	readonly provider: ListedIntegrationProvider;
+	readonly provider: IntegrationProviderItem;
 }): CreateIntegrationBody => ({
 	provider: input.provider.slug,
 	...integrationCommonBody(input.provider.commonSchema, input.values),
@@ -75,14 +78,14 @@ export const createIntegrationBody = (input: {
 
 export const updateIntegrationBody = (input: {
 	readonly values: SchemaFormValues;
-	readonly provider: ListedIntegrationProvider;
+	readonly provider: IntegrationProviderItem;
 }): UpdateIntegrationBody => ({
 	...integrationCommonBody(input.provider.commonSchema, input.values),
 	providerSpecifics: toSchemaFormPayload(input.provider.settingsSchema, input.values),
 });
 
 export const initialIntegrationFormValues = (
-	provider: ListedIntegrationProvider,
+	provider: IntegrationProviderItem,
 ): SchemaFormValues => ({
 	...initialSchemaFormValues(provider.commonSchema),
 	...initialSchemaFormValues(provider.settingsSchema),
@@ -93,8 +96,8 @@ export const initialIntegrationFormValues = (
  * unless the user replaces them.
  */
 export const storedIntegrationFormValues = (input: {
-	readonly integration: ListedIntegration;
-	readonly provider: ListedIntegrationProvider;
+	readonly integration: IntegrationClientDetail;
+	readonly provider: IntegrationProviderItem;
 }): SchemaFormValues => {
 	const stored = Object.fromEntries(
 		Object.keys(input.provider.settingsSchema.fields).flatMap((key) => {

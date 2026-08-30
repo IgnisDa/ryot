@@ -1,11 +1,11 @@
-import type { ListedImportSource } from "@ryot-app/contract/modules/imports/schemas";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { getOrderedAppSchemaFieldEntries } from "@ryot-app/contract/schema/property-schema";
 
+import type { ImportSourceItem } from "#/modules/imports/service";
 import { pluginCatalogGroup, type CatalogEntry } from "#/modules/ui/catalog/selection";
 
 export type ImportWizardSource = Pick<
-	ListedImportSource,
+	ImportSourceItem,
 	"slug" | "name" | "description" | "inputSchema" | "exportHelp"
 >;
 
@@ -36,7 +36,7 @@ export const importSourceInputShape = (schema: AppSchema) => {
 	return uploads.length === 1 ? fileShapeLabel(single) : `${uploads.length} files`;
 };
 
-const importSourceRequirement = (source: ListedImportSource) => {
+const importSourceRequirement = (source: ImportSourceItem) => {
 	if (source.isStartable) {
 		return undefined;
 	}
@@ -45,7 +45,7 @@ const importSourceRequirement = (source: ListedImportSource) => {
 		: `Set ${source.missingPluginConfigKeys.join(", ")} on your server to use this.`;
 };
 
-export const importSourceEntry = (source: ListedImportSource): CatalogEntry => ({
+export const importSourceEntry = (source: ImportSourceItem): CatalogEntry => ({
 	slug: source.slug,
 	name: source.name,
 	description: source.description,
@@ -58,5 +58,5 @@ export const importSourceEntry = (source: ListedImportSource): CatalogEntry => (
 export const importSourceChooseLabel = (entry: CatalogEntry) =>
 	entry.isAvailable ? `Import from ${entry.name}` : `${entry.name} is unavailable`;
 
-export const importSourceNames = (sources: readonly ListedImportSource[]) =>
+export const importSourceNames = (sources: readonly ImportSourceItem[]) =>
 	new Map(sources.map((source) => [source.slug, source.name]));

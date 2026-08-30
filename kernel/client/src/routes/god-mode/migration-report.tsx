@@ -15,7 +15,9 @@ function GodModeMigrationReport() {
 	return (
 		<MigrationReportView
 			unauthorized={unauthorized}
-			load={(signal) => runtime.runPromiseExit(service.getMigrationReport(sessionId), { signal })}
+			load={(after, signal) =>
+				runtime.runPromiseExit(service.getMigrationReport(sessionId, after), { signal })
+			}
 		/>
 	);
 }

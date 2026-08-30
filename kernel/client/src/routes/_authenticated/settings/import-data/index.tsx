@@ -1,11 +1,11 @@
 import { useRyotQuery, type RyotQueryResult } from "@ryot-app/client-sdk/react";
-import type { ListedImportSource } from "@ryot-app/contract/modules/imports/schemas";
 import type { ImportRunList } from "@ryot-app/ryotql-recipes/import-runs";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
 import { ImportDataView, type ImportRunListState } from "#/modules/imports/import-data-view";
 import { liveImportRun } from "#/modules/imports/run-presentation";
+import type { ImportSourceItem } from "#/modules/imports/service";
 import {
 	IMPORT_RUNS_PAGE_SIZE,
 	importRunsQuery,
@@ -30,7 +30,7 @@ const queryListState = (page: ImportRunList | undefined, pending: boolean): Impo
 };
 
 const sourcePickerState = (
-	result: RyotQueryResult<readonly ListedImportSource[]>,
+	result: RyotQueryResult<readonly ImportSourceItem[]>,
 ): ImportSourcePickerState => {
 	if (result.data === undefined) {
 		return result.isPending ? { status: "loading" } : { status: "failed" };

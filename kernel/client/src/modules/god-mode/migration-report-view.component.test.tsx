@@ -1,13 +1,14 @@
 import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { Cause, Exit } from "effect";
-import { describe, expect, it } from "vitest";
+import { assert, describe, expect, it } from "vitest";
 
 import { MigrationReportView } from "#/modules/god-mode/migration-report-view";
 import type { GodModeMigrationReport } from "#/modules/god-mode/service";
 
 const report: GodModeMigrationReport = {
-	entries: [
+	pageInfo: { limit: 50, hasMore: false, nextCursor: null },
+	items: [
 		{
 			seq: 7,
 			count: 1_234,
@@ -18,51 +19,63 @@ const report: GodModeMigrationReport = {
 			code: "seen-episode-absent",
 			createdAt: "2025-01-02T03:04:05",
 			message: "Skipped malformed item",
-			details: [
-				{
-					kind: "show",
-					seasonExists: false,
-					requestedSeason: "0",
-					requestedEpisode: "1",
-					parentName: "Black Mirror",
-					userId: "usr_ujrD0pCeKc1Y",
-					code: "seen-episode-absent",
-					parentEntityId: "met_WYGquxnbOnHd",
-					legacyRecordId: "see_hlFQdGwVxnPL",
-					availableSummary: "seasons 1, 2, 3, 4, 5, 6, 7",
-				},
-			],
+			details: {
+				pageInfo: { limit: 100, hasMore: true },
+				items: [
+					{
+						seq: 1,
+						detail: {
+							kind: "show",
+							seasonExists: false,
+							requestedSeason: "0",
+							requestedEpisode: "1",
+							parentName: "Black Mirror",
+							userId: "usr_ujrD0pCeKc1Y",
+							code: "seen-episode-absent",
+							parentEntityId: "met_WYGquxnbOnHd",
+							legacyRecordId: "see_hlFQdGwVxnPL",
+							availableSummary: "seasons 1, 2, 3, 4, 5, 6, 7",
+						},
+					},
+				],
+			},
 		},
 		{
 			seq: 6,
 			count: 42,
 			code: null,
-			details: [],
 			level: "info",
 			elapsedSeconds: 1,
 			totalDetails: null,
 			phase: "exercise -> entity",
 			message: "row(s) migrated total",
 			createdAt: "2025-01-02T03:04:04",
+			details: { items: [], pageInfo: { limit: 100, hasMore: false } },
 		},
 	],
 };
 
+const emptyReport: GodModeMigrationReport = {
+	items: [],
+	pageInfo: { limit: 50, hasMore: false, nextCursor: null },
+};
+
 describe("MigrationReportView", () => {
 	it("loads on mount and renders the semantic report table", async () => {
-		const signals: Array<AbortSignal> = [];
+		const requests: Array<{ after: string | undefined; signal: AbortSignal }> = [];
 		render(
 			<MigrationReportView
 				unauthorized={() => undefined}
-				load={(signal) => {
-					signals.push(signal);
+				load={(after, signal) => {
+					requests.push({ after, signal });
 					return Promise.resolve(Exit.succeed(report));
 				}}
 			/>,
 		);
 
 		const table = await screen.findByRole("table");
-		expect(signals).toHaveLength(1);
+		expect(requests).toHaveLength(1);
+		expect(requests[0]?.after).toBeUndefined();
 		expect(
 			within(table)
 				.getAllByRole("columnheader")
@@ -76,7 +89,7 @@ describe("MigrationReportView", () => {
 		expect(within(table).getByText("12.5s")).toBeTruthy();
 	});
 
-	it("expands a coded warning to reveal its per-record detail", async () => {
+	it("expands a coded warning to reveal its per-record detail and total", async () => {
 		render(
 			<MigrationReportView
 				unauthorized={() => undefined}
@@ -108,7 +121,47 @@ describe("MigrationReportView", () => {
 		expect(screen.queryByRole("button", { name: /row\(s\) migrated total/ })).toBeNull();
 	});
 
-	it("retries a non-auth failure", async () => {
+	it("loads the next cursor and keeps previous reports visible after a failure and retry", async () => {
+		const nextEntry = report.items.at(-1);
+		assert(nextEntry);
+		const requests: Array<string | undefined> = [];
+		let nextAttempts = 0;
+		render(
+			<MigrationReportView
+				unauthorized={() => undefined}
+				load={(after) => {
+					requests.push(after);
+					if (after === undefined) {
+						return Promise.resolve(
+							Exit.succeed({
+								...report,
+								pageInfo: { limit: 50, hasMore: true, nextCursor: "next" },
+							}),
+						);
+					}
+					nextAttempts += 1;
+					return Promise.resolve(
+						nextAttempts === 1
+							? Exit.fail(new Error("offline"))
+							: Exit.succeed({
+									pageInfo: { limit: 50, hasMore: false, nextCursor: null },
+									items: [{ ...nextEntry, seq: 5, message: "Completed another phase" }],
+								}),
+					);
+				}}
+			/>,
+		);
+
+		await screen.findByText("Skipped malformed item");
+		fireEvent.click(screen.getByRole("button", { name: "Load more reports" }));
+		fireEvent.click(await screen.findByRole("button", { name: "Retry" }));
+		expect(screen.getByText("Skipped malformed item")).toBeTruthy();
+		await screen.findByText("Completed another phase");
+		expect(requests).toEqual([undefined, "next", "next"]);
+		expect(screen.queryByRole("button", { name: "Load more reports" })).toBeNull();
+	});
+
+	it("retries an initial non-auth failure and shows the empty state", async () => {
 		let calls = 0;
 		render(
 			<MigrationReportView
@@ -116,7 +169,7 @@ describe("MigrationReportView", () => {
 				load={() => {
 					calls += 1;
 					return Promise.resolve(
-						calls === 1 ? Exit.fail(new Error("offline")) : Exit.succeed({ entries: [] }),
+						calls === 1 ? Exit.fail(new Error("offline")) : Exit.succeed(emptyReport),
 					);
 				}}
 			/>,
@@ -154,7 +207,7 @@ describe("MigrationReportView", () => {
 		const view = render(
 			<MigrationReportView
 				unauthorized={() => undefined}
-				load={(value) => {
+				load={(_, value) => {
 					signal = value;
 					return new Promise(() => undefined);
 				}}
