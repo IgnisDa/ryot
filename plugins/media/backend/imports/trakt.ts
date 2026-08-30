@@ -18,17 +18,17 @@ const PAGE_LIMIT = "1000";
 const Ids = Schema.Struct({
 	slug: Schema.optional(Schema.String),
 	imdb: Schema.optional(Schema.NullOr(Schema.String)),
-	tmdb: Schema.optional(Schema.NullOr(Schema.Number)),
-	trakt: Schema.optional(Schema.NullOr(Schema.Number)),
+	tmdb: Schema.optional(Schema.NullOr(Schema.Finite)),
+	trakt: Schema.optional(Schema.NullOr(Schema.Finite)),
 });
 const Item = Schema.Struct({
 	ids: Ids,
 	title: Schema.optional(Schema.String),
-	year: Schema.optional(Schema.NullOr(Schema.Number)),
+	year: Schema.optional(Schema.NullOr(Schema.Finite)),
 });
 type Item = typeof Item.Type;
 const History = Schema.Struct({
-	id: Schema.Number,
+	id: Schema.Finite,
 	watched_at: Schema.String,
 	show: Schema.optional(Item),
 	movie: Schema.optional(Item),
@@ -36,14 +36,14 @@ const History = Schema.Struct({
 	episode: Schema.optional(
 		Schema.Struct({
 			ids: Ids,
-			number: Schema.Number,
-			season: Schema.Number,
+			number: Schema.Finite,
+			season: Schema.Finite,
 			title: Schema.optional(Schema.String),
 		}),
 	),
 });
 const Rating = Schema.Struct({
-	rating: Schema.Number,
+	rating: Schema.Finite,
 	rated_at: Schema.String,
 	show: Schema.optional(Item),
 	movie: Schema.optional(Item),
@@ -74,13 +74,13 @@ const ExportComment = Schema.Struct({
 });
 const ExportCoordinates = Schema.Struct({
 	ids: Ids,
-	number: Schema.optional(Schema.Number),
-	season: Schema.optional(Schema.Number),
+	number: Schema.optional(Schema.Finite),
+	season: Schema.optional(Schema.Finite),
 });
 const ExportItem = Schema.Struct({
 	show: Schema.optional(Item),
 	movie: Schema.optional(Item),
-	rating: Schema.optional(Schema.Number),
+	rating: Schema.optional(Schema.Finite),
 	comment: Schema.optional(ExportComment),
 	rated_at: Schema.optional(Schema.String),
 	watched_at: Schema.optional(Schema.String),

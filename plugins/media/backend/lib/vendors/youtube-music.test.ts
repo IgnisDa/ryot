@@ -29,21 +29,25 @@ const recordedClient = (path: string, responses: readonly unknown[], language = 
 	const requests: { method: string; path: string; body: unknown }[] = [];
 	const host: YoutubeiHost = {
 		httpCall: (method, url, options) =>
-			Effect.sync(() => {
+			Effect.gen(function* () {
 				const request = {
 					method,
 					path: new URL(url).pathname,
-					body: Schema.decodeSync(Schema.fromJsonString(Schema.Unknown))(options?.body ?? "{}"),
+					body: yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(
+						options?.body ?? "{}",
+					).pipe(Effect.orDie),
 				};
 				const response = responses[requests.length];
 				requests.push(request);
 				if (request.path !== `/youtubei/v1/${path}` || response === undefined) {
-					throw new Error(`Unexpected YouTube Music request: ${request.path}`);
+					return yield* Effect.die(`Unexpected YouTube Music request: ${request.path}`);
 				}
 				return {
 					status: 200,
 					headers: { "content-type": "application/json" },
-					body: Schema.encodeSync(Schema.fromJsonString(Schema.Unknown))(response),
+					body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(response).pipe(
+						Effect.orDie,
+					),
 				};
 			}),
 	};

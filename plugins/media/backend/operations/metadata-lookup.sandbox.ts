@@ -49,21 +49,21 @@ export default defineOperation({
 		Effect.gen(function* () {
 			const titles = input.titles.map((title) => title.trim());
 			if (titles.some((title) => title === "")) {
-				return yield* Effect.fail(new MediaSandboxError({ message: "title is required" }));
+				return yield* new MediaSandboxError({ message: "title is required" });
 			}
 
 			const integration = yield* host.getCurrentIntegration();
 			if (integration.provider !== "ryot_browser_extension") {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "Integration is not a browser extension integration" }),
-				);
+				return yield* new MediaSandboxError({
+					message: "Integration is not a browser extension integration",
+				});
 			}
 
 			const results: MetadataLookupResult[] = [];
 			for (const title of titles) {
 				const query = extractMetadataLookupBaseTitle(title).trim();
 				if (!query) {
-					return yield* Effect.fail(new MediaSandboxError({ message: "title is required" }));
+					return yield* new MediaSandboxError({ message: "title is required" });
 				}
 
 				const searched = yield* Effect.forEach(

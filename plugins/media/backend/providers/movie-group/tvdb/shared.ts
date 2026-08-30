@@ -34,9 +34,9 @@ export const details = defineProvider({
 	run: (input, host) =>
 		Effect.gen(function* () {
 			if (!/^\d+$/.test(input.externalId)) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "externalId must be a numeric TVDB list ID" }),
-				);
+				return yield* new MediaSandboxError({
+					message: "externalId must be a numeric TVDB list ID",
+				});
 			}
 			const language = bcp47ToTvdb("en");
 			const [payload, translationData] = yield* Effect.all(
@@ -98,9 +98,9 @@ export const translate = defineProvider({
 	run: (input, host) =>
 		Effect.gen(function* () {
 			if (!/^\d+$/.test(input.externalId)) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "externalId must be a numeric TVDB list ID" }),
-				);
+				return yield* new MediaSandboxError({
+					message: "externalId must be a numeric TVDB list ID",
+				});
 			}
 			const providerLanguage = bcp47ToTvdb(input.language);
 			return yield* tvdbGetOptional(

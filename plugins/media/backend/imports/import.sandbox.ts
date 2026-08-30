@@ -59,7 +59,7 @@ const integrationAdapter = (scriptSlug: string) => ({
 	output: MediaIntegrationAdapterResult,
 });
 
-type FinalizedEntityGroup = (typeof MediaImportWriteChunkInput.Type)["entityGroups"][number];
+type FinalizedEntityGroup = MediaImportWriteChunkInput["entityGroups"][number];
 type FinalizedEvent = FinalizedEntityGroup["events"][number];
 
 const unresolvedEpisodeMessage = (episode: UnresolvedEpisodeRef) => {

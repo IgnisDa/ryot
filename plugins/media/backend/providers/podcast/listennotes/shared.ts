@@ -266,7 +266,7 @@ export const details = defineProvider({
 			const firstPage = yield* fetchPodcastDetails(host, input.externalId, null);
 			const title = trimmedString(firstPage?.["title"]);
 			if (!title) {
-				return yield* Effect.fail(new MediaSandboxError({ message: "Podcast is missing title" }));
+				return yield* new MediaSandboxError({ message: "Podcast is missing title" });
 			}
 			const totalEpisodes = positiveInt(firstPage?.["total_episodes"]);
 			const episodes: MappedEpisode[] = [];

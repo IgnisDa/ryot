@@ -27,12 +27,10 @@ export const getMetronCredentials = (host: MetronHost) =>
 		const username = stringValue(usernameValue);
 		const password = stringValue(passwordValue);
 		if (!username || !password) {
-			return yield* Effect.fail(
-				new MediaSandboxError({
-					message:
-						"Metron credentials are not configured. Set RYOT_PLUGIN_MEDIA_METRON_USERNAME and RYOT_PLUGIN_MEDIA_METRON_PASSWORD.",
-				}),
-			);
+			return yield* new MediaSandboxError({
+				message:
+					"Metron credentials are not configured. Set RYOT_PLUGIN_MEDIA_METRON_USERNAME and RYOT_PLUGIN_MEDIA_METRON_PASSWORD.",
+			});
 		}
 		return { username, password };
 	});

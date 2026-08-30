@@ -34,54 +34,51 @@ export const search = defineProvider({
 	manifest,
 	operation: "search",
 	run: (input, host) =>
-		getTmdbAccessToken(host)
-			.pipe(
-				Effect.flatMap((token) =>
-					getUserAllowNsfw(host).pipe(
-						Effect.flatMap((allowNsfw) =>
-							tmdbGet(
-								host,
-								"/search/person",
-								{
-									language: "en-US",
-									query: input.query,
-									page: String(input.page),
-									include_adult: allowNsfw ? "true" : "false",
-								},
-								token,
-							),
+		getTmdbAccessToken(host).pipe(
+			Effect.flatMap((token) =>
+				getUserAllowNsfw(host).pipe(
+					Effect.flatMap((allowNsfw) =>
+						tmdbGet(
+							host,
+							"/search/person",
+							{
+								language: "en-US",
+								query: input.query,
+								page: String(input.page),
+								include_adult: allowNsfw ? "true" : "false",
+							},
+							token,
 						),
 					),
 				),
-			)
-			.pipe(
-				Effect.map((data) => {
-					const results = recordsValue(data["results"]);
-					const totalItems = numberValue(data["total_results"]) ?? results.length;
-					const totalPages = numberValue(data["total_pages"]) ?? 1;
-					const items = results
-						.flatMap((person) => {
-							const id = numberValue(person["id"]);
-							const name = stringValue(person["name"]);
-							if (id === null || !name) {
-								return [];
-							}
-							const image = getImageUrl(person["profile_path"]);
-							return [
-								{
-									title: name,
-									externalId: String(Math.trunc(id)),
-									...(image === null ? {} : { imageUrl: image }),
-								},
-							];
-						})
-						.slice(0, input.pageSize);
-					return {
-						items,
-						details: { totalItems, nextPage: input.page < totalPages ? input.page + 1 : null },
-					};
-				}),
 			),
+			Effect.map((data) => {
+				const results = recordsValue(data["results"]);
+				const totalItems = numberValue(data["total_results"]) ?? results.length;
+				const totalPages = numberValue(data["total_pages"]) ?? 1;
+				const items = results
+					.flatMap((person) => {
+						const id = numberValue(person["id"]);
+						const name = stringValue(person["name"]);
+						if (id === null || !name) {
+							return [];
+						}
+						const image = getImageUrl(person["profile_path"]);
+						return [
+							{
+								title: name,
+								externalId: String(Math.trunc(id)),
+								...(image === null ? {} : { imageUrl: image }),
+							},
+						];
+					})
+					.slice(0, input.pageSize);
+				return {
+					items,
+					details: { totalItems, nextPage: input.page < totalPages ? input.page + 1 : null },
+				};
+			}),
+		),
 });
 
 const collectCredits = (combinedCredits: UnknownRecord) => {
@@ -132,97 +129,90 @@ export const details = defineProvider({
 		if (!/^\d+$/.test(input.externalId)) {
 			throw new Error("externalId must be a numeric TMDB person ID");
 		}
-		return getTmdbAccessToken(host)
-			.pipe(
-				Effect.flatMap((token) =>
-					Effect.all(
-						[
-							tmdbGet(
-								host,
-								`/person/${input.externalId}`,
-								{ language: "en", append_to_response: "images" },
-								token,
-							),
-							tmdbGet(
-								host,
-								`/person/${input.externalId}/combined_credits`,
-								{ language: "en" },
-								token,
-							),
-						],
-						{ concurrency: "unbounded" },
-					),
+		return getTmdbAccessToken(host).pipe(
+			Effect.flatMap((token) =>
+				Effect.all(
+					[
+						tmdbGet(
+							host,
+							`/person/${input.externalId}`,
+							{ language: "en", append_to_response: "images" },
+							token,
+						),
+						tmdbGet(
+							host,
+							`/person/${input.externalId}/combined_credits`,
+							{ language: "en" },
+							token,
+						),
+					],
+					{ concurrency: "unbounded" },
 				),
-			)
-			.pipe(
-				Effect.map(([personData, combinedCredits]) => {
-					const name = stringValue(personData["name"]);
-					if (!name) {
-						throw new Error("TMDB returned no name for this person");
+			),
+			Effect.map(([personData, combinedCredits]) => {
+				const name = stringValue(personData["name"]);
+				if (!name) {
+					throw new Error("TMDB returned no name for this person");
+				}
+				const imageUrls = new Set<string>();
+				const mainProfile = getImageUrl(personData["profile_path"]);
+				if (mainProfile) {
+					imageUrls.add(mainProfile);
+				}
+				const images = asRecord(personData["images"]);
+				for (const profile of recordsValue(images?.["profiles"])) {
+					const url = getImageUrl(profile["file_path"]);
+					if (url) {
+						imageUrls.add(url);
 					}
-					const imageUrls = new Set<string>();
-					const mainProfile = getImageUrl(personData["profile_path"]);
-					if (mainProfile) {
-						imageUrls.add(mainProfile);
-					}
-					const images = asRecord(personData["images"]);
-					for (const profile of recordsValue(images?.["profiles"])) {
-						const url = getImageUrl(profile["file_path"]);
-						if (url) {
-							imageUrls.add(url);
-						}
-					}
-					const genderValue = numberValue(personData["gender"]);
-					const genders: Readonly<Record<number, string>> = {
-						2: "Male",
-						1: "Female",
-						3: "Non-Binary",
-					};
-					const gender = genderValue === null ? null : (genders[Math.trunc(genderValue)] ?? null);
-					const alternateNames = Array.isArray(personData["also_known_as"])
-						? personData["also_known_as"].filter(
-								(value): value is string => typeof value === "string" && Boolean(value.trim()),
-							)
-						: [];
-					const relatedEntities = collectCredits(combinedCredits);
-					return {
-						name,
-						properties: {
-							gender,
-							alternateNames,
-							website: stringValue(personData["homepage"]),
-							birthDate: stringValue(personData["birthday"]),
-							deathDate: stringValue(personData["deathday"]),
-							description: stringValue(personData["biography"]),
-							birthPlace: stringValue(personData["place_of_birth"]),
-							sourceUrl: `https://www.themoviedb.org/person/${input.externalId}`,
-							images: [...imageUrls].map((url) => ({
-								url,
-								type: "remote" as const,
-								purpose: "profile" as const,
-							})),
+				}
+				const genderValue = numberValue(personData["gender"]);
+				const genders: Readonly<Record<number, string>> = {
+					2: "Male",
+					1: "Female",
+					3: "Non-Binary",
+				};
+				const gender = genderValue === null ? null : (genders[Math.trunc(genderValue)] ?? null);
+				const alternateNames = Array.isArray(personData["also_known_as"])
+					? personData["also_known_as"].filter(
+							(value): value is string => typeof value === "string" && Boolean(value.trim()),
+						)
+					: [];
+				const relatedEntities = collectCredits(combinedCredits);
+				return {
+					name,
+					relatedEntityGroups: [
+						{
+							direction: "outgoing" as const,
+							synchronization: "authoritative" as const,
+							relationshipSchemaSlug: "person-to-movie",
+							entities: relatedEntities.filter(({ providerSlug }) => providerSlug === "movie.tmdb"),
 						},
-						relatedEntityGroups: [
-							{
-								direction: "outgoing" as const,
-								synchronization: "authoritative" as const,
-								relationshipSchemaSlug: "person-to-movie",
-								entities: relatedEntities.filter(
-									({ providerSlug }) => providerSlug === "movie.tmdb",
-								),
-							},
-							{
-								direction: "outgoing" as const,
-								relationshipSchemaSlug: "person-to-show",
-								synchronization: "authoritative" as const,
-								entities: relatedEntities.filter(
-									({ providerSlug }) => providerSlug === "show.tmdb",
-								),
-							},
-						],
-					};
-				}),
-			);
+						{
+							direction: "outgoing" as const,
+							relationshipSchemaSlug: "person-to-show",
+							synchronization: "authoritative" as const,
+							entities: relatedEntities.filter(({ providerSlug }) => providerSlug === "show.tmdb"),
+						},
+					],
+					properties: {
+						gender,
+						alternateNames,
+						website: stringValue(personData["homepage"]),
+						birthDate: stringValue(personData["birthday"]),
+						deathDate: stringValue(personData["deathday"]),
+						description: stringValue(personData["biography"]),
+						birthPlace: stringValue(personData["place_of_birth"]),
+						sourceUrl: `https://www.themoviedb.org/person/${input.externalId}`,
+						images: [...imageUrls].map((url) => ({
+							url,
+							type: "remote" as const,
+							purpose: "profile" as const,
+						})),
+					},
+				};
+			}),
+		);
 	},
 });
 
@@ -234,45 +224,42 @@ export const translate = defineProvider({
 			throw new Error("externalId must be a numeric TMDB person ID");
 		}
 		const { region, langCode } = parseTranslationLanguage(input.language);
-		return getTmdbAccessToken(host)
-			.pipe(
-				Effect.flatMap((token) =>
-					Effect.all(
-						[
-							tmdbGet(host, `/person/${input.externalId}/translations`, {}, token),
-							tmdbGet(host, `/person/${input.externalId}/images`, {}, token).pipe(
-								Effect.catch(() => Effect.succeed({})),
-							),
-						],
-						{ concurrency: "unbounded" },
-					),
+		return getTmdbAccessToken(host).pipe(
+			Effect.flatMap((token) =>
+				Effect.all(
+					[
+						tmdbGet(host, `/person/${input.externalId}/translations`, {}, token),
+						tmdbGet(host, `/person/${input.externalId}/images`, {}, token).pipe(
+							Effect.orElseSucceed(() => ({})),
+						),
+					],
+					{ concurrency: "unbounded" },
 				),
-			)
-			.pipe(
-				Effect.map(([translationsData, imagesData]) => {
-					const candidates = orderedTranslationCandidates(translationsData, langCode, region);
-					const name = firstTranslationValue(candidates, (data) => data["name"]);
-					const description = firstTranslationValue(candidates, (data) => data["biography"]);
-					const imageUrl = getLocalizedImageUrl(imagesData, "profiles", langCode);
-					const properties: Record<
-						string,
-						string | Array<{ type: "remote"; url: string; purpose: "profile" }>
-					> = {};
-					if (description) {
-						properties["description"] = description;
-					}
-					if (imageUrl) {
-						properties["images"] = [{ url: imageUrl, type: "remote", purpose: "profile" }];
-					}
-					const result: { name?: string; properties?: typeof properties } = {};
-					if (name) {
-						result.name = name;
-					}
-					if (Object.keys(properties).length > 0) {
-						result.properties = properties;
-					}
-					return result;
-				}),
-			);
+			),
+			Effect.map(([translationsData, imagesData]) => {
+				const candidates = orderedTranslationCandidates(translationsData, langCode, region);
+				const name = firstTranslationValue(candidates, (data) => data["name"]);
+				const description = firstTranslationValue(candidates, (data) => data["biography"]);
+				const imageUrl = getLocalizedImageUrl(imagesData, "profiles", langCode);
+				const properties: Record<
+					string,
+					string | Array<{ type: "remote"; url: string; purpose: "profile" }>
+				> = {};
+				if (description) {
+					properties["description"] = description;
+				}
+				if (imageUrl) {
+					properties["images"] = [{ url: imageUrl, type: "remote", purpose: "profile" }];
+				}
+				const result: { name?: string; properties?: typeof properties } = {};
+				if (name) {
+					result.name = name;
+				}
+				if (Object.keys(properties).length > 0) {
+					result.properties = properties;
+				}
+				return result;
+			}),
+		);
 	},
 });

@@ -153,10 +153,8 @@ const collectSuggestions = (host: MangaUpdatesHost, payload: UnknownRecord | nul
 	for (const relatedSeries of recordsValue(payload?.["related_series"])) {
 		addCandidate(relatedSeries["related_series_id"]);
 	}
-	return Effect.all(
-		[...seriesIds].map((seriesId) =>
-			mangaUpdatesGetOptional(host, `/series/${encodeURIComponent(String(seriesId))}`),
-		),
+	return Effect.forEach([...seriesIds], (seriesId) =>
+		mangaUpdatesGetOptional(host, `/series/${encodeURIComponent(String(seriesId))}`),
 	).pipe(
 		Effect.map((responses) =>
 			responses.flatMap((value) => {

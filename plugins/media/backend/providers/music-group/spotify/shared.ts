@@ -73,9 +73,7 @@ export const details = defineProvider({
 			const album = asRecord(albumValue);
 			const title = stringValue(album?.["name"]);
 			if (!title) {
-				return yield* Effect.fail(
-					new MediaSandboxError({ message: "Spotify album is missing name" }),
-				);
+				return yield* new MediaSandboxError({ message: "Spotify album is missing name" });
 			}
 
 			const parts = numberValue(album?.["total_tracks"]);

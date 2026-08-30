@@ -11,10 +11,10 @@ export const mangaRecipes = mediaFlatRecipes({
 	presentationFields: mediaNumberSelection("chapters"),
 	summaryFields: mediaNumberSelection("volumes", "chapters"),
 	activityEventFields: (event) => ({
-		mangaVolume: selectedField(propertyNumber(event, "mangaVolume"), Schema.NullOr(Schema.Number)),
+		mangaVolume: selectedField(propertyNumber(event, "mangaVolume"), Schema.NullOr(Schema.Finite)),
 		mangaChapter: selectedField(
 			propertyNumber(event, "mangaChapter"),
-			Schema.NullOr(Schema.Number),
+			Schema.NullOr(Schema.Finite),
 		),
 	}),
 });

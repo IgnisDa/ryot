@@ -55,7 +55,7 @@ export const getCredentials = (host: IgdbHost) =>
 
 export const getAccessToken = (host: IgdbHost) =>
 	host.getCachedValue(TOKEN_CACHE_KEY).pipe(
-		Effect.catch(() => Effect.succeed(null)),
+		Effect.orElseSucceed(() => null),
 		Effect.flatMap((cached) => {
 			const cachedToken = asCachedToken(cached);
 			if (cachedToken) {

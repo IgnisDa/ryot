@@ -108,16 +108,12 @@ export const getTvdbShowDetails = (
 		);
 		const show = asRecord(data["data"]);
 		if (!show) {
-			return yield* Effect.fail(
-				new MediaSandboxError({ message: "TVDB returned no data for this series" }),
-			);
+			return yield* new MediaSandboxError({ message: "TVDB returned no data for this series" });
 		}
 		const translation = getTranslationFields(translationData);
 		const title = translation.name ?? stringValue(show["name"]);
 		if (!title) {
-			return yield* Effect.fail(
-				new MediaSandboxError({ message: "TVDB returned no name for this series" }),
-			);
+			return yield* new MediaSandboxError({ message: "TVDB returned no name for this series" });
 		}
 		const images = collectImages([show["image"]], show["artworks"], "cover");
 		const genres = collectGenres(show["genres"]);
@@ -152,10 +148,9 @@ export const getTvdbShowDetails = (
 		const seasonResponses: UnknownRecord[] = [];
 		for (const batch of batches) {
 			seasonResponses.push(
-				...(yield* Effect.all(
-					batch.map((sid) => tvdbGet(host, `/seasons/${sid}/extended`)),
-					{ concurrency: "unbounded" },
-				)),
+				...(yield* Effect.forEach(batch, (sid) => tvdbGet(host, `/seasons/${sid}/extended`), {
+					concurrency: "unbounded",
+				})),
 			);
 		}
 		const officialSeasons = seasonResponses

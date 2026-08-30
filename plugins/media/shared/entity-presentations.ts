@@ -99,7 +99,7 @@ export const mediaPresentationRecipe = defineRecipe(
 					selection: {
 						...entityIdentitySelection(media),
 						images: selectedField(propertyJson(media, "images"), MediaImageListSchema),
-						rating: selectedField(reviewRatingAverage(media), Schema.NullOr(Schema.Number)),
+						rating: selectedField(reviewRatingAverage(media), Schema.NullOr(Schema.Finite)),
 						primary: selectedField(
 							primaryExpression(media, input.slug),
 							Schema.NullOr(Schema.String),

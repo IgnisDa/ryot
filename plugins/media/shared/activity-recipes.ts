@@ -61,7 +61,7 @@ const mediaTypeOf = (entity: Table) =>
 const countWhen = (predicate: Parameters<typeof conditional>[0]) =>
 	selectedMeasure(
 		{ function: "sum", expr: conditional(predicate, literal(1), literal(0)) },
-		Schema.NullOr(Schema.Number),
+		Schema.NullOr(Schema.Finite),
 	);
 
 /** A year of daily buckets, with room for a leap year and slack. */
@@ -113,7 +113,7 @@ export const mediaActivityRecipe = defineRecipe(
 					joins: days.joins,
 					where: days.where,
 					orderBy: [groupAscending("day")],
-					measures: { events: selectedMeasure({ function: "count" }, Schema.Number) },
+					measures: { events: selectedMeasure({ function: "count" }, Schema.Finite) },
 					groupBy: {
 						day: selectedField(
 							dateBucket(column(days.event, "occurredAt"), {
@@ -128,7 +128,7 @@ export const mediaActivityRecipe = defineRecipe(
 					where: types.where,
 					limit: builtinMediaEntitySchemaSlugs.length,
 					orderBy: [measureDescending("events"), groupAscending("slug")],
-					measures: { events: selectedMeasure({ function: "count" }, Schema.Number) },
+					measures: { events: selectedMeasure({ function: "count" }, Schema.Finite) },
 					joins: [
 						...types.joins,
 						join("inner", typeSchema, eq(column(typeSchema, "slug"), mediaTypeOf(types.entity))),
@@ -161,7 +161,7 @@ export const mediaActivityRecipe = defineRecipe(
 									literal(null),
 								),
 							},
-							Schema.NullOr(Schema.Number),
+							Schema.NullOr(Schema.Finite),
 						),
 					},
 				}),
