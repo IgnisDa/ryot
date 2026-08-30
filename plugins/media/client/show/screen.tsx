@@ -4,14 +4,13 @@ import {
 	useRyotViewport,
 	type EntityRendererProps,
 } from "@ryot-app/client-sdk/plugin";
-import { useRyotQuery } from "@ryot-app/client-sdk/react";
+import { ManagedAssetProvider, useRyotQuery } from "@ryot-app/client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { ShowActivityTab } from "./activity";
 import { ShowEpisodesTab } from "./episodes";
 import { SHOW_ART_HEIGHT, SHOW_BACKDROP_HEIGHT, ShowHero } from "./hero";
-import { ManagedAssetProvider } from "./managed-assets";
 import { ShowOverview } from "./overview";
 import {
 	mapShowOverview,

@@ -38,6 +38,23 @@ it("declares the complete fitness-owned source", () => {
 		"workout-template",
 		"measurement",
 	]);
+	expect(fitnessPlugin.client).toEqual({
+		apiVersion: 1,
+		entry: "client/index.ts",
+		entities: { workout: { listPresentation: "workout-row", gridPresentation: "workout-card" } },
+		exports: {
+			"workout-card": {
+				kind: "presentation",
+				entry: "client/workout-card.ts",
+				automaticEntityPresentations: false,
+			},
+			"workout-row": {
+				kind: "presentation",
+				entry: "client/workout-row.ts",
+				automaticEntityPresentations: false,
+			},
+		},
+	});
 	const exercise = fitnessPlugin.entitySchemas[0];
 	assert(exercise);
 	expect(exercise.mergeIdentityProperties).toEqual(["kind"]);
