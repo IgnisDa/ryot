@@ -13,15 +13,6 @@ export const listInstalledPlugins = (client: Client, options: { includeDisabled?
 		c.definitions.listPlugins({ query: { includeDisabled: options.includeDisabled ?? false } }),
 	);
 
-export const listPluginInstallations = (client: Client) =>
-	client.call((contract) => contract.plugins.list());
-
-export const findBuiltinPlugin = (client: Client) =>
-	Effect.gen(function* () {
-		const plugins = yield* listInstalledPlugins(client, { includeDisabled: true });
-		return requirePresent(plugins[0], "Built-in plugin not found");
-	});
-
 export const findBuiltinPluginBySlug = (client: Client, slug: string) =>
 	Effect.gen(function* () {
 		const plugins = yield* listInstalledPlugins(client, { includeDisabled: true });
@@ -31,7 +22,7 @@ export const findBuiltinPluginBySlug = (client: Client, slug: string) =>
 
 export const findPluginInstallationBySlug = (client: Client, slug: string) =>
 	Effect.gen(function* () {
-		const installations = yield* listPluginInstallations(client);
+		const installations = yield* client.call((contract) => contract.plugins.list());
 		return requirePresent(
 			installations.find((installation) => installation.slug === slug),
 			`Plugin installation '${slug}' not found`,

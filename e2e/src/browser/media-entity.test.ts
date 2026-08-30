@@ -140,7 +140,11 @@ it.live("opens a Media Show entity from the canonical saved-view route", () =>
 		const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });
 		yield* signInThroughHostedOAuth(page, email, password);
 		yield* page.goto(`${frontendUrl}/v/all-shows`);
-		yield* page.getByRole("link", { name: `Open ${SHOW_NAME}` }).click();
+		yield* page
+			.locator("iframe")
+			.contentFrame()
+			.getByRole("link", { name: SHOW_NAME, exact: true })
+			.click();
 		yield* page.waitForURL(`${frontendUrl}/e/${showId}`);
 		expect(new URL(page.url()).pathname).toBe(`/e/${showId}`);
 		expect(page.url()).not.toContain("/media");
@@ -216,7 +220,7 @@ it.live("opens a Media Show entity from the canonical saved-view route", () =>
 	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );
 
-it.live("uses the SDK unavailable renderer for an unsupported Media schema", () =>
+it.live("shows a kernel notice for an unsupported Media schema", () =>
 	Effect.gen(function* () {
 		const apiUrl = getApiUrl();
 		const frontendUrl = getFrontendUrl();
@@ -240,9 +244,9 @@ it.live("uses the SDK unavailable renderer for an unsupported Media schema", () 
 		yield* page.goto(`${frontendUrl}/e/${movie.id}`);
 		yield* page.waitForURL(`${frontendUrl}/e/${movie.id}`);
 
-		const frame = page.locator('iframe[title="media plugin"]');
-		yield* frame.waitFor({ state: "visible" });
-		yield* expectVisibleText(frame.contentFrame().locator("body"), "Entity renderer unavailable");
-		expect(yield* page.getByText("Kernel-owned entity unsupported", { exact: true }).count).toBe(0);
+		yield* page
+			.getByRole("heading", { level: 1, name: "Entity page not registered", exact: true })
+			.waitFor({ state: "visible" });
+		expect(yield* page.locator('iframe[title="media plugin"]').count).toBe(0);
 	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );
