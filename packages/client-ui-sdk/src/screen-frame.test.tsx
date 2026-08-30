@@ -97,11 +97,16 @@ function Harness(props: {
 const bar = () => screen.getByTestId("screen-frame-bar");
 
 describe("ScreenFrame", () => {
-	it("names the screen exactly once, whatever the breakpoint", () => {
-		const { unmount } = render(<Harness compact />);
+	it("names the screen exactly once, whatever the breakpoint or bar contents", () => {
+		const compact = render(<Harness compact />);
 
 		expect(screen.getAllByRole("heading", { name: "All Shows" })).toHaveLength(1);
-		unmount();
+		compact.unmount();
+
+		const searching = render(<Harness compact searchRow={<input aria-label="Search shows" />} />);
+
+		expect(screen.getAllByRole("heading", { name: "All Shows" })).toHaveLength(1);
+		searching.unmount();
 
 		render(<Harness compact={false} />);
 
@@ -120,24 +125,54 @@ describe("ScreenFrame", () => {
 
 		const observation = observations[0];
 		expect(observations).toHaveLength(1);
-		expect(bar().hasAttribute("data-scrolled")).toBe(false);
+		expect(bar().hasAttribute("data-solid")).toBe(false);
 		expect(observation?.root).toBe(screen.getByTestId("scroller"));
 		expect(observation?.rootMargin).toBe(`-${59 + SCREEN_BAR_HEIGHT}px 0px 0px 0px`);
 
 		act(() => observation?.emit(false));
-		expect(bar().hasAttribute("data-scrolled")).toBe(true);
+		expect(bar().hasAttribute("data-solid")).toBe(true);
 
 		act(() => observation?.emit(true));
-		expect(bar().hasAttribute("data-scrolled")).toBe(false);
+		expect(bar().hasAttribute("data-solid")).toBe(false);
 	});
 
 	it("replaces the bar row and the title block while a search row is supplied", () => {
 		render(<Harness compact searchRow={<input aria-label="Search shows" />} />);
 
 		expect(screen.getByLabelText("Search shows")).not.toBeNull();
-		expect(screen.queryByRole("heading", { name: "All Shows" })).toBeNull();
+		expect(screen.queryByText("12 results")).toBeNull();
 		expect(screen.queryByRole("button", { name: "Open navigation" })).toBeNull();
+		expect(bar().hasAttribute("data-solid")).toBe(true);
 		expect(observations).toHaveLength(0);
+	});
+
+	it("observes the sentinel again once the search row leaves", () => {
+		const searchRow = <input aria-label="Search shows" />;
+		const { rerender } = render(<Harness compact />);
+
+		act(() => observations[0]?.emit(false));
+		expect(bar().hasAttribute("data-solid")).toBe(true);
+
+		rerender(<Harness compact searchRow={searchRow} />);
+		expect(disconnects).toBe(1);
+
+		rerender(<Harness compact />);
+		expect(observations).toHaveLength(2);
+
+		act(() => observations[1]?.emit(true));
+		expect(bar().hasAttribute("data-solid")).toBe(false);
+	});
+
+	it("draws the hero at both breakpoints", () => {
+		const hero = <img alt="Cover" src="art.png" />;
+		const { unmount } = render(<Harness compact hero={hero} />);
+
+		expect(screen.getByAltText("Cover")).not.toBeNull();
+		unmount();
+
+		render(<Harness compact={false} hero={hero} />);
+
+		expect(screen.getByAltText("Cover")).not.toBeNull();
 	});
 
 	it("still collapses a hero screen that has no title block", () => {
