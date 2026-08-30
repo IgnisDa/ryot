@@ -26,6 +26,7 @@ import {
 } from "#/api/ports.test-layer";
 import { createKernelRyotClient, createKernelRyotClientStore } from "#/api/ryot-client";
 import type { ThemeStore } from "#/modules/theme/store";
+import type { ClientRuntime } from "#/runtime";
 
 const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
 const document = { queries: {}, output: {} } as PreparedRecipe<unknown>["document"];
@@ -245,9 +246,12 @@ describe("kernel Ryot client", () => {
 	it("reuses one client for equivalent API scopes and separates users", async () => {
 		const runtime = makeRuntime(new Error("not used"));
 		try {
-			const store = createKernelRyotClientStore(runtime, theme);
+			// This focused runtime provides the services used by the kernel client adapter.
+			// oxlint-disable-next-line typescript/no-unsafe-type-assertion
+			const store = createKernelRyotClientStore(runtime as ClientRuntime, theme);
 			const first = store.get(scope);
 			expect(store.get({ ...scope })).toBe(first);
+			expect(first.hostServices).toEqual({ runtime, scope });
 			expect(store.get({ ...scope, userId: "user-2" })).not.toBe(first);
 		} finally {
 			await runtime.dispose();

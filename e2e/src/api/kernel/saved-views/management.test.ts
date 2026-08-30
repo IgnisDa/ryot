@@ -1,4 +1,5 @@
 import type { ContractSuccess } from "@ryot-app/contract/client";
+import type { SavedViewRecord } from "@ryot-app/ryotql-recipes/saved-view-records";
 import { savedViewRecipe } from "@ryot-app/ryotql-recipes/saved-views";
 import { Effect } from "effect";
 
@@ -32,9 +33,7 @@ const schemaRowsDocument = (slug: string) =>
 		},
 	}).document;
 
-type SavedViewUpdateSource =
-	| Effect.Success<ReturnType<typeof getSavedView>>
-	| ContractSuccess<"savedViews", "update">;
+type SavedViewUpdateSource = SavedViewRecord | ContractSuccess<"savedViews", "update">;
 
 const buildBuiltinUpdatePayload = (view: SavedViewUpdateSource) => {
 	const layouts = requirePresent(view.layouts, "Built-in saved view has no layouts");
