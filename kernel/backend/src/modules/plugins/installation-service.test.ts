@@ -1,4 +1,9 @@
+import { BunFileSystem } from "@effect/platform-bun";
 import { assert, expect, it } from "@effect/vitest";
+import {
+	compileClientPlugin,
+	STYLEX_TRACER_BUILD_FINGERPRINT,
+} from "@ryot-app/client-plugin-compiler";
 import { badRequest, DbError, type InternalError, internalError } from "@ryot-app/contract/errors";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
@@ -33,6 +38,7 @@ import { PluginInstallationService } from "./installation-service";
 import { PluginInstallationLifecycleDispatcher } from "./installation-workflow";
 import { PluginLoader, type PluginRegistryEntry } from "./loader";
 import { PluginRepository } from "./repository";
+import { styleXTracerActivationLayer } from "./stylex-tracer-activation";
 import { fixtureManifest } from "./test-support";
 import type { StoredPlugin } from "./types";
 import { PLUGIN_PACKAGE_LIMITS } from "./validation";
@@ -139,6 +145,8 @@ const makeLayer = (input?: {
 		plugin: StoredPlugin["manifest"];
 		identity: Record<string, unknown>;
 	}>;
+	readonly stylexTracerEnabled?: boolean;
+	readonly clientCompile?: ClientPluginCompiler["Service"]["compile"];
 }) => {
 	const registry = makeDefinitionRegistry();
 	const registryLayer = Layer.succeed(DefinitionRegistry, registry);
@@ -257,7 +265,9 @@ const makeLayer = (input?: {
 				),
 			),
 	});
-	const clientCompilerLayer = Layer.mock(ClientPluginCompiler)({});
+	const clientCompilerLayer = input?.clientCompile
+		? Layer.succeed(ClientPluginCompiler, ClientPluginCompiler.of({ compile: input.clientCompile }))
+		: Layer.mock(ClientPluginCompiler)({});
 	const objectStorageLayer = Layer.mock(ObjectStorageService)({
 		openObject: () =>
 			input?.openUploadFails
@@ -277,6 +287,7 @@ const makeLayer = (input?: {
 				uploadIntentsLayer,
 				objectStorageLayer,
 				clientCompilerLayer,
+				styleXTracerActivationLayer(input?.stylexTracerEnabled ?? false),
 				lifecycleDispatcherLayer,
 				definitionMaterializerLayer,
 			),
@@ -335,6 +346,132 @@ const systemEntry = (manifest: PluginManifest): PluginRegistryEntry => ({
 	slug: manifest.metadata.slug,
 	id: `${manifest.metadata.slug}-plugin-id`,
 	sourceHash: `hash-${manifest.metadata.slug}`,
+});
+
+const tracerManifest = (slug = "stylex-tracer") =>
+	privateManifest({
+		metadata: { ...privateManifest().metadata, slug, name: "StyleX tracer" },
+		client: {
+			apiVersion: 1,
+			homeView: null,
+			exports: {
+				page: {
+					kind: "page",
+					entry: "client/page.tsx",
+					settingsSchema: { fields: {} },
+					automaticEntityPresentations: false,
+				},
+			},
+		},
+	});
+
+const tracerFiles = {
+	"client/page.tsx": bytes(`
+import { StyleXTracerPanel } from "@ryot-app/client-ui-sdk/stylex-tracer";
+import { tracerTokens } from "@ryot-app/client-ui-sdk/stylex-tracer/tokens.stylex";
+import * as stylex from "@stylexjs/stylex";
+void StyleXTracerPanel;
+void tracerTokens;
+void stylex;
+export default function Page() { return null; }
+`),
+};
+
+const compileTracerClient: ClientPluginCompiler["Service"]["compile"] = (input) =>
+	compileClientPlugin(input).pipe(
+		Effect.map(({ artifact }) => artifact),
+		Effect.provide(BunFileSystem.layer),
+	);
+
+it.effect("validates the exact tracer installation with StyleX when enabled", () => {
+	const created: Array<Record<string, unknown>> = [];
+	const persisted: Array<{ plugin: StoredPlugin["manifest"]; identity: Record<string, unknown> }> =
+		[];
+	return Effect.gen(function* () {
+		const service = yield* PluginInstallationService;
+		const installed = yield* service.installPrivatePlugin({
+			userId,
+			config: {},
+			files: tracerFiles,
+			manifest: tracerManifest(),
+		});
+
+		expect(installed.slug).toBe("stylex-tracer");
+		expect(created).toHaveLength(1);
+		expect(persisted).toHaveLength(1);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				created,
+				persisted,
+				stylexTracerEnabled: true,
+				clientCompile: (input) => {
+					expect(input.stylexTracer).toEqual({ fingerprint: STYLEX_TRACER_BUILD_FINGERPRINT });
+					return compileTracerClient(input);
+				},
+			}),
+		),
+	);
+});
+
+it.effect("rejects tracer imports without persisting when activation is disabled", () => {
+	const created: Array<Record<string, unknown>> = [];
+	const persisted: Array<{ plugin: StoredPlugin["manifest"]; identity: Record<string, unknown> }> =
+		[];
+	return Effect.gen(function* () {
+		const service = yield* PluginInstallationService;
+		const failure = failureOf(
+			yield* Effect.exit(
+				service.installPrivatePlugin({
+					userId,
+					config: {},
+					files: tracerFiles,
+					manifest: tracerManifest(),
+				}),
+			),
+		);
+
+		assert(failure instanceof PluginRequestError);
+		expect(failure.reason.code).toBe("compilation-failed");
+		expect(created).toEqual([]);
+		expect(persisted).toEqual([]);
+	}).pipe(Effect.provide(makeLayer({ created, persisted, clientCompile: compileTracerClient })));
+});
+
+it.effect("does not enable tracer compilation for another plugin slug", () => {
+	const created: Array<Record<string, unknown>> = [];
+	const persisted: Array<{ plugin: StoredPlugin["manifest"]; identity: Record<string, unknown> }> =
+		[];
+	return Effect.gen(function* () {
+		const service = yield* PluginInstallationService;
+		const failure = failureOf(
+			yield* Effect.exit(
+				service.installPrivatePlugin({
+					userId,
+					config: {},
+					files: tracerFiles,
+					manifest: tracerManifest("stylex-tracer-other"),
+				}),
+			),
+		);
+
+		assert(failure instanceof PluginRequestError);
+		expect(failure.reason.code).toBe("compilation-failed");
+		expect(created).toEqual([]);
+		expect(persisted).toEqual([]);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				created,
+				persisted,
+				stylexTracerEnabled: true,
+				clientCompile: (input) => {
+					expect(input.stylexTracer).toBeUndefined();
+					return compileTracerClient(input);
+				},
+			}),
+		),
+	);
 });
 
 it.effect("claims, reads, and best-effort deletes an uploaded plugin archive", () => {

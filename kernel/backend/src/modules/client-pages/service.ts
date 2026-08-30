@@ -1,4 +1,7 @@
-import { ClientPluginCompilerFailure } from "@ryot-app/client-plugin-compiler";
+import {
+	ClientPluginCompilerFailure,
+	type ClientPluginCompilerInput,
+} from "@ryot-app/client-plugin-compiler";
 import { CLIENT_PLUGIN_COMPILER_LIMITS } from "@ryot-app/client-plugin-compiler/limits";
 import {
 	pluginClientFileExtension,
@@ -17,7 +20,7 @@ import { isPluginSharedSource } from "@ryot-app/contract/modules/plugins/shared-
 import type { ClientRendererId } from "@ryot-app/contract/schema/brands";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
-import { Context, Effect, Encoding, Layer, Result, Schema } from "effect";
+import { Context, Effect, Encoding, Layer, Option, Result, Schema } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import {
@@ -32,6 +35,10 @@ import { PluginCatalogInvalidator } from "#modules/plugins/catalog-events";
 import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 import { PluginRepository } from "#modules/plugins/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import {
+	StyleXTracerActivation,
+	styleXTracerDisabled,
+} from "#modules/plugins/stylex-tracer-activation";
 
 import { resolveClientPageGraph, type ResolvedClientPageGraph } from "./graph";
 import { getKernelClientRenderer } from "./kernel-renderers";
@@ -41,6 +48,34 @@ import { ClientPagesRepository } from "./repository";
 const notFound = () => new ClientRendererNotFound({ reason: { code: "renderer-not-found" } });
 const invalid = (message: string) =>
 	new ClientRendererBadRequest({ reason: { message, code: "definition-invalid" } });
+
+export const makeClientPageGraphCompiler = (
+	compile: (
+		request: ClientPluginCompilerInput,
+	) => Effect.Effect<PluginClientArtifact, ClientPluginCompilerFailure>,
+) => {
+	const inFlightCompilations = new Map<string, Promise<PluginClientArtifact>>();
+	return (graph: Pick<ResolvedClientPageGraph, "compilerInput" | "graphHash">) =>
+		Effect.tryPromise({
+			catch: (error) =>
+				error instanceof ClientPluginCompilerFailure
+					? error
+					: new ClientPluginCompilerFailure({ diagnostics: [], message: String(error) }),
+			try: () => {
+				const existing = inFlightCompilations.get(graph.graphHash);
+				if (existing) {
+					return existing;
+				}
+				const compilation = Effect.runPromiseWith(Context.empty())(compile(graph.compilerInput));
+				inFlightCompilations.set(graph.graphHash, compilation);
+				void compilation.then(
+					() => inFlightCompilations.delete(graph.graphHash),
+					() => inFlightCompilations.delete(graph.graphHash),
+				);
+				return compilation;
+			},
+		});
+};
 
 const normalizeDefinition = (definition: ClientRendererDefinition) =>
 	Effect.gen(function* () {
@@ -136,7 +171,10 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 			const repository = yield* ClientPagesRepository;
 			const pluginRuntime = yield* PluginRuntimeResolver;
 			const invalidator = yield* PluginCatalogInvalidator;
-			const inFlightCompilations = new Map<string, Promise<PluginClientArtifact>>();
+			const stylexTracerActivation = Option.getOrElse(
+				yield* Effect.serviceOption(StyleXTracerActivation),
+				() => styleXTracerDisabled,
+			);
 			const operationTargetsCurrent = Effect.fn(function* (
 				userId: CurrentUserValue["id"],
 				recorded: PreparedClientPage["identity"]["operationTargets"],
@@ -204,6 +242,9 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					plugin: resolved.plugin,
 					exportName: resolved.exportName,
 					application: target.kind === "plugin-route" ? "plugin-route" : "page",
+					...(stylexTracerActivation.enabled
+						? { stylexTracer: { fingerprint: stylexTracerActivation.fingerprint } }
+						: {}),
 					loadPluginFiles: (plugin) =>
 						plugins.listAuthorizedSourceFiles({
 							userId,
@@ -215,28 +256,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				return { ...resolved, graph, operationTargets: clientPageOperationTargets(snapshot) };
 			});
 
-			const compileGraph = (graph: ResolvedClientPageGraph) =>
-				Effect.tryPromise({
-					catch: (error) =>
-						error instanceof ClientPluginCompilerFailure
-							? error
-							: new ClientPluginCompilerFailure({ diagnostics: [], message: String(error) }),
-					try: () => {
-						const existing = inFlightCompilations.get(graph.graphHash);
-						if (existing) {
-							return existing;
-						}
-						const compilation = Effect.runPromiseWith(Context.empty())(
-							compiler.compile(graph.compilerInput),
-						);
-						inFlightCompilations.set(graph.graphHash, compilation);
-						void compilation.then(
-							() => inFlightCompilations.delete(graph.graphHash),
-							() => inFlightCompilations.delete(graph.graphHash),
-						);
-						return compilation;
-					},
-				});
+			const compileGraph = makeClientPageGraphCompiler(compiler.compile);
 
 			const requireRenderer = Effect.fn(function* (
 				userId: CurrentUserValue["id"],

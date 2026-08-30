@@ -1,0 +1,29 @@
+{
+	"name": "@ryot-app/stylex-tracer-plugin",
+	"private": true,
+	"type": "module",
+	"exports": {
+		".": {
+			"types": "./host/plugin.ts",
+			"default": "./host/plugin.ts"
+		}
+	},
+	"scripts": {
+		"build": "RYOT_STYLEX_TRACER=1 ryot plugin build",
+		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
+	},
+	"dependencies": {
+		"@ryot-app/contract": "workspace:*"
+	},
+	"devDependencies": {
+		"@ryot-app/cli": "workspace:*",
+		"@ryot-app/client-sdk": "workspace:*",
+		"@ryot-app/client-ui-sdk": "workspace:*",
+		"@stylexjs/stylex": "0.19.0",
+		"@types/react": "^19.2.0",
+		"@types/react-dom": "^19.2.0",
+		"react": "^19.2.0",
+		"react-dom": "^19.2.0",
+		"typescript": "7.0.2"
+	}
+}
