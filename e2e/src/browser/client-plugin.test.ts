@@ -312,6 +312,17 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		yield* fixture.getByRole("button", { name: "Fetch with invalid payload" }).click();
 		yield* expectVisibleText(home, "Greetings are unavailable right now.");
 
+		yield* fixture.getByLabel("Choose a file to upload").setInputFiles({
+			mimeType: "text/csv",
+			name: "fixture-upload.csv",
+			buffer: Buffer.from("id,title\n1,Fixture\n", "utf8"),
+		});
+		const uploaded = home
+			.getByText(/^Uploaded fixture-upload\.csv as token .+/)
+			.filter({ visible: true });
+		yield* uploaded.waitFor({ state: "visible" });
+		expect(yield* uploaded.isVisible()).toBe(true);
+
 		const html = page.locator("html");
 		const openSettings = Effect.gen(function* () {
 			yield* page.getByRole("link", { name: "Open settings" }).click();

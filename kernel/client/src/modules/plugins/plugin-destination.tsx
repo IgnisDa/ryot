@@ -5,6 +5,7 @@ import { Effect } from "effect";
 import { useCallback, useLayoutEffect, useMemo, type ReactNode } from "react";
 
 import { resolveManagedAssetOutcome } from "#/modules/assets/managed-assets";
+import { temporaryUploadOutcome } from "#/modules/assets/temporary-uploads";
 import { useScreenLeadingControl } from "#/modules/navigation/app-screen";
 import {
 	useEdge,
@@ -152,6 +153,9 @@ function PluginInstallation(props: {
 			onNavigate={(request) => {
 				void navigate({ href: request.href, replace: request.replace });
 			}}
+			onUpload={(request, signal) =>
+				runtime.runPromise(temporaryUploadOutcome(scope, request), { signal })
+			}
 			onAssets={(request, signal) =>
 				runtime.runPromise(resolveManagedAssetOutcome(scope, request.assets), { signal })
 			}
