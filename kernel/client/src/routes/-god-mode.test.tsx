@@ -12,7 +12,6 @@ import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import { GodModeService } from "#/modules/god-mode/service";
 import { GodModeSessionService, makeGodModeSessionService } from "#/modules/god-mode/session";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
-import { ArtifactSessions } from "#/modules/plugins/artifact-sessions";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
 import { PluginOperationsService } from "#/modules/plugins/operations";
@@ -70,11 +69,6 @@ const makeView = (
 			Layer.succeed(ServerService, {
 				connect: () => Effect.void,
 				selected: Effect.succeed(selected),
-			}),
-			Layer.succeed(ArtifactSessions, {
-				renew: () => Effect.die("not used"),
-				revoke: () => Effect.die("not used"),
-				create: () => Effect.die("not used"),
 			}),
 			Layer.succeed(PluginCatalogService, { load: () => Effect.succeed(catalog) }),
 			NavigationRouteStubs,

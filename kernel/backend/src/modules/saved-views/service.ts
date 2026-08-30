@@ -9,14 +9,9 @@ import {
 	SavedViewNotFound,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import type { PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
-import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
-import {
-	formatPropertyIssues,
-	parseAppSchemaProperties,
-} from "#lib/property-schema/property-schema-runtime";
 import { slugify } from "#lib/shared/slug";
 import { trimToNull } from "#lib/shared/validation";
 import { ClientPagesRepository } from "#modules/client-pages/repository";
@@ -25,11 +20,7 @@ import { PluginDefinitionMaterializer } from "#modules/plugins/definition-materi
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
-import {
-	validateEntityBrowserSavedViewDefinition,
-	validateResultsTableSavedViewDefinition,
-	validateSavedViewDefinition,
-} from "./definition-validation";
+import { validateSavedViewDefinition } from "./definition-validation";
 import { SavedViewsRepository } from "./repository";
 
 export class SavedViewsService extends Context.Service<SavedViewsService>()("SavedViewsService", {
@@ -63,19 +54,15 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			);
 			yield* repository.ensureBuiltinViews(
 				userId,
-				views.map(({ slug, name, icon, layouts, sortOrder, pluginId, entitySchemaSlug }) => ({
+				views.map(({ slug, name, icon, renderer, settings, dataSources, sortOrder, pluginId }) => ({
 					slug,
 					name,
 					icon,
-					layouts,
+					renderer,
+					settings,
+					dataSources,
 					sortOrder,
 					pluginInstallationId: pluginId ? (installationByPluginId.get(pluginId) ?? null) : null,
-					entitySchemaSlug:
-						entitySchemaSlug === null ? null : EntitySchemaSlug.make(entitySchemaSlug),
-					entitySchemaPluginId:
-						entitySchemaSlug === null
-							? null
-							: (effective.entitySchemas[entitySchemaSlug]?.pluginId ?? null),
 				})),
 			);
 		});
@@ -97,40 +84,23 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			settings: Readonly<Record<string, unknown>>,
 			dataSources: Extract<CreateSavedViewBody, { renderer: unknown }>["dataSources"],
 		) {
-			if (renderer.kind === "kernel" && renderer.name === "entity-browser") {
-				yield* validateEntityBrowserSavedViewDefinition({ settings, dataSources });
-				return null;
-			}
-			if (renderer.kind === "kernel" && renderer.name === "results-table") {
-				yield* validateResultsTableSavedViewDefinition({ settings, dataSources });
-				return null;
-			}
-			if (renderer.kind !== "custom") {
-				return yield* new SavedViewBadRequest({ reason: { code: "renderer-kind-unavailable" } });
-			}
-			const record = yield* clientPages.lockRenderer(userId, renderer.rendererId);
-			if (!record) {
-				return yield* new SavedViewBadRequest({ reason: { code: "renderer-not-found" } });
-			}
-			if (!record.publishedDefinition || record.publishedRevision === null) {
-				return yield* new SavedViewBadRequest({ reason: { code: "renderer-unpublished" } });
-			}
-			yield* parseAppSchemaProperties({
-				properties: settings,
-				kind: "Saved view settings",
-				propertiesSchema: record.publishedDefinition.settingsSchema,
-			}).pipe(
-				Effect.mapError(
-					(error) =>
-						new SavedViewBadRequest({
-							reason: {
-								code: "settings-incompatible",
-								message: formatPropertyIssues(error.issues),
-							},
-						}),
-				),
+			const record =
+				renderer.kind === "custom"
+					? yield* clientPages.lockRenderer(userId, renderer.rendererId)
+					: null;
+			const pluginPage =
+				renderer.kind === "plugin"
+					? (yield* pluginRuntime.listPluginsAvailableToUser(userId)).find(
+							({ id }) => id === renderer.pluginId,
+						)?.manifest.client?.exports?.[renderer.exportName]
+					: undefined;
+			return yield* validateSavedViewDefinition(
+				renderer,
+				settings,
+				dataSources,
+				record,
+				pluginPage?.kind === "page" ? pluginPage : null,
 			);
-			return record.id;
 		});
 
 		const create = Effect.fn(function* (
@@ -153,59 +123,35 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			if (effective.savedViews[slug] || (yield* repository.findBySlug(user.id, slug))) {
 				return yield* new SavedViewBadRequest({ reason: { code: "duplicate-name" } });
 			}
-			if ("renderer" in payload) {
-				const database = yield* Database;
-				return yield* mapDatabaseErrors(
-					database.transaction((transaction) =>
-						Effect.gen(function* () {
-							const rendererId = yield* validateRendererSettings(
-								user.id,
-								payload.renderer,
-								payload.settings,
-								payload.dataSources,
-							);
-							const created = yield* repository.create(user.id, {
-								slug,
-								name,
-								userId: user.id,
-								icon: payload.icon,
-								renderer: payload.renderer,
-								settings: payload.settings,
-								clientRendererId: rendererId,
-								dataSources: payload.dataSources,
-								pluginInstallationId: payload.workspacePluginSlug
-									? yield* resolvePluginInstallation(user.id, payload.workspacePluginSlug)
-									: null,
-							});
-							return (
-								created ?? (yield* new SavedViewBadRequest({ reason: { code: "duplicate-name" } }))
-							);
-						}).pipe(Effect.provideService(Database, transaction)),
-					),
-				);
-			}
-			yield* validateSavedViewDefinition(payload);
-			if (payload.entitySchemaSlug !== null && !effective.entitySchemas[payload.entitySchemaSlug]) {
-				return yield* new SavedViewBadRequest({
-					reason: { code: "entity-schema-not-found", entitySchemaSlug: payload.entitySchemaSlug },
-				});
-			}
-			const created = yield* repository.create(user.id, {
-				slug,
-				name,
-				userId: user.id,
-				icon: payload.icon,
-				layouts: payload.layouts,
-				entitySchemaSlug: payload.entitySchemaSlug,
-				pluginInstallationId: payload.pluginSlug
-					? yield* resolvePluginInstallation(user.id, payload.pluginSlug)
-					: null,
-				entitySchemaPluginId:
-					payload.entitySchemaSlug === null
-						? null
-						: (effective.entitySchemas[payload.entitySchemaSlug]?.pluginId ?? null),
-			});
-			return created ?? (yield* new SavedViewBadRequest({ reason: { code: "duplicate-name" } }));
+			const database = yield* Database;
+			return yield* mapDatabaseErrors(
+				database.transaction((transaction) =>
+					Effect.gen(function* () {
+						const rendererId = yield* validateRendererSettings(
+							user.id,
+							payload.renderer,
+							payload.settings,
+							payload.dataSources,
+						);
+						const created = yield* repository.create(user.id, {
+							slug,
+							name,
+							userId: user.id,
+							icon: payload.icon,
+							renderer: payload.renderer,
+							settings: payload.settings,
+							clientRendererId: rendererId,
+							dataSources: payload.dataSources,
+							pluginInstallationId: payload.workspacePluginSlug
+								? yield* resolvePluginInstallation(user.id, payload.workspacePluginSlug)
+								: null,
+						});
+						return (
+							created ?? (yield* new SavedViewBadRequest({ reason: { code: "duplicate-name" } }))
+						);
+					}).pipe(Effect.provideService(Database, transaction)),
+				),
+			);
 		});
 
 		const updateUnlocked = Effect.fn(function* (
@@ -214,74 +160,22 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			payload: UpdateSavedViewBody & { sortOrder?: number | undefined },
 			current: Effect.Success<ReturnType<typeof requireSavedView>>,
 		) {
-			if ("renderer" in payload) {
-				if (current.isBuiltin || !("renderer" in current)) {
-					return yield* new SavedViewBadRequest({
-						reason: { code: "builtin-view-immutable", viewSlug },
-					});
-				}
-				const renderer = payload.renderer;
-				const settings = payload.settings;
-				const dataSources = payload.dataSources;
-				const rendererId = yield* validateRendererSettings(
-					user.id,
-					renderer,
-					settings,
-					dataSources,
-				);
-				const updated = yield* repository.updateBySlug(
-					user.id,
-					viewSlug,
-					{
-						renderer,
-						settings,
-						dataSources,
-						name: payload.name,
-						icon: payload.icon,
-						entitySchemaPluginId: null,
-						clientRendererId: rendererId,
-						isDisabled: payload.isDisabled,
-						pluginInstallationId: payload.workspacePluginSlug
-							? yield* resolvePluginInstallation(user.id, payload.workspacePluginSlug)
-							: null,
-					},
-					current.pluginInstallationId,
-				);
-				return (
-					updated ??
-					(yield* new SavedViewNotFound({
-						reason: { code: "saved-view-not-found", viewSlug },
-					}))
-				);
-			}
-			if (current.layouts === undefined) {
-				return yield* new SavedViewBadRequest({ reason: { code: "renderer-kind-unavailable" } });
-			}
-			const layouts = payload.layouts ?? current.layouts;
-			const entitySchemaSlug = payload.entitySchemaSlug ?? current.entitySchemaSlug;
-			const effective = yield* effectiveForUser(user.id);
+			const renderer = payload.renderer ?? current.renderer;
+			const settings = payload.settings ?? current.settings;
+			const dataSources =
+				payload.dataSources === undefined ? current.dataSources : payload.dataSources;
 			if (current.isBuiltin) {
 				if (
 					payload.name !== current.name ||
 					payload.icon !== current.icon ||
-					(payload.pluginSlug ?? null) !== current.pluginSlug ||
-					(payload.entitySchemaSlug !== undefined &&
-						payload.entitySchemaSlug !== current.entitySchemaSlug) ||
-					(payload.layouts !== undefined && !Bun.deepEquals(payload.layouts, current.layouts))
+					!Bun.deepEquals(renderer, current.renderer) ||
+					!Bun.deepEquals(settings, current.settings) ||
+					!Bun.deepEquals(dataSources, current.dataSources)
 				) {
 					return yield* new SavedViewBadRequest({
 						reason: { code: "builtin-view-immutable", viewSlug },
 					});
 				}
-				return (
-					(yield* repository.updateBuiltinStateBySlug(
-						user.id,
-						viewSlug,
-						payload.isDisabled,
-						payload.sortOrder ?? current.sortOrder,
-					)) ??
-					(yield* new SavedViewNotFound({ reason: { code: "saved-view-not-found", viewSlug } }))
-				);
 			}
 			const name = trimToNull(payload.name);
 			if (!name) {
@@ -289,28 +183,36 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 					reason: { code: "required-field", field: "name" },
 				});
 			}
-			yield* validateSavedViewDefinition({ layouts });
-			if (entitySchemaSlug !== null && !effective.entitySchemas[entitySchemaSlug]) {
-				return yield* new SavedViewBadRequest({
-					reason: { code: "entity-schema-not-found", entitySchemaSlug },
-				});
+			let rendererId = null;
+			if (current.isBuiltin) {
+				if (current.renderer.kind === "custom") {
+					rendererId = current.renderer.rendererId;
+				}
+			} else {
+				rendererId = yield* validateRendererSettings(user.id, renderer, settings, dataSources);
+			}
+			let pluginInstallationId = current.pluginInstallationId;
+			if (payload.workspacePluginSlug === null) {
+				pluginInstallationId = null;
+			} else if (payload.workspacePluginSlug !== undefined) {
+				pluginInstallationId = yield* resolvePluginInstallation(
+					user.id,
+					payload.workspacePluginSlug,
+				);
 			}
 			const updated = yield* repository.updateBySlug(
 				user.id,
 				viewSlug,
 				{
-					...payload,
 					name,
-					layouts,
-					entitySchemaSlug,
+					icon: payload.icon,
+					renderer,
+					settings,
+					dataSources,
+					clientRendererId: rendererId,
+					isDisabled: payload.isDisabled,
 					sortOrder: payload.sortOrder,
-					pluginInstallationId: payload.pluginSlug
-						? yield* resolvePluginInstallation(user.id, payload.pluginSlug)
-						: null,
-					entitySchemaPluginId:
-						entitySchemaSlug === null
-							? null
-							: (effective.entitySchemas[entitySchemaSlug]?.pluginId ?? null),
+					pluginInstallationId,
 				},
 				current.pluginInstallationId,
 			);
@@ -325,21 +227,11 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			viewSlug: string,
 			payload: UpdateSavedViewBody & { sortOrder?: number | undefined },
 		) {
-			if (!payload.isDisabled && !("renderer" in payload)) {
-				return yield* updateUnlocked(
-					user,
-					viewSlug,
-					payload,
-					yield* requireSavedView(user, viewSlug),
-				);
-			}
 			const database = yield* Database;
 			const updated = yield* mapDatabaseErrors(
 				database.transaction((transaction) =>
 					Effect.gen(function* () {
-						const current = payload.isDisabled
-							? yield* repository.lockBySlug(user.id, viewSlug)
-							: yield* repository.findBySlug(user.id, viewSlug);
+						const current = yield* repository.lockBySlug(user.id, viewSlug);
 						if (!current) {
 							return yield* new SavedViewNotFound({
 								reason: { code: "saved-view-not-found", viewSlug },
@@ -391,25 +283,13 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 
 		const clone = Effect.fn(function* (user: CurrentUserValue, viewSlug: string) {
 			const source = yield* requireSavedView(user, viewSlug);
-			if (source.renderer !== undefined) {
-				return yield* create(user, {
-					icon: source.icon,
-					renderer: source.renderer,
-					name: `${source.name} (Copy)`,
-					settings: source.settings ?? {},
-					dataSources: source.dataSources ?? null,
-					...(source.pluginSlug ? { workspacePluginSlug: source.pluginSlug } : {}),
-				});
-			}
-			if (source.layouts === undefined) {
-				return yield* new SavedViewBadRequest({ reason: { code: "renderer-kind-unavailable" } });
-			}
 			return yield* create(user, {
 				icon: source.icon,
-				layouts: source.layouts,
+				renderer: source.renderer,
 				name: `${source.name} (Copy)`,
-				entitySchemaSlug: source.entitySchemaSlug,
-				...(source.pluginSlug ? { pluginSlug: source.pluginSlug } : {}),
+				settings: source.settings,
+				dataSources: source.dataSources,
+				...(source.pluginSlug ? { workspacePluginSlug: source.pluginSlug } : {}),
 			});
 		});
 

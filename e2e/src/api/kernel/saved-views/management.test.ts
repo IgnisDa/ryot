@@ -1,279 +1,108 @@
-import type { ContractSuccess } from "@ryot-app/contract/client";
-import type { SavedViewRecord } from "@ryot-app/ryotql-recipes/saved-view-records";
-import { savedViewRecipe } from "@ryot-app/ryotql-recipes/saved-views";
 import { Effect } from "effect";
 
 import {
+	buildSavedViewDataSources,
 	cloneSavedView,
 	createAuthenticatedClient,
 	createPluginEntitySchema,
 	createSavedView,
-	createSavedViewWithGridDocument,
 	deleteSavedView,
-	findBuiltinSavedView,
 	getSavedView,
 	listSavedViews,
 	reorderSavedViews,
-	rowsDocument,
-	rowsFields,
-	rowsLayouts,
-	updateSavedViewWithGridDocument,
+	updateSavedView,
 } from "~/fixtures/kernel";
-import { assertPresent, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
-const schemaRowsDocument = (slug: string) =>
-	savedViewRecipe({
-		layout: { type: "card", mapping: rowsLayouts.grid },
-		source: {
-			type: "generated",
-			limit: 2,
-			entitySchemaSlugs: [slug],
-			fields: rowsFields,
-		},
-	}).document;
-
-type SavedViewUpdateSource = SavedViewRecord | ContractSuccess<"savedViews", "update">;
-
-const buildBuiltinUpdatePayload = (view: SavedViewUpdateSource) => {
-	const layouts = requirePresent(view.layouts, "Built-in saved view has no layouts");
-	return {
-		layouts,
-		icon: view.icon,
-		name: view.name,
-		isDisabled: view.isDisabled,
-		entitySchemaSlug: view.entitySchemaSlug,
-		...(view.pluginSlug ? { pluginSlug: view.pluginSlug } : {}),
-	};
-};
-
 describe("saved views management", () => {
-	it.live("lists built-in and user-created views together", () =>
+	it.live("clones renderer settings and data sources into an independent user view", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const createdView = yield* createSavedView(client, {
-				name: `Managed View ${crypto.randomUUID()}`,
+			const source = yield* createSavedView(client, {
+				name: `Clone Source ${crypto.randomUUID()}`,
 			});
+			const clone = yield* cloneSavedView(client, source.slug);
 
-			const views = yield* listSavedViews(client);
-			const listedCreatedView = views.find((view) => view.id === createdView.id);
-			expect(views.some((view) => view.isBuiltin)).toBe(true);
-			expect(views.map((view) => view.id)).toContain(createdView.id);
-			expect(createdView.entitySchemaSlug).toBe("book");
-			expect(listedCreatedView?.entitySchemaSlug).toBe("book");
+			expect(clone.id).not.toBe(source.id);
+			expect(clone.name).toBe(`${source.name} (Copy)`);
+			expect(clone.renderer).toEqual(source.renderer);
+			expect(clone.settings).toEqual(source.settings);
+			expect(clone.dataSources).toEqual(source.dataSources);
+
+			yield* updateSavedView(client, clone.slug, {
+				name: `${clone.name} Updated`,
+				settings: { ...clone.settings, pageSize: 5 },
+			});
+			const unchangedSource = yield* getSavedView(client, source.slug);
+			expect(unchangedSource.name).toBe(source.name);
+			expect(unchangedSource.settings).toEqual(source.settings);
 		}),
 	);
 
-	it.live("seeds the All Collections built-in view against the collection schema", () =>
+	it.live("deletes custom views without deleting a cloned built-in source", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const views = yield* listSavedViews(client);
-			const collectionsView = views.find((view) => view.name === "All Collections");
+			const builtin = (yield* listSavedViews(client)).find((view) => view.name === "All Movies");
+			if (!builtin) {
+				throw new Error("All Movies saved view not found");
+			}
+			const clone = yield* cloneSavedView(client, builtin.slug);
+			yield* deleteSavedView(client, clone.slug);
 
-			expect(collectionsView).toMatchObject({
-				isBuiltin: true,
-				entitySchemaSlug: null,
-				name: "All Collections",
-				layouts: {
-					grid: {
-						queryDocument: {
-							queries: { savedView: { from: { table: "entity", alias: "entity" } } },
-						},
-					},
-				},
-			});
+			expect((yield* getSavedView(client, builtin.slug)).id).toBe(builtin.id);
+			expect((yield* listSavedViews(client)).map((view) => view.id)).not.toContain(clone.id);
 		}),
 	);
 
-	it.live("supports the full create-get-update-clone-delete lifecycle", () =>
+	it.live("filters and reorders canonical views within a workspace", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const createdView = yield* createSavedViewWithGridDocument(client, rowsDocument, {
-				name: `Lifecycle View ${crypto.randomUUID()}`,
+			const { pluginSlug, schemaId } = yield* createPluginEntitySchema(client, {
+				schemaName: `Saved View Workspace ${crypto.randomUUID()}`,
 			});
-			const fetchedView = yield* getSavedView(client, createdView.slug);
-
-			expect(fetchedView.id).toBe(createdView.id);
-			expect(fetchedView.entitySchemaSlug).toBe("book");
-			expect(fetchedView.isBuiltin).toBe(false);
-
-			const updatedView = yield* updateSavedViewWithGridDocument(
-				client,
-				createdView.slug,
-				rowsDocument,
-				{ name: `${createdView.name} Updated` },
-			);
-			const updatedViewLayouts = requirePresent(
-				updatedView.layouts,
-				"Updated saved view has no layouts",
-			);
-			const createdViewLayouts = requirePresent(
-				createdView.layouts,
-				"Created saved view has no layouts",
-			);
-			expect(updatedView.entitySchemaSlug).toBe("book");
-			expect(updatedViewLayouts.grid.queryDocument).toEqual(rowsDocument);
-			expect(updatedViewLayouts.list).toEqual(createdViewLayouts.list);
-			expect(updatedViewLayouts.table).toEqual(createdViewLayouts.table);
-
-			const clonedView = yield* cloneSavedView(client, createdView.slug);
-			expect(clonedView.id).not.toBe(createdView.id);
-			expect(clonedView.entitySchemaSlug).toBe("book");
-			expect(clonedView.name).toBe(`${createdView.name} Updated (Copy)`);
-			expect(clonedView.layouts).toEqual(updatedView.layouts);
-
-			const deletedOriginal = yield* deleteSavedView(client, createdView.slug);
-			const deletedClone = yield* deleteSavedView(client, clonedView.slug);
-			const remainingViews = yield* listSavedViews(client);
-			const remainingIds = remainingViews.map((view) => view.id);
-
-			expect(deletedOriginal.id).toBe(createdView.id);
-			expect(deletedClone.id).toBe(clonedView.id);
-			expect(remainingIds).not.toContain(createdView.id);
-			expect(remainingIds).not.toContain(clonedView.id);
-		}),
-	);
-
-	it.live("clones a built-in view into a deletable user view", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const builtinView = (yield* listSavedViews(client)).find(
-				(view) => view.name === "All Movies",
-			);
-			assertPresent(builtinView, "Expected the All Movies built-in saved view");
-			const clonedView = yield* cloneSavedView(client, builtinView.slug);
-
-			expect(clonedView.name).toBe(`${builtinView.name} (Copy)`);
-			expect(clonedView.entitySchemaSlug).toBe("movie");
-			expect(clonedView.isBuiltin).toBe(false);
-
-			const deletedClone = yield* deleteSavedView(client, clonedView.slug);
-			const refreshedBuiltin = yield* getSavedView(client, builtinView.slug);
-			expect(deletedClone.id).toBe(clonedView.id);
-			expect(refreshedBuiltin.id).toBe(builtinView.id);
-		}),
-	);
-
-	it.live("rejects deletes for built-in views", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const builtinView = yield* findBuiltinSavedView(client);
-
-			const error = yield* Effect.flip(
-				client.call((c) => c.savedViews.delete({ params: { viewSlug: builtinView.slug } })),
-			);
-
-			expect(error).toMatchObject({
-				_tag: "SavedViewBadRequest",
-				reason: { code: "builtin-view-immutable", viewSlug: builtinView.slug },
+			const dataSources = buildSavedViewDataSources([schemaId]);
+			const first = yield* createSavedView(client, {
+				dataSources,
+				workspacePluginSlug: pluginSlug,
+				name: `Workspace A ${crypto.randomUUID()}`,
 			});
-		}),
-	);
-
-	it.live("rejects built-in updates that change fields other than isDisabled", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const builtinView = yield* findBuiltinSavedView(client);
-
-			const invalidUpdateError = yield* Effect.flip(
-				client.call((c) =>
-					c.savedViews.update({
-						params: { viewSlug: builtinView.slug },
-						payload: {
-							...buildBuiltinUpdatePayload(builtinView),
-							name: `${builtinView.name} Renamed`,
-						},
-					}),
-				),
-			);
-			expect(invalidUpdateError).toMatchObject({
-				_tag: "SavedViewBadRequest",
-				reason: { code: "builtin-view-immutable", viewSlug: builtinView.slug },
+			const second = yield* createSavedView(client, {
+				dataSources,
+				workspacePluginSlug: pluginSlug,
+				name: `Workspace B ${crypto.randomUUID()}`,
 			});
-
-			const disabledView = yield* client.call((c) =>
-				c.savedViews.update({
-					params: { viewSlug: builtinView.slug },
-					payload: { ...buildBuiltinUpdatePayload(builtinView), isDisabled: true },
-				}),
-			);
-			expect(disabledView.isDisabled).toBe(true);
-
-			const reenabledView = yield* client.call((c) =>
-				c.savedViews.update({
-					params: { viewSlug: builtinView.slug },
-					payload: { ...buildBuiltinUpdatePayload(disabledView), isDisabled: false },
-				}),
-			);
-			expect(reenabledView.isDisabled).toBe(false);
-			expect(reenabledView.entitySchemaSlug).toBe(builtinView.entitySchemaSlug);
-		}),
-	);
-
-	it.live("toggles isDisabled on user views and respects list filtering", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const createdView = yield* createSavedViewWithGridDocument(client, rowsDocument, {
-				name: `Disabled View ${crypto.randomUUID()}`,
-			});
-
-			yield* updateSavedViewWithGridDocument(client, createdView.slug, rowsDocument, {
-				name: createdView.name,
-				isDisabled: true,
-			});
-
-			const enabledViews = yield* listSavedViews(client);
-			const allViews = yield* listSavedViews(client, { includeDisabled: true });
-
-			expect(enabledViews.map((view) => view.id)).not.toContain(createdView.id);
-			expect(allViews.map((view) => view.id)).toContain(createdView.id);
-		}),
-	);
-
-	it.live("filters views by plugin and reorders them within the requested scope", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const { pluginSlug, slug } = yield* createPluginEntitySchema(client, {
-				schemaName: `SavedViewTracked ${crypto.randomUUID()}`,
-			});
-			const viewDocument = schemaRowsDocument(slug);
-
-			const trackerViewA = yield* createSavedViewWithGridDocument(client, viewDocument, {
-				entitySchemaSlug: slug,
-				pluginSlug,
-				name: `Tracker View A ${crypto.randomUUID()}`,
-			});
-			const trackerViewB = yield* createSavedViewWithGridDocument(client, viewDocument, {
-				entitySchemaSlug: slug,
-				pluginSlug,
-				name: `Tracker View B ${crypto.randomUUID()}`,
-			});
-			const trackerViewC = yield* createSavedViewWithGridDocument(client, viewDocument, {
-				entitySchemaSlug: slug,
-				pluginSlug,
-				name: `Tracker View C ${crypto.randomUUID()}`,
-			});
-			yield* createSavedView(client, { name: `Top Level View ${crypto.randomUUID()}` });
-
-			const pluginViews = yield* listSavedViews(client, { pluginSlug });
-			expect(pluginViews.map((view) => view.id)).toContain(trackerViewA.id);
-			expect(pluginViews.map((view) => view.id)).toContain(trackerViewB.id);
-			expect(pluginViews.map((view) => view.id)).toContain(trackerViewC.id);
 
 			const reordered = yield* reorderSavedViews(client, {
 				pluginSlug,
-				viewSlugs: [trackerViewC.slug, trackerViewA.slug],
+				viewSlugs: [second.slug, first.slug],
 			});
-			expect(reordered.viewSlugs[0]).toBe(trackerViewC.slug);
-			expect(reordered.viewSlugs[1]).toBe(trackerViewA.slug);
-			expect(reordered.viewSlugs).toContain(trackerViewB.slug);
+			const workspaceViews = yield* listSavedViews(client, { pluginSlug });
 
-			const reorderedViews = yield* listSavedViews(client, { pluginSlug });
-			expect(reorderedViews[0]?.slug).toBe(trackerViewC.slug);
-			expect(reorderedViews[1]?.slug).toBe(trackerViewA.slug);
-			expect(reorderedViews.map((view) => view.slug)).toContain(trackerViewB.slug);
-			expect(reorderedViews.every((view) => view.pluginSlug === pluginSlug)).toBe(true);
-			expect(reorderedViews.every((view) => view.entitySchemaSlug === slug)).toBe(true);
+			expect(reordered.viewSlugs.slice(0, 2)).toEqual([second.slug, first.slug]);
+			expect(workspaceViews.map((view) => view.slug).slice(0, 2)).toEqual([
+				second.slug,
+				first.slug,
+			]);
+			expect(workspaceViews.every((view) => view.pluginSlug === pluginSlug)).toBe(true);
+		}),
+	);
+
+	it.live("disables a view without changing its renderer definition", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const created = yield* createSavedView(client, {
+				name: `Disable Definition ${crypto.randomUUID()}`,
+			});
+			const disabled = yield* updateSavedView(client, created.slug, { isDisabled: true });
+
+			expect(disabled.isDisabled).toBe(true);
+			expect(disabled.renderer).toEqual(created.renderer);
+			expect(disabled.settings).toEqual(created.settings);
+			expect(disabled.dataSources).toEqual(created.dataSources);
+			expect((yield* listSavedViews(client)).map((view) => view.id)).not.toContain(created.id);
+			expect(
+				(yield* listSavedViews(client, { includeDisabled: true })).map((view) => view.id),
+			).toContain(created.id);
 		}),
 	);
 });

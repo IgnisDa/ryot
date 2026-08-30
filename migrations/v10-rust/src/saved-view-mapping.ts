@@ -12,23 +12,43 @@ const mediaViewDisabledExpression = (mediaLot: string) =>
 	`NOT (${mediaEnabled} AND ${mediaSpecificPreference(mediaLot)})`;
 
 const mediaViewMappings = [
-	{ entitySchemaSlug: "book", mediaLot: "book" },
-	{ entitySchemaSlug: "show", mediaLot: "show" },
-	{ entitySchemaSlug: "movie", mediaLot: "movie" },
-	{ entitySchemaSlug: "anime", mediaLot: "anime" },
-	{ entitySchemaSlug: "manga", mediaLot: "manga" },
-	{ entitySchemaSlug: "music", mediaLot: "music" },
-	{ entitySchemaSlug: "podcast", mediaLot: "podcast" },
-	{ entitySchemaSlug: "audiobook", mediaLot: "audio_book" },
-	{ entitySchemaSlug: "video-game", mediaLot: "video_game" },
-	{ entitySchemaSlug: "comic-book", mediaLot: "comic_book" },
-	{ entitySchemaSlug: "visual-novel", mediaLot: "visual_novel" },
+	{ savedViewSlug: "all-books", mediaLot: "book" },
+	{ savedViewSlug: "all-shows", mediaLot: "show" },
+	{ savedViewSlug: "all-movies", mediaLot: "movie" },
+	{ savedViewSlug: "all-anime", mediaLot: "anime" },
+	{ savedViewSlug: "all-manga", mediaLot: "manga" },
+	{ savedViewSlug: "all-music", mediaLot: "music" },
+	{ savedViewSlug: "all-podcasts", mediaLot: "podcast" },
+	{ savedViewSlug: "all-audiobooks", mediaLot: "audio_book" },
+	{ savedViewSlug: "all-video-games", mediaLot: "video_game" },
+	{ savedViewSlug: "all-comic-books", mediaLot: "comic_book" },
+	{ savedViewSlug: "all-visual-novels", mediaLot: "visual_novel" },
 ] as const;
+
+const mediaGroupSavedViewSlugs = [
+	"all-book-series",
+	"all-movie-series",
+	"all-music-albums",
+	"all-audiobook-series",
+	"all-comic-book-series",
+	"all-video-game-franchises",
+] as const;
+
+export const legacySavedViewTargets = {
+	kernel: ["collections"],
+	media: [
+		"all-persons",
+		"all-companies",
+		...mediaViewMappings.map(({ savedViewSlug }) => savedViewSlug),
+		...mediaGroupSavedViewSlugs,
+	],
+	fitness: ["all-exercises", "all-workouts", "all-workout-templates", "all-measurements"],
+} as const;
 
 const mediaViewCases = mediaViewMappings
 	.map(
-		({ entitySchemaSlug, mediaLot }) =>
-			`\t\t\tWHEN saved_view."plugin_installation_id" = installations.media_installation_id AND saved_view."entity_schema_slug" = ${quoteSqlString(entitySchemaSlug)} THEN ${mediaViewDisabledExpression(mediaLot)}`,
+		({ savedViewSlug, mediaLot }) =>
+			`\t\t\tWHEN saved_view."plugin_installation_id" = installations.media_installation_id AND saved_view."slug" = ${quoteSqlString(savedViewSlug)} THEN ${mediaViewDisabledExpression(mediaLot)}`,
 	)
 	.join("\n");
 
@@ -38,7 +58,6 @@ export const buildLegacySavedViewStateMigrationSql = (
 		mediaInstallationId: string;
 		userId: string;
 	}>,
-	collectionsSavedViewSlug: string,
 ) => `
 DO $$
 DECLARE
@@ -55,14 +74,14 @@ BEGIN
 	)
 	UPDATE "saved_view" saved_view
 	SET "is_disabled" = CASE
-		WHEN saved_view."plugin_installation_id" IS NULL AND saved_view."slug" = ${quoteSqlString(collectionsSavedViewSlug)} THEN NOT ${featurePreference("others,collections")}
-		WHEN saved_view."plugin_installation_id" = installations.media_installation_id AND saved_view."entity_schema_slug" IN ('person', 'company') THEN NOT (${mediaEnabled} AND ${featurePreference("media,people")})
-		WHEN saved_view."plugin_installation_id" = installations.media_installation_id AND saved_view."entity_schema_slug" LIKE '%-group' THEN NOT (${mediaEnabled} AND ${featurePreference("media,groups")})
+		WHEN saved_view."plugin_installation_id" IS NULL AND saved_view."slug" = 'collections' THEN NOT ${featurePreference("others,collections")}
+		WHEN saved_view."plugin_installation_id" = installations.media_installation_id AND saved_view."slug" IN ('all-persons', 'all-companies') THEN NOT (${mediaEnabled} AND ${featurePreference("media,people")})
+		WHEN saved_view."plugin_installation_id" = installations.media_installation_id AND saved_view."slug" IN (${mediaGroupSavedViewSlugs.map(quoteSqlString).join(", ")}) THEN NOT (${mediaEnabled} AND ${featurePreference("media,groups")})
 ${mediaViewCases}
-		WHEN saved_view."plugin_installation_id" = installations.fitness_installation_id AND saved_view."entity_schema_slug" = 'exercise' THEN NOT ${featurePreference("fitness,enabled")}
-		WHEN saved_view."plugin_installation_id" = installations.fitness_installation_id AND saved_view."entity_schema_slug" = 'workout' THEN NOT (${featurePreference("fitness,enabled")} AND ${featurePreference("fitness,workouts")})
-		WHEN saved_view."plugin_installation_id" = installations.fitness_installation_id AND saved_view."entity_schema_slug" = 'workout-template' THEN NOT (${featurePreference("fitness,enabled")} AND ${featurePreference("fitness,templates")})
-		WHEN saved_view."plugin_installation_id" = installations.fitness_installation_id AND saved_view."entity_schema_slug" = 'measurement' THEN NOT (${featurePreference("fitness,enabled")} AND ${featurePreference("fitness,measurements")})
+		WHEN saved_view."plugin_installation_id" = installations.fitness_installation_id AND saved_view."slug" = 'all-exercises' THEN NOT ${featurePreference("fitness,enabled")}
+		WHEN saved_view."plugin_installation_id" = installations.fitness_installation_id AND saved_view."slug" = 'all-workouts' THEN NOT (${featurePreference("fitness,enabled")} AND ${featurePreference("fitness,workouts")})
+		WHEN saved_view."plugin_installation_id" = installations.fitness_installation_id AND saved_view."slug" = 'all-workout-templates' THEN NOT (${featurePreference("fitness,enabled")} AND ${featurePreference("fitness,templates")})
+		WHEN saved_view."plugin_installation_id" = installations.fitness_installation_id AND saved_view."slug" = 'all-measurements' THEN NOT (${featurePreference("fitness,enabled")} AND ${featurePreference("fitness,measurements")})
 		ELSE saved_view."is_disabled"
 	END
 	FROM "old_user" legacy_user

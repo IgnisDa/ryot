@@ -25,7 +25,6 @@ const workspace = (
 	pluginId: "plugin-media",
 	sourceHash: "source-media",
 	installationId: "installation-media",
-	clientArtifactHash: "artifact-media",
 	...overrides,
 	homeSavedViewId: overrides.homeSavedViewId ?? null,
 });
@@ -58,19 +57,9 @@ describe("workspace state", () => {
 			workspace({ slug: "disabled", sortOrder: 0, isDisabled: true }),
 			workspace({ slug: "failed", sortOrder: 3, health: "failed" }),
 			workspace({ slug: "incompatible", sortOrder: 2, health: "incompatible" }),
-			workspace({
-				sortOrder: 1,
-				slug: "missing-client",
-				clientApiVersion: null,
-				clientArtifactHash: null,
-			}),
 		];
 
-		expect(visibleWorkspaces(catalog).map(({ slug }) => slug)).toEqual([
-			"missing-client",
-			"incompatible",
-			"failed",
-		]);
+		expect(visibleWorkspaces(catalog).map(({ slug }) => slug)).toEqual(["incompatible", "failed"]);
 	});
 
 	it("falls back from a disabled remembered workspace to the first enabled workspace", () => {

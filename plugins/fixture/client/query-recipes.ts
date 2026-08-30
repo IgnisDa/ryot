@@ -69,7 +69,7 @@ export const fixtureClientPluginCatalogRecipe = defineRecipe(() => ({
 				eq(column(plugin, "status"), literal("active")),
 				eq(column(installation, "health"), literal("ready")),
 				eq(column(installation, "isDisabled"), literal(false)),
-				isNotNull(column(plugin, "clientArtifactHash")),
+				isNotNull(column(plugin, "clientApiVersion")),
 			),
 			orderBy: [ascending(column(plugin, "slug")), ascending(column(installation, "id"))],
 			joins: [join("inner", plugin, eq(column(plugin, "id"), column(installation, "pluginId")))],

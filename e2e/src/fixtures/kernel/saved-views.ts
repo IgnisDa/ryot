@@ -1,6 +1,5 @@
-import type { ContractPayload, ContractRequest } from "@ryot-app/contract/client";
-import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
-import { castJson, column, jsonPath, literal, table } from "@ryot-app/ryotql";
+import type { ContractPayload } from "@ryot-app/contract/client";
+import { ascending, castJson, column, field, jsonPath, literal, table } from "@ryot-app/ryotql";
 import {
 	savedViewRecordRecipe,
 	savedViewRecordsRecipe,
@@ -16,41 +15,30 @@ import { requirePresent } from "~/support/assertions";
 import type { Client } from "./auth";
 import { executeRyotQLRecipe } from "./ryotql";
 
+type CreateSavedViewBody = ContractPayload<"savedViews", "create">;
+type UpdateSavedViewBody = ContractPayload<"savedViews", "update">;
 type ReorderSavedViewsBody = ContractPayload<"savedViews", "reorder">;
-type UpdateSavedViewPayload = ContractRequest<"savedViews", "update">["payload"];
-type CreateSavedViewBody = Extract<
-	ContractRequest<"savedViews", "create">["payload"],
-	{ readonly layouts: unknown }
->;
-type UpdateSavedViewBody = Exclude<
-	UpdateSavedViewPayload,
-	Extract<UpdateSavedViewPayload, { readonly renderer: unknown }>
->;
-
-type SavedViewLayouts = CreateSavedViewBody["layouts"];
+type SavedViewDataSources = CreateSavedViewBody["dataSources"];
+type SavedViewSettings = CreateSavedViewBody["settings"];
 type CreateSavedViewInput = Partial<CreateSavedViewBody>;
 type UpdateSavedViewInput = Partial<UpdateSavedViewBody>;
-type SavedViewQueryDocument = SavedViewLayouts["grid"]["queryDocument"];
 
 class SavedViewFixtureError extends Data.TaggedError("SavedViewFixtureError")<{
 	readonly message: string;
 }> {}
 
 const entity = table("entity", "entity");
-const entityProperties = column(entity, "properties");
-const entityProperty = (...path: [string | number, ...(string | number)[]]) =>
-	jsonPath(entityProperties, ...path);
-
-const defaultProjections = buildSavedViewLayoutProjections({
+const properties = column(entity, "properties");
+const projections = buildSavedViewLayoutProjections({
 	grid: {
 		entity,
 		card: {
 			callout: null,
 			secondaryMetadata: null,
 			title: column(entity, "name"),
-			image: castJson(entityProperty("images", 0)),
+			image: castJson(jsonPath(properties, "images", 0)),
 			overline: { displayKind: "text", expression: literal("Book") },
-			primaryMetadata: { displayKind: "number", expression: entityProperty("publishYear") },
+			primaryMetadata: { displayKind: "number", expression: jsonPath(properties, "publishYear") },
 		},
 	},
 	list: {
@@ -59,83 +47,64 @@ const defaultProjections = buildSavedViewLayoutProjections({
 			callout: null,
 			secondaryMetadata: null,
 			title: column(entity, "name"),
-			image: castJson(entityProperty("images", 0)),
+			image: castJson(jsonPath(properties, "images", 0)),
 			overline: { displayKind: "text", expression: literal("Book list") },
-			primaryMetadata: { displayKind: "number", expression: entityProperty("publishYear") },
+			primaryMetadata: { displayKind: "number", expression: jsonPath(properties, "publishYear") },
 		},
 	},
 	table: {
 		entity,
-		image: castJson(entityProperty("images", 0)),
+		image: castJson(jsonPath(properties, "images", 0)),
 		columns: [
 			{ label: "Name", displayKind: "text", expression: column(entity, "name") },
-			{ label: "Year", displayKind: "number", expression: entityProperty("publishYear") },
+			{ label: "Year", displayKind: "number", expression: jsonPath(properties, "publishYear") },
 		],
 	},
 });
 
-const cardLayoutDocument = (
-	projection: typeof defaultProjections.grid,
-	entitySchemaSlugs: readonly [string, ...string[]],
-) =>
-	savedViewRecipe({
-		layout: { type: "card", mapping: projection.mappings },
-		source: { type: "generated", limit: 2, entitySchemaSlugs, fields: projection.fields },
-	}).document;
+export const rowsFields = [
+	...projections.table.fields,
+	field("ownerPluginId", column(entity, "entitySchemaPluginId")),
+	field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
+];
 
-const tableLayoutDocument = (
-	projection: typeof defaultProjections.table,
-	entitySchemaSlugs: readonly [string, ...string[]],
-) =>
-	savedViewRecipe({
-		layout: { type: "table", mapping: projection.mappings },
-		source: { type: "generated", limit: 2, entitySchemaSlugs, fields: projection.fields },
-	}).document;
-
-export function buildSavedViewLayouts(
-	documents: Partial<Record<keyof SavedViewLayouts, SavedViewQueryDocument>> = {},
+export const buildSavedViewDataSources = (
 	entitySchemaSlugs: readonly [string, ...string[]] = ["book"],
-): SavedViewLayouts {
-	return {
-		grid: {
-			...defaultProjections.grid.mappings,
-			queryDocument:
-				documents.grid ?? cardLayoutDocument(defaultProjections.grid, entitySchemaSlugs),
+): NonNullable<SavedViewDataSources> =>
+	savedViewRecipe({
+		layout: { type: "table", mapping: projections.table.mappings },
+		source: {
+			limit: 2,
+			type: "generated",
+			entitySchemaSlugs,
+			fields: rowsFields,
+			orderBy: [ascending(column(entity, "name")), ascending(column(entity, "id"))],
 		},
-		list: {
-			...defaultProjections.list.mappings,
-			queryDocument:
-				documents.list ?? cardLayoutDocument(defaultProjections.list, entitySchemaSlugs),
-		},
-		table: {
-			...defaultProjections.table.mappings,
-			queryDocument:
-				documents.table ?? tableLayoutDocument(defaultProjections.table, entitySchemaSlugs),
-		},
-	};
-}
+	}).document;
 
-export const rowsLayouts = buildSavedViewLayouts();
-export const rowsDocument = rowsLayouts.grid.queryDocument;
+export const rowsDataSources = buildSavedViewDataSources();
 
-const rowsQuery = rowsDocument.queries.savedView;
-if (rowsQuery?.output.type !== "rows") {
-	throw new Error("Saved view fixture requires a savedView rows query");
-}
-type SavedViewFieldSelection = Extract<
-	(typeof rowsQuery.output.fields)[number],
-	{ readonly key: string }
->;
-export const rowsFields = rowsQuery.output.fields.filter(
-	(selection): selection is SavedViewFieldSelection => "key" in selection,
-);
+export const entityBrowserSettings = {
+	pageSize: 2,
+	addAction: null,
+	sortChoices: [],
+	defaultLayout: "grid",
+	sourceName: "savedView",
+	searchFields: ["column0"],
+	entityIdField: "entityId",
+	layouts: ["grid", "list", "table"],
+	ownerPluginIdField: "ownerPluginId",
+	entitySchemaSlugField: "entitySchemaSlug",
+	tableColumns: projections.table.mappings.columns,
+} satisfies SavedViewSettings;
 
 export function buildSavedViewBody(overrides: CreateSavedViewInput = {}): CreateSavedViewBody {
 	return {
 		icon: "star",
-		layouts: rowsLayouts,
+		dataSources: rowsDataSources,
+		settings: entityBrowserSettings,
 		name: `Saved View ${crypto.randomUUID()}`,
-		entitySchemaSlug: EntitySchemaSlug.make("book"),
+		renderer: { kind: "kernel", name: "entity-browser" },
 		...overrides,
 	};
 }
@@ -146,44 +115,16 @@ export function buildUpdatedSavedViewBody(
 	return {
 		icon: "heart",
 		isDisabled: false,
-		layouts: rowsLayouts,
+		dataSources: rowsDataSources,
+		settings: entityBrowserSettings,
 		name: `Updated View ${crypto.randomUUID()}`,
-		entitySchemaSlug: EntitySchemaSlug.make("book"),
+		renderer: { kind: "kernel", name: "entity-browser" },
 		...overrides,
 	};
 }
 
-export function savedViewGridDocumentBody(
-	queryDocument: SavedViewQueryDocument,
-	overrides: CreateSavedViewInput = {},
-): CreateSavedViewBody {
-	return buildSavedViewBody({
-		layouts: buildSavedViewLayouts({ grid: queryDocument }),
-		...overrides,
-	});
-}
-
-export function updatedSavedViewGridDocumentBody(
-	queryDocument: SavedViewQueryDocument,
-	overrides: UpdateSavedViewInput = {},
-): UpdateSavedViewBody {
-	return buildUpdatedSavedViewBody({
-		layouts: buildSavedViewLayouts({ grid: queryDocument }),
-		...overrides,
-	});
-}
-
 export const createSavedView = (client: Client, overrides: CreateSavedViewInput = {}) =>
 	client.call((c) => c.savedViews.create({ payload: buildSavedViewBody(overrides) }));
-
-export const createSavedViewWithGridDocument = (
-	client: Client,
-	queryDocument: SavedViewQueryDocument,
-	overrides: CreateSavedViewInput = {},
-) =>
-	client.call((c) =>
-		c.savedViews.create({ payload: savedViewGridDocumentBody(queryDocument, overrides) }),
-	);
 
 export const listSavedViews = (
 	client: Client,
@@ -204,9 +145,10 @@ export const listSavedViews = (
 export const findBuiltinSavedView = (client: Client) =>
 	Effect.gen(function* () {
 		const views = yield* listSavedViews(client);
-		const builtinView = views.find((view) => view.isBuiltin);
-
-		return requirePresent(builtinView, "Built-in saved view not found");
+		return requirePresent(
+			views.find((view) => view.isBuiltin),
+			"Built-in saved view not found",
+		);
 	});
 
 export const getSavedView = (client: Client, viewSlug: string) =>
@@ -215,7 +157,6 @@ export const getSavedView = (client: Client, viewSlug: string) =>
 		if (!decoded) {
 			return yield* new SavedViewFixtureError({ message: `Saved view '${viewSlug}' not found` });
 		}
-
 		return decoded;
 	});
 
@@ -225,23 +166,7 @@ export const updateSavedView = (
 	overrides: UpdateSavedViewInput = {},
 ) =>
 	client.call((c) =>
-		c.savedViews.update({
-			params: { viewSlug },
-			payload: buildUpdatedSavedViewBody(overrides),
-		}),
-	);
-
-export const updateSavedViewWithGridDocument = (
-	client: Client,
-	viewSlug: string,
-	queryDocument: SavedViewQueryDocument,
-	overrides: UpdateSavedViewInput = {},
-) =>
-	client.call((c) =>
-		c.savedViews.update({
-			params: { viewSlug },
-			payload: updatedSavedViewGridDocumentBody(queryDocument, overrides),
-		}),
+		c.savedViews.update({ params: { viewSlug }, payload: buildUpdatedSavedViewBody(overrides) }),
 	);
 
 export const cloneSavedView = (client: Client, viewSlug: string) =>

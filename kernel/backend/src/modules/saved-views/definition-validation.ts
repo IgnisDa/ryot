@@ -8,34 +8,18 @@ import {
 	EntityBrowserSavedViewSettings,
 	ResultsTableSavedViewSettings,
 	SavedViewBadRequest,
-	type SavedViewLayouts,
+	type SavedViewRenderer,
 } from "@ryot-app/contract/modules/saved-views/schemas";
+import { ClientRendererId } from "@ryot-app/contract/schema/brands";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Effect, Result, Schema } from "effect";
 
-import { validateSavedViewLayouts } from "#modules/definition-registry/service";
+import {
+	formatPropertyIssues,
+	parseAppSchemaProperties,
+} from "#lib/property-schema/property-schema-runtime";
 import { getCatalogTable } from "#modules/ryotql/catalog";
 import { validateRyotQLDocument } from "#modules/ryotql/validator";
-
-type SavedViewDefinitionInput = {
-	readonly layouts: SavedViewLayouts;
-};
-
-export const validateSavedViewDefinition = Effect.fn("validateSavedViewDefinition")(function* (
-	input: SavedViewDefinitionInput,
-) {
-	const validationIssue = validateSavedViewLayouts(input);
-	if (validationIssue) {
-		return yield* new SavedViewBadRequest({
-			reason: {
-				code: "invalid-definition",
-				issue: validationIssue.issue,
-				layout: validationIssue.layout,
-				...(validationIssue.field === undefined ? {} : { field: validationIssue.field }),
-			},
-		});
-	}
-	return yield* Effect.void;
-});
 
 const invalidEntityBrowserDefinition = (message: string) =>
 	new SavedViewBadRequest({ reason: { code: "settings-incompatible", message } });
@@ -202,6 +186,87 @@ export const validateEntityBrowserSavedViewDefinition = Effect.fn(
 
 const invalidResultsTableDefinition = (message: string) =>
 	new SavedViewBadRequest({ reason: { code: "settings-incompatible", message } });
+
+type CustomRendererRecord = {
+	readonly id: string;
+	readonly publishedRevision: number | null;
+	readonly publishedDefinition: { readonly settingsSchema: AppSchema } | null;
+};
+
+type PluginPageRecord = { readonly settingsSchema: AppSchema };
+
+export const validateSavedViewDefinition = Effect.fn("validateSavedViewDefinition")(function* (
+	renderer: SavedViewRenderer,
+	settings: Readonly<Record<string, unknown>>,
+	dataSources: RyotQLDocument | null,
+	customRenderer: CustomRendererRecord | null,
+	pluginPage: PluginPageRecord | null = null,
+) {
+	if (renderer.kind === "kernel" && renderer.name === "entity-browser") {
+		yield* validateEntityBrowserSavedViewDefinition({ settings, dataSources });
+		return null;
+	}
+	if (renderer.kind === "kernel" && renderer.name === "results-table") {
+		yield* validateResultsTableSavedViewDefinition({ settings, dataSources });
+		return null;
+	}
+	if (dataSources !== null) {
+		const semanticError = validateRyotQLDocument(dataSources);
+		if (semanticError) {
+			return yield* invalidResultsTableDefinition(semanticError);
+		}
+		for (const [name, query] of Object.entries(dataSources.queries)) {
+			if (query.output.type === "rows" && "after" in query.output.pagination) {
+				return yield* invalidResultsTableDefinition(
+					`Stored data source '${name}' must not contain a cursor`,
+				);
+			}
+		}
+	}
+	if (renderer.kind === "plugin") {
+		if (!pluginPage) {
+			return yield* new SavedViewBadRequest({ reason: { code: "renderer-not-found" } });
+		}
+		yield* parseAppSchemaProperties({
+			properties: settings,
+			kind: "Saved view settings",
+			propertiesSchema: pluginPage.settingsSchema,
+		}).pipe(
+			Effect.mapError(
+				(error) =>
+					new SavedViewBadRequest({
+						reason: {
+							code: "settings-incompatible",
+							message: formatPropertyIssues(error.issues),
+						},
+					}),
+			),
+		);
+		return null;
+	}
+	if (!customRenderer) {
+		return yield* new SavedViewBadRequest({ reason: { code: "renderer-not-found" } });
+	}
+	if (!customRenderer.publishedDefinition || customRenderer.publishedRevision === null) {
+		return yield* new SavedViewBadRequest({ reason: { code: "renderer-unpublished" } });
+	}
+	yield* parseAppSchemaProperties({
+		properties: settings,
+		kind: "Saved view settings",
+		propertiesSchema: customRenderer.publishedDefinition.settingsSchema,
+	}).pipe(
+		Effect.mapError(
+			(error) =>
+				new SavedViewBadRequest({
+					reason: {
+						code: "settings-incompatible",
+						message: formatPropertyIssues(error.issues),
+					},
+				}),
+		),
+	);
+	return ClientRendererId.make(customRenderer.id);
+});
 
 export const validateResultsTableSavedViewDefinition = Effect.fn(
 	"validateResultsTableSavedViewDefinition",

@@ -2,9 +2,9 @@
 
 ## Tasks
 
-**Overall Progress:** 11 of 13 tasks completed
+**Overall Progress:** 12 of 13 tasks completed
 
-**Current Task:** [Task 12](./12-replace-remaining-old-paths.md) (todo)
+**Current Task:** [Task 13](./13-final-codebase-cleanup.md) (todo)
 
 ### Task List
 
@@ -21,7 +21,7 @@
 | 09  | [Handle Dependency Updates Safely](./09-handle-dependency-updates-safely.md)                             | done   |
 | 10  | [Deliver The Complete Dashboard Journey](./10-deliver-the-complete-dashboard-journey.md)                 | done   |
 | 11  | [Unify Kernel Screen Data Access](./11-unify-kernel-screen-data-access.md)                               | done   |
-| 12  | [Replace Remaining Old Paths](./12-replace-remaining-old-paths.md)                                       | todo   |
+| 12  | [Replace Remaining Old Paths](./12-replace-remaining-old-paths.md)                                       | done   |
 | 13  | [Final Codebase Cleanup](./13-final-codebase-cleanup.md)                                                 | todo   |
 
 Status: agreed system design, not a description of the current implementation.

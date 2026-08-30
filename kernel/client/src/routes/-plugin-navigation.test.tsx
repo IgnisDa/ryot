@@ -30,7 +30,6 @@ import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import { ClientPageSessions } from "#/modules/client-pages/sessions";
 import { EntitiesService } from "#/modules/entities/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
-import { ArtifactSessions } from "#/modules/plugins/artifact-sessions";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
 import { PluginOperationsService } from "#/modules/plugins/operations";
@@ -201,11 +200,6 @@ function mount(options: {
 				},
 				renew: options.renew ?? (() => Effect.die("not used")),
 				revoke: () => Effect.void,
-			}),
-			Layer.succeed(ArtifactSessions, {
-				revoke: () => Effect.void,
-				renew: () => Effect.die("not used"),
-				create: () => Effect.die("not used"),
 			}),
 			Layer.succeed(PluginOperationsService, {
 				invoke: (input) => {
