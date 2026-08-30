@@ -20,8 +20,8 @@
 		"vite": "8.0.14"
 	},
 	"devDependencies": {
-		"@effect/platform-bun": "4.0.0-beta.107",
-		"@effect/vitest": "4.0.0-beta.107",
+		"@effect/platform-bun": "4.0.0-rc.111",
+		"@effect/vitest": "4.0.0-rc.111",
 		"@ryot-app/testing": "workspace:*",
 		"bun-types": "1.4.0",
 		"typescript": "7.0.2",
