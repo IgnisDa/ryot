@@ -1,8 +1,8 @@
 import { Schema } from "effect";
-import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
+import { HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
-import { DemoAccessPolicy } from "../../http-annotations";
+import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
 import { NotificationChannelId } from "../../schema/brands";
 import {
 	CreateNotificationChannelBody,
@@ -14,38 +14,40 @@ import {
 export const NotificationsGroup = HttpApiGroup.make("notifications")
 	.annotate(OpenApi.Description, "Manage and test notification channels.")
 	.add(
-		HttpApiEndpoint.post("createChannel", "/notifications/channels", {
+		AuthenticatedMutationEndpoint.post("protected")("createChannel", "/notifications/channels", {
 			payload: CreateNotificationChannelBody,
 			error: [NotificationRequestError.pipe(HttpApiSchema.status(400))],
 			success: Schema.Struct({ id: NotificationChannelId }).pipe(HttpApiSchema.status(201)),
-		})
-			.annotate(DemoAccessPolicy, "protected")
-			.annotate(OpenApi.Description, "Create a notification channel."),
+		}).annotate(OpenApi.Description, "Create a notification channel."),
 	)
 	.add(
-		HttpApiEndpoint.patch("updateChannel", "/notifications/channels/:channelId", {
-			payload: UpdateNotificationChannelBody,
-			params: { channelId: NotificationChannelId },
-			success: Schema.Struct({ id: NotificationChannelId }),
-			error: [NotificationNotFoundError.pipe(HttpApiSchema.status(404))],
-		})
-			.annotate(DemoAccessPolicy, "protected")
-			.annotate(OpenApi.Description, "Update a notification channel by ID."),
+		AuthenticatedMutationEndpoint.patch("protected")(
+			"updateChannel",
+			"/notifications/channels/:channelId",
+			{
+				payload: UpdateNotificationChannelBody,
+				params: { channelId: NotificationChannelId },
+				success: Schema.Struct({ id: NotificationChannelId }),
+				error: [NotificationNotFoundError.pipe(HttpApiSchema.status(404))],
+			},
+		).annotate(OpenApi.Description, "Update a notification channel by ID."),
 	)
 	.add(
-		HttpApiEndpoint.delete("deleteChannel", "/notifications/channels/:channelId", {
-			params: { channelId: NotificationChannelId },
-			success: Schema.Struct({ id: NotificationChannelId }),
-			error: [NotificationNotFoundError.pipe(HttpApiSchema.status(404))],
-		})
-			.annotate(DemoAccessPolicy, "protected")
-			.annotate(OpenApi.Description, "Delete a notification channel by ID."),
+		AuthenticatedMutationEndpoint.delete("protected")(
+			"deleteChannel",
+			"/notifications/channels/:channelId",
+			{
+				params: { channelId: NotificationChannelId },
+				success: Schema.Struct({ id: NotificationChannelId }),
+				error: [NotificationNotFoundError.pipe(HttpApiSchema.status(404))],
+			},
+		).annotate(OpenApi.Description, "Delete a notification channel by ID."),
 	)
 	.add(
-		HttpApiEndpoint.post("testChannels", "/notifications/channels/test", {
-			success: Schema.Void.pipe(HttpApiSchema.status(202)),
-		})
-			.annotate(DemoAccessPolicy, "protected")
-			.annotate(OpenApi.Description, "Send a test notification through configured channels."),
+		AuthenticatedMutationEndpoint.post("protected")(
+			"testChannels",
+			"/notifications/channels/test",
+			{ success: Schema.Void.pipe(HttpApiSchema.status(202)) },
+		).annotate(OpenApi.Description, "Send a test notification through configured channels."),
 	)
 	.middleware(AuthMiddleware);
