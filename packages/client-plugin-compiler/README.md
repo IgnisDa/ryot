@@ -1,70 +1,59 @@
 # Client Plugin Compiler
 
-This package compiles archived plugin client sources into the immutable artifact loaded by a plugin
-iframe. It is independent from `@ryot-app/sandbox-compiler`: only generic TypeScript infrastructure
-is shared through `@ryot-app/typescript-compiler`.
+This package compiles archived plugin client sources into the immutable application artifact loaded
+by a plugin iframe. It uses `@ryot-app/vite-compiler` for scoped workspaces and Vite invocation and
+keeps client policy and artifact orchestration in this package.
 
 ## Source And Import Policy
 
-Plugin client source is limited to the archive's `client/**` and `shared/**` roots. Relative imports
-must remain within an allowed root. `shared/**` accepts environment-neutral `.ts` files and may use
-only `@ryot-app/plugin-kit/{effect,ryotql,schema}` as bare imports, matching the sandbox compiler's
-policy.
+Validated archive-relative `client/**` and `shared/**` files are staged under the workspace source
+namespace. Compiler-owned HTML, bootstrap, and style entries are staged separately. Normal Vite and
+TypeScript bundler resolution handles relative TypeScript imports, including extensionless imports
+and `.js` specifiers that resolve to TypeScript sources.
 
-Only those roots are compiler inputs, so only they are charged against the source-byte limit; an
-archive's `backend/**` sources are neither compiled, type-checked, nor counted. A plugin package
-charges every eligible authored source it ships, while a composed application charges only the
-sources its bundler and style graphs actually reach from the application entry.
+Author imports are checked before Vite runs, including type-only imports. The data-only dependency
+registry in `src/dependencies.ts` is the authority for trusted and neutral module membership and
+TypeScript entry resolution. Shared sources can use only neutral registry entries and relative
+shared files. Contributor public imports resolve only through the authorized export map. Dynamic
+imports, Vite query and glob imports, escaping asset URLs, and archive Tailwind `@plugin`,
+`@config`, and `@source` directives are rejected.
 
-Composed applications namespace each contributor as `contributors/<stable-id>/client/**` and
-`contributors/<stable-id>/shared/**`. Public imports use
-`@ryot-app/plugins/<plugin-slug>/<export-name>` and resolve only through the authorized map supplied
-with the compiler input. The compiler does not discover plugins or private files by slug. The map and
-automatic-presentation registrations are expected to use backend-resolved stable identities and
-stable order; traversal is cycle-safe in the bundler module graph.
+## Compilation Stages
 
-Client contributors use the public `@ryot-app/client-sdk` and `@ryot-app/client-ui-sdk` entry points.
-Only `shared/**` uses the environment-neutral `@ryot-app/plugin-kit/{effect,ryotql,schema}` shims;
-backend plugin source uses plugin-kit and sandbox SDK surfaces rather than client packages.
+Effect schemas in `src/input.ts` define both package and contributor-graph inputs, exports, routes,
+and automatic registrations. Their derived types are the public compiler types. Worker schemas
+reuse the same structures and transform canonical Base64 directly to bytes; artifact Base64 uses
+the transform owned by `@ryot-app/client-plugin-contract`.
 
-Client bare imports use a fixed trusted-module allowlist. Anything else fails compilation rather
-than falling through to the host resolver. The exact list is maintained in `AGENTS.md` and
-`src/dependencies.ts`.
+`src/planning.ts` normalizes either input into one validated `ClientCompilationPlan`. Execution then
+decodes and checks source policy and limits, performs semantic analysis, stages a workspace, invokes
+Vite, validates output, and finalizes the artifact. Compiler-owned bootstrap, validation, HTML, and
+stylesheet generation is isolated in `src/generated-source.ts`.
 
-Plugin package builds supply every advertised public export to the compiler. Generated entries import
-and type-check those exports and compose the authorized contributor graph. Route applications build a
-manifest-backed route/entity registry; saved views and workspace homes build the selected renderer.
-The generated bootstrap owns the document's only React root. Authored source exports components or
-presentation definitions and never mounts or bootstraps an application.
+## Vite Application
 
-The resolver must also provide concrete paths for transitive re-export barrels such as `effect` and
-`lucide-react`. Declining these can emit a bundle with dangling references even though bundling
-succeeds. Plain `effect` resolves to the narrow supported shim; its exports and pinned `effect/*`
-resolver entries must stay synchronized.
+The compiler performs a normal Vite application build with a generated HTML entry and bootstrap,
+relative base, production React JSX, and an ES2022 browser target. Trusted packages resolve through
+their public exports. The build has no Bun resolver, virtual source loader, package-specific
+bundler repair, CSS-empty hook, manual font parser, stylesheet graph, asset copier, or JavaScript
+rewrite.
 
-## Styles
-
-The compiler injects Tailwind's entry once, then emits all reachable contributor CSS in stable
-namespaced source order and inlines
-`@ryot-app/client-ui-sdk/theme.css` followed by `palette.css`. This gives every plugin Preflight,
-shared accessibility rules, layer order, and concrete token values even when it has no stylesheet.
-The compiler scans reachable contributor client sources plus the UI SDK's and client SDK's
-TypeScript sources, so utility classes written in either SDK reach every artifact.
-
-Palette values are baked into artifacts. A palette change therefore requires current artifacts to be
-compiled; stale artifacts are not patched at runtime.
+The official `@tailwindcss/vite` plugin processes a compiler-owned stylesheet. Automatic scanning is
+disabled with `source(none)`, and explicit `@source` entries cover reachable plugin TypeScript and
+both client SDK source roots. Fonts, theme, palette, and base rules are ordinary CSS imports. Vite
+owns nested and multiple authored CSS imports, ordering, URL rewriting, deduplication, and assets.
 
 ## Artifact Identity
 
-The compiler embeds format, client API version, bridge version, compiler version, and content hash;
-plugin source cannot declare or override them. `plugin.js`, `plugin.css`, assets, and the plugin
-name that titles the document are hashed. `index.html` is emitted last and excluded because it
-embeds that hash, so a rename yields a new artifact instead of colliding with the stored one.
+The artifact contains Vite's complete emitted HTML, JavaScript, CSS, font, image, and other allowed
+asset set. The configured entry and stylesheet names are `plugin.js` and `plugin.css`; Vite may also
+emit `chunk-[hash].js` and `asset-[hash][extname]` files. Multiple and nested authored CSS imports
+are resolved by Vite into the application stylesheet, and Vite owns the resulting asset URLs.
+Every emitted path, MIME type, local reference, file count, per-asset size, and total size is
+validated. `index.html` remains the stable served entry.
 
-Cached artifacts are reused only when format, client API, bridge, and compiler metadata all match
-current constants.
-Otherwise the source is compiled into a new immutable content-addressed artifact; there is no stale
-fallback.
-
-The client artifact format, client API, compiler, and bridge protocol remain version 1. This is a
-greenfield coordinated boundary, so the compiler has no old bootstrap, format, or protocol path.
+The hash covers every non-HTML output byte and content type plus the plugin name and protocol
+identity. Vite emits HTML with a compiler placeholder; the compiler computes metadata from the
+other outputs and variable title input, then replaces that placeholder. This avoids hashing a
+document that embeds its own hash. All final files, including `index.html`, are sorted by name. The
+current compiler identity is 1; artifact format, client API, and bridge protocol remain version 1.
