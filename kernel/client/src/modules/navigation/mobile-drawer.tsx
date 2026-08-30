@@ -52,12 +52,14 @@ const restoreFocus = (trigger: RefObject<HTMLElement | null>) =>
 export function MobileDrawer(props: MobileDrawerProps) {
 	const rootRef = useRef<HTMLDivElement>(null);
 	const [isSettling, setIsSettling] = useState(false);
+	const [workspaceSwitcherOpen, setWorkspaceSwitcherOpen] = useState(false);
 	const reduceMotion = useReducedMotion() === true;
 	const x = useTransform(props.progress, [0, 1], ["-100%", "0%"]);
 	const presented = props.isOpen || isSettling;
 	const { unlock } = useScrollLock(props.isOpen);
 	const close = () => {
 		unlock();
+		setWorkspaceSwitcherOpen(false);
 		props.onClose();
 		restoreFocus(props.triggerRef);
 	};
@@ -67,6 +69,12 @@ export function MobileDrawer(props: MobileDrawerProps) {
 	};
 
 	useMotionValueEvent(props.progress, "change", (value) => setIsSettling(value > 0));
+
+	useEffect(() => {
+		if (!props.isOpen) {
+			setWorkspaceSwitcherOpen(false);
+		}
+	}, [props.isOpen]);
 
 	useEffect(() => {
 		if (reduceMotion) {
@@ -117,6 +125,8 @@ export function MobileDrawer(props: MobileDrawerProps) {
 							navigation={props.navigation}
 							activeHome={props.activeHome}
 							key={props.isOpen ? "open" : "closed"}
+							workspaceSwitcherOpen={workspaceSwitcherOpen}
+							onWorkspaceSwitcherOpenChange={setWorkspaceSwitcherOpen}
 							onCustomize={() => closeThen(props.onCustomize)}
 							onOpenSearch={() => closeThen(props.onOpenSearch)}
 							onNavigateHome={() => closeThen(props.onNavigateHome)}

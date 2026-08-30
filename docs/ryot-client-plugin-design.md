@@ -619,6 +619,13 @@ its value on the first press and blurring on the second, and only the press it d
 consume reaches the overlay. Form fields are excluded on purpose, so Escape can never
 discard typed credentials.
 
+Reserved kernel shortcuts are forwarded separately from ordinary plugin shortcuts. A focused
+plugin iframe bootstrap recognizes `Mod+K` for the command center and `Mod+Shift+Space` for the
+desktop workspace switcher and sends a semantic
+`{ type: "kernel-shortcut", shortcut: "command-center" | "workspace-switcher" }` bridge message.
+An active plugin `OverlayScope` suppresses root forwarding, so plugins must not bind either reserved
+combination at their root.
+
 The overlay dialog is `Modal`, not `Dialog`. The `AppSchema` form sits on its own
 `/schema-form` subpath because it pulls `@ryot-app/contract`, `effect`, and
 `@tanstack/react-form`, and the root barrel's weight lands in every plugin artifact.
@@ -653,6 +660,10 @@ plugin JavaScript. It uses the bridge protocol, artifact metadata, source file p
 client-plugin capability payloads owned by `@ryot-app/client-plugin-contract`.
 
 `RyotClient` is a framework-neutral Promise capability. It exposes semantic capability APIs, not kernel implementation details. Hosts construct it with an explicit adapter and pass the client to consumers through the provider/client boundary. It does not bind a global mutable bridge.
+
+Reserved kernel shortcuts are not public `RyotClient` capabilities. The kernel consumes their
+semantic bridge messages, owns the actions, and applies desktop gating; raw `KeyboardEvent` and key
+payloads never cross the iframe bridge.
 
 The package has four public surfaces:
 
@@ -909,6 +920,7 @@ The bridge needs:
 - exact protocol-version validation
 - installation-bound session identity
 - per-session aggregate pending-request limit for asset, operation, and RyotQL calls
+- semantic `kernel-shortcut` messages for reserved kernel actions
 
 Plugin authors interact with the TypeScript SDK, not the wire protocol.
 
@@ -1342,7 +1354,7 @@ The switcher lists every enabled installation in catalog order. Selecting the cu
 
 ### Shell chrome
 
-At `md` and above, a desktop workspace sidebar (~264px, hidden below `md`) is always present. Its shared `SidebarNav` contains a workspace trigger whose subtitle is the workspace view count, a command-center search row, workspace Views, global Saved Views, and Collections; the account/settings footer remains outside the shared body. The desktop trigger advertises and responds to `Mod+Shift+Space` (`Cmd+Shift+Space` on macOS and `Ctrl+Shift+Space` on Windows/Linux), opening the menu with the current workspace focused. The shortcut is desktop-only; below `md`, a mobile header replaces the rail and opens a drawer that renders the same `SidebarNav` and footer without the workspace or search keyboard-shortcut chips. Escape closes an open workspace menu.
+At `md` and above, a desktop workspace sidebar (~264px, hidden below `md`) is always present. Its shared `SidebarNav` contains a workspace trigger whose subtitle is the workspace view count, a command-center search row, workspace Views, global Saved Views, and Collections; the account/settings footer remains outside the shared body. The command center responds to `Mod+K`; the desktop trigger advertises and responds to `Mod+Shift+Space` (`Cmd+Shift+Space` on macOS and `Ctrl+Shift+Space` on Windows/Linux), opening the menu with the current workspace focused. The workspace shortcut is desktop-only; below `md`, a mobile header replaces the rail and opens a drawer that renders the same `SidebarNav` and footer without the workspace or search keyboard-shortcut chips. Escape closes an open workspace menu.
 
 The mobile header is a 54px row with `size-11 rounded-pill` controls, transparent until the screen scrolls under it. Its leading control is the menu button or a back chevron, chosen by the §25 edge rule. Its title is the screen's own, declared once by whoever renders the frame; the remembered workspace's name never appears in a header, and the manifest name is the plugin's identity in the sidebar and switcher only.
 
