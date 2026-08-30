@@ -1,4 +1,5 @@
 import type { ManagedAssetLocator } from "@ryot-app/client-sdk";
+import { managedAssetKey } from "@ryot-app/client-sdk/react";
 
 import type { MediaImage } from "../../shared/media-image";
 
@@ -29,8 +30,6 @@ export const mediaImageAsset = (images: MediaImages, purpose: MediaImage["purpos
 
 export const preferredMediaImageAsset = (images: MediaImages, purpose: MediaImage["purpose"]) =>
 	mediaImageAsset(images, purpose) ?? locator((images ?? []).at(0));
-
-const managedAssetKey = (asset: ManagedAssetLocator) => `${asset.type}:${asset.key}`;
 
 export const collectManagedAssetLocators = (assets: readonly (ShowImageAsset | undefined)[]) => {
 	const managed = assets.filter(
