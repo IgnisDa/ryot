@@ -294,8 +294,8 @@ describe("Event automations", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 
-			const podcastSchemaId = yield* getBuiltinEntitySchemaSlug("podcast");
-			const podcastEpisodeSchemaId = yield* getBuiltinEntitySchemaSlug("podcast-episode");
+			const podcastSchemaId = yield* getBuiltinEntitySchemaSlug(client, "podcast");
+			const podcastEpisodeSchemaId = yield* getBuiltinEntitySchemaSlug(client, "podcast-episode");
 			const eventSchemas = yield* listEventSchemas(client, podcastEpisodeSchemaId);
 			const progressEventSchema = requireEventSchemaBySlug(eventSchemas, "progress");
 			const relationshipSchemas = yield* listRelationshipSchemas(client, {
@@ -358,7 +358,7 @@ describe("Event automations", () => {
 			const { showId, episodeId } = yield* seedGlobalShowEpisodeTree(client, {
 				showName: "Show Episode Completion",
 			});
-			const showEpisodeSchemaId = yield* getBuiltinEntitySchemaSlug("show-episode");
+			const showEpisodeSchemaId = yield* getBuiltinEntitySchemaSlug(client, "show-episode");
 			const eventSchemas = yield* listEventSchemas(client, showEpisodeSchemaId);
 			const progressEventSchema = requireEventSchemaBySlug(eventSchemas, "progress");
 

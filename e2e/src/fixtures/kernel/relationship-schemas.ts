@@ -1,10 +1,12 @@
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { EntitySchemaSlug, RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
+import { relationshipDefinitionsRecipe } from "@ryot-app/ryotql-recipes/definitions";
 import { Effect } from "effect";
 
 import { requirePresent } from "~/support/assertions";
 
 import type { Client } from "./auth";
+import { collectRyotQLRecipeItems } from "./ryotql";
 import { installTestDefinitions } from "./test-plugin";
 
 type PluginRelationshipSchema = PluginManifest["relationshipSchemas"][number];
@@ -61,27 +63,27 @@ export const listRelationshipSchemas = (
 		targetEntitySchemaSlug?: string | null;
 	} = {},
 ) =>
-	client
-		.call((c) => c.definitions.listRelationships({}))
-		.pipe(
-			Effect.map((schemas) =>
-				schemas
-					.filter((schema) => !options.slugs || options.slugs.includes(schema.slug))
-					.filter(
-						(schema) =>
-							options.sourceEntitySchemaSlug === undefined ||
-							schema.sourceEntitySchemaSlug === options.sourceEntitySchemaSlug,
-					)
-					.filter(
-						(schema) =>
-							options.targetEntitySchemaSlug === undefined ||
-							schema.targetEntitySchemaSlug === options.targetEntitySchemaSlug,
-					)
-					.map((schema) =>
-						Object.assign({}, schema, {
-							isBuiltin: true,
-							id: RelationshipSchemaSlug.make(schema.slug),
-						}),
-					),
-			),
-		);
+	collectRyotQLRecipeItems(client, (after) =>
+		relationshipDefinitionsRecipe({ after, limit: 100 }),
+	).pipe(
+		Effect.map((schemas) =>
+			schemas
+				.filter((schema) => !options.slugs || options.slugs.includes(schema.slug))
+				.filter(
+					(schema) =>
+						options.sourceEntitySchemaSlug === undefined ||
+						schema.sourceEntitySchemaSlug === options.sourceEntitySchemaSlug,
+				)
+				.filter(
+					(schema) =>
+						options.targetEntitySchemaSlug === undefined ||
+						schema.targetEntitySchemaSlug === options.targetEntitySchemaSlug,
+				)
+				.map((schema) =>
+					Object.assign({}, schema, {
+						isBuiltin: true,
+						id: RelationshipSchemaSlug.make(schema.slug),
+					}),
+				),
+		),
+	);

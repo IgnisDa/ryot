@@ -10,16 +10,15 @@ import { column, descending, document, eq, field, literal, rows, table } from "@
 import { Effect } from "effect";
 
 import {
-	adminHeaders,
 	createAuthenticatedClient,
 	createEventFixture,
 	executeRyotQL,
 	executeRyotQLRecipe,
 	fakeProviderDetailsResult,
-	getApiClient,
 	getBuiltinEntitySchemaSlug,
 	insertGlobalRelationship,
 	installTestProvider,
+	listAdminGlobalRelationships,
 	listEventSchemas,
 	listEventsForEntity,
 	listRelationshipSchemas,
@@ -58,11 +57,11 @@ type SeededMediaEntity = Effect.Success<ReturnType<typeof seedMediaEntity>>;
 const loadLifecycleSchemas = (client: Client) =>
 	Effect.gen(function* () {
 		const loaded = yield* Effect.all({
-			showSchemaId: getBuiltinEntitySchemaSlug("show"),
-			podcastSchemaId: getBuiltinEntitySchemaSlug("podcast"),
-			showSeasonSchemaId: getBuiltinEntitySchemaSlug("show-season"),
-			showEpisodeSchemaId: getBuiltinEntitySchemaSlug("show-episode"),
-			podcastEpisodeSchemaId: getBuiltinEntitySchemaSlug("podcast-episode"),
+			showSchemaId: getBuiltinEntitySchemaSlug(client, "show"),
+			podcastSchemaId: getBuiltinEntitySchemaSlug(client, "podcast"),
+			showSeasonSchemaId: getBuiltinEntitySchemaSlug(client, "show-season"),
+			showEpisodeSchemaId: getBuiltinEntitySchemaSlug(client, "show-episode"),
+			podcastEpisodeSchemaId: getBuiltinEntitySchemaSlug(client, "podcast-episode"),
 			relationshipSchemas: listRelationshipSchemas(client, {
 				slugs: ["show-to-show-season", "show-season-to-show-episode", "podcast-to-podcast-episode"],
 			}),
@@ -779,20 +778,12 @@ describe("Media episodic lifecycle query recipes", () => {
 					}),
 				);
 				yield* triggerCronAndWaitForEntity(auth, show.id);
-				const relationships = yield* getApiClient().call(
-					(c) =>
-						c.testSupport.listGlobalRelationships({
-							payload: {
-								type: "anchored",
-								direction: "outgoing",
-								anchorEntityId: EntityId.make(season.id),
-								relationshipSchemaSlug: RelationshipSchemaSlug.make(
-									schemas.seasonToEpisodeRelationship,
-								),
-							},
-						}),
-					adminHeaders(),
-				);
+				const relationships = yield* listAdminGlobalRelationships({
+					type: "anchored",
+					direction: "outgoing",
+					anchorEntityId: EntityId.make(season.id),
+					relationshipSchemaSlug: RelationshipSchemaSlug.make(schemas.seasonToEpisodeRelationship),
+				});
 				expect(relationships.map((relationship) => relationship.targetEntityId)).toEqual([
 					firstEpisode.id,
 				]);
@@ -808,7 +799,7 @@ describe("Media episodic lifecycle query recipes", () => {
 
 const loadMovieLifecycleSchemas = (client: Client) =>
 	Effect.gen(function* () {
-		const movieSchemaId = yield* getBuiltinEntitySchemaSlug("movie");
+		const movieSchemaId = yield* getBuiltinEntitySchemaSlug(client, "movie");
 		const movieEvents = yield* listEventSchemas(client, movieSchemaId);
 		return {
 			movieSchemaId,

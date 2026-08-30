@@ -1,11 +1,14 @@
-import { UserLifecycleOperation as UserLifecycleOperationSchema } from "@ryot-app/contract/modules/god-mode/user-lifecycle";
+import { UserLifecycleRequestResponse } from "@ryot-app/contract/modules/god-mode/contract";
 import { SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
+import { godModeUsersRecipe } from "@ryot-app/ryotql-recipes/god-mode";
+import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { Effect, Schema } from "effect";
 
 import {
 	type DeleteUserOperation,
 	adminAccessTokenHeaders,
 	adminHeaders,
+	collectRyotQLRecipeItems,
 	uninstallTestProvider,
 	createAuthenticatedClient,
 	createApiKey,
@@ -13,6 +16,7 @@ import {
 	createNotificationChannel,
 	deleteUserAndWait,
 	enqueueProviderEntityImport,
+	executeAdminRyotQLRecipe,
 	fakeProviderDetailsResult,
 	findBuiltinSchemaBySlug,
 	findBuiltinPluginBySlug,
@@ -22,6 +26,7 @@ import {
 	listSignalTriggers,
 	listAutomationRuns,
 	listAutomationTriggerRecipients,
+	makeSession,
 	pollProviderEntityImportResult,
 	pollSignalTrigger,
 	pollSignalTriggerWithRecipientCount,
@@ -37,6 +42,11 @@ import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
 
 const WRONG_TOKEN = "wrong-token";
+
+const listPluginsWithHeaders = (headers: Record<string, string>) =>
+	collectRyotQLRecipeItems(makeSession(undefined, headers), (after) =>
+		pluginInstallationsRecipe({ after, limit: 100 }),
+	);
 
 describe("Delete user admin token enforcement", () => {
 	it.live("rejects deletion without an admin token", () =>
@@ -82,7 +92,6 @@ describe("Delete user", () => {
 
 	it.live("deletes user data and invalidates existing credentials", () =>
 		Effect.gen(function* () {
-			const client = getApiClient();
 			const {
 				email,
 				token,
@@ -93,15 +102,13 @@ describe("Delete user", () => {
 			const userId = UserId.make(rawUserId);
 			const { client: observerClient } = yield* createAuthenticatedClient();
 			const plugin = yield* findBuiltinPluginBySlug(userClient, "media");
-			const configuredPlugin = yield* updatePluginState(userClient, plugin.slug, {
-				sortOrder: 41,
-				isDisabled: true,
-			});
+			yield* updatePluginState(userClient, plugin.slug, { sortOrder: 41, isDisabled: true });
+			const configuredPlugin = yield* findBuiltinPluginBySlug(userClient, "media");
 			expect(configuredPlugin).toMatchObject({ sortOrder: 41, isDisabled: true });
 			const apiKey = yield* createApiKey(sessionCookie);
 
-			yield* client.call((c) => c.plugins.list(), { Authorization: `Bearer ${token}` });
-			yield* client.call((c) => c.plugins.list(), { "X-Api-Key": apiKey });
+			yield* listPluginsWithHeaders({ Authorization: `Bearer ${token}` });
+			yield* listPluginsWithHeaders({ "X-Api-Key": apiKey });
 
 			const acceptedResponse = yield* Effect.promise(() =>
 				fetch(`${getApiUrl()}/god-mode/users/${userId}`, {
@@ -110,31 +117,31 @@ describe("Delete user", () => {
 				}),
 			);
 			expect(acceptedResponse.status).toBe(202);
+			const body = yield* Effect.promise(() => acceptedResponse.json());
+			expect(body).toEqual({ operationId: expect.any(String) });
 			const accepted: DeleteUserOperation = yield* Schema.decodeUnknownEffect(
-				UserLifecycleOperationSchema,
-			)(yield* Effect.promise(() => acceptedResponse.json()));
-			expect(accepted).toMatchObject({ userId, kind: "delete" });
+				UserLifecycleRequestResponse,
+			)(body);
 
 			const revokedSession = yield* Effect.flip(
-				client.call((c) => c.plugins.list(), { Authorization: `Bearer ${token}` }),
+				listPluginsWithHeaders({ Authorization: `Bearer ${token}` }),
 			);
 			assertTaggedError(revokedSession, "AuthUnauthorized");
 
-			const revokedApiKey = yield* Effect.flip(
-				client.call((c) => c.plugins.list(), { "X-Api-Key": apiKey }),
-			);
+			const revokedApiKey = yield* Effect.flip(listPluginsWithHeaders({ "X-Api-Key": apiKey }));
 			assertTaggedError(revokedApiKey, "AuthUnauthorized");
 
-			const deleted = yield* pollUserLifecycleOperation(accepted.id);
+			const deleted = yield* pollUserLifecycleOperation(accepted.operationId);
 			expect(deleted).toMatchObject({ userId, failure: null, kind: "delete", status: "completed" });
 
-			const listed = yield* client.call(
-				(c) => c.godMode.listUsers({ query: { limit: 50, offset: 0, search: email } }),
-				adminHeaders(),
+			const listed = yield* executeAdminRyotQLRecipe(
+				godModeUsersRecipe({ limit: 50, search: email }),
 			);
-			expect(listed.users).toHaveLength(0);
+			expect(listed.items).toHaveLength(0);
 
-			const plugins = yield* observerClient.call((c) => c.plugins.list());
+			const plugins = yield* collectRyotQLRecipeItems(observerClient, (after) =>
+				pluginInstallationsRecipe({ after, limit: 100 }),
+			);
 			expect(plugins.some((candidate) => candidate.slug === plugin.slug)).toBe(true);
 		}),
 	);
@@ -181,8 +188,8 @@ describe("Delete user automation data cleanup", () => {
 				const personExternalId = `delete-user-person-${crypto.randomUUID()}`;
 
 				const { client: compilerClient } = yield* createAuthenticatedClient();
-				const personSchemaId = yield* getBuiltinEntitySchemaSlug("person");
-				const movieSchemaId = yield* getBuiltinEntitySchemaSlug("movie");
+				const personSchemaId = yield* getBuiltinEntitySchemaSlug(compilerClient, "person");
+				const movieSchemaId = yield* getBuiltinEntitySchemaSlug(compilerClient, "movie");
 				const personProvider = yield* Effect.acquireRelease(
 					installTestProvider({
 						scope: "system",

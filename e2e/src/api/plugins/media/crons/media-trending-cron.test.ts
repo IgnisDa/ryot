@@ -12,6 +12,8 @@ import {
 	getApiClient,
 	getEntity,
 	installTestPluginBundle,
+	listAdminGlobalRelationships,
+	listAdminSandboxScripts,
 	listRelationshipSchemas,
 	requireRelationshipSchemaBySlug,
 	providerSandboxSource,
@@ -131,10 +133,10 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 				);
 				const directScriptId = installed.scriptIds[SCRIPT_SLUG];
 				assertPresent(directScriptId, "Trending direct script was not installed");
-				const directScript = yield* getApiClient().call(
-					(c) => c.testSupport.getSandboxScript({ params: { scriptId: directScriptId } }),
-					adminHeaders(),
-				);
+				const directScript = (yield* listAdminSandboxScripts(
+					installed.activePluginRevisionId,
+				)).find(({ id }) => id === directScriptId);
+				assertPresent(directScript, "Trending direct script was not stored");
 				assertPresent(directScript.providerId, "Trending script provider was not stored");
 				providerId = directScript.providerId;
 				trendingPluginSlug = installed.manifest.metadata.slug;
@@ -199,16 +201,10 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 			expect(executionId.length).toBeGreaterThan(0);
 
 			const listCandidates = Effect.gen(function* () {
-				const relationships = yield* getApiClient().call(
-					(c) =>
-						c.testSupport.listGlobalRelationships({
-							payload: {
-								type: "self",
-								relationshipSchemaSlug: RelationshipSchemaSlug.make(mediaTrendingSchemaId),
-							},
-						}),
-					adminHeaders(),
-				);
+				const relationships = yield* listAdminGlobalRelationships({
+					type: "self",
+					relationshipSchemaSlug: RelationshipSchemaSlug.make(mediaTrendingSchemaId),
+				});
 				return yield* Effect.forEach(relationships, (relationship) =>
 					Effect.gen(function* () {
 						const entity = yield* getEntity(queryClient, relationship.sourceEntityId);

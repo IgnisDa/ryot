@@ -1,9 +1,11 @@
-import { Effect } from "effect";
+import { integrationWebhookUrl } from "@ryot-app/contract/modules/integrations/schemas";
+import { Effect, Option } from "effect";
 
 import {
 	createAuthenticatedClient,
 	createIntegration,
 	createKodiIntegration,
+	getIntegration,
 	listEventSlugs,
 	listEventsForEntity,
 	pollImportRunUntilTerminal,
@@ -68,9 +70,14 @@ describe("Webhook routes", () => {
 			});
 
 			const boundary = "----RyotPlexBoundary";
-			const webhookUrl = requirePresent(
-				integration.webhookUrl,
-				"Expected sink integration webhook URL",
+			const detail = requirePresent(
+				Option.getOrUndefined(yield* getIntegration(client, integration.id)),
+				"Expected Plex integration detail",
+			);
+			const { frontendOrigin } = yield* client.call((c) => c.system.config());
+			const webhookUrl = integrationWebhookUrl(
+				frontendOrigin,
+				requirePresent(detail.webhookToken, "Expected Plex webhook token"),
 			);
 			const response = yield* Effect.promise(() =>
 				fetch(webhookUrl, {

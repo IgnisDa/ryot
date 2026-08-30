@@ -1,8 +1,9 @@
-import type { ContractSuccess } from "@ryot-app/contract/client";
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
+import { importSourcesRecipe } from "@ryot-app/ryotql-recipes/import-sources";
 import { Effect } from "effect";
 
 import {
+	collectRyotQLRecipeItems,
 	createAuthenticatedClient,
 	FIXTURE_CONFIG_IMPORT_SOURCE,
 	FIXTURE_HANDLE_IMPORT_SOURCE,
@@ -22,8 +23,6 @@ import { assertPresent, assertTaggedError } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 
 let fixtureImportPlugin: InstalledTestPlugin | undefined;
-
-type ListedImportSource = ContractSuccess<"imports", "listSources">[number];
 
 const uninstallWhenReleased = (installed: InstalledTestPlugin) =>
 	pollUntil(
@@ -51,7 +50,9 @@ describe("Plugin Import Public Boundary", () => {
 		Effect.gen(function* () {
 			assertPresent(fixtureImportPlugin, "Fixture import plugin is missing");
 			const { client } = yield* createAuthenticatedClient();
-			const sources = yield* client.call((c) => c.imports.listSources());
+			const sources = yield* collectRyotQLRecipeItems(client, (after) =>
+				importSourcesRecipe({ after, limit: 100 }),
+			);
 			const fixtureSource = fixtureImportPlugin.manifest.importSources.find(
 				({ slug }) => slug === FIXTURE_IMPORT_SOURCE,
 			);
@@ -61,20 +62,20 @@ describe("Plugin Import Public Boundary", () => {
 			assertPresent(fixtureSource, "Fixture import source declaration is missing");
 			assertPresent(configSource, "Fixture config import source declaration is missing");
 
-			expect(sources.find(({ slug }) => slug === FIXTURE_IMPORT_SOURCE)).toEqual({
+			expect(sources.find(({ slug }) => slug === FIXTURE_IMPORT_SOURCE)).toMatchObject({
 				...fixtureSource,
 				isStartable: true,
 				missingPluginConfigKeys: [],
 				pluginSlug: fixtureImportPlugin.pluginSlug,
-			} satisfies ListedImportSource);
-			expect(sources.find(({ slug }) => slug === FIXTURE_CONFIG_IMPORT_SOURCE)).toEqual({
+			});
+			expect(sources.find(({ slug }) => slug === FIXTURE_CONFIG_IMPORT_SOURCE)).toMatchObject({
 				...configSource,
 				isStartable: false,
 				pluginSlug: fixtureImportPlugin.pluginSlug,
 				missingPluginConfigKeys: [
 					pluginConfigEnvironmentKey(fixtureImportPlugin.pluginSlug, "fixtureToken"),
 				],
-			} satisfies ListedImportSource);
+			});
 		}),
 	);
 

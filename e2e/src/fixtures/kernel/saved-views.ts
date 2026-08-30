@@ -1,4 +1,4 @@
-import type { ContractPayload } from "@ryot-app/contract/client";
+import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
 import { ascending, castJson, column, field, jsonPath, table } from "@ryot-app/ryotql";
 import {
 	savedViewRecordRecipe,
@@ -118,6 +118,18 @@ export const listSavedViews = (
 			}),
 		);
 		return result.items;
+	});
+
+export const findSavedViewById = (
+	client: Client,
+	id: ContractSuccess<"savedViews", "create">["id"],
+) =>
+	Effect.gen(function* () {
+		const views = yield* listSavedViews(client, { includeDisabled: true });
+		return requirePresent(
+			views.find((view) => view.id === id),
+			`Saved view '${id}' not found`,
+		);
 	});
 
 export const findBuiltinSavedView = (client: Client) =>

@@ -1,8 +1,15 @@
 import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import {
+	entityDefinitionsRecipe,
+	relationshipDefinitionsRecipe,
+} from "@ryot-app/ryotql-recipes/definitions";
+import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { providerSearchRecipe } from "@ryot-app/ryotql-recipes/provider-search";
 import { Effect } from "effect";
 
+import type { Client } from "~/fixtures/kernel";
 import {
+	collectRyotQLRecipeItems,
 	createAuthenticatedClient,
 	executeRyotQLRecipe,
 	fakeProviderDetailsResult,
@@ -13,11 +20,20 @@ import {
 import { assertPresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
+const listEntities = (client: Client) =>
+	collectRyotQLRecipeItems(client, (after) => entityDefinitionsRecipe({ after, limit: 100 }));
+
+const listRelationships = (client: Client) =>
+	collectRyotQLRecipeItems(client, (after) => relationshipDefinitionsRecipe({ after, limit: 100 }));
+
+const listPlugins = (client: Client) =>
+	collectRyotQLRecipeItems(client, (after) => pluginInstallationsRecipe({ after, limit: 100 }));
+
 describe("Definitions E2E", () => {
 	it.live("lists installed entity definitions", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const schemas = yield* client.call((c) => c.definitions.listEntities({}));
+			const schemas = yield* listEntities(client);
 
 			expect(Array.isArray(schemas)).toBe(true);
 			expect(schemas.length).toBeGreaterThan(0);
@@ -54,10 +70,10 @@ describe("Definitions E2E", () => {
 				uninstallTestProvider,
 			);
 
-			const schemas = yield* client.call((c) => c.definitions.listEntities({}));
+			const schemas = yield* listEntities(client);
 			const schema = schemas.find(({ slug }) => slug === schemaSlug);
 			assertPresent(schema, "Private entity schema was not listed");
-			expect(schema.providers).toContainEqual({
+			expect(schema.providers.items).toContainEqual({
 				name: providerName,
 				providerId: provider.providerId,
 			});
@@ -71,7 +87,7 @@ describe("Definitions E2E", () => {
 			);
 
 			const outsider = yield* createAuthenticatedClient();
-			const outsiderSchemas = yield* outsider.client.call((c) => c.definitions.listEntities({}));
+			const outsiderSchemas = yield* listEntities(outsider.client);
 			expect(outsiderSchemas.some(({ slug }) => slug === schemaSlug)).toBe(false);
 			const outsiderProviders = yield* executeRyotQLRecipe(
 				outsider.client,
@@ -84,7 +100,7 @@ describe("Definitions E2E", () => {
 	it.live("includes the built-in collection definition", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const schemas = yield* client.call((c) => c.definitions.listEntities({}));
+			const schemas = yield* listEntities(client);
 			const collectionSchema = schemas.find((schema) => schema.slug === "collection");
 			const movieSchema = schemas.find((schema) => schema.slug === "movie");
 
@@ -112,7 +128,7 @@ describe("Definitions E2E", () => {
 	it.live("lists installed relationship definitions", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const schemas = yield* client.call((c) => c.definitions.listRelationships({}));
+			const schemas = yield* listRelationships(client);
 			const selected = schemas.filter((schema) =>
 				["in-media-library", "member-of"].includes(schema.slug),
 			);
@@ -125,10 +141,7 @@ describe("Definitions E2E", () => {
 	it.live("lists installed plugins", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const [schemas, plugins] = yield* Effect.all([
-				client.call((c) => c.definitions.listEntities({})),
-				client.call((c) => c.plugins.list()),
-			]);
+			const [schemas, plugins] = yield* Effect.all([listEntities(client), listPlugins(client)]);
 			const selected = plugins.filter((plugin) => ["media", "fitness"].includes(plugin.slug));
 
 			expect(selected.map((plugin) => plugin.slug)).toEqual(

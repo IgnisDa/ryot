@@ -7,6 +7,8 @@ import { Clock, Data, Effect, Schedule, Semaphore } from "effect";
 
 import type { ContractSession } from "~/fixtures/kernel";
 import { adminHeaders, getApiClient, makeSession, signInWithPassword } from "~/fixtures/kernel";
+import { listAdminSandboxScripts } from "~/fixtures/kernel/admin-sandbox-scripts";
+import { listAdminSystemPlugins } from "~/fixtures/kernel/admin-system-plugins";
 import { requirePresent } from "~/support/assertions";
 
 import {
@@ -885,12 +887,19 @@ export const runFreshRepetition = (
 		const prepared = yield* prepareFreshProcess(context, scenario);
 		let submissionContext = context;
 		if (scenario.submission === "live-details") {
-			const scripts = yield* getApiClient().call(
-				(client) => client.testSupport.listSandboxScripts({ query: {} }),
-				adminHeaders(),
+			const media = requirePresent(
+				(yield* listAdminSystemPlugins).find(({ slug }) => slug === "media"),
+				"the shipped Media plugin is not installed",
+			);
+			const scripts = yield* listAdminSandboxScripts(
+				requirePresent(media.activeRevisionId, "the shipped Media plugin has no active revision"),
 			);
 			const details = requirePresent(
-				scripts.find(({ slug }) => slug === "music.youtube-music.details"),
+				scripts.find(
+					({ slug, providerId }) =>
+						slug === "music.youtube-music.details" &&
+						providerId === context.state.youtubeMusic.providerId,
+				),
 				"the shipped YouTube Music details script is not installed",
 			);
 			submissionContext = {

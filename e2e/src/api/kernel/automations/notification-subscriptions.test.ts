@@ -6,7 +6,6 @@ import {
 	createNotificationChannel,
 	deleteNotificationRule,
 	findBuiltinSchemaBySlug,
-	getAutomationCatalogSchema,
 	getEntity,
 	getNotificationSubscription,
 	installNotificationRule,
@@ -58,12 +57,9 @@ describe("notification subscription catalog and rules", () => {
 			expect(catalog.some((schema) => schema.slug.startsWith("automation.test-"))).toBe(false);
 			expect(rules).toHaveLength(catalog.length);
 			expect(rules.map((rule) => rule.signalSchemaSlug).sort()).toEqual(
-				catalog.map((schema) => schema.id).sort(),
+				catalog.map((schema) => schema.slug).sort(),
 			);
 			expect(rules.every((rule) => rule.isActive)).toBe(true);
-			expect(
-				yield* Effect.forEach(catalog, (schema) => getAutomationCatalogSchema(client, schema.id)),
-			).toEqual([...catalog]);
 		}),
 	);
 
@@ -74,11 +70,11 @@ describe("notification subscription catalog and rules", () => {
 			const catalog = yield* listAutomationCatalog(owner.client);
 			const ownerRules = yield* listNotificationSubscriptions(owner.client, { limit: 100 });
 			const reviewSchema = requirePresent(
-				catalog.find((schema) => schema.id === "review.created"),
+				catalog.find((schema) => schema.slug === "review.created"),
 				"Expected the review notification schema",
 			);
 			const reviewRule = requirePresent(
-				ownerRules.find((rule) => rule.signalSchemaSlug === reviewSchema.id),
+				ownerRules.find((rule) => rule.signalSchemaSlug === reviewSchema.slug),
 				"Expected the default review notification rule",
 			);
 
@@ -91,23 +87,40 @@ describe("notification subscription catalog and rules", () => {
 			expect(nonexistent).toBeUndefined();
 
 			const deactivated = yield* setNotificationRuleActive(owner.client, reviewRule.id, false);
-			expect(deactivated.isActive).toBe(false);
+			expect(deactivated).toEqual({ id: reviewRule.id });
 			const loadedDeactivated = requirePresent(
 				yield* getNotificationSubscription(owner.client, reviewRule.id),
 				"Expected the deactivated notification rule",
 			);
 			expect(loadedDeactivated.isActive).toBe(false);
 			const activated = yield* setNotificationRuleActive(owner.client, reviewRule.id, true);
-			expect(activated.isActive).toBe(true);
+			expect(activated).toEqual({ id: reviewRule.id });
+			expect(
+				requirePresent(
+					yield* getNotificationSubscription(owner.client, reviewRule.id),
+					"Expected the activated notification rule",
+				).isActive,
+			).toBe(true);
 
 			expect(yield* deleteNotificationRule(owner.client, reviewRule.id)).toEqual({
 				id: reviewRule.id,
 			});
 			const reinstalled = yield* installNotificationRule(owner.client, reviewRule.signalSchemaSlug);
 			expect(reinstalled.id).not.toBe(reviewRule.id);
-			expect(reinstalled.name).toBe(reviewSchema.name);
-			expect(reinstalled.isActive).toBe(true);
-			expect(reinstalled.signalSchema).toEqual(reviewSchema);
+			const loadedReinstalled = requirePresent(
+				yield* getNotificationSubscription(owner.client, reinstalled.id),
+				"Expected the reinstalled notification rule",
+			);
+			expect(reinstalled).toEqual({ id: loadedReinstalled.id });
+			const refreshedSchema = requirePresent(
+				(yield* listAutomationCatalog(owner.client)).find(
+					(schema) => schema.slug === loadedReinstalled.signalSchemaSlug,
+				),
+				"Expected the reinstalled signal schema",
+			);
+			expect(loadedReinstalled.isActive).toBe(true);
+			expect(refreshedSchema.name).toBe(reviewSchema.name);
+			expect(refreshedSchema.propertiesSchema).toEqual(reviewSchema.propertiesSchema);
 
 			const conflict = yield* Effect.flip(
 				owner.client.call((c) =>

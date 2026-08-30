@@ -1,6 +1,9 @@
+import { importSourcesRecipe } from "@ryot-app/ryotql-recipes/import-sources";
 import { Effect } from "effect";
 
+import type { Client } from "~/fixtures/kernel";
 import {
+	collectRyotQLRecipeItems,
 	createAuthenticatedClient,
 	installPrivateImportPlugin,
 	pollImportRunUntilTerminal,
@@ -9,6 +12,9 @@ import {
 } from "~/fixtures/kernel";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
+
+const listSources = (client: Client) =>
+	collectRyotQLRecipeItems(client, (after) => importSourcesRecipe({ after, limit: 100 }));
 
 describe("private import sources", () => {
 	it.live("surfaces a private import source only to its owner", () =>
@@ -20,8 +26,8 @@ describe("private import sources", () => {
 				({ pluginSlug }) => releasePrivatePlugin(owner.client, pluginSlug),
 			);
 
-			const ownerSources = yield* owner.client.call((c) => c.imports.listSources());
-			const outsiderSources = yield* outsider.client.call((c) => c.imports.listSources());
+			const ownerSources = yield* listSources(owner.client);
+			const outsiderSources = yield* listSources(outsider.client);
 
 			expect(
 				requirePresent(
@@ -73,10 +79,10 @@ describe("private import sources", () => {
 				({ pluginSlug: slug }) => releasePrivatePlugin(second.client, slug),
 			);
 
-			const firstSources = (yield* first.client.call((c) => c.imports.listSources())).filter(
+			const firstSources = (yield* listSources(first.client)).filter(
 				({ slug }) => slug === sourceSlug,
 			);
-			const secondSources = (yield* second.client.call((c) => c.imports.listSources())).filter(
+			const secondSources = (yield* listSources(second.client)).filter(
 				({ slug }) => slug === sourceSlug,
 			);
 			expect(firstSources).toMatchObject([{ pluginSlug, name: "First archive" }]);
@@ -110,7 +116,7 @@ describe("private import sources", () => {
 
 			yield* updatePluginState(client, plugin.pluginSlug, { isDisabled: true });
 
-			const sources = yield* client.call((c) => c.imports.listSources());
+			const sources = yield* listSources(client);
 			expect(sources.map(({ slug }) => slug)).not.toContain(plugin.sourceSlug);
 
 			const failure = yield* Effect.flip(
@@ -120,9 +126,7 @@ describe("private import sources", () => {
 			expect(failure.reason).toEqual({ code: "source-not-found", source: plugin.sourceSlug });
 
 			yield* updatePluginState(client, plugin.pluginSlug, { isDisabled: false });
-			expect(
-				(yield* client.call((c) => c.imports.listSources())).map(({ slug }) => slug),
-			).toContain(plugin.sourceSlug);
+			expect((yield* listSources(client)).map(({ slug }) => slug)).toContain(plugin.sourceSlug);
 		}),
 	);
 });

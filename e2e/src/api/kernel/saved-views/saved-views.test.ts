@@ -7,6 +7,7 @@ import {
 	createSavedView,
 	entityBrowserSettings,
 	findBuiltinPluginBySlug,
+	findSavedViewById,
 	getSavedView,
 	listSavedViews,
 	rowsDataSources,
@@ -63,16 +64,17 @@ describe("saved view definitions", () => {
 			const created = yield* createSavedView(client, {
 				name: `Canonical View ${crypto.randomUUID()}`,
 			});
-			const fetched = yield* getSavedView(client, created.slug);
+			const stored = yield* findSavedViewById(client, created.id);
+			const fetched = yield* getSavedView(client, stored.slug);
 
-			expect(created.renderer).toEqual({ kind: "kernel", name: "entity-browser" });
-			expect(created.settings).toEqual(entityBrowserSettings);
-			expect(created.dataSources).toEqual(rowsDataSources);
+			expect(stored.renderer).toEqual({ kind: "kernel", name: "entity-browser" });
+			expect(stored.settings).toEqual(entityBrowserSettings);
+			expect(stored.dataSources).toEqual(rowsDataSources);
 			expect(fetched).toMatchObject({
 				id: created.id,
-				renderer: created.renderer,
-				settings: created.settings,
-				dataSources: created.dataSources,
+				renderer: stored.renderer,
+				settings: stored.settings,
+				dataSources: stored.dataSources,
 			});
 		}),
 	);
@@ -81,15 +83,15 @@ describe("saved view definitions", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const created = yield* createSavedView(client);
+			const stored = yield* findSavedViewById(client, created.id);
 			const settings = { ...entityBrowserSettings, pageSize: 7 };
-			const updated = yield* updateSavedView(client, created.slug, {
+			const updated = yield* updateSavedView(client, stored.slug, {
 				settings,
 				dataSources: alternateDataSources,
 			});
-			const fetched = yield* getSavedView(client, created.slug);
+			const fetched = yield* getSavedView(client, stored.slug);
 
-			expect(updated.settings).toEqual(settings);
-			expect(updated.dataSources).toEqual(alternateDataSources);
+			expect(updated.id).toBe(created.id);
 			expect(fetched.settings).toEqual(settings);
 			expect(fetched.dataSources).toEqual(alternateDataSources);
 		}),
@@ -104,8 +106,9 @@ describe("saved view definitions", () => {
 				name: `Unknown Schema View ${crypto.randomUUID()}`,
 			});
 
-			expect(created.dataSources).toEqual(dataSources);
-			expect(created.renderer).toEqual({ kind: "kernel", name: "entity-browser" });
+			const stored = yield* findSavedViewById(client, created.id);
+			expect(stored.dataSources).toEqual(dataSources);
+			expect(stored.renderer).toEqual({ kind: "kernel", name: "entity-browser" });
 		}),
 	);
 });

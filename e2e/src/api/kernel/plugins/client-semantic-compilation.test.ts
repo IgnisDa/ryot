@@ -1,7 +1,9 @@
 import { PluginSlug } from "@ryot-app/contract/schema/brands";
+import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { Effect } from "effect";
 
 import {
+	collectRyotQLRecipeItems,
 	createAuthenticatedClient,
 	fixtureClientPluginPackage,
 	fixtureClientPluginPackageWithSemanticFailure,
@@ -41,7 +43,9 @@ describe("client plugin semantic compilation", () => {
 				},
 			});
 			expect(
-				(yield* client.call((contract) => contract.plugins.list())).map(({ slug }) => slug),
+				(yield* collectRyotQLRecipeItems(client, (after) =>
+					pluginInstallationsRecipe({ after, limit: 100 }),
+				)).map(({ slug }) => slug),
 			).not.toContain(pluginSlug);
 		}),
 	);

@@ -1,30 +1,54 @@
-import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
+import type { AutomationTrigger } from "@ryot-app/contract/modules/automations/lifecycle";
+import { NotificationSubscriptionId, SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
 import {
-	NotificationSubscriptionId,
-	SignalSchemaSlug,
-	UserId,
-} from "@ryot-app/contract/schema/brands";
+	column,
+	defineRecipe,
+	eq,
+	literal,
+	selectedAggregate,
+	selectedMeasure,
+	table,
+} from "@ryot-app/ryotql";
+import { activeSignalSchemasRecipe } from "@ryot-app/ryotql-recipes/definitions";
 import {
 	notificationSubscriptionRecipe,
 	notificationSubscriptionsRecipe,
 } from "@ryot-app/ryotql-recipes/notification-subscriptions";
-import { Effect } from "effect";
+import { Effect, Result, Schema } from "effect";
 
 import { adminHeaders } from "./admin";
+import {
+	adminAutomationAttemptsRecipe,
+	adminAutomationRecipientsRecipe,
+	adminAutomationRunsRecipe,
+	adminAutomationTriggersRecipe,
+	type AutomationRunFilter,
+	type AutomationRunAttemptFilter,
+	type AutomationTriggerFilter,
+	type AutomationTriggerRecipientFilter,
+} from "./admin-automations";
 import type { Client } from "./auth";
 import { getApiClient } from "./contract-client";
 import { pollUntil } from "./polling";
-import { executeRyotQLRecipe } from "./ryotql";
+import {
+	collectAdminRyotQLRecipeItems,
+	collectRyotQLRecipeItems,
+	executeAdminRyotQLRecipe,
+	executeRyotQLRecipe,
+} from "./ryotql";
+
+export type { AutomationTrigger } from "@ryot-app/contract/modules/automations/lifecycle";
+export type {
+	AutomationRun,
+	AutomationRunAttempt,
+	AutomationRunAttemptFilter,
+	AutomationRunFilter,
+	AutomationTriggerFilter,
+	AutomationTriggerRecipientFilter,
+} from "./admin-automations";
 
 export const listAutomationCatalog = (client: Client) =>
-	client.call((c) => c.automations.listCatalog());
-
-export const getAutomationCatalogSchema = (client: Client, signalSchemaSlug: string) =>
-	client.call((c) =>
-		c.automations.getCatalog({
-			params: { signalSchemaSlug: SignalSchemaSlug.make(signalSchemaSlug) },
-		}),
-	);
+	collectRyotQLRecipeItems(client, (after) => activeSignalSchemasRecipe({ after, limit: 100 }));
 
 export const listNotificationSubscriptions = (
 	client: Client,
@@ -56,23 +80,6 @@ export const deleteNotificationRule = (client: Client, ruleId: string) =>
 		c.automations.deleteRule({ params: { ruleId: NotificationSubscriptionId.make(ruleId) } }),
 	);
 
-export type AutomationTriggerFilter = ContractPayload<"testSupport", "listAutomationTriggers">;
-export type AutomationTrigger = ContractSuccess<"testSupport", "listAutomationTriggers">[number];
-export type AutomationTriggerRecipientFilter = ContractPayload<
-	"testSupport",
-	"listAutomationTriggerRecipients"
->;
-export type AutomationRunFilter = ContractPayload<"testSupport", "listAutomationRuns">;
-export type AutomationRun = ContractSuccess<"testSupport", "listAutomationRuns">[number];
-export type AutomationRunAttemptFilter = ContractPayload<
-	"testSupport",
-	"listAutomationRunAttempts"
->;
-export type AutomationRunAttempt = ContractSuccess<
-	"testSupport",
-	"listAutomationRunAttempts"
->[number];
-
 const automationFilterLabel = (filter: AutomationTriggerFilter | AutomationRunFilter): string =>
 	filter.triggerId ??
 	filter.rootExecutionId ??
@@ -82,7 +89,7 @@ const automationFilterLabel = (filter: AutomationTriggerFilter | AutomationRunFi
 		: "matching filters");
 
 export const listAutomationTriggers = (payload: AutomationTriggerFilter) =>
-	getApiClient().call((c) => c.testSupport.listAutomationTriggers({ payload }), adminHeaders());
+	collectAdminRyotQLRecipeItems((after) => adminAutomationTriggersRecipe({ ...payload, after }));
 
 export const pollAutomationTriggers = (payload: AutomationTriggerFilter, minimumCount = 1) =>
 	pollUntil(
@@ -130,10 +137,7 @@ export const listSignalTriggers = (filter: SignalTriggerFilter) =>
 	);
 
 export const listAutomationTriggerRecipients = (payload: AutomationTriggerRecipientFilter) =>
-	getApiClient().call(
-		(c) => c.testSupport.listAutomationTriggerRecipients({ payload }),
-		adminHeaders(),
-	);
+	collectAdminRyotQLRecipeItems((after) => adminAutomationRecipientsRecipe({ ...payload, after }));
 
 export const pollAutomationTriggerRecipients = (
 	payload: AutomationTriggerRecipientFilter,
@@ -171,7 +175,7 @@ export const pollSignalTriggerWithRecipientCount = (filter: SignalTriggerFilter,
 	);
 
 export const listAutomationRuns = (payload: AutomationRunFilter) =>
-	getApiClient().call((c) => c.testSupport.listAutomationRuns({ payload }), adminHeaders());
+	collectAdminRyotQLRecipeItems((after) => adminAutomationRunsRecipe({ ...payload, after }));
 
 export const reconcileAutomations = Effect.suspend(() =>
 	getApiClient().call((c) => c.testSupport.reconcileAutomations({ payload: {} }), adminHeaders()),
@@ -199,7 +203,7 @@ export const pollTerminalAutomationRuns = (payload: AutomationRunFilter) =>
 	);
 
 export const listAutomationRunAttempts = (payload: AutomationRunAttemptFilter) =>
-	getApiClient().call((c) => c.testSupport.listAutomationRunAttempts({ payload }), adminHeaders());
+	collectAdminRyotQLRecipeItems((after) => adminAutomationAttemptsRecipe({ ...payload, after }));
 
 export const pollAutomationRunAttempts = (payload: AutomationRunAttemptFilter, minimumCount = 1) =>
 	pollUntil(
@@ -224,11 +228,17 @@ export const pollTerminalAutomationRunAttempts = (
 		),
 	);
 
+const subscription = table("notificationSubscription", "subscription");
+
+const automationRuleCountRecipe = defineRecipe((userId: string) => ({
+	map: ({ rules }) => Result.succeed(rules.count),
+	queries: {
+		rules: selectedAggregate(subscription, {
+			where: eq(column(subscription, "userId"), literal(userId)),
+			measures: { count: selectedMeasure({ function: "count" }, Schema.Int) },
+		}),
+	},
+}));
+
 export const getAutomationRuleCount = (userId: string) =>
-	Effect.gen(function* () {
-		const { count } = yield* getApiClient().call(
-			(c) => c.testSupport.countAutomationRules({ params: { userId: UserId.make(userId) } }),
-			adminHeaders(),
-		);
-		return count;
-	});
+	executeAdminRyotQLRecipe(automationRuleCountRecipe(userId));

@@ -1,18 +1,20 @@
+import { integrationWebhookUrl } from "@ryot-app/contract/modules/integrations/schemas";
 import {
 	ImportRunId,
 	IntegrationId,
 	IntegrationWebhookToken,
 } from "@ryot-app/contract/schema/brands";
-import { Effect } from "effect";
+import { integrationProvidersRecipe } from "@ryot-app/ryotql-recipes/integration-providers";
+import { Effect, Option } from "effect";
 
 import {
+	collectRyotQLRecipeItems,
 	createAudiobookshelfIntegration,
 	createAuthenticatedClient,
 	createIntegration,
 	createKodiIntegration,
 	deleteIntegration,
 	getIntegration,
-	integrationWebhookToken,
 	listIntegrationImportRuns,
 	listIntegrations,
 	listManualImportRuns,
@@ -36,7 +38,9 @@ describe("Integration CRUD", () => {
 	it.live("lists integration providers with server-owned form schemas", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const providers = yield* client.call((c) => c.integrations.listProviders());
+			const providers = yield* collectRyotQLRecipeItems(client, (after) =>
+				integrationProvidersRecipe({ after, limit: 100 }),
+			);
 			const radarr = requirePresent(
 				providers.find(({ slug }) => slug === "radarr"),
 				"Expected Radarr provider",
@@ -47,10 +51,12 @@ describe("Integration CRUD", () => {
 			);
 
 			expect(radarr.lot).toBe("push");
-			expect(radarr.isCreatable).toBe(true);
+			expect(radarr.hasScript).toBe(true);
+			expect(radarr.requiresProKey).toBe(false);
 			expect(radarr.commonSchema.fields).not.toHaveProperty("minimumProgress");
 			expect(kodi.lot).toBe("sink");
-			expect(kodi.isCreatable).toBe(true);
+			expect(kodi.hasScript).toBe(true);
+			expect(kodi.requiresProKey).toBe(false);
 			expect(kodi.commonSchema.fields.minimumProgress).toMatchObject({
 				type: "number",
 				defaultValue: 2,
@@ -61,21 +67,29 @@ describe("Integration CRUD", () => {
 	it.live("creates with correct defaults", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const integration = yield* createKodiIntegration(client);
+			const { id } = yield* createKodiIntegration(client);
+			const integration = requirePresent(
+				Option.getOrUndefined(yield* getIntegration(client, id)),
+				"Expected created Kodi integration",
+			);
+			const { frontendOrigin } = yield* client.call((c) => c.system.config());
 
 			expect(integration.isDisabled).toBe(false);
 			expect(integration.syncOwnership).toBe(false);
 			expect(integration.minimumProgress).toBe(2);
 			expect(integration.maximumProgress).toBe(95);
 			expect(integration.extraSettings.disableOnContinuousErrors).toBe(false);
-			expect(integration.webhookUrl).toContain(`/_i/${integrationWebhookToken(integration)}`);
+			const token = requirePresent(integration.webhookToken, "Expected sink webhook token");
+			const webhookUrl = new URL(integrationWebhookUrl(frontendOrigin, token));
+			expect(webhookUrl.origin).toBe(new URL(frontendOrigin).origin);
+			expect(webhookUrl.pathname).toBe(`/_i/${token}`);
 		}),
 	);
 
 	it.live("creates a push integration without an integration script", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const integration = yield* createIntegration(client, {
+			const { id } = yield* createIntegration(client, {
 				provider: "radarr",
 				providerSpecifics: {
 					kind: "radarr",
@@ -87,10 +101,14 @@ describe("Integration CRUD", () => {
 					syncCollectionIds: ["collection-1"],
 				},
 			});
+			const integration = requirePresent(
+				Option.getOrUndefined(yield* getIntegration(client, id)),
+				"Expected created Radarr integration",
+			);
 
 			expect(integration.lot).toBe("push");
 			expect(integration.provider).toBe("radarr");
-			expect(integration.webhookUrl).toBeUndefined();
+			expect(integration.webhookToken).toBeNull();
 			expect(integration.providerSpecifics).not.toHaveProperty("apiKey");
 			expect(integration.providerSpecifics.tagIds).toEqual([3, 7]);
 		}),
@@ -193,7 +211,11 @@ describe("Integration CRUD", () => {
 			const { client } = yield* createAuthenticatedClient();
 
 			const created = yield* createAudiobookshelfIntegration(client);
-			expect(created.name).toBe("ABS");
+			const before = requirePresent(
+				Option.getOrUndefined(yield* getIntegration(client, created.id)),
+				"Expected created integration",
+			);
+			expect(before.name).toBe("ABS");
 
 			const data = yield* client.call((c) =>
 				c.integrations.update({
@@ -201,16 +223,15 @@ describe("Integration CRUD", () => {
 					params: { integrationId: IntegrationId.make(created.id) },
 				}),
 			);
-
-			expect(data.name).toBe("My ABS");
-			expect(data.providerSpecifics).not.toHaveProperty("token");
-			expect(data.providerSpecifics.baseUrl).toBe("https://abs.example.com");
+			expect(data).toEqual({ id: created.id });
 
 			const integration = requirePresent(
-				yield* getIntegration(client, created.id),
+				Option.getOrUndefined(yield* getIntegration(client, created.id)),
 				"Expected updated integration",
 			);
 			expect(integration.name).toBe("My ABS");
+			expect(integration.providerSpecifics).not.toHaveProperty("token");
+			expect(integration.providerSpecifics.baseUrl).toBe("https://abs.example.com");
 		}),
 	);
 
@@ -245,7 +266,7 @@ describe("Integration CRUD", () => {
 			const { id } = yield* createKodiIntegration(client);
 			yield* deleteIntegration(client, id);
 
-			expect(yield* getIntegration(client, id)).toBeUndefined();
+			expect(Option.isNone(yield* getIntegration(client, id))).toBe(true);
 		}),
 	);
 });
@@ -327,9 +348,14 @@ describe("Webhook routes", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const integration = yield* createKodiIntegration(client);
-			const webhookUrl = requirePresent(
-				integration.webhookUrl,
-				"Expected sink integration webhook URL",
+			const detail = requirePresent(
+				Option.getOrUndefined(yield* getIntegration(client, integration.id)),
+				"Expected Kodi integration detail",
+			);
+			const { frontendOrigin } = yield* client.call((c) => c.system.config());
+			const webhookUrl = integrationWebhookUrl(
+				frontendOrigin,
+				requirePresent(detail.webhookToken, "Expected sink webhook token"),
 			);
 
 			const response = yield* Effect.promise(() =>

@@ -1,13 +1,18 @@
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { godModeUsersRecipe } from "@ryot-app/ryotql-recipes/god-mode";
+import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { DateTime, Effect } from "effect";
 
 import {
 	adminAccessTokenHeaders,
 	adminHeaders,
+	collectRyotQLRecipeItems,
 	createApiKey,
 	createTestAuthClient,
 	createTestUser,
+	executeAdminRyotQLRecipe,
 	getApiClient,
+	makeSession,
 	refreshOAuthTokens,
 	signInWithPassword,
 } from "~/fixtures/kernel";
@@ -16,22 +21,21 @@ import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
 
 const WRONG_TOKEN = "wrong-token";
-const godModeListQuery = (search?: string) => ({
-	limit: 50,
-	offset: 0,
-	...(search ? { search } : {}),
-});
+
+const listPluginsWithHeaders = (headers: Record<string, string>) =>
+	collectRyotQLRecipeItems(makeSession(undefined, headers), (after) =>
+		pluginInstallationsRecipe({ after, limit: 100 }),
+	);
+const listUsers = (search?: string) =>
+	executeAdminRyotQLRecipe(godModeUsersRecipe({ search, limit: 50 }));
 const uniqueTimestamp = () => DateTime.toEpochMillis(DateTime.nowUnsafe());
 
 const getUserIdByEmail = (email: string) =>
 	Effect.gen(function* () {
-		const data = yield* getApiClient().call(
-			(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
-			adminHeaders(),
-		);
-		const user = data.users[0];
+		const data = yield* listUsers(email);
+		const user = data.items[0];
 		assertPresent(user, "missing user row");
-		return UserId.make(user.id);
+		return user.id;
 	});
 
 const createNoAccountUser = (name: string) =>
@@ -62,7 +66,9 @@ describe("God-mode admin token enforcement", () => {
 		Effect.gen(function* () {
 			const client = getApiClient();
 			const error = yield* Effect.flip(
-				client.call((c) => c.godMode.listUsers({ query: godModeListQuery() })),
+				client.call((c) =>
+					c.adminRyotql.execute({ payload: godModeUsersRecipe({ limit: 50 }).document }),
+				),
 			);
 			assertTaggedError(error, "AuthUnauthorized");
 		}),
@@ -73,7 +79,7 @@ describe("God-mode admin token enforcement", () => {
 			const client = getApiClient();
 			const error = yield* Effect.flip(
 				client.call(
-					(c) => c.godMode.listUsers({ query: godModeListQuery() }),
+					(c) => c.adminRyotql.execute({ payload: godModeUsersRecipe({ limit: 50 }).document }),
 					adminAccessTokenHeaders(WRONG_TOKEN),
 				),
 			);
@@ -142,14 +148,10 @@ describe("God-mode admin token enforcement", () => {
 describe("User listing with correct admin token", () => {
 	it.live("classifies no-account users as 'none'", () =>
 		Effect.gen(function* () {
-			const client = getApiClient();
 			const { email } = yield* createNoAccountUser("NoneUser");
 
-			const data = yield* client.call(
-				(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
-				adminHeaders(),
-			);
-			const user = data.users[0];
+			const data = yield* listUsers(email);
+			const user = data.items[0];
 			expect(user?.authState).toBe("none");
 			expect(user?.email).toBe(email);
 		}),
@@ -157,28 +159,20 @@ describe("User listing with correct admin token", () => {
 
 	it.live("classifies OIDC-only users as 'oidc'", () =>
 		Effect.gen(function* () {
-			const client = getApiClient();
 			const { email } = yield* createOidcUser("ListOidcUser");
 
-			const data = yield* client.call(
-				(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
-				adminHeaders(),
-			);
-			expect(data.users[0]?.authState).toBe("oidc");
+			const data = yield* listUsers(email);
+			expect(data.items[0]?.authState).toBe("oidc");
 		}),
 	);
 
 	it.live("classifies credential users as 'credential'", () =>
 		Effect.gen(function* () {
-			const client = getApiClient();
 			const { email } = yield* createTestUser();
 
-			const data = yield* client.call(
-				(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
-				adminHeaders(),
-			);
-			expect(data.users[0]?.authState).toBe("credential");
-			expect(data.users[0]?.disabledAt).toBeNull();
+			const data = yield* listUsers(email);
+			expect(data.items[0]?.authState).toBe("credential");
+			expect(data.items[0]?.disabledAt).toBeNull();
 		}),
 	);
 
@@ -196,11 +190,8 @@ describe("User listing with correct admin token", () => {
 				adminHeaders(),
 			);
 
-			const data = yield* client.call(
-				(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
-				adminHeaders(),
-			);
-			expect(data.users[0]?.authState).toBe("mixed");
+			const data = yield* listUsers(email);
+			expect(data.items[0]?.authState).toBe("mixed");
 		}),
 	);
 });
@@ -219,11 +210,8 @@ describe("User provisioning", () => {
 				adminHeaders(),
 			);
 
-			const listData = yield* client.call(
-				(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
-				adminHeaders(),
-			);
-			expect(listData.users[0]?.authState).toBe("none");
+			const listData = yield* listUsers(email);
+			expect(listData.items[0]?.authState).toBe("none");
 		}),
 	);
 
@@ -245,11 +233,8 @@ describe("User provisioning", () => {
 				adminHeaders(),
 			);
 
-			const listData = yield* client.call(
-				(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
-				adminHeaders(),
-			);
-			expect(listData.users[0]?.authState).toBe("oidc");
+			const listData = yield* listUsers(email);
+			expect(listData.items[0]?.authState).toBe("oidc");
 		}),
 	);
 
@@ -281,30 +266,25 @@ describe("God-mode disable set", () => {
 			const userId = yield* getUserIdByEmail(email);
 			const apiKey = yield* createApiKey(sessionCookie);
 
-			yield* client.call((c) => c.plugins.list(), { Authorization: `Bearer ${token}` });
+			yield* listPluginsWithHeaders({ Authorization: `Bearer ${token}` });
 
-			yield* client.call((c) => c.plugins.list(), { "X-Api-Key": apiKey });
+			yield* listPluginsWithHeaders({ "X-Api-Key": apiKey });
 
 			const disabledData = yield* client.call(
 				(c) => c.godMode.setUserDisabled({ params: { userId }, payload: { disabled: true } }),
 				adminHeaders(),
 			);
-			expect(typeof disabledData.disabledAt).toBe("string");
+			expect(disabledData).toEqual({ id: userId });
 
-			const listData = yield* client.call(
-				(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
-				adminHeaders(),
-			);
-			expect(listData.users[0]?.disabledAt).toBe(disabledData.disabledAt);
+			const listData = yield* listUsers(email);
+			expect(typeof listData.items[0]?.disabledAt).toBe("string");
 
 			const revokedSession = yield* Effect.flip(
-				client.call((c) => c.plugins.list(), { Authorization: `Bearer ${token}` }),
+				listPluginsWithHeaders({ Authorization: `Bearer ${token}` }),
 			);
 			assertTaggedError(revokedSession, "AuthUnauthorized");
 
-			const blockedApiKey = yield* Effect.flip(
-				client.call((c) => c.plugins.list(), { "X-Api-Key": apiKey }),
-			);
+			const blockedApiKey = yield* Effect.flip(listPluginsWithHeaders({ "X-Api-Key": apiKey }));
 			assertTaggedError(blockedApiKey, "AuthUnauthorized");
 
 			const blockedSignIn = yield* signInWithPassword(email, password);
@@ -314,7 +294,10 @@ describe("God-mode disable set", () => {
 				(c) => c.godMode.setUserDisabled({ params: { userId }, payload: { disabled: false } }),
 				adminHeaders(),
 			);
-			expect(enableData.disabledAt).toBeNull();
+			expect(enableData).toEqual({ id: userId });
+
+			const enabledUsers = yield* listUsers(email);
+			expect(enabledUsers.items[0]?.disabledAt).toBeNull();
 
 			const restoredSignIn = yield* signInWithPassword(email, password);
 			expect(restoredSignIn.error).toBeNull();
@@ -351,7 +334,7 @@ describe("Reset link generation and completion for credential user", () => {
 			const signInRes = yield* signInWithPassword(email, newPassword);
 			expect(signInRes.error).toBeNull();
 			assertPresent(signInRes.token, "Expected an auth token after sign-in");
-			yield* client.call((c) => c.plugins.list(), { Authorization: `Bearer ${signInRes.token}` });
+			yield* listPluginsWithHeaders({ Authorization: `Bearer ${signInRes.token}` });
 		}),
 	);
 
@@ -360,7 +343,7 @@ describe("Reset link generation and completion for credential user", () => {
 			const client = getApiClient();
 			const { email, refreshToken, token: authToken } = yield* createTestUser();
 
-			yield* client.call((c) => c.plugins.list(), { Authorization: `Bearer ${authToken}` });
+			yield* listPluginsWithHeaders({ Authorization: `Bearer ${authToken}` });
 
 			const userId = yield* getUserIdByEmail(email);
 
@@ -387,7 +370,7 @@ describe("Reset link generation and completion for credential user", () => {
 			const signInRes = yield* signInWithPassword(email, newPassword);
 			expect(signInRes.error).toBeNull();
 			assertPresent(signInRes.token, "Expected an auth token after re-sign-in");
-			yield* client.call((c) => c.plugins.list(), { Authorization: `Bearer ${signInRes.token}` });
+			yield* listPluginsWithHeaders({ Authorization: `Bearer ${signInRes.token}` });
 		}),
 	);
 });
@@ -416,11 +399,8 @@ describe("Reset link generation and completion for no-account user", () => {
 			const signInRes = yield* signInWithPassword(email, newPassword);
 			expect(signInRes.error).toBeNull();
 
-			const listData = yield* client.call(
-				(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
-				adminHeaders(),
-			);
-			expect(listData.users[0]?.authState).toBe("credential");
+			const listData = yield* listUsers(email);
+			expect(listData.items[0]?.authState).toBe("credential");
 		}),
 	);
 });

@@ -1,9 +1,12 @@
 import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
+import { activeSignalSchemasRecipe } from "@ryot-app/ryotql-recipes/definitions";
+import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { Effect } from "effect";
 
 import {
 	createTestAuthClient,
 	createTestUser,
+	collectRyotQLRecipeItems,
 	executeRyotQL,
 	getApiClient,
 	makeSession,
@@ -34,18 +37,21 @@ describe("Email sign-up", () => {
 		() =>
 			Effect.gen(function* () {
 				const { token, email, password } = yield* createTestUser();
-				const headers = { Authorization: `Bearer ${token}` };
-				const plugins = yield* getApiClient().call((c) => c.plugins.list(), headers);
+				const client = makeSession(undefined, { Authorization: `Bearer ${token}` });
+				const plugins = yield* collectRyotQLRecipeItems(client, (after) =>
+					pluginInstallationsRecipe({ after, limit: 100 }),
+				);
 				expect(plugins.length).toBeGreaterThan(0);
 
-				const client = makeSession(undefined, headers);
 				const [catalog, rules] = yield* Effect.all([
-					client.call((c) => c.automations.listCatalog()),
+					collectRyotQLRecipeItems(client, (after) =>
+						activeSignalSchemasRecipe({ after, limit: 100 }),
+					),
 					listNotificationSubscriptions(client, { limit: 100 }),
 				]);
 				expect(rules).toHaveLength(catalog.length);
 				expect(rules.map((rule) => rule.signalSchemaSlug).sort()).toEqual(
-					catalog.map((schema) => schema.id).sort(),
+					catalog.map((schema) => schema.slug).sort(),
 				);
 				expect(rules.every((rule) => rule.isActive)).toBe(true);
 

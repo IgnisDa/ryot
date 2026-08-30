@@ -1,13 +1,8 @@
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { Effect } from "effect";
 
-import {
-	adminHeaders,
-	type Client,
-	findBuiltinSchemaBySlug,
-	getApiClient,
-	installTestPluginBundle,
-} from "~/fixtures/kernel";
+import { type Client, findBuiltinSchemaBySlug, installTestPluginBundle } from "~/fixtures/kernel";
+import { listAdminSandboxScripts } from "~/fixtures/kernel/admin-sandbox-scripts";
 import { requirePresent } from "~/support/assertions";
 
 import {
@@ -143,10 +138,11 @@ export const installBenchmarkWorkloadPlugin = (input: {
 			installed.scriptIds[`${bookProviderSlug}.details`],
 			"Benchmark book details script was not installed",
 		);
-		const storedBookDetails = yield* getApiClient().call(
-			(client) =>
-				client.testSupport.getSandboxScript({ params: { scriptId: bookDetailsScriptId } }),
-			adminHeaders(),
+		const storedBookDetails = requirePresent(
+			(yield* listAdminSandboxScripts(installed.activePluginRevisionId)).find(
+				({ id }) => id === bookDetailsScriptId,
+			),
+			"Benchmark book details script was not found in its plugin revision",
 		);
 		const bookProviderId = requirePresent(
 			storedBookDetails.providerId,

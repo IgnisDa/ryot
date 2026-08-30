@@ -1,20 +1,24 @@
-import { BackupRunId } from "@ryot-app/contract/schema/brands";
-import { Effect } from "effect";
+import { backupRunRecipe } from "@ryot-app/ryotql-recipes/backups";
+import { Effect, Option } from "effect";
 
 import { requirePresent } from "~/support/assertions";
 import { getApiUrl } from "~/support/harness-target";
 
 import type { Client } from "./auth";
 import { pollUntil } from "./polling";
+import { executeRyotQLRecipe } from "./ryotql";
 import { uploadTemporaryArchive } from "./temporary-archive";
 
 export const pollBackupRunUntilTerminal = (client: Client, runId: string) =>
 	pollUntil(
 		`Backup run '${runId}' to complete`,
 		Effect.gen(function* () {
-			const run = yield* client.call((c) =>
-				c.backups.getRun({ params: { id: BackupRunId.make(runId) } }),
+			const run = Option.getOrUndefined(
+				yield* executeRyotQLRecipe(client, backupRunRecipe({ id: runId })),
 			);
+			if (run === undefined) {
+				throw new Error(`Backup run '${runId}' not found`);
+			}
 			return run.status === "completed" || run.status === "failed" ? run : null;
 		}),
 	);

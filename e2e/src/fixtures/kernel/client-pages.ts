@@ -18,9 +18,14 @@ import {
 	table,
 	timeSeries,
 } from "@ryot-app/ryotql";
+import {
+	clientRendererRecipe,
+	clientRenderersRecipe,
+} from "@ryot-app/ryotql-recipes/client-renderers";
 import { Encoding } from "effect";
 
 import type { Client } from "./auth";
+import { collectRyotQLRecipeItems, executeRyotQLRecipe } from "./ryotql";
 
 type CreateSavedViewRequest = ContractRequest<"savedViews", "create">;
 type PrepareClientPageRequest = ContractRequest<"clientPages", "prepare">;
@@ -30,7 +35,7 @@ type CreateClientPageSessionRequest = ContractRequest<"clientPages", "createSess
 type ReplaceRendererDraftRequest = ContractRequest<"clientPages", "replaceRendererDraft">;
 
 type CreateRendererPayload = CreateRendererRequest["payload"];
-type RendererId = ContractSuccess<"clientPages", "getRenderer">["id"];
+type RendererId = ContractSuccess<"clientPages", "createRenderer">["id"];
 type ClientRendererDefinition = CreateRendererRequest["payload"]["draftDefinition"];
 type RendererSavedViewPayload = Extract<CreateSavedViewRequest["payload"], { renderer: unknown }>;
 type KernelSavedViewPayload = Omit<RendererSavedViewPayload, "renderer"> & {
@@ -460,10 +465,10 @@ export const createClientRenderer = (
 	);
 
 export const listClientRenderers = (client: Client) =>
-	client.call((contract) => contract.clientPages.listRenderers());
+	collectRyotQLRecipeItems(client, (after) => clientRenderersRecipe({ after, limit: 100 }));
 
 export const getClientRenderer = (client: Client, rendererId: RendererId) =>
-	client.call((contract) => contract.clientPages.getRenderer({ params: { rendererId } }));
+	executeRyotQLRecipe(client, clientRendererRecipe({ id: rendererId }));
 
 export const replaceClientRendererDraft = (
 	client: Client,

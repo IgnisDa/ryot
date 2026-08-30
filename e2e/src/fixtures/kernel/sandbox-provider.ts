@@ -12,9 +12,8 @@ import type {
 } from "@ryot-app/sandbox-sdk/provider";
 import { Effect } from "effect";
 
-import { adminHeaders } from "./admin";
+import { listAdminSandboxScripts } from "./admin-sandbox-scripts";
 import type { Client } from "./auth";
-import { getApiClient } from "./contract-client";
 import {
 	installTestPluginBundle,
 	reinstallTestPluginScript,
@@ -166,12 +165,12 @@ export const installTestProvider = (input: {
 		if (!detailsScriptId) {
 			return yield* Effect.die(new Error("Installed provider details script was not found"));
 		}
-		const storedScripts = yield* Effect.forEach(Object.values(installed.scriptIds), (scriptId) =>
-			getApiClient().call(
-				(c) => c.testSupport.getSandboxScript({ params: { scriptId } }),
-				adminHeaders(),
-			),
+		const storedScripts = (yield* listAdminSandboxScripts(installed.activePluginRevisionId)).filter(
+			(script) => Object.values(installed.scriptIds).includes(script.id),
 		);
+		if (storedScripts.length !== Object.values(installed.scriptIds).length) {
+			return yield* Effect.die(new Error("Installed provider operation script was not found"));
+		}
 		const providerId = storedScripts.find((script) => script.id === detailsScriptId)?.providerId;
 		if (!providerId) {
 			return yield* Effect.die(new Error("Installed provider ID was not returned by test support"));

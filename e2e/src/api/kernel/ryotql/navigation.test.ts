@@ -7,6 +7,7 @@ import {
 	createCollection,
 	createSavedView,
 	executeRyotQLRecipe,
+	findSavedViewById,
 	reorderSavedViews,
 	updateSavedView,
 } from "~/fixtures/kernel";
@@ -21,14 +22,16 @@ describe("RyotQL navigation", () => {
 			const orderedViewName = `Ordered Navigation View ${crypto.randomUUID()}`;
 			const secondViewName = `Second Navigation View ${crypto.randomUUID()}`;
 
-			const firstView = yield* createSavedView(first.client, {
+			const firstCreated = yield* createSavedView(first.client, {
 				name: firstViewName,
 				workspacePluginSlug: PluginSlug.make("media"),
 			});
-			const orderedView = yield* createSavedView(first.client, {
+			const orderedCreated = yield* createSavedView(first.client, {
 				name: orderedViewName,
 				workspacePluginSlug: PluginSlug.make("media"),
 			});
+			const firstView = yield* findSavedViewById(first.client, firstCreated.id);
+			const orderedView = yield* findSavedViewById(first.client, orderedCreated.id);
 			yield* updateSavedView(first.client, firstView.slug, {
 				isDisabled: true,
 				name: firstViewName,
