@@ -22,4 +22,4 @@ export const manifest = defineManifest({
 	},
 });
 
-export default defineProvider({ manifest, operation: "search", run: search.run });
+export default defineProvider({ manifest, run: search.run, operation: "search" });

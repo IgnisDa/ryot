@@ -14,7 +14,7 @@ describe("active client document owner", () => {
 		let title: PluginHeaderState | null = null;
 		let readiness: ClientPageScreenState | null = null;
 		let overlays = 0;
-		const { header, overlay, screen } = createClientDocumentControllers(
+		const { header, screen, overlay } = createClientDocumentControllers(
 			activeOwner,
 			(state) => {
 				title = state;
@@ -26,8 +26,8 @@ describe("active client document owner", () => {
 				overlays = count;
 			},
 		);
-		const publication = { title: "Owner B", index: 2, key: "entry-b" };
-		const ready = { hasPreviousScreen: true, index: 2, key: "entry-b" };
+		const publication = { index: 2, key: "entry-b", title: "Owner B" };
+		const ready = { index: 2, key: "entry-b", hasPreviousScreen: true };
 
 		header.activate(ownerB);
 		screen.activate(ownerB);

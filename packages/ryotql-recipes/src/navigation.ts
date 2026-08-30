@@ -15,7 +15,28 @@ const collection = table("entity", "collection");
 const savedView = table("savedView", "savedView");
 
 export const navigationRecipe = defineRecipe(() => ({
+	map: ({ savedViews, collections }) =>
+		Result.succeed({
+			savedViews: savedViews.items,
+			collections: collections.items.map((item, index) => ({
+				slug: item.id,
+				name: item.name,
+				sortOrder: index,
+				icon: "layers-3",
+				pluginSlug: null,
+				isDisabled: false,
+			})),
+		}),
 	queries: {
+		collections: selectedRows(collection, {
+			limit: 100,
+			orderBy: [ascending(column(collection, "name"))],
+			where: eq(column(collection, "entitySchemaSlug"), literal("collection")),
+			selection: {
+				id: selectedField(column(collection, "id"), Schema.String),
+				name: selectedField(column(collection, "name"), Schema.String),
+			},
+		}),
 		savedViews: selectedRows(savedView, {
 			limit: 100,
 			orderBy: [
@@ -32,28 +53,7 @@ export const navigationRecipe = defineRecipe(() => ({
 				pluginSlug: selectedField(column(savedView, "pluginSlug"), Schema.NullOr(Schema.String)),
 			},
 		}),
-		collections: selectedRows(collection, {
-			limit: 100,
-			orderBy: [ascending(column(collection, "name"))],
-			where: eq(column(collection, "entitySchemaSlug"), literal("collection")),
-			selection: {
-				id: selectedField(column(collection, "id"), Schema.String),
-				name: selectedField(column(collection, "name"), Schema.String),
-			},
-		}),
 	},
-	map: ({ collections, savedViews }) =>
-		Result.succeed({
-			savedViews: savedViews.items,
-			collections: collections.items.map((item, index) => ({
-				name: item.name,
-				slug: item.id,
-				sortOrder: index,
-				icon: "layers-3",
-				pluginSlug: null,
-				isDisabled: false,
-			})),
-		}),
 }));
 
 export type NavigationData = Recipe.Success<typeof navigationRecipe>;

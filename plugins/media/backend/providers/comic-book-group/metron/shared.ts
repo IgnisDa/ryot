@@ -6,12 +6,12 @@ import { asRecord, stringValue } from "../../../lib/records";
 import { loadMetronJson, type MetronHost } from "../../../lib/vendors/metron";
 
 export const manifest = defineManifest({
-	kind: "provider",
 	name: "Metron",
+	kind: "provider",
+	requiredSystemConfigKeys: [],
 	slug: "comic-book-group.metron",
 	capabilities: ["httpCall", "getPluginConfig"],
 	requiredPluginConfigKeys: ["metronUsername", "metronPassword"],
-	requiredSystemConfigKeys: [],
 });
 
 const METRON_BASE_URL = "https://metron.cloud/api";
@@ -63,7 +63,7 @@ export const search = defineProvider({
 					];
 				});
 				const nextPage = data?.["next"] != null ? input.page + 1 : null;
-				return { items, details: { totalItems, nextPage } };
+				return { items, details: { nextPage, totalItems } };
 			}),
 		);
 	},
@@ -111,20 +111,20 @@ export const details = defineProvider({
 			});
 			return {
 				name: title,
-				relatedEntityGroups: [
-					{
-						direction: "outgoing" as const,
-						entities: relatedEntities,
-						synchronization: "authoritative" as const,
-						relationshipSchemaSlug: "comic-book-group-to-comic-book",
-					},
-				],
 				properties: {
 					parts,
 					images: [],
 					description,
 					sourceUrl: `https://metron.cloud/series/${input.externalId}`,
 				},
+				relatedEntityGroups: [
+					{
+						entities: relatedEntities,
+						direction: "outgoing" as const,
+						synchronization: "authoritative" as const,
+						relationshipSchemaSlug: "comic-book-group-to-comic-book",
+					},
+				],
 			};
 		}),
 });

@@ -62,8 +62,8 @@ const truncateArtifact = (value: unknown) => {
 	while (low < high) {
 		const midpoint = Math.ceil((low + high) / 2);
 		const candidate = {
-			marker: SUBSCRIPTION_RUN_TRUNCATION_MARKER,
 			preview: serialized.slice(0, midpoint),
+			marker: SUBSCRIPTION_RUN_TRUNCATION_MARKER,
 		};
 		if (utf8ByteLength(stableStringify(candidate)) <= SUBSCRIPTION_RUN_ARTIFACT_BYTES) {
 			low = midpoint;
@@ -71,7 +71,7 @@ const truncateArtifact = (value: unknown) => {
 			high = midpoint - 1;
 		}
 	}
-	return { marker: SUBSCRIPTION_RUN_TRUNCATION_MARKER, preview: serialized.slice(0, low) };
+	return { preview: serialized.slice(0, low), marker: SUBSCRIPTION_RUN_TRUNCATION_MARKER };
 };
 
 const makeRunId = (occurrenceId: string, ruleId: AutomationRuleId) =>
@@ -292,17 +292,17 @@ export class AutomationsService extends Context.Service<AutomationsService>()(
 								run.status === "failed" ||
 								run.status === "skipped"
 							) {
-								return { kind: "terminal" as const, run };
+								return { run, kind: "terminal" as const };
 							}
 							if (run.status === "running") {
-								return { kind: "ready" as const, run };
+								return { run, kind: "ready" as const };
 							}
 							if (run.executionUserId && !(yield* repository.isUserEnabled(run.executionUserId))) {
 								const skipped = yield* repository.skipRun({
 									id: run.id,
 									reason: { kind: "user_disabled" },
 								});
-								return { kind: "terminal" as const, run: skipped ?? run };
+								return { run: skipped ?? run, kind: "terminal" as const };
 							}
 							const script = yield* repository.findScriptExecution(input.sandboxScriptId);
 							if (!script) {
@@ -315,7 +315,7 @@ export class AutomationsService extends Context.Service<AutomationsService>()(
 							if (!running) {
 								return yield* new DbError({ message: "Subscription run could not start" });
 							}
-							return { kind: "ready" as const, run: running };
+							return { run: running, kind: "ready" as const };
 						}).pipe(Effect.provideService(Database, transaction)),
 					),
 				);

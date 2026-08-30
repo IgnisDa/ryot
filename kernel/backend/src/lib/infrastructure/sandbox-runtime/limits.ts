@@ -17,11 +17,11 @@ export const SANDBOX_LIMITS = {
 	compiler: SANDBOX_COMPILER_LIMITS,
 	hostCalls: { http: 50, total: 1_000 },
 	globalWrites: GLOBAL_WRITE_SANDBOX_LIMITS,
-	diagnostics: { stderrBytes: 64 * KiB, stderrLines: 20 },
+	diagnostics: { stderrLines: 20, stderrBytes: 64 * KiB },
 	userRelationshipWrites: USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS,
 	scratch: { maxDepth: 32, maxEntries: 4_096, totalBytes: 5 * MiB },
 	logs: { entryCount: 500, entryBytes: 8 * KiB, totalBytes: 256 * KiB },
-	http: { requestBytes: MiB, responseBytes: 10 * MiB, timeoutMs: 8_000 },
+	http: { timeoutMs: 8_000, requestBytes: MiB, responseBytes: 10 * MiB },
 	cache: { keyBytes: 256, valueBytes: 256 * KiB, ttlSeconds: 30 * 24 * 60 * 60 },
 	observability: { entryCount: 500, entryBytes: 8 * KiB, totalBytes: 256 * KiB },
 	bridge: {

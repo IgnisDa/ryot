@@ -97,7 +97,7 @@ describe("Delete user", () => {
 				sortOrder: 41,
 				isDisabled: true,
 			});
-			expect(configuredPlugin).toMatchObject({ isDisabled: true, sortOrder: 41 });
+			expect(configuredPlugin).toMatchObject({ sortOrder: 41, isDisabled: true });
 			const apiKey = yield* createApiKey(sessionCookie);
 
 			yield* client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
@@ -117,7 +117,7 @@ describe("Delete user", () => {
 			const accepted: DeleteUserOperation = yield* Schema.decodeUnknownEffect(
 				UserLifecycleOperationSchema,
 			)(yield* Effect.promise(() => acceptedResponse.json()));
-			expect(accepted).toMatchObject({ kind: "delete", userId });
+			expect(accepted).toMatchObject({ userId, kind: "delete" });
 
 			const revokedSession = yield* Effect.flip(
 				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
@@ -167,14 +167,14 @@ describe("Delete user automation data cleanup", () => {
 				actorUserId: rawUserId,
 				schemaSlug: "workout.created",
 			});
-			yield* pollTerminalSubscriptionRuns({ executionUserId: rawUserId, signalId });
+			yield* pollTerminalSubscriptionRuns({ signalId, executionUserId: rawUserId });
 
 			yield* deleteUserAndWait(userId);
 
-			expect(yield* listSignals({ schemaSlug: "workout.created", actorUserId: rawUserId })).toEqual(
+			expect(yield* listSignals({ actorUserId: rawUserId, schemaSlug: "workout.created" })).toEqual(
 				[],
 			);
-			expect(yield* listSubscriptionRuns({ executionUserId: rawUserId, signalId })).toEqual([]);
+			expect(yield* listSubscriptionRuns({ signalId, executionUserId: rawUserId })).toEqual([]);
 		}),
 	);
 
@@ -192,8 +192,8 @@ describe("Delete user automation data cleanup", () => {
 				const movieSchemaId = yield* getBuiltinEntitySchemaSlug("movie");
 				const personProvider = yield* Effect.acquireRelease(
 					installTestProvider({
-						client: compilerClient,
 						scope: "system",
+						client: compilerClient,
 						rootEntitySchemaSlug: personSchemaId,
 						slug: `person.delete-user-e2e-${crypto.randomUUID()}`,
 						details: fakeProviderDetailsResult({ name: personName }),
@@ -202,8 +202,8 @@ describe("Delete user automation data cleanup", () => {
 				);
 				const movieProvider = yield* Effect.acquireRelease(
 					installTestProvider({
-						client: compilerClient,
 						scope: "system",
+						client: compilerClient,
 						rootEntitySchemaSlug: movieSchemaId,
 						slug: `movie.delete-user-e2e-${crypto.randomUUID()}`,
 						details: fakeProviderDetailsResult({
@@ -243,11 +243,11 @@ describe("Delete user automation data cleanup", () => {
 				yield* Effect.all([
 					createNotificationChannel(firstMonitor.client, {
 						channel: "apprise",
-						channelSpecifics: { baseUrl: fakeApprise.url, key: "first", kind: "apprise" },
+						channelSpecifics: { key: "first", kind: "apprise", baseUrl: fakeApprise.url },
 					}),
 					createNotificationChannel(secondMonitor.client, {
 						channel: "apprise",
-						channelSpecifics: { baseUrl: fakeApprise.url, key: "second", kind: "apprise" },
+						channelSpecifics: { key: "second", kind: "apprise", baseUrl: fakeApprise.url },
 					}),
 				]);
 				yield* Effect.all([
@@ -263,7 +263,7 @@ describe("Delete user automation data cleanup", () => {
 				assertCompleted(imported, "delete-user shared association import");
 
 				const { id: signalId } = yield* pollSignalWithRecipientCount(
-					{ schemaSlug: "person.media.associated", subjectEntityId: person.id },
+					{ subjectEntityId: person.id, schemaSlug: "person.media.associated" },
 					2,
 				);
 				yield* Effect.all([

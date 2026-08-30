@@ -37,7 +37,7 @@ const fontFamiliesForSelector = (css: string, selector: string) => {
 
 const fixtureFiles = Effect.promise(async () => {
 	const paths = await Array.fromAsync(
-		new Bun.Glob("client/**/*").scan({ cwd: fixtureRoot, onlyFiles: true }),
+		new Bun.Glob("client/**/*").scan({ onlyFiles: true, cwd: fixtureRoot }),
 	);
 	const entries = await Promise.all(
 		sortBy(paths.filter((path) => pluginClientFileExtension(path) !== undefined)).map(
@@ -56,10 +56,10 @@ export default Home;
 
 const compileFixture = (files: Record<string, Uint8Array>) =>
 	compileClientPlugin({
-		files: { ...files, "client/__fixture_page.tsx": bytes(fixturePageSource) },
-		publicExports: { fixture: { entry: "client/__fixture_page.tsx", kind: "page" } },
 		name: "Fixture plugin",
 		apiVersion: CLIENT_API_VERSION,
+		files: { ...files, "client/__fixture_page.tsx": bytes(fixturePageSource) },
+		publicExports: { fixture: { kind: "page", entry: "client/__fixture_page.tsx" } },
 	});
 
 const compileGraph = (overrides: Partial<ClientPluginCompilerGraphInput> = {}) => {
@@ -83,8 +83,8 @@ const compileGraph = (overrides: Partial<ClientPluginCompilerGraphInput> = {}) =
 const compileStylesheet = (stylesheet: string, files: Record<string, Uint8Array> = {}) =>
 	compileFixture({
 		...files,
-		"client/index.tsx": bytes('import "./styles.css";'),
 		"client/styles.css": bytes(stylesheet),
+		"client/index.tsx": bytes('import "./styles.css";'),
 	});
 
 it.effect("generates and executes the single bootstrap for a saved-view page", () =>
@@ -301,10 +301,10 @@ it.effect(
 			const { artifact } = yield* compileStylesheet(
 				'@import "tailwindcss";\n@import "./components.css";',
 				{
+					"client/nested/details.css": bytes(".local-detail { color: blue; }"),
 					"client/components.css": bytes(
 						'@import "./nested/details.css";\n.local-component { color: red; }',
 					),
-					"client/nested/details.css": bytes(".local-detail { color: blue; }"),
 				},
 			);
 
@@ -390,8 +390,8 @@ it.effect(
 		Effect.gen(function* () {
 			const image = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0xff, 0x00]);
 			const { artifact } = yield* compileFixture({
-				"client/index.tsx": bytes('import image from "./image.png"; console.log(image);'),
 				"client/image.png": image,
+				"client/index.tsx": bytes('import image from "./image.png"; console.log(image);'),
 			});
 			const asset = artifact.files.find(({ name }) => name.endsWith(".png"));
 
@@ -459,15 +459,15 @@ it.effect(
 				name: "Exporting plugin",
 				apiVersion: CLIENT_API_VERSION,
 				publicExports: {
-					"entity-detail": { entry: "client/entity-detail.tsx", kind: "page" as const },
-					"route-page": { entry: "client/route-page.tsx", kind: "page" as const },
+					"route-page": { kind: "page" as const, entry: "client/route-page.tsx" },
+					"entity-detail": { kind: "page" as const, entry: "client/entity-detail.tsx" },
 				},
 				files: {
-					"client/entity-detail.tsx": bytes(
-						'Reflect.set(globalThis, "generatedPageRoots", Number(Reflect.get(globalThis, "generatedPageRoots") ?? 0) + 1); export default function EntityDetail() { return <div>entity-detail-page</div>; }',
-					),
 					"client/route-page.tsx": bytes(
 						"export default function RoutePage() { return <div>ordinary-route-page</div>; }",
+					),
+					"client/entity-detail.tsx": bytes(
+						'Reflect.set(globalThis, "generatedPageRoots", Number(Reflect.get(globalThis, "generatedPageRoots") ?? 0) + 1); export default function EntityDetail() { return <div>entity-detail-page</div>; }',
 					),
 				},
 			};
@@ -510,7 +510,7 @@ it.effect("enforces client import policy for otherwise unreachable advertised ex
 		const failure = yield* compileClientPlugin({
 			name: "Exporting plugin",
 			apiVersion: CLIENT_API_VERSION,
-			publicExports: { summary: { entry: "client/summary.tsx", kind: "component" } },
+			publicExports: { summary: { kind: "component", entry: "client/summary.tsx" } },
 			files: {
 				"client/summary.tsx": bytes(
 					'import { Option } from "@ryot-app/plugin-kit/effect"; export default function Summary() { return Option.none(); }',
@@ -561,11 +561,11 @@ it.effect("executes the trusted UI table subpath without missing transitive bind
 		const home = "@ryot-app/plugins/fixture/home";
 		const { artifact } = yield* compileGraph({
 			application: "plugin-route",
-			entry: { contributor: "fixture", path: "client/index.tsx" },
 			contributorOrder: ["fixture"],
 			routeRegistry: { home, routes: [] },
+			entry: { contributor: "fixture", path: "client/index.tsx" },
 			publicExports: {
-				[home]: { contributor: "fixture", entry: "client/index.tsx", kind: "page" },
+				[home]: { kind: "page", contributor: "fixture", entry: "client/index.tsx" },
 			},
 			contributors: {
 				fixture: {
@@ -600,7 +600,7 @@ export default function Home() { return (
 			'<!doctype html><html><head></head><body><div id="app"></div></body></html>',
 			{ url: "https://fixture.test" },
 		);
-		const { document, window } = dom.window;
+		const { window, document } = dom.window;
 		const metadata = document.createElement("script");
 		metadata.id = CLIENT_ARTIFACT_METADATA_ELEMENT_ID;
 		metadata.textContent = JSON.stringify({
@@ -688,7 +688,7 @@ export default function Home() { return (
 			edgeBack: false,
 			type: "location",
 			leading: "drawer",
-			location: { kind: "route", path: "/", search: "" },
+			location: { path: "/", search: "", kind: "route" },
 		});
 		yield* Effect.promise(() =>
 			waitFor(() => expect(document.getElementById("app")?.textContent).toContain("One"), {
@@ -724,6 +724,8 @@ it.effect(
 	() =>
 		Effect.gen(function* () {
 			const { artifact } = yield* compileFixture({
+				"client/styles.css": bytes(".logo { display: block; }"),
+				"client/logo.svg": bytes('<svg xmlns="http://www.w3.org/2000/svg" />'),
 				"client/index.tsx": bytes(`
 import "./styles.css";
 import { Button } from "@ryot-app/client-ui-sdk";
@@ -735,8 +737,6 @@ export default function Home() {
 	return <Button onClick={() => setCount(count + 1)}><img alt="" src={logo} />{count}</Button>;
 }
 `),
-				"client/styles.css": bytes(".logo { display: block; }"),
-				"client/logo.svg": bytes('<svg xmlns="http://www.w3.org/2000/svg" />'),
 			});
 
 			expect(artifact.files.some(({ name }) => name.endsWith(".svg"))).toBe(true);
@@ -754,8 +754,8 @@ it.effect(
 				'@import "./nested/details.css"; .root { background: url("./root.png"); }',
 				{
 					"client/root.png": rootImage,
-					"client/nested/details.css": bytes(".nested { background-image: url(../nested.png); }"),
 					"client/nested.png": nestedImage,
+					"client/nested/details.css": bytes(".nested { background-image: url(../nested.png); }"),
 				},
 			);
 			const css = text(artifact.files.find(({ name }) => name === "plugin.css")?.contents);
@@ -777,11 +777,11 @@ it.effect(
 		Effect.gen(function* () {
 			const image = new Uint8Array([7, 8, 9]);
 			const { artifact } = yield* compileFixture({
+				"client/image.png": image,
+				"client/styles.css": bytes(".image { background: url(./image.png); }"),
 				"client/index.tsx": bytes(
 					'import image from "./image.png"; import "./styles.css"; console.log(image);',
 				),
-				"client/styles.css": bytes(".image { background: url(./image.png); }"),
-				"client/image.png": image,
 			});
 			const assets = artifact.files.filter(({ name }) => name.endsWith(".png"));
 
@@ -977,15 +977,15 @@ it.effect(
 			const files = { "client/index.tsx": bytes("export {};") };
 			const plain = yield* compileClientPlugin({
 				files,
+				publicExports: {},
 				name: "Anime & Manga",
 				apiVersion: CLIENT_API_VERSION,
-				publicExports: {},
 			});
 			const other = yield* compileClientPlugin({
 				files,
 				name: "Fitness",
-				apiVersion: CLIENT_API_VERSION,
 				publicExports: {},
+				apiVersion: CLIENT_API_VERSION,
 			});
 			const documentOf = (artifact: typeof plain.artifact) =>
 				text(artifact.files.find((file) => file.name === "index.html")?.contents);
@@ -1032,8 +1032,8 @@ it.effect(
 	() =>
 		Effect.gen(function* () {
 			const failure = yield* compileFixture({
-				"client/index.tsx": bytes('export { label } from "../shared/label";'),
 				"client/theme.ts": bytes('export const theme = "dark";'),
+				"client/index.tsx": bytes('export { label } from "../shared/label";'),
 				"shared/label.ts": bytes(
 					'import { theme } from "../client/theme";\n\nexport const label = theme;',
 				),
@@ -1093,54 +1093,6 @@ it.effect(
 			const fixtureImage = new Uint8Array([2, 4, 6]);
 			const { artifact } = yield* compileGraph({
 				contributorOrder: ["user", "media", "fixture"],
-				contributors: {
-					user: {
-						files: {
-							"client/page.tsx": bytes(`
-import MediaCard from "@ryot-app/plugins/media/show-card";
-import PokemonCard from "@ryot-app/plugins/fixture/pokemon-card";
-export default function Page() { return <><MediaCard /><PokemonCard /></>; }
-`),
-						},
-					},
-					media: {
-						files: {
-							"client/card.tsx": bytes(`
-import "./styles.css";
-import image from "./image.png";
-import React from "react";
-Reflect.set(globalThis, "ryotTestReact", React);
-Reflect.set(globalThis, "ryotTestContributors", ["media"]);
-export default function Card() { return <img className="media-card" src={image} />; }
-`),
-							"client/styles.css": bytes(
-								'.media-card { background: url("./image.png"); } .shared-priority { color: red; }',
-							),
-							"client/image.png": mediaImage,
-							"client/unrelated.ts": bytes(
-								"const invalid: string = 1;" +
-									" ".repeat(CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes),
-							),
-							"client/unrelated.css": bytes(".unrelated-page { color: red; }"),
-						},
-					},
-					fixture: {
-						files: {
-							"client/card.tsx": bytes(`
-import "./styles.css";
-import image from "./image.png";
-import React from "react";
-if (Reflect.get(globalThis, "ryotTestReact") !== React) throw new Error("duplicate React");
-(Reflect.get(globalThis, "ryotTestContributors") as string[]).push("fixture");
-export default function Card() { return <img className="fixture-card" src={image} />; }
-`),
-							"client/styles.css": bytes(
-								'.fixture-card { background: url("./image.png"); } .shared-priority { color: blue; }',
-							),
-							"client/image.png": fixtureImage,
-						},
-					},
-				},
 				publicExports: {
 					"@ryot-app/plugins/media/show-card": {
 						kind: "component",
@@ -1151,6 +1103,54 @@ export default function Card() { return <img className="fixture-card" src={image
 						kind: "component",
 						contributor: "fixture",
 						entry: "client/card.tsx",
+					},
+				},
+				contributors: {
+					user: {
+						files: {
+							"client/page.tsx": bytes(`
+import MediaCard from "@ryot-app/plugins/media/show-card";
+import PokemonCard from "@ryot-app/plugins/fixture/pokemon-card";
+export default function Page() { return <><MediaCard /><PokemonCard /></>; }
+`),
+						},
+					},
+					fixture: {
+						files: {
+							"client/image.png": fixtureImage,
+							"client/styles.css": bytes(
+								'.fixture-card { background: url("./image.png"); } .shared-priority { color: blue; }',
+							),
+							"client/card.tsx": bytes(`
+import "./styles.css";
+import image from "./image.png";
+import React from "react";
+if (Reflect.get(globalThis, "ryotTestReact") !== React) throw new Error("duplicate React");
+(Reflect.get(globalThis, "ryotTestContributors") as string[]).push("fixture");
+export default function Card() { return <img className="fixture-card" src={image} />; }
+`),
+						},
+					},
+					media: {
+						files: {
+							"client/image.png": mediaImage,
+							"client/unrelated.css": bytes(".unrelated-page { color: red; }"),
+							"client/styles.css": bytes(
+								'.media-card { background: url("./image.png"); } .shared-priority { color: red; }',
+							),
+							"client/unrelated.ts": bytes(
+								"const invalid: string = 1;" +
+									" ".repeat(CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes),
+							),
+							"client/card.tsx": bytes(`
+import "./styles.css";
+import image from "./image.png";
+import React from "react";
+Reflect.set(globalThis, "ryotTestReact", React);
+Reflect.set(globalThis, "ryotTestContributors", ["media"]);
+export default function Card() { return <img className="media-card" src={image} />; }
+`),
+						},
 					},
 				},
 			});
@@ -1189,6 +1189,13 @@ it.effect(
 				'import Cross from "../../media/client/card"; export default Cross;',
 			]) {
 				const failure = yield* compileGraph({
+					publicExports: {
+						"@ryot-app/plugins/media/card": {
+							kind: "component",
+							contributor: "media",
+							entry: "client/card.tsx",
+						},
+					},
 					contributors: {
 						user: { files: { "client/page.tsx": bytes(source) } },
 						media: {
@@ -1197,24 +1204,11 @@ it.effect(
 							},
 						},
 					},
-					publicExports: {
-						"@ryot-app/plugins/media/card": {
-							kind: "component",
-							contributor: "media",
-							entry: "client/card.tsx",
-						},
-					},
 				}).pipe(Effect.flip);
 				expect(failure.diagnostics[0]?.code).toBe("RYOT_CLIENT_IMPORT");
 			}
 
 			const backend = yield* compileGraph({
-				contributors: {
-					media: { files: { "backend/private.tsx": bytes("export default null;") } },
-					user: {
-						files: { "client/page.tsx": bytes("export default function Page() { return null; }") },
-					},
-				},
 				publicExports: {
 					"@ryot-app/plugins/media/private": {
 						kind: "component",
@@ -1222,11 +1216,27 @@ it.effect(
 						entry: "backend/private.tsx",
 					},
 				},
+				contributors: {
+					media: { files: { "backend/private.tsx": bytes("export default null;") } },
+					user: {
+						files: { "client/page.tsx": bytes("export default function Page() { return null; }") },
+					},
+				},
 			}).pipe(Effect.flip);
 			expect(backend.diagnostics[0]?.code).toBe("RYOT_CLIENT_SOURCE_PATH");
 
 			const sharedPublic = yield* compileGraph({
+				publicExports: {
+					"@ryot-app/plugins/media/card": {
+						kind: "component",
+						contributor: "media",
+						entry: "client/card.tsx",
+					},
+				},
 				contributors: {
+					media: {
+						files: { "client/card.tsx": bytes("export default function Card() { return null; }") },
+					},
 					user: {
 						files: {
 							"client/page.tsx": bytes(
@@ -1236,16 +1246,6 @@ it.effect(
 								'import Card from "@ryot-app/plugins/media/card"; export default Card;',
 							),
 						},
-					},
-					media: {
-						files: { "client/card.tsx": bytes("export default function Card() { return null; }") },
-					},
-				},
-				publicExports: {
-					"@ryot-app/plugins/media/card": {
-						kind: "component",
-						contributor: "media",
-						entry: "client/card.tsx",
 					},
 				},
 			}).pipe(Effect.flip);
@@ -1258,22 +1258,6 @@ it.effect(
 it.effect("checks generated public export types and the aggregate reachable graph limit", () =>
 	Effect.gen(function* () {
 		const invalidType = yield* compileGraph({
-			contributors: {
-				user: {
-					files: {
-						"client/page.tsx": bytes(
-							'import Other from "@ryot-app/plugins/media/other-page"; export default Other;',
-						),
-					},
-				},
-				media: {
-					files: {
-						"client/page.tsx": bytes(
-							"export default function Page(_props: { required: string }) { return null; }",
-						),
-					},
-				},
-			},
 			publicExports: {
 				"@ryot-app/plugins/media/other-page": {
 					kind: "page",
@@ -1281,20 +1265,35 @@ it.effect("checks generated public export types and the aggregate reachable grap
 					entry: "client/page.tsx",
 				},
 			},
+			contributors: {
+				media: {
+					files: {
+						"client/page.tsx": bytes(
+							"export default function Page(_props: { required: string }) { return null; }",
+						),
+					},
+				},
+				user: {
+					files: {
+						"client/page.tsx": bytes(
+							'import Other from "@ryot-app/plugins/media/other-page"; export default Other;',
+						),
+					},
+				},
+			},
 		}).pipe(Effect.flip);
 		expect(invalidType.diagnostics.some(({ code }) => code === "TS2322")).toBe(true);
 
 		const half = Math.floor(CLIENT_PLUGIN_COMPILER_LIMITS.sourceBytes / 2) + 1;
 		const limit = yield* compileGraph({
-			contributors: {
-				user: {
-					files: {
-						"client/page.tsx": bytes(
-							'import { first } from "./first"; import Second from "@ryot-app/plugins/media/second"; console.log(first, Second); export default function Page() { return null; }',
-						),
-						"client/first.ts": bytes(`export const first = 1;${" ".repeat(half)}`),
-					},
+			publicExports: {
+				"@ryot-app/plugins/media/second": {
+					kind: "component",
+					contributor: "media",
+					entry: "client/second.tsx",
 				},
+			},
+			contributors: {
 				media: {
 					files: {
 						"client/second.tsx": bytes(
@@ -1302,12 +1301,13 @@ it.effect("checks generated public export types and the aggregate reachable grap
 						),
 					},
 				},
-			},
-			publicExports: {
-				"@ryot-app/plugins/media/second": {
-					kind: "component",
-					contributor: "media",
-					entry: "client/second.tsx",
+				user: {
+					files: {
+						"client/first.ts": bytes(`export const first = 1;${" ".repeat(half)}`),
+						"client/page.tsx": bytes(
+							'import { first } from "./first"; import Second from "@ryot-app/plugins/media/second"; console.log(first, Second); export default function Page() { return null; }',
+						),
+					},
 				},
 			},
 		}).pipe(Effect.flip);
@@ -1318,29 +1318,6 @@ it.effect("checks generated public export types and the aggregate reachable grap
 it.effect("keeps cyclic contributor graphs stable and validates automatic registry entries", () =>
 	Effect.gen(function* () {
 		const input = {
-			contributors: {
-				user: {
-					files: {
-						"client/page.tsx": bytes(
-							'import Media from "@ryot-app/plugins/media/card"; export default Media;',
-						),
-					},
-				},
-				media: {
-					files: {
-						"client/card.tsx": bytes(
-							'import "@ryot-app/plugins/fixture/presentation"; export default function Card() { return null; }',
-						),
-					},
-				},
-				fixture: {
-					files: {
-						"client/presentation.tsx": bytes(
-							'import "@ryot-app/plugins/media/card"; import { defineEntityPresentation } from "@ryot-app/client-sdk/plugin"; export default defineEntityPresentation({ loader: async ({ references }) => Object.fromEntries(references.map(({ entityId }) => [entityId, { label: entityId }])), component: ({ data }) => <p>{data.label}</p> });',
-						),
-					},
-				},
-			},
 			publicExports: {
 				"@ryot-app/plugins/media/card": {
 					contributor: "media",
@@ -1367,6 +1344,29 @@ it.effect("keeps cyclic contributor graphs stable and validates automatic regist
 					exportSpecifier: "@ryot-app/plugins/fixture/presentation",
 				},
 			],
+			contributors: {
+				user: {
+					files: {
+						"client/page.tsx": bytes(
+							'import Media from "@ryot-app/plugins/media/card"; export default Media;',
+						),
+					},
+				},
+				media: {
+					files: {
+						"client/card.tsx": bytes(
+							'import "@ryot-app/plugins/fixture/presentation"; export default function Card() { return null; }',
+						),
+					},
+				},
+				fixture: {
+					files: {
+						"client/presentation.tsx": bytes(
+							'import "@ryot-app/plugins/media/card"; import { defineEntityPresentation } from "@ryot-app/client-sdk/plugin"; export default defineEntityPresentation({ loader: async ({ references }) => Object.fromEntries(references.map(({ entityId }) => [entityId, { label: entityId }])), component: ({ data }) => <p>{data.label}</p> });',
+						),
+					},
+				},
+			},
 		};
 		const first = yield* compileGraph(input);
 		const second = yield* compileGraph({
@@ -1405,25 +1405,13 @@ it("executes a generated plugin registry with dynamic params and not-found", asy
 			contributorOrder: ["fixture"],
 			apiVersion: CLIENT_API_VERSION,
 			entry: { contributor: "fixture", path: "client/home.tsx" },
-			contributors: {
-				fixture: {
-					files: {
-						"client/home.tsx": bytes("export default function Home() { return <p>Home</p>; }"),
-						"client/details.tsx": bytes(`
-import { usePluginParams } from "@ryot-app/client-sdk/plugin";
-export default function Details() {
-  const { itemId } = usePluginParams();
-  return <p>Details:{itemId}</p>;
-}
-`),
-						"client/new-item.tsx": bytes(
-							"export default function NewItem() { return <p>New item</p>; }",
-						),
-						"client/not-found.tsx": bytes(
-							"export default function NotFound() { return <p>Fixture not found</p>; }",
-						),
-					},
-				},
+			routeRegistry: {
+				home: "@ryot-app/plugins/fixture/home",
+				notFound: "@ryot-app/plugins/fixture/not-found",
+				routes: [
+					{ path: "/items/$itemId", exportSpecifier: "@ryot-app/plugins/fixture/details" },
+					{ path: "/items/new", exportSpecifier: "@ryot-app/plugins/fixture/new-item" },
+				],
 			},
 			publicExports: {
 				"@ryot-app/plugins/fixture/home": {
@@ -1436,24 +1424,36 @@ export default function Details() {
 					contributor: "fixture",
 					entry: "client/details.tsx",
 				},
-				"@ryot-app/plugins/fixture/not-found": {
-					kind: "page",
-					contributor: "fixture",
-					entry: "client/not-found.tsx",
-				},
 				"@ryot-app/plugins/fixture/new-item": {
 					kind: "page",
 					contributor: "fixture",
 					entry: "client/new-item.tsx",
 				},
+				"@ryot-app/plugins/fixture/not-found": {
+					kind: "page",
+					contributor: "fixture",
+					entry: "client/not-found.tsx",
+				},
 			},
-			routeRegistry: {
-				home: "@ryot-app/plugins/fixture/home",
-				notFound: "@ryot-app/plugins/fixture/not-found",
-				routes: [
-					{ path: "/items/$itemId", exportSpecifier: "@ryot-app/plugins/fixture/details" },
-					{ path: "/items/new", exportSpecifier: "@ryot-app/plugins/fixture/new-item" },
-				],
+			contributors: {
+				fixture: {
+					files: {
+						"client/home.tsx": bytes("export default function Home() { return <p>Home</p>; }"),
+						"client/new-item.tsx": bytes(
+							"export default function NewItem() { return <p>New item</p>; }",
+						),
+						"client/not-found.tsx": bytes(
+							"export default function NotFound() { return <p>Fixture not found</p>; }",
+						),
+						"client/details.tsx": bytes(`
+import { usePluginParams } from "@ryot-app/client-sdk/plugin";
+export default function Details() {
+  const { itemId } = usePluginParams();
+  return <p>Details:{itemId}</p>;
+}
+`),
+					},
+				},
 			},
 		}).pipe(Effect.mapError((error) => new Error(JSON.stringify(error.diagnostics)))),
 	);
@@ -1550,7 +1550,7 @@ export default function Details() {
 		edgeBack: false,
 		type: "location",
 		leading: "drawer",
-		location: { kind: "route", path: "/items/new", search: "" },
+		location: { search: "", kind: "route", path: "/items/new" },
 	});
 	await waitFor(() => expect(document.getElementById("app")?.textContent).toBe("New item"), {
 		container: document.body,
@@ -1560,9 +1560,9 @@ export default function Details() {
 		key: "missing",
 		compact: false,
 		edgeBack: true,
-		type: "location",
 		leading: "back",
-		location: { kind: "route", path: "/missing", search: "" },
+		type: "location",
+		location: { search: "", kind: "route", path: "/missing" },
 	});
 	await waitFor(
 		() => expect(document.getElementById("app")?.textContent).toContain("Fixture not found"),

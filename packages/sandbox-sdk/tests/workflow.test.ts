@@ -12,34 +12,34 @@ import { describe, expect, test } from "vitest";
 describe("workflow definitions", () => {
 	test("bootstraps once for value-dependent recorded steps and a pending next step", async () => {
 		const manifest = defineManifest({
-			kind: "workflow",
-			capabilities: [],
 			name: "Replay",
 			slug: "replay",
+			kind: "workflow",
+			capabilities: [],
 			requiredPluginConfigKeys: [],
 			requiredSystemConfigKeys: [],
 		});
 		const workflow = defineWorkflow({
 			manifest,
-			input: Schema.Struct({ value: Schema.Number }),
 			output: Schema.Array(Schema.String),
+			input: Schema.Struct({ value: Schema.Number }),
 			run: (input, replay) =>
 				Effect.gen(function* () {
 					const first = yield* replay.activity(
 						"first",
 						{
+							output: Schema.String,
 							scriptSlug: "activity.first",
 							input: Schema.Struct({ value: Schema.Number }),
-							output: Schema.String,
 						},
 						input,
 					);
 					const second = yield* replay.child(
 						"second",
 						{
+							output: Schema.String,
 							workflowSlug: "workflow.second",
 							input: Schema.Struct({ value: Schema.Number }),
-							output: Schema.String,
 						},
 						input,
 					);
@@ -95,8 +95,8 @@ describe("workflow definitions", () => {
 				},
 				{
 					index: 1,
-					name: "second",
 					kind: "child",
+					name: "second",
 					args: { input: { value: 1 }, workflowSlug: "workflow.second" },
 				},
 				{ index: 2, name: "next", kind: "sleep", args: { durationMs: 100 } },
@@ -153,7 +153,7 @@ describe("workflow definitions", () => {
 			journalLength: 0,
 			requests: [
 				{ index: 0, name: "first", kind: "sleep", args: { durationMs: 10 } },
-				{ index: 1, name: "second", kind: "sleep", args: { durationMs: 20 } },
+				{ index: 1, kind: "sleep", name: "second", args: { durationMs: 20 } },
 			],
 		});
 		expect(await run([null, null])).toEqual({
@@ -162,7 +162,7 @@ describe("workflow definitions", () => {
 			output: ["first", "second"],
 			requests: [
 				{ index: 0, name: "first", kind: "sleep", args: { durationMs: 10 } },
-				{ index: 1, name: "second", kind: "sleep", args: { durationMs: 20 } },
+				{ index: 1, kind: "sleep", name: "second", args: { durationMs: 20 } },
 			],
 		});
 	});
@@ -247,7 +247,7 @@ describe("workflow definitions", () => {
 			),
 		);
 
-		expect(output).toMatchObject({ state: "failed", requests: [] });
+		expect(output).toMatchObject({ requests: [], state: "failed" });
 	});
 
 	test("validates direct durable call request shapes", () => {
@@ -315,7 +315,7 @@ describe("workflow definitions", () => {
 				Effect.gen(function* () {
 					yield* replay.activity(
 						"step",
-						{ input: Schema.Struct({}), output: Schema.String, scriptSlug: "activity.step" },
+						{ output: Schema.String, input: Schema.Struct({}), scriptSlug: "activity.step" },
 						{},
 					);
 					return yield* Effect.fail(new Error("invariant violated"));

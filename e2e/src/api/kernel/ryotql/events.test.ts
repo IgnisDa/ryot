@@ -77,15 +77,6 @@ describe("RyotQL event queries", () => {
 					events: rows(event, {
 						orderBy: [descending(column(event, "occurredAt"))],
 						joins: [join("inner", entity, eq(column(event, "entityId"), column(entity, "id")))],
-						fields: [
-							field("createdAt", column(event, "createdAt")),
-							field("updatedAt", column(event, "updatedAt")),
-							field("occurredAt", column(event, "occurredAt")),
-							field("sessionEntityId", column(event, "sessionEntityId")),
-							field("eventSchemaSlug", column(event, "eventSchemaSlug")),
-							field("entityName", column(entity, "name")),
-							field("rating", jsonPath(column(event, "properties"), "rating")),
-						],
 						where: and(
 							inArray(column(event, "eventSchemaSlug"), [
 								literal(first.eventSchemaSlug),
@@ -96,6 +87,15 @@ describe("RyotQL event queries", () => {
 								literal(second.entitySchemaSlug),
 							]),
 						),
+						fields: [
+							field("createdAt", column(event, "createdAt")),
+							field("updatedAt", column(event, "updatedAt")),
+							field("occurredAt", column(event, "occurredAt")),
+							field("sessionEntityId", column(event, "sessionEntityId")),
+							field("eventSchemaSlug", column(event, "eventSchemaSlug")),
+							field("entityName", column(entity, "name")),
+							field("rating", jsonPath(column(event, "properties"), "rating")),
+						],
 					}),
 				}),
 			);
@@ -107,10 +107,10 @@ describe("RyotQL event queries", () => {
 				"RyotQLEventBook Entity",
 			]);
 			expect(events.items[0]).toMatchObject({
-				createdAt: expect.any(String),
-				updatedAt: expect.any(String),
 				rating: 5,
 				sessionEntityId: null,
+				createdAt: expect.any(String),
+				updatedAt: expect.any(String),
 				occurredAt: "2026-08-01T00:00:00.000Z",
 			});
 		}),
@@ -132,8 +132,8 @@ describe("RyotQL event queries", () => {
 			const rating = castNumber(jsonPath(column(event, "properties"), "rating"));
 			const page = (after?: string) =>
 				rows(event, {
-					limit: 2,
 					after,
+					limit: 2,
 					orderBy: [descending(rating)],
 					fields: [field("rating", rating)],
 					where: and(

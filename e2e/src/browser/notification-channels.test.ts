@@ -37,7 +37,7 @@ const addDiscordChannel = (page: Playwright.Page) =>
 
 		yield* wizard(page).getByLabel("Webhook URL").fill(WEBHOOK_URL);
 		yield* wizard(page).getByRole("button", { name: "Continue" }).click();
-		yield* wizard(page).getByRole("button", { name: "Add channel", exact: true }).click();
+		yield* wizard(page).getByRole("button", { exact: true, name: "Add channel" }).click();
 		yield* wizard(page).waitFor({ state: "hidden" });
 	});
 

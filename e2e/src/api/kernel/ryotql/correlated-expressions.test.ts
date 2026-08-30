@@ -69,12 +69,6 @@ describe("RyotQL correlated expressions", () => {
 				const courseModule = table("relationship", `courseModule${suffix}`);
 				const duration = castNumber(jsonPath(column(lesson, "properties"), "durationMinutes"));
 				const query = {
-					where: and(
-						eq(column(courseModule, "sourceEntityId"), column(course, "id")),
-						eq(column(courseModule, "relationshipSchemaSlug"), literal(courseModuleSlug)),
-						eq(column(moduleLesson, "relationshipSchemaSlug"), literal(moduleLessonSlug)),
-						eq(column(lesson, "entitySchemaSlug"), literal(lessonSlug)),
-					),
 					joins: [
 						join(
 							"inner",
@@ -83,8 +77,14 @@ describe("RyotQL correlated expressions", () => {
 						),
 						join("inner", lesson, eq(column(moduleLesson, "targetEntityId"), column(lesson, "id"))),
 					],
+					where: and(
+						eq(column(courseModule, "sourceEntityId"), column(course, "id")),
+						eq(column(courseModule, "relationshipSchemaSlug"), literal(courseModuleSlug)),
+						eq(column(moduleLesson, "relationshipSchemaSlug"), literal(moduleLessonSlug)),
+						eq(column(lesson, "entitySchemaSlug"), literal(lessonSlug)),
+					),
 				} as const;
-				return { courseModule, duration, lesson, query };
+				return { query, lesson, duration, courseModule };
 			};
 
 			const completionExpressions = (suffix: string) => {
@@ -92,12 +92,6 @@ describe("RyotQL correlated expressions", () => {
 				const moduleLesson = table("relationship", `completedModuleLesson${suffix}`);
 				const courseModule = table("relationship", `completedCourseModule${suffix}`);
 				const query = {
-					where: and(
-						eq(column(courseModule, "sourceEntityId"), column(course, "id")),
-						eq(column(courseModule, "relationshipSchemaSlug"), literal(courseModuleSlug)),
-						eq(column(moduleLesson, "relationshipSchemaSlug"), literal(moduleLessonSlug)),
-						eq(column(completion, "eventSchemaSlug"), literal(completeSlug)),
-					),
 					joins: [
 						join(
 							"inner",
@@ -110,8 +104,14 @@ describe("RyotQL correlated expressions", () => {
 							eq(column(moduleLesson, "targetEntityId"), column(completion, "entityId")),
 						),
 					],
+					where: and(
+						eq(column(courseModule, "sourceEntityId"), column(course, "id")),
+						eq(column(courseModule, "relationshipSchemaSlug"), literal(courseModuleSlug)),
+						eq(column(moduleLesson, "relationshipSchemaSlug"), literal(moduleLessonSlug)),
+						eq(column(completion, "eventSchemaSlug"), literal(completeSlug)),
+					),
 				} as const;
-				return { completion, courseModule, query };
+				return { query, completion, courseModule };
 			};
 
 			const courseFields = () => {
@@ -154,11 +154,6 @@ describe("RyotQL correlated expressions", () => {
 						first(firstCourseModule, {
 							select: column(firstModule, "name"),
 							orderBy: [ascending(column(firstModule, "name"))],
-							where: and(
-								eq(column(firstCourseModule, "sourceEntityId"), column(course, "id")),
-								eq(column(firstCourseModule, "relationshipSchemaSlug"), literal(courseModuleSlug)),
-								eq(column(firstModule, "entitySchemaSlug"), literal(moduleSlug)),
-							),
 							joins: [
 								join(
 									"inner",
@@ -166,6 +161,11 @@ describe("RyotQL correlated expressions", () => {
 									eq(column(firstCourseModule, "targetEntityId"), column(firstModule, "id")),
 								),
 							],
+							where: and(
+								eq(column(firstCourseModule, "sourceEntityId"), column(course, "id")),
+								eq(column(firstCourseModule, "relationshipSchemaSlug"), literal(courseModuleSlug)),
+								eq(column(firstModule, "entitySchemaSlug"), literal(moduleSlug)),
+							),
 						}),
 					),
 					field("lessonCount", count(durations.courseModule, durations.query)),
@@ -214,8 +214,8 @@ describe("RyotQL correlated expressions", () => {
 						),
 					}),
 					longCourses: rows(course, {
-						fields: [field("name", column(course, "name"))],
 						orderBy: [ascending(column(course, "name"))],
+						fields: [field("name", column(course, "name"))],
 						where: and(
 							eq(column(course, "entitySchemaSlug"), literal(courseSlug)),
 							exists(longLesson.courseModule, {
@@ -263,11 +263,11 @@ describe("RyotQL correlated expressions", () => {
 	it.live("returns null for invalid arithmetic and division by zero", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createPluginEntitySchema(client, {
+			const { slug, schemaId } = yield* createPluginEntitySchema(client, {
 				schemaName: "RyotQLArithmeticCourse",
 				propertiesSchema: {
 					fields: {
-						total: { type: "integer", label: "Total", description: "Total" },
+						total: { label: "Total", type: "integer", description: "Total" },
 						completed: { type: "integer", label: "Completed", description: "Completed" },
 					},
 				},
@@ -287,6 +287,7 @@ describe("RyotQL correlated expressions", () => {
 				client,
 				document({
 					courses: rows(course, {
+						where: eq(column(course, "entitySchemaSlug"), literal(slug)),
 						fields: [
 							field(
 								"ratio",
@@ -327,7 +328,6 @@ describe("RyotQL correlated expressions", () => {
 								),
 							),
 						],
-						where: eq(column(course, "entitySchemaSlug"), literal(slug)),
 					}),
 				}),
 			);

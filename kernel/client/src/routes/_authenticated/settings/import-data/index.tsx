@@ -63,8 +63,8 @@ function ImportDataRoute() {
 
 	const wizard = useSearchParamModal({
 		isOpen: start === true,
-		open: () => void navigate({ search: { start: true } }),
 		onCompleted: () => undefined,
+		open: () => void navigate({ search: { start: true } }),
 		close: () => void navigate({ replace: true, search: { start: undefined } }),
 	});
 

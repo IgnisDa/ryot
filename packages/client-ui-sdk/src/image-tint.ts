@@ -127,7 +127,7 @@ export const quantizeImageTintPixels = (pixels: Uint8ClampedArray) => {
 		}
 		const key =
 			((r >> BUCKET_SHIFT) * BUCKET_SIZE + (g >> BUCKET_SHIFT)) * BUCKET_SIZE + (b >> BUCKET_SHIFT);
-		const bucket = buckets.get(key) ?? { count: 0, rSum: 0, gSum: 0, bSum: 0 };
+		const bucket = buckets.get(key) ?? { rSum: 0, gSum: 0, bSum: 0, count: 0 };
 		bucket.rSum += r;
 		bucket.gSum += g;
 		bucket.bSum += b;

@@ -78,11 +78,11 @@ describe("RyotQL relationship rows and includes", () => {
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
-				const { schemaId: courseSchemaId, slug: courseSlug } = yield* createPluginEntitySchema(
+				const { slug: courseSlug, schemaId: courseSchemaId } = yield* createPluginEntitySchema(
 					client,
 					{ schemaName: "RyotQLRelationshipCourse" },
 				);
-				const { schemaId: memberSchemaId, slug: memberSlug } = yield* createPluginEntitySchema(
+				const { slug: memberSlug, schemaId: memberSchemaId } = yield* createPluginEntitySchema(
 					client,
 					{ schemaName: "RyotQLRelationshipMember" },
 				);
@@ -93,7 +93,7 @@ describe("RyotQL relationship rows and includes", () => {
 					targetEntitySchemaSlug: courseSchemaId,
 					sourceEntitySchemaSlug: memberSchemaId,
 					propertiesSchema: {
-						fields: { role: { type: "string", label: "Role", description: "Member role" } },
+						fields: { role: { label: "Role", type: "string", description: "Member role" } },
 					},
 				});
 				const course = yield* createEntityFixture(client, {
@@ -133,11 +133,11 @@ describe("RyotQL relationship rows and includes", () => {
 						after,
 						limit: 1,
 						orderBy: [ascending(column(courseRoot, "id"))],
+						where: eq(column(courseRoot, "id"), literal(course.id)),
 						fields: [
 							field("courseId", column(courseRoot, "id")),
 							field("role", castText(jsonPath(column(multipliedMembership, "properties"), "role"))),
 						],
-						where: eq(column(courseRoot, "id"), literal(course.id)),
 						joins: [
 							join(
 								"inner",
@@ -149,6 +149,7 @@ describe("RyotQL relationship rows and includes", () => {
 				const result = yield* executeRyotQL(
 					client,
 					document({
+						multiplied: multipliedPage(),
 						memberships: rows(membership, {
 							orderBy: [ascending(column(member, "name"))],
 							fields: [
@@ -174,7 +175,6 @@ describe("RyotQL relationship rows and includes", () => {
 								),
 							],
 						}),
-						multiplied: multipliedPage(),
 					}),
 				);
 
@@ -216,7 +216,7 @@ describe("RyotQL relationship rows and includes", () => {
 	it.live("returns filtered nested relationship and event includes with per-parent limits", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId: courseSchemaId, slug: courseSlug } = yield* createPluginEntitySchema(
+			const { slug: courseSlug, schemaId: courseSchemaId } = yield* createPluginEntitySchema(
 				client,
 				{ schemaName: "RyotQLIncludeCourse" },
 			);
@@ -255,7 +255,7 @@ describe("RyotQL relationship rows and includes", () => {
 				name: "RyotQL Completion",
 				entitySchemaSlug: lessonSchemaId,
 				propertiesSchema: {
-					fields: { score: { type: "integer", label: "Score", description: "Score" } },
+					fields: { score: { label: "Score", type: "integer", description: "Score" } },
 				},
 			});
 
@@ -336,11 +336,6 @@ describe("RyotQL relationship rows and includes", () => {
 				include: [completions],
 				orderBy: [ascending(lessonPosition)],
 				fields: [field("name", column(lessonTable, "name"))],
-				where: and(
-					eq(column(moduleLesson, "sourceEntityId"), column(moduleTable, "id")),
-					eq(column(moduleLesson, "relationshipSchemaSlug"), literal(moduleLessonSlug)),
-					gt(lessonPosition, literal(1)),
-				),
 				joins: [
 					join(
 						"inner",
@@ -348,6 +343,11 @@ describe("RyotQL relationship rows and includes", () => {
 						eq(column(moduleLesson, "targetEntityId"), column(lessonTable, "id")),
 					),
 				],
+				where: and(
+					eq(column(moduleLesson, "sourceEntityId"), column(moduleTable, "id")),
+					eq(column(moduleLesson, "relationshipSchemaSlug"), literal(moduleLessonSlug)),
+					gt(lessonPosition, literal(1)),
+				),
 			});
 			const modulePosition = castNumber(jsonPath(column(courseModule, "properties"), "position"));
 			const modules = include(courseModule, {
@@ -356,10 +356,6 @@ describe("RyotQL relationship rows and includes", () => {
 				include: [lessons],
 				orderBy: [ascending(modulePosition)],
 				fields: [field("name", column(moduleTable, "name")), field("position", modulePosition)],
-				where: and(
-					eq(column(courseModule, "sourceEntityId"), column(courseTable, "id")),
-					eq(column(courseModule, "relationshipSchemaSlug"), literal(courseModuleSlug)),
-				),
 				joins: [
 					join(
 						"inner",
@@ -367,6 +363,10 @@ describe("RyotQL relationship rows and includes", () => {
 						eq(column(courseModule, "targetEntityId"), column(moduleTable, "id")),
 					),
 				],
+				where: and(
+					eq(column(courseModule, "sourceEntityId"), column(courseTable, "id")),
+					eq(column(courseModule, "relationshipSchemaSlug"), literal(courseModuleSlug)),
+				),
 			});
 			const result = yield* executeRyotQL(
 				client,
@@ -479,11 +479,6 @@ describe("RyotQL relationship rows and includes", () => {
 			const securedRelationships = include(includedRelationship, {
 				limit: 10,
 				key: "relationships",
-				fields: [
-					field("slug", column(includedRelationship, "relationshipSchemaSlug")),
-					field("scope", castText(jsonPath(column(includedRelationship, "properties"), "scope"))),
-					field("hiddenName", column(includedHiddenEndpoint, "name")),
-				],
 				orderBy: [ascending(column(includedRelationship, "id"))],
 				joins: [
 					join(
@@ -499,16 +494,40 @@ describe("RyotQL relationship rows and includes", () => {
 						literal(otherRelationshipSlug),
 					]),
 				),
+				fields: [
+					field("slug", column(includedRelationship, "relationshipSchemaSlug")),
+					field("scope", castText(jsonPath(column(includedRelationship, "properties"), "scope"))),
+					field("hiddenName", column(includedHiddenEndpoint, "name")),
+				],
 			});
 			const result = yield* executeRyotQL(
 				userA.client,
 				document({
+					securedIncludes: rows(securedRoot, {
+						fields: [],
+						include: [securedRelationships],
+						where: eq(column(securedRoot, "id"), literal(ownSource.id)),
+					}),
 					visibleOnly: rows(visibleRelationship, {
 						fields: [field("slug", column(visibleRelationship, "relationshipSchemaSlug"))],
 						where: inArray(column(visibleRelationship, "relationshipSchemaSlug"), [
 							literal(ownRelationshipSlug),
 							literal(otherRelationshipSlug),
 						]),
+					}),
+					leftJoinHiddenRelationship: rows(entityRoot, {
+						where: eq(column(entityRoot, "id"), literal(ownSource.id)),
+						fields: [
+							field("name", column(entityRoot, "name")),
+							field("hiddenProperties", column(hiddenRelationship, "properties")),
+						],
+						joins: [
+							join(
+								"left",
+								hiddenRelationship,
+								eq(column(hiddenRelationship, "id"), literal(otherRelationship.id)),
+							),
+						],
 					}),
 					partialEndpoints: rows(visibleRelationship, {
 						where: eq(column(visibleRelationship, "id"), literal(ownRelationship.id)),
@@ -528,25 +547,6 @@ describe("RyotQL relationship rows and includes", () => {
 								eq(column(hiddenEndpoint, "id"), literal(otherTarget.id)),
 							),
 						],
-					}),
-					leftJoinHiddenRelationship: rows(entityRoot, {
-						where: eq(column(entityRoot, "id"), literal(ownSource.id)),
-						fields: [
-							field("name", column(entityRoot, "name")),
-							field("hiddenProperties", column(hiddenRelationship, "properties")),
-						],
-						joins: [
-							join(
-								"left",
-								hiddenRelationship,
-								eq(column(hiddenRelationship, "id"), literal(otherRelationship.id)),
-							),
-						],
-					}),
-					securedIncludes: rows(securedRoot, {
-						fields: [],
-						include: [securedRelationships],
-						where: eq(column(securedRoot, "id"), literal(ownSource.id)),
 					}),
 				}),
 			);

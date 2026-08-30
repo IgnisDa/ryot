@@ -84,7 +84,7 @@ export const findTestEntitySchema = (slug: string) => {
 	for (const [pluginSlug, { manifest }] of definitionManifests) {
 		const schema = manifest.entitySchemas.find((candidate) => candidate.slug === slug);
 		if (schema) {
-			return { pluginSlug, schema };
+			return { schema, pluginSlug };
 		}
 	}
 	return undefined;
@@ -199,7 +199,7 @@ export const installTestPlugin = (
 		} else {
 			const uploadToken = yield* uploadPrivatePluginPackage(input.client, { files, manifest });
 			yield* input.client.call((c) =>
-				c.plugins.install({ payload: { config: input.config ?? {}, uploadToken } }),
+				c.plugins.install({ payload: { uploadToken, config: input.config ?? {} } }),
 			);
 			yield* pollUntil(
 				`private test plugin '${pluginSlug}' installation`,
@@ -287,7 +287,7 @@ export const installTestPluginBundle = (
 				input.baseUrl,
 			);
 			yield* input.client.call((c) =>
-				c.plugins.install({ payload: { config: input.config ?? {}, uploadToken } }),
+				c.plugins.install({ payload: { uploadToken, config: input.config ?? {} } }),
 			);
 			yield* pollUntil(
 				`private test plugin '${pluginSlug}' installation`,
@@ -361,7 +361,7 @@ export const installTestDefinitions = (input: {
 			),
 		});
 		if (current) {
-			const uploadToken = yield* uploadPrivatePluginPackage(input.client, { files: {}, manifest });
+			const uploadToken = yield* uploadPrivatePluginPackage(input.client, { manifest, files: {} });
 			yield* input.client.call((c) =>
 				c.plugins.update({
 					payload: { uploadToken },
@@ -369,7 +369,7 @@ export const installTestDefinitions = (input: {
 				}),
 			);
 		} else {
-			const uploadToken = yield* uploadPrivatePluginPackage(input.client, { files: {}, manifest });
+			const uploadToken = yield* uploadPrivatePluginPackage(input.client, { manifest, files: {} });
 			yield* input.client.call((c) => c.plugins.install({ payload: { config: {}, uploadToken } }));
 			yield* pollUntil(
 				`private definition plugin '${input.pluginSlug}' installation`,
@@ -383,7 +383,7 @@ export const installTestDefinitions = (input: {
 					),
 			);
 		}
-		definitionManifests.set(input.pluginSlug, { client: input.client, manifest });
+		definitionManifests.set(input.pluginSlug, { manifest, client: input.client });
 		return manifest;
 	});
 

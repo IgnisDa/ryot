@@ -12,14 +12,14 @@ describe("media user bootstrap", () => {
 				{
 					ensureUserEntities: (items) => {
 						calls.push(items);
-						return Effect.succeed([{ entityId: "library-id", wasInserted: true }]);
+						return Effect.succeed([{ wasInserted: true, entityId: "library-id" }]);
 					},
 				},
 				{ metadata: {}, sandboxScriptId: "script-id" },
 			),
 		);
 
-		expect(calls).toEqual([[{ name: "Library", properties: {}, entitySchemaSlug: "library" }]]);
-		expect(result).toEqual({ results: [{ entityId: "library-id", wasInserted: true }] });
+		expect(calls).toEqual([[{ properties: {}, name: "Library", entitySchemaSlug: "library" }]]);
+		expect(result).toEqual({ results: [{ wasInserted: true, entityId: "library-id" }] });
 	});
 });

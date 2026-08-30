@@ -62,11 +62,26 @@ const preparedFor = (
 		target.kind === "entity"
 			? {
 					...target,
-					entitySchemaSlug: EntitySchemaSlug.make("book"),
 					entitySchemaPluginId: pluginId,
+					entitySchemaSlug: EntitySchemaSlug.make("book"),
 				}
 			: target;
 	return {
+		context: {
+			view: null,
+			settings: {},
+			dataSources: null,
+			target: entityTarget,
+			route: { params: {} },
+			renderer: { pluginId, kind: "plugin", exportName: "page" },
+		},
+		artifact: {
+			hash: `artifact-${pluginId}`,
+			format: CLIENT_ARTIFACT_FORMAT,
+			apiVersion: CLIENT_API_VERSION,
+			compilerVersion: CLIENT_COMPILER_VERSION,
+			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
+		},
 		identity: {
 			target,
 			pluginId,
@@ -101,21 +116,6 @@ const preparedFor = (
 				},
 			],
 		},
-		context: {
-			view: null,
-			settings: {},
-			dataSources: null,
-			target: entityTarget,
-			route: { params: {} },
-			renderer: { pluginId, kind: "plugin", exportName: "page" },
-		},
-		artifact: {
-			hash: `artifact-${pluginId}`,
-			format: CLIENT_ARTIFACT_FORMAT,
-			apiVersion: CLIENT_API_VERSION,
-			compilerVersion: CLIENT_COMPILER_VERSION,
-			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
-		},
 	};
 };
 
@@ -128,7 +128,7 @@ const preparedSavedView = (savedViewId: SavedViewId): PreparedClientPage => {
 	});
 	return {
 		...prepared,
-		context: { ...prepared.context, target: { kind: "saved-view", savedViewId } },
+		context: { ...prepared.context, target: { savedViewId, kind: "saved-view" } },
 		identity: {
 			savedViewId,
 			viewRevision: 1,
@@ -137,7 +137,7 @@ const preparedSavedView = (savedViewId: SavedViewId): PreparedClientPage => {
 			sourceHash: "source-plugin-1",
 			buildId: prepared.identity.buildId,
 			graphHash: prepared.identity.graphHash,
-			target: { kind: "saved-view", savedViewId },
+			target: { savedViewId, kind: "saved-view" },
 			artifactHash: prepared.identity.artifactHash,
 			contributors: prepared.identity.contributors,
 			operationTargets: prepared.identity.operationTargets,
@@ -191,6 +191,8 @@ function mount(options: {
 				createSession: () => Effect.die("not used"),
 			}),
 			Layer.succeed(ClientPageSessions, {
+				revoke: () => Effect.void,
+				renew: options.renew ?? (() => Effect.die("not used")),
 				create: (_scope, identity) => {
 					sessions.push(identity);
 					return Effect.succeed({
@@ -199,13 +201,11 @@ function mount(options: {
 						src: `https://artifacts.example/${identity.artifactHash}/index.html`,
 					});
 				},
-				renew: options.renew ?? (() => Effect.die("not used")),
-				revoke: () => Effect.void,
 			}),
 			Layer.succeed(PluginOperationsService, {
 				invoke: (input) => {
 					operations.push(input);
-					return Effect.succeed({ outcome: "success", value: null });
+					return Effect.succeed({ value: null, outcome: "success" });
 				},
 			}),
 			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
@@ -215,11 +215,11 @@ function mount(options: {
 		),
 	);
 	const router = getRouter(
-		{ runtime, theme, backInterceptors: createBackInterceptors() },
+		{ theme, runtime, backInterceptors: createBackInterceptors() },
 		createMemoryHistory({ initialEntries: [options.entry] }),
 	);
 	const view = render(<RouterProvider router={router} />);
-	return { ...view, events, operations, router, sessions, targets };
+	return { ...view, events, router, targets, sessions, operations };
 }
 
 function connectFrame(frame: HTMLIFrameElement) {
@@ -247,7 +247,7 @@ function connectFrame(frame: HTMLIFrameElement) {
 	}
 	const { mode: _mode, page: _page, safeAreaTop: _top, safeAreaBottom: _bottom, ...ready } = init;
 	port.postMessage(ready);
-	return { init, messages, port };
+	return { init, port, messages };
 }
 
 const preparationFailure = (reason: ClientPagePreparationError["reason"]) =>
@@ -264,7 +264,7 @@ describe("client page routes", () => {
 		const bridge = connectFrame(frame);
 		await waitFor(() => expect(bridge.messages).toHaveLength(1));
 
-		expect(view.targets).toEqual([{ kind: "saved-view", savedViewId }]);
+		expect(view.targets).toEqual([{ savedViewId, kind: "saved-view" }]);
 		expect(view.router.state.location.pathname).toBe("/fixture");
 		expect(screen.getByRole("button", { name: "Fixture workspace, fixture" })).toBeTruthy();
 		expect(screen.getByRole("link", { name: "Home" }).getAttribute("aria-current")).toBe("page");
@@ -274,7 +274,7 @@ describe("client page routes", () => {
 			globalThis.document.querySelectorAll('[data-testid="authenticated-shell"]'),
 		).toHaveLength(1);
 		expect(Schema.decodeUnknownSync(PluginBridgeLocation)(bridge.messages[0])).toMatchObject({
-			location: { kind: "route", path: "/fixture", search: "" },
+			location: { search: "", kind: "route", path: "/fixture" },
 		});
 	});
 
@@ -283,7 +283,7 @@ describe("client page routes", () => {
 		await screen.findByTitle("fixture plugin");
 
 		expect(view.targets).toEqual([
-			{ kind: "plugin-route", pluginId: "plugin-1", path: "/", search: "" },
+			{ path: "/", search: "", kind: "plugin-route", pluginId: "plugin-1" },
 		]);
 		expect(view.router.state.location.pathname).toBe("/fixture");
 	});
@@ -301,7 +301,7 @@ describe("client page routes", () => {
 		});
 
 		await screen.findByRole("heading", { name: "Plugin page not found" });
-		expect(targets).toEqual([{ kind: "saved-view", savedViewId }]);
+		expect(targets).toEqual([{ savedViewId, kind: "saved-view" }]);
 		expect(screen.queryByTitle(/plugin$/)).toBeNull();
 	});
 
@@ -318,7 +318,7 @@ describe("client page routes", () => {
 		});
 
 		await screen.findByRole("heading", { name: "Plugin page unavailable" });
-		expect(targets).toEqual([{ kind: "saved-view", savedViewId }]);
+		expect(targets).toEqual([{ savedViewId, kind: "saved-view" }]);
 		expect(screen.queryByTitle(/plugin$/)).toBeNull();
 	});
 
@@ -329,11 +329,11 @@ describe("client page routes", () => {
 		await waitFor(() => expect(bridge.messages).toHaveLength(1));
 
 		expect(view.targets).toEqual([
-			{ kind: "plugin-route", pluginId: "plugin-1", path: "/details/one", search: "tab=stats" },
+			{ search: "tab=stats", kind: "plugin-route", pluginId: "plugin-1", path: "/details/one" },
 		]);
 		expect(view.sessions).toHaveLength(1);
 		expect(Schema.decodeUnknownSync(PluginBridgeLocation)(bridge.messages[0])).toMatchObject({
-			location: { kind: "route", path: "/details/one", search: "tab=stats" },
+			location: { kind: "route", search: "tab=stats", path: "/details/one" },
 		});
 		bridge.port.postMessage({
 			input: null,
@@ -367,11 +367,11 @@ describe("client page routes", () => {
 		);
 		expect(view.operations[0]).toMatchObject({
 			sourceHash: "source-plugin-1",
-			request: { pluginSlug: "fixture", operationSlug: "greet", input: null },
+			request: { input: null, pluginSlug: "fixture", operationSlug: "greet" },
 		});
 		expect(view.operations[1]).toMatchObject({
 			sourceHash: "operations-only-source",
-			request: { pluginSlug: "operations-only", operationSlug: "mutate", input: null },
+			request: { input: null, operationSlug: "mutate", pluginSlug: "operations-only" },
 		});
 	});
 
@@ -379,7 +379,7 @@ describe("client page routes", () => {
 		let preparation = 0;
 		const view = mount({
 			entry: "/fixture/details/one",
-			renew: () => Effect.succeed({ outcome: "replace", reason: "stale" }),
+			renew: () => Effect.succeed({ reason: "stale", outcome: "replace" }),
 			prepare: (_scope, request) => {
 				const target = request.payload.target;
 				if (target.kind !== "plugin-route") {
@@ -472,7 +472,7 @@ describe("client page routes", () => {
 		bridge.port.postMessage({
 			mode: "push",
 			type: "navigate",
-			target: { kind: "plugin-route", pluginSlug: "journal", path: "/entries", search: "q=x" },
+			target: { search: "q=x", path: "/entries", kind: "plugin-route", pluginSlug: "journal" },
 		});
 		await waitFor(() => expect(view.router.state.location.pathname).toBe("/journal/entries"));
 		expect(view.router.state.location.state.ryotEntryKey).toEqual(expect.any(String));
@@ -488,17 +488,17 @@ describe("client page routes", () => {
 		searchBridge.port.postMessage({
 			mode: "replace",
 			type: "page-search",
-			update: { dialog: null, q: "dune" },
+			update: { q: "dune", dialog: null },
 		});
 		await waitFor(() => expect(searchView.router.state.location.searchStr).toBe("?keep=1&q=dune"));
 		await waitFor(() => expect(searchBridge.messages).toHaveLength(2));
 		const replacedSearch = Schema.decodeUnknownSync(PluginBridgeLocation)(searchBridge.messages[1]);
-		expect(replacedSearch).toMatchObject({ index: initialSearch.index, key: initialSearch.key });
+		expect(replacedSearch).toMatchObject({ key: initialSearch.key, index: initialSearch.index });
 	});
 
 	it("prepares entities directly and allows a disabled ready installation", async () => {
 		const entries = [{ ...catalog[0], isDisabled: true }];
-		const view = mount({ entry: "/e/entity-1?tab=activity", entries });
+		const view = mount({ entries, entry: "/e/entity-1?tab=activity" });
 		const frame = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
 		const bridge = connectFrame(frame);
 		await waitFor(() => expect(bridge.messages).toHaveLength(1));

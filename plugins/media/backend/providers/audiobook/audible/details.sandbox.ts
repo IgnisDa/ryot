@@ -6,10 +6,10 @@ import { details } from "./shared";
 export const manifest = defineManifest({
 	kind: "provider",
 	name: "Audible Details",
-	slug: "audiobook.audible.details",
 	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
+	slug: "audiobook.audible.details",
 });
 
-export default defineProvider({ manifest, operation: "details", run: details.run });
+export default defineProvider({ manifest, run: details.run, operation: "details" });

@@ -62,8 +62,8 @@ const HttpRateLimitResolution = Schema.Union([
 		hash: Schema.String,
 		origin: Schema.String,
 		durationMs: Schema.Int,
-		declaration: PluginHttpRateLimit,
 		matched: Schema.Literal(true),
+		declaration: PluginHttpRateLimit,
 	}),
 	Schema.Struct({
 		durationMs: Schema.Int,
@@ -234,9 +234,9 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 								error: HttpAdmissionCoordinationError,
 								name: `sandbox-http-${request.index}-${stage}-${activityAttempt}`,
 							}).pipe(
-								Effect.map((value) => ({ success: true as const, value })),
+								Effect.map((value) => ({ value, success: true as const })),
 								Effect.catchTag("HttpAdmissionCoordinationError", (error) =>
-									Effect.succeed({ success: false as const, error }),
+									Effect.succeed({ error, success: false as const }),
 								),
 							);
 							if (outcome.success) {
@@ -329,8 +329,8 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 							.confirm(admissionDeclaration(policy), token)
 							.pipe(
 								Effect.catchTags({
-									ProviderHttpAdmissionCorruptState: coordinationError("confirm"),
 									ProviderHttpAdmissionUnavailable: coordinationError("confirm"),
+									ProviderHttpAdmissionCorruptState: coordinationError("confirm"),
 								}),
 							),
 					);
@@ -341,8 +341,8 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 							.block(admissionDeclaration(policy), blockedUntilMs)
 							.pipe(
 								Effect.catchTags({
-									ProviderHttpAdmissionCorruptState: coordinationError("block"),
 									ProviderHttpAdmissionUnavailable: coordinationError("block"),
+									ProviderHttpAdmissionCorruptState: coordinationError("block"),
 								}),
 							),
 					);
@@ -372,20 +372,20 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 									sandboxWorkflowExecutionId: executionId,
 									...(policy
 										? {
-												policyKey: bounded(policy.declaration.key, 128),
 												origin: bounded(policy.origin, 256),
+												policyKey: bounded(policy.declaration.key, 128),
 											}
 										: {}),
 								}),
 							);
-							return { durationMs, responseTimeMs, result };
+							return { result, durationMs, responseTimeMs };
 						}).pipe(
 							Effect.withSpan("sandbox.http.network-attempt", {
 								attributes: policy
 									? {
 											attempt,
-											"policy.key": bounded(policy.declaration.key, 128),
 											"policy.origin": bounded(policy.origin, 256),
+											"policy.key": bounded(policy.declaration.key, 128),
 										}
 									: { attempt },
 							}),
@@ -416,10 +416,10 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 							stage: "reserve",
 							waitMs: reservationWaitMs,
 							durationMs: reservation.durationMs,
-							sandboxWorkflowExecutionId: executionId,
 							origin: bounded(policy.origin, 256),
-							status: reservationWaitMs === 0 ? "immediate" : "delayed",
+							sandboxWorkflowExecutionId: executionId,
 							policyKey: bounded(policy.declaration.key, 128),
+							status: reservationWaitMs === 0 ? "immediate" : "delayed",
 						}),
 					);
 					if (reservationWaitMs > 0) {
@@ -475,8 +475,8 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 							stage: "rate-limit",
 							status: "rate-limited",
 							attempt: rateLimitCount,
-							sandboxWorkflowExecutionId: executionId,
 							origin: bounded(policy.origin, 256),
+							sandboxWorkflowExecutionId: executionId,
 							policyKey: bounded(policy.declaration.key, 128),
 							waitMs: Math.max(0, blockedUntilMs - attempted.responseTimeMs),
 						}),
@@ -650,7 +650,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						}
 						return durableHostFailure(unknownToMessage(result.cause));
 					}
-					return { state: "success", value: null } satisfies WorkflowDurableResult;
+					return { value: null, state: "success" } satisfies WorkflowDurableResult;
 				});
 			},
 		};

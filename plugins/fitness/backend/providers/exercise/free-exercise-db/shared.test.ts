@@ -54,12 +54,12 @@ const makeStatefulHost = (
 	let httpCallCount = 0;
 
 	const host: ExerciseHost = defineSandboxTestHost(searchManifest, {
+		getCachedValue: (key) => Effect.succeed(cache.get(key) ?? null),
 		httpCall: (_method, url) => {
 			expect(new URL(url).host).toBe("raw.githubusercontent.com");
 			httpCallCount += 1;
 			return httpSuccess(httpBody);
 		},
-		getCachedValue: (key) => Effect.succeed(cache.get(key) ?? null),
 		setCachedValue: (key, value, ttlSeconds) => {
 			setCalls.push({ key, value, ttlSeconds });
 			cache.set(key, value);
@@ -88,7 +88,7 @@ describe("exercise.free-exercise-db sandbox script", () => {
 		const { host, setCalls, httpCallCount } = makeStatefulHost();
 
 		return Effect.runPromise(
-			search.run({ query: "bench", page: 1, pageSize: 20 }, host, execution),
+			search.run({ page: 1, pageSize: 20, query: "bench" }, host, execution),
 		).then((result) => {
 			expect(httpCallCount()).toBe(1);
 			expect(result.items).toEqual([
@@ -118,9 +118,9 @@ describe("exercise.free-exercise-db sandbox script", () => {
 		const { host } = makeStatefulHost();
 
 		return Effect.runPromise(
-			search.run({ query: "crunch", page: 1, pageSize: 20 }, host, execution),
+			search.run({ page: 1, pageSize: 20, query: "crunch" }, host, execution),
 		).then((result) => {
-			expect(result.items).toEqual([{ externalId: "Ab Crunch", title: "Ab Crunch" }]);
+			expect(result.items).toEqual([{ title: "Ab Crunch", externalId: "Ab Crunch" }]);
 			return undefined;
 		});
 	});
@@ -128,7 +128,7 @@ describe("exercise.free-exercise-db sandbox script", () => {
 	it("shares the normalized cache between search and details entrypoints", async () => {
 		const { host, httpCallCount } = makeStatefulHost();
 
-		await Effect.runPromise(search.run({ query: "bench", page: 1, pageSize: 20 }, host, execution));
+		await Effect.runPromise(search.run({ page: 1, pageSize: 20, query: "bench" }, host, execution));
 		const result = await Effect.runPromise(
 			details.run({ externalId: "Bench Press" }, host, execution),
 		);
@@ -165,18 +165,18 @@ describe("exercise.free-exercise-db sandbox script", () => {
 			},
 		};
 		const { host, httpCallCount } = makeStatefulHost({
-			[CACHE_KEY]: { version: "v-test", chunkCount: 1 },
 			[`${CACHE_KEY}:v-test:chunk:0`]: [seededRow],
+			[CACHE_KEY]: { chunkCount: 1, version: "v-test" },
 		});
 
 		return Effect.runPromise(
-			search.run({ query: "bench", page: 1, pageSize: 20 }, host, execution),
+			search.run({ page: 1, pageSize: 20, query: "bench" }, host, execution),
 		).then((result) => {
 			expect(httpCallCount()).toBe(0);
 			expect(result.items).toEqual([
 				{
-					externalId: "Bench Press",
 					title: "Bench Press",
+					externalId: "Bench Press",
 					imageUrl: `${IMAGES_PREFIX_URL}/Bench_Press/0.jpg`,
 				},
 			]);

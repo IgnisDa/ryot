@@ -5,11 +5,11 @@ import { translate } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	name: "TVDB Movie Translation",
 	slug: "movie.tvdb.translate",
-	requiredPluginConfigKeys: ["tvdbApiKey"],
 	requiredSystemConfigKeys: [],
+	name: "TVDB Movie Translation",
+	requiredPluginConfigKeys: ["tvdbApiKey"],
 	capabilities: ["httpCall", "getCachedValue", "setCachedValue", "getPluginConfig"],
 });
 
-export default defineProvider({ manifest, operation: "translate", run: translate.run });
+export default defineProvider({ manifest, run: translate.run, operation: "translate" });

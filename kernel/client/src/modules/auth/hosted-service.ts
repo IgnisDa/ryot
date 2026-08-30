@@ -27,9 +27,9 @@ const makeHostedClient = (baseURL = window.location.origin) =>
 
 const request = <A>(operation: () => Promise<AuthResponse<A>>, fallback: string) =>
 	Effect.tryPromise({
+		try: operation,
 		catch: (cause) =>
 			new HostedAuthError({ message: cause instanceof Error ? cause.message : fallback }),
-		try: operation,
 	}).pipe(
 		Effect.flatMap((response) =>
 			response.error
@@ -93,7 +93,7 @@ export class HostedAuthService extends Context.Service<HostedAuthService>()("Hos
 				"Could not reset your password.",
 			).pipe(Effect.asVoid);
 
-		return { resetPassword, signInWithOidc, submitCredentials, verifyTwoFactor };
+		return { resetPassword, signInWithOidc, verifyTwoFactor, submitCredentials };
 	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);

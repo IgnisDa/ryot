@@ -6,8 +6,8 @@ import { describe, expect, it } from "vitest";
 import { SavedViewsService } from "#/modules/saved-views/service";
 
 const rowsResult = (items: readonly unknown[]) => ({
-	type: "rows" as const,
 	items,
+	type: "rows" as const,
 	pageInfo: { limit: 1, hasMore: false, nextCursor: null },
 });
 
@@ -17,16 +17,16 @@ describe("SavedViewsService", () => {
 			id: "view-1",
 			icon: "book",
 			sortOrder: 0,
+			settings: {},
 			slug: "books",
 			name: "Books",
-			settings: {},
 			isBuiltin: true,
 			pluginSlug: null,
 			dataSources: null,
 			isDisabled: false,
-			renderer: { kind: "kernel", name: "results-table" },
 			createdAt: "2026-01-01T00:00:00.000Z",
 			updatedAt: "2026-01-01T00:00:00.000Z",
+			renderer: { kind: "kernel", name: "results-table" },
 		};
 		const client = createRyotClient(
 			createTestRyotAdapter({

@@ -163,10 +163,10 @@ export function ryotqlSandboxSource(
 ) {
 	return scriptModuleSource({
 		...input,
+		capabilities: ["executeRyotql"],
 		inputSchema: "Schema.Struct({})",
 		sdkImports: ["ryotqlDocumentSchema"],
 		outputSchema: "Schema.Array(Schema.Unknown)",
-		capabilities: ["executeRyotql"],
 		declarations: `const queryName = ${JSON.stringify(input.queryName)};
 const query = Schema.decodeSync(ryotqlDocumentSchema)(JSON.parse(${JSON.stringify(JSON.stringify(input.query))}));`,
 		run: `(_input, host) => Effect.gen(function* () {
@@ -195,9 +195,9 @@ export function systemRyotqlProbeSandboxSource(
 ) {
 	return scriptModuleSource({
 		...input,
-		capabilities: ["executeRyotql", "upsertGlobalEntities"],
-		sdkImports: ["ryotqlDocumentSchema"],
 		inputSchema: "Schema.Struct({})",
+		sdkImports: ["ryotqlDocumentSchema"],
+		capabilities: ["executeRyotql", "upsertGlobalEntities"],
 		outputSchema: "Schema.Struct({ count: Schema.Number })",
 		declarations: `const queryName = ${JSON.stringify(input.queryName)};
 const query = Schema.decodeSync(ryotqlDocumentSchema)(JSON.parse(${JSON.stringify(JSON.stringify(input.query))}));`,
@@ -229,8 +229,8 @@ const query = Schema.decodeSync(ryotqlDocumentSchema)(JSON.parse(${JSON.stringif
 export function entityRowsSandboxSource(input: SandboxSourceIdentity) {
 	return scriptModuleSource({
 		...input,
-		sdkImports: ["entityRecordSchema"],
 		capabilities: ["executeRyotql"],
+		sdkImports: ["entityRecordSchema"],
 		outputSchema: "Schema.Array(entityRecordSchema)",
 		ryotqlImports: ["entityReadRecipe", "executeRyotqlRecipe"],
 		inputSchema: "Schema.Struct({ ids: Schema.Array(Schema.String) })",
@@ -246,15 +246,15 @@ export function eventRowsSandboxSource(input: SandboxSourceIdentity) {
 	return scriptModuleSource({
 		...input,
 		capabilities: ["executeRyotql"],
-		ryotqlImports: ["eventReadRecipe", "executeRyotqlRecipe"],
 		outputSchema: "Schema.Array(Schema.Unknown)",
+		ryotqlImports: ["eventReadRecipe", "executeRyotqlRecipe"],
+		inputSchema:
+			"Schema.Struct({ entityId: Schema.String, entitySchemaSlug: Schema.String, eventSchemaSlug: Schema.String })",
 		run: `(input, host) => executeRyotqlRecipe(host.executeRyotql, eventReadRecipe({
         entityId: input.entityId,
         entitySchemaSlug: input.entitySchemaSlug,
         eventSchemaSlug: input.eventSchemaSlug,
 	      })).pipe(Effect.map((result) => result.items))`,
-		inputSchema:
-			"Schema.Struct({ entityId: Schema.String, entitySchemaSlug: Schema.String, eventSchemaSlug: Schema.String })",
 	});
 }
 
@@ -345,8 +345,8 @@ export function throwingSandboxSource(input: SandboxSourceIdentity & { readonly 
 	return scriptModuleSource({
 		...input,
 		capabilities: [],
-		inputSchema: "Schema.Struct({})",
 		outputSchema: "Schema.Unknown",
+		inputSchema: "Schema.Struct({})",
 		run: `() => Effect.sync(() => { throw new Error(${JSON.stringify(input.message)}); })`,
 	});
 }
@@ -421,10 +421,10 @@ export function cacheSandboxSource(input: CacheSandboxSourceInput) {
 	if (input.operation === "byInput") {
 		return scriptModuleSource({
 			...input,
-			capabilities: ["setCachedValue", "getCachedValue"],
-			inputSchema: 'Schema.Struct({ operation: Schema.Literal("get", "set") })',
 			outputSchema: "getCachedValueResultSchema",
 			sdkImports: ["getCachedValueResultSchema"],
+			capabilities: ["setCachedValue", "getCachedValue"],
+			inputSchema: 'Schema.Struct({ operation: Schema.Literal("get", "set") })',
 			run: `(input, host) => Effect.gen(function* () {
     if (input.operation === "set") {
       yield* host.setCachedValue(${JSON.stringify(input.key)}, JSON.parse(${JSON.stringify(JSON.stringify(input.value))}), 60);
@@ -465,8 +465,8 @@ export function cacheSandboxSource(input: CacheSandboxSourceInput) {
 		...input,
 		inputSchema: "Schema.Struct({})",
 		outputSchema: "getCachedValueResultSchema",
-		capabilities: ["setCachedValue", "getCachedValue"],
 		sdkImports: ["getCachedValueResultSchema"],
+		capabilities: ["setCachedValue", "getCachedValue"],
 		run: `(_input, host) => Effect.gen(function* () {
     yield* host.setCachedValue(${JSON.stringify(input.key)}, JSON.parse(${JSON.stringify(JSON.stringify(input.value))}), ${input.ttlSeconds});
     const data = yield* host.getCachedValue(${JSON.stringify(input.key)});

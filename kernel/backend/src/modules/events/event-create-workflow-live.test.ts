@@ -41,7 +41,7 @@ const payload = {
 	userId,
 	origin: "api",
 	executionId: "event-create-execution",
-	payload: [{ entityId, eventSchemaSlug, occurredAt: now, properties: {} }],
+	payload: [{ entityId, properties: {}, eventSchemaSlug, occurredAt: now }],
 } satisfies EventCreateWorkflowPayload;
 
 const entityScope = {
@@ -129,8 +129,8 @@ it.effect("creates events inside workflow activities", () => {
 					createdAt: now,
 					updatedAt: now,
 					entityId: input.entityId,
-					properties: input.properties,
 					id: EventId.make("event-1"),
+					properties: input.properties,
 					eventSchemaName: input.eventSchemaName,
 					eventSchemaSlug: input.eventSchemaSlug,
 					sessionEntityId: input.sessionEntityId,
@@ -146,7 +146,7 @@ it.effect("creates events inside workflow activities", () => {
 		expect(result).toEqual({
 			count: 1,
 			failure: null,
-			outcomes: [{ index: 0, eventId: EventId.make("event-1"), status: "written" }],
+			outcomes: [{ index: 0, status: "written", eventId: EventId.make("event-1") }],
 		});
 		expect(activityNames).toEqual(["prepare-item-0", "write-event-0"]);
 		expect(createdEventInputs).toHaveLength(1);
@@ -214,8 +214,8 @@ it.effect(
 						createdAt,
 						updatedAt: now,
 						entityId: input.entityId,
-						properties: input.properties,
 						id: EventId.make("event-1"),
+						properties: input.properties,
 						eventSchemaName: input.eventSchemaName,
 						eventSchemaSlug: input.eventSchemaSlug,
 						sessionEntityId: input.sessionEntityId,
@@ -270,11 +270,11 @@ it.effect("does not dispatch a lifecycle occurrence when no lifecycle origin is 
 			},
 		}),
 		Layer.mock(EventCreateWorkflowOperations, {
+			executeSandboxScript: () => Effect.die("unused"),
 			dispatchLifecycleOccurrence: () => {
 				dispatchCalls += 1;
 				return Effect.void;
 			},
-			executeSandboxScript: () => Effect.die("unused"),
 		}),
 		makeEntitiesRepository({ getEntityScopeForUser: () => Effect.succeed(entityScope) }),
 		makeEventSchemasRepository({ getScopeForUser: () => Effect.succeed(eventSchemaScope) }),
@@ -284,8 +284,8 @@ it.effect("does not dispatch a lifecycle occurrence when no lifecycle origin is 
 					createdAt: now,
 					updatedAt: now,
 					entityId: input.entityId,
-					properties: input.properties,
 					id: EventId.make("event-1"),
+					properties: input.properties,
 					eventSchemaName: input.eventSchemaName,
 					eventSchemaSlug: input.eventSchemaSlug,
 					sessionEntityId: input.sessionEntityId,

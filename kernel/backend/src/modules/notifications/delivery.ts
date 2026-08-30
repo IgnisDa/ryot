@@ -58,8 +58,8 @@ export class NotificationMailer extends Context.Service<NotificationMailer>()(
 				});
 
 				return Effect.tryPromise({
-					catch: () => new NotificationDeliveryError({ message: "SMTP request failed" }),
 					try: () => transport.sendMail(input.mail),
+					catch: () => new NotificationDeliveryError({ message: "SMTP request failed" }),
 				}).pipe(Effect.asVoid);
 			},
 		}),
@@ -99,11 +99,11 @@ export class NotificationDeliveryService extends Context.Service<NotificationDel
 				}
 
 				const { mailbox } = config.server.smtp;
-				const { server, user, password } = credentials.value;
+				const { user, server, password } = credentials.value;
 				const email = GenericEmail({ message: input.message });
 				const [html, text] = yield* Effect.tryPromise({
-					catch: () => new NotificationDeliveryError({ message: "SMTP request failed" }),
 					try: () => Promise.all([render(email), render(email, { plainText: true })]),
+					catch: () => new NotificationDeliveryError({ message: "SMTP request failed" }),
 				});
 
 				yield* mailer.send({
@@ -190,7 +190,7 @@ export class NotificationDeliveryService extends Context.Service<NotificationDel
 							request: jsonRequest({
 								url: "https://api.pushbullet.com/v2/pushes",
 								headers: { "Access-Token": specifics.accessToken },
-								body: { body: message, title: PROJECT_NAME, type: "note" },
+								body: { type: "note", body: message, title: PROJECT_NAME },
 							}),
 						}),
 					),
@@ -205,7 +205,7 @@ export class NotificationDeliveryService extends Context.Service<NotificationDel
 						}
 						return sendHttp({
 							provider: "PushOver",
-							request: textRequest({ url: url.toString(), body: "" }),
+							request: textRequest({ body: "", url: url.toString() }),
 						});
 					}),
 					Match.when({ kind: "push_safer" }, (specifics) => {
@@ -215,14 +215,14 @@ export class NotificationDeliveryService extends Context.Service<NotificationDel
 						url.searchParams.set("t", PROJECT_NAME);
 						return sendHttp({
 							provider: "PushSafer",
-							request: textRequest({ url: url.toString(), body: "" }),
+							request: textRequest({ body: "", url: url.toString() }),
 						});
 					}),
 					Match.when({ kind: "telegram" }, (specifics) =>
 						sendHttp({
 							provider: "Telegram",
 							request: jsonRequest({
-								body: { chat_id: specifics.chatId, parse_mode: "Markdown", text: message },
+								body: { text: message, parse_mode: "Markdown", chat_id: specifics.chatId },
 								url: `https://api.telegram.org/bot${encodePathSegment(specifics.botToken)}/sendMessage`,
 							}),
 						}),

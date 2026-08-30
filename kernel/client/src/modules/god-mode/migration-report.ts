@@ -6,7 +6,7 @@ export const migrationReportLevelPresentation = (level: MigrationReportLevel) =>
 		Match.when("info", () => ({ icon: "info", label: "Info", tone: "text-info" }) as const),
 		Match.when(
 			"warning",
-			() => ({ icon: "circle-alert", label: "Warning", tone: "text-danger" }) as const,
+			() => ({ label: "Warning", tone: "text-danger", icon: "circle-alert" }) as const,
 		),
 		Match.exhaustive,
 	);

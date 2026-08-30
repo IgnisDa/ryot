@@ -188,7 +188,7 @@ export class PluginCronService extends Context.Service<PluginCronService>()("Plu
 					dueDispatches(
 						entry,
 						scheduledAt,
-						{ cronSlug: entry.cron.slug, pluginSlug: entry.pluginSlug, installationId: null },
+						{ installationId: null, cronSlug: entry.cron.slug, pluginSlug: entry.pluginSlug },
 						pluginCronExecutionId(entry.pluginSlug, entry.cron.slug, scheduledAt),
 					),
 				);
@@ -228,7 +228,7 @@ export class PluginCronService extends Context.Service<PluginCronService>()("Plu
 				executionId,
 			);
 			return dispatched.status === "notFound"
-				? { status: "notFound" as const, cronSlug, pluginSlug }
+				? { cronSlug, pluginSlug, status: "notFound" as const }
 				: {
 						cronSlug,
 						pluginSlug,

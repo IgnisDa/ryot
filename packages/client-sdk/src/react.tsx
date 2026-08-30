@@ -242,7 +242,7 @@ export function createRyotQuery<Input, Data, HostServices = undefined>(
 				inputs: Atom.family((familyInput: Input) =>
 					makeQueryAtom<Data>(
 						(signal) =>
-							query({ client, input: familyInput, signal, hostServices: current.hostServices }),
+							query({ client, signal, input: familyInput, hostServices: current.hostServices }),
 						options?.initialData?.(familyInput),
 						options?.cancelOnUnmount,
 						options?.entityInterest !== undefined,
@@ -316,6 +316,13 @@ export const RyotProvider = ({
 				refreshAll = true;
 				refresh.hint();
 			},
+			dispose: () => {
+				disposed = true;
+				handles.clear();
+				catchUps.clear();
+				refreshAll = false;
+				refresh.dispose();
+			},
 			activate: () => {
 				if (disposed) {
 					refresh = createEntityRefresh(value.schedule, run);
@@ -324,13 +331,6 @@ export const RyotProvider = ({
 						refresh.hint();
 					}
 				}
-			},
-			dispose: () => {
-				disposed = true;
-				handles.clear();
-				catchUps.clear();
-				refreshAll = false;
-				refresh.dispose();
 			},
 			register: (handle: PageRefreshHandle, consumedGeneration?: number) => {
 				handles.add(handle);
@@ -504,6 +504,7 @@ const useQueryPageRefresh = <Data,>(
 			const current = {
 				users: 0,
 				pending: false,
+				dispose: () => undefined,
 				hint: () => {
 					if (registry.get(atom).waiting) {
 						current.pending = true;
@@ -511,7 +512,6 @@ const useQueryPageRefresh = <Data,>(
 						registry.refresh(atom);
 					}
 				},
-				dispose: () => undefined,
 			};
 			const unsubscribe = registry.subscribe(atom, () => {
 				if (current.pending && !registry.get(atom).waiting) {
@@ -593,7 +593,7 @@ const useQueryInterest = <Data,>(
 					data = result.previousSuccess.value.value;
 				}
 				refresh.block(result.waiting);
-				const next = interest({ input: queryInput, data });
+				const next = interest({ data, input: queryInput });
 				entityTransport(() => {
 					if (subscription) {
 						subscription.update(next);
@@ -603,7 +603,7 @@ const useQueryInterest = <Data,>(
 				});
 			};
 			subscription = entityTransport(() =>
-				client.entities.watch(interest({ input: queryInput, data }), refresh.hint),
+				client.entities.watch(interest({ data, input: queryInput }), refresh.hint),
 			);
 			const unsubscribe = registry.subscribe(atom, sync);
 			sync();
@@ -681,7 +681,7 @@ export const useEntityRefresh = (options: {
 	const active = useContext(ActiveScreenContext);
 	const { settled, tracker } = useSettleTracker();
 	const latest = useRef(options);
-	const previous = useRef({ identity: options.identity, active });
+	const previous = useRef({ active, identity: options.identity });
 	const controller = useRef<
 		| {
 				subscription: EntityInterestSubscription | undefined;
@@ -709,7 +709,7 @@ export const useEntityRefresh = (options: {
 	useEffect(() => {
 		const catchUp =
 			previous.current.identity === options.identity && !previous.current.active && active;
-		previous.current = { identity: options.identity, active };
+		previous.current = { active, identity: options.identity };
 		const current = controller.current;
 		current?.refresh.block(!active || latest.current.blocked);
 		if (!active || !current) {
@@ -754,7 +754,7 @@ export function useRyotQuery<Data, HostServices>(
 	if (!context) {
 		throw new Error("useRyotQuery must be used within RyotProvider");
 	}
-	const { client, hostServices, schedule } = context;
+	const { client, schedule, hostServices } = context;
 	if (!(query instanceof QueryDefinition)) {
 		throw new Error("useRyotQuery requires a query created by createRyotQuery");
 	}
@@ -815,9 +815,9 @@ export const useRyotMutation = <Input, Data, HostServices>(
 		() =>
 			Atom.fn<Input>()<Error, Data>((input) =>
 				Effect.tryPromise({
-					try: (signal) =>
-						mutation.run({ client, input, signal, hostServices: latestHostServices.current }),
 					catch: (error) => (error instanceof Error ? error : new Error(String(error))),
+					try: (signal) =>
+						mutation.run({ input, client, signal, hostServices: latestHostServices.current }),
 				}),
 			),
 		[client, mutation],
@@ -871,7 +871,7 @@ export const managedAssetBatches = (
 	const batches: ManagedAssetBatch[] = [];
 	for (let index = 0; index < deduped.length; index += MANAGED_ASSET_RESOLUTION_MAX_ASSETS) {
 		const slice = deduped.slice(index, index + MANAGED_ASSET_RESOLUTION_MAX_ASSETS);
-		batches.push({ key: canonicalAssetBatchKey(slice), locators: slice });
+		batches.push({ locators: slice, key: canonicalAssetBatchKey(slice) });
 	}
 	return batches;
 };
@@ -888,7 +888,7 @@ const useStableManagedAssetLocators = (locators: readonly ManagedAssetLocator[])
 };
 
 const managedAssetBatchQuery = createRyotQuery<string, readonly ManagedAssetResolution[]>(
-	({ client, input, signal }) => {
+	({ input, client, signal }) => {
 		// oxlint-disable-next-line typescript/no-unsafe-type-assertion -- The key is created only from schema-validated locator values.
 		const locators = JSON.parse(input) as readonly ManagedAssetLocator[];
 		return client.assets.resolve(locators, { signal });
@@ -965,7 +965,7 @@ export function ManagedAssetProvider(props: {
 	return (
 		<ManagedAssetUrlsContext.Provider value={urls}>
 			{batches.map((batch) => (
-				<ManagedAssetBatchResolver batchKey={batch.key} key={batch.key} onResolved={onResolved} />
+				<ManagedAssetBatchResolver key={batch.key} batchKey={batch.key} onResolved={onResolved} />
 			))}
 			{props.children}
 		</ManagedAssetUrlsContext.Provider>

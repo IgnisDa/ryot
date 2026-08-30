@@ -67,7 +67,7 @@ export class IntegrationProviderCatalog extends Context.Service<IntegrationProvi
 								plugin && provider.scriptSlug
 									? yield* runtime.findScriptInAvailablePlugin(plugin, provider.scriptSlug)
 									: null;
-							return { provider, script };
+							return { script, provider };
 						}),
 					);
 				},

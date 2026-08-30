@@ -86,7 +86,7 @@ export default defineBackground(() => {
 		if (message.type === MESSAGE_TYPES.GET_STATUS) {
 			getCurrentStatus()
 				.then((status) => {
-					sendResponse({ success: true, data: status });
+					sendResponse({ data: status, success: true });
 					return;
 				})
 				.catch((error) => {
@@ -100,7 +100,7 @@ export default defineBackground(() => {
 		if (message.type === MESSAGE_TYPES.SEND_PROGRESS_DATA) {
 			handleProgressData(message.data, sender.tab?.url)
 				.then((result) => {
-					sendResponse({ success: true, result });
+					sendResponse({ result, success: true });
 					return;
 				})
 				.catch((error) => {
@@ -114,7 +114,7 @@ export default defineBackground(() => {
 		if (message.type === MESSAGE_TYPES.METADATA_LOOKUP) {
 			handleMetadataLookup(message.data)
 				.then((result) => {
-					sendResponse({ success: true, data: result });
+					sendResponse({ data: result, success: true });
 					return;
 				})
 				.catch((error) => {
@@ -128,7 +128,7 @@ export default defineBackground(() => {
 		if (message.type === MESSAGE_TYPES.GET_CACHED_TITLE) {
 			getCurrentCachedTitle()
 				.then((title) => {
-					sendResponse({ success: true, data: title });
+					sendResponse({ data: title, success: true });
 					return;
 				})
 				.catch((error) => {

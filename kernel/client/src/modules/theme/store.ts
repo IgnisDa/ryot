@@ -54,13 +54,13 @@ export function createThemeStore(
 	return {
 		getSnapshot: () => snapshot,
 		getPreference: () => preference,
-		destroy: () => {
-			media.removeEventListener("change", handleMediaChange);
-			listeners.clear();
-		},
 		setPreference: (nextPreference) => {
 			preference = nextPreference;
 			publish();
+		},
+		destroy: () => {
+			media.removeEventListener("change", handleMediaChange);
+			listeners.clear();
 		},
 		subscribe: (listener) => {
 			listeners.add(listener);

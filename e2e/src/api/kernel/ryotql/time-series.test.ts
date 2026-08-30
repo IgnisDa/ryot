@@ -80,47 +80,47 @@ describe("RyotQL time-series outputs", () => {
 				const result = yield* executeRyotQL(
 					client,
 					document({
-						occurred: timeSeries(event, {
-							...range,
-							where,
-							measure: { function: "count" },
-							time: column(event, "occurredAt"),
-						}),
 						created: timeSeries(event, {
 							...range,
 							where,
 							measure: { function: "count" },
 							time: column(event, "createdAt"),
 						}),
+						occurred: timeSeries(event, {
+							...range,
+							where,
+							measure: { function: "count" },
+							time: column(event, "occurredAt"),
+						}),
+						sum: timeSeries(event, {
+							...range,
+							where,
+							time: column(event, "occurredAt"),
+							measure: { expr: rating, function: "sum" },
+						}),
+						average: timeSeries(event, {
+							...range,
+							where,
+							time: column(event, "occurredAt"),
+							measure: { expr: rating, function: "average" },
+						}),
+						minimum: timeSeries(event, {
+							...range,
+							where,
+							time: column(event, "occurredAt"),
+							measure: { expr: rating, function: "minimum" },
+						}),
+						maximum: timeSeries(event, {
+							...range,
+							where,
+							time: column(event, "occurredAt"),
+							measure: { expr: rating, function: "maximum" },
+						}),
 						filtered: timeSeries(event, {
 							...range,
 							measure: { function: "count" },
 							time: column(event, "occurredAt"),
 							where: and(where, gte(rating, literal(5))),
-						}),
-						sum: timeSeries(event, {
-							...range,
-							where,
-							measure: { function: "sum", expr: rating },
-							time: column(event, "occurredAt"),
-						}),
-						average: timeSeries(event, {
-							...range,
-							where,
-							measure: { function: "average", expr: rating },
-							time: column(event, "occurredAt"),
-						}),
-						minimum: timeSeries(event, {
-							...range,
-							where,
-							measure: { function: "minimum", expr: rating },
-							time: column(event, "occurredAt"),
-						}),
-						maximum: timeSeries(event, {
-							...range,
-							where,
-							measure: { function: "maximum", expr: rating },
-							time: column(event, "occurredAt"),
 						}),
 					}),
 				);
@@ -154,7 +154,7 @@ describe("RyotQL time-series outputs", () => {
 	it.live("aligns JSON hour and week buckets and relationship calendar months in UTC", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { schemaId, slug } = yield* createPluginEntitySchema(client, {
+			const { slug, schemaId } = yield* createPluginEntitySchema(client, {
 				schemaName: "RyotQLTimeSeriesDate",
 				propertiesSchema: {
 					fields: {
@@ -195,20 +195,20 @@ describe("RyotQL time-series outputs", () => {
 			const result = yield* executeRyotQL(
 				client,
 				document({
-					hours: timeSeries(entity, {
-						bucket: "hour",
-						time: publishedAt,
-						measure: { function: "count" },
-						endAt: "2026-01-07T14:15:00.000Z",
-						startAt: "2026-01-07T12:15:00.000Z",
-						where: eq(column(entity, "entitySchemaSlug"), literal(slug)),
-					}),
 					week: timeSeries(entity, {
 						bucket: "week",
 						time: publishedAt,
 						measure: { function: "count" },
 						endAt: "2026-01-08T00:00:00.000Z",
 						startAt: "2026-01-07T00:00:00.000Z",
+						where: eq(column(entity, "entitySchemaSlug"), literal(slug)),
+					}),
+					hours: timeSeries(entity, {
+						bucket: "hour",
+						time: publishedAt,
+						measure: { function: "count" },
+						endAt: "2026-01-07T14:15:00.000Z",
+						startAt: "2026-01-07T12:15:00.000Z",
 						where: eq(column(entity, "entitySchemaSlug"), literal(slug)),
 					}),
 					months: timeSeries(relationship, {
@@ -251,9 +251,9 @@ describe("RyotQL time-series outputs", () => {
 						entities: timeSeries(entity, {
 							bucket: "day",
 							measure: { function: "count" },
+							time: column(entity, "createdAt"),
 							endAt: "2022-09-27T00:00:00.000500Z",
 							startAt: "2020-01-01T01:00:00.000+01:00",
-							time: column(entity, "createdAt"),
 						}),
 					}),
 				);
@@ -269,8 +269,8 @@ describe("RyotQL time-series outputs", () => {
 							bucket: "day",
 							measure: { function: "count" },
 							endAt: "2028-10-01T00:00:00.000Z",
-							startAt: "2026-01-01T00:00:00.000Z",
 							time: column(entity, "createdAt"),
+							startAt: "2026-01-01T00:00:00.000Z",
 						}),
 					}),
 				);

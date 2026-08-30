@@ -70,8 +70,8 @@ export function buildCustomizePlan(props: {
 			});
 		} else if (visibilityChanged) {
 			workspaceUpdates.push({
-				payload: { isDisabled: item.isDisabled },
 				pluginSlug: PluginSlug.make(item.slug),
+				payload: { isDisabled: item.isDisabled },
 			});
 		}
 	}

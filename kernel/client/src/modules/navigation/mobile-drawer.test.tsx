@@ -32,7 +32,7 @@ const workspace = (
 
 const snapshot = {
 	status: "authenticated",
-	user: { id: "user-1", name: "Test User", email: "user@ryot.test", image: null },
+	user: { image: null, id: "user-1", name: "Test User", email: "user@ryot.test" },
 } as const;
 
 const session: AuthSessionStore = { getSnapshot: () => snapshot, subscribe: () => () => undefined };
@@ -113,7 +113,7 @@ const openDrawer = async () => {
 	const trigger = screen.getByRole("button", { name: "Open navigation" });
 	trigger.focus();
 	fireEvent.click(trigger);
-	return { dialog: await screen.findByRole("dialog", { name: "Navigation" }), trigger };
+	return { trigger, dialog: await screen.findByRole("dialog", { name: "Navigation" }) };
 };
 
 describe("mobile drawer", () => {
@@ -155,7 +155,7 @@ describe("mobile drawer", () => {
 
 	it("stays mounted off its route until the closing panel settles off screen", () => {
 		const progress = motionValue(0);
-		render(<Harness progress={progress} hasDrawer={false} />);
+		render(<Harness hasDrawer={false} progress={progress} />);
 
 		expect(screen.queryByTestId("mobile-drawer")).toBeNull();
 
@@ -237,6 +237,6 @@ describe("mobile drawer", () => {
 		fireEvent.click(screen.getByRole("button", { name: "Media workspace, media" }));
 		fireEvent.click(screen.getByRole("menuitemradio", { name: "Switch to Journal workspace" }));
 
-		await waitFor(() => expect(selected).toEqual({ slug: "journal", open: false }));
+		await waitFor(() => expect(selected).toEqual({ open: false, slug: "journal" }));
 	});
 });

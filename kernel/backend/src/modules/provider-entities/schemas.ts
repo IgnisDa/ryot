@@ -11,8 +11,8 @@ export const entityImportPayloadFields = {
 } as const;
 
 export const EntityImportScope = Schema.Union([
-	Schema.Struct({ type: Schema.Literal("global"), userId: Schema.NullOr(UserId) }),
-	Schema.Struct({ type: Schema.Literal("user"), userId: UserId }),
+	Schema.Struct({ userId: Schema.NullOr(UserId), type: Schema.Literal("global") }),
+	Schema.Struct({ userId: UserId, type: Schema.Literal("user") }),
 ]);
 
 export const EntityImportPayload = Schema.Struct({

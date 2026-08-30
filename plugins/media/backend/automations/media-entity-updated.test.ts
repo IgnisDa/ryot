@@ -33,19 +33,19 @@ const input = (
 		},
 		source: {
 			kind: "entity",
-			before: {
-				id: "entity-1",
-				properties: {},
-				name: "Old Name",
-				entitySchemaSlug: "show",
-				...overrides.before,
-			},
 			after: {
 				id: "entity-1",
 				properties: {},
 				name: "New Name",
 				entitySchemaSlug: "show",
 				...overrides.after,
+			},
+			before: {
+				id: "entity-1",
+				properties: {},
+				name: "Old Name",
+				entitySchemaSlug: "show",
+				...overrides.before,
 			},
 		},
 	},
@@ -70,21 +70,21 @@ const run = (value: AutomationInput) => {
 it("emits independent status, publish-year, and anime-count signals for a populated root", () =>
 	run(
 		input({
-			before: {
-				entitySchemaSlug: "anime",
-				properties: { episodes: 12, publishYear: 2025, productionStatus: "Airing" },
-			},
 			after: {
 				entitySchemaSlug: "anime",
 				properties: { episodes: 13, publishYear: 2026, productionStatus: "Ended" },
+			},
+			before: {
+				entitySchemaSlug: "anime",
+				properties: { episodes: 12, publishYear: 2025, productionStatus: "Airing" },
 			},
 		}),
 	).pipe(
 		Effect.map((calls) => {
 			expect(calls).toMatchObject([
-				{ schemaSlug: "media.status.changed", subjectEntityId: "show-1" },
-				{ schemaSlug: "media.release-date.changed", subjectEntityId: "show-1" },
-				{ schemaSlug: "media.content-count.changed", subjectEntityId: "show-1" },
+				{ subjectEntityId: "show-1", schemaSlug: "media.status.changed" },
+				{ subjectEntityId: "show-1", schemaSlug: "media.release-date.changed" },
+				{ subjectEntityId: "show-1", schemaSlug: "media.content-count.changed" },
 			]);
 			expect(calls[2]?.["properties"]).toEqual({
 				oldCount: 12,
@@ -111,7 +111,7 @@ it("uses the parent show and season context for episode facts", () =>
 				properties: {
 					episodeNumber: 1,
 					publishDate: "2026-01-01",
-					images: [{ type: "remote", url: "old", purpose: "still" }],
+					images: [{ url: "old", type: "remote", purpose: "still" }],
 				},
 			},
 			after: {
@@ -120,7 +120,7 @@ it("uses the parent show and season context for episode facts", () =>
 				properties: {
 					episodeNumber: 1,
 					publishDate: "2026-02-01",
-					images: [{ type: "remote", url: "new", purpose: "still" }],
+					images: [{ url: "new", type: "remote", purpose: "still" }],
 				},
 			},
 		}),
@@ -146,20 +146,20 @@ it("uses the parent show and season context for episode facts", () =>
 it("does not treat a podcast parent as season context", () =>
 	run(
 		input({
-			parentEntity: {
-				name: "Special Podcast",
-				properties: { seasonNumber: 0 },
-				entitySchemaSlug: "podcast",
+			after: {
+				name: "New Name",
+				properties: { episodeNumber: 3 },
+				entitySchemaSlug: "podcast-episode",
 			},
 			before: {
 				name: "Old Name",
 				properties: { episodeNumber: 3 },
 				entitySchemaSlug: "podcast-episode",
 			},
-			after: {
-				name: "New Name",
-				properties: { episodeNumber: 3 },
-				entitySchemaSlug: "podcast-episode",
+			parentEntity: {
+				name: "Special Podcast",
+				entitySchemaSlug: "podcast",
+				properties: { seasonNumber: 0 },
 			},
 		}),
 	).pipe(
@@ -183,39 +183,39 @@ it("stays silent for initial population and special seasons", () =>
 				run(input({ rootPreviouslyPopulated: false })),
 				run(
 					input({
+						after: {
+							name: "New",
+							properties: { episodeNumber: 1 },
+							entitySchemaSlug: "show-episode",
+						},
+						before: {
+							name: "Old",
+							properties: { episodeNumber: 1 },
+							entitySchemaSlug: "show-episode",
+						},
 						parentEntity: {
 							name: "Season Zero",
 							properties: { seasonNumber: 0 },
 							entitySchemaSlug: "show-season",
 						},
-						before: {
-							name: "Old",
-							properties: { episodeNumber: 1 },
-							entitySchemaSlug: "show-episode",
-						},
-						after: {
-							name: "New",
-							properties: { episodeNumber: 1 },
-							entitySchemaSlug: "show-episode",
-						},
 					}),
 				),
 				run(
 					input({
-						parentEntity: {
-							name: "Holiday Specials",
-							properties: { seasonNumber: 2 },
-							entitySchemaSlug: "show-season",
+						after: {
+							name: "New",
+							properties: { episodeNumber: 1 },
+							entitySchemaSlug: "show-episode",
 						},
 						before: {
 							name: "Old",
 							properties: { episodeNumber: 1 },
 							entitySchemaSlug: "show-episode",
 						},
-						after: {
-							name: "New",
-							properties: { episodeNumber: 1 },
-							entitySchemaSlug: "show-episode",
+						parentEntity: {
+							name: "Holiday Specials",
+							properties: { seasonNumber: 2 },
+							entitySchemaSlug: "show-season",
 						},
 					}),
 				),
@@ -258,9 +258,9 @@ it("treats image order and duplicates as equal and ignores null-sided dates", ()
 					episodeNumber: 1,
 					publishDate: "2026-01-01",
 					images: [
-						{ type: "remote", url: "b", purpose: "still" },
-						{ type: "remote", url: "a", purpose: "still" },
-						{ type: "remote", url: "a", purpose: "still" },
+						{ url: "b", type: "remote", purpose: "still" },
+						{ url: "a", type: "remote", purpose: "still" },
+						{ url: "a", type: "remote", purpose: "still" },
 					],
 				},
 			},

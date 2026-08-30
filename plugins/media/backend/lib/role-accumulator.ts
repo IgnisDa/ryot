@@ -29,5 +29,5 @@ export const createRoleAccumulator = (initial: readonly RoleRelatedEntity[] = []
 	for (const entity of initial) {
 		add(entity);
 	}
-	return { entities, add };
+	return { add, entities };
 };

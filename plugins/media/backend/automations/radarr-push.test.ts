@@ -52,8 +52,8 @@ const schema = entitySchemaRecord({
 const createAutomation = (properties: Record<string, string>) =>
 	eventAutomationContext({
 		eventSchemaSlug: "add-entity-to-collection",
-		subject: { id: "collection-1", name: "Collection", entitySchemaSlug: "collection" },
 		properties: { relationshipId: "rel-1", relationshipProperties: {}, ...properties },
+		subject: { id: "collection-1", name: "Collection", entitySchemaSlug: "collection" },
 	});
 
 const createHttpCall =
@@ -80,8 +80,8 @@ const createHost = (options: {
 }) =>
 	defineSandboxTestHost(manifest, {
 		httpCall: options.httpCall,
-		log: options.log ?? (() => Effect.succeed(null)),
 		getEntitySchemas: () => hostSuccess([schema]),
+		log: options.log ?? (() => Effect.succeed(null)),
 		listIntegrations: () => hostSuccess(options.integrations ?? []),
 		executeRyotql: () =>
 			options.entity ? hostSuccess(ryotqlRows("entities", [options.entity])) : hostFailure(),
@@ -99,7 +99,7 @@ describe("radarr-push sandbox script", () => {
 		});
 		return Effect.runPromise(
 			definition
-				.run(createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }), host, execution)
+				.run(createAutomation({ entityId: "movie-1", entitySchemaSlug: "movie" }), host, execution)
 				.pipe(
 					Effect.map(() => {
 						expect(calls).toHaveLength(1);
@@ -126,7 +126,7 @@ describe("radarr-push sandbox script", () => {
 	it("no-ops for non-movies, non-TMDB entities, and unmatched collections", () => {
 		const calls: HttpCall[] = [];
 		const httpCall = createHttpCall(calls);
-		const base = { integrations: [radarrIntegration], httpCall };
+		const base = { httpCall, integrations: [radarrIntegration] };
 		const unmatched = integrationRecord({
 			provider: "radarr",
 			providerSpecifics: {
@@ -142,12 +142,12 @@ describe("radarr-push sandbox script", () => {
 			Effect.all(
 				[
 					definition.run(
-						createAutomation({ entitySchemaSlug: "show", entityId: "show-1" }),
+						createAutomation({ entityId: "show-1", entitySchemaSlug: "show" }),
 						createHost({ ...base, entity: movieEntity }),
 						execution,
 					),
 					definition.run(
-						createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }),
+						createAutomation({ entityId: "movie-1", entitySchemaSlug: "movie" }),
 						createHost({
 							...base,
 							entity: entityRecord({ ...movieEntity, providerId: "script-movie-tvdb" }),
@@ -155,8 +155,8 @@ describe("radarr-push sandbox script", () => {
 						execution,
 					),
 					definition.run(
-						createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }),
-						createHost({ entity: movieEntity, httpCall, integrations: [unmatched] }),
+						createAutomation({ entityId: "movie-1", entitySchemaSlug: "movie" }),
+						createHost({ httpCall, entity: movieEntity, integrations: [unmatched] }),
 						execution,
 					),
 				],
@@ -180,7 +180,7 @@ describe("radarr-push sandbox script", () => {
 		});
 		return Effect.runPromise(
 			definition
-				.run(createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }), host, execution)
+				.run(createAutomation({ entityId: "movie-1", entitySchemaSlug: "movie" }), host, execution)
 				.pipe(
 					Effect.map(() => {
 						expect(calls).toHaveLength(0);
@@ -195,12 +195,12 @@ describe("radarr-push sandbox script", () => {
 			const warnings: (readonly LogEntry[])[] = [];
 			const host = createHost({
 				entity: movieEntity,
+				log: createLog(warnings),
 				integrations: [radarrIntegration],
 				httpCall: () => httpFailure("already exists"),
-				log: createLog(warnings),
 			});
 			const result = yield* definition.run(
-				createAutomation({ entitySchemaSlug: "movie", entityId: "movie-1" }),
+				createAutomation({ entityId: "movie-1", entitySchemaSlug: "movie" }),
 				host,
 				execution,
 			);

@@ -66,6 +66,15 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 				const installed = yield* installTestPluginBundle({
 					scope: "system",
 					configSchema: { fields: {}, unknownKeys: "strict" },
+					providers: [
+						{
+							slug: PROVIDER_SLUG,
+							information: { source: "e2e" },
+							name: "E2E Test Trending Provider",
+							rootEntitySchemaSlug: movieSchemaId,
+							operations: { details: DETAILS_SCRIPT_SLUG },
+						},
+					],
 					files: {
 						[trendingEntry]: TRENDING_SOURCE,
 						[detailsEntry]: providerSandboxSource({
@@ -81,9 +90,9 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 							capabilities: [],
 							entry: detailsEntry,
 							slug: DETAILS_SCRIPT_SLUG,
+							providerSlug: PROVIDER_SLUG,
 							requiredPluginConfigKeys: [],
 							requiredSystemConfigKeys: [],
-							providerSlug: PROVIDER_SLUG,
 							providerOperation: "details",
 							name: "E2E Test Trending Provider details",
 						},
@@ -91,20 +100,11 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 							kind: "script",
 							slug: SCRIPT_SLUG,
 							entry: trendingEntry,
-							requiredPluginConfigKeys: [],
-							requiredSystemConfigKeys: [],
 							name: "E2E Test Trending",
 							providerSlug: PROVIDER_SLUG,
+							requiredPluginConfigKeys: [],
+							requiredSystemConfigKeys: [],
 							capabilities: ["upsertGlobalEntities", "upsertGlobalRelationships"],
-						},
-					],
-					providers: [
-						{
-							slug: PROVIDER_SLUG,
-							rootEntitySchemaSlug: movieSchemaId,
-							information: { source: "e2e" },
-							name: "E2E Test Trending Provider",
-							operations: { details: DETAILS_SCRIPT_SLUG },
 						},
 					],
 				});

@@ -48,7 +48,7 @@ describe("episodic session policy", () => {
 					sessionEntityId: "wrong-show",
 					entitySchemaSlug: "show-episode",
 				}),
-				[{ parentEntityId: "show-1", seasonNumber: 1 }],
+				[{ seasonNumber: 1, parentEntityId: "show-1" }],
 			).pipe(
 				Effect.map((result) => {
 					expect(result).toEqual({ action: "replace", body: { sessionEntityId: "show-1" } });
@@ -64,7 +64,7 @@ describe("episodic session policy", () => {
 					sessionEntityId: "show-1",
 					entitySchemaSlug: "show-episode",
 				}),
-				[{ parentEntityId: "show-1", seasonNumber: 0 }],
+				[{ seasonNumber: 0, parentEntityId: "show-1" }],
 			).pipe(
 				Effect.map((result) => {
 					expect(result).toEqual({ action: "replace", body: { sessionEntityId: null } });

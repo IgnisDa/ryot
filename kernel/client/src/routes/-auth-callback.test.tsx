@@ -99,13 +99,13 @@ const mountCallback = (
 		),
 	);
 	const router = getRouter(
-		{ runtime, theme, backInterceptors: createBackInterceptors() },
+		{ theme, runtime, backInterceptors: createBackInterceptors() },
 		createMemoryHistory({
 			initialEntries: typeof initialEntry === "string" ? [initialEntry] : [...initialEntry],
 		}),
 	);
 	render(<RouterProvider router={router} />);
-	return { exchanges, rejected, router };
+	return { router, rejected, exchanges };
 };
 
 const settledPath = async (router: ReturnType<typeof mountCallback>["router"]) => {
@@ -115,7 +115,7 @@ const settledPath = async (router: ReturnType<typeof mountCallback>["router"]) =
 
 describe("OAuth callback", () => {
 	it("exchanges the code against the expected web client and drops callback parameters", async () => {
-		const { exchanges, router } = mountCallback("/auth/callback?code=code-1&state=state", {
+		const { router, exchanges } = mountCallback("/auth/callback?code=code-1&state=state", {
 			destination: "/settings",
 		});
 		const location = await settledPath(router);

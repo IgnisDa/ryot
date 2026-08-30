@@ -142,7 +142,7 @@ export function PluginFrame(props: {
 		signal: AbortSignal,
 	) => Promise<PluginOperationDispatchOutcome>;
 }) {
-	const { compact, edgeBack, index, key, leading, location } = props.navigation;
+	const { key, index, compact, leading, edgeBack, location } = props.navigation;
 	const routePath = location.kind === "route" ? location.path : undefined;
 	const entityId = location.kind === "entity" ? location.entityId : undefined;
 	const routeSearch = location.kind === "route" ? location.search : undefined;
@@ -431,8 +431,8 @@ export function PluginFrame(props: {
 			artifactHash: props.artifactHash,
 			viewport: latest.current.viewport,
 			navigation: latest.current.navigation,
-			theme: latest.current.theme.getSnapshot(),
 			onReady: () => setFrameStatus("ready"),
+			theme: latest.current.theme.getSnapshot(),
 			onOpenDrawer: () => latest.current.onOpenDrawer(),
 			onPageSearch: (request) => latest.current.onPageSearch(request),
 			onRyotQL: (request, signal) => latest.current.onQuery(request, signal),
@@ -440,13 +440,18 @@ export function PluginFrame(props: {
 			onAssets: (request, signal) => latest.current.onAssets(request, signal),
 			onUpload: (request, signal) => latest.current.onUpload(request, signal),
 			onKernelShortcut: (shortcut) => latest.current.onKernelShortcut(shortcut),
+			onCollection: (request, signal) => latest.current.onCollection(request, signal),
+			watchEntities: (interest, onUpdate) => latest.current.watchEntities(interest, onUpdate),
+			onFailure: () => {
+				connection.failed = true;
+				closeBridge();
+				setFrameStatus("handshake-failure");
+			},
 			onPageShortcuts: (shortcuts) => {
 				if (bridge.current === connection.session) {
 					setPageShortcuts(shortcuts);
 				}
 			},
-			onCollection: (request, signal) => latest.current.onCollection(request, signal),
-			watchEntities: (interest, onUpdate) => latest.current.watchEntities(interest, onUpdate),
 			onScreenState: (state) => {
 				if (bridge.current === connection.session) {
 					latest.current.onScreenState(state);
@@ -458,16 +463,19 @@ export function PluginFrame(props: {
 					latest.current.onOverlayState(count);
 				}
 			},
-			onFailure: () => {
-				connection.failed = true;
-				closeBridge();
-				setFrameStatus("handshake-failure");
-			},
 			onNavigate: (request) => {
 				const navigation = toNavigationRequest(request);
 				if (navigation !== undefined) {
 					latest.current.onNavigate(navigation);
 				}
+			},
+			onNavigateBack: () => {
+				latest.current.onNavigateBack();
+				window.clearTimeout(backSettle.current);
+				backSettle.current = window.setTimeout(
+					() => bridge.current?.sendLocation(latest.current.navigation),
+					PLUGIN_BACK_SETTLE_MS,
+				);
 			},
 			onHeader: (request) => {
 				const current = latest.current.navigation;
@@ -478,14 +486,6 @@ export function PluginFrame(props: {
 						title: request.header?.title ?? null,
 					});
 				}
-			},
-			onNavigateBack: () => {
-				latest.current.onNavigateBack();
-				window.clearTimeout(backSettle.current);
-				backSettle.current = window.setTimeout(
-					() => bridge.current?.sendLocation(latest.current.navigation),
-					PLUGIN_BACK_SETTLE_MS,
-				);
 			},
 			onOperation: async (request, signal) => {
 				const outcome = await latest.current.onInvokeOperation(request, signal);
@@ -509,7 +509,7 @@ export function PluginFrame(props: {
 		return <PluginNotice {...chrome} status="loading" />;
 	}
 	if (artifact.status === "failed") {
-		return <PluginNotice {...chrome} status="artifact-session-failure" onReload={reloadArtifact} />;
+		return <PluginNotice {...chrome} onReload={reloadArtifact} status="artifact-session-failure" />;
 	}
 	if (frameStatus === "handshake-failure") {
 		return <PluginNotice {...chrome} status={frameStatus} onReload={reloadArtifact} />;
@@ -636,7 +636,7 @@ function PluginNoticePanel(props: {
 }) {
 	return (
 		<section className="ui-stack ui-card mx-auto w-[min(100%,480px)]">
-			<p role={props.status === "loading" ? "status" : "alert"} className="text-text-muted">
+			<p className="text-text-muted" role={props.status === "loading" ? "status" : "alert"}>
 				{noticeMessages[props.status]}
 			</p>
 			{props.onReload ? (

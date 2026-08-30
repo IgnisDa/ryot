@@ -22,7 +22,7 @@ const writeArchive = Effect.fn("writeArchive")(function* (root: string, slug: st
 	const fs = yield* FileSystem.FileSystem;
 	const manifest = {
 		...fixtureManifest(),
-		metadata: { ...fixtureManifest().metadata, name: slug, slug },
+		metadata: { ...fixtureManifest().metadata, slug, name: slug },
 	};
 	yield* fs.writeFile(
 		`${root}/${slug}.zip`,

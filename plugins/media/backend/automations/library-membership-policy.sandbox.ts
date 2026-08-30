@@ -35,18 +35,18 @@ const eligibleEntitySchemaSlugs = new Set<string>(mediaLibraryEligibleEntitySche
 const globalEntityRecipe = defineRecipe((entityId: string, entitySchemaSlug: string) => {
 	const entity = table("entity", "entity");
 	return {
+		map: ({ entity: row }) => Result.succeed(row?.entityId ?? null),
 		queries: {
 			entity: selectedOptionalRow(entity, {
 				orderBy: [ascending(column(entity, "id"))],
+				selection: { entityId: selectedField(column(entity, "id"), Schema.String) },
 				where: and(
 					eq(column(entity, "id"), literal(entityId)),
 					isNull(column(entity, "userId")),
 					eq(column(entity, "entitySchemaSlug"), literal(entitySchemaSlug)),
 				),
-				selection: { entityId: selectedField(column(entity, "id"), Schema.String) },
 			}),
 		},
-		map: ({ entity: row }) => Result.succeed(row?.entityId ?? null),
 	};
 });
 

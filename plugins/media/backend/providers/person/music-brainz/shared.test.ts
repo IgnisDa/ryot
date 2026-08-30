@@ -27,7 +27,7 @@ describe("person.music-brainz sandbox script", () => {
 
 		return runSandboxTestScript(
 			search,
-			{ query: "artist", page: 1, pageSize: 20 },
+			{ page: 1, pageSize: 20, query: "artist" },
 			host,
 			execution,
 		).pipe(
@@ -46,13 +46,13 @@ describe("person.music-brainz sandbox script", () => {
 				return { recordings: [{ id: "r1", title: "Song One" }, { title: "No Id" }] };
 			}
 			return {
-				name: "Artist One",
 				type: "Group",
 				country: "US",
+				name: "Artist One",
 				disambiguation: "the band",
-				"life-span": { begin: "1990", end: "2005" },
-				aliases: [{ name: "A1 Alias" }, { name: "Artist One" }],
+				"life-span": { end: "2005", begin: "1990" },
 				"release-groups": [{ id: "g1", title: "Album One" }],
+				aliases: [{ name: "A1 Alias" }, { name: "Artist One" }],
 			};
 		});
 
@@ -79,8 +79,8 @@ describe("person.music-brainz sandbox script", () => {
 						relationshipSchemaSlug: "person-to-music-group",
 						entities: [
 							{
-								name: "Album One",
 								externalId: "g1",
+								name: "Album One",
 								providerSlug: "music-group.music-brainz",
 								relationshipProperties: { roles: ["Artist"] },
 							},
@@ -89,12 +89,12 @@ describe("person.music-brainz sandbox script", () => {
 				]);
 				expect(result.properties).toEqual({
 					images: [],
+					birthPlace: null,
 					birthDate: "1990",
 					deathDate: "2005",
-					birthPlace: null,
 					alternateNames: ["A1 Alias"],
-					description: "Group - Country: US - Active: 1990 - 2005 - the band",
 					sourceUrl: "https://musicbrainz.org/artist/a1",
+					description: "Group - Country: US - Active: 1990 - 2005 - the band",
 				});
 				return undefined;
 			}),

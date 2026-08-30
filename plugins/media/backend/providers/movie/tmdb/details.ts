@@ -41,12 +41,29 @@ const buildDetailsResult = (
 				},
 			]
 		: [];
-	const { relatedEntities: people, unlinkedCreators } = collectPeople(
+	const { unlinkedCreators, relatedEntities: people } = collectPeople(
 		creditsData["cast"],
 		creditsData["crew"],
 	);
 	return {
 		name: title,
+		properties: {
+			runtime,
+			providerRating,
+			unlinkedCreators,
+			genres: collectGenres(movieData["genres"]),
+			description: stringValue(movieData["overview"]),
+			isNsfw: movieData["adult"] === true ? true : null,
+			productionStatus: stringValue(movieData["status"]),
+			publishYear: parsePublishYear(movieData["release_date"]),
+			sourceUrl: `https://www.themoviedb.org/movie/${input.externalId}`,
+			images: collectImages(
+				movieData["poster_path"],
+				movieData["backdrop_path"],
+				imagesData["posters"],
+				imagesData["backdrops"],
+			),
+		},
 		relatedEntityGroups: [
 			{
 				entities: people,
@@ -76,23 +93,6 @@ const buildDetailsResult = (
 				}),
 			},
 		],
-		properties: {
-			runtime,
-			providerRating,
-			unlinkedCreators,
-			isNsfw: movieData["adult"] === true ? true : null,
-			genres: collectGenres(movieData["genres"]),
-			description: stringValue(movieData["overview"]),
-			productionStatus: stringValue(movieData["status"]),
-			publishYear: parsePublishYear(movieData["release_date"]),
-			sourceUrl: `https://www.themoviedb.org/movie/${input.externalId}`,
-			images: collectImages(
-				movieData["poster_path"],
-				movieData["backdrop_path"],
-				imagesData["posters"],
-				imagesData["backdrops"],
-			),
-		},
 	};
 };
 
@@ -116,9 +116,9 @@ export const getTmdbMovieDetails = (
 	).pipe(
 		Effect.flatMap(([movieData, creditsData, imagesData, recommendationsData]) =>
 			Effect.try({
+				catch: (error) => (error instanceof Error ? error : new Error(String(error))),
 				try: () =>
 					buildDetailsResult(input, movieData, creditsData, imagesData, recommendationsData),
-				catch: (error) => (error instanceof Error ? error : new Error(String(error))),
 			}),
 		),
 	);

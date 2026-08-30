@@ -73,8 +73,8 @@ export const RelationshipsRoutesLive = HttpApiBuilder.group(
 					sourceEntityId: payload.sourceEntityId,
 					targetEntityId: payload.targetEntityId,
 					propertiesSchema: schema.propertiesSchema,
-					relationshipSchemaSlug: payload.relationshipSchemaSlug,
 					relationshipSchemaPluginId: schema.pluginId ?? null,
+					relationshipSchemaSlug: payload.relationshipSchemaSlug,
 				} as const;
 
 				const outcome = yield* mapDatabaseErrors(
@@ -82,11 +82,11 @@ export const RelationshipsRoutesLive = HttpApiBuilder.group(
 						Effect.gen(function* () {
 							const created = yield* service.create(relationshipInput);
 							if (created.wasInserted) {
-								return { wasInserted: true as const, relationship: created };
+								return { relationship: created, wasInserted: true as const };
 							}
 
 							const updated = yield* service.update(relationshipInput);
-							return { wasInserted: false as const, relationship: updated };
+							return { relationship: updated, wasInserted: false as const };
 						}).pipe(Effect.provideService(Database, transaction)),
 					),
 				);
@@ -114,9 +114,9 @@ export const RelationshipsRoutesLive = HttpApiBuilder.group(
 							after: {
 								id: created.id,
 								properties: created.properties,
-								relationshipSchemaSlug: created.relationshipSchemaSlug,
 								target: referenceFor(payload.targetEntityId),
 								source: referenceFor(payload.sourceEntityId),
+								relationshipSchemaSlug: created.relationshipSchemaSlug,
 							},
 						},
 					});

@@ -47,6 +47,24 @@ const populationReferencesLayer = (
 			databaseLayer,
 			unownedRepositories,
 			Layer.mock(PluginRuntimeResolver)({
+				findAuthorizedSchemaProviderById: ({ providerId }) =>
+					Effect.succeed(
+						authorizes(providerId)
+							? {
+									entitySchemaSlug: EntitySchemaSlug.make("record"),
+									provider: {
+										id: providerId,
+										name: "Records",
+										slug: "record.catalog",
+										createdAt: new Date(0),
+										updatedAt: new Date(0),
+										pluginId: "provider-owner",
+										rootEntitySchemaSlug: "record",
+										information: { source: "catalog" },
+									},
+								}
+							: null,
+					),
 				findActiveScriptById: () =>
 					Effect.succeed({
 						providerId: null,
@@ -54,12 +72,12 @@ const populationReferencesLayer = (
 						compiledFormat: 1,
 						pluginId: "catalog",
 						pluginSlug: "catalog",
+						createdAt: new Date(0),
+						updatedAt: new Date(0),
 						name: "Catalog refresh",
 						slug: "catalog.refresh",
 						compiledCode: "compiled",
 						contentHash: "workflow-hash",
-						createdAt: new Date(0),
-						updatedAt: new Date(0),
 						id: SandboxScriptId.make("caller-script"),
 						metadata: {
 							kind: "workflow",
@@ -70,24 +88,6 @@ const populationReferencesLayer = (
 							requiredSystemConfigKeys: [],
 						},
 					}),
-				findAuthorizedSchemaProviderById: ({ providerId }) =>
-					Effect.succeed(
-						authorizes(providerId)
-							? {
-									entitySchemaSlug: EntitySchemaSlug.make("record"),
-									provider: {
-										name: "Records",
-										id: providerId,
-										slug: "record.catalog",
-										pluginId: "provider-owner",
-										rootEntitySchemaSlug: "record",
-										createdAt: new Date(0),
-										updatedAt: new Date(0),
-										information: { source: "catalog" },
-									},
-								}
-							: null,
-					),
 			}),
 		),
 	);
@@ -108,9 +108,9 @@ it.effect("binds kernel workflow user ids to the trusted execution subject", () 
 		yield* references.execute(
 			KERNEL_ENTITY_IMPORT_WORKFLOW,
 			{
+				providerId: "zeta",
 				externalId: "record-1",
 				entitySchemaSlug: "record",
-				providerId: "zeta",
 				origin: { kind: "import" },
 				userId: "attacker-selected-user",
 			},
@@ -163,9 +163,9 @@ it.effect("resolves plugin provider slugs before dispatching entity imports", ()
 							name: "Alpha",
 							slug: "group.alpha",
 							pluginId: "example",
-							rootEntitySchemaSlug: "group",
 							createdAt: new Date(0),
 							updatedAt: new Date(0),
+							rootEntitySchemaSlug: "group",
 							information: { source: "alpha" },
 							id: SandboxProviderId.make("provider-group-alpha"),
 						},
@@ -180,8 +180,8 @@ it.effect("resolves plugin provider slugs before dispatching entity imports", ()
 			KERNEL_ENTITY_IMPORT_WORKFLOW,
 			{
 				externalId: "group-1",
-				providerSlug: "group.alpha",
 				origin: { kind: "import" },
+				providerSlug: "group.alpha",
 				entitySchemaSlug: "attacker-selected-schema",
 			},
 			{ type: "user", userId: UserId.make("trusted-user") },
@@ -239,9 +239,9 @@ it.effect("keeps import handles opaque across the kernel child boundary", () => 
 			{
 				totalItems: 0,
 				runId: "run-1",
-				chunkHandles: ["harvest-handle-0"],
 				failureCount: 0,
 				writeItemCount: 0,
+				chunkHandles: ["harvest-handle-0"],
 			},
 			{ type: "user", userId: UserId.make("trusted-user") },
 			"child-execution",
@@ -253,9 +253,9 @@ it.effect("keeps import handles opaque across the kernel child boundary", () => 
 			expect.objectContaining({
 				userId: "trusted-user",
 				executionId: "child-execution",
+				chunkHandles: ["harvest-handle-0"],
 				artifactOwnerExecutionId: "parent/execution",
 				artifactReferenceExecutionId: "child-execution",
-				chunkHandles: ["harvest-handle-0"],
 			}),
 		]);
 	}).pipe(
@@ -271,9 +271,9 @@ it.effect("rejects user-scoped kernel workflows for system executions", () =>
 			references.execute(
 				KERNEL_ENTITY_IMPORT_WORKFLOW,
 				{
+					providerId: "zeta",
 					externalId: "record-1",
 					entitySchemaSlug: "record",
-					providerId: "zeta",
 					origin: { kind: "import" },
 					userId: "attacker-selected-user",
 				},
@@ -298,9 +298,9 @@ it.effect("rejects a script-supplied import run owned by another user", () =>
 			references.execute(
 				KERNEL_ENTITY_IMPORT_WORKFLOW,
 				{
+					providerId: "zeta",
 					externalId: "record-1",
 					entitySchemaSlug: "record",
-					providerId: "zeta",
 					origin: { kind: "import", importRunId: ImportRunId.make("victim-run") },
 				},
 				{ type: "user", userId: UserId.make("trusted-user") },
@@ -369,13 +369,13 @@ it.effect(
 					items: [
 						{
 							externalId: "record-1",
-							providerId: "provider-record-catalog",
 							entitySchemaSlug: "record",
+							providerId: "provider-record-catalog",
 						},
 						{
 							externalId: "record-2",
-							providerId: "provider-record-catalog",
 							entitySchemaSlug: "record",
+							providerId: "provider-record-catalog",
 						},
 					],
 				},
@@ -389,13 +389,13 @@ it.effect(
 			expect(executionIds).toEqual(["population-reference-item-0", "population-reference-item-1"]);
 			expect(payloads).toEqual([
 				expect.objectContaining({
-					entityScope: { type: "global", userId: null },
 					mode: "refresh",
 					externalId: "record-1",
 					entitySchemaSlug: "record",
-					providerId: "provider-record-catalog",
 					origin: { kind: "provider_refresh" },
+					providerId: "provider-record-catalog",
 					executionId: "population-reference-item-0",
+					entityScope: { userId: null, type: "global" },
 				}),
 				expect.objectContaining({
 					externalId: "record-2",
@@ -465,7 +465,7 @@ it.effect("rejects non-system and unauthorized provider population calls", () =>
 	});
 	const input = {
 		mode: "refresh" as const,
-		items: [{ externalId: "record-1", providerId: "foreign", entitySchemaSlug: "record" }],
+		items: [{ providerId: "foreign", externalId: "record-1", entitySchemaSlug: "record" }],
 	};
 
 	return Effect.gen(function* () {
@@ -520,8 +520,8 @@ it.effect("authorizes every provider population item before dispatching any chil
 				{
 					mode: "ensure",
 					items: [
-						{ externalId: "record-1", providerId: "owned", entitySchemaSlug: "record" },
-						{ externalId: "record-2", providerId: "foreign", entitySchemaSlug: "record" },
+						{ providerId: "owned", externalId: "record-1", entitySchemaSlug: "record" },
+						{ providerId: "foreign", externalId: "record-2", entitySchemaSlug: "record" },
 					],
 				},
 				{ type: "system" },

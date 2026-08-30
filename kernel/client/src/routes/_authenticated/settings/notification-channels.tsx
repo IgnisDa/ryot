@@ -42,7 +42,7 @@ export const Route = createFileRoute("/_authenticated/settings/notification-chan
 
 function NotificationChannelsFrame(props: { readonly children: ReactNode }) {
 	return (
-		<SettingsFrame title="Notification channels" backFallbackHref="/settings">
+		<SettingsFrame backFallbackHref="/settings" title="Notification channels">
 			{props.children}
 		</SettingsFrame>
 	);

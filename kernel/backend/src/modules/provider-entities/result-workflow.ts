@@ -12,6 +12,7 @@ export const toEntityImportRunResult = <
 		return { status: "pending" };
 	}
 	return Exit.match(result.exit, {
+		onSuccess: (data) => ({ data, status: "completed" as const }),
 		onFailure: (cause) => ({
 			status: "failed" as const,
 			reason: {
@@ -22,6 +23,5 @@ export const toEntityImportRunResult = <
 				}),
 			},
 		}),
-		onSuccess: (data) => ({ status: "completed" as const, data }),
 	});
 };

@@ -79,17 +79,17 @@ it("declares every upload field with its extensions and required state", () => {
 	expect(uploads).toEqual({
 		"imdb.uploadToken": { minLength: 1, required: true, extensions: ["csv"] },
 		"igdb.uploadToken": { minLength: 1, required: true, extensions: ["csv"] },
-		"trakt.exportUploadToken": { minLength: 1, required: true, extensions: ["zip"] },
-		"movary.historyUploadToken": { minLength: 1, required: true, extensions: ["csv"] },
-		"movary.ratingsUploadToken": { minLength: 1, required: true, extensions: ["csv"] },
-		"movary.watchlistUploadToken": { minLength: 1, required: true, extensions: ["csv"] },
-		"anilist.uploadToken": { minLength: 1, required: true, extensions: ["json"] },
 		"grouvee.uploadToken": { minLength: 1, required: true, extensions: ["csv"] },
 		"netflix.uploadToken": { minLength: 1, required: true, extensions: ["zip"] },
+		"anilist.uploadToken": { minLength: 1, required: true, extensions: ["json"] },
 		"watcharr.uploadToken": { minLength: 1, required: true, extensions: ["json"] },
 		"hardcover.uploadToken": { minLength: 1, required: true, extensions: ["csv"] },
 		"goodreads.uploadToken": { minLength: 1, required: true, extensions: ["csv"] },
 		"storygraph.uploadToken": { minLength: 1, required: true, extensions: ["csv"] },
+		"trakt.exportUploadToken": { minLength: 1, required: true, extensions: ["zip"] },
+		"movary.historyUploadToken": { minLength: 1, required: true, extensions: ["csv"] },
+		"movary.ratingsUploadToken": { minLength: 1, required: true, extensions: ["csv"] },
+		"movary.watchlistUploadToken": { minLength: 1, required: true, extensions: ["csv"] },
 		"myanimelist.animeUploadToken": { minLength: 1, required: false, extensions: ["gz", "xml"] },
 		"myanimelist.mangaUploadToken": { minLength: 1, required: false, extensions: ["gz", "xml"] },
 	});
@@ -98,16 +98,16 @@ it("declares every upload field with its extensions and required state", () => {
 it("declares mirrored MyAnimeList upload requirements", () => {
 	expect(sourceBySlug("myanimelist").inputSchema.rules).toEqual([
 		{
-			path: ["animeUploadToken"],
 			kind: "validation",
+			path: ["animeUploadToken"],
 			validation: { required: true },
-			when: { path: ["mangaUploadToken"], operator: "not_exists" },
+			when: { operator: "not_exists", path: ["mangaUploadToken"] },
 		},
 		{
-			path: ["mangaUploadToken"],
 			kind: "validation",
+			path: ["mangaUploadToken"],
 			validation: { required: true },
-			when: { path: ["animeUploadToken"], operator: "not_exists" },
+			when: { operator: "not_exists", path: ["animeUploadToken"] },
 		},
 	]);
 });
@@ -140,7 +140,7 @@ it("declares Trakt modes and hides only fields outside the selected mode", () =>
 			path: [field],
 			kind: "visibility",
 			visibility: { hidden: true },
-			when: { path: ["mode"], value: mode, operator: "neq" },
+			when: { value: mode, path: ["mode"], operator: "neq" },
 		})),
 	);
 });

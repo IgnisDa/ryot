@@ -115,7 +115,7 @@ const resolveAssetPath = (stylesheet: string, specifier: string) => {
 		normalized.push(part);
 	}
 	const path = normalized.join("/");
-	return path.startsWith(root) ? { suffix, path } : null;
+	return path.startsWith(root) ? { path, suffix } : null;
 };
 
 const rewriteStylesheetAssets = (
@@ -204,6 +204,14 @@ export const compileClientStyles = ({
 	tailwindStylesheet,
 }: CompileClientStylesInput) =>
 	Effect.tryPromise({
+		catch: (error) =>
+			clientPluginCompilationFailure([
+				clientPluginCompilerDiagnostic(
+					"RYOT_CLIENT_STYLES",
+					error instanceof ClientStyleAssetError ? error.path : entry,
+					`Client plugin stylesheet could not be compiled: ${String(error)}`,
+				),
+			]),
 		try: async () => {
 			const assets = new Set<string>();
 			const rewrittenFiles: Record<string, string> = {};
@@ -261,16 +269,8 @@ export const compileClientStyles = ({
 			const candidates = new Scanner({}).scanFiles([...scanSources]);
 			return {
 				assets: sortBy([...assets]),
-				sources: sortBy(Object.keys(rewrittenFiles)),
 				css: compiled.build(sortBy(candidates)),
+				sources: sortBy(Object.keys(rewrittenFiles)),
 			};
 		},
-		catch: (error) =>
-			clientPluginCompilationFailure([
-				clientPluginCompilerDiagnostic(
-					"RYOT_CLIENT_STYLES",
-					error instanceof ClientStyleAssetError ? error.path : entry,
-					`Client plugin stylesheet could not be compiled: ${String(error)}`,
-				),
-			]),
 	});

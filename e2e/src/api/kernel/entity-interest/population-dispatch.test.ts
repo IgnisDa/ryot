@@ -68,8 +68,8 @@ describe("entity population via client-declared interest", () => {
 				properties: {},
 				name: "Partial Studio",
 				entitySchemaSlug: schema.id,
-				externalId: provenance.externalId,
 				providerId: provider.providerId,
+				externalId: provenance.externalId,
 			});
 
 			const fetched = yield* getEntity(client, seeded.id);
@@ -86,8 +86,8 @@ describe("entity population via client-declared interest", () => {
 				type: "applied",
 			});
 			expect(
-				yield* Effect.promise(() => socket.updateInterest({ add: [seeded.id], remove: [] })),
-			).toEqual({ type: "applied", revision: 2 });
+				yield* Effect.promise(() => socket.updateInterest({ remove: [], add: [seeded.id] })),
+			).toEqual({ revision: 2, type: "applied" });
 
 			const populated = yield* waitForEntityPopulated(client, provenance);
 			expect(populated.populatedAt).not.toBeNull();
@@ -117,8 +117,8 @@ describe("entity population via client-declared interest", () => {
 
 			const socket = yield* openInterestWebSocketScoped(auth);
 			expect(yield* Effect.promise(() => socket.replaceInterest([entity.id]))).toEqual({
-				type: "applied",
 				revision: 1,
+				type: "applied",
 			});
 			const event = yield* Effect.promise(() =>
 				socket.waitForEntityUpdated(entity.id, "populated"),
@@ -152,7 +152,7 @@ describe("entity population via client-declared interest", () => {
 			});
 			expect(
 				yield* Effect.promise(() => reconnected.waitForEntityUpdated(entity.id, "populated")),
-			).toEqual({ type: "entity-updated", entityId: entity.id, reason: "populated" });
+			).toEqual({ entityId: entity.id, reason: "populated", type: "entity-updated" });
 		}),
 	);
 
@@ -182,7 +182,7 @@ describe("entity population via client-declared interest", () => {
 			});
 			expect(
 				yield* Effect.promise(() => replaced.updateInterest({ add: [], remove: [entity.id] })),
-			).toEqual({ type: "applied", revision: 2 });
+			).toEqual({ revision: 2, type: "applied" });
 
 			const active = yield* openInterestWebSocketScoped(auth);
 			yield* Effect.promise(() => active.replaceInterest([entity.id]));

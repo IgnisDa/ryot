@@ -62,7 +62,7 @@ export default defineScript({
 			const settings = specifics(integration.providerSpecifics);
 			const token = typeof settings?.["token"] === "string" ? settings["token"] : "";
 			const url = baseUrl(settings?.["baseUrl"]);
-			const headers = { Accept: "application/json", "X-Plex-Token": token };
+			const headers = { "X-Plex-Token": token, Accept: "application/json" };
 			const libraries = yield* requestJson(host, "GET", `${url}/library/sections`, {
 				headers,
 			}).pipe(Effect.flatMap(Schema.decodeUnknownEffect(LibrariesResponse)));
@@ -84,8 +84,8 @@ export default defineScript({
 						sourceFetchFailure({
 							itemIndex,
 							sourceLabel: String(directory.key),
-							message: "Failed to fetch Plex library items",
 							sourceIdentifier: String(directory.key),
+							message: "Failed to fetch Plex library items",
 						}),
 					);
 					continue;

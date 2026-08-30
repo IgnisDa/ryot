@@ -275,7 +275,7 @@ BEGIN
 		cursor_id := next_cursor_id;
 	END LOOP;
 
-	${buildReportSql("metadata -> entity", [{ message: "row(s) migrated total", count: "rows_inserted" }])}
+	${buildReportSql("metadata -> entity", [{ count: "rows_inserted", message: "row(s) migrated total" }])}
 END $$;
 `;
 

@@ -7,7 +7,7 @@ import { RyotQLDocument, RyotQLResponse } from "./language";
 const RyotQLBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("invalid-query") }),
 	Schema.Struct({ code: Schema.Literal("invalid-cursor") }),
-	Schema.Struct({ code: Schema.Literal("query-timeout"), limitMs: Schema.Number }),
+	Schema.Struct({ limitMs: Schema.Number, code: Schema.Literal("query-timeout") }),
 ]);
 
 export class RyotQLBadRequest extends Schema.TaggedError<RyotQLBadRequest>()("RyotQLBadRequest", {

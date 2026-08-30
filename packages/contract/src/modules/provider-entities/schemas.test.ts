@@ -65,19 +65,19 @@ describe("provider entity boundary schemas", () => {
 		expect(() =>
 			Schema.decodeUnknownSync(SearchProviderEntitiesResponse)({
 				...response,
-				items: [{ externalId: "book_1", title: "The Work", metadata: [] }],
+				items: [{ metadata: [], title: "The Work", externalId: "book_1" }],
 			}),
 		).toThrow();
 		expect(() =>
 			Schema.decodeUnknownSync(SearchProviderEntitiesResponse)({
 				...response,
-				items: [{ externalId: "book_1", title: "The Work", extraField: true }],
+				items: [{ extraField: true, title: "The Work", externalId: "book_1" }],
 			}),
 		).toThrow();
 	});
 
 	it("accepts only the provider id and external id for imports", () => {
-		const body = { providerId: "provider_1", externalId: "book_1" };
+		const body = { externalId: "book_1", providerId: "provider_1" };
 
 		expect(Schema.decodeUnknownSync(ImportEntityBody)(body)).toEqual(body);
 		expect(() =>

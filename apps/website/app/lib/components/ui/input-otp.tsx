@@ -11,8 +11,8 @@ const InputOTP = forwardRef<
 	return (
 		<OTPInput
 			ref={ref}
-			containerClassName={cn("flex items-center gap-2 has-disabled:opacity-50", containerClassName)}
 			className={cn("disabled:cursor-not-allowed", className)}
+			containerClassName={cn("flex items-center gap-2 has-disabled:opacity-50", containerClassName)}
 			{...rest}
 		/>
 	);
@@ -33,7 +33,7 @@ const InputOTPSlot = forwardRef<
 >((props, ref) => {
 	const { index, className, ...rest } = props;
 	const inputOTPContext = useContext(OTPInputContext);
-	const { char, hasFakeCaret, isActive } = inputOTPContext.slots[index];
+	const { char, isActive, hasFakeCaret } = inputOTPContext.slots[index];
 
 	return (
 		<div

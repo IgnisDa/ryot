@@ -40,7 +40,7 @@ function MenuInModal() {
 	const trigger = useRef<HTMLButtonElement>(null);
 	const [open, setOpen] = useState(false);
 	return (
-		<Modal label="Confirm" closeLabel="Close dialog" onClose={() => {}}>
+		<Modal label="Confirm" onClose={() => {}} closeLabel="Close dialog">
 			<button type="button" ref={trigger} onClick={() => setOpen(true)}>
 				Actions
 			</button>
@@ -261,10 +261,10 @@ describe("Modal", () => {
 	it("inerts an underlying modal while a modal is stacked over it", () => {
 		const view = render(
 			<>
-				<Modal label="Outer" closeLabel="Close outer" onClose={() => {}}>
+				<Modal label="Outer" onClose={() => {}} closeLabel="Close outer">
 					<button type="button">Outer action</button>
 				</Modal>
-				<Modal label="Inner" closeLabel="Close inner" onClose={() => {}}>
+				<Modal label="Inner" onClose={() => {}} closeLabel="Close inner">
 					<button type="button">Inner action</button>
 				</Modal>
 			</>,
@@ -276,7 +276,7 @@ describe("Modal", () => {
 		expect(inner?.hasAttribute("inert")).toBe(false);
 
 		view.rerender(
-			<Modal label="Outer" closeLabel="Close outer" onClose={() => {}}>
+			<Modal label="Outer" onClose={() => {}} closeLabel="Close outer">
 				<button type="button">Outer action</button>
 			</Modal>,
 		);

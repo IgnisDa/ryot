@@ -45,7 +45,7 @@ const createNoAccountUser = (name: string) =>
 	Effect.gen(function* () {
 		const email = `${name.toLowerCase()}-${unique()}@example.com`;
 		const { userId } = yield* getApiClient().call(
-			(c) => c.godMode.provisionUser({ payload: { provider: "credential", email, name } }),
+			(c) => c.godMode.provisionUser({ payload: { name, email, provider: "credential" } }),
 			adminHeaders(),
 		);
 		return { email, userId: UserId.make(userId) };
@@ -130,10 +130,10 @@ describe("Reset user for credential user", () => {
 				sortOrder: 41,
 				isDisabled: true,
 			});
-			expect(configuredPlugin).toMatchObject({ isDisabled: true, sortOrder: 41 });
+			expect(configuredPlugin).toMatchObject({ sortOrder: 41, isDisabled: true });
 
 			const accepted = yield* requestUserReset(userId);
-			expect(accepted).toMatchObject({ kind: "reset", userId });
+			expect(accepted).toMatchObject({ userId, kind: "reset" });
 
 			const oldSession = yield* Effect.flip(
 				client.call((c) => c.definitions.listPlugins({ query: pluginListQuery }), {
@@ -176,7 +176,7 @@ describe("Reset user for credential user", () => {
 			expect(plugins.some((candidate) => candidate.slug === "media")).toBe(true);
 			const resetPlugin = plugins.find((candidate) => candidate.slug === plugin.slug);
 			assertPresent(resetPlugin, "expected the installed plugin after reset");
-			expect(resetPlugin).toMatchObject({ isDisabled: false, sortOrder: 0 });
+			expect(resetPlugin).toMatchObject({ sortOrder: 0, isDisabled: false });
 		}),
 	);
 });

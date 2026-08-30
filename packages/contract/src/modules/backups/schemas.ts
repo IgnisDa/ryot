@@ -21,7 +21,7 @@ export const BackupAccountDataCategory = Schema.Literals([
 export type BackupAccountDataCategory = typeof BackupAccountDataCategory.Type;
 
 export const BackupRunFailure = Schema.Union([
-	Schema.Struct({ code: Schema.Literal("account-not-clean"), category: BackupAccountDataCategory }),
+	Schema.Struct({ category: BackupAccountDataCategory, code: Schema.Literal("account-not-clean") }),
 	Schema.Struct({
 		code: Schema.Literal("archive-invalid"),
 		issue: Schema.Literals([
@@ -47,12 +47,12 @@ export const BackupRunFailure = Schema.Union([
 		feature: Schema.Literals(["format", "compression"]),
 	}),
 	Schema.Struct({
-		code: Schema.Literal("required-plugin-unavailable"),
 		pluginSlug: Schema.String,
 		requiredVersion: Schema.String,
+		code: Schema.Literal("required-plugin-unavailable"),
 	}),
 	Schema.Struct({ code: Schema.Literal("upload-unavailable") }),
-	Schema.Struct({ code: Schema.Literal("unexpected-failure"), operation: BackupRunKind }),
+	Schema.Struct({ operation: BackupRunKind, code: Schema.Literal("unexpected-failure") }),
 ]);
 export type BackupRunFailure = typeof BackupRunFailure.Type;
 
@@ -64,7 +64,7 @@ const BackupBadRequestReason = Schema.Union([
 
 const BackupConflictReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("active-run-exists") }),
-	Schema.Struct({ code: Schema.Literal("account-not-clean"), category: BackupAccountDataCategory }),
+	Schema.Struct({ category: BackupAccountDataCategory, code: Schema.Literal("account-not-clean") }),
 	Schema.Struct({ code: Schema.Literal("export-still-running") }),
 	Schema.Struct({ code: Schema.Literal("run-still-active") }),
 ]);
@@ -110,9 +110,9 @@ export const BackupRun = Schema.Struct({
 	kind: BackupRunKind,
 	progress: Schema.Number,
 	createdAt: Schema.String,
-	failure: Schema.NullOr(BackupRunFailure),
 	expiresAt: Schema.NullOr(Schema.String),
 	startedAt: Schema.NullOr(Schema.String),
+	failure: Schema.NullOr(BackupRunFailure),
 	finishedAt: Schema.NullOr(Schema.String),
 	artifactProvider: Schema.NullOr(BackupRunArtifactProvider),
 });

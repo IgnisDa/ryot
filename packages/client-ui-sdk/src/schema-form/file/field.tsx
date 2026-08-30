@@ -124,9 +124,9 @@ export function SchemaFileField(props: {
 		setState({ name: file.name, size: file.size, status: "uploading" });
 		props.onChange(undefined);
 		const outcome = await props.uploadFile({
+			contentType,
 			fileName: file.name,
 			source: file.source,
-			contentType,
 		});
 		if (!isCurrent(token)) {
 			return;

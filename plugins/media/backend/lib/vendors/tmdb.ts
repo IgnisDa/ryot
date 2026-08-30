@@ -80,7 +80,7 @@ export const collectImages = (
 		const url = getImageUrl(path);
 		if (url && !seen.has(url)) {
 			seen.add(url);
-			images.push({ type: "remote", url, purpose });
+			images.push({ url, purpose, type: "remote" });
 		}
 	};
 
@@ -163,8 +163,8 @@ export const collectPeople = (cast: unknown, crew: unknown, createdBy?: unknown)
 		addRelatedEntity({
 			name,
 			providerSlug: "person.tmdb",
-			relationshipProperties: { roles: [role] },
 			externalId: String(Math.trunc(id)),
+			relationshipProperties: { roles: [role] },
 		});
 	};
 
@@ -181,7 +181,7 @@ export const collectPeople = (cast: unknown, crew: unknown, createdBy?: unknown)
 			addPerson(member, job);
 		}
 	}
-	return { relatedEntities: [...relatedEntities.values()], unlinkedCreators };
+	return { unlinkedCreators, relatedEntities: [...relatedEntities.values()] };
 };
 
 export const collectCompanies = (companyGroups: ReadonlyArray<readonly [unknown, string]>) => {
@@ -206,8 +206,8 @@ export const collectCompanies = (companyGroups: ReadonlyArray<readonly [unknown,
 		}
 		companies.set(key, {
 			name,
-			providerSlug: "company.tmdb",
 			externalId: String(id),
+			providerSlug: "company.tmdb",
 			relationshipProperties: { roles: [role] },
 		});
 	};

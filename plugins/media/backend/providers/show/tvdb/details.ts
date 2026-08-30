@@ -54,17 +54,17 @@ const buildSeason = (
 		return [
 			{
 				entitySchemaSlug: "show-episode",
-				externalId: String(Math.trunc(episodeIdValue)),
 				name: epName ?? `Episode ${epNumber}`,
+				externalId: String(Math.trunc(episodeIdValue)),
 				properties: {
 					seasonNumber,
 					runtime: epRuntime,
 					parentShowExternalId,
-					description: stringValue(episode["overview"]),
 					episodeNumber: epNumber,
 					publishDate: stringValue(episode["aired"]),
+					description: stringValue(episode["overview"]),
 					...(epImage
-						? { images: [{ type: "remote" as const, url: epImage, purpose: "still" as const }] }
+						? { images: [{ url: epImage, type: "remote" as const, purpose: "still" as const }] }
 						: {}),
 				},
 			},
@@ -77,9 +77,9 @@ const buildSeason = (
 		entitySchemaSlug: "show-season",
 		expectedChildEntitySchemaSlug: "show-episode",
 		properties: {
+			releaseDate,
 			seasonNumber,
 			parentShowExternalId,
-			releaseDate,
 			...(seasonImage ? { images: [seasonImage] } : {}),
 		},
 	};
@@ -178,6 +178,17 @@ export const getTvdbShowDetails = (
 			name: title,
 			childEntities,
 			expectedChildEntitySchemaSlug: "show-season",
+			properties: {
+				images,
+				genres,
+				sourceUrl,
+				publishYear,
+				totalEpisodes,
+				unlinkedCreators,
+				totalSeasons: childEntities.length,
+				productionStatus: stringValue(asRecord(show["status"])?.["name"]),
+				description: translation.description ?? stringValue(show["overview"]),
+			},
 			relatedEntityGroups: [
 				{
 					entities: relatedEntities,
@@ -203,17 +214,6 @@ export const getTvdbShowDetails = (
 					relationshipSchemaSlug: "media-suggestion",
 				},
 			],
-			properties: {
-				images,
-				genres,
-				sourceUrl,
-				publishYear,
-				totalEpisodes,
-				unlinkedCreators,
-				totalSeasons: childEntities.length,
-				description: translation.description ?? stringValue(show["overview"]),
-				productionStatus: stringValue(asRecord(show["status"])?.["name"]),
-			},
 		};
 	});
 };

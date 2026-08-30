@@ -9,8 +9,8 @@ export const IntegrationWebhookDelivery = Schema.Struct({
 export type IntegrationWebhookDelivery = typeof IntegrationWebhookDelivery.Type;
 
 export const IntegrationRunJobData = Schema.Struct({
-	runId: ImportRunId,
 	userId: UserId,
+	runId: ImportRunId,
 	integrationId: IntegrationId,
 	webhook: Schema.optional(IntegrationWebhookDelivery),
 });

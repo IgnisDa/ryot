@@ -178,11 +178,11 @@ const providerOwnerPlugin = () => {
 
 const providerRow = {
 	id: providerId,
+	createdAt: new Date(0),
+	updatedAt: new Date(0),
 	name: "Fixture provider",
 	slug: "fixture-provider",
 	pluginId: "fixture-plugin-id",
-	createdAt: new Date(0),
-	updatedAt: new Date(0),
 	information: { source: "fixture" },
 	rootEntitySchemaSlug: "fixture-entity",
 };
@@ -191,11 +191,11 @@ const scriptRow = {
 	providerId,
 	source: "source",
 	compiledFormat: 1,
+	createdAt: new Date(0),
+	updatedAt: new Date(0),
 	name: "Fixture details",
 	slug: "fixture.details",
 	compiledCode: "compiled",
-	createdAt: new Date(0),
-	updatedAt: new Date(0),
 	pluginId: "fixture-plugin-id",
 	contentHash: "fixture.details-hash",
 	id: SandboxScriptId.make("details-script-id"),
@@ -346,8 +346,8 @@ const makeLayer = (
 		select: () => ({
 			from: (table: unknown) => {
 				const builder = {
-					innerJoin: () => builder,
 					leftJoin: () => builder,
+					innerJoin: () => builder,
 					where: (condition: unknown) => {
 						if (table === schema.sandboxProvider) {
 							return limitable(storedProvider ? [storedProvider] : []);
@@ -390,8 +390,8 @@ const makeLayer = (
 			Layer.mergeAll(
 				Layer.succeed(PluginLoader, { ...loader }),
 				Layer.mock(PluginInstallationRepository)({
-					listForUser: () => Effect.succeed(systemInstallation ? [systemInstallation] : []),
 					findByUserAndPlugin: () => Effect.succeed(systemInstallation),
+					listForUser: () => Effect.succeed(systemInstallation ? [systemInstallation] : []),
 				}),
 				Layer.succeed(Database, Object.assign(Object.create(null), db)),
 			),
@@ -504,8 +504,8 @@ it.effect("resolves provider-import automations in manifest order", () =>
 	}).pipe(
 		Effect.provide(
 			makeLayer(providerRow, false, scriptRow, [
-				{ entitySchemaSlug: "fixture-entity", scriptSlug: "fixture.automation" },
-				{ entitySchemaSlug: "fixture-entity", scriptSlug: "fixture.automation" },
+				{ scriptSlug: "fixture.automation", entitySchemaSlug: "fixture-entity" },
+				{ scriptSlug: "fixture.automation", entitySchemaSlug: "fixture-entity" },
 			]),
 		),
 	),
@@ -534,7 +534,7 @@ it.effect("rejects invalid provider-import automation bindings", () =>
 	}).pipe(
 		Effect.provide(
 			makeLayer(providerRow, false, scriptRow, [
-				{ entitySchemaSlug: "fixture-entity", scriptSlug: "fixture.missing" },
+				{ scriptSlug: "fixture.missing", entitySchemaSlug: "fixture-entity" },
 			]),
 		),
 	),
@@ -552,7 +552,7 @@ it.effect("rejects provider-import bindings that reference a non-automation scri
 	}).pipe(
 		Effect.provide(
 			makeLayer(providerRow, false, scriptRow, [
-				{ entitySchemaSlug: "fixture-entity", scriptSlug: "fixture.details" },
+				{ scriptSlug: "fixture.details", entitySchemaSlug: "fixture-entity" },
 			]),
 		),
 	),
@@ -734,6 +734,13 @@ const privatePluginRow = {
 	compiledHashes: { "private.script": "private-hash" },
 	manifest: {
 		...fixtureManifest(),
+		operations: [
+			{ auth: "user", slug: "private.op", description: "Private", scriptSlug: "private.script" },
+		],
+		configSchema: {
+			unknownKeys: "strict",
+			fields: { apiToken: { type: "string", label: "Token", description: "Token" } },
+		},
 		scripts: [
 			...fixtureManifest().scripts,
 			{
@@ -746,13 +753,6 @@ const privatePluginRow = {
 				entry: "backend/automations/private.sandbox.ts",
 			},
 		],
-		configSchema: {
-			unknownKeys: "strict",
-			fields: { apiToken: { type: "string", label: "Token", description: "Token" } },
-		},
-		operations: [
-			{ auth: "user", slug: "private.op", description: "Private", scriptSlug: "private.script" },
-		],
 	},
 };
 
@@ -762,10 +762,10 @@ const privateScriptRow = {
 	compiledFormat: 1,
 	name: "Private script",
 	slug: "private.script",
-	compiledCode: "compiled",
-	contentHash: "private-hash",
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
+	compiledCode: "compiled",
+	contentHash: "private-hash",
 	pluginId: "private-plugin-id",
 	id: SandboxScriptId.make("private-script-id"),
 	metadata: {
@@ -863,7 +863,7 @@ it.effect("resolves a private plugin script that is absent from the system snaps
 		const resolver = yield* PluginRuntimeResolver;
 		expect(
 			yield* resolver.findActiveScriptById(SandboxScriptId.make("private-script-id")),
-		).toMatchObject({ pluginSlug: "private", id: "private-script-id", slug: "private.script" });
+		).toMatchObject({ pluginSlug: "private", slug: "private.script", id: "private-script-id" });
 	}).pipe(Effect.provide(makePrivateLayer())),
 );
 
@@ -1086,8 +1086,8 @@ it.effect("returns system and owned private plugins with ready enabled installat
 				compiledHashes: { "fixture.workflow": "fixture.workflow-hash" },
 			},
 			{
-				slug: "private",
 				scope: "user",
+				slug: "private",
 				id: "private-plugin-id",
 				config: { apiToken: "private-token" },
 				installationId: "private-installation-id",
@@ -1106,8 +1106,8 @@ it.effect("returns system and owned private plugins with ready enabled installat
 			}),
 		).toMatchObject({
 			operation: { slug: "private.op" },
-			plugin: { id: "private-plugin-id", scope: "user" },
-			script: { id: "private-script-id", slug: "private.script" },
+			plugin: { scope: "user", id: "private-plugin-id" },
+			script: { slug: "private.script", id: "private-script-id" },
 		});
 	}).pipe(Effect.provide(layer));
 });
@@ -1247,8 +1247,8 @@ const notePluginRow = (
 	ownerId: string,
 	manifest: PluginManifest = noteManifest(),
 ) => ({
-	manifest,
 	ownerId,
+	manifest,
 	id: pluginId,
 	slug: "notes",
 	scope: "user",
@@ -1261,11 +1261,11 @@ const noteScriptRow = (pluginId: string) => ({
 	source: "source",
 	providerId: null,
 	compiledFormat: 1,
+	createdAt: new Date(0),
+	updatedAt: new Date(0),
 	compiledCode: "compiled",
 	name: "Notes automation",
 	slug: "notes.automation",
-	createdAt: new Date(0),
-	updatedAt: new Date(0),
 	contentHash: `${pluginId}-hash`,
 	id: SandboxScriptId.make(`${pluginId}-script-id`),
 	metadata: {
@@ -1329,8 +1329,8 @@ const makeNotesLayer = (
 										return plugin
 											? [
 													{
-														userId: state.userId,
 														pluginId: plugin.id,
+														userId: state.userId,
 														pluginSlug: plugin.slug,
 														installationId: state.id,
 														manifest: plugin.manifest,

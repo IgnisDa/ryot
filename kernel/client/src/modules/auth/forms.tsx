@@ -11,7 +11,7 @@ import {
 } from "#/modules/auth/form-values";
 
 const errorVisibility = createErrorVisibility(
-	({ fieldState, state }) => fieldState.meta.isBlurred || state.submissionAttempts > 0,
+	({ state, fieldState }) => fieldState.meta.isBlurred || state.submissionAttempts > 0,
 );
 
 const modeContent = {
@@ -49,7 +49,7 @@ export function CredentialsForm(props: {
 	});
 
 	function changeMode(mode: AuthMode) {
-		form.reset({ email: form.state.values.email, password: "" });
+		form.reset({ password: "", email: form.state.values.email });
 		setServerError(undefined);
 		props.onModeChange(mode);
 	}
@@ -119,12 +119,12 @@ export function CredentialsForm(props: {
 											value={field.value}
 											autoComplete="email"
 											autoCapitalize="none"
-											placeholder="you@example.com"
+											onBlur={field.handleBlur}
 											className="ui-field-input"
+											placeholder="you@example.com"
 											aria-invalid={field.errors.length > 0}
 											disabled={props.disabled || isSubmitting}
 											aria-describedby={field.errors.length > 0 ? "email-error" : undefined}
-											onBlur={field.handleBlur}
 											onChange={(event) => {
 												field.handleChange(event.currentTarget.value);
 												setServerError(undefined);
@@ -137,7 +137,7 @@ export function CredentialsForm(props: {
 											}}
 										/>
 										{field.errors[0] && (
-											<small id="email-error" role="alert" className="ui-field-error">
+											<small role="alert" id="email-error" className="ui-field-error">
 												{field.errors[0].message}
 											</small>
 										)}
@@ -175,7 +175,7 @@ export function CredentialsForm(props: {
 											}}
 										/>
 										{field.errors[0] && (
-											<small id="password-error" role="alert" className="ui-field-error">
+											<small role="alert" id="password-error" className="ui-field-error">
 												{field.errors[0].message}
 											</small>
 										)}
@@ -186,7 +186,7 @@ export function CredentialsForm(props: {
 					)}
 				</form.Subscribe>
 				{serverError && (
-					<p className="ui-field-error" role="alert">
+					<p role="alert" className="ui-field-error">
 						{serverError}
 					</p>
 				)}
@@ -275,12 +275,12 @@ export function TwoFactorForm(props: {
 								value={field.value}
 								autoCapitalize="none"
 								onBlur={field.handleBlur}
+								className="ui-field-input"
 								autoComplete="one-time-code"
 								aria-invalid={field.errors.length > 0}
 								maxLength={usingBackupCode ? undefined : 6}
 								inputMode={usingBackupCode ? "text" : "numeric"}
 								placeholder={usingBackupCode ? "Backup code" : "000000"}
-								className="ui-field-input"
 								aria-describedby={field.errors.length > 0 ? "code-error" : undefined}
 								onChange={(event) => {
 									field.handleChange(event.currentTarget.value);
@@ -288,7 +288,7 @@ export function TwoFactorForm(props: {
 								}}
 							/>
 							{field.errors[0] && (
-								<small id="code-error" role="alert" className="ui-field-error">
+								<small role="alert" id="code-error" className="ui-field-error">
 									{field.errors[0].message}
 								</small>
 							)}
@@ -296,14 +296,14 @@ export function TwoFactorForm(props: {
 					)}
 				</form.Field>
 				{serverError && (
-					<p className="ui-field-error" role="alert">
+					<p role="alert" className="ui-field-error">
 						{serverError}
 					</p>
 				)}
 				<form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting] as const}>
 					{([canSubmit, isSubmitting]) => (
 						<>
-							<Button className="w-full" type="submit" variant="primary" disabled={!canSubmit}>
+							<Button type="submit" variant="primary" className="w-full" disabled={!canSubmit}>
 								{isSubmitting ? "Verifying..." : "Verify"}
 							</Button>
 							{props.methods.length > 1 && (

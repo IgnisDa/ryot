@@ -57,7 +57,7 @@ export const makeRuntimeOAuthClient = (source: RuntimeOAuthClientSource) => {
 		);
 	};
 
-	return { forServer, isNative };
+	return { isNative, forServer };
 };
 
 export class RuntimeOAuthClientService extends Context.Service<

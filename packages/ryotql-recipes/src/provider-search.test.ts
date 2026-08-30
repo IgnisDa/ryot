@@ -15,13 +15,13 @@ const searchOptionsSchema = {
 		},
 	},
 } as const;
-const pageInfo = { hasMore: false, limit: 100, nextCursor: null };
+const pageInfo = { limit: 100, hasMore: false, nextCursor: null };
 const provider = {
+	searchOptionsSchema,
 	providerSlug: "tmdb",
 	providerName: "TMDB",
 	providerId: "provider-1",
 	rootEntitySchemaSlug: "movie",
-	searchOptionsSchema,
 };
 const recipe = providerSearchRecipe({
 	ownerPluginId: "stable-plugin-id",
@@ -37,7 +37,7 @@ describe("provider search recipe", () => {
 
 		expect(query.joins).toMatchObject([
 			{ on: { left: { field: "id" }, right: { field: "providerId" } } },
-			{ on: { left: { field: "pluginId" }, right: { field: "id" } } },
+			{ on: { right: { field: "id" }, left: { field: "pluginId" } } },
 		]);
 		expect(
 			query.output.fields.map((selection) => ("key" in selection ? selection.key : null)),

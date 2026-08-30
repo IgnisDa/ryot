@@ -49,6 +49,8 @@ export const pluginSourceHash = (
 
 export const decodePluginBackendFiles = (files: Readonly<Record<string, Uint8Array>>) =>
 	Effect.try({
+		catch: () =>
+			new PluginValidationError({ issues: ["Plugin backend source is not valid UTF-8"] }),
 		try: () =>
 			Object.fromEntries(
 				Object.entries(files)
@@ -58,8 +60,6 @@ export const decodePluginBackendFiles = (files: Readonly<Record<string, Uint8Arr
 						new TextDecoder("utf-8", { fatal: true }).decode(contents),
 					]),
 			),
-		catch: () =>
-			new PluginValidationError({ issues: ["Plugin backend source is not valid UTF-8"] }),
 	});
 
 export const normalizePluginSource = Effect.fn("PluginPipeline.normalizePluginSource")(function* (
@@ -91,8 +91,8 @@ export const compilePluginPackage = Effect.fn("PluginPipeline.compilePluginPacka
 			entry: script.entry,
 			compiledFormat: output.format,
 			compiledCode: output.javascript,
-			metadata: declaredScriptMetadata(script),
 			contentHash: digest(output.javascript),
+			metadata: declaredScriptMetadata(script),
 		}));
 		const clientCompiler = yield* ClientPluginCompiler;
 		const clientEntry = input.manifest.client;
@@ -106,7 +106,7 @@ export const compilePluginPackage = Effect.fn("PluginPipeline.compilePluginPacka
 					publicExports: Object.fromEntries(
 						Object.entries(clientEntry.exports ?? {}).map(([name, declaration]) => [
 							name,
-							{ entry: declaration.entry, kind: declaration.kind },
+							{ kind: declaration.kind, entry: declaration.entry },
 						]),
 					),
 				})
@@ -167,19 +167,25 @@ export const structurePluginFailure = <A, R>(
 			PluginArchiveError: (error: PluginArchiveError) =>
 				Effect.fail(
 					new PluginRequestError({
-						reason: { code: "package-archive-invalid", issue: error.reason },
-					}),
-				),
-			PluginSurfaceError: (error: PluginSurfaceError) =>
-				Effect.fail(
-					new PluginRequestError({
-						reason: { code: "unsupported-manifest-surface", surfaces: error.surfaces },
+						reason: { issue: error.reason, code: "package-archive-invalid" },
 					}),
 				),
 			PluginPackageLimitError: (error: PluginPackageLimitError) =>
 				Effect.fail(
 					new PluginRequestError({
-						reason: { code: "package-limit-exceeded", limit: error.limit },
+						reason: { limit: error.limit, code: "package-limit-exceeded" },
+					}),
+				),
+			PluginSurfaceError: (error: PluginSurfaceError) =>
+				Effect.fail(
+					new PluginRequestError({
+						reason: { surfaces: error.surfaces, code: "unsupported-manifest-surface" },
+					}),
+				),
+			PluginValidationError: (error: PluginValidationError) =>
+				Effect.fail(
+					new PluginRequestError({
+						reason: { code: "validation-failed", diagnostics: validationDiagnostics(error) },
 					}),
 				),
 			PluginSlugReservedError: (error: PluginSlugReservedError) =>
@@ -198,12 +204,6 @@ export const structurePluginFailure = <A, R>(
 								code: schemaEvolutionCode(code),
 							})),
 						},
-					}),
-				),
-			PluginValidationError: (error: PluginValidationError) =>
-				Effect.fail(
-					new PluginRequestError({
-						reason: { code: "validation-failed", diagnostics: validationDiagnostics(error) },
 					}),
 				),
 			SandboxCompilerFailure: (error: SandboxCompilerFailure) =>

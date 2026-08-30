@@ -52,7 +52,7 @@ beforeAll(async () => {
 			companyProvider = yield* installTestProvider({
 				client,
 				rootEntitySchemaSlug: companySchema.id,
-				details: fakeProviderDetailsResult({ name: RELATED_COMPANY_NAME, properties: {} }),
+				details: fakeProviderDetailsResult({ properties: {}, name: RELATED_COMPANY_NAME }),
 			});
 
 			animeProvider = yield* installTestProvider({
@@ -69,8 +69,8 @@ beforeAll(async () => {
 							entities: [
 								{
 									name: RELATED_COMPANY_NAME,
-									providerSlug: companyProvider.providerSlug,
 									externalId: RELATED_COMPANY_EXTERNAL_ID,
+									providerSlug: companyProvider.providerSlug,
 									relationshipProperties: { roles: ["E2E Animation Studio"] },
 								},
 							],
@@ -80,18 +80,18 @@ beforeAll(async () => {
 			});
 
 			bookProvider = yield* installTestProvider({
+				client,
 				pluginSlug: PLUGIN_SLUG,
 				slug: BOOK_PROVIDER_SLUG,
-				client,
 				rootEntitySchemaSlug: bookSchema.id,
-				search: fakeProviderSearchResult([
-					{ externalId: "e2e-book-1", title: "E2E Book One" },
-					{ externalId: "e2e-book-2", title: "E2E Book Two", metadata: [2] },
-				]),
 				details: fakeProviderDetailsResult({
 					name: BOOK_IMPORT_NAME,
 					properties: { description: "Imported book from the e2e fake provider." },
 				}),
+				search: fakeProviderSearchResult([
+					{ title: "E2E Book One", externalId: "e2e-book-1" },
+					{ metadata: [2], title: "E2E Book Two", externalId: "e2e-book-2" },
+				]),
 			});
 		}),
 	);
@@ -111,15 +111,15 @@ describe("provider entity search result", () => {
 	it.live("returns the result from the configured provider", () =>
 		Effect.gen(function* () {
 			const search = yield* searchProviderEntities(providerClient, {
-				providerId: bookProvider.providerId,
-				query: "test",
 				page: 1,
 				pageSize: 5,
+				query: "test",
+				providerId: bookProvider.providerId,
 			});
 			expect(search.providerId).toBe(bookProvider.providerId);
 			expect(search.items).toEqual([
-				{ externalId: "e2e-book-1", title: "E2E Book One" },
-				{ externalId: "e2e-book-2", title: "E2E Book Two", metadata: [2] },
+				{ title: "E2E Book One", externalId: "e2e-book-1" },
+				{ metadata: [2], title: "E2E Book Two", externalId: "e2e-book-2" },
 			]);
 		}),
 	);
@@ -147,8 +147,8 @@ describe("POST /provider-entities/imports", () => {
 	it.live("returns 200 with a jobId when given a valid provider", () =>
 		Effect.gen(function* () {
 			const { jobId } = yield* enqueueProviderEntityImport(providerClient, {
-				providerId: bookProvider.providerId,
 				externalId: "e2e-book-1",
+				providerId: bookProvider.providerId,
 			});
 
 			expect(typeof jobId).toBe("string");
@@ -190,8 +190,8 @@ describe("GET /provider-entities/imports/{jobId}", () => {
 			const { client: clientB } = yield* createAuthenticatedClient();
 
 			const { jobId } = yield* enqueueProviderEntityImport(providerClient, {
-				providerId: bookProvider.providerId,
 				externalId: "e2e-book-crossuser",
+				providerId: bookProvider.providerId,
 			});
 
 			const error = yield* Effect.flip(
@@ -199,15 +199,15 @@ describe("GET /provider-entities/imports/{jobId}", () => {
 			);
 
 			assertTaggedError(error, "ProviderEntityNotFound");
-			expect(error.reason).toEqual({ code: "import-job-not-found", jobId });
+			expect(error.reason).toEqual({ jobId, code: "import-job-not-found" });
 		}),
 	);
 
 	it.live("completes an import for a valid details script", () =>
 		Effect.gen(function* () {
 			const { jobId } = yield* enqueueProviderEntityImport(providerClient, {
-				providerId: bookProvider.providerId,
 				externalId: "e2e-book-terminal",
+				providerId: bookProvider.providerId,
 			});
 
 			const result = yield* pollProviderEntityImportResult(providerClient, jobId);
@@ -245,8 +245,8 @@ describe("GET /provider-entities/imports/{jobId}", () => {
 
 				const relatedEntity = yield* getVisibleEntityByProvenance(providerClient, {
 					entitySchemaSlug: companySchema.slug,
-					externalId: RELATED_COMPANY_EXTERNAL_ID,
 					providerId: companyProvider.providerId,
+					externalId: RELATED_COMPANY_EXTERNAL_ID,
 				});
 				expect(relatedEntity.name).toBe(RELATED_COMPANY_NAME);
 				expect(relatedEntity.populatedAt).toBeNull();
@@ -265,8 +265,8 @@ describe("GET /provider-entities/imports/{jobId}", () => {
 	it.live("sets populatedAt as a UTC ISO timestamp column on the imported entity", () =>
 		Effect.gen(function* () {
 			const { jobId } = yield* enqueueProviderEntityImport(providerClient, {
-				providerId: bookProvider.providerId,
 				externalId: "e2e-book-populatedat",
+				providerId: bookProvider.providerId,
 			});
 
 			const result = yield* pollProviderEntityImportResult(providerClient, jobId);

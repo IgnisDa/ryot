@@ -15,7 +15,7 @@ const limitStreamBytes = (stream: Stream.Stream<Uint8Array, unknown>, maxBytes: 
 			return size > maxBytes
 				? Effect.fail(
 						new UploadBadRequest({
-							reason: { code: "upload-too-large", actualBytes: size, maxBytes },
+							reason: { maxBytes, actualBytes: size, code: "upload-too-large" },
 						}),
 					)
 				: Effect.succeed(chunk);
@@ -47,7 +47,7 @@ export class ObjectStorageService extends Context.Service<ObjectStorageService>(
 			) {
 				if (contentLength !== undefined && contentLength > maxBytes) {
 					return yield* new UploadBadRequest({
-						reason: { code: "upload-too-large", actualBytes: contentLength, maxBytes },
+						reason: { maxBytes, code: "upload-too-large", actualBytes: contentLength },
 					});
 				}
 				if (locator.type === "local") {
@@ -84,7 +84,7 @@ export class ObjectStorageService extends Context.Service<ObjectStorageService>(
 			) {
 				if (contentLength > maxBytes) {
 					return yield* new UploadBadRequest({
-						reason: { code: "upload-too-large", actualBytes: contentLength, maxBytes },
+						reason: { maxBytes, code: "upload-too-large", actualBytes: contentLength },
 					});
 				}
 				if (locator.type === "local") {
@@ -146,7 +146,7 @@ export class ObjectStorageService extends Context.Service<ObjectStorageService>(
 								() => new UploadBadRequest({ reason: { code: "invalid-download-target" } }),
 							),
 						);
-					return { contentType: target.contentType, path, size: Number(info.size) };
+					return { path, size: Number(info.size), contentType: target.contentType };
 				},
 			);
 

@@ -8,8 +8,8 @@ export const entityTranslation = snakeCase.table(
 	{
 		name: text(),
 		language: text().notNull(),
-		properties: jsonb().$type<Record<string, unknown>>(),
 		populatedAt: timestamp({ withTimezone: true }),
+		properties: jsonb().$type<Record<string, unknown>>(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		entityId: text()
 			.notNull()

@@ -6,8 +6,8 @@ import { asRecord, stringValue } from "../../../lib/records";
 import { audibleFetchJson } from "../../../lib/vendors/audible";
 
 export const manifest = defineManifest({
-	kind: "provider",
 	name: "Audible",
+	kind: "provider",
 	slug: "person.audible",
 	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
@@ -20,7 +20,7 @@ export const search = defineProvider({
 	manifest,
 	operation: "search",
 	run: (input, host) => {
-		const params = new URLSearchParams({ name: input.query, region: "us" });
+		const params = new URLSearchParams({ region: "us", name: input.query });
 		return audibleFetchJson(
 			host,
 			`${AUTHORS_URL}?${params.toString()}`,
@@ -77,7 +77,7 @@ export const details = defineProvider({
 						alternateNames: [],
 						sourceUrl: `https://www.audible.com/author/${input.externalId}`,
 						images: image
-							? [{ type: "remote" as const, url: image, purpose: "profile" as const }]
+							? [{ url: image, type: "remote" as const, purpose: "profile" as const }]
 							: [],
 					},
 				};

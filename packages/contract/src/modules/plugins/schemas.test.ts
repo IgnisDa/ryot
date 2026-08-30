@@ -43,7 +43,7 @@ describe("PluginHomeViewSelection", () => {
 			savedViewId: null,
 		});
 		expect(() =>
-			Schema.decodeUnknownSync(PluginHomeViewSelection)({ savedViewId: "view-1", extra: true }),
+			Schema.decodeUnknownSync(PluginHomeViewSelection)({ extra: true, savedViewId: "view-1" }),
 		).toThrow();
 	});
 });
@@ -88,18 +88,18 @@ it("decodes saved-view uninstall conflicts", () => {
 	expect(
 		Schema.decodeUnknownSync(PluginConflictError)({
 			_tag: "PluginConflictError",
-			reason: { code: "saved-view-referenced", pluginSlug: "fixture" },
+			reason: { pluginSlug: "fixture", code: "saved-view-referenced" },
 		}),
-	).toMatchObject({ reason: { code: "saved-view-referenced", pluginSlug: "fixture" } });
+	).toMatchObject({ reason: { pluginSlug: "fixture", code: "saved-view-referenced" } });
 });
 
 it("decodes stale plugin source revision conflicts", () => {
 	expect(
 		Schema.decodeUnknownSync(PluginConflictError)({
 			_tag: "PluginConflictError",
-			reason: { code: "source-revision-stale", pluginSlug: "fixture" },
+			reason: { pluginSlug: "fixture", code: "source-revision-stale" },
 		}),
-	).toMatchObject({ reason: { code: "source-revision-stale", pluginSlug: "fixture" } });
+	).toMatchObject({ reason: { pluginSlug: "fixture", code: "source-revision-stale" } });
 });
 
 it("accepts only JSON operation HTTP payloads and results", () => {
@@ -107,7 +107,7 @@ it("accepts only JSON operation HTTP payloads and results", () => {
 	const decodeResult = Schema.decodeUnknownSync(PluginInvokeResult);
 
 	expect(
-		decodeBody({ payload: { values: [null, true, 1, "ok"] }, sourceHash: "source-hash" }),
+		decodeBody({ sourceHash: "source-hash", payload: { values: [null, true, 1, "ok"] } }),
 	).toEqual({ sourceHash: "source-hash", payload: { values: [null, true, 1, "ok"] } });
 	expect(decodeBody({ payload: { values: [null, true, 1, "ok"] } })).toEqual({
 		payload: { values: [null, true, 1, "ok"] },

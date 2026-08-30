@@ -21,7 +21,7 @@ describe("person.manga-updates sandbox script", () => {
 			httpSuccess({
 				total_hits: 1,
 				results: [
-					{ hit_name: "Author Name", record: { id: 4 } },
+					{ record: { id: 4 }, hit_name: "Author Name" },
 					{ hit_name: "No Record" },
 					{ record: { id: 5 } },
 				],
@@ -30,7 +30,7 @@ describe("person.manga-updates sandbox script", () => {
 
 		return runSandboxTestScript(
 			search,
-			{ query: "author", page: 1, pageSize: 20 },
+			{ page: 1, pageSize: 20, query: "author" },
 			host,
 			execution,
 		).pipe(
@@ -60,7 +60,7 @@ describe("person.manga-updates sandbox script", () => {
 				gender: "Female",
 				name: "Author Name",
 				birthplace: "Osaka, Japan",
-				birthday: { year: 1980, month: 3, day: 7 },
+				birthday: { day: 7, month: 3, year: 1980 },
 				image: { url: { original: "https://img/author.jpg" } },
 			});
 		});
@@ -90,13 +90,13 @@ describe("person.manga-updates sandbox script", () => {
 					},
 				]);
 				expect(result.properties).toEqual({
-					description: null,
 					gender: "Female",
+					description: null,
 					alternateNames: [],
 					birthDate: "1980-03-07",
 					birthPlace: "Osaka, Japan",
 					sourceUrl: "https://www.mangaupdates.com/authors/4",
-					images: [{ type: "remote", url: "https://img/author.jpg", purpose: "profile" }],
+					images: [{ type: "remote", purpose: "profile", url: "https://img/author.jpg" }],
 				});
 				return undefined;
 			}),
@@ -108,7 +108,7 @@ describe("person.manga-updates sandbox script", () => {
 		const host = makeHost((method) =>
 			method === "POST"
 				? httpSuccess({ series_list: [] })
-				: httpSuccess({ name: "Author Name", birthday: { year: 1980, month: 13, day: 7 } }),
+				: httpSuccess({ name: "Author Name", birthday: { day: 7, month: 13, year: 1980 } }),
 		);
 
 		return runSandboxTestScript(details, { externalId: "4" }, host, execution).pipe(

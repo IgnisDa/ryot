@@ -29,7 +29,7 @@ export type ProviderEntityImportState = ReadonlyMap<string, ProviderEntityImport
 
 const providerEntityImportPending = { reason: "pending" } as const;
 
-const failedEntry = (message: string) => ({ status: "failed", message }) as const;
+const failedEntry = (message: string) => ({ message, status: "failed" }) as const;
 
 export const createProviderEntityImportState = (): ProviderEntityImportState => new Map();
 

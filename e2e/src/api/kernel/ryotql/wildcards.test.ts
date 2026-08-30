@@ -82,7 +82,7 @@ const createFixture = (client: Client, name: string) =>
 			occurredAt: "2026-08-01T00:00:00.000Z",
 		});
 		const event = yield* waitForEventWithSchema(client, entity.id, eventSchema.slug);
-		return { entity, event, eventSchemaSlug: eventSchema.slug };
+		return { event, entity, eventSchemaSlug: eventSchema.slug };
 	});
 
 describe("RyotQL wildcard projections", () => {
@@ -141,8 +141,8 @@ describe("RyotQL wildcard projections", () => {
 				limit: 10,
 				key: "events",
 				fields: [star(event)],
-				orderBy: [{ direction: "asc", expr: column(event, "occurredAt") }],
 				where: eq(column(event, "entityId"), column(entity, "id")),
+				orderBy: [{ direction: "asc", expr: column(event, "occurredAt") }],
 			});
 
 			const result = yield* executeRyotQL(

@@ -102,16 +102,16 @@ describe("POST /entities", () => {
 
 			const first = yield* createEntity(client, {
 				providerId,
-				entitySchemaSlug: schemaId,
 				name: "Idempotent Entity",
+				entitySchemaSlug: schemaId,
 				externalId: "ext-idem-001",
 				properties: { title: "Idempotent Entity" },
 			});
 
 			const second = yield* createEntity(client, {
 				providerId,
-				entitySchemaSlug: schemaId,
 				name: "Idempotent Entity",
+				entitySchemaSlug: schemaId,
 				externalId: "ext-idem-001",
 				properties: { title: "Idempotent Entity" },
 			});
@@ -124,7 +124,7 @@ describe("POST /entities", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const externalId = `global-conflict-${crypto.randomUUID()}`;
-			const { entity: global, schema } = yield* createGlobalBookEntityFixture(client, {
+			const { schema, entity: global } = yield* createGlobalBookEntityFixture(client, {
 				externalId,
 			});
 			const providerId = schema.providers[0]?.providerId;
@@ -151,10 +151,10 @@ describe("POST /entities", () => {
 			assertPresent(providerId, "Expected a provider for the built-in schema");
 
 			const entity = yield* createEntity(client, {
+				providerId,
 				properties: {},
 				name: "Built-in Book",
 				entitySchemaSlug: schema.id,
-				providerId,
 				externalId: `ext-builtin-${crypto.randomUUID()}`,
 			});
 
@@ -193,8 +193,8 @@ describe("POST /entities", () => {
 				client.call((c) =>
 					c.entities.create({
 						payload: {
-							entitySchemaSlug: schemaId,
 							externalId: "ext-partial",
+							entitySchemaSlug: schemaId,
 							properties: { title: "Partial" },
 							name: "Partial Provenance Entity",
 						},

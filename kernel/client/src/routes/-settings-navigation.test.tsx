@@ -76,14 +76,14 @@ const mountView = (
 			ClientPagesApiRouteStubs,
 			ClientPageSessionsRouteStubs,
 			makeEntityInterestService({
+				reconnect: () => {
+					interestEvents.push("reconnect");
+				},
 				acquire: () => {
 					interestEvents.push("acquire");
 					return () => {
 						interestEvents.push("release");
 					};
-				},
-				reconnect: () => {
-					interestEvents.push("reconnect");
 				},
 			}),
 			userSettingsLayer,
@@ -100,7 +100,7 @@ const mountView = (
 	);
 	const initialEntries = typeof initialEntry === "string" ? [initialEntry] : initialEntry;
 	const router = getRouter(
-		{ runtime, theme, backInterceptors: createBackInterceptors() },
+		{ theme, runtime, backInterceptors: createBackInterceptors() },
 		createMemoryHistory({ initialEntries }),
 	);
 	const view = render(<RouterProvider router={router} />);
@@ -294,7 +294,7 @@ describe("settings navigation", () => {
 				{ slug: "journal", scope: { serverUrl: server, userId: authenticated.user.id } },
 			]),
 		);
-		await view.router.navigate({ href: "/settings", replace: true });
+		await view.router.navigate({ replace: true, href: "/settings" });
 		await screen.findByRole("heading", { level: 1, name: "Settings" });
 
 		fireEvent.click(screen.getByRole("button", { name: "Go back" }));
@@ -325,11 +325,11 @@ describe("settings navigation", () => {
 		);
 		await screen.findByTitle("fixture plugin");
 
-		await view.router.navigate({ href: "/journal", replace: true });
+		await view.router.navigate({ replace: true, href: "/journal" });
 		await screen.findByTitle("journal plugin");
 		expect(recorder.setCalls).toEqual([]);
 
-		await view.router.navigate({ href: "/settings", replace: true });
+		await view.router.navigate({ replace: true, href: "/settings" });
 		await screen.findByRole("heading", { level: 1, name: "Settings" });
 
 		fireEvent.click(screen.getByRole("button", { name: "Go back" }));

@@ -7,11 +7,11 @@ import { buildTrackTranslate } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	name: "YouTube Music translation",
-	slug: "music.youtube-music.translate",
+	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
-	capabilities: ["httpCall"],
+	name: "YouTube Music translation",
+	slug: "music.youtube-music.translate",
 });
 
 export default defineProvider({

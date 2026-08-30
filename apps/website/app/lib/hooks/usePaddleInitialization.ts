@@ -3,7 +3,7 @@ import { useEffect } from "react";
 import { initializePaddleForApplication, useConfigData } from "~/lib/general";
 
 export const usePaddleInitialization = (paddleCustomerId?: string) => {
-	const { data: configData, isLoading } = useConfigData();
+	const { isLoading, data: configData } = useConfigData();
 
 	useEffect(() => {
 		if (configData) {
@@ -15,5 +15,5 @@ export const usePaddleInitialization = (paddleCustomerId?: string) => {
 		}
 	}, [configData, paddleCustomerId]);
 
-	return { configData, isLoading };
+	return { isLoading, configData };
 };

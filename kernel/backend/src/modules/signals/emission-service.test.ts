@@ -56,7 +56,7 @@ const relatedSchema = {
 	...actorSchema,
 	slug: "example.status.changed",
 	id: SignalSchemaSlug.make("example.status.changed"),
-	audiencePolicy: { relationshipSchemaSlug, kind: "related_users", subjectSide: "source" },
+	audiencePolicy: { kind: "related_users", subjectSide: "source", relationshipSchemaSlug },
 } satisfies SignalSchemaScope;
 
 const relationshipScope = {
@@ -80,8 +80,8 @@ const subjectScope = {
 	entityUserId: null,
 	entityName: "The Matrix",
 	entityId: subjectEntityId,
-	entitySchemaSlug: EntitySchemaSlug.make("item"),
 	propertiesSchema: { fields: {} },
+	entitySchemaSlug: EntitySchemaSlug.make("item"),
 };
 
 const baseInput = {
@@ -90,7 +90,7 @@ const baseInput = {
 	discriminator: "review-1",
 	executionId: "execution-1",
 	schemaSlug: actorSchema.slug,
-	principal: { kind: "user", userId },
+	principal: { userId, kind: "user" },
 	properties: { entityName: "Arrival" },
 } as const satisfies EmitSignalInput;
 
@@ -99,9 +99,9 @@ const storedSignal = (input: InsertSignalInput): StoredSignal => ({
 	origin: input.origin,
 	properties: input.properties,
 	actorUserId: input.actorUserId,
-	signalSchemaSlug: input.signalSchemaSlug,
 	createdAt: "2026-07-20T10:00:01.000Z",
 	subjectEntityId: input.subjectEntityId,
+	signalSchemaSlug: input.signalSchemaSlug,
 	occurredAt: input.occurredAt.toISOString(),
 });
 
@@ -157,14 +157,14 @@ it.effect("derives the actor and atomically snapshots an enabled actor recipient
 	let recipients: { signalId: SignalId; userIds: ReadonlyArray<UserId> } | undefined;
 	const layer = makeLayer({
 		signals: makeSignalsRepository({
-			insert: (input) => {
-				inserted = input;
-				return Effect.succeed(storedSignal(input));
-			},
 			isUserEnabled: () => Effect.succeed(true),
 			insertRecipients: (input) => {
 				recipients = input;
 				return Effect.void;
+			},
+			insert: (input) => {
+				inserted = input;
+				return Effect.succeed(storedSignal(input));
 			},
 		}),
 	});
@@ -174,7 +174,7 @@ it.effect("derives the actor and atomically snapshots an enabled actor recipient
 		const result = yield* service.emit(baseInput);
 		expect(inserted?.actorUserId).toBe(userId);
 		expect(inserted?.subjectEntityId).toBeNull();
-		expect(recipients).toEqual({ signalId: inserted?.id, userIds: [userId] });
+		expect(recipients).toEqual({ userIds: [userId], signalId: inserted?.id });
 		expect(result.wasCreated).toBe(true);
 		expect(result.recipientUserIds).toEqual([userId]);
 	}).pipe(Effect.provide(layer));
@@ -184,8 +184,8 @@ it.effect("persists actor signals with an empty audience for disabled users", ()
 	let recipients: ReadonlyArray<UserId> | undefined;
 	const layer = makeLayer({
 		signals: makeSignalsRepository({
-			insert: (input) => Effect.succeed(storedSignal(input)),
 			isUserEnabled: () => Effect.succeed(false),
+			insert: (input) => Effect.succeed(storedSignal(input)),
 			insertRecipients: (input) => {
 				recipients = input.userIds;
 				return Effect.void;
@@ -228,8 +228,8 @@ it.effect("rejects a system principal for an actor audience", () => {
 
 it.effect("rejects an unregistered signal schema", () => {
 	const layer = makeLayer({
-		signalSchemas: makeSignalSchemasRepository({ findVisibleBySlug: () => Effect.succeed(null) }),
 		signals: makeSignalsRepository(),
+		signalSchemas: makeSignalSchemasRepository({ findVisibleBySlug: () => Effect.succeed(null) }),
 	});
 
 	return Effect.gen(function* () {
@@ -245,10 +245,10 @@ it.effect("resolves and snapshots related users after inserting the signal", () 
 	const order: string[] = [];
 	let inserted: InsertSignalInput | undefined;
 	const layer = makeLayer({
+		entities: makeEntitiesRepository({ getEntityScopeForUser: () => Effect.succeed(subjectScope) }),
 		signalSchemas: makeSignalSchemasRepository({
 			findVisibleBySlug: () => Effect.succeed(relatedSchema),
 		}),
-		entities: makeEntitiesRepository({ getEntityScopeForUser: () => Effect.succeed(subjectScope) }),
 		relationshipSchemas: makeRelationshipSchemasRepository({
 			findById: () => Effect.succeed(relationshipScope),
 		}),
@@ -259,14 +259,14 @@ it.effect("resolves and snapshots related users after inserting the signal", () 
 			},
 		}),
 		signals: makeSignalsRepository({
+			insertRecipients: () => {
+				order.push("recipients");
+				return Effect.void;
+			},
 			insert: (input) => {
 				order.push("insert");
 				inserted = input;
 				return Effect.succeed(storedSignal(input));
-			},
-			insertRecipients: () => {
-				order.push("recipients");
-				return Effect.void;
 			},
 		}),
 	});
@@ -287,19 +287,19 @@ it.effect("resolves and snapshots related users after inserting the signal", () 
 
 it.effect("persists a valid related-users signal with an empty audience", () => {
 	const layer = makeLayer({
-		signalSchemas: makeSignalSchemasRepository({
-			findVisibleBySlug: () => Effect.succeed(relatedSchema),
-		}),
 		entities: makeEntitiesRepository({ getEntityScopeForUser: () => Effect.succeed(subjectScope) }),
-		relationshipSchemas: makeRelationshipSchemasRepository({
-			findById: () => Effect.succeed(relationshipScope),
-		}),
 		relationships: makeRelationshipsRepository({
 			listEnabledOwnersForSubject: () => Effect.succeed([]),
 		}),
+		signalSchemas: makeSignalSchemasRepository({
+			findVisibleBySlug: () => Effect.succeed(relatedSchema),
+		}),
+		relationshipSchemas: makeRelationshipSchemasRepository({
+			findById: () => Effect.succeed(relationshipScope),
+		}),
 		signals: makeSignalsRepository({
-			insert: (input) => Effect.succeed(storedSignal(input)),
 			insertRecipients: () => Effect.void,
+			insert: (input) => Effect.succeed(storedSignal(input)),
 		}),
 	});
 
@@ -317,17 +317,17 @@ it.effect("persists a valid related-users signal with an empty audience", () => 
 
 it.effect("rejects a missing or unreadable related-users subject", () => {
 	const missingLayer = makeLayer({
+		signals: makeSignalsRepository(),
 		signalSchemas: makeSignalSchemasRepository({
 			findVisibleBySlug: () => Effect.succeed(relatedSchema),
 		}),
-		signals: makeSignalsRepository(),
 	});
 	const unreadableLayer = makeLayer({
+		entities: makeEntitiesRepository({ getEntityScopeForUser: () => Effect.succeed(null) }),
+		signals: makeSignalsRepository({ insert: () => Effect.die("unreadable subject was inserted") }),
 		signalSchemas: makeSignalSchemasRepository({
 			findVisibleBySlug: () => Effect.succeed(relatedSchema),
 		}),
-		entities: makeEntitiesRepository({ getEntityScopeForUser: () => Effect.succeed(null) }),
-		signals: makeSignalsRepository({ insert: () => Effect.die("unreadable subject was inserted") }),
 	});
 
 	const missingEffect = Effect.gen(function* () {
@@ -378,8 +378,8 @@ it.effect("returns a duplicate with its stored recipients without resolving agai
 		}),
 		signals: makeSignalsRepository({
 			findById: () => Effect.succeed(existing),
-			insert: () => Effect.die("duplicate signal was reinserted"),
 			listRecipientUserIds: () => Effect.succeed([recipientId]),
+			insert: () => Effect.die("duplicate signal was reinserted"),
 		}),
 	});
 
@@ -399,12 +399,12 @@ it.effect("uses the discriminator to distinguish sibling signal ids", () => {
 	const ids: SignalId[] = [];
 	const layer = makeLayer({
 		signals: makeSignalsRepository({
+			insertRecipients: () => Effect.void,
+			isUserEnabled: () => Effect.succeed(true),
 			insert: (input) => {
 				ids.push(input.id);
 				return Effect.succeed(storedSignal(input));
 			},
-			isUserEnabled: () => Effect.succeed(true),
-			insertRecipients: () => Effect.void,
 		}),
 	});
 
@@ -429,14 +429,14 @@ it.effect("dispatches the committed signal snapshot", () => {
 			},
 		}),
 		signals: makeSignalsRepository({
-			insert: (input) => {
-				order.push("insert");
-				return Effect.succeed(storedSignal(input));
-			},
 			isUserEnabled: () => Effect.succeed(true),
 			insertRecipients: () => {
 				order.push("recipients");
 				return Effect.void;
+			},
+			insert: (input) => {
+				order.push("insert");
+				return Effect.succeed(storedSignal(input));
 			},
 		}),
 	});

@@ -139,15 +139,15 @@ export default defineAutomation({
 			if (episodeNumber !== null && Number.isInteger(episodeNumber)) {
 				const seasonNumber = season?.seasonNumber;
 				const episodeProperties = {
-					entityName: scope.name,
 					episodeNumber,
+					entityName: scope.name,
 					...(seasonNumber === null || seasonNumber === undefined ? {} : { seasonNumber }),
 				};
 				if (before.name !== after.name) {
 					emit("media.episode.name.changed", `${after.id}:name`, {
 						...episodeProperties,
-						oldName: before.name,
 						newName: after.name,
+						oldName: before.name,
 					});
 				}
 				if (!sameImages(before.properties["images"], after.properties["images"])) {

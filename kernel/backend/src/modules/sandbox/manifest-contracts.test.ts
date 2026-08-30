@@ -9,9 +9,9 @@ const manifests = [
 		kind: "script",
 		name: "Script",
 		slug: "script",
-		capabilities: ["getCachedValue", "getSystemConfig"],
 		requiredPluginConfigKeys: [],
 		requiredSystemConfigKeys: ["timezone"],
+		capabilities: ["getCachedValue", "getSystemConfig"],
 	},
 	{
 		capabilities: [],
@@ -25,8 +25,8 @@ const manifests = [
 		kind: "provider",
 		name: "Provider",
 		slug: "provider.test",
-		capabilities: ["httpCall", "getSystemConfig"],
 		requiredPluginConfigKeys: [],
+		capabilities: ["httpCall", "getSystemConfig"],
 		requiredSystemConfigKeys: ["videoGames.testApiKey"],
 		searchOptionsSchema: {
 			unknownKeys: "strict",

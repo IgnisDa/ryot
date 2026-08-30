@@ -10,8 +10,8 @@ import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 const toListed = (entitySchemaSlug: string, event: EventSchemaDefinition) => ({
 	slug: event.slug,
 	name: event.name,
-	propertiesSchema: event.propertiesSchema,
 	id: EventSchemaSlug.make(event.slug),
+	propertiesSchema: event.propertiesSchema,
 	...(event.pluginId == null ? {} : { pluginId: event.pluginId }),
 	entitySchemaSlug: EntitySchemaSlug.make(entitySchemaSlug),
 });

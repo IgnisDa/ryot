@@ -55,7 +55,7 @@ const pushMovieToRadarr = (
 	return host
 		.httpCall("POST", `${baseUrl}/api/v3/movie`, {
 			body: JSON.stringify(requestBody),
-			headers: { "Content-Type": "application/json", "X-Api-Key": apiKey },
+			headers: { "X-Api-Key": apiKey, "Content-Type": "application/json" },
 		})
 		.pipe(
 			Effect.asVoid,
@@ -96,7 +96,7 @@ export default defineAutomation({
 			yield* Effect.forEach(
 				matching,
 				(integration) => pushMovieToRadarr(host, integration, externalId),
-				{ concurrency: 1, discard: true },
+				{ discard: true, concurrency: 1 },
 			);
 			return null;
 		});

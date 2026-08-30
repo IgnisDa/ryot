@@ -6,13 +6,13 @@ export const MediaImportResolutionActivityInput = Schema.Struct({
 });
 
 export const MediaImportResolutionActivityResult = Schema.Union([
-	Schema.Struct({ externalId: Schema.NullOr(Schema.String), status: Schema.Literal("completed") }),
+	Schema.Struct({ status: Schema.Literal("completed"), externalId: Schema.NullOr(Schema.String) }),
 	Schema.Struct({ message: Schema.String, status: Schema.Literal("failed") }),
 ]);
 
 const MediaImportResolutionCandidate = Schema.Struct({
-	providerSlug: Schema.String,
 	scriptSlug: Schema.String,
+	providerSlug: Schema.String,
 });
 
 export const MediaImportResolutionWorkflowInput = Schema.Struct({
@@ -31,25 +31,25 @@ export const MediaImportResolutionWorkflowOutput = Schema.Struct({
 		Schema.Union([
 			Schema.Struct({
 				index: Schema.Number,
-				status: Schema.Literal("resolved"),
 				externalId: Schema.String,
 				providerSlug: Schema.String,
+				status: Schema.Literal("resolved"),
 			}),
 			Schema.Struct({
 				index: Schema.Number,
-				status: Schema.Literal("unresolved"),
 				errors: Schema.Array(Schema.String),
+				status: Schema.Literal("unresolved"),
 			}),
 		]),
 	),
 });
 
 const AutomationOrigin = Schema.Union([
-	Schema.Struct({ kind: Schema.Literal("import"), importRunId: Schema.String }),
+	Schema.Struct({ importRunId: Schema.String, kind: Schema.Literal("import") }),
 	Schema.Struct({
-		kind: Schema.Literal("integration"),
 		importRunId: Schema.String,
 		integrationId: Schema.String,
+		kind: Schema.Literal("integration"),
 	}),
 ]);
 
@@ -122,8 +122,8 @@ export const MediaMonitoringTargetsActivityInput = Schema.Struct({
 });
 
 export const MediaMonitoringTargetsActivityOutput = Schema.Struct({
-	items: Schema.Array(MediaMonitoringTarget),
 	nextCursor: Schema.NullOr(Schema.String),
+	items: Schema.Array(MediaMonitoringTarget),
 });
 
 export const MediaMonitoringSweepWorkflowInput = Schema.Struct({});

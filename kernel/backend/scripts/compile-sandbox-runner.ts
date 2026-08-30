@@ -57,6 +57,8 @@ const compileRunner = (sandboxRuntimeDirectory: string) =>
 		const fs = yield* FileSystem.FileSystem;
 		const entrypoint = `${sandboxRuntimeDirectory}/runner-source.sandbox.ts`;
 		const result = yield* Effect.tryPromise({
+			catch: (error) =>
+				new RunnerGenerationError({ message: `Sandbox runner build failed: ${String(error)}` }),
 			try: () =>
 				Bun.build({
 					format: "esm",
@@ -67,8 +69,6 @@ const compileRunner = (sandboxRuntimeDirectory: string) =>
 					entrypoints: [entrypoint],
 					external: ["@ryot-app/sandbox-sdk/effect"],
 				}),
-			catch: (error) =>
-				new RunnerGenerationError({ message: `Sandbox runner build failed: ${String(error)}` }),
 		});
 		const [output, ...rest] = result.outputs;
 		if (!result.success || !output || rest.length > 0) {

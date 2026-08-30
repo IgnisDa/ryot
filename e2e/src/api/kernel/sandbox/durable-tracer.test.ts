@@ -144,8 +144,8 @@ describe("universal durable sandbox tracer", () => {
 					pluginSlug: `e2e-durable-tracer-${crypto.randomUUID()}`,
 					workflows: [{ slug: "tracer-child", scriptSlug: childSlug }],
 					files: {
-						[operationEntry]: operationSource({ name: "Durable tracer", slug: operationSlug }),
-						[childEntry]: childSource({ name: "Durable tracer child", slug: childSlug }),
+						[childEntry]: childSource({ slug: childSlug, name: "Durable tracer child" }),
+						[operationEntry]: operationSource({ slug: operationSlug, name: "Durable tracer" }),
 					},
 					operations: [
 						{
@@ -191,7 +191,7 @@ describe("universal durable sandbox tracer", () => {
 				plugin.scriptIds[operationSlug],
 				"Durable tracer operation was not installed",
 			);
-			const { executionId, jobId } = yield* enqueueSandboxScript(userId, {
+			const { jobId, executionId } = yield* enqueueSandboxScript(userId, {
 				scriptId,
 				context: {
 					entityId: fixture.entityId,
@@ -219,13 +219,13 @@ describe("universal durable sandbox tracer", () => {
 			expect(value.events).toEqual({ count: 1 });
 			expect(value.child).toBe(`child:${fixture.entityId}`);
 			expect(value.parallel).toEqual([null, null]);
-			expect(value.preferences).toEqual({ disableIntegrations: false, allowNsfw: false });
+			expect(value.preferences).toEqual({ allowNsfw: false, disableIntegrations: false });
 			expect(value.http).toMatchObject({ status: 200 });
 			expect(value.failure).toMatchObject({
 				message: "HTTP 503",
 				data: {
-					body: "try later",
 					status: 503,
+					body: "try later",
 					headers: { "content-length": "9", "content-type": "application/octet-stream" },
 				},
 			});

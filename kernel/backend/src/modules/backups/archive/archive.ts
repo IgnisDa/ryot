@@ -109,15 +109,15 @@ const sortDependencies = (values: ArchiveRecords["entityDependencies"]) => {
 const sortArchiveRecords = (records: ArchiveRecords): ArchiveRecords => ({
 	profile: records.profile,
 	entities: sortedIfNeeded(records.entities, compareId),
-	entityDependencies: sortDependencies(records.entityDependencies),
 	savedViews: sortedIfNeeded(records.savedViews, compareId),
 	integrations: sortedIfNeeded(records.integrations, compareId),
 	installations: sortedIfNeeded(records.installations, compareId),
+	relationships: sortedIfNeeded(records.relationships, compareId),
+	entityDependencies: sortDependencies(records.entityDependencies),
+	clientRenderers: sortedIfNeeded(records.clientRenderers, compareId),
 	privatePlugins: sortedIfNeeded(records.privatePlugins, (left, right) =>
 		left.key.localeCompare(right.key),
 	),
-	clientRenderers: sortedIfNeeded(records.clientRenderers, compareId),
-	relationships: sortedIfNeeded(records.relationships, compareId),
 	notificationSubscriptions: sortedIfNeeded(records.notificationSubscriptions, (left, right) =>
 		left.signalSchemaSlug.localeCompare(right.signalSchemaSlug),
 	),
@@ -616,16 +616,16 @@ export const createArchiveStream = (
 ) =>
 	Stream.unwrap(
 		Effect.try({
+			catch: (error) =>
+				error instanceof BackupArchiveError
+					? error
+					: archiveError("invalid_archive", `ZIP encoding failed: ${String(error)}`),
 			try: () =>
 				Stream.fromAsyncIterable(createArchive(input, overrides), (error) =>
 					error instanceof BackupArchiveError
 						? error
 						: archiveError("invalid_archive", `ZIP encoding failed: ${String(error)}`),
 				),
-			catch: (error) =>
-				error instanceof BackupArchiveError
-					? error
-					: archiveError("invalid_archive", `ZIP encoding failed: ${String(error)}`),
 		}),
 	);
 
@@ -788,7 +788,7 @@ class SpooledRecords<A, I> implements AsyncIterableIterator<A> {
 		if (value !== undefined) {
 			this.#count += 1;
 			this.#offset += 1;
-			return Promise.resolve({ done: false, value });
+			return Promise.resolve({ value, done: false });
 		}
 		if (this.#ended) {
 			return Promise.resolve({ done: true, value: undefined });
@@ -975,9 +975,9 @@ const validateExtracted = (
 			savedViews,
 			integrations,
 			installations,
+			relationships,
 			privatePlugins,
 			clientRenderers,
-			relationships,
 			notificationSubscriptions,
 			entityDependencies: dependencies,
 		},
@@ -1298,12 +1298,12 @@ const extractArchive = Effect.fn(function* <E>(
 	const checkFailure = () => (failure === null ? Effect.void : Effect.fail(failure));
 	yield* Stream.runForEach(chunks, (chunk) =>
 		Effect.try({
+			catch: () => archiveError("invalid_archive", "Invalid ZIP archive"),
 			try: () => {
 				archiveBytes += chunk.byteLength;
 				tail.update(chunk);
 				unzip.push(chunk);
 			},
-			catch: () => archiveError("invalid_archive", "Invalid ZIP archive"),
 		}).pipe(
 			Effect.andThen(Effect.suspend(flushWrites)),
 			Effect.andThen(Effect.suspend(checkFailure)),
@@ -1359,7 +1359,7 @@ export const validateArchiveStream = Effect.fn(function* <E>(
 	});
 	yield* Effect.addFinalizer(() =>
 		fs
-			.remove(directory, { recursive: true, force: true })
+			.remove(directory, { force: true, recursive: true })
 			.pipe(
 				Effect.catchCause((cause) =>
 					Effect.logWarning("backup archive spool cleanup failed", cause),

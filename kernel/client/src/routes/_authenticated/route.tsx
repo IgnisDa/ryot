@@ -29,7 +29,7 @@ export const Route = createFileRoute("/_authenticated")({
 			hostServices: session.hostServices,
 		};
 	},
-	loader: async ({ abortController, context, location }) => {
+	loader: async ({ context, location, abortController }) => {
 		const [catalog, navigation, rememberedSlug, isPro] = await Promise.all([
 			context.runtime.runPromise(
 				Effect.flatMap(PluginCatalogService, (service) => service.load(context.ryot)),
@@ -76,24 +76,25 @@ export const Route = createFileRoute("/_authenticated")({
 				});
 			}
 		}
-		return { catalog, isPro, navigation, rememberedSlug };
+		return { isPro, catalog, navigation, rememberedSlug };
 	},
+	// oxlint-disable-next-line perfectionist/sort-objects -- TanStack derives route context in declaration order.
 	shouldReload: ({ location }) => location.pathname === "/",
 });
 
 function AuthenticatedLayout() {
-	const { catalog, isPro, navigation, rememberedSlug } = Route.useLoaderData();
-	const { hostServices, ryotRuntime, runtime, scope } = Route.useRouteContext();
-	const { serverUrl, userId } = scope;
+	const { isPro, catalog, navigation, rememberedSlug } = Route.useLoaderData();
+	const { scope, runtime, ryotRuntime, hostServices } = Route.useRouteContext();
+	const { userId, serverUrl } = scope;
 	useEffect(
 		() =>
 			runtime.runSync(
-				Effect.map(EntityInterestService, (service) => service.acquire({ serverUrl, userId })),
+				Effect.map(EntityInterestService, (service) => service.acquire({ userId, serverUrl })),
 			),
 		[runtime, serverUrl, userId],
 	);
 	return (
-		<RyotProvider hostServices={hostServices} runtime={ryotRuntime}>
+		<RyotProvider runtime={ryotRuntime} hostServices={hostServices}>
 			<PluginCatalogProvider scope={scope} runtime={runtime} initialCatalog={catalog}>
 				<AuthenticatedShell
 					isPro={isPro}
@@ -135,7 +136,7 @@ function AuthenticatedLoadError() {
 				className="ui-stack ui-card mx-auto w-[min(100%,480px)]"
 			>
 				<div>
-					<h1 id="authenticated-load-title" className="ui-heading">
+					<h1 className="ui-heading" id="authenticated-load-title">
 						Workspaces unavailable
 					</h1>
 					<p role="alert" className="ui-subtitle">

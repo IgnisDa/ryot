@@ -25,7 +25,7 @@ const user: CurrentUserValue = {
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-1"),
-	preferences: { allowNsfw: false, language: null, disableIntegrations: false },
+	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
 };
 
 const externalId = "ext-123";
@@ -92,7 +92,7 @@ it.effect("returns BadRequest when providerId is blank", () =>
 		);
 		expect(getFailure(result)).toEqual(
 			new ProviderEntityBadRequest({
-				reason: { code: "invalid-import-input", field: "providerId" },
+				reason: { field: "providerId", code: "invalid-import-input" },
 			}),
 		);
 	}).pipe(Effect.provide(makeServiceLayer())),
@@ -104,7 +104,7 @@ it.effect("returns BadRequest when externalId is blank", () =>
 		const result = yield* Effect.exit(service.import(user, { providerId, externalId: "  " }));
 		expect(getFailure(result)).toEqual(
 			new ProviderEntityBadRequest({
-				reason: { code: "invalid-import-input", field: "externalId" },
+				reason: { field: "externalId", code: "invalid-import-input" },
 			}),
 		);
 	}).pipe(Effect.provide(makeServiceLayer())),
@@ -115,7 +115,7 @@ it.effect("returns NotFound when the provider is missing", () =>
 		const service = yield* EntityImportService;
 		const result = yield* Effect.exit(service.import(user, { providerId, externalId }));
 		expect(getFailure(result)).toEqual(
-			new ProviderEntityNotFound({ reason: { code: "provider-not-found", providerId } }),
+			new ProviderEntityNotFound({ reason: { providerId, code: "provider-not-found" } }),
 		);
 	}).pipe(Effect.provide(makeServiceLayer(makeEntitiesRepository(), makeWorkflowEngine(), null))),
 );
@@ -125,7 +125,7 @@ it.effect("returns NotFound when the provider is inactive", () =>
 		const service = yield* EntityImportService;
 		const result = yield* Effect.exit(service.import(user, { providerId, externalId }));
 		expect(getFailure(result)).toEqual(
-			new ProviderEntityNotFound({ reason: { code: "provider-not-found", providerId } }),
+			new ProviderEntityNotFound({ reason: { providerId, code: "provider-not-found" } }),
 		);
 	}).pipe(Effect.provide(makeServiceLayer(makeEntitiesRepository(), makeWorkflowEngine(), null))),
 );
@@ -135,7 +135,7 @@ it.effect("returns NotFound when the derived entity schema is not found", () =>
 		const service = yield* EntityImportService;
 		const result = yield* Effect.exit(service.import(user, { providerId, externalId }));
 		expect(getFailure(result)).toEqual(
-			new ProviderEntityNotFound({ reason: { code: "entity-schema-not-found", entitySchemaSlug } }),
+			new ProviderEntityNotFound({ reason: { entitySchemaSlug, code: "entity-schema-not-found" } }),
 		);
 	}).pipe(
 		Effect.provide(
@@ -207,7 +207,7 @@ it.effect("returns NotFound for a blank getImportResult jobId", () =>
 		const service = yield* EntityImportService;
 		const result = yield* Effect.exit(service.getImportResult(user, "   "));
 		expect(getFailure(result)).toEqual(
-			new ProviderEntityNotFound({ reason: { code: "import-job-not-found", jobId: "   " } }),
+			new ProviderEntityNotFound({ reason: { jobId: "   ", code: "import-job-not-found" } }),
 		);
 	}).pipe(Effect.provide(makeServiceLayer())),
 );
