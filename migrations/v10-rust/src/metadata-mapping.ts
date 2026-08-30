@@ -1,7 +1,5 @@
-import {
-	Database,
-	mapDatabaseErrors,
-} from "@ryot-app/kernel-backend/lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "@ryot-app/kernel-backend/lib/infrastructure/db/service";
+import { DatabaseSession } from "@ryot-app/kernel-backend/lib/infrastructure/db/session";
 import { sql } from "drizzle-orm";
 import { Effect } from "effect";
 
@@ -308,7 +306,7 @@ END $$;
 `;
 
 export const getUnsupportedMetadataSources = Effect.gen(function* () {
-	const database = yield* Database;
+	const database = yield* (yield* DatabaseSession).current;
 	const result = yield* mapDatabaseErrors(
 		database.execute<{ lot: string; source: string }>(
 			sql`

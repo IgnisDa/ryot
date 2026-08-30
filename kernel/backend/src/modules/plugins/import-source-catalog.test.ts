@@ -5,7 +5,7 @@ import { Effect } from "effect";
 import { assert, describe } from "vitest";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 import { PluginConfigRevisions } from "./config-revisions";
 import { ImportSourceCatalog } from "./import-source-catalog";
@@ -153,7 +153,7 @@ describe("revision-backed import sources", () => {
 					configRevisionId,
 				);
 				expect(yield* configuredKeys).toEqual(["token"]);
-				const [stored] = yield* (yield* Database)
+				const [stored] = yield* (yield* (yield* DatabaseSession).current)
 					.select({ configuredKeys: tables.pluginConfigRevision.configuredKeys })
 					.from(tables.pluginConfigRevision)
 					.where(eq(tables.pluginConfigRevision.id, configRevisionId));

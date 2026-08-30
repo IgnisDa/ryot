@@ -14,7 +14,8 @@ import { DateTime, Effect, Schema } from "effect";
 
 import { LifecycleDispatchPlan, toLifecycleDispatchPlan } from "#lib/domain/lifecycle";
 import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
-import { Database, mapDatabaseErrors, retryOnDeadlock } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors, retryOnDeadlock } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import type { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
 import { EntityMutationOutcome } from "#modules/entities/mutation-outcomes";
 import { EntitiesService } from "#modules/entities/service";
@@ -85,7 +86,7 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 		childEntities: ReadonlyArray<ProviderDetailsChildEntity>;
 	} & ({ scope: "global" } | { scope: "user"; userId: UserId }),
 ) {
-	const database = yield* Database;
+	const session = yield* DatabaseSession;
 	const entities = yield* EntitiesService;
 	const childSchemaSlugs = new Set(
 		input.childEntities.map(({ entitySchemaSlug }) => entitySchemaSlug),
@@ -140,7 +141,7 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 		.sort((left, right) => left.childEntity.externalId.localeCompare(right.childEntity.externalId));
 	const committed = yield* retryOnDeadlock(
 		mapDatabaseErrors(
-			database.transaction((transaction) =>
+			session.transaction(
 				Effect.gen(function* () {
 					if (orderedChildEntities.length > 0 && !childEntitySchemaSlug) {
 						return yield* Effect.die("Validated child schema is missing");
@@ -213,7 +214,7 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 						relationshipPlans: relationshipWork.plans,
 						relationshipResults: relationshipWork.result,
 					};
-				}).pipe(Effect.provideService(Database, transaction)),
+				}),
 			),
 		),
 	).pipe(mapDbErrorToSandbox);

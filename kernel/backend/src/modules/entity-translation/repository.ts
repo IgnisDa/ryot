@@ -5,7 +5,8 @@ import { Context, Effect, Layer } from "effect";
 
 import { user } from "#lib/infrastructure/db/schema/tables/auth";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 export type TranslationOverlayInput = {
 	language: string;
@@ -15,11 +16,6 @@ export type TranslationOverlayInput = {
 	properties: Record<string, unknown> | null;
 };
 
-type RestoreTranslationInput = Pick<
-	typeof schema.entityTranslation.$inferInsert,
-	"id" | "name" | "entityId" | "language" | "properties" | "populatedAt" | "createdAt" | "updatedAt"
->;
-
 const extractLanguage = (preferences: Record<string, unknown>): string | null => {
 	const language = preferences["language"];
 	return typeof language === "string" && language.length > 0 ? language : null;
@@ -28,14 +24,15 @@ const extractLanguage = (preferences: Record<string, unknown>): string | null =>
 export class TranslationsRepository extends Context.Service<TranslationsRepository>()(
 	"TranslationsRepository",
 	{
-		make: Effect.sync(() => {
+		make: Effect.gen(function* () {
+			const session = yield* DatabaseSession;
 			const listForBackup = Effect.fn("TranslationsRepository.listForBackup")(function* (
 				entityIds: ReadonlyArray<EntityId>,
 			) {
 				if (entityIds.length === 0) {
 					return [];
 				}
-				const db = yield* Database;
+				const db = yield* session.current;
 				return yield* mapDatabaseErrors(
 					db
 						.select()
@@ -45,23 +42,10 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 				);
 			});
 
-			const restoreTranslation = Effect.fn("TranslationsRepository.restoreTranslation")(function* (
-				input: RestoreTranslationInput,
-			) {
-				const db = yield* Database;
-				const [row] = yield* mapDatabaseErrors(
-					db
-						.insert(schema.entityTranslation)
-						.values(input)
-						.returning({ id: schema.entityTranslation.id }),
-				);
-				return row?.id ?? (yield* new DbError({ message: "Translation restore returned no row" }));
-			});
-
 			const upsertOverlay = Effect.fn("TranslationsRepository.upsertOverlay")(function* (
 				input: TranslationOverlayInput,
 			) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.insert(schema.entityTranslation)
@@ -92,7 +76,7 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 			const findUserLanguage = Effect.fn("TranslationsRepository.findUserLanguage")(function* (
 				userId: UserId,
 			) {
-				const db = yield* Database;
+				const db = yield* session.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({ preferences: user.preferences })
@@ -104,7 +88,7 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 				return row ? extractLanguage(row.preferences) : null;
 			});
 
-			return { upsertOverlay, listForBackup, findUserLanguage, restoreTranslation };
+			return { upsertOverlay, listForBackup, findUserLanguage };
 		}),
 	},
 ) {

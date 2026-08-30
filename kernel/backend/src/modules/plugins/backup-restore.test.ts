@@ -6,7 +6,8 @@ import { Effect, Encoding, Layer } from "effect";
 import { describe } from "vitest";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { databaseLayer } from "#lib/test-utils/effect";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import type { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
 
@@ -38,7 +39,6 @@ const privateManifest = () => ({
 const snapshot = {
 	definitions: { savedViews: {}, entitySchemas: {}, signalSchemas: {}, relationshipSchemas: {} },
 };
-const database = Object.create(null);
 const noRevisionActivation = Layer.succeed(PluginRevisionActivation, {
 	activated: () => Effect.void,
 });
@@ -103,7 +103,7 @@ it.effect("round-trips an invalid UTF-8 private plugin asset before persistence"
 		expect(prepared).toHaveLength(1);
 		expect(prepared[0]?.normalized.sourceHash).toBe(sourceHash);
 		expect(prepared[0]?.files).toEqual(sourceFiles);
-	}).pipe(Effect.provide(makeLayer()), Effect.provideService(Database, database));
+	}).pipe(Effect.provide(makeLayer()));
 });
 
 it.effect("prepares a private backup package with its precompiled client artifact", () => {
@@ -143,7 +143,7 @@ it.effect("prepares a private backup package with its precompiled client artifac
 
 		expect(prepared[0]?.normalized.compiledClient).toEqual(compiledClient);
 		expect(prepared[0]?.normalized.sourceHash).toBe(sourceHash);
-	}).pipe(Effect.provide(makeLayer()), Effect.provideService(Database, database));
+	}).pipe(Effect.provide(makeLayer()));
 });
 
 it.effect("rejects a private backup package whose source hash is not exact", () => {
@@ -164,7 +164,7 @@ it.effect("rejects a private backup package whose source hash is not exact", () 
 			])
 			.pipe(Effect.flip);
 		expect(error.message).toContain("source hash");
-	}).pipe(Effect.provide(makeLayer()), Effect.provideService(Database, database));
+	}).pipe(Effect.provide(makeLayer()));
 });
 
 it.effect("rejects a definition collision before private plugin persistence", () => {
@@ -225,7 +225,6 @@ it.effect("rejects a definition collision before private plugin persistence", ()
 				},
 			}),
 		),
-		Effect.provideService(Database, database),
 	);
 });
 
@@ -277,7 +276,6 @@ it.effect("restores precompiled scripts without compiling before persistence", (
 					}),
 			}),
 		),
-		Effect.provideService(Database, database),
 	);
 });
 
@@ -314,9 +312,8 @@ it.effect("rejects persistence when a system slug appears after backup preparati
 					}),
 				listActiveSystemSlugs: () =>
 					Effect.succeed(systemSlugExists ? [manifest.metadata.slug] : []),
-			}),
+			}).pipe(Layer.provide(databaseLayer)),
 		),
-		Effect.provideService(Database, database),
 	);
 });
 
@@ -336,7 +333,7 @@ describe("private package backup restore in PostgreSQL", () => {
 		);
 		return withRevisionDatabase(
 			Effect.gen(function* () {
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				const plugins = yield* PluginRepository;
 				const sourceV1 = packageAt("1.0.0");
 				const sourceV2 = packageAt("2.0.0");

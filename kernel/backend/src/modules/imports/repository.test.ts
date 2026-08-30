@@ -3,7 +3,7 @@ import { DbError } from "@ryot-app/contract/errors";
 import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { assertExitFails } from "#lib/test-utils/assertions";
 
 import { ImportsRepository } from "./repository";
@@ -38,9 +38,12 @@ const admission = {
 };
 
 const repositoryLayer = (db: unknown) =>
-	Layer.mergeAll(
-		ImportsRepository.layer,
-		Layer.succeed(Database, Object.assign(Object.create(null), db)),
+	ImportsRepository.layer.pipe(
+		Layer.provide(
+			Layer.mock(DatabaseSession)({
+				current: Effect.succeed(Object.assign(Object.create(null), db)),
+			}),
+		),
 	);
 
 const insertingDatabase = (

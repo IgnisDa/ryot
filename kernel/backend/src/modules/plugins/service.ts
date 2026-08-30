@@ -1,3 +1,4 @@
+import { DbError } from "@ryot-app/contract/errors";
 import {
 	PluginConflictError,
 	PluginNotFoundError,
@@ -7,7 +8,8 @@ import { inArray } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { kernelDefinitionSource, kernelScripts } from "#modules/definition-registry/kernel-source";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 
@@ -47,7 +49,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 	"PluginIngestionService",
 	{
 		make: Effect.gen(function* () {
-			const database = yield* Database;
+			const database = yield* DatabaseSession;
 			const repository = yield* PluginRepository;
 			const activation = yield* PluginRevisionActivation;
 			const definitions = yield* DefinitionRepository;
@@ -96,7 +98,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 				if (slugs.length === 0) {
 					return yield* Effect.void;
 				}
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [collision] = yield* mapDatabaseErrors(
 					db
 						.select({ slug: schema.savedView.slug })
@@ -111,14 +113,14 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 				}
 				return yield* Effect.void;
 			});
-			const inTransaction = <A, E>(effect: Effect.Effect<A, E, Database>) =>
+			const inTransaction = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 				Effect.uninterruptible(
 					mapDatabaseErrors(
-						database.transaction((transaction) =>
-							repository
-								.lockIngestion()
-								.pipe(Effect.andThen(effect), Effect.provideService(Database, transaction)),
-						),
+						database.transaction(repository.lockIngestion().pipe(Effect.andThen(effect))),
+					),
+				).pipe(
+					Effect.catchTag("DatabaseSessionStateError", () =>
+						Effect.fail(new DbError({ message: "Plugin ingestion requires a root transaction" })),
 					),
 				);
 
@@ -130,20 +132,21 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 				yield* validatePluginManifestPolicy(manifest, { scope: "system" });
 				yield* validatePluginSourcePaths(files, manifest);
 				const slug = manifest.metadata.slug;
-				const installed = yield* repository
-					.listActiveSystemPlugins()
-					.pipe(Effect.provideService(Database, database));
+				const installed = yield* repository.listActiveSystemPlugins();
 				yield* validateSystemSet(
 					[
 						...installed.filter((plugin) => plugin.slug !== slug),
 						{ slug, manifest, scripts: [], id: `pending:${slug}` },
 					],
 					false,
-				).pipe(Effect.provideService(Database, database));
+				);
 
-				const cached = yield* repository
-					.findBySourceHash({ slug, sourceHash, ownerId: null, scope: "system" })
-					.pipe(Effect.provideService(Database, database));
+				const cached = yield* repository.findBySourceHash({
+					slug,
+					sourceHash,
+					ownerId: null,
+					scope: "system",
+				});
 				if (cached) {
 					const committed = yield* inTransaction(
 						Effect.gen(function* () {

@@ -29,7 +29,8 @@ import { LifecyclePlanner } from "#lib/domain/lifecycle";
 import { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import {
 	runLifecycleWriteInline,
 	type LifecyclePreparedStep,
@@ -76,7 +77,7 @@ import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RyotQLService } from "#modules/ryotql/service";
 
 type SandboxHostFunctionContext =
-	| Database
+	| DatabaseSession
 	| RyotQLService
 	| EventsService
 	| EntitiesService
@@ -221,14 +222,14 @@ const makeSandboxLifecycleHostSteps = (dependencies: {
 		effect: Effect.Effect<
 			A,
 			E,
-			Database | PgClient.PgClient | LifecyclePlanner | LifecycleExecution
+			DatabaseSession | PgClient.PgClient | LifecyclePlanner | LifecycleExecution
 		>,
 	) => Effect.Effect<A, E>;
 	readonly provideRelationshipServices: <A, E>(
 		effect: Effect.Effect<
 			A,
 			E,
-			| Database
+			| DatabaseSession
 			| DefinitionRepository
 			| EntitiesRepository
 			| PluginRuntimeResolver
@@ -436,7 +437,7 @@ const makeSandboxLifecycleHostSteps = (dependencies: {
 export type SandboxLifecycleHostSteps = ReturnType<typeof makeSandboxLifecycleHostSteps>;
 
 export const makeSandboxLifecycleHostApi = Effect.gen(function* () {
-	const database = yield* Database;
+	const session = yield* DatabaseSession;
 	const pgClient = yield* PgClient.PgClient;
 	const lifecyclePlanner = yield* LifecyclePlanner;
 	const lifecycleExecution = yield* LifecycleExecution;
@@ -447,7 +448,7 @@ export const makeSandboxLifecycleHostApi = Effect.gen(function* () {
 	const relationshipsRepository = yield* RelationshipsRepository;
 	const provideLifecycleServices = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 		effect.pipe(
-			Effect.provideService(Database, database),
+			Effect.provideService(DatabaseSession, session),
 			Effect.provideService(PgClient.PgClient, pgClient),
 			Effect.provideService(LifecyclePlanner, lifecyclePlanner),
 			Effect.provideService(LifecycleExecution, lifecycleExecution),
@@ -482,7 +483,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 	never,
 	SandboxHostFunctionContext
 > = Effect.gen(function* () {
-	const database = yield* Database;
+	const session = yield* DatabaseSession;
 	const pgClient = yield* PgClient.PgClient;
 	const lifecyclePlanner = yield* LifecyclePlanner;
 	const lifecycleExecution = yield* LifecycleExecution;
@@ -539,6 +540,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 
 	const readUserPreferences = (userId: UserId) =>
 		Effect.gen(function* () {
+			const database = yield* session.current;
 			const [row] = yield* mapDatabaseErrors(
 				database
 					.select({ preferences: schema.user.preferences })
@@ -622,7 +624,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 						})
 						.pipe(
 							Effect.map((rows) => rows.map(toSandboxIntegration)),
-							Effect.provideService(Database, database),
+							Effect.provideService(DatabaseSession, session),
 						),
 				);
 			}),
@@ -678,7 +680,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 							),
 						);
 				}),
-				Effect.provideService(Database, database),
+				Effect.provideService(DatabaseSession, session),
 				sandboxHostEffect,
 			),
 		getPluginConfig: (input, rawKeys) =>
@@ -706,7 +708,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 								Effect.flatMap((values) => encodeConfigValues("Plugin", values)),
 							);
 					}),
-					Effect.provideService(Database, database),
+					Effect.provideService(DatabaseSession, session),
 				),
 			),
 		executeRyotql: (rawInput, query) =>
@@ -783,7 +785,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 						}),
 					),
 				),
-				Effect.provideService(Database, database),
+				Effect.provideService(DatabaseSession, session),
 				sandboxHostEffect,
 			),
 		ensureUserEntities: (rawInput, items) =>
@@ -818,13 +820,13 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 							})),
 							command,
 						)
-						.pipe(Effect.provideService(Database, database), provideLifecycleServices);
+						.pipe(Effect.provideService(DatabaseSession, session), provideLifecycleServices);
 					yield* reportSandboxLifecycleWarnings(
 						"ensureUserEntities",
 						results.flatMap((result) => result.warnings),
 					);
 					return results.map(({ entityId, wasInserted }) => ({ entityId, wasInserted }));
-				}).pipe(Effect.provideService(Database, database)),
+				}).pipe(Effect.provideService(DatabaseSession, session)),
 			),
 		getEntitySchemas: (rawInput, entitySchemaSlugs) =>
 			requireSandboxCapabilityInput(rawInput, "getEntitySchemas").pipe(
@@ -892,7 +894,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 						}),
 					),
 				),
-				Effect.provideService(Database, database),
+				Effect.provideService(DatabaseSession, session),
 				sandboxHostEffect,
 			),
 	} satisfies AdditionalSandboxHostImplementationMap;

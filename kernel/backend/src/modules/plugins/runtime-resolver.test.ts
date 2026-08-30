@@ -5,7 +5,7 @@ import { Effect, Result } from "effect";
 import { assert, describe } from "vitest";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 
 import { PluginInstallationRepository } from "./installation-repository";
@@ -412,7 +412,7 @@ describe("catalog reads across revision boundaries", () => {
 		() =>
 			withRevisionDatabase(
 				Effect.gen(function* () {
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const plugins = yield* PluginRepository;
 					const runtime = yield* PluginRuntimeResolver;
 					const installed = yield* installRevisionPackage(revisionPackage());

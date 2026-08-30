@@ -20,7 +20,7 @@ import {
 	pluginConfigRevision,
 	pluginConfigEncryptionKey,
 } from "#lib/infrastructure/db/schema/tables/core";
-import { Database, DatabaseLive } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
 import { fixtureManifest } from "#modules/plugins/test-support";
@@ -47,14 +47,16 @@ const failure: FinalizeAutomationAttempt = {
 	error: { code: "timeout", message: "Timed out" },
 };
 
-const withDatabase = <E>(test: Effect.Effect<void, E, Database | AutomationAttemptRepository>) => {
+const withDatabase = <E>(
+	test: Effect.Effect<void, E, DatabaseSession | AutomationAttemptRepository>,
+) => {
 	const schema = `attempt_test_${crypto.randomUUID().replaceAll("-", "")}`;
 	const url = testDatabaseUrl();
-	const layer = DatabaseLive.pipe(
+	const layer = DatabaseSession.layer.pipe(
 		Layer.provide(makeAppConfigLayer({ database: { url: Redacted.make(url) } })),
 	);
 	return Effect.gen(function* () {
-		const db = yield* Database;
+		const db = yield* (yield* DatabaseSession).current;
 		const directory = new URL("../../drizzle/", import.meta.url).pathname;
 		const paths = [...new Bun.Glob("*/migration.sql").scanSync({ cwd: directory })];
 		assert(paths.length === 1);
@@ -63,19 +65,21 @@ const withDatabase = <E>(test: Effect.Effect<void, E, Database | AutomationAttem
 		yield* Effect.gen(function* () {
 			const scopedUrl = new URL(url);
 			scopedUrl.pathname = `/${schema}`;
-			const scopedLayer = DatabaseLive.pipe(
+			const scopedLayer = DatabaseSession.layer.pipe(
 				Layer.provide(
 					makeAppConfigLayer({ database: { url: Redacted.make(scopedUrl.toString()) } }),
 				),
 				Layer.fresh,
 			);
 			yield* Effect.gen(function* () {
-				const isolated = yield* Database;
+				const isolated = yield* (yield* DatabaseSession).current;
 				for (const statement of ddl.split("--> statement-breakpoint")) {
 					yield* isolated.execute(sql.raw(statement));
 				}
 				yield* test;
-			}).pipe(Effect.provide(Layer.merge(AutomationAttemptRepository.layer, scopedLayer)));
+			}).pipe(
+				Effect.provide(AutomationAttemptRepository.layer.pipe(Layer.provideMerge(scopedLayer))),
+			);
 		}).pipe(
 			Effect.ensuring(db.execute(sql`drop database ${sql.identifier(schema)}`).pipe(Effect.orDie)),
 		);
@@ -84,7 +88,7 @@ const withDatabase = <E>(test: Effect.Effect<void, E, Database | AutomationAttem
 
 const seed = (stage: "after" | "before" = "after", maxAttempts = 2) =>
 	Effect.gen(function* () {
-		const db = yield* Database;
+		const db = yield* (yield* DatabaseSession).current;
 		yield* db
 			.insert(automationTrigger)
 			.values({
@@ -237,7 +241,7 @@ describe("AutomationAttemptRepository (PostgreSQL)", () => {
 				Effect.gen(function* () {
 					yield* seed();
 					const repo = yield* AutomationAttemptRepository;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const claims = yield* Effect.all(
 						[
 							repo.claimNextAttempt({ now, runId, attemptNumber: 1 }),
@@ -337,7 +341,7 @@ describe("AutomationAttemptRepository (PostgreSQL)", () => {
 				Effect.gen(function* () {
 					yield* seed();
 					const repo = yield* AutomationAttemptRepository;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					yield* db
 						.insert(user)
 						.values({ id: "owner", name: "Owner", preferences: {}, email: "owner@example.test" });
@@ -372,7 +376,7 @@ describe("AutomationAttemptRepository (PostgreSQL)", () => {
 			Effect.gen(function* () {
 				yield* seed();
 				const repo = yield* AutomationAttemptRepository;
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				yield* repo.claimNextAttempt({ now, runId, attemptNumber: 1 });
 				yield* repo.finalizeAttempt(failure, now);
 				const expiresAt = DateTime.toDate(DateTime.makeUnsafe(now.getTime() + 1001));
@@ -403,7 +407,7 @@ describe("AutomationAttemptRepository (PostgreSQL)", () => {
 				Effect.gen(function* () {
 					yield* seed("after", 1);
 					const repo = yield* AutomationAttemptRepository;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					yield* repo.claimNextAttempt({ now, runId, attemptNumber: 1 });
 					yield* repo.finalizeAttempt(failure, now);
 					expect(
@@ -442,7 +446,7 @@ describe("AutomationAttemptRepository (PostgreSQL)", () => {
 				Effect.gen(function* () {
 					yield* seed("after", 1);
 					const repo = yield* AutomationAttemptRepository;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					yield* db
 						.insert(plugin)
 						.values({ id: "plugin", slug: "fixture", scope: "system", status: "inactive" });
@@ -512,7 +516,7 @@ describe("AutomationAttemptRepository (PostgreSQL)", () => {
 				Effect.gen(function* () {
 					yield* seed("after", 1);
 					const repo = yield* AutomationAttemptRepository;
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					yield* repo.claimNextAttempt({ now, runId, attemptNumber: 1 });
 					expect(yield* repo.retryEligibility(runId, now)).toBe("not-failed");
 					yield* repo.finalizeAttempt(
@@ -551,7 +555,7 @@ describe("AutomationAttemptRepository (PostgreSQL)", () => {
 			Effect.gen(function* () {
 				yield* seed("before");
 				const repo = yield* AutomationAttemptRepository;
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				yield* repo.claimNextAttempt({ now, runId, attemptNumber: 1 });
 				yield* repo.finalizeAttempt(
 					{
@@ -583,7 +587,7 @@ describe("AutomationAttemptRepository (PostgreSQL)", () => {
 			Effect.gen(function* () {
 				yield* seed("before");
 				const repo = yield* AutomationAttemptRepository;
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				yield* repo.claimNextAttempt({ now, runId, attemptNumber: 1 });
 				expect(yield* repo.finalizeAttempt(failure, now)).toMatchObject({ retryable: false });
 				expect(yield* repo.retryEligibility(runId, now)).toBe("before-policy");

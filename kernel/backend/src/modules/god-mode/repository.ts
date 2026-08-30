@@ -3,14 +3,16 @@ import { eq, inArray } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/auth";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 export class GodModeRepository extends Context.Service<GodModeRepository>()("GodModeRepository", {
-	make: Effect.sync(() => {
+	make: Effect.gen(function* () {
+		const session = yield* DatabaseSession;
 		const listAccountsForUsers = Effect.fn("GodModeRepository.listAccountsForUsers")(function* (
 			userIds: string[],
 		) {
-			const db = yield* Database;
+			const db = yield* session.current;
 			return yield* mapDatabaseErrors(
 				db
 					.select({ userId: schema.account.userId, providerId: schema.account.providerId })
@@ -20,7 +22,7 @@ export class GodModeRepository extends Context.Service<GodModeRepository>()("God
 		});
 
 		const findUserById = Effect.fn("GodModeRepository.findUserById")(function* (userId: UserId) {
-			const db = yield* Database;
+			const db = yield* session.current;
 			const [row] = yield* mapDatabaseErrors(
 				db
 					.select({ id: schema.user.id, email: schema.user.email })
@@ -34,7 +36,7 @@ export class GodModeRepository extends Context.Service<GodModeRepository>()("God
 		const findUserIdByEmail = Effect.fn("GodModeRepository.findUserIdByEmail")(function* (
 			email: string,
 		) {
-			const db = yield* Database;
+			const db = yield* session.current;
 			const [row] = yield* mapDatabaseErrors(
 				db
 					.select({ id: schema.user.id })
@@ -48,7 +50,7 @@ export class GodModeRepository extends Context.Service<GodModeRepository>()("God
 		const findUserDisabledState = Effect.fn("GodModeRepository.findUserDisabledState")(function* (
 			userId: UserId,
 		) {
-			const db = yield* Database;
+			const db = yield* session.current;
 			const [row] = yield* mapDatabaseErrors(
 				db
 					.select({ id: schema.user.id, disabledAt: schema.user.disabledAt })

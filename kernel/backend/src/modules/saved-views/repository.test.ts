@@ -3,28 +3,26 @@ import { UserId } from "@ryot-app/contract/schema/brands";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";
 
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 import { SavedViewsRepository } from "./repository";
 
 it.effect("checks custom view references for the exact installation and user", () => {
 	const userId = UserId.make("user-1");
 	const conditions: Array<Parameters<PgDialect["sqlToQuery"]>[0]> = [];
-	const database = Database.of(
-		Object.assign(Object.create(null), {
-			select: () => ({
-				from: () => ({
-					where: (condition: Parameters<PgDialect["sqlToQuery"]>[0]) => ({
-						limit: () => {
-							conditions.push(condition);
-							return Effect.succeed([{ id: "custom-view" }]);
-						},
-					}),
+	const database = Object.assign(Object.create(null), {
+		select: () => ({
+			from: () => ({
+				where: (condition: Parameters<PgDialect["sqlToQuery"]>[0]) => ({
+					limit: () => {
+						conditions.push(condition);
+						return Effect.succeed([{ id: "custom-view" }]);
+					},
 				}),
 			}),
 		}),
-	);
-	const databaseLayer = Layer.succeed(Database, database);
+	});
+	const databaseLayer = Layer.mock(DatabaseSession)({ current: Effect.succeed(database) });
 	return Effect.gen(function* () {
 		const repository = yield* SavedViewsRepository;
 		expect(yield* repository.hasCustomInstallationReferences(userId, "installation-id")).toBe(true);

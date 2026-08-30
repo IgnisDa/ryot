@@ -4,7 +4,6 @@ import { Cause, Context, Effect, Layer, Result, Schema } from "effect";
 import { Activity, Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, type WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
-import { Database } from "#lib/infrastructure/db/service";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { SandboxExecutionService } from "#modules/sandbox/service";
@@ -68,7 +67,6 @@ const asInternal = <A, E, R>(effect: Effect.Effect<A, E, R>, message: string) =>
 export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 	PluginInstallationWorkflowOperations,
 	Effect.gen(function* () {
-		const database = yield* Database;
 		const runtime = yield* PluginRuntimeResolver;
 		const sandbox = yield* SandboxExecutionService;
 		const invalidator = yield* PluginCatalogInvalidator;
@@ -143,14 +141,11 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 				`Plugin installation bootstrap entry failed: ${input.entrySlug}`,
 			);
 
-		const provideDatabase = <A, E>(effect: Effect.Effect<A, E, Database>) =>
-			effect.pipe(Effect.provideService(Database, database));
-
 		return {
+			fail,
+			begin,
+			complete,
 			runBootstrapEntry,
-			begin: (installationId) => provideDatabase(begin(installationId)),
-			complete: (installationId, userId) => provideDatabase(complete(installationId, userId)),
-			fail: (installationId, healthReason) => provideDatabase(fail(installationId, healthReason)),
 		} satisfies PluginInstallationWorkflowOperationsValue;
 	}),
 );

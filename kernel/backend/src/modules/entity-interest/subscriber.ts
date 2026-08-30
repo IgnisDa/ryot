@@ -1,7 +1,7 @@
 import { decodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-interest/messages";
 import { Cause, Context, Effect, FiberSet, Layer, Result } from "effect";
 
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 
 import { LocalInterestSessions } from "./connections";
@@ -12,7 +12,7 @@ export class EntityInterestSubscriber extends Context.Service<EntityInterestSubs
 	"EntityInterestSubscriber",
 	{
 		make: Effect.gen(function* () {
-			const database = yield* Database;
+			const session = yield* DatabaseSession;
 			const redis = yield* RedisService;
 			const store = yield* EntityInterestStore;
 			const runFork = yield* FiberSet.makeRuntime();
@@ -55,7 +55,7 @@ export class EntityInterestSubscriber extends Context.Service<EntityInterestSubs
 				if (incoming === channel) {
 					runFork(
 						dispatch(message).pipe(
-							Effect.provideService(Database, database),
+							Effect.provideService(DatabaseSession, session),
 							Effect.catchCause(Effect.logWarning),
 						),
 					);

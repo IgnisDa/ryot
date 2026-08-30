@@ -5,7 +5,7 @@ import { Effect, Exit } from "effect";
 import { assert, describe } from "vitest";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginRepository } from "#modules/plugins/repository";
 import {
@@ -27,7 +27,7 @@ const setInstallation = Effect.fn(function* (
 	installationId: string,
 	patch: Partial<typeof tables.pluginInstallation.$inferInsert>,
 ) {
-	const db = yield* Database;
+	const db = yield* (yield* DatabaseSession).current;
 	yield* db
 		.update(tables.pluginInstallation)
 		.set(patch)
@@ -35,7 +35,7 @@ const setInstallation = Effect.fn(function* (
 });
 
 const userPlugin = Effect.fn(function* (pluginId: string) {
-	const db = yield* Database;
+	const db = yield* (yield* DatabaseSession).current;
 	const [row] = yield* db
 		.select({
 			isListed: tables.userPlugin.isListed,
@@ -169,7 +169,7 @@ describe("definition views", () => {
 	it.effect("executes only plugins whose configuration is pinned to the active revision", () =>
 		withRevisionDatabase(
 			Effect.gen(function* () {
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				const plugins = yield* PluginRepository;
 				const system = yield* installRevisionPackage(revisionPackage());
 				const alpha = yield* installRevisionPackage(revisionPackage("alpha"), owner);
@@ -214,7 +214,7 @@ describe("definition views", () => {
 	it.effect("upserts kernel definitions by slug and prunes removed rows", () =>
 		withRevisionDatabase(
 			Effect.gen(function* () {
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				const definitions = yield* DefinitionRepository;
 				const source = kernelDefinitionSource();
 				yield* seedKernelDefinitions(source);

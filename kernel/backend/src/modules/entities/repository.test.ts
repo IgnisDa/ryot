@@ -9,8 +9,10 @@ import {
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";
 
-import { Database } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import type { MockOverrides } from "#lib/test-utils/effect";
+import { BackupRestorePersistence } from "#modules/backups/restore/persistence";
+import { restorePersistenceWithDatabase } from "#modules/backups/restore/persistence.test-support";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
@@ -21,13 +23,21 @@ const mockPluginRuntime = Layer.mock(PluginRuntimeResolver);
 const makePluginRuntime = (overrides: MockOverrides<typeof mockPluginRuntime> = {}) =>
 	mockPluginRuntime({ ...overrides });
 
-const makeLayer = (db: object, pluginRuntime = makePluginRuntime()) =>
-	Layer.mergeAll(
+const makeLayer = (db: object, pluginRuntime = makePluginRuntime()) => {
+	const database = Object.assign(Object.create(null), db);
+	return Layer.merge(
 		EntitiesRepository.layer.pipe(
-			Layer.provide(Layer.mergeAll(Layer.mock(DefinitionRepository)({}), pluginRuntime)),
+			Layer.provide(
+				Layer.mergeAll(
+					Layer.mock(DefinitionRepository)({}),
+					pluginRuntime,
+					Layer.mock(DatabaseSession)({ current: Effect.succeed(database) }),
+				),
+			),
 		),
-		Layer.succeed(Database, Object.assign(Object.create(null), db)),
+		Layer.mock(DatabaseSession)({ current: Effect.succeed(database) }),
 	);
+};
 
 const makeDb = () => {
 	const rows: Record<string, unknown>[] = [];
@@ -297,10 +307,10 @@ it.effect("restores an entity with its archived identity and timestamps", () => 
 	};
 
 	return Effect.gen(function* () {
-		const repository = yield* EntitiesRepository;
-		expect(yield* repository.restoreEntity(input)).toBe(input.id);
+		const persistence = yield* BackupRestorePersistence;
+		expect(yield* persistence.restoreEntity(input)).toBe(input.id);
 		expect(persisted).toEqual(input);
-	}).pipe(Effect.provide(makeLayer(db)));
+	}).pipe(Effect.provide(restorePersistenceWithDatabase(db)));
 });
 
 it.effect("lists portable entity provenance", () => {

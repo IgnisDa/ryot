@@ -25,7 +25,8 @@ import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/Workf
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
 import { rootLifecycleCommand, type LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { Database } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 import {
 	withLifecycleBatchPlanning,
@@ -119,25 +120,26 @@ it.effect("plans provider completion in a short transaction and invokes common e
 		}
 	});
 	let inTransaction = false;
-	const transaction: Parameters<Parameters<Database["Service"]["transaction"]>[0]>[0] =
-		Object.create(null);
-	const database = Database.of(
-		Object.assign(Object.create(null), {
-			transaction: ((body) =>
-				Effect.gen(function* () {
-					inTransaction = true;
-					return yield* body(transaction).pipe(
-						Effect.ensuring(Effect.sync(() => (inTransaction = false))),
-					);
-				})) satisfies Database["Service"]["transaction"],
-		}),
-	);
+	const transaction = Object.create(null);
+	const database = DatabaseSession.of({
+		requireRoot: Effect.void,
+		requireTransaction: Effect.void,
+		current: Effect.succeed(transaction),
+		isTransactionActive: Effect.sync(() => inTransaction),
+		transaction: (work) =>
+			Effect.suspend(() => {
+				inTransaction = true;
+				return mapDatabaseErrors(work).pipe(
+					Effect.ensuring(Effect.sync(() => (inTransaction = false))),
+				);
+			}),
+	});
 	const planner = LifecyclePlanner.of(
 		withLifecycleBatchPlanning({
 			plan: ({ trigger }) =>
 				Effect.gen(function* () {
 					expect(inTransaction).toBe(true);
-					expect(yield* Database).toBe(transaction);
+					expect(yield* database.current).toBe(transaction);
 					planned.push(trigger);
 					return { trigger, policies: [], wasCreated: true, runs: [makeRun(trigger)] };
 				}),
@@ -214,7 +216,7 @@ it.effect("plans provider completion in a short transaction and invokes common e
 		);
 	}).pipe(
 		Effect.provide(Logger.layer([logger])),
-		Effect.provideService(Database, database),
+		Effect.provideService(DatabaseSession, database),
 		Effect.provideService(LifecyclePlanner, planner),
 		Effect.provideService(LifecycleExecution, execution),
 		Effect.provideService(WorkflowInstance, instance),

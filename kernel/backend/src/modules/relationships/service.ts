@@ -1,4 +1,3 @@
-import { PgClient } from "@effect/sql-pg";
 import {
 	RelationshipBadRequest,
 	RelationshipNotFound,
@@ -11,12 +10,14 @@ import { Context, Effect, Layer } from "effect";
 import { LifecyclePlanner, toLifecycleDispatchPlan } from "#lib/domain/lifecycle";
 import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import {
 	runLifecycleWriteInline,
 	type LifecycleCommittedStep,
 	type LifecyclePreparedStep,
 } from "#lib/infrastructure/lifecycle-workflow-step";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { EntitiesRepository } from "#modules/entities/repository";
 import {
 	catalogDefinitionFingerprint,
 	type CatalogDefinitionFingerprint,
@@ -73,26 +74,45 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 	{
 		make: Effect.gen(function* () {
 			const repository = yield* RelationshipsRepository;
+			const entities = yield* EntitiesRepository;
 			const runtime = yield* PluginRuntimeResolver;
 			const definitions = yield* DefinitionRepository;
-			const client = yield* PgClient.PgClient;
+			const session = yield* DatabaseSession;
 			const planner = yield* LifecyclePlanner;
 			const execution = yield* LifecycleExecution;
-			const dependencies = { client, planner, runtime, execution, repository, definitions };
+			const dependencies = { session, planner, runtime, execution, repository, definitions };
 			const {
 				committedReplay,
-				prepareUserCreate,
-				prepareUserDelete,
-				persistPreparedUserCreate,
-				persistPreparedUserDelete,
+				prepareUserCreate: prepareUserCreateInternal,
+				prepareUserDelete: prepareUserDeleteInternal,
+				persistPreparedUserCreate: persistPreparedUserCreateInternal,
+				persistPreparedUserDelete: persistPreparedUserDeleteInternal,
 			} = makePreparedRelationshipMutations(dependencies);
-			const { persistPlannedReconciliation } = makePlannedRelationshipReconciliation(dependencies);
+			const { persistPlannedReconciliation: persistPlannedReconciliationInternal } =
+				makePlannedRelationshipReconciliation(dependencies);
 			const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 				effect.pipe(
 					Effect.provideService(RelationshipsRepository, repository),
 					Effect.provideService(PluginRuntimeResolver, runtime),
 					Effect.provideService(DefinitionRepository, definitions),
+					Effect.provideService(DatabaseSession, session),
+					Effect.provideService(EntitiesRepository, entities),
 				);
+			const prepareUserCreate = (...args: Parameters<typeof prepareUserCreateInternal>) =>
+				provide(prepareUserCreateInternal(...args));
+			const prepareUserDelete = (...args: Parameters<typeof prepareUserDeleteInternal>) =>
+				provide(prepareUserDeleteInternal(...args));
+			const persistPreparedUserCreate = (
+				...args: Parameters<typeof persistPreparedUserCreateInternal>
+			) => provide(persistPreparedUserCreateInternal(...args));
+			const persistPreparedUserDelete = (
+				...args: Parameters<typeof persistPreparedUserDeleteInternal>
+			) => provide(persistPreparedUserDeleteInternal(...args));
+			const persistPlannedReconciliation = (
+				...args: Parameters<typeof persistPlannedReconciliationInternal>
+			) => provide(persistPlannedReconciliationInternal(...args));
+			const applyPolicies = (...args: Parameters<typeof applyRelationshipPolicies>) =>
+				provide(applyRelationshipPolicies(...args));
 			const prepareSingleWithCatalog = Effect.fnUntraced(function* (
 				input: RelationshipIdentityInput,
 				command: LifecycleCommand,
@@ -190,12 +210,12 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 				});
 			return {
 				commitSingle,
+				applyPolicies,
 				prepareUserCreate,
 				prepareUserDelete,
 				persistPreparedUserCreate,
 				persistPreparedUserDelete,
 				persistPlannedReconciliation,
-				applyPolicies: applyRelationshipPolicies,
 				delete: (input: RelationshipIdentityInput, command: LifecycleCommand) =>
 					single(prepareSingle(input, command, "delete")),
 				commitBatch: (pending: PendingRelationshipMutations) =>

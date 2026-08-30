@@ -6,7 +6,7 @@ import { Data, Deferred, Effect, Layer, Redacted } from "effect";
 import { assert, describe } from "vitest";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/core";
-import { Database, DatabaseLive } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
 import { ARCHIVE_CODECS } from "#modules/backups/archive/schemas";
@@ -27,26 +27,28 @@ describe("persisted plugin configuration encryption key", () => {
 	it.effect("retries after missing schema and never caches a rolled-back key", () =>
 		withRevisionDatabase(
 			Effect.gen(function* () {
-				const db = yield* Database;
+				const session = yield* DatabaseSession;
+				const db = yield* session.current;
 				const service = yield* PluginConfigEncryptionKey;
-				yield* db
-					.transaction((tx) =>
+				yield* session
+					.transaction(
 						Effect.gen(function* () {
+							const tx = yield* session.current;
 							yield* tx.execute(sql`set local search_path to pg_catalog`);
 							expect((yield* Effect.flip(service.load)).message).toBe(
 								"Cannot load persisted plugin configuration encryption key",
 							);
 							return yield* new RollbackKeyTest();
-						}).pipe(Effect.provideService(Database, tx)),
+						}),
 					)
 					.pipe(Effect.catchTag("RollbackKeyTest", () => Effect.void));
 				let rolledBackId = "";
-				yield* db
-					.transaction((tx) =>
+				yield* session
+					.transaction(
 						Effect.gen(function* () {
 							rolledBackId = (yield* service.load).activeKeyId;
 							return yield* new RollbackKeyTest();
-						}).pipe(Effect.provideService(Database, tx)),
+						}),
 					)
 					.pipe(Effect.catchTag("RollbackKeyTest", () => Effect.void));
 				expect(yield* db.select().from(tables.pluginConfigEncryptionKey)).toEqual([]);
@@ -58,7 +60,7 @@ describe("persisted plugin configuration encryption key", () => {
 	it.effect("excludes the shared key from account backup plugin inputs and archive sections", () =>
 		withRevisionDatabase(
 			Effect.gen(function* () {
-				const db = yield* Database;
+				const db = yield* (yield* DatabaseSession).current;
 				const configs = yield* PluginConfigRevisions;
 				const plugins = yield* PluginRepository;
 				const installations = yield* PluginInstallationRepository;
@@ -93,7 +95,7 @@ describe("persisted plugin configuration encryption key", () => {
 		() =>
 			withRevisionDatabase(
 				Effect.gen(function* () {
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const configs = yield* PluginConfigRevisions;
 					expect(yield* db.select().from(tables.pluginConfigEncryptionKey)).toEqual([]);
 					yield* configs.validateKeys();
@@ -137,7 +139,7 @@ describe("persisted plugin configuration encryption key", () => {
 		() =>
 			withRevisionDatabase(
 				Effect.gen(function* () {
-					const db = yield* Database;
+					const db = yield* (yield* DatabaseSession).current;
 					const configs = yield* PluginConfigRevisions;
 					const installed = yield* installRevisionPackage(revisionPackage(), UserId.make("owner"));
 					yield* configs.create({
@@ -179,14 +181,16 @@ describe("persisted plugin configuration encryption key", () => {
 	it.effect("uses one first-start winner across real concurrent PostgreSQL connections", () => {
 		const name = `key_concurrency_${crypto.randomUUID().replaceAll("-", "")}`;
 		return Effect.gen(function* () {
-			const db = yield* Database;
+			const session = yield* DatabaseSession;
+			const db = yield* session.current;
 			const directory = new URL("../../drizzle/", import.meta.url).pathname;
 			const paths = [...new Bun.Glob("*/migration.sql").scanSync({ cwd: directory })];
 			assert(paths.length === 1);
 			const ddl = yield* Effect.promise(() => Bun.file(directory + paths[0]).text());
 			yield* Effect.acquireUseRelease(
-				db.transaction((tx) =>
+				session.transaction(
 					Effect.gen(function* () {
+						const tx = yield* session.current;
 						yield* tx.execute(sql`create schema ${sql.identifier(name)}`);
 						yield* tx.execute(sql`set local search_path to ${sql.identifier(name)}, public`);
 						for (const statement of ddl.split("--> statement-breakpoint")) {
@@ -200,8 +204,9 @@ describe("persisted plugin configuration encryption key", () => {
 						let arrivals = 0;
 						const results = yield* Effect.all(
 							Array.from({ length: 4 }, () =>
-								db.transaction((tx) =>
+								session.transaction(
 									Effect.gen(function* () {
+										const tx = yield* session.current;
 										yield* tx.execute(
 											sql`set local search_path to ${sql.identifier(name)}, public`,
 										);
@@ -221,18 +226,16 @@ describe("persisted plugin configuration encryption key", () => {
 											pid: connection.pid,
 											envelope: yield* loaded.encrypt({ token: "shared" }, { owner: "test" }),
 										};
-									}).pipe(
-										Effect.provideService(Database, tx),
-										Effect.provide(PluginConfigEncryptionKey.layer),
-									),
+									}).pipe(Effect.provide(PluginConfigEncryptionKey.layer)),
 								),
 							),
 							{ concurrency: "unbounded" },
 						);
 						expect(new Set(results.map((result) => result.pid)).size).toBe(4);
 						expect(new Set(results.map((result) => result.envelope.encryptionKeyId)).size).toBe(1);
-						yield* db.transaction((tx) =>
+						yield* session.transaction(
 							Effect.gen(function* () {
+								const tx = yield* session.current;
 								yield* tx.execute(sql`set local search_path to ${sql.identifier(name)}, public`);
 								const encryption = yield* PluginConfigEncryptionKey;
 								const loaded = yield* encryption.load;
@@ -242,17 +245,14 @@ describe("persisted plugin configuration encryption key", () => {
 									});
 								}
 								expect(yield* tx.select().from(tables.pluginConfigEncryptionKey)).toHaveLength(1);
-							}).pipe(
-								Effect.provideService(Database, tx),
-								Effect.provide(PluginConfigEncryptionKey.layer),
-							),
+							}).pipe(Effect.provide(PluginConfigEncryptionKey.layer)),
 						);
 					}),
 				() => db.execute(sql`drop schema ${sql.identifier(name)} cascade`).pipe(Effect.orDie),
 			);
 		}).pipe(
 			Effect.provide(
-				DatabaseLive.pipe(
+				DatabaseSession.layer.pipe(
 					Layer.provide(
 						makeAppConfigLayer({ database: { url: Redacted.make(testDatabaseUrl()) } }),
 					),

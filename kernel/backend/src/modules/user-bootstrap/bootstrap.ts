@@ -1,10 +1,12 @@
+import { unknownToMessage } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { eq, sql } from "drizzle-orm";
 import { DateTime, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
-import { AuthUserBootstrap } from "#modules/auth/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { AuthBootstrapError, AuthUserBootstrap } from "#modules/auth/service";
 import { generateUserAvatar } from "#modules/auth/user-avatar";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
 import { ClientSurfaceMaterializer } from "#modules/plugins/client-surface-materializer";
@@ -13,14 +15,14 @@ import { PluginInstallationService } from "#modules/plugins/installation-service
 import { PluginUserBootstrapDispatcher } from "./plugin-dispatch";
 
 export const acquireBootstrapLock = Effect.fn(function* (userId: string) {
-	const db = yield* Database;
+	const db = yield* (yield* DatabaseSession).current;
 	yield* mapDatabaseErrors(
 		db.execute(sql`select pg_advisory_xact_lock(hashtext(${`user:bootstrap:${userId}`}))`),
 	);
 });
 
 const readBootstrapState = Effect.fn(function* (userId: string) {
-	const db = yield* Database;
+	const db = yield* (yield* DatabaseSession).current;
 	const [row] = yield* mapDatabaseErrors(
 		db
 			.select({ image: schema.user.image, bootstrapCompletedAt: schema.user.bootstrapCompletedAt })
@@ -34,7 +36,7 @@ const readBootstrapState = Effect.fn(function* (userId: string) {
 });
 
 const markBootstrapComplete = Effect.fn(function* (userId: string, image: string | null) {
-	const db = yield* Database;
+	const db = yield* (yield* DatabaseSession).current;
 	const completedAt = yield* DateTime.nowAsDate;
 	yield* mapDatabaseErrors(
 		db
@@ -50,13 +52,13 @@ const markBootstrapComplete = Effect.fn(function* (userId: string, image: string
 
 export const performBootstrap = Effect.fn(function* (userId: string) {
 	const user = UserId.make(userId);
-	const database = yield* Database;
+	const session = yield* DatabaseSession;
 	const alreadyComplete = yield* mapDatabaseErrors(
-		database.transaction((transaction) =>
+		session.transaction(
 			Effect.gen(function* () {
 				yield* acquireBootstrapLock(userId);
 				return (yield* readBootstrapState(userId)).bootstrapCompletedAt !== null;
-			}).pipe(Effect.provideService(Database, transaction)),
+			}),
 		),
 	);
 	if (alreadyComplete) {
@@ -68,7 +70,7 @@ export const performBootstrap = Effect.fn(function* (userId: string) {
 	yield* pluginBootstrap.dispatchAll(user);
 	yield* (yield* ClientSurfaceMaterializer).materializeUserCompositions(user);
 	yield* mapDatabaseErrors(
-		database.transaction((transaction) =>
+		session.transaction(
 			Effect.gen(function* () {
 				yield* acquireBootstrapLock(userId);
 				const state = yield* readBootstrapState(userId);
@@ -80,7 +82,7 @@ export const performBootstrap = Effect.fn(function* (userId: string) {
 				const avatar =
 					state.image === null || state.image === "" ? generateUserAvatar(userId) : null;
 				yield* markBootstrapComplete(userId, avatar);
-			}).pipe(Effect.provideService(Database, transaction)),
+			}),
 		),
 	);
 });
@@ -91,7 +93,7 @@ export const bootstrapNewUser = (userId: string) =>
 export const AuthUserBootstrapLive = Layer.effect(
 	AuthUserBootstrap,
 	Effect.gen(function* () {
-		const database = yield* Database;
+		const session = yield* DatabaseSession;
 		const pluginBootstrap = yield* PluginUserBootstrapDispatcher;
 		const pluginInstallations = yield* PluginInstallationService;
 		const notificationSubscriptions = yield* NotificationSubscriptionsService;
@@ -100,11 +102,12 @@ export const AuthUserBootstrapLive = Layer.effect(
 		return {
 			run: (userId: string) =>
 				bootstrapNewUser(userId).pipe(
-					Effect.provideService(Database, database),
+					Effect.provideService(DatabaseSession, session),
 					Effect.provideService(PluginInstallationService, pluginInstallations),
 					Effect.provideService(PluginUserBootstrapDispatcher, pluginBootstrap),
 					Effect.provideService(NotificationSubscriptionsService, notificationSubscriptions),
 					Effect.provideService(ClientSurfaceMaterializer, materializer),
+					Effect.mapError((error) => new AuthBootstrapError({ message: unknownToMessage(error) })),
 				),
 		};
 	}),

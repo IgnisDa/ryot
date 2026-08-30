@@ -1,7 +1,7 @@
 import { DateTime, Effect } from "effect";
 import type { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import type { Database } from "#lib/infrastructure/db/service";
+import type { DatabaseSession } from "#lib/infrastructure/db/session";
 import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
 import type { AutomationReconciliation } from "#modules/automations/reconciliation";
 import { automationsFrequentTask } from "#modules/automations/reconciliation";
@@ -25,7 +25,7 @@ const frequentCronTasks: ReadonlyArray<
 		| AutomationReconciliation
 		| AutomationRetention
 		| BackupsService
-		| Database
+		| DatabaseSession
 		| UploadIntentsService
 		| UserLifecycleService
 		| WorkflowEngine

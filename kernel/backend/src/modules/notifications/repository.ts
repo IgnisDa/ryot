@@ -8,7 +8,8 @@ import { and, desc, eq } from "drizzle-orm";
 import { Context, Effect, Layer, Match, Option } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 type NotificationChannelRow = typeof schema.notificationChannel.$inferSelect;
 
@@ -72,11 +73,12 @@ const ownedChannelWhere = (input: { channelId: NotificationChannelId; userId: Us
 export class NotificationsRepository extends Context.Service<NotificationsRepository>()(
 	"NotificationsRepository",
 	{
-		make: Effect.sync(() => {
+		make: Effect.gen(function* () {
+			const database = yield* DatabaseSession;
 			const hasAnyForUser = Effect.fn("NotificationsRepository.hasAnyForUser")(function* (
 				userId: UserId,
 			) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select({ id: schema.notificationChannel.id })
@@ -92,7 +94,7 @@ export class NotificationsRepository extends Context.Service<NotificationsReposi
 				channel: NotificationChannelKind;
 				channelSpecifics: NotificationChannelSpecifics;
 			}) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.insert(schema.notificationChannel)
@@ -115,7 +117,7 @@ export class NotificationsRepository extends Context.Service<NotificationsReposi
 				channelId: NotificationChannelId;
 				body: UpdateNotificationChannelBody;
 			}) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const updates: Partial<typeof schema.notificationChannel.$inferInsert> = {};
 				if (input.body.isDisabled !== undefined) {
 					updates.isDisabled = input.body.isDisabled;
@@ -146,7 +148,7 @@ export class NotificationsRepository extends Context.Service<NotificationsReposi
 				userId: UserId;
 				channelId: NotificationChannelId;
 			}) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const rows = yield* mapDatabaseErrors(
 					db
 						.delete(schema.notificationChannel)
@@ -158,7 +160,7 @@ export class NotificationsRepository extends Context.Service<NotificationsReposi
 
 			const listEnabledForUser = Effect.fn("NotificationsRepository.listEnabledForUser")(
 				function* (input: { userId: UserId }) {
-					const db = yield* Database;
+					const db = yield* database.current;
 					const rows = yield* mapDatabaseErrors(
 						db
 							.select()

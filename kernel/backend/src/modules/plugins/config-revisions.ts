@@ -8,7 +8,8 @@ import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Option, Schema } from "effect";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/core";
-import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import {
 	parseAppSchemaProperties,
 	parseAppSchemaPropertiesSafe,
@@ -283,9 +284,10 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 	"PluginConfigRevisions",
 	{
 		make: Effect.gen(function* () {
+			const database = yield* DatabaseSession;
 			const encryptionKey = yield* PluginConfigEncryptionKey;
 			const lock = Effect.fn("PluginConfigRevisions.lock")(function* (pluginId: string) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				yield* mapDatabaseErrors(
 					db.execute(sql`select pg_advisory_xact_lock(hashtext(${"plugin-config:" + pluginId}))`),
 				);
@@ -306,7 +308,7 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 				pluginRevisionId: string;
 				ownerUserId: string | null;
 			}) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.select()
@@ -328,7 +330,7 @@ export class PluginConfigRevisions extends Context.Service<PluginConfigRevisions
 				configuredSecretPaths?: ReadonlyArray<string>,
 				allowMissingRequiredSecrets = false,
 			) {
-				const db = yield* Database;
+				const db = yield* database.current;
 				const encryption = yield* encryptionKey.load;
 				const [revision] = yield* mapDatabaseErrors(
 					db

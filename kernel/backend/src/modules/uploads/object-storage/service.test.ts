@@ -51,11 +51,13 @@ it.effect("bounds S3 writes and deletes a partial object", () => {
 							deleted.push(key);
 						}),
 					writeObject: (_key, stream) =>
-						Stream.runDrain(stream).pipe(
-							Effect.mapError((error) =>
-								error instanceof BadRequest
-									? error
-									: new BadRequest({ message: "S3 object write failed" }),
+						Stream.runDrain(
+							stream.pipe(
+								Stream.mapError((error) =>
+									error instanceof BadRequest
+										? error
+										: new BadRequest({ message: "S3 object write failed" }),
+								),
 							),
 						),
 				}),

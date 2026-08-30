@@ -19,7 +19,8 @@ import { Workflow } from "effect/unstable/workflow";
 import { LifecycleDispatchPlan, toLifecycleDispatchPlan } from "#lib/domain/lifecycle";
 import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { Database, mapDatabaseErrors, retryOnDeadlock } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors, retryOnDeadlock } from "#lib/infrastructure/db/service";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
@@ -216,7 +217,7 @@ const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 	options: SynchronizeOptions,
 	population: AutomationPopulationContext,
 ) {
-	const database = yield* Database;
+	const session = yield* DatabaseSession;
 	const entities = yield* EntitiesService;
 	const scope = getEntityWriteScope(payload);
 
@@ -227,20 +228,18 @@ const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 		execute: Effect.gen(function* () {
 			const work = yield* retryOnDeadlock(
 				mapDatabaseErrors(
-					database.transaction((transaction) =>
-						entities
-							.persistPlannedProviderUpsert({
-								...scope,
-								populatedAt: null,
-								name: details.name,
-								externalId: payload.externalId,
-								properties: details.properties,
-								providerId: payload.providerId,
-								entitySchemaSlug: payload.entitySchemaSlug,
-								updateExisting: options.mode !== "refresh",
-								lifecycle: commandFor(payload.command, ["root", "upsert"], population),
-							})
-							.pipe(Effect.provideService(Database, transaction)),
+					session.transaction(
+						entities.persistPlannedProviderUpsert({
+							...scope,
+							populatedAt: null,
+							name: details.name,
+							externalId: payload.externalId,
+							properties: details.properties,
+							providerId: payload.providerId,
+							entitySchemaSlug: payload.entitySchemaSlug,
+							updateExisting: options.mode !== "refresh",
+							lifecycle: commandFor(payload.command, ["root", "upsert"], population),
+						}),
 					),
 				),
 			).pipe(mapDbErrorToSandbox);
@@ -326,7 +325,7 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 	details: ValidatedEntityDetails,
 	population: AutomationPopulationContext,
 ) {
-	const database = yield* Database;
+	const session = yield* DatabaseSession;
 	const entities = yield* EntitiesService;
 	const scope = getEntityWriteScope(payload);
 
@@ -338,20 +337,18 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 			const populatedAt = DateTime.toDateUtc(DateTime.makeUnsafe(payload.command.occurredAt));
 			const work = yield* retryOnDeadlock(
 				mapDatabaseErrors(
-					database.transaction((transaction) =>
-						entities
-							.persistPlannedProviderUpsert({
-								...scope,
-								populatedAt,
-								name: details.name,
-								updateExisting: true,
-								properties: details.properties,
-								externalId: payload.externalId,
-								providerId: payload.providerId,
-								entitySchemaSlug: payload.entitySchemaSlug,
-								lifecycle: commandFor(payload.command, ["root", "stamp"], population),
-							})
-							.pipe(Effect.provideService(Database, transaction)),
+					session.transaction(
+						entities.persistPlannedProviderUpsert({
+							...scope,
+							populatedAt,
+							name: details.name,
+							updateExisting: true,
+							properties: details.properties,
+							externalId: payload.externalId,
+							providerId: payload.providerId,
+							entitySchemaSlug: payload.entitySchemaSlug,
+							lifecycle: commandFor(payload.command, ["root", "stamp"], population),
+						}),
 					),
 				),
 			).pipe(mapDbErrorToSandbox);

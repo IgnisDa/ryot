@@ -46,7 +46,6 @@ it.effect("formats the inline signal for the trusted execution recipient", () =>
 					return Effect.succeed(null);
 				},
 			}),
-			{ metadata: {}, sandboxScriptId: "kernel-notification" },
 		);
 		expect(result).toBeNull();
 		expect(messages).toEqual(["Integration Example has been disabled due to too many errors"]);
@@ -65,7 +64,6 @@ it.effect("does not use the actor as a fallback for a missing execution recipien
 						return Effect.succeed(null);
 					},
 				}),
-				{ metadata: {}, sandboxScriptId: "kernel-notification" },
 			),
 		);
 		expect(Exit.isFailure(exit)).toBe(true);
