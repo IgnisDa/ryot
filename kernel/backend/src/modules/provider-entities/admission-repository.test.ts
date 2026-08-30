@@ -1,4 +1,4 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { sql } from "drizzle-orm";
 import { Effect } from "effect";
@@ -7,24 +7,30 @@ import { describe } from "vitest";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 import { ProviderImportAdmissionRepository } from "./admission-repository";
-import { alice, bob, withAdmissionDatabase } from "./admission.test-support";
+import { admissionDatabaseLayer, alice, bob } from "./admission.test-support";
+
+/** Production enqueues and admits inside a transaction. */
+const inTransaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
+	Effect.flatMap(DatabaseSession, (session) => session.transaction(work));
 
 const request = (id: string, userId: UserId, externalId = id, backlogLimit = 50) =>
 	Effect.flatMap(ProviderImportAdmissionRepository, (repository) =>
-		repository.enqueue({
-			id,
-			userId,
-			externalId,
-			backlogLimit,
-			payload: { id },
-			providerId: "provider",
-			entitySchemaSlug: "book",
-		}),
+		inTransaction(
+			repository.enqueue({
+				id,
+				userId,
+				externalId,
+				backlogLimit,
+				payload: { id },
+				providerId: "provider",
+				entitySchemaSlug: "book",
+			}),
+		),
 	);
 
 const admittedIds = (limit: number, finished: ReadonlyArray<string> = []) =>
 	Effect.flatMap(ProviderImportAdmissionRepository, (repository) =>
-		repository.admit({ limit, finished }),
+		inTransaction(repository.admit({ limit, finished })),
 	).pipe(Effect.map((rows) => rows.map(({ id }) => id).sort()));
 
 /** Distinct creation times make the oldest-first tie break deterministic. */
@@ -44,8 +50,8 @@ const enqueueInOrder = (requests: ReadonlyArray<readonly [string, UserId]>) =>
 	);
 
 describe("provider import admission ledger", () => {
-	it.effect("gives a free slot to the user with the fewest running imports", () =>
-		withAdmissionDatabase(
+	layer(admissionDatabaseLayer)((test) => {
+		test.effect("gives a free slot to the user with the fewest running imports", () =>
 			Effect.gen(function* () {
 				const repository = yield* ProviderImportAdmissionRepository;
 				yield* enqueueInOrder([
@@ -61,11 +67,11 @@ describe("provider import admission ledger", () => {
 				expect(yield* admittedIds(2, ["b1"])).toEqual(["a2"]);
 				expect((yield* repository.listRunning()).map(({ id }) => id).sort()).toEqual(["a1", "a2"]);
 			}),
-		),
-	);
+		);
+	});
 
-	it.effect("gives the only slot a finishing import frees to another waiting user", () =>
-		withAdmissionDatabase(
+	layer(admissionDatabaseLayer)((test) => {
+		test.effect("gives the only slot a finishing import frees to another waiting user", () =>
 			Effect.gen(function* () {
 				yield* enqueueInOrder([
 					["a1", alice],
@@ -77,32 +83,37 @@ describe("provider import admission ledger", () => {
 				expect(yield* admittedIds(1, ["a1"])).toEqual(["b1"]);
 				expect(yield* admittedIds(1, ["b1"])).toEqual(["a2"]);
 			}),
-		),
-	);
+		);
+	});
 
-	it.effect("returns the pending job for a repeated request and bounds each user's backlog", () =>
-		withAdmissionDatabase(
-			Effect.gen(function* () {
-				expect(yield* request("first", alice, "book-1")).toEqual({ id: "first", status: "queued" });
-				expect(yield* request("second", alice, "book-1")).toEqual({
-					id: "first",
-					status: "duplicate",
-				});
-				expect(yield* request("third", alice, "book-2", 2)).toEqual({
-					id: "third",
-					status: "queued",
-				});
-				expect(yield* request("fourth", alice, "book-3", 2)).toEqual({ status: "backlog-full" });
-				expect(yield* request("other", bob, "book-3", 2)).toEqual({
-					id: "other",
-					status: "queued",
-				});
-			}),
-		),
-	);
+	layer(admissionDatabaseLayer)((test) => {
+		test.effect(
+			"returns the pending job for a repeated request and bounds each user's backlog",
+			() =>
+				Effect.gen(function* () {
+					expect(yield* request("first", alice, "book-1")).toEqual({
+						id: "first",
+						status: "queued",
+					});
+					expect(yield* request("second", alice, "book-1")).toEqual({
+						id: "first",
+						status: "duplicate",
+					});
+					expect(yield* request("third", alice, "book-2", 2)).toEqual({
+						id: "third",
+						status: "queued",
+					});
+					expect(yield* request("fourth", alice, "book-3", 2)).toEqual({ status: "backlog-full" });
+					expect(yield* request("other", bob, "book-3", 2)).toEqual({
+						id: "other",
+						status: "queued",
+					});
+				}),
+		);
+	});
 
-	it.effect("cancels only a request that has not been admitted", () =>
-		withAdmissionDatabase(
+	layer(admissionDatabaseLayer)((test) => {
+		test.effect("cancels only a request that has not been admitted", () =>
 			Effect.gen(function* () {
 				const repository = yield* ProviderImportAdmissionRepository;
 				yield* enqueueInOrder([
@@ -119,6 +130,6 @@ describe("provider import admission ledger", () => {
 					status: "running",
 				});
 			}),
-		),
-	);
+		);
+	});
 });

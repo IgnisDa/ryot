@@ -1,4 +1,4 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import {
 	AutomationExecutionId,
 	EntityId,
@@ -7,7 +7,7 @@ import {
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
-import { Effect, Exit, Layer, Option } from "effect";
+import { Context, Effect, Exit, Layer, Option, Ref } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 import { describe } from "vitest";
@@ -16,14 +16,7 @@ import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 
 import { ProviderImportAdmission } from "./admission";
-import { ProviderImportAdmissionRepository } from "./admission-repository";
-import { alice, bob, withAdmissionDatabase } from "./admission.test-support";
-
-type Workflows = {
-	readonly started: string[];
-	readonly interrupted: string[];
-	readonly results: Map<string, Workflow.Result<unknown, unknown>>;
-};
+import { admissionDatabaseLayer, alice, bob } from "./admission.test-support";
 
 const listedEntity = {
 	name: "Dune",
@@ -38,39 +31,63 @@ const listedEntity = {
 };
 
 /** Records starts and interrupts; a started workflow stays suspended until the test settles it. */
-const recordingEngine = (workflows: Workflows) =>
-	makeWorkflowEngine({
-		poll: (_workflow, executionId) =>
-			Effect.succeed(Option.fromUndefinedOr(workflows.results.get(executionId))),
-		interrupt: (_workflow, executionId) =>
-			Effect.sync(() => {
-				workflows.interrupted.push(executionId);
-			}),
-		execute: (_workflow, options) =>
-			Effect.sync(() => {
-				workflows.started.push(options.executionId);
-				workflows.results.set(options.executionId, new Workflow.Suspended());
-			}),
-	});
+class FakeImportWorkflows extends Context.Service<
+	FakeImportWorkflows,
+	{
+		readonly started: Effect.Effect<ReadonlyArray<string>>;
+		readonly interrupted: Effect.Effect<ReadonlyArray<string>>;
+		readonly settle: (
+			executionId: string,
+			result: Workflow.Result<unknown, unknown>,
+		) => Effect.Effect<void>;
+		readonly forget: (executionId: string) => Effect.Effect<void>;
+	}
+>()("test/FakeImportWorkflows") {}
 
-const withAdmission = <E>(
-	test: (
-		workflows: Workflows,
-	) => Effect.Effect<void, E, ProviderImportAdmission | ProviderImportAdmissionRepository>,
-) => {
-	const workflows: Workflows = { started: [], interrupted: [], results: new Map() };
-	return withAdmissionDatabase(
-		test(workflows).pipe(
-			Effect.provide(
-				ProviderImportAdmission.layer.pipe(
-					Layer.provideMerge(ProviderImportAdmissionRepository.layer),
-					Layer.provide(makeAppConfigLayer()),
-					Layer.provide(Layer.succeed(WorkflowEngine, recordingEngine(workflows))),
-				),
-			),
-		),
-	);
-};
+const recordingEngineLayer = Layer.effectContext(
+	Effect.gen(function* () {
+		const started = yield* Ref.make<ReadonlyArray<string>>([]);
+		const interrupted = yield* Ref.make<ReadonlyArray<string>>([]);
+		const results = yield* Ref.make<ReadonlyMap<string, Workflow.Result<unknown, unknown>>>(
+			new Map(),
+		);
+		const setResult = (executionId: string, result: Workflow.Result<unknown, unknown>) =>
+			Ref.update(results, (current) => new Map(current).set(executionId, result));
+		return Context.make(
+			WorkflowEngine,
+			makeWorkflowEngine({
+				interrupt: (_workflow, executionId) =>
+					Ref.update(interrupted, (all) => [...all, executionId]),
+				poll: (_workflow, executionId) =>
+					Ref.get(results).pipe(
+						Effect.map((current) => Option.fromUndefinedOr(current.get(executionId))),
+					),
+				execute: (_workflow, options) =>
+					Ref.update(started, (all) => [...all, options.executionId]).pipe(
+						Effect.andThen(setResult(options.executionId, new Workflow.Suspended())),
+					),
+			}),
+		).pipe(
+			Context.add(FakeImportWorkflows, {
+				settle: setResult,
+				started: Ref.get(started),
+				interrupted: Ref.get(interrupted),
+				forget: (executionId) =>
+					Ref.update(results, (current) => {
+						const next = new Map(current);
+						next.delete(executionId);
+						return next;
+					}),
+			}),
+		);
+	}),
+);
+
+const admissionLayer = ProviderImportAdmission.layer.pipe(
+	Layer.provide(makeAppConfigLayer()),
+	Layer.provideMerge(recordingEngineLayer),
+	Layer.provideMerge(admissionDatabaseLayer),
+);
 
 const submit = (executionId: string, userId: UserId) =>
 	Effect.flatMap(ProviderImportAdmission, (admission) =>
@@ -99,60 +116,67 @@ const status = (id: string, userId: UserId) =>
 	Effect.flatMap(ProviderImportAdmission, (admission) => admission.status({ id, userId }));
 
 describe("provider import admission", () => {
-	it.effect("starts admitted imports and admits the next one when a slot frees", () =>
-		withAdmission((workflows) =>
+	layer(admissionLayer)((test) => {
+		test.effect("starts admitted imports and admits the next one when a slot frees", () =>
 			Effect.gen(function* () {
+				const workflows = yield* FakeImportWorkflows;
 				yield* submit("a1", alice);
 				yield* submit("a2", alice);
 				yield* submit("a3", alice);
 
 				yield* reconcile;
-				expect(workflows.started).toEqual(["a1", "a2"]);
+				expect(yield* workflows.started).toEqual(["a1", "a2"]);
 				expect(yield* status("a3", alice)).toBe("queued");
 
-				workflows.results.set("a1", new Workflow.Complete({ exit: Exit.succeed(listedEntity) }));
+				yield* workflows.settle("a1", new Workflow.Complete({ exit: Exit.succeed(listedEntity) }));
 				yield* reconcile;
-				expect(workflows.started).toEqual(["a1", "a2", "a3"]);
+				expect(yield* workflows.started).toEqual(["a1", "a2", "a3"]);
 				expect(yield* status("a1", alice)).toBeNull();
 				expect(yield* status("a3", alice)).toBe("running");
 			}),
-		),
-	);
+		);
+	});
 
-	it.effect("restarts an admitted import whose workflow never started", () =>
-		withAdmission((workflows) =>
+	layer(admissionLayer)((test) => {
+		test.effect("restarts an admitted import whose workflow never started", () =>
 			Effect.gen(function* () {
+				const workflows = yield* FakeImportWorkflows;
 				yield* submit("a1", alice);
 				yield* reconcile;
 				// A restart between admission and the workflow start loses the start.
-				workflows.results.delete("a1");
+				yield* workflows.forget("a1");
 
 				yield* reconcile;
-				expect(workflows.started).toEqual(["a1", "a1"]);
+				expect(yield* workflows.started).toEqual(["a1", "a1"]);
 				expect(yield* status("a1", alice)).toBe("running");
 			}),
-		),
-	);
+		);
+	});
 
-	it.effect("releases the slot of an import that failed", () =>
-		withAdmission((workflows) =>
+	layer(admissionLayer)((test) => {
+		test.effect("releases the slot of an import that failed", () =>
 			Effect.gen(function* () {
+				const workflows = yield* FakeImportWorkflows;
 				yield* submit("a1", alice);
 				yield* submit("a2", alice);
 				yield* submit("b1", bob);
 				yield* reconcile;
-				expect(workflows.started).toEqual(["a1", "b1"]);
+				expect(yield* workflows.started).toEqual(["a1", "b1"]);
 
-				workflows.results.set("a1", new Workflow.Complete({ exit: Exit.fail("provider failed") }));
+				yield* workflows.settle(
+					"a1",
+					new Workflow.Complete({ exit: Exit.fail("provider failed") }),
+				);
 				yield* reconcile;
-				expect(workflows.started).toEqual(["a1", "b1", "a2"]);
+				expect(yield* workflows.started).toEqual(["a1", "b1", "a2"]);
 			}),
-		),
-	);
+		);
+	});
 
-	it.effect("removes a queued import on cancel and interrupts an admitted one", () =>
-		withAdmission((workflows) =>
+	layer(admissionLayer)((test) => {
+		test.effect("removes a queued import on cancel and interrupts an admitted one", () =>
 			Effect.gen(function* () {
+				const workflows = yield* FakeImportWorkflows;
 				const admission = yield* ProviderImportAdmission;
 				yield* submit("a1", alice);
 				yield* submit("a2", alice);
@@ -161,11 +185,11 @@ describe("provider import admission", () => {
 
 				yield* admission.cancel({ id: "a3", userId: alice });
 				expect(yield* status("a3", alice)).toBeNull();
-				expect(workflows.interrupted).toEqual([]);
+				expect(yield* workflows.interrupted).toEqual([]);
 
 				yield* admission.cancel({ id: "a1", userId: alice });
-				expect(workflows.interrupted).toEqual(["a1"]);
+				expect(yield* workflows.interrupted).toEqual(["a1"]);
 			}),
-		),
-	);
+		);
+	});
 });

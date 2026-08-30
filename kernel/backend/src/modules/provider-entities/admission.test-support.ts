@@ -1,6 +1,6 @@
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { sql } from "drizzle-orm";
-import { Data, Effect, Layer, Redacted } from "effect";
+import { Effect, Layer, Redacted } from "effect";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
@@ -13,43 +13,47 @@ import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/eff
 
 import { ProviderImportAdmissionRepository } from "./admission-repository";
 
-class RollbackTestSchema extends Data.TaggedError("RollbackTestSchema") {}
-
 export const alice = UserId.make("alice");
 export const bob = UserId.make("bob");
 
-export const withAdmissionDatabase = <E>(
-	test: Effect.Effect<void, E, DatabaseSession | ProviderImportAdmissionRepository>,
-) => {
-	const name = `admission_test_${crypto.randomUUID().replaceAll("-", "")}`;
-	const config = makeAppConfigLayer({ database: { url: Redacted.make(testDatabaseUrl()) } });
-	return Effect.gen(function* () {
-		const session = yield* DatabaseSession;
-		const statements = yield* baselineMigrationStatements();
-		yield* session
-			.transaction(
-				Effect.gen(function* () {
-					const db = yield* session.current;
-					yield* db.execute(sql`create schema ${sql.identifier(name)}`);
-					yield* db.execute(sql`set local search_path to ${sql.identifier(name)}, public`);
-					yield* applyBaselineMigration(statements, (statement) => db.execute(sql.raw(statement)));
-					yield* db.insert(tables.user).values([
-						{ id: alice, name: "Alice", preferences: {}, email: "alice@example.test" },
-						{ id: bob, name: "Bob", preferences: {}, email: "bob@example.test" },
-					]);
-					yield* test;
-					return yield* new RollbackTestSchema();
-				}),
-			)
-			.pipe(Effect.catchTag("RollbackTestSchema", () => Effect.void));
-	}).pipe(
-		Effect.provide(
-			Layer.mergeAll(
-				ProviderImportAdmissionRepository.layer.pipe(
-					Layer.provideMerge(DatabaseSession.layer.pipe(Layer.provide(config))),
-				),
-				makeConfigProviderLayer(),
-			),
-		),
-	);
-};
+/** The connection's search path points at a private schema, so code under test owns its transactions. */
+export const admissionDatabaseLayer = Layer.unwrap(
+	Effect.sync(() => {
+		const name = `admission_test_${crypto.randomUUID().replaceAll("-", "")}`;
+		const databaseUrl = new URL(testDatabaseUrl());
+		const options = databaseUrl.searchParams.get("options");
+		databaseUrl.searchParams.set(
+			"options",
+			`${options ? `${options} ` : ""}-c search_path=${name},public`,
+		);
+		const config = makeAppConfigLayer({
+			database: { poolMax: 1, url: Redacted.make(databaseUrl.href) },
+		});
+		const schema = Layer.effectDiscard(
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const db = yield* session.current;
+				const statements = yield* baselineMigrationStatements();
+				yield* Effect.acquireRelease(db.execute(sql`create schema ${sql.identifier(name)}`), () =>
+					db.execute(sql`drop schema ${sql.identifier(name)} cascade`).pipe(Effect.orDie),
+				);
+				yield* session.transaction(
+					Effect.gen(function* () {
+						const transaction = yield* session.current;
+						yield* applyBaselineMigration(statements, (statement) =>
+							transaction.execute(sql.raw(statement)),
+						);
+						yield* transaction.insert(tables.user).values([
+							{ id: alice, name: "Alice", preferences: {}, email: "alice@example.test" },
+							{ id: bob, name: "Bob", preferences: {}, email: "bob@example.test" },
+						]);
+					}),
+				);
+			}),
+		);
+		return Layer.mergeAll(
+			schema.pipe(Layer.provideMerge(ProviderImportAdmissionRepository.layer)),
+			makeConfigProviderLayer(),
+		).pipe(Layer.provideMerge(DatabaseSession.layer), Layer.provide(config));
+	}),
+);
