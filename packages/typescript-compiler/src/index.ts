@@ -6,10 +6,10 @@ import { createVirtualFileSystem, type FileSystem } from "typescript/unstable/fs
 export const TypeScriptCompilerDiagnostic = Schema.Struct({
 	code: Schema.String,
 	file: Schema.String,
-	line: Schema.Number,
-	column: Schema.Number,
+	line: Schema.Finite,
+	column: Schema.Finite,
 	message: Schema.String,
-	length: Schema.optional(Schema.Number),
+	length: Schema.optional(Schema.Finite),
 	severity: Schema.Literals(["error", "warning", "info"]),
 });
 
