@@ -50,6 +50,7 @@ const command = rootLifecycleCommand({
 });
 const payload = {
 	command,
+	uploadIntentIds: [],
 	userId: UserId.make("user-1"),
 	sourceStateId: "source-state-1",
 	runId: ImportRunId.make("run-1"),
@@ -208,6 +209,7 @@ layer(makeHarness())((test) => {
 				"claim-import-source-state",
 				"materialize-import-artifacts",
 				"retain-import-dispatch-artifacts",
+				"settle-import-run-after-plugin",
 				"release-import-dispatch-artifacts",
 				"release-import-artifacts",
 				"cleanup-import-artifacts-on-success",

@@ -56,6 +56,8 @@ import {
 	EventsServiceLive,
 } from "#modules/events/layer";
 import { GodModeServiceLive } from "#modules/god-mode/layer";
+import { CancelImportRunWorkflowDefinitionsLive } from "#modules/imports/cancel-workflow";
+import { ImportRunCancellationService } from "#modules/imports/cancellation-service";
 import { ImportWorkflowDefinitionsLive } from "#modules/imports/import-run-workflow-live";
 import {
 	ImportsServiceLive,
@@ -124,6 +126,7 @@ import { UserSettingsServiceLive } from "#modules/user-settings/layer";
 import { UserStateServiceLive } from "#modules/user-state/layer";
 
 import { FrequentCronWorkflowDefinitionsLive } from "./cron-workflow-definitions";
+import { ImportRunExecutionControllerLive } from "./import-run-execution-controller";
 import { KernelWorkflowReferencesLive } from "./kernel-workflow-references";
 import { ServerLive } from "./server";
 
@@ -170,6 +173,7 @@ const ServicesLive = Layer.mergeAll(
 	EventsServiceLive,
 	GodModeServiceLive,
 	ImportsServiceLive,
+	ImportRunCancellationService.layer.pipe(Layer.provide(ImportsRepository.layer)),
 	IntegrationsServiceLive,
 	InterestServicesLive,
 	NotificationDeliveryServiceLive,
@@ -221,6 +225,9 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 	NotificationDeliveryWorkflowDefinitionsProvidedLive,
 	IntegrationSyncWorkflowDefinitionsProvidedLive,
 	ImportWorkflowDefinitionsLive,
+	CancelImportRunWorkflowDefinitionsLive.pipe(
+		Layer.provide(Layer.merge(ImportsRepository.layer, ImportRunExecutionControllerLive)),
+	),
 	ProcessGenericImportChunksWorkflowDefinitionsProvidedLive,
 	ExportBackupWorkflowDefinitionsLive,
 	RestoreBackupWorkflowDefinitionsLive,

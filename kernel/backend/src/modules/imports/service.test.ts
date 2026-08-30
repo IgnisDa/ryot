@@ -37,7 +37,7 @@ import { UploadIntentsService } from "#modules/uploads/intents/service";
 import { ImportRunFailuresService } from "./failure-service";
 import { ImportsRepository } from "./repository";
 import { ImportSourceStateStore } from "./runtime/source-state-store";
-import { ImportsService, type CreateImportRunInput } from "./service";
+import { ImportsService, type CreateManualImportRunInput } from "./service";
 import { ImportWorkflowPinning } from "./workflow-pinning";
 
 const now = "2026-07-16T00:00:00.000Z";
@@ -173,7 +173,7 @@ class FakeImportsDependencies extends Context.Service<
 		readonly deletedRuns: Effect.Effect<ReadonlyArray<unknown>>;
 		readonly releasedPins: Effect.Effect<ReadonlyArray<string>>;
 		readonly deletedIntentIds: Effect.Effect<ReadonlyArray<string>>;
-		readonly createdRuns: Effect.Effect<ReadonlyArray<CreateImportRunInput>>;
+		readonly createdRuns: Effect.Effect<ReadonlyArray<CreateManualImportRunInput>>;
 		readonly runUpdates: Effect.Effect<ReadonlyArray<Record<string, unknown>>>;
 		readonly storedSourceStates: Effect.Effect<ReadonlyArray<StoredSourceState>>;
 		readonly deletedSourceStateKeys: Effect.Effect<ReadonlyArray<ReadonlyArray<string>>>;
@@ -213,7 +213,7 @@ const makeServiceLayer = (
 						const deletedRuns = yield* Ref.make<ReadonlyArray<unknown>>([]);
 						const releasedPins = yield* Ref.make<ReadonlyArray<string>>([]);
 						const deletedIntentIds = yield* Ref.make<ReadonlyArray<string>>([]);
-						const createdRuns = yield* Ref.make<ReadonlyArray<CreateImportRunInput>>([]);
+						const createdRuns = yield* Ref.make<ReadonlyArray<CreateManualImportRunInput>>([]);
 						const runUpdates = yield* Ref.make<ReadonlyArray<Record<string, unknown>>>([]);
 						const storedSourceStates = yield* Ref.make<ReadonlyArray<StoredSourceState>>([]);
 						const deletedSourceStateKeys = yield* Ref.make<ReadonlyArray<ReadonlyArray<string>>>(
@@ -236,9 +236,15 @@ const makeServiceLayer = (
 								deletedSourceStateKeys: Ref.get(deletedSourceStateKeys),
 							}),
 							mockImportsRepository({
-								updateRun: (input) => append(runUpdates, input),
 								deleteRunById: (input) => append(deletedRuns, input),
-								createRun: (input) =>
+								updateInputSummary: (input) => append(runUpdates, input).pipe(Effect.as(true)),
+								updateProgress: (input) =>
+									append(runUpdates, { ...input, status: "running" }).pipe(Effect.as(true)),
+								finishFailed: (input) =>
+									append(runUpdates, { ...input, status: "failed" }).pipe(
+										Effect.as("settled" as const),
+									),
+								createManualRun: (input) =>
 									options.createsRun === false
 										? Effect.die("run must not be created")
 										: append(createdRuns, input).pipe(Effect.as(createdRun)),
@@ -314,10 +320,10 @@ layer(makeServiceLayer())((test) => {
 				userId: UserId.make("user-1"),
 				inputSummary: { source: "test" },
 				pluginInstallationId: "example-installation",
-			} satisfies CreateImportRunInput;
+			} satisfies CreateManualImportRunInput;
 
-			const run = yield* service.create(createInput);
-			yield* service.update({ progress: 25, runId: run.id, status: "running" });
+			const run = yield* service.createManualRun(createInput);
+			yield* service.updateProgress({ progress: 25, runId: run.id });
 			yield* service.delete({ runId: run.id, userId: createInput.userId });
 
 			expect((yield* fake.createdRuns).at(-1)).toEqual(createInput);

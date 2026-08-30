@@ -50,7 +50,7 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 						},
 					});
 				}
-				const run = yield* imports.create({
+				const run = yield* imports.createManualRun({
 					source: input.source,
 					userId: input.executingUserId,
 					pluginInstallationId: installation.installationId,
@@ -59,12 +59,8 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 				const startedAt = yield* DateTime.nowAsDate;
 				const occurredAt = IsoUtcString.make(startedAt.toISOString());
 				const rootExecutionId = AutomationExecutionId.make(`${run.id}-workflow-load`);
-				yield* imports.update({
-					startedAt,
-					runId: run.id,
-					status: "running",
-					totalItems: input.itemCount,
-				});
+				yield* imports.markStarted({ startedAt, runId: run.id });
+				yield* imports.updateProgress({ runId: run.id, totalItems: input.itemCount });
 
 				const items = Array.from({ length: input.itemCount }, (_, index) => ({
 					index,
@@ -152,15 +148,25 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 					if (executions.every(({ status }) => status === "completed" || status === "failed")) {
 						const failed = executions.some(({ status }) => status === "failed");
 						const finishedAt = yield* DateTime.nowAsDate;
-						yield* imports.update({
+						const result = {
 							finishedAt,
 							progress: 100,
 							runId: input.runId,
 							processedItems: input.itemCount,
-							status: failed ? "failed" : "completed",
 							failedItems: failed ? input.itemCount : 0,
 							importedItems: failed ? 0 : input.itemCount,
-						});
+						};
+						if (failed) {
+							yield* imports.finishFailed({
+								...result,
+								failureReason: {
+									code: "unexpected-failure",
+									operation: "workflow-load-operational-gate",
+								},
+							});
+						} else {
+							yield* imports.finishCompleted(result);
+						}
 					}
 					return { executions, runId: input.runId };
 				},
