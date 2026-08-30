@@ -37,12 +37,11 @@ export const queryClient = new QueryClient({
 export const useConfigData = () =>
 	useQuery({
 		queryKey: ["websiteConfig"],
-		queryFn: async () => {
-			const response = await fetch("/api/config");
-			if (!response.ok) {
-				throw new Error("Failed to fetch config");
-			}
-			const data: ConfigData = await response.json();
-			return data;
-		},
+		queryFn: () =>
+			fetch("/api/config").then((response) => {
+				if (!response.ok) {
+					throw new Error("Failed to fetch config");
+				}
+				return response.json() as Promise<ConfigData>;
+			}),
 	});
