@@ -1408,17 +1408,14 @@ describe("plugin bridge", () => {
 	it.live("maps an invalid operation success to malformed-result and keeps the session alive", () =>
 		Effect.gen(function* () {
 			let calls = 0;
+			const malformedOutcome: PluginOperationOutcome = { value: null, outcome: "success" };
+			// Model an untyped callback violating its declared return type at runtime.
+			Reflect.set(malformedOutcome, "value", () => undefined);
 			const { init, received, failures, pluginPort } = connect({
 				onOperation: () => {
 					calls += 1;
 					return Effect.succeed(
-						calls === 1
-							? // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- injects an invalid runtime boundary value
-								({
-									outcome: "success",
-									value: () => undefined,
-								} as unknown as PluginOperationOutcome)
-							: { value: "ok", outcome: "success" },
+						calls === 1 ? malformedOutcome : { value: "ok", outcome: "success" },
 					);
 				},
 			});
