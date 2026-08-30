@@ -15,7 +15,7 @@ import {
 	integrationRecord,
 	ryotqlRows,
 	toRecord,
-} from "./automation-test-utils";
+} from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./radarr-push.sandbox";
 
 type RadarrHost = SandboxHost<typeof manifest.capabilities>;

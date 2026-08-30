@@ -12,10 +12,17 @@ import {
 	regularSeasonRow,
 	secondWatchDayRow,
 	showBacklogEventRow,
-} from "./activity-fixture";
+} from "../../tests/client/show/activity-fixture";
+import { showEpisodeRow, showSeasonRow } from "../../tests/client/show/episodes-fixture";
+import {
+	showCompanyRow,
+	showPersonRow,
+	showRecommendationRow,
+} from "../../tests/client/show/overview-fixture";
+import { rowsResult } from "../../tests/client/show/query-result-fixture";
+import { showSummaryRow } from "../../tests/client/show/summary-fixture";
+import { flushRyotClient, mountRyotClient } from "../../tests/client/show/test-support";
 import { ShowEpisodesTab } from "./episodes";
-import { showEpisodeRow, showSeasonRow } from "./episodes-fixture";
-import { showCompanyRow, showPersonRow, showRecommendationRow } from "./overview-fixture";
 import { ShowRefreshStatus } from "./primitives";
 import {
 	showActivityQuery,
@@ -24,10 +31,7 @@ import {
 	showSeasonEpisodesQuery,
 	showSummaryQuery,
 } from "./queries";
-import { rowsResult } from "./query-result-fixture";
 import { classifyRyotQueryResult } from "./query-state";
-import { showSummaryRow } from "./summary-fixture";
-import { flushRyotClient, mountRyotClient } from "./test-support";
 
 const rows = (items: readonly unknown[]) =>
 	rowsResult(items, { limit: 100, hasMore: false, nextCursor: null });

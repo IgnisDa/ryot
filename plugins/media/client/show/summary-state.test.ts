@@ -5,8 +5,12 @@ import {
 	pendingQueryResult,
 	readyQueryResult,
 	transportErrorQueryResult,
-} from "./query-result-fixture";
-import { decodeShowSummary, decodeShowSummaryResult, showSummaryRow } from "./summary-fixture";
+} from "../../tests/client/show/query-result-fixture";
+import {
+	decodeShowSummary,
+	decodeShowSummaryResult,
+	showSummaryRow,
+} from "../../tests/client/show/summary-fixture";
 import {
 	mapShowSummary,
 	showBackdropAsset,

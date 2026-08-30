@@ -1,6 +1,6 @@
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
-import type { HttpHost } from "./source-api";
+import type { HttpHost } from "../../../backend/imports/source-api";
 
 export type StubResponse = { body?: unknown; headers?: Record<string, string> };
 
