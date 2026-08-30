@@ -38,6 +38,7 @@ const response = await Effect.runPromise(
 			compileSandboxSource(source, { jobId: workspaceJobId, parentPath: workspaceParentPath }),
 		),
 		Effect.match({ onFailure: compilerWorkerFailure, onSuccess: compilerWorkerSuccess }),
+		// oxlint-disable-next-line effecttsgo/strict-effect-provide -- The compiler worker process is the runtime entrypoint
 		Effect.provide(sandboxCompilerPlatformLayer),
 	),
 );

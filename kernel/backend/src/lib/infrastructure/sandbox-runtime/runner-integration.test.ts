@@ -1,5 +1,6 @@
 import { BunServices, BunHttpServer } from "@effect/platform-bun";
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
+import { sandboxCompilerPlatformLayer } from "@ryot-app/sandbox-compiler/platform";
 import { compilePluginSandboxSourceEntries } from "@ryot-app/sandbox-compiler/plugins";
 import type { SandboxManifest } from "@ryot-app/sandbox-sdk/core";
 import { SANDBOX_RUNTIME_REGISTRY } from "@ryot-app/sandbox-sdk/runtime-registry";
@@ -1257,7 +1258,7 @@ it(
 						}),
 					{ concurrency: 5 },
 				);
-			}).pipe(Effect.provide(BunServices.layer)),
+			}).pipe(Effect.provide(Layer.merge(BunServices.layer, sandboxCompilerPlatformLayer))),
 		),
 	120_000,
 );
@@ -1289,7 +1290,7 @@ it(
 					});
 					const cacheWrite = bridge.calls.find((call) => call.fnName === "setCachedValue");
 					expect(cacheWrite?.args).toEqual(["fixture-key", { ready: true }, 60]);
-				}).pipe(Effect.provide(BunServices.layer)),
+				}).pipe(Effect.provide(Layer.merge(BunServices.layer, sandboxCompilerPlatformLayer))),
 			),
 		),
 	120_000,
