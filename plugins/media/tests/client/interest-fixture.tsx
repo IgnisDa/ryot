@@ -43,21 +43,24 @@ export const declaresEntityInterest =
 		it(`${name} watches every entity it renders`, () => {
 			const recording = recordingAdapter();
 			const view = mountRyotClient(recording.adapter, <Probe query={query} entityId={entityId} />);
-			return Promise.resolve(flushRyotClient())
-				.then(() =>
-					act(() => {
-						recording.requests[0]?.resolve(response);
-						return Promise.resolve().then(() => undefined);
-					}),
-				)
-				.then(() => waitFor(() => expect(view.container.textContent).toContain("ready")))
-				.then(() => {
+			return Effect.runPromise(
+				Effect.gen(function* () {
+					yield* Effect.promise(() => flushRyotClient());
+					yield* Effect.promise(() =>
+						act(() => {
+							recording.requests[0]?.resolve(response);
+							return Promise.resolve();
+						}),
+					);
+					yield* Effect.promise(() =>
+						waitFor(() => expect(view.container.textContent).toContain("ready")),
+					);
 					expect(recording.interests.at(-1)).toEqual({
 						foreground: [entityId],
 						visible: [...visible].sort(),
 					});
 					view.unmount();
-					return undefined;
-				});
+				}),
+			);
 		});
 	};

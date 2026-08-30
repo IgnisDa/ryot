@@ -1,5 +1,5 @@
 import type { RyotClientAdapter } from "@ryot-app/client-sdk";
-import { DateTime } from "@ryot-app/client-sdk/effect";
+import { DateTime, Effect } from "@ryot-app/client-sdk/effect";
 import { RyotProvider } from "@ryot-app/client-sdk/react";
 import { createTestRyotClock } from "@ryot-app/client-sdk/testing";
 import { fireEvent } from "@testing-library/dom";
@@ -49,9 +49,12 @@ export const mountRyotClient = (adapter: Partial<RyotClientAdapter>, children: R
 
 export const flushRyotClient = () =>
 	act(() =>
-		Promise.resolve()
-			.then(() => undefined)
-			.then(() => undefined),
+		Effect.runPromise(
+			Effect.gen(function* () {
+				yield* Effect.promise(() => Promise.resolve());
+				yield* Effect.promise(() => Promise.resolve());
+			}),
+		),
 	);
 
 export const clickRyotElement = (element: Element) => {
