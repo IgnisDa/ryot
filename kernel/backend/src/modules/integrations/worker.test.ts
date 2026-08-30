@@ -1,9 +1,8 @@
-import { it } from "@effect/vitest";
+import { layer } from "@effect/vitest";
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
-import { Effect, Layer } from "effect";
+import { Context, Effect, Layer, Ref } from "effect";
 import { expect as vitestExpect } from "vitest";
 
-import type { MockOverrides } from "#lib/test-utils/effect";
 import { databaseLayer } from "#lib/test-utils/effect";
 import { ImportsRepository } from "#modules/imports/repository";
 
@@ -14,133 +13,129 @@ import { finalizeIntegrationRun } from "./worker";
 const mockImportsRepository = Layer.mock(ImportsRepository);
 const mockIntegrationsService = Layer.mock(IntegrationsService);
 
-const makeImportsRepository = (overrides: MockOverrides<typeof mockImportsRepository> = {}) =>
-	mockImportsRepository({
-		updateRun: () => Effect.void,
-		getRunById: () => Effect.succeed(null),
-		listRecentStatusesByIntegrationId: () => Effect.succeed([]),
-		...overrides,
-	});
-
-const makeIntegrationsService = (overrides: MockOverrides<typeof mockIntegrationsService> = {}) =>
-	mockIntegrationsService({
-		disableIfEnabled: () => Effect.succeed(false),
-		update: () => Effect.succeed(makeIntegration()),
-		...overrides,
-	});
+class FakeIntegrationUpdates extends Context.Service<
+	FakeIntegrationUpdates,
+	{ readonly updates: Effect.Effect<ReadonlyArray<Record<string, unknown>>> }
+>()("test/FakeIntegrationUpdates") {}
 
 const makeWorkerLayer = (input: {
-	importsRepository?: Layer.Layer<ImportsRepository>;
-	integrationsService?: Layer.Layer<IntegrationsService>;
+	disableWins?: boolean;
+	runStatus: "completed" | "failed";
+	recentStatuses?: ReadonlyArray<{ status: "completed" | "failed" }>;
 }) =>
 	Layer.mergeAll(
 		databaseLayer,
-		input.importsRepository ?? makeImportsRepository(),
-		input.integrationsService ?? makeIntegrationsService(),
+		mockImportsRepository({
+			updateRun: () => Effect.void,
+			getRunById: () => Effect.succeed(makeRun(input.runStatus)),
+			listRecentStatusesByIntegrationId: () => Effect.succeed([...(input.recentStatuses ?? [])]),
+		}),
+		Layer.unwrap(
+			Effect.gen(function* () {
+				const updates = yield* Ref.make<ReadonlyArray<Record<string, unknown>>>([]);
+				const record = (update: Record<string, unknown>) =>
+					Ref.update(updates, (all) => [...all, update]);
+				return Layer.merge(
+					Layer.succeed(FakeIntegrationUpdates, { updates: Ref.get(updates) }),
+					mockIntegrationsService({
+						update: (userId, integrationId, body) =>
+							record({ userId, integrationId, ...body }).pipe(Effect.as(makeIntegration())),
+						disableIfEnabled: (userId, integrationId, runId) =>
+							input.disableWins
+								? record({ runId, userId, integrationId, isDisabled: true }).pipe(Effect.as(true))
+								: Effect.succeed(false),
+					}),
+				);
+			}),
+		),
 	);
 
-it.effect("updates lastFinishedAt after a completed integration run", () => {
-	const updates: Array<Record<string, unknown>> = [];
-	const layer = makeWorkerLayer({
-		importsRepository: makeImportsRepository({
-			getRunById: () => Effect.succeed(makeRun("completed")),
-			listRecentStatusesByIntegrationId: () => Effect.succeed([]),
-		}),
-		integrationsService: makeIntegrationsService({
-			update: (userId, integrationId, body) => {
-				updates.push({ userId, integrationId, ...body });
-				return Effect.succeed(makeIntegration());
-			},
-		}),
-	});
+layer(makeWorkerLayer({ runStatus: "completed" }))((test) => {
+	test.effect("updates lastFinishedAt after a completed integration run", () =>
+		Effect.gen(function* () {
+			const wasDisabled = yield* finalizeIntegrationRun(
+				makeIntegration(),
+				ImportRunId.make("run_1"),
+			);
+			const updates = yield* (yield* FakeIntegrationUpdates).updates;
 
-	return Effect.gen(function* () {
-		const wasDisabled = yield* finalizeIntegrationRun(makeIntegration(), ImportRunId.make("run_1"));
-
-		vitestExpect(wasDisabled).toBe(false);
-		vitestExpect(updates).toHaveLength(1);
-		vitestExpect(updates[0]).toMatchObject({
-			userId: "user_1",
-			integrationId: "int_1",
-			lastFinishedAt: vitestExpect.any(Date),
-		});
-	}).pipe(Effect.provide(layer));
+			vitestExpect(wasDisabled).toBe(false);
+			vitestExpect(updates).toHaveLength(1);
+			vitestExpect(updates[0]).toMatchObject({
+				userId: "user_1",
+				integrationId: "int_1",
+				lastFinishedAt: vitestExpect.any(Date),
+			});
+		}),
+	);
 });
 
-it.effect("disables the integration after 5 consecutive failures", () => {
-	const updates: Array<Record<string, unknown>> = [];
-	const layer = makeWorkerLayer({
-		integrationsService: makeIntegrationsService({
-			disableIfEnabled: (userId, integrationId, runId) => {
-				updates.push({ runId, userId, integrationId, isDisabled: true });
-				return Effect.succeed(true);
-			},
-		}),
-		importsRepository: makeImportsRepository({
-			getRunById: () => Effect.succeed(makeRun("failed")),
-			listRecentStatusesByIntegrationId: () =>
-				Effect.succeed([
-					{ status: "failed" as const },
-					{ status: "failed" as const },
-					{ status: "failed" as const },
-					{ status: "failed" as const },
-					{ status: "failed" as const },
-				]),
-		}),
-	});
+layer(
+	makeWorkerLayer({
+		disableWins: true,
+		runStatus: "failed",
+		recentStatuses: [
+			{ status: "failed" },
+			{ status: "failed" },
+			{ status: "failed" },
+			{ status: "failed" },
+			{ status: "failed" },
+		],
+	}),
+)((test) => {
+	test.effect("disables the integration after 5 consecutive failures", () =>
+		Effect.gen(function* () {
+			const wasDisabled = yield* finalizeIntegrationRun(
+				makeIntegration(),
+				ImportRunId.make("run_1"),
+			);
 
-	return Effect.gen(function* () {
-		const wasDisabled = yield* finalizeIntegrationRun(makeIntegration(), ImportRunId.make("run_1"));
-
-		vitestExpect(wasDisabled).toBe(true);
-		vitestExpect(updates).toEqual([
-			{ runId: "run_1", userId: "user_1", isDisabled: true, integrationId: "int_1" },
-		]);
-	}).pipe(Effect.provide(layer));
+			vitestExpect(wasDisabled).toBe(true);
+			vitestExpect(yield* (yield* FakeIntegrationUpdates).updates).toEqual([
+				{ runId: "run_1", userId: "user_1", isDisabled: true, integrationId: "int_1" },
+			]);
+		}),
+	);
 });
 
-it.effect("does not claim a second disable transition after a concurrent run wins", () => {
-	const layer = makeWorkerLayer({
-		integrationsService: makeIntegrationsService({ disableIfEnabled: () => Effect.succeed(false) }),
-		importsRepository: makeImportsRepository({
-			getRunById: () => Effect.succeed(makeRun("failed")),
-			listRecentStatusesByIntegrationId: () =>
-				Effect.succeed(Array.from({ length: 5 }, () => ({ status: "failed" as const }))),
+layer(
+	makeWorkerLayer({
+		runStatus: "failed",
+		recentStatuses: Array.from({ length: 5 }, () => ({ status: "failed" as const })),
+	}),
+)((test) => {
+	test.effect("does not claim a second disable transition after a concurrent run wins", () =>
+		Effect.gen(function* () {
+			const wasDisabled = yield* finalizeIntegrationRun(
+				makeIntegration(),
+				ImportRunId.make("run_1"),
+			);
+			vitestExpect(wasDisabled).toBe(false);
 		}),
-	});
-
-	return Effect.gen(function* () {
-		const wasDisabled = yield* finalizeIntegrationRun(makeIntegration(), ImportRunId.make("run_1"));
-		vitestExpect(wasDisabled).toBe(false);
-	}).pipe(Effect.provide(layer));
+	);
 });
 
-it.effect("does not disable integrations when recent runs are not all failures", () => {
-	const updates: Array<Record<string, unknown>> = [];
-	const layer = makeWorkerLayer({
-		integrationsService: makeIntegrationsService({
-			update: (userId, integrationId, body) => {
-				updates.push({ userId, integrationId, ...body });
-				return Effect.succeed(makeIntegration());
-			},
-		}),
-		importsRepository: makeImportsRepository({
-			getRunById: () => Effect.succeed(makeRun("failed")),
-			listRecentStatusesByIntegrationId: () =>
-				Effect.succeed([
-					{ status: "failed" as const },
-					{ status: "failed" as const },
-					{ status: "completed" as const },
-					{ status: "failed" as const },
-					{ status: "failed" as const },
-				]),
-		}),
-	});
+layer(
+	makeWorkerLayer({
+		runStatus: "failed",
+		recentStatuses: [
+			{ status: "failed" },
+			{ status: "failed" },
+			{ status: "completed" },
+			{ status: "failed" },
+			{ status: "failed" },
+		],
+	}),
+)((test) => {
+	test.effect("does not disable integrations when recent runs are not all failures", () =>
+		Effect.gen(function* () {
+			const wasDisabled = yield* finalizeIntegrationRun(
+				makeIntegration(),
+				ImportRunId.make("run_1"),
+			);
 
-	return Effect.gen(function* () {
-		const wasDisabled = yield* finalizeIntegrationRun(makeIntegration(), ImportRunId.make("run_1"));
-
-		vitestExpect(wasDisabled).toBe(false);
-		vitestExpect(updates).toEqual([]);
-	}).pipe(Effect.provide(layer));
+			vitestExpect(wasDisabled).toBe(false);
+			vitestExpect(yield* (yield* FakeIntegrationUpdates).updates).toEqual([]);
+		}),
+	);
 });
