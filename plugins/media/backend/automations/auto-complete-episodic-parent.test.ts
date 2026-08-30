@@ -1,4 +1,4 @@
-import type { AutomationInput, AutomationEventSnapshot } from "@ryot-app/sandbox-sdk/automation";
+import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
 import type { CreateEventItem } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import type { RyotQLDocument } from "@ryot-app/sandbox-sdk/ryotql";
@@ -8,8 +8,10 @@ import { describe, expect, it } from "vitest";
 import type { EpisodicLifecycleState } from "../../shared/lifecycle-expressions";
 import {
 	eventAutomationContext,
+	automationOccurrenceForContext,
 	execution,
 	hostSuccess,
+	registerAutomationOccurrence,
 } from "../../tests/backend/automations/automation-test-utils";
 import type { CurrentCycleChildEvent, EventOrderTuple } from "../contracts/lifecycle-recipes";
 import definition, {
@@ -29,6 +31,8 @@ type SnapshotFixture = {
 	readonly requiredEpisodePages?: readonly (readonly string[])[];
 	readonly eventPages?: readonly (readonly CurrentCycleChildEvent[])[];
 };
+
+type AutomationEventSnapshot = Parameters<typeof eventAutomationContext>[0];
 
 const childEvent = (
 	id: string,
@@ -105,30 +109,33 @@ const entityContext = (
 	beforeStatus: string | null,
 	afterStatus: string | null,
 	entitySchemaSlug = "show",
-): AutomationInput => ({
-	automation: {
-		operation: "update",
-		ruleId: "automation-rule-1",
-		occurrenceId: "occurrence-1",
-		origin: { kind: "provider_refresh" },
-		occurredAt: "2026-01-10T00:00:00.000Z",
-		source: {
-			kind: "entity",
-			after: {
-				id: "show-1",
-				name: "Show",
-				entitySchemaSlug,
-				properties: afterStatus === null ? {} : { productionStatus: afterStatus },
-			},
-			before: {
-				id: "show-1",
-				name: "Show",
-				entitySchemaSlug,
-				properties: beforeStatus === null ? {} : { productionStatus: beforeStatus },
-			},
+): AutomationInput => {
+	const context: AutomationInput = {
+		automation: {
+			operation: "update",
+			ruleId: "automation-rule-1",
+			occurrenceId: "occurrence-1",
+			origin: { kind: "provider_refresh" },
+			occurredAt: "2026-01-10T00:00:00.000Z",
+			source: { kind: "entity", entityId: "show-1" },
 		},
-	},
-});
+	};
+	return registerAutomationOccurrence(context, {
+		kind: "entity",
+		after: {
+			id: "show-1",
+			name: "Show",
+			entitySchemaSlug,
+			properties: afterStatus === null ? {} : { productionStatus: afterStatus },
+		},
+		before: {
+			id: "show-1",
+			name: "Show",
+			entitySchemaSlug,
+			properties: beforeStatus === null ? {} : { productionStatus: beforeStatus },
+		},
+	});
+};
 
 const createHost = (
 	snapshots: readonly SnapshotFixture[],
@@ -234,7 +241,17 @@ const createHost = (
 };
 
 const run = (context: AutomationInput, host: ReturnType<typeof createHost>["host"]) =>
-	definition.run(context, host, execution);
+	definition.run(
+		context,
+		{
+			...host,
+			executeRyotql: (document) =>
+				"occurrences" in document.queries
+					? hostSuccess(automationOccurrenceForContext(context))
+					: host.executeRyotql(document),
+		},
+		execution,
+	);
 
 describe("auto-complete-episodic-parent sandbox script", () => {
 	it("declares the exact automation manifest", () => {

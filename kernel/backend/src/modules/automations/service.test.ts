@@ -1,5 +1,7 @@
 import { assert, expect, it } from "@effect/vitest";
+import type { AutomationOccurrence } from "@ryot-app/contract/modules/automations/schemas";
 import {
+	AutomationOccurrenceId,
 	AutomationRuleId,
 	EntitySchemaSlug,
 	SandboxScriptId,
@@ -36,6 +38,7 @@ import {
 const userId = UserId.make("user-1");
 const otherUserId = UserId.make("user-2");
 const signalId = SignalId.make("signal-1");
+const occurrenceId = AutomationOccurrenceId.make("occurrence-1");
 const ruleId = AutomationRuleId.make("rule-1");
 const scriptId = SandboxScriptId.make("script-1");
 const signalSchemaSlug = SignalSchemaSlug.make("review.created");
@@ -65,6 +68,29 @@ const definition = {
 	name: "Review notifications",
 	metadata: { template: "review" },
 } as const;
+
+const occurrence = (input: Partial<AutomationOccurrence> = {}): AutomationOccurrence => ({
+	userId,
+	signalId,
+	recordId: null,
+	id: occurrenceId,
+	population: null,
+	operation: "signal",
+	sourceKind: "signal",
+	origin: { kind: "api" },
+	occurredAt: "2026-07-20T10:00:00.000Z",
+	source: {
+		kind: "signal",
+		signal: {
+			id: signalId,
+			signalSchemaSlug,
+			origin: { kind: "api" },
+			properties: { message: "trace" },
+			occurredAt: "2026-07-20T10:00:00.000Z",
+		},
+	},
+	...input,
+});
 
 const storedRule = (input: Partial<ResolvedAutomationRule> = {}): ResolvedAutomationRule => ({
 	userId,
@@ -177,6 +203,26 @@ it.effect("resolves only built-in rules for a global row", () => {
 	}).pipe(Effect.provide(layer));
 });
 
+it.effect("persists an automation occurrence", () => {
+	const expected = occurrence();
+	let persisted: AutomationOccurrence | undefined;
+	const layer = makeLayer(
+		makeRepository({
+			findOccurrence: () => Effect.die("inserted occurrence was unexpectedly re-read"),
+			insertOccurrence: (input) => {
+				persisted = input;
+				return Effect.succeed(input);
+			},
+		}),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* AutomationsService;
+		expect(yield* service.recordOccurrence(expected)).toEqual(expected);
+		expect(persisted).toEqual(expected);
+	}).pipe(Effect.provide(layer));
+});
+
 it.effect("resolves a source-zero notification formatter for the row owner", () => {
 	const own = storedRule();
 	const globalBuiltin = storedRule({ userId: null, isBuiltin: true });
@@ -255,10 +301,12 @@ it.effect(
 );
 
 it.effect("treats state with no live formatter as inert", () => {
+	const staleOccurrence = occurrence({ id: AutomationOccurrenceId.make("stale-occurrence") });
 	const layer = makeLayer(
 		makeRepository({
 			findRunById: () => Effect.succeed(null),
 			isUserEnabled: () => Effect.succeed(true),
+			findOccurrence: () => Effect.succeed(staleOccurrence),
 			insertRun: () => Effect.die("stale notification state inserted a run"),
 			lockActiveNotificationSubscription: () => Effect.succeed(storedState()),
 			listActiveNotificationSubscriptions: () => Effect.succeed([storedState()]),
@@ -271,14 +319,7 @@ it.effect("treats state with no live formatter as inert", () => {
 			yield* service.resolveActive({ target, rowUserId: userId, operation: "signal" }),
 		).toEqual([]);
 		expect(
-			yield* service.prepareRun({
-				ruleId,
-				signalId,
-				rowUserId: userId,
-				operation: "signal",
-				sourceKind: "signal",
-				occurrenceId: "stale-occurrence",
-			}),
+			yield* service.prepareRun({ ruleId, rowUserId: userId, occurrenceId: staleOccurrence.id }),
 		).toBeNull();
 	}).pipe(Effect.provide(layer));
 });
@@ -327,6 +368,7 @@ it.effect("does not insert a run after its rule was deactivated or deleted", () 
 		makeRepository({
 			findRunById: () => Effect.succeed(null),
 			insertRun: () => Effect.die("unexpected insert"),
+			findOccurrence: () => Effect.succeed(occurrence()),
 			lockActiveNotificationSubscription: () => Effect.succeed(null),
 		}),
 		{
@@ -339,16 +381,7 @@ it.effect("does not insert a run after its rule was deactivated or deleted", () 
 
 	return Effect.gen(function* () {
 		const service = yield* AutomationsService;
-		expect(
-			yield* service.prepareRun({
-				ruleId,
-				signalId,
-				rowUserId: userId,
-				operation: "signal",
-				sourceKind: "signal",
-				occurrenceId: "occurrence-1",
-			}),
-		).toBeNull();
+		expect(yield* service.prepareRun({ ruleId, occurrenceId, rowUserId: userId })).toBeNull();
 		expect(bindingOwner).toBe(userId);
 	}).pipe(Effect.provide(layer));
 });
@@ -395,6 +428,7 @@ it.effect("resolves user and row-owner execution principals", () => {
 		const layer = makeLayer(
 			makeRepository({
 				findRunById: () => Effect.succeed(null),
+				findOccurrence: () => Effect.succeed(occurrence({ userId: rowUserId })),
 				lockActiveNotificationSubscription: () => Effect.succeed(notificationState),
 				findScriptExecution: () => Effect.succeed({ updatedAt: "2026-07-20T10:00:00.000Z" }),
 				insertRun: (input) => {
@@ -409,15 +443,9 @@ it.effect("resolves user and row-owner execution principals", () => {
 		);
 		return Effect.gen(function* () {
 			const service = yield* AutomationsService;
-			const prepared = yield* service.prepareRun({
-				signalId,
-				rowUserId,
-				ruleId: rule.id,
-				operation: "signal",
-				sourceKind: "signal",
-				occurrenceId: "occurrence-1",
-			});
+			const prepared = yield* service.prepareRun({ rowUserId, occurrenceId, ruleId: rule.id });
 			assert(prepared);
+			expect(prepared.occurrence).toEqual(occurrence({ userId: rowUserId }));
 			expect(executionUserId).toBe(expected);
 		}).pipe(Effect.provide(layer));
 	});
@@ -440,6 +468,7 @@ it.effect("resumes an inserted run without re-reading deleted notification state
 	const layer = makeLayer(
 		makeRepository({
 			findRunById: () => Effect.succeed(existing),
+			findOccurrence: () => Effect.succeed(occurrence()),
 			lockActiveNotificationSubscription: () =>
 				Effect.die("existing run re-read its deleted notification state"),
 		}),
@@ -447,15 +476,9 @@ it.effect("resumes an inserted run without re-reading deleted notification state
 
 	return Effect.gen(function* () {
 		const service = yield* AutomationsService;
-		const prepared = yield* service.prepareRun({
-			ruleId,
-			signalId,
-			rowUserId: userId,
-			operation: "signal",
-			sourceKind: "signal",
-			occurrenceId: "occurrence-1",
-		});
+		const prepared = yield* service.prepareRun({ ruleId, occurrenceId, rowUserId: userId });
 		assert(prepared);
+		expect(prepared.occurrence).toEqual(occurrence());
 		expect(prepared.run.ruleId).toBe(ruleId);
 		expect(prepared.execution).toEqual({
 			ruleId,

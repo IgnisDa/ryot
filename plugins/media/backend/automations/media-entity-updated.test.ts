@@ -4,59 +4,86 @@ import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 import { expect, it } from "vitest";
 
+import {
+	automationOccurrenceRows,
+	hostSuccess,
+} from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./media-entity-updated.sandbox";
 
-type Population = NonNullable<AutomationInput["automation"]["population"]>;
+type Population = {
+	readonly rootPreviouslyPopulated: boolean;
+	readonly scopeEntity: {
+		readonly id: string;
+		readonly name: string;
+		readonly entitySchemaSlug: string;
+	};
+	readonly parentEntity?: {
+		readonly name: string;
+		readonly properties: Readonly<Record<string, JsonValue>>;
+		readonly entitySchemaSlug: string;
+	};
+};
+type EntitySnapshot = {
+	readonly id: string;
+	readonly name: string;
+	readonly properties: Readonly<Record<string, JsonValue>>;
+	readonly entitySchemaSlug: string;
+};
 
 const input = (
 	overrides: {
 		rootPreviouslyPopulated?: boolean;
 		parentEntity?: NonNullable<Population["parentEntity"]>;
-		after?: Partial<
-			NonNullable<Extract<AutomationInput["automation"]["source"], { kind: "entity" }>["after"]>
-		>;
-		before?: Partial<
-			NonNullable<Extract<AutomationInput["automation"]["source"], { kind: "entity" }>["before"]>
-		>;
+		after?: Partial<EntitySnapshot>;
+		before?: Partial<EntitySnapshot>;
 	} = {},
-): AutomationInput => ({
-	automation: {
-		ruleId: "rule-1",
-		operation: "update",
-		occurrenceId: "occurrence-1",
-		origin: { kind: "provider_refresh" },
-		occurredAt: "2026-07-20T10:00:00.000Z",
-		population: {
-			rootPreviouslyPopulated: overrides.rootPreviouslyPopulated ?? true,
-			scopeEntity: { id: "show-1", name: "Severance", entitySchemaSlug: "show" },
-			...(overrides.parentEntity ? { parentEntity: overrides.parentEntity } : {}),
-		},
-		source: {
-			kind: "entity",
-			after: {
-				id: "entity-1",
-				properties: {},
-				name: "New Name",
-				entitySchemaSlug: "show",
-				...overrides.after,
+) => {
+	const population: Population = {
+		rootPreviouslyPopulated: overrides.rootPreviouslyPopulated ?? true,
+		scopeEntity: { id: "show-1", name: "Severance", entitySchemaSlug: "show" },
+		...(overrides.parentEntity ? { parentEntity: overrides.parentEntity } : {}),
+	};
+	return {
+		context: {
+			automation: {
+				ruleId: "rule-1",
+				operation: "update",
+				occurrenceId: "occurrence-1",
+				origin: { kind: "provider_refresh" },
+				occurredAt: "2026-07-20T10:00:00.000Z",
+				source: { kind: "entity", entityId: "entity-1" },
 			},
-			before: {
-				id: "entity-1",
-				properties: {},
-				name: "Old Name",
-				entitySchemaSlug: "show",
-				...overrides.before,
+		} satisfies AutomationInput,
+		occurrence: automationOccurrenceRows(
+			{
+				kind: "entity",
+				after: {
+					id: "entity-1",
+					properties: {},
+					name: "New Name",
+					entitySchemaSlug: "show",
+					...overrides.after,
+				},
+				before: {
+					id: "entity-1",
+					properties: {},
+					name: "Old Name",
+					entitySchemaSlug: "show",
+					...overrides.before,
+				},
 			},
-		},
-	},
-});
+			population,
+		),
+	};
+};
 
-const run = (value: AutomationInput) => {
+const run = (value: ReturnType<typeof input>) => {
 	const calls: Array<Record<string, JsonValue | undefined>> = [];
 	return definition
 		.run(
-			value,
+			value.context,
 			defineSandboxTestHost(manifest, {
+				executeRyotql: () => hostSuccess(value.occurrence),
 				emitSignal: (request) => {
 					calls.push(request);
 					return Effect.succeed({ wasCreated: true, signalId: `signal-${calls.length}` });

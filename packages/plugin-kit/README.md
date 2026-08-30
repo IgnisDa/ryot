@@ -124,6 +124,15 @@ user operations, imports, and user-triggered provider calls use the caller; inte
 validated integration context; automations use their subscription subject; durable descendants inherit
 their parent's subject.
 
+Post-write automations receive compact source references. Use `automationOccurrenceRecipe(automation.occurrenceId)` through
+`executeRyotqlRecipe(host.executeRyotql, ...)` to read the immutable occurrence, including its
+before/after source snapshots. When `automation.runId` is present, use `automationRunRecipe` through
+the same `executeRyotql` path to read run metadata. Prefer recipes with explicit projections over broad
+record reads. Occurrence snapshots describe what triggered the automation and do not change; separate
+domain queries describe current persisted state and may return data changed after the occurrence. A
+`provider-entity-import` source is already a compact provider/entity reference and can be used directly
+when those identifiers are sufficient.
+
 Exact host-function and filesystem limits are in the
 [sandbox runtime reference](../../kernel/backend/src/lib/infrastructure/sandbox-runtime/README.md).
 

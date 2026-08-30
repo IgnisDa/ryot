@@ -1,13 +1,13 @@
 import { SandboxRunError, toSandboxRunError } from "@ryot-app/contract/errors";
 import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
-import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import { AutomationOccurrenceId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
-import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
 import { Context, Effect, Layer, Schema } from "effect";
 import { Activity } from "effect/unstable/workflow";
 import type { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { Database } from "#lib/infrastructure/db/service";
+import { AutomationsService } from "#modules/automations/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import type { SandboxExecutionResult } from "#modules/sandbox/execution-result";
 import { SandboxExecutionService } from "#modules/sandbox/service";
@@ -18,8 +18,6 @@ const ResolvedProviderEntityImportAutomation = Schema.Struct({
 	ruleId: Schema.String,
 	sandboxScriptId: SandboxScriptId,
 });
-const entityPropertiesSchema = Schema.Record(Schema.String, jsonValueSchema);
-
 const processSandboxEntityDetails = (payload: EntityImportPayload, executionId: string) =>
 	Effect.gen(function* () {
 		const sandbox = yield* SandboxExecutionService;
@@ -70,26 +68,43 @@ const runProviderImportAutomations = (
 			});
 		}
 		if (payload.entityScope.userId) {
-			const properties = yield* Schema.decodeUnknownEffect(entityPropertiesSchema)(
-				importedEntity.properties,
-			).pipe(Effect.mapError((error) => new SandboxRunError({ message: String(error) })));
+			const automationService = yield* AutomationsService;
+			const occurrenceId = AutomationOccurrenceId.make(executionId);
+			yield* automationService
+				.recordOccurrence({
+					signalId: null,
+					id: occurrenceId,
+					population: null,
+					operation: "create",
+					origin: { kind: "import" },
+					recordId: importedEntity.id,
+					userId: payload.entityScope.userId,
+					occurredAt: importedEntity.updatedAt,
+					sourceKind: "provider-entity-import",
+					source: {
+						entityId: importedEntity.id,
+						kind: "provider-entity-import",
+						externalId: payload.externalId,
+						providerId: payload.providerId,
+						entitySchemaSlug: payload.entitySchemaSlug,
+					},
+				})
+				.pipe(Effect.mapError(toSandboxRunError));
 			for (const [index, automation] of automations.entries()) {
 				const hookExecutionId = `${executionId}-provider-import-automation-${index}`;
 				const context = {
 					automation: {
+						occurrenceId,
 						operation: "create",
 						ruleId: automation.ruleId,
 						origin: { kind: "import" },
-						occurrenceId: hookExecutionId,
 						occurredAt: importedEntity.updatedAt,
 						source: {
-							kind: "entity",
-							after: {
-								properties,
-								id: importedEntity.id,
-								name: importedEntity.name,
-								entitySchemaSlug: importedEntity.entitySchemaSlug,
-							},
+							entityId: importedEntity.id,
+							kind: "provider-entity-import",
+							externalId: payload.externalId,
+							providerId: payload.providerId,
+							entitySchemaSlug: payload.entitySchemaSlug,
 						},
 					},
 				} satisfies AutomationInput;
@@ -98,7 +113,11 @@ const runProviderImportAutomations = (
 						input: context,
 						executionId: hookExecutionId,
 						scriptId: automation.sandboxScriptId,
-						subject: { type: "user", userId: payload.entityScope.userId },
+						subject: {
+							type: "user",
+							userId: payload.entityScope.userId,
+							automationOccurrenceId: occurrenceId,
+						},
 					})
 					.pipe(Effect.mapError(toSandboxRunError));
 				if (result.error) {
@@ -131,6 +150,7 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 	EntityImportWorkflowOperations,
 	Effect.gen(function* () {
 		const database = yield* Database;
+		const automations = yield* AutomationsService;
 		const sandbox = yield* SandboxExecutionService;
 		const pluginRuntime = yield* PluginRuntimeResolver;
 		return {
@@ -143,6 +163,7 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 			runProviderImportAutomations: (payload, importedEntity, executionId) =>
 				runProviderImportAutomations(payload, importedEntity, executionId).pipe(
 					Effect.provideService(Database, database),
+					Effect.provideService(AutomationsService, automations),
 					Effect.provideService(PluginRuntimeResolver, pluginRuntime),
 					Effect.provideService(SandboxExecutionService, sandbox),
 				),

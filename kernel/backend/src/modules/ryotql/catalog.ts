@@ -12,6 +12,7 @@ export type CatalogField = {
 };
 
 export type CatalogVisibility =
+	| { readonly execution: "occurrence" | "run" }
 	| { readonly user: { readonly type: "public" } }
 	| {
 			readonly user:
@@ -44,10 +45,18 @@ export type CatalogVisibility =
 	  };
 
 export type RyotQLExecutionScope =
-	| { readonly type: "user"; readonly userId: string; readonly language: string | null }
+	| {
+			readonly type: "user";
+			readonly userId: string;
+			readonly language: string | null;
+			readonly automationRunId?: string;
+			readonly automationOccurrenceId?: string;
+	  }
 	| {
 			readonly type: "plugin";
 			readonly pluginSlug: string;
+			readonly automationRunId?: string;
+			readonly automationOccurrenceId?: string;
 			readonly entitySchemaSlugs: readonly string[];
 			readonly relationshipSchemaSlugs: readonly string[];
 			readonly eventSchemas: readonly {
@@ -220,6 +229,34 @@ const relationship: CatalogTable = {
 		sourceEntityId: physicalField("source_entity_id", "text", false),
 		targetEntityId: physicalField("target_entity_id", "text", false),
 		relationshipSchemaSlug: physicalField("relationship_schema_slug", "text", false),
+	},
+};
+
+const automationOccurrence: CatalogTable = {
+	primaryKey: "id",
+	name: "automation_occurrence",
+	visibility: { execution: "occurrence" },
+	fields: {
+		id: physicalField("id", "text", false),
+		recordId: physicalField("record_id", "text"),
+		signalId: physicalField("signal_id", "text"),
+		origin: physicalField("origin", "json", false),
+		source: physicalField("source", "json", false),
+		population: physicalField("population", "json"),
+		operation: physicalField("operation", "text", false),
+		occurredAt: physicalField("occurred_at", "date", false),
+		sourceKind: physicalField("source_kind", "text", false),
+	},
+};
+
+const subscriptionRun: CatalogTable = {
+	primaryKey: "id",
+	name: "subscription_run",
+	visibility: { execution: "run" },
+	fields: {
+		id: physicalField("id", "text", false),
+		ruleId: physicalField("rule_id", "text", false),
+		ruleMetadata: physicalField("rule_metadata", "json"),
 	},
 };
 
@@ -414,9 +451,11 @@ const tables: Readonly<Record<string, CatalogTable>> = {
 	integration,
 	relationship,
 	sandboxProvider,
+	subscriptionRun,
 	importRunFailure,
 	pluginInstallation,
 	notificationChannel,
+	automationOccurrence,
 	sandboxProviderOperation,
 	notificationSubscriptionState,
 };
@@ -425,8 +464,16 @@ export const getCatalogTable = (name: string) => tables[name];
 
 export const canAccessCatalogTable = (
 	table: CatalogTable,
-	scope: Pick<RyotQLExecutionScope, "type">,
-) => scope.type === "user" || "plugin" in table.visibility;
+	scope: Pick<RyotQLExecutionScope, "automationOccurrenceId" | "automationRunId" | "type">,
+) => {
+	if ("execution" in table.visibility) {
+		if (table.visibility.execution === "occurrence") {
+			return scope.automationOccurrenceId !== undefined;
+		}
+		return scope.automationRunId !== undefined;
+	}
+	return scope.type === "user" || "plugin" in table.visibility;
+};
 
 export const resolveCatalogField = (table: CatalogTable, name: string) => table.fields[name];
 

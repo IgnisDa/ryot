@@ -17,6 +17,8 @@ and `build` tasks; server development runs the same script in watch mode. The ge
 
 Before execution, the backend verifies compiled bytes against SHA-256, atomically materializes a read-only `<hash>.mjs`, and hard-links it into an execution directory. A single-use Deno process imports it through a local approved-dependency map. The runner validates definition input and output and returns a completed, failed, or pending envelope. The Deno launcher, permissions, and execution grants remain unchanged.
 
+Automation contexts are compact execution references. The sandbox receives occurrence, rule, and optional run IDs plus the source reference, origin, operation, and occurrence time. It reads immutable occurrence data and pinned run metadata through execution-scoped RyotQL. This keeps workflow payloads bounded without weakening replay consistency.
+
 An unrecorded mutable `host.*` call ends that replay. The workflow dispatches it through its owning activity, child workflow, artifact operation, or diagnostic path, journals the typed success or failure, then replays. Recorded calls return their journaled results and never repeat the backend dispatch.
 
 ## Durable State

@@ -5,6 +5,7 @@ import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 
 import {
 	eventAutomationContext,
+	eventAutomationOccurrence,
 	entityRecord,
 	entitySchemaRecord,
 	execution,
@@ -77,16 +78,28 @@ const createHost = (options: {
 	log?: RadarrHost["log"];
 	entity?: ReturnType<typeof entityRecord> | null;
 	integrations?: ReturnType<typeof integrationRecord>[];
+	event?: Parameters<typeof eventAutomationOccurrence>[0];
 }) =>
 	defineSandboxTestHost(manifest, {
 		httpCall: options.httpCall,
 		getEntitySchemas: () => hostSuccess([schema]),
 		log: options.log ?? (() => Effect.succeed(null)),
 		listIntegrations: () => hostSuccess(options.integrations ?? []),
-		executeRyotql: () =>
-			options.entity ? hostSuccess(ryotqlRows("entities", [options.entity])) : hostFailure(),
 		getUserPreferences: () =>
 			hostSuccess({ allowNsfw: false, disableIntegrations: options.disableIntegrations ?? false }),
+		executeRyotql: (document) => {
+			if ("occurrences" in document.queries) {
+				return hostSuccess(
+					eventAutomationOccurrence({
+						eventSchemaSlug: "add-entity-to-collection",
+						properties: { entityId: "movie-1", entitySchemaSlug: "movie" },
+						subject: { id: "collection-1", name: "Collection", entitySchemaSlug: "collection" },
+						...options.event,
+					}),
+				);
+			}
+			return options.entity ? hostSuccess(ryotqlRows("entities", [options.entity])) : hostFailure();
+		},
 	});
 
 describe("radarr-push sandbox script", () => {
@@ -143,7 +156,11 @@ describe("radarr-push sandbox script", () => {
 				[
 					definition.run(
 						createAutomation({ entityId: "show-1", entitySchemaSlug: "show" }),
-						createHost({ ...base, entity: movieEntity }),
+						createHost({
+							...base,
+							entity: movieEntity,
+							event: { properties: { entityId: "show-1", entitySchemaSlug: "show" } },
+						}),
 						execution,
 					),
 					definition.run(
