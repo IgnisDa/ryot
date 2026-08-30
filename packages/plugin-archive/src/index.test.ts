@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
@@ -7,6 +5,7 @@ import {
 	CLIENT_COMPILER_VERSION,
 	type PluginClientArtifact,
 } from "@ryot-app/client-plugin-contract";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Effect } from "effect";
 import { unzipSync, Zip, zipSync, ZipDeflate } from "fflate";
 import { describe, expect, it } from "vitest";
@@ -139,7 +138,7 @@ const compiledClientMetadata = (artifact: PluginClientArtifact) =>
 const rawManifest = encoder.encode(`${JSON.stringify(fixture.manifest, null, "\t")}\n`);
 const scriptRawManifest = encoder.encode(`${JSON.stringify(scriptManifest, null, "\t")}\n`);
 const scriptJavascriptBytes = encoder.encode(scriptJavascript);
-const scriptJavascriptHash = createHash("sha256").update(scriptJavascriptBytes).digest("hex");
+const scriptJavascriptHash = sha256Hex(scriptJavascriptBytes);
 const scriptArchiveMetadata = encoder.encode(
 	`${JSON.stringify(
 		{ scripts: [{ format: 1, entry: scriptEntry, hash: scriptJavascriptHash }] },
@@ -229,9 +228,14 @@ const archive = (entries: ReadonlyArray<readonly [string, Uint8Array]>) => {
 	return output;
 };
 
-const expectReason = async (bytes: Uint8Array, reason: PluginArchiveErrorReason) => {
-	expect(await Effect.runPromise(Effect.flip(readPluginArchive(bytes)))).toMatchObject({ reason });
-};
+const expectReason = (bytes: Uint8Array, reason: PluginArchiveErrorReason) =>
+	Effect.runPromise(
+		Effect.flip(readPluginArchive(bytes)).pipe(
+			Effect.map((error) => {
+				expect(error).toMatchObject({ reason });
+			}),
+		),
+	);
 
 const expectWriteReason = (
 	pluginPackage: Parameters<typeof writePluginArchive>[0],
@@ -289,6 +293,8 @@ describe("plugin archive", () => {
 		);
 	});
 
+	// Vitest awaits the archive reader at the test boundary.
+	// oxlint-disable-next-line effecttsgo/async-function
 	it("round trips deterministic compiled sandbox scripts and canonical metadata", async () => {
 		const first = writePluginArchive(scriptFixture);
 		const second = writePluginArchive({
@@ -323,6 +329,8 @@ describe("plugin archive", () => {
 		expect(result.compiledScripts).toEqual(scriptFixture.compiledScripts);
 	});
 
+	// Vitest awaits the archive reader at the test boundary.
+	// oxlint-disable-next-line effecttsgo/async-function
 	it("requires every manifest script and rejects duplicate, extra, and missing outputs", async () => {
 		expectWriteReason({ ...scriptFixture, compiledScripts: [] }, "compiled-script-invalid");
 		expectWriteReason(
@@ -393,6 +401,8 @@ describe("plugin archive", () => {
 		);
 	});
 
+	// Vitest awaits the archive reader at the test boundary.
+	// oxlint-disable-next-line effecttsgo/async-function
 	it("writes and reads deterministic compiled client entries with canonical metadata", async () => {
 		const compiledClient = { ...compiledClientFixture, files: compiledClientFixture.files };
 		const first = writePluginArchive({ ...fixture, compiledClient });
@@ -466,8 +476,12 @@ describe("plugin archive", () => {
 		]);
 	});
 
+	// Vitest awaits an external AsyncIterable fixture at the test boundary.
+	// oxlint-disable-next-line effecttsgo/async-function
 	it("round trips exact backend, shared, client text, and invalid UTF-8 asset bytes", async () => {
 		const pluginBytes = writePluginArchive(fixture);
+		// The archive reader's external AsyncIterable input is exercised here.
+		// oxlint-disable-next-line effecttsgo/async-function
 		async function* chunks() {
 			await Promise.resolve();
 			for (let offset = 0; offset < pluginBytes.byteLength; offset += 7) {
@@ -481,6 +495,25 @@ describe("plugin archive", () => {
 		}
 	});
 
+	it("maps a failed external async iterable to the archive error", () => {
+		const input = {
+			// The input models a Promise-based transport failing after its first chunk.
+			// oxlint-disable-next-line effecttsgo/async-function
+			async *[Symbol.asyncIterator]() {
+				yield rawManifest;
+				throw new Error("transport closed");
+			},
+		};
+		return Effect.runPromise(
+			Effect.gen(function* () {
+				const error = yield* Effect.flip(readPluginArchive(input));
+				expect(error.reason).toBe("malformed-zip");
+			}),
+		);
+	});
+
+	// Vitest awaits the archive reader at the test boundary.
+	// oxlint-disable-next-line effecttsgo/async-function
 	it("returns a boundary archive accepted by its reader", async () => {
 		const path = pathAtBytes(PLUGIN_ARCHIVE_LIMITS.maxPathBytes);
 		const bytes = new Uint8Array(PLUGIN_ARCHIVE_LIMITS.maxSourceBytes);
@@ -551,6 +584,8 @@ describe("plugin archive", () => {
 		"shared/ignored.test.ts",
 		"client/unsupported.js",
 		"client/ignored.test.tsx",
+		// Vitest awaits the archive reader at the test boundary.
+		// oxlint-disable-next-line effecttsgo/async-function
 	])("rejects unsupported source path %s in the writer and reader", async (path) => {
 		expectWriteReason(
 			{ manifest: fixture.manifest, files: { [path]: new Uint8Array(0) } },
@@ -565,6 +600,8 @@ describe("plugin archive", () => {
 		);
 	});
 
+	// Vitest awaits the archive reader at the test boundary.
+	// oxlint-disable-next-line effecttsgo/async-function
 	it("rejects a compiled client with a non-canonical file path", async () => {
 		const file = artifactFile(compiledClientFixture, "plugin.js");
 		const compiledClient = { ...compiledClientFixture, files: [{ ...file, name: "../plugin.js" }] };
@@ -579,6 +616,8 @@ describe("plugin archive", () => {
 		);
 	});
 
+	// Vitest awaits the archive reader at the test boundary.
+	// oxlint-disable-next-line effecttsgo/async-function
 	it("rejects compiled client bytes over the artifact limit in the writer and reader", async () => {
 		const contents = new Uint8Array(PLUGIN_ARCHIVE_LIMITS.maxCompiledClientBytes + 1);
 		const file = { contents, name: "index.html", contentType: "text/html; charset=utf-8" };
@@ -594,6 +633,8 @@ describe("plugin archive", () => {
 		);
 	});
 
+	// Vitest awaits the archive reader at the test boundary.
+	// oxlint-disable-next-line effecttsgo/async-function
 	it("rejects compiled client file counts over the artifact limit in the writer and reader", async () => {
 		const files = Array.from(
 			{ length: PLUGIN_ARCHIVE_LIMITS.maxCompiledClientFiles + 1 },
@@ -615,6 +656,8 @@ describe("plugin archive", () => {
 		);
 	});
 
+	// Vitest awaits the archive reader at the test boundary.
+	// oxlint-disable-next-line effecttsgo/async-function
 	it("rejects incomplete and malformed compiled client metadata", async () => {
 		await expectReason(
 			archive([
@@ -636,6 +679,8 @@ describe("plugin archive", () => {
 		);
 	});
 
+	// Vitest awaits the archive reader at the test boundary.
+	// oxlint-disable-next-line effecttsgo/async-function
 	it("rejects unsupported compiled client output content types", async () => {
 		const originalFile = artifactFile(compiledClientFixture, "plugin.js");
 		const file = {

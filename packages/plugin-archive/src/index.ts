@@ -1,5 +1,3 @@
-import { createHash } from "node:crypto";
-
 import {
 	PluginClientArtifact,
 	PluginClientArtifactMetadata,
@@ -11,6 +9,7 @@ import {
 import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { isPluginSharedSource } from "@ryot-app/contract/modules/plugins/shared-file-policy";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
 import { Effect, Schema, Stream } from "effect";
 import { Unzip, UnzipInflate, UnzipPassThrough, Zip, ZipDeflate } from "fflate";
@@ -165,8 +164,6 @@ const validatePathBytes = (bytes: number) => {
 const isCompiledClientFilePath = (path: string) => path.startsWith(compiledClientFilePrefix);
 const isCompiledBackendFilePath = (path: string) => path.startsWith(compiledBackendFilePrefix);
 
-const sha256 = (bytes: Uint8Array) => createHash("sha256").update(bytes).digest("hex");
-
 const validateCompiledScriptEntry = (entry: string) => {
 	if (canonicalRelativePosixPathIssue(entry) !== null) {
 		throw failure("path-noncanonical");
@@ -249,7 +246,7 @@ const validateCompiledScripts = (
 		if (javascriptBytes.byteLength > PLUGIN_ARCHIVE_LIMITS.maxCompiledBackendJavascriptBytes) {
 			throw failure("compiled-script-bytes-exceeded");
 		}
-		const hash = sha256(javascriptBytes);
+		const hash = sha256Hex(javascriptBytes);
 		const priorBytes = compiledFiles.get(hash);
 		if (priorBytes !== undefined && !bytesEqual(priorBytes, javascriptBytes)) {
 			throw failure("compiled-script-invalid");
@@ -678,7 +675,7 @@ class PluginArchiveReader {
 		let manifest: PluginArchivePackage["manifest"];
 		try {
 			const text = decoder.decode(concat(manifestEntry.chunks, manifestEntry.bytes));
-			manifest = Schema.decodeUnknownSync(PluginManifest)(JSON.parse(text));
+			manifest = Schema.decodeUnknownSync(Schema.fromJsonString(PluginManifest))(text);
 		} catch {
 			throw failure("manifest-invalid");
 		}
@@ -744,9 +741,9 @@ class PluginArchiveReader {
 
 		let metadata: typeof PluginArchiveCompiledScriptsMetadata.Type;
 		try {
-			metadata = Schema.decodeUnknownSync(PluginArchiveCompiledScriptsMetadata)(
-				JSON.parse(decoder.decode(concat(metadataEntry.chunks, metadataEntry.bytes))),
-			);
+			metadata = Schema.decodeUnknownSync(
+				Schema.fromJsonString(PluginArchiveCompiledScriptsMetadata),
+			)(decoder.decode(concat(metadataEntry.chunks, metadataEntry.bytes)));
 		} catch {
 			throw failure("compiled-script-invalid");
 		}
@@ -773,7 +770,7 @@ class PluginArchiveReader {
 
 			const javascriptPath = `${compiledBackendFilePrefix}${hash}.js`;
 			const javascriptBytes = compiledBackendFiles.get(javascriptPath);
-			if (javascriptBytes === undefined || sha256(javascriptBytes) !== hash) {
+			if (javascriptBytes === undefined || sha256Hex(javascriptBytes) !== hash) {
 				throw failure("compiled-script-invalid");
 			}
 			expectedFiles.add(javascriptPath);
@@ -811,9 +808,9 @@ class PluginArchiveReader {
 		}
 		let metadata: typeof PluginClientArtifactArchiveMetadata.Type;
 		try {
-			metadata = Schema.decodeUnknownSync(PluginClientArtifactArchiveMetadata)(
-				JSON.parse(decoder.decode(concat(metadataEntry.chunks, metadataEntry.bytes))),
-			);
+			metadata = Schema.decodeUnknownSync(
+				Schema.fromJsonString(PluginClientArtifactArchiveMetadata),
+			)(decoder.decode(concat(metadataEntry.chunks, metadataEntry.bytes)));
 		} catch {
 			throw failure("compiled-client-invalid");
 		}
@@ -871,7 +868,7 @@ export const writePluginArchive = (pluginPackage: PluginArchiveInput) => {
 				scripts: compiledScripts.scripts.map(({ entry, format, javascript }) => ({
 					entry,
 					format,
-					hash: sha256(encoder.encode(javascript)),
+					hash: sha256Hex(encoder.encode(javascript)),
 				})),
 			};
 			const compiledBackendEntries: Array<readonly [string, Uint8Array]> = [
@@ -917,20 +914,9 @@ export const writePluginArchive = (pluginPackage: PluginArchiveInput) => {
 export const readPluginArchive = (
 	input: Uint8Array | AsyncIterable<Uint8Array>,
 ): Effect.Effect<PluginArchivePackage, PluginArchiveError> =>
-	Effect.tryPromise({
-		catch: normalizeError,
-		try: async () => {
-			if (input instanceof Uint8Array) {
-				return readPluginArchiveBytes(input);
-			}
-			const reader = new PluginArchiveReader();
-			for await (const chunk of input) {
-				reader.push(chunk, false);
-			}
-			reader.push(new Uint8Array(0), true);
-			return reader.finish();
-		},
-	});
+	input instanceof Uint8Array
+		? Effect.try({ catch: normalizeError, try: () => readPluginArchiveBytes(input) })
+		: readPluginArchiveStream(Stream.fromAsyncIterable(input, normalizeError));
 
 export const readPluginArchiveStream = <E>(
 	input: Stream.Stream<Uint8Array, E>,

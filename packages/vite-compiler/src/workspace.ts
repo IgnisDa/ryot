@@ -1,3 +1,5 @@
+// Staging checks native filesystem path semantics, including Windows absolute paths.
+// oxlint-disable-next-line effecttsgo/node-builtin-import
 import { isAbsolute, join, relative, resolve, win32 } from "node:path";
 
 import { Effect, FileSystem, Result } from "effect";
