@@ -144,12 +144,20 @@ const probeHealth = async () => {
 	return { ok, latencyMs: performance.now() - startedAt };
 };
 
+// Interactive search shares the sandbox with bulk imports, so a search that outlasts the request
+// timeout is a measured failure, not a harness fault.
 const probeSearch = async () => {
+	const startedAt = performance.now();
 	const response = await call("/provider-entities/search", userHeaders(state.other), {
 		page: 1,
 		pageSize: 10,
 		query: "admission",
 		providerId: state.other.bookProviderId,
+	}).catch((error) => {
+		if (error?.name !== "TimeoutError") {
+			throw error;
+		}
+		return { status: null, latencyMs: performance.now() - startedAt };
 	});
 	return { ok: response.status === 200, latencyMs: response.latencyMs };
 };
