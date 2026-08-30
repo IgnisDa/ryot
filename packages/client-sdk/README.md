@@ -8,8 +8,7 @@ sites. It is bundled into each plugin artifact, so it avoids animation and gestu
 The plugin bootstrap validates embedded artifact metadata before registering a `message` listener. It
 accepts exactly one `MessagePort` from `window.parent`; all other sources and port counts are ignored.
 `PluginBridgeInit` validates protocol markers and its artifact hash must match the embedded metadata.
-`PluginBridgeReady` reports the embedded metadata, not values echoed from init. The bridge and client
-compiler versions are currently exactly 1.
+`PluginBridgeReady` reports the embedded metadata, not values echoed from init.
 
 The port carries no bearer token, server URL, user identity, plugin identity, or installation
 identity. Reserved `Mod+K` and `Mod+Shift+Space` shortcuts are forwarded as semantic kernel messages,
@@ -26,6 +25,12 @@ non-`Blob` source fails with `invalid-input`. There is no cancellation; disposal
 `assets.resolve` accepts 1 to 64 managed local or S3 locators and returns signed URLs with expiry.
 Remote images do not use it. Disposing a bridge session aborts pending resolution, but an issued URL
 remains valid until expiry. Failures expose only `asset-failed`.
+
+`screens.openProviderSearch` is the only provider-add screen capability. It carries the configured
+entity-schema owner and slug, plus an optional initial query; it does not expose a generic native
+screen method. After a successful import, the host sends one narrow `page-refresh` signal.
+Client pages can register their current source refetch with `usePageRefresh`. Task 07 replaces this
+signal with the shared mutation refresh path.
 
 ## Entity Interest
 

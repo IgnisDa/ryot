@@ -1,6 +1,7 @@
 import type {
 	PluginLogicalLocation,
 	PluginPageSearchUpdate,
+	PluginBridgeProviderSearchScreen,
 } from "@ryot-app/client-plugin-contract";
 import { useRyot } from "@ryot-app/client-sdk/react";
 import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
@@ -42,7 +43,10 @@ export function mergePageSearch(current: string, update: PluginPageSearchUpdate)
 
 export function ClientPageHost(props: {
 	readonly title: string;
+	readonly inert?: boolean;
+	readonly pageRefreshToken?: number;
 	readonly prepared: PreparedClientPage;
+	readonly onProviderSearch?: (request: PluginBridgeProviderSearchScreen) => void;
 }) {
 	const ryot = useRyot();
 	const edge = useEdge();
@@ -140,6 +144,7 @@ export function ClientPageHost(props: {
 			key={owner}
 			theme={theme}
 			page={context}
+			inert={props.inert}
 			viewport={viewport}
 			chromeLeading={chromeLeading}
 			sourceHash={identity.graphHash}
@@ -151,12 +156,14 @@ export function ClientPageHost(props: {
 			onRenewArtifactSession={renewSession}
 			onCreateArtifactSession={createSession}
 			onRevokeArtifactSession={revokeSession}
+			pageRefreshToken={props.pageRefreshToken}
 			onKernelShortcut={chrome.onKernelShortcut}
 			onNavigateBack={() => router.history.back()}
 			onStaleSession={() => void router.invalidate()}
 			onScreenState={(state) => screen.publish(owner, state)}
-			artifactSessionScopeKey={`${scope.serverUrl}\0${scope.userId}`}
 			onHeader={(publication) => header.publish(owner, publication)}
+			artifactSessionScopeKey={`${scope.serverUrl}\0${scope.userId}`}
+			onProviderSearch={(request) => props.onProviderSearch?.(request)}
 			onNavigate={(request) => void navigate({ href: request.href, replace: request.replace })}
 			title={rendererContributor?.kind === "plugin" ? rendererContributor.pluginSlug : props.title}
 			onUpload={(request, signal) =>
