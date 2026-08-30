@@ -35,7 +35,7 @@ const collectionPolicyContext = (entitySchemaSlug: string) => {
 	return context;
 };
 
-it("awaits membership for a referenced global media entity", () => {
+it("awaits membership for a referenced media entity", () => {
 	const changes: JsonValue[] = [];
 	let queryIndex = 0;
 	const host = defineSandboxTestHost(manifest, {
@@ -73,7 +73,7 @@ it("awaits membership for a referenced global media entity", () => {
 	);
 });
 
-it("does not add membership for a user-scoped media entity", () => {
+it("does not add membership when the media entity is not found", () => {
 	let changeCalls = 0;
 	let queryIndex = 0;
 	const host = defineSandboxTestHost(manifest, {
@@ -99,7 +99,7 @@ it("does not add membership for a user-scoped media entity", () => {
 	);
 });
 
-it("awaits membership for an eligible global collection member", () => {
+it("awaits membership for an eligible collection member", () => {
 	const changes: JsonValue[] = [];
 	let queryIndex = 0;
 	const host = defineSandboxTestHost(manifest, {

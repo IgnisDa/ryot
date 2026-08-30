@@ -6,10 +6,11 @@ import {
 	quoteSqlString,
 } from "./shared";
 
-export const buildUserToEntityInLibraryMigrationSql = (
-	inLibraryRelationshipSchema: QualifiedSchema,
-	libraryEntitySchema: QualifiedSchema,
-) => `
+export const buildUserToEntityInLibraryMigrationSql = (input: {
+	inLibraryRelationshipSchema: QualifiedSchema;
+	libraryEntitySchema: QualifiedSchema;
+	libraryEligibleEntitySchemaSlugs: ReadonlyArray<string>;
+}) => `
 DO $$
 DECLARE
 	batch_size          constant int := 10000;
@@ -48,15 +49,16 @@ BEGIN
 			ute.user_id,
 			ute.entity_id,
 			lib.id,
-			${quoteSqlString(inLibraryRelationshipSchema.slug)},
-			${quoteNullableSqlString(inLibraryRelationshipSchema.pluginId)},
+			${quoteSqlString(input.inLibraryRelationshipSchema.slug)},
+			${quoteNullableSqlString(input.inLibraryRelationshipSchema.pluginId)},
 			'{}'::jsonb,
 			ute.created_on
 		FROM "user_to_entity" ute
-		INNER JOIN "entity" src ON src.id = ute.entity_id AND src.user_id IS NULL
+		INNER JOIN "entity" src ON src.id = ute.entity_id
+			AND src.entity_schema_slug IN (${input.libraryEligibleEntitySchemaSlugs.map(quoteSqlString).join(", ")})
 		INNER JOIN "entity" lib ON lib.user_id = ute.user_id
-			AND lib.entity_schema_slug = ${quoteSqlString(libraryEntitySchema.slug)}
-			AND lib.entity_schema_plugin_id IS NOT DISTINCT FROM ${quoteNullableSqlString(libraryEntitySchema.pluginId)}
+			AND lib.entity_schema_slug = ${quoteSqlString(input.libraryEntitySchema.slug)}
+			AND lib.entity_schema_plugin_id IS NOT DISTINCT FROM ${quoteNullableSqlString(input.libraryEntitySchema.pluginId)}
 		WHERE ute.id::text > cursor_id
 		  AND ute.id::text <= next_cursor_id
 		ON CONFLICT DO NOTHING;
