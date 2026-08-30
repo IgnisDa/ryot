@@ -7,7 +7,7 @@ import {
 	type PluginClientArtifact,
 } from "@ryot-app/client-plugin-contract";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { unzipSync, Zip, zipSync, ZipDeflate } from "fflate";
 
 import type { PluginArchiveErrorReason, PluginArchivePackage } from "./index";
@@ -321,7 +321,9 @@ describe("plugin archive", () => {
 				scriptJavascriptBytes,
 			);
 			expect(
-				JSON.parse(new TextDecoder().decode(entries["compiled-backend/metadata.json"])),
+				yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(
+					new TextDecoder().decode(entries["compiled-backend/metadata.json"]),
+				),
 			).toEqual({ scripts: [{ format: 1, entry: scriptEntry, hash: scriptJavascriptHash }] });
 
 			const result = yield* readPluginArchive(first);
@@ -430,7 +432,9 @@ describe("plugin archive", () => {
 				"compiled-client/metadata.json",
 			]);
 			expect(
-				JSON.parse(new TextDecoder().decode(entries["compiled-client/metadata.json"])),
+				yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(
+					new TextDecoder().decode(entries["compiled-client/metadata.json"]),
+				),
 			).toEqual({
 				hash: compiledClient.hash,
 				format: compiledClient.format,

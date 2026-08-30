@@ -7,7 +7,7 @@ import {
 	savedViewPageContext,
 } from "@ryot-app/client-sdk/testing";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import EntityBrowserPage from "./entity-browser";
 import {
@@ -46,6 +46,7 @@ const testClock = () => {
 	clocks.push(clock);
 	return clock;
 };
+const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
 const browserRequest = (page: ReturnType<typeof mountPluginPage>, index: number) =>
 	waitFor(() => expect(page.queryRequests("entityBrowser").length).toBeGreaterThan(index)).then(
@@ -309,7 +310,7 @@ describe("entity browser", () => {
 
 			yield* Effect.promise(() => clock.advance(1));
 			const request = yield* Effect.promise(() => browserRequest(page, 1));
-			expect(JSON.stringify(request.document)).toContain("pir");
+			expect(yield* encodeJson(request.document)).toContain("pir");
 			replyBrowser(page, request.requestId, [browserRow("book-2", "Pirate Cinema")]);
 			yield* Effect.promise(() =>
 				waitFor(() =>
@@ -396,7 +397,7 @@ describe("entity browser", () => {
 				),
 			);
 			const request = yield* Effect.promise(() => browserRequest(page, 1));
-			expect(JSON.stringify(request.document)).toContain("external");
+			expect(yield* encodeJson(request.document)).toContain("external");
 		}),
 	);
 
@@ -414,7 +415,7 @@ describe("entity browser", () => {
 
 			fireEvent.click(screen.getByRole("button", { name: "Load more results" }));
 			const second = yield* Effect.promise(() => browserRequest(page, 1));
-			expect(JSON.stringify(second.document)).toContain("cursor-1");
+			expect(yield* encodeJson(second.document)).toContain("cursor-1");
 			replyBrowser(page, second.requestId, [browserRow("book-2", "Two")], true, "cursor-2");
 			yield* Effect.promise(() =>
 				waitFor(() => expect(page.container?.textContent).toContain("2+ results")),
@@ -423,7 +424,7 @@ describe("entity browser", () => {
 
 			fireEvent.click(screen.getByRole("button", { name: "Load more results" }));
 			const third = yield* Effect.promise(() => browserRequest(page, 2));
-			expect(JSON.stringify(third.document)).toContain("cursor-2");
+			expect(yield* encodeJson(third.document)).toContain("cursor-2");
 		}),
 	);
 
@@ -473,7 +474,7 @@ describe("entity browser", () => {
 				"fresh-1",
 			);
 			const replaySecond = yield* Effect.promise(() => browserRequest(page, 3));
-			expect(JSON.stringify(replaySecond.document)).toContain("fresh-1");
+			expect(yield* encodeJson(replaySecond.document)).toContain("fresh-1");
 			replyBrowser(
 				page,
 				replaySecond.requestId,

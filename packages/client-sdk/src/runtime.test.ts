@@ -75,7 +75,10 @@ const openRuntime = () => {
 	return delay().then(() => ({ channel, runtime, messages }));
 };
 const query = (runtime: ReturnType<typeof createPluginRuntime>) =>
-	runtime.client.data.query({ document, decode: Result.succeed });
+	runtime.client.data.query({
+		document,
+		decode: (response): Result.Result<unknown, RyotClientError> => Result.succeed(response),
+	});
 const sent = (messages: unknown[], type: string) =>
 	messages.filter(
 		(message) =>
@@ -101,7 +104,7 @@ describe("plugin Effect request engine", () => {
 				bridgeVersion: metadata.bridgeVersion,
 				compilerVersion: metadata.compilerVersion,
 			});
-			const first = Effect.runPromise(query(runtime));
+			const first = yield* Effect.forkChild(query(runtime), { startImmediately: true });
 			yield* Effect.promise(() => delay());
 			expect(sent(messages, "ryotql-request")).toContainEqual({
 				document,
@@ -114,10 +117,12 @@ describe("plugin Effect request engine", () => {
 				requestId: "ryotql-1",
 				response: { data: {} },
 			});
-			yield* Effect.promise(() => expect(first).resolves.toEqual({ data: {} }));
+			expect(yield* Fiber.join(first)).toEqual({ data: {} });
 			yield* Effect.promise(() => delay());
 			expect(sent(messages, "ryotql-cancel")).toEqual([]);
-			const second = Effect.runPromise(query(runtime));
+			const second = yield* Effect.forkChild(Effect.result(query(runtime)), {
+				startImmediately: true,
+			});
 			yield* Effect.promise(() => delay());
 			channel.port1.postMessage({
 				outcome: "failure",
@@ -125,14 +130,14 @@ describe("plugin Effect request engine", () => {
 				requestId: "ryotql-2",
 				reason: "query-failed",
 			});
-			yield* Effect.promise(() => expect(second).rejects.toMatchObject({ reason: "query-failed" }));
+			expect(yield* Fiber.join(second)).toMatchObject({ failure: { reason: "query-failed" } });
 		}),
 	);
 
 	it.live("cancels an interrupted query exactly once and ignores its late result", () =>
 		Effect.gen(function* () {
 			const { channel, runtime, messages } = yield* Effect.promise(() => openRuntime());
-			const fiber = Effect.runFork(query(runtime));
+			const fiber = yield* Effect.forkChild(query(runtime), { startImmediately: true });
 			yield* Effect.promise(() => delay());
 			yield* Fiber.interrupt(fiber);
 			yield* Effect.promise(() => delay());
@@ -145,7 +150,7 @@ describe("plugin Effect request engine", () => {
 				requestId: "ryotql-1",
 				response: { data: {} },
 			});
-			const next = Effect.runPromise(query(runtime));
+			const next = yield* Effect.forkChild(query(runtime), { startImmediately: true });
 			yield* Effect.promise(() => delay());
 			expect(sent(messages, "ryotql-request")).toContainEqual({
 				document,
@@ -158,14 +163,16 @@ describe("plugin Effect request engine", () => {
 				requestId: "ryotql-2",
 				response: { data: {} },
 			});
-			yield* Effect.promise(() => expect(next).resolves.toEqual({ data: {} }));
+			expect(yield* Fiber.join(next)).toEqual({ data: {} });
 		}),
 	);
 
 	it.live("cancels interrupted asset resolution and retains its correlation", () =>
 		Effect.gen(function* () {
 			const { channel, runtime, messages } = yield* Effect.promise(() => openRuntime());
-			const fiber = Effect.runFork(runtime.client.assets.resolve([asset]));
+			const fiber = yield* Effect.forkChild(runtime.client.assets.resolve([asset]), {
+				startImmediately: true,
+			});
 			yield* Effect.promise(() => delay());
 			yield* Fiber.interrupt(fiber);
 			yield* Effect.promise(() => delay());
@@ -178,7 +185,9 @@ describe("plugin Effect request engine", () => {
 				requestId: "asset-1",
 				resolutions: [resolution],
 			});
-			const next = Effect.runPromise(runtime.client.assets.resolve([asset]));
+			const next = yield* Effect.forkChild(runtime.client.assets.resolve([asset]), {
+				startImmediately: true,
+			});
 			yield* Effect.promise(() => delay());
 			channel.port1.postMessage({
 				outcome: "success",
@@ -186,35 +195,35 @@ describe("plugin Effect request engine", () => {
 				requestId: "asset-2",
 				resolutions: [resolution],
 			});
-			yield* Effect.promise(() => expect(next).resolves.toEqual([resolution]));
+			expect(yield* Fiber.join(next)).toEqual([resolution]);
 		}),
 	);
 
 	it.live("does not introduce a cancel wire message for operations, storage, or uploads", () =>
 		Effect.gen(function* () {
 			const { runtime, messages } = yield* Effect.promise(() => openRuntime());
-			const operation = Effect.runFork(
+			const operation = yield* Effect.forkChild(
 				runtime.client.operations.invoke({
 					input: {},
 					slug: "greet",
 					pluginSlug: "fixture",
 					output: Schema.String,
 				}),
+				{ startImmediately: true },
 			);
-			const storage = Effect.runFork(runtime.client.storage.get("fixture", "key"));
-			const upload = Effect.runFork(
+			const storage = yield* Effect.forkChild(runtime.client.storage.get("fixture", "key"), {
+				startImmediately: true,
+			});
+			const upload = yield* Effect.forkChild(
 				runtime.client.uploads.uploadTemporary({
 					fileName: "data.txt",
 					contentType: "text/plain",
 					source: new Blob(["data"]),
 				}),
+				{ startImmediately: true },
 			);
 			yield* Effect.promise(() => delay());
-			yield* Effect.promise(() =>
-				Promise.all(
-					[operation, storage, upload].map((fiber) => Effect.runPromise(Fiber.interrupt(fiber))),
-				),
-			);
+			yield* Effect.forEach([operation, storage, upload], Fiber.interrupt);
 			expect(sent(messages, "operation-request")).toHaveLength(1);
 			expect(sent(messages, "storage-request")).toHaveLength(1);
 			expect(sent(messages, "upload-request")).toHaveLength(1);
@@ -228,12 +237,13 @@ describe("plugin Effect request engine", () => {
 		Effect.gen(function* () {
 			const { channel, runtime, messages } = yield* Effect.promise(() => openRuntime());
 			const source = new Blob(["id,title"], { type: "text/csv" });
-			const upload = Effect.runPromise(
+			const upload = yield* Effect.forkChild(
 				runtime.client.uploads.uploadTemporary({
 					source,
 					fileName: "items.csv",
 					contentType: "text/csv",
 				}),
+				{ startImmediately: true },
 			);
 			yield* Effect.promise(() => delay());
 			const request = sent(messages, "upload-request")[0];
@@ -242,23 +252,23 @@ describe("plugin Effect request engine", () => {
 				fileName: "items.csv",
 				contentType: "text/csv",
 			});
-			if (
-				!request ||
-				typeof request !== "object" ||
-				!("source" in request) ||
-				!(request.source instanceof Blob)
-			) {
+			const uploadSource =
+				request && typeof request === "object" && "source" in request ? request.source : undefined;
+			if (!(uploadSource instanceof Blob)) {
 				throw new Error("Expected Blob upload");
 			}
-			expect(yield* Effect.promise(() => request.source.text())).toBe("id,title");
+			expect(yield* Effect.promise(() => uploadSource.text())).toBe("id,title");
 			channel.port1.postMessage({
 				outcome: "success",
 				type: "upload-result",
 				requestId: "upload-1",
 				token: { token: "upload-token", expiresAt: "2026-01-01T00:15:00.000Z" },
 			});
-			yield* Effect.promise(() => expect(upload).resolves.toMatchObject({ token: "upload-token" }));
-			const storage = Effect.runPromise(runtime.client.storage.get("fixture", "key"));
+			expect(yield* Fiber.join(upload)).toMatchObject({ token: "upload-token" });
+			const storage = yield* Effect.forkChild(
+				Effect.result(runtime.client.storage.get("fixture", "key")),
+				{ startImmediately: true },
+			);
 			yield* Effect.promise(() => delay());
 			channel.port1.postMessage({
 				reason: "quota",
@@ -266,14 +276,16 @@ describe("plugin Effect request engine", () => {
 				type: "storage-result",
 				requestId: "storage-2",
 			});
-			yield* Effect.promise(() => expect(storage).rejects.toMatchObject({ reason: "quota" }));
+			expect(yield* Fiber.join(storage)).toMatchObject({ failure: { reason: "quota" } });
 		}),
 	);
 
 	it.live("fails all pending requests on replacement and disposal, ignoring late responses", () =>
 		Effect.gen(function* () {
 			const { channel, runtime } = yield* Effect.promise(() => openRuntime());
-			const pending = Effect.runPromise(query(runtime));
+			const pending = yield* Effect.forkChild(Effect.result(query(runtime)), {
+				startImmediately: true,
+			});
 			yield* Effect.promise(() => delay());
 			channel.port1.postMessage({
 				type: "document",
@@ -288,8 +300,10 @@ describe("plugin Effect request engine", () => {
 					location: { search: "", path: "/new", kind: "route" },
 				},
 			});
-			yield* Effect.promise(() => expect(pending).rejects.toMatchObject({ reason: "disposed" }));
-			const next = Effect.runPromise(query(runtime));
+			expect(yield* Fiber.join(pending)).toMatchObject({ failure: { reason: "disposed" } });
+			const next = yield* Effect.forkChild(Effect.result(query(runtime)), {
+				startImmediately: true,
+			});
 			yield* Effect.promise(() => delay());
 			runtime.dispose();
 			channel.port1.postMessage({
@@ -298,22 +312,25 @@ describe("plugin Effect request engine", () => {
 				requestId: "ryotql-2",
 				response: { data: {} },
 			});
-			yield* Effect.promise(() => expect(next).rejects.toMatchObject({ reason: "disposed" }));
-			expect(yield* Effect.flip(query(runtime))).toMatchObject({ reason: "disposed" });
+			expect(yield* Fiber.join(next)).toMatchObject({ failure: { reason: "disposed" } });
+			expect(yield* Effect.result(query(runtime))).toMatchObject({
+				failure: { reason: "disposed" },
+			});
 		}),
 	);
 
 	it.live("fails the session at the aggregate pending limit", () =>
 		Effect.gen(function* () {
 			const { runtime, messages } = yield* Effect.promise(() => openRuntime());
-			const fibers = Array.from({ length: CLIENT_BRIDGE_MAX_PENDING_REQUESTS }, () =>
-				Effect.runFork(query(runtime)),
+			const fibers = yield* Effect.forEach(
+				Array.from({ length: CLIENT_BRIDGE_MAX_PENDING_REQUESTS }),
+				() => Effect.forkChild(Effect.result(query(runtime)), { startImmediately: true }),
 			);
-			const overflow = Effect.runPromise(query(runtime));
-			yield* Effect.promise(() => expect(overflow).rejects.toMatchObject({ reason: "protocol" }));
-			const results = yield* Effect.promise(() =>
-				Promise.all(fibers.map((fiber) => Effect.runPromise(Fiber.await(fiber)))),
-			);
+			const overflow = yield* Effect.forkChild(Effect.result(query(runtime)), {
+				startImmediately: true,
+			});
+			expect(yield* Fiber.join(overflow)).toMatchObject({ failure: { reason: "protocol" } });
+			const results = yield* Effect.forEach(fibers, Fiber.join);
 			yield* Effect.promise(() => delay());
 			expect(results).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS);
 			expect(sent(messages, "ryotql-request")).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS);
@@ -326,13 +343,16 @@ describe("plugin Effect request engine", () => {
 	it.live("classifies malformed host results as protocol failures", () =>
 		Effect.gen(function* () {
 			const { channel, runtime } = yield* Effect.promise(() => openRuntime());
-			const pending = Effect.runPromise(
-				runtime.client.operations.invoke({
-					input: null,
-					slug: "greet",
-					pluginSlug: "fixture",
-					output: Schema.String,
-				}),
+			const pending = yield* Effect.forkChild(
+				Effect.result(
+					runtime.client.operations.invoke({
+						input: null,
+						slug: "greet",
+						pluginSlug: "fixture",
+						output: Schema.String,
+					}),
+				),
+				{ startImmediately: true },
 			);
 			yield* Effect.promise(() => delay());
 			channel.port1.postMessage({
@@ -341,7 +361,9 @@ describe("plugin Effect request engine", () => {
 				requestId: "operation-1",
 				value: { invalid: undefined },
 			});
-			yield* Effect.promise(() => expect(pending).rejects.toEqual(new RyotClientError("protocol")));
+			expect(yield* Fiber.join(pending)).toMatchObject({
+				failure: new RyotClientError("protocol"),
+			});
 		}),
 	);
 
@@ -350,13 +372,14 @@ describe("plugin Effect request engine", () => {
 			const { channel, runtime, messages } = yield* Effect.promise(() => openRuntime());
 			let hints = 0;
 			runtime.client.mutationCompleted.subscribe(() => hints++);
-			const operation = Effect.runPromise(
+			const operation = yield* Effect.forkChild(
 				runtime.client.operations.invoke({
 					input: {},
 					slug: "greet",
 					pluginSlug: "fixture",
 					output: Schema.String,
 				}),
+				{ startImmediately: true },
 			);
 			yield* Effect.promise(() => delay());
 			expect(sent(messages, "operation-request")).toEqual([
@@ -374,12 +397,15 @@ describe("plugin Effect request engine", () => {
 				type: "operation-result",
 				requestId: "operation-1",
 			});
-			yield* Effect.promise(() => expect(operation).resolves.toBe("hello"));
-			const membership = Effect.runPromise(
-				runtime.client.collections.removeMembership({
-					entityId: "entity-1",
-					collectionId: "collection-1",
-				}),
+			expect(yield* Fiber.join(operation)).toBe("hello");
+			const membership = yield* Effect.forkChild(
+				Effect.result(
+					runtime.client.collections.removeMembership({
+						entityId: "entity-1",
+						collectionId: "collection-1",
+					}),
+				),
+				{ startImmediately: true },
 			);
 			yield* Effect.promise(() => delay());
 			expect(sent(messages, "collection-request")).toContainEqual({
@@ -394,9 +420,9 @@ describe("plugin Effect request engine", () => {
 				requestId: "collection-2",
 				reason: "collection-failed",
 			});
-			yield* Effect.promise(() =>
-				expect(membership).rejects.toMatchObject({ reason: "collection-failed" }),
-			);
+			expect(yield* Fiber.join(membership)).toMatchObject({
+				failure: { reason: "collection-failed" },
+			});
 			expect(hints).toBe(1);
 		}),
 	);

@@ -959,7 +959,7 @@ describe("client page routes", () => {
 		Effect.gen(function* () {
 			const view = mount({ entry: "/fixture?keep=1&dialog=open" });
 			const bridge = connectFrame(
-				yield* Effect.promise(() => screen.findByTitle("fixture plugin")),
+				yield* Effect.promise(() => screen.findByTitle<HTMLIFrameElement>("fixture plugin")),
 			);
 			yield* Effect.promise(() => waitFor(() => expect(bridge.messages).toHaveLength(1)));
 			const initialNavigation = Schema.decodeUnknownSync(PluginBridgeLocation)(bridge.messages[0]);
