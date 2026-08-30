@@ -27,13 +27,14 @@ import { describe, expect, it } from "vitest";
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { ClientPagesApi } from "#/api/client-pages";
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
-import { ClientPageSessions } from "#/modules/client-pages/sessions";
+import { ClientPageFreshness } from "#/modules/client-pages/freshness";
 import { EntitiesService } from "#/modules/entities/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
 import { PluginOperationsService } from "#/modules/plugins/operations";
 import { PluginQueriesService } from "#/modules/plugins/queries";
+import type { ProviderAddService } from "#/modules/provider-add/service";
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
 import {
@@ -49,6 +50,7 @@ import {
 	ServerStub,
 	catalog,
 	makeAuthStub,
+	makeProviderAddStub,
 	makePublicApiStub,
 	makeStorageStub,
 	theme,
@@ -81,16 +83,20 @@ const preparedFor = (
 			apiVersion: CLIENT_API_VERSION,
 			compilerVersion: CLIENT_COMPILER_VERSION,
 			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
+			grant: {
+				grantId: `grant-${pluginId}`,
+				expiresAt: "2030-01-01T00:00:00.000Z",
+				src: `https://artifacts.example/artifact-${pluginId}/index.html`,
+			},
 		},
 		identity: {
 			target,
 			pluginId,
 			exportName: "page",
 			kind: "plugin-page",
-			buildId: `build-${pluginId}`,
-			graphHash: `graph-${pluginId}`,
 			sourceHash: `source-${pluginId}`,
 			artifactHash: `artifact-${pluginId}`,
+			artifactKey: `artifact-key-${pluginId}`,
 			installationId: `installation-${pluginId}`,
 			contributors: [
 				{
@@ -124,22 +130,26 @@ const preparedSavedView = (savedViewId: SavedViewId): PreparedClientPage => {
 		path: "/",
 		search: "",
 		kind: "plugin-route",
-		pluginId: "plugin-1",
+		pluginSlug: PluginSlug.make("fixture"),
 	});
 	return {
 		...prepared,
-		context: { ...prepared.context, target: { savedViewId, kind: "saved-view" } },
+		context: {
+			...prepared.context,
+			view: { icon: "list", name: "Fixture View" },
+			renderer: { kind: "kernel", name: "dashboard" },
+			target: { slug: savedViewId, kind: "saved-view" },
+		},
 		identity: {
 			savedViewId,
 			viewRevision: 1,
 			kind: "kernel-saved-view",
 			rendererName: "dashboard",
 			sourceHash: "source-plugin-1",
-			buildId: prepared.identity.buildId,
-			graphHash: prepared.identity.graphHash,
-			target: { savedViewId, kind: "saved-view" },
+			artifactKey: prepared.identity.artifactKey,
 			artifactHash: prepared.identity.artifactHash,
 			contributors: prepared.identity.contributors,
+			target: { slug: savedViewId, kind: "saved-view" },
 			operationTargets: prepared.identity.operationTargets,
 		},
 	};
@@ -149,29 +159,35 @@ function mount(options: {
 	readonly entry: string;
 	readonly entries?: PluginClientCatalog;
 	readonly auth?: ReturnType<typeof makeAuthStub>;
+	readonly storage?: ClientStorage["Service"];
+	readonly loadProviders?: ProviderAddService["Service"]["loadProviders"];
 	readonly prepare?: ClientPagesApi["Service"]["prepare"];
-	readonly renew?: ClientPageSessions["Service"]["renew"];
+	readonly check?: ClientPageFreshness["Service"]["check"];
 }) {
 	const targets: ClientPageTarget[] = [];
-	const sessions: PreparedClientPage["identity"][] = [];
-	const revoked: string[] = [];
 	const operations: Parameters<PluginOperationsService["Service"]["invoke"]>[0][] = [];
+	let catalogLoads = 0;
+	const entries = options.entries ?? catalog;
 	const prepare: ClientPagesApi["Service"]["prepare"] =
 		options.prepare ??
 		((_scope, request) => {
 			targets.push(request.payload.target);
 			const target = request.payload.target;
 			if (target.kind === "saved-view") {
-				return Effect.succeed(preparedSavedView(target.savedViewId));
+				return Effect.succeed(preparedSavedView(SavedViewId.make(target.slug)));
 			}
-			const pluginId = target.kind === "plugin-route" ? target.pluginId : "plugin-1";
+			const pluginId =
+				target.kind === "plugin-route"
+					? (entries.find((entry) => entry.slug === target.pluginSlug)?.pluginId ?? "plugin-1")
+					: "plugin-1";
 			return Effect.succeed(preparedFor(target, pluginId));
 		});
-	const entries = options.entries ?? catalog;
 	const events = makePluginCatalogEventsTestLayer();
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
-			ProviderAddRouteStubs,
+			options.loadProviders
+				? makeProviderAddStub({ loadProviders: options.loadProviders })
+				: ProviderAddRouteStubs,
 			ImportsRouteStubs,
 			IntegrationRouteStubs,
 			NotificationChannelRouteStubs,
@@ -183,27 +199,20 @@ function mount(options: {
 			makePublicApiStub(),
 			KernelApiTestLayer,
 			events.layer,
-			Layer.succeed(PluginCatalogService, { load: () => Effect.succeed(entries) }),
+			Layer.succeed(PluginCatalogService, {
+				load: () =>
+					Effect.sync(() => {
+						catalogLoads += 1;
+						return entries;
+					}),
+			}),
 			NavigationRouteStubs,
 			CustomizeRouteStubs,
 			Layer.succeed(ClientPagesApi, {
 				prepare,
-				renewSession: () => Effect.die("not used"),
-				revokeSession: () => Effect.die("not used"),
-				createSession: () => Effect.die("not used"),
+				checkFreshness: () => Effect.succeed({ current: true }),
 			}),
-			Layer.succeed(ClientPageSessions, {
-				renew: options.renew ?? (() => Effect.die("not used")),
-				revoke: (_scope, sessionId) => Effect.sync(() => revoked.push(sessionId)),
-				create: (_scope, identity) => {
-					sessions.push(identity);
-					return Effect.succeed({
-						sessionId: `session-${sessions.length}`,
-						expiresAt: new Date(Date.now() + 600_000).toISOString(),
-						src: `https://artifacts.example/${identity.artifactHash}/index.html`,
-					});
-				},
-			}),
+			Layer.succeed(ClientPageFreshness, { check: options.check ?? (() => Effect.succeed(true)) }),
 			Layer.succeed(PluginOperationsService, {
 				invoke: (input) => {
 					operations.push(input);
@@ -213,7 +222,9 @@ function mount(options: {
 			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
 		).pipe(
 			Layer.provideMerge(OAuthRouteStubs),
-			Layer.provideMerge(Layer.succeed(ClientStorage, makeStorageStub("fixture"))),
+			Layer.provideMerge(
+				Layer.succeed(ClientStorage, options.storage ?? makeStorageStub("fixture")),
+			),
 		),
 	);
 	const router = getRouter(
@@ -221,7 +232,7 @@ function mount(options: {
 		createMemoryHistory({ initialEntries: [options.entry] }),
 	);
 	const view = render(<RouterProvider router={router} />);
-	return { ...view, events, router, targets, revoked, sessions, operations };
+	return { ...view, events, router, targets, operations, getCatalogLoads: () => catalogLoads };
 }
 
 function connectFrame(frame: HTMLIFrameElement) {
@@ -247,7 +258,14 @@ function connectFrame(frame: HTMLIFrameElement) {
 	if (init === undefined || port === undefined) {
 		throw new Error("Bridge did not connect");
 	}
-	const { mode: _mode, page: _page, safeAreaTop: _top, safeAreaBottom: _bottom, ...ready } = init;
+	const {
+		mode: _mode,
+		page: _page,
+		safeAreaTop: _top,
+		safeAreaBottom: _bottom,
+		documentKey: _documentKey,
+		...ready
+	} = init;
 	port.postMessage(ready);
 	return { init, port, messages };
 }
@@ -256,6 +274,91 @@ const preparationFailure = (reason: ClientPagePreparationError["reason"]) =>
 	Effect.fail(new AuthenticatedApiError({ cause: new ClientPagePreparationError({ reason }) }));
 
 describe("client page routes", () => {
+	it("prepares a saved-view slug without loading a saved-view record", async () => {
+		const view = mount({ entry: "/v/fixture-view" });
+		await waitFor(() =>
+			expect(view.targets).toEqual([{ kind: "saved-view", slug: "fixture-view" }]),
+		);
+	});
+
+	it("uses prepared saved-view metadata and the route slug for local layout", async () => {
+		const layoutKeys: string[] = [];
+		const storage = makeStorageStub("fixture");
+		const view = mount({
+			entry: "/v/fixture-view",
+			loadProviders: () =>
+				Effect.succeed({ items: [], pageInfo: { limit: 100, hasMore: false, nextCursor: null } }),
+			storage: {
+				...storage,
+				getSavedViewLayout: (_scope, slug) =>
+					Effect.sync(() => {
+						layoutKeys.push(slug);
+						return "grid" as const;
+					}),
+			},
+			prepare: (_scope, request) => {
+				const target = request.payload.target;
+				if (target.kind !== "saved-view") {
+					return Effect.die("not used");
+				}
+				const prepared = preparedSavedView(SavedViewId.make("internal-id"));
+				return Effect.succeed({
+					...prepared,
+					context: {
+						...prepared.context,
+						target,
+						renderer: { kind: "kernel", name: "Entity browser" },
+						settings: {
+							pageSize: 20,
+							sortChoices: [],
+							searchFields: [],
+							tableColumns: null,
+							entityIdField: "id",
+							sourceName: "items",
+							defaultLayout: "list",
+							layouts: ["grid", "list"],
+							ownerPluginIdField: "owner",
+							entitySchemaSlugField: "schema",
+							addAction: {
+								type: "provider-search",
+								entitySchemaSlug: "book",
+								ownerPluginId: "plugin-1",
+							},
+						},
+					},
+				});
+			},
+		});
+		const frame = await screen.findByTitle<HTMLIFrameElement>("Fixture View plugin");
+		const bridge = connectFrame(frame);
+		expect(layoutKeys).toEqual(["fixture-view"]);
+		expect(bridge.init.page?.settings).toMatchObject({ defaultLayout: "grid" });
+		expect(view.router.state.location.pathname).toBe("/v/fixture-view");
+		bridge.port.postMessage({
+			entitySchemaSlug: "book",
+			ownerPluginId: "plugin-1",
+			type: "provider-search-screen",
+		});
+		await waitFor(() => expect(view.router.state.location.searchStr).toBe("?add=true"));
+		await screen.findByRole("dialog", { name: "Add from a provider" });
+	});
+
+	it("uses the hydrated parent catalog on plugin navigation", async () => {
+		const view = mount({ entry: "/fixture" });
+		await screen.findByTitle("fixture plugin");
+		expect(view.getCatalogLoads()).toBe(1);
+		await view.router.navigate({ href: "/fixture/details/one" });
+		await waitFor(() =>
+			expect(view.targets.at(-1)).toEqual({
+				search: "",
+				path: "/details/one",
+				kind: "plugin-route",
+				pluginSlug: "fixture",
+			}),
+		);
+		expect(view.getCatalogLoads()).toBe(1);
+	});
+
 	it("renders the selected home view at the active workspace URL through one page host", async () => {
 		const savedViewId = SavedViewId.make("home-view-1");
 		const view = mount({
@@ -266,7 +369,9 @@ describe("client page routes", () => {
 		const bridge = connectFrame(frame);
 		await waitFor(() => expect(bridge.messages).toHaveLength(1));
 
-		expect(view.targets).toEqual([{ savedViewId, kind: "saved-view" }]);
+		expect(view.targets).toEqual([
+			{ path: "/", search: "", kind: "plugin-route", pluginSlug: "fixture" },
+		]);
 		expect(view.router.state.location.pathname).toBe("/fixture");
 		expect(screen.getByRole("button", { name: "Fixture workspace, fixture" })).toBeTruthy();
 		expect(screen.getByRole("link", { name: "Home" }).getAttribute("aria-current")).toBe("page");
@@ -276,7 +381,7 @@ describe("client page routes", () => {
 			globalThis.document.querySelectorAll('[data-testid="authenticated-shell"]'),
 		).toHaveLength(1);
 		expect(Schema.decodeUnknownSync(PluginBridgeLocation)(bridge.messages[0])).toMatchObject({
-			location: { search: "", kind: "route", path: "/fixture" },
+			location: { path: "/", search: "", kind: "route" },
 		});
 	});
 
@@ -285,7 +390,7 @@ describe("client page routes", () => {
 		await screen.findByTitle("fixture plugin");
 
 		expect(view.targets).toEqual([
-			{ path: "/", search: "", kind: "plugin-route", pluginId: "plugin-1" },
+			{ path: "/", search: "", kind: "plugin-route", pluginSlug: "fixture" },
 		]);
 		expect(view.router.state.location.pathname).toBe("/fixture");
 	});
@@ -303,7 +408,9 @@ describe("client page routes", () => {
 		});
 
 		await screen.findByRole("heading", { name: "Plugin page not found" });
-		expect(targets).toEqual([{ savedViewId, kind: "saved-view" }]);
+		expect(targets).toEqual([
+			{ path: "/", search: "", kind: "plugin-route", pluginSlug: "fixture" },
+		]);
 		expect(screen.queryByTitle(/plugin$/)).toBeNull();
 	});
 
@@ -320,20 +427,22 @@ describe("client page routes", () => {
 		});
 
 		await screen.findByRole("heading", { name: "Plugin page unavailable" });
-		expect(targets).toEqual([{ savedViewId, kind: "saved-view" }]);
+		expect(targets).toEqual([
+			{ path: "/", search: "", kind: "plugin-route", pluginSlug: "fixture" },
+		]);
 		expect(screen.queryByTitle(/plugin$/)).toBeNull();
 	});
 
-	it("prepares an ordinary plugin route and mounts the shared page session", async () => {
+	it("prepares an ordinary plugin route with its artifact grant", async () => {
 		const view = mount({ entry: "/fixture/details/one?tab=stats" });
 		const frame = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
 		const bridge = connectFrame(frame);
 		await waitFor(() => expect(bridge.messages).toHaveLength(1));
 
 		expect(view.targets).toEqual([
-			{ search: "tab=stats", kind: "plugin-route", pluginId: "plugin-1", path: "/details/one" },
+			{ search: "tab=stats", path: "/details/one", kind: "plugin-route", pluginSlug: "fixture" },
 		]);
-		expect(view.sessions).toHaveLength(1);
+		expect(frame.getAttribute("src")).toContain("artifact-plugin-1");
 		expect(Schema.decodeUnknownSync(PluginBridgeLocation)(bridge.messages[0])).toMatchObject({
 			location: { kind: "route", search: "tab=stats", path: "/details/one" },
 		});
@@ -377,43 +486,41 @@ describe("client page routes", () => {
 		});
 	});
 
-	it("retains plugin and entity frames across navigation and reuses one entity realm", async () => {
+	it("reuses one artifact runtime for plugin and entity routes", async () => {
 		const view = mount({ entry: "/fixture/details/one" });
 		const pluginFrame = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
-		await waitFor(() => expect(view.sessions).toHaveLength(1));
 
 		await view.router.navigate({ href: "/e/entity-1" });
-		await waitFor(() => expect(view.sessions).toHaveLength(2));
-		const entityFrame = screen
-			.getAllByTitle<HTMLIFrameElement>("fixture plugin")
-			.find((frame) => frame !== pluginFrame);
-		expect(entityFrame).toBeDefined();
+		await waitFor(() =>
+			expect(view.targets.at(-1)).toEqual({ kind: "entity", entityId: "entity-1" }),
+		);
+		expect(screen.getByTitle<HTMLIFrameElement>("fixture plugin")).toBe(pluginFrame);
 
 		await view.router.navigate({ href: "/e/entity-2" });
 		await waitFor(() =>
 			expect(view.targets.at(-1)).toEqual({ kind: "entity", entityId: "entity-2" }),
 		);
-		expect(view.sessions).toHaveLength(2);
-		expect(screen.getAllByTitle("fixture plugin")).toContain(entityFrame);
+		expect(screen.getByTitle<HTMLIFrameElement>("fixture plugin")).toBe(pluginFrame);
 
 		await view.router.navigate({ href: "/fixture/details/one" });
 		await waitFor(() => expect(view.router.state.location.pathname).toBe("/fixture/details/one"));
-		expect(view.sessions).toHaveLength(2);
-		expect(screen.getAllByTitle("fixture plugin")).toContain(pluginFrame);
+		expect(screen.getByTitle<HTMLIFrameElement>("fixture plugin")).toBe(pluginFrame);
 	});
 
-	it("rebuilds a retained frame when its prepared context settings change", async () => {
+	it("reuses the artifact runtime when prepared settings change", async () => {
 		let defaultLayout = "grid";
 		const view = mount({
 			entry: "/fixture/details/one",
 			prepare: (_scope, request) => {
 				const target = request.payload.target;
 				if (target.kind === "saved-view") {
-					return Effect.succeed(preparedSavedView(target.savedViewId));
+					return Effect.succeed(preparedSavedView(SavedViewId.make(target.slug)));
 				}
 				const prepared = preparedFor(
 					target,
-					target.kind === "plugin-route" ? target.pluginId : "plugin-1",
+					target.kind === "plugin-route" && target.pluginSlug === "journal"
+						? "plugin-2"
+						: "plugin-1",
 				);
 				return Effect.succeed({
 					...prepared,
@@ -422,19 +529,17 @@ describe("client page routes", () => {
 			},
 		});
 		const frame = await screen.findByTitle<HTMLIFrameElement>("fixture plugin");
-		await waitFor(() => expect(view.sessions).toHaveLength(1));
 
 		await view.router.navigate({ href: "/fixture/details/two" });
 		await waitFor(() => expect(view.router.state.location.pathname).toBe("/fixture/details/two"));
-		expect(view.sessions).toHaveLength(1);
-		expect(screen.getAllByTitle("fixture plugin")).toContain(frame);
+		expect(screen.getByTitle<HTMLIFrameElement>("fixture plugin")).toBe(frame);
 
 		defaultLayout = "list";
 		await view.router.navigate({ href: "/fixture/details/one" });
-		await waitFor(() => expect(view.sessions).toHaveLength(2));
+		expect(screen.getByTitle<HTMLIFrameElement>("fixture plugin")).toBe(frame);
 	});
 
-	it("drops every retained frame and revokes its session when the api scope changes", async () => {
+	it("drops retained artifact runtimes when the api scope changes", async () => {
 		let userId = "user-1";
 		const entries = Array.from({ length: 2 }, (_, index) => ({
 			...catalog[0],
@@ -457,8 +562,7 @@ describe("client page routes", () => {
 		});
 		await screen.findByTitle("fixture plugin");
 		await view.router.navigate({ href: "/plugin-2" });
-		await waitFor(() => expect(view.sessions).toHaveLength(2));
-		expect(document.querySelectorAll("iframe")).toHaveLength(2);
+		await waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(2));
 
 		userId = "user-2";
 		await act(async () => {
@@ -466,7 +570,6 @@ describe("client page routes", () => {
 		});
 
 		await waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(1));
-		expect(view.revoked).toContain("session-1");
 	});
 
 	it("evicts the least recently active frame after retaining three realms", async () => {
@@ -480,28 +583,25 @@ describe("client page routes", () => {
 		const view = mount({ entries, entry: "/plugin-1" });
 		await screen.findByTitle("fixture plugin");
 		await view.router.navigate({ href: "/plugin-2" });
-		await waitFor(() => expect(view.sessions).toHaveLength(2));
+		await waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(2));
 		await view.router.navigate({ href: "/plugin-3" });
-		await waitFor(() => expect(view.sessions).toHaveLength(3));
+		await waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(3));
 		await view.router.navigate({ href: "/plugin-4" });
-		await waitFor(() => expect(view.sessions).toHaveLength(4));
-		expect(document.querySelectorAll("iframe")).toHaveLength(3);
-		await waitFor(() => expect(view.revoked).toContain("session-1"));
+		await waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(3));
 
 		await view.router.navigate({ href: "/plugin-2" });
 		await waitFor(() => expect(view.router.state.location.pathname).toBe("/plugin-2"));
-		expect(view.sessions).toHaveLength(4);
+		expect(document.querySelectorAll("iframe")).toHaveLength(3);
 
 		await view.router.navigate({ href: "/plugin-1" });
-		await waitFor(() => expect(view.sessions).toHaveLength(5));
-		expect(document.querySelectorAll("iframe")).toHaveLength(3);
+		await waitFor(() => expect(document.querySelectorAll("iframe")).toHaveLength(3));
 	});
 
-	it("adopts changed operation targets only after an explicit update reload", async () => {
+	it("uses freshly prepared operation targets and reloads a stale artifact on request", async () => {
 		let preparation = 0;
 		const view = mount({
 			entry: "/fixture/details/one",
-			renew: () => Effect.succeed({ reason: "stale", outcome: "replace" }),
+			check: () => Effect.succeed(false),
 			prepare: (_scope, request) => {
 				const target = request.payload.target;
 				if (target.kind !== "plugin-route") {
@@ -553,8 +653,9 @@ describe("client page routes", () => {
 			type: "operation-request",
 			pluginSlug: "newly-installed",
 		});
-		await waitFor(() => expect(view.operations).toHaveLength(1));
-		expect(view.operations[0]).toMatchObject({ sourceHash: "operations-only-source" });
+		await waitFor(() => expect(view.operations).toHaveLength(2));
+		expect(view.operations[0]).toMatchObject({ sourceHash: "operations-only-updated" });
+		expect(view.operations[1]).toMatchObject({ sourceHash: "newly-installed-source" });
 
 		act(() => view.events.send());
 		await screen.findByText("An update is available. Reloading will discard unsaved local state.");
@@ -565,7 +666,7 @@ describe("client page routes", () => {
 			expect(frame).not.toBe(firstFrame);
 			return frame;
 		});
-		expect(view.sessions).toHaveLength(2);
+		expect(reloadedFrame).not.toBe(firstFrame);
 		const reloadedBridge = connectFrame(reloadedFrame);
 		reloadedBridge.port.postMessage({
 			input: null,
@@ -581,9 +682,9 @@ describe("client page routes", () => {
 			requestId: "adopted-target",
 			pluginSlug: "newly-installed",
 		});
-		await waitFor(() => expect(view.operations).toHaveLength(3));
-		expect(view.operations[1]).toMatchObject({ sourceHash: "operations-only-updated" });
-		expect(view.operations[2]).toMatchObject({ sourceHash: "newly-installed-source" });
+		await waitFor(() => expect(view.operations).toHaveLength(4));
+		expect(view.operations[2]).toMatchObject({ sourceHash: "operations-only-updated" });
+		expect(view.operations[3]).toMatchObject({ sourceHash: "newly-installed-source" });
 	});
 
 	it("uses explicit plugin navigation and merges page search with null deletion", async () => {
@@ -661,8 +762,8 @@ describe("client page routes", () => {
 		expect(screen.queryByTitle(/plugin$/)).toBeNull();
 	});
 
-	it("renders an unregistered plugin page without starting a session", async () => {
-		const view = mount({
+	it("renders an unregistered plugin page without mounting an artifact", async () => {
+		mount({
 			entry: "/fixture/missing",
 			prepare: () =>
 				preparationFailure({
@@ -672,6 +773,6 @@ describe("client page routes", () => {
 				}),
 		});
 		await screen.findByRole("heading", { name: "Plugin page not found" });
-		expect(view.sessions).toEqual([]);
+		expect(document.querySelectorAll("iframe")).toHaveLength(0);
 	});
 });

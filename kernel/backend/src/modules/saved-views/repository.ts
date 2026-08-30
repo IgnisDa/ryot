@@ -389,24 +389,36 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 							dataSources: view.dataSources,
 							pluginInstallationId: view.pluginInstallationId ?? null,
 						};
-						return current
-							? mapDatabaseErrors(
-									db
-										.update(schema.savedView)
-										.set({ ...values, revision: sql`${schema.savedView.revision} + 1` })
-										.where(eq(schema.savedView.id, current.id)),
-								)
-							: mapDatabaseErrors(
-									db
-										.insert(schema.savedView)
-										.values({
-											...values,
-											userId,
-											slug: view.slug,
-											isBuiltin: true,
-											sortOrder: view.sortOrder,
-										}),
-								);
+						const unchanged =
+							current &&
+							current.name === values.name &&
+							current.icon === values.icon &&
+							current.pluginInstallationId === values.pluginInstallationId &&
+							Bun.deepEquals(current.renderer, values.renderer) &&
+							Bun.deepEquals(current.settings, values.settings) &&
+							Bun.deepEquals(current.dataSources, values.dataSources);
+						if (unchanged) {
+							return Effect.void;
+						}
+						if (current) {
+							return mapDatabaseErrors(
+								db
+									.update(schema.savedView)
+									.set({ ...values, revision: sql`${schema.savedView.revision} + 1` })
+									.where(eq(schema.savedView.id, current.id)),
+							);
+						}
+						return mapDatabaseErrors(
+							db
+								.insert(schema.savedView)
+								.values({
+									...values,
+									userId,
+									slug: view.slug,
+									isBuiltin: true,
+									sortOrder: view.sortOrder,
+								}),
+						);
 					},
 					{ discard: true },
 				);

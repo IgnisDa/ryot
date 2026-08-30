@@ -53,9 +53,12 @@ it.effect("keeps universal sandbox and queue execution at their allowed boundari
 		]);
 
 		expect(sandboxService).toContain(".execute(SandboxScriptWorkflow");
-		expect(durableQueues).toContain("DurableQueue.process(SandboxExecutionQueue, payload)");
+		expect(durableQueues).toMatch(
+			/DurableQueue\.process\(\s*lane === "interactive" \? SandboxInteractiveExecutionQueue : SandboxExecutionQueue,\s*payload,?\s*\)/,
+		);
 		expect(automationRunWorkflow).toContain("SandboxExecutionService");
-		expect(sandboxScriptWorkflow).toContain("processSandboxExecutionQueue(payload)");
+		expect(sandboxScriptWorkflow).toContain("processSandboxExecutionQueue(payload, lane)");
+		expect(sandboxScriptWorkflow).toContain("processPinnedSandbox(payload.lane)");
 		expect(sandboxWorkflow).toContain("SandboxScriptWorkflow");
 		expect(durableQueues).toContain('Effect.timeout("1 minute")');
 		expect(durableQueues).toContain("Effect.retry(sandboxRetrySchedule)");

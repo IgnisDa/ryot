@@ -1,8 +1,8 @@
 import type { PluginBridgeProviderSearchScreen } from "@ryot-app/client-plugin-contract";
 import { useRyot } from "@ryot-app/client-sdk/react";
 import { Button } from "@ryot-app/client-ui-sdk";
+import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
 import {
-	EntityBrowserAddAction,
 	EntityBrowserLayout,
 	EntityBrowserSavedViewSettings,
 } from "@ryot-app/contract/modules/saved-views/schemas";
@@ -26,8 +26,17 @@ import { mergePageSearch } from "#/modules/client-pages/page-host";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
 import { ProviderAddModal } from "#/modules/provider-add/modal";
-import { SavedViewsService } from "#/modules/saved-views/service";
 import { ClientStorage } from "#/persistence/storage";
+
+const entityBrowserSettings = (prepared: PreparedClientPage) => {
+	if (prepared.context.renderer.kind !== "kernel") {
+		return null;
+	}
+	const decoded = Schema.decodeUnknownResult(EntityBrowserSavedViewSettings)(
+		prepared.context.settings,
+	);
+	return Result.isSuccess(decoded) ? decoded.success : null;
+};
 
 export const Route = createFileRoute("/_authenticated/v/$viewSlug")({
 	staleTime: 30_000,
@@ -51,43 +60,26 @@ export const Route = createFileRoute("/_authenticated/v/$viewSlug")({
 			// oxlint-disable-next-line typescript/only-throw-error
 			throw notFound();
 		}
-		const record = await context.runtime.runPromise(
-			Effect.flatMap(SavedViewsService, (service) => service.loadRecord(context.ryot, slug)),
-			{ signal: abortController.signal },
-		);
-		if (record === undefined) {
-			// oxlint-disable-next-line typescript/only-throw-error
-			throw notFound();
-		}
 		let prepared = await context.runtime.runPromise(
 			Effect.flatMap(ClientPagesApi, (api) =>
-				api.prepare(context.scope, {
-					payload: { target: { kind: "saved-view", savedViewId: record.id } },
-				}),
+				api.prepare(context.scope, { payload: { target: { slug, kind: "saved-view" } } }),
 			),
 			{ signal: abortController.signal },
 		);
-		if (record.renderer.kind === "kernel" && record.renderer.name === "entity-browser") {
-			const settings = Schema.decodeUnknownResult(EntityBrowserSavedViewSettings)(record.settings);
-			if (Result.isSuccess(settings)) {
-				const storedLayout = await context.runtime.runPromise(
-					Effect.flatMap(ClientStorage, (storage) =>
-						storage.getSavedViewLayout(context.scope, record.slug),
-					),
-					{ signal: abortController.signal },
-				);
-				if (settings.success.layouts.includes(storedLayout)) {
-					prepared = {
-						...prepared,
-						context: {
-							...prepared.context,
-							settings: { ...settings.success, defaultLayout: storedLayout },
-						},
-					};
-				}
+		const settings = entityBrowserSettings(prepared);
+		if (settings !== null) {
+			const storedLayout = await context.runtime.runPromise(
+				Effect.flatMap(ClientStorage, (storage) => storage.getSavedViewLayout(context.scope, slug)),
+				{ signal: abortController.signal },
+			);
+			if (settings.layouts.includes(storedLayout)) {
+				prepared = {
+					...prepared,
+					context: { ...prepared.context, settings: { ...settings, defaultLayout: storedLayout } },
+				};
 			}
 		}
-		return { record, prepared };
+		return { slug, prepared };
 	},
 });
 
@@ -103,12 +95,7 @@ function SavedViewPage() {
 	const imported = useRef(false);
 	const pushedAdd = useRef(false);
 	const ryot = useRyot();
-	const decodedAction = Schema.decodeUnknownResult(EntityBrowserAddAction)(
-		loaded.record.renderer.kind === "kernel" && loaded.record.renderer.name === "entity-browser"
-			? loaded.record.settings.addAction
-			: undefined,
-	);
-	const addAction = Result.isSuccess(decodedAction) ? decodedAction.success : null;
+	const addAction = entityBrowserSettings(loaded.prepared)?.addAction ?? null;
 	const addOpen = add === true && addAction !== null;
 
 	const navigateAddSearch = (update: Record<string, string | null>, replace: boolean) => {
@@ -148,35 +135,29 @@ function SavedViewPage() {
 		ryot.mutationCompleted.hint();
 	}, [addOpen, ryot]);
 	useEffect(() => {
-		if (
-			layout === undefined ||
-			loaded.record.renderer.kind !== "kernel" ||
-			loaded.record.renderer.name !== "entity-browser"
-		) {
+		if (layout === undefined) {
 			return;
 		}
-		const settings = Schema.decodeUnknownResult(EntityBrowserSavedViewSettings)(
-			loaded.record.settings,
-		);
+		const settings = entityBrowserSettings(loaded.prepared);
 		const decodedLayout = Schema.decodeUnknownResult(EntityBrowserLayout)(layout);
 		if (
-			Result.isFailure(settings) ||
+			settings === null ||
 			Result.isFailure(decodedLayout) ||
-			!settings.success.layouts.includes(decodedLayout.success)
+			!settings.layouts.includes(decodedLayout.success)
 		) {
 			return;
 		}
 		void runtime.runPromise(
 			Effect.flatMap(ClientStorage, (storage) =>
-				storage.setSavedViewLayout(scope, loaded.record.slug, decodedLayout.success),
+				storage.setSavedViewLayout(scope, loaded.slug, decodedLayout.success),
 			),
 		);
-	}, [layout, loaded.record, runtime, scope]);
+	}, [layout, loaded.prepared, loaded.slug, runtime, scope]);
 	useClientPageDocument({
 		inert: addOpen,
 		prepared: loaded.prepared,
-		title: loaded.record.name,
 		onProviderSearch: openAdd,
+		title: loaded.prepared.context.view?.name ?? "Saved view",
 	});
 
 	return addOpen ? (

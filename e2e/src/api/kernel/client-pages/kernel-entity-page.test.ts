@@ -2,7 +2,7 @@ import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
-	createClientPageSession,
+	checkClientPageFreshness,
 	createCollection,
 } from "~/fixtures/kernel";
 import { assertCondition } from "~/support/assertions";
@@ -33,7 +33,7 @@ describe("kernel entity page E2E", () => {
 				entitySchemaPluginId: null,
 				entitySchemaSlug: "collection",
 			});
-			yield* createClientPageSession(client, prepared.identity);
+			expect((yield* checkClientPageFreshness(client, prepared.identity)).current).toBe(true);
 		}),
 	);
 
@@ -56,7 +56,7 @@ describe("kernel entity page E2E", () => {
 					second.identity.kind === "kernel-entity-page",
 				"Expected kernel entity page preparation identities",
 			);
-			expect(second.identity.buildId).toBe(first.identity.buildId);
+			expect(second.identity.artifactKey).toBe(first.identity.artifactKey);
 			expect(second.identity.artifactHash).toBe(first.identity.artifactHash);
 		}),
 	);

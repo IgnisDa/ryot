@@ -1,5 +1,5 @@
 import type {
-	ClientPageGraphIdentity,
+	ClientPageArtifactIdentity,
 	ClientRendererDefinition,
 } from "@ryot-app/contract/modules/client-pages/schemas";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
@@ -38,9 +38,6 @@ export const clientRenderer = snakeCase.table(
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
-		publishedArtifactHash: text().references(() => pluginClientArtifact.hash, {
-			onDelete: "restrict",
-		}),
 		updatedAt: timestamp({ withTimezone: true })
 			.defaultNow()
 			.$onUpdate(() => /* @__PURE__ */ new Date())
@@ -52,28 +49,14 @@ export const clientRenderer = snakeCase.table(
 	],
 );
 
-export const clientPageBuild = snakeCase.table(
-	"client_page_build",
-	{
-		graphHash: text().notNull(),
-		graphIdentity: jsonb().$type<ClientPageGraphIdentity>().notNull(),
-		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-		id: text()
-			.primaryKey()
-			.$defaultFn(() => /* @__PURE__ */ generateId()),
-		rendererId: text().references(() => clientRenderer.id, { onDelete: "cascade" }),
-		userId: text()
-			.notNull()
-			.references(() => user.id, { onDelete: "cascade" }),
-		artifactHash: text()
-			.notNull()
-			.references(() => pluginClientArtifact.hash, { onDelete: "restrict" }),
-	},
-	(table) => [
-		index("client_page_build_user_id_idx").on(table.userId),
-		unique("client_page_build_user_graph_unique").on(table.userId, table.graphHash),
-	],
-);
+export const clientPageBuild = snakeCase.table("client_page_build", {
+	artifactKey: text().primaryKey(),
+	createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+	artifactIdentity: jsonb().$type<ClientPageArtifactIdentity>().notNull(),
+	artifactHash: text()
+		.notNull()
+		.references(() => pluginClientArtifact.hash, { onDelete: "restrict" }),
+});
 
 // TODO: Expose as an RSS feed
 export const savedView = snakeCase.table(

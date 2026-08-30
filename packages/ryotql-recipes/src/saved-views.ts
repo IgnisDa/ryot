@@ -401,7 +401,7 @@ export const EntityBrowserPageInput = Schema.Struct({
 	dataSources: RyotQLDocument,
 	settings: EntityBrowserSavedViewSettings,
 	view: Schema.NullOr(SavedViewPageIdentity),
-	target: Schema.Struct({ savedViewId: Schema.String }),
+	target: Schema.Struct({ slug: Schema.String, kind: Schema.Literal("saved-view") }),
 });
 
 type RowsQuery = NamedQuery & { readonly output: RowsOutput };
@@ -647,7 +647,7 @@ export const ResultsTablePageInput = Schema.Struct({
 	dataSources: RyotQLDocument,
 	settings: ResultsTableSavedViewSettings,
 	view: Schema.NullOr(SavedViewPageIdentity),
-	target: Schema.Struct({ savedViewId: Schema.String }),
+	target: Schema.Struct({ slug: Schema.String, kind: Schema.Literal("saved-view") }),
 });
 
 export type ResultsTableResultItem = {

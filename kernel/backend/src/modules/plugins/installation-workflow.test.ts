@@ -8,6 +8,7 @@ import { databaseLayer, makeWorkflowActivityEngine } from "#lib/test-utils/effec
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import { PluginCatalogInvalidator } from "./catalog-events";
+import { ClientSurfaceMaterializer } from "./client-surface-materializer";
 import { PluginDefinitionMaterializer } from "./definition-materializer";
 import { PluginInstallationRepository } from "./installation-repository";
 import {
@@ -46,6 +47,7 @@ const runWorkflow = (input: {
 	readonly bootstrap: ResolvedBootstrap;
 	readonly healthUpdates: Array<HealthUpdate>;
 	readonly scriptErrors?: Record<string, string>;
+	readonly order?: string[];
 }) => {
 	const instance = WorkflowInstance.initial(PluginInstallationWorkflow, installationId);
 	const engine = makeWorkflowActivityEngine(instance);
@@ -63,11 +65,23 @@ const runWorkflow = (input: {
 							),
 						),
 				}),
+				Layer.succeed(ClientSurfaceMaterializer, {
+					materializeUser: () => Effect.void,
+					materializeRenderer: () => Effect.void,
+					materializePendingInstallation: (_owner, id) =>
+						Effect.sync(() => {
+							input.order?.push(`build:${id}`);
+						}),
+				}),
 				Layer.mock(PluginRuntimeResolver)({
 					resolveInstallationBootstrap: () => Effect.succeed(input.bootstrap),
 				}),
 				Layer.mock(PluginInstallationRepository)({
-					updateHealth: (values) => Effect.sync(() => void input.healthUpdates.push(values)),
+					updateHealth: (values) =>
+						Effect.sync(() => {
+							input.order?.push(`health:${values.health}`);
+							input.healthUpdates.push(values);
+						}),
 					findById: () =>
 						Effect.succeed({
 							userId,
@@ -87,7 +101,13 @@ const runWorkflow = (input: {
 							activeConfigRevisionId: null,
 						}),
 				}),
-				PluginCatalogInvalidator.layer,
+				Layer.succeed(PluginCatalogInvalidator, {
+					all: Effect.void,
+					user: () =>
+						Effect.sync(() => {
+							input.order?.push("invalidate");
+						}),
+				}),
 				Layer.mock(SandboxExecutionService)({
 					executeScript: (payload) =>
 						Effect.sync(() => {
@@ -124,8 +144,10 @@ const runWorkflow = (input: {
 it.effect("runs bootstrap entries in declared order with owner subject and stable ids", () => {
 	const executions: Array<Execution> = [];
 	const healthUpdates: Array<HealthUpdate> = [];
+	const order: string[] = [];
 	return Effect.gen(function* () {
-		yield* runWorkflow({ executions, healthUpdates, bootstrap: resolved() });
+		yield* runWorkflow({ order, executions, healthUpdates, bootstrap: resolved() });
+		expect(order).toEqual([`build:${installationId}`, "health:ready", "invalidate"]);
 		expect(executions).toEqual([
 			{
 				scriptId: "first-id",

@@ -15,7 +15,7 @@ import {
 	type ClientPageDocument,
 	usePublishedClientPageDocument,
 } from "#/modules/client-pages/document";
-import { ClientPageSessions, ClientPageSessionStale } from "#/modules/client-pages/sessions";
+import { ClientPageFreshness } from "#/modules/client-pages/freshness";
 import { EntityInterestService, type WatchEntities } from "#/modules/entity-interest/service";
 import { useScreenLeadingControl } from "#/modules/navigation/app-screen";
 import {
@@ -67,17 +67,24 @@ export function mergePageSearch(current: string, update: PluginPageSearchUpdate)
 	return next.toString();
 }
 
+export const artifactGrantSrc = (scope: ApiScope, src: string) =>
+	new URL(src, `${scope.serverUrl}/`).toString();
+
 const documentOwner = ({ context, identity }: PreparedClientPage) => {
-	const documentId = identity.target.kind === "saved-view" ? identity.target.savedViewId : "";
+	const documentId = "savedViewId" in identity ? identity.savedViewId : "";
 	const documentRevision = "viewRevision" in identity ? identity.viewRevision : 0;
 	const contextDigest = digest({
 		view: context.view,
+		route: context.route,
 		settings: context.settings,
 		renderer: context.renderer,
-		targetKind: context.target.kind,
 		dataSources: context.dataSources,
+		target: {
+			...context.target,
+			...(context.target.kind === "plugin-route" ? { search: undefined } : {}),
+		},
 	});
-	return `${identity.kind}:${identity.buildId}:${identity.graphHash}:${identity.artifactHash}:${documentId}:${documentRevision}:${contextDigest}`;
+	return `${identity.kind}:${documentId}:${documentRevision}:${contextDigest}`;
 };
 
 type FrameEntry = {
@@ -94,6 +101,20 @@ type FramePool = {
 	readonly activeKey: string | null;
 	readonly entries: ReadonlyMap<string, FrameEntry>;
 };
+
+export function retainArtifactRuntime<T>(entries: ReadonlyMap<string, T>, key: string, value: T) {
+	const next = new Map(entries);
+	next.delete(key);
+	next.set(key, value);
+	while (next.size > MAX_RETAINED_FRAMES) {
+		const oldest = next.keys().next().value;
+		if (oldest === undefined) {
+			break;
+		}
+		next.delete(oldest);
+	}
+	return next;
+}
 
 export function ClientPageDocumentHost() {
 	const edge = useEdge();
@@ -115,10 +136,13 @@ export function ClientPageDocumentHost() {
 	});
 	const [pool, setPool] = useState<FramePool>(() => ({ activeKey: null, entries: new Map() }));
 	const { entries, activeKey } = pool;
-	const entriesRef = useRef(entries);
-	const activeKeyRef = useRef(activeKey);
-	entriesRef.current = entries;
-	activeKeyRef.current = activeKey;
+	const reloadRequest = useRef<{
+		readonly key: string;
+		readonly pathname: string;
+		readonly searchStr: string;
+		readonly navigationKey: string;
+		readonly previousDocument: ClientPageDocument | null;
+	}>(undefined);
 	const scopeKey = `${scope.serverUrl}\0${scope.userId}`;
 	const previousScope = useRef(scopeKey);
 
@@ -134,13 +158,9 @@ export function ClientPageDocumentHost() {
 		() =>
 			document
 				? Match.value(document.prepared.context.target).pipe(
-						Match.when({ kind: "plugin-route" }, ({ path }) =>
+						Match.when({ kind: "plugin-route" }, ({ path, pluginSlug }) =>
 							rendererContributor?.kind === "plugin"
-								? toPluginLocation(
-										rendererContributor.pluginSlug,
-										location.pathname,
-										location.searchStr,
-									)
+								? toPluginLocation(pluginSlug, location.pathname, location.searchStr)
 								: { path, kind: "route" as const, search: searchString(location.searchStr) },
 						),
 						Match.when({ kind: "entity" }, ({ entityId, entitySchemaSlug }) => ({
@@ -179,48 +199,95 @@ export function ClientPageDocumentHost() {
 			return;
 		}
 		previousScope.current = scopeKey;
+		reloadRequest.current = undefined;
 		setPool({ activeKey: null, entries: new Map() });
 	}, [scopeKey]);
 
 	useLayoutEffect(() => {
 		if (document === null || navigation === undefined) {
 			if (document === null) {
+				reloadRequest.current = undefined;
 				setPool((current) =>
 					current.activeKey === null ? current : { ...current, activeKey: null },
 				);
 			}
 			return;
 		}
-		const baseOwner = documentOwner(document.prepared);
+		const baseOwner = document.prepared.artifact.hash;
+		const requested = reloadRequest.current;
+		if (requested !== undefined && requested.previousDocument !== document) {
+			reloadRequest.current = undefined;
+			if (
+				requested.navigationKey === navigation.key &&
+				requested.pathname === location.pathname &&
+				requested.searchStr === location.searchStr
+			) {
+				setPool((current) => {
+					const previous = current.entries.get(requested.key);
+					if (
+						current.activeKey !== requested.key ||
+						previous?.navigation.key !== requested.navigationKey
+					) {
+						return current;
+					}
+					const existing = [...current.entries.values()].find(
+						(candidate) => candidate.baseOwner === baseOwner,
+					);
+					const generation = (existing?.generation ?? -1) + 1;
+					const key = `${baseOwner}:${generation}`;
+					const next = new Map(current.entries);
+					next.delete(requested.key);
+					if (existing !== undefined) {
+						next.delete(existing.key);
+					}
+					return {
+						activeKey: key,
+						entries: retainArtifactRuntime(next, key, {
+							key,
+							document,
+							baseOwner,
+							generation,
+							navigation,
+							operationTargets: document.prepared.identity.operationTargets,
+							location: { pathname: location.pathname, searchStr: location.searchStr },
+						}),
+					};
+				});
+				return;
+			}
+		}
 		setPool((current) => {
-			const next = new Map(current.entries);
-			const existing = [...next.values()].find((candidate) => candidate.baseOwner === baseOwner);
+			const active =
+				current.activeKey === null ? undefined : current.entries.get(current.activeKey);
+			if (
+				active?.navigation.key === navigation.key &&
+				active.location.pathname === location.pathname &&
+				active.location.searchStr === location.searchStr &&
+				(active.baseOwner !== baseOwner ||
+					documentOwner(active.document.prepared) !== documentOwner(document.prepared))
+			) {
+				return current;
+			}
+			const existing = [...current.entries.values()].find(
+				(candidate) => candidate.baseOwner === baseOwner,
+			);
 			const generation = existing?.generation ?? 0;
 			const key = existing?.key ?? `${baseOwner}:${generation}`;
-			if (existing) {
-				next.delete(existing.key);
-			}
-			next.set(key, {
+			const next = retainArtifactRuntime(current.entries, key, {
 				key,
 				document,
 				baseOwner,
 				generation,
 				navigation,
+				operationTargets: document.prepared.identity.operationTargets,
 				location: { pathname: location.pathname, searchStr: location.searchStr },
-				operationTargets: existing?.operationTargets ?? document.prepared.identity.operationTargets,
 			});
-			while (next.size > MAX_RETAINED_FRAMES) {
-				const evicted = [...next.keys()].find((candidate) => candidate !== key);
-				if (evicted === undefined) {
-					break;
-				}
-				next.delete(evicted);
-			}
 			return { entries: next, activeKey: key };
 		});
 	}, [document, location.pathname, location.searchStr, navigation]);
 
 	const displayedKey = rendersPluginSurface ? activeKey : null;
+	const activeDocument = displayedKey === null ? undefined : entries.get(displayedKey)?.document;
 	useLayoutEffect(() => {
 		if (displayedKey === null) {
 			return undefined;
@@ -232,39 +299,29 @@ export function ClientPageDocumentHost() {
 			screen.clear(displayedKey);
 			header.clear(displayedKey);
 		};
-	}, [displayedKey, header, overlay, screen]);
+	}, [displayedKey, activeDocument, header, overlay, screen]);
 
 	const reloadCurrent = useCallback(
-		async (key: string) => {
-			const before = entriesRef.current.get(key);
+		(key: string) => {
+			const before = entries.get(key);
 			if (before === undefined) {
 				return;
 			}
-			await router.invalidate();
-			if (
-				activeKeyRef.current !== key ||
-				entriesRef.current.get(key)?.baseOwner !== before.baseOwner
-			) {
-				return;
-			}
-			const nextKey = `${before.baseOwner}:${before.generation + 1}`;
-			setPool((current) => {
-				const currentEntry = current.entries.get(key);
-				if (currentEntry === undefined) {
-					return current;
+			const request = {
+				key,
+				previousDocument: document,
+				pathname: before.location.pathname,
+				searchStr: before.location.searchStr,
+				navigationKey: before.navigation.key,
+			};
+			reloadRequest.current = request;
+			void router.invalidate().catch(() => {
+				if (reloadRequest.current === request) {
+					reloadRequest.current = undefined;
 				}
-				const next = new Map(current.entries);
-				next.delete(key);
-				next.set(nextKey, {
-					...currentEntry,
-					key: nextKey,
-					generation: currentEntry.generation + 1,
-					operationTargets: currentEntry.document.prepared.identity.operationTargets,
-				});
-				return { entries: next, activeKey: nextKey };
 			});
 		},
-		[router],
+		[document, entries, router],
 	);
 
 	if (entries.size === 0) {
@@ -299,14 +356,13 @@ export function ClientPageDocumentHost() {
 							screen={screen}
 							runtime={runtime}
 							overlay={overlay}
-							scopeKey={scopeKey}
 							owner={frameEntry.key}
 							edgeLeading={chromeLeading}
 							document={frameEntry.document}
 							backInterceptors={backInterceptors}
 							freshnessCheckRevision={invalidationRevision}
 							operationTargets={frameEntry.operationTargets}
-							onReloadCurrent={() => void reloadCurrent(frameEntry.key)}
+							onReloadCurrent={() => reloadCurrent(frameEntry.key)}
 							navigation={active && navigation ? navigation : frameEntry.navigation}
 							location={
 								active
@@ -342,7 +398,6 @@ function ClientPageFrame(props: {
 	readonly overlay: ClientPageOverlayController;
 	readonly edgeLeading: ReactNode;
 	readonly backInterceptors: BackInterceptors;
-	readonly scopeKey: string;
 	readonly freshnessCheckRevision: number;
 	readonly onReloadCurrent: () => void;
 }) {
@@ -358,36 +413,13 @@ function ClientPageFrame(props: {
 		(contributor) => contributor.kind === "plugin" && contributor.pluginId === rendererPluginId,
 	);
 
-	const createSession = useCallback(
-		(_request: unknown, signal: AbortSignal) =>
+	const checkFreshness = useCallback(
+		(signal: AbortSignal) =>
 			props.runtime.runPromise(
-				Effect.flatMap(ClientPageSessions, (sessions) =>
-					sessions.create(props.scope, identity),
-				).pipe(
-					Effect.tapError((error) =>
-						error instanceof ClientPageSessionStale
-							? Effect.promise(() => router.invalidate()).pipe(Effect.asVoid)
-							: Effect.void,
-					),
-				),
+				Effect.flatMap(ClientPageFreshness, (freshness) => freshness.check(props.scope, identity)),
 				{ signal },
 			),
-		[identity, props.runtime, props.scope, router],
-	);
-	const renewSession = useCallback(
-		(sessionId: string, signal: AbortSignal) =>
-			props.runtime.runPromise(
-				Effect.flatMap(ClientPageSessions, (sessions) => sessions.renew(props.scope, sessionId)),
-				{ signal },
-			),
-		[props.runtime, props.scope],
-	);
-	const revokeSession = useCallback(
-		(sessionId: string) =>
-			props.runtime.runPromise(
-				Effect.flatMap(ClientPageSessions, (sessions) => sessions.revoke(props.scope, sessionId)),
-			),
-		[props.runtime, props.scope],
+		[identity, props.runtime, props.scope],
 	);
 	const watchEntities = useCallback<WatchEntities>(
 		(interest, onUpdate) =>
@@ -417,21 +449,17 @@ function ClientPageFrame(props: {
 			inert={props.document.inert}
 			navigation={props.navigation}
 			watchEntities={watchEntities}
-			sourceHash={identity.graphHash}
 			chromeLeading={props.edgeLeading}
-			installationId={identity.buildId}
-			artifactHash={identity.artifactHash}
-			onRenewArtifactSession={renewSession}
-			onCreateArtifactSession={createSession}
-			onRevokeArtifactSession={revokeSession}
+			onCheckFreshness={checkFreshness}
 			onReloadCurrent={props.onReloadCurrent}
 			onOpenDrawer={props.chrome.onOpenDrawer}
-			artifactSessionScopeKey={props.scopeKey}
 			backInterceptors={props.backInterceptors}
 			chromeTriggerRef={props.chrome.triggerRef}
 			mutationCompleted={ryot.mutationCompleted}
 			onNavigateBack={() => router.history.back()}
 			onKernelShortcut={props.chrome.onKernelShortcut}
+			documentKey={documentOwner(props.document.prepared)}
+			artifactHash={props.document.prepared.artifact.hash}
 			freshnessCheckRevision={props.freshnessCheckRevision}
 			onScreenState={(state) => props.screen.publish(props.owner, state)}
 			onOverlayState={(count) => props.overlay.publish(props.owner, count)}
@@ -450,6 +478,10 @@ function ClientPageFrame(props: {
 					signal,
 				})
 			}
+			artifactGrant={{
+				...props.document.prepared.artifact.grant,
+				src: artifactGrantSrc(props.scope, props.document.prepared.artifact.grant.src),
+			}}
 			onNavigate={(request) =>
 				void navigate({
 					href: request.href,
