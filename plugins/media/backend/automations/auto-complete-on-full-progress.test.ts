@@ -2,11 +2,14 @@ import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
 import type { CreateEventItem } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import type { RyotQLDocument } from "@ryot-app/sandbox-sdk/ryotql";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
 import {
+	automationRunRows,
 	eventAutomationContext,
+	eventAutomationOccurrence,
 	entityRecord,
 	eventRecord,
 	execution,
@@ -27,9 +30,11 @@ const createHost = (options: {
 	entityProperties?: JsonValue;
 	events?: ReturnType<typeof eventRecord>[];
 	eventPages?: ReturnType<typeof eventRecord>[][];
+	event?: Parameters<typeof eventAutomationOccurrence>[0];
+	ruleMetadata?: JsonValue | null;
 }) => {
 	const created: (readonly CreateEventItem[])[] = [];
-	const documents: unknown[] = [];
+	const documents: RyotQLDocument[] = [];
 	let queryIndex = 0;
 	return {
 		created,
@@ -42,16 +47,25 @@ const createHost = (options: {
 			},
 			executeRyotql: (document) => {
 				documents.push(document);
-				const index = queryIndex++;
+				if ("occurrences" in document.queries) {
+					return hostSuccess(eventAutomationOccurrence(options.event));
+				}
+				if ("runs" in document.queries) {
+					return hostSuccess(automationRunRows(options.ruleMetadata ?? null));
+				}
 				const eventPages = options.eventPages ?? [options.events ?? []];
-				const eventPageIndex = index - 1;
+				const isEntityQuery = "entities" in document.queries;
+				const eventPageIndex = queryIndex;
+				if (!isEntityQuery) {
+					queryIndex += 1;
+				}
 				return hostSuccess(
 					ryotqlRows(
-						index === 0 ? "entities" : "events",
-						index === 0
+						isEntityQuery ? "entities" : "events",
+						isEntityQuery
 							? [entityRecord({ properties: options.entityProperties ?? {} })]
 							: (eventPages[eventPageIndex] ?? []),
-						index === 0
+						isEntityQuery
 							? { hasMore: false, nextCursor: null }
 							: {
 									hasMore: eventPageIndex < eventPages.length - 1,
@@ -70,7 +84,7 @@ const run = (context: AutomationInput, host: ReturnType<typeof createHost>["host
 
 describe("auto-complete-on-full-progress sandbox script", () => {
 	it("ignores progress events below full completion", () => {
-		const { host, created } = createHost({});
+		const { host, created } = createHost({ event: { properties: { progressPercent: 50 } } });
 		return Effect.runPromise(
 			run(eventAutomationContext({ properties: { progressPercent: 50 } }), host).pipe(
 				Effect.map((result) => {
@@ -83,7 +97,13 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 	});
 
 	it("completes non-episodic media at the progress event timestamp", () => {
-		const { host, created } = createHost({});
+		const { host, created } = createHost({
+			ruleMetadata: { inheritedProperties: ["consumedOn"] },
+			event: {
+				occurredAt: "2026-02-03T04:05:06.000Z",
+				properties: { progressPercent: 100, consumedOn: "Jellyfin" },
+			},
+		});
 		return Effect.runPromise(
 			run(
 				eventAutomationContext(
@@ -119,7 +139,13 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 	it.each(["show-episode", "podcast-episode"] as const)(
 		"copies the session entity to a %s completion event",
 		(entitySchemaSlug) => {
-			const { host, created } = createHost({});
+			const { host, created } = createHost({
+				event: {
+					sessionEntityId: "parent-1",
+					properties: { progressPercent: 100 },
+					subject: { id: "entity-1", name: "Episode", entitySchemaSlug },
+				},
+			});
 			return Effect.runPromise(
 				run(
 					eventAutomationContext({
@@ -151,10 +177,23 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 				properties: { animeEpisode: 2, progressPercent: 100 },
 			}),
 		];
-		const complete = createHost({ events, entityProperties: { episodes: 2 } });
+		const complete = createHost({
+			events,
+			entityProperties: { episodes: 2 },
+			event: {
+				id: "episode-2",
+				properties: { animeEpisode: 2, progressPercent: 100 },
+				subject: { name: "Anime", id: "entity-1", entitySchemaSlug: "anime" },
+			},
+		});
 		const incomplete = createHost({
 			events: events.slice(0, 1),
 			entityProperties: { episodes: 2 },
+			event: {
+				id: "episode-1",
+				properties: { animeEpisode: 1, progressPercent: 100 },
+				subject: { name: "Anime", id: "entity-1", entitySchemaSlug: "anime" },
+			},
 		});
 		return Effect.runPromise(
 			Effect.all(
@@ -210,7 +249,15 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 				properties: { mangaChapter: 2, progressPercent: 100 },
 			}),
 		];
-		const { host, created } = createHost({ events, entityProperties: { chapters: 2 } });
+		const { host, created } = createHost({
+			events,
+			entityProperties: { chapters: 2 },
+			event: {
+				id: "chapter-2b",
+				properties: { mangaChapter: 2, progressPercent: 100 },
+				subject: { name: "Manga", id: "entity-1", entitySchemaSlug: "manga" },
+			},
+		});
 		return Effect.runPromise(
 			run(
 				eventAutomationContext({
@@ -244,6 +291,11 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 		const { host, created, documents } = createHost({
 			entityProperties: { episodes: 101 },
 			eventPages: [firstPage, [finalEvent]],
+			event: {
+				id: finalEvent.id,
+				properties: { animeEpisode: 101, progressPercent: 100 },
+				subject: { name: "Anime", id: "entity-1", entitySchemaSlug: "anime" },
+			},
 		});
 		return Effect.runPromise(
 			run(
@@ -256,7 +308,7 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 			).pipe(
 				Effect.map(() => {
 					expect(created).toHaveLength(1);
-					expect(documents.slice(1)).toMatchObject([
+					expect(documents.filter((document) => "events" in document.queries)).toMatchObject([
 						{ queries: { events: { output: { pagination: {} } } } },
 						{ queries: { events: { output: { pagination: { after: "events-1" } } } } },
 					]);

@@ -1,9 +1,5 @@
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
-import type {
-	AutomationInput,
-	AutomationPolicyInput,
-	AutomationEventSnapshot,
-} from "@ryot-app/sandbox-sdk/automation";
+import type { AutomationInput, AutomationPolicyInput } from "@ryot-app/sandbox-sdk/automation";
 import type {
 	EntityRecord,
 	EntitySchemaRecord,
@@ -14,34 +10,82 @@ import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 
 const timestamp = "2026-01-01T00:00:00.000Z";
+type AutomationEventSnapshot = {
+	readonly id: string;
+	readonly createdAt: string;
+	readonly occurredAt: string;
+	readonly properties: Readonly<Record<string, JsonValue>>;
+	readonly eventSchemaSlug: string;
+	readonly sessionEntityId?: string;
+	readonly subject: {
+		readonly id: string;
+		readonly name: string;
+		readonly entitySchemaSlug: string;
+	};
+};
 
 export const execution = { metadata: {}, startedAt: timestamp, sandboxScriptId: "script-test" };
 
+const automationOccurrences = new WeakMap<AutomationInput, ReturnType<typeof ryotqlRows>>();
+
 export const eventAutomationContext = (
 	overrides: Partial<AutomationEventSnapshot> = {},
-	ruleMetadata?: AutomationInput["automation"]["ruleMetadata"],
-): AutomationInput => ({
-	automation: {
-		operation: "create",
-		occurredAt: timestamp,
-		origin: { kind: "api" },
-		ruleId: "automation-rule-1",
-		occurrenceId: "occurrence-1",
-		...(ruleMetadata === undefined ? {} : { ruleMetadata }),
-		source: {
-			kind: "event",
-			after: {
-				id: "event-1",
-				properties: {},
-				createdAt: timestamp,
-				occurredAt: timestamp,
-				eventSchemaSlug: "event-schema-1",
-				subject: { id: "entity-1", name: "Entity", entitySchemaSlug: "movie" },
-				...overrides,
-			},
+	ruleMetadata?: JsonValue,
+): AutomationInput => {
+	const context: AutomationInput = {
+		automation: {
+			operation: "create",
+			occurredAt: timestamp,
+			origin: { kind: "api" },
+			ruleId: "automation-rule-1",
+			occurrenceId: "occurrence-1",
+			...(ruleMetadata === undefined ? {} : { runId: "run-1" }),
+			source: { kind: "event", eventId: overrides.id ?? "event-1" },
 		},
-	},
-});
+	};
+	automationOccurrences.set(context, eventAutomationOccurrence(overrides));
+	return context;
+};
+
+export const registerAutomationOccurrence = (
+	context: AutomationInput,
+	source: Readonly<Record<string, unknown>>,
+	population: Readonly<Record<string, unknown>> | null = null,
+) => {
+	automationOccurrences.set(context, automationOccurrenceRows(source, population));
+	return context;
+};
+
+export const automationOccurrenceForContext = (context: AutomationInput) => {
+	const response = automationOccurrences.get(context);
+	if (!response) {
+		throw new Error("Automation occurrence fixture not registered");
+	}
+	return response;
+};
+
+export const eventAutomationOccurrence = (overrides: Partial<AutomationEventSnapshot> = {}) =>
+	automationOccurrenceRows({
+		kind: "event",
+		after: {
+			id: "event-1",
+			properties: {},
+			createdAt: timestamp,
+			occurredAt: timestamp,
+			eventSchemaSlug: "event-schema-1",
+			subject: { id: "entity-1", name: "Entity", entitySchemaSlug: "movie" },
+			...overrides,
+		},
+	});
+
+export const automationOccurrenceRows = (
+	source: Readonly<Record<string, unknown>>,
+	population: Readonly<Record<string, unknown>> | null = null,
+) =>
+	ryotqlRows("occurrences", [{ source, population, operation: "create", origin: { kind: "api" } }]);
+
+export const automationRunRows = (ruleMetadata: JsonValue | null) =>
+	ryotqlRows("runs", [{ ruleMetadata }]);
 
 export const policyAutomationContext = (
 	overrides: Partial<AutomationPolicyInput["automation"]["source"]["draft"]> = {},

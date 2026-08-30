@@ -1,6 +1,8 @@
 import { expect, it } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
+import type { AutomationOccurrence } from "@ryot-app/contract/modules/automations/schemas";
 import {
+	AutomationOccurrenceId,
 	AutomationRuleId,
 	EntityId,
 	EntitySchemaSlug,
@@ -83,23 +85,31 @@ it.effect("resolves create rules for the source target and enqueues one executio
 	const globalRule = rule("global", null);
 	const userRule = rule("user", userId);
 	const resolved: Array<{ target: AutomationRuleTarget; operation: string }> = [];
-	const executions: Array<Record<string, unknown>> = [];
+	const occurrences: AutomationOccurrence[] = [];
+	const executions: Array<{
+		occurrenceId: AutomationOccurrenceId;
+		rowUserId: UserId | null;
+		ruleId: AutomationRuleId;
+	}> = [];
 	const instance = WorkflowInstance.initial(SubscriptionExecutionWorkflow, "lifecycle-test");
 	const engine = executionEngine(instance, (payload) => {
 		executions.push(
 			Schema.decodeUnknownSync(
 				Schema.Struct({
-					ruleId: Schema.String,
-					operation: Schema.String,
-					sourceKind: Schema.String,
-					occurrenceId: Schema.String,
-					recordId: Schema.optional(Schema.String),
+					ruleId: AutomationRuleId,
+					rowUserId: Schema.NullOr(UserId),
+					occurrenceId: AutomationOccurrenceId,
 				}),
 			)(payload),
 		);
 		return Effect.void;
 	});
 	const automations = Layer.mock(AutomationsService, {
+		recordOccurrence: (occurrence) =>
+			Effect.sync(() => {
+				occurrences.push(occurrence);
+				return occurrence;
+			}),
 		resolveActive: ({ target, operation }) => {
 			resolved.push({ target, operation });
 			return Effect.succeed([globalRule, userRule]);
@@ -118,18 +128,28 @@ it.effect("resolves create rules for the source target and enqueues one executio
 		]);
 		expect(executions).toEqual([
 			{
-				operation: "create",
-				sourceKind: "entity",
-				recordId: "entity-1",
+				rowUserId: userId,
 				ruleId: globalRule.id,
-				occurrenceId: "occ_entity-1",
+				occurrenceId: AutomationOccurrenceId.make("occ_entity-1"),
 			},
 			{
-				operation: "create",
+				rowUserId: userId,
 				ruleId: userRule.id,
-				sourceKind: "entity",
+				occurrenceId: AutomationOccurrenceId.make("occ_entity-1"),
+			},
+		]);
+		expect(occurrences).toEqual([
+			{
+				userId,
+				signalId: null,
+				population: null,
+				operation: "create",
 				recordId: "entity-1",
-				occurrenceId: "occ_entity-1",
+				sourceKind: "entity",
+				origin: { kind: "api" },
+				occurredAt: "2026-07-20T10:00:00.000Z",
+				id: AutomationOccurrenceId.make("occ_entity-1"),
+				source: { kind: "entity", after: entitySnapshot },
 			},
 		]);
 	}).pipe(Effect.provide(layer));
@@ -145,6 +165,7 @@ it.effect("derives the rule target from each lifecycle source kind", () => {
 		return Effect.void;
 	});
 	const automations = Layer.mock(AutomationsService, {
+		recordOccurrence: (occurrence) => Effect.succeed(occurrence),
 		resolveActive: ({ target }) => {
 			resolvedTargets.push(target);
 			return Effect.succeed(target.kind === "event_schema" ? [eventRule] : []);
@@ -181,18 +202,18 @@ it.effect("derives the rule target from each lifecycle source kind", () => {
 			{ id: entitySchemaSlug, kind: "entity_schema" },
 			{ kind: "event_schema", id: `${entitySchemaSlug}:${eventSchemaSlug}` },
 		]);
-		expect(executions).toMatchObject([
+		expect(executions).toEqual([
 			{
-				source: {
-					kind: "event",
-					after: { sessionEntityId: "session-1", createdAt: "2026-07-20T11:00:00.000Z" },
-				},
+				rowUserId: userId,
+				ruleId: eventRule.id,
+				occurrenceId: AutomationOccurrenceId.make("occ_event-1"),
 			},
 		]);
 	}).pipe(Effect.provide(layer));
 });
 
 it.effect("forwards update snapshots and trusted population context", () => {
+	const occurrences: AutomationOccurrence[] = [];
 	const executions: unknown[] = [];
 	const resolved: Array<{ target: AutomationRuleTarget; operation: string }> = [];
 	const updateRule = { ...rule("example-update", null), operation: "update" as const };
@@ -202,6 +223,11 @@ it.effect("forwards update snapshots and trusted population context", () => {
 		return Effect.void;
 	});
 	const automations = Layer.mock(AutomationsService, {
+		recordOccurrence: (occurrence) =>
+			Effect.sync(() => {
+				occurrences.push(occurrence);
+				return occurrence;
+			}),
 		resolveActive: ({ target, operation }) => {
 			resolved.push({ target, operation });
 			return Effect.succeed([updateRule]);
@@ -239,13 +265,31 @@ it.effect("forwards update snapshots and trusted population context", () => {
 		expect(resolved).toEqual([
 			{ operation: "update", target: { id: entitySchemaSlug, kind: "entity_schema" } },
 		]);
-		expect(executions).toMatchObject([
+		expect(executions).toEqual([
 			{
+				rowUserId: userId,
+				ruleId: updateRule.id,
+				occurrenceId: AutomationOccurrenceId.make("occ_entity-1"),
+			},
+		]);
+		expect(occurrences).toEqual([
+			{
+				userId,
+				signalId: null,
 				operation: "update",
-				source: { kind: "entity", after: { name: "Dune" }, before: { name: "Old Dune" } },
+				recordId: "entity-1",
+				sourceKind: "entity",
+				origin: { kind: "api" },
+				occurredAt: "2026-07-20T10:00:00.000Z",
+				id: AutomationOccurrenceId.make("occ_entity-1"),
+				source: {
+					kind: "entity",
+					after: entitySnapshot,
+					before: { ...entitySnapshot, name: "Old Dune" },
+				},
 				population: {
 					rootPreviouslyPopulated: true,
-					scopeEntity: { id: "group-1", name: "Severance" },
+					scopeEntity: { id: "group-1", name: "Severance", entitySchemaSlug: "group" },
 					parentEntity: {
 						name: "Container",
 						properties: { ordinal: 1 },
@@ -270,6 +314,7 @@ it.effect("attempts every sibling workflow and fails when one enqueue fails", ()
 			: Effect.void;
 	});
 	const automations = Layer.mock(AutomationsService, {
+		recordOccurrence: (occurrence) => Effect.succeed(occurrence),
 		resolveActive: () => Effect.succeed([firstRule, secondRule]),
 	});
 	const layer = Layer.provideMerge(

@@ -1,11 +1,17 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "095fb55a-c0e6-48ac-9c72-28a198ed2040",
+	"id": "e4c3814a-7ae7-498a-aad1-db21b72d4155",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
 		{ "isRlsEnabled": false, "name": "apikey", "entityType": "tables", "schema": "public" },
+		{
+			"isRlsEnabled": false,
+			"name": "automation_occurrence",
+			"entityType": "tables",
+			"schema": "public"
+		},
 		{ "isRlsEnabled": false, "name": "backup_run", "entityType": "tables", "schema": "public" },
 		{
 			"isRlsEnabled": false,
@@ -630,6 +636,149 @@
 			"entityType": "columns",
 			"schema": "public",
 			"table": "apikey"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "record_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "automation_occurrence"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "origin",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "automation_occurrence"
+		},
+		{
+			"type": "timestamp with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "occurred_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "automation_occurrence"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "operation",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "automation_occurrence"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "population",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "automation_occurrence"
+		},
+		{
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "source",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "automation_occurrence"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "automation_occurrence"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "user_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "automation_occurrence"
+		},
+		{
+			"type": "timestamp with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
+			"generated": null,
+			"identity": null,
+			"name": "created_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "automation_occurrence"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "source_kind",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "automation_occurrence"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "signal_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "automation_occurrence"
 		},
 		{
 			"type": "text",
@@ -5345,19 +5494,6 @@
 			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "occurrence_id",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "subscription_run"
-		},
-		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
 			"name": "sandbox_script_id",
 			"entityType": "columns",
 			"schema": "public",
@@ -5567,6 +5703,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "execution_user_id",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "subscription_run"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"name": "occurrence_id",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "subscription_run"
@@ -6142,6 +6291,48 @@
 			"entityType": "indexes",
 			"schema": "public",
 			"table": "apikey"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "user_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "automation_occurrence_user_id_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "automation_occurrence"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "signal_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "automation_occurrence_signal_id_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "automation_occurrence"
 		},
 		{
 			"nameExplicit": true,
@@ -8278,6 +8469,27 @@
 			"nameExplicit": true,
 			"columns": [
 				{
+					"value": "occurrence_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"name": "subscription_run_occurrence_id_idx",
+			"entityType": "indexes",
+			"schema": "public",
+			"table": "subscription_run"
+		},
+		{
+			"nameExplicit": true,
+			"columns": [
+				{
 					"value": "signal_id",
 					"isExpression": false,
 					"asc": true,
@@ -8383,6 +8595,32 @@
 			"entityType": "fks",
 			"schema": "public",
 			"table": "apikey"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["user_id"],
+			"schemaTo": "public",
+			"tableTo": "user",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"name": "automation_occurrence_user_id_user_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "automation_occurrence"
+		},
+		{
+			"nameExplicit": false,
+			"columns": ["signal_id"],
+			"schemaTo": "public",
+			"tableTo": "signal",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"name": "automation_occurrence_signal_id_signal_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "automation_occurrence"
 		},
 		{
 			"nameExplicit": false,
@@ -9244,6 +9482,19 @@
 		},
 		{
 			"nameExplicit": false,
+			"columns": ["occurrence_id"],
+			"schemaTo": "public",
+			"tableTo": "automation_occurrence",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"name": "subscription_run_occurrence_id_automation_occurrence_id_fkey",
+			"entityType": "fks",
+			"schema": "public",
+			"table": "subscription_run"
+		},
+		{
+			"nameExplicit": false,
 			"columns": ["user_id"],
 			"schemaTo": "public",
 			"tableTo": "user",
@@ -9301,6 +9552,14 @@
 			"name": "apikey_pkey",
 			"schema": "public",
 			"table": "apikey",
+			"entityType": "pks"
+		},
+		{
+			"columns": ["id"],
+			"nameExplicit": false,
+			"name": "automation_occurrence_pkey",
+			"schema": "public",
+			"table": "automation_occurrence",
 			"entityType": "pks"
 		},
 		{
@@ -9783,6 +10042,20 @@
 			"schema": "public",
 			"table": "user",
 			"entityType": "uniques"
+		},
+		{
+			"value": "((\"source_kind\" = 'signal' and \"operation\" = 'signal' and \"signal_id\" is not null and \"record_id\" is null) or (\"source_kind\" <> 'signal' and \"operation\" <> 'signal' and \"signal_id\" is null and \"record_id\" is not null))",
+			"name": "automation_occurrence_source_check",
+			"entityType": "checks",
+			"schema": "public",
+			"table": "automation_occurrence"
+		},
+		{
+			"value": "\"source_kind\" in ('entity', 'event', 'relationship', 'signal', 'provider-entity-import')",
+			"name": "automation_occurrence_source_kind_check",
+			"entityType": "checks",
+			"schema": "public",
+			"table": "automation_occurrence"
 		},
 		{
 			"value": "\"level\" in ('info', 'warning')",

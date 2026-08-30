@@ -3,7 +3,23 @@ import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 import { expect, it } from "vitest";
 
+import {
+	automationOccurrenceRows,
+	hostSuccess,
+} from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./review-created.sandbox";
+
+const reviewSource = {
+	kind: "event" as const,
+	after: {
+		id: "review-event-1",
+		eventSchemaSlug: "review",
+		properties: { rating: 80 },
+		createdAt: "2026-07-20T09:00:01.000Z",
+		occurredAt: "2026-07-20T09:00:00.000Z",
+		subject: { name: "Dune", id: "entity-1", entitySchemaSlug: "book" },
+	},
+};
 
 const input = (origin: AutomationInput["automation"]["origin"]): AutomationInput => ({
 	automation: {
@@ -12,17 +28,7 @@ const input = (origin: AutomationInput["automation"]["origin"]): AutomationInput
 		operation: "create",
 		occurrenceId: "occurrence-1",
 		occurredAt: "2026-07-20T10:00:00.000Z",
-		source: {
-			kind: "event",
-			after: {
-				id: "review-event-1",
-				eventSchemaSlug: "review",
-				properties: { rating: 80 },
-				createdAt: "2026-07-20T09:00:01.000Z",
-				occurredAt: "2026-07-20T09:00:00.000Z",
-				subject: { name: "Dune", id: "entity-1", entitySchemaSlug: "book" },
-			},
-		},
+		source: { kind: "event", eventId: "review-event-1" },
 	},
 });
 
@@ -35,6 +41,7 @@ it("emits one actor signal for an API review from its event snapshot", () => {
 			.run(
 				input({ kind: "api" }),
 				defineSandboxTestHost(manifest, {
+					executeRyotql: () => hostSuccess(automationOccurrenceRows(reviewSource)),
 					emitSignal: (request) => {
 						calls.push(request);
 						return Effect.succeed({ wasCreated: true, signalId: "signal-1" });
@@ -76,6 +83,7 @@ it.each([
 			.run(
 				input(origin),
 				defineSandboxTestHost(manifest, {
+					executeRyotql: () => hostSuccess(automationOccurrenceRows(reviewSource)),
 					emitSignal: (request) => {
 						calls.push(request);
 						return Effect.succeed({ wasCreated: true, signalId: "signal-1" });

@@ -1,9 +1,17 @@
 import type { SandboxRunError } from "@ryot-app/contract/errors";
 import { badRequest } from "@ryot-app/contract/errors";
-import { AutomationRuleMetadata } from "@ryot-app/contract/modules/automations/schemas";
+import {
+	AutomationOperation,
+	AutomationOrigin,
+} from "@ryot-app/contract/modules/automations/schemas";
+import type { AutomationOccurrenceSource } from "@ryot-app/contract/modules/automations/schemas";
 import type { SandboxExecutionPayload } from "@ryot-app/contract/modules/sandbox/schemas";
 import {
 	AutomationRuleId,
+	AutomationOccurrenceId,
+	EntityId,
+	EventId,
+	RelationshipId,
 	SandboxScriptId,
 	SubscriptionRunId,
 	UserId,
@@ -25,12 +33,49 @@ import {
 const PreparedSubscriptionRun = Schema.Struct({
 	ruleId: AutomationRuleId,
 	runId: SubscriptionRunId,
+	origin: AutomationOrigin,
+	occurredAt: Schema.String,
+	operation: AutomationOperation,
 	sandboxScriptId: SandboxScriptId,
 	executionUserId: Schema.NullOr(UserId),
-	ruleMetadata: Schema.NullOr(AutomationRuleMetadata),
+	source: Schema.Union([
+		Schema.Struct({ entityId: EntityId, kind: Schema.Literal("entity") }),
+		Schema.Struct({ eventId: EventId, kind: Schema.Literal("event") }),
+		Schema.Struct({ relationshipId: RelationshipId, kind: Schema.Literal("relationship") }),
+		Schema.Struct({ signalId: Schema.String, kind: Schema.Literal("signal") }),
+	]),
 });
 
 type PreparedSubscriptionRun = typeof PreparedSubscriptionRun.Type;
+
+const sourceReference = (source: AutomationOccurrenceSource) =>
+	Effect.gen(function* () {
+		if (source.kind === "signal") {
+			return { kind: "signal" as const, signalId: source.signal.id };
+		}
+		if (source.kind === "provider-entity-import") {
+			return yield* badRequest("Provider imports are not subscription occurrences");
+		}
+		if (source.kind === "entity") {
+			const snapshot = source.after ?? source.before;
+			if (!snapshot) {
+				return yield* badRequest("Automation occurrence requires a before or after snapshot");
+			}
+			return { entityId: snapshot.id, kind: "entity" as const };
+		}
+		if (source.kind === "event") {
+			const snapshot = source.after ?? source.before;
+			if (!snapshot) {
+				return yield* badRequest("Automation occurrence requires a before or after snapshot");
+			}
+			return { eventId: snapshot.id, kind: "event" as const };
+		}
+		const snapshot = source.after ?? source.before;
+		if (!snapshot) {
+			return yield* badRequest("Automation occurrence requires a before or after snapshot");
+		}
+		return { relationshipId: snapshot.id, kind: "relationship" as const };
+	});
 
 const BeginSubscriptionRunResult = Schema.Union([
 	Schema.Struct({ kind: Schema.Literal("ready") }),
@@ -75,20 +120,20 @@ const prepareRun = Effect.fn("prepareSubscriptionRun")(function* (
 		execute: Effect.gen(function* () {
 			const prepared = yield* service.prepareRun({
 				ruleId: payload.ruleId,
-				recordId: payload.recordId,
-				signalId: payload.signalId,
-				operation: payload.operation,
 				rowUserId: payload.rowUserId,
-				sourceKind: payload.sourceKind,
 				occurrenceId: payload.occurrenceId,
 			});
 			if (!prepared) {
 				return null;
 			}
+			const reference = yield* sourceReference(prepared.occurrence.source);
 			return {
+				source: reference,
 				runId: prepared.run.id,
 				ruleId: prepared.execution.ruleId,
-				ruleMetadata: prepared.execution.metadata,
+				origin: prepared.occurrence.origin,
+				operation: prepared.occurrence.operation,
+				occurredAt: prepared.occurrence.occurredAt,
 				executionUserId: prepared.run.executionUserId,
 				sandboxScriptId: prepared.execution.sandboxScriptId,
 			};
@@ -135,22 +180,8 @@ export const runSubscriptionExecutionWorkflow = Effect.fn("SubscriptionExecution
 			executionId,
 			ruleId: payload.ruleId,
 			occurrenceId: payload.occurrenceId,
-			...(payload.signalId ? { signalId: payload.signalId } : {}),
-			...(payload.recordId ? { recordId: payload.recordId } : {}),
 			...(payload.rowUserId ? { rowUserId: payload.rowUserId } : {}),
 		});
-		if (payload.source.kind !== payload.sourceKind) {
-			return yield* badRequest("Automation source kind does not match its context");
-		}
-		const validReferences =
-			payload.sourceKind === "signal"
-				? payload.operation === "signal" && payload.signalId !== undefined && !payload.recordId
-				: payload.operation !== "signal" && payload.signalId === undefined && !!payload.recordId;
-		if (!validReferences) {
-			return yield* badRequest(
-				"Automation source does not match its operation and record references",
-			);
-		}
 		const prepared = yield* prepareRun(payload);
 		if (!prepared) {
 			return null;
@@ -163,14 +194,13 @@ export const runSubscriptionExecutionWorkflow = Effect.fn("SubscriptionExecution
 
 		const operations = yield* SubscriptionExecutionWorkflowOperations;
 		const automation = {
-			origin: payload.origin,
-			source: payload.source,
+			runId: prepared.runId,
+			origin: prepared.origin,
+			source: prepared.source,
 			ruleId: prepared.ruleId,
-			operation: payload.operation,
-			occurredAt: payload.occurredAt,
+			operation: prepared.operation,
+			occurredAt: prepared.occurredAt,
 			occurrenceId: payload.occurrenceId,
-			...(payload.population ? { population: payload.population } : {}),
-			...(prepared.ruleMetadata === null ? {} : { ruleMetadata: prepared.ruleMetadata }),
 		};
 		const context = { automation } satisfies AutomationInput;
 		const subject: SandboxExecutionPayload["subject"] = prepared.executionUserId
@@ -179,11 +209,16 @@ export const runSubscriptionExecutionWorkflow = Effect.fn("SubscriptionExecution
 					userId: prepared.executionUserId,
 					subscriptionRun: {
 						id: prepared.runId,
-						origin: payload.origin,
-						occurredAt: payload.occurredAt,
+						origin: prepared.origin,
+						occurredAt: prepared.occurredAt,
+						occurrenceId: AutomationOccurrenceId.make(payload.occurrenceId),
 					},
 				}
-			: { type: "system" };
+			: {
+					type: "system",
+					automationRunId: prepared.runId,
+					automationOccurrenceId: AutomationOccurrenceId.make(payload.occurrenceId),
+				};
 		const result = yield* operations
 			.runSandbox({
 				context,

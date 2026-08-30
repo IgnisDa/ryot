@@ -4,6 +4,10 @@ import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 import { expect, it } from "vitest";
 
+import {
+	automationOccurrenceRows,
+	hostSuccess,
+} from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./media-association.sandbox";
 
 type InputOverrides = {
@@ -16,7 +20,7 @@ type InputOverrides = {
 	operation?: "create" | "update" | "delete";
 };
 
-const input = (overrides: InputOverrides = {}): AutomationInput => {
+const input = (overrides: InputOverrides = {}) => {
 	const operation = overrides.operation ?? "create";
 	const targetKind = overrides.targetKind ?? "movie";
 	const subjectKind = overrides.subjectKind ?? "person";
@@ -38,32 +42,37 @@ const input = (overrides: InputOverrides = {}): AutomationInput => {
 	} else {
 		relationshipSource = { before: snapshot({ roles: overrides.beforeRoles ?? ["Actor"] }) };
 	}
-	return {
-		automation: {
-			operation,
-			ruleId: "rule-1",
-			occurrenceId: "occurrence-1",
-			origin: { kind: "provider_refresh" },
-			occurredAt: "2026-07-20T10:00:00.000Z",
-			source: { kind: "relationship", ...relationshipSource },
-			population: {
-				rootPreviouslyPopulated: overrides.rootPreviouslyPopulated ?? true,
-				scopeEntity: {
-					name: "Barbie",
-					entitySchemaSlug: targetKind,
-					id: overrides.rootEntityId ?? "associated-1",
-				},
-			},
+	const source = { kind: "relationship" as const, ...relationshipSource };
+	const population = {
+		rootPreviouslyPopulated: overrides.rootPreviouslyPopulated ?? true,
+		scopeEntity: {
+			name: "Barbie",
+			entitySchemaSlug: targetKind,
+			id: overrides.rootEntityId ?? "associated-1",
 		},
+	};
+	return {
+		occurrence: automationOccurrenceRows(source, population),
+		context: {
+			automation: {
+				operation,
+				ruleId: "rule-1",
+				occurrenceId: "occurrence-1",
+				origin: { kind: "provider_refresh" },
+				occurredAt: "2026-07-20T10:00:00.000Z",
+				source: { kind: "relationship", relationshipId: "relationship-1" },
+			},
+		} satisfies AutomationInput,
 	};
 };
 
-const run = (value: AutomationInput) => {
+const run = (value: ReturnType<typeof input>) => {
 	const calls: Array<Record<string, JsonValue | undefined>> = [];
 	return definition
 		.run(
-			value,
+			value.context,
 			defineSandboxTestHost(manifest, {
+				executeRyotql: () => hostSuccess(value.occurrence),
 				emitSignal: (request) => {
 					calls.push(request);
 					return Effect.succeed({ wasCreated: true, signalId: "signal-1" });

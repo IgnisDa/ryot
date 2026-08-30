@@ -1,6 +1,10 @@
 import { DbError, unknownToMessage } from "@ryot-app/contract/errors";
 import { AutomationProperties } from "@ryot-app/contract/modules/automations/schemas";
-import { type AutomationRuleId, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
+import {
+	AutomationOccurrenceId,
+	type AutomationRuleId,
+	EventSchemaSlug,
+} from "@ryot-app/contract/schema/brands";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, Result, Layer, Match, Schema } from "effect";
@@ -93,6 +97,19 @@ export const LifecycleDispatchLive = Layer.effect(
 				Effect.gen(function* () {
 					const operation = input.operation ?? "create";
 					const source = yield* decodeSource(input.source);
+					const occurrenceId = AutomationOccurrenceId.make(input.occurrenceId);
+					yield* automations.recordOccurrence({
+						source,
+						operation,
+						signalId: null,
+						id: occurrenceId,
+						origin: input.origin,
+						userId: input.rowUserId,
+						sourceKind: source.kind,
+						recordId: input.recordId,
+						occurredAt: input.occurredAt,
+						population: input.population ?? null,
+					});
 					const rules = yield* automations.resolveActive({
 						operation,
 						rowUserId: input.rowUserId,
@@ -106,18 +123,7 @@ export const LifecycleDispatchLive = Layer.effect(
 								.execute(SubscriptionExecutionWorkflow, {
 									discard: true,
 									executionId: lifecycleWorkflowExecutionId(input.occurrenceId, rule.id),
-									payload: {
-										source,
-										operation,
-										ruleId: rule.id,
-										origin: input.origin,
-										sourceKind: source.kind,
-										recordId: input.recordId,
-										rowUserId: input.rowUserId,
-										occurredAt: input.occurredAt,
-										occurrenceId: input.occurrenceId,
-										...(input.population ? { population: input.population } : {}),
-									},
+									payload: { occurrenceId, ruleId: rule.id, rowUserId: input.rowUserId },
 								})
 								.pipe(Effect.result),
 						{ concurrency: "unbounded" },
