@@ -3,6 +3,7 @@ import { Layer } from "effect";
 import { AdminApi } from "#/api/admin";
 import { AuthenticatedApi } from "#/api/authenticated";
 import { BackupsApi } from "#/api/backups";
+import { ClientPagesApi } from "#/api/client-pages";
 import { EntityInterestApi } from "#/api/entity-interest";
 import { GodModeApi } from "#/api/god-mode";
 import { ImportsApi } from "#/api/imports";
@@ -23,6 +24,7 @@ import { OAuthStorage } from "#/modules/auth/oauth-storage";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService } from "#/modules/auth/service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
+import { ClientPageSessions } from "#/modules/client-pages/sessions";
 import { EntitiesService } from "#/modules/entities/service";
 import { EntityInterestService } from "#/modules/entity-interest/service";
 import { EntityInterestTransport } from "#/modules/entity-interest/transport";
@@ -54,6 +56,7 @@ const InfrastructureLive = Layer.mergeAll(
 	EntityInterestApi.layer,
 	RyotQLApi.layer,
 	BackupsApi.layer,
+	ClientPagesApi.layer,
 	UploadsApi.layer,
 	PluginsApi.layer,
 	ImportsApi.layer,
@@ -97,6 +100,7 @@ export const ClientLive = Layer.mergeAll(
 	ManagedAssetsService.layer,
 	ServerLive,
 	ArtifactSessions.layer,
+	ClientPageSessions.layer,
 	NavigationService.layer,
 	CustomizeSidebarService.layer,
 	PluginCatalogService.layer,

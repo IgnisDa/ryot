@@ -37,13 +37,13 @@ const cardLayout = {
 	primaryMetadata: null,
 	secondaryMetadata: null,
 	entityIdField: "entityId",
-} satisfies SavedViewRecord["layouts"]["grid"];
+} satisfies NonNullable<SavedViewRecord["layouts"]>["grid"];
 const tableLayout = {
 	queryDocument,
 	imageField: null,
 	entityIdField: "entityId",
 	columns: [{ displayKind: "text", field: "title", label: "Title" }],
-} satisfies SavedViewRecord["layouts"]["table"];
+} satisfies NonNullable<SavedViewRecord["layouts"]>["table"];
 const record = { id: SavedViewId.make("view-1"), updatedAt: "2026-01-01T00:00:00.000Z" };
 
 describe("saved-view query helpers", () => {

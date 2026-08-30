@@ -1,5 +1,11 @@
 import { jsonValueSchema } from "@ryot-app/contract/modules/sandbox/wire";
-import { PluginSlug, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import {
+	ClientRendererId,
+	PluginSlug,
+	SandboxScriptId,
+	SavedViewId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Context, Effect, Layer, Redacted, Schema } from "effect";
 import Redis from "ioredis";
@@ -43,6 +49,19 @@ export const PluginClientArtifactSessionPayloadFromJson = Schema.fromJsonString(
 	PluginClientArtifactSessionPayload,
 );
 
+export const ClientPageSessionPayload = Schema.Struct({
+	userId: UserId,
+	buildId: Schema.String,
+	savedViewId: SavedViewId,
+	viewRevision: Schema.Int,
+	artifactHash: Schema.String,
+	publishedHash: Schema.String,
+	rendererId: ClientRendererId,
+	publishedRevision: Schema.Int,
+}).annotate({ parseOptions: { onExcessProperty: "error" as const } });
+
+export const ClientPageSessionPayloadFromJson = Schema.fromJsonString(ClientPageSessionPayload);
+
 export const hashPluginClientArtifactSessionToken = sha256Hex;
 
 export const redisKeys = {
@@ -56,6 +75,7 @@ export const redisKeys = {
 	uploadIntentLock: (intentId: string) => `ryot:upload:intent-lock:${intentId}`,
 	importAdapterResult: (runId: string) => `ryot:imports:adapter-result:${runId}`,
 	importSourceState: (stateId: string) => `ryot:imports:source-state:${stateId}`,
+	clientPageSession: (sessionId: string) => `ryot:client-pages:session:${sessionId}`,
 	godModeResetChannel: (correlationId: string) => `ryot:god-mode:reset:${correlationId}`,
 	entityInterestSession: (sessionId: string) => `ryot:entity-interest:session:${sessionId}`,
 	sandboxWorkflowJournal: (executionId: string) => `ryot:sandbox:workflow:${executionId}:journal`,

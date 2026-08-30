@@ -28,6 +28,8 @@ import {
 	ProviderAddRouteStubs,
 	ImportsRouteStubs,
 	IntegrationRouteStubs,
+	ClientPagesApiRouteStubs,
+	ClientPageSessionsRouteStubs,
 	NotificationChannelRouteStubs,
 } from "#/routes/-route-fixtures";
 
@@ -90,6 +92,8 @@ const mountLogin = (config: ReturnType<typeof systemConfig>) => {
 			}),
 			makePluginCatalogEventsTestLayer().layer,
 			KernelApiTestLayer,
+			ClientPagesApiRouteStubs,
+			ClientPageSessionsRouteStubs,
 		).pipe(
 			Layer.provideMerge(oauth),
 			Layer.provideMerge(Layer.succeed(ClientStorage, makeStorageStub())),
