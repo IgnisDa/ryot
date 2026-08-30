@@ -13,6 +13,7 @@ uses `@ryot-app/vite-compiler` for the complete Deno ESM build profile and scope
 | `./plugins`                               | `compilePluginSandboxEntries`, `compilePluginSandboxSourceEntries`, and entry-path helpers       | Kernel plugin bootstrap and sandbox runner tests                          |
 | `./plugin-manifest`                       | `derivePluginSandboxScripts` and `compilePluginManifestScripts`                                  | `ryot plugin build` and kernel plugin ingestion                           |
 | `./protocol`, `./diagnostics`, `./limits` | Worker wire types, diagnostics, and shared limits                                                | Kernel supervisors, runtime services, and CLI code                        |
+| `./runtime-build/*`                       | Trusted dependency registry, payload, source walking, and process capture                        | Kernel build and server runtime-image verification                        |
 
 Standalone user scripts enter through `./worker`. Built-ins and plugin manifest scripts use the same
 semantic and Vite Deno build stages, but retain their separate public APIs and metadata checks.
@@ -32,6 +33,11 @@ package once and reuses that workspace for each entry.
 The shared Deno profile emits exactly one `sandbox.mjs` module as unminified ES2022 ESM with an inline
 source map and no CSS, module preload, or code splitting. Runner and trusted runtime generation use
 the same `buildDenoEsm` API with their own output filenames.
+
+The kernel's `tooling/sandbox-runtime.ts` assembles generated runner, payload, and kernel script files.
+`src/runtime-build/` owns the generic registry and deterministic payload construction, bounded source
+watch inputs, and process capture for the production runtime-image verification. The compiler package
+does not depend on kernel modules.
 
 Because source-map paths stay relative to the staged package, a mapped runtime stack frame names the
 authored source (`script.ts` for a user script, `backend/...` for a plugin entry) and the sandbox

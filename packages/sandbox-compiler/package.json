@@ -30,6 +30,10 @@
 		"./worker": {
 			"types": "./src/compiler-worker.ts",
 			"default": "./src/compiler-worker.ts"
+		},
+		"./runtime-build/*": {
+			"types": "./src/runtime-build/*.ts",
+			"default": "./src/runtime-build/*.ts"
 		}
 	},
 	"scripts": {
