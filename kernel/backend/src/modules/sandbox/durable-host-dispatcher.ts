@@ -248,35 +248,34 @@ export const prepareSandboxLifecycleHostInput = Effect.fn("prepareSandboxLifecyc
 			startedAt,
 		);
 		const capability = request.args.capability;
-		const validated = yield* Effect.result(
-			Effect.gen(function* () {
-				if (capability === "upsertGlobalEntities") {
-					const [items, options] = yield* decodeSandboxHostArguments(
-						capability,
-						sandboxHostContracts[capability],
-					)(request.args.args);
-					return yield* lifecycle.upsertGlobalEntities.validate(input, items, options);
-				}
-				if (capability === "changeUserRelationships") {
-					const [batches] = yield* decodeSandboxHostArguments(
-						capability,
-						sandboxHostContracts[capability],
-					)(request.args.args);
-					return yield* lifecycle.changeUserRelationships.validate(input, batches);
-				}
-				if (capability === "upsertGlobalRelationships") {
-					const [groups] = yield* decodeSandboxHostArguments(
-						capability,
-						sandboxHostContracts[capability],
-					)(request.args.args);
-					return yield* lifecycle.upsertGlobalRelationships.validate(input, groups);
-				}
-				return yield* new SandboxRunError({
-					kind: "script-failure",
-					message: `Sandbox durable host capability is not lifecycle-dispatchable: ${capability}`,
-				});
-			}),
-		);
+		const validateLifecycleInput = Effect.fnUntraced(function* () {
+			if (capability === "upsertGlobalEntities") {
+				const [items, options] = yield* decodeSandboxHostArguments(
+					capability,
+					sandboxHostContracts[capability],
+				)(request.args.args);
+				return yield* lifecycle.upsertGlobalEntities.validate(input, items, options);
+			}
+			if (capability === "changeUserRelationships") {
+				const [batches] = yield* decodeSandboxHostArguments(
+					capability,
+					sandboxHostContracts[capability],
+				)(request.args.args);
+				return yield* lifecycle.changeUserRelationships.validate(input, batches);
+			}
+			if (capability === "upsertGlobalRelationships") {
+				const [groups] = yield* decodeSandboxHostArguments(
+					capability,
+					sandboxHostContracts[capability],
+				)(request.args.args);
+				return yield* lifecycle.upsertGlobalRelationships.validate(input, groups);
+			}
+			return yield* new SandboxRunError({
+				kind: "script-failure",
+				message: `Sandbox durable host capability is not lifecycle-dispatchable: ${capability}`,
+			});
+		});
+		const validated = yield* Effect.result(validateLifecycleInput());
 		if (validated._tag === "Success") {
 			return validated.success;
 		}
