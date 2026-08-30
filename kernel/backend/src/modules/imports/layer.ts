@@ -1,11 +1,15 @@
 import { Effect, Layer } from "effect";
 
+import { DefinitionRepository } from "#modules/definition-registry/repository";
+import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { ImportSourceCatalog } from "#modules/plugins/import-source-catalog";
+import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
 import { SandboxExecutionServiceLive } from "#modules/sandbox/layer";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 import { UploadServicesLive } from "#modules/uploads/layer";
 
 import { ImportRunFailuresService } from "./failure-service";
+import { ProcessGenericImportChunksWorkflowDefinitionsLive } from "./generic-import-workflow";
 import { ImportsRepository } from "./repository";
 import { ImportSourceStateStore } from "./runtime/source-state-store";
 import { ImportsService } from "./service";
@@ -34,3 +38,15 @@ export const ImportsServiceLive = ImportsService.layer.pipe(
 		),
 	),
 );
+
+export const ProcessGenericImportChunksWorkflowDefinitionsProvidedLive =
+	ProcessGenericImportChunksWorkflowDefinitionsLive.pipe(
+		Layer.provide(
+			Layer.mergeAll(
+				DefinitionRepository.layer,
+				EntitiesRepositoryLive,
+				ImportRunFailuresService.layer.pipe(Layer.provide(ImportsRepository.layer)),
+				PluginRuntimeResolverLive,
+			),
+		),
+	);
