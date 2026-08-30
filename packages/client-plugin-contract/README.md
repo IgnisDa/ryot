@@ -6,16 +6,17 @@ and shared capability payloads. Runtime-only policy stays with its runtime. Brid
 structured-clone values rather than JSON, so the upload source crosses the port as a `Blob`.
 
 Artifact metadata includes content hash, artifact format, client API version, compiler version, and
-bridge version. Bridge init establishes an immutable session identity from a random session ID and
-that artifact identity. Ready repeats it, and the kernel accepts only an exact match. The plugin
-reports metadata embedded in the artifact rather than treating echoed kernel input as proof.
+bridge version. Bridge init establishes a runtime identity from a random bridge session ID and that
+artifact identity. Ready repeats it, and the kernel accepts only an exact match. The plugin reports
+metadata embedded in the artifact rather than treating echoed kernel input as proof. Later document
+messages replace the page context and remount its page tree without closing the bridge.
 
-The client artifact format, client API, bridge protocol, and Vite-based client compiler identity are
-version 1.
+The client artifact format, client API, and Vite-based client compiler identity are version 1; the
+bridge protocol is version 2.
 
-`ClientPageTarget` covers saved views, explicit plugin routes, and entities. Its page context carries
-renderer identity, settings, optional named data sources, and route parameters. Artifact sessions are
-scoped to the complete prepared client-page graph.
+`ClientPageTarget` covers saved-view slugs, explicit plugin routes, and entities. Its page context
+carries renderer identity, settings, optional named data sources, and route parameters. Artifact grants
+belong to authenticated HTTP preparation; the bridge carries page context without the grant.
 
 Entity interest uses strict state messages with at most 500 selected IDs: plugins send foreground and
 visible IDs, and the kernel sends entity ID plus `populated` or `translated`. These messages have no
