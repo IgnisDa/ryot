@@ -91,7 +91,7 @@ const readCatalogStream = (body: ReadableStream<Uint8Array>, onEvent: (type: str
 					}
 				}
 			}),
-		(reader) => Effect.promise(() => reader.cancel().catch(() => undefined)),
+		(reader) => Effect.ignore(Effect.tryPromise(() => reader.cancel())),
 	);
 
 const openCatalogStream = (

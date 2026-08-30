@@ -1,7 +1,7 @@
 import { Button } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import clsx from "clsx";
-import { Exit } from "effect";
+import { Effect, Exit } from "effect";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 
 import { isUnauthorizedCause } from "#/modules/god-mode/errors";
@@ -89,14 +89,16 @@ function DetailList(props: { readonly entry: MigrationReportEntry }) {
 					type="button"
 					variant="secondary"
 					onClick={() =>
-						void transferMigrationReportDetails(
-							buildMigrationReportClipboardText({
-								code,
-								details,
-								phase: entry.phase,
-								message: entry.message,
-								totalDetails: entry.totalDetails,
-							}),
+						Effect.runFork(
+							transferMigrationReportDetails(
+								buildMigrationReportClipboardText({
+									code,
+									details,
+									phase: entry.phase,
+									message: entry.message,
+									totalDetails: entry.totalDetails,
+								}),
+							),
 						)
 					}
 				>
@@ -203,8 +205,7 @@ export function MigrationReportView(props: {
 	readonly unauthorized: () => void;
 	readonly load: (
 		after: string | undefined,
-		signal: AbortSignal,
-	) => Promise<Exit.Exit<GodModeMigrationReport, unknown>>;
+	) => Effect.Effect<Exit.Exit<GodModeMigrationReport, unknown>>;
 }) {
 	const controller = useRef<AbortController>(null);
 	const [unauthorized, setUnauthorized] = useState(false);
@@ -236,8 +237,13 @@ export function MigrationReportView(props: {
 		);
 	};
 	const load = (after: string | undefined, signal: AbortSignal) =>
-		props.load(after, signal).then((result) => applyPage(after, signal, result));
-	const loadFirstPage = useEffectEvent((signal: AbortSignal) => void load(undefined, signal));
+		Effect.runFork(
+			props.load(after).pipe(Effect.map((result) => applyPage(after, signal, result))),
+			{ signal },
+		);
+	const loadFirstPage = useEffectEvent((signal: AbortSignal) => {
+		load(undefined, signal);
+	});
 
 	useEffect(() => {
 		const initial = new AbortController();
@@ -249,7 +255,7 @@ export function MigrationReportView(props: {
 	const request = (after: string | undefined) => {
 		const next = new AbortController();
 		controller.current = next;
-		void load(after, next.signal);
+		load(after, next.signal);
 	};
 	const retry = (after: string | undefined) => {
 		setPages((current) =>

@@ -218,7 +218,7 @@ export function AuthenticatedShell(props: {
 	const commitCustomize = () =>
 		runtime.runPromise(
 			Effect.gen(function* () {
-				if (!(yield* Effect.promise(() => customize.save()))) {
+				if (!(yield* customize.save())) {
 					return;
 				}
 				const currentDraft = customize.draft.workspaces.find(({ slug }) => slug === current?.slug);

@@ -1,5 +1,6 @@
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { createFileRoute } from "@tanstack/react-router";
+import { Effect } from "effect";
 
 import {
 	useClearClientPageDocument,
@@ -15,15 +16,13 @@ export const Route = createFileRoute("/_authenticated/e/$entityId")({
 	errorComponent: EntityError,
 	pendingComponent: EntityPending,
 	loader: ({ params, context, abortController }) =>
-		context.runtime
-			.runPromise(
-				prepareClientPage(context.scope, {
-					kind: "entity",
-					entityId: EntityId.make(params.entityId),
-				}),
-				{ signal: abortController.signal },
-			)
-			.then((preparation) => ({ preparation })),
+		context.runtime.runPromise(
+			prepareClientPage(context.scope, {
+				kind: "entity",
+				entityId: EntityId.make(params.entityId),
+			}).pipe(Effect.map((preparation) => ({ preparation }))),
+			{ signal: abortController.signal },
+		),
 });
 
 function EntityPage() {
