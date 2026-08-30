@@ -488,6 +488,61 @@ describe("Audiobookshelf yank", () => {
 			events: [{ unresolvedEpisode: { type: "podcast", episodeNumber: 2 } }],
 		});
 	});
+
+	it("reads podcast details whose episodes carry null numbering fields", async () => {
+		const result = await runAudiobookshelf({
+			"/api/libraries": { libraries: [{ id: "podcasts", name: "Podcasts", mediaType: "podcast" }] },
+			"/api/items/pod1?expanded=1&include=progress&episode=e1": {
+				userMediaProgress: { isFinished: true },
+			},
+			"/api/items/pod1?expanded=1&include=progress": {
+				media: { episodes: [{ id: "e1", index: null, episode: "", episodeNumber: 3 }] },
+			},
+			"/api/libraries/podcasts/items?expanded=1": {
+				results: [
+					{
+						id: "pod1",
+						media: { ebookFormat: null, metadata: { itunesId: "42", title: "Podcast" } },
+					},
+				],
+			},
+		});
+		expect(result.failures).toEqual([]);
+		expect(result.entityGroups[0]).toMatchObject({
+			entityRef: { externalId: "42", providerSlug: "podcast.itunes" },
+			events: [{ unresolvedEpisode: { type: "podcast", episodeNumber: 3 } }],
+		});
+	});
+
+	it("treats null podcast episode progress as unfinished rather than a fetch failure", async () => {
+		const result = await runAudiobookshelf({
+			"/api/items/pod1?expanded=1&include=progress&episode=e1": { userMediaProgress: null },
+			"/api/libraries": { libraries: [{ id: "podcasts", name: "Podcasts", mediaType: "podcast" }] },
+			"/api/items/pod1?expanded=1&include=progress&episode=e2": {
+				userMediaProgress: { isFinished: true },
+			},
+			"/api/items/pod1?expanded=1&include=progress": {
+				media: {
+					episodes: [
+						{ id: "e1", episodeNumber: 1 },
+						{ id: "e2", episodeNumber: 2 },
+					],
+				},
+			},
+			"/api/libraries/podcasts/items?expanded=1": {
+				results: [
+					{
+						id: "pod1",
+						media: { ebookFormat: null, metadata: { itunesId: "42", title: "Podcast" } },
+					},
+				],
+			},
+		});
+		expect(result.failures).toEqual([]);
+		expect(result.entityGroups[0]).toMatchObject({
+			events: [{ unresolvedEpisode: { type: "podcast", episodeNumber: 2 } }],
+		});
+	});
 });
 
 describe("Komga yank", () => {
