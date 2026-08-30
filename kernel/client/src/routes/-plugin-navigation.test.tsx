@@ -15,7 +15,7 @@ import {
 import { EntityId, EntitySchemaSlug, PluginSlug } from "@ryot-app/contract/schema/brands";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { Effect, Layer, ManagedRuntime, Schema } from "effect";
 import { describe, expect, it } from "vitest";
 
@@ -118,6 +118,7 @@ function mount(options: {
 	readonly entry: string;
 	readonly entries?: PluginClientCatalog;
 	readonly prepare?: ClientPagesApi["Service"]["prepare"];
+	readonly renew?: ClientPageSessions["Service"]["renew"];
 }) {
 	const targets: ClientPageTarget[] = [];
 	const sessions: PreparedClientPage["identity"][] = [];
@@ -134,6 +135,7 @@ function mount(options: {
 			return Effect.succeed(preparedFor(target, pluginId));
 		});
 	const entries = options.entries ?? catalog;
+	const events = makePluginCatalogEventsTestLayer();
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
 			ProviderAddRouteStubs,
@@ -147,7 +149,7 @@ function mount(options: {
 			Layer.succeed(EntitiesService, { loadRouteProvenance: () => Effect.die("not used") }),
 			makePublicApiStub(),
 			KernelApiTestLayer,
-			makePluginCatalogEventsTestLayer().layer,
+			events.layer,
 			Layer.succeed(PluginCatalogService, { load: () => Effect.succeed(entries) }),
 			NavigationRouteStubs,
 			CustomizeRouteStubs,
@@ -166,7 +168,7 @@ function mount(options: {
 						src: `https://artifacts.example/${identity.artifactHash}/index.html`,
 					});
 				},
-				renew: () => Effect.die("not used"),
+				renew: options.renew ?? (() => Effect.die("not used")),
 				revoke: () => Effect.void,
 			}),
 			Layer.succeed(ArtifactSessions, {
@@ -191,7 +193,7 @@ function mount(options: {
 		createMemoryHistory({ initialEntries: [options.entry] }),
 	);
 	const view = render(<RouterProvider router={router} />);
-	return { ...view, operations, router, sessions, targets };
+	return { ...view, events, operations, router, sessions, targets };
 }
 
 function connectFrame(frame: HTMLIFrameElement) {
@@ -279,10 +281,11 @@ describe("client page routes", () => {
 		});
 	});
 
-	it("keeps operation targets for the mounted document until its identity changes", async () => {
+	it("adopts changed operation targets only after an explicit update reload", async () => {
 		let preparation = 0;
 		const view = mount({
 			entry: "/fixture/details/one",
+			renew: () => Effect.succeed({ outcome: "replace", reason: "stale" }),
 			prepare: (_scope, request) => {
 				const target = request.payload.target;
 				if (target.kind !== "plugin-route") {
@@ -311,13 +314,6 @@ describe("client page routes", () => {
 					identity: {
 						...prepared.identity,
 						operationTargets,
-						...(preparation === 3
-							? {
-									buildId: "build-plugin-1-next",
-									graphHash: "graph-plugin-1-next",
-									artifactHash: "artifact-plugin-1-next",
-								}
-							: {}),
 					},
 				});
 			},
@@ -328,47 +324,53 @@ describe("client page routes", () => {
 
 		await view.router.navigate({ href: "/fixture/details/two" });
 		await waitFor(() => expect(preparation).toBe(2));
-		expect(screen.getByTitle("fixture plugin")).toBe(firstFrame);
+		const nextFrame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
+		expect(nextFrame).toBe(firstFrame);
 		firstBridge.port.postMessage({
 			input: null,
 			operationSlug: "mutate",
 			type: "operation-request",
+			requestId: "retained-target",
 			pluginSlug: "operations-only",
-			requestId: "same-document-existing",
 		});
 		firstBridge.port.postMessage({
 			input: null,
+			requestId: "new-target",
 			operationSlug: "mutate",
 			type: "operation-request",
 			pluginSlug: "newly-installed",
-			requestId: "same-document-new",
 		});
 		await waitFor(() => expect(view.operations).toHaveLength(1));
 		expect(view.operations[0]).toMatchObject({ sourceHash: "operations-only-source" });
-		await waitFor(() =>
-			expect(firstBridge.messages).toContainEqual({
-				outcome: "failure",
-				type: "operation-result",
-				reason: "operation-failed",
-				requestId: "same-document-new",
-			}),
-		);
 
-		await view.router.navigate({ href: "/fixture/details/three" });
+		act(() => view.events.send());
+		await screen.findByText("An update is available. Reloading will discard unsaved local state.");
+		fireEvent.click(screen.getByRole("button", { name: "Reload updated page" }));
 		await waitFor(() => expect(preparation).toBe(3));
-		const nextFrame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
-		expect(nextFrame).not.toBe(firstFrame);
-		const nextBridge = connectFrame(nextFrame);
-		await waitFor(() => expect(nextBridge.messages).toHaveLength(1));
-		nextBridge.port.postMessage({
+		const reloadedFrame = await waitFor(() => {
+			const frame = screen.getByTitle<HTMLIFrameElement>("fixture plugin");
+			expect(frame).not.toBe(firstFrame);
+			return frame;
+		});
+		expect(view.sessions).toHaveLength(2);
+		const reloadedBridge = connectFrame(reloadedFrame);
+		reloadedBridge.port.postMessage({
 			input: null,
 			operationSlug: "mutate",
 			type: "operation-request",
-			requestId: "next-document",
+			requestId: "updated-target",
 			pluginSlug: "operations-only",
 		});
-		await waitFor(() => expect(view.operations).toHaveLength(2));
+		reloadedBridge.port.postMessage({
+			input: null,
+			operationSlug: "mutate",
+			type: "operation-request",
+			requestId: "adopted-target",
+			pluginSlug: "newly-installed",
+		});
+		await waitFor(() => expect(view.operations).toHaveLength(3));
 		expect(view.operations[1]).toMatchObject({ sourceHash: "operations-only-updated" });
+		expect(view.operations[2]).toMatchObject({ sourceHash: "newly-installed-source" });
 	});
 
 	it("uses explicit plugin navigation and merges page search with null deletion", async () => {

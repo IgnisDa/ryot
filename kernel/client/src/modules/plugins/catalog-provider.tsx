@@ -7,6 +7,7 @@ import {
 	useEffect,
 	useEffectEvent,
 	useMemo,
+	useState,
 	type ReactNode,
 } from "react";
 
@@ -24,6 +25,7 @@ type PluginCatalogProviderRuntime = PluginCatalogRuntime & {
 type PluginCatalogContextValue = {
 	readonly refetch: () => void;
 	readonly catalog: PluginClientCatalog;
+	readonly invalidationRevision: number;
 };
 
 const PluginCatalogContext = createContext<PluginCatalogContextValue | undefined>(undefined);
@@ -40,7 +42,11 @@ export function PluginCatalogProvider(props: {
 		[props.initialCatalog, props.runtime],
 	);
 	const { data: catalog = props.initialCatalog, refetch } = useRyotQuery(pluginCatalogQuery, input);
-	const refreshCatalog = useEffectEvent(refetch);
+	const [invalidationRevision, setInvalidationRevision] = useState(0);
+	const refreshCatalog = useEffectEvent(() => {
+		setInvalidationRevision((revision) => revision + 1);
+		refetch();
+	});
 
 	useEffect(() => {
 		const subscription = props.runtime.runFork(
@@ -53,7 +59,10 @@ export function PluginCatalogProvider(props: {
 		};
 	}, [props.runtime, serverUrl, userId]);
 
-	const value = useMemo(() => ({ catalog, refetch }), [catalog, refetch]);
+	const value = useMemo(
+		() => ({ catalog, refetch, invalidationRevision }),
+		[catalog, refetch, invalidationRevision],
+	);
 
 	return (
 		<PluginCatalogContext.Provider value={value}>{props.children}</PluginCatalogContext.Provider>
