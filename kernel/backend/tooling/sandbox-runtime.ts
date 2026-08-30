@@ -168,5 +168,6 @@ const program = Effect.gen(function* () {
 }).pipe(Effect.tapError((error) => Effect.logError(JSON.stringify(error, null, 2))));
 
 BunRuntime.runMain(
+	// oxlint-disable-next-line effecttsgo/strict-effect-provide -- The sandbox runtime generator is a command-line entrypoint
 	program.pipe(Effect.provide(Layer.mergeAll(BunServices.layer, ViteBuildService.layer))),
 );
