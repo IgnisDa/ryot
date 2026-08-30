@@ -1,4 +1,5 @@
 import type { PluginRouteLocation } from "@ryot-app/contract/modules/plugins/client";
+import { EntityId } from "@ryot-app/contract/schema/brands";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -88,7 +89,7 @@ describe("plugin logical locations", () => {
 			toNavigationRequest("fixture", {
 				mode: "push",
 				type: "navigate",
-				location: { kind: "route", path: "/details/item-1", search: "tab=stats" },
+				target: { kind: "route", path: "/details/item-1", search: "tab=stats" },
 			}),
 		).toEqual({ replace: false, href: "/fixture/details/item-1?tab=stats" });
 
@@ -96,7 +97,7 @@ describe("plugin logical locations", () => {
 			toNavigationRequest("fixture", {
 				mode: "replace",
 				type: "navigate",
-				location: { kind: "route", path: "/", search: "" },
+				target: { kind: "route", path: "/", search: "" },
 			}),
 		).toEqual({ replace: true, href: "/fixture" });
 	});
@@ -107,7 +108,7 @@ describe("plugin logical locations", () => {
 				toNavigationRequest("fixture", {
 					mode: "push",
 					type: "navigate",
-					location: { kind: "route", path, search: "" },
+					target: { kind: "route", path, search: "" },
 				}),
 			).toBeUndefined();
 		}
@@ -119,9 +120,29 @@ describe("plugin logical locations", () => {
 				toNavigationRequest("fixture", {
 					mode: "push",
 					type: "navigate",
-					location: { kind: "route", path, search: "" },
+					target: { kind: "route", path, search: "" },
 				}),
 			).toEqual({ replace: false, href: `/fixture${path}` });
 		}
+	});
+
+	it("navigates to an encoded global entity route without the plugin namespace", () => {
+		expect(
+			toNavigationRequest("fixture", {
+				mode: "push",
+				type: "navigate",
+				target: { kind: "entity", entityId: EntityId.make("entity/one?two") },
+			}),
+		).toEqual({ replace: false, href: "/e/entity%2Fone%3Ftwo" });
+	});
+
+	it("rejects an empty entity ID", () => {
+		expect(
+			toNavigationRequest("fixture", {
+				mode: "replace",
+				type: "navigate",
+				target: { kind: "entity", entityId: EntityId.make("") },
+			}),
+		).toBeUndefined();
 	});
 });

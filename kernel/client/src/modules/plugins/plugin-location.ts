@@ -2,6 +2,7 @@ import type {
 	PluginBridgeNavigate,
 	PluginRouteLocation,
 } from "@ryot-app/contract/modules/plugins/client";
+import { Match } from "effect";
 
 export type PluginNavigationRequest = { readonly href: string; readonly replace: boolean };
 
@@ -11,6 +12,8 @@ const safePath = /^\/[\w\-.~!$&'()*+,;=:@%/]*$/;
 
 const dropTrailingSlash = (path: string) =>
 	path.length > 1 && path.endsWith("/") ? path.slice(0, -1) : path;
+
+type PluginNavigationTarget = PluginBridgeNavigate["target"];
 
 export function toPluginLocation(
 	pluginSlug: string,
@@ -26,9 +29,15 @@ export function toPluginLocation(
 	};
 }
 
-export function toGlobalHref(pluginSlug: string, location: PluginRouteLocation) {
-	const search = location.search === "" ? "" : `?${location.search}`;
-	return `/${pluginSlug}${location.path === "/" ? "" : location.path}${search}`;
+export function toGlobalHref(pluginSlug: string, target: PluginNavigationTarget) {
+	return Match.value(target).pipe(
+		Match.when({ kind: "route" }, (location) => {
+			const search = location.search === "" ? "" : `?${location.search}`;
+			return `/${pluginSlug}${location.path === "/" ? "" : location.path}${search}`;
+		}),
+		Match.when({ kind: "entity" }, ({ entityId }) => `/e/${encodeURIComponent(entityId)}`),
+		Match.exhaustive,
+	);
 }
 
 export function validatePluginLocation(location: PluginRouteLocation) {
@@ -46,8 +55,12 @@ export function toNavigationRequest(
 	pluginSlug: string,
 	request: PluginBridgeNavigate,
 ): PluginNavigationRequest | undefined {
-	const location = validatePluginLocation(request.location);
-	return location === undefined
+	const target = Match.value(request.target).pipe(
+		Match.when({ kind: "route" }, validatePluginLocation),
+		Match.when({ kind: "entity" }, (entity) => (entity.entityId === "" ? undefined : entity)),
+		Match.exhaustive,
+	);
+	return target === undefined
 		? undefined
-		: { href: toGlobalHref(pluginSlug, location), replace: request.mode === "replace" };
+		: { href: toGlobalHref(pluginSlug, target), replace: request.mode === "replace" };
 }
