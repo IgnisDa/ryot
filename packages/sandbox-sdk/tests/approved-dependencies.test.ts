@@ -5,10 +5,10 @@ import { strFromU8, gunzipSync, gzipSync } from "@ryot-app/sandbox-sdk/fflate";
 import { parse } from "@ryot-app/sandbox-sdk/papaparse";
 import { expect, test } from "vitest";
 
-test("approved non-network dependencies remain local transformations", async () => {
+test("approved non-network dependencies remain local transformations", () => {
 	const encoded = new TextEncoder().encode("local");
 
-	expect(await Effect.runPromise(Effect.succeed("local"))).toBe("local");
+	expect(Effect.runSync(Effect.succeed("local"))).toBe("local");
 	expect(load("<main>local</main>")("main").text()).toBe("local");
 	const compressed = gzipSync(encoded);
 	expect(strFromU8(gunzipSync(compressed))).toBe("local");
