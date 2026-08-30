@@ -1,4 +1,4 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 import { assert, describe } from "vitest";
@@ -7,17 +7,22 @@ import { BackupRestorePersistence } from "#modules/backups/restore/persistence";
 import {
 	installRevisionPackage,
 	revisionPackage,
-	withRevisionDatabase,
+	revisionDatabaseLayer,
 } from "#modules/plugins/revision.test-support";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 
 import { AutomationsRepository } from "./repository";
 
 describe("Notification configuration PostgreSQL", () => {
-	it.effect(
-		"preserves inactive configuration and falsy backup metadata, with exact user and plugin scope",
-		() =>
-			withRevisionDatabase(
+	layer(
+		Layer.merge(
+			AutomationsRepository.layer,
+			BackupRestorePersistence.layer.pipe(Layer.provide(SavedViewsRepository.layer)),
+		).pipe(Layer.provideMerge(revisionDatabaseLayer)),
+	)((test) => {
+		test.effect(
+			"preserves inactive configuration and falsy backup metadata, with exact user and plugin scope",
+			() =>
 				Effect.gen(function* () {
 					const repository = yield* AutomationsRepository;
 					const persistence = yield* BackupRestorePersistence;
@@ -83,14 +88,7 @@ describe("Notification configuration PostgreSQL", () => {
 						(yield* repository.listActiveNotificationSubscriptions(preference)).map(({ id }) => id),
 					).toEqual([state.id]);
 					expect(yield* repository.listNotificationSubscriptionsForBackup(other)).toEqual([]);
-				}).pipe(
-					Effect.provide(
-						Layer.merge(
-							AutomationsRepository.layer,
-							BackupRestorePersistence.layer.pipe(Layer.provide(SavedViewsRepository.layer)),
-						),
-					),
-				),
-			),
-	);
+				}),
+		);
+	});
 });

@@ -1,4 +1,4 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { defaultUserPreferences } from "@ryot-app/contract/auth-middleware";
 import { DbError } from "@ryot-app/contract/errors";
 import {
@@ -18,8 +18,8 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { eq, sql } from "drizzle-orm";
-import { Effect, Layer, Redacted, Schema } from "effect";
+import { eq } from "drizzle-orm";
+import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { assert, describe } from "vitest";
 
 import { user } from "#lib/infrastructure/db/schema/tables/auth";
@@ -34,12 +34,7 @@ import {
 import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { assertExitFails } from "#lib/test-utils/assertions";
-import {
-	applyBaselineMigration,
-	baselineMigrationStatements,
-} from "#lib/test-utils/baseline-migration";
-import { testDatabaseUrl, withIsolatedDatabase } from "#lib/test-utils/database";
-import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
+import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
 import { fixtureManifest } from "#modules/plugins/test-support";
 
 import { AutomationAttemptRepository } from "./attempt-repository";
@@ -59,99 +54,105 @@ const owner = {
 };
 const other = { ...owner, id: UserId.make("other") };
 
-const withDatabase = <E>(
-	test: Effect.Effect<
-		void,
-		E,
-		| DatabaseSession
-		| AutomationHistoryService
-		| AutomationRunRepository
-		| AutomationTriggerRepository
-	>,
-	submit?: AutomationExecutionOperations["Service"]["submit"],
-) => {
-	const name = `history_test_${crypto.randomUUID().replaceAll("-", "")}`;
-	const url = testDatabaseUrl();
-	const layer = DatabaseSession.layer.pipe(
-		Layer.provide(makeAppConfigLayer({ database: { url: Redacted.make(url) } })),
-	);
-	return Effect.gen(function* () {
-		const statements = yield* baselineMigrationStatements();
-		yield* withIsolatedDatabase(name, url, (scopedUrl) => {
-			const database = DatabaseSession.layer.pipe(
-				Layer.provide(makeAppConfigLayer({ database: { url: Redacted.make(scopedUrl) } })),
-				Layer.fresh,
-			);
-			const execution = Layer.succeed(
+type RetrySubmission = Parameters<AutomationExecutionOperations["Service"]["submit"]>[0];
+
+type SubmitBehavior = (
+	submission: RetrySubmission,
+) => Effect.Effect<void, DbError, DatabaseSession>;
+
+class RetrySubmissions extends Context.Service<
+	RetrySubmissions,
+	Effect.Effect<ReadonlyArray<string>>
+>()("test/RetrySubmissions") {}
+
+const recordingExecutionLayer = (submit: SubmitBehavior = () => Effect.void) =>
+	Layer.effectContext(
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const submissions = yield* Ref.make<ReadonlyArray<string>>([]);
+			return Context.make(
 				AutomationExecutionOperations,
 				AutomationExecutionOperations.of({
 					execute: () => Effect.die("unused"),
-					submit: submit ?? (() => Effect.void),
 					skipQueuedPolicies: () => Effect.void,
+					submit: (submission) =>
+						Ref.update(submissions, (all) => [
+							...all,
+							`${submission.runId}:${submission.attemptNumber}`,
+						]).pipe(
+							Effect.andThen(submit(submission)),
+							Effect.provideService(DatabaseSession, session),
+						),
 				}),
-			);
-			const repositories = Layer.mergeAll(
+			).pipe(Context.add(RetrySubmissions, Ref.get(submissions)));
+		}),
+	);
+
+const seedHistory = Layer.effectDiscard(
+	Effect.gen(function* () {
+		const db = yield* (yield* DatabaseSession).current;
+		yield* db.insert(user).values([
+			{ id: owner.id, preferences: {}, name: owner.name, email: owner.email },
+			{ id: other.id, name: "Other", preferences: {}, email: "other@example.com" },
+		]);
+		yield* db
+			.insert(automationTrigger)
+			.values({
+				depth: 0,
+				id: "trigger",
+				source: "api",
+				occurredAt: now,
+				operation: "emit",
+				category: "signal",
+				resourceKind: "signal",
+				executionId: "command",
+				initiatorKind: "system",
+				rootExecutionId: "command",
+				payload: {
+					operation: "emit",
+					actorUserId: null,
+					category: "signal",
+					resource: "signal",
+					signalSchemaPluginId: null,
+					properties: { password: "hidden-without-schema" },
+					signalSchemaSlug: SignalSchemaSlug.make("fixture.signal"),
+				},
+			});
+		yield* db
+			.insert(sandboxScript)
+			.values({
+				id: "script",
+				name: "Notify",
+				contentHash: "hash",
+				slug: "kernel.notify",
+				source: "private-source",
+				compiledCode: "private-code",
+				metadata: {
+					name: "Notify",
+					capabilities: [],
+					kind: "automation",
+					slug: "kernel.notify",
+					requiredPluginConfigKeys: [],
+					requiredSystemConfigKeys: [],
+				},
+			});
+	}),
+);
+
+const historyDatabaseLayer = (submit?: SubmitBehavior) =>
+	AutomationHistoryService.layer.pipe(
+		Layer.provideMerge(
+			Layer.mergeAll(
 				AutomationHistoryRepository.layer,
 				AutomationAttemptRepository.layer,
 				AutomationRunRepository.layer,
 				AutomationTriggerRepository.layer,
-			).pipe(Layer.provideMerge(database));
-			const services = AutomationHistoryService.layer.pipe(
-				Layer.provide(Layer.merge(repositories, execution)),
-			);
-			return Effect.gen(function* () {
-				const db = yield* (yield* DatabaseSession).current;
-				yield* applyBaselineMigration(statements, (statement) => db.execute(sql.raw(statement)));
-				yield* db.insert(user).values([
-					{ id: owner.id, preferences: {}, name: owner.name, email: owner.email },
-					{ id: other.id, name: "Other", preferences: {}, email: "other@example.com" },
-				]);
-				yield* db
-					.insert(automationTrigger)
-					.values({
-						depth: 0,
-						id: "trigger",
-						source: "api",
-						occurredAt: now,
-						operation: "emit",
-						category: "signal",
-						resourceKind: "signal",
-						executionId: "command",
-						initiatorKind: "system",
-						rootExecutionId: "command",
-						payload: {
-							operation: "emit",
-							actorUserId: null,
-							category: "signal",
-							resource: "signal",
-							signalSchemaPluginId: null,
-							properties: { password: "hidden-without-schema" },
-							signalSchemaSlug: SignalSchemaSlug.make("fixture.signal"),
-						},
-					});
-				yield* db
-					.insert(sandboxScript)
-					.values({
-						id: "script",
-						name: "Notify",
-						contentHash: "hash",
-						slug: "kernel.notify",
-						source: "private-source",
-						compiledCode: "private-code",
-						metadata: {
-							name: "Notify",
-							capabilities: [],
-							kind: "automation",
-							slug: "kernel.notify",
-							requiredPluginConfigKeys: [],
-							requiredSystemConfigKeys: [],
-						},
-					});
-				yield* test;
-			}).pipe(Effect.provide(Layer.merge(services, repositories)));
-		});
-	}).pipe(Effect.provide(layer.pipe(Layer.provideMerge(makeConfigProviderLayer()))));
-};
+				recordingExecutionLayer(submit),
+			),
+		),
+		Layer.provideMerge(seedHistory),
+		Layer.provideMerge(isolatedDatabaseLayer("history_test")),
+	);
 
 const seedRun = (
 	id: string,
@@ -203,8 +204,8 @@ const seedRun = (
 	});
 
 describe("automation retry persistence", () => {
-	it.effect("denies foreign retry before eligibility checks or queueing", () =>
-		withDatabase(
+	layer(historyDatabaseLayer(() => Effect.die("Unauthorized retry dispatched")))((test) => {
+		test.effect("denies foreign retry before eligibility checks or queueing", () =>
 			Effect.gen(function* () {
 				yield* seedRun("run");
 				const service = yield* AutomationHistoryService;
@@ -217,37 +218,36 @@ describe("automation retry persistence", () => {
 				const [stored] = yield* db.select().from(automationRun).where(eq(automationRun.id, runId));
 				expect(stored?.status).toBe("failed");
 			}),
-			() => Effect.die("Unauthorized retry dispatched"),
-		),
-	);
+		);
+	});
 
-	it.effect(
-		"queues the same owned run before submission and preserves pending work if dispatch fails",
-		() => {
-			const submissions: string[] = [];
-			let verifyCommitted: Effect.Effect<void, DbError> = Effect.die(
-				"Submission before test setup",
-			);
-			return withDatabase(
+	layer(
+		historyDatabaseLayer(() =>
+			Effect.gen(function* () {
+				const db = yield* (yield* DatabaseSession).current;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.select({ status: automationRun.status })
+						.from(automationRun)
+						.where(eq(automationRun.id, "run")),
+				);
+				expect(row?.status).toBe("queued");
+				return yield* new DbError({ message: "private-dispatch-error" });
+			}),
+		),
+	)((test) => {
+		test.effect(
+			"queues the same owned run before submission and preserves pending work if dispatch fails",
+			() =>
 				Effect.gen(function* () {
 					yield* seedRun("run");
 					const service = yield* AutomationHistoryService;
 					const db = yield* (yield* DatabaseSession).current;
-					verifyCommitted = mapDatabaseErrors(
-						db
-							.select({ status: automationRun.status })
-							.from(automationRun)
-							.where(eq(automationRun.id, "run")),
-					).pipe(
-						Effect.map(([row]) => {
-							expect(row?.status).toBe("queued");
-						}),
-					);
 					const result = yield* service.retryRun(owner, AutomationRunId.make("run"), {
 						expectedAttemptCount: 1,
 					});
 					expect(result).toEqual({ runId: "run", attemptNumber: 2, dispatch: "pending" });
-					expect(submissions).toEqual(["run:2"]);
+					expect(yield* yield* RetrySubmissions).toEqual(["run:2"]);
 					const [stored] = yield* db
 						.select()
 						.from(automationRun)
@@ -268,21 +268,11 @@ describe("automation retry persistence", () => {
 						}),
 					);
 				}),
-				({ runId, attemptNumber }) =>
-					verifyCommitted.pipe(
-						Effect.andThen(
-							Effect.sync(() => {
-								submissions.push(`${runId}:${attemptNumber}`);
-							}),
-						),
-						Effect.andThen(Effect.fail(new DbError({ message: "private-dispatch-error" }))),
-					),
-			);
-		},
-	);
+		);
+	});
 
-	it.effect("rejects expired, before-policy and stale retries", () =>
-		withDatabase(
+	layer(historyDatabaseLayer())((test) => {
+		test.effect("rejects expired, before-policy and stale retries", () =>
 			Effect.gen(function* () {
 				yield* seedRun("expired");
 				yield* seedRun("policy", owner.id, "before");
@@ -308,11 +298,11 @@ describe("automation retry persistence", () => {
 					);
 				}
 			}),
-		),
-	);
+		);
+	});
 
-	it.effect("retries an inactive plugin only with its pinned encryption key", () =>
-		withDatabase(
+	layer(historyDatabaseLayer())((test) => {
+		test.effect("retries an inactive plugin only with its pinned encryption key", () =>
 			Effect.gen(function* () {
 				const db = yield* (yield* DatabaseSession).current;
 				const base = fixtureManifest();
@@ -418,10 +408,10 @@ describe("automation retry persistence", () => {
 					pluginRevisionId: "pinned-revision",
 				});
 			}),
-		),
-	);
-	it.effect("omits oversized retained payloads and clears history payloads after pruning", () =>
-		withDatabase(
+		);
+	});
+	layer(historyDatabaseLayer())((test) => {
+		test.effect("omits oversized retained payloads and clears history payloads after pruning", () =>
 			Effect.gen(function* () {
 				const db = yield* (yield* DatabaseSession).current;
 				yield* db
@@ -462,6 +452,6 @@ describe("automation retry persistence", () => {
 					.where(eq(automationRun.id, runId));
 				expect(pruned).toEqual({ historyPayload: null, historyPayloadTruncated: false });
 			}),
-		),
-	);
+		);
+	});
 });
