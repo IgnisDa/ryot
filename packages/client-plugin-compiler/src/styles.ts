@@ -8,7 +8,6 @@ import valueParser from "postcss-value-parser";
 import { compile } from "tailwindcss";
 
 import { clientPluginCompilationFailure, clientPluginCompilerDiagnostic } from "./diagnostics";
-import type { ClientCompilerBenchmarkInstrumentation } from "./instrumentation";
 
 type ScanSource = { readonly content: string; readonly extension: string };
 type StylesheetSource = { readonly content: string; readonly path: string };
@@ -192,21 +191,18 @@ const rewriteStylesheetAssets = (
 	return root.toString();
 };
 
-export const compileClientStyles = (
-	{
-		entry,
-		files,
-		assetNames,
-		sourceFiles,
-		scanSources,
-		stylesheets,
-		fontStylesheet,
-		themeStylesheet,
-		paletteStylesheet,
-		tailwindStylesheet,
-	}: CompileClientStylesInput,
-	instrumentation?: ClientCompilerBenchmarkInstrumentation,
-) =>
+export const compileClientStyles = ({
+	entry,
+	files,
+	assetNames,
+	sourceFiles,
+	scanSources,
+	stylesheets,
+	fontStylesheet,
+	themeStylesheet,
+	paletteStylesheet,
+	tailwindStylesheet,
+}: CompileClientStylesInput) =>
 	Effect.tryPromise({
 		catch: (error) =>
 			clientPluginCompilationFailure([
@@ -271,8 +267,6 @@ export const compileClientStyles = (
 					}),
 			});
 			const candidates = new Scanner({}).scanFiles([...scanSources]);
-			instrumentation?.count("tailwind-scan-source-count", scanSources.length);
-			instrumentation?.count("tailwind-candidate-count", candidates.length);
 			return {
 				assets: sortBy([...assets]),
 				css: compiled.build(sortBy(candidates)),
