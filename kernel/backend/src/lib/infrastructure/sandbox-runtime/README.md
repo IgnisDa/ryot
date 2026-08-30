@@ -51,6 +51,22 @@ Workflow code cannot use ambient time or randomness. Expected workflow failure u
 
 `SANDBOX_PROCESS_MODE=on-demand` is the default. `warm` retains `SANDBOX_WORKER_CONCURRENCY + 2` prepared processes, but each is still checked out once and invalidated. Grant-carrying executions always spawn dedicated processes because permissions are execution-specific.
 
+## Benchmark Profiling
+
+`SANDBOX_BENCHMARK_PROFILE_DIR` is unset in production and every profiling control fails closed
+while it is. When it is set, admin-gated test-support operations arm one opaque correlation token
+against a script slug; the next matching logical execution and each of its replay attempts run in a
+dedicated process with `--cpu-prof-dir` and, when heap snapshots are requested, an inspector bound to
+localhost. The runner reports checkpoints (runner ready, module imported, journal loaded, dependency
+settled, host call settled, result built, response encoded) over the authenticated bridge and exits
+after responding so Deno flushes its CPU profile. The host records `smaps_rollup` and
+`Deno.memoryUsage()` at each checkpoint and streams heap snapshots into mode-0600 files. A profiled
+execution also gets a longer timeout, because snapshots pause the profiled process.
+
+Backend profiling uses `bun:jsc`: a sampling CPU profile between start and stop, V8-format heap
+snapshots, a heap census, and an explicit collection. Unprofiled executions keep their existing
+process, flags, timeout, and session behaviour byte for byte.
+
 ## Filesystem And Dependencies
 
 Filesystem access is capability-gated and deny-by-default:

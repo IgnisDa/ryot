@@ -40,6 +40,8 @@ export type ProviderImportOutcome = "success" | "failure";
 export type SandboxHostCallOutcome = "success" | "failure";
 export type SandboxExecutionOutcome = "success" | "failure" | "timeout";
 export type ProviderImportPhase = "population" | "provider-import-automation";
+/** A body attempt interrupted by workflow suspension is neither a success nor a failure. */
+export type ProviderImportAttemptOutcome = ProviderImportOutcome | "interrupted";
 export type SandboxReplayOutcome = "completed" | "failed" | "stale" | "pending";
 
 export const sandboxMetricKind = (metadata: unknown): SandboxMetricKind => {
@@ -143,21 +145,28 @@ const sandboxHostCalls = Metric.counter("ryot.sandbox.host_calls", {
 	description: "Sandbox host-function calls by function and outcome",
 });
 
-const providerImportPhaseDuration = Metric.histogram("ryot.provider_import.phase_duration", {
-	attributes: { unit: MILLISECONDS },
-	boundaries: [...PHASE_DURATION_BOUNDARIES],
-	description: "Duration of a provider import phase",
+// Import workflow bodies replay from the start after every suspension or restart, so these three
+// metrics count process-local body attempts, never logical imports. Logical import state lives in
+// durable workflow persistence.
+const providerImportPhaseAttemptDuration = Metric.histogram(
+	"ryot.provider_import.phase_attempt_duration",
+	{
+		attributes: { unit: MILLISECONDS },
+		boundaries: [...PHASE_DURATION_BOUNDARIES],
+		description: "Duration of one provider import phase attempt inside one workflow body execution",
+	},
+);
+
+const providerImportExecutingBodies = Metric.gauge("ryot.provider_import.executing_bodies", {
+	attributes: { unit: "{execution}" },
+	description: "Provider import workflow bodies currently executing in this process",
 });
 
-const providerImportActive = Metric.gauge("ryot.provider_import.active", {
-	attributes: { unit: "{import}" },
-	description: "Provider imports currently running",
-});
-
-const providerImportCompleted = Metric.counter("ryot.provider_import.completed", {
+const providerImportBodyOutcomes = Metric.counter("ryot.provider_import.body_outcomes", {
 	incremental: true,
-	attributes: { unit: "{import}" },
-	description: "Provider imports that reached a terminal state",
+	attributes: { unit: "{execution}" },
+	description:
+		"Provider import workflow body executions that returned or failed; a body re-entered after a restart records again",
 });
 
 export const recordSandboxExecution = (input: {
@@ -206,8 +215,10 @@ let totalWorkflowJournalBytes = 0;
 let totalWorkflowReplaysFailed = 0;
 let totalWorkflowReplaysStarted = 0;
 let totalWorkflowReplaysCompleted = 0;
+let totalDurableRequests = 0;
 
 export const getSandboxReplayCounters = () => ({
+	totalDurableRequests,
 	totalFailed: totalWorkflowReplaysFailed,
 	totalStarted: totalWorkflowReplaysStarted,
 	totalJournalBytes: totalWorkflowJournalBytes,
@@ -217,6 +228,11 @@ export const getSandboxReplayCounters = () => ({
 export const recordSandboxWorkflowReplayStarted = Effect.sync(() => {
 	totalWorkflowReplaysStarted += 1;
 });
+
+export const recordSandboxDurableRequests = (count: number) =>
+	Effect.sync(() => {
+		totalDurableRequests += count;
+	});
 
 export const recordSandboxWorkflowReplayFinished = (input: {
 	readonly durationMs: number;
@@ -272,39 +288,70 @@ export const recordSandboxRuntimeGauges = (input: {
 		{ discard: true },
 	);
 
-let activeProviderImports = 0;
+let executingProviderImportBodies = 0;
 
-const setProviderImportActive = (delta: number) =>
+const setProviderImportExecutingBodies = (delta: number) =>
 	Effect.suspend(() => {
-		activeProviderImports = Math.max(0, activeProviderImports + delta);
-		return Metric.update(providerImportActive, activeProviderImports);
+		executingProviderImportBodies = Math.max(0, executingProviderImportBodies + delta);
+		return Metric.update(providerImportExecutingBodies, executingProviderImportBodies);
 	});
 
-export const recordProviderImportStarted = setProviderImportActive(1);
+export const getProviderImportExecutingBodies = () => executingProviderImportBodies;
 
-export const recordProviderImportSettled = setProviderImportActive(-1);
+export const recordProviderImportBodyStarted = setProviderImportExecutingBodies(1);
 
-export const recordProviderImportCompleted = (input: {
+export const recordProviderImportBodySettled = setProviderImportExecutingBodies(-1);
+
+export const recordProviderImportBodyOutcome = (input: {
 	readonly outcome: ProviderImportOutcome;
 	readonly failureStage: ProviderImportPhase | "none";
 }) =>
 	Metric.update(
-		Metric.withAttributes(providerImportCompleted, {
+		Metric.withAttributes(providerImportBodyOutcomes, {
 			outcome: input.outcome,
 			failure_stage: input.failureStage,
 		}),
 		1,
 	);
 
-export const recordProviderImportPhase = (input: {
-	readonly durationMs: number;
+export type ProviderImportPhaseSegment = {
+	readonly sequence: number;
+	readonly executionId: string;
+	readonly startedAtMs: number;
+	readonly finishedAtMs: number;
 	readonly phase: ProviderImportPhase;
-	readonly outcome: ProviderImportOutcome;
+	readonly outcome: ProviderImportAttemptOutcome;
+};
+
+/**
+ * Bounded process-local trace of phase attempts for benchmark overlap analysis. Replayed attempts
+ * are kept as separate segments keyed by the same execution ID so a reader can merge them.
+ */
+export const PROVIDER_IMPORT_PHASE_SEGMENT_CAPACITY = 4_096;
+let providerImportPhaseSequence = 0;
+const providerImportPhaseSegments: ProviderImportPhaseSegment[] = [];
+
+export const getProviderImportPhaseSegments = (afterSequence: number) =>
+	providerImportPhaseSegments.filter(({ sequence }) => sequence > afterSequence);
+
+export const recordProviderImportPhaseAttempt = (input: {
+	readonly executionId: string;
+	readonly startedAtMs: number;
+	readonly finishedAtMs: number;
+	readonly phase: ProviderImportPhase;
+	readonly outcome: ProviderImportAttemptOutcome;
 }) =>
-	Metric.update(
-		Metric.withAttributes(providerImportPhaseDuration, {
-			phase: input.phase,
-			outcome: input.outcome,
-		}),
-		input.durationMs,
-	);
+	Effect.suspend(() => {
+		providerImportPhaseSequence += 1;
+		providerImportPhaseSegments.push({ ...input, sequence: providerImportPhaseSequence });
+		if (providerImportPhaseSegments.length > PROVIDER_IMPORT_PHASE_SEGMENT_CAPACITY) {
+			providerImportPhaseSegments.shift();
+		}
+		return Metric.update(
+			Metric.withAttributes(providerImportPhaseAttemptDuration, {
+				phase: input.phase,
+				outcome: input.outcome,
+			}),
+			Math.max(0, input.finishedAtMs - input.startedAtMs),
+		);
+	});
