@@ -21,7 +21,7 @@ it("reads the uploadToken named artifact used by every fitness importer", () => 
 	});
 
 	return Effect.runPromise(
-		readImportArtifactText().pipe(
+		readImportArtifactText.pipe(
 			Effect.map((text) => {
 				expect(text).toBe("upload contents");
 				expect(keys).toEqual(["uploadToken"]);
