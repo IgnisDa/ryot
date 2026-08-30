@@ -1,4 +1,4 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import {
 	EntitySchemaSlug,
@@ -8,7 +8,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { Effect, Layer } from "effect";
+import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { databaseLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
@@ -93,183 +93,62 @@ const populationReferencesLayer = (
 		),
 	);
 
-it.effect("binds kernel workflow user ids to the trusted execution subject", () => {
-	const payloads: unknown[] = [];
-	const engine = makeWorkflowEngine({
-		execute: (workflow, options) =>
-			Effect.sync(() => {
-				payloads.push(options.payload);
-				return workflow._tag === "EventCreateWorkflow" ? [] : { id: "entity-1" };
-			}),
-	});
+type ExecuteArgs = Parameters<WorkflowEngine["Service"]["execute"]>;
+type ExecuteOptions = ExecuteArgs[1];
 
-	return Effect.gen(function* () {
-		const references = yield* KernelWorkflowReferences;
-		const subject = { type: "user" as const, userId: UserId.make("trusted-user") };
-		yield* references.execute(
-			KERNEL_ENTITY_IMPORT_WORKFLOW,
-			{
-				providerId: "zeta",
-				externalId: "record-1",
-				entitySchemaSlug: "record",
-				origin: { kind: "import" },
-				userId: "attacker-selected-user",
-			},
-			subject,
-			"entity-import-execution",
-			"parent-execution",
-			SandboxScriptId.make("caller-script"),
-		);
-		yield* references.execute(
-			KERNEL_EVENT_CREATE_WORKFLOW,
-			{ payload: [], origin: "import", userId: "attacker-selected-user" },
-			subject,
-			"event-create-execution",
-			"parent-execution",
-			SandboxScriptId.make("caller-script"),
-		);
+class RecordedWorkflowDispatches extends Context.Service<
+	RecordedWorkflowDispatches,
+	{
+		readonly payloads: Effect.Effect<ReadonlyArray<unknown>>;
+		readonly executionIds: Effect.Effect<ReadonlyArray<string>>;
+	}
+>()("test/RecordedWorkflowDispatches") {}
 
-		expect(payloads).toMatchObject([
-			{
-				executionId: "entity-import-execution",
-				entityScope: { type: "global", userId: "trusted-user" },
-			},
-			{ userId: "trusted-user", command: { causation: { executionId: "event-create-execution" } } },
-		]);
-	}).pipe(
-		Effect.provide(referencesLayer(unownedRepositories)),
-		Effect.provideService(WorkflowEngine, engine),
-	);
-});
-
-it.effect("resolves plugin provider slugs before dispatching entity imports", () => {
-	const payloads: unknown[] = [];
-	const engine = makeWorkflowEngine({
-		execute: (_workflow, options) =>
-			Effect.sync(() => {
-				payloads.push(options.payload);
-				return { id: "entity-1" };
-			}),
-	});
-	const layer = Layer.provide(
-		KernelWorkflowReferencesLive,
-		Layer.mergeAll(
-			databaseLayer,
-			unownedRepositories,
-			Layer.mock(PluginRuntimeResolver)({
-				findSchemaProviderBySlug: () =>
-					Effect.succeed({
-						entitySchemaSlug: EntitySchemaSlug.make("group"),
-						provider: {
-							name: "Alpha",
-							slug: "group.alpha",
-							pluginId: "example",
-							createdAt: new Date(0),
-							updatedAt: new Date(0),
-							rootEntitySchemaSlug: "group",
-							information: { source: "alpha" },
-							id: SandboxProviderId.make("provider-group-alpha"),
-						},
-					}),
-			}),
-		),
-	);
-
-	return Effect.gen(function* () {
-		const references = yield* KernelWorkflowReferences;
-		yield* references.execute(
-			KERNEL_ENTITY_IMPORT_WORKFLOW,
-			{
-				externalId: "group-1",
-				origin: { kind: "import" },
-				providerSlug: "group.alpha",
-				entitySchemaSlug: "attacker-selected-schema",
-			},
-			{ type: "user", userId: UserId.make("trusted-user") },
-			"entity-import-execution",
-			"parent-execution",
-			SandboxScriptId.make("caller-script"),
-		);
-
-		expect(payloads).toEqual([
-			expect.objectContaining({
-				entitySchemaSlug: "group",
-				providerId: "provider-group-alpha",
-				entityScope: { type: "global", userId: "trusted-user" },
-			}),
-		]);
-	}).pipe(Effect.provide(layer), Effect.provideService(WorkflowEngine, engine));
-});
-
-it.effect("keeps import handles opaque across the kernel child boundary", () => {
-	const payloads: unknown[] = [];
-	const engine = makeWorkflowEngine({
-		execute: (_workflow, options) =>
-			Effect.sync(() => {
-				payloads.push(options.payload);
-				return { failedItems: 0, importedItems: 0, processedItems: 0 };
-			}),
-	});
-	const ownedRepositories = Layer.mergeAll(
-		mockImportsRepository({
-			getRunById: () =>
-				Effect.succeed({
-					progress: 0,
-					failedItems: 0,
-					startedAt: null,
-					finishedAt: null,
-					inputSummary: {},
-					importedItems: 0,
-					totalItems: null,
-					processedItems: 0,
-					failureReason: null,
-					status: "pending" as const,
-					source: "open_scale" as const,
-					id: ImportRunId.make("run-1"),
-					createdAt: "2026-01-01T00:00:00.000Z",
-					updatedAt: "2026-01-01T00:00:00.000Z",
+const recordingEngineLayer = (
+	respond: (
+		workflow: ExecuteArgs[0],
+		options: ExecuteOptions,
+		dispatchNumber: number,
+	) => Effect.Effect<unknown, SandboxRunError>,
+) =>
+	Layer.effectContext(
+		Effect.gen(function* () {
+			const dispatches = yield* Ref.make<ReadonlyArray<ExecuteOptions>>([]);
+			return Context.make(
+				WorkflowEngine,
+				makeWorkflowEngine({
+					execute: (workflow, options) =>
+						Ref.updateAndGet(dispatches, (all) => [...all, options]).pipe(
+							Effect.flatMap((all) => respond(workflow, options, all.length)),
+						),
 				}),
+			).pipe(
+				Context.add(RecordedWorkflowDispatches, {
+					payloads: Effect.map(Ref.get(dispatches), (all) => all.map(({ payload }) => payload)),
+					executionIds: Effect.map(Ref.get(dispatches), (all) =>
+						all.map(({ executionId }) => executionId),
+					),
+				}),
+			);
 		}),
-		mockIntegrationsRepository({}),
 	);
 
-	return Effect.gen(function* () {
-		const references = yield* KernelWorkflowReferences;
-		yield* references.execute(
-			KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
-			{
-				totalItems: 0,
-				runId: "run-1",
-				failureCount: 0,
-				writeItemCount: 0,
-				chunkHandles: ["harvest-handle-0"],
-			},
-			{ type: "user", userId: UserId.make("trusted-user") },
-			"child-execution",
-			"parent/execution",
-			SandboxScriptId.make("caller-script"),
-		);
+const unusedEngineLayer = Layer.succeed(WorkflowEngine, makeWorkflowEngine());
 
-		expect(payloads).toEqual([
-			expect.objectContaining({
-				userId: "trusted-user",
-				executionId: "child-execution",
-				chunkHandles: ["harvest-handle-0"],
-				artifactOwnerExecutionId: "parent/execution",
-				artifactReferenceExecutionId: "child-execution",
-			}),
-		]);
-	}).pipe(
-		Effect.provide(referencesLayer(ownedRepositories)),
-		Effect.provideService(WorkflowEngine, engine),
-	);
-});
-
-it.effect("rejects user-scoped kernel workflows for system executions", () =>
-	Effect.gen(function* () {
-		const references = yield* KernelWorkflowReferences;
-		const exit = yield* Effect.exit(
-			references.execute(
+layer(
+	referencesLayer(unownedRepositories).pipe(
+		Layer.provideMerge(
+			recordingEngineLayer((workflow) =>
+				Effect.succeed(workflow._tag === "EventCreateWorkflow" ? [] : { id: "entity-1" }),
+			),
+		),
+	),
+)((test) => {
+	test.effect("binds kernel workflow user ids to the trusted execution subject", () =>
+		Effect.gen(function* () {
+			const references = yield* KernelWorkflowReferences;
+			const subject = { type: "user" as const, userId: UserId.make("trusted-user") };
+			yield* references.execute(
 				KERNEL_ENTITY_IMPORT_WORKFLOW,
 				{
 					providerId: "zeta",
@@ -278,331 +157,467 @@ it.effect("rejects user-scoped kernel workflows for system executions", () =>
 					origin: { kind: "import" },
 					userId: "attacker-selected-user",
 				},
-				{ type: "system" },
+				subject,
 				"entity-import-execution",
 				"parent-execution",
 				SandboxScriptId.make("caller-script"),
-			),
-		);
+			);
+			yield* references.execute(
+				KERNEL_EVENT_CREATE_WORKFLOW,
+				{ payload: [], origin: "import", userId: "attacker-selected-user" },
+				subject,
+				"event-create-execution",
+				"parent-execution",
+				SandboxScriptId.make("caller-script"),
+			);
 
-		expect(exit.toString()).toContain("is not available for system executions");
-	}).pipe(
-		Effect.provide(referencesLayer(unownedRepositories)),
-		Effect.provideService(WorkflowEngine, makeWorkflowEngine()),
+			expect(yield* (yield* RecordedWorkflowDispatches).payloads).toMatchObject([
+				{
+					executionId: "entity-import-execution",
+					entityScope: { type: "global", userId: "trusted-user" },
+				},
+				{
+					userId: "trusted-user",
+					command: { causation: { executionId: "event-create-execution" } },
+				},
+			]);
+		}),
+	);
+});
+
+const slugResolvingReferencesLayer = Layer.provide(
+	KernelWorkflowReferencesLive,
+	Layer.mergeAll(
+		databaseLayer,
+		unownedRepositories,
+		Layer.mock(PluginRuntimeResolver)({
+			findSchemaProviderBySlug: () =>
+				Effect.succeed({
+					entitySchemaSlug: EntitySchemaSlug.make("group"),
+					provider: {
+						name: "Alpha",
+						slug: "group.alpha",
+						pluginId: "example",
+						createdAt: new Date(0),
+						updatedAt: new Date(0),
+						rootEntitySchemaSlug: "group",
+						information: { source: "alpha" },
+						id: SandboxProviderId.make("provider-group-alpha"),
+					},
+				}),
+		}),
 	),
 );
 
-it.effect("rejects an import run owned by another user", () =>
-	Effect.gen(function* () {
-		const references = yield* KernelWorkflowReferences;
-		const exit = yield* Effect.exit(
-			references.execute(
-				KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
+layer(
+	slugResolvingReferencesLayer.pipe(
+		Layer.provideMerge(recordingEngineLayer(() => Effect.succeed({ id: "entity-1" }))),
+	),
+)((test) => {
+	test.effect("resolves plugin provider slugs before dispatching entity imports", () =>
+		Effect.gen(function* () {
+			const references = yield* KernelWorkflowReferences;
+			yield* references.execute(
+				KERNEL_ENTITY_IMPORT_WORKFLOW,
 				{
-					totalItems: 0,
-					failureCount: 0,
-					writeItemCount: 0,
-					runId: "victim-run",
-					chunkHandles: ["harvest-handle-0"],
+					externalId: "group-1",
+					origin: { kind: "import" },
+					providerSlug: "group.alpha",
+					entitySchemaSlug: "attacker-selected-schema",
 				},
 				{ type: "user", userId: UserId.make("trusted-user") },
 				"entity-import-execution",
 				"parent-execution",
 				SandboxScriptId.make("caller-script"),
-			),
-		);
+			);
 
-		expect(exit.toString()).toContain(
-			"import run 'victim-run' does not belong to the executing user",
-		);
-	}).pipe(
-		Effect.provide(referencesLayer(unownedRepositories)),
-		Effect.provideService(WorkflowEngine, makeWorkflowEngine()),
-	),
-);
-
-it.effect("rejects a trusted integration subject owned by another user", () =>
-	Effect.gen(function* () {
-		const references = yield* KernelWorkflowReferences;
-		const exit = yield* Effect.exit(
-			references.execute(
-				KERNEL_EVENT_CREATE_WORKFLOW,
-				{ payload: [] },
-				{
-					type: "user",
-					userId: UserId.make("trusted-user"),
-					integrationId: IntegrationId.make("victim-integration"),
-				},
-				"event-create-execution",
-				"parent-execution",
-				SandboxScriptId.make("caller-script"),
-			),
-		);
-
-		expect(exit.toString()).toContain(
-			"integration 'victim-integration' does not belong to the executing user",
-		);
-	}).pipe(
-		Effect.provide(referencesLayer(unownedRepositories)),
-		Effect.provideService(WorkflowEngine, makeWorkflowEngine()),
-	),
-);
-
-it.effect(
-	"dispatches bounded provider population items with deterministic child ids using a cross-plugin provider",
-	() => {
-		const payloads: unknown[] = [];
-		const executionIds: string[] = [];
-		const engine = makeWorkflowEngine({
-			execute: (_workflow, options) =>
-				Effect.sync(() => {
-					executionIds.push(options.executionId);
-					payloads.push(options.payload);
-					return { id: `entity-${executionIds.length}` };
+			expect(yield* (yield* RecordedWorkflowDispatches).payloads).toEqual([
+				expect.objectContaining({
+					entitySchemaSlug: "group",
+					providerId: "provider-group-alpha",
+					entityScope: { type: "global", userId: "trusted-user" },
 				}),
-		});
+			]);
+		}),
+	);
+});
 
-		return Effect.gen(function* () {
+const ownedRepositories = Layer.mergeAll(
+	mockImportsRepository({
+		getRunById: () =>
+			Effect.succeed({
+				progress: 0,
+				failedItems: 0,
+				startedAt: null,
+				finishedAt: null,
+				inputSummary: {},
+				importedItems: 0,
+				totalItems: null,
+				processedItems: 0,
+				failureReason: null,
+				status: "pending" as const,
+				source: "open_scale" as const,
+				id: ImportRunId.make("run-1"),
+				createdAt: "2026-01-01T00:00:00.000Z",
+				updatedAt: "2026-01-01T00:00:00.000Z",
+			}),
+	}),
+	mockIntegrationsRepository({}),
+);
+
+layer(
+	referencesLayer(ownedRepositories).pipe(
+		Layer.provideMerge(
+			recordingEngineLayer(() =>
+				Effect.succeed({ failedItems: 0, importedItems: 0, processedItems: 0 }),
+			),
+		),
+	),
+)((test) => {
+	test.effect("keeps import handles opaque across the kernel child boundary", () =>
+		Effect.gen(function* () {
 			const references = yield* KernelWorkflowReferences;
-			const result = yield* references.execute(
-				KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
+			yield* references.execute(
+				KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
 				{
-					mode: "refresh",
-					items: [
-						{
-							externalId: "record-1",
-							entitySchemaSlug: "record",
-							providerId: "provider-record-catalog",
-						},
-						{
-							externalId: "record-2",
-							entitySchemaSlug: "record",
-							providerId: "provider-record-catalog",
-						},
-					],
+					totalItems: 0,
+					runId: "run-1",
+					failureCount: 0,
+					writeItemCount: 0,
+					chunkHandles: ["harvest-handle-0"],
 				},
-				{ type: "system" },
-				"population-reference",
-				"parent-execution",
+				{ type: "user", userId: UserId.make("trusted-user") },
+				"child-execution",
+				"parent/execution",
 				SandboxScriptId.make("caller-script"),
 			);
 
-			expect(result).toEqual([{ id: "entity-1" }, { id: "entity-2" }]);
-			expect(executionIds).toEqual(["population-reference-item-0", "population-reference-item-1"]);
-			expect(payloads).toEqual([
+			expect(yield* (yield* RecordedWorkflowDispatches).payloads).toEqual([
 				expect.objectContaining({
-					mode: "refresh",
-					externalId: "record-1",
-					entitySchemaSlug: "record",
-					providerId: "provider-record-catalog",
-					executionId: "population-reference-item-0",
-					entityScope: { userId: null, type: "global" },
-					command: expect.objectContaining({
-						itemIdentity: "kernel:provider-entity-population:0",
-						causation: expect.objectContaining({
-							source: "provider-refresh",
-							executionId: "population-reference-item-0",
-							providerExecutionId: "population-reference-item-0",
-						}),
-					}),
-				}),
-				expect.objectContaining({
-					externalId: "record-2",
-					executionId: "population-reference-item-1",
+					userId: "trusted-user",
+					executionId: "child-execution",
+					chunkHandles: ["harvest-handle-0"],
+					artifactOwnerExecutionId: "parent/execution",
+					artifactReferenceExecutionId: "child-execution",
 				}),
 			]);
-		}).pipe(
-			Effect.provide(populationReferencesLayer()),
-			Effect.provideService(WorkflowEngine, engine),
-		);
-	},
-);
-
-it.effect("awaits every provider population exit and reports failures in input order", () => {
-	const executionIds: string[] = [];
-	const engine = makeWorkflowEngine({
-		execute: (_workflow, options) =>
-			Effect.gen(function* () {
-				executionIds.push(options.executionId);
-				if (options.executionId.endsWith("item-0")) {
-					return yield* new SandboxRunError({
-						kind: "script-failure",
-						message: "first item failed",
-					});
-				}
-				if (options.executionId.endsWith("item-2")) {
-					return yield* new SandboxRunError({
-						kind: "script-failure",
-						message: "third item failed",
-					});
-				}
-				return { id: options.executionId };
-			}),
-	});
-
-	return Effect.gen(function* () {
-		const references = yield* KernelWorkflowReferences;
-		const exit = yield* Effect.exit(
-			references.execute(
-				KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
-				{
-					mode: "refresh",
-					items: Array.from({ length: 5 }, (_, index) => ({
-						entitySchemaSlug: "record",
-						externalId: `record-${index}`,
-						providerId: "provider-record-catalog",
-					})),
-				},
-				{ type: "system" },
-				"population-reference",
-				"parent-execution",
-				SandboxScriptId.make("caller-script"),
-			),
-		);
-
-		expect(executionIds).toHaveLength(5);
-		expect(exit.toString()).toContain("first item failed");
-		expect(exit.toString()).not.toContain("third item failed");
-	}).pipe(
-		Effect.provide(populationReferencesLayer()),
-		Effect.provideService(WorkflowEngine, engine),
+		}),
 	);
 });
 
-it.effect("rejects non-system and unauthorized provider population calls", () => {
-	let dispatches = 0;
-	const engine = makeWorkflowEngine({
-		execute: () =>
-			Effect.sync(() => {
-				dispatches += 1;
-				return { id: "entity-1" };
-			}),
-	});
-	const input = {
-		mode: "refresh" as const,
-		items: [{ providerId: "foreign", externalId: "record-1", entitySchemaSlug: "record" }],
-	};
-
-	return Effect.gen(function* () {
-		const references = yield* KernelWorkflowReferences;
-		const userExit = yield* Effect.exit(
-			references.execute(
-				KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
-				input,
-				{ type: "user", userId: UserId.make("user-1") },
-				"user-call",
-				"parent-execution",
-				SandboxScriptId.make("caller-script"),
-			),
-		);
-		expect(userExit.toString()).toContain("available only for system executions");
-
-		const ownershipExit = yield* Effect.exit(
-			references.execute(
-				KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
-				input,
-				{ type: "system" },
-				"foreign-call",
-				"parent-execution",
-				SandboxScriptId.make("caller-script"),
-			),
-		);
-		expect(ownershipExit.toString()).toContain(
-			"is not active or has no exact binding to entity schema 'record' owned by plugin 'catalog'",
-		);
-		expect(dispatches).toBe(0);
-	}).pipe(
-		Effect.provide(populationReferencesLayer(() => false)),
-		Effect.provideService(WorkflowEngine, engine),
-	);
-});
-
-it.effect("authorizes every provider population item before dispatching any child", () => {
-	let dispatches = 0;
-	const engine = makeWorkflowEngine({
-		execute: () =>
-			Effect.sync(() => {
-				dispatches += 1;
-				return { id: "entity-1" };
-			}),
-	});
-
-	return Effect.gen(function* () {
-		const references = yield* KernelWorkflowReferences;
-		const exit = yield* Effect.exit(
-			references.execute(
-				KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
-				{
-					mode: "ensure",
-					items: [
-						{ providerId: "owned", externalId: "record-1", entitySchemaSlug: "record" },
-						{ providerId: "foreign", externalId: "record-2", entitySchemaSlug: "record" },
-					],
-				},
-				{ type: "system" },
-				"population-reference",
-				"parent-execution",
-				SandboxScriptId.make("caller-script"),
-			),
-		);
-
-		expect(exit.toString()).toContain(
-			"is not active or has no exact binding to entity schema 'record' owned by plugin 'catalog'",
-		);
-		expect(dispatches).toBe(0);
-	}).pipe(
-		Effect.provide(populationReferencesLayer((providerId) => providerId === "owned")),
-		Effect.provideService(WorkflowEngine, engine),
-	);
-});
-
-it.effect(
-	"accepts 1-100 provider population items and rejects batches outside those bounds",
-	() => {
-		let dispatches = 0;
-		const item = {
-			externalId: "record-1",
-			entitySchemaSlug: "record",
-			providerId: "provider-record-catalog",
-		};
-		const engine = makeWorkflowEngine({
-			execute: () =>
-				Effect.sync(() => {
-					dispatches += 1;
-					return { id: `entity-${dispatches}` };
-				}),
-		});
-
-		return Effect.gen(function* () {
+layer(referencesLayer(unownedRepositories).pipe(Layer.provideMerge(unusedEngineLayer)))((test) => {
+	test.effect("rejects user-scoped kernel workflows for system executions", () =>
+		Effect.gen(function* () {
 			const references = yield* KernelWorkflowReferences;
-			for (const items of [[item], Array.from({ length: 100 }, () => item)]) {
-				yield* references.execute(
-					KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
-					{ items, mode: "ensure" },
+			const exit = yield* Effect.exit(
+				references.execute(
+					KERNEL_ENTITY_IMPORT_WORKFLOW,
+					{
+						providerId: "zeta",
+						externalId: "record-1",
+						entitySchemaSlug: "record",
+						origin: { kind: "import" },
+						userId: "attacker-selected-user",
+					},
 					{ type: "system" },
-					`valid-batch-${items.length}`,
+					"entity-import-execution",
+					"parent-execution",
+					SandboxScriptId.make("caller-script"),
+				),
+			);
+
+			expect(exit.toString()).toContain("is not available for system executions");
+		}),
+	);
+});
+
+layer(referencesLayer(unownedRepositories).pipe(Layer.provideMerge(unusedEngineLayer)))((test) => {
+	test.effect("rejects an import run owned by another user", () =>
+		Effect.gen(function* () {
+			const references = yield* KernelWorkflowReferences;
+			const exit = yield* Effect.exit(
+				references.execute(
+					KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
+					{
+						totalItems: 0,
+						failureCount: 0,
+						writeItemCount: 0,
+						runId: "victim-run",
+						chunkHandles: ["harvest-handle-0"],
+					},
+					{ type: "user", userId: UserId.make("trusted-user") },
+					"entity-import-execution",
+					"parent-execution",
+					SandboxScriptId.make("caller-script"),
+				),
+			);
+
+			expect(exit.toString()).toContain(
+				"import run 'victim-run' does not belong to the executing user",
+			);
+		}),
+	);
+});
+
+layer(referencesLayer(unownedRepositories).pipe(Layer.provideMerge(unusedEngineLayer)))((test) => {
+	test.effect("rejects a trusted integration subject owned by another user", () =>
+		Effect.gen(function* () {
+			const references = yield* KernelWorkflowReferences;
+			const exit = yield* Effect.exit(
+				references.execute(
+					KERNEL_EVENT_CREATE_WORKFLOW,
+					{ payload: [] },
+					{
+						type: "user",
+						userId: UserId.make("trusted-user"),
+						integrationId: IntegrationId.make("victim-integration"),
+					},
+					"event-create-execution",
+					"parent-execution",
+					SandboxScriptId.make("caller-script"),
+				),
+			);
+
+			expect(exit.toString()).toContain(
+				"integration 'victim-integration' does not belong to the executing user",
+			);
+		}),
+	);
+});
+
+layer(
+	populationReferencesLayer().pipe(
+		Layer.provideMerge(
+			recordingEngineLayer((_workflow, _options, dispatchNumber) =>
+				Effect.succeed({ id: `entity-${dispatchNumber}` }),
+			),
+		),
+	),
+)((test) => {
+	test.effect(
+		"dispatches bounded provider population items with deterministic child ids using a cross-plugin provider",
+		() =>
+			Effect.gen(function* () {
+				const references = yield* KernelWorkflowReferences;
+				const result = yield* references.execute(
+					KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
+					{
+						mode: "refresh",
+						items: [
+							{
+								externalId: "record-1",
+								entitySchemaSlug: "record",
+								providerId: "provider-record-catalog",
+							},
+							{
+								externalId: "record-2",
+								entitySchemaSlug: "record",
+								providerId: "provider-record-catalog",
+							},
+						],
+					},
+					{ type: "system" },
+					"population-reference",
 					"parent-execution",
 					SandboxScriptId.make("caller-script"),
 				);
-			}
-			expect(dispatches).toBe(101);
 
-			for (const items of [[], Array.from({ length: 101 }, () => item)]) {
-				const exit = yield* Effect.exit(
-					references.execute(
+				const dispatches = yield* RecordedWorkflowDispatches;
+				expect(result).toEqual([{ id: "entity-1" }, { id: "entity-2" }]);
+				expect(yield* dispatches.executionIds).toEqual([
+					"population-reference-item-0",
+					"population-reference-item-1",
+				]);
+				expect(yield* dispatches.payloads).toEqual([
+					expect.objectContaining({
+						mode: "refresh",
+						externalId: "record-1",
+						entitySchemaSlug: "record",
+						providerId: "provider-record-catalog",
+						executionId: "population-reference-item-0",
+						entityScope: { userId: null, type: "global" },
+						command: expect.objectContaining({
+							itemIdentity: "kernel:provider-entity-population:0",
+							causation: expect.objectContaining({
+								source: "provider-refresh",
+								executionId: "population-reference-item-0",
+								providerExecutionId: "population-reference-item-0",
+							}),
+						}),
+					}),
+					expect.objectContaining({
+						externalId: "record-2",
+						executionId: "population-reference-item-1",
+					}),
+				]);
+			}),
+	);
+});
+
+layer(
+	populationReferencesLayer().pipe(
+		Layer.provideMerge(
+			recordingEngineLayer((_workflow, options) => {
+				if (options.executionId.endsWith("item-0")) {
+					return new SandboxRunError({ kind: "script-failure", message: "first item failed" });
+				}
+				if (options.executionId.endsWith("item-2")) {
+					return new SandboxRunError({ kind: "script-failure", message: "third item failed" });
+				}
+				return Effect.succeed({ id: options.executionId });
+			}),
+		),
+	),
+)((test) => {
+	test.effect("awaits every provider population exit and reports failures in input order", () =>
+		Effect.gen(function* () {
+			const references = yield* KernelWorkflowReferences;
+			const exit = yield* Effect.exit(
+				references.execute(
+					KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
+					{
+						mode: "refresh",
+						items: Array.from({ length: 5 }, (_, index) => ({
+							entitySchemaSlug: "record",
+							externalId: `record-${index}`,
+							providerId: "provider-record-catalog",
+						})),
+					},
+					{ type: "system" },
+					"population-reference",
+					"parent-execution",
+					SandboxScriptId.make("caller-script"),
+				),
+			);
+
+			expect(yield* (yield* RecordedWorkflowDispatches).executionIds).toHaveLength(5);
+			expect(exit.toString()).toContain("first item failed");
+			expect(exit.toString()).not.toContain("third item failed");
+		}),
+	);
+});
+
+const populationInput = {
+	mode: "refresh" as const,
+	items: [{ providerId: "foreign", externalId: "record-1", entitySchemaSlug: "record" }],
+};
+
+layer(
+	populationReferencesLayer(() => false).pipe(
+		Layer.provideMerge(recordingEngineLayer(() => Effect.succeed({ id: "entity-1" }))),
+	),
+)((test) => {
+	test.effect("rejects non-system and unauthorized provider population calls", () =>
+		Effect.gen(function* () {
+			const references = yield* KernelWorkflowReferences;
+			const userExit = yield* Effect.exit(
+				references.execute(
+					KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
+					populationInput,
+					{ type: "user", userId: UserId.make("user-1") },
+					"user-call",
+					"parent-execution",
+					SandboxScriptId.make("caller-script"),
+				),
+			);
+			expect(userExit.toString()).toContain("available only for system executions");
+
+			const ownershipExit = yield* Effect.exit(
+				references.execute(
+					KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
+					populationInput,
+					{ type: "system" },
+					"foreign-call",
+					"parent-execution",
+					SandboxScriptId.make("caller-script"),
+				),
+			);
+			expect(ownershipExit.toString()).toContain(
+				"is not active or has no exact binding to entity schema 'record' owned by plugin 'catalog'",
+			);
+			expect(yield* (yield* RecordedWorkflowDispatches).executionIds).toHaveLength(0);
+		}),
+	);
+});
+
+layer(
+	populationReferencesLayer((providerId) => providerId === "owned").pipe(
+		Layer.provideMerge(recordingEngineLayer(() => Effect.succeed({ id: "entity-1" }))),
+	),
+)((test) => {
+	test.effect("authorizes every provider population item before dispatching any child", () =>
+		Effect.gen(function* () {
+			const references = yield* KernelWorkflowReferences;
+			const exit = yield* Effect.exit(
+				references.execute(
+					KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
+					{
+						mode: "ensure",
+						items: [
+							{ providerId: "owned", externalId: "record-1", entitySchemaSlug: "record" },
+							{ providerId: "foreign", externalId: "record-2", entitySchemaSlug: "record" },
+						],
+					},
+					{ type: "system" },
+					"population-reference",
+					"parent-execution",
+					SandboxScriptId.make("caller-script"),
+				),
+			);
+
+			expect(exit.toString()).toContain(
+				"is not active or has no exact binding to entity schema 'record' owned by plugin 'catalog'",
+			);
+			expect(yield* (yield* RecordedWorkflowDispatches).executionIds).toHaveLength(0);
+		}),
+	);
+});
+
+layer(
+	populationReferencesLayer().pipe(
+		Layer.provideMerge(
+			recordingEngineLayer((_workflow, _options, dispatchNumber) =>
+				Effect.succeed({ id: `entity-${dispatchNumber}` }),
+			),
+		),
+	),
+)((test) => {
+	test.effect(
+		"accepts 1-100 provider population items and rejects batches outside those bounds",
+		() => {
+			const item = {
+				externalId: "record-1",
+				entitySchemaSlug: "record",
+				providerId: "provider-record-catalog",
+			};
+			return Effect.gen(function* () {
+				const references = yield* KernelWorkflowReferences;
+				for (const items of [[item], Array.from({ length: 100 }, () => item)]) {
+					yield* references.execute(
 						KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
 						{ items, mode: "ensure" },
 						{ type: "system" },
-						"invalid-batch",
+						`valid-batch-${items.length}`,
 						"parent-execution",
 						SandboxScriptId.make("caller-script"),
-					),
-				);
-				expect(exit.toString()).toContain("Invalid kernel workflow input");
-			}
-		}).pipe(
-			Effect.provide(populationReferencesLayer()),
-			Effect.provideService(WorkflowEngine, engine),
-		);
-	},
-);
+					);
+				}
+				expect(yield* (yield* RecordedWorkflowDispatches).executionIds).toHaveLength(101);
+
+				for (const items of [[], Array.from({ length: 101 }, () => item)]) {
+					const exit = yield* Effect.exit(
+						references.execute(
+							KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
+							{ items, mode: "ensure" },
+							{ type: "system" },
+							"invalid-batch",
+							"parent-execution",
+							SandboxScriptId.make("caller-script"),
+						),
+					);
+					expect(exit.toString()).toContain("Invalid kernel workflow input");
+				}
+			});
+		},
+	);
+});

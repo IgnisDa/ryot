@@ -1,13 +1,13 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 
-import { withRevisionDatabase } from "#modules/plugins/revision.test-support";
+import { revisionDatabaseLayer } from "#modules/plugins/revision.test-support";
 
 import { NotificationsRepository } from "./repository";
 
-it.effect("updates only owned channels without returning channel details or secrets", () =>
-	withRevisionDatabase(
+layer(NotificationsRepository.layer.pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
+	test.effect("updates only owned channels without returning channel details or secrets", () =>
 		Effect.gen(function* () {
 			const repository = yield* NotificationsRepository;
 			const owner = UserId.make("owner");
@@ -41,6 +41,6 @@ it.effect("updates only owned channels without returning channel details or secr
 				}),
 			).toEqual({ id: created.id });
 			expect(yield* repository.listEnabledForUser({ userId: owner })).toEqual([]);
-		}).pipe(Effect.provide(NotificationsRepository.layer)),
-	),
-);
+		}),
+	);
+});

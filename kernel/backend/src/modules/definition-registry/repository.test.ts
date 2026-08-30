@@ -1,4 +1,4 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { and, eq, isNull } from "drizzle-orm";
 import { Effect, Exit } from "effect";
@@ -11,7 +11,7 @@ import { PluginRepository } from "#modules/plugins/repository";
 import {
 	installRevisionPackage,
 	revisionPackage,
-	withRevisionDatabase,
+	revisionDatabaseLayer,
 } from "#modules/plugins/revision.test-support";
 import type { NormalizedPlugin } from "#modules/plugins/types";
 
@@ -64,8 +64,8 @@ const linkedTo = (packageValue: NormalizedPlugin, targetEntitySchemaSlug: string
 });
 
 describe("definition views", () => {
-	it.effect("shadows private definitions with the global system set", () =>
-		withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("shadows private definitions with the global system set", () =>
 			Effect.gen(function* () {
 				const definitions = yield* DefinitionRepository;
 				yield* seedKernelDefinitions();
@@ -86,11 +86,11 @@ describe("definition views", () => {
 				expect(disabled.relationshipSchemas["private-link"]).toBeUndefined();
 				expect(disabled.entitySchemas["collection"]).toBeDefined();
 			}),
-		),
-	);
+		);
+	});
 
-	it.effect("separates listed from effective installations", () =>
-		withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("separates listed from effective installations", () =>
 			Effect.gen(function* () {
 				const system = yield* installRevisionPackage(revisionPackage());
 				const installing = yield* installRevisionPackage(revisionPackage("alpha"), owner);
@@ -128,11 +128,11 @@ describe("definition views", () => {
 				]);
 				expect(yield* entitySlugs(effective)).toEqual(["fixture-entity"]);
 			}),
-		),
-	);
+		);
+	});
 
-	it.effect("drops private relationships whose endpoints are not available", () =>
-		withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("drops private relationships whose endpoints are not available", () =>
 			Effect.gen(function* () {
 				const definitions = yield* DefinitionRepository;
 				const alpha = yield* installRevisionPackage(revisionPackage("alpha"), owner);
@@ -150,11 +150,11 @@ describe("definition views", () => {
 				yield* setInstallation(alpha.installation.id, { health: "incompatible" });
 				expect(yield* relationshipSlugs(listed)).toEqual([]);
 			}),
-		),
-	);
+		);
+	});
 
-	it.effect("excludes uninstalled installations", () =>
-		withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("excludes uninstalled installations", () =>
 			Effect.gen(function* () {
 				const installations = yield* PluginInstallationRepository;
 				const installed = yield* installRevisionPackage(revisionPackage("alpha"), owner);
@@ -163,11 +163,11 @@ describe("definition views", () => {
 				expect(yield* userPlugin(installed.pluginId)).toBeNull();
 				expect(yield* entitySlugs(listed)).toEqual([]);
 			}),
-		),
-	);
+		);
+	});
 
-	it.effect("executes only plugins whose configuration is pinned to the active revision", () =>
-		withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("executes only plugins whose configuration is pinned to the active revision", () =>
 			Effect.gen(function* () {
 				const db = yield* (yield* DatabaseSession).current;
 				const plugins = yield* PluginRepository;
@@ -208,11 +208,11 @@ describe("definition views", () => {
 				);
 				expect(Exit.isFailure(exit)).toBe(true);
 			}),
-		),
-	);
+		);
+	});
 
-	it.effect("upserts kernel definitions by slug and prunes removed rows", () =>
-		withRevisionDatabase(
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("upserts kernel definitions by slug and prunes removed rows", () =>
 			Effect.gen(function* () {
 				const db = yield* (yield* DatabaseSession).current;
 				const definitions = yield* DefinitionRepository;
@@ -254,6 +254,6 @@ describe("definition views", () => {
 					savedViews: [{ pluginId: null, slug: "collections" }],
 				});
 			}),
-		),
-	);
+		);
+	});
 });

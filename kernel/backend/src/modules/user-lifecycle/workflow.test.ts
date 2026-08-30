@@ -1,9 +1,9 @@
 import { PgClient } from "@effect/sql-pg";
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { BadRequest, internalError } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { sql } from "drizzle-orm";
-import { Effect, Layer, Redacted } from "effect";
+import { Context, Effect, Layer, Redacted, Ref } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
@@ -27,329 +27,417 @@ import {
 
 const userId = UserId.make("user-1");
 
-const runWithOperations = (operations: UserLifecycleWorkflowOperations["Service"]) => {
-	const instance = WorkflowInstance.initial(UserLifecycleWorkflow, "operation-1");
-	const engine = makeWorkflowActivityEngine(instance);
-	return Layer.mergeAll(
-		Layer.succeed(WorkflowInstance, instance),
-		Layer.succeed(WorkflowEngine, engine),
-		Layer.mock(UserLifecycleWorkflowOperations, operations),
-	);
+class RecordedWorkflowOperations extends Context.Service<
+	RecordedWorkflowOperations,
+	{
+		readonly calls: Effect.Effect<ReadonlyArray<string>>;
+		readonly failures: Effect.Effect<ReadonlyArray<unknown>>;
+	}
+>()("test/RecordedWorkflowOperations") {}
+
+type OperationRecorder = {
+	readonly record: (call: string) => Effect.Effect<void>;
+	readonly recordFailure: (failure: unknown) => Effect.Effect<void>;
 };
 
-it.effect("deletes database ownership only after physical cleanup", () => {
-	const calls: string[] = [];
-	const layer = runWithOperations({
-		recreateResetUser: () => Effect.die("unused"),
-		fail: () => Effect.sync(() => void calls.push("fail")),
-		complete: () => Effect.sync(() => void calls.push("complete")),
-		cleanupObjects: () => Effect.sync(() => void calls.push("objects")),
-		begin: () => Effect.sync(() => (calls.push("begin"), "delete" as const)),
-		deleteDatabaseUser: () => Effect.sync(() => void calls.push("database")),
-	});
+const scriptedOperationsLayer = (
+	operations: (
+		recorder: OperationRecorder,
+	) => Effect.Effect<UserLifecycleWorkflowOperations["Service"]>,
+) =>
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const calls = yield* Ref.make<ReadonlyArray<string>>([]);
+			const failures = yield* Ref.make<ReadonlyArray<unknown>>([]);
+			const scripted = yield* operations({
+				record: (call) => Ref.update(calls, (all) => [...all, call]),
+				recordFailure: (failure) => Ref.update(failures, (all) => [...all, failure]),
+			});
+			const instance = WorkflowInstance.initial(UserLifecycleWorkflow, "operation-1");
+			return Layer.mergeAll(
+				Layer.succeed(WorkflowInstance, instance),
+				Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(instance)),
+				Layer.mock(UserLifecycleWorkflowOperations, scripted),
+				Layer.succeed(RecordedWorkflowOperations, {
+					calls: Ref.get(calls),
+					failures: Ref.get(failures),
+				}),
+			);
+		}),
+	);
 
-	return Effect.gen(function* () {
-		yield* runUserLifecycleWorkflow({ operationId: "operation-1" }, "execution-1");
-		expect(calls).toEqual(["begin", "objects", "database", "complete"]);
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("retries partial object cleanup before deleting the user", () => {
-	const calls: string[] = [];
-	let cleanupAttempts = 0;
-	const layer = runWithOperations({
-		recreateResetUser: () => Effect.die("unused"),
-		begin: () => Effect.succeed("delete" as const),
-		fail: () => Effect.sync(() => void calls.push("fail")),
-		complete: () => Effect.sync(() => void calls.push("complete")),
-		deleteDatabaseUser: () => Effect.sync(() => void calls.push("database")),
-		cleanupObjects: () =>
-			Effect.suspend(() => {
-				cleanupAttempts += 1;
-				calls.push(`objects-${cleanupAttempts}`);
-				return cleanupAttempts === 1 ? Effect.fail(internalError("s3 unavailable")) : Effect.void;
-			}),
-	});
-
-	return Effect.gen(function* () {
-		yield* runUserLifecycleWorkflow({ operationId: "operation-1" }, "execution-1");
-		expect(calls).toEqual(["objects-1", "objects-2", "database", "complete"]);
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("persists a safe stage failure instead of the internal cause", () => {
-	let persisted: unknown;
-	const layer = runWithOperations({
-		complete: () => Effect.die("unused"),
-		cleanupObjects: () => Effect.die("unused"),
-		recreateResetUser: () => Effect.die("unused"),
-		deleteDatabaseUser: () => Effect.die("unused"),
-		begin: () => Effect.fail(internalError("database password leaked")),
-		fail: (_operationId, failure) => Effect.sync(() => void (persisted = failure)),
-	});
-
-	return Effect.gen(function* () {
-		yield* runUserLifecycleWorkflow({ operationId: "operation-1" }, "execution-1");
-		expect(persisted).toEqual({ code: "operation-start-failed" });
-		expect(persisted).not.toHaveProperty("message");
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect("recreates the same reset identity after cleanup", () => {
-	const calls: string[] = [];
-	const result = { userId, resetUrl: null, email: "user@example.com" };
-	const layer = runWithOperations({
-		fail: () => Effect.die("unused"),
-		begin: () => Effect.succeed("reset" as const),
-		cleanupObjects: () => Effect.sync(() => void calls.push("objects")),
-		deleteDatabaseUser: () => Effect.sync(() => void calls.push("database")),
-		recreateResetUser: () => Effect.sync(() => (calls.push("recreate"), result)),
-		complete: (_operationId, completed) =>
-			Effect.sync(() => {
-				calls.push("complete");
-				expect(completed).toEqual(result);
-			}),
-	});
-
-	return Effect.gen(function* () {
-		yield* runUserLifecycleWorkflow({ operationId: "operation-1" }, "execution-1");
-		expect(calls).toEqual(["objects", "database", "recreate", "complete"]);
-	}).pipe(Effect.provide(layer));
-});
-
-it.effect(
-	"retains all locators across a partial deletion retry and accepts missing objects",
-	() => {
-		const deleted: string[] = [];
-		let failed = false;
-		const operation = {
-			workflowAttempt: 0,
-			databaseCleanupCompletedAt: null,
-			accessRevokedAt: new Date("2026-08-24T00:00:00.000Z"),
-			operation: {
-				userId,
-				failure: null,
-				finishedAt: null,
-				id: "operation-1",
-				resetResult: null,
-				kind: "delete" as const,
-				status: "running" as const,
-				createdAt: "2026-08-24T00:00:00.000Z",
-				startedAt: "2026-08-24T00:00:01.000Z",
-			},
-			metadata: {
-				apiKeys: [],
-				accounts: [],
-				usesLocalAuth: true,
-				recreatedAccountId: "account-1",
-				user: {
-					id: userId,
-					name: "User",
-					disabledAt: null,
-					emailVerified: true,
-					email: "user@example.com",
-				},
-				locators: [
-					{ type: "local" as const, key: "permanent/local.png" },
-					{ type: "s3" as const, key: "permanent/s3.png" },
-				],
-			},
-		};
-		const layer = UserLifecycleWorkflowOperationsLive.pipe(
-			Layer.provide(
-				Layer.mergeAll(
-					databaseLayer,
-					Layer.mock(AuthService)({ auth: Object.create(null) }),
-					Layer.mock(SavedViewsService)({}),
-					Layer.succeed(ClientSurfaceMaterializer, {
-						materializeRenderer: () => Effect.void,
-						assertUserCompositions: () => Effect.void,
-						materializeSystemCompositions: Effect.void,
-						materializeUserCompositions: () => Effect.void,
-						materializePendingInstallation: () => Effect.void,
-					}),
-					Layer.mock(PluginUserBootstrapDispatcher)({}),
-					Layer.mock(PluginInstallationService)({}),
-					Layer.mock(NotificationSubscriptionsService)({}),
-					Layer.mock(UserLifecycleRepository)({ getInternalById: () => Effect.succeed(operation) }),
-					Layer.mock(ObjectStorageService)({
-						deleteObject: (locator) =>
-							Effect.suspend(() => {
-								deleted.push(locator.key);
-								if (locator.type === "s3" && !failed) {
-									failed = true;
-									return Effect.fail(new BadRequest({ message: "temporary s3 failure" }));
-								}
-								return Effect.void;
-							}),
-					}),
-				),
-			),
-		);
-
-		return Effect.gen(function* () {
-			const operations = yield* UserLifecycleWorkflowOperations;
-			expect((yield* Effect.exit(operations.cleanupObjects("operation-1")))._tag).toBe("Failure");
-			yield* operations.cleanupObjects("operation-1");
-			expect(deleted).toEqual([
-				"permanent/local.png",
-				"permanent/s3.png",
-				"permanent/local.png",
-				"permanent/s3.png",
+layer(
+	scriptedOperationsLayer(({ record }) =>
+		Effect.succeed({
+			fail: () => record("fail"),
+			complete: () => record("complete"),
+			cleanupObjects: () => record("objects"),
+			deleteDatabaseUser: () => record("database"),
+			recreateResetUser: () => Effect.die("unused"),
+			begin: () => record("begin").pipe(Effect.as("delete" as const)),
+		}),
+	),
+)((test) => {
+	test.effect("deletes database ownership only after physical cleanup", () =>
+		Effect.gen(function* () {
+			yield* runUserLifecycleWorkflow({ operationId: "operation-1" }, "execution-1");
+			expect(yield* (yield* RecordedWorkflowOperations).calls).toEqual([
+				"begin",
+				"objects",
+				"database",
+				"complete",
 			]);
-		}).pipe(Effect.provide(layer));
-	},
-);
+		}),
+	);
+});
 
-it.effect("keeps a recreated reset user disabled until completion", () => {
-	const calls: string[] = [];
-	let identityExists = false;
-	const operation = {
-		workflowAttempt: 0,
-		accessRevokedAt: new Date("2026-08-24T00:00:00.000Z"),
-		databaseCleanupCompletedAt: new Date("2026-08-24T00:00:01.000Z"),
-		operation: {
-			userId,
-			failure: null,
-			finishedAt: null,
-			id: "operation-1",
-			resetResult: null,
-			kind: "reset" as const,
-			status: "running" as const,
-			createdAt: "2026-08-24T00:00:00.000Z",
-			startedAt: "2026-08-24T00:00:01.000Z",
-		},
-		metadata: {
-			apiKeys: [],
-			locators: [],
-			accounts: [],
-			usesLocalAuth: true,
-			recreatedAccountId: "account-1",
-			user: {
-				id: userId,
-				name: "User",
-				disabledAt: null,
-				emailVerified: true,
-				email: "user@example.com",
-			},
-		},
-	};
-	const singleConnection = Layer.effect(DatabaseSession, DatabaseSession.make).pipe(
-		Layer.provideMerge(
-			Layer.unwrap(
-				Effect.sync(() =>
-					PgClient.layer({ maxConnections: 1, url: Redacted.make(testDatabaseUrl()) }),
+layer(
+	scriptedOperationsLayer(({ record }) =>
+		Effect.gen(function* () {
+			const cleanupAttempts = yield* Ref.make(0);
+			return {
+				fail: () => record("fail"),
+				complete: () => record("complete"),
+				deleteDatabaseUser: () => record("database"),
+				recreateResetUser: () => Effect.die("unused"),
+				begin: () => Effect.succeed("delete" as const),
+				cleanupObjects: () =>
+					Ref.updateAndGet(cleanupAttempts, (count) => count + 1).pipe(
+						Effect.tap((attempt) => record(`objects-${attempt}`)),
+						Effect.flatMap((attempt) =>
+							attempt === 1 ? Effect.fail(internalError("s3 unavailable")) : Effect.void,
+						),
+					),
+			};
+		}),
+	),
+)((test) => {
+	test.effect("retries partial object cleanup before deleting the user", () =>
+		Effect.gen(function* () {
+			yield* runUserLifecycleWorkflow({ operationId: "operation-1" }, "execution-1");
+			expect(yield* (yield* RecordedWorkflowOperations).calls).toEqual([
+				"objects-1",
+				"objects-2",
+				"database",
+				"complete",
+			]);
+		}),
+	);
+});
+
+layer(
+	scriptedOperationsLayer(({ recordFailure }) =>
+		Effect.succeed({
+			complete: () => Effect.die("unused"),
+			cleanupObjects: () => Effect.die("unused"),
+			recreateResetUser: () => Effect.die("unused"),
+			deleteDatabaseUser: () => Effect.die("unused"),
+			fail: (_operationId, failure) => recordFailure(failure),
+			begin: () => Effect.fail(internalError("database password leaked")),
+		}),
+	),
+)((test) => {
+	test.effect("persists a safe stage failure instead of the internal cause", () =>
+		Effect.gen(function* () {
+			yield* runUserLifecycleWorkflow({ operationId: "operation-1" }, "execution-1");
+			const persisted = (yield* (yield* RecordedWorkflowOperations).failures).at(-1);
+			expect(persisted).toEqual({ code: "operation-start-failed" });
+			expect(persisted).not.toHaveProperty("message");
+		}),
+	);
+});
+
+const resetResult = { userId, resetUrl: null, email: "user@example.com" };
+
+layer(
+	scriptedOperationsLayer(({ record }) =>
+		Effect.succeed({
+			fail: () => Effect.die("unused"),
+			cleanupObjects: () => record("objects"),
+			deleteDatabaseUser: () => record("database"),
+			begin: () => Effect.succeed("reset" as const),
+			recreateResetUser: () => record("recreate").pipe(Effect.as(resetResult)),
+			complete: (_operationId, completed) =>
+				record("complete").pipe(
+					Effect.andThen(Effect.sync(() => expect(completed).toEqual(resetResult))),
 				),
+		}),
+	),
+)((test) => {
+	test.effect("recreates the same reset identity after cleanup", () =>
+		Effect.gen(function* () {
+			yield* runUserLifecycleWorkflow({ operationId: "operation-1" }, "execution-1");
+			expect(yield* (yield* RecordedWorkflowOperations).calls).toEqual([
+				"objects",
+				"database",
+				"recreate",
+				"complete",
+			]);
+		}),
+	);
+});
+
+const liveOperationsLayer = <R, E>(dependencies: {
+	readonly database: Layer.Layer<DatabaseSession, E>;
+	readonly overrides: Layer.Layer<R, never, DatabaseSession>;
+}) =>
+	UserLifecycleWorkflowOperationsLive.pipe(
+		Layer.provideMerge(
+			Layer.mergeAll(
+				Layer.mock(SavedViewsService)({}),
+				Layer.succeed(ClientSurfaceMaterializer, {
+					materializeRenderer: () => Effect.void,
+					assertUserCompositions: () => Effect.void,
+					materializeSystemCompositions: Effect.void,
+					materializeUserCompositions: () => Effect.void,
+					materializePendingInstallation: () => Effect.void,
+				}),
+				Layer.mock(PluginUserBootstrapDispatcher)({}),
+				Layer.mock(PluginInstallationService)({}),
+				Layer.mock(NotificationSubscriptionsService)({}),
+				dependencies.overrides,
 			),
 		),
+		Layer.provideMerge(dependencies.database),
 	);
-	const layer = UserLifecycleWorkflowOperationsLive.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				singleConnection,
-				Layer.mock(UserLifecycleRepository)({
-					getInternalById: () => Effect.succeed(operation),
-					loadRecreatedIdentity: () =>
-						Effect.succeed(
-							identityExists
-								? { accounts: [], user: { id: userId, email: "user@example.com" } }
-								: null,
-						),
-				}),
-				Layer.mock(AuthService)({
-					auth: Object.create(null),
-					updateAuthUserDisabled: (_id, data) =>
-						Effect.sync(() => void calls.push(data.disabledAt === null ? "enabled" : "disabled")),
-					requestPasswordResetLink: () =>
-						Effect.sync(() => {
-							calls.push("reset-link");
-							return { email: "user@example.com", resetUrl: "https://example.com/reset" };
-						}),
-					createAuthUser: (input) =>
-						Effect.sync(() => {
-							identityExists = true;
-							calls.push(
+
+const deleteOperation = {
+	workflowAttempt: 0,
+	databaseCleanupCompletedAt: null,
+	accessRevokedAt: new Date("2026-08-24T00:00:00.000Z"),
+	operation: {
+		userId,
+		failure: null,
+		finishedAt: null,
+		id: "operation-1",
+		resetResult: null,
+		kind: "delete" as const,
+		status: "running" as const,
+		createdAt: "2026-08-24T00:00:00.000Z",
+		startedAt: "2026-08-24T00:00:01.000Z",
+	},
+	metadata: {
+		apiKeys: [],
+		accounts: [],
+		usesLocalAuth: true,
+		recreatedAccountId: "account-1",
+		user: {
+			id: userId,
+			name: "User",
+			disabledAt: null,
+			emailVerified: true,
+			email: "user@example.com",
+		},
+		locators: [
+			{ type: "local" as const, key: "permanent/local.png" },
+			{ type: "s3" as const, key: "permanent/s3.png" },
+		],
+	},
+};
+
+class RecordedObjectDeletions extends Context.Service<
+	RecordedObjectDeletions,
+	{ readonly deleted: Effect.Effect<ReadonlyArray<string>> }
+>()("test/RecordedObjectDeletions") {}
+
+const flakyObjectStorageLayer = Layer.unwrap(
+	Effect.gen(function* () {
+		const deleted = yield* Ref.make<ReadonlyArray<string>>([]);
+		const failed = yield* Ref.make(false);
+		return Layer.merge(
+			Layer.mock(ObjectStorageService)({
+				deleteObject: (locator) =>
+					Effect.gen(function* () {
+						yield* Ref.update(deleted, (all) => [...all, locator.key]);
+						const shouldFail = locator.type === "s3" && !(yield* Ref.getAndSet(failed, true));
+						return yield* shouldFail
+							? Effect.fail(new BadRequest({ message: "temporary s3 failure" }))
+							: Effect.void;
+					}),
+			}),
+			Layer.succeed(RecordedObjectDeletions, { deleted: Ref.get(deleted) }),
+		);
+	}),
+);
+
+layer(
+	liveOperationsLayer({
+		database: databaseLayer,
+		overrides: Layer.mergeAll(
+			Layer.mock(AuthService)({ auth: Object.create(null) }),
+			Layer.mock(UserLifecycleRepository)({
+				getInternalById: () => Effect.succeed(deleteOperation),
+			}),
+			flakyObjectStorageLayer,
+		),
+	}),
+)((test) => {
+	test.effect(
+		"retains all locators across a partial deletion retry and accepts missing objects",
+		() =>
+			Effect.gen(function* () {
+				const operations = yield* UserLifecycleWorkflowOperations;
+				expect((yield* Effect.exit(operations.cleanupObjects("operation-1")))._tag).toBe("Failure");
+				yield* operations.cleanupObjects("operation-1");
+				expect(yield* (yield* RecordedObjectDeletions).deleted).toEqual([
+					"permanent/local.png",
+					"permanent/s3.png",
+					"permanent/local.png",
+					"permanent/s3.png",
+				]);
+			}),
+	);
+});
+
+const resetOperation = {
+	workflowAttempt: 0,
+	accessRevokedAt: new Date("2026-08-24T00:00:00.000Z"),
+	databaseCleanupCompletedAt: new Date("2026-08-24T00:00:01.000Z"),
+	metadata: {
+		apiKeys: [],
+		locators: [],
+		accounts: [],
+		usesLocalAuth: true,
+		recreatedAccountId: "account-1",
+		user: {
+			id: userId,
+			name: "User",
+			disabledAt: null,
+			emailVerified: true,
+			email: "user@example.com",
+		},
+	},
+	operation: {
+		userId,
+		failure: null,
+		finishedAt: null,
+		id: "operation-1",
+		resetResult: null,
+		kind: "reset" as const,
+		status: "running" as const,
+		createdAt: "2026-08-24T00:00:00.000Z",
+		startedAt: "2026-08-24T00:00:01.000Z",
+	},
+};
+
+class RecordedResetIdentity extends Context.Service<
+	RecordedResetIdentity,
+	{ readonly calls: Effect.Effect<ReadonlyArray<string>> }
+>()("test/RecordedResetIdentity") {}
+
+const resetIdentityLayer = Layer.unwrap(
+	Effect.gen(function* () {
+		const calls = yield* Ref.make<ReadonlyArray<string>>([]);
+		const identityExists = yield* Ref.make(false);
+		const record = (call: string) => Ref.update(calls, (all) => [...all, call]);
+		return Layer.mergeAll(
+			Layer.mock(UserLifecycleRepository)({
+				getInternalById: () => Effect.succeed(resetOperation),
+				loadRecreatedIdentity: () =>
+					Effect.map(Ref.get(identityExists), (exists) =>
+						exists ? { accounts: [], user: { id: userId, email: "user@example.com" } } : null,
+					),
+			}),
+			Layer.mock(AuthService)({
+				auth: Object.create(null),
+				updateAuthUserDisabled: (_id, data) =>
+					record(data.disabledAt === null ? "enabled" : "disabled"),
+				requestPasswordResetLink: () =>
+					record("reset-link").pipe(
+						Effect.as({ email: "user@example.com", resetUrl: "https://example.com/reset" }),
+					),
+				createAuthUser: (input) =>
+					Ref.set(identityExists, true).pipe(
+						Effect.andThen(
+							record(
 								input.disabledAt === null || input.disabledAt === undefined
 									? "created-enabled"
 									: "created-disabled",
-							);
-							return Object.create(null);
-						}),
-				}),
-				Layer.mock(SavedViewsService)({}),
-				Layer.succeed(ClientSurfaceMaterializer, {
-					materializeRenderer: () => Effect.void,
-					assertUserCompositions: () => Effect.void,
-					materializeSystemCompositions: Effect.void,
-					materializeUserCompositions: () => Effect.void,
-					materializePendingInstallation: () => Effect.void,
-				}),
-				Layer.mock(PluginUserBootstrapDispatcher)({}),
-				Layer.mock(PluginInstallationService)({}),
-				Layer.mock(NotificationSubscriptionsService)({}),
-				Layer.mock(ObjectStorageService)({}),
-			),
-		),
-	);
-	const bootstrapCompletedAt = new Date("2026-08-24T00:00:02.000Z");
-	return Effect.gen(function* () {
-		const db = yield* (yield* DatabaseSession).current;
-		yield* db.execute(
-			sql`create temporary table "user" (id text primary key, image text, bootstrap_completed_at timestamptz)`,
-		);
-		yield* db.execute(
-			sql`insert into "user" (id, bootstrap_completed_at) values (${userId}, ${bootstrapCompletedAt})`,
-		);
-		const operations = yield* UserLifecycleWorkflowOperations;
-		expect(yield* operations.recreateResetUser("operation-1")).toEqual({
-			userId,
-			email: "user@example.com",
-			resetUrl: "https://example.com/reset",
-		});
-		expect(calls).toEqual(["created-disabled", "disabled", "reset-link"]);
-	}).pipe(Effect.provide(Layer.merge(layer, singleConnection)));
-});
-
-it.effect("uses one database transaction for reset enablement and completion", () => {
-	let session: DatabaseSession["Service"];
-	let usedTransaction = false;
-	const layer = UserLifecycleWorkflowOperationsLive.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				databaseLayer,
-				Layer.mock(UserLifecycleRepository)({
-					markCompleted: () =>
-						session.isTransactionActive.pipe(
-							Effect.map((active) => {
-								usedTransaction = active;
-								return undefined;
-							}),
+							),
 						),
-				}),
-				Layer.mock(AuthService)({ auth: Object.create(null) }),
-				Layer.mock(SavedViewsService)({}),
-				Layer.succeed(ClientSurfaceMaterializer, {
-					materializeRenderer: () => Effect.void,
-					assertUserCompositions: () => Effect.void,
-					materializeSystemCompositions: Effect.void,
-					materializeUserCompositions: () => Effect.void,
-					materializePendingInstallation: () => Effect.void,
-				}),
-				Layer.mock(PluginUserBootstrapDispatcher)({}),
-				Layer.mock(PluginInstallationService)({}),
-				Layer.mock(NotificationSubscriptionsService)({}),
-				Layer.mock(ObjectStorageService)({}),
+						Effect.as(Object.create(null)),
+					),
+			}),
+			Layer.mock(ObjectStorageService)({}),
+			Layer.succeed(RecordedResetIdentity, { calls: Ref.get(calls) }),
+		);
+	}),
+);
+
+const singleConnection = Layer.effect(DatabaseSession, DatabaseSession.make).pipe(
+	Layer.provideMerge(
+		Layer.unwrap(
+			Effect.sync(() =>
+				PgClient.layer({ maxConnections: 1, url: Redacted.make(testDatabaseUrl()) }),
 			),
 		),
-	);
-	return Effect.gen(function* () {
-		session = yield* DatabaseSession;
-		const operations = yield* UserLifecycleWorkflowOperations;
-		yield* operations.complete("operation-1", {
-			userId,
-			email: "user@example.com",
-			resetUrl: "https://example.com/reset",
+	),
+);
+
+layer(liveOperationsLayer({ database: singleConnection, overrides: resetIdentityLayer }))(
+	(test) => {
+		test.effect("keeps a recreated reset user disabled until completion", () => {
+			const bootstrapCompletedAt = new Date("2026-08-24T00:00:02.000Z");
+			return Effect.gen(function* () {
+				const db = yield* (yield* DatabaseSession).current;
+				yield* db.execute(
+					sql`create temporary table "user" (id text primary key, image text, bootstrap_completed_at timestamptz)`,
+				);
+				yield* db.execute(
+					sql`insert into "user" (id, bootstrap_completed_at) values (${userId}, ${bootstrapCompletedAt})`,
+				);
+				const operations = yield* UserLifecycleWorkflowOperations;
+				expect(yield* operations.recreateResetUser("operation-1")).toEqual({
+					userId,
+					email: "user@example.com",
+					resetUrl: "https://example.com/reset",
+				});
+				expect(yield* (yield* RecordedResetIdentity).calls).toEqual([
+					"created-disabled",
+					"disabled",
+					"reset-link",
+				]);
+			});
 		});
-		expect(usedTransaction).toBe(true);
-	}).pipe(Effect.provide(Layer.merge(layer, databaseLayer)));
-});
+	},
+);
+
+class RecordedCompletionTransaction extends Context.Service<
+	RecordedCompletionTransaction,
+	{ readonly usedTransaction: Effect.Effect<boolean> }
+>()("test/RecordedCompletionTransaction") {}
+
+const transactionProbeLayer = Layer.unwrap(
+	Effect.gen(function* () {
+		const session = yield* DatabaseSession;
+		const usedTransaction = yield* Ref.make(false);
+		return Layer.mergeAll(
+			Layer.mock(UserLifecycleRepository)({
+				markCompleted: () =>
+					session.isTransactionActive.pipe(
+						Effect.flatMap((active) => Ref.set(usedTransaction, active)),
+						Effect.as(undefined),
+					),
+			}),
+			Layer.mock(AuthService)({ auth: Object.create(null) }),
+			Layer.mock(ObjectStorageService)({}),
+			Layer.succeed(RecordedCompletionTransaction, { usedTransaction: Ref.get(usedTransaction) }),
+		);
+	}),
+);
+
+layer(liveOperationsLayer({ database: databaseLayer, overrides: transactionProbeLayer }))(
+	(test) => {
+		test.effect("uses one database transaction for reset enablement and completion", () =>
+			Effect.gen(function* () {
+				const operations = yield* UserLifecycleWorkflowOperations;
+				yield* operations.complete("operation-1", {
+					userId,
+					email: "user@example.com",
+					resetUrl: "https://example.com/reset",
+				});
+				expect(yield* (yield* RecordedCompletionTransaction).usedTransaction).toBe(true);
+			}),
+		);
+	},
+);

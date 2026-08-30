@@ -1,11 +1,11 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import {
 	type CachedUserPreferences,
 	type CurrentUserValue,
 	defaultUserPreferences,
 } from "@ryot-app/contract/auth-middleware";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { Effect, Layer } from "effect";
+import { Context, Effect, Layer, Ref } from "effect";
 
 import { AuthService } from "#modules/auth/service";
 
@@ -19,95 +19,96 @@ const makeUser = (preferences: CachedUserPreferences): CurrentUserValue => ({
 	id: UserId.make("user-id"),
 });
 
-type AuthSettingsOperations = {
-	updateUserImage: (userId: UserId, image: string) => Effect.Effect<void>;
-	updateUserPreferences: (
-		userId: UserId,
-		preferences: CachedUserPreferences,
-	) => Effect.Effect<void>;
-};
+class FakeAuthSettings extends Context.Service<
+	FakeAuthSettings,
+	{
+		readonly preferenceUpdates: Effect.Effect<
+			ReadonlyArray<{ userId: UserId; preferences: CachedUserPreferences }>
+		>;
+		readonly imageUpdates: Effect.Effect<ReadonlyArray<{ userId: UserId; image: string }>>;
+	}
+>()("test/FakeAuthSettings") {}
 
-const makeServiceLayer = (operations: Partial<AuthSettingsOperations> = {}) =>
+const serviceLayer = () =>
 	UserSettingsService.layer.pipe(
-		Layer.provide(
-			Layer.succeed(
-				AuthService,
-				Object.assign(Object.create(null), {
-					updateUserImage: () => Effect.void,
-					updateUserPreferences: () => Effect.void,
-					...operations,
+		Layer.provideMerge(
+			Layer.effectContext(
+				Effect.gen(function* () {
+					const preferenceUpdates = yield* Ref.make<
+						ReadonlyArray<{ userId: UserId; preferences: CachedUserPreferences }>
+					>([]);
+					const imageUpdates = yield* Ref.make<ReadonlyArray<{ userId: UserId; image: string }>>(
+						[],
+					);
+					return Context.make(
+						AuthService,
+						Object.assign(Object.create(null), {
+							updateUserImage: (userId: UserId, image: string) =>
+								Ref.update(imageUpdates, (all) => [...all, { image, userId }]),
+							updateUserPreferences: (userId: UserId, preferences: CachedUserPreferences) =>
+								Ref.update(preferenceUpdates, (all) => [...all, { userId, preferences }]),
+						}),
+					).pipe(
+						Context.add(FakeAuthSettings, {
+							imageUpdates: Ref.get(imageUpdates),
+							preferenceUpdates: Ref.get(preferenceUpdates),
+						}),
+					);
 				}),
 			),
 		),
 	);
 
-it.effect("persists only the supplied preference changes through better-auth", () => {
-	const calls: unknown[] = [];
-	const layer = makeServiceLayer({
-		updateUserPreferences: (userId, preferences) =>
-			Effect.sync(() => {
-				calls.push({ userId, preferences });
-			}),
-	});
+layer(serviceLayer())((test) => {
+	test.effect("persists only the supplied preference changes through better-auth", () =>
+		Effect.gen(function* () {
+			const service = yield* UserSettingsService;
+			const user = makeUser({ language: "es", allowNsfw: true, disableIntegrations: false });
+			yield* service.updatePreferences(user, { disableIntegrations: true });
+			yield* service.updatePreferences(user, { language: null });
 
-	return Effect.gen(function* () {
-		const service = yield* UserSettingsService;
-		const user = makeUser({ language: "es", allowNsfw: true, disableIntegrations: false });
-		yield* service.updatePreferences(user, { disableIntegrations: true });
-		yield* service.updatePreferences(user, { language: null });
-
-		expect(calls).toEqual([
-			{
-				userId: user.id,
-				preferences: { language: "es", allowNsfw: true, disableIntegrations: true },
-			},
-			{
-				userId: user.id,
-				preferences: { language: null, allowNsfw: true, disableIntegrations: false },
-			},
-		]);
-	}).pipe(Effect.provide(layer));
+			expect(yield* (yield* FakeAuthSettings).preferenceUpdates).toEqual([
+				{
+					userId: user.id,
+					preferences: { language: "es", allowNsfw: true, disableIntegrations: true },
+				},
+				{
+					userId: user.id,
+					preferences: { language: null, allowNsfw: true, disableIntegrations: false },
+				},
+			]);
+		}),
+	);
 });
 
-it.effect("persists merged preferences through better-auth", () => {
-	const calls: unknown[] = [];
-	const layer = makeServiceLayer({
-		updateUserPreferences: (userId, preferences) =>
-			Effect.sync(() => {
-				calls.push({ userId, preferences });
-			}),
-	});
+layer(serviceLayer())((test) => {
+	test.effect("persists merged preferences through better-auth", () =>
+		Effect.gen(function* () {
+			const service = yield* UserSettingsService;
+			const user = makeUser(defaultUserPreferences);
+			yield* service.updatePreferences(user, { allowNsfw: true });
 
-	return Effect.gen(function* () {
-		const service = yield* UserSettingsService;
-		const user = makeUser(defaultUserPreferences);
-		yield* service.updatePreferences(user, { allowNsfw: true });
-
-		expect(calls).toEqual([
-			{
-				userId: user.id,
-				preferences: { language: null, allowNsfw: true, disableIntegrations: false },
-			},
-		]);
-	}).pipe(Effect.provide(layer));
+			expect(yield* (yield* FakeAuthSettings).preferenceUpdates).toEqual([
+				{
+					userId: user.id,
+					preferences: { language: null, allowNsfw: true, disableIntegrations: false },
+				},
+			]);
+		}),
+	);
 });
 
-it.effect("generates and persists a fresh avatar", () => {
-	const calls: Array<{ userId: UserId; image: string }> = [];
-	const layer = makeServiceLayer({
-		updateUserImage: (userId, image) =>
-			Effect.sync(() => {
-				calls.push({ image, userId });
-			}),
-	});
+layer(serviceLayer())((test) => {
+	test.effect("generates and persists a fresh avatar", () =>
+		Effect.gen(function* () {
+			const service = yield* UserSettingsService;
+			const user = makeUser(defaultUserPreferences);
+			yield* service.refreshAvatar(user);
 
-	return Effect.gen(function* () {
-		const service = yield* UserSettingsService;
-		const user = makeUser(defaultUserPreferences);
-		yield* service.refreshAvatar(user);
-
-		expect(calls).toHaveLength(1);
-		expect(calls[0]?.userId).toBe(user.id);
-		expect(calls[0]?.image.startsWith("data:image/svg+xml;base64,")).toBe(true);
-	}).pipe(Effect.provide(layer));
+			const calls = yield* (yield* FakeAuthSettings).imageUpdates;
+			expect(calls).toHaveLength(1);
+			expect(calls[0]?.userId).toBe(user.id);
+			expect(calls[0]?.image.startsWith("data:image/svg+xml;base64,")).toBe(true);
+		}),
+	);
 });
