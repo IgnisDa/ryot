@@ -12,7 +12,7 @@
     <img alt="GitHub release" src="https://img.shields.io/github/v/release/ignisda/ryot">
   </a>
   <a href="https://github.com/ignisda/ryot/blob/main/LICENSE">
-    <img alt="License" src="https://img.shields.io/badge/license-GPLv3-purple">
+    <img alt="License" src="https://img.shields.io/badge/license-Elastic%202.0-purple">
   </a>
   <a href="https://hub.docker.com/r/ignisda/ryot">
     <img alt="Docker pulls" src="https://img.shields.io/docker/pulls/ignisda/ryot">
@@ -119,6 +119,16 @@ Other commands: `bun run build`, `bun run test`, `bun run check`.
 ## Community
 
 Questions or feedback? Join the [Discord server](https://discord.gg/D9XTg2a7R8) or open a [GitHub issue](https://github.com/ignisda/ryot/issues).
+
+## License
+
+Ryot is source available under the [Elastic License 2.0](LICENSE). You may use,
+modify, and redistribute it subject to the license's restrictions, including
+the restrictions against offering Ryot as a hosted or managed service and
+circumventing Pro license-key functionality.
+
+Copyright 2023-2026 Diptesh Choudhuri and contributors. Diptesh Choudhuri is
+the licensor.
 
 ## Acknowledgements
 
