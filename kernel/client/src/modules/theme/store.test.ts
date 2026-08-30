@@ -1,4 +1,4 @@
-import type { PluginThemeSnapshot } from "@ryot-app/contract/modules/plugins/client";
+import type { PluginThemeSnapshot } from "@ryot-app/client-plugin-contract";
 import { describe, expect, it } from "vitest";
 
 import { createThemeStore } from "#/modules/theme/store";

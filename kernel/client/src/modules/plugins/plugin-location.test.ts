@@ -1,4 +1,4 @@
-import type { PluginRouteLocation } from "@ryot-app/contract/modules/plugins/client";
+import type { PluginRouteLocation } from "@ryot-app/client-plugin-contract";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { describe, expect, it } from "vitest";
 

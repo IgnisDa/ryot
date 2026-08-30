@@ -19,7 +19,7 @@ import {
 	type PluginOperationRequest,
 	type PluginRyotQLOutcome,
 	type PluginRyotQLRequest,
-} from "@ryot-app/contract/modules/plugins/client";
+} from "@ryot-app/client-plugin-contract";
 import { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { waitFor } from "@testing-library/dom";
 import { Schema } from "effect";

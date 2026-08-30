@@ -3,7 +3,7 @@ import {
 	CLIENT_ARTIFACT_ROOT_ELEMENT_ID,
 	PluginBridgeInit,
 	PluginClientArtifactMetadata,
-} from "@ryot-app/contract/modules/plugins/client";
+} from "@ryot-app/client-plugin-contract";
 import { Result, Schema } from "effect";
 import { createRoot, type Root } from "react-dom/client";
 

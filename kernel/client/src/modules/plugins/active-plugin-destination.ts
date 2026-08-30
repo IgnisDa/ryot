@@ -1,4 +1,4 @@
-import type { PluginLogicalLocation } from "@ryot-app/contract/modules/plugins/client";
+import type { PluginLogicalLocation } from "@ryot-app/client-plugin-contract";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import type { PluginClientCatalogEntry } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { useRouterState } from "@tanstack/react-router";
