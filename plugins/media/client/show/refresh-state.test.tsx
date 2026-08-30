@@ -1,5 +1,3 @@
-// @vitest-environment jsdom
-
 import { RyotClientError } from "@ryot-app/client-sdk";
 import { fireEvent, getByRole } from "@testing-library/dom";
 import { assert, describe, expect, it } from "vitest";
