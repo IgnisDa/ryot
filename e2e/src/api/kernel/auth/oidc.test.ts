@@ -43,7 +43,7 @@ const countUsersByEmail = (apiUrl: string, email: string) =>
 	Effect.gen(function* () {
 		const data = yield* makeSession(apiUrl).call(
 			(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
-			adminHeaders,
+			adminHeaders(),
 		);
 		return data.total;
 	});
@@ -52,7 +52,7 @@ const findUserIdByEmail = (apiUrl: string, email: string) =>
 	Effect.gen(function* () {
 		const data = yield* makeSession(apiUrl).call(
 			(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
-			adminHeaders,
+			adminHeaders(),
 		);
 		return data.users[0]?.id ?? null;
 	});

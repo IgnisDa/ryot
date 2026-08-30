@@ -790,7 +790,7 @@ describe("Media episodic lifecycle query recipes", () => {
 								),
 							},
 						}),
-					adminHeaders,
+					adminHeaders(),
 				);
 				expect(relationships.map((relationship) => relationship.targetEntityId)).toEqual([
 					firstEpisode.id,

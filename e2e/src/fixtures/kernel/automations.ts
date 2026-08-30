@@ -82,7 +82,7 @@ export const listSignals = (filter: SignalFilter) =>
 						: undefined,
 				},
 			}),
-		adminHeaders,
+		adminHeaders(),
 	);
 
 export const pollSignal = (filter: SignalFilter) =>
@@ -112,7 +112,7 @@ export const listSubscriptionRuns = (input: SubscriptionRunFilter) =>
 					signalId: input.signalId ? SignalId.make(input.signalId) : undefined,
 				},
 			}),
-		adminHeaders,
+		adminHeaders(),
 	);
 
 const terminalRunStatuses = new Set(["succeeded", "failed", "skipped"]);
@@ -135,7 +135,7 @@ export const getAutomationRuleCount = (userId: string) =>
 				c.testSupport.countAutomationRules({
 					params: { userId: UserId.make(userId) },
 				}),
-			adminHeaders,
+			adminHeaders(),
 		);
 		return count;
 	});
