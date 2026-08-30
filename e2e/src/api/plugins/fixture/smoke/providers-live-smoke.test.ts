@@ -173,17 +173,16 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 						}),
 					]),
 				});
-				expect(view.settings["tableColumns"]).toEqual(
-					[
-						"Name",
-						"Pokedex Number",
-						"Types",
-						"Abilities",
-						"Height (dm)",
-						"Weight (hg)",
-						"Base Experience",
-					].map((label, index) => expect.objectContaining({ label, field: `column${index}` })),
-				);
+				expect(view.settings["tableColumns"]).toEqual([
+					{ field: "image", label: "Image", displayKind: "managed-asset" },
+					{ field: "column0", label: "Name", displayKind: "text" },
+					{ field: "column1", label: "Pokedex Number", displayKind: "number" },
+					{ field: "column2", label: "Types", displayKind: "json" },
+					{ field: "column3", label: "Abilities", displayKind: "json" },
+					{ field: "column4", label: "Height (dm)", displayKind: "number" },
+					{ field: "column5", label: "Weight (hg)", displayKind: "number" },
+					{ field: "column6", label: "Base Experience", displayKind: "number" },
+				]);
 				expect(
 					source.output.fields.map((selection) => "key" in selection && selection.key),
 				).toEqual(

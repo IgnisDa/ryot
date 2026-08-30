@@ -28,8 +28,5 @@ export const signInThroughHostedOAuth = (
 			: undefined;
 		yield* page.getByRole("button", { name: "Sign in", exact: true }).last().click();
 		yield* page.getByTestId("authenticated-shell").waitFor({ state: "visible" });
-		const homePath = yield* page
-			.getByRole("link", { name: "Home", exact: true })
-			.getAttribute("href");
-		return { historyLengthBeforeSubmit, homeUrl: new URL(homePath ?? "/", frontendUrl).toString() };
+		return { historyLengthBeforeSubmit, homeUrl: page.url() };
 	});
