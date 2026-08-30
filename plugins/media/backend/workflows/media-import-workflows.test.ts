@@ -107,38 +107,37 @@ it.live("emits population children as one deterministic batch", () =>
 
 it.live("keeps ten concurrent in-process population replays isolated", () =>
 	Effect.gen(function* () {
-		const outputs = yield* Effect.promise(() =>
-			Promise.all(
-				Array.from({ length: 10 }, (_unused, workflowIndex) => {
-					const items = Array.from({ length: 10 }, (_ignored, index) => ({
-						index,
-						entitySchemaSlug: "book",
-						userId: `user-${workflowIndex}`,
-						providerId: "provider-openlibrary",
-						command: importCommand(`run-${workflowIndex}`),
-						externalId: `external-${workflowIndex}-${index}`,
-					}));
-					return Effect.runPromise(
-						completeReplay(populationWorkflow.run, { items }, (request) => {
-							expect(request).toMatchObject({
-								kind: "child",
-								args: { workflowSlug: "kernel:entity-import" },
-							});
-							return {
-								status: "completed",
-								entity: { id: `entity-${workflowIndex}-${request.index}` },
-							};
-						}),
-					);
-				}),
-			),
+		const outputs = yield* Effect.forEach(
+			Array.from({ length: 10 }, (_unused, workflowIndex) => workflowIndex),
+			(workflowIndex) => {
+				const items = Array.from({ length: 10 }, (_ignored, index) => ({
+					index,
+					entitySchemaSlug: "book",
+					userId: `user-${workflowIndex}`,
+					providerId: "provider-openlibrary",
+					command: importCommand(`run-${workflowIndex}`),
+					externalId: `external-${workflowIndex}-${index}`,
+				}));
+				return completeReplay(populationWorkflow.run, { items }, (request) => {
+					expect(request).toMatchObject({
+						kind: "child",
+						args: { workflowSlug: "kernel:entity-import" },
+					});
+					return {
+						status: "completed",
+						entity: { id: `entity-${workflowIndex}-${request.index}` },
+					};
+				});
+			},
+			{ concurrency: "unbounded" },
 		);
 
 		expect(outputs).toHaveLength(10);
 		for (const output of outputs) {
-			expect(
-				Schema.decodeUnknownSync(MediaImportPopulationWorkflowOutput)(output).results,
-			).toHaveLength(10);
+			const decoded = yield* Schema.decodeUnknownEffect(MediaImportPopulationWorkflowOutput)(
+				output,
+			);
+			expect(decoded.results).toHaveLength(10);
 		}
 	}),
 );

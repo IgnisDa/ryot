@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@effect/vitest";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 
 import {
@@ -14,6 +14,7 @@ import kodiDefinition, { manifest as kodiManifest, parseKodi } from "./kodi.sand
 import plexDefinition, { manifest as plexManifest } from "./plex.sandbox";
 
 const json = "application/json";
+const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 const sinkInput = (rawBody: string, contentType = json) => ({ rawBody, contentType });
 const runKodi = (rawBody: string) =>
 	Effect.runPromise(
@@ -27,13 +28,13 @@ const runKodi = (rawBody: string) =>
 		),
 	);
 const multipart = (payload: unknown) =>
-	`--abc\r\nContent-Disposition: form-data; name="payload"\r\n\r\n${JSON.stringify(payload)}\r\n--abc--`;
+	`--abc\r\nContent-Disposition: form-data; name="payload"\r\n\r\n${encodeJson(payload)}\r\n--abc--`;
 
 describe("Kodi sink", () => {
 	it("maps Kodi show progress to a TMDB show ref", () => {
 		const result = Effect.runSync(
 			parseKodi(
-				JSON.stringify({
+				encodeJson({
 					lot: "show",
 					progress: 45,
 					identifier: "1234",
@@ -58,9 +59,7 @@ describe("Kodi sink", () => {
 	});
 
 	it("returns an input_transformation failure for malformed payloads", () => {
-		const result = Effect.runSync(
-			parseKodi(JSON.stringify("not-json"), "2026-01-01T00:00:00.000Z"),
-		);
+		const result = Effect.runSync(parseKodi(encodeJson("not-json"), "2026-01-01T00:00:00.000Z"));
 		expect(result.entityGroups).toEqual([]);
 		expect(result.failures).toEqual([
 			{
@@ -74,7 +73,7 @@ describe("Kodi sink", () => {
 	it("returns an input_transformation failure for invalid show season and episode values", () => {
 		const result = Effect.runSync(
 			parseKodi(
-				JSON.stringify({
+				encodeJson({
 					lot: "show",
 					progress: 45,
 					identifier: "1234",
@@ -97,7 +96,7 @@ describe("Kodi sink", () => {
 	it.live("parses a Kodi webhook raw body", () =>
 		Effect.gen(function* () {
 			const result = yield* Effect.promise(() =>
-				runKodi(JSON.stringify({ lot: "movie", progress: 30, identifier: "603" })),
+				runKodi(encodeJson({ lot: "movie", progress: 30, identifier: "603" })),
 			);
 			expect(result.failures).toEqual([]);
 			expect(result.entityGroups[0]?.entityRef).toMatchObject({
@@ -112,7 +111,7 @@ describe("Kodi sink", () => {
 describe("media server sinks", () => {
 	it.live("maps an Emby episode webhook to a TMDB show ref", () =>
 		Effect.gen(function* () {
-			const rawBody = JSON.stringify({
+			const rawBody = encodeJson({
 				IndexNumber: 3,
 				PositionTicks: 50,
 				RunTimeTicks: 100,
@@ -144,7 +143,7 @@ describe("media server sinks", () => {
 
 	it.live("maps a Jellyfin episode webhook to a TMDB show ref with an episode locator", () =>
 		Effect.gen(function* () {
-			const rawBody = JSON.stringify({
+			const rawBody = encodeJson({
 				IndexNumber: 4,
 				RunTimeTicks: 100,
 				PositionTicks: 25,
@@ -180,7 +179,7 @@ describe("media server sinks", () => {
 			const result = yield* runSandboxTestScript(
 				jellyfinDefinition,
 				sinkInput(
-					JSON.stringify({
+					encodeJson({
 						ItemType: "Movie",
 						PositionTicks: 50,
 						RunTimeTicks: 100,
@@ -265,10 +264,22 @@ describe("Plex sink", () => {
 	);
 
 	it.live.each([
-		["accepts a Plex webhook from any user when the configured username is blank", "   ", false],
-		["skips a Plex webhook when the configured username does not match", "alice", true],
-		["trims a whitespace-padded Plex username before matching", "  bob  ", false],
-	])("%s", (_name, username, skipped) =>
+		{
+			skipped: false,
+			username: "   ",
+			name: "accepts a Plex webhook from any user when the configured username is blank",
+		},
+		{
+			skipped: true,
+			username: "alice",
+			name: "skips a Plex webhook when the configured username does not match",
+		},
+		{
+			skipped: false,
+			username: "  bob  ",
+			name: "trims a whitespace-padded Plex username before matching",
+		},
+	])("$name", ({ skipped, username }) =>
 		Effect.gen(function* () {
 			const result = yield* Effect.promise(() =>
 				runPlex(
@@ -308,7 +319,7 @@ describe("browser extension sink", () => {
 		Effect.gen(function* () {
 			const result = yield* Effect.promise(() =>
 				runBrowser(
-					JSON.stringify({
+					encodeJson({
 						url: "https://www.youtube.com/watch?v=1",
 						data: { progress: 80, lot: "movie", identifier: "12345" },
 					}),
@@ -324,7 +335,7 @@ describe("browser extension sink", () => {
 		Effect.gen(function* () {
 			const result = yield* Effect.promise(() =>
 				runBrowser(
-					JSON.stringify({
+					encodeJson({
 						url: "https://www.max.com/watch/1",
 						data: {
 							lot: "show",

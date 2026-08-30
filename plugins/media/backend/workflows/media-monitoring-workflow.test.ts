@@ -83,10 +83,12 @@ it.live("deduplicates paged targets and orchestrates bounded provider refresh ba
 			"kernel:provider-entity-population",
 			"kernel:provider-entity-population",
 		]);
-		expect(
-			children.map(({ args }) => Schema.decodeUnknownSync(RefreshInput)(args.input).items.length),
-		).toEqual([100, 100, 5]);
-		const firstRefresh = Schema.decodeUnknownSync(RefreshInput)(children[0]?.args.input);
+		const refreshInputs = yield* Effect.forEach(children, ({ args }) =>
+			Schema.decodeUnknownEffect(RefreshInput)(args.input),
+		);
+		expect(refreshInputs.map(({ items }) => items.length)).toEqual([100, 100, 5]);
+		const firstRefresh = refreshInputs[0];
+		assert(firstRefresh);
 		expect(firstRefresh.mode).toBe("refresh");
 		expect(firstRefresh.items[0]).toEqual({
 			externalId: "external-0",

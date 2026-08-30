@@ -1,7 +1,7 @@
 import { describe, expect, it } from "@effect/vitest";
 import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
 import type { CreateEventItem } from "@ryot-app/sandbox-sdk/core";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { DateTime, Effect } from "@ryot-app/sandbox-sdk/effect";
 import type { RyotQLDocument } from "@ryot-app/sandbox-sdk/ryotql";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 
@@ -11,6 +11,7 @@ import {
 	automationContext,
 	hostSuccess,
 } from "../../tests/backend/automations/automation-test-utils";
+import { ryotqlDocumentNodes } from "../../tests/ryotql-test-utils";
 import type { EventOrderTuple } from "../contracts/lifecycle-recipes";
 import definition, {
 	manifest,
@@ -330,10 +331,11 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 			const testHost = createHost([fixture]);
 			yield* run(eventContext(), testHost.host);
 			const document = testHost.documents[0];
-			expect(JSON.stringify(document)).toContain('"seasonNumber"');
-			expect(JSON.stringify(document)).toContain('"operator":"gt"');
-			expect(JSON.stringify(document)).toContain('"publishDate"');
-			expect(JSON.stringify(document)).toContain('"type":"currentDate"');
+			const nodes = ryotqlDocumentNodes(document);
+			expect(nodes).toContain("seasonNumber");
+			expect(nodes).toContainEqual(expect.objectContaining({ operator: "gt" }));
+			expect(nodes).toContain("publishDate");
+			expect(nodes).toContainEqual(expect.objectContaining({ type: "currentDate" }));
 			expect(testHost.claims).toEqual([]);
 			expect(testHost.created).toEqual([]);
 		}),
@@ -363,8 +365,8 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 				}),
 				testHost.host,
 			);
-			expect(JSON.stringify(testHost.documents[0])).toContain(
-				'"tableAlias":"lifecycleSnapshotCompletionEpisodeBoundary"',
+			expect(ryotqlDocumentNodes(testHost.documents[0])).toContainEqual(
+				expect.objectContaining({ tableAlias: "lifecycleSnapshotCompletionEpisodeBoundary" }),
 			);
 			expect(testHost.claims).toEqual([]);
 			expect(testHost.created).toEqual([]);
@@ -539,14 +541,18 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 					`complete-${index + 1}`,
 					entityId,
 					"complete",
-					new Date(Date.UTC(2026, 0, 1, 0, index)).toISOString(),
+					DateTime.formatIso(
+						DateTime.add(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z"), { minutes: index }),
+					),
 				),
 			);
 			const finalEvent = childEvent(
 				"complete-101",
 				finalEpisodeId,
 				"complete",
-				new Date(Date.UTC(2026, 0, 1, 0, 100)).toISOString(),
+				DateTime.formatIso(
+					DateTime.add(DateTime.makeUnsafe("2026-01-01T00:00:00.000Z"), { minutes: 100 }),
+				),
 			);
 			const fixture: SnapshotFixture = {
 				state: "caught_up",

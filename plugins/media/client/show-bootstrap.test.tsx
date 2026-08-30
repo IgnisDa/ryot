@@ -7,12 +7,13 @@ import {
 	CLIENT_COMPILER_VERSION,
 	type PluginBridgeInit,
 } from "@ryot-app/client-plugin-contract";
-import { Effect } from "@ryot-app/client-sdk/effect";
+import { DateTime, Effect } from "@ryot-app/client-sdk/effect";
 import { bootstrapClientPage } from "@ryot-app/client-sdk/plugin";
 import { createTestRyotClock } from "@ryot-app/client-sdk/testing";
 import { fireEvent, waitFor } from "@testing-library/dom";
 import { act } from "react";
 
+import { ryotqlDocumentNodes } from "../tests/ryotql-test-utils";
 import ShowDetailPage from "./show/screen";
 
 const metadata = {
@@ -302,7 +303,7 @@ describe("ShowScreen", () => {
 			yield* Effect.promise(() =>
 				waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(2)),
 			);
-			expect(JSON.stringify(queryRequestsFor(messages, "summary")[1]?.document)).toContain(
+			expect(ryotqlDocumentNodes(queryRequestsFor(messages, "summary")[1]?.document)).toContain(
 				"show-2",
 			);
 		}),
@@ -461,13 +462,14 @@ describe("ShowScreen", () => {
 			expect(managedCoverImage(container)).toBeUndefined();
 
 			const signedUrl = "https://assets.test/managed-cover-v1?signature=one";
+			const now = yield* DateTime.now;
 			assetReply(channel, assetRequestAt(messages, 0).requestId, {
 				outcome: "success",
 				resolutions: [
 					{
 						url: signedUrl,
 						asset: { type: "local", key: "managed-cover" },
-						expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+						expiresAt: DateTime.formatIso(DateTime.add(now, { minutes: 10 })),
 					},
 				],
 			});
@@ -513,8 +515,10 @@ describe("ShowScreen", () => {
 			});
 			yield* Effect.promise(() => waitFor(() => expect(assetRequests(messages)).toHaveLength(1)));
 
-			yield* Effect.promise(() => clock.setTime(Date.parse("2026-09-04T12:00:00.000Z")));
-			const expiresAt = new Date("2026-09-04T12:05:00.000Z").toISOString();
+			yield* Effect.promise(() =>
+				clock.setTime(DateTime.toEpochMillis(DateTime.makeUnsafe("2026-09-04T12:00:00.000Z"))),
+			);
+			const expiresAt = DateTime.formatIso(DateTime.makeUnsafe("2026-09-04T12:05:00.000Z"));
 			const staleUrl = "https://assets.test/managed-cover-v1?signature=stale";
 			assetReply(channel, assetRequestAt(messages, 0).requestId, {
 				outcome: "success",
