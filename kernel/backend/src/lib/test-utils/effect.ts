@@ -99,8 +99,8 @@ export const makeAppConfigLayer = (
 		disableTelemetry: false,
 		redisUrl: Redacted.make("unused"),
 		frontendUrl: "http://localhost:3000",
-		users: { allowRegistration: true, disableLocalAuth: false },
 		database: { poolMax: 10, connectionTimeoutMs: 10_000, url: Redacted.make("unused") },
+		users: { disableLocalAuth: false, allowRegistration: true, demoAccountId: Option.none() },
 		frontend: {
 			oidcButtonLabel: Option.none(),
 			umami: { hostUrl: Option.none(), websiteId: Option.none() },

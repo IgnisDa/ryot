@@ -2,6 +2,7 @@ import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
+import { DemoAccessPolicy } from "../../http-annotations";
 import { EntityInterestSocketTicketResponse } from "./messages";
 
 export const EntityInterestTicketFailureReason = Schema.Struct({
@@ -20,6 +21,8 @@ export const InterestGroup = HttpApiGroup.make("entity-interest")
 		HttpApiEndpoint.post("createSocketTicket", "/entity-interest/socket-ticket", {
 			success: EntityInterestSocketTicketResponse,
 			error: EntityInterestTicketFailure.pipe(HttpApiSchema.status(503)),
-		}).annotate(OpenApi.Description, "Creates a short-lived single-use socket ticket."),
+		})
+			.annotate(DemoAccessPolicy, "allowed")
+			.annotate(OpenApi.Description, "Creates a short-lived single-use socket ticket."),
 	)
 	.middleware(AuthMiddleware);

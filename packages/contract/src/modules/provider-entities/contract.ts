@@ -2,6 +2,7 @@ import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
+import { DemoAccessPolicy } from "../../http-annotations";
 import {
 	ImportEntityBody,
 	ImportEntityRunResult,
@@ -27,21 +28,27 @@ export const ProviderEntitiesGroup = HttpApiGroup.make("providerEntities")
 			error: providerEntityErrors,
 			payload: SearchProviderEntitiesBody,
 			success: SearchProviderEntitiesResponse,
-		}).annotate(OpenApi.Description, "Searches a configured entity provider."),
+		})
+			.annotate(DemoAccessPolicy, "allowed")
+			.annotate(OpenApi.Description, "Searches a configured entity provider."),
 	)
 	.add(
 		HttpApiEndpoint.post("searchOptions", "/provider-entities/search-options", {
 			error: providerEntityErrors,
 			payload: SearchProviderOptionsBody,
 			success: SearchProviderOptionsResponse,
-		}).annotate(OpenApi.Description, "Resolves a configured provider's search options schema."),
+		})
+			.annotate(DemoAccessPolicy, "allowed")
+			.annotate(OpenApi.Description, "Resolves a configured provider's search options schema."),
 	)
 	.add(
 		HttpApiEndpoint.post("import", "/provider-entities/imports", {
 			payload: ImportEntityBody,
 			error: providerEntityErrors,
 			success: Schema.Struct({ jobId: Schema.String }),
-		}).annotate(OpenApi.Description, "Start an entity import job."),
+		})
+			.annotate(DemoAccessPolicy, "allowed")
+			.annotate(OpenApi.Description, "Start an entity import job."),
 	)
 	.add(
 		HttpApiEndpoint.get("getImportResult", "/provider-entities/imports/:jobId", {

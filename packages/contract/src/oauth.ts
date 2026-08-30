@@ -4,8 +4,22 @@ import { strictStruct } from "./schema/utils";
 
 export const OAUTH_WEB_CLIENT_ID = "ryot-web";
 export const OAUTH_NATIVE_CLIENT_ID = "ryot-native";
-export const OAUTH_CLIENT_IDS = [OAUTH_WEB_CLIENT_ID, OAUTH_NATIVE_CLIENT_ID] as const;
+export const OAUTH_DEMO_WEB_CLIENT_ID = "ryot-demo-web";
 export const OAUTH_NATIVE_APPLICATION_IDS = ["io.ryot.app", "io.ryot.app.dev"] as const;
+export const OAUTH_WEB_CLIENT_IDS = [OAUTH_WEB_CLIENT_ID, OAUTH_DEMO_WEB_CLIENT_ID] as const;
+export const OAUTH_CLIENT_IDS = [...OAUTH_WEB_CLIENT_IDS, OAUTH_NATIVE_CLIENT_ID] as const;
+
+export const AccessClass = Schema.Literals(["standard", "demo"]);
+export type AccessClass = typeof AccessClass.Type;
+
+export const WebOAuthClientId = Schema.Literals(OAUTH_WEB_CLIENT_IDS);
+export type WebOAuthClientId = typeof WebOAuthClientId.Type;
+
+export const NativeOAuthClientId = Schema.Literal(OAUTH_NATIVE_CLIENT_ID);
+export type NativeOAuthClientId = typeof NativeOAuthClientId.Type;
+
+export const OAuthClientId = Schema.Literals(OAUTH_CLIENT_IDS);
+export type OAuthClientId = typeof OAuthClientId.Type;
 
 export const NativeOAuthApplicationId = Schema.Literals(OAUTH_NATIVE_APPLICATION_IDS);
 export type NativeOAuthApplicationId = typeof NativeOAuthApplicationId.Type;
@@ -93,18 +107,19 @@ export type OAuthUserInfoResponse = typeof OAuthUserInfoResponse.Type;
 export const PendingAuthorization = strictStruct({
 	state: Schema.String,
 	nonce: Schema.String,
+	clientId: OAuthClientId,
 	createdAt: Schema.Number,
 	redirectUri: Schema.String,
 	destination: Schema.String,
 	serverOrigin: Schema.String,
 	codeVerifier: Schema.String,
-	clientId: Schema.Literals(OAUTH_CLIENT_IDS),
 });
 export type PendingAuthorization = typeof PendingAuthorization.Type;
 
 export const StoredTokenSet = strictStruct({
 	scope: Schema.String,
 	idToken: Schema.String,
+	clientId: OAuthClientId,
 	tokenType: Schema.String,
 	accessToken: Schema.String,
 	refreshToken: Schema.String,
@@ -125,6 +140,7 @@ const ApiKeyCredential = strictStruct({ keyId: Schema.String, kind: Schema.Liter
 
 export const AuthorizationContext = strictStruct({
 	userId: Schema.String,
+	accessClass: AccessClass,
 	credential: Schema.Union([OAuthCredential, ApiKeyCredential]),
 });
 export type AuthorizationContext = typeof AuthorizationContext.Type;

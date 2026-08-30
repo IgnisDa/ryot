@@ -3,11 +3,13 @@ import type { AutomationHistoryRetryResult } from "@ryot-app/contract/modules/au
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffectEvent, useState } from "react";
 
+import { AuthService } from "#/modules/auth/service";
 import { AutomationHistoryDetailView } from "#/modules/automation-history/detail-view";
 import {
 	automationHistoryDetailQuery,
 	retryAutomationRunMutation,
 } from "#/modules/automation-history/service";
+import { useIsDemoSession } from "#/modules/demo-protection";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
 import { LoadErrorState } from "#/modules/ui/load-error-state";
 import { RUN_POLL_MS, useRunPolling } from "#/modules/ui/run/use-run-polling";
@@ -18,6 +20,8 @@ export const Route = createFileRoute("/_authenticated/settings/automation-histor
 });
 
 function AutomationHistoryDetailRoute() {
+	const { server, runtime } = Route.useRouteContext();
+	const isDemoProtected = useIsDemoSession(runtime.runSync(AuthService).session(server));
 	const { runId } = Route.useParams();
 	const detail = useRyotQuery(automationHistoryDetailQuery, runId);
 	const retry = useRyotMutation(retryAutomationRunMutation);
@@ -30,7 +34,7 @@ function AutomationHistoryDetailRoute() {
 	});
 
 	const retryRun = useEffectEvent(async () => {
-		if (displayed === undefined || displayed.retryEligibility.reason !== null) {
+		if (isDemoProtected || displayed === undefined || displayed.retryEligibility.reason !== null) {
 			return;
 		}
 		retry.reset();
@@ -50,6 +54,7 @@ function AutomationHistoryDetailRoute() {
 				retryResult={retryResult}
 				isRetrying={retry.isPending}
 				onRetry={() => void retryRun()}
+				isDemoProtected={isDemoProtected}
 				retryFailed={retry.status === "error"}
 			/>
 		);
