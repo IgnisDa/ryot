@@ -35,6 +35,7 @@ import {
 	ProviderAddRouteStubs,
 	ImportsRouteStubs,
 	IntegrationRouteStubs,
+	NotificationChannelRouteStubs,
 } from "#/routes/-route-fixtures";
 
 const makeView = (
@@ -51,6 +52,8 @@ const makeView = (
 			ProviderAddRouteStubs,
 			ImportsRouteStubs,
 			IntegrationRouteStubs,
+			NotificationChannelRouteStubs,
+			NotificationChannelRouteStubs,
 			makeAuthStub({ settledSession: () => Effect.die("OAuth guard must not run") }),
 			SavedViewRouteStubs,
 			EntityRouteStubs,

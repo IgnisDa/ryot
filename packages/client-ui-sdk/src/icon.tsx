@@ -82,6 +82,7 @@ import {
 	UserCircle,
 	Users,
 	X,
+	Send,
 	Zap,
 } from "lucide-react";
 
@@ -92,6 +93,7 @@ const icons = {
 	mic: Mic,
 	sun: Sun,
 	zap: Zap,
+	send: Send,
 	book: Book,
 	copy: Copy,
 	film: Film,

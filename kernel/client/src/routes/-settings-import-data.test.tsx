@@ -43,6 +43,7 @@ import {
 	NavigationRouteStubs,
 	ProviderAddRouteStubs,
 	IntegrationRouteStubs,
+	NotificationChannelRouteStubs,
 	makeUserSettingsStub,
 } from "#/routes/-route-fixtures";
 
@@ -177,6 +178,8 @@ const mountView = (
 		Layer.mergeAll(
 			ProviderAddRouteStubs,
 			IntegrationRouteStubs,
+			NotificationChannelRouteStubs,
+			NotificationChannelRouteStubs,
 			AuthStub,
 			GodModeRouteStubs,
 			ServerStub,

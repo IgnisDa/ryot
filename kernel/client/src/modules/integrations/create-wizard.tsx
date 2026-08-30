@@ -51,6 +51,7 @@ const stepHeadings = {
 
 const pickerCopy = {
 	emptyTitle: "No services yet",
+	searchLabel: "Search services",
 	loadingLabel: "Loading services",
 	errorTitle: "Unable to load services",
 	loadingDetail: "Loading the services you can connect...",

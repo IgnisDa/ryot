@@ -41,3 +41,5 @@ export const notificationChannelsRecipe = defineRecipe(
 );
 
 export type NotificationChannelsResult = Recipe.Success<typeof notificationChannelsRecipe>;
+
+export type NotificationChannelSummary = NotificationChannelsResult["items"][number];

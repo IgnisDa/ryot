@@ -30,6 +30,7 @@ import {
 	ProviderAddRouteStubs,
 	ImportsRouteStubs,
 	IntegrationRouteStubs,
+	NotificationChannelRouteStubs,
 } from "#/routes/-route-fixtures";
 
 type SavedPlan = Parameters<CustomizeSidebarService["Service"]["save"]>[1];
@@ -45,6 +46,8 @@ const mountView = (
 			ProviderAddRouteStubs,
 			ImportsRouteStubs,
 			IntegrationRouteStubs,
+			NotificationChannelRouteStubs,
+			NotificationChannelRouteStubs,
 			makeAuthStub(),
 			GodModeRouteStubs,
 			ServerStub,
