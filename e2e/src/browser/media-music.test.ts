@@ -129,7 +129,7 @@ it.live("renders a populated Music detail with its album rail and no watch provi
 
 		yield* body.getByText("Your status", { exact: true }).waitFor({ state: "visible" });
 		yield* body.getByText("Complete", { exact: true }).waitFor({ state: "visible" });
-		yield* body.getByText("In library", { exact: true }).waitFor({ state: "visible" });
+		yield* body.getByText("In media library", { exact: true }).waitFor({ state: "visible" });
 
 		expect(yield* media.getByRole("tab").allTextContents()).toEqual(["Overview", "Activity"]);
 

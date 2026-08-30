@@ -130,7 +130,7 @@ it.live("renders a populated Movie detail with its collection rail", () =>
 
 		yield* body.getByText("Your status", { exact: true }).waitFor({ state: "visible" });
 		yield* body.getByText("Complete", { exact: true }).waitFor({ state: "visible" });
-		yield* body.getByText("In library", { exact: true }).waitFor({ state: "visible" });
+		yield* body.getByText("In media library", { exact: true }).waitFor({ state: "visible" });
 		yield* body.getByText("Ownership", { exact: true }).waitFor({ state: "visible" });
 		yield* body.getByText("Collections", { exact: true }).waitFor({ state: "visible" });
 

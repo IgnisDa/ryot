@@ -135,7 +135,7 @@ it.live("renders a populated Book detail with its series rail and unlinked creat
 
 		yield* body.getByText("Your status", { exact: true }).waitFor({ state: "visible" });
 		yield* body.getByText("Complete", { exact: true }).waitFor({ state: "visible" });
-		yield* body.getByText("In library", { exact: true }).waitFor({ state: "visible" });
+		yield* body.getByText("In media library", { exact: true }).waitFor({ state: "visible" });
 
 		expect(yield* media.getByRole("tab").allTextContents()).toEqual(["Overview", "Activity"]);
 
