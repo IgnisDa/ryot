@@ -1,11 +1,11 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import {
 	EntityId,
 	EntitySchemaSlug,
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { Clock, Duration, Effect, Layer } from "effect";
+import { Clock, Context, Duration, Effect, Layer, Ref } from "effect";
 
 import { RedisService } from "#lib/infrastructure/redis";
 import { databaseLayer, makeRedisService } from "#lib/test-utils/effect";
@@ -29,168 +29,171 @@ const entity = {
 	entitySchemaSlug: EntitySchemaSlug.make("record"),
 };
 
+type SessionMetadata = Effect.Success<
+	ReturnType<EntityInterestStore["Service"]["getSessionMetadata"]>
+>;
+
+class FakeProgressionEffects extends Context.Service<
+	FakeProgressionEffects,
+	{
+		readonly events: Effect.Effect<ReadonlyArray<string>>;
+		readonly acquired: Effect.Effect<ReadonlyArray<readonly [string, number]>>;
+		readonly released: Effect.Effect<ReadonlyArray<string>>;
+		readonly requests: Effect.Effect<ReadonlyArray<RequestFillInput>>;
+	}
+>()("test/FakeProgressionEffects") {}
+
 const makeLayer = (input: {
-	readonly requests: RequestFillInput[];
-	readonly redis: RedisService["Service"];
-	readonly store: Layer.Layer<EntityInterestStore>;
+	readonly sessions: ReadonlyArray<string>;
+	readonly metadata: (sessionIds: ReadonlyArray<string>) => SessionMetadata;
+	readonly grantLease?: (attempt: number) => boolean;
 }) =>
-	EntityInterestProgression.layer.pipe(
-		Layer.provideMerge(
-			Layer.mergeAll(
-				databaseLayer,
-				input.store,
-				Layer.succeed(RedisService, input.redis),
-				Layer.mock(EntitiesService)({ getByIdAnyScope: () => Effect.succeed(entity) }),
-				Layer.mock(TranslationsService)({
-					requestFill: (request) =>
-						Effect.sync(() => {
-							input.requests.push(request);
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const events = yield* Ref.make<ReadonlyArray<string>>([]);
+			const acquired = yield* Ref.make<ReadonlyArray<readonly [string, number]>>([]);
+			const released = yield* Ref.make<ReadonlyArray<string>>([]);
+			const requests = yield* Ref.make<ReadonlyArray<RequestFillInput>>([]);
+			const event = (name: string) => Ref.update(events, (all) => [...all, name]);
+			const store = Layer.mock(EntityInterestStore)({
+				listInterestedSessions: () => event("list").pipe(Effect.as([...input.sessions])),
+				getSessionMetadata: (sessionIds) =>
+					event(`metadata:${sessionIds.join(",")}`).pipe(Effect.as(input.metadata(sessionIds))),
+			});
+			const redis = makeRedisService({
+				releaseLease: (key) =>
+					event("release").pipe(Effect.andThen(Ref.update(released, (all) => [...all, key]))),
+				acquireLease: (key, ttl) =>
+					event("acquire").pipe(
+						Effect.andThen(Ref.updateAndGet(acquired, (all) => [...all, [key, ttl] as const])),
+						Effect.map((all) =>
+							(input.grantLease?.(all.length) ?? true) ? crypto.randomUUID() : null,
+						),
+					),
+			});
+			return EntityInterestProgression.layer.pipe(
+				Layer.provideMerge(
+					Layer.mergeAll(
+						databaseLayer,
+						store,
+						Layer.succeed(RedisService, redis),
+						Layer.mock(EntitiesService)({ getByIdAnyScope: () => Effect.succeed(entity) }),
+						Layer.mock(TranslationsService)({
+							requestFill: (request) => Ref.update(requests, (all) => [...all, request]),
 						}),
-				}),
-				Layer.mock(PluginRuntimeResolver)({
-					findProviderAvailableToUser: () =>
-						Effect.succeed({
-							slug: "provider",
-							name: "Provider",
-							pluginId: "plugin",
-							pluginScope: "user",
-							rootEntitySchemaSlug: "entity",
-							id: SandboxProviderId.make("provider-1"),
-							createdAt: new Date("2026-08-14T00:00:00.000Z"),
-							updatedAt: new Date("2026-08-14T00:00:00.000Z"),
-							information: { source: "fixture", canonicalLanguage: "en" },
+						Layer.mock(PluginRuntimeResolver)({
+							findProviderAvailableToUser: () =>
+								Effect.succeed({
+									slug: "provider",
+									name: "Provider",
+									pluginId: "plugin",
+									pluginScope: "user",
+									rootEntitySchemaSlug: "entity",
+									id: SandboxProviderId.make("provider-1"),
+									createdAt: new Date("2026-08-14T00:00:00.000Z"),
+									updatedAt: new Date("2026-08-14T00:00:00.000Z"),
+									information: { source: "fixture", canonicalLanguage: "en" },
+								}),
 						}),
-				}),
-			),
-		),
+						Layer.succeed(FakeProgressionEffects, {
+							events: Ref.get(events),
+							acquired: Ref.get(acquired),
+							released: Ref.get(released),
+							requests: Ref.get(requests),
+						}),
+					),
+				),
+			);
+		}),
 	);
 
-it.effect("uses one entity lease and requests each distinct noncanonical language", () => {
-	const requests: RequestFillInput[] = [];
-	const acquired: Array<readonly [string, number]> = [];
-	const events: string[] = [];
-	const released: string[] = [];
-	const store = Layer.mock(EntityInterestStore)({
-		listInterestedSessions: () =>
-			Effect.sync(() => {
-				events.push("list");
-				return ["session-1", "session-2", "session-3", "session-4", "session-5"];
-			}),
-		getSessionMetadata: (sessionIds) =>
-			Effect.sync(() => {
-				events.push(`metadata:${sessionIds.join(",")}`);
-				return [
-					{
-						revision: 1,
-						preferredLanguage: "es",
-						userId: UserId.make("user-1"),
-						sessionId: sessionIds[0] ?? "",
-					},
-					{
-						revision: 1,
-						preferredLanguage: "es",
-						userId: UserId.make("user-2"),
-						sessionId: sessionIds[1] ?? "",
-					},
-					{
-						revision: 1,
-						preferredLanguage: "fr",
-						userId: UserId.make("user-3"),
-						sessionId: sessionIds[2] ?? "",
-					},
-					{
-						revision: 1,
-						preferredLanguage: "en",
-						userId: UserId.make("user-4"),
-						sessionId: sessionIds[3] ?? "",
-					},
-					{
-						revision: 1,
-						preferredLanguage: null,
-						userId: UserId.make("user-5"),
-						sessionId: sessionIds[4] ?? "",
-					},
-				];
-			}),
-	});
-	const redis = makeRedisService({
-		releaseLease: (key) =>
-			Effect.sync(() => {
-				events.push("release");
-				released.push(key);
-			}),
-		acquireLease: (key, ttl) =>
-			Effect.sync(() => {
-				events.push("acquire");
-				acquired.push([key, ttl]);
-				return crypto.randomUUID();
-			}),
-	});
+layer(
+	makeLayer({
+		sessions: ["session-1", "session-2", "session-3", "session-4", "session-5"],
+		metadata: (sessionIds) => [
+			{
+				revision: 1,
+				preferredLanguage: "es",
+				userId: UserId.make("user-1"),
+				sessionId: sessionIds[0] ?? "",
+			},
+			{
+				revision: 1,
+				preferredLanguage: "es",
+				userId: UserId.make("user-2"),
+				sessionId: sessionIds[1] ?? "",
+			},
+			{
+				revision: 1,
+				preferredLanguage: "fr",
+				userId: UserId.make("user-3"),
+				sessionId: sessionIds[2] ?? "",
+			},
+			{
+				revision: 1,
+				preferredLanguage: "en",
+				userId: UserId.make("user-4"),
+				sessionId: sessionIds[3] ?? "",
+			},
+			{
+				revision: 1,
+				preferredLanguage: null,
+				userId: UserId.make("user-5"),
+				sessionId: sessionIds[4] ?? "",
+			},
+		],
+	}),
+)((test) => {
+	test.effect("uses one entity lease and requests each distinct noncanonical language", () =>
+		Effect.gen(function* () {
+			const progression = yield* EntityInterestProgression;
+			yield* progression.populated(entityId);
 
-	return Effect.gen(function* () {
-		const progression = yield* EntityInterestProgression;
-		yield* progression.populated(entityId);
-
-		expect(acquired).toEqual([["ryot:entity-interest:progress:entity-1", 30]]);
-		expect(events).toEqual([
-			"acquire",
-			"list",
-			"metadata:session-1,session-2,session-3,session-4,session-5",
-			"release",
-		]);
-		expect(requests.map(({ language }) => language)).toEqual(["es", "fr"]);
-		expect(released).toEqual(["ryot:entity-interest:progress:entity-1"]);
-	}).pipe(Effect.provide(makeLayer({ redis, store, requests })));
+			const effects = yield* FakeProgressionEffects;
+			expect(yield* effects.acquired).toEqual([["ryot:entity-interest:progress:entity-1", 30]]);
+			expect(yield* effects.events).toEqual([
+				"acquire",
+				"list",
+				"metadata:session-1,session-2,session-3,session-4,session-5",
+				"release",
+			]);
+			expect((yield* effects.requests).map(({ language }) => language)).toEqual(["es", "fr"]);
+			expect(yield* effects.released).toEqual(["ryot:entity-interest:progress:entity-1"]);
+		}),
+	);
 });
 
-it.effect("retries a contended lease once near expiry", () => {
-	let attempts = 0;
-	const sleeps: number[] = [];
-	const acquired: string[] = [];
-	const released: string[] = [];
-	const requests: RequestFillInput[] = [];
-	const store = Layer.mock(EntityInterestStore)({
-		getSessionMetadata: () => Effect.succeed([]),
-		listInterestedSessions: () => Effect.succeed(["session-1"]),
-	});
-	const redis = makeRedisService({
-		releaseLease: (key) =>
-			Effect.sync(() => {
-				released.push(key);
-			}),
-		acquireLease: (key) =>
-			Effect.sync(() => {
-				acquired.push(key);
-				attempts += 1;
-				return attempts === 1 ? null : crypto.randomUUID();
-			}),
-	});
-	const clock: Clock.Clock = {
-		currentTimeMillisUnsafe: () => 0,
-		currentTimeNanosUnsafe: () => 0n,
-		monotonicTimeNanosUnsafe: () => 0n,
-		currentTimeMillis: Effect.succeed(0),
-		currentTimeNanos: Effect.succeed(0n),
-		monotonicTimeNanos: Effect.succeed(0n),
-		sleep: (duration) =>
-			Effect.sync(() => {
-				sleeps.push(Duration.toMillis(duration));
-			}),
-	};
+layer(
+	makeLayer({ metadata: () => [], sessions: ["session-1"], grantLease: (attempt) => attempt > 1 }),
+)((test) => {
+	test.effect("retries a contended lease once near expiry", () => {
+		const sleeps: number[] = [];
+		const clock: Clock.Clock = {
+			currentTimeMillisUnsafe: () => 0,
+			currentTimeNanosUnsafe: () => 0n,
+			monotonicTimeNanosUnsafe: () => 0n,
+			currentTimeMillis: Effect.succeed(0),
+			currentTimeNanos: Effect.succeed(0n),
+			monotonicTimeNanos: Effect.succeed(0n),
+			sleep: (duration) =>
+				Effect.sync(() => {
+					sleeps.push(Duration.toMillis(duration));
+				}),
+		};
 
-	return Effect.gen(function* () {
-		const progression = yield* EntityInterestProgression;
-		yield* progression.populated(entityId);
+		return Effect.gen(function* () {
+			const progression = yield* EntityInterestProgression;
+			yield* progression.populated(entityId);
 
-		expect(attempts).toBe(2);
-		expect(acquired).toEqual([
-			"ryot:entity-interest:progress:entity-1",
-			"ryot:entity-interest:progress:entity-1",
-		]);
-		expect(sleeps).toEqual([29_000]);
-		expect(released).toEqual(["ryot:entity-interest:progress:entity-1"]);
-	}).pipe(
-		Effect.provide(makeLayer({ redis, store, requests })),
-		Effect.provideService(Clock.Clock, clock),
-	);
+			const effects = yield* FakeProgressionEffects;
+			const acquired = yield* effects.acquired;
+			expect(acquired).toHaveLength(2);
+			expect(acquired.map(([key]) => key)).toEqual([
+				"ryot:entity-interest:progress:entity-1",
+				"ryot:entity-interest:progress:entity-1",
+			]);
+			expect(sleeps).toEqual([29_000]);
+			expect(yield* effects.released).toEqual(["ryot:entity-interest:progress:entity-1"]);
+		}).pipe(Effect.provideService(Clock.Clock, clock));
+	});
 });

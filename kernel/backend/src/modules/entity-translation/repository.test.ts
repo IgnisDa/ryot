@@ -1,7 +1,7 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import { EntityId } from "@ryot-app/contract/schema/brands";
-import { Effect } from "effect";
+import { Context, Effect, Layer, Ref } from "effect";
 
 import { BackupRestorePersistence } from "#modules/backups/restore/persistence";
 import { restorePersistenceWithDatabase } from "#modules/backups/restore/persistence.test-support";
@@ -17,31 +17,48 @@ const input = {
 	entityId: EntityId.make("entity-id"),
 };
 
-it.effect("inserts restored translations without suppressing conflicts", () => {
-	let conflictSuppressionRequested = false;
-	const db = {
-		insert: () => ({
-			values: () => ({
-				returning: () => Effect.succeed([{ id: input.id }]),
-				onConflictDoNothing: () => {
-					conflictSuppressionRequested = true;
-					return { returning: () => Effect.succeed([]) };
-				},
-			}),
+class TranslationInserts extends Context.Service<
+	TranslationInserts,
+	{ readonly conflictSuppressionRequested: Effect.Effect<boolean> }
+>()("test/TranslationInserts") {}
+
+const translationInsertLayer = (rows: ReadonlyArray<{ id: string }>) =>
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const suppressed = yield* Ref.make(false);
+			const db = {
+				insert: () => ({
+					values: () => ({
+						returning: () => Effect.succeed(rows),
+						onConflictDoNothing: () => ({
+							returning: () => Ref.set(suppressed, true).pipe(Effect.as([])),
+						}),
+					}),
+				}),
+			};
+			return Layer.merge(
+				restorePersistenceWithDatabase(db),
+				Layer.succeed(TranslationInserts, { conflictSuppressionRequested: Ref.get(suppressed) }),
+			);
 		}),
-	};
-	return Effect.gen(function* () {
-		const persistence = yield* BackupRestorePersistence;
-		expect(yield* persistence.restoreTranslation(input)).toBe(input.id);
-		expect(conflictSuppressionRequested).toBe(false);
-	}).pipe(Effect.provide(restorePersistenceWithDatabase(db)));
+	);
+
+layer(translationInsertLayer([{ id: input.id }]))((test) => {
+	test.effect("inserts restored translations without suppressing conflicts", () =>
+		Effect.gen(function* () {
+			const persistence = yield* BackupRestorePersistence;
+			expect(yield* persistence.restoreTranslation(input)).toBe(input.id);
+			expect(yield* (yield* TranslationInserts).conflictSuppressionRequested).toBe(false);
+		}),
+	);
 });
 
-it.effect("fails when a restored translation insert returns no row", () => {
-	const db = { insert: () => ({ values: () => ({ returning: () => Effect.succeed([]) }) }) };
-	return Effect.gen(function* () {
-		const persistence = yield* BackupRestorePersistence;
-		const error = yield* persistence.restoreTranslation(input).pipe(Effect.flip);
-		expect(error).toBeInstanceOf(DbError);
-	}).pipe(Effect.provide(restorePersistenceWithDatabase(db)));
+layer(translationInsertLayer([]))((test) => {
+	test.effect("fails when a restored translation insert returns no row", () =>
+		Effect.gen(function* () {
+			const persistence = yield* BackupRestorePersistence;
+			const error = yield* persistence.restoreTranslation(input).pipe(Effect.flip);
+			expect(error).toBeInstanceOf(DbError);
+		}),
+	);
 });
