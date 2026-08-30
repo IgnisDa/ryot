@@ -1,16 +1,22 @@
-import { Effect } from "effect";
+import { Effect, Option } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import {
 	buildComposedClientRendererDefinition,
+	createEntity,
+	createEntityBrowserSavedView,
+	createEntitySchema,
 	createClientRenderer,
 	createRendererSavedView,
 	createTestUser,
 	installFixtureClientPlugin,
+	listEntitySchemas,
+	FIXTURE_CLIENT_PLUGIN_SLUG,
 	makeSession,
 	publishClientRenderer,
 } from "~/fixtures/kernel";
 import { getApiUrl } from "~/support/api";
+import { requirePresent } from "~/support/assertions";
 import { browserLayer, signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/frontend";
@@ -96,9 +102,99 @@ it.live("renders system and private public components in one shared page runtime
 		const application = runtime.locator("#app");
 		expect(yield* application.count).toBe(1);
 		yield* expectVisibleText(application, "3 episodes watched, 5 episodes remaining");
-		yield* expectVisibleText(application, "E2E deterministic Pokemon");
+		yield* application
+			.getByRole("heading", { level: 3, name: "E2E deterministic Pokemon types", exact: true })
+			.waitFor({ state: "visible" });
 		yield* expectVisibleText(application, "grass");
 		yield* expectVisibleText(application, "poison");
 		yield* expectVisibleText(application, "Renderer setting: Task 02 browser setting");
+	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
+);
+
+it.live("keeps one mixed entity browser runtime while a later Pokemon page loads", () =>
+	Effect.gen(function* () {
+		const apiUrl = getApiUrl();
+		const { token, email, password } = yield* createTestUser(apiUrl);
+		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
+		yield* installFixtureClientPlugin(client, "A", "", apiUrl);
+		const fallbackSchema = yield* createEntitySchema(client, {
+			pluginSlug: `mixed-fallback-${crypto.randomUUID()}`,
+			name: "Mixed fallback",
+		});
+		const fallbackEntities = yield* Effect.forEach(
+			["01 Alpha fallback", "02 Beta fallback"],
+			(name) =>
+				createEntity(client, {
+					name,
+					properties: { title: name },
+					entitySchemaSlug: fallbackSchema.schemaId,
+				}),
+		);
+		const pokemonSchema = requirePresent(
+			(yield* listEntitySchemas(client, {
+				slugs: ["pokemon"],
+				pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG,
+			}))[0],
+			"Fixture Pokemon schema was not registered",
+		);
+		const pokemon = yield* createEntity(client, {
+			name: "03 Fixture Bulbasaur",
+			entitySchemaSlug: pokemonSchema.id,
+			properties: { types: ["grass", "poison"] },
+		});
+		const view = yield* createEntityBrowserSavedView(client, { name: "Mixed entity browser" }, [
+			...fallbackEntities.map(({ id }) => id),
+			pokemon.id,
+		]);
+
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage();
+		yield* signInThroughHostedOAuth(page, email, password);
+		yield* page.goto(`${getFrontendUrl()}/v/${view.slug}`);
+
+		const frames = page.locator("iframe");
+		yield* frames.waitFor({ state: "visible" });
+		expect(yield* frames.count).toBe(1);
+		const iframe = Option.getOrThrow(yield* frames.first().elementHandle());
+		const runtime = frames.first().contentFrame();
+		yield* runtime.getByRole("heading", { level: 1, name: "Entity browser" }).waitFor({
+			state: "visible",
+		});
+		yield* expectVisibleText(runtime.locator("body"), "01 Alpha fallback");
+		yield* expectVisibleText(runtime.locator("body"), "02 Beta fallback");
+		expect(yield* runtime.locator("article").count).toBe(2);
+		yield* runtime.locator("body").evaluate((body) => body.setAttribute("data-e2e-page", "stable"));
+
+		yield* runtime.getByRole("button", { name: "Count all" }).click();
+		yield* expectVisibleText(runtime.locator("body"), "3 total");
+		yield* runtime.getByRole("button", { name: "Load more" }).click();
+		yield* runtime
+			.getByRole("link", { name: "03 Fixture Bulbasaur", exact: true })
+			.waitFor({ state: "visible" });
+		expect(yield* runtime.locator("article").count).toBe(3);
+		const gridRows = yield* runtime.locator("article").allInnerTexts();
+		expect(gridRows[0]).toContain("01 Alpha fallback");
+		expect(gridRows[1]).toContain("02 Beta fallback");
+		expect(gridRows[2]).toContain("03 Fixture Bulbasaur");
+		expect(
+			yield* runtime.locator(`[data-entity-id="${pokemon.id}"][data-layout="grid"]`).count,
+		).toBe(1);
+		expect(
+			yield* runtime
+				.locator(`[data-entity-id="${pokemon.id}"][data-layout="grid"]`)
+				.getAttribute("data-view-context"),
+		).toBe(JSON.stringify({ savedViewId: view.id }));
+
+		yield* runtime.getByRole("radio", { name: "List view" }).click();
+		yield* runtime.locator(`[data-entity-id="${pokemon.id}"][data-layout="list"]`).waitFor({
+			state: "visible",
+		});
+		expect(yield* runtime.locator("article").count).toBe(3);
+		expect(yield* runtime.locator("body").getAttribute("data-e2e-page")).toBe("stable");
+		expect(yield* frames.first().evaluate((current, initial) => current === initial, iframe)).toBe(
+			true,
+		);
+		expect(yield* frames.count).toBe(1);
+		expect(yield* runtime.locator("#app").count).toBe(1);
 	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );

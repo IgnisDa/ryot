@@ -134,6 +134,23 @@ export const SavedViewRenderer = Schema.Union([
 ]);
 export type SavedViewRenderer = typeof SavedViewRenderer.Type;
 
+export const EntityBrowserLayout = Schema.Literals(["grid", "list"]);
+export type EntityBrowserLayout = typeof EntityBrowserLayout.Type;
+
+export const EntityBrowserSavedViewSettings = strictStruct({
+	entityIdField: OutputFieldKey,
+	sourceName: Schema.NonEmptyString,
+	defaultLayout: EntityBrowserLayout,
+	ownerPluginIdField: OutputFieldKey,
+	entitySchemaSlugField: OutputFieldKey,
+	layouts: Schema.NonEmptyArray(EntityBrowserLayout),
+	pageSize: Schema.Int.pipe(
+		Schema.check(Schema.isGreaterThan(0)),
+		Schema.check(Schema.isLessThanOrEqualTo(100)),
+	),
+});
+export type EntityBrowserSavedViewSettings = typeof EntityBrowserSavedViewSettings.Type;
+
 const ListedSavedViewBase = {
 	id: SavedViewId,
 	slug: Schema.String,

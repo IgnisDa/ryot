@@ -4,20 +4,24 @@ import {
 } from "@ryot-app/contract/modules/entities/schemas";
 import {
 	JsonValue,
+	RyotQLDocument,
 	rowsResultSchema,
 	type FieldSelection,
 	type JsonValue as JsonValueType,
+	type NamedQuery,
 	type OrderBy,
 	type Predicate,
-	type RyotQLDocument,
+	type RowsOutput,
 	type ScalarExpression,
 	type TableReference,
 } from "@ryot-app/contract/modules/ryotql/language";
-import type {
-	SavedViewCardMapping,
-	SavedViewDisplayKind,
-	SavedViewDisplayValue,
-	SavedViewTableMapping,
+import {
+	EntityBrowserSavedViewSettings,
+	type EntityBrowserSavedViewSettings as EntityBrowserSavedViewSettingsValue,
+	type SavedViewCardMapping,
+	type SavedViewDisplayKind,
+	type SavedViewDisplayValue,
+	type SavedViewTableMapping,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import {
 	AssetLocator,
@@ -233,7 +237,7 @@ export type SavedViewTableResultItem = {
 	}[];
 };
 
-export type SavedViewResult<Item extends SavedViewCardResultItem | SavedViewTableResultItem> = {
+export type SavedViewResult<Item> = {
 	readonly items: readonly Item[];
 	readonly pageInfo: {
 		readonly limit: number;
@@ -276,7 +280,7 @@ const getOnlyRowsQuery = (queryDocument: RyotQLDocument) => {
 	if (query.output.type !== "rows") {
 		return Result.fail(new Error("Saved-view document query must produce rows"));
 	}
-	return Result.succeed(query);
+	return Result.succeed({ ...query, output: query.output });
 };
 
 const displayValue = (
@@ -343,11 +347,21 @@ const optionalDisplayField = (row: SavedViewRawRow, mapping: SavedViewCardMappin
 	);
 };
 
-const syncField = (row: SavedViewRawRow) =>
+const syncFields = (row: SavedViewRawRow, populationField: string, translationField: string) =>
 	Result.flatMap(
-		Result.all([rawField(row, populationStatusField), rawField(row, translationStatusField)]),
+		Result.all([rawField(row, populationField), rawField(row, translationField)]),
 		([populationStatus, translationStatus]) =>
 			Schema.decodeUnknownResult(EntitySyncState)({ populationStatus, translationStatus }),
+	);
+
+const syncField = (row: SavedViewRawRow) =>
+	syncFields(row, populationStatusField, translationStatusField);
+
+const nullableTextField = (row: SavedViewRawRow, fieldName: string) =>
+	Result.flatMap(rawField(row, fieldName), (value) =>
+		value === null || typeof value === "string"
+			? Result.succeed(value)
+			: Result.fail(new Error(`Saved-view field '${fieldName}' must be nullable text`)),
 	);
 
 const cardItem = (
@@ -472,9 +486,6 @@ export const savedViewCountRecipe = (
 ): Result.Result<PreparedRecipe<number>, Error> =>
 	Result.flatMap(getOnlyRowsQuery(queryDocument), (query) =>
 		Result.gen(function* () {
-			if (query.output.type !== "rows") {
-				return yield* Result.fail(new Error("Saved-view document query must produce rows"));
-			}
 			const selection = query.output.fields.find(
 				(outSelection): outSelection is FieldSelection =>
 					"key" in outSelection && outSelection.key === entityIdField,
@@ -502,3 +513,168 @@ export const savedViewCountRecipe = (
 			return recipe();
 		}),
 	);
+
+export const EntityBrowserResultItem = Schema.Struct({
+	name: Schema.String,
+	sync: EntitySyncState,
+	entityId: Schema.String,
+	entitySchemaSlug: Schema.String,
+	ownerPluginId: Schema.NullOr(Schema.String),
+});
+export type EntityBrowserResultItem = typeof EntityBrowserResultItem.Type;
+
+export type EntityBrowserResult = SavedViewResult<EntityBrowserResultItem>;
+
+type EntityBrowserRecipeInput = {
+	readonly after?: string | undefined;
+	readonly queryDocument: RyotQLDocument;
+	readonly settings: EntityBrowserSavedViewSettingsValue;
+};
+
+export const EntityBrowserPageInput = Schema.Struct({
+	dataSources: RyotQLDocument,
+	settings: EntityBrowserSavedViewSettings,
+	target: Schema.Struct({ savedViewId: Schema.String }),
+});
+
+type RowsQuery = NamedQuery & { readonly output: RowsOutput };
+
+const getNamedRowsQuery = (
+	queryDocument: RyotQLDocument,
+	sourceName: string,
+): Result.Result<RowsQuery, Error> => {
+	const query = queryDocument.queries[sourceName];
+	if (!query) {
+		return Result.fail(new Error(`Entity-browser source '${sourceName}' does not exist`));
+	}
+	if (query.output.type !== "rows") {
+		return Result.fail(new Error(`Entity-browser source '${sourceName}' must produce rows`));
+	}
+	return Result.succeed({ ...query, output: query.output });
+};
+
+const unusedFieldKey = (fields: readonly FieldSelection[], base: string) => {
+	const keys = new Set(fields.map(({ key }) => key));
+	let key = base;
+	while (keys.has(key)) {
+		key = `_${key}`;
+	}
+	return key;
+};
+
+export const entityBrowserRecipe = (
+	input: EntityBrowserRecipeInput,
+): Result.Result<PreparedRecipe<EntityBrowserResult>, Error> =>
+	Result.flatMap(getNamedRowsQuery(input.queryDocument, input.settings.sourceName), (source) => {
+		const fields = source.output.fields.flatMap((selection) =>
+			"key" in selection ? [selection] : [],
+		);
+		const entityId = fields.find(({ key }) => key === input.settings.entityIdField);
+		if (entityId?.expr.type !== "column") {
+			return Result.fail(
+				new Error(
+					`Entity-browser ID field '${input.settings.entityIdField}' must be a column projection`,
+				),
+			);
+		}
+		const nameField = unusedFieldKey(fields, "__entityBrowserName");
+		const populationField = unusedFieldKey(fields, "__entityBrowserPopulationStatus");
+		const translationField = unusedFieldKey(fields, "__entityBrowserTranslationStatus");
+		const entity = table("entity", entityId.expr.tableAlias);
+		const query = {
+			...source,
+			output: {
+				...source.output,
+				pagination: {
+					limit: input.settings.pageSize,
+					...(input.after === undefined ? {} : { after: input.after }),
+				},
+				fields: [
+					...source.output.fields,
+					field(nameField, column(entity, "name")),
+					field(populationField, column(entity, populationStatusField)),
+					field(translationField, column(entity, translationStatusField)),
+				],
+			},
+		};
+		const recipe = defineRecipe(() => ({
+			queries: {
+				entityBrowser: {
+					document: query,
+					decodeResult: (result: unknown) =>
+						Result.flatMap(
+							Schema.decodeUnknownResult(savedViewRows)(result),
+							({ items, pageInfo }) =>
+								Result.gen(function* () {
+									const decoded = yield* Result.all(
+										items.map((row) =>
+											Result.gen(function* () {
+												const item = {
+													name: yield* textField(row, nameField),
+													entityId: yield* textField(row, input.settings.entityIdField),
+													ownerPluginId: yield* nullableTextField(
+														row,
+														input.settings.ownerPluginIdField,
+													),
+													entitySchemaSlug: yield* textField(
+														row,
+														input.settings.entitySchemaSlugField,
+													),
+													sync: yield* syncFields(row, populationField, translationField),
+												};
+												return yield* Schema.decodeUnknownResult(EntityBrowserResultItem)(item);
+											}),
+										),
+									);
+									const seen = new Set<string>();
+									for (const item of decoded) {
+										if (seen.has(item.entityId)) {
+											return yield* Result.fail(
+												new Error(
+													`Entity-browser page contains duplicate entity ID '${item.entityId}'`,
+												),
+											);
+										}
+										seen.add(item.entityId);
+									}
+									return { items: decoded, pageInfo };
+								}),
+						),
+				},
+			},
+			map: ({ entityBrowser }) => Result.succeed(entityBrowser),
+		}));
+		return Result.succeed(recipe());
+	});
+
+export const entityBrowserCountRecipe = (
+	queryDocument: RyotQLDocument,
+	settings: Pick<EntityBrowserSavedViewSettingsValue, "sourceName" | "entityIdField">,
+): Result.Result<PreparedRecipe<number>, Error> =>
+	Result.flatMap(getNamedRowsQuery(queryDocument, settings.sourceName), (query) => {
+		const selection = query.output.fields.find(
+			(fieldSelection): fieldSelection is FieldSelection =>
+				"key" in fieldSelection && fieldSelection.key === settings.entityIdField,
+		);
+		if (!selection) {
+			return Result.fail(
+				new Error(`Entity-browser ID field '${settings.entityIdField}' is missing or unusable`),
+			);
+		}
+		const recipe = defineRecipe(() => ({
+			queries: {
+				entityBrowserCount: selectedAggregate(query.from, {
+					where: query.where,
+					joins: query.joins,
+					measures: {
+						total: selectedMeasure(
+							{ expr: selection.expr, function: "countDistinct" },
+							Schema.Number,
+						),
+					},
+				}),
+			},
+			map: ({ entityBrowserCount }) => Result.succeed(entityBrowserCount.total),
+		}));
+		return Result.succeed(recipe());
+	});
