@@ -1,4 +1,4 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import {
 	AutomationTrigger,
 	DEFAULT_AUTOMATION_RETRY_POLICY,
@@ -11,7 +11,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { eq } from "drizzle-orm";
-import { DateTime, Effect, Layer, Schema } from "effect";
+import { Context, DateTime, Effect, Layer, Schema } from "effect";
 import { assert, describe } from "vitest";
 
 import { LifecyclePlanner, lifecycleRunId } from "#lib/domain/lifecycle";
@@ -24,7 +24,7 @@ import { PluginRepository } from "#modules/plugins/repository";
 import {
 	installRevisionPackage,
 	revisionPackage,
-	withRevisionDatabase,
+	revisionDatabaseLayer,
 } from "#modules/plugins/revision.test-support";
 
 import { triggerFixture } from "./lifecycle.test-support";
@@ -45,6 +45,15 @@ const plannerLayer = (maxRuns = 100, batchMaxItems = 200) =>
 			}),
 		),
 	);
+class LargerBudgetPlanner extends Context.Service<
+	LargerBudgetPlanner,
+	LifecyclePlanner["Service"]
+>()("test/LargerBudgetPlanner") {}
+
+const largerBudgetPlannerLayer = Layer.effect(
+	LargerBudgetPlanner,
+	Effect.service(LifecyclePlanner),
+).pipe(Layer.provide(plannerLayer(10000)));
 const asDescendant = <T extends ReturnType<typeof entityTrigger>>(trigger: T) => ({
 	...trigger,
 	causation: { ...trigger.causation, depth: 1 },
@@ -250,10 +259,10 @@ const eventPolicyTrigger = (id = "event-policy") =>
 	});
 
 describe("LifecyclePlanner PostgreSQL", () => {
-	it.effect(
-		"persists normalized all-excluded event requests and verifies zero-run replay without spending budget",
-		() =>
-			withRevisionDatabase(
+	layer(plannerLayer(1).pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
+		test.effect(
+			"persists normalized all-excluded event requests and verifies zero-run replay without spending budget",
+			() =>
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
 					const db = yield* (yield* DatabaseSession).current;
@@ -317,14 +326,14 @@ describe("LifecyclePlanner PostgreSQL", () => {
 					expect(
 						(yield* db.select().from(tables.automationRun)).map(({ triggerId }) => triggerId),
 					).toEqual(["remaining-budget"]);
-				}).pipe(Effect.provide(plannerLayer(1))),
-			),
-	);
+				}),
+		);
+	});
 
-	it.effect(
-		"excludes only matching once-per-subject policies before budget counting and keeps item policies queued",
-		() =>
-			withRevisionDatabase(
+	layer(plannerLayer(3).pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
+		test.effect(
+			"excludes only matching once-per-subject policies before budget counting and keeps item policies queued",
+			() =>
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
 					const db = yield* (yield* DatabaseSession).current;
@@ -375,14 +384,14 @@ describe("LifecyclePlanner PostgreSQL", () => {
 					expect(yield* planner.plan({ trigger }).pipe(Effect.flip)).toMatchObject({
 						_tag: "DbError",
 					});
-				}).pipe(Effect.provide(plannerLayer(3))),
-			),
-	);
+				}),
+		);
+	});
 
-	it.effect(
-		"ignores exclusions for non-event policies, after hooks, and policies with omitted frequency",
-		() =>
-			withRevisionDatabase(
+	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
+		test.effect(
+			"ignores exclusions for non-event policies, after hooks, and policies with omitted frequency",
+			() =>
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
 					const installed = yield* installRevisionPackage(hookPackage());
@@ -429,14 +438,14 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						{ position: 7, runId: defaultItems.runs[0]?.id },
 						{ position: 7, runId: defaultItems.runs[1]?.id },
 					]);
-				}).pipe(Effect.provide(plannerLayer())),
-			),
-	);
+				}),
+		);
+	});
 
-	it.effect(
-		"matches event schema pairs, relationship deletes and provider completion, with one run for overlapping targets",
-		() =>
-			withRevisionDatabase(
+	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
+		test.effect(
+			"matches event schema pairs, relationship deletes and provider completion, with one run for overlapping targets",
+			() =>
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
 					const value = revisionPackage();
@@ -556,12 +565,16 @@ describe("LifecyclePlanner PostgreSQL", () => {
 							});
 						}
 					}
-				}).pipe(Effect.provide(plannerLayer())),
-			),
-	);
+				}),
+		);
+	});
 
-	it.effect("stores at most 100 distinct omitted hooks and accepts no partial runs", () =>
-		withRevisionDatabase(
+	layer(
+		Layer.merge(plannerLayer(1), largerBudgetPlannerLayer).pipe(
+			Layer.provideMerge(revisionDatabaseLayer),
+		),
+	)((test) => {
+		test.effect("stores at most 100 distinct omitted hooks and accepts no partial runs", () =>
 			Effect.gen(function* () {
 				const planner = yield* LifecyclePlanner;
 				const db = yield* (yield* DatabaseSession).current;
@@ -614,19 +627,19 @@ describe("LifecyclePlanner PostgreSQL", () => {
 					...blocked,
 					wasCreated: false,
 				});
-				const replayWithLargerBudget = yield* Effect.gen(function* () {
-					return yield* (yield* LifecyclePlanner).plan({ trigger: boundedDescendant });
-				}).pipe(Effect.provide(plannerLayer(10000)));
+				const replayWithLargerBudget = yield* (yield* LargerBudgetPlanner).plan({
+					trigger: boundedDescendant,
+				});
 				expect(replayWithLargerBudget).toEqual({ ...blocked, wasCreated: false });
 				expect(yield* db.select().from(tables.automationRun)).toEqual([]);
-			}).pipe(Effect.provide(plannerLayer(1))),
-		),
-	);
+			}),
+		);
+	});
 
-	it.effect(
-		"returns pinned event policy batch declarations without requiring domain manifest reads",
-		() =>
-			withRevisionDatabase(
+	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
+		test.effect(
+			"returns pinned event policy batch declarations without requiring domain manifest reads",
+			() =>
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
 					yield* installRevisionPackage(eventPolicyPackage("v1", 7, "once-per-subject"));
@@ -667,14 +680,14 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						{ position: 99, batchFrequency: "item" },
 						{ position: 99, batchFrequency: "item" },
 					]);
-				}).pipe(Effect.provide(plannerLayer())),
-			),
-	);
+				}),
+		);
+	});
 
-	it.effect(
-		"matches snapshots and stages, orders policies, snapshots delivery/retry and preserves pins on replay after upgrade",
-		() =>
-			withRevisionDatabase(
+	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
+		test.effect(
+			"matches snapshots and stages, orders policies, snapshots delivery/retry and preserves pins on replay after upgrade",
+			() =>
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
 					const db = yield* (yield* DatabaseSession).current;
@@ -741,14 +754,14 @@ describe("LifecyclePlanner PostgreSQL", () => {
 							})
 							.pipe(Effect.flip),
 					).toMatchObject({ _tag: "DbError" });
-				}).pipe(Effect.provide(plannerLayer())),
-			),
-	);
+				}),
+		);
+	});
 
-	it.effect(
-		"filters disabled, unready, tombstoned, wrong-scope and mismatched configuration without activating config",
-		() =>
-			withRevisionDatabase(
+	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
+		test.effect(
+			"filters disabled, unready, tombstoned, wrong-scope and mismatched configuration without activating config",
+			() =>
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
 					const db = yield* (yield* DatabaseSession).current;
@@ -802,14 +815,14 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						...ready,
 						wasCreated: false,
 					});
-				}).pipe(Effect.provide(plannerLayer())),
-			),
-	);
+				}),
+		);
+	});
 
-	it.effect(
-		"plans notifications once per preferred hook/user, deduplicates actor and verifies recipient replay",
-		() =>
-			withRevisionDatabase(
+	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
+		test.effect(
+			"plans notifications once per preferred hook/user, deduplicates actor and verifies recipient replay",
+			() =>
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
 					const db = yield* (yield* DatabaseSession).current;
@@ -866,14 +879,14 @@ describe("LifecyclePlanner PostgreSQL", () => {
 							.map(({ userId }) => userId)
 							.sort(),
 					).toEqual([owner, recipient]);
-				}).pipe(Effect.provide(plannerLayer())),
-			),
-	);
+				}),
+		);
+	});
 
-	it.effect(
-		"pins source-zero notification to the current kernel hash, including a revert to old code",
-		() =>
-			withRevisionDatabase(
+	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
+		test.effect(
+			"pins source-zero notification to the current kernel hash, including a revert to old code",
+			() =>
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
 					const plugins = yield* PluginRepository;
@@ -933,14 +946,18 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						scriptContentHash: "kernel-v1",
 						hookSlug: "automation.notification",
 					});
-				}).pipe(Effect.provide(plannerLayer())),
-			),
-	);
+				}),
+		);
+	});
 
-	it.effect(
-		"blocks whole fan-outs and depth, preserves blocked replay, and rolls source writes back on planning failure",
-		() =>
-			withRevisionDatabase(
+	layer(
+		Layer.merge(plannerLayer(2), AutomationTriggerRepository.layer).pipe(
+			Layer.provideMerge(revisionDatabaseLayer),
+		),
+	)((test) => {
+		test.effect(
+			"blocks whole fan-outs and depth, preserves blocked replay, and rolls source writes back on planning failure",
+			() =>
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
 					const triggers = yield* AutomationTriggerRepository;
@@ -995,11 +1012,11 @@ describe("LifecyclePlanner PostgreSQL", () => {
 					expect(yield* triggers.findById(AutomationTriggerId.make("rollback"))).toBeNull();
 					const [user] = yield* db.select().from(tables.user).where(eq(tables.user.id, owner));
 					expect(user?.name).toBe("Owner");
-				}).pipe(Effect.provide(Layer.merge(plannerLayer(2), AutomationTriggerRepository.layer))),
-			),
-	);
-	it.effect("plans an after hook only for the execution scope it declares", () =>
-		withRevisionDatabase(
+				}),
+		);
+	});
+	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
+		test.effect("plans an after hook only for the execution scope it declares", () =>
 			Effect.gen(function* () {
 				const planner = yield* LifecyclePlanner;
 				const globalTrigger = (id: string) => ({ ...entityTrigger(id), scopeUserId: null });
@@ -1013,12 +1030,12 @@ describe("LifecyclePlanner PostgreSQL", () => {
 				expect(
 					(yield* nested(planner.plan({ trigger: globalTrigger("global-b") }))).runs,
 				).toHaveLength(1);
-			}).pipe(Effect.provide(plannerLayer())),
-		),
-	);
+			}),
+		);
+	});
 
-	it.effect("matches item hooks to item triggers and batch hooks to batch triggers", () =>
-		withRevisionDatabase(
+	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
+		test.effect("matches item hooks to item triggers and batch hooks to batch triggers", () =>
 			Effect.gen(function* () {
 				const planner = yield* LifecyclePlanner;
 				const items = [entityChange("entity-1"), entityChange("entity-2")];
@@ -1051,12 +1068,12 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						}),
 					)).runs,
 				).toEqual([]);
-			}).pipe(Effect.provide(plannerLayer())),
-		),
-	);
+			}),
+		);
+	});
 
-	it.effect("chunks batch plans deterministically and reuses trigger ids on replay", () =>
-		withRevisionDatabase(
+	layer(plannerLayer(100, 2).pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
+		test.effect("chunks batch plans deterministically and reuses trigger ids on replay", () =>
 			Effect.gen(function* () {
 				const planner = yield* LifecyclePlanner;
 				yield* installRevisionPackage(afterHookPackage("v1", { frequency: "batch" }));
@@ -1087,7 +1104,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 					chunked.map(({ trigger }) => trigger.id),
 				);
 				expect(replay.every(({ wasCreated }) => wasCreated)).toBe(false);
-			}).pipe(Effect.provide(plannerLayer(100, 2))),
-		),
-	);
+			}),
+		);
+	});
 });

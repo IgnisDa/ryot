@@ -1,11 +1,11 @@
-import { expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import {
 	AutomationExecutionId,
 	AutomationTriggerId,
 	SignalSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
 import { eq, sql } from "drizzle-orm";
-import { Deferred, Effect, Fiber, Layer, Redacted, type Tracer } from "effect";
+import { Context, Deferred, Effect, Fiber, Layer, Redacted, type Tracer } from "effect";
 import { assert, describe } from "vitest";
 
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
@@ -29,14 +29,14 @@ import { LifecyclePlannerLive } from "./planner";
 
 const pluginId = "fixture-plugin";
 
-const bootstrap = Effect.gen(function* () {
+const makePlannerSchema = Effect.gen(function* () {
 	const session = yield* DatabaseSession;
 	const db = yield* session.current;
-	const planner = yield* LifecyclePlanner;
-	const plugins = yield* PluginRepository;
 	const name = `planner_test_${crypto.randomUUID().replaceAll("-", "")}`;
 	const statements = yield* baselineMigrationStatements();
-	yield* db.execute(sql`create schema ${sql.identifier(name)}`);
+	yield* Effect.acquireRelease(db.execute(sql`create schema ${sql.identifier(name)}`), () =>
+		db.execute(sql`drop schema ${sql.identifier(name)} cascade`).pipe(Effect.orDie),
+	);
 	const transaction = <A, E, R>(body: Effect.Effect<A, E, R>) =>
 		session.transaction(
 			Effect.gen(function* () {
@@ -45,37 +45,35 @@ const bootstrap = Effect.gen(function* () {
 				return yield* body;
 			}),
 		);
-	return { db, name, planner, plugins, statements, transaction };
+	return { statements, transaction };
 });
 
-type PlannerHarness = Effect.Success<typeof bootstrap>;
+class PlannerSchema extends Context.Service<
+	PlannerSchema,
+	Effect.Success<typeof makePlannerSchema>
+>()("test/PlannerSchema") {}
 
-const withPlannerSchema = <A, E, R>(body: (harness: PlannerHarness) => Effect.Effect<A, E, R>) => {
-	const config = makeAppConfigLayer({
-		automations: { maxRuns: 1 },
-		database: { url: Redacted.make(testDatabaseUrl()) },
-	});
-	const dependencies = Layer.mergeAll(
-		PluginRepository.layer,
-		PluginConfigRevisions.layer,
-		DefinitionRepository.layer,
-	);
-	const services = LifecyclePlannerLive.pipe(
-		Layer.provideMerge(dependencies),
-		Layer.provideMerge(DatabaseSession.layer),
-		Layer.provide(config),
-	);
-	return Effect.gen(function* () {
-		const harness = yield* bootstrap;
-		return yield* body(harness).pipe(
-			Effect.ensuring(
-				harness.db
-					.execute(sql`drop schema ${sql.identifier(harness.name)} cascade`)
-					.pipe(Effect.orDie),
+const plannerSchemaLayer = Layer.effect(PlannerSchema, makePlannerSchema).pipe(
+	Layer.provideMerge(
+		LifecyclePlannerLive.pipe(
+			Layer.provideMerge(
+				Layer.mergeAll(
+					PluginRepository.layer,
+					PluginConfigRevisions.layer,
+					DefinitionRepository.layer,
+				),
 			),
-		);
-	}).pipe(Effect.provide(Layer.mergeAll(services, makeConfigProviderLayer())));
-};
+			Layer.provideMerge(DatabaseSession.layer),
+			Layer.provide(
+				makeAppConfigLayer({
+					automations: { maxRuns: 1 },
+					database: { url: Redacted.make(testDatabaseUrl()) },
+				}),
+			),
+		),
+	),
+	Layer.provideMerge(makeConfigProviderLayer()),
+);
 
 // `plugin_active_revision_check` and the circular revision/plugin foreign key force the order:
 // an inactive plugin, then its revision, then the activation, then the installation. The manifest
@@ -129,22 +127,25 @@ const withRoot = (id: string, rootExecutionId: string) => {
 	};
 };
 
-const statements = (spans: ReadonlyArray<Tracer.Span>, fragment: string) =>
+const countStatements = (spans: ReadonlyArray<Tracer.Span>, fragment: string) =>
 	spans.filter((span) => {
 		const text = span.attributes.get("db.query.text");
 		return typeof text === "string" && text.includes(fragment);
 	}).length;
 
 const counted = (spans: ReadonlyArray<Tracer.Span>) => ({
-	exclusive: statements(spans, "pg_advisory_xact_lock("),
-	shared: statements(spans, "pg_advisory_xact_lock_shared("),
-	catalog: statements(spans, 'from "plugin"') + statements(spans, 'from "user_plugin"'),
+	exclusive: countStatements(spans, "pg_advisory_xact_lock("),
+	shared: countStatements(spans, "pg_advisory_xact_lock_shared("),
+	catalog: countStatements(spans, 'from "plugin"') + countStatements(spans, 'from "user_plugin"'),
 });
 
 describe("LifecyclePlanner independent PostgreSQL transactions", () => {
-	it.effect("serializes a shared root budget and replays without spending it twice", () =>
-		withPlannerSchema(({ planner, plugins, statements, transaction }) =>
+	layer(plannerSchemaLayer)((test) => {
+		test.effect("serializes a shared root budget and replays without spending it twice", () =>
 			Effect.gen(function* () {
+				const planner = yield* LifecyclePlanner;
+				const plugins = yield* PluginRepository;
+				const { statements, transaction } = yield* PlannerSchema;
 				yield* transaction(
 					Effect.gen(function* () {
 						const tx = yield* (yield* DatabaseSession).current;
@@ -255,12 +256,14 @@ describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 				).toEqual([false, true]);
 				expect(identical[0]?.runs).toEqual(identical[1]?.runs);
 			}),
-		),
-	);
+		);
+	});
 
-	it.effect("plans while another planner holds the catalog lock open", () =>
-		withPlannerSchema(({ planner, statements, transaction }) =>
+	layer(plannerSchemaLayer)((test) => {
+		test.effect("plans while another planner holds the catalog lock open", () =>
 			Effect.gen(function* () {
+				const planner = yield* LifecyclePlanner;
+				const { statements, transaction } = yield* PlannerSchema;
 				yield* transaction(seedCatalog(statements));
 				const holding = yield* Deferred.make<void>();
 				const release = yield* Deferred.make<void>();
@@ -283,12 +286,14 @@ describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 				expect(planned).toMatchObject({ runs: [], policies: [], wasCreated: true });
 				yield* Fiber.join(holder);
 			}),
-		),
-	);
+		);
+	});
 
-	it.effect("cannot plan while a configuration writer holds the catalog lock", () =>
-		withPlannerSchema(({ planner, statements, transaction }) =>
+	layer(plannerSchemaLayer)((test) => {
+		test.effect("cannot plan while a configuration writer holds the catalog lock", () =>
 			Effect.gen(function* () {
+				const planner = yield* LifecyclePlanner;
+				const { statements, transaction } = yield* PlannerSchema;
 				yield* transaction(seedCatalog(statements));
 				const holding = yield* Deferred.make<void>();
 				const release = yield* Deferred.make<void>();
@@ -315,28 +320,32 @@ describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 				});
 				yield* Fiber.join(holder);
 			}),
-		),
-	);
+		);
+	});
 
-	it.effect("locks the catalog and reads it once however many triggers a transaction plans", () =>
-		withPlannerSchema(({ planner, statements, transaction }) =>
-			Effect.gen(function* () {
-				yield* transaction(seedCatalog(statements));
-				const many: Tracer.Span[] = [];
-				yield* transaction(
-					Effect.forEach(["first", "second", "third"], (id) =>
-						planner.plan({ trigger: withRoot(id, `${id}-root`) }),
-					),
-				).pipe(Effect.withTracer(makeRecordingTracer(many)));
-				const single: Tracer.Span[] = [];
-				yield* transaction(planner.plan({ trigger: withRoot("single", "single-root") })).pipe(
-					Effect.withTracer(makeRecordingTracer(single)),
-				);
-				// The ingestion key plus the one `plugin-config:` key, the two `lockCatalog` selects plus
-				// the one `catalog` select, and the per-trigger `automation-root:` lock as the control.
-				expect(counted(many)).toEqual({ shared: 2, catalog: 3, exclusive: 3 });
-				expect(counted(single)).toEqual({ shared: 2, catalog: 3, exclusive: 1 });
-			}),
-		),
-	);
+	layer(plannerSchemaLayer)((test) => {
+		test.effect(
+			"locks the catalog and reads it once however many triggers a transaction plans",
+			() =>
+				Effect.gen(function* () {
+					const planner = yield* LifecyclePlanner;
+					const { statements, transaction } = yield* PlannerSchema;
+					yield* transaction(seedCatalog(statements));
+					const many: Tracer.Span[] = [];
+					yield* transaction(
+						Effect.forEach(["first", "second", "third"], (id) =>
+							planner.plan({ trigger: withRoot(id, `${id}-root`) }),
+						),
+					).pipe(Effect.withTracer(makeRecordingTracer(many)));
+					const single: Tracer.Span[] = [];
+					yield* transaction(planner.plan({ trigger: withRoot("single", "single-root") })).pipe(
+						Effect.withTracer(makeRecordingTracer(single)),
+					);
+					// The ingestion key plus the one `plugin-config:` key, the two `lockCatalog` selects plus
+					// the one `catalog` select, and the per-trigger `automation-root:` lock as the control.
+					expect(counted(many)).toEqual({ shared: 2, catalog: 3, exclusive: 3 });
+					expect(counted(single)).toEqual({ shared: 2, catalog: 3, exclusive: 1 });
+				}),
+		);
+	});
 });
