@@ -25,7 +25,7 @@ const importCommand = (runId: string) =>
 		},
 	});
 
-const completeReplay = async <Input extends JsonValue>(
+const completeReplay = <Input extends JsonValue>(
 	run: (
 		input: Input,
 		host: WorkflowReplayHost,
@@ -33,16 +33,15 @@ const completeReplay = async <Input extends JsonValue>(
 	) => Effect.Effect<WorkflowReplayEnvelope, SandboxHostError>,
 	input: Input,
 	resolve: (request: WorkflowReplayEnvelope["requests"][number]) => JsonValue,
-) => {
-	const journal: JsonValue[] = [];
-	const replay = (): Promise<JsonValue> =>
-		Effect.runPromise(
-			run(
+) =>
+	Effect.gen(function* () {
+		const journal: JsonValue[] = [];
+		for (;;) {
+			const envelope = yield* run(
 				input,
 				{ replayJournal: () => Effect.succeed(journal) },
 				{ metadata: {}, sandboxScriptId: "workflow-test" },
-			),
-		).then((envelope) => {
+			);
 			if (envelope.state === "completed") {
 				return envelope.output;
 			}
@@ -53,11 +52,10 @@ const completeReplay = async <Input extends JsonValue>(
 			const request = envelope.requests[journal.length];
 			assert(request);
 			journal.push(resolve(request));
-			return replay();
-		});
-	return replay();
-};
+		}
+	});
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("keeps 205 resolution results aligned during in-process replay", async () => {
 	const items = Array.from({ length: 205 }, (_, index) => ({
 		index,
@@ -67,10 +65,12 @@ it("keeps 205 resolution results aligned during in-process replay", async () => 
 			{ providerSlug: "book.openlibrary", scriptSlug: "media-import-resolve.book.openlibrary" },
 		],
 	}));
-	const output = await completeReplay(resolutionWorkflow.run, { items }, (request) => ({
-		status: "completed",
-		externalId: `resolved-${request.index}`,
-	}));
+	const output = await Effect.runPromise(
+		completeReplay(resolutionWorkflow.run, { items }, (request) => ({
+			status: "completed",
+			externalId: `resolved-${request.index}`,
+		})),
+	);
 
 	expect(output).toEqual({
 		results: items.map(({ index }) => ({
@@ -82,6 +82,7 @@ it("keeps 205 resolution results aligned during in-process replay", async () => 
 	});
 });
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("emits population children as one deterministic batch", async () => {
 	const items = Array.from({ length: 10 }, (_, index) => ({
 		index,
@@ -106,6 +107,7 @@ it("emits population children as one deterministic batch", async () => {
 	expect(envelope.requests[0]).toMatchObject({ args: { input: { command: items[0]?.command } } });
 });
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("keeps ten concurrent in-process population replays isolated", async () => {
 	const outputs = await Promise.all(
 		Array.from({ length: 10 }, (_unused, workflowIndex) => {
@@ -117,13 +119,18 @@ it("keeps ten concurrent in-process population replays isolated", async () => {
 				command: importCommand(`run-${workflowIndex}`),
 				externalId: `external-${workflowIndex}-${index}`,
 			}));
-			return completeReplay(populationWorkflow.run, { items }, (request) => {
-				expect(request).toMatchObject({
-					kind: "child",
-					args: { workflowSlug: "kernel:entity-import" },
-				});
-				return { status: "completed", entity: { id: `entity-${workflowIndex}-${request.index}` } };
-			});
+			return Effect.runPromise(
+				completeReplay(populationWorkflow.run, { items }, (request) => {
+					expect(request).toMatchObject({
+						kind: "child",
+						args: { workflowSlug: "kernel:entity-import" },
+					});
+					return {
+						status: "completed",
+						entity: { id: `entity-${workflowIndex}-${request.index}` },
+					};
+				}),
+			);
 		}),
 	);
 

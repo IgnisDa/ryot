@@ -1,4 +1,4 @@
-import { Result } from "@ryot-app/client-sdk/effect";
+import { Effect, Result } from "@ryot-app/client-sdk/effect";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { mangaRecipes } from "../../shared/manga-recipes";
@@ -22,7 +22,7 @@ import {
 	mangaSummaryFacts,
 } from "./schema";
 
-const noopAdapter = { query: () => Promise.resolve({}) };
+const noopAdapter = { query: () => Effect.succeed({}) };
 
 const PROGRESS_EVENT = {
 	text: null,

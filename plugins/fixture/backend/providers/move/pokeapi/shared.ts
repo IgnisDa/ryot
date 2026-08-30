@@ -10,6 +10,7 @@ import {
 	integerValue,
 	intersectEntries,
 	loadJson,
+	PokeApiError,
 	namedValue,
 	stringValue,
 	titleCase,
@@ -59,7 +60,7 @@ const loadMove = (host: PokeApiHost, externalId: string) =>
 			const move = asRecord(payload);
 			return move
 				? Effect.succeed(move)
-				: Effect.fail(new Error(`PokeAPI returned no move for '${externalId}'`));
+				: Effect.fail(new PokeApiError(`PokeAPI returned no move for '${externalId}'`));
 		}),
 	);
 
@@ -156,13 +157,15 @@ export const details = defineProvider({
 	operation: "details",
 	run: (input, host) => {
 		if (!/^\d+$/.test(input.externalId)) {
-			return Effect.fail(new Error("externalId must be a numeric PokeAPI move ID (e.g. '85')"));
+			return Effect.fail(
+				new PokeApiError("externalId must be a numeric PokeAPI move ID (e.g. '85')"),
+			);
 		}
 		return loadMove(host, input.externalId).pipe(
 			Effect.flatMap((move) => {
 				const name = stringValue(move["name"]);
 				if (!name) {
-					return Effect.fail(new Error("PokeAPI move payload is missing name"));
+					return Effect.fail(new PokeApiError("PokeAPI move payload is missing name"));
 				}
 				const target = namedValue(move["target"]);
 				const typeName = namedValue(move["type"]);

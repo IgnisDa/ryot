@@ -7,6 +7,7 @@ import {
 	getBestThumbnailUrl,
 	getThumbnailUrls,
 	type MusicSearchClient,
+	tryYoutubeMusic,
 } from "../../../lib/vendors/youtube-music";
 
 type ArtistRelatedEntity = {
@@ -64,7 +65,7 @@ const collectArtistEntities = (artist: UnknownRecord | null) => {
 };
 
 export const buildArtistSearch = (client: MusicSearchClient, query: string) =>
-	Effect.tryPromise(() => client.music.search(query, { type: "artist" })).pipe(
+	tryYoutubeMusic(() => client.music.search(query, { type: "artist" })).pipe(
 		Effect.map((results) => {
 			const shelves = asRecord(results)?.["contents"];
 			const items = (Array.isArray(shelves) ? shelves : []).flatMap((shelf) => {
@@ -91,7 +92,7 @@ export const buildArtistSearch = (client: MusicSearchClient, query: string) =>
 	);
 
 export const buildArtistDetails = (client: ArtistClient, externalId: string) =>
-	Effect.tryPromise(() => client.music.getArtist(externalId)).pipe(
+	tryYoutubeMusic(() => client.music.getArtist(externalId)).pipe(
 		Effect.map((artist) => {
 			const artistRecord = asRecord(artist);
 			const name = getArtistName(artistRecord);
@@ -135,7 +136,7 @@ export const buildArtistDetails = (client: ArtistClient, externalId: string) =>
 	);
 
 export const buildArtistTranslate = (client: ArtistClient, externalId: string) =>
-	Effect.tryPromise(() => client.music.getArtist(externalId)).pipe(
+	tryYoutubeMusic(() => client.music.getArtist(externalId)).pipe(
 		Effect.map((artist) => {
 			const name = getArtistName(asRecord(artist));
 			return name ? { name } : {};

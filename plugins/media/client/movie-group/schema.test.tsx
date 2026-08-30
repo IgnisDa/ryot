@@ -1,3 +1,4 @@
+import { Effect } from "@ryot-app/client-sdk/effect";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { movieGroupRecipes } from "../../shared/movie-group-recipes";
@@ -5,7 +6,7 @@ import { decodeGroupPresentation } from "../../tests/client/group/fixtures";
 import { mountRyotClient } from "../../tests/client/test-support";
 import { movieGroupSchema } from "./schema";
 
-const noopAdapter = { query: () => Promise.resolve({}) };
+const noopAdapter = { query: () => Effect.succeed({}) };
 
 afterEach(() => {
 	document.body.innerHTML = "";

@@ -3,6 +3,7 @@ import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
 import { cleanHtmlDescription } from "../../../lib/clean-html-description";
+import { MediaSandboxError } from "../../../lib/failures";
 import { asRecord, numberValue, stringValue, trimmedString } from "../../../lib/records";
 import { createRoleAccumulator } from "../../../lib/role-accumulator";
 import { toTitleCase } from "../../../lib/title-case";
@@ -48,7 +49,9 @@ const fetchSuggestions = (host: AudibleHost, externalId: string) => {
 		string,
 		{ name: string; externalId: string; providerSlug: string }
 	>();
-	const fetchType = (index: number): Effect.Effect<void, unknown> => {
+	const fetchType = (
+		index: number,
+	): Effect.Effect<void, Effect.Error<ReturnType<typeof audibleFetchJson>>> => {
 		const similarityType = SIMILARITY_TYPES[index];
 		if (similarityType === undefined) {
 			return Effect.void;
@@ -216,11 +219,15 @@ export const details = defineProvider({
 			);
 			const product = asRecord(asRecord(payloadValue)?.["product"]);
 			if (!product) {
-				return yield* Effect.fail(new Error("Audible returned no product data"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "Audible returned no product data" }),
+				);
 			}
 			const title = stringValue(product["title"]);
 			if (!title) {
-				return yield* Effect.fail(new Error("Audible product is missing title"));
+				return yield* Effect.fail(
+					new MediaSandboxError({ message: "Audible product is missing title" }),
+				);
 			}
 
 			const imageUrl = productImageUrl(product, ["2400", "500"]);

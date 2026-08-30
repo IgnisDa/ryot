@@ -1,4 +1,5 @@
 import type { ManagedAssetLocator } from "@ryot-app/client-sdk";
+import { Effect } from "@ryot-app/client-sdk/effect";
 import {
 	defineEntityPresentation,
 	PluginLink,
@@ -30,21 +31,25 @@ export type FitnessPresentationViewData = FitnessPresentationData & {
 
 const coverAsset = (data: FitnessPresentationData) => data.images?.[0];
 
-export const loadFitnessPresentations: EntityPresentationLoader<
-	FitnessPresentationViewData
-> = async ({ client, signal, references }) => {
+export const loadFitnessPresentations: EntityPresentationLoader<FitnessPresentationViewData> = ({
+	client,
+	references,
+}) => {
 	const slug = references[0]?.entitySchemaSlug ?? "";
 	const entityIds = [...new Set(references.map(({ entityId }) => entityId))];
-	const rows = await client.data.query(fitnessPresentationRecipe({ slug, entityIds }), { signal });
-	const managed = rows
-		.map(coverAsset)
-		.filter(
-			(asset): asset is ManagedAssetLocator => asset !== undefined && asset.type !== "remote",
-		);
-	const batchAssets = [
-		...new Map(managed.map((asset) => [managedAssetKey(asset), asset])).values(),
-	].sort((left, right) => managedAssetKey(left).localeCompare(managedAssetKey(right)));
-	return Object.fromEntries(rows.map((row) => [row.id, { ...row, batchAssets }]));
+	return client.data.query(fitnessPresentationRecipe({ slug, entityIds })).pipe(
+		Effect.map((rows) => {
+			const managed = rows
+				.map(coverAsset)
+				.filter(
+					(asset): asset is ManagedAssetLocator => asset !== undefined && asset.type !== "remote",
+				);
+			const batchAssets = [
+				...new Map(managed.map((asset) => [managedAssetKey(asset), asset])).values(),
+			].sort((left, right) => managedAssetKey(left).localeCompare(managedAssetKey(right)));
+			return Object.fromEntries(rows.map((row) => [row.id, { ...row, batchAssets }]));
+		}),
+	);
 };
 
 const schemaLabel = (entitySchemaSlug: string) => entitySchemaSlug.split("-").join(" ");

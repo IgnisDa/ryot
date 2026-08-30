@@ -154,7 +154,7 @@ const collectStaffPages = (
 	staffId: number,
 	page: number,
 	collected: Omit<StaffPages, "staffData"> & { staffData: UnknownRecord | null },
-): Effect.Effect<StaffPages, unknown> =>
+): Effect.Effect<StaffPages, Effect.Error<ReturnType<typeof getStaffPage>>> =>
 	getStaffPage(host, staffId, page).pipe(
 		Effect.flatMap((staffPage) => {
 			const staffData = collected.staffData ?? staffPage;

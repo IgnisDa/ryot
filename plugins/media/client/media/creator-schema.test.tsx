@@ -1,3 +1,4 @@
+import { Effect } from "@ryot-app/client-sdk/effect";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
@@ -26,7 +27,7 @@ import {
 import { mountRyotClient } from "../../tests/client/test-support";
 import { mapMediaOverview } from "./overview-state";
 
-const noopAdapter = { query: () => Promise.resolve({}) };
+const noopAdapter = { query: () => Effect.succeed({}) };
 
 const FILLED_CREDITS = {
 	movie: { items: [creatorMovieCreditRow] },

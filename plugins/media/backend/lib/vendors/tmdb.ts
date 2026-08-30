@@ -3,10 +3,11 @@ import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import type { ProviderDetailsRelatedEntity } from "@ryot-app/sandbox-sdk/provider";
 
 import type { WatchProviderOffer } from "../../../shared/watch-provider";
+import { MediaSandboxError } from "../failures";
 import {
 	asRecord,
+	decodeJsonResponse,
 	numberValue,
-	parseJsonResponse,
 	recordsValue,
 	stringValue,
 	type UnknownRecord,
@@ -24,14 +25,17 @@ const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/original";
 export const getTmdbAccessToken = (host: TmdbHost) =>
 	host.getPluginConfig(["tmdbAccessToken"]).pipe(
 		Effect.map(({ tmdbAccessToken }) => tmdbAccessToken),
-		Effect.map((value) => {
+		Effect.flatMap((value) => {
 			const token = stringValue(value);
 			if (!token) {
-				throw new Error(
-					"TMDB access token is not configured. Set RYOT_PLUGIN_MEDIA_TMDB_ACCESS_TOKEN in your environment.",
+				return Effect.fail(
+					new MediaSandboxError({
+						message:
+							"TMDB access token is not configured. Set RYOT_PLUGIN_MEDIA_TMDB_ACCESS_TOKEN in your environment.",
+					}),
 				);
 			}
-			return token;
+			return Effect.succeed(token);
 		}),
 	);
 
@@ -47,19 +51,28 @@ export const tmdbGet = (
 			headers: { Authorization: `Bearer ${token}` },
 		})
 		.pipe(
-			Effect.mapError((error) => new Error(error.message || `TMDB request failed: ${path}`)),
-			Effect.map((response) => {
-				const payload = asRecord(parseJsonResponse(response.body, "TMDB"));
+			Effect.mapError((error) => ({
+				...error,
+				message: error.message || `TMDB request failed: ${path}`,
+			})),
+			Effect.flatMap((response) => decodeJsonResponse(response.body, "TMDB")),
+			Effect.flatMap((response) => {
+				const payload = asRecord(response);
 				if (!payload) {
-					throw new Error("TMDB returned an invalid response object");
+					return Effect.fail(
+						new MediaSandboxError({ message: "TMDB returned an invalid response object" }),
+					);
 				}
 				const statusCode = numberValue(payload["status_code"]);
 				if (statusCode !== null && statusCode !== 1) {
-					throw new Error(
-						stringValue(payload["status_message"]) ?? `TMDB API error (status ${statusCode})`,
+					return Effect.fail(
+						new MediaSandboxError({
+							message:
+								stringValue(payload["status_message"]) ?? `TMDB API error (status ${statusCode})`,
+						}),
 					);
 				}
-				return payload;
+				return Effect.succeed(payload);
 			}),
 		);
 };
@@ -283,26 +296,20 @@ export const fetchTrendingItems = (
 	token: string,
 	options: { readonly nameKeys: readonly string[]; readonly providerSlug: string },
 ) =>
-	[1, 2, 3]
-		.reduce<Effect.Effect<unknown[], unknown>>(
-			(result, page) =>
-				result.pipe(
-					Effect.flatMap((items) =>
-						tmdbGet(host, path, { language, page: String(page) }, token).pipe(
-							Effect.map((data) => {
-								const pageResults = data["results"];
-								return Array.isArray(pageResults) ? [...items, ...pageResults] : items;
-							}),
-						),
-					),
-				),
-			Effect.succeed([]),
-		)
-		.pipe(
-			Effect.map((results) =>
-				collectSuggestions(results, options).map(({ name, externalId }) => ({ name, externalId })),
-			),
-		);
+	Effect.gen(function* () {
+		const results: unknown[] = [];
+		for (const page of [1, 2, 3]) {
+			const data = yield* tmdbGet(host, path, { language, page: String(page) }, token);
+			const pageResults = data["results"];
+			if (Array.isArray(pageResults)) {
+				results.push(...pageResults);
+			}
+		}
+		return collectSuggestions(results, options).map(({ name, externalId }) => ({
+			name,
+			externalId,
+		}));
+	});
 
 export const parseTranslationLanguage = (language: string) => {
 	const [languagePart = "", regionPart] = language.split("-");

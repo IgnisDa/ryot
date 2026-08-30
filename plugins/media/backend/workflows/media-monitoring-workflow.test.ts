@@ -5,18 +5,17 @@ import { assert, expect, it } from "vitest";
 
 import workflow from "./media-monitoring-sweep.sandbox";
 
-const completeReplay = async (
+const completeReplay = (
 	resolve: (request: WorkflowReplayEnvelope["requests"][number]) => JsonValue,
-) => {
-	const journal: JsonValue[] = [];
-	const run = (): Promise<{ output: JsonValue; requests: WorkflowReplayEnvelope["requests"] }> =>
-		Effect.runPromise(
-			workflow.run(
+) =>
+	Effect.gen(function* () {
+		const journal: JsonValue[] = [];
+		for (;;) {
+			const envelope = yield* workflow.run(
 				{},
 				{ replayJournal: () => Effect.succeed(journal) } satisfies WorkflowReplayHost,
 				{ metadata: {}, sandboxScriptId: "workflow-test" },
-			),
-		).then((envelope) => {
+			);
 			if (envelope.state === "completed") {
 				return { output: envelope.output, requests: envelope.requests };
 			}
@@ -27,10 +26,8 @@ const completeReplay = async (
 			const request = envelope.requests[journal.length];
 			assert(request);
 			journal.push(resolve(request));
-			return run();
-		});
-	return run();
-};
+		}
+	});
 
 const target = (index: number) => ({
 	entitySchemaSlug: "movie",
@@ -54,20 +51,23 @@ const RefreshInput = Schema.Struct({
 	),
 });
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("deduplicates paged targets and orchestrates bounded provider refresh batches", async () => {
 	const firstPage = Array.from({ length: 100 }, (_, index) => target(index));
 	const secondPage = [
 		target(99),
 		...Array.from({ length: 105 }, (_, index) => target(index + 100)),
 	];
-	const result = await completeReplay((request) => {
-		if (request.kind === "activity") {
-			return request.name === "targets-0"
-				? { items: firstPage, nextCursor: "targets-cursor" }
-				: { nextCursor: null, items: secondPage };
-		}
-		return [];
-	});
+	const result = await Effect.runPromise(
+		completeReplay((request) => {
+			if (request.kind === "activity") {
+				return request.name === "targets-0"
+					? { items: firstPage, nextCursor: "targets-cursor" }
+					: { nextCursor: null, items: secondPage };
+			}
+			return [];
+		}),
+	);
 
 	expect(result.output).toEqual({ batchCount: 3, targetCount: 205 });
 	const activities = result.requests.filter(

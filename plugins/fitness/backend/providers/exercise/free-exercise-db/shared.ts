@@ -9,6 +9,10 @@ import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
 
 type ExerciseSourceHost = SandboxHost<readonly ["httpCall", "getCachedValue", "setCachedValue"]>;
 
+class FitnessExerciseError extends Error {
+	readonly _tag = "FitnessExerciseError";
+}
+
 const exerciseImageSchema = Schema.Struct({ url: Schema.String, type: Schema.Literal("remote") });
 type ExerciseImage = Schema.Schema.Type<typeof exerciseImageSchema>;
 
@@ -69,7 +73,7 @@ const EXERCISES_URL =
 const executionStartedAt = (execution: ExecutionMetadata) =>
 	execution.startedAt
 		? Effect.succeed(execution.startedAt)
-		: Effect.fail(new Error("Sandbox execution startedAt metadata is required"));
+		: Effect.fail(new FitnessExerciseError("Sandbox execution startedAt metadata is required"));
 
 const equipmentAliases: Record<string, string> = { "e-z curl bar": "ez_curl_bar" };
 
@@ -361,7 +365,7 @@ const chunkExercises = (rows: readonly NormalizedExercise[]) => {
 			continue;
 		}
 		if (nextBytes > CACHE_CHUNK_BYTE_LIMIT) {
-			throw new Error(`Exercise cache row is too large: ${row.name}`);
+			throw new FitnessExerciseError(`Exercise cache row is too large: ${row.name}`);
 		}
 		currentChunk = nextChunk;
 	}
@@ -382,7 +386,9 @@ const writeCachedExercises = (
 		const chunks = yield* Effect.try({
 			try: () => chunkExercises(rows),
 			catch: (error) =>
-				error instanceof Error ? error : new Error("Failed to chunk exercise cache"),
+				error instanceof FitnessExerciseError
+					? error
+					: new FitnessExerciseError("Failed to chunk exercise cache"),
 		});
 		for (const [index, chunk] of chunks.entries()) {
 			yield* writeCachedValue(host, `${CACHE_KEY}:${version}:chunk:${index}`, chunk);
@@ -398,12 +404,15 @@ const loadExercises = (host: ExerciseSourceHost, execution: ExecutionMetadata) =
 		}
 
 		const response = yield* host.httpCall("GET", EXERCISES_URL);
-		const payload = yield* Effect.try({
-			try: () => JSON.parse(response.body) as unknown,
-			catch: () => new Error("Exercise database returned invalid JSON"),
-		});
+		const payload = yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(
+			response.body,
+		).pipe(
+			Effect.mapError(() => new FitnessExerciseError("Exercise database returned invalid JSON")),
+		);
 		const exercises = yield* Schema.decodeUnknownEffect(exercisePayloadSchema)(payload).pipe(
-			Effect.mapError(() => new Error("Exercise database returned an unexpected payload")),
+			Effect.mapError(
+				() => new FitnessExerciseError("Exercise database returned an unexpected payload"),
+			),
 		);
 		const rows = exercises
 			.map(normalizeExercise)
@@ -499,7 +508,9 @@ export const getExerciseDetails = (
 		const rows = yield* loadExercises(host, execution);
 		const row = rows.find((exercise) => exercise.externalId === input.externalId);
 		if (!row) {
-			return yield* Effect.fail(new Error(`Exercise not found: ${input.externalId}`));
+			return yield* Effect.fail(
+				new FitnessExerciseError(`Exercise not found: ${input.externalId}`),
+			);
 		}
 		return { name: row.name, properties: row.properties };
 	});

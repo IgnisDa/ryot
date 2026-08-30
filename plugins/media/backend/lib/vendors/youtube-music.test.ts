@@ -1,4 +1,4 @@
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 import type { YoutubeiHost } from "@ryot-app/sandbox-sdk/youtubei";
 import { expect, it } from "vitest";
 
@@ -25,7 +25,7 @@ import {
 } from "../../providers/person/youtube-music/shared";
 import { createYoutubeMusicClient } from "./youtube-music";
 
-const recordedClient = async (path: string, responses: readonly unknown[], language = "en") => {
+const recordedClient = (path: string, responses: readonly unknown[], language = "en") => {
 	const requests: { method: string; path: string; body: unknown }[] = [];
 	const host: YoutubeiHost = {
 		httpCall: (method, url, options) =>
@@ -33,7 +33,7 @@ const recordedClient = async (path: string, responses: readonly unknown[], langu
 				const request = {
 					method,
 					path: new URL(url).pathname,
-					body: JSON.parse(options?.body ?? "{}") as unknown,
+					body: Schema.decodeSync(Schema.fromJsonString(Schema.Unknown))(options?.body ?? "{}"),
 				};
 				const response = responses[requests.length];
 				requests.push(request);
@@ -42,16 +42,19 @@ const recordedClient = async (path: string, responses: readonly unknown[], langu
 				}
 				return {
 					status: 200,
-					body: JSON.stringify(response),
 					headers: { "content-type": "application/json" },
+					body: Schema.encodeSync(Schema.fromJsonString(Schema.Unknown))(response),
 				};
 			}),
 	};
-	return { requests, client: await Effect.runPromise(createYoutubeMusicClient(host, language)) };
+	return createYoutubeMusicClient(host, language).pipe(
+		Effect.map((client) => ({ client, requests })),
+	);
 };
 
 it.each([undefined, "en", "fr"] as const)(
 	"creates a client without HTTP calls for %s language",
+	// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 	async (language) => {
 		const attemptedUrls: string[] = [];
 		const host: YoutubeiHost = {
@@ -69,18 +72,19 @@ it.each([undefined, "en", "fr"] as const)(
 	},
 );
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("maps song, artist, and album search without initialization requests", async () => {
-	const tracks = await recordedClient("search", [searchResponse("song")]);
+	const tracks = await Effect.runPromise(recordedClient("search", [searchResponse("song")]));
 	expect(await Effect.runPromise(buildTrackSearch(tracks.client, "query", 20))).toEqual({
 		details: { totalItems: 1, nextPage: null },
 		items: [{ title: "Track", externalId: "track", imageUrl: "https://example.com/cover.jpg" }],
 	});
-	const artists = await recordedClient("search", [searchResponse("artist")]);
+	const artists = await Effect.runPromise(recordedClient("search", [searchResponse("artist")]));
 	expect(await Effect.runPromise(buildArtistSearch(artists.client, "query"))).toEqual({
 		details: { totalItems: 1, nextPage: null },
 		items: [{ title: "Artist", externalId: "UCartist", imageUrl: "https://example.com/cover.jpg" }],
 	});
-	const albums = await recordedClient("search", [searchResponse("album")]);
+	const albums = await Effect.runPromise(recordedClient("search", [searchResponse("album")]));
 	expect(await Effect.runPromise(buildAlbumSearch(albums.client, "query", 20))).toEqual({
 		details: { nextPage: null, totalItems: 100 },
 		items: [{ title: "Album", externalId: "MPRalbum", imageUrl: "https://example.com/cover.jpg" }],
@@ -95,9 +99,10 @@ it("maps song, artist, and album search without initialization requests", async 
 	}
 });
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it.each([false, true])("maps track details through the queue (automix: %s)", async (automix) => {
 	const responses = [...(automix ? [queueResponse("Track", true)] : []), queueResponse("Track")];
-	const { client, requests } = await recordedClient("next", responses);
+	const { client, requests } = await Effect.runPromise(recordedClient("next", responses));
 	expect(await Effect.runPromise(buildTrackDetails(client, "track"))).toEqual({
 		name: "Track",
 		properties: {
@@ -151,8 +156,11 @@ it.each([false, true])("maps track details through the queue (automix: %s)", asy
 	}
 });
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("maps artist details and relationships through browse", async () => {
-	const { client, requests } = await recordedClient("browse", [artistResponse("Artist")]);
+	const { client, requests } = await Effect.runPromise(
+		recordedClient("browse", [artistResponse("Artist")]),
+	);
 	expect(await Effect.runPromise(buildArtistDetails(client, "UCartist"))).toEqual({
 		name: "Artist",
 		properties: {
@@ -194,8 +202,11 @@ it("maps artist details and relationships through browse", async () => {
 	expect(requests[0]).toMatchObject({ body: { browseId: "UCartist" } });
 });
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("maps album details and ordered members through browse", async () => {
-	const { client, requests } = await recordedClient("browse", [albumResponse("Album")]);
+	const { client, requests } = await Effect.runPromise(
+		recordedClient("browse", [albumResponse("Album")]),
+	);
 	expect(await Effect.runPromise(buildAlbumDetails(client, "MPRalbum"))).toEqual({
 		name: "Album",
 		properties: { parts: 2, images: [], sourceUrl: null, description: "Album description" },
@@ -225,20 +236,21 @@ it("maps album details and ordered members through browse", async () => {
 	expect(requests[0]).toMatchObject({ body: { browseId: "MPRalbum" } });
 });
 
+// oxlint-disable-next-line effecttsgo/async-function -- Vitest awaits this Promise-returning test callback.
 it("preserves the requested language for all three translations", async () => {
-	const track = await recordedClient(
-		"next",
-		[queueResponse("Chanson", true), queueResponse("Chanson")],
-		"fr",
+	const track = await Effect.runPromise(
+		recordedClient("next", [queueResponse("Chanson", true), queueResponse("Chanson")], "fr"),
 	);
 	expect(await Effect.runPromise(buildTrackTranslate(track.client, "track"))).toEqual({
 		name: "Chanson",
 	});
-	const artist = await recordedClient("browse", [artistResponse("Artiste")], "fr");
+	const artist = await Effect.runPromise(
+		recordedClient("browse", [artistResponse("Artiste")], "fr"),
+	);
 	expect(await Effect.runPromise(buildArtistTranslate(artist.client, "UCartist"))).toEqual({
 		name: "Artiste",
 	});
-	const album = await recordedClient("browse", [albumResponse("Disque")], "fr");
+	const album = await Effect.runPromise(recordedClient("browse", [albumResponse("Disque")], "fr"));
 	expect(await Effect.runPromise(buildAlbumTranslate(album.client, "MPRalbum"))).toEqual({
 		name: "Disque",
 	});

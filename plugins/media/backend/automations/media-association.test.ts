@@ -103,7 +103,6 @@ const run = (value: ReturnType<typeof input>) => {
 					return Effect.succeed({ wasCreated: true, triggerId: "signal-1" });
 				},
 			}),
-			{ metadata: {}, sandboxScriptId: "script-1" },
 		)
 		.pipe(Effect.as(calls));
 };
@@ -201,8 +200,8 @@ it("reads every credited entity in the batch with one query", () => {
 	const calls: Array<Record<string, JsonValue | undefined>> = [];
 
 	return Effect.runPromise(
-		definition
-			.run(
+		Effect.gen(function* () {
+			yield* definition.run(
 				automationContext({
 					category: "change",
 					operation: "batch",
@@ -229,17 +228,12 @@ it("reads every credited entity in the batch with one query", () => {
 						);
 					},
 				}),
-				{ metadata: {}, sandboxScriptId: "script-1" },
-			)
-			.pipe(
-				Effect.map(() => {
-					expect(reads).toBe(1);
-					expect(calls.map(({ discriminator }) => discriminator)).toEqual([
-						"subject-1:Director",
-						"subject-2:Writer",
-					]);
-					return undefined;
-				}),
-			),
+			);
+			expect(reads).toBe(1);
+			expect(calls.map(({ discriminator }) => discriminator)).toEqual([
+				"subject-1:Director",
+				"subject-2:Writer",
+			]);
+		}),
 	);
 });

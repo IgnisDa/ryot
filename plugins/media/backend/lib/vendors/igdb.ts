@@ -1,7 +1,8 @@
 import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
-import { asRecord, numberValue, parseJsonResponse, stringValue } from "../records";
+import { MediaSandboxError } from "../failures";
+import { asRecord, decodeJsonResponse, numberValue, stringValue } from "../records";
 
 export type IgdbHost = SandboxHost<
 	readonly ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"]
@@ -25,25 +26,34 @@ const asCachedToken = (value: unknown): CachedToken | null => {
 
 export const getCredentials = (host: IgdbHost) =>
 	host.getPluginConfig(["twitchClientId", "twitchClientSecret"]).pipe(
-		Effect.mapError((error) => new Error(error.message || "Failed to retrieve Twitch credentials")),
-		Effect.map(({ twitchClientId: clientIdValue, twitchClientSecret: clientSecretValue }) => {
+		Effect.mapError((error) => ({
+			...error,
+			message: error.message || "Failed to retrieve Twitch credentials",
+		})),
+		Effect.flatMap(({ twitchClientId: clientIdValue, twitchClientSecret: clientSecretValue }) => {
 			const clientId = stringValue(clientIdValue);
 			const clientSecret = stringValue(clientSecretValue);
 			if (!clientId) {
-				throw new Error(
-					"Twitch Client ID is not configured. Set RYOT_PLUGIN_MEDIA_TWITCH_CLIENT_ID in your environment.",
+				return Effect.fail(
+					new MediaSandboxError({
+						message:
+							"Twitch Client ID is not configured. Set RYOT_PLUGIN_MEDIA_TWITCH_CLIENT_ID in your environment.",
+					}),
 				);
 			}
 			if (!clientSecret) {
-				throw new Error(
-					"Twitch Client Secret is not configured. Set RYOT_PLUGIN_MEDIA_TWITCH_CLIENT_SECRET in your environment.",
+				return Effect.fail(
+					new MediaSandboxError({
+						message:
+							"Twitch Client Secret is not configured. Set RYOT_PLUGIN_MEDIA_TWITCH_CLIENT_SECRET in your environment.",
+					}),
 				);
 			}
-			return { clientId, clientSecret };
+			return Effect.succeed({ clientId, clientSecret });
 		}),
 	);
 
-export const getAccessToken = (host: IgdbHost): Effect.Effect<CachedToken, unknown> =>
+export const getAccessToken = (host: IgdbHost) =>
 	host.getCachedValue(TOKEN_CACHE_KEY).pipe(
 		Effect.catch(() => Effect.succeed(null)),
 		Effect.flatMap((cached) => {
@@ -59,14 +69,18 @@ export const getAccessToken = (host: IgdbHost): Effect.Effect<CachedToken, unkno
 							headers: { "Content-Type": "application/x-www-form-urlencoded" },
 						})
 						.pipe(
-							Effect.mapError(
-								(error) => new Error(error.message || "Twitch OAuth token request failed"),
-							),
+							Effect.mapError((error) => ({
+								...error,
+								message: error.message || "Twitch OAuth token request failed",
+							})),
+							Effect.flatMap((response) => decodeJsonResponse(response.body, "IGDB")),
 							Effect.flatMap((response) => {
-								const payload = asRecord(parseJsonResponse(response.body, "IGDB"));
+								const payload = asRecord(response);
 								const accessTokenValue = stringValue(payload?.["access_token"]);
 								if (!accessTokenValue) {
-									throw new Error("Twitch OAuth returned no access token");
+									return Effect.fail(
+										new MediaSandboxError({ message: "Twitch OAuth returned no access token" }),
+									);
 								}
 								const rawTokenTypeValue = payload?.["token_type"];
 								const rawTokenType =
@@ -106,10 +120,15 @@ export const makeIgdbRequest = (host: IgdbHost, path: string, body: string) =>
 					},
 				})
 				.pipe(
-					Effect.mapError((error) => new Error(error.message || `IGDB ${path} request failed`)),
-					Effect.map((response) => {
-						return { headers: response.headers, data: parseJsonResponse(response.body, "IGDB") };
-					}),
+					Effect.mapError((error) => ({
+						...error,
+						message: error.message || `IGDB ${path} request failed`,
+					})),
+					Effect.flatMap((response) =>
+						decodeJsonResponse(response.body, "IGDB").pipe(
+							Effect.map((data) => ({ data, headers: response.headers })),
+						),
+					),
 				),
 		),
 	);

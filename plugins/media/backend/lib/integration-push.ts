@@ -7,6 +7,8 @@ import type {
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { entityReadRecipe, executeRyotqlRecipe } from "@ryot-app/sandbox-sdk/ryotql";
 
+import { MediaSandboxError } from "./failures";
+
 export type IntegrationPushHost = SandboxHost<
 	readonly [
 		"log",
@@ -71,7 +73,9 @@ export const fetchEntity = (host: IntegrationPushHost, entityId: string) =>
 	executeRyotqlRecipe(host.executeRyotql, entityReadRecipe({ entityIds: [entityId] })).pipe(
 		Effect.flatMap(({ items }) => {
 			const entity = items[0];
-			return entity ? Effect.succeed(entity) : Effect.fail(new Error("Entity not found"));
+			return entity
+				? Effect.succeed(entity)
+				: Effect.fail(new MediaSandboxError({ message: "Entity not found" }));
 		}),
 	);
 

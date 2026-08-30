@@ -42,7 +42,11 @@ const dataset = [
 ];
 
 const httpSuccess = (body: unknown) =>
-	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
+	Effect.succeed({
+		status: 200,
+		headers: {},
+		body: typeof body === "string" ? body : JSON.stringify(body),
+	});
 
 type SetCall = { key: string; value: JsonValue; ttlSeconds: number };
 
@@ -128,55 +132,90 @@ describe("exercise.free-exercise-db sandbox script", () => {
 		});
 	});
 
-	it("shares the normalized cache between search and details entrypoints", async () => {
-		const { host, httpCallCount } = makeStatefulHost();
-
-		await Effect.runPromise(search.run({ page: 1, pageSize: 20, query: "bench" }, host, execution));
-		const result = await Effect.runPromise(
-			details.run({ externalId: "Bench Press" }, host, execution),
+	it("distinguishes invalid JSON from an unexpected exercise payload", () => {
+		const invalid = makeStatefulHost({}, "{");
+		const unexpected = makeStatefulHost({}, { exercises: [] });
+		return Effect.runPromise(
+			Effect.gen(function* () {
+				const invalidError = yield* Effect.flip(
+					search.run({ page: 1, query: "", pageSize: 20 }, invalid.host, execution),
+				);
+				expect(invalidError).toMatchObject({
+					_tag: "FitnessExerciseError",
+					message: "Exercise database returned invalid JSON",
+				});
+				const unexpectedError = yield* Effect.flip(
+					search.run({ page: 1, query: "", pageSize: 20 }, unexpected.host, execution),
+				);
+				expect(unexpectedError).toMatchObject({
+					_tag: "FitnessExerciseError",
+					message: "Exercise database returned an unexpected payload",
+				});
+			}),
 		);
-
-		expect(httpCallCount()).toBe(1);
-		expect(result.name).toBe("Bench Press");
-		expect(result.properties).toEqual({
-			force: "push",
-			level: "beginner",
-			mechanic: "compound",
-			equipment: "barbell",
-			kind: "reps_and_weight",
-			muscles: ["chest", "triceps"],
-			instructions: ["Lie down.", "Push the bar up."],
-			images: [{ type: "remote", url: `${IMAGES_PREFIX_URL}/Bench_Press/0.jpg` }],
-		});
 	});
 
-	it("resolves only one exact normalized exercise name to its canonical external id", async () => {
+	it("shares the normalized cache between search and details entrypoints", () => {
 		const { host, httpCallCount } = makeStatefulHost();
-
-		await expect(
-			Effect.runPromise(
-				resolve.run({ identifierType: "name", value: "  BENCH---press " }, host, execution),
-			),
-		).resolves.toEqual({ externalId: "Bench Press" });
-		await expect(
-			Effect.runPromise(resolve.run({ value: "Bench", identifierType: "name" }, host, execution)),
-		).resolves.toEqual({ externalId: null });
-		expect(httpCallCount()).toBe(1);
+		return Effect.runPromise(
+			Effect.gen(function* () {
+				yield* search.run({ page: 1, pageSize: 20, query: "bench" }, host, execution);
+				const result = yield* details.run({ externalId: "Bench Press" }, host, execution);
+				expect(httpCallCount()).toBe(1);
+				expect(result.name).toBe("Bench Press");
+				expect(result.properties).toEqual({
+					force: "push",
+					level: "beginner",
+					mechanic: "compound",
+					equipment: "barbell",
+					kind: "reps_and_weight",
+					muscles: ["chest", "triceps"],
+					instructions: ["Lie down.", "Push the bar up."],
+					images: [{ type: "remote", url: `${IMAGES_PREFIX_URL}/Bench_Press/0.jpg` }],
+				});
+			}),
+		);
 	});
 
-	it("does not resolve ambiguous normalized names or unsupported identifiers", async () => {
-		const { host } = makeStatefulHost({}, [...dataset, { ...dataset[1], name: "Bench-Press" }]);
+	it("resolves only one exact normalized exercise name to its canonical external id", () => {
+		const { host, httpCallCount } = makeStatefulHost();
+		return Effect.runPromise(
+			Effect.gen(function* () {
+				const exact = yield* resolve.run(
+					{ identifierType: "name", value: "  BENCH---press " },
+					host,
+					execution,
+				);
+				expect(exact).toEqual({ externalId: "Bench Press" });
+				const partial = yield* resolve.run(
+					{ value: "Bench", identifierType: "name" },
+					host,
+					execution,
+				);
+				expect(partial).toEqual({ externalId: null });
+				expect(httpCallCount()).toBe(1);
+			}),
+		);
+	});
 
-		await expect(
-			Effect.runPromise(
-				resolve.run({ value: "bench press", identifierType: "name" }, host, execution),
-			),
-		).resolves.toEqual({ externalId: null });
-		await expect(
-			Effect.runPromise(
-				resolve.run({ value: "Bench Press", identifierType: "external-id" }, host, execution),
-			),
-		).resolves.toEqual({ externalId: null });
+	it("does not resolve ambiguous normalized names or unsupported identifiers", () => {
+		const { host } = makeStatefulHost({}, [...dataset, { ...dataset[1], name: "Bench-Press" }]);
+		return Effect.runPromise(
+			Effect.gen(function* () {
+				const ambiguous = yield* resolve.run(
+					{ value: "bench press", identifierType: "name" },
+					host,
+					execution,
+				);
+				expect(ambiguous).toEqual({ externalId: null });
+				const unsupported = yield* resolve.run(
+					{ value: "Bench Press", identifierType: "external-id" },
+					host,
+					execution,
+				);
+				expect(unsupported).toEqual({ externalId: null });
+			}),
+		);
 	});
 
 	it("reads chunks from a pre-seeded cache without making an http call", () => {
