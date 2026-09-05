@@ -13,8 +13,8 @@ import type { RunStatus } from "@ryot-app/contract/schema/run-status";
 import { and, desc, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
+import { isUniqueConstraintError } from "#lib/infrastructure/db/errors";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { isUniqueConstraintError } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 type ImportRunRow = typeof schema.importRun.$inferSelect;

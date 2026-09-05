@@ -35,7 +35,7 @@ import {
 	applyLifecyclePolicyPatch,
 	canonicalLifecyclePolicyPatch,
 } from "#lib/domain/lifecycle-policy-patch";
-import { retryOnDeadlock } from "#lib/infrastructure/db/service";
+import { retryOnDeadlock } from "#lib/infrastructure/db/errors";
 import { DatabaseSession, DatabaseSessionStateError } from "#lib/infrastructure/db/session";
 import {
 	runLifecycleWriteInline,
