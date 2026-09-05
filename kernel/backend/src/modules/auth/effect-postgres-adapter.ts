@@ -1,4 +1,3 @@
-import { runWithAdapter } from "@better-auth/core/context";
 import type {
 	CleanedWhere,
 	CustomAdapter,
@@ -392,25 +391,8 @@ export const effectPostgresAuthAdapter = (args: {
 		});
 
 	const factory = makeFactory(args.context, true);
-	const database = (authOptions: typeof options) => {
+	return (authOptions: typeof options) => {
 		options = authOptions;
 		return factory(authOptions);
 	};
-	const transaction = <A, E>(callback: (adapter: DBTransactionAdapter) => Effect.Effect<A, E>) =>
-		session.transaction(
-			Effect.gen(function* () {
-				const transactionContext = yield* Effect.context<DatabaseSession | RedisService>();
-				const adapter = makeFactory(transactionContext, false)(options);
-				const exit = yield* Effect.promise(() =>
-					Promise.resolve(
-						runWithAdapter(adapter, () =>
-							Effect.runPromiseExitWith(transactionContext)(callback(adapter)),
-						),
-					),
-				);
-				return yield* exit;
-			}),
-		);
-
-	return Object.assign(database, { transaction });
 };
