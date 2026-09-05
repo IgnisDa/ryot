@@ -2,7 +2,7 @@ import {
 	PLUGIN_CATALOG_CONNECTED_EVENT,
 	PLUGIN_CATALOG_INVALIDATED_EVENT,
 } from "@ryot-app/contract/modules/plugins/contract";
-import { Effect, Fiber, Stream } from "effect";
+import { Duration, Effect, Fiber, Stream } from "effect";
 
 import type { ContractSession } from "./contract-client";
 
@@ -12,7 +12,6 @@ type CatalogEvent = typeof PLUGIN_CATALOG_CONNECTED_EVENT | typeof PLUGIN_CATALO
 type EventWaiter = {
 	event: CatalogEvent;
 	reject: (error: Error) => void;
-	timer: ReturnType<typeof setTimeout>;
 	resolve: (event: CatalogEvent) => void;
 };
 type WaitOptions = { readonly timeoutMs?: number };
@@ -78,7 +77,6 @@ export const openPluginCatalogEventsScoped = (
 				}
 				failure = error;
 				for (const waiter of waiters) {
-					clearTimeout(waiter.timer);
 					waiter.reject(error);
 				}
 				waiters.clear();
@@ -89,7 +87,6 @@ export const openPluginCatalogEventsScoped = (
 					queued.push(event);
 					return;
 				}
-				clearTimeout(waiter.timer);
 				waiters.delete(waiter);
 				waiter.resolve(event);
 			};
@@ -128,23 +125,20 @@ export const openPluginCatalogEventsScoped = (
 						event,
 						reject: (error) => resume(Effect.die(error)),
 						resolve: (value) => resume(Effect.succeed(value)),
-						// oxlint-disable-next-line effecttsgo/global-timers-in-effect -- external SSE callbacks need a cancelable wait timer.
-						timer: setTimeout(
-							() => {
-								waiters.delete(waiter);
-								resume(
-									Effect.die(new Error(`Timed out waiting for plugin catalog '${event}' event`)),
-								);
-							},
-							waitOptions.timeoutMs ?? options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
-						),
 					};
 					waiters.add(waiter);
 					return Effect.sync(() => {
-						clearTimeout(waiter.timer);
 						waiters.delete(waiter);
 					});
-				});
+				}).pipe(
+					Effect.timeoutOrElse({
+						orElse: () =>
+							Effect.die(new Error(`Timed out waiting for plugin catalog '${event}' event`)),
+						duration: Duration.millis(
+							waitOptions.timeoutMs ?? options.timeoutMs ?? DEFAULT_TIMEOUT_MS,
+						),
+					}),
+				);
 
 			const fiber = yield* Stream.runForEach(response.stream, (chunk) =>
 				Effect.sync(() => consume(chunk)),
@@ -166,7 +160,6 @@ export const openPluginCatalogEventsScoped = (
 				}
 				closed = true;
 				for (const waiter of waiters) {
-					clearTimeout(waiter.timer);
 					waiter.reject(new Error("Plugin catalog event stream closed"));
 				}
 				waiters.clear();
@@ -200,18 +193,17 @@ export const openPluginCatalogEventsScoped = (
 							reject: (error) => resume(Effect.die(error)),
 							resolve: () =>
 								resume(Effect.die(new Error("Unexpected plugin catalog invalidation"))),
-							// oxlint-disable-next-line effecttsgo/global-timers-in-effect -- external SSE callbacks need a cancelable observation window.
-							timer: setTimeout(() => {
-								waiters.delete(waiter);
-								resume(Effect.void);
-							}, assertOptions.windowMs ?? 500),
 						};
 						waiters.add(waiter);
 						return Effect.sync(() => {
-							clearTimeout(waiter.timer);
 							waiters.delete(waiter);
 						});
-					}),
+					}).pipe(
+						Effect.timeoutOrElse({
+							orElse: () => Effect.void,
+							duration: Duration.millis(assertOptions.windowMs ?? 500),
+						}),
+					),
 			} satisfies PluginCatalogEventStream;
 		}),
 		(stream) => stream.close(),

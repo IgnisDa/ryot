@@ -14,6 +14,7 @@ import { createElement, Fragment } from "react";
 import { RyotClientError } from "./index";
 import { createPluginNavigationStore } from "./navigation/store";
 import { createPluginRuntime } from "./runtime";
+import { waitForMessagePortMacrotask } from "./testing";
 
 const metadata: ClientCompositionMetadata = {
 	hash: "composition-hash",
@@ -41,8 +42,6 @@ const resolution = {
 	url: "https://ryot.test/api/uploads/local/download?key=permanent%2Fimage.png",
 };
 const channels: MessageChannel[] = [];
-// oxlint-disable-next-line effecttsgo/new-promise -- Test waits for a browser MessagePort macrotask.
-const delay = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 const openRuntime = () =>
 	Effect.gen(function* () {
 		const channel = new MessageChannel();
@@ -73,7 +72,7 @@ const openRuntime = () =>
 			leading: "drawer",
 			location: { path: "/", search: "", kind: "route" },
 		});
-		yield* Effect.promise(() => delay());
+		yield* waitForMessagePortMacrotask;
 		return { channel, runtime, messages };
 	});
 const query = (runtime: ReturnType<typeof createPluginRuntime>) =>
@@ -107,7 +106,7 @@ describe("plugin Effect request engine", () => {
 				compilerVersion: metadata.compilerVersion,
 			});
 			const first = yield* Effect.forkChild(query(runtime), { startImmediately: true });
-			yield* Effect.promise(() => delay());
+			yield* waitForMessagePortMacrotask;
 			expect(sent(messages, "ryotql-request")).toContainEqual({
 				document,
 				requestId: "ryotql-1",
@@ -120,12 +119,12 @@ describe("plugin Effect request engine", () => {
 				response: { data: {} },
 			});
 			expect(yield* Fiber.join(first)).toEqual({ data: {} });
-			yield* Effect.promise(() => delay());
+			yield* waitForMessagePortMacrotask;
 			expect(sent(messages, "ryotql-cancel")).toEqual([]);
 			const second = yield* Effect.forkChild(Effect.result(query(runtime)), {
 				startImmediately: true,
 			});
-			yield* Effect.promise(() => delay());
+			yield* waitForMessagePortMacrotask;
 			channel.port1.postMessage({
 				outcome: "failure",
 				type: "ryotql-result",
@@ -140,9 +139,9 @@ describe("plugin Effect request engine", () => {
 		Effect.gen(function* () {
 			const { channel, runtime, messages } = yield* openRuntime();
 			const fiber = yield* Effect.forkChild(query(runtime), { startImmediately: true });
-			yield* Effect.promise(() => delay());
+			yield* waitForMessagePortMacrotask;
 			yield* Fiber.interrupt(fiber);
-			yield* Effect.promise(() => delay());
+			yield* waitForMessagePortMacrotask;
 			expect(sent(messages, "ryotql-cancel")).toEqual([
 				{ requestId: "ryotql-1", type: "ryotql-cancel" },
 			]);
@@ -153,7 +152,7 @@ describe("plugin Effect request engine", () => {
 				response: { data: {} },
 			});
 			const next = yield* Effect.forkChild(query(runtime), { startImmediately: true });
-			yield* Effect.promise(() => delay());
+			yield* waitForMessagePortMacrotask;
 			expect(sent(messages, "ryotql-request")).toContainEqual({
 				document,
 				requestId: "ryotql-2",
@@ -175,9 +174,9 @@ describe("plugin Effect request engine", () => {
 			const fiber = yield* Effect.forkChild(runtime.client.assets.resolve([asset]), {
 				startImmediately: true,
 			});
-			yield* Effect.promise(() => delay());
+			yield* waitForMessagePortMacrotask;
 			yield* Fiber.interrupt(fiber);
-			yield* Effect.promise(() => delay());
+			yield* waitForMessagePortMacrotask;
 			expect(sent(messages, "asset-cancel")).toEqual([
 				{ requestId: "asset-1", type: "asset-cancel" },
 			]);
@@ -190,7 +189,7 @@ describe("plugin Effect request engine", () => {
 			const next = yield* Effect.forkChild(runtime.client.assets.resolve([asset]), {
 				startImmediately: true,
 			});
-			yield* Effect.promise(() => delay());
+			yield* waitForMessagePortMacrotask;
 			channel.port1.postMessage({
 				outcome: "success",
 				type: "asset-result",
@@ -224,7 +223,7 @@ describe("plugin Effect request engine", () => {
 				}),
 				{ startImmediately: true },
 			);
-			yield* Effect.promise(() => delay());
+			yield* waitForMessagePortMacrotask;
 			yield* Effect.forEach([operation, storage, upload], Fiber.interrupt);
 			expect(sent(messages, "operation-request")).toHaveLength(1);
 			expect(sent(messages, "storage-request")).toHaveLength(1);
@@ -247,7 +246,7 @@ describe("plugin Effect request engine", () => {
 				}),
 				{ startImmediately: true },
 			);
-			yield* Effect.promise(() => delay());
+			yield* waitForMessagePortMacrotask;
 			const request = sent(messages, "upload-request")[0];
 			expect(request).toMatchObject({
 				requestId: "upload-1",
@@ -271,7 +270,7 @@ describe("plugin Effect request engine", () => {
 				Effect.result(runtime.client.storage.get("fixture", "key")),
 				{ startImmediately: true },
 			);
-			yield* Effect.promise(() => delay());
+			yield* waitForMessagePortMacrotask;
 			channel.port1.postMessage({
 				reason: "quota",
 				outcome: "failure",
@@ -288,7 +287,7 @@ describe("plugin Effect request engine", () => {
 			const pending = yield* Effect.forkChild(Effect.result(query(runtime)), {
 				startImmediately: true,
 			});
-			yield* Effect.promise(() => delay());
+			yield* waitForMessagePortMacrotask;
 			channel.port1.postMessage({
 				type: "document",
 				documentKey: "page-2",
@@ -306,7 +305,7 @@ describe("plugin Effect request engine", () => {
 			const next = yield* Effect.forkChild(Effect.result(query(runtime)), {
 				startImmediately: true,
 			});
-			yield* Effect.promise(() => delay());
+			yield* waitForMessagePortMacrotask;
 			runtime.dispose();
 			channel.port1.postMessage({
 				outcome: "success",
@@ -333,7 +332,7 @@ describe("plugin Effect request engine", () => {
 			});
 			expect(yield* Fiber.join(overflow)).toMatchObject({ failure: { reason: "protocol" } });
 			const results = yield* Effect.forEach(fibers, Fiber.join);
-			yield* Effect.promise(() => delay());
+			yield* waitForMessagePortMacrotask;
 			expect(results).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS);
 			expect(sent(messages, "ryotql-request")).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS);
 			expect(sent(messages, "lifecycle-close")).toEqual([
@@ -356,7 +355,7 @@ describe("plugin Effect request engine", () => {
 				),
 				{ startImmediately: true },
 			);
-			yield* Effect.promise(() => delay());
+			yield* waitForMessagePortMacrotask;
 			channel.port1.postMessage({
 				outcome: "success",
 				type: "operation-result",
@@ -383,7 +382,7 @@ describe("plugin Effect request engine", () => {
 				}),
 				{ startImmediately: true },
 			);
-			yield* Effect.promise(() => delay());
+			yield* waitForMessagePortMacrotask;
 			expect(sent(messages, "operation-request")).toEqual([
 				{
 					input: {},
@@ -409,7 +408,7 @@ describe("plugin Effect request engine", () => {
 				),
 				{ startImmediately: true },
 			);
-			yield* Effect.promise(() => delay());
+			yield* waitForMessagePortMacrotask;
 			expect(sent(messages, "collection-request")).toContainEqual({
 				requestId: "collection-2",
 				type: "collection-request",
@@ -448,7 +447,7 @@ describe("plugin Effect request engine", () => {
 				reason: "translated",
 				type: "entity-updated",
 			});
-			yield* Effect.promise(() => delay());
+			yield* waitForMessagePortMacrotask;
 			expect(runtime.client.theme.getSnapshot()).toEqual({ resolvedMode: "dark" });
 			expect(themes).toBe(1);
 			expect(hints).toBe(1);
@@ -460,7 +459,7 @@ describe("plugin Effect request engine", () => {
 			});
 			subscription.dispose();
 			unsubscribe();
-			yield* Effect.promise(() => delay());
+			yield* waitForMessagePortMacrotask;
 			expect(sent(messages, "entity-interest").at(-1)).toEqual({
 				visible: [],
 				foreground: [],

@@ -100,15 +100,8 @@ afterEach(() => {
 
 const delay = (ms: number) => Effect.runPromise(Effect.sleep(ms));
 
-function deferred<T>() {
-	let resolve!: (value: T) => void;
-	let reject!: (reason: unknown) => void;
-	// oxlint-disable-next-line effecttsgo/new-promise -- This controllable test gate stays pending until the host callback or test releases it.
-	const promise = new Promise<T>((res, rej) => {
-		resolve = res;
-		reject = rej;
-	});
-	return { reject, promise, resolve };
+function deferred<T>(): PromiseWithResolvers<T> {
+	return Promise.withResolvers<T>();
 }
 
 const connect = (
