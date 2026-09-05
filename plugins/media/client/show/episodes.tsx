@@ -4,6 +4,7 @@ import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/client-ui
 import clsx from "clsx";
 import { useState, type ReactNode } from "react";
 
+import { ManagedAssetImage } from "../managed-assets";
 import {
 	isSpecialsSeason,
 	mapShowEpisodes,
@@ -33,7 +34,6 @@ import {
 	type ShowSeasonEpisodesState,
 	type ShowSeasonList,
 } from "./episodes-state";
-import { ManagedAssetImage } from "./managed-assets";
 import { ShowProgressBar, ShowRefreshStatus, ShowStatusMessage } from "./primitives";
 import { showEpisodesQuery, showSeasonEpisodesQuery } from "./queries";
 

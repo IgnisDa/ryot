@@ -158,6 +158,18 @@ describe("show summary state", () => {
 		expect(showGalleryAssets(decodeShowSummary({ images: null }))).toEqual([]);
 	});
 
+	it("resolves every managed image, not just the ones the preview shows", () => {
+		const show = decodeShowSummary({
+			images: Array.from({ length: 12 }, (_, index) => ({
+				type: "s3",
+				purpose: "still",
+				key: `still-${index}`,
+			})),
+		});
+
+		expect(showManagedAssets(show)).toHaveLength(12);
+	});
+
 	it("falls back to no poster when images are missing or empty", () => {
 		expect(showPosterAsset(decodeShowSummary({ images: null }))).toBeUndefined();
 		expect(showPosterAsset(decodeShowSummary({ images: [] }))).toBeUndefined();
