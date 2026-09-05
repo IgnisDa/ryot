@@ -84,7 +84,41 @@ export const CreateEventsResponse = strictStruct({
 
 export type CreateEventsResponse = typeof CreateEventsResponse.Type;
 
+export const EventCreatePending = Schema.Union([
+	strictStruct({
+		operationId: Schema.String,
+		writtenCount: Schema.Literal(0),
+		status: Schema.Literal("accepted"),
+		writesPending: Schema.Literal(true),
+	}),
+	strictStruct({
+		operationId: Schema.String,
+		writtenCount: Schema.Finite,
+		writesPending: Schema.Boolean,
+		status: Schema.Literal("committed-follow-up-pending"),
+	}),
+]);
+
+export const EventCreateOperation = Schema.Union([
+	EventCreatePending,
+	strictStruct({
+		operationId: Schema.String,
+		result: CreateEventsResponse,
+		status: Schema.Literal("completed"),
+	}),
+	strictStruct({
+		operationId: Schema.String,
+		status: Schema.Literal("failed"),
+		reason: Schema.Literal("unexpected-error"),
+	}),
+]);
+
 export class EventsInternalError extends Schema.TaggedError<EventsInternalError>()(
 	"EventsInternalError",
 	{ reason: strictStruct({ code: Schema.Literal("unexpected-error") }) },
+) {}
+
+export class EventOperationNotFound extends Schema.TaggedError<EventOperationNotFound>()(
+	"EventOperationNotFound",
+	{ reason: strictStruct({ code: Schema.Literal("operation-not-found") }) },
 ) {}

@@ -1,4 +1,4 @@
-import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
+import type { ContractPayload } from "@ryot-app/contract/client";
 import { CreateEventsResponse } from "@ryot-app/contract/modules/events/schemas";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
@@ -20,6 +20,7 @@ import {
 	listAutomationRuns,
 	listAutomationTriggers,
 	listEventsForEntity,
+	waitForCreateEvents,
 	pollAutomationRuns,
 	pollSandboxResult,
 	pollTerminalAutomationRunAttempts,
@@ -36,7 +37,7 @@ import { requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 
 type CreateEventsPayload = ContractPayload<"events", "create">;
-type CreateEventsResult = ContractSuccess<"events", "create">;
+type CreateEventsResult = CreateEventsResponse;
 type EventInput = CreateEventsPayload[number];
 type SourceRecord = Extract<
 	NonNullable<AutomationTriggerFilter["sourceRecord"]>,
@@ -551,7 +552,10 @@ const eventRequestPayload = (input: EventInput): EventCreateRequestPayload => {
 };
 
 const createEvents = (client: Client, payload: CreateEventsPayload) =>
-	client.call((c) => c.events.create({ payload }));
+	Effect.flatMap(
+		client.call((c) => c.events.create({ payload })),
+		(response) => waitForCreateEvents(client, response),
+	);
 
 const requireWrittenEventId = (result: CreateEventsResult, index = 0) => {
 	const outcome = requirePresent(

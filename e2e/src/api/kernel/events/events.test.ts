@@ -5,6 +5,7 @@ import {
 	createEventTestFixture,
 	createRuleEventFixture,
 	listEventsForEntity,
+	waitForCreateEvents,
 	waitForEventCount,
 } from "~/fixtures/kernel";
 import { createBuiltinMediaLifecycleFixture } from "~/fixtures/plugins/media";
@@ -26,7 +27,7 @@ describe("Events bulk POST", () => {
 				}),
 			);
 
-			expect(result.count).toBe(3);
+			expect((yield* waitForCreateEvents(apiClient, result)).count).toBe(3);
 		}),
 	);
 
@@ -36,7 +37,7 @@ describe("Events bulk POST", () => {
 
 			const result = yield* apiClient.call((c) => c.events.create({ payload: [] }));
 
-			expect(result.count).toBe(0);
+			expect((yield* waitForCreateEvents(apiClient, result)).count).toBe(0);
 		}),
 	);
 
@@ -50,14 +51,14 @@ describe("Events bulk POST", () => {
 					payload: [{ entityId, eventSchemaSlug, properties: { status: "draft" } }],
 				}),
 			);
-			expect(optionalResult.count).toBe(1);
+			expect((yield* waitForCreateEvents(apiClient, optionalResult)).count).toBe(1);
 
 			const rejectedResult = yield* apiClient.call((c) =>
 				c.events.create({
 					payload: [{ entityId, eventSchemaSlug, properties: { status: "completed" } }],
 				}),
 			);
-			expect(rejectedResult).toMatchObject({
+			expect(yield* waitForCreateEvents(apiClient, rejectedResult)).toMatchObject({
 				count: 0,
 				outcomes: [],
 				failure: { index: 0, reason: { code: "invalid-properties" } },
@@ -70,7 +71,7 @@ describe("Events bulk POST", () => {
 					],
 				}),
 			);
-			expect(acceptedResult.count).toBe(1);
+			expect((yield* waitForCreateEvents(apiClient, acceptedResult)).count).toBe(1);
 
 			const events = yield* waitForEventCount(apiClient, entityId, 2);
 			expect(events.map((event) => event.properties)).toEqual([
@@ -122,7 +123,7 @@ describe("Events bulk POST", () => {
 				}),
 			);
 
-			expect(createResult.count).toBe(2);
+			expect((yield* waitForCreateEvents(apiClient, createResult)).count).toBe(2);
 
 			yield* waitForEventCount(apiClient, entityId, 3);
 

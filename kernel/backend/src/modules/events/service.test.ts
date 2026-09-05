@@ -1,4 +1,4 @@
-import { expect, layer } from "@effect/vitest";
+import { assert, expect, layer } from "@effect/vitest";
 import {
 	AutomationExecutionId,
 	EntityId,
@@ -6,14 +6,16 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
-import { Context, Effect, Layer, Ref } from "effect";
+import { Context, Effect, Fiber, Layer, Ref } from "effect";
+import { TestClock } from "effect/testing";
+import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { makeWorkflowEngine } from "#lib/test-utils/effect";
+import { makeAppConfigLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
 
 import { EventsRepository } from "./repository";
 import { EventsService } from "./service";
@@ -32,6 +34,7 @@ const recordingWorkflowEngineLayer = Layer.effectContext(
 		return Context.make(
 			WorkflowEngine,
 			makeWorkflowEngine({
+				poll: () => Effect.succeedSome(new Workflow.Suspended()),
 				execute: (_workflow, options) =>
 					Ref.update(executions, (all) => [...all, options]).pipe(Effect.as(result)),
 			}),
@@ -42,12 +45,15 @@ const recordingWorkflowEngineLayer = Layer.effectContext(
 const serviceLayer = EventsService.layer.pipe(
 	Layer.provide(
 		Layer.mergeAll(
-			Layer.mock(EventsRepository)({}),
+			Layer.mock(EventsRepository)({
+				getCreateProgress: () => Effect.succeed({ writtenCount: 1, requiredPending: true }),
+			}),
 			Layer.mock(DatabaseSession)({ requireRoot: Effect.void }),
 			Layer.mock(LifecyclePlanner)({}),
 			Layer.mock(LifecycleExecution)({}),
 		),
 	),
+	Layer.provide(makeAppConfigLayer()),
 	Layer.provideMerge(recordingWorkflowEngineLayer),
 );
 
@@ -80,5 +86,47 @@ layer(serviceLayer)((test) => {
 			expect(yield* service.create({ userId, payload: [] }, command)).toEqual(result);
 			expect(yield* executions).toHaveLength(1);
 		}),
+	);
+	test.effect(
+		"ends the HTTP wait after one command budget without abandoning a committed event",
+		() =>
+			Effect.gen(function* () {
+				const command = rootLifecycleCommand({
+					source: "api",
+					itemIdentity: "events",
+					initiator: { id: userId, kind: "user" },
+					executionId: AutomationExecutionId.make("http-request"),
+					occurredAt: IsoUtcString.make("2026-01-01T00:00:00.000Z"),
+				});
+				const service = yield* EventsService;
+				const waiting = yield* service
+					.createHttp(
+						{
+							userId,
+							payload: [
+								{
+									properties: {},
+									entityId: EntityId.make("entity"),
+									eventSchemaSlug: EventSchemaSlug.make("rating"),
+								},
+							],
+						},
+						command,
+					)
+					.pipe(Effect.forkChild);
+				yield* TestClock.adjust("35 seconds");
+				const response = yield* Fiber.join(waiting);
+				expect(response).toMatchObject({
+					writtenCount: 1,
+					writesPending: false,
+					status: "committed-follow-up-pending",
+				});
+				assert("operationId" in response);
+				expect(yield* service.getCreateOperation(userId, response.operationId)).toEqual(response);
+				const denied = yield* Effect.flip(
+					service.getCreateOperation(UserId.make("other"), response.operationId),
+				);
+				expect(denied._tag).toBe("EventOperationNotFound");
+			}),
 	);
 });

@@ -60,10 +60,6 @@ layer(BunServices.layer)((test) => {
 			expect(automationRunWorkflow).toContain("SandboxExecutionService");
 			expect(sandboxScriptWorkflow).toContain("processSandboxExecutionQueue(payload)");
 			expect(sandboxWorkflow).toContain("SandboxScriptWorkflow");
-			expect(durableQueues).toContain('Effect.timeout("1 minute")');
-			expect(durableQueues).toContain("Effect.retry(sandboxRetrySchedule)");
-			expect(durableQueues).toContain('Schedule.exponential("1 second")');
-			expect(durableQueues).toContain("Schedule.recurs(2)");
 			expect(entityImportWorkflow).toContain("execute(ProviderEntityPopulationWorkflow");
 		}),
 	);

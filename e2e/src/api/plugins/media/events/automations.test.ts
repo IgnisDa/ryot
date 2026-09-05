@@ -9,6 +9,7 @@ import {
 	listRelationshipSchemas,
 	requireEventSchemaBySlug,
 	requireRelationshipSchemaBySlug,
+	waitForCreateEvents,
 	waitForEventCount,
 	waitForEventWithSchema,
 } from "~/fixtures/kernel";
@@ -186,7 +187,10 @@ describe("Event automations", () => {
 				}));
 				for (let start = 0; start < progressItems.length; start += 20) {
 					const batch = progressItems.slice(start, start + 20);
-					yield* client.call((c) => c.events.create({ payload: batch }));
+					yield* waitForCreateEvents(
+						client,
+						yield* client.call((c) => c.events.create({ payload: batch })),
+					);
 				}
 
 				const completeEvent = yield* waitForEventWithSchema(client, entityId, "complete");

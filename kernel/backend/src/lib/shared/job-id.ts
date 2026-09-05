@@ -20,8 +20,8 @@ const signaturesMatch = (actual: string, expected: string) => {
 	return mismatch === 0;
 };
 
-export const deriveJobIdSecret = (adminAccessToken: string) =>
-	hmacSha256Base64Url(adminAccessToken, keyDomain);
+export const deriveJobIdSecret = (adminAccessToken: string, domain: string = keyDomain) =>
+	hmacSha256Base64Url(adminAccessToken, domain);
 
 export const createWorkflowJobId = (secret: string, executionId: string, userId: string) =>
 	`${executionId}${separator}${createSignature(secret, executionId, userId)}`;
