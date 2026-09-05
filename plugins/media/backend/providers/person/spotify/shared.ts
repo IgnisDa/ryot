@@ -6,6 +6,8 @@ import { asRecord, numberValue, stringValue, trimmedString } from "../../../lib/
 import {
 	getFirstImage,
 	getImagesSortedBySize,
+	getSpotifyErrorStatus,
+	SPOTIFY_SEARCH_PAGE_SIZE,
 	type SpotifyHost,
 	spotifyGet,
 } from "../../../lib/vendors/spotify";
@@ -19,19 +21,18 @@ export const manifest = defineManifest({
 	capabilities: ["httpCall", "getPluginConfig", "getCachedValue", "setCachedValue"],
 });
 
-const PAGE_SIZE = 20;
 const ALBUM_PAGE_LIMIT = 50;
 
 export const search = defineProvider({
 	manifest,
 	operation: "search",
 	run: (input, host) => {
-		const offset = (input.page - 1) * PAGE_SIZE;
+		const offset = (input.page - 1) * SPOTIFY_SEARCH_PAGE_SIZE;
 		return spotifyGet(host, "/search", {
 			type: "artist",
 			q: input.query,
 			offset: String(offset),
-			limit: String(PAGE_SIZE),
+			limit: String(SPOTIFY_SEARCH_PAGE_SIZE),
 		}).pipe(
 			Effect.map((dataValue) => {
 				const artists = asRecord(asRecord(dataValue)?.["artists"]);
@@ -119,6 +120,11 @@ export const details = defineProvider({
 						return spotifyGet(host, `/artists/${encodeURIComponent(input.externalId)}/top-tracks`, {
 							market: "US",
 						}).pipe(
+							Effect.catch((error) =>
+								getSpotifyErrorStatus(error) === 403
+									? Effect.succeed({ tracks: [] })
+									: Effect.fail(error),
+							),
 							Effect.map((topTracksValue) => {
 								const tracks = asRecord(topTracksValue)?.["tracks"];
 								const mediaEntities = (Array.isArray(tracks) ? tracks : []).flatMap((track) => {

@@ -47,6 +47,7 @@ describe("music.spotify sandbox script", () => {
 			],
 		]);
 	});
+
 	it("maps track search hits, drops entries without an id, and reuses the cached token", () => {
 		let tokenPosts = 0;
 		const searchBody = {
@@ -97,6 +98,7 @@ describe("music.spotify sandbox script", () => {
 			),
 		);
 	});
+
 	it("groups artists and the album, and maps track scalar properties", () => {
 		const host = makeHost([
 			{
@@ -175,6 +177,28 @@ describe("music.spotify sandbox script", () => {
 			),
 		);
 	});
+
+	it("uses a fixed page size of 10 for track search regardless of pageSize input", () => {
+		const searchUrls: string[] = [];
+		const host = makeHost([], {
+			httpCall: (_method, url) => {
+				searchUrls.push(url);
+				return httpSuccess({ tracks: { total: 0, items: [] } });
+			},
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(search, { page: 2, pageSize: 20, query: "track" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(searchUrls).toEqual([
+						"https://api.spotify.com/v1/search?type=track&q=track&offset=10&limit=10",
+					]);
+					expect(result.details).toEqual({ totalItems: 0, nextPage: null });
+					return undefined;
+				}),
+			),
+		);
+	});
+
 	it("requests a fresh token on a cache miss and caches it with the computed ttl", () => {
 		const cacheWrites: Array<readonly [string, unknown, number]> = [];
 		const host = makeHost([{ body: { tracks: {} }, match: (url) => url.includes("/search") }], {

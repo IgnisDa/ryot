@@ -75,6 +75,27 @@ describe("music-group.spotify sandbox script", () => {
 		);
 	});
 
+	it("uses a fixed page size of 10 for album search regardless of pageSize input", () => {
+		const searchUrls: string[] = [];
+		const host = makeHost([], {
+			httpCall: (_method, url) => {
+				searchUrls.push(url);
+				return httpSuccess({ albums: { total: 0, items: [] } });
+			},
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(search, { page: 2, pageSize: 20, query: "album" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(searchUrls).toEqual([
+						"https://api.spotify.com/v1/search?type=album&q=album&offset=10&limit=10",
+					]);
+					expect(result.details).toEqual({ totalItems: 0, nextPage: null });
+					return undefined;
+				}),
+			),
+		);
+	});
+
 	it("maps album tracks into an ordered outgoing group with a loading placeholder", () => {
 		const host = makeHost([
 			{
