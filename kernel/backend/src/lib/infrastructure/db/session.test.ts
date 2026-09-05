@@ -79,6 +79,31 @@ layer(sessionLayer)((test) => {
 });
 
 layer(sessionLayer)((test) => {
+	test.effect("runs statements on the current executor and maps their SQL failures", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			yield* session.run((db) => db.insert(entry).values({ id: "root", value: "outside" }));
+			const error = yield* Effect.flip(
+				session.run((db) => db.insert(entry).values({ id: "root", value: "duplicate" })),
+			);
+			assert(error instanceof DbError);
+			expect(error.code).toBe("23505");
+
+			const rolledBack = yield* Effect.flip(
+				session.transaction(
+					Effect.gen(function* () {
+						yield* session.run((db) => db.insert(entry).values({ id: "inside", value: "discard" }));
+						return yield* Effect.fail({ _tag: "FixtureFailure" as const });
+					}),
+				),
+			);
+			expect(rolledBack).toEqual({ _tag: "FixtureFailure" });
+			expect(yield* session.run((db) => db.select().from(entry))).toMatchObject([{ id: "root" }]);
+		}),
+	);
+});
+
+layer(sessionLayer)((test) => {
 	test.effect("maps SQL failures to DbError and rolls back earlier writes", () =>
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
