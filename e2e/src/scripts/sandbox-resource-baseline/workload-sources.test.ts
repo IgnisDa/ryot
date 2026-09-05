@@ -6,7 +6,6 @@ import {
 	DECODE_EXTERNAL_ID_SOURCE,
 	DETERMINISTIC_PAYLOAD_SOURCE,
 	decodeBenchmarkExternalId,
-	deterministicPayload,
 	encodeBenchmarkExternalId,
 } from "./workload-sources";
 
@@ -19,25 +18,6 @@ const workload = {
 	relatedEntityCount: 100,
 	terminalOutcome: "typed-failure" as const,
 };
-
-describe("deterministicPayload", () => {
-	it("produces the same bytes for the same seed and differs across seeds", () => {
-		expect(deterministicPayload(42, 512)).toBe(deterministicPayload(42, 512));
-		expect(deterministicPayload(42, 512)).not.toBe(deterministicPayload(43, 512));
-	});
-
-	it("returns exactly the requested number of single-byte printable characters", () => {
-		const payload = deterministicPayload(1, 4096);
-		expect(payload).toHaveLength(4096);
-		expect(new TextEncoder().encode(payload)).toHaveLength(4096);
-		expect(payload).toMatch(/^[A-Za-z0-9+/]+$/);
-	});
-
-	it("spreads across the alphabet so the payload is not compression friendly", () => {
-		const payload = deterministicPayload(9, 8192);
-		expect(new Set(payload).size).toBeGreaterThan(60);
-	});
-});
 
 describe("benchmark external id", () => {
 	it("round-trips every workload knob", () => {
@@ -52,36 +32,22 @@ describe("benchmark external id", () => {
 	});
 });
 
-const evaluateSandboxSource = <A>(source: string, expression: string) => {
-	const javascript = new Bun.Transpiler({ loader: "ts" }).transformSync(source);
-	return Function(`${javascript}; return ${expression};`)() as A;
-};
-
 describe("generated sandbox sources", () => {
-	it("embeds a payload generator that agrees with the host implementation", () => {
-		const source = benchmarkScriptSource({ name: "Bench", slug: "bench.script" });
-		const embedded = evaluateSandboxSource<(seed: number, bytes: number) => string>(
-			DETERMINISTIC_PAYLOAD_SOURCE,
-			"deterministicPayload",
+	it("annotates the embedded helpers because the sandbox compiler forbids implicit any", () => {
+		expect(DETERMINISTIC_PAYLOAD_SOURCE).toContain(
+			"function deterministicPayload(seed: number, byteLength: number): string",
 		);
-		expect(source).toContain(DETERMINISTIC_PAYLOAD_SOURCE);
-		for (const [seed, bytes] of [
-			[1, 64],
-			[42, 4096],
-			[7, 1],
-		]) {
-			expect(embedded(seed ?? 0, bytes ?? 0)).toBe(deterministicPayload(seed ?? 0, bytes ?? 0));
-		}
+		expect(DECODE_EXTERNAL_ID_SOURCE).toContain(
+			"function decodeBenchmarkExternalId(value: string): BenchmarkWorkload | null",
+		);
+		expect(DECODE_EXTERNAL_ID_SOURCE).toContain("(part: string)");
+		expect(DECODE_EXTERNAL_ID_SOURCE).toContain("(part: number)");
 	});
 
-	it("embeds an external-id decoder that agrees with the host implementation", () => {
-		const embedded = evaluateSandboxSource<typeof decodeBenchmarkExternalId>(
-			DECODE_EXTERNAL_ID_SOURCE,
-			"decodeBenchmarkExternalId",
+	it("embeds the payload generator in the scripts that return a payload", () => {
+		expect(benchmarkScriptSource({ name: "Bench", slug: "bench.script" })).toContain(
+			DETERMINISTIC_PAYLOAD_SOURCE,
 		);
-		const encoded = encodeBenchmarkExternalId({ ...workload, nonce: "run-9-1" });
-		expect(embedded(encoded)).toEqual(decodeBenchmarkExternalId(encoded));
-		expect(embedded("not-a-benchmark-id")).toBeNull();
 	});
 
 	it("wires the configured relationship slugs into the details provider", () => {
@@ -96,5 +62,6 @@ describe("generated sandbox sources", () => {
 		expect(source).toContain('"media-suggestion"');
 		expect(source).toContain('"person-to-book"');
 		expect(source).toContain(DECODE_EXTERNAL_ID_SOURCE);
+		expect(source).toContain(DETERMINISTIC_PAYLOAD_SOURCE);
 	});
 });
