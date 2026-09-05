@@ -239,7 +239,10 @@ export const makeEntityRouteStub = (
 export const EntityRouteStubs = makeEntityRouteStub();
 
 export const SavedViewRouteStubs = Layer.mergeAll(
-	Layer.succeed(ManagedAssetsService, { read: () => Effect.succeed([]) }),
+	Layer.succeed(ManagedAssetsService, {
+		read: () => Effect.succeed([]),
+		outcome: () => Effect.die("not used"),
+	}),
 	Layer.succeed(SavedViewsService, { loadRecord: () => Effect.die("not used") }),
 );
 

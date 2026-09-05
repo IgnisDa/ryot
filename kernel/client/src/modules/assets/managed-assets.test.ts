@@ -3,7 +3,7 @@ import { Effect, Layer, ManagedRuntime } from "effect";
 
 import { decodeServerOrigin, resolveApiUrl } from "#/api/origin";
 import { makeUploadsApi } from "#/api/ports.test-layer";
-import { ManagedAssetsService, resolveManagedAssetOutcome } from "#/modules/assets/managed-assets";
+import { ManagedAssetsService } from "#/modules/assets/managed-assets";
 
 describe("managed assets", () => {
 	const scope = { userId: "user-1", serverUrl: decodeServerOrigin("https://ryot.example") };
@@ -80,7 +80,11 @@ describe("managed assets", () => {
 		);
 		return Effect.gen(function* () {
 			expect(
-				yield* Effect.promise(() => runtime.runPromise(resolveManagedAssetOutcome(scope, assets))),
+				yield* Effect.promise(() =>
+					runtime.runPromise(
+						Effect.flatMap(ManagedAssetsService, (service) => service.outcome(scope, assets)),
+					),
+				),
 			).toEqual({
 				outcome: "success",
 				resolutions: assets.map((asset) => ({

@@ -9,7 +9,7 @@ import {
 	UploadBadRequest,
 	UploadInternalError,
 } from "@ryot-app/contract/modules/uploads/schemas";
-import { Data, Effect, Schema } from "effect";
+import { Context, Data, Effect, Layer, Schema } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import type { ApiScope } from "#/api/scope";
@@ -36,46 +36,59 @@ export const classifyTemporaryUploadFailure = (error: unknown): PluginUploadBrid
 
 const failWith = (reason: PluginUploadBridgeErrorReason) => new TemporaryUploadError({ reason });
 
-// `completeIntent` may resolve to a managed asset locator, so the token is narrowed, not assumed.
-export const temporaryUpload = Effect.fn("temporaryUpload")(function* (
-	scope: ApiScope,
-	request: PluginUploadRequest,
-) {
-	const api = yield* UploadsApi;
-	const intent = yield* api
-		.createIntent(scope, {
-			payload: { kind: "temporary", fileName: request.fileName, contentType: request.contentType },
-		})
-		.pipe(Effect.mapError((error) => failWith(classifyTemporaryUploadFailure(error))));
-	yield* api
-		.putBytes(scope, {
-			source: request.source,
-			uploadUrl: intent.uploadUrl,
-			headers: { ...intent.headers },
-			contentType: request.contentType,
-		})
-		.pipe(
-			Effect.mapError((error) =>
-				failWith(
-					error instanceof AuthenticatedApiError && typeof error.cause === "number"
-						? "operation-failed"
-						: "transport",
-				),
-			),
-		);
-	const completion = yield* api
-		.completeIntent(scope, { params: { intentId: intent.intentId } })
-		.pipe(Effect.mapError((error) => failWith(classifyTemporaryUploadFailure(error))));
-	return isTemporaryUploadToken(completion) ? completion : yield* failWith("malformed-result");
-});
+export class TemporaryUploads extends Context.Service<TemporaryUploads>()("TemporaryUploads", {
+	make: Effect.gen(function* () {
+		const api = yield* UploadsApi;
 
-export const temporaryUploadOutcome = (
-	scope: ApiScope,
-	request: PluginUploadRequest,
-): Effect.Effect<PluginUploadOutcome, never, UploadsApi> =>
-	temporaryUpload(scope, request).pipe(
-		Effect.match({
-			onSuccess: (token) => ({ token, outcome: "success" }) as const,
-			onFailure: (error) => ({ outcome: "failure", reason: error.reason }) as const,
-		}),
-	);
+		// `completeIntent` may resolve to a managed asset locator, so the token is narrowed, not assumed.
+		const upload = Effect.fn("temporaryUpload")(function* (
+			scope: ApiScope,
+			request: PluginUploadRequest,
+		) {
+			const intent = yield* api
+				.createIntent(scope, {
+					payload: {
+						kind: "temporary",
+						fileName: request.fileName,
+						contentType: request.contentType,
+					},
+				})
+				.pipe(Effect.mapError((error) => failWith(classifyTemporaryUploadFailure(error))));
+			yield* api
+				.putBytes(scope, {
+					source: request.source,
+					uploadUrl: intent.uploadUrl,
+					headers: { ...intent.headers },
+					contentType: request.contentType,
+				})
+				.pipe(
+					Effect.mapError((error) =>
+						failWith(
+							error instanceof AuthenticatedApiError && typeof error.cause === "number"
+								? "operation-failed"
+								: "transport",
+						),
+					),
+				);
+			const completion = yield* api
+				.completeIntent(scope, { params: { intentId: intent.intentId } })
+				.pipe(Effect.mapError((error) => failWith(classifyTemporaryUploadFailure(error))));
+			return isTemporaryUploadToken(completion) ? completion : yield* failWith("malformed-result");
+		});
+
+		const outcome = (
+			scope: ApiScope,
+			request: PluginUploadRequest,
+		): Effect.Effect<PluginUploadOutcome> =>
+			upload(scope, request).pipe(
+				Effect.match({
+					onSuccess: (token) => ({ token, outcome: "success" }) as const,
+					onFailure: (error) => ({ outcome: "failure", reason: error.reason }) as const,
+				}),
+			);
+
+		return { upload, outcome };
+	}),
+}) {
+	static readonly layer = Layer.effect(this, this.make);
+}
