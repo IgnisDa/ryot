@@ -12,6 +12,7 @@ import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endp
 import { PluginSlug, UserId } from "../../schema/brands";
 import {
 	InstallPluginBody,
+	PluginInstallResult,
 	PluginConflictError,
 	PluginHomeViewSelection,
 	PluginInstallationWriteResult,
@@ -52,7 +53,7 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 	.add(
 		AuthenticatedMutationEndpoint.post("protected")("install", "/plugins", {
 			payload: InstallPluginBody,
-			success: PluginInstallationWriteResult.pipe(HttpApiSchema.status(201)),
+			success: PluginInstallResult.pipe(HttpApiSchema.status(201)),
 			error: [
 				PluginRequestError.pipe(HttpApiSchema.status(400)),
 				PluginConflictError.pipe(HttpApiSchema.status(409)),
@@ -78,14 +79,18 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 		),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.delete("protected")("uninstall", "/plugins/:pluginSlug", {
-			params: { pluginSlug: PluginSlug },
-			success: PluginInstallationWriteResult,
-			error: [
-				PluginConflictError.pipe(HttpApiSchema.status(409)),
-				PluginNotFoundError.pipe(HttpApiSchema.status(404)),
-			],
-		}).annotate(
+		AuthenticatedMutationEndpoint.delete("protected")(
+			"uninstall",
+			"/plugins/:pluginSlug/:activationId",
+			{
+				success: PluginInstallationWriteResult,
+				params: { pluginSlug: PluginSlug, activationId: Schema.String },
+				error: [
+					PluginConflictError.pipe(HttpApiSchema.status(409)),
+					PluginNotFoundError.pipe(HttpApiSchema.status(404)),
+				],
+			},
+		).annotate(
 			OpenApi.Description,
 			"Uninstalls the caller's private plugin unless a workflow or persistent resource still references it.",
 		),

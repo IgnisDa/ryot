@@ -51,6 +51,9 @@ export const plugin = snakeCase.table(
 		environmentConfigRevisionId: text(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		ownerId: text("owner_user_id").references(() => user.id, { onDelete: "cascade" }),
+		activationId: text()
+			.notNull()
+			.$defaultFn(() => /* @__PURE__ */ generateId()),
 		id: text()
 			.notNull()
 			.primaryKey()
@@ -82,6 +85,14 @@ export const plugin = snakeCase.table(
 		),
 	],
 );
+
+export const pluginUninstallReceipt = snakeCase.table("plugin_uninstall_receipt", {
+	installationId: text(),
+	slug: text().notNull(),
+	pluginId: text().notNull(),
+	activationId: text().primaryKey(),
+	ownerId: text("owner_user_id").references(() => user.id, { onDelete: "cascade" }),
+});
 
 export const pluginRevision = snakeCase.table(
 	"plugin_revision",

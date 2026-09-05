@@ -144,14 +144,14 @@ export const installPrivatePlugin = (
 ) =>
 	Effect.gen(function* () {
 		const plugin = privatePluginPackage(input);
-		yield* installPrivatePluginPackage({
+		const installed = yield* installPrivatePluginPackage({
 			client: input.client,
 			config: input.config,
 			pluginPackage: plugin,
 			baseUrl: input.baseUrl,
 		});
 		const installation = yield* settledPrivateInstallation(input.client, plugin.pluginSlug);
-		return { ...plugin, installation };
+		return { ...plugin, installation, activationId: installed.activationId };
 	});
 
 export type PrivateBootstrapPluginPackage = {
@@ -443,9 +443,13 @@ export const installPrivateImportPlugin = (
 ) =>
 	Effect.gen(function* () {
 		const plugin = privateImportPluginPackage(input);
-		yield* installPrivatePluginPackage({ config: {}, client: input.client, pluginPackage: plugin });
+		const installed = yield* installPrivatePluginPackage({
+			config: {},
+			client: input.client,
+			pluginPackage: plugin,
+		});
 		const installation = yield* settledPrivateInstallation(input.client, plugin.pluginSlug);
-		return { ...plugin, installation };
+		return { ...plugin, installation, activationId: installed.activationId };
 	});
 
 export const installPrivateIntegrationPlugin = (
@@ -453,9 +457,13 @@ export const installPrivateIntegrationPlugin = (
 ) =>
 	Effect.gen(function* () {
 		const plugin = privateIntegrationPluginPackage(input);
-		yield* installPrivatePluginPackage({ config: {}, client: input.client, pluginPackage: plugin });
+		const installed = yield* installPrivatePluginPackage({
+			config: {},
+			client: input.client,
+			pluginPackage: plugin,
+		});
 		const installation = yield* settledPrivateInstallation(input.client, plugin.pluginSlug);
-		return { ...plugin, installation };
+		return { ...plugin, installation, activationId: installed.activationId };
 	});
 
 export const invokePrivateIntegrationOperation = (input: {
@@ -475,16 +483,27 @@ export const invokePrivateIntegrationOperation = (input: {
 		}),
 	);
 
-export const uninstallPrivatePlugin = (client: Client, pluginSlug: PluginSlug) =>
-	client.call((c) => c.plugins.uninstall({ params: { pluginSlug } }));
+export const uninstallPrivatePlugin = (
+	client: Client,
+	pluginSlug: PluginSlug,
+	activationId: string,
+) => client.call((c) => c.plugins.uninstall({ params: { pluginSlug, activationId } }));
 
 export const releasePrivatePlugin = (client: Client, pluginSlug: PluginSlug) =>
-	pollUntil(
-		`uninstall of private plugin '${pluginSlug}'`,
-		uninstallPrivatePlugin(client, pluginSlug).pipe(
-			Effect.as(true),
-			Effect.catchTag("PluginConflictError", (error) =>
-				Effect.succeed(error.reason.code === "workflow-referenced" ? null : true),
+	Effect.gen(function* () {
+		const installation = (yield* listInstalledPlugins(client, { includeHidden: true })).find(
+			(entry) => entry.slug === pluginSlug && entry.scope === "user",
+		);
+		if (!installation) {
+			return;
+		}
+		yield* pollUntil(
+			`uninstall of private plugin '${pluginSlug}'`,
+			uninstallPrivatePlugin(client, pluginSlug, installation.activationId).pipe(
+				Effect.as(true),
+				Effect.catchTag("PluginConflictError", (error) =>
+					Effect.succeed(error.reason.code === "workflow-referenced" ? null : true),
+				),
 			),
-		),
-	).pipe(Effect.asVoid, Effect.orDie);
+		);
+	}).pipe(Effect.asVoid, Effect.orDie);

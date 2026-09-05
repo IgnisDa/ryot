@@ -420,16 +420,16 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			const dispatchPendingInstallationLifecycle = Effect.fn(
 				"PluginInstallationService.dispatchPendingInstallationLifecycle",
 			)(function* () {
-				const pending = yield* installations.listPendingLifecycle();
+				const pending = yield* installations.listPendingLifecycle(100);
 				yield* Effect.forEach(
 					pending,
-					(installationId) =>
+					(installation) =>
 						lifecycleDispatcher
-							.dispatch(installationId)
+							.dispatch(installation)
 							.pipe(
 								Effect.catchCause((cause) =>
 									Effect.logError("plugin installation lifecycle sweep failed", cause).pipe(
-										Effect.annotateLogs({ installationId }),
+										Effect.annotateLogs({ installationId: installation.installationId }),
 									),
 								),
 							),
@@ -508,22 +508,17 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 
 			const dispatchInstallationLifecycle = Effect.fn(
 				"PluginInstallationService.dispatchInstallationLifecycle",
-			)(function* (state: PluginInstallationRow) {
-				const dispatched = yield* Effect.result(lifecycleDispatcher.dispatch(state.id));
+			)(function* (state: PluginInstallationRow, activationId: string) {
+				const dispatched = yield* Effect.result(
+					lifecycleDispatcher.dispatch({ activationId, installationId: state.id }),
+				);
 				if (Result.isSuccess(dispatched)) {
 					return state;
 				}
 				yield* Effect.logError("plugin installation lifecycle dispatch failed").pipe(
 					Effect.annotateLogs({ installationId: state.id }),
 				);
-				const healthReason = "Installation lifecycle could not be started";
-				yield* database.transaction(
-					installations
-						.updateHealth({ healthReason, id: state.id, health: "failed" })
-						.pipe(Effect.andThen(invalidator.recordUser(UserId.make(state.userId)))),
-				);
-				yield* invalidator.user(UserId.make(state.userId));
-				return { ...state, healthReason, health: "failed" as const };
+				return state;
 			});
 
 			const installPrivateUnlocked = Effect.fn("PluginInstallationService.installPrivateUnlocked")(
@@ -569,7 +564,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					);
 					const normalized = yield* normalizePluginPackage(normalizedSource);
 					yield* validatePluginExecutableScripts(normalized);
-					const state = yield* Effect.uninterruptible(
+					const installed = yield* Effect.uninterruptible(
 						transaction(
 							input.userId,
 							Effect.gen(function* () {
@@ -600,12 +595,20 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 										message: "Plugin installation upsert returned no row",
 									});
 								}
-								return existingState;
+								const active = yield* repository.findPrivateByIdForUser(pluginId, input.userId);
+								if (!active) {
+									return yield* new DbError({ message: "Installed plugin is not active" });
+								}
+								return { state: existingState, activationId: active.activationId };
 							}),
 						).pipe(Effect.tap(() => invalidator.user(input.userId))),
 					);
-					yield* dispatchInstallationLifecycle(state);
-					return { id: state.id, pluginId: PluginId.make(state.pluginId) };
+					yield* dispatchInstallationLifecycle(installed.state, installed.activationId);
+					return {
+						id: installed.state.id,
+						activationId: installed.activationId,
+						pluginId: PluginId.make(installed.state.pluginId),
+					};
 				},
 			);
 
@@ -617,7 +620,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 							userId: input.userId,
 							config: input.config,
 						}),
-					).pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die), structurePluginFailure),
+					).pipe(structurePluginFailure),
 			);
 
 			const updatePrivateUnlocked = Effect.fn("PluginInstallationService.updatePrivateUnlocked")(
@@ -891,49 +894,83 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			const uninstallPlugin = Effect.fn("PluginInstallationService.uninstallPlugin")(function* (
 				userId: UserId,
 				slug: string,
+				activationId: string,
 			) {
 				const pluginSlug = PluginSlug.make(slug);
-				const owned = yield* repository.listPrivateForUser(userId);
-				const plugin = owned.find((candidate) => candidate.slug === slug);
-				if (!plugin) {
-					if (yield* repository.findActiveSystemPlugin(slug)) {
-						return yield* new PluginConflictError({
-							reason: { pluginSlug, code: "system-plugin" },
-						});
-					}
-					return yield* new PluginNotFoundError({
-						reason: { pluginSlug, code: "plugin-not-found" },
-					});
-				}
-				const installation = yield* installations.findByUserAndPlugin(userId, plugin.id);
-				if (!installation) {
-					return yield* new PluginNotFoundError({
-						reason: { pluginSlug, code: "plugin-not-found" },
-					});
-				}
-				yield* Effect.uninterruptible(
-					transaction(
-						userId,
-						Effect.gen(function* () {
-							yield* repository.lockIngestion();
-							const current = yield* repository.findPrivateByIdForUser(plugin.id, userId);
-							const currentInstallation = yield* installations.findByUserAndPlugin(
-								userId,
-								plugin.id,
-							);
-							if (!current || currentInstallation?.id !== installation.id) {
-								return yield* new PluginNotFoundError({
-									reason: { pluginSlug, code: "plugin-not-found" },
+				const removed = yield* Effect.uninterruptible(
+					database
+						.transaction(
+							Effect.gen(function* () {
+								yield* repository.lockIngestion();
+								const receipt = yield* repository.findUninstallReceipt(activationId);
+								if (
+									receipt?.ownerId === userId &&
+									receipt.slug === slug &&
+									receipt.installationId !== null
+								) {
+									return {
+										replayed: true,
+										result: {
+											id: receipt.installationId,
+											pluginId: PluginId.make(receipt.pluginId),
+										},
+									};
+								}
+								const owned = yield* repository.listPrivateForUser(userId);
+								const plugin = owned.find((candidate) => candidate.slug === slug);
+								if (!plugin || plugin.activationId !== activationId) {
+									if (!plugin && (yield* repository.findActiveSystemPlugin(slug))) {
+										return yield* new PluginConflictError({
+											reason: { pluginSlug, code: "system-plugin" },
+										});
+									}
+									return yield* new PluginNotFoundError({
+										reason: { pluginSlug, code: "plugin-not-found" },
+									});
+								}
+								const installation = yield* installations.findByUserAndPlugin(userId, plugin.id);
+								if (!installation) {
+									return yield* new PluginNotFoundError({
+										reason: { pluginSlug, code: "plugin-not-found" },
+									});
+								}
+								const current = yield* repository.findPrivateByIdForUser(plugin.id, userId);
+								const currentInstallation = yield* installations.findByUserAndPlugin(
+									userId,
+									plugin.id,
+								);
+								if (
+									!current ||
+									current.activationId !== activationId ||
+									currentInstallation?.id !== installation.id
+								) {
+									return yield* new PluginNotFoundError({
+										reason: { pluginSlug, code: "plugin-not-found" },
+									});
+								}
+								yield* assertUnreferenced(current, currentInstallation, pluginSlug);
+								yield* installations.remove(currentInstallation.id);
+								yield* repository.deactivate(current.id);
+								yield* repository.recordUninstallReceipt({
+									slug,
+									activationId,
+									ownerId: userId,
+									pluginId: plugin.id,
+									installationId: installation.id,
 								});
-							}
-							yield* assertUnreferenced(current, currentInstallation, pluginSlug);
-							yield* installations.remove(currentInstallation.id);
-							yield* repository.deactivate(current.id);
-							return undefined;
-						}),
-					).pipe(Effect.andThen(invalidator.user(userId))),
+								yield* invalidator.recordUser(userId);
+								return {
+									replayed: false,
+									result: { id: installation.id, pluginId: PluginId.make(plugin.id) },
+								};
+							}),
+						)
+						.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die)),
 				);
-				return { id: installation.id, pluginId: PluginId.make(plugin.id) };
+				if (!removed.replayed) {
+					yield* invalidator.user(userId);
+				}
+				return removed.result;
 			});
 
 			return {

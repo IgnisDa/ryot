@@ -47,6 +47,7 @@ export const pluginInstallationsRecipe = defineRecipe(
 					description: selectedField(column(plugin, "description"), Schema.String),
 					isHidden: selectedField(column(installation, "isHidden"), Schema.Boolean),
 					sortOrder: selectedField(column(installation, "sortOrder"), Schema.Finite),
+					activationId: selectedField(column(plugin, "activationId"), Schema.String),
 					health: selectedField(column(installation, "health"), PluginInstallationHealth),
 					configSchema: selectedField(column(plugin, "configSchema"), PluginConfigSchema),
 					scope: selectedField(column(plugin, "scope"), Schema.Literals(["system", "user"])),

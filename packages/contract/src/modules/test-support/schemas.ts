@@ -60,6 +60,7 @@ export type TestSupportInstallSystemPluginBodyBase64 =
 
 export const TestSupportPluginWriteResult = Schema.Struct({
 	pluginId: PluginId,
+	activationId: Schema.String,
 	activePluginRevisionId: PluginRevisionId,
 	installationId: Schema.NullOr(Schema.String),
 	configRevisionId: Schema.NullOr(PluginConfigRevisionId),
