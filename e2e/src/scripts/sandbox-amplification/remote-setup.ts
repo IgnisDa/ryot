@@ -7,10 +7,12 @@
  */
 import { writeFileSync } from "node:fs";
 
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { Clock, Effect } from "effect";
 
-import { createApiKey, createTestUser, makeSession } from "~/fixtures/kernel";
-import { getApiUrl } from "~/support/harness-target";
+import { createTestAuthClient, createTestUser, makeSession } from "~/fixtures/kernel";
+import { requirePresent } from "~/support/assertions";
+import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
 
 import { installBenchmarkWorkloadPlugin } from "../sandbox-resource-baseline/workload-plugin";
 
@@ -21,8 +23,17 @@ if (!statePath) {
 
 const program = Effect.gen(function* () {
 	const { token, userId, sessionCookie } = yield* createTestUser();
-	const client = makeSession(getApiUrl(), { Authorization: `Bearer ${token}` });
-	const apiKey = yield* createApiKey(sessionCookie, "sandbox amplification probe");
+	const client = makeSession(
+		getApiUrl(),
+		{ Authorization: `Bearer ${token}` },
+		UserId.make(userId),
+	);
+	// A production deployment rejects Better Auth mutations without the browser Origin.
+	const authClient = createTestAuthClient(getApiUrl(), { sessionCookie, origin: getFrontendUrl() });
+	const created = yield* Effect.promise(() =>
+		authClient.apiKey.create({ name: "sandbox amplification probe" }),
+	);
+	const apiKey = requirePresent(created.data, "API key creation failed").key;
 	const runId = `amp-${yield* Clock.currentTimeMillis}`;
 	const plugin = yield* installBenchmarkWorkloadPlugin({ runId, client });
 	writeFileSync(
