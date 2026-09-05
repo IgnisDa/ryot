@@ -6,9 +6,16 @@ The backend executes plugin and source-zero kernel scripts as untrusted TypeScri
 
 Plugin ingestion validates `.sandbox.ts` manifest entries, compiles format-1 JavaScript, and stores immutable rows keyed by script provenance and content hash. Kernel scripts use the same compiler and content-addressed rows under definition source zero. Root scripts are pinned before first execution; child targets resolve from the active pinned plugin revision when first observed and are then pinned to that durable step.
 
-`sandbox:compile-runner` bundles `runner-source.sandbox.ts` and `runner-utilities.sandbox.ts` into ignored `runner.generated.ts`. `sandbox:check-runner` type-checks Deno globals separately. Normal `check`, `test`, `build`, and `dev` regenerate the runner.
+`sandbox:prepare-runtime` runs `scripts/generate-sandbox-runtime.ts` to generate the Deno runner,
+embed kernel sandbox sources, and build the trusted runtime payload. Registry/package resolution is
+in `scripts/sandbox-runtime-registry.ts`; registry-driven module builds, hashes, import-map generation,
+and metadata assembly are in `scripts/sandbox-runtime-payload.ts`. Both runner and dependency modules
+use `@ryot-app/vite-compiler`'s `buildDenoEsm` profile. Generation runs before normal `check`, `test`,
+and `build` tasks; server development runs the same script in watch mode. The generated files are
+`runner.generated.ts`, `kernel-scripts.generated.ts`, and `runtime-payload.generated.ts`.
+`sandbox:check-runner` type-checks Deno globals separately.
 
-Before execution, the backend verifies compiled bytes against SHA-256, atomically materializes a read-only `<hash>.mjs`, and hard-links it into an execution directory. A single-use Deno process imports it through a local approved-dependency map. The runner validates definition input and output and returns a completed, failed, or pending envelope.
+Before execution, the backend verifies compiled bytes against SHA-256, atomically materializes a read-only `<hash>.mjs`, and hard-links it into an execution directory. A single-use Deno process imports it through a local approved-dependency map. The runner validates definition input and output and returns a completed, failed, or pending envelope. The Deno launcher, permissions, and execution grants remain unchanged.
 
 An unrecorded mutable `host.*` call ends that replay. The workflow dispatches it through its owning activity, child workflow, artifact operation, or diagnostic path, journals the typed success or failure, then replays. Recorded calls return their journaled results and never repeat the backend dispatch.
 
@@ -49,7 +56,15 @@ Grant paths must be absolute, normalized, and contained by `config.tmpDir`. Thes
 
 Oversized results may be chunked into named scratch files. The kernel, never another sandbox run, copies exactly those files to workflow storage and returns opaque handles. Consumers resolve a handle only against its trusted parent execution. Public results omit harvest metadata.
 
-Format-1 modules may import the SDK root and `/driver`, `/wire`, `/operation`, `/effect`, `/cheerio`, `/youtubei`, `/fflate`, `/papaparse`, and `/fast-xml-parser`. Exact pinned versions are built atomically into immutable, content-addressed ESM files under `SANDBOX_DENO_DIR`. Deno runs cached-only with no npm, registry, remote URL, project config, or lock file. Backend and browser plugin compilers remain separate engines.
+Format-1 modules may import compiler-bundled SDK entry points and the external specifiers derived from
+`SANDBOX_RUNTIME_REGISTRY` in `@ryot-app/sandbox-sdk`. Preparation builds immutable,
+content-addressed ESM files, an import map, a canonical payload content hash, and generated metadata
+containing format, Deno/Vite versions, dependency versions, file sizes, and file hashes. Startup calls
+`materializeShippedSandboxRuntime` to verify and materialize this payload; it never resolves packages
+or rebundles them. `materializeSandboxRuntimePayload` remains the lower-level validator/materializer.
+Deno runs cached-only with no npm, registry, remote URL, project config, or lock file. SDK and
+plugin-kit Effect and RyotQL aliases point to the same runtime files and preserve module identity.
+Backend and browser plugin compilers remain separate engines.
 
 ## Capabilities
 
@@ -87,7 +102,7 @@ HTTP logs contain only workflow execution ID, policy key, normalized origin, sta
 
 ## Failures
 
-- Completed script failures identify `load`, `input`, `execute`, or `output` phase and may include allowlisted source-mapped `script.ts` frames.
+- Completed script failures identify `load`, `input`, `execute`, or `output` phase and may include source-mapped frames, each named by its authored path relative to the compiled module.
 - Returned stacks remove data URLs, runner/dependency paths, bridge URLs, execution IDs, and tokens.
 - Bridge validation uses 400 for invalid body, 401 for token failure, 404 for unknown function, and 410 for expired session.
 - Timeout and unexpected process death are workflow job failures. Raw compiler/runtime diagnostics stay on explicit plugin-author, admin, and test surfaces; unexpected causes stay in logs.

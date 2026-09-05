@@ -59,6 +59,10 @@
 			"types": "./src/ryotql.ts",
 			"default": "./src/ryotql.ts"
 		},
+		"./runtime-registry": {
+			"types": "./src/runtime-registry.ts",
+			"default": "./src/runtime-registry.ts"
+		},
 		"./wire": {
 			"types": "./src/wire.ts",
 			"default": "./src/wire.ts"
