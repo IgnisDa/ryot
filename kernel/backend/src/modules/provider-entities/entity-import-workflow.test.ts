@@ -517,6 +517,7 @@ it.effect("uses command causation for deterministic root and final lifecycle wri
 		}),
 		Layer.mock(EntityImportWorkflowOperations)({
 			completeProviderEntityImport: () => Effect.void,
+			processProviderResolve: () => Effect.die("unexpected provider resolve"),
 			processSandbox: () =>
 				Effect.sync(() => {
 					expect(transaction.inTransaction()).toBe(false);

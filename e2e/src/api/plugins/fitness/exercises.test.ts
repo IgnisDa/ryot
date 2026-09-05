@@ -2,7 +2,6 @@ import { exerciseListRecipe } from "@ryot-app/fitness-plugin/query-recipes";
 import { Effect } from "effect";
 
 import {
-	type Client,
 	createEntity,
 	createAuthenticatedClient,
 	executeRyotQL,
@@ -18,7 +17,11 @@ import {
 	requireRyotQLValue,
 	requireRows,
 } from "~/fixtures/kernel";
-import { createWorkoutEntityFixture, findWorkoutSetEventSchema } from "~/fixtures/plugins/fitness";
+import {
+	createExerciseEntityFixture,
+	createWorkoutEntityFixture,
+	findWorkoutSetEventSchema,
+} from "~/fixtures/plugins/fitness";
 import {
 	assertCondition,
 	assertPresent,
@@ -26,22 +29,6 @@ import {
 	requirePresent,
 } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
-
-const seededExerciseName = "3/4 Sit-Up";
-const seededExerciseImageUrl =
-	"https://raw.githubusercontent.com/yuhonas/free-exercise-db/main/exercises/3_4_Sit-Up/0.jpg";
-const waitForSeededExercise = (client: Client) =>
-	pollUntil(
-		`exercise '${seededExerciseName}' to be queryable`,
-		Effect.gen(function* () {
-			const result = yield* executeRyotQLRecipe(
-				client,
-				exerciseListRecipe({ limit: 1, name: seededExerciseName }),
-			);
-
-			return result.items[0] ?? null;
-		}),
-	);
 
 describe("Exercises E2E", () => {
 	it.live("links the built-in exercise schema to the fitness plugin", () =>
@@ -175,13 +162,19 @@ describe("Exercises E2E", () => {
 		}),
 	);
 
-	it.live("lists seeded built-in exercises through RyotQL", () =>
+	it.live("lists a user-owned exercise through RyotQL and the built-in saved view", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const exercise = yield* waitForSeededExercise(client);
+			const exerciseName = `Listed Exercise ${crypto.randomUUID()}`;
+			yield* createExerciseEntityFixture(client, { name: exerciseName, kind: "reps_and_weight" });
+			const exercise = requirePresent(
+				(yield* executeRyotQLRecipe(client, exerciseListRecipe({ limit: 1, name: exerciseName })))
+					.items[0],
+				"Expected the created exercise in the exercise list",
+			);
 
-			expect(exercise.name).toBe(seededExerciseName);
-			expect(exercise.image).toEqual({ type: "remote", url: seededExerciseImageUrl });
+			expect(exercise.name).toBe(exerciseName);
+			expect(exercise.image).toEqual({ type: "remote", url: "https://example.com/exercise.jpg" });
 			expect(exercise.level).toBe("beginner");
 			expect(exercise.kind).toBe("reps_and_weight");
 			expect(exercise.equipment).toBe("body_only");
@@ -198,12 +191,12 @@ describe("Exercises E2E", () => {
 				sourceName,
 			);
 			const savedViewExercise = savedViewResult.items.find(
-				(item) => requireRyotQLValue(item, "column0") === seededExerciseName,
+				(item) => requireRyotQLValue(item, "column0") === exerciseName,
 			);
-			assertPresent(savedViewExercise, "Expected the seeded exercise in the built-in saved view");
+			assertPresent(savedViewExercise, "Expected the created exercise in the built-in saved view");
 			expect(requireRyotQLValue(savedViewExercise, "image")).toEqual({
 				type: "remote",
-				url: seededExerciseImageUrl,
+				url: "https://example.com/exercise.jpg",
 			});
 		}),
 	);

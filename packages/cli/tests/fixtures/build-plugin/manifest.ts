@@ -1,5 +1,4 @@
 export default {
-	boot: [],
 	crons: [],
 	hooks: [],
 	workflows: [],

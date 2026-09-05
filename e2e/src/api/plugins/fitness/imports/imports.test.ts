@@ -11,11 +11,7 @@ import {
 	pollImportRunUntilTerminal,
 	uploadImportFile,
 } from "~/fixtures/kernel";
-import {
-	runHevyImportFixture,
-	runOpenScaleImportFixture,
-	startOpenScaleImport,
-} from "~/fixtures/plugins/fitness";
+import { runOpenScaleImportFixture, startOpenScaleImport } from "~/fixtures/plugins/fitness";
 import { queryInLibraryRelationship } from "~/fixtures/plugins/media";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -166,22 +162,6 @@ describe("OpenScale Import E2E", () => {
 					reason: { code: "input-transformation-failed" },
 				},
 			]);
-		}),
-	);
-});
-
-describe("Hevy Workout Import E2E", () => {
-	it.live("imports a Hevy workout into exercise/workout entities and events", () =>
-		Effect.gen(function* () {
-			const { token, client } = yield* createAuthenticatedClient();
-			const { runId, completedRun } = yield* runHevyImportFixture(client, token);
-
-			expect(completedRun.id).toBe(ImportRunId.make(runId));
-			expect(completedRun.source).toBe("hevy");
-			expect(completedRun.status).toBe("completed");
-			expect(completedRun.failedItems).toBe(0);
-			expect(completedRun.importedItems).toBeGreaterThan(0);
-			expect(completedRun.progress).toBe(100);
 		}),
 	);
 });

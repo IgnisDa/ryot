@@ -35,8 +35,8 @@ import {
 } from "~/fixtures/kernel";
 import {
 	createWorkoutEntityFixture,
+	createExerciseEntityFixture,
 	findWorkoutSetEventSchema,
-	waitForSeededExerciseId,
 	waitForSessionEventCount,
 } from "~/fixtures/plugins/fitness";
 import { createPokemonEntityFixture } from "~/fixtures/plugins/fixture";
@@ -812,8 +812,10 @@ it.live("keeps one rich mixed entity browser runtime across pagination and layou
 			startedAt: "2026-09-07T08:00:00.000Z",
 		});
 		const { workoutSetEventSchema } = yield* findWorkoutSetEventSchema(client);
-		const exerciseId = yield* waitForSeededExerciseId(client);
-		const exercise = yield* getEntity(client, exerciseId);
+		const { exercise, exerciseId } = yield* createExerciseEntityFixture(client, {
+			kind: "reps_and_weight",
+			name: "Composed Strength Exercise",
+		});
 		yield* client.call((c) =>
 			c.events.create({
 				payload: [

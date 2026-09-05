@@ -1,18 +1,13 @@
 import type { ExecutionMetadata, SandboxHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-import type { ProviderDetailsInput, ProviderSearchInput } from "@ryot-app/sandbox-sdk/provider";
+import type {
+	ProviderDetailsInput,
+	ProviderResolveInput,
+	ProviderSearchInput,
+} from "@ryot-app/sandbox-sdk/provider";
 import type { JsonValue } from "@ryot-app/sandbox-sdk/wire";
 
 type ExerciseSourceHost = SandboxHost<readonly ["httpCall", "getCachedValue", "setCachedValue"]>;
-type ExercisePreloadHost = SandboxHost<
-	readonly [
-		"httpCall",
-		"getCachedValue",
-		"setCachedValue",
-		"getPluginConfig",
-		"upsertGlobalEntities",
-	]
->;
 
 const exerciseImageSchema = Schema.Struct({ url: Schema.String, type: Schema.Literal("remote") });
 type ExerciseImage = Schema.Schema.Type<typeof exerciseImageSchema>;
@@ -509,47 +504,18 @@ export const getExerciseDetails = (
 		return { name: row.name, properties: row.properties };
 	});
 
-const PRELOAD_BATCH_SIZE = 100;
-const MAX_PRELOAD_EXERCISE_LIMIT = 873;
-export const preloadResultSchema = Schema.Struct({
-	inserted: Schema.Number.pipe(
-		Schema.check(Schema.isInt()),
-		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
-	),
-	processed: Schema.Number.pipe(
-		Schema.check(Schema.isInt()),
-		Schema.check(Schema.isGreaterThanOrEqualTo(0)),
-	),
-});
-
-export const preloadExercises = (host: ExercisePreloadHost, execution: ExecutionMetadata) =>
+export const resolveExercise = (
+	input: ProviderResolveInput,
+	host: ExerciseSourceHost,
+	execution: ExecutionMetadata,
+) =>
 	Effect.gen(function* () {
-		const { exercisePreloadLimit: configuredLimit } = yield* host.getPluginConfig([
-			"exercisePreloadLimit",
-		]);
-		if (typeof configuredLimit !== "number") {
-			return yield* Effect.fail(new Error("Exercise preload limit must be a number"));
+		if (input.identifierType !== "name") {
+			return { externalId: null };
 		}
-		const preloadLimit = Math.min(MAX_PRELOAD_EXERCISE_LIMIT, Math.max(0, configuredLimit));
-		const exercises = (yield* loadExercises(host, execution)).slice(0, preloadLimit);
-		const populatedAt = yield* executionStartedAt(execution);
-		let inserted = 0;
-
-		for (let offset = 0; offset < exercises.length; offset += PRELOAD_BATCH_SIZE) {
-			const batch = exercises
-				.slice(offset, offset + PRELOAD_BATCH_SIZE)
-				.map((exercise) => ({
-					populatedAt,
-					name: exercise.name,
-					entitySchemaSlug: "exercise",
-					properties: exercise.properties,
-					externalId: exercise.externalId,
-				}));
-			const results = yield* host.upsertGlobalEntities(batch, { maximumTotal: preloadLimit });
-			inserted += results.filter(
-				(result) => result.status === "upserted" && result.wasInserted,
-			).length;
-		}
-
-		return { inserted, processed: exercises.length };
+		const normalizedName = normalizeSearchText([input.value]);
+		const matches = (yield* loadExercises(host, execution)).filter(
+			(exercise) => normalizeSearchText([exercise.name]) === normalizedName,
+		);
+		return { externalId: matches.length === 1 ? (matches[0]?.externalId ?? null) : null };
 	});

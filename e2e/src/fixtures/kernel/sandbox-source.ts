@@ -475,42 +475,6 @@ export function cacheSandboxSource(input: CacheSandboxSourceInput) {
 	});
 }
 
-export function bootSandboxSource(
-	input: SandboxSourceIdentity & { readonly externalId: string; readonly entitySchemaSlug: string },
-) {
-	return `
-import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
-
-export const manifest = defineManifest({
-  kind: "script",
-  name: ${JSON.stringify(input.name)},
-  slug: ${JSON.stringify(input.slug)},
-  capabilities: ["upsertGlobalEntities"],
-  requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
-});
-
-export default defineScript({
-  manifest,
-  input: Schema.Unknown,
-  output: Schema.Struct({ count: Schema.Number }),
-  run: (_input, host) => Effect.gen(function* () {
-    const entities = yield* host.upsertGlobalEntities([
-      {
-        properties: {},
-        populatedAt: null,
-        name: ${JSON.stringify(input.name)},
-        entitySchemaSlug: ${JSON.stringify(input.entitySchemaSlug)},
-        externalId: ${JSON.stringify(input.externalId)},
-      },
-    ]);
-    return { count: entities.filter((entity) => entity.status === "upserted").length };
-  }),
-});
-`;
-}
-
 export function operationSandboxSource(input: SandboxSourceIdentity) {
 	return `
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
