@@ -495,7 +495,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 			}),
 	);
 
-	it.live("uses one claim key for concurrent final candidates and creates one event", () =>
+	it.live("deduplicates concurrent completion candidates from different event commands", () =>
 		Effect.gen(function* () {
 			let held = false;
 			const claims: Array<readonly [string, boolean, number]> = [];
@@ -518,9 +518,13 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 				created,
 			});
 
-			yield* Effect.all([run(eventContext(), first.host), run(eventContext(), second.host)], {
-				concurrency: "unbounded",
-			});
+			yield* Effect.all(
+				[
+					run(eventContext({ id: "command-a" }), first.host),
+					run(eventContext({ id: "command-b" }), second.host),
+				],
+				{ concurrency: "unbounded" },
+			);
 			expect(claims).toEqual([
 				["media-parent-completion:show-1:initial", true, 3600],
 				["media-parent-completion:show-1:initial", true, 3600],

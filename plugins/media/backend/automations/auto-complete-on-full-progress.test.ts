@@ -88,6 +88,28 @@ const run = (context: AutomationInput, host: ReturnType<typeof createHost>["host
 	return definition.run(input, host);
 };
 
+const eventBatch = (first: AutomationInput, second: AutomationInput): AutomationInput => {
+	const left = first.automation.payload;
+	const right = second.automation.payload;
+	if (
+		left.category !== "change" ||
+		left.resource !== "event" ||
+		left.operation !== "create" ||
+		right.category !== "change" ||
+		right.resource !== "event" ||
+		right.operation !== "create"
+	) {
+		throw new Error("Expected event create changes");
+	}
+	return {
+		...first,
+		automation: {
+			...first.automation,
+			payload: { resource: "event", category: "change", operation: "batch", items: [left, right] },
+		},
+	};
+};
+
 describe("auto-complete-on-full-progress sandbox script", () => {
 	it("ignores progress events below full completion", () => {
 		const { host, created } = createHost({});
@@ -131,6 +153,44 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 						],
 					]);
 					return undefined;
+				}),
+			),
+		);
+	});
+
+	it("submits one ordered request for multiple completions of the same entity", () => {
+		const { host, created } = createHost({});
+		return Effect.runPromise(
+			run(
+				eventBatch(
+					eventAutomationContext(
+						{
+							id: "first",
+							occurredAt: "2026-02-03T04:05:06.000Z",
+							properties: { consumedOn: "Plex", progressPercent: 100 },
+						},
+						{ inheritedProperties: ["consumedOn"] },
+					),
+					eventAutomationContext({
+						id: "second",
+						occurredAt: "2026-02-04T04:05:06.000Z",
+						properties: { progressPercent: 100, consumedOn: "Jellyfin" },
+					}),
+				),
+				host,
+			).pipe(
+				Effect.map(() => {
+					expect(created).toHaveLength(1);
+					expect(created[0]).toMatchObject([
+						{
+							occurredAt: "2026-02-03T04:05:06.000Z",
+							properties: { consumedOn: "Plex", completedOn: "2026-02-03T04:05:06.000Z" },
+						},
+						{
+							occurredAt: "2026-02-04T04:05:06.000Z",
+							properties: { consumedOn: "Jellyfin", completedOn: "2026-02-04T04:05:06.000Z" },
+						},
+					]);
 				}),
 			),
 		);
@@ -210,7 +270,7 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 		);
 	});
 
-	it("supports manga coverage and repeated completion passes", () => {
+	it("submits distinct manga coverage passes together when both close in one batch", () => {
 		const events = [
 			eventRecord({
 				id: "chapter-1a",
@@ -236,17 +296,26 @@ describe("auto-complete-on-full-progress sandbox script", () => {
 		const { host, created } = createHost({ events, entityProperties: { chapters: 2 } });
 		return Effect.runPromise(
 			run(
-				eventAutomationContext({
-					id: "chapter-2b",
-					entityId: "entity-1",
-					entitySchemaSlug: "manga",
-					properties: { mangaChapter: 2, progressPercent: 100 },
-				}),
+				eventBatch(
+					eventAutomationContext({
+						id: "chapter-2a",
+						entitySchemaSlug: "manga",
+						properties: { mangaChapter: 2, progressPercent: 100 },
+					}),
+					eventAutomationContext({
+						id: "chapter-2b",
+						entitySchemaSlug: "manga",
+						properties: { mangaChapter: 2, progressPercent: 100 },
+					}),
+				),
 				host,
 			).pipe(
 				Effect.map(() => {
 					expect(created).toHaveLength(1);
-					return undefined;
+					expect(created[0]?.map((event) => event.occurredAt)).toEqual([
+						"2026-01-02T00:00:00+00:00",
+						"2026-01-04T00:00:00+00:00",
+					]);
 				}),
 			),
 		);
