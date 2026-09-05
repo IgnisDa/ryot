@@ -56,7 +56,8 @@ const writeStdoutSync = Deno.stdout.writeSync.bind(Deno.stdout);
 const encodeText = encoder.encode.bind(encoder);
 // Stdin chunks can split a multibyte character, so they share one streaming decoder.
 const stdinDecoder = new TextDecoder();
-const decodeStdin = (chunk: Uint8Array) => stdinDecoder.decode(chunk, { stream: true });
+const decodeStdinChunk = stdinDecoder.decode.bind(stdinDecoder);
+const decodeStdin = (chunk: Uint8Array) => decodeStdinChunk(chunk, { stream: true });
 const jsonStringify = JSON.stringify.bind(JSON);
 const bridgeFetch = globalThis.fetch.bind(globalThis);
 const exitDeno: (code?: number) => never = Deno.exit.bind(Deno);
