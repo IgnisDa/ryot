@@ -883,6 +883,24 @@ export const runFreshRepetition = (
 			workerConcurrency: scenario.workerConcurrency,
 		});
 		const prepared = yield* prepareFreshProcess(context, scenario);
+		let submissionContext = context;
+		if (scenario.submission === "live-details") {
+			const scripts = yield* getApiClient().call(
+				(client) => client.testSupport.listSandboxScripts({ query: {} }),
+				adminHeaders(),
+			);
+			const details = requirePresent(
+				scripts.find(({ slug }) => slug === "music.youtube-music.details"),
+				"the shipped YouTube Music details script is not installed",
+			);
+			submissionContext = {
+				...context,
+				state: {
+					...context.state,
+					youtubeMusic: { ...context.state.youtubeMusic, detailsScriptId: details.id },
+				},
+			};
+		}
 		const { remote } = context;
 		if (plan.profileToken !== null) {
 			yield* armProfile({
@@ -910,7 +928,7 @@ export const runFreshRepetition = (
 				? yield* liveSearchRequest(context, scenario.liveSearch)
 				: null;
 		const submittedAtMs = yield* Clock.currentTimeMillis;
-		const submission = yield* submitWave(context, scenario, {
+		const submission = yield* submitWave(submissionContext, scenario, {
 			wave: 1,
 			workload: scenario.workload,
 			idleAfterSubmitMs: scenario.idleDurationMs,

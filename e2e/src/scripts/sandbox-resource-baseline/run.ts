@@ -449,16 +449,27 @@ const program = Effect.gen(function* () {
 				matrixPlan((concurrency) => findScenario(liveScenarioId(concurrency)), 3),
 			);
 			break;
-		case "variance":
+		case "variance": {
+			const selected = process.argv[3];
+			const scenarios =
+				selected === undefined
+					? VARIANCE_SCENARIOS
+					: [
+							requirePresent(
+								VARIANCE_SCENARIOS.find(({ id }) => id === selected),
+								`unknown variance scenario: ${selected}`,
+							),
+						];
 			yield* runScenarioSeries(
 				config,
 				invocationId,
-				VARIANCE_SCENARIOS.map((scenario) => ({
+				scenarios.map((scenario) => ({
 					scenario,
 					plan: { notes: [], round: null, repetition: 1, orderInRound: null, profileToken: null },
 				})),
 			);
 			break;
+		}
 		case "profiles": {
 			const { context } = yield* makeContext(config, invocationId);
 			const selected = process.argv[3];
