@@ -7,6 +7,7 @@ import { assert, describe } from "vitest";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { fakeDatabaseSession } from "#lib/test-utils/effect";
 import {
 	installRevisionPackage,
 	revisionPackage,
@@ -65,7 +66,7 @@ const recordingSessionLayer = Layer.unwrap(
 			}),
 		});
 		return Layer.merge(
-			Layer.mock(DatabaseSession)({ current: Effect.succeed(database) }),
+			fakeDatabaseSession(database),
 			Layer.succeed(RecordedDatabaseEvents, { events: Ref.get(events) }),
 		);
 	}),

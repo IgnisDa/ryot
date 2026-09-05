@@ -15,7 +15,7 @@ import { HttpClientRequest, HttpRouter, HttpServer } from "effect/unstable/http"
 import { HttpApiMiddleware, HttpApiTest } from "effect/unstable/httpapi";
 
 import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { fakeDatabaseSession } from "#lib/test-utils/effect";
 import { makeAuthMiddleware } from "#modules/auth/service";
 
 import { RyotQLRoutesLive } from "./routes";
@@ -62,10 +62,7 @@ const routesLayer = Layer.unwrap(
 		});
 		const record = (entry: string) => Ref.update(authenticated, (all) => [...all, entry]);
 		const db = Object.assign(Object.create(null), { execute: () => Effect.succeed([]) });
-		const database = Layer.mock(DatabaseSession)({
-			current: Effect.succeed(db),
-			transaction: (work) => mapDatabaseErrors(work),
-		});
+		const database = fakeDatabaseSession(db, { transaction: (work) => mapDatabaseErrors(work) });
 		const auth = makeAuthMiddleware(
 			{
 				apiKeyUser: (key) =>

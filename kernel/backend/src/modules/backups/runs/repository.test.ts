@@ -6,8 +6,8 @@ import type { SQLWrapper } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Ref } from "effect";
 
-import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { assertExitFails } from "#lib/test-utils/assertions";
+import { fakeDatabaseSession } from "#lib/test-utils/effect";
 
 import { BackupsRepository } from "./repository";
 
@@ -98,9 +98,7 @@ const makeRepositoryLayer = (options: {
 					};
 					return Layer.merge(
 						Layer.succeed(FakeBackupRunsDatabase, { updatePredicates: Ref.get(predicates) }),
-						Layer.mock(DatabaseSession)({
-							current: Effect.succeed(Object.assign(Object.create(null), db)),
-						}),
+						fakeDatabaseSession(db),
 					);
 				}),
 			),

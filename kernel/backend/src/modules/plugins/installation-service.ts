@@ -17,7 +17,6 @@ import { Context, Effect, Layer, Result, Schema } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { acquireUserWriteLock } from "#lib/infrastructure/db/user-write-lock";
 import {
 	formatPropertyIssues,
 	parseAppSchemaProperties,
@@ -441,7 +440,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				}
 				const updated = yield* transaction(
 					Effect.gen(function* () {
-						yield* acquireUserWriteLock(userId);
+						yield* database.acquireUserWriteLock(userId);
 						const usablePluginIds = new Set(
 							(yield* installations.listForUser(userId))
 								.filter((candidate) => candidate.health === "ready" && !candidate.isDisabled)

@@ -9,10 +9,9 @@ import { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
 import { describe, it as vitestIt } from "vitest";
 
-import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { RedisService } from "#lib/infrastructure/redis";
 import { assertExitFails } from "#lib/test-utils/assertions";
-import { makeAppConfigLayer, makeRedisService } from "#lib/test-utils/effect";
+import { makeAppConfigLayer, makeRedisService, fakeDatabaseSession } from "#lib/test-utils/effect";
 import { AuthService } from "#modules/auth/service";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
 import { EntitiesService } from "#modules/entities/service";
@@ -95,17 +94,15 @@ const fakeAuthLayer = (errors: {
 	);
 
 const selectingDatabaseLayer = (rows: ReadonlyArray<object>) =>
-	Layer.mock(DatabaseSession)({
-		current: Effect.succeed(
-			Object.assign(Object.create(null), {
-				select: () => ({
-					from: () => ({
-						where: () => Object.assign(Effect.succeed(rows), { limit: () => Effect.succeed(rows) }),
-					}),
+	fakeDatabaseSession(
+		Object.assign(Object.create(null), {
+			select: () => ({
+				from: () => ({
+					where: () => Object.assign(Effect.succeed(rows), { limit: () => Effect.succeed(rows) }),
 				}),
 			}),
-		),
-	});
+		}),
+	);
 
 const defaultUserLifecycleServiceLayer = Layer.mock(UserLifecycleService)({
 	resetUser: () => Effect.die("unused"),

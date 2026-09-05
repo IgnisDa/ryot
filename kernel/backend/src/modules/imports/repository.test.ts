@@ -3,8 +3,8 @@ import { DbError } from "@ryot-app/contract/errors";
 import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
 
-import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { assertExitFails } from "#lib/test-utils/assertions";
+import { fakeDatabaseSession } from "#lib/test-utils/effect";
 
 import { ImportsRepository } from "./repository";
 
@@ -64,9 +64,7 @@ const makeRepositoryLayer = (
 					};
 					return Layer.merge(
 						Layer.succeed(FakeImportRunInserts, { insertedValues: Ref.get(insertedValues) }),
-						Layer.mock(DatabaseSession)({
-							current: Effect.succeed(Object.assign(Object.create(null), db)),
-						}),
+						fakeDatabaseSession(db),
 					);
 				}),
 			),
