@@ -15,7 +15,7 @@ import { CryptoHasher } from "bun";
 import { eq, sql } from "drizzle-orm";
 import { Effect, Stream } from "effect";
 
-import { buildReportSql } from "./shared";
+import { buildReportSql, type ReportEntry } from "./shared";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -37,8 +37,6 @@ type LegacyS3AssetMigrationResult = {
 	updatedRows: number;
 	unresolved: number;
 };
-
-type ReportEntry = { count: string; level?: "info" | "warning"; message: string };
 
 const isJsonRecord = (value: unknown): value is JsonRecord =>
 	typeof value === "object" && value !== null && !Array.isArray(value);
@@ -213,7 +211,9 @@ export const migrateLegacyS3Assets = Effect.gen(function* () {
 			continue;
 		}
 		if (!isJsonRecord(properties)) {
-			throw new Error(`Rewritten properties for ${row.source} ${row.id} are not a JSON object`);
+			throw new Error(
+				`legacy S3 assets -> managed_asset: rewriting attachment keys on ${row.source} ${row.id} produced something that is not a JSON object, so its properties would be corrupted. This is a defect in this migration rather than in the legacy data. Keep the dump and report it; retrying will not change the result.`,
+			);
 		}
 		if (row.source === "entity") {
 			yield* mapDatabaseErrors(
@@ -272,16 +272,19 @@ export const buildLegacyS3AssetReportSql = (result: LegacyS3AssetMigrationResult
 	if (result.unresolved > 0) {
 		entries.push({
 			level: "warning" as const,
+			code: "asset-locator-unresolved",
 			count: String(result.unresolved),
 			message:
-				"asset locator(s) could not be resolved or registered; original locators were retained",
+				"Some legacy attachments could not be copied into managed storage, because they have no owner, their file type is not an accepted upload type, or the stored object could not be read. Their original locations were left untouched, so the files still load, but they are not tracked as managed assets and will not be cleaned up automatically. Per-file detail is not recorded for attachments.",
 		});
 	}
 	if (result.deletionFailures > 0) {
 		entries.push({
 			level: "warning" as const,
+			code: "asset-deletion-failed",
 			count: String(result.deletionFailures),
-			message: "legacy S3 object(s) could not be deleted; orphaned bytes remain in the bucket",
+			message:
+				"Some legacy files were copied into managed storage but could not be deleted afterwards. Nothing is missing — the migrated data is complete — but the leftover copies still occupy space in the bucket and can be removed by hand. Per-file detail is not recorded for attachments.",
 		});
 	}
 	return `

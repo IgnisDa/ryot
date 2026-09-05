@@ -1,4 +1,4 @@
-import { buildReportSql } from "./shared";
+import { buildRequireLegacyTableSql, buildReportSql } from "./shared";
 
 export const buildNotificationPlatformMigrationSql = () => `
 DO $$
@@ -8,9 +8,7 @@ DECLARE
 	unknown_platforms text;
 	invalid_platform_ids text;
 BEGIN
-	IF to_regclass('"old_notification_platform"') IS NULL THEN
-		RAISE EXCEPTION 'Expected old_notification_platform table to exist (created by renameLegacyTables) but it was not found';
-	END IF;
+	${buildRequireLegacyTableSql("old_notification_platform -> notification_channel", "old_notification_platform")}
 
 	SELECT string_agg(DISTINCT lot, ', ' ORDER BY lot)
 	INTO unknown_platforms
@@ -20,7 +18,7 @@ BEGIN
 		'push_bullet', 'push_over', 'push_safer', 'telegram'
 	);
 	IF unknown_platforms IS NOT NULL THEN
-		RAISE EXCEPTION 'Legacy notification platforms with unknown lots cannot be migrated: %', unknown_platforms;
+		RAISE EXCEPTION 'old_notification_platform -> notification_channel: these legacy notification types are not supported by this build, so the platforms using them would silently stop delivering: %. Delete those platforms in the V1 database, or use a build that supports them, then start the server again.', unknown_platforms;
 	END IF;
 
 	SELECT string_agg(id, ', ' ORDER BY id)
@@ -52,7 +50,7 @@ BEGIN
 			OR nullif(btrim(platform_specifics->'d'->>'bot_token'), '') IS NULL
 			OR nullif(btrim(platform_specifics->'d'->>'chat_id'), '') IS NULL));
 	IF invalid_platform_ids IS NOT NULL THEN
-		RAISE EXCEPTION 'Legacy notification platforms with invalid specifics: %', invalid_platform_ids;
+		RAISE EXCEPTION 'old_notification_platform -> notification_channel: these legacy notification platforms are missing a required field for their type, so they cannot be migrated as working channels: %. Fix or delete them in the V1 database, then start the server again.', invalid_platform_ids;
 	END IF;
 
 	INSERT INTO "notification_channel" (
