@@ -11,7 +11,7 @@
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix"
 	},
 	"dependencies": {
-		"effect": "4.0.0-rc.111"
+		"effect": "4.0.0-rc.113"
 	},
 	"devDependencies": {
 		"@ryot-app/contract": "workspace:*",

@@ -48,11 +48,11 @@
 		"@ryot-app/ryotql-recipes": "workspace:*",
 		"@ryot-app/sandbox-sdk": "workspace:*",
 		"@ryot-app/ts-utils": "workspace:*",
-		"effect": "4.0.0-rc.111"
+		"effect": "4.0.0-rc.113"
 	},
 	"devDependencies": {
-		"@effect/platform-bun": "4.0.0-beta.107",
-		"@effect/vitest": "4.0.0-beta.107",
+		"@effect/platform-bun": "4.0.0-rc.113",
+		"@effect/vitest": "4.0.0-rc.113",
 		"@ryot-app/cli": "workspace:*",
 		"@ryot-app/client-plugin-contract": "workspace:*",
 		"@ryot-app/client-sdk": "workspace:*",

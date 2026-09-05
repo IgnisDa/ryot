@@ -5,11 +5,8 @@ import { EffectDrizzleQueryError } from "drizzle-orm/effect-core";
 import * as PgDrizzle from "drizzle-orm/effect-postgres";
 import { Context, Duration, Effect, Layer } from "effect";
 import { SqlError } from "effect/unstable/sql/SqlError";
-import { types as pgTypes } from "pg";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
-
-const drizzleParsedTypeIds = new Set([1184, 1114, 1082, 1186, 1231, 1115, 1185, 1187, 1182]);
 
 export const PgClientLive = Layer.unwrap(
 	Effect.map(AppConfig, (config) =>
@@ -17,12 +14,6 @@ export const PgClientLive = Layer.unwrap(
 			url: config.database.url,
 			maxConnections: config.database.poolMax,
 			connectTimeout: Duration.millis(config.database.connectionTimeoutMs),
-			types: {
-				getTypeParser: (typeId, format) =>
-					drizzleParsedTypeIds.has(typeId)
-						? (value: string) => value
-						: pgTypes.getTypeParser(typeId, format),
-			},
 		}),
 	),
 );

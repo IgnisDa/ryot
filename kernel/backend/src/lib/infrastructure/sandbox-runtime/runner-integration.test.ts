@@ -828,7 +828,7 @@ const startCoreHostBridge = (
 			),
 		).pipe(Effect.provideService(HttpServer.HttpServer, server));
 		const address = server.address;
-		assert(address._tag === "TcpAddress");
+		assert(address._tag !== "UnixPathAddress");
 
 		return {
 			calls,
@@ -1734,7 +1734,7 @@ const startDomainHostBridge = () =>
 			),
 		).pipe(Effect.provideService(HttpServer.HttpServer, server));
 		const address = server.address;
-		assert(address._tag === "TcpAddress");
+		assert(address._tag !== "UnixPathAddress");
 
 		return { createdEvents, port: address.port };
 	});
