@@ -22,6 +22,18 @@ Keep `SERVER_ADMIN_ACCESS_TOKEN` stable because it signs local file URLs. Mount
 `/home/ryot/storage` if you do not configure S3. Never persist `/home/ryot/work`. See
 [File Storage](guides/file-storage.md).
 
+## Memory
+
+Give the Ryot container a memory limit, as the [installation](./index.md#installation) compose
+file does. On a 4 GB server, 2 GB for Ryot leaves enough room for the database and Redis. If a
+plugin uses too much memory, only that plugin's task fails; Ryot keeps running.
+
+## Imports
+
+Ryot runs two provider imports at a time and queues the rest, so one user importing a lot does
+not hold up everyone else. Change this with `SANDBOX_IMPORT_CONCURRENCY`. If you run more than
+one Ryot instance, set it to the combined `SANDBOX_WORKER_CONCURRENCY` of all instances.
+
 ## Logging
 
 The server always writes structured logs to `./logs/ryot.log`, which resolves to
