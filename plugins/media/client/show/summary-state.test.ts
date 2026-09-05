@@ -58,7 +58,7 @@ describe("show summary state", () => {
 
 		expect(mapShowSummary(readyQueryResult(value))).toMatchObject({
 			status: "ready",
-			show: { id: "show-1", name: "Adolescence" },
+			summary: { id: "show-1", name: "Adolescence" },
 		});
 	});
 
