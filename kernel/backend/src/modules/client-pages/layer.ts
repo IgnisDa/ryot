@@ -1,6 +1,5 @@
 import { Effect, Layer } from "effect";
 
-import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { ReusableCapabilityGrantStoreLive } from "#lib/infrastructure/reusable-capability-grants";
 import { ImageClientArtifacts } from "#modules/client-artifacts/image-artifacts";
 import { ClientArtifactStoreLive } from "#modules/client-artifacts/layer";
@@ -51,27 +50,15 @@ export const ClientSurfaceMaterializerLive = Layer.effect(
 	ClientSurfaceMaterializer,
 	Effect.gen(function* () {
 		const pages = yield* ClientPagesService;
-		const session = yield* DatabaseSession;
 		return {
-			materializeSystemCompositions: pages
-				.materializeSystemCompositions()
-				.pipe(Effect.provideService(DatabaseSession, session), Effect.orDie),
-			assertUserCompositions: (userId) =>
-				pages
-					.assertUserCompositions(userId)
-					.pipe(Effect.provideService(DatabaseSession, session), Effect.orDie),
+			materializeSystemCompositions: pages.materializeSystemCompositions().pipe(Effect.orDie),
+			assertUserCompositions: (userId) => pages.assertUserCompositions(userId).pipe(Effect.orDie),
 			materializeUserCompositions: (userId) =>
-				pages
-					.materializeUserCompositions(userId)
-					.pipe(Effect.provideService(DatabaseSession, session), Effect.orDie),
+				pages.materializeUserCompositions(userId).pipe(Effect.orDie),
 			materializeRenderer: (userId, renderer) =>
-				pages
-					.materializeRenderer(userId, renderer)
-					.pipe(Effect.provideService(DatabaseSession, session), Effect.orDie),
+				pages.materializeRenderer(userId, renderer).pipe(Effect.orDie),
 			materializePendingInstallation: (userId, installationId) =>
-				pages
-					.materializePendingInstallation(userId, installationId)
-					.pipe(Effect.provideService(DatabaseSession, session), Effect.orDie),
+				pages.materializePendingInstallation(userId, installationId).pipe(Effect.orDie),
 		};
 	}),
 ).pipe(Layer.provide(ClientPagesServiceLive));
