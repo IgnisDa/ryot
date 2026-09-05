@@ -7,9 +7,8 @@
 ## Ownership
 
 - `kernel/backend` is domain-agnostic. `kernel/client` is the React DOM client kernel and Capacitor app.
-- `apps/server` assembles the backend kernel, migrations, and shipped plugin archives.
+- `apps/server` assembles the backend kernel, owns one-time migrations, and ships plugin archives.
 - `plugins/*` own first-party plugins (`media`, `fitness`, `fixture`), each split into host-side `host/`, archived `backend/`, and archived `client/`.
-- `migrations/*` own one-time migrations that depend on the kernel.
 - `packages/contract` owns the client-safe HTTP boundary, generic shared wire schemas, and plugin manifests; `packages/client-plugin-contract` owns the client plugin bridge protocol, artifact model, source file policy, and shared client-plugin capability payloads. `packages/plugin-kit` documents the plugin authoring surface.
 - `packages/client-sdk` and `packages/client-ui-sdk` are the environment-neutral plugin-facing client surfaces; `packages/sandbox-sdk` is their backend counterpart.
 - `packages/sandbox-compiler` and `packages/client-plugin-compiler` are independent engines sharing generic infrastructure from `packages/typescript-compiler`.
