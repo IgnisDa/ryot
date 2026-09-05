@@ -1,50 +1,66 @@
 import { createRyotMutation, createRyotQuery } from "@ryot-app/client-sdk/react";
-import type {
-	AutomationHistoryDetail,
-	AutomationHistoryFilters,
-	AutomationHistoryPage,
-	AutomationHistoryRetryResult,
-} from "@ryot-app/contract/modules/automations/history-schemas";
+import type { AutomationHistoryRetryResult } from "@ryot-app/contract/modules/automations/history-schemas";
+import { AUTOMATION_HISTORY_LIMITS } from "@ryot-app/contract/modules/automations/history-schemas";
 import { AutomationRunId } from "@ryot-app/contract/schema/brands";
-import { Effect } from "effect";
+import {
+	automationHistoryRunRecipe,
+	automationHistoryRunsRecipe,
+	type AutomationHistoryRunDetail,
+	type AutomationHistoryRunsPage,
+} from "@ryot-app/ryotql-recipes/automation-history";
+import { Effect, Option } from "effect";
 
 import { AutomationHistoryApi } from "#/api/automation-history";
 import type { KernelHostServices } from "#/host-services";
 
+export type AutomationRunDetail =
+	AutomationHistoryRunDetail extends Option.Option<infer Run> ? Run : never;
+
+type AutomationHistoryQueryInput = Omit<
+	Parameters<typeof automationHistoryRunsRecipe>[0],
+	"after" | "limit"
+> & { readonly cursor?: string; readonly limit?: number };
+
 export type AutomationHistoryPageResult = {
 	readonly cursor: string | undefined;
-	readonly page: AutomationHistoryPage;
+	readonly page: Pick<AutomationHistoryRunsPage, "items"> & {
+		readonly nextCursor: AutomationHistoryRunsPage["pageInfo"]["nextCursor"];
+	};
 };
 
 export const automationHistoryPageQuery = createRyotQuery<
-	AutomationHistoryFilters,
+	AutomationHistoryQueryInput,
 	AutomationHistoryPageResult,
 	KernelHostServices
 >(
-	async ({ input, signal, hostServices }) => ({
-		cursor: input.cursor,
-		page: await hostServices.runtime.runPromise(
-			Effect.flatMap(AutomationHistoryApi, (api) =>
-				api.listRuns(hostServices.scope, { query: input }),
-			),
+	async ({ input, client, signal }) => {
+		const page = await client.data.query(
+			automationHistoryRunsRecipe({
+				...input,
+				after: input.cursor,
+				limit: input.limit ?? AUTOMATION_HISTORY_LIMITS.defaultPageSize,
+			}),
 			{ signal },
-		),
-	}),
+		);
+		return {
+			cursor: input.cursor,
+			page: { items: page.items, nextCursor: page.pageInfo.nextCursor },
+		};
+	},
 	{ cancelOnUnmount: true },
 );
 
 export const automationHistoryDetailQuery = createRyotQuery<
 	string,
-	AutomationHistoryDetail,
+	AutomationRunDetail,
 	KernelHostServices
->(({ input, signal, hostServices }) =>
-	hostServices.runtime.runPromise(
-		Effect.flatMap(AutomationHistoryApi, (api) =>
-			api.getRun(hostServices.scope, { params: { runId: AutomationRunId.make(input) } }),
-		),
-		{ signal },
-	),
-);
+>(async ({ input, client, signal }) => {
+	const result = await client.data.query(automationHistoryRunRecipe({ id: input }), { signal });
+	if (Option.isNone(result)) {
+		throw new Error("Automation run not found");
+	}
+	return result.value;
+});
 
 export const retryAutomationRunMutation = createRyotMutation<
 	{ readonly runId: string; readonly expectedAttemptCount: number },

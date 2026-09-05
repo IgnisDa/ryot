@@ -14,7 +14,7 @@ export class PluginQueriesService extends Context.Service<PluginQueriesService>(
 				readonly request: PluginRyotQLRequest;
 			}) {
 				const outcome = yield* api
-					.execute(invocation.scope, { payload: invocation.request.document })
+					.executePlugin(invocation.scope, { payload: invocation.request.document })
 					.pipe(
 						Effect.match({
 							onSuccess: (response) => ({ response, outcome: "success" }) as const,

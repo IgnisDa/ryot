@@ -8,7 +8,6 @@ export class UserSettingsApi extends Context.Service<UserSettingsApi>()("UserSet
 	make: Effect.gen(function* () {
 		const api = yield* AuthenticatedApi;
 		return {
-			get: (scope: ApiScope) => api.run(scope, (client) => client.userSettings.get()),
 			refreshAvatar: (scope: ApiScope) =>
 				api.run(scope, (client) => client.userSettings.refreshAvatar()),
 			updatePreferences: (
