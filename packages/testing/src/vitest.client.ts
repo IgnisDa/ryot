@@ -8,9 +8,13 @@ import { mergeConfig, type ViteUserConfig } from "vitest/config";
  * docblocks out of the tree. Setup files belong to the DOM project alone because they touch
  * `window`.
  */
-export const defineClientConfig = ({ setupFiles }: { setupFiles?: string[] } = {}) => {
+export const defineClientConfig = ({
+	setupFiles,
+	maxWorkers,
+}: { setupFiles?: string[]; maxWorkers?: number } = {}) => {
 	const client: ViteUserConfig = {
 		test: {
+			...(maxWorkers === undefined ? {} : { maxWorkers }),
 			projects: [
 				{ test: { name: "node", include: ["**/*.test.ts"] } },
 				{

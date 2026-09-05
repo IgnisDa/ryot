@@ -294,6 +294,11 @@ const ClientSurfaceMaterializerLive = Layer.effect(
 		return {
 			materializeUser: (userId) =>
 				pages.materializeUser(userId).pipe(Effect.provideService(Database, db), Effect.orDie),
+			assertUserBuilds: (userId) =>
+				pages.assertUserBuilds(userId).pipe(Effect.provideService(Database, db), Effect.orDie),
+			materializeSystemBaseline: pages
+				.materializeSystemBaseline()
+				.pipe(Effect.provideService(Database, db), Effect.orDie),
 			materializeRenderer: (userId, renderer) =>
 				pages
 					.materializeRenderer(userId, renderer)
@@ -792,6 +797,7 @@ export const RuntimeLive = Layer.mergeAll(
 
 export const SystemPluginIngestionLive = SystemPluginBootstrap.layer.pipe(
 	Layer.provide([
+		ClientSurfaceMaterializerLive,
 		PluginIngestionServiceLive,
 		PluginRepository.layer,
 		DefinitionRepository.layer,

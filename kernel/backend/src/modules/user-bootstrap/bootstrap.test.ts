@@ -50,7 +50,7 @@ const makeLayer = (options: {
 	db?: object;
 	onDefaultRules?: (userId: UserId) => void;
 	onBuiltinViews?: (userId: UserId) => void;
-	onMaterialize?: (userId: UserId) => Effect.Effect<void>;
+	onAssertBuilds?: (userId: UserId) => Effect.Effect<void>;
 	onProvisionInstallations?: (userId: UserId) => void;
 	dispatch: (userId: UserId) => Effect.Effect<undefined, SandboxRunError>;
 }) => {
@@ -76,9 +76,11 @@ const makeLayer = (options: {
 			ensureBuiltinViews: (inputUserId) => Effect.sync(() => options.onBuiltinViews?.(inputUserId)),
 		}),
 		Layer.succeed(ClientSurfaceMaterializer, {
+			materializeSystemBaseline: Effect.void,
 			materializeRenderer: () => Effect.void,
 			materializePendingInstallation: () => Effect.void,
-			materializeUser: (inputUserId) => options.onMaterialize?.(inputUserId) ?? Effect.void,
+			materializeUser: () => Effect.die("Sign-up must never compile"),
+			assertUserBuilds: (inputUserId) => options.onAssertBuilds?.(inputUserId) ?? Effect.void,
 		}),
 	);
 };
@@ -96,7 +98,7 @@ it.effect(
 		return Effect.gen(function* () {
 			yield* performBootstrap(userId);
 
-			expect(order).toEqual(["provision", "dispatch", "views", "materialize", "complete"]);
+			expect(order).toEqual(["provision", "dispatch", "views", "assert-builds", "complete"]);
 			expect(dispatchedUserIds).toEqual([userId]);
 			expect(provisionedUserIds).toEqual([userId]);
 			expect(builtinViewUserIds).toEqual([userId]);
@@ -106,9 +108,9 @@ it.effect(
 			Effect.provide(
 				makeLayer({
 					onDefaultRules: (inputUserId) => defaultRuleUserIds.push(inputUserId),
-					onMaterialize: () =>
+					onAssertBuilds: () =>
 						Effect.sync(() => {
-							order.push("materialize");
+							order.push("assert-builds");
 						}),
 					onBuiltinViews: (inputUserId) => {
 						order.push("views");
@@ -184,6 +186,23 @@ it.effect("does not complete after plugin failure and reruns the plugin safely o
 							)
 						: Effect.void.pipe(Effect.as(undefined));
 				},
+			}),
+		),
+	);
+});
+
+it.effect("does not complete account setup when a required boot-time build is absent", () => {
+	let completed = false;
+	return Effect.gen(function* () {
+		const exit = yield* Effect.exit(performBootstrap(userId));
+		expect(exit._tag).toBe("Failure");
+		expect(completed).toBe(false);
+	}).pipe(
+		Effect.provide(
+			makeLayer({
+				dispatch: () => Effect.succeed(undefined),
+				db: makeBootstrapDb({ onMarkComplete: () => (completed = true) }),
+				onAssertBuilds: () => Effect.die(new Error("Missing baseline build")),
 			}),
 		),
 	);

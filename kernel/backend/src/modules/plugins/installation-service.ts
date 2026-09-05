@@ -796,7 +796,6 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 									? definitionMaterializer.materialize(userId)
 									: Effect.void,
 							),
-							Effect.tap((result) => (result ? invalidator.user(userId) : Effect.void)),
 						),
 				);
 				if (!saved) {
@@ -816,6 +815,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 							),
 						),
 					).pipe(
+						Effect.tap(() => invalidator.user(userId)),
 						Effect.catchTag("PluginValidationError", (error) =>
 							Effect.fail(
 								new PluginRequestError({

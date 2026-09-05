@@ -17,8 +17,10 @@ import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/s
 import type { ClientRendererId } from "@ryot-app/contract/schema/brands";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
+import { and, eq } from "drizzle-orm";
 import { Context, Effect, Encoding, Layer, Result, Schema } from "effect";
 
+import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import {
 	formatPropertyIssues,
@@ -29,14 +31,16 @@ import { slugify } from "#lib/shared/slug";
 import { trimToNull } from "#lib/shared/validation";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { PluginCatalogInvalidator } from "#modules/plugins/catalog-events";
-import { PluginRepository } from "#modules/plugins/repository";
+import { decodeStoredManifest, PluginRepository } from "#modules/plugins/repository";
 import { type AvailablePlugin, PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { ClientPageBuildService } from "./build-service";
 import { ClientPageArtifactGrantService } from "./grant-service";
 import {
+	clientPageCodeContributors,
 	resolveClientPageArtifactGraph,
 	resolveClientPageGraph,
+	type GraphPlugin,
 	type ResolvedClientPageArtifactGraph,
 	type ResolvedClientPageGraph,
 } from "./graph";
@@ -152,8 +156,7 @@ const operationTargetsCurrent = (
 	);
 
 const rendererGraphInput = (
-	userId: CurrentUserValue["id"],
-	available: ReadonlyArray<AvailablePlugin>,
+	available: ReadonlyArray<GraphPlugin>,
 	renderer: {
 		rendererName: string;
 		definition: ClientRendererDefinition;
@@ -162,7 +165,7 @@ const rendererGraphInput = (
 		| { kernel: true; sourceHash: string }
 		| { rendererId: ClientRendererId; publishedHash: string }
 	),
-) => ({ ...renderer, userId, plugins: available, rendererFiles: renderer.decoded });
+) => ({ ...renderer, plugins: available, rendererFiles: renderer.decoded });
 
 export class ClientPagesService extends Context.Service<ClientPagesService>()(
 	"ClientPagesService",
@@ -177,29 +180,22 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 			const invalidator = yield* PluginCatalogInvalidator;
 			const listAvailable = (userId: CurrentUserValue["id"]) =>
 				pluginRuntime.listPluginsAvailableToUser(userId, true);
-			const loadFiles = (userId: CurrentUserValue["id"]) => (plugin: AvailablePlugin) =>
+			const loadFiles = (plugin: GraphPlugin) =>
 				plugins
-					.listAuthorizedSourceFiles({
-						userId,
-						pluginId: plugin.id,
-						sourceHash: plugin.sourceHash,
-						installationId: plugin.installationId,
-					})
+					.listRevisionSourceFiles(plugin.pluginRevisionId)
 					.pipe(Effect.withSpan("ClientPageBuild.load-source-files"));
 			const resolveRendererGraph = (
-				userId: CurrentUserValue["id"],
-				available: ReadonlyArray<AvailablePlugin>,
-				renderer: Parameters<typeof rendererGraphInput>[2],
+				available: ReadonlyArray<GraphPlugin>,
+				renderer: Parameters<typeof rendererGraphInput>[1],
 			) =>
 				resolveClientPageGraph({
-					...rendererGraphInput(userId, available, renderer),
-					loadPluginFiles: loadFiles(userId),
+					...rendererGraphInput(available, renderer),
+					loadPluginFiles: loadFiles,
 				});
 			const resolveRendererIdentity = (
-				userId: CurrentUserValue["id"],
-				available: ReadonlyArray<AvailablePlugin>,
-				renderer: Parameters<typeof rendererGraphInput>[2],
-			) => resolveClientPageArtifactGraph(rendererGraphInput(userId, available, renderer));
+				available: ReadonlyArray<GraphPlugin>,
+				renderer: Parameters<typeof rendererGraphInput>[1],
+			) => resolveClientPageArtifactGraph(rendererGraphInput(available, renderer));
 			const resolvePluginTarget = Effect.fn(function* (
 				userId: CurrentUserValue["id"],
 				target: Exclude<ClientPageTarget, { kind: "saved-view" }>,
@@ -222,7 +218,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 							},
 						});
 					}
-					const graph = yield* resolveRendererIdentity(userId, available, {
+					const graph = yield* resolveRendererIdentity(available, {
 						decoded: {},
 						kernel: true,
 						rendererName: kernel.name,
@@ -232,7 +228,6 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					return { ...resolved, graph, operationTargets: clientPageOperationTargets(available) };
 				}
 				const graph = yield* resolveClientPageArtifactGraph({
-					userId,
 					plugins: available,
 					plugin: resolved.plugin,
 					exportName: resolved.exportName,
@@ -321,7 +316,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 						definition,
 					).pipe(Effect.orDie),
 				);
-				const graph = yield* resolveRendererGraph(user.id, yield* listAvailable(user.id), {
+				const graph = yield* resolveRendererGraph(yield* listAvailable(user.id), {
 					decoded,
 					definition,
 					publishedHash,
@@ -374,17 +369,13 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 									),
 								);
 							}
-							const currentGraph = yield* resolveRendererGraph(
-								user.id,
-								yield* listAvailable(user.id),
-								{
-									decoded,
-									definition,
-									publishedHash,
-									rendererId: renderer.id,
-									rendererName: renderer.name,
-								},
-							);
+							const currentGraph = yield* resolveRendererGraph(yield* listAvailable(user.id), {
+								decoded,
+								definition,
+								publishedHash,
+								rendererId: renderer.id,
+								rendererName: renderer.name,
+							});
 							if (currentGraph.artifactKey !== graph.artifactKey) {
 								return yield* invalid("Renderer dependency graph changed during publication");
 							}
@@ -422,7 +413,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				);
 			});
 			const savedViewGraph = Effect.fn(function* (
-				userId: CurrentUserValue["id"],
+				_userId: CurrentUserValue["id"],
 				prepared: NonNullable<Effect.Success<ReturnType<typeof repository.findPreparedTarget>>>,
 				available: ReadonlyArray<AvailablePlugin>,
 				withSourceFiles = false,
@@ -433,7 +424,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					if (!kernel) {
 						return yield* invalid("Kernel client renderer is missing");
 					}
-					const graph = yield* resolveRenderer(userId, available, {
+					const graph = yield* resolveRenderer(available, {
 						kernel: true,
 						rendererName: kernel.name,
 						definition: kernel.definition,
@@ -451,14 +442,13 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 						});
 					}
 					const input = {
-						userId,
 						plugin,
 						plugins: available,
 						application: "page" as const,
 						exportName: selected.exportName,
 					};
 					const graph = withSourceFiles
-						? yield* resolveClientPageGraph({ ...input, loadPluginFiles: loadFiles(userId) })
+						? yield* resolveClientPageGraph({ ...input, loadPluginFiles: loadFiles })
 						: yield* resolveClientPageArtifactGraph(input);
 					return { graph, plugin, kind: "plugin" as const, exportName: selected.exportName };
 				}
@@ -474,7 +464,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				const { decoded, definition } = withSourceFiles
 					? yield* normalizeDefinition(renderer.publishedDefinition)
 					: { decoded: {}, definition: renderer.publishedDefinition };
-				const graph = yield* resolveRenderer(userId, available, {
+				const graph = yield* resolveRenderer(available, {
 					decoded,
 					definition,
 					rendererName: renderer.name,
@@ -501,7 +491,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					if (!kernel) {
 						return yield* invalid("Kernel client renderer is missing");
 					}
-					graph = yield* resolveRendererGraph(userId, available, {
+					graph = yield* resolveRendererGraph(available, {
 						kernel: true,
 						decoded: kernel.files,
 						rendererName: kernel.name,
@@ -516,12 +506,11 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 						});
 					}
 					graph = yield* resolveClientPageGraph({
-						userId,
 						plugin,
 						plugins: available,
 						application: "page",
+						loadPluginFiles: loadFiles,
 						exportName: renderer.exportName,
-						loadPluginFiles: loadFiles(userId),
 					});
 				} else {
 					const published = yield* requireRenderer(userId, renderer.rendererId);
@@ -531,7 +520,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 						});
 					}
 					const { decoded, definition } = yield* normalizeDefinition(published.publishedDefinition);
-					graph = yield* resolveRendererGraph(userId, available, {
+					graph = yield* resolveRendererGraph(available, {
 						decoded,
 						definition,
 						rendererId: published.id,
@@ -564,8 +553,8 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 						artifactHash: build.artifactHash,
 						viewRevision: prepared.view.revision,
 						artifactKey: resolved.graph.artifactKey,
-						contributors: resolved.graph.contributors,
 						operationTargets: clientPageOperationTargets(available),
+						contributors: clientPageCodeContributors(resolved.graph.identity, available),
 					};
 					let rendererContext: PreparedClientPage["context"]["renderer"];
 					let identity: PreparedClientPage["identity"];
@@ -630,8 +619,8 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					target,
 					artifactHash: build.artifactHash,
 					artifactKey: resolved.graph.artifactKey,
-					contributors: resolved.graph.contributors,
 					operationTargets: resolved.operationTargets,
+					contributors: clientPageCodeContributors(resolved.graph.identity, available),
 				};
 				return {
 					artifact: yield* artifactFor(user.id, build),
@@ -720,7 +709,10 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					}
 					return (
 						resolved.graph.artifactKey === identity.artifactKey &&
-						Bun.deepEquals(resolved.graph.contributors, identity.contributors) &&
+						Bun.deepEquals(
+							clientPageCodeContributors(resolved.graph.identity, available),
+							identity.contributors,
+						) &&
 						(yield* builds.find(resolved.graph))?.artifactHash === identity.artifactHash
 					);
 				}
@@ -746,7 +738,10 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				}
 				return (
 					resolved.graph.artifactKey === identity.artifactKey &&
-					Bun.deepEquals(resolved.graph.contributors, identity.contributors) &&
+					Bun.deepEquals(
+						clientPageCodeContributors(resolved.graph.identity, available),
+						identity.contributors,
+					) &&
 					(yield* builds.find(resolved.graph))?.artifactHash === identity.artifactHash
 				);
 			});
@@ -771,11 +766,10 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					}
 					if (plugin.manifest.client.routes?.["/"]) {
 						const graph = yield* resolveClientPageGraph({
-							userId,
 							plugin,
 							plugins: available,
+							loadPluginFiles: loadFiles,
 							application: "plugin-route",
-							loadPluginFiles: loadFiles(userId),
 							exportName: plugin.manifest.client.routes["/"],
 						});
 						graphs.set(graph.artifactKey, graph);
@@ -787,18 +781,17 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					);
 					for (const exportName of detailPages) {
 						const graph = yield* resolveClientPageGraph({
-							userId,
 							plugin,
 							exportName,
 							plugins: available,
 							application: "page",
-							loadPluginFiles: loadFiles(userId),
+							loadPluginFiles: loadFiles,
 						});
 						graphs.set(graph.artifactKey, graph);
 					}
 				}
 				for (const kernel of listKernelEntityRenderers()) {
-					const graph = yield* resolveRendererGraph(userId, available, {
+					const graph = yield* resolveRendererGraph(available, {
 						kernel: true,
 						decoded: kernel.files,
 						rendererName: kernel.name,
@@ -812,6 +805,175 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					concurrency: CLIENT_PLUGIN_COMPILER_LIMITS.concurrency,
 				});
 				return yield* Effect.void;
+			});
+			const materializeSystemBaseline = Effect.fn("ClientPages.materializeSystemBaseline")(
+				function* () {
+					const db = yield* Database;
+					const rows = yield* mapDatabaseErrors(
+						db
+							.select({
+								id: schema.plugin.id,
+								slug: schema.plugin.slug,
+								manifest: schema.pluginRevision.manifest,
+								pluginRevisionId: schema.pluginRevision.id,
+								sourceHash: schema.pluginRevision.sourceHash,
+							})
+							.from(schema.plugin)
+							.innerJoin(
+								schema.pluginRevision,
+								eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
+							)
+							.where(and(eq(schema.plugin.status, "active"), eq(schema.plugin.scope, "system"))),
+					);
+					const available: GraphPlugin[] = yield* Effect.forEach(rows, (row) =>
+						decodeStoredManifest(row.manifest, row.slug).pipe(
+							Effect.map((manifest) => ({
+								manifest,
+								id: row.id,
+								slug: row.slug,
+								isDisabled: false,
+								health: "ready" as const,
+								sourceHash: row.sourceHash,
+								pluginRevisionId: row.pluginRevisionId,
+							})),
+						),
+					);
+					const graphs = new Map<string, ResolvedClientPageGraph>();
+					const add = (graph: ResolvedClientPageGraph) => void graphs.set(graph.artifactKey, graph);
+					const views = yield* mapDatabaseErrors(
+						db.select({ renderer: schema.globalSavedView.renderer }).from(schema.globalSavedView),
+					);
+					for (const { renderer } of views) {
+						if (renderer.kind === "kernel") {
+							const kernel = getKernelClientRenderer(renderer.name);
+							if (!kernel) {
+								return yield* invalid("Kernel client renderer is missing");
+							}
+							add(
+								yield* resolveRendererGraph(available, {
+									kernel: true,
+									decoded: kernel.files,
+									rendererName: kernel.name,
+									definition: kernel.definition,
+									sourceHash: kernel.sourceHash,
+								}),
+							);
+						} else if (renderer.kind === "plugin") {
+							const plugin = available.find(({ id }) => id === renderer.pluginId);
+							if (!plugin) {
+								return yield* invalid("Built-in view plugin is missing");
+							}
+							add(
+								yield* resolveClientPageGraph({
+									plugin,
+									plugins: available,
+									application: "page",
+									loadPluginFiles: loadFiles,
+									exportName: renderer.exportName,
+								}),
+							);
+						}
+					}
+					for (const plugin of available) {
+						if (!plugin.manifest.client) {
+							continue;
+						}
+						const home = plugin.manifest.client.routes?.["/"];
+						if (home) {
+							add(
+								yield* resolveClientPageGraph({
+									plugin,
+									exportName: home,
+									plugins: available,
+									loadPluginFiles: loadFiles,
+									application: "plugin-route",
+								}),
+							);
+						}
+						for (const exportName of new Set(
+							Object.values(plugin.manifest.client.entities ?? {})
+								.map(({ detailPage }) => detailPage)
+								.filter((name): name is string => name !== undefined),
+						)) {
+							add(
+								yield* resolveClientPageGraph({
+									plugin,
+									exportName,
+									plugins: available,
+									application: "page",
+									loadPluginFiles: loadFiles,
+								}),
+							);
+						}
+					}
+					for (const kernel of listKernelEntityRenderers()) {
+						add(
+							yield* resolveRendererGraph(available, {
+								kernel: true,
+								decoded: kernel.files,
+								rendererName: kernel.name,
+								definition: kernel.definition,
+								sourceHash: kernel.sourceHash,
+							}),
+						);
+					}
+					yield* Effect.forEach(graphs.values(), (graph) => builds.materialize(graph), {
+						discard: true,
+						concurrency: 1,
+					});
+					return yield* Effect.void;
+				},
+			);
+			const assertUserBuilds = Effect.fn("ClientPages.assertUserBuilds")(function* (
+				userId: CurrentUserValue["id"],
+			) {
+				const available = yield* listAvailable(userId);
+				const graphs = new Map<string, ResolvedClientPageArtifactGraph>();
+				for (const view of yield* repository.listPreparedTargets(userId)) {
+					const { graph } = yield* savedViewGraph(userId, view, available);
+					graphs.set(graph.artifactKey, graph);
+				}
+				for (const plugin of available) {
+					if (plugin.health !== "ready" || !plugin.manifest.client) {
+						continue;
+					}
+					const home = plugin.manifest.client.routes?.["/"];
+					if (home) {
+						const graph = yield* resolveClientPageArtifactGraph({
+							plugin,
+							exportName: home,
+							plugins: available,
+							application: "plugin-route",
+						});
+						graphs.set(graph.artifactKey, graph);
+					}
+					for (const exportName of new Set(
+						Object.values(plugin.manifest.client.entities ?? {})
+							.map(({ detailPage }) => detailPage)
+							.filter((name): name is string => name !== undefined),
+					)) {
+						const graph = yield* resolveClientPageArtifactGraph({
+							plugin,
+							exportName,
+							plugins: available,
+							application: "page",
+						});
+						graphs.set(graph.artifactKey, graph);
+					}
+				}
+				for (const kernel of listKernelEntityRenderers()) {
+					const graph = yield* resolveRendererIdentity(available, {
+						decoded: {},
+						kernel: true,
+						rendererName: kernel.name,
+						definition: kernel.definition,
+						sourceHash: kernel.sourceHash,
+					});
+					graphs.set(graph.artifactKey, graph);
+				}
+				for (const graph of graphs.values()) {
+					yield* requireBuild(graph);
+				}
 			});
 			const materializePendingInstallation = Effect.fn(function* (
 				userId: CurrentUserValue["id"],
@@ -838,8 +1000,10 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				createRenderer,
 				deleteRenderer,
 				materializeUser,
+				assertUserBuilds,
 				isIdentityCurrent,
 				materializeRenderer,
+				materializeSystemBaseline,
 				materializePendingInstallation,
 				listRenderers: (userId: CurrentUserValue["id"]) => repository.listRenderers(userId),
 			};

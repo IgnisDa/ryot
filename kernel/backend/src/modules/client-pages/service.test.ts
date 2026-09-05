@@ -9,6 +9,7 @@ import { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/sche
 import { PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer, Schema } from "effect";
 
+import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database } from "#lib/infrastructure/db/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { PluginCatalogInvalidator } from "#modules/plugins/catalog-events";
@@ -128,7 +129,7 @@ it.effect("materializes one global build for two users and never compiles on pre
 		PluginRepository.of(
 			Object.assign(Object.create(null), {
 				persistClientArtifact: () => Effect.void,
-				listAuthorizedSourceFiles: () =>
+				listRevisionSourceFiles: () =>
 					Effect.sync(() => {
 						sourceLoads++;
 						return { "client/page.tsx": bytes("export default function Page() {}") };
@@ -154,7 +155,35 @@ it.effect("materializes one global build for two users and never compiles on pre
 			),
 		),
 	);
-	const dbLayer = Layer.succeed(Database, Database.of(Object.create(null)));
+	const dbLayer = Layer.succeed(
+		Database,
+		Database.of(
+			Object.assign(Object.create(null), {
+				select: () => ({
+					from: (table: unknown) =>
+						table === schema.globalSavedView
+							? Effect.succeed([{ renderer: savedView.view.renderer }])
+							: {
+									innerJoin: () => ({
+										where: () =>
+											Effect.sync(() => {
+												const plugin = available();
+												return [
+													{
+														id: plugin.id,
+														slug: plugin.slug,
+														manifest: plugin.manifest,
+														sourceHash: plugin.sourceHash,
+														pluginRevisionId: plugin.pluginRevisionId,
+													},
+												];
+											}),
+									}),
+								},
+				}),
+			}),
+		),
+	);
 	const pageLayer = ClientPagesService.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
@@ -210,9 +239,11 @@ it.effect("materializes one global build for two users and never compiles on pre
 			kind: "plugin-route" as const,
 			pluginSlug: PluginSlug.make("fixture"),
 		};
-		yield* pages.materializeUser(userId);
+		yield* pages.materializeSystemBaseline();
 		const initialCompilations = compilations;
 		expect(initialCompilations).toBeGreaterThan(0);
+		yield* pages.assertUserBuilds(userId);
+		expect(compilations).toBe(initialCompilations);
 		const initialSourceLoads = sourceLoads;
 		const page1 = yield* pages.prepare({ id: userId }, target);
 		const view = yield* pages.prepare({ id: userId }, { kind: "saved-view", slug: "fixture-home" });
