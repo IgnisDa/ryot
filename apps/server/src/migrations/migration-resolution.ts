@@ -7,7 +7,7 @@ import { DatabaseSession } from "@ryot-app/kernel-backend/lib/infrastructure/db/
 import { DefinitionRepository } from "@ryot-app/kernel-backend/modules/definition-registry/repository";
 import type { DefinitionSnapshot } from "@ryot-app/kernel-backend/modules/definition-registry/snapshot";
 import { PluginRepository } from "@ryot-app/kernel-backend/modules/plugins/repository";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { Effect } from "effect";
 
 import { quoteSqlString, withReservedConnection } from "./shared";
@@ -136,7 +136,7 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 			.where(
 				and(
 					inArray(schema.plugin.id, pluginIds),
-					eq(schema.plugin.scope, "system"),
+					isNull(schema.plugin.ownerId),
 					eq(schema.plugin.status, "active"),
 				),
 			),
@@ -178,7 +178,6 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 				.run((database) =>
 					database
 						.select({
-							scope: schema.pluginConfigRevision.scope,
 							ownerUserId: schema.pluginConfigRevision.ownerUserId,
 							encryptionKeyId: schema.pluginConfigRevision.encryptionKeyId,
 							payloadPrunedAt: schema.pluginConfigRevision.payloadPrunedAt,
@@ -206,8 +205,7 @@ export const buildLegacyPackageResolution = Effect.fn("buildLegacyPackageResolut
 		const state = matches[0];
 		if (
 			matches.length !== 1 ||
-			state?.scope !== "environment" ||
-			state.ownerUserId !== null ||
+			state?.ownerUserId !== null ||
 			state.pluginInstallationId !== null ||
 			state.pluginRevisionId !== plugin.revisionId ||
 			state.encryptedPayload === null ||

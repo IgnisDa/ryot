@@ -121,7 +121,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 							and(
 								eq(tables.plugin.status, "active"),
 								or(
-									users.includes(null) ? eq(tables.plugin.scope, "system") : sql`false`,
+									users.includes(null) ? isNull(tables.plugin.ownerId) : sql`false`,
 									userIds.length
 										? inArray(
 												tables.plugin.id,

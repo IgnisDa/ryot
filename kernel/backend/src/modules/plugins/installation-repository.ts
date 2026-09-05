@@ -1,6 +1,6 @@
 import { DbError } from "@ryot-app/contract/errors";
 import type { UserId } from "@ryot-app/contract/schema/brands";
-import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -48,7 +48,7 @@ const provisionSystemInstallations = (
 	select gen_random_uuid()::text, ${schema.user.id}, ${schema.plugin.id}, ${health}
 	from ${schema.user}
 	cross join ${schema.plugin}
-	where ${schema.plugin.scope} = 'system'
+	where ${schema.plugin.ownerId} is null
 		and ${schema.plugin.status} = 'active'
 		${
 			userId === null
@@ -70,7 +70,6 @@ const privateInstallation = {
 
 const installationState = {
 	pluginSlug: schema.plugin.slug,
-	pluginScope: schema.plugin.scope,
 	id: schema.pluginInstallation.id,
 	userId: schema.pluginInstallation.userId,
 	health: schema.pluginInstallation.health,
@@ -83,6 +82,9 @@ const installationState = {
 	uninstalledAt: schema.pluginInstallation.uninstalledAt,
 	homeSavedViewSlug: schema.pluginInstallation.homeSavedViewSlug,
 	activeConfigRevisionId: schema.pluginInstallation.activeConfigRevisionId,
+	pluginScope: sql<
+		"system" | "user"
+	>`case when ${schema.plugin.ownerId} is null then 'system' else 'user' end`,
 };
 
 export class PluginInstallationRepository extends Context.Service<PluginInstallationRepository>()(
@@ -131,7 +133,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 					db
 						.select({ id: schema.plugin.id })
 						.from(schema.plugin)
-						.where(and(eq(schema.plugin.id, pluginId), eq(schema.plugin.scope, "user")))
+						.where(and(eq(schema.plugin.id, pluginId), isNotNull(schema.plugin.ownerId)))
 						.for("share"),
 				);
 			});
@@ -143,7 +145,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				const [row] = yield* database.run((db) =>
 					db
 						.select({
-							scope: schema.plugin.scope,
+							ownerId: schema.plugin.ownerId,
 							installation: schema.pluginInstallation,
 							manifest: schema.pluginRevision.manifest,
 						})
@@ -161,7 +163,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				}
 				const activeSchema = row.manifest?.configSchema;
 				const projection =
-					row.scope === "system" || row.installation.uninstalledAt !== null || !activeSchema
+					row.ownerId === null || row.installation.uninstalledAt !== null || !activeSchema
 						? { config: {}, configuredSecrets: [] }
 						: yield* hydrate(row.installation).pipe(
 								Effect.map((hydrated: PluginInstallationRow) =>
@@ -231,7 +233,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				if (!plugin?.activeRevisionId) {
 					return yield* new DbError({ message: "Plugin package revision is unavailable" });
 				}
-				if (plugin.scope === "system") {
+				if (plugin.ownerId === null) {
 					return { ...row, config: {} };
 				}
 				if (plugin.ownerId !== row.userId) {
@@ -321,7 +323,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 							.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginInstallation.pluginId))
 							.where(
 								and(
-									eq(schema.plugin.scope, "system"),
+									isNull(schema.plugin.ownerId),
 									isNull(schema.pluginInstallation.uninstalledAt),
 									eq(schema.plugin.status, "active"),
 									eq(schema.pluginInstallation.userId, userId),
@@ -550,7 +552,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 						)
 						.where(
 							and(
-								eq(schema.plugin.scope, "user"),
+								isNotNull(schema.plugin.ownerId),
 								eq(schema.plugin.status, "active"),
 								isNull(schema.pluginInstallation.uninstalledAt),
 							),

@@ -59,6 +59,8 @@ A document cannot provide a user ID, plugin slug, execution scope, or grant. Aut
 
 `catalog.ts` lists each table's fields. Sandbox script bodies are never fields, including for admin readers. Artifact keys, raw or decrypted configuration and integration settings, and the script and configuration pins of executable definitions are never fields; configuration and integration settings are read through their write-time redacted projections.
 
+`sandboxProviderOperation` reads a user-scoped view of the active manifest and its matching provider scripts. Operations have no separate persisted identity or timestamps.
+
 ## Expressions And Predicates
 
 Expression kinds are text, date, number, boolean, JSON, and null. Kind inference is shared by validation and compilation; unknown aliases or fields are validation errors.

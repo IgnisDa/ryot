@@ -12,7 +12,7 @@ import {
 	type SignalSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -64,7 +64,7 @@ type RestoreEventInput = Pick<
 >;
 type RestoreTranslationInput = Pick<
 	typeof schema.entityTranslation.$inferInsert,
-	"id" | "name" | "entityId" | "language" | "properties" | "populatedAt" | "createdAt" | "updatedAt"
+	"name" | "entityId" | "language" | "properties" | "populatedAt" | "createdAt" | "updatedAt"
 >;
 type RestoreCustomViewInput = Omit<
 	typeof schema.savedView.$inferSelect,
@@ -124,10 +124,11 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 						db
 							.insert(schema.entityTranslation)
 							.values(input)
-							.returning({ id: schema.entityTranslation.id }),
+							.returning({ language: schema.entityTranslation.language }),
 					);
 					return (
-						row?.id ?? (yield* new DbError({ message: "Translation restore returned no row" }))
+						row?.language ??
+						(yield* new DbError({ message: "Translation restore returned no row" }))
 					);
 				},
 			);
@@ -253,7 +254,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 						db
 							.select({ id: schema.plugin.id })
 							.from(schema.plugin)
-							.where(and(eq(schema.plugin.id, input.pluginId), eq(schema.plugin.scope, "user")))
+							.where(and(eq(schema.plugin.id, input.pluginId), isNotNull(schema.plugin.ownerId)))
 							.for("share"),
 					);
 					const {
@@ -329,7 +330,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 								.limit(1),
 						);
 						revisionSchema = packageRevision?.manifest.configSchema ?? null;
-					} else if (plugin.scope === "user") {
+					} else if (plugin.ownerId !== null) {
 						if (plugin.ownerId !== row.userId) {
 							return yield* new DbError({ message: "Invalid installation owner" });
 						}
@@ -373,7 +374,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 							.limit(1),
 					);
 					const projection =
-						plugin.scope === "system" || !active
+						plugin.ownerId === null || !active
 							? { config: {}, configuredSecrets: [] }
 							: redactPluginConfig(
 									active.manifest.configSchema,

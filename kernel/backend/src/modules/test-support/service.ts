@@ -332,11 +332,7 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 					name: string | null;
 					properties: Record<string, unknown> | null;
 				}) {
-					const id = yield* translations.upsert({
-						...input,
-						populatedAt: yield* DateTime.nowAsDate,
-					});
-					return { id };
+					return yield* translations.upsert({ ...input, populatedAt: yield* DateTime.nowAsDate });
 				},
 			);
 

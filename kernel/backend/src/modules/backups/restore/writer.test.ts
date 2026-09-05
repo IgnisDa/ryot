@@ -424,7 +424,6 @@ it("does not apply archived translations to an existing global entity", () => {
 			language: "en",
 			properties: null,
 			populatedAt: null,
-			id: "translation-id",
 			name: "Archived overwrite",
 			createdAt: "2026-08-23T12:00:00.000Z",
 			updatedAt: "2026-08-23T12:00:00.000Z",
