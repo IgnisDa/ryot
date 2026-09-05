@@ -21,27 +21,20 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import {
 	catalogDefinitionFingerprint,
 	type CatalogDefinitionFingerprint,
-	PluginRuntimeResolver,
 } from "#modules/plugins/runtime-resolver";
 
 import {
-	applyRelationshipPolicies,
-	changeUserRelationships,
-	commitProjectedRelationshipMutations,
-	prepareChangeUserBatch,
 	prepareProjectedRelationshipMutations,
-	prepareReconcileGlobalGroup,
-	prepareRelationshipMutations,
-	reconcileGlobalRelationships,
 	reconciliationSummary,
+	RelationshipMutations,
 	singleRelationshipResult,
 	summarizeRelationshipMutations,
 	type PendingRelationshipMutations,
 	type RelationshipSingleResult,
 } from "./mutation-pipeline";
 import {
-	assertRootTransaction,
-	transaction,
+	rootTransaction,
+	rootTransactionGuard,
 	validateUserRelationshipEntities,
 	type ChangeUserRelationshipBatch,
 	type CreateRelationshipInput,
@@ -50,69 +43,35 @@ import {
 	type UpdateRelationshipInput,
 	type UserRelationshipIdentity,
 } from "./mutation-support";
-import { makePlannedRelationshipReconciliation } from "./planned-reconciliation";
-import { makePreparedRelationshipMutations } from "./prepared-mutations";
 import { RelationshipsRepository, type RelationshipIdentityInput } from "./repository";
-
-const prepareSingle = (
-	input: RelationshipIdentityInput,
-	command: LifecycleCommand,
-	mode: Mutation["mode"],
-	properties?: unknown,
-	propertiesSchema?: AppSchema,
-	schemaFingerprint?: CatalogDefinitionFingerprint,
-) =>
-	prepareProjectedRelationshipMutations(
-		prepareRelationshipMutations([
-			{ mode, input, command, properties, propertiesSchema, schemaFingerprint },
-		]),
-		singleRelationshipResult,
-	);
 
 export class RelationshipsService extends Context.Service<RelationshipsService>()(
 	"RelationshipsService",
 	{
 		make: Effect.gen(function* () {
+			const mutations = yield* RelationshipMutations;
 			const repository = yield* RelationshipsRepository;
 			const entities = yield* EntitiesRepository;
-			const runtime = yield* PluginRuntimeResolver;
 			const definitions = yield* DefinitionRepository;
 			const session = yield* DatabaseSession;
 			const planner = yield* LifecyclePlanner;
 			const execution = yield* LifecycleExecution;
-			const dependencies = { session, planner, runtime, execution, repository, definitions };
-			const {
-				committedReplay,
-				prepareUserCreate: prepareUserCreateInternal,
-				prepareUserDelete: prepareUserDeleteInternal,
-				persistPreparedUserCreate: persistPreparedUserCreateInternal,
-				persistPreparedUserDelete: persistPreparedUserDeleteInternal,
-			} = makePreparedRelationshipMutations(dependencies);
-			const { persistPlannedReconciliation: persistPlannedReconciliationInternal } =
-				makePlannedRelationshipReconciliation(dependencies);
-			const provide = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-				effect.pipe(
-					Effect.provideService(RelationshipsRepository, repository),
-					Effect.provideService(PluginRuntimeResolver, runtime),
-					Effect.provideService(DefinitionRepository, definitions),
-					Effect.provideService(DatabaseSession, session),
-					Effect.provideService(EntitiesRepository, entities),
+			const transaction = rootTransaction(session);
+			const assertRootTransaction = rootTransactionGuard(session);
+			const prepareSingle = (
+				input: RelationshipIdentityInput,
+				command: LifecycleCommand,
+				mode: Mutation["mode"],
+				properties?: unknown,
+				propertiesSchema?: AppSchema,
+				schemaFingerprint?: CatalogDefinitionFingerprint,
+			) =>
+				prepareProjectedRelationshipMutations(
+					mutations.prepareMutations([
+						{ mode, input, command, properties, propertiesSchema, schemaFingerprint },
+					]),
+					singleRelationshipResult,
 				);
-			const prepareUserCreate = (...args: Parameters<typeof prepareUserCreateInternal>) =>
-				provide(prepareUserCreateInternal(...args));
-			const prepareUserDelete = (...args: Parameters<typeof prepareUserDeleteInternal>) =>
-				provide(prepareUserDeleteInternal(...args));
-			const persistPreparedUserCreate = (
-				...args: Parameters<typeof persistPreparedUserCreateInternal>
-			) => provide(persistPreparedUserCreateInternal(...args));
-			const persistPreparedUserDelete = (
-				...args: Parameters<typeof persistPreparedUserDeleteInternal>
-			) => provide(persistPreparedUserDeleteInternal(...args));
-			const persistPlannedReconciliation = (
-				...args: Parameters<typeof persistPlannedReconciliationInternal>
-			) => provide(persistPlannedReconciliationInternal(...args));
-			const applyPolicies = (...args: Parameters<typeof applyRelationshipPolicies>) =>
-				provide(applyRelationshipPolicies(...args));
 			const prepareSingleWithCatalog = Effect.fnUntraced(function* (
 				input: RelationshipIdentityInput,
 				command: LifecycleCommand,
@@ -120,7 +79,7 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 				properties?: unknown,
 			) {
 				yield* assertRootTransaction;
-				const replay = yield* committedReplay(input, command, mode, properties);
+				const replay = yield* mutations.committedReplay(input, command, mode, properties);
 				if (replay) {
 					const batch = yield* transaction(
 						planner.planBatch({
@@ -160,7 +119,7 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 					});
 				}
 				if (input.scope === "user") {
-					yield* validateUserRelationshipEntities(input.userId, input, definition);
+					yield* validateUserRelationshipEntities(entities, input.userId, input, definition);
 				}
 				return yield* prepareSingle(
 					{ ...input, relationshipSchemaPluginId: pluginId },
@@ -187,85 +146,81 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 				return yield* prepareSingle({ ...row, userId, scope: "user" }, command, "delete");
 			});
 			const commitSingle = (pending: PendingRelationshipMutations) =>
-				provide(commitProjectedRelationshipMutations(pending, singleRelationshipResult));
-			const single = <E, R>(
+				mutations.commitProjected(pending, singleRelationshipResult);
+			const single = <E>(
 				prepare: Effect.Effect<
 					LifecyclePreparedStep<RelationshipSingleResult, PendingRelationshipMutations>,
-					E,
-					R
+					E
 				>,
 			) =>
-				Effect.gen(function* () {
-					const current = yield* LifecycleExecution;
-					const { result, warnings } = yield* runLifecycleWriteInline(current, {
-						commit: commitSingle,
-						prepare: provide(prepare),
-						applyPolicies: applyRelationshipPolicies,
-					});
-					const outcome: RelationshipMutationResult = {
+				runLifecycleWriteInline(execution, {
+					prepare,
+					commit: commitSingle,
+					applyPolicies: mutations.applyPolicies,
+				}).pipe(
+					Effect.map(({ result, warnings }): RelationshipMutationResult => ({
 						warnings,
 						relationship: result.relationship,
-					};
-					return outcome;
-				});
+					})),
+				);
 			return {
 				commitSingle,
-				applyPolicies,
-				prepareUserCreate,
-				prepareUserDelete,
-				persistPreparedUserCreate,
-				persistPreparedUserDelete,
-				persistPlannedReconciliation,
+				applyPolicies: mutations.applyPolicies,
+				prepareUserCreate: mutations.prepareUserCreate,
+				prepareUserDelete: mutations.prepareUserDelete,
+				persistPreparedUserCreate: mutations.persistPreparedUserCreate,
+				persistPreparedUserDelete: mutations.persistPreparedUserDelete,
+				persistPlannedReconciliation: mutations.persistPlannedReconciliation,
 				delete: (input: RelationshipIdentityInput, command: LifecycleCommand) =>
 					single(prepareSingle(input, command, "delete")),
 				commitBatch: (pending: PendingRelationshipMutations) =>
-					provide(commitProjectedRelationshipMutations(pending, summarizeRelationshipMutations)),
+					mutations.commitProjected(pending, summarizeRelationshipMutations),
+				prepareCreate: (input: CreateRelationshipInput, command: LifecycleCommand) =>
+					prepareSingleWithCatalog(input, command, "upsert", input.properties),
 				create: (input: CreateRelationshipInput, command: LifecycleCommand) =>
 					single(prepareSingleWithCatalog(input, command, "upsert", input.properties)),
 				update: (input: UpdateRelationshipInput, command: LifecycleCommand) =>
 					single(prepareSingleWithCatalog(input, command, "update", input.properties)),
-				prepareCreate: (input: CreateRelationshipInput, command: LifecycleCommand) =>
-					provide(prepareSingleWithCatalog(input, command, "upsert", input.properties)),
 				commitReconciliation: (pending: PendingRelationshipMutations, upserted: number) =>
-					provide(commitProjectedRelationshipMutations(pending, reconciliationSummary(upserted))),
+					mutations.commitProjected(pending, reconciliationSummary(upserted)),
 				reconcileGlobal: (
 					groups: ReadonlyArray<ReconcileGlobalRelationshipGroup>,
 					command: LifecycleCommand,
-				) => provide(reconcileGlobalRelationships(groups, command)),
+				) => mutations.reconcileGlobal(groups, command),
 				changeUser: (
 					userId: UserId,
 					batches: ReadonlyArray<ChangeUserRelationshipBatch>,
 					command: LifecycleCommand,
-				) => provide(changeUserRelationships(userId, batches, command)),
-				prepareReconcileGlobalGroup: (
-					group: ReconcileGlobalRelationshipGroup,
-					index: number,
+				) => mutations.changeUser(userId, batches, command),
+				prepareMergeUserProperties: (
+					input: CreateRelationshipInput & { userId: UserId },
 					command: LifecycleCommand,
-				) => provide(prepareReconcileGlobalGroup(group, index, command)),
+				) => prepareSingleWithCatalog(input, command, "merge", input.properties),
 				mergeUserProperties: (
 					input: CreateRelationshipInput & { userId: UserId },
 					command: LifecycleCommand,
 				) => single(prepareSingleWithCatalog(input, command, "merge", input.properties)),
+				prepareReconcileGlobalGroup: (
+					group: ReconcileGlobalRelationshipGroup,
+					index: number,
+					command: LifecycleCommand,
+				) => mutations.prepareReconcileGlobalGroup(group, index, command),
+				prepareDeleteUserRelationshipById: (
+					userId: UserId,
+					relationshipId: RelationshipId,
+					command: LifecycleCommand,
+				) => prepareDeleteUserRelationshipById(userId, relationshipId, command),
 				deleteUserRelationshipById: (
 					userId: UserId,
 					relationshipId: RelationshipId,
 					command: LifecycleCommand,
 				) => single(prepareDeleteUserRelationshipById(userId, relationshipId, command)),
-				prepareMergeUserProperties: (
-					input: CreateRelationshipInput & { userId: UserId },
-					command: LifecycleCommand,
-				) => provide(prepareSingleWithCatalog(input, command, "merge", input.properties)),
-				prepareDeleteUserRelationshipById: (
-					userId: UserId,
-					relationshipId: RelationshipId,
-					command: LifecycleCommand,
-				) => provide(prepareDeleteUserRelationshipById(userId, relationshipId, command)),
 				prepareChangeUserBatch: (
 					userId: UserId,
 					batch: ChangeUserRelationshipBatch,
 					index: number,
 					command: LifecycleCommand,
-				) => provide(prepareChangeUserBatch(userId, batch, index, command)),
+				) => mutations.prepareChangeUserBatch(userId, batch, index, command),
 				createUser: (
 					userId: UserId,
 					input: UserRelationshipIdentity & { properties?: unknown },

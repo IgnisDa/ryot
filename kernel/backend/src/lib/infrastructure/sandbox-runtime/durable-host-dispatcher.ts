@@ -14,9 +14,8 @@ import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
 import {
-	runLifecycleWriteStep,
+	runLifecycleWriteStepWith,
 	type LifecyclePreparedStep,
 } from "#lib/infrastructure/lifecycle-workflow-step";
 import {
@@ -68,7 +67,6 @@ import {
 	SandboxDurableHostServiceWorkflow,
 	SandboxDurableHostDispatcher,
 } from "#modules/sandbox/durable-host-dispatcher";
-import { SandboxRepository } from "#modules/sandbox/repository";
 
 const PreparedSandboxCreateEvents = Schema.Struct({
 	userId: UserId,
@@ -235,19 +233,11 @@ const recordHostCall = <E, R>(
 export const SandboxDurableHostDispatcherLive = Layer.effect(
 	SandboxDurableHostDispatcher,
 	Effect.gen(function* () {
-		const session = yield* DatabaseSession;
 		const engine = yield* WorkflowEngine;
-		const repository = yield* SandboxRepository;
 		const admission = yield* ProviderHttpAdmissionService;
 		const implementations = yield* SandboxHostImplementations;
 		const lifecycleExecution = yield* LifecycleExecution;
 		const rateLimitAuthority = yield* PluginHttpRateLimitAuthority;
-		const provideDispatchServices = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
-			effect.pipe(
-				Effect.provideService(DatabaseSession, session),
-				Effect.provideService(SandboxRepository, repository),
-				Effect.provideService(SandboxHostImplementations, implementations),
-			);
 		const dispatchHttp = (
 			request: Parameters<SandboxDurableHostDispatcher["Service"]["dispatch"]>[0],
 			payload: Parameters<SandboxDurableHostDispatcher["Service"]["dispatch"]>[1],
@@ -402,14 +392,13 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						name: `sandbox-http-${request.index}-network-${attempt}`,
 						execute: Effect.gen(function* () {
 							const startedAtMs = yield* Clock.currentTimeMillis;
-							const result = yield* provideDispatchServices(
-								dispatchSandboxHostActivity(
-									request,
-									payload.input,
-									principal,
-									executionId,
-									startedAt,
-								),
+							const result = yield* dispatchSandboxHostActivity(
+								implementations,
+								request,
+								payload.input,
+								principal,
+								executionId,
+								startedAt,
 							);
 							const responseTimeMs = yield* Clock.currentTimeMillis;
 							const durationMs = Math.max(0, responseTimeMs - startedAtMs);
@@ -573,7 +562,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 		}) {
 			const results = [];
 			for (const [index, item] of options.items.entries()) {
-				const outcome = yield* runLifecycleWriteStep({
+				const outcome = yield* runLifecycleWriteStepWith(lifecycleExecution, {
 					result: options.result,
 					commit: options.commit(item),
 					name: `${options.name}-${index}`,
@@ -602,8 +591,13 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 					name: `${name}-input`,
 					error: SandboxRunError,
 					success: SandboxLifecycleHostInput,
-					execute: provideDispatchServices(
-						prepareSandboxLifecycleHostInput(request, payload, principal, executionId, startedAt),
+					execute: prepareSandboxLifecycleHostInput(
+						implementations,
+						request,
+						payload,
+						principal,
+						executionId,
+						startedAt,
 					),
 				});
 				if (prepared._tag === "Failure") {
@@ -613,7 +607,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 				const written = yield* Effect.gen(function* () {
 					const warnings: Array<AutomationWarning> = [];
 					if (prepared._tag === "UpsertGlobalEntities") {
-						const outcome = yield* runLifecycleWriteStep({
+						const outcome = yield* runLifecycleWriteStepWith(lifecycleExecution, {
 							name: `${name}-0`,
 							result: GlobalEntityUpsertResults,
 							pending: PendingGlobalEntityUpsert,
@@ -672,7 +666,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 					),
 				);
 				return { value, state: "success" } satisfies WorkflowDurableResult;
-			}).pipe(Effect.provideService(LifecycleExecution, lifecycleExecution));
+			});
 
 		const dispatchDurableHostCall: SandboxDurableHostDispatcher["Service"]["dispatch"] = (
 			request,
@@ -710,14 +704,13 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						error: SandboxRunError,
 						success: workflowDurableResultSchema,
 						name: `sandbox-host-${request.index}-${request.args.capability}`,
-						execute: provideDispatchServices(
-							dispatchSandboxHostActivity(
-								request,
-								payload.input,
-								principal,
-								executionId,
-								startedAt,
-							),
+						execute: dispatchSandboxHostActivity(
+							implementations,
+							request,
+							payload.input,
+							principal,
+							executionId,
+							startedAt,
 						),
 					});
 				}
@@ -746,9 +739,6 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 								principal,
 								executionId,
 								startedAt,
-							).pipe(
-								Effect.provideService(DatabaseSession, session),
-								Effect.provideService(SandboxRepository, repository),
 							),
 						});
 						const eventPayload = yield* Schema.decodeEffect(EventCreateWorkflowPayload)(
@@ -802,9 +792,6 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 							principal,
 							executionId,
 							startedAt,
-						).pipe(
-							Effect.provideService(DatabaseSession, session),
-							Effect.provideService(SandboxRepository, repository),
 						),
 					});
 					const notificationPayload = yield* Schema.decodeEffect(
@@ -877,8 +864,13 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						(request) =>
 							recordHostCall(
 								request,
-								provideDispatchServices(
-									dispatchSandboxHostActivity(request, context, principal, executionId, startedAt),
+								dispatchSandboxHostActivity(
+									implementations,
+									request,
+									context,
+									principal,
+									executionId,
+									startedAt,
 								),
 							),
 						{ concurrency: SANDBOX_LIMITS.bridge.concurrentHostCalls },
