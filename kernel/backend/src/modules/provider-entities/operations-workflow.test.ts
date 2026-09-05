@@ -19,7 +19,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
-import { Effect, Schema } from "effect";
+import { Effect, Layer, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
@@ -32,10 +32,15 @@ import {
 	withLifecycleBatchPlanning,
 	withLifecycleDispatch,
 } from "#modules/automations/lifecycle.test-support";
+import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import { EntityImportWorkflow } from "./entity-import-workflow";
 import { RecordedLogAnnotations, recordLogAnnotationsLayer } from "./log-annotations.test-support";
-import { completeProviderEntityImport } from "./operations-workflow";
+import {
+	EntityImportWorkflowOperations,
+	EntityImportWorkflowOperationsLive,
+} from "./operations-workflow";
 
 const now = IsoUtcString.make("2026-09-16T00:00:00.000Z");
 const userId = UserId.make("user-1");
@@ -84,7 +89,68 @@ const makeRun = (trigger: AutomationTrigger) =>
 		},
 	});
 
-layer(recordLogAnnotationsLayer("provider import completed with automation warnings"))((test) => {
+const planned: AutomationTrigger[] = [];
+const executed: Array<{ triggerId: string; runIds: string[] }> = [];
+let inTransaction = false;
+const transaction = Object.create(null);
+const database = DatabaseSession.of({
+	requireRoot: Effect.void,
+	requireTransaction: Effect.void,
+	current: Effect.succeed(transaction),
+	acquireUserWriteLock: () => Effect.void,
+	isTransactionActive: Effect.sync(() => inTransaction),
+	run: (statement) => mapDatabaseErrors(statement(transaction)),
+	transaction: (work) =>
+		Effect.suspend(() => {
+			inTransaction = true;
+			return mapDatabaseErrors(work).pipe(
+				Effect.ensuring(Effect.sync(() => (inTransaction = false))),
+			);
+		}),
+});
+const planner = LifecyclePlanner.of(
+	withLifecycleBatchPlanning({
+		plan: ({ trigger }) =>
+			Effect.gen(function* () {
+				expect(inTransaction).toBe(true);
+				expect(yield* database.current).toBe(transaction);
+				planned.push(trigger);
+				return { trigger, policies: [], wasCreated: true, runs: [makeRun(trigger)] };
+			}),
+	}),
+);
+const execution = withLifecycleDispatch({
+	executePolicy: () => Effect.die("provider completion cannot execute before policies"),
+	skipQueuedPolicies: () => Effect.die("provider completion cannot stop a policy chain"),
+	after: ({ runs, triggerId }) =>
+		Effect.sync(() => {
+			expect(inTransaction).toBe(false);
+			executed.push({ triggerId, runIds: runs.map(({ id }) => id) });
+			return runs.map(({ id, hookSlug }) => ({
+				hookSlug,
+				runId: id,
+				code: "required-hook-failed" as const,
+			}));
+		}),
+});
+const operationsLayer = EntityImportWorkflowOperationsLive.pipe(
+	Layer.provide(
+		Layer.mergeAll(
+			Layer.succeed(DatabaseSession, database),
+			Layer.succeed(LifecyclePlanner, planner),
+			Layer.succeed(LifecycleExecution, execution),
+			Layer.mock(SandboxExecutionService)({}),
+			Layer.mock(PluginRuntimeResolver)({}),
+		),
+	),
+);
+
+layer(
+	Layer.merge(
+		recordLogAnnotationsLayer("provider import completed with automation warnings"),
+		operationsLayer,
+	),
+)((test) => {
 	test.effect(
 		"plans provider completion in a short transaction and invokes common execution",
 		() => {
@@ -115,54 +181,12 @@ layer(recordLogAnnotationsLayer("provider import completed with automation warni
 					initiator: { kind: "integration", id: IntegrationId.make("integration-1") },
 				}),
 			];
-			const planned: AutomationTrigger[] = [];
-			const executed: Array<{ triggerId: string; runIds: string[] }> = [];
-			let inTransaction = false;
-			const transaction = Object.create(null);
-			const database = DatabaseSession.of({
-				requireRoot: Effect.void,
-				requireTransaction: Effect.void,
-				current: Effect.succeed(transaction),
-				isTransactionActive: Effect.sync(() => inTransaction),
-				run: (statement) => mapDatabaseErrors(statement(transaction)),
-				transaction: (work) =>
-					Effect.suspend(() => {
-						inTransaction = true;
-						return mapDatabaseErrors(work).pipe(
-							Effect.ensuring(Effect.sync(() => (inTransaction = false))),
-						);
-					}),
-			});
-			const planner = LifecyclePlanner.of(
-				withLifecycleBatchPlanning({
-					plan: ({ trigger }) =>
-						Effect.gen(function* () {
-							expect(inTransaction).toBe(true);
-							expect(yield* database.current).toBe(transaction);
-							planned.push(trigger);
-							return { trigger, policies: [], wasCreated: true, runs: [makeRun(trigger)] };
-						}),
-				}),
-			);
-			const execution = withLifecycleDispatch({
-				executePolicy: () => Effect.die("provider completion cannot execute before policies"),
-				skipQueuedPolicies: () => Effect.die("provider completion cannot stop a policy chain"),
-				after: ({ runs, triggerId }) =>
-					Effect.sync(() => {
-						expect(inTransaction).toBe(false);
-						executed.push({ triggerId, runIds: runs.map(({ id }) => id) });
-						return runs.map(({ id, hookSlug }) => ({
-							hookSlug,
-							runId: id,
-							code: "required-hook-failed" as const,
-						}));
-					}),
-			});
 			const instance = WorkflowInstance.initial(EntityImportWorkflow, "provider-completion-test");
 
 			return Effect.gen(function* () {
+				const operations = yield* EntityImportWorkflowOperations;
 				for (const [index, command] of commands.entries()) {
-					yield* completeProviderEntityImport(
+					yield* operations.completeProviderEntityImport(
 						{
 							command,
 							providerId,
@@ -214,9 +238,6 @@ layer(recordLogAnnotationsLayer("provider import completed with automation warni
 					})),
 				);
 			}).pipe(
-				Effect.provideService(DatabaseSession, database),
-				Effect.provideService(LifecyclePlanner, planner),
-				Effect.provideService(LifecycleExecution, execution),
 				Effect.provideService(WorkflowInstance, instance),
 				Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
 			);
