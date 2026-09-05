@@ -1,11 +1,10 @@
-import { ManagedAssetProvider, useRyotQuery, type RyotQuery } from "@ryot-app/client-sdk/react";
+import type { RyotQuery } from "@ryot-app/client-sdk/react";
 import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/client-ui-sdk/sync";
 import clsx from "clsx";
-import { useState } from "react";
 
-import type { MediaStatusCopy } from "./detail-screen";
+import type { MediaCursorPage } from "./cursor-page-state";
+import { MediaCursorPages, type MediaCursorPagesCopy } from "./cursor-pages";
 import {
-	mapMediaEpisodePage,
 	mediaEpisodeAirDateLabel,
 	mediaEpisodeAsset,
 	mediaEpisodeRuntimeLabel,
@@ -15,13 +14,10 @@ import {
 	mediaNextUpEpisode,
 	type MediaEpisode,
 	type MediaEpisodeImagePurpose,
-	type MediaEpisodePage,
-	type MediaEpisodePageFailure,
 	type MediaEpisodeStateLabels,
 	type MediaNextUpDirection,
 } from "./episodes-state";
 import { ManagedAssetImage } from "./managed-assets";
-import { MediaLinkButton, MediaRefreshStatus, MediaStatusMessage } from "./primitives";
 
 export type MediaEpisodeArtworkAspect = "video" | "square";
 
@@ -33,11 +29,7 @@ export type MediaEpisodeRender<Episode extends MediaEpisode> = {
 	readonly originLabel: (episode: Episode) => string;
 };
 
-export type MediaEpisodePagesCopy = {
-	readonly empty: string;
-	readonly loading: MediaStatusCopy;
-	readonly error: (state: MediaEpisodePageFailure) => MediaStatusCopy;
-};
+export type MediaEpisodePagesCopy = MediaCursorPagesCopy;
 
 export type MediaEpisodePageInput = {
 	readonly after: string | null;
@@ -45,7 +37,7 @@ export type MediaEpisodePageInput = {
 	readonly containerId: string;
 };
 
-type MediaEpisodePageQuery<Episode> = RyotQuery<MediaEpisodePageInput, MediaEpisodePage<Episode>>;
+type MediaEpisodePageQuery<Episode> = RyotQuery<MediaEpisodePageInput, MediaCursorPage<Episode>>;
 
 const metaLabel = (parts: readonly (string | undefined)[]) =>
 	parts.filter((part) => part !== undefined).join(" • ");
@@ -167,71 +159,7 @@ function MediaEpisodeList<Episode extends MediaEpisode>(props: {
 	);
 }
 
-type MediaEpisodePageProps<Episode extends MediaEpisode> = {
-	readonly index: number;
-	readonly compact: boolean;
-	readonly entityId: string;
-	readonly containerId: string;
-	readonly after: string | null;
-	readonly copy: MediaEpisodePagesCopy;
-	readonly render: MediaEpisodeRender<Episode>;
-	readonly query: MediaEpisodePageQuery<Episode>;
-	readonly nextUp: MediaNextUpDirection | undefined;
-};
-
-function MediaEpisodePageView<Episode extends MediaEpisode>(props: MediaEpisodePageProps<Episode>) {
-	const [expanded, setExpanded] = useState(false);
-	const result = useRyotQuery(props.query, {
-		after: props.after,
-		entityId: props.entityId,
-		containerId: props.containerId,
-	});
-	const state = mapMediaEpisodePage(result);
-	if (state.status === "loading") {
-		return <MediaStatusMessage {...props.copy.loading} />;
-	}
-	if (state.status === "transport-error" || state.status === "malformed") {
-		return <MediaStatusMessage {...props.copy.error(state)} onRetry={result.refetch} />;
-	}
-	const { episodes, nextCursor } = state;
-	if (props.index === 0 && episodes.length === 0) {
-		return <p className="font-ui text-[13px] text-text-muted">{props.copy.empty}</p>;
-	}
-	// Next up is read from the first page alone, which is the newest end of either ordering.
-	const nextUp =
-		props.index === 0 && props.nextUp !== undefined
-			? mediaNextUpEpisode(episodes, props.nextUp)
-			: undefined;
-	return (
-		<>
-			<MediaRefreshStatus result={result} />
-			<ManagedAssetProvider assets={mediaEpisodesManagedAssets(episodes, props.render.purpose)}>
-				{nextUp === undefined ? null : (
-					<MediaNextUpCard episode={nextUp} render={props.render} compact={props.compact} />
-				)}
-				<MediaEpisodeList
-					episodes={episodes}
-					render={props.render}
-					compact={props.compact}
-					leadingDivider={props.index > 0}
-				/>
-			</ManagedAssetProvider>
-			{nextCursor !== null && expanded ? (
-				<MediaEpisodePageView {...props} after={nextCursor} index={props.index + 1} />
-			) : null}
-			{nextCursor === null || expanded ? null : (
-				<div className="pt-1">
-					<MediaLinkButton label="Load more" onClick={() => setExpanded(true)} />
-				</div>
-			)}
-		</>
-	);
-}
-
-/**
- * Cursor-paged episode list. Every page owns its query and its own managed assets, so pressing
- * Load more appends a page without refetching the ones already on screen.
- */
+/** Cursor-paged episode list whose first page leads with the next-up episode. */
 export function MediaEpisodePages<Episode extends MediaEpisode>(props: {
 	readonly compact: boolean;
 	readonly entityId: string;
@@ -241,18 +169,32 @@ export function MediaEpisodePages<Episode extends MediaEpisode>(props: {
 	readonly query: MediaEpisodePageQuery<Episode>;
 	readonly nextUp?: MediaNextUpDirection | undefined;
 }) {
+	const { render, nextUp } = props;
 	return (
-		<MediaEpisodePageView
-			index={0}
-			after={null}
+		<MediaCursorPages
 			copy={props.copy}
 			query={props.query}
-			nextUp={props.nextUp}
-			render={props.render}
 			key={props.containerId}
-			compact={props.compact}
-			entityId={props.entityId}
-			containerId={props.containerId}
+			assets={(episodes) => mediaEpisodesManagedAssets(episodes, render.purpose)}
+			input={(after) => ({ after, entityId: props.entityId, containerId: props.containerId })}
+			renderPage={(episodes, index) => {
+				// Next up is read from the first page alone, which is the newest end of either ordering.
+				const nextUpEpisode =
+					index === 0 && nextUp !== undefined ? mediaNextUpEpisode(episodes, nextUp) : undefined;
+				return (
+					<>
+						{nextUpEpisode === undefined ? null : (
+							<MediaNextUpCard render={render} episode={nextUpEpisode} compact={props.compact} />
+						)}
+						<MediaEpisodeList
+							render={render}
+							episodes={episodes}
+							compact={props.compact}
+							leadingDivider={index > 0}
+						/>
+					</>
+				);
+			}}
 		/>
 	);
 }
