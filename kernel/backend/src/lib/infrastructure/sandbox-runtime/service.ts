@@ -34,14 +34,6 @@ import {
 } from "../runtime-metrics";
 import { ServerRun } from "../server-run";
 import { SandboxArtifactStore } from "./artifacts";
-import {
-	appendRestrictedLine,
-	BenchmarkProfiler,
-	createRestrictedDirectory,
-	restrictDirectoryFiles,
-	type SandboxProfileSelection,
-	takeInspectorHeapSnapshot,
-} from "./benchmark-profiler";
 import { bindSandboxHostFunctions } from "./bridge-adapter";
 import { isSandboxCapability } from "./capability-policy";
 import { acquireSandboxCompiledModule } from "./compiled-modules";
@@ -71,15 +63,12 @@ import {
 	makeSandboxObservabilityCollector,
 	mergeSandboxExecutionLogs,
 } from "./observability-host-functions";
-import { readProcessSmapsRollup } from "./process-sampling";
 import {
 	BridgeService,
 	formatSandboxStderr,
 	SandboxProcessManager,
 	recordSandboxExecutionFinished,
 	recordSandboxExecutionStarted,
-	type SandboxProfileCheckpointHandler,
-	type SandboxProcessProfiling,
 } from "./runtime";
 import {
 	isSandboxCapabilityAllowed as isCapabilityAllowed,
@@ -93,7 +82,6 @@ import {
 import { makeWorkflowReplayJournalHostFunction } from "./workflow-journal";
 
 const sessionTtlBufferMs = 2_000;
-const profiledTimeoutExtensionMs = 180_000;
 const encoder = new TextEncoder();
 const invalidResponseMessage = "Invalid JSON response from Deno process";
 const isSandboxCapabilityAllowed = (key: string, input: Pick<SandboxRunInput, "principal">) =>
@@ -146,7 +134,6 @@ const SandboxRunnerRequest = Schema.Struct({
 	executionId: Schema.String,
 	compiledFormat: Schema.Finite,
 	apiFunctions: Schema.Array(Schema.String),
-	profiling: Schema.optional(Schema.Boolean),
 	workflowExecutionId: Schema.optional(Schema.String),
 	inlineDurableCapabilities: Schema.optional(Schema.Array(Schema.String)),
 	limits: Schema.Record(Schema.String, Schema.Union([Schema.Finite, Schema.String])),
@@ -168,32 +155,6 @@ const SandboxRunnerResponse = Schema.Struct({
 });
 
 const encodeSandboxRunnerRequest = Schema.encodeSync(Schema.fromJsonString(SandboxRunnerRequest));
-
-const ProfileCheckpointBody = Schema.Struct({
-	denoMemory: Schema.Struct({
-		rss: Schema.Finite,
-		external: Schema.Finite,
-		heapUsed: Schema.Finite,
-		heapTotal: Schema.Finite,
-	}),
-});
-const decodeProfileCheckpointBody = Schema.decodeUnknownOption(
-	Schema.fromJsonString(ProfileCheckpointBody),
-);
-const encodeProfileCheckpointRecord = Schema.encodeSync(
-	Schema.fromJsonString(
-		Schema.Struct({
-			pid: Schema.Int,
-			attempt: Schema.Int,
-			sequence: Schema.Int,
-			checkpoint: Schema.String,
-			timestampMs: Schema.Finite,
-			heapSnapshotFile: Schema.NullOr(Schema.String),
-			denoMemory: Schema.NullOr(ProfileCheckpointBody.fields.denoMemory),
-			smapsRollup: Schema.NullOr(Schema.Record(Schema.String, Schema.NullOr(Schema.Finite))),
-		}),
-	),
-);
 const decodeSandboxRunnerResponse = Schema.decodeUnknownSync(
 	Schema.fromJsonString(SandboxRunnerResponse),
 );
@@ -275,7 +236,6 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 		const fs = yield* FileSystem.FileSystem;
 		const artifacts = yield* SandboxArtifactStore;
 		const processes = yield* SandboxProcessManager;
-		const profiler = yield* BenchmarkProfiler;
 		const hostImplementations = yield* SandboxHostImplementations;
 		const localTempRoot = yield* fs.realPath(config.fileStorage.localTempDir).pipe(Effect.orDie);
 
@@ -283,56 +243,6 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 			localTempRoot,
 			`${SANDBOX_HARVEST_DIRECTORY_PREFIX}${serverRun.id}`,
 		);
-
-		const profileCheckpointHandler = (
-			profile: SandboxProfileSelection,
-			worker: { readonly inspectorUrl: Deferred.Deferred<string> | undefined },
-		): SandboxProfileCheckpointHandler => {
-			let sequence = 0;
-			return (checkpoint, body) =>
-				Effect.gen(function* () {
-					if (!/^[a-z][a-z-]{0,39}$/.test(checkpoint)) {
-						return;
-					}
-					sequence += 1;
-					const current = sequence;
-					const timestampMs = yield* Clock.currentTimeMillis;
-					const smapsRollup = yield* readProcessSmapsRollup(profile.record.pid);
-					let heapSnapshotFile: string | null = null;
-					if (
-						worker.inspectorUrl !== undefined &&
-						profile.record.heapSnapshotCount < profile.maxHeapSnapshots
-					) {
-						const inspectorUrl = yield* Deferred.await(worker.inspectorUrl).pipe(
-							Effect.timeout("10 seconds"),
-						);
-						heapSnapshotFile = `heap-${current}-${checkpoint}.heapsnapshot`;
-						yield* takeInspectorHeapSnapshot(
-							fs,
-							inspectorUrl,
-							`${profile.directory}/${heapSnapshotFile}`,
-						);
-						profile.record.heapSnapshotCount += 1;
-					}
-					yield* appendRestrictedLine(
-						fs,
-						`${profile.directory}/checkpoints.jsonl`,
-						encodeProfileCheckpointRecord({
-							checkpoint,
-							smapsRollup,
-							timestampMs,
-							heapSnapshotFile,
-							sequence: current,
-							pid: profile.record.pid,
-							attempt: profile.record.attempt,
-							denoMemory: Option.getOrNull(
-								Option.map(decodeProfileCheckpointBody(body), ({ denoMemory }) => denoMemory),
-							),
-						}),
-					);
-					profile.record.checkpointCount = current;
-				});
-		};
 
 		const apiFunctions = {
 			...hostImplementations.runtime,
@@ -412,37 +322,12 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 							? yield* acquireSandboxScratchDirectory(localTempRoot)
 							: undefined;
 
-						const profile = profiler.select({
-							scriptSlug: input.principal.scriptSlug,
-							executionKey: input.workflowExecutionId ?? input.executionId,
-						});
-						const profiling: SandboxProcessProfiling | undefined = profile
-							? {
-									directory: profile.directory,
-									cpuProfile: profile.cpuProfile,
-									inspector: profile.maxHeapSnapshots > 0,
-								}
-							: undefined;
-						if (profile) {
-							yield* createRestrictedDirectory(fs, profile.directory);
-							yield* Effect.addFinalizer(() =>
-								Effect.sync(() => {
-									if (!profile.record.finished) {
-										profile.record.finished = true;
-										profile.record.error = "Profiled attempt ended without a runner response";
-									}
-								}),
-							);
-						}
-
 						const dedicated =
 							artifactPath !== undefined ||
 							namedArtifactPaths !== undefined ||
 							scratchDirectory !== undefined;
-						const dedicatedProcess = dedicated || profiling !== undefined;
-						// Grant-carrying and profiled executions keep one replay per process: grants are
-						// replay-scoped and profiles attribute a single attempt.
-						const inline = dedicatedProcess ? undefined : input.inlineDurableHost;
+						// Grant-carrying executions keep one replay per process because grants are replay-scoped.
+						const inline = dedicated ? undefined : input.inlineDurableHost;
 						const token = generateId();
 						const modulePath = yield* acquireSandboxCompiledModule(
 							processes.runtimePaths,
@@ -462,7 +347,6 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 							apiBase: `http://127.0.0.1:${bridge.port}`,
 							apiFunctions: Object.keys(selectedApiFunctions),
 							startedAt: input.startedAt ?? "1970-01-01T00:00:00.000Z",
-							...(profile ? { profiling: true } : {}),
 							...(input.workflowExecutionId
 								? { workflowExecutionId: input.workflowExecutionId }
 								: {}),
@@ -484,24 +368,19 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 							...(namedArtifactPaths !== undefined ? { namedArtifactPaths } : {}),
 						};
 						let workerOutcome: SandboxProcessOutcome = "failure";
-						const worker = dedicatedProcess
-							? yield* processes.spawnDedicated(() => workerOutcome, grants, profiling)
+						const worker = dedicated
+							? yield* processes.spawnDedicated(() => workerOutcome, grants)
 							: yield* processes.acquire;
-						yield* processes.annotate(worker, input.workflowExecutionId ?? input.executionId);
-						if (profile) {
-							profile.record.pid = Number(worker.process.pid);
-						}
 						recordSandboxExecutionStarted();
 						yield* Effect.addFinalizer(() => Effect.sync(recordSandboxExecutionFinished));
-						if (!dedicatedProcess) {
+						if (!dedicated) {
 							yield* Effect.addFinalizer(() =>
 								Effect.suspend(() => processes.release(worker, workerOutcome)).pipe(Effect.orDie),
 							);
 						}
 						yield* Queue.poll(worker.responseQueue).pipe(Effect.asVoid);
 
-						const timeoutMs =
-							SANDBOX_LIMITS.execution.timeoutMs + (profile ? profiledTimeoutExtensionMs : 0);
+						const timeoutMs = SANDBOX_LIMITS.execution.timeoutMs;
 						const now = yield* Clock.currentTimeMillis;
 						const parentSpan = yield* Effect.currentSpan;
 						const session = yield* bridge.addSession(input.executionId, {
@@ -510,9 +389,6 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 							apiFunctions: selectedApiFunctions,
 							hostCallLimit: SANDBOX_LIMITS.hostCalls.total,
 							expiresAt: now + timeoutMs + sessionTtlBufferMs,
-							...(profile
-								? { onProfileCheckpoint: profileCheckpointHandler(profile, worker) }
-								: {}),
 						});
 
 						yield* Queue.offer(worker.stdinQueue, encoder.encode(requestLine));
@@ -585,13 +461,6 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 							);
 							yield* Queue.offer(worker.stdinQueue, encoder.encode(reply));
 							yield* session.extend((yield* Clock.currentTimeMillis) - settleStartedAt);
-						}
-
-						// The profiled runner exits by itself after responding so Deno flushes `--cpu-prof`.
-						if (profile) {
-							yield* worker.process.exitCode.pipe(Effect.timeout("30 seconds"), Effect.ignore);
-							yield* restrictDirectoryFiles(fs, profile.directory).pipe(Effect.ignore);
-							profile.record.finished = true;
 						}
 
 						const raw = yield* Effect.try({
@@ -733,12 +602,7 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 }) {
 	static readonly layer = Layer.effect(this, this.make).pipe(
 		Layer.provide(
-			Layer.mergeAll(
-				SandboxProcessManager.layer,
-				BridgeService.layer,
-				SandboxArtifactStore.layer,
-				BenchmarkProfiler.layer,
-			),
+			Layer.mergeAll(SandboxProcessManager.layer, BridgeService.layer, SandboxArtifactStore.layer),
 		),
 	);
 }

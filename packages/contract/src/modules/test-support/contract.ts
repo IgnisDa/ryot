@@ -28,14 +28,6 @@ import {
 	TestSupportEnqueueSandboxBody,
 	TestSupportEnqueueSandboxResponse,
 	TestSupportOperationalPressure,
-	BenchmarkProfileToken,
-	TestSupportArmSandboxProfileBody,
-	TestSupportBackendCheckpoint,
-	TestSupportBackendProfileBody,
-	TestSupportProviderImportPhaseSegments,
-	TestSupportSandboxProfileStatus,
-	TestSupportSandboxRuntimeMetrics,
-	TestSupportSandboxRuntimeQuery,
 	TestSupportPluginCronResult,
 	TestSupportSandboxReplayProjectionBody,
 	TestSupportStartWorkflowLoadGateBody,
@@ -129,56 +121,6 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 			payload: OperationalPressureBody,
 			success: TestSupportOperationalPressure,
 		}).annotate(OpenApi.Description, "Samples generic workflow infrastructure pressure"),
-	)
-	.add(
-		HttpApiEndpoint.get("sampleSandboxRuntime", "/test-support/sandbox/runtime", {
-			error: testSupportErrors,
-			query: TestSupportSandboxRuntimeQuery,
-			success: TestSupportSandboxRuntimeMetrics,
-		}).annotate(OpenApi.Description, "Samples sandbox process memory and lifecycle metrics"),
-	)
-	.add(
-		HttpApiEndpoint.get(
-			"listProviderImportPhaseSegments",
-			"/test-support/provider-imports/phase-segments",
-			{
-				error: testSupportErrors,
-				success: TestSupportProviderImportPhaseSegments,
-				query: { afterSequence: Schema.NumberFromString },
-			},
-		).annotate(OpenApi.Description, "Lists process-local provider import phase attempts"),
-	)
-	.add(
-		HttpApiEndpoint.post("armSandboxProfile", "/test-support/benchmark/sandbox-profile", {
-			error: testSupportErrors,
-			success: TestSupportSandboxProfileStatus,
-			payload: TestSupportArmSandboxProfileBody,
-		}).annotate(OpenApi.Description, "Arms benchmark profiling for the next matching executions"),
-	)
-	.add(
-		HttpApiEndpoint.get(
-			"getSandboxProfileStatus",
-			"/test-support/benchmark/sandbox-profile/:token",
-			{
-				error: testSupportErrors,
-				params: { token: BenchmarkProfileToken },
-				success: TestSupportSandboxProfileStatus,
-			},
-		).annotate(OpenApi.Description, "Reports benchmark sandbox profile capture status"),
-	)
-	.add(
-		HttpApiEndpoint.post(
-			"disarmSandboxProfiles",
-			"/test-support/benchmark/sandbox-profile/disarm",
-			{ error: testSupportErrors, success: Schema.Struct({ disarmed: Schema.Number }) },
-		).annotate(OpenApi.Description, "Removes every pending benchmark sandbox profile selection"),
-	)
-	.add(
-		HttpApiEndpoint.post("captureBackendProfile", "/test-support/benchmark/backend-profile", {
-			error: testSupportErrors,
-			success: TestSupportBackendCheckpoint,
-			payload: TestSupportBackendProfileBody,
-		}).annotate(OpenApi.Description, "Captures a benchmark-only backend memory or CPU profile"),
 	)
 	.add(
 		HttpApiEndpoint.post("createGlobalEntity", "/test-support/entities/global", {

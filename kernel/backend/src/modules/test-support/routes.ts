@@ -11,7 +11,6 @@ import { HttpApiBuilder } from "effect/unstable/httpapi";
 
 import { AutomationReconciliation } from "#modules/automations/reconciliation";
 
-import { BenchmarkProfilingService } from "./benchmark-profiling-service";
 import { OperationalGateService } from "./operational-gate-service";
 import { TestSupportService } from "./service";
 
@@ -84,45 +83,6 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 			Effect.gen(function* () {
 				const svc = yield* OperationalGateService;
 				return yield* svc.samplePressure(payload.executionIds);
-			}).pipe(mapTestSupportFailure),
-		)
-		.handle("sampleSandboxRuntime", ({ query }) =>
-			Effect.gen(function* () {
-				const svc = yield* OperationalGateService;
-				return yield* svc.sampleSandboxRuntime({
-					includeSmaps: query.includeSmaps === "true",
-					completedAfterSequence: query.completedAfterSequence ?? 0,
-				});
-			}).pipe(mapTestSupportFailure),
-		)
-		.handle("listProviderImportPhaseSegments", ({ query }) =>
-			Effect.gen(function* () {
-				const svc = yield* OperationalGateService;
-				return yield* svc.listProviderImportPhaseSegments(query.afterSequence);
-			}).pipe(mapTestSupportFailure),
-		)
-		.handle("armSandboxProfile", ({ payload }) =>
-			Effect.gen(function* () {
-				const svc = yield* BenchmarkProfilingService;
-				return yield* svc.armSandboxProfile(payload);
-			}).pipe(mapTestSupportFailure),
-		)
-		.handle("getSandboxProfileStatus", ({ params }) =>
-			Effect.gen(function* () {
-				const svc = yield* BenchmarkProfilingService;
-				return yield* svc.getSandboxProfileStatus(params.token);
-			}).pipe(mapTestSupportFailure),
-		)
-		.handle("disarmSandboxProfiles", () =>
-			Effect.gen(function* () {
-				const svc = yield* BenchmarkProfilingService;
-				return yield* svc.disarmSandboxProfiles();
-			}).pipe(mapTestSupportFailure),
-		)
-		.handle("captureBackendProfile", ({ payload }) =>
-			Effect.gen(function* () {
-				const svc = yield* BenchmarkProfilingService;
-				return yield* svc.captureBackendProfile(payload);
 			}).pipe(mapTestSupportFailure),
 		)
 		.handle("createGlobalEntity", ({ payload }) =>

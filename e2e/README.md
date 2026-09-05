@@ -31,12 +31,6 @@ and an album; it requires every import to complete and the PostgreSQL deadlock c
 unchanged. Live smoke detects provider drift, may require credentials, and asserts stable properties
 rather than exact upstream text.
 
-Run sandbox benchmarks separately. `SANDBOX_PROCESS_MODE` defaults to `on-demand`; use `warm` to measure the warm pool.
-
-```bash
-RUN_SANDBOX_BENCHMARKS=1 bun turbo --env-mode=loose --force --output-logs=full --filter=@ryot-app/e2e test --only -- 'src/api/kernel/sandbox/sandbox-runtime-benchmark.test.ts'
-```
-
 ## Harness
 
 `global-setup.ts` builds required artifacts, provisions PostgreSQL, Redis, and object storage, then starts one shared backend serving the SPA and `/api` from one origin. It publishes that backend through `E2E_API_URL`, `E2E_FRONTEND_URL`, and `E2E_ADMIN_ACCESS_TOKEN`, which worker processes inherit.
