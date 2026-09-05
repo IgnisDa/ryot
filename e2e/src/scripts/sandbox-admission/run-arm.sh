@@ -36,7 +36,17 @@ postgres_counters() {
 
 sample_pressure &
 SAMPLER=$!
-trap 'kill "$SAMPLER" 2>/dev/null || true' EXIT
+# On any exit, keep whatever the probe wrote and name the scenario that stopped the arm.
+scenario=setup
+finish() {
+	status=$?
+	kill "$SAMPLER" 2>/dev/null || true
+	docker cp "$APP:/tmp/$LABEL.jsonl" "$OUT/probe.jsonl" 2>/dev/null || true
+	if [ "$status" -ne 0 ]; then
+		echo "arm $LABEL failed during $scenario (exit $status)" >&2
+	fi
+}
+trap finish EXIT
 
 while [ "$#" -gt 1 ]; do
 	scenario="$1"
@@ -51,4 +61,3 @@ while [ "$#" -gt 1 ]; do
 		"$(awk "BEGIN { print (${after% *} - ${before% *}) / 1000000 }")" \
 		"$((${after#* } - ${before#* }))" >>"$OUT/postgres.jsonl"
 done
-docker cp "$APP:/tmp/$LABEL.jsonl" "$OUT/probe.jsonl"
