@@ -153,9 +153,11 @@ describe("God Mode route", () => {
 			expect(screen.queryByRole("alert")).toBeNull();
 			yield* Effect.promise(() =>
 				waitFor(() =>
-					view.runtime
-						.runPromise(view.sessions.get("god-session"))
-						.then((session) => expect(session).toBeNull()),
+					view.runtime.runPromise(
+						view.sessions
+							.get("god-session")
+							.pipe(Effect.map((session) => expect(session).toBeNull())),
+					),
 				),
 			);
 		}),
@@ -181,9 +183,11 @@ describe("God Mode route", () => {
 				expect(alert.textContent).toBe("The admin access token is invalid or expired.");
 				yield* Effect.promise(() =>
 					waitFor(() =>
-						view.runtime
-							.runPromise(view.sessions.get("god-session"))
-							.then((session) => expect(session).toBeNull()),
+						view.runtime.runPromise(
+							view.sessions
+								.get("god-session")
+								.pipe(Effect.map((session) => expect(session).toBeNull())),
+						),
 					),
 				);
 

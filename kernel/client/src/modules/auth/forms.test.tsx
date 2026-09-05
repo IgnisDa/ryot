@@ -32,7 +32,7 @@ function renderCredentialsForm(overrides?: {
 	const onModeChange = (mode: AuthMode) => modeChanges.push(mode);
 	const onSubmit = (values: CredentialsValues) => {
 		submissions.push(values);
-		return Promise.resolve(overrides?.submitError);
+		return Effect.succeed(overrides?.submitError);
 	};
 	const props = {
 		onSubmit,
@@ -58,7 +58,7 @@ function renderTwoFactorForm(overrides?: {
 	const onMethodChange = (method: TwoFactorMethod) => methodChanges.push(method);
 	const onSubmit = (code: string) => {
 		submissions.push(code);
-		return Promise.resolve(overrides?.submitError);
+		return Effect.succeed(overrides?.submitError);
 	};
 	const props = {
 		onBack,
@@ -84,7 +84,7 @@ describe("credentials form", () => {
 				signupAllowed
 				disabled={false}
 				onModeChange={() => undefined}
-				onSubmit={() => Promise.resolve(undefined)}
+				onSubmit={() => Effect.undefined}
 			/>,
 		);
 
@@ -211,7 +211,7 @@ describe("two-factor form", () => {
 				onBack={() => undefined}
 				methods={["totp", "backupCode"]}
 				onMethodChange={() => undefined}
-				onSubmit={() => Promise.resolve(undefined)}
+				onSubmit={() => Effect.undefined}
 			/>,
 		);
 

@@ -17,9 +17,8 @@ describe("entity interest live lifecycle", () => {
 				},
 				(notify) => {
 					resume = notify;
-					// oxlint-disable-next-line effecttsgo/new-promise -- The native listener registration stays pending until this test releases it.
-					return new Promise((resolve) => {
-						registered = resolve;
+					return Effect.callback<PluginListenerHandle>((resolve) => {
+						registered = (handle) => resolve(Effect.succeed(handle));
 					});
 				},
 			);
@@ -59,9 +58,8 @@ describe("entity interest live lifecycle", () => {
 						document,
 						listenResume: (notify) => {
 							resume = notify;
-							// oxlint-disable-next-line effecttsgo/new-promise -- The native registration gate remains pending until the test releases it.
-							return new Promise((resolve) => {
-								registered = resolve;
+							return Effect.callback<PluginListenerHandle>((resolve) => {
+								registered = (handle) => resolve(Effect.succeed(handle));
 							});
 						},
 					},
@@ -100,7 +98,8 @@ describe("entity interest live lifecycle", () => {
 				{
 					window,
 					document: new EventTarget(),
-					listenResume: () => Promise.reject(new Error("native unavailable")),
+					listenResume: () =>
+						Effect.tryPromise(() => Promise.reject(new Error("native unavailable"))),
 				},
 			);
 			yield* Effect.promise(() => Promise.resolve());

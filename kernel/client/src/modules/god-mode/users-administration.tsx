@@ -36,7 +36,7 @@ import type { BackInterceptors } from "#/modules/navigation/back-interceptors";
 
 const PAGE_SIZE = 50;
 
-type OperationResult<A> = Promise<Exit.Exit<A, unknown>>;
+type OperationResult<A> = Effect.Effect<Exit.Exit<A, unknown>>;
 type Page =
 	| { readonly after: string | undefined; readonly state: "loading" | "error" }
 	| { readonly after: string | undefined; readonly state: "loaded"; readonly value: GodModeUsers };
@@ -139,12 +139,14 @@ export function UsersAdministration(props: UsersAdministrationProps) {
 		}
 	};
 	const loadPage = (pageQuery: string, after: string | undefined, version: number) =>
-		props.operations
-			.listUsers(pageQuery, after, PAGE_SIZE)
-			.then((exit) => applyPage(after, version, exit));
-	const loadFirstPage = useEffectEvent(
-		(pageQuery: string, version: number) => void loadPage(pageQuery, undefined, version),
-	);
+		Effect.runFork(
+			props.operations
+				.listUsers(pageQuery, after, PAGE_SIZE)
+				.pipe(Effect.map((exit) => applyPage(after, version, exit))),
+		);
+	const loadFirstPage = useEffectEvent((pageQuery: string, version: number) => {
+		loadPage(pageQuery, undefined, version);
+	});
 
 	useEffect(() => {
 		const timer = setTimeout(() => setQuery(search.trim()), 300);
@@ -164,7 +166,7 @@ export function UsersAdministration(props: UsersAdministrationProps) {
 		setPages((current) =>
 			current.map((page) => (page.after === after ? { after, state: "loading" } : page)),
 		);
-		void loadPage(query, after, generation.current);
+		loadPage(query, after, generation.current);
 	};
 	const loadedPages = pages.filter(
 		(page): page is Extract<Page, { state: "loaded" }> => page.state === "loaded",
@@ -178,13 +180,13 @@ export function UsersAdministration(props: UsersAdministrationProps) {
 		}
 		const after = last.value.pageInfo.nextCursor;
 		setPages((current) => [...current, { after, state: "loading" }]);
-		void loadPage(query, after, generation.current);
+		loadPage(query, after, generation.current);
 	};
 	const refreshUsers = () => {
 		const version = generation.current + 1;
 		generation.current = version;
 		setPages([{ after: undefined, state: "loading" }]);
-		void loadPage(query, undefined, version);
+		loadPage(query, undefined, version);
 	};
 	const submitSearch = (event: SyntheticEvent<HTMLFormElement>) => {
 		event.preventDefault();
@@ -317,96 +319,98 @@ function UserRow(props: {
 
 	const run = <A,>(kind: NonNullable<typeof pending>, operation: () => OperationResult<A>) => {
 		if (pendingRef.current !== null) {
-			return Promise.resolve(null);
+			return Effect.succeed(null);
 		}
 		pendingRef.current = kind;
 		setPending(kind);
 		setError(undefined);
-		return operation().then((exit) => {
-			pendingRef.current = null;
-			setPending(null);
-			if (Exit.isSuccess(exit)) {
-				return exit.value;
-			}
-			if (isUnauthorizedCause(exit.cause)) {
-				props.onUnauthorized();
-			} else {
-				logFailure(`god-mode user ${kind} request failed`, exit.cause);
-			}
-			return null;
-		});
+		return operation().pipe(
+			Effect.map((exit) => {
+				pendingRef.current = null;
+				setPending(null);
+				if (Exit.isSuccess(exit)) {
+					return exit.value;
+				}
+				if (isUnauthorizedCause(exit.cause)) {
+					props.onUnauthorized();
+				} else {
+					logFailure(`god-mode user ${kind} request failed`, exit.cause);
+				}
+				return null;
+			}),
+		);
 	};
 	const resetPassword = () => {
 		setCopied(false);
 		setResult(null);
-		return run("password", () => props.operations.resetUserPassword(props.user.id)).then(
-			(value) => {
+		return run("password", () => props.operations.resetUserPassword(props.user.id)).pipe(
+			Effect.map((value) => {
 				if (value !== null) {
 					setResult(value);
 				} else if (pendingRef.current === null) {
 					setError("Could not generate a reset link. Try again.");
 				}
-				return undefined;
-			},
+			}),
 		);
 	};
 	const toggleDisabled = () =>
-		run("disabled", () => props.operations.setUserDisabled(props.user.id, !isDisabled)).then(
-			(value) => {
+		run("disabled", () => props.operations.setUserDisabled(props.user.id, !isDisabled)).pipe(
+			Effect.map((value) => {
 				if (value !== null) {
 					props.onRefresh();
 				} else if (pendingRef.current === null) {
 					setError(`Could not ${isDisabled ? "enable" : "disable"} this user. Try again.`);
 				}
-				return undefined;
-			},
+			}),
 		);
 	const confirm = () => {
 		setResult(null);
 		const kind = confirmation;
 		if (kind === null) {
-			return Promise.resolve();
+			return Effect.void;
 		}
 		if (kind === "reset") {
-			return run("reset", () => props.operations.resetUser(props.user.id)).then((value) => {
+			return run("reset", () => props.operations.resetUser(props.user.id)).pipe(
+				Effect.map((value) => {
+					if (value === null) {
+						if (pendingRef.current === null) {
+							setError("Could not reset this user. Try again.");
+						}
+						return;
+					}
+					setConfirmation(null);
+					setResult(value);
+				}),
+			);
+		}
+		return run("delete", () => props.operations.deleteUser(props.user.id)).pipe(
+			Effect.map((value) => {
 				if (value === null) {
 					if (pendingRef.current === null) {
-						setError("Could not reset this user. Try again.");
+						setError("Could not delete this user. Try again.");
 					}
-					return undefined;
+					return;
 				}
 				setConfirmation(null);
-				setResult(value);
-				return undefined;
-			});
-		}
-		return run("delete", () => props.operations.deleteUser(props.user.id)).then((value) => {
-			if (value === null) {
-				if (pendingRef.current === null) {
-					setError("Could not delete this user. Try again.");
-				}
-				return undefined;
-			}
-			setConfirmation(null);
-			props.onRefresh();
-			return undefined;
-		});
+				props.onRefresh();
+			}),
+		);
 	};
 	const transfer = () => {
 		if (result?.resetUrl == null) {
-			return Promise.resolve();
+			return Effect.void;
 		}
-		return props.transferResetLink(result.resetUrl).then(
-			() => {
-				setCopied(true);
-				copyTimer.current = setTimeout(() => setCopied(false), 2000);
-				return undefined;
-			},
-			(cause) => {
-				Effect.runSync(Effect.logWarning("god-mode reset link transfer failed", cause));
-				setError("Could not copy or share the reset link. Try again.");
-				return undefined;
-			},
+		return props.transferResetLink(result.resetUrl).pipe(
+			Effect.tapError((failure) =>
+				Effect.logWarning("god-mode reset link transfer failed", failure.cause),
+			),
+			Effect.match({
+				onFailure: () => setError("Could not copy or share the reset link. Try again."),
+				onSuccess: () => {
+					setCopied(true);
+					copyTimer.current = setTimeout(() => setCopied(false), 2000);
+				},
+			}),
 		);
 	};
 	const closeMenu = (restoreFocus: boolean) => {
@@ -422,7 +426,7 @@ function UserRow(props: {
 			setConfirmation(kind);
 			return;
 		}
-		queueMicrotask(() => void (kind === "password" ? resetPassword() : toggleDisabled()));
+		queueMicrotask(() => Effect.runFork(kind === "password" ? resetPassword() : toggleDisabled()));
 	};
 	const actionItems: ReadonlyArray<MenuItem> = [
 		{
@@ -542,7 +546,7 @@ function UserRow(props: {
 									<button
 										type="button"
 										disabled={copied}
-										onClick={() => void transfer()}
+										onClick={() => Effect.runFork(transfer())}
 										className="min-h-9 shrink-0 rounded-lg border border-border-strong px-3 py-2 text-[13px] font-semibold text-text disabled:opacity-50"
 									>
 										{copied ? "Copied!" : "Copy or share"}
@@ -558,9 +562,9 @@ function UserRow(props: {
 					error={error}
 					kind={confirmation}
 					triggerRef={triggerRef}
-					onConfirm={() => void confirm()}
 					pending={pending === confirmation}
 					backInterceptors={props.backInterceptors}
+					onConfirm={() => Effect.runFork(confirm())}
 					onClose={() => {
 						if (pending === null) {
 							setError(undefined);

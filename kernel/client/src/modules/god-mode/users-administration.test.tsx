@@ -29,11 +29,11 @@ const makeOperations = (users: ReadonlyArray<GodModeUser>, calls: Array<unknown>
 	let currentUsers = [...users];
 	return {
 		resetUserPassword: () =>
-			Promise.resolve(
+			Effect.succeed(
 				Exit.succeed({ email: "reader-0@example.com", resetUrl: "https://example.com/reset" }),
 			),
 		resetUser: () =>
-			Promise.resolve(
+			Effect.succeed(
 				Exit.succeed({
 					email: "reader-0@example.com",
 					userId: UserId.make("user-0"),
@@ -47,11 +47,11 @@ const makeOperations = (users: ReadonlyArray<GodModeUser>, calls: Array<unknown>
 					? { ...user, disabledAt: disabled ? "2026-09-02T00:00:00.000Z" : null }
 					: user,
 			);
-			return Promise.resolve(Exit.succeed({ id: UserId.make(userId) }));
+			return Effect.succeed(Exit.succeed({ id: UserId.make(userId) }));
 		},
 		deleteUser: (userId) => {
 			currentUsers = currentUsers.filter((user) => user.id !== userId);
-			return Promise.resolve(
+			return Effect.succeed(
 				Exit.succeed({
 					failure: null,
 					startedAt: null,
@@ -72,7 +72,7 @@ const makeOperations = (users: ReadonlyArray<GodModeUser>, calls: Array<unknown>
 			const items = matching.slice(offset, offset + limit);
 			const nextCursor =
 				offset + items.length < matching.length ? String(offset + items.length) : null;
-			return Promise.resolve(
+			return Effect.succeed(
 				Exit.succeed({
 					items,
 					total: matching.length,
@@ -85,7 +85,7 @@ const makeOperations = (users: ReadonlyArray<GodModeUser>, calls: Array<unknown>
 
 const renderUsers = (
 	users: ReadonlyArray<GodModeUser>,
-	transfer: ResetLinkTransfer = () => Promise.resolve("copied"),
+	transfer: ResetLinkTransfer = () => Effect.succeed("copied"),
 	overrides: Partial<GodModeUserOperations> = {},
 ) => {
 	const calls: Array<unknown> = [];
@@ -151,7 +151,7 @@ describe("God Mode users administration", () => {
 					listUsers: (search, after, limit) => {
 						requested.push(after);
 						if (after === "50" && failures++ === 0) {
-							return Promise.resolve(Exit.fail(new AdminApiError({ cause: "offline" })));
+							return Effect.succeed(Exit.fail(new AdminApiError({ cause: "offline" })));
 						}
 						return list(search, after, limit);
 					},
@@ -182,7 +182,7 @@ describe("God Mode users administration", () => {
 			const transferred: string[] = [];
 			renderUsers([makeUser(0)], (url) => {
 				transferred.push(url);
-				return Promise.resolve("copied");
+				return Effect.succeed("copied" as const);
 			});
 			yield* Effect.promise(() => screen.findByText("reader-0@example.com"));
 
@@ -318,21 +318,22 @@ describe("God Mode users administration", () => {
 			let settle: (() => void) | undefined;
 			const view = renderUsers([makeUser(0)], undefined, {
 				deleteUser: () =>
-					// oxlint-disable-next-line effecttsgo/new-promise -- This controllable test gate stays pending until the host callback or test releases it.
-					new Promise((resolve) => {
+					Effect.callback((resolve) => {
 						settle = () =>
 							resolve(
-								Exit.succeed({
-									failure: null,
-									startedAt: null,
-									finishedAt: null,
-									id: "operation-1",
-									resetResult: null,
-									kind: "delete" as const,
-									status: "completed" as const,
-									userId: UserId.make("user-0"),
-									createdAt: "2026-09-01T00:00:00.000Z",
-								}),
+								Effect.succeed(
+									Exit.succeed({
+										failure: null,
+										startedAt: null,
+										finishedAt: null,
+										id: "operation-1",
+										resetResult: null,
+										kind: "delete" as const,
+										status: "completed" as const,
+										userId: UserId.make("user-0"),
+										createdAt: "2026-09-01T00:00:00.000Z",
+									}),
+								),
 							);
 					}),
 			});
@@ -436,7 +437,7 @@ describe("God Mode users administration", () => {
 				listUsers: (search, after, limit) => {
 					requests += 1;
 					return requests === 2
-						? Promise.resolve(Exit.fail(new AdminApiError({ cause: "offline" })))
+						? Effect.succeed(Exit.fail(new AdminApiError({ cause: "offline" })))
 						: list(search, after, limit);
 				},
 			});
@@ -467,7 +468,7 @@ describe("God Mode users administration", () => {
 				listUsers: (search, after, limit) => {
 					requests += 1;
 					return requests === 2
-						? Promise.resolve(
+						? Effect.succeed(
 								Exit.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } })),
 							)
 						: list(search, after, limit);

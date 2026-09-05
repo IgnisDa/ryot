@@ -1,6 +1,7 @@
 import { Button } from "@ryot-app/client-ui-sdk";
 import { createErrorVisibility, useForm } from "@tanstack/react-form";
-import { useRef, useState } from "react";
+import { Effect } from "effect";
+import { useEffect, useRef, useState } from "react";
 
 import type { AuthMode, TwoFactorMethod } from "#/modules/auth/flow";
 import {
@@ -34,19 +35,24 @@ export function CredentialsForm(props: {
 	disabled: boolean;
 	signupAllowed: boolean;
 	onModeChange: (mode: AuthMode) => void;
-	onSubmit: (values: CredentialsValues) => Promise<string | undefined>;
+	onSubmit: (values: CredentialsValues) => Effect.Effect<string | undefined>;
 }) {
 	const passwordRef = useRef<HTMLInputElement>(null);
 	const [serverError, setServerError] = useState<string>();
 	const content = modeContent[props.mode];
+	const controller = useRef(new AbortController());
+	useEffect(() => () => controller.current.abort(), []);
 	const form = useForm({
 		errorVisibility,
 		defaultValues: { email: "", password: "" },
 		onSubmit: ({ value }) => {
 			setServerError(undefined);
-			return props
-				.onSubmit(normalizeCredentials(value))
-				.then((submissionError) => setServerError(submissionError));
+			return Effect.runPromiseExit(
+				props
+					.onSubmit(normalizeCredentials(value))
+					.pipe(Effect.map((submissionError) => setServerError(submissionError))),
+				{ signal: controller.current.signal },
+			);
 		},
 	});
 
@@ -214,22 +220,29 @@ export function TwoFactorForm(props: {
 	method: TwoFactorMethod;
 	methods: readonly TwoFactorMethod[];
 	onMethodChange: (method: TwoFactorMethod) => void;
-	onSubmit: (code: string) => Promise<string | undefined>;
+	onSubmit: (code: string) => Effect.Effect<string | undefined>;
 }) {
 	const [serverError, setServerError] = useState<string>();
 	const usingBackupCode = props.method === "backupCode";
+	const controller = useRef(new AbortController());
+	useEffect(() => () => controller.current.abort(), []);
 	const form = useForm({
 		errorVisibility,
 		defaultValues: { code: "" },
 		onSubmit: ({ value }) => {
 			setServerError(undefined);
-			return props.onSubmit(value.code.trim()).then((error) => {
-				setServerError(error);
-				if (error) {
-					form.reset();
-				}
-				return undefined;
-			});
+			return Effect.runPromiseExit(
+				props.onSubmit(value.code.trim()).pipe(
+					Effect.map((error) => {
+						setServerError(error);
+						if (error) {
+							form.reset();
+						}
+						return undefined;
+					}),
+				),
+				{ signal: controller.current.signal },
+			);
 		},
 	});
 

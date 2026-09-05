@@ -29,9 +29,9 @@ export class UploadsApi extends Context.Service<UploadsApi>()("UploadsApi", {
 			putBytes: (scope: ApiScope, transfer: UploadByteTransfer) =>
 				Effect.gen(function* () {
 					const bytes = yield* Effect.tryPromise({
+						try: () => transfer.source.arrayBuffer(),
 						catch: (cause) => new AuthenticatedApiError({ cause }),
-						try: () => transfer.source.arrayBuffer().then((buffer) => new Uint8Array(buffer)),
-					});
+					}).pipe(Effect.map((buffer) => new Uint8Array(buffer)));
 					const request = HttpClientRequest.put(
 						resolveApiUrl(scope.serverUrl, transfer.uploadUrl),
 					).pipe(

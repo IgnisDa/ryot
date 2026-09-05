@@ -32,7 +32,7 @@ const grant = {
 function mount(
 	options: {
 		readonly onReloadCurrent?: () => void;
-		readonly onCheckFreshness?: (signal: AbortSignal) => Promise<boolean>;
+		readonly onCheckFreshness?: () => Effect.Effect<boolean, Error>;
 		readonly subscribeResume?: (resumed: () => void) => () => void;
 		readonly onInvokeOperation?: (
 			request: PluginOperationRequest,
@@ -90,7 +90,7 @@ function mount(
 		onNavigate: (request: unknown) => navigations.push(request),
 		onReloadCurrent: options.onReloadCurrent ?? (() => undefined),
 		onProviderSearch: (request: unknown) => providerSearches.push(request),
-		onCheckFreshness: options.onCheckFreshness ?? (() => Promise.resolve(true)),
+		onCheckFreshness: options.onCheckFreshness ?? (() => Effect.succeed(true)),
 		watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
 		onQuery: () => Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
 		onAssets: () => Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
@@ -473,7 +473,7 @@ describe("PluginFrame", () => {
 				},
 				onCheckFreshness: () => {
 					checks += 1;
-					return Promise.resolve(false);
+					return Effect.succeed(false);
 				},
 			});
 			yield* Effect.promise(() => flush());

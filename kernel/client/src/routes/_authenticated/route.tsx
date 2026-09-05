@@ -20,15 +20,19 @@ export const Route = createFileRoute("/_authenticated")({
 	pendingComponent: RestoringSession,
 	errorComponent: AuthenticatedLoadError,
 	beforeLoad: ({ context, location }) =>
-		protectedRouteGuard(context, location.href).then((authenticated) => {
-			const session = context.ryotClients.get(authenticated.scope);
-			return {
-				...authenticated,
-				ryot: session.client,
-				ryotRuntime: session.runtime,
-				hostServices: session.hostServices,
-			};
-		}),
+		context.runtime.runPromise(
+			protectedRouteGuard(location.href).pipe(
+				Effect.map((authenticated) => {
+					const session = context.ryotClients.get(authenticated.scope);
+					return {
+						...authenticated,
+						ryot: session.client,
+						ryotRuntime: session.runtime,
+						hostServices: session.hostServices,
+					};
+				}),
+			),
+		),
 	loader: ({ context, location, abortController }) =>
 		context.runtime.runPromise(
 			Effect.gen(function* () {
