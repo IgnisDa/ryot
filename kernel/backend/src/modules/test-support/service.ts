@@ -1,11 +1,13 @@
 import { createLocalAccountIssuer, createOAuthAccountIssuer } from "@better-auth/core/db";
 import { PgClient } from "@effect/sql-pg";
+import { PluginClientArtifactFromBase64 } from "@ryot-app/client-plugin-contract";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import type {
 	InstallPluginBody,
 	UpdatePrivatePluginBody,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import type {
+	TestSupportInstallSystemPluginBodyBase64,
 	TestSupportEnqueueSandboxBody,
 	TestSupportTriggerPluginCronBody,
 } from "@ryot-app/contract/modules/test-support/schemas";
@@ -156,38 +158,53 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 					};
 				},
 			);
-			const installSystemPlugin = Effect.fn("TestSupportService.installSystemPlugin")(
-				function* (input: {
-					readonly manifest: unknown;
-					readonly files: Readonly<Record<string, string>>;
-				}) {
-					const files = Object.fromEntries(
-						yield* Effect.forEach(Object.entries(input.files), ([path, contents]) =>
-							Schema.decodeEffect(Schema.Uint8ArrayFromBase64)(contents).pipe(
-								Effect.map((decoded) => [path, decoded] as const),
+			const installSystemPlugin = Effect.fn("TestSupportService.installSystemPlugin")(function* (
+				input: TestSupportInstallSystemPluginBodyBase64,
+			) {
+				const files = Object.fromEntries(
+					yield* Effect.forEach(Object.entries(input.files), ([path, contents]) =>
+						Schema.decodeEffect(Schema.Uint8ArrayFromBase64)(contents).pipe(
+							Effect.map((decoded) => [path, decoded] as const),
+							Effect.mapError(
+								() =>
+									new TestSupportBadRequest({
+										reason: {
+											code: "invalid-request",
+											diagnostic: `Plugin file '${path}' must be canonical padded Base64`,
+										},
+									}),
+							),
+						),
+					),
+				);
+				const compiledClient =
+					input.compiledClient === undefined
+						? undefined
+						: yield* Schema.decodeUnknownEffect(PluginClientArtifactFromBase64)(
+								input.compiledClient,
+							).pipe(
 								Effect.mapError(
 									() =>
 										new TestSupportBadRequest({
 											reason: {
 												code: "invalid-request",
-												diagnostic: `Plugin file '${path}' must be canonical padded Base64`,
+												diagnostic: "Plugin client artifact must be a valid Base64 artifact",
 											},
 										}),
 								),
-							),
-						),
-					);
-					const installed = yield* pluginIngestion.installPlugin({
-						files,
-						manifest: input.manifest,
-					});
-					return yield* getPluginOperationResult({
-						ownerId: null,
-						scope: "system",
-						slug: installed.slug,
-					});
-				},
-			);
+							);
+				const installed = yield* pluginIngestion.installPlugin({
+					files,
+					manifest: input.manifest,
+					compiledScripts: input.compiledScripts,
+					...(compiledClient === undefined ? {} : { compiledClient }),
+				});
+				return yield* getPluginOperationResult({
+					ownerId: null,
+					scope: "system",
+					slug: installed.slug,
+				});
+			});
 			const installPrivatePlugin = Effect.fn("TestSupportService.installPrivatePlugin")(function* (
 				userId: UserId,
 				input: InstallPluginBody,

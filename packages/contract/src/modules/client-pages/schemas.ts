@@ -1,13 +1,7 @@
 import { Schema } from "effect";
 
 import { CanonicalBase64 } from "../../schema/base64";
-import {
-	ClientRendererId,
-	EntityId,
-	EntitySchemaSlug,
-	PluginSlug,
-	SavedViewId,
-} from "../../schema/brands";
+import { EntityId, EntitySchemaSlug, PluginSlug, SavedViewId } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { AppSchema } from "../../schema/property-schema";
 import { strictStruct } from "../../schema/utils";
@@ -23,53 +17,6 @@ export const ClientRendererDefinition = strictStruct({
 	pluginDependencies: Schema.Array(PluginSlug),
 });
 export type ClientRendererDefinition = typeof ClientRendererDefinition.Type;
-
-export const ClientRendererCommandResponse = strictStruct({ id: ClientRendererId });
-
-export const ReplaceClientRendererDraftResponse = strictStruct({
-	id: ClientRendererId,
-	draftRevision: Schema.Int,
-});
-
-export const CreateClientRendererBody = strictStruct({
-	slug: Schema.String,
-	name: Schema.String,
-	draftDefinition: ClientRendererDefinition,
-});
-
-export const ReplaceClientRendererDraftBody = strictStruct({
-	expectedDraftRevision: Schema.Int,
-	draftDefinition: ClientRendererDefinition,
-});
-
-export const PublishClientRendererBody = strictStruct({ expectedDraftRevision: Schema.Int });
-
-export const PublishClientRendererResponse = strictStruct({
-	publishedHash: Schema.String,
-	publishedRevision: Schema.Int,
-});
-
-export const ClientRendererErrorReason = Schema.Union([
-	strictStruct({ code: Schema.Literal("renderer-in-use") }),
-	strictStruct({ code: Schema.Literal("renderer-not-found") }),
-	strictStruct({ code: Schema.Literal("draft-revision-stale") }),
-	strictStruct({ code: Schema.Literal("renderer-unpublished") }),
-	strictStruct({ message: Schema.String, code: Schema.Literal("definition-invalid") }),
-	strictStruct({ exportName: Schema.String, code: Schema.Literal("export-not-found") }),
-	strictStruct({ message: Schema.String, code: Schema.Literal("settings-incompatible") }),
-	strictStruct({ pluginSlug: PluginSlug, code: Schema.Literal("dependency-unavailable") }),
-	strictStruct({ code: Schema.Literal("build-failed"), diagnostics: Schema.Array(Schema.String) }),
-]);
-
-export class ClientRendererBadRequest extends Schema.TaggedError<ClientRendererBadRequest>()(
-	"ClientRendererBadRequest",
-	{ reason: ClientRendererErrorReason },
-) {}
-
-export class ClientRendererNotFound extends Schema.TaggedError<ClientRendererNotFound>()(
-	"ClientRendererNotFound",
-	{ reason: strictStruct({ code: Schema.Literal("renderer-not-found") }) },
-) {}
 
 const SavedViewClientPageTarget = strictStruct({
 	slug: Schema.String,
@@ -103,6 +50,8 @@ export const PrepareClientPageBody = strictStruct({ target: ClientPageTarget });
 export const ClientPagePreparationErrorReason = Schema.Union([
 	strictStruct({ entityId: EntityId, code: Schema.Literal("entity-not-found") }),
 	strictStruct({ pluginId: Schema.String, code: Schema.Literal("plugin-unavailable") }),
+	strictStruct({ pluginSlug: PluginSlug, code: Schema.Literal("dependency-unavailable") }),
+	strictStruct({ exportName: Schema.String, code: Schema.Literal("export-not-found") }),
 	strictStruct({
 		path: Schema.String,
 		pluginId: Schema.String,
@@ -119,6 +68,7 @@ export const ClientPagePreparationErrorReason = Schema.Union([
 		ownerPluginId: Schema.NullOr(Schema.String),
 		code: Schema.Literal("entity-detail-page-not-registered"),
 	}),
+	strictStruct({ code: Schema.Literal("saved-view-unavailable") }),
 ]);
 
 export class ClientPagePreparationError extends Schema.TaggedError<ClientPagePreparationError>()(
@@ -131,11 +81,6 @@ export const ClientPageCodeContributor = Schema.Union([
 		name: Schema.String,
 		sourceHash: Schema.String,
 		kind: Schema.Literal("kernel-renderer"),
-	}),
-	strictStruct({
-		sourceHash: Schema.String,
-		rendererId: ClientRendererId,
-		kind: Schema.Literal("renderer"),
 	}),
 	strictStruct({
 		pluginSlug: PluginSlug,
@@ -206,16 +151,6 @@ export const ClientPageArtifactIdentity = strictStruct({
 				pluginDependencies: Schema.Array(PluginSlug),
 			}),
 			strictStruct({
-				name: Schema.String,
-				entry: Schema.String,
-				namespace: Schema.String,
-				sourceHash: Schema.String,
-				rendererId: ClientRendererId,
-				kind: Schema.Literal("renderer"),
-				automaticEntityPresentations: Schema.Boolean,
-				pluginDependencies: Schema.Array(PluginSlug),
-			}),
-			strictStruct({
 				pluginSlug: PluginSlug,
 				pluginId: Schema.String,
 				namespace: Schema.String,
@@ -259,16 +194,6 @@ export const PreparedClientPageIdentity = Schema.Union([
 	}),
 	strictStruct({
 		...PreparedClientPageIdentityBase,
-		savedViewId: SavedViewId,
-		viewRevision: Schema.Int,
-		rendererId: ClientRendererId,
-		publishedHash: Schema.String,
-		publishedRevision: Schema.Int,
-		target: SavedViewClientPageTarget,
-		kind: Schema.Literal("saved-view"),
-	}),
-	strictStruct({
-		...PreparedClientPageIdentityBase,
 		pluginId: Schema.String,
 		sourceHash: Schema.String,
 		exportName: Schema.String,
@@ -299,7 +224,6 @@ export const PreparedClientPageContext = strictStruct({
 	route: strictStruct({ params: Schema.Record(Schema.String, Schema.String) }),
 	renderer: Schema.Union([
 		strictStruct({ name: Schema.String, kind: Schema.Literal("kernel") }),
-		strictStruct({ id: ClientRendererId, kind: Schema.Literal("custom") }),
 		strictStruct({
 			pluginId: Schema.String,
 			exportName: Schema.String,

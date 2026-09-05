@@ -1,7 +1,7 @@
 import { badRequest, DbError } from "@ryot-app/contract/errors";
+import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
 import type { AssetLocator } from "@ryot-app/contract/modules/uploads/schemas";
 import {
-	ClientRendererId,
 	EntityId,
 	EntitySchemaSlug,
 	SignalSchemaSlug,
@@ -13,7 +13,6 @@ import { Context, Data, Effect, Layer, Stream } from "effect";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import { AuthRepository } from "#modules/auth/repository";
 import { AutomationsRepository } from "#modules/automations/repository";
-import { ClientPagesRepository } from "#modules/client-pages/repository";
 import type { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
 import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities/repository";
 import { TranslationsRepository } from "#modules/entity-translation/repository";
@@ -325,7 +324,6 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 	{
 		make: Effect.gen(function* () {
 			const auth = yield* AuthRepository;
-			const clientPages = yield* ClientPagesRepository;
 			const events = yield* EventsRepository;
 			const plugins = yield* PluginRepository;
 			const entities = yield* EntitiesRepository;
@@ -404,7 +402,6 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					].map((plugin) => [plugin.id, plugin]),
 				);
 				const installationIdByKey = new Map<string, string>();
-				const clientRendererIdMap = new Map<string, ClientRendererId>();
 				const savedViewIdMap = new Map<string, string>();
 				const installationActivations: Array<{
 					readonly id: string;
@@ -442,7 +439,6 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						userId,
 						config,
 						pluginId,
-						id: state.id,
 						isDisabled: true,
 						health: "installing",
 						sortOrder: state.sortOrder,
@@ -465,20 +461,6 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				}
 				const getEntitySchema = (slug: string) => definitions.entitySchemas[slug];
 				const getRelationshipSchema = (slug: string) => definitions.relationshipSchemas[slug];
-				for (const renderer of records.clientRenderers) {
-					const id = ClientRendererId.make(crypto.randomUUID());
-					const restored = yield* clientPages.restoreRenderer({
-						...renderer,
-						id,
-						userId,
-						createdAt: parseDate(renderer.createdAt),
-						updatedAt: parseDate(renderer.updatedAt),
-					});
-					if (!restored) {
-						return yield* badRequest("Backup client renderer could not be restored");
-					}
-					clientRendererIdMap.set(renderer.id, id);
-				}
 				yield* savedViews.restoreBuiltinViews(
 					userId,
 					Object.values(definitions.savedViews)
@@ -838,35 +820,25 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					if (view.pluginKey && !pluginInstallationId) {
 						return yield* badRequest("Backup saved view installation mapping is invalid");
 					}
-					let renderer;
+					let renderer: SavedViewRenderer;
 					if (view.renderer.kind === "plugin") {
 						const pluginId = pluginIdByKey.get(view.renderer.pluginKey);
 						if (!pluginId) {
 							return yield* badRequest("Backup saved view renderer mapping is invalid");
 						}
-						renderer = { pluginId, kind: "plugin" as const, exportName: view.renderer.exportName };
-					} else if (view.renderer.kind === "custom") {
-						const rendererId = clientRendererIdMap.get(view.renderer.rendererId);
-						if (!rendererId) {
-							return yield* badRequest("Backup saved view renderer mapping is invalid");
-						}
-						renderer = { ...view.renderer, rendererId };
+						renderer = { pluginId, kind: "plugin", exportName: view.renderer.exportName };
 					} else {
 						renderer = view.renderer;
 					}
-					const clientRenderer =
-						renderer.kind === "custom"
-							? yield* clientPages.lockRenderer(userId, renderer.rendererId)
-							: null;
 					const pluginPage =
 						renderer.kind === "plugin"
 							? installedPlugins.get(renderer.pluginId)?.client?.exports?.[renderer.exportName]
 							: undefined;
-					const clientRendererId = yield* validateSavedViewDefinition(
+					yield* validateSavedViewDefinition(
 						renderer,
 						view.settings,
 						view.dataSources,
-						clientRenderer,
+						null,
 						pluginPage?.kind === "page" ? pluginPage : null,
 					).pipe(Effect.mapError(() => badRequest("Backup saved view definition is invalid")));
 					const restored = yield* savedViews.restoreCustomView({
@@ -875,7 +847,6 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						slug: view.slug,
 						name: view.name,
 						icon: view.icon,
-						clientRendererId,
 						pluginInstallationId,
 						id: crypto.randomUUID(),
 						settings: view.settings,

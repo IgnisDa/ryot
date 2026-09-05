@@ -23,19 +23,14 @@ const savedViewSelection = {
 
 type RestoreCustomSavedViewInput = Omit<
 	SavedViewRow,
-	"userId" | "layouts" | "revision" | "isBuiltin" | "clientRendererId" | "pluginInstallationId"
-> & {
-	readonly userId: UserId;
-	readonly clientRendererId?: string | null | undefined;
-	readonly pluginInstallationId?: string | null | undefined;
-};
+	"userId" | "layouts" | "revision" | "isBuiltin" | "pluginInstallationId"
+> & { readonly userId: UserId; readonly pluginInstallationId?: string | null | undefined };
 
 type CreateSavedViewInput = {
 	readonly slug: string;
 	readonly name: string;
 	readonly icon: string;
 	readonly userId: UserId;
-	readonly clientRendererId?: string | null;
 	readonly pluginInstallationId?: string | null | undefined;
 	readonly dataSources?: (typeof schema.savedView.$inferSelect)["dataSources"];
 	readonly renderer: (typeof schema.savedView.$inferSelect)["renderer"];
@@ -49,7 +44,6 @@ type UpdateSavedViewData = {
 	readonly name: string;
 	readonly isDisabled: boolean;
 	readonly sortOrder?: number | undefined;
-	readonly clientRendererId?: string | null;
 	readonly pluginInstallationId: string | null;
 	readonly renderer: (typeof schema.savedView.$inferSelect)["renderer"];
 	readonly settings: (typeof schema.savedView.$inferSelect)["settings"];
@@ -236,7 +230,6 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 							renderer: input.renderer,
 							settings: input.settings,
 							dataSources: input.dataSources,
-							clientRendererId: input.clientRendererId,
 							sortOrder: (orderRow?.maxSortOrder ?? -1) + 1,
 							pluginInstallationId: input.pluginInstallationId ?? null,
 						})
@@ -269,7 +262,6 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 							settings: data.settings,
 							isDisabled: data.isDisabled,
 							dataSources: data.dataSources,
-							clientRendererId: data.clientRendererId,
 							revision: sql`${schema.savedView.revision} + 1`,
 							pluginInstallationId: data.pluginInstallationId,
 							...(sortOrder === undefined ? {} : { sortOrder }),

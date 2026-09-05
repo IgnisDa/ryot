@@ -6,7 +6,7 @@
 		"assemble": "bun run scripts/assemble.ts",
 		"check": "tsc && oxfmt . --write && oxlint . --type-aware --fix",
 		"run-migration": "bun run --cwd ../../kernel/backend build && bun run --cwd ../../packages/kernel-renderers build && RUN_MIGRATION_ONLY=true bun run src/main.ts",
-		"build": "bun build src/main.ts --splitting --outdir dist --target bun --sourcemap --external @ryot-app/vite-compiler --external @tailwindcss/vite --define process.env.UNKEY_ROOT_KEY=\"\\\"${UNKEY_ROOT_KEY:-}\\\"\" && bun build scripts/warm-sandbox-runtime-cache.ts scripts/smoke-compiler-workers.ts scripts/smoke-sandbox-runtime.ts --outdir dist --target bun --sourcemap"
+		"build": "bun build src/main.ts --splitting --outdir dist --target bun --sourcemap --external @ryot-app/vite-compiler --external @tailwindcss/vite --define process.env.UNKEY_ROOT_KEY=\"\\\"${UNKEY_ROOT_KEY:-}\\\"\" && bun build scripts/warm-sandbox-runtime-cache.ts scripts/smoke-sandbox-runtime.ts --outdir dist --target bun --sourcemap"
 	},
 	"dependencies": {
 		"@effect/platform-bun": "4.0.0-rc.117",

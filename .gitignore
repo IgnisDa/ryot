@@ -71,6 +71,7 @@ kernel/backend/src/lib/infrastructure/sandbox-runtime/runner.generated.ts
 kernel/backend/src/lib/infrastructure/sandbox-runtime/runtime-payload.generated.ts
 kernel/backend/src/lib/infrastructure/sandbox-runtime/runtime-payload-metadata.generated.ts
 kernel/backend/src/modules/definition-registry/kernel-scripts.generated.ts
+kernel/backend/src/modules/definition-registry/kernel-scripts.compiled.generated.ts
 packages/kernel-renderers/src/sources.generated.ts
 .env*.local
 *.tsbuildinfo

@@ -7,6 +7,7 @@ import {
 } from "@ryot-app/client-plugin-contract";
 import { DEFAULT_AUTOMATION_RETRY_POLICY } from "@ryot-app/contract/modules/automations/lifecycle";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { and, eq } from "drizzle-orm";
 import { Effect, Result } from "effect";
 import { assert, describe } from "vitest";
@@ -15,6 +16,7 @@ import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { Database } from "#lib/infrastructure/db/service";
 
 import { PluginInstallationRepository } from "./installation-repository";
+import { pluginSourceHash } from "./pipeline";
 import { clientArtifactMatches, PluginRepository } from "./repository";
 import {
 	installRevisionPackage,
@@ -22,6 +24,8 @@ import {
 	withRevisionDatabase,
 } from "./revision.test-support";
 import { PluginRuntimeResolver } from "./runtime-resolver";
+import { fixtureClientArtifact } from "./source.test-support";
+import { fixtureManifest } from "./test-support";
 
 const owner = UserId.make("owner");
 const expired = new Date(0);
@@ -67,6 +71,151 @@ it("matches immutable client artifacts by exact bytes", () => {
 });
 
 describe("plugin repository revisions", () => {
+	it.effect("retains and exports a precompiled client artifact for the active package", () =>
+		withRevisionDatabase(
+			Effect.gen(function* () {
+				const db = yield* Database;
+				const repository = yield* PluginRepository;
+				const base = fixtureManifest();
+				const manifest = {
+					...base,
+					client: {
+						homeView: null,
+						apiVersion: CLIENT_API_VERSION,
+						exports: {
+							card: {
+								entry: "client/index.ts",
+								kind: "component" as const,
+								automaticEntityPresentations: false,
+							},
+						},
+					},
+				};
+				const compiledClient = fixtureClientArtifact(manifest.metadata.name);
+				const entry = manifest.scripts[0]?.entry;
+				assert(entry);
+				const source = "export default {};";
+				const javascript = "export {};";
+				const compiledScripts = [{ entry, source, format: 1, javascript }];
+				const files = {
+					[entry]: new TextEncoder().encode(source),
+					"client/index.ts": new TextEncoder().encode("export default null;"),
+				};
+				const plugin = {
+					files,
+					manifest,
+					compiledClient,
+					sourceHash: pluginSourceHash(manifest, files, compiledScripts, compiledClient),
+					scripts: manifest.scripts.map((script) => {
+						const { entry: scriptEntry, ...metadata } = script;
+						return {
+							source,
+							metadata,
+							slug: script.slug,
+							name: script.name,
+							compiledFormat: 1,
+							entry: scriptEntry,
+							compiledCode: javascript,
+							contentHash: sha256Hex(javascript),
+						};
+					}),
+				};
+				const pluginId = yield* repository.persist(plugin, {
+					scope: "user",
+					ownerId: owner,
+					slug: manifest.metadata.slug,
+				});
+				yield* db
+					.insert(tables.pluginClientArtifact)
+					.values({
+						format: 0,
+						hash: "unrelated-artifact",
+						apiVersion: CLIENT_API_VERSION,
+						compilerVersion: CLIENT_COMPILER_VERSION,
+						bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
+					});
+				yield* db
+					.insert(tables.pluginClientArtifactFile)
+					.values({
+						name: "ignored.bin",
+						contents: Buffer.from([0]),
+						artifactHash: "unrelated-artifact",
+						contentType: "application/octet-stream",
+					});
+
+				expect(yield* repository.listCompiledPackageArtifacts(pluginId)).toEqual({
+					compiledClient,
+					compiledScripts,
+				});
+				const [revision] = yield* db
+					.select({
+						id: tables.pluginRevision.id,
+						clientArtifactHash: tables.pluginRevision.clientArtifactHash,
+					})
+					.from(tables.pluginRevision)
+					.where(eq(tables.pluginRevision.pluginId, pluginId));
+				assert(revision);
+				expect(revision.clientArtifactHash).toBe(compiledClient.hash);
+				expect(yield* repository.findRevisionClientArtifact(revision.id)).toEqual(compiledClient);
+				expect(
+					yield* repository.findClientArtifactForSource({
+						pluginId,
+						sourceHash: plugin.sourceHash,
+					}),
+				).toEqual(compiledClient);
+				expect(
+					yield* repository.findClientArtifactForSource({ pluginId, sourceHash: "missing-source" }),
+				).toBeNull();
+
+				yield* db
+					.update(tables.pluginRevision)
+					.set({ clientArtifactHash: null })
+					.where(eq(tables.pluginRevision.id, revision.id));
+				expect(
+					yield* repository.findClientArtifactForSource({
+						pluginId,
+						sourceHash: plugin.sourceHash,
+					}),
+				).toBeNull();
+				expect(
+					Result.isFailure(
+						yield* Effect.result(
+							repository.persist(plugin, {
+								scope: "user",
+								ownerId: owner,
+								slug: manifest.metadata.slug,
+							}),
+						),
+					),
+				).toBe(true);
+
+				yield* db
+					.update(tables.pluginRevision)
+					.set({ clientArtifactHash: compiledClient.hash })
+					.where(eq(tables.pluginRevision.id, revision.id));
+				const artifactFile = compiledClient.files[0];
+				assert(artifactFile);
+				yield* db
+					.update(tables.pluginClientArtifactFile)
+					.set({ contents: Buffer.from([...artifactFile.contents, 0]) })
+					.where(
+						and(
+							eq(tables.pluginClientArtifactFile.artifactHash, compiledClient.hash),
+							eq(tables.pluginClientArtifactFile.name, artifactFile.name),
+						),
+					);
+				expect(
+					Result.isFailure(
+						yield* Effect.result(repository.findRevisionClientArtifact(revision.id)),
+					),
+				).toBe(true);
+				expect(
+					Result.isFailure(yield* Effect.result(repository.persistClientArtifact(compiledClient))),
+				).toBe(true);
+			}),
+		),
+	);
+
 	it.effect(
 		"selects the booted kernel artifact after downgrade and prunes only unpinned old code",
 		() =>
@@ -326,7 +475,8 @@ describe("plugin repository revisions", () => {
 			Effect.gen(function* () {
 				const repository = yield* PluginRepository;
 				const first = revisionPackage();
-				yield* installRevisionPackage(first);
+				const installed = yield* installRevisionPackage(first);
+				expect(yield* repository.findRevisionClientArtifact(installed.revisionId)).toBeNull();
 				expect(
 					(yield* repository.findActiveSystemPlugin("fixture"))?.manifest.metadata.version,
 				).toBe("v1");

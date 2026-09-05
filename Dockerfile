@@ -21,7 +21,7 @@ RUN bun run --cwd apps/server assemble
 FROM builder-base AS client-builder
 RUN bun turbo --filter=@ryot-app/kernel-client build
 
-FROM base AS compiler-runtime
+FROM base AS runtime-deps
 COPY --from=prepare /app/out/json/ .
 COPY --from=prepare /app/out/full/packages ./packages
 RUN --mount=type=cache,target=/root/.bun/install/cache \
@@ -54,15 +54,10 @@ RUN mkdir -p /home/ryot/logs /home/ryot/plugins /home/ryot/storage /home/ryot/tm
 COPY --chown=ryot:ryot kernel/backend/src/drizzle ./src/drizzle
 COPY --from=client-builder --chown=ryot:ryot /app/kernel/client/dist ./client
 COPY --from=backend-builder --chown=ryot:ryot /app/apps/server/dist ./dist
-COPY --from=backend-builder --chown=ryot:ryot /app/packages/sandbox-compiler/dist/sandbox-compiler-worker.js* ./dist/
-COPY --from=backend-builder --chown=ryot:ryot /app/packages/client-plugin-compiler/dist/client-plugin-compiler-worker.js* ./dist/
 COPY --from=backend-builder --chown=ryot:ryot /app/apps/server/plugins ./plugins
-COPY --from=compiler-runtime --chown=ryot:ryot /app/node_modules ./node_modules
-COPY --from=compiler-runtime --chown=ryot:ryot /app/packages ./packages
+COPY --from=runtime-deps --chown=ryot:ryot /app/node_modules ./node_modules
+COPY --from=runtime-deps --chown=ryot:ryot /app/packages ./packages
 USER ryot
-RUN bun run dist/smoke-compiler-workers.js \
-    /home/ryot/dist/sandbox-compiler-worker.js \
-    /home/ryot/dist/client-plugin-compiler-worker.js
 # Build the read-only sandbox dependency runtime so startup requires no registry access.
 RUN bun run dist/warm-sandbox-runtime-cache.js
 RUN bun run dist/smoke-sandbox-runtime.js

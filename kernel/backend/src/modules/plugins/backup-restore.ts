@@ -11,10 +11,9 @@ import {
 	type DefinitionSnapshot,
 } from "#modules/definition-registry/snapshot";
 import { mergeManifestDefinitions } from "#modules/definition-registry/source";
-import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 
 import { PluginIngestionLock } from "./ingestion-lock";
-import { compilePluginPackage, pluginSourceHash } from "./pipeline";
+import { normalizePluginPackage, normalizePluginSource } from "./pipeline";
 import { PluginRepository } from "./repository";
 import type { NormalizedPlugin } from "./types";
 import {
@@ -41,7 +40,6 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 			const plugins = yield* PluginRepository;
 			const definitions = yield* DefinitionRepository;
 			const ingestionLock = yield* PluginIngestionLock;
-			const clientCompiler = yield* ClientPluginCompiler;
 
 			const prepare = Effect.fn("PluginBackupRestore.prepare")(function* (
 				packages: ReadonlyArray<ArchivePrivatePlugin>,
@@ -72,7 +70,15 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 					) {
 						return yield* badRequest("Backup private plugin metadata is inconsistent");
 					}
-					if (pluginSourceHash(manifest, files) !== item.sourceHash) {
+					const normalizedSource = yield* asInvalidBackup(
+						normalizePluginSource({
+							files,
+							manifest,
+							compiledScripts: item.compiledScripts,
+							...(item.compiledClient ? { compiledClient: item.compiledClient } : {}),
+						}),
+					);
+					if (normalizedSource.sourceHash !== item.sourceHash) {
 						return yield* badRequest("Backup private plugin source hash is invalid");
 					}
 					yield* asInvalidBackup(validatePluginPackageLimits(files, manifest));
@@ -83,11 +89,7 @@ export class PluginBackupRestore extends Context.Service<PluginBackupRestore>()(
 						}),
 					);
 					yield* asInvalidBackup(validatePluginSourcePaths(files, manifest));
-					const normalized = yield* asInvalidBackup(
-						compilePluginPackage({ files, manifest, sourceHash: item.sourceHash }).pipe(
-							Effect.provideService(ClientPluginCompiler, clientCompiler),
-						),
-					);
+					const normalized = yield* asInvalidBackup(normalizePluginPackage(normalizedSource));
 					yield* asInvalidBackup(validatePluginExecutableScripts(normalized));
 					prepared.push({ ...item, files, manifest, normalized });
 				}

@@ -1,5 +1,6 @@
 import { PgClient } from "@effect/sql-pg";
 import { expect, it } from "@effect/vitest";
+import { PluginClientArtifactFromBase64 } from "@ryot-app/client-plugin-contract";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -11,7 +12,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { Effect, Encoding, Layer } from "effect";
+import { Effect, Encoding, Layer, Schema } from "effect";
 
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
 import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
@@ -26,7 +27,9 @@ import { TranslationsService } from "#modules/entity-translation/service";
 import { PluginInstallationService } from "#modules/plugins/installation-service";
 import { PluginRepository } from "#modules/plugins/repository";
 import { PluginIngestionService } from "#modules/plugins/service";
+import { fixtureClientArtifact } from "#modules/plugins/source.test-support";
 import { fixtureManifest } from "#modules/plugins/test-support";
+import type { PluginSource } from "#modules/plugins/types";
 import { RelationshipSchemasRepository } from "#modules/relationship-schemas/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import { SandboxExecutionService } from "#modules/sandbox/service";
@@ -112,16 +115,34 @@ const persistedPluginResult = (revision: string) => ({
 const pluginInstallationResult = { id: "installation-id", pluginId: PluginId.make("plugin-id") };
 
 it.effect("returns persisted system plugin identity after real ingestion completes", () => {
-	const manifest = testPluginManifest();
-	let ingestedFiles: Readonly<Record<string, Uint8Array>> | undefined;
-	const layer = makeServiceLayer({
-		pluginIngestion: {
-			installPlugin: ({ files }) =>
-				Effect.sync(() => {
-					ingestedFiles = files;
-					return { slug: PluginSlug.make("fixture"), pluginId: PluginId.make("plugin-id") };
-				}),
+	const manifest = {
+		...testPluginManifest(),
+		client: {
+			homeView: null,
+			apiVersion: 1 as const,
+			exports: {
+				"fixture-page": {
+					kind: "page" as const,
+					entry: "client/page.tsx",
+					settingsSchema: { fields: {} },
+					automaticEntityPresentations: false,
+				},
+			},
 		},
+	};
+	const compiledClient = fixtureClientArtifact(manifest.metadata.name);
+	const compiledScripts = [
+		{
+			format: 1,
+			source: "source",
+			javascript: "compiled",
+			entry: "backend/automations/fixture.sandbox.ts",
+		},
+	];
+	let ingestedFiles: Readonly<Record<string, Uint8Array>> | undefined;
+	let ingestedCompiledScripts: PluginSource["compiledScripts"];
+	let ingestedCompiledClient: PluginSource["compiledClient"];
+	const layer = makeServiceLayer({
 		pluginRepository: {
 			findTestSupportOperationResult: () =>
 				Effect.succeed({
@@ -131,14 +152,38 @@ it.effect("returns persisted system plugin identity after real ingestion complet
 					scope: "system" as const,
 				}),
 		},
+		pluginIngestion: {
+			installPlugin: ({ files, compiledScripts: scripts, compiledClient: clientArtifact }) =>
+				Effect.sync(() => {
+					ingestedFiles = files;
+					ingestedCompiledScripts = scripts;
+					ingestedCompiledClient = clientArtifact;
+					return { slug: PluginSlug.make("fixture"), pluginId: PluginId.make("plugin-id") };
+				}),
+		},
 	});
 
 	return Effect.gen(function* () {
 		const result = yield* (yield* TestSupportService).installSystemPlugin({
 			manifest,
-			files: { "backend/script.ts": Encoding.encodeBase64(new TextEncoder().encode("source")) },
+			compiledScripts,
+			compiledClient: yield* Schema.encodeUnknownEffect(PluginClientArtifactFromBase64)(
+				compiledClient,
+			),
+			files: {
+				"client/page.tsx": Encoding.encodeBase64(
+					new TextEncoder().encode("export default () => null;"),
+				),
+				"backend/automations/fixture.sandbox.ts": Encoding.encodeBase64(
+					new TextEncoder().encode("source"),
+				),
+			},
 		});
-		expect(new TextDecoder().decode(ingestedFiles?.["backend/script.ts"])).toBe("source");
+		expect(
+			new TextDecoder().decode(ingestedFiles?.["backend/automations/fixture.sandbox.ts"]),
+		).toBe("source");
+		expect(ingestedCompiledScripts).toEqual(compiledScripts);
+		expect(ingestedCompiledClient).toEqual(compiledClient);
 		expect(result).toEqual({
 			installationId: null,
 			pluginId: "plugin-id",

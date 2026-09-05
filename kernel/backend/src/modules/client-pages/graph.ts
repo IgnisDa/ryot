@@ -9,13 +9,13 @@ import {
 	CLIENT_COMPILER_VERSION,
 } from "@ryot-app/client-plugin-contract";
 import {
-	ClientRendererBadRequest,
+	ClientPagePreparationError,
 	type ClientPageCodeContributor,
 	type ClientPageArtifactIdentity,
 	type ClientRendererDefinition,
 } from "@ryot-app/contract/modules/client-pages/schemas";
 import { comparePluginRoutePaths } from "@ryot-app/contract/modules/plugins/manifest";
-import { PluginSlug, type ClientRendererId } from "@ryot-app/contract/schema/brands";
+import { PluginSlug } from "@ryot-app/contract/schema/brands";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
@@ -34,15 +34,14 @@ const importedSpecifiers = (source: string) => {
 };
 
 const dependencyUnavailable = (pluginSlug: string) =>
-	new ClientRendererBadRequest({
+	new ClientPagePreparationError({
 		reason: { code: "dependency-unavailable", pluginSlug: PluginSlug.make(pluginSlug) },
 	});
 
 const exportNotFound = (exportName: string) =>
-	new ClientRendererBadRequest({ reason: { exportName, code: "export-not-found" } });
+	new ClientPagePreparationError({ reason: { exportName, code: "export-not-found" } });
 
-const namespaceFor = (kind: "kernel" | "plugin" | "renderer", id: string) =>
-	`${kind}-${sha256Hex(id)}`;
+const namespaceFor = (kind: "kernel" | "plugin", id: string) => `${kind}-${sha256Hex(id)}`;
 
 const sourceFiles = (files: Readonly<Record<string, Uint8Array>>) =>
 	Object.fromEntries(
@@ -94,13 +93,6 @@ export const clientPageCodeContributors = (
 				sourceHash: contributor.sourceHash,
 			};
 		}
-		if (contributor.kind === "renderer") {
-			return {
-				kind: "renderer",
-				rendererId: contributor.rendererId,
-				sourceHash: contributor.sourceHash,
-			};
-		}
 		const installed = bySlug.get(contributor.pluginSlug);
 		if (!installed || installed.id !== contributor.pluginId) {
 			throw new Error(`Missing runtime installation for ${contributor.pluginSlug}`);
@@ -122,14 +114,6 @@ type ClientPageGraphCommon<E, R> = {
 	) => Effect.Effect<Readonly<Record<string, Uint8Array>> | null, E, R>;
 };
 
-type RendererClientPageGraphInput<E, R> = ClientPageGraphCommon<E, R> & {
-	readonly rendererName: string;
-	readonly publishedHash: string;
-	readonly rendererId: ClientRendererId;
-	readonly definition: ClientRendererDefinition;
-	readonly rendererFiles: Readonly<Record<string, Uint8Array>>;
-};
-
 type KernelRendererClientPageGraphInput<E, R> = ClientPageGraphCommon<E, R> & {
 	readonly kernel: true;
 	readonly sourceHash: string;
@@ -145,30 +129,25 @@ type PluginClientPageGraphInput<E, R> = ClientPageGraphCommon<E, R> & {
 };
 
 type ClientPageGraphInput<E, R> =
-	| RendererClientPageGraphInput<E, R>
 	| KernelRendererClientPageGraphInput<E, R>
 	| PluginClientPageGraphInput<E, R>;
 
 const resolveGraph = <E, R>(
 	input: ClientPageGraphInput<E, R>,
-): Effect.Effect<ResolvedClientPageGraph, ClientRendererBadRequest | E, R> =>
+): Effect.Effect<ResolvedClientPageGraph, ClientPagePreparationError | E, R> =>
 	Effect.gen(function* () {
-		const isRenderer = "definition" in input;
-		const isKernel = isRenderer && "kernel" in input;
-		const rendererNamespace = isRenderer
-			? namespaceFor(
-					isKernel ? "kernel" : "renderer",
-					isKernel ? input.rendererName : input.rendererId,
-				)
+		const isKernelRenderer = "kernel" in input;
+		const kernelRendererNamespace = isKernelRenderer
+			? namespaceFor("kernel", input.rendererName)
 			: null;
 		const catalog = new Map(input.plugins.map((plugin) => [plugin.slug, plugin]));
 		const included = new Map<string, GraphPlugin>();
 		const files = new Map<string, Readonly<Record<string, Uint8Array>>>();
 		const dependencyOrder: string[] = [];
 		const selectedExports = new Set<string>();
-		const primarySlug = isRenderer ? null : input.plugin.slug;
+		const primarySlug = isKernelRenderer ? null : input.plugin.slug;
 
-		const includePlugin = (slug: string): Effect.Effect<void, ClientRendererBadRequest | E, R> =>
+		const includePlugin = (slug: string): Effect.Effect<void, ClientPagePreparationError | E, R> =>
 			Effect.gen(function* () {
 				if (included.has(slug)) {
 					return yield* Effect.void;
@@ -197,7 +176,7 @@ const resolveGraph = <E, R>(
 				return yield* Effect.void;
 			});
 
-		if (isRenderer) {
+		if (isKernelRenderer) {
 			for (const dependency of sortBy(input.definition.pluginDependencies)) {
 				yield* includePlugin(dependency);
 			}
@@ -211,7 +190,7 @@ const resolveGraph = <E, R>(
 
 		const visited = new Set<string>();
 		const routeRegistry =
-			!isRenderer && input.application === "plugin-route"
+			!isKernelRenderer && input.application === "plugin-route"
 				? (() => {
 						const routes = Object.entries(input.plugin.manifest.client?.routes ?? {}).sort(
 							([left], [right]) => comparePluginRoutePaths(left, right),
@@ -239,23 +218,23 @@ const resolveGraph = <E, R>(
 							: null;
 					})()
 				: null;
-		if (!isRenderer && input.application === "plugin-route" && !routeRegistry) {
+		if (!isKernelRenderer && input.application === "plugin-route" && !routeRegistry) {
 			return yield* exportNotFound(`@ryot-app/plugins/${input.plugin.slug}/route:/`);
 		}
-		const selectedPluginExport = isRenderer
+		const selectedPluginExport = isKernelRenderer
 			? null
 			: input.plugin.manifest.client?.exports?.[
 					input.application === "plugin-route"
 						? (input.plugin.manifest.client.routes?.["/"] ?? "")
 						: input.exportName
 				];
-		if (!isRenderer && selectedPluginExport?.kind !== "page") {
+		if (!isKernelRenderer && selectedPluginExport?.kind !== "page") {
 			return yield* exportNotFound(`@ryot-app/plugins/${input.plugin.slug}/${input.exportName}`);
 		}
-		let automaticEntityPresentations = isRenderer
+		let automaticEntityPresentations = isKernelRenderer
 			? input.definition.automaticEntityPresentations
 			: (selectedPluginExport?.automaticEntityPresentations ?? false);
-		if (!isRenderer && input.application === "plugin-route") {
+		if (!isKernelRenderer && input.application === "plugin-route") {
 			automaticEntityPresentations = [
 				...Object.values(input.plugin.manifest.client?.routes ?? {}),
 				input.plugin.manifest.client?.notFoundPage,
@@ -280,9 +259,9 @@ const resolveGraph = <E, R>(
 			owner: { readonly slug: string | null; readonly dependencies: readonly string[] },
 			path: string,
 			ownerFiles: Readonly<Record<string, Uint8Array>>,
-		): Effect.Effect<void, ClientRendererBadRequest | E, R> =>
+		): Effect.Effect<void, ClientPagePreparationError | E, R> =>
 			Effect.gen(function* () {
-				const key = `${owner.slug ?? rendererNamespace ?? "renderer"}:${path}`;
+				const key = `${owner.slug ?? kernelRendererNamespace ?? "kernel"}:${path}`;
 				if (visited.has(key)) {
 					return yield* Effect.void;
 				}
@@ -327,7 +306,7 @@ const resolveGraph = <E, R>(
 				return yield* Effect.void;
 			});
 
-		if (isRenderer) {
+		if (isKernelRenderer) {
 			if (input.loadPluginFiles) {
 				yield* scan(
 					{ slug: null, dependencies: input.definition.pluginDependencies },
@@ -431,31 +410,21 @@ const resolveGraph = <E, R>(
 				),
 			),
 		);
-		const entry = isRenderer
-			? { path: input.definition.entry, contributor: rendererNamespace ?? "" }
+		const entry = isKernelRenderer
+			? { path: input.definition.entry, contributor: kernelRendererNamespace ?? "" }
 			: {
 					path: selectedPluginExport?.entry ?? "",
 					contributor: namespaceFor("plugin", input.plugin.id),
 				};
-		const rendererContributors: Array<ClientPageArtifactIdentity["contributors"][number]> = [];
-		if (isKernel) {
-			rendererContributors.push({
+		const kernelRendererContributors: Array<ClientPageArtifactIdentity["contributors"][number]> =
+			[];
+		if (isKernelRenderer) {
+			kernelRendererContributors.push({
 				kind: "kernel-renderer",
 				name: input.rendererName,
 				sourceHash: input.sourceHash,
 				entry: input.definition.entry,
-				namespace: rendererNamespace ?? "",
-				pluginDependencies: sortBy(input.definition.pluginDependencies),
-				automaticEntityPresentations: input.definition.automaticEntityPresentations,
-			});
-		} else if (isRenderer) {
-			rendererContributors.push({
-				kind: "renderer",
-				name: input.rendererName,
-				rendererId: input.rendererId,
-				entry: input.definition.entry,
-				sourceHash: input.publishedHash,
-				namespace: namespaceFor("renderer", input.rendererId),
+				namespace: kernelRendererNamespace ?? "",
 				pluginDependencies: sortBy(input.definition.pluginDependencies),
 				automaticEntityPresentations: input.definition.automaticEntityPresentations,
 			});
@@ -468,8 +437,8 @@ const resolveGraph = <E, R>(
 			compilerVersion: CLIENT_COMPILER_VERSION,
 			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 			selectedExports: sortBy([...selectedExports]),
-			application: isRenderer ? "page" : input.application,
-			name: isRenderer ? input.rendererName : input.plugin.manifest.metadata.name,
+			application: isKernelRenderer ? "page" : input.application,
+			name: isKernelRenderer ? input.rendererName : input.plugin.manifest.metadata.name,
 			kernelAutomaticFallback: automaticEntityPresentations
 				? { provider: "kernel", layouts: ["grid", "list"], runtimeVersion: CLIENT_API_VERSION }
 				: null,
@@ -479,7 +448,7 @@ const resolveGraph = <E, R>(
 					`${registration.ownerPluginId}/${registration.entitySchemaSlug}/${registration.layout}`,
 			),
 			contributors: [
-				...rendererContributors,
+				...kernelRendererContributors,
 				...orderedPlugins.map((plugin) => ({
 					pluginId: plugin.id,
 					kind: "plugin" as const,
@@ -505,12 +474,12 @@ const resolveGraph = <E, R>(
 				apiVersion: CLIENT_API_VERSION,
 				...(routeRegistry ? { routeRegistry } : {}),
 				automaticRegistry: identity.automaticRegistry,
-				application: isRenderer ? "page" : input.application,
+				application: isKernelRenderer ? "page" : input.application,
 				contributorOrder: identity.contributors.map(({ namespace }) => namespace),
-				name: isRenderer ? input.rendererName : input.plugin.manifest.metadata.name,
+				name: isKernelRenderer ? input.rendererName : input.plugin.manifest.metadata.name,
 				contributors: {
-					...(isRenderer && rendererNamespace
-						? { [rendererNamespace]: { files: input.rendererFiles } }
+					...(isKernelRenderer && kernelRendererNamespace
+						? { [kernelRendererNamespace]: { files: input.rendererFiles } }
 						: {}),
 					...Object.fromEntries(
 						orderedPlugins.map((plugin) => [
@@ -531,7 +500,7 @@ export const resolveClientPageGraph = <E, R>(
 
 export const resolveClientPageArtifactGraph = (
 	input: ClientPageGraphInput<never, never>,
-): Effect.Effect<ResolvedClientPageArtifactGraph, ClientRendererBadRequest> =>
+): Effect.Effect<ResolvedClientPageArtifactGraph, ClientPagePreparationError> =>
 	resolveGraph(input).pipe(
 		Effect.map(({ compilerInput: _compilerInput, ...graph }) => graph),
 		Effect.withSpan("ClientPages.resolve-artifact-graph"),

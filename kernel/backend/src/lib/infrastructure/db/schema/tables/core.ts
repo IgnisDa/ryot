@@ -117,6 +117,7 @@ export const pluginRevision = snakeCase.table(
 	"plugin_revision",
 	{
 		version: text().notNull(),
+		clientArtifactHash: text(),
 		sourceHash: text().notNull(),
 		manifest: jsonb().$type<PluginManifest>().notNull(),
 		clientConfigSchema: jsonb().$type<AppSchema>().notNull(),
@@ -131,6 +132,11 @@ export const pluginRevision = snakeCase.table(
 	(table) => [
 		unique("plugin_revision_plugin_source_unique").on(table.pluginId, table.sourceHash),
 		unique("plugin_revision_id_plugin_unique").on(table.id, table.pluginId),
+		foreignKey({
+			columns: [table.clientArtifactHash],
+			foreignColumns: [pluginClientArtifact.hash],
+			name: "plugin_revision_client_artifact_hash_fk",
+		}),
 	],
 );
 

@@ -1,8 +1,11 @@
 import { expect, it } from "@effect/vitest";
 import { CLIENT_API_VERSION } from "@ryot-app/client-plugin-contract";
-import type { ClientRendererDefinition } from "@ryot-app/contract/modules/client-pages/schemas";
+import {
+	ClientPagePreparationError,
+	type ClientRendererDefinition,
+} from "@ryot-app/contract/modules/client-pages/schemas";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { ClientRendererId, PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
+import { PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
 import { fixtureManifest } from "#modules/plugins/test-support";
@@ -70,10 +73,10 @@ const resolve = (
 ) =>
 	resolveClientPageGraph({
 		plugins,
+		kernel: true,
+		sourceHash: "kernel-source",
 		definition: rendererDefinition,
-		publishedHash: "renderer-source",
 		rendererName: "Composed renderer",
-		rendererId: ClientRendererId.make("renderer-1"),
 		rendererFiles: { "client/page.tsx": bytes(rendererSource) },
 		loadPluginFiles: (candidate) => Effect.succeed(pluginFiles[candidate.id] ?? null),
 	});
@@ -174,10 +177,10 @@ it.effect("resolves recursive explicit dependencies to exact installation revisi
 			},
 		);
 		const metadata = yield* resolveClientPageArtifactGraph({
+			kernel: true,
 			plugins: [fixture, media],
-			publishedHash: "renderer-source",
+			sourceHash: "kernel-source",
 			rendererName: "Composed renderer",
-			rendererId: ClientRendererId.make("renderer-1"),
 			definition: definition("", { pluginDependencies: [PluginSlug.make("media")] }),
 			rendererFiles: {
 				"client/page.tsx": bytes(
@@ -186,9 +189,14 @@ it.effect("resolves recursive explicit dependencies to exact installation revisi
 			},
 		});
 		expect(metadata.artifactKey).toBe(graph.artifactKey);
+		expect(graph.identity.contributors.map(({ kind }) => kind)).toEqual([
+			"kernel-renderer",
+			"plugin",
+			"plugin",
+		]);
 		expect(
-			graph.identity.contributors.map((item) => item.kind === "plugin" && item.pluginSlug),
-		).toEqual([false, "fixture", "media"]);
+			graph.identity.contributors.map((item) => (item.kind === "plugin" ? item.pluginSlug : null)),
+		).toEqual([null, "fixture", "media"]);
 		expect(graph.identity.selectedExports).toEqual([
 			"@ryot-app/plugins/fixture/badge",
 			"@ryot-app/plugins/media/card",
@@ -209,7 +217,7 @@ it.effect("resolves recursive explicit dependencies to exact installation revisi
 	});
 });
 
-it.effect("rejects a public import that is not a declared renderer dependency", () => {
+it.effect("rejects a public import that is not a declared kernel-renderer dependency", () => {
 	const media = plugin({
 		slug: "media",
 		client: {
@@ -229,10 +237,26 @@ it.effect("rejects a public import that is not a declared renderer dependency", 
 				{ [media.id]: { "client/card.tsx": bytes("export default function Card() {}") } },
 			),
 		);
+		expect(error).toBeInstanceOf(ClientPagePreparationError);
 		expect(error.reason).toEqual({
 			code: "export-not-found",
 			exportName: "@ryot-app/plugins/media/card",
 		});
+	});
+});
+
+it.effect("reports an unavailable declared dependency with its plugin slug", () => {
+	return Effect.gen(function* () {
+		const error = yield* Effect.flip(
+			resolve(
+				definition("", { pluginDependencies: [PluginSlug.make("missing")] }),
+				"export default function Page() {}",
+				[],
+				{},
+			),
+		);
+		expect(error).toBeInstanceOf(ClientPagePreparationError);
+		expect(error.reason).toEqual({ pluginSlug: "missing", code: "dependency-unavailable" });
 	});
 });
 
@@ -424,6 +448,7 @@ it.effect("rejects automatic registrations that do not name presentation exports
 				{ [invalid.id]: { "client/card.tsx": bytes("export default function Card() {}") } },
 			),
 		);
+		expect(error).toBeInstanceOf(ClientPagePreparationError);
 		expect(error.reason).toEqual({
 			code: "export-not-found",
 			exportName: "@ryot-app/plugins/fixture/card",
@@ -433,7 +458,7 @@ it.effect("rejects automatic registrations that do not name presentation exports
 
 it.effect("records a kernel renderer as a production-owned graph contributor", () =>
 	Effect.gen(function* () {
-		const graph = yield* resolveClientPageGraph({
+		const input = {
 			plugins: [],
 			kernel: true,
 			sourceHash: "kernel-source",
@@ -441,7 +466,11 @@ it.effect("records a kernel renderer as a production-owned graph contributor", (
 			loadPluginFiles: () => Effect.succeed(null),
 			definition: definition("", { automaticEntityPresentations: true }),
 			rendererFiles: { "client/page.tsx": bytes("export default function Page() {}") },
-		});
+		} as const;
+		const graph = yield* resolveClientPageGraph(input);
+		const metadata = yield* resolveClientPageArtifactGraph(input);
+		expect(metadata.artifactKey).toBe(graph.artifactKey);
+		expect(metadata.identity).toEqual(graph.identity);
 		expect(graph.identity.contributors).toEqual([
 			{
 				name: "Entity browser",

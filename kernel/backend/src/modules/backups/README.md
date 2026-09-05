@@ -7,7 +7,7 @@ Account export and restore use the deterministic `ryot-backup` version 1 archive
 A backup is a non-Zip64 ZIP with entries in this order:
 
 1. `manifest.json` at entry 0.
-2. `profile.json`, then `private-plugins.ndjson`, `client-renderers.ndjson`, `installations.ndjson`, `entities.ndjson`, `entity-dependencies.ndjson`, `relationships.ndjson`, `events.ndjson`, `saved-views.ndjson`, `integrations.ndjson`, and `notification-subscriptions.ndjson`.
+2. `profile.json`, then `private-plugins.ndjson`, `installations.ndjson`, `entities.ndjson`, `entity-dependencies.ndjson`, `relationships.ndjson`, `events.ndjson`, `saved-views.ndjson`, `integrations.ndjson`, and `notification-subscriptions.ndjson`.
 3. Uncompressed content-addressed assets at `assets/<sha256>`.
 
 The manifest contains `format: "ryot-backup"`, version 1, archive/application identity, creation time, redaction paths, required plugins, ordered section `{ path, count, sha256 }` records, and asset `{ path, size, sha256, contentType }` records. Other versions are rejected as unsupported. Schemas, paths, digests, ID rewrites, and ordering are compatibility surfaces.
@@ -35,13 +35,13 @@ Export upload additionally allows 64 MiB for ZIP overhead.
 
 The [kernel transaction invariant](../../../AGENTS.md#persistence) forbids transactions across network I/O. Export therefore creates a scoped temp directory, reads a single repeatable-read snapshot, spills events using database `ORDER BY id`, commits, then streams the archive to storage. Temp cleanup covers success, failure, and interruption.
 
-Restore validation spools events and assets into the caller's scoped temp directory. It validates section order, counts, hashes, limits, required system packages, and private packages before writes. Private packages are compiled and collision-checked, then assets are staged before the transaction so network work is outside it.
+Restore validation spools events and assets into the caller's scoped temp directory. It validates section order, counts, hashes, limits, required system packages, and private packages before writes. Private packages include compiled scripts and client artifacts; these are validated and collision-checked without server-side compilation. Assets are staged before the transaction so network work is outside it.
 
 All database writes occur in one transaction: restore is atomic. Local event-file reads and batched inserts occur inside it. Temp deletion failure is logged and swallowed so it cannot turn a committed restore into a failed run.
 
 Private packages and exact installation identities are restored without lifecycle dispatch. Complete installations retain archived disabled intent; missing redacted required secrets produce `needs-configuration`. Integrations missing required secrets are disabled. Integration and saved-view provenance resolve to the exact installation.
 
-Custom renderer draft and published source state is archived before the saved views that reference it. Client page builds and compiled artifacts are derived and are rebuilt from restored source. Installation home saved-view IDs are mapped after built-in overrides and custom saved views are restored.
+Client page compositions are derived from restored compiled artifacts and current runtime state. Installation home saved-view IDs are mapped after built-in overrides and user-created saved views are restored.
 
 Source files are user-authored and may contain credentials, so they are not redacted. Only manifest configuration and integration settings fields may be redacted. Managed assets use content-addressed locators.
 

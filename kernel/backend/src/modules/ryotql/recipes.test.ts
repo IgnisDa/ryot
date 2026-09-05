@@ -5,10 +5,6 @@ import {
 } from "@ryot-app/ryotql-recipes/automation-history";
 import { backupRunRecipe, backupRunsRecipe } from "@ryot-app/ryotql-recipes/backups";
 import {
-	clientRendererRecipe,
-	clientRenderersRecipe,
-} from "@ryot-app/ryotql-recipes/client-renderers";
-import {
 	activeSignalSchemasRecipe,
 	entityDefinitionsRecipe,
 	relationshipDefinitionsRecipe,
@@ -34,8 +30,6 @@ const recipes = [
 	["user settings", userSettingsRecipe().document, userAccess],
 	["backup runs", backupRunsRecipe(page).document, userAccess],
 	["backup run", backupRunRecipe({ id: "run" }).document, userAccess],
-	["client renderers", clientRenderersRecipe(page).document, userAccess],
-	["client renderer", clientRendererRecipe({ id: "renderer" }).document, userAccess],
 	["plugin installations", pluginInstallationsRecipe(page).document, userAccess],
 	["entities", entityDefinitionsRecipe(page).document, userAccess],
 	["relationships", relationshipDefinitionsRecipe(page).document, userAccess],

@@ -4,41 +4,93 @@ import {
 	CLIENT_ARTIFACT_FORMAT,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
+	clientArtifactFile,
+	clientArtifactMetadata,
+	type PluginClientArtifact,
 } from "@ryot-app/client-plugin-contract";
-import { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
+import {
+	ClientPagePreparationError,
+	PreparedClientPage,
+} from "@ryot-app/contract/modules/client-pages/schemas";
 import { PluginSlug, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer, Schema } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database } from "#lib/infrastructure/db/service";
+import { assertExitFails } from "#lib/test-utils/assertions";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { PluginCatalogInvalidator } from "#modules/plugins/catalog-events";
-import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 import { PluginRepository } from "#modules/plugins/repository";
 import { PluginRuntimeResolver, type AvailablePlugin } from "#modules/plugins/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
 
 import { ClientPageBuildService } from "./build-service";
 import { ClientPageArtifactGrantService } from "./grant-service";
+import { ImageClientArtifacts } from "./image-artifacts";
+import { listKernelEntityRenderers } from "./kernel-renderers";
 import { ClientPagesRepository } from "./repository";
 import { ClientPagesService } from "./service";
 
 const userId = UserId.make("user-1");
 const bytes = (value: string) => new TextEncoder().encode(value);
-const artifact = {
+const artifactMetadata = {
 	hash: "artifact-1",
 	format: CLIENT_ARTIFACT_FORMAT,
 	apiVersion: CLIENT_API_VERSION,
 	compilerVersion: CLIENT_COMPILER_VERSION,
 	bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
-	files: [{ name: "index.html", contentType: "text/html", contents: bytes("<html></html>") }],
+};
+const makeArtifact = (
+	files: ReadonlyArray<{ name: string; contentType: string; content: string }>,
+) => {
+	const artifactFiles = files.map(({ name, content, contentType }) =>
+		clientArtifactFile({ path: name, contentType, bytes: bytes(content) }),
+	);
+	return {
+		...clientArtifactMetadata("client page build test", artifactFiles),
+		files: artifactFiles,
+	} satisfies PluginClientArtifact;
+};
+const pluginClientArtifact = makeArtifact([
+	{
+		name: "module.js",
+		content: "export const Export0 = () => null;",
+		contentType: "text/javascript; charset=utf-8",
+	},
+]);
+const imageClientArtifacts = {
+	runtime: {
+		entries: { bootstrap: "bootstrap.js" },
+		artifact: makeArtifact([
+			{
+				name: "bootstrap.js",
+				content: "export {};",
+				contentType: "text/javascript; charset=utf-8",
+			},
+		]),
+	},
+	renderers: new Map(
+		listKernelEntityRenderers().map(({ name, sourceHash }) => [
+			name,
+			{
+				sourceHash,
+				artifact: makeArtifact([
+					{
+						name: "module.js",
+						content: "export const Export0 = () => null;",
+						contentType: "text/javascript; charset=utf-8",
+					},
+					{ name: "module.css", content: ".renderer {}", contentType: "text/css; charset=utf-8" },
+				]),
+			},
+		]),
+	),
 };
 
-it.effect("materializes one global build for two users and never compiles on prepare", () => {
+it.effect("reuses package artifacts for materialized client page compositions", () => {
 	let installationId = "installation-1";
 	let sourceHash = "source-1";
 	let health: AvailablePlugin["health"] = "ready";
-	let compilations = 0;
+	let packageArtifactReads = 0;
 	let sourceLoads = 0;
 	let extraOperationTarget = false;
 	const builds = new Map<
@@ -107,17 +159,18 @@ it.effect("materializes one global build for two users and never compiles on pre
 		ClientPagesRepository,
 		ClientPagesRepository.of(
 			Object.assign(Object.create(null), {
-				findPreparedTarget: () => Effect.succeed(savedView),
 				listPreparedTargets: () => Effect.succeed([savedView]),
 				findBuild: (key: string) => Effect.succeed(builds.get(key) ?? null),
+				findPreparedTarget: (_userId: UserId, slug: string) =>
+					Effect.succeed(slug === savedView.view.slug ? savedView : null),
 				createBuild: (input: Parameters<ClientPagesRepository["Service"]["createBuild"]>[0]) =>
 					Effect.sync(() => {
 						builds.set(input.artifactKey, {
 							...input,
-							format: artifact.format,
-							apiVersion: artifact.apiVersion,
-							bridgeVersion: artifact.bridgeVersion,
-							compilerVersion: artifact.compilerVersion,
+							format: artifactMetadata.format,
+							apiVersion: artifactMetadata.apiVersion,
+							bridgeVersion: artifactMetadata.bridgeVersion,
+							compilerVersion: artifactMetadata.compilerVersion,
 						});
 						return input.artifactKey;
 					}),
@@ -129,6 +182,11 @@ it.effect("materializes one global build for two users and never compiles on pre
 		PluginRepository.of(
 			Object.assign(Object.create(null), {
 				persistClientArtifact: () => Effect.void,
+				findClientArtifactForSource: () =>
+					Effect.sync(() => {
+						packageArtifactReads++;
+						return pluginClientArtifact;
+					}),
 				listRevisionSourceFiles: () =>
 					Effect.sync(() => {
 						sourceLoads++;
@@ -142,16 +200,7 @@ it.effect("materializes one global build for two users and never compiles on pre
 			Layer.mergeAll(
 				repository,
 				pluginRepository,
-				Layer.succeed(
-					ClientPluginCompiler,
-					ClientPluginCompiler.of({
-						compile: () =>
-							Effect.sync(() => {
-								compilations++;
-								return artifact;
-							}),
-					}),
-				),
+				Layer.succeed(ImageClientArtifacts, ImageClientArtifacts.of(imageClientArtifacts)),
 			),
 		),
 	);
@@ -191,7 +240,6 @@ it.effect("materializes one global build for two users and never compiles on pre
 				repository,
 				pluginRepository,
 				buildLayer,
-				PluginCatalogInvalidator.layer,
 				Layer.succeed(
 					ClientPageArtifactGrantService,
 					ClientPageArtifactGrantService.of(
@@ -240,15 +288,27 @@ it.effect("materializes one global build for two users and never compiles on pre
 			pluginSlug: PluginSlug.make("fixture"),
 		};
 		yield* pages.materializeSystemBaseline();
-		const initialCompilations = compilations;
-		expect(initialCompilations).toBeGreaterThan(0);
+		const baselinePackageArtifactReads = packageArtifactReads;
+		const baselineBuildCount = builds.size;
+		expect(baselinePackageArtifactReads).toBeGreaterThan(0);
+		expect(sourceLoads).toBe(0);
+		yield* pages.materializeUser(userId);
+		expect(packageArtifactReads).toBe(baselinePackageArtifactReads);
+		expect(builds.size).toBe(baselineBuildCount);
+		expect(sourceLoads).toBe(0);
+		const initialPackageArtifactReads = packageArtifactReads;
 		yield* pages.assertUserBuilds(userId);
-		expect(compilations).toBe(initialCompilations);
+		expect(packageArtifactReads).toBe(initialPackageArtifactReads);
 		const initialSourceLoads = sourceLoads;
 		const page1 = yield* pages.prepare({ id: userId }, target);
 		const view = yield* pages.prepare({ id: userId }, { kind: "saved-view", slug: "fixture-home" });
+		assertExitFails(
+			yield* Effect.exit(pages.prepare({ id: userId }, { slug: "missing", kind: "saved-view" })),
+			new ClientPagePreparationError({ reason: { code: "saved-view-unavailable" } }),
+		);
 		const preparedPage = yield* Schema.decodeUnknownEffect(PreparedClientPage)(page1);
 		expect(sourceLoads).toBe(initialSourceLoads);
+		expect(packageArtifactReads).toBe(initialPackageArtifactReads);
 		expect(yield* pages.isIdentityCurrent(userId, preparedPage.identity)).toBe(true);
 		expect(sourceLoads).toBe(initialSourceLoads);
 		extraOperationTarget = true;
@@ -266,14 +326,14 @@ it.effect("materializes one global build for two users and never compiles on pre
 		installationId = "installation-2";
 		yield* pages.materializeUser(UserId.make("user-2"));
 		const page2 = yield* pages.prepare({ id: UserId.make("user-2") }, target);
-		expect(compilations).toBe(initialCompilations);
+		expect(packageArtifactReads).toBe(initialPackageArtifactReads);
 		expect(page1.identity.artifactKey).toBe(page2.identity.artifactKey);
 		expect(page1.identity.contributors).not.toEqual(page2.identity.contributors);
 		expect(page1.artifact.hash).toBe(page2.artifact.hash);
 		sourceHash = "source-2";
 		const exit = yield* Effect.exit(pages.prepare({ id: userId }, target));
 		expect(exit._tag).toBe("Failure");
-		expect(compilations).toBe(initialCompilations);
+		expect(packageArtifactReads).toBe(initialPackageArtifactReads);
 		yield* pages.materializeRenderer(userId, {
 			kind: "plugin",
 			exportName: "page",
@@ -284,15 +344,15 @@ it.effect("materializes one global build for two users and never compiles on pre
 			{ kind: "saved-view", slug: "fixture-home" },
 		);
 		expect(currentView.identity.artifactKey).not.toBe(view.identity.artifactKey);
-		expect(compilations).toBe(initialCompilations + 1);
+		expect(packageArtifactReads).toBe(initialPackageArtifactReads + 1);
 		sourceHash = "source-3";
 		health = "installing";
 		yield* pages.materializePendingInstallation(userId, installationId);
-		const materializedCompilations = compilations;
-		expect(materializedCompilations).toBeGreaterThan(initialCompilations + 1);
+		const materializedPackageArtifactReads = packageArtifactReads;
+		expect(materializedPackageArtifactReads).toBeGreaterThan(initialPackageArtifactReads + 1);
 		health = "ready";
 		const ready = yield* pages.prepare({ id: userId }, target);
 		expect(ready.identity.artifactKey).not.toBe(page1.identity.artifactKey);
-		expect(compilations).toBe(materializedCompilations);
+		expect(packageArtifactReads).toBe(materializedPackageArtifactReads);
 	}).pipe(Effect.provide(Layer.merge(pageLayer, dbLayer)));
 });
