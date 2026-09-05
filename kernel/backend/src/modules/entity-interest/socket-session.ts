@@ -224,8 +224,7 @@ const processCommand = Effect.fn("EntityInterestSocketSession.processCommand")(f
 const runSocketSession = Effect.fn("EntityInterestSocketSession.run")(function* (
 	socket: Socket.Socket,
 ) {
-	const { write } = yield* socket.writer;
-	const reader = yield* socket.reader;
+	const write = yield* socket.writer;
 	const service = yield* InterestService;
 	const store = yield* EntityInterestStore;
 	const sessions = yield* LocalInterestSessions;
@@ -233,22 +232,19 @@ const runSocketSession = Effect.fn("EntityInterestSocketSession.run")(function* 
 	const inbound = yield* Queue.dropping<string | Uint8Array>(INBOUND_QUEUE_CAPACITY);
 	const preAuthentication = { overflow: false };
 	let closeForOverflow = () => closeBeforeAuthentication(write, PROTOCOL_ERROR);
-	const acceptFrame = (frame: string | Uint8Array) =>
-		Queue.offer(inbound, frame).pipe(
-			Effect.flatMap((accepted) => {
-				if (accepted) {
-					return Effect.void;
-				}
-				preAuthentication.overflow = true;
-				return closeForOverflow();
-			}),
-		);
-	const readFiber = yield* reader.pull.pipe(
-		Effect.flatMap((frames) => Effect.forEach(frames, acceptFrame, { discard: true })),
-		Effect.forever,
-		Effect.ignore,
-		Effect.forkScoped,
-	);
+	const readFiber = yield* socket
+		.runRaw((frame) =>
+			Queue.offer(inbound, frame).pipe(
+				Effect.flatMap((accepted) => {
+					if (accepted) {
+						return Effect.void;
+					}
+					preAuthentication.overflow = true;
+					return closeForOverflow();
+				}),
+			),
+		)
+		.pipe(Effect.forkScoped);
 	const first = yield* Queue.take(inbound).pipe(
 		Effect.timeoutOption(ENTITY_INTEREST_AUTHENTICATION_TIMEOUT),
 	);
