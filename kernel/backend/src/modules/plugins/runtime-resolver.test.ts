@@ -414,7 +414,7 @@ describe("catalog reads across revision boundaries", () => {
 			"stops resolving a deactivated plugin's provider while its revision stays readable",
 			() =>
 				Effect.gen(function* () {
-					const db = yield* (yield* DatabaseSession).current;
+					const session = yield* DatabaseSession;
 					const plugins = yield* PluginRepository;
 					const runtime = yield* PluginRuntimeResolver;
 					const installed = yield* installRevisionPackage(revisionPackage());
@@ -423,10 +423,12 @@ describe("catalog reads across revision boundaries", () => {
 					expect((yield* runtime.listPluginsAvailableToUser(owner)).length).toBe(1);
 
 					yield* plugins.deactivate(installed.pluginId);
-					const [revision] = yield* db
-						.select()
-						.from(tables.pluginRevision)
-						.where(eq(tables.pluginRevision.id, installed.revisionId));
+					const [revision] = yield* session.run((db) =>
+						db
+							.select()
+							.from(tables.pluginRevision)
+							.where(eq(tables.pluginRevision.id, installed.revisionId)),
+					);
 					expect(revision?.manifest.providers).toHaveLength(1);
 					expect(yield* runtime.findSchemaProviderBySlug("fixture-provider")).toBeNull();
 					expect(yield* runtime.findActiveProviderById(provider.provider.id)).toBeNull();

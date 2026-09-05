@@ -153,10 +153,12 @@ describe("revision-backed import sources", () => {
 					configRevisionId,
 				);
 				expect(yield* configuredKeys).toEqual(["token"]);
-				const [stored] = yield* (yield* (yield* DatabaseSession).current)
-					.select({ configuredKeys: tables.pluginConfigRevision.configuredKeys })
-					.from(tables.pluginConfigRevision)
-					.where(eq(tables.pluginConfigRevision.id, configRevisionId));
+				const [stored] = yield* (yield* DatabaseSession).run((db) =>
+					db
+						.select({ configuredKeys: tables.pluginConfigRevision.configuredKeys })
+						.from(tables.pluginConfigRevision)
+						.where(eq(tables.pluginConfigRevision.id, configRevisionId)),
+				);
 				expect(stored).toEqual({ configuredKeys: ["token"] });
 			}),
 		);

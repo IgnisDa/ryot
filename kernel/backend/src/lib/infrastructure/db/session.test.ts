@@ -17,9 +17,10 @@ const entry = pgTable("database_session_test", {
 
 const sessionLayer = Layer.effectDiscard(
 	Effect.gen(function* () {
-		const root = yield* (yield* DatabaseSession).current;
-		yield* root.execute(
-			sql`create temporary table database_session_test (id text primary key, value text not null)`,
+		yield* (yield* DatabaseSession).run((db) =>
+			db.execute(
+				sql`create temporary table database_session_test (id text primary key, value text not null)`,
+			),
 		);
 	}),
 ).pipe(
@@ -28,31 +29,34 @@ const sessionLayer = Layer.effectDiscard(
 );
 
 layer(sessionLayer)((test) => {
-	test.effect("uses the root executor outside transactions and restores it after commit", () =>
+	test.effect("commits work and propagates the transaction through nested run calls", () =>
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
-			const root = yield* session.current;
 			expect(yield* session.isTransactionActive).toBe(false);
-			yield* root.insert(entry).values({ id: "root", value: "outside" });
+			yield* session.requireRoot;
+			yield* session.run((db) => db.insert(entry).values({ id: "root", value: "outside" }));
 
 			const committed = yield* session.transaction(
 				Effect.gen(function* () {
-					const db = yield* session.current;
-					expect(db).not.toBe(root);
 					expect(yield* session.isTransactionActive).toBe(true);
 					yield* session.requireTransaction;
-					yield* db.insert(entry).values({ id: "committed", value: "inside" });
-					return yield* db.select().from(entry).where(eq(entry.id, "root"));
+					yield* session.run((db) =>
+						Effect.gen(function* () {
+							yield* db.insert(entry).values({ id: "committed", value: "inside" });
+							yield* session.run((nested) =>
+								nested.insert(entry).values({ id: "nested", value: "inside" }),
+							);
+						}),
+					);
+					return yield* session.run((db) => db.select().from(entry).where(eq(entry.id, "root")));
 				}),
 			);
 			expect(committed).toMatchObject([{ value: "outside" }]);
-			expect(yield* session.current).toBe(root);
 			expect(yield* session.isTransactionActive).toBe(false);
 			yield* session.requireRoot;
-			expect((yield* root.select().from(entry)).map((row) => row.id).sort()).toEqual([
-				"committed",
-				"root",
-			]);
+			expect(
+				(yield* session.run((db) => db.select().from(entry))).map((row) => row.id).sort(),
+			).toEqual(["committed", "nested", "root"]);
 		}),
 	);
 });
@@ -65,15 +69,19 @@ layer(sessionLayer)((test) => {
 			const observed = yield* Effect.flip(
 				session.transaction(
 					Effect.gen(function* () {
-						const db = yield* session.current;
-						yield* db.insert(entry).values({ value: "discard", id: "rolled-back" });
+						yield* session.run((db) =>
+							db.insert(entry).values({ value: "discard", id: "rolled-back" }),
+						);
 						return yield* Effect.fail(failure);
 					}),
 				),
 			);
 			expect(observed).toBe(failure);
 			expect(yield* session.isTransactionActive).toBe(false);
-			expect(yield* (yield* session.current).select().from(entry)).toEqual([]);
+			yield* session.run((db) => db.insert(entry).values({ value: "root", id: "after-failure" }));
+			expect(yield* session.run((db) => db.select().from(entry))).toMatchObject([
+				{ id: "after-failure" },
+			]);
 		}),
 	);
 });
@@ -109,16 +117,17 @@ layer(sessionLayer)((test) => {
 			const session = yield* DatabaseSession;
 			const error = yield* Effect.flip(
 				session.transaction(
-					Effect.gen(function* () {
-						const db = yield* session.current;
-						yield* db.insert(entry).values({ value: "first", id: "duplicate" });
-						yield* db.insert(entry).values({ value: "second", id: "duplicate" });
-					}),
+					session.run((db) =>
+						Effect.gen(function* () {
+							yield* db.insert(entry).values({ value: "first", id: "duplicate" });
+							yield* db.insert(entry).values({ value: "second", id: "duplicate" });
+						}),
+					),
 				),
 			);
 			assert(error instanceof DbError);
 			expect(error.code).toBe("23505");
-			expect(yield* (yield* session.current).select().from(entry)).toEqual([]);
+			expect(yield* session.run((db) => db.select().from(entry))).toEqual([]);
 		}),
 	);
 });
@@ -127,22 +136,24 @@ layer(sessionLayer)((test) => {
 	test.effect("restores state and rolls back after a defect", () =>
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
-			const root = yield* session.current;
 			const defect = new Error("unexpected failure");
 			const exit = yield* Effect.exit(
 				session.transaction(
 					Effect.gen(function* () {
-						const db = yield* session.current;
-						yield* db.insert(entry).values({ id: "defect", value: "discard" });
+						yield* session.run((db) => db.insert(entry).values({ id: "defect", value: "discard" }));
 						return yield* Effect.die(defect);
 					}),
 				),
 			);
 			assert(Exit.isFailure(exit));
 			expect(Cause.squash(exit.cause)).toBe(defect);
-			expect(yield* session.current).toBe(root);
 			expect(yield* session.isTransactionActive).toBe(false);
-			expect(yield* root.select().from(entry)).toEqual([]);
+			yield* session.transaction(
+				session.run((db) => db.insert(entry).values({ id: "after-defect", value: "committed" })),
+			);
+			expect(yield* session.run((db) => db.select().from(entry))).toMatchObject([
+				{ id: "after-defect" },
+			]);
 		}),
 	);
 });
@@ -174,13 +185,13 @@ layer(sessionLayer)((test) => {
 	test.effect("restores state and rolls back when an active transaction is interrupted", () =>
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
-			const root = yield* session.current;
 			const started = yield* Deferred.make<void>();
 			const fiber = yield* Effect.forkChild(
 				session.transaction(
 					Effect.gen(function* () {
-						const db = yield* session.current;
-						yield* db.insert(entry).values({ value: "discard", id: "interrupted" });
+						yield* session.run((db) =>
+							db.insert(entry).values({ value: "discard", id: "interrupted" }),
+						);
 						yield* Deferred.succeed(started, undefined);
 						return yield* Effect.never;
 					}),
@@ -189,17 +200,16 @@ layer(sessionLayer)((test) => {
 			yield* Deferred.await(started);
 			// Another fiber never inherits the active transaction from its sibling.
 			expect(yield* session.isTransactionActive).toBe(false);
-			expect(yield* session.current).toBe(root);
+			yield* session.requireRoot;
 			yield* Fiber.interrupt(fiber);
 			expect(yield* session.isTransactionActive).toBe(false);
-			expect(yield* root.select().from(entry)).toEqual([]);
+			expect(yield* session.run((db) => db.select().from(entry))).toEqual([]);
 			yield* session.transaction(
-				Effect.gen(function* () {
-					const db = yield* session.current;
-					yield* db.insert(entry).values({ value: "committed", id: "after-interruption" });
-				}),
+				session.run((db) =>
+					db.insert(entry).values({ value: "committed", id: "after-interruption" }),
+				),
 			);
-			expect((yield* root.select().from(entry)).map((row) => row.id)).toEqual([
+			expect((yield* session.run((db) => db.select().from(entry))).map((row) => row.id)).toEqual([
 				"after-interruption",
 			]);
 		}),
@@ -215,8 +225,9 @@ layer(sessionLayer)((test) => {
 				session.transaction(
 					Effect.gen(function* () {
 						attempts += 1;
-						const db = yield* session.current;
-						yield* db.insert(entry).values({ id: "retried", value: String(attempts) });
+						yield* session.run((db) =>
+							db.insert(entry).values({ id: "retried", value: String(attempts) }),
+						);
 						if (attempts === 1) {
 							return yield* new DbError({ code: "40P01", message: "deadlock" });
 						}
@@ -225,7 +236,7 @@ layer(sessionLayer)((test) => {
 				),
 			);
 			expect(attempts).toBe(2);
-			expect(yield* (yield* session.current).select().from(entry)).toMatchObject([
+			expect(yield* session.run((db) => db.select().from(entry))).toMatchObject([
 				{ value: "2", id: "retried" },
 			]);
 		}),

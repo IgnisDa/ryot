@@ -404,35 +404,35 @@ layer(
 		writer: {
 			assertRequiredPlugins: () => Effect.succeed(new Map()),
 			restoreRecords: () =>
-				Effect.gen(function* () {
-					const db = yield* session.current;
-					yield* db
-						.execute(
-							sql`insert into ${sql.identifier(rollbackSchema)}.restore_row (id) values ('domain-row')`,
-						)
-						.pipe(Effect.orDie);
-					return yield* new BadRequest({ message: "Crafted restore row is invalid" });
-				}),
+				session.run((db) =>
+					Effect.gen(function* () {
+						yield* db
+							.execute(
+								sql`insert into ${sql.identifier(rollbackSchema)}.restore_row (id) values ('domain-row')`,
+							)
+							.pipe(Effect.orDie);
+						return yield* new BadRequest({ message: "Crafted restore row is invalid" });
+					}),
+				),
 		},
 		managedAssets: {
 			registerManagedAssetInLockedTransaction: (metadata) =>
-				Effect.gen(function* () {
-					const db = yield* session.current;
-					yield* db
+				session.run((db) =>
+					db
 						.execute(
 							sql`insert into ${sql.identifier(rollbackSchema)}.restore_row (id) values ('managed-asset')`,
 						)
-						.pipe(Effect.orDie);
-					return { ...metadata, createdAt: rollbackCreatedAt };
-				}),
+						.pipe(Effect.orDie, Effect.as({ ...metadata, createdAt: rollbackCreatedAt })),
+				),
 			cleanupStagedPermanentAsset: (staged) =>
 				Effect.gen(function* () {
-					const db = yield* session.current;
-					const rows = yield* db
-						.select({ id: sql<string>`id` })
-						.from(sql`${sql.identifier(rollbackSchema)}.restore_row`)
-						.where(sql`id = 'managed-asset'`)
-						.pipe(Effect.orDie);
+					const rows = yield* session.run((db) =>
+						db
+							.select({ id: sql<string>`id` })
+							.from(sql`${sql.identifier(rollbackSchema)}.restore_row`)
+							.where(sql`id = 'managed-asset'`)
+							.pipe(Effect.orDie),
+					);
 					if (rows.length === 0) {
 						yield* removeObject(staged.locator.key);
 					}
@@ -456,23 +456,24 @@ layer(
 	test.effect("rolls back managed assets and domain rows and removes newly staged objects", () =>
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
-			const db = yield* session.current;
-			yield* db.execute(sql`create schema ${sql.identifier(rollbackSchema)}`);
-			yield* db.execute(
-				sql`create table ${sql.identifier(rollbackSchema)}.restore_row (id text primary key)`,
+			yield* session.run((db) => db.execute(sql`create schema ${sql.identifier(rollbackSchema)}`));
+			yield* session.run((db) =>
+				db.execute(
+					sql`create table ${sql.identifier(rollbackSchema)}.restore_row (id text primary key)`,
+				),
 			);
 			const operations = yield* RestoreBackupWorkflowOperations;
 			const error = yield* operations.restore(payload, archiveLocator).pipe(Effect.flip);
 			expect(error.failure).toEqual({ issue: "invalid-entry", code: "archive-invalid" });
-			const rows = yield* db
-				.select({ id: sql<string>`id` })
-				.from(sql`${sql.identifier(rollbackSchema)}.restore_row`);
+			const rows = yield* session.run((db) =>
+				db.select({ id: sql<string>`id` }).from(sql`${sql.identifier(rollbackSchema)}.restore_row`),
+			);
 			expect(rows).toHaveLength(0);
 			expect([...(yield* (yield* FakeRestoreDependencies).stagedObjects)]).toEqual([]);
 		}).pipe(
 			Effect.ensuring(
 				Effect.flatMap(DatabaseSession, (session) =>
-					Effect.flatMap(session.current, (db) =>
+					session.run((db) =>
 						db
 							.execute(sql`drop schema if exists ${sql.identifier(rollbackSchema)} cascade`)
 							.pipe(Effect.orDie),

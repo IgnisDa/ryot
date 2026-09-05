@@ -8,7 +8,6 @@ import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 
-import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { RedisService, redisKeys } from "#lib/infrastructure/redis";
 import { sandboxContextError } from "#lib/infrastructure/sandbox-runtime/limits";
@@ -170,8 +169,7 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 			const samplePressure = Effect.fn("OperationalGateService.samplePressure")(function* (
 				executionIds: ReadonlyArray<string>,
 			) {
-				const database = yield* session.current;
-				const [pressure] = yield* mapDatabaseErrors(
+				const [pressure] = yield* session.run((database) =>
 					database.execute<PressureRow>(
 						sql`
 						SELECT
