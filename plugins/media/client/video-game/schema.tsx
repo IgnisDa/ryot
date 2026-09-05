@@ -4,11 +4,7 @@ import { mediaFlatActivityCopy } from "../media/activity-copy";
 import { mediaActivityDurationLabel, mediaActivityTimeLabel } from "../media/activity-timeline";
 import { defineFlatMediaSchema } from "../media/flat-schema";
 import { MEDIA_ART_HEIGHT, MEDIA_BACKDROP_HEIGHT } from "../media/hero";
-import {
-	mediaProductionStatusFact,
-	mediaRatingFact,
-	type MediaSummaryFact,
-} from "../media/summary-state";
+import type { MediaSummaryFact } from "../media/summary-state";
 import { videoGameOverviewTrailing } from "./sections";
 
 type VideoGameSummary = MediaSummaryOf<typeof videoGameRecipes>;
@@ -17,13 +13,9 @@ type VideoGamePresentation = MediaPresentationDataOf<typeof videoGameRecipes>;
 
 export const videoGameSummaryFacts = (game: VideoGameSummary): readonly MediaSummaryFact[] => {
 	const normally = game.timeToBeat?.normally ?? undefined;
-	return [
-		mediaRatingFact(game),
-		normally === undefined
-			? undefined
-			: { icon: "hourglass", label: "Time to beat", value: mediaActivityDurationLabel(normally) },
-		mediaProductionStatusFact(game),
-	].filter((fact) => fact !== undefined);
+	return normally === undefined
+		? []
+		: [{ icon: "hourglass", label: "Time to beat", value: mediaActivityDurationLabel(normally) }];
 };
 
 export const videoGamePresentationFacts = (game: VideoGamePresentation) =>
@@ -31,7 +23,6 @@ export const videoGamePresentationFacts = (game: VideoGamePresentation) =>
 
 export const videoGameSchema = defineFlatMediaSchema({
 	aspect: "poster",
-	progressVerb: "played",
 	recipes: videoGameRecipes,
 	facts: videoGameSummaryFacts,
 	backdropPurposes: ["artwork"],

@@ -8,6 +8,7 @@ describe("media activity copy", () => {
 
 		expect(copy).toMatchObject({
 			segmentNoun: "Read",
+			progressVerb: "read",
 			completionsLabel: "Reads",
 			recordLabel: "Reading record",
 			loadingDetail: "Fetching everything you have recorded for this book.",
@@ -30,6 +31,14 @@ describe("media activity copy", () => {
 
 		expect(copy.completionsLabel).toBe("Playthroughs");
 		expect(copy.rowLabels.progress("62", { chapter: 3 })).toBe("Chapter 3");
+	});
+
+	it("hints progress with the verb's participle", () => {
+		expect(mediaFlatActivityCopy({ verb: "play", noun: "game" }).progressVerb).toBe("played");
+		expect(mediaFlatActivityCopy({ verb: "watch", noun: "movie" }).progressVerb).toBe("watched");
+		expect(mediaFlatActivityCopy({ verb: "listen", noun: "audiobook" }).progressVerb).toBe(
+			"listened",
+		);
 	});
 
 	it("counts episodic completions under the verb and takes the watched label", () => {

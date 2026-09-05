@@ -5,10 +5,8 @@ import { mediaActivityTimeLabel } from "../media/activity-timeline";
 import { defineFlatMediaSchema } from "../media/flat-schema";
 import { MEDIA_ART_HEIGHT } from "../media/hero";
 import {
-	mediaProductionStatusFact,
-	mediaRatingFact,
-	mediaRuntimeFact,
-	mediaRuntimeLabels,
+	mediaDurationFact,
+	mediaDurationLabels,
 	type MediaSummaryFact,
 } from "../media/summary-state";
 
@@ -17,18 +15,13 @@ type AudiobookSummary = MediaSummaryOf<typeof audiobookRecipes>;
 type AudiobookPresentation = MediaPresentationDataOf<typeof audiobookRecipes>;
 
 export const audiobookSummaryFacts = (audiobook: AudiobookSummary): readonly MediaSummaryFact[] =>
-	[
-		mediaRatingFact(audiobook),
-		mediaRuntimeFact(audiobook.runtime, "Length"),
-		mediaProductionStatusFact(audiobook),
-	].filter((fact) => fact !== undefined);
+	[mediaDurationFact(audiobook.runtime, "Length")].filter((fact) => fact !== undefined);
 
 export const audiobookPresentationFacts = (audiobook: AudiobookPresentation) =>
-	mediaRuntimeLabels(audiobook.runtime);
+	mediaDurationLabels(audiobook.runtime);
 
 export const audiobookSchema = defineFlatMediaSchema({
 	aspect: "square",
-	progressVerb: "listened",
 	recipes: audiobookRecipes,
 	facts: audiobookSummaryFacts,
 	heroHeight: () => MEDIA_ART_HEIGHT,
