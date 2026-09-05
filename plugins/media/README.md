@@ -26,6 +26,12 @@ foreground, while displayed related entities are visible. Activity declares enti
 events, not event IDs. Update hints refresh active queries without promising general realtime updates
 for unloaded data or arbitrary mutations.
 
+The Show overview reads watch providers from the summary recipe and shows only the viewer's region,
+derived from `Intl`. The section is hidden when that region is unknown or does not carry the title,
+because a global list answers no question the reader asked. Providers are grouped by offer kind in
+contract order and named alphabetically within a group. TMDB sources this data from JustWatch, which
+the section credits.
+
 Rows select `populationStatus` and `translationStatus` through `entitySyncSelection`. Visual marks and
 the missing-artwork surface come from `@ryot-app/client-ui-sdk/sync`; media wrappers do not own asset
 batching, expiry, placeholders, or animations. Settle marks are committed after new query data renders.
@@ -43,9 +49,11 @@ the complete image array; omission keeps canonical images.
 Watch providers are TMDB-only and exist on `movie` and `show` alone; no other source exposes the
 data. Every country TMDB reports is retained, because provider-populated entities are global and no
 user region is known at population time; filtering by region belongs to the reader. An entry is one
-service, holding the countries carrying the title and how it is offered in each: `stream`, `free`,
-`ads`, `rent`, or `buy`. Countries are sorted and offers keep that fixed order, so repeated
-population of unchanged data produces an identical value.
+country, holding TMDB's watch link for that country and the services carrying the title there, each
+with how it is offered: `stream`, `free`, `ads`, `rent`, or `buy`. The property is country-rooted
+because the link is a property of the country, not of a service. Countries are sorted, a country
+naming no service is omitted, and offers keep that fixed order, so repeated population of unchanged
+data produces an identical value.
 
 Provider details normalize source data into common properties and relationship groups. Consumers do
 not branch on provider identity. Supported relationship categories emit authoritative empty groups so

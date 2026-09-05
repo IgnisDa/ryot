@@ -46,34 +46,35 @@ const watchProvidersField = (description: string) =>
 			description: "Item",
 			unknownKeys: "strict",
 			properties: {
-				image: { type: "string", label: "Image", description: "Provider logo image URL" },
-				name: {
-					label: "Name",
+				link: { label: "Link", type: "string", description: "Where to see every offer here" },
+				country: {
 					type: "string",
-					description: "Name",
+					label: "Country",
 					validation: { required: true },
+					description: "ISO 3166-1 alpha-2 country code",
 				},
-				availability: {
+				providers: {
 					type: "array",
-					label: "Availability",
-					description: "Countries where this provider carries the title",
+					label: "Providers",
+					description: "Services carrying the title in this country",
 					items: {
 						label: "Item",
 						type: "object",
 						description: "Item",
 						unknownKeys: "strict",
 						properties: {
-							country: {
+							image: { type: "string", label: "Image", description: "Provider logo image URL" },
+							name: {
+								label: "Name",
 								type: "string",
-								label: "Country",
+								description: "Name",
 								validation: { required: true },
-								description: "ISO 3166-1 alpha-2 country code",
 							},
 							offers: {
 								label: "Offers",
 								type: "enum-array",
 								validation: { minItems: 1 },
-								description: "How the title is offered in this country",
+								description: "How the title is offered here",
 								choices: {
 									kind: "static",
 									values: watchProviderOffers.map((value) => ({ value })),
@@ -132,7 +133,7 @@ export const moviePropertiesSchema: AppSchema = {
 		...mediaBaseFields,
 		runtime: integerField("Runtime", "Runtime in minutes"),
 		images: mediaImagesField("Cover and promotional images for this movie"),
-		watchProviders: watchProvidersField("Services carrying this movie, by country"),
+		watchProviders: watchProvidersField("Where to watch this movie, by country"),
 	},
 };
 
@@ -140,7 +141,7 @@ export const showPropertiesSchema: AppSchema = {
 	fields: {
 		...mediaBaseFields,
 		images: mediaImagesField("Cover and promotional images for this show"),
-		watchProviders: watchProvidersField("Services carrying this show, by country"),
+		watchProviders: watchProvidersField("Where to watch this show, by country"),
 		totalSeasons: integerField("Total Seasons", "Total number of seasons in this show"),
 		totalEpisodes: integerField("Total Episodes", "Total number of episodes in this show"),
 	},

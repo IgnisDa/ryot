@@ -25,6 +25,7 @@ const makeHost = (httpCall: TmdbHost["httpCall"]) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "token"]))),
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
+
 describe("movie.tmdb sandbox script", () => {
 	it("declares one narrowly scoped script per operation", () => {
 		expect([
@@ -39,6 +40,7 @@ describe("movie.tmdb sandbox script", () => {
 			["movie.tmdb.translate", "translate", ["httpCall", "getPluginConfig"]],
 		]);
 	});
+
 	it("declares trending as a generic provider-associated script", () => {
 		expect({
 			kind: trendingManifest.kind,
@@ -54,6 +56,7 @@ describe("movie.tmdb sandbox script", () => {
 			requiredPluginConfigKeys: ["tmdbAccessToken"],
 		});
 	});
+
 	it("keeps TMDB recommendations as related entities", () => {
 		const host = makeHost((_method, url) => {
 			if (url.includes("/movie/1/recommendations")) {
@@ -158,15 +161,19 @@ describe("movie.tmdb sandbox script", () => {
 			),
 		);
 	});
-	it("merges TMDB watch providers by name and country", () => {
+
+	it("groups TMDB watch providers under each country that carries the movie", () => {
 		const host = makeHost((_method, url) => {
 			if (url.includes("/movie/1/watch/providers")) {
 				return httpSuccess({
 					results: {
-						US: { rent: [{ provider_name: "Netflix" }] },
 						AU: { flatrate: [{ logo_path: "/nameless.jpg" }] },
 						GB: { buy: [{ logo_path: "/apple.jpg", provider_name: "Apple TV" }] },
 						IN: { flatrate: [{ provider_name: "Netflix", logo_path: "/netflix.jpg" }] },
+						US: {
+							rent: [{ provider_name: "Netflix" }],
+							link: "https://www.themoviedb.org/movie/1/watch?locale=US",
+						},
 					},
 				});
 			}
@@ -187,17 +194,31 @@ describe("movie.tmdb sandbox script", () => {
 					expect(result.properties).toMatchObject({
 						watchProviders: [
 							{
-								name: "Apple TV",
-								availability: [{ country: "GB", offers: ["buy"] }],
-								image: "https://image.tmdb.org/t/p/original/apple.jpg",
+								link: null,
+								country: "GB",
+								providers: [
+									{
+										offers: ["buy"],
+										name: "Apple TV",
+										image: "https://image.tmdb.org/t/p/original/apple.jpg",
+									},
+								],
 							},
 							{
-								name: "Netflix",
-								image: "https://image.tmdb.org/t/p/original/netflix.jpg",
-								availability: [
-									{ country: "IN", offers: ["stream"] },
-									{ country: "US", offers: ["rent"] },
+								link: null,
+								country: "IN",
+								providers: [
+									{
+										name: "Netflix",
+										offers: ["stream"],
+										image: "https://image.tmdb.org/t/p/original/netflix.jpg",
+									},
 								],
+							},
+							{
+								country: "US",
+								link: "https://www.themoviedb.org/movie/1/watch?locale=US",
+								providers: [{ image: null, name: "Netflix", offers: ["rent"] }],
 							},
 						],
 					});
@@ -206,6 +227,7 @@ describe("movie.tmdb sandbox script", () => {
 			),
 		);
 	});
+
 	it("classifies localized movie posters as covers", () => {
 		const host = makeHost((_method, url) =>
 			url.includes("/movie/1/translations")
@@ -236,6 +258,7 @@ describe("movie.tmdb sandbox script", () => {
 			),
 		);
 	});
+
 	it("returns TMDB trending movies", () => {
 		const requestedPages: string[] = [];
 		const host = makeHost((_method, url) => {
