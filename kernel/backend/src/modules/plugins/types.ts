@@ -8,25 +8,29 @@ export type PluginSource = {
 	readonly files: Readonly<Record<string, Uint8Array>>;
 };
 
-export type NormalizedPluginScript = {
+export type PluginScriptDescriptor = {
 	readonly slug: string;
 	readonly name: string;
 	readonly entry: string;
-	readonly source: string;
 	readonly contentHash: string;
+	readonly metadata: PluginScriptMetadata;
+};
+
+export type NormalizedPluginScript = PluginScriptDescriptor & {
+	readonly source: string;
 	readonly compiledCode: string;
 	readonly compiledFormat: number;
-	readonly metadata: PluginScriptMetadata;
 };
 
 export type PluginRevision = {
 	readonly sourceHash: string;
 	readonly manifest: PluginManifest;
-	readonly scripts: Array<NormalizedPluginScript>;
+	readonly scripts: ReadonlyArray<PluginScriptDescriptor>;
 };
 
-export type NormalizedPlugin = PluginRevision & {
+export type NormalizedPlugin = Omit<PluginRevision, "scripts"> & {
 	readonly files: Readonly<Record<string, Uint8Array>>;
+	readonly scripts: ReadonlyArray<NormalizedPluginScript>;
 };
 
 export type PluginPersistenceIdentity =
