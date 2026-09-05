@@ -43,6 +43,10 @@ const CLIENT_DEPENDENCY_REGISTRY = [
 	{ policy: "neutral", specifier: "@ryot-app/plugin-kit/schema" },
 ] as const;
 
+export const CLIENT_DEPENDENCY_SPECIFIERS: readonly string[] = Object.freeze(
+	CLIENT_DEPENDENCY_REGISTRY.map(({ specifier }) => specifier),
+);
+
 const trustedModules = new Set<string>(
 	CLIENT_DEPENDENCY_REGISTRY.filter(({ policy }) => policy === "trusted").map(
 		({ specifier }) => specifier,

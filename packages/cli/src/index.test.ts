@@ -97,6 +97,29 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 					inputProjection: { event: { properties: [] } },
 				},
 			]);
+			expect(
+				archive.compiledScripts
+					.filter(({ entry }) => entry !== "backend/main.sandbox.ts")
+					.map(({ entry, source, format, javascript }) => ({
+						entry,
+						source,
+						format,
+						javascript: javascript.length > 0,
+					})),
+			).toEqual([
+				{
+					format: 1,
+					javascript: true,
+					entry: "backend/automation.sandbox.ts",
+					source: expect.stringContaining('automationType: "automation"'),
+				},
+				{
+					format: 1,
+					javascript: true,
+					entry: "backend/policy.sandbox.ts",
+					source: expect.stringContaining('automationType: "policy"'),
+				},
+			]);
 		}),
 	);
 
@@ -130,9 +153,13 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 				const first = yield* fs.readFile(output);
 				const pluginPackage = yield* readPluginArchive(first);
 				const secondResult = yield* run(plugin, ["plugin", "build"]);
+				const compiledClient = pluginPackage.compiledClient;
 
 				expect(result.exitCode, result.stderr).toBe(0);
 				expect(secondResult.exitCode, secondResult.stderr).toBe(0);
+				expect(compiledClient).toBeDefined();
+				expect(compiledClient?.files.map(({ name }) => name)).toContain("module.js");
+				expect(compiledClient?.files.map(({ name }) => name)).toContain("module.css");
 				expect(yield* fs.readDirectory(path.join(plugin, "dist"))).toEqual(["cli-test.zip"]);
 				expect(yield* fs.readFile(output)).toEqual(first);
 				expect(pluginPackage.manifest).toMatchObject({
@@ -142,11 +169,19 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 					'"initial"',
 				);
 				expect(decoder.decode(pluginPackage.files["backend/nested/worker.ts"])).toContain("worker");
+				expect(pluginPackage.compiledScripts).toHaveLength(1);
+				expect(pluginPackage.compiledScripts[0]).toMatchObject({
+					format: 1,
+					entry: "backend/main.sandbox.ts",
+					source: expect.stringContaining('Effect.succeed("initial")'),
+				});
+				expect(pluginPackage.compiledScripts[0]?.javascript).toContain("initial");
 				expect(pluginPackage.files["backend/data.json"]).toBeUndefined();
 				expect(pluginPackage.files["backend/ignored.test.ts"]).toBeUndefined();
 				expect(Object.keys(pluginPackage.files)).toEqual([
 					"backend/main.sandbox.ts",
 					"backend/nested/worker.ts",
+					"shared/util.ts",
 					"client/asset.avif",
 					"client/asset.gif",
 					"client/asset.ico",
@@ -159,7 +194,6 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 					"client/home.tsx",
 					"client/logo.svg",
 					"client/styles.css",
-					"shared/util.ts",
 				]);
 				expect(pluginPackage.files["client/asset.png"]).toEqual(assetBytes);
 				expect(pluginPackage.files["client/data.json"]).toBeUndefined();
@@ -169,6 +203,54 @@ export default ${helper}({ manifest, run: () => Effect.succeed(${automationType 
 				expect(pluginPackage.files["shared/data.json"]).toBeUndefined();
 				expect(pluginPackage.files["shared/ignored.test.ts"]).toBeUndefined();
 			}),
+	);
+
+	test.effect("does not include a compiled client artifact for a backend-only plugin", () =>
+		Effect.gen(function* () {
+			const path = yield* Path.Path;
+			const fs = yield* FileSystem.FileSystem;
+			const plugin = yield* createPlugin();
+			const manifestPath = path.join(plugin, "manifest.ts");
+			const manifest = yield* fs.readFileString(manifestPath);
+			yield* fs.writeFileString(
+				manifestPath,
+				manifest.replace(/\n\tclient: \{[\s\S]*?\n\t\},(?=\n};)/, ""),
+			);
+
+			const result = yield* run(plugin, ["plugin", "build"]);
+			const pluginPackage = yield* readPluginArchive(
+				yield* fs.readFile(path.join(plugin, "dist", "cli-test.zip")),
+			);
+
+			expect(result.exitCode, result.stderr).toBe(0);
+			expect(pluginPackage.compiledClient).toBeUndefined();
+			expect(pluginPackage.compiledScripts).toHaveLength(1);
+		}),
+	);
+
+	test.effect("writes an empty compiled script list when the backend has no scripts", () =>
+		Effect.gen(function* () {
+			const path = yield* Path.Path;
+			const fs = yield* FileSystem.FileSystem;
+			const plugin = yield* createPlugin();
+			const manifestPath = path.join(plugin, "manifest.ts");
+			const manifest = yield* fs.readFileString(manifestPath);
+			yield* fs.writeFileString(
+				manifestPath,
+				manifest.replace(/\n\tclient: \{[\s\S]*?\n\t\},(?=\n};)/, ""),
+			);
+			yield* fs.remove(path.join(plugin, "backend", "main.sandbox.ts"));
+
+			const result = yield* run(plugin, ["plugin", "build"]);
+			const pluginPackage = yield* readPluginArchive(
+				yield* fs.readFile(path.join(plugin, "dist", "cli-test.zip")),
+			);
+
+			expect(result.exitCode, result.stderr).toBe(0);
+			expect(pluginPackage.manifest.scripts).toEqual([]);
+			expect(pluginPackage.compiledScripts).toEqual([]);
+			expect(pluginPackage.compiledClient).toBeUndefined();
+		}),
 	);
 
 	test.effect("builds an explicit output file", () =>

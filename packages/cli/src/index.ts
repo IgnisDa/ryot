@@ -1,13 +1,21 @@
 #!/usr/bin/env bun
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
-import { compileClientPlugin } from "@ryot-app/client-plugin-compiler";
-import { isPluginSourceFile, pluginClientFileExtension } from "@ryot-app/client-plugin-contract";
+import { compileClientPluginModule } from "@ryot-app/client-plugin-compiler";
+import {
+	isPluginSourceFile,
+	pluginClientFileExtension,
+	type PluginClientArtifact,
+} from "@ryot-app/client-plugin-contract";
 import {
 	AuthoredPluginManifest as AuthoredPluginManifestSchema,
 	PluginManifest as PluginManifestSchema,
 } from "@ryot-app/contract/modules/plugins/manifest";
-import { PluginArchiveError, writePluginArchive } from "@ryot-app/plugin-archive";
+import {
+	PluginArchiveError,
+	writePluginArchive,
+	type PluginArchivePackage,
+} from "@ryot-app/plugin-archive";
 import type { SandboxCompilerDiagnostic } from "@ryot-app/sandbox-compiler/diagnostics";
 import {
 	derivePluginSandboxScripts,
@@ -145,7 +153,15 @@ const deriveManifestScripts = Effect.fn("deriveManifestScripts")(function* (
 				}),
 		}),
 	);
-	return derived.map(({ script }) => script);
+	return {
+		scripts: derived.map(({ script }) => script),
+		compiledScripts: derived.map(({ script, source, compiled }) => ({
+			source,
+			entry: script.entry,
+			format: compiled.format,
+			javascript: compiled.javascript,
+		})),
+	};
 });
 
 const compileClientArtifact = Effect.fn("compileClientArtifact")(function* (
@@ -153,7 +169,7 @@ const compileClientArtifact = Effect.fn("compileClientArtifact")(function* (
 	sources: ReadonlyArray<SourceFile>,
 ) {
 	if (manifest.client === undefined) {
-		return yield* Effect.void;
+		return undefined;
 	}
 	const files = Object.fromEntries(
 		sources
@@ -163,7 +179,7 @@ const compileClientArtifact = Effect.fn("compileClientArtifact")(function* (
 			)
 			.map(({ contents, path: sourcePath }) => [sourcePath, contents]),
 	);
-	return yield* compileClientPlugin({
+	return yield* compileClientPluginModule({
 		files,
 		name: manifest.metadata.name,
 		apiVersion: manifest.client.apiVersion,
@@ -175,7 +191,7 @@ const compileClientArtifact = Effect.fn("compileClientArtifact")(function* (
 			]),
 		),
 	}).pipe(
-		Effect.asVoid,
+		Effect.map(({ artifact }) => artifact),
 		Effect.catchTag(
 			"ClientPluginCompilerFailure",
 			(error) =>
@@ -190,24 +206,28 @@ const writeOutput = Effect.fn("writeOutput")(function* (
 	output: string,
 	manifest: PluginManifest,
 	sources: ReadonlyArray<SourceFile>,
+	compiledScripts: PluginArchivePackage["compiledScripts"],
+	compiledClient: PluginClientArtifact | undefined,
 ) {
 	const fs = yield* FileSystem.FileSystem;
 	const path = yield* Path.Path;
 	const temporary = path.join(path.dirname(output), `.${path.basename(output)}.tmp`);
 	const archive = yield* Effect.try({
-		try: () =>
-			writePluginArchive({
-				manifest,
-				files: Object.fromEntries(
-					sources.map(({ contents, path: sourcePath }) => [sourcePath, contents]),
-				),
-			}),
 		catch: (error) =>
 			new BuildError({
 				message:
 					error instanceof PluginArchiveError
 						? `Invalid plugin archive: ${error.reason}`
 						: `Unable to create plugin archive: ${String(error)}`,
+			}),
+		try: () =>
+			writePluginArchive({
+				manifest,
+				compiledScripts,
+				files: Object.fromEntries(
+					sources.map(({ contents, path: sourcePath }) => [sourcePath, contents]),
+				),
+				...(compiledClient === undefined ? {} : { compiledClient }),
 			}),
 	});
 	yield* fs.makeDirectory(path.dirname(output), { recursive: true });
@@ -224,8 +244,8 @@ const buildPlugin = Effect.fn("buildPlugin")(function* ({ cwd, output }: BuildOp
 	const path = yield* Path.Path;
 	const authored = yield* loadManifest(cwd);
 	const sources = yield* collectSources(cwd);
-	const scripts = yield* deriveManifestScripts(sources);
-	yield* compileClientArtifact(authored, sources);
+	const { scripts, compiledScripts } = yield* deriveManifestScripts(sources);
+	const compiledClient = yield* compileClientArtifact(authored, sources);
 	const manifest = yield* Schema.decodeUnknownEffect(PluginManifestSchema)({
 		...authored,
 		scripts,
@@ -238,6 +258,8 @@ const buildPlugin = Effect.fn("buildPlugin")(function* ({ cwd, output }: BuildOp
 		path.resolve(cwd, output ?? `dist/${manifest.metadata.slug}.zip`),
 		manifest,
 		sources,
+		compiledScripts,
+		compiledClient,
 	);
 });
 
