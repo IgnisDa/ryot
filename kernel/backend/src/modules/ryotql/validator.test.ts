@@ -18,10 +18,15 @@ import {
 	floor,
 	first,
 	groupDescending,
+	gt,
 	include,
 	integer,
 	isNotNull,
 	join,
+	jsonArrayCount,
+	jsonArrayExists,
+	jsonArrayFirst,
+	jsonElement,
 	jsonPath,
 	kebabCase,
 	literal,
@@ -1029,4 +1034,87 @@ it("enforces the correlated expression depth limit", () => {
 			document({ root: rows(root, { fields: [], where: nestedExists(1, 4) }) }),
 		),
 	).toBe("Query 'root': Correlated query depth must not exceed 3");
+});
+
+it("validates JSON array operators, element scope, and outer references", () => {
+	const entity = table("entity", "entity");
+	const schedule = jsonPath(column(entity, "properties"), "airingSchedule");
+	const airingAt = castDate(jsonPath(jsonElement(), "airingAt"));
+	const upcoming = gt(airingAt, castDate(literal("2026-09-01T00:00:00.000Z")));
+	const nextAiringAt = jsonArrayFirst(schedule, {
+		where: upcoming,
+		select: airingAt,
+		orderBy: [ascending(airingAt)],
+	});
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: rows(entity, {
+					orderBy: [ascending(nextAiringAt)],
+					where: and(
+						eq(column(entity, "entitySchemaSlug"), literal("anime")),
+						jsonArrayExists(schedule, upcoming),
+					),
+					fields: [
+						field("name", column(entity, "name")),
+						field("nextAiringAt", nextAiringAt),
+						field("upcomingCount", jsonArrayCount(schedule, upcoming)),
+					],
+				}),
+			}),
+		),
+	).toBeNull();
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: rows(entity, { fields: [field("element", jsonPath(jsonElement(), "airingAt"))] }),
+			}),
+		),
+	).toBe("Query 'entities': JSON element expressions require a JSON array operator");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: rows(entity, {
+					fields: [],
+					where: jsonArrayExists(column(entity, "name"), upcoming),
+				}),
+			}),
+		),
+	).toBe("Query 'entities': JSON array operators require a JSON expression");
+	expect(
+		validateRyotQLDocument(
+			document({
+				entities: rows(entity, {
+					fields: [
+						field(
+							"next",
+							jsonArrayFirst(schedule, {
+								where: upcoming,
+								select: airingAt,
+								orderBy: [ascending(jsonPath(jsonElement(), "airingAt"))],
+							}),
+						),
+					],
+				}),
+			}),
+		),
+	).toBe("Query 'entities': Ordering expressions must resolve to scalar values");
+	const nestedJsonArray = (depth: number): ReturnType<typeof jsonArrayExists> =>
+		jsonArrayExists(
+			jsonArrayFirst(schedule, {
+				select: jsonElement(),
+				orderBy: [ascending(jsonArrayCount(schedule))],
+				...(depth > 0 ? { where: nestedJsonArray(depth - 1) } : {}),
+			}),
+		);
+	expect(
+		validateRyotQLDocument(
+			document({ entities: rows(entity, { fields: [], where: nestedJsonArray(1) }) }),
+		),
+	).toBeNull();
+	expect(
+		validateRyotQLDocument(
+			document({ entities: rows(entity, { fields: [], where: nestedJsonArray(3) }) }),
+		),
+	).toBe("Query 'entities': JSON array depth must not exceed 3");
 });

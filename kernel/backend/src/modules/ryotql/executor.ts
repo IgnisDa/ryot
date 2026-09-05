@@ -57,6 +57,26 @@ const CURSOR_VERSION = 1;
 
 const identifier = (value: string): SqlFragment => sql.raw(`"${value}"`);
 
+let jsonElementAliasCounter = 0;
+const jsonElementAliasStack: string[] = [];
+
+const withJsonElementAlias = <A>(alias: string, compile: () => A): A => {
+	jsonElementAliasStack.push(alias);
+	try {
+		return compile();
+	} finally {
+		jsonElementAliasStack.pop();
+	}
+};
+
+const requireJsonElementAlias = () => {
+	const alias = jsonElementAliasStack.at(-1);
+	if (!alias) {
+		throw new Error("RyotQL compiler received a JSON element outside an array operator");
+	}
+	return alias;
+};
+
 const requireTable = (name: string) => {
 	const table = getCatalogTable(name);
 	if (!table) {
@@ -339,6 +359,18 @@ const compileExpression = (expr: ScalarExpression, scope: CompileScope): SqlFrag
 			sql`, `,
 		)}), 'null'::jsonb)`;
 	}
+	if (expr.type === "jsonElement") {
+		return sql.raw(`${requireJsonElementAlias()}.elem`);
+	}
+	if (expr.type === "jsonExists") {
+		return compileJsonArrayExists(expr, scope);
+	}
+	if (expr.type === "jsonFirst") {
+		return compileJsonArrayFirst(expr, scope);
+	}
+	if (expr.type === "jsonCount") {
+		return compileJsonArrayCount(expr, scope);
+	}
 	if (expr.type === "coalesce") {
 		const kind = expressionKind(expr, scope);
 		return kind === "json"
@@ -363,7 +395,12 @@ const expressionNullable = (expr: ScalarExpression, scope: CompileScope): boolea
 	if (expr.type === "literal") {
 		return expr.value === null;
 	}
-	if (expr.type === "exists" || expr.type === "isNotNull") {
+	if (
+		expr.type === "exists" ||
+		expr.type === "isNotNull" ||
+		expr.type === "jsonExists" ||
+		expr.type === "jsonCount"
+	) {
 		return false;
 	}
 	if (expr.type === "column") {
@@ -383,6 +420,9 @@ const compilePredicate = (
 ): SqlFragment => {
 	if (predicate.type === "exists") {
 		return compileExists(predicate, scope);
+	}
+	if (predicate.type === "jsonExists") {
+		return compileJsonArrayExists(predicate, scope);
 	}
 	if (predicate.type === "comparison") {
 		const operators = {
@@ -553,6 +593,9 @@ const outputKind = (expr: ScalarExpression, scope: CompileScope): SqlFragment =>
 	if (expr.type === "first") {
 		return sql`COALESCE(${compileFirst(expr, scope, (childScope) => outputKind(expr.select, childScope))}, 'null')`;
 	}
+	if (expr.type === "jsonFirst") {
+		return sql`COALESCE(${compileJsonArrayFirst(expr, scope, () => outputKind(expr.select, scope))}, 'null')`;
+	}
 	const kind = expressionKind(expr, scope);
 	if (kind === "null") {
 		return sql`'null'`;
@@ -566,6 +609,9 @@ const hasRuntimeOutputKind = (expr: ScalarExpression, scope: CompileScope): bool
 	}
 	if (expr.type === "first") {
 		return hasRuntimeOutputKind(expr.select, expressionScope(expr.query, scope));
+	}
+	if (expr.type === "jsonFirst") {
+		return hasRuntimeOutputKind(expr.select, scope);
 	}
 	return (
 		(expr.type === "conditional" || expr.type === "coalesce") &&
@@ -848,6 +894,54 @@ const compileAggregate = (
 	const scope = correlatedScope(expr.query, ancestors);
 	const value = compileAggregation(expr.aggregation, scope);
 	return sql`(SELECT ${value} ${querySetSql(expr.query, scopeExecution(ancestors), scope)})`;
+};
+
+const compileJsonArrayFrom = (
+	array: ScalarExpression,
+	scope: CompileScope,
+): { readonly alias: string; readonly from: SqlFragment } => {
+	const arraySql = compileExpression(array, scope);
+	const alias = `j${jsonElementAliasCounter++}`;
+	return {
+		alias,
+		from: sql`jsonb_array_elements(CASE WHEN jsonb_typeof(${arraySql}) = 'array' THEN ${arraySql} ELSE '[]'::jsonb END) AS ${sql.raw(alias)}(elem)`,
+	};
+};
+
+const compileJsonArrayExists = (
+	expr: Extract<ScalarExpression, { type: "jsonExists" }>,
+	scope: CompileScope,
+) => {
+	const { from, alias } = compileJsonArrayFrom(expr.array, scope);
+	return withJsonElementAlias(alias, () =>
+		expr.where
+			? sql`EXISTS (SELECT 1 FROM ${from} WHERE ${compilePredicate(expr.where, scope)})`
+			: sql`EXISTS (SELECT 1 FROM ${from})`,
+	);
+};
+
+const compileJsonArrayFirst = (
+	expr: Extract<ScalarExpression, { type: "jsonFirst" }>,
+	scope: CompileScope,
+	select?: () => SqlFragment,
+) => {
+	const { from, alias } = compileJsonArrayFrom(expr.array, scope);
+	return withJsonElementAlias(alias, () => {
+		const selectSql = select ? select() : compileExpression(expr.select, scope);
+		const where = expr.where ? sql`WHERE ${compilePredicate(expr.where, scope)}` : sql``;
+		return sql`(SELECT ${selectSql} FROM ${from} ${where} ORDER BY ${expressionOrderSql(expr.orderBy, scope)} LIMIT 1)`;
+	});
+};
+
+const compileJsonArrayCount = (
+	expr: Extract<ScalarExpression, { type: "jsonCount" }>,
+	scope: CompileScope,
+) => {
+	const { from, alias } = compileJsonArrayFrom(expr.array, scope);
+	return withJsonElementAlias(alias, () => {
+		const where = expr.where ? sql`WHERE ${compilePredicate(expr.where, scope)}` : sql``;
+		return sql`(SELECT COUNT(*)::double precision FROM ${from} ${where})`;
+	});
 };
 
 const compileAggregation = (
