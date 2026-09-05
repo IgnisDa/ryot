@@ -49,7 +49,7 @@ const makeApi = (calls: ContractCall[], offline = false) => {
 			makeProviderEntitiesApi({
 				import: record("import", { jobId: "job-1" }),
 				searchOptions: record("searchOptions", { schema: null }),
-				getImportResult: record("getImportResult", { status: "pending" }),
+				getImportResult: record("getImportResult", { status: "running" }),
 				search: record("search", {
 					items: [],
 					providerId,

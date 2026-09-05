@@ -97,7 +97,7 @@ const importWave = (state: ProbeState, label: string, wave: number, count: numbe
 						const result = yield* session.call((client) =>
 							client.providerEntities.getImportResult({ params: { jobId } }),
 						);
-						if (result.status !== "pending") {
+						if (result.status !== "queued" && result.status !== "running") {
 							return result.status;
 						}
 						yield* Effect.sleep("1 second");
