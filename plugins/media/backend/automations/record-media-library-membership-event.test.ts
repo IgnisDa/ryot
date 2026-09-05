@@ -9,7 +9,7 @@ import {
 	hostSuccess,
 	ryotqlRows,
 } from "../../tests/backend/automations/automation-test-utils";
-import definition, { manifest } from "./record-library-membership-event.sandbox";
+import definition, { manifest } from "./record-media-library-membership-event.sandbox";
 
 const relationshipContext = (overrides: Record<string, unknown> = {}) =>
 	automationContext({
@@ -21,9 +21,9 @@ const relationshipContext = (overrides: Record<string, unknown> = {}) =>
 			id: "relationship-1",
 			sourceEntityId: "entity-1",
 			targetEntityId: "library-1",
-			relationshipSchemaSlug: "in-library",
 			createdAt: "2026-01-01T00:00:00.000Z",
 			updatedAt: "2026-01-01T00:00:00.000Z",
+			relationshipSchemaSlug: "in-media-library",
 			...overrides,
 		},
 	});
@@ -31,19 +31,19 @@ const relationshipContext = (overrides: Record<string, unknown> = {}) =>
 const mediaEntityRows = (entitySchemaSlug = "book") =>
 	ryotqlRows("entities", [entityRecord({ entitySchemaSlug })]);
 
-const addToLibrarySchema = {
+const addToMediaLibrarySchema = {
 	id: "event-schema-1",
-	slug: "add-to-library",
-	name: "Added to library",
 	entitySchemaSlug: "book",
+	slug: "add-to-media-library",
+	name: "Added to media library",
 	propertiesSchema: { fields: {} },
 };
 
-it("records an add-to-library event for a newly-created media membership", async () => {
+it("records an add-to-media-library event for a newly-created media membership", async () => {
 	const created: unknown[] = [];
 	const host = defineSandboxTestHost(manifest, {
 		executeRyotql: () => hostSuccess(mediaEntityRows()),
-		listEventSchemas: () => hostSuccess([addToLibrarySchema]),
+		listEventSchemas: () => hostSuccess([addToMediaLibrarySchema]),
 		createEvents: (events) => {
 			created.push(events);
 			return hostSuccess({ count: events.length });
@@ -71,13 +71,13 @@ it("ignores non-media relationships", async () => {
 			calls += 1;
 			return hostSuccess({ count: 1 });
 		},
-		listEventSchemas: () => {
-			calls += 1;
-			return hostSuccess([addToLibrarySchema]);
-		},
 		executeRyotql: () => {
 			calls += 1;
 			return hostSuccess(mediaEntityRows("workout"));
+		},
+		listEventSchemas: () => {
+			calls += 1;
+			return hostSuccess([addToMediaLibrarySchema]);
 		},
 	});
 

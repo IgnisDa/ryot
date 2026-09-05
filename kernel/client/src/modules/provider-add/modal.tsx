@@ -12,6 +12,7 @@ import {
 	type ProviderEntityLinks,
 	ProviderSearchPanel,
 	type ProviderSummariesState,
+	resolveLibraryMembership,
 } from "#/modules/provider-add/panel";
 import { ProviderAddService } from "#/modules/provider-add/service";
 import { ClientStorage } from "#/persistence/storage";
@@ -37,6 +38,7 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 	const ryot = useRyot();
 	const { scope, runtime } = useRouteContext({ from: "/_authenticated" });
 	const { entitySchemaSlug } = props;
+	const libraryMembership = resolveLibraryMembership(props.ownerPluginId, entitySchemaSlug);
 	const [state, setState] = useState<ProviderAddModalState>({
 		selectedProviderId: undefined,
 		providers: { status: "loading" },
@@ -155,6 +157,8 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 						entitySchemaSlug={entitySchemaSlug}
 						loadSearchOptions={loadSearchOptions}
 						selectedProviderId={state.selectedProviderId}
+						relationshipSlug={libraryMembership.relationshipSlug}
+						librarySchemaSlug={libraryMembership.librarySchemaSlug}
 					/>
 				</div>
 			</div>

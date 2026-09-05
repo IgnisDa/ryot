@@ -79,12 +79,12 @@ describe("creator detail screen", () => {
 		unmount();
 	});
 
-	it("keeps monitoring, library, collections and reviews on a rail without status or logging", () => {
+	it("keeps monitoring, media library, collections and reviews on a rail without status or logging", () => {
 		const { unmount, container } = renderBody();
 		const text = container.textContent;
 
 		expect(text).toContain("Monitoring");
-		expect(text).toContain("In library");
+		expect(text).toContain("In media library");
 		expect(text).toContain("Collections");
 		expect(text).toContain("Write review");
 		expect(text).not.toContain("Your status");
@@ -206,7 +206,7 @@ describe("creator activity tab", () => {
 		expect(text).toContain("Reviews");
 		expect(text).toContain("Span");
 		expect(text).toContain("Reviewed this creator");
-		expect(text).toContain("Added to library");
+		expect(text).toContain("Added to media library");
 		expect(text).toContain("Added to the Favourites collection");
 		expect(container.querySelector('[aria-label="Activity record"]')).not.toBeNull();
 		unmount();

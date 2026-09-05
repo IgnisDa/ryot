@@ -15,7 +15,8 @@ it("does not emit media membership for fitness imports", () => {
 
 	expect(item.subjectEntityAlias).toBe("workout");
 	expect(item.relationships).toEqual([]);
-	expect(JSON.stringify(item)).not.toContain("in-library");
+	expect(JSON.stringify(item)).not.toContain("in-media-library");
+	expect(JSON.stringify(item)).not.toContain("in-fitness-library");
 });
 
 it("requests exact catalog resolution while preserving custom fallback data and aliases", () => {

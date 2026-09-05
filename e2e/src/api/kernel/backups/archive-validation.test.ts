@@ -67,14 +67,14 @@ const readFixtureEntries = Effect.fn(function* () {
 	return files;
 });
 
-const getLibraryId = Effect.fn(function* (client: Client) {
-	const library = table("entity", "library");
+const getMediaLibraryId = Effect.fn(function* (client: Client) {
+	const mediaLibrary = table("entity", "mediaLibrary");
 	const result = yield* executeRyotQL(
 		client,
 		document({
-			libraries: rows(library, {
-				fields: [field("id", column(library, "id"))],
-				where: eq(column(library, "entitySchemaSlug"), literal("library")),
+			libraries: rows(mediaLibrary, {
+				fields: [field("id", column(mediaLibrary, "id"))],
+				where: eq(column(mediaLibrary, "entitySchemaSlug"), literal("media-library")),
 			}),
 		}),
 	);
@@ -87,7 +87,7 @@ const getLibraryId = Effect.fn(function* (client: Client) {
 
 const inspectAccount = Effect.fn(function* (client: Client) {
 	const profile = yield* getUserSettings(client);
-	const libraryId = yield* getLibraryId(client);
+	const libraryId = yield* getMediaLibraryId(client);
 	return { profile, libraryId };
 });
 

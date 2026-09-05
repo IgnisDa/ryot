@@ -24,7 +24,7 @@ import {
 
 export type MediaFlatActivityBeat = Exclude<
 	MediaFlatActivityMediaEvent["eventSchemaSlug"],
-	"review" | "complete" | "progress" | "add-to-library"
+	"review" | "complete" | "progress" | "add-to-media-library"
 >;
 
 type MediaFlatActivityProgressRow<Extra> = ActivityAnchor & {
@@ -61,7 +61,7 @@ const parentRow = <Subject, Extra>(
 	event: MediaFlatActivityMediaEvent<Extra>,
 	subject: Subject,
 ): MediaFlatActivityRow<Subject, Extra> => {
-	if (event.eventSchemaSlug === "add-to-library") {
+	if (event.eventSchemaSlug === "add-to-media-library") {
 		return mediaLibraryRow(event);
 	}
 	if (event.eventSchemaSlug === "complete") {
