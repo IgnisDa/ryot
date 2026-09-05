@@ -47,7 +47,7 @@ export type MediaFlatActivityTimeline<Subject> = MediaActivityTimeline<
 export type MediaFlatActivitySummary = {
 	readonly completions: number;
 	readonly span: MediaActivitySpan;
-	readonly minutes: { readonly total: number; readonly missing: number };
+	readonly amount: { readonly total: number; readonly missing: number };
 };
 
 export type MediaFlatActivityView<Subject> = {
@@ -88,7 +88,7 @@ export const mediaFlatActivityView = <Subject>(input: {
 	readonly subject: Subject;
 	readonly truncated: boolean;
 	readonly completions: number;
-	readonly minutes: { readonly total: number; readonly missing: number };
+	readonly amount: { readonly total: number; readonly missing: number };
 	readonly events: readonly MediaFlatActivityEvent[];
 }): MediaFlatActivityView<Subject> | undefined => {
 	const rows = input.events
@@ -107,7 +107,7 @@ export const mediaFlatActivityView = <Subject>(input: {
 	return {
 		timeline,
 		summary: {
-			minutes: input.minutes,
+			amount: input.amount,
 			completions: input.completions,
 			span: activitySpan(spanned, input.truncated),
 		},
