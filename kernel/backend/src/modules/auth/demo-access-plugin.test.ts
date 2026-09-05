@@ -1,4 +1,5 @@
 import { expect, it } from "@effect/vitest";
+import { Effect } from "effect";
 
 import { runDemoSignIn } from "./demo-access-plugin";
 
@@ -49,49 +50,52 @@ const makeOperations = (overrides: Record<string, unknown> = {}) => {
 	};
 };
 
-it("rejects disabled, missing, and disabled-user demo configuration", () =>
-	Promise.all(
-		(
+it.effect("rejects disabled, missing, and disabled-user demo configuration", () =>
+	Effect.forEach(
+		[
+			[{ demoAccountId: null }, "DEMO_DISABLED"],
+			[{ findUserById: () => Promise.resolve(null) }, "DEMO_ACCOUNT_UNAVAILABLE"],
 			[
-				[{ demoAccountId: null }, "DEMO_DISABLED"],
-				[{ findUserById: () => Promise.resolve(null) }, "DEMO_ACCOUNT_UNAVAILABLE"],
-				[
-					{ findUserById: () => Promise.resolve({ ...user, disabledAt: new Date() }) },
-					"DEMO_ACCOUNT_UNAVAILABLE",
-				],
-			] satisfies ReadonlyArray<readonly [Record<string, unknown>, string]>
-		).map(([overrides, code]) =>
-			expect(runDemoSignIn(makeOperations(overrides).operations)).rejects.toMatchObject({
-				status: "FORBIDDEN",
-				body: { code, message: "Demo access is unavailable." },
-			}),
-		),
-	));
+				{ findUserById: () => Promise.resolve({ ...user, disabledAt: new Date() }) },
+				"DEMO_ACCOUNT_UNAVAILABLE",
+			],
+		] satisfies ReadonlyArray<readonly [Record<string, unknown>, string]>,
+		([overrides, code]) =>
+			Effect.map(Effect.flip(runDemoSignIn(makeOperations(overrides).operations)), (error) =>
+				expect(error).toMatchObject({
+					status: "FORBIDDEN",
+					body: { code, message: "Demo access is unavailable." },
+				}),
+			),
+		{ discard: true, concurrency: "unbounded" },
+	),
+);
 
-it("creates a demo session for exactly the configured user", () => {
-	const { calls, operations } = makeOperations();
-	return runDemoSignIn(operations).then((result) => {
+it.effect("creates a demo session for exactly the configured user", () =>
+	Effect.gen(function* () {
+		const { calls, operations } = makeOperations();
+		const result = yield* runDemoSignIn(operations);
 		expect(result).toEqual({ mode: "demo" });
 		expect(calls.created).toEqual([{ userId: "demo-user", accessClass: "demo" }]);
 		expect(calls.cookies).toEqual([{ user, session: session("new-token", "demo-user", "demo") }]);
-		return result;
-	});
-});
+	}),
+);
 
-it("reuses a matching demo session", () => {
-	const { calls, operations } = makeOperations({
-		existingSession: session("current", "demo-user", "demo"),
-	});
-	return runDemoSignIn(operations).then((result) => {
+it.effect("reuses a matching demo session", () =>
+	Effect.gen(function* () {
+		const { calls, operations } = makeOperations({
+			existingSession: session("current", "demo-user", "demo"),
+		});
+		const result = yield* runDemoSignIn(operations);
 		expect(result).toEqual({ mode: "demo" });
 		expect(calls).toEqual({ created: [], deleted: [], cookies: [] });
-		return result;
-	});
-});
+	}),
+);
 
-it("replaces a stale demo session but preserves a standard session", () => {
-	const stale = makeOperations({ existingSession: session("stale", "old-demo-user", "demo") });
-	return runDemoSignIn(stale.operations).then((staleResult) => {
+it.effect("replaces a stale demo session but preserves a standard session", () =>
+	Effect.gen(function* () {
+		const stale = makeOperations({ existingSession: session("stale", "old-demo-user", "demo") });
+		const staleResult = yield* runDemoSignIn(stale.operations);
 		expect(staleResult).toEqual({ mode: "demo" });
 		expect(stale.calls.deleted).toEqual(["stale"]);
 		expect(stale.calls.created).toEqual([{ userId: "demo-user", accessClass: "demo" }]);
@@ -99,10 +103,8 @@ it("replaces a stale demo session but preserves a standard session", () => {
 		const standard = makeOperations({
 			existingSession: session("owner", "owner-user", "standard"),
 		});
-		return runDemoSignIn(standard.operations).then((standardResult) => {
-			expect(standardResult).toEqual({ mode: "standard" });
-			expect(standard.calls).toEqual({ created: [], deleted: [], cookies: [] });
-			return standardResult;
-		});
-	});
-});
+		const standardResult = yield* runDemoSignIn(standard.operations);
+		expect(standardResult).toEqual({ mode: "standard" });
+		expect(standard.calls).toEqual({ created: [], deleted: [], cookies: [] });
+	}),
+);

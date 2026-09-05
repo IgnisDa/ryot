@@ -31,7 +31,7 @@ import {
 } from "drizzle-orm";
 import type { AnyPgColumn, PgTable } from "drizzle-orm/pg-core";
 import type { Context } from "effect";
-import { Effect, Exit } from "effect";
+import { Effect } from "effect";
 
 import * as authSchema from "#lib/infrastructure/db/schema/tables/auth";
 import type { DatabaseSession } from "#lib/infrastructure/db/session";
@@ -192,35 +192,46 @@ export const effectPostgresAuthAdapter = (args: {
 		}: Parameters<Parameters<typeof createAdapterFactory>[0]["adapter"]>[0]) => {
 			const adapter: CustomAdapter = {
 				delete: ({ model, where }) =>
-					run(db.delete(getTable(model)).where(makeWhere(model, where, getFieldName))).then(
-						() => undefined,
+					run(
+						Effect.asVoid(db.delete(getTable(model)).where(makeWhere(model, where, getFieldName))),
 					),
 				create: ({ data, model }) =>
-					run(db.insert(getTable(model)).values(data).returning()).then((rows) =>
-						Object.assign(data, rows[0]),
+					run(
+						Effect.map(db.insert(getTable(model)).values(data).returning(), (rows) =>
+							Object.assign(data, rows[0]),
+						),
 					),
 				deleteMany: ({ model, where }) =>
 					run(
-						db
-							.delete(getTable(model))
-							.where(makeWhere(model, where, getFieldName))
-							.returning(),
-					).then((rows) => rows.length),
+						Effect.map(
+							db
+								.delete(getTable(model))
+								.where(makeWhere(model, where, getFieldName))
+								.returning(),
+							(rows) => rows.length,
+						),
+					),
 				count: ({ model, where }) =>
 					run(
-						db
-							.select({ value: count() })
-							.from(getTable(model))
-							.where(makeWhere(model, where, getFieldName)),
-					).then((rows) => rows[0]?.value ?? 0),
+						Effect.map(
+							db
+								.select({ value: count() })
+								.from(getTable(model))
+								.where(makeWhere(model, where, getFieldName)),
+							(rows) => rows[0]?.value ?? 0,
+						),
+					),
 				updateMany: ({ model, where, update }) =>
 					run(
-						db
-							.update(getTable(model))
-							.set(update)
-							.where(makeWhere(model, where, getFieldName))
-							.returning(),
-					).then((rows) => rows.length),
+						Effect.map(
+							db
+								.update(getTable(model))
+								.set(update)
+								.where(makeWhere(model, where, getFieldName))
+								.returning(),
+							(rows) => rows.length,
+						),
+					),
 				consumeOne: ({ model, where }) => {
 					const table = getTable(model);
 					const id = getColumn(table, model, getFieldName({ model, field: "id" }));
@@ -229,8 +240,11 @@ export const effectPostgresAuthAdapter = (args: {
 						.from(table)
 						.where(makeWhere(model, where, getFieldName))
 						.limit(1);
-					const deleted = run(db.delete(table).where(inArray(id, target)).returning()).then(
-						(rows) => rows[0] ?? null,
+					const deleted = run(
+						Effect.map(
+							db.delete(table).where(inArray(id, target)).returning(),
+							(rows) => rows[0] ?? null,
+						),
 					);
 					// Better Auth supplies the result type from its model registry, which is not exposed to custom adapters.
 					// oxlint-disable-next-line typescript/no-unsafe-type-assertion
@@ -268,14 +282,17 @@ export const effectPostgresAuthAdapter = (args: {
 						.where(makeWhere(model, where, getFieldName))
 						.limit(1);
 					const updated = run(
-						db
-							.update(table)
-							// Better Auth guarantees update is a model-shaped object, but leaves its generic unconstrained.
-							// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-							.set(update as {})
-							.where(inArray(id, target))
-							.returning(),
-					).then((rows) => rows[0] ?? null);
+						Effect.map(
+							db
+								.update(table)
+								// Better Auth guarantees update is a model-shaped object, but leaves its generic unconstrained.
+								// oxlint-disable-next-line typescript/no-unsafe-type-assertion
+								.set(update as {})
+								.where(inArray(id, target))
+								.returning(),
+							(rows) => rows[0] ?? null,
+						),
+					);
 					// Better Auth supplies the result type from its model registry, which is not exposed to custom adapters.
 					// oxlint-disable-next-line typescript/no-unsafe-type-assertion
 					return updated as Promise<never>;
@@ -292,12 +309,15 @@ export const effectPostgresAuthAdapter = (args: {
 						update[name] = sql`${column} + ${delta}`;
 					}
 					const incremented = run(
-						db
-							.update(table)
-							.set(update)
-							.where(and(guard, inArray(id, target)))
-							.returning(),
-					).then((rows) => rows[0] ?? null);
+						Effect.map(
+							db
+								.update(table)
+								.set(update)
+								.where(and(guard, inArray(id, target)))
+								.returning(),
+							(rows) => rows[0] ?? null,
+						),
+					);
 					// Better Auth supplies the result type from its model registry, which is not exposed to custom adapters.
 					// oxlint-disable-next-line typescript/no-unsafe-type-assertion
 					return incremented as Promise<never>;
@@ -375,18 +395,15 @@ export const effectPostgresAuthAdapter = (args: {
 			Effect.gen(function* () {
 				const tx = yield* session.current;
 				const transactionContext = yield* Effect.context<DatabaseSession | RedisService>();
-				return yield* Effect.callback<A, E>((resume) => {
-					const adapter = makeFactory(tx, false)(options);
-					void Promise.resolve(
+				const adapter = makeFactory(tx, false)(options);
+				const exit = yield* Effect.promise(() =>
+					Promise.resolve(
 						runWithAdapter(adapter, () =>
 							Effect.runPromiseExitWith(transactionContext)(callback(adapter, tx)),
 						),
-					).then((exit) =>
-						resume(
-							Exit.isSuccess(exit) ? Effect.succeed(exit.value) : Effect.failCause(exit.cause),
-						),
-					);
-				});
+					),
+				);
+				return yield* exit;
 			}),
 		);
 

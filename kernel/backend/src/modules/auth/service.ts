@@ -524,19 +524,16 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			resolveCredential(
 				credential,
 				(token) => verifyBearerToken(token, getOAuthVerificationOptions(config.frontendUrl)),
-				(key) =>
-					auth.api
-						.verifyApiKey({ body: { key } })
-						.then((result) => ({
-							valid: result.valid,
-							error: result.error,
-							key: result.key ? { id: result.key.id, referenceId: result.key.referenceId } : null,
-						})),
+				(key) => auth.api.verifyApiKey({ body: { key } }),
 				findUserById,
 				Option.getOrNull(config.users.demoAccountId),
 			);
 		const withInternalAdapter = <A>(operation: (context: AuthContextValue) => Promise<A>) =>
-			Effect.tryPromise({ catch: unknownToDbError, try: () => auth.$context.then(operation) });
+			Effect.tryPromise({ catch: unknownToDbError, try: () => auth.$context }).pipe(
+				Effect.flatMap((context) =>
+					Effect.tryPromise({ catch: unknownToDbError, try: () => operation(context) }),
+				),
+			);
 		const requestPasswordResetLink = Effect.fn("AuthService.requestPasswordResetLink")(function* (
 			email: string,
 		) {
@@ -575,10 +572,14 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 							}
 						};
 						subscriber.on("message", onMessage);
-						void subscriber
-							.subscribe(channel)
-							.then(() => auth.api.requestPasswordReset({ body: { email } }))
-							.catch(() => undefined);
+						Effect.runForkWith(runtime)(
+							Effect.tryPromise(() => subscriber.subscribe(channel)).pipe(
+								Effect.andThen(
+									Effect.tryPromise(() => auth.api.requestPasswordReset({ body: { email } })),
+								),
+								Effect.ignore,
+							),
+						);
 						return Effect.sync(() => subscriber.off("message", onMessage));
 					}).pipe(
 						Effect.timeoutOrElse({
@@ -670,21 +671,23 @@ export class AuthService extends Context.Service<AuthService>()("AuthService", {
 			// TODO: drop this once upstream ships admin-managed api-key deletion.
 			// https://github.com/better-auth/better-auth/discussions/7907
 			purgeApiKeyCaches: (userId: UserId, apiKeys: ReadonlyArray<{ id: string; key: string }>) =>
-				Effect.promise(() =>
-					auth.$context.then((ctx) => {
+				Effect.promise(() => auth.$context).pipe(
+					Effect.flatMap((ctx) => {
 						const storage = ctx.secondaryStorage;
 						if (!storage) {
-							return undefined;
+							return Effect.void;
 						}
-						return Promise.all([
-							storage.delete(`api-key:by-ref:${userId}`),
-							...apiKeys.flatMap((entry) => [
-								storage.delete(`api-key:${entry.key}`),
-								storage.delete(`api-key:by-id:${entry.id}`),
+						return Effect.promise(() =>
+							Promise.all([
+								storage.delete(`api-key:by-ref:${userId}`),
+								...apiKeys.flatMap((entry) => [
+									storage.delete(`api-key:${entry.key}`),
+									storage.delete(`api-key:by-id:${entry.id}`),
+								]),
 							]),
-						]);
+						);
 					}),
-				).pipe(Effect.orDie),
+				),
 		};
 	}),
 }) {

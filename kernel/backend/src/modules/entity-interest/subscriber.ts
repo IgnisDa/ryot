@@ -62,7 +62,7 @@ export class EntityInterestSubscriber extends Context.Service<EntityInterestSubs
 				}
 			});
 			subscriber.on("ready", () => {
-				void subscriber.subscribe(channel).catch(() => undefined);
+				runFork(Effect.tryPromise(() => subscriber.subscribe(channel)).pipe(Effect.ignore));
 			});
 			yield* Effect.tryPromise(() => subscriber.subscribe(channel)).pipe(Effect.orDie);
 			yield* Effect.addFinalizer(() =>

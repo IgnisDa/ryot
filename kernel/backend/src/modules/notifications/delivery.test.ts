@@ -33,18 +33,16 @@ const recordingFetchLayer = Layer.effectContext(
 				input instanceof Request
 					? input
 					: new Request(input instanceof URL ? input.toString() : input, init);
-			return request
-				.clone()
-				.text()
-				.then((body) =>
-					run(
-						Ref.update(requests, (all) => [
-							...all,
-							{ body, url: request.url, headers: Object.fromEntries(request.headers.entries()) },
-						]),
-					),
-				)
-				.then(() => new Response("", { status: 200 }));
+			return run(
+				Effect.gen(function* () {
+					const body = yield* Effect.promise(() => request.clone().text());
+					yield* Ref.update(requests, (all) => [
+						...all,
+						{ body, url: request.url, headers: Object.fromEntries(request.headers.entries()) },
+					]);
+					return new Response("", { status: 200 });
+				}),
+			);
 		};
 		return Context.make(
 			FetchHttpClient.Fetch,
