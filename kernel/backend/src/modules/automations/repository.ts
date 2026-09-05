@@ -127,7 +127,7 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 						.where(eq(schema.notificationSubscriptionState.userId, userId))
 						.orderBy(asc(schema.notificationSubscriptionState.id)),
 				);
-				return yield* Effect.all(rows.map(toStoredNotificationSubscription));
+				return yield* Effect.forEach(rows, toStoredNotificationSubscription);
 			});
 
 			const restoreNotificationSubscriptionState = Effect.fn(
@@ -182,7 +182,7 @@ export class AutomationsRepository extends Context.Service<AutomationsRepository
 						)
 						.orderBy(asc(schema.notificationSubscriptionState.id)),
 				);
-				return yield* Effect.all(rows.map(toStoredNotificationSubscription));
+				return yield* Effect.forEach(rows, toStoredNotificationSubscription);
 			});
 
 			const findNotificationSubscription = Effect.fn(

@@ -114,8 +114,9 @@ describe("EntityInterestTicketService", () => {
 				preferredLanguage: "fr",
 				userId: UserId.make("user-1"),
 			});
-			const exits = yield* Effect.all(
-				[service.consume(created.ticket), service.consume(created.ticket)].map(Effect.exit),
+			const exits = yield* Effect.forEach(
+				[service.consume(created.ticket), service.consume(created.ticket)],
+				Effect.exit,
 				{ concurrency: "unbounded" },
 			);
 

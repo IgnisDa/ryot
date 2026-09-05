@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import { SandboxScriptId, SubscriptionRunId, UserId } from "@ryot-app/contract/schema/brands";
-import { Cause, Duration, Effect, Exit, Layer, Logger, Option, References } from "effect";
+import { Cause, Duration, Effect, Exit, Layer, Logger, References } from "effect";
 import type { Logger as LoggerType } from "effect/Logger";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
@@ -251,7 +251,7 @@ const makeHttpHarness = (options: {
 	const instance = WorkflowInstance.initial(SandboxScriptWorkflow, executionId);
 	let engine: WorkflowEngine["Service"];
 	engine = makeWorkflowActivityEngine(instance, {
-		deferredResult: () => Effect.succeed(Option.some(Exit.void)),
+		deferredResult: () => Effect.succeedSome(Exit.void),
 		scheduleClock: (_workflow, scheduled) =>
 			Effect.sync(() => {
 				clockNames.push(scheduled.clock.name);

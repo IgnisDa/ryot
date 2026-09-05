@@ -54,9 +54,7 @@ it.effect("stores, claims, and deletes import source state with bounded lifecycl
 			ttlSeconds: IMPORT_SOURCE_STATE_PENDING_TTL_SECONDS,
 		});
 		assert(pending);
-		expect(yield* Schema.decodeUnknownEffect(ImportSourceStateFromJson)(pending.value)).toEqual(
-			state,
-		);
+		expect(yield* Schema.decodeEffect(ImportSourceStateFromJson)(pending.value)).toEqual(state);
 
 		expect(yield* claimImportSourceState("state-1", "execution-1")).toEqual(state);
 		expect(claimInput).toEqual({

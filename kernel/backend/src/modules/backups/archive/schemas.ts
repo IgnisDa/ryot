@@ -18,7 +18,7 @@ const sha256 = Schema.String.pipe(
 const isoTimestamp = Schema.String.pipe(
 	Schema.check(
 		Schema.makeFilter((value) =>
-			Result.isSuccess(Schema.decodeUnknownResult(Schema.DateTimeUtcFromString)(value)),
+			Result.isSuccess(Schema.decodeResult(Schema.DateTimeUtcFromString)(value)),
 		),
 	),
 );

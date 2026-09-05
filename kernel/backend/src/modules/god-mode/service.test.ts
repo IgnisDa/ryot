@@ -169,7 +169,7 @@ const bootstrapSavedViewsServiceLayer = Layer.mock(SavedViewsService)({
 	ensureBuiltinViews: () => Effect.void,
 });
 const pluginUserBootstrapDispatcherLayer = Layer.mock(PluginUserBootstrapDispatcher)({
-	dispatchAll: () => Effect.sync((): undefined => undefined),
+	dispatchAll: () => Effect.void,
 });
 const defaultUserLifecycleServiceLayer = Layer.mock(UserLifecycleService)({
 	resetUser: () => Effect.die("unused"),

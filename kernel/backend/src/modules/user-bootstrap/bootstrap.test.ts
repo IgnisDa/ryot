@@ -161,7 +161,7 @@ it.effect("does not complete after plugin failure and reruns the plugin safely o
 					attempts += 1;
 					return attempts === 1
 						? Effect.fail(new SandboxRunError({ message: "bootstrap failed" }))
-						: Effect.sync((): undefined => undefined);
+						: Effect.void.pipe(Effect.as(undefined));
 				},
 			}),
 		),
