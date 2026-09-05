@@ -337,3 +337,35 @@ export default defineProvider({
   }),
 });
 `;
+
+/**
+ * Holds `allocateMiB` of touched off-heap memory for `holdMs`. Array buffers sit outside V8's
+ * old-space limit, so only a process or container memory limit bounds this script.
+ */
+export const benchmarkMemorySource = (input: { readonly slug: string; readonly name: string }) => `
+import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
+import { Duration, Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+
+export const manifest = defineManifest({
+  kind: "script",
+  capabilities: [],
+  requiredPluginConfigKeys: [],
+  requiredSystemConfigKeys: [],
+  name: ${JSON.stringify(input.name)},
+  slug: ${JSON.stringify(input.slug)},
+});
+
+export default defineScript({
+  manifest,
+  output: Schema.Struct({ allocatedMiB: Schema.Number }),
+  input: Schema.Struct({ allocateMiB: Schema.Number, holdMs: Schema.Number }),
+  run: (workload) => Effect.gen(function* () {
+    const blocks: Uint8Array[] = [];
+    for (let index = 0; index < workload.allocateMiB; index += 1) {
+      blocks.push(new Uint8Array(1024 * 1024).fill((index % 250) + 1));
+    }
+    yield* Effect.sleep(Duration.millis(workload.holdMs));
+    return { allocatedMiB: blocks.length };
+  }),
+});
+`;
