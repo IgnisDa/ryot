@@ -25,7 +25,6 @@ import {
 import { lifecycleBatchTriggers } from "#lib/domain/lifecycle-batch";
 import { AppConfig } from "#lib/infrastructure/config/service";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 import { AutomationPlannerResolver } from "./planner-resolver";
@@ -72,7 +71,6 @@ export const LifecyclePlannerLive = Layer.effect(
 		const runs = yield* AutomationRunRepository;
 		const { automations: limits } = yield* AppConfig;
 		const orderedRuns = Effect.fn(function* (values: ReadonlyArray<AutomationRun>) {
-			const db = yield* session.current;
 			const ids = [
 				...new Set(
 					values.flatMap((run) =>
@@ -81,7 +79,7 @@ export const LifecyclePlannerLive = Layer.effect(
 				),
 			];
 			const revisions = ids.length
-				? yield* mapDatabaseErrors(
+				? yield* session.run((db) =>
 						db.select().from(tables.pluginRevision).where(inArray(tables.pluginRevision.id, ids)),
 					)
 				: [];
@@ -184,8 +182,7 @@ export const LifecyclePlannerLive = Layer.effect(
 			}
 			const payload = trigger.payload;
 			yield* resolver.lockCatalog(signal ? recipients : [trigger.scopeUserId]);
-			const db = yield* session.current;
-			yield* mapDatabaseErrors(
+			yield* session.run((db) =>
 				db.execute(
 					sql`select pg_advisory_xact_lock(hashtext(${"automation-root:" + trigger.causation.rootExecutionId}))`,
 				),
@@ -204,7 +201,7 @@ export const LifecyclePlannerLive = Layer.effect(
 				return { wasCreated: false, trigger: persistedTrigger, ...(yield* orderedRuns(existing)) };
 			}
 			if (signal && recipients.length) {
-				const enabled = yield* mapDatabaseErrors(
+				const enabled = yield* session.run((db) =>
 					db
 						.select({ id: tables.user.id })
 						.from(tables.user)
@@ -271,7 +268,7 @@ export const LifecyclePlannerLive = Layer.effect(
 				},
 			);
 			const ordered = yield* orderedRuns(planned);
-			const [accepted] = yield* mapDatabaseErrors(
+			const [accepted] = yield* session.run((db) =>
 				db
 					.select({ count: count() })
 					.from(tables.automationRun)

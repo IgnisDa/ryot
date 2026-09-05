@@ -18,7 +18,6 @@ import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { automationRun as table } from "#lib/infrastructure/db/schema/tables/automations";
 import { pluginRevision } from "#lib/infrastructure/db/schema/tables/core";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { redactPluginConfig } from "#modules/plugins/config-redaction";
 
@@ -130,11 +129,11 @@ const historyPayload = Effect.fn(function* (
 	run: Pick<AutomationRun, "pluginId" | "pluginRevisionId">,
 	payload: AutomationTriggerPayload,
 ) {
-	const db = yield* session.current;
+	const { pluginRevisionId } = run;
 	const [manifest] =
-		run.pluginRevisionId === null
+		pluginRevisionId === null
 			? []
-			: yield* mapDatabaseErrors(
+			: yield* session.run((db) =>
 					db
 						.select({
 							entitySchemas: sql<
@@ -148,7 +147,7 @@ const historyPayload = Effect.fn(function* (
 							>`coalesce(${pluginRevision.manifest} -> 'relationshipSchemas', '[]'::jsonb)`,
 						})
 						.from(pluginRevision)
-						.where(eq(pluginRevision.id, run.pluginRevisionId)),
+						.where(eq(pluginRevision.id, pluginRevisionId)),
 				);
 	const redacted = redactAutomationHistoryPayload(payload, manifest ?? null, run.pluginId);
 	const truncated = jsonBytes(redacted) > AUTOMATION_HISTORY_LIMITS.payloadBytes;
@@ -179,8 +178,7 @@ export class AutomationRunRepository extends Context.Service<AutomationRunReposi
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const findById = Effect.fn(function* (id: AutomationRunId) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(db.select().from(table).where(eq(table.id, id)));
+				const [row] = yield* session.run((db) => db.select().from(table).where(eq(table.id, id)));
 				return row ? yield* decodeRow(row) : null;
 			});
 			const insertQueued = Effect.fn(function* (
@@ -206,13 +204,13 @@ export class AutomationRunRepository extends Context.Service<AutomationRunReposi
 							"New automation runs must be queued with a pinned script and no execution state",
 					});
 				}
-				const db = yield* session.current;
-				yield* mapDatabaseErrors(
+				const history = yield* historyPayload(session, value, triggerPayload);
+				yield* session.run((db) =>
 					db
 						.insert(table)
 						.values({
 							...value,
-							...(yield* historyPayload(session, value, triggerPayload)),
+							...history,
 							startedAt: null,
 							finishedAt: null,
 							nextAttemptAt: null,
@@ -232,8 +230,7 @@ export class AutomationRunRepository extends Context.Service<AutomationRunReposi
 				return stored;
 			});
 			const listByTrigger = Effect.fn(function* (triggerId: AutomationTriggerId) {
-				const db = yield* session.current;
-				const rows = yield* mapDatabaseErrors(
+				const rows = yield* session.run((db) =>
 					db
 						.select()
 						.from(table)
@@ -252,8 +249,7 @@ export class AutomationRunRepository extends Context.Service<AutomationRunReposi
 						message: "Queued candidate query requires a valid time and positive integer limit",
 					});
 				}
-				const db = yield* session.current;
-				const rows = yield* mapDatabaseErrors(
+				const rows = yield* session.run((db) =>
 					db
 						.select()
 						.from(table)
@@ -314,33 +310,31 @@ export class AutomationRunRepository extends Context.Service<AutomationRunReposi
 					);
 			});
 			const clearExpiredScriptPins = Effect.fn(function* (input: { now: Date; limit: number }) {
-				const db = yield* session.current;
-				const expiredTerminal = and(
-					isNotNull(table.sandboxScriptId),
-					lte(table.artifactsExpireAt, input.now),
-					isNull(table.nextAttemptAt),
-					notInArray(table.status, ["queued", "running"]),
-				);
-				const candidates = db
-					.select({ id: table.id })
-					.from(table)
-					.where(expiredTerminal)
-					.orderBy(asc(table.artifactsExpireAt), asc(table.id))
-					.limit(input.limit);
-				return yield* mapDatabaseErrors(
-					db
+				return yield* session.run((db) => {
+					const expiredTerminal = and(
+						isNotNull(table.sandboxScriptId),
+						lte(table.artifactsExpireAt, input.now),
+						isNull(table.nextAttemptAt),
+						notInArray(table.status, ["queued", "running"]),
+					);
+					const candidates = db
+						.select({ id: table.id })
+						.from(table)
+						.where(expiredTerminal)
+						.orderBy(asc(table.artifactsExpireAt), asc(table.id))
+						.limit(input.limit);
+					return db
 						.update(table)
 						.set({ sandboxScriptId: null })
 						.where(and(inArray(table.id, candidates), expiredTerminal))
-						.returning({ id: table.id }),
-				);
+						.returning({ id: table.id });
+				});
 			});
 			const clearHistoryPayloads = Effect.fn(function* (triggerIds: ReadonlyArray<string>) {
 				if (triggerIds.length === 0) {
 					return;
 				}
-				const db = yield* session.current;
-				yield* mapDatabaseErrors(
+				yield* session.run((db) =>
 					db
 						.update(table)
 						.set({ historyPayload: null, historyPayloadTruncated: false })
@@ -352,25 +346,24 @@ export class AutomationRunRepository extends Context.Service<AutomationRunReposi
 				before: Date;
 				limit: number;
 			}) {
-				const db = yield* session.current;
-				const expiredHistory = and(
-					lte(table.queuedAt, input.before),
-					lte(table.artifactsExpireAt, input.now),
-					isNull(table.nextAttemptAt),
-					notInArray(table.status, ["queued", "running"]),
-				);
-				const candidates = db
-					.select({ id: table.id })
-					.from(table)
-					.where(expiredHistory)
-					.orderBy(asc(table.queuedAt), asc(table.id))
-					.limit(input.limit);
-				return yield* mapDatabaseErrors(
-					db
+				return yield* session.run((db) => {
+					const expiredHistory = and(
+						lte(table.queuedAt, input.before),
+						lte(table.artifactsExpireAt, input.now),
+						isNull(table.nextAttemptAt),
+						notInArray(table.status, ["queued", "running"]),
+					);
+					const candidates = db
+						.select({ id: table.id })
+						.from(table)
+						.where(expiredHistory)
+						.orderBy(asc(table.queuedAt), asc(table.id))
+						.limit(input.limit);
+					return db
 						.delete(table)
 						.where(and(inArray(table.id, candidates), expiredHistory))
-						.returning({ id: table.id }),
-				);
+						.returning({ id: table.id });
+				});
 			});
 			return {
 				findById,

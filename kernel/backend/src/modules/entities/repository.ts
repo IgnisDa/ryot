@@ -12,7 +12,6 @@ import { and, asc, count, eq, exists, inArray, isNull, or, sql } from "drizzle-o
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import {
@@ -152,8 +151,7 @@ const findEntityByExternalIdWithSession = (
 	input: FindEntityByExternalIdInput,
 ) =>
 	Effect.gen(function* () {
-		const db = yield* session.current;
-		const [row] = yield* mapDatabaseErrors(
+		const [row] = yield* session.run((db) =>
 			db
 				.select(entitySelection)
 				.from(schema.entity)
@@ -190,10 +188,9 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const lockProviderEntityMutations = Effect.fn(
 				"EntitiesRepository.lockProviderEntityMutations",
 			)(function* (inputs: ReadonlyArray<ProviderEntityMutationLockInput>) {
-				const db = yield* session.current;
 				const keys = [...new Set(inputs.map(providerEntityMutationLockKey))].sort();
 				for (const key of keys) {
-					yield* mapDatabaseErrors(
+					yield* session.run((db) =>
 						db.execute(sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`),
 					);
 				}
@@ -204,8 +201,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					if (ids.length === 0) {
 						return;
 					}
-					const db = yield* session.current;
-					yield* mapDatabaseErrors(
+					yield* session.run((db) =>
 						db
 							.select({ id: schema.entity.id })
 							.from(schema.entity)
@@ -222,8 +218,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				if (!definition) {
 					return [];
 				}
-				const db = yield* session.current;
-				const rows = yield* mapDatabaseErrors(
+				const rows = yield* session.run((db) =>
 					db
 						.select(entitySelection)
 						.from(schema.entity)
@@ -249,8 +244,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 						return [];
 					}
 
-					const db = yield* session.current;
-					const rows = yield* mapDatabaseErrors(
+					const rows = yield* session.run((db) =>
 						db
 							.select({
 								id: schema.entity.id,
@@ -272,8 +266,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 
 			const listUserEntitiesForBackup = Effect.fn("EntitiesRepository.listUserEntitiesForBackup")(
 				function* (userId: UserId) {
-					const db = yield* session.current;
-					const rows = yield* mapDatabaseErrors(
+					const rows = yield* session.run((db) =>
 						db
 							.select(portableEntitySelection)
 							.from(schema.entity)
@@ -292,8 +285,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const listReferencedGlobalEntitiesForBackup = Effect.fn(
 				"EntitiesRepository.listReferencedGlobalEntitiesForBackup",
 			)(function* (userId: UserId) {
-				const db = yield* session.current;
-				const rows = yield* mapDatabaseErrors(
+				const rows = yield* session.run((db) =>
 					db
 						.select(portableEntitySelection)
 						.from(schema.entity)
@@ -348,8 +340,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				if (entityIds.length === 0) {
 					return [];
 				}
-				const db = yield* session.current;
-				const rows = yield* mapDatabaseErrors(
+				const rows = yield* session.run((db) =>
 					db
 						.select(portableEntitySelection)
 						.from(schema.entity)
@@ -388,8 +379,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				if (!definition) {
 					return null;
 				}
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db
 						.select(entitySelection)
 						.from(schema.entity)
@@ -414,7 +404,6 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 						input.userId,
 						input.entitySchemaSlugs,
 					);
-					const db = yield* session.current;
 					const scopes = [
 						...new Map(
 							input.entitySchemaSlugs.flatMap((entitySchemaSlug) => {
@@ -430,7 +419,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 						).values(),
 					].sort((left, right) => left.entitySchemaSlug.localeCompare(right.entitySchemaSlug));
 					for (const { pluginId, entitySchemaSlug } of scopes) {
-						yield* mapDatabaseErrors(
+						yield* session.run((db) =>
 							db.execute(
 								sql`select pg_advisory_xact_lock(hashtext(${`user-entity:ensure:${input.userId}:${entitySchemaSlug}:${pluginId ?? "kernel"}`}))`,
 							),
@@ -441,8 +430,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 
 			const getEntityScopeForUser = Effect.fn("EntitiesRepository.getEntityScopeForUser")(
 				function* (input: { userId: UserId; entityId: EntityId }) {
-					const db = yield* session.current;
-					const [row] = yield* mapDatabaseErrors(
+					const [row] = yield* session.run((db) =>
 						db
 							.select({
 								entityId: schema.entity.id,
@@ -474,8 +462,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 
 			const getEntityMergeScopeForUser = Effect.fn("EntitiesRepository.getEntityMergeScopeForUser")(
 				function* (input: { userId: UserId; entityId: EntityId }) {
-					const db = yield* session.current;
-					const [row] = yield* mapDatabaseErrors(
+					const [row] = yield* session.run((db) =>
 						db
 							.select({
 								entityId: schema.entity.id,
@@ -506,8 +493,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				userId: UserId;
 				entityId: EntityId;
 			}) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db
 						.select(entitySelection)
 						.from(schema.entity)
@@ -522,8 +508,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 
 			const getClientPageEntityForUser = Effect.fn("EntitiesRepository.getClientPageEntityForUser")(
 				function* (input: { userId: UserId; entityId: EntityId }) {
-					const db = yield* session.current;
-					const [row] = yield* mapDatabaseErrors(
+					const [row] = yield* session.run((db) =>
 						db
 							.select({
 								entityId: schema.entity.id,
@@ -547,8 +532,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			);
 
 			const getById = Effect.fn("EntitiesRepository.getById")(function* (entityId: EntityId) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db
 						.select(entitySelection)
 						.from(schema.entity)
@@ -561,8 +545,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const findGlobalEntityById = Effect.fn("EntitiesRepository.findGlobalEntityById")(function* (
 				entityId: EntityId,
 			) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db
 						.select({ id: schema.entity.id, entitySchemaSlug: schema.entity.entitySchemaSlug })
 						.from(schema.entity)
@@ -584,8 +567,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					entitySchemaPluginId: string | null;
 					provider: { readonly pluginSlug: string; readonly providerSlug: string } | null;
 				}) {
-					const db = yield* session.current;
-					const [row] = yield* mapDatabaseErrors(
+					const [row] = yield* session.run((db) =>
 						db
 							.select({ id: schema.entity.id, entitySchemaSlug: schema.entity.entitySchemaSlug })
 							.from(schema.entity)
@@ -623,9 +605,8 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const lockGlobalEntityProvenanceScope = Effect.fn(
 				"EntitiesRepository.lockGlobalEntityProvenanceScope",
 			)(function* (input: GlobalEntityProvenanceScopeInput) {
-				const db = yield* session.current;
 				const lockKey = `global-entities:${input.entitySchemaSlug}:${input.entitySchemaPluginId ?? "kernel"}:${input.providerId}`;
-				yield* mapDatabaseErrors(
+				yield* session.run((db) =>
 					db.execute(sql`select pg_advisory_xact_lock(hashtext(${lockKey}))`),
 				);
 			});
@@ -633,8 +614,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const countGlobalEntitiesByProvenanceScope = Effect.fn(
 				"EntitiesRepository.countGlobalEntitiesByProvenanceScope",
 			)(function* (input: GlobalEntityProvenanceScopeInput) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db
 						.select({ count: count() })
 						.from(schema.entity)
@@ -684,8 +664,6 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const insertEntity = Effect.fn("EntitiesRepository.insertEntity")(function* (
 				input: InsertEntityInput,
 			) {
-				const db = yield* session.current;
-
 				if (input.scope === "global") {
 					const externalId = input.externalId;
 					const providerId = input.providerId;
@@ -704,7 +682,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					};
 
 					if (!externalId) {
-						const [row] = yield* mapDatabaseErrors(
+						const [row] = yield* session.run((db) =>
 							db.insert(schema.entity).values(values).returning(entitySelection),
 						);
 						if (!row) {
@@ -713,7 +691,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 						return { wasInserted: true, entity: toListedEntity(row) };
 					}
 
-					const inserted = yield* mapDatabaseErrors(
+					const inserted = yield* session.run((db) =>
 						db
 							.insert(schema.entity)
 							.values(values)
@@ -725,7 +703,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 						return { wasInserted: true, entity: toListedEntity(inserted[0]) };
 					}
 
-					const [existing] = yield* mapDatabaseErrors(
+					const [existing] = yield* session.run((db) =>
 						db
 							.select(entitySelection)
 							.from(schema.entity)
@@ -766,7 +744,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				};
 
 				if (externalId && providerId) {
-					const rows = yield* mapDatabaseErrors(
+					const rows = yield* session.run((db) =>
 						db
 							.insert(schema.entity)
 							.values(values)
@@ -779,7 +757,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 						return { wasInserted: true, entity: toListedEntity(created) };
 					}
 
-					const [row] = yield* mapDatabaseErrors(
+					const [row] = yield* session.run((db) =>
 						db
 							.select(entitySelection)
 							.from(schema.entity)
@@ -805,7 +783,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					return yield* new DbError({ message: "Entity insert returned no row" });
 				}
 
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db.insert(schema.entity).values(values).returning(entitySelection),
 				);
 
@@ -819,8 +797,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const updateEntity = Effect.fn("EntitiesRepository.updateEntity")(function* (
 				input: UpdateEntityInput,
 			) {
-				const db = yield* session.current;
-				const [updated] = yield* mapDatabaseErrors(
+				const [updated] = yield* session.run((db) =>
 					db
 						.update(schema.entity)
 						.set({ name: input.name, properties: input.properties, populatedAt: input.populatedAt })
@@ -838,8 +815,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const deleteByIds = Effect.fn("EntitiesRepository.deleteByIds")(function* (
 				ids: readonly [EntityId, ...EntityId[]],
 			) {
-				const db = yield* session.current;
-				const rows = yield* mapDatabaseErrors(
+				const rows = yield* session.run((db) =>
 					db
 						.delete(schema.entity)
 						.where(inArray(schema.entity.id, [...ids]))
@@ -851,8 +827,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const findLifecyclePayload = Effect.fn("EntitiesRepository.findLifecyclePayload")(function* (
 				id: AutomationTriggerId,
 			) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db
 						.select({ payload: schema.automationTrigger.payload })
 						.from(schema.automationTrigger)
@@ -871,9 +846,8 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 			const lockMutationKeys = Effect.fn("EntitiesRepository.lockMutationKeys")(function* (
 				keys: ReadonlyArray<string>,
 			) {
-				const db = yield* session.current;
 				for (const key of [...new Set(keys)].sort()) {
-					yield* mapDatabaseErrors(
+					yield* session.run((db) =>
 						db.execute(
 							sql`select pg_advisory_xact_lock(hashtextextended(${`entity-mutation:${key}`}, 0))`,
 						),
@@ -884,13 +858,14 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				entityId: EntityId,
 				lock = false,
 			) {
-				const db = yield* session.current;
-				const query = db
-					.select({ ...entitySelection, userId: schema.entity.userId })
-					.from(schema.entity)
-					.where(eq(schema.entity.id, entityId))
-					.limit(1);
-				const [row] = yield* mapDatabaseErrors(lock ? query.for("update") : query);
+				const [row] = yield* session.run((db) => {
+					const query = db
+						.select({ ...entitySelection, userId: schema.entity.userId })
+						.from(schema.entity)
+						.where(eq(schema.entity.id, entityId))
+						.limit(1);
+					return lock ? query.for("update") : query;
+				});
 				return row
 					? {
 							entity: toListedEntity(row),

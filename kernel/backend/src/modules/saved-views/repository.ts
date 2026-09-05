@@ -72,8 +72,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 			const hasCustomInstallationReferences = Effect.fn(
 				"SavedViewsRepository.hasCustomInstallationReferences",
 			)(function* (userId: UserId, pluginInstallationId: string) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db
 						.select({ id: schema.savedView.id })
 						.from(schema.savedView)
@@ -91,8 +90,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 			const listForBackup = Effect.fn("SavedViewsRepository.listForBackup")(function* (
 				userId: UserId,
 			) {
-				const db = yield* session.current;
-				const rows = yield* mapDatabaseErrors(
+				const rows = yield* session.run((db) =>
 					db
 						.select()
 						.from(schema.userSavedViewEffective)
@@ -108,7 +106,6 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				userId: UserId,
 				input: { pluginInstallationId?: string | undefined; includeDisabled: boolean },
 			) {
-				const db = yield* session.current;
 				const clauses = [eq(schema.userSavedViewEffective.userId, userId)];
 
 				if (!input.includeDisabled) {
@@ -121,7 +118,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 					);
 				}
 
-				const rows = yield* mapDatabaseErrors(
+				const rows = yield* session.run((db) =>
 					db
 						.select()
 						.from(schema.userSavedViewEffective)
@@ -140,8 +137,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				userId: UserId,
 				viewSlug: string,
 			) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db
 						.select()
 						.from(schema.userSavedViewEffective)
@@ -166,8 +162,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				userId: UserId,
 				viewSlug: string,
 			) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db
 						.select({ id: schema.savedView.id })
 						.from(schema.savedView)
@@ -183,8 +178,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				userId: UserId,
 				input: CreateSavedViewInput,
 			) {
-				const db = yield* session.current;
-				const [orderRow] = yield* mapDatabaseErrors(
+				const [orderRow] = yield* session.run((db) =>
 					db
 						.select({ maxSortOrder: sql<number>`coalesce(max(${schema.savedView.sortOrder}), -1)` })
 						.from(schema.savedView)
@@ -196,7 +190,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 						),
 				);
 
-				const rows = yield* mapDatabaseErrors(
+				const rows = yield* session.run((db) =>
 					db
 						.insert(schema.savedView)
 						.values({
@@ -256,7 +250,6 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				isDisabled: boolean,
 				sortOrder: number,
 			) {
-				const db = yield* session.current;
 				const current = yield* findBySlug(userId, viewSlug);
 				if (!current?.isBuiltin) {
 					return null;
@@ -264,7 +257,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				if (current.isDisabled === isDisabled && current.sortOrder === sortOrder) {
 					return current;
 				}
-				const [definition] = yield* mapDatabaseErrors(
+				const [definition] = yield* session.run((db) =>
 					db
 						.select({ sortOrder: schema.userSavedView.sortOrder })
 						.from(schema.userSavedView)
@@ -277,7 +270,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 					return null;
 				}
 				if (!isDisabled && sortOrder === definition.sortOrder) {
-					yield* mapDatabaseErrors(
+					yield* session.run((db) =>
 						db
 							.delete(schema.savedViewOverride)
 							.where(
@@ -289,7 +282,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 					);
 					return yield* findBySlug(userId, viewSlug);
 				}
-				yield* mapDatabaseErrors(
+				yield* session.run((db) =>
 					db
 						.insert(schema.savedViewOverride)
 						.values({ userId, sortOrder, isDisabled, slug: viewSlug, pluginId: current.pluginId })
@@ -311,7 +304,6 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				pluginInstallationId: string | null,
 				viewSlugs: ReadonlyArray<string>,
 			) {
-				const db = yield* session.current;
 				let updated = 0;
 				for (const [sortOrder, slug] of viewSlugs.entries()) {
 					const view = yield* findBySlug(userId, slug);
@@ -327,7 +319,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 							updated++;
 							continue;
 						}
-						const [row] = yield* mapDatabaseErrors(
+						const [row] = yield* session.run((db) =>
 							db
 								.update(schema.savedView)
 								.set({ sortOrder, revision: sql`${schema.savedView.revision} + 1` })
@@ -346,8 +338,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				userId: UserId,
 				viewSlug: string,
 			) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db
 						.delete(schema.savedView)
 						.where(and(eq(schema.savedView.slug, viewSlug), eq(schema.savedView.userId, userId)))

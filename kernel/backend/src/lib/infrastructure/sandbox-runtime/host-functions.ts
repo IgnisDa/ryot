@@ -29,7 +29,6 @@ import { LifecyclePlanner } from "#lib/domain/lifecycle";
 import { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import {
 	runLifecycleWriteInline,
@@ -540,8 +539,7 @@ export const makeAdditionalSandboxApiFunctions: Effect.Effect<
 
 	const readUserPreferences = (userId: UserId) =>
 		Effect.gen(function* () {
-			const database = yield* session.current;
-			const [row] = yield* mapDatabaseErrors(
+			const [row] = yield* session.run((database) =>
 				database
 					.select({ preferences: schema.user.preferences })
 					.from(schema.user)

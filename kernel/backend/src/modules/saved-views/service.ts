@@ -124,9 +124,8 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			const created = yield* mapDatabaseErrors(
 				transact(
 					Effect.gen(function* () {
-						const transaction = yield* session.current;
 						yield* pluginRepository.lockIngestionShared();
-						const [builtin] = yield* mapDatabaseErrors(
+						const [builtin] = yield* session.run((transaction) =>
 							transaction
 								.select({ slug: schema.globalSavedView.slug })
 								.from(schema.globalSavedView)
