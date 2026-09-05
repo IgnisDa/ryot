@@ -52,7 +52,7 @@ const makeLayer = (options: {
 	onBuiltinViews?: (userId: UserId) => void;
 	onAssertBuilds?: (userId: UserId) => Effect.Effect<void>;
 	onProvisionInstallations?: (userId: UserId) => void;
-	dispatch: (userId: UserId) => Effect.Effect<undefined, SandboxRunError>;
+	dispatch: (userId: UserId) => Effect.Effect<void, SandboxRunError>;
 }) => {
 	const db = options.db ?? makeBootstrapDb();
 	return Layer.mergeAll(
@@ -130,7 +130,7 @@ it.effect(
 						Effect.sync(() => {
 							order.push("dispatch");
 							dispatchedUserIds.push(inputUserId);
-						}).pipe(Effect.as(undefined)),
+						}),
 				}),
 			),
 		);
@@ -152,11 +152,11 @@ it.effect("short-circuits when the completion marker is already set", () => {
 				onDefaultRules: () => {
 					defaultRulesEnsured = true;
 				},
-				db: makeBootstrapDb({ bootstrapCompletedAt: new Date("2026-01-01T00:00:00Z") }),
 				dispatch: () =>
 					Effect.sync(() => {
 						dispatched = true;
-					}).pipe(Effect.as(undefined)),
+					}),
+				db: makeBootstrapDb({ bootstrapCompletedAt: new Date("2026-01-01T00:00:00Z") }),
 			}),
 		),
 	);
@@ -184,7 +184,7 @@ it.effect("does not complete after plugin failure and reruns the plugin safely o
 						? Effect.fail(
 								new SandboxRunError({ kind: "script-failure", message: "bootstrap failed" }),
 							)
-						: Effect.void.pipe(Effect.as(undefined));
+						: Effect.void;
 				},
 			}),
 		),
@@ -200,7 +200,7 @@ it.effect("does not complete account setup when a required boot-time build is ab
 	}).pipe(
 		Effect.provide(
 			makeLayer({
-				dispatch: () => Effect.succeed(undefined),
+				dispatch: () => Effect.void,
 				db: makeBootstrapDb({ onMarkComplete: () => (completed = true) }),
 				onAssertBuilds: () => Effect.die(new Error("Missing baseline build")),
 			}),
