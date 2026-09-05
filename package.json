@@ -1,5 +1,6 @@
 {
 	"name": "@ryot-app/root",
+	"license": "Elastic-2.0",
 	"workspaces": [
 		"apps/*",
 		"kernel/*",
