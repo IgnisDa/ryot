@@ -1,5 +1,7 @@
 # Legacy Bootstrap
 
+This directory is a legacy exception.
+
 - Read `README.md` before changing scope, mappings, omissions, report behavior, or restart semantics.
 - Unexpected state must fail with `Error` or `RAISE EXCEPTION`. Silent skips are limited to restart guards and omissions documented in `README.md`.
 - Keep this migration under `apps/server/src/migrations`. Do not change `kernel/backend/src/lib/infrastructure/db/migrate.ts` without prior discussion.
