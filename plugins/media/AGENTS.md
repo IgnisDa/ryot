@@ -6,10 +6,12 @@
 - Keep `backend/lib/title-parsing.ts` and `backend/lib/title-matching.ts` within sandbox compiler ES2022 support; do not use `toReversed`.
 - Contract or lifecycle changes must update `README.md`, manifest bindings, scripts, and focused tests together.
 - Sandbox scripts report non-fatal failures through the `log` host capability, never `console.warn`.
-- Entity-presentation recipes and RyotQL lifecycle expression builders live in `shared/`. `shared/media-recipes.ts` owns the schema-agnostic selections, query shapes, and `mediaFlatRecipes`; `shared/show-recipes.ts` composes its own recipes over them.
+- Entity-presentation recipes and RyotQL lifecycle expression builders live in `shared/`. `shared/media-recipes.ts` owns the schema-agnostic selections, query shapes, and `mediaFlatRecipes`; `shared/episodic-recipes.ts` owns the episodic counterpart; `shared/<slug>-recipes.ts` composes its own recipes over them.
 - Flat schemas are a `mediaFlatRecipes` config in `shared/<slug>-recipes.ts` and a `defineFlatMediaSchema` descriptor in `client/<slug>/schema.tsx`. Engine behaviour is tested in `client/media/` and `shared/media-recipes.test.ts`; schema tests cover only descriptor output.
+- Episodic schemas are a `mediaEpisodicRecipes` config in `shared/<slug>-recipes.ts` and a `defineEpisodicMediaSchema` descriptor in `client/<slug>/schema.tsx`. Engine behaviour is tested in `client/media/` and `shared/episodic-recipes.test.ts`; schema tests cover only descriptor output.
+- Episode lists are cursor-paged top-level row queries, never includes; only a top-level rows query exposes `pageInfo.nextCursor`. Container-level counts come from the container query's aggregates, never from a loaded episode page.
 - A schema selects only fields its own entity schema declares. `watchProviders` belongs to `movie` and `show` alone, so it lives in `mediaWatchProviderSelection` rather than `mediaSummarySelection`, and `MediaOverview` renders "Where to watch" only for a schema that passes that field.
-- One shared card and row presentation covers every media schema except `show`, `movie`, `music`, and `book`; its loader takes the schema slug from the batch's references.
+- One shared card and row presentation covers every media schema except `show`, `movie`, `music`, `book`, and `podcast`; its loader takes the schema slug from the batch's references.
 - Import media and schema recipes straight from `shared/media-recipes` and `shared/<slug>-recipes`; never re-export them through `host/query-recipes.ts`, which owns only the podcast, suggestion, trending, and saved-view recipes.
 - `client/` must not restate schemas that `shared/` owns.
 - `client/media/` holds the schema-agnostic client layer every detail screen composes; it carries no schema symbol and no schema copy. Nouns, row and beat labels, credit-section titles, group copy, and artwork aspect are descriptor or caller input; never hardcode poster geometry there.
