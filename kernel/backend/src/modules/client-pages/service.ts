@@ -6,29 +6,16 @@ import {
 	type PreparedClientPage,
 } from "@ryot-app/contract/modules/client-pages/schemas";
 import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
-import { and, eq, isNull } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
-import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { ImageClientArtifacts } from "#modules/client-artifacts/image-artifacts";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { decodeStoredManifest } from "#modules/plugins/repository";
 import { type AvailablePlugin, PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { ClientPageCompositionService } from "./composition-service";
 import { ClientDocumentGrantService } from "./grant-service";
-import {
-	clientPageCodeContributors,
-	resolveClientPageGraph,
-	type GraphPlugin,
-	type ResolvedClientPageGraph,
-} from "./graph";
-import {
-	getKernelClientRenderer,
-	getKernelEntityRenderer,
-	listKernelEntityRenderers,
-} from "./kernel-renderers";
+import { clientPageCodeContributors, resolveClientPageGraph, type GraphPlugin } from "./graph";
+import { getKernelClientRenderer, getKernelEntityRenderer } from "./kernel-renderers";
 import { clientPageOperationTargets, resolvePluginPageTarget } from "./prepare";
 import { ClientPagesRepository } from "./repository";
 
@@ -59,7 +46,6 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 			const repository = yield* ClientPagesRepository;
 			const compositions = yield* ClientPageCompositionService;
 			const grants = yield* ClientDocumentGrantService;
-			const session = yield* DatabaseSession;
 			const image = yield* ImageClientArtifacts;
 			const runtimeArtifactHash = image.runtime.artifact.hash;
 			const rendererHash = (name: string, sourceHash: string) => {
@@ -126,20 +112,9 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				});
 				return { ...resolved, graph, operationTargets: clientPageOperationTargets(available) };
 			});
-			const requireComposition = Effect.fn("ClientPages.findComposition")(function* (
-				graph: ResolvedClientPageGraph,
-			) {
-				const composition = yield* compositions.find(graph);
-				if (!composition) {
-					return yield* Effect.die(
-						new Error(`Client page composition ${graph.compositionKey} was not materialized`),
-					);
-				}
-				return composition;
-			});
 			const compositionFor = Effect.fn("ClientPages.issueDocumentGrant")(function* (
 				userId: CurrentUserValue["id"],
-				composition: Effect.Success<ReturnType<typeof requireComposition>>,
+				composition: Effect.Success<ReturnType<typeof compositions.getOrMaterialize>>,
 			) {
 				const documentGrant = yield* grants.issue(userId, composition.compositionHash);
 				return {
@@ -178,78 +153,6 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				});
 				return { graph, plugin, kind: "plugin" as const, exportName: renderer.exportName };
 			});
-			/** Every composition a user can reach: saved views, plugin homes, detail pages, and kernel entity renderers. */
-			const collectReachableGraphs = Effect.fn(function* (
-				available: ReadonlyArray<GraphPlugin>,
-				savedViewRenderers: Iterable<SavedViewRenderer>,
-			) {
-				const graphs = new Map<string, ResolvedClientPageGraph>();
-				const add = (graph: ResolvedClientPageGraph) =>
-					void graphs.set(graph.compositionKey, graph);
-				for (const renderer of savedViewRenderers) {
-					if (
-						renderer.kind === "plugin" &&
-						!available.some(
-							(plugin) =>
-								plugin.id === renderer.pluginId &&
-								plugin.health === "ready" &&
-								plugin.manifest.client,
-						)
-					) {
-						continue;
-					}
-					add((yield* rendererGraph(available, renderer)).graph);
-				}
-				for (const plugin of available) {
-					if (plugin.health !== "ready" || !plugin.manifest.client) {
-						continue;
-					}
-					const home = plugin.manifest.client.routes?.["/"];
-					if (home) {
-						add(
-							yield* resolveClientPageGraph({
-								plugin,
-								exportName: home,
-								plugins: available,
-								runtimeArtifactHash,
-								application: "plugin-route",
-							}),
-						);
-					}
-					for (const exportName of new Set(
-						Object.values(plugin.manifest.client.entities ?? {})
-							.map(({ detailPage }) => detailPage)
-							.filter((name): name is string => name !== undefined),
-					)) {
-						add(
-							yield* resolveClientPageGraph({
-								plugin,
-								exportName,
-								plugins: available,
-								runtimeArtifactHash,
-								application: "page",
-							}),
-						);
-					}
-				}
-				for (const kernel of listKernelEntityRenderers()) {
-					add(yield* resolveKernelRendererGraph(available, kernel));
-				}
-				return graphs;
-			});
-			const materializeGraphs = (graphs: ReadonlyMap<string, ResolvedClientPageGraph>) =>
-				Effect.forEach(graphs.values(), (graph) => compositions.materialize(graph), {
-					discard: true,
-					concurrency: 8,
-				});
-			const materializeRenderer = Effect.fn(function* (
-				userId: CurrentUserValue["id"],
-				renderer: SavedViewRenderer,
-			) {
-				const { graph } = yield* rendererGraph(yield* listAvailable(userId), renderer);
-				yield* compositions.materialize(graph);
-				return yield* Effect.void;
-			});
 			const prepare = Effect.fn("ClientPages.prepare")(function* (
 				user: Pick<CurrentUserValue, "id">,
 				target: ClientPageTarget,
@@ -263,7 +166,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 						return yield* savedViewUnavailable();
 					}
 					const resolved = yield* rendererGraph(available, prepared.view.renderer);
-					const composition = yield* requireComposition(resolved.graph);
+					const composition = yield* compositions.getOrMaterialize(resolved.graph);
 					const base = {
 						target,
 						savedViewId: prepared.viewId,
@@ -314,7 +217,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				const resolved = yield* resolvePluginTarget(user.id, target, available).pipe(
 					Effect.withSpan("ClientPages.resolve-target"),
 				);
-				const composition = yield* requireComposition(resolved.graph);
+				const composition = yield* compositions.getOrMaterialize(resolved.graph);
 				const contextTarget =
 					target.kind === "entity" && resolved.entity
 						? {
@@ -440,103 +343,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					(yield* compositions.find(resolved.graph))?.compositionHash === identity.compositionHash
 				);
 			});
-			const listSavedViewRenderers = (userId: CurrentUserValue["id"]) =>
-				repository
-					.listPreparedTargets(userId)
-					.pipe(Effect.map((views) => views.map(({ view }) => view.renderer)));
-			const materializeUserCompositions = Effect.fn(function* (
-				userId: CurrentUserValue["id"],
-				availableInput?: ReadonlyArray<AvailablePlugin>,
-			) {
-				const available = availableInput ?? (yield* listAvailable(userId));
-				yield* materializeGraphs(
-					yield* collectReachableGraphs(available, yield* listSavedViewRenderers(userId)),
-				);
-				return yield* Effect.void;
-			});
-			const materializeSystemCompositions = Effect.fn("ClientPages.materializeSystemCompositions")(
-				function* () {
-					const rows = yield* session.run((db) =>
-						db
-							.select({
-								id: schema.plugin.id,
-								slug: schema.plugin.slug,
-								manifest: schema.pluginRevision.manifest,
-								pluginRevisionId: schema.pluginRevision.id,
-								sourceHash: schema.pluginRevision.sourceHash,
-								clientArtifactHash: schema.pluginRevision.clientArtifactHash,
-							})
-							.from(schema.plugin)
-							.innerJoin(
-								schema.pluginRevision,
-								eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
-							)
-							.where(and(eq(schema.plugin.status, "active"), isNull(schema.plugin.ownerId))),
-					);
-					const available: GraphPlugin[] = yield* Effect.forEach(rows, (row) =>
-						decodeStoredManifest(row.manifest, row.slug).pipe(
-							Effect.map((manifest) => ({
-								manifest,
-								id: row.id,
-								slug: row.slug,
-								isHidden: false,
-								health: "ready" as const,
-								sourceHash: row.sourceHash,
-								pluginRevisionId: row.pluginRevisionId,
-								clientArtifactHash: row.clientArtifactHash,
-							})),
-						),
-					);
-					const views = yield* session.run((db) =>
-						db.select({ renderer: schema.globalSavedView.renderer }).from(schema.globalSavedView),
-					);
-					yield* materializeGraphs(
-						yield* collectReachableGraphs(
-							available,
-							views.map(({ renderer }) => renderer),
-						),
-					);
-					return yield* Effect.void;
-				},
-			);
-			const assertUserCompositions = Effect.fn("ClientPages.assertUserCompositions")(function* (
-				userId: CurrentUserValue["id"],
-			) {
-				const graphs = yield* collectReachableGraphs(
-					yield* listAvailable(userId),
-					yield* listSavedViewRenderers(userId),
-				);
-				for (const graph of graphs.values()) {
-					yield* requireComposition(graph);
-				}
-			});
-			const materializePendingInstallation = Effect.fn(function* (
-				userId: CurrentUserValue["id"],
-				installationId: string,
-			) {
-				const available = yield* listAvailable(userId);
-				if (!available.some((plugin) => plugin.installationId === installationId)) {
-					return yield* Effect.die(new Error("Installing client plugin is unavailable"));
-				}
-				yield* materializeUserCompositions(
-					userId,
-					available.map((plugin) =>
-						plugin.installationId === installationId
-							? Object.assign({}, plugin, { health: "ready" as const })
-							: plugin,
-					),
-				);
-				return yield* Effect.void;
-			});
-			return {
-				prepare,
-				isIdentityCurrent,
-				materializeRenderer,
-				assertUserCompositions,
-				materializeUserCompositions,
-				materializeSystemCompositions,
-				materializePendingInstallation,
-			};
+			return { prepare, isIdentityCurrent };
 		}),
 	},
 ) {

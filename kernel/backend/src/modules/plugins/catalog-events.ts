@@ -4,9 +4,12 @@ import {
 	decodePluginCatalogInvalidatedMessage,
 	encodePluginCatalogInvalidatedMessage,
 } from "@ryot-app/contract/modules/plugins/contract";
-import type { UserId } from "@ryot-app/contract/schema/brands";
+import { UserId } from "@ryot-app/contract/schema/brands";
+import { eq, inArray, isNull } from "drizzle-orm";
 import { Cause, Context, Effect, FiberSet, Layer, Queue, Result, Stream } from "effect";
 
+import * as schema from "#lib/infrastructure/db/schema/tables/combined";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 
 const encoder = new TextEncoder();
@@ -75,13 +78,22 @@ export class PluginCatalogHub extends Context.Service<PluginCatalogHub>()("Plugi
 type PluginCatalogInvalidatorValue = {
 	readonly all: Effect.Effect<void>;
 	readonly user: (userId: UserId) => Effect.Effect<void>;
+	readonly recordAll: Effect.Effect<void>;
+	readonly recordUser: (userId: UserId) => Effect.Effect<void>;
+	readonly deliverPending: (limit: number) => Effect.Effect<void>;
 };
 
 export class PluginCatalogInvalidator extends Context.Service<
 	PluginCatalogInvalidator,
 	PluginCatalogInvalidatorValue
 >()("PluginCatalogInvalidator", {
-	make: Effect.succeed({ all: Effect.void, user: (_userId: UserId) => Effect.void }),
+	make: Effect.succeed({
+		all: Effect.void,
+		recordAll: Effect.void,
+		user: (_userId: UserId) => Effect.void,
+		recordUser: (_userId: UserId) => Effect.void,
+		deliverPending: (_limit: number) => Effect.void,
+	}),
 }) {
 	static readonly layer = Layer.effect(this, this.make);
 }
@@ -94,17 +106,74 @@ export const PluginCatalogInvalidatorLive = Layer.effect(
 	PluginCatalogInvalidator,
 	Effect.gen(function* () {
 		const redis = yield* RedisService;
-		return {
-			all: redis
-				.publish(redisKeys.pluginCatalogChannel, "plugin-catalog-invalidated")
-				.pipe(Effect.asVoid, logPublishFailure),
-			user: (userId: UserId) =>
-				redis
-					.publish(
+		const session = yield* DatabaseSession;
+		const record = (userId: UserId | null) =>
+			Effect.gen(function* () {
+				yield* session.requireTransaction;
+				yield* session.run((db) => db.insert(schema.pluginCatalogChange).values({ userId }));
+			});
+		const publish = (userId: UserId | null) =>
+			userId === null
+				? redis.publish(redisKeys.pluginCatalogChannel, "plugin-catalog-invalidated")
+				: redis.publish(
 						redisKeys.pluginCatalogUserChannel,
 						encodePluginCatalogInvalidatedMessage({ userId }),
+					);
+		const deliver = Effect.fn("PluginCatalogInvalidator.deliver")(function* (
+			userId: UserId | null,
+			limit: number,
+		) {
+			const rows = yield* session.run((db) =>
+				db
+					.select({ id: schema.pluginCatalogChange.id })
+					.from(schema.pluginCatalogChange)
+					.where(
+						userId === null
+							? isNull(schema.pluginCatalogChange.userId)
+							: eq(schema.pluginCatalogChange.userId, userId),
 					)
-					.pipe(Effect.asVoid, logPublishFailure),
+					.orderBy(schema.pluginCatalogChange.createdAt, schema.pluginCatalogChange.id)
+					.limit(limit),
+			);
+			if (rows.length === 0) {
+				return;
+			}
+			yield* publish(userId);
+			yield* session.run((db) =>
+				db.delete(schema.pluginCatalogChange).where(
+					inArray(
+						schema.pluginCatalogChange.id,
+						rows.map(({ id }) => id),
+					),
+				),
+			);
+		});
+		const deliverPending = Effect.fn("PluginCatalogInvalidator.deliverPending")(function* (
+			limit: number,
+		) {
+			const pending = yield* session.run((db) =>
+				db
+					.select({ userId: schema.pluginCatalogChange.userId })
+					.from(schema.pluginCatalogChange)
+					.orderBy(schema.pluginCatalogChange.createdAt, schema.pluginCatalogChange.id)
+					.limit(limit),
+			);
+			for (const scopeUserId of new Set(pending.map(({ userId }) => userId))) {
+				yield* deliver(scopeUserId === null ? null : UserId.make(scopeUserId), limit).pipe(
+					Effect.catchCause((cause) =>
+						Effect.logError("plugin catalog delivery failed", cause).pipe(
+							Effect.annotateLogs({ userId: scopeUserId }),
+						),
+					),
+				);
+			}
+		});
+		return {
+			recordAll: record(null).pipe(Effect.orDie),
+			all: deliver(null, 100).pipe(logPublishFailure),
+			recordUser: (userId: UserId) => record(userId).pipe(Effect.orDie),
+			user: (userId: UserId) => deliver(userId, 100).pipe(logPublishFailure),
+			deliverPending: (limit: number) => deliverPending(limit).pipe(Effect.orDie),
 		};
 	}),
 );

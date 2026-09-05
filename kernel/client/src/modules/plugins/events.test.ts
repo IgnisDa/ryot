@@ -103,7 +103,7 @@ const waitUntil = (predicate: () => boolean, message: string) =>
 	);
 
 describe("plugin catalog events service", () => {
-	it.live("does not refresh on connection and refreshes only on invalidation", () => {
+	it.live("reconciles on connection, heartbeat, and invalidation", () => {
 		const { runtime, streams, requests } = makeRuntime({ token: "token-1" });
 		let refreshes = 0;
 		const subscription = runtime.runFork(
@@ -120,17 +120,15 @@ describe("plugin catalog events service", () => {
 			expect(requests[0]?.headers.authorization).toBe("Bearer token-1");
 			expect(requests[0]?.headers.accept).toBe("text/event-stream");
 
-			streams[0]?.send(": ping\n\n");
 			streams[0]?.send(frame(PLUGIN_CATALOG_CONNECTED_EVENT));
-			yield* Effect.promise(() =>
-				waitUntil(() => streams[0]?.body.locked ?? false, "stream was not consumed"),
-			);
-			expect(refreshes).toBe(0);
+			yield* Effect.promise(() => waitUntil(() => refreshes === 1, "connection not reconciled"));
+			streams[0]?.send(": ping\n\n");
+			yield* Effect.promise(() => waitUntil(() => refreshes === 2, "heartbeat not reconciled"));
 			streams[0]?.send(`${frame("unrelated")}${frame(PLUGIN_CATALOG_INVALIDATED_EVENT)}`);
 			yield* Effect.promise(() =>
-				waitUntil(() => refreshes === 1, "catalog invalidation was never routed"),
+				waitUntil(() => refreshes === 3, "catalog invalidation was never routed"),
 			);
-			expect(refreshes).toBe(1);
+			expect(refreshes).toBe(3);
 		}).pipe(
 			Effect.ensuring(
 				Fiber.interrupt(subscription).pipe(Effect.andThen(Effect.promise(() => runtime.dispose()))),
@@ -185,9 +183,9 @@ describe("plugin catalog events service", () => {
 				waitUntil(() => streams.length === 2, "stream was never reopened"),
 			);
 			expect(requests[1]?.headers.authorization).toBe("Bearer token-2");
-			streams[1]?.send(frame(PLUGIN_CATALOG_INVALIDATED_EVENT));
+			streams[1]?.send(frame(PLUGIN_CATALOG_CONNECTED_EVENT));
 			yield* Effect.promise(() =>
-				waitUntil(() => refreshes === 1, "reconnected stream never routed events"),
+				waitUntil(() => refreshes === 1, "reconnected stream never reconciled"),
 			);
 		}).pipe(
 			Effect.ensuring(

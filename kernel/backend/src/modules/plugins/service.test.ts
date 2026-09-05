@@ -1,9 +1,10 @@
 import { BunFileSystem } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
 import { CLIENT_API_VERSION } from "@ryot-app/client-plugin-contract";
+import { encodePluginCatalogInvalidatedMessage } from "@ryot-app/contract/modules/plugins/contract";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginConflictError } from "@ryot-app/contract/modules/plugins/schemas";
-import { PluginSlug } from "@ryot-app/contract/schema/brands";
+import { PluginSlug, type UserId } from "@ryot-app/contract/schema/brands";
 import { Cause, Context, Deferred, Effect, Exit, Fiber, Layer, Option, Ref } from "effect";
 
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
@@ -16,7 +17,7 @@ import {
 	SandboxWorkflowReferenceRepository,
 } from "#modules/sandbox/workflow-reference-repository";
 
-import { PluginCatalogInvalidatorLive } from "./catalog-events";
+import { PluginCatalogInvalidator } from "./catalog-events";
 import { toPluginScriptDescriptor } from "./pipeline";
 import { PluginRepository } from "./repository";
 import { PluginRevisionActivation } from "./revision-activation";
@@ -340,7 +341,30 @@ const makeLayer = (input?: {
 				Layer.succeed(PluginRevisionActivation, {
 					activated: (pluginId) => append(state.activated, pluginId),
 				}),
-				PluginCatalogInvalidatorLive.pipe(Layer.provide(redisLayer)),
+				Layer.effect(
+					PluginCatalogInvalidator,
+					Effect.gen(function* () {
+						const redis = yield* RedisService;
+						const publish = (channel: string, message: string) =>
+							redis.publish(channel, message).pipe(
+								Effect.asVoid,
+								Effect.catchCause((cause) =>
+									Effect.logError("plugin catalog publish failed", cause),
+								),
+							);
+						return {
+							recordAll: Effect.void,
+							recordUser: () => Effect.void,
+							deliverPending: () => Effect.void,
+							all: publish(redisKeys.pluginCatalogChannel, "plugin-catalog-invalidated"),
+							user: (userId: UserId) =>
+								publish(
+									redisKeys.pluginCatalogUserChannel,
+									encodePluginCatalogInvalidatedMessage({ userId }),
+								),
+						};
+					}),
+				).pipe(Layer.provide(redisLayer)),
 				Layer.succeed(FakeIngestionDependencies, {
 					events: Ref.get(state.events),
 					activated: Ref.get(state.activated),
