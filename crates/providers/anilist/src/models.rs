@@ -652,22 +652,30 @@ pub async fn search(
         "variables": variables
     });
 
-    let search = client
+    let response = client
         .post(URL)
         .json(&body)
         .send()
         .await?
         .json::<GraphQLResponse<MediaSearchResponse>>()
-        .await?
-        .data
-        .unwrap()
-        .page
-        .unwrap();
-    let total = search.page_info.unwrap().total.unwrap();
+        .await?;
+    let (media, total) = parse_media_search_response(response);
     let next_page = compute_next_page(page, total);
-    let media = search
-        .media
-        .unwrap()
+    Ok((media, total, next_page))
+}
+
+fn parse_media_search_response(
+    response: GraphQLResponse<MediaSearchResponse>,
+) -> (Vec<MetadataSearchItem>, u64) {
+    let page = response.data.and_then(|d| d.page);
+    let total = page
+        .as_ref()
+        .and_then(|s| s.page_info.as_ref())
+        .and_then(|p| p.total)
+        .unwrap_or_default();
+    let media = page
+        .and_then(|s| s.media)
+        .unwrap_or_default()
         .into_iter()
         .flatten()
         .map(|b| {
@@ -680,7 +688,7 @@ pub async fn search(
             }
         })
         .collect();
-    Ok((media, total, next_page))
+    (media, total)
 }
 
 pub fn build_staff_search_query(search: &str, page: u64, per_page: u64) -> serde_json::Value {
