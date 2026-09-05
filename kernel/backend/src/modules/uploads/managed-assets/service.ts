@@ -13,10 +13,9 @@ import { CryptoHasher } from "bun";
 import { Clock, Context, DateTime, Effect, Layer, Stream } from "effect";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { acquireUserWriteLock } from "#lib/infrastructure/db/user-write-lock";
 import { LocalStorageService } from "#lib/infrastructure/local-storage";
 import { S3Service } from "#lib/infrastructure/s3";
-import { isUserLifecycleActive, LifecycleWriteGuard } from "#modules/auth/lifecycle-write-guard";
+import { LifecycleWriteGuard } from "#modules/auth/lifecycle-write-guard";
 
 import { ObjectStorageService } from "../object-storage/service";
 import { type RegisterManagedAssetInput, ManagedAssetsRepository } from "./repository";
@@ -85,15 +84,15 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 			const localStorage = yield* LocalStorageService;
 			const objectStorage = yield* ObjectStorageService;
 			const repository = yield* ManagedAssetsRepository;
+			const session = yield* DatabaseSession;
 
 			const registerManagedAsset = Effect.fn("ManagedAssetsService.registerManagedAsset")(
 				function* (input: RegisterManagedAssetInput) {
 					yield* validateManagedAsset(input);
-					const session = yield* DatabaseSession;
 					return yield* session.transaction(
 						Effect.gen(function* () {
-							yield* acquireUserWriteLock(input.ownerUserId);
-							if (yield* isUserLifecycleActive(input.ownerUserId)) {
+							yield* session.acquireUserWriteLock(input.ownerUserId);
+							if (yield* lifecycle.isActive(input.ownerUserId)) {
 								return yield* new UploadBadRequest({ reason: { code: "lifecycle-active" } });
 							}
 							return yield* repository.registerPermanentOwnedObject(input);
@@ -105,7 +104,7 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 				"ManagedAssetsService.registerManagedAssetInLockedTransaction",
 			)(function* (input: RegisterManagedAssetInput) {
 				yield* validateManagedAsset(input);
-				if (yield* isUserLifecycleActive(input.ownerUserId)) {
+				if (yield* lifecycle.isActive(input.ownerUserId)) {
 					return yield* new UploadBadRequest({ reason: { code: "lifecycle-active" } });
 				}
 				return yield* repository.registerPermanentOwnedObject(input);
