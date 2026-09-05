@@ -408,6 +408,24 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 					);
 				},
 			);
+			const updateHealthForActivation = Effect.fn(
+				"PluginInstallationRepository.updateHealthForActivation",
+			)(function* (input: Parameters<typeof updateHealth>[0] & { activationId: string }) {
+				const [updated] = yield* database.run((db) =>
+					db
+						.update(schema.pluginInstallation)
+						.set({ health: input.health, healthReason: input.healthReason })
+						.where(
+							and(
+								eq(schema.pluginInstallation.id, input.id),
+								isNull(schema.pluginInstallation.uninstalledAt),
+								sql`exists (select 1 from ${schema.plugin} where ${schema.plugin.id} = ${schema.pluginInstallation.pluginId} and ${schema.plugin.status} = 'active' and ${schema.plugin.activationId} = ${input.activationId})`,
+							),
+						)
+						.returning({ id: schema.pluginInstallation.id }),
+				);
+				return updated !== undefined;
+			});
 
 			const setHomeSavedView = Effect.fn("PluginInstallationRepository.setHomeSavedView")(
 				function* (userId: UserId, id: string, homeSavedViewSlug: string | null) {
@@ -519,10 +537,13 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 			});
 
 			const listPendingLifecycle = Effect.fn("PluginInstallationRepository.listPendingLifecycle")(
-				function* () {
+				function* (limit: number) {
 					const rows = yield* database.run((db) =>
 						db
-							.select({ id: schema.pluginInstallation.id })
+							.select({
+								id: schema.pluginInstallation.id,
+								activationId: schema.plugin.activationId,
+							})
 							.from(schema.pluginInstallation)
 							.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginInstallation.pluginId))
 							.where(
@@ -532,9 +553,10 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 									isNull(schema.pluginInstallation.uninstalledAt),
 								),
 							)
-							.orderBy(asc(schema.pluginInstallation.createdAt), asc(schema.pluginInstallation.id)),
+							.orderBy(asc(schema.pluginInstallation.createdAt), asc(schema.pluginInstallation.id))
+							.limit(limit),
 					);
-					return rows.map(({ id }) => id);
+					return rows.map(({ id, activationId }) => ({ activationId, installationId: id }));
 				},
 			);
 
@@ -577,6 +599,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				findByUserAndPlugin,
 				listPendingLifecycle,
 				listPrivateInstallations,
+				updateHealthForActivation,
 				clearHomeSavedViewReferences,
 				refreshClientConfigsForPlugin,
 				provisionSystemInstallationsForUser,

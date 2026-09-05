@@ -42,6 +42,9 @@ export type PluginPersistenceIdentity =
 	| { readonly slug: string; readonly ownerId: null; readonly scope: "system" }
 	| { readonly slug: string; readonly ownerId: string; readonly scope: "user" };
 
-export type StoredPluginIdentity = PluginPersistenceIdentity & { readonly id: string };
+export type StoredPluginIdentity = PluginPersistenceIdentity & {
+	readonly id: string;
+	readonly activationId: string;
+};
 
 export type StoredPlugin = PluginRevision & StoredPluginIdentity & { readonly status: string };

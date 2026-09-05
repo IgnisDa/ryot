@@ -10,6 +10,8 @@ import { BackupsService } from "#modules/backups/service";
 import { integrationsFrequentTask } from "#modules/integrations/frequent-task";
 import type { PluginCatalogInvalidator } from "#modules/plugins/catalog-events";
 import { pluginCatalogFrequentTask } from "#modules/plugins/frequent-task";
+import type { PluginInstallationService } from "#modules/plugins/installation-service";
+import { pluginInstallationFrequentTask } from "#modules/plugins/installation-sweep";
 import {
 	type CronRunPayload,
 	FrequentCronWorkflow,
@@ -32,6 +34,7 @@ const frequentCronTasks: ReadonlyArray<
 		| DatabaseSession
 		| UploadIntentsService
 		| PluginCatalogInvalidator
+		| PluginInstallationService
 		| UserBootstrapScheduling
 		| UserLifecycleService
 		| WorkflowEngine
@@ -63,6 +66,7 @@ const frequentCronTasks: ReadonlyArray<
 	userBootstrapFrequentTask,
 	userLifecycleFrequentTask,
 	pluginCatalogFrequentTask,
+	pluginInstallationFrequentTask,
 ];
 
 const runFrequentCronWorkflow = Effect.fn("FrequentCronWorkflow")(

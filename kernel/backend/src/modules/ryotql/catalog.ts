@@ -287,6 +287,7 @@ const plugin: CatalogTable = {
 		slug: physicalField("slug", "text", false),
 		status: physicalField("status", "text", false),
 		description: pluginMetadataField("description"),
+		activationId: physicalField("activation_id", "text", false),
 		activeRevisionId: physicalField("active_revision_id", "text"),
 		ingestedAt: pluginActiveRevisionField("revision.created_at", "date", true),
 		sourceHash: pluginActiveRevisionField("revision.source_hash", "text", true),

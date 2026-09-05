@@ -123,6 +123,7 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 						});
 					}
 					return {
+						activationId: result.activationId,
 						pluginId: PluginId.make(result.id),
 						installationId: result.installationId,
 						activePluginRevisionId: PluginRevisionId.make(result.activeRevisionId),
@@ -357,8 +358,8 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				reconcilePluginInstallations,
 				getSandboxResult: sandbox.getResult,
 				setEntityInterestMembership: interest.setEntityInterestMembership,
-				uninstallSystemPlugin: (pluginSlug: PluginSlug) =>
-					pluginIngestion.uninstallPlugin(pluginSlug),
+				uninstallSystemPlugin: (pluginSlug: PluginSlug, activationId: string) =>
+					pluginIngestion.uninstallPlugin(pluginSlug, activationId),
 				enqueueSandbox: (input: TestSupportEnqueueSandboxBody) => {
 					const { executingUserId, ...payload } = input;
 					return sandbox.enqueue(executingUserId, payload);

@@ -172,7 +172,9 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 		.handle("uninstallSystemPlugin", ({ params }) =>
 			Effect.gen(function* () {
 				const svc = yield* TestSupportService;
-				return yield* svc.uninstallSystemPlugin(params.pluginSlug).pipe(dieOnDbError);
+				return yield* svc
+					.uninstallSystemPlugin(params.pluginSlug, params.activationId)
+					.pipe(dieOnDbError);
 			}),
 		),
 );
