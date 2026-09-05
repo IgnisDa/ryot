@@ -35,19 +35,13 @@ const normalizedPlugin = (
 	const manifest: PluginManifest = {
 		...base,
 		scripts,
+		hooks: [],
 		savedViews: [],
 		entitySchemas: [],
 		signalSchemas: [],
 		userBootstrap: entries,
 		relationshipSchemas: [],
 		metadata: { ...base.metadata, slug: pluginSlug },
-		bindings: {
-			eventAutomations: [],
-			entityAutomations: [],
-			signalAutomations: [],
-			relationshipAutomations: [],
-			providerEntityImportAutomations: [],
-		},
 	};
 	return {
 		manifest,
@@ -87,18 +81,16 @@ const systemInstallation = (pluginSlug: string): PluginInstallationState => ({
 	health: "ready",
 	isDisabled: false,
 	healthReason: null,
+	uninstalledAt: null,
 	homeSavedViewId: null,
 	pluginScope: "system",
 	createdAt: new Date(0),
 	updatedAt: new Date(0),
+	activeConfigRevisionId: null,
 	pluginId: `${pluginSlug}-id`,
 	userId: UserId.make("user-1"),
 	id: `${pluginSlug}-installation`,
 });
-
-type ActiveScript = NonNullable<
-	Effect.Success<ReturnType<PluginRuntimeResolver["Service"]["findActiveScript"]>>
->;
 
 const baseLayer = Layer.mergeAll(
 	databaseLayer,
@@ -117,11 +109,11 @@ const baseLayer = Layer.mergeAll(
 							compiledFormat: 1,
 							pluginId: pluginSlug,
 							createdAt: new Date(0),
-							updatedAt: new Date(0),
 							compiledCode: "compiled",
 							name: bootstrap.scriptSlug,
 							slug: bootstrap.scriptSlug,
 							contentHash: `${bootstrap.scriptSlug}-hash`,
+							pluginRevisionId: `${pluginSlug}-revision-id`,
 							id: SandboxScriptId.make(`${bootstrap.scriptSlug}-id`),
 							metadata: {
 								kind: "script",
@@ -131,7 +123,9 @@ const baseLayer = Layer.mergeAll(
 								requiredPluginConfigKeys: [],
 								requiredSystemConfigKeys: [],
 							},
-						} satisfies ActiveScript,
+						} satisfies NonNullable<
+							Effect.Success<ReturnType<PluginRuntimeResolver["Service"]["findActiveScript"]>>
+						>,
 					})
 				: Effect.succeed(null);
 		},

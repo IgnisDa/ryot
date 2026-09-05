@@ -1,17 +1,19 @@
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
-import type { AutomationOrigin } from "@ryot-app/contract/modules/automations/schemas";
 import {
+	AutomationExecutionId,
 	ImportRunId,
 	SandboxProviderId,
 	type IntegrationId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
+import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { genericImportKernelInputSchema } from "@ryot-app/sandbox-sdk/imports";
 import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { Effect, Exit, Layer, Schema } from "effect";
+import { DateTime, Effect, Exit, Layer, Schema } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
+import { LifecycleCommand, rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { Database } from "#lib/infrastructure/db/service";
 import {
 	EventCreateWorkflow,
@@ -30,7 +32,7 @@ import {
 	ProviderEntityPopulationWorkflow,
 	type ProviderEntityPopulationPayload,
 } from "#modules/provider-entities/provider-entity-population-workflow";
-import { EntityImportPayload } from "#modules/provider-entities/schemas";
+import { ProviderEntityImportWorkflowPayload } from "#modules/provider-entities/schemas";
 import {
 	KERNEL_EVENT_CREATE_WORKFLOW,
 	KERNEL_ENTITY_IMPORT_WORKFLOW,
@@ -56,19 +58,61 @@ const ProviderEntityPopulationReferenceInput = Schema.Struct({
 	),
 });
 
-const attributionIds = (origin: AutomationOrigin | undefined) => ({
-	integrationIds: origin?.kind === "integration" ? [origin.integrationId] : [],
-	importRunIds:
-		(origin?.kind === "import" || origin?.kind === "integration") && origin.importRunId
-			? [origin.importRunId]
-			: [],
-});
+const lifecycleCommand = (
+	subject: Parameters<KernelWorkflowReferences["Service"]["execute"]>[2],
+	executionId: string,
+	itemIdentity: string,
+	occurredAt: LifecycleCommand["occurredAt"],
+	source: "api" | "import" | "integration" | "provider-refresh",
+	attribution: { importRunId?: ImportRunId; integrationId?: IntegrationId } = {},
+): LifecycleCommand => {
+	if (subject.type === "automation-run") {
+		return Schema.decodeSync(LifecycleCommand)({
+			occurredAt,
+			itemIdentity,
+			causation: {
+				...subject.causation,
+				source: "automation",
+				parentRunId: subject.runId,
+				depth: subject.causation.depth + 1,
+				parentTriggerId: subject.triggerId,
+				executionId: AutomationExecutionId.make(executionId),
+			},
+		});
+	}
+	const integrationId = subject.type === "user" ? subject.integrationId : undefined;
+	let initiator: Parameters<typeof rootLifecycleCommand>[0]["initiator"] = {
+		id: null,
+		kind: "system",
+	};
+	if (subject.type === "user") {
+		initiator =
+			integrationId === undefined
+				? { kind: "user", id: subject.userId }
+				: { id: integrationId, kind: "integration" };
+	}
+	const attributedIntegrationId = integrationId ?? attribution.integrationId;
+	return rootLifecycleCommand({
+		initiator,
+		occurredAt,
+		itemIdentity,
+		executionId: AutomationExecutionId.make(executionId),
+		source: integrationId === undefined ? source : "integration",
+		...(attribution.importRunId === undefined ? {} : { importRunId: attribution.importRunId }),
+		...(attributedIntegrationId === undefined ? {} : { integrationId: attributedIntegrationId }),
+		...(source === "provider-refresh"
+			? { providerExecutionId: AutomationExecutionId.make(executionId) }
+			: {}),
+	});
+};
 
 const requireOwned = <A, E, R>(lookup: Effect.Effect<A | null, E, R>, message: string) =>
 	lookup.pipe(
-		Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
+		Effect.mapError(
+			(error) => new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
+		),
 		Effect.flatMap((owned) =>
-			owned ? Effect.void : Effect.fail(new SandboxRunError({ message })),
+			owned ? Effect.void : Effect.fail(new SandboxRunError({ message, kind: "script-failure" })),
 		),
 	);
 
@@ -112,6 +156,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 			) =>
 				Effect.gen(function* () {
 					const artifactOwner = artifactOwnerExecutionId ?? _parentExecutionId;
+					const occurredAt = IsoUtcString.make((yield* DateTime.nowAsDate).toISOString());
 					if (
 						workflowSlug !== KERNEL_EVENT_CREATE_WORKFLOW &&
 						workflowSlug !== KERNEL_ENTITY_IMPORT_WORKFLOW &&
@@ -119,12 +164,14 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 						workflowSlug !== KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW
 					) {
 						return yield* new SandboxRunError({
+							kind: "script-failure",
 							message: `Unknown kernel workflow reference '${workflowSlug}'`,
 						});
 					}
 					if (workflowSlug === KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW) {
 						if (subject.type !== "system") {
 							return yield* new SandboxRunError({
+								kind: "script-failure",
 								message: `Kernel workflow '${workflowSlug}' is available only for system executions`,
 							});
 						}
@@ -132,11 +179,16 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							.findActiveScriptById(callerScriptId)
 							.pipe(
 								Effect.mapError(
-									(error) => new SandboxRunError({ message: unknownToMessage(error) }),
+									(error) =>
+										new SandboxRunError({
+											kind: "infrastructure",
+											message: unknownToMessage(error),
+										}),
 								),
 							);
 						if (!caller?.pluginSlug || caller.metadata.kind !== "workflow") {
 							return yield* new SandboxRunError({
+								kind: "script-failure",
 								message: "Provider entity population requires an active plugin workflow caller",
 							});
 						}
@@ -147,6 +199,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							Effect.mapError(
 								(error) =>
 									new SandboxRunError({
+										kind: "invalid-input",
 										message: `Invalid kernel workflow input: ${unknownToMessage(error)}`,
 									}),
 							),
@@ -160,13 +213,18 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 								})
 								.pipe(
 									Effect.mapError(
-										(error) => new SandboxRunError({ message: unknownToMessage(error) }),
+										(error) =>
+											new SandboxRunError({
+												kind: "infrastructure",
+												message: unknownToMessage(error),
+											}),
 									),
 									Effect.flatMap((resolved) =>
 										resolved
 											? Effect.succeed({ item, resolved })
 											: Effect.fail(
 													new SandboxRunError({
+														kind: "script-failure",
 														message: `Provider '${item.providerId}' is not active or has no exact binding to entity schema '${item.entitySchemaSlug}' owned by plugin '${callerPluginSlug}'`,
 													}),
 												),
@@ -186,14 +244,24 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 											externalId: item.externalId,
 											executionId: childExecutionId,
 											providerId: resolved.provider.id,
-											origin: { kind: "provider_refresh" },
 											entitySchemaSlug: resolved.entitySchemaSlug,
 											entityScope: { userId: null, type: "global" },
+											command: lifecycleCommand(
+												subject,
+												childExecutionId,
+												`${KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW}:${index}`,
+												occurredAt,
+												"provider-refresh",
+											),
 										} satisfies ProviderEntityPopulationPayload,
 									})
 									.pipe(
 										Effect.mapError(
-											(error) => new SandboxRunError({ message: unknownToMessage(error) }),
+											(error) =>
+												new SandboxRunError({
+													kind: "infrastructure",
+													message: unknownToMessage(error),
+												}),
 										),
 										Effect.exit,
 									);
@@ -204,30 +272,52 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							Exit.match(exit, { onSuccess: Effect.succeed, onFailure: Effect.failCause }),
 						);
 						return yield* Schema.decodeUnknownEffect(jsonValueSchema)(results).pipe(
-							Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
+							Effect.mapError(
+								(error) =>
+									new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
+							),
 						);
 					}
-					if (!("userId" in subject)) {
+					let userId = null;
+					if (subject.type === "user") {
+						userId = subject.userId;
+					} else if (subject.type === "automation-run") {
+						userId = subject.executionUserId;
+					}
+					if (userId === null) {
 						return yield* new SandboxRunError({
+							kind: "script-failure",
 							message: `Kernel workflow '${workflowSlug}' is not available for system executions`,
 						});
 					}
 					const engine = yield* WorkflowEngine;
 					if (workflowSlug === KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW) {
-						const decodedInput = yield* Schema.decodeUnknownEffect(genericImportKernelInputSchema)(
-							isObjectRecord(input) ? input : {},
-						).pipe(
+						const rawInput = isObjectRecord(input) ? input : {};
+						const rawRunId = Reflect.get(rawInput, "runId");
+						const command = lifecycleCommand(
+							subject,
+							executionId,
+							KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW,
+							occurredAt,
+							"import",
+							typeof rawRunId === "string" ? { importRunId: ImportRunId.make(rawRunId) } : {},
+						);
+						const decodedInput = yield* Schema.decodeUnknownEffect(genericImportKernelInputSchema)({
+							...rawInput,
+							command,
+						}).pipe(
 							Effect.mapError(
 								(error) =>
 									new SandboxRunError({
+										kind: "invalid-input",
 										message: `Invalid kernel workflow input: ${unknownToMessage(error)}`,
 									}),
 							),
 						);
 						const payload = yield* Schema.decodeEffect(ProcessGenericImportChunksPayload)({
 							...decodedInput,
+							userId,
 							executionId,
-							userId: subject.userId,
 							artifactOwnerExecutionId: artifactOwner,
 							artifactReferenceExecutionId: executionId,
 							...("integrationId" in subject && subject.integrationId
@@ -237,12 +327,13 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							Effect.mapError(
 								(error) =>
 									new SandboxRunError({
+										kind: "invalid-input",
 										message: `Invalid kernel workflow input: ${unknownToMessage(error)}`,
 									}),
 							),
 						);
 						yield* validateAttribution({
-							userId: subject.userId,
+							userId,
 							importRunIds: [ImportRunId.make(payload.runId)],
 							integrationIds: payload.integrationId ? [payload.integrationId] : [],
 						});
@@ -250,11 +341,18 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							.execute(ProcessGenericImportChunksWorkflow, { payload, executionId })
 							.pipe(
 								Effect.mapError(
-									(error) => new SandboxRunError({ message: unknownToMessage(error) }),
+									(error) =>
+										new SandboxRunError({
+											kind: "infrastructure",
+											message: unknownToMessage(error),
+										}),
 								),
 							);
 						return yield* Schema.decodeEffect(jsonValueSchema)(result).pipe(
-							Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
+							Effect.mapError(
+								(error) =>
+									new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
+							),
 						);
 					}
 					if (workflowSlug === KERNEL_ENTITY_IMPORT_WORKFLOW) {
@@ -266,19 +364,32 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 										.findSchemaProviderBySlug(providerSlug)
 										.pipe(
 											Effect.mapError(
-												(error) => new SandboxRunError({ message: unknownToMessage(error) }),
+												(error) =>
+													new SandboxRunError({
+														kind: "infrastructure",
+														message: unknownToMessage(error),
+													}),
 											),
 										)
 								: null;
 						if (typeof providerSlug === "string" && !resolvedProvider) {
 							return yield* new SandboxRunError({
+								kind: "script-failure",
 								message: `Plugin provider not found: ${providerSlug}`,
 							});
 						}
-						const payload = yield* Schema.decodeUnknownEffect(EntityImportPayload)({
-							...rawInput,
+						const command = lifecycleCommand(
+							subject,
 							executionId,
-							entityScope: { type: "global", userId: subject.userId },
+							KERNEL_ENTITY_IMPORT_WORKFLOW,
+							occurredAt,
+							"api",
+						);
+						const payload = yield* Schema.decodeUnknownEffect(ProviderEntityImportWorkflowPayload)({
+							...rawInput,
+							command,
+							executionId,
+							entityScope: { userId, type: "global" },
 							...(resolvedProvider
 								? {
 										providerId: resolvedProvider.provider.id,
@@ -289,13 +400,17 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							Effect.mapError(
 								(error) =>
 									new SandboxRunError({
+										kind: "invalid-input",
 										message: `Invalid kernel workflow input: ${unknownToMessage(error)}`,
 									}),
 							),
 						);
 						yield* validateAttribution({
-							userId: subject.userId,
-							...attributionIds(payload.origin),
+							userId,
+							importRunIds: command.causation.importRunId ? [command.causation.importRunId] : [],
+							integrationIds: command.causation.integrationId
+								? [command.causation.integrationId]
+								: [],
 						});
 						const result = yield* engine
 							.execute(EntityImportWorkflow, { payload, executionId })
@@ -310,40 +425,52 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 								}),
 							);
 						return yield* Schema.decodeUnknownEffect(jsonValueSchema)(result).pipe(
-							Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
+							Effect.mapError(
+								(error) =>
+									new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
+							),
 						);
 					}
-					const payload = yield* Schema.decodeUnknownEffect(EventCreateWorkflowPayload)({
-						...(isObjectRecord(input) ? input : {}),
+					const command = lifecycleCommand(
+						subject,
 						executionId,
-						userId: subject.userId,
+						KERNEL_EVENT_CREATE_WORKFLOW,
+						occurredAt,
+						"api",
+					);
+					const payload = yield* Schema.decodeUnknownEffect(EventCreateWorkflowPayload)({
+						userId,
+						command,
+						payload: isObjectRecord(input) ? Reflect.get(input, "payload") : undefined,
 					}).pipe(
 						Effect.mapError(
 							(error) =>
 								new SandboxRunError({
+									kind: "invalid-input",
 									message: `Invalid kernel workflow input: ${unknownToMessage(error)}`,
 								}),
 						),
 					);
-					const lifecycle = attributionIds(payload.lifecycleOrigin);
 					yield* validateAttribution({
-						userId: subject.userId,
-						importRunIds: [
-							...lifecycle.importRunIds,
-							...(payload.importRunId ? [payload.importRunId] : []),
-						],
-						integrationIds: [
-							...lifecycle.integrationIds,
-							...(payload.integrationId ? [payload.integrationId] : []),
-						],
+						userId,
+						importRunIds: command.causation.importRunId ? [command.causation.importRunId] : [],
+						integrationIds: command.causation.integrationId
+							? [command.causation.integrationId]
+							: [],
 					});
 					const result = yield* engine
 						.execute(EventCreateWorkflow, { payload, executionId })
 						.pipe(
-							Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
+							Effect.mapError(
+								(error) =>
+									new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
+							),
 						);
 					return yield* Schema.decodeEffect(jsonValueSchema)(result).pipe(
-						Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
+						Effect.mapError(
+							(error) =>
+								new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
+						),
 					);
 				}).pipe(Effect.provideService(Database, database)),
 		};

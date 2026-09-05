@@ -1,4 +1,4 @@
-import type { ContractPayload } from "@ryot-app/contract/client";
+import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
 import { PopulationStatus, TranslationStatus } from "@ryot-app/contract/modules/entities/schemas";
 import { EntityId, EntitySchemaSlug, SandboxProviderId } from "@ryot-app/contract/schema/brands";
 import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
@@ -19,10 +19,11 @@ import {
 } from "./ryotql";
 
 type CreateEntityInput = ContractPayload<"entities", "create">;
+type CreateEntityResult = ContractSuccess<"entities", "create">;
 
-function withRecordProperties<T extends { properties: unknown }>(
-	entity: T,
-): Omit<T, "properties"> & { properties: Record<string, unknown> } {
+function withRecordProperties(
+	entity: CreateEntityResult["entity"],
+): Omit<CreateEntityResult["entity"], "properties"> & { properties: Record<string, unknown> } {
 	return {
 		...entity,
 		properties: requireObjectRecord(entity.properties, "Entity properties must be an object"),
@@ -31,11 +32,11 @@ function withRecordProperties<T extends { properties: unknown }>(
 
 export const createEntity = (client: Client, body: CreateEntityInput) =>
 	Effect.gen(function* () {
-		const entity = yield* client.call((c) => c.entities.create({ payload: body }));
+		const result = yield* client.call((c) => c.entities.create({ payload: body }));
 
-		requirePresent(entity.id, "Failed to create entity");
+		requirePresent(result.entity.id, "Failed to create entity");
 
-		return withRecordProperties(entity);
+		return { ...withRecordProperties(result.entity), warnings: result.warnings };
 	});
 
 export const getEntity = (client: Client, entityId: string) =>

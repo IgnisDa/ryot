@@ -6,7 +6,6 @@ import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 
 import {
 	eventAutomationContext,
-	eventAutomationOccurrence,
 	entityRecord,
 	entitySchemaRecord,
 	execution,
@@ -43,9 +42,10 @@ const schema = entitySchemaRecord({
 
 const createAutomation = (overrides: Parameters<typeof eventAutomationContext>[0] = {}) =>
 	eventAutomationContext({
+		entityId: "movie-1",
+		entitySchemaSlug: "movie",
 		eventSchemaSlug: "complete",
 		properties: { completionMode: "just_now" },
-		subject: { id: "movie-1", name: "The Matrix", entitySchemaSlug: "movie" },
 		...overrides,
 	});
 
@@ -79,7 +79,6 @@ const createHost = (options: {
 	log?: JellyfinHost["log"];
 	entity?: ReturnType<typeof entityRecord>;
 	integrations?: ReturnType<typeof integrationRecord>[];
-	event?: Parameters<typeof eventAutomationOccurrence>[0];
 }) =>
 	defineSandboxTestHost(manifest, {
 		httpCall: options.httpCall,
@@ -88,17 +87,7 @@ const createHost = (options: {
 		listIntegrations: () => hostSuccess(options.integrations ?? []),
 		getUserPreferences: () =>
 			hostSuccess({ allowNsfw: false, disableIntegrations: options.disableIntegrations ?? false }),
-		executeRyotql: (document) => {
-			if ("occurrences" in document.queries) {
-				return hostSuccess(
-					eventAutomationOccurrence({
-						eventSchemaSlug: "complete",
-						properties: { completionMode: "just_now" },
-						subject: { id: "movie-1", name: "The Matrix", entitySchemaSlug: "movie" },
-						...options.event,
-					}),
-				);
-			}
+		executeRyotql: () => {
 			return options.entity ? hostSuccess(ryotqlRows("entities", [options.entity])) : hostFailure();
 		},
 	});
@@ -134,16 +123,11 @@ describe("jellyfin-push sandbox script", () => {
 				[
 					definition.run(
 						createAutomation(),
-						createHost({
-							httpCall,
-							entity: movieEntity,
-							integrations: [jellyfinIntegration],
-							event: { subject: { id: "book-1", name: "Book", entitySchemaSlug: "book" } },
-						}),
+						createHost({ httpCall, entity: movieEntity, integrations: [jellyfinIntegration] }),
 						execution,
 					),
 					definition.run(
-						createAutomation({ subject: { id: "book-1", name: "Book", entitySchemaSlug: "book" } }),
+						createAutomation({ entityId: "book-1", entitySchemaSlug: "book" }),
 						createHost({ httpCall, entity: movieEntity, integrations: [jellyfinIntegration] }),
 						execution,
 					),

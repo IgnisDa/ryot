@@ -34,16 +34,19 @@ const plugin = (input: {
 	client: NonNullable<PluginManifest["client"]>;
 }): AvailablePlugin => {
 	const base = fixtureManifest();
+	const scope = input.scope ?? "system";
 	return {
-		config: {},
+		scope,
 		health: "ready",
 		slug: input.slug,
 		compiledHashes: {},
-		scope: input.scope ?? "system",
 		id: input.id ?? `${input.slug}-id`,
 		isDisabled: input.isDisabled ?? false,
+		pluginRevisionId: `${input.slug}-revision`,
 		installationId: `${input.slug}-installation`,
+		pluginConfigRevisionId: `${input.slug}-config`,
 		sourceHash: input.sourceHash ?? `${input.slug}-source`,
+		ownerUserId: scope === "user" ? UserId.make("user-1") : null,
 		manifest: {
 			...base,
 			client: input.client,

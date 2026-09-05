@@ -112,4 +112,14 @@ describe("runtime sandbox host functions", () => {
 			expect(error).toEqual({ message: "httpCall expects a non-empty method string" });
 		}),
 	);
+
+	// Port 1 refuses connections, so the request fails without reaching an application.
+	it.effect("marks a failed HTTP request as an uncertain external outcome", () =>
+		Effect.gen(function* () {
+			const host = yield* makeRuntimeSandboxApiFunctions.pipe(Effect.provide(makeLayer(new Map())));
+			const error = yield* host.httpCall(input, "POST", "http://127.0.0.1:1/").pipe(Effect.flip);
+
+			expect(error).toMatchObject({ data: { code: "external-uncertain" } });
+		}),
+	);
 });

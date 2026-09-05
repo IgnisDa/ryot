@@ -10,6 +10,7 @@ import {
 	OAUTH_TOKEN_PATH,
 	OAUTH_WEB_CLIENT_ID,
 } from "@ryot-app/contract/oauth";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { createAuthClient } from "better-auth/client";
 import { twoFactorClient } from "better-auth/client/plugins";
 import { Effect, Schema } from "effect";
@@ -370,6 +371,6 @@ export const createTestUser = (baseUrl = getApiUrl()) =>
 export const createAuthenticatedClient = (baseUrl = getApiUrl()) =>
 	Effect.gen(function* () {
 		const { token, email, userId, password, sessionCookie } = yield* createTestUser(baseUrl);
-		const client = makeSession(baseUrl, { Authorization: `Bearer ${token}` });
+		const client = makeSession(baseUrl, { Authorization: `Bearer ${token}` }, UserId.make(userId));
 		return { token, email, client, userId, password, sessionCookie };
 	});

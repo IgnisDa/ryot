@@ -4,7 +4,10 @@ import { AuthoredPluginManifest } from "@ryot-app/contract/modules/plugins/manif
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect, FileSystem, Schema } from "effect";
 
-import { mediaLibraryEligibleEntitySchemaSlugs } from "../backend/contracts/schema-slugs";
+import {
+	mediaLibraryEligibleEntitySchemaSlugs,
+	mediaLibraryMemberEntitySchemaSlugs,
+} from "../backend/contracts/schema-slugs";
 import { manifest as googleBooksSearchManifest } from "../backend/providers/book/google-books/search.sandbox";
 import { manifest as igdbSearchOptionsManifest } from "../backend/providers/video-game/igdb/search-options.sandbox";
 import { manifest as igdbSearchManifest } from "../backend/providers/video-game/igdb/search.sandbox";
@@ -663,49 +666,60 @@ it("declares the complete media-owned source", () => {
 	);
 });
 
-it("binds library membership to media events and collection membership", () => {
-	const bindings = mediaPlugin.bindings.eventAutomations.filter(
-		({ scriptSlug }) => scriptSlug === "policy.media-library-membership",
-	);
-	const mediaEventSchemaSlugs = mediaPlugin.entitySchemas.flatMap((schema) =>
-		schema.eventSchemas.map(({ slug }) => `${schema.slug}:${slug}`),
-	);
-
-	expect(bindings.map(({ eventSchemaSlug }) => eventSchemaSlug).sort()).toEqual(
-		["collection:add-entity-to-collection", ...mediaEventSchemaSlugs].sort(),
-	);
-	expect(bindings).toContainEqual(
-		expect.objectContaining({ eventSchemaSlug: "collection:add-entity-to-collection" }),
-	);
-	expect(bindings).not.toContainEqual(
-		expect.objectContaining({ eventSchemaSlug: "workout:workout" }),
-	);
-	expect(bindings).not.toContainEqual(
-		expect.objectContaining({ eventSchemaSlug: "fixture:event" }),
-	);
-});
-
-it("binds provider imports to library membership for every eligible schema", () => {
-	expect(mediaPlugin.bindings.providerEntityImportAutomations).toEqual(
-		mediaLibraryEligibleEntitySchemaSlugs.map((entitySchemaSlug) => ({
-			entitySchemaSlug,
-			scriptSlug: "automation.media-library-membership-on-import",
-		})),
-	);
+it("uses one required library hook for eligible creates, provider completion, and library-joining events", () => {
+	const hooks = mediaPlugin.hooks.filter(({ slug }) => slug === "media.ensure-library-membership");
+	expect(hooks).toHaveLength(1);
+	expect(hooks[0]).toEqual({
+		stage: "after",
+		delivery: "required",
+		slug: "media.ensure-library-membership",
+		name: "Ensure media library membership",
+		scriptSlug: "automation.ensure-library-membership",
+		targets: [
+			...mediaLibraryMemberEntitySchemaSlugs.flatMap((entitySchemaSlug) => [
+				{ entitySchemaSlug, resource: "entity", operation: "create" },
+				{ entitySchemaSlug, operation: "complete", resource: "provider-entity-import" },
+			]),
+			...mediaPlugin.entitySchemas.flatMap((schema) =>
+				schema.eventSchemas.map(({ slug }) => ({
+					resource: "event",
+					operation: "create",
+					eventSchemaSlug: slug,
+					entitySchemaSlug: schema.slug,
+				})),
+			),
+			{
+				resource: "event",
+				operation: "create",
+				entitySchemaSlug: "collection",
+				eventSchemaSlug: "add-entity-to-collection",
+			},
+		],
+	});
 });
 
 it("binds deterministic episodic sessions at policy position 200", () => {
-	const bindings = mediaPlugin.bindings.eventAutomations.filter(
+	const hooks = mediaPlugin.hooks.filter(
 		({ scriptSlug }) => scriptSlug === "policy.media-episodic-session",
 	);
 
-	expect(bindings).toHaveLength(12);
+	expect(hooks).toHaveLength(1);
+	expect(hooks[0]).toMatchObject({
+		position: 200,
+		stage: "before",
+		slug: "media.episodic-session",
+	});
 	expect(
-		bindings.every(
-			(binding) => binding.kind === "policy" && "position" in binding && binding.position === 200,
-		),
-	).toBe(true);
-	expect(bindings.map(({ eventSchemaSlug }) => eventSchemaSlug).sort()).toEqual(
+		hooks
+			.flatMap(({ targets }) =>
+				targets.flatMap((target) =>
+					target.resource === "event"
+						? [`${target.entitySchemaSlug}:${target.eventSchemaSlug}`]
+						: [],
+				),
+			)
+			.sort(),
+	).toEqual(
 		[
 			"show:backlog",
 			"show:complete",
@@ -725,17 +739,48 @@ it("binds deterministic episodic sessions at policy position 200", () => {
 
 it("binds episodic parent completion to child completions and parent updates", () => {
 	expect(
-		mediaPlugin.bindings.eventAutomations
+		mediaPlugin.hooks
 			.filter(({ scriptSlug }) => scriptSlug === "automation.media-auto-complete-episodic-parent")
-			.map(({ eventSchemaSlug }) => eventSchemaSlug)
+			.flatMap(({ targets }) =>
+				targets.flatMap((target) =>
+					target.resource === "event"
+						? [`${target.entitySchemaSlug}:${target.eventSchemaSlug}`]
+						: [],
+				),
+			)
 			.sort(),
 	).toEqual(["podcast-episode:complete", "show-episode:complete"]);
 	expect(
-		mediaPlugin.bindings.entityAutomations
+		mediaPlugin.hooks
 			.filter(({ scriptSlug }) => scriptSlug === "automation.media-auto-complete-episodic-parent")
-			.map(({ operation, entitySchemaSlug }) => ({ operation, entitySchemaSlug })),
+			.flatMap(({ targets }) =>
+				targets.flatMap((target) =>
+					target.resource === "entity"
+						? [{ operation: target.operation, entitySchemaSlug: target.entitySchemaSlug }]
+						: [],
+				),
+			),
 	).toEqual([
 		{ operation: "update", entitySchemaSlug: "show" },
 		{ operation: "update", entitySchemaSlug: "podcast" },
 	]);
+});
+
+it("does not automatically retry external pushes or notifications", () => {
+	const hooks = mediaPlugin.hooks.filter(({ slug }) =>
+		[
+			"media.radarr-push",
+			"media.sonarr-push",
+			"media.jellyfin-push",
+			"media.notification",
+		].includes(slug),
+	);
+	expect(hooks).toHaveLength(4);
+	for (const hook of hooks) {
+		expect(hook).toMatchObject({
+			stage: "after",
+			delivery: "async",
+			retry: { maxAttempts: 1, externalIdempotency: "none" },
+		});
+	}
 });

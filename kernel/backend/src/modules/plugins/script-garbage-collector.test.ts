@@ -7,7 +7,7 @@ import { Effect, Layer, Ref, FileSystem } from "effect";
 import { assert } from "vitest";
 
 import { PackageCacheManager } from "#lib/infrastructure/sandbox-runtime/runtime";
-import { databaseLayer } from "#lib/test-utils/effect";
+import { databaseLayer, makeAppConfigLayer } from "#lib/test-utils/effect";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 
@@ -55,6 +55,7 @@ const withCollector = <A, E, R>(
 	assert(loadedPlugin);
 	const loaderLayer = Layer.succeed(PluginLoader, { ...loader });
 	const repositoryLayer = Layer.mock(PluginRepository)({
+		pruneRevisionArtifacts: () => Effect.void,
 		hasIntegrationReferences: () => Effect.succeed(false),
 		lockIngestion: input.lockIngestion ?? (() => Effect.void),
 		deleteInactiveUnreferencedPlugins: () => Effect.succeed([]),
@@ -82,7 +83,14 @@ const withCollector = <A, E, R>(
 	});
 	const collectorLayer = ScriptGarbageCollector.layer.pipe(
 		Layer.provide(
-			Layer.mergeAll(loaderLayer, runtimeLayer, repositoryLayer, databaseLayer, referencesLayer),
+			Layer.mergeAll(
+				loaderLayer,
+				runtimeLayer,
+				repositoryLayer,
+				databaseLayer,
+				referencesLayer,
+				makeAppConfigLayer(),
+			),
 		),
 	);
 	return effect.pipe(Effect.provide(collectorLayer));
@@ -244,7 +252,7 @@ it.effect("retains every historical script for a plugin with a nonterminal workf
 	).pipe(Effect.provide(BunServices.layer)),
 );
 
-it.effect("retains persisted source-zero hashes absent from the local kernel set", () =>
+it.effect("retains pinned historical kernel hashes absent from the local boot set", () =>
 	Effect.scoped(
 		Effect.gen(function* () {
 			const fs = yield* FileSystem.FileSystem;

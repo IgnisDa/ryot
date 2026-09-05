@@ -122,15 +122,19 @@ export const acquireSandboxCompiledModule = (
 export const garbageCollectSandboxCompiledModules = (
 	runtime: Pick<SandboxRuntimePaths, "moduleDirectory">,
 	liveContentHashes: ReadonlySet<string>,
+	limit = Number.POSITIVE_INFINITY,
 ) =>
 	Effect.gen(function* () {
 		const path = yield* Path.Path;
 		const fs = yield* FileSystem.FileSystem;
 		const entries = yield* fs.readDirectory(runtime.moduleDirectory);
-		const candidates = entries.flatMap((entry) => {
-			const match = compiledModuleName.exec(entry);
-			return match?.[1] && !liveContentHashes.has(match[1]) ? [entry] : [];
-		});
+		const candidates = entries
+			.flatMap((entry) => {
+				const match = compiledModuleName.exec(entry);
+				return match?.[1] && !liveContentHashes.has(match[1]) ? [entry] : [];
+			})
+			.sort()
+			.slice(0, limit);
 
 		const removals = yield* Effect.forEach(candidates, (entry) =>
 			fs.remove(path.join(runtime.moduleDirectory, entry), { force: false }).pipe(

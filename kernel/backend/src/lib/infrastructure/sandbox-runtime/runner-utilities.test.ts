@@ -33,7 +33,7 @@ describe("sandbox execution errors", () => {
 			),
 		);
 
-		const result = executionError(error, "execute", payload);
+		const result = executionError(error, "execute", payload, "script-failure");
 
 		expect(result.stack?.split("\n")).toHaveLength(frameCount);
 		expect(result.line).toBe(1);
@@ -52,7 +52,7 @@ describe("sandbox execution errors", () => {
 			"    at file:///sandbox/runner.mjs:918:12",
 		]);
 
-		const result = executionError(error, "execute", payload);
+		const result = executionError(error, "execute", payload, "script-failure");
 
 		expect(result.stack).toBe("    at script.ts:4:9");
 	});
@@ -60,9 +60,10 @@ describe("sandbox execution errors", () => {
 	it("reports no frames when the module identity is unknown", () => {
 		const error = errorWithStack(["    at run (file:///sandbox/modules/script.ts:4:9)"]);
 
-		expect(executionError(error, "execute", undefined)).toEqual({
+		expect(executionError(error, "execute", undefined, "script-failure")).toEqual({
 			phase: "execute",
 			message: "intentional",
+			kind: "script-failure",
 		});
 	});
 });

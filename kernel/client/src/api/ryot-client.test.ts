@@ -74,6 +74,7 @@ const intent: UploadIntentResponse = {
 
 const uploadToken = { token: "temporary-1", expiresAt: "2026-01-01T00:00:00.000Z" };
 const collection = Schema.decodeUnknownSync(CollectionResponse)({
+	warnings: [],
 	properties: {},
 	providerId: null,
 	externalId: null,
@@ -84,6 +85,7 @@ const collection = Schema.decodeUnknownSync(CollectionResponse)({
 	updatedAt: "2026-09-07T00:00:00.000Z",
 });
 const membership = Schema.decodeUnknownSync(MembershipResponse)({
+	warnings: [],
 	memberOf: {
 		properties: {},
 		id: "relationship-1",

@@ -16,6 +16,10 @@ import { AppConfig } from "#lib/infrastructure/config/service";
 import { logHttpResponseAtRoot } from "#lib/infrastructure/http-response-logger";
 import { RequestLogUrl } from "#lib/infrastructure/request-log-url";
 import { AdminMiddlewareLive, AuthMiddlewareLive, AuthService } from "#modules/auth/service";
+import {
+	AutomationHistoryRoutesLive,
+	GodModeAutomationHistoryRoutesLive,
+} from "#modules/automations/history-routes";
 import { AutomationsRoutesLive } from "#modules/automations/routes";
 import { BackupsRoutesLive } from "#modules/backups/routes";
 import { ClientPageArtifactsRoutesLive, ClientPagesRoutesLive } from "#modules/client-pages/routes";
@@ -82,7 +86,9 @@ const decodeErrorsAsBadRequest = Effect.catchCause((cause) => {
 });
 
 const ApiLive = HttpApiBuilder.layer(AppContract).pipe(
-	Layer.provide(Layer.mergeAll(SystemRoutesLive, AutomationsRoutesLive)),
+	Layer.provide(
+		Layer.mergeAll(SystemRoutesLive, AutomationsRoutesLive, AutomationHistoryRoutesLive),
+	),
 	Layer.provide(DefinitionsRoutesLive),
 	Layer.provide(BackupsRoutesLive),
 	Layer.provide(RelationshipsRoutesLive),
@@ -97,7 +103,9 @@ const ApiLive = HttpApiBuilder.layer(AppContract).pipe(
 	Layer.provide(
 		Layer.mergeAll(CollectionsRoutesLive, ClientPagesRoutesLive, ClientPageArtifactsRoutesLive),
 	),
-	Layer.provide(Layer.mergeAll(GodModeRoutesLive, TestSupportRoutesLive)),
+	Layer.provide(
+		Layer.mergeAll(GodModeRoutesLive, GodModeAutomationHistoryRoutesLive, TestSupportRoutesLive),
+	),
 	Layer.provide(ImportsRoutesLive),
 	Layer.provide(Layer.mergeAll(IntegrationsRoutesLive, NotificationsRoutesLive)),
 	Layer.provide(Layer.mergeAll(RyotQLRoutesLive, InterestRoutesLive)),

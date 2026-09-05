@@ -94,7 +94,16 @@ export const classifyAccountCleanliness = (
 	if (!sameUnorderedRecords(state.relationships, state.expectedBootstrapRelationships)) {
 		return "relationships";
 	}
-	if (!state.entities.every(({ origin }) => origin?.kind === "bootstrap")) {
+	const bootstrapEntities = state.entities.filter(
+		(entity) => entity.provider === null && entity.externalId === null,
+	);
+	const bootstrapSchemaSlugs = new Set(
+		bootstrapEntities.map(({ entitySchemaSlug }) => entitySchemaSlug),
+	);
+	if (
+		bootstrapEntities.length !== state.entities.length ||
+		bootstrapSchemaSlugs.size !== bootstrapEntities.length
+	) {
 		return "entities";
 	}
 	if (state.hasManagedAssets) {

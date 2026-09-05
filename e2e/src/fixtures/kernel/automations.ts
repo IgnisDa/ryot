@@ -1,8 +1,6 @@
-import type { ContractPayload } from "@ryot-app/contract/client";
+import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
 import {
-	AutomationRuleId,
-	EntityId,
-	SignalId,
+	NotificationSubscriptionId,
 	SignalSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
@@ -47,7 +45,7 @@ export const installNotificationRule = (client: Client, signalSchemaSlug: string
 	);
 
 export const setNotificationRuleActive = (client: Client, ruleId: string, isActive: boolean) => {
-	const params = { ruleId: AutomationRuleId.make(ruleId) };
+	const params = { ruleId: NotificationSubscriptionId.make(ruleId) };
 	return client.call((c) =>
 		isActive ? c.automations.activateRule({ params }) : c.automations.deactivateRule({ params }),
 	);
@@ -55,77 +53,175 @@ export const setNotificationRuleActive = (client: Client, ruleId: string, isActi
 
 export const deleteNotificationRule = (client: Client, ruleId: string) =>
 	client.call((c) =>
-		c.automations.deleteRule({ params: { ruleId: AutomationRuleId.make(ruleId) } }),
+		c.automations.deleteRule({ params: { ruleId: NotificationSubscriptionId.make(ruleId) } }),
 	);
 
-export type SignalFilter = {
-	[Key in keyof ContractPayload<"testSupport", "listSignals">]: string;
-};
+export type AutomationTriggerFilter = ContractPayload<"testSupport", "listAutomationTriggers">;
+export type AutomationTrigger = ContractSuccess<"testSupport", "listAutomationTriggers">[number];
+export type AutomationTriggerRecipientFilter = ContractPayload<
+	"testSupport",
+	"listAutomationTriggerRecipients"
+>;
+export type AutomationRunFilter = ContractPayload<"testSupport", "listAutomationRuns">;
+export type AutomationRun = ContractSuccess<"testSupport", "listAutomationRuns">[number];
+export type AutomationRunAttemptFilter = ContractPayload<
+	"testSupport",
+	"listAutomationRunAttempts"
+>;
+export type AutomationRunAttempt = ContractSuccess<
+	"testSupport",
+	"listAutomationRunAttempts"
+>[number];
 
-type SubscriptionRunFilter = {
-	[Key in keyof ContractPayload<"testSupport", "listSubscriptionRuns">]: string;
-};
+const automationFilterLabel = (filter: AutomationTriggerFilter | AutomationRunFilter): string =>
+	filter.triggerId ??
+	filter.rootExecutionId ??
+	("hookSlug" in filter ? filter.hookSlug : undefined) ??
+	(filter.sourceRecord
+		? `${filter.sourceRecord.resource}:${filter.sourceRecord.id}`
+		: "matching filters");
 
-/**
- * Inspects signals and their recipients through the admin `testSupport.listSignals` endpoint.
- * Rows come back newest-first, so `[0]` is the most recently created matching signal.
- */
-export const listSignals = (filter: SignalFilter) =>
-	getApiClient().call(
-		(c) =>
-			c.testSupport.listSignals({
-				payload: {
-					schemaSlug: filter.schemaSlug,
-					actorUserId: filter.actorUserId ? UserId.make(filter.actorUserId) : undefined,
-					subjectEntityId: filter.subjectEntityId
-						? EntityId.make(filter.subjectEntityId)
-						: undefined,
-				},
-			}),
-		adminHeaders(),
-	);
+export const listAutomationTriggers = (payload: AutomationTriggerFilter) =>
+	getApiClient().call((c) => c.testSupport.listAutomationTriggers({ payload }), adminHeaders());
 
-export const pollSignal = (filter: SignalFilter) =>
+export const pollAutomationTriggers = (payload: AutomationTriggerFilter, minimumCount = 1) =>
 	pollUntil(
-		`signal for '${filter.schemaSlug}'`,
-		Effect.gen(function* () {
-			const [signal] = yield* listSignals(filter);
-			return signal ?? null;
+		`at least ${minimumCount} automation trigger(s) for '${automationFilterLabel(payload)}'`,
+		listAutomationTriggers(payload).pipe(
+			Effect.map((triggers) => (triggers.length >= minimumCount ? triggers : null)),
+		),
+	);
+
+export const pollAutomationTrigger = (payload: AutomationTriggerFilter) =>
+	pollAutomationTriggers(payload).pipe(
+		Effect.map(([trigger]) => {
+			if (!trigger) {
+				throw new Error("Automation trigger polling completed without a trigger");
+			}
+			return trigger;
 		}),
 	);
 
-export const pollSignalWithRecipientCount = (filter: SignalFilter, count: number) =>
-	pollUntil(
-		`${count} recipient(s) for signal '${filter.schemaSlug}'`,
-		Effect.gen(function* () {
-			const [signal] = yield* listSignals(filter);
-			return signal?.recipientUserIds.length === count ? signal : null;
-		}),
+type SignalPayload = Extract<
+	NonNullable<AutomationTrigger["payload"]>,
+	{ readonly category: "signal" }
+>;
+type SignalTrigger = AutomationTrigger & { readonly payload: SignalPayload };
+
+export type SignalTriggerFilter = Pick<SignalPayload, "signalSchemaSlug"> &
+	Partial<Pick<SignalPayload, "actorUserId" | "subjectEntityId">>;
+
+const isSignalTrigger = (trigger: AutomationTrigger): trigger is SignalTrigger =>
+	trigger.payload?.category === "signal";
+
+export const listSignalTriggers = (filter: SignalTriggerFilter) =>
+	listAutomationTriggers({}).pipe(
+		Effect.map((triggers) =>
+			triggers.filter(
+				(trigger): trigger is SignalTrigger =>
+					isSignalTrigger(trigger) &&
+					trigger.payload.signalSchemaSlug === filter.signalSchemaSlug &&
+					(filter.actorUserId === undefined ||
+						trigger.payload.actorUserId === filter.actorUserId) &&
+					(filter.subjectEntityId === undefined ||
+						trigger.payload.subjectEntityId === filter.subjectEntityId),
+			),
+		),
 	);
 
-export const listSubscriptionRuns = (input: SubscriptionRunFilter) =>
+export const listAutomationTriggerRecipients = (payload: AutomationTriggerRecipientFilter) =>
 	getApiClient().call(
-		(c) =>
-			c.testSupport.listSubscriptionRuns({
-				payload: {
-					executionUserId: UserId.make(input.executionUserId),
-					signalId: input.signalId ? SignalId.make(input.signalId) : undefined,
-				},
-			}),
+		(c) => c.testSupport.listAutomationTriggerRecipients({ payload }),
 		adminHeaders(),
 	);
 
-const terminalRunStatuses = new Set(["succeeded", "failed", "skipped"]);
-
-export const pollTerminalSubscriptionRuns = (input: SubscriptionRunFilter) =>
+export const pollAutomationTriggerRecipients = (
+	payload: AutomationTriggerRecipientFilter,
+	minimumCount = 1,
+) =>
 	pollUntil(
-		`terminal subscription run(s) for user '${input.executionUserId}'`,
+		`at least ${minimumCount} recipient(s) for automation trigger '${payload.triggerId}'`,
+		listAutomationTriggerRecipients(payload).pipe(
+			Effect.map((recipients) => (recipients.length >= minimumCount ? recipients : null)),
+		),
+	);
+
+export const pollSignalTrigger = (filter: SignalTriggerFilter) =>
+	pollUntil(
+		`signal trigger for '${filter.signalSchemaSlug}'`,
 		Effect.gen(function* () {
-			const runs = yield* listSubscriptionRuns(input);
+			const [trigger] = yield* listSignalTriggers(filter);
+			return trigger ?? null;
+		}),
+	);
+
+export const pollSignalTriggerWithRecipientCount = (filter: SignalTriggerFilter, count: number) =>
+	pollUntil(
+		`${count} recipient(s) for signal trigger '${filter.signalSchemaSlug}'`,
+		Effect.gen(function* () {
+			const triggers = yield* listSignalTriggers(filter);
+			for (const trigger of triggers) {
+				const recipients = yield* listAutomationTriggerRecipients({ triggerId: trigger.id });
+				if (recipients.length === count) {
+					return { ...trigger, recipientUserIds: recipients.map(({ userId }) => userId) };
+				}
+			}
+			return null;
+		}),
+	);
+
+export const listAutomationRuns = (payload: AutomationRunFilter) =>
+	getApiClient().call((c) => c.testSupport.listAutomationRuns({ payload }), adminHeaders());
+
+export const reconcileAutomations = Effect.suspend(() =>
+	getApiClient().call((c) => c.testSupport.reconcileAutomations({ payload: {} }), adminHeaders()),
+);
+
+export const pollAutomationRuns = (payload: AutomationRunFilter, minimumCount = 1) =>
+	pollUntil(
+		`at least ${minimumCount} automation run(s) for '${automationFilterLabel(payload)}'`,
+		listAutomationRuns(payload).pipe(
+			Effect.map((runs) => (runs.length >= minimumCount ? runs : null)),
+		),
+	);
+
+const terminalRunStatuses = new Set(["succeeded", "failed", "rejected", "skipped"]);
+
+export const pollTerminalAutomationRuns = (payload: AutomationRunFilter) =>
+	pollUntil(
+		`terminal automation run(s) for '${automationFilterLabel(payload)}'`,
+		Effect.gen(function* () {
+			const runs = yield* listAutomationRuns(payload);
 			return runs.length > 0 && runs.every((run) => terminalRunStatuses.has(run.status))
 				? runs
 				: null;
 		}),
+	);
+
+export const listAutomationRunAttempts = (payload: AutomationRunAttemptFilter) =>
+	getApiClient().call((c) => c.testSupport.listAutomationRunAttempts({ payload }), adminHeaders());
+
+export const pollAutomationRunAttempts = (payload: AutomationRunAttemptFilter, minimumCount = 1) =>
+	pollUntil(
+		`at least ${minimumCount} attempt(s) for automation run '${payload.runId}'`,
+		listAutomationRunAttempts(payload).pipe(
+			Effect.map((attempts) => (attempts.length >= minimumCount ? attempts : null)),
+		),
+	);
+
+export const pollTerminalAutomationRunAttempts = (
+	payload: Omit<AutomationRunAttemptFilter, "status">,
+	minimumCount = 1,
+) =>
+	pollUntil(
+		`at least ${minimumCount} terminal attempt(s) for automation run '${payload.runId}'`,
+		listAutomationRunAttempts(payload).pipe(
+			Effect.map((attempts) =>
+				attempts.length >= minimumCount && attempts.every(({ status }) => status !== "running")
+					? attempts
+					: null,
+			),
+		),
 	);
 
 export const getAutomationRuleCount = (userId: string) =>

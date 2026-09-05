@@ -42,7 +42,13 @@ const systemPlugin = (pluginSlug: string) =>
 		pluginScope: "system",
 		pluginId: `${pluginSlug}-plugin-id`,
 		installationId: `${pluginSlug}-installation-id`,
-		configContext: { pluginSlug, kind: "environment", configSchema: { fields: {} } },
+		configContext: {
+			kind: "revision",
+			ownerUserId: null,
+			configSchema: { fields: {} },
+			pluginConfigRevisionId: null,
+			pluginRevisionId: `${pluginSlug}-revision-id`,
+		},
 	}) satisfies Partial<RegisteredIntegrationProvider>;
 
 const integrationsServiceLayer = IntegrationsService.layer;
@@ -131,6 +137,7 @@ describe("client endpoints", () => {
 				compiledCode: "compiled",
 				slug: "integration.theta",
 				contentHash: "content-hash",
+				pluginRevisionId: "example-revision-id",
 				id: SandboxScriptId.make("active-script"),
 			};
 			const providerCatalog = Layer.mock(IntegrationProviderCatalog)({

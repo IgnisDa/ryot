@@ -14,6 +14,7 @@ const plugin = (slug: string, httpRateLimits: Array<PluginHttpRateLimit>) => {
 		sourceHash: `${slug}-source`,
 		manifest: {
 			...manifest,
+			hooks: [],
 			scripts: [],
 			savedViews: [],
 			httpRateLimits,
@@ -21,13 +22,6 @@ const plugin = (slug: string, httpRateLimits: Array<PluginHttpRateLimit>) => {
 			signalSchemas: [],
 			relationshipSchemas: [],
 			metadata: { ...manifest.metadata, slug },
-			bindings: {
-				eventAutomations: [],
-				entityAutomations: [],
-				signalAutomations: [],
-				relationshipAutomations: [],
-				providerEntityImportAutomations: [],
-			},
 		},
 	};
 };

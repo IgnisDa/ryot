@@ -386,6 +386,35 @@ export const appConfigDefinition = defineConfig(
 			description:
 				"Exact origin users browse to; defines OAuth issuer and callbacks. HTTPS strongly recommended",
 		}),
+		automations: group(
+			{ label: "Automations", description: "Automation lifecycle limits and retention" },
+			{
+				maxDepth: integerField({
+					defaultValue: 8,
+					label: "Maximum depth",
+					envKey: "AUTOMATIONS_MAX_DEPTH",
+					description: "Maximum causal chain depth (1–64)",
+				}),
+				maxRuns: integerField({
+					defaultValue: 100,
+					label: "Maximum runs",
+					envKey: "AUTOMATIONS_MAX_RUNS",
+					description: "Maximum runs per root execution (1–10000)",
+				}),
+				retryWindowDays: integerField({
+					defaultValue: 7,
+					label: "Retry window",
+					envKey: "AUTOMATIONS_RETRY_WINDOW_DAYS",
+					description: "Executable and configuration retention in days (1–90)",
+				}),
+				historyRetentionDays: integerField({
+					defaultValue: 30,
+					label: "History retention",
+					envKey: "AUTOMATIONS_HISTORY_RETENTION_DAYS",
+					description: "Automation history retention in days (1–365), at least the retry window",
+				}),
+			},
+		),
 	},
 	{ description: "Application configuration" },
 );

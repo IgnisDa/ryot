@@ -1,5 +1,10 @@
 import { Effect, Schema } from "effect";
 
+import { SANDBOX_FAILURE_KINDS } from "./modules/sandbox/wire";
+
+export const SandboxFailureKind = Schema.Literals([...SANDBOX_FAILURE_KINDS]);
+export type SandboxFailureKind = typeof SandboxFailureKind.Type;
+
 export class DbError extends Schema.TaggedError<DbError>()("DbError", {
 	message: Schema.String,
 	code: Schema.optional(Schema.String),
@@ -63,12 +68,13 @@ export class InternalError extends Schema.TaggedError<InternalError>()("Internal
 
 export class SandboxRunError extends Schema.TaggedError<SandboxRunError>()("SandboxRunError", {
 	message: Schema.String,
+	kind: SandboxFailureKind,
 }) {}
 
-export const toSandboxRunError = (cause: unknown): SandboxRunError =>
+export const toSandboxRunError = (cause: unknown, kind: SandboxFailureKind): SandboxRunError =>
 	cause instanceof SandboxRunError
 		? cause
-		: new SandboxRunError({ message: unknownToMessage(cause) });
+		: new SandboxRunError({ kind, message: unknownToMessage(cause) });
 
 export class TimeoutError extends Schema.TaggedError<TimeoutError>()("TimeoutError", {
 	message: Schema.String,
@@ -103,7 +109,7 @@ export const mapDbErrorToSandbox = <A, E, R>(self: Effect.Effect<A, E, R>) =>
 	self.pipe(
 		Effect.mapError((error) =>
 			error instanceof DbError
-				? new SandboxRunError({ message: error.message })
-				: toSandboxRunError(error),
+				? new SandboxRunError({ kind: "infrastructure", message: error.message })
+				: toSandboxRunError(error, "script-failure"),
 		),
 	);
