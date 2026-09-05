@@ -1,6 +1,6 @@
 import { DbError } from "@ryot-app/contract/errors";
 import { isNotNull, sql } from "drizzle-orm";
-import { Context, Effect, Layer } from "effect";
+import { Context, Data, Effect, Layer } from "effect";
 
 import { createPluginConfigEncryption } from "#lib/infrastructure/config/plugin-config-encryption";
 import {
@@ -8,6 +8,10 @@ import {
 	pluginConfigRevision,
 } from "#lib/infrastructure/db/schema/tables/core";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+
+class PluginConfigEncryptionKeyStateError extends Data.TaggedError(
+	"PluginConfigEncryptionKeyStateError",
+)<{ readonly message: string }> {}
 
 export class PluginConfigEncryptionKeyRepository extends Context.Service<PluginConfigEncryptionKeyRepository>()(
 	"PluginConfigEncryptionKeyRepository",
@@ -58,7 +62,7 @@ export class PluginConfigEncryptionKey extends Context.Service<PluginConfigEncry
 						key = yield* repository.load;
 						if (!key) {
 							if ((yield* repository.retainedKeyIds).length > 0) {
-								return yield* new DbError({
+								return yield* new PluginConfigEncryptionKeyStateError({
 									message:
 										"Persisted plugin configuration encryption key is missing; restore the key for retained payloads",
 								});
@@ -73,10 +77,12 @@ export class PluginConfigEncryptionKey extends Context.Service<PluginConfigEncry
 					const encryption = yield* Effect.try({
 						try: () => createPluginConfigEncryption(key),
 						catch: () =>
-							new DbError({ message: "Invalid persisted plugin configuration encryption key" }),
+							new PluginConfigEncryptionKeyStateError({
+								message: "Invalid persisted plugin configuration encryption key",
+							}),
 					});
 					if ((yield* repository.retainedKeyIds).some(({ id }) => !encryption.hasKey(id))) {
-						return yield* new DbError({
+						return yield* new PluginConfigEncryptionKeyStateError({
 							message: "Retained plugin configuration references an unavailable encryption key",
 						});
 					}
@@ -85,8 +91,8 @@ export class PluginConfigEncryptionKey extends Context.Service<PluginConfigEncry
 				return yield* (yield* database.isTransactionActive) ? work : database.transaction(work);
 			}).pipe(
 				Effect.mapError((error) =>
-					error instanceof DbError
-						? error
+					error instanceof PluginConfigEncryptionKeyStateError
+						? new DbError({ message: error.message })
 						: new DbError({ message: "Cannot load persisted plugin configuration encryption key" }),
 				),
 			);
