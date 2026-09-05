@@ -22,7 +22,6 @@ import {
 	applyLifecyclePolicyPatch,
 	canonicalLifecyclePolicyPatch,
 } from "#lib/domain/lifecycle-policy-patch";
-import { EntitiesRepository } from "#modules/entities/repository";
 import {
 	catalogDefinitionFingerprint,
 	type CatalogDefinitionFingerprint,
@@ -30,15 +29,15 @@ import {
 
 import {
 	activeTransactionGuard,
-	assertRootTransaction,
 	badProperties,
 	equal,
 	mergeProperties,
 	parseProperties,
 	populationIdentity,
 	relationshipChange,
+	rootTransaction,
+	rootTransactionGuard,
 	snapshot,
-	transaction,
 	type CreateRelationshipInput,
 	type Mutation,
 	type RelationshipMutationDependencies,
@@ -96,10 +95,13 @@ export const makePreparedRelationshipMutations = ({
 	session,
 	planner,
 	runtime,
+	entities,
 	execution,
 	repository,
 	definitions,
 }: RelationshipMutationDependencies) => {
+	const transaction = rootTransaction(session);
+	const assertRootTransaction = rootTransactionGuard(session);
 	const assertActiveTransaction = activeTransactionGuard(session);
 	const committedReplay = Effect.fnUntraced(function* (
 		input: RelationshipIdentityInput,
@@ -110,7 +112,6 @@ export const makePreparedRelationshipMutations = ({
 		return yield* transaction(
 			Effect.gen(function* () {
 				if (input.scope === "user") {
-					const entities = yield* EntitiesRepository;
 					const [source, target] = yield* Effect.all([
 						entities.getEntityScopeForUser({
 							userId: input.userId,
@@ -289,7 +290,6 @@ export const makePreparedRelationshipMutations = ({
 		}
 		const planned = yield* transaction(
 			Effect.gen(function* () {
-				const entities = yield* EntitiesRepository;
 				yield* entities.lockEntityReferencesByIds([
 					authoritativeInput.sourceEntityId,
 					authoritativeInput.targetEntityId,
@@ -452,7 +452,6 @@ export const makePreparedRelationshipMutations = ({
 		prepared: PreparedUserRelationshipMutationData,
 	) {
 		yield* assertActiveTransaction;
-		const entities = yield* EntitiesRepository;
 		if (prepared.operation === "create" && prepared.committed) {
 			return {
 				plans: [prepared.committed.plan],
