@@ -30,11 +30,11 @@ const renderPanel = () =>
 			relationshipSlug="in-media-library"
 			providers={{ providers, status: "ready" }}
 			selectedProviderId={providers[0].providerId}
-			search={() => Promise.reject(new Error("not used"))}
+			search={() => Effect.die(new Error("not used"))}
+			importEntity={() => Effect.die(new Error("not used"))}
 			uploadFile={() => Promise.reject(new Error("not used"))}
-			importEntity={() => Promise.reject(new Error("not used"))}
-			loadEntityLinks={() => Promise.reject(new Error("not used"))}
-			loadSearchOptions={() => Promise.reject(new Error("not used"))}
+			loadEntityLinks={() => Effect.die(new Error("not used"))}
+			loadSearchOptions={() => Effect.die(new Error("not used"))}
 		/>,
 	);
 

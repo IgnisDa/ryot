@@ -13,11 +13,7 @@ import {
 	type ProviderSummariesState,
 	resolveLibraryMembership,
 } from "#/modules/provider-add/panel";
-import {
-	type ProviderAddLoadError,
-	ProviderAddService,
-	type ProviderSearchSummary,
-} from "#/modules/provider-add/service";
+import { ProviderAddService, type ProviderSearchSummary } from "#/modules/provider-add/service";
 import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
 import { ClientStorage } from "#/persistence/storage";
 
@@ -49,6 +45,8 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 	const uploadFile = useSchemaFileUpload();
 	const { scope, runtime } = useRouteContext({ from: "/_authenticated" });
 	const { entitySchemaSlug } = props;
+	const providerService = runtime.runSync(ProviderAddService);
+	const clientStorage = runtime.runSync(ClientStorage);
 	const libraryMembership = resolveLibraryMembership(props.ownerPluginId, entitySchemaSlug);
 	const imported = useRef(false);
 	const [state, setState] = useState<ProviderAddModalState>({
@@ -56,35 +54,37 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 		providers: { status: "loading" },
 	});
 
-	const runOutcome = <A,>(effect: Effect.Effect<A, ProviderAddLoadError, ProviderAddService>) =>
-		runtime.runPromise(
-			effect.pipe(
-				Effect.match({
-					onFailure: (cause): ProviderAddOutcome<A> => ({ cause }),
-					onSuccess: (value): ProviderAddOutcome<A> => ({ value }),
-				}),
-			),
-		);
-
 	const loadProviderState = useEffectEvent(
 		(schemaSlug: EntitySchemaSlug, ownerPluginId: string | undefined, isActive: () => boolean) =>
-			Promise.all([
-				runtime.runPromise(
-					Effect.flatMap(ClientStorage, (storage) =>
-						storage.getRememberedProvider(scope, schemaSlug),
-					),
-				),
-				runOutcome(
-					Effect.flatMap(ProviderAddService, (service) =>
-						service.loadProviders(ryot, schemaSlug, ownerPluginId),
-					),
-				),
-			]).then(([remembered, result]) => {
-				if (isActive()) {
-					setState(loadedProviderState(remembered, result));
-				}
-				return undefined;
-			}),
+			runtime.runPromise(
+				Effect.gen(function* () {
+					const [remembered, result] = yield* Effect.all(
+						[
+							clientStorage.getRememberedProvider(scope, schemaSlug),
+							providerService
+								.loadProviders(ryot, schemaSlug, ownerPluginId)
+								.pipe(
+									Effect.match({
+										onFailure: (
+											cause,
+										): ProviderAddOutcome<{
+											readonly items: readonly ProviderSearchSummary[];
+										}> => ({ cause }),
+										onSuccess: (
+											value,
+										): ProviderAddOutcome<{
+											readonly items: readonly ProviderSearchSummary[];
+										}> => ({ value }),
+									}),
+								),
+						],
+						{ concurrency: "unbounded" },
+					);
+					if (isActive()) {
+						setState(loadedProviderState(remembered, result));
+					}
+				}),
+			),
 	);
 
 	useEffect(
@@ -114,36 +114,29 @@ export function ProviderAddModal(props: ProviderAddModalProps) {
 	};
 
 	const search: ComponentProps<typeof ProviderSearchPanel>["search"] = (payload) =>
-		runOutcome(Effect.flatMap(ProviderAddService, (service) => service.search(scope, payload)));
+		providerService.search(scope, payload);
 	const loadSearchOptions: ComponentProps<typeof ProviderSearchPanel>["loadSearchOptions"] = (
 		providerId,
-	) =>
-		runOutcome(
-			Effect.flatMap(ProviderAddService, (service) => service.loadSearchOptions(scope, providerId)),
-		);
+	) => providerService.loadSearchOptions(scope, providerId);
 	const importEntity: ComponentProps<typeof ProviderSearchPanel>["importEntity"] = ({
 		externalId,
 		onProgress,
 		providerId,
 	}) =>
-		runtime.runPromise(
-			Effect.flatMap(ProviderAddService, (service) =>
-				importProviderEntity({
-					onProgress,
-					poll: (jobId) => service.pollImport(scope, jobId),
-					start: service.startImport(scope, { externalId, providerId }),
-				}),
-			),
-		);
+		importProviderEntity({
+			onProgress,
+			poll: (jobId) => providerService.pollImport(scope, jobId),
+			start: providerService.startImport(scope, { externalId, providerId }),
+		});
 	const loadEntityLinks: ComponentProps<typeof ProviderSearchPanel>["loadEntityLinks"] = (input) =>
-		runOutcome(
-			Effect.flatMap(ProviderAddService, (service) => service.loadEntityLinks(ryot, input)).pipe(
+		providerService
+			.loadEntityLinks(ryot, input)
+			.pipe(
 				Effect.map(
 					(links): ProviderEntityLinks =>
 						new Map(links.map((link) => [link.externalId, link.entityId])),
 				),
-			),
-		);
+			);
 
 	return (
 		<Modal
