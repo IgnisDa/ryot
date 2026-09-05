@@ -77,7 +77,12 @@ export default defineConfig({
 				link: guidesSourceFiles[0].link,
 			},
 			{ text: "Backups", link: "/backups" },
-			{ text: "Migration", link: "/migration" },
+			{
+				collapsed: true,
+				text: "Migration",
+				link: "/migration",
+				items: [{ text: "Older migrations", link: "/migration/older" }],
+			},
 			{ text: "Contributing", link: "/contributing" },
 		],
 	},
