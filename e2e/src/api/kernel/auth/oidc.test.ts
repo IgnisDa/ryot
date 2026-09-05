@@ -2,6 +2,9 @@ import type { ChildProcess } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import { OAUTH_WEB_CLIENT_ID } from "@ryot-app/contract/oauth";
+import { activeSignalSchemasRecipe } from "@ryot-app/ryotql-recipes/definitions";
+import { godModeUsersRecipe } from "@ryot-app/ryotql-recipes/god-mode";
+import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { Effect, Fiber, Option, Stream } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 import getPort from "get-port";
@@ -9,7 +12,9 @@ import getPort from "get-port";
 import {
 	type MockOidcServer,
 	adminHeaders,
+	collectRyotQLRecipeItems,
 	createTestAuthClient,
+	executeAdminRyotQLRecipe,
 	listNotificationSubscriptions,
 	makeSession,
 	oidcSignIn,
@@ -35,34 +40,23 @@ const OIDC_CLIENT_SECRET = "test-secret";
 const OIDC_BUTTON_LABEL = "Sign in with TestOIDC";
 const clientDist = fileURLToPath(new URL("../../../../../kernel/client/dist", import.meta.url));
 const existingOidcUsername = `user-${crypto.randomUUID()}`;
-const godModeListQuery = (search: string) => ({ search, limit: 50, offset: 0 });
+const listUsers = (apiUrl: string, email: string) =>
+	executeAdminRyotQLRecipe(godModeUsersRecipe({ limit: 50, search: email }), apiUrl);
 const attempt = <A>(run: () => Promise<A>) => Effect.tryPromise(run).pipe(Effect.orDie);
 
 const countUsersByEmail = (apiUrl: string, email: string) =>
-	Effect.gen(function* () {
-		const data = yield* makeSession(apiUrl).call(
-			(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
-			adminHeaders(),
-		);
-		return data.total;
-	});
+	listUsers(apiUrl, email).pipe(Effect.map((data) => data.total));
 
 const findUserIdByEmail = (apiUrl: string, email: string) =>
-	Effect.gen(function* () {
-		const data = yield* makeSession(apiUrl).call(
-			(c) => c.godMode.listUsers({ query: godModeListQuery(email) }),
-			adminHeaders(),
-		);
-		return data.users[0]?.id ?? null;
-	});
+	listUsers(apiUrl, email).pipe(Effect.map((data) => data.items[0]?.id ?? null));
+
+const listPlugins = (apiUrl: string, token: string) =>
+	collectRyotQLRecipeItems(makeSession(apiUrl, { Authorization: `Bearer ${token}` }), (after) =>
+		pluginInstallationsRecipe({ after, limit: 100 }),
+	);
 
 const listPluginCount = (apiUrl: string, token: string) =>
-	Effect.gen(function* () {
-		const plugins = yield* makeSession(apiUrl).call((c) => c.plugins.list(), {
-			Authorization: `Bearer ${token}`,
-		});
-		return plugins.length;
-	});
+	listPlugins(apiUrl, token).pipe(Effect.map((plugins) => plugins.length));
 
 let apiPortA: number;
 let apiPortB: number;
@@ -295,8 +289,7 @@ describe("OIDC sign-in happy path (API A)", () => {
 		Effect.gen(function* () {
 			const username = `user-${crypto.randomUUID()}`;
 			const sessionToken = yield* oidcSignIn(requireMockOidcServer(), username, getApiUrlA());
-			const client = makeSession(getApiUrlA());
-			yield* client.call((c) => c.plugins.list(), { Authorization: `Bearer ${sessionToken}` });
+			yield* listPlugins(getApiUrlA(), sessionToken);
 		}),
 	);
 
@@ -324,12 +317,14 @@ describe("OIDC sign-in happy path (API A)", () => {
 			const headers = { Authorization: `Bearer ${sessionToken}` };
 			const client = makeSession(getApiUrlA(), headers);
 			const [catalog, rules] = yield* Effect.all([
-				client.call((c) => c.automations.listCatalog()),
+				collectRyotQLRecipeItems(client, (after) =>
+					activeSignalSchemasRecipe({ after, limit: 100 }),
+				),
 				listNotificationSubscriptions(client, { limit: 100 }),
 			]);
 			expect(rules).toHaveLength(catalog.length);
 			expect(rules.map((rule) => rule.signalSchemaSlug).sort()).toEqual(
-				catalog.map((schema) => schema.id).sort(),
+				catalog.map((schema) => schema.slug).sort(),
 			);
 			expect(rules.every((rule) => rule.isActive)).toBe(true);
 		}),
@@ -351,7 +346,7 @@ describe("OIDC idempotency (API A)", () => {
 			);
 
 			const sessionToken = yield* oidcSignIn(requireMockOidcServer(), username, getApiUrlA());
-			yield* client.call((c) => c.plugins.list(), { Authorization: `Bearer ${sessionToken}` });
+			yield* listPlugins(getApiUrlA(), sessionToken);
 
 			expect(yield* findUserIdByEmail(getApiUrlA(), email)).toBe(provisioned.userId);
 			expect(yield* countUsersByEmail(getApiUrlA(), email)).toBe(1);
@@ -367,11 +362,7 @@ describe("OIDC idempotency (API A)", () => {
 
 			expect(yield* countUsersByEmail(getApiUrlA(), `${username}@example.com`)).toBe(1);
 
-			const client = makeSession(getApiUrlA());
-			yield* Effect.all([
-				client.call((c) => c.plugins.list(), { Authorization: `Bearer ${token1}` }),
-				client.call((c) => c.plugins.list(), { Authorization: `Bearer ${token2}` }),
-			]);
+			yield* Effect.all([listPlugins(getApiUrlA(), token1), listPlugins(getApiUrlA(), token2)]);
 		}),
 	);
 
@@ -436,8 +427,7 @@ describe("Registration gating for OIDC (API C)", () => {
 				existingOidcUsername,
 				getApiUrlC(),
 			);
-			const client = makeSession(getApiUrlC());
-			yield* client.call((c) => c.plugins.list(), { Authorization: `Bearer ${sessionToken}` });
+			yield* listPlugins(getApiUrlC(), sessionToken);
 
 			const afterId = yield* findUserIdByEmail(getApiUrlC(), email);
 			expect(afterId).toBe(beforeId);

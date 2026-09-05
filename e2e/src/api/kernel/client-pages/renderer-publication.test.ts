@@ -1,5 +1,5 @@
 import { PluginSlug } from "@ryot-app/contract/schema/brands";
-import { Effect, Result } from "effect";
+import { Effect, Option, Result } from "effect";
 
 import {
 	buildComposedClientRendererDefinition,
@@ -11,6 +11,7 @@ import {
 	deleteClientRenderer,
 	encodeClientRendererSource,
 	getClientRenderer,
+	findSavedViewById,
 	FIXTURE_CLIENT_PLUGIN_SLUG,
 	installFixtureClientPlugin,
 	listClientRenderers,
@@ -32,24 +33,34 @@ const definitionWithSource = (source: string) =>
 const initialDraftRevision = 1;
 
 describe("client renderer publication E2E", () => {
-	it.live("creates, lists, and gets an owned renderer", () =>
+	it.live("creates, lists, gets, and deletes an owned renderer", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const created = yield* createClientRenderer(client);
+			const slug = `renderer-${crypto.randomUUID()}`;
+			const name = `Renderer ${crypto.randomUUID()}`;
+			const created = yield* createClientRenderer(client, { slug, name });
 
 			const listed = yield* listClientRenderers(client);
 			const listedRenderer = listed.find(({ id }) => id === created.id);
 			expect(listedRenderer).toMatchObject({
+				slug,
+				name,
 				id: created.id,
-				slug: created.slug,
-				name: created.name,
 				publishedHash: null,
 				publishedRevision: null,
 				draftRevision: initialDraftRevision,
 			});
 
-			const fetched = yield* getClientRenderer(client, created.id);
-			expect(fetched).toEqual(created);
+			const fetched = Option.getOrThrow(yield* getClientRenderer(client, created.id));
+			expect(fetched).toMatchObject({
+				slug,
+				name,
+				id: created.id,
+				draftRevision: initialDraftRevision,
+			});
+			const deleted = yield* deleteClientRenderer(client, created.id);
+			expect(deleted).toEqual({ id: created.id });
+			expect(Option.isNone(yield* getClientRenderer(client, created.id))).toBe(true);
 		}),
 	);
 
@@ -73,7 +84,7 @@ describe("client renderer publication E2E", () => {
 				expect(error.reason.diagnostics.length).toBeGreaterThan(0);
 			}
 
-			const fetched = yield* getClientRenderer(client, created.id);
+			const fetched = Option.getOrThrow(yield* getClientRenderer(client, created.id));
 			expect(fetched.draftRevision).toBe(initialDraftRevision + 1);
 			expect(fetched.draftDefinition).toEqual(invalidDefinition);
 			expect(fetched.publishedRevision).toBeNull();
@@ -137,8 +148,10 @@ describe("client renderer publication E2E", () => {
 				draftDefinition: nextDefinition,
 				expectedDraftRevision: initialDraftRevision,
 			});
+			expect(replaced.id).toBe(created.id);
 			expect(replaced.draftRevision).toBe(initialDraftRevision + 1);
-			expect(replaced.draftDefinition).toEqual(nextDefinition);
+			const replacedRecord = Option.getOrThrow(yield* getClientRenderer(client, created.id));
+			expect(replacedRecord.draftDefinition).toEqual(nextDefinition);
 
 			const stale = yield* Effect.flip(
 				replaceClientRendererDraft(client, created.id, {
@@ -149,7 +162,7 @@ describe("client renderer publication E2E", () => {
 			assertTaggedError(stale, "ClientRendererBadRequest");
 			expect(stale.reason).toEqual({ code: "draft-revision-stale" });
 
-			const fetched = yield* getClientRenderer(client, created.id);
+			const fetched = Option.getOrThrow(yield* getClientRenderer(client, created.id));
 			expect(fetched.draftRevision).toBe(initialDraftRevision + 1);
 			expect(fetched.draftDefinition).toEqual(nextDefinition);
 		}),
@@ -168,7 +181,7 @@ describe("client renderer publication E2E", () => {
 			expect(publication.publishedHash).toMatch(/^[0-9a-f]{64}$/);
 			expect(publication.buildId.length).toBeGreaterThan(0);
 
-			const fetched = yield* getClientRenderer(client, created.id);
+			const fetched = Option.getOrThrow(yield* getClientRenderer(client, created.id));
 			expect(fetched.draftRevision).toBe(initialDraftRevision);
 			expect(fetched.draftDefinition).toEqual(draftDefinition);
 			expect(fetched.publishedRevision).toBe(initialDraftRevision);
@@ -343,7 +356,7 @@ describe("client renderer publication E2E", () => {
 			assertTaggedError(error, "ClientRendererBadRequest");
 			expect(error.reason).toMatchObject({ code: "build-failed" });
 
-			const fetched = yield* getClientRenderer(client, created.id);
+			const fetched = Option.getOrThrow(yield* getClientRenderer(client, created.id));
 			expect(fetched.draftRevision).toBe(initialDraftRevision + 1);
 			expect(fetched.draftDefinition).toEqual(failedDefinition);
 			expect(fetched.publishedRevision).toBe(initialDraftRevision);
@@ -376,7 +389,7 @@ describe("client renderer publication E2E", () => {
 			);
 			assertTaggedError(stale, "ClientRendererBadRequest");
 			expect(stale.reason).toEqual({ code: "draft-revision-stale" });
-			const fetched = yield* getClientRenderer(client, renderer.id);
+			const fetched = Option.getOrThrow(yield* getClientRenderer(client, renderer.id));
 			expect(fetched.publishedRevision).toBe(initialDraftRevision);
 			expect(fetched.publishedHash).toBe(initialPublication.publishedHash);
 		}),
@@ -407,10 +420,12 @@ describe("client renderer publication E2E", () => {
 				label: "Second setting",
 			});
 
-			expect(firstView.renderer).toEqual({ kind: "custom", rendererId: renderer.id });
-			expect(secondView.renderer).toEqual({ kind: "custom", rendererId: renderer.id });
-			expect(firstView.settings).toEqual({ label: "First setting" });
-			expect(secondView.settings).toEqual({ label: "Second setting" });
+			const firstStored = yield* findSavedViewById(client, firstView.id);
+			const secondStored = yield* findSavedViewById(client, secondView.id);
+			expect(firstStored.renderer).toEqual({ kind: "custom", rendererId: renderer.id });
+			expect(secondStored.renderer).toEqual({ kind: "custom", rendererId: renderer.id });
+			expect(firstStored.settings).toEqual({ label: "First setting" });
+			expect(secondStored.settings).toEqual({ label: "Second setting" });
 
 			const firstPrepared = yield* prepareClientPage(client, firstView.id);
 			const secondPrepared = yield* prepareClientPage(client, secondView.id);
@@ -515,16 +530,16 @@ describe("client renderer publication E2E", () => {
 			if (Result.isFailure(publication)) {
 				assertTaggedError(publication.failure, "ClientRendererBadRequest");
 				expect(publication.failure.reason).toMatchObject({ code: "settings-incompatible" });
-				expect((yield* getClientRenderer(client, renderer.id)).publishedHash).toBe(
+				expect(Option.getOrThrow(yield* getClientRenderer(client, renderer.id)).publishedHash).toBe(
 					initialPublication.publishedHash,
 				);
 			}
 			if (Result.isFailure(creation)) {
 				assertTaggedError(creation.failure, "SavedViewBadRequest");
 				expect(creation.failure.reason).toMatchObject({ code: "settings-incompatible" });
-				expect((yield* getClientRenderer(client, renderer.id)).publishedRevision).toBe(
-					initialDraftRevision + 1,
-				);
+				expect(
+					Option.getOrThrow(yield* getClientRenderer(client, renderer.id)).publishedRevision,
+				).toBe(initialDraftRevision + 1);
 			}
 		}),
 	);
@@ -539,7 +554,7 @@ describe("client renderer publication E2E", () => {
 			const error = yield* Effect.flip(deleteClientRenderer(client, renderer.id));
 			assertTaggedError(error, "ClientRendererBadRequest");
 			expect(error.reason).toEqual({ code: "renderer-in-use" });
-			expect((yield* getClientRenderer(client, renderer.id)).id).toBe(renderer.id);
+			expect(Option.getOrThrow(yield* getClientRenderer(client, renderer.id)).id).toBe(renderer.id);
 		}),
 	);
 
@@ -553,9 +568,7 @@ describe("client renderer publication E2E", () => {
 				renderer.id,
 			);
 
-			const getError = yield* Effect.flip(getClientRenderer(outsider.client, renderer.id));
-			assertTaggedError(getError, "ClientRendererNotFound");
-			expect(getError.reason).toEqual({ code: "renderer-not-found" });
+			expect(Option.isNone(yield* getClientRenderer(outsider.client, renderer.id))).toBe(true);
 
 			const replaceError = yield* Effect.flip(
 				replaceClientRendererDraft(outsider.client, renderer.id, {

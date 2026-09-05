@@ -1,14 +1,17 @@
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { IntegrationId } from "@ryot-app/contract/schema/brands";
-import { Effect } from "effect";
+import { integrationRecipe } from "@ryot-app/ryotql-recipes/integrations";
+import { Effect, Option } from "effect";
 
 import {
 	createAuthenticatedClient,
 	createIntegration,
 	deleteIntegration,
+	executeRyotQLRecipe,
 	installTestIntegrationProvider,
 	uninstallTestPluginStrict,
 } from "~/fixtures/kernel";
+import { requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const settingsSchema = {
@@ -49,7 +52,7 @@ const settingsSchema = {
 } satisfies PluginManifest["integrationProviders"][number]["settingsSchema"];
 
 describe("third-party integration provider redaction", () => {
-	it.live("redacts nested secrets from the integration update response", () =>
+	it.live("redacts nested secrets after integration writes are re-queried", () =>
 		Effect.gen(function* () {
 			const { providerSlug } = yield* Effect.acquireRelease(
 				installTestIntegrationProvider(settingsSchema),
@@ -71,8 +74,11 @@ describe("third-party integration provider redaction", () => {
 				}),
 				({ id }) => deleteIntegration(client, id).pipe(Effect.asVoid, Effect.orDie),
 			);
-			const listed = yield* client.call((c) =>
-				c.integrations.get({ params: { integrationId: IntegrationId.make(created.id) } }),
+			const listed = requirePresent(
+				Option.getOrUndefined(
+					yield* executeRyotQLRecipe(client, integrationRecipe({ id: created.id })),
+				),
+				"Expected created integration",
 			);
 			expect(listed.providerSpecifics).toEqual({
 				credentials: { username: "alice" },
@@ -91,8 +97,15 @@ describe("third-party integration provider redaction", () => {
 					},
 				}),
 			);
-			expect(updated.name).toBe("Updated dynamic provider");
-			expect(updated.providerSpecifics).toEqual({
+			expect(updated).toEqual({ id: created.id });
+			const detail = requirePresent(
+				Option.getOrUndefined(
+					yield* executeRyotQLRecipe(client, integrationRecipe({ id: created.id })),
+				),
+				"Expected updated integration",
+			);
+			expect(detail.name).toBe("Updated dynamic provider");
+			expect(detail.providerSpecifics).toEqual({
 				credentials: { username: "bob" },
 				accounts: [{ name: "replacement" }],
 				endpoint: "https://provider.example.com",

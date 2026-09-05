@@ -78,7 +78,7 @@ beforeAll(async () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			providerCompilerClient = client;
-			movieSchemaId = yield* getBuiltinEntitySchemaSlug("movie");
+			movieSchemaId = yield* getBuiltinEntitySchemaSlug(client, "movie");
 			provider = yield* installTestProvider({
 				client,
 				scope: "system",
@@ -87,7 +87,7 @@ beforeAll(async () => {
 				details: providerDetails("Continuing"),
 				slug: `movie.media-monitoring-e2e-${crypto.randomUUID()}`,
 			});
-			const showSchemaId = yield* getBuiltinEntitySchemaSlug("show");
+			const showSchemaId = yield* getBuiltinEntitySchemaSlug(client, "show");
 			discoveryProvider = yield* installTestProvider({
 				client,
 				scope: "system",
@@ -222,9 +222,9 @@ describe("media monitoring endpoints", () => {
 			const owner = yield* createAuthenticatedClient();
 			const other = yield* createAuthenticatedClient();
 			const [seasonSchemaId, episodeSchemaId, groupSchemaId] = yield* Effect.all([
-				getBuiltinEntitySchemaSlug("show-season"),
-				getBuiltinEntitySchemaSlug("show-episode"),
-				getBuiltinEntitySchemaSlug("movie-group"),
+				getBuiltinEntitySchemaSlug(owner.client, "show-season"),
+				getBuiltinEntitySchemaSlug(owner.client, "show-episode"),
+				getBuiltinEntitySchemaSlug(owner.client, "movie-group"),
 			]);
 			const unsupported = yield* Effect.all([
 				seedMediaEntity({

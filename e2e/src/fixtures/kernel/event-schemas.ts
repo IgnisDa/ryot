@@ -1,10 +1,12 @@
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { EntitySchemaSlug, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
+import { entityDefinitionsRecipe } from "@ryot-app/ryotql-recipes/definitions";
 import { Effect } from "effect";
 
 import { requirePresent } from "~/support/assertions";
 
 import type { Client } from "./auth";
+import { collectRyotQLRecipeItems } from "./ryotql";
 import { findTestEntitySchema, installTestDefinitions } from "./test-plugin";
 
 type PluginEntitySchema = PluginManifest["entitySchemas"][number];
@@ -57,20 +59,18 @@ export const createEventSchema = (client: Client, body: CreateEventSchemaOptions
 	});
 
 export const listEventSchemas = (client: Client, entitySchemaSlug: string) =>
-	client
-		.call((c) => c.definitions.listEntities({}))
-		.pipe(
-			Effect.map((schemas) =>
-				requirePresent(
-					schemas.find((schema) => schema.slug === entitySchemaSlug),
-					`Entity schema '${entitySchemaSlug}' not found`,
+	collectRyotQLRecipeItems(client, (after) => entityDefinitionsRecipe({ after, limit: 100 })).pipe(
+		Effect.map((schemas) =>
+			requirePresent(
+				schemas.find((schema) => schema.slug === entitySchemaSlug),
+				`Entity schema '${entitySchemaSlug}' not found`,
+			)
+				.eventSchemas.items.map((schema) =>
+					Object.assign({}, schema, {
+						id: EventSchemaSlug.make(schema.slug),
+						entitySchemaSlug: EntitySchemaSlug.make(entitySchemaSlug),
+					}),
 				)
-					.eventSchemas.map((schema) =>
-						Object.assign({}, schema, {
-							id: EventSchemaSlug.make(schema.slug),
-							entitySchemaSlug: EntitySchemaSlug.make(entitySchemaSlug),
-						}),
-					)
-					.sort((left, right) => left.slug.localeCompare(right.slug)),
-			),
-		);
+				.sort((left, right) => left.slug.localeCompare(right.slug)),
+		),
+	);

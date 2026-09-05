@@ -7,6 +7,7 @@ import {
 	createPluginEntitySchema,
 	createSavedView,
 	deleteSavedView,
+	findSavedViewById,
 	getSavedView,
 	listSavedViews,
 	reorderSavedViews,
@@ -18,10 +19,12 @@ describe("saved views management", () => {
 	it.live("clones renderer settings and data sources into an independent user view", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const source = yield* createSavedView(client, {
+			const sourceCreated = yield* createSavedView(client, {
 				name: `Clone Source ${crypto.randomUUID()}`,
 			});
-			const clone = yield* cloneSavedView(client, source.slug);
+			const source = yield* findSavedViewById(client, sourceCreated.id);
+			const cloned = yield* cloneSavedView(client, source.slug);
+			const clone = yield* findSavedViewById(client, cloned.id);
 
 			expect(clone.id).not.toBe(source.id);
 			expect(clone.name).toBe(`${source.name} (Copy)`);
@@ -46,7 +49,8 @@ describe("saved views management", () => {
 			if (!builtin) {
 				throw new Error("All Movies saved view not found");
 			}
-			const clone = yield* cloneSavedView(client, builtin.slug);
+			const cloned = yield* cloneSavedView(client, builtin.slug);
+			const clone = yield* findSavedViewById(client, cloned.id);
 			yield* deleteSavedView(client, clone.slug);
 
 			expect((yield* getSavedView(client, builtin.slug)).id).toBe(builtin.id);
@@ -61,16 +65,18 @@ describe("saved views management", () => {
 				schemaName: `Saved View Workspace ${crypto.randomUUID()}`,
 			});
 			const dataSources = buildSavedViewDataSources([schemaId]);
-			const first = yield* createSavedView(client, {
+			const firstCreated = yield* createSavedView(client, {
 				dataSources,
 				workspacePluginSlug: pluginSlug,
 				name: `Workspace A ${crypto.randomUUID()}`,
 			});
-			const second = yield* createSavedView(client, {
+			const secondCreated = yield* createSavedView(client, {
 				dataSources,
 				workspacePluginSlug: pluginSlug,
 				name: `Workspace B ${crypto.randomUUID()}`,
 			});
+			const first = yield* findSavedViewById(client, firstCreated.id);
+			const second = yield* findSavedViewById(client, secondCreated.id);
 
 			const reordered = yield* reorderSavedViews(client, {
 				pluginSlug,
@@ -93,12 +99,15 @@ describe("saved views management", () => {
 			const created = yield* createSavedView(client, {
 				name: `Disable Definition ${crypto.randomUUID()}`,
 			});
-			const disabled = yield* updateSavedView(client, created.slug, { isDisabled: true });
+			const before = yield* findSavedViewById(client, created.id);
+			const disabled = yield* updateSavedView(client, before.slug, { isDisabled: true });
+			const after = yield* getSavedView(client, before.slug);
 
-			expect(disabled.isDisabled).toBe(true);
-			expect(disabled.renderer).toEqual(created.renderer);
-			expect(disabled.settings).toEqual(created.settings);
-			expect(disabled.dataSources).toEqual(created.dataSources);
+			expect(disabled.id).toBe(created.id);
+			expect(after.isDisabled).toBe(true);
+			expect(after.renderer).toEqual(before.renderer);
+			expect(after.settings).toEqual(before.settings);
+			expect(after.dataSources).toEqual(before.dataSources);
 			expect((yield* listSavedViews(client)).map((view) => view.id)).not.toContain(created.id);
 			expect(
 				(yield* listSavedViews(client, { includeDisabled: true })).map((view) => view.id),

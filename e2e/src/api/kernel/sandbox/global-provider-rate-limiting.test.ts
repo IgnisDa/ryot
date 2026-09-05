@@ -14,6 +14,8 @@ import {
 	httpCallFailureSandboxSource,
 	httpCallSandboxSource,
 	installTestPlugin,
+	listAdminSandboxScripts,
+	listAdminSystemPlugins,
 	makeSession,
 	pollSandboxResult,
 	pollUntil,
@@ -160,10 +162,7 @@ describe("deployment-global sandbox HTTP rate limiting", () => {
 			assertTaggedError(conflict, "PluginRequestError");
 			expect(conflict.reason.code).toBe("validation-failed");
 
-			const activePlugins = yield* getApiClient().call(
-				(c) => c.testSupport.listSystemPlugins({}),
-				adminHeaders(),
-			);
+			const activePlugins = yield* listAdminSystemPlugins;
 			expect(activePlugins.some(({ slug: activeSlug }) => activeSlug === pluginSlug)).toBe(true);
 			expect(
 				activePlugins.some(({ slug: activeSlug }) => activeSlug === conflictingPluginSlug),
@@ -433,7 +432,7 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 					],
 				});
 				const clientA = makeSession(apiUrlA());
-				yield* clientA.call(
+				const installed = yield* clientA.call(
 					(c) =>
 						c.testSupport.installSystemPlugin({
 							payload: {
@@ -454,12 +453,9 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 						)
 						.pipe(Effect.catch(() => Effect.void)),
 				);
-				const scripts = yield* clientA.call(
-					(c) => c.testSupport.listSandboxScripts({ query: {} }),
-					adminHeaders(),
-				);
+				const scripts = yield* listAdminSandboxScripts(installed.activePluginRevisionId, apiUrlA());
 				const scriptId = requirePresent(
-					scripts.find((script) => script.slug === slug && script.source === source)?.id,
+					scripts.find((script) => script.slug === slug)?.id,
 					"Isolated rate-limit script was not installed",
 				);
 				const [userA, userB] = yield* Effect.all([

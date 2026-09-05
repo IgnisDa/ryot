@@ -20,6 +20,7 @@ import {
 	fakeProviderDetailsResult,
 	fakeProviderSearchResult,
 	fakeProviderTranslations,
+	findSavedViewById,
 	getEntity,
 	installTestProvider,
 	makeEntitySchemaSlug,
@@ -202,7 +203,7 @@ beforeAll(async () => {
 				ENTITY_SCHEMA_SLUG,
 				ownerPluginId,
 			);
-			return view.slug;
+			return (yield* findSavedViewById(client, view.id)).slug;
 		}),
 	);
 	viewUrl = `${getFrontendUrl()}/v/${viewSlug}`;
@@ -255,11 +256,12 @@ it.live("automatically populates and translates entities rendered by a saved vie
 			name: `Interest View ${id}`,
 			dataSources: buildSavedViewDataSources([schemaSlug]),
 		});
+		const viewRecord = yield* findSavedViewById(client, view.id);
 		expect((yield* getEntity(client, entity.id)).populationStatus).toBe("pending");
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage({ locale: "en-US" });
 		yield* signInThroughHostedOAuth(page, user.email, user.password);
-		yield* page.goto(`${getFrontendUrl()}/v/${view.slug}`);
+		yield* page.goto(`${getFrontendUrl()}/v/${viewRecord.slug}`);
 		const runtime = page.locator("iframe").contentFrame();
 		yield* runtime.getByRole("heading", { level: 1, name: `Interest View ${id}` }).waitFor();
 		yield* pollUntil(
@@ -323,10 +325,11 @@ it.live("keeps source data visible when saved-view translation is outstanding", 
 			name: `Translating View ${id}`,
 			dataSources: buildSavedViewDataSources([schemaSlug]),
 		});
+		const viewRecord = yield* findSavedViewById(client, view.id);
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage({ locale: "en-US" });
 		yield* signInThroughHostedOAuth(page, user.email, user.password);
-		yield* page.goto(`${getFrontendUrl()}/v/${view.slug}`);
+		yield* page.goto(`${getFrontendUrl()}/v/${viewRecord.slug}`);
 		const runtime = page.locator("iframe").contentFrame();
 		yield* pollUntil(
 			"saved-view entity population with pending translation",
@@ -377,7 +380,7 @@ it.live("imports through the configured renderer provider search and refreshes m
 		yield* addFirst.waitFor({ state: "visible" });
 		yield* addFirst.click();
 		yield* dialog(page)
-			.getByRole("link", { name: `Open ${FIRST_RESULT_TITLE} in library` })
+			.getByRole("link", { name: `Open ${FIRST_RESULT_TITLE} in media library` })
 			.waitFor({ state: "visible", timeout: IMPORT_TIMEOUT });
 		expect(yield* dialog(page).isVisible()).toBe(true);
 		expect(new URL(page.url()).searchParams.get("add")).toBe("true");
