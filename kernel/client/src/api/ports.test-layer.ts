@@ -25,6 +25,7 @@ export const makeEntityInterestService = (
 	overrides: Partial<EntityInterestService["Service"]> = {},
 ) =>
 	Layer.succeed(EntityInterestService, {
+		refresh: () => {},
 		reconnect: () => {},
 		acquire: () => () => {},
 		watch: () => ({ update: () => {}, dispose: () => {} }),
