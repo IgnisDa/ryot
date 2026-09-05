@@ -529,11 +529,6 @@ export const mediaPlugin = definePlugin({
 			description: "Initialize the user's media workspace",
 		},
 	],
-	httpRateLimits: [
-		{ requests: 90, key: "anilist", intervalMs: 60_000, origins: ["https://graphql.anilist.co"] },
-		{ requests: 90, key: "spotify", intervalMs: 60_000, origins: ["https://api.spotify.com"] },
-		{ requests: 1, intervalMs: 1_000, key: "musicbrainz", origins: ["https://musicbrainz.org"] },
-	],
 	metadata: {
 		icon: "film",
 		name: "Media",
@@ -542,6 +537,11 @@ export const mediaPlugin = definePlugin({
 		description:
 			"Track media across movies, shows, books, comic books, anime, manga, audiobooks, podcasts, video games, and music.",
 	},
+	httpRateLimits: [
+		{ requests: 90, key: "anilist", intervalMs: 60_000, origins: ["https://graphql.anilist.co"] },
+		{ requests: 90, key: "spotify", intervalMs: 60_000, origins: ["https://api.spotify.com"] },
+		{ requests: 1, intervalMs: 1_000, key: "musicbrainz", origins: ["https://musicbrainz.org"] },
+	],
 	workflows: [
 		{ slug: "import", scriptSlug: "workflow.media-import" },
 		{ slug: "media-monitoring-sweep", scriptSlug: "workflow.media-monitoring-sweep" },
