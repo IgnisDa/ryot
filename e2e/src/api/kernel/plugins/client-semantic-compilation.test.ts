@@ -24,7 +24,7 @@ describe("precompiled client plugin artifacts", () => {
 			yield* installPrivatePluginPackage({ client, config: {}, pluginPackage });
 			const installation = yield* settledPrivateInstallation(client, pluginSlug);
 
-			expect(installation).toMatchObject({ health: "ready", slug: pluginSlug, isDisabled: false });
+			expect(installation).toMatchObject({ health: "ready", isHidden: false, slug: pluginSlug });
 			expect(installation.sourceHash).toMatch(/^[0-9a-f]{64}$/);
 		}),
 	);

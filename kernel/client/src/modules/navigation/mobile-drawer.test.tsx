@@ -22,7 +22,7 @@ const workspace = (
 	name: "Media",
 	slug: "media",
 	health: "ready",
-	isDisabled: false,
+	isHidden: false,
 	clientApiVersion: 1,
 	pluginId: "plugin-media",
 	sourceHash: "source-media",
@@ -49,8 +49,8 @@ const sections: SidebarSections = {
 			sortOrder: 0,
 			kind: "home",
 			icon: "house",
+			isHidden: false,
 			pluginSlug: null,
-			isDisabled: false,
 		},
 	],
 };

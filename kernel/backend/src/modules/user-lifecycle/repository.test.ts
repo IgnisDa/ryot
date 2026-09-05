@@ -114,7 +114,7 @@ describe("user lifecycle persistence cleanup", () => {
 
 							yield* db
 								.update(tables.pluginInstallation)
-								.set({ isDisabled: true, uninstalledAt: now })
+								.set({ isHidden: true, uninstalledAt: now })
 								.where(eq(tables.pluginInstallation.userId, owner));
 							yield* db
 								.insert(tables.sandboxWorkflowReference)

@@ -92,7 +92,7 @@ export function buildUpdatedSavedViewBody(
 ): UpdateSavedViewBody {
 	return {
 		icon: "heart",
-		isDisabled: false,
+		isHidden: false,
 		dataSources: rowsDataSources,
 		settings: entityBrowserSettings,
 		name: `Updated View ${crypto.randomUUID()}`,
@@ -106,7 +106,7 @@ export const createSavedView = (client: Client, overrides: CreateSavedViewInput 
 
 export const listSavedViews = (
 	client: Client,
-	options: { pluginSlug?: string; includeDisabled?: boolean } = {},
+	options: { pluginSlug?: string; includeHidden?: boolean } = {},
 ) =>
 	Effect.gen(function* () {
 		const result = yield* executeRyotQLRecipe(
@@ -114,7 +114,7 @@ export const listSavedViews = (
 			savedViewRecordsRecipe({
 				limit: 100,
 				pluginSlug: options.pluginSlug,
-				includeDisabled: options.includeDisabled,
+				includeHidden: options.includeHidden,
 			}),
 		);
 		return result.items;
@@ -125,7 +125,7 @@ export const findSavedViewById = (
 	id: ContractSuccess<"savedViews", "create">["id"],
 ) =>
 	Effect.gen(function* () {
-		const views = yield* listSavedViews(client, { includeDisabled: true });
+		const views = yield* listSavedViews(client, { includeHidden: true });
 		return requirePresent(
 			views.find((view) => view.id === id),
 			`Saved view '${id}' not found`,

@@ -117,10 +117,10 @@ export const ArchiveInstallation = strictStruct({
 	updatedAt: isoTimestamp,
 	sortOrder: Schema.Finite,
 	packageKey: Schema.String,
-	disabledIntent: Schema.Boolean,
+	hiddenIntent: Schema.Boolean,
 	homeSavedViewSlug: Schema.NullOr(Schema.String),
 	configuredSecretPaths: Schema.Array(Schema.String),
-	lifecycleIntent: Schema.Literals(["ready", "needs-configuration", "disabled"]),
+	lifecycleIntent: Schema.Literals(["ready", "needs-configuration", "hidden"]),
 });
 export type ArchiveInstallation = typeof ArchiveInstallation.Type;
 
@@ -217,7 +217,7 @@ const savedViewFields = {
 	createdAt: isoTimestamp,
 	updatedAt: isoTimestamp,
 	sortOrder: Schema.Finite,
-	isDisabled: Schema.Boolean,
+	isHidden: Schema.Boolean,
 	pluginKey: Schema.NullOr(Schema.String),
 	dataSources: Schema.NullOr(RyotQLDocument),
 	settings: Schema.Record(Schema.String, jsonValueSchema),
@@ -241,7 +241,7 @@ export const ArchiveSavedView = Schema.Union([
 		id: Schema.String,
 		slug: Schema.String,
 		sortOrder: Schema.Finite,
-		isDisabled: Schema.Boolean,
+		isHidden: Schema.Boolean,
 		isBuiltin: Schema.Literal(true),
 		pluginKey: Schema.NullOr(Schema.String),
 		kind: Schema.Literal("builtin-override"),

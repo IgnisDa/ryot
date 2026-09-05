@@ -110,7 +110,7 @@ export const privatePluginPackage = (
 export const settledPrivateInstallation = (client: Client, pluginSlug: PluginSlug) =>
 	pollUntil(
 		`installation of private plugin '${pluginSlug}'`,
-		listInstalledPlugins(client, { includeDisabled: true }).pipe(
+		listInstalledPlugins(client, { includeHidden: true }).pipe(
 			Effect.map((installations) => {
 				const installed = installations.find((entry) => entry.slug === pluginSlug);
 				return installed && installed.health !== "installing" ? installed : null;

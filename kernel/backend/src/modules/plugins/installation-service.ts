@@ -79,7 +79,7 @@ const isUsableHomeSavedView = (
 	target: HomeSavedViewTarget,
 	pluginsById: ReadonlyMap<string, Pick<StoredPlugin, "manifest">>,
 ) => {
-	if (target.view.isDisabled) {
+	if (target.view.isHidden) {
 		return false;
 	}
 	if (target.view.renderer.kind === "kernel") {
@@ -449,7 +449,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						yield* database.acquireUserWriteLock(userId);
 						const usablePluginIds = new Set(
 							(yield* installations.listForUser(userId))
-								.filter((candidate) => candidate.health === "ready" && !candidate.isDisabled)
+								.filter((candidate) => candidate.health === "ready" && !candidate.isHidden)
 								.map(({ pluginId }) => pluginId),
 						);
 						const rendererPlugins = new Map(
@@ -467,9 +467,9 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 									reason: { code: "home-view-not-found", savedViewSlug: payload.savedViewSlug },
 								});
 							}
-							if (target.view.isDisabled) {
+							if (target.view.isHidden) {
 								return yield* new PluginRequestError({
-									reason: { code: "home-view-disabled", savedViewSlug: payload.savedViewSlug },
+									reason: { code: "home-view-hidden", savedViewSlug: payload.savedViewSlug },
 								});
 							}
 							if (!isUsableHomeSavedView(target, rendererPlugins)) {
@@ -576,7 +576,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 									config,
 									pluginId,
 									sortOrder,
-									isDisabled: false,
+									isHidden: false,
 									health: "installing",
 									userId: input.userId,
 								});
@@ -710,8 +710,8 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 										const state = yield* installations.updateState({
 											id: currentInstallation.id,
 											config: configResult.success,
+											isHidden: currentInstallation.isHidden,
 											sortOrder: currentInstallation.sortOrder,
-											isDisabled: currentInstallation.isDisabled,
 										});
 										if (!state) {
 											return yield* new PluginNotFoundError({
@@ -779,9 +779,9 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				) {
 					return yield* new PluginConflictError({ reason: { pluginSlug, code: "system-plugin" } });
 				}
-				const isDisabled = payload.isDisabled ?? state.isDisabled;
+				const isHidden = payload.isHidden ?? state.isHidden;
 				if (
-					payload.isDisabled === false &&
+					payload.isHidden === false &&
 					state.health !== "ready" &&
 					state.health !== "needs-configuration"
 				) {
@@ -796,7 +796,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				const saved = yield* Effect.uninterruptible(
 					installations.updateState({
 						config,
-						isDisabled,
+						isHidden,
 						id: state.id,
 						sortOrder: payload.sortOrder ?? state.sortOrder,
 					}),

@@ -75,11 +75,11 @@ const customizeLayer = (fail?: Call["kind"]) =>
 const plan: CustomizePlan = {
 	reorders: [{ viewSlugs: ["all", "recent"] }],
 	workspaceUpdates: [
-		{ pluginSlug: PluginSlug.make("media"), payload: { sortOrder: 0, isDisabled: false } },
+		{ pluginSlug: PluginSlug.make("media"), payload: { sortOrder: 0, isHidden: false } },
 	],
 	updates: [
-		{ viewSlug: "shows", payload: { icon: "list", name: "Shows", isDisabled: true } },
-		{ viewSlug: "all", payload: { name: "All", icon: "list", isDisabled: false } },
+		{ viewSlug: "shows", payload: { icon: "list", name: "Shows", isHidden: true } },
+		{ viewSlug: "all", payload: { name: "All", icon: "list", isHidden: false } },
 	],
 };
 
@@ -94,18 +94,18 @@ describe("customize sidebar service", () => {
 					{
 						kind: "update",
 						params: { viewSlug: "shows" },
-						payload: { icon: "list", name: "Shows", isDisabled: true },
+						payload: { icon: "list", name: "Shows", isHidden: true },
 					},
 					{
 						kind: "update",
 						params: { viewSlug: "all" },
-						payload: { name: "All", icon: "list", isDisabled: false },
+						payload: { name: "All", icon: "list", isHidden: false },
 					},
 					{ kind: "reorder", payload: { viewSlugs: ["all", "recent"] } },
 					{
 						kind: "workspace",
 						params: { pluginSlug: "media" },
-						payload: { sortOrder: 0, isDisabled: false },
+						payload: { sortOrder: 0, isHidden: false },
 					},
 				]);
 			}),

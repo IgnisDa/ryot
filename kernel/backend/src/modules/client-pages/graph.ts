@@ -26,7 +26,7 @@ export type ResolvedClientPageGraph = {
 
 export type GraphPlugin = Pick<
 	AvailablePlugin,
-	"id" | "slug" | "sourceHash" | "clientArtifactHash" | "manifest" | "health" | "isDisabled"
+	"id" | "slug" | "sourceHash" | "clientArtifactHash" | "manifest" | "health" | "isHidden"
 >;
 
 export const clientPageCodeContributors = (
@@ -189,7 +189,7 @@ export const resolveClientPageGraph = Effect.fn("ClientPages.resolve-composition
 	const registry: ClientPageCompositionIdentity["automaticRegistry"][number][] = [];
 	if (automatic) {
 		for (const plugin of ordered(
-			input.plugins.filter((p) => p.health === "ready" && !p.isDisabled && p.manifest.client),
+			input.plugins.filter((p) => p.health === "ready" && !p.isHidden && p.manifest.client),
 			(p) => p.slug,
 		)) {
 			for (const [entitySchemaSlug, registration] of ordered(

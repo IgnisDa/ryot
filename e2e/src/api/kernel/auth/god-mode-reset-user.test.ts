@@ -122,9 +122,9 @@ describe("Reset user for credential user", () => {
 			yield* listPluginsWithHeaders({ "X-Api-Key": apiKey });
 
 			const plugin = yield* findBuiltinPluginBySlug(userClient, "media");
-			yield* updatePluginState(userClient, plugin.slug, { sortOrder: 41, isDisabled: true });
+			yield* updatePluginState(userClient, plugin.slug, { sortOrder: 41, isHidden: true });
 			const configuredPlugin = yield* findBuiltinPluginBySlug(userClient, "media");
-			expect(configuredPlugin).toMatchObject({ sortOrder: 41, isDisabled: true });
+			expect(configuredPlugin).toMatchObject({ sortOrder: 41, isHidden: true });
 
 			const accepted = yield* requestUserReset(userId);
 			expect(accepted).toEqual({ operationId: expect.any(String) });
@@ -161,7 +161,7 @@ describe("Reset user for credential user", () => {
 			expect(plugins.some((candidate) => candidate.slug === "media")).toBe(true);
 			const resetPlugin = plugins.find((candidate) => candidate.slug === plugin.slug);
 			assertPresent(resetPlugin, "expected the installed plugin after reset");
-			expect(resetPlugin).toMatchObject({ sortOrder: 0, isDisabled: false });
+			expect(resetPlugin).toMatchObject({ sortOrder: 0, isHidden: false });
 		}),
 	);
 });

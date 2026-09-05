@@ -13,8 +13,8 @@ const plugin = (slug: string, client: NonNullable<PluginManifest["client"]>): Gr
 	return {
 		slug,
 		health: "ready",
+		isHidden: false,
 		id: `${slug}-id`,
-		isDisabled: false,
 		sourceHash: `${slug}-source`,
 		clientArtifactHash: `${slug}-hash`,
 		manifest: { ...manifest, client, metadata: { ...manifest.metadata, slug } },

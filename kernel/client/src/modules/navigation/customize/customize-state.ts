@@ -9,7 +9,7 @@ export type CustomizeDraftItem = {
 	readonly slug: string;
 	readonly name: string;
 	readonly icon: string;
-	readonly isDisabled: boolean;
+	readonly isHidden: boolean;
 };
 
 export type CustomizeDraftViewItem = CustomizeDraftItem & { readonly pluginSlug: string | null };
@@ -27,26 +27,18 @@ const draftItems = (items: readonly NavigationView[], scopeSlug: string | null |
 	[...items]
 		.filter((item) => item.pluginSlug === scopeSlug)
 		.sort((left, right) => left.sortOrder - right.sortOrder)
-		.map(({ icon, name, slug, isDisabled, pluginSlug }) => ({
+		.map(({ icon, name, slug, isHidden, pluginSlug }) => ({
 			icon,
 			slug,
 			name,
-			isDisabled,
+			isHidden,
 			pluginSlug,
 		}));
 
 const draftWorkspaces = (catalog: PluginClientCatalog) =>
-	sortWorkspaces(catalog).map(({ icon, name, slug, isDisabled }) => ({
-		icon,
-		slug,
-		name,
-		isDisabled,
-	}));
+	sortWorkspaces(catalog).map(({ icon, name, slug, isHidden }) => ({ icon, slug, name, isHidden }));
 
-const withVisibilityFlipped = (item: CustomizeDraftItem) => ({
-	...item,
-	isDisabled: !item.isDisabled,
-});
+const withVisibilityFlipped = (item: CustomizeDraftItem) => ({ ...item, isHidden: !item.isHidden });
 
 const areSectionsEqual = (
 	left: readonly CustomizeDraftItem[],
@@ -54,8 +46,7 @@ const areSectionsEqual = (
 ) =>
 	left.length === right.length &&
 	left.every(
-		(item, index) =>
-			item.slug === right[index]?.slug && item.isDisabled === right[index]?.isDisabled,
+		(item, index) => item.slug === right[index]?.slug && item.isHidden === right[index]?.isHidden,
 	);
 
 export function initCustomizeDraft(props: {
@@ -107,8 +98,8 @@ export function toggleCustomizeItem(props: {
 	}
 	if (
 		props.section === "workspaces" &&
-		!item.isDisabled &&
-		items.filter(({ isDisabled }) => !isDisabled).length === 1
+		!item.isHidden &&
+		items.filter(({ isHidden }) => !isHidden).length === 1
 	) {
 		return props.draft;
 	}
@@ -134,7 +125,7 @@ export function customizeSectionCounts(props: {
 	readonly section: CustomizeSection;
 }) {
 	const items = props.draft[props.section];
-	const shown = items.filter((item) => !item.isDisabled).length;
+	const shown = items.filter((item) => !item.isHidden).length;
 	const pinned = props.section === "views" ? 1 : 0;
 
 	return { shown: shown + pinned, total: items.length + pinned };

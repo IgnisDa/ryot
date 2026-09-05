@@ -53,7 +53,7 @@ describe("private plugins", () => {
 							field("health", column(installation, "health")),
 							field("pluginSlug", column(plugin, "slug")),
 							field("sortOrder", column(installation, "sortOrder")),
-							field("isDisabled", column(installation, "isDisabled")),
+							field("isHidden", column(installation, "isHidden")),
 						],
 					}),
 				}),
@@ -67,9 +67,9 @@ describe("private plugins", () => {
 			for (const item of items) {
 				expect({
 					health: requireRyotQLText(item, "health"),
+					isHidden: requireRyotQLValue(item, "isHidden"),
 					sortOrder: requireRyotQLValue(item, "sortOrder"),
-					isDisabled: requireRyotQLValue(item, "isDisabled"),
-				}).toEqual({ sortOrder: 0, health: "ready", isDisabled: false });
+				}).toEqual({ sortOrder: 0, health: "ready", isHidden: false });
 			}
 		}),
 	);
@@ -89,8 +89,8 @@ describe("private plugins", () => {
 			expect(plugin.installation).toMatchObject({
 				scope: "user",
 				health: "ready",
+				isHidden: false,
 				version: "1.0.0",
-				isDisabled: false,
 				healthReason: null,
 				slug: plugin.pluginSlug,
 			});
@@ -190,7 +190,7 @@ describe("private plugins", () => {
 				})).result,
 			).toEqual({ label: "run:beta" });
 
-			yield* updatePluginState(client, plugin.pluginSlug, { isDisabled: true });
+			yield* updatePluginState(client, plugin.pluginSlug, { isHidden: true });
 			const failure = yield* Effect.flip(
 				invokePrivatePluginOperation({
 					client,
@@ -201,7 +201,7 @@ describe("private plugins", () => {
 			);
 			assertTaggedError(failure, "PluginNotFoundError");
 
-			yield* updatePluginState(client, plugin.pluginSlug, { isDisabled: false });
+			yield* updatePluginState(client, plugin.pluginSlug, { isHidden: false });
 			expect(
 				(yield* invokePrivatePluginOperation({
 					client,

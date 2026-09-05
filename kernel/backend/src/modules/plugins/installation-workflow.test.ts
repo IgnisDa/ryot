@@ -116,7 +116,7 @@ const workflowLayer = (input: {
 								userId,
 								config: {},
 								sortOrder: 0,
-								isDisabled: false,
+								isHidden: false,
 								healthReason: null,
 								id: installationId,
 								uninstalledAt: null,

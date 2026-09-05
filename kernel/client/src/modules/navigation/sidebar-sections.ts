@@ -14,12 +14,12 @@ const homeItem = {
 	kind: "home",
 	slug: "home",
 	icon: "house",
+	isHidden: false,
 	pluginSlug: null,
-	isDisabled: false,
 } satisfies SidebarItem;
 
 const enabledItems = (items: readonly SidebarItem[]) =>
-	items.filter((item) => !item.isDisabled).sort((a, b) => a.sortOrder - b.sortOrder);
+	items.filter((item) => !item.isHidden).sort((a, b) => a.sortOrder - b.sortOrder);
 
 const withKind = (item: NavigationView, kind: SidebarItem["kind"]): SidebarItem => ({
 	...item,
@@ -53,7 +53,7 @@ export const workspaceSummary = (sections: Pick<SidebarSections, "views">) =>
 
 export function workspacePickerSummary(data: NavigationData, workspaceSlug: string) {
 	const views = data.savedViews
-		.filter((item) => item.pluginSlug === workspaceSlug && !item.isDisabled)
+		.filter((item) => item.pluginSlug === workspaceSlug && !item.isHidden)
 		.sort((a, b) => a.sortOrder - b.sortOrder);
 	if (views.length === 0) {
 		return "Custom workspace · 0 views";

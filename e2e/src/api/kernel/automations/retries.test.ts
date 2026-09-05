@@ -436,7 +436,7 @@ describe("automation retries", () => {
 			const disableRun = requirePresent(runs[1], "Missing disable retry run");
 			const uninstallRun = requirePresent(runs[2], "Missing uninstall retry run");
 			yield* retry(upgradeRun);
-			yield* updatePluginState(client, replacement.pluginSlug, { isDisabled: true });
+			yield* updatePluginState(client, replacement.pluginSlug, { isHidden: true });
 			yield* retry(disableRun);
 			yield* uninstallTestPluginStrict(replacement);
 			fixture.installed.active = false;

@@ -100,17 +100,17 @@ describe("saved views management", () => {
 				name: `Disable Definition ${crypto.randomUUID()}`,
 			});
 			const before = yield* findSavedViewById(client, created.id);
-			const disabled = yield* updateSavedView(client, before.slug, { isDisabled: true });
+			const disabled = yield* updateSavedView(client, before.slug, { isHidden: true });
 			const after = yield* getSavedView(client, before.slug);
 
 			expect(disabled.id).toBe(created.id);
-			expect(after.isDisabled).toBe(true);
+			expect(after.isHidden).toBe(true);
 			expect(after.renderer).toEqual(before.renderer);
 			expect(after.settings).toEqual(before.settings);
 			expect(after.dataSources).toEqual(before.dataSources);
 			expect((yield* listSavedViews(client)).map((view) => view.id)).not.toContain(created.id);
 			expect(
-				(yield* listSavedViews(client, { includeDisabled: true })).map((view) => view.id),
+				(yield* listSavedViews(client, { includeHidden: true })).map((view) => view.id),
 			).toContain(created.id);
 		}),
 	);

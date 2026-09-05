@@ -189,7 +189,7 @@ const installedSourceHash = (
 			return requirePresent(plugin.sourceHash, `System plugin '${pluginSlug}' has no source hash`);
 		}
 		const owner = requirePresent(client, "User test plugin has no client");
-		const plugins = yield* listInstalledPlugins(owner, { includeDisabled: true });
+		const plugins = yield* listInstalledPlugins(owner, { includeHidden: true });
 		const plugin = requirePresent(
 			plugins.find(({ slug }) => slug === pluginSlug),
 			`Private plugin '${pluginSlug}' was not found after installation`,
@@ -247,7 +247,7 @@ export const installTestPlugin = (
 			);
 			yield* pollUntil(
 				`private test plugin '${pluginSlug}' installation`,
-				listInstalledPlugins(input.client, { includeDisabled: true }).pipe(
+				listInstalledPlugins(input.client, { includeHidden: true }).pipe(
 					Effect.map((installations) => {
 						const installation = installations.find(({ slug }) => slug === pluginSlug);
 						return installation?.health === "ready" ? installation : null;
@@ -351,7 +351,7 @@ export const installTestPluginBundle = (
 			);
 			yield* pollUntil(
 				`private test plugin '${pluginSlug}' installation`,
-				listInstalledPlugins(input.client, { includeDisabled: true }).pipe(
+				listInstalledPlugins(input.client, { includeHidden: true }).pipe(
 					Effect.map((installations) => {
 						const installation = installations.find(({ slug }) => slug === pluginSlug);
 						return installation?.health === "ready" ? installation : null;
@@ -433,7 +433,7 @@ export const installTestDefinitions = (input: {
 			yield* input.client.call((c) => c.plugins.install({ payload: { config: {}, uploadToken } }));
 			yield* pollUntil(
 				`private definition plugin '${input.pluginSlug}' installation`,
-				listInstalledPlugins(input.client, { includeDisabled: true }).pipe(
+				listInstalledPlugins(input.client, { includeHidden: true }).pipe(
 					Effect.map((installations) => {
 						const installation = installations.find(({ slug }) => slug === input.pluginSlug);
 						return installation?.health === "ready" ? installation : null;

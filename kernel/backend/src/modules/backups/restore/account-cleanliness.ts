@@ -45,7 +45,7 @@ type SavedViewRecord = {
 	readonly dataSources: unknown;
 	readonly sortOrder: number;
 	readonly isBuiltin: boolean;
-	readonly isDisabled: boolean;
+	readonly isHidden: boolean;
 	readonly pluginSlug: string | null;
 };
 
@@ -115,9 +115,9 @@ export const classifyAccountCleanliness = (
 			icon,
 			renderer,
 			settings,
+			isHidden,
 			isBuiltin,
 			sortOrder,
-			isDisabled,
 			pluginSlug,
 			dataSources,
 		}) => ({
@@ -126,9 +126,9 @@ export const classifyAccountCleanliness = (
 			icon,
 			renderer,
 			settings,
+			isHidden,
 			isBuiltin,
 			sortOrder,
-			isDisabled,
 			pluginSlug,
 			dataSources,
 		}),
@@ -138,7 +138,7 @@ export const classifyAccountCleanliness = (
 		name: view.name,
 		isBuiltin: true,
 		icon: view.icon,
-		isDisabled: false,
+		isHidden: false,
 		renderer: view.renderer,
 		settings: view.settings,
 		sortOrder: view.sortOrder,

@@ -42,8 +42,8 @@ export const pluginClientCatalogRecipe = defineRecipe(
 					pluginId: selectedField(column(plugin, "id"), Schema.String),
 					sourceHash: selectedField(column(plugin, "sourceHash"), Schema.String),
 					installationId: selectedField(column(installation, "id"), Schema.String),
+					isHidden: selectedField(column(installation, "isHidden"), Schema.Boolean),
 					sortOrder: selectedField(column(installation, "sortOrder"), Schema.Finite),
-					isDisabled: selectedField(column(installation, "isDisabled"), Schema.Boolean),
 					health: selectedField(column(installation, "health"), PluginInstallationHealth),
 					clientApiVersion: selectedField(column(plugin, "clientApiVersion"), Schema.Literal(1)),
 					homeSavedViewSlug: selectedField(
