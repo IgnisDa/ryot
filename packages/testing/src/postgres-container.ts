@@ -51,7 +51,7 @@ export const startPostgresContainerEffect = (input: { label: string; maxConnecti
 						"log_line_prefix=%m [%p] tx=%x ",
 					])
 					.withLogConsumer((stream) => stream.pipe(logStream))
-					.withWaitStrategy(Wait.forLogMessage("database system is ready"))
+					.withWaitStrategy(Wait.forLogMessage("database system is ready to accept connections", 2))
 					.start(),
 		}).pipe(Effect.onError(() => Effect.sync(() => logStream.end())));
 
