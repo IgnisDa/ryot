@@ -2,20 +2,22 @@ import {
 	SANDBOX_RUNTIME_EXTERNAL_SPECIFIERS,
 	SANDBOX_SDK_IMPORTS,
 } from "@ryot-app/sandbox-sdk/imports";
-import { buildDenoEsm } from "@ryot-app/vite-compiler";
-import type { CompilerWorkspaceOptions, ViteDiagnostic } from "@ryot-app/vite-compiler";
+import { buildDenoEsm, buildDenoEsmPackage } from "@ryot-app/vite-compiler";
+import type {
+	CompilerWorkspaceOptions,
+	DenoEsmBuildResult,
+	ViteCompilerError,
+	ViteDiagnostic,
+} from "@ryot-app/vite-compiler";
 import { Effect } from "effect";
 
 import {
 	type SandboxCompilerDiagnostic,
+	type SandboxCompilerFailure,
 	SANDBOX_SOURCE_FILE,
 	sandboxCompilationFailure,
 } from "./compiler-diagnostics";
 import type { SandboxTypeScriptSources } from "./compiler-project";
-
-type BundleResult =
-	| { readonly success: false; readonly diagnostics: readonly SandboxCompilerDiagnostic[] }
-	| { readonly success: true; readonly javascript: string };
 
 const outputFile = "sandbox.mjs";
 const externalDependencyImports = new Set<string>(SANDBOX_RUNTIME_EXTERNAL_SPECIFIERS);
@@ -59,62 +61,71 @@ const bundleDiagnostic = (message: string, file = SANDBOX_SOURCE_FILE) => ({
 const exactAlias = (specifier: string) =>
 	new RegExp(`^${specifier.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`);
 
-const bundleSandboxScript = (
-	sources: SandboxTypeScriptSources,
+const sdkAliases = (sdkEntries: Readonly<Record<string, string>>) =>
+	bundledSdkImports.map((specifier) => ({
+		find: exactAlias(specifier),
+		replacement: sdkEntries[specifier] ?? specifier,
+	}));
+
+const workspaceFiles = (files: SandboxTypeScriptSources["files"]) =>
+	Object.entries(files).map(([path, contents]) => ({ path, contents }));
+
+const bundleFailure = (error: ViteCompilerError) =>
+	sandboxCompilationFailure(
+		error.diagnostics?.length
+			? error.diagnostics.map(toBuildDiagnostic)
+			: [
+					bundleDiagnostic(
+						error.reason === "invalid-output"
+							? error.message
+							: `JavaScript bundling failed: ${error.message}`,
+					),
+				],
+	);
+
+const compiledJavaScript = (
+	build: DenoEsmBuildResult,
+): Effect.Effect<string, SandboxCompilerFailure> =>
+	build.diagnostics.some(({ severity }) => severity === "error")
+		? sandboxCompilationFailure(build.diagnostics.map(toBuildDiagnostic))
+		: Effect.succeed(build.javascript);
+
+export const bundleUserScript = (
+	source: string,
 	sdkEntries: Readonly<Record<string, string>>,
 	workspaceOptions: CompilerWorkspaceOptions = {},
 ) =>
 	buildDenoEsm({
 		outputFile,
 		workspaceOptions,
-		entry: sources.entry,
+		entry: SANDBOX_SOURCE_FILE,
+		aliases: sdkAliases(sdkEntries),
 		approvedExternalSpecifiers: externalDependencyImports,
-		sources: Object.entries(sources.files).map(([path, contents]) => ({ path, contents })),
-		aliases: bundledSdkImports.map((specifier) => ({
-			find: exactAlias(specifier),
-			replacement: sdkEntries[specifier] ?? specifier,
-		})),
+		sources: workspaceFiles({ [SANDBOX_SOURCE_FILE]: source }),
+	}).pipe(Effect.mapError(bundleFailure), Effect.flatMap(compiledJavaScript));
+
+export const bundleSandboxPackage = (
+	files: SandboxTypeScriptSources["files"],
+	entries: ReadonlyArray<string>,
+	sdkEntries: Readonly<Record<string, string>>,
+	concurrency: number,
+	workspaceOptions: CompilerWorkspaceOptions = {},
+) =>
+	buildDenoEsmPackage({
+		entries,
+		outputFile,
+		concurrency,
+		workspaceOptions,
+		sources: workspaceFiles(files),
+		aliases: sdkAliases(sdkEntries),
+		approvedExternalSpecifiers: externalDependencyImports,
 	}).pipe(
-		Effect.map(({ javascript, diagnostics }) =>
-			diagnostics.some(({ severity }) => severity === "error")
-				? ({
-						success: false,
-						diagnostics: diagnostics.map(toBuildDiagnostic),
-					} satisfies BundleResult)
-				: ({ javascript, success: true } satisfies BundleResult),
-		),
-		Effect.catchIf(
-			(error) => error.reason === "invalid-output",
-			(error) =>
-				Effect.succeed({
-					success: false,
-					diagnostics: error.diagnostics?.length
-						? error.diagnostics.map(toBuildDiagnostic)
-						: [bundleDiagnostic(error.message)],
-				} satisfies BundleResult),
-		),
-		Effect.mapError((error) =>
-			sandboxCompilationFailure(
-				error.diagnostics?.length
-					? error.diagnostics.map(toBuildDiagnostic)
-					: [bundleDiagnostic(`JavaScript bundling failed: ${error.message}`)],
+		Effect.mapError(bundleFailure),
+		Effect.flatMap((modules) =>
+			Effect.forEach(modules, (module) =>
+				compiledJavaScript(module).pipe(
+					Effect.map((javascript) => ({ javascript, entry: module.entry })),
+				),
 			),
 		),
 	);
-
-export const bundleUserScript = (
-	source: string,
-	sdkEntries: Readonly<Record<string, string>>,
-	workspaceOptions?: CompilerWorkspaceOptions,
-) =>
-	bundleSandboxScript(
-		{ entry: SANDBOX_SOURCE_FILE, files: { [SANDBOX_SOURCE_FILE]: source } },
-		sdkEntries,
-		workspaceOptions,
-	);
-
-export const bundleBuiltInScript = (
-	sources: SandboxTypeScriptSources,
-	sdkEntries: Readonly<Record<string, string>>,
-	workspaceOptions?: CompilerWorkspaceOptions,
-) => bundleSandboxScript(sources, sdkEntries, workspaceOptions);
