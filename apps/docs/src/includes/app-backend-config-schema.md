@@ -24,12 +24,12 @@
 | App Config Key | Variable | Description | Required | Sensitive | Default |
 |---|---|---|---|---|---|
 | `server.logFile` | `SERVER_LOG_FILE` | File path for appended structured logs | No | No | — |
-| `server.otlpEndpoint` | `SERVER_OTLP_ENDPOINT` | Base URL for OTLP trace export | No | No | — |
+| `server.otlpEndpoint` | `SERVER_OTLP_ENDPOINT` | Base URL for OTLP traces and metrics export | No | No | — |
 | `server.logLevel` | `SERVER_LOG_LEVEL` | Minimum application log level | No | No | `info` |
 | `server.proKey` | `SERVER_PRO_KEY` | The key that can be used to enable Ryot Pro features | No | Yes | — |
 | `server.disableNotifications` | `SERVER_DISABLE_NOTIFICATIONS` | Disable delivery of all notifications | No | No | `false` |
 | `server.adminAccessToken` | `SERVER_ADMIN_ACCESS_TOKEN` | Bearer token required for god-mode admin endpoints | Yes | Yes | — |
-| `server.otlpHeaders` | `SERVER_OTLP_HEADERS` | Comma-separated key=value headers sent with OTLP trace exports, such as the API token a hosted collector requires | No | Yes | — |
+| `server.otlpHeaders` | `SERVER_OTLP_HEADERS` | Comma-separated key=value headers sent with OTLP exports, such as the API token a hosted collector requires | No | Yes | — |
 
 #### OIDC provider
 
