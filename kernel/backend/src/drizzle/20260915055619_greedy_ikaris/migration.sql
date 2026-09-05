@@ -72,8 +72,6 @@ CREATE TABLE "backup_run" (
 );
 --> statement-breakpoint
 CREATE TABLE "client_page_build" (
-	"published_hash" text,
-	"kernel_renderer_name" text,
 	"graph_hash" text NOT NULL,
 	"graph_identity" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -250,7 +248,7 @@ CREATE TABLE "notification_channel" (
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "notification_subscription_state" (
+CREATE TABLE "notification_subscription" (
 	"signal_schema_slug" text NOT NULL,
 	"is_active" boolean DEFAULT true NOT NULL,
 	"metadata" jsonb,
@@ -259,7 +257,7 @@ CREATE TABLE "notification_subscription_state" (
 	"user_id" text NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"id" text PRIMARY KEY,
-	CONSTRAINT "notification_subscription_state_user_signal_unique" UNIQUE NULLS NOT DISTINCT("user_id","signal_schema_slug","signal_schema_plugin_id")
+	CONSTRAINT "notification_subscription_user_signal_unique" UNIQUE NULLS NOT DISTINCT("user_id","signal_schema_slug","signal_schema_plugin_id")
 );
 --> statement-breakpoint
 CREATE TABLE "oauth_access_token" (
@@ -545,7 +543,6 @@ CREATE TABLE "signal_recipient" (
 );
 --> statement-breakpoint
 CREATE TABLE "subscription_run" (
-	"record_id" text,
 	"rule_id" text NOT NULL,
 	"rule_name" text NOT NULL,
 	"sandbox_script_id" text NOT NULL,
@@ -559,17 +556,11 @@ CREATE TABLE "subscription_run" (
 	"sandbox_error" jsonb,
 	"skip_reason" jsonb,
 	"returned_value" jsonb,
-	"operation" text NOT NULL,
-	"source_kind" text NOT NULL,
 	"queued_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"signal_id" text,
 	"status" text DEFAULT 'queued' NOT NULL,
 	"execution_user_id" text,
 	"occurrence_id" text NOT NULL,
-	CONSTRAINT "subscription_run_operation_check" CHECK ("operation" in ('create', 'update', 'delete', 'signal')),
-	CONSTRAINT "subscription_run_source_kind_check" CHECK ("source_kind" in ('entity', 'event', 'relationship', 'signal')),
-	CONSTRAINT "subscription_run_status_check" CHECK ("status" in ('queued', 'running', 'succeeded', 'failed', 'skipped')),
-	CONSTRAINT "subscription_run_source_check" CHECK ((("source_kind" = 'signal' and "operation" = 'signal' and "signal_id" is not null and "record_id" is null) or ("source_kind" <> 'signal' and "operation" <> 'signal' and "signal_id" is null and "record_id" is not null)))
+	CONSTRAINT "subscription_run_status_check" CHECK ("status" in ('queued', 'running', 'succeeded', 'failed', 'skipped'))
 );
 --> statement-breakpoint
 CREATE TABLE "two_factor" (
@@ -670,8 +661,8 @@ CREATE INDEX "managed_asset_owner_user_id_idx" ON "managed_asset" ("owner_user_i
 CREATE INDEX "migration_report_detail_report_seq_seq_idx" ON "migration_report_detail" ("report_seq","seq");--> statement-breakpoint
 CREATE INDEX "notification_channel_user_id_created_at_idx" ON "notification_channel" ("user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "notification_channel_user_id_is_disabled_idx" ON "notification_channel" ("user_id","is_disabled");--> statement-breakpoint
-CREATE INDEX "notification_subscription_state_user_id_idx" ON "notification_subscription_state" ("user_id");--> statement-breakpoint
-CREATE INDEX "notification_subscription_state_signal_schema_plugin_id_idx" ON "notification_subscription_state" ("signal_schema_plugin_id");--> statement-breakpoint
+CREATE INDEX "notification_subscription_user_id_idx" ON "notification_subscription" ("user_id");--> statement-breakpoint
+CREATE INDEX "notification_subscription_signal_schema_plugin_id_idx" ON "notification_subscription" ("signal_schema_plugin_id");--> statement-breakpoint
 CREATE INDEX "oauth_access_token_clientId_idx" ON "oauth_access_token" ("client_id");--> statement-breakpoint
 CREATE INDEX "oauth_access_token_sessionId_idx" ON "oauth_access_token" ("session_id");--> statement-breakpoint
 CREATE INDEX "oauth_access_token_userId_idx" ON "oauth_access_token" ("user_id");--> statement-breakpoint
@@ -719,7 +710,6 @@ CREATE INDEX "signal_recipient_user_id_idx" ON "signal_recipient" ("user_id");--
 CREATE INDEX "subscription_run_execution_user_id_idx" ON "subscription_run" ("execution_user_id");--> statement-breakpoint
 CREATE INDEX "subscription_run_rule_id_idx" ON "subscription_run" ("rule_id");--> statement-breakpoint
 CREATE INDEX "subscription_run_occurrence_id_idx" ON "subscription_run" ("occurrence_id");--> statement-breakpoint
-CREATE INDEX "subscription_run_signal_id_idx" ON "subscription_run" ("signal_id");--> statement-breakpoint
 CREATE INDEX "user_lifecycle_operation_user_id_idx" ON "user_lifecycle_operation" ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "user_lifecycle_operation_user_active_unique" ON "user_lifecycle_operation" ("user_id") WHERE "status" in ('pending', 'running');--> statement-breakpoint
 CREATE INDEX "verification_identifier_idx" ON "verification" ("identifier");--> statement-breakpoint
@@ -751,8 +741,8 @@ ALTER TABLE "integration_auto_disable_claim" ADD CONSTRAINT "integration_auto_di
 ALTER TABLE "managed_asset" ADD CONSTRAINT "managed_asset_owner_user_id_user_id_fkey" FOREIGN KEY ("owner_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "migration_report_detail" ADD CONSTRAINT "migration_report_detail_report_seq_migration_report_seq_fkey" FOREIGN KEY ("report_seq") REFERENCES "migration_report"("seq") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "notification_channel" ADD CONSTRAINT "notification_channel_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "notification_subscription_state" ADD CONSTRAINT "notification_subscription_state_6cYqs9dCUQns_fkey" FOREIGN KEY ("signal_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
-ALTER TABLE "notification_subscription_state" ADD CONSTRAINT "notification_subscription_state_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "notification_subscription" ADD CONSTRAINT "notification_subscription_uHCTRrCak7Fg_fkey" FOREIGN KEY ("signal_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "notification_subscription" ADD CONSTRAINT "notification_subscription_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "oauth_access_token" ADD CONSTRAINT "oauth_access_token_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "oauth_access_token" ADD CONSTRAINT "oauth_access_token_session_id_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "session"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "oauth_access_token" ADD CONSTRAINT "oauth_access_token_client_id_oauth_client_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "oauth_client"("client_id");--> statement-breakpoint
@@ -791,7 +781,6 @@ ALTER TABLE "signal" ADD CONSTRAINT "signal_subject_entity_id_entity_id_fkey" FO
 ALTER TABLE "signal" ADD CONSTRAINT "signal_signal_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("signal_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "signal_recipient" ADD CONSTRAINT "signal_recipient_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "signal_recipient" ADD CONSTRAINT "signal_recipient_signal_id_signal_id_fkey" FOREIGN KEY ("signal_id") REFERENCES "signal"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "subscription_run" ADD CONSTRAINT "subscription_run_signal_id_signal_id_fkey" FOREIGN KEY ("signal_id") REFERENCES "signal"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "subscription_run" ADD CONSTRAINT "subscription_run_execution_user_id_user_id_fkey" FOREIGN KEY ("execution_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "subscription_run" ADD CONSTRAINT "subscription_run_occurrence_id_automation_occurrence_id_fkey" FOREIGN KEY ("occurrence_id") REFERENCES "automation_occurrence"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "two_factor" ADD CONSTRAINT "two_factor_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;
