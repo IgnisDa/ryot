@@ -531,6 +531,7 @@ export const mediaPlugin = definePlugin({
 	],
 	httpRateLimits: [
 		{ requests: 90, key: "anilist", intervalMs: 60_000, origins: ["https://graphql.anilist.co"] },
+		{ requests: 90, key: "spotify", intervalMs: 60_000, origins: ["https://api.spotify.com"] },
 		{ requests: 1, intervalMs: 1_000, key: "musicbrainz", origins: ["https://musicbrainz.org"] },
 	],
 	metadata: {
