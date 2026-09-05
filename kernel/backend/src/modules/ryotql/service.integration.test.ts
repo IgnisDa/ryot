@@ -118,18 +118,11 @@ const insertPlugin = Effect.fn(function* (input: {
 		Effect.gen(function* () {
 			yield* db
 				.insert(plugin)
-				.values({
-					id: input.id,
-					slug: input.slug,
-					status: "disabled",
-					ownerId: input.ownerId,
-					scope: input.ownerId === null ? "system" : "user",
-				});
+				.values({ id: input.id, slug: input.slug, status: "disabled", ownerId: input.ownerId });
 			yield* db
 				.insert(pluginRevision)
 				.values({
 					id: revisionId,
-					version: "1.0.0",
 					pluginId: input.id,
 					sourceHash: `${input.id}-hash`,
 					manifest: manifest(input.slug, input.homeView),
@@ -158,7 +151,6 @@ const configRevision = (
 	encryptedPayload: Buffer.alloc(16),
 	ownerUserId: installation?.ownerUserId ?? null,
 	pluginInstallationId: installation?.pluginInstallationId ?? null,
-	scope: installation ? ("installation" as const) : ("environment" as const),
 });
 
 const script = (id: string, slug: string, pluginRevisionId: string | null) => ({
@@ -168,8 +160,8 @@ const script = (id: string, slug: string, pluginRevisionId: string | null) => ({
 	metadata: {},
 	pluginRevisionId,
 	contentHash: "hash",
-	source: "private-source",
 	compiledCode: "private-code",
+	source: pluginRevisionId === null ? "private-source" : null,
 });
 
 const definition = (id: string, pluginId: string | null, position = 0) => ({
@@ -274,8 +266,8 @@ const seedCatalog = Effect.gen(function* () {
 				})),
 			);
 			yield* db.insert(plugin).values([
-				{ scope: "system", slug: "installed", status: "disabled", id: "installed-plugin" },
-				{ slug: "removed", scope: "system", status: "disabled", id: "removed-plugin" },
+				{ slug: "installed", status: "disabled", id: "installed-plugin" },
+				{ slug: "removed", status: "disabled", id: "removed-plugin" },
 			]);
 			yield* insertPlugin({
 				ownerId: null,

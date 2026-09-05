@@ -68,7 +68,9 @@ const makeTestLayer = (processSandbox: TranslateEntityWorkflowOperationsValue["p
 				Layer.mock(TranslationsService)({
 					requestFill: () => Effect.void,
 					upsert: (input) =>
-						Ref.update(upserts, (all) => [...all, input]).pipe(Effect.as("translation-id")),
+						Ref.update(upserts, (all) => [...all, input]).pipe(
+							Effect.as({ entityId: input.entityId, language: input.language }),
+						),
 				}),
 				Layer.succeed(FakeTranslationEffects, {
 					upserts: Ref.get(upserts),

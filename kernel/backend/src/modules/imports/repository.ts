@@ -48,7 +48,6 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			source: ImportRunSource;
 			pluginInstallationId: string;
 			inputSummary: Record<string, unknown>;
-			executionKind: ImportRunExecutionKind;
 			integrationId: IntegrationId | null;
 			integrationLot: IntegrationLot | null;
 		}) {
@@ -59,7 +58,6 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 						userId: input.userId,
 						source: input.source,
 						inputSummary: input.inputSummary,
-						executionKind: input.executionKind,
 						integrationId: input.integrationId,
 						integrationLot: input.integrationLot,
 						pluginInstallationId: input.pluginInstallationId,
@@ -78,12 +76,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			pluginInstallationId: string;
 			inputSummary: Record<string, unknown>;
 		}) {
-			return yield* insertRun({
-				...input,
-				integrationId: null,
-				integrationLot: null,
-				executionKind: "source",
-			});
+			return yield* insertRun({ ...input, integrationId: null, integrationLot: null });
 		});
 
 		const createIntegrationRun = Effect.fn("ImportsRepository.createIntegrationRun")(
@@ -95,7 +88,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 				pluginInstallationId: string;
 				inputSummary: Record<string, unknown>;
 			}) {
-				return yield* insertRun({ ...input, executionKind: "integration" });
+				return yield* insertRun(input);
 			},
 		);
 
@@ -151,7 +144,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 						.select({
 							id: schema.importRun.id,
 							status: schema.importRun.status,
-							executionKind: schema.importRun.executionKind,
+							integrationId: schema.importRun.integrationId,
 						})
 						.from(schema.importRun)
 						.where(
@@ -159,7 +152,14 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 						)
 						.limit(1),
 				);
-				return row ? { ...row, id: ImportRunId.make(row.id) } : null;
+				return row
+					? {
+							status: row.status,
+							id: ImportRunId.make(row.id),
+							executionKind:
+								row.integrationId === null ? ("source" as const) : ("integration" as const),
+						}
+					: null;
 			},
 		);
 

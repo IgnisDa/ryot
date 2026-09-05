@@ -539,20 +539,22 @@ describe("plugin repository revisions", () => {
 	});
 
 	layer(revisionDatabaseLayer)((test) => {
-		test.effect("updates provider operation pointers without changing retained script rows", () =>
+		test.effect("projects active provider operations without changing retained script rows", () =>
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
 				const first = yield* installRevisionPackage(revisionPackage());
-				const old = yield* session.run((db) => db.select().from(tables.sandboxProviderOperation));
+				const old = yield* session.run((db) =>
+					db.select().from(tables.userSandboxProviderOperation),
+				);
 				yield* installRevisionPackage(revisionPackage("fixture", "v2"));
 				const current = yield* session.run((db) =>
-					db.select().from(tables.sandboxProviderOperation),
+					db.select().from(tables.userSandboxProviderOperation),
 				);
 				expect(current.map(({ providerId }) => providerId)).toEqual(
 					old.map(({ providerId }) => providerId),
 				);
-				expect(current.map(({ scriptId }) => scriptId)).not.toEqual(
-					old.map(({ scriptId }) => scriptId),
+				expect(current.map(({ operation }) => operation)).toEqual(
+					old.map(({ operation }) => operation),
 				);
 				expect(current.find(({ operation }) => operation === "search")?.optionsSchema).toEqual({
 					fields: {},
@@ -565,6 +567,57 @@ describe("plugin repository revisions", () => {
 							.where(eq(tables.sandboxScript.pluginRevisionId, first.revisionId)),
 					)).length,
 				).toBe(5);
+			}),
+		);
+	});
+
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("enforces one immutable script per revision and slug", () =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const installed = yield* installRevisionPackage(revisionPackage());
+				const [script] = yield* session.run((db) =>
+					db
+						.select()
+						.from(tables.sandboxScript)
+						.where(eq(tables.sandboxScript.pluginRevisionId, installed.revisionId))
+						.limit(1),
+				);
+				assert(script);
+				const duplicate = yield* Effect.result(
+					session.transaction(
+						session.run((db) =>
+							db
+								.insert(tables.sandboxScript)
+								.values({ ...script, id: "conflicting-script", contentHash: "different-hash" }),
+						),
+					),
+				);
+				expect(Result.isFailure(duplicate)).toBe(true);
+			}),
+		);
+	});
+
+	layer(revisionDatabaseLayer)((test) => {
+		test.effect("keeps system and user plugin slugs separate without a stored scope", () =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				yield* session.run((db) =>
+					db.insert(tables.plugin).values([
+						{ id: "system", slug: "shared", status: "inactive" },
+						{ id: "owner", slug: "shared", ownerId: "owner", status: "inactive" },
+						{ slug: "shared", id: "recipient", status: "inactive", ownerId: "recipient" },
+					]),
+				);
+				for (const duplicate of [
+					{ slug: "shared", status: "inactive", id: "second-system" },
+					{ slug: "shared", ownerId: "owner", id: "second-owner", status: "inactive" },
+				]) {
+					const result = yield* Effect.result(
+						session.transaction(session.run((db) => db.insert(tables.plugin).values(duplicate))),
+					);
+					expect(Result.isFailure(result)).toBe(true);
+				}
 			}),
 		);
 	});
@@ -607,9 +660,7 @@ describe("plugin repository revisions", () => {
 							.insert(tables.sandboxWorkflowReference)
 							.values({
 								scriptId: root.id,
-								pluginId: first.pluginId,
 								executionId: "suspended",
-								contentHash: root.contentHash,
 								pluginInstallationId: first.installation.id,
 							}),
 					);

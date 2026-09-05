@@ -94,12 +94,11 @@ const seedCatalog = (statements: readonly string[]) =>
 					.values({ id: "owner", name: "Owner", preferences: {}, email: "owner@example.test" });
 				yield* db
 					.insert(tables.plugin)
-					.values({ id: pluginId, slug: "fixture", scope: "system", status: "inactive" });
+					.values({ id: pluginId, slug: "fixture", status: "inactive" });
 				yield* db
 					.insert(tables.pluginRevision)
 					.values({
 						pluginId,
-						version: "1.0.0",
 						id: "fixture-revision",
 						sourceHash: "fixture-source",
 						clientConfigSchema: { fields: {} },

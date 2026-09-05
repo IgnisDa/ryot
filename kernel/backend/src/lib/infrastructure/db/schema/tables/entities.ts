@@ -33,41 +33,16 @@ export const entity = snakeCase.table(
 		index("entity_entity_schema_slug_idx").on(table.entitySchemaSlug),
 		index("entity_entity_schema_plugin_id_idx").on(table.entitySchemaPluginId),
 		index("entity_properties_idx").using("gin", table.properties),
-		uniqueIndex("entity_user_plugin_external_id_unique")
+		uniqueIndex("entity_external_identity_unique")
 			.on(
-				table.userId,
 				table.externalId,
 				table.entitySchemaSlug,
-				table.providerId,
-				table.entitySchemaPluginId,
+				sql`(case when ${table.userId} is null then '0' else '1' || ${table.userId} end)`,
+				sql`(case when ${table.providerId} is null then '0' else '1' || ${table.providerId} end)`,
+				sql`(case when ${table.entitySchemaPluginId} is null then '0' else '1' || ${table.entitySchemaPluginId} end)`,
 			)
 			.where(
-				sql`${table.userId} IS NOT NULL AND ${table.externalId} IS NOT NULL AND ${table.providerId} IS NOT NULL AND ${table.entitySchemaPluginId} IS NOT NULL`,
-			),
-		uniqueIndex("entity_user_kernel_external_id_unique")
-			.on(table.userId, table.externalId, table.entitySchemaSlug, table.providerId)
-			.where(
-				sql`${table.userId} IS NOT NULL AND ${table.externalId} IS NOT NULL AND ${table.providerId} IS NOT NULL AND ${table.entitySchemaPluginId} IS NULL`,
-			),
-		uniqueIndex("entity_global_plugin_external_id_unique")
-			.on(table.externalId, table.entitySchemaSlug, table.providerId, table.entitySchemaPluginId)
-			.where(
-				sql`${table.userId} IS NULL AND ${table.providerId} IS NOT NULL AND ${table.entitySchemaPluginId} IS NOT NULL`,
-			),
-		uniqueIndex("entity_global_kernel_external_id_unique")
-			.on(table.externalId, table.entitySchemaSlug, table.providerId)
-			.where(
-				sql`${table.userId} IS NULL AND ${table.providerId} IS NOT NULL AND ${table.entitySchemaPluginId} IS NULL`,
-			),
-		uniqueIndex("entity_global_plugin_no_provider_external_id_unique")
-			.on(table.externalId, table.entitySchemaSlug, table.entitySchemaPluginId)
-			.where(
-				sql`${table.userId} IS NULL AND ${table.providerId} IS NULL AND ${table.entitySchemaPluginId} IS NOT NULL`,
-			),
-		uniqueIndex("entity_global_kernel_no_provider_external_id_unique")
-			.on(table.externalId, table.entitySchemaSlug)
-			.where(
-				sql`${table.userId} IS NULL AND ${table.providerId} IS NULL AND ${table.entitySchemaPluginId} IS NULL`,
+				sql`${table.externalId} is not null and (${table.userId} is null or ${table.providerId} is not null)`,
 			),
 	],
 );

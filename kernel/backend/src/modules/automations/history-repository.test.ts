@@ -310,12 +310,9 @@ describe("automation retry persistence", () => {
 				yield* (yield* DatabaseSession).run((db) =>
 					Effect.gen(function* () {
 						const base = fixtureManifest();
-						yield* db
-							.insert(plugin)
-							.values({ id: "plugin", slug: "fixture", scope: "system", status: "inactive" });
+						yield* db.insert(plugin).values({ id: "plugin", slug: "fixture", status: "inactive" });
 						yield* db.insert(pluginRevision).values([
 							{
-								version: "1",
 								sourceHash: "old",
 								pluginId: "plugin",
 								id: "pinned-revision",
@@ -340,7 +337,6 @@ describe("automation retry persistence", () => {
 								},
 							},
 							{
-								version: "2",
 								manifest: base,
 								pluginId: "plugin",
 								sourceHash: "current",
@@ -357,7 +353,6 @@ describe("automation retry persistence", () => {
 							.values({
 								id: "config",
 								configuredKeys: [],
-								scope: "environment",
 								encryptionKeyId: "key",
 								nonce: Buffer.alloc(12),
 								payloadFingerprint: "fingerprint",
@@ -366,7 +361,7 @@ describe("automation retry persistence", () => {
 							});
 						yield* db
 							.update(sandboxScript)
-							.set({ pluginRevisionId: "pinned-revision" })
+							.set({ source: null, pluginRevisionId: "pinned-revision" })
 							.where(eq(sandboxScript.id, "script"));
 						yield* db
 							.update(automationTrigger)

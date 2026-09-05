@@ -122,7 +122,20 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 								.delete(coreSchema.sandboxWorkflowReference)
 								.where(
 									or(
-										inArray(coreSchema.sandboxWorkflowReference.pluginId, privatePluginIds),
+										inArray(
+											coreSchema.sandboxWorkflowReference.scriptId,
+											db
+												.select({ id: coreSchema.sandboxScript.id })
+												.from(coreSchema.sandboxScript)
+												.innerJoin(
+													coreSchema.pluginRevision,
+													eq(
+														coreSchema.pluginRevision.id,
+														coreSchema.sandboxScript.pluginRevisionId,
+													),
+												)
+												.where(inArray(coreSchema.pluginRevision.pluginId, privatePluginIds)),
+										),
 										inArray(
 											coreSchema.sandboxWorkflowReference.pluginInstallationId,
 											installationIds,

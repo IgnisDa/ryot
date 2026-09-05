@@ -586,7 +586,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 										? isNull(schema.entity.providerId)
 										: and(
 												eq(schema.plugin.slug, input.provider.pluginSlug),
-												eq(schema.plugin.scope, "system"),
+												isNull(schema.plugin.ownerId),
 												eq(schema.sandboxProvider.slug, input.provider.providerSlug),
 											),
 								),

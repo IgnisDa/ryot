@@ -161,7 +161,7 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 	.add(
 		HttpApiEndpoint.put("upsertEntityTranslation", "/test-support/entity-translations", {
 			error: testSupportErrors,
-			success: Schema.Struct({ id: Schema.String }),
+			success: Schema.Struct({ entityId: EntityId, language: Schema.String }),
 			payload: Schema.Struct({
 				entityId: EntityId,
 				language: Schema.String,

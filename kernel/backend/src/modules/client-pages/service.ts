@@ -6,7 +6,7 @@ import {
 	type PreparedClientPage,
 } from "@ryot-app/contract/modules/client-pages/schemas";
 import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -471,7 +471,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 								schema.pluginRevision,
 								eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
 							)
-							.where(and(eq(schema.plugin.status, "active"), eq(schema.plugin.scope, "system"))),
+							.where(and(eq(schema.plugin.status, "active"), isNull(schema.plugin.ownerId))),
 					);
 					const available: GraphPlugin[] = yield* Effect.forEach(rows, (row) =>
 						decodeStoredManifest(row.manifest, row.slug).pipe(
