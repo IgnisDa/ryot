@@ -8,7 +8,11 @@ import { mediaArtworkClass, type MediaArtworkAspect } from "./entity-presentatio
 import { collectManagedAssetLocators, preferredMediaImageAsset } from "./image";
 import { ManagedAssetImage } from "./managed-assets";
 import { MediaRail } from "./overview";
-import { mediaOverviewAssets, mediaRelationsAreEmpty } from "./overview-state";
+import {
+	mediaOverviewAssets,
+	mediaRelationsAreEmpty,
+	type MediaUnlinkedCreator,
+} from "./overview-state";
 import { MediaOverviewSection } from "./primitives";
 import { mediaSyncCounts } from "./sync-counts";
 
@@ -31,8 +35,10 @@ export const mediaGroupOverviewManagedAssets = (overview: MediaGroupOverview) =>
 		...mediaGroupMembers(overview).map(mediaGroupMemberAsset),
 	]);
 
-export const mediaGroupOverviewIsEmpty = (overview: MediaGroupOverview) =>
-	mediaRelationsAreEmpty(overview) && mediaGroupMembers(overview).length === 0;
+export const mediaGroupOverviewIsEmpty = (
+	overview: MediaGroupOverview,
+	unlinked: readonly MediaUnlinkedCreator[] = [],
+) => mediaRelationsAreEmpty(overview, unlinked) && mediaGroupMembers(overview).length === 0;
 
 export function MediaPartOfSection(props: {
 	readonly title: string;

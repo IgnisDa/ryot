@@ -10,6 +10,8 @@ export type MediaCompany = MediaOverviewRows["companies"]["items"][number];
 
 export type MediaRecommendation = MediaOverviewRows["recommendations"]["items"][number];
 
+export type MediaUnlinkedCreator = { readonly name: string; readonly role: string };
+
 export type MediaOverviewState<Overview> = MappedRyotQueryState<{
 	readonly status: "ready";
 	readonly overview: Overview;
@@ -27,11 +29,11 @@ export const mapMediaOverview = <Overview>(
 	return state.status === "ready" ? { status: "ready", overview: state.value } : state;
 };
 
-export const mediaOverviewError = (state: MediaOverviewFailure) => ({
+export const mediaOverviewError = (state: MediaOverviewFailure, subject: string) => ({
 	title: "Unable to load these details",
 	detail:
 		state.status === "transport-error"
-			? "The cast, companies and recommendations could not be loaded. Check your connection and try again."
+			? `${subject} could not be loaded. Check your connection and try again.`
 			: "These details came back in a form that could not be displayed. Try again later.",
 });
 
@@ -59,7 +61,18 @@ export const mediaRolesLabel = (roles: readonly string[] | null) =>
 export const mediaCharacterLabel = (character: string | null) =>
 	character === null || character === "" ? undefined : `as ${character}`;
 
-export const mediaRelationsAreEmpty = (overview: MediaOverviewRows) =>
+const UNLINKED_COMPANY_ROLE = "Publisher";
+
+export const mediaUnlinkedCredits = (unlinked: readonly MediaUnlinkedCreator[]) => ({
+	people: unlinked.filter(({ role }) => role !== UNLINKED_COMPANY_ROLE),
+	companies: unlinked.filter(({ role }) => role === UNLINKED_COMPANY_ROLE),
+});
+
+export const mediaRelationsAreEmpty = (
+	overview: MediaOverviewRows,
+	unlinked: readonly MediaUnlinkedCreator[] = [],
+) =>
+	unlinked.length === 0 &&
 	overview.people.items.length === 0 &&
 	overview.companies.items.length === 0 &&
 	overview.recommendations.items.length === 0;
