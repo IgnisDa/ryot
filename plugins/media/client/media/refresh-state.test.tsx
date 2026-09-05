@@ -47,6 +47,7 @@ describe("show refresh failures", () => {
 				{ query: () => Promise.resolve({}) },
 				<ShowScreenBody
 					compact
+					safeAreaTop={0}
 					episodes={null}
 					activity={null}
 					refresh={retry}
