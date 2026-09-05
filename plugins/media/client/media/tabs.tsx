@@ -1,24 +1,19 @@
 import clsx from "clsx";
 
-export type ShowTabKey = "overview" | "episodes" | "activity";
+export type MediaTab<Key extends string> = { readonly key: Key; readonly label: string };
 
-const SHOW_TABS: readonly { readonly key: ShowTabKey; readonly label: string }[] = [
-	{ key: "overview", label: "Overview" },
-	{ key: "episodes", label: "Episodes" },
-	{ key: "activity", label: "Activity" },
-];
-
-export function ShowTabBar(props: {
+export function MediaTabBar<Key extends string>(props: {
 	readonly compact: boolean;
-	readonly activeTab: ShowTabKey;
-	readonly onSelect: (tab: ShowTabKey) => void;
+	readonly activeTab: Key;
+	readonly tabs: readonly MediaTab<Key>[];
+	readonly onSelect: (tab: Key) => void;
 }) {
 	return (
 		<div
 			role="tablist"
 			className={clsx("flex border-b border-border", !props.compact && "justify-start gap-2")}
 		>
-			{SHOW_TABS.map((tab) => {
+			{props.tabs.map((tab) => {
 				const isActive = tab.key === props.activeTab;
 				return (
 					<button

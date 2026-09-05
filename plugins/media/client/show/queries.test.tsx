@@ -4,6 +4,7 @@ import { fireEvent, getByRole, waitFor } from "@testing-library/dom";
 import { act } from "react";
 import { describe, expect, it } from "vitest";
 
+import { rowsResult } from "../../tests/client/query-result-fixture";
 import {
 	collectionAddedEventRow,
 	episodeReviewEventRow,
@@ -17,11 +18,11 @@ import {
 	showPersonRow,
 	showRecommendationRow,
 } from "../../tests/client/show/overview-fixture";
-import { rowsResult } from "../../tests/client/show/query-result-fixture";
 import { showSummaryRow } from "../../tests/client/show/summary-fixture";
 import { flushRyotClient, mountRyotClient } from "../../tests/client/test-support";
+import { MediaRefreshStatus } from "../media/primitives";
+import { classifyRyotQueryResult } from "../media/query-state";
 import { ShowEpisodesTab } from "./episodes";
-import { ShowRefreshStatus } from "./primitives";
 import {
 	showActivityQuery,
 	showEpisodesQuery,
@@ -29,7 +30,6 @@ import {
 	showSeasonEpisodesQuery,
 	showSummaryQuery,
 } from "./queries";
-import { classifyRyotQueryResult } from "./query-state";
 
 // `createEntityRefresh` debounces an entity hint through the SDK schedule before refetching.
 const ENTITY_REFRESH_DEBOUNCE_MS = 250;
@@ -95,7 +95,7 @@ function queryBehavior<Input, Data>(
 			return (
 				<>
 					<p>{classifyRyotQueryResult(result).status}</p>
-					<ShowRefreshStatus result={result} />
+					<MediaRefreshStatus result={result} />
 				</>
 			);
 		}
