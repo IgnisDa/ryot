@@ -133,6 +133,7 @@ function GodModeTokenGate(props: {
 					Admin access token
 					<input
 						required
+						autoFocus
 						value={token}
 						type="password"
 						autoComplete="off"
