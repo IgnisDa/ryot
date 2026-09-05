@@ -6,7 +6,6 @@ import remarkFrontmatter from "remark-frontmatter";
 import remarkMdxFrontmatter from "remark-mdx-frontmatter";
 import { safeRoutes } from "safe-routes/vite";
 import { defineConfig } from "vite";
-import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
 	server: { allowedHosts: true },
@@ -22,6 +21,5 @@ export default defineConfig({
 		reactRouter(),
 		safeRoutes(),
 		tailwindcss(),
-		tsconfigPaths({ ignoreConfigErrors: true }),
 	],
 });
