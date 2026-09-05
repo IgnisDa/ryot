@@ -1,10 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import {
-	videoGameOverviewRecipe,
-	videoGamePresentationRecipe,
-	videoGameSummaryRecipe,
-} from "../../shared/video-game-recipes";
+import { videoGameRecipes } from "../../shared/video-game-recipes";
 import { decodeFlatActivity } from "../../tests/client/flat-media/activity-fixture";
 import {
 	decodeFlatOverview,
@@ -30,7 +26,7 @@ const videoGameFields = {
 };
 
 const videoGameSummary = (overrides: Record<string, unknown> = {}) =>
-	decodeFlatSummary(videoGameSummaryRecipe(FLAT_SUMMARY_INPUT), {
+	decodeFlatSummary(videoGameRecipes.summaryRecipe(FLAT_SUMMARY_INPUT), {
 		...videoGameFields,
 		...overrides,
 	});
@@ -46,7 +42,7 @@ const renderBody = (overrides: Record<string, unknown> = {}) =>
 			refreshOverview={() => undefined}
 			state={{ status: "ready", summary: videoGameSummary(overrides) }}
 			overview={mapMediaOverview(
-				readyQueryResult(decodeFlatOverview(videoGameOverviewRecipe(FLAT_OVERVIEW_INPUT))),
+				readyQueryResult(decodeFlatOverview(videoGameRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT))),
 			)}
 			activity={
 				<videoGameSchema.Activity
@@ -59,29 +55,31 @@ const renderBody = (overrides: Record<string, unknown> = {}) =>
 	);
 
 const presentationData = (timeToBeatNormally: number | null) => {
-	const decoded = videoGamePresentationRecipe(["media-1"]).decode({
-		data: {
-			rows: rowsResult(
-				[
-					{
-						images: null,
-						id: "media-1",
-						publishDate: null,
-						publishYear: 2022,
-						timeToBeatNormally,
-						name: "Elden Ring",
-						progressPercent: 42,
-						state: "in_progress",
-						schemaSlug: "video-game",
-						populationStatus: "ready",
-						translationStatus: "none",
-						productionStatus: "Released",
-					},
-				],
-				{ limit: 100, hasMore: false, nextCursor: null },
-			),
-		},
-	});
+	const decoded = videoGameRecipes
+		.presentationRecipe(["media-1"])
+		.decode({
+			data: {
+				rows: rowsResult(
+					[
+						{
+							images: null,
+							id: "media-1",
+							publishDate: null,
+							publishYear: 2022,
+							timeToBeatNormally,
+							name: "Elden Ring",
+							progressPercent: 42,
+							state: "in_progress",
+							schemaSlug: "video-game",
+							populationStatus: "ready",
+							translationStatus: "none",
+							productionStatus: "Released",
+						},
+					],
+					{ limit: 100, hasMore: false, nextCursor: null },
+				),
+			},
+		});
 	if (decoded._tag === "Failure" || decoded.success[0] === undefined) {
 		throw new Error("Expected decoded presentation data");
 	}

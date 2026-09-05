@@ -1,10 +1,10 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
-import { isNull, selectedField, type Recipe } from "@ryot-app/plugin-kit/ryotql";
+import { isNull, selectedField } from "@ryot-app/plugin-kit/ryotql";
 
 import { propertyNumber } from "./entity-selections";
 import { mediaFlatRecipes } from "./media-recipes";
 
-const mangaRecipes = mediaFlatRecipes({
+export const mangaRecipes = mediaFlatRecipes({
 	slug: "manga",
 	alias: "manga",
 	presentationFields: (entity) => ({
@@ -26,16 +26,3 @@ const mangaRecipes = mediaFlatRecipes({
 		),
 	}),
 });
-
-export const {
-	summaryRecipe: mangaSummaryRecipe,
-	overviewRecipe: mangaOverviewRecipe,
-	activityRecipe: mangaActivityRecipe,
-	presentationRecipe: mangaPresentationRecipe,
-} = mangaRecipes;
-
-export type MangaActivityEvent = MangaActivityResult["events"][number];
-export type MangaSummaryResult = Recipe.Success<typeof mangaSummaryRecipe>;
-export type MangaActivityResult = Recipe.Success<typeof mangaActivityRecipe>;
-export type MangaOverviewResult = Recipe.Success<typeof mangaOverviewRecipe>;
-export type MangaPresentationData = Recipe.Success<typeof mangaPresentationRecipe>[number];
