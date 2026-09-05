@@ -53,7 +53,12 @@ import type { PluginNavigationController, PluginNavigationSnapshot } from "./nav
 
 type PluginRuntimeState = "ready" | "active" | "closing" | "failed" | "disposed";
 
-type PendingCall = { readonly complete: (result: Effect.Effect<unknown, RyotClientError>) => void };
+type RequestType = "asset" | "collection" | "operation" | "ryotql" | "storage" | "upload";
+
+type PendingCall = {
+	readonly type: RequestType;
+	readonly complete: (result: Effect.Effect<unknown, RyotClientError>) => void;
+};
 
 type PluginThemeRoot = { readonly setAttribute: (name: string, value: string) => void };
 
@@ -137,12 +142,7 @@ export const createPluginRuntime = (
 	const applyThemeMode = (mode: PluginThemeSnapshot["resolvedMode"]) =>
 		root.setAttribute("data-theme", mode);
 	const themeListeners = new Set<() => void>();
-	const assets = new Map<string, PendingCall>();
-	const collections = new Map<string, PendingCall>();
-	const queries = new Map<string, PendingCall>();
-	const uploads = new Map<string, PendingCall>();
-	const operations = new Map<string, PendingCall>();
-	const storage = new Map<string, PendingCall>();
+	const pending = new Map<string, PendingCall>();
 	const interestOwners = new Set<{
 		interest: EntityInterest;
 		onUpdate: (update: EntityUpdate) => void;
@@ -173,22 +173,10 @@ export const createPluginRuntime = (
 	};
 
 	const rejectPending = (reason: RyotClientErrorReason) => {
-		const pendingCalls = [
-			...collections.values(),
-			...operations.values(),
-			...queries.values(),
-			...assets.values(),
-			...uploads.values(),
-			...storage.values(),
-		];
-		operations.clear();
-		storage.clear();
-		collections.clear();
-		queries.clear();
-		assets.clear();
-		uploads.clear();
-		for (const pending of pendingCalls) {
-			pending.complete(Effect.fail(new RyotClientError(reason)));
+		const pendingCalls = [...pending.values()];
+		pending.clear();
+		for (const call of pendingCalls) {
+			call.complete(Effect.fail(new RyotClientError(reason)));
 		}
 	};
 	const resetDocument = () => {
@@ -241,16 +229,8 @@ export const createPluginRuntime = (
 		}
 	};
 
-	const admit = (pending: Map<string, PendingCall>, requestId: string, call: PendingCall) => {
-		if (
-			operations.size +
-				collections.size +
-				queries.size +
-				assets.size +
-				uploads.size +
-				storage.size >=
-			CLIENT_BRIDGE_MAX_PENDING_REQUESTS
-		) {
+	const admit = (requestId: string, call: PendingCall) => {
+		if (pending.size >= CLIENT_BRIDGE_MAX_PENDING_REQUESTS) {
 			finish("failed", "protocol", true);
 			call.complete(Effect.fail(new RyotClientError("protocol")));
 			return false;
@@ -260,8 +240,7 @@ export const createPluginRuntime = (
 	};
 
 	const sendRequest = (
-		pending: Map<string, PendingCall>,
-		prefix: string,
+		type: RequestType,
 		message: (requestId: string) => unknown,
 		cancel?: (requestId: string) => unknown,
 	): Effect.Effect<unknown, RyotClientError> =>
@@ -270,8 +249,8 @@ export const createPluginRuntime = (
 				complete(Effect.fail(new RyotClientError(terminalReason ?? "transport")));
 				return Effect.void;
 			}
-			const requestId = `${prefix}-${++nextRequestId}`;
-			if (!admit(pending, requestId, { complete })) {
+			const requestId = `${type}-${++nextRequestId}`;
+			if (!admit(requestId, { type, complete })) {
 				return Effect.void;
 			}
 			post(message(requestId));
@@ -284,7 +263,6 @@ export const createPluginRuntime = (
 
 	const query = (document: PreparedRecipe<unknown>["document"]) =>
 		sendRequest(
-			queries,
 			"ryotql",
 			(requestId) =>
 				({ document, requestId, type: "ryotql-request" }) satisfies PluginBridgeRyotQLRequest,
@@ -293,7 +271,6 @@ export const createPluginRuntime = (
 
 	const resolveAssets = (requested: readonly ManagedAssetLocator[]) =>
 		sendRequest(
-			assets,
 			"asset",
 			(requestId) =>
 				({
@@ -306,7 +283,6 @@ export const createPluginRuntime = (
 
 	const invokeOperation = (operation: OperationAdapterRequest) =>
 		sendRequest(
-			operations,
 			"operation",
 			(requestId) =>
 				({
@@ -320,7 +296,6 @@ export const createPluginRuntime = (
 
 	const mutateCollection = (collection: CollectionAdapterRequest) =>
 		sendRequest(
-			collections,
 			"collection",
 			(requestId) =>
 				({
@@ -332,7 +307,6 @@ export const createPluginRuntime = (
 
 	const accessStorage = (entry: StorageAdapterRequest) =>
 		sendRequest(
-			storage,
 			"storage",
 			(requestId) =>
 				({ ...entry, requestId, type: "storage-request" }) satisfies PluginBridgeStorageRequest,
@@ -340,7 +314,6 @@ export const createPluginRuntime = (
 
 	const uploadTemporary = (upload: TemporaryUploadRequest) =>
 		sendRequest(
-			uploads,
 			"upload",
 			(requestId) =>
 				({
@@ -352,14 +325,14 @@ export const createPluginRuntime = (
 				}) satisfies PluginBridgeUploadRequest,
 		);
 	const settle = (
-		pending: Map<string, PendingCall>,
+		type: RequestType,
 		requestId: string,
 		outcome:
 			| { readonly outcome: "success"; readonly value: unknown }
 			| { readonly outcome: "failure"; readonly reason: RyotClientErrorReason },
 	) => {
 		const call = pending.get(requestId);
-		if (!call || !pending.delete(requestId)) {
+		if (call?.type !== type || !pending.delete(requestId)) {
 			return;
 		}
 		call.complete(
@@ -592,31 +565,31 @@ export const createPluginRuntime = (
 				),
 				Match.when({ type: "operation-result" }, (result) => {
 					settle(
-						operations,
+						"operation",
 						result.requestId,
 						result.outcome === "failure" ? result : { outcome: "success", value: result.value },
 					);
 				}),
 				Match.when({ type: "storage-result" }, (result) => {
-					settle(storage, result.requestId, result);
+					settle("storage", result.requestId, result);
 				}),
 				Match.when({ type: "collection-result" }, (result) => {
 					settle(
-						collections,
+						"collection",
 						result.requestId,
 						result.outcome === "failure" ? result : { outcome: "success", value: result.response },
 					);
 				}),
 				Match.when({ type: "upload-result" }, (result) => {
 					settle(
-						uploads,
+						"upload",
 						result.requestId,
 						result.outcome === "failure" ? result : { outcome: "success", value: result.token },
 					);
 				}),
 				Match.when({ type: "asset-result" }, (result) => {
 					settle(
-						assets,
+						"asset",
 						result.requestId,
 						result.outcome === "failure"
 							? result
@@ -625,7 +598,7 @@ export const createPluginRuntime = (
 				}),
 				Match.when({ type: "ryotql-result" }, (result) => {
 					settle(
-						queries,
+						"ryotql",
 						result.requestId,
 						result.outcome === "failure" ? result : { outcome: "success", value: result.response },
 					);
