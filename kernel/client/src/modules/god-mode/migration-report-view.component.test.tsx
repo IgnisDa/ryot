@@ -83,7 +83,15 @@ describe("MigrationReportView", () => {
 					.getAllByRole("columnheader")
 					.map((cell) => cell.textContent),
 			).toEqual(["Time", "Severity", "Phase", "Message", "Count", "Elapsed"]);
-			expect(within(table).getByText("Jan 2, 2025 at 3:04:05 AM")).toBeTruthy();
+			const expectedTime = new Intl.DateTimeFormat("en-US", {
+				day: "numeric",
+				month: "short",
+				year: "numeric",
+				hour: "numeric",
+				minute: "2-digit",
+				second: "2-digit",
+			}).format(new Date("2025-01-02T03:04:05"));
+			expect(within(table).getByText(expectedTime)).toBeTruthy();
 			expect(within(table).getByText("Warning").className).toContain("text-warning");
 			expect(within(table).getByText("metadata")).toBeTruthy();
 			expect(within(table).getByText("Skipped malformed item")).toBeTruthy();
