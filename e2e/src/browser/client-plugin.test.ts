@@ -61,7 +61,7 @@ const observeBridgeMessages = (page: Playwright.Page, observations: BridgeObserv
 						? message.sessionId
 						: null;
 				if (typeof reporter === "function") {
-					void Promise.resolve(reporter({ serialized, bridgeSessionId })).catch(() => undefined);
+					void Promise.allSettled([reporter({ serialized, bridgeSessionId })]);
 				}
 			};
 
@@ -159,15 +159,9 @@ const expectCurrentBridgeSession = (observations: BridgeObservation[], expected:
 
 const expectDocumentGrantValid = (page: Playwright.Page, grant: DocumentGrant) =>
 	Effect.gen(function* () {
-		const status = yield* page.use((nativePage) =>
-			nativePage
-				.context()
-				.request.get(grant.src)
-				.then((response) => {
-					const result = response.status();
-					return response.dispose().then(() => result);
-				}),
-		);
+		const response = yield* page.use((nativePage) => nativePage.context().request.get(grant.src));
+		const status = response.status();
+		yield* page.use(() => response.dispose());
 		expect(status, "Retained document grant is no longer valid [credential redacted]").toBe(200);
 	});
 
@@ -258,22 +252,19 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		const initialGrant = yield* readDocumentGrant(frame, apiUrl);
 		observedGrants.push(initialGrant);
 		yield* expectVisibleText(home, FIXTURE_CLIENT_REVISION_MARKERS.A);
-		const typography = yield* home.evaluate((element) => {
+		// oxlint-disable-next-line effecttsgo/async-function -- Runs in the browser realm via Playwright evaluate; Effect is unavailable there.
+		const typography = yield* home.evaluate(async (element) => {
 			const heading = element.querySelector("h1");
-			return document.fonts
-				.load('16px "Outfit Variable"', "Fixture")
-				.then((uiFaces) =>
-					document.fonts
-						.load('16px "Lora Variable"', "Fixture")
-						.then((displayFaces) => ({
-							hasHeading: heading !== null,
-							uiFamily: getComputedStyle(element).fontFamily,
-							displayFamily: heading ? getComputedStyle(heading).fontFamily : "",
-							uiLoaded: uiFaces.length > 0 && uiFaces.every(({ status }) => status === "loaded"),
-							displayLoaded:
-								displayFaces.length > 0 && displayFaces.every(({ status }) => status === "loaded"),
-						})),
-				);
+			const uiFaces = await document.fonts.load('16px "Outfit Variable"', "Fixture");
+			const displayFaces = await document.fonts.load('16px "Lora Variable"', "Fixture");
+			return {
+				hasHeading: heading !== null,
+				uiFamily: getComputedStyle(element).fontFamily,
+				displayFamily: heading ? getComputedStyle(heading).fontFamily : "",
+				uiLoaded: uiFaces.length > 0 && uiFaces.every(({ status }) => status === "loaded"),
+				displayLoaded:
+					displayFaces.length > 0 && displayFaces.every(({ status }) => status === "loaded"),
+			};
 		});
 		expect(typography.hasHeading).toBe(true);
 		expect(typography.uiFamily).toContain("Outfit Variable");
