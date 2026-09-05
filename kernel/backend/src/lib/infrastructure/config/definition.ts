@@ -277,6 +277,13 @@ const server = group(
 			envKey: "SERVER_PRO_KEY_VERIFICATION_URL",
 			description: "Base URL used to verify the Pro key",
 		}),
+		otlpHeaders: stringField({
+			secret: true,
+			label: "OTLP headers",
+			envKey: "SERVER_OTLP_HEADERS",
+			description:
+				"Comma-separated key=value headers sent with OTLP trace exports, such as the API token a hosted collector requires",
+		}),
 		pluginsSystemDir: stringField({
 			hidden: true,
 			defaultValue: "./plugins",
