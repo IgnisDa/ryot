@@ -2,6 +2,7 @@ import { expect, it } from "@effect/vitest";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/sandbox/schemas";
 import {
+	AutomationOccurrenceId,
 	EntityId,
 	EntitySchemaSlug,
 	IntegrationId,
@@ -100,6 +101,7 @@ const subscriptionSubject = (
 			origin,
 			id: SubscriptionRunId.make("run-1"),
 			occurredAt: "2026-01-01T00:00:00.000Z",
+			occurrenceId: AutomationOccurrenceId.make("occurrence-1"),
 		},
 	}) satisfies SandboxExecutionSubject;
 

@@ -1,31 +1,22 @@
-import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 import { expect, it } from "vitest";
 
+import {
+	automationOccurrenceRows,
+	hostSuccess,
+} from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./notification.sandbox";
 
-const input = (
-	signalSchemaSlug: string,
-	properties: Record<string, JsonValue>,
-): AutomationInput => ({
+const input = (): AutomationInput => ({
 	automation: {
 		ruleId: "rule-1",
 		operation: "signal",
 		origin: { kind: "api" },
 		occurrenceId: "signal-1",
 		occurredAt: "2026-07-20T10:00:00.000Z",
-		source: {
-			kind: "signal",
-			signal: {
-				properties,
-				id: "signal-1",
-				signalSchemaSlug,
-				origin: { kind: "api" },
-				occurredAt: "2026-07-20T10:00:00.000Z",
-			},
-		},
+		source: { kind: "signal", signalId: "signal-1" },
 	},
 });
 
@@ -98,12 +89,25 @@ it.each([
 	return Effect.runPromise(
 		definition
 			.run(
-				input(slug, properties),
+				input(),
 				defineSandboxTestHost(manifest, {
 					sendNotification: (message) => {
 						messages.push(message);
 						return Effect.succeed(null);
 					},
+					executeRyotql: () =>
+						hostSuccess(
+							automationOccurrenceRows({
+								kind: "signal",
+								signal: {
+									properties,
+									id: "signal-1",
+									signalSchemaSlug: slug,
+									origin: { kind: "api" },
+									occurredAt: "2026-07-20T10:00:00.000Z",
+								},
+							}),
+						),
 				}),
 				{ metadata: {}, sandboxScriptId: "script-1" },
 			)

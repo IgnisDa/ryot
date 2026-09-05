@@ -1,16 +1,21 @@
 import { expect, it } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
+import type { AutomationOccurrence } from "@ryot-app/contract/modules/automations/schemas";
 import {
+	AutomationOccurrenceId,
 	AutomationRuleId,
 	EntityId,
+	EntitySchemaSlug,
 	EventId,
+	EventSchemaSlug,
 	SandboxScriptId,
 	SignalId,
 	SignalSchemaSlug,
 	SubscriptionRunId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { Effect, Exit, Layer } from "effect";
+import { stableStringify } from "@ryot-app/ts-utils/json";
+import { Effect, Layer } from "effect";
 import { PersistedQueue } from "effect/unstable/persistence";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
@@ -31,6 +36,8 @@ import {
 
 const userId = UserId.make("user-1");
 const signalId = SignalId.make("signal-1");
+const occurrenceId = AutomationOccurrenceId.make("signal-occurrence-1");
+const eventOccurrenceId = AutomationOccurrenceId.make("event-occurrence-1");
 const runId = SubscriptionRunId.make("run-1");
 const ruleId = AutomationRuleId.make("rule-1");
 const scriptId = SandboxScriptId.make("script-1");
@@ -55,6 +62,7 @@ const queuedRun = {
 	id: runId,
 	logs: null,
 	timing: null,
+	occurrenceId,
 	recordId: null,
 	startedAt: null,
 	skipReason: null,
@@ -66,7 +74,6 @@ const queuedRun = {
 	operation: "signal",
 	sourceKind: "signal",
 	scriptUpdatedAt: null,
-	occurrenceId: signalId,
 	executionUserId: userId,
 	sandboxScriptId: scriptId,
 	ruleMetadata: rule.metadata,
@@ -75,11 +82,19 @@ const queuedRun = {
 
 const payload = {
 	ruleId,
-	signalId,
+	occurrenceId,
 	rowUserId: userId,
+} as const satisfies SubscriptionExecutionWorkflowPayload;
+
+const largeSourceProperty = "source-only".repeat(10_000);
+const signalOccurrence = {
+	userId,
+	signalId,
+	recordId: null,
+	id: occurrenceId,
+	population: null,
 	operation: "signal",
 	sourceKind: "signal",
-	occurrenceId: signalId,
 	origin: { kind: "api" },
 	occurredAt: "2026-07-20T10:00:00.000Z",
 	source: {
@@ -87,35 +102,46 @@ const payload = {
 		signal: {
 			id: signalId,
 			origin: { kind: "api" },
-			properties: { message: "trace" },
-			signalSchemaSlug: "review.created",
+			properties: { largeSourceProperty },
 			occurredAt: "2026-07-20T10:00:00.000Z",
+			signalSchemaSlug: SignalSchemaSlug.make("review.created"),
 		},
 	},
-} as const satisfies SubscriptionExecutionWorkflowPayload;
+} as const satisfies AutomationOccurrence;
 
 const eventPayload = {
 	ruleId,
 	rowUserId: userId,
+	occurrenceId: eventOccurrenceId,
+} as const satisfies SubscriptionExecutionWorkflowPayload;
+
+const eventOccurrence = {
+	userId,
+	signalId: null,
+	population: null,
 	operation: "create",
 	sourceKind: "event",
+	id: eventOccurrenceId,
 	origin: { kind: "api" },
 	recordId: EventId.make("event-1"),
-	occurrenceId: "event-occurrence-1",
 	occurredAt: "2026-07-20T11:00:00.000Z",
 	source: {
 		kind: "event",
 		after: {
 			properties: {},
-			eventSchemaSlug: "complete",
 			id: EventId.make("event-1"),
 			createdAt: "2026-07-20T12:00:00.000Z",
 			occurredAt: "2026-07-20T11:00:00.000Z",
 			sessionEntityId: EntityId.make("session-1"),
-			subject: { name: "Dune", entitySchemaSlug: "record", id: EntityId.make("entity-1") },
+			eventSchemaSlug: EventSchemaSlug.make("complete"),
+			subject: {
+				name: "Dune",
+				id: EntityId.make("entity-1"),
+				entitySchemaSlug: EntitySchemaSlug.make("record"),
+			},
 		},
 	},
-} as const satisfies SubscriptionExecutionWorkflowPayload;
+} as const satisfies AutomationOccurrence;
 
 const withWorkflowLayer = <A, E>(
 	service: Layer.Layer<AutomationsService>,
@@ -146,7 +172,7 @@ const withWorkflowLayer = <A, E>(
 	);
 };
 
-it.effect("runs a signal subscription to completion with full automation context", () => {
+it.effect("keeps large occurrence properties out of the subscription sandbox input", () => {
 	let completed: unknown;
 	let sandboxPayload: unknown;
 	const logs = ["console", '{"kind":"log","level":"info","message":"traced"}'];
@@ -159,6 +185,7 @@ it.effect("runs a signal subscription to completion with full automation context
 		prepareRun: () =>
 			Effect.succeed({
 				run: queuedRun,
+				occurrence: signalOccurrence,
 				execution: { ruleId, metadata: rule.metadata, sandboxScriptId: scriptId },
 			}),
 	});
@@ -180,23 +207,32 @@ it.effect("runs a signal subscription to completion with full automation context
 		operations,
 		Effect.gen(function* () {
 			expect(yield* runSubscriptionExecutionWorkflow(payload, "execution-1")).toBe(runId);
-			expect(sandboxPayload).toMatchObject({
+			expect(sandboxPayload).toEqual({
 				scriptId,
+				executionId: `${runId}-sandbox`,
 				subject: {
 					userId,
 					type: "subscription",
-					subscriptionRun: { id: runId, origin: payload.origin, occurredAt: payload.occurredAt },
+					subscriptionRun: {
+						id: runId,
+						occurrenceId,
+						origin: signalOccurrence.origin,
+						occurredAt: signalOccurrence.occurredAt,
+					},
 				},
 				context: {
 					automation: {
+						runId,
 						ruleId,
-						source: payload.source,
-						occurrenceId: signalId,
-						occurredAt: payload.occurredAt,
-						ruleMetadata: { mode: "trace" },
+						occurrenceId,
+						operation: "signal",
+						origin: signalOccurrence.origin,
+						source: { signalId, kind: "signal" },
+						occurredAt: signalOccurrence.occurredAt,
 					},
 				},
 			});
+			expect(stableStringify(sandboxPayload)).not.toContain(largeSourceProperty);
 			expect(completed).toMatchObject({
 				logs,
 				id: runId,
@@ -208,15 +244,15 @@ it.effect("runs a signal subscription to completion with full automation context
 	);
 });
 
-it.effect("preserves event session and creation time in the sandbox context", () => {
+it.effect("passes only an event source reference to the sandbox", () => {
 	let sandboxPayload: unknown;
 	const eventRun = {
 		...queuedRun,
 		signalId: null,
 		operation: "create" as const,
 		sourceKind: "event" as const,
-		recordId: eventPayload.recordId,
-		occurrenceId: eventPayload.occurrenceId,
+		occurrenceId: eventOccurrence.id,
+		recordId: eventOccurrence.recordId,
 	};
 	const service = Layer.mock(AutomationsService, {
 		beginRun: () => Effect.succeed({ run: eventRun, kind: "ready" as const }),
@@ -224,6 +260,7 @@ it.effect("preserves event session and creation time in the sandbox context", ()
 		prepareRun: () =>
 			Effect.succeed({
 				run: eventRun,
+				occurrence: eventOccurrence,
 				execution: { ruleId, metadata: rule.metadata, sandboxScriptId: scriptId },
 			}),
 	});
@@ -245,13 +282,28 @@ it.effect("preserves event session and creation time in the sandbox context", ()
 		operations,
 		Effect.gen(function* () {
 			expect(yield* runSubscriptionExecutionWorkflow(eventPayload, "execution-1")).toBe(runId);
-			expect(sandboxPayload).toMatchObject({
+			expect(sandboxPayload).toEqual({
+				scriptId,
+				executionId: `${runId}-sandbox`,
+				subject: {
+					userId,
+					type: "subscription",
+					subscriptionRun: {
+						id: runId,
+						origin: eventOccurrence.origin,
+						occurrenceId: eventOccurrenceId,
+						occurredAt: eventOccurrence.occurredAt,
+					},
+				},
 				context: {
 					automation: {
-						source: {
-							kind: "event",
-							after: { sessionEntityId: "session-1", createdAt: "2026-07-20T12:00:00.000Z" },
-						},
+						runId,
+						ruleId,
+						operation: "create",
+						origin: eventOccurrence.origin,
+						occurrenceId: eventOccurrenceId,
+						occurredAt: eventOccurrence.occurredAt,
+						source: { kind: "event", eventId: eventOccurrence.recordId },
 					},
 				},
 			});
@@ -262,15 +314,16 @@ it.effect("preserves event session and creation time in the sandbox context", ()
 it.effect("does not execute the sandbox for an already terminal run", () => {
 	const service = Layer.mock(AutomationsService, {
 		completeRun: () => Effect.die("terminal run was completed again"),
-		prepareRun: () =>
-			Effect.succeed({
-				run: queuedRun,
-				execution: { ruleId, metadata: rule.metadata, sandboxScriptId: scriptId },
-			}),
 		beginRun: () =>
 			Effect.succeed({
 				kind: "terminal" as const,
 				run: { ...queuedRun, status: "skipped" as const, skipReason: { kind: "user_disabled" } },
+			}),
+		prepareRun: () =>
+			Effect.succeed({
+				run: queuedRun,
+				occurrence: signalOccurrence,
+				execution: { ruleId, metadata: rule.metadata, sandboxScriptId: scriptId },
 			}),
 	});
 	const operations = Layer.mock(SubscriptionExecutionWorkflowOperations, {
@@ -297,6 +350,7 @@ it.effect("records sandbox failures before completing the subscription run", () 
 		prepareRun: () =>
 			Effect.succeed({
 				run: queuedRun,
+				occurrence: signalOccurrence,
 				execution: { ruleId, metadata: rule.metadata, sandboxScriptId: scriptId },
 			}),
 	});
@@ -315,36 +369,6 @@ it.effect("records sandbox failures before completing the subscription run", () 
 				value: null,
 				error: { phase: "execute", message: "script failed" },
 			});
-		}),
-	);
-});
-
-it.effect("rejects contradictory source context before preparing a run", () => {
-	const service = Layer.mock(AutomationsService, {
-		prepareRun: () => Effect.die("invalid context prepared a run"),
-	});
-	const operations = Layer.mock(SubscriptionExecutionWorkflowOperations, {
-		runSandbox: () => Effect.die("invalid context executed the sandbox"),
-	});
-	const invalid = {
-		...payload,
-		source: {
-			kind: "entity" as const,
-			after: {
-				name: "Entity",
-				properties: {},
-				entitySchemaSlug: "item",
-				id: EntityId.make("entity-1"),
-			},
-		},
-	};
-
-	return withWorkflowLayer(
-		service,
-		operations,
-		Effect.gen(function* () {
-			const exit = yield* Effect.exit(runSubscriptionExecutionWorkflow(invalid, "execution-1"));
-			expect(Exit.isFailure(exit)).toBe(true);
 		}),
 	);
 });

@@ -1,5 +1,6 @@
 import { DbError, badRequest, notFound } from "@ryot-app/contract/errors";
 import {
+	type AutomationOccurrence,
 	AutomationRuleMetadata,
 	type AutomationOperation,
 	type SubscriptionRunTiming,
@@ -11,7 +12,7 @@ import type {
 	SignalId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { SubscriptionRunId } from "@ryot-app/contract/schema/brands";
+import { AutomationOccurrenceId, SubscriptionRunId } from "@ryot-app/contract/schema/brands";
 import { utf8ByteLength } from "@ryot-app/sandbox-compiler/limits";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -34,10 +35,6 @@ type PrepareSubscriptionRunInput = {
 	occurrenceId: string;
 	ruleId: AutomationRuleId;
 	rowUserId: UserId | null;
-	recordId?: string | undefined;
-	operation: AutomationOperation;
-	signalId?: SignalId | undefined;
-	sourceKind: SubscriptionRunSourceKind;
 };
 
 type CompleteSubscriptionRunInput = {
@@ -192,6 +189,32 @@ export class AutomationsService extends Context.Service<AutomationsService>()(
 				},
 			);
 
+			const recordOccurrence = Effect.fn("AutomationsService.recordOccurrence")(function* (
+				input: AutomationOccurrence,
+			) {
+				const database = yield* Database;
+				return yield* mapDatabaseErrors(
+					database.transaction((transaction) =>
+						Effect.gen(function* () {
+							const inserted = yield* repository.insertOccurrence(input);
+							if (inserted) {
+								return inserted;
+							}
+							const existing = yield* repository.findOccurrence(input.id);
+							if (!existing) {
+								return yield* new DbError({
+									message: "Automation occurrence insert conflicted but was not found",
+								});
+							}
+							if (stableStringify(existing) !== stableStringify(input)) {
+								return yield* badRequest("Automation occurrence ID was reused with different data");
+							}
+							return existing;
+						}).pipe(Effect.provideService(Database, transaction)),
+					),
+				);
+			});
+
 			const prepareRun = Effect.fn("AutomationsService.prepareRun")(function* (
 				input: PrepareSubscriptionRunInput,
 			) {
@@ -199,10 +222,17 @@ export class AutomationsService extends Context.Service<AutomationsService>()(
 				return yield* mapDatabaseErrors(
 					database.transaction((transaction) =>
 						Effect.gen(function* () {
+							const occurrence = yield* repository.findOccurrence(
+								AutomationOccurrenceId.make(input.occurrenceId),
+							);
+							if (!occurrence) {
+								return yield* notFound("Automation occurrence not found");
+							}
 							const id = makeRunId(input.occurrenceId, input.ruleId);
 							const existing = yield* repository.findRunById(id);
 							if (existing) {
 								return {
+									occurrence,
 									run: existing,
 									execution: {
 										ruleId: existing.ruleId,
@@ -223,9 +253,13 @@ export class AutomationsService extends Context.Service<AutomationsService>()(
 							if (rule.kind !== "subscription") {
 								return yield* badRequest("Automation binding is not a subscription");
 							}
+							if (occurrence.sourceKind === "provider-entity-import") {
+								return yield* badRequest("Provider imports are not subscription occurrences");
+							}
+							const sourceKind = occurrence.sourceKind;
 							if (
-								rule.operation !== input.operation ||
-								!sourceMatchesTarget(input.sourceKind, rule.target)
+								rule.operation !== occurrence.operation ||
+								!sourceMatchesTarget(sourceKind, rule.target)
 							) {
 								return yield* badRequest("Run source does not match its automation rule");
 							}
@@ -245,14 +279,14 @@ export class AutomationsService extends Context.Service<AutomationsService>()(
 
 							const inserted = yield* repository.insertRun({
 								id,
+								sourceKind,
 								executionUserId,
 								ruleId: rule.id,
 								ruleName: rule.name,
-								operation: input.operation,
 								ruleMetadata: rule.metadata,
-								sourceKind: input.sourceKind,
-								recordId: input.recordId ?? null,
-								signalId: input.signalId ?? null,
+								recordId: occurrence.recordId,
+								signalId: occurrence.signalId,
+								operation: occurrence.operation,
 								occurrenceId: input.occurrenceId,
 								sandboxScriptId: rule.sandboxScriptId,
 							});
@@ -264,6 +298,7 @@ export class AutomationsService extends Context.Service<AutomationsService>()(
 							}
 							return {
 								run,
+								occurrence,
 								execution: {
 									ruleId: run.ruleId,
 									metadata: run.ruleMetadata,
@@ -385,6 +420,7 @@ export class AutomationsService extends Context.Service<AutomationsService>()(
 				completeRun,
 				countByUser,
 				resolveActive,
+				recordOccurrence,
 				listRunsByRuleId,
 				resolveActivePolicies,
 				listRunsByExecutionUserId,
