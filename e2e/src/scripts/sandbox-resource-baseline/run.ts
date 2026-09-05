@@ -543,15 +543,17 @@ const program = Effect.gen(function* () {
 
 const recordFailure = (cause: Cause.Cause<unknown>) =>
 	Effect.gen(function* () {
-		if (!recordsInvocation || startedAtUtc === null) return;
+		if (!recordsInvocation || startedAtUtc === null) {
+			return;
+		}
 		yield* recordInvocation(config, {
 			command,
 			startedAtUtc,
 			invocationId,
 			scenarioIds: [],
 			outcome: "failed",
-			stopReason: Cause.pretty(cause),
 			completedAtUtc: yield* isoNow,
+			stopReason: Cause.pretty(cause),
 		});
 	}).pipe(Effect.ignore);
 
