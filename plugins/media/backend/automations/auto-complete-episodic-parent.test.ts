@@ -115,6 +115,7 @@ const entityContext = (
 		category: "change",
 		resource: "entity",
 		operation: "update",
+		changedProperties: ["productionStatus"],
 		after: entityRecord({
 			id: "show-1",
 			name: "Show",
@@ -246,6 +247,14 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 			name: "Auto-Complete Episodic Parent",
 			slug: "automation.media-auto-complete-episodic-parent",
 			capabilities: ["executeRyotql", "createEvents", "listEventSchemas", "claimPersistentValue"],
+			inputProjection: {
+				event: { properties: [], compareProperties: [] },
+				entity: {
+					compareProperties: [],
+					parentEntityProperties: [],
+					properties: ["productionStatus"],
+				},
+			},
 		});
 	});
 

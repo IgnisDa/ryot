@@ -320,8 +320,13 @@ it("preserves provider membership for custom scripts in the loader snapshot", ()
 	const normalized = plugin.scripts[0];
 	assert(declared);
 	assert(normalized);
+	const {
+		automationType: _automationType,
+		inputProjection: _inputProjection,
+		...common
+	} = declared;
 	const details = {
-		...declared,
+		...common,
 		name: "Fixture details",
 		slug: "fixture.details",
 		kind: "provider" as const,
@@ -329,7 +334,7 @@ it("preserves provider membership for custom scripts in the loader snapshot", ()
 		providerOperation: "details" as const,
 	};
 	const custom = {
-		...declared,
+		...common,
 		kind: "script" as const,
 		name: "Fixture preload",
 		slug: "fixture.preload",

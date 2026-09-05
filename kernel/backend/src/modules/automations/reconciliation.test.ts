@@ -91,7 +91,7 @@ it.effect(
 			]);
 			const expected = [candidate("missed"), candidate("retry", 3)].map((run) => ({
 				discard: true,
-				payload: { runId: run.id, attemptNumber: run.attemptCount + 1 },
+				payload: { runId: run.id, acceptedPatches: [], attemptNumber: run.attemptCount + 1 },
 				executionId: automationAttemptIdentity(run.id, run.attemptCount + 1).workflowExecutionId,
 			}));
 			expect(submissions).toEqual([...expected, ...expected]);

@@ -25,6 +25,7 @@ export const manifest = defineManifest({
 	capabilities: ["executeRyotql"],
 	name: "Media Episodic Session Policy",
 	slug: "policy.media-episodic-session",
+	inputProjection: { event: { properties: [] } },
 });
 
 type AutomationHost = SandboxHost<typeof manifest.capabilities>;
@@ -37,10 +38,9 @@ const sessionPolicyResult = (payload: EventPayload, resolution: EpisodeParentRes
 	}
 	return Schema.decodeUnknownSync(automationPolicyResultSchema)({
 		action: "transform",
-		payload: {
-			...payload,
+		patch: {
+			resource: "event",
 			draft: {
-				...payload.draft,
 				sessionEntityId:
 					resolution.kind === "show" && resolution.seasonNumber === 0
 						? null
@@ -79,7 +79,7 @@ export default defineAutomationPolicy({
 		if (draft.entitySchemaSlug === "show" || draft.entitySchemaSlug === "podcast") {
 			return Effect.succeed({
 				action: "transform",
-				payload: { ...payload, draft: { ...draft, sessionEntityId: draft.entityId } },
+				patch: { resource: "event", draft: { sessionEntityId: draft.entityId } },
 			} as const);
 		}
 		if (draft.entitySchemaSlug === "show-episode") {

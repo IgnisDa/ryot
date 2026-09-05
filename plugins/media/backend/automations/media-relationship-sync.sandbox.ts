@@ -13,6 +13,13 @@ export const manifest = defineManifest({
 	capabilities: ["emitSignal"],
 	name: "Media Relationship Sync Detector",
 	slug: "automation.media-relationship-sync",
+	inputProjection: {
+		relationship: {
+			properties: [],
+			compareProperties: [],
+			parentEntityProperties: ["seasonNumber"],
+		},
+	},
 });
 
 export default defineAutomation({
