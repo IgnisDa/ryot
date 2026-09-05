@@ -55,15 +55,19 @@ export const SystemRoutesLive = HttpApiBuilder.group(AppContract, "system", (han
 	handlers
 		.handle("health", () =>
 			Effect.gen(function* () {
-				const database = yield* (yield* DatabaseSession).current;
+				const database = yield* DatabaseSession;
 				const redis = yield* RedisService;
 
-				yield* database.execute(sql`select 1`).pipe(
-					Effect.tapError((cause) => Effect.logError("system health database check failed", cause)),
-					Effect.mapError(
-						() => new SystemHealthFailure({ reason: { code: "database-unavailable" } }),
-					),
-				);
+				yield* database
+					.run((db) => db.execute(sql`select 1`))
+					.pipe(
+						Effect.tapError((cause) =>
+							Effect.logError("system health database check failed", cause),
+						),
+						Effect.mapError(
+							() => new SystemHealthFailure({ reason: { code: "database-unavailable" } }),
+						),
+					);
 
 				yield* Effect.tryPromise({
 					catch: (cause) => ({ cause }),

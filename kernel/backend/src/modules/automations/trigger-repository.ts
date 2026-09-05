@@ -46,7 +46,7 @@ const decodeRow = (row: typeof table.$inferSelect) =>
 		`Invalid automation trigger ${row.id}`,
 	);
 
-const hasRuns = (db: Effect.Success<DatabaseSession["Service"]["current"]>) =>
+const hasRuns = (db: Parameters<Parameters<DatabaseSession["Service"]["run"]>[0]>[0]) =>
 	db
 		.select({ id: automationRun.id })
 		.from(automationRun)
