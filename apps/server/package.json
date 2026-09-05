@@ -27,7 +27,7 @@
 		"@ryot-app/kernel-renderers": "workspace:*",
 		"@ryot-app/media-plugin": "workspace:*",
 		"@ryot-app/plugin-archive": "workspace:*",
-		"bun-types": "1.4.0",
+		"bun-types": "1.4.2",
 		"dotenv": "17.3.1"
 	}
 }
