@@ -79,6 +79,19 @@ trigger is the new user's asynchronous Media workspace bootstrap completing duri
 live update rendering Media content, but this is not confirmed. A fix requires either a fixture
 that waits for user bootstrap or a narrower assertion.
 
+## System plugin changes materialize every user in the request
+
+Status: measured.
+
+`MaterializingPluginCatalogInvalidatorLive.all` (`kernel/backend/src/modules/plugins/layer.ts`)
+re-materializes client page compositions for every bootstrapped user, one user at a time, and
+`PluginIngestionService` awaits it inside the ingesting request. E2E creates fresh users throughout
+the run, so each later system plugin install is slower than the last. In one full run,
+`ingestSystemPluginUnlocked` took 0.17 seconds at the start and 100.8 seconds 20 minutes later,
+with 560 bootstrapped users (about 180 milliseconds per user). Suites that install a system plugin
+in a setup hook, such as `e2e/src/api/plugins/media/crons/media-trending-cron.test.ts`, then
+exceed the 180-second hook timeout. The same cost applies to any deployment with many users.
+
 ## Global media-monitoring sweep grows across the run
 
 Status: measured.
