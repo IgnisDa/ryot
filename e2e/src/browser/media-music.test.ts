@@ -202,7 +202,7 @@ it.live("renders the Music presentation facts in the canonical saved view", () =
 		yield* row.getByText("2014", { exact: true }).waitFor({ state: "visible" });
 		yield* row.getByText("1:02:15", { exact: true }).waitFor({ state: "visible" });
 		yield* row.getByText("In progress", { exact: true }).waitFor({ state: "visible" });
-		yield* row.getByText("60% played", { exact: true }).waitFor({ state: "visible" });
+		yield* row.getByText("60% listened", { exact: true }).waitFor({ state: "visible" });
 
 		yield* view.getByRole("link", { exact: true, name: trackName }).click();
 		yield* page.waitForURL(`${frontendUrl}/e/${seeded.track.id}`);
