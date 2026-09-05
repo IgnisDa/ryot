@@ -5,12 +5,12 @@ import { Context, Effect, Layer, Ref } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { fakeDatabaseSession } from "#lib/test-utils/effect";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
 import { ClientSurfaceMaterializer } from "#modules/plugins/client-surface-materializer";
 import { PluginInstallationService } from "#modules/plugins/installation-service";
 
-import { performBootstrap } from "./bootstrap";
+import { UserBootstrap } from "./bootstrap";
 import { PluginUserBootstrapDispatcher } from "./plugin-dispatch";
 
 const userId = UserId.make("user-id");
@@ -33,73 +33,84 @@ class FakeBootstrapDependencies extends Context.Service<
 	}
 >()("test/FakeBootstrapDependencies") {}
 
+const performBootstrap = (inputUserId: UserId) =>
+	Effect.flatMap(UserBootstrap, (bootstrap) => bootstrap.perform(inputUserId));
+
 const bootstrapLayer = (options?: {
 	bootstrapCompletedAt?: Date;
 	materializeBuilds?: Effect.Effect<void>;
 	dispatch?: (attempt: number) => Effect.Effect<void, SandboxRunError>;
 }) =>
-	Layer.unwrap(
-		Effect.gen(function* () {
-			const order = yield* Ref.make<ReadonlyArray<BootstrapStep>>([]);
-			const dispatched = yield* Ref.make<ReadonlyArray<UserId>>([]);
-			const provisioned = yield* Ref.make<ReadonlyArray<UserId>>([]);
-			const defaultRules = yield* Ref.make<ReadonlyArray<UserId>>([]);
-			const userRows = [{ bootstrapCompletedAt: options?.bootstrapCompletedAt ?? null }];
-			const db = Object.assign(Object.create(null), {
-				execute: () => Effect.succeed({}),
-				update: () => ({
-					set: () => ({ where: () => append(order)("complete").pipe(Effect.as({})) }),
-				}),
-				select: () => ({
-					from: (table: unknown) => {
-						if (table !== schema.user) {
-							return { where: () => Effect.succeed([]) };
-						}
-						return {
-							where: () =>
-								Object.assign(Effect.succeed(userRows), { for: () => Effect.succeed(userRows) }),
-						};
-					},
-				}),
-			});
-			return Layer.mergeAll(
-				Layer.mock(DatabaseSession)({
-					current: Effect.succeed(db),
-					transaction: (work) => mapDatabaseErrors(work),
-				}),
-				Layer.mock(PluginUserBootstrapDispatcher)({
-					dispatchAll: (inputUserId) =>
-						Effect.gen(function* () {
-							yield* append(order)("dispatch");
-							yield* append(dispatched)(inputUserId);
-							const attempt = (yield* Ref.get(dispatched)).length;
-							return yield* options?.dispatch?.(attempt) ?? Effect.void;
+	UserBootstrap.layer.pipe(
+		Layer.provideMerge(
+			Layer.unwrap(
+				Effect.gen(function* () {
+					const order = yield* Ref.make<ReadonlyArray<BootstrapStep>>([]);
+					const dispatched = yield* Ref.make<ReadonlyArray<UserId>>([]);
+					const provisioned = yield* Ref.make<ReadonlyArray<UserId>>([]);
+					const defaultRules = yield* Ref.make<ReadonlyArray<UserId>>([]);
+					const userRows = [{ bootstrapCompletedAt: options?.bootstrapCompletedAt ?? null }];
+					const db = Object.assign(Object.create(null), {
+						execute: () => Effect.succeed({}),
+						update: () => ({
+							set: () => ({ where: () => append(order)("complete").pipe(Effect.as({})) }),
 						}),
+						select: () => ({
+							from: (table: unknown) => {
+								if (table !== schema.user) {
+									return { where: () => Effect.succeed([]) };
+								}
+								return {
+									where: () =>
+										Object.assign(Effect.succeed(userRows), {
+											for: () => Effect.succeed(userRows),
+										}),
+								};
+							},
+						}),
+					});
+					return Layer.mergeAll(
+						fakeDatabaseSession(db, {
+							transaction: (work) => mapDatabaseErrors(work),
+							run: (statement) => mapDatabaseErrors(statement(db)),
+						}),
+						Layer.mock(PluginUserBootstrapDispatcher)({
+							dispatchAll: (inputUserId) =>
+								Effect.gen(function* () {
+									yield* append(order)("dispatch");
+									yield* append(dispatched)(inputUserId);
+									const attempt = (yield* Ref.get(dispatched)).length;
+									return yield* options?.dispatch?.(attempt) ?? Effect.void;
+								}),
+						}),
+						Layer.mock(PluginInstallationService)({
+							provisionSystemInstallations: (inputUserId) =>
+								append(order)("provision").pipe(Effect.andThen(append(provisioned)(inputUserId))),
+						}),
+						Layer.mock(NotificationSubscriptionsService)({
+							ensureDefaultRules: append(defaultRules),
+						}),
+						Layer.succeed(ClientSurfaceMaterializer, {
+							materializeRenderer: () => Effect.void,
+							assertUserCompositions: () => Effect.void,
+							materializeSystemCompositions: Effect.void,
+							materializePendingInstallation: () => Effect.void,
+							materializeUserCompositions: () =>
+								append(order)("materialize-builds").pipe(
+									Effect.andThen(options?.materializeBuilds ?? Effect.void),
+								),
+						}),
+						Layer.succeed(FakeBootstrapDependencies, {
+							order: Ref.get(order),
+							dispatchedUserIds: Ref.get(dispatched),
+							provisionedUserIds: Ref.get(provisioned),
+							defaultRuleUserIds: Ref.get(defaultRules),
+							completed: Effect.map(Ref.get(order), (steps) => steps.includes("complete")),
+						}),
+					);
 				}),
-				Layer.mock(PluginInstallationService)({
-					provisionSystemInstallations: (inputUserId) =>
-						append(order)("provision").pipe(Effect.andThen(append(provisioned)(inputUserId))),
-				}),
-				Layer.mock(NotificationSubscriptionsService)({ ensureDefaultRules: append(defaultRules) }),
-				Layer.succeed(ClientSurfaceMaterializer, {
-					materializeRenderer: () => Effect.void,
-					assertUserCompositions: () => Effect.void,
-					materializeSystemCompositions: Effect.void,
-					materializePendingInstallation: () => Effect.void,
-					materializeUserCompositions: () =>
-						append(order)("materialize-builds").pipe(
-							Effect.andThen(options?.materializeBuilds ?? Effect.void),
-						),
-				}),
-				Layer.succeed(FakeBootstrapDependencies, {
-					order: Ref.get(order),
-					dispatchedUserIds: Ref.get(dispatched),
-					provisionedUserIds: Ref.get(provisioned),
-					defaultRuleUserIds: Ref.get(defaultRules),
-					completed: Effect.map(Ref.get(order), (steps) => steps.includes("complete")),
-				}),
-			);
-		}),
+			),
+		),
 	);
 
 layer(bootstrapLayer())((test) => {

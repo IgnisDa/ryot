@@ -13,13 +13,8 @@ import { DatabaseSession } from "#lib/infrastructure/db/session";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { AuthService } from "#modules/auth/service";
-import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
-import { ClientSurfaceMaterializer } from "#modules/plugins/client-surface-materializer";
-import { PluginInstallationService } from "#modules/plugins/installation-service";
-import { SavedViewsService } from "#modules/saved-views/service";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
-import { performBootstrap } from "#modules/user-bootstrap/bootstrap";
-import { PluginUserBootstrapDispatcher } from "#modules/user-bootstrap/plugin-dispatch";
+import { UserBootstrap } from "#modules/user-bootstrap/bootstrap";
 
 import { UserLifecycleRepository } from "./repository";
 
@@ -69,13 +64,9 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 	Effect.gen(function* () {
 		const auth = yield* AuthService;
 		const database = yield* DatabaseSession;
-		const savedViews = yield* SavedViewsService;
 		const repository = yield* UserLifecycleRepository;
 		const objectStorage = yield* ObjectStorageService;
-		const pluginBootstrap = yield* PluginUserBootstrapDispatcher;
-		const pluginInstallations = yield* PluginInstallationService;
-		const notificationSubscriptions = yield* NotificationSubscriptionsService;
-		const materializer = yield* ClientSurfaceMaterializer;
+		const userBootstrap = yield* UserBootstrap;
 
 		const requireOperation = (operationId: string) =>
 			repository.getInternalById(operationId).pipe(
@@ -177,14 +168,7 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 						});
 					}
 
-					yield* performBootstrap(operation.operation.userId).pipe(
-						Effect.provideService(DatabaseSession, database),
-						Effect.provideService(PluginInstallationService, pluginInstallations),
-						Effect.provideService(PluginUserBootstrapDispatcher, pluginBootstrap),
-						Effect.provideService(NotificationSubscriptionsService, notificationSubscriptions),
-						Effect.provideService(SavedViewsService, savedViews),
-						Effect.provideService(ClientSurfaceMaterializer, materializer),
-					);
+					yield* userBootstrap.perform(operation.operation.userId);
 					const resetUrl = metadata.usesLocalAuth
 						? (yield* auth.requestPasswordResetLink(metadata.user.email)).resetUrl
 						: null;

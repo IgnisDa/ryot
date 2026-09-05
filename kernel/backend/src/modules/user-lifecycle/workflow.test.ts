@@ -13,8 +13,8 @@ import { AuthService } from "#modules/auth/service";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
 import { ClientSurfaceMaterializer } from "#modules/plugins/client-surface-materializer";
 import { PluginInstallationService } from "#modules/plugins/installation-service";
-import { SavedViewsService } from "#modules/saved-views/service";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
+import { UserBootstrap } from "#modules/user-bootstrap/bootstrap";
 import { PluginUserBootstrapDispatcher } from "#modules/user-bootstrap/plugin-dispatch";
 
 import { UserLifecycleRepository } from "./repository";
@@ -184,17 +184,22 @@ const liveOperationsLayer = <R, E>(dependencies: {
 	UserLifecycleWorkflowOperationsLive.pipe(
 		Layer.provideMerge(
 			Layer.mergeAll(
-				Layer.mock(SavedViewsService)({}),
-				Layer.succeed(ClientSurfaceMaterializer, {
-					materializeRenderer: () => Effect.void,
-					assertUserCompositions: () => Effect.void,
-					materializeSystemCompositions: Effect.void,
-					materializeUserCompositions: () => Effect.void,
-					materializePendingInstallation: () => Effect.void,
-				}),
-				Layer.mock(PluginUserBootstrapDispatcher)({}),
-				Layer.mock(PluginInstallationService)({}),
-				Layer.mock(NotificationSubscriptionsService)({}),
+				UserBootstrap.layer.pipe(
+					Layer.provide(
+						Layer.mergeAll(
+							Layer.succeed(ClientSurfaceMaterializer, {
+								materializeRenderer: () => Effect.void,
+								assertUserCompositions: () => Effect.void,
+								materializeSystemCompositions: Effect.void,
+								materializeUserCompositions: () => Effect.void,
+								materializePendingInstallation: () => Effect.void,
+							}),
+							Layer.mock(PluginUserBootstrapDispatcher)({}),
+							Layer.mock(PluginInstallationService)({}),
+							Layer.mock(NotificationSubscriptionsService)({}),
+						),
+					),
+				),
 				dependencies.overrides,
 			),
 		),

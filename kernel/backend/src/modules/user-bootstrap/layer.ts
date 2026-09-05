@@ -7,7 +7,7 @@ import { PluginInstallationRuntimeLive } from "#modules/plugins/layer";
 import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
 import { SandboxExecutionServiceLive } from "#modules/sandbox/layer";
 
-import { AuthUserBootstrapLive } from "./bootstrap";
+import { AuthUserBootstrapLive, UserBootstrap } from "./bootstrap";
 import { PluginUserBootstrapDispatcher } from "./plugin-dispatch";
 
 export const PluginUserBootstrapDispatcherLive = PluginUserBootstrapDispatcher.layer.pipe(
@@ -20,7 +20,7 @@ export const PluginUserBootstrapDispatcherLive = PluginUserBootstrapDispatcher.l
 	),
 );
 
-export const AuthUserBootstrapServiceLive = AuthUserBootstrapLive.pipe(
+export const UserBootstrapLive = UserBootstrap.layer.pipe(
 	Layer.provide(
 		Layer.mergeAll(
 			ClientSurfaceMaterializerLive,
@@ -29,4 +29,8 @@ export const AuthUserBootstrapServiceLive = AuthUserBootstrapLive.pipe(
 			PluginInstallationRuntimeLive,
 		),
 	),
+);
+
+export const AuthUserBootstrapServiceLive = AuthUserBootstrapLive.pipe(
+	Layer.provide(UserBootstrapLive),
 );
