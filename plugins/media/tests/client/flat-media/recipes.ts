@@ -1,29 +1,29 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
-import { isNull, selectedField, type Recipe } from "@ryot-app/plugin-kit/ryotql";
+import { selectedField, type Recipe } from "@ryot-app/plugin-kit/ryotql";
 
-import { propertyNumber, type Table } from "../../../shared/entity-selections";
-import { mediaFlatRecipes } from "../../../shared/media-recipes";
-
-const fixtureMeasure = (event: Table) => ({
-	amount: propertyNumber(event, "timeSpent"),
-	isUnknown: isNull(propertyNumber(event, "timeSpent")),
-});
+import { propertyNumber } from "../../../shared/entity-selections";
+import {
+	mediaFlatRecipes,
+	mediaTimeSpentMeasure,
+	mediaUnlinkedCreatorsOverviewQueries,
+} from "../../../shared/media-recipes";
 
 export const flatFixtureRecipes = mediaFlatRecipes({
 	slug: "fixture",
 	alias: "fixture",
-	measure: fixtureMeasure,
 	summaryFields: () => ({}),
 	groupSlug: "fixture-group",
 	presentationFields: () => ({}),
+	measure: mediaTimeSpentMeasure(),
+	extraOverviewQueries: mediaUnlinkedCreatorsOverviewQueries,
 });
 
 export const flatUngroupedFixtureRecipes = mediaFlatRecipes({
 	slug: "ungrouped",
 	alias: "ungrouped",
-	measure: fixtureMeasure,
 	summaryFields: () => ({}),
 	presentationFields: () => ({}),
+	measure: mediaTimeSpentMeasure(),
 	activityEventFields: (event) => ({
 		fixtureChapter: selectedField(
 			propertyNumber(event, "fixtureChapter"),
