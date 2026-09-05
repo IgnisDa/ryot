@@ -39,7 +39,6 @@ const attemptOutcome = (exit: Exit.Exit<unknown, unknown>) => {
 /** Records one phase attempt; a replayed body records another attempt for the same execution. */
 const measureImportPhase = <A, R>(
 	phase: ProviderImportPhase,
-	executionId: string,
 	effect: Effect.Effect<A, EntityImportError, R>,
 ) =>
 	Effect.flatMap(Clock.currentTimeMillis, (startedAtMs) =>
@@ -47,7 +46,6 @@ const measureImportPhase = <A, R>(
 			Effect.flatMap(Clock.currentTimeMillis, (finishedAtMs) =>
 				recordProviderImportPhaseAttempt({
 					phase,
-					executionId,
 					startedAtMs,
 					finishedAtMs,
 					outcome: attemptOutcome(exit),
@@ -64,7 +62,6 @@ const runImportPhases = Effect.fn("runEntityImportPhases")(function* (
 	const populationExecutionId = `${executionId}-provider-population`;
 	const importedEntity = yield* measureImportPhase(
 		"population",
-		executionId,
 		engine
 			.execute(ProviderEntityPopulationWorkflow, {
 				executionId: populationExecutionId,
@@ -87,7 +84,6 @@ const runImportPhases = Effect.fn("runEntityImportPhases")(function* (
 	const operations = yield* EntityImportWorkflowOperations;
 	yield* measureImportPhase(
 		"provider-import-automation",
-		executionId,
 		operations
 			.completeProviderEntityImport(payload, importedEntity, executionId)
 			.pipe(

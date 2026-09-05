@@ -18,9 +18,7 @@ import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/Workf
 
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import {
-	recordSandboxDurableRequests,
 	recordSandboxWorkflowReplayFinished,
-	recordSandboxWorkflowReplayStarted,
 	sandboxMetricKind,
 	type SandboxReplayOutcome,
 } from "#lib/infrastructure/runtime-metrics";
@@ -607,7 +605,6 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 			yield* projectWorkflowJournal(executionId, journal);
 			const replayExecutionId = `${executionId}-replay-${step}`;
 			replayStartedAt = yield* Clock.currentTimeMillis;
-			yield* recordSandboxWorkflowReplayStarted;
 			const replay = yield* processReplay({
 				context: payload.input,
 				startedAt: pin.startedAt,
@@ -645,7 +642,6 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 			if (journal.length + replay.inline.length > SANDBOX_WORKFLOW_MAX_STEPS) {
 				break;
 			}
-			yield* recordSandboxDurableRequests(replay.inline.length);
 			for (const entry of replay.inline) {
 				yield* appendJournalEntry(entry.request, entry.value);
 			}
@@ -693,7 +689,6 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 				continue;
 			}
 			yield* finishReplay("pending");
-			yield* recordSandboxDurableRequests(observed.requests.length);
 			if (journal.length + observed.requests.length > SANDBOX_WORKFLOW_MAX_STEPS) {
 				break;
 			}
