@@ -1,5 +1,7 @@
 import { Effect, FileSystem, Path } from "effect";
 
+import { walkSourcePaths } from "./walk-source-tree";
+
 type FileKind = "runtime" | "test";
 
 type FileEntry = { path: string; kind: FileKind };
@@ -39,33 +41,14 @@ const isRuntimeFile = (file: string) =>
 	!file.endsWith(".generated.ts") &&
 	!file.replaceAll("\\", "/").includes("/test-fixtures/");
 
-const walkTsFiles = (
-	dir: string,
-): Effect.Effect<FileEntry[], unknown, FileSystem.FileSystem | Path.Path> =>
-	Effect.gen(function* () {
-		const path = yield* Path.Path;
-		const files: FileEntry[] = [];
-		const fs = yield* FileSystem.FileSystem;
-		const entries = (yield* fs.readDirectory(dir)).sort();
-
-		for (const entry of entries) {
-			const fullPath = path.join(dir, entry);
-			const info = yield* fs.stat(fullPath);
-
-			if (info.type === "Directory") {
-				files.push(...(yield* walkTsFiles(fullPath)));
-				continue;
-			}
-
-			if (!entry.endsWith(".ts") || entry.endsWith(".d.ts")) {
-				continue;
-			}
-
-			files.push({ path: fullPath, kind: isRuntimeFile(fullPath) ? "runtime" : "test" });
-		}
-
-		return files;
-	});
+const walkTsFiles = (dir: string) =>
+	walkSourcePaths(dir, (file) => file.endsWith(".ts") && !file.endsWith(".d.ts")).pipe(
+		Effect.map((paths) =>
+			paths.map(
+				(path) => ({ path, kind: isRuntimeFile(path) ? "runtime" : "test" }) satisfies FileEntry,
+			),
+		),
+	);
 
 const getModuleNames = (modulesDir: string) =>
 	Effect.gen(function* () {
