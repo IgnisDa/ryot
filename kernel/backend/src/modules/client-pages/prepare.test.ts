@@ -63,6 +63,10 @@ it.effect("selects a declared dynamic route from a disabled but ready direct ins
 				path: "/details/item-1",
 			},
 		});
+		expect(resolved.kind).toBe("plugin");
+		if (resolved.kind !== "plugin") {
+			throw new Error("Expected plugin target");
+		}
 		expect(resolved.exportName).toBe("details");
 		expect(resolved.params).toEqual({ itemId: "item-1" });
 	});
@@ -100,6 +104,10 @@ it.effect("decodes dynamic route parameters", () => {
 			findEntity: () => Effect.succeed(null),
 			target: { search: "", pluginId: owner.id, kind: "plugin-route", path: "/details/item%201" },
 		});
+		expect(resolved.kind).toBe("plugin");
+		if (resolved.kind !== "plugin") {
+			throw new Error("Expected plugin target");
+		}
 		expect(resolved.params).toEqual({ itemId: "item 1" });
 	});
 });
@@ -120,6 +128,10 @@ it.effect("selects a static route before an overlapping dynamic route", () => {
 			findEntity: () => Effect.succeed(null),
 			target: { search: "", pluginId: owner.id, path: "/items/new", kind: "plugin-route" },
 		});
+		expect(resolved.kind).toBe("plugin");
+		if (resolved.kind !== "plugin") {
+			throw new Error("Expected plugin target");
+		}
 		expect(resolved.exportName).toBe("new-item");
 		expect(resolved.params).toEqual({});
 	});
@@ -146,8 +158,58 @@ it.effect("selects the persisted provenance owner's registered entity page", () 
 					entitySchemaSlug: EntitySchemaSlug.make("pokemon"),
 				}),
 		});
+		expect(resolved.kind).toBe("plugin");
+		if (resolved.kind !== "plugin") {
+			throw new Error("Expected plugin target");
+		}
 		expect(resolved.plugin.id).toBe(owner.id);
 		expect(resolved.exportName).toBe("pokemon-page");
+	});
+});
+
+it.effect("resolves a kernel-owned collection to the kernel collection renderer", () => {
+	const entityId = EntityId.make("col-1");
+	return Effect.gen(function* () {
+		const resolved = yield* resolvePluginPageTarget({
+			plugins: [],
+			target: { entityId, kind: "entity" },
+			findEntity: () =>
+				Effect.succeed({
+					entityId,
+					entitySchemaPluginId: null,
+					entitySchemaSlug: EntitySchemaSlug.make("collection"),
+				}),
+		});
+		expect(resolved.kind).toBe("kernel-entity");
+		if (resolved.kind !== "kernel-entity") {
+			throw new Error("Expected kernel entity target");
+		}
+		expect(resolved.rendererName).toBe("Collection detail");
+		expect(resolved.entity.ownerPluginId).toBeNull();
+	});
+});
+
+it.effect("keeps kernel-owned schemas without a renderer distinct", () => {
+	const entityId = EntityId.make("entity-1");
+	const target = { entityId, kind: "entity" as const };
+	return Effect.gen(function* () {
+		const failure = yield* Effect.flip(
+			resolvePluginPageTarget({
+				target,
+				plugins: [],
+				findEntity: () =>
+					Effect.succeed({
+						entityId,
+						entitySchemaPluginId: null,
+						entitySchemaSlug: EntitySchemaSlug.make("library"),
+					}),
+			}),
+		);
+		expect(failure.reason.code).toBe("entity-detail-page-not-registered");
+		if (failure.reason.code !== "entity-detail-page-not-registered") {
+			throw new Error("Expected detail page failure");
+		}
+		expect(failure.reason.ownerPluginId).toBeNull();
 	});
 });
 
