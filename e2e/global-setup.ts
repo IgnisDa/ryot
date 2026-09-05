@@ -87,8 +87,8 @@ export default async () => {
 				apiProcess = spawnApiProcess(apiEnv, serverCwd);
 
 				const healthCheckUrl = `http://127.0.0.1:${apiPort}/api/system/health`;
-				yield* waitForHealthCheck(healthCheckUrl, "E2E Setup");
-				yield* waitForHealthCheck(frontendUrl, "E2E SPA");
+				yield* waitForHealthCheck(healthCheckUrl, "E2E Setup", apiProcess);
+				yield* waitForHealthCheck(frontendUrl, "E2E SPA", apiProcess);
 
 				return {
 					shutdown,

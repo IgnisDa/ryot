@@ -100,7 +100,9 @@ export function buildApiEnv(input: {
 }): NodeJS.ProcessEnv {
 	const safeLabel = input.label.toLowerCase().replace(/[^a-z0-9]+/g, "-");
 	const logFile = `${tmpdir()}/ryot-e2e-${safeLabel}-${Date.now()}-${input.port}.log`;
-	console.log(`[${input.label}] api logs -> ${logFile}`);
+	console.log(
+		`[${input.label}] api logs -> ${logFile} (console: ${logFile}.stdout, ${logFile}.stderr)`,
+	);
 
 	return {
 		...process.env,
@@ -127,23 +129,30 @@ export function buildApiEnv(input: {
 }
 
 export function spawnApiProcess(env: NodeJS.ProcessEnv, cwd = "../apps/server") {
+	const logFile = env.SERVER_LOG_FILE;
 	return Bun.spawn(["bun", "run", "src/main.ts"], {
 		env,
 		cwd,
 		stdin: "ignore",
-		stdout: "ignore",
-		stderr: "ignore",
+		stdout: logFile ? Bun.file(`${logFile}.stdout`) : "ignore",
+		stderr: logFile ? Bun.file(`${logFile}.stderr`) : "ignore",
 	});
 }
 
 export const waitForHealthCheck = (
 	url: string,
 	label: string,
+	process: ReturnType<typeof spawnApiProcess>,
 	maxRetries = 30,
 	retryDelay = 1000,
 ) =>
 	Effect.gen(function* () {
 		for (let attempt = 0; attempt < maxRetries; attempt += 1) {
+			if (process.exitCode !== null) {
+				throw new Error(
+					`[${label}] API process exited with code ${process.exitCode} before ${url} became healthy`,
+				);
+			}
 			const healthy = yield* webRequest(url).pipe(
 				Effect.map((response) => response.ok),
 				Effect.orElseSucceed(() => false),

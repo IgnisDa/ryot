@@ -75,7 +75,7 @@ beforeAll(
 						s3Endpoint: infrastructure.s3Endpoint,
 					}),
 				);
-				yield* waitForHealthCheck(`${apiOrigin}/api/system/health`, API_LABEL, 90);
+				yield* waitForHealthCheck(`${apiOrigin}/api/system/health`, API_LABEL, apiProcess, 90);
 			}).pipe(
 				Effect.onError(() =>
 					Effect.gen(function* () {

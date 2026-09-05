@@ -79,11 +79,16 @@ trigger is the new user's asynchronous Media workspace bootstrap completing duri
 live update rendering Media content, but this is not confirmed. A fix requires either a fixture
 that waits for user bootstrap or a narrower assertion.
 
-## Spawned API failures are silent
+## Global media-monitoring sweep grows across the run
 
 Status: measured.
 
-`spawnApiProcess` (`e2e/src/support/provisioning.ts`) discards stdout and stderr, and
-`waitForHealthCheck` does not observe process exit. An API that exits during boot is reported only
-after every health-check attempt fails, 90 seconds later, as `Health check failed … after 90
-retries`, with no exit code or cause. With PostgreSQL unreachable, the API exits within 4 seconds.
+Media-monitoring suites (`e2e/src/api/plugins/media/media-monitoring/`) trigger the Media plugin's
+single system `media-monitoring` cron through `/test-support/cron/plugin` and wait for their own
+entity to refresh (`triggerCronAndWaitForEntity` in
+`e2e/src/fixtures/plugins/media/media-monitoring.ts`, up to 3 attempts 5 seconds apart). Each sweep
+refreshes every monitored entity in the shared database, including those left by earlier files, so
+its cost grows with the run rather than with the calling test. In one full run the trigger took
+1.6 seconds at the start and 25.9 seconds 24 minutes later; later media-monitoring tests then
+reached the 180-second timeout. Fixing this requires scoping the test trigger or isolating the
+monitored data.
