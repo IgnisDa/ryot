@@ -81,7 +81,6 @@ import {
 import { CollectionsRepository } from "#modules/collections/repository";
 import { CollectionsService } from "#modules/collections/service";
 import { DefinitionRegistry } from "#modules/definition-registry/service";
-import { DefinitionsService } from "#modules/definitions/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { LocalInterestSessions } from "#modules/entity-interest/connections";
@@ -574,7 +573,6 @@ const ContentServicesLive = Layer.mergeAll(
 	EntityImportService.layer,
 	EventsServiceLive,
 	SavedViewsServiceLive,
-	DefinitionsService.layer,
 	RyotQLServiceLive,
 	AutomationsService.layer,
 	NotificationSubscriptionsServiceLive,

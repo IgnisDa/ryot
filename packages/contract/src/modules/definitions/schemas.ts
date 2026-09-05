@@ -8,7 +8,6 @@ import {
 	SandboxProviderId,
 } from "../../schema/brands";
 import { AppSchema } from "../../schema/property-schema";
-import { PluginInstallationItem } from "../plugins/schemas";
 
 export { UpdatePluginInstallationBody as UpdatePluginStateBody } from "../plugins/schemas";
 
@@ -37,15 +36,3 @@ export const RelationshipDefinition = Schema.Struct({
 	sourceEntitySchemaSlug: Schema.NullOr(EntitySchemaSlug),
 	targetEntitySchemaSlug: Schema.NullOr(EntitySchemaSlug),
 });
-
-export const ListedPlugin = Schema.Struct({
-	slug: PluginInstallationItem.fields.slug,
-	name: PluginInstallationItem.fields.name,
-	icon: PluginInstallationItem.fields.icon,
-	version: PluginInstallationItem.fields.version,
-	sortOrder: PluginInstallationItem.fields.sortOrder,
-	isDisabled: PluginInstallationItem.fields.isDisabled,
-	description: PluginInstallationItem.fields.description,
-});
-
-export type ListedPlugin = typeof ListedPlugin.Type;

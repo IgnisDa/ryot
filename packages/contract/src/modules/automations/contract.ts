@@ -1,14 +1,9 @@
 import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
-import { AdminMiddleware, AuthMiddleware } from "../../auth-middleware";
+import { AuthMiddleware } from "../../auth-middleware";
 import { DemoAccessPolicy } from "../../http-annotations";
-import {
-	AutomationRunId,
-	NotificationSubscriptionId,
-	SignalSchemaSlug,
-	UserId,
-} from "../../schema/brands";
+import { AutomationRunId, NotificationSubscriptionId, SignalSchemaSlug } from "../../schema/brands";
 import {
 	AutomationHistoryDetail,
 	AutomationHistoryFilters,
@@ -128,38 +123,3 @@ export const AutomationHistoryGroup = HttpApiGroup.make("automationHistory")
 			),
 	)
 	.middleware(AuthMiddleware);
-
-export const GodModeAutomationHistoryGroup = HttpApiGroup.make("godModeAutomationHistory")
-	.annotate(OpenApi.Description, "Provides god-mode access to automation history and retries.")
-	.add(
-		HttpApiEndpoint.get("listRuns", "/god-mode/automations/runs", {
-			error: listErrors,
-			success: AutomationHistoryPage,
-			query: Schema.Struct({ ...AutomationHistoryFilters.fields, userId: Schema.optional(UserId) }),
-		}).annotate(
-			OpenApi.Description,
-			"Lists all runs, optionally filtered by execution user, using bounded cursor pagination.",
-		),
-	)
-	.add(
-		HttpApiEndpoint.get("getRun", "/god-mode/automations/runs/:runId", {
-			error: historyErrors,
-			success: AutomationHistoryDetail,
-			params: { runId: AutomationRunId },
-		}).annotate(
-			OpenApi.Description,
-			"Reads any run with the same bounded artifact redaction as user history.",
-		),
-	)
-	.add(
-		HttpApiEndpoint.post("retryRun", "/god-mode/automations/runs/:runId/retry", {
-			params: { runId: AutomationRunId },
-			payload: AutomationHistoryRetryBody,
-			success: AutomationHistoryRetryResult.pipe(HttpApiSchema.status(202)),
-			error: [...historyErrors, AutomationHistoryRetryConflict.pipe(HttpApiSchema.status(409))],
-		}).annotate(
-			OpenApi.Description,
-			"Queues the next pinned attempt of any eligible failed run using god-mode authorization.",
-		),
-	)
-	.middleware(AdminMiddleware);
