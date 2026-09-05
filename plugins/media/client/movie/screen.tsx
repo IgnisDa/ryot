@@ -43,6 +43,7 @@ const MOVIE_TABS: readonly MediaTab<MovieTabKey>[] = [
 
 export function MovieScreenBody(props: {
 	readonly compact: boolean;
+	readonly safeAreaTop: number;
 	readonly refresh: () => void;
 	readonly activity: ReactNode;
 	readonly state: MovieSummaryState;
@@ -81,6 +82,7 @@ export function MovieScreenBody(props: {
 				compact={props.compact}
 				overview={props.overview}
 				isEmpty={movieOverviewIsEmpty}
+				safeAreaTop={props.safeAreaTop}
 				relations={movieOverviewRelations}
 				refreshOverview={props.refreshOverview}
 				refreshStatus={props.overviewRefreshStatus}
@@ -112,7 +114,7 @@ export function MovieScreenBody(props: {
 }
 
 export function MovieScreen(props: EntityRendererProps) {
-	const { compact } = useRyotViewport();
+	const { compact, safeAreaTop } = useRyotViewport();
 	const summaryResult = useRyotQuery(movieSummaryQuery, { entityId: props.entityId });
 	const overviewResult = useRyotQuery(movieOverviewQuery, { entityId: props.entityId });
 	const { commit, settled } = useMovieEntitySettle(props.entityId);
@@ -143,6 +145,7 @@ export function MovieScreen(props: EntityRendererProps) {
 						state={state}
 						compact={compact}
 						overview={overview}
+						safeAreaTop={safeAreaTop}
 						refresh={summaryResult.refetch}
 						settled={settled.get(props.entityId)}
 						refreshOverview={overviewResult.refetch}
