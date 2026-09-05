@@ -1,19 +1,7 @@
 import { expect, layer } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import { AutomationRunId } from "@ryot-app/contract/schema/brands";
-import {
-	Cause,
-	Context,
-	Deferred,
-	Duration,
-	Effect,
-	Exit,
-	Fiber,
-	Layer,
-	Ref,
-	Schema,
-} from "effect";
-import { TestClock } from "effect/testing";
+import { Cause, Context, Deferred, Effect, Exit, Layer, Ref, Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
@@ -37,8 +25,6 @@ import {
 
 import { automationAttemptIdentity } from "./attempt-repository";
 import {
-	AUTOMATION_IMMEDIATE_CONCURRENCY,
-	AUTOMATION_IMMEDIATE_TIMEOUT_MS,
 	AutomationExecutionOperations,
 	AutomationExecutionOperationsLive,
 	LifecycleExecutionLive,
@@ -72,9 +58,9 @@ const result = (
 		status,
 		timing: null,
 		attemptNumber: 1,
-		startedAt: trigger.createdAt,
-		finishedAt: trigger.createdAt,
 		retryable: status === "failed",
+		startedAt: new Date(0).toISOString(),
+		finishedAt: new Date(0).toISOString(),
 		failureKind: status === "failed" ? "sandbox-timeout" : null,
 	},
 });
@@ -86,9 +72,6 @@ class ExecutionCalls extends Context.Service<
 		readonly submitted: Effect.Effect<ReadonlyArray<string>>;
 		readonly executed: Effect.Effect<ReadonlyArray<AutomationRunWorkflowPayload>>;
 		readonly skipped: Effect.Effect<ReadonlyArray<string>>;
-		readonly running: Effect.Effect<number>;
-		readonly peakRunning: Effect.Effect<number>;
-		readonly firstSubmission: Effect.Effect<void>;
 		readonly setTransactionActive: (active: boolean) => Effect.Effect<void>;
 	}
 >()("test/ExecutionCalls") {}
@@ -100,9 +83,6 @@ const lifecycleExecutionLayer = (makeOperations: Effect.Effect<Operations>) =>
 			const submitted = yield* Ref.make<ReadonlyArray<string>>([]);
 			const executed = yield* Ref.make<ReadonlyArray<AutomationRunWorkflowPayload>>([]);
 			const skipped = yield* Ref.make<ReadonlyArray<string>>([]);
-			const running = yield* Ref.make(0);
-			const peakRunning = yield* Ref.make(0);
-			const firstSubmission = yield* Deferred.make<void>();
 			const transactionActive = yield* Ref.make(false);
 			return LifecycleExecutionLive.pipe(
 				Layer.provide(
@@ -110,22 +90,18 @@ const lifecycleExecutionLayer = (makeOperations: Effect.Effect<Operations>) =>
 						Layer.succeed(
 							AutomationExecutionOperations,
 							AutomationExecutionOperations.of({
+								poll: (payload) =>
+									Ref.update(executed, (all) => [...all, payload]).pipe(
+										Effect.andThen(operations.poll(payload)),
+									),
+								submit: (payload) =>
+									Ref.update(submitted, (all) => [...all, payload.runId]).pipe(
+										Effect.andThen(operations.submit(payload)),
+									),
 								skipQueuedPolicies: (input) =>
 									Ref.update(skipped, (all) => [...all, input.triggerId]).pipe(
 										Effect.andThen(operations.skipQueuedPolicies(input)),
 									),
-								submit: (payload) =>
-									Ref.update(submitted, (all) => [...all, payload.runId]).pipe(
-										Effect.andThen(Deferred.succeed(firstSubmission, undefined)),
-										Effect.andThen(operations.submit(payload)),
-									),
-								execute: (payload) =>
-									Effect.gen(function* () {
-										yield* Ref.update(executed, (all) => [...all, payload]);
-										const now = yield* Ref.updateAndGet(running, (count) => count + 1);
-										yield* Ref.update(peakRunning, (peak) => Math.max(peak, now));
-										return yield* operations.execute(payload);
-									}).pipe(Effect.ensuring(Ref.update(running, (count) => count - 1))),
 							}),
 						),
 						Layer.mock(DatabaseSession)({
@@ -142,14 +118,12 @@ const lifecycleExecutionLayer = (makeOperations: Effect.Effect<Operations>) =>
 				Layer.merge(
 					Layer.succeed(ExecutionCalls, {
 						skipped: Ref.get(skipped),
-						running: Ref.get(running),
 						executed: Ref.get(executed),
 						submitted: Ref.get(submitted),
-						peakRunning: Ref.get(peakRunning),
-						firstSubmission: Deferred.await(firstSubmission),
 						setTransactionActive: (active) => Ref.set(transactionActive, active),
 					}),
 				),
+				Layer.provideMerge(workflowEngineTestLayer),
 			);
 		}),
 	);
@@ -158,7 +132,7 @@ const succeedingOperations = Effect.succeed(
 	AutomationExecutionOperations.of({
 		submit: () => Effect.void,
 		skipQueuedPolicies: () => Effect.void,
-		execute: ({ runId }) => Effect.succeed(result(runId)),
+		poll: ({ runId }) => Effect.succeed(result(runId)),
 	}),
 );
 const policyPatch = { resource: "entity", draft: { name: "Changed" } } as const;
@@ -170,8 +144,11 @@ layer(
 			const executions = yield* Ref.make(0);
 			return AutomationExecutionOperations.of({
 				skipQueuedPolicies: () => Effect.void,
-				submit: () => Effect.fail(new DbError({ message: "async failure" })),
-				execute: ({ runId }) =>
+				submit: (payload) =>
+					payload.runId === "async"
+						? Effect.fail(new DbError({ message: "async failure" }))
+						: Effect.void,
+				poll: ({ runId }) =>
 					Effect.gen(function* () {
 						if ((yield* Ref.updateAndGet(executions, (count) => count + 1)) === 3) {
 							yield* Deferred.succeed(started, undefined);
@@ -207,7 +184,12 @@ layer(
 						hookSlug: "submission-failed",
 					},
 				]);
-				expect(yield* (yield* ExecutionCalls).submitted).toEqual(["async"]);
+				expect(yield* (yield* ExecutionCalls).submitted).toEqual([
+					"success",
+					"retry",
+					"submission-failed",
+					"async",
+				]);
 			}),
 	);
 });
@@ -217,45 +199,7 @@ layer(
 		Effect.succeed(
 			AutomationExecutionOperations.of({
 				submit: () => Effect.void,
-				execute: () => Effect.never,
-				skipQueuedPolicies: () => Effect.void,
-			}),
-		),
-	),
-)((test) => {
-	test.effect(
-		"bounds the whole fan-out by one deadline and never exceeds submission concurrency",
-		() =>
-			Effect.gen(function* () {
-				const calls = yield* ExecutionCalls;
-				const runs = Array.from({ length: AUTOMATION_IMMEDIATE_CONCURRENCY + 2 }, (_, i) =>
-					run(`hook-${i}`),
-				);
-				const fiber = yield* Effect.flatMap(LifecycleExecution, (service) =>
-					service.after({ triggerId: trigger.id, runs: [...runs, run("async", "async")] }),
-				).pipe(Effect.forkChild);
-				yield* calls.firstSubmission;
-				yield* TestClock.adjust(Duration.millis(AUTOMATION_IMMEDIATE_TIMEOUT_MS));
-				const warnings = yield* Fiber.join(fiber);
-				expect(yield* calls.peakRunning).toBe(AUTOMATION_IMMEDIATE_CONCURRENCY);
-				expect(yield* calls.running).toBe(0);
-				expect(warnings).toEqual(
-					runs.map((planned) => ({
-						runId: planned.id,
-						hookSlug: planned.hookSlug,
-						code: "required-hook-pending",
-					})),
-				);
-			}),
-	);
-});
-
-layer(
-	lifecycleExecutionLayer(
-		Effect.succeed(
-			AutomationExecutionOperations.of({
-				submit: () => Effect.void,
-				execute: () => Effect.interrupt,
+				poll: () => Effect.interrupt,
 				skipQueuedPolicies: () => Effect.void,
 			}),
 		),
@@ -280,7 +224,7 @@ layer(
 			AutomationExecutionOperations.of({
 				submit: () => Effect.void,
 				skipQueuedPolicies: () => Effect.void,
-				execute: (payload) =>
+				poll: (payload) =>
 					Effect.gen(function* () {
 						if (payload.runId === "db") {
 							return yield* new DbError({ message: "private database connection details" });
@@ -354,48 +298,15 @@ layer(
 });
 
 layer(
-	lifecycleExecutionLayer(
-		Effect.succeed(
-			AutomationExecutionOperations.of({
-				submit: () => Effect.void,
-				execute: () => Effect.never,
-				skipQueuedPolicies: () => Effect.void,
-			}),
-		),
-	),
-)((test) => {
-	test.effect("bounds policy waiting with the stable run-ID error and no later attempt", () =>
-		Effect.gen(function* () {
-			const runId = AutomationRunId.make("policy");
-			const fiber = yield* Effect.flatMap(LifecycleExecution, (service) =>
-				service.executePolicy({ runId, acceptedPatches: [policyPatch] }),
-			).pipe(Effect.exit, Effect.forkChild);
-			yield* TestClock.adjust(Duration.millis(AUTOMATION_IMMEDIATE_TIMEOUT_MS));
-			assertExitFails(
-				yield* Fiber.join(fiber),
-				new AutomationPolicyExecutionError({ runId, code: "policy-execution-failed" }),
-			);
-			expect(yield* (yield* ExecutionCalls).executed).toEqual([
-				{ runId, attemptNumber: 1, acceptedPatches: [policyPatch] },
-			]);
-		}),
-	);
-});
-
-layer(
 	AutomationExecutionOperationsLive.pipe(
 		Layer.provide(AutomationRunRepository.layer.pipe(Layer.provide(databaseLayer))),
-		Layer.provideMerge(
-			recordingRunWorkflowEngineLayer(({ discard, payload }) =>
-				discard ? undefined : result(payload.runId),
-			),
-		),
+		Layer.provideMerge(recordingRunWorkflowEngineLayer()),
 	),
 )((test) => {
-	test.effect("submits deterministic workflow IDs and sets discard only for async delivery", () =>
+	test.effect("submits deterministic workflow IDs without waiting for either delivery", () =>
 		Effect.gen(function* () {
 			const operations = yield* AutomationExecutionOperations;
-			yield* operations.execute({
+			yield* operations.submit({
 				attemptNumber: 1,
 				acceptedPatches: [],
 				runId: AutomationRunId.make("required"),
@@ -407,7 +318,7 @@ layer(
 			});
 			expect(yield* yield* RunWorkflowSubmissions).toEqual(
 				["required", "async"].map((id) => ({
-					discard: id === "async",
+					discard: true,
 					payload: { runId: id, attemptNumber: 1, acceptedPatches: [] },
 					executionId: automationAttemptIdentity(AutomationRunId.make(id), 1).workflowExecutionId,
 				})),
@@ -423,8 +334,8 @@ layer(
 		Effect.gen(function* () {
 			const skips = yield* Ref.make(0);
 			return AutomationExecutionOperations.of({
+				poll: () => Effect.die("unused"),
 				submit: () => Effect.die("unused"),
-				execute: () => Effect.die("unused"),
 				skipQueuedPolicies: () =>
 					Effect.flatMap(
 						Ref.updateAndGet(skips, (count) => count + 1),
@@ -455,7 +366,7 @@ layer(
 			AutomationExecutionOperations.of({
 				submit: () => Effect.void,
 				skipQueuedPolicies: () => Effect.void,
-				execute: ({ runId }) => Effect.succeed(result(runId, "failed")),
+				poll: ({ runId }) => Effect.succeed(result(runId, "failed")),
 			}),
 		),
 	),

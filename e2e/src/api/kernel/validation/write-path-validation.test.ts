@@ -7,6 +7,7 @@ import {
 	createEventTestFixture,
 	createPluginSchema,
 	createPluginSchemaAndEntity,
+	waitForCreateEvents,
 	waitForEventCount,
 } from "~/fixtures/kernel";
 import { assertTaggedError } from "~/support/assertions";
@@ -183,7 +184,7 @@ describe("Event write path — propertiesSchema validation", () => {
 					}),
 				);
 
-				expect(data.count).toBe(1);
+				expect((yield* waitForCreateEvents(client, data)).count).toBe(1);
 
 				const [event] = yield* waitForEventCount(client, entityId, 1);
 				expect(event?.properties).toEqual({ rating: 4 });
@@ -199,7 +200,7 @@ describe("Event write path — propertiesSchema validation", () => {
 				c.events.create({ payload: [{ entityId, eventSchemaSlug, properties: { rating: 5 } }] }),
 			);
 
-			expect(data.count).toBe(1);
+			expect((yield* waitForCreateEvents(client, data)).count).toBe(1);
 		}),
 	);
 });

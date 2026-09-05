@@ -13,31 +13,47 @@ import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { EventsService } from "./service";
 
 export const EventsRoutesLive = HttpApiBuilder.group(AppContract, "events", (handlers) =>
-	handlers.handle("create", ({ payload }) =>
-		Effect.gen(function* () {
-			const user = yield* CurrentUser;
-			const service = yield* EventsService;
-			const command = rootLifecycleCommand({
-				source: "api",
-				itemIdentity: "events",
-				initiator: { id: user.id, kind: "user" },
-				executionId: AutomationExecutionId.make(generateId()),
-				occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
-			});
-			return yield* service.create({ payload, userId: user.id }, command).pipe(
-				Effect.catchTag("EventCreateItemError", (error) =>
-					Effect.logError("event creation escaped item failure handling", error).pipe(
-						Effect.andThen(new EventsInternalError({ reason: { code: "unexpected-error" } })),
-					),
-				),
-				Effect.catchIf(
-					(error): error is DbError => error instanceof DbError,
-					(error) =>
-						Effect.logError("event creation failed", error).pipe(
+	handlers
+		.handle("create", ({ payload }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* EventsService;
+				const command = rootLifecycleCommand({
+					source: "api",
+					itemIdentity: "events",
+					initiator: { id: user.id, kind: "user" },
+					executionId: AutomationExecutionId.make(generateId()),
+					occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
+				});
+				return yield* service.createHttp({ payload, userId: user.id }, command).pipe(
+					Effect.catchTag("EventCreateItemError", (error) =>
+						Effect.logError("event creation escaped item failure handling", error).pipe(
 							Effect.andThen(new EventsInternalError({ reason: { code: "unexpected-error" } })),
 						),
-				),
-			);
-		}),
-	),
+					),
+					Effect.catchIf(
+						(error): error is DbError => error instanceof DbError,
+						(error) =>
+							Effect.logError("event creation failed", error).pipe(
+								Effect.andThen(new EventsInternalError({ reason: { code: "unexpected-error" } })),
+							),
+					),
+				);
+			}),
+		)
+		.handle("getCreateOperation", ({ params }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* EventsService;
+				return yield* service
+					.getCreateOperation(user.id, params.operationId)
+					.pipe(
+						Effect.catchTag("DbError", (error) =>
+							Effect.logError("event operation lookup failed", error).pipe(
+								Effect.andThen(new EventsInternalError({ reason: { code: "unexpected-error" } })),
+							),
+						),
+					);
+			}),
+		),
 );
