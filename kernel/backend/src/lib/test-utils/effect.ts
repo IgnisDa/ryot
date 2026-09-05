@@ -8,7 +8,8 @@ import {
 } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig, type AppConfigValue } from "#lib/infrastructure/config/service";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { DatabaseSession, userWriteLockStatement } from "#lib/infrastructure/db/session";
 import type { RedisService } from "#lib/infrastructure/redis";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 
@@ -21,6 +22,21 @@ export const databaseLayer = Layer.effect(DatabaseSession, DatabaseSession.make)
 		Layer.unwrap(Effect.sync(() => PgClient.layer({ url: Redacted.make(testDatabaseUrl()) }))),
 	),
 );
+
+export const fakeDatabaseSession = (
+	database: object,
+	overrides: Partial<DatabaseSession["Service"]> = {},
+) => {
+	const executor = Object.assign(Object.create(null), database);
+	const run: DatabaseSession["Service"]["run"] = (statement) =>
+		mapDatabaseErrors(statement(executor));
+	return Layer.mock(DatabaseSession)({
+		run,
+		current: Effect.succeed(executor),
+		acquireUserWriteLock: (userId) => Effect.asVoid(run(userWriteLockStatement(userId))),
+		...overrides,
+	});
+};
 
 export type WorkflowEngineOverrides = Omit<Partial<WorkflowEngine["Service"]>, "execute"> & {
 	execute?: (

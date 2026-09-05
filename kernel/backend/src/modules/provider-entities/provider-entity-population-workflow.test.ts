@@ -18,12 +18,12 @@ import type { LifecyclePlan } from "#lib/domain/lifecycle";
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
-import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { RedisService } from "#lib/infrastructure/redis";
 import {
 	makeMemoizingWorkflowEngine,
 	makeRedisService,
 	makeWorkflowActivityEngine,
+	fakeDatabaseSession,
 } from "#lib/test-utils/effect";
 import { planFixture } from "#modules/automations/lifecycle.test-support";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
@@ -115,8 +115,7 @@ const payload = {
 	entityScope: { userId, type: "global" as const },
 };
 
-const passthroughDatabase = Layer.mock(DatabaseSession)({
-	current: Effect.succeed(Object.create(null)),
+const passthroughDatabase = fakeDatabaseSession(Object.create(null), {
 	transaction: (work) => mapDatabaseErrors(work),
 });
 
