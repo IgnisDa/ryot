@@ -1,0 +1,84 @@
+{
+	"status": "paused-before-deployment",
+	"reason": "benchmark-server-busy",
+	"implementationCommit": "9efb3dce68",
+	"youtubeiVersion": "17.2.0",
+	"baseline": {
+		"ciCommit": "c2b382c26242808a3d39ed846a01130d819ae072",
+		"workflowUrl": "https://github.com/IgnisDa/ryot/actions/runs/35766977263",
+		"workflowConclusion": "success",
+		"image": "ghcr.io/ignisda/ryot@sha256:72da720d776e89b53fe2735858eaf335f9d6e13ae8be2a181a7c36abbe229fe9",
+		"amd64ManifestDigest": "sha256:b47bcf347aa0c13913e184b3e33773922e32586cac6b916d1aa3b5c26c5dc03a",
+		"arm64ManifestDigest": "sha256:be2191bdfaea9d1cbef6413cf3af0574e6494c9417aa32d935b4cc22627f4d0e",
+		"bothPlatformRevisionLabelsVerified": true,
+		"deployed": false,
+		"deploymentUuid": null
+	},
+	"candidate": {
+		"ciCommit": "ec957072bd656bee83f0c3f5946fe8636b8140f3",
+		"workflowUrl": "https://github.com/IgnisDa/ryot/actions/runs/35767698711",
+		"workflowConclusion": "success",
+		"image": "ghcr.io/ignisda/ryot@sha256:f309335fda12bab2fd349abfa50a251a1723e54454a45bd5bab99ee66239e067",
+		"amd64ManifestDigest": "sha256:85954b0d32c47a551bef5ae6c1e582991288d22cc31aadb56bfdc4fde4a21e1a",
+		"arm64ManifestDigest": "sha256:e21cabb268acff9f915c64113397a8e8dcfe90ab3adcca6396239007e3a48893",
+		"bothPlatformRevisionLabelsVerified": true,
+		"deployed": false,
+		"deploymentUuid": null
+	},
+	"outputValidation": {
+		"location": "local",
+		"fixedResponseExactMatches": 9,
+		"liveStableMatches": 9,
+		"baselineInitializationRequestsPerClient": 3,
+		"candidateInitializationRequestsPerClient": 0,
+		"detailsLanguage": "en",
+		"translationLanguage": "fr",
+		"operations": [
+			{ "name": "track-search", "metadataRequests": 1, "liveSharedItemsCompared": 16 },
+			{ "name": "artist-search", "metadataRequests": 1, "liveSharedItemsCompared": 19 },
+			{ "name": "album-search", "metadataRequests": 1, "liveSharedItemsCompared": 20 },
+			{ "name": "track-details", "metadataRequests": 2 },
+			{ "name": "artist-details", "metadataRequests": 1 },
+			{ "name": "album-details", "metadataRequests": 1 },
+			{ "name": "track-translate", "metadataRequests": 2 },
+			{ "name": "artist-translate", "metadataRequests": 1 },
+			{ "name": "album-translate", "metadataRequests": 1 }
+		]
+	},
+	"validation": [
+		{
+			"command": "bun turbo --output-logs=full check",
+			"exitCode": 0,
+			"successfulTasks": 38,
+			"totalTasks": 38,
+			"cachedTasks": 38
+		},
+		{
+			"command": "bun turbo --filter='!@ryot-app/e2e' --output-logs=full test",
+			"exitCode": 0,
+			"successfulTasks": 50,
+			"totalTasks": 50,
+			"cachedTasks": 45
+		},
+		{
+			"command": "bun --bun run vitest run src/api/kernel/sandbox/youtubei-tracer.test.ts",
+			"workingDirectory": "e2e",
+			"exitCode": 0,
+			"passedTests": 1
+		}
+	],
+	"preflight": {
+		"completedBeforePause": true,
+		"comparisonImageDeployedDuringPreflight": false,
+		"applicationSamples": 3029,
+		"hostSamples": 607,
+		"applicationFailures": 0,
+		"missedApplicationSlots": 0,
+		"missedHostSlots": 0,
+		"collectorTeardownPerformed": false
+	},
+	"measuredScenarios": [],
+	"workerPeakRssComparison": null,
+	"cpuSecondsComparison": null,
+	"performanceAcceptance": "not-yet-measured"
+}
