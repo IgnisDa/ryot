@@ -72,13 +72,15 @@ describe("person.vndb sandbox script", () => {
 	it("rejects an externalId that is not a VNDB producer id", () => {
 		const host = makeHost(() => httpSuccess({ results: [] }));
 		return Effect.runPromise(
-			runSandboxTestScript(details, { externalId: "v17" }, host, execution),
-		).then(
-			() => expect.unreachable("expected details to reject a non-producer externalId"),
-			(error: unknown) => {
+			Effect.gen(function* () {
+				const error = yield* runSandboxTestScript(
+					details,
+					{ externalId: "v17" },
+					host,
+					execution,
+				).pipe(Effect.orDie, Effect.catchDefect(Effect.succeed));
 				expect(error).toBeInstanceOf(Error);
-				return undefined;
-			},
+			}),
 		);
 	});
 });

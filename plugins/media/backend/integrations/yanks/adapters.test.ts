@@ -58,7 +58,7 @@ const historyClient = (
 	songs: ReadonlyArray<{ title: string; videoId: string }> = [{ videoId: "v1", title: "First" }],
 ): HistoryClient => ({
 	getHistory: () =>
-		Promise.resolve({
+		Effect.succeed({
 			contents: {
 				singleColumnBrowseResultsRenderer: {
 					tabs: [

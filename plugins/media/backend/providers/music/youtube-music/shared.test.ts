@@ -107,17 +107,15 @@ describe("music.youtube-music sandbox script", () => {
 	it("collects only today's tracks from YouTube Music history", () => {
 		const client = {
 			getHistory: () =>
-				Effect.runPromise(
-					Effect.succeed(
-						historyResponse([
-							historyShelf("August 5, 2026", [
-								historyItem("v1", "First"),
-								{},
-								historyItem("v2", "Second"),
-							]),
-							historyShelf("Yesterday", []),
+				Effect.succeed(
+					historyResponse([
+						historyShelf("August 5, 2026", [
+							historyItem("v1", "First"),
+							{},
+							historyItem("v2", "Second"),
 						]),
-					),
+						historyShelf("Yesterday", []),
+					]),
 				),
 		};
 		return Effect.runPromise(
@@ -138,7 +136,7 @@ describe("music.youtube-music sandbox script", () => {
 	it("passes workflow startedAt to the history entrypoint", () => {
 		const client = {
 			getHistory: () =>
-				Promise.resolve(
+				Effect.succeed(
 					historyResponse([historyShelf("August 5, 2026", [historyItem("v1", "First")])]),
 				),
 		};

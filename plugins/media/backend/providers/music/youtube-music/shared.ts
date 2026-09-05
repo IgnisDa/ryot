@@ -220,7 +220,7 @@ export const buildHistory = (client: HistoryClient, timezone: string, startedAt:
 			.toLowerCase();
 		return lower.includes(localDate);
 	};
-	return tryYoutubeMusic(() => client.getHistory()).pipe(
+	return client.getHistory().pipe(
 		Effect.map((history) => {
 			const songs: { videoId: string; title: string }[] = [];
 			const rootContents = asRecord(asRecord(history)?.["contents"]);
