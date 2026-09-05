@@ -33,19 +33,20 @@ const context = (entitySchemaSlug: string): AutomationInput =>
 		resource: "provider-entity-import",
 	});
 
-const membership = (sourceEntityId: string) => [
-	{
-		deletes: [],
-		creates: [
-			{
-				properties: {},
-				sourceEntityId,
-				targetEntityId: "library-1",
-				relationshipSchemaSlug: "in-media-library",
-			},
-		],
-	},
-];
+const eventBatch = (...events: Parameters<typeof eventAutomationContext>[0][]): AutomationInput => {
+	const items = events.map((event) => {
+		const payload = eventAutomationContext(event).automation.payload;
+		if (
+			payload.category !== "change" ||
+			payload.resource !== "event" ||
+			payload.operation !== "create"
+		) {
+			throw new Error("Expected event create change");
+		}
+		return payload;
+	});
+	return automationContext({ items, resource: "event", category: "change", operation: "batch" });
+};
 
 it.each(["book", "show", "anime", "manga", "video-game", "music", "person", "company"])(
 	"adds %s to the user's media library",
@@ -120,9 +121,13 @@ it("ignores irrelevant entity and event inputs", () => {
 			return hostSuccess(mediaLibraryRows);
 		},
 	});
-	const eventInput = eventAutomationContext({ entitySchemaSlug: "workout" });
-	const mediaLibraryInput = eventAutomationContext({ entitySchemaSlug: "media-library" });
-	const untargetedCollectionInput = eventAutomationContext({
+	const eventInput = eventBatch({ entitySchemaSlug: "workout" });
+	const mediaLibraryInput = eventBatch({ entitySchemaSlug: "media-library" });
+	const membershipEventInput = eventBatch({
+		entitySchemaSlug: "book",
+		eventSchemaSlug: "add-to-media-library",
+	});
+	const untargetedCollectionInput = eventBatch({
 		entitySchemaSlug: "collection",
 		eventSchemaSlug: "add-entity-to-collection",
 		properties: { entityId: "entity-9", entitySchemaSlug: "workout" },
@@ -133,6 +138,7 @@ it("ignores irrelevant entity and event inputs", () => {
 		Effect.gen(function* () {
 			expect(yield* definition.run(eventInput, host)).toBeNull();
 			expect(yield* definition.run(mediaLibraryInput, host)).toBeNull();
+			expect(yield* definition.run(membershipEventInput, host)).toBeNull();
 			expect(yield* definition.run(untargetedCollectionInput, host)).toBeNull();
 			expect(yield* definition.run(irrelevantInput, host)).toBeNull();
 			expect(calls).toBe(0);
@@ -140,10 +146,14 @@ it("ignores irrelevant entity and event inputs", () => {
 	);
 });
 
-it("adds the event subject and the collection membership target to the media library", () => {
+it("upserts each distinct event or collection target once per written batch", () => {
 	const changes: unknown[] = [];
+	let reads = 0;
 	const host = defineSandboxTestHost(manifest, {
-		executeRyotql: () => hostSuccess(mediaLibraryRows),
+		executeRyotql: () => {
+			reads += 1;
+			return hostSuccess(mediaLibraryRows);
+		},
 		changeUserRelationships: (batches) => {
 			changes.push(batches);
 			return hostSuccess([{ created: 1, deleted: 0 }]);
@@ -154,22 +164,73 @@ it("adds the event subject and the collection membership target to the media lib
 		Effect.gen(function* () {
 			expect(
 				yield* definition.run(
-					eventAutomationContext({ entitySchemaSlug: "movie", eventSchemaSlug: "progress" }),
+					eventBatch(
+						{ entitySchemaSlug: "movie", eventSchemaSlug: "progress" },
+						{ entitySchemaSlug: "movie", eventSchemaSlug: "complete" },
+						{ entitySchemaSlug: "workout", eventSchemaSlug: "progress" },
+						{
+							entitySchemaSlug: "collection",
+							eventSchemaSlug: "add-entity-to-collection",
+							properties: { entityId: "entity-2", entitySchemaSlug: "book" },
+						},
+					),
 					host,
 				),
 			).toBeNull();
-			expect(
-				yield* definition.run(
-					eventAutomationContext({
-						entitySchemaSlug: "collection",
-						eventSchemaSlug: "add-entity-to-collection",
-						properties: { entityId: "entity-2", entitySchemaSlug: "book" },
-					}),
-					host,
-				),
-			).toBeNull();
-			expect(changes).toEqual([membership("entity-1"), membership("entity-2")]);
+			expect(reads).toBe(1);
+			expect(changes).toEqual([
+				[
+					{
+						deletes: [],
+						creates: [
+							{
+								properties: {},
+								sourceEntityId: "entity-1",
+								targetEntityId: "library-1",
+								relationshipSchemaSlug: "in-media-library",
+							},
+							{
+								properties: {},
+								sourceEntityId: "entity-2",
+								targetEntityId: "library-1",
+								relationshipSchemaSlug: "in-media-library",
+							},
+						],
+					},
+				],
+			]);
 		}),
+	);
+});
+
+it("splits a batch of distinct membership targets within the host write limit", () => {
+	const sizes: number[] = [];
+	let calls = 0;
+	const host = defineSandboxTestHost(manifest, {
+		executeRyotql: () => hostSuccess(mediaLibraryRows),
+		changeUserRelationships: (batches) => {
+			calls += 1;
+			sizes.push(...batches.map((batch) => batch.creates.length));
+			return hostSuccess(batches.map((batch) => ({ deleted: 0, created: batch.creates.length })));
+		},
+	});
+	return Effect.runPromise(
+		definition
+			.run(
+				eventBatch(
+					...Array.from({ length: 101 }, (_, index) => ({
+						entitySchemaSlug: "book",
+						entityId: `entity-${index}`,
+					})),
+				),
+				host,
+			)
+			.pipe(
+				Effect.map(() => {
+					expect(calls).toBe(1);
+					expect(sizes).toEqual([100, 1]);
+				}),
+			),
 	);
 });
 

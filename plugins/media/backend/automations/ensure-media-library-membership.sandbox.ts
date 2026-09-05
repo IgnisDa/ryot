@@ -1,4 +1,5 @@
 import { defineAutomation, type AutomationInput } from "@ryot-app/sandbox-sdk/automation";
+import { USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS } from "@ryot-app/sandbox-sdk/core";
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { executeRyotqlRecipe, userMediaLibraryRecipe } from "@ryot-app/sandbox-sdk/ryotql";
@@ -35,23 +36,30 @@ const collectionMembershipTarget = (event: {
 		: null;
 };
 
-const mediaLibraryTarget = (
+const mediaLibraryTargets = (
 	payload: AutomationInput["automation"]["payload"],
-): MediaLibraryTarget | null => {
+): MediaLibraryTarget[] => {
 	if (payload.resource === "provider-entity-import") {
-		return { entityId: payload.entityId, entitySchemaSlug: payload.entitySchemaSlug };
+		return [{ entityId: payload.entityId, entitySchemaSlug: payload.entitySchemaSlug }];
 	}
 	if (payload.resource === "entity" && payload.operation === "create" && "after" in payload) {
-		return { entityId: payload.after.id, entitySchemaSlug: payload.after.entitySchemaSlug };
+		return [{ entityId: payload.after.id, entitySchemaSlug: payload.after.entitySchemaSlug }];
 	}
-	if (payload.resource === "event" && payload.operation === "create" && "after" in payload) {
-		const event = payload.after;
-		return event.entitySchemaSlug === "collection" &&
-			event.eventSchemaSlug === "add-entity-to-collection"
-			? collectionMembershipTarget(event)
-			: { entityId: event.entityId, entitySchemaSlug: event.entitySchemaSlug };
+	if (payload.resource === "event" && payload.operation === "batch") {
+		return payload.items.flatMap((item) => {
+			if (item.operation !== "create" || item.after.eventSchemaSlug === "add-to-media-library") {
+				return [];
+			}
+			const event = item.after;
+			const target =
+				event.entitySchemaSlug === "collection" &&
+				event.eventSchemaSlug === "add-entity-to-collection"
+					? collectionMembershipTarget(event)
+					: { entityId: event.entityId, entitySchemaSlug: event.entitySchemaSlug };
+			return target ? [target] : [];
+		});
 	}
-	return null;
+	return [];
 };
 
 export default defineAutomation({
@@ -67,24 +75,37 @@ export default defineAutomation({
 					message: "Provider import user does not match execution user",
 				});
 			}
-			const target = mediaLibraryTarget(payload);
-			if (!target || !libraryMemberEntitySchemaSlugs.has(target.entitySchemaSlug)) {
+			const targets = new Map<string, MediaLibraryTarget>();
+			for (const target of mediaLibraryTargets(payload)) {
+				if (libraryMemberEntitySchemaSlugs.has(target.entitySchemaSlug)) {
+					targets.set(target.entityId, target);
+				}
+			}
+			if (targets.size === 0) {
 				return null;
 			}
 			const mediaLibrary = yield* executeRyotqlRecipe(host.executeRyotql, userMediaLibraryRecipe());
-			yield* host.changeUserRelationships([
-				{
+			const creates = [...targets.values()].map((target) => ({
+				properties: {},
+				sourceEntityId: target.entityId,
+				targetEntityId: mediaLibrary.entityId,
+				relationshipSchemaSlug: "in-media-library",
+			}));
+			const batches = [];
+			for (
+				let index = 0;
+				index < creates.length;
+				index += USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS.changesPerBatch
+			) {
+				batches.push({
 					deletes: [],
-					creates: [
-						{
-							properties: {},
-							sourceEntityId: target.entityId,
-							targetEntityId: mediaLibrary.entityId,
-							relationshipSchemaSlug: "in-media-library",
-						},
-					],
-				},
-			]);
+					creates: creates.slice(
+						index,
+						index + USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS.changesPerBatch,
+					),
+				});
+			}
+			yield* host.changeUserRelationships(batches);
 			return null;
 		}),
 });

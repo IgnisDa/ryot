@@ -675,23 +675,34 @@ it("declares the complete media-owned source", () => {
 	);
 });
 
-it("uses one required library hook for eligible creates, provider completion, and library-joining events", () => {
-	const hooks = mediaPlugin.hooks.filter(
+it("keeps entity and import membership immediate and groups event membership by batch", () => {
+	const itemHook = mediaPlugin.hooks.find(
 		({ slug }) => slug === "media.ensure-media-library-membership",
 	);
-	expect(hooks).toHaveLength(1);
-	expect(hooks[0]).toEqual({
+	expect(itemHook).toEqual({
 		stage: "after",
 		delivery: "required",
 		executionScope: "user",
 		name: "Ensure media library membership",
 		slug: "media.ensure-media-library-membership",
 		scriptSlug: "automation.ensure-media-library-membership",
+		targets: mediaLibraryMemberEntitySchemaSlugs.flatMap((entitySchemaSlug) => [
+			{ entitySchemaSlug, resource: "entity", operation: "create" },
+			{ entitySchemaSlug, operation: "complete", resource: "provider-entity-import" },
+		]),
+	});
+	const batchHook = mediaPlugin.hooks.find(
+		({ slug }) => slug === "media.ensure-media-library-membership-on-events",
+	);
+	expect(batchHook).toEqual({
+		stage: "after",
+		frequency: "batch",
+		delivery: "required",
+		executionScope: "user",
+		name: "Ensure media library membership for events",
+		slug: "media.ensure-media-library-membership-on-events",
+		scriptSlug: "automation.ensure-media-library-membership",
 		targets: [
-			...mediaLibraryMemberEntitySchemaSlugs.flatMap((entitySchemaSlug) => [
-				{ entitySchemaSlug, resource: "entity", operation: "create" },
-				{ entitySchemaSlug, operation: "complete", resource: "provider-entity-import" },
-			]),
 			...mediaPlugin.entitySchemas.flatMap((schema) =>
 				schema.eventSchemas
 					.filter(({ slug }) => slug !== "add-to-media-library")
