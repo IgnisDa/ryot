@@ -1,6 +1,11 @@
-import type { ImportEntityRunResult } from "@ryot-app/contract/modules/provider-entities/schemas";
+import {
+	type ImportEntityRunResult,
+	ProviderEntityImportBacklogFull,
+} from "@ryot-app/contract/modules/provider-entities/schemas";
 import type { EntityId } from "@ryot-app/contract/schema/brands";
-import { Effect, Match, Schedule } from "effect";
+import { Effect, Match, Result, Schema } from "effect";
+
+import { ProviderAddLoadError } from "#/modules/provider-add/service";
 
 const PROVIDER_IMPORT_POLL_ATTEMPTS = 60;
 
@@ -14,22 +19,20 @@ export const PROVIDER_IMPORT_CANCELLED_MESSAGE = "The import was cancelled.";
 export const PROVIDER_IMPORT_UNAVAILABLE_MESSAGE =
 	"The import could not be started. Check your connection and try again.";
 
+export const PROVIDER_IMPORT_BACKLOG_FULL_MESSAGE =
+	"You have too many imports waiting. Try again once some of them finish.";
+
 export const PROVIDER_IMPORT_TIMEOUT_MESSAGE =
 	"The import is taking longer than expected. Check your library in a few minutes.";
 
-const providerEntityImportPollSchedule = Schedule.spaced(PROVIDER_IMPORT_POLL_INTERVAL).pipe(
-	Schedule.upTo({ times: PROVIDER_IMPORT_POLL_ATTEMPTS }),
-);
-
 export type ProviderEntityImportEntry =
 	| { readonly status: "idle" }
+	| { readonly status: "queued" }
 	| { readonly status: "importing" }
 	| { readonly status: "failed"; readonly message: string }
 	| { readonly status: "imported"; readonly entityId: EntityId };
 
 export type ProviderEntityImportState = ReadonlyMap<string, ProviderEntityImportEntry>;
-
-const providerEntityImportPending = { reason: "pending" } as const;
 
 const failedEntry = (message: string) => ({ message, status: "failed" }) as const;
 
@@ -48,8 +51,8 @@ export const setProviderEntityImportEntry = (
 
 const providerEntityImportOutcome = (result: ImportEntityRunResult) =>
 	Match.value(result).pipe(
-		Match.when({ status: "queued" }, () => undefined),
-		Match.when({ status: "running" }, () => undefined),
+		Match.when({ status: "queued" }, () => ({ status: "queued" }) as const),
+		Match.when({ status: "running" }, () => ({ status: "importing" }) as const),
 		Match.when({ status: "cancelled" }, () => failedEntry(PROVIDER_IMPORT_CANCELLED_MESSAGE)),
 		Match.when({ status: "failed" }, () => failedEntry(PROVIDER_IMPORT_FAILED_MESSAGE)),
 		Match.when(
@@ -59,28 +62,51 @@ const providerEntityImportOutcome = (result: ImportEntityRunResult) =>
 		Match.exhaustive,
 	);
 
-const pollProviderEntityImport = (
+const isBacklogFull = (error: unknown) =>
+	Schema.is(ProviderEntityImportBacklogFull)(
+		error instanceof ProviderAddLoadError ? error.cause : error,
+	);
+
+/** Only running polls count toward the timeout, because a queued import waits for other imports. */
+const pollProviderEntityImport = Effect.fnUntraced(function* (
 	poll: (jobId: string) => Effect.Effect<ImportEntityRunResult, unknown>,
 	jobId: string,
-) =>
-	poll(jobId).pipe(
-		Effect.map(providerEntityImportOutcome),
-		Effect.catch(() => Effect.succeed(failedEntry(PROVIDER_IMPORT_UNAVAILABLE_MESSAGE))),
-		Effect.flatMap((entry) =>
-			entry === undefined ? Effect.fail(providerEntityImportPending) : Effect.succeed(entry),
-		),
-		Effect.retry(providerEntityImportPollSchedule),
-		Effect.catch(() => Effect.succeed(failedEntry(PROVIDER_IMPORT_TIMEOUT_MESSAGE))),
-	);
+	onProgress: (entry: ProviderEntityImportEntry) => void,
+) {
+	let runningPolls = 0;
+	for (;;) {
+		const result = yield* Effect.result(poll(jobId));
+		if (Result.isFailure(result)) {
+			return failedEntry(PROVIDER_IMPORT_UNAVAILABLE_MESSAGE);
+		}
+		const entry = providerEntityImportOutcome(result.success);
+		if (entry.status !== "queued" && entry.status !== "importing") {
+			return entry;
+		}
+		if (entry.status === "importing") {
+			runningPolls += 1;
+			if (runningPolls > PROVIDER_IMPORT_POLL_ATTEMPTS) {
+				return failedEntry(PROVIDER_IMPORT_TIMEOUT_MESSAGE);
+			}
+		}
+		onProgress(entry);
+		yield* Effect.sleep(PROVIDER_IMPORT_POLL_INTERVAL);
+	}
+});
 
 export const importProviderEntity = (input: {
 	readonly start: Effect.Effect<{ readonly jobId: string }, unknown>;
 	readonly poll: (jobId: string) => Effect.Effect<ImportEntityRunResult, unknown>;
+	readonly onProgress: (entry: ProviderEntityImportEntry) => void;
 }) =>
 	Effect.gen(function* () {
-		const started = yield* input.start.pipe(Effect.catch(() => Effect.succeed(undefined)));
-		if (started === undefined) {
-			return failedEntry(PROVIDER_IMPORT_UNAVAILABLE_MESSAGE);
+		const started = yield* Effect.result(input.start);
+		if (Result.isFailure(started)) {
+			return failedEntry(
+				isBacklogFull(started.failure)
+					? PROVIDER_IMPORT_BACKLOG_FULL_MESSAGE
+					: PROVIDER_IMPORT_UNAVAILABLE_MESSAGE,
+			);
 		}
-		return yield* pollProviderEntityImport(input.poll, started.jobId);
+		return yield* pollProviderEntityImport(input.poll, started.success.jobId, input.onProgress);
 	});

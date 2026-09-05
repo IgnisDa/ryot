@@ -26,7 +26,7 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 			const database = yield* Database;
 			const engine = yield* WorkflowEngine;
 			const repository = yield* ProviderImportAdmissionRepository;
-			const limit = config.sandbox.experimentImportAdmissionLimit;
+			const limit = config.sandbox.importConcurrency;
 			const wakeups = yield* Queue.sliding<void>(1);
 			const wake = Queue.offer(wakeups, undefined).pipe(Effect.asVoid);
 
@@ -52,10 +52,11 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 						finished.push(row.id);
 					}
 				}
-				yield* repository.removeRunning(finished);
 				const admitted = yield* mapDatabaseErrors(
 					database.transaction((transaction) =>
-						repository.admit(limit).pipe(Effect.provideService(Database, transaction)),
+						repository
+							.admit({ limit, finished })
+							.pipe(Effect.provideService(Database, transaction)),
 					),
 				);
 				yield* Effect.forEach(admitted, start, { discard: true });
@@ -117,15 +118,15 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 				yield* wake;
 			});
 
-			if (limit > 0) {
-				yield* Effect.forkScoped(run);
-			}
-
-			return { cancel, status, submit, enabled: limit > 0 };
+			return { run, cancel, status, submit, reconcile };
 		}),
 	},
 ) {
 	static readonly layer = Layer.effect(this, this.make).pipe(
 		Layer.provide(ProviderImportAdmissionRepository.layer),
 	);
+
+	static readonly liveLayer = Layer.effectDiscard(
+		Effect.flatMap(this, (admission) => Effect.forkScoped(admission.run)),
+	).pipe(Layer.provideMerge(this.layer));
 }

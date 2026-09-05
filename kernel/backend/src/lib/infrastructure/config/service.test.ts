@@ -164,6 +164,14 @@ describe("validateSystemConfig shared application/workflow pool capacity", () =>
 			expect(JSON.stringify(result.cause)).toContain("SANDBOX_WORKER_CONCURRENCY");
 		}
 	});
+
+	it.each([0, -1, 1.5])("rejects import concurrency %s", (importConcurrency) => {
+		const result = validate({ sandbox: { importConcurrency } });
+		expect(Exit.isFailure(result)).toBe(true);
+		if (Exit.isFailure(result)) {
+			expect(JSON.stringify(result.cause)).toContain("SANDBOX_IMPORT_CONCURRENCY");
+		}
+	});
 });
 
 describe("FRONTEND_URL validation", () => {

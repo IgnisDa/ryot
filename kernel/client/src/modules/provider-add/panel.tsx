@@ -109,6 +109,7 @@ type ProviderSearchPanelProps = {
 	readonly importEntity: (input: {
 		readonly externalId: string;
 		readonly providerId: SandboxProviderId;
+		readonly onProgress: (entry: ProviderEntityImportEntry) => void;
 	}) => Promise<ProviderEntityImportEntry>;
 };
 
@@ -420,22 +421,22 @@ export function ProviderSearchPanel(props: ProviderSearchPanelProps) {
 	}, [state.operation]);
 
 	const addProviderEntity = (externalId: string) => {
-		if (
-			selected === undefined ||
-			providerEntityImportEntry(importState, externalId).status === "importing"
-		) {
+		const current = providerEntityImportEntry(importState, externalId).status;
+		if (selected === undefined || current === "queued" || current === "importing") {
 			return;
 		}
-		setImportState((current) =>
-			setProviderEntityImportEntry(current, externalId, { status: "importing" }),
-		);
-		void props.importEntity({ externalId, providerId: selected.providerId }).then((entry) => {
-			if (entry.status === "imported") {
-				props.onImported();
-			}
-			setImportState((current) => setProviderEntityImportEntry(current, externalId, entry));
-			return entry;
-		});
+		const setEntry = (entry: ProviderEntityImportEntry) =>
+			setImportState((entries) => setProviderEntityImportEntry(entries, externalId, entry));
+		setEntry({ status: "importing" });
+		void props
+			.importEntity({ externalId, onProgress: setEntry, providerId: selected.providerId })
+			.then((entry) => {
+				if (entry.status === "imported") {
+					props.onImported();
+				}
+				setEntry(entry);
+				return entry;
+			});
 	};
 
 	return (

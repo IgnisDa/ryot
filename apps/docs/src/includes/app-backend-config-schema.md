@@ -50,6 +50,7 @@
 | App Config Key | Variable | Description | Required | Sensitive | Default |
 |---|---|---|---|---|---|
 | `sandbox.processMode` | `SANDBOX_PROCESS_MODE` | Spawn processes on demand or keep a warm pool ready for executions | No | No | `on-demand` |
+| `sandbox.importConcurrency` | `SANDBOX_IMPORT_CONCURRENCY` | Maximum provider imports running at once across every replica; further imports wait in a durable queue that serves the user with the fewest running imports first. The default matches SANDBOX_WORKER_CONCURRENCY on the 2 vCPU / 4 GB baseline; keep it at the total SANDBOX_WORKER_CONCURRENCY across replicas | No | No | `2` |
 | `sandbox.workerConcurrency` | `SANDBOX_WORKER_CONCURRENCY` | Maximum sandbox executions the durable queue runs at once. The default suits the 2 vCPU / 4 GB baseline, where each live execution costs one Deno process and one shared pool connection; raise it only on hosts with spare CPU, memory, and DATABASE_POOL_MAX headroom | No | No | `2` |
 
 ### PostgreSQL connection settings

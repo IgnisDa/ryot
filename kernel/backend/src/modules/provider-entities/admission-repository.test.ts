@@ -1,63 +1,13 @@
 import { expect, it } from "@effect/vitest";
-import { DbError } from "@ryot-app/contract/errors";
-import { UserId } from "@ryot-app/contract/schema/brands";
+import type { UserId } from "@ryot-app/contract/schema/brands";
 import { sql } from "drizzle-orm";
-import { Data, Effect, Layer, Redacted } from "effect";
-import { assert, describe } from "vitest";
+import { Effect } from "effect";
+import { describe } from "vitest";
 
-import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { Database, DatabaseLive } from "#lib/infrastructure/db/service";
-import { testDatabaseUrl } from "#lib/test-utils/database";
-import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
+import { Database } from "#lib/infrastructure/db/service";
 
 import { ProviderImportAdmissionRepository } from "./admission-repository";
-
-class RollbackTestSchema extends Data.TaggedError("RollbackTestSchema") {}
-
-const alice = UserId.make("alice");
-const bob = UserId.make("bob");
-
-const withAdmissionDatabase = <E>(
-	test: Effect.Effect<void, E, Database | ProviderImportAdmissionRepository>,
-) => {
-	const name = `admission_test_${crypto.randomUUID().replaceAll("-", "")}`;
-	const config = makeAppConfigLayer({ database: { url: Redacted.make(testDatabaseUrl()) } });
-	return Effect.gen(function* () {
-		const db = yield* Database;
-		const directory = new URL("../../drizzle/", import.meta.url).pathname;
-		const paths = [...new Bun.Glob("*/migration.sql").scanSync({ cwd: directory })];
-		assert(paths.length === 1);
-		const ddl = yield* Effect.tryPromise({
-			try: () => Bun.file(directory + paths[0]).text(),
-			catch: () => new DbError({ message: "Cannot read generated baseline" }),
-		});
-		yield* db
-			.transaction((transaction) =>
-				Effect.gen(function* () {
-					yield* transaction.execute(sql`create schema ${sql.identifier(name)}`);
-					yield* transaction.execute(sql`set local search_path to ${sql.identifier(name)}, public`);
-					for (const statement of ddl.split("--> statement-breakpoint")) {
-						yield* transaction.execute(sql.raw(statement));
-					}
-					yield* transaction.insert(tables.user).values([
-						{ id: alice, name: "Alice", preferences: {}, email: "alice@example.test" },
-						{ id: bob, name: "Bob", preferences: {}, email: "bob@example.test" },
-					]);
-					yield* test;
-					return yield* new RollbackTestSchema();
-				}).pipe(Effect.provideService(Database, transaction)),
-			)
-			.pipe(Effect.catchTag("RollbackTestSchema", () => Effect.void));
-	}).pipe(
-		Effect.provide(
-			Layer.mergeAll(
-				ProviderImportAdmissionRepository.layer,
-				DatabaseLive.pipe(Layer.provide(config)),
-				makeConfigProviderLayer(),
-			),
-		),
-	);
-};
+import { alice, bob, withAdmissionDatabase } from "./admission.test-support";
 
 const request = (id: string, userId: UserId, externalId = id, backlogLimit = 50) =>
 	Effect.flatMap(ProviderImportAdmissionRepository, (repository) =>
@@ -72,10 +22,10 @@ const request = (id: string, userId: UserId, externalId = id, backlogLimit = 50)
 		}),
 	);
 
-const admittedIds = (limit: number) =>
-	Effect.flatMap(ProviderImportAdmissionRepository, (repository) => repository.admit(limit)).pipe(
-		Effect.map((rows) => rows.map(({ id }) => id).sort()),
-	);
+const admittedIds = (limit: number, finished: ReadonlyArray<string> = []) =>
+	Effect.flatMap(ProviderImportAdmissionRepository, (repository) =>
+		repository.admit({ limit, finished }),
+	).pipe(Effect.map((rows) => rows.map(({ id }) => id).sort()));
 
 /** Distinct creation times make the oldest-first tie break deterministic. */
 const enqueueInOrder = (requests: ReadonlyArray<readonly [string, UserId]>) =>
@@ -106,9 +56,24 @@ describe("provider import admission ledger", () => {
 				expect(yield* admittedIds(2)).toEqual(["a1", "b1"]);
 				expect(yield* admittedIds(2)).toEqual([]);
 
-				yield* repository.removeRunning(["b1"]);
-				expect(yield* admittedIds(2)).toEqual(["a2"]);
+				expect(yield* admittedIds(2, ["b1"])).toEqual(["a2"]);
 				expect((yield* repository.listRunning()).map(({ id }) => id).sort()).toEqual(["a1", "a2"]);
+			}),
+		),
+	);
+
+	it.effect("gives the only slot a finishing import frees to another waiting user", () =>
+		withAdmissionDatabase(
+			Effect.gen(function* () {
+				yield* enqueueInOrder([
+					["a1", alice],
+					["a2", alice],
+					["b1", bob],
+				]);
+				expect(yield* admittedIds(1)).toEqual(["a1"]);
+
+				expect(yield* admittedIds(1, ["a1"])).toEqual(["b1"]);
+				expect(yield* admittedIds(1, ["b1"])).toEqual(["a2"]);
 			}),
 		),
 	);

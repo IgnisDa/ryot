@@ -38,33 +38,18 @@ const SandboxReplayResult = Schema.Struct({
 });
 export type SandboxReplayResult = Schema.Schema.Type<typeof SandboxReplayResult>;
 
-const makeSandboxQueue = (name: string) =>
-	DurableQueue.make({
-		name,
-		error: SandboxRunError,
-		success: SandboxReplayResult,
-		payload: SandboxExecutionQueuePayload,
-		idempotencyKey: ({ executionId }) => executionId,
-	});
-
-export const SandboxExecutionQueue = makeSandboxQueue("SandboxExecutionQueue");
-/** Request-scoped executions (search, plugin operations) that must not wait behind background work. */
-export const SandboxInteractiveExecutionQueue = makeSandboxQueue(
-	"SandboxInteractiveExecutionQueue",
-);
-
-export type SandboxExecutionLane = "interactive" | undefined;
+export const SandboxExecutionQueue = DurableQueue.make({
+	error: SandboxRunError,
+	success: SandboxReplayResult,
+	name: "SandboxExecutionQueue",
+	payload: SandboxExecutionQueuePayload,
+	idempotencyKey: ({ executionId }) => executionId,
+});
 
 const sandboxRetrySchedule = Schedule.max([Schedule.exponential("1 second"), Schedule.recurs(2)]);
 
-export const processSandboxExecutionQueue = (
-	payload: SandboxExecutionQueuePayload,
-	lane?: SandboxExecutionLane,
-) =>
-	DurableQueue.process(
-		lane === "interactive" ? SandboxInteractiveExecutionQueue : SandboxExecutionQueue,
-		payload,
-	).pipe(
+export const processSandboxExecutionQueue = (payload: SandboxExecutionQueuePayload) =>
+	DurableQueue.process(SandboxExecutionQueue, payload).pipe(
 		Effect.timeout("1 minute"),
 		Effect.retry(sandboxRetrySchedule),
 		Effect.mapError(
@@ -156,12 +141,9 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 	};
 });
 
-const makeSandboxExecutionQueueWorkerLive = (
-	queue: typeof SandboxExecutionQueue,
-	concurrency: number,
-) =>
+const makeSandboxExecutionQueueWorkerLive = (concurrency: number) =>
 	DurableQueue.worker(
-		queue,
+		SandboxExecutionQueue,
 		(payload) =>
 			executeSandboxExecution(payload).pipe(
 				Effect.mapError(
@@ -174,17 +156,6 @@ const makeSandboxExecutionQueueWorkerLive = (
 
 export const SandboxExecutionQueueWorkerLive = Layer.unwrap(
 	Effect.map(AppConfig, (config) =>
-		config.sandbox.experimentInteractiveLane
-			? Layer.merge(
-					makeSandboxExecutionQueueWorkerLive(
-						SandboxExecutionQueue,
-						config.sandbox.workerConcurrency,
-					),
-					makeSandboxExecutionQueueWorkerLive(SandboxInteractiveExecutionQueue, 1),
-				)
-			: makeSandboxExecutionQueueWorkerLive(
-					SandboxExecutionQueue,
-					config.sandbox.workerConcurrency,
-				),
+		makeSandboxExecutionQueueWorkerLive(config.sandbox.workerConcurrency),
 	),
 );
