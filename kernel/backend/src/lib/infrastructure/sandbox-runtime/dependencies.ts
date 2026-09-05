@@ -82,10 +82,6 @@ const canonicalRuntimeHash = (
 
 const trustedPayload = sandboxRuntimePayload;
 
-export const SANDBOX_APPROVED_DEPENDENCIES = trustedPayload.metadata.dependencies;
-export const SANDBOX_RUNTIME_IMPORT_MAP_CONTENT =
-	trustedPayload.files.find(({ path }) => path === "import-map.json")?.contents ?? "";
-
 const runtimeDirectoryPrefix = `runtime-v${trustedPayload.metadata.format}-${trustedPayload.metadata.dependencies
 	.map(({ name, version }) => `${name}-${version}`)
 	.join("_")}`;
@@ -259,5 +255,5 @@ export const materializeSandboxRuntimePayload = (denoDir: string, payload: unkno
 		);
 	});
 
-export const ensureSandboxRuntimeDependencies = (denoDir: string) =>
+export const materializeShippedSandboxRuntime = (denoDir: string) =>
 	materializeSandboxRuntimePayload(denoDir, sandboxRuntimePayload);

@@ -17,24 +17,10 @@ export interface CompilerWorkspaceOptions {
 	readonly jobId?: string;
 }
 
-export interface AddressedCompilerWorkspaceOptions {
-	readonly parentPath: string;
-	readonly jobId: string;
-}
-
 export interface WorkspaceFile {
-	readonly kind?: "file";
 	readonly path: string;
 	readonly contents: string | Uint8Array;
 }
-
-export interface WorkspaceSymlink {
-	readonly kind: "symlink";
-	readonly path: string;
-	readonly target: string;
-}
-
-export type WorkspaceInput = WorkspaceFile | WorkspaceSymlink;
 
 const jobIdPattern = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
 
@@ -70,7 +56,7 @@ const validateJobId = (jobId: unknown): Result.Result<string, ViteCompilerError>
 export const getCompilerWorkspaceRoot = ({
 	jobId,
 	parentPath,
-}: AddressedCompilerWorkspaceOptions): Result.Result<string, ViteCompilerError> => {
+}: Required<CompilerWorkspaceOptions>): Result.Result<string, ViteCompilerError> => {
 	if (typeof parentPath !== "string" || parentPath.length === 0) {
 		return Result.fail(viteCompilerError("invalid-input", "Workspace parent path is invalid"));
 	}
@@ -150,7 +136,7 @@ export const acquireCompilerWorkspace = Effect.fn("acquireCompilerWorkspace")(fu
 type ValidatedWorkspaceFile = { readonly path: string; readonly contents: string | Uint8Array };
 
 const validateInputs = (
-	inputs: readonly WorkspaceInput[],
+	inputs: readonly WorkspaceFile[],
 ): Result.Result<ValidatedWorkspaceFile[], ViteCompilerError> => {
 	if (!Array.isArray(inputs)) {
 		return Result.fail(viteCompilerError("invalid-input", "Workspace inputs must be an array"));
@@ -159,19 +145,6 @@ const validateInputs = (
 	for (const input of inputs) {
 		if (typeof input !== "object" || input === null || !("path" in input)) {
 			return Result.fail(viteCompilerError("invalid-input", "Workspace input must be a file"));
-		}
-		if (input.kind === "symlink") {
-			return Result.fail(
-				viteCompilerError(
-					"workspace-symlink",
-					`Workspace symlinks are not supported: ${String(input.path)}`,
-				),
-			);
-		}
-		if (input.kind !== undefined && input.kind !== "file") {
-			return Result.fail(
-				viteCompilerError("invalid-input", "Workspace input kind is not supported"),
-			);
 		}
 		const validatedPath = validateRelativePath(input.path);
 		if (Result.isFailure(validatedPath)) {
@@ -201,7 +174,7 @@ const validateInputs = (
 		const currentPath = files[index]?.path;
 		if (previousPath === currentPath || currentPath?.startsWith(`${previousPath}/`)) {
 			return Result.fail(
-				viteCompilerError("workspace-collision", `Workspace source path collision: ${currentPath}`),
+				viteCompilerError("workspace-collision", `Workspace path collision: ${currentPath}`),
 			);
 		}
 	}
@@ -210,7 +183,7 @@ const validateInputs = (
 
 const stageFiles = Effect.fn("stageWorkspaceFiles")(function* (
 	namespacePath: string,
-	inputs: readonly WorkspaceInput[],
+	inputs: readonly WorkspaceFile[],
 ) {
 	const fs = yield* FileSystem.FileSystem;
 	const ordered = yield* Effect.fromResult(validateInputs(inputs));
@@ -228,7 +201,7 @@ const stageFiles = Effect.fn("stageWorkspaceFiles")(function* (
 			yield* fs
 				.makeDirectory(parent, { recursive: true })
 				.pipe(
-					Effect.mapError((cause) => filesystemError("create source directory", parent, cause)),
+					Effect.mapError((cause) => filesystemError("create workspace directory", parent, cause)),
 				);
 			let componentPath = namespacePath;
 			for (const component of file.path.split("/").slice(0, -1)) {
@@ -237,7 +210,7 @@ const stageFiles = Effect.fn("stageWorkspaceFiles")(function* (
 					.stat(componentPath)
 					.pipe(
 						Effect.mapError((cause) =>
-							filesystemError("inspect source path", componentPath, cause),
+							filesystemError("inspect workspace path", componentPath, cause),
 						),
 					);
 				if (componentStatus.type === "SymbolicLink") {
@@ -252,7 +225,7 @@ const stageFiles = Effect.fn("stageWorkspaceFiles")(function* (
 			const parentRealPath = yield* fs
 				.realPath(parent)
 				.pipe(
-					Effect.mapError((cause) => filesystemError("resolve source directory", parent, cause)),
+					Effect.mapError((cause) => filesystemError("resolve workspace directory", parent, cause)),
 				);
 			const relativeParent = relative(namespaceRealPath, parentRealPath);
 			if (
@@ -269,16 +242,14 @@ const stageFiles = Effect.fn("stageWorkspaceFiles")(function* (
 			const exists = yield* fs
 				.exists(destination)
 				.pipe(
-					Effect.mapError((cause) =>
-						filesystemError("inspect source destination", destination, cause),
-					),
+					Effect.mapError((cause) => filesystemError("inspect workspace file", destination, cause)),
 				);
 			if (exists) {
 				const status = yield* fs
 					.stat(destination)
 					.pipe(
 						Effect.mapError((cause) =>
-							filesystemError("inspect source destination", destination, cause),
+							filesystemError("inspect workspace file", destination, cause),
 						),
 					);
 				return yield* Effect.fail(
@@ -286,7 +257,7 @@ const stageFiles = Effect.fn("stageWorkspaceFiles")(function* (
 						status.type === "SymbolicLink" ? "workspace-symlink" : "workspace-collision",
 						status.type === "SymbolicLink"
 							? `Workspace destination is a symlink: ${file.path}`
-							: `Workspace source path collision: ${file.path}`,
+							: `Workspace path collision: ${file.path}`,
 					),
 				);
 			}
@@ -301,7 +272,7 @@ const stageFiles = Effect.fn("stageWorkspaceFiles")(function* (
 					? fs.writeFileString(destination, file.contents, { flag: "wx" })
 					: fs.writeFile(destination, file.contents, { flag: "wx" });
 			return write.pipe(
-				Effect.mapError((cause) => filesystemError("write workspace source", destination, cause)),
+				Effect.mapError((cause) => filesystemError("write workspace file", destination, cause)),
 			);
 		},
 		{ discard: true },
@@ -309,10 +280,10 @@ const stageFiles = Effect.fn("stageWorkspaceFiles")(function* (
 	return ordered.map(({ path }) => path);
 });
 
-export const stageSourceFiles = (workspace: CompilerWorkspace, inputs: readonly WorkspaceInput[]) =>
+export const stageSourceFiles = (workspace: CompilerWorkspace, inputs: readonly WorkspaceFile[]) =>
 	stageFiles(workspace.sourcePath, inputs);
 
 export const stageGeneratedFiles = (
 	workspace: CompilerWorkspace,
-	inputs: readonly WorkspaceInput[],
+	inputs: readonly WorkspaceFile[],
 ) => stageFiles(workspace.generatedPath, inputs);

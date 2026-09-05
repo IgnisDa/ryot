@@ -5,7 +5,7 @@ import { Context, Effect, Layer, Predicate } from "effect";
 import { build, createLogger, transformWithOxc } from "vite";
 import type { InlineConfig, LogErrorOptions, LogOptions, Logger, Plugin } from "vite";
 
-import { ViteBuildInvocationError, viteCompilerError } from "./error";
+import { viteCompilerError } from "./error";
 import type { ViteCompilerError, ViteDiagnostic } from "./error";
 import { collectViteOutputs } from "./output";
 import type { CollectedViteFile } from "./output";
@@ -25,17 +25,11 @@ export interface ViteCompilerOptions {
 
 export class ViteBuildService extends Context.Service<
 	ViteBuildService,
-	{ readonly build: (config: InlineConfig) => Effect.Effect<unknown, ViteBuildInvocationError> }
+	{ readonly build: (config: InlineConfig) => Effect.Effect<unknown, unknown> }
 >()("@ryot-app/vite-compiler/ViteBuildService") {
 	static readonly layer = Layer.succeed(
 		this,
-		this.of({
-			build: (config) =>
-				Effect.tryPromise({
-					try: () => build(config),
-					catch: (cause) => new ViteBuildInvocationError({ cause }),
-				}),
-		}),
+		this.of({ build: (config) => Effect.tryPromise(() => build(config)) }),
 	);
 }
 
@@ -202,8 +196,7 @@ export const buildWithVite = Effect.fn("buildWithVite")(function* ({
 		},
 	};
 	const result = yield* viteBuild.build(protectedConfig).pipe(
-		Effect.mapError((invocationError) => {
-			const cause = invocationError.cause;
+		Effect.mapError((cause) => {
 			const normalized = [...diagnostics, ...thrownDiagnostics(cause, workspace, viteRoot)];
 			return viteCompilerError(
 				"vite-build",
