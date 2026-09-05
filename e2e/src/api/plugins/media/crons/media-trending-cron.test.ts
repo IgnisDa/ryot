@@ -6,7 +6,6 @@ import {
 	adminHeaders,
 	type Client,
 	createAuthenticatedClient,
-	encodeTestSupportPluginFiles,
 	fakeProviderDetailsResult,
 	findBuiltinSchemaBySlug,
 	getApiClient,
@@ -17,6 +16,7 @@ import {
 	listRelationshipSchemas,
 	requireRelationshipSchemaBySlug,
 	providerSandboxSource,
+	installTestSupportSystemPlugin,
 	type InstalledTestPlugin,
 	uninstallTestPlugin,
 } from "~/fixtures/kernel";
@@ -121,16 +121,10 @@ describe("POST /test-support/cron/plugin (media-trending cron)", () => {
 						},
 					],
 				};
-				yield* getApiClient().call(
-					(c) =>
-						c.testSupport.installSystemPlugin({
-							payload: {
-								manifest: installed.manifest,
-								files: encodeTestSupportPluginFiles(installed.files),
-							},
-						}),
-					adminHeaders(),
-				);
+				yield* installTestSupportSystemPlugin({
+					files: installed.files,
+					manifest: installed.manifest,
+				});
 				const directScriptId = installed.scriptIds[SCRIPT_SLUG];
 				assertPresent(directScriptId, "Trending direct script was not installed");
 				const directScript = (yield* listAdminSandboxScripts(

@@ -51,6 +51,7 @@ import { requirePresent } from "~/support/assertions";
 import { adminAccessTokenHeaders } from "../fixtures/kernel/admin";
 import { signInWithPassword } from "../fixtures/kernel/auth";
 import { enableTwoFactorForSession } from "../fixtures/kernel/auth-2fa";
+import { compilePluginPackage } from "../fixtures/kernel/compiled-package";
 import {
 	encodePluginSourceFiles,
 	encodeTestSupportPluginFiles,
@@ -213,7 +214,7 @@ async function installSeedDefinitions(
 	];
 	const manifest = testPluginManifest({ pluginSlug: input.pluginSlug, entitySchemas });
 	await apiClient.runAdmin((c) =>
-		c.testSupport.installSystemPlugin({ payload: { files: {}, manifest } }),
+		c.testSupport.installSystemPlugin({ payload: { files: {}, manifest, compiledScripts: [] } }),
 	);
 	seedPluginManifests.set(input.pluginSlug, manifest);
 }
@@ -240,7 +241,7 @@ export default defineScript({
   run: () => Effect.succeed(${JSON.stringify(value)} as const),
 });
 `;
-	const entry = "scripts/seed.sandbox.ts";
+	const entry = "backend/seed.sandbox.ts";
 	const manifest = testPluginManifest({
 		pluginSlug: `seed-script-${dayjs().valueOf()}`,
 		scripts: [
@@ -255,11 +256,15 @@ export default defineScript({
 			},
 		],
 	});
+	const pluginPackage = await Effect.runPromise(
+		compilePluginPackage({ manifest, files: encodePluginSourceFiles({ [entry]: source }) }),
+	);
 	const installed = await apiClient.runAdmin((c) =>
 		c.testSupport.installSystemPlugin({
 			payload: {
-				manifest,
-				files: encodeTestSupportPluginFiles(encodePluginSourceFiles({ [entry]: source })),
+				manifest: pluginPackage.manifest,
+				files: encodeTestSupportPluginFiles(pluginPackage.files),
+				compiledScripts: pluginPackage.compiledScripts,
 			},
 		}),
 	);

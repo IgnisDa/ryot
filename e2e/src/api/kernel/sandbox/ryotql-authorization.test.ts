@@ -232,7 +232,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 					entitySchemas: foreignEntitySchemas,
 					relationshipSchemas: foreignRelationshipSchemas,
 					files: {
-						"scripts/foreign.sandbox.ts": literalSandboxSource({
+						"backend/scripts/foreign.sandbox.ts": literalSandboxSource({
 							value: true,
 							slug: foreignScriptSlug,
 							name: "Foreign inert script",
@@ -246,7 +246,7 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 							name: "Foreign inert script",
 							requiredPluginConfigKeys: [],
 							requiredSystemConfigKeys: [],
-							entry: "scripts/foreign.sandbox.ts",
+							entry: "backend/scripts/foreign.sandbox.ts",
 						},
 					],
 				}),

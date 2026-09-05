@@ -9,7 +9,6 @@ import {
 	adminHeaders,
 	createAuthenticatedClient,
 	encodePluginSourceFiles,
-	encodeTestSupportPluginFiles,
 	getApiClient,
 	httpCallFailureSandboxSource,
 	httpCallSandboxSource,
@@ -21,6 +20,7 @@ import {
 	pollUntil,
 	requireCompletedSandboxValue,
 	testPluginManifest,
+	installTestSupportSystemPlugin,
 	type ContractSession,
 	uninstallTestPlugin,
 } from "~/fixtures/kernel";
@@ -408,7 +408,7 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 					name: "Isolated global rate limit",
 					url: `${http.url}/provider/isolated`,
 				});
-				const entry = "scripts/isolated-rate-limit.sandbox.ts";
+				const entry = "backend/scripts/isolated-rate-limit.sandbox.ts";
 				const manifest = testPluginManifest({
 					pluginSlug,
 					httpRateLimits: [
@@ -432,16 +432,11 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 					],
 				});
 				const clientA = makeSession(apiUrlA());
-				const installed = yield* clientA.call(
-					(c) =>
-						c.testSupport.installSystemPlugin({
-							payload: {
-								manifest,
-								files: encodeTestSupportPluginFiles(encodePluginSourceFiles({ [entry]: source })),
-							},
-						}),
-					adminHeaders(),
-				);
+				const installed = yield* installTestSupportSystemPlugin({
+					manifest,
+					baseUrl: apiUrlA(),
+					files: encodePluginSourceFiles({ [entry]: source }),
+				});
 				yield* Effect.addFinalizer(() =>
 					makeSession(apiUrlA())
 						.call(

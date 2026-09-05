@@ -3,6 +3,7 @@ import { readPluginArchive } from "@ryot-app/plugin-archive";
 import { Effect } from "effect";
 
 import type { Client } from "./auth";
+import { compilePluginPackage } from "./compiled-package";
 import {
 	installPrivatePluginPackage,
 	settledPrivateInstallation,
@@ -17,9 +18,7 @@ export const FIXTURE_CLIENT_REVISION_MARKERS = {
 
 const archiveUrl = new URL("../../../../plugins/fixture/dist/fixture.zip", import.meta.url);
 const homeEntry = "client/home.tsx";
-const clientEntry = "client/index.tsx";
 const decoder = new TextDecoder("utf-8", { fatal: true });
-const semanticFailureSource = new TextEncoder().encode("export const semanticValue: string = 1;\n");
 
 type FixtureClientPluginRevision = keyof typeof FIXTURE_CLIENT_REVISION_MARKERS;
 export const fixtureClientPluginPackage = (
@@ -54,7 +53,8 @@ export const fixtureClientPluginPackage = (
 							'<StatusMessage tone="success">Revision B is active.</StatusMessage>\n\t\t\t<img alt="" src={logo} className="plugin-logo" />',
 						)
 				: revisedHome;
-		return {
+		return yield* compilePluginPackage({
+			compiledScripts: pluginPackage.compiledScripts,
 			files: { ...pluginPackage.files, [homeEntry]: new TextEncoder().encode(revisionHome) },
 			manifest: {
 				...pluginPackage.manifest,
@@ -64,16 +64,7 @@ export const fixtureClientPluginPackage = (
 					version: revision === "A" ? "1.0.0" : "2.0.0",
 				},
 			},
-		};
-	});
-
-export const fixtureClientPluginPackageWithSemanticFailure = (pluginSlug: PluginSlug) =>
-	Effect.gen(function* () {
-		const pluginPackage = yield* fixtureClientPluginPackage("A", "", pluginSlug);
-		return {
-			...pluginPackage,
-			files: { ...pluginPackage.files, [clientEntry]: semanticFailureSource },
-		};
+		});
 	});
 
 export const installFixtureClientPlugin = (
@@ -101,22 +92,5 @@ export const updateFixtureClientPlugin = (
 			baseUrl,
 			payload: pluginPackage,
 			pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG,
-		});
-	});
-
-export const updateFixtureClientPluginWithCompileFailure = (client: Client, baseUrl?: string) =>
-	Effect.gen(function* () {
-		const pluginPackage = yield* fixtureClientPluginPackage("B");
-		return yield* updatePrivatePlugin({
-			client,
-			baseUrl,
-			pluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG,
-			payload: {
-				...pluginPackage,
-				files: {
-					...pluginPackage.files,
-					[clientEntry]: new TextEncoder().encode("export default <;"),
-				},
-			},
 		});
 	});

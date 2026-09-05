@@ -1,13 +1,10 @@
-import {
-	PluginArchiveError,
-	writePluginArchive,
-	type PluginArchivePackage,
-} from "@ryot-app/plugin-archive";
+import { PluginArchiveError, writePluginArchive } from "@ryot-app/plugin-archive";
 import { Effect } from "effect";
 
 import { getApiUrl } from "~/support/harness-target";
 
 import type { Client } from "./auth";
+import { compilePluginPackage, type PluginPackageInput } from "./compiled-package";
 
 export const uploadTemporaryArchive = (
 	client: Client,
@@ -42,16 +39,19 @@ export const uploadTemporaryArchive = (
 
 export const uploadPrivatePluginPackage = (
 	client: Client,
-	pluginPackage: PluginArchivePackage,
+	pluginPackage: PluginPackageInput,
 	baseUrl?: string,
 ) =>
-	Effect.try({
-		try: () => writePluginArchive(pluginPackage),
-		catch: (error) =>
-			error instanceof PluginArchiveError
-				? error
-				: new PluginArchiveError({ reason: "malformed-zip" }),
-	}).pipe(
+	compilePluginPackage(pluginPackage).pipe(
+		Effect.flatMap((compiledPackage) =>
+			Effect.try({
+				try: () => writePluginArchive(compiledPackage),
+				catch: (error) =>
+					error instanceof PluginArchiveError
+						? error
+						: new PluginArchiveError({ reason: "malformed-zip" }),
+			}),
+		),
 		Effect.flatMap((bytes) =>
 			uploadTemporaryArchive(client, bytes, {
 				baseUrl,

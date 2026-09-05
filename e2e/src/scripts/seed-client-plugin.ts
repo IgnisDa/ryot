@@ -5,32 +5,24 @@ import { createInterface } from "node:readline/promises";
 import { fileURLToPath } from "node:url";
 
 import dotenv from "dotenv";
-import { Effect, Option } from "effect";
+import { Effect } from "effect";
 
+import { requirePresent } from "~/support/assertions";
 import { getFrontendUrl } from "~/support/harness-target";
 
 import { createAuthenticatedClient } from "../fixtures/kernel/auth";
+import { createPluginSavedView, findPluginIdBySlug } from "../fixtures/kernel/client-pages";
 import {
-	buildCollectionWorkflowRendererDefinition,
-	createClientRenderer,
-	createRendererSavedView,
-	getClientRenderer,
-	publishClientRenderer,
-} from "../fixtures/kernel/client-pages";
-import {
+	FIXTURE_CLIENT_PLUGIN_SLUG,
 	installFixtureClientPlugin,
 	updateFixtureClientPlugin,
 } from "../fixtures/kernel/client-plugin";
-import { createCollection } from "../fixtures/kernel/collections";
 import {
 	findBuiltinPluginBySlug,
 	findPluginInstallationBySlug,
 	setPluginHomeView,
 } from "../fixtures/kernel/plugins";
 import { findSavedViewById } from "../fixtures/kernel/saved-views";
-import { createWorkoutEntityFixture } from "../fixtures/plugins/fitness";
-import { createPokemonEntityFixture } from "../fixtures/plugins/fixture";
-import { seedGlobalShowEpisodeTree } from "../fixtures/plugins/media";
 
 const repositoryRoot = fileURLToPath(new URL("../../..", import.meta.url));
 
@@ -62,51 +54,24 @@ async function main() {
 			`Fixture client plugin installation finished with health '${installation.health}'`,
 		);
 	}
-	const { showId } = await Effect.runPromise(
-		seedGlobalShowEpisodeTree(client, { showName: "01 Task 10 Show" }),
+	const pluginId = requirePresent(
+		await Effect.runPromise(findPluginIdBySlug(client, FIXTURE_CLIENT_PLUGIN_SLUG)),
+		"Installed fixture plugin was not found",
 	);
-	const { workoutId } = await Effect.runPromise(
-		createWorkoutEntityFixture(client, { name: "02 Task 10 Workout" }),
-	);
-	const [pokemonA, pokemonB] = await Effect.runPromise(
-		Effect.all([
-			createPokemonEntityFixture(client, { name: "03 Task 10 Pokemon A", types: ["Grass"] }),
-			createPokemonEntityFixture(client, { name: "04 Task 10 Pokemon B", types: ["Fire"] }),
-		]),
-	);
-	const collection = await Effect.runPromise(
-		createCollection(client, { name: "Task 10 collection" }),
-	);
-	await Effect.runPromise(
-		Effect.forEach([showId, workoutId, pokemonA.id], (entityId) =>
-			client.call((contract) =>
-				contract.collections.createMembership({
-					payload: { entityId, collectionId: collection.id },
-				}),
-			),
-		),
-	);
-	const renderer = await Effect.runPromise(
-		createClientRenderer(client, { draftDefinition: buildCollectionWorkflowRendererDefinition() }),
-	);
-	const rendererRecord = Option.getOrThrow(
-		await Effect.runPromise(getClientRenderer(client, renderer.id)),
-	);
-	await Effect.runPromise(publishClientRenderer(client, renderer.id, rendererRecord.draftRevision));
 	const primaryView = await Effect.runPromise(
-		createRendererSavedView(
+		createPluginSavedView(
 			client,
-			renderer.id,
-			{ collectionId: collection.id, pageSize: 2 },
-			{ name: "Task 10 primary dashboard" },
+			{ kind: "plugin", pluginId, exportName: "fixture-home" },
+			{},
+			{ name: "Task 10 primary plugin page", workspacePluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG },
 		),
 	);
 	const secondaryView = await Effect.runPromise(
-		createRendererSavedView(
+		createPluginSavedView(
 			client,
-			renderer.id,
-			{ collectionId: collection.id, pageSize: 3 },
-			{ name: "Task 10 secondary dashboard" },
+			{ kind: "plugin", pluginId, exportName: "fixture-home" },
+			{},
+			{ name: "Task 10 secondary plugin page", workspacePluginSlug: FIXTURE_CLIENT_PLUGIN_SLUG },
 		),
 	);
 	const media = await Effect.runPromise(findBuiltinPluginBySlug(client, "media"));
@@ -122,7 +87,7 @@ async function main() {
 	const secondaryRecord = await Effect.runPromise(findSavedViewById(client, secondaryView.id));
 	console.log(`Primary URL: ${appBaseUrl}/v/${primaryRecord.slug}`);
 	console.log(`Secondary URL: ${appBaseUrl}/v/${secondaryRecord.slug}`);
-	console.log(`Outside Pokemon: ${pokemonB.name}`);
+	console.log("Saved-view renderer: fixture/fixture-home");
 
 	const input = createInterface({ input: process.stdin, output: process.stdout });
 	try {

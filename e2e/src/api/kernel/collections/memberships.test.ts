@@ -150,7 +150,7 @@ describe("POST /collections/memberships", () => {
 			const pluginSlug = createPluginScope();
 			const schemaSlug = `schema-${crypto.randomUUID()}`;
 			const scriptSlug = `${pluginSlug}.fixture`;
-			const entry = "scripts/fixture.sandbox.ts";
+			const entry = "backend/scripts/fixture.sandbox.ts";
 			yield* installTestPluginBundle({
 				pluginSlug,
 				scope: "system",

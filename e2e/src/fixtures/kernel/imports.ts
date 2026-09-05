@@ -95,8 +95,8 @@ export default defineScript({
 `;
 
 export const installTestImportPlugin = Effect.suspend(() => {
-	const entry = "scripts/import.sandbox.ts";
-	const validateEntry = "scripts/validate-archive.sandbox.ts";
+	const entry = "backend/scripts/import.sandbox.ts";
+	const validateEntry = "backend/scripts/validate-archive.sandbox.ts";
 	return installTestPluginBundle({
 		scope: "system",
 		workflows: [{ slug: "import", scriptSlug: "workflow.e2e-archive-import" }],
@@ -265,8 +265,8 @@ export const installTestHarvestHandleImportPlugin = Effect.suspend(() =>
 		scope: "system",
 		workflows: [{ slug: "import", scriptSlug: "workflow.e2e-harvest-handle-import" }],
 		files: {
-			"scripts/import.sandbox.ts": FIXTURE_HANDLE_IMPORT_WORKFLOW_SOURCE,
-			"scripts/write-chunk.sandbox.ts": FIXTURE_HANDLE_IMPORT_CHUNK_SOURCE,
+			"backend/scripts/import.sandbox.ts": FIXTURE_HANDLE_IMPORT_WORKFLOW_SOURCE,
+			"backend/scripts/write-chunk.sandbox.ts": FIXTURE_HANDLE_IMPORT_CHUNK_SOURCE,
 		},
 		importSources: [
 			{
@@ -285,7 +285,7 @@ export const installTestHarvestHandleImportPlugin = Effect.suspend(() =>
 				requiredPluginConfigKeys: [],
 				requiredSystemConfigKeys: [],
 				name: "E2E harvest handle import",
-				entry: "scripts/import.sandbox.ts",
+				entry: "backend/scripts/import.sandbox.ts",
 				slug: "workflow.e2e-harvest-handle-import",
 			},
 			{
@@ -295,7 +295,7 @@ export const installTestHarvestHandleImportPlugin = Effect.suspend(() =>
 				requiredSystemConfigKeys: [],
 				name: "E2E write harvest chunk",
 				slug: "import.e2e-write-harvest-chunk",
-				entry: "scripts/write-chunk.sandbox.ts",
+				entry: "backend/scripts/write-chunk.sandbox.ts",
 			},
 		],
 	}),
@@ -348,7 +348,7 @@ export const installTestImportPinningPlugin = Effect.suspend(() => {
 	const source = `e2e_pinned_import_${suffix.replaceAll("-", "_")}`;
 	const workflowSlug = `pinning-import-${suffix}`;
 	const scriptSlug = `workflow.e2e-pinning-import-${suffix}`;
-	const entry = `scripts/${workflowSlug}.sandbox.ts`;
+	const entry = `backend/scripts/${workflowSlug}.sandbox.ts`;
 
 	return installTestPluginBundle({
 		scope: "system",
