@@ -23,8 +23,8 @@ Images, all `ghcr.io/ignisda/ryot`:
 - Final image: `pr-1832@sha256:099f6d06172f93da0966416059a7d0de1539cff5a1e72a6e7d90dc4969d39ad4`,
   commit `5bf2512806`. The switches are gone; admission is always on.
 
-The raw rows, reduced to the fields below with no user, job, or external identifiers, are in
-[`summary.json`](./summary.json).
+The raw rows for every arm, reduced to the fields below with no user, job, or external
+identifiers, are in [`summary.json`](./summary.json).
 
 ## Execution path before this change
 
@@ -152,22 +152,29 @@ user may retry it.
 
 ## Final image validation
 
-The final image ran once per scenario with the deployed 2 GB memory limit, on 2026-09-24 between
-22:15 and 00:25 IST. f2 uses `SANDBOX_IMPORT_CONCURRENCY=2` (the default); f1 uses 1.
+The final image ran once per scenario with the deployed 2 GB memory limit, from 22:15 IST on
+2026-09-24 to 00:25 IST on 2026-09-25. f2 uses `SANDBOX_IMPORT_CONCURRENCY=2` (the default); f1
+uses 1.
 
-| Arm | Scenario | First / last completion (s) | Health p95 / max (ms) | Search p95 (s) | Peak memory (MiB) |
-| --- | -------- | --------------------------- | --------------------- | -------------- | ----------------- |
-| f2  | single   | 102 / 102                   | 53 / 166              | —              | 1,032             |
-| f2  | mixed    | 131 / 1,423                 | 91 / 955              | 6.8            | 1,438             |
-| f2  | slow     | 37 / 352                    | 67 / 514              | —              | 1,484             |
-| f1  | mixed    | 103 / 2,189                 | 48 / 551              | 4.4            | 1,365             |
+| Arm | Scenario | Other user (s) | First / last completion (s) | Health p95 / max (ms) | Search p95 (s) | Peak memory (MiB) |
+| --- | -------- | -------------- | --------------------------- | --------------------- | -------------- | ----------------- |
+| f2  | single   | —              | 102 / 102                   | 53 / 166              | —              | 1,032             |
+| f2  | mixed    | 237            | 131 / 1,423                 | 91 / 955              | 6.8            | 1,438             |
+| f2  | slow     | —              | 37 / 352                    | 67 / 514              | —              | 1,484             |
+| f1  | mixed    | 172            | 103 / 2,189                 | 48 / 551              | 4.4            | 1,365             |
 
-- The results are close to the experiment's a2 and a1 arms. No import, replay, or health check failed,
-  and there was no out-of-memory event outside the memory test.
-- The lifecycle checks all passed: one job for duplicate requests; queued and running imports
-  cancelled, the third completed; the 51st queued import got `429 import-backlog-full` while a
-  neighbour completed; imports completed after a worker was killed; all 6 imports completed after a
-  restart with 2 running and 4 queued.
+- f2 is close to a2: the other user waited 237 s against 218–228 s, and the slow import took 37 s
+  with the last fast import at 350 s.
+- f1 confirms the fairness fix: the other user waited 172 s, where a1 took 2,088–2,210 s.
+- No import, replay, or health check failed, and there was no out-of-memory event outside the
+  memory test.
+- Lifecycle checks, all passed:
+  - duplicate requests returned one job;
+  - a queued and a running import were cancelled, and the third completed;
+  - the 51st queued import got `429 import-backlog-full` while a neighbour completed;
+  - 1 of the 2 busy workers was killed (the experiment killed both), and the imports and the next
+    one completed;
+  - all 6 imports completed after a restart with 2 running and 4 queued.
 - Memory test at the 2 GB limit: the kernel killed one sandbox worker, the backend did not
   restart, all 13 health checks passed, and 1 execution completed while the other failed.
 - A cold start of this image takes about 7 minutes on this host: before it reports healthy, the
