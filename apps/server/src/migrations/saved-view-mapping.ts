@@ -45,12 +45,31 @@ export const legacySavedViewTargets = {
 	],
 } as const;
 
-const mediaViewCases = mediaViewMappings
-	.map(
+const disabledExpressionBySlug = new Map<string, string>([
+	["collections", `NOT ${featurePreference("others,collections")}`],
+	["all-persons", `NOT (${mediaEnabled} AND ${featurePreference("media,people")})`],
+	["all-companies", `NOT (${mediaEnabled} AND ${featurePreference("media,people")})`],
+	...mediaGroupSavedViewSlugs.map(
+		(slug) => [slug, `NOT (${mediaEnabled} AND ${featurePreference("media,groups")})`] as const,
+	),
+	...mediaViewMappings.map(
 		({ mediaLot, savedViewSlug }) =>
-			`\t\t\tWHEN saved_view."plugin_installation_id" = installations.media_installation_id AND saved_view."slug" = ${quoteSqlString(savedViewSlug)} THEN ${mediaViewDisabledExpression(mediaLot)}`,
-	)
-	.join("\n");
+			[savedViewSlug, mediaViewDisabledExpression(mediaLot)] as const,
+	),
+	["all-exercises", `NOT ${featurePreference("fitness,enabled")}`],
+	[
+		"all-workouts",
+		`NOT (${featurePreference("fitness,enabled")} AND ${featurePreference("fitness,workouts")})`,
+	],
+	[
+		"all-workout-templates",
+		`NOT (${featurePreference("fitness,enabled")} AND ${featurePreference("fitness,templates")})`,
+	],
+	[
+		"all-measurements",
+		`NOT (${featurePreference("fitness,enabled")} AND ${featurePreference("fitness,measurements")})`,
+	],
+]);
 
 export const buildLegacySavedViewStateMigrationSql = (
 	installations: ReadonlyArray<{
@@ -58,37 +77,92 @@ export const buildLegacySavedViewStateMigrationSql = (
 		mediaInstallationId: string;
 		userId: string;
 	}>,
-) => `
+	plugins: { fitnessPluginId: string; mediaPluginId: string },
+) => {
+	const slugPluginPairs = [
+		...legacySavedViewTargets.kernel.map((slug) => `(${quoteSqlString(slug)}, NULL::text)`),
+		...legacySavedViewTargets.media.map(
+			(slug) => `(${quoteSqlString(slug)}, ${quoteSqlString(plugins.mediaPluginId)}::text)`,
+		),
+		...legacySavedViewTargets.fitness.map(
+			(slug) => `(${quoteSqlString(slug)}, ${quoteSqlString(plugins.fitnessPluginId)}::text)`,
+		),
+	].join(", ");
+	const disabledCases = [...disabledExpressionBySlug.entries()]
+		.map(([slug, expression]) => `\t\t\tWHEN ${quoteSqlString(slug)} THEN ${expression}`)
+		.join("\n");
+	const installationsValues = installations
+		.map(
+			(row) =>
+				`(${quoteSqlString(row.userId)}, ${quoteSqlString(row.mediaInstallationId)}, ${quoteSqlString(row.fitnessInstallationId)})`,
+		)
+		.join(", ");
+	const desiredCtes = `installations (user_id, media_installation_id, fitness_installation_id) AS (
+		VALUES ${installationsValues}
+	),
+	desired_slug (slug, plugin_id) AS (
+		VALUES ${slugPluginPairs}
+	),
+	desired AS (
+		SELECT legacy_user.id AS user_id, desired_slug.slug, desired_slug.plugin_id,
+			CASE desired_slug.slug
+${disabledCases}
+				ELSE false
+			END AS is_disabled
+		FROM "old_user" legacy_user
+		INNER JOIN installations ON installations.user_id = legacy_user.id
+		CROSS JOIN desired_slug
+	)`;
+	return `
 DO $$
 DECLARE
-	rows_updated int;
+	rows_inserted int;
+	missing_count int;
+	missing_sample text;
 	started_at timestamptz := clock_timestamp();
 BEGIN
-	WITH installations (user_id, media_installation_id, fitness_installation_id) AS (
-		VALUES ${installations
-			.map(
-				(row) =>
-					`(${quoteSqlString(row.userId)}, ${quoteSqlString(row.mediaInstallationId)}, ${quoteSqlString(row.fitnessInstallationId)})`,
-			)
-			.join(", ")}
+	WITH ${desiredCtes},
+	disabled AS (
+		SELECT desired.user_id, desired.slug, desired.plugin_id, effective."sort_order"
+		FROM desired
+		INNER JOIN "user_saved_view" effective
+			ON effective."user_id" = desired.user_id
+			AND effective."slug" = desired.slug
+			AND effective."plugin_id" IS NOT DISTINCT FROM desired.plugin_id
+		WHERE desired.is_disabled
 	)
-	UPDATE "saved_view" saved_view
-	SET "is_disabled" = CASE
-		WHEN saved_view."plugin_installation_id" IS NULL AND saved_view."slug" = 'collections' THEN NOT ${featurePreference("others,collections")}
-		WHEN saved_view."plugin_installation_id" = installations.media_installation_id AND saved_view."slug" IN ('all-persons', 'all-companies') THEN NOT (${mediaEnabled} AND ${featurePreference("media,people")})
-		WHEN saved_view."plugin_installation_id" = installations.media_installation_id AND saved_view."slug" IN (${mediaGroupSavedViewSlugs.map(quoteSqlString).join(", ")}) THEN NOT (${mediaEnabled} AND ${featurePreference("media,groups")})
-${mediaViewCases}
-		WHEN saved_view."plugin_installation_id" = installations.fitness_installation_id AND saved_view."slug" = 'all-exercises' THEN NOT ${featurePreference("fitness,enabled")}
-		WHEN saved_view."plugin_installation_id" = installations.fitness_installation_id AND saved_view."slug" = 'all-workouts' THEN NOT (${featurePreference("fitness,enabled")} AND ${featurePreference("fitness,workouts")})
-		WHEN saved_view."plugin_installation_id" = installations.fitness_installation_id AND saved_view."slug" = 'all-workout-templates' THEN NOT (${featurePreference("fitness,enabled")} AND ${featurePreference("fitness,templates")})
-		WHEN saved_view."plugin_installation_id" = installations.fitness_installation_id AND saved_view."slug" = 'all-measurements' THEN NOT (${featurePreference("fitness,enabled")} AND ${featurePreference("fitness,measurements")})
-		ELSE saved_view."is_disabled"
-	END
-	FROM "old_user" legacy_user
-	INNER JOIN installations ON installations.user_id = legacy_user.id
-	WHERE saved_view."user_id" = legacy_user."id"
-		AND saved_view."is_builtin" = true;
-	GET DIAGNOSTICS rows_updated = ROW_COUNT;
-	${buildReportSql("legacy saved-view state", [{ count: "rows_updated", message: "built-in saved view state(s) migrated" }])}
+	INSERT INTO "saved_view_override" ("user_id", "slug", "plugin_id", "sort_order", "is_disabled")
+	SELECT user_id, slug, plugin_id, sort_order, true
+	FROM disabled
+	ON CONFLICT ("user_id", "slug") DO NOTHING;
+	GET DIAGNOSTICS rows_inserted = ROW_COUNT;
+
+	WITH ${desiredCtes}
+	SELECT count(*) INTO missing_count
+	FROM desired
+	LEFT JOIN "user_saved_view" effective
+		ON effective."user_id" = desired.user_id
+		AND effective."slug" = desired.slug
+		AND effective."plugin_id" IS NOT DISTINCT FROM desired.plugin_id
+	WHERE effective."user_id" IS NULL;
+	IF missing_count > 0 THEN
+		WITH ${desiredCtes}
+		SELECT string_agg(sample.label, '; ' ORDER BY sample.label)
+		INTO missing_sample
+		FROM (
+			SELECT (desired.user_id || '/' || desired.slug) AS label
+			FROM desired
+			LEFT JOIN "user_saved_view" effective
+				ON effective."user_id" = desired.user_id
+				AND effective."slug" = desired.slug
+				AND effective."plugin_id" IS NOT DISTINCT FROM desired.plugin_id
+			WHERE effective."user_id" IS NULL
+			ORDER BY desired.user_id, desired.slug LIMIT 20
+		) sample;
+		RAISE EXCEPTION 'legacy saved-view state: % expected built-in saved view(s) have no effective definition, so their disabled state cannot be migrated (sample: %). Use a build whose saved-view set covers these slugs, then start the server again.', missing_count, missing_sample;
+	END IF;
+
+	${buildReportSql("legacy saved-view state", [{ count: "rows_inserted", message: "built-in saved view override(s) migrated" }])}
 END $$;
 `;
+};
