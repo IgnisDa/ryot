@@ -1,9 +1,14 @@
 import { Effect, Fiber, Option, Stream } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
-import { createTestUser } from "~/fixtures/kernel";
+import {
+	createTestUser,
+	installTestImportPinningPlugin,
+	type InstalledTestPlugin,
+	uninstallTestPlugin,
+} from "~/fixtures/kernel";
 import { signInThroughHostedOAuth } from "~/support/browser";
-import { beforeAll, expect, it, runPromise } from "~/support/effect-test";
+import { afterAll, beforeAll, expect, it, runPromise } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
 
 const SUITE_ID = crypto.randomUUID();
@@ -20,6 +25,7 @@ const OPENSCALE_SAMPLE_CSV = `dateTime,weight,bmi,fat,water,muscle,comment
 
 let email: string;
 let password: string;
+let slowImport: { plugin: InstalledTestPlugin; source: string } | undefined;
 
 const settingsSidebar = (page: Playwright.Page) => page.getByTestId("settings-sidebar");
 
@@ -82,6 +88,20 @@ const startOpenScaleImport = (page: Playwright.Page) =>
 		yield* wizard(page).waitFor({ state: "hidden" });
 	});
 
+const startSlowImport = (page: Playwright.Page) =>
+	Effect.gen(function* () {
+		yield* page.getByRole("button", { name: "Start an import" }).first().click();
+		yield* wizard(page).waitFor({ state: "visible" });
+		yield* wizard(page).getByLabel("Search services").fill("E2E import pinning");
+		yield* wizard(page).getByRole("button", { name: "Import from E2E import pinning" }).click();
+		const continueButton = wizard(page).getByRole("button", { name: "Continue" });
+		if ((yield* continueButton.count) > 0) {
+			yield* continueButton.click();
+		}
+		yield* wizard(page).getByRole("button", { name: "Start import" }).click();
+		yield* wizard(page).waitFor({ state: "hidden" });
+	});
+
 const withImportsBrowser = <E, R>(run: (page: Playwright.Page) => Effect.Effect<void, E, R>) =>
 	Effect.gen(function* () {
 		const browser = yield* Playwright.Browser;
@@ -93,12 +113,15 @@ const withImportsBrowser = <E, R>(run: (page: Playwright.Page) => Effect.Effect<
 beforeAll(() =>
 	runPromise(
 		Effect.gen(function* () {
+			slowImport = yield* installTestImportPinningPlugin;
 			const user = yield* createTestUser();
 			email = user.email;
 			password = user.password;
 		}),
 	),
 );
+
+afterAll(() => slowImport && runPromise(uninstallTestPlugin(slowImport.plugin)));
 
 it.live("starts, follows and deletes an import from settings", () =>
 	withImportsBrowser((page) =>
@@ -145,6 +168,52 @@ it.live("keeps the wizard in the URL so closing it returns to the list", () =>
 			yield* wizard(page).getByRole("button", { name: "Close the import wizard" }).click();
 			yield* wizard(page).waitFor({ state: "hidden" });
 			yield* page.waitForURL((url) => !url.searchParams.has("start"));
+		}),
+	).pipe(PlaywrightSpawner.withBrowser),
+);
+
+it.live("requires confirmation, cancels, and deletes a slow import", () =>
+	withImportsBrowser((page) =>
+		Effect.gen(function* () {
+			yield* openImportData(page);
+			yield* startSlowImport(page);
+			const live = page.getByRole("link", {
+				name: /Open the E2E import pinning import in progress/,
+			});
+			yield* live.waitFor({ state: "visible" });
+			yield* live.click();
+			yield* page.getByRole("heading", { level: 1, name: "E2E import pinning" }).waitFor();
+
+			yield* page.getByRole("button", { name: "Import actions" }).click();
+			yield* page.getByRole("menuitem", { name: "Cancel import" }).click();
+			const confirmation = page.getByRole("dialog", { name: "Cancel this import?" });
+			yield* confirmation.waitFor({ state: "visible" });
+			yield* confirmation.getByText(/Items already added stay in your library/).waitFor();
+			const action = confirmation.getByRole("button", { name: "Cancel import" });
+			expect(yield* action.isDisabled()).toBe(true);
+			const phrase = confirmation.getByRole("textbox", {
+				name: 'Type "Cancel this import" to confirm',
+			});
+			yield* phrase.fill("cancel this import");
+			expect(yield* action.isDisabled()).toBe(true);
+			yield* phrase.fill("Cancel this import");
+			expect(yield* action.isDisabled()).toBe(false);
+			yield* action.click();
+
+			yield* page.getByText("Cancelling").waitFor({ timeout: 30_000, state: "visible" });
+			yield* page
+				.getByText("Cancelled", { exact: true })
+				.waitFor({ timeout: 60_000, state: "visible" });
+			yield* page.getByText(/Items already added remain in your library/).waitFor();
+
+			yield* page.getByRole("button", { name: "Import actions" }).click();
+			yield* page.getByRole("menuitem", { name: "Delete record" }).click();
+			const deletion = page.getByRole("dialog", { name: "Delete this import record?" });
+			yield* deletion.getByRole("button", { name: "Delete record" }).click();
+			yield* page.waitForURL((url) => url.pathname === "/settings/import-data");
+			const deleted = page.getByRole("link", { name: /Open the E2E import pinning import from/ });
+			yield* deleted.waitFor({ state: "hidden" });
+			expect(yield* deleted.count).toBe(0);
 		}),
 	).pipe(PlaywrightSpawner.withBrowser),
 );
