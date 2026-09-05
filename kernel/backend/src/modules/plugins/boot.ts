@@ -79,10 +79,7 @@ export class SystemPluginBootstrap extends Context.Service<SystemPluginBootstrap
 						yield* ingestion.validateActiveSystemPlugins();
 					}),
 				);
-				for (const source of systemPlugins.sources) {
-					yield* ingestion.ingestSystemPlugin(source);
-				}
-				yield* inTransaction(repository.resolveEnvironmentConfigs());
+				yield* ingestion.synchronizeSystemPlugins(systemPlugins.sources);
 				yield* installations.reconcileSystemInstallations();
 				yield* surfaces.materializeSystemCompositions;
 				yield* scriptGarbageCollector.collect();
