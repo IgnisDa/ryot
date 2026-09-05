@@ -7,7 +7,7 @@ import {
 } from "@ryot-app/client-plugin-contract";
 import { useShortcut, type Hotkey } from "@ryot-app/client-ui-sdk";
 import { comparePluginRoutePaths } from "@ryot-app/contract/modules/plugins/manifest";
-import { Match } from "effect";
+import { Effect, Fiber, Match } from "effect";
 import {
 	Fragment,
 	createContext,
@@ -352,7 +352,7 @@ export const PluginRouter = () => {
 	const navigation = usePluginNavigation();
 	const rootRef = useRef<HTMLDivElement>(null);
 	const scrimRef = useRef<HTMLDivElement>(null);
-	const settling = useRef<Promise<void> | undefined>(undefined);
+	const settling = useRef<Effect.Effect<void> | undefined>(undefined);
 	const screenRefs = useRef(new Map<string, HTMLDivElement>());
 	const isFirstEntry = useRef(true);
 	const drag = useRef({
@@ -416,16 +416,17 @@ export const PluginRouter = () => {
 				: 0;
 		const settle = settling.current ?? settleProgress(frame, from, 1);
 		settling.current = undefined;
-		let cancelled = false;
-		void settle.then(() => {
-			if (!cancelled) {
-				setGesturePresentation(idle);
-				navigation.completeTransition(transition.id);
-			}
-			return undefined;
-		});
+		const fiber = Effect.runFork(
+			Effect.andThen(
+				settle,
+				Effect.sync(() => {
+					setGesturePresentation(idle);
+					navigation.completeTransition(transition.id);
+				}),
+			),
+		);
 		return () => {
-			cancelled = true;
+			Effect.runFork(Fiber.interrupt(fiber));
 		};
 	}, [gesturePresentation, navigation, popping, transition]);
 
@@ -508,12 +509,16 @@ export const PluginRouter = () => {
 		);
 		const progress = dragProgress(current.dx, current.width);
 		if (!current.engaged || !shouldCommit(current)) {
-			void settleProgress(frame, progress, 0).then(() => {
-				if (!drag.current.active) {
-					setGesturePresentation(idle);
-				}
-				return undefined;
-			});
+			Effect.runFork(
+				Effect.andThen(
+					settleProgress(frame, progress, 0),
+					Effect.sync(() => {
+						if (!drag.current.active) {
+							setGesturePresentation(idle);
+						}
+					}),
+				),
+			);
 			return;
 		}
 		settling.current = settleProgress(frame, progress, 1);

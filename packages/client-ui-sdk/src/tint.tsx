@@ -54,21 +54,24 @@ export function useImageTint(url: string | undefined) {
 	useEffect(() => {
 		let active = true;
 		if (url) {
-			void Effect.runPromise(loadImageTint(url)).then((loaded) => {
-				if (!active) {
-					return undefined;
-				}
-				setTint((previous) =>
-					previous?.url === url && previous.failed
-						? previous
-						: {
-								url,
-								failed: false,
-								gradientStops: loaded ? getImageTintGradientStops(loaded) : undefined,
-							},
-				);
-				return undefined;
-			});
+			Effect.runFork(
+				Effect.andThen(loadImageTint(url), (loaded) =>
+					Effect.sync(() => {
+						if (!active) {
+							return;
+						}
+						setTint((previous) =>
+							previous?.url === url && previous.failed
+								? previous
+								: {
+										url,
+										failed: false,
+										gradientStops: loaded ? getImageTintGradientStops(loaded) : undefined,
+									},
+						);
+					}),
+				),
+			);
 		}
 
 		return () => {

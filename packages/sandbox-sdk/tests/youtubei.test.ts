@@ -49,7 +49,7 @@ describe("Youtubei sandbox adapter", () => {
 				} satisfies YoutubeiHost;
 				const client = yield* createYoutubeHistoryClient(host, "SAPISID=value");
 
-				yield* Effect.tryPromise(() => client.getHistory());
+				yield* client.getHistory();
 
 				expect(requests).toHaveLength(1);
 				expect(new URL(requests[0]?.url ?? "").pathname).toBe("/youtubei/v1/browse");

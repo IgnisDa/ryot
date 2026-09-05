@@ -296,16 +296,23 @@ afterEach(() => {
 		act(() => root.unmount());
 	}
 	roots = [];
-	const disposals = Promise.all(clocks.map((clock) => clock.dispose()));
+	const disposing = clocks;
 	clocks = [];
-	return disposals.then(() => {
-		mountCount = 0;
-		entityMountCount = 0;
-		observedParams = undefined;
-		observedSearch = undefined;
-		observedLocation = undefined;
-		return undefined;
-	});
+	return Effect.runPromise(
+		Effect.andThen(
+			Effect.forEach(disposing, (clock) => Effect.promise(() => clock.dispose()), {
+				discard: true,
+				concurrency: "unbounded",
+			}),
+			Effect.sync(() => {
+				mountCount = 0;
+				entityMountCount = 0;
+				observedParams = undefined;
+				observedSearch = undefined;
+				observedLocation = undefined;
+			}),
+		),
+	);
 });
 
 describe("PluginRouter", () => {

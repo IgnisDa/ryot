@@ -133,25 +133,24 @@ const typeScriptTransformPlugin = (
 ): Plugin => ({
 	enforce: "pre",
 	name: "ryot:typescript-transform",
-	// Vite requires its plugin hook to return a Promise from the Oxc transform.
-	transform(code, id) {
+	// oxlint-disable-next-line effecttsgo/async-function -- Vite plugin hooks are Promise-native and this body only awaits Vite's Oxc transform.
+	async transform(code, id) {
 		if (!/\.(?:[cm]?ts|[jt]sx)(?:\?|$)/.test(id)) {
 			return null;
 		}
 		const compilerOptions = typeScriptProject.compilerOptions;
-		return transformWithOxc(code, id, {
+		const result = await transformWithOxc(code, id, {
 			tsconfig: typeScriptProject,
 			...(configuredOxc?.jsx === undefined ? {} : { jsx: configuredOxc.jsx }),
 			...(typeof compilerOptions["target"] === "string"
 				? { target: compilerOptions["target"] }
 				: {}),
 			typescript: { onlyRemoveTypeImports: compilerOptions["verbatimModuleSyntax"] === true },
-		}).then((result) => {
-			for (const warning of result.warnings) {
-				this.warn(warning);
-			}
-			return { code: result.code, ...(result.map === undefined ? {} : { map: result.map }) };
 		});
+		for (const warning of result.warnings) {
+			this.warn(warning);
+		}
+		return { code: result.code, ...(result.map === undefined ? {} : { map: result.map }) };
 	},
 });
 

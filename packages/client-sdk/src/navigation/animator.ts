@@ -1,3 +1,5 @@
+import * as Effect from "effect/Effect";
+
 import { PARALLAX_RATIO } from "./gesture";
 
 const SETTLE_MS = 240;
@@ -59,8 +61,9 @@ export function settleProgress(frame: ScreenFrame, from: number, to: number) {
 		];
 	});
 
-	// Animation.finished is a browser Promise; routing awaits it at the React transition boundary.
-	return Promise.all(animations.map((animation) => animation.finished.catch(() => undefined))).then(
-		() => undefined,
+	return Effect.forEach(
+		animations,
+		(animation) => Effect.ignore(Effect.tryPromise(() => animation.finished)),
+		{ discard: true, concurrency: "unbounded" },
 	);
 }
