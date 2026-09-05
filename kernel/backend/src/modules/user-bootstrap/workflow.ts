@@ -8,7 +8,10 @@ import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-sc
 
 import { UserBootstrap } from "./bootstrap";
 
-const UserBootstrapWorkflowPayload = Schema.Struct({ userId: UserId });
+const UserBootstrapWorkflowPayload = Schema.Struct({
+	userId: UserId,
+	generation: Schema.optional(Schema.String),
+});
 type UserBootstrapWorkflowPayload = typeof UserBootstrapWorkflowPayload.Type;
 
 export const UserBootstrapWorkflow = Workflow.make("UserBootstrapWorkflow", {
@@ -20,7 +23,7 @@ export const UserBootstrapWorkflow = Workflow.make("UserBootstrapWorkflow", {
 
 export class UserBootstrapWorkflowOperations extends Context.Service<
 	UserBootstrapWorkflowOperations,
-	{ perform: (userId: UserId) => Effect.Effect<void, InternalError> }
+	{ perform: (userId: UserId, generation?: string) => Effect.Effect<void, InternalError> }
 >()("UserBootstrapWorkflowOperations") {}
 
 export const UserBootstrapWorkflowOperationsLive = Layer.effect(
@@ -28,8 +31,8 @@ export const UserBootstrapWorkflowOperationsLive = Layer.effect(
 	Effect.gen(function* () {
 		const bootstrap = yield* UserBootstrap;
 		return {
-			perform: (userId: UserId) =>
-				bootstrap.perform(userId).pipe(
+			perform: (userId: UserId, generation?: string) =>
+				bootstrap.perform(userId, generation).pipe(
 					Effect.catchCauseIf(
 						(cause) => !Cause.hasInterruptsOnly(cause),
 						(cause) =>
@@ -54,9 +57,9 @@ export const runUserBootstrapWorkflow = Effect.fn("UserBootstrapWorkflow")(funct
 	const performAttempt = (attemptNumber: number) =>
 		makeActivity({
 			name: `bootstrap-user-${attemptNumber}`,
-			execute: operations.perform(payload.userId),
 			error: InternalError satisfies DurableSchema,
 			success: Schema.Void satisfies DurableSchema,
+			execute: operations.perform(payload.userId, payload.generation),
 		}).pipe(Effect.result);
 	let result = yield* performAttempt(attempt);
 	while (Result.isFailure(result)) {

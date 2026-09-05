@@ -11,8 +11,9 @@ export const userBootstrapExecutionId = (
 	userId: string,
 	pluginSlug: string,
 	bootstrapSlug: string,
+	generation?: string,
 ) =>
-	`user-bootstrap-${userId.length}-${userId}-${pluginSlug.length}-${pluginSlug}-${bootstrapSlug.length}-${bootstrapSlug}`;
+	`user-bootstrap-${userId.length}-${userId}-${pluginSlug.length}-${pluginSlug}-${bootstrapSlug.length}-${bootstrapSlug}${generation ? `-${generation.length}-${generation}` : ""}`;
 
 export const makePluginUserBootstrapDispatcher = (
 	execute: (
@@ -25,6 +26,7 @@ export const makePluginUserBootstrapDispatcher = (
 
 		const dispatchAll = Effect.fn("PluginUserBootstrapDispatcher.dispatchAll")(function* (
 			userId: UserId,
+			generation?: string,
 		) {
 			const installed = new Set(
 				(yield* installations.listSystemForUser(userId)).map(({ pluginId }) => pluginId),
@@ -48,6 +50,7 @@ export const makePluginUserBootstrapDispatcher = (
 					userId,
 					entry.pluginSlug,
 					entry.bootstrap.slug,
+					generation,
 				);
 				const result = yield* execute({
 					context: {},
