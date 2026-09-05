@@ -124,6 +124,7 @@ layer(recordLogAnnotationsLayer("provider import completed with automation warni
 				requireTransaction: Effect.void,
 				current: Effect.succeed(transaction),
 				isTransactionActive: Effect.sync(() => inTransaction),
+				run: (statement) => mapDatabaseErrors(statement(transaction)),
 				transaction: (work) =>
 					Effect.suspend(() => {
 						inTransaction = true;
