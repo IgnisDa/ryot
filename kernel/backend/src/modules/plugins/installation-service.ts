@@ -250,22 +250,28 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				if (!("uploadToken" in input)) {
 					return consume(input);
 				}
-				return Effect.gen(function* () {
-					const claimed = yield* uploadIntents.claimTemporaryUpload(
+				const useClaimedUpload = Effect.fnUntraced(function* (
+					claimed: Effect.Success<ReturnType<typeof uploadIntents.claimTemporaryUpload>>,
+				) {
+					const stream = yield* objectStorage.openObject(claimed.locator);
+					const pluginPackage = yield* readPluginArchiveStream(stream);
+					return yield* consume(pluginPackage);
+				});
+				return uploadIntents
+					.claimTemporaryUpload(
 						input.uploadToken,
 						userId,
 						`plugin-package:${sha256Hex(input.uploadToken)}`,
-					);
-					return yield* Effect.gen(function* () {
-						const stream = yield* objectStorage.openObject(claimed.locator);
-						const pluginPackage = yield* readPluginArchiveStream(stream);
-						return yield* consume(pluginPackage);
-					}).pipe(
-						Effect.ensuring(
-							uploadIntents.deleteTemporaryUpload(claimed.intentId).pipe(Effect.ignore),
+					)
+					.pipe(
+						Effect.flatMap((claimed) =>
+							useClaimedUpload(claimed).pipe(
+								Effect.ensuring(
+									uploadIntents.deleteTemporaryUpload(claimed.intentId).pipe(Effect.ignore),
+								),
+							),
 						),
 					);
-				});
 			};
 
 			const validateConfigPatch = Effect.fn("PluginInstallationService.validateConfigPatch")(

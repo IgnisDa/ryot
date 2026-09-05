@@ -601,7 +601,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 
 	const replayKind = sandboxMetricKind(pin.principal.metadata);
 
-	return yield* Effect.gen(function* () {
+	const replayWorkflow = Effect.fnUntraced(function* () {
 		const journal: WorkflowReplayJournalEntry[] = [];
 		let journalBytes = 2;
 		let projectionRetries = 0;
@@ -765,7 +765,8 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 			"script-failure",
 			`Sandbox workflow exceeded the maximum of ${SANDBOX_WORKFLOW_MAX_STEPS} durable steps`,
 		);
-	}).pipe(
+	});
+	return yield* replayWorkflow().pipe(
 		Effect.matchCauseEffect({
 			onSuccess: (output) => releaseReference.pipe(Effect.as(output)),
 			onFailure: (cause) =>

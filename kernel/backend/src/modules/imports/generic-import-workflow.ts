@@ -472,7 +472,7 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 	const collections = yield* CollectionsService;
 	const relationships = yield* RelationshipsService;
 	const warnings: AutomationWarningValue[] = [];
-	return yield* Effect.gen(function* () {
+	const writeItem = Effect.fnUntraced(function* () {
 		yield* validateGenericItem(item, userId, index, definitions);
 		const aliases = new Map<string, EntityId>();
 		for (const [intentIndex, intent] of item.entities.entries()) {
@@ -589,7 +589,8 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 			collectionMemberships.push({ entityId, collectionId: collection.result.id });
 		}
 		return { events, warnings, collectionMemberships, _tag: "ready" as const };
-	}).pipe(
+	});
+	return yield* writeItem().pipe(
 		Effect.catch((error) =>
 			Effect.succeed({
 				warnings,
