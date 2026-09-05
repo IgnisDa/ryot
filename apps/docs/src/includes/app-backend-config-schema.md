@@ -23,11 +23,14 @@
 
 | App Config Key | Variable | Description | Required | Sensitive | Default |
 |---|---|---|---|---|---|
-| `server.logFile` | `SERVER_LOG_FILE` | File path for appended structured logs | No | No | — |
-| `server.otlpEndpoint` | `SERVER_OTLP_ENDPOINT` | Base URL for OTLP traces and metrics export | No | No | — |
-| `server.logLevel` | `SERVER_LOG_LEVEL` | Minimum application log level | No | No | `info` |
+| `server.otlpEndpoint` | `SERVER_OTLP_ENDPOINT` | Base URL for OTLP logs, traces, and metrics export | No | No | — |
 | `server.proKey` | `SERVER_PRO_KEY` | The key that can be used to enable Ryot Pro features | No | Yes | — |
+| `server.logFile` | `SERVER_LOG_FILE` | File path for rotating structured logs | No | No | `./logs/ryot.log` |
+| `server.logLevel` | `SERVER_LOG_LEVEL` | Minimum log level for file and OTLP logs; console logs always use info | No | No | `info` |
 | `server.disableNotifications` | `SERVER_DISABLE_NOTIFICATIONS` | Disable delivery of all notifications | No | No | `false` |
+| `server.logRotationSize` | `SERVER_LOG_ROTATION_SIZE` | Maximum active log file size before rotation, such as 10M | No | No | `10M` |
+| `server.logRotationInterval` | `SERVER_LOG_ROTATION_INTERVAL` | UTC interval between log rotations, such as 1d | No | No | `1d` |
+| `server.logRetentionFiles` | `SERVER_LOG_RETENTION_FILES` | Maximum number of compressed rotated log files to retain | No | No | `7` |
 | `server.adminAccessToken` | `SERVER_ADMIN_ACCESS_TOKEN` | Bearer token required for god-mode admin endpoints | Yes | Yes | — |
 | `server.otlpHeaders` | `SERVER_OTLP_HEADERS` | Comma-separated key=value headers sent with OTLP exports, such as the API token a hosted collector requires | No | Yes | — |
 
