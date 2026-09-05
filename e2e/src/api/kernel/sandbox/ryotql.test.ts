@@ -146,15 +146,6 @@ describe("sandbox RyotQL reads", () => {
 							description: "Run the RyotQL system probe",
 						},
 					],
-					entitySchemas: [
-						{
-							icon: "box",
-							eventSchemas: [],
-							slug: entitySchemaSlug,
-							name: "RyotQL system entity",
-							propertiesSchema: { fields: {}, unknownKeys: "strict" },
-						},
-					],
 					providers: [
 						{
 							slug: providerSlug,
@@ -162,6 +153,24 @@ describe("sandbox RyotQL reads", () => {
 							information: { source: "e2e" },
 							rootEntitySchemaSlug: entitySchemaSlug,
 							operations: { details: providerScriptSlug },
+						},
+					],
+					entitySchemas: [
+						{
+							icon: "box",
+							eventSchemas: [],
+							slug: entitySchemaSlug,
+							name: "RyotQL system entity",
+							propertiesSchema: {
+								unknownKeys: "strict",
+								fields: {
+									rowCount: {
+										type: "number",
+										label: "Row count",
+										description: "Number of rows visible to the system script",
+									},
+								},
+							},
 						},
 					],
 					files: {
