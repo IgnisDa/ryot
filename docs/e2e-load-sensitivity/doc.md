@@ -146,20 +146,22 @@ finalizer uninstalled it again, receiving `PluginNotFoundError`. This produced t
 `PluginNotFoundError` failures in `imports.test.ts` and `integrations.test.ts` from other runs. Any
 post-commit work that runs inside a request fiber is exposed to the same interruption.
 
-## Sign-up holds a transaction while its hooks take more connections
+## Sign-up initialization runs after commit
 
-Status: measured.
+Status: fixed; regression scenario retained.
 
 Better Auth runs email sign-up (user, account, and session creation) in one transaction. The
-`session.create.before` and `user.create.after` database hooks
-(`kernel/backend/src/modules/auth/service.ts`) run Effect programs against the root runtime, so the
-session gate and user bootstrap acquire other pool connections while the sign-up transaction holds
-its own, and they run outside that transaction. With `DATABASE_POOL_MAX=4` and 16 concurrent
-sign-ups, every usable connection was held by a sign-up transaction `idle in transaction` after
-inserting its `account` row. No sign-up completed; the 16 request spans ended after 240 seconds and
-the transactions were still open after five minutes. With
-the default pool of 100 the E2E suite does not reach this, but any burst of concurrent sign-ups
-larger than the pool deadlocks.
+`session.create.before` hook (`kernel/backend/src/modules/auth/service.ts`) resolves the current
+Better Auth adapter before entering Effect and runs disabled-user and lifecycle checks through that
+adapter's transaction-bound `DatabaseSession`. It never acquires a second root connection and no
+longer performs user bootstrap.
+
+Better Auth 1.7.2 queues `user.create.after` until the transaction commits. That hook now schedules
+one durable bootstrap workflow per user. `bootstrapCompletedAt is null` is the recovery obligation;
+the frequent reconciliation workflow schedules any obligation missed by a process failure. OAuth
+authorization redirects incomplete users to initialization status, and application OAuth/API-key
+access remains unavailable until the marker is set. The `signup-deadlock` scenario runs 16
+concurrent sign-ups with `DATABASE_POOL_MAX=4` and fails on any sign-up or preference-write error.
 
 ## Global media-monitoring sweep grows across the run
 

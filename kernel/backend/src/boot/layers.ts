@@ -116,7 +116,11 @@ import { SignalSchemasServiceLive } from "#modules/signals/layer";
 import { TestSupportServicesLive } from "#modules/test-support/layer";
 import { ObjectStorageServiceLive, UploadServicesLive } from "#modules/uploads/layer";
 import { ManagedAssetsRepository } from "#modules/uploads/managed-assets/repository";
-import { PluginUserBootstrapDispatcherLive } from "#modules/user-bootstrap/layer";
+import { UserBootstrapSchedulingLive, UserBootstrapLive } from "#modules/user-bootstrap/layer";
+import {
+	UserBootstrapWorkflowDefinitionsLive,
+	UserBootstrapWorkflowOperationsLive,
+} from "#modules/user-bootstrap/workflow";
 import {
 	UserLifecycleServiceLive,
 	UserLifecycleWorkflowOperationsProvidedLive,
@@ -196,7 +200,7 @@ const ServicesLive = Layer.mergeAll(
 	UserLifecycleServiceLive,
 	UserSettingsServiceLive,
 	UserStateServiceLive,
-	PluginUserBootstrapDispatcherLive,
+	UserBootstrapSchedulingLive,
 	ClientPagesServiceLive,
 	ClientDocumentGrantServiceLive,
 	ClientArtifactGrantServiceLive,
@@ -232,6 +236,7 @@ const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 	ExportBackupWorkflowDefinitionsLive,
 	RestoreBackupWorkflowDefinitionsLive,
 	UserLifecycleWorkflowDefinitionsLive,
+	UserBootstrapWorkflowDefinitionsLive,
 	PluginInstallationWorkflowDefinitionsLive,
 	Layer.provide(
 		IntegrationWorkflowDefinitionsLive,
@@ -309,6 +314,7 @@ const RuntimeWorkflowOperationsLive = Layer.mergeAll(
 	),
 	BackupWorkflowOperationsLive,
 	UserLifecycleWorkflowOperationsProvidedLive,
+	Layer.provide(UserBootstrapWorkflowOperationsLive, UserBootstrapLive),
 	PluginInstallationWorkflowOperationsProvidedLive,
 );
 
