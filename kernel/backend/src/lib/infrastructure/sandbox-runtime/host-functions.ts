@@ -60,7 +60,7 @@ import { IntegrationsRepository, type IntegrationRecord } from "#modules/integra
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import {
 	reconciliationSummary,
-	RelationshipMutations,
+	RelationshipMutationPipeline,
 	summarizeRelationshipMutations,
 	type PendingRelationshipMutations,
 	type RelationshipBatchSummary,
@@ -76,7 +76,7 @@ type SandboxHostFunctionContext =
 	| DefinitionRepository
 	| PluginRuntimeResolver
 	| IntegrationsRepository
-	| RelationshipMutations
+	| RelationshipMutationPipeline
 	| LifecycleExecution;
 
 const CreateEventsPayload = Schema.Array(CreateEventItem);
@@ -207,7 +207,7 @@ const hasInvalidPopulatedAt = (item: LifecycleHostInput<"UpsertGlobalEntities">[
 
 const makeSandboxLifecycleHostSteps = (dependencies: {
 	readonly entities: EntitiesService["Service"];
-	readonly relationships: RelationshipMutations["Service"];
+	readonly relationships: RelationshipMutationPipeline["Service"];
 }) => {
 	const { entities, relationships } = dependencies;
 	const applyRelationshipHostPolicies = (pending: PendingRelationshipMutations) =>
@@ -395,7 +395,7 @@ export type SandboxLifecycleHostSteps = ReturnType<typeof makeSandboxLifecycleHo
 export const makeSandboxLifecycleHostApi = Effect.gen(function* () {
 	return makeSandboxLifecycleHostSteps({
 		entities: yield* EntitiesService,
-		relationships: yield* RelationshipMutations,
+		relationships: yield* RelationshipMutationPipeline,
 	});
 });
 

@@ -28,7 +28,7 @@ import { PluginInstallationRepository } from "#modules/plugins/installation-repo
 import { PluginRepository } from "#modules/plugins/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
-import { RelationshipMutations } from "./mutation-pipeline";
+import { RelationshipMutationPipeline } from "./mutation-pipeline";
 import { RelationshipsRepository } from "./repository";
 import { RelationshipsService } from "./service";
 
@@ -85,9 +85,9 @@ export const relationshipsServiceWith = Effect.fnUntraced(function* (lifecycle: 
 			Effect.provideService(LifecyclePlanner, planner),
 			Effect.provideService(LifecycleExecution, execution),
 		);
-	const mutations = yield* provideLifecycle(RelationshipMutations.make);
+	const mutations = yield* provideLifecycle(RelationshipMutationPipeline.make);
 	return yield* provideLifecycle(
-		RelationshipsService.make.pipe(Effect.provideService(RelationshipMutations, mutations)),
+		RelationshipsService.make.pipe(Effect.provideService(RelationshipMutationPipeline, mutations)),
 	);
 });
 
@@ -209,7 +209,7 @@ export const relationshipDatabaseLayer = (
 				),
 			);
 			const services = Layer.mergeAll(RelationshipsService.layer, EntitiesService.layer).pipe(
-				Layer.provideMerge(RelationshipMutations.layer),
+				Layer.provideMerge(RelationshipMutationPipeline.layer),
 				Layer.provideMerge(ownerDependencies),
 				Layer.provideMerge(DatabaseSession.layer),
 				Layer.provideMerge(config),
