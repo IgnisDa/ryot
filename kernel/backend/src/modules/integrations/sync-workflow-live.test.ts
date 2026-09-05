@@ -60,6 +60,7 @@ const makeSyncLayer = (options: {
 						}),
 					),
 					Layer.mock(IntegrationsService)({
+						settleImportDispatchFailure: () => Effect.void,
 						prepareYankRuns: (userId) =>
 							Ref.update(preparedFor, (all) => [...all, userId]).pipe(Effect.as([...options.runs])),
 					}),
