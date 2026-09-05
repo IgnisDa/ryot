@@ -55,7 +55,7 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 				const admitted = yield* session.transaction(repository.admit({ limit, finished }));
 				yield* Effect.forEach(admitted, start, { discard: true });
 				return yield* repository.hasPending();
-			}).pipe(Effect.provideService(DatabaseSession, session));
+			});
 
 			const run = Effect.gen(function* () {
 				const busy = yield* reconcile.pipe(
@@ -89,19 +89,14 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 			});
 
 			const status = (input: { id: string; userId: UserId }) =>
-				repository.find(input).pipe(
-					Effect.map((row) => row?.status ?? null),
-					Effect.provideService(DatabaseSession, session),
-				);
+				repository.find(input).pipe(Effect.map((row) => row?.status ?? null));
 
 			/** A queued import is removed before it starts; an admitted one is interrupted. */
 			const cancel = Effect.fn("ProviderImportAdmission.cancel")(function* (input: {
 				id: string;
 				userId: UserId;
 			}) {
-				const removed = yield* repository
-					.cancelQueued(input)
-					.pipe(Effect.provideService(DatabaseSession, session));
+				const removed = yield* repository.cancelQueued(input);
 				if (!removed) {
 					yield* engine.interrupt(EntityImportWorkflow, input.id);
 				}

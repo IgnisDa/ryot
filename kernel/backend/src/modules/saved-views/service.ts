@@ -15,7 +15,6 @@ import { Context, Effect, Layer } from "effect";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { acquireUserWriteLock } from "#lib/infrastructure/db/user-write-lock";
 import { slugify } from "#lib/shared/slug";
 import { trimToNull } from "#lib/shared/validation";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
@@ -40,12 +39,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 		const pluginRepository = yield* PluginRepository;
 		const session = yield* DatabaseSession;
 		const transact = <A, E, R>(work: Effect.Effect<A, E, R>) =>
-			session
-				.transaction(work)
-				.pipe(
-					Effect.provideService(DatabaseSession, session),
-					Effect.catchTag("DatabaseSessionStateError", Effect.die),
-				);
+			session.transaction(work).pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 		const resolvePluginInstallation = Effect.fn(function* (
 			userId: CurrentUserValue["id"],
 			pluginSlug: PluginSlug,
@@ -233,7 +227,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 				const updated = yield* mapDatabaseErrors(
 					transact(
 						Effect.gen(function* () {
-							yield* acquireUserWriteLock(user.id);
+							yield* session.acquireUserWriteLock(user.id);
 							const current = yield* repository.findBySlug(user.id, viewSlug);
 							if (!current?.isBuiltin) {
 								return yield* new SavedViewNotFound({
@@ -287,7 +281,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			const { updated, reenabled, rendererChanged } = yield* mapDatabaseErrors(
 				transact(
 					Effect.gen(function* () {
-						yield* acquireUserWriteLock(user.id);
+						yield* session.acquireUserWriteLock(user.id);
 						const current = yield* repository.lockBySlug(user.id, viewSlug);
 						if (!current) {
 							return yield* new SavedViewNotFound({
@@ -323,7 +317,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			const deleted = yield* mapDatabaseErrors(
 				transact(
 					Effect.gen(function* () {
-						yield* acquireUserWriteLock(user.id);
+						yield* session.acquireUserWriteLock(user.id);
 						const effectiveView = yield* repository.findBySlug(user.id, viewSlug);
 						if (effectiveView?.isBuiltin) {
 							return yield* new SavedViewBadRequest({
@@ -364,7 +358,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()("Sav
 			return yield* mapDatabaseErrors(
 				transact(
 					Effect.gen(function* () {
-						yield* acquireUserWriteLock(user.id);
+						yield* session.acquireUserWriteLock(user.id);
 						const pluginInstallationId = payload.pluginSlug
 							? yield* resolvePluginInstallation(user.id, payload.pluginSlug)
 							: null;
