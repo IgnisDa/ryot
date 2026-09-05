@@ -264,7 +264,7 @@ export const buildNamedDataSources = (
 };
 
 export const collectionWorkflowRendererSource = `
-import { Result, Schema } from "@ryot-app/client-sdk/effect";
+import { Effect, Result, Schema } from "@ryot-app/client-sdk/effect";
 import { EntityResults, usePageContext, usePageRefresh } from "@ryot-app/client-sdk/plugin";
 import { createRyotMutation, createRyotQuery, useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
 import { and, ascending, column, defineRecipe, eq, groupAscending, join, literal, selectedAggregate, selectedField, selectedMeasure, selectedRows, table, type Recipe } from "@ryot-app/client-sdk/ryotql";
@@ -390,11 +390,11 @@ const CollectionPage = ({ collectionId, pageSize }: typeof Settings.Type) => {
   const stateRef = useRef(state);
   const appliedPages = useRef(new Set<string>());
   const replay = useRef<RefreshReplay | undefined>(undefined);
-  const refresh = useEffectEvent(() => new Promise<void>((complete) => {
+  const refresh = useEffectEvent(() => Effect.callback<void>((resume) => {
     replay.current?.complete();
     const next = ++generationRef.current;
     replay.current = {
-      complete,
+      complete: () => resume(Effect.void),
       generation: next,
       pages: [],
       targetDepth: Math.max(1, stateRef.current?.depth ?? 1),
