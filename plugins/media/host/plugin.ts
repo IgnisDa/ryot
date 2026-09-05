@@ -553,10 +553,20 @@ export const mediaPlugin = definePlugin({
 				automaticEntityPresentations: false,
 				entry: "client/media-row-presentation.ts",
 			},
+			"movie-row": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/movie-row-presentation.ts",
+			},
 			"media-card": {
 				kind: "presentation",
 				automaticEntityPresentations: false,
 				entry: "client/media-card-presentation.ts",
+			},
+			"movie-card": {
+				kind: "presentation",
+				automaticEntityPresentations: false,
+				entry: "client/movie-card-presentation.ts",
 			},
 			"media-home": {
 				kind: "page",
@@ -570,13 +580,18 @@ export const mediaPlugin = definePlugin({
 				entry: "client/show/screen.tsx",
 				automaticEntityPresentations: false,
 			},
+			"movie-detail": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				entry: "client/movie/screen.tsx",
+				automaticEntityPresentations: false,
+			},
 		},
 		entities: {
 			book: { listPresentation: "media-row", gridPresentation: "media-card" },
 			music: { listPresentation: "media-row", gridPresentation: "media-card" },
 			anime: { listPresentation: "media-row", gridPresentation: "media-card" },
 			manga: { listPresentation: "media-row", gridPresentation: "media-card" },
-			movie: { listPresentation: "media-row", gridPresentation: "media-card" },
 			person: { listPresentation: "media-row", gridPresentation: "media-card" },
 			company: { listPresentation: "media-row", gridPresentation: "media-card" },
 			podcast: { listPresentation: "media-row", gridPresentation: "media-card" },
@@ -594,6 +609,11 @@ export const mediaPlugin = definePlugin({
 				detailPage: "show-detail",
 				listPresentation: "show-row",
 				gridPresentation: "show-card",
+			},
+			movie: {
+				detailPage: "movie-detail",
+				listPresentation: "movie-row",
+				gridPresentation: "movie-card",
 			},
 		},
 	},

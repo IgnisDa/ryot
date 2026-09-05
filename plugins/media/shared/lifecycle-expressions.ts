@@ -34,6 +34,17 @@ export const EpisodicLifecycleStateSchema = Schema.Literals([
 
 export type EpisodicLifecycleState = Schema.Schema.Type<typeof EpisodicLifecycleStateSchema>;
 
+export const MediaLifecycleStateSchema = Schema.Literals([
+	"untracked",
+	"backlog",
+	"in_progress",
+	"on_hold",
+	"dropped",
+	"complete",
+]);
+
+export type MediaLifecycleState = Schema.Schema.Type<typeof MediaLifecycleStateSchema>;
+
 export const EpisodeLifecycleStateSchema = Schema.Literals([
 	"untracked",
 	"in_progress",
@@ -84,6 +95,13 @@ type AggregateLifecycleExpressions = {
 
 export const lifecycleEventSlugs = ["progress", "complete"] as const;
 const parentLifecycleEventSlugs = ["backlog", "complete", "dropped", "on_hold"] as const;
+const mediaLifecycleSignalSlugs = [
+	"backlog",
+	"progress",
+	"complete",
+	"dropped",
+	"on_hold",
+] as const;
 
 export const entitySchemaIs = (entity: TableReference, slug: string) =>
 	eq(column(entity, "entitySchemaSlug"), literal(slug));
@@ -149,6 +167,76 @@ export const orderExpressionsAreAfter = (
 			gt(current.id, boundary.id),
 		),
 	);
+
+export const latestEntityCompletionExpressions = (
+	entity: TableReference,
+	alias: string,
+): EventOrderExpressions => {
+	const event = table("event", alias);
+	const where = and(
+		eq(column(event, "entityId"), column(entity, "id")),
+		eq(column(event, "eventSchemaSlug"), literal("complete")),
+	);
+	return latestEventOrderExpressions(where, alias);
+};
+
+const mediaStateFromLatestSignal = (eventSchemaSlug: ScalarExpression) =>
+	conditional(
+		eq(eventSchemaSlug, literal("backlog")),
+		literal("backlog"),
+		conditional(
+			eq(eventSchemaSlug, literal("on_hold")),
+			literal("on_hold"),
+			conditional(
+				eq(eventSchemaSlug, literal("dropped")),
+				literal("dropped"),
+				conditional(
+					eq(eventSchemaSlug, literal("complete")),
+					literal("complete"),
+					literal("in_progress"),
+				),
+			),
+		),
+	);
+
+export const mediaLifecycleExpressions = (entity: TableReference, alias = "mediaLifecycle") => {
+	const signalAlias = `${alias}Signal`;
+	const signalEvent = table("event", signalAlias);
+	const signalWhere = and(
+		eq(column(signalEvent, "entityId"), column(entity, "id")),
+		eventSlugIsOneOf(signalEvent, mediaLifecycleSignalSlugs),
+	);
+	const latestSignal = {
+		...latestEventOrderExpressions(signalWhere, signalAlias),
+		entityId: latestField(signalEvent, "entityId", signalWhere),
+		eventSchemaSlug: latestField(signalEvent, "eventSchemaSlug", signalWhere),
+	};
+	const progressAlias = `${alias}Progress`;
+	const progressEvent = table("event", progressAlias);
+	const progressWhere = and(
+		eq(column(progressEvent, "entityId"), column(entity, "id")),
+		eq(column(progressEvent, "eventSchemaSlug"), literal("progress")),
+	);
+	const latestProgress = latestEventOrderExpressions(progressWhere, progressAlias);
+	const boundaryCompleteEvent = latestEntityCompletionExpressions(entity, `${alias}Boundary`);
+	return {
+		latestSignal,
+		boundaryCompleteEvent,
+		state: conditional(
+			isNull(latestSignal.id),
+			literal("untracked"),
+			mediaStateFromLatestSignal(latestSignal.eventSchemaSlug),
+		),
+		progressPercent: conditional(
+			orderExpressionsAreAfter(latestProgress, boundaryCompleteEvent),
+			latestEventField(progressEvent, {
+				where: progressWhere,
+				select: castNumber(jsonPath(column(progressEvent, "properties"), "progressPercent")),
+			}),
+			literal(null),
+		),
+	};
+};
 
 export const latestEpisodeLifecycleExpressions = (
 	episode: TableReference,

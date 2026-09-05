@@ -1,9 +1,10 @@
 import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
 
 import type { ShowSeasonEpisodesResult, ShowSeasonsResult } from "../../shared/show-recipes";
-import { collectManagedAssetLocators, preferredMediaImageAsset } from "../media-image";
-import { formatDateOnlyLabel } from "./date";
-import { classifyRyotQueryResult, type MappedRyotQueryState } from "./query-state";
+import { optionalText } from "../media/activity-timeline";
+import { formatDateOnlyLabel } from "../media/date";
+import { collectManagedAssetLocators, preferredMediaImageAsset } from "../media/image";
+import { classifyRyotQueryResult, type MappedRyotQueryState } from "../media/query-state";
 
 type ShowSeasons = NonNullable<ShowSeasonsResult>;
 type ShowSeasonEpisodes = NonNullable<ShowSeasonEpisodesResult>;
@@ -134,9 +135,6 @@ export const showNextUpEpisode = (episodes: readonly ShowEpisode[]) => {
 		? undefined
 		: episodes.slice(lastCompleted + 1).find((episode) => episode.state === "untracked");
 };
-
-export const optionalText = (value: string | null) =>
-	value === null || value.trim() === "" ? undefined : value;
 
 const mediaDateLabel = (value: string | null) => {
 	const text = optionalText(value);

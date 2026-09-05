@@ -2,13 +2,11 @@ import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
 	ascending,
-	castBoolean,
 	coalesce,
 	column,
 	count,
 	dateBucket,
 	defineRecipe,
-	descending,
 	eq,
 	eventOrderDescending,
 	exists,
@@ -19,7 +17,6 @@ import {
 	isNull,
 	IsoDateString,
 	join,
-	jsonPath,
 	literal,
 	selectedAggregate,
 	selectedField,
@@ -32,15 +29,12 @@ import {
 	type Recipe,
 	type SelectedRow,
 } from "@ryot-app/plugin-kit/ryotql";
-import { EntityId, EntitySchemaSlug, EventId } from "@ryot-app/plugin-kit/schema";
+import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
 
 import {
 	entityId,
 	entityIdentitySelection,
-	entitySyncSelection,
 	entitySchema,
-	libraryLinkExists,
-	propertyBoolean,
 	propertyJson,
 	propertyNumber,
 	propertyText,
@@ -54,8 +48,18 @@ import {
 	episodicLifecycleExpressions,
 	showEpisodicKindConfig,
 } from "./lifecycle-expressions";
-import { MediaImageListSchema, MediaImageSchema } from "./media-image";
-import { WatchProviderListSchema } from "./watch-provider";
+import { MediaImageListSchema } from "./media-image";
+import {
+	collectionMembershipInclude,
+	compareMediaActivityDescending,
+	eventSchemaIsOneOf,
+	mediaActivityEventSelection,
+	mediaActivityParentSlugs,
+	mediaCollectionEventsQuery,
+	mediaOverviewQueries,
+	mediaSummarySelection,
+	requestedSchemaQuery,
+} from "./media-recipes";
 
 const showEpisodeInclude = (season: Table, episodeLimit: number) => {
 	const episode = table("entity", "episode");
@@ -161,55 +165,9 @@ export const showSeasonEpisodesRecipe = defineRecipe(
 	},
 );
 
-const libraryOwnership = (entity: Table) => {
-	const library = table("entity", "ownershipLibrary");
-	const relationship = table("relationship", "ownershipRelationship");
-	return castBoolean(
-		first(relationship, {
-			select: jsonPath(column(relationship, "properties"), "owned"),
-			joins: [
-				join("inner", library, eq(column(relationship, "targetEntityId"), column(library, "id"))),
-			],
-			orderBy: [
-				descending(column(relationship, "createdAt")),
-				ascending(column(relationship, "id")),
-			],
-			where: and(
-				entitySchema(library, "library"),
-				eq(column(relationship, "sourceEntityId"), column(entity, "id")),
-				eq(column(relationship, "relationshipSchemaSlug"), literal("in-library")),
-			),
-		}),
-	);
-};
-
-const collectionMembershipInclude = (collectionLimit: number) => {
-	const entity = table("entity", "entity");
-	const collection = table("entity", "memberCollection");
-	const membership = table("relationship", "memberCollectionRelationship");
-
-	return selectedInclude(collection, {
-		limit: collectionLimit,
-		orderBy: [ascending(column(collection, "name")), ascending(column(collection, "id"))],
-		joins: [
-			join("inner", membership, eq(column(membership, "targetEntityId"), column(collection, "id"))),
-		],
-		selection: {
-			id: selectedField(column(collection, "id"), EntityId),
-			name: selectedField(column(collection, "name"), Schema.String),
-		},
-		where: and(
-			entitySchema(collection, "collection"),
-			eq(column(membership, "sourceEntityId"), column(entity, "id")),
-			eq(column(membership, "relationshipSchemaSlug"), literal("member-of")),
-		),
-	});
-};
-
 export const showSummaryRecipe = defineRecipe(
 	(input: { readonly entityId: string; readonly collectionLimit: number }) => {
 		const entity = table("entity", "entity");
-		const requested = table("entity", "requested");
 		const provider = table("sandboxProvider", "provider");
 		const lifecycle = episodicLifecycleExpressions(
 			showEpisodicKindConfig,
@@ -220,43 +178,15 @@ export const showSummaryRecipe = defineRecipe(
 			map: ({ show, requested: requestedRow }) =>
 				Result.succeed({ show: show ?? null, entitySchemaSlug: requestedRow?.schemaSlug ?? null }),
 			queries: {
-				requested: selectedOptionalRow(requested, {
-					where: entityId(requested, input.entityId),
-					orderBy: [ascending(column(requested, "id"))],
-					selection: {
-						schemaSlug: selectedField(column(requested, "entitySchemaSlug"), EntitySchemaSlug),
-					},
-				}),
+				requested: requestedSchemaQuery(input.entityId),
 				show: selectedOptionalRow(entity, {
 					orderBy: [ascending(column(entity, "id"))],
 					where: and(entitySchema(entity, "show"), entityId(entity, input.entityId)),
 					include: { collections: collectionMembershipInclude(input.collectionLimit) },
 					joins: [join("left", provider, eq(column(entity, "providerId"), column(provider, "id")))],
 					selection: {
-						...entityIdentitySelection(entity),
+						...mediaSummarySelection(entity, provider),
 						state: selectedField(lifecycle.state, EpisodicLifecycleStateSchema),
-						owned: selectedField(libraryOwnership(entity), Schema.NullOr(Schema.Boolean)),
-						providerName: selectedField(column(provider, "name"), Schema.NullOr(Schema.String)),
-						description: selectedField(
-							propertyText(entity, "description"),
-							Schema.NullOr(Schema.String),
-						),
-						publishDate: selectedField(
-							propertyText(entity, "publishDate"),
-							Schema.NullOr(Schema.String),
-						),
-						watchProviders: selectedField(
-							propertyJson(entity, "watchProviders"),
-							WatchProviderListSchema,
-						),
-						publishYear: selectedField(
-							propertyNumber(entity, "publishYear"),
-							Schema.NullOr(Schema.Number),
-						),
-						genres: selectedField(
-							propertyJson(entity, "genres"),
-							Schema.NullOr(Schema.Array(Schema.String)),
-						),
 						totalSeasons: selectedField(
 							propertyNumber(entity, "totalSeasons"),
 							Schema.NullOr(Schema.Number),
@@ -264,26 +194,6 @@ export const showSummaryRecipe = defineRecipe(
 						totalEpisodes: selectedField(
 							propertyNumber(entity, "totalEpisodes"),
 							Schema.NullOr(Schema.Number),
-						),
-						images: selectedField(
-							propertyJson(entity, "images"),
-							Schema.NullOr(Schema.Array(MediaImageSchema)),
-						),
-						providerRating: selectedField(
-							propertyNumber(entity, "providerRating"),
-							Schema.NullOr(Schema.Number),
-						),
-						productionStatus: selectedField(
-							propertyText(entity, "productionStatus"),
-							Schema.NullOr(Schema.String),
-						),
-						isInLibrary: selectedField(
-							libraryLinkExists(entity, "inLibraryLibrary", "in-library"),
-							Schema.Boolean,
-						),
-						isMonitored: selectedField(
-							libraryLinkExists(entity, "monitoringLibrary", "media-monitoring"),
-							Schema.Boolean,
 						),
 					},
 				}),
@@ -394,132 +304,16 @@ export const showPresentationRecipe = defineRecipe((entityIds: readonly string[]
 	};
 });
 
-const creditSelection = (credit: Table, relationship: Table) => ({
-	id: selectedField(column(credit, "id"), EntityId),
-	name: selectedField(column(credit, "name"), Schema.String),
-	images: selectedField(propertyJson(credit, "images"), MediaImageListSchema),
-	order: selectedField(propertyNumber(relationship, "order"), Schema.NullOr(Schema.Number)),
-	roles: selectedField(
-		propertyJson(relationship, "roles"),
-		Schema.NullOr(Schema.Array(Schema.String)),
-	),
-	...entitySyncSelection(credit),
-});
-
-const creditRows = (input: {
-	readonly limit: number;
-	readonly credit: Table;
-	readonly entityId: string;
-	readonly relationship: Table;
-	readonly creditSchemaSlug: string;
-	readonly relationshipSchemaSlug: string;
-}) => ({
-	limit: input.limit,
-	orderBy: [
-		ascending(propertyNumber(input.relationship, "order")),
-		ascending(column(input.credit, "name")),
-	],
-	joins: [
-		join(
-			"inner",
-			input.credit,
-			eq(column(input.relationship, "sourceEntityId"), column(input.credit, "id")),
-		),
-	],
-	where: and(
-		entitySchema(input.credit, input.creditSchemaSlug),
-		eq(column(input.relationship, "targetEntityId"), literal(input.entityId)),
-		eq(column(input.relationship, "relationshipSchemaSlug"), literal(input.relationshipSchemaSlug)),
-	),
-});
-
 export const showOverviewRecipe = defineRecipe(
 	(input: {
 		readonly entityId: string;
 		readonly peopleLimit: number;
 		readonly companyLimit: number;
 		readonly recommendationLimit: number;
-	}) => {
-		const person = table("entity", "person");
-		const company = table("entity", "company");
-		const suggested = table("entity", "suggested");
-		const personRelationship = table("relationship", "personRelationship");
-		const companyRelationship = table("relationship", "companyRelationship");
-		const suggestionRelationship = table("relationship", "suggestionRelationship");
-		return {
-			queries: {
-				companies: selectedRows(companyRelationship, {
-					...creditRows({
-						credit: company,
-						entityId: input.entityId,
-						limit: input.companyLimit,
-						creditSchemaSlug: "company",
-						relationship: companyRelationship,
-						relationshipSchemaSlug: "company-to-show",
-					}),
-					selection: creditSelection(company, companyRelationship),
-				}),
-				people: selectedRows(personRelationship, {
-					...creditRows({
-						credit: person,
-						entityId: input.entityId,
-						limit: input.peopleLimit,
-						creditSchemaSlug: "person",
-						relationship: personRelationship,
-						relationshipSchemaSlug: "person-to-show",
-					}),
-					selection: {
-						...creditSelection(person, personRelationship),
-						character: selectedField(
-							propertyText(personRelationship, "character"),
-							Schema.NullOr(Schema.String),
-						),
-					},
-				}),
-				recommendations: selectedRows(suggestionRelationship, {
-					limit: input.recommendationLimit,
-					orderBy: [ascending(column(suggested, "name"))],
-					joins: [
-						join(
-							"inner",
-							suggested,
-							eq(column(suggestionRelationship, "targetEntityId"), column(suggested, "id")),
-						),
-					],
-					where: and(
-						entitySchema(suggested, "show"),
-						eq(column(suggestionRelationship, "sourceEntityId"), literal(input.entityId)),
-						eq(
-							column(suggestionRelationship, "relationshipSchemaSlug"),
-							literal("media-suggestion"),
-						),
-					),
-					selection: {
-						id: selectedField(column(suggested, "id"), EntityId),
-						name: selectedField(column(suggested, "name"), Schema.String),
-						images: selectedField(propertyJson(suggested, "images"), MediaImageListSchema),
-						...entitySyncSelection(suggested),
-					},
-				}),
-			},
-		};
-	},
+	}) => ({ queries: mediaOverviewQueries({ ...input, slug: "show" }) }),
 );
 
 const showActivityEpisodeSlugs = ["review"] as const;
-
-const showActivityParentSlugs = ["backlog", "on_hold", "dropped", "complete", "review"] as const;
-
-const showActivityCollectionSlugs = [
-	"add-entity-to-collection",
-	"remove-entity-from-collection",
-] as const;
-
-const eventSchemaIsOneOf = (event: Table, slugs: readonly string[]) =>
-	inArray(
-		column(event, "eventSchemaSlug"),
-		slugs.map((slug) => literal(slug)),
-	);
 
 const showEpisodeMembership = (episode: Table, showEntityId: string, alias: string) => {
 	const season = table("entity", `${alias}Season`);
@@ -542,17 +336,6 @@ const showEpisodeMembership = (episode: Table, showEntityId: string, alias: stri
 		),
 	});
 };
-
-const showActivityEventSelection = (event: Table) => ({
-	id: selectedField(column(event, "id"), EventId),
-	createdAt: selectedField(column(event, "createdAt"), IsoDateString),
-	occurredAt: selectedField(column(event, "occurredAt"), IsoDateString),
-	text: selectedField(propertyText(event, "text"), Schema.NullOr(Schema.String)),
-	rating: selectedField(propertyNumber(event, "rating"), Schema.NullOr(Schema.Number)),
-	timeSpent: selectedField(propertyNumber(event, "timeSpent"), Schema.NullOr(Schema.Number)),
-	consumedOn: selectedField(propertyText(event, "consumedOn"), Schema.NullOr(Schema.String)),
-	isSpoiler: selectedField(propertyBoolean(event, "isSpoiler"), Schema.NullOr(Schema.Boolean)),
-});
 
 const showActivityEpisodeSelection = (episode: Table) => ({
 	episodeId: selectedField(column(episode, "id"), EntityId),
@@ -614,14 +397,6 @@ const showActivitySeasonCoverage = (season: Table) => {
 	};
 };
 
-const compareShowActivityDescending = (
-	left: { readonly id: string; readonly createdAt: string; readonly occurredAt: string },
-	right: { readonly id: string; readonly createdAt: string; readonly occurredAt: string },
-) =>
-	right.occurredAt.localeCompare(left.occurredAt) ||
-	right.createdAt.localeCompare(left.createdAt) ||
-	right.id.localeCompare(left.id);
-
 export const showActivityRecipe = defineRecipe(
 	(input: {
 		readonly entityId: string;
@@ -643,8 +418,6 @@ export const showActivityRecipe = defineRecipe(
 		const eventEpisode = table("entity", "eventEpisode");
 		const progressEvent = table("event", "progressEvent");
 		const progressProbe = table("event", "progressProbe");
-		const collectionEvent = table("event", "collectionEvent");
-		const eventCollection = table("entity", "eventCollection");
 		const progressEpisode = table("entity", "progressEpisode");
 		const showSeason = table("relationship", "coverageShowSeason");
 		const isProgressOf = (event: Table) =>
@@ -705,7 +478,7 @@ export const showActivityRecipe = defineRecipe(
 					seasons: seasons.items,
 					watchDays: watchDays.items,
 					watchCount: totals?.watchCount ?? 0,
-					events: events.sort(compareShowActivityDescending),
+					events: events.sort(compareMediaActivityDescending),
 					truncated:
 						seasons.pageInfo.hasMore ||
 						watchDays.pageInfo?.hasMore === true ||
@@ -716,6 +489,10 @@ export const showActivityRecipe = defineRecipe(
 				});
 			},
 			queries: {
+				collectionEvents: mediaCollectionEventsQuery({
+					entityId: input.entityId,
+					limit: input.collectionEventLimit,
+				}),
 				totals: selectedOptionalRow(show, {
 					orderBy: [ascending(column(show, "id"))],
 					where: and(entitySchema(show, "show"), entityId(show, input.entityId)),
@@ -736,10 +513,10 @@ export const showActivityRecipe = defineRecipe(
 					orderBy: eventOrderDescending(parentEvent),
 					where: and(
 						eq(column(parentEvent, "entityId"), literal(input.entityId)),
-						eventSchemaIsOneOf(parentEvent, showActivityParentSlugs),
+						eventSchemaIsOneOf(parentEvent, mediaActivityParentSlugs),
 					),
 					selection: {
-						...showActivityEventSelection(parentEvent),
+						...mediaActivityEventSelection(parentEvent),
 						startedOn: selectedField(
 							propertyText(parentEvent, "startedOn"),
 							Schema.NullOr(IsoDateString),
@@ -750,7 +527,7 @@ export const showActivityRecipe = defineRecipe(
 						),
 						eventSchemaSlug: selectedField(
 							column(parentEvent, "eventSchemaSlug"),
-							Schema.Literals(showActivityParentSlugs),
+							Schema.Literals(mediaActivityParentSlugs),
 						),
 					},
 				}),
@@ -794,38 +571,11 @@ export const showActivityRecipe = defineRecipe(
 						showEpisodeMembership(eventEpisode, input.entityId, "episodeEventShow"),
 					),
 					selection: {
-						...showActivityEventSelection(episodeEvent),
+						...mediaActivityEventSelection(episodeEvent),
 						...showActivityEpisodeSelection(eventEpisode),
 						eventSchemaSlug: selectedField(
 							column(episodeEvent, "eventSchemaSlug"),
 							Schema.Literals(showActivityEpisodeSlugs),
-						),
-					},
-				}),
-				collectionEvents: selectedRows(collectionEvent, {
-					limit: input.collectionEventLimit,
-					orderBy: eventOrderDescending(collectionEvent),
-					joins: [
-						join(
-							"inner",
-							eventCollection,
-							eq(column(collectionEvent, "entityId"), column(eventCollection, "id")),
-						),
-					],
-					where: and(
-						entitySchema(eventCollection, "collection"),
-						eventSchemaIsOneOf(collectionEvent, showActivityCollectionSlugs),
-						eq(propertyText(collectionEvent, "entityId"), literal(input.entityId)),
-					),
-					selection: {
-						id: selectedField(column(collectionEvent, "id"), EventId),
-						collectionId: selectedField(column(eventCollection, "id"), EntityId),
-						collectionName: selectedField(column(eventCollection, "name"), Schema.String),
-						createdAt: selectedField(column(collectionEvent, "createdAt"), IsoDateString),
-						occurredAt: selectedField(column(collectionEvent, "occurredAt"), IsoDateString),
-						eventSchemaSlug: selectedField(
-							column(collectionEvent, "eventSchemaSlug"),
-							Schema.Literals(showActivityCollectionSlugs),
 						),
 					},
 				}),
