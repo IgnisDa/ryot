@@ -9,13 +9,13 @@ import { SandboxScriptId, type UserId } from "@ryot-app/contract/schema/brands";
 import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
 import { generateId } from "better-auth";
 import { Context, Effect, Layer, Option, Redacted, Schema } from "effect";
-import { Activity } from "effect/unstable/workflow";
 import type { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import type { SandboxPluginRevision } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { sandboxContextError } from "#lib/infrastructure/sandbox-runtime/limits";
+import { makeActivity } from "#lib/infrastructure/workflow-scope";
 import {
 	createWorkflowJobId,
 	deriveJobIdSecret,
@@ -177,7 +177,7 @@ export class SandboxExecutionService extends Context.Service<SandboxExecutionSer
 						input.pluginInstallationId,
 					),
 				) {
-					return yield* Activity.make({
+					return yield* makeActivity({
 						error: SandboxRunError,
 						success: SandboxScriptId,
 						name: `resolve-plugin-workflow-${input.executionId}`,

@@ -2,33 +2,33 @@ import { PgClient } from "@effect/sql-pg";
 import { DbError } from "@ryot-app/contract/errors";
 import {
 	AutomationRelationshipSnapshot,
+	AutomationRequestPayload,
 	type AutomationChangePayload,
-	type AutomationRequestPayload,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	RelationshipBadRequest,
 	RelationshipNotFound,
 } from "@ryot-app/contract/modules/relationships/schemas";
 import type { EntityId, RelationshipSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Effect, Option, Schema } from "effect";
 
 import { LifecyclePersistenceError, type LifecyclePlanner } from "#lib/domain/lifecycle";
-import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
+import { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import type { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { Database, mapDatabaseErrors, retryOnDeadlock } from "#lib/infrastructure/db/service";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import type { RelationshipSchemaDefinition } from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import {
-	type CatalogDefinitionFingerprint,
+	CatalogDefinitionFingerprint,
 	PluginRuntimeResolver,
 } from "#modules/plugins/runtime-resolver";
 
 import {
-	type RelationshipIdentityInput,
+	RelationshipIdentityInput,
 	type RelationshipsRepository,
 	relationshipMutationLockKey,
 } from "./repository";
@@ -65,15 +65,21 @@ export type PlannedRelationshipReconciliationResult = ReadonlyArray<{
 	readonly upserted: number;
 }>;
 
-export type Mutation = {
-	input: RelationshipIdentityInput;
-	mode: "upsert" | "update" | "delete" | "merge";
-	properties?: unknown;
-	propertiesSchema?: AppSchema | undefined;
-	schemaFingerprint?: CatalogDefinitionFingerprint | undefined;
-	command: LifecycleCommand;
-};
-export type RelationshipRequest = Extract<AutomationRequestPayload, { resource: "relationship" }>;
+export const RelationshipMutation = Schema.Struct({
+	command: LifecycleCommand,
+	input: RelationshipIdentityInput,
+	properties: Schema.optional(Schema.Unknown),
+	propertiesSchema: Schema.optional(AppSchema),
+	mode: Schema.Literals(["upsert", "update", "delete", "merge"]),
+	schemaFingerprint: Schema.optional(CatalogDefinitionFingerprint),
+});
+export type Mutation = typeof RelationshipMutation.Type;
+export const RelationshipRequest = Schema.Union([
+	AutomationRequestPayload.members[6],
+	AutomationRequestPayload.members[7],
+	AutomationRequestPayload.members[8],
+]);
+export type RelationshipRequest = typeof RelationshipRequest.Type;
 
 export const relationshipChange = (
 	request: RelationshipRequest,

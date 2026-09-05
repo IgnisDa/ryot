@@ -35,6 +35,7 @@ import {
 import { Database } from "#lib/infrastructure/db/service";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeWorkflowEngine } from "#lib/test-utils/effect";
+import { withLifecycleDispatch } from "#modules/automations/lifecycle.test-support";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 
@@ -232,7 +233,7 @@ const harness = (
 				};
 			}),
 	});
-	const execution = LifecycleExecution.of({
+	const execution = withLifecycleDispatch({
 		skipQueuedPolicies: () =>
 			Effect.sync(() => {
 				expect(activeTransaction).toBe(false);

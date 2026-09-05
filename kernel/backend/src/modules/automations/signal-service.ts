@@ -1,12 +1,9 @@
 import { badRequest, notFound } from "@ryot-app/contract/errors";
-import {
-	AutomationSignalPayload,
-	type AutomationWarning,
-} from "@ryot-app/contract/modules/automations/lifecycle";
+import { AutomationSignalPayload } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Schema } from "effect";
 
-import { LifecyclePlanner } from "#lib/domain/lifecycle";
+import { LifecyclePlanner, toLifecycleDispatchPlan } from "#lib/domain/lifecycle";
 import { LifecycleCommand, lifecycleTrigger } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
@@ -122,11 +119,9 @@ export class SignalEmissionService extends Context.Service<SignalEmissionService
 						}).pipe(Effect.provideService(Database, transaction)),
 					),
 				);
-				const warnings: AutomationWarning[] = [];
-				if (plan.trigger.blockedReason?.hasRequiredHooks) {
-					warnings.push({ ...plan.trigger.blockedReason, triggerId: plan.trigger.id });
-				}
-				warnings.push(...(yield* execution.after({ runs: plan.runs, triggerId: plan.trigger.id })));
+				const warnings = yield* execution
+					.dispatch([toLifecycleDispatchPlan(plan)])
+					.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die));
 				return { warnings, triggerId: plan.trigger.id, wasCreated: plan.wasCreated };
 			});
 			return { emitSignal };

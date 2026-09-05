@@ -28,6 +28,7 @@ import { Database } from "#lib/infrastructure/db/service";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import type { MockOverrides } from "#lib/test-utils/effect";
 import { databaseLayer } from "#lib/test-utils/effect";
+import { triggerFixture } from "#modules/automations/lifecycle.test-support";
 import { makeDefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
@@ -151,6 +152,7 @@ const makeServiceLayer = (
 		entitiesRepository?: ReturnType<typeof makeEntitiesRepository>;
 		relationshipsService?: ReturnType<typeof makeRelationshipsService>;
 		relationshipsRepository?: ReturnType<typeof makeRelationshipsRepository>;
+		lifecycleExecution?: Layer.Layer<LifecycleExecution>;
 	} = {},
 ) =>
 	UserStateService.layer.pipe(
@@ -159,11 +161,13 @@ const makeServiceLayer = (
 				options.database ?? databaseLayer,
 				Layer.succeed(PgClient.PgClient, Object.create(null)),
 				Layer.mock(LifecyclePlanner)({ plan: () => Effect.die("unused") }),
-				Layer.mock(LifecycleExecution)({
-					after: () => Effect.die("unused"),
-					executePolicy: () => Effect.die("unused"),
-					skipQueuedPolicies: () => Effect.die("unused"),
-				}),
+				options.lifecycleExecution ??
+					Layer.mock(LifecycleExecution)({
+						after: () => Effect.die("unused"),
+						dispatch: () => Effect.succeed([]),
+						executePolicy: () => Effect.die("unused"),
+						skipQueuedPolicies: () => Effect.die("unused"),
+					}),
 				options.pluginRuntime ?? makePluginRuntimeLayer(),
 				options.entitiesRepository ?? makeEntitiesRepository(),
 				options.eventsRepository ?? makeEventsRepository(),
@@ -267,7 +271,16 @@ it.effect(
 	"prepares all clear mutations before one persistence phase and aggregates warnings",
 	() => {
 		const calls: string[] = [];
-		const plan: LifecyclePlan = Object.create(null);
+		const eventPlan: LifecyclePlan = {
+			runs: [],
+			policies: [],
+			wasCreated: true,
+			trigger: triggerFixture("event-trigger"),
+		};
+		const relationshipPlan: LifecyclePlan = {
+			...eventPlan,
+			trigger: triggerFixture("relationship-trigger"),
+		};
 		const eventWarning = {
 			code: "required-hook-pending" as const,
 			runId: AutomationRunId.make("event-run"),
@@ -283,6 +296,13 @@ it.effect(
 			eventsRepository: makeEventsRepository({
 				listUserEventIdsForEntity: () => Effect.succeed([EventId.make("event-1")]),
 			}),
+			lifecycleExecution: Layer.mock(LifecycleExecution)({
+				dispatch: (plans) =>
+					Effect.sync(() => {
+						calls.push(`dispatch:${plans.map(({ triggerId }) => triggerId).join(",")}`);
+						return [eventWarning, relationshipWarning];
+					}),
+			}),
 			database: Layer.succeed(
 				Database,
 				Database.of(
@@ -294,6 +314,18 @@ it.effect(
 					}),
 				),
 			),
+			eventsService: makeEventsService({
+				prepareDelete: () =>
+					Effect.sync(() => {
+						calls.push("prepare:event");
+						return preparedEventDelete;
+					}),
+				persistPreparedDelete: () =>
+					Effect.sync(() => {
+						calls.push("persist:event");
+						return { plans: [eventPlan], result: EventId.make("event-1") };
+					}),
+			}),
 			entitiesRepository: makeEntitiesRepository({
 				getEntityScopeForUser: () =>
 					Effect.succeed({
@@ -306,29 +338,7 @@ it.effect(
 						entitySchemaSlug: EntitySchemaSlug.make("record"),
 					}),
 			}),
-			eventsService: makeEventsService({
-				prepareDelete: () =>
-					Effect.sync(() => {
-						calls.push("prepare:event");
-						return preparedEventDelete;
-					}),
-				executeCommittedPlans: () =>
-					Effect.sync(() => {
-						calls.push("execute:event");
-						return [eventWarning];
-					}),
-				persistPreparedDelete: () =>
-					Effect.sync(() => {
-						calls.push("persist:event");
-						return { plans: [plan], result: EventId.make("event-1") };
-					}),
-			}),
 			relationshipsService: makeRelationshipsService({
-				executeCommittedPlans: () =>
-					Effect.sync(() => {
-						calls.push("execute:relationship");
-						return [relationshipWarning];
-					}),
 				prepareUserDelete: () =>
 					Effect.sync(() => {
 						calls.push("prepare:relationship");
@@ -337,7 +347,7 @@ it.effect(
 				persistPreparedUserDelete: () =>
 					Effect.sync(() => {
 						calls.push("persist:relationship");
-						return { plans: [plan], result: persistedRelationship };
+						return { plans: [relationshipPlan], result: persistedRelationship };
 					}),
 			}),
 			relationshipsRepository: makeRelationshipsRepository({
@@ -368,8 +378,7 @@ it.effect(
 				"transaction",
 				"persist:event",
 				"persist:relationship",
-				"execute:event",
-				"execute:relationship",
+				"dispatch:event-trigger,relationship-trigger",
 			]);
 		}).pipe(Effect.provide(layer));
 	},

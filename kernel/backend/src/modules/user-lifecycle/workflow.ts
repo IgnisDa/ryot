@@ -11,6 +11,7 @@ import { Activity, Workflow } from "effect/unstable/workflow";
 
 import { Database } from "#lib/infrastructure/db/service";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
+import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { AuthService } from "#modules/auth/service";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
 import { PluginInstallationService } from "#modules/plugins/installation-service";
@@ -220,14 +221,14 @@ export const runUserLifecycleWorkflow = Effect.fn("UserLifecycleWorkflow")(
 	function* (payload: UserLifecycleWorkflowPayload, executionId: string) {
 		yield* Effect.annotateCurrentSpan({ executionId, operationId: payload.operationId });
 		const operations = yield* UserLifecycleWorkflowOperations;
-		const started = yield* Activity.make({
+		const started = yield* makeActivity({
 			name: "begin-user-lifecycle",
 			error: InternalError satisfies DurableSchema,
 			execute: operations.begin(payload.operationId),
 			success: WorkflowOperationKind satisfies DurableSchema,
 		}).pipe(Activity.retry({ times: 3 }), Effect.result);
 		if (Result.isFailure(started)) {
-			yield* Activity.make({
+			yield* makeActivity({
 				name: "fail-unstarted-user-lifecycle",
 				error: InternalError satisfies DurableSchema,
 				success: Schema.Void satisfies DurableSchema,
@@ -239,14 +240,14 @@ export const runUserLifecycleWorkflow = Effect.fn("UserLifecycleWorkflow")(
 			return;
 		}
 
-		const cleaned = yield* Activity.make({
+		const cleaned = yield* makeActivity({
 			name: "cleanup-user-lifecycle-objects",
 			error: InternalError satisfies DurableSchema,
 			success: Schema.Void satisfies DurableSchema,
 			execute: operations.cleanupObjects(payload.operationId),
 		}).pipe(Activity.retry({ times: 5 }), Effect.result);
 		if (Result.isFailure(cleaned)) {
-			yield* Activity.make({
+			yield* makeActivity({
 				name: "fail-user-lifecycle-object-cleanup",
 				error: InternalError satisfies DurableSchema,
 				success: Schema.Void satisfies DurableSchema,
@@ -255,14 +256,14 @@ export const runUserLifecycleWorkflow = Effect.fn("UserLifecycleWorkflow")(
 			return;
 		}
 
-		const deleted = yield* Activity.make({
+		const deleted = yield* makeActivity({
 			name: "delete-user-lifecycle-database-user",
 			error: InternalError satisfies DurableSchema,
 			success: Schema.Void satisfies DurableSchema,
 			execute: operations.deleteDatabaseUser(payload.operationId),
 		}).pipe(Activity.retry({ times: 5 }), Effect.result);
 		if (Result.isFailure(deleted)) {
-			yield* Activity.make({
+			yield* makeActivity({
 				name: "fail-user-lifecycle-database-cleanup",
 				error: InternalError satisfies DurableSchema,
 				success: Schema.Void satisfies DurableSchema,
@@ -273,14 +274,14 @@ export const runUserLifecycleWorkflow = Effect.fn("UserLifecycleWorkflow")(
 
 		let resetResult: UserResetResult | null = null;
 		if (started.success === "reset") {
-			const recreated = yield* Activity.make({
+			const recreated = yield* makeActivity({
 				name: "recreate-reset-user",
 				error: InternalError satisfies DurableSchema,
 				success: UserResetResult satisfies DurableSchema,
 				execute: operations.recreateResetUser(payload.operationId),
 			}).pipe(Activity.retry({ times: 5 }), Effect.result);
 			if (Result.isFailure(recreated)) {
-				yield* Activity.make({
+				yield* makeActivity({
 					name: "fail-reset-user-recreation",
 					error: InternalError satisfies DurableSchema,
 					success: Schema.Void satisfies DurableSchema,
@@ -291,14 +292,14 @@ export const runUserLifecycleWorkflow = Effect.fn("UserLifecycleWorkflow")(
 			resetResult = recreated.success;
 		}
 
-		const completed = yield* Activity.make({
+		const completed = yield* makeActivity({
 			name: "complete-user-lifecycle",
 			error: InternalError satisfies DurableSchema,
 			success: Schema.Void satisfies DurableSchema,
 			execute: operations.complete(payload.operationId, resetResult),
 		}).pipe(Activity.retry({ times: 5 }), Effect.result);
 		if (Result.isFailure(completed)) {
-			yield* Activity.make({
+			yield* makeActivity({
 				name: "fail-user-lifecycle-completion",
 				error: InternalError satisfies DurableSchema,
 				success: Schema.Void satisfies DurableSchema,
@@ -310,5 +311,7 @@ export const runUserLifecycleWorkflow = Effect.fn("UserLifecycleWorkflow")(
 		Effect.annotateLogs(effect, { executionId, workflow: "UserLifecycleWorkflow" }),
 );
 
-export const UserLifecycleWorkflowDefinitionsLive =
-	UserLifecycleWorkflow.toLayer(runUserLifecycleWorkflow);
+export const UserLifecycleWorkflowDefinitionsLive = implementWorkflow(
+	UserLifecycleWorkflow,
+	runUserLifecycleWorkflow,
+);
