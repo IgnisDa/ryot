@@ -1,13 +1,10 @@
-import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
-
-import type { MediaActivityState } from "./activity-tab";
 import {
-	activitySpan,
 	anchorOf,
 	decimalLabel,
-	mediaActivityTimeline,
+	mediaActivityRowsView,
 	mediaBeatRow,
 	mediaCollectionRow,
+	mediaCollectionRowLabel,
 	mediaCompletionRow,
 	mediaReviewRow,
 	nonEmpty,
@@ -22,7 +19,6 @@ import {
 	type NonEmpty,
 } from "./activity-timeline";
 import { formatLocalDateKey } from "./date";
-import { classifyRyotQueryResult } from "./query-state";
 
 export type MediaEpisodicBeat = "backlog" | "dropped" | "on_hold";
 
@@ -151,8 +147,6 @@ export type MediaEpisodicView = {
 	readonly coverage: readonly MediaEpisodicCoverageRow[];
 };
 
-export type MediaEpisodicActivityState = MediaActivityState<MediaEpisodicView>;
-
 export type MediaEpisodicActivityCopy = {
 	readonly beats: Record<MediaEpisodicBeat, string>;
 	readonly rowLabels: {
@@ -240,18 +234,6 @@ const episodicPredicates = {
 	isWatching: (row: MediaEpisodicRow) => row.type === "watch" || row.type === "progress",
 };
 
-const summaryOf = (input: {
-	readonly watchCount: number;
-	readonly truncated: boolean;
-	readonly coverage: MediaEpisodicCoverage;
-	readonly rows: NonEmpty<MediaEpisodicRow>;
-}): MediaEpisodicSummary => ({
-	watches: input.watchCount,
-	minutes: input.coverage.minutes,
-	span: activitySpan(input.rows, input.truncated),
-	episodes: { total: input.coverage.headline.total, watched: input.coverage.headline.watched },
-});
-
 export const mediaEpisodicActivityView = <Origin>(input: {
 	readonly coverage: MediaEpisodicCoverage;
 	readonly episodeOrigin: (origin: Origin) => string;
@@ -270,37 +252,24 @@ export const mediaEpisodicActivityView = <Origin>(input: {
 		}
 		return episodeEventRow(event, input.episodeOrigin(event.episode));
 	});
-	const rows = [...watchDayRows(result.watchDays, input.episodeOrigin), ...eventRows].sort(
-		(left, right) =>
-			right.occurredAt.localeCompare(left.occurredAt) || left.key.localeCompare(right.key),
+	const view = mediaActivityRowsView(
+		[...watchDayRows(result.watchDays, input.episodeOrigin), ...eventRows],
+		episodicPredicates,
+		result.truncated,
 	);
-	const spanned = nonEmpty(rows);
-	const timeline = mediaActivityTimeline(rows, episodicPredicates);
-	if (timeline === undefined || spanned === undefined) {
+	if (view === undefined) {
 		return undefined;
 	}
 	return {
-		timeline,
+		timeline: view.timeline,
 		coverage: coverage.rows,
-		summary: summaryOf({
-			coverage,
-			rows: spanned,
-			truncated: result.truncated,
-			watchCount: result.watchCount,
-		}),
+		summary: {
+			span: view.span,
+			minutes: coverage.minutes,
+			watches: result.watchCount,
+			episodes: { total: coverage.headline.total, watched: coverage.headline.watched },
+		},
 	};
-};
-
-export const mapMediaEpisodicActivity = <Result>(
-	result: RyotQueryResult<Result>,
-	view: (value: Result) => MediaEpisodicView | undefined,
-): MediaEpisodicActivityState => {
-	const state = classifyRyotQueryResult(result);
-	if (state.status !== "ready") {
-		return state;
-	}
-	const mapped = view(state.value);
-	return mapped === undefined ? { status: "empty" } : { view: mapped, status: "ready" };
 };
 
 export const mediaEpisodicRowLabel = (
@@ -311,9 +280,7 @@ export const mediaEpisodicRowLabel = (
 		return copy.rowLabels.completion;
 	}
 	if (row.type === "collection") {
-		return row.change === "added"
-			? `Added to the ${row.name} collection`
-			: `Removed from the ${row.name} collection`;
+		return mediaCollectionRowLabel(row);
 	}
 	if (row.type === "beat") {
 		return copy.beats[row.beat];

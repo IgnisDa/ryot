@@ -145,6 +145,14 @@ export function MediaLabeledRows(props: {
 	);
 }
 
+export function MediaRail(props: { readonly compact: boolean; readonly children: ReactNode }) {
+	return (
+		<div className="overflow-x-auto">
+			<div className={clsx("flex w-max", props.compact ? "gap-3" : "gap-4")}>{props.children}</div>
+		</div>
+	);
+}
+
 export function MediaOverviewSection(props: {
 	readonly title: string;
 	readonly compact: boolean;

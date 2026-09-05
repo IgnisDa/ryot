@@ -1,6 +1,5 @@
 import type { EntitySettleReason } from "@ryot-app/client-sdk";
 import type { EntityRendererProps } from "@ryot-app/client-sdk/plugin";
-import { createRyotQuery, useRyotQuery, type RyotQueryResult } from "@ryot-app/client-sdk/react";
 import type { PreparedRecipe } from "@ryot-app/client-sdk/ryotql";
 import clsx from "clsx";
 import { createElement, type ReactNode } from "react";
@@ -10,12 +9,12 @@ import type { EpisodicLifecycleState } from "../../shared/lifecycle-expressions"
 import type { MediaOverviewRows, MediaUnlinkedCreatorsOverview } from "../../shared/media-recipes";
 import { MediaActivityReviewDetail, type MediaActivityRowRender } from "./activity-rows";
 import {
-	MediaActivity,
+	defineMediaActivityTab,
 	MediaActivityRecord,
 	type MediaActivityCopy,
-	type MediaActivityState,
 } from "./activity-tab";
 import { mediaActivitySpanLabel, mediaActivityTimeLabel } from "./activity-timeline";
+import { createMediaEntityQuery, createMediaSummaryQuery } from "./detail-queries";
 import {
 	MediaDetailBody,
 	MediaDetailScreen,
@@ -32,7 +31,6 @@ import {
 	type MediaPresentationViewData,
 } from "./entity-presentation";
 import {
-	mapMediaEpisodicActivity,
 	mediaEpisodicActivityView,
 	mediaEpisodicEpisodesLabel,
 	mediaEpisodicRowLabel,
@@ -55,29 +53,26 @@ import {
 	mediaUnlinkedCreators,
 	type MediaOverviewState,
 } from "./overview-state";
-import { MediaRefreshStatus } from "./primitives";
-import type { MediaSummaryValue } from "./summary-header";
 import {
 	mediaEpisodicLifecycleLabel,
 	mediaReleaseLabel,
+	mediaSummaryHeaderDetail,
 	mediaSummaryStateMapper,
 	type MediaSummaryFact,
 	type MediaSummaryState,
+	type MediaSummaryValue,
 } from "./summary-state";
 import type { MediaTab } from "./tabs";
 
 const PEOPLE_LIMIT = 12;
 const COMPANY_LIMIT = 6;
 const RECOMMENDATION_LIMIT = 12;
-const SUMMARY_COLLECTION_LIMIT = 6;
 const ACTIVITY_COVERAGE_LIMIT = 100;
 const ACTIVITY_WATCH_DAY_LIMIT = 1000;
 const ACTIVITY_PARENT_EVENT_LIMIT = 60;
 const ACTIVITY_EPISODE_EVENT_LIMIT = 100;
 const ACTIVITY_COLLECTION_EVENT_LIMIT = 60;
 const ACTIVITY_EPISODE_PROGRESS_LIMIT = 100;
-
-type EntityInput = { readonly entityId: string };
 
 type EpisodicCounts = {
 	readonly storedEpisodes: number;
@@ -190,78 +185,47 @@ export const defineEpisodicMediaSchema = <
 ) => {
 	const { nouns, recipes, activityCopy } = descriptor;
 
-	const summaryQuery = createRyotQuery<EntityInput, EpisodicSummaryResult<Summary>>(
-		({ input, client, signal }) =>
-			client.data.query(
-				recipes.summaryRecipe({ ...input, collectionLimit: SUMMARY_COLLECTION_LIMIT }),
-				{ signal },
-			),
-		{
-			entityInterest: ({ data, input }) => ({
-				foreground: [input.entityId],
-				visible: data?.summary?.collections.items.map(({ id }) => id) ?? [],
+	const summaryQuery = createMediaSummaryQuery(recipes.summaryRecipe);
+
+	const overviewQuery = createMediaEntityQuery(
+		(input) =>
+			recipes.overviewRecipe({
+				entityId: input.entityId,
+				peopleLimit: PEOPLE_LIMIT,
+				companyLimit: COMPANY_LIMIT,
+				recommendationLimit: RECOMMENDATION_LIMIT,
 			}),
-		},
+		(data) =>
+			[...data.people.items, ...data.companies.items, ...data.recommendations.items].map(
+				({ id }) => id,
+			),
 	);
 
-	const overviewQuery = createRyotQuery<EntityInput, Overview>(
-		({ input, client, signal }) =>
-			client.data.query(
-				recipes.overviewRecipe({
-					entityId: input.entityId,
-					peopleLimit: PEOPLE_LIMIT,
-					companyLimit: COMPANY_LIMIT,
-					recommendationLimit: RECOMMENDATION_LIMIT,
-				}),
-				{ signal },
-			),
-		{
-			entityInterest: ({ data, input }) => ({
-				foreground: [input.entityId],
-				visible: data
-					? [...data.people.items, ...data.companies.items, ...data.recommendations.items].map(
-							({ id }) => id,
-						)
-					: [],
+	const activityQuery = createMediaEntityQuery(
+		(input) =>
+			recipes.activityRecipe({
+				entityId: input.entityId,
+				coverageLimit: ACTIVITY_COVERAGE_LIMIT,
+				watchDayLimit: ACTIVITY_WATCH_DAY_LIMIT,
+				parentEventLimit: ACTIVITY_PARENT_EVENT_LIMIT,
+				episodeEventLimit: ACTIVITY_EPISODE_EVENT_LIMIT,
+				collectionEventLimit: ACTIVITY_COLLECTION_EVENT_LIMIT,
+				episodeProgressLimit: ACTIVITY_EPISODE_PROGRESS_LIMIT,
+				timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
 			}),
-		},
-	);
-
-	const activityQuery = createRyotQuery<EntityInput, Activity>(
-		({ input, client, signal }) =>
-			client.data.query(
-				recipes.activityRecipe({
-					entityId: input.entityId,
-					coverageLimit: ACTIVITY_COVERAGE_LIMIT,
-					watchDayLimit: ACTIVITY_WATCH_DAY_LIMIT,
-					parentEventLimit: ACTIVITY_PARENT_EVENT_LIMIT,
-					episodeEventLimit: ACTIVITY_EPISODE_EVENT_LIMIT,
-					collectionEventLimit: ACTIVITY_COLLECTION_EVENT_LIMIT,
-					episodeProgressLimit: ACTIVITY_EPISODE_PROGRESS_LIMIT,
-					timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-				}),
-				{ signal },
-			),
-		{
-			entityInterest: ({ data, input }) => ({
-				foreground: [input.entityId],
-				visible: data
-					? [
-							...data.coverage.map(({ id }) => id),
-							...data.watchDays.map(({ episodeId }) => episodeId),
-							...data.events.flatMap((event) => {
-								if (event.kind === "episode") {
-									return [event.episode.id];
-								}
-								if (event.kind === "collection") {
-									return [event.collection.id];
-								}
-								return [];
-							}),
-						]
-					: [],
+		(data) => [
+			...data.coverage.map(({ id }) => id),
+			...data.watchDays.map(({ episodeId }) => episodeId),
+			...data.events.flatMap((event) => {
+				if (event.kind === "episode") {
+					return [event.episode.id];
+				}
+				if (event.kind === "collection") {
+					return [event.collection.id];
+				}
+				return [];
 			}),
-		},
+		],
 	);
 
 	const summaryState = mediaSummaryStateMapper<EpisodicSummaryResult<Summary>, Summary>({
@@ -275,9 +239,6 @@ export const defineEpisodicMediaSchema = <
 			coverage: descriptor.coverage(result),
 			episodeOrigin: descriptor.episodeOrigin,
 		});
-
-	const mapActivity = (result: RyotQueryResult<Activity>) =>
-		mapMediaEpisodicActivity(result, activityView);
 
 	const activityRowLabel = (row: MediaEpisodicRow) => mediaEpisodicRowLabel(row, activityCopy);
 
@@ -327,31 +288,15 @@ export const defineEpisodicMediaSchema = <
 		);
 	}
 
-	function Activity(props: {
-		readonly compact: boolean;
-		readonly refresh: () => void;
-		readonly state: MediaActivityState<MediaEpisodicView>;
-	}) {
-		return (
-			<MediaActivity
-				copy={activityCopy}
-				state={props.state}
-				Record={ActivityRecord}
-				compact={props.compact}
-				refresh={props.refresh}
-			/>
-		);
-	}
+	const { Activity, ActivityTab, mapActivity } = defineMediaActivityTab({
+		view: activityView,
+		copy: activityCopy,
+		query: activityQuery,
+		Record: ActivityRecord,
+		emptyAction: "log-activity",
+	});
 
-	function ActivityTab(props: { readonly compact: boolean; readonly entityId: string }) {
-		const result = useRyotQuery(activityQuery, { entityId: props.entityId });
-		return (
-			<>
-				<MediaRefreshStatus result={result} />
-				<Activity compact={props.compact} refresh={result.refetch} state={mapActivity(result)} />
-			</>
-		);
-	}
+	const header = mediaSummaryHeaderDetail({ lifecycleLabel, facts: descriptor.facts });
 
 	const overviewRelations: MediaOverviewRelationsRender<Overview> = ({
 		compact,
@@ -362,6 +307,7 @@ export const defineEpisodicMediaSchema = <
 			compact={compact}
 			divided={divided}
 			overview={overview}
+			aspect={descriptor.aspect}
 			copy={descriptor.creditCopy}
 			unlinked={mediaUnlinkedCreators(overview)}
 			onViewAllPeople={() => console.log(`TODO: open all ${nouns.singular} credits`)}
@@ -384,14 +330,14 @@ export const defineEpisodicMediaSchema = <
 		return (
 			<MediaDetailBody
 				tabs={TABS}
+				header={header}
 				state={props.state}
 				overviewTab="overview"
 				compact={props.compact}
 				settled={props.settled}
 				refresh={props.refresh}
-				facts={descriptor.facts}
 				overview={props.overview}
-				lifecycleLabel={lifecycleLabel}
+				loading={summaryState.loading}
 				safeAreaTop={props.safeAreaTop}
 				typeLabel={descriptor.typeLabel}
 				overviewIsEmpty={overviewIsEmpty}
@@ -404,11 +350,8 @@ export const defineEpisodicMediaSchema = <
 				overviewRefreshStatus={props.overviewRefreshStatus}
 				summaryUnavailable={summaryState.summaryUnavailable}
 				overviewLoadingDetail={descriptor.overviewLoadingDetail}
+				artwork={{ purpose: "cover", aspect: descriptor.aspect }}
 				tabContent={{ episodes: props.episodes, activity: props.activity }}
-				loading={{
-					title: `Loading ${nouns.singular}...`,
-					detail: `Fetching the latest details for this ${nouns.singular}.`,
-				}}
 			/>
 		);
 	}

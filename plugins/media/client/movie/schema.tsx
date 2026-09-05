@@ -10,6 +10,7 @@ import {
 	mediaDurationLabels,
 	type MediaSummaryFact,
 } from "../media/summary-state";
+import { mediaSchemaAspects } from "../schema-aspects";
 
 type MovieSummary = MediaSummaryOf<typeof movieRecipes>;
 
@@ -22,9 +23,9 @@ export const moviePresentationFacts = (movie: MoviePresentation) =>
 	mediaDurationLabels(movie.runtime);
 
 export const movieSchema = defineFlatMediaSchema({
-	aspect: "poster",
 	recipes: movieRecipes,
 	facts: movieSummaryFacts,
+	aspect: mediaSchemaAspects.movie,
 	presentationFacts: moviePresentationFacts,
 	nouns: { title: "Movie", plural: "movies", singular: "movie" },
 	measureFigure: { label: "Time", value: mediaActivityTimeLabel },
