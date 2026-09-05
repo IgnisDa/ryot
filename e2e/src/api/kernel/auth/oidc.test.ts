@@ -107,8 +107,8 @@ const startApi = (label: string, port: number, extraEnv: Record<string, string> 
 	);
 };
 
-const waitForApi = (port: number) =>
-	waitForHealthCheck(`http://127.0.0.1:${port}/api/system/health`, "OIDC Setup", 90);
+const waitForApi = (port: number, process: ReturnType<typeof spawnApiProcess>) =>
+	waitForHealthCheck(`http://127.0.0.1:${port}/api/system/health`, "OIDC Setup", process, 90);
 
 beforeAll(() =>
 	runPromise(
@@ -120,7 +120,7 @@ beforeAll(() =>
 				{ concurrency: "unbounded" },
 			);
 			apiProcessA = startApi("A", apiPortA, { FRONTEND_OIDC_BUTTON_LABEL: OIDC_BUTTON_LABEL });
-			yield* waitForApi(apiPortA);
+			yield* waitForApi(apiPortA, apiProcessA);
 		}),
 	),
 );
@@ -164,11 +164,11 @@ describe("Local auth disabled (API B)", () => {
 		runPromise(
 			stopApiProcess(apiProcessA).pipe(
 				Effect.andThen(
-					Effect.sync(() => {
+					Effect.suspend(() => {
 						apiProcessB = startApi("B", apiPortB, { USERS_DISABLE_LOCAL_AUTH: "true" });
+						return waitForApi(apiPortB, apiProcessB);
 					}),
 				),
-				Effect.andThen(waitForApi(apiPortB)),
 			),
 		),
 	);
@@ -261,13 +261,13 @@ describe("Local auth disabled (API B)", () => {
 		runPromise(
 			stopApiProcess(apiProcessB).pipe(
 				Effect.andThen(
-					Effect.sync(() => {
+					Effect.suspend(() => {
 						apiProcessA = startApi("A", apiPortA, {
 							FRONTEND_OIDC_BUTTON_LABEL: OIDC_BUTTON_LABEL,
 						});
+						return waitForApi(apiPortA, apiProcessA);
 					}),
 				),
-				Effect.andThen(waitForApi(apiPortA)),
 			),
 		),
 	);
@@ -376,11 +376,11 @@ describe("Registration gating for OIDC (API C)", () => {
 			oidcSignIn(requireMockOidcServer(), existingOidcUsername, getApiUrlA()).pipe(
 				Effect.andThen(stopApiProcess(apiProcessA)),
 				Effect.andThen(
-					Effect.sync(() => {
+					Effect.suspend(() => {
 						apiProcessC = startApi("C", apiPortC, { USERS_ALLOW_REGISTRATION: "false" });
+						return waitForApi(apiPortC, apiProcessC);
 					}),
 				),
-				Effect.andThen(waitForApi(apiPortC)),
 			),
 		),
 	);
