@@ -48,6 +48,7 @@ describe("flat media activity state", () => {
 			"42% through the item",
 			"Added to the Watchlist collection",
 			"Added to backlog",
+			"Added to library",
 		]);
 	});
 
