@@ -1,12 +1,27 @@
 import { it } from "@effect/vitest";
 import { hostSuccess } from "@ryot-app/sandbox-sdk/wire";
-import { Clock, Deferred, Effect, Exit, Fiber, Queue, Ref, Scope, Semaphore } from "effect";
+import {
+	Clock,
+	Deferred,
+	Effect,
+	Exit,
+	Fiber,
+	Layer,
+	Option,
+	Queue,
+	Ref,
+	Scope,
+	Semaphore,
+	Tracer,
+} from "effect";
 import { describe, expect } from "vitest";
+
+import { makeRecordingTracer } from "#lib/test-utils/tracer";
 
 import { SANDBOX_LIMITS } from "./limits";
 import { BridgeService, withSandboxHostCallPermit } from "./runtime";
 
-const addSession = Effect.fn("test.addSession")(function* (
+const addSession = Effect.fnUntraced(function* (
 	bridge: BridgeService["Service"],
 	executionId: string,
 	host: () => Effect.Effect<unknown, unknown>,
@@ -38,6 +53,33 @@ const call = (bridge: BridgeService["Service"], executionId: string) =>
 	Effect.tryPromise(() => requestBridge(bridge, executionId));
 
 describe("sandbox bridge host-call concurrency", () => {
+	it.effect(
+		"preserves HTTP context while correlating host calls with the sandbox execution",
+		() => {
+			const spans: Tracer.Span[] = [];
+			const tracer = makeRecordingTracer(spans);
+			const testLayer = Layer.provideMerge(
+				BridgeService.layer,
+				Layer.succeed(Tracer.Tracer, tracer),
+			);
+
+			return Effect.gen(function* () {
+				const bridge = yield* BridgeService;
+				yield* addSession(bridge, "traced", () => Effect.succeed(hostSuccess(null)));
+				expect((yield* call(bridge, "traced")).status).toBe(200);
+
+				const execution = spans.find((span) => span.name === "sandbox.execution");
+				const http = spans.find((span) => span.name === "http.server POST");
+				const request = spans.find((span) => span.name === "BridgeService.handleRequest");
+				const host = spans.find((span) => span.name === "sandbox.host.test");
+				expect(request?.parent.pipe(Option.getOrUndefined)).toBe(http);
+				expect(request?.traceId).toBe(http?.traceId);
+				expect(host?.parent.pipe(Option.getOrUndefined)).toBe(execution);
+				expect(host?.traceId).toBe(execution?.traceId);
+			}).pipe(Effect.scoped, Effect.withSpan("sandbox.execution"), Effect.provide(testLayer));
+		},
+	);
+
 	it.effect("bounds queued calls and isolates execution ids", () =>
 		Effect.gen(function* () {
 			const bridge = yield* BridgeService;
