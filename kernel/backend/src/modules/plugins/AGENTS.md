@@ -12,5 +12,5 @@
 - Key automation hooks by stable plugin ID and authored hook slug. Resolve scripts by immutable revision ID, script slug, and content hash.
 - Installation config pointer activation uses the ingestion transaction lock. Environment config is resolved at boot under the ingestion lock into `plugin.environment_config_revision_id`; nodes must share `RYOT_PLUGIN_*` values because the last booting node wins. Retained execution reads use exact revision/config pins and never resolve current environment values.
 - The `plugin-config:<pluginId>` advisory key is shared for catalog readers and exclusive for configuration writers. One transaction must never take the shared form and later the exclusive form on the same key.
-- `user_plugin.is_listed` includes disabled and installing installations but never incompatible installations.
+- `user_plugin.is_listed` includes hidden and installing installations but never incompatible installations.
 - A private installation becomes ready only through `PluginInstallationWorkflow`; uninstall must still resolve a private plugin shadowed by a system slug.

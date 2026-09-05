@@ -41,7 +41,7 @@ export type AvailablePlugin = {
 	readonly clientArtifactHash?: string | null;
 	readonly pluginRevisionId: string;
 	readonly pluginConfigRevisionId: string | null;
-	readonly isDisabled: boolean;
+	readonly isHidden: boolean;
 	readonly installationId: string;
 	readonly scope: "system" | "user";
 	readonly ownerUserId: UserId | null;
@@ -180,8 +180,8 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 							id: schema.userPlugin.pluginId,
 							scope: schema.userPlugin.scope,
 							health: schema.userPlugin.health,
+							isHidden: schema.userPlugin.isHidden,
 							manifest: schema.pluginRevision.manifest,
-							isDisabled: schema.userPlugin.isDisabled,
 							ownerUserId: schema.userPlugin.ownerUserId,
 							sourceHash: schema.pluginRevision.sourceHash,
 							installationId: schema.userPlugin.installationId,

@@ -38,13 +38,13 @@ describe("UpdatePluginInstallationBody", () => {
 		expect(
 			Schema.decodeSync(UpdatePluginInstallationBody)({
 				sortOrder: 3,
-				isDisabled: true,
+				isHidden: true,
 				unsetConfigKeys: ["region"],
 				config: { token: "replacement" },
 			}),
 		).toEqual({
 			sortOrder: 3,
-			isDisabled: true,
+			isHidden: true,
 			unsetConfigKeys: ["region"],
 			config: { token: "replacement" },
 		});
@@ -60,7 +60,7 @@ describe("UpdatePluginInstallationBody", () => {
 			{ sortOrder: Number.POSITIVE_INFINITY },
 			{ sortOrder: -2_147_483_649 },
 			{ sortOrder: 2_147_483_648 },
-			{ isDisabled: null },
+			{ isHidden: null },
 			{ unsetConfigKeys: [null] },
 			{ unknown: true },
 		]) {

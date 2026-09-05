@@ -41,7 +41,7 @@ export const savedView = snakeCase.table(
 		revision: integer().notNull().default(1),
 		sortOrder: integer().notNull().default(0),
 		dataSources: jsonb().$type<RyotQLDocument>(),
-		isDisabled: boolean().notNull().default(false),
+		isHidden: boolean().notNull().default(false),
 		renderer: jsonb().$type<SavedViewRenderer>().notNull(),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
 		settings: jsonb().$type<Readonly<Record<string, JsonValue>>>().notNull(),
@@ -76,7 +76,7 @@ export const savedViewOverride = snakeCase.table(
 		slug: text().notNull(),
 		sortOrder: integer().notNull(),
 		revision: integer().notNull().default(1),
-		isDisabled: boolean().notNull().default(false),
+		isHidden: boolean().notNull().default(false),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),

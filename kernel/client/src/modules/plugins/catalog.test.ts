@@ -32,7 +32,7 @@ const entry = {
 	name: "Fixture",
 	slug: "fixture",
 	health: "ready",
-	isDisabled: false,
+	isHidden: false,
 	clientApiVersion: 1,
 	pluginId: "plugin-1",
 	homeSavedViewSlug: null,

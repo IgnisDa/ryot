@@ -222,12 +222,12 @@ export function AuthenticatedShell(props: {
 					return;
 				}
 				const currentDraft = customize.draft.workspaces.find(({ slug }) => slug === current?.slug);
-				const nextWorkspace = customize.draft.workspaces.find(({ isDisabled }) => !isDisabled);
+				const nextWorkspace = customize.draft.workspaces.find(({ isHidden }) => !isHidden);
 				const unsubscribe = router.subscribe("onResolved", () => {
 					unsubscribe();
 					void router.invalidate();
 				});
-				if (currentDraft?.isDisabled !== false) {
+				if (currentDraft?.isHidden !== false) {
 					setDiscarding(false);
 					if (nextWorkspace === undefined) {
 						yield* Effect.promise(() => navigate({ to: "/", replace: true }));

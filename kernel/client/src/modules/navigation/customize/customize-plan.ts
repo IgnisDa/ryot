@@ -35,7 +35,7 @@ const hasOrderChanged = (
 	draft.some((item, index) => item.slug !== initial[index]?.slug);
 
 const updatePayload = (item: CustomizeDraftViewItem): UpdateSavedViewBody => ({
-	isDisabled: item.isDisabled,
+	isHidden: item.isHidden,
 });
 
 export function buildCustomizePlan(props: {
@@ -50,7 +50,7 @@ export function buildCustomizePlan(props: {
 	for (const section of sections) {
 		for (const item of props.draft[section]) {
 			const initial = props.initial[section].find((candidate) => candidate.slug === item.slug);
-			if (initial?.isDisabled !== item.isDisabled) {
+			if (initial?.isHidden !== item.isHidden) {
 				updates.push({ viewSlug: item.slug, payload: updatePayload(item) });
 			}
 		}
@@ -59,16 +59,16 @@ export function buildCustomizePlan(props: {
 	const workspaceOrderChanged = hasOrderChanged(props.draft.workspaces, props.initial.workspaces);
 	for (const [sortOrder, item] of props.draft.workspaces.entries()) {
 		const initial = props.initial.workspaces.find((candidate) => candidate.slug === item.slug);
-		const visibilityChanged = initial !== undefined && initial.isDisabled !== item.isDisabled;
+		const visibilityChanged = initial !== undefined && initial.isHidden !== item.isHidden;
 		if (workspaceOrderChanged) {
 			workspaceUpdates.push({
 				pluginSlug: PluginSlug.make(item.slug),
-				payload: { sortOrder, ...(visibilityChanged ? { isDisabled: item.isDisabled } : {}) },
+				payload: { sortOrder, ...(visibilityChanged ? { isHidden: item.isHidden } : {}) },
 			});
 		} else if (visibilityChanged) {
 			workspaceUpdates.push({
+				payload: { isHidden: item.isHidden },
 				pluginSlug: PluginSlug.make(item.slug),
-				payload: { isDisabled: item.isDisabled },
 			});
 		}
 	}

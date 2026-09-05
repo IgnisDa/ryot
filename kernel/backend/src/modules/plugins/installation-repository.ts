@@ -75,10 +75,10 @@ const installationState = {
 	userId: schema.pluginInstallation.userId,
 	health: schema.pluginInstallation.health,
 	pluginId: schema.pluginInstallation.pluginId,
+	isHidden: schema.pluginInstallation.isHidden,
 	sortOrder: schema.pluginInstallation.sortOrder,
 	createdAt: schema.pluginInstallation.createdAt,
 	updatedAt: schema.pluginInstallation.updatedAt,
-	isDisabled: schema.pluginInstallation.isDisabled,
 	healthReason: schema.pluginInstallation.healthReason,
 	uninstalledAt: schema.pluginInstallation.uninstalledAt,
 	homeSavedViewSlug: schema.pluginInstallation.homeSavedViewSlug,
@@ -360,7 +360,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 							.select({
 								view: {
 									renderer: schema.userSavedViewEffective.renderer,
-									isDisabled: schema.userSavedViewEffective.isDisabled,
+									isHidden: schema.userSavedViewEffective.isHidden,
 								},
 							})
 							.from(schema.userSavedViewEffective)
@@ -380,7 +380,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				userId: UserId;
 				pluginId: string;
 				sortOrder: number;
-				isDisabled: boolean;
+				isHidden: boolean;
 				config: Record<string, unknown>;
 				health: PluginInstallationHealth;
 			}) {
@@ -445,7 +445,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				userId: UserId;
 				pluginId: string;
 				sortOrder: number;
-				isDisabled: boolean;
+				isHidden: boolean;
 				config: Record<string, unknown>;
 				health: PluginInstallationHealth;
 			}) {
@@ -461,8 +461,8 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 								healthReason: null,
 								uninstalledAt: null,
 								health: input.health,
+								isHidden: input.isHidden,
 								sortOrder: input.sortOrder,
-								isDisabled: input.isDisabled,
 							},
 						})
 						.returning(),
@@ -473,7 +473,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 			const updateState = Effect.fn("PluginInstallationRepository.updateState")(function* (input: {
 				id: string;
 				sortOrder: number;
-				isDisabled: boolean;
+				isHidden: boolean;
 				config: Record<string, unknown>;
 			}) {
 				const pluginId = yield* installationPluginId(input.id);
@@ -483,7 +483,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 				const [row] = yield* database.run((db) =>
 					db
 						.update(schema.pluginInstallation)
-						.set({ sortOrder: input.sortOrder, isDisabled: input.isDisabled })
+						.set({ isHidden: input.isHidden, sortOrder: input.sortOrder })
 						.where(eq(schema.pluginInstallation.id, input.id))
 						.returning(),
 				);
@@ -495,8 +495,8 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 					db
 						.update(schema.pluginInstallation)
 						.set({
+							isHidden: true,
 							clientConfig: {},
-							isDisabled: true,
 							configuredSecretPaths: [],
 							uninstalledAt: sql`now()`,
 						})

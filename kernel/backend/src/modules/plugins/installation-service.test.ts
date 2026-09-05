@@ -87,7 +87,7 @@ const installationRow = (
 	config: {},
 	sortOrder: 0,
 	health: "ready",
-	isDisabled: false,
+	isHidden: false,
 	healthReason: null,
 	uninstalledAt: null,
 	pluginScope: "user",
@@ -705,7 +705,7 @@ layer(makeLayer())((test) => {
 				config: { token: "secret-value" },
 			});
 			expect((yield* fake.created)[0]).toMatchObject({
-				isDisabled: false,
+				isHidden: false,
 				health: "installing",
 				config: { region: "eu", token: "secret-value" },
 			});
@@ -772,7 +772,7 @@ layer(
 		homeTargets: new Map<string, NonNullable<HomeSavedView>>([
 			[
 				globalHomeViewSlug,
-				{ view: { isDisabled: false, renderer: { kind: "kernel", name: "entity-browser" } } },
+				{ view: { isHidden: false, renderer: { kind: "kernel", name: "entity-browser" } } },
 			],
 		]),
 	}),
@@ -834,7 +834,7 @@ layer(
 				pageHomeViewSlug,
 				{
 					view: {
-						isDisabled: false,
+						isHidden: false,
 						renderer: { kind: "plugin", exportName: "summary", pluginId: pagePlugin.id },
 					},
 				},
@@ -853,7 +853,7 @@ layer(
 	});
 });
 
-const disabledHomeViewSlug = "disabled-view";
+const hiddenHomeViewSlug = "hidden-view";
 const unavailableHomeViewSlug = "unavailable-view";
 const missingHomeViewSlug = "missing-view";
 
@@ -863,14 +863,14 @@ layer(
 		installations: [privateInstallation],
 		homeTargets: new Map<string, NonNullable<HomeSavedView>>([
 			[
-				disabledHomeViewSlug,
-				{ view: { isDisabled: true, renderer: { kind: "kernel", name: "entity-browser" } } },
+				hiddenHomeViewSlug,
+				{ view: { isHidden: true, renderer: { kind: "kernel", name: "entity-browser" } } },
 			],
 			[
 				unavailableHomeViewSlug,
 				{
 					view: {
-						isDisabled: false,
+						isHidden: false,
 						renderer: { kind: "plugin", exportName: "missing", pluginId: privatePlugin.id },
 					},
 				},
@@ -878,13 +878,13 @@ layer(
 		]),
 	}),
 )((test) => {
-	test.effect("rejects missing, disabled, and unusable home views", () =>
+	test.effect("rejects missing, hidden, and unusable home views", () =>
 		Effect.gen(function* () {
 			const fake = yield* FakeInstallationDependencies;
 			const service = yield* PluginInstallationService;
 			for (const [savedViewSlug, code] of [
 				[missingHomeViewSlug, "home-view-not-found"],
-				[disabledHomeViewSlug, "home-view-disabled"],
+				[hiddenHomeViewSlug, "home-view-hidden"],
 				[unavailableHomeViewSlug, "home-view-renderer-unavailable"],
 			] as const) {
 				expect(
@@ -1011,7 +1011,7 @@ layer(makeLayer({ installations: [exampleSystemInstallation] }))((test) => {
 			yield* fake.loadSystemPlugin(exampleSystemPlugin);
 
 			expect(
-				yield* service.updateInstallation(userId, "example", { sortOrder: 4, isDisabled: true }),
+				yield* service.updateInstallation(userId, "example", { sortOrder: 4, isHidden: true }),
 			).toEqual({ id: exampleSystemInstallation.id, pluginId: exampleSystemPlugin.id });
 			expect(
 				failureOf(
@@ -1031,7 +1031,7 @@ layer(
 		privatePlugins: [configuredPlugin],
 		installations: [
 			installationRow({
-				isDisabled: true,
+				isHidden: true,
 				health: "installing",
 				pluginId: configuredPlugin.id,
 				config: { region: "eu", token: "stored-secret" },
@@ -1053,7 +1053,7 @@ layer(
 			expect(
 				failureOf(
 					yield* Effect.exit(
-						service.updateInstallation(userId, configuredPlugin.slug, { isDisabled: false }),
+						service.updateInstallation(userId, configuredPlugin.slug, { isHidden: false }),
 					),
 				),
 			).toMatchObject({
@@ -1361,7 +1361,7 @@ layer(makeLayer({ privatePlugins: [configuredPlugin], installations: [configured
 );
 
 const unconfiguredInstallation = installationRow({
-	isDisabled: true,
+	isHidden: true,
 	config: { region: "us" },
 	pluginId: configuredPlugin.id,
 	health: "needs-configuration",
@@ -1376,20 +1376,20 @@ layer(makeLayer({ privatePlugins: [configuredPlugin], installations: [unconfigur
 				expect(
 					failureOf(
 						yield* Effect.exit(
-							service.updateInstallation(userId, configuredPlugin.slug, { isDisabled: false }),
+							service.updateInstallation(userId, configuredPlugin.slug, { isHidden: false }),
 						),
 					),
 				).toMatchObject({ _tag: "PluginRequestError", reason: { code: "validation-failed" } });
 				expect(yield* fake.updated).toEqual([]);
 				const result = yield* service.updateInstallation(userId, configuredPlugin.slug, {
-					isDisabled: false,
+					isHidden: false,
 					config: { token: "replacement-secret" },
 				});
 				expect(result).toEqual({ pluginId: configuredPlugin.id, id: unconfiguredInstallation.id });
 				expect(yield* fake.updated).toEqual([
 					{
 						sortOrder: 0,
-						isDisabled: false,
+						isHidden: false,
 						id: unconfiguredInstallation.id,
 						config: { region: "us", token: "replacement-secret" },
 					},

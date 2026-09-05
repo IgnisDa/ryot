@@ -103,9 +103,9 @@ describe("Delete user", () => {
 			const userId = UserId.make(rawUserId);
 			const { client: observerClient } = yield* createAuthenticatedClient();
 			const plugin = yield* findBuiltinPluginBySlug(userClient, "media");
-			yield* updatePluginState(userClient, plugin.slug, { sortOrder: 41, isDisabled: true });
+			yield* updatePluginState(userClient, plugin.slug, { sortOrder: 41, isHidden: true });
 			const configuredPlugin = yield* findBuiltinPluginBySlug(userClient, "media");
-			expect(configuredPlugin).toMatchObject({ sortOrder: 41, isDisabled: true });
+			expect(configuredPlugin).toMatchObject({ sortOrder: 41, isHidden: true });
 			const apiKey = yield* createApiKey(sessionCookie);
 
 			yield* listPluginsWithHeaders({ Authorization: `Bearer ${token}` });

@@ -46,7 +46,7 @@ import {
 it("keeps restored installations inactive when required secrets were redacted", () => {
 	expect(
 		resolveRestoredInstallationLifecycle(
-			{ disabledIntent: false, lifecycleIntent: "ready", configuredSecretPaths: ["/token"] },
+			{ hiddenIntent: false, lifecycleIntent: "ready", configuredSecretPaths: ["/token"] },
 			{
 				unknownKeys: "strict",
 				fields: {
@@ -61,17 +61,17 @@ it("keeps restored installations inactive when required secrets were redacted", 
 			},
 			false,
 		),
-	).toEqual({ isDisabled: true, health: "needs-configuration" });
+	).toEqual({ isHidden: true, health: "needs-configuration" });
 });
 
 it("preserves needs-configuration health when the secret was already absent", () => {
 	expect(
 		resolveRestoredInstallationLifecycle(
-			{ disabledIntent: true, configuredSecretPaths: [], lifecycleIntent: "needs-configuration" },
+			{ hiddenIntent: true, configuredSecretPaths: [], lifecycleIntent: "needs-configuration" },
 			{ fields: {}, unknownKeys: "strict" },
 			false,
 		),
-	).toEqual({ isDisabled: true, health: "needs-configuration" });
+	).toEqual({ isHidden: true, health: "needs-configuration" });
 });
 
 it.effect("requires an exact system plugin version and source hash", () =>
@@ -127,11 +127,11 @@ it("detects nested required installation secrets in objects and arrays", () => {
 	for (const path of ["/credentials/token", "/accounts/0/token"]) {
 		expect(
 			resolveRestoredInstallationLifecycle(
-				{ disabledIntent: false, lifecycleIntent: "ready", configuredSecretPaths: [path] },
+				{ hiddenIntent: false, lifecycleIntent: "ready", configuredSecretPaths: [path] },
 				schema,
 				false,
 			),
-		).toEqual({ isDisabled: true, health: "needs-configuration" });
+		).toEqual({ isHidden: true, health: "needs-configuration" });
 		expect(
 			resolveRestoredIntegrationDisabled(
 				{ isDisabled: false, configuredSecretPaths: [path] },
@@ -245,7 +245,7 @@ const provenanceRecords = (
 			? {
 					sortOrder: 0,
 					isBuiltin: true,
-					isDisabled: false,
+					isHidden: false,
 					slug: "owner-view",
 					id: "saved-view-id",
 					kind: "builtin-override",
@@ -256,8 +256,8 @@ const provenanceRecords = (
 					settings: {},
 					icon: "list",
 					kind: "custom",
+					isHidden: false,
 					isBuiltin: false,
-					isDisabled: false,
 					name: "Owner view",
 					id: "saved-view-id",
 					slug: "archived-user-view",
@@ -756,8 +756,8 @@ describe("account backup restore in PostgreSQL", () => {
 									icon: "view",
 									settings: {},
 									sortOrder: 0,
+									isHidden: false,
 									dataSources: null,
-									isDisabled: false,
 									id: "archived-view",
 									slug: "archived-view",
 									name: "Archived view",
@@ -916,9 +916,9 @@ describe("account backup restore in PostgreSQL", () => {
 						installations: [
 							{
 								sortOrder: 1,
+								hiddenIntent: false,
 								createdAt: timestamp,
 								updatedAt: timestamp,
-								disabledIntent: false,
 								packageKey: pluginKey,
 								homeSavedViewSlug: null,
 								lifecycleIntent: "ready",
@@ -960,7 +960,7 @@ describe("account backup restore in PostgreSQL", () => {
 					assert(restoredInstallation?.activeConfigRevisionId);
 					const activeConfigRevisionId = restoredInstallation.activeConfigRevisionId;
 					expect(restoredInstallation).toMatchObject({
-						isDisabled: true,
+						isHidden: true,
 						health: "needs-configuration",
 					});
 					expect(restoredInstallation.config).toEqual({ unit: "metric" });

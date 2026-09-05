@@ -21,10 +21,10 @@ export const navigationRecipe = defineRecipe(() => ({
 			collections: collections.items.map((item, index) => ({
 				slug: item.id,
 				name: item.name,
+				isHidden: false,
 				sortOrder: index,
 				icon: "layers-3",
 				pluginSlug: null,
-				isDisabled: false,
 			})),
 		}),
 	queries: {
@@ -48,8 +48,8 @@ export const navigationRecipe = defineRecipe(() => ({
 				slug: selectedField(column(savedView, "slug"), Schema.String),
 				name: selectedField(column(savedView, "name"), Schema.String),
 				icon: selectedField(column(savedView, "icon"), Schema.String),
+				isHidden: selectedField(column(savedView, "isHidden"), Schema.Boolean),
 				sortOrder: selectedField(column(savedView, "sortOrder"), Schema.Finite),
-				isDisabled: selectedField(column(savedView, "isDisabled"), Schema.Boolean),
 				pluginSlug: selectedField(column(savedView, "pluginSlug"), Schema.NullOr(Schema.String)),
 			},
 		}),

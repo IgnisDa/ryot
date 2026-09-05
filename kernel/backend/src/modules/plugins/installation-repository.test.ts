@@ -99,7 +99,7 @@ describe("installation revision persistence", () => {
 								}),
 						);
 						expect(yield* repository.findHomeSavedView(owner, id)).toEqual({
-							view: { renderer, isDisabled: false },
+							view: { renderer, isHidden: false },
 						});
 					}
 				}),
@@ -140,7 +140,7 @@ describe("installation revision persistence", () => {
 					const installed = yield* installRevisionPackage(revisionPackage("notes"), owner);
 					const destination = yield* repository.updateState({
 						sortOrder: 0,
-						isDisabled: false,
+						isHidden: false,
 						id: installed.installation.id,
 						config: { token: "destination" },
 					});
@@ -149,7 +149,7 @@ describe("installation revision persistence", () => {
 					const input = {
 						sortOrder: 4,
 						userId: owner,
-						isDisabled: true,
+						isHidden: true,
 						createdAt: timestamp,
 						updatedAt: timestamp,
 						id: "archive-installation",
@@ -214,7 +214,7 @@ describe("installation revision persistence", () => {
 					yield* persistence.restoreInstallation({
 						sortOrder: 3,
 						userId: owner,
-						isDisabled: true,
+						isHidden: true,
 						health: "installing",
 						createdAt: timestamp,
 						updatedAt: timestamp,
@@ -244,7 +244,7 @@ describe("installation revision persistence", () => {
 					const installed = yield* installRevisionPackage(configuredPackage("v1", false), owner);
 					yield* repository.updateState({
 						sortOrder: 0,
-						isDisabled: false,
+						isHidden: false,
 						id: installed.installation.id,
 						config: { token: "private-token", endpoint: "https://notes.test" },
 					});

@@ -288,9 +288,7 @@ describe("shared demo access acceptance", () => {
 			const pluginStateResponse = yield* webRequest(`${apiUrl}/plugins/media/state`, {
 				method: "PATCH",
 				headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
-				body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
-					isDisabled: true,
-				}),
+				body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({ isHidden: true }),
 			});
 			expect(pluginStateResponse.status).toBe(403);
 			expect(yield* Effect.promise(() => pluginStateResponse.json())).toEqual({
