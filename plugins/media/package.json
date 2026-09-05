@@ -18,6 +18,10 @@
 			"types": "./shared/movie-recipes.ts",
 			"default": "./shared/movie-recipes.ts"
 		},
+		"./shared/music-recipes": {
+			"types": "./shared/music-recipes.ts",
+			"default": "./shared/music-recipes.ts"
+		},
 		"./import-sources": {
 			"types": "./host/import-sources.ts",
 			"default": "./host/import-sources.ts"

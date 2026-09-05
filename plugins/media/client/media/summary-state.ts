@@ -1,3 +1,4 @@
+import type { RyotQueryResult } from "@ryot-app/client-sdk/react";
 import type { SelectedRow } from "@ryot-app/client-sdk/ryotql";
 
 import type { MediaSummarySelection } from "../../shared/media-recipes";
@@ -8,8 +9,21 @@ import {
 	preferredMediaImageAsset,
 	type MediaImages,
 } from "./image";
+import { classifyRyotQueryResult, type MappedRyotQueryState } from "./query-state";
 
 export type MediaSummaryFields = SelectedRow<MediaSummarySelection>;
+
+export type MediaSummaryUnavailableReason = "missing" | "unsupported";
+
+export type MediaSummaryState<Summary> = MappedRyotQueryState<
+	| { readonly status: "ready"; readonly summary: Summary }
+	| { readonly status: "unavailable"; readonly reason: MediaSummaryUnavailableReason }
+>;
+
+export type MediaSummaryFailure = Pick<
+	Extract<MediaSummaryState<never>, { status: "transport-error" | "malformed" }>,
+	"status"
+>;
 
 export type MediaCollectionList = {
 	readonly items: readonly unknown[];
@@ -73,6 +87,48 @@ export const mediaRatingFact = (media: {
 				label: media.providerName === null ? "Provider rating" : `${media.providerName} rating`,
 			};
 };
+
+export const mediaSummaryStateMapper = <
+	Data extends { readonly entitySchemaSlug: string | null },
+	Summary,
+>(input: {
+	readonly title: string;
+	readonly plural: string;
+	readonly singular: string;
+	readonly select: (value: Data) => Summary | null;
+}) => ({
+	summaryUnavailable: (reason: MediaSummaryUnavailableReason) => ({
+		title: `${input.title} unavailable`,
+		detail:
+			reason === "missing"
+				? "This entity no longer exists."
+				: `This entity is not a ${input.singular}, and only ${input.plural} can be opened here.`,
+	}),
+	summaryError: (state: MediaSummaryFailure) =>
+		state.status === "transport-error"
+			? {
+					title: `Unable to load this ${input.singular}`,
+					detail: `The server could not load this ${input.singular}. Check your connection and try again.`,
+				}
+			: {
+					title: `Unable to display this ${input.singular}`,
+					detail: `This ${input.singular} returned data that could not be displayed. Try again later.`,
+				},
+	mapSummary: (result: RyotQueryResult<Data>): MediaSummaryState<Summary> => {
+		const state = classifyRyotQueryResult(result);
+		if (state.status !== "ready") {
+			return state;
+		}
+		const summary = input.select(state.value);
+		if (summary === null) {
+			return {
+				status: "unavailable",
+				reason: state.value.entitySchemaSlug === null ? "missing" : "unsupported",
+			};
+		}
+		return { summary, status: "ready" };
+	},
+});
 
 export const mediaOwnershipLabel = (owned: boolean | null) => {
 	if (owned === null) {

@@ -1,18 +1,10 @@
 import { useRyotQuery } from "@ryot-app/client-sdk/react";
 import clsx from "clsx";
 
-import {
-	MediaActivityReviewDetail,
-	MediaActivitySummaryFigures,
-	MediaActivityTimelineView,
-	type MediaActivityRowRender,
-} from "../media/activity-rows";
-import {
-	mediaActivityError,
-	mediaActivitySpanLabel,
-	mediaActivityTimeLabel,
-} from "../media/activity-timeline";
-import { MediaLinkButton, MediaRefreshStatus, MediaStatusMessage } from "../media/primitives";
+import { MediaActivityReviewDetail, type MediaActivityRowRender } from "../media/activity-rows";
+import { MediaActivity, MediaActivityRecord, type MediaActivityCopy } from "../media/activity-tab";
+import { mediaActivitySpanLabel, mediaActivityTimeLabel } from "../media/activity-timeline";
+import { MediaRefreshStatus } from "../media/primitives";
 import {
 	mapShowActivity,
 	showActivityEpisodesLabel,
@@ -27,6 +19,13 @@ import {
 	type ShowActivityWatchRow,
 } from "./activity-state";
 import { showActivityQuery } from "./queries";
+
+const SHOW_ACTIVITY_COPY: MediaActivityCopy = {
+	recordLabel: "Watch record",
+	loadingDetail: "Fetching everything you have recorded for this show.",
+	emptyDetail:
+		"Nothing has been recorded for this show. Whatever you watch will appear here as your watch record.",
+};
 
 const MARKER_TONE: Record<ShowActivityRow["type"], string> = {
 	beat: "bg-border",
@@ -124,63 +123,18 @@ const showActivityFigures = (summary: ShowActivitySummary) => {
 	];
 };
 
-function ShowActivityFooter(props: { readonly summary: ShowActivitySummary }) {
-	return (
-		<div className="flex flex-col items-start gap-2 border-t border-border pt-4">
-			{props.summary.span.bound === "partial" ? (
-				<p className="font-ui text-[12px] text-text-subtle">
-					Only your most recent activity is shown here.
-				</p>
-			) : null}
-			<MediaLinkButton
-				label="View complete history"
-				onClick={() => console.log("TODO: open complete activity history")}
-			/>
-		</div>
-	);
-}
-
-function ShowActivityEmpty() {
-	return (
-		<div className="flex min-h-96 flex-col items-center justify-center gap-3 px-6">
-			<p className="text-center font-ui font-medium text-base text-text">No activity yet</p>
-			<p className="max-w-xl text-center font-ui text-sm text-text-muted">
-				Nothing has been recorded for this show. Whatever you watch will appear here as your watch
-				record.
-			</p>
-			<MediaLinkButton
-				label="Log activity"
-				onClick={() => console.log("TODO: open activity form")}
-			/>
-		</div>
-	);
-}
-
 function ShowActivityRecord(props: { readonly compact: boolean; readonly view: ShowActivityView }) {
-	const { view, compact } = props;
+	const { view } = props;
 	return (
-		<div
-			className={clsx(
-				"flex gap-6",
-				compact ? "flex-col pt-6" : "flex-row justify-center gap-10 pt-8",
-			)}
-		>
-			<div className={clsx("flex flex-col gap-5", !compact && "w-72 shrink-0")}>
-				<MediaActivitySummaryFigures
-					compact={compact}
-					figures={showActivityFigures(view.summary)}
-				/>
-				<ShowActivityCoverageStrip coverage={view.coverage} />
-			</div>
-			<div
-				role="list"
-				aria-label="Watch record"
-				className={clsx("flex min-w-0 flex-col gap-5", !compact && "max-w-2xl flex-1")}
-			>
-				<MediaActivityTimelineView timeline={view.timeline} render={showActivityRender} />
-				<ShowActivityFooter summary={view.summary} />
-			</div>
-		</div>
+		<MediaActivityRecord
+			compact={props.compact}
+			timeline={view.timeline}
+			render={showActivityRender}
+			figures={showActivityFigures(view.summary)}
+			recordLabel={SHOW_ACTIVITY_COPY.recordLabel}
+			partial={view.summary.span.bound === "partial"}
+			aside={<ShowActivityCoverageStrip coverage={view.coverage} />}
+		/>
 	);
 }
 
@@ -189,22 +143,15 @@ export function ShowActivity(props: {
 	readonly refresh: () => void;
 	readonly state: ShowActivityState;
 }) {
-	const { state } = props;
-	if (state.status === "loading") {
-		return (
-			<MediaStatusMessage
-				title="Loading activity..."
-				detail="Fetching everything you have recorded for this show."
-			/>
-		);
-	}
-	if (state.status === "transport-error" || state.status === "malformed") {
-		return <MediaStatusMessage {...mediaActivityError(state)} onRetry={props.refresh} />;
-	}
-	if (state.status === "empty") {
-		return <ShowActivityEmpty />;
-	}
-	return <ShowActivityRecord view={state.view} compact={props.compact} />;
+	return (
+		<MediaActivity
+			state={props.state}
+			compact={props.compact}
+			refresh={props.refresh}
+			copy={SHOW_ACTIVITY_COPY}
+			Record={ShowActivityRecord}
+		/>
+	);
 }
 
 export function ShowActivityTab(props: { readonly compact: boolean; readonly entityId: string }) {

@@ -82,7 +82,7 @@ describe("movie query entity interest", () => {
 				people: rows([moviePersonRow]),
 				companies: rows([movieCompanyRow]),
 				recommendations: rows([movieRecommendationRow]),
-				group: rows([{ ...movieGroupRow, movies: rows([movieGroupMemberRow]) }]),
+				group: rows([{ ...movieGroupRow, members: rows([movieGroupMemberRow]) }]),
 			},
 		},
 		["person-1", "company-1", "movie-2", "movie-3"],
@@ -95,7 +95,7 @@ describe("movie query entity interest", () => {
 			data: {
 				movieEvents: rows([movieProgressEventRow]),
 				collectionEvents: rows([collectionAddedEventRow]),
-				totals: rows([{ watchCount: 1, watchedMinutes: 169, watchedUnknownRuntime: 0 }]),
+				totals: rows([{ completionCount: 1, consumedMinutes: 169, unknownDurationCount: 0 }]),
 			},
 		},
 		["collection-1"],

@@ -522,6 +522,141 @@ export const seedGlobalMovieWithCollection = (
 		return { movie, group, sibling, credits: { person, company, suggested } };
 	});
 
+export const seedGlobalMusicWithAlbum = (
+	client: Client,
+	options: {
+		readonly trackName: string;
+		readonly albumName: string;
+		readonly siblingName: string;
+		readonly withCredits?: boolean;
+		readonly trackProperties?: Record<string, unknown>;
+		readonly siblingProperties?: Record<string, unknown>;
+	},
+) =>
+	Effect.gen(function* () {
+		const { schema: musicSchema } = yield* findBuiltinSchemaBySlug(client, "music");
+		const musicBrainz = musicSchema.providers.find((provider) => provider.name === "MusicBrainz");
+		assertPresent(musicBrainz, "Missing MusicBrainz provider for built-in music schema");
+
+		const [albumSchemaId, personSchemaId, companySchemaId, relationshipSchemas] = yield* Effect.all(
+			[
+				getBuiltinEntitySchemaSlug("music-group"),
+				getBuiltinEntitySchemaSlug("person"),
+				getBuiltinEntitySchemaSlug("company"),
+				listRelationshipSchemas(client, {
+					slugs: [
+						"music-group-to-music",
+						"person-to-music",
+						"company-to-music",
+						"media-suggestion",
+					],
+				}),
+			],
+		);
+		const albumToMusic = requireRelationshipSchemaBySlug(
+			relationshipSchemas,
+			"music-group-to-music",
+		);
+		const personToMusic = requireRelationshipSchemaBySlug(relationshipSchemas, "person-to-music");
+		const companyToMusic = requireRelationshipSchemaBySlug(relationshipSchemas, "company-to-music");
+		const suggestion = requireRelationshipSchemaBySlug(relationshipSchemas, "media-suggestion");
+
+		const externalId = String(Math.floor(Math.random() * 1_000_000_000));
+		const populatedAt = DateTime.formatIso(DateTime.nowUnsafe());
+		const api = getApiClient();
+		const createGlobalEntity = (input: {
+			name: string;
+			externalId: string;
+			entitySchemaSlug: string;
+			properties: Record<string, unknown>;
+		}) =>
+			api.call(
+				(c) =>
+					c.testSupport.createGlobalEntity({
+						payload: {
+							...input,
+							populatedAt,
+							providerId: SandboxProviderId.make(musicBrainz.providerId),
+							entitySchemaSlug: EntitySchemaSlug.make(input.entitySchemaSlug),
+						},
+					}),
+				adminHeaders(),
+			);
+
+		const track = yield* createGlobalEntity({
+			externalId,
+			name: options.trackName,
+			entitySchemaSlug: musicSchema.id,
+			properties: options.trackProperties ?? {},
+		});
+		const album = yield* createGlobalEntity({
+			properties: {},
+			name: options.albumName,
+			entitySchemaSlug: albumSchemaId,
+			externalId: `music-group-${externalId}`,
+		});
+		const sibling = yield* createGlobalEntity({
+			name: options.siblingName,
+			entitySchemaSlug: musicSchema.id,
+			externalId: `music-sibling-${externalId}`,
+			properties: options.siblingProperties ?? {},
+		});
+		yield* insertGlobalRelationship({
+			properties: { order: 1 },
+			targetEntityId: track.id,
+			sourceEntityId: album.id,
+			relationshipSchemaSlug: albumToMusic.id,
+		});
+		yield* insertGlobalRelationship({
+			properties: { order: 2 },
+			sourceEntityId: album.id,
+			targetEntityId: sibling.id,
+			relationshipSchemaSlug: albumToMusic.id,
+		});
+
+		if (options.withCredits !== true) {
+			return { track, album, sibling, credits: null };
+		}
+
+		const person = yield* createGlobalEntity({
+			properties: {},
+			entitySchemaSlug: personSchemaId,
+			name: `Credited Artist ${externalId}`,
+			externalId: `music-person-${externalId}`,
+		});
+		const company = yield* createGlobalEntity({
+			properties: {},
+			entitySchemaSlug: companySchemaId,
+			name: `Credited Label ${externalId}`,
+			externalId: `music-company-${externalId}`,
+		});
+		const suggested = yield* createGlobalEntity({
+			properties: {},
+			entitySchemaSlug: musicSchema.id,
+			name: `Suggested Track ${externalId}`,
+			externalId: `music-suggested-${externalId}`,
+		});
+		yield* insertGlobalRelationship({
+			targetEntityId: track.id,
+			sourceEntityId: person.id,
+			relationshipSchemaSlug: personToMusic.id,
+			properties: { order: 1, roles: ["Artist"] },
+		});
+		yield* insertGlobalRelationship({
+			targetEntityId: track.id,
+			sourceEntityId: company.id,
+			relationshipSchemaSlug: companyToMusic.id,
+			properties: { order: 1, roles: ["Label"] },
+		});
+		yield* insertGlobalRelationship({
+			properties: {},
+			sourceEntityId: track.id,
+			targetEntityId: suggested.id,
+			relationshipSchemaSlug: suggestion.id,
+		});
+		return { track, album, sibling, credits: { person, company, suggested } };
+	});
+
 export const insertLibraryMembership = (
 	client: Client,
 	input: { mediaEntityId: string; properties?: Record<string, unknown> },

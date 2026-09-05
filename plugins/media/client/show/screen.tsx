@@ -1,33 +1,27 @@
 import type { EntitySettleReason } from "@ryot-app/client-sdk";
-import {
-	usePluginLocation,
-	useRyotViewport,
-	type EntityRendererProps,
-} from "@ryot-app/client-sdk/plugin";
-import { ManagedAssetProvider, useRyotQuery } from "@ryot-app/client-sdk/react";
-import { PluginScreenFrame } from "@ryot-app/client-sdk/screen";
-import { useEffect, useState, type ReactNode } from "react";
+import type { EntityRendererProps } from "@ryot-app/client-sdk/plugin";
+import type { ReactNode } from "react";
 
 import type { MediaOverviewRows } from "../../shared/media-recipes";
-import { MEDIA_ART_HEIGHT, MEDIA_BACKDROP_HEIGHT, MediaHero } from "../media/hero";
 import {
-	MediaOverview,
-	MediaOverviewRelations,
-	type MediaOverviewRelationsRender,
-} from "../media/overview";
+	MediaDetailBody,
+	MediaDetailScreen,
+	mediaDetailPage,
+	type MediaDetailBodyInput,
+	type MediaStatusCopy,
+} from "../media/detail-screen";
+import { MEDIA_ART_HEIGHT, MEDIA_BACKDROP_HEIGHT } from "../media/hero";
+import { MediaOverviewRelations, type MediaOverviewRelationsRender } from "../media/overview";
 import {
-	mapMediaOverview,
 	mediaOverviewManagedAssets,
 	mediaRelationsAreEmpty,
 	type MediaOverviewState,
 } from "../media/overview-state";
-import { MediaRefreshStatus, MediaStatusMessage } from "../media/primitives";
-import { MediaSummaryHeader } from "../media/summary-header";
-import { mediaManagedAssets, mediaRatingFact } from "../media/summary-state";
-import { MediaTabBar, type MediaTab } from "../media/tabs";
+import { mediaRatingFact } from "../media/summary-state";
+import type { MediaTab } from "../media/tabs";
 import { ShowActivityTab } from "./activity";
 import { ShowEpisodesTab } from "./episodes";
-import { showOverviewQuery, showSummaryQuery, useShowEntitySettle } from "./queries";
+import { showOverviewQuery, showSummaryQuery } from "./queries";
 import {
 	mapShowSummary,
 	showEpisodeFact,
@@ -35,11 +29,10 @@ import {
 	showSeasonFact,
 	showSummaryError,
 	showSummaryUnavailable,
+	SHOW_TYPE_LABEL,
 	type ShowSummary,
 	type ShowSummaryState,
 } from "./summary-state";
-
-const SHOW_TYPE_LABEL = "TV Show";
 
 type ShowTabKey = "overview" | "episodes" | "activity";
 
@@ -48,6 +41,11 @@ const SHOW_TABS: readonly MediaTab<ShowTabKey>[] = [
 	{ key: "episodes", label: "Episodes" },
 	{ key: "activity", label: "Activity" },
 ];
+
+const SHOW_LOADING: MediaStatusCopy = {
+	title: "Loading show...",
+	detail: "Fetching the latest details for this show.",
+};
 
 const showOverviewRelations: MediaOverviewRelationsRender<MediaOverviewRows> = ({
 	compact,
@@ -88,119 +86,56 @@ export function ShowScreenBody(props: {
 	readonly settled: EntitySettleReason | undefined;
 	readonly overview: MediaOverviewState<MediaOverviewRows>;
 }) {
-	const { state } = props;
-	const [activeTab, setActiveTab] = useState<ShowTabKey>("overview");
-	if (state.status === "loading") {
-		return (
-			<MediaStatusMessage
-				title="Loading show..."
-				detail="Fetching the latest details for this show."
-			/>
-		);
-	}
-	if (state.status === "transport-error" || state.status === "malformed") {
-		return <MediaStatusMessage {...showSummaryError(state)} onRetry={props.refresh} />;
-	}
-	if (state.status === "unavailable") {
-		return (
-			<>
-				{props.summaryRefreshStatus}
-				<MediaStatusMessage {...showSummaryUnavailable(state.reason)} />
-			</>
-		);
-	}
-	const tabContent: Record<ShowTabKey, ReactNode> = {
-		episodes: props.episodes,
-		activity: props.activity,
-		overview: (
-			<MediaOverview
-				media={state.show}
-				compact={props.compact}
-				overview={props.overview}
-				safeAreaTop={props.safeAreaTop}
-				isEmpty={mediaRelationsAreEmpty}
-				relations={showOverviewRelations}
-				refreshOverview={props.refreshOverview}
-				refreshStatus={props.overviewRefreshStatus}
-				loadingDetail="Fetching the cast, companies and recommendations for this show."
-			/>
-		),
-	};
 	return (
-		<div className="flex flex-col gap-4">
-			{props.summaryRefreshStatus}
-			<MediaSummaryHeader
-				media={state.show}
-				compact={props.compact}
-				settled={props.settled}
-				typeLabel={SHOW_TYPE_LABEL}
-				facts={showSummaryFacts(state.show)}
-				lifecycleLabel={showLifecycleLabel(state.show.state)}
-			/>
-			<MediaTabBar
-				tabs={SHOW_TABS}
-				activeTab={activeTab}
-				compact={props.compact}
-				onSelect={setActiveTab}
-			/>
-			{tabContent[activeTab]}
-		</div>
+		<MediaDetailBody
+			tabs={SHOW_TABS}
+			state={props.state}
+			overviewTab="overview"
+			loading={SHOW_LOADING}
+			compact={props.compact}
+			settled={props.settled}
+			refresh={props.refresh}
+			facts={showSummaryFacts}
+			overview={props.overview}
+			typeLabel={SHOW_TYPE_LABEL}
+			safeAreaTop={props.safeAreaTop}
+			summaryError={showSummaryError}
+			watchProviders={(show) => show}
+			refreshOverview={props.refreshOverview}
+			overviewIsEmpty={mediaRelationsAreEmpty}
+			overviewRelations={showOverviewRelations}
+			summaryUnavailable={showSummaryUnavailable}
+			summaryRefreshStatus={props.summaryRefreshStatus}
+			overviewRefreshStatus={props.overviewRefreshStatus}
+			tabContent={{ episodes: props.episodes, activity: props.activity }}
+			lifecycleLabel={(show: ShowSummary) => showLifecycleLabel(show.state)}
+			overviewLoadingDetail="Fetching the cast, companies and recommendations for this show."
+		/>
+	);
+}
+
+function ShowDetailBody(input: MediaDetailBodyInput<ShowSummary, MediaOverviewRows>) {
+	return (
+		<ShowScreenBody
+			{...input}
+			episodes={<ShowEpisodesTab compact={input.compact} entityId={input.entityId} />}
+			activity={<ShowActivityTab compact={input.compact} entityId={input.entityId} />}
+		/>
 	);
 }
 
 export function ShowScreen(props: EntityRendererProps) {
-	const { compact, safeAreaTop } = useRyotViewport();
-	const summaryResult = useRyotQuery(showSummaryQuery, { entityId: props.entityId });
-	const overviewResult = useRyotQuery(showOverviewQuery, { entityId: props.entityId });
-	const { commit, settled } = useShowEntitySettle(props.entityId);
-	useEffect(() => {
-		commit();
-	}, [commit, summaryResult.data, overviewResult.data]);
-	const state = mapShowSummary(summaryResult);
-	const overview = mapMediaOverview(overviewResult);
-	const assets = state.status === "ready" ? mediaManagedAssets(state.show) : [];
-	const overviewAssets =
-		overview.status === "ready" ? mediaOverviewManagedAssets(overview.overview) : [];
 	return (
-		<ManagedAssetProvider assets={assets}>
-			<PluginScreenFrame
-				hideTitle
-				title={state.status === "ready" ? state.show.name : null}
-				hero={
-					state.status === "ready"
-						? {
-								node: <MediaHero compact={compact} media={state.show} />,
-								height: compact ? MEDIA_ART_HEIGHT : MEDIA_BACKDROP_HEIGHT,
-							}
-						: undefined
-				}
-			>
-				<ManagedAssetProvider assets={overviewAssets}>
-					<ShowScreenBody
-						state={state}
-						compact={compact}
-						overview={overview}
-						safeAreaTop={safeAreaTop}
-						refresh={summaryResult.refetch}
-						settled={settled.get(props.entityId)}
-						refreshOverview={overviewResult.refetch}
-						summaryRefreshStatus={<MediaRefreshStatus result={summaryResult} />}
-						overviewRefreshStatus={<MediaRefreshStatus result={overviewResult} />}
-						episodes={<ShowEpisodesTab compact={compact} entityId={props.entityId} />}
-						activity={<ShowActivityTab compact={compact} entityId={props.entityId} />}
-					/>
-				</ManagedAssetProvider>
-			</PluginScreenFrame>
-		</ManagedAssetProvider>
+		<MediaDetailScreen
+			Body={ShowDetailBody}
+			entityId={props.entityId}
+			mapSummary={mapShowSummary}
+			summaryQuery={showSummaryQuery}
+			overviewQuery={showOverviewQuery}
+			overviewAssets={mediaOverviewManagedAssets}
+			heroHeight={(compact) => (compact ? MEDIA_ART_HEIGHT : MEDIA_BACKDROP_HEIGHT)}
+		/>
 	);
 }
 
-const ShowDetailPage = () => {
-	const location = usePluginLocation();
-	if (location.kind !== "entity") {
-		return null;
-	}
-	return <ShowScreen entityId={location.entityId} entitySchemaSlug={location.entitySchemaSlug} />;
-};
-
-export default ShowDetailPage;
+export default mediaDetailPage(ShowScreen);
