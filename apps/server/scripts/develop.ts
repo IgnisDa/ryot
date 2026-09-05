@@ -59,14 +59,16 @@ const program = Effect.gen(function* () {
 		turboBuild("@ryot-app/kernel-backend", "@ryot-app/kernel-renderers"),
 	);
 	if (generated !== 0) {
-		return yield* failWith(generated);
+		yield* failWith(generated);
+		return;
 	}
 	const built = yield* Effect.forEach(slugs, (slug) => runCommand(buildPlugin(slug)), {
 		concurrency: "unbounded",
 	});
 	const failedBuild = built.find((exitCode) => exitCode !== 0);
 	if (failedBuild !== undefined) {
-		return yield* failWith(failedBuild);
+		yield* failWith(failedBuild);
+		return;
 	}
 	yield* assemble;
 
