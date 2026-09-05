@@ -64,7 +64,7 @@ it("records an add-to-library event for a newly-created media membership", async
 	]);
 });
 
-it("ignores non-media relationships and global executions", async () => {
+it("ignores non-media relationships", async () => {
 	let calls = 0;
 	const host = defineSandboxTestHost(manifest, {
 		createEvents: () => {
@@ -85,29 +85,6 @@ it("ignores non-media relationships and global executions", async () => {
 		definition.run(relationshipContext({ relationshipSchemaSlug: "owns" }), host, execution),
 	);
 	await Effect.runPromise(definition.run(relationshipContext(), host, execution));
-	await Effect.runPromise(
-		definition.run(
-			automationContext(
-				{
-					category: "change",
-					operation: "create",
-					resource: "relationship",
-					after: {
-						properties: {},
-						id: "relationship-1",
-						sourceEntityId: "entity-1",
-						targetEntityId: "library-1",
-						relationshipSchemaSlug: "in-library",
-						createdAt: "2026-01-01T00:00:00.000Z",
-						updatedAt: "2026-01-01T00:00:00.000Z",
-					},
-				},
-				{ executionUserId: null },
-			),
-			host,
-			execution,
-		),
-	);
 
 	expect(calls).toBe(1);
 });

@@ -176,7 +176,7 @@ it("adds the event subject and the collection membership target to the library",
 	);
 });
 
-it("uses trusted user scope for direct creation and skips global population", async () => {
+it("uses trusted user scope for direct creation", async () => {
 	const changes: unknown[] = [];
 	let reads = 0;
 	const host = defineSandboxTestHost(manifest, {
@@ -195,11 +195,6 @@ it("uses trusted user scope for direct creation and skips global population", as
 		operation: "create",
 		after: entityRecord({ entitySchemaSlug: "movie" }),
 	};
-	await Effect.runPromise(
-		definition.run(automationContext(payload, { executionUserId: null }), host, execution),
-	);
-	expect(reads).toBe(0);
-	expect(changes).toEqual([]);
 	await Effect.runPromise(definition.run(automationContext(payload), host, execution));
 	expect(reads).toBe(1);
 	expect(changes).toEqual([

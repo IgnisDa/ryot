@@ -672,6 +672,7 @@ it("uses one required library hook for eligible creates, provider completion, an
 	expect(hooks[0]).toEqual({
 		stage: "after",
 		delivery: "required",
+		executionScope: "user",
 		slug: "media.ensure-library-membership",
 		name: "Ensure media library membership",
 		scriptSlug: "automation.ensure-library-membership",
@@ -709,6 +710,7 @@ it("records newly-created media library memberships as events", () => {
 		{
 			stage: "after",
 			delivery: "required",
+			executionScope: "user",
 			slug: "media.record-library-membership-event",
 			name: "Record media library membership event",
 			scriptSlug: "automation.record-library-membership-event",

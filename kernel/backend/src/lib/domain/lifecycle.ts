@@ -1,5 +1,10 @@
 import type { DbError } from "@ryot-app/contract/errors";
-import { AutomationRun, AutomationTrigger } from "@ryot-app/contract/modules/automations/lifecycle";
+import {
+	AutomationRun,
+	AutomationTrigger,
+	type AutomationBatchChangePayload,
+	type LifecycleCommand,
+} from "@ryot-app/contract/modules/automations/lifecycle";
 import { PluginHook } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	AutomationRunId,
@@ -100,6 +105,15 @@ export const toLifecycleDispatchPlan = ({
 	),
 });
 
+export type LifecycleBatchResource = AutomationBatchChangePayload["resource"];
+
+export type LifecycleBatchInput = {
+	readonly command: LifecycleCommand;
+	readonly identity: ReadonlyArray<string>;
+	readonly resource: LifecycleBatchResource;
+	readonly plans: ReadonlyArray<LifecyclePlan>;
+};
+
 export type CommittedLifecycleWork<A> = {
 	readonly result: A;
 	readonly plans: ReadonlyArray<LifecyclePlan>;
@@ -124,5 +138,8 @@ export class LifecyclePlanner extends Context.Service<
 			recipients?: ReadonlyArray<UserId>;
 			excludedOncePerSubjectPolicies?: ReadonlyArray<Pick<AutomationRun, "pluginId" | "hookSlug">>;
 		}) => Effect.Effect<LifecyclePlan, DbError, Database>;
+		planBatch: (
+			input: LifecycleBatchInput,
+		) => Effect.Effect<ReadonlyArray<LifecyclePlan>, DbError, Database>;
 	}
 >()("LifecyclePlanner") {}

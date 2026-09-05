@@ -212,6 +212,7 @@ export const makePlannedRelationshipReconciliation = ({
 				deletedCount: prepared.filter(({ request }) => request?.operation === "delete").length,
 			};
 			let changedIndex = 0;
+			const groupPlans: LifecyclePlan[] = [];
 			for (const item of prepared) {
 				if (item.request === null) {
 					continue;
@@ -270,8 +271,17 @@ export const makePlannedRelationshipReconciliation = ({
 						},
 					),
 				});
-				plans.push(changePlan);
+				groupPlans.push(changePlan);
 			}
+			plans.push(
+				...groupPlans,
+				...(yield* planner.planBatch({
+					command,
+					plans: groupPlans,
+					resource: "relationship",
+					identity: [`group:${groupIndex}`],
+				})),
+			);
 			result.push({
 				upserted: desired.length,
 				created: counts.createdCount,
