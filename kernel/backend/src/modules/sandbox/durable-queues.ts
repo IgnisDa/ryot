@@ -1,8 +1,5 @@
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
-import {
-	SandboxExecutionGrants,
-	type SandboxExecutionPayload,
-} from "@ryot-app/contract/modules/sandbox/schemas";
+import { SandboxExecutionGrants } from "@ryot-app/contract/modules/sandbox/schemas";
 import { workflowReplayJournalEntrySchema } from "@ryot-app/sandbox-sdk/workflow";
 import { Effect, Layer, Schedule, Schema } from "effect";
 import { DurableQueue } from "effect/unstable/workflow";
@@ -16,7 +13,6 @@ import {
 	sandboxInlineDurableCapabilities,
 } from "./durable-host-dispatcher";
 import { SandboxExecutionResult } from "./execution-result";
-import { SandboxPluginScriptResolver } from "./plugin-script-resolver";
 import { SandboxRepository } from "./repository";
 
 const SandboxExecutionQueuePayload = Schema.Struct({
@@ -58,29 +54,6 @@ export const processSandboxExecutionQueue = (payload: SandboxExecutionQueuePaylo
 	);
 
 export type SandboxExecutionResolutionMode = "active" | "exact";
-
-export const resolveSandboxExecutionPayload = Effect.fn("resolveSandboxExecutionPayload")(
-	function* (payload: SandboxExecutionPayload, mode: SandboxExecutionResolutionMode) {
-		if (mode === "exact") {
-			return payload;
-		}
-		const repository = yield* SandboxRepository;
-		const pluginScriptResolver = yield* SandboxPluginScriptResolver;
-		const pluginOwned = yield* repository.isPluginScript(payload.scriptId);
-		if (!pluginOwned) {
-			return payload;
-		}
-
-		const activeScript = yield* pluginScriptResolver.findActiveScriptById(payload.scriptId);
-		if (!activeScript) {
-			return yield* new SandboxRunError({
-				kind: "missing-artifact",
-				message: "Sandbox script not found",
-			});
-		}
-		return { ...payload, scriptId: activeScript.id };
-	},
-);
 
 export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(function* (
 	payload: SandboxExecutionQueuePayload,
