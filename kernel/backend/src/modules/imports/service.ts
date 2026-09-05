@@ -21,7 +21,7 @@ import { Context, DateTime, Effect, Exit, Result, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
-import { RedisService, type ImportSourceState } from "#lib/infrastructure/redis";
+import type { ImportSourceState } from "#lib/infrastructure/redis";
 import {
 	ImportSourceCatalog,
 	type RegisteredImportSource,
@@ -40,7 +40,7 @@ import {
 	registryImportSourceMissingConfigKeys,
 	type ImportSourceFileInput,
 } from "./runtime/source-metadata";
-import { deleteImportSourceState, storeImportSourceState } from "./runtime/source-state-store";
+import { ImportSourceStateStore } from "./runtime/source-state-store";
 import { ImportWorkflowPinning } from "./workflow-pinning";
 
 export type CreateImportRunInput = {
@@ -84,7 +84,7 @@ const isTerminalStatus = (status: RunStatus): boolean =>
 
 export class ImportsService extends Context.Service<ImportsService>()("ImportsService", {
 	make: Effect.gen(function* () {
-		const redis = yield* RedisService;
+		const sourceStates = yield* ImportSourceStateStore;
 		const engine = yield* WorkflowEngine;
 		const uploads = yield* UploadIntentsService;
 		const repository = yield* ImportsRepository;
@@ -117,12 +117,13 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				{ discard: true },
 			);
 		const cleanupSourceState = (stateId: string) =>
-			deleteImportSourceState(stateId).pipe(
-				Effect.provideService(RedisService, redis),
-				Effect.catchCause((cause) =>
-					Effect.logWarning("failed to clean up import source state", cause),
-				),
-			);
+			sourceStates
+				.remove(stateId)
+				.pipe(
+					Effect.catchCause((cause) =>
+						Effect.logWarning("failed to clean up import source state", cause),
+					),
+				);
 
 		const dispatchImportRun = Effect.fn("ImportsService.dispatchImportRun")(function* (
 			input: DispatchImportRunInput,
@@ -169,19 +170,21 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				}
 			});
 
-			const stored = yield* storeImportSourceState({
-				stateId: runId,
-				state: {
-					uploadIntentIds,
-					source: input.source,
-					sourcePayload: input.sourcePayload,
-					pluginId: input.registered.pluginId,
-					workflowScriptId: input.workflowScriptId,
-					pluginRevision: pin.success.pluginRevision,
-					namedArtifactPaths: input.namedArtifactPaths,
-					pluginInstallationId: input.registered.installationId,
-				},
-			}).pipe(Effect.provideService(RedisService, redis), Effect.exit);
+			const stored = yield* sourceStates
+				.store({
+					stateId: runId,
+					state: {
+						uploadIntentIds,
+						source: input.source,
+						sourcePayload: input.sourcePayload,
+						pluginId: input.registered.pluginId,
+						workflowScriptId: input.workflowScriptId,
+						pluginRevision: pin.success.pluginRevision,
+						namedArtifactPaths: input.namedArtifactPaths,
+						pluginInstallationId: input.registered.installationId,
+					},
+				})
+				.pipe(Effect.exit);
 			if (Exit.isFailure(stored)) {
 				yield* rollback;
 				return yield* failDispatch("source-state", stored.cause);
