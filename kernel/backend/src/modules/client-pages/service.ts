@@ -919,7 +919,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					}
 					yield* Effect.forEach(graphs.values(), (graph) => builds.materialize(graph), {
 						discard: true,
-						concurrency: 1,
+						concurrency: CLIENT_PLUGIN_COMPILER_LIMITS.concurrency,
 					});
 					return yield* Effect.void;
 				},
