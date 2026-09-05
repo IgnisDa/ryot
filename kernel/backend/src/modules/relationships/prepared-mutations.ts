@@ -334,7 +334,6 @@ export const makePreparedRelationshipMutations = ({
 		if (planned.plan.trigger.blockedReason !== null) {
 			return yield* new RelationshipBadRequest({ reason: { code: "automation-limit-reached" } });
 		}
-		// oxlint-disable-next-line no-accumulating-spread -- each policy must observe the previous policy's transformed draft
 		let request = planned.request;
 		const acceptedPatches: AutomationPolicyPatch[] = [];
 		yield* Effect.gen(function* () {
