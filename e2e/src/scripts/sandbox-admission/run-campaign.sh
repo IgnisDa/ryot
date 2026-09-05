@@ -3,7 +3,7 @@
 # the arm's settings, recreates the benchmark PostgreSQL database and flushes Redis, restarts the
 # service, creates fresh benchmark users and plugins, then runs `run-arm.sh` on the host and copies
 # the results back. Usage (from `e2e/`):
-#   run-campaign.sh <output-dir> <label>:<admission-limit>:<interactive-lane>:<worker-priority>...
+#   run-campaign.sh <output-dir> <label>:<import-concurrency>...
 # Environment: COOLIFY_TOKEN, SERVER_IP, BENCHMARK_ADMIN_TOKEN_FILE (mode 0600), BENCHMARK_IMAGE (the
 # pinned image reference in the service compose), and optionally ARM_SCENARIOS (default "warmup 1 single 2 mixed 1 slow 1").
 set -eu
@@ -75,17 +75,11 @@ wait_healthy() {
 
 for arm in "$@"; do
 	label=${arm%%:*}
-	rest=${arm#*:}
-	limit=${rest%%:*}
-	rest=${rest#*:}
-	lane=${rest%%:*}
-	priority=${rest#*:}
+	limit=${arm#*:}
 	arm=$label
-	echo "== $label (limit=$limit lane=$lane priority=$priority) $(date -u +%FT%TZ)"
+	echo "== $label (import concurrency $limit) $(date -u +%FT%TZ)"
 	step="settings"
-	set_env EXPERIMENT_PROVIDER_IMPORT_ADMISSION_LIMIT "$limit"
-	set_env EXPERIMENT_SANDBOX_INTERACTIVE_LANE "$lane"
-	set_env EXPERIMENT_SANDBOX_WORKER_PRIORITY "$priority"
+	set_env SANDBOX_IMPORT_CONCURRENCY "$limit"
 	step="restart"
 	# Coolify rejects stopping a service that is already stopped.
 	if remote "docker ps --format '{{.Names}}'" | grep -qx "ryot-$SERVICE"; then
@@ -117,11 +111,9 @@ for arm in "$@"; do
 		exit 1
 	}
 	remote "docker exec ryot-$SERVICE printenv" |
-		grep -E '^(EXPERIMENT_|SANDBOX_WORKER_CONCURRENCY|SCHEDULER_DISABLE)' >"$OUTPUT/$label.env"
+		grep -E '^(SANDBOX_IMPORT_CONCURRENCY|SANDBOX_WORKER_CONCURRENCY|SCHEDULER_DISABLE)' >"$OUTPUT/$label.env"
 	# An arm that silently ran with the previous arm's settings would corrupt the comparison.
-	for expected in "EXPERIMENT_PROVIDER_IMPORT_ADMISSION_LIMIT=$limit" \
-		"EXPERIMENT_SANDBOX_INTERACTIVE_LANE=$lane" "EXPERIMENT_SANDBOX_WORKER_PRIORITY=$priority" \
-		"SANDBOX_WORKER_CONCURRENCY=2"; do
+	for expected in "SANDBOX_IMPORT_CONCURRENCY=$limit" "SANDBOX_WORKER_CONCURRENCY=2"; do
 		grep -qx "$expected" "$OUTPUT/$label.env" || {
 			echo "deployed settings do not include $expected" >&2
 			exit 1
