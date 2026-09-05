@@ -9,7 +9,11 @@ import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import type { CustomizeSidebarService } from "#/modules/navigation/customize/service";
 import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
-import { makePluginOperations, makePluginQueries } from "#/modules/plugins/services.test-layer";
+import {
+	makePluginOperations,
+	makePluginQueries,
+	makePluginStorage,
+} from "#/modules/plugins/services.test-layer";
 import { ClientStorage } from "#/persistence/storage";
 import { getRouter } from "#/router";
 import {
@@ -77,6 +81,7 @@ const mountView = (
 			),
 			makePluginOperations(),
 			makePluginQueries(),
+			makePluginStorage(),
 		).pipe(
 			Layer.provideMerge(OAuthRouteStubs),
 			Layer.provideMerge(

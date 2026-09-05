@@ -9,9 +9,8 @@ import { Effect, Match } from "effect";
 import { useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import type { ApiScope } from "#/api/scope";
-import { UploadsApi } from "#/api/uploads";
-import { ManagedAssetsService, resolveManagedAssetOutcome } from "#/modules/assets/managed-assets";
-import { temporaryUploadOutcome } from "#/modules/assets/temporary-uploads";
+import { ManagedAssetsService } from "#/modules/assets/managed-assets";
+import { TemporaryUploads } from "#/modules/assets/temporary-uploads";
 import {
 	type ClientPageDocument,
 	usePublishedClientPageDocument,
@@ -41,9 +40,8 @@ import { PluginOperationsService } from "#/modules/plugins/operations";
 import { PluginFrame } from "#/modules/plugins/plugin-host";
 import { toPluginLocation } from "#/modules/plugins/plugin-location";
 import { PluginQueriesService } from "#/modules/plugins/queries";
-import { pluginStorageOutcome } from "#/modules/plugins/storage";
+import { PluginStorage } from "#/modules/plugins/storage";
 import type { ThemeStore } from "#/modules/theme/store";
-import { ClientStorage } from "#/persistence/storage";
 import type { ClientRuntime } from "#/runtime";
 
 const MAX_RETAINED_FRAMES = 3;
@@ -490,6 +488,10 @@ function ClientPageFrame(props: {
 			onOverlayState={(count) => props.overlay.publish(props.owner, count)}
 			onHeader={(publication) => props.header.publish(props.owner, publication)}
 			onProviderSearch={(request) => props.document.onProviderSearch?.(request)}
+			onUpload={(request) => props.runtime.runSync(TemporaryUploads).outcome(props.scope, request)}
+			onAssets={(request) =>
+				props.runtime.runSync(ManagedAssetsService).outcome(props.scope, request.assets)
+			}
 			onQuery={(request) =>
 				props.runtime.runSync(PluginQueriesService).query({ request, scope: props.scope })
 			}
@@ -498,12 +500,8 @@ function ClientPageFrame(props: {
 					? rendererContributor.pluginSlug
 					: props.document.title
 			}
-			onUpload={(request) =>
-				Effect.provideService(
-					temporaryUploadOutcome(props.scope, request),
-					UploadsApi,
-					props.runtime.runSync(UploadsApi),
-				)
+			onStorage={(request) =>
+				props.runtime.runSync(PluginStorage).outcome(props.scope, identity.contributors, request)
 			}
 			documentGrant={{
 				...props.document.prepared.composition.documentGrant,
@@ -515,20 +513,6 @@ function ClientPageFrame(props: {
 					replace: request.replace,
 					state: (current) => ({ ...current, ryotEntryKey: crypto.randomUUID() }),
 				})
-			}
-			onStorage={(request) =>
-				Effect.provideService(
-					pluginStorageOutcome(props.scope, identity.contributors, request),
-					ClientStorage,
-					props.runtime.runSync(ClientStorage),
-				)
-			}
-			onAssets={(request) =>
-				Effect.provideService(
-					resolveManagedAssetOutcome(props.scope, request.assets),
-					ManagedAssetsService,
-					props.runtime.runSync(ManagedAssetsService),
-				)
 			}
 			onPageSearch={({ mode, update }) => {
 				const nextSearch = mergePageSearch(props.location.searchStr, update);

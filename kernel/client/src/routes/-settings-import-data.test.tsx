@@ -25,6 +25,7 @@ import {
 	makePluginCatalog,
 	makePluginOperations,
 	makePluginQueries,
+	makePluginStorage,
 } from "#/modules/plugins/services.test-layer";
 import { getRouter } from "#/router";
 import {
@@ -224,6 +225,7 @@ const mountView = (
 			CustomizeRouteStubs,
 			makePluginOperations(),
 			makePluginQueries(),
+			makePluginStorage(),
 			imports,
 			importsApi,
 			makeImportSourceQueries(sources),
