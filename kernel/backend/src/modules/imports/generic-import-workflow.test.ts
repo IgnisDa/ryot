@@ -661,7 +661,10 @@ const genericWritesCase = () => {
 						return { count: 1, outcomes: [], failure: null, warnings: [warning] };
 					}),
 			}),
-			Layer.mock(ImportsService)({ update: (input) => recordings.updates.append(input) }),
+			Layer.mock(ImportsService)({
+				updateProgress: (input) => recordings.updates.append(input).pipe(Effect.as(true)),
+				finishCompleted: (input) => recordings.updates.append(input).pipe(Effect.as("settled")),
+			}),
 			Layer.mock(ImportRunFailuresService)({
 				create: (input) => recordings.failures.append(input),
 			}),
@@ -881,7 +884,10 @@ const relationshipSchemasCase = () => {
 						return { count: 1, outcomes: [], warnings: [], failure: null };
 					}),
 			}),
-			Layer.mock(ImportsService)({ update: () => Effect.void }),
+			Layer.mock(ImportsService)({
+				updateProgress: () => Effect.succeed(true),
+				finishCompleted: () => Effect.succeed("settled"),
+			}),
 			Layer.mock(ImportRunFailuresService)({
 				create: (input) => recordings.failures.append(input),
 			}),
@@ -1104,7 +1110,10 @@ const providerEntitiesCase = () => {
 						return { outcomes: [], warnings: [], failure: null, count: events.length };
 					}),
 			}),
-			Layer.mock(ImportsService)({ update: () => Effect.void }),
+			Layer.mock(ImportsService)({
+				updateProgress: () => Effect.succeed(true),
+				finishCompleted: () => Effect.succeed("settled"),
+			}),
 			Layer.mock(ImportRunFailuresService)({
 				create: (input) => recordings.failures.append(input),
 			}),
@@ -1167,7 +1176,7 @@ const initialUpdateFailureCase = () => {
 		Layer.mock(EventsService)({}),
 		Layer.mock(ImportRunFailuresService)({}),
 		Layer.mock(ImportsService)({
-			update: () => Effect.fail(new DbError({ message: "initial update failed" })),
+			updateProgress: () => Effect.fail(new DbError({ message: "initial progress update failed" })),
 		}),
 	);
 

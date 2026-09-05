@@ -26,7 +26,6 @@ const makeWorkerLayer = (input: {
 	Layer.mergeAll(
 		databaseLayer,
 		mockImportsRepository({
-			updateRun: () => Effect.void,
 			getRunById: () => Effect.succeed(makeRun(input.runStatus)),
 			listRecentStatusesByIntegrationId: () => Effect.succeed([...(input.recentStatuses ?? [])]),
 		}),

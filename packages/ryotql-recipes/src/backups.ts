@@ -2,9 +2,9 @@ import {
 	BackupRunArtifactProvider,
 	BackupRunFailure,
 	BackupRunKind,
+	BackupRunStatus,
 } from "@ryot-app/contract/modules/backups/schemas";
 import { BackupRunId } from "@ryot-app/contract/schema/brands";
-import { RunStatus } from "@ryot-app/contract/schema/run-status";
 import {
 	ascending,
 	column,
@@ -26,7 +26,7 @@ const run = table("backupRun", "run");
 const selection = {
 	id: selectedField(column(run, "id"), BackupRunId),
 	kind: selectedField(column(run, "kind"), BackupRunKind),
-	status: selectedField(column(run, "status"), RunStatus),
+	status: selectedField(column(run, "status"), BackupRunStatus),
 	progress: selectedField(column(run, "progress"), Schema.Finite),
 	createdAt: selectedField(column(run, "createdAt"), IsoDateString),
 	failure: selectedField(column(run, "failure"), Schema.NullOr(BackupRunFailure)),

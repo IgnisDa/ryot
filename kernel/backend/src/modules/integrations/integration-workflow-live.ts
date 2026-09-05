@@ -1,3 +1,4 @@
+import { ImportRunStatus } from "@ryot-app/contract/modules/imports/schemas";
 import { IntegrationSnapshot } from "@ryot-app/contract/modules/integrations/schemas";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 import { AutomationExecutionId, UserId } from "@ryot-app/contract/schema/brands";
@@ -5,11 +6,14 @@ import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Cause, DateTime, Effect, Schema } from "effect";
+import { Workflow } from "effect/unstable/workflow";
+import { WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand, type LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { SignalEmissionService } from "#modules/automations/signal-service";
 import { markImportRunStarted } from "#modules/imports/runtime/import-run-status";
+import { ImportsService } from "#modules/imports/service";
 import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
@@ -77,29 +81,91 @@ const runIntegrationRun = Effect.fn("runIntegrationRun")(function* (
 	executionId: string,
 	command: LifecycleCommand,
 ) {
+	const imports = yield* ImportsService;
+	const completeCancellation = Effect.fn("completeIntegrationRunCancellation")(function* () {
+		yield* makeActivity({
+			error: IntegrationRunError,
+			name: "finish-integration-run-cancelled",
+			execute: Effect.gen(function* () {
+				const finishedAt = yield* DateTime.nowAsDate;
+				yield* imports.finishCancelled({ finishedAt, runId: payload.runId });
+			}).pipe(Effect.mapError(toIntegrationWorkflowError)),
+		});
+	});
+	yield* Workflow.addFinalizer(() =>
+		Effect.flatMap(WorkflowInstance, (instance) =>
+			instance.interrupted
+				? completeCancellation().pipe(
+						Effect.catchCause((cause) =>
+							Effect.logError("integration cancellation cleanup failed", cause),
+						),
+					)
+				: Effect.void,
+		),
+	);
 	const markStartedEffect = markImportRunStarted(payload.runId).pipe(
 		Effect.mapError(toIntegrationWorkflowError),
 	);
-	yield* makeActivity({
+	const start = yield* makeActivity({
 		error: IntegrationRunError,
 		execute: markStartedEffect,
 		name: "mark-integration-run-started",
+		success: Schema.Literals(["started", "cancellation-requested", "preserved"]),
 	});
+	if (start === "cancellation-requested") {
+		yield* completeCancellation();
+		return;
+	}
+	if (start === "preserved") {
+		return;
+	}
 
 	yield* runIntegrationImport(integration, payload, executionId, command).pipe(
-		Effect.catchCauseIf(
-			(cause) => !Cause.hasInterruptsOnly(cause),
-			(cause) =>
-				Effect.logError("integration import failed", cause).pipe(
+		Effect.catchCause((cause) =>
+			Effect.flatMap(WorkflowInstance, (instance) => {
+				if (instance.suspended && Cause.hasInterruptsOnly(cause)) {
+					return Effect.failCause(cause);
+				}
+				return Effect.logError("integration import failed", cause).pipe(
 					Effect.andThen(
 						failRun("fail-integration-run-unexpected", payload.runId, {
 							code: "unexpected-failure",
 							operation: "integration-import",
 						}),
 					),
-				),
+				);
+			}),
 		),
 	);
+
+	const runStatus = yield* makeActivity({
+		error: IntegrationRunError,
+		success: Schema.NullOr(ImportRunStatus),
+		name: "settle-integration-run-after-plugin",
+		execute: Effect.gen(function* () {
+			const run = yield* imports.getRunControlForUser({
+				runId: payload.runId,
+				userId: integration.userId,
+			});
+			if (run?.status === "running") {
+				const finishedAt = yield* DateTime.nowAsDate;
+				yield* imports.finishFailed({
+					finishedAt,
+					runId: payload.runId,
+					failureReason: { code: "unexpected-failure", operation: "integration-finalization" },
+				});
+				return "failed" as const;
+			}
+			return run?.status ?? null;
+		}).pipe(Effect.mapError(toIntegrationWorkflowError)),
+	});
+	if (runStatus === "cancelling") {
+		yield* completeCancellation();
+		return;
+	}
+	if (runStatus === "cancelled") {
+		return;
+	}
 
 	const finalizationEffect = finalizeIntegrationRun(integration, payload.runId).pipe(
 		Effect.mapError(toIntegrationWorkflowError),
