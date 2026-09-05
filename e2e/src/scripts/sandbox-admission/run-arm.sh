@@ -3,7 +3,8 @@
 # PostgreSQL cgroup CPU and commit counters; throughout, it samples PostgreSQL connections and lock
 # waits, the admission ledger, and both sandbox queue depths every 3 seconds, none of which the
 # in-container probe can read. Usage (on the host): run-arm.sh <label> <scenario> <repetitions>...
-# Scenarios restart, cancel, duplicate, backlog, and worker-kill run validate-probe.mjs instead.
+# Scenarios restart, cancel, duplicate, backlog, and worker-kill run validate-probe.mjs instead;
+# oom runs oom-probe.mjs and records which process the kernel terminated.
 set -eu
 LABEL="$1"
 shift
@@ -80,6 +81,20 @@ while [ "$#" -gt 1 ]; do
 		;;
 	cancel | duplicate | backlog | worker-kill)
 		validate "$scenario"
+		;;
+	oom)
+		# Two workers each holding 400 MiB of touched memory push past a container limit below
+		# about 2 GiB. The victim is visible as a backend restart or as failed executions.
+		restarts=$(docker inspect "$APP" --format '{{.RestartCount}}')
+		docker exec "$APP" bun /tmp/oom-probe.mjs /tmp/adm-state.json "$LABEL" 3 400 30000 || true
+		wait_healthy
+		printf '{"label":"%s","scenario":"oom","memoryLimitBytes":%s,"containerRestarts":%s,"oomKilled":%s,"cgroupOomKills":%s}\n' \
+			"$LABEL" "$(docker inspect "$APP" --format '{{.HostConfig.Memory}}')" \
+			"$(($(docker inspect "$APP" --format '{{.RestartCount}}') - restarts))" \
+			"$(docker inspect "$APP" --format '{{.State.OOMKilled}}')" \
+			"$(awk '$1 == "oom_kill" { print $2 }' "/sys/fs/cgroup/system.slice/docker-$(docker inspect "$APP" --format '{{.Id}}').scope/memory.events")" \
+			>>"$OUT/oom.jsonl"
+		docker cp "$APP:/tmp/$LABEL.jsonl" "$OUT/oom-probe.jsonl" 2>/dev/null || true
 		;;
 	*)
 		docker exec "$APP" bun /tmp/remote-probe.mjs /tmp/adm-state.json "$LABEL" "$scenario" "$repetitions"
