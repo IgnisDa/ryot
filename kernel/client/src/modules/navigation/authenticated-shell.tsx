@@ -13,6 +13,8 @@ import { motion, useMotionValue, useTransform } from "motion/react";
 import { useCallback, useEffect, useEffectEvent, useId, useMemo, useRef, useState } from "react";
 
 import { AuthService } from "#/modules/auth/service";
+import { ClientPageDocumentProvider } from "#/modules/client-pages/document";
+import { ClientPageDocumentHost } from "#/modules/client-pages/page-host";
 import {
 	CustomizeContext,
 	ClientPageOverlayContext,
@@ -393,9 +395,12 @@ export function AuthenticatedShell(props: {
 												inert={drawerOpen}
 												style={{ x: contentShift }}
 												data-testid="shell-content"
-												className="min-h-0 min-w-0 flex-1 overflow-hidden"
+												className="relative min-h-0 min-w-0 flex-1 overflow-hidden"
 											>
-												<Outlet />
+												<ClientPageDocumentProvider>
+													<ClientPageDocumentHost />
+													<Outlet />
+												</ClientPageDocumentProvider>
 											</motion.div>
 										</ClientPageOverlayContext>
 									</ClientPageScreenContext>
