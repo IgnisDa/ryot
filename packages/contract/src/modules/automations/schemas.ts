@@ -5,7 +5,6 @@ import {
 	RelationshipSchemaSlug,
 	SignalSchemaSlug,
 } from "../../schema/brands";
-import { AppSchema } from "../../schema/property-schema";
 import { strictStruct } from "../../schema/utils";
 import { jsonValueSchema } from "../sandbox/wire";
 
@@ -27,26 +26,6 @@ export const SignalAudiencePolicy = Schema.Union([
 ]);
 
 export type SignalAudiencePolicy = typeof SignalAudiencePolicy.Type;
-
-export const CatalogSignalSchema = Schema.Struct({
-	name: Schema.String,
-	slug: Schema.String,
-	id: SignalSchemaSlug,
-	propertiesSchema: AppSchema,
-});
-
-export type CatalogSignalSchema = typeof CatalogSignalSchema.Type;
-
-export const InstalledNotificationRule = Schema.Struct({
-	name: Schema.String,
-	isActive: Schema.Boolean,
-	createdAt: Schema.String,
-	updatedAt: Schema.String,
-	id: NotificationSubscriptionId,
-	signalSchema: CatalogSignalSchema,
-});
-
-export type InstalledNotificationRule = typeof InstalledNotificationRule.Type;
 
 export const InstallNotificationRuleBody = strictStruct({ signalSchemaSlug: SignalSchemaSlug });
 

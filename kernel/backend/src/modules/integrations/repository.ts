@@ -2,23 +2,25 @@ import type {
 	IntegrationExtraSettings,
 	IntegrationProvider,
 	IntegrationProviderSettings,
-	ListedIntegration,
+	IntegrationSnapshot,
 } from "@ryot-app/contract/modules/integrations/schemas";
 import type { IntegrationLot } from "@ryot-app/contract/modules/integrations/types";
 import type { ImportRunId } from "@ryot-app/contract/schema/brands";
 import { IntegrationId, IntegrationWebhookToken, UserId } from "@ryot-app/contract/schema/brands";
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
-import { AppConfig } from "#lib/infrastructure/config/service";
 import { user } from "#lib/infrastructure/db/schema/tables/auth";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { PluginRevisionActivation } from "#modules/plugins/revision-activation";
 
-type IntegrationRow = typeof schema.integration.$inferSelect;
+import { redactIntegrationForClient } from "./client-redaction";
+
+type IntegrationRow = Omit<typeof schema.integration.$inferSelect, "clientProviderSpecifics">;
 type SelectedIntegrationRow = IntegrationRow & { readonly pluginSlug: string };
 
-export type IntegrationRecord = ListedIntegration & {
+export type IntegrationRecord = IntegrationSnapshot & {
 	readonly userId: UserId;
 	readonly pluginInstallationId: string;
 };
@@ -50,10 +52,22 @@ const integrationSelection = {
 
 const { webhookToken: _webhookToken, ...integrationBackupSelection } = integrationSelection;
 
-const normalizeIntegration = (
-	frontendUrl: string,
-	row: SelectedIntegrationRow,
-): IntegrationRecord => {
+const clientIntegrationSelection = {
+	...integrationSelection,
+	providerSpecifics: schema.integration.clientProviderSpecifics,
+};
+
+const providerSettingsSchema = schema.definitionIntegrationProvider.settingsSchema;
+
+const activeProviderDefinition = (
+	provider: IntegrationProvider | typeof schema.integration.provider,
+) =>
+	and(
+		eq(schema.definitionIntegrationProvider.pluginRevisionId, schema.plugin.activeRevisionId),
+		eq(schema.definitionIntegrationProvider.slug, provider),
+	);
+
+const normalizeIntegration = (row: SelectedIntegrationRow): IntegrationRecord => {
 	if (row.lot === "sink" && row.webhookToken === null) {
 		throw new Error(`Sink integration '${row.id}' has no webhook token`);
 	}
@@ -74,7 +88,6 @@ const normalizeIntegration = (
 		minimumProgress: Number.parseFloat(row.minimumProgress),
 		maximumProgress: Number.parseFloat(row.maximumProgress),
 		lastFinishedAt: row.lastFinishedAt?.toISOString() ?? null,
-		...(row.webhookToken === null ? {} : { webhookUrl: `${frontendUrl}/_i/${row.webhookToken}` }),
 	};
 };
 
@@ -87,8 +100,7 @@ const ownedIntegrationWhere = (input: { integrationId: IntegrationId; userId: Us
 export class IntegrationsRepository extends Context.Service<IntegrationsRepository>()(
 	"IntegrationsRepository",
 	{
-		make: Effect.gen(function* () {
-			const { frontendUrl } = yield* AppConfig;
+		make: Effect.sync(() => {
 			const hasAnyForUser = Effect.fn("IntegrationsRepository.hasAnyForUser")(function* (
 				userId: UserId,
 			) {
@@ -101,6 +113,110 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 						.limit(1),
 				);
 				return row !== undefined;
+			});
+
+			const lockInstallationPlugin = Effect.fn(function* (pluginInstallationId: string) {
+				const db = yield* Database;
+				yield* mapDatabaseErrors(
+					db
+						.select({ id: schema.plugin.id })
+						.from(schema.plugin)
+						.innerJoin(
+							schema.pluginInstallation,
+							eq(schema.pluginInstallation.pluginId, schema.plugin.id),
+						)
+						.where(eq(schema.pluginInstallation.id, pluginInstallationId))
+						.for("share", { of: schema.plugin }),
+				);
+			});
+
+			const clientProviderSpecifics = Effect.fn(function* (input: {
+				pluginInstallationId: string;
+				provider: IntegrationProvider;
+				providerSpecifics: IntegrationProviderSettings;
+			}) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.select({ settingsSchema: providerSettingsSchema })
+						.from(schema.pluginInstallation)
+						.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginInstallation.pluginId))
+						.innerJoin(
+							schema.definitionIntegrationProvider,
+							activeProviderDefinition(input.provider),
+						)
+						.where(eq(schema.pluginInstallation.id, input.pluginInstallationId))
+						.limit(1),
+				);
+				return redactIntegrationForClient(row?.settingsSchema ?? null, input.providerSpecifics);
+			});
+
+			const refreshClientProviderSpecificsForPlugin = Effect.fn(
+				"IntegrationsRepository.refreshClientProviderSpecificsForPlugin",
+			)(function* (pluginId: string) {
+				const db = yield* Database;
+				yield* mapDatabaseErrors(
+					db
+						.select({ id: schema.plugin.id })
+						.from(schema.plugin)
+						.where(eq(schema.plugin.id, pluginId))
+						.for("share"),
+				);
+				const locked = yield* mapDatabaseErrors(
+					db
+						.select({ id: schema.integration.id })
+						.from(schema.integration)
+						.innerJoin(
+							schema.pluginInstallation,
+							eq(schema.pluginInstallation.id, schema.integration.pluginInstallationId),
+						)
+						.where(eq(schema.pluginInstallation.pluginId, pluginId))
+						.orderBy(asc(schema.integration.id))
+						.for("update", { of: schema.integration }),
+				);
+				if (locked.length === 0) {
+					return;
+				}
+				const rows = yield* mapDatabaseErrors(
+					db
+						.select({
+							id: schema.integration.id,
+							settingsSchema: providerSettingsSchema,
+							providerSpecifics: schema.integration.providerSpecifics,
+						})
+						.from(schema.integration)
+						.innerJoin(
+							schema.pluginInstallation,
+							eq(schema.pluginInstallation.id, schema.integration.pluginInstallationId),
+						)
+						.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginInstallation.pluginId))
+						.leftJoin(
+							schema.definitionIntegrationProvider,
+							activeProviderDefinition(schema.integration.provider),
+						)
+						.where(
+							inArray(
+								schema.integration.id,
+								locked.map(({ id }) => id),
+							),
+						),
+				);
+				yield* Effect.forEach(
+					rows,
+					(row) =>
+						mapDatabaseErrors(
+							db
+								.update(schema.integration)
+								.set({
+									clientProviderSpecifics: redactIntegrationForClient(
+										row.settingsSchema,
+										row.providerSpecifics,
+									),
+								})
+								.where(eq(schema.integration.id, row.id)),
+						),
+					{ discard: true },
+				);
 			});
 
 			const createForUser = Effect.fn("IntegrationsRepository.createForUser")(function* (input: {
@@ -117,6 +233,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				providerSpecifics: IntegrationProviderSettings;
 			}) {
 				const db = yield* Database;
+				yield* lockInstallationPlugin(input.pluginInstallationId);
 				const [row] = yield* mapDatabaseErrors(
 					db
 						.insert(schema.integration)
@@ -133,13 +250,14 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 							providerSpecifics: input.providerSpecifics,
 							webhookToken: webhookTokenForLot(input.lot),
 							pluginInstallationId: input.pluginInstallationId,
+							clientProviderSpecifics: yield* clientProviderSpecifics(input),
 						})
-						.returning(integrationSelection),
+						.returning({ id: schema.integration.id }),
 				);
 				if (!row) {
 					return yield* Effect.die("Integration row missing after insert");
 				}
-				return normalizeIntegration(frontendUrl, row);
+				return { id: IntegrationId.make(row.id) };
 			});
 
 			const getByIdAnyUser = Effect.fn("IntegrationsRepository.getByIdAnyUser")(function* (input: {
@@ -154,7 +272,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 						.limit(1),
 				);
 
-				return row ? normalizeIntegration(frontendUrl, row) : null;
+				return row ? normalizeIntegration(row) : null;
 			});
 
 			const getByWebhookToken = Effect.fn("IntegrationsRepository.getByWebhookToken")(function* (
@@ -174,7 +292,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 						.limit(1),
 				);
 
-				return row ? normalizeIntegration(frontendUrl, row) : null;
+				return row ? normalizeIntegration(row) : null;
 			});
 
 			const getForUser = Effect.fn("IntegrationsRepository.getForUser")(function* (input: {
@@ -190,8 +308,23 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 						.limit(1),
 				);
 
-				return row ? normalizeIntegration(frontendUrl, row) : null;
+				return row ? normalizeIntegration(row) : null;
 			});
+
+			const getClientForUser = Effect.fn("IntegrationsRepository.getClientForUser")(
+				function* (input: { userId: UserId; integrationId: IntegrationId }) {
+					const db = yield* Database;
+					const [row] = yield* mapDatabaseErrors(
+						db
+							.select(clientIntegrationSelection)
+							.from(schema.integration)
+							.where(ownedIntegrationWhere(input))
+							.limit(1),
+					);
+
+					return row ? normalizeIntegration(row) : null;
+				},
+			);
 
 			const getUserDisableIntegrations = Effect.fn(
 				"IntegrationsRepository.getUserDisableIntegrations",
@@ -227,7 +360,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 						.orderBy(desc(schema.integration.createdAt)),
 				);
 
-				return rows.map((row) => normalizeIntegration(frontendUrl, row));
+				return rows.map((row) => normalizeIntegration(row));
 			});
 
 			const listForUser = Effect.fn("IntegrationsRepository.listForUser")(function* (input: {
@@ -252,7 +385,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 						.orderBy(desc(schema.integration.createdAt)),
 				);
 
-				return rows.map((row) => normalizeIntegration(frontendUrl, row));
+				return rows.map((row) => normalizeIntegration(row));
 			});
 
 			const listForBackup = Effect.fn("IntegrationsRepository.listForBackup")(function* (
@@ -286,10 +419,15 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				readonly providerSpecifics: IntegrationProviderSettings;
 			}) {
 				const db = yield* Database;
+				yield* lockInstallationPlugin(input.pluginInstallationId);
 				yield* mapDatabaseErrors(
 					db
 						.insert(schema.integration)
-						.values({ ...input, webhookToken: webhookTokenForLot(input.lot) }),
+						.values({
+							...input,
+							webhookToken: webhookTokenForLot(input.lot),
+							clientProviderSpecifics: yield* clientProviderSpecifics(input),
+						}),
 				);
 			});
 
@@ -330,18 +468,43 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 					updates.extraSettings = input.extraSettings;
 				}
 				if (input.providerSpecifics !== undefined) {
+					const [existing] = yield* mapDatabaseErrors(
+						db
+							.select({
+								provider: schema.integration.provider,
+								pluginInstallationId: schema.integration.pluginInstallationId,
+							})
+							.from(schema.integration)
+							.where(ownedIntegrationWhere(input))
+							.limit(1),
+					);
+					if (!existing) {
+						return null;
+					}
+					yield* lockInstallationPlugin(existing.pluginInstallationId);
+					yield* mapDatabaseErrors(
+						db
+							.select({ id: schema.integration.id })
+							.from(schema.integration)
+							.where(ownedIntegrationWhere(input))
+							.for("update"),
+					);
 					updates.providerSpecifics = input.providerSpecifics;
+					updates.clientProviderSpecifics = yield* clientProviderSpecifics({
+						...existing,
+						providerSpecifics: input.providerSpecifics,
+					});
 				}
 
 				if (Object.keys(updates).length === 0) {
 					const [row] = yield* mapDatabaseErrors(
 						db
-							.select(integrationSelection)
+							.select({ id: schema.integration.id })
 							.from(schema.integration)
 							.where(ownedIntegrationWhere(input))
 							.limit(1),
 					);
-					return row ? normalizeIntegration(frontendUrl, row) : null;
+					return row ? { id: IntegrationId.make(row.id) } : null;
 				}
 
 				const [row] = yield* mapDatabaseErrors(
@@ -349,10 +512,10 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 						.update(schema.integration)
 						.set(updates)
 						.where(ownedIntegrationWhere(input))
-						.returning(integrationSelection),
+						.returning({ id: schema.integration.id }),
 				);
 
-				return row ? normalizeIntegration(frontendUrl, row) : null;
+				return row ? { id: IntegrationId.make(row.id) } : null;
 			});
 
 			const disableForUserIfEnabled = Effect.fn("IntegrationsRepository.disableForUserIfEnabled")(
@@ -410,15 +573,24 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 				deleteForUser,
 				restoreForUser,
 				getByIdAnyUser,
+				getClientForUser,
 				getByWebhookToken,
 				hasAutoDisableClaim,
 				insertAutoDisableClaim,
 				disableForUserIfEnabled,
 				getUserDisableIntegrations,
 				listEnabledYankIntegrations,
+				refreshClientProviderSpecificsForPlugin,
 			};
 		}),
 	},
 ) {
 	static readonly layer = Layer.effect(this, this.make);
 }
+
+export const IntegrationPluginRevisionActivationLive = Layer.effect(
+	PluginRevisionActivation,
+	Effect.map(IntegrationsRepository, (repository) => ({
+		activated: repository.refreshClientProviderSpecificsForPlugin,
+	})),
+);

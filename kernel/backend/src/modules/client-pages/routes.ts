@@ -40,22 +40,6 @@ export const ClientPagesRoutesLive = HttpApiBuilder.group(AppContract, "clientPa
 				return yield* (yield* ClientPagesService).createRenderer(user, payload).pipe(dieOnDbError);
 			}),
 		)
-		.handle("listRenderers", () =>
-			Effect.gen(function* () {
-				const user = yield* CurrentUser;
-				return (yield* (yield* ClientPagesService).listRenderers(user.id).pipe(dieOnDbError)).map(
-					({ draftDefinition: _, publishedDefinition: __, ...metadata }) => metadata,
-				);
-			}),
-		)
-		.handle("getRenderer", ({ params }) =>
-			Effect.gen(function* () {
-				const user = yield* CurrentUser;
-				return yield* (yield* ClientPagesService)
-					.getRenderer(user.id, params.rendererId)
-					.pipe(dieOnDbError);
-			}),
-		)
 		.handle("replaceRendererDraft", ({ params, payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;

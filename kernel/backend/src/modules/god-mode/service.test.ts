@@ -5,24 +5,16 @@ import {
 	GodModeNotFound,
 	GodModeRequestFailure,
 } from "@ryot-app/contract/modules/god-mode/contract";
-import type {
-	MigrationReportAnomalyCode,
-	MigrationReportDetail,
-} from "@ryot-app/contract/modules/god-mode/migration-report";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import type { ilike, SQL } from "drizzle-orm";
-import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";
-import { assert, describe, it as vitestIt } from "vitest";
+import { describe, it as vitestIt } from "vitest";
 
-import * as schema from "#lib/infrastructure/db/schema/tables/auth";
 import { Database } from "#lib/infrastructure/db/service";
 import { RedisService } from "#lib/infrastructure/redis";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeAppConfigLayer, makeRedisService } from "#lib/test-utils/effect";
 import { AuthService } from "#modules/auth/service";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
-import { DefinitionRegistry } from "#modules/definition-registry/service";
 import { EntitiesService } from "#modules/entities/service";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { PluginUserBootstrapDispatcher } from "#modules/user-bootstrap/plugin-dispatch";
@@ -31,38 +23,6 @@ import { UserLifecycleService } from "#modules/user-lifecycle/service";
 
 import { GodModeRepository } from "./repository";
 import { checkResetEligibility, GodModeService } from "./service";
-
-type SearchWhere = ReturnType<typeof ilike>;
-type UserRow = {
-	id: string;
-	name: string;
-	email: string;
-	createdAt: Date;
-	disabledAt: Date | null;
-	twoFactorEnabled: boolean | null;
-};
-
-type MigrationReportRow = {
-	seq: number;
-	count: number | null;
-	phase: string;
-	level: "info" | "warning";
-	message: string;
-	createdAt: Date;
-	code: MigrationReportAnomalyCode | null;
-	elapsedSeconds: number | null;
-};
-
-const baseUser = {
-	id: "user_1",
-	disabledAt: null,
-	name: "Test User",
-	twoFactorEnabled: false,
-	email: "test@example.com",
-	createdAt: new Date("2024-01-01T00:00:00Z"),
-} satisfies UserRow;
-
-const dialect = new PgDialect();
 
 const makeAuthMock = (state?: {
 	deleteUserSessionsCalled: boolean;
@@ -173,7 +133,6 @@ const pluginUserBootstrapDispatcherLayer = Layer.mock(PluginUserBootstrapDispatc
 const defaultUserLifecycleServiceLayer = Layer.mock(UserLifecycleService)({
 	resetUser: () => Effect.die("unused"),
 	deleteUser: () => Effect.die("unused"),
-	getOperation: () => Effect.die("unused"),
 });
 
 const makeServiceLayer = (
@@ -188,7 +147,6 @@ const makeServiceLayer = (
 		Layer.provideMerge(
 			Layer.mergeAll(
 				makeDatabaseLayer(db, transactionDb),
-				DefinitionRegistry.layer,
 				GodModeRepository.layer,
 				makeAppConfigLayer({ users: { disableLocalAuth } }),
 				Layer.succeed(
@@ -219,7 +177,6 @@ const makeProvisionLayer = (db: object, auth: ReturnType<typeof makeProvisionAut
 		Layer.provideMerge(
 			Layer.mergeAll(
 				makeDatabaseLayer(db, makeBootstrapDb()),
-				DefinitionRegistry.layer,
 				GodModeRepository.layer,
 				makeAppConfigLayer(),
 				Layer.succeed(AuthService, auth),
@@ -233,97 +190,9 @@ const makeProvisionLayer = (db: object, auth: ReturnType<typeof makeProvisionAut
 		),
 	);
 
-const makeListUsersDb = (options: {
-	total: number;
-	listError?: Error;
-	accountError?: Error;
-	users: ReadonlyArray<UserRow>;
-	accounts: ReadonlyArray<{ providerId: string; userId: string }>;
+const makeSetUserDisabledDb = (options: {
+	user: { id: string; disabledAt: Date | null } | null;
 }) => {
-	const state = { limit: 0, offset: 0, userWhere: undefined as SearchWhere | undefined };
-
-	const db = Object.assign(Object.create(null), {
-		select: (fields: Record<string, unknown>) => ({
-			from: (table: unknown) => {
-				if (table === schema.user) {
-					const isCountQuery = "count" in fields;
-					return {
-						where: (condition: SearchWhere | undefined) => {
-							state.userWhere = condition;
-							if (isCountQuery) {
-								return Effect.succeed([{ count: options.total }]);
-							}
-
-							return Object.assign(Effect.succeed(options.users), {
-								limit: (limit: number) => {
-									state.limit = limit;
-									return Object.assign(Effect.succeed(options.users), {
-										offset: (offset: number) => {
-											state.offset = offset;
-											return Object.assign(Effect.succeed(options.users), {
-												orderBy: () =>
-													options.listError
-														? Effect.fail(new DbError({ message: options.listError.message }))
-														: Effect.succeed(options.users),
-											});
-										},
-									});
-								},
-							});
-						},
-					};
-				}
-
-				if (table === schema.account) {
-					return {
-						where: () =>
-							options.accountError
-								? Effect.fail(options.accountError)
-								: Effect.succeed(options.accounts),
-					};
-				}
-
-				throw new Error("unexpected table");
-			},
-		}),
-	});
-
-	return { db, state };
-};
-
-const makeMigrationReportDb = (
-	rows: ReadonlyArray<MigrationReportRow>,
-	details: ReadonlyArray<{ seq: number; reportSeq: number; detail: MigrationReportDetail }> = [],
-) => {
-	const state = { detailQueries: 0, orderBy: [] as SQL[] };
-	const db = Object.assign(Object.create(null), {
-		select: (projection?: unknown) =>
-			projection === undefined
-				? {
-						from: () => ({
-							orderBy: (...orderBy: SQL[]) => {
-								state.orderBy = orderBy;
-								return Effect.succeed(rows);
-							},
-						}),
-					}
-				: {
-						from: () => ({
-							where: () => ({
-								orderBy: () => {
-									state.detailQueries += 1;
-									return Effect.succeed(
-										details.map((row, index) => ({ ...row, rank: String(index + 1) })),
-									);
-								},
-							}),
-						}),
-					},
-	});
-	return { db, state };
-};
-
-const makeSetUserDisabledDb = (options: { user: Pick<UserRow, "disabledAt" | "id"> | null }) => {
 	const db = Object.assign(Object.create(null), {
 		select: () => ({
 			from: () => ({
@@ -419,249 +288,13 @@ describe("checkResetEligibility", () => {
 });
 
 it.effect("blocks password reset when local auth is disabled", () => {
-	const { db } = makeListUsersDb({ total: 0, users: [], accounts: [] });
+	const { db } = makeSetUserDisabledDb({ user: null });
 
 	return Effect.gen(function* () {
 		const service = yield* GodModeService;
 		const exit = yield* Effect.exit(service.resetUserPassword(UserId.make("user_1")));
 		assertExitFails(exit, new GodModeRequestFailure({ reason: { code: "local-auth-disabled" } }));
 	}).pipe(Effect.provide(makeServiceLayer(db, true)));
-});
-
-it.effect("returns users with total count and auth states", () => {
-	const { db } = makeListUsersDb({
-		total: 1,
-		users: [baseUser],
-		accounts: [{ userId: baseUser.id, providerId: "credential" }],
-	});
-
-	return Effect.gen(function* () {
-		const service = yield* GodModeService;
-		const result = yield* service.listUsers({ limit: 50, offset: 0 });
-
-		expect(result).toEqual({
-			total: 1,
-			users: [
-				{
-					id: "user_1",
-					disabledAt: null,
-					name: "Test User",
-					authState: "credential",
-					twoFactorEnabled: false,
-					email: "test@example.com",
-					createdAt: "2024-01-01T00:00:00.000Z",
-				},
-			],
-		});
-	}).pipe(Effect.provide(makeServiceLayer(db)));
-});
-
-const migrationReportDetail = {
-	kind: "show",
-	seasonExists: false,
-	requestedSeason: "0",
-	requestedEpisode: "1",
-	parentName: "Black Mirror",
-	userId: "usr_ujrD0pCeKc1Y",
-	code: "seen-episode-absent",
-	parentEntityId: "met_WYGquxnbOnHd",
-	legacyRecordId: "see_hlFQdGwVxnPL",
-	availableSummary: "seasons 1, 2, 3, 4, 5, 6, 7",
-} as const satisfies MigrationReportDetail;
-
-it.effect("returns migration report entries ordered by severity and newest time", () => {
-	const row = {
-		seq: 12,
-		code: null,
-		count: null,
-		level: "info",
-		elapsedSeconds: 4.2,
-		message: "rows migrated",
-		phase: "review -> event",
-		createdAt: new Date("2026-08-24T12:34:56Z"),
-	} as const satisfies MigrationReportRow;
-	const { db, state } = makeMigrationReportDb([row]);
-
-	return Effect.gen(function* () {
-		const service = yield* GodModeService;
-		const result = yield* service.getMigrationReport();
-
-		expect(result).toEqual({
-			entries: [{ ...row, details: [], totalDetails: null, createdAt: "2026-08-24T12:34:56.000Z" }],
-		});
-		expect(state.orderBy.map((order) => dialect.sqlToQuery(order).sql.toLowerCase())).toEqual([
-			expect.stringContaining("case when"),
-			expect.stringContaining('"created_at" desc'),
-			expect.stringContaining('"seq" desc'),
-		]);
-		expect(state.detailQueries).toBe(0);
-	}).pipe(Effect.provide(makeServiceLayer(db)));
-});
-
-it.effect("attaches anomaly details to the entry that recorded them", () => {
-	const warning = {
-		seq: 12,
-		count: 1,
-		level: "warning",
-		elapsedSeconds: 4.2,
-		phase: "seen -> event",
-		message: "rows skipped",
-		code: "seen-episode-absent",
-		createdAt: new Date("2026-08-24T12:34:56Z"),
-	} as const satisfies MigrationReportRow;
-	const info = {
-		seq: 11,
-		count: 3,
-		code: null,
-		level: "info",
-		elapsedSeconds: 1,
-		message: "rows migrated",
-		phase: "review -> event",
-		createdAt: new Date("2026-08-24T12:34:55Z"),
-	} as const satisfies MigrationReportRow;
-	const { db, state } = makeMigrationReportDb(
-		[warning, info],
-		[{ seq: 1, reportSeq: 12, detail: migrationReportDetail }],
-	);
-
-	return Effect.gen(function* () {
-		const service = yield* GodModeService;
-		const result = yield* service.getMigrationReport();
-
-		expect(state.detailQueries).toBe(1);
-		expect(result.entries[0]?.details).toEqual([migrationReportDetail]);
-		expect(result.entries[0]?.totalDetails).toBe(1);
-		expect(result.entries[1]?.details).toEqual([]);
-		expect(result.entries[1]?.totalDetails).toBeNull();
-	}).pipe(Effect.provide(makeServiceLayer(db)));
-});
-
-it.effect("caps served details while still reporting the true total", () => {
-	const warning = {
-		seq: 12,
-		count: 250,
-		level: "warning",
-		elapsedSeconds: 4.2,
-		phase: "seen -> event",
-		message: "rows skipped",
-		code: "seen-episode-absent",
-		createdAt: new Date("2026-08-24T12:34:56Z"),
-	} as const satisfies MigrationReportRow;
-	const { db } = makeMigrationReportDb(
-		[warning],
-		Array.from({ length: 150 }, (_, index) => ({
-			reportSeq: 12,
-			seq: index + 1,
-			detail: migrationReportDetail,
-		})),
-	);
-
-	return Effect.gen(function* () {
-		const service = yield* GodModeService;
-		const result = yield* service.getMigrationReport();
-
-		expect(result.entries[0]?.details).toHaveLength(100);
-		expect(result.entries[0]?.totalDetails).toBe(250);
-	}).pipe(Effect.provide(makeServiceLayer(db)));
-});
-
-it.effect("classifies users with no accounts as none", () => {
-	const { db } = makeListUsersDb({ total: 1, accounts: [], users: [baseUser] });
-
-	return Effect.gen(function* () {
-		const service = yield* GodModeService;
-		const result = yield* service.listUsers({ limit: 50, offset: 0 });
-		expect(result.users[0]?.authState).toBe("none");
-	}).pipe(Effect.provide(makeServiceLayer(db)));
-});
-
-it.effect("classifies users with oidc accounts correctly", () => {
-	const { db } = makeListUsersDb({
-		total: 1,
-		users: [baseUser],
-		accounts: [{ providerId: "oidc", userId: baseUser.id }],
-	});
-
-	return Effect.gen(function* () {
-		const service = yield* GodModeService;
-		const result = yield* service.listUsers({ limit: 50, offset: 0 });
-		expect(result.users[0]?.authState).toBe("oidc");
-	}).pipe(Effect.provide(makeServiceLayer(db)));
-});
-
-it.effect("classifies users with both credential and oidc accounts as mixed", () => {
-	const { db } = makeListUsersDb({
-		total: 1,
-		users: [baseUser],
-		accounts: [
-			{ userId: baseUser.id, providerId: "credential" },
-			{ providerId: "oidc", userId: baseUser.id },
-		],
-	});
-
-	return Effect.gen(function* () {
-		const service = yield* GodModeService;
-		const result = yield* service.listUsers({ limit: 50, offset: 0 });
-		expect(result.users[0]?.authState).toBe("mixed");
-	}).pipe(Effect.provide(makeServiceLayer(db)));
-});
-
-it.effect("returns a db error when listing users fails", () => {
-	const { db } = makeListUsersDb({
-		total: 1,
-		accounts: [],
-		users: [baseUser],
-		listError: new Error("db down"),
-	});
-
-	return Effect.gen(function* () {
-		const service = yield* GodModeService;
-		const exit = yield* Effect.exit(service.listUsers({ limit: 50, offset: 0 }));
-		assertExitFails(exit, new DbError({ message: "db down" }));
-	}).pipe(Effect.provide(makeServiceLayer(db)));
-});
-
-it.effect("applies the search filter to user queries", () => {
-	const { db, state } = makeListUsersDb({ total: 1, accounts: [], users: [baseUser] });
-
-	return Effect.gen(function* () {
-		const service = yield* GodModeService;
-		yield* service.listUsers({ limit: 10, offset: 5, search: "john" });
-
-		expect(state.limit).toBe(10);
-		expect(state.offset).toBe(5);
-		assert(state.userWhere !== undefined, "Expected user query filter");
-		const query = dialect.sqlToQuery(state.userWhere);
-		expect(query.sql.toLowerCase()).toContain(" ilike ");
-		expect(query.params).toContain("%john%");
-	}).pipe(Effect.provide(makeServiceLayer(db)));
-});
-
-it.effect("trims whitespace from the search input", () => {
-	const { db, state } = makeListUsersDb({ total: 1, accounts: [], users: [baseUser] });
-
-	return Effect.gen(function* () {
-		const service = yield* GodModeService;
-		yield* service.listUsers({ limit: 10, offset: 0, search: "  john  " });
-
-		assert(state.userWhere !== undefined, "Expected user query filter");
-		const query = dialect.sqlToQuery(state.userWhere);
-		expect(query.params).toContain("%john%");
-	}).pipe(Effect.provide(makeServiceLayer(db)));
-});
-
-it.effect("returns the disabled timestamp for disabled users", () => {
-	const { db } = makeListUsersDb({
-		total: 1,
-		accounts: [{ userId: baseUser.id, providerId: "credential" }],
-		users: [{ ...baseUser, disabledAt: new Date("2024-02-03T04:05:06Z") }],
-	});
-
-	return Effect.gen(function* () {
-		const service = yield* GodModeService;
-		const result = yield* service.listUsers({ limit: 50, offset: 0 });
-		expect(result.users[0]?.disabledAt).toBe("2024-02-03T04:05:06.000Z");
-	}).pipe(Effect.provide(makeServiceLayer(db)));
 });
 
 it.effect("disables an enabled user and deletes sessions", () => {
@@ -675,11 +308,10 @@ it.effect("disables an enabled user and deletes sessions", () => {
 		const service = yield* GodModeService;
 		const result = yield* service.setUserDisabled(UserId.make("user_1"), true);
 
-		expect(result.id).toBe("user_1");
-		expect(typeof result.disabledAt).toBe("string");
+		expect(result).toEqual({ id: UserId.make("user_1") });
 		expect(authState.deleteUserSessionsCalled).toBe(true);
-		expect(authState.updateInput?.disabledAt?.toISOString()).toBe(result.disabledAt);
-		expect(authState.updateInput?.updatedAt.toISOString()).toBe(result.disabledAt);
+		expect(authState.updateInput?.disabledAt).toBeInstanceOf(Date);
+		expect(authState.updateInput?.updatedAt).toEqual(authState.updateInput?.disabledAt);
 	}).pipe(Effect.provide(makeServiceLayer(db, false, authState)));
 });
 
@@ -695,7 +327,7 @@ it.effect("preserves an existing disabledAt when disabling an already-disabled u
 		const service = yield* GodModeService;
 		const result = yield* service.setUserDisabled(UserId.make("user_1"), true);
 
-		expect(result).toEqual({ id: "user_1", disabledAt: "2024-01-02T00:00:00.000Z" });
+		expect(result).toEqual({ id: UserId.make("user_1") });
 		expect(authState.deleteUserSessionsCalled).toBe(true);
 		expect(authState.updateInput?.disabledAt).toBe(existingDisabledAt);
 	}).pipe(Effect.provide(makeServiceLayer(db, false, authState)));
@@ -714,7 +346,7 @@ it.effect("enables a disabled user without deleting sessions", () => {
 		const service = yield* GodModeService;
 		const result = yield* service.setUserDisabled(UserId.make("user_1"), false);
 
-		expect(result).toEqual({ id: "user_1", disabledAt: null });
+		expect(result).toEqual({ id: UserId.make("user_1") });
 		expect(authState.deleteUserSessionsCalled).toBe(false);
 		expect(authState.updateInput).toMatchObject({ disabledAt: null });
 	}).pipe(Effect.provide(makeServiceLayer(db, false, authState)));
@@ -731,7 +363,7 @@ it.effect("enabling an already-enabled user does not delete sessions", () => {
 		const service = yield* GodModeService;
 		const result = yield* service.setUserDisabled(UserId.make("user_1"), false);
 
-		expect(result).toEqual({ id: "user_1", disabledAt: null });
+		expect(result).toEqual({ id: UserId.make("user_1") });
 		expect(authState.deleteUserSessionsCalled).toBe(false);
 	}).pipe(Effect.provide(makeServiceLayer(db, false, authState)));
 });
@@ -764,21 +396,10 @@ it.effect("returns a db error when persisting disabled state fails", () => {
 });
 
 it.effect("delegates deletion to the durable lifecycle service", () => {
-	const { db } = makeListUsersDb({ total: 0, users: [], accounts: [] });
-	const operation = {
-		failure: null,
-		startedAt: null,
-		finishedAt: null,
-		id: "operation-1",
-		resetResult: null,
-		kind: "delete" as const,
-		status: "pending" as const,
-		userId: UserId.make("user_1"),
-		createdAt: "2026-08-24T00:00:00.000Z",
-	};
+	const { db } = makeSetUserDisabledDb({ user: null });
+	const operation = { operationId: "operation-1" };
 	const lifecycle = Layer.mock(UserLifecycleService)({
 		resetUser: () => Effect.die("unused"),
-		getOperation: () => Effect.die("unused"),
 		deleteUser: () => Effect.succeed(operation),
 	});
 

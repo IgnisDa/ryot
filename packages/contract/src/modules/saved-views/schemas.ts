@@ -158,6 +158,8 @@ export const ListedSavedView = strictStruct({
 
 export type ListedSavedView = typeof ListedSavedView.Type;
 
+export const SavedViewCommandResponse = strictStruct({ id: SavedViewId });
+
 export const CreateSavedViewBody = strictStruct({
 	icon: Schema.String,
 	name: Schema.String,

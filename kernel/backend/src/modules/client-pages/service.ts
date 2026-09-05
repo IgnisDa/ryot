@@ -32,7 +32,7 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { PluginCatalogInvalidator } from "#modules/plugins/catalog-events";
 import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 import { PluginRepository } from "#modules/plugins/repository";
-import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import { type AvailablePlugin, PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
 import { resolveClientPageGraph, type ResolvedClientPageGraph } from "./graph";
 import { getKernelClientRenderer, getKernelEntityRenderer } from "./kernel-renderers";
@@ -127,6 +127,21 @@ const normalizeDefinition = (definition: ClientRendererDefinition) =>
 		};
 	});
 
+const operationTargetsCurrent = (
+	current: ReadonlyArray<AvailablePlugin>,
+	recorded: PreparedClientPage["identity"]["operationTargets"],
+) =>
+	recorded.every((target) =>
+		current.some(
+			(plugin) =>
+				plugin.health === "ready" &&
+				plugin.id === target.pluginId &&
+				plugin.slug === target.pluginSlug &&
+				plugin.sourceHash === target.sourceHash &&
+				plugin.installationId === target.installationId,
+		),
+	);
+
 export class ClientPagesService extends Context.Service<ClientPagesService>()(
 	"ClientPagesService",
 	{
@@ -138,23 +153,8 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 			const pluginRuntime = yield* PluginRuntimeResolver;
 			const invalidator = yield* PluginCatalogInvalidator;
 			const inFlightCompilations = new Map<string, Promise<PluginClientArtifact>>();
-			const operationTargetsCurrent = Effect.fn(function* (
-				userId: CurrentUserValue["id"],
-				recorded: PreparedClientPage["identity"]["operationTargets"],
-			) {
-				const current = yield* pluginRuntime.listPluginsAvailableToUser(userId, true);
-				return recorded.every((target) =>
-					current.some(
-						(plugin) =>
-							plugin.health === "ready" &&
-							plugin.id === target.pluginId &&
-							plugin.slug === target.pluginSlug &&
-							plugin.sourceHash === target.sourceHash &&
-							plugin.installationId === target.installationId,
-					),
-				);
-			});
-
+			const listAvailable = (userId: CurrentUserValue["id"]) =>
+				pluginRuntime.listPluginsAvailableToUser(userId, true);
 			const resolveGraph = Effect.fn(function* (
 				input:
 					| {
@@ -173,11 +173,11 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 							readonly definition: ClientRendererDefinition;
 							readonly decoded: Readonly<Record<string, Uint8Array>>;
 					  },
+				available: ReadonlyArray<AvailablePlugin>,
 			) {
-				const snapshot = yield* pluginRuntime.listPluginsAvailableToUser(input.userId, true);
 				return yield* resolveClientPageGraph({
 					...input,
-					plugins: snapshot,
+					plugins: available,
 					rendererFiles: input.decoded,
 					loadPluginFiles: (plugin) =>
 						plugins.listAuthorizedSourceFiles({
@@ -192,8 +192,8 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 			const resolvePluginTarget = Effect.fn(function* (
 				userId: CurrentUserValue["id"],
 				target: Exclude<ClientPageTarget, { readonly kind: "saved-view" }>,
+				snapshot: ReadonlyArray<AvailablePlugin>,
 			) {
-				const snapshot = yield* pluginRuntime.listPluginsAvailableToUser(userId, true);
 				const resolved = yield* resolvePluginPageTarget({
 					target,
 					plugins: snapshot,
@@ -335,14 +335,17 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 						definition,
 					).pipe(Effect.orDie),
 				);
-				const graph = yield* resolveGraph({
-					decoded,
-					definition,
-					publishedHash,
-					userId: user.id,
-					rendererId: renderer.id,
-					rendererName: renderer.name,
-				});
+				const graph = yield* resolveGraph(
+					{
+						decoded,
+						definition,
+						publishedHash,
+						userId: user.id,
+						rendererId: renderer.id,
+						rendererName: renderer.name,
+					},
+					yield* listAvailable(user.id),
+				);
 				const artifact = yield* compileGraph(graph).pipe(
 					Effect.mapError(
 						(error) =>
@@ -384,14 +387,17 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 									),
 								);
 							}
-							const currentGraph = yield* resolveGraph({
-								decoded,
-								definition,
-								publishedHash,
-								userId: user.id,
-								rendererId: renderer.id,
-								rendererName: renderer.name,
-							});
+							const currentGraph = yield* resolveGraph(
+								{
+									decoded,
+									definition,
+									publishedHash,
+									userId: user.id,
+									rendererId: renderer.id,
+									rendererName: renderer.name,
+								},
+								yield* listAvailable(user.id),
+							);
 							if (currentGraph.graphHash !== graph.graphHash) {
 								return yield* invalid("Renderer dependency graph changed during publication");
 							}
@@ -417,16 +423,18 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 			});
 
 			const deleteRenderer = Effect.fn(function* (user: CurrentUserValue, rendererId: string) {
-				const existing = yield* requireRenderer(user.id, rendererId);
 				const database = yield* Database;
 				return yield* mapDatabaseErrors(
 					database.transaction((transaction) =>
 						Effect.gen(function* () {
-							yield* repository.lockRenderer(user.id, rendererId);
+							const existing = yield* repository.lockRenderer(user.id, rendererId);
+							if (!existing) {
+								return yield* notFound();
+							}
 							if ((yield* repository.listDependentSettings(user.id, rendererId)).length > 0) {
 								return yield* new ClientRendererBadRequest({ reason: { code: "renderer-in-use" } });
 							}
-							return (yield* repository.deleteRenderer(user.id, rendererId)) ?? existing;
+							return (yield* repository.deleteRenderer(user.id, rendererId)) ?? (yield* notFound());
 						}).pipe(Effect.provideService(Database, transaction)),
 					),
 				);
@@ -436,11 +444,12 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				userId: CurrentUserValue["id"],
 				identity: PreparedClientPage["identity"],
 			) {
-				if (!(yield* operationTargetsCurrent(userId, identity.operationTargets))) {
+				const available = yield* listAvailable(userId);
+				if (!operationTargetsCurrent(available, identity.operationTargets)) {
 					return false;
 				}
 				if (identity.kind === "plugin-page") {
-					const resolved = yield* resolvePluginTarget(userId, identity.target);
+					const resolved = yield* resolvePluginTarget(userId, identity.target, available);
 					if (resolved.kind !== "plugin") {
 						return false;
 					}
@@ -461,7 +470,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					);
 				}
 				if (identity.kind === "kernel-entity-page") {
-					const resolved = yield* resolvePluginTarget(userId, identity.target);
+					const resolved = yield* resolvePluginTarget(userId, identity.target, available);
 					if (resolved.kind !== "kernel-entity") {
 						return false;
 					}
@@ -498,14 +507,17 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					) {
 						return false;
 					}
-					const graph = yield* resolveGraph({
-						userId,
-						kernel: true,
-						decoded: kernelRenderer.files,
-						rendererName: kernelRenderer.name,
-						definition: kernelRenderer.definition,
-						sourceHash: kernelRenderer.sourceHash,
-					});
+					const graph = yield* resolveGraph(
+						{
+							userId,
+							kernel: true,
+							decoded: kernelRenderer.files,
+							rendererName: kernelRenderer.name,
+							definition: kernelRenderer.definition,
+							sourceHash: kernelRenderer.sourceHash,
+						},
+						available,
+					);
 					const build = yield* repository.findBuild({ userId, graphHash: graph.graphHash });
 					return (
 						graph.graphHash === identity.graphHash &&
@@ -531,14 +543,17 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 					return false;
 				}
 				const { decoded, definition } = yield* normalizeDefinition(renderer.publishedDefinition);
-				const graph = yield* resolveGraph({
-					userId,
-					decoded,
-					definition,
-					rendererId,
-					rendererName: renderer.name,
-					publishedHash: identity.publishedHash,
-				});
+				const graph = yield* resolveGraph(
+					{
+						userId,
+						decoded,
+						definition,
+						rendererId,
+						rendererName: renderer.name,
+						publishedHash: identity.publishedHash,
+					},
+					available,
+				);
 				if (
 					graph.graphHash !== identity.graphHash ||
 					!Bun.deepEquals(graph.contributors, identity.contributors)
@@ -558,20 +573,24 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				savedViewId: string,
 			) {
 				const prepared = yield* repository.findPreparedTarget(user.id, savedViewId);
+				const available = yield* listAvailable(user.id);
 				const kernelRenderer =
 					prepared?.view.renderer?.kind === "kernel"
 						? getKernelClientRenderer(prepared.view.renderer.name)
 						: undefined;
 				if (prepared?.view.renderer?.kind === "kernel" && kernelRenderer) {
 					const kernelRendererName = prepared.view.renderer.name;
-					const graph = yield* resolveGraph({
-						kernel: true,
-						userId: user.id,
-						decoded: kernelRenderer.files,
-						rendererName: kernelRenderer.name,
-						definition: kernelRenderer.definition,
-						sourceHash: kernelRenderer.sourceHash,
-					});
+					const graph = yield* resolveGraph(
+						{
+							kernel: true,
+							userId: user.id,
+							decoded: kernelRenderer.files,
+							rendererName: kernelRenderer.name,
+							definition: kernelRenderer.definition,
+							sourceHash: kernelRenderer.sourceHash,
+						},
+						available,
+					);
 					let build = yield* repository.findBuild({ userId: user.id, graphHash: graph.graphHash });
 					if (build && !Bun.deepEquals(build.graphIdentity, graph.identity)) {
 						return yield* invalid(
@@ -604,14 +623,17 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 									) {
 										return yield* invalid("Saved view changed during compilation");
 									}
-									const currentGraph = yield* resolveGraph({
-										kernel: true,
-										userId: user.id,
-										decoded: kernelRenderer.files,
-										rendererName: kernelRenderer.name,
-										definition: kernelRenderer.definition,
-										sourceHash: kernelRenderer.sourceHash,
-									});
+									const currentGraph = yield* resolveGraph(
+										{
+											kernel: true,
+											userId: user.id,
+											decoded: kernelRenderer.files,
+											rendererName: kernelRenderer.name,
+											definition: kernelRenderer.definition,
+											sourceHash: kernelRenderer.sourceHash,
+										},
+										yield* listAvailable(user.id),
+									);
 									if (currentGraph.graphHash !== graph.graphHash) {
 										return yield* invalid(
 											"Kernel renderer dependency graph changed during compilation",
@@ -666,10 +688,8 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 							kind: "kernel-saved-view" as const,
 							viewRevision: prepared.view.revision,
 							sourceHash: kernelRenderer.sourceHash,
+							operationTargets: clientPageOperationTargets(available),
 							target: { kind: "saved-view" as const, savedViewId: prepared.viewId },
-							operationTargets: clientPageOperationTargets(
-								yield* pluginRuntime.listPluginsAvailableToUser(user.id, true),
-							),
 						},
 					};
 				}
@@ -689,17 +709,18 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				const publishedHash = renderer.publishedHash;
 				const publishedRevision = renderer.publishedRevision;
 				const { decoded, definition } = yield* normalizeDefinition(renderer.publishedDefinition);
-				const graph = yield* resolveGraph({
-					decoded,
-					definition,
-					rendererId,
-					publishedHash,
-					userId: user.id,
-					rendererName: renderer.name,
-				});
-				const preparedOperationTargets = clientPageOperationTargets(
-					yield* pluginRuntime.listPluginsAvailableToUser(user.id, true),
+				const graph = yield* resolveGraph(
+					{
+						decoded,
+						definition,
+						rendererId,
+						publishedHash,
+						userId: user.id,
+						rendererName: renderer.name,
+					},
+					available,
 				);
+				const preparedOperationTargets = clientPageOperationTargets(available);
 				let build = yield* repository.findBuild({ userId: user.id, graphHash: graph.graphHash });
 				if (build && !Bun.deepEquals(build.graphIdentity, graph.identity)) {
 					return yield* invalid("Stored client page graph identity does not match its hash");
@@ -726,14 +747,17 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 								if (current?.publishedHash !== publishedHash) {
 									return yield* invalid("Renderer publication changed during compilation");
 								}
-								const currentGraph = yield* resolveGraph({
-									decoded,
-									rendererId,
-									definition,
-									publishedHash,
-									userId: user.id,
-									rendererName: renderer.name,
-								});
+								const currentGraph = yield* resolveGraph(
+									{
+										decoded,
+										rendererId,
+										definition,
+										publishedHash,
+										userId: user.id,
+										rendererName: renderer.name,
+									},
+									yield* listAvailable(user.id),
+								);
 								if (currentGraph.graphHash !== graph.graphHash) {
 									return yield* invalid("Renderer dependency graph changed during compilation");
 								}
@@ -801,7 +825,7 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				if (target.kind === "saved-view") {
 					return yield* prepareSavedView(user, target.savedViewId);
 				}
-				const resolved = yield* resolvePluginTarget(user.id, target);
+				const resolved = yield* resolvePluginTarget(user.id, target, yield* listAvailable(user.id));
 				let build = yield* repository.findBuild({
 					userId: user.id,
 					graphHash: resolved.graph.graphHash,
@@ -938,7 +962,6 @@ export class ClientPagesService extends Context.Service<ClientPagesService>()(
 				createRenderer,
 				deleteRenderer,
 				isIdentityCurrent,
-				getRenderer: requireRenderer,
 				listRenderers: (userId: CurrentUserValue["id"]) => repository.listRenderers(userId),
 			};
 		}),

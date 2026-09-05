@@ -1,8 +1,12 @@
 import {
 	IntegrationProvider,
-	ListedIntegration,
+	IntegrationSnapshot,
 } from "@ryot-app/contract/modules/integrations/schemas";
-import { IntegrationId, PluginSlug } from "@ryot-app/contract/schema/brands";
+import {
+	IntegrationId,
+	IntegrationWebhookToken,
+	PluginSlug,
+} from "@ryot-app/contract/schema/brands";
 import {
 	and,
 	ascending,
@@ -17,7 +21,7 @@ import {
 	selectedRows,
 	type Recipe,
 } from "@ryot-app/ryotql";
-import { Result, Schema } from "effect";
+import { Option, Result, Schema } from "effect";
 
 import { IsoDateString } from "./codecs";
 
@@ -27,9 +31,9 @@ const selection = {
 	pluginSlug: selectedField(column(integration, "pluginSlug"), PluginSlug),
 	createdAt: selectedField(column(integration, "createdAt"), IsoDateString),
 	updatedAt: selectedField(column(integration, "updatedAt"), IsoDateString),
-	lot: selectedField(column(integration, "lot"), ListedIntegration.fields.lot),
 	isDisabled: selectedField(column(integration, "isDisabled"), Schema.Boolean),
 	provider: selectedField(column(integration, "provider"), IntegrationProvider),
+	lot: selectedField(column(integration, "lot"), IntegrationSnapshot.fields.lot),
 	name: selectedField(column(integration, "name"), Schema.NullOr(Schema.String)),
 	syncOwnership: selectedField(column(integration, "syncOwnership"), Schema.Boolean),
 	minimumProgress: selectedField(column(integration, "minimumProgress"), Schema.Number),
@@ -40,7 +44,7 @@ const selection = {
 	),
 	extraSettings: selectedField(
 		column(integration, "extraSettings"),
-		ListedIntegration.fields.extraSettings,
+		IntegrationSnapshot.fields.extraSettings,
 	),
 };
 
@@ -78,15 +82,27 @@ export const integrationsRecipe = defineRecipe(
 );
 
 export const integrationRecipe = defineRecipe((input: { readonly id: string }) => ({
-	map: ({ integration: item }) => Result.succeed(item),
+	map: ({ integration: item }) =>
+		Result.succeed(item === undefined ? Option.none() : Option.some(item)),
 	queries: {
 		integration: selectedOptionalRow(integration, {
-			selection,
 			orderBy: [ascending(column(integration, "id"))],
 			where: eq(column(integration, "id"), literal(input.id)),
+			selection: {
+				...selection,
+				webhookToken: selectedField(
+					column(integration, "webhookToken"),
+					Schema.NullOr(IntegrationWebhookToken),
+				),
+				providerSpecifics: selectedField(
+					column(integration, "providerSpecifics"),
+					IntegrationSnapshot.fields.providerSpecifics,
+				),
+			},
 		}),
 	},
 }));
 
 export type IntegrationList = Recipe.Success<typeof integrationsRecipe>;
-export type IntegrationSummary = NonNullable<Recipe.Success<typeof integrationRecipe>>;
+export type IntegrationSummary = IntegrationList["items"][number];
+export type IntegrationDetail = Recipe.Success<typeof integrationRecipe>;

@@ -19,7 +19,7 @@ import {
 	parseAppSchemaProperties,
 } from "#lib/property-schema/property-schema-runtime";
 import { getCatalogTable } from "#modules/ryotql/catalog";
-import { validateRyotQLDocument } from "#modules/ryotql/validator";
+import { savedViewDataSourceAccess, validateRyotQLDocument } from "#modules/ryotql/validator";
 
 const invalidEntityBrowserDefinition = (message: string) =>
 	new SavedViewBadRequest({ reason: { message, code: "settings-incompatible" } });
@@ -101,7 +101,7 @@ export const validateEntityBrowserSavedViewDefinition = Effect.fn(
 	if (input.dataSources === null) {
 		return yield* invalidEntityBrowserDefinition("Entity-browser dataSources are required");
 	}
-	const semanticError = validateRyotQLDocument(input.dataSources);
+	const semanticError = validateRyotQLDocument(input.dataSources, savedViewDataSourceAccess);
 	if (semanticError) {
 		return yield* invalidEntityBrowserDefinition(semanticError);
 	}
@@ -211,7 +211,7 @@ export const validateSavedViewDefinition = Effect.fn("validateSavedViewDefinitio
 		return null;
 	}
 	if (dataSources !== null) {
-		const semanticError = validateRyotQLDocument(dataSources);
+		const semanticError = validateRyotQLDocument(dataSources, savedViewDataSourceAccess);
 		if (semanticError) {
 			return yield* invalidResultsTableDefinition(semanticError);
 		}
@@ -276,7 +276,7 @@ export const validateResultsTableSavedViewDefinition = Effect.fn(
 	if (input.dataSources === null) {
 		return yield* invalidResultsTableDefinition("Results-table dataSources are required");
 	}
-	const semanticError = validateRyotQLDocument(input.dataSources);
+	const semanticError = validateRyotQLDocument(input.dataSources, savedViewDataSourceAccess);
 	if (semanticError) {
 		return yield* invalidResultsTableDefinition(semanticError);
 	}

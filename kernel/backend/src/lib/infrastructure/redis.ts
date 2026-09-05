@@ -43,7 +43,7 @@ export const hashClientPageSessionToken = sha256Hex;
 
 export const redisKeys = {
 	entityUpdatedChannel: "ryot:entity:updated",
-	pluginRegistryChannel: "ryot:plugins:registry",
+	pluginCatalogChannel: "ryot:plugins:catalog",
 	uploadIntentExpiry: "ryot:upload:intents:expiry",
 	pluginCatalogUserChannel: "ryot:plugins:catalog:user",
 	uploadToken: (token: string) => `ryot:upload:token:${token}`,

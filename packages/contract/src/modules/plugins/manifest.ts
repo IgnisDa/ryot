@@ -542,7 +542,7 @@ const ImportInputSchema = Schema.toType(AppSchema).pipe(
 	),
 );
 
-const PluginImportExportHelp = strictStruct({
+export const PluginImportExportHelp = strictStruct({
 	docsUrl: Schema.optional(HttpUrl),
 	steps: Schema.optional(
 		Schema.Array(sandboxManifestString).pipe(Schema.check(Schema.isMinLength(1))),

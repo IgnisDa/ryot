@@ -25,15 +25,12 @@ export class UserSettingsService extends Context.Service<UserSettingsService>()(
 				};
 
 				yield* auth.updateUserPreferences(user.id, next);
-
-				return next;
 			});
 			const refreshAvatar = Effect.fn("UserSettingsService.refreshAvatar")(function* (
 				user: CurrentUserValue,
 			) {
 				const image = generateUserAvatar(crypto.randomUUID());
 				yield* auth.updateUserImage(user.id, image);
-				return { image };
 			});
 
 			return { refreshAvatar, updatePreferences };

@@ -19,7 +19,7 @@ import {
 	getCatalogTable,
 	resolveCatalogField,
 	type CatalogTable,
-	type RyotQLExecutionScope,
+	type RyotQLAccess,
 } from "./catalog";
 import { scalarExpressionKind, type KindResolver, type ScalarKind } from "./expression-kind";
 
@@ -33,7 +33,14 @@ export const MAX_DOCUMENT_QUERIES = 10;
 export const MAX_TIME_SERIES_BUCKETS = 1000;
 export const MAX_GROUPED_AGGREGATE_LIMIT = 1000;
 
-type AliasScope = ReadonlyMap<string, CatalogTable>;
+export const savedViewDataSourceAccess: RyotQLAccess = {
+	type: "user",
+	audience: "plugin",
+	accessClass: "standard",
+};
+
+type AliasEntry = { readonly key: string; readonly table: CatalogTable };
+type AliasScope = ReadonlyMap<string, AliasEntry>;
 
 const requiredNameError = (value: string, label: string) =>
 	value.trim().length === 0 ? `${label} must not be empty` : null;
@@ -47,22 +54,22 @@ const isTextOperand = (kind: ScalarKind | undefined) =>
 const isNamedTimeZone = (value: string) =>
 	!/^[-+]\d{2}(?::?\d{2})?$/.test(value) && Option.isSome(DateTime.zoneMakeNamed(value));
 
-const kindResolver: KindResolver<AliasScope> = {
+const kindResolver = (access: RyotQLAccess): KindResolver<AliasScope> => ({
 	correlated: (query, scope) => expressionScope(query, scope),
 	column: (expr, scope) => {
-		const table = scope.get(expr.tableAlias);
-		return table ? resolveCatalogField(table, expr.field)?.kind : undefined;
+		const entry = scope.get(expr.tableAlias);
+		return entry ? resolveCatalogField(entry.table, expr.field, access)?.kind : undefined;
 	},
-};
+});
 
-export const expressionKind = (expr: ScalarExpression, scope: AliasScope) =>
-	scalarExpressionKind(expr, scope, kindResolver);
+export const expressionKind = (expr: ScalarExpression, scope: AliasScope, access: RyotQLAccess) =>
+	scalarExpressionKind(expr, scope, kindResolver(access));
 
 const validateExpression = (
 	expr: ScalarExpression,
 	scope: AliasScope,
 	correlatedDepth: number,
-	executionScope: Pick<RyotQLExecutionScope, "type">,
+	executionScope: RyotQLAccess,
 	elementDepth = 0,
 ): string | null => {
 	if (expr.type === "literal") {
@@ -94,7 +101,7 @@ const validateExpression = (
 		if (expressionError) {
 			return expressionError;
 		}
-		if (expressionKind(expr.expr, scope) !== "date") {
+		if (expressionKind(expr.expr, scope, executionScope) !== "date") {
 			return "Date buckets require a date expression";
 		}
 		return isNamedTimeZone(expr.timeZone)
@@ -146,7 +153,7 @@ const validateExpression = (
 		if (expressionError) {
 			return expressionError;
 		}
-		const kind = expressionKind(expr.expr, scope);
+		const kind = expressionKind(expr.expr, scope, executionScope);
 		return isTextOperand(kind) ? null : `Text operands must be text: ${kind}`;
 	}
 	if (
@@ -168,7 +175,7 @@ const validateExpression = (
 		if (expr.type === "isNotNull") {
 			return null;
 		}
-		const kind = expressionKind(expr.expr, scope);
+		const kind = expressionKind(expr.expr, scope, executionScope);
 		return isNumericOperand(kind) ? null : `Numeric operands must be numeric: ${kind}`;
 	}
 	if (expr.type === "arithmetic") {
@@ -216,7 +223,7 @@ const validateExpression = (
 				if (orderError) {
 					return orderError;
 				}
-				if (expressionKind(order.expr, nested.scope) === "json") {
+				if (expressionKind(order.expr, nested.scope, executionScope) === "json") {
 					return "Ordering expressions must resolve to scalar values";
 				}
 			}
@@ -234,17 +241,17 @@ const validateExpression = (
 		if (expressionError) {
 			return expressionError;
 		}
-		return expressionKind(expr.expr, scope) === "json"
+		return expressionKind(expr.expr, scope, executionScope) === "json"
 			? null
 			: "JSON paths require a JSON expression";
 	}
-	const table = scope.get(expr.tableAlias);
-	if (!table) {
+	const entry = scope.get(expr.tableAlias);
+	if (!entry) {
 		return `Unknown table alias '${expr.tableAlias}'`;
 	}
-	return resolveCatalogField(table, expr.field)
+	return resolveCatalogField(entry.table, expr.field, executionScope)
 		? null
-		: `Unknown field '${expr.field}' on table '${table.name}'`;
+		: `Unknown field '${expr.field}' on table '${entry.key}'`;
 };
 
 const compatibleKinds = (left: ScalarKind | undefined, right: ScalarKind | undefined) =>
@@ -254,7 +261,7 @@ const validateJsonArray = (
 	expr: Extract<ScalarExpression, { type: "jsonExists" | "jsonFirst" | "jsonCount" }>,
 	scope: AliasScope,
 	correlatedDepth: number,
-	executionScope: Pick<RyotQLExecutionScope, "type">,
+	executionScope: RyotQLAccess,
 	elementDepth: number,
 	projection: { readonly select: ScalarExpression; readonly orderBy: readonly OrderBy[] } | null,
 ): string | null => {
@@ -271,7 +278,7 @@ const validateJsonArray = (
 	if (arrayError) {
 		return arrayError;
 	}
-	if (expressionKind(expr.array, scope) !== "json") {
+	if (expressionKind(expr.array, scope, executionScope) !== "json") {
 		return "JSON array operators require a JSON expression";
 	}
 	const nestedDepth = elementDepth + 1;
@@ -297,7 +304,7 @@ const validateJsonArray = (
 			if (orderError) {
 				return orderError;
 			}
-			if (expressionKind(order.expr, scope) === "json") {
+			if (expressionKind(order.expr, scope, executionScope) === "json") {
 				return "Ordering expressions must resolve to scalar values";
 			}
 		}
@@ -311,7 +318,7 @@ const validatePredicate = (
 	predicate: Predicate,
 	scope: AliasScope,
 	correlatedDepth: number,
-	executionScope: Pick<RyotQLExecutionScope, "type">,
+	executionScope: RyotQLAccess,
 	elementDepth = 0,
 ): string | null => {
 	if (predicate.type === "exists" || predicate.type === "jsonExists") {
@@ -324,8 +331,8 @@ const validatePredicate = (
 		if (expressionError) {
 			return expressionError;
 		}
-		const left = expressionKind(predicate.left, scope);
-		const right = expressionKind(predicate.right, scope);
+		const left = expressionKind(predicate.left, scope, executionScope);
+		const right = expressionKind(predicate.right, scope, executionScope);
 		if (!compatibleKinds(left, right)) {
 			return "Comparison operands must have compatible types";
 		}
@@ -361,8 +368,8 @@ const validatePredicate = (
 		if (expressionError) {
 			return expressionError;
 		}
-		const left = expressionKind(predicate.left, scope);
-		const right = expressionKind(predicate.right, scope);
+		const left = expressionKind(predicate.left, scope, executionScope);
+		const right = expressionKind(predicate.right, scope, executionScope);
 		return (left === "text" && right === "text") || (left === "json" && right === "json")
 			? null
 			: "Containment operands must both be text or JSON";
@@ -378,18 +385,18 @@ const validatePredicate = (
 	if (expressionError) {
 		return expressionError;
 	}
-	const expressionType = expressionKind(predicate.expr, scope);
+	const expressionType = expressionKind(predicate.expr, scope, executionScope);
 	return predicate.values.every((value) =>
-		compatibleKinds(expressionType, expressionKind(value, scope)),
+		compatibleKinds(expressionType, expressionKind(value, scope, executionScope)),
 	)
 		? null
 		: "Membership values must have compatible types";
 };
 
 const addTable = (
-	scope: Map<string, CatalogTable>,
+	scope: Map<string, AliasEntry>,
 	reference: TableReference,
-	executionScope: Pick<RyotQLExecutionScope, "type">,
+	executionScope: RyotQLAccess,
 ): string | null => {
 	const aliasError = requiredNameError(reference.alias, "Table alias");
 	if (aliasError) {
@@ -403,9 +410,11 @@ const addTable = (
 		return `Unknown table '${reference.table}'`;
 	}
 	if (!canAccessCatalogTable(table, executionScope)) {
-		return `Table '${reference.table}' is not available to plugin execution`;
+		return executionScope.type === "user"
+			? `Table '${reference.table}' is not available to the ${executionScope.audience} audience`
+			: `Table '${reference.table}' is not available to ${executionScope.type} execution`;
 	}
-	scope.set(reference.alias, table);
+	scope.set(reference.alias, { table, key: reference.table });
 	return null;
 };
 
@@ -416,7 +425,7 @@ const expressionScope = (query: CorrelatedQuerySet, ancestors: AliasScope) => {
 	for (const reference of [query.from, ...(query.joins ?? []).map((join) => join.table)]) {
 		const table = getCatalogTable(reference.table);
 		if (table) {
-			scope.set(reference.alias, table);
+			scope.set(reference.alias, { table, key: reference.table });
 		}
 	}
 	return scope;
@@ -426,7 +435,7 @@ const validateQuerySet = (
 	query: QuerySet,
 	ancestors: AliasScope,
 	correlatedDepth: number,
-	executionScope: Pick<RyotQLExecutionScope, "type"> = { type: "user" },
+	executionScope: RyotQLAccess,
 ) => {
 	const joins = query.joins ?? [];
 	if (joins.length > MAX_QUERY_JOINS) {
@@ -459,10 +468,14 @@ const validateSelections = (
 	include: readonly Include[],
 	scope: AliasScope,
 	depth: number,
-	executionScope: Pick<RyotQLExecutionScope, "type">,
+	executionScope: RyotQLAccess,
 ): string | null => {
 	const keys = new Set<string>();
-	const expanded = expandCatalogSelections(fields, (alias) => scope.get(alias));
+	const expanded = expandCatalogSelections(
+		fields,
+		(alias) => scope.get(alias)?.table,
+		executionScope,
+	);
 	if (expanded.error) {
 		return expanded.error;
 	}
@@ -516,7 +529,7 @@ const validateSelections = (
 		if (expressionError) {
 			return expressionError;
 		}
-		if (expressionKind(order.expr, scope) === "json") {
+		if (expressionKind(order.expr, scope, executionScope) === "json") {
 			return "Ordering expressions must resolve to scalar values";
 		}
 	}
@@ -526,7 +539,7 @@ const validateSelections = (
 const validateAggregateOutput = (
 	output: AggregateOutput,
 	scope: AliasScope,
-	executionScope: Pick<RyotQLExecutionScope, "type">,
+	executionScope: RyotQLAccess,
 ): string | null => {
 	const outputKeys = new Set<string>();
 	const groupKinds = new Map<string, ScalarKind | undefined>();
@@ -539,7 +552,7 @@ const validateAggregateOutput = (
 			return `Duplicate aggregate output key '${group.key}'`;
 		}
 		outputKeys.add(group.key);
-		groupKinds.set(group.key, expressionKind(group.expr, scope));
+		groupKinds.set(group.key, expressionKind(group.expr, scope, executionScope));
 		const expressionError = validateExpression(group.expr, scope, 0, executionScope);
 		if (expressionError) {
 			return expressionError;
@@ -645,7 +658,7 @@ const countTimeSeriesBuckets = (output: TimeSeriesOutput) => {
 const validateTimeSeriesOutput = (
 	output: TimeSeriesOutput,
 	scope: AliasScope,
-	executionScope: Pick<RyotQLExecutionScope, "type">,
+	executionScope: RyotQLAccess,
 ): string | null => {
 	const range = countTimeSeriesBuckets(output);
 	if (Option.isNone(range.startAt) || Option.isNone(range.endAt)) {
@@ -662,7 +675,8 @@ const validateTimeSeriesOutput = (
 		return timeError;
 	}
 	const validTimeExpression =
-		(output.time.expr.type === "column" && expressionKind(output.time.expr, scope) === "date") ||
+		(output.time.expr.type === "column" &&
+			expressionKind(output.time.expr, scope, executionScope) === "date") ||
 		(output.time.expr.type === "cast" && output.time.expr.target === "date");
 	if (!validTimeExpression) {
 		return "Time-series time expressions require a date field or explicit date cast";
@@ -672,10 +686,7 @@ const validateTimeSeriesOutput = (
 		: validateExpression(output.measure.aggregation.expr, scope, 0, executionScope);
 };
 
-const validateNamedQuery = (
-	query: NamedQuery,
-	executionScope: Pick<RyotQLExecutionScope, "type">,
-): string | null => {
+const validateNamedQuery = (query: NamedQuery, executionScope: RyotQLAccess): string | null => {
 	const querySet = validateQuerySet(query, new Map(), 0, executionScope);
 	if (querySet.error || !querySet.scope) {
 		return querySet.error;
@@ -701,7 +712,7 @@ const validateNamedQuery = (
 
 export const validateRyotQLDocument = (
 	document: RyotQLDocument,
-	executionScope: Pick<RyotQLExecutionScope, "type"> = { type: "user" },
+	executionScope: RyotQLAccess,
 ): string | null => {
 	const queries = Object.entries(document.queries);
 	if (queries.length === 0) {

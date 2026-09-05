@@ -171,6 +171,6 @@ Compiler memory is sampled proportional set size in the Linux production image, 
 
 ## Liveness And Garbage Collection
 
-Database rows and `<contentHash>.mjs` files share one liveness set: persisted current plugins, accepted automation runs inside their artifact window, the active loader snapshot, source-zero kernel scripts, and running or suspended workflow references. GC starts only after kernel hashes exist, takes the plugin-ingestion lock, computes liveness and deletes rows in one transaction, then removes only unreferenced hash-shaped files.
+Database rows and `<contentHash>.mjs` files share one liveness set: persisted current plugins, accepted automation runs inside their artifact window, source-zero kernel scripts referenced from `kernel_script`, and running or suspended workflow references. GC takes the plugin-ingestion lock, computes liveness from persisted state and deletes rows in one transaction, then removes only unreferenced hash-shaped files.
 
 Execution hard links protect in-flight imports if canonical files are collected. Acquisition retries once if GC wins the materialize/link race. Missing memoized files are evicted and rebuilt. Persisted workflow references protect ordinary suspended work; retained automation runs independently protect their exact script, plugin, and configuration pins through retry and manual replay. Completion or cancellation releases workflow references.

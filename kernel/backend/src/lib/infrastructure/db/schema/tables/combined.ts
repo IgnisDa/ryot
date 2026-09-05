@@ -1,6 +1,7 @@
 export * from "./automations";
 export * from "./backups";
 export * from "./core";
+export * from "./definitions";
 export * from "./entities";
 export * from "./events";
 export * from "./imports";
