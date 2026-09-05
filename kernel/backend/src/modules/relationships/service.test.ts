@@ -52,7 +52,7 @@ type GetEntityScopeForUser = (input: {
 
 const makeRelationshipsRepository = (
 	overrides: MockOverrides<typeof mockRelationshipsRepository> = {},
-) => mockRelationshipsRepository({ ...overrides });
+) => mockRelationshipsRepository({ lockRelationshipMutations: () => Effect.void, ...overrides });
 
 const makeServiceLayer = (
 	overrides: Parameters<typeof makeRelationshipsRepository>[0] = {},
@@ -65,13 +65,15 @@ const makeServiceLayer = (
 			entityName: "Entity",
 			entitySchemaSlug: EntitySchemaSlug.make("entity"),
 		}),
+	lockEntityReferencesByIds: EntitiesRepository["Service"]["lockEntityReferencesByIds"] = () =>
+		Effect.void,
 ) =>
 	Layer.provideMerge(
 		RelationshipsService.layer,
 		Layer.mergeAll(
 			Layer.succeed(Database, Database.of(Object.assign(Object.create(null), { transaction }))),
 			makeRelationshipsRepository(overrides),
-			Layer.mock(EntitiesRepository)({ getEntityScopeForUser }),
+			Layer.mock(EntitiesRepository)({ getEntityScopeForUser, lockEntityReferencesByIds }),
 			Layer.mock(PluginRuntimeResolver)({
 				getEffectiveDefinitions: () =>
 					Effect.succeed({
@@ -523,30 +525,47 @@ it.effect("reconciles a global self-relationship group atomically and deletes st
 	const created: unknown[] = [];
 	const deleted: unknown[] = [];
 	const updated: unknown[] = [];
+	const lockOrder: string[] = [];
 	const existing = {
 		...relationship,
 		wasInserted: false,
 		sourceEntityId: EntityId.make("removed-entity-id"),
 		targetEntityId: EntityId.make("removed-entity-id"),
 	};
-	const layer = makeServiceLayer({
-		listGlobalRelationships: () => Effect.succeed([existing]),
-		deleteRelationship: (input) =>
+	const layer = makeServiceLayer(
+		{
+			lockRelationshipMutations: () =>
+				Effect.sync(() => {
+					lockOrder.push("relationships");
+				}),
+			deleteRelationship: (input) =>
+				Effect.sync(() => {
+					deleted.push(input);
+					return existing;
+				}),
+			listGlobalRelationships: () =>
+				Effect.sync(() => {
+					lockOrder.push("list");
+					return [existing];
+				}),
+			updateRelationship: (input) =>
+				Effect.sync(() => {
+					updated.push(input);
+					return { ...relationship, wasInserted: false };
+				}),
+			createRelationship: (input) =>
+				Effect.sync(() => {
+					created.push(input);
+					return { ...relationship, wasInserted: false };
+				}),
+		},
+		undefined,
+		undefined,
+		() =>
 			Effect.sync(() => {
-				deleted.push(input);
-				return existing;
+				lockOrder.push("entities");
 			}),
-		updateRelationship: (input) =>
-			Effect.sync(() => {
-				updated.push(input);
-				return { ...relationship, wasInserted: false };
-			}),
-		createRelationship: (input) =>
-			Effect.sync(() => {
-				created.push(input);
-				return { ...relationship, wasInserted: false };
-			}),
-	});
+	);
 
 	return Effect.gen(function* () {
 		const service = yield* RelationshipsService;
@@ -562,5 +581,6 @@ it.effect("reconciles a global self-relationship group atomically and deletes st
 		expect(created).toHaveLength(1);
 		expect(updated).toHaveLength(1);
 		expect(deleted).toHaveLength(1);
+		expect(lockOrder).toEqual(["list", "entities", "relationships"]);
 	}).pipe(Effect.provide(layer));
 });

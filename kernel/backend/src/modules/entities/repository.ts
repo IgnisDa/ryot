@@ -57,6 +57,22 @@ export type GlobalEntityProvenanceScopeInput = {
 	entitySchemaPluginId: string | null;
 };
 
+export type ProviderEntityMutationLockInput = {
+	externalId: string;
+	providerId: SandboxProviderId;
+	entitySchemaSlug: EntitySchemaSlug;
+} & ({ scope: "global" } | { scope: "user"; userId: UserId });
+
+export const providerEntityMutationLockKey = (input: ProviderEntityMutationLockInput) =>
+	JSON.stringify([
+		"provider-entity",
+		input.scope,
+		input.scope === "user" ? input.userId : "global",
+		input.entitySchemaSlug,
+		input.providerId,
+		input.externalId,
+	]);
+
 export type PortableEntityRecord = Pick<
 	typeof schema.entity.$inferSelect,
 	| "id"
@@ -140,6 +156,34 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 		make: Effect.gen(function* () {
 			const definitions = yield* DefinitionRegistry;
 			const pluginRuntime = yield* PluginRuntimeResolver;
+			const lockProviderEntityMutations = Effect.fn(
+				"EntitiesRepository.lockProviderEntityMutations",
+			)(function* (inputs: ReadonlyArray<ProviderEntityMutationLockInput>) {
+				const db = yield* Database;
+				const keys = [...new Set(inputs.map(providerEntityMutationLockKey))].sort();
+				for (const key of keys) {
+					yield* mapDatabaseErrors(
+						db.execute(sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`),
+					);
+				}
+			});
+			const lockEntityReferencesByIds = Effect.fn("EntitiesRepository.lockEntityReferencesByIds")(
+				function* (entityIds: ReadonlyArray<EntityId>) {
+					const ids = [...new Set(entityIds)].sort();
+					if (ids.length === 0) {
+						return;
+					}
+					const db = yield* Database;
+					yield* mapDatabaseErrors(
+						db
+							.select({ id: schema.entity.id })
+							.from(schema.entity)
+							.where(inArray(schema.entity.id, ids))
+							.orderBy(asc(schema.entity.id))
+							.for("key share"),
+					);
+				},
+			);
 			const listMatchCandidatesBySchema = Effect.fn(
 				"EntitiesRepository.listMatchCandidatesBySchema",
 			)(function* (input: { userId: UserId; entitySchemaSlug: EntitySchemaSlug }) {
@@ -825,11 +869,13 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				findEntitySchemaForUser,
 				listEntityReferencesByIds,
 				listUserEntitiesForBackup,
+				lockEntityReferencesByIds,
 				getClientPageEntityForUser,
 				lockUserEntityEnsureScopes,
 				getEntityMergeScopeForUser,
 				findGlobalEntityForRestore,
 				findSystemEntitySchemaById,
+				lockProviderEntityMutations,
 				listMatchCandidatesBySchema,
 				findEntitySchemaProviderBySlug,
 				findUserEntityWithoutProvenance,
