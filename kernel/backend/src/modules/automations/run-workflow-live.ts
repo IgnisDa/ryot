@@ -23,7 +23,6 @@ import { Clock, Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { applyLifecyclePolicyPatches } from "#lib/domain/lifecycle-policy-patch";
 import { pluginRevision } from "#lib/infrastructure/db/schema/tables/core";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
@@ -256,8 +255,7 @@ export const AutomationRunWorkflowOperationsLive = Layer.effect(
 					}
 					let hookMetadata: JsonValue | undefined;
 					if (run.pluginId !== null) {
-						const database = yield* session.current;
-						const [revision] = yield* mapDatabaseErrors(
+						const [revision] = yield* session.run((database) =>
 							database
 								.select({ manifest: pluginRevision.manifest })
 								.from(pluginRevision)

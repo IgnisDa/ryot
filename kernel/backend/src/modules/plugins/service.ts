@@ -8,7 +8,6 @@ import { inArray } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { kernelDefinitionSource, kernelScripts } from "#modules/definition-registry/kernel-source";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
@@ -98,8 +97,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 				if (slugs.length === 0) {
 					return yield* Effect.void;
 				}
-				const db = yield* database.current;
-				const [collision] = yield* mapDatabaseErrors(
+				const [collision] = yield* database.run((db) =>
 					db
 						.select({ slug: schema.savedView.slug })
 						.from(schema.savedView)

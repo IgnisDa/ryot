@@ -5,7 +5,6 @@ import { Context, Effect, Layer } from "effect";
 
 import { user } from "#lib/infrastructure/db/schema/tables/auth";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 export type TranslationOverlayInput = {
@@ -32,8 +31,7 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 				if (entityIds.length === 0) {
 					return [];
 				}
-				const db = yield* session.current;
-				return yield* mapDatabaseErrors(
+				return yield* session.run((db) =>
 					db
 						.select()
 						.from(schema.entityTranslation)
@@ -45,8 +43,7 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 			const upsertOverlay = Effect.fn("TranslationsRepository.upsertOverlay")(function* (
 				input: TranslationOverlayInput,
 			) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db
 						.insert(schema.entityTranslation)
 						.values({
@@ -76,8 +73,7 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 			const findUserLanguage = Effect.fn("TranslationsRepository.findUserLanguage")(function* (
 				userId: UserId,
 			) {
-				const db = yield* session.current;
-				const [row] = yield* mapDatabaseErrors(
+				const [row] = yield* session.run((db) =>
 					db
 						.select({ preferences: user.preferences })
 						.from(user)

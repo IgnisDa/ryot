@@ -5,7 +5,6 @@ import {
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { entity } from "@ryot-app/kernel-backend/lib/infrastructure/db/schema/tables/entities";
 import { event } from "@ryot-app/kernel-backend/lib/infrastructure/db/schema/tables/events";
-import { mapDatabaseErrors } from "@ryot-app/kernel-backend/lib/infrastructure/db/service";
 import { DatabaseSession } from "@ryot-app/kernel-backend/lib/infrastructure/db/session";
 import { S3Service } from "@ryot-app/kernel-backend/lib/infrastructure/s3";
 import { ManagedAssetsRepository } from "@ryot-app/kernel-backend/modules/uploads/managed-assets/repository";
@@ -156,10 +155,10 @@ const migrateAsset = (
 	}).pipe(Effect.catchCause(() => Effect.succeed(null)));
 
 export const migrateLegacyS3Assets = Effect.gen(function* () {
-	const database = yield* (yield* DatabaseSession).current;
+	const session = yield* DatabaseSession;
 	const s3 = yield* S3Service;
 	const repository = yield* ManagedAssetsRepository;
-	const rows = yield* mapDatabaseErrors(
+	const rows = yield* session.run((database) =>
 		database.execute<LegacyS3Row>(
 			sql`
 				SELECT "id", "user_id" AS "userId", "properties", 'entity' AS "source"
@@ -214,11 +213,11 @@ export const migrateLegacyS3Assets = Effect.gen(function* () {
 			);
 		}
 		if (row.source === "entity") {
-			yield* mapDatabaseErrors(
+			yield* session.run((database) =>
 				database.update(entity).set({ properties }).where(eq(entity.id, row.id)),
 			);
 		} else {
-			yield* mapDatabaseErrors(
+			yield* session.run((database) =>
 				database.update(event).set({ properties }).where(eq(event.id, row.id)),
 			);
 		}

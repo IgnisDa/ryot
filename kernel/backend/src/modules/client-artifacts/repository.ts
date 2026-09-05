@@ -10,7 +10,6 @@ import {
 	clientArtifact,
 	clientArtifactFile,
 } from "#lib/infrastructure/db/schema/tables/client-artifacts";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 type ArtifactRow = typeof clientArtifact.$inferSelect;
@@ -49,8 +48,7 @@ export class ClientArtifactsRepository extends Context.Service<ClientArtifactsRe
 					hash: string,
 					name: string,
 				) {
-					const db = yield* session.current;
-					const [row] = yield* mapDatabaseErrors(
+					const [row] = yield* session.run((db) =>
 						db
 							.select({
 								contents: clientArtifactFile.contents,
@@ -67,14 +65,13 @@ export class ClientArtifactsRepository extends Context.Service<ClientArtifactsRe
 						: null;
 				}),
 				describe: Effect.fn("ClientArtifactsRepository.describe")(function* (hash: string) {
-					const db = yield* session.current;
-					const [metadata] = yield* mapDatabaseErrors(
+					const [metadata] = yield* session.run((db) =>
 						db.select().from(clientArtifact).where(eq(clientArtifact.hash, hash)).limit(1),
 					);
 					if (!metadata) {
 						return null;
 					}
-					const files = yield* mapDatabaseErrors(
+					const files = yield* session.run((db) =>
 						db
 							.select({
 								name: clientArtifactFile.name,
@@ -89,14 +86,13 @@ export class ClientArtifactsRepository extends Context.Service<ClientArtifactsRe
 				loadClientArtifact: Effect.fn("ClientArtifactsRepository.loadClientArtifact")(function* (
 					hash: string,
 				) {
-					const db = yield* session.current;
-					const [metadata] = yield* mapDatabaseErrors(
+					const [metadata] = yield* session.run((db) =>
 						db.select().from(clientArtifact).where(eq(clientArtifact.hash, hash)).limit(1),
 					);
 					if (!metadata) {
 						return yield* new DbError({ message: `Client artifact ${hash} is missing` });
 					}
-					const files = yield* mapDatabaseErrors(
+					const files = yield* session.run((db) =>
 						db.select().from(clientArtifactFile).where(eq(clientArtifactFile.artifactHash, hash)),
 					);
 					const artifact = yield* Schema.decodeUnknownEffect(PluginClientArtifactSchema)({
@@ -118,8 +114,7 @@ export class ClientArtifactsRepository extends Context.Service<ClientArtifactsRe
 				}),
 				persistClientArtifact: Effect.fn("ClientArtifactsRepository.persistClientArtifact")(
 					function* (artifact: PluginClientArtifact) {
-						const db = yield* session.current;
-						const [inserted] = yield* mapDatabaseErrors(
+						const [inserted] = yield* session.run((db) =>
 							db
 								.insert(clientArtifact)
 								.values({
@@ -134,7 +129,7 @@ export class ClientArtifactsRepository extends Context.Service<ClientArtifactsRe
 						);
 						if (inserted) {
 							if (artifact.files.length > 0) {
-								yield* mapDatabaseErrors(
+								yield* session.run((db) =>
 									db
 										.insert(clientArtifactFile)
 										.values(
@@ -148,14 +143,14 @@ export class ClientArtifactsRepository extends Context.Service<ClientArtifactsRe
 							}
 							return yield* Effect.void;
 						}
-						const [metadata] = yield* mapDatabaseErrors(
+						const [metadata] = yield* session.run((db) =>
 							db
 								.select()
 								.from(clientArtifact)
 								.where(eq(clientArtifact.hash, artifact.hash))
 								.limit(1),
 						);
-						const files = yield* mapDatabaseErrors(
+						const files = yield* session.run((db) =>
 							db
 								.select()
 								.from(clientArtifactFile)

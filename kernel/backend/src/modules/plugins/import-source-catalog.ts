@@ -7,7 +7,6 @@ import { and, eq, sql, type SQL } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 import { type CatalogScript, catalogScriptFields } from "./persisted-projections";
@@ -27,8 +26,7 @@ const view = schema.userImportSource;
 
 const querySourcesForSession = (database: DatabaseSession["Service"]) =>
 	Effect.fn(function* (userId: UserId, predicate?: SQL) {
-		const db = yield* database.current;
-		const rows = yield* mapDatabaseErrors(
+		const rows = yield* database.run((db) =>
 			db
 				.select({
 					slug: view.slug,

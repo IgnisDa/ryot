@@ -19,7 +19,6 @@ import { LifecyclePlanner } from "#lib/domain/lifecycle";
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import {
@@ -100,9 +99,8 @@ const planner = (failChange: Ref.Ref<boolean>) =>
 			withLifecycleBatchPlanning({
 				plan: ({ trigger }) =>
 					Effect.gen(function* () {
-						const db = yield* session.current;
 						const { kind, causation } = trigger;
-						yield* mapDatabaseErrors(
+						yield* session.run((db) =>
 							db
 								.insert(tables.automationTrigger)
 								.values({
@@ -125,7 +123,7 @@ const planner = (failChange: Ref.Ref<boolean>) =>
 								}),
 						);
 						if (kind.category === "change") {
-							yield* mapDatabaseErrors(
+							yield* session.run((db) =>
 								db
 									.insert(tables.automationRun)
 									.values({
