@@ -6,6 +6,7 @@ import {
 	AuthRateLimited,
 	AuthUnauthorized,
 	DemoOperationProtected,
+	UserInitializing,
 } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
 import { PluginSlug, UserId } from "../../schema/brands";
@@ -137,6 +138,7 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 					PluginNotFoundError.pipe(HttpApiSchema.status(404)),
 					PluginRequestError.pipe(HttpApiSchema.status(400)),
 					AuthRateLimited.pipe(HttpApiSchema.status(429)),
+					UserInitializing.pipe(HttpApiSchema.status(503)),
 					PluginInvocationError.pipe(HttpApiSchema.status(502)),
 				],
 			},

@@ -1,6 +1,9 @@
+import type { GenericEndpointContext } from "@better-auth/core";
+import { getCurrentAdapter } from "@better-auth/core/context";
 import type {
 	CleanedWhere,
 	CustomAdapter,
+	DBAdapter,
 	DBTransactionAdapter,
 	JoinConfig,
 } from "@better-auth/core/db/adapter";
@@ -40,6 +43,7 @@ type AuthRow = Record<string, unknown>;
 type AuthTable = PgTable;
 type DatabaseExecutor = Parameters<Parameters<DatabaseSession["Service"]["run"]>[0]>[0];
 type AuthAdapterFactory = ReturnType<typeof createAdapterFactory>;
+type AuthRuntimeContext = Context.Context<DatabaseSession | RedisService>;
 
 const tables: Record<string, AuthTable> = {
 	user: authSchema.user,
@@ -183,11 +187,13 @@ const addJoins = (db: DatabaseExecutor, rows: readonly AuthRow[], join: JoinConf
 
 export const effectPostgresAuthAdapter = (args: {
 	readonly session: DatabaseSession["Service"];
-	readonly context: Context.Context<DatabaseSession | RedisService>;
+	readonly context: AuthRuntimeContext;
 }) => {
 	const session = args.session;
+	const contexts = new WeakMap<DBTransactionAdapter | DBAdapter, AuthRuntimeContext>();
+	let rootAdapter: DBAdapter | undefined;
 
-	const createCustomAdapter = (context: Context.Context<DatabaseSession | RedisService>) => {
+	const createCustomAdapter = (context: AuthRuntimeContext) => {
 		const runOperation = <A, E>(operation: (db: DatabaseExecutor) => Effect.Effect<A, E>) =>
 			run(context, session.run(operation));
 
@@ -360,10 +366,7 @@ export const effectPostgresAuthAdapter = (args: {
 	};
 
 	let options: Parameters<ReturnType<typeof createAdapterFactory>>[0];
-	const makeFactory = (
-		context: Context.Context<DatabaseSession | RedisService>,
-		transaction: boolean,
-	): AuthAdapterFactory =>
+	const makeFactory = (context: AuthRuntimeContext, transaction: boolean): AuthAdapterFactory =>
 		createAdapterFactory({
 			adapter: createCustomAdapter(context),
 			config: {
@@ -382,6 +385,7 @@ export const effectPostgresAuthAdapter = (args: {
 											DatabaseSession | RedisService
 										>();
 										const adapter = makeFactory(transactionContext, false)(options);
+										contexts.set(adapter, transactionContext);
 										return yield* Effect.tryPromise(() => callback(adapter));
 									}),
 								),
@@ -391,8 +395,26 @@ export const effectPostgresAuthAdapter = (args: {
 		});
 
 	const factory = makeFactory(args.context, true);
-	return (authOptions: typeof options) => {
+	const adapter = (authOptions: typeof options) => {
 		options = authOptions;
-		return factory(authOptions);
+		rootAdapter = factory(authOptions);
+		contexts.set(rootAdapter, args.context);
+		return rootAdapter;
 	};
+	// oxlint-disable-next-line effecttsgo/async-function -- Better Auth requires a Promise-returning context bridge.
+	const runInCurrentContext = async <A, E>(
+		endpointContext: GenericEndpointContext | null,
+		effect: Effect.Effect<A, E, DatabaseSession | RedisService>,
+	) => {
+		if (!rootAdapter) {
+			throw new BetterAuthError("The auth adapter has not been initialized.");
+		}
+		const current = await getCurrentAdapter(endpointContext?.context.adapter ?? rootAdapter);
+		const context = contexts.get(current);
+		if (!context) {
+			throw new BetterAuthError("The current auth adapter has no Effect transaction context.");
+		}
+		return run(context, effect);
+	};
+	return { adapter, runInCurrentContext };
 };

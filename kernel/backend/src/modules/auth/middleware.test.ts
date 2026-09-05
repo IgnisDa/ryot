@@ -5,6 +5,7 @@ import {
 	AuthorizationContext,
 	CurrentUser,
 	DemoOperationProtected,
+	UserInitializing,
 } from "@ryot-app/contract/auth-middleware";
 import { PluginsGroup } from "@ryot-app/contract/modules/plugins/contract";
 import {
@@ -31,6 +32,7 @@ const userRecord = {
 	id: "user-1",
 	disabledAt: null,
 	email: "user@example.com",
+	bootstrapCompletedAt: new Date("2026-08-31T00:00:00.000Z"),
 	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
 };
 
@@ -156,6 +158,39 @@ it.effect("resolves an API key and its authorization context", () =>
 			accessClass: "standard",
 			credential: { keyId: "key-1", kind: "api-key" },
 		});
+	}),
+);
+
+it.effect("rejects a pending OAuth user", () =>
+	Effect.gen(function* () {
+		const error = yield* Effect.flip(
+			resolveCredential(
+				{ kind: "oauth", token: "token" },
+				() => Promise.resolve({ sub: "user-1", client_id: "ryot-web" }),
+				() => Effect.die("unused").pipe(Effect.runPromise),
+				() => Effect.succeed({ ...userRecord, bootstrapCompletedAt: null }),
+			),
+		);
+		expect(error).toEqual(new UserInitializing({ reason: { code: "user-initializing" } }));
+	}),
+);
+
+it.effect("rejects a pending API-key user", () =>
+	Effect.gen(function* () {
+		const error = yield* Effect.flip(
+			resolveCredential(
+				{ key: "key", kind: "api-key" },
+				() => Effect.die("unused").pipe(Effect.runPromise),
+				() =>
+					Promise.resolve({
+						valid: true,
+						error: null,
+						key: { id: "key-1", referenceId: "user-1" },
+					}),
+				() => Effect.succeed({ ...userRecord, bootstrapCompletedAt: null }),
+			),
+		);
+		expect(error).toEqual(new UserInitializing({ reason: { code: "user-initializing" } }));
 	}),
 );
 

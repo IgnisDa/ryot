@@ -16,6 +16,8 @@ import {
 import type { CronTask } from "#modules/scheduler/types";
 import { uploadsFrequentTask } from "#modules/uploads/frequent-task";
 import type { UploadIntentsService } from "#modules/uploads/intents/service";
+import { userBootstrapFrequentTask } from "#modules/user-bootstrap/frequent-task";
+import type { UserBootstrapScheduling } from "#modules/user-bootstrap/scheduling";
 import { userLifecycleFrequentTask } from "#modules/user-lifecycle/frequent-task";
 import type { UserLifecycleService } from "#modules/user-lifecycle/service";
 
@@ -27,6 +29,7 @@ const frequentCronTasks: ReadonlyArray<
 		| BackupsService
 		| DatabaseSession
 		| UploadIntentsService
+		| UserBootstrapScheduling
 		| UserLifecycleService
 		| WorkflowEngine
 	>
@@ -54,6 +57,7 @@ const frequentCronTasks: ReadonlyArray<
 	},
 	integrationsFrequentTask,
 	uploadsFrequentTask,
+	userBootstrapFrequentTask,
 	userLifecycleFrequentTask,
 ];
 
