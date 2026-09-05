@@ -141,21 +141,32 @@ describe("Exercises E2E", () => {
 				type: "and",
 				predicates: expect.arrayContaining([
 					expect.objectContaining({
-						right: { type: "literal", value: "exercise" },
-						left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
+						type: "and",
+						predicates: expect.arrayContaining([
+							expect.objectContaining({
+								right: { type: "literal", value: "exercise" },
+								left: { type: "column", tableAlias: "entity", field: "entitySchemaSlug" },
+							}),
+							expect.objectContaining({
+								type: "exists",
+								query: expect.objectContaining({
+									where: expect.objectContaining({
+										predicates: expect.arrayContaining([
+											expect.objectContaining({
+												right: { type: "literal", value: "in-fitness-library" },
+											}),
+											expect.objectContaining({
+												right: { type: "literal", value: "fitness-library" },
+											}),
+										]),
+									}),
+								}),
+							}),
+						]),
 					}),
 					expect.objectContaining({
-						type: "exists",
-						query: expect.objectContaining({
-							where: expect.objectContaining({
-								predicates: expect.arrayContaining([
-									expect.objectContaining({
-										right: { type: "literal", value: "in-fitness-library" },
-									}),
-									expect.objectContaining({ right: { type: "literal", value: "fitness-library" } }),
-								]),
-							}),
-						}),
+						right: { type: "literal", value: expect.any(String) },
+						left: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
 					}),
 				]),
 			});
