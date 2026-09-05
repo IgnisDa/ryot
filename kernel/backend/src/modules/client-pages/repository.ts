@@ -33,23 +33,6 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 				return row ? { view: row, viewId: SavedViewId.make(row.id) } : null;
 			});
 
-			const listPreparedTargets = Effect.fn("ClientPagesRepository.listPreparedTargets")(function* (
-				userId: UserId,
-			) {
-				const rows = yield* session.run((db) =>
-					db
-						.select()
-						.from(schema.userSavedViewEffective)
-						.where(
-							and(
-								eq(schema.userSavedViewEffective.userId, userId),
-								eq(schema.userSavedViewEffective.isHidden, false),
-							),
-						),
-				);
-				return rows.map((view) => ({ view, viewId: SavedViewId.make(view.id) }));
-			});
-
 			const findComposition = Effect.fn("ClientPagesRepository.findComposition")(function* (
 				compositionKey: string,
 			) {
@@ -103,13 +86,7 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 					return row?.compositionKey ?? existing?.compositionKey ?? input.compositionKey;
 				},
 			);
-			return {
-				findComposition,
-				createComposition,
-				findPreparedTarget,
-				listPreparedTargets,
-				findCompositionByHash,
-			};
+			return { findComposition, createComposition, findPreparedTarget, findCompositionByHash };
 		}),
 	},
 ) {

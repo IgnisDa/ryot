@@ -1,4 +1,4 @@
-import { assert, expect, layer } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Exit, Layer, Ref } from "effect";
@@ -36,6 +36,11 @@ class FakeCompositionRepository extends Context.Service<
 	}
 >()("test/FakeCompositionRepository") {}
 
+class DescribedArtifacts extends Context.Service<
+	DescribedArtifacts,
+	{ readonly hashes: Effect.Effect<ReadonlyArray<string>> }
+>()("test/DescribedArtifacts") {}
+
 const fakeRepositoryLayer = Layer.effectContext(
 	Effect.gen(function* () {
 		const row = yield* Ref.make<CompositionRow | null>(null);
@@ -72,27 +77,34 @@ const compositionLayer = ClientPageCompositionService.layer.pipe(
 					}),
 				),
 			),
-			Layer.succeed(
-				ClientArtifactStore,
-				ClientArtifactStore.of({
-					isPublic: () => true,
-					findFile: () => Effect.succeed(null),
-					exists: (hash) => Effect.succeed(files.has(hash)),
-					describe: (hash) => {
-						if (!files.has(hash)) {
-							return Effect.succeed(null);
-						}
-						const description = files.get(hash);
-						assert(description);
-						return Effect.succeed({
-							...description,
-							hash,
-							format: 1,
-							apiVersion: 1,
-							bridgeVersion: 1,
-							compilerVersion: 1,
-						});
-					},
+			Layer.effectContext(
+				Effect.gen(function* () {
+					const hashes = yield* Ref.make<ReadonlyArray<string>>([]);
+					return Context.make(
+						ClientArtifactStore,
+						ClientArtifactStore.of({
+							isPublic: () => true,
+							findFile: () => Effect.succeed(null),
+							exists: (hash) => Effect.succeed(files.has(hash)),
+							describe: (hash) => {
+								const description = files.get(hash);
+								return Ref.update(hashes, (all) => [...all, hash]).pipe(
+									Effect.as(
+										description
+											? {
+													...description,
+													hash,
+													format: 1,
+													apiVersion: 1,
+													bridgeVersion: 1,
+													compilerVersion: 1,
+												}
+											: null,
+									),
+								);
+							},
+						}),
+					).pipe(Context.add(DescribedArtifacts, { hashes: Ref.get(hashes) }));
 				}),
 			),
 			fakeRepositoryLayer,
@@ -104,8 +116,9 @@ layer(compositionLayer)((test) => {
 	test.effect("persists only an immutable composition manifest and detects key conflicts", () =>
 		Effect.gen(function* () {
 			const repository = yield* FakeCompositionRepository;
+			const described = yield* DescribedArtifacts;
 			const compositions = yield* ClientPageCompositionService;
-			const stored = yield* compositions.materialize(graph);
+			const stored = yield* compositions.getOrMaterialize(graph);
 			expect(yield* repository.writes).toEqual([graph.compositionKey]);
 			expect(stored.compositionHash).toBe(sha256Hex(stableStringify(stored.manifest)));
 			expect(stored.manifest.imports["sdk"]).toEqual({
@@ -118,10 +131,13 @@ layer(compositionLayer)((test) => {
 				"identity",
 				"imports",
 			]);
-			yield* compositions.materialize(graph);
+			yield* compositions.getOrMaterialize(graph);
 			expect(yield* repository.writes).toEqual([graph.compositionKey]);
+			expect(yield* described.hashes).toEqual(["a".repeat(64), "b".repeat(64), "c".repeat(64)]);
 			yield* repository.replaceRow({ ...stored, compositionHash: "changed" });
-			expect(Exit.isFailure(yield* Effect.exit(compositions.materialize(graph)))).toBe(true);
+			expect((yield* compositions.getOrMaterialize(graph)).compositionHash).toBe("changed");
+			yield* repository.replaceRow({ ...stored, identity: { ...stored.identity, name: "Other" } });
+			expect(Exit.isFailure(yield* Effect.exit(compositions.getOrMaterialize(graph)))).toBe(true);
 		}),
 	);
 });

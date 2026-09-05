@@ -8,8 +8,11 @@ import { Context, Effect, Fiber, Layer, Option, Queue, Ref, Result, Stream } fro
 import { TestClock } from "effect/testing";
 import Redis from "ioredis";
 
+import * as schema from "#lib/infrastructure/db/schema/tables/combined";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { redisKeys, RedisService } from "#lib/infrastructure/redis";
 import { makeRedisService } from "#lib/test-utils/effect";
+import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
 
 import {
 	PluginCatalogHub,
@@ -126,14 +129,28 @@ const recordingInvalidatorLayer = Layer.effectContext(
 	),
 );
 
-layer(PluginCatalogInvalidatorLive.pipe(Layer.provideMerge(recordingInvalidatorLayer)))((test) => {
+layer(
+	PluginCatalogInvalidatorLive.pipe(
+		Layer.provideMerge(recordingInvalidatorLayer),
+		Layer.provideMerge(isolatedDatabaseLayer("plugin_catalog_events")),
+	),
+)((test) => {
 	test.effect(
 		"publishes encoded user and global invalidations without surfacing Redis failures",
 		() =>
 			Effect.gen(function* () {
 				const recorded = yield* RecordedPublications;
 				const invalidator = yield* PluginCatalogInvalidator;
+				const database = yield* DatabaseSession;
 				const userId = UserId.make("user-1");
+				yield* database.run((db) =>
+					db
+						.insert(schema.user)
+						.values({ id: userId, name: "Test", preferences: {}, email: "test@example.com" }),
+				);
+				yield* database.transaction(
+					invalidator.recordUser(userId).pipe(Effect.andThen(invalidator.recordAll)),
+				);
 				yield* invalidator.user(userId);
 				yield* invalidator.all;
 				const published = yield* recorded.published;
@@ -145,8 +162,26 @@ layer(PluginCatalogInvalidatorLive.pipe(Layer.provideMerge(recordingInvalidatorL
 				expect(Result.isSuccess(decoded) && decoded.success.userId).toBe(userId);
 
 				const failing = recorded.failingInvalidator;
+				yield* database.transaction(invalidator.recordUser(userId));
 				yield* failing.user(userId);
-				yield* failing.all;
+				const waiting = yield* database.run((db) => db.select().from(schema.pluginCatalogChange));
+				expect(waiting).toHaveLength(1);
+				yield* invalidator.deliverPending(100);
+				expect(yield* database.run((db) => db.select().from(schema.pluginCatalogChange))).toEqual(
+					[],
+				);
+				expect((yield* recorded.published).map(({ channel }) => channel)).toEqual([
+					redisKeys.pluginCatalogUserChannel,
+					redisKeys.pluginCatalogChannel,
+					redisKeys.pluginCatalogUserChannel,
+				]);
+				const rolledBack = yield* Effect.exit(
+					database.transaction(invalidator.recordAll.pipe(Effect.andThen(Effect.fail("abort")))),
+				);
+				expect(rolledBack._tag).toBe("Failure");
+				expect(yield* database.run((db) => db.select().from(schema.pluginCatalogChange))).toEqual(
+					[],
+				);
 			}),
 	);
 });

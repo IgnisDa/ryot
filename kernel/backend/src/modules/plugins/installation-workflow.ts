@@ -4,12 +4,12 @@ import { Cause, Context, Effect, Layer, Result, Schema } from "effect";
 import { Activity, Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, type WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import { PluginCatalogInvalidator } from "./catalog-events";
-import { ClientSurfaceMaterializer } from "./client-surface-materializer";
 import { PluginInstallationRepository } from "./installation-repository";
 import { PluginRuntimeResolver } from "./runtime-resolver";
 
@@ -70,7 +70,7 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 		const runtime = yield* PluginRuntimeResolver;
 		const sandbox = yield* SandboxExecutionService;
 		const invalidator = yield* PluginCatalogInvalidator;
-		const surfaces = yield* ClientSurfaceMaterializer;
+		const database = yield* DatabaseSession;
 		const installations = yield* PluginInstallationRepository;
 
 		const begin = (installationId: string) =>
@@ -99,11 +99,12 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 				Effect.gen(function* () {
 					const installation = yield* installations.findById(installationId);
 					if (installation) {
-						yield* Effect.uninterruptible(
+						yield* database.transaction(
 							installations
 								.updateHealth({ healthReason, health: "failed", id: installationId })
-								.pipe(Effect.andThen(invalidator.user(UserId.make(installation.userId)))),
+								.pipe(Effect.andThen(invalidator.recordUser(UserId.make(installation.userId)))),
 						);
+						yield* invalidator.user(UserId.make(installation.userId));
 					}
 				}),
 				"Plugin installation failure could not be recorded",
@@ -112,12 +113,12 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 		const complete = (installationId: string, userId: UserId) =>
 			asInternal(
 				Effect.gen(function* () {
-					yield* surfaces.materializePendingInstallation(userId, installationId);
-					yield* Effect.uninterruptible(
+					yield* database.transaction(
 						installations
 							.updateHealth({ health: "ready", id: installationId, healthReason: null })
-							.pipe(Effect.andThen(invalidator.user(userId))),
+							.pipe(Effect.andThen(invalidator.recordUser(userId))),
 					);
+					yield* invalidator.user(userId);
 				}),
 				"Plugin installation completion could not be recorded",
 			);

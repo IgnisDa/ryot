@@ -75,7 +75,7 @@ const makeView = (
 };
 
 describe("plugin catalog provider", () => {
-	it.live("does not query when the catalog stream acknowledges its connection", () => {
+	it.live("reconciles on stream connection and on subsequent invalidation", () => {
 		let controller: ReadableStreamDefaultController<Uint8Array> | undefined;
 		let loads = 0;
 		const runtime = ManagedRuntime.make(
@@ -127,15 +127,14 @@ describe("plugin catalog provider", () => {
 					new TextEncoder().encode(`event: ${PLUGIN_CATALOG_CONNECTED_EVENT}\ndata:\n\n`),
 				),
 			);
-			yield* Effect.promise(() => waitFor(() => expect(controller?.desiredSize).toBe(1)));
-			expect(loads).toBe(0);
-			expect(screen.getByText("catalog-revision:0")).toBeTruthy();
+			yield* Effect.promise(() => waitFor(() => expect(loads).toBe(1)));
+			expect(screen.getByText("catalog-revision:1")).toBeTruthy();
 			act(() =>
 				controller?.enqueue(
 					new TextEncoder().encode(`event: ${PLUGIN_CATALOG_INVALIDATED_EVENT}\ndata:\n\n`),
 				),
 			);
-			yield* Effect.promise(() => waitFor(() => expect(loads).toBe(1)));
+			yield* Effect.promise(() => waitFor(() => expect(loads).toBe(2)));
 		}).pipe(
 			Effect.ensuring(
 				Effect.sync(() => view.unmount()).pipe(

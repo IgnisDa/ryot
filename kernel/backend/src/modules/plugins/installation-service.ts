@@ -229,8 +229,6 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;
-			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
-				database.transaction(work).pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 			const assertUnclaimedSavedViewSlugs = assertUnclaimedSavedViewSlugsForSession(database);
 			const repository = yield* PluginRepository;
 			const definitions = yield* DefinitionRepository;
@@ -238,6 +236,10 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			const uploadIntents = yield* UploadIntentsService;
 			const objectStorage = yield* ObjectStorageService;
 			const invalidator = yield* PluginCatalogInvalidator;
+			const transaction = <A, E, R>(userId: UserId, work: Effect.Effect<A, E, R>) =>
+				database
+					.transaction(work.pipe(Effect.tap(() => invalidator.recordUser(userId))))
+					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 			const installations = yield* PluginInstallationRepository;
 			const savedViewReferences = yield* PluginSavedViewReferences;
 			const lifecycleDispatcher = yield* PluginInstallationLifecycleDispatcher;
@@ -368,11 +370,14 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						const issue = conflicts.get(row.installationId);
 						if (issue === undefined) {
 							if (row.health === "incompatible") {
-								yield* installations.updateHealth({
-									health: "ready",
-									healthReason: null,
-									id: row.installationId,
-								});
+								yield* transaction(
+									userId,
+									installations.updateHealth({
+										health: "ready",
+										healthReason: null,
+										id: row.installationId,
+									}),
+								);
 								healthChanged = true;
 							}
 							continue;
@@ -384,11 +389,14 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						if (row.health === "incompatible" && row.healthReason === healthReason) {
 							continue;
 						}
-						yield* installations.updateHealth({
-							healthReason,
-							health: "incompatible",
-							id: row.installationId,
-						});
+						yield* transaction(
+							userId,
+							installations.updateHealth({
+								healthReason,
+								health: "incompatible",
+								id: row.installationId,
+							}),
+						);
 						healthChanged = true;
 					}
 					if (healthChanged) {
@@ -400,7 +408,11 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			const reconcileSystemInstallations = Effect.fn(
 				"PluginInstallationService.reconcileSystemInstallations",
 			)(function* () {
-				yield* installations.provisionSystemInstallationsForAllUsers();
+				yield* database.transaction(
+					installations
+						.provisionSystemInstallationsForAllUsers()
+						.pipe(Effect.andThen(invalidator.recordAll)),
+				);
 				yield* reconcilePrivateConflicts();
 				yield* invalidator.all;
 			});
@@ -445,6 +457,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					});
 				}
 				const updated = yield* transaction(
+					userId,
 					Effect.gen(function* () {
 						yield* database.acquireUserWriteLock(userId);
 						const usablePluginIds = new Set(
@@ -504,11 +517,12 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					Effect.annotateLogs({ installationId: state.id }),
 				);
 				const healthReason = "Installation lifecycle could not be started";
-				yield* Effect.uninterruptible(
+				yield* database.transaction(
 					installations
 						.updateHealth({ healthReason, id: state.id, health: "failed" })
-						.pipe(Effect.andThen(invalidator.user(UserId.make(state.userId)))),
+						.pipe(Effect.andThen(invalidator.recordUser(UserId.make(state.userId)))),
 				);
+				yield* invalidator.user(UserId.make(state.userId));
 				return { ...state, healthReason, health: "failed" as const };
 			});
 
@@ -557,6 +571,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					yield* validatePluginExecutableScripts(normalized);
 					const state = yield* Effect.uninterruptible(
 						transaction(
+							input.userId,
 							Effect.gen(function* () {
 								const pluginId = yield* ingestionLock.persistUserPlugin(normalized, {
 									slug,
@@ -602,7 +617,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 							userId: input.userId,
 							config: input.config,
 						}),
-					).pipe(structurePluginFailure),
+					).pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die), structurePluginFailure),
 			);
 
 			const updatePrivateUnlocked = Effect.fn("PluginInstallationService.updatePrivateUnlocked")(
@@ -667,6 +682,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 
 							const updated = yield* Effect.uninterruptible(
 								transaction(
+									input.userId,
 									Effect.gen(function* () {
 										yield* repository.lockIngestion();
 										yield* assertUnclaimedSavedViewSlugs(input.userId, manifest);
@@ -811,7 +827,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 
 			const updateInstallation = Effect.fn("PluginInstallationService.updateInstallation")(
 				(userId: UserId, slug: string, payload: UpdatePluginInstallationBody) =>
-					transaction(updateInstallationUnlocked(userId, slug, payload)).pipe(
+					transaction(userId, updateInstallationUnlocked(userId, slug, payload)).pipe(
 						Effect.tap(() => invalidator.user(userId)),
 						Effect.catchTag("PluginValidationError", (error) =>
 							Effect.fail(
@@ -897,6 +913,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				}
 				yield* Effect.uninterruptible(
 					transaction(
+						userId,
 						Effect.gen(function* () {
 							yield* repository.lockIngestion();
 							const current = yield* repository.findPrivateByIdForUser(plugin.id, userId);

@@ -9,7 +9,6 @@ import type { MockOverrides } from "#lib/test-utils/effect";
 import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { PluginCatalogInvalidator } from "#modules/plugins/catalog-events";
-import { ClientSurfaceMaterializer } from "#modules/plugins/client-surface-materializer";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginRepository } from "#modules/plugins/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
@@ -147,14 +146,10 @@ const makeLayer = (options: {
 						}),
 						Layer.succeed(PluginCatalogInvalidator, {
 							all: Effect.void,
+							recordAll: Effect.void,
+							recordUser: () => Effect.void,
 							user: () => record("invalidate"),
-						}),
-						Layer.succeed(ClientSurfaceMaterializer, {
-							assertUserCompositions: () => Effect.void,
-							materializeSystemCompositions: Effect.void,
-							materializeUserCompositions: () => Effect.void,
-							materializeRenderer: () => record("materialize"),
-							materializePendingInstallation: () => Effect.void,
+							deliverPending: () => Effect.void,
 						}),
 						Layer.mock(DefinitionRepository)({ listUserSavedViews: () => Effect.succeed([]) }),
 						Layer.mock(PluginRepository)({ lockIngestionShared: () => Effect.void }),
@@ -202,7 +197,7 @@ layer(
 			expect(yield* calls.created).toMatchObject([
 				{ renderer: pluginRenderer, settings: { title: "Fixture" } },
 			]);
-			expect(yield* calls.events).toEqual(["materialize", "create", "invalidate"]);
+			expect(yield* calls.events).toEqual(["create", "invalidate"]);
 		}),
 	);
 });
@@ -266,7 +261,7 @@ const hiddenViewRepository = {
 };
 
 layer(makeLayer({ repository: hiddenViewRepository }))((test) => {
-	test.effect("materializes a hidden view after its dependency changes, before revealing it", () =>
+	test.effect("reveals a hidden view without building its composition", () =>
 		Effect.gen(function* () {
 			const service = yield* SavedViewsService;
 			const updated = yield* service.update(user, baseView.slug, {
@@ -275,17 +270,13 @@ layer(makeLayer({ repository: hiddenViewRepository }))((test) => {
 				name: baseView.name,
 			});
 			expect(updated).toEqual({ id: baseView.id });
-			expect(yield* (yield* SavedViewsCalls).events).toEqual([
-				"materialize",
-				"update",
-				"invalidate",
-			]);
+			expect(yield* (yield* SavedViewsCalls).events).toEqual(["update", "invalidate"]);
 		}),
 	);
 });
 
 layer(makeLayer({ repository: hiddenViewRepository }))((test) => {
-	test.effect("updates a hidden view without materializing an unavailable renderer", () =>
+	test.effect("updates a hidden view without preparing its renderer", () =>
 		Effect.gen(function* () {
 			const updated = yield* (yield* SavedViewsService).update(user, baseView.slug, {
 				isHidden: true,

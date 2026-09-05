@@ -4,7 +4,6 @@ import { Effect, Layer } from "effect";
 
 import { AuthBootstrapScheduleError, AuthUserBootstrapScheduler } from "#modules/auth/service";
 import { NotificationSubscriptionsServiceLive } from "#modules/automations/layer";
-import { ClientSurfaceMaterializerLive } from "#modules/client-pages/layer";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginInstallationRuntimeLive } from "#modules/plugins/layer";
 import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
@@ -27,7 +26,6 @@ export const PluginUserBootstrapDispatcherLive = PluginUserBootstrapDispatcher.l
 export const UserBootstrapLive = UserBootstrap.layer.pipe(
 	Layer.provide(
 		Layer.mergeAll(
-			ClientSurfaceMaterializerLive,
 			NotificationSubscriptionsServiceLive,
 			PluginUserBootstrapDispatcherLive,
 			PluginInstallationRuntimeLive,
