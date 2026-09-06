@@ -47,31 +47,32 @@ import {
 import { CollectionsServiceLive } from "#modules/collections/layer";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesServiceMigrationLive, EntitiesServiceRuntimeLive } from "#modules/entities/layer";
-import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { InterestServicesLive } from "#modules/entity-interest/layer";
 import { TranslateEntityWorkflowDefinitionsLive } from "#modules/entity-translation/entity-translation-workflow-live";
 import { TranslationsServiceLive } from "#modules/entity-translation/layer";
 import { TranslateEntityWorkflowOperationsLive } from "#modules/entity-translation/operations-workflow";
-import { EventSchemasRepositoryLive } from "#modules/event-schemas/layer";
-import { EventCreateWorkflowDefinitionsLive } from "#modules/events/event-create-workflow-live";
-import { EventsServiceLive } from "#modules/events/layer";
-import { EventsRepository } from "#modules/events/repository";
+import {
+	EventCreateWorkflowDefinitionsProvidedLive,
+	EventsServiceLive,
+} from "#modules/events/layer";
 import { GodModeServiceLive } from "#modules/god-mode/layer";
-import { ImportRunFailuresService } from "#modules/imports/failure-service";
-import { ProcessGenericImportChunksWorkflowDefinitionsLive } from "#modules/imports/generic-import-workflow";
 import { ImportWorkflowDefinitionsLive } from "#modules/imports/import-run-workflow-live";
-import { ImportsServiceLive } from "#modules/imports/layer";
+import {
+	ImportsServiceLive,
+	ProcessGenericImportChunksWorkflowDefinitionsProvidedLive,
+} from "#modules/imports/layer";
 import { ImportsRepository } from "#modules/imports/repository";
 import { IntegrationWorkflowDefinitionsLive } from "#modules/integrations/integration-workflow-live";
-import { IntegrationsServiceLive } from "#modules/integrations/layer";
+import {
+	IntegrationsServiceLive,
+	IntegrationSyncWorkflowDefinitionsProvidedLive,
+} from "#modules/integrations/layer";
 import { IntegrationsRepository } from "#modules/integrations/repository";
-import { IntegrationSyncWorkflowDefinitionsLive } from "#modules/integrations/sync-workflow-live";
 import {
 	NotificationDeliveryServiceLive,
+	NotificationDeliveryWorkflowDefinitionsProvidedLive,
 	NotificationsServiceLive,
 } from "#modules/notifications/layer";
-import { NotificationDeliveryWorkflowDefinitionsLive } from "#modules/notifications/notification-delivery-workflow-live";
-import { NotificationsRepository } from "#modules/notifications/repository";
 import { PluginCatalogHub } from "#modules/plugins/catalog-events";
 import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
 import { PluginInstallationSweepDispatcherLive } from "#modules/plugins/installation-sweep";
@@ -93,11 +94,10 @@ import { EntityImportWorkflowDefinitionsLive } from "#modules/provider-entities/
 import {
 	EntityImportServiceLive,
 	EntityImportWorkflowOperationsProvidedLive,
+	ProviderEntityPopulationWorkflowDefinitionsProvidedLive,
 	ProviderEntitySearchServiceLive,
 } from "#modules/provider-entities/layer";
-import { ProviderEntityPopulationWorkflowDefinitionsLive } from "#modules/provider-entities/provider-entity-population-workflow";
 import { RelationshipsServiceLive } from "#modules/relationships/layer";
-import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RyotQLService } from "#modules/ryotql/service";
 import {
 	RuntimeSandboxServiceLive,
@@ -211,36 +211,17 @@ const ServicesLive = Layer.mergeAll(
 
 const ServicesWithTestSupportLive = Layer.merge(ServicesLive, TestSupportServicesLive);
 
-// Boot owns workflow definitions; provide only the direct ports each definition consumes.
+// Boot merges feature-owned definitions and keeps cross-feature composition explicit here.
 const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 	AddEntityToCollectionWorkflowDefinitionsLive,
 	AutomationRunWorkflowDefinitionsLive,
-	Layer.provide(
-		ProviderEntityPopulationWorkflowDefinitionsLive,
-		Layer.mergeAll(
-			DefinitionRepository.layer,
-			EntitiesRepositoryLive,
-			PluginRuntimeResolverLive,
-			RelationshipsRepository.layer,
-		),
-	),
+	ProviderEntityPopulationWorkflowDefinitionsProvidedLive,
 	EntityImportWorkflowDefinitionsLive,
-	Layer.provide(
-		EventCreateWorkflowDefinitionsLive,
-		Layer.mergeAll(EntitiesRepositoryLive, EventSchemasRepositoryLive, EventsRepository.layer),
-	),
-	Layer.provide(NotificationDeliveryWorkflowDefinitionsLive, NotificationsRepository.layer),
-	IntegrationSyncWorkflowDefinitionsLive,
+	EventCreateWorkflowDefinitionsProvidedLive,
+	NotificationDeliveryWorkflowDefinitionsProvidedLive,
+	IntegrationSyncWorkflowDefinitionsProvidedLive,
 	ImportWorkflowDefinitionsLive,
-	Layer.provide(
-		ProcessGenericImportChunksWorkflowDefinitionsLive,
-		Layer.mergeAll(
-			DefinitionRepository.layer,
-			EntitiesRepositoryLive,
-			ImportRunFailuresService.layer.pipe(Layer.provide(ImportsRepository.layer)),
-			PluginRuntimeResolverLive,
-		),
-	),
+	ProcessGenericImportChunksWorkflowDefinitionsProvidedLive,
 	ExportBackupWorkflowDefinitionsLive,
 	RestoreBackupWorkflowDefinitionsLive,
 	UserLifecycleWorkflowDefinitionsLive,

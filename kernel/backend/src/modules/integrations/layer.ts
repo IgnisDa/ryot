@@ -6,6 +6,7 @@ import { IntegrationProviderCatalog } from "#modules/plugins/integration-provide
 import { IntegrationOperationScopeResolverLive } from "./operation-scope-resolver-live";
 import { IntegrationsRepository } from "./repository";
 import { IntegrationsService } from "./service";
+import { IntegrationSyncWorkflowDefinitionsLive } from "./sync-workflow-live";
 
 export const IntegrationsServiceLive = IntegrationsService.layer.pipe(
 	Layer.provide(
@@ -19,3 +20,6 @@ export const IntegrationsServiceLive = IntegrationsService.layer.pipe(
 
 export const IntegrationOperationScopeResolverProvidedLive =
 	IntegrationOperationScopeResolverLive.pipe(Layer.provide(IntegrationsRepository.layer));
+
+export const IntegrationSyncWorkflowDefinitionsProvidedLive =
+	IntegrationSyncWorkflowDefinitionsLive.pipe(Layer.provide(IntegrationsServiceLive));
