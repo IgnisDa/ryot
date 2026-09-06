@@ -54,7 +54,6 @@ it("warms every supported file of an authorized lazy artifact without importing 
 	const prefix = `/api/client-assets/${"c".repeat(64)}/${"x".repeat(43)}/`;
 	expect(plan.modulepreloads).toContain(`${prefix}module.js`);
 	expect(plan.stylesheets).toContain(`${prefix}module.css`);
-	expect(plan.lazyPresentationStylesheets).toContain(`${prefix}module.css`);
 	expect(plan.preloads).toEqual(
 		expect.arrayContaining([
 			{ as: "font", type: "font/woff2", href: `${prefix}font.woff2` },
@@ -137,7 +136,6 @@ it("deduplicates eager and multi-presentation artifact preloads", () => {
 	);
 	expect(plan.modulepreloads.filter((url) => url.endsWith("/module.js"))).toHaveLength(2);
 	expect(plan.stylesheets.filter((url) => url.endsWith("/module.css"))).toHaveLength(2);
-	expect(plan.lazyPresentationStylesheets).toHaveLength(2);
 });
 
 it.effect(

@@ -23,7 +23,6 @@ type Plan = {
 		readonly as: "font" | "image" | "fetch";
 		readonly type: string;
 	}[];
-	readonly lazyPresentationStylesheets: readonly string[];
 };
 
 const otherPreload = (type: string): "font" | "image" | "fetch" => {
@@ -49,16 +48,6 @@ export const planClientDocumentPreloads = (
 	const modulepreloads = new Set<string>();
 	const stylesheets = new Set<string>();
 	const preloads = new Map<string, Plan["preloads"][number]>();
-	const lazyPresentationStylesheets = new Set<string>();
-	for (const registration of manifest.descriptor.automaticRegistry) {
-		for (const { file, artifactHash } of registration.stylesheets) {
-			const key = access.get(artifactHash);
-			if (!key) {
-				throw new Error(`Client artifact access is missing: ${artifactHash}`);
-			}
-			lazyPresentationStylesheets.add(buildClientAssetUrl(artifactHash, key, file));
-		}
-	}
 	for (const hash of [...new Set([...eager, ...lazy])].sort()) {
 		const key = access.get(hash);
 		if (!key || (!eager.has(hash) && key === "public")) {
@@ -83,7 +72,6 @@ export const planClientDocumentPreloads = (
 	return {
 		stylesheets: [...stylesheets].sort(),
 		modulepreloads: [...modulepreloads].sort(),
-		lazyPresentationStylesheets: [...lazyPresentationStylesheets].sort(),
 		preloads: [...preloads.values()].sort((a, b) => a.href.localeCompare(b.href)),
 	};
 };

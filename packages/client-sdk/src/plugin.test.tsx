@@ -28,7 +28,7 @@ import * as pluginSurface from "./plugin";
 import { useRyot, useRyotTheme } from "./react";
 
 const metadata = {
-	hash: "artifact-hash",
+	hash: "composition-hash",
 	format: CLIENT_ARTIFACT_FORMAT,
 	apiVersion: CLIENT_API_VERSION,
 	compilerVersion: CLIENT_COMPILER_VERSION,

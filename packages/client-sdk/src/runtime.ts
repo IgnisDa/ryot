@@ -25,7 +25,7 @@ import {
 	type PluginBridgeOverlayState,
 	type PluginBridgePageShortcuts,
 	type PluginBridgeUploadRequest,
-	type PluginClientArtifactMetadata,
+	type ClientCompositionMetadata,
 	type PluginThemeSnapshot,
 	type RyotClientErrorReason,
 } from "@ryot-app/client-plugin-contract";
@@ -75,7 +75,7 @@ const normalizeHeaderTitle = (title: string) => {
 export const createPluginRuntime = (
 	port: MessagePort,
 	init: PluginBridgeInit,
-	metadata: PluginClientArtifactMetadata,
+	metadata: ClientCompositionMetadata,
 	root: PluginThemeRoot,
 	navigationStore: PluginNavigationController,
 	onActive?: () => void,

@@ -223,15 +223,27 @@ export const PluginClientArtifactFile = pluginClientArtifactFile(Schema.Uint8Arr
 
 export type PluginClientArtifactFile = Schema.Schema.Type<typeof PluginClientArtifactFile>;
 
-export const PluginClientArtifactMetadata = strictStruct({
-	hash: Schema.String,
+const clientVersionFields = {
 	format: Schema.Literal(CLIENT_ARTIFACT_FORMAT),
 	apiVersion: Schema.Literal(CLIENT_API_VERSION),
 	compilerVersion: Schema.Literal(CLIENT_COMPILER_VERSION),
 	bridgeVersion: Schema.Literal(CLIENT_BRIDGE_PROTOCOL_VERSION),
+};
+
+export const PluginClientArtifactMetadata = strictStruct({
+	hash: Schema.String,
+	...clientVersionFields,
 });
 
 export type PluginClientArtifactMetadata = Schema.Schema.Type<typeof PluginClientArtifactMetadata>;
+
+/** Metadata embedded in a composition document; `hash` is the composition hash. */
+export const ClientCompositionMetadata = strictStruct({
+	hash: Schema.String,
+	...clientVersionFields,
+});
+
+export type ClientCompositionMetadata = Schema.Schema.Type<typeof ClientCompositionMetadata>;
 
 export const clientArtifactFile = ({
 	path,
@@ -300,10 +312,7 @@ export const PluginClientArtifactFromBase64 = pluginClientArtifact(CanonicalUint
 const pluginBridgeIdentityFields = {
 	sessionId: Schema.String,
 	compositionHash: Schema.String,
-	apiVersion: Schema.Literal(CLIENT_API_VERSION),
-	format: Schema.Literal(CLIENT_ARTIFACT_FORMAT),
-	compilerVersion: Schema.Literal(CLIENT_COMPILER_VERSION),
-	bridgeVersion: Schema.Literal(CLIENT_BRIDGE_PROTOCOL_VERSION),
+	...clientVersionFields,
 };
 
 const pluginSafeAreaInset = Schema.Finite.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)));

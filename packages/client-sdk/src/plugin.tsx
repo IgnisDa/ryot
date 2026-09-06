@@ -3,8 +3,8 @@ import {
 	CLIENT_PAGE_ROOT_ELEMENT_ID,
 	CLIENT_BRIDGE_BOOTSTRAP_READY,
 	KERNEL_SHORTCUTS,
+	ClientCompositionMetadata,
 	PluginBridgeInit,
-	PluginClientArtifactMetadata,
 	type ClientPageContext,
 } from "@ryot-app/client-plugin-contract";
 import { useShortcut } from "@ryot-app/client-ui-sdk";
@@ -69,8 +69,8 @@ export const usePageContext = () => {
 
 export { usePageRefresh };
 
-const decodeArtifactMetadata = Schema.decodeUnknownResult(
-	Schema.fromJsonString(PluginClientArtifactMetadata),
+const decodeCompositionMetadata = Schema.decodeUnknownResult(
+	Schema.fromJsonString(ClientCompositionMetadata),
 );
 
 const KernelShortcutForwarder = ({
@@ -165,7 +165,7 @@ const bootstrapClientApplication = (
 		void activeSdkRuntime?.dispose();
 	};
 	const metadataElement = document.getElementById(CLIENT_COMPOSITION_METADATA_ELEMENT_ID);
-	const metadata = decodeArtifactMetadata(metadataElement?.textContent ?? "");
+	const metadata = decodeCompositionMetadata(metadataElement?.textContent ?? "");
 	if (Result.isFailure(metadata)) {
 		return { dispose };
 	}

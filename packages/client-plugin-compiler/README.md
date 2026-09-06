@@ -53,8 +53,7 @@ Vite may also emit `chunk-[hash].js` and `asset-[hash][extname]` files. Multiple
 CSS imports are resolved into `module.css`; Vite owns asset URLs. Every emitted path, MIME type,
 local reference, file count, per-asset size, and total size is validated. The hash covers every
 output byte and content type plus the plugin name and compiler/protocol identity. Final files are
-sorted by name. Compiler version 2 identifies minified module artifacts; version-1 archives are
-not supported.
+sorted by name. Compiler version 1 identifies minified module artifacts.
 
 Installing an archive trusts its compiled client executable bytes. The server checks archive
 structure, hashes, limits, MIME types, and manifest consistency; it does not prove compilation
