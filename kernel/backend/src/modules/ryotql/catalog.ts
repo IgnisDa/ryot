@@ -511,6 +511,7 @@ const integrationProvider: CatalogTable = {
 		lot: physicalField("lot", "text", false),
 		settingsSchema: physicalField("settings_schema", "json", false),
 		requiresProKey: physicalField("requires_pro_key", "boolean", false),
+		supportsOwnershipSync: physicalField("supports_ownership_sync", "boolean", false),
 		hasScript: {
 			kind: "boolean",
 			nullable: false,
