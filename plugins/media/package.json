@@ -6,10 +6,6 @@
 			"types": "./host/plugin.ts",
 			"default": "./host/plugin.ts"
 		},
-		"./query-recipes": {
-			"types": "./host/query-recipes.ts",
-			"default": "./host/query-recipes.ts"
-		},
 		"./shared/anime-recipes": {
 			"types": "./shared/anime-recipes.ts",
 			"default": "./shared/anime-recipes.ts"
@@ -37,6 +33,22 @@
 		"./shared/episodic-recipes": {
 			"types": "./shared/episodic-recipes.ts",
 			"default": "./shared/episodic-recipes.ts"
+		},
+		"./shared/lifecycle-expressions": {
+			"types": "./shared/lifecycle-expressions.ts",
+			"default": "./shared/lifecycle-expressions.ts"
+		},
+		"./shared/lifecycle-list-recipes": {
+			"types": "./shared/lifecycle-list-recipes.ts",
+			"default": "./shared/lifecycle-list-recipes.ts"
+		},
+		"./shared/discovery-recipes": {
+			"types": "./shared/discovery-recipes.ts",
+			"default": "./shared/discovery-recipes.ts"
+		},
+		"./shared/airing-recipes": {
+			"types": "./shared/airing-recipes.ts",
+			"default": "./shared/airing-recipes.ts"
 		},
 		"./shared/movie-recipes": {
 			"types": "./shared/movie-recipes.ts",

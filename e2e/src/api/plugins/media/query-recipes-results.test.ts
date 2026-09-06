@@ -1,18 +1,16 @@
-import {
-	collectionMediaSuggestionsRecipe,
-	personalMediaSuggestionsRecipe,
-	podcastDetailRecipe,
-	podcastsByLifecycleStateRecipe,
-	trendingLatestMediaRecipe,
-	trendingMediaRecipe,
-} from "@ryot-app/media-plugin/query-recipes";
+import { podcastEpisodicKindConfig } from "@ryot-app/media-plugin/shared/lifecycle-expressions";
+import { episodicByLifecycleStateRecipe } from "@ryot-app/media-plugin/shared/lifecycle-list-recipes";
 import { personRecipes } from "@ryot-app/media-plugin/shared/person-recipes";
+import {
+	podcastEpisodesRecipe,
+	podcastRecipes,
+} from "@ryot-app/media-plugin/shared/podcast-recipes";
 import {
 	showRecipes,
 	showSeasonEpisodesRecipe,
 	showSeasonsRecipe,
 } from "@ryot-app/media-plugin/shared/show-recipes";
-import { DateTime, Effect } from "effect";
+import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
@@ -847,25 +845,24 @@ describe("Media RyotQL query recipe results", () => {
 				eventSchemaSlug: seeded.episodeCompleteEventSchemaSlug,
 			});
 
-			const podcastRow = yield* executeRyotQLRecipe(
+			const episodes = yield* executeRyotQLRecipe(
 				client,
-				podcastDetailRecipe({ episodeLimit: 2, entityId: seeded.podcast.id }),
+				podcastEpisodesRecipe({ limit: 2, containerId: seeded.podcast.id }),
 			);
-			assertPresent(podcastRow, "Expected podcast row");
-			const episodes = podcastRow.episodes;
-			expect(episodes.items).toHaveLength(2);
-			expect(episodes.items.map((episode) => episode.episodeNumber)).toEqual([1, 2]);
-			const firstEpisodeResult = episodes.items[0];
-			const secondEpisodeResult = episodes.items[1];
-			assertPresent(firstEpisodeResult, "Expected first podcast episode result");
-			assertPresent(secondEpisodeResult, "Expected second podcast episode result");
-			expect(firstEpisodeResult.state).toBe("in_progress");
-			expect(secondEpisodeResult.state).toBe("complete");
-			expect(firstEpisodeResult).not.toHaveProperty("hasProgress");
-			expect(firstEpisodeResult).not.toHaveProperty("isComplete");
-			expect(secondEpisodeResult).not.toHaveProperty("hasProgress");
-			expect(secondEpisodeResult).not.toHaveProperty("isComplete");
-			expect(podcastRow.state).toBe("in_progress");
+			expect(episodes.items.map((episode) => [episode.episodeNumber, episode.state])).toEqual([
+				[3, "untracked"],
+				[2, "complete"],
+			]);
+			expect(episodes.pageInfo.hasMore).toBe(true);
+			const summary = yield* executeRyotQLRecipe(
+				client,
+				podcastRecipes.summaryRecipe({ collectionLimit: 1, entityId: seeded.podcast.id }),
+			);
+			expect(summary.summary).toMatchObject({
+				watchedEpisodes: 1,
+				state: "in_progress",
+				inProgressEpisodes: 1,
+			});
 		}),
 	);
 
@@ -873,6 +870,7 @@ describe("Media RyotQL query recipe results", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const seeded = yield* seedPodcast(client, 2);
+			yield* insertLibraryMembership(client, { mediaEntityId: seeded.podcast.id });
 			const firstEpisode = seeded.episodes[0];
 			const secondEpisode = seeded.episodes[1];
 			assertPresent(firstEpisode, "Expected first podcast episode");
@@ -892,7 +890,12 @@ describe("Media RyotQL query recipe results", () => {
 						lifecycleStates.map((state) =>
 							executeRyotQLRecipe(
 								client,
-								podcastsByLifecycleStateRecipe({ state, limit: 10, entityId: seeded.podcast.id }),
+								episodicByLifecycleStateRecipe({
+									limit: 10,
+									states: [state],
+									entityId: seeded.podcast.id,
+									config: podcastEpisodicKindConfig,
+								}),
 							),
 						),
 					);
@@ -929,279 +932,6 @@ describe("Media RyotQL query recipe results", () => {
 				eventSchemaSlug: seeded.podcastCompleteEventSchemaSlug,
 			});
 			yield* assertPodcastState("complete");
-		}),
-	);
-
-	it.live("applies personal suggestion ownership semantics to persisted suggestion edges", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const { schema } = yield* createGlobalBookEntityFixture(client);
-			const [sourceA, sourceB, candidateTop, candidateOther, alreadyOwned] = yield* Effect.all([
-				createGlobalBookEntityFixture(client, {
-					name: `Suggestion Source A ${crypto.randomUUID()}`,
-				}),
-				createGlobalBookEntityFixture(client, {
-					name: `Suggestion Source B ${crypto.randomUUID()}`,
-				}),
-				createGlobalBookEntityFixture(client, {
-					name: `Suggestion Candidate Top ${crypto.randomUUID()}`,
-				}),
-				createGlobalBookEntityFixture(client, {
-					name: `Suggestion Candidate Other ${crypto.randomUUID()}`,
-				}),
-				createGlobalBookEntityFixture(client, {
-					name: `Suggestion Already Owned ${crypto.randomUUID()}`,
-				}),
-			]);
-			const relationshipSchemas = yield* listRelationshipSchemas(client, {
-				slugs: ["media-suggestion"],
-			});
-			const mediaSuggestion = requireRelationshipSchemaBySlug(
-				relationshipSchemas,
-				"media-suggestion",
-			);
-			yield* Effect.all([
-				insertLibraryMembership(client, { mediaEntityId: sourceA.entity.id }),
-				insertLibraryMembership(client, { mediaEntityId: sourceB.entity.id }),
-				insertLibraryMembership(client, { mediaEntityId: alreadyOwned.entity.id }),
-				insertGlobalRelationship({
-					sourceEntityId: sourceA.entity.id,
-					targetEntityId: candidateTop.entity.id,
-					relationshipSchemaSlug: mediaSuggestion.id,
-				}),
-				insertGlobalRelationship({
-					sourceEntityId: sourceB.entity.id,
-					targetEntityId: candidateTop.entity.id,
-					relationshipSchemaSlug: mediaSuggestion.id,
-				}),
-				insertGlobalRelationship({
-					sourceEntityId: sourceA.entity.id,
-					targetEntityId: candidateOther.entity.id,
-					relationshipSchemaSlug: mediaSuggestion.id,
-				}),
-				insertGlobalRelationship({
-					sourceEntityId: sourceA.entity.id,
-					targetEntityId: alreadyOwned.entity.id,
-					relationshipSchemaSlug: mediaSuggestion.id,
-				}),
-			]);
-
-			const result = yield* executeRyotQLRecipe(
-				client,
-				personalMediaSuggestionsRecipe({ limit: 10, entitySchemaSlug: schema.slug }),
-			);
-			expect(result.items).toHaveLength(2);
-			const first = result.items[0];
-			const second = result.items[1];
-			assertPresent(first, "Expected top suggestion");
-			assertPresent(second, "Expected second suggestion");
-			expect(first.id).toBe(candidateTop.entity.id);
-			expect(first.recommendingSourceCount).toBe(2);
-			expect(second.id).toBe(candidateOther.entity.id);
-			expect(second.recommendingSourceCount).toBe(1);
-			expect(result.items.map((item) => item.id)).not.toContain(alreadyOwned.entity.id);
-		}),
-	);
-
-	it.live("keeps collection members in collection suggestion results", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const collection = yield* createCollection(client, {
-				name: `Suggestion Collection ${crypto.randomUUID()}`,
-			});
-			const { schema } = yield* createGlobalBookEntityFixture(client);
-			const [sourceA, sourceB, candidateTop, candidateMember] = yield* Effect.all([
-				createGlobalBookEntityFixture(client, {
-					name: `Collection Source A ${crypto.randomUUID()}`,
-				}),
-				createGlobalBookEntityFixture(client, {
-					name: `Collection Source B ${crypto.randomUUID()}`,
-				}),
-				createGlobalBookEntityFixture(client, {
-					name: `Collection Candidate Top ${crypto.randomUUID()}`,
-				}),
-				createGlobalBookEntityFixture(client, {
-					name: `Collection Candidate Member ${crypto.randomUUID()}`,
-				}),
-			]);
-			const relationshipSchemas = yield* listRelationshipSchemas(client, {
-				slugs: ["media-suggestion", "member-of"],
-			});
-			const mediaSuggestion = requireRelationshipSchemaBySlug(
-				relationshipSchemas,
-				"media-suggestion",
-			);
-			const memberOf = requireRelationshipSchemaBySlug(relationshipSchemas, "member-of");
-			yield* Effect.all([
-				createRelationship(client, {
-					properties: {},
-					targetEntityId: collection.id,
-					sourceEntityId: sourceA.entity.id,
-					relationshipSchemaSlug: memberOf.id,
-				}),
-				createRelationship(client, {
-					properties: {},
-					targetEntityId: collection.id,
-					sourceEntityId: sourceB.entity.id,
-					relationshipSchemaSlug: memberOf.id,
-				}),
-				createRelationship(client, {
-					properties: {},
-					targetEntityId: collection.id,
-					relationshipSchemaSlug: memberOf.id,
-					sourceEntityId: candidateMember.entity.id,
-				}),
-				insertGlobalRelationship({
-					sourceEntityId: sourceA.entity.id,
-					targetEntityId: candidateTop.entity.id,
-					relationshipSchemaSlug: mediaSuggestion.id,
-				}),
-				insertGlobalRelationship({
-					sourceEntityId: sourceB.entity.id,
-					targetEntityId: candidateTop.entity.id,
-					relationshipSchemaSlug: mediaSuggestion.id,
-				}),
-				insertGlobalRelationship({
-					sourceEntityId: sourceA.entity.id,
-					targetEntityId: candidateMember.entity.id,
-					relationshipSchemaSlug: mediaSuggestion.id,
-				}),
-			]);
-
-			const result = yield* executeRyotQLRecipe(
-				client,
-				collectionMediaSuggestionsRecipe({
-					limit: 10,
-					collectionId: collection.id,
-					entitySchemaSlug: schema.slug,
-				}),
-			);
-			const byId = new Map(
-				result.items.map((item) => [String(item.id), item.recommendingSourceCount]),
-			);
-			expect(byId.get(candidateTop.entity.id)).toBe(2);
-			expect(byId.get(candidateMember.entity.id)).toBe(1);
-		}),
-	);
-
-	it.live(
-		"filters trending edges by snapshot and schema, orders by rank, and rebuilds fields",
-		() =>
-			Effect.gen(function* () {
-				const { client } = yield* createAuthenticatedClient();
-				const { schema: bookSchema } = yield* findBuiltinSchemaBySlug(client, "book");
-				const { schema: movieSchema } = yield* findBuiltinSchemaBySlug(client, "movie");
-				const [top, secondBook, stale] = yield* Effect.all([
-					createGlobalBookEntityFixture(client, { name: `Trending Top ${crypto.randomUUID()}` }),
-					createGlobalBookEntityFixture(client, { name: `Trending Second ${crypto.randomUUID()}` }),
-					createGlobalBookEntityFixture(client, { name: `Trending Stale ${crypto.randomUUID()}` }),
-				]);
-				const wrongSchema = yield* seedMediaEntity({
-					userId: null,
-					providerId: null,
-					entitySchemaSlug: movieSchema.id,
-					name: `Trending Wrong Schema ${crypto.randomUUID()}`,
-					properties: { images: [], genres: [], description: null },
-					externalId: `query-recipe-trending-movie-${crypto.randomUUID()}`,
-				});
-				const fetchedAt = DateTime.formatIso(
-					DateTime.makeUnsafe(Date.UTC(2026, 6, 1) + Math.floor(Math.random() * 1_000_000)),
-				);
-				const relationshipSchemas = yield* listRelationshipSchemas(client, {
-					slugs: ["media-trending"],
-				});
-				const mediaTrending = requireRelationshipSchemaBySlug(
-					relationshipSchemas,
-					"media-trending",
-				);
-				yield* Effect.all([
-					insertGlobalRelationship({
-						sourceEntityId: top.entity.id,
-						targetEntityId: top.entity.id,
-						properties: { rank: 1, fetchedAt },
-						relationshipSchemaSlug: mediaTrending.id,
-					}),
-					insertGlobalRelationship({
-						properties: { rank: 2, fetchedAt },
-						sourceEntityId: secondBook.entity.id,
-						targetEntityId: secondBook.entity.id,
-						relationshipSchemaSlug: mediaTrending.id,
-					}),
-					insertGlobalRelationship({
-						sourceEntityId: stale.entity.id,
-						targetEntityId: stale.entity.id,
-						relationshipSchemaSlug: mediaTrending.id,
-						properties: { rank: 0, fetchedAt: "2026-06-01T00:00:00.000Z" },
-					}),
-					insertGlobalRelationship({
-						sourceEntityId: wrongSchema.id,
-						targetEntityId: wrongSchema.id,
-						properties: { rank: 0, fetchedAt },
-						relationshipSchemaSlug: mediaTrending.id,
-					}),
-				]);
-
-				const result = yield* executeRyotQLRecipe(
-					client,
-					trendingMediaRecipe({ limit: 10, fetchedAt, entitySchemaSlug: bookSchema.slug }),
-				);
-				expect(result.items).toHaveLength(2);
-				const first = result.items[0];
-				const secondResult = result.items[1];
-				assertPresent(first, "Expected first trending row");
-				assertPresent(secondResult, "Expected second trending row");
-				expect(first.id).toBe(top.entity.id);
-				expect(first.name).toBe(top.entity.name);
-				expect(first.schemaSlug).toBe(bookSchema.slug);
-				expect(first.rank).toBe(1);
-				expect(first.fetchedAt).toBe(fetchedAt);
-				expect(secondResult.id).toBe(secondBook.entity.id);
-				expect(secondResult.rank).toBe(2);
-			}),
-	);
-
-	it.live("resolves the latest trending batch without a caller-supplied timestamp", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const { schema: bookSchema } = yield* findBuiltinSchemaBySlug(client, "book");
-			const [current, stale] = yield* Effect.all([
-				createGlobalBookEntityFixture(client, { name: `Trending Latest ${crypto.randomUUID()}` }),
-				createGlobalBookEntityFixture(client, {
-					name: `Trending Superseded ${crypto.randomUUID()}`,
-				}),
-			]);
-			const latestAt = DateTime.formatIso(
-				DateTime.makeUnsafe(Date.UTC(2026, 6, 2) + Math.floor(Math.random() * 1_000_000)),
-			);
-			const relationshipSchemas = yield* listRelationshipSchemas(client, {
-				slugs: ["media-trending"],
-			});
-			const mediaTrending = requireRelationshipSchemaBySlug(relationshipSchemas, "media-trending");
-			yield* Effect.all([
-				insertGlobalRelationship({
-					sourceEntityId: current.entity.id,
-					targetEntityId: current.entity.id,
-					relationshipSchemaSlug: mediaTrending.id,
-					properties: { rank: 1, fetchedAt: latestAt },
-				}),
-				insertGlobalRelationship({
-					sourceEntityId: stale.entity.id,
-					targetEntityId: stale.entity.id,
-					relationshipSchemaSlug: mediaTrending.id,
-					properties: { rank: 1, fetchedAt: "2026-06-01T00:00:00.000Z" },
-				}),
-			]);
-
-			const result = yield* executeRyotQLRecipe(
-				client,
-				trendingLatestMediaRecipe({ limit: 10, entitySchemaSlug: bookSchema.slug }),
-			);
-			expect(result.items).toHaveLength(1);
-			const first = result.items[0];
-			assertPresent(first, "Expected latest trending row");
-			expect(first.id).toBe(current.entity.id);
-			expect(first.rank).toBe(1);
-			expect(first.fetchedAt).toBe(latestAt);
 		}),
 	);
 

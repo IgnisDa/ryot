@@ -20,19 +20,21 @@ export const createMediaEntityQuery = <Data>(
 		},
 	);
 
-export const createMediaSummaryQuery = <
-	Data extends {
-		readonly summary: {
-			readonly collections: { readonly items: readonly { readonly id: string }[] };
-		} | null;
-	},
->(
+type SummaryVisible = {
+	readonly collections: { readonly items: readonly { readonly id: string }[] };
+};
+
+export const createMediaSummaryQuery = <Data extends { readonly summary: SummaryVisible | null }>(
 	summaryRecipe: (input: {
 		readonly entityId: string;
 		readonly collectionLimit: number;
 	}) => PreparedRecipe<Data>,
+	summaryVisible: (summary: NonNullable<Data["summary"]>) => readonly string[] = () => [],
 ) =>
 	createMediaEntityQuery(
 		(input) => summaryRecipe({ ...input, collectionLimit: SUMMARY_COLLECTION_LIMIT }),
-		(data) => data.summary?.collections.items.map(({ id }) => id) ?? [],
+		(data) =>
+			data.summary === null
+				? []
+				: [...data.summary.collections.items.map(({ id }) => id), ...summaryVisible(data.summary)],
 	);

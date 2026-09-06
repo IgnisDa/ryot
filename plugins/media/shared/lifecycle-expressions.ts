@@ -293,7 +293,13 @@ export const episodeHasAired = (episode: TableReference) =>
 export const episodeIsUpcoming = (episode: TableReference) =>
 	and(isNotNull(publishDate(episode)), gt(publishDate(episode), currentDate()));
 
-type EpisodeAiring = "aired" | "upcoming";
+type EpisodeAiring = "aired" | "upcoming" | "any";
+
+const airingFilters = {
+	any: () => undefined,
+	aired: episodeHasAired,
+	upcoming: episodeIsUpcoming,
+} satisfies Record<EpisodeAiring, (episode: TableReference) => Predicate | undefined>;
 
 /**
  * Joins and predicate selecting a parent's regular episodes - every episode of a regular season
@@ -308,7 +314,8 @@ export const episodicEpisodeQuery = (
 	alias: string,
 	airing: EpisodeAiring = "aired",
 ) => {
-	const airingFilter = airing === "aired" ? episodeHasAired(episode) : episodeIsUpcoming(episode);
+	const airingFilter = airingFilters[airing](episode);
+	const airingPredicates = airingFilter === undefined ? [] : [airingFilter];
 	const episodeNumber = castNumber(jsonPath(column(episode, "properties"), "episodeNumber"));
 	if (config.kind === "podcast") {
 		const relationship = table("relationship", `${alias}Relationship`);
@@ -324,7 +331,7 @@ export const episodicEpisodeQuery = (
 			where: and(
 				entitySchemaIs(episode, config.episodeSchemaSlug),
 				relationshipConnects(relationship, parent, episode, config.parentEpisodeRelationshipSlug),
-				airingFilter,
+				...airingPredicates,
 			),
 		};
 	}
@@ -350,7 +357,7 @@ export const episodicEpisodeQuery = (
 			gt(seasonNumber, literal(0)),
 			relationshipConnects(showSeason, parent, season, config.parentSeasonRelationshipSlug),
 			relationshipConnects(seasonEpisode, season, episode, config.seasonEpisodeRelationshipSlug),
-			airingFilter,
+			...airingPredicates,
 		),
 	};
 };
