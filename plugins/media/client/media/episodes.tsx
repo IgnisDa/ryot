@@ -1,4 +1,4 @@
-import type { RyotQuery } from "@ryot-app/client-sdk/react";
+import { ManagedAssetProvider, type RyotQuery } from "@ryot-app/client-sdk/react";
 import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/client-ui-sdk/sync";
 import clsx from "clsx";
 
@@ -12,11 +12,9 @@ import {
 	mediaEpisodeStateLabel,
 	mediaEpisodeSynopsis,
 	mediaEpisodesManagedAssets,
-	mediaNextUpEpisode,
 	type MediaEpisode,
 	type MediaEpisodeImagePurpose,
 	type MediaEpisodeStateLabels,
-	type MediaNextUpDirection,
 } from "./episodes-state";
 import { ManagedAssetImage } from "./managed-assets";
 
@@ -159,7 +157,10 @@ function MediaEpisodeList<Episode extends MediaEpisode>(props: {
 	);
 }
 
-/** Cursor-paged episode list whose first page leads with the next-up episode. */
+/**
+ * Cursor-paged episode list whose first page leads with the parent's next-up episode, which the
+ * summary resolves server-side; the caller passes it only to the container that holds it.
+ */
 export function MediaEpisodePages<Episode extends MediaEpisode>(props: {
 	readonly compact: boolean;
 	readonly entityId: string;
@@ -167,7 +168,7 @@ export function MediaEpisodePages<Episode extends MediaEpisode>(props: {
 	readonly copy: MediaEpisodePagesCopy;
 	readonly render: MediaEpisodeRender<Episode>;
 	readonly query: MediaEpisodePageQuery<Episode>;
-	readonly nextUp?: MediaNextUpDirection | undefined;
+	readonly nextUp: Episode | null;
 }) {
 	const { render, nextUp } = props;
 	return (
@@ -178,13 +179,12 @@ export function MediaEpisodePages<Episode extends MediaEpisode>(props: {
 			assets={(episodes) => mediaEpisodesManagedAssets(episodes, render.purpose)}
 			input={(after) => ({ after, entityId: props.entityId, containerId: props.containerId })}
 			renderPage={(episodes, index) => {
-				// Next up is read from the first page alone, which is the newest end of either ordering.
-				const nextUpEpisode =
-					index === 0 && nextUp !== undefined ? mediaNextUpEpisode(episodes, nextUp) : undefined;
 				return (
 					<>
-						{nextUpEpisode === undefined ? null : (
-							<MediaNextUpCard render={render} episode={nextUpEpisode} compact={props.compact} />
+						{index !== 0 || nextUp === null ? null : (
+							<ManagedAssetProvider assets={mediaEpisodesManagedAssets([nextUp], render.purpose)}>
+								<MediaNextUpCard render={render} episode={nextUp} compact={props.compact} />
+							</ManagedAssetProvider>
 						)}
 						<MediaEpisodeList
 							render={render}

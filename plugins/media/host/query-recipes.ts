@@ -37,9 +37,9 @@ import {
 	type Table,
 } from "../shared/entity-selections";
 import {
+	episodeDisplayStateExpression,
 	EpisodeLifecycleStateSchema,
 	EpisodicLifecycleStateSchema,
-	episodeLifecycleStateExpression,
 	episodicLifecycleExpressions,
 	podcastEpisodicKindConfig,
 	showEpisodicKindConfig,
@@ -70,7 +70,7 @@ const podcastEpisodeInclude = (episodeLimit: number) => {
 			...entityIdentitySelection(episode),
 			episodeNumber: selectedField(episodeNumber, Schema.Number),
 			state: selectedField(
-				episodeLifecycleStateExpression(episode, "podcastEpisodeDetailLifecycle"),
+				episodeDisplayStateExpression(episode, entity, "podcastEpisodeDetailState"),
 				EpisodeLifecycleStateSchema,
 			),
 		},

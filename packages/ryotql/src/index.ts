@@ -373,7 +373,7 @@ export type SelectedSelection = Readonly<Record<string, SelectedField<unknown>>>
 
 type SelectedValue<Field> = Field extends SelectedField<infer A, infer _I> ? A : never;
 
-type SelectedIncludes = Readonly<
+export type SelectedIncludes = Readonly<
 	Record<
 		string,
 		{

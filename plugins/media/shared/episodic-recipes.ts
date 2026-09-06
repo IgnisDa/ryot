@@ -44,10 +44,14 @@ import {
 	type Table,
 } from "./entity-selections";
 import {
+	episodeDisplayStateExpression,
+	episodeHasAired,
+	episodeIsUpcoming,
 	EpisodeLifecycleStateSchema,
 	EpisodicLifecycleStateSchema,
-	episodeLifecycleStateExpression,
+	episodicEpisodeQuery,
 	episodicLifecycleExpressions,
+	episodicNextUpInclude,
 	type EpisodicKindConfig,
 } from "./lifecycle-expressions";
 import { MediaImageListSchema } from "./media-image";
@@ -95,7 +99,7 @@ export const episodeTraversal = (input: {
 	};
 };
 
-export const episodicEpisodeSelection = (episode: Table, alias: string) => ({
+export const episodicEpisodeSelection = (episode: Table, parent: Table, alias: string) => ({
 	...entityIdentitySelection(episode),
 	images: selectedField(propertyJson(episode, "images"), MediaImageListSchema),
 	episodeNumber: selectedField(propertyNumber(episode, "episodeNumber"), Schema.Number),
@@ -103,24 +107,33 @@ export const episodicEpisodeSelection = (episode: Table, alias: string) => ({
 	publishDate: selectedField(propertyText(episode, "publishDate"), Schema.NullOr(Schema.String)),
 	description: selectedField(propertyText(episode, "description"), Schema.NullOr(Schema.String)),
 	state: selectedField(
-		episodeLifecycleStateExpression(episode, alias),
+		episodeDisplayStateExpression(episode, parent, alias),
 		EpisodeLifecycleStateSchema,
 	),
 });
 
-/** Episode totals, watched totals and watched minutes for one container's episodes. */
+/**
+ * Aired and upcoming totals, watched totals and watched minutes for one container's episodes.
+ * Watched is judged by display state against the container's episodic parent.
+ */
 export const episodicCoverageSelection = (input: {
 	readonly alias: string;
+	readonly parent: Table;
 	readonly container: Table;
 	readonly episodeSchemaSlug: string;
 	readonly relationshipSlug: string;
 }) => {
 	const episode = table("entity", `${input.alias}Episode`);
 	const runtime = propertyNumber(episode, "runtime");
-	const { joins, where } = episodeTraversal({ ...input, episode });
+	const traversal = episodeTraversal({ ...input, episode });
+	const joins = traversal.joins;
+	const where = and(traversal.where, episodeHasAired(episode));
 	const isWatched = and(
 		where,
-		eq(episodeLifecycleStateExpression(episode, `${input.alias}Lifecycle`), literal("complete")),
+		eq(
+			episodeDisplayStateExpression(episode, input.parent, `${input.alias}State`),
+			literal("complete"),
+		),
 	);
 	const completion = table("event", `${input.alias}Completion`);
 	const loggedMinutes = first(completion, {
@@ -136,6 +149,10 @@ export const episodicCoverageSelection = (input: {
 		watchedTotal: selectedField(count(episode, { joins, where: isWatched }), Schema.Number),
 		watchedUnknownRuntime: selectedField(
 			count(episode, { joins, where: and(isWatched, isNull(runtime)) }),
+			Schema.Number,
+		),
+		upcomingTotal: selectedField(
+			count(episode, { joins, where: and(traversal.where, episodeIsUpcoming(episode)) }),
 			Schema.Number,
 		),
 		watchedMinutes: selectedField(
@@ -189,64 +206,55 @@ export const episodicEpisodeMembership = (
 	});
 };
 
-/** Counts the episodes below one parent row, optionally narrowed to a lifecycle state. */
-export const episodicEpisodeCount = (
+/**
+ * Counts one parent row's regular episodes: the upcoming ones, or the aired (required) ones,
+ * optionally narrowed to a display state.
+ */
+const episodicEpisodeCount = (
 	config: EpisodicKindConfig,
 	parent: Table,
 	alias: string,
-	state?: "complete" | "in_progress",
+	filter?: "upcoming" | "complete" | "in_progress",
 ) => {
 	const episode = table("entity", `${alias}Episode`);
-	const stateFilter =
-		state === undefined
-			? []
-			: [eq(episodeLifecycleStateExpression(episode, `${alias}Lifecycle`), literal(state))];
-	if (config.kind === "podcast") {
-		const relationship = table("relationship", `${alias}Relationship`);
-		return count(episode, {
-			joins: [
-				join(
-					"inner",
-					relationship,
-					eq(column(relationship, "targetEntityId"), column(episode, "id")),
-				),
-			],
-			where: and(
-				entitySchema(episode, config.episodeSchemaSlug),
-				relationshipTo(relationship, parent, episode, config.parentEpisodeRelationshipSlug),
-				...stateFilter,
-			),
-		});
-	}
-	const season = table("entity", `${alias}Season`);
-	const parentSeason = table("relationship", `${alias}ParentSeason`);
-	const seasonEpisode = table("relationship", `${alias}SeasonEpisode`);
+	const { joins, where } = episodicEpisodeQuery(
+		config,
+		parent,
+		episode,
+		alias,
+		filter === "upcoming" ? "upcoming" : "aired",
+	);
 	return count(episode, {
-		joins: [
-			join(
-				"inner",
-				seasonEpisode,
-				eq(column(seasonEpisode, "targetEntityId"), column(episode, "id")),
-			),
-			join("inner", season, eq(column(seasonEpisode, "sourceEntityId"), column(season, "id"))),
-			join("inner", parentSeason, eq(column(parentSeason, "targetEntityId"), column(season, "id"))),
-		],
-		where: and(
-			entitySchema(episode, config.episodeSchemaSlug),
-			entitySchema(season, "show-season"),
-			eq(column(parentSeason, "sourceEntityId"), column(parent, "id")),
-			eq(
-				column(parentSeason, "relationshipSchemaSlug"),
-				literal(config.parentSeasonRelationshipSlug),
-			),
-			eq(
-				column(seasonEpisode, "relationshipSchemaSlug"),
-				literal(config.seasonEpisodeRelationshipSlug),
-			),
-			...stateFilter,
-		),
+		joins,
+		where:
+			filter === undefined || filter === "upcoming"
+				? where
+				: and(
+						where,
+						eq(episodeDisplayStateExpression(episode, parent, `${alias}State`), literal(filter)),
+					),
 	});
 };
+
+/** The display-state counts every episodic summary and presentation row carries. */
+const episodicCountSelection = (config: EpisodicKindConfig, parent: Table, alias: string) => ({
+	airedEpisodes: selectedField(
+		episodicEpisodeCount(config, parent, `${alias}Aired`),
+		Schema.Number,
+	),
+	watchedEpisodes: selectedField(
+		episodicEpisodeCount(config, parent, `${alias}Watched`, "complete"),
+		Schema.Number,
+	),
+	upcomingEpisodes: selectedField(
+		episodicEpisodeCount(config, parent, `${alias}Upcoming`, "upcoming"),
+		Schema.Number,
+	),
+	inProgressEpisodes: selectedField(
+		episodicEpisodeCount(config, parent, `${alias}Progress`, "in_progress"),
+		Schema.Number,
+	),
+});
 
 export const episodicActivityEpisodeSelection = (episode: Table) => ({
 	episodeId: selectedField(column(episode, "id"), EntityId),
@@ -315,6 +323,7 @@ export const episodicEpisodeProgressQuery = <const EpisodeFields extends Selecte
 	readonly episodeFields: (episode: Table) => EpisodeFields;
 }) => {
 	const episode = table("entity", `${input.alias}Episode`);
+	const parent = table("entity", `${input.alias}Parent`);
 	const event = table("event", `${input.alias}Event`);
 	const probe = table("event", `${input.alias}Probe`);
 	const isProgressOf = (candidate: Table) =>
@@ -324,6 +333,7 @@ export const episodicEpisodeProgressQuery = <const EpisodeFields extends Selecte
 		);
 	return selectedRows(episode, {
 		limit: input.limit,
+		joins: [join("inner", parent, entityId(parent, input.entityId))],
 		selection: { ...episodicActivityEpisodeSelection(episode), ...input.episodeFields(episode) },
 		orderBy: [
 			...input.orderProperties.map((property) => ascending(propertyNumber(episode, property))),
@@ -334,7 +344,7 @@ export const episodicEpisodeProgressQuery = <const EpisodeFields extends Selecte
 			entitySchema(episode, input.config.episodeSchemaSlug),
 			exists(probe, { where: isProgressOf(probe) }),
 			eq(
-				episodeLifecycleStateExpression(episode, `${input.alias}Lifecycle`),
+				episodeDisplayStateExpression(episode, parent, `${input.alias}State`),
 				literal("in_progress"),
 			),
 			episodicEpisodeMembership(input.config, episode, input.entityId, `${input.alias}Member`),
@@ -416,6 +426,8 @@ export const episodicEpisodesRecipe = <const ExtraFields extends SelectedSelecti
 	readonly order: "asc" | "desc";
 	readonly episodeSchemaSlug: string;
 	readonly relationshipSlug: string;
+	/** Set when the container is not the episodic parent itself but hangs off it, like a season. */
+	readonly parentRelationshipSlug?: string;
 	readonly extraFields: (episode: Table) => ExtraFields;
 }) =>
 	defineRecipe(
@@ -425,8 +437,40 @@ export const episodicEpisodesRecipe = <const ExtraFields extends SelectedSelecti
 			readonly after?: string | undefined;
 		}) => {
 			const episode = table("entity", `${input.alias}Episode`);
+			const parent = table("entity", `${input.alias}Parent`);
 			const relationship = table("relationship", `${input.alias}Relationship`);
+			const parentRelationship = table("relationship", `${input.alias}ParentRelationship`);
 			const direction = input.order === "asc" ? ascending : descending;
+			const parentJoins =
+				input.parentRelationshipSlug === undefined
+					? [
+							join(
+								"inner",
+								parent,
+								eq(column(parent, "id"), column(relationship, "sourceEntityId")),
+							),
+						]
+					: [
+							join(
+								"inner",
+								parentRelationship,
+								and(
+									eq(
+										column(parentRelationship, "targetEntityId"),
+										column(relationship, "sourceEntityId"),
+									),
+									eq(
+										column(parentRelationship, "relationshipSchemaSlug"),
+										literal(input.parentRelationshipSlug),
+									),
+								),
+							),
+							join(
+								"inner",
+								parent,
+								eq(column(parent, "id"), column(parentRelationship, "sourceEntityId")),
+							),
+						];
 			return {
 				map: ({ episodes }) => Result.succeed(episodes),
 				queries: {
@@ -438,7 +482,7 @@ export const episodicEpisodesRecipe = <const ExtraFields extends SelectedSelecti
 							direction(column(episode, "id")),
 						],
 						selection: {
-							...episodicEpisodeSelection(episode, `${input.alias}Lifecycle`),
+							...episodicEpisodeSelection(episode, parent, `${input.alias}State`),
 							...input.extraFields(episode),
 						},
 						joins: [
@@ -447,6 +491,7 @@ export const episodicEpisodesRecipe = <const ExtraFields extends SelectedSelecti
 								relationship,
 								eq(column(relationship, "targetEntityId"), column(episode, "id")),
 							),
+							...parentJoins,
 						],
 						where: and(
 							entitySchema(episode, input.episodeSchemaSlug),
@@ -476,6 +521,7 @@ export const episodicParentCoverageQuery =
 			selection: {
 				id: selectedField(column(parent, "id"), EntityId),
 				...episodicCoverageSelection({
+					parent,
 					container: parent,
 					alias: `${config.alias}Coverage`,
 					relationshipSlug: config.relationshipSlug,
@@ -535,10 +581,20 @@ export const mediaEpisodicRecipes = <
 }) => {
 	const summaryRecipe = defineRecipe(
 		(input: { readonly entityId: string; readonly collectionLimit: number }) => ({
-			map: (result) => mediaSummaryResult(result),
+			map: ({ summary, requested }) =>
+				mediaSummaryResult({
+					requested,
+					summary: summary && { ...summary, nextUp: summary.nextUp.items[0] ?? null },
+				}),
 			queries: mediaSummaryQueries({
 				...input,
 				slug: config.slug,
+				include: (entity) => ({
+					nextUp: episodicNextUpInclude(config.config, entity, (episode) => ({
+						...episodicEpisodeSelection(episode, entity, `${config.alias}NextUpState`),
+						...config.episodeFields(episode),
+					})),
+				}),
 				selection: (entity, provider) => {
 					const lifecycle = episodicLifecycleExpressions(
 						config.config,
@@ -552,28 +608,7 @@ export const mediaEpisodicRecipes = <
 							propertyNumber(entity, "totalEpisodes"),
 							Schema.NullOr(Schema.Number),
 						),
-						storedEpisodes: selectedField(
-							episodicEpisodeCount(config.config, entity, `${config.alias}SummaryStored`),
-							Schema.Number,
-						),
-						watchedEpisodes: selectedField(
-							episodicEpisodeCount(
-								config.config,
-								entity,
-								`${config.alias}SummaryWatched`,
-								"complete",
-							),
-							Schema.Number,
-						),
-						inProgressEpisodes: selectedField(
-							episodicEpisodeCount(
-								config.config,
-								entity,
-								`${config.alias}SummaryProgress`,
-								"in_progress",
-							),
-							Schema.Number,
-						),
+						...episodicCountSelection(config.config, entity, `${config.alias}Summary`),
 						...config.summaryFields(entity),
 					};
 				},
@@ -735,28 +770,7 @@ export const mediaEpisodicRecipes = <
 							propertyText(entity, "productionStatus"),
 							Schema.NullOr(Schema.String),
 						),
-						storedEpisodes: selectedField(
-							episodicEpisodeCount(config.config, entity, `${config.alias}PresentationStored`),
-							Schema.Number,
-						),
-						watchedEpisodes: selectedField(
-							episodicEpisodeCount(
-								config.config,
-								entity,
-								`${config.alias}PresentationWatched`,
-								"complete",
-							),
-							Schema.Number,
-						),
-						inProgressEpisodes: selectedField(
-							episodicEpisodeCount(
-								config.config,
-								entity,
-								`${config.alias}PresentationProgress`,
-								"in_progress",
-							),
-							Schema.Number,
-						),
+						...episodicCountSelection(config.config, entity, `${config.alias}Presentation`),
 						...config.presentationFields(entity),
 					},
 				}),

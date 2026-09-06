@@ -24,8 +24,9 @@ const presentationRow = {
 	name: "Severance",
 	publishDate: null,
 	publishYear: 2022,
-	storedEpisodes: 19,
+	airedEpisodes: 19,
 	schemaSlug: "show",
+	upcomingEpisodes: 0,
 	watchedEpisodes: 11,
 	state: "in_progress",
 	inProgressEpisodes: 1,
@@ -116,14 +117,15 @@ describe("show schema", () => {
 
 		expect(showPresentationFacts(data)).toEqual(["Returning Series"]);
 		expect(showPresentationDetail(data)).toBe(
-			"2 stored seasons · 11 of 19 episodes watched · 1 episode in progress",
+			"2 stored seasons · 11 of 19 aired episodes watched · 1 episode in progress",
 		);
 		expect(
 			showPresentationDetail(
 				presentationData({
 					storedSeasons: 0,
-					storedEpisodes: 0,
+					airedEpisodes: 0,
 					watchedEpisodes: 0,
+					upcomingEpisodes: 0,
 					inProgressEpisodes: 0,
 				}),
 			),

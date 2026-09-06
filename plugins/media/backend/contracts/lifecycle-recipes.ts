@@ -14,7 +14,6 @@ import {
 	eq,
 	executeRyotqlRecipe,
 	first,
-	gt,
 	isNotNull,
 	join,
 	jsonPath,
@@ -31,12 +30,9 @@ import {
 
 import {
 	entitySchemaIs,
-	EpisodeLifecycleStateSchema,
 	EpisodicLifecycleStateSchema,
-	episodicCoverageExpressions,
+	episodicEpisodeQuery,
 	episodicLifecycleExpressions,
-	latestAggregateSignalExpressions,
-	latestEpisodeLifecycleExpressions,
 	latestParentCompletionExpressions,
 	orderExpressionsAreAfter,
 	relationshipConnects,
@@ -104,82 +100,6 @@ export const EpisodicLifecycleSnapshotSchema = Schema.Struct({
 });
 
 export type EpisodicLifecycleSnapshot = Schema.Schema.Type<typeof EpisodicLifecycleSnapshotSchema>;
-
-const episodeRelationshipQuery = (
-	config: EpisodicKindConfig,
-	parent: TableReference,
-	episode: TableReference,
-	alias: string,
-) => {
-	if (config.kind === "podcast") {
-		const relationship = table("relationship", `${alias}Relationship`);
-		return {
-			joins: [
-				join(
-					"inner",
-					relationship,
-					eq(column(relationship, "targetEntityId"), column(episode, "id")),
-				),
-			],
-			where: and(
-				entitySchemaIs(episode, config.episodeSchemaSlug),
-				relationshipConnects(relationship, parent, episode, config.parentEpisodeRelationshipSlug),
-			),
-		};
-	}
-
-	const season = table("entity", `${alias}Season`);
-	const showSeason = table("relationship", `${alias}ShowSeason`);
-	const seasonEpisode = table("relationship", `${alias}SeasonEpisode`);
-	return {
-		joins: [
-			join(
-				"inner",
-				seasonEpisode,
-				eq(column(seasonEpisode, "targetEntityId"), column(episode, "id")),
-			),
-			join("inner", season, eq(column(seasonEpisode, "sourceEntityId"), column(season, "id"))),
-			join("inner", showSeason, eq(column(showSeason, "targetEntityId"), column(season, "id"))),
-		],
-		where: and(
-			entitySchemaIs(episode, config.episodeSchemaSlug),
-			entitySchemaIs(season, "show-season"),
-			gt(castNumber(jsonPath(column(season, "properties"), "seasonNumber")), literal(0)),
-			relationshipConnects(showSeason, parent, season, config.parentSeasonRelationshipSlug),
-			relationshipConnects(seasonEpisode, season, episode, config.seasonEpisodeRelationshipSlug),
-		),
-	};
-};
-
-export const episodicCoverageExpression = (
-	config: EpisodicKindConfig,
-	parent: TableReference,
-	alias = "episodicCoverage",
-) => episodicCoverageExpressions(config, parent, alias).coverageComplete;
-
-export const currentCycleEpisodeLifecycleStateExpression = (
-	episode: TableReference,
-	parent: TableReference,
-	alias = "currentCycleEpisodeLifecycle",
-) => {
-	const latest = latestEpisodeLifecycleExpressions(episode, parent, `${alias}Event`);
-	const boundary = latestParentCompletionExpressions(parent, `${alias}Boundary`);
-	return conditional(
-		and(
-			orderExpressionsAreAfter(latest, boundary),
-			eq(latest.eventSchemaSlug, literal("complete")),
-		),
-		literal("complete"),
-		conditional(
-			and(
-				orderExpressionsAreAfter(latest, boundary),
-				eq(latest.eventSchemaSlug, literal("progress")),
-			),
-			literal("in_progress"),
-			literal("untracked"),
-		),
-	);
-};
 
 export function resolveEpisodeParentRecipe(input: {
 	readonly config: typeof showEpisodicKindConfig;
@@ -334,39 +254,6 @@ const signalFromNullableFields = (
 	};
 };
 
-export const latestAggregateLifecycleSignalRecipe = defineRecipe(
-	(input: { readonly config: EpisodicKindConfig; readonly parentEntityId: string }) => {
-		const parent = table("entity", "lifecycleSignalParent");
-		const expressions = latestAggregateSignalExpressions(input.config, parent, "lifecycleSignal");
-		return {
-			map: ({ parent: parentResult }) =>
-				Result.succeed(
-					parentResult ? signalFromNullableFields(input.parentEntityId, parentResult) : null,
-				),
-			queries: {
-				parent: selectedOptionalRow(parent, {
-					selection: signalSelection(expressions),
-					orderBy: [ascending(column(parent, "id"))],
-					where: and(
-						entitySchemaIs(parent, input.config.parentSchemaSlug),
-						eq(column(parent, "id"), literal(input.parentEntityId)),
-					),
-				}),
-			},
-		};
-	},
-);
-
-export type LatestAggregateLifecycleSignalResult = Recipe.Success<
-	typeof latestAggregateLifecycleSignalRecipe
->;
-
-const eventOrderSelection = (expressions: EventOrderExpressions) => ({
-	id: selectedField(expressions.id, Schema.NullOr(Schema.String)),
-	createdAt: selectedField(expressions.createdAt, Schema.NullOr(Schema.String)),
-	occurredAt: selectedField(expressions.occurredAt, Schema.NullOr(Schema.String)),
-});
-
 const eventOrderFromNullableFields = (fields: {
 	readonly id: string | null;
 	readonly createdAt: string | null;
@@ -377,97 +264,6 @@ const eventOrderFromNullableFields = (fields: {
 	}
 	return { id: fields.id, createdAt: fields.createdAt, occurredAt: fields.occurredAt };
 };
-
-export const latestParentCompletionBoundaryRecipe = defineRecipe(
-	(input: { readonly config: EpisodicKindConfig; readonly parentEntityId: string }) => {
-		const parent = table("entity", "completionBoundaryParent");
-		const boundary = latestParentCompletionExpressions(parent, "completionBoundaryEvent");
-		return {
-			map: ({ parent: parentResult }) =>
-				Result.succeed(parentResult ? eventOrderFromNullableFields(parentResult) : null),
-			queries: {
-				parent: selectedOptionalRow(parent, {
-					selection: eventOrderSelection(boundary),
-					orderBy: [ascending(column(parent, "id"))],
-					where: and(
-						entitySchemaIs(parent, input.config.parentSchemaSlug),
-						eq(column(parent, "id"), literal(input.parentEntityId)),
-					),
-				}),
-			},
-		};
-	},
-);
-
-export type LatestParentCompletionBoundaryResult = Recipe.Success<
-	typeof latestParentCompletionBoundaryRecipe
->;
-
-export const episodeCurrentLifecycleStateRecipe = defineRecipe(
-	(input: {
-		readonly parentEntityId: string;
-		readonly episodeEntityId: string;
-		readonly config: EpisodicKindConfig;
-	}) => {
-		const episode = table("entity", "currentEpisode");
-		const parent = table("entity", "currentEpisodeParent");
-		return {
-			map: ({ episode: episodeResult }) => Result.succeed(episodeResult?.state ?? null),
-			queries: {
-				episode: selectedOptionalRow(episode, {
-					orderBy: [ascending(column(episode, "id"))],
-					joins: [join("inner", parent, eq(column(parent, "id"), literal(input.parentEntityId)))],
-					selection: {
-						state: selectedField(
-							currentCycleEpisodeLifecycleStateExpression(episode, parent, "currentEpisodeState"),
-							EpisodeLifecycleStateSchema,
-						),
-					},
-					where: and(
-						entitySchemaIs(episode, input.config.episodeSchemaSlug),
-						entitySchemaIs(parent, input.config.parentSchemaSlug),
-						eq(column(episode, "id"), literal(input.episodeEntityId)),
-					),
-				}),
-			},
-		};
-	},
-);
-
-export type EpisodeCurrentLifecycleStateResult = Recipe.Success<
-	typeof episodeCurrentLifecycleStateRecipe
->;
-
-export const episodicCoverageRecipe = defineRecipe(
-	(input: { readonly config: EpisodicKindConfig; readonly parentEntityId: string }) => {
-		const parent = table("entity", "coverageParent");
-		return {
-			map: ({ parent: parentResult }) => Result.succeed(parentResult ?? null),
-			queries: {
-				parent: selectedOptionalRow(parent, {
-					orderBy: [ascending(column(parent, "id"))],
-					where: and(
-						entitySchemaIs(parent, input.config.parentSchemaSlug),
-						eq(column(parent, "id"), literal(input.parentEntityId)),
-					),
-					selection: {
-						parentEntityId: selectedField(column(parent, "id"), Schema.String),
-						coverageComplete: selectedField(
-							conditional(
-								episodicCoverageExpression(input.config, parent, "currentCoverage"),
-								literal(true),
-								literal(false),
-							),
-							Schema.Boolean,
-						),
-					},
-				}),
-			},
-		};
-	},
-);
-
-export type EpisodicCoverageResult = Recipe.Success<typeof episodicCoverageRecipe>;
 
 const eventOrderExpressions = (event: TableReference): EventOrderExpressions => ({
 	id: column(event, "id"),
@@ -550,7 +346,7 @@ const aggregateCoverageCompletionExpressions = (
 	alias: string,
 ) => {
 	const episode = table("entity", `${alias}Episode`);
-	const episodeQuery = episodeRelationshipQuery(config, parent, episode, alias);
+	const episodeQuery = episodicEpisodeQuery(config, parent, episode, alias);
 	const completion = currentCoverageCompletionExpressions(episode, parent, `${alias}Episode`);
 	const completedEpisode = and(episodeQuery.where, isNotNull(completion.id));
 	const closingField = (field: ScalarExpression) =>
@@ -560,7 +356,7 @@ const aggregateCoverageCompletionExpressions = (
 			joins: episodeQuery.joins,
 			orderBy: eventOrderDescendingExpressions(completion),
 		});
-	const requiredCount = count(episode, episodeQuery);
+	const requiredCount = count(episode, { joins: episodeQuery.joins, where: episodeQuery.where });
 	const nonemptyConsumedOn = and(
 		completedEpisode,
 		isNotNull(completion.consumedOn),

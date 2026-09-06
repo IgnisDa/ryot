@@ -4,6 +4,7 @@ import { decodeShowSummary } from "../../tests/client/show/summary-fixture";
 import {
 	mediaBackdropAsset,
 	mediaCollectionsLabel,
+	mediaEpisodicAiredLabel,
 	mediaGalleryAssets,
 	mediaManagedAssets,
 	mediaOwnershipLabel,
@@ -19,6 +20,15 @@ const label = (items: readonly { id: string; name: string }[], hasMore = false) 
 	);
 
 describe("media summary state", () => {
+	it("words episode progress over the aired set and drops empty parts", () => {
+		expect(mediaEpisodicAiredLabel({ aired: 10, watched: 10, upcoming: 3 })).toBe(
+			"10/10 aired · 3 upcoming",
+		);
+		expect(mediaEpisodicAiredLabel({ aired: 10, watched: 4, upcoming: 0 })).toBe("4/10 aired");
+		expect(mediaEpisodicAiredLabel({ aired: 0, watched: 0, upcoming: 2 })).toBe("2 upcoming");
+		expect(mediaEpisodicAiredLabel({ aired: 0, watched: 0, upcoming: 0 })).toBeUndefined();
+	});
+
 	it("prefers the cover image over provider order for the poster", () => {
 		const media = decodeShowSummary();
 

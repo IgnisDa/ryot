@@ -31,6 +31,7 @@ export const episodicCoverageRow = {
 	id: "parent-1",
 	episodeTotal: 4,
 	watchedTotal: 2,
+	upcomingTotal: 0,
 	watchedMinutes: 116,
 	watchedUnknownRuntime: 0,
 };

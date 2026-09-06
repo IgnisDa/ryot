@@ -3,11 +3,13 @@ import { fireEvent, waitFor } from "@testing-library/dom";
 import { afterEach, describe, expect, it } from "vitest";
 
 import {
+	decodeEpisodicEpisodePage,
 	episodicEpisode,
 	episodicEpisodePageData,
 	episodicFixtureEpisodesQuery,
 	EPISODIC_FIXTURE_RENDER,
 } from "../../tests/client/episodic/episodes-fixture";
+import type { EpisodicFixtureEpisode } from "../../tests/client/episodic/recipes";
 import { flushRyotClient, mountRyotClient } from "../../tests/client/test-support";
 import { mediaCursorPageError } from "./cursor-page-state";
 import { MediaEpisodePages, type MediaEpisodePagesCopy } from "./episodes";
@@ -27,14 +29,16 @@ const SECOND_PAGE = [
 	episodicEpisode({ name: "Seven", id: "episode-7", episodeNumber: 7, state: "untracked" }),
 ];
 
-function Pages() {
+const [SUMMARY_NEXT_UP] = decodeEpisodicEpisodePage({ episodes: SECOND_PAGE }).items;
+
+function Pages(props: { readonly nextUp?: EpisodicFixtureEpisode | null }) {
 	return (
 		<MediaEpisodePages
 			compact
 			copy={COPY}
-			nextUp="latest"
 			entityId="parent-1"
 			containerId="parent-1"
+			nextUp={props.nextUp ?? null}
 			render={EPISODIC_FIXTURE_RENDER}
 			query={episodicFixtureEpisodesQuery}
 		/>
@@ -66,17 +70,27 @@ afterEach(() => {
 });
 
 describe("media episode pages", () => {
-	it("renders the first page with its leading slot and a load-more control", async () => {
+	it("leads the first page with the summary's next up even when no loaded page holds it", async () => {
 		const { adapter, documents } = pagingAdapter();
-		const view = mountRyotClient(adapter, <Pages />);
+		const view = mountRyotClient(adapter, <Pages nextUp={SUMMARY_NEXT_UP} />);
 		await flushRyotClient();
 
 		await waitFor(() => expect(view.container.textContent).toContain("Nine"));
 		expect(view.container.textContent).toContain("Eight");
 		expect(view.container.textContent).toContain("Next up");
-		expect(view.container.textContent).not.toContain("Seven");
+		expect(view.container.textContent).toContain("Seven");
 		expect(documents).toHaveLength(1);
 		expect(loadMore(view.container)).not.toBeUndefined();
+		view.unmount();
+	});
+
+	it("renders no next up card without a summary next up", async () => {
+		const { adapter } = pagingAdapter();
+		const view = mountRyotClient(adapter, <Pages />);
+		await flushRyotClient();
+
+		await waitFor(() => expect(view.container.textContent).toContain("Nine"));
+		expect(view.container.textContent).not.toContain("Next up");
 		view.unmount();
 	});
 

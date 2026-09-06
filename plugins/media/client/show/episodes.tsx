@@ -16,15 +16,13 @@ import { mediaEpisodeNumberLabel } from "../media/episodes-state";
 import { ManagedAssetImage } from "../media/managed-assets";
 import { MediaProgressBar, MediaRefreshStatus, MediaStatusMessage } from "../media/primitives";
 import {
-	isSpecialsSeason,
 	mapShowSeasons,
 	selectedShowSeason,
 	showEpisodeOriginLabel,
+	showSeasonAiredLabel,
 	showSeasonAsset,
-	showSeasonCompletedLabel,
 	showSeasonCompletionPercent,
 	showSeasonDescription,
-	showSeasonEpisodeCountLabel,
 	showSeasonLabel,
 	showSeasonReleaseLabel,
 	showSeasonsError,
@@ -132,8 +130,7 @@ function ShowSeasonHeader(props: { readonly compact: boolean; readonly season: S
 	const description = showSeasonDescription(season);
 	const meta = metaLabel([
 		release === undefined ? undefined : `Released ${release}`,
-		showSeasonEpisodeCountLabel(season),
-		showSeasonCompletedLabel(season),
+		showSeasonAiredLabel(season),
 	]);
 	return (
 		<div className="flex flex-col gap-3">
@@ -169,9 +166,11 @@ function ShowSeasonBrowser(props: {
 	readonly compact: boolean;
 	readonly entityId: string;
 	readonly seasons: ShowSeasonList;
+	readonly nextUp: ShowEpisode | null;
 	readonly selectedId: string | null;
 	readonly onSelect: (seasonId: string) => void;
 }) {
+	const { nextUp } = props;
 	const season = selectedShowSeason(props.seasons, props.selectedId);
 	return (
 		<ManagedAssetProvider assets={showSeasonsManagedAssets(props.seasons)}>
@@ -189,7 +188,7 @@ function ShowSeasonBrowser(props: {
 					render={SHOW_EPISODE_RENDER}
 					copy={SHOW_EPISODE_PAGES_COPY}
 					query={showSeasonEpisodesQuery}
-					nextUp={isSpecialsSeason(season) ? undefined : "forward"}
+					nextUp={nextUp?.seasonNumber === season.seasonNumber ? nextUp : null}
 				/>
 			</div>
 		</ManagedAssetProvider>
@@ -201,6 +200,7 @@ export function ShowEpisodes(props: {
 	readonly entityId: string;
 	readonly refresh: () => void;
 	readonly state: ShowSeasonsState;
+	readonly nextUp: ShowEpisode | null;
 	readonly selectedId: string | null;
 	readonly onSelect: (seasonId: string) => void;
 }) {
@@ -226,6 +226,7 @@ export function ShowEpisodes(props: {
 	}
 	return (
 		<ShowSeasonBrowser
+			nextUp={props.nextUp}
 			seasons={state.seasons}
 			compact={props.compact}
 			entityId={props.entityId}
@@ -235,7 +236,11 @@ export function ShowEpisodes(props: {
 	);
 }
 
-export function ShowEpisodesTab(props: { readonly compact: boolean; readonly entityId: string }) {
+export function ShowEpisodesTab(props: {
+	readonly compact: boolean;
+	readonly entityId: string;
+	readonly summary: { readonly nextUp: ShowEpisode | null } | undefined;
+}) {
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const result = useRyotQuery(showSeasonsQuery, { entityId: props.entityId });
 	return (
@@ -248,6 +253,7 @@ export function ShowEpisodesTab(props: { readonly compact: boolean; readonly ent
 				refresh={result.refetch}
 				entityId={props.entityId}
 				state={mapShowSeasons(result)}
+				nextUp={props.summary?.nextUp ?? null}
 			/>
 		</>
 	);

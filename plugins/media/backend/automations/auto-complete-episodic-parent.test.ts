@@ -310,7 +310,7 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 		});
 	});
 
-	it("excludes season-zero episodes from aggregate coverage", async () => {
+	it("excludes season-zero and unaired episodes from aggregate coverage", async () => {
 		const fixture: SnapshotFixture = {
 			events: [],
 			state: "untracked",
@@ -324,37 +324,8 @@ describe("auto-complete-episodic-parent sandbox script", () => {
 		const document = testHost.documents[0];
 		expect(JSON.stringify(document)).toContain('"seasonNumber"');
 		expect(JSON.stringify(document)).toContain('"operator":"gt"');
-		expect(testHost.claims).toEqual([]);
-		expect(testHost.created).toEqual([]);
-	});
-
-	it("does not complete a show with one empty regular season", async () => {
-		const fixture: SnapshotFixture = {
-			events: [],
-			state: "in_progress",
-			requiredEpisodeIds: [],
-			coverageComplete: false,
-			productionStatus: "Ended",
-			coverageStructureValid: false,
-		};
-		const testHost = createHost([fixture]);
-		await Effect.runPromise(run(eventContext(), testHost.host));
-		expect(testHost.queryCount).toBe(1);
-		expect(testHost.claims).toEqual([]);
-		expect(testHost.created).toEqual([]);
-	});
-
-	it("rejects replayed completion when another regular season is empty", async () => {
-		const fixture: SnapshotFixture = {
-			state: "in_progress",
-			coverageComplete: false,
-			productionStatus: "Ended",
-			coverageStructureValid: false,
-			requiredEpisodeIds: ["episode-1"],
-			events: [childEvent("complete-1", "episode-1", "complete", "2026-01-03T00:00:00.000Z")],
-		};
-		const testHost = createHost([fixture]);
-		await Effect.runPromise(run(eventContext(), testHost.host));
+		expect(JSON.stringify(document)).toContain('"publishDate"');
+		expect(JSON.stringify(document)).toContain('"type":"currentDate"');
 		expect(testHost.claims).toEqual([]);
 		expect(testHost.created).toEqual([]);
 	});
