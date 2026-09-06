@@ -9,7 +9,7 @@ import {
 	isUniqueConstraintError,
 	mapDatabaseErrors,
 	retryOnDeadlock,
-} from "./service";
+} from "./errors";
 
 const drizzleQueryFailure = (reason: SqlError["reason"]) =>
 	new EffectDrizzleQueryError({

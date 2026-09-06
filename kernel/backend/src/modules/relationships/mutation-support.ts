@@ -17,7 +17,7 @@ import { Effect, Schema } from "effect";
 import { LifecyclePersistenceError, type LifecyclePlanner } from "#lib/domain/lifecycle";
 import { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import type { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { retryOnDeadlock } from "#lib/infrastructure/db/service";
+import { retryOnDeadlock } from "#lib/infrastructure/db/errors";
 import { type DatabaseSession, DatabaseSessionStateError } from "#lib/infrastructure/db/session";
 import { parseAppSchemaProperties } from "#lib/property-schema/property-schema-runtime";
 import type { DefinitionRepository } from "#modules/definition-registry/repository";

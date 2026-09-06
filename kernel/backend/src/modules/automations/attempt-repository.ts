@@ -21,12 +21,12 @@ import { alias } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { automationRunRetryEligibility } from "#lib/infrastructure/db/automation-retry-eligibility";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
 import { user } from "#lib/infrastructure/db/schema/tables/auth";
 import {
 	automationRun,
 	automationRunAttempt as table,
 } from "#lib/infrastructure/db/schema/tables/automations";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { DatabaseSession, DatabaseSessionStateError } from "#lib/infrastructure/db/session";
 import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import { makeSandboxObservabilityCollector } from "#lib/infrastructure/sandbox-runtime/observability-host-functions";

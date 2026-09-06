@@ -8,7 +8,7 @@ import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 
-import { mapDatabaseErrors } from "#lib/infrastructure/db/service";
+import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { RedisService, redisKeys } from "#lib/infrastructure/redis";
 import { sandboxContextError } from "#lib/infrastructure/sandbox-runtime/limits";
