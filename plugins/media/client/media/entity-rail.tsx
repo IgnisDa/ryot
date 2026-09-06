@@ -78,7 +78,6 @@ type MediaSectionFrameProps = {
 	readonly sync?: MediaSyncCounts | undefined;
 };
 
-/** A titled home section with one pending, error-with-retry, and ready treatment. */
 export function MediaSectionFrame(
 	props: MediaSectionFrameProps & { readonly placeholder: ReactNode },
 ) {
