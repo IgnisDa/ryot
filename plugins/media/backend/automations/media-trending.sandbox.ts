@@ -41,7 +41,7 @@ export default defineScript({
 	run: (_input, host) =>
 		Effect.gen(function* () {
 			let providerCount = 0;
-			const savedItems: Array<{ entityId: string }> = [];
+			const rankedItems: Array<{ entityId: string; rank: number }> = [];
 
 			for (const provider of providers) {
 				const result = yield* provider.script.run({}, host).pipe(
@@ -78,10 +78,11 @@ export default defineScript({
 				}
 
 				providerCount += 1;
-				savedItems.push(
-					...result.items
-						.filter((item) => item.status === "upserted")
-						.map(({ entityId }) => ({ entityId })),
+				const entityIds = new Set(
+					result.items.filter((item) => item.status === "upserted").map(({ entityId }) => entityId),
+				);
+				rankedItems.push(
+					...[...entityIds].map((entityId, index) => ({ entityId, rank: index + 1 })),
 				);
 			}
 
@@ -90,21 +91,14 @@ export default defineScript({
 			}
 
 			const fetchedAt = DateTime.formatIso(DateTime.nowUnsafe());
-			const rankedItemsByEntityId = new Map<string, (typeof savedItems)[number]>();
-			for (const item of savedItems) {
-				if (!rankedItemsByEntityId.has(item.entityId)) {
-					rankedItemsByEntityId.set(item.entityId, item);
-				}
-			}
-			const rankedItems = [...rankedItemsByEntityId.values()];
 			yield* host.upsertGlobalRelationships([
 				{
 					selector: { type: "self" },
 					relationshipSchemaSlug: "media-trending",
-					relationships: rankedItems.map(({ entityId }, index) => ({
+					relationships: rankedItems.map(({ rank, entityId }) => ({
 						sourceEntityId: entityId,
 						targetEntityId: entityId,
-						properties: { fetchedAt, rank: index + 1 },
+						properties: { rank, fetchedAt },
 					})),
 				},
 			]);
