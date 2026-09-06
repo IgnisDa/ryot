@@ -47,7 +47,7 @@ const user: CurrentUserValue = {
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-id"),
-	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+	preferences: { language: null, disableIntegrations: false },
 };
 const collectionId = EntityId.make("collection-id");
 const entityId = EntityId.make("entity-id");

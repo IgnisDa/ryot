@@ -56,7 +56,7 @@ const user = {
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-id"),
-	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+	preferences: { language: null, disableIntegrations: false },
 } satisfies CurrentUserValue;
 
 const command = rootLifecycleCommand({
