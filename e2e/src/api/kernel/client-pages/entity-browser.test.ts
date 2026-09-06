@@ -21,13 +21,13 @@ describe("kernel entity browser E2E", () => {
 				"Expected kernel saved-view preparation identities",
 			);
 
-			expect(second.identity.artifactKey).toBe(first.identity.artifactKey);
-			expect(second.identity.artifactHash).toBe(first.identity.artifactHash);
+			expect(second.identity.compositionKey).toBe(first.identity.compositionKey);
+			expect(second.identity.compositionHash).toBe(first.identity.compositionHash);
 			expect((yield* checkClientPageFreshness(client, first.identity)).current).toBe(true);
 
 			for (const identity of [
-				{ ...first.identity, artifactKey: `${first.identity.artifactKey}-substituted` },
-				{ ...first.identity, artifactHash: `${first.identity.artifactHash}-substituted` },
+				{ ...first.identity, compositionKey: `${first.identity.compositionKey}-substituted` },
+				{ ...first.identity, compositionHash: `${first.identity.compositionHash}-substituted` },
 			]) {
 				expect((yield* checkClientPageFreshness(client, identity)).current).toBe(false);
 			}
