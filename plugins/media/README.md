@@ -8,7 +8,8 @@ schema; saved views do not declare sandbox scripts.
 ## Client
 
 The plugin client supplies a workspace home and `show`, `anime`, `movie`, `music`, `book`, `manga`,
-`podcast`, `audiobook`, `comic-book`, `visual-novel`, and `video-game` entity renderers. Entity links
+`podcast`, `audiobook`, `comic-book`, `visual-novel`, `video-game`, `person`, and `company` entity
+renderers. Person and company register only a detail page and keep the shared media row and card. Entity links
 use `PluginLink` so the kernel resolves canonical entity routes.
 
 `client/media/` owns everything the screens share and carries no schema copy.
@@ -39,11 +40,14 @@ uses art height at both widths.
 Movie, Music, Book, Manga, Anime, Audiobook, Comic Book, Visual Novel, and Video Game are flat,
 non-episodic schemas. Each is one `mediaFlatRecipes` config in `shared/<slug>-recipes.ts` - the fields
 its entity schema declares and a measure for activity totals - and one `defineFlatMediaSchema`
-descriptor in `client/<slug>/schema.tsx` holding its copy, facts, artwork aspect, and hero height. The
-detail screen places the provider rating before the descriptor's facts and the production status after
-them. The factories build the summary, overview, activity, and presentation recipes, queries, screen,
-and row and card presentations. A schema needing a query beyond the shared overview set adds it
-through `extraOverviewQueries` on its config rather than re-wrapping the recipe. Measures come from
+descriptor in `client/<slug>/schema.tsx` holding its copy, facts, artwork aspect, and hero height.
+`mediaSummaryHeaderDetail` places the provider rating before the descriptor's facts and the production
+status after them, for flat and episodic schemas alike. Every descriptor takes its aspect from
+`mediaSchemaAspects`, and both the header art and the recommendation tiles follow it, so Music,
+Podcast, and Audiobook render square there. The factories build the summary, overview, activity, and
+presentation recipes, queries, screen, and row and card presentations. A schema needing a query
+beyond the shared overview set adds it through `extraOverviewQueries` on its config rather than
+re-wrapping the recipe. Measures come from
 `mediaTimeSpentMeasure`, with an optional entity fallback, or `mediaEntityCountMeasure`. Every flat
 summary recipe returns `{ summary, entitySchemaSlug }`, and every activity recipe returns
 `{ completionCount, consumedAmount, unknownAmountCount, truncated, events }`.
@@ -127,6 +131,39 @@ select `timeToBeat.normally` directly through the variadic property accessors in
 there: Giant Bomb emits platform names alone, and the v10 migration strips null keys. Video games
 ship cover art plus IGDB artwork rather than a backdrop, so the schema declares
 `backdropPurposes: ["artwork"]` and gets the full backdrop hero at wide widths.
+
+### Creators
+
+Person and Company are creators: each is one `mediaCreatorRecipes` config in
+`shared/<slug>-recipes.ts` and one `defineCreatorMediaSchema` descriptor in `client/<slug>/schema.tsx`,
+with a fixed `Overview | Activity` tab set. A creator is the source of its credit relationships
+(`person-to-<target>`, `company-to-<target>`), so the overview reads them in reverse. It is one query
+over the creator row with one include per target schema, each correlated to the creator as the
+relationship source and joined on the target, because a RyotQL document allows at most 10 named
+queries and there are 13 targets. A missing creator decodes as an empty page for every target. Each
+target is its own rail, titled and ordered by `client/creator/credit-sections.ts`: Movies, Shows,
+Anime, Books, Comic books, Manga, Visual novels, Video games, Game collections, Albums, Tracks,
+Audiobooks, Podcasts. Tiles take
+their target schema's aspect from `mediaSchemaAspects`. Empty rails are hidden, the overview reads as
+empty only when every rail is, and its loading and error notices are titled "Credits".
+
+Media credits sort newest `publishYear` first with unknown years last, then by name and ID. Group
+targets (`music-group`, `video-game-group`) declare no year, so their credits sort by name and ID and
+never select `publishYear`. Each rail loads 12 credits and offers "View all" only when the query
+reports more. A tile names the credit's roles, then "as <character>"; the character is selected only
+on `person-to-<media>` credits.
+
+Activity counts reviews alone - creators carry no lifecycle - and merges the creator's collection
+events newest first, loading 60 of each. Its figures are Reviews plus the Span, or Latest when either
+list was truncated, and the empty state offers "Write review". The action rail is Monitoring, In
+library, Collections, and Write review; there is no status, ownership, or Log activity.
+
+The header has no rating or production status. Person facts are Born (with age while alive), Died
+(with the age at death), Birthplace, and Gender; a partial provider date stays as written and gets no
+age, as does a date after today. Company facts are Founded and Headquarters. Links are Website and
+"<provider> page", shown only for http(s) addresses, and
+alternate names render as at most four chips. Person profile art is 2:3; a company logo is square and
+contain-fit. Both use the art-height, tint-only hero.
 
 Layout uses only the `compact` value from `useRyotViewport()`, not responsive Tailwind variants,
 because iframe media queries measure the content frame rather than the kernel viewport. Hero art fills

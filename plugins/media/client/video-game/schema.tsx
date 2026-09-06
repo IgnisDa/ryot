@@ -5,6 +5,7 @@ import { mediaActivityDurationLabel, mediaActivityTimeLabel } from "../media/act
 import { defineFlatMediaSchema } from "../media/flat-schema";
 import { MEDIA_ART_HEIGHT, MEDIA_BACKDROP_HEIGHT } from "../media/hero";
 import type { MediaSummaryFact } from "../media/summary-state";
+import { mediaSchemaAspects } from "../schema-aspects";
 import { videoGameOverviewTrailing } from "./sections";
 
 type VideoGameSummary = MediaSummaryOf<typeof videoGameRecipes>;
@@ -22,10 +23,10 @@ export const videoGamePresentationFacts = (game: VideoGamePresentation) =>
 	game.timeToBeatNormally === null ? [] : [mediaActivityDurationLabel(game.timeToBeatNormally)];
 
 export const videoGameSchema = defineFlatMediaSchema({
-	aspect: "poster",
 	recipes: videoGameRecipes,
 	facts: videoGameSummaryFacts,
 	backdropPurposes: ["artwork"],
+	aspect: mediaSchemaAspects["video-game"],
 	overviewTrailing: videoGameOverviewTrailing,
 	presentationFacts: videoGamePresentationFacts,
 	measureFigure: { label: "Time", value: mediaActivityTimeLabel },

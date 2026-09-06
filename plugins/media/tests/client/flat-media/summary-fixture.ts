@@ -1,7 +1,6 @@
-import { Result } from "@ryot-app/client-sdk/effect";
 import type { PreparedRecipe } from "@ryot-app/client-sdk/ryotql";
 
-import { rowsResult } from "../query-result-fixture";
+import { decodeMediaSummaryResult } from "../summary-fixture";
 import { flatFixtureRecipes } from "./recipes";
 
 export const FLAT_SUMMARY_INPUT = { collectionLimit: 6, entityId: "media-1" };
@@ -36,27 +35,11 @@ export const flatSummaryRow = {
 	],
 };
 
-const singleRow = (items: readonly unknown[]) =>
-	rowsResult(items, { limit: 1, hasMore: false, nextCursor: null });
-
-export const decodeFlatSummaryResult = <Data>(
-	recipe: PreparedRecipe<Data>,
-	input: {
-		readonly summary: readonly Record<string, unknown>[];
-		readonly requested: readonly Record<string, unknown>[];
-	},
-) =>
-	Result.getOrThrow(
-		recipe.decode({
-			data: { summary: singleRow(input.summary), requested: singleRow(input.requested) },
-		}),
-	);
-
 export const decodeFlatSummary = <Summary>(
 	recipe: PreparedRecipe<{ readonly summary: Summary | null }>,
 	overrides: Record<string, unknown> = {},
 ) => {
-	const { summary } = decodeFlatSummaryResult(recipe, {
+	const { summary } = decodeMediaSummaryResult(recipe, {
 		requested: [{ schemaSlug: "fixture" }],
 		summary: [{ ...flatSummaryRow, ...overrides }],
 	});
