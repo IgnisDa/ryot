@@ -50,7 +50,10 @@ import {
 	updatePluginState,
 	uninstallTestPlugin,
 } from "~/fixtures/kernel";
-import { getGlobalEntityByProvenance, queryInLibraryRelationship } from "~/fixtures/plugins/media";
+import {
+	getGlobalEntityByProvenance,
+	queryInMediaLibraryRelationship,
+} from "~/fixtures/plugins/media";
 import {
 	assertCompleted,
 	assertTaggedError,
@@ -59,15 +62,15 @@ import {
 } from "~/support/assertions";
 import { assert, describe, expect, it } from "~/support/effect-test";
 
-const getLibraryId = (client: Client) =>
+const getMediaLibraryId = (client: Client) =>
 	Effect.gen(function* () {
-		const library = table("entity", "library");
+		const mediaLibrary = table("entity", "mediaLibrary");
 		const result = yield* executeRyotQL(
 			client,
 			document({
-				libraries: rows(library, {
-					fields: [field("id", column(library, "id"))],
-					where: eq(column(library, "entitySchemaSlug"), literal("library")),
+				libraries: rows(mediaLibrary, {
+					fields: [field("id", column(mediaLibrary, "id"))],
+					where: eq(column(mediaLibrary, "entitySchemaSlug"), literal("media-library")),
 				}),
 			}),
 		);
@@ -319,9 +322,9 @@ describe("backup export and restore round trip", () => {
 				"Plugin-owned backup view is missing",
 			);
 			const clonedPluginView = yield* cloneSavedView(source.client, pluginOwnedView.slug);
-			const sourceLibraryId = yield* getLibraryId(source.client);
-			const targetLibraryId = yield* getLibraryId(target.client);
-			expect(targetLibraryId).not.toBe(sourceLibraryId);
+			const sourceMediaLibraryId = yield* getMediaLibraryId(source.client);
+			const targetMediaLibraryId = yield* getMediaLibraryId(target.client);
+			expect(targetMediaLibraryId).not.toBe(sourceMediaLibraryId);
 
 			const firstProperties = {
 				details: {
@@ -428,9 +431,9 @@ describe("backup export and restore round trip", () => {
 			const restored = yield* restoreBackup(target.client, bytes);
 			assertCompleted(restored.run, "backup restore");
 
-			const restoredLibraryId = yield* getLibraryId(target.client);
-			expect(restoredLibraryId).toBe(targetLibraryId);
-			expect(restoredLibraryId).not.toBe(sourceLibraryId);
+			const restoredMediaLibraryId = yield* getMediaLibraryId(target.client);
+			expect(restoredMediaLibraryId).toBe(targetMediaLibraryId);
+			expect(restoredMediaLibraryId).not.toBe(sourceMediaLibraryId);
 			const restoredFirst = yield* getEntity(target.client, firstEntity.id);
 			const restoredSecond = yield* getEntity(target.client, secondEntity.id);
 			expect(restoredFirst).toMatchObject({
@@ -635,11 +638,11 @@ describe("backup export and restore round trip", () => {
 				archivedImport.jobId,
 			);
 			assertCompleted(archivedResult, "archived provider entity import");
-			const sourceLibraryId = yield* getLibraryId(source.client);
+			const sourceMediaLibraryId = yield* getMediaLibraryId(source.client);
 			yield* insertRelationshipRow(source.client, {
-				targetEntityId: sourceLibraryId,
-				relationshipSchemaSlug: "in-library",
+				targetEntityId: sourceMediaLibraryId,
 				sourceEntityId: archivedResult.data.id,
+				relationshipSchemaSlug: "in-media-library",
 				properties: { owned: true, ownershipSources: ["backup-round-trip"] },
 			});
 			const { bytes } = yield* exportAndDownloadBackup(source.client, source.token);
@@ -660,12 +663,12 @@ describe("backup export and restore round trip", () => {
 			});
 			const existingAfterRestore = yield* getEntity(target.client, globalEntity.id);
 			expect(existingAfterRestore.properties).toEqual(existingBeforeRestore.properties);
-			const inLibrary = yield* queryInLibraryRelationship(
+			const inMediaLibrary = yield* queryInMediaLibraryRelationship(
 				target.client,
 				globalEntity.id,
 				entitySchemaSlug,
 			);
-			expect(requireRows(inLibrary.data.entity, "entity").items).toHaveLength(1);
+			expect(requireRows(inMediaLibrary.data.entity, "entity").items).toHaveLength(1);
 		}),
 	);
 });

@@ -632,9 +632,9 @@ export const mediaPlugin = definePlugin({
 			stage: "after",
 			delivery: "required",
 			executionScope: "user",
-			slug: "media.ensure-library-membership",
 			name: "Ensure media library membership",
-			scriptSlug: "automation.ensure-library-membership",
+			slug: "media.ensure-media-library-membership",
+			scriptSlug: "automation.ensure-media-library-membership",
 			targets: [
 				...mediaLibraryMemberEntitySchemaSlugs.flatMap((entitySchemaSlug) => [
 					{ entitySchemaSlug, resource: "entity" as const, operation: "create" as const },
@@ -646,7 +646,7 @@ export const mediaPlugin = definePlugin({
 				]),
 				...entitySchemas.flatMap((schema) =>
 					schema.eventSchemas
-						.filter(({ slug }) => slug !== "add-to-library")
+						.filter(({ slug }) => slug !== "add-to-media-library")
 						.map(({ slug }) => eventHookTarget(`${schema.slug}:${slug}`)),
 				),
 				eventHookTarget("collection:add-entity-to-collection"),
@@ -656,11 +656,15 @@ export const mediaPlugin = definePlugin({
 			stage: "after",
 			delivery: "required",
 			executionScope: "user",
-			slug: "media.record-library-membership-event",
 			name: "Record media library membership event",
-			scriptSlug: "automation.record-library-membership-event",
+			slug: "media.record-media-library-membership-event",
+			scriptSlug: "automation.record-media-library-membership-event",
 			targets: [
-				{ operation: "create", resource: "relationship", relationshipSchemaSlug: "in-library" },
+				{
+					operation: "create",
+					resource: "relationship",
+					relationshipSchemaSlug: "in-media-library",
+				},
 			],
 		},
 		{

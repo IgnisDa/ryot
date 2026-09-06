@@ -110,8 +110,8 @@ const lifecycleEventSchemaBySlug = (slug: string) => {
 };
 
 const libraryEventSchema = () => ({
-	slug: "add-to-library",
-	name: "Added to library",
+	slug: "add-to-media-library",
+	name: "Added to media library",
 	propertiesSchema: { fields: {} },
 });
 
@@ -241,17 +241,17 @@ const buildMediaGroupEntitySchema = (slug: string, name: string, icon: string) =
 	pluginSlug: "media",
 	propertiesSchema: mediaGroupPropertiesSchema,
 	eventSchemas: mediaLifecycleEventSchemas(slug).filter(
-		(s) => s.slug === "review" || s.slug === "add-to-library",
+		(s) => s.slug === "review" || s.slug === "add-to-media-library",
 	),
 });
 
 export const builtinEntitySchemas = () => [
 	{
-		slug: "library",
-		name: "Library",
 		icon: "library",
 		eventSchemas: [],
 		pluginSlug: "media",
+		slug: "media-library",
+		name: "Media Library",
 		propertiesSchema: { fields: {} },
 		userState: { deniedOperations: ["clear", "merge"] as const },
 	},
@@ -262,7 +262,7 @@ export const builtinEntitySchemas = () => [
 		pluginSlug: "media",
 		propertiesSchema: personPropertiesSchema,
 		eventSchemas: mediaLifecycleEventSchemas("person").filter(
-			(schema) => schema.slug === "review" || schema.slug === "add-to-library",
+			(schema) => schema.slug === "review" || schema.slug === "add-to-media-library",
 		),
 	},
 	{
@@ -272,7 +272,7 @@ export const builtinEntitySchemas = () => [
 		pluginSlug: "media",
 		propertiesSchema: companyPropertiesSchema,
 		eventSchemas: mediaLifecycleEventSchemas("company").filter(
-			(schema) => schema.slug === "review" || schema.slug === "add-to-library",
+			(schema) => schema.slug === "review" || schema.slug === "add-to-media-library",
 		),
 	},
 	buildMediaGroupEntitySchema("movie-group", "Movie Collection", "film"),
@@ -329,7 +329,7 @@ export const builtinEntitySchemas = () => [
 		propertiesSchema: showSeasonPropertiesSchema,
 		eventSchemas: [
 			lifecycleEventSchemaBySlug("review"),
-			lifecycleEventSchemaBySlug("add-to-library"),
+			lifecycleEventSchemaBySlug("add-to-media-library"),
 		],
 	},
 	{
@@ -342,7 +342,7 @@ export const builtinEntitySchemas = () => [
 			lifecycleEventSchemaBySlug("progress"),
 			lifecycleEventSchemaBySlug("review"),
 			lifecycleEventSchemaBySlug("complete"),
-			lifecycleEventSchemaBySlug("add-to-library"),
+			lifecycleEventSchemaBySlug("add-to-media-library"),
 		],
 	},
 	{
@@ -381,7 +381,7 @@ export const builtinEntitySchemas = () => [
 			lifecycleEventSchemaBySlug("progress"),
 			lifecycleEventSchemaBySlug("review"),
 			lifecycleEventSchemaBySlug("complete"),
-			lifecycleEventSchemaBySlug("add-to-library"),
+			lifecycleEventSchemaBySlug("add-to-media-library"),
 		],
 	},
 	{

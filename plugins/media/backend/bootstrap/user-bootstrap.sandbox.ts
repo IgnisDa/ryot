@@ -18,6 +18,8 @@ export default defineScript({
 	}),
 	run: (_input, host) =>
 		host
-			.ensureUserEntities([{ properties: {}, name: "Library", entitySchemaSlug: "library" }])
+			.ensureUserEntities([
+				{ properties: {}, name: "Media Library", entitySchemaSlug: "media-library" },
+			])
 			.pipe(Effect.map((results) => ({ results }))),
 });

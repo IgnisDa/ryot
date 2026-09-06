@@ -64,7 +64,12 @@ it("writes finalized episode subjects and keeps plugin-private episode data out 
 			],
 			entities: [
 				{ alias: "media", entityId: "show-1", entitySchemaSlug: "show" },
-				{ scope: "user", alias: "library", existingOnly: true, entitySchemaSlug: "library" },
+				{
+					scope: "user",
+					existingOnly: true,
+					alias: "media-library",
+					entitySchemaSlug: "media-library",
+				},
 			],
 		},
 	]);
@@ -132,14 +137,19 @@ it("emits library membership and ownership as a generic relationship mutation", 
 		collectionMemberships: [{ entityAlias: "media", collectionName: "Pinned" }],
 		entities: [
 			{ alias: "media" },
-			{ scope: "user", alias: "library", existingOnly: true, entitySchemaSlug: "library" },
+			{
+				scope: "user",
+				existingOnly: true,
+				alias: "media-library",
+				entitySchemaSlug: "media-library",
+			},
 		],
 		relationships: [
 			{
 				sourceAlias: "media",
-				targetAlias: "library",
 				propertiesMode: "merge",
-				relationshipSchemaSlug: "in-library",
+				targetAlias: "media-library",
+				relationshipSchemaSlug: "in-media-library",
 				properties: { owned: true, ownershipSyncedAt, ownershipSources: ["watcharr"] },
 			},
 		],
@@ -160,9 +170,9 @@ it("emits membership without ownership properties for unowned media", () => {
 		{
 			properties: {},
 			sourceAlias: "media",
-			targetAlias: "library",
 			propertiesMode: "merge",
-			relationshipSchemaSlug: "in-library",
+			targetAlias: "media-library",
+			relationshipSchemaSlug: "in-media-library",
 		},
 	]);
 });

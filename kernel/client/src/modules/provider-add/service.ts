@@ -46,6 +46,8 @@ export class ProviderAddService extends Context.Service<ProviderAddService>()(
 					readonly providerId: SandboxProviderId;
 					readonly entitySchemaSlug: EntitySchemaSlug;
 					readonly externalIds: readonly [string, ...string[]];
+					readonly relationshipSlug: string;
+					readonly librarySchemaSlug: string;
 				},
 			) {
 				return yield* Effect.tryPromise({

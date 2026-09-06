@@ -47,7 +47,7 @@ const MEDIA_ACTIVITY_VERBS: Record<MediaActivityVerb, MediaActivityVerbCopy> = {
 const mediaActivityCopy = (verb: MediaActivityVerbCopy, noun: string) => ({
 	segmentNoun: verb.segmentNoun,
 	recordLabel: verb.recordLabel,
-	libraryLabel: "Added to library",
+	libraryLabel: "Added to media library",
 	loadingDetail: `Fetching everything you have recorded for this ${noun}.`,
 	rowLabels: { review: `Reviewed the ${noun}`, completion: `Finished the ${noun}` },
 	emptyDetail: `Nothing has been recorded for this ${noun}. Whatever you ${verb.object} will appear here as your ${verb.recordLabel.toLowerCase()}.`,
@@ -98,8 +98,8 @@ export const mediaEpisodicActivityCopy = (input: {
 export const mediaReviewActivityCopy = (noun: string) => ({
 	segmentNoun: "Activity",
 	recordLabel: "Activity record",
-	libraryLabel: "Added to library",
+	libraryLabel: "Added to media library",
 	rowLabels: { review: `Reviewed this ${noun}` },
 	loadingDetail: `Fetching everything you have recorded for this ${noun}.`,
-	emptyDetail: `Nothing has been recorded for this ${noun}. Your reviews, library changes and collection changes will appear here.`,
+	emptyDetail: `Nothing has been recorded for this ${noun}. Your reviews, media library changes and collection changes will appear here.`,
 });
