@@ -15,7 +15,7 @@
 		"@ryot-app/client-plugin-contract": "workspace:*",
 		"@ryot-app/contract": "workspace:*",
 		"@ryot-app/ts-utils": "workspace:*",
-		"effect": "4.0.0-rc.116",
+		"effect": "4.0.0-rc.117",
 		"fflate": "0.8.3"
 	},
 	"devDependencies": {
