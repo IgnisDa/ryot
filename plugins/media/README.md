@@ -7,8 +7,9 @@ schema; saved views do not declare sandbox scripts.
 
 ## Client
 
-The plugin client supplies a workspace home and `show`, `movie`, `music`, `book`, and `podcast` entity
-renderers. Entity links use `PluginLink` so the kernel resolves canonical entity routes.
+The plugin client supplies a workspace home and `show`, `movie`, `music`, `book`, `podcast`, and
+`video-game` entity renderers. Entity links use `PluginLink` so the kernel resolves canonical entity
+routes.
 
 `client/media/` owns everything the screens share and carries no schema copy.
 
@@ -35,7 +36,7 @@ credits arrive as `unlinkedCreators`, the way Book's do. They also ship cover ar
 and episode artwork is square `cover` rather than show's `aspect-video` `still` - so the podcast hero
 uses art height at both widths.
 
-Movie, Music, and Book are flat, non-episodic schemas. Each is one `mediaFlatRecipes` config in
+Movie, Music, Book, and Video Game are flat, non-episodic schemas. Each is one `mediaFlatRecipes` config in
 `shared/<slug>-recipes.ts` - the fields its entity schema declares and a measure for activity totals -
 and one `defineFlatMediaSchema` descriptor in `client/<slug>/schema.tsx` holding its copy, facts,
 artwork aspect, and hero height. The factories build the summary, overview, activity, and
@@ -44,8 +45,14 @@ returns `{ summary, entitySchemaSlug }`, and every activity recipe returns
 `{ completionCount, consumedAmount, unknownAmountCount, truncated, events }`.
 
 A schema selects only fields its own entity schema declares. `watchProviders` exists on `movie` and
-`show` alone, so it lives in `mediaWatchProviderSelection`, and "Where to watch" renders only for a
-schema that passes that field.
+`show` alone, so it lives in `mediaWatchProviderSelection`. A section that renders such a field is
+descriptor-provided: the descriptor's `overviewTrailing` is called with the summary and the divider
+state the overview computed, and it appends its sections after the relations. Movie and Show pass
+`mediaWatchProvidersTrailing` for "Where to watch"; `client/media/` owns no schema-specific section.
+
+A schema also declares which image purposes stand in for its hero backdrop, because not every
+provider ships one. `backdropPurposes` is an ordered list and defaults to `["backdrop"]`; the first
+purpose an image matches wins, and the same list drives the hero's managed-asset set.
 
 Flat overviews add a "Part of" section listing the entity's group and its other members. The
 relationship is authoritative from the group side, so the subject is excluded from its own rail, the
@@ -60,6 +67,18 @@ Book measures pages: its total sums the book's `pages` over completions and rend
 completed book has no page count. Book overviews add the entity's `unlinkedCreators` to the credit
 rails as non-clickable tiles - `Publisher` with the companies, every other role with the people - and
 they do not count toward sync marks. The group section names the book series.
+
+Video Game measures `timeSpent` alone, with no fallback: `timeToBeat` is a community estimate of the
+game, not a record of your play, so a completion with no recorded time stays unknown and the total
+renders as `24h+`. Its overview adds two summary-sourced sections through `overviewTrailing` - "How
+long to beat" showing the hastily, normally, and completely paces, and "Platforms" listing each
+platform release with its date and region when the provider recorded them. The summary decodes the
+whole `timeToBeat` object because all three paces are shown; rows and cards need one figure, so they
+select `timeToBeat.normally` directly through the variadic property accessors in
+`shared/entity-selections.ts`. Only `name` is guaranteed
+there: Giant Bomb emits platform names alone, and the v10 migration strips null keys. Video games
+ship cover art plus IGDB artwork rather than a backdrop, so the schema declares
+`backdropPurposes: ["artwork"]` and gets the full backdrop hero at wide widths.
 
 Layout uses only the `compact` value from `useRyotViewport()`, not responsive Tailwind variants,
 because iframe media queries measure the content frame rather than the kernel viewport. Hero art fills
