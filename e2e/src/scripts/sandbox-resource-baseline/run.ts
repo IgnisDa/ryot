@@ -29,6 +29,7 @@ import {
 	runFreshRepetition,
 	sampleRuntime,
 	searchYoutubeMusic,
+	waitForHealth,
 } from "./scenario-runner";
 import {
 	ALL_SCENARIOS,
@@ -400,6 +401,16 @@ const program = Effect.gen(function* () {
 		case "setup":
 			yield* setup(config);
 			break;
+		case "capture-fixture": {
+			const remote = makeRemote(config.serverIp);
+			yield* remote.stopWatchdog;
+			yield* remote.stopRyot.pipe(Effect.ignore);
+			yield* remote.captureFixture;
+			yield* remote.recreateRyot({ workerConcurrency: 2, schedulerDispatchersDisabled: true });
+			const healthy = yield* waitForHealth(config);
+			yield* Effect.log("sandbox-resource-baseline.capture-fixture", { healthy });
+			break;
+		}
 		case "capture-live-results": {
 			const { context } = yield* makeContext(config, invocationId);
 			yield* captureLiveResults(context);
@@ -493,6 +504,7 @@ const program = Effect.gen(function* () {
 					"init",
 					"setup",
 					"provenance",
+					"capture-fixture",
 					"capture-live-results",
 					"preflight",
 					"idle",
