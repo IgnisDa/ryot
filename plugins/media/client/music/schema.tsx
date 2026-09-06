@@ -4,11 +4,7 @@ import { mediaFlatActivityCopy } from "../media/activity-copy";
 import { mediaActivityTimeLabel, mediaTrackLengthLabel } from "../media/activity-timeline";
 import { defineFlatMediaSchema } from "../media/flat-schema";
 import { MEDIA_ART_HEIGHT } from "../media/hero";
-import {
-	mediaProductionStatusFact,
-	mediaRatingFact,
-	type MediaSummaryFact,
-} from "../media/summary-state";
+import type { MediaSummaryFact } from "../media/summary-state";
 
 type MusicSummary = MediaSummaryOf<typeof musicRecipes>;
 
@@ -16,14 +12,12 @@ type MusicPresentation = MediaPresentationDataOf<typeof musicRecipes>;
 
 export const musicSummaryFacts = (music: MusicSummary): readonly MediaSummaryFact[] =>
 	[
-		mediaRatingFact(music),
 		music.duration === null
 			? undefined
 			: { icon: "clock", label: "Length", value: mediaTrackLengthLabel(music.duration) },
 		music.byVariousArtists === null
 			? undefined
 			: { icon: "users", label: "Various artists", value: music.byVariousArtists ? "Yes" : "No" },
-		mediaProductionStatusFact(music),
 	].filter((fact) => fact !== undefined);
 
 export const musicPresentationFacts = (music: MusicPresentation) =>
@@ -32,7 +26,6 @@ export const musicPresentationFacts = (music: MusicPresentation) =>
 export const musicSchema = defineFlatMediaSchema({
 	aspect: "square",
 	recipes: musicRecipes,
-	progressVerb: "played",
 	facts: musicSummaryFacts,
 	heroHeight: () => MEDIA_ART_HEIGHT,
 	presentationFacts: musicPresentationFacts,

@@ -6,13 +6,13 @@ import {
 	FLAT_OVERVIEW_INPUT,
 	flatGroupRow,
 } from "../../tests/client/flat-media/overview-fixture";
+import { decodeFlatPresentation } from "../../tests/client/flat-media/presentation-fixture";
+import { renderFlatScreenBody } from "../../tests/client/flat-media/screen-fixture";
 import {
 	decodeFlatSummary,
 	FLAT_SUMMARY_INPUT,
 } from "../../tests/client/flat-media/summary-fixture";
-import { readyQueryResult, rowsResult } from "../../tests/client/query-result-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
-import { mapMediaOverview } from "../media/overview-state";
 import { audiobookPresentationFacts, audiobookSchema, audiobookSummaryFacts } from "./schema";
 
 const noopAdapter = { query: () => Promise.resolve({}) };
@@ -23,47 +23,26 @@ const audiobookSummary = (overrides: Record<string, unknown> = {}) =>
 		...overrides,
 	});
 
-const renderBody = () =>
-	mountRyotClient(
-		noopAdapter,
-		<audiobookSchema.ScreenBody
-			compact
-			activity={null}
-			safeAreaTop={0}
-			settled={undefined}
-			refresh={() => undefined}
-			refreshOverview={() => undefined}
-			state={{ status: "ready", summary: audiobookSummary() }}
-			overview={mapMediaOverview(
-				readyQueryResult(
-					decodeFlatOverview(audiobookRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT), {
-						unlinkedCreators: [{ role: "Narrator", name: "Nia Voice" }],
-					}),
-				),
-			)}
-		/>,
-	);
-
 afterEach(() => {
 	document.body.innerHTML = "";
 });
 
 describe("audiobook schema", () => {
-	it("lists the rating, length and production status and drops the unrecorded ones", () => {
+	it("lists the length and drops it when unrecorded", () => {
 		expect(audiobookSummaryFacts(audiobookSummary())).toEqual([
-			expect.objectContaining({ label: "TMDB rating" }),
 			{ icon: "clock", label: "Length", value: "12h 30m" },
-			{ value: "Released", icon: "clapperboard", label: "Production status" },
 		]);
-		expect(
-			audiobookSummaryFacts(
-				audiobookSummary({ runtime: null, providerRating: null, productionStatus: null }),
-			),
-		).toEqual([]);
+		expect(audiobookSummaryFacts(audiobookSummary({ runtime: null }))).toEqual([]);
 	});
 
 	it("titles the credits as authors and narrators and the group as a series", () => {
-		const { unmount, container } = renderBody();
+		const { unmount, container } = renderFlatScreenBody(
+			audiobookSchema,
+			audiobookSummary(),
+			decodeFlatOverview(audiobookRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT), {
+				unlinkedCreators: [{ role: "Narrator", name: "Nia Voice" }],
+			}),
+		);
 
 		expect(container.textContent).toContain("Audiobook");
 		expect(container.textContent).toContain("Authors & narrators");
@@ -74,35 +53,10 @@ describe("audiobook schema", () => {
 	});
 
 	it("reads the length on rows, hints how much was listened to and draws square art", () => {
-		const decoded = audiobookRecipes
-			.presentationRecipe(["media-1"])
-			.decode({
-				data: {
-					rows: rowsResult(
-						[
-							{
-								runtime: 750,
-								images: null,
-								id: "media-1",
-								publishDate: null,
-								publishYear: 2014,
-								name: "The Martian",
-								progressPercent: 42,
-								state: "in_progress",
-								productionStatus: null,
-								schemaSlug: "audiobook",
-								populationStatus: "ready",
-								translationStatus: "none",
-							},
-						],
-						{ limit: 100, hasMore: false, nextCursor: null },
-					),
-				},
-			});
-		if (decoded._tag === "Failure" || decoded.success[0] === undefined) {
-			throw new Error("Expected decoded presentation data");
-		}
-		const data = { ...decoded.success[0], batchAssets: [] };
+		const data = decodeFlatPresentation(audiobookRecipes, {
+			runtime: 750,
+			schemaSlug: "audiobook",
+		});
 
 		expect(audiobookPresentationFacts(data)).toEqual(["12h 30m"]);
 		expect(audiobookPresentationFacts({ ...data, runtime: null })).toEqual([]);

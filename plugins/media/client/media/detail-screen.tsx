@@ -22,6 +22,8 @@ import { MediaRefreshStatus, MediaStatusMessage } from "./primitives";
 import { MediaSummaryHeader, type MediaSummaryValue } from "./summary-header";
 import {
 	mediaManagedAssets,
+	mediaProductionStatusFact,
+	mediaRatingFact,
 	type MediaSummaryFact,
 	type MediaSummaryFailure,
 	type MediaSummaryState,
@@ -108,9 +110,13 @@ export function MediaDetailBody<
 				compact={props.compact}
 				settled={props.settled}
 				typeLabel={props.typeLabel}
-				facts={props.facts(summary)}
 				progress={props.progress?.(summary)}
 				lifecycleLabel={props.lifecycleLabel(summary)}
+				facts={[
+					mediaRatingFact(summary),
+					...props.facts(summary),
+					mediaProductionStatusFact(summary),
+				].filter((fact) => fact !== undefined)}
 			/>
 			<MediaTabBar
 				tabs={props.tabs}
