@@ -48,7 +48,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
     unzip -q /tmp/deno.zip -d /tmp && \
     install -m 0755 /tmp/deno /usr/local/bin/deno && \
     rm -f /tmp/deno /tmp/deno.zip && \
-    apt-get remove -y curl unzip && \
+    apt-get remove -y unzip && \
     apt-get autoremove -y && \
     rm -rf /var/lib/apt/lists/*
 ENV FRONTEND_UMAMI_HOST_URL="https://umami.diptesh.me"
