@@ -18,7 +18,7 @@ const mediaConfigDefinition = definePluginConfig("media", {
 	}),
 	spotifyClientId: stringField({
 		label: "Spotify client ID",
-		description: "Client ID used to access Spotify metadata",
+		description: "Client ID for Spotify metadata & accounts",
 	}),
 	tvdbApiKey: stringField({
 		secret: true,
@@ -67,7 +67,7 @@ const mediaConfigDefinition = definePluginConfig("media", {
 	spotifyClientSecret: stringField({
 		secret: true,
 		label: "Spotify client secret",
-		description: "Client secret used to access Spotify metadata",
+		description: "Client secret for Spotify metadata & accounts",
 	}),
 	progressUpdateThresholdHours: integerField({
 		defaultValue: 2,
