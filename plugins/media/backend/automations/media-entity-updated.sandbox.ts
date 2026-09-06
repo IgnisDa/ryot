@@ -83,6 +83,7 @@ export default defineAutomation({
 						oldStatus,
 						newStatus,
 						entityName: scope.name,
+						entitySchemaSlug: after.entitySchemaSlug,
 					});
 				}
 
