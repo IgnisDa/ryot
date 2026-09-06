@@ -69,7 +69,7 @@ export const performBootstrap = Effect.fn(function* (userId: string) {
 	yield* pluginInstallations.provisionSystemInstallations(user);
 	yield* pluginBootstrap.dispatchAll(user);
 	yield* savedViews.ensureBuiltinViews(user);
-	yield* (yield* ClientSurfaceMaterializer).materializeUser(user);
+	yield* (yield* ClientSurfaceMaterializer).assertUserBuilds(user);
 	yield* mapDatabaseErrors(
 		database.transaction((transaction) =>
 			Effect.gen(function* () {

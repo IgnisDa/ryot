@@ -8,6 +8,7 @@ import { kernelScriptSources } from "#modules/definition-registry/kernel-scripts
 import { kernelDefinitionSource, kernelScripts } from "#modules/definition-registry/kernel-source";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 
+import { ClientSurfaceMaterializer } from "./client-surface-materializer";
 import { PluginInstallationService } from "./installation-service";
 import { PluginRepository } from "./repository";
 import { ScriptGarbageCollector } from "./script-garbage-collector";
@@ -27,6 +28,7 @@ export class SystemPluginBootstrap extends Context.Service<SystemPluginBootstrap
 			const ingestion = yield* PluginIngestionService;
 			const installations = yield* PluginInstallationService;
 			const scriptGarbageCollector = yield* ScriptGarbageCollector;
+			const surfaces = yield* ClientSurfaceMaterializer;
 			const compileKernelScripts = Effect.fn("SystemPluginBootstrap.compileKernelScripts")(
 				function* () {
 					const outputs = yield* compilePluginSandboxSourceEntries(
@@ -88,6 +90,7 @@ export class SystemPluginBootstrap extends Context.Service<SystemPluginBootstrap
 				}
 				yield* inTransaction(repository.resolveEnvironmentConfigs());
 				yield* installations.reconcileSystemInstallations();
+				yield* surfaces.materializeSystemBaseline;
 				yield* scriptGarbageCollector.collect();
 			});
 
