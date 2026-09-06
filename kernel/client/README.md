@@ -24,8 +24,8 @@ other requests keep the same wire behavior. Only framework boundaries, such as a
 route loader, run an Effect as a Promise. The port never carries credentials or server identity.
 Capability producers normalize their own external failures to typed outcomes. The bridge adds the
 request identity, validates and encodes every outgoing result, and replaces malformed results with a
-safe capability failure. Unexpected defects are reported internally; interrupted and stale work has
-no reply.
+safe capability failure. `runRequest` owns the common transport-failure outcome. Unexpected defects
+are reported internally; interrupted and stale work has no reply.
 
 The opaque-origin iframe has no `localStorage`, so the kernel stores plugin storage values in its own
 `localStorage` through `ClientStorage`, one JSON entry per
