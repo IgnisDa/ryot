@@ -4,7 +4,12 @@ import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
 import { asRecord, numberValue, stringValue, trimmedString } from "../../../lib/records";
 import { createRoleAccumulator } from "../../../lib/role-accumulator";
-import { getFirstImage, getImagesSortedBySize, spotifyGet } from "../../../lib/vendors/spotify";
+import {
+	getFirstImage,
+	getImagesSortedBySize,
+	SPOTIFY_SEARCH_PAGE_SIZE,
+	spotifyGet,
+} from "../../../lib/vendors/spotify";
 
 export const manifest = defineManifest({
 	name: "Spotify",
@@ -40,12 +45,12 @@ export const search = defineProvider({
 	manifest,
 	operation: "search",
 	run: (input, host) => {
-		const offset = (input.page - 1) * input.pageSize;
+		const offset = (input.page - 1) * SPOTIFY_SEARCH_PAGE_SIZE;
 		return spotifyGet(host, "/search", {
 			type: "track",
 			q: input.query,
 			offset: String(offset),
-			limit: String(input.pageSize),
+			limit: String(SPOTIFY_SEARCH_PAGE_SIZE),
 		}).pipe(
 			Effect.map((dataValue) => {
 				const tracks = asRecord(asRecord(dataValue)?.["tracks"]);

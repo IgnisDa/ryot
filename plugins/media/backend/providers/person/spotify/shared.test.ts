@@ -33,7 +33,7 @@ const makeHost = (
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 
 describe("person.spotify sandbox script", () => {
-	it("uses a fixed page size of 20 for artist search regardless of pageSize input", () => {
+	it("uses a fixed page size of 10 for artist search regardless of pageSize input", () => {
 		const searchUrls: string[] = [];
 		const host = makeHost([], {
 			httpCall: (_method, url) => {
@@ -55,12 +55,64 @@ describe("person.spotify sandbox script", () => {
 		).pipe(
 			Effect.map((result) => {
 				expect(searchUrls).toEqual([
-					"https://api.spotify.com/v1/search?type=artist&q=artist&offset=20&limit=20",
+					"https://api.spotify.com/v1/search?type=artist&q=artist&offset=10&limit=10",
 				]);
 				expect(result.items).toEqual([
 					{ externalId: "a1", title: "The Artist", imageUrl: "https://img/a.jpg" },
 				]);
 				expect(result.details).toEqual({ totalItems: 1, nextPage: null });
+				return undefined;
+			}),
+			Effect.runPromise,
+		);
+	});
+
+	it("treats a forbidden top-tracks response as empty so artist details still load", () => {
+		const host = makeHost([], {
+			httpCall: (_method, url) => {
+				if (url.includes("/top-tracks")) {
+					return Effect.fail({
+						message: "HTTP 403",
+						data: { status: 403, headers: {}, body: "Active premium subscription required" },
+					});
+				}
+				if (url.includes("/albums")) {
+					return httpSuccess({ total: 1, items: [{ id: "al1", name: "Album One" }] });
+				}
+				return httpSuccess({
+					id: "a1",
+					genres: [],
+					images: [],
+					name: "The Artist",
+					external_urls: { spotify: "https://open.spotify.com/artist/a1" },
+				});
+			},
+		});
+
+		return runSandboxTestScript(details, { externalId: "a1" }, host, execution).pipe(
+			Effect.map((result) => {
+				expect(result.name).toBe("The Artist");
+				expect(result.relatedEntityGroups).toEqual([
+					{
+						entities: [],
+						direction: "outgoing",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "person-to-music",
+					},
+					{
+						direction: "outgoing",
+						synchronization: "authoritative",
+						relationshipSchemaSlug: "person-to-music-group",
+						entities: [
+							{
+								name: "Album One",
+								externalId: "al1",
+								providerSlug: "music-group.spotify",
+								relationshipProperties: { roles: ["Artist"] },
+							},
+						],
+					},
+				]);
 				return undefined;
 			}),
 			Effect.runPromise,
