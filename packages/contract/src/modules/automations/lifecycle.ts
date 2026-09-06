@@ -430,7 +430,11 @@ const projectedEntityChanges = [
 	withPopulation(projectedEntityPayloads[4]),
 	withPopulation(projectedEntityPayloads[5]),
 ] as const;
-const projectedEventChanges = projectedEventPayloads.slice(3);
+const projectedEventChanges = [
+	projectedEventPayloads[3],
+	projectedEventPayloads[4],
+	projectedEventPayloads[5],
+] as const;
 const projectedRelationshipChanges = [
 	withPopulation(projectedRelationshipPayloads[3]),
 	withPopulation(projectedRelationshipPayloads[4]),

@@ -47,8 +47,15 @@ const makeRedis = (entries: ReadonlyArray<string | null>) => {
 	return {
 		service: {
 			client: {
-				hmget: (_key, ..._fields) => Promise.resolve([...entries]),
-				hget: (_key, _field) => Promise.resolve(String(entries.length)),
+				hgetall: (_key) =>
+					Promise.resolve(
+						Object.fromEntries([
+							["high-water", String(entries.length)],
+							...entries.flatMap((entry, index) =>
+								entry === null ? [] : [[String(index), entry]],
+							),
+						]),
+					),
 			},
 		} satisfies Parameters<typeof makeWorkflowReplayJournalHostFunction>[1],
 	};
@@ -120,11 +127,7 @@ it.effect("rejects request-bearing calls instead of retaining the growing-prefix
 });
 
 it.effect("rejects a projection high-water mark above the workflow call limit", () => {
-	const client = {
-		hmget: () => Promise.reject(new Error("unused")),
-		hget: (_key: string, field: string) =>
-			Promise.resolve(field === "high-water" ? "1001" : "unused"),
-	};
+	const client = { hgetall: (_key: string) => Promise.resolve({ "high-water": "1001" }) };
 	const replayJournal = makeWorkflowReplayJournalHostFunction("bounded", { client });
 
 	return Effect.gen(function* () {
@@ -279,15 +282,14 @@ it.effect("hides stale projection fields above shorter and empty journal high-wa
 		["1", secondEntry],
 		["high-water", "2"],
 	]);
-	let hmgetCalls = 0;
+	let hgetallCalls = 0;
 	const client = {
-		hget: (_key: string, field: string) => Promise.resolve(fields.get(field) ?? null),
+		hgetall: (_key: string) => {
+			hgetallCalls += 1;
+			return Promise.resolve(Object.fromEntries(fields));
+		},
 		eval: (_script: string, _numberOfKeys: number, _key: string, ...args: string[]) =>
 			Promise.resolve(evaluateProjection(fields, args)),
-		hmget: (_key: string, ...names: string[]) => {
-			hmgetCalls += 1;
-			return Promise.resolve(names.map((name) => fields.get(name) ?? null));
-		},
 	};
 	const replayJournal = makeWorkflowReplayJournalHostFunction("reconstructed", { client });
 	const rebuiltJournal = [
@@ -303,14 +305,14 @@ it.effect("hides stale projection fields above shorter and empty journal high-wa
 			data: [{ request: first, value: { result: 1 } }],
 		});
 		expect(fields.get("1")).toBe(secondEntry);
-		expect(hmgetCalls).toBe(1);
+		expect(hgetallCalls).toBe(1);
 
 		yield* projectWorkflowJournalWithRedis({ client }, "reconstructed", []);
 		expect(fields.get("high-water")).toBe("0");
 		expect(fields.get("0")).toBe(projectedFirstEntry);
 		expect(fields.get("1")).toBe(secondEntry);
 		expect(yield* replayJournal([])).toEqual({ data: [], success: true });
-		expect(hmgetCalls).toBe(1);
+		expect(hgetallCalls).toBe(2);
 
 		yield* projectWorkflowJournalWithRedis({ client }, "reconstructed", rebuiltJournal);
 		expect(yield* replayJournal([])).toEqual({
@@ -320,7 +322,7 @@ it.effect("hides stale projection fields above shorter and empty journal high-wa
 				{ request: second, value: { result: 2 } },
 			],
 		});
-		expect(hmgetCalls).toBe(2);
+		expect(hgetallCalls).toBe(3);
 		expect(decodeJournalEntry(fields.get("0") ?? "")).toEqual({
 			request: first,
 			value: { result: 1 },
