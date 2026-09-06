@@ -3,6 +3,8 @@ import type { IntegrationList } from "@ryot-app/ryotql-recipes/integrations";
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useEffectEvent, useState } from "react";
 
+import { AuthService } from "#/modules/auth/service";
+import { useIsDemoSession } from "#/modules/demo-protection";
 import {
 	IntegrationCreateWizard,
 	type IntegrationProviderPickerState,
@@ -35,6 +37,8 @@ export const Route = createFileRoute("/_authenticated/settings/integrations/")({
 });
 
 function IntegrationsRoute() {
+	const { server, runtime } = Route.useRouteContext();
+	const isDemo = useIsDemoSession(runtime.runSync(AuthService).session(server));
 	const navigate = Route.useNavigate();
 	const { create } = Route.useSearch();
 	const [syncSucceeded, setSyncSucceeded] = useState(false);
@@ -90,6 +94,7 @@ function IntegrationsRoute() {
 			) : (
 				<IntegrationsView
 					state={state}
+					readOnly={isDemo}
 					nowMs={Date.now()}
 					onConnect={wizard.open}
 					syncDetail={syncDetail}
@@ -104,7 +109,7 @@ function IntegrationsRoute() {
 					)}
 				/>
 			)}
-			{create === true && (
+			{create === true && !isDemo && (
 				<IntegrationCreateWizard
 					providers={providers}
 					onClose={wizard.close}

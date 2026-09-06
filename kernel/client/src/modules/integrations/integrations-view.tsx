@@ -4,6 +4,7 @@ import type { IntegrationSummary } from "@ryot-app/ryotql-recipes/integrations";
 import { Link } from "@tanstack/react-router";
 import clsx from "clsx";
 
+import { DemoProtectionMessage } from "#/modules/demo-protection";
 import {
 	integrationStateLabel,
 	integrationSyncLabel,
@@ -34,6 +35,7 @@ export type IntegrationListState =
 type IntegrationsViewProps = {
 	readonly nowMs: number;
 	readonly isSyncing: boolean;
+	readonly readOnly?: boolean;
 	readonly onRetry: () => void;
 	readonly onConnect: () => void;
 	readonly onSyncAll: () => void;
@@ -91,11 +93,13 @@ export function IntegrationsView(props: IntegrationsViewProps) {
 	return (
 		<div className="flex flex-col gap-6 pb-4">
 			<p className="text-sm leading-6 text-text-muted">{INTRO}</p>
+			{props.readOnly === true && <DemoProtectionMessage />}
 			{ready === undefined ? null : (
 				<Button
 					type="button"
 					variant="primary"
 					onClick={props.onConnect}
+					disabled={props.readOnly === true}
 					className="flex w-full items-center justify-center gap-2 sm:w-auto sm:self-start sm:px-6"
 				>
 					<AppIcon size={16} name="plus" className="text-accent-ink" />
@@ -113,6 +117,7 @@ export function IntegrationsView(props: IntegrationsViewProps) {
 							type="button"
 							variant="primary"
 							onClick={props.onConnect}
+							disabled={props.readOnly === true}
 							className="w-full sm:w-auto sm:px-6"
 						>
 							Connect a service
@@ -129,8 +134,8 @@ export function IntegrationsView(props: IntegrationsViewProps) {
 							type="button"
 							variant="secondary"
 							onClick={props.onSyncAll}
-							disabled={props.isSyncing}
 							aria-label="Sync all integrations"
+							disabled={props.readOnly === true || props.isSyncing}
 							className="flex min-h-9 items-center gap-1.5 px-3 py-1.5 text-sm"
 						>
 							<AppIcon size={14} name="rotate-ccw" className="text-text" />
