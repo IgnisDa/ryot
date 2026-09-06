@@ -5,70 +5,27 @@ import {
 	episodicEpisode,
 	episodicEpisodeRow,
 } from "../../tests/client/episodic/episodes-fixture";
-import type { EpisodicFixtureEpisode } from "../../tests/client/episodic/recipes";
+import { readyQueryResult } from "../../tests/client/query-result-fixture";
+import { mapMediaCursorPage } from "./cursor-page-state";
 import {
-	malformedQueryResult,
-	pendingQueryResult,
-	readyQueryResult,
-	transportErrorQueryResult,
-} from "../../tests/client/query-result-fixture";
-import {
-	mapMediaEpisodePage,
 	mediaEpisodeAirDateLabel,
 	mediaEpisodeNumberLabel,
-	mediaEpisodePageError,
 	mediaEpisodeRuntimeLabel,
 	mediaEpisodeStateLabel,
 	mediaEpisodeSynopsis,
 	mediaEpisodesManagedAssets,
 	mediaNextUpEpisode,
-	type MediaEpisodePage,
 } from "./episodes-state";
-
-type EpisodicPage = MediaEpisodePage<EpisodicFixtureEpisode>;
 
 const STATE_LABELS = { complete: "Played", untracked: undefined, in_progress: "In progress" };
 
 const readyEpisodes = (episodes: readonly Record<string, unknown>[]) => {
-	const state = mapMediaEpisodePage(readyQueryResult(decodeEpisodicEpisodePage({ episodes })));
+	const state = mapMediaCursorPage(readyQueryResult(decodeEpisodicEpisodePage({ episodes })));
 	assert(state.status === "ready");
-	return state.episodes;
+	return state.items;
 };
 
-describe("media episode page state", () => {
-	it("maps a pending query to the loading state", () => {
-		expect(mapMediaEpisodePage(pendingQueryResult<EpisodicPage>())).toEqual({ status: "loading" });
-	});
-
-	it("maps a malformed decode failure apart from a transport failure", () => {
-		expect(mapMediaEpisodePage(malformedQueryResult<EpisodicPage>()).status).toBe("malformed");
-		expect(mapMediaEpisodePage(transportErrorQueryResult<EpisodicPage>()).status).toBe(
-			"transport-error",
-		);
-	});
-
-	it("carries the cursor a page hands back so the next page can resume", () => {
-		expect(
-			mapMediaEpisodePage(readyQueryResult(decodeEpisodicEpisodePage({ nextCursor: "cursor-2" }))),
-		).toMatchObject({ status: "ready", nextCursor: "cursor-2", episodes: [{ id: "episode-1" }] });
-		expect(mapMediaEpisodePage(readyQueryResult(decodeEpisodicEpisodePage()))).toMatchObject({
-			status: "ready",
-			nextCursor: null,
-		});
-	});
-
-	it("keeps error copy free of decoder and transport internals", () => {
-		expect(
-			mediaEpisodePageError({ noun: "episodes", state: { status: "malformed" } }).detail,
-		).not.toContain("RyotQL");
-		expect(
-			mediaEpisodePageError({ noun: "episodes", state: { status: "transport-error" } }),
-		).toEqual({
-			title: "Unable to load these episodes",
-			detail: "These episodes could not be loaded. Check your connection and try again.",
-		});
-	});
-
+describe("media episode state", () => {
 	it("resumes a forward sequence at the first untracked episode after the last completed one", () => {
 		const nextUp = mediaNextUpEpisode(
 			readyEpisodes([

@@ -1,9 +1,9 @@
 import { companyRecipes } from "../../shared/company-recipes";
 import type { MediaSummaryOf } from "../../shared/media-recipes";
-import { creatorCreditSections, creatorLinks } from "../creator/credit-sections";
+import { creatorCreditSections } from "../creator/credit-sections";
 import { defineCreatorMediaSchema } from "../media/creator-schema";
 import { MEDIA_ART_HEIGHT } from "../media/hero";
-import type { MediaSummaryFact } from "../media/summary-state";
+import { mediaSourceLinks, type MediaSummaryFact } from "../media/summary-state";
 
 type CompanySummary = MediaSummaryOf<typeof companyRecipes>;
 
@@ -18,7 +18,7 @@ export const companySummaryFacts = (company: CompanySummary): readonly MediaSumm
 	].filter((fact) => fact !== undefined);
 
 export const companySchema = defineCreatorMediaSchema({
-	links: creatorLinks,
+	links: mediaSourceLinks,
 	recipes: companyRecipes,
 	facts: companySummaryFacts,
 	heroHeight: () => MEDIA_ART_HEIGHT,
