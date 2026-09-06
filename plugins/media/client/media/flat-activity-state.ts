@@ -9,12 +9,14 @@ import {
 	mediaBeatRow,
 	mediaCollectionRow,
 	mediaCompletionRow,
+	mediaLibraryRow,
 	mediaReviewRow,
 	optionalText,
 	type ActivityAnchor,
 	type MediaActivityBeatRow,
 	type MediaActivityCollectionRow,
 	type MediaActivityCompletionRow,
+	type MediaActivityLibraryRow,
 	type MediaActivityReviewRow,
 	type MediaActivitySpan,
 	type MediaActivityTimeline,
@@ -22,7 +24,7 @@ import {
 
 export type MediaFlatActivityBeat = Exclude<
 	MediaFlatActivityMediaEvent["eventSchemaSlug"],
-	"review" | "complete" | "progress"
+	"review" | "complete" | "progress" | "add-to-library"
 >;
 
 type MediaFlatActivityProgressRow<Extra> = ActivityAnchor & {
@@ -35,6 +37,7 @@ type MediaFlatActivityProgressRow<Extra> = ActivityAnchor & {
 export type MediaFlatActivityRow<Subject, Extra = unknown> =
 	| MediaActivityCollectionRow
 	| MediaActivityCompletionRow
+	| MediaActivityLibraryRow
 	| MediaActivityReviewRow<Subject>
 	| MediaFlatActivityProgressRow<Extra>
 	| MediaActivityBeatRow<MediaFlatActivityBeat>;
@@ -58,6 +61,9 @@ const parentRow = <Subject, Extra>(
 	event: MediaFlatActivityMediaEvent<Extra>,
 	subject: Subject,
 ): MediaFlatActivityRow<Subject, Extra> => {
+	if (event.eventSchemaSlug === "add-to-library") {
+		return mediaLibraryRow(event);
+	}
 	if (event.eventSchemaSlug === "complete") {
 		return mediaCompletionRow(event);
 	}
