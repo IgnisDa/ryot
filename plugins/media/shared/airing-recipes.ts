@@ -10,9 +10,9 @@ import {
 	eq,
 	exists,
 	first,
-	gt,
 	gte,
 	IsoDateString,
+	isNull,
 	jsonArrayExists,
 	jsonArrayFirst,
 	jsonElement,
@@ -192,20 +192,35 @@ const DATE_ONLY_TIME = "T00:00:00.000Z";
 /**
  * In-library anime that is in progress or monitored with a scheduled episode in `now`..`until`
  * (instants), soonest first. A provider that knows only the premiere date stores it as UTC
- * midnight of the entity's `publishDate`; that entry is reported `dateOnly` with `airsAt` as the
- * `YYYY-MM-DD` date, so the client never shifts it across a day boundary. `sameDayCount` counts the
- * schedule entries airing at that same instant, itself included.
+ * midnight of the entity's `publishDate`; that entry is windowed by the local dates
+ * `fromDate`..`untilDate` and reported `dateOnly` with `airsAt` as the `YYYY-MM-DD` date, so it is
+ * never shifted across a day boundary. `sameDayCount` counts the schedule entries airing at that
+ * same instant, itself included.
  */
 export const animeAiringSoonRecipe = defineRecipe(
-	(input: { readonly now: string; readonly until: string }) => {
+	(input: {
+		readonly now: string;
+		readonly until: string;
+		readonly fromDate: string;
+		readonly untilDate: string;
+	}) => {
 		const anime = table("entity", "airingAnime");
 		const lifecycle = mediaLifecycleExpressions(anime, "airingLifecycle");
 		const schedule = jsonPath(column(anime, "properties"), "airingSchedule");
 		const airingAt = castDate(jsonPath(jsonElement(), "airingAt"));
 		const episodeNumber = castNumber(jsonPath(jsonElement(), "episode"));
-		const inWindow = and(
-			gt(airingAt, castDate(literal(input.now))),
-			lt(airingAt, castDate(literal(input.until))),
+		const premiereDate = castDate(propertyText(anime, "publishDate"));
+		const inWindow = or(
+			and(
+				eq(airingAt, premiereDate),
+				gte(airingAt, castDate(literal(input.fromDate))),
+				lte(airingAt, castDate(literal(input.untilDate))),
+			),
+			and(
+				or(isNull(premiereDate), neq(airingAt, premiereDate)),
+				gte(airingAt, castDate(literal(input.now))),
+				lt(airingAt, castDate(literal(input.until))),
+			),
 		);
 		const next = (select: ScalarExpression) =>
 			jsonArrayFirst(schedule, {
