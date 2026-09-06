@@ -1,5 +1,17 @@
 import type { OrderBy } from "@ryot-app/contract/modules/ryotql/language";
-import { column, descending, castDate, field, jsonPath, table } from "@ryot-app/ryotql";
+import {
+	and,
+	ascending,
+	column,
+	countDistinct,
+	descending,
+	castDate,
+	eq,
+	field,
+	jsonPath,
+	literal,
+	table,
+} from "@ryot-app/ryotql";
 import {
 	buildSavedViewLayoutProjections,
 	savedViewRecipe,
@@ -12,14 +24,35 @@ import { buildViewExpressions } from "./view-helpers";
 export const fitnessSavedViews = () => {
 	const schemas = new Map(fitnessEntitySchemas().map((schema) => [schema.slug, schema]));
 	const entity = table("entity", "entity");
+	const workoutSet = table("event", "savedViewWorkoutSet");
 	const inputs: ReadonlyArray<{
 		readonly name: string;
 		readonly slug: string;
-		readonly entitySchemaSlug: "exercise" | "measurement" | "workout" | "workout-template";
 		readonly orderBy?: readonly OrderBy[] | undefined;
+		readonly entitySchemaSlug: "exercise" | "measurement" | "workout" | "workout-template";
 	}> = [
-		{ name: "All Exercises", slug: "all-exercises", entitySchemaSlug: "exercise" },
-		{ name: "All Workouts", slug: "all-workouts", entitySchemaSlug: "workout" },
+		{
+			name: "All Exercises",
+			slug: "all-exercises",
+			entitySchemaSlug: "exercise",
+			orderBy: [
+				descending(
+					countDistinct(workoutSet, column(workoutSet, "sessionEntityId"), {
+						where: and(
+							eq(column(workoutSet, "entityId"), column(entity, "id")),
+							eq(column(workoutSet, "eventSchemaSlug"), literal("workout-set")),
+						),
+					}),
+				),
+				ascending(column(entity, "name")),
+			],
+		},
+		{
+			name: "All Workouts",
+			slug: "all-workouts",
+			entitySchemaSlug: "workout",
+			orderBy: [descending(castDate(jsonPath(column(entity, "properties"), "endedAt")))],
+		},
 		{
 			slug: "all-measurements",
 			name: "All Measurements",
