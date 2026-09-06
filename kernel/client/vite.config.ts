@@ -7,6 +7,7 @@ import { defineConfig } from "vite";
 const config = defineConfig((_conf) => {
 	return {
 		resolve: { tsconfigPaths: true },
+		define: { "import.meta.env.RYOT_VERSION": JSON.stringify(process.env["RYOT_VERSION"]) },
 		plugins: [
 			devtools(),
 			tailwindcss(),
