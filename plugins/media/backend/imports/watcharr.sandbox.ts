@@ -9,7 +9,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.watcharr",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	name: "Parse Watcharr import",
 	capabilities: ["artifact-read"],
 });

@@ -74,7 +74,6 @@ import { jsonValueSchema } from "@ryot-app/sandbox-sdk/wire";
 export const manifest = defineManifest({
   kind: "script",
   requiredPluginConfigKeys: [],
-  requiredSystemConfigKeys: [],
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
   capabilities: ["executeRyotql", "upsertGlobalEntities"],
@@ -245,7 +244,6 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 							slug: foreignScriptSlug,
 							name: "Foreign inert script",
 							requiredPluginConfigKeys: [],
-							requiredSystemConfigKeys: [],
 							entry: "backend/scripts/foreign.sandbox.ts",
 						},
 					],
@@ -545,7 +543,6 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 							slug: providerScriptSlug,
 							providerOperation: "details",
 							requiredPluginConfigKeys: [],
-							requiredSystemConfigKeys: [],
 							name: "RyotQL authorization provider details",
 						} satisfies PluginScript,
 						...probes.map(
@@ -556,7 +553,6 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 									slug: probe.slug,
 									name: probe.name,
 									requiredPluginConfigKeys: [],
-									requiredSystemConfigKeys: [],
 									capabilities: ["executeRyotql", "upsertGlobalEntities"],
 									entry: `backend/providers/${providerSlug}/${probe.slug}.sandbox.ts`,
 								}) satisfies PluginScript,

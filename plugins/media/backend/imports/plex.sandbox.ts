@@ -11,7 +11,6 @@ export const manifest = defineManifest({
 	name: "Fetch Plex import",
 	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 });
 
 export default defineScript({

@@ -9,7 +9,6 @@ export const manifest = defineManifest({
 	kind: "operation",
 	name: "Resolve Episodes",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	capabilities: ["executeRyotql"],
 	slug: "operation.resolve-episodes",
 });

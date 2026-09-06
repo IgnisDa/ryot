@@ -12,7 +12,6 @@ export const manifest = defineManifest({
 	name: "Fitness import",
 	slug: "workflow.import",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 });
 
 export class FitnessWorkflowError extends Error {

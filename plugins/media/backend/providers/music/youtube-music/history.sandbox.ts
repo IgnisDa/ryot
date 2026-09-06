@@ -14,7 +14,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	name: "YouTube Music history",
 	slug: "music.youtube-music.history",
 });

@@ -68,7 +68,6 @@ export const SANDBOX_DURABLE_HOST_DISPATCH = {
 	getCachedValue: "activity",
 	setCachedValue: "activity",
 	getPluginConfig: "activity",
-	getSystemConfig: "activity",
 	getUserSettings: "activity",
 	getEntitySchemas: "activity",
 	listEventSchemas: "activity",

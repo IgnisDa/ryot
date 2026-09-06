@@ -13,7 +13,6 @@ export const manifest = defineManifest({
 	slug: "podcast.itunes",
 	capabilities: ["httpCall"],
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 });
 type ItunesHost = SandboxHost<typeof manifest.capabilities>;
 type UnknownRecord = Record<string, unknown>;

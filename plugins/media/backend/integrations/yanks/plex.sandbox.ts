@@ -10,7 +10,6 @@ export const manifest = defineManifest({
 	kind: "script",
 	name: "Plex yank",
 	requiredPluginConfigKeys: [],
-	requiredSystemConfigKeys: [],
 	slug: "integration.plex-yank",
 	capabilities: ["httpCall", "getCurrentIntegration"],
 });
