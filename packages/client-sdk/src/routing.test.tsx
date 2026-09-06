@@ -31,7 +31,7 @@ import {
 	type EntityRendererProps,
 	type PluginRouterDefinition,
 } from "./routing";
-import { createTestRyotClock } from "./testing";
+import { createTestRyotClock, waitForMessagePortMacrotask } from "./testing";
 
 (
 	globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean }
@@ -333,12 +333,12 @@ describe("PluginRouter", () => {
 						},
 					};
 				};
-				const pending: Array<() => void> = [];
-				const onRefresh = () =>
-					Effect.promise(
-						// oxlint-disable-next-line effecttsgo/new-promise -- Test gate holds a refresh during navigation.
-						() => new Promise<void>((resolve) => pending.push(resolve)),
-					);
+				const pending: Array<PromiseWithResolvers<void>> = [];
+				const onRefresh = () => {
+					const deferred = Promise.withResolvers<void>();
+					pending.push(deferred);
+					return Effect.promise(() => deferred.promise);
+				};
 				const InterestedHome = () => {
 					useEntityRefresh({
 						onRefresh,
@@ -370,7 +370,7 @@ describe("PluginRouter", () => {
 				expect(pending).toHaveLength(1);
 				yield* Effect.promise(() =>
 					act(() => {
-						pending[0]?.();
+						pending[0]?.resolve();
 						return Promise.resolve();
 					}),
 				);
@@ -742,8 +742,7 @@ describe("PluginRouter", () => {
 			void act(() => link.dispatchEvent(modified));
 			void act(() => link.dispatchEvent(auxiliary));
 
-			// oxlint-disable-next-line effecttsgo/new-promise -- Test waits for browser navigation delivery.
-			yield* Effect.promise(() => new Promise((resolve) => setTimeout(resolve, 0)));
+			yield* waitForMessagePortMacrotask;
 			expect(modified.defaultPrevented).toBe(true);
 			expect(auxiliary.defaultPrevented).toBe(true);
 			expect(messages).toEqual([]);
@@ -1079,12 +1078,7 @@ describe("PluginRouter", () => {
 				edge.dispatchEvent(pointer("pointerup", 30, DRAG_END));
 			});
 
-			yield* Effect.promise(() =>
-				act(
-					// oxlint-disable-next-line effecttsgo/new-promise -- Test waits for browser navigation delivery.
-					() => new Promise((resolve) => setTimeout(resolve, 0)),
-				),
-			);
+			yield* waitForMessagePortMacrotask;
 			expect(messages).toEqual([]);
 		}),
 	);
