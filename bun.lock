@@ -58,12 +58,15 @@
     "apps/server": {
       "name": "@ryot-app/server",
       "dependencies": {
+        "@better-auth/core": "1.7.2",
         "@effect/platform-bun": "4.0.0-rc.117",
+        "@effect/sql-pg": "4.0.0-rc.117",
+        "@ryot-app/contract": "workspace:*",
         "@ryot-app/kernel-backend": "workspace:*",
         "@ryot-app/plugin-kit": "workspace:*",
         "@ryot-app/sandbox-compiler": "workspace:*",
         "@ryot-app/sandbox-sdk": "workspace:*",
-        "@ryot-app/v10-rust-migration": "workspace:*",
+        "drizzle-orm": "1.0.0-rc.5-169397b",
         "effect": "4.0.0-rc.117",
       },
       "devDependencies": {
@@ -287,20 +290,6 @@
         "vite": "^8.0.0",
         "vitest": "4.1.9",
         "vitest-axe": "^0.1.0",
-      },
-    },
-    "migrations/v10-rust": {
-      "name": "@ryot-app/v10-rust-migration",
-      "dependencies": {
-        "@better-auth/core": "1.7.2",
-        "@effect/sql-pg": "4.0.0-rc.117",
-        "@ryot-app/contract": "workspace:*",
-        "@ryot-app/kernel-backend": "workspace:*",
-        "drizzle-orm": "1.0.0-rc.5-169397b",
-        "effect": "4.0.0-rc.117",
-      },
-      "devDependencies": {
-        "bun-types": "1.4.0",
       },
     },
     "packages/cli": {
@@ -1601,8 +1590,6 @@
     "@ryot-app/ts-utils": ["@ryot-app/ts-utils@workspace:packages/ts-utils"],
 
     "@ryot-app/typescript-compiler": ["@ryot-app/typescript-compiler@workspace:packages/typescript-compiler"],
-
-    "@ryot-app/v10-rust-migration": ["@ryot-app/v10-rust-migration@workspace:migrations/v10-rust"],
 
     "@ryot-app/vite-compiler": ["@ryot-app/vite-compiler@workspace:packages/vite-compiler"],
 

@@ -2,7 +2,7 @@
 
 - Read `README.md` before changing scope, mappings, omissions, report behavior, or restart semantics.
 - Unexpected state must fail with `Error` or `RAISE EXCEPTION`. Silent skips are limited to restart guards and omissions documented in `README.md`.
-- Keep this migration here. Do not change `kernel/backend/src/lib/infrastructure/db/migrate.ts` without prior discussion.
+- Keep this migration under `apps/server/src/migrations`. Do not change `kernel/backend/src/lib/infrastructure/db/migrate.ts` without prior discussion.
 - Rename legacy tables before Drizzle creates V2 tables; copy data afterward.
 - Write progress to `migration_report`. Anomalies also carry a stable `code` and write one `migration_report_detail` row per offending record; any warning whose code is not in `allowedWarningCodes` fails startup.
 - Emit per-record detail set-based through `buildAnomalyReportSql`, or as bound parameters through `insertAnomalyReport`. Never interpolate legacy values into SQL text, and use `jsonb_build_object` rather than `jsonb_strip_nulls` so nullable report fields keep their keys.

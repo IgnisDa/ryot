@@ -7,11 +7,9 @@ import {
 	SchemaMigrationLive,
 	SystemPluginIngestionLive,
 } from "@ryot-app/kernel-backend/boot/layers";
-import {
-	LegacyDataMigrationLive,
-	LegacyTableRenameLive,
-} from "@ryot-app/v10-rust-migration/layers";
 import { Config, ConfigProvider, Effect, Layer } from "effect";
+
+import { LegacyDataMigrationLive, LegacyTableRenameLive } from "./migrations/layers";
 
 const MigrationSequenceLive = LegacyTableRenameLive.pipe(
 	Layer.flatMap(() => SchemaMigrationLive),
