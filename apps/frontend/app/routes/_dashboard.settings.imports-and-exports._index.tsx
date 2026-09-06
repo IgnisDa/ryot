@@ -138,7 +138,7 @@ export const action = async ({ request }: Route.ActionArgs) => {
 			return data({ status: "success" } as const, {
 				headers: await createToastHeaders({
 					type: "success",
-					message: "Import job started in the background",
+					message: "Import job queued, track its status in the import history",
 				}),
 			});
 		})
@@ -523,6 +523,7 @@ export default function Page() {
 										{userImportsReportsQuery.data.map((report) => {
 											const isInProgress =
 												typeof report.wasSuccess !== "boolean";
+											const isQueued = isInProgress && !report.progress;
 
 											return (
 												<Paper
@@ -539,13 +540,15 @@ export default function Page() {
 																	size={12}
 																	zIndex={0}
 																	offset={-3}
-																	processing={isInProgress}
+																	processing={isInProgress && !isQueued}
 																	color={
-																		isInProgress
-																			? undefined
-																			: report.wasSuccess
-																				? "green"
-																				: "red"
+																		isQueued
+																			? "gray"
+																			: isInProgress
+																				? undefined
+																				: report.wasSuccess
+																					? "green"
+																					: "red"
 																	}
 																>
 																	{changeCase(report.source)}{" "}
@@ -554,6 +557,11 @@ export default function Page() {
 																	</Text>
 																</Indicator>
 															</Box>
+															{isQueued ? (
+																<Text size="sm" c="dimmed">
+																	Queued, will start once earlier jobs finish
+																</Text>
+															) : null}
 															{isInProgress && report.progress ? (
 																<>
 																	<Box>
