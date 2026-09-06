@@ -60,31 +60,6 @@ export const fitnessPlugin = definePlugin({
 			},
 		},
 	],
-	hooks: [
-		{
-			stage: "after",
-			delivery: "async",
-			name: "Workout created",
-			causationSources: ["api"],
-			slug: "fitness.workout-created",
-			scriptSlug: "automation.workout-created",
-			targets: [{ resource: "entity", operation: "create", entitySchemaSlug: "workout" }],
-		},
-		{
-			stage: "after",
-			delivery: "async",
-			slug: "fitness.notification",
-			name: "Fitness notification",
-			scriptSlug: "automation.fitness-notification",
-			targets: [{ operation: "emit", resource: "signal", signalSchemaSlug: "workout.created" }],
-			retry: {
-				maxAttempts: 1,
-				maxDelayMs: 60000,
-				initialDelayMs: 1000,
-				externalIdempotency: "none",
-			},
-		},
-	],
 	importSources: [
 		{
 			slug: "hevy",
@@ -146,6 +121,43 @@ export const fitnessPlugin = definePlugin({
 			},
 		},
 	},
+	hooks: [
+		{
+			stage: "after",
+			delivery: "required",
+			executionScope: "user",
+			name: "Ensure fitness library membership",
+			slug: "fitness.ensure-fitness-library-membership",
+			scriptSlug: "automation.ensure-fitness-library-membership",
+			targets: [
+				{ resource: "entity", operation: "create", entitySchemaSlug: "exercise" },
+				{ operation: "complete", entitySchemaSlug: "exercise", resource: "provider-entity-import" },
+			],
+		},
+		{
+			stage: "after",
+			delivery: "async",
+			name: "Workout created",
+			causationSources: ["api"],
+			slug: "fitness.workout-created",
+			scriptSlug: "automation.workout-created",
+			targets: [{ resource: "entity", operation: "create", entitySchemaSlug: "workout" }],
+		},
+		{
+			stage: "after",
+			delivery: "async",
+			slug: "fitness.notification",
+			name: "Fitness notification",
+			scriptSlug: "automation.fitness-notification",
+			targets: [{ operation: "emit", resource: "signal", signalSchemaSlug: "workout.created" }],
+			retry: {
+				maxAttempts: 1,
+				maxDelayMs: 60000,
+				initialDelayMs: 1000,
+				externalIdempotency: "none",
+			},
+		},
+	],
 });
 
 export default fitnessPlugin;

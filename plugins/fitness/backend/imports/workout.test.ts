@@ -2,21 +2,37 @@ import { expect, it } from "vitest";
 
 import { toWorkoutWriteItem } from "./workout";
 
-it("does not emit media membership for fitness imports", () => {
+it("links imported exercises to the fitness library without media membership", () => {
 	const item = toWorkoutWriteItem({
 		itemIndex: 0,
 		endedAt: null,
-		exercises: [],
 		name: "Morning workout",
 		sourceIdentifier: "workout-1",
 		sourceLabel: "Morning workout",
 		startedAt: "2026-01-01T08:00:00.000Z",
+		exercises: [{ sets: [], name: "Bench Press", kind: "reps_and_weight" }],
 	});
 
 	expect(item.subjectEntityAlias).toBe("workout");
-	expect(item.relationships).toEqual([]);
+	expect(item.relationships).toEqual([
+		{
+			properties: {},
+			propertiesMode: "merge",
+			sourceAlias: "exercise-0",
+			targetAlias: "fitness-library",
+			relationshipSchemaSlug: "in-fitness-library",
+		},
+	]);
+	expect(item.entities).toContainEqual({
+		scope: "user",
+		properties: {},
+		existingOnly: true,
+		name: "Fitness Library",
+		alias: "fitness-library",
+		entitySchemaSlug: "fitness-library",
+		match: { properties: {}, name: "Fitness Library" },
+	});
 	expect(JSON.stringify(item)).not.toContain("in-media-library");
-	expect(JSON.stringify(item)).not.toContain("in-fitness-library");
 });
 
 it("requests exact catalog resolution while preserving custom fallback data and aliases", () => {

@@ -186,39 +186,41 @@ describe("Exercises E2E", () => {
 		}),
 	);
 
-	it.live("scopes the built-in All Exercises view to fitness library members", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const exerciseName = `Listed Exercise ${crypto.randomUUID()}`;
-			yield* createExerciseEntityFixture(client, { name: exerciseName, kind: "reps_and_weight" });
-			const exercise = requirePresent(
-				(yield* executeRyotQLRecipe(client, exerciseListRecipe({ limit: 1, name: exerciseName })))
-					.items[0],
-				"Expected the created exercise in the exercise list",
-			);
+	it.live(
+		"lists created exercises in the built-in All Exercises view through fitness library membership",
+		() =>
+			Effect.gen(function* () {
+				const { client } = yield* createAuthenticatedClient();
+				const exerciseName = `Listed Exercise ${crypto.randomUUID()}`;
+				yield* createExerciseEntityFixture(client, { name: exerciseName, kind: "reps_and_weight" });
+				const exercise = requirePresent(
+					(yield* executeRyotQLRecipe(client, exerciseListRecipe({ limit: 1, name: exerciseName })))
+						.items[0],
+					"Expected the created exercise in the exercise list",
+				);
 
-			expect(exercise.name).toBe(exerciseName);
-			expect(exercise.image).toEqual({ type: "remote", url: "https://example.com/exercise.jpg" });
-			expect(exercise.level).toBe("beginner");
-			expect(exercise.kind).toBe("reps_and_weight");
-			expect(exercise.equipment).toBe("body_only");
+				expect(exercise.name).toBe(exerciseName);
+				expect(exercise.image).toEqual({ type: "remote", url: "https://example.com/exercise.jpg" });
+				expect(exercise.level).toBe("beginner");
+				expect(exercise.kind).toBe("reps_and_weight");
+				expect(exercise.equipment).toBe("body_only");
 
-			const savedView = yield* getSavedView(client, "all-exercises");
-			const dataSources = requirePresent(
-				savedView.dataSources,
-				"All Exercises saved view has no data sources",
-			);
-			const sourceName = savedView.settings["sourceName"];
-			assertCondition(typeof sourceName === "string", "Expected a named saved-view source");
-			const savedViewResult = requireRows(
-				(yield* executeRyotQL(client, dataSources)).data[sourceName],
-				sourceName,
-			);
-			const savedViewExercise = savedViewResult.items.find(
-				(item) => requireRyotQLValue(item, "column0") === exerciseName,
-			);
-			expect(savedViewExercise).toBeUndefined();
-		}),
+				const savedView = yield* getSavedView(client, "all-exercises");
+				const dataSources = requirePresent(
+					savedView.dataSources,
+					"All Exercises saved view has no data sources",
+				);
+				const sourceName = savedView.settings["sourceName"];
+				assertCondition(typeof sourceName === "string", "Expected a named saved-view source");
+				const savedViewResult = requireRows(
+					(yield* executeRyotQL(client, dataSources)).data[sourceName],
+					sourceName,
+				);
+				const savedViewExercise = savedViewResult.items.find(
+					(item) => requireRyotQLValue(item, "column0") === exerciseName,
+				);
+				expect(savedViewExercise).toBeDefined();
+			}),
 	);
 
 	it.live("merges workout-set events between exercises with the same kind", () =>
