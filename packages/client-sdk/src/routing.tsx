@@ -1,8 +1,9 @@
-import type {
-	ClientPageContext,
-	PluginLeadingIntent,
-	PluginEntityLocation,
-	PluginLogicalLocation,
+import {
+	kernelPagePaths,
+	type ClientPageContext,
+	type PluginLeadingIntent,
+	type PluginEntityLocation,
+	type PluginLogicalLocation,
 } from "@ryot-app/client-plugin-contract";
 import { useShortcut, type Hotkey } from "@ryot-app/client-ui-sdk";
 import { comparePluginRoutePaths } from "@ryot-app/contract/modules/plugins/manifest";
@@ -167,6 +168,7 @@ const navigationTargetHref = (target: RyotNavigationTarget) =>
 		}),
 		Match.when({ kind: "entity" }, ({ entityId }) => `/e/${encodeURIComponent(entityId)}`),
 		Match.when({ kind: "saved-view" }, ({ slug }) => `/v/${encodeURIComponent(slug)}`),
+		Match.when({ kind: "kernel-page" }, ({ page }) => kernelPagePaths[page]),
 		Match.exhaustive,
 	);
 
