@@ -235,6 +235,14 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	const monitorableEntitySchemaSlugs = ["company", "person", ...builtinMediaEntitySchemaSlugs].map(
 		(slug) => entitySchema(mediaPluginId, slug).slug,
 	);
+	const libraryEligibleEntitySchemaSlugs = [
+		...monitorableEntitySchemaSlugs,
+		...new Set(
+			metadataGroupEntityTargets.map(
+				({ entitySchemaSlug }) => entitySchema(mediaPluginId, entitySchemaSlug).slug,
+			),
+		),
+	];
 	const showSeasonEntitySchema = entitySchema(mediaPluginId, "show-season");
 	const showEpisodeEntitySchema = entitySchema(mediaPluginId, "show-episode");
 	const podcastEpisodeEntitySchema = entitySchema(mediaPluginId, "podcast-episode");
@@ -480,7 +488,11 @@ export const migrateLegacyTables = Effect.gen(function* () {
 			);
 			yield* connection.executeRaw(buildMetadataToMetadataRelationshipMigrationSql(), []);
 			yield* connection.executeRaw(
-				buildUserToEntityInLibraryMigrationSql(inLibraryRelationshipSchema, libraryEntitySchema),
+				buildUserToEntityInLibraryMigrationSql({
+					libraryEntitySchema,
+					inLibraryRelationshipSchema,
+					libraryEligibleEntitySchemaSlugs,
+				}),
 				[],
 			);
 			yield* connection.executeRaw(
