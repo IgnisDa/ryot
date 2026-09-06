@@ -5,6 +5,7 @@ import type {
 	AggregationSpec,
 	ColumnExpression,
 	CorrelatedQuerySet,
+	CurrentDateExpression,
 	ExistsExpression,
 	FieldSelection,
 	Include,
@@ -241,6 +242,8 @@ export const first = (
 });
 
 export const jsonElement = (): JsonElementExpression => ({ type: "jsonElement" });
+
+export const currentDate = (): CurrentDateExpression => ({ type: "currentDate" });
 
 export const jsonArrayExists = (
 	array: ScalarExpression,

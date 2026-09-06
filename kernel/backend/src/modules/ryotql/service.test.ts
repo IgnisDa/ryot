@@ -18,6 +18,7 @@ import {
 	conditional,
 	count,
 	countDistinct,
+	currentDate,
 	dateBucket,
 	descending,
 	divide,
@@ -33,6 +34,7 @@ import {
 	integer,
 	isNotNull,
 	join,
+	lte,
 	jsonArrayCount,
 	jsonArrayExists,
 	jsonArrayFirst,
@@ -582,6 +584,34 @@ it.effect("compares dates against kind-preserving maximum aggregates", () => {
 		expect(response.data["events"]).toEqual({
 			type: "rows",
 			items: [{ occurredAt: "2026-08-02T00:00:00.000Z" }],
+			pageInfo: { limit: 20, hasMore: false, nextCursor: null },
+		});
+	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
+});
+
+it.effect("compiles currentDate as UTC midnight comparable with cast dates", () => {
+	const statements: string[] = [];
+	const entity = table("entity", "entity");
+	const document = {
+		queries: {
+			entities: rows(entity, {
+				fields: [field("today", currentDate())],
+				where: lte(castDate(jsonPath(column(entity, "properties"), "publishDate")), currentDate()),
+			}),
+		},
+	};
+	const resultRows = [{ f0v: new Date("2026-09-25T00:00:00.000Z") }];
+
+	return Effect.gen(function* () {
+		const service = yield* RyotQLService;
+		const response = yield* service.executeForUser("user-1", null, "kernel", document);
+
+		const today = "(date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')";
+		expect(statements[2]?.split(today).length).toBe(3);
+		expect(statements[2]).toContain(`::timestamp with time zone <= ${today}`);
+		expect(response.data["entities"]).toEqual({
+			type: "rows",
+			items: [{ today: "2026-09-25T00:00:00.000Z" }],
 			pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 		});
 	}).pipe(Effect.provide(makeServiceLayer(statements, resultRows)));
