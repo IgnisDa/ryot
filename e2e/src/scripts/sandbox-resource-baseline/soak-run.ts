@@ -86,6 +86,7 @@ export const runSoak = (
 		const importRecords: ImportRecord[] = [];
 		let submittedAtMs = 0;
 		let terminalAtMs = 0;
+		let timedOutWave: number | null = null;
 		/**
 		 * Profiling a concurrent wave costs about 1.9 GB on top of the load itself, which drove host
 		 * available memory under the watchdog floor and had the ryot container stopped mid-soak. The
@@ -99,15 +100,33 @@ export const runSoak = (
 			}
 			const waveSubmittedAtMs = yield* Clock.currentTimeMillis;
 			submittedAtMs = submittedAtMs === 0 ? waveSubmittedAtMs : submittedAtMs;
+			/**
+			 * A wave that never returns held one soak against a stopped backend for over an hour. The
+			 * timeout ends the soak at the wave instead, keeping the waves already measured.
+			 */
 			const submission = yield* submitWave(context, scenario, {
 				wave,
 				workload: scenario.workload,
 				liveExternalIds: context.state.liveExternalIds,
 				nonce: `${context.runId}-${scenario.id}-w${wave}`,
-			});
+			}).pipe(
+				Effect.timeoutOrElse({
+					orElse: () => Effect.succeed(null),
+					duration: `${context.config.requestTimeoutMs} millis`,
+				}),
+			);
 			terminalAtMs = yield* Clock.currentTimeMillis;
 			if (wave === 2 && profiledWave) {
 				yield* backendProfile(profileToken, `wave-${wave}`, "cpu-stop");
+			}
+			if (submission === null) {
+				timedOutWave = wave;
+				yield* Effect.log("sandbox-resource-baseline.soak.stopped", {
+					wave,
+					reason: "wave-timeout",
+					scenarioId: scenario.id,
+				});
+				break;
 			}
 			allRequests.push(
 				...submission.requests.map(({ executionKey: _executionKey, ...request }) => request),
@@ -186,13 +205,16 @@ export const runSoak = (
 			preSample: prepared.sample,
 			profileIds: [profileToken],
 			requests: allRequests.map((request) => Object.assign({ executionKey: null }, request)),
-			notes: [
-				"heap snapshots are taken from a separate fresh process and after the final recovery",
-			],
 			peakReset:
 				peakReset === null
 					? null
 					: { verified: peakReset.verified, supported: peakReset.supported },
+			notes: [
+				"heap snapshots are taken from a separate fresh process and after the final recovery",
+				...(timedOutWave === null
+					? []
+					: [`wave ${timedOutWave} exceeded the request timeout and ended the soak`]),
+			],
 		});
 		return {
 			...artifact,
