@@ -26,14 +26,16 @@ const localMidnight = (day: string, offsetDays: number) =>
  * so the input changes once a day and an episode that aired earlier today still shows.
  */
 const airingRecipes = (input: { readonly today: string }) => ({
-	anime: animeAiringSoonRecipe({
-		now: localMidnight(input.today, 0),
-		until: localMidnight(input.today, WINDOW_DAYS + 1),
-	}),
 	shows: showsAiringSoonRecipe({
 		limit: RAIL_LIMIT,
 		from: input.today,
 		until: formatLocalDateKey(localMidnight(input.today, WINDOW_DAYS)),
+	}),
+	anime: animeAiringSoonRecipe({
+		fromDate: input.today,
+		now: localMidnight(input.today, 0),
+		until: localMidnight(input.today, WINDOW_DAYS + 1),
+		untilDate: formatLocalDateKey(localMidnight(input.today, WINDOW_DAYS)),
 	}),
 });
 
