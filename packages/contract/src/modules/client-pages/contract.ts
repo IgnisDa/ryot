@@ -4,7 +4,8 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/un
 import { AuthMiddleware } from "../../auth-middleware";
 import { DemoAccessPolicy, LogRouteTemplate } from "../../http-annotations";
 import {
-	ClientPageArtifactGrantNotFound,
+	ClientAssetNotFound,
+	ClientDocumentGrantNotFound,
 	ClientPagePreparationError,
 	CheckClientPageFreshnessBody,
 	CheckClientPageFreshnessResponse,
@@ -12,15 +13,32 @@ import {
 	PreparedClientPage,
 } from "./schemas";
 
-export const ClientPageArtifactsGroup = HttpApiGroup.make("clientPageArtifacts")
-	.annotate(OpenApi.Description, "Serves files from authenticated client page artifact grants")
+export const ClientDocumentsGroup = HttpApiGroup.make("clientDocuments")
+	.annotate(OpenApi.Description, "Serves capability-bound client composition documents")
 	.add(
-		HttpApiEndpoint.get("file", "/client-pages/artifacts/:token/*", {
-			params: { "*": Schema.String, token: Schema.String },
-			error: [ClientPageArtifactGrantNotFound.pipe(HttpApiSchema.status(404))],
+		HttpApiEndpoint.get("document", "/client-pages/documents/:token", {
+			params: { token: Schema.String },
+			error: [ClientDocumentGrantNotFound.pipe(HttpApiSchema.status(404))],
 		})
 			.annotate(LogRouteTemplate, true)
-			.annotate(OpenApi.Description, "Serves a file from a client page artifact grant"),
+			.annotate(
+				OpenApi.Description,
+				"Generates no-store composition HTML with artifact access URLs for a document grant",
+			),
+	);
+
+export const ClientAssetsGroup = HttpApiGroup.make("clientAssets")
+	.annotate(OpenApi.Description, "Serves immutable public or capability-protected client artifacts")
+	.add(
+		HttpApiEndpoint.get("file", "/client-assets/:artifactHash/:accessKey/*", {
+			error: [ClientAssetNotFound.pipe(HttpApiSchema.status(404))],
+			params: { "*": Schema.String, accessKey: Schema.String, artifactHash: Schema.String },
+		})
+			.annotate(LogRouteTemplate, true)
+			.annotate(
+				OpenApi.Description,
+				"Serves one immutable file by artifact hash and public or capability access key",
+			),
 	);
 
 export const ClientPagesGroup = HttpApiGroup.make("clientPages")
@@ -32,7 +50,10 @@ export const ClientPagesGroup = HttpApiGroup.make("clientPages")
 			error: [ClientPagePreparationError.pipe(HttpApiSchema.status(404))],
 		})
 			.annotate(DemoAccessPolicy, "allowed")
-			.annotate(OpenApi.Description, "Resolves and prepares a client page target"),
+			.annotate(
+				OpenApi.Description,
+				"Resolves a client page, looks up its composition, and issues a document grant",
+			),
 	)
 	.add(
 		HttpApiEndpoint.post("checkFreshness", "/client-pages/freshness", {

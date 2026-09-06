@@ -66,10 +66,10 @@ const runWorkflow = (input: {
 						),
 				}),
 				Layer.succeed(ClientSurfaceMaterializer, {
-					materializeUser: () => Effect.void,
-					assertUserBuilds: () => Effect.void,
-					materializeSystemBaseline: Effect.void,
 					materializeRenderer: () => Effect.void,
+					assertUserCompositions: () => Effect.void,
+					materializeSystemCompositions: Effect.void,
+					materializeUserCompositions: () => Effect.void,
 					materializePendingInstallation: (_owner, id) =>
 						Effect.sync(() => {
 							input.order?.push(`build:${id}`);
