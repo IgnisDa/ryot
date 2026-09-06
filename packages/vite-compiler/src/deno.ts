@@ -8,8 +8,8 @@ import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path
 import type { Node } from "@oxc-project/types";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import type { TypeScriptProjectConfiguration } from "@ryot-app/typescript-compiler";
+import { inspectJavaScriptReferences } from "@ryot-app/typescript-compiler/javascript-references";
 import { Effect, Result } from "effect";
-import { parseAst } from "rolldown/parseAst";
 import type { InlineConfig } from "vite";
 
 import { viteCompilerError } from "./error";
@@ -19,16 +19,16 @@ import { acquireCompilerWorkspace, stageSourceFiles, validateRelativePath } from
 import type { CompilerWorkspace, CompilerWorkspaceOptions, WorkspaceFile } from "./workspace";
 
 export interface DenoEsmAlias {
-	readonly find: string | RegExp;
 	readonly replacement: string;
+	readonly find: string | RegExp;
 }
 
 interface DenoEsmBuildCommonOptions {
-	readonly aliases?: readonly DenoEsmAlias[];
-	readonly approvedDynamicImportExpressions?: ReadonlySet<string>;
-	readonly approvedExternalSpecifiers: ReadonlySet<string>;
 	readonly outputFile: string;
+	readonly aliases?: readonly DenoEsmAlias[];
 	readonly workspaceOptions?: CompilerWorkspaceOptions;
+	readonly approvedExternalSpecifiers: ReadonlySet<string>;
+	readonly approvedDynamicImportExpressions?: ReadonlySet<string>;
 }
 
 export interface DenoEsmStagedBuildOptions extends DenoEsmBuildCommonOptions {
@@ -77,9 +77,6 @@ const forbiddenViteIdentifiers = new Set([
 const diagnosticError = (message: string) =>
 	viteCompilerError("invalid-output", message, undefined, [{ message, severity: "error" }]);
 
-const isAstNode = (value: unknown): value is Node =>
-	typeof value === "object" && value !== null && "type" in value && typeof value.type === "string";
-
 const literalString = (node: Node): string | undefined => {
 	if (node.type === "Literal" && typeof node.value === "string") {
 		return node.value;
@@ -95,87 +92,58 @@ export const auditDenoEsmOutput = (
 	approvedExternalSpecifiers: ReadonlySet<string>,
 	approvedDynamicImportExpressions: ReadonlySet<string> = new Set(),
 ): Result.Result<void, ViteCompilerError> => {
-	let program: ReturnType<typeof parseAst>;
+	let forbiddenHelper: string | undefined;
+	let references: ReturnType<typeof inspectJavaScriptReferences>;
 	try {
-		program = parseAst(javascript, { lang: "js" }, "deno-output.mjs");
+		references = inspectJavaScriptReferences(javascript, (node) => {
+			if (node.type === "Identifier") {
+				const name = typeof node.name === "string" ? node.name : undefined;
+				if (name === "Bun" || (name && forbiddenViteIdentifiers.has(name))) {
+					forbiddenHelper ??= name;
+				}
+			} else if (node.type === "CallExpression") {
+				const { callee } = node;
+				if (
+					callee.type === "Identifier" &&
+					(callee.name === "require" || callee.name === "__require")
+				) {
+					forbiddenHelper ??= callee.name;
+				} else if (
+					callee.type === "MemberExpression" &&
+					!callee.computed &&
+					callee.object.type === "Identifier" &&
+					callee.object.name === "document" &&
+					callee.property.type === "Identifier" &&
+					callee.property.name === "getElementsByTagName"
+				) {
+					forbiddenHelper ??= "document.getElementsByTagName";
+				}
+			} else if (
+				node.type === "NewExpression" &&
+				node.callee.type === "Identifier" &&
+				node.callee.name === "Event" &&
+				node.arguments[0] &&
+				literalString(node.arguments[0]) === "vite:preloadError"
+			) {
+				forbiddenHelper ??= "vite:preloadError Event";
+			}
+		});
 	} catch (cause) {
 		return Result.fail(diagnosticError(`Deno ESM output could not be parsed: ${String(cause)}`));
 	}
-
-	let forbiddenHelper: string | undefined;
-	const dynamicImportAudit = { hasUnapproved: false };
-	const imports: string[] = [];
-	const visit = (value: unknown): void => {
-		if (Array.isArray(value)) {
-			for (const item of value) {
-				visit(item);
-			}
-			return;
-		}
-		if (!isAstNode(value)) {
-			return;
-		}
-		const node = value;
-		if (node.type === "ImportDeclaration" || node.type === "ExportAllDeclaration") {
-			imports.push(node.source.value);
-		} else if (node.type === "ExportNamedDeclaration" && node.source !== null) {
-			imports.push(node.source.value);
-		} else if (node.type === "ImportExpression") {
-			const specifier = literalString(node.source);
-			if (specifier !== undefined) {
-				imports.push(specifier);
-			} else if (
-				!approvedDynamicImportExpressions.has(javascript.slice(node.source.start, node.source.end))
-			) {
-				dynamicImportAudit.hasUnapproved = true;
-			}
-		} else if (node.type === "Identifier") {
-			const name = typeof node.name === "string" ? node.name : undefined;
-			if (name === "Bun" || (name && forbiddenViteIdentifiers.has(name))) {
-				forbiddenHelper ??= name;
-			}
-		} else if (node.type === "CallExpression") {
-			const { callee } = node;
-			if (
-				callee.type === "Identifier" &&
-				(callee.name === "require" || callee.name === "__require")
-			) {
-				forbiddenHelper ??= callee.name;
-			} else if (
-				callee.type === "MemberExpression" &&
-				!callee.computed &&
-				callee.object.type === "Identifier" &&
-				callee.object.name === "document" &&
-				callee.property.type === "Identifier" &&
-				callee.property.name === "getElementsByTagName"
-			) {
-				forbiddenHelper ??= "document.getElementsByTagName";
-			}
-		} else if (
-			node.type === "NewExpression" &&
-			node.callee.type === "Identifier" &&
-			node.callee.name === "Event" &&
-			node.arguments[0] &&
-			literalString(node.arguments[0]) === "vite:preloadError"
-		) {
-			forbiddenHelper ??= "vite:preloadError Event";
-		}
-		for (const [key, child] of Object.entries(node)) {
-			if (key !== "parent") {
-				visit(child);
-			}
-		}
-	};
-	visit(program);
 	if (forbiddenHelper) {
 		return Result.fail(
 			diagnosticError(`Deno ESM output contains a forbidden runtime helper: ${forbiddenHelper}`),
 		);
 	}
-	if (dynamicImportAudit.hasUnapproved) {
+	if (
+		references.dynamicExpressions.some(
+			(expression) => !approvedDynamicImportExpressions.has(expression),
+		)
+	) {
 		return Result.fail(diagnosticError("Deno ESM output contains a non-literal dynamic import"));
 	}
-	for (const specifier of imports) {
+	for (const specifier of references.imports) {
 		if (forbiddenImportPattern.test(specifier)) {
 			return Result.fail(
 				diagnosticError(`Deno ESM output contains a forbidden runtime import: ${specifier}`),

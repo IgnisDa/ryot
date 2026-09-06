@@ -2,8 +2,13 @@
 // oxlint-disable-next-line effecttsgo/node-builtin-import
 import { posix, resolve } from "node:path";
 
-import type { PluginClientArtifact } from "@ryot-app/client-plugin-contract";
+import {
+	clientArtifactFile,
+	clientArtifactMetadata,
+	type PluginClientArtifact,
+} from "@ryot-app/client-plugin-contract";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
+import { inspectJavaScriptReferences } from "@ryot-app/typescript-compiler/javascript-references";
 import {
 	acquireCompilerWorkspace,
 	buildWithVite,
@@ -12,13 +17,13 @@ import {
 import tailwindcss from "@tailwindcss/vite";
 import { Effect } from "effect";
 
-import { clientArtifactFile, clientArtifactMetadata } from "./artifact";
 import {
 	CLIENT_DEPENDENCY_SPECIFIERS,
 	resolveClientPluginCompilerDependencies,
 } from "./dependencies";
 import { clientPluginCompilationFailure, clientPluginCompilerDiagnostic } from "./diagnostics";
 import { runtimeStylesheet } from "./generated-source";
+import { cssOutputReferences } from "./output-references";
 import { clientTypeScriptProject } from "./semantic-check";
 
 const CLIENT_RUNTIME_ARTIFACT_NAME = "client-plugin-runtime";
@@ -159,156 +164,6 @@ const localReferencePath = (from: string, reference: string) => {
 	return path === ".." || path.startsWith("../") ? undefined : path;
 };
 
-type OutputReference = {
-	readonly kind: "module" | "asset" | "css" | "css-import";
-	readonly reference: string;
-};
-
-const skipTrivia = (contents: string, start: number) => {
-	let index = start;
-	while (index < contents.length) {
-		if (/\s/.test(contents[index] ?? "")) {
-			index += 1;
-		} else if (contents.startsWith("//", index)) {
-			const lineEnd = contents.indexOf("\n", index + 2);
-			index = lineEnd === -1 ? contents.length : lineEnd + 1;
-		} else if (contents.startsWith("/*", index)) {
-			const commentEnd = contents.indexOf("*/", index + 2);
-			index = commentEnd === -1 ? contents.length : commentEnd + 2;
-		} else {
-			break;
-		}
-	}
-	return index;
-};
-
-const readQuoted = (contents: string, start: number) => {
-	const quote = contents[start];
-	if (quote !== "'" && quote !== '"' && quote !== "`") {
-		return undefined;
-	}
-	let index = start + 1;
-	while (index < contents.length) {
-		if (contents[index] === "\\") {
-			index += 2;
-		} else if (contents[index] === quote) {
-			return { end: index + 1, value: contents.slice(start + 1, index) };
-		} else {
-			index += 1;
-		}
-	}
-	return undefined;
-};
-
-const readWord = (contents: string, start: number) => {
-	const match = /^[A-Za-z_$][\w$]*/.exec(contents.slice(start));
-	return match?.[0];
-};
-
-const javascriptReferences = (contents: string): OutputReference[] => {
-	const references: OutputReference[] = [];
-	let index = 0;
-	while (index < contents.length) {
-		const current = contents[index];
-		if (current === "'" || current === '"' || current === "`") {
-			index = readQuoted(contents, index)?.end ?? contents.length;
-			continue;
-		}
-		if (contents.startsWith("//", index) || contents.startsWith("/*", index)) {
-			index = skipTrivia(contents, index);
-			continue;
-		}
-		const word = readWord(contents, index);
-		if (word === undefined) {
-			index += 1;
-			continue;
-		}
-		const wordEnd = index + word.length;
-		if (word === "import" || word === "export") {
-			if (contents[index - 1] === ".") {
-				index = wordEnd;
-				continue;
-			}
-			let cursor = skipTrivia(contents, wordEnd);
-			const next = contents[cursor];
-			if (word === "import" && next === ".") {
-				index = wordEnd;
-				continue;
-			}
-			if (word === "export" && next !== "{" && next !== "*") {
-				index = wordEnd;
-				continue;
-			}
-			if (
-				word === "import" &&
-				next !== "(" &&
-				next !== "'" &&
-				next !== '"' &&
-				next !== "{" &&
-				next !== "*" &&
-				!/[A-Za-z_$]/.test(next ?? "")
-			) {
-				index = wordEnd;
-				continue;
-			}
-			if (word === "import" && next === "(") {
-				const literal = readQuoted(contents, skipTrivia(contents, cursor + 1));
-				if (literal) {
-					references.push({ kind: "module", reference: literal.value });
-				}
-				index = wordEnd;
-				continue;
-			}
-			if (word === "import" && (next === "'" || next === '"')) {
-				const literal = readQuoted(contents, cursor);
-				if (literal) {
-					references.push({ kind: "module", reference: literal.value });
-				}
-				index = wordEnd;
-				continue;
-			}
-			while (cursor < contents.length && contents[cursor] !== ";") {
-				const token = readWord(contents, cursor);
-				if (token === "from") {
-					const literal = readQuoted(contents, skipTrivia(contents, cursor + token.length));
-					if (literal) {
-						references.push({ kind: "module", reference: literal.value });
-					}
-					break;
-				}
-				const quoted = readQuoted(contents, cursor);
-				if (quoted) {
-					cursor = quoted.end;
-				} else {
-					cursor += token?.length ?? 1;
-				}
-				cursor = skipTrivia(contents, cursor);
-			}
-			index = wordEnd;
-			continue;
-		}
-		if (word === "new") {
-			const urlStart = skipTrivia(contents, wordEnd);
-			if (contents.startsWith("URL", urlStart)) {
-				const open = skipTrivia(contents, urlStart + 3);
-				if (contents[open] === "(") {
-					const literal = readQuoted(contents, skipTrivia(contents, open + 1));
-					const afterLiteral = literal ? skipTrivia(contents, literal.end) : contents.length;
-					if (
-						literal?.value.startsWith(".") &&
-						contents[afterLiteral] === "," &&
-						contents.slice(skipTrivia(contents, afterLiteral + 1)).startsWith("import.meta.url")
-					) {
-						references.push({ kind: "asset", reference: literal.value });
-					}
-				}
-			}
-		}
-		index = wordEnd;
-	}
-	return references;
-};
-
 const validateOutputReferences = (
 	files: readonly {
 		readonly path: string;
@@ -317,24 +172,21 @@ const validateOutputReferences = (
 	}[],
 ) => {
 	const filesByName = new Map(files.map((file) => [file.path, file]));
-	const decoder = new TextDecoder();
+	const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 	for (const file of files) {
 		if (!file.contentType.startsWith("text/")) {
 			continue;
 		}
 		const contents = decoder.decode(file.bytes);
-		const references: readonly OutputReference[] = file.contentType.startsWith("text/javascript")
-			? javascriptReferences(contents)
-			: [
-					...Array.from(contents.matchAll(/url\(\s*["']?([^"')]+)/gi), (match) => ({
-						kind: "css" as const,
-						reference: match[1] ?? "",
-					})),
-					...Array.from(
-						contents.matchAll(/@import\s+(?:url\(\s*)?["']?([^"')\s]+)["']?\s*\)?/gi),
-						(match) => ({ reference: match[1] ?? "", kind: "css-import" as const }),
-					),
-				];
+		const references = file.contentType.startsWith("text/javascript")
+			? (() => {
+					const parsed = inspectJavaScriptReferences(contents);
+					return [
+						...parsed.imports.map((reference) => ({ reference, kind: "module" as const })),
+						...parsed.assets.map((reference) => ({ reference, kind: "asset" as const })),
+					];
+				})()
+			: cssOutputReferences(contents, file.path);
 		for (const { kind, reference } of references) {
 			if (kind === "module" && isExternalReference(reference) && !reference.startsWith("data:")) {
 				return `JavaScript output "${file.path}" retains external module import "${reference}"`;
@@ -463,7 +315,10 @@ export const buildClientRuntime = Effect.gen(function* () {
 	if (!files.some((file) => file.name === RUNTIME_STYLESHEET)) {
 		return yield* failure("Vite did not emit the client runtime stylesheet");
 	}
-	const missingReference = validateOutputReferences(bundled.files);
+	const missingReference = yield* Effect.try({
+		try: () => validateOutputReferences(bundled.files),
+		catch: () => failure("Client runtime emitted invalid text or syntax"),
+	});
 	if (missingReference) {
 		return yield* failure(missingReference);
 	}

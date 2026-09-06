@@ -1,11 +1,12 @@
+import { expect, it } from "vitest";
+
 import {
 	CLIENT_API_VERSION,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
-} from "@ryot-app/client-plugin-contract";
-import { expect, it } from "vitest";
-
-import { clientArtifactFile, clientArtifactMetadata } from "./artifact";
+	clientArtifactFile,
+	clientArtifactMetadata,
+} from "./index";
 
 const encoder = new TextEncoder();
 
