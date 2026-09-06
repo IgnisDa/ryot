@@ -1,5 +1,4 @@
 import type { ImportRunId } from "@ryot-app/contract/schema/brands";
-import { Effect } from "effect";
 
 import { adminHeaders } from "./admin";
 import { getApiClient } from "./contract-client";
@@ -16,13 +15,6 @@ export const getMediaPopulationGateResult = (input: {
 			}),
 		adminHeaders(),
 	);
-
-export const sampleSandboxRuntime = Effect.suspend(() =>
-	getApiClient().call(
-		(client) => client.testSupport.sampleSandboxRuntime({ query: {} }),
-		adminHeaders(),
-	),
-);
 
 export const sampleOperationalPressure = (executionIds: ReadonlyArray<string>) =>
 	getApiClient().call(
