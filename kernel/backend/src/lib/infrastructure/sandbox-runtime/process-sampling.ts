@@ -31,9 +31,51 @@ export type CgroupSample = {
 
 const finite = (value: number) => (Number.isFinite(value) ? value : null);
 
-export const parseProcStatusRssBytes = (contents: string) => {
-	const match = /^VmRSS:\s+(\d+)\s+kB$/m.exec(contents);
+const procStatusKibibytes = (contents: string, key: string) => {
+	const match = new RegExp(`^${key}:\\s+(\\d+)\\s+kB$`, "m").exec(contents);
 	return match?.[1] ? Number(match[1]) * 1024 : null;
+};
+
+export const parseProcStatusRssBytes = (contents: string) => procStatusKibibytes(contents, "VmRSS");
+
+/** `VmHWM` is the kernel's lifetime resident high-water mark for the process. */
+export const parseProcStatusHwmBytes = (contents: string) => procStatusKibibytes(contents, "VmHWM");
+
+export type SmapsRollup = {
+	readonly rssBytes: number | null;
+	readonly pssBytes: number | null;
+	readonly swapBytes: number | null;
+	readonly pssAnonBytes: number | null;
+	readonly pssFileBytes: number | null;
+	readonly pssShmemBytes: number | null;
+	readonly anonymousBytes: number | null;
+	readonly sharedCleanBytes: number | null;
+	readonly sharedDirtyBytes: number | null;
+	readonly privateCleanBytes: number | null;
+	readonly privateDirtyBytes: number | null;
+};
+
+export const parseSmapsRollup = (contents: string): SmapsRollup => {
+	const values: Record<string, number> = {};
+	for (const line of contents.split("\n")) {
+		const match = /^(\w+):\s+(\d+)\s+kB$/.exec(line.trim());
+		if (match?.[1] && match[2]) {
+			values[match[1]] = Number(match[2]) * 1024;
+		}
+	}
+	return {
+		rssBytes: values["Rss"] ?? null,
+		pssBytes: values["Pss"] ?? null,
+		swapBytes: values["Swap"] ?? null,
+		pssAnonBytes: values["Pss_Anon"] ?? null,
+		pssFileBytes: values["Pss_File"] ?? null,
+		pssShmemBytes: values["Pss_Shmem"] ?? null,
+		anonymousBytes: values["Anonymous"] ?? null,
+		sharedCleanBytes: values["Shared_Clean"] ?? null,
+		sharedDirtyBytes: values["Shared_Dirty"] ?? null,
+		privateCleanBytes: values["Private_Clean"] ?? null,
+		privateDirtyBytes: values["Private_Dirty"] ?? null,
+	};
 };
 
 export const parseProcStatCpu = (contents: string): ProcessCpuSample | null => {
@@ -112,6 +154,15 @@ export const readProcessCpuSample = (pid: number) =>
 
 export const readProcessRssBytes = (pid: number) =>
 	readParsed(`/proc/${pid}/status`, parseProcStatusRssBytes);
+
+export const readProcessMemoryStatus = (pid: number | "self") =>
+	readParsed(`/proc/${pid}/status`, (contents) => ({
+		rssBytes: parseProcStatusRssBytes(contents),
+		hwmBytes: parseProcStatusHwmBytes(contents),
+	}));
+
+export const readProcessSmapsRollup = (pid: number | "self") =>
+	readParsed(`/proc/${pid}/smaps_rollup`, parseSmapsRollup);
 
 const emptyCgroupEvents: CgroupMemoryEvents = { low: 0, max: 0, oom: 0, high: 0, oomKill: 0 };
 const emptyCgroupCpu: CgroupCpuStat = { userUsec: null, usageUsec: null, systemUsec: null };

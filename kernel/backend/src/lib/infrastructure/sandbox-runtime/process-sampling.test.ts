@@ -7,7 +7,9 @@ import {
 	parseCgroupMemoryMax,
 	parseCgroupNumber,
 	parseProcStatCpu,
+	parseProcStatusHwmBytes,
 	parseProcStatusRssBytes,
+	parseSmapsRollup,
 } from "./process-sampling";
 
 const procStat =
@@ -22,6 +24,34 @@ describe("sandbox process sampling parsers", () => {
 			),
 		).toBe(184_924 * 1024);
 		expect(parseProcStatusRssBytes("Name:\tdeno\nThreads:\t7\n")).toBeNull();
+	});
+
+	it("reads the lifetime resident high-water mark separately from current residency", () => {
+		const status = "Name:\tdeno\nVmHWM:\t  301220 kB\nVmRSS:\t  184924 kB\n";
+		expect(parseProcStatusHwmBytes(status)).toBe(301_220 * 1024);
+		expect(parseProcStatusHwmBytes("Name:\tdeno\nVmRSS:\t  184924 kB\n")).toBeNull();
+	});
+
+	it("reads smaps_rollup categories and reports absent kernel fields as null", () => {
+		const rollup = parseSmapsRollup(
+			[
+				"55d0c0a3e000-7ffd8a1f2000 ---p 00000000 00:00 0                          [rollup]",
+				"Rss:              184924 kB",
+				"Pss:              150000 kB",
+				"Pss_Anon:         120000 kB",
+				"Pss_File:          30000 kB",
+				"Shared_Clean:      40000 kB",
+				"Private_Dirty:    121000 kB",
+				"Anonymous:        121500 kB",
+			].join("\n"),
+		);
+
+		expect(rollup.rssBytes).toBe(184_924 * 1024);
+		expect(rollup.pssAnonBytes).toBe(120_000 * 1024);
+		expect(rollup.pssFileBytes).toBe(30_000 * 1024);
+		expect(rollup.anonymousBytes).toBe(121_500 * 1024);
+		expect(rollup.pssShmemBytes).toBeNull();
+		expect(rollup.swapBytes).toBeNull();
 	});
 
 	it("reads cpu and start ticks past a command name containing spaces and parentheses", () => {
