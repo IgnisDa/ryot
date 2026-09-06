@@ -26,7 +26,7 @@
 - One shared card and row presentation covers every media schema except `show`, `anime`, `movie`, `music`, `book`, `manga`, `podcast`, `audiobook`, `comic-book`, `visual-novel`, `video-game`, and the six `*-group` schemas; its loader takes the schema slug from the batch's references. `person` and `company` keep it and add only a detail page.
 - The artwork aspect of a media or group schema comes only from `mediaSchemaAspects` in `client/schema-aspects.ts`; its descriptor's header art, recommendation tiles, and creator credit tiles all read it.
 - `mediaPluginSlug`, `builtinMediaEntitySchemaSlugs`, `mediaGroupMemberSlugs`, and `creatorGroupTargetSlugs` live in `shared/media-schema-slugs.ts`.
-- Import media and schema recipes straight from `shared/media-recipes` and `shared/<slug>-recipes`; never re-export them through `host/query-recipes.ts`, which owns only the podcast, suggestion, trending, and saved-view recipes.
+- Import media and schema recipes straight from `shared/media-recipes` and `shared/<slug>-recipes`. Cross-schema home recipes live in `shared/lifecycle-list-recipes.ts`, `shared/discovery-recipes.ts`, and `shared/airing-recipes.ts`; `host/query-recipes.ts` owns only the saved-view recipe.
 - `client/` must not restate schemas that `shared/` owns.
 - `client/media/` holds the schema-agnostic client layer every detail screen composes; it carries no schema symbol and no schema copy. Nouns, row and beat labels, credit-section titles, group copy, and artwork aspect are descriptor or caller input; never hardcode poster geometry there.
 - Track length uses `mediaTrackLengthLabel` (`m:ss`) for the seconds-valued `duration` field. Time totals stay in minutes, so a seconds-based schema divides by 60 in its measure.
