@@ -96,14 +96,27 @@ const runDirectRequest = (
 		} satisfies RawScenarioRequest;
 	});
 
+// The restart-recovery scenario takes the API down while imports are still polled, so a failed
+// transport or an undecodable error page is retried until the repetition's own timeout.
+const isTransientApiFailure = (error: unknown) =>
+	typeof error === "object" &&
+	error !== null &&
+	"_tag" in error &&
+	(error._tag === "TransportError" ||
+		error._tag === "DecodeError" ||
+		error._tag === "ResponseError");
+
 const pollImportResult = (context: ScenarioContext, jobId: string) =>
 	Effect.gen(function* () {
 		for (;;) {
-			const result = yield* context.client.call((client) =>
-				client.providerEntities.getImportResult({ params: { jobId } }),
-			);
-			if (result.status !== "pending") {
-				return result;
+			const result = yield* context.client
+				.call((client) => client.providerEntities.getImportResult({ params: { jobId } }))
+				.pipe(
+					Effect.map((value) => ({ value })),
+					Effect.catchIf(isTransientApiFailure, () => Effect.succeed(null)),
+				);
+			if (result !== null && result.value.status !== "pending") {
+				return result.value;
 			}
 			yield* Effect.sleep("200 millis");
 		}
