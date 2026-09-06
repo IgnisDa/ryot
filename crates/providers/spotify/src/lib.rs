@@ -4,8 +4,7 @@ use anyhow::{Result, bail};
 use async_trait::async_trait;
 use common_models::{EntityAssets, PersonSourceSpecifics, SearchDetails};
 use common_utils::{
-    PAGE_SIZE, compute_next_page, convert_date_to_year, convert_string_to_date,
-    get_base_http_client,
+    compute_next_page_with_size, convert_date_to_year, convert_string_to_date, get_base_http_client,
 };
 use data_encoding::BASE64;
 use database_models::metadata_group::MetadataGroupWithoutId;
@@ -31,6 +30,7 @@ use traits::MediaProvider;
 
 static SPOTIFY_TOKEN_URL: &str = "https://accounts.spotify.com/api/token";
 static SPOTIFY_API_URL: &str = "https://api.spotify.com/v1";
+static SPOTIFY_SEARCH_PAGE_SIZE: u64 = 10;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct SpotifyTokenResponse {
@@ -114,6 +114,18 @@ pub struct SpotifyService {
     client: Client,
 }
 
+async fn parse_spotify_response<T>(response: reqwest::Response) -> Result<T>
+where
+    T: for<'de> Deserialize<'de>,
+{
+    let status = response.status();
+    if !status.is_success() {
+        let body = response.text().await.unwrap_or_default();
+        bail!("Spotify API returned status {status}: {body}");
+    }
+    Ok(response.json().await?)
+}
+
 async fn fetch_artist_albums(client: &Client, artist_id: &str) -> Result<Vec<SpotifyAlbum>> {
     let mut all_albums = vec![];
     let mut offset = 0;
@@ -130,7 +142,8 @@ async fn fetch_artist_albums(client: &Client, artist_id: &str) -> Result<Vec<Spo
             .send()
             .await?;
 
-        let albums_response: SpotifyResponse<SpotifyAlbum> = response.json().await?;
+        let albums_response: SpotifyResponse<SpotifyAlbum> =
+            parse_spotify_response(response).await?;
 
         if albums_response.items.is_empty() {
             break;
@@ -155,7 +168,12 @@ async fn fetch_artist_top_tracks(client: &Client, artist_id: &str) -> Result<Vec
         .send()
         .await?;
 
-    let top_tracks_response: SpotifyArtistTopTracksResponse = response.json().await?;
+    if response.status() == reqwest::StatusCode::FORBIDDEN {
+        return Ok(vec![]);
+    }
+
+    let top_tracks_response: SpotifyArtistTopTracksResponse =
+        parse_spotify_response(response).await?;
     Ok(top_tracks_response.tracks)
 }
 
@@ -179,7 +197,7 @@ async fn get_spotify_access_token(ss: &Arc<SupportingService>) -> Result<String>
                 .send()
                 .await?;
 
-            let token_response: SpotifyTokenResponse = response.json().await?;
+            let token_response: SpotifyTokenResponse = parse_spotify_response(response).await?;
 
             Ok(token_response.access_token)
         },
@@ -223,7 +241,9 @@ impl SpotifyService {
         T: for<'de> Deserialize<'de>,
     {
         let page = page.unwrap_or(1);
-        let offset = page.saturating_sub(1) * PAGE_SIZE;
+        let offset = page
+            .saturating_sub(1)
+            .saturating_mul(SPOTIFY_SEARCH_PAGE_SIZE);
 
         let response = self
             .client
@@ -232,12 +252,12 @@ impl SpotifyService {
                 ("q", query),
                 ("type", search_type),
                 ("offset", &offset.to_string()),
-                ("limit", &PAGE_SIZE.to_string()),
+                ("limit", &SPOTIFY_SEARCH_PAGE_SIZE.to_string()),
             ])
             .send()
             .await?;
 
-        let search_response: T = response.json().await?;
+        let search_response: T = parse_spotify_response(response).await?;
         Ok((search_response, page))
     }
 }
@@ -251,7 +271,7 @@ impl MediaProvider for SpotifyService {
             .send()
             .await?;
 
-        let track: SpotifyTrack = track_response.json().await?;
+        let track: SpotifyTrack = parse_spotify_response(track_response).await?;
 
         let artists = track.artists.unwrap_or_default();
         let by_various_artists = artists.len() > 1;
@@ -328,7 +348,11 @@ impl MediaProvider for SpotifyService {
         let (search_response, page): (SpotifySearchResponse, u64) =
             self.search_spotify(query, "track", Some(page)).await?;
 
-        let next_page = compute_next_page(page, search_response.tracks.total);
+        let next_page = compute_next_page_with_size(
+            page,
+            search_response.tracks.total,
+            SPOTIFY_SEARCH_PAGE_SIZE,
+        );
 
         let items = search_response
             .tracks
@@ -368,7 +392,7 @@ impl MediaProvider for SpotifyService {
             .send()
             .await?;
 
-        let album: SpotifyAlbum = response.json().await?;
+        let album: SpotifyAlbum = parse_spotify_response(response).await?;
 
         let publish_year = album
             .release_date
@@ -421,7 +445,11 @@ impl MediaProvider for SpotifyService {
         let (search_response, page): (SpotifyAlbumSearchResponse, u64) =
             self.search_spotify(query, "album", Some(page)).await?;
 
-        let next_page = compute_next_page(page, search_response.albums.total);
+        let next_page = compute_next_page_with_size(
+            page,
+            search_response.albums.total,
+            SPOTIFY_SEARCH_PAGE_SIZE,
+        );
 
         let items = search_response
             .albums
@@ -456,7 +484,7 @@ impl MediaProvider for SpotifyService {
                     .get(format!("{SPOTIFY_API_URL}/artists/{identifier}"))
                     .send()
                     .await?;
-                let artist: SpotifyArtist = response.json().await?;
+                let artist: SpotifyArtist = parse_spotify_response(response).await?;
                 Ok(artist)
             },
             fetch_artist_albums(&self.client, identifier),
@@ -545,7 +573,11 @@ impl MediaProvider for SpotifyService {
         let (search_response, page): (SpotifyArtistSearchResponse, u64) =
             self.search_spotify(query, "artist", Some(page)).await?;
 
-        let next_page = compute_next_page(page, search_response.artists.total);
+        let next_page = compute_next_page_with_size(
+            page,
+            search_response.artists.total,
+            SPOTIFY_SEARCH_PAGE_SIZE,
+        );
 
         let items = search_response
             .artists

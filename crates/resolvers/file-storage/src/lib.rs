@@ -12,7 +12,7 @@ impl GraphqlDependencyInjector for FileStorageQueryResolver {}
 impl FileStorageQueryResolver {
     /// Get a presigned URL (valid for 90 minutes) for a given key.
     async fn get_presigned_s3_url(&self, gql_ctx: &Context<'_>, key: String) -> Result<String> {
-        let service = self.dependency(gql_ctx);
+        let (service, _) = self.dependency_and_user(gql_ctx).await?;
         Ok(get_presigned_url(service, key).await?)
     }
 }
@@ -34,14 +34,14 @@ impl FileStorageMutationResolver {
         gql_ctx: &Context<'_>,
         prefix: String,
     ) -> Result<PresignedPutUrlResponse> {
-        let service = self.dependency(gql_ctx);
+        let (service, _) = self.dependency_and_user(gql_ctx).await?;
         let (key, upload_url) = get_presigned_put_url(service, prefix, true, None).await?;
         Ok(PresignedPutUrlResponse { upload_url, key })
     }
 
     /// Delete an S3 object by the given key.
     async fn delete_s3_object(&self, gql_ctx: &Context<'_>, key: String) -> Result<bool> {
-        let service = self.dependency(gql_ctx);
+        let (service, _) = self.dependency_and_user(gql_ctx).await?;
         Ok(delete_object(service, key).await?)
     }
 }
