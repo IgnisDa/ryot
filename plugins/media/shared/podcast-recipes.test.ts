@@ -1,12 +1,7 @@
 import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 import { describe, expect, it } from "vitest";
 
-import {
-	podcastEpisodesRecipe,
-	podcastOverviewRecipe,
-	podcastPresentationRecipe,
-	podcastSummaryRecipe,
-} from "./podcast-recipes";
+import { podcastEpisodesRecipe, podcastRecipes } from "./podcast-recipes";
 
 const rows = (items: readonly Record<string, unknown>[]) =>
 	rowsResult(items, { limit: 1, hasMore: false, nextCursor: null });
@@ -90,7 +85,7 @@ describe("media podcast query recipes", () => {
 	});
 
 	it("covers every episode hanging off the podcast in one row", () => {
-		const recipe = podcastSummaryRecipe({ collectionLimit: 6, entityId: "podcast-1" });
+		const recipe = podcastRecipes.summaryRecipe({ collectionLimit: 6, entityId: "podcast-1" });
 		const summary = recipe.document.queries["summary"];
 		if (summary?.output.type !== "rows") {
 			throw new Error("Expected a summary rows query");
@@ -104,7 +99,7 @@ describe("media podcast query recipes", () => {
 	});
 
 	it("adds the podcast's unlinked creators to the overview queries", () => {
-		const recipe = podcastOverviewRecipe({
+		const recipe = podcastRecipes.overviewRecipe({
 			peopleLimit: 12,
 			companyLimit: 6,
 			entityId: "podcast-1",
@@ -132,7 +127,7 @@ describe("media podcast query recipes", () => {
 	});
 
 	it("builds one presentation query carrying the podcast's episode counts", () => {
-		const recipe = podcastPresentationRecipe(["podcast-2", "podcast-1"]);
+		const recipe = podcastRecipes.presentationRecipe(["podcast-2", "podcast-1"]);
 		const podcasts = recipe.document.queries["rows"];
 		if (podcasts?.output.type !== "rows" || podcasts.where?.type !== "and") {
 			throw new Error("Expected a filtered presentation rows query");

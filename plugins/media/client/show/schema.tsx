@@ -1,12 +1,10 @@
-import {
-	showActivityRecipe,
-	showOverviewRecipe,
-	showPresentationRecipe,
-	showSummaryRecipe,
-	type ShowActivityResult,
-	type ShowPresentationData,
-	type ShowSummaryResult,
-} from "../../shared/show-recipes";
+import type {
+	MediaActivityOf,
+	MediaPresentationDataOf,
+	MediaSummaryOf,
+} from "../../shared/media-recipes";
+import { showRecipes } from "../../shared/show-recipes";
+import { mediaEpisodicActivityCopy } from "../media/activity-copy";
 import {
 	mediaEpisodicCoveragePercent,
 	type MediaEpisodicCoverage,
@@ -17,6 +15,7 @@ import { mediaWatchProvidersTrailing } from "../media/overview";
 import {
 	mediaCountFact,
 	mediaCountLabel,
+	mediaProductionStatusFact,
 	mediaRatingFact,
 	type MediaSummaryFact,
 } from "../media/summary-state";
@@ -28,9 +27,13 @@ import {
 	showSeasonOriginLabel,
 } from "./episodes-state";
 
-type ShowSummary = NonNullable<ShowSummaryResult["summary"]>;
+type ShowSummary = MediaSummaryOf<typeof showRecipes>;
 
-type ShowCoverageRow = ShowActivityResult["coverage"][number];
+type ShowActivity = MediaActivityOf<typeof showRecipes>;
+
+type ShowPresentation = MediaPresentationDataOf<typeof showRecipes>;
+
+type ShowCoverageRow = ShowActivity["coverage"][number];
 
 const seasonCoverageRow = (season: ShowCoverageRow) => ({
 	key: season.id,
@@ -49,7 +52,7 @@ const watchedMinutes = (seasons: readonly ShowCoverageRow[]) =>
 		{ total: 0, missing: 0 },
 	);
 
-export const showActivityCoverage = (result: ShowActivityResult): MediaEpisodicCoverage => {
+export const showActivityCoverage = (result: ShowActivity): MediaEpisodicCoverage => {
 	const ordered = [...result.coverage].sort(
 		(left, right) => seasonOrder(left) - seasonOrder(right),
 	);
@@ -72,18 +75,16 @@ export const showSummaryFacts = (show: ShowSummary): readonly MediaSummaryFact[]
 	const episodes = mediaCountFact(show.totalEpisodes, "Episode");
 	return [
 		mediaRatingFact(show),
-		show.productionStatus === null
-			? undefined
-			: { icon: "clapperboard", label: "Production status", value: show.productionStatus },
+		mediaProductionStatusFact(show),
 		seasons === undefined ? undefined : { icon: "layers-3", ...seasons },
 		episodes === undefined ? undefined : { icon: "tv", ...episodes },
 	].filter((fact) => fact !== undefined);
 };
 
-export const showPresentationFacts = (show: ShowPresentationData) =>
+export const showPresentationFacts = (show: ShowPresentation) =>
 	show.productionStatus === null ? [] : [show.productionStatus];
 
-const episodeProgressLabel = (show: ShowPresentationData) => {
+const episodeProgressLabel = (show: ShowPresentation) => {
 	if (show.storedEpisodes === 0) {
 		return undefined;
 	}
@@ -93,7 +94,7 @@ const episodeProgressLabel = (show: ShowPresentationData) => {
 	return `${show.watchedEpisodes} of ${show.storedEpisodes} episodes watched`;
 };
 
-export const showPresentationDetail = (show: ShowPresentationData) => {
+export const showPresentationDetail = (show: ShowPresentation) => {
 	const progress = episodeProgressLabel(show);
 	if (show.storedSeasons === 0 && progress === undefined) {
 		return undefined;
@@ -112,6 +113,7 @@ export const showPresentationDetail = (show: ShowPresentationData) => {
 export const showSchema = defineEpisodicMediaSchema({
 	aspect: "poster",
 	typeLabel: "TV Show",
+	recipes: showRecipes,
 	facts: showSummaryFacts,
 	EpisodesTab: ShowEpisodesTab,
 	coverage: showActivityCoverage,
@@ -122,29 +124,10 @@ export const showSchema = defineEpisodicMediaSchema({
 	overviewTrailing: mediaWatchProvidersTrailing((summary) => summary),
 	heroHeight: (compact) => (compact ? MEDIA_ART_HEIGHT : MEDIA_BACKDROP_HEIGHT),
 	overviewLoadingDetail: "Fetching the cast, companies and recommendations for this show.",
+	activityCopy: mediaEpisodicActivityCopy({ noun: "show", verb: "watch", watchedLabel: "Watched" }),
 	creditCopy: {
 		people: "Cast & crew",
 		companies: "Production companies",
 		notice: "Cast, companies and recommendations",
-	},
-	recipes: {
-		summaryRecipe: showSummaryRecipe,
-		overviewRecipe: showOverviewRecipe,
-		activityRecipe: showActivityRecipe,
-		presentationRecipe: showPresentationRecipe,
-	},
-	activityCopy: {
-		segmentNoun: "Watch",
-		recordLabel: "Watch record",
-		figures: { time: "Time", watches: "Watches", episodes: "Episodes" },
-		loadingDetail: "Fetching everything you have recorded for this show.",
-		rowLabels: { watched: "Watched", review: "Reviewed the show", completion: "Finished the show" },
-		beats: {
-			backlog: "Added to backlog",
-			dropped: "Stopped watching",
-			on_hold: "Put this show on hold",
-		},
-		emptyDetail:
-			"Nothing has been recorded for this show. Whatever you watch will appear here as your watch record.",
 	},
 });

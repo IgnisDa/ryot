@@ -1,12 +1,10 @@
-import {
-	podcastActivityRecipe,
-	podcastOverviewRecipe,
-	podcastPresentationRecipe,
-	podcastSummaryRecipe,
-	type PodcastActivityResult,
-	type PodcastPresentationData,
-	type PodcastSummaryResult,
-} from "../../shared/podcast-recipes";
+import type {
+	MediaActivityOf,
+	MediaPresentationDataOf,
+	MediaSummaryOf,
+} from "../../shared/media-recipes";
+import { podcastRecipes } from "../../shared/podcast-recipes";
+import { mediaEpisodicActivityCopy } from "../media/activity-copy";
 import {
 	mediaEpisodicCoveragePercent,
 	type MediaEpisodicCoverage,
@@ -16,14 +14,19 @@ import { MEDIA_ART_HEIGHT } from "../media/hero";
 import {
 	mediaCountFact,
 	mediaCountLabel,
+	mediaProductionStatusFact,
 	mediaRatingFact,
 	type MediaSummaryFact,
 } from "../media/summary-state";
 import { PodcastEpisodesTab, podcastEpisodeOriginLabel } from "./episodes";
 
-type PodcastSummary = NonNullable<PodcastSummaryResult["summary"]>;
+type PodcastSummary = MediaSummaryOf<typeof podcastRecipes>;
 
-export const podcastActivityCoverage = (result: PodcastActivityResult): MediaEpisodicCoverage => {
+type PodcastPresentation = MediaPresentationDataOf<typeof podcastRecipes>;
+
+export const podcastActivityCoverage = (
+	result: MediaActivityOf<typeof podcastRecipes>,
+): MediaEpisodicCoverage => {
 	const [episodes] = result.coverage;
 	if (episodes === undefined) {
 		return {
@@ -52,16 +55,14 @@ export const podcastSummaryFacts = (podcast: PodcastSummary): readonly MediaSumm
 	return [
 		mediaRatingFact(podcast),
 		episodes === undefined ? undefined : { icon: "podcast", ...episodes },
-		podcast.productionStatus === null
-			? undefined
-			: { icon: "clapperboard", label: "Production status", value: podcast.productionStatus },
+		mediaProductionStatusFact(podcast),
 	].filter((fact) => fact !== undefined);
 };
 
-export const podcastPresentationFacts = (podcast: PodcastPresentationData) =>
+export const podcastPresentationFacts = (podcast: PodcastPresentation) =>
 	podcast.productionStatus === null ? [] : [podcast.productionStatus];
 
-export const podcastPresentationDetail = (podcast: PodcastPresentationData) => {
+export const podcastPresentationDetail = (podcast: PodcastPresentation) => {
 	if (podcast.storedEpisodes === 0) {
 		return undefined;
 	}
@@ -79,6 +80,7 @@ export const podcastPresentationDetail = (podcast: PodcastPresentationData) => {
 export const podcastSchema = defineEpisodicMediaSchema({
 	aspect: "square",
 	typeLabel: "Podcast",
+	recipes: podcastRecipes,
 	facts: podcastSummaryFacts,
 	EpisodesTab: PodcastEpisodesTab,
 	coverage: podcastActivityCoverage,
@@ -89,33 +91,14 @@ export const podcastSchema = defineEpisodicMediaSchema({
 	nouns: { title: "Podcast", plural: "podcasts", singular: "podcast" },
 	unlinkedCreators: (overview) => overview.creators?.unlinkedCreators ?? [],
 	overviewLoadingDetail: "Fetching the hosts, networks and recommendations for this podcast.",
+	activityCopy: mediaEpisodicActivityCopy({
+		verb: "listen",
+		noun: "podcast",
+		watchedLabel: "Played",
+	}),
 	creditCopy: {
 		people: "Hosts & guests",
 		companies: "Networks & publishers",
 		notice: "Hosts, networks and recommendations",
-	},
-	recipes: {
-		summaryRecipe: podcastSummaryRecipe,
-		overviewRecipe: podcastOverviewRecipe,
-		activityRecipe: podcastActivityRecipe,
-		presentationRecipe: podcastPresentationRecipe,
-	},
-	activityCopy: {
-		segmentNoun: "Listen",
-		recordLabel: "Listen record",
-		figures: { time: "Time", watches: "Listens", episodes: "Episodes" },
-		loadingDetail: "Fetching everything you have recorded for this podcast.",
-		rowLabels: {
-			watched: "Played",
-			review: "Reviewed the podcast",
-			completion: "Finished the podcast",
-		},
-		beats: {
-			backlog: "Added to backlog",
-			dropped: "Stopped listening",
-			on_hold: "Put this podcast on hold",
-		},
-		emptyDetail:
-			"Nothing has been recorded for this podcast. Whatever you listen to will appear here as your listen record.",
 	},
 });

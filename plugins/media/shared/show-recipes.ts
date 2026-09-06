@@ -13,7 +13,6 @@ import {
 	selectedOptionalRow,
 	selectedRows,
 	table,
-	type Recipe,
 } from "@ryot-app/plugin-kit/ryotql";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
 
@@ -84,7 +83,7 @@ const showSeasonCoverageQuery = (input: { readonly limit: number; readonly entit
 	});
 };
 
-const showRecipes = mediaEpisodicRecipes({
+export const showRecipes = mediaEpisodicRecipes({
 	slug: "show",
 	alias: "show",
 	config: showEpisodicKindConfig,
@@ -109,13 +108,6 @@ const showRecipes = mediaEpisodicRecipes({
 		),
 	}),
 });
-
-export const {
-	summaryRecipe: showSummaryRecipe,
-	overviewRecipe: showOverviewRecipe,
-	activityRecipe: showActivityRecipe,
-	presentationRecipe: showPresentationRecipe,
-} = showRecipes;
 
 export const showSeasonEpisodesRecipe = episodicEpisodesRecipe({
 	order: "asc",
@@ -176,12 +168,3 @@ export const showSeasonsRecipe = defineRecipe(
 		};
 	},
 );
-
-export type ShowActivityEvent = ShowActivityResult["events"][number];
-export type ShowSeasonsResult = Recipe.Success<typeof showSeasonsRecipe>;
-export type ShowSummaryResult = Recipe.Success<typeof showSummaryRecipe>;
-export type ShowActivityResult = Recipe.Success<typeof showActivityRecipe>;
-export type ShowOverviewResult = Recipe.Success<typeof showOverviewRecipe>;
-export type ShowSeasonEpisodesResult = Recipe.Success<typeof showSeasonEpisodesRecipe>;
-export type ShowPresentationData = Recipe.Success<typeof showPresentationRecipe>[number];
-export type ShowActivityEpisode = Extract<ShowActivityEvent, { kind: "episode" }>["episode"];

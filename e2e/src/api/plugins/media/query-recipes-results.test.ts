@@ -6,11 +6,9 @@ import {
 	trendingMediaRecipe,
 } from "@ryot-app/media-plugin/query-recipes";
 import {
-	showActivityRecipe,
-	showOverviewRecipe,
+	showRecipes,
 	showSeasonEpisodesRecipe,
 	showSeasonsRecipe,
-	showSummaryRecipe,
 } from "@ryot-app/media-plugin/shared/show-recipes";
 import { DateTime, Effect } from "effect";
 
@@ -491,7 +489,7 @@ describe("Media RyotQL query recipe results", () => {
 
 			const summary = yield* executeRyotQLRecipe(
 				client,
-				showSummaryRecipe({ entityId: show.id, collectionLimit: 5 }),
+				showRecipes.summaryRecipe({ entityId: show.id, collectionLimit: 5 }),
 			);
 			const summaryRow = summary.summary;
 			assertPresent(summaryRow, "Expected show summary row");
@@ -626,7 +624,7 @@ describe("Media RyotQL query recipe results", () => {
 
 			const overview = yield* executeRyotQLRecipe(
 				client,
-				showOverviewRecipe({
+				showRecipes.overviewRecipe({
 					peopleLimit: 12,
 					companyLimit: 6,
 					entityId: show.id,
@@ -699,7 +697,7 @@ describe("Media RyotQL query recipe results", () => {
 
 			const overview = yield* executeRyotQLRecipe(
 				client,
-				showOverviewRecipe({
+				showRecipes.overviewRecipe({
 					peopleLimit: 12,
 					companyLimit: 6,
 					entityId: show.id,
@@ -722,7 +720,7 @@ describe("Media RyotQL query recipe results", () => {
 
 			const summary = yield* executeRyotQLRecipe(
 				client,
-				showSummaryRecipe({ collectionLimit: 5, entityId: book.entity.id }),
+				showRecipes.summaryRecipe({ collectionLimit: 5, entityId: book.entity.id }),
 			);
 
 			expect(summary.summary).toBeNull();
@@ -736,7 +734,10 @@ describe("Media RyotQL query recipe results", () => {
 
 			const summary = yield* executeRyotQLRecipe(
 				client,
-				showSummaryRecipe({ collectionLimit: 5, entityId: `missing-${crypto.randomUUID()}` }),
+				showRecipes.summaryRecipe({
+					collectionLimit: 5,
+					entityId: `missing-${crypto.randomUUID()}`,
+				}),
 			);
 
 			expect(summary.summary).toBeNull();
@@ -1136,7 +1137,7 @@ describe("Media RyotQL query recipe results", () => {
 
 			const activity = yield* executeRyotQLRecipe(
 				client,
-				showActivityRecipe({ ...ACTIVITY_LIMITS, entityId: seeded.show.id }),
+				showRecipes.activityRecipe({ ...ACTIVITY_LIMITS, entityId: seeded.show.id }),
 			);
 			const identity = activity.events.map((event) => ({
 				kind: event.kind,
@@ -1252,7 +1253,7 @@ describe("Media RyotQL query recipe results", () => {
 
 			const activity = yield* executeRyotQLRecipe(
 				client,
-				showActivityRecipe({ ...ACTIVITY_LIMITS, entityId: seeded.show.id }),
+				showRecipes.activityRecipe({ ...ACTIVITY_LIMITS, entityId: seeded.show.id }),
 			);
 
 			expect(activity.events).toHaveLength(1);
@@ -1284,7 +1285,7 @@ describe("Media RyotQL query recipe results", () => {
 
 			const activity = yield* executeRyotQLRecipe(
 				client,
-				showActivityRecipe({ ...ACTIVITY_LIMITS, entityId: seeded.show.id }),
+				showRecipes.activityRecipe({ ...ACTIVITY_LIMITS, entityId: seeded.show.id }),
 			);
 
 			expect(activity.watchDays[0]).toMatchObject({
@@ -1317,7 +1318,7 @@ describe("Media RyotQL query recipe results", () => {
 
 			const activity = yield* executeRyotQLRecipe(
 				client,
-				showActivityRecipe({ ...ACTIVITY_LIMITS, entityId: seeded.show.id }),
+				showRecipes.activityRecipe({ ...ACTIVITY_LIMITS, entityId: seeded.show.id }),
 			);
 
 			expect(activity.events).toHaveLength(0);
@@ -1345,7 +1346,11 @@ describe("Media RyotQL query recipe results", () => {
 
 			const activity = yield* executeRyotQLRecipe(
 				client,
-				showActivityRecipe({ ...ACTIVITY_LIMITS, parentEventLimit: 1, entityId: seeded.show.id }),
+				showRecipes.activityRecipe({
+					...ACTIVITY_LIMITS,
+					parentEventLimit: 1,
+					entityId: seeded.show.id,
+				}),
 			);
 
 			expect(activity.truncated).toBe(true);
