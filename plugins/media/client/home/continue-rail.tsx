@@ -49,7 +49,6 @@ export const libraryEntries = (data: LibraryStateData): readonly LibraryEntry[] 
 		.sort((left, right) => activityOrder(right).localeCompare(activityOrder(left)))
 		.slice(0, RAIL_LIMIT);
 
-/** Flat, show, and podcast items in one lifecycle state, most recent lifecycle activity first. */
 export const libraryStateQuery = createHomeSectionQuery(libraryStateRecipes, (data) =>
 	libraryEntries(data).map(({ item }) => item.id),
 );

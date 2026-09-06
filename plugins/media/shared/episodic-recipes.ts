@@ -236,7 +236,6 @@ const episodicEpisodeCount = (
 	});
 };
 
-/** The display-state counts every episodic summary and presentation row carries. */
 const episodicCountSelection = (config: EpisodicKindConfig, parent: Table, alias: string) => ({
 	airedEpisodes: selectedField(
 		episodicEpisodeCount(config, parent, `${alias}Aired`),

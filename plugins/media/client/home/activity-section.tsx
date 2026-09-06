@@ -22,7 +22,7 @@ const TITLE = "Your activity";
 
 type MediaActivityInput = ActivityWindow & { readonly timeZone: string };
 
-export const mediaActivityQuery = createRyotQuery<MediaActivityInput, MediaActivity>(
+const mediaActivityQuery = createRyotQuery<MediaActivityInput, MediaActivity>(
 	({ input, client, signal }) =>
 		client.data.query(
 			mediaActivityRecipe({ from: input.from, until: input.until, timeZone: input.timeZone }),
@@ -93,7 +93,6 @@ const sectionStatus = (
 	return status === "loading" ? { kind: "pending" } : { retry, kind: "error" };
 };
 
-/** The activity section for one query result; `window` and `timeZone` are what the query ran with. */
 export function ActivitySectionView(props: {
 	readonly compact: boolean;
 	readonly timeZone: string;

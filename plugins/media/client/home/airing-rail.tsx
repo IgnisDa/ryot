@@ -11,7 +11,6 @@ import { createHomeSectionQuery, type SectionData } from "./section-query";
 
 const RAIL_LIMIT = 20;
 
-/** The window is today and the fourteen local days after it. */
 const WINDOW_DAYS = 14;
 
 const localMidnight = (day: string, offsetDays: number) =>
