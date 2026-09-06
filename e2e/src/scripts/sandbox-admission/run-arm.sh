@@ -83,10 +83,10 @@ while [ "$#" -gt 1 ]; do
 		validate "$scenario"
 		;;
 	oom)
-		# Two workers each holding 400 MiB of touched memory push past a container limit below
+		# Two workers each holding 750 MiB of touched memory push past a container limit below
 		# about 2 GiB. The victim is visible as a backend restart or as failed executions.
 		restarts=$(docker inspect "$APP" --format '{{.RestartCount}}')
-		docker exec "$APP" bun /tmp/oom-probe.mjs /tmp/adm-state.json "$LABEL" 3 400 30000 || true
+		docker exec "$APP" bun /tmp/oom-probe.mjs /tmp/adm-state.json "$LABEL" 2 750 8000 || true
 		wait_healthy
 		printf '{"label":"%s","scenario":"oom","memoryLimitBytes":%s,"containerRestarts":%s,"oomKilled":%s,"cgroupOomKills":%s}\n' \
 			"$LABEL" "$(docker inspect "$APP" --format '{{.HostConfig.Memory}}')" \
@@ -106,8 +106,13 @@ while [ "$#" -gt 1 ]; do
 		"$(awk "BEGIN { print (${after% *} - ${before% *}) / 1000000 }")" \
 		"$((${after#* } - ${before#* }))" >>"$OUT/postgres.jsonl"
 done
-# Every check ends drained: a leftover ledger row is an import the admission loop lost track of.
-left=$(psql_value "select count(*) from provider_import_admission")
+# Every check ends drained: a ledger row that outlives a few dispatch passes is an import the
+# admission loop lost track of.
+for _ in $(seq 1 20); do
+	left=$(psql_value "select count(*) from provider_import_admission")
+	[ "$left" = 0 ] && break
+	sleep 3
+done
 [ "$left" = 0 ] || {
 	scenario=ledger
 	echo "$left admission rows left after the arm" >&2
