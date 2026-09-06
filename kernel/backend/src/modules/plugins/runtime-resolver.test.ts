@@ -300,7 +300,7 @@ describe("revision-backed runtime resolution", () => {
 			),
 	);
 
-	it.effect("resolves boot, cron, and bootstrap declarations against their package revision", () =>
+	it.effect("resolves cron and bootstrap declarations against their package revision", () =>
 		withRevisionDatabase(
 			Effect.gen(function* () {
 				const runtime = yield* PluginRuntimeResolver;
@@ -309,7 +309,6 @@ describe("revision-backed runtime resolution", () => {
 					...packageValue,
 					manifest: {
 						...packageValue.manifest,
-						boot: [{ slug: "startup", description: "Startup", scriptSlug: "fixture.task" }],
 						userBootstrap: [
 							{ slug: "user-startup", scriptSlug: "fixture.task", description: "User startup" },
 						],
@@ -323,10 +322,6 @@ describe("revision-backed runtime resolution", () => {
 						],
 					},
 				});
-				expect(
-					(yield* runtime.resolveActivePluginBoot({ bootSlug: "startup", pluginSlug: "fixture" }))
-						?.script.pluginRevisionId,
-				).toBe(installed.revisionId);
 				expect(
 					(yield* runtime.resolveActivePluginCron({ pluginSlug: "fixture", cronSlug: "scheduled" }))
 						?.script.pluginRevisionId,

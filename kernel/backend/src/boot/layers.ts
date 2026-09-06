@@ -167,7 +167,6 @@ import {
 	SavedViewsService,
 } from "#modules/saved-views/service";
 import { FrequentCronSchedulerLive } from "#modules/scheduler/frequent-cron";
-import { PluginBootDispatcherLive, PluginBootService } from "#modules/scheduler/plugin-boot";
 import { PluginCronSchedulerLive, PluginCronService } from "#modules/scheduler/plugin-cron";
 import { SignalSchemasService } from "#modules/signals/service";
 import { SignalSchemasRepository } from "#modules/signals/signal-schemas-repository";
@@ -673,7 +672,6 @@ const ServicesLive = Layer.provideMerge(
 		AutomationReconciliationLive,
 		AutomationRetentionLive,
 		PluginConfigEncryptionKeyLive,
-		PluginBootService.layer,
 		PluginCronService.layer,
 	),
 	LifecycleServicesLive,
@@ -712,7 +710,6 @@ export const RuntimeLive = Layer.mergeAll(
 	ServerLive,
 	FrequentCronWorkflowDefinitionsLive,
 	FrequentCronSchedulerLive,
-	PluginBootDispatcherLive,
 	PluginInstallationSweepDispatcherLive,
 	PluginCronSchedulerLive,
 );

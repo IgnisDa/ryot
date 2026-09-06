@@ -5,7 +5,6 @@ import { assert, expect, it } from "vitest";
 import { manifest as hevyManifest } from "../backend/imports/hevy.sandbox";
 import { manifest as openScaleManifest } from "../backend/imports/open-scale.sandbox";
 import { manifest as strongAppManifest } from "../backend/imports/strong-app.sandbox";
-import { manifest as preloadManifest } from "../backend/providers/exercise/free-exercise-db/preload.sandbox";
 import { FitnessCreateImportRunBody } from "./import-sources";
 import { fitnessPlugin } from "./plugin";
 
@@ -73,22 +72,12 @@ it("declares the complete fitness-owned source", () => {
 	const exercise = fitnessPlugin.entitySchemas[0];
 	assert(exercise);
 	expect(exercise.mergeIdentityProperties).toEqual(["kind"]);
-	expect(fitnessPlugin.configSchema).toMatchObject({
-		unknownKeys: "strict",
-		fields: { exercisePreloadLimit: { type: "integer", defaultValue: 873 } },
-	});
+	expect(fitnessPlugin.configSchema).toMatchObject({ fields: {}, unknownKeys: "strict" });
 	expect(
 		fitnessPlugin.entitySchemas.slice(1).every((schema) => !("mergeIdentityProperties" in schema)),
 	).toBe(true);
 	expect(fitnessPlugin.crons).toEqual([]);
 	expect(fitnessPlugin.userBootstrap).toEqual([]);
-	expect(fitnessPlugin.boot).toEqual([
-		{
-			slug: "preload-exercises",
-			scriptSlug: "exercise.free-exercise-db.preload",
-			description: "Preload the built-in exercise catalog",
-		},
-	]);
 	expect(fitnessPlugin.providers).toEqual([
 		{
 			name: "Free Exercise DB",
@@ -98,6 +87,7 @@ it("declares the complete fitness-owned source", () => {
 			operations: {
 				search: "exercise.free-exercise-db.search",
 				details: "exercise.free-exercise-db.details",
+				resolve: "exercise.free-exercise-db.resolve",
 			},
 		},
 	]);
@@ -152,13 +142,6 @@ it("declares the complete fitness-owned source", () => {
 			capabilities: ["artifact-read", "scratch", "getSystemConfig"],
 		},
 	]);
-	expect(preloadManifest).toEqual(
-		expect.objectContaining({
-			kind: "script",
-			slug: "exercise.free-exercise-db.preload",
-			requiredPluginConfigKeys: ["exercisePreloadLimit"],
-		}),
-	);
 	expect(fitnessPlugin.savedViews.every(({ pluginSlug }) => pluginSlug === "fitness")).toBe(true);
 	expect(
 		fitnessPlugin.savedViews.map(({ name, settings }) => ({

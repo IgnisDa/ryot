@@ -10,6 +10,7 @@ import {
 	ImportRunId,
 	IntegrationId,
 	RelationshipSchemaSlug,
+	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import {
@@ -17,6 +18,7 @@ import {
 	genericImportWorkflowResultSchema,
 	type GenericImportWriteItem,
 } from "@ryot-app/sandbox-sdk/imports";
+import { providerResolveResultSchema } from "@ryot-app/sandbox-sdk/provider";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Cause, DateTime, Effect, FileSystem, Schema } from "effect";
@@ -45,6 +47,9 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService, PendingEntityMutation } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
+import type { EntityImportError } from "#modules/provider-entities/entity-import-workflow";
+import { EntityImportWorkflow } from "#modules/provider-entities/entity-import-workflow";
+import { EntityImportWorkflowOperations } from "#modules/provider-entities/operations-workflow";
 import {
 	PendingRelationshipMutations,
 	RelationshipSingleResult,
@@ -113,10 +118,37 @@ export const ProcessGenericImportChunksWorkflow = Workflow.make(
 
 const GenericImportEntity = Schema.Struct({ entityId: EntityId });
 
+const GenericImportProvider = Schema.Struct({
+	id: SandboxProviderId,
+	pluginScope: Schema.Literals(["system", "user"]),
+});
+
+class GenericImportProviderError extends Schema.TaggedError<GenericImportProviderError>()(
+	"GenericImportProviderError",
+	{ message: Schema.String, stage: Schema.Literals(["provider_resolution", "provider_details"]) },
+) {}
+
 const valuesMatch = (properties: Record<string, unknown>, expected: Record<string, unknown>) =>
 	Object.entries(expected).every(
 		([key, value]) => JSON.stringify(properties[key]) === JSON.stringify(value),
 	);
+
+const matchesImportIntent = (
+	entity: { readonly name: string; readonly properties: unknown },
+	intent: GenericImportWriteItem["entities"][number],
+) => {
+	if (!intent.match) {
+		return true;
+	}
+	const expectedName =
+		intent.match.nameNormalization === "slug" ? slugify(intent.match.name) : intent.match.name;
+	const entityName = intent.match.nameNormalization === "slug" ? slugify(entity.name) : entity.name;
+	return (
+		entityName === expectedName &&
+		isObjectRecord(entity.properties) &&
+		valuesMatch(entity.properties, intent.match.properties)
+	);
+};
 
 const itemCommand = (
 	command: LifecycleCommand,
@@ -169,17 +201,7 @@ const prepareGenericImportEntity = Effect.fn("imports.prepareGenericImportEntity
 						),
 				).pipe(Effect.map((groups) => groups.flat()))
 			: candidates;
-		const expectedName =
-			intent.match.nameNormalization === "slug" ? slugify(intent.match.name) : intent.match.name;
-		const existing = scopedCandidates.find((candidate) => {
-			const candidateName =
-				intent.match?.nameNormalization === "slug" ? slugify(candidate.name) : candidate.name;
-			return (
-				candidateName === expectedName &&
-				isObjectRecord(candidate.properties) &&
-				valuesMatch(candidate.properties, intent.match?.properties ?? {})
-			);
-		});
+		const existing = scopedCandidates.find((candidate) => matchesImportIntent(candidate, intent));
 		entityId = existing?.id;
 	}
 	if (entityId && intent.scope && intent.entityId) {
@@ -211,6 +233,119 @@ const prepareGenericImportEntity = Effect.fn("imports.prepareGenericImportEntity
 		entitySchemaSlug: EntitySchemaSlug.make(intent.entitySchemaSlug),
 	});
 	return mapCommittedResult(prepared, ({ entity }) => ({ entityId: entity.id }));
+});
+
+const resolveGenericImportProvider = (
+	intent: GenericImportWriteItem["entities"][number],
+	userId: UserId,
+	executionId: string,
+) =>
+	makeActivity({
+		error: ImportRunError,
+		success: GenericImportProvider,
+		name: `resolve-generic-import-provider-${executionId}`,
+		execute: Effect.gen(function* () {
+			const descriptor = intent.providerResolution;
+			if (!descriptor) {
+				return yield* new ImportRunError({ message: "Provider resolution descriptor is missing" });
+			}
+			const runtime = yield* PluginRuntimeResolver;
+			const provider = yield* runtime.findProviderAvailableToUserBySlug(
+				userId,
+				descriptor.providerSlug,
+			);
+			if (!provider) {
+				return yield* new ImportRunError({
+					message: `Provider '${descriptor.providerSlug}' is unavailable`,
+				});
+			}
+			if (provider.rootEntitySchemaSlug !== intent.entitySchemaSlug) {
+				return yield* new ImportRunError({
+					message: `Provider '${descriptor.providerSlug}' does not provide entity schema '${intent.entitySchemaSlug}'`,
+				});
+			}
+			return { id: provider.id, pluginScope: provider.pluginScope };
+		}).pipe(Effect.mapError(toWorkflowError)),
+	});
+
+const resolveProviderEntity = Effect.fn("imports.resolveProviderEntity")(function* (
+	intent: GenericImportWriteItem["entities"][number],
+	userId: UserId,
+	command: LifecycleCommand,
+	executionId: string,
+) {
+	const descriptor = intent.providerResolution;
+	if (!descriptor) {
+		return undefined;
+	}
+	const provider = yield* resolveGenericImportProvider(intent, userId, executionId).pipe(
+		Effect.mapError(
+			(error) =>
+				new GenericImportProviderError({ message: error.message, stage: "provider_resolution" }),
+		),
+	);
+	const operations = yield* EntityImportWorkflowOperations;
+	const resolved = yield* operations
+		.processProviderResolve(
+			{
+				providerId: provider.id,
+				value: descriptor.value,
+				identifierType: descriptor.identifierType,
+				userId: provider.pluginScope === "user" ? userId : null,
+			},
+			`${executionId}-resolve`,
+		)
+		.pipe(
+			Effect.flatMap((result) =>
+				result.error
+					? Effect.fail(
+							new GenericImportProviderError({
+								stage: "provider_resolution",
+								message: result.error.message,
+							}),
+						)
+					: Schema.decodeUnknownEffect(providerResolveResultSchema)(result.value).pipe(
+							Effect.mapError(
+								(error) =>
+									new GenericImportProviderError({
+										stage: "provider_resolution",
+										message: `Invalid provider resolution result: ${error.message}`,
+									}),
+							),
+						),
+			),
+			Effect.mapError((error) =>
+				error instanceof GenericImportProviderError
+					? error
+					: new GenericImportProviderError({
+							stage: "provider_resolution",
+							message: unknownToMessage(error),
+						}),
+			),
+		);
+	if (resolved.externalId === null) {
+		return undefined;
+	}
+	const engine = yield* WorkflowEngine;
+	const providerEntity = yield* engine
+		.execute(EntityImportWorkflow, {
+			executionId,
+			payload: {
+				command,
+				executionId,
+				providerId: provider.id,
+				externalId: resolved.externalId,
+				entitySchemaSlug: EntitySchemaSlug.make(intent.entitySchemaSlug),
+				entityScope: { userId, type: provider.pluginScope === "system" ? "global" : "user" },
+			},
+		})
+		.pipe(
+			Effect.mapError(
+				(error: EntityImportError) =>
+					new GenericImportProviderError({ message: error.message, stage: "provider_details" }),
+			),
+		);
+	return matchesImportIntent(providerEntity, intent) ? providerEntity.id : undefined;
 });
 
 type GenericImportDefinitions = ReturnType<typeof makeDefinitionRegistry>;
@@ -334,6 +469,7 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 	index: number,
 	definitions: GenericImportDefinitions,
 	command: LifecycleCommand,
+	executionId: string,
 ) {
 	const entities = yield* EntitiesService;
 	const collections = yield* CollectionsService;
@@ -347,6 +483,17 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 				return yield* new ImportRunError({
 					message: `Duplicate import entity alias '${intent.alias}'`,
 				});
+			}
+			const providerExecutionId = `${executionId}-item-${index}-entity-${intentIndex}-provider-import`;
+			const providerEntityId = yield* resolveProviderEntity(
+				intent,
+				userId,
+				itemCommand(command, index, "entity", intentIndex),
+				providerExecutionId,
+			);
+			if (providerEntityId) {
+				aliases.set(intent.alias, providerEntityId);
+				continue;
 			}
 			const written = yield* runImportWriteStep({
 				result: GenericImportEntity,
@@ -447,7 +594,13 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 		return { events, warnings, collectionMemberships, _tag: "ready" as const };
 	}).pipe(
 		Effect.catch((error) =>
-			Effect.succeed({ warnings, _tag: "failed" as const, message: unknownToMessage(error) }),
+			Effect.succeed({
+				warnings,
+				_tag: "failed" as const,
+				message: unknownToMessage(error),
+				stage:
+					error instanceof GenericImportProviderError ? error.stage : ("database_commit" as const),
+			}),
 		),
 	);
 });
@@ -555,6 +708,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 					processedItems,
 					definitions,
 					payload.command,
+					executionId,
 				);
 				let message = outcome._tag === "failed" ? outcome.message : null;
 				const warnings = [...outcome.warnings];
@@ -604,8 +758,9 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 					);
 				}
 				if (message) {
+					const stage = outcome._tag === "failed" ? outcome.stage : "database_commit";
 					failedItems += 1;
-					failureReason ??= { code: "database-commit-failed" };
+					failureReason ??= failureReasonByStage[stage];
 					yield* Effect.logError("generic import item write failed", message).pipe(
 						Effect.annotateLogs({ runId, itemIndex: item.itemIndex }),
 					);
@@ -614,11 +769,11 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 						name: `record-generic-write-failure-${processedItems}`,
 						execute: recordImportRunFailure({
 							runId,
-							stage: "database_commit",
+							stage,
 							itemIndex: item.itemIndex,
 							sourceLabel: item.sourceLabel,
+							reason: failureReasonByStage[stage],
 							sourceIdentifier: item.sourceIdentifier,
-							reason: { code: "database-commit-failed" },
 							entitySchemaSlug:
 								item.entities.find(({ alias }) => alias === item.subjectEntityAlias)
 									?.entitySchemaSlug ?? null,
