@@ -14,11 +14,15 @@ COPY --from=prepare /app/tsconfig.options.json ./tsconfig.options.json
 
 FROM builder-base AS backend-builder
 ARG UNKEY_ROOT_KEY=""
+ARG RYOT_VERSION="unknown"
 ENV UNKEY_ROOT_KEY=$UNKEY_ROOT_KEY
+ENV RYOT_VERSION=$RYOT_VERSION
 RUN bun turbo --filter=@ryot-app/server build
 RUN bun run --cwd apps/server assemble
 
 FROM builder-base AS client-builder
+ARG RYOT_VERSION="unknown"
+ENV RYOT_VERSION=$RYOT_VERSION
 RUN bun turbo --filter=@ryot-app/kernel-client build
 
 FROM base AS runtime-deps
