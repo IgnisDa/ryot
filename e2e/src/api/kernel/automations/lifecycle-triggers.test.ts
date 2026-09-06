@@ -26,6 +26,7 @@ import {
 	pollTerminalAutomationRunAttempts,
 	pollTerminalAutomationRuns,
 	postApiJson,
+	startDataJsonImport,
 	requireCompletedSandboxValue,
 	type AutomationTrigger,
 	type AutomationTriggerFilter,
@@ -626,6 +627,45 @@ beforeAll(() =>
 afterAll(() => installed && runPromise(uninstallTestPlugin(installed)));
 
 describe("automation lifecycle triggers", () => {
+	it.live("applies normal event policies and after hooks to native data imports", () =>
+		Effect.gen(function* () {
+			const user = yield* createAuthenticatedClient();
+			const entity = yield* createFixtureEntity(user.client, "native-policy-source");
+			const { run, runId } = yield* startDataJsonImport(user, {
+				relationships: [],
+				entities: [
+					{ key: "entity", kind: "existing", entityId: entity.id, entitySchemaSlug: slugs.entity },
+				],
+				events: ["transform", "reject", "fail"].map((marker, index) => ({
+					key: marker,
+					entityKey: "entity",
+					properties: { marker },
+					eventSchemaSlug: slugs.policyEvent,
+					occurredAt: `2026-10-01T00:0${index}:00.000Z`,
+				})),
+			});
+			expect(run).toMatchObject({
+				failedItems: 1,
+				importedItems: 3,
+				processedItems: 4,
+				status: "completed",
+			});
+			const events = yield* listEventsForEntity(user.client, entity.id, undefined, 100);
+			expect(events).toHaveLength(1);
+			const event = requirePresent(events[0], "Expected the policy-transformed event");
+			expect(event.properties).toEqual({ marker: "transformed" });
+			const committed = yield* inspectCommittedCreate(
+				{ id: event.id, resource: "event" },
+				slugs.policyAfterHook,
+			);
+			expect(committed.request.causation).toMatchObject({ source: "import", importRunId: runId });
+			expect(requireCreatePayload(committed.change, "change", "event").after).toMatchObject({
+				id: event.id,
+				properties: { marker: "transformed" },
+			});
+		}),
+	);
+
 	it.live("runs request policies and commits only accepted or transformed event drafts", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
