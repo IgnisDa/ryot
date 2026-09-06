@@ -18,6 +18,7 @@ const manifests = [
 		kind: "automation",
 		name: "Automation",
 		slug: "automation.test",
+		automationType: "automation",
 		requiredPluginConfigKeys: [],
 		requiredSystemConfigKeys: [],
 	},
@@ -48,8 +49,15 @@ it.effect("keeps Effect manifest decoding in parity with representative SDK mani
 	Effect.gen(function* () {
 		for (const manifest of manifests) {
 			const sdkManifest = yield* decodeSdkManifest(manifest);
+			const effectManifest = yield* decodeManifest(manifest);
+			const expected =
+				manifest.kind === "automation"
+					? Object.fromEntries(
+							Object.entries(sdkManifest).filter(([key]) => key !== "automationType"),
+						)
+					: sdkManifest;
 
-			expect(yield* decodeManifest(manifest)).toEqual(sdkManifest);
+			expect(effectManifest).toEqual(expected);
 		}
 	}),
 );

@@ -76,6 +76,7 @@ const runWorkflow = (input: {
 							isDisabled: false,
 							healthReason: null,
 							id: installationId,
+							uninstalledAt: null,
 							pluginScope: "user",
 							health: "installing",
 							pluginId: "plugin-1",
@@ -83,6 +84,7 @@ const runWorkflow = (input: {
 							homeSavedViewId: null,
 							createdAt: new Date(0),
 							updatedAt: new Date(0),
+							activeConfigRevisionId: null,
 						}),
 				}),
 				PluginCatalogInvalidator.layer,
@@ -99,7 +101,9 @@ const runWorkflow = (input: {
 								logs: [],
 								value: null,
 								status: "completed" as const,
-								error: message ? { message, phase: "execute" as const } : null,
+								error: message
+									? { message, phase: "execute" as const, kind: "script-failure" as const }
+									: null,
 							};
 						}),
 				}),

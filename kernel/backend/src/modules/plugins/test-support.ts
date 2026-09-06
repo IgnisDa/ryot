@@ -42,7 +42,7 @@ export const fixtureManifest = () =>
 				catalogState: "active",
 				propertiesSchema: { fields: {} },
 				audiencePolicy: { kind: "actor" },
-				notificationScriptSlug: "fixture.automation",
+				notificationHookSlug: "fixture.automation",
 			},
 		],
 		scripts: [
@@ -51,24 +51,25 @@ export const fixtureManifest = () =>
 				kind: "automation",
 				name: "Fixture Automation",
 				slug: "fixture.automation",
+				automationType: "automation",
 				requiredPluginConfigKeys: [],
 				requiredSystemConfigKeys: [],
 				entry: "backend/automations/fixture.sandbox.ts",
 			},
 		],
-		bindings: {
-			eventAutomations: [],
-			signalAutomations: [],
-			relationshipAutomations: [],
-			providerEntityImportAutomations: [],
-			entityAutomations: [
-				{
-					operation: "create",
-					scriptSlug: "fixture.automation",
-					entitySchemaSlug: "fixture-entity",
-				},
-			],
-		},
+		hooks: [
+			{
+				stage: "after",
+				delivery: "async",
+				slug: "fixture.automation",
+				name: "Fixture automation",
+				scriptSlug: "fixture.automation",
+				targets: [
+					{ resource: "entity", operation: "create", entitySchemaSlug: "fixture-entity" },
+					{ operation: "emit", resource: "signal", signalSchemaSlug: "fixture.signal" },
+				],
+			},
+		] as PluginManifest["hooks"],
 		entitySchemas: [
 			{
 				icon: "box",

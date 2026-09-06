@@ -1,10 +1,15 @@
+import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { CollectionResponse } from "@ryot-app/contract/modules/collections/schemas";
 import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 
 export const isPlainObject = (value: unknown): value is Record<string, unknown> =>
 	value !== null && typeof value === "object" && !Array.isArray(value);
 
-export const toCollectionResponse = (entity: ListedEntity): CollectionResponse => ({
+export const toCollectionResponse = (
+	entity: ListedEntity,
+	warnings: ReadonlyArray<AutomationWarning>,
+): CollectionResponse => ({
+	warnings,
 	id: entity.id,
 	name: entity.name,
 	createdAt: entity.createdAt,

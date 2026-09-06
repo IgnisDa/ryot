@@ -1,4 +1,3 @@
-import { AutomationOrigin } from "@ryot-app/contract/modules/automations/schemas";
 import { ClientRendererDefinition } from "@ryot-app/contract/modules/client-pages/schemas";
 import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
@@ -138,7 +137,6 @@ export const ArchiveUserEntity = strictStruct({
 	updatedAt: isoTimestamp,
 	provider: providerProvenance,
 	entitySchemaSlug: Schema.String,
-	origin: Schema.NullOr(AutomationOrigin),
 	externalId: Schema.NullOr(Schema.String),
 	populatedAt: Schema.NullOr(isoTimestamp),
 	entitySchemaPluginKey: Schema.NullOr(Schema.String),

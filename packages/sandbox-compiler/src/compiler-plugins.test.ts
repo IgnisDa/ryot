@@ -69,6 +69,7 @@ export const manifest = defineManifest({
 	name: "Automation",
 	slug: "automation",
 	kind: "automation",
+	automationType: "automation",
 	capabilities: [],
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],

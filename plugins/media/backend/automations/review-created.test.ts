@@ -1,102 +1,71 @@
-import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 import { expect, it } from "vitest";
 
+import { mediaPlugin } from "../../host/plugin";
 import {
-	automationOccurrenceRows,
+	entityRecord,
+	eventAutomationContext,
+	execution,
 	hostSuccess,
+	ryotqlRows,
 } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./review-created.sandbox";
 
-const reviewSource = {
-	kind: "event" as const,
-	after: {
-		id: "review-event-1",
-		eventSchemaSlug: "review",
-		properties: { rating: 80 },
-		createdAt: "2026-07-20T09:00:01.000Z",
-		occurredAt: "2026-07-20T09:00:00.000Z",
-		subject: { name: "Dune", id: "entity-1", entitySchemaSlug: "book" },
-	},
-};
-
-const input = (origin: AutomationInput["automation"]["origin"]): AutomationInput => ({
-	automation: {
-		origin,
-		ruleId: "rule-1",
-		operation: "create",
-		occurrenceId: "occurrence-1",
-		occurredAt: "2026-07-20T10:00:00.000Z",
-		source: { kind: "event", eventId: "review-event-1" },
-	},
+it("emits a review signal using the inline event identity and current entity name", async () => {
+	const calls: unknown[] = [];
+	await Effect.runPromise(
+		definition.run(
+			eventAutomationContext({
+				id: "review-event-1",
+				entitySchemaSlug: "book",
+				eventSchemaSlug: "review",
+				properties: { rating: 80 },
+			}),
+			defineSandboxTestHost(manifest, {
+				emitSignal: (request) => {
+					calls.push(request);
+					return hostSuccess({ wasCreated: true, triggerId: "signal-1" });
+				},
+				executeRyotql: () =>
+					hostSuccess(
+						ryotqlRows("entities", [entityRecord({ name: "Dune", entitySchemaSlug: "book" })]),
+					),
+			}),
+			execution,
+		),
+	);
+	expect(calls).toEqual([
+		{
+			schemaSlug: "review.created",
+			discriminator: "review-event-1",
+			properties: {
+				entityName: "Dune",
+				entityId: "entity-1",
+				entitySchemaSlug: "book",
+				reviewEventId: "review-event-1",
+			},
+		},
+	]);
+	expect(mediaPlugin.hooks.find(({ slug }) => slug === "media.review-created")).toMatchObject({
+		causationSources: ["api"],
+	});
 });
 
-const execution = { metadata: {}, sandboxScriptId: "script-1" };
-
-it("emits one actor signal for an API review from its event snapshot", () => {
+it("ignores non-review events and deleted subjects", async () => {
 	const calls: unknown[] = [];
-	return Effect.runPromise(
-		definition
-			.run(
-				input({ kind: "api" }),
-				defineSandboxTestHost(manifest, {
-					executeRyotql: () => hostSuccess(automationOccurrenceRows(reviewSource)),
-					emitSignal: (request) => {
-						calls.push(request);
-						return Effect.succeed({ wasCreated: true, signalId: "signal-1" });
-					},
-				}),
-				execution,
-			)
-			.pipe(
-				Effect.map((result) => {
-					expect(result).toEqual({ wasCreated: true, signalId: "signal-1" });
-					expect(calls).toEqual([
-						{
-							schemaSlug: "review.created",
-							discriminator: "review-event-1",
-							properties: {
-								entityName: "Dune",
-								entityId: "entity-1",
-								entitySchemaSlug: "book",
-								reviewEventId: "review-event-1",
-							},
-						},
-					]);
-					return undefined;
-				}),
-			),
+	const host = defineSandboxTestHost(manifest, {
+		executeRyotql: () => hostSuccess(ryotqlRows("entities", [])),
+		emitSignal: (request) => {
+			calls.push(request);
+			return hostSuccess({ wasCreated: true, triggerId: "signal-1" });
+		},
+	});
+	await Effect.runPromise(
+		definition.run(eventAutomationContext({ eventSchemaSlug: "progress" }), host, execution),
 	);
-});
-
-it.each([
-	{ kind: "bootstrap" } as const,
-	{ kind: "provider_refresh" } as const,
-	{ kind: "import", importRunId: "import-1" } as const,
-	{ kind: "integration", integrationId: "integration-1" } as const,
-	{ kind: "automation", executionId: "execution-1" } as const,
-])("does not emit for the $kind origin", (origin) => {
-	const calls: unknown[] = [];
-	return Effect.runPromise(
-		definition
-			.run(
-				input(origin),
-				defineSandboxTestHost(manifest, {
-					executeRyotql: () => hostSuccess(automationOccurrenceRows(reviewSource)),
-					emitSignal: (request) => {
-						calls.push(request);
-						return Effect.succeed({ wasCreated: true, signalId: "signal-1" });
-					},
-				}),
-				execution,
-			)
-			.pipe(
-				Effect.map((result) => {
-					expect(result).toBeNull();
-					expect(calls).toEqual([]);
-					return undefined;
-				}),
-			),
+	await Effect.runPromise(
+		definition.run(eventAutomationContext({ eventSchemaSlug: "review" }), host, execution),
 	);
+	expect(calls).toEqual([]);
 });

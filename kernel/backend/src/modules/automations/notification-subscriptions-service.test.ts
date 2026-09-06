@@ -5,7 +5,7 @@ import {
 	InstallNotificationRuleBody,
 } from "@ryot-app/contract/modules/automations/schemas";
 import {
-	AutomationRuleId,
+	NotificationSubscriptionId,
 	SandboxScriptId,
 	SignalSchemaSlug,
 	UserId,
@@ -26,7 +26,7 @@ import {
 } from "./repository";
 
 const userId = UserId.make("user-1");
-const ruleId = AutomationRuleId.make("rule-1");
+const ruleId = NotificationSubscriptionId.make("rule-1");
 const scriptId = SandboxScriptId.make("script-1");
 const signalSchemaSlug = SignalSchemaSlug.make("review.created");
 
@@ -35,7 +35,7 @@ const signalSchema = {
 	catalogState: "active",
 	name: "Review Created",
 	audiencePolicy: { kind: "actor" },
-	notificationScriptSlug: "automation.notification",
+	notificationHookSlug: "automation.notification",
 	propertiesSchema: { fields: {}, unknownKeys: "strict" },
 } as const;
 
@@ -226,12 +226,16 @@ it.effect("deactivates, deletes, and reinstalls the same notification rule shape
 			currentState = null;
 			return Effect.succeed(deleted ? { id: deleted.id } : null);
 		},
-		insertNotificationSubscription: (input) => {
-			currentState = { ...state, ...input, id: AutomationRuleId.make(`rule-${nextId++}`) };
-			return Effect.succeed(currentState);
-		},
 		setNotificationSubscriptionActive: (input) => {
 			currentState = currentState ? { ...currentState, isActive: input.isActive } : null;
+			return Effect.succeed(currentState);
+		},
+		insertNotificationSubscription: (input) => {
+			currentState = {
+				...state,
+				...input,
+				id: NotificationSubscriptionId.make(`rule-${nextId++}`),
+			};
 			return Effect.succeed(currentState);
 		},
 	});

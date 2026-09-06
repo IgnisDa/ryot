@@ -7,6 +7,7 @@ import {
 	RelationshipSchemaSlug,
 	SandboxProviderId,
 } from "../../schema/brands";
+import { AutomationWarning } from "../automations/lifecycle";
 
 const CollectionBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("circular-membership") }),
@@ -55,6 +56,7 @@ export const CollectionResponse = Schema.Struct({
 	properties: Schema.Unknown,
 	entitySchemaSlug: EntitySchemaSlug,
 	externalId: Schema.NullOr(Schema.String),
+	warnings: Schema.Array(AutomationWarning),
 	providerId: Schema.NullOr(SandboxProviderId),
 });
 
@@ -71,7 +73,10 @@ const MembershipRelationship = Schema.Struct({
 
 export type MembershipRelationship = typeof MembershipRelationship.Type;
 
-export const MembershipResponse = Schema.Struct({ memberOf: MembershipRelationship });
+export const MembershipResponse = Schema.Struct({
+	memberOf: MembershipRelationship,
+	warnings: Schema.Array(AutomationWarning),
+});
 
 export type MembershipResponse = typeof MembershipResponse.Type;
 

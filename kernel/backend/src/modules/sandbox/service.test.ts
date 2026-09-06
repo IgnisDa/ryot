@@ -1,7 +1,13 @@
 import { expect, it } from "@effect/vitest";
 import { NotFound, SandboxRunError } from "@ryot-app/contract/errors";
-import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
-import { Effect, Exit, Layer } from "effect";
+import {
+	PluginConfigRevisionId,
+	PluginId,
+	PluginRevisionId,
+	SandboxScriptId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
+import { Effect, Exit, Layer, Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
@@ -19,7 +25,8 @@ import {
 	type SandboxPluginScriptResolverValue,
 } from "./plugin-script-resolver";
 import { SandboxRepository } from "./repository";
-import { SandboxScriptWorkflow } from "./sandbox-script-workflow";
+import { establishSandboxWorkflowPin, SandboxScriptWorkflow } from "./sandbox-script-workflow";
+import { SandboxScriptWorkflowPayload } from "./sandbox-script-workflow-payload";
 import { SandboxExecutionService } from "./service";
 import { SandboxWorkflowReferenceRepository } from "./workflow-reference-repository";
 
@@ -165,7 +172,9 @@ it.effect("returns a failure-bearing result when universal script execution fail
 			makeWorkflowEngine({
 				execute: (_workflow, options) => {
 					capturedOptions = options;
-					return Effect.fail(new SandboxRunError({ message: "script failed" }));
+					return Effect.fail(
+						new SandboxRunError({ kind: "script-failure", message: "script failed" }),
+					);
 				},
 			}),
 		),
@@ -183,7 +192,7 @@ it.effect("returns a failure-bearing result when universal script execution fail
 			logs: [],
 			value: null,
 			status: "completed",
-			error: { phase: "execute", message: "script failed" },
+			error: { phase: "execute", kind: "script-failure", message: "script failed" },
 		});
 		expect(capturedOptions?.payload).toMatchObject({ resultMode: "execution" });
 	}).pipe(Effect.provide(layer));
@@ -251,7 +260,11 @@ it.effect("returns the completed public result without internal workflow fields"
 		status: "completed" as const,
 		timing: { totalMs: 12, executionMs: 8 },
 		harvest: { chunkHandles: ["internal-handle"] },
-		error: { phase: "execute" as const, message: "reported failure" },
+		error: {
+			phase: "execute" as const,
+			message: "reported failure",
+			kind: "script-failure" as const,
+		},
 	};
 	const layer = makeServiceLayer(
 		makeRepository({
@@ -277,7 +290,7 @@ it.effect("returns the completed public result without internal workflow fields"
 			status: "completed",
 			value: { ok: true },
 			timing: { totalMs: 12, executionMs: 8 },
-			error: { phase: "execute", message: "reported failure" },
+			error: { phase: "execute", kind: "script-failure", message: "reported failure" },
 		});
 	}).pipe(Effect.provide(layer));
 });
@@ -378,10 +391,99 @@ it.effect("rejects workflow input above the workflow limit before dispatch", () 
 		assertExitFails(
 			exit,
 			new SandboxRunError({
+				kind: "invalid-input",
 				message: "Sandbox definition context must be JSON and no larger than 65536 UTF-8 bytes",
 			}),
 		);
 		expect(executionCount).toBe(0);
+	}).pipe(Effect.provide(layer));
+});
+
+it.effect("starts a pre-registered workflow with its admitted package and config revisions", () => {
+	const originalRevision = {
+		ownerId: null,
+		slug: "fixture",
+		compiledHashes: {},
+		workflowScripts: {},
+		scope: "system" as const,
+		id: PluginId.make("fixture"),
+		userBootstrapScriptSlugs: [],
+		revisionId: PluginRevisionId.make("fixture-revision-1"),
+		configSchema: { fields: {}, unknownKeys: "strict" as const },
+		configRevisionId: PluginConfigRevisionId.make("fixture-config-1"),
+		schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
+	};
+	const replacementRevision = {
+		...originalRevision,
+		revisionId: PluginRevisionId.make("fixture-revision-2"),
+		configRevisionId: PluginConfigRevisionId.make("fixture-config-2"),
+	};
+	let activeRevision = originalRevision;
+	const expectedRevisions: unknown[] = [];
+	let capturedOptions: Parameters<WorkflowEngine["Service"]["execute"]>[1] | undefined;
+	const layer = makeServiceLayer(
+		makeRepository({
+			getScriptPin: (_scriptId, expectedRevision) =>
+				Effect.sync(() => {
+					expectedRevisions.push(expectedRevision);
+					const pluginRevision = expectedRevision ? originalRevision : activeRevision;
+					return {
+						scriptId,
+						pluginRevision,
+						providerId: null,
+						scriptSlug: "workflow",
+						contentHash: storedScript.contentHash,
+						metadata: { kind: "workflow" as const },
+					};
+				}),
+		}),
+		makePluginRuntime(),
+		Layer.succeed(
+			WorkflowEngine,
+			makeWorkflowEngine({
+				execute: (_workflow, options) =>
+					Effect.sync(() => {
+						capturedOptions = options;
+						return null;
+					}),
+			}),
+		),
+	);
+
+	return Effect.gen(function* () {
+		const service = yield* SandboxExecutionService;
+		const preRegistered = yield* service.preRegisterPluginWorkflow({
+			scriptId,
+			executingUserId,
+			pluginId: "fixture",
+			executionId: "pre-registered-workflow",
+		});
+		activeRevision = replacementRevision;
+
+		yield* service.executeWorkflow({
+			scriptId,
+			input: {},
+			executionId: "pre-registered-workflow",
+			pluginRevision: preRegistered.pluginRevision,
+			subject: { type: "user", userId: executingUserId },
+		});
+		const startedPayload = yield* Schema.decodeUnknownEffect(SandboxScriptWorkflowPayload)(
+			capturedOptions?.payload,
+		);
+		const startedPin = yield* establishSandboxWorkflowPin(
+			startedPayload,
+			"pre-registered-workflow",
+		);
+
+		expect(startedPayload.pluginRevision).toEqual(originalRevision);
+		expect(startedPin.principal.pluginRevision).toEqual(originalRevision);
+		expect(expectedRevisions).toHaveLength(2);
+		expect(expectedRevisions[0]).toBeUndefined();
+		expect(expectedRevisions[1]).toMatchObject({
+			id: "fixture",
+			revisionId: "fixture-revision-1",
+			configRevisionId: "fixture-config-1",
+		});
 	}).pipe(Effect.provide(layer));
 });
 
@@ -409,14 +511,16 @@ it.effect("pins a plugin workflow before accepted dispatch can wait for a worker
 					providerId: storedScript.providerId,
 					contentHash: storedScript.contentHash,
 					pluginRevision: {
-						id: "fixture",
 						ownerId: null,
 						slug: "fixture",
 						compiledHashes: {},
 						workflowScripts: {},
 						scope: "system" as const,
+						id: PluginId.make("fixture"),
 						userBootstrapScriptSlugs: [],
+						revisionId: PluginRevisionId.make("fixture-revision"),
 						configSchema: { fields: {}, unknownKeys: "strict" as const },
+						configRevisionId: PluginConfigRevisionId.make("fixture-config"),
 						schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
 					},
 				}),
@@ -470,14 +574,16 @@ it.effect("releases a new dispatch pin when workflow enqueue fails", () => {
 					providerId: storedScript.providerId,
 					contentHash: storedScript.contentHash,
 					pluginRevision: {
-						id: "fixture",
 						ownerId: null,
 						slug: "fixture",
 						compiledHashes: {},
 						workflowScripts: {},
 						scope: "system" as const,
+						id: PluginId.make("fixture"),
 						userBootstrapScriptSlugs: [],
+						revisionId: PluginRevisionId.make("fixture-revision"),
 						configSchema: { fields: {}, unknownKeys: "strict" as const },
+						configRevisionId: PluginConfigRevisionId.make("fixture-config"),
 						schemaScope: { eventSchemas: [], entitySchemaSlugs: [], relationshipSchemaSlugs: [] },
 					},
 				}),

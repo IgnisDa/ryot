@@ -1,10 +1,13 @@
 import { DbError } from "@ryot-app/contract/errors";
+import { AutomationTriggerPayload } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { AutomationTriggerId } from "@ryot-app/contract/schema/brands";
 import {
 	EntityId,
 	RelationshipId,
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { decodeStoredSchema } from "@ryot-app/contract/schema/core";
 import { and, asc, eq, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
@@ -13,7 +16,13 @@ import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 
 type RelationshipSnapshotRow = Pick<
 	typeof schema.relationship.$inferSelect,
-	"id" | "createdAt" | "properties" | "sourceEntityId" | "targetEntityId" | "relationshipSchemaSlug"
+	| "id"
+	| "createdAt"
+	| "updatedAt"
+	| "properties"
+	| "sourceEntityId"
+	| "targetEntityId"
+	| "relationshipSchemaSlug"
 >;
 
 type RelationshipSnapshotWithProvenanceRow = RelationshipSnapshotRow & {
@@ -68,9 +77,13 @@ export type GlobalRelationshipListInput = {
 	| { type: "anchored"; direction: "incoming" | "outgoing"; anchorEntityId: EntityId }
 );
 
+export type RelationshipReconciliationListInput = GlobalRelationshipListInput &
+	({ scope: "global" } | { scope: "user"; userId: UserId });
+
 const relationshipSnapshotSelection = {
 	id: schema.relationship.id,
 	createdAt: schema.relationship.createdAt,
+	updatedAt: schema.relationship.updatedAt,
 	properties: schema.relationship.properties,
 	sourceEntityId: schema.relationship.sourceEntityId,
 	targetEntityId: schema.relationship.targetEntityId,
@@ -91,6 +104,7 @@ const toRelationship = (row: RelationshipSnapshotRow) => ({
 	properties: row.properties,
 	id: RelationshipId.make(row.id),
 	createdAt: row.createdAt.toISOString(),
+	updatedAt: row.updatedAt.toISOString(),
 	sourceEntityId: EntityId.make(row.sourceEntityId),
 	targetEntityId: EntityId.make(row.targetEntityId),
 	relationshipSchemaSlug: RelationshipSchemaSlug.make(row.relationshipSchemaSlug),
@@ -128,6 +142,12 @@ const relationshipIdentityWhere = (input: RelationshipIdentityInput) =>
 				relationshipSchemaPluginWhere(input.relationshipSchemaPluginId),
 			);
 
+const preparedRelationshipWhere = (before: ReturnType<typeof toRelationship>) =>
+	and(
+		eq(schema.relationship.id, before.id),
+		sql`${schema.relationship.properties} = ${JSON.stringify(before.properties)}::jsonb`,
+	);
+
 const globalRelationshipConflictColumns = [
 	schema.relationship.userId,
 	schema.relationship.sourceEntityId,
@@ -153,35 +173,90 @@ const relationshipConflictDoNothingTarget = (input: RelationshipIdentityInput) =
 		? userRelationshipConflictTarget
 		: globalRelationshipConflictDoNothingTarget;
 
-const globalRelationshipWhere = (input: GlobalRelationshipListInput) =>
-	input.type === "self"
-		? and(
-				isNull(schema.relationship.userId),
-				eq(schema.relationship.relationshipSchemaSlug, input.relationshipSchemaSlug),
-				relationshipSchemaPluginWhere(input.relationshipSchemaPluginId),
-				eq(schema.relationship.sourceEntityId, schema.relationship.targetEntityId),
-			)
-		: and(
-				isNull(schema.relationship.userId),
-				eq(
+const relationshipReconciliationWhere = (input: RelationshipReconciliationListInput) =>
+	and(
+		input.scope === "user"
+			? eq(schema.relationship.userId, input.userId)
+			: isNull(schema.relationship.userId),
+		eq(schema.relationship.relationshipSchemaSlug, input.relationshipSchemaSlug),
+		relationshipSchemaPluginWhere(input.relationshipSchemaPluginId),
+		input.type === "self"
+			? eq(schema.relationship.sourceEntityId, schema.relationship.targetEntityId)
+			: eq(
 					input.direction === "outgoing"
 						? schema.relationship.sourceEntityId
 						: schema.relationship.targetEntityId,
 					input.anchorEntityId,
 				),
-				eq(schema.relationship.relationshipSchemaSlug, input.relationshipSchemaSlug),
-				relationshipSchemaPluginWhere(input.relationshipSchemaPluginId),
-			);
+	);
 
-const globalRelationshipLockKey = (input: GlobalRelationshipListInput) =>
-	input.type === "self"
-		? `self:${input.relationshipSchemaSlug}:${input.relationshipSchemaPluginId ?? "kernel"}`
-		: `anchored:${input.direction}:${input.anchorEntityId}:${input.relationshipSchemaSlug}:${input.relationshipSchemaPluginId ?? "kernel"}`;
+const relationshipReconciliationLockKey = (input: RelationshipReconciliationListInput) =>
+	JSON.stringify([
+		"relationship-reconciliation",
+		input.scope,
+		input.scope === "user" ? input.userId : "global",
+		input.relationshipSchemaPluginId ?? "kernel",
+		input.relationshipSchemaSlug,
+		input.type,
+		input.type === "anchored" ? input.direction : null,
+		input.type === "anchored" ? input.anchorEntityId : null,
+	]);
 
 export class RelationshipsRepository extends Context.Service<RelationshipsRepository>()(
 	"RelationshipsRepository",
 	{
 		make: Effect.sync(() => {
+			const findLifecyclePayload = Effect.fn("RelationshipsRepository.findLifecyclePayload")(
+				function* (id: AutomationTriggerId) {
+					const db = yield* Database;
+					const [row] = yield* mapDatabaseErrors(
+						db
+							.select({ payload: schema.automationTrigger.payload })
+							.from(schema.automationTrigger)
+							.where(eq(schema.automationTrigger.id, id)),
+					);
+					if (!row) {
+						return null;
+					}
+					return yield* decodeStoredSchema(
+						row.payload,
+						AutomationTriggerPayload,
+						"Relationship command payload is invalid or pruned",
+					);
+				},
+			);
+			const findRelationship = Effect.fn("RelationshipsRepository.findRelationship")(function* (
+				input: RelationshipIdentityInput,
+			) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.select(relationshipSnapshotSelection)
+						.from(schema.relationship)
+						.where(relationshipIdentityWhere(input))
+						.limit(1)
+						.for("update"),
+				);
+				return row ? toRelationship(row) : null;
+			});
+			const findUserRelationshipById = Effect.fn(
+				"RelationshipsRepository.findUserRelationshipById",
+			)(function* (userId: UserId, relationshipId: RelationshipId) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.select(relationshipSnapshotWithProvenanceSelection)
+						.from(schema.relationship)
+						.where(
+							and(
+								eq(schema.relationship.id, relationshipId),
+								eq(schema.relationship.userId, userId),
+							),
+						)
+						.limit(1),
+				);
+				return row ? toRelationshipWithProvenance(row) : null;
+			});
 			const lockRelationshipMutations = Effect.fn(
 				"RelationshipsRepository.lockRelationshipMutations",
 			)(function* (inputs: ReadonlyArray<RelationshipIdentityInput>) {
@@ -295,6 +370,21 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				return row ? toSavedRelationship({ ...row, wasInserted: false }) : null;
 			});
 
+			const updatePreparedRelationship = Effect.fn(
+				"RelationshipsRepository.updatePreparedRelationship",
+			)(function* (input: UpdateRelationshipInput & { before: ReturnType<typeof toRelationship> }) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.update(schema.relationship)
+						.set({ properties: input.properties })
+						.where(and(relationshipIdentityWhere(input), preparedRelationshipWhere(input.before)))
+						.returning(relationshipSnapshotSelection),
+				);
+
+				return row ? toSavedRelationship({ ...row, wasInserted: false }) : null;
+			});
+
 			const deleteRelationship = Effect.fn("RelationshipsRepository.deleteRelationship")(function* (
 				input: RelationshipIdentityInput,
 			) {
@@ -303,6 +393,22 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 					db
 						.delete(schema.relationship)
 						.where(relationshipIdentityWhere(input))
+						.returning(relationshipSnapshotSelection),
+				);
+
+				return row ? toRelationship(row) : null;
+			});
+
+			const deletePreparedRelationship = Effect.fn(
+				"RelationshipsRepository.deletePreparedRelationship",
+			)(function* (
+				input: RelationshipIdentityInput & { before: ReturnType<typeof toRelationship> },
+			) {
+				const db = yield* Database;
+				const [row] = yield* mapDatabaseErrors(
+					db
+						.delete(schema.relationship)
+						.where(and(relationshipIdentityWhere(input), preparedRelationshipWhere(input.before)))
 						.returning(relationshipSnapshotSelection),
 				);
 
@@ -404,38 +510,46 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				return rows.flatMap((row) => (row.userId ? [UserId.make(row.userId)] : []));
 			});
 
-			const listGlobalRelationships = Effect.fn("RelationshipsRepository.listGlobalRelationships")(
-				function* (input: GlobalRelationshipListInput) {
-					const db = yield* Database;
-					yield* mapDatabaseErrors(
-						db.execute(
-							sql`select pg_advisory_xact_lock(hashtext(${globalRelationshipLockKey(input)}))`,
-						),
-					);
-					const rows = yield* mapDatabaseErrors(
-						db
-							.select(relationshipSnapshotSelection)
-							.from(schema.relationship)
-							.where(globalRelationshipWhere(input))
-							.for("update"),
-					);
+			const listRelationshipsForReconciliation = Effect.fn(
+				"RelationshipsRepository.listRelationshipsForReconciliation",
+			)(function* (input: RelationshipReconciliationListInput) {
+				const db = yield* Database;
+				yield* mapDatabaseErrors(
+					db.execute(
+						sql`select pg_advisory_xact_lock(hashtextextended(${relationshipReconciliationLockKey(input)}, 0))`,
+					),
+				);
+				const rows = yield* mapDatabaseErrors(
+					db
+						.select(relationshipSnapshotSelection)
+						.from(schema.relationship)
+						.where(relationshipReconciliationWhere(input))
+						.for("update"),
+				);
 
-					return rows.map(toRelationship);
-				},
-			);
+				return rows.map(toRelationship);
+			});
+			const listGlobalRelationships = (input: GlobalRelationshipListInput) =>
+				listRelationshipsForReconciliation({ ...input, scope: "global" });
 
 			return {
+				findRelationship,
 				createRelationship,
 				updateRelationship,
 				deleteRelationship,
 				restoreRelationship,
+				findLifecyclePayload,
 				listGlobalRelationships,
+				findUserRelationshipById,
 				lockRelationshipMutations,
+				updatePreparedRelationship,
+				deletePreparedRelationship,
 				deleteUserRelationshipById,
 				findRelationshipProperties,
 				listEnabledOwnersForSubject,
 				listUserRelationshipsForEntity,
 				listUserRelationshipsForBackup,
+				listRelationshipsForReconciliation,
 				listUserRelationshipsForEntityWithProvenance,
 			};
 		}),

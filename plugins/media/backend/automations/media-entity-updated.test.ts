@@ -1,34 +1,20 @@
+import type {
+	AutomationPopulationContext,
+	AutomationEntitySnapshot,
+} from "@ryot-app/contract/modules/automations/lifecycle";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
-import type { AutomationInput } from "@ryot-app/sandbox-sdk/automation";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
 import { expect, it } from "vitest";
 
 import {
-	automationOccurrenceRows,
-	hostSuccess,
+	automationContext,
+	entityRecord,
 } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./media-entity-updated.sandbox";
 
-type Population = {
-	readonly rootPreviouslyPopulated: boolean;
-	readonly scopeEntity: {
-		readonly id: string;
-		readonly name: string;
-		readonly entitySchemaSlug: string;
-	};
-	readonly parentEntity?: {
-		readonly name: string;
-		readonly properties: Readonly<Record<string, JsonValue>>;
-		readonly entitySchemaSlug: string;
-	};
-};
-type EntitySnapshot = {
-	readonly id: string;
-	readonly name: string;
-	readonly properties: Readonly<Record<string, JsonValue>>;
-	readonly entitySchemaSlug: string;
-};
+type Population = typeof AutomationPopulationContext.Encoded;
+type EntitySnapshot = typeof AutomationEntitySnapshot.Encoded;
 
 const input = (
 	overrides: {
@@ -43,50 +29,37 @@ const input = (
 		scopeEntity: { id: "show-1", name: "Severance", entitySchemaSlug: "show" },
 		...(overrides.parentEntity ? { parentEntity: overrides.parentEntity } : {}),
 	};
-	return {
-		context: {
-			automation: {
-				ruleId: "rule-1",
-				operation: "update",
-				occurrenceId: "occurrence-1",
-				origin: { kind: "provider_refresh" },
-				occurredAt: "2026-07-20T10:00:00.000Z",
-				source: { kind: "entity", entityId: "entity-1" },
-			},
-		} satisfies AutomationInput,
-		occurrence: automationOccurrenceRows(
-			{
-				kind: "entity",
-				after: {
-					id: "entity-1",
-					properties: {},
-					name: "New Name",
-					entitySchemaSlug: "show",
-					...overrides.after,
-				},
-				before: {
-					id: "entity-1",
-					properties: {},
-					name: "Old Name",
-					entitySchemaSlug: "show",
-					...overrides.before,
-				},
-			},
-			population,
-		),
-	};
+	return automationContext({
+		population,
+		category: "change",
+		resource: "entity",
+		operation: "update",
+		after: entityRecord({
+			id: "entity-1",
+			properties: {},
+			name: "New Name",
+			entitySchemaSlug: "show",
+			...overrides.after,
+		}),
+		before: entityRecord({
+			id: "entity-1",
+			properties: {},
+			name: "Old Name",
+			entitySchemaSlug: "show",
+			...overrides.before,
+		}),
+	});
 };
 
 const run = (value: ReturnType<typeof input>) => {
 	const calls: Array<Record<string, JsonValue | undefined>> = [];
 	return definition
 		.run(
-			value.context,
+			value,
 			defineSandboxTestHost(manifest, {
-				executeRyotql: () => hostSuccess(value.occurrence),
 				emitSignal: (request) => {
 					calls.push(request);
-					return Effect.succeed({ wasCreated: true, signalId: `signal-${calls.length}` });
+					return Effect.succeed({ wasCreated: true, triggerId: `signal-${calls.length}` });
 				},
 			}),
 			{ metadata: {}, sandboxScriptId: "script-1" },

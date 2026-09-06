@@ -2,11 +2,10 @@ import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import {
+	createAuthenticatedClient,
 	createEventFixture,
-	createTestUser,
 	findBuiltinSchemaBySlug,
 	listEventSchemas,
-	makeSession,
 	requireEventSchemaBySlug,
 	type Client,
 } from "~/fixtures/kernel";
@@ -67,8 +66,7 @@ it.live("renders a populated Book detail with its series rail and unlinked creat
 		const seriesName = `Browser Tracer Series ${suffix}`;
 		const unlinkedAuthor = `Unlinked Author ${suffix}`;
 		const unlinkedPublisher = `Unlinked Press ${suffix}`;
-		const { token, email, password } = yield* createTestUser(apiUrl);
-		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
+		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
 		const cover = yield* uploadPermanentAsset(apiUrl, client, BOOK_COVER);
 		const siblingCover = yield* uploadPermanentAsset(apiUrl, client, SIBLING_COVER);
 		const seeded = yield* seedGlobalBookWithSeries(client, {
@@ -189,8 +187,7 @@ it.live("renders the Book presentation facts in the canonical saved view", () =>
 		const frontendUrl = getFrontendUrl();
 		const suffix = crypto.randomUUID();
 		const bookName = `Row Tracer Book ${suffix}`;
-		const { token, email, password } = yield* createTestUser(apiUrl);
-		const client = makeSession(apiUrl, { Authorization: `Bearer ${token}` });
+		const { email, client, password } = yield* createAuthenticatedClient(apiUrl);
 		const seeded = yield* seedGlobalBookWithSeries(client, {
 			bookName,
 			seriesName: `Row Tracer Series ${suffix}`,

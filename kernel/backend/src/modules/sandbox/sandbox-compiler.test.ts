@@ -23,6 +23,7 @@ import { defineAutomation } from "@ryot-app/sandbox-sdk/automation";
 export const manifest = defineManifest({
   capabilities: [],
   kind: "automation",
+  automationType: "automation",
   name: "Automation",
   slug: "automation.test",
   requiredPluginConfigKeys: [],

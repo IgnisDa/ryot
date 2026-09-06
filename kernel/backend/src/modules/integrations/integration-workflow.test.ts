@@ -2,11 +2,10 @@ import { BunFileSystem } from "@effect/platform-bun";
 import { expect, it } from "@effect/vitest";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import {
+	AutomationTriggerId,
 	ImportRunId,
 	IntegrationId,
 	SandboxScriptId,
-	SignalId,
-	SignalSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
@@ -20,12 +19,12 @@ import {
 	makeRedisService,
 	makeWorkflowActivityEngine,
 } from "#lib/test-utils/effect";
+import { SignalEmissionService, type EmitSignalInput } from "#modules/automations/signal-service";
 import { ImportRunFailuresService } from "#modules/imports/failure-service";
 import { ImportsRepository } from "#modules/imports/repository";
 import { ImportsService } from "#modules/imports/service";
 import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
 import { SandboxExecutionService } from "#modules/sandbox/service";
-import { SignalEmissionService, type EmitSignalInput } from "#modules/signals/service";
 
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
 import { runIntegrationRunWorkflow } from "./integration-workflow-live";
@@ -73,7 +72,10 @@ const makeIntegrationsService = (overrides: MockOverrides<typeof mockIntegration
 const makeSignalEmissionService = (
 	overrides: MockOverrides<typeof mockSignalEmissionService> = {},
 ) =>
-	mockSignalEmissionService({ emit: () => Effect.die("unexpected signal emission"), ...overrides });
+	mockSignalEmissionService({
+		emitSignal: () => Effect.die("unexpected signal emission"),
+		...overrides,
+	});
 
 const makeRedisLayer = () => {
 	const store = new Map<string, string>();
@@ -125,9 +127,11 @@ const registeredProvider = {
 	pluginScope: "system" as const,
 	scriptSlug: "integration.test-provider",
 	configContext: {
-		pluginSlug: "fixture",
-		kind: "environment" as const,
+		ownerUserId: null,
+		kind: "revision" as const,
 		configSchema: { fields: {} },
+		pluginConfigRevisionId: null,
+		pluginRevisionId: "fixture-revision-id",
 	},
 };
 
@@ -157,7 +161,9 @@ const makeTestLayer = (options: TestLayerOptions) =>
 					return Effect.interrupt;
 				}
 				return options.sandboxFailure
-					? Effect.fail(new SandboxRunError({ message: options.sandboxFailure }))
+					? Effect.fail(
+							new SandboxRunError({ kind: "script-failure", message: options.sandboxFailure }),
+						)
 					: Effect.succeed(null);
 			},
 		}),
@@ -255,6 +261,21 @@ it.effect("persists the sink adapter result and dispatches the normalized child"
 						integrationId: "int_1",
 						integrationContext: sinkPayload.webhook,
 						integrationScriptSlug: "integration.test-provider",
+					},
+					command: {
+						occurredAt: expect.any(String),
+						itemIdentity: '["integration-run","run_1"]',
+						causation: {
+							depth: 0,
+							parentRunId: null,
+							executionId: "run_1",
+							importRunId: "run_1",
+							source: "integration",
+							parentTriggerId: null,
+							integrationId: "int_1",
+							rootExecutionId: "run_1",
+							initiator: { id: "int_1", kind: "integration" },
+						},
 					},
 				},
 			});
@@ -401,6 +422,16 @@ it.effect("disables a yank integration after continuous failures during finaliza
 				return Effect.succeed(true);
 			},
 		}),
+		signalEmissionService: makeSignalEmissionService({
+			emitSignal: (input) => {
+				emitted = input;
+				return Effect.succeed({
+					warnings: [],
+					wasCreated: true,
+					triggerId: AutomationTriggerId.make("trigger-1"),
+				});
+			},
+		}),
 		importsRepository: makeImportsRepository({
 			getRunById: () => Effect.succeed(makeRun("failed")),
 			listRecentStatusesByIntegrationId: () =>
@@ -411,26 +442,6 @@ it.effect("disables a yank integration after continuous failures during finaliza
 					{ status: "failed" as const },
 					{ status: "failed" as const },
 				]),
-		}),
-		signalEmissionService: makeSignalEmissionService({
-			emit: (input) => {
-				emitted = input;
-				return Effect.succeed({
-					wasCreated: true,
-					recipientUserIds: input.principal.kind === "user" ? [input.principal.userId] : [],
-					signal: {
-						origin: input.origin,
-						subjectEntityId: null,
-						schemaSlug: input.schemaSlug,
-						id: SignalId.make("signal-1"),
-						createdAt: "2026-06-17T00:00:00.000Z",
-						occurredAt: input.occurredAt.toISOString(),
-						signalSchemaSlug: SignalSchemaSlug.make("signal-schema-1"),
-						properties: { integrationId: "int_1", providerName: "test-provider" },
-						actorUserId: input.principal.kind === "user" ? input.principal.userId : null,
-					},
-				});
-			},
 		}),
 	} satisfies TestLayerOptions;
 
@@ -444,14 +455,22 @@ it.effect("disables a yank integration after continuous failures during finaliza
 				{ runId: "run_1", userId: "user_1", isDisabled: true, integrationId: "int_1" },
 			]);
 			expect(emitted).toMatchObject({
-				executionId: "run_1",
-				discriminator: "int_1",
 				schemaSlug: "integration.disabled",
 				principal: { kind: "user", userId: "user_1" },
 				properties: { integrationId: "int_1", providerName: "test-provider" },
-				origin: { kind: "integration", importRunId: "run_1", integrationId: "int_1" },
+				command: {
+					occurredAt: expect.any(String),
+					itemIdentity: '["[\\"integration-run\\",\\"run_1\\"]","signal","integration.disabled"]',
+					causation: {
+						executionId: "run_1",
+						importRunId: "run_1",
+						source: "integration",
+						integrationId: "int_1",
+						rootExecutionId: "run_1",
+						initiator: { id: "int_1", kind: "integration" },
+					},
+				},
 			});
-			expect(emitted?.occurredAt).toBeInstanceOf(Date);
 		}),
 	);
 });

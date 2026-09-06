@@ -20,6 +20,7 @@ import {
 	getUnsupportedExerciseLots,
 	getUnsupportedExerciseSources,
 } from "./exercise-mapping";
+import { buildHistoricalAutomationCheckSql } from "./historical-automation-check";
 import { buildIntegrationMigrationSql, readLegacyIntegrationSettings } from "./integration-mapping";
 import {
 	migrateIntegrationProgressCache,
@@ -282,7 +283,7 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	const integrationProgressScript = requireMapped(
 		resolution.scripts,
 		mediaPluginId,
-		"trigger.integration-progress-policy",
+		"import.write-chunks",
 		"script",
 	);
 	const youtubeMusicScript = requireMapped(
@@ -559,13 +560,17 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		scriptId: integrationProgressScript.id,
 		cacheRows: legacyIntegrationProgressCache,
 		installationIdsByUserId: mediaInstallationIdsByUserId,
+		integrations: integrationSettings.map(({ id, userId, provider }) => ({ id, userId, provider })),
 	});
 	yield* migrateYoutubeMusicCache({
 		scriptId: youtubeMusicScript.id,
 		installationIds: mediaInstallations.map(({ installationId }) => installationId),
 	});
 	yield* withReservedConnection((connection) =>
-		connection.executeRaw(buildNotificationPlatformMigrationSql(), []),
+		Effect.gen(function* () {
+			yield* connection.executeRaw(buildNotificationPlatformMigrationSql(), []);
+			yield* connection.executeRaw(buildHistoricalAutomationCheckSql(), []);
+		}),
 	);
 	reportSequence = yield* withReservedConnection((connection) =>
 		logReportRows(connection, reportSequence),

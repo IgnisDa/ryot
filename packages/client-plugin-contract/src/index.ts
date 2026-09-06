@@ -10,6 +10,7 @@ import {
 	MAX_INTEREST_ENTITY_IDS,
 } from "@ryot-app/contract/modules/entity-interest/messages";
 import { CLIENT_API_VERSION } from "@ryot-app/contract/modules/plugins/manifest";
+import { isPluginSharedSource } from "@ryot-app/contract/modules/plugins/shared-file-policy";
 import { RyotQLDocument, RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
 import { EntityBrowserAddAction } from "@ryot-app/contract/modules/saved-views/schemas";
 import {
@@ -120,6 +121,15 @@ export type PluginClientFileExtension = (typeof PLUGIN_CLIENT_FILE_EXTENSIONS)[n
 
 export const pluginClientFileExtension = (path: string): PluginClientFileExtension | undefined =>
 	PLUGIN_CLIENT_FILE_EXTENSIONS.find((extension) => path.endsWith(extension));
+
+const isPluginTestSource = (path: string) =>
+	path.slice(path.lastIndexOf("/") + 1).includes(".test.");
+
+export const isPluginSourceFile = (path: string) =>
+	!isPluginTestSource(path) &&
+	((path.startsWith("backend/") && path.endsWith(".ts")) ||
+		isPluginSharedSource(path) ||
+		(path.startsWith("client/") && pluginClientFileExtension(path) !== undefined));
 
 export const isPluginClientTextSource = (path: string) =>
 	PLUGIN_CLIENT_TEXT_SOURCE_EXTENSIONS.some((extension) => path.endsWith(extension));

@@ -677,7 +677,10 @@ const runInDenoRequest = ({ context, compiled, options = {} }: RunnerRequest) =>
 				},
 			);
 			const denoProcess = yield* command.pipe(
-				Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })),
+				Effect.mapError(
+					(error) =>
+						new SandboxRunError({ kind: "script-failure", message: unknownToMessage(error) }),
+				),
 			);
 			yield* Effect.addFinalizer(() =>
 				denoProcess.kill({ killSignal: "SIGKILL" }).pipe(Effect.ignore),
@@ -702,12 +705,18 @@ const runInDenoRequest = ({ context, compiled, options = {} }: RunnerRequest) =>
 					denoProcess.exitCode,
 				],
 				{ concurrency: "unbounded" },
-			).pipe(Effect.mapError((error) => new SandboxRunError({ message: unknownToMessage(error) })));
+			).pipe(
+				Effect.mapError(
+					(error) =>
+						new SandboxRunError({ kind: "script-failure", message: unknownToMessage(error) }),
+				),
+			);
 			expect(exitCode, stderr).toBe(0);
 
 			return yield* Effect.try({
 				try: () => decodeRunnerResponse(stdout.trim()),
-				catch: (error) => new SandboxRunError({ message: unknownToMessage(error) }),
+				catch: (error) =>
+					new SandboxRunError({ kind: "script-failure", message: unknownToMessage(error) }),
 			});
 		}),
 	).pipe(Effect.provide(BunServices.layer));
@@ -885,6 +894,7 @@ export default {
 			assert(promiseOutput !== null && typeof promiseOutput === "object");
 			expect(Reflect.get(promiseOutput, "error")).toEqual({
 				phase: "execute",
+				kind: "script-failure",
 				message: "Sandbox definition must return an Effect",
 			});
 
@@ -892,6 +902,7 @@ export default {
 			assert(unsupported !== null && typeof unsupported === "object");
 			expect(Reflect.get(unsupported, "error")).toEqual({
 				phase: "load",
+				kind: "missing-artifact",
 				message: "Unsupported sandbox compiled format: 2",
 			});
 		}).pipe(Effect.provide(SandboxCompiler.layer)),
@@ -963,6 +974,7 @@ it("enforces direct-definition output and log limits", () =>
 			assert(output !== null && typeof output === "object");
 			expect(Reflect.get(output, "error")).toEqual({
 				phase: "output",
+				kind: "invalid-output",
 				message: `Sandbox definition result exceeds ${SANDBOX_LIMITS.execution.resultBytes} UTF-8 bytes`,
 			});
 
@@ -1610,6 +1622,7 @@ it("counts failed host-call attempts against total and HTTP budgets", () =>
 				assert(hostResult !== null && typeof hostResult === "object");
 				expect(Reflect.get(hostResult, "error")).toEqual({
 					phase: "execute",
+					kind: "script-failure",
 					message: `Sandbox execution exceeds ${SANDBOX_LIMITS.hostCalls.total} host calls`,
 				});
 				expect(bridge.calls.filter((call) => call.fnName === "getCachedValue")).toHaveLength(
@@ -1620,6 +1633,7 @@ it("counts failed host-call attempts against total and HTTP budgets", () =>
 				assert(httpResult !== null && typeof httpResult === "object");
 				expect(Reflect.get(httpResult, "error")).toEqual({
 					phase: "execute",
+					kind: "script-failure",
 					message: `Sandbox execution exceeds ${SANDBOX_LIMITS.hostCalls.http} httpCall calls`,
 				});
 				expect(bridge.calls.filter((call) => call.fnName === "httpCall")).toHaveLength(

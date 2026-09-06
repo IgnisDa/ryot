@@ -28,6 +28,36 @@ const walkSources = (directory: string, workspaceRoot: string) =>
 		),
 	);
 
+const backupOnlyRestoreCalls = [
+	".restoreEntity(",
+	".restoreEvents(",
+	".restoreRelationship(",
+	".restorePortableProfile(",
+	".restoreRenderer(",
+	".restoreForUser(",
+	".restoreTranslation(",
+	".restoreCustomView(",
+	".restoreBuiltinViews(",
+	".restoreBuiltinStateBySlug(",
+	".restoreNotificationSubscription(",
+	".activateRestored(",
+	"installations.restore(",
+];
+
+const findBackupRestoreBoundaryViolations = (sources: ReadonlyArray<LayerWiringSource>) =>
+	sources.flatMap(({ path, source }) => {
+		if (path.startsWith("kernel/backend/src/modules/backups/restore/")) {
+			return [];
+		}
+		return backupOnlyRestoreCalls.flatMap((call) =>
+			source.includes(call)
+				? [
+						`${path}: ${call.slice(0, -1)} is a historical write reserved for the backup restore module`,
+					]
+				: [],
+		);
+	});
+
 const program = Effect.gen(function* () {
 	const path = yield* Path.Path;
 	const scriptPath = yield* path.fromFileUrl(new URL(import.meta.url));
@@ -39,10 +69,12 @@ const program = Effect.gen(function* () {
 	const cycles = yield* analyzeRuntimeModules(modulesDir);
 	const sources = (yield* Effect.forEach(roots, (root) => walkSources(root, workspaceRoot))).flat();
 	const duplicateLayers = findDuplicateServiceLayers(sources);
-	if (cycles.length || duplicateLayers.length) {
+	const backupRestoreBoundaryViolations = findBackupRestoreBoundaryViolations(sources);
+	if (cycles.length || duplicateLayers.length || backupRestoreBoundaryViolations.length) {
 		return yield* new ArchitectureCheckError({
 			message: [
 				...duplicateLayers,
+				...backupRestoreBoundaryViolations,
 				...(cycles.length ? [formatRuntimeCycleDiagnostics(cycles)] : []),
 			].join("\n"),
 		});

@@ -4,7 +4,11 @@ import {
 	type CatalogSignalSchema,
 	type InstalledNotificationRule,
 } from "@ryot-app/contract/modules/automations/schemas";
-import type { AutomationRuleId, SignalSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
+import type {
+	NotificationSubscriptionId,
+	SignalSchemaSlug,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import { SignalSchemaSlug as SignalSchemaSlugBrand } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
@@ -77,7 +81,7 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 
 			const loadRule = Effect.fn("NotificationSubscriptionsService.loadRule")(function* (input: {
 				userId: UserId;
-				ruleId: AutomationRuleId;
+				ruleId: NotificationSubscriptionId;
 			}) {
 				const state = yield* repository.findNotificationSubscription(input);
 				if (!state) {
@@ -152,7 +156,11 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 			);
 
 			const setRuleActive = Effect.fn("NotificationSubscriptionsService.setRuleActive")(
-				function* (input: { userId: UserId; isActive: boolean; ruleId: AutomationRuleId }) {
+				function* (input: {
+					userId: UserId;
+					isActive: boolean;
+					ruleId: NotificationSubscriptionId;
+				}) {
 					const database = yield* Database;
 					return yield* mapDatabaseErrors(
 						database.transaction((transaction) =>
@@ -172,7 +180,7 @@ export class NotificationSubscriptionsService extends Context.Service<Notificati
 			);
 
 			const deleteRule = Effect.fn("NotificationSubscriptionsService.deleteRule")(
-				function* (input: { userId: UserId; ruleId: AutomationRuleId }) {
+				function* (input: { userId: UserId; ruleId: NotificationSubscriptionId }) {
 					const database = yield* Database;
 					const deleted = yield* mapDatabaseErrors(
 						database.transaction((transaction) =>
