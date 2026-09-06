@@ -19,6 +19,7 @@ Heavy or optional surfaces remain on subpaths:
 | --------------- | --------------------------------------------------- |
 | `./schema-form` | `AppSchema` form and its contract/form dependencies |
 | `./table`       | Generic data table and column contract              |
+| `./charts`      | Calendar heatmap and ranked bar list                |
 | `./icon`        | The complete registered product icon set            |
 | `./sync`        | Entity population and translation marks             |
 | `./tint`        | Best-effort image tint extraction                   |
@@ -27,6 +28,17 @@ Do not re-export these from the root barrel. Components accept icons as `ReactNo
 accept upload transport as a prop, keeping this package independent of auth, servers, and client
 capabilities. Tint extraction requires CORS-readable images and silently returns no tint when image,
 canvas, or CORS access fails.
+
+## Charts
+
+`./charts` exposes Ryot chart components, not TanStack Charts: the pinned alpha stays behind this
+wrapper and plugins cannot import it directly. `CalendarHeatmap` draws TanStack `cell` marks on fixed
+band scales (factory scales would infer row order from data), colors level 0 with `--chart-seq-0`
+and splits positive values into five equal bands of the maximum (`--chart-seq-1..5`). Its tooltip
+uses the portal extension because the heatmap sits in its own horizontal scroller, which would clip
+an in-chart tooltip. `RankedBarList` is plain HTML so labels and values stay wrapping-aware text in
+text tokens. `theme.css` maps the TanStack `--ts-chart-*` variables at `:root` so portaled tooltips
+still resolve them. Level 0 and level 1 in the light ramp differ mostly by hue, not luminance.
 
 ## Sync Marks
 
