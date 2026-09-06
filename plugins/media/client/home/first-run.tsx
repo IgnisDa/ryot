@@ -4,12 +4,12 @@ import { Button, Menu } from "@ryot-app/client-ui-sdk";
 import clsx from "clsx";
 import { useRef, useState } from "react";
 
-import { builtinMediaEntitySchemaSlugs, mediaPluginSlug } from "../../shared/media-schema-slugs";
+import { builtinMediaEntitySchemaSlugs } from "../../shared/media-schema-slugs";
 
 const schemaLabel = (slug: string) =>
 	`${slug.charAt(0).toUpperCase()}${slug.slice(1)}`.replace("-", " ");
 
-export function FirstRun(props: { readonly compact: boolean }) {
+export function FirstRun(props: { readonly compact: boolean; readonly pluginId: string }) {
 	const client = useRyot();
 	const trigger = useRef<HTMLButtonElement>(null);
 	const [menuOpen, setMenuOpen] = useState(false);
@@ -56,7 +56,7 @@ export function FirstRun(props: { readonly compact: boolean }) {
 							setMenuOpen(false);
 							client.screens.openProviderSearch({
 								entitySchemaSlug: slug,
-								ownerPluginId: mediaPluginSlug,
+								ownerPluginId: props.pluginId,
 							});
 						},
 					}))}
