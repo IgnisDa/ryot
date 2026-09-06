@@ -53,8 +53,8 @@ export function MediaCreditRails<Slug extends string>(props: {
 				lines={creditLines}
 				title={section.title}
 				items={credits.items}
-				aspect={section.aspect}
 				compact={props.compact}
+				aspect={() => section.aspect}
 				divided={props.divided || index > firstFilled}
 				action={
 					credits.pageInfo.hasMore ? (
