@@ -27,6 +27,7 @@ const user: CurrentUserValue = {
 	email: "user@example.com",
 	id: UserId.make("user-id"),
 	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+	accountGeneration: { userId: UserId.make("user-id"), token: "test-account-generation" },
 };
 
 const makeRedisClient = (): RedisService["Service"]["client"] =>

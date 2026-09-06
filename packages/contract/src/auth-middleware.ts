@@ -1,9 +1,10 @@
-import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Context, Schema } from "effect";
 import { HttpApiMiddleware, HttpApiSchema, HttpApiSecurity } from "effect/unstable/httpapi";
 
 import type { AuthorizationContext as AuthorizationContextValue } from "./oauth";
+import type { AccountGeneration } from "./schema/account-generation";
 import type { UserId } from "./schema/brands";
+import type { UserPreferences } from "./schema/user-preferences";
 
 const AuthUnauthorizedReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("write-blocked") }),
@@ -33,38 +34,13 @@ export class UserInitializing extends Schema.TaggedError<UserInitializing>()("Us
 	reason: Schema.Struct({ code: Schema.Literal("user-initializing") }),
 }) {}
 
-export type CachedUserPreferences = {
-	readonly allowNsfw: boolean;
-	readonly language: string | null;
-	readonly disableIntegrations: boolean;
-};
-
-export const defaultUserPreferences: CachedUserPreferences = {
-	language: null,
-	allowNsfw: false,
-	disableIntegrations: false,
-};
-
-// Coerces an untrusted stored preferences blob (jsonb / session copy) into the typed shape, applying
-// defaults for missing or malformed fields.
-export const normalizeUserPreferences = (value: unknown): CachedUserPreferences => {
-	const record = isObjectRecord(value) ? value : {};
-	return {
-		allowNsfw: record["allowNsfw"] === true,
-		disableIntegrations: record["disableIntegrations"] === true,
-		language:
-			typeof record["language"] === "string" && record["language"].length > 0
-				? record["language"]
-				: null,
-	};
-};
-
 export type CurrentUserValue = {
 	readonly id: UserId;
+	readonly accountGeneration: AccountGeneration;
 	readonly name: string;
 	readonly email: string;
 	readonly image: string | null;
-	readonly preferences: CachedUserPreferences;
+	readonly preferences: UserPreferences;
 };
 
 export class CurrentUser extends Context.Service<CurrentUser, CurrentUserValue>()("CurrentUser") {}

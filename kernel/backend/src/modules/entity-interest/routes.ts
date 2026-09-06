@@ -12,6 +12,7 @@ export const InterestRoutesLive = HttpApiBuilder.group(AppContract, "entity-inte
 			const tickets = yield* EntityInterestTicketService;
 			return yield* tickets.create({
 				userId: user.id,
+				accountGeneration: user.accountGeneration,
 				preferredLanguage: user.preferences.language,
 			});
 		}),

@@ -14,7 +14,7 @@ import { Cause, Context, Effect, Exit, Layer, Option, Ref } from "effect";
 import { Headers } from "effect/unstable/http";
 import { assert } from "vitest";
 
-import { databaseLayer } from "#lib/test-utils/effect";
+import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { AuthService } from "#modules/auth/service";
 import { IntegrationOperationScopeResolverLive } from "#modules/integrations/operation-scope-resolver-live";
 import type { IntegrationRecord } from "#modules/integrations/repository";
@@ -193,6 +193,10 @@ const makeLayer = (input: {
 										id: input.currentUserId,
 										email: "user@example.com",
 										preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+										accountGeneration: {
+											userId: input.currentUserId,
+											token: "test-account-generation",
+										},
 									},
 								})
 							: Effect.fail(new AuthUnauthorized({ reason: { code: "authentication-required" } })),
@@ -234,7 +238,7 @@ const makeLayer = (input: {
 		Layer.provide(IntegrationOperationScopeResolverLive),
 		Layer.provideMerge(fakesLayer),
 		Layer.provideMerge(stateLayer),
-		Layer.provideMerge(databaseLayer),
+		Layer.provideMerge(mutationAdmissionTestLayer),
 	);
 };
 
@@ -371,7 +375,11 @@ layer(
 			expect(yield* fake.captured).toEqual([
 				expect.objectContaining({
 					scriptId: "install-private-user-1-script",
-					subject: { type: "user", userId: USER_ONE },
+					subject: {
+						type: "user",
+						userId: USER_ONE,
+						accountGeneration: { userId: USER_ONE, token: "test-account-generation" },
+					},
 				}),
 			]);
 		}),
@@ -384,7 +392,13 @@ layer(makeLayer({ currentUserId: USER_ONE, available: [systemUserOperation] }))(
 			const fake = yield* FakeOperationDependencies;
 			expect(yield* invoke({ pluginSlug: SYSTEM_SLUG })).toBe("ok");
 			expect(yield* fake.captured).toEqual([
-				expect.objectContaining({ subject: { type: "user", userId: USER_ONE } }),
+				expect.objectContaining({
+					subject: {
+						type: "user",
+						userId: USER_ONE,
+						accountGeneration: { userId: USER_ONE, token: "test-account-generation" },
+					},
+				}),
 			]);
 			expect(yield* fake.events).toEqual(["dispatch"]);
 		}),
@@ -490,7 +504,12 @@ layer(
 				).toBe("ok");
 				expect(yield* fake.captured).toEqual([
 					expect.objectContaining({
-						subject: { type: "user", userId: USER_ONE, integrationId: "int-1" },
+						subject: {
+							type: "user",
+							userId: USER_ONE,
+							integrationId: "int-1",
+							accountGeneration: { userId: USER_ONE, token: "test-account-generation" },
+						},
 					}),
 				]);
 			}),
@@ -618,7 +637,12 @@ layer(
 			expect(yield* fake.captured).toEqual([
 				expect.objectContaining({
 					scriptId: "install-private-user-1-script",
-					subject: { type: "user", userId: USER_ONE, integrationId: "int-1" },
+					subject: {
+						type: "user",
+						userId: USER_ONE,
+						integrationId: "int-1",
+						accountGeneration: { userId: USER_ONE, token: "test-account-generation" },
+					},
 				}),
 			]);
 		}),

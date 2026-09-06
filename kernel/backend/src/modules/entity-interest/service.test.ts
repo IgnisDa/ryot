@@ -7,7 +7,11 @@ import { InterestReconciler } from "./reconciler";
 import { InterestService } from "./service";
 import { EntityInterestStore } from "./store";
 
-const principal = { preferredLanguage: "es", userId: UserId.make("user-1") };
+const principal = {
+	preferredLanguage: "es",
+	userId: UserId.make("user-1"),
+	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+};
 
 type Store = EntityInterestStore["Service"];
 type Reply<Method extends (...args: never) => Effect.Effect<unknown, unknown>> = (
@@ -153,7 +157,13 @@ layer(
 		}),
 		getSessionMetadata: () =>
 			Effect.succeed([
-				{ revision: 3, sessionId: "session-1", preferredLanguage: "es", userId: principal.userId },
+				{
+					revision: 3,
+					sessionId: "session-1",
+					preferredLanguage: "es",
+					userId: principal.userId,
+					accountGeneration: principal.accountGeneration,
+				},
 			]),
 	}),
 )((test) => {

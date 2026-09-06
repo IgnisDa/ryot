@@ -25,7 +25,6 @@ export const implementWorkflow = <
 		executionId: string,
 	) => Effect.Effect<Success["Type"], Error["Type"], R>,
 ) =>
-	// oxlint-disable-next-line no-restricted-properties -- This wrapper clears activity scope at workflow boundaries.
 	workflow.toLayer((payload, executionId) =>
 		execute(payload, executionId).pipe(Effect.provideService(ActivityBody, false)),
 	);

@@ -398,7 +398,12 @@ const privateRecordsExportLayer = withExportReads((reads) =>
 						),
 				}),
 				Layer.mock(AuthRepository, {
-					getPortableProfile: () => Effect.succeed({ image: null, name: "Owner", preferences: {} }),
+					getPortableProfile: () =>
+						Effect.succeed({
+							image: null,
+							name: "Owner",
+							preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+						}),
 				}),
 				Layer.mock(EventsRepository, { listUserEventsForBackup: () => Effect.succeed([]) }),
 				Layer.mock(IntegrationsRepository, {
@@ -760,7 +765,12 @@ const eventPagesExportLayer = withExportReads((reads) =>
 						),
 				}),
 				Layer.mock(AuthRepository, {
-					getPortableProfile: () => Effect.succeed({ image: null, name: "Owner", preferences: {} }),
+					getPortableProfile: () =>
+						Effect.succeed({
+							image: null,
+							name: "Owner",
+							preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+						}),
 				}),
 				Layer.mock(EventsRepository, {
 					listUserEventsForBackup: ({ afterId }) =>

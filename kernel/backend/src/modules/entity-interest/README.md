@@ -6,7 +6,7 @@ Entity interest lets authenticated clients declare which entities are visible an
 
 - `POST /api/entity-interest/socket-ticket` uses normal OAuth or API-key authentication and returns `{ ticket, expiresAt }` or a typed `ticket-store-unavailable` failure.
 - `GET /api/entity-interest/ws` is a raw WebSocket. Credentials never appear in its URL; the first JSON text frame must be `{ type: "authenticate", ticket }`.
-- A ticket is 32 random bytes encoded as an opaque value. Redis stores only its SHA-256 hash with `{ userId, preferredLanguage }` for 30 seconds. It is single-use.
+- A ticket is 32 random bytes encoded as an opaque value. Redis stores only its SHA-256 hash with `{ userId, preferredLanguage, accountGeneration }` for 30 seconds. It is single-use. Population requests retain this account generation, so an old session cannot write after account reset.
 - Missing, expired, reused, or malformed tickets close as `1008 Authentication failed`; ticket-store failures close as `1011 Internal error`.
 
 ## Frames

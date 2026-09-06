@@ -1,3 +1,4 @@
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { Schema } from "effect";
 import { expect, it } from "vitest";
 
@@ -31,6 +32,7 @@ const principal = {
 		executionUserId: "user-1",
 		pluginRevisionId: "revision-1",
 		pluginConfigRevisionId: "config-1",
+		accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 		causation: {
 			depth: 0,
 			source: "api",

@@ -24,8 +24,8 @@ import { PluginConfigRevisions } from "#modules/plugins/config-revisions";
 import { PluginRepository } from "#modules/plugins/repository";
 import { fixtureManifest } from "#modules/plugins/test-support";
 
+import { LifecyclePlannerServiceLive } from "./layer";
 import { triggerFixture } from "./lifecycle.test-support";
-import { LifecyclePlannerLive } from "./planner";
 
 const pluginId = "fixture-plugin";
 
@@ -59,7 +59,7 @@ class PlannerSchema extends Context.Service<
 
 const plannerSchemaLayer = Layer.effect(PlannerSchema, makePlannerSchema).pipe(
 	Layer.provideMerge(
-		LifecyclePlannerLive.pipe(
+		LifecyclePlannerServiceLive.pipe(
 			Layer.provideMerge(
 				Layer.mergeAll(
 					PluginRepository.layer,
@@ -91,7 +91,7 @@ const seedCatalog = (statements: readonly string[]) =>
 				yield* applyBaselineMigration(statements, (statement) => db.execute(sql.raw(statement)));
 				yield* db
 					.insert(tables.user)
-					.values({ id: "owner", name: "Owner", preferences: {}, email: "owner@example.test" });
+					.values({ id: "owner", name: "Owner", email: "owner@example.test" });
 				yield* db
 					.insert(tables.plugin)
 					.values({ id: pluginId, slug: "fixture", status: "inactive" });
@@ -161,12 +161,7 @@ describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 								);
 								yield* db
 									.insert(tables.user)
-									.values({
-										id: "owner",
-										name: "Owner",
-										preferences: {},
-										email: "owner@example.test",
-									});
+									.values({ id: "owner", name: "Owner", email: "owner@example.test" });
 								yield* (yield* DefinitionRepository.make).replaceKernelDefinitions(
 									kernelDefinitionSource(),
 								);

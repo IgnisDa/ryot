@@ -14,7 +14,6 @@ import type {
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect } from "effect";
 
-import { toLifecycleDispatchPlan } from "#lib/domain/lifecycle";
 import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { retryOnDeadlock } from "#lib/infrastructure/db/errors";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
@@ -201,7 +200,7 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 						),
 					})),
 				});
-				const entityPlans = upserts.plans;
+				const entityDispatch = upserts.dispatch;
 				const entries: Array<{ entityId: EntityId; properties: Record<string, unknown> }> = [];
 				for (const [index, { properties }] of resolvedRelatedEntities.entries()) {
 					const result = upserts.results[index];
@@ -234,17 +233,15 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 					}),
 				});
 				return {
-					entityPlans,
+					entityDispatch,
 					result: relationshipWork.result,
-					relationshipPlans: relationshipWork.plans,
+					relationshipDispatch: relationshipWork.dispatch,
 				};
 			}),
 		),
 	).pipe(mapDbErrorToSandbox);
 	return {
 		result: committed.result,
-		dispatch: [...committed.entityPlans, ...committed.relationshipPlans].map(
-			toLifecycleDispatchPlan,
-		),
+		dispatch: [...committed.entityDispatch, ...committed.relationshipDispatch],
 	};
 });

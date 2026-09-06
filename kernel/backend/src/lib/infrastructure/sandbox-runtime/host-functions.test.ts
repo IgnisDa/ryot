@@ -22,11 +22,14 @@ import { Context, Effect, Layer, Option, Ref, Result } from "effect";
 
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
+import { user } from "#lib/infrastructure/db/schema/tables/auth";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { RedisService } from "#lib/infrastructure/redis";
 import type { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { selectSandboxHostFunctions } from "#lib/infrastructure/sandbox-runtime/service";
 import type { SandboxRunInput } from "#lib/infrastructure/sandbox-runtime/shared";
-import { databaseLayer, makeAppConfigLayer, makeRedisService } from "#lib/test-utils/effect";
+import { makeAppConfigLayer, makeRedisService } from "#lib/test-utils/effect";
+import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
 import { withLifecycleBatchPlanning } from "#modules/automations/lifecycle.test-support";
 import { kernelDefinitionSource } from "#modules/definition-registry/kernel-source";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
@@ -43,14 +46,38 @@ import { RelationshipMutationPipeline } from "#modules/relationships/mutation-pi
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RyotQLService } from "#modules/ryotql/service";
 
-import {
-	makeAdditionalSandboxApiFunctions,
-	normalizePreferences,
-	toSandboxCreateEventsResult,
-} from "./host-functions";
+import { makeAdditionalSandboxApiFunctions, toSandboxCreateEventsResult } from "./host-functions";
+
+const seededDatabase = Layer.effectDiscard(
+	Effect.gen(function* () {
+		const session = yield* DatabaseSession;
+		yield* session.run((db) =>
+			db.insert(user).values([
+				{
+					id: "user-1",
+					name: "User",
+					email: "host-user@example.test",
+					accountGeneration: "test-account-generation",
+				},
+				{
+					name: "Trusted",
+					id: "trusted-user",
+					email: "trusted-host@example.test",
+					accountGeneration: "test-account-generation",
+				},
+				{
+					id: "owner-1",
+					name: "Owner",
+					email: "owner-host@example.test",
+					accountGeneration: "test-account-generation",
+				},
+			]),
+		);
+	}),
+).pipe(Layer.provideMerge(isolatedDatabaseLayer("sandbox_host_functions")));
 
 const hostDatabaseLayer = Layer.mergeAll(
-	databaseLayer,
+	seededDatabase,
 	Layer.mock(LifecyclePlanner)(
 		withLifecycleBatchPlanning({
 			plan: ({ trigger }) => Effect.succeed({ trigger, runs: [], policies: [], wasCreated: true }),
@@ -62,16 +89,6 @@ const hostDatabaseLayer = Layer.mergeAll(
 		skipQueuedPolicies: () => Effect.void,
 	}),
 );
-
-describe("normalizePreferences", () => {
-	it("normalizes missing and non-boolean preference values", () => {
-		expect(normalizePreferences(null)).toEqual({ allowNsfw: false, disableIntegrations: false });
-		expect(normalizePreferences({ allowNsfw: 1, disableIntegrations: true })).toEqual({
-			allowNsfw: false,
-			disableIntegrations: true,
-		});
-	});
-});
 
 type GetForUserInput = { readonly integrationId: IntegrationId; readonly userId: UserId };
 
@@ -157,6 +174,7 @@ const automationSubject = (
 		runId: AutomationRunId.make("run-1"),
 		executionUserId: UserId.make("user-1"),
 		triggerId: AutomationTriggerId.make("trigger-1"),
+		accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 		causation: {
 			depth: 0,
 			parentRunId: null,
@@ -340,7 +358,6 @@ const hostFunctionsLayer = (
 				Layer.mock(RelationshipsRepository)({
 					findRelationship: () => Effect.succeed(null),
 					lockRelationshipMutations: () => Effect.void,
-					findLifecyclePayload: () => Effect.succeed(null),
 					createRelationship: (input) =>
 						append(createdRelationships, input).pipe(
 							Effect.andThen(
@@ -385,6 +402,7 @@ describe("getCurrentIntegration", () => {
 						type: "user",
 						userId: UserId.make("user-1"),
 						integrationId: IntegrationId.make("int-trusted"),
+						accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 					});
 
 					expect(yield* (yield* HostFunctionCalls).integrationLookups).toEqual([
@@ -428,7 +446,14 @@ describe("getCurrentIntegration", () => {
 			test.effect("fails when the execution has no integration in scope", () =>
 				Effect.forEach(
 					[
-						{ type: "user", userId: UserId.make("user-1") },
+						{
+							type: "user",
+							userId: UserId.make("user-1"),
+							accountGeneration: {
+								userId: UserId.make("user-1"),
+								token: "test-account-generation",
+							},
+						},
 						automationSubject({ kind: "api" }),
 					] satisfies SandboxExecutionSubject[],
 					(subject) =>
@@ -454,6 +479,7 @@ describe("getCurrentIntegration", () => {
 					type: "user",
 					userId: UserId.make("user-1"),
 					integrationId: IntegrationId.make("int-of-another-user"),
+					accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 				});
 
 				expect(Result.getFailure(result)).toEqual(
@@ -625,7 +651,11 @@ describe("executeRyotql", () => {
 			Effect.gen(function* () {
 				const callerSuppliedDocument = { ...ryotqlDocument, scope: "plugin" };
 				const result = yield* runExecuteRyotql(
-					runInput({ type: "user", userId: UserId.make("user-1") }),
+					runInput({
+						type: "user",
+						userId: UserId.make("user-1"),
+						accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+					}),
 					callerSuppliedDocument,
 				);
 
@@ -673,7 +703,14 @@ describe("changeUserRelationships", () => {
 		test.effect("derives the relationship owner from direct user subject", () =>
 			Effect.gen(function* () {
 				const result = yield* runChangeUserRelationships(
-					{ type: "user", userId: UserId.make("trusted-user") },
+					{
+						type: "user",
+						userId: UserId.make("trusted-user"),
+						accountGeneration: {
+							token: "test-account-generation",
+							userId: UserId.make("trusted-user"),
+						},
+					},
 					[batch],
 				);
 
@@ -720,7 +757,14 @@ describe("changeUserRelationships", () => {
 		test.effect("does not write an absent relationship delete", () =>
 			Effect.gen(function* () {
 				const result = yield* runChangeUserRelationships(
-					{ type: "user", userId: UserId.make("trusted-user") },
+					{
+						type: "user",
+						userId: UserId.make("trusted-user"),
+						accountGeneration: {
+							token: "test-account-generation",
+							userId: UserId.make("trusted-user"),
+						},
+					},
 					[{ creates: [], deletes: [identity] }],
 				);
 
@@ -769,7 +813,14 @@ describe("changeUserRelationships", () => {
 				const overflow = Array.from({ length: 501 }, () => identity);
 				const system = yield* runChangeUserRelationships({ type: "system" }, [batch]);
 				const tooMany = yield* runChangeUserRelationships(
-					{ type: "user", userId: UserId.make("trusted-user") },
+					{
+						type: "user",
+						userId: UserId.make("trusted-user"),
+						accountGeneration: {
+							token: "test-account-generation",
+							userId: UserId.make("trusted-user"),
+						},
+					},
 					[{ creates: [], deletes: overflow }],
 				);
 
@@ -840,7 +891,14 @@ describe("ensureUserEntities", () => {
 			Effect.gen(function* () {
 				const run = runEnsureUserEntities({
 					caller: { pluginSlug: "example" },
-					subject: { type: "user", userId: UserId.make("trusted-user") },
+					subject: {
+						type: "user",
+						userId: UserId.make("trusted-user"),
+						accountGeneration: {
+							token: "test-account-generation",
+							userId: UserId.make("trusted-user"),
+						},
+					},
 				});
 				expect(Result.getOrThrow(yield* run)).toEqual([
 					{ wasInserted: true, entityId: "workspace-id" },
@@ -876,12 +934,20 @@ describe("ensureUserEntities", () => {
 				});
 				const untrusted = yield* runEnsureUserEntities({
 					caller: null,
-					subject: { type: "user", userId: UserId.make("user-1") },
+					subject: {
+						type: "user",
+						userId: UserId.make("user-1"),
+						accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+					},
 				});
 				yield* (yield* HostFunctionCalls).useDefinitions(workspaceDefinitions("sample-plugin-id"));
 				const foreign = yield* runEnsureUserEntities({
 					caller: trusted,
-					subject: { type: "user", userId: UserId.make("user-1") },
+					subject: {
+						type: "user",
+						userId: UserId.make("user-1"),
+						accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+					},
 				});
 
 				expect(Result.getFailure(delegated)).toEqual(
@@ -910,7 +976,11 @@ describe("ensureUserEntities", () => {
 				const result = yield* runEnsureUserEntities({
 					pinnedEntitySchemaSlugs: [],
 					caller: { pluginSlug: "example" },
-					subject: { type: "user", userId: UserId.make("user-1") },
+					subject: {
+						type: "user",
+						userId: UserId.make("user-1"),
+						accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+					},
 				});
 
 				expect(Result.getFailure(result)).toEqual(
@@ -928,7 +998,11 @@ describe("ensureUserEntities", () => {
 				const declared = yield* runEnsureUserEntities({
 					caller: null,
 					allowedHostFunctions: ["ensureUserEntities"],
-					subject: { type: "user", userId: UserId.make("owner-1") },
+					subject: {
+						type: "user",
+						userId: UserId.make("owner-1"),
+						accountGeneration: { userId: UserId.make("owner-1"), token: "test-account-generation" },
+					},
 				});
 
 				expect(Result.getFailure(declared)).toEqual(

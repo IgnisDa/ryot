@@ -13,6 +13,7 @@ import {
 	AutomationExecutionOperations,
 	AutomationExecutionOperationsLive,
 } from "./execution";
+import { queuedRunFixture } from "./lifecycle.test-support";
 import {
 	AUTOMATION_RECONCILIATION_BATCH_SIZE,
 	AutomationReconciliation,
@@ -86,7 +87,12 @@ const liveSubmissionLayer = Layer.unwrap(
 ).pipe(
 	Layer.provideMerge(
 		AutomationExecutionOperationsLive.pipe(
-			Layer.provide(AutomationRunRepository.layer.pipe(Layer.provide(databaseLayer))),
+			Layer.provide(
+				Layer.mock(AutomationRunRepository)({
+					findById: (id) => Effect.succeed(queuedRunFixture(id)),
+				}),
+			),
+			Layer.provideMerge(databaseLayer),
 			Layer.provideMerge(recordingRunWorkflowEngineLayer()),
 		),
 	),
@@ -110,7 +116,14 @@ layer(liveSubmissionLayer)((test) => {
 					payload: { runId: run.id, acceptedPatches: [], attemptNumber: run.attemptCount + 1 },
 					executionId: automationAttemptIdentity(run.id, run.attemptCount + 1).workflowExecutionId,
 				}));
-				expect(yield* yield* RunWorkflowSubmissions).toEqual([...expected, ...expected]);
+				const submitted = yield* yield* RunWorkflowSubmissions;
+				expect(submitted).toHaveLength(4);
+				for (const execution of expected) {
+					expect(submitted.filter((item) => item.executionId === execution.executionId)).toEqual([
+						execution,
+						execution,
+					]);
+				}
 			}),
 	);
 });

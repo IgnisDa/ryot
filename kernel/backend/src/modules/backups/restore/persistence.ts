@@ -12,8 +12,9 @@ import {
 	type SignalSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
@@ -134,10 +135,15 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 			);
 			const restorePortableProfile = Effect.fn("BackupRestorePersistence.restorePortableProfile")(
 				function* (userId: UserId, profile: PortableUserProfile) {
+					const preferences = yield* Schema.decodeEffect(UserPreferences)(profile.preferences).pipe(
+						Effect.mapError(
+							(error) => new DbError({ message: `Invalid backup preferences: ${error.message}` }),
+						),
+					);
 					const [row] = yield* session.run((db) =>
 						db
 							.update(schema.user)
-							.set(profile)
+							.set({ ...profile, preferences })
 							.where(eq(schema.user.id, userId))
 							.returning({ id: schema.user.id }),
 					);

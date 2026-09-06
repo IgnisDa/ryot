@@ -5,6 +5,7 @@ import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { EventsServiceLive } from "#modules/events/layer";
 import { EventsRepository } from "#modules/events/repository";
+import { MutationReceipts } from "#modules/mutations/receipts";
 import { PluginRuntimeResolverLive } from "#modules/plugins/runtime-resolver";
 import { RelationshipsServiceLive } from "#modules/relationships/layer";
 import { RelationshipsRepository } from "#modules/relationships/repository";
@@ -20,6 +21,7 @@ export const UserStateServiceLive = UserStateService.layer.pipe(
 			EventsRepository.layer,
 			EntitiesRepositoryLive,
 			RelationshipsRepository.layer,
+			MutationReceipts.layer,
 		),
 	),
 	Layer.provide(PluginRuntimeResolverLive),

@@ -1,9 +1,11 @@
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { DatabaseSession } from "@ryot-app/kernel-backend/lib/infrastructure/db/session";
 import {
 	formatPropertyIssues,
 	parseAppSchemaProperties,
 } from "@ryot-app/kernel-backend/lib/property-schema/property-schema-runtime";
 import { IntegrationsRepository } from "@ryot-app/kernel-backend/modules/integrations/repository";
+import { MutationReceipts } from "@ryot-app/kernel-backend/modules/mutations/receipts";
 import { UserBootstrap } from "@ryot-app/kernel-backend/modules/user-bootstrap/bootstrap";
 import { Clock, Effect } from "effect";
 
@@ -366,8 +368,10 @@ export const migrateLegacyTables = Effect.gen(function* () {
 		);
 
 		const userBootstrap = yield* UserBootstrap;
+		const receipts = yield* MutationReceipts.make;
 		for (const user of migratedUserRows) {
-			yield* userBootstrap.perform(user.id).pipe(
+			const accountGeneration = yield* receipts.currentAccount(UserId.make(user.id));
+			yield* userBootstrap.perform(user.id, accountGeneration).pipe(
 				Effect.tapError((error) =>
 					Effect.logError("legacy user bootstrap failed", error).pipe(
 						Effect.annotateLogs({ userId: user.id }),

@@ -1,11 +1,12 @@
 import type { DbError } from "@ryot-app/contract/errors";
 import {
-	AutomationRun,
+	type AutomationRun,
+	AutomationPluginAfterRun,
 	AutomationTrigger,
 	type AutomationBatchChangePayload,
 	type LifecycleCommand,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import { PluginHook } from "@ryot-app/contract/modules/plugins/manifest";
+import { PluginBeforeHook } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	AutomationRunId,
 	AutomationTriggerId,
@@ -50,8 +51,8 @@ export const lifecycleRunId = (
 
 export const LifecyclePlannedPolicy = Schema.Struct({
 	position: Schema.Finite,
-	runId: AutomationRun.members[1].fields.id,
-	batchFrequency: PluginHook.members[0].fields.batchFrequency,
+	runId: AutomationPluginAfterRun.fields.id,
+	batchFrequency: PluginBeforeHook.fields.batchFrequency,
 });
 export type LifecyclePlannedPolicy = typeof LifecyclePlannedPolicy.Type;
 
@@ -62,8 +63,18 @@ export type LifecyclePlan = {
 	readonly policies: ReadonlyArray<LifecyclePlannedPolicy>;
 };
 
+export type LifecyclePlanningResult =
+	| LifecyclePlan
+	| {
+			readonly _tag: "NoHooks";
+			readonly trigger: null;
+			readonly wasCreated: false;
+			readonly runs: readonly [];
+			readonly policies: readonly [];
+	  };
+
 export const LifecycleDispatchRun = Schema.Struct(
-	Struct.pick(AutomationRun.members[1].fields, [
+	Struct.pick(AutomationPluginAfterRun.fields, [
 		"id",
 		"stage",
 		"status",
@@ -109,12 +120,17 @@ export type LifecycleBatchInput = {
 	readonly command: LifecycleCommand;
 	readonly identity: ReadonlyArray<string>;
 	readonly resource: LifecycleBatchResource;
-	readonly plans: ReadonlyArray<LifecyclePlan>;
+	readonly commandInput?: unknown;
+};
+
+export type LifecycleBatchChange = {
+	readonly scopeUserId: UserId | null;
+	readonly payload: AutomationBatchChangePayload["items"][number];
 };
 
 export type CommittedLifecycleWork<A> = {
 	readonly result: A;
-	readonly plans: ReadonlyArray<LifecyclePlan>;
+	readonly dispatch: ReadonlyArray<LifecycleDispatchPlan>;
 };
 
 export class LifecyclePersistenceError extends Schema.TaggedError<LifecyclePersistenceError>()(
@@ -135,7 +151,12 @@ export class LifecyclePlanner extends Context.Service<
 			trigger: AutomationTrigger;
 			recipients?: ReadonlyArray<UserId>;
 			excludedOncePerSubjectPolicies?: ReadonlyArray<Pick<AutomationRun, "pluginId" | "hookSlug">>;
-		}) => Effect.Effect<LifecyclePlan, DbError>;
-		planBatch: (input: LifecycleBatchInput) => Effect.Effect<ReadonlyArray<LifecyclePlan>, DbError>;
+		}) => Effect.Effect<LifecyclePlanningResult, DbError>;
+		prepareBatch: (
+			input: LifecycleBatchInput & { scopes: ReadonlyArray<UserId | null> },
+		) => Effect.Effect<{ id: string; hasCandidates: boolean }, DbError>;
+		planBatch: (
+			input: LifecycleBatchInput,
+		) => Effect.Effect<ReadonlyArray<LifecycleDispatchPlan>, DbError>;
 	}
 >()("LifecyclePlanner") {}

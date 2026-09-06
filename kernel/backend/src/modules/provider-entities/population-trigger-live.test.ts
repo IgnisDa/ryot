@@ -11,7 +11,8 @@ import { Context, Effect, Exit, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
-import { databaseLayer, makeWorkflowEngine } from "#lib/test-utils/effect";
+import { makeWorkflowEngine } from "#lib/test-utils/effect";
+import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { EntityPopulationTrigger } from "#modules/entities/population-trigger";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 
@@ -24,6 +25,7 @@ const command = rootLifecycleCommand({
 	initiator: { id: userId, kind: "user" },
 	occurredAt: IsoUtcString.make("2026-09-16T00:00:00.000Z"),
 	executionId: AutomationExecutionId.make("populate-entity-1"),
+	accountGeneration: { userId, token: "test-account-generation" },
 });
 
 type ExecuteOptions = Parameters<WorkflowEngine["Service"]["execute"]>[1];
@@ -46,7 +48,11 @@ const triggerLayer = (
 			});
 			return EntityPopulationTriggerLive.pipe(
 				Layer.provide(
-					Layer.mergeAll(databaseLayer, resolver, Layer.succeed(WorkflowEngine, engine)),
+					Layer.mergeAll(
+						mutationAdmissionTestLayer,
+						resolver,
+						Layer.succeed(WorkflowEngine, engine),
+					),
 				),
 				Layer.merge(Layer.succeed(FakePopulationEnqueues, { executions: Ref.get(executions) })),
 			);
@@ -72,7 +78,7 @@ layer(triggerLayer(Layer.mock(PluginRuntimeResolver)({}), () => Effect.die("enqu
 				);
 
 				expect((yield* executions).map(({ executionId }) => executionId)).toEqual([
-					"populate-entity-1",
+					"populate-entity-1-test-account-generation",
 				]);
 				expect(Exit.isFailure(exit)).toBe(true);
 			}),

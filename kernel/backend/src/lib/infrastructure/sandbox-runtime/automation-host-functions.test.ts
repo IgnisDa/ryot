@@ -78,6 +78,10 @@ const runInput = (executionUserId: UserId | null = userId): SandboxRunInput => (
 			type: "automation-run",
 			pluginRevisionId: null,
 			pluginConfigRevisionId: null,
+			accountGeneration:
+				executionUserId === null
+					? null
+					: { userId: executionUserId, token: "test-account-generation" },
 		},
 	},
 });
@@ -135,6 +139,7 @@ layer(automationHostLayer)((test) => {
 				{
 					occurredAt,
 					itemIdentity: "emitSignal:part-1",
+					accountGeneration: { userId, token: "test-account-generation" },
 					causation: {
 						...causation,
 						depth: 3,

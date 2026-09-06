@@ -12,6 +12,7 @@ import {
 } from "#lib/infrastructure/runtime-metrics";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
+import { MutationReceipts } from "#modules/mutations/receipts";
 
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 import { ProviderEntityPopulationWorkflow } from "./provider-entity-population-workflow";
@@ -60,6 +61,18 @@ const runImportPhases = Effect.fn("runEntityImportPhases")(function* (
 ) {
 	const engine = yield* WorkflowEngine;
 	const populationExecutionId = `${executionId}-provider-population`;
+	const receipts = yield* MutationReceipts.make;
+	yield* receipts
+		.registerWorkflow(
+			payload.command.accountGeneration,
+			ProviderEntityPopulationWorkflow._tag,
+			populationExecutionId,
+		)
+		.pipe(
+			Effect.mapError(
+				(error) => new EntityImportError({ stage: "population", message: error.message }),
+			),
+		);
 	const importedEntity = yield* measureImportPhase(
 		"population",
 		engine

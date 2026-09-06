@@ -6,7 +6,7 @@ import type {
 	PluginManifest,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/sandbox/wire";
-import type { UserId } from "@ryot-app/contract/schema/brands";
+import { PluginId, type UserId } from "@ryot-app/contract/schema/brands";
 import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
@@ -14,6 +14,8 @@ import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { PluginRepository } from "#modules/plugins/repository";
+
+import type { BatchHookPin } from "./batch-hook-pin";
 
 const plannedScriptFields = {
 	id: tables.sandboxScript.id,
@@ -93,7 +95,7 @@ const matchesItem = (target: PluginHookTarget, payload: ItemPayload): boolean =>
 	}
 };
 
-const matchesTarget = (target: PluginHookTarget, trigger: AutomationTrigger): boolean => {
+export const matchesTarget = (target: PluginHookTarget, trigger: AutomationTrigger): boolean => {
 	const payload = trigger.payload;
 	if (!payload) {
 		return false;
@@ -419,7 +421,62 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 				}
 				return result;
 			});
-			return { resolve, lockCatalog };
+			const resolveBatchCandidates = Effect.fn(function* (input: {
+				userId: UserId | null;
+				resource: "entity" | "event" | "relationship";
+				source: AutomationTrigger["causation"]["source"];
+			}) {
+				const available = yield* catalog(input.userId);
+				const selected: BatchHookPin[] = [];
+				for (const plugin of available) {
+					for (const hook of plugin.hooks) {
+						if (
+							hook.stage !== "after" ||
+							hook.frequency !== "batch" ||
+							(hook.causationSources && !hook.causationSources.includes(input.source)) ||
+							(hook.executionScope === "user" && input.userId === null) ||
+							(hook.executionScope === "global" && input.userId !== null) ||
+							!hook.targets.some((target) => target.resource === input.resource)
+						) {
+							continue;
+						}
+						const declaration = plugin.scripts.find(({ slug }) => slug === hook.scriptSlug);
+						if (declaration?.kind !== "automation" || declaration.automationType !== "automation") {
+							return yield* new DbError({
+								message: `Invalid batch hook script ${plugin.id}/${hook.slug}`,
+							});
+						}
+						const [script] = yield* session.run((db) =>
+							db
+								.select(plannedScriptFields)
+								.from(tables.sandboxScript)
+								.where(
+									and(
+										eq(tables.sandboxScript.pluginRevisionId, plugin.pluginRevisionId),
+										eq(tables.sandboxScript.slug, hook.scriptSlug),
+									),
+								),
+						);
+						if (script?.metadata.kind !== "automation") {
+							return yield* new DbError({
+								message: `Missing batch hook script ${plugin.id}/${hook.slug}`,
+							});
+						}
+						selected.push({
+							hook,
+							scriptSlug: script.slug,
+							sandboxScriptId: script.id,
+							executionUserId: input.userId,
+							pluginId: PluginId.make(plugin.id),
+							scriptContentHash: script.contentHash,
+							pluginRevisionId: plugin.pluginRevisionId,
+							pluginConfigRevisionId: plugin.pluginConfigRevisionId,
+						});
+					}
+				}
+				return selected;
+			});
+			return { resolve, lockCatalog, resolveBatchCandidates };
 		}),
 	},
 ) {

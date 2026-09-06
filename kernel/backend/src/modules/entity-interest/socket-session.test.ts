@@ -115,7 +115,15 @@ const makeLayer = (
 			const record = (entry: string) => Ref.update(activity, (all) => [...all, entry]);
 			return Layer.mergeAll(
 				Layer.mock(EntityInterestTicketService)({
-					consume: () => Effect.succeed({ preferredLanguage: "es", userId: UserId.make("user-1") }),
+					consume: () =>
+						Effect.succeed({
+							preferredLanguage: "es",
+							userId: UserId.make("user-1"),
+							accountGeneration: {
+								userId: UserId.make("user-1"),
+								token: "test-account-generation",
+							},
+						}),
 				}),
 				Layer.mock(EntityInterestStore)({
 					renewSession: () => Effect.succeed(true),
@@ -174,7 +182,12 @@ const obsoleteTokenLayer = Layer.unwrap(
 		const markAttempted = yield* Deferred.make<void>();
 		return Layer.mergeAll(
 			Layer.mock(EntityInterestTicketService)({
-				consume: () => Effect.succeed({ preferredLanguage: null, userId: UserId.make("user-1") }),
+				consume: () =>
+					Effect.succeed({
+						preferredLanguage: null,
+						userId: UserId.make("user-1"),
+						accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+					}),
 			}),
 			Layer.mock(EntityInterestStore)({
 				closeSession: () => Effect.succeed(true),

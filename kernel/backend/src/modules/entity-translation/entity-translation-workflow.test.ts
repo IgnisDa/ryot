@@ -37,6 +37,7 @@ const payload = {
 	entityId: EntityId.make("entity-1"),
 	properties: { title: "Test Record" },
 	providerId: SandboxProviderId.make("provider-1"),
+	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 } satisfies TranslateEntityWorkflowPayload;
 
 class FakeTranslationEffects extends Context.Service<
