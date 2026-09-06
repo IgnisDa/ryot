@@ -1,7 +1,8 @@
-import type {
-	PluginBridgeNavigate,
-	PluginNavigationTarget,
-	PluginRouteLocation,
+import {
+	kernelPagePaths,
+	type PluginBridgeNavigate,
+	type PluginNavigationTarget,
+	type PluginRouteLocation,
 } from "@ryot-app/client-plugin-contract";
 import { Match } from "effect";
 
@@ -36,6 +37,7 @@ export function toGlobalHref(target: PluginNavigationTarget) {
 		}),
 		Match.when({ kind: "entity" }, ({ entityId }) => `/e/${encodeURIComponent(entityId)}`),
 		Match.when({ kind: "saved-view" }, ({ slug }) => `/v/${encodeURIComponent(slug)}`),
+		Match.when({ kind: "kernel-page" }, ({ page }) => kernelPagePaths[page]),
 		Match.exhaustive,
 	);
 }
@@ -65,6 +67,7 @@ export function toNavigationRequest(
 		}),
 		Match.when({ kind: "entity" }, (entity) => (entity.entityId === "" ? undefined : entity)),
 		Match.when({ kind: "saved-view" }, (view) => (view.slug === "" ? undefined : view)),
+		Match.when({ kind: "kernel-page" }, (page) => page),
 		Match.exhaustive,
 	);
 	return target === undefined

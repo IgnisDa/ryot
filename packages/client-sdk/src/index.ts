@@ -10,6 +10,7 @@ import {
 	PluginManagedAssetResolution,
 	type PluginManagedAssetResolution as PluginManagedAssetResolutionValue,
 	type RyotClientErrorReason,
+	KernelPage,
 } from "@ryot-app/client-plugin-contract";
 import {
 	CollectionResponse,
@@ -102,6 +103,7 @@ export type TemporaryUploadRequest = {
 export const RyotNavigationTarget = Schema.Union([
 	strictStruct({ entityId: EntityId, kind: Schema.Literal("entity") }),
 	strictStruct({ slug: Schema.String, kind: Schema.Literal("saved-view") }),
+	strictStruct({ page: KernelPage, kind: Schema.Literal("kernel-page") }),
 	strictStruct({
 		path: Schema.String,
 		pluginSlug: PluginSlug,
