@@ -1,4 +1,4 @@
-import { Data, Effect, Schema } from "effect";
+import { Data, Effect, Schedule, Schema } from "effect";
 
 import {
 	decodeHostLines,
@@ -64,6 +64,12 @@ export const SSH_OPTIONS = [
 	"ServerAliveCountMax=6",
 ] as const;
 
+/**
+ * ssh reports its own transport failures as 255, which means the remote command never ran and the
+ * attempt can be repeated without duplicating a side effect.
+ */
+const SSH_TRANSPORT_EXIT_CODE = 255;
+
 export const makeRemote = (serverIp: string) => {
 	const run = (command: string, options: { readonly stdin?: Uint8Array } = {}) =>
 		Effect.tryPromise({
@@ -93,6 +99,11 @@ export const makeRemote = (serverIp: string) => {
 							}),
 						),
 			),
+			Effect.retry({
+				times: 5,
+				schedule: Schedule.spaced("10 seconds"),
+				while: (error: RemoteCommandError) => error.exitCode === SSH_TRANSPORT_EXIT_CODE,
+			}),
 		);
 
 	const binary = (args: string) => run(`${REMOTE_FILES.binary} ${args}`);
