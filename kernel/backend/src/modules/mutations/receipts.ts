@@ -199,31 +199,37 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()("Mutat
 					const fingerprint = sha256Base64Url(
 						stableStringify([account, workflowName, executionId]),
 					);
-					yield* session.run((db) =>
-						db
-							.insert(mutationReceipt)
-							.values({
-								id,
-								executionId,
-								workflowName,
-								dispatch: [],
-								commandKind: "workflow",
-								mutationScope: "global",
-								accountGeneration: account,
-								itemIdentity: workflowName,
-								ownerUserId: account.userId,
-								rootExecutionId: executionId,
-								inputFingerprint: fingerprint,
-								receiptType: "workflow-owner",
-							})
-							.onConflictDoNothing(),
-					);
-					const [owner] = yield* session.run((db) =>
+					const readOwner = session.run((db) =>
 						db
 							.select({ fingerprint: mutationReceipt.inputFingerprint })
 							.from(mutationReceipt)
 							.where(eq(mutationReceipt.id, id)),
 					);
+					let owner = (yield* readOwner)[0];
+					if (!owner) {
+						const [inserted] = yield* session.run((db) =>
+							db
+								.insert(mutationReceipt)
+								.values({
+									id,
+									executionId,
+									workflowName,
+									dispatch: [],
+									commandKind: "workflow",
+									mutationScope: "global",
+									accountGeneration: account,
+									itemIdentity: workflowName,
+									ownerUserId: account.userId,
+									rootExecutionId: executionId,
+									inputFingerprint: fingerprint,
+									receiptType: "workflow-owner",
+								})
+								.onConflictDoNothing()
+								.returning({ fingerprint: mutationReceipt.inputFingerprint }),
+						);
+						// A competing insert is visible only to the next statement's snapshot.
+						owner = inserted ?? (yield* readOwner)[0];
+					}
 					if (owner?.fingerprint !== fingerprint) {
 						return yield* new DbError({
 							message: "Workflow belongs to another account generation",

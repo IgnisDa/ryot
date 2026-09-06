@@ -17,16 +17,33 @@ export class ScriptGarbageCollector extends Context.Service<ScriptGarbageCollect
 			const config = yield* AppConfig;
 			const repository = yield* PluginRepository;
 			const runtime = yield* PackageCacheManager;
+			const deferred = Effect.logDebug("sandbox script garbage collection deferred").pipe(
+				Effect.as({ removedCount: 0, candidateCount: 0 }),
+			);
 			const collect = Effect.fn("ScriptGarbageCollector.collect")(function* (input?: {
 				now: Date;
 				limit: number;
+				scheduled?: boolean;
 			}) {
 				const now = input?.now ?? DateTime.toDate(yield* DateTime.now);
 				const limit = input?.limit ?? 500;
+				if (input?.scheduled && (yield* repository.hasLiveWorkflowReferences())) {
+					return yield* deferred;
+				}
 
 				const result = yield* database.transaction(
 					Effect.gen(function* () {
-						yield* repository.lockIngestion();
+						if (input?.scheduled) {
+							if (!(yield* repository.tryLockIngestion())) {
+								return undefined;
+							}
+							// A pin may commit between the preflight read and the exclusive fence.
+							if (yield* repository.hasLiveWorkflowReferences()) {
+								return undefined;
+							}
+						} else {
+							yield* repository.lockIngestion();
+						}
 						yield* repository.pruneRevisionArtifacts({
 							now,
 							limit,
@@ -54,6 +71,9 @@ export class ScriptGarbageCollector extends Context.Service<ScriptGarbageCollect
 						};
 					}),
 				);
+				if (result === undefined) {
+					return yield* deferred;
+				}
 				yield* Effect.logInfo("sandbox script garbage collection completed").pipe(
 					Effect.annotateLogs(result),
 				);

@@ -167,11 +167,21 @@ export const waitForHealthCheck = (
 		throw new Error(`[${label}] Health check failed for ${url} after ${maxRetries} retries`);
 	});
 
-export const stopApiProcess = (proc?: ReturnType<typeof spawnApiProcess>) =>
+export const stopApiProcess = (
+	proc?: Pick<ReturnType<typeof spawnApiProcess>, "exitCode" | "exited" | "kill">,
+) =>
 	Effect.gen(function* () {
-		if (proc?.exitCode !== null || proc.killed) {
+		if (proc?.exitCode !== null) {
 			return;
 		}
 		proc.kill("SIGINT");
+		const exited = yield* Effect.promise(() => proc.exited).pipe(
+			Effect.timeoutOption("20 seconds"),
+		);
+		if (exited._tag === "Some") {
+			return;
+		}
+		// A sent signal does not prove that the tracked child has exited.
+		proc.kill("SIGKILL");
 		yield* Effect.promise(() => proc.exited);
 	});
