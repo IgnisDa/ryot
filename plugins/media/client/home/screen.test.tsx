@@ -192,6 +192,23 @@ describe("home sections", () => {
 		]);
 		view.unmount();
 	});
+	it("refreshes every section at local midnight", async () => {
+		const home = homeAdapter({ gate: 1 });
+		const view = mountRyotClient(home.adapter, null);
+		await view.setTime(new Date(2026, 8, 25, 23, 30).getTime());
+		view.rerender(<HomeBody compact scrollRootRef={{ current: null }} />);
+		await flushRyotClient();
+		const continueRequests = () =>
+			home.requested.filter((names) => names.includes("flat.items") && names.includes("show.items"))
+				.length;
+		const beforeMidnight = continueRequests();
+
+		await view.advance("31 minutes");
+		await flushRyotClient();
+
+		expect(continueRequests()).toBeGreaterThan(beforeMidnight);
+		view.unmount();
+	});
 });
 
 describe("first run", () => {
