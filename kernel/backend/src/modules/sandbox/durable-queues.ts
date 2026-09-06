@@ -3,11 +3,11 @@ import {
 	SandboxExecutionGrants,
 	type SandboxExecutionPayload,
 } from "@ryot-app/contract/modules/sandbox/schemas";
-import { Clock, DateTime, Effect, Schedule, Schema } from "effect";
+import { Clock, DateTime, Effect, Layer, Schedule, Schema } from "effect";
 import { DurableQueue } from "effect/unstable/workflow";
 
+import { AppConfig } from "#lib/infrastructure/config/service";
 import { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
-import { SANDBOX_LIMITS } from "#lib/infrastructure/sandbox-runtime/limits";
 import { SandboxService as RuntimeSandboxService } from "#lib/infrastructure/sandbox-runtime/service";
 
 import { SandboxExecutionResult } from "./execution-result";
@@ -117,6 +117,8 @@ const makeSandboxExecutionQueueWorkerLive = (concurrency: number) =>
 		{ concurrency },
 	);
 
-export const SandboxExecutionQueueWorkerLive = makeSandboxExecutionQueueWorkerLive(
-	SANDBOX_LIMITS.workerConcurrency,
+export const SandboxExecutionQueueWorkerLive = Layer.unwrap(
+	Effect.map(AppConfig, (config) =>
+		makeSandboxExecutionQueueWorkerLive(config.sandbox.workerConcurrency),
+	),
 );
