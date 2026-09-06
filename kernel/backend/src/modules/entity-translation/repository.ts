@@ -1,7 +1,8 @@
 import { DbError } from "@ryot-app/contract/errors";
 import { EntityId, type UserId } from "@ryot-app/contract/schema/brands";
+import { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { asc, eq, inArray, sql } from "drizzle-orm";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Schema } from "effect";
 
 import { user } from "#lib/infrastructure/db/schema/tables/auth";
 import * as schema from "#lib/infrastructure/db/schema/tables/combined";
@@ -13,11 +14,6 @@ export type TranslationOverlayInput = {
 	entityId: EntityId;
 	name: string | null;
 	properties: Record<string, unknown> | null;
-};
-
-const extractLanguage = (preferences: Record<string, unknown>): string | null => {
-	const language = preferences["language"];
-	return typeof language === "string" && language.length > 0 ? language : null;
 };
 
 export class TranslationsRepository extends Context.Service<TranslationsRepository>()(
@@ -87,7 +83,14 @@ export class TranslationsRepository extends Context.Service<TranslationsReposito
 						.limit(1),
 				);
 
-				return row ? extractLanguage(row.preferences) : null;
+				return row
+					? (yield* Schema.decodeEffect(UserPreferences)(row.preferences).pipe(
+							Effect.mapError(
+								(error) =>
+									new DbError({ message: `Invalid stored user preferences: ${error.message}` }),
+							),
+						)).language
+					: null;
 			});
 
 			return { upsertOverlay, listForBackup, findUserLanguage };

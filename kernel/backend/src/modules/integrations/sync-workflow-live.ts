@@ -2,6 +2,7 @@ import { Effect, Schema } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
+import { MutationReceipts } from "#modules/mutations/receipts";
 
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
 import { IntegrationSyncRun } from "./jobs";
@@ -13,20 +14,34 @@ export const runIntegrationSyncWorkflow = Effect.fn("IntegrationSyncWorkflow")(
 		yield* Effect.annotateCurrentSpan({ executionId, userId: payload.userId });
 		const engine = yield* WorkflowEngine;
 		const integrations = yield* IntegrationsService;
+		const receipts = yield* MutationReceipts.make;
+		yield* receipts
+			.registerWorkflow(payload.accountGeneration, IntegrationSyncWorkflow._tag, executionId)
+			.pipe(Effect.orDie);
 
 		const runs = yield* makeActivity({
 			error: Schema.Never,
 			name: "prepare-integration-sync-runs",
 			success: Schema.Array(IntegrationSyncRun),
-			execute: integrations.prepareYankRuns(payload.userId).pipe(Effect.orDie),
+			execute: integrations
+				.prepareYankRuns(payload.userId, payload.accountGeneration)
+				.pipe(Effect.orDie),
 		});
 
 		for (const run of runs) {
+			yield* receipts
+				.registerWorkflow(run.accountGeneration, ProcessIntegrationRunWorkflow._tag, run.runId)
+				.pipe(Effect.orDie);
 			yield* engine
 				.execute(ProcessIntegrationRunWorkflow, {
 					discard: true,
 					executionId: run.runId,
-					payload: { runId: run.runId, userId: run.userId, integrationId: run.integrationId },
+					payload: {
+						runId: run.runId,
+						userId: run.userId,
+						integrationId: run.integrationId,
+						accountGeneration: run.accountGeneration,
+					},
 				})
 				.pipe(
 					Effect.catchCause((cause) =>

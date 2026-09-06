@@ -1,7 +1,5 @@
-import type {
-	UpdateUserPreferencesBody,
-	UserPreferences,
-} from "@ryot-app/contract/modules/user-settings/schemas";
+import type { UpdateUserPreferencesBody } from "@ryot-app/contract/modules/user-settings/schemas";
+import type { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
 
 export type PreferenceDraft = {
 	readonly language: string;

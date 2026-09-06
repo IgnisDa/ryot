@@ -13,6 +13,7 @@ import { RedisService, redisKeys } from "#lib/infrastructure/redis";
 import { sandboxContextError } from "#lib/infrastructure/sandbox-runtime/limits";
 import { getSandboxProcessMetrics } from "#lib/infrastructure/sandbox-runtime/runtime";
 import { ImportsService } from "#modules/imports/service";
+import { MutationReceipts } from "#modules/mutations/receipts";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
@@ -36,10 +37,12 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 			const imports = yield* ImportsService;
 			const sandbox = yield* SandboxExecutionService;
 			const pluginRuntime = yield* PluginRuntimeResolver;
+			const receipts = yield* MutationReceipts.make;
 
 			const startWorkflowLoad = Effect.fn("OperationalGateService.startWorkflowLoad")(function* (
 				input: TestSupportStartWorkflowLoadGateBody,
 			) {
+				const accountGeneration = yield* receipts.currentAccount(input.executingUserId);
 				const available = yield* pluginRuntime.listPluginsAvailableToUser(input.executingUserId);
 				const installation = available.find(({ slug }) => slug === input.pluginSlug);
 				if (!installation) {
@@ -69,6 +72,7 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 					externalId: `${input.identifierPrefix}-${index}`,
 					command: {
 						occurredAt,
+						accountGeneration,
 						itemIdentity: JSON.stringify(["workflow-load", index]),
 						causation: {
 							depth: 0,
@@ -115,6 +119,7 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 					yield* sandbox
 						.enqueuePluginWorkflow({
 							executionId,
+							accountGeneration,
 							pluginId: installation.id,
 							input: { items: packedItems },
 							workflowSlug: input.workflowSlug,

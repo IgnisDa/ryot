@@ -15,16 +15,16 @@ import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import type { LifecyclePlan } from "#lib/domain/lifecycle";
+import { toLifecycleDispatchPlan } from "#lib/domain/lifecycle";
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
-import { mapDatabaseErrors } from "#lib/infrastructure/db/errors";
 import { RedisService } from "#lib/infrastructure/redis";
 import {
 	makeMemoizingWorkflowEngine,
 	makeRedisService,
 	makeWorkflowActivityEngine,
-	fakeDatabaseSession,
 } from "#lib/test-utils/effect";
+import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { planFixture } from "#modules/automations/lifecycle.test-support";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import type { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
@@ -54,6 +54,7 @@ const command = rootLifecycleCommand({
 	source: "provider-refresh",
 	itemIdentity: "population",
 	initiator: { id: userId, kind: "user" },
+	accountGeneration: { userId, token: "test-account-generation" },
 	executionId: AutomationExecutionId.make("population-execution"),
 });
 
@@ -115,10 +116,6 @@ const payload = {
 	entityScope: { userId, type: "global" as const },
 };
 
-const passthroughDatabase = fakeDatabaseSession(Object.create(null), {
-	transaction: (work) => mapDatabaseErrors(work),
-});
-
 const sandboxResult = {
 	logs: [],
 	error: null,
@@ -168,10 +165,10 @@ const populationLayer = (options: {
 				const entity = listedEntity(input.externalId, input.entitySchemaSlug);
 				return record(label).pipe(
 					Effect.as({
-						plans:
+						dispatch:
 							label === "root-upsert"
-								? [...(options.rootPlans ?? [planFixture("root-upsert")])]
-								: [planFixture(label)],
+								? (options.rootPlans ?? [planFixture("root-upsert")]).map(toLifecycleDispatchPlan)
+								: [toLifecycleDispatchPlan(planFixture(label))],
 						result: {
 							entity,
 							wasInserted: true,
@@ -185,7 +182,7 @@ const populationLayer = (options: {
 				);
 			};
 			return Layer.mergeAll(
-				passthroughDatabase,
+				mutationAdmissionTestLayer,
 				Layer.mock(DefinitionRepository)({
 					getGlobalSnapshot: Effect.succeed(definitions),
 					getUserSnapshot: () => Effect.succeed(definitions),
@@ -209,7 +206,10 @@ const populationLayer = (options: {
 						Effect.forEach(input.items, upsertItem).pipe(
 							Effect.map((works) => ({
 								results: works.map(({ result }) => result),
-								plans: [...works.flatMap(({ plans }) => plans), planFixture("entities-batch")],
+								dispatch: [
+									...works.flatMap(({ dispatch }) => dispatch),
+									toLifecycleDispatchPlan(planFixture("entities-batch")),
+								],
 							})),
 						),
 				}),
@@ -220,8 +220,8 @@ const populationLayer = (options: {
 					persistPlannedReconciliation: (_groups, _command, _scope) =>
 						record("relationships").pipe(
 							Effect.as({
-								plans: [planFixture("relationships")],
 								result: [{ created: 1, updated: 0, deleted: 0, upserted: 1 }],
+								dispatch: [toLifecycleDispatchPlan(planFixture("relationships"))],
 							}),
 						),
 				}),

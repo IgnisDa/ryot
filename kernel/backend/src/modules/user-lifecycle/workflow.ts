@@ -1,5 +1,4 @@
 import { createOAuthAccountIssuer } from "@better-auth/core/db";
-import { defaultUserPreferences } from "@ryot-app/contract/auth-middleware";
 import { InternalError, internalError } from "@ryot-app/contract/errors";
 import {
 	type UserLifecycleOperationFailure,
@@ -15,6 +14,18 @@ import { DatabaseSession } from "#lib/infrastructure/db/session";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { AuthService } from "#modules/auth/service";
+import { AutomationRunWorkflow } from "#modules/automations/run-workflow";
+import { AddEntityToCollectionWorkflow } from "#modules/collections/add-entity-to-collection-workflow";
+import { EventCreateWorkflow } from "#modules/events/event-create-workflow";
+import { ProcessGenericImportChunksWorkflow } from "#modules/imports/generic-import-workflow";
+import { ProcessImportRunWorkflow } from "#modules/imports/import-run-workflow";
+import { ProcessIntegrationRunWorkflow } from "#modules/integrations/integration-workflow";
+import { IntegrationSyncWorkflow } from "#modules/integrations/sync-workflow";
+import { MutationReceipts } from "#modules/mutations/receipts";
+import { EntityImportWorkflow } from "#modules/provider-entities/entity-import-workflow";
+import { ProviderEntityPopulationWorkflow } from "#modules/provider-entities/provider-entity-population-workflow";
+import { SandboxDurableHostServiceWorkflow } from "#modules/sandbox/durable-host-dispatcher";
+import { SandboxScriptWorkflow } from "#modules/sandbox/sandbox-script-workflow";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 import { userBootstrapWorkflowExecutionId } from "#modules/user-bootstrap/scheduling";
 import { UserBootstrapWorkflow } from "#modules/user-bootstrap/workflow";
@@ -72,6 +83,21 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 		const repository = yield* UserLifecycleRepository;
 		const objectStorage = yield* ObjectStorageService;
 		const engine = yield* WorkflowEngine;
+		const receipts = yield* MutationReceipts.make;
+		const mutationWorkflows: ReadonlyArray<Workflow.Any> = [
+			EventCreateWorkflow,
+			EntityImportWorkflow,
+			ProviderEntityPopulationWorkflow,
+			AutomationRunWorkflow,
+			ProcessImportRunWorkflow,
+			ProcessGenericImportChunksWorkflow,
+			ProcessIntegrationRunWorkflow,
+			IntegrationSyncWorkflow,
+			SandboxScriptWorkflow,
+			SandboxDurableHostServiceWorkflow,
+			AddEntityToCollectionWorkflow,
+			UserBootstrapWorkflow,
+		];
 
 		const requireOperation = (operationId: string) =>
 			repository.getInternalById(operationId).pipe(
@@ -114,10 +140,21 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 				Effect.gen(function* () {
 					const operation = yield* requireOperation(operationId);
 					if (operation.databaseCleanupCompletedAt !== null) {
-						return;
+						return yield* Effect.void;
+					}
+					const work = yield* repository.listUserMutationWork(operation.operation.userId);
+					for (const owner of work) {
+						const workflow = mutationWorkflows.find(
+							(candidate) => candidate._tag === owner.workflowName,
+						);
+						if (!workflow) {
+							return yield* internalError("User mutation workflow owner is unknown");
+						}
+						yield* engine.interrupt(workflow, owner.executionId);
 					}
 					yield* repository.deleteUserData(operation.operation.userId);
 					yield* repository.markDatabaseCleanupCompleted(operationId);
+					return yield* Effect.void;
 				}),
 				"User database cleanup failed",
 			);
@@ -141,7 +178,6 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 							name: metadata.user.name,
 							email: metadata.user.email,
 							id: operation.operation.userId,
-							preferences: defaultUserPreferences,
 							emailVerified: metadata.user.emailVerified,
 						});
 						identity = yield* repository.loadRecreatedIdentity(operation.operation.userId);
@@ -180,12 +216,21 @@ export const UserLifecycleWorkflowOperationsLive = Layer.effect(
 
 		const bootstrapResetUser = (userId: UserId, operationId: string) =>
 			asInternal(
-				engine
-					.execute(UserBootstrapWorkflow, {
-						payload: { userId, generation: operationId },
-						executionId: `${userBootstrapWorkflowExecutionId(userId)}-reset-${operationId}`,
-					})
-					.pipe(Effect.asVoid),
+				Effect.gen(function* () {
+					const accountGeneration = yield* receipts.currentAccount(userId);
+					const executionId = `${userBootstrapWorkflowExecutionId(userId, accountGeneration)}-reset-${operationId}`;
+					yield* receipts.registerWorkflow(
+						accountGeneration,
+						UserBootstrapWorkflow._tag,
+						executionId,
+					);
+					return yield* engine
+						.execute(UserBootstrapWorkflow, {
+							executionId,
+							payload: { userId, accountGeneration, generation: operationId },
+						})
+						.pipe(Effect.asVoid);
+				}),
 				"Reset user bootstrap failed",
 			);
 

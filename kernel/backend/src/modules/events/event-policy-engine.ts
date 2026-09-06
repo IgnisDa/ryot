@@ -1,6 +1,7 @@
 import {
 	AutomationEventDraft,
-	AutomationRequestPayload,
+	AutomationEventCreateRequestPayload,
+	type AutomationEventRequestPayload,
 	type AutomationPolicyPatch,
 	type AutomationRun,
 } from "@ryot-app/contract/modules/automations/lifecycle";
@@ -23,19 +24,19 @@ import { EventCreateWorkflowError, type EventCreateWorkflowPayload } from "./eve
 import { resolveEventCreateItemScopes } from "./event-creation";
 
 export type EventRequest = Extract<
-	AutomationRequestPayload,
+	AutomationEventRequestPayload,
 	{ resource: "event"; operation: "create" }
 >;
 export type PolicyIdentity = Pick<AutomationRun, "pluginId" | "hookSlug">;
 
-const PolicyIdentity = Schema.Struct({
+export const PolicyIdentity = Schema.Struct({
 	hookSlug: AutomationHookSlug,
 	pluginId: Schema.NullOr(PluginId),
 });
 const EventPolicyOutcome = Schema.Union([
 	Schema.TaggedStruct("Accepted", {
 		processed: Schema.Array(PolicyIdentity),
-		request: AutomationRequestPayload.members[3],
+		request: AutomationEventCreateRequestPayload,
 	}),
 	Schema.TaggedStruct("Skipped", {
 		reason: Schema.String,

@@ -7,6 +7,7 @@ import {
 	AutomationTrigger,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { SANDBOX_FAILURE_KINDS } from "@ryot-app/contract/modules/sandbox/wire";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { jsonByteLength } from "@ryot-app/sandbox-compiler/limits";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
@@ -25,6 +26,7 @@ import {
 } from "./run-workflow-live";
 
 const trigger = triggerFixture();
+const accountGeneration = { userId: UserId.make("owner"), token: "test-account-generation" };
 const run = Schema.decodeSync(AutomationRun)({
 	id: "run",
 	stage: "after",
@@ -173,6 +175,9 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 									chosen.trigger,
 									input,
 									chosen.run.stage === "before" ? policyScript : afterScript,
+									chosen.run.executionUserId === null
+										? null
+										: { token: "test-account-generation", userId: chosen.run.executionUserId },
 									{ pinned: true },
 								),
 					),
@@ -234,22 +239,16 @@ it.effect(
 	"passes inline canonical input, retained metadata and exact trusted revision identities",
 	() =>
 		Effect.gen(function* () {
-			const prepared = yield* prepareAutomationInvocation(run, trigger, payload, afterScript, {
-				retained: "metadata",
-			});
+			const prepared = yield* prepareAutomationInvocation(
+				run,
+				trigger,
+				payload,
+				afterScript,
+				accountGeneration,
+				{ retained: "metadata" },
+			);
 			expect(prepared).toEqual({
 				scriptId: "script-old",
-				subject: {
-					runId: run.id,
-					stage: "after",
-					pluginId: "plugin",
-					triggerId: trigger.id,
-					type: "automation-run",
-					executionUserId: "owner",
-					causation: trigger.causation,
-					pluginRevisionId: "revision-old",
-					pluginConfigRevisionId: "config-old",
-				},
 				input: {
 					automation: {
 						runId: run.id,
@@ -261,6 +260,18 @@ it.effect(
 						occurredAt: trigger.occurredAt,
 						hookMetadata: { retained: "metadata" },
 					},
+				},
+				subject: {
+					runId: run.id,
+					stage: "after",
+					pluginId: "plugin",
+					triggerId: trigger.id,
+					type: "automation-run",
+					executionUserId: "owner",
+					causation: trigger.causation,
+					pluginRevisionId: "revision-old",
+					pluginConfigRevisionId: "config-old",
+					accountGeneration: { userId: UserId.make("owner"), token: "test-account-generation" },
 				},
 			});
 			const kernel = yield* prepareAutomationInvocation(
@@ -274,12 +285,14 @@ it.effect(
 				trigger,
 				payload,
 				afterScript,
+				null,
 			);
 			expect(kernel.subject).toEqual({
 				...prepared.subject,
 				pluginId: null,
 				executionUserId: null,
 				pluginRevisionId: null,
+				accountGeneration: null,
 				pluginConfigRevisionId: null,
 			});
 		}),
@@ -295,6 +308,7 @@ it.effect(
 				requestTrigger,
 				{ ...payload, acceptedPatches: [patch] },
 				policyScript,
+				accountGeneration,
 			);
 			expect(prepared.input.automation.payload).toEqual({
 				...request,
@@ -308,6 +322,7 @@ it.effect(
 					requestTrigger,
 					{ ...payload, attemptNumber: 2 },
 					policyScript,
+					accountGeneration,
 				),
 			);
 			expect(exit._tag).toBe("Failure");
@@ -321,6 +336,7 @@ it.effect("uses safe standard preparation diagnostics", () =>
 			requestTrigger,
 			{ ...payload, attemptNumber: 2 },
 			policyScript,
+			accountGeneration,
 		).pipe(Effect.flip);
 		expect(mismatch).toMatchObject({
 			kind: "invalid-input",
@@ -331,18 +347,25 @@ it.effect("uses safe standard preparation diagnostics", () =>
 			trigger,
 			payload,
 			afterScript,
+			accountGeneration,
 		).pipe(Effect.flip);
 		expect(missingScript).toMatchObject({
 			kind: "missing-artifact",
 			message: "Pinned automation script or hook declaration is unavailable",
 		});
 
-		const invalidProjection = yield* prepareAutomationInvocation(run, trigger, payload, {
-			...afterScript,
-			inputProjection: {
-				entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
+		const invalidProjection = yield* prepareAutomationInvocation(
+			run,
+			trigger,
+			payload,
+			{
+				...afterScript,
+				inputProjection: {
+					entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
+				},
 			},
-		}).pipe(Effect.flip);
+			accountGeneration,
+		).pipe(Effect.flip);
 		expect(invalidProjection).toMatchObject({
 			kind: "invalid-input",
 			message:
@@ -375,10 +398,13 @@ it.effect("uses safe standard preparation diagnostics", () =>
 		};
 		const expectedBytes = jsonByteLength(expectedInput);
 		expect(expectedBytes).not.toBeNull();
-		const oversized = yield* prepareAutomationInvocation(run, oversizedTrigger, payload, {
-			...afterScript,
-			inputProjection: { signal: { properties: ["oversized"] } },
-		}).pipe(Effect.flip);
+		const oversized = yield* prepareAutomationInvocation(
+			run,
+			oversizedTrigger,
+			payload,
+			{ ...afterScript, inputProjection: { signal: { properties: ["oversized"] } } },
+			accountGeneration,
+		).pipe(Effect.flip);
 		expect(oversized).toMatchObject({
 			kind: "invalid-input",
 			message: `Automation input for hook 'hook' is ${expectedBytes} UTF-8 bytes; maximum is 65536 bytes`,

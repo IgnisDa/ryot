@@ -13,11 +13,11 @@ import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/Workf
 
 import { RedisService } from "#lib/infrastructure/redis";
 import {
-	databaseLayer,
 	makeAppConfigLayer,
 	makeRedisService,
 	makeWorkflowActivityEngine,
 } from "#lib/test-utils/effect";
+import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { SignalEmissionService, type EmitSignalInput } from "#modules/automations/signal-service";
 import { ImportRunFailuresService } from "#modules/imports/failure-service";
 import { ImportsRepository } from "#modules/imports/repository";
@@ -89,7 +89,7 @@ const makeTestLayer = (
 	} = {},
 ) =>
 	Layer.mergeAll(
-		databaseLayer,
+		mutationAdmissionTestLayer,
 		makeAppConfigLayer(),
 		BunFileSystem.layer,
 		mockImportRunFailuresService({ create: () => Effect.void }),
@@ -244,6 +244,7 @@ const sinkPayload = {
 	userId: UserId.make("user_1"),
 	runId: ImportRunId.make("run_1"),
 	integrationId: IntegrationId.make("int_1"),
+	accountGeneration: { userId: UserId.make("user_1"), token: "test-account-generation" },
 	webhook: {
 		contentType: "application/json",
 		rawBody: JSON.stringify({ lot: "item", progress: 30, identifier: "603" }),
@@ -254,6 +255,7 @@ const yankPayload = {
 	userId: UserId.make("user_1"),
 	runId: ImportRunId.make("run_1"),
 	integrationId: IntegrationId.make("int_1"),
+	accountGeneration: { userId: UserId.make("user_1"), token: "test-account-generation" },
 };
 
 layer(makeTestLayer({ capturesChildren: true, runStatus: "completed" }))((test) => {

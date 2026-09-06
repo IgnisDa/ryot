@@ -1,3 +1,4 @@
+import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type { EntityId, SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
@@ -6,6 +7,7 @@ import { TranslateEntityWorkflow, translateEntityExecutionId } from "./entity-tr
 import { TranslationsRepository, type TranslationOverlayInput } from "./repository";
 
 export type RequestFillInput = {
+	accountGeneration: AccountGeneration;
 	userId: UserId;
 	language: string;
 	entityId: EntityId;
@@ -44,6 +46,7 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 							providerId: input.providerId,
 							properties: input.properties,
 							entitySchemaSlug: input.entitySchemaSlug,
+							accountGeneration: input.accountGeneration,
 						},
 					})
 					.pipe(

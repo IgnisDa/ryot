@@ -1,10 +1,31 @@
 const promiseMethods = new Set(["then", "catch", "finally"]);
+const promiseFactories = new Set([
+	"resolve",
+	"reject",
+	"all",
+	"allSettled",
+	"race",
+	"any",
+	"withResolvers",
+]);
 
 const effectFacadeSources = new Set([
 	"effect",
 	"@ryot-app/sandbox-sdk/effect",
 	"@ryot-app/client-sdk/effect",
 ]);
+
+const propertyName = (node) => {
+	if (node.type !== "MemberExpression") {
+		return undefined;
+	}
+	if (!node.computed) {
+		return node.property.name;
+	}
+	return node.property.type === "Literal" && typeof node.property.value === "string"
+		? node.property.value
+		: undefined;
+};
 
 const getImportedName = (specifier) => {
 	if (specifier.type !== "ImportSpecifier") {
@@ -15,123 +36,163 @@ const getImportedName = (specifier) => {
 		: specifier.imported.value;
 };
 
-const trackEffectImport = (node, effectBindings, effectNamespaces) => {
-	const source = node.source.value;
-	for (const specifier of node.specifiers) {
-		if (source === "effect/Effect" && specifier.type === "ImportNamespaceSpecifier") {
-			effectBindings.add(specifier.local.name);
-		} else if (effectFacadeSources.has(source)) {
-			if (getImportedName(specifier) === "Effect") {
-				effectBindings.add(specifier.local.name);
-			} else if (specifier.type === "ImportNamespaceSpecifier") {
-				effectNamespaces.add(specifier.local.name);
-			}
-		}
+const variableFor = (context, node) => {
+	if (node.type !== "Identifier") {
+		return undefined;
 	}
+	let scope = context.sourceCode.getScope(node);
+	while (scope) {
+		const variable = scope.set.get(node.name);
+		if (variable) {
+			return variable;
+		}
+		scope = scope.upper;
+	}
+	return undefined;
 };
 
-const isEffectBinding = (node, effectBindings, effectNamespaces) => {
+const importedFrom = (context, node, source, name) => {
+	const variable = variableFor(context, node);
+	const definition = variable?.defs[0];
+	return (
+		definition?.type === "ImportBinding" &&
+		definition.parent?.source.value === source &&
+		(name === "*"
+			? definition.node.type === "ImportNamespaceSpecifier"
+			: getImportedName(definition.node) === name)
+	);
+};
+
+const isEffectBinding = (context, node) => {
 	if (node.type === "Identifier") {
-		return effectBindings.has(node.name);
-	}
-	if (node.type !== "MemberExpression") {
-		return false;
+		return (
+			importedFrom(context, node, "effect/Effect", "*") ||
+			[...effectFacadeSources].some((source) => importedFrom(context, node, source, "Effect"))
+		);
 	}
 	return (
-		!node.computed &&
-		node.object.type === "Identifier" &&
-		effectNamespaces.has(node.object.name) &&
-		node.property.name === "Effect"
+		node.type === "MemberExpression" &&
+		propertyName(node) === "Effect" &&
+		[...effectFacadeSources].some((source) => importedFrom(context, node.object, source, "*"))
 	);
 };
 
-const normalizeFilename = (filename) => filename.replaceAll("\\", "/");
+const initializerOf = (context, node) => {
+	const variable = variableFor(context, node);
+	if (
+		!variable ||
+		variable.references.some((reference) => reference.isWrite() && !reference.init)
+	) {
+		return undefined;
+	}
+	const definition = variable.defs[0];
+	return definition?.type === "Variable" ? definition.node.init : undefined;
+};
 
-const isServiceOwnerFile = (filename) =>
-	/(?:^|\/)(kernel\/(backend|client)|migrations\/[^/]+|plugins\/[^/]+\/host|apps\/server)\//.test(
-		normalizeFilename(filename),
+const isPromise = (context, node, seen = new Set()) => {
+	if (node.type === "Identifier") {
+		const variable = variableFor(context, node);
+		if (!variable || seen.has(variable)) {
+			return false;
+		}
+		seen.add(variable);
+		const initializer = initializerOf(context, node);
+		return initializer ? isPromise(context, initializer, seen) : false;
+	}
+	if (node.type === "NewExpression") {
+		return (
+			node.callee.type === "Identifier" &&
+			node.callee.name === "Promise" &&
+			!variableFor(context, node.callee)
+		);
+	}
+	if (node.type !== "CallExpression") {
+		return false;
+	}
+	if (node.callee.type === "Identifier") {
+		const variable = variableFor(context, node.callee);
+		const definition = variable?.defs[0];
+		return (
+			(node.callee.name === "fetch" && !variable) ||
+			(definition?.type === "FunctionName" && definition.node.async === true) ||
+			initializerOf(context, node.callee)?.async === true
+		);
+	}
+	const callee = node.callee;
+	return (
+		callee.type === "MemberExpression" &&
+		((promiseFactories.has(propertyName(callee)) &&
+			callee.object.type === "Identifier" &&
+			callee.object.name === "Promise" &&
+			!variableFor(context, callee.object)) ||
+			(promiseMethods.has(propertyName(callee)) && isPromise(context, callee.object, seen)))
 	);
+};
 
-const isAppServiceSource = (source) =>
-	["#", ".", "@ryot-app/kernel-backend/"].some((prefix) => source.startsWith(prefix));
+const isWorkflowFactory = (context, node) =>
+	importedFrom(context, node, "effect/unstable/workflow", "Workflow") ||
+	(node.type === "MemberExpression" &&
+		propertyName(node) === "Workflow" &&
+		importedFrom(context, node.object, "effect/unstable/workflow", "*"));
 
-const scopedContextServices = new Set(["AuthorizationContext", "CurrentUser"]);
-
-const isTestFile = (filename) => {
-	const normalizedFilename = normalizeFilename(filename);
-	return [/\.test\.tsx?$/, /[-.]test-support\.ts$/, /(?:^|\/)test-(support|utils)\//].some(
-		(pattern) => pattern.test(normalizedFilename),
+const isWorkflow = (context, node, seen = new Set()) => {
+	if (node.type === "Identifier") {
+		const variable = variableFor(context, node);
+		if (!variable || seen.has(variable)) {
+			return false;
+		}
+		seen.add(variable);
+		const initializer = initializerOf(context, node);
+		return initializer ? isWorkflow(context, initializer, seen) : false;
+	}
+	return (
+		node.type === "CallExpression" &&
+		node.callee.type === "MemberExpression" &&
+		propertyName(node.callee) === "make" &&
+		isWorkflowFactory(context, node.callee.object)
 	);
 };
 
 export default {
 	meta: { name: "ryot" },
 	rules: {
+		"no-workflow-to-layer": {
+			create(context) {
+				return {
+					CallExpression(node) {
+						const { callee } = node;
+						if (
+							callee.type === "MemberExpression" &&
+							propertyName(callee) === "toLayer" &&
+							isWorkflow(context, callee.object)
+						) {
+							context.report({
+								node: callee.property,
+								message:
+									"Register workflows with implementWorkflow from kernel/backend/src/lib/infrastructure/workflow-scope.ts.",
+							});
+						}
+					},
+				};
+			},
+		},
 		"no-promise-chains": {
 			create(context) {
-				const effectBindings = new Set();
-				const effectNamespaces = new Set();
 				return {
-					ImportDeclaration(node) {
-						trackEffectImport(node, effectBindings, effectNamespaces);
-					},
 					CallExpression(node) {
 						const { callee } = node;
 						if (
 							callee.type !== "MemberExpression" ||
-							callee.computed ||
-							!promiseMethods.has(callee.property.name)
+							!promiseMethods.has(propertyName(callee)) ||
+							isEffectBinding(context, callee.object) ||
+							!isPromise(context, callee.object)
 						) {
-							return;
-						}
-						if (isEffectBinding(callee.object, effectBindings, effectNamespaces)) {
 							return;
 						}
 						context.report({
 							node: callee.property,
 							message:
 								"Use Effect for application-owned async work, or async/await at a Promise-native boundary; do not chain .then/.catch/.finally.",
-						});
-					},
-				};
-			},
-		},
-		"no-app-service-provide": {
-			create(context) {
-				if (!isServiceOwnerFile(context.filename) || isTestFile(context.filename)) {
-					return {};
-				}
-				const effectBindings = new Set();
-				const effectNamespaces = new Set();
-				const appServices = new Set();
-				return {
-					ImportDeclaration(node) {
-						trackEffectImport(node, effectBindings, effectNamespaces);
-						if (!isAppServiceSource(node.source.value)) {
-							return;
-						}
-						for (const specifier of node.specifiers) {
-							if (!scopedContextServices.has(getImportedName(specifier))) {
-								appServices.add(specifier.local.name);
-							}
-						}
-					},
-					CallExpression(node) {
-						const { callee } = node;
-						const service = node.arguments.length === 3 ? node.arguments[1] : node.arguments[0];
-						if (
-							callee.type !== "MemberExpression" ||
-							callee.computed ||
-							!isEffectBinding(callee.object, effectBindings, effectNamespaces) ||
-							callee.property.name !== "provideService" ||
-							service?.type !== "Identifier" ||
-							!appServices.has(service.name)
-						) {
-							return;
-						}
-						context.report({
-							node: service,
-							message: `${service.name} is app-owned. Capture it in the owning service constructor or Layer instead of providing it at the call site.`,
 						});
 					},
 				};

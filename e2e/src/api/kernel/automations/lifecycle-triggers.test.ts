@@ -603,21 +603,26 @@ const inspectCommittedCreate = (sourceRecord: SourceRecord, hookSlug: string) =>
 		const change = requirePresent(changes[0], "Expected a committed change trigger");
 		requireCreatePayload(change, "change", sourceRecord.resource);
 
-		const requestId = requirePresent(
-			change.causation.parentTriggerId,
-			"Change trigger must link to its request trigger",
-		);
-		const requests = yield* listAutomationTriggers({ triggerId: requestId });
-		expect(requests).toHaveLength(1);
-		const request = requirePresent(requests[0], "Expected the linked request trigger");
-		requireCreatePayload(request, "request", sourceRecord.resource);
-
 		const runs = yield* listAutomationRuns({
 			triggerId: change.id,
 			hookSlug: AutomationHookSlug.make(hookSlug),
 		});
 		expect(runs).toHaveLength(1);
-		return { change, request, run: requirePresent(runs[0], "Expected an atomic matching run") };
+		return { change, run: requirePresent(runs[0], "Expected an atomic matching run") };
+	});
+
+const inspectPolicyCreate = (sourceRecord: SourceRecord, hookSlug: string) =>
+	Effect.gen(function* () {
+		const inspection = yield* inspectCommittedCreate(sourceRecord, hookSlug);
+		const requestId = requirePresent(
+			inspection.change.causation.parentTriggerId,
+			"Policy-backed change trigger must link to its request trigger",
+		);
+		const requests = yield* listAutomationTriggers({ triggerId: requestId });
+		expect(requests).toHaveLength(1);
+		const request = requirePresent(requests[0], "Expected the linked policy request trigger");
+		requireCreatePayload(request, "request", sourceRecord.resource);
+		return { ...inspection, request };
 	});
 
 let installed: InstalledTestPlugin | undefined;
@@ -667,11 +672,11 @@ describe("automation lifecycle triggers", () => {
 
 			const acceptedId = requireWrittenEventId(result, 0);
 			const transformedId = requireWrittenEventId(result, 1);
-			const accepted = yield* inspectCommittedCreate(
+			const accepted = yield* inspectPolicyCreate(
 				{ id: acceptedId, resource: "event" },
 				slugs.policyAfterHook,
 			);
-			const transformed = yield* inspectCommittedCreate(
+			const transformed = yield* inspectPolicyCreate(
 				{ resource: "event", id: transformedId },
 				slugs.policyAfterHook,
 			);
@@ -757,19 +762,12 @@ describe("automation lifecycle triggers", () => {
 				{ id: source.id, resource: "entity" },
 				slugs.entityHook,
 			);
-			expect(entityInspection.request.payload).toEqual({
-				resource: "entity",
-				category: "request",
-				operation: "create",
-				draft: {
-					externalId: null,
-					providerId: null,
-					name: source.name,
-					populatedAt: null,
-					properties: { marker: "snapshot-source" },
-					entitySchemaSlug: EntitySchemaSlug.make(slugs.entity),
-				},
-			});
+			expect(entityInspection.change.causation.parentTriggerId).toBeNull();
+			expect(
+				(yield* listAutomationTriggers({
+					rootExecutionId: entityInspection.change.causation.rootExecutionId,
+				})).filter(({ kind }) => kind.category === "request"),
+			).toEqual([]);
 			expect(entityInspection.change.payload).toEqual({
 				category: "change",
 				resource: "entity",
@@ -795,7 +793,7 @@ describe("automation lifecycle triggers", () => {
 			);
 			const eventResult = yield* createEvents(client, [event]);
 			const eventId = requireWrittenEventId(eventResult);
-			const eventInspection = yield* inspectCommittedCreate(
+			const eventInspection = yield* inspectPolicyCreate(
 				{ id: eventId, resource: "event" },
 				slugs.policyAfterHook,
 			);
@@ -824,17 +822,12 @@ describe("automation lifecycle triggers", () => {
 				{ id: relationship.id, resource: "relationship" },
 				slugs.relationshipHook,
 			);
-			expect(relationshipInspection.request.payload).toEqual({
-				category: "request",
-				operation: "create",
-				resource: "relationship",
-				draft: {
-					sourceEntityId: source.id,
-					targetEntityId: target.id,
-					properties: { marker: "snapshot-relationship" },
-					relationshipSchemaSlug: RelationshipSchemaSlug.make(slugs.relationship),
-				},
-			});
+			expect(relationshipInspection.change.causation.parentTriggerId).toBeNull();
+			expect(
+				(yield* listAutomationTriggers({
+					rootExecutionId: relationshipInspection.change.causation.rootExecutionId,
+				})).filter(({ kind }) => kind.category === "request"),
+			).toEqual([]);
 			expect(relationshipInspection.change.payload).toEqual({
 				category: "change",
 				operation: "create",
@@ -872,11 +865,11 @@ describe("automation lifecycle triggers", () => {
 					outcomes: [{ index: 0, status: "written" }],
 				});
 			}
-			const contractInspection = yield* inspectCommittedCreate(
+			const contractInspection = yield* inspectPolicyCreate(
 				{ resource: "event", id: requireWrittenEventId(contractResult) },
 				slugs.policyAfterHook,
 			);
-			const rawInspection = yield* inspectCommittedCreate(
+			const rawInspection = yield* inspectPolicyCreate(
 				{ resource: "event", id: requireWrittenEventId(rawResult) },
 				slugs.policyAfterHook,
 			);

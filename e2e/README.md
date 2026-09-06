@@ -2,6 +2,8 @@
 
 API and browser integration tests run with Vitest over Bun.
 
+`src/api/kernel/user-settings.test.ts` verifies application preference reads after updates with a warm authentication session and checks that malformed patch bodies and direct Better Auth user updates cannot modify preferences.
+
 ## Commands
 
 Run the discovered suite:

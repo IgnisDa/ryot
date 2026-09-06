@@ -11,7 +11,7 @@ import {
 	EventOperationNotFound,
 	type EventCreateOperation,
 } from "@ryot-app/contract/modules/events/schemas";
-import type { EventId, UserId } from "@ryot-app/contract/schema/brands";
+import { EventId, type AutomationTriggerId, type UserId } from "@ryot-app/contract/schema/brands";
 import {
 	Cause,
 	Clock,
@@ -30,7 +30,6 @@ import {
 	type CommittedLifecycleWork,
 	LifecyclePersistenceError,
 	LifecyclePlanner,
-	type LifecyclePlan,
 	toLifecycleDispatchPlan,
 } from "#lib/domain/lifecycle";
 import { lifecycleTrigger, LifecycleCommand } from "#lib/domain/lifecycle-command";
@@ -44,6 +43,11 @@ import {
 	resolveWorkflowExecutionId,
 } from "#lib/shared/job-id";
 import { toWorkflowRunResult } from "#lib/shared/workflow-result";
+import {
+	mutationReceiptIdentity,
+	MutationReceiptIdentityConflict,
+	MutationReceipts,
+} from "#modules/mutations/receipts";
 
 import { enqueueEventCreate, EventCreateWorkflow } from "./event-create-workflow";
 import {
@@ -60,7 +64,7 @@ type PreparedEventMutationData = {
 	readonly before: AutomationEventSnapshot;
 	readonly command: LifecycleCommand;
 	readonly input: EventIdentityInput;
-	readonly requestId: LifecyclePlan["trigger"]["id"];
+	readonly requestId: AutomationTriggerId | null;
 } & (
 	| { readonly operation: "delete" }
 	| { readonly operation: "update"; readonly move: UpdateEventEntityReferencesInput }
@@ -81,6 +85,21 @@ const eventDraft = ({
 	...draft
 }: AutomationEventSnapshot) => draft;
 
+const receiptFor = (
+	input: EventIdentityInput,
+	command: LifecycleCommand,
+	move?: UpdateEventEntityReferencesInput,
+) =>
+	mutationReceiptIdentity({
+		command,
+		ownerUserId: input.userId,
+		scopeUserId: input.userId,
+		commandKind: move ? "event:update" : "event:delete",
+		input: move
+			? { eventId: input.eventId, mergeFrom: move.mergeFrom, mergeInto: move.mergeInto }
+			: { eventId: input.eventId },
+	});
+
 export class EventsService extends Context.Service<EventsService>()("EventsService", {
 	make: Effect.gen(function* () {
 		const engine = yield* WorkflowEngine;
@@ -92,7 +111,51 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 		const repository = yield* EventsRepository;
 		const session = yield* DatabaseSession;
 		const planner = yield* LifecyclePlanner;
+		const receipts = yield* MutationReceipts.make;
+		const lookupReceipt = (
+			input: EventIdentityInput,
+			command: LifecycleCommand,
+			move?: UpdateEventEntityReferencesInput,
+			lock = true,
+		) =>
+			(lock
+				? receipts.lookup(
+						receiptFor(input, command, move),
+						Schema.Struct({ eventId: Schema.NullOr(EventId) }),
+					)
+				: receipts.peek(
+						receiptFor(input, command, move),
+						Schema.Struct({ eventId: Schema.NullOr(EventId) }),
+					)
+			).pipe(
+				Effect.mapError((error) =>
+					error instanceof MutationReceiptIdentityConflict
+						? new DbError({ message: "Conflicting event command identity" })
+						: error,
+				),
+			);
 		const execution = yield* LifecycleExecution;
+		const verifyCreateBatchInput = (
+			input: { userId: UserId; payload: ReadonlyArray<CreateEventItem> },
+			command: LifecycleCommand,
+		) =>
+			receipts
+				.peekBatch(
+					receipts.batchIdentity({
+						command,
+						resource: "event",
+						identity: ["events"],
+						ownerUserId: input.userId,
+						commandInput: input.payload,
+					}),
+				)
+				.pipe(
+					Effect.mapError((error) =>
+						error instanceof MutationReceiptIdentityConflict
+							? new DbError({ message: "Conflicting event command identity" })
+							: error,
+					),
+				);
 		const transaction = <A, E, R>(work: Effect.Effect<A, E, R>) =>
 			retryOnDeadlock(
 				session
@@ -123,9 +186,13 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			if (input.payload.length === 0) {
 				return { count: 0, outcomes: [], warnings: [], failure: null };
 			}
-			return yield* enqueueEventCreate({ ...input, command }).pipe(
+			yield* verifyCreateBatchInput(input, command);
+			const result = yield* enqueueEventCreate({ ...input, command }).pipe(
 				Effect.provideService(WorkflowEngine, engine),
+				Effect.provideService(DatabaseSession, session),
 			);
+			yield* verifyCreateBatchInput(input, command);
+			return result;
 		});
 		const operationState = Effect.fn("EventsService.operationState")(function* (
 			userId: UserId,
@@ -164,8 +231,14 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			if (input.payload.length === 0) {
 				return { count: 0, outcomes: [], warnings: [], failure: null };
 			}
+			yield* verifyCreateBatchInput(input, command);
 			const started = yield* Clock.currentTimeMillis;
 			const executionId = command.causation.executionId;
+			yield* receipts.registerWorkflow(
+				command.accountGeneration,
+				EventCreateWorkflow._tag,
+				executionId,
+			);
 			yield* engine
 				.execute(EventCreateWorkflow, {
 					executionId,
@@ -186,6 +259,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			const state = Option.isSome(observed)
 				? observed.value
 				: yield* operationState(input.userId, executionId, input.payload.length);
+			yield* verifyCreateBatchInput(input, command);
 			if (state.status === "completed") {
 				return state.result;
 			}
@@ -212,16 +286,42 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			input: EventIdentityInput,
 			commandInput: LifecycleCommand,
 			move?: UpdateEventEntityReferencesInput,
+			inline = false,
 		) {
 			yield* assertRootTransaction;
 			const command = yield* Schema.decodeEffect(LifecycleCommand)(commandInput).pipe(
 				Effect.mapError(() => new DbError({ message: "Invalid event lifecycle command" })),
 			);
+			const recordNoop = Effect.gen(function* () {
+				yield* receipts.insert({
+					dispatch: [],
+					result: { eventId: null },
+					identity: receiptFor(input, command, move),
+				});
+				return { _tag: "Committed" as const, work: { result: null, dispatch: [] } };
+			});
 			const planned = yield* transaction(
 				Effect.gen(function* () {
+					if (inline) {
+						const replay = yield* lookupReceipt(input, command, move);
+						if (replay) {
+							const batch =
+								replay.result.eventId === null
+									? []
+									: yield* planner.planBatch({
+											command,
+											resource: "event",
+											identity: [command.itemIdentity],
+										});
+							return {
+								_tag: "Committed" as const,
+								work: { result: replay.result.eventId, dispatch: [...replay.dispatch, ...batch] },
+							};
+						}
+					}
 					const before = yield* repository.getEventSnapshot(input);
 					if (!before) {
-						return null;
+						return inline ? yield* recordNoop : null;
 					}
 					let request: EventRequest;
 					if (move) {
@@ -229,7 +329,7 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 							move.mergeFrom === move.mergeInto ||
 							(before.entityId !== move.mergeFrom && before.sessionEntityId !== move.mergeFrom)
 						) {
-							return null;
+							return inline ? yield* recordNoop : null;
 						}
 						const draft = yield* Schema.decodeEffect(AutomationEventDraft)({
 							...eventDraft(before),
@@ -255,13 +355,29 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 					const plan = yield* planner.plan({
 						trigger: lifecycleTrigger(command, input.userId, request),
 					});
-					return { plan, input, before, command, request };
+					if (inline && plan.policies.length === 0 && !plan.trigger?.blockedReason) {
+						const prepared: PreparedEventMutationData = {
+							input,
+							before,
+							command,
+							requestId: plan.trigger?.id ?? null,
+							...(move ? { move, operation: "update" as const } : { operation: "delete" as const }),
+						};
+						return {
+							_tag: "Committed" as const,
+							work: yield* withBatch(command, persist(prepared)),
+						};
+					}
+					return { plan, input, before, command, request, _tag: "Planned" as const };
 				}),
 			);
 			if (!planned) {
 				return null;
 			}
-			if (planned.plan.trigger.blockedReason !== null) {
+			if (planned._tag === "Committed") {
+				return planned;
+			}
+			if (planned.plan.trigger?.blockedReason) {
 				return yield* new DbError({ message: "Event request exceeds automation limits" });
 			}
 			yield* Effect.gen(function* () {
@@ -291,16 +407,18 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 				Effect.catchCauseIf(
 					(cause) => !Cause.hasInterruptsOnly(cause),
 					(cause) =>
-						execution
-							.skipQueuedPolicies({ triggerId: planned.plan.trigger.id })
-							.pipe(Effect.andThen(Effect.failCause(cause)), Effect.uninterruptible),
+						planned.plan.trigger === null
+							? Effect.failCause(cause)
+							: execution
+									.skipQueuedPolicies({ triggerId: planned.plan.trigger.id })
+									.pipe(Effect.andThen(Effect.failCause(cause)), Effect.uninterruptible),
 				),
 			);
 			return {
 				input: planned.input,
 				before: planned.before,
 				command: planned.command,
-				requestId: planned.plan.trigger.id,
+				requestId: planned.plan.trigger?.id ?? null,
 				...(move ? { move, operation: "update" as const } : { operation: "delete" as const }),
 			};
 		});
@@ -310,18 +428,50 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			command: LifecycleCommand,
 		) {
 			const value = yield* prepare(input, command, input);
-			return value?.operation === "update" ? Object.freeze({ [preparedEventUpdate]: value }) : null;
+			return value && "operation" in value && value.operation === "update"
+				? Object.freeze({ [preparedEventUpdate]: value })
+				: null;
 		});
 		const prepareDelete = Effect.fn("EventsService.prepareDelete")(function* (
 			input: EventIdentityInput,
 			command: LifecycleCommand,
 		) {
 			const value = yield* prepare(input, command);
-			return value?.operation === "delete" ? Object.freeze({ [preparedEventDelete]: value }) : null;
+			return value && "operation" in value && value.operation === "delete"
+				? Object.freeze({ [preparedEventDelete]: value })
+				: null;
 		});
 
-		const persist = Effect.fnUntraced(function* (prepared: PreparedEventMutationData) {
+		const persist = Effect.fnUntraced(function* (
+			prepared: PreparedEventMutationData,
+			batchInput?: { command: LifecycleCommand; identity: ReadonlyArray<string>; index: number },
+		) {
 			yield* assertActiveTransaction;
+			const identity = receiptFor(
+				prepared.input,
+				prepared.command,
+				prepared.operation === "update" ? prepared.move : undefined,
+			);
+			const batchScope = {
+				resource: "event" as const,
+				command: batchInput?.command ?? prepared.command,
+				identity: batchInput?.identity ?? [prepared.command.itemIdentity],
+			};
+			const batch = yield* planner.prepareBatch({ ...batchScope, scopes: [prepared.input.userId] });
+			const replay = yield* lookupReceipt(
+				prepared.input,
+				prepared.command,
+				prepared.operation === "update" ? prepared.move : undefined,
+			);
+			if (replay) {
+				if (replay.result.eventId === null) {
+					return yield* new DbError({ message: "Event command was already recorded as a no-op" });
+				}
+				return {
+					dispatch: replay.dispatch,
+					result: replay.result.eventId,
+				} satisfies CommittedLifecycleWork<EventId>;
+			}
 			let eventId: EventId;
 			let change: AutomationEventChangePayload;
 			if (prepared.operation === "update") {
@@ -365,24 +515,38 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 				trigger: lifecycleTrigger(
 					{
 						...prepared.command,
-						causation: { ...prepared.command.causation, parentTriggerId: prepared.requestId },
+						causation: {
+							...prepared.command.causation,
+							parentTriggerId: prepared.requestId ?? prepared.command.causation.parentTriggerId,
+						},
 					},
 					prepared.input.userId,
 					change,
 				),
 			});
-			return { plans: [plan], result: eventId } satisfies CommittedLifecycleWork<EventId>;
+			const dispatch = plan.trigger === null ? [] : [toLifecycleDispatchPlan(plan)];
+			yield* receipts.insert({
+				identity,
+				dispatch,
+				batchId: batch.id,
+				result: { eventId },
+				batchIndex: batchInput?.index ?? 0,
+				...(batch.hasCandidates ? { evidence: change } : {}),
+			});
+			return { dispatch, result: eventId } satisfies CommittedLifecycleWork<EventId>;
 		});
 
 		const persistPreparedUpdate = Effect.fn("EventsService.persistPreparedUpdate")(function* (
 			prepared: PreparedEventUpdate,
+			batch?: { command: LifecycleCommand; identity: ReadonlyArray<string>; index: number },
 		) {
-			return yield* persist(prepared[preparedEventUpdate]);
+			return yield* persist(prepared[preparedEventUpdate], batch);
 		});
 		const persistPreparedDelete = Effect.fn("EventsService.persistPreparedDelete")(function* (
 			prepared: PreparedEventDelete,
+			batch?: { command: LifecycleCommand; identity: ReadonlyArray<string>; index: number },
 		) {
-			return yield* persist(prepared[preparedEventDelete]);
+			return yield* persist(prepared[preparedEventDelete], batch);
 		});
 		const withBatch = Effect.fnUntraced(function* (
 			command: LifecycleCommand,
@@ -394,36 +558,42 @@ export class EventsService extends Context.Service<EventsService>()("EventsServi
 			const work = yield* persisted;
 			const batch = yield* planner.planBatch({
 				command,
-				plans: work.plans,
 				resource: "event",
 				identity: [command.itemIdentity],
 			});
-			return { ...work, plans: [...work.plans, ...batch] };
+			return { ...work, dispatch: [...work.dispatch, ...batch] };
 		});
 		const mutate = Effect.fn("EventsService.mutate")(function* (
 			input: EventIdentityInput,
 			command: LifecycleCommand,
 			move?: UpdateEventEntityReferencesInput,
 		) {
-			let work: CommittedLifecycleWork<EventId> | null;
-			if (move) {
-				const prepared = yield* prepareUpdate(move, command);
-				work = prepared
-					? yield* transaction(withBatch(command, persistPreparedUpdate(prepared)))
-					: null;
-			} else {
-				const prepared = yield* prepareDelete(input, command);
-				work = prepared
-					? yield* transaction(withBatch(command, persistPreparedDelete(prepared)))
-					: null;
+			yield* assertRootTransaction;
+			const recorded = yield* lookupReceipt(input, command, move, false);
+			if (recorded) {
+				const batch =
+					recorded.result.eventId === null
+						? []
+						: yield* transaction(
+								planner.planBatch({ command, resource: "event", identity: [command.itemIdentity] }),
+							);
+				return {
+					eventId: recorded.result.eventId,
+					warnings: yield* execution.dispatch([...recorded.dispatch, ...batch]),
+				};
+			}
+			const prepared = yield* prepare(input, command, move, true);
+			let work: CommittedLifecycleWork<EventId | null> | null = null;
+			if (prepared) {
+				work =
+					"work" in prepared
+						? prepared.work
+						: yield* transaction(withBatch(command, persist(prepared)));
 			}
 			if (!work) {
 				return { eventId: null, warnings: [] as AutomationWarning[] };
 			}
-			return {
-				eventId: work.result,
-				warnings: yield* execution.dispatch(work.plans.map(toLifecycleDispatchPlan)),
-			};
+			return { eventId: work.result, warnings: yield* execution.dispatch(work.dispatch) };
 		});
 
 		return {

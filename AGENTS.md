@@ -14,7 +14,7 @@
 - `packages/client-sdk` and `packages/client-ui-sdk` are the environment-neutral plugin-facing client surfaces; `packages/sandbox-sdk` is their backend counterpart.
 - `packages/sandbox-compiler` and `packages/client-plugin-compiler` are independent engines sharing generic infrastructure from `packages/typescript-compiler`.
 - `packages/cli` builds canonical plugin archives for first-party and third-party plugins; `packages/plugin-archive` owns the shared deterministic archive reader and writer.
-- `packages/ryotql` builds query documents and `packages/ryotql-recipes` owns the named recipes.
+- `packages/ryotql` builds query documents; `packages/ryotql-recipes` owns application recipes, and plugins own their domain recipes under `shared/`.
 - `packages/kernel-renderers` owns the kernel-shipped saved-view renderers as real client plugin sources.
 
 ## Engineering
@@ -28,6 +28,8 @@
 - Derive types from schemas and existing types instead of writing mirrors. Use Effect Schema.
 - Build application-owned query documents with `@ryot-app/ryotql` and use named recipes when available.
 - Colocate app-owned RyotQL result schemas, decoders, and decoded types with their recipes. Consumers must not parse generic `RowItem` values directly; reusable wire codecs belong in `@ryot-app/contract`, while presentation-only transformations remain consumer-owned.
+- User preferences use the canonical contract schema on the user row. Better Auth sessions do not own or expose preferences; preference commands patch the row atomically.
+- Committed mutation receipts own command replay independently of automation history. Keep full change evidence only for matching hooks or pending batch-hook candidates.
 - Application-owned asynchronous work uses Effect; native Promises belong at platform and framework boundaries.
 - At APIs that natively require Promise-returning callbacks, prefer readable async/await with a narrow documented `effecttsgo/async-function` exemption; do not rewrite Promise boundaries as `.then` chains. Application-owned asynchronous orchestration remains Effect.
 - Resolve implementation dependencies in service constructors and Layers; service methods must not require their repositories or database session from callers.
@@ -40,7 +42,7 @@
 - Test app-owned behavior and branching, not library behavior.
 - Keep assertions inline; extract duplicated setup, not test intent.
 - Use assertion functions from the package's test surface for test-only narrowing.
-- Do not test schema libraries, TypeScript assignments, or passthrough type checks.
+- Do not test schema libraries, TypeScript assignments, or passthrough type checks. Compile-time tests may constrain Ryot-owned generic contracts.
 - Name a test `.test.tsx` when it needs a DOM and `.test.ts` when it must keep node semantics; `@ryot-app/testing/vitest.client` maps those extensions onto the `node` and `dom` vitest projects, so never reach for a `@vitest-environment` docblock.
 - Do not use module mocks, spies, mock functions, or fake timers. Inject dependencies instead: deterministic Effect `Layer` implementations, `TestClock` for time, plain recording functions, and the harnesses on each package's own test surface.
 

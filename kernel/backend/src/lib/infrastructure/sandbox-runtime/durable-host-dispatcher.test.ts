@@ -37,7 +37,8 @@ import {
 import type { SandboxExecutionPrincipal } from "#lib/infrastructure/sandbox-runtime/execution-principal";
 import { SandboxLifecycleHostFailure } from "#lib/infrastructure/sandbox-runtime/host-functions";
 import { SandboxHostImplementations } from "#lib/infrastructure/sandbox-runtime/host-implementations";
-import { databaseLayer, makeWorkflowActivityEngine } from "#lib/test-utils/effect";
+import { makeWorkflowActivityEngine } from "#lib/test-utils/effect";
+import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { NotificationDeliveryWorkflow } from "#modules/notifications/notification-delivery-workflow";
 import {
 	type HttpRateLimitAuthorityResolution,
@@ -116,6 +117,7 @@ const subject = {
 	executionUserId: UserId.make("user-1"),
 	pluginRevisionId: PluginRevisionId.make("plugin-revision"),
 	pluginConfigRevisionId: PluginConfigRevisionId.make("plugin-config-revision"),
+	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 };
 const script = {
 	source: "",
@@ -181,7 +183,7 @@ const dispatcherLayer = (options: {
 	SandboxDurableHostDispatcherLive.pipe(
 		Layer.provideMerge(
 			Layer.mergeAll(
-				databaseLayer,
+				mutationAdmissionTestLayer,
 				Layer.succeed(WorkflowEngine, options.engine),
 				Layer.succeed(WorkflowInstance, options.instance),
 				options.lifecycleExecution ?? unusedLifecycleExecution,

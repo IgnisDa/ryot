@@ -11,6 +11,7 @@ import {
 } from "@ryot-app/contract/modules/plugins/manifest";
 import { AutomationHookSlug, PluginId, type UserId } from "@ryot-app/contract/schema/brands";
 import { decodeStoredSchema } from "@ryot-app/contract/schema/core";
+import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, asc, count, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 import { Effect, Layer, Schema } from "effect";
@@ -19,15 +20,18 @@ import {
 	LifecyclePlanner,
 	lifecycleRunId,
 	type LifecycleBatchInput,
-	type LifecyclePlan,
+	type LifecyclePlanningResult,
 	type LifecyclePlannedPolicy,
+	toLifecycleDispatchPlan,
 } from "#lib/domain/lifecycle";
 import { lifecycleBatchTriggers } from "#lib/domain/lifecycle-batch";
 import { AppConfig } from "#lib/infrastructure/config/service";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { MutationReceiptIdentityConflict, MutationReceipts } from "#modules/mutations/receipts";
 
-import { AutomationPlannerResolver } from "./planner-resolver";
+import { BatchHookPin } from "./batch-hook-pin";
+import { AutomationPlannerResolver, matchesTarget } from "./planner-resolver";
 import { AutomationRunRepository } from "./run-repository";
 import { AutomationTriggerRepository } from "./trigger-repository";
 
@@ -62,6 +66,11 @@ const normalizeExclusions = (
 		).values(),
 	].sort((a, b) => compareText(a.pluginId, b.pluginId) || compareText(a.hookSlug, b.hookSlug));
 
+const mapBatchConflict = (error: DbError | MutationReceiptIdentityConflict) =>
+	error instanceof MutationReceiptIdentityConflict
+		? new DbError({ message: `Conflicting batch command identity: ${error.receiptId}` })
+		: error;
+
 export const LifecyclePlannerLive = Layer.effect(
 	LifecyclePlanner,
 	Effect.gen(function* () {
@@ -69,6 +78,7 @@ export const LifecyclePlannerLive = Layer.effect(
 		const resolver = yield* AutomationPlannerResolver;
 		const triggers = yield* AutomationTriggerRepository;
 		const runs = yield* AutomationRunRepository;
+		const receipts = yield* MutationReceipts.make;
 		const { automations: limits } = yield* AppConfig;
 		const orderedRuns = Effect.fn(function* (values: ReadonlyArray<AutomationRun>) {
 			const ids = [
@@ -117,11 +127,26 @@ export const LifecyclePlannerLive = Layer.effect(
 				policies: ordered.flatMap((run) => policies.filter(({ runId }) => runId === run.id)),
 			};
 		});
+		const replayExisting = Effect.fn("LifecyclePlanner.replayExisting")(function* (
+			trigger: AutomationTrigger,
+			stored: AutomationTrigger,
+		) {
+			const persistedTrigger = yield* triggers.insert({
+				...trigger,
+				blockedReason: stored.blockedReason,
+			});
+			const existing = yield* runs.listByTrigger(trigger.id);
+			if (existing.some((run) => run.id !== lifecycleRunId(run))) {
+				return yield* new DbError({ message: `Automation run identity conflict: ${trigger.id}` });
+			}
+			return { wasCreated: false, trigger: persistedTrigger, ...(yield* orderedRuns(existing)) };
+		});
 		const plan = Effect.fn("LifecyclePlanner.plan")(function* (input: {
 			trigger: AutomationTrigger;
 			recipients?: ReadonlyArray<UserId>;
 			excludedOncePerSubjectPolicies?: ReadonlyArray<Pick<AutomationRun, "pluginId" | "hookSlug">>;
-		}): Effect.fn.Return<LifecyclePlan, DbError> {
+			pinnedBatchCandidates?: ReadonlyArray<BatchHookPin>;
+		}): Effect.fn.Return<LifecyclePlanningResult, DbError> {
 			const suppliedTrigger = yield* decodeStoredSchema(
 				input.trigger,
 				AutomationTrigger,
@@ -181,24 +206,13 @@ export const LifecyclePlannerLive = Layer.effect(
 				});
 			}
 			const payload = trigger.payload;
-			yield* resolver.lockCatalog(signal ? recipients : [trigger.scopeUserId]);
-			yield* session.run((db) =>
-				db.execute(
-					sql`select pg_advisory_xact_lock(hashtext(${"automation-root:" + trigger.causation.rootExecutionId}))`,
-				),
-			);
-			// Locks stay held through recipient and run writes so wasCreated describes the whole plan.
+			if (!input.pinnedBatchCandidates) {
+				yield* resolver.lockCatalog(signal ? recipients : [trigger.scopeUserId]);
+			}
+			// Catalog locks remain held while matching hooks and writing the selected runs.
 			const stored = yield* triggers.findById(trigger.id);
 			if (stored) {
-				const persistedTrigger = yield* triggers.insert({
-					...trigger,
-					blockedReason: stored.blockedReason,
-				});
-				const existing = yield* runs.listByTrigger(trigger.id);
-				if (existing.some((run) => run.id !== lifecycleRunId(run))) {
-					return yield* new DbError({ message: `Automation run identity conflict: ${trigger.id}` });
-				}
-				return { wasCreated: false, trigger: persistedTrigger, ...(yield* orderedRuns(existing)) };
+				return yield* replayExisting(trigger, stored);
 			}
 			if (signal && recipients.length) {
 				const enabled = yield* session.run((db) =>
@@ -212,22 +226,46 @@ export const LifecyclePlannerLive = Layer.effect(
 				recipients = recipients.filter((id) => enabled.some((user) => user.id === id));
 			}
 			const users = signal ? recipients : [trigger.scopeUserId];
-			const matches = (yield* Effect.forEach(users, (userId) => resolver.resolve(trigger, userId)))
-				.flat()
-				.filter(
-					({ hook, plugin }) =>
-						!(
-							eventRequest &&
-							hook.stage === "before" &&
-							hook.batchFrequency === "once-per-subject" &&
-							excludedIdentities.has(
-								policyIdentity({
-									hookSlug: AutomationHookSlug.make(hook.slug),
-									pluginId: plugin === null ? null : PluginId.make(plugin.id),
+			const matches = (
+				input.pinnedBatchCandidates
+					? input.pinnedBatchCandidates
+							.filter(
+								({ hook, executionUserId }) =>
+									executionUserId === trigger.scopeUserId &&
+									hook.targets.some((target) => matchesTarget(target, trigger)),
+							)
+							.map(
+								({
+									hook,
+									pluginId,
+									scriptSlug,
+									executionUserId,
+									sandboxScriptId,
+									pluginRevisionId,
+									scriptContentHash,
+									pluginConfigRevisionId,
+								}) => ({
+									hook,
+									executionUserId,
+									plugin: { id: pluginId, pluginRevisionId, pluginConfigRevisionId },
+									script: { slug: scriptSlug, id: sandboxScriptId, contentHash: scriptContentHash },
 								}),
 							)
-						),
-				);
+					: (yield* Effect.forEach(users, (userId) => resolver.resolve(trigger, userId))).flat()
+			).filter(
+				({ hook, plugin }) =>
+					!(
+						eventRequest &&
+						hook.stage === "before" &&
+						hook.batchFrequency === "once-per-subject" &&
+						excludedIdentities.has(
+							policyIdentity({
+								hookSlug: AutomationHookSlug.make(hook.slug),
+								pluginId: plugin === null ? null : PluginId.make(plugin.id),
+							}),
+						)
+					),
+			);
 			const planned = yield* Effect.forEach(
 				matches,
 				({ hook, plugin, script, executionUserId }) => {
@@ -268,6 +306,18 @@ export const LifecyclePlannerLive = Layer.effect(
 				},
 			);
 			const ordered = yield* orderedRuns(planned);
+			if (ordered.runs.length === 0 && trigger.payload.resource !== "signal") {
+				return { runs: [], policies: [], trigger: null, _tag: "NoHooks", wasCreated: false };
+			}
+			yield* session.run((db) =>
+				db.execute(
+					sql`select pg_advisory_xact_lock(hashtext(${"automation-root:" + trigger.causation.rootExecutionId}))`,
+				),
+			);
+			const raced = yield* triggers.findById(trigger.id);
+			if (raced) {
+				return yield* replayExisting(trigger, raced);
+			}
 			const [accepted] = yield* session.run((db) =>
 				db
 					.select({ count: count() })
@@ -316,21 +366,75 @@ export const LifecyclePlannerLive = Layer.effect(
 				runs: yield* Effect.forEach(ordered.runs, (run) => runs.insertQueued(run, payload)),
 			};
 		});
+		const batchIdentity = (input: LifecycleBatchInput) =>
+			receipts.batchIdentity({
+				...input,
+				ownerUserId:
+					input.command.causation.initiator.kind === "user"
+						? input.command.causation.initiator.id
+						: null,
+			});
+		const prepareBatch = Effect.fn("LifecyclePlanner.prepareBatch")(function* (
+			input: LifecycleBatchInput & { scopes: ReadonlyArray<UserId | null> },
+		) {
+			const identity = batchIdentity(input);
+			const existing = yield* receipts
+				.lookupBatch(identity)
+				.pipe(Effect.mapError(mapBatchConflict));
+			if (existing) {
+				return { id: identity.id, hasCandidates: existing.candidateCount > 0 };
+			}
+			const scopes = [...new Set(input.scopes)].sort((a, b) => (a ?? "").localeCompare(b ?? ""));
+			yield* resolver.lockCatalog(scopes);
+			const candidates = (yield* Effect.forEach(scopes, (userId) =>
+				resolver.resolveBatchCandidates({
+					userId,
+					resource: input.resource,
+					source: input.command.causation.source,
+				}),
+			)).flat();
+			const decision = yield* receipts
+				.beginBatch({
+					identity,
+					maxItems: limits.batchMaxItems,
+					pins: candidates.map((candidate) => ({
+						result: candidate,
+						pluginId: candidate.pluginId,
+						executionUserId: candidate.executionUserId,
+						sandboxScriptId: candidate.sandboxScriptId,
+						pluginRevisionId: candidate.pluginRevisionId,
+						pluginConfigRevisionId: candidate.pluginConfigRevisionId,
+						id: `receipt_${sha256Base64Url(stableStringify([identity.id, candidate.executionUserId, candidate.pluginId, candidate.hook.slug]))}`,
+					})),
+				})
+				.pipe(Effect.mapError(mapBatchConflict));
+			return { id: identity.id, hasCandidates: decision.candidateCount > 0 };
+		});
 		const planBatch = Effect.fn("LifecyclePlanner.planBatch")(function* (
 			input: LifecycleBatchInput,
 		) {
-			return yield* Effect.forEach(lifecycleBatchTriggers(input, limits.batchMaxItems), (trigger) =>
-				plan({ trigger }),
+			const identity = batchIdentity(input);
+			const contents = yield* receipts
+				.batchContents(identity, BatchHookPin)
+				.pipe(Effect.mapError(mapBatchConflict));
+			if (contents.sealed) {
+				return contents.dispatch;
+			}
+			const changes = contents.evidence.flatMap(({ payload, scopeUserId }) =>
+				payload.resource === input.resource && payload.operation !== "batch"
+					? [{ payload, scopeUserId }]
+					: [],
 			);
+			const planned = yield* Effect.forEach(
+				lifecycleBatchTriggers(input, contents.maxItems, changes),
+				(trigger) => plan({ trigger, pinnedBatchCandidates: contents.pins }),
+			);
+			const dispatch = planned.flatMap((item) =>
+				item.trigger === null ? [] : [toLifecycleDispatchPlan(item)],
+			);
+			yield* receipts.sealBatch(identity, dispatch);
+			return dispatch;
 		});
-		return { plan, planBatch };
+		return { plan, planBatch, prepareBatch };
 	}),
-).pipe(
-	Layer.provide(
-		Layer.mergeAll(
-			AutomationPlannerResolver.layer,
-			AutomationRunRepository.layer,
-			AutomationTriggerRepository.layer,
-		),
-	),
 );

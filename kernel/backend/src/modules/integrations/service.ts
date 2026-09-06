@@ -10,6 +10,7 @@ import {
 	IntegrationRequestError,
 	type IntegrationRequestFailureReason,
 } from "@ryot-app/contract/modules/integrations/schemas";
+import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type {
 	ImportRunId,
 	IntegrationId,
@@ -27,6 +28,7 @@ import {
 	parseAppSchemaProperties,
 } from "#lib/property-schema/property-schema-runtime";
 import { ImportsService } from "#modules/imports/service";
+import { MutationReceipts } from "#modules/mutations/receipts";
 import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
 import type { RegisteredIntegrationProvider } from "#modules/plugins/integration-provider-catalog";
 
@@ -104,6 +106,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				database.transaction(work).pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 			const proKey = yield* ProKeyService;
 			const engine = yield* WorkflowEngine;
+			const receipts = yield* MutationReceipts.make;
 			const importsService = yield* ImportsService;
 			const repository = yield* IntegrationsRepository;
 			const providerCatalog = yield* IntegrationProviderCatalog;
@@ -322,12 +325,19 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					return { runId: run.id };
 				}
 
+				const accountGeneration = yield* receipts.currentAccount(integration.userId);
+				yield* receipts.registerWorkflow(
+					accountGeneration,
+					ProcessIntegrationRunWorkflow._tag,
+					run.id,
+				);
 				const started = yield* engine
 					.execute(ProcessIntegrationRunWorkflow, {
 						discard: true,
 						executionId: run.id,
 						payload: {
 							runId: run.id,
+							accountGeneration,
 							userId: integration.userId,
 							integrationId: integration.id,
 							webhook: { rawBody: input.rawBody, contentType: input.contentType },
@@ -351,6 +361,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 
 			const prepareYankRuns = Effect.fn("IntegrationsService.prepareYankRuns")(function* (
 				userId: UserId | null,
+				accountGeneration: AccountGeneration | null,
 			) {
 				const integrations = yield* repository.listEnabledYankIntegrations({ userId });
 				const runs: IntegrationSyncRun[] = [];
@@ -393,19 +404,34 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 						continue;
 					}
 
-					runs.push({ runId: run.id, userId: integration.userId, integrationId: integration.id });
+					const account = accountGeneration ?? (yield* receipts.currentAccount(integration.userId));
+					yield* receipts.registerWorkflow(account, ProcessIntegrationRunWorkflow._tag, run.id);
+					runs.push({
+						runId: run.id,
+						accountGeneration: account,
+						userId: integration.userId,
+						integrationId: integration.id,
+					});
 				}
 
 				return runs;
 			});
 
-			const syncAll = Effect.fn("IntegrationsService.syncAll")(function* (userId: UserId) {
+			const syncAll = Effect.fn("IntegrationsService.syncAll")(function* (
+				accountGeneration: AccountGeneration,
+			) {
+				const userId = accountGeneration.userId;
 				const executionId = `integration-sync-${generateId()}`;
+				yield* receipts.registerWorkflow(
+					accountGeneration,
+					IntegrationSyncWorkflow._tag,
+					executionId,
+				);
 				const started = yield* engine
 					.execute(IntegrationSyncWorkflow, {
 						executionId,
 						discard: true,
-						payload: { userId, executionId },
+						payload: { userId, executionId, accountGeneration },
 					})
 					.pipe(Effect.result);
 				if (Result.isFailure(started)) {

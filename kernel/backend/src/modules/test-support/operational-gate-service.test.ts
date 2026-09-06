@@ -9,10 +9,10 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Ref } from "effect";
 
-import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { RedisService } from "#lib/infrastructure/redis";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { makeRedisService } from "#lib/test-utils/effect";
+import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { ImportsService } from "#modules/imports/service";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
@@ -89,7 +89,7 @@ const workflowLoadLayer = () =>
 			return OperationalGateService.layer.pipe(
 				Layer.provideMerge(
 					Layer.mergeAll(
-						Layer.mock(DatabaseSession)({}),
+						mutationAdmissionTestLayer,
 						mockImports({
 							createManualRun: () => Effect.succeed(importRun),
 							updateProgress: (input) =>
@@ -154,6 +154,7 @@ layer(workflowLoadLayer())((test) => {
 					workflowSlug: gateInput.workflowSlug,
 					executionId: `${runId}-workflow-load-0`,
 					pluginInstallationId: availablePlugin.installationId,
+					accountGeneration: { userId: executingUserId, token: "test-account-generation" },
 					input: {
 						items: [
 							{
@@ -164,6 +165,7 @@ layer(workflowLoadLayer())((test) => {
 								command: {
 									occurredAt: expect.any(String),
 									itemIdentity: '["workflow-load",0]',
+									accountGeneration: { userId: executingUserId, token: "test-account-generation" },
 									causation: {
 										depth: 0,
 										source: "import",

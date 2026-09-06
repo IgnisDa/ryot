@@ -610,6 +610,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					}
 				}
 				return {
+					profile,
 					propertyRecords,
 					entityDependencies,
 					savedViews: viewRecords,
@@ -617,7 +618,6 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					installations: installationRecords,
 					relationships: relationshipRecords,
 					notificationSubscriptions: subscriptionRecords,
-					profile: { ...profile, preferences: decodeArchiveJsonObject(profile.preferences) },
 					entities: yield* Effect.forEach(userEntities, (entity) =>
 						toArchiveEntity(entity, pluginKeyById),
 					),

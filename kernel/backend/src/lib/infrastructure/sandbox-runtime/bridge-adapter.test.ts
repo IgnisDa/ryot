@@ -18,7 +18,11 @@ const input: SandboxRunInput = {
 		scriptSlug: "script",
 		pluginRevision: null,
 		scriptId: SandboxScriptId.make("script-1"),
-		subject: { type: "user", userId: UserId.make("user-1") },
+		subject: {
+			type: "user",
+			userId: UserId.make("user-1"),
+			accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+		},
 	},
 };
 

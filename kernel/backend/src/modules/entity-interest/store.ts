@@ -1,5 +1,6 @@
 import { notFound } from "@ryot-app/contract/errors";
 import { MAX_INTEREST_ENTITY_IDS } from "@ryot-app/contract/modules/entity-interest/messages";
+import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Clock, Context, Effect, Layer, Schema } from "effect";
 
@@ -19,7 +20,7 @@ const OPEN_SESSION_SCRIPT = `
 if redis.call('EXISTS', KEYS[1]) == 1 then
   return 'exists'
 end
-redis.call('HSET', KEYS[1], 'userId', ARGV[1], 'preferredLanguage', ARGV[2], 'revision', '0')
+redis.call('HSET', KEYS[1], 'userId', ARGV[1], 'preferredLanguage', ARGV[2], 'revision', '0', 'accountGeneration', ARGV[4])
 redis.call('EXPIRE', KEYS[1], ARGV[3])
 return 'ok'
 `;
@@ -254,6 +255,7 @@ const SessionMetadata = Schema.Struct({
 	userId: UserId,
 	revision: Schema.Finite,
 	sessionId: Schema.String,
+	accountGeneration: AccountGeneration,
 	preferredLanguage: Schema.NullOr(Schema.String),
 });
 type SessionMetadata = typeof SessionMetadata.Type;
@@ -316,6 +318,7 @@ export class EntityInterestStore extends Context.Service<EntityInterestStore>()(
 
 			const openSession = Effect.fn("EntityInterestStore.openSession")(function* (input: {
 				readonly userId: UserId;
+				readonly accountGeneration: AccountGeneration;
 				readonly sessionId: string;
 				readonly preferredLanguage: string | null;
 			}) {
@@ -326,6 +329,7 @@ export class EntityInterestStore extends Context.Service<EntityInterestStore>()(
 						input.userId,
 						input.preferredLanguage ?? "",
 						String(ENTITY_INTEREST_SESSION_TTL_SECONDS),
+						input.accountGeneration.token,
 					],
 				);
 				if (result === "exists") {
@@ -484,6 +488,10 @@ export class EntityInterestStore extends Context.Service<EntityInterestStore>()(
 						userId: UserId.make(row["userId"]),
 						preferredLanguage:
 							row["preferredLanguage"] === "" ? null : (row["preferredLanguage"] ?? null),
+						accountGeneration: yield* Schema.decodeUnknownEffect(AccountGeneration)({
+							userId: row["userId"],
+							token: row["accountGeneration"],
+						}),
 					});
 				}
 				return metadata;

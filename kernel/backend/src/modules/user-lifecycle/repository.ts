@@ -14,9 +14,11 @@ import * as authSchema from "#lib/infrastructure/db/schema/tables/auth";
 import * as automationSchema from "#lib/infrastructure/db/schema/tables/automations";
 import * as backupSchema from "#lib/infrastructure/db/schema/tables/backups";
 import * as coreSchema from "#lib/infrastructure/db/schema/tables/core";
+import * as mutationSchema from "#lib/infrastructure/db/schema/tables/mutations";
 import * as uploadSchema from "#lib/infrastructure/db/schema/tables/uploads";
 import * as lifecycleSchema from "#lib/infrastructure/db/schema/tables/user-lifecycle";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { MutationReceipts } from "#modules/mutations/receipts";
 
 const LifecycleMetadata = Schema.Struct({
 	usesLocalAuth: Schema.Boolean,
@@ -29,6 +31,7 @@ const LifecycleMetadata = Schema.Struct({
 		name: Schema.String,
 		email: Schema.String,
 		emailVerified: Schema.Boolean,
+		accountGeneration: Schema.String,
 		disabledAt: Schema.NullOr(Schema.String),
 	}),
 });
@@ -71,112 +74,151 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;
+			const receipts = yield* MutationReceipts.make;
+			const listUserMutationWork = Effect.fn("UserLifecycleRepository.listUserMutationWork")(
+				function* (userId: UserId) {
+					return yield* database.run((db) =>
+						db
+							.select({
+								executionId: mutationSchema.mutationReceipt.executionId,
+								workflowName: mutationSchema.mutationReceipt.workflowName,
+							})
+							.from(mutationSchema.mutationReceipt)
+							.where(
+								and(
+									eq(mutationSchema.mutationReceipt.ownerUserId, userId),
+									eq(mutationSchema.mutationReceipt.receiptType, "workflow-owner"),
+								),
+							),
+					);
+				},
+			);
 			const deleteUserData = Effect.fn("UserLifecycleRepository.deleteUserData")(function* (
 				userId: UserId,
 			) {
 				yield* database.transaction(
-					database.run((db) =>
-						Effect.gen(function* () {
-							const privatePluginIds = db
+					Effect.gen(function* () {
+						yield* database.acquireUserWriteLock(userId);
+						yield* database.run((db) =>
+							db
+								.select({ id: authSchema.user.id })
+								.from(authSchema.user)
+								.where(eq(authSchema.user.id, userId))
+								.for("update"),
+						);
+						const privatePluginRows = yield* database.run((db) =>
+							db
 								.select({ id: coreSchema.plugin.id })
 								.from(coreSchema.plugin)
-								.where(eq(coreSchema.plugin.ownerId, userId));
-							const ownedRun = or(
-								eq(automationSchema.automationRun.executionUserId, userId),
-								inArray(automationSchema.automationRun.pluginId, privatePluginIds),
-							);
-							const [scopedTriggers, recipientTriggers, runTriggers] = yield* Effect.all([
-								db
-									.select({ id: automationSchema.automationTrigger.id })
-									.from(automationSchema.automationTrigger)
-									.where(eq(automationSchema.automationTrigger.scopeUserId, userId)),
-								db
-									.select({ id: automationSchema.automationTriggerRecipient.triggerId })
-									.from(automationSchema.automationTriggerRecipient)
-									.where(eq(automationSchema.automationTriggerRecipient.userId, userId)),
-								db
-									.select({ id: automationSchema.automationRun.triggerId })
-									.from(automationSchema.automationRun)
-									.where(ownedRun),
-							]);
-							const triggerIds = [
-								...new Set(
-									[...scopedTriggers, ...recipientTriggers, ...runTriggers].map(({ id }) => id),
-								),
-							];
-
-							yield* db.delete(automationSchema.automationRun).where(ownedRun);
-							yield* db
-								.delete(automationSchema.automationTriggerRecipient)
-								.where(eq(automationSchema.automationTriggerRecipient.userId, userId));
-							yield* db
-								.update(automationSchema.automationTrigger)
-								.set({ scopeUserId: null })
-								.where(eq(automationSchema.automationTrigger.scopeUserId, userId));
-
-							const installationIds = db
-								.select({ id: coreSchema.pluginInstallation.id })
-								.from(coreSchema.pluginInstallation)
-								.where(eq(coreSchema.pluginInstallation.userId, userId));
-							yield* db
-								.delete(coreSchema.sandboxWorkflowReference)
-								.where(
-									or(
-										inArray(
-											coreSchema.sandboxWorkflowReference.scriptId,
-											db
-												.select({ id: coreSchema.sandboxScript.id })
-												.from(coreSchema.sandboxScript)
-												.innerJoin(
-													coreSchema.pluginRevision,
-													eq(
-														coreSchema.pluginRevision.id,
-														coreSchema.sandboxScript.pluginRevisionId,
-													),
-												)
-												.where(inArray(coreSchema.pluginRevision.pluginId, privatePluginIds)),
-										),
-										inArray(
-											coreSchema.sandboxWorkflowReference.pluginInstallationId,
-											installationIds,
-										),
-									),
+								.where(eq(coreSchema.plugin.ownerId, userId)),
+						);
+						yield* receipts.retireUserPins(
+							userId,
+							privatePluginRows.map(({ id }) => id),
+						);
+						yield* database.run((db) =>
+							Effect.gen(function* () {
+								const privatePluginIds = db
+									.select({ id: coreSchema.plugin.id })
+									.from(coreSchema.plugin)
+									.where(eq(coreSchema.plugin.ownerId, userId));
+								const ownedRun = or(
+									eq(automationSchema.automationRun.executionUserId, userId),
+									inArray(automationSchema.automationRun.pluginId, privatePluginIds),
 								);
-							yield* db.delete(authSchema.user).where(eq(authSchema.user.id, userId));
+								const [scopedTriggers, recipientTriggers, runTriggers] = yield* Effect.all([
+									db
+										.select({ id: automationSchema.automationTrigger.id })
+										.from(automationSchema.automationTrigger)
+										.where(eq(automationSchema.automationTrigger.scopeUserId, userId)),
+									db
+										.select({ id: automationSchema.automationTriggerRecipient.triggerId })
+										.from(automationSchema.automationTriggerRecipient)
+										.where(eq(automationSchema.automationTriggerRecipient.userId, userId)),
+									db
+										.select({ id: automationSchema.automationRun.triggerId })
+										.from(automationSchema.automationRun)
+										.where(ownedRun),
+								]);
+								const triggerIds = [
+									...new Set(
+										[...scopedTriggers, ...recipientTriggers, ...runTriggers].map(({ id }) => id),
+									),
+								];
 
-							if (triggerIds.length > 0) {
+								yield* db.delete(automationSchema.automationRun).where(ownedRun);
 								yield* db
-									.delete(automationSchema.automationTrigger)
+									.delete(automationSchema.automationTriggerRecipient)
+									.where(eq(automationSchema.automationTriggerRecipient.userId, userId));
+								yield* db
+									.update(automationSchema.automationTrigger)
+									.set({ scopeUserId: null })
+									.where(eq(automationSchema.automationTrigger.scopeUserId, userId));
+
+								const installationIds = db
+									.select({ id: coreSchema.pluginInstallation.id })
+									.from(coreSchema.pluginInstallation)
+									.where(eq(coreSchema.pluginInstallation.userId, userId));
+								yield* db
+									.delete(coreSchema.sandboxWorkflowReference)
 									.where(
-										and(
-											inArray(automationSchema.automationTrigger.id, triggerIds),
-											notExists(
+										or(
+											inArray(
+												coreSchema.sandboxWorkflowReference.scriptId,
 												db
-													.select({ id: automationSchema.automationRun.id })
-													.from(automationSchema.automationRun)
-													.where(
+													.select({ id: coreSchema.sandboxScript.id })
+													.from(coreSchema.sandboxScript)
+													.innerJoin(
+														coreSchema.pluginRevision,
 														eq(
-															automationSchema.automationRun.triggerId,
-															automationSchema.automationTrigger.id,
+															coreSchema.pluginRevision.id,
+															coreSchema.sandboxScript.pluginRevisionId,
 														),
-													),
+													)
+													.where(inArray(coreSchema.pluginRevision.pluginId, privatePluginIds)),
 											),
-											notExists(
-												db
-													.select({ userId: automationSchema.automationTriggerRecipient.userId })
-													.from(automationSchema.automationTriggerRecipient)
-													.where(
-														eq(
-															automationSchema.automationTriggerRecipient.triggerId,
-															automationSchema.automationTrigger.id,
-														),
-													),
+											inArray(
+												coreSchema.sandboxWorkflowReference.pluginInstallationId,
+												installationIds,
 											),
 										),
 									);
-							}
-						}),
-					),
+								yield* db.delete(authSchema.user).where(eq(authSchema.user.id, userId));
+
+								if (triggerIds.length > 0) {
+									yield* db
+										.delete(automationSchema.automationTrigger)
+										.where(
+											and(
+												inArray(automationSchema.automationTrigger.id, triggerIds),
+												notExists(
+													db
+														.select({ id: automationSchema.automationRun.id })
+														.from(automationSchema.automationRun)
+														.where(
+															eq(
+																automationSchema.automationRun.triggerId,
+																automationSchema.automationTrigger.id,
+															),
+														),
+												),
+												notExists(
+													db
+														.select({ userId: automationSchema.automationTriggerRecipient.userId })
+														.from(automationSchema.automationTriggerRecipient)
+														.where(
+															eq(
+																automationSchema.automationTriggerRecipient.triggerId,
+																automationSchema.automationTrigger.id,
+															),
+														),
+												),
+											),
+										);
+								}
+							}),
+						);
+					}),
 				);
 			});
 
@@ -210,6 +252,13 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 				"UserLifecycleRepository.loadPreparationForUpdate",
 			)(function* (userId: UserId, kind: UserLifecycleOperationKind) {
 				yield* database.acquireUserWriteLock(userId);
+				yield* database.run((db) =>
+					db
+						.select({ id: authSchema.user.id })
+						.from(authSchema.user)
+						.where(eq(authSchema.user.id, userId))
+						.for("update"),
+				);
 				const active = yield* getActiveByUserId(userId);
 				if (active) {
 					return { active, retryable: null, metadata: active.metadata };
@@ -242,6 +291,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 							email: authSchema.user.email,
 							disabledAt: authSchema.user.disabledAt,
 							emailVerified: authSchema.user.emailVerified,
+							accountGeneration: authSchema.user.accountGeneration,
 						})
 						.from(authSchema.user)
 						.where(eq(authSchema.user.id, userId)),
@@ -574,6 +624,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 				getInternalById,
 				reactivateFailed,
 				markAccessRevoked,
+				listUserMutationWork,
 				claimAccessRevocation,
 				loadRecreatedIdentity,
 				releaseAccessRevocation,

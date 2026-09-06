@@ -82,6 +82,8 @@ const automationSubject = (
 	pluginConfigRevisionId: null,
 	runId: AutomationRunId.make("run_1"),
 	triggerId: AutomationTriggerId.make("trigger_1"),
+	accountGeneration:
+		executionUserId === null ? null : { userId: executionUserId, token: "test-account-generation" },
 	causation: {
 		depth: 0,
 		source: "api",
@@ -107,6 +109,7 @@ describe("requireSandboxCapabilityInput", () => {
 						type: "user",
 						userId: UserId.make("user-1"),
 						integrationId: IntegrationId.make("integration-1"),
+						accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 					}),
 					...trusted,
 				},
@@ -177,7 +180,11 @@ describe("requireSandboxCapabilityInput", () => {
 		).toBe(false);
 		expect(
 			isSandboxCapabilityAllowed(
-				makeRunInput({ type: "user", userId: UserId.make("user_1") }),
+				makeRunInput({
+					type: "user",
+					userId: UserId.make("user_1"),
+					accountGeneration: { userId: UserId.make("user_1"), token: "test-account-generation" },
+				}),
 				"sendNotification",
 			),
 		).toBe(false);
@@ -221,7 +228,11 @@ describe("requireSandboxCapabilityInput", () => {
 		expect(isSandboxCapabilityAllowed(input, "upsertGlobalRelationships")).toBe(false);
 	});
 	it("returns input when subject and metadata satisfy capability policy", () => {
-		const input = makeRunInput({ type: "user", userId: UserId.make("user_1") });
+		const input = makeRunInput({
+			type: "user",
+			userId: UserId.make("user_1"),
+			accountGeneration: { userId: UserId.make("user_1"), token: "test-account-generation" },
+		});
 		expect(Effect.runSync(requireSandboxCapabilityInput(input, "getUserPreferences"))).toBe(input);
 	});
 
@@ -309,7 +320,11 @@ describe("requireSandboxCapabilityInput", () => {
 	});
 
 	it("requires a pinned system user-bootstrap script for ensureUserEntities", () => {
-		const subject = { type: "user" as const, userId: UserId.make("user_1") };
+		const subject = {
+			type: "user" as const,
+			userId: UserId.make("user_1"),
+			accountGeneration: { userId: UserId.make("user_1"), token: "test-account-generation" },
+		};
 		expect(() =>
 			Effect.runSync(requireSandboxCapabilityInput(makeRunInput(subject), "ensureUserEntities")),
 		).toThrow("ensureUserEntities is available only to pinned system user bootstrap scripts");

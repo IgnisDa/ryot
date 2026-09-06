@@ -11,6 +11,7 @@ const importCommand = (runId: string, integrationId?: string) =>
 	Schema.decodeSync(LifecycleCommand)({
 		occurredAt: "2026-09-16T00:00:00.000Z",
 		itemIdentity: encodeJson(["import-run", runId]),
+		accountGeneration: { userId: "user-1", token: "test-account-generation" },
 		causation: {
 			depth: 0,
 			parentRunId: null,

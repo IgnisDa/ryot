@@ -23,8 +23,8 @@ import { RelationshipSchemasRepository } from "#modules/relationship-schemas/rep
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SignalSchemasRepository } from "#modules/signals/signal-schemas-repository";
 
+import { LifecyclePlannerServiceLive } from "./layer";
 import { withLifecycleBatchPlanning, withLifecycleDispatch } from "./lifecycle.test-support";
-import { LifecyclePlannerLive } from "./planner";
 import { SignalEmissionService } from "./signal-service";
 import { AutomationTriggerRepository } from "./trigger-repository";
 
@@ -38,6 +38,7 @@ const command = (itemIdentity = "signal") =>
 		occurredAt: "2026-09-15T00:00:00.000Z",
 		initiator: { id: owner, kind: "user" },
 		executionId: AutomationExecutionId.make("emit"),
+		accountGeneration: { userId: owner, token: "test-account-generation" },
 	});
 const input = {
 	subjectEntityId,
@@ -155,7 +156,7 @@ const dependencies = Layer.mergeAll(
 	SignalSchemasRepository.layer,
 	AutomationTriggerRepository.layer,
 );
-const plannerLayer = LifecyclePlannerLive.pipe(Layer.provide(makeAppConfigLayer()));
+const plannerLayer = LifecyclePlannerServiceLive.pipe(Layer.provide(makeAppConfigLayer()));
 class StartedTriggers extends Context.Service<
 	StartedTriggers,
 	Effect.Effect<ReadonlyArray<string>>

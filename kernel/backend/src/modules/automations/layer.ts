@@ -48,18 +48,17 @@ const execution = LifecycleExecutionLive.pipe(
 	Layer.provide(AutomationExecutionOperationsServiceLive),
 );
 
-export const LifecycleServicesLive = Layer.merge(
-	LifecyclePlannerLive.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				plannerResolver,
-				AutomationTriggerRepository.layer,
-				AutomationRunRepository.layer,
-			),
+export const LifecyclePlannerServiceLive = LifecyclePlannerLive.pipe(
+	Layer.provide(
+		Layer.mergeAll(
+			plannerResolver,
+			AutomationTriggerRepository.layer,
+			AutomationRunRepository.layer,
 		),
 	),
-	execution,
 );
+
+export const LifecycleServicesLive = Layer.merge(LifecyclePlannerServiceLive, execution);
 
 export const MigrationLifecycleServicesLive = LifecycleServicesLive.pipe(
 	Layer.provide(WorkflowEngineLive),

@@ -1,5 +1,4 @@
 import { expect, layer } from "@effect/vitest";
-import { defaultUserPreferences } from "@ryot-app/contract/auth-middleware";
 import { DbError } from "@ryot-app/contract/errors";
 import {
 	GodModeNotFound,
@@ -317,7 +316,6 @@ layer(godModeLayer({ rows: [] }))((test) => {
 				emailVerified: true,
 				name: "new@example.com",
 				email: "new@example.com",
-				preferences: defaultUserPreferences,
 			});
 			expect(yield* auth.createdAccount).toBeNull();
 		}),

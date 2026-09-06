@@ -1,6 +1,7 @@
 import { Schema } from "effect";
 
 import { SandboxFailureKind } from "../../errors";
+import { AccountGeneration } from "../../schema/account-generation";
 import {
 	IntegrationId,
 	PluginId,
@@ -108,6 +109,7 @@ const automationRunSubjectFields = {
 	stage: Schema.Literals(["before", "after"]),
 	triggerId: AutomationInvocationFields.triggerId,
 	causation: AutomationInvocationFields.causation,
+	accountGeneration: Schema.NullOr(AccountGeneration),
 	executionUserId: AutomationInvocationFields.executionUserId,
 };
 
@@ -118,6 +120,7 @@ export const SandboxExecutionSubject = Schema.Union([
 	strictStruct({
 		userId: UserId,
 		type: Schema.Literal("user"),
+		accountGeneration: AccountGeneration,
 		integrationId: Schema.optional(IntegrationId),
 	}),
 	strictStruct({
@@ -132,7 +135,22 @@ export const SandboxExecutionSubject = Schema.Union([
 		pluginRevisionId: Schema.Null,
 		pluginConfigRevisionId: Schema.Null,
 	}),
-]);
+]).pipe(
+	Schema.check(
+		Schema.makeFilter((subject) => {
+			if (subject.type === "system") {
+				return true;
+			}
+			const userId = subject.type === "user" ? subject.userId : subject.executionUserId;
+			return (
+				(userId === null
+					? subject.accountGeneration === null
+					: subject.accountGeneration?.userId === userId) ||
+				"Sandbox account generation must match its execution user"
+			);
+		}),
+	),
+);
 
 export type SandboxExecutionSubject = Schema.Schema.Type<typeof SandboxExecutionSubject>;
 

@@ -33,7 +33,9 @@ class FakeBootstrapDependencies extends Context.Service<
 >()("test/FakeBootstrapDependencies") {}
 
 const performBootstrap = (inputUserId: UserId) =>
-	Effect.flatMap(UserBootstrap, (bootstrap) => bootstrap.perform(inputUserId));
+	Effect.flatMap(UserBootstrap, (bootstrap) =>
+		bootstrap.perform(inputUserId, { userId: inputUserId, token: "test-account-generation" }),
+	);
 
 const bootstrapLayer = (options?: {
 	bootstrapCompletedAt?: Date;
@@ -53,25 +55,28 @@ const bootstrapLayer = (options?: {
 						update: () => ({
 							set: () => ({ where: () => append(order)("complete").pipe(Effect.as({})) }),
 						}),
-						select: () => ({
+						select: (fields?: Readonly<Record<string, unknown>>) => ({
 							from: (table: unknown) => {
 								if (table !== schema.user) {
-									return { where: () => Effect.succeed([]) };
+									return {
+										where: () =>
+											Object.assign(Effect.succeed([]), { limit: () => Effect.succeed([]) }),
+									};
 								}
 								return {
 									where: () =>
 										Object.assign(Effect.succeed(userRows), {
-											for: () => Effect.succeed(userRows),
+											for: () =>
+												fields && "token" in fields
+													? Effect.succeed([{ token: "test-account-generation" }])
+													: Effect.succeed(userRows),
 										}),
 								};
 							},
 						}),
 					});
 					return Layer.mergeAll(
-						fakeDatabaseSession(db, {
-							transaction: (work) => mapDatabaseErrors(work),
-							run: (statement) => mapDatabaseErrors(statement(db)),
-						}),
+						fakeDatabaseSession(db, { run: (statement) => mapDatabaseErrors(statement(db)) }),
 						Layer.mock(PluginUserBootstrapDispatcher)({
 							dispatchAll: (inputUserId) =>
 								Effect.gen(function* () {
@@ -82,8 +87,10 @@ const bootstrapLayer = (options?: {
 								}),
 						}),
 						Layer.mock(PluginInstallationService)({
-							provisionSystemInstallations: (inputUserId) =>
-								append(order)("provision").pipe(Effect.andThen(append(provisioned)(inputUserId))),
+							provisionSystemInstallations: (accountGeneration) =>
+								append(order)("provision").pipe(
+									Effect.andThen(append(provisioned)(accountGeneration.userId)),
+								),
 						}),
 						Layer.mock(NotificationSubscriptionsService)({
 							ensureDefaultRules: append(defaultRules),

@@ -22,11 +22,8 @@ import { LifecyclePlanner } from "#lib/domain/lifecycle";
 import { rootLifecycleCommand, type LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { assertExitFails } from "#lib/test-utils/assertions";
-import {
-	databaseLayer,
-	makeWorkflowActivityEngine,
-	type MockOverrides,
-} from "#lib/test-utils/effect";
+import { makeWorkflowActivityEngine, type MockOverrides } from "#lib/test-utils/effect";
+import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
@@ -48,6 +45,7 @@ const user: CurrentUserValue = {
 	email: "user@example.com",
 	id: UserId.make("user-id"),
 	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+	accountGeneration: { userId: UserId.make("user-id"), token: "test-account-generation" },
 };
 const collectionId = EntityId.make("collection-id");
 const entityId = EntityId.make("entity-id");
@@ -278,7 +276,7 @@ const makeServiceLayer = (
 			return AddEntityToCollectionWorkflowOperationsLive.pipe(
 				Layer.provideMerge(CollectionsService.layer),
 				Layer.provideMerge(dependencies),
-				Layer.provideMerge(databaseLayer),
+				Layer.provideMerge(mutationAdmissionTestLayer),
 			);
 		}),
 	);
@@ -289,6 +287,7 @@ const command = (executionId: string): LifecycleCommand =>
 		occurredAt: now,
 		initiator: { id: user.id, kind: "user" },
 		itemIdentity: "collection:add-membership",
+		accountGeneration: user.accountGeneration,
 		executionId: AutomationExecutionId.make(executionId),
 	});
 

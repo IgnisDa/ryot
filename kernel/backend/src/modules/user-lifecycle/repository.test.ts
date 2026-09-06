@@ -44,6 +44,7 @@ const activeOperation = {
 			disabledAt: null,
 			emailVerified: true,
 			email: "user@example.com",
+			accountGeneration: "test-account-generation",
 		},
 	},
 };
@@ -61,7 +62,10 @@ const recordingSessionLayer = Layer.unwrap(
 			execute: () => record("lock"),
 			select: () => ({
 				from: () => ({
-					where: () => ({ limit: () => record("active").pipe(Effect.as([activeOperation])) }),
+					where: () => ({
+						for: () => record("account-lock").pipe(Effect.as([])),
+						limit: () => record("active").pipe(Effect.as([activeOperation])),
+					}),
 				}),
 			}),
 		});
@@ -78,7 +82,11 @@ layer(UserLifecycleRepository.layer.pipe(Layer.provideMerge(recordingSessionLaye
 			const repository = yield* UserLifecycleRepository;
 			const prepared = yield* repository.loadPreparationForUpdate(UserId.make("user-1"), "reset");
 			expect(prepared?.active?.operation.id).toBe("operation-1");
-			expect(yield* (yield* RecordedDatabaseEvents).events).toEqual(["lock", "active"]);
+			expect(yield* (yield* RecordedDatabaseEvents).events).toEqual([
+				"lock",
+				"account-lock",
+				"active",
+			]);
 		}),
 	);
 });
@@ -203,8 +211,43 @@ describe("user lifecycle persistence cleanup", () => {
 								},
 							]);
 							const encryptionKeys = yield* db.select().from(tables.pluginConfigEncryptionKey);
+							yield* db.insert(tables.mutationReceipt).values([
+								{
+									dispatch: [],
+									ownerUserId: owner,
+									id: "pending-batch",
+									mutationScope: "global",
+									commandKind: "batch:entity",
+									receiptType: "batch-decision",
+									itemIdentity: "pending-batch",
+									executionId: "pending-execution",
+									inputFingerprint: "pending-input",
+									rootExecutionId: "pending-execution",
+									result: { maxItems: 2, candidateCount: 1 },
+								},
+								{
+									result: {},
+									dispatch: [],
+									ownerUserId: owner,
+									scopeUserId: owner,
+									mutationScope: "user",
+									id: "pending-candidate",
+									batchId: "pending-batch",
+									commandKind: "batch:entity",
+									itemIdentity: "pending-batch",
+									receiptType: "batch-candidate",
+									executionId: "pending-execution",
+									pluginId: privatePlugin.pluginId,
+									inputFingerprint: "pending-input",
+									sandboxScriptId: privateScript.id,
+									rootExecutionId: "pending-execution",
+									pluginRevisionId: privatePlugin.revisionId,
+									pluginConfigRevisionId: privatePlugin.installation.activeConfigRevisionId,
+								},
+							]);
 
 							yield* repository.deleteUserData(owner);
+							expect(yield* db.select().from(tables.mutationReceipt)).toEqual([]);
 
 							expect(yield* db.select().from(tables.user)).toEqual([
 								expect.objectContaining({ id: "recipient" }),

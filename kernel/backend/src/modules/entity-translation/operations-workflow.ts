@@ -53,7 +53,11 @@ export const TranslateEntityWorkflowOperationsLive = Layer.effect(
 				.executeScript({
 					scriptId,
 					executionId: `${executionId}-sandbox-translate`,
-					subject: { type: "user", userId: payload.userId },
+					subject: {
+						type: "user",
+						userId: payload.userId,
+						accountGeneration: payload.accountGeneration,
+					},
 					input: {
 						language: payload.language,
 						externalId: payload.externalId,

@@ -12,12 +12,11 @@ import type { ProviderDetailsChildEntity } from "@ryot-app/sandbox-sdk/provider"
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { DateTime, Effect, Schema } from "effect";
 
-import { LifecycleDispatchPlan, toLifecycleDispatchPlan } from "#lib/domain/lifecycle";
+import { LifecycleDispatchPlan } from "#lib/domain/lifecycle";
 import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { retryOnDeadlock } from "#lib/infrastructure/db/errors";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import type { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
-import { EntityMutationOutcome } from "#modules/entities/mutation-outcomes";
 import { EntitiesService } from "#modules/entities/service";
 
 import { persistPlannedRelationshipSynchronization } from "./relationship-synchronization";
@@ -25,7 +24,6 @@ import { persistPlannedRelationshipSynchronization } from "./relationship-synchr
 export const ProcessedChildEntity = Schema.Struct({
 	entity: ListedEntity,
 	entitySchemaSlug: EntitySchemaSlug,
-	entityOutcome: EntityMutationOutcome,
 });
 
 export type ProcessedChildEntity = typeof ProcessedChildEntity.Type;
@@ -179,11 +177,10 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 					}
 					processedChildrenByIndex[index] = {
 						entity: result.entity,
-						entityOutcome: result.outcome,
 						entitySchemaSlug: EntitySchemaSlug.make(childEntitySchemaSlug),
 					};
 				}
-				const entityPlans = upserts.plans;
+				const entityDispatch = upserts.dispatch;
 				const processedChildren = processedChildrenByIndex.flatMap((child) =>
 					child ? [child] : [],
 				);
@@ -206,12 +203,12 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 								input.population,
 							),
 						})
-					: { plans: [], result: [] };
+					: { result: [], dispatch: [] };
 				return {
-					entityPlans,
+					entityDispatch,
 					processedChildren,
-					relationshipPlans: relationshipWork.plans,
 					relationshipResults: relationshipWork.result,
+					relationshipDispatch: relationshipWork.dispatch,
 				};
 			}),
 		),
@@ -219,8 +216,6 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 	return {
 		processedChildren: committed.processedChildren,
 		relationshipResults: committed.relationshipResults,
-		dispatch: [...committed.entityPlans, ...committed.relationshipPlans].map(
-			toLifecycleDispatchPlan,
-		),
+		dispatch: [...committed.entityDispatch, ...committed.relationshipDispatch],
 	} satisfies ChildEntitySetWriteResult;
 });

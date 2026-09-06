@@ -47,7 +47,12 @@ const retryingWorkflowLayer = Layer.unwrap(
 layer(retryingWorkflowLayer)((test) => {
 	test.effect("retries a failed bootstrap attempt and then succeeds", () =>
 		Effect.gen(function* () {
-			const workflow = yield* Effect.forkChild(runUserBootstrapWorkflow({ userId }, executionId));
+			const workflow = yield* Effect.forkChild(
+				runUserBootstrapWorkflow(
+					{ userId, accountGeneration: { userId, token: "test-account-generation" } },
+					executionId,
+				),
+			);
 			yield* TestClock.adjust("1 second");
 			yield* Fiber.join(workflow);
 			const recorded = yield* RecordedBootstrapWorkflow;

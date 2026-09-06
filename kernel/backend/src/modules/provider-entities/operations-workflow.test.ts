@@ -157,6 +157,7 @@ layer(
 					source: "provider-refresh",
 					itemIdentity: "provider-refresh-item",
 					initiator: { id: userId, kind: "user" },
+					accountGeneration: { userId, token: "test-account-generation" },
 					executionId: AutomationExecutionId.make("provider-refresh-command"),
 					providerExecutionId: AutomationExecutionId.make("provider-refresh-execution"),
 				}),
@@ -167,6 +168,7 @@ layer(
 					initiator: { id: userId, kind: "user" },
 					importRunId: ImportRunId.make("import-1"),
 					executionId: AutomationExecutionId.make("import-command"),
+					accountGeneration: { userId, token: "test-account-generation" },
 				}),
 				rootLifecycleCommand({
 					occurredAt: now,
@@ -175,6 +177,7 @@ layer(
 					importRunId: ImportRunId.make("import-2"),
 					integrationId: IntegrationId.make("integration-1"),
 					executionId: AutomationExecutionId.make("integration-command"),
+					accountGeneration: { userId, token: "test-account-generation" },
 					initiator: { kind: "integration", id: IntegrationId.make("integration-1") },
 				}),
 			];

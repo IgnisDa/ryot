@@ -14,11 +14,11 @@ import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/Workf
 
 import { assertExitFails } from "#lib/test-utils/assertions";
 import {
-	databaseLayer,
 	makeAppConfigLayer,
 	makeWorkflowActivityEngine,
 	makeWorkflowEngine,
 } from "#lib/test-utils/effect";
+import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 
 import {
 	SandboxPluginScriptResolver,
@@ -116,7 +116,7 @@ const makeServiceLayer = <Repository, Workflow = WorkflowEngine>(options: {
 				Layer.provideMerge(SandboxWorkflowPinning.layer),
 				Layer.provideMerge(
 					Layer.mergeAll(
-						databaseLayer,
+						mutationAdmissionTestLayer,
 						options.repository,
 						(options.workflow ?? engineLayer())(execute),
 						Layer.mock(SandboxWorkflowReferenceRepository)({
@@ -161,7 +161,11 @@ layer(makeServiceLayer({ repository: installedScriptRepository }))((test) => {
 			expect(execution?.options.payload).toMatchObject({
 				scriptId,
 				resultMode: "execution",
-				subject: { type: "user", userId: executingUserId },
+				subject: {
+					type: "user",
+					userId: executingUserId,
+					accountGeneration: { userId: executingUserId, token: "test-account-generation" },
+				},
 			});
 		}),
 	);
@@ -186,7 +190,11 @@ layer(
 				scriptId,
 				input: {},
 				resolutionMode: "exact",
-				subject: { type: "user", userId: executingUserId },
+				subject: {
+					type: "user",
+					userId: executingUserId,
+					accountGeneration: { userId: executingUserId, token: "test-account-generation" },
+				},
 			});
 		}),
 	);
@@ -206,7 +214,11 @@ layer(
 				scriptId,
 				input: {},
 				executionId: "script-execution",
-				subject: { type: "user", userId: executingUserId },
+				subject: {
+					type: "user",
+					userId: executingUserId,
+					accountGeneration: { userId: executingUserId, token: "test-account-generation" },
+				},
 			});
 			expect(result).toEqual({
 				logs: [],
@@ -333,8 +345,12 @@ layer(
 			const result = yield* service.executeWorkflow({
 				executionId,
 				scriptId: resolvedScriptId,
-				subject: { type: "user", userId: executingUserId },
 				input: { items: [], scriptId: "attempted-override" },
+				subject: {
+					type: "user",
+					userId: executingUserId,
+					accountGeneration: { userId: executingUserId, token: "test-account-generation" },
+				},
 			});
 			const execution = (yield* (yield* SandboxServiceCalls).executions).at(-1);
 
@@ -345,8 +361,12 @@ layer(
 				payload: {
 					scriptId,
 					resolutionMode: "exact",
-					subject: { type: "user", userId: executingUserId },
 					input: { items: [], scriptId: "attempted-override" },
+					subject: {
+						type: "user",
+						userId: executingUserId,
+						accountGeneration: { userId: executingUserId, token: "test-account-generation" },
+					},
 				},
 			});
 		}),
@@ -367,7 +387,11 @@ layer(makeServiceLayer({ repository: mockRepository({}) }))((test) => {
 					scriptId,
 					input: oversizedInput,
 					executionId: "oversized-workflow",
-					subject: { type: "user", userId: executingUserId },
+					subject: {
+						type: "user",
+						userId: executingUserId,
+						accountGeneration: { userId: executingUserId, token: "test-account-generation" },
+					},
 				}),
 			);
 
@@ -451,6 +475,7 @@ layer(makeServiceLayer({ repository: revisionPinRepository }))((test) => {
 					executingUserId,
 					pluginId: "fixture",
 					executionId: "pre-registered-workflow",
+					accountGeneration: { userId: executingUserId, token: "test-account-generation" },
 				});
 				yield* pins.activate(replacementRevision);
 
@@ -459,7 +484,11 @@ layer(makeServiceLayer({ repository: revisionPinRepository }))((test) => {
 					input: {},
 					executionId: "pre-registered-workflow",
 					pluginRevision: preRegistered.pluginRevision,
-					subject: { type: "user", userId: executingUserId },
+					subject: {
+						type: "user",
+						userId: executingUserId,
+						accountGeneration: { userId: executingUserId, token: "test-account-generation" },
+					},
 				});
 				const startedPayload = yield* Schema.decodeUnknownEffect(SandboxScriptWorkflowPayload)(
 					(yield* (yield* SandboxServiceCalls).executions).at(-1)?.options.payload,
@@ -525,6 +554,7 @@ layer(makeServiceLayer(pluginWorkflowOptions))((test) => {
 					workflowSlug: "workflow",
 					executionId: "queued-workflow",
 					pluginInstallationId: "fixture-installation",
+					accountGeneration: { userId: executingUserId, token: "test-account-generation" },
 				}),
 			).toBe("queued-workflow");
 			expect((yield* calls.executions).map(({ referenceLive }) => referenceLive)).toEqual([true]);
@@ -547,6 +577,7 @@ layer(makeServiceLayer({ ...pluginWorkflowOptions, execute: () => Effect.fail("e
 						workflowSlug: "workflow",
 						executionId: "failed-enqueue",
 						pluginInstallationId: "fixture-installation",
+						accountGeneration: { userId: executingUserId, token: "test-account-generation" },
 					}),
 				);
 				const events = yield* (yield* SandboxServiceCalls).events;

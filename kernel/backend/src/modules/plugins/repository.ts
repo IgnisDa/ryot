@@ -60,6 +60,11 @@ const retainedScriptExecution = (now: Date) => sql<boolean>`(exists (
 	join ${schema.sandboxScript} pinned on pinned.id = w.script_id
 	where w.script_id = ${schema.sandboxScript.id}
 	or pinned.plugin_revision_id = ${schema.sandboxScript.pluginRevisionId}
+) or exists (
+	select 1 from ${schema.mutationReceipt} receipt
+	where receipt.receipt_type = 'batch-candidate'
+	and (receipt.sandbox_script_id = ${schema.sandboxScript.id}
+		or receipt.plugin_revision_id = ${schema.sandboxScript.pluginRevisionId})
 ))`;
 
 const bytesEqual = (left: Uint8Array, right: Uint8Array) =>
@@ -1241,6 +1246,17 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 							),
 							notExists(
 								db
+									.select({ id: schema.mutationReceipt.id })
+									.from(schema.mutationReceipt)
+									.where(
+										and(
+											eq(schema.mutationReceipt.receiptType, "batch-candidate"),
+											eq(schema.mutationReceipt.pluginId, schema.plugin.id),
+										),
+									),
+							),
+							notExists(
+								db
 									.select({ id: schema.notificationSubscription.id })
 									.from(schema.notificationSubscription)
 									.where(
@@ -1420,6 +1436,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					and not exists (select 1 from plugin_installation i where i.active_config_revision_id = c.id and i.uninstalled_at is null)
 					and c.owner_user_id is not null
 					and not exists (select 1 from automation_run r where r.plugin_config_revision_id = c.id and (r.status in ('queued', 'running') or r.artifacts_expire_at > ${input.now}))
+					and not exists (select 1 from mutation_receipt receipt where receipt.receipt_type = 'batch-candidate' and receipt.plugin_config_revision_id = c.id)
 					and not exists (select 1 from sandbox_workflow_reference w join sandbox_script s on s.id = w.script_id join plugin_revision r on r.id = s.plugin_revision_id where w.plugin_installation_id = c.plugin_installation_id or r.plugin_id = (select plugin_id from plugin_revision where id = c.plugin_revision_id))
 					limit ${input.limit}
 				) update plugin_config_revision set encrypted_payload = null, payload_pruned_at = ${input.now} where id in (select id from candidates)`),

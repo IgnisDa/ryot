@@ -1,4 +1,5 @@
 import { InternalError, internalError } from "@ryot-app/contract/errors";
+import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Cause, Context, Effect, Layer, Result, Schema } from "effect";
 import { Activity, Workflow } from "effect/unstable/workflow";
@@ -7,6 +8,7 @@ import { WorkflowEngine, type WorkflowInstance } from "effect/unstable/workflow/
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
+import { MutationReceipts } from "#modules/mutations/receipts";
 import { SandboxExecutionService } from "#modules/sandbox/service";
 
 import { PluginCatalogInvalidator } from "./catalog-events";
@@ -21,6 +23,7 @@ type PluginInstallationWorkflowPayload = typeof PluginInstallationWorkflowPayloa
 
 const PluginInstallationBootstrap = Schema.Struct({
 	userId: UserId,
+	accountGeneration: AccountGeneration,
 	entries: Schema.Array(Schema.Struct({ slug: Schema.String, scriptId: SandboxScriptId })),
 });
 type PluginInstallationBootstrap = typeof PluginInstallationBootstrap.Type;
@@ -59,6 +62,7 @@ type PluginInstallationWorkflowOperationsValue = {
 		activationId: string,
 	) => Effect.Effect<PluginInstallationBootstrap | null, InternalError>;
 	runBootstrapEntry: (input: {
+		readonly accountGeneration: AccountGeneration;
 		readonly userId: UserId;
 		readonly entrySlug: string;
 		readonly installationId: string;
@@ -90,6 +94,7 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 		const invalidator = yield* PluginCatalogInvalidator;
 		const database = yield* DatabaseSession;
 		const installations = yield* PluginInstallationRepository;
+		const receipts = yield* MutationReceipts.make;
 
 		const begin = (installationId: string, activationId: string) =>
 			asInternal(
@@ -107,7 +112,11 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 						}
 						entries.push({ slug: entry.slug, scriptId: entry.scriptId });
 					}
-					return { entries, userId: resolved.userId };
+					return {
+						entries,
+						userId: resolved.userId,
+						accountGeneration: yield* receipts.currentAccount(resolved.userId),
+					};
 				}),
 				"Plugin installation could not be inspected",
 			);
@@ -171,7 +180,11 @@ export const PluginInstallationWorkflowOperationsLive = Layer.effect(
 					const result = yield* sandbox.executeScript({
 						input: {},
 						scriptId: input.scriptId,
-						subject: { type: "user", userId: input.userId },
+						subject: {
+							type: "user",
+							userId: input.userId,
+							accountGeneration: input.accountGeneration,
+						},
 						executionId: pluginInstallationBootstrapExecutionId(
 							input.installationId,
 							input.activationId,
@@ -218,11 +231,12 @@ export const runPluginInstallationWorkflow = Effect.fn("PluginInstallationWorkfl
 			return;
 		}
 
-		const { userId, entries } = started.success;
+		const { userId, entries, accountGeneration } = started.success;
 		for (const entry of entries) {
 			const executed = yield* operations
 				.runBootstrapEntry({
 					userId,
+					accountGeneration,
 					entrySlug: entry.slug,
 					scriptId: entry.scriptId,
 					activationId: payload.activationId,

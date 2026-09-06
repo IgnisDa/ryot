@@ -35,6 +35,14 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population operational gate", () 
 						name: "Phase 3 Operational Gate Book",
 					}),
 				});
+				const secondProvider = yield* installTestProvider({
+					client: secondUser.client,
+					rootEntitySchemaSlug: schema.id,
+					details: fakeProviderDetailsResult({
+						properties: {},
+						name: "Phase 3 Operational Gate Book",
+					}),
+				});
 				const baseline = yield* sampleOperationalPressure([
 					`phase-3-baseline-${crypto.randomUUID()}`,
 				]);
@@ -42,15 +50,22 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population operational gate", () 
 				const prefix = crypto.randomUUID();
 				const runs = yield* Effect.forEach(
 					[
-						{ executingUserId: firstUser.userId, identifierPrefix: `${prefix}-first` },
-						{ executingUserId: secondUser.userId, identifierPrefix: `${prefix}-second` },
+						{
+							providerId: provider.providerId,
+							executingUserId: firstUser.userId,
+							identifierPrefix: `${prefix}-first`,
+						},
+						{
+							executingUserId: secondUser.userId,
+							identifierPrefix: `${prefix}-second`,
+							providerId: secondProvider.providerId,
+						},
 					],
 					(run) =>
 						startMediaPopulationGate({
 							...run,
 							itemCount: ITEM_COUNT,
 							entitySchemaSlug: schema.id,
-							providerId: provider.providerId,
 						}),
 					{ concurrency: "unbounded" },
 				);
@@ -107,7 +122,7 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population operational gate", () 
 					});
 					const results = outputs.flatMap((output) => output.results);
 					expect(results).toHaveLength(ITEM_COUNT);
-					expect(results.every(({ status }) => status === "completed")).toBe(true);
+					expect(results.filter(({ status }) => status !== "completed").slice(0, 5)).toEqual([]);
 					return results.length;
 				});
 				const sandboxExecutionCount =

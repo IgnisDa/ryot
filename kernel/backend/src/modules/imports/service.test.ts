@@ -22,12 +22,12 @@ import {
 	redisKeys,
 } from "#lib/infrastructure/redis";
 import {
-	databaseLayer,
 	makeAppConfigLayer,
 	makeConfigProviderLayer,
 	makeRedisService,
 	makeWorkflowEngine,
 } from "#lib/test-utils/effect";
+import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 import {
 	ImportSourceCatalog,
 	type RegisteredImportSource,
@@ -121,6 +121,7 @@ const user: CurrentUserValue = {
 	email: "user@example.com",
 	id: UserId.make("user-1"),
 	preferences: { language: null, allowNsfw: false, disableIntegrations: false },
+	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 };
 
 const betaSource = (overrides: Partial<RegisteredImportSource> = {}): RegisteredImportSource => ({
@@ -202,7 +203,7 @@ const makeServiceLayer = (
 		Layer.provideMerge(
 			Layer.mergeAll(
 				BunFileSystem.layer,
-				databaseLayer,
+				mutationAdmissionTestLayer,
 				makeAppConfigLayer(),
 				options.withConfigProvider ? makeConfigProviderLayer() : Layer.empty,
 				mockImportRunFailuresService({ create: () => Effect.void }),
