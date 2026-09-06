@@ -11,6 +11,7 @@ export const manifest = defineManifest({
 	requiredSystemConfigKeys: [],
 	slug: "automation.notification",
 	capabilities: ["sendNotification"],
+	inputProjection: { signal: { properties: ["providerName"] } },
 });
 
 const stringProperty = (properties: Readonly<Record<string, JsonValue>>, key: string) => {

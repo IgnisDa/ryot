@@ -1,5 +1,6 @@
 import { DbError } from "@ryot-app/contract/errors";
 import {
+	type AutomationPolicyPatch,
 	AutomationRelationshipDraft,
 	AutomationRelationshipSnapshot,
 	AutomationTrigger,
@@ -22,6 +23,10 @@ import {
 } from "#lib/domain/lifecycle";
 import { lifecycleTrigger, type LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
+import {
+	applyLifecyclePolicyPatch,
+	canonicalLifecyclePolicyPatch,
+} from "#lib/domain/lifecycle-policy-patch";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import {
 	mapCommittedResult,
@@ -279,9 +284,10 @@ export const applyRelationshipPolicies = Effect.fn("RelationshipsService.applyPo
 				return item;
 			}
 			let request = item.request;
+			const acceptedPatches: AutomationPolicyPatch[] = [];
 			for (const policy of item.policies) {
 				const output = yield* execution
-					.executePolicy({ payload: request, runId: policy.runId })
+					.executePolicy({ runId: policy.runId, acceptedPatches: [...acceptedPatches] })
 					.pipe(
 						Effect.catchTag("AutomationPolicyExecutionError", (error) =>
 							Effect.fail(
@@ -297,18 +303,30 @@ export const applyRelationshipPolicies = Effect.fn("RelationshipsService.applyPo
 					});
 				}
 				if (output.action === "transform") {
-					if (
-						output.payload.resource !== "relationship" ||
-						output.payload.operation !== request.operation
-					) {
+					const patched = applyLifecyclePolicyPatch(request, output.patch);
+					if (!patched.ok || patched.request.operation === "delete") {
 						return yield* new RelationshipBadRequest({
 							reason: { runId: policy.runId, code: "policy-rejected" },
 						});
 					}
-					if (request.operation !== "delete") {
-						request = Object.assign({}, request, {
-							draft: { ...request.draft, properties: output.payload.draft.properties },
-						});
+					if (!item.mutation.propertiesSchema) {
+						return yield* new DbError({ message: "Missing relationship property schema" });
+					}
+					const properties = yield* parseProperties(
+						patched.request.draft.properties,
+						item.mutation.propertiesSchema,
+					);
+					const successor = {
+						...patched.request,
+						draft: yield* Schema.decodeUnknownEffect(AutomationRelationshipDraft)({
+							...patched.request.draft,
+							properties,
+						}).pipe(Effect.mapError(() => badProperties([]))),
+					};
+					const acceptedPatch = canonicalLifecyclePolicyPatch(request, successor);
+					request = successor;
+					if (acceptedPatch) {
+						acceptedPatches.push(acceptedPatch);
 					}
 				}
 			}

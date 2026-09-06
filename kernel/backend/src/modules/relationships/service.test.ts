@@ -294,8 +294,10 @@ describe("Relationships lifecycle owner", () => {
 					contentHash: "relationship-policy-hash",
 					metadata: {
 						...original.metadata,
+						capabilities: [],
 						automationType: "policy" as const,
 						slug: "relationship-policies.policy",
+						inputProjection: { relationship: { properties: ["rank"] } },
 					},
 				};
 				const target = fixture.manifest.relationshipSchemas[0];
@@ -875,21 +877,18 @@ describe("Relationships lifecycle owner", () => {
 							withLifecycleDispatch({
 								...execution,
 								after: () => Effect.succeed([]),
-								executePolicy: ({ runId, payload }) =>
+								executePolicy: ({ runId, acceptedPatches }) =>
 									Effect.gen(function* () {
 										expect(
 											Option.isNone(yield* Effect.serviceOption(client.transactionService)),
 										).toBe(true);
-										assert(payload.resource === "relationship" && payload.operation === "create");
-										seen.push(payload.draft);
+										seen.push(acceptedPatches);
 										return {
 											action: "transform" as const,
-											payload: {
-												...payload,
+											patch: {
+												resource: "relationship",
 												draft: {
-													...payload.draft,
-													sourceEntityId: EntityId.make("untrusted"),
-													properties: { rank: runId === "first" ? 2 : 3 },
+													properties: { remove: [], set: { rank: runId === "first" ? 2 : 3 } },
 												},
 											},
 										};
@@ -898,8 +897,8 @@ describe("Relationships lifecycle owner", () => {
 						),
 					);
 					expect(seen).toEqual([
-						{ sourceEntityId, targetEntityId, relationshipSchemaSlug, properties: { rank: 1 } },
-						{ sourceEntityId, targetEntityId, relationshipSchemaSlug, properties: { rank: 2 } },
+						[],
+						[{ resource: "relationship", draft: { properties: { remove: [], set: { rank: 2 } } } }],
 					]);
 					expect(result.relationship).toMatchObject({
 						sourceEntityId,
@@ -1127,16 +1126,15 @@ describe("Relationships lifecycle owner", () => {
 									withLifecycleDispatch({
 										...execution,
 										after: () => Effect.die("A rejected write cannot dispatch"),
-										executePolicy: ({ payload }) => {
-											assert(payload.resource === "relationship" && payload.operation === "create");
+										executePolicy: () => {
 											return Effect.succeed(
 												mode === "reject"
 													? { reason: "Rejected", action: "reject" as const }
 													: {
 															action: "transform" as const,
-															payload: {
-																...payload,
-																draft: { ...payload.draft, properties: { rank: "invalid" } },
+															patch: {
+																resource: "relationship",
+																draft: { properties: { remove: [], set: { rank: "invalid" } } },
 															},
 														},
 											);

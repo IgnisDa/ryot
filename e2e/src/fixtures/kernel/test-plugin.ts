@@ -27,9 +27,11 @@ type PluginProvider = TestPluginManifest["providers"][number];
 type InstallPluginPayload = ContractPayload<"plugins", "install">;
 type PluginOperationResult = ContractSuccess<"testSupport", "installSystemPlugin">;
 
-export type TestPluginScript = {
-	[Kind in PluginScript["kind"]]: Omit<Extract<PluginScript, { kind: Kind }>, "entry">;
-}[PluginScript["kind"]];
+export type TestPluginScript = PluginScript extends infer Script
+	? Script extends { readonly entry: string }
+		? Omit<Script, "entry">
+		: never
+	: never;
 
 type TestPluginManifestInput = Partial<
 	Pick<

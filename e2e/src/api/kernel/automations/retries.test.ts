@@ -26,6 +26,7 @@ import { assertPresent, assertTaggedError, requirePresent } from "~/support/asse
 import { describe, expect, it } from "~/support/effect-test";
 
 type PluginScript = PluginManifest["scripts"][number];
+type AutomationScript = Extract<PluginScript, { kind: "automation"; automationType: "automation" }>;
 type RetryPolicy = Extract<PluginManifest["hooks"][number], { stage: "after" }>["retry"];
 
 const UNREACHABLE_URL = "http://127.0.0.1:1/e2e-retry";
@@ -39,7 +40,7 @@ const automationScript = (
 	slug: string,
 	entry: string,
 	capabilities: ReadonlyArray<PluginScript["capabilities"][number]>,
-): Extract<PluginScript, { kind: "automation" }> => ({
+): AutomationScript => ({
 	slug,
 	entry,
 	capabilities,
@@ -48,6 +49,9 @@ const automationScript = (
 	requiredSystemConfigKeys: [],
 	name: `E2E retry automation ${slug}`,
 	requiredPluginConfigKeys: capabilities.includes("getPluginConfig") ? ["marker"] : [],
+	inputProjection: {
+		entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
+	},
 });
 
 const claimedRetryableSource = (slug: string, revision: string) => `
@@ -61,6 +65,7 @@ export const manifest = defineManifest({
   name: ${JSON.stringify(`E2E retry automation ${slug}`)},
   slug: ${JSON.stringify(slug)},
   capabilities: ["claimPersistentValue", "getPluginConfig", "httpCall"],
+  inputProjection: { entity: { properties: [], compareProperties: [], parentEntityProperties: [] } },
   requiredPluginConfigKeys: ["marker"],
   requiredSystemConfigKeys: [],
 });
@@ -96,6 +101,7 @@ export const manifest = defineManifest({
   name: ${JSON.stringify(`E2E retry automation ${slug}`)},
   slug: ${JSON.stringify(slug)},
   capabilities: ["httpCall"],
+  inputProjection: { entity: { properties: [], compareProperties: [], parentEntityProperties: [] } },
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
 });
@@ -118,6 +124,7 @@ export const manifest = defineManifest({
   name: ${JSON.stringify(`E2E retry automation ${slug}`)},
   slug: ${JSON.stringify(slug)},
   capabilities: ${JSON.stringify(capabilities)},
+  inputProjection: { entity: { properties: [], compareProperties: [], parentEntityProperties: [] } },
   requiredPluginConfigKeys: [],
   requiredSystemConfigKeys: [],
 });
@@ -139,6 +146,7 @@ export const manifest = defineManifest({
   name: ${JSON.stringify(`E2E retry automation ${slug}`)},
   slug: ${JSON.stringify(slug)},
   capabilities: ["claimPersistentValue", "getPluginConfig", "httpCall"],
+  inputProjection: { entity: { properties: [], compareProperties: [], parentEntityProperties: [] } },
   requiredPluginConfigKeys: ["marker"],
   requiredSystemConfigKeys: [],
 });

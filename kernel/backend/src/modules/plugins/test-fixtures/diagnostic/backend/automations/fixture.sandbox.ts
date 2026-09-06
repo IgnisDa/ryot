@@ -10,6 +10,10 @@ export const manifest = defineManifest({
 	automationType: "automation",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
+	inputProjection: {
+		signal: { properties: [] },
+		entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
+	},
 });
 
 const invalid: string = 42;

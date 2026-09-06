@@ -20,6 +20,12 @@ const manifest = defineManifest({
 	automationType: "automation",
 	requiredPluginConfigKeys: [],
 	requiredSystemConfigKeys: [],
+	inputProjection: {
+		event: {
+			properties: ["progress"],
+			compareProperties: [{ equality: "json", property: "progress" }],
+		},
+	},
 });
 const run = () => Effect.succeed(null);
 const policyRun = () => Effect.succeed({ action: "allow" as const });
@@ -40,6 +46,7 @@ describe("automation definitions", () => {
 					...manifest,
 					automationType: "policy",
 					capabilities: [capability],
+					inputProjection: { event: { properties: ["progress"] } },
 				}),
 			).toThrow();
 		}
@@ -105,7 +112,11 @@ describe("automation definitions", () => {
 
 	test("compiles automations and policies to direct entrypoints", () => {
 		const automation = defineAutomation({ run, manifest });
-		const policyManifest = defineManifest({ ...manifest, automationType: "policy" });
+		const policyManifest = defineManifest({
+			...manifest,
+			automationType: "policy",
+			inputProjection: { event: { properties: ["progress"] } },
+		});
 		const policy = defineAutomationPolicy({ run: policyRun, manifest: policyManifest });
 
 		expect(automation).toMatchObject({
