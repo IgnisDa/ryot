@@ -1,6 +1,7 @@
 import { Layer } from "effect";
 
 import { ImportsServiceLive } from "#modules/imports/layer";
+import { OAuthConnectionsServiceLive } from "#modules/oauth-connections/layer";
 import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
 
 import { IntegrationOperationScopeResolverLive } from "./operation-scope-resolver-live";
@@ -14,6 +15,7 @@ export const IntegrationsServiceLive = IntegrationsService.layer.pipe(
 			ImportsServiceLive,
 			IntegrationProviderCatalog.layer,
 			IntegrationsRepository.layer,
+			OAuthConnectionsServiceLive,
 		),
 	),
 );

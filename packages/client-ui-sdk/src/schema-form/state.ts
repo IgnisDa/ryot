@@ -107,7 +107,8 @@ const schemaFieldChoices = (property: AppPropertyDefinition) => {
 };
 
 const schemaFieldFormat = (property: AppPropertyDefinition): SchemaFormTextFormat | undefined =>
-	property.type === "string" && property.format !== undefined && property.format.kind !== "upload"
+	property.type === "string" &&
+	(property.format?.kind === "url" || property.format?.kind === "email")
 		? property.format.kind
 		: undefined;
 
@@ -134,7 +135,9 @@ const schemaFieldFileExtensions = (property: AppPropertyDefinition) =>
 		: undefined;
 
 const isSupportedProperty = (property: AppPropertyDefinition) =>
-	schemaFieldType(property) !== undefined && !hasDynamicChoices(property);
+	schemaFieldType(property) !== undefined &&
+	!hasDynamicChoices(property) &&
+	!(property.type === "string" && property.format?.kind === "oauth-connection");
 
 const schemaFieldControl = (
 	property: AppPropertyDefinition,

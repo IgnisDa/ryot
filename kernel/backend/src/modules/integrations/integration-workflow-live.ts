@@ -70,7 +70,12 @@ const runIntegrationImport = Effect.fn("runIntegrationImport")(function* (
 			input,
 			scriptId,
 			executionId: `${executionId}-import`,
-			subject: { type: "user", userId: integration.userId, integrationId: integration.id },
+			subject: {
+				type: "user",
+				userId: integration.userId,
+				integrationId: integration.id,
+				integrationRunId: payload.runId,
+			},
 		})
 		.pipe(Effect.mapError(toIntegrationWorkflowError));
 });
