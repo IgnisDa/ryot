@@ -2,14 +2,11 @@ import { Result, Schema } from "@ryot-app/client-sdk/effect";
 import {
 	and,
 	ascending,
-	castNumber,
-	castText,
 	column,
 	defineRecipe,
 	eq,
 	inArray,
 	join,
-	jsonPath,
 	literal,
 	selectedField,
 	selectedInclude,
@@ -18,13 +15,12 @@ import {
 	type Recipe,
 } from "@ryot-app/client-sdk/ryotql";
 
-import { workoutDatesSelection } from "../shared/entity-selections";
+import { property, propertyNumber, workoutDatesSelection } from "../shared/entity-selections";
 
 export const workoutPresentationRecipe = defineRecipe((entityIds: readonly string[]) => {
 	const workout = table("entity", "presentationWorkout");
 	const event = table("event", "presentationSet");
 	const exercise = table("entity", "presentationExercise");
-	const setProperty = (key: string) => jsonPath(column(event, "properties"), key);
 	const nullableNumber = Schema.NullOr(Schema.Finite);
 	return {
 		map: ({ workouts }) => {
@@ -73,8 +69,8 @@ export const workoutPresentationRecipe = defineRecipe((entityIds: readonly strin
 						limit: 100,
 						joins: [join("inner", exercise, eq(column(event, "entityId"), column(exercise, "id")))],
 						orderBy: [
-							ascending(castNumber(setProperty("exerciseOrder"))),
-							ascending(castNumber(setProperty("setOrder"))),
+							ascending(propertyNumber(event, "exerciseOrder")),
+							ascending(propertyNumber(event, "setOrder")),
 						],
 						where: and(
 							eq(column(event, "sessionEntityId"), column(workout, "id")),
@@ -83,18 +79,15 @@ export const workoutPresentationRecipe = defineRecipe((entityIds: readonly strin
 						),
 						selection: {
 							exerciseId: selectedField(column(exercise, "id"), Schema.String),
-							reps: selectedField(castNumber(setProperty("reps")), nullableNumber),
+							reps: selectedField(propertyNumber(event, "reps"), nullableNumber),
 							exerciseName: selectedField(column(exercise, "name"), Schema.String),
-							weight: selectedField(castNumber(setProperty("weight")), nullableNumber),
-							setOrder: selectedField(castNumber(setProperty("setOrder")), nullableNumber),
-							duration: selectedField(castNumber(setProperty("duration")), nullableNumber),
-							distance: selectedField(castNumber(setProperty("distance")), nullableNumber),
-							exerciseOrder: selectedField(
-								castNumber(setProperty("exerciseOrder")),
-								nullableNumber,
-							),
+							weight: selectedField(propertyNumber(event, "weight"), nullableNumber),
+							setOrder: selectedField(propertyNumber(event, "setOrder"), nullableNumber),
+							duration: selectedField(propertyNumber(event, "duration"), nullableNumber),
+							distance: selectedField(propertyNumber(event, "distance"), nullableNumber),
+							exerciseOrder: selectedField(propertyNumber(event, "exerciseOrder"), nullableNumber),
 							unitSystem: selectedField(
-								castText(setProperty("unitSystem")),
+								property(event, "unitSystem"),
 								Schema.NullOr(Schema.String),
 							),
 						},
