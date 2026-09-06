@@ -60,15 +60,32 @@ export default defineScript({
 describe("Youtubei durable tracer", () => {
 	it.live("replays sequential internal fetches without repeating completed HTTP", () =>
 		Effect.gen(function* () {
-			const { client, userId } = yield* createAuthenticatedClient();
-			const http = yield* startFakeHttpServerScoped();
+			let releaseSecondRequest!: () => void;
+			const secondRequestReleased = new Promise<void>((resolve) => {
+				releaseSecondRequest = resolve;
+			});
+			const http = yield* startFakeHttpServerScoped(async (url) => {
+				if (url.pathname === "/second") {
+					await secondRequestReleased;
+				}
+				return Response.json({ ok: true });
+			});
+			yield* Effect.addFinalizer(() => Effect.sync(releaseSecondRequest));
 			const scriptSlug = `youtubei-tracer-${crypto.randomUUID()}`;
 			const entry = "backend/scripts/youtubei-tracer.sandbox.ts";
 			const plugin = yield* Effect.acquireRelease(
 				installTestPluginBundle({
-					client,
+					scope: "system",
 					pluginSlug: `e2e-youtubei-tracer-${crypto.randomUUID()}`,
 					files: { [entry]: youtubeiSource({ slug: scriptSlug, name: "Youtubei tracer" }) },
+					httpRateLimits: [
+						{
+							requests: 1,
+							intervalMs: 1_000,
+							origins: [new URL(http.url).origin],
+							key: `e2e.youtubei-tracer.${crypto.randomUUID()}`,
+						},
+					],
 					scripts: [
 						{
 							entry,
@@ -83,6 +100,7 @@ describe("Youtubei durable tracer", () => {
 				}),
 				uninstallTestPlugin,
 			);
+			const { userId } = yield* createAuthenticatedClient();
 			const { jobId, executionId } = yield* enqueueSandboxScript(userId, {
 				scriptId: plugin.scriptIds[scriptSlug] ?? plugin.scriptId,
 				context: { firstUrl: `${http.url}/first`, secondUrl: `${http.url}/second` },
@@ -95,6 +113,7 @@ describe("Youtubei durable tracer", () => {
 				),
 			);
 			expect((yield* deleteSandboxReplayProjection(executionId)).deleted).toBe(true);
+			yield* Effect.sync(releaseSecondRequest);
 
 			const value = requireArray(
 				requireCompletedSandboxValue(yield* pollSandboxResult(userId, jobId), "Youtubei tracer"),
