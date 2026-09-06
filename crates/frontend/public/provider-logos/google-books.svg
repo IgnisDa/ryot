@@ -1,0 +1,78 @@
+<svg id="Layer_1" data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+    viewBox="0 0 454.61 506.56">
+    <defs>
+        <style>
+            .cls-1 {
+                fill: #0b5e9f;
+            }
+
+            .cls-2,
+            .cls-3 {
+                fill-rule: evenodd;
+            }
+
+            .cls-2 {
+                fill: url(#linear-gradient);
+            }
+
+            .cls-3,
+            .cls-7 {
+                fill: #fff;
+                isolation: isolate;
+            }
+
+            .cls-3 {
+                opacity: 0.25;
+            }
+
+            .cls-4 {
+                fill: #40dcff;
+            }
+
+            .cls-5 {
+                fill: url(#linear-gradient-2);
+            }
+
+            .cls-6 {
+                fill: #009bf0;
+            }
+
+            .cls-7 {
+                opacity: 0.15;
+            }
+
+            .cls-8 {
+                fill: #fafafa;
+            }
+        </style>
+        <linearGradient id="linear-gradient" x1="226.14" y1="-7163.73" x2="226.14" y2="-7670.24"
+            gradientTransform="translate(1.21 7668.81)" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#fff" stop-opacity="0" />
+            <stop offset="1" stop-color="#fff" stop-opacity="0.1" />
+        </linearGradient>
+        <linearGradient id="linear-gradient-2" x1="7095.17" y1="834.69" x2="7097.03" y2="838.03"
+            gradientTransform="translate(-271577.06 -29904) scale(38.32 36.19)" gradientUnits="userSpaceOnUse">
+            <stop offset="0" stop-color="#5b7c8c" stop-opacity="0" />
+            <stop offset="1" stop-color="#5b7c8c" stop-opacity="0.4" />
+        </linearGradient>
+    </defs>
+    <title>google-books</title>
+    <g id="g29">
+        <path id="path3" class="cls-1"
+            d="M433.83,224.83,49.85,6.6c-16.42-9.22-31.11-8.31-40,.3h0C3.44,13,0,22.71,0,35.37V470.92c0,12.76,3.75,22.49,9.83,28.57h0c9.22,8.91,23.6,9.83,40,.3L433.93,281.56C461.48,266,461.48,240.63,433.83,224.83Z" />
+        <path id="path10" class="cls-2"
+            d="M433.93,224.83l-96.25-54.71L336,169l-.11.11L49.85,6.7c-15.91-9.12-30.3-8.41-39.41-.2L8.92,7.81C3.24,13.89,0,23.31,0,35.57V470.92c0,12.26,3.24,21.68,9.22,27.56h0l-.2.2C18,508.3,33,509.42,50,500l285.9-162.61.11.1s1.72-1.12,1.82-1.12L434,281.66C461.48,266,461.48,240.33,433.93,224.83Z" />
+        <path id="path12" class="cls-3"
+            d="M49.85,9.54l384,218.12c12.46,7,19.45,16.21,20.56,25.64,0-10.24-6.79-20.57-20.56-28.47L49.85,6.7C22.29-9.11,0,4.07,0,35.57v2.84C0,6.9,22.29-6,49.85,9.54Z" />
+        <path id="path14" class="cls-4"
+            d="M362.91,71.13H137.69V449.85L383.78,310V92.11A20.93,20.93,0,0,0,362.91,71.13Z" />
+        <path id="path21" class="cls-5"
+            d="M362.91,71.13H137.69V449.64L383.78,309.93V92.11A20.93,20.93,0,0,0,362.91,71.13Z" />
+        <polygon id="polygon23" class="cls-6"
+            points="137.69 71.14 71.22 71.14 71.22 487.53 137.69 449.85 137.69 71.14" />
+        <path id="path25" class="cls-7"
+            d="M362.91,71.13H71.22v2.34H362.91c11.55,0,21,7,21,18.54h0A21.06,21.06,0,0,0,362.91,71.13Z" />
+        <polygon id="polygon27" class="cls-8"
+            points="264.53 175.59 298.77 154.41 334.23 175.59 334.23 71.14 264.53 71.14 264.53 175.59" />
+    </g>
+</svg>

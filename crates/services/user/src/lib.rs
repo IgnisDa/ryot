@@ -1,0 +1,11 @@
+pub mod access_link_operations;
+pub mod authentication_operations;
+pub mod integration_operations;
+pub mod notification_operations;
+pub mod oidc_operations;
+pub mod password_change_operations;
+pub mod recommendation_operations;
+pub mod two_factor_operations;
+pub mod user_data_operations;
+pub mod user_management_operations;
+pub mod user_preferences_operations;

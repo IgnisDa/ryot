@@ -1,0 +1,214 @@
+use std::result::Result as StdResult;
+
+use anyhow::Result;
+use chrono::NaiveDate;
+use common_utils::{convert_naive_to_utc, ryot_log};
+use convert_case::{Case, Casing};
+use csv::Reader;
+use dependent_models::{
+    CollectionToEntityDetails, ImportCompletedItem, ImportOrExportMetadataItem, ImportResult,
+};
+use dependent_provider_utils::get_identifier_from_book_isbn;
+use enum_models::{ImportSource, MediaLot};
+use futures::stream::{self, StreamExt};
+use google_books_provider::GoogleBooksService;
+use hardcover_provider::HardcoverService;
+use importer_models::{ImportFailStep, ImportFailedItem};
+use itertools::Itertools;
+use media_models::{
+    DeployGenericCsvImportInput, ImportOrExportItemRating, ImportOrExportItemReview,
+    ImportOrExportMetadataItemSeen,
+};
+use openlibrary_provider::OpenlibraryService;
+use rust_decimal::{Decimal, dec};
+use serde::Deserialize;
+
+#[derive(Debug, Deserialize)]
+struct Book {
+    #[serde(rename = "Title")]
+    title: String,
+    #[serde(rename = "ISBN13")]
+    isbn13: String,
+    #[serde(rename = "My Rating")]
+    rating: Decimal,
+    #[serde(rename = "Date Read")]
+    date_read: Option<String>,
+    #[serde(rename = "Bookshelves")]
+    bookshelf: String,
+    #[serde(rename = "My Review")]
+    review: String,
+    #[serde(rename = "Read Count")]
+    read_count: usize,
+}
+
+pub async fn import(
+    input: DeployGenericCsvImportInput,
+    hardcover_service: &HardcoverService,
+    google_books_service: &GoogleBooksService,
+    open_library_service: &OpenlibraryService,
+) -> Result<ImportResult> {
+    let lot = MediaLot::Book;
+    let ratings_reader = Reader::from_path(input.csv_path)?
+        .deserialize()
+        .collect_vec();
+    let total = ratings_reader.len();
+
+    let results: Vec<_> = stream::iter(ratings_reader.into_iter().enumerate())
+        .map(|(idx, result)| {
+            process_book_record(
+                idx,
+                result,
+                total,
+                lot,
+                hardcover_service,
+                google_books_service,
+                open_library_service,
+            )
+        })
+        .buffer_unordered(3)
+        .collect()
+        .await;
+
+    let mut completed = vec![];
+    let mut failed = vec![];
+    for result in results {
+        match result {
+            Ok(item) => completed.push(item),
+            Err(error_item) => failed.push(error_item),
+        }
+    }
+
+    Ok(ImportResult { completed, failed })
+}
+
+async fn process_book_record(
+    idx: usize,
+    result: csv::Result<Book>,
+    total: usize,
+    lot: MediaLot,
+    hardcover_service: &HardcoverService,
+    google_books_service: &GoogleBooksService,
+    open_library_service: &OpenlibraryService,
+) -> StdResult<ImportCompletedItem, ImportFailedItem> {
+    let record: Book = match result {
+        Ok(r) => r,
+        Err(e) => {
+            return Err(ImportFailedItem {
+                lot: Some(lot),
+                step: ImportFailStep::InputTransformation,
+                identifier: idx.to_string(),
+                error: Some(e.to_string()),
+            });
+        }
+    };
+
+    ryot_log!(debug, "Details for {} ({idx}/{total})", record.title);
+
+    let isbn = record
+        .isbn13
+        .trim()
+        .trim_start_matches('=')
+        .trim_matches('"')
+        .to_owned();
+    if !isbn.is_empty() && !isbn.chars().all(|c| c.is_ascii_digit()) {
+        return Err(ImportFailedItem {
+            lot: Some(lot),
+            identifier: record.title,
+            step: ImportFailStep::InputTransformation,
+            error: Some(format!("Invalid ISBN format: {}", record.isbn13)),
+        });
+    }
+    if isbn.is_empty() {
+        return Err(ImportFailedItem {
+            lot: Some(lot),
+            step: ImportFailStep::InputTransformation,
+            identifier: record.title,
+            error: Some("ISBN is empty".to_owned()),
+        });
+    }
+
+    let Some((identifier, source)) = get_identifier_from_book_isbn(
+        &isbn,
+        hardcover_service,
+        google_books_service,
+        open_library_service,
+    )
+    .await
+    else {
+        return Err(ImportFailedItem {
+            lot: Some(lot),
+            step: ImportFailStep::InputTransformation,
+            identifier: record.title,
+            error: Some(format!("Could not convert ISBN: {isbn} to Google Books ID",)),
+        });
+    };
+
+    let mut seen_history = vec![
+        ImportOrExportMetadataItemSeen {
+            providers_consumed_on: Some(vec![ImportSource::Goodreads.to_string()]),
+            ..Default::default()
+        };
+        record.read_count
+    ];
+    if let Some(w) = record.date_read {
+        let is_year_first = w.split('/').next().is_some_and(|s| s.len() == 4);
+        let format = if is_year_first {
+            "%Y/%m/%d"
+        } else {
+            "%-m/%-d/%y"
+        };
+        if let Ok(w) = NaiveDate::parse_from_str(&w, format) {
+            seen_history.first_mut().unwrap().ended_on = Some(convert_naive_to_utc(w));
+        }
+    }
+
+    let mut collections = vec![];
+    if !record.bookshelf.is_empty() {
+        collections.push(match record.bookshelf.as_str() {
+            "to-read" => "Watchlist".to_owned(),
+            "currently-reading" => "In Progress".to_owned(),
+            s => s.to_case(Case::Title),
+        });
+    }
+
+    let mut rating = None;
+    if record.rating > dec!(0) {
+        rating = Some(
+            record
+                .rating
+                // DEV: Rates items out of 10
+                .saturating_mul(dec!(10)),
+        );
+    }
+
+    let mut review = None;
+    if !record.review.is_empty() {
+        review = Some(ImportOrExportItemReview {
+            spoiler: Some(false),
+            text: Some(record.review),
+            ..Default::default()
+        });
+    }
+
+    let collections = collections
+        .into_iter()
+        .map(|name| CollectionToEntityDetails {
+            collection_name: name,
+            ..Default::default()
+        })
+        .collect();
+
+    Ok(ImportCompletedItem::Metadata(ImportOrExportMetadataItem {
+        lot,
+        source,
+        identifier,
+        collections,
+        seen_history,
+        source_id: record.title.clone(),
+        reviews: vec![ImportOrExportItemRating {
+            review,
+            rating,
+            ..Default::default()
+        }],
+    }))
+}

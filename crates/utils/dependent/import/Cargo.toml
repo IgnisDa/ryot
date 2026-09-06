@@ -1,0 +1,34 @@
+[package]
+name = "dependent-import-utils"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = { workspace = true }
+chrono = { workspace = true }
+chrono-tz = { workspace = true }
+rand = { workspace = true }
+rust_decimal = { workspace = true }
+sea-orm = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true } # TEMP(1611): remove once duplicate seen debug logging is no longer needed
+
+common-models = { workspace = true }
+common-utils = { workspace = true }
+database-models = { workspace = true }
+database-utils = { workspace = true }
+dependent-collection-utils = { workspace = true }
+dependent-fitness-utils = { workspace = true }
+dependent-jobs-utils = { workspace = true }
+dependent-entity-utils = { workspace = true }
+dependent-models = { workspace = true }
+dependent-progress-utils = { workspace = true }
+dependent-review-utils = { workspace = true }
+importer-models = { workspace = true }
+enum-models = { workspace = true }
+media-models = { workspace = true }
+supporting-service = { workspace = true }
+
+[package.metadata.cargo-machete]
+ignored = ["rust_decimal", "tracing"]
