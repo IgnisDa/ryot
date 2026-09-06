@@ -1,7 +1,11 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 
-import { requestDemoSignIn, requestInitializationStatus } from "#/modules/auth/hosted-service";
+import {
+	parseTotpEnrollment,
+	requestDemoSignIn,
+	requestInitializationStatus,
+} from "#/modules/auth/hosted-service";
 
 describe("hosted auth service demo sign-in", () => {
 	it.live.each(["demo", "standard"] as const)("accepts the %s mode", (mode) =>
@@ -115,4 +119,22 @@ describe("hosted auth initialization status", () => {
 			});
 		}),
 	);
+});
+
+describe("hosted auth TOTP enrollment", () => {
+	it("extracts the setup key from a TOTP provisioning URI", () => {
+		const totpURI = "otpauth://totp/Ryot:user%40ryot.example?secret=JBSWY3DPEHPK3PXP&issuer=Ryot";
+
+		expect(parseTotpEnrollment(totpURI)).toEqual({ totpURI, secret: "JBSWY3DPEHPK3PXP" });
+	});
+
+	it.each([
+		"javascript:alert(1)//?secret=JBSWY3DPEHPK3PXP",
+		"https://ryot.example/?secret=JBSWY3DPEHPK3PXP",
+		"otpauth://hotp/Ryot:user?secret=JBSWY3DPEHPK3PXP",
+		"otpauth://totp/Ryot:user?issuer=Ryot",
+		"not a uri",
+	])("rejects %s", (totpURI) => {
+		expect(parseTotpEnrollment(totpURI)).toBeNull();
+	});
 });

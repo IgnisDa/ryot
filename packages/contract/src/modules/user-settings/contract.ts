@@ -1,9 +1,10 @@
 import { Schema } from "effect";
-import { HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
+import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
-import { UpdateUserPreferencesBody } from "./schemas";
+import { DemoAccessPolicy } from "../../http-annotations";
+import { TwoFactorStatus, UpdateUserPreferencesBody } from "./schemas";
 
 export const UserSettingsGroup = HttpApiGroup.make("userSettings")
 	.annotate(OpenApi.Description, "Manage the current user's settings.")
@@ -18,5 +19,15 @@ export const UserSettingsGroup = HttpApiGroup.make("userSettings")
 		AuthenticatedMutationEndpoint.post("allowed")("refreshAvatar", "/user-settings/avatar", {
 			success: Schema.Void.pipe(HttpApiSchema.status(204)),
 		}).annotate(OpenApi.Description, "Generate a new profile avatar for the current user."),
+	)
+	.add(
+		HttpApiEndpoint.get("getTwoFactorStatus", "/user-settings/two-factor", {
+			success: TwoFactorStatus,
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(
+				OpenApi.Description,
+				"Report whether the current user can manage two-factor authentication and whether it is enabled.",
+			),
 	)
 	.middleware(AuthMiddleware);

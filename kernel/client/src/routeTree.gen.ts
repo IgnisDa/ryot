@@ -25,6 +25,7 @@ import { Route as GodModeMigrationReportRouteImport } from './routes/god-mode/mi
 import { Route as GodModeUsersRouteImport } from './routes/god-mode/users'
 import { Route as OauthInitializingRouteImport } from './routes/oauth.initializing'
 import { Route as OauthLoginRouteImport } from './routes/oauth.login'
+import { Route as OauthTwoFactorRouteImport } from './routes/oauth.two-factor'
 import { Route as AuthenticatedPluginSlugIndexRouteImport } from './routes/_authenticated/$pluginSlug/index'
 import { Route as AuthenticatedPluginSlugSplatRouteImport } from './routes/_authenticated/$pluginSlug/$'
 import { Route as AuthenticatedEEntityIdRouteImport } from './routes/_authenticated/e/$entityId'
@@ -123,6 +124,11 @@ const OauthInitializingRoute = OauthInitializingRouteImport.update({
 const OauthLoginRoute = OauthLoginRouteImport.update({
   id: '/oauth/login',
   path: '/oauth/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OauthTwoFactorRoute = OauthTwoFactorRouteImport.update({
+  id: '/oauth/two-factor',
+  path: '/oauth/two-factor',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedPluginSlugIndexRoute =
@@ -240,6 +246,7 @@ export interface FileRoutesByFullPath {
   '/god-mode/users': typeof GodModeUsersRoute
   '/oauth/initializing': typeof OauthInitializingRoute
   '/oauth/login': typeof OauthLoginRoute
+  '/oauth/two-factor': typeof OauthTwoFactorRoute
   '/god-mode/': typeof GodModeIndexRoute
   '/$pluginSlug/$': typeof AuthenticatedPluginSlugSplatRoute
   '/e/$entityId': typeof AuthenticatedEEntityIdRoute
@@ -270,6 +277,7 @@ export interface FileRoutesByTo {
   '/god-mode/users': typeof GodModeUsersRoute
   '/oauth/initializing': typeof OauthInitializingRoute
   '/oauth/login': typeof OauthLoginRoute
+  '/oauth/two-factor': typeof OauthTwoFactorRoute
   '/': typeof AuthenticatedIndexRoute
   '/god-mode': typeof GodModeIndexRoute
   '/$pluginSlug/$': typeof AuthenticatedPluginSlugSplatRoute
@@ -306,6 +314,7 @@ export interface FileRoutesById {
   '/god-mode/users': typeof GodModeUsersRoute
   '/oauth/initializing': typeof OauthInitializingRoute
   '/oauth/login': typeof OauthLoginRoute
+  '/oauth/two-factor': typeof OauthTwoFactorRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/god-mode/': typeof GodModeIndexRoute
   '/_authenticated/$pluginSlug/$': typeof AuthenticatedPluginSlugSplatRoute
@@ -343,6 +352,7 @@ export interface FileRouteTypes {
     | '/god-mode/users'
     | '/oauth/initializing'
     | '/oauth/login'
+    | '/oauth/two-factor'
     | '/god-mode/'
     | '/$pluginSlug/$'
     | '/e/$entityId'
@@ -373,6 +383,7 @@ export interface FileRouteTypes {
     | '/god-mode/users'
     | '/oauth/initializing'
     | '/oauth/login'
+    | '/oauth/two-factor'
     | '/'
     | '/god-mode'
     | '/$pluginSlug/$'
@@ -408,6 +419,7 @@ export interface FileRouteTypes {
     | '/god-mode/users'
     | '/oauth/initializing'
     | '/oauth/login'
+    | '/oauth/two-factor'
     | '/_authenticated/'
     | '/god-mode/'
     | '/_authenticated/$pluginSlug/$'
@@ -439,6 +451,7 @@ export interface RootRouteChildren {
   AuthCallbackRoute: typeof AuthCallbackRoute
   OauthInitializingRoute: typeof OauthInitializingRoute
   OauthLoginRoute: typeof OauthLoginRoute
+  OauthTwoFactorRoute: typeof OauthTwoFactorRoute
   AuthLogoutCallbackRoute: typeof AuthLogoutCallbackRoute
 }
 
@@ -554,6 +567,13 @@ declare module '@tanstack/react-router' {
       path: '/oauth/login'
       fullPath: '/oauth/login'
       preLoaderRoute: typeof OauthLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/oauth/two-factor': {
+      id: '/oauth/two-factor'
+      path: '/oauth/two-factor'
+      fullPath: '/oauth/two-factor'
+      preLoaderRoute: typeof OauthTwoFactorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/$pluginSlug/': {
@@ -786,6 +806,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthCallbackRoute: AuthCallbackRoute,
   OauthInitializingRoute: OauthInitializingRoute,
   OauthLoginRoute: OauthLoginRoute,
+  OauthTwoFactorRoute: OauthTwoFactorRoute,
   AuthLogoutCallbackRoute: AuthLogoutCallbackRoute,
 }
 export const routeTree = rootRouteImport
