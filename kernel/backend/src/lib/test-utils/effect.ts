@@ -120,16 +120,21 @@ export const makeAppConfigLayer = (
 			accessKeyId: Option.none(),
 			secretAccessKey: Option.none(),
 		},
+		observability: {
+			otlp: { headers: Option.none(), endpoint: Option.none() },
+			logging: {
+				level: "Info",
+				file: {
+					retentionFiles: 7,
+					rotationSize: "10M",
+					rotationInterval: "1d",
+					path: "./logs/ryot.log",
+				},
+			},
+		},
 		server: {
-			logLevel: "Info",
-			logRetentionFiles: 7,
 			proKey: Option.none(),
 			clientDir: "./client",
-			logRotationSize: "10M",
-			logRotationInterval: "1d",
-			otlpHeaders: Option.none(),
-			logFile: "./logs/ryot.log",
-			otlpEndpoint: Option.none(),
 			disableNotifications: false,
 			pluginsSystemDir: "./plugins",
 			proKeyVerificationUrl: "https://api.unkey.com",
@@ -161,6 +166,19 @@ export const makeAppConfigLayer = (
 			...overrides?.server,
 			oidc: { ...defaults.server.oidc, ...overrides?.server?.oidc },
 			smtp: { ...defaults.server.smtp, ...overrides?.server?.smtp },
+		},
+		observability: {
+			...defaults.observability,
+			...overrides?.observability,
+			otlp: { ...defaults.observability.otlp, ...overrides?.observability?.otlp },
+			logging: {
+				...defaults.observability.logging,
+				...overrides?.observability?.logging,
+				file: {
+					...defaults.observability.logging.file,
+					...overrides?.observability?.logging?.file,
+				},
+			},
 		},
 	});
 };
