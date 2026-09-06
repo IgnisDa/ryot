@@ -139,11 +139,12 @@ export const accountImports = (records: ReadonlyArray<ImportRecord>): ImportAcco
 	const byJob = new Map<string, ImportRecord>();
 	for (const record of records) {
 		const existing = byJob.get(record.jobId);
-		const earlierTerminal =
+		const kept =
 			existing !== undefined &&
 			existing.terminalAtMs !== null &&
-			(record.terminalAtMs === null || existing.terminalAtMs <= record.terminalAtMs);
-		const kept = earlierTerminal && existing !== undefined ? existing : record;
+			(record.terminalAtMs === null || existing.terminalAtMs <= record.terminalAtMs)
+				? existing
+				: record;
 		byJob.set(record.jobId, {
 			...kept,
 			submittedAtMs: Math.min(
