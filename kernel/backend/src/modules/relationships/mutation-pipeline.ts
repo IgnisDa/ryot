@@ -139,8 +139,8 @@ export const reconciliationSummary =
 		upserted,
 	});
 
-export class RelationshipMutations extends Context.Service<RelationshipMutations>()(
-	"RelationshipMutations",
+export class RelationshipMutationPipeline extends Context.Service<RelationshipMutationPipeline>()(
+	"RelationshipMutationPipeline",
 	{
 		make: Effect.gen(function* () {
 			const repository = yield* RelationshipsRepository;

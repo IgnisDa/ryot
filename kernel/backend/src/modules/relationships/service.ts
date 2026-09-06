@@ -26,7 +26,7 @@ import {
 import {
 	prepareProjectedRelationshipMutations,
 	reconciliationSummary,
-	RelationshipMutations,
+	RelationshipMutationPipeline,
 	singleRelationshipResult,
 	summarizeRelationshipMutations,
 	type PendingRelationshipMutations,
@@ -49,7 +49,7 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 	"RelationshipsService",
 	{
 		make: Effect.gen(function* () {
-			const mutations = yield* RelationshipMutations;
+			const mutations = yield* RelationshipMutationPipeline;
 			const repository = yield* RelationshipsRepository;
 			const entities = yield* EntitiesRepository;
 			const definitions = yield* DefinitionRepository;
