@@ -1,4 +1,5 @@
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
+import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import { importSourcesRecipe } from "@ryot-app/ryotql-recipes/import-sources";
 import { Effect } from "effect";
 
@@ -10,12 +11,16 @@ import {
 	FIXTURE_IMPORT_SOURCE,
 	installTestImportPlugin,
 	installTestImportPinningPlugin,
+	installTestPartialResultCancellationImportPlugin,
 	installTestHarvestHandleImportPlugin,
+	getImportRun,
+	listImportedEntityNames,
 	listManualImportRuns,
 	pollImportRunUntilTerminal,
 	pollUntil,
 	postApiJson,
 	type InstalledTestPlugin,
+	uninstallTestPlugin,
 	uninstallTestPluginStrict,
 	uploadImportFile,
 } from "~/fixtures/kernel";
@@ -129,6 +134,116 @@ describe("Plugin Import Public Boundary", () => {
 				processedItems: 0,
 			});
 			expect(completed.finishedAt).not.toBeNull();
+		}),
+	);
+
+	it.live("lets an authenticated owner repeatedly cancel and delete an active import", () =>
+		Effect.gen(function* () {
+			const { source } = yield* Effect.acquireRelease(
+				installTestImportPinningPlugin,
+				({ plugin: installedPlugin }) =>
+					uninstallWhenReleased(installedPlugin).pipe(Effect.asVoid, Effect.orDie),
+			);
+			const owner = yield* createAuthenticatedClient();
+			const other = yield* createAuthenticatedClient();
+			const created = yield* owner.client.call((c) => c.imports.createRun({ payload: { source } }));
+			yield* pollUntil(
+				`Import run '${created.id}' to start`,
+				Effect.gen(function* () {
+					const run = (yield* getImportRun(owner.client, created.id, undefined, 10)).run;
+					return run?.status === "running" ? true : null;
+				}),
+			);
+
+			const foreignError = yield* Effect.flip(
+				other.client.call((c) =>
+					c.imports.cancelRun({ params: { runId: ImportRunId.make(created.id) } }),
+				),
+			);
+			assertTaggedError(foreignError, "ImportNotFoundError");
+
+			const first = yield* owner.client.call((c) =>
+				c.imports.cancelRun({ params: { runId: ImportRunId.make(created.id) } }),
+			);
+			const repeated = yield* owner.client.call((c) =>
+				c.imports.cancelRun({ params: { runId: ImportRunId.make(created.id) } }),
+			);
+			expect(first.id).toBe(created.id);
+			expect(repeated.id).toBe(created.id);
+
+			const cancelled = yield* pollImportRunUntilTerminal(owner.client, created.id);
+			expect(cancelled).toMatchObject({
+				importedItems: 0,
+				processedItems: 0,
+				status: "cancelled",
+				failureReason: null,
+			});
+			expect(cancelled.finishedAt).not.toBeNull();
+
+			yield* owner.client.call((c) =>
+				c.imports.deleteRun({ params: { runId: ImportRunId.make(created.id) } }),
+			);
+			expect((yield* getImportRun(owner.client, created.id, undefined, 10)).run).toBeUndefined();
+		}),
+	);
+
+	it.live("cancels a newly accepted import before it can finish", () =>
+		Effect.gen(function* () {
+			const { source } = yield* Effect.acquireRelease(
+				installTestImportPinningPlugin,
+				({ plugin: installedPlugin }) =>
+					uninstallWhenReleased(installedPlugin).pipe(Effect.asVoid, Effect.orDie),
+			);
+			const { client } = yield* createAuthenticatedClient();
+			const created = yield* client.call((c) => c.imports.createRun({ payload: { source } }));
+			yield* client.call((c) =>
+				c.imports.cancelRun({ params: { runId: ImportRunId.make(created.id) } }),
+			);
+			expect((yield* pollImportRunUntilTerminal(client, created.id)).status).toBe("cancelled");
+		}),
+	);
+
+	it.live("retains committed partial results and their checkpoint when cancelled", () =>
+		Effect.gen(function* () {
+			const fixture = yield* Effect.acquireRelease(
+				installTestPartialResultCancellationImportPlugin,
+				({ plugin }) => uninstallTestPlugin(plugin),
+			);
+			const { client } = yield* createAuthenticatedClient();
+			const created = yield* client.call((c) =>
+				c.imports.createRun({ payload: { source: fixture.source } }),
+			);
+			const checkpoint = yield* pollUntil(
+				`Import run '${created.id}' to persist its ten-item checkpoint`,
+				Effect.gen(function* () {
+					const run = (yield* getImportRun(client, created.id, undefined, 10)).run;
+					return run?.status === "running" &&
+						run.processedItems === 10 &&
+						run.importedItems === 10 &&
+						run.failedItems === 0 &&
+						run.progress === 83
+						? run
+						: null;
+				}),
+			);
+
+			yield* client.call((c) =>
+				c.imports.cancelRun({ params: { runId: ImportRunId.make(created.id) } }),
+			);
+			const cancelled = yield* pollImportRunUntilTerminal(client, created.id);
+			expect(cancelled).toMatchObject({
+				status: "cancelled",
+				failureReason: null,
+				progress: checkpoint.progress,
+				failedItems: checkpoint.failedItems,
+				importedItems: checkpoint.importedItems,
+				processedItems: checkpoint.processedItems,
+			});
+
+			const entityNames = yield* listImportedEntityNames(client, fixture.entitySchemaSlug);
+			expect(entityNames).toEqual(fixture.committedNames);
+			expect(entityNames).not.toContain(fixture.blockedName);
+			expect(entityNames).not.toContain(fixture.laterName);
 		}),
 	);
 
