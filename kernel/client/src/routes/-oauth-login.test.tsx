@@ -40,6 +40,7 @@ const systemConfig = (
 ) => ({
 	analytics: {},
 	frontendOrigin,
+	version: "v1.0.0",
 	pro: { isServerKeyValidated: false },
 	notifications: { smtpEnabled: false },
 	auth: { ...auth, signupAllowed: true },
