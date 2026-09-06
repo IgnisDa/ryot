@@ -11,7 +11,7 @@ export default mergeConfig(
 	defineConfig({
 		resolve: { alias: [{ find: /^~\//, replacement: srcDir }] },
 		test: {
-			maxWorkers: 4,
+			maxWorkers: 6,
 			isolate: false,
 			testTimeout: 180_000,
 			hookTimeout: 180_000,
