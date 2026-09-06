@@ -63,7 +63,7 @@ A document cannot provide a user ID, plugin slug, execution scope, or grant. Aut
 
 Expression kinds are text, date, number, boolean, JSON, and null. Kind inference is shared by validation and compilation; unknown aliases or fields are validation errors.
 
-Scalar expressions include columns, JSON literals, `jsonPath`, casts, `coalesce`, `concat`, conditionals, `kebabCase`/`titleCase` transforms, `floor`, `round`, integer conversion, null checks, arithmetic, `dateBucket`, and correlated `exists`, `first`, or aggregate queries. Correlated aliases are lexical: ancestors are visible, siblings and forward joins are not. `first` requires ordering and receives primary-key tie breakers.
+Scalar expressions include columns, JSON literals, `jsonPath`, casts, `coalesce`, `concat`, conditionals, `kebabCase`/`titleCase` transforms, `floor`, `round`, integer conversion, null checks, arithmetic, `dateBucket`, `currentDate`, and correlated `exists`, `first`, or aggregate queries. Correlated aliases are lexical: ancestors are visible, siblings and forward joins are not. `first` requires ordering and receives primary-key tie breakers.
 
 Predicates include `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `contains`, `in`, `isNull`, `isNotNull`, `and`, `or`, `not`, and `exists`. Null comparisons are false before `not`; empty `and` is true, while empty `or` and `in` are false. Text uses deterministic C collation. `contains` is escaped case-insensitive substring matching for text and structural containment for JSON; JSON equality is structural.
 
@@ -72,6 +72,8 @@ Predicates include `eq`, `neq`, `gt`, `gte`, `lt`, `lte`, `contains`, `in`, `isN
 JSON arrays use `jsonElement` plus the `jsonExists`, `jsonFirst`, and `jsonCount` operators. `jsonElement` denotes the current array item and is valid only inside one of those operators. `jsonExists` tests whether any item matches an optional predicate, `jsonFirst` projects the first matching item under an explicit ordering, and `jsonCount` counts matching items. Element expressions reuse the scalar language (`jsonPath`, casts, comparisons, outer table columns) and stay visible inside nested correlated queries. A missing, null, or non-array value behaves as an empty set: `jsonExists` is false, `jsonFirst` is null, and `jsonCount` is zero. `jsonFirst` results carry the selected kind, so a date projection such as the next anime `airingAt` is a first-class filter, order key, and cursor value. Element nesting must not exceed 3.
 
 `dateBucket` accepts hour, day, week, or month plus an IANA zone and returns the local boundary as an ISO UTC instant; weeks start Monday and daylight-saving offsets are respected. Invalid zones and non-date inputs fail validation.
+
+`currentDate` takes no operands and returns the server's current UTC day as a date at UTC midnight, the same shape as `castDate` of a date-only string, so `castDate(publishDate) <= currentDate()` is a plain date comparison. It is evaluated once per statement.
 
 ## Joins, Includes, And Pagination
 
