@@ -39,6 +39,7 @@ import {
 } from "./mutation-pipeline";
 import {
 	assertRootTransaction,
+	transaction,
 	validateUserRelationshipEntities,
 	type ChangeUserRelationshipBatch,
 	type CreateRelationshipInput,
@@ -98,10 +99,18 @@ export class RelationshipsService extends Context.Service<RelationshipsService>(
 				yield* assertRootTransaction;
 				const replay = yield* committedReplay(input, command, mode, properties);
 				if (replay) {
+					const batch = yield* transaction(
+						planner.planBatch({
+							command,
+							plans: [replay.plan],
+							resource: "relationship",
+							identity: [command.itemIdentity],
+						}),
+					);
 					return {
 						_tag: "Committed",
 						result: { relationship: replay.relationship },
-						dispatch: [toLifecycleDispatchPlan(replay.plan)],
+						dispatch: [replay.plan, ...batch].map(toLifecycleDispatchPlan),
 					} satisfies LifecycleCommittedStep<RelationshipSingleResult>;
 				}
 				const catalog =

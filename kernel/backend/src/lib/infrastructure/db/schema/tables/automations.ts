@@ -58,7 +58,7 @@ export const automationTrigger = snakeCase.table(
 		index("automation_trigger_retention_idx").on(table.createdAt, table.id),
 		check(
 			"automation_trigger_kind_check",
-			sql`(${table.category} in ('request', 'change') and ${table.resourceKind} in ('entity', 'event', 'relationship') and ${table.operation} in ('create', 'update', 'delete')) or (${table.category} = 'change' and ${table.resourceKind} = 'provider-entity-import' and ${table.operation} = 'complete') or (${table.category} = 'signal' and ${table.resourceKind} = 'signal' and ${table.operation} = 'emit')`,
+			sql`(${table.category} in ('request', 'change') and ${table.resourceKind} in ('entity', 'event', 'relationship') and ${table.operation} in ('create', 'update', 'delete')) or (${table.category} = 'change' and ${table.resourceKind} in ('entity', 'event', 'relationship') and ${table.operation} = 'batch') or (${table.category} = 'change' and ${table.resourceKind} = 'provider-entity-import' and ${table.operation} = 'complete') or (${table.category} = 'signal' and ${table.resourceKind} = 'signal' and ${table.operation} = 'emit')`,
 		),
 		check(
 			"automation_trigger_causation_check",

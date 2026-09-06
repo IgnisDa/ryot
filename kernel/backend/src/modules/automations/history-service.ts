@@ -14,6 +14,7 @@ import {
 	type AutomationHistoryRetryResult,
 } from "@ryot-app/contract/modules/automations/history-schemas";
 import {
+	type AutomationPopulationContext,
 	type AutomationRun,
 	AutomationRunAttempt,
 	type AutomationTriggerPayload,
@@ -83,6 +84,25 @@ export const redactAutomationHistoryPayload = (
 	if (payload.resource === "provider-entity-import") {
 		return payload;
 	}
+	const redactPopulation = (population: AutomationPopulationContext) =>
+		population.parentEntity
+			? {
+					...population,
+					parentEntity: {
+						...population.parentEntity,
+						properties: properties(
+							entitySchema(population.parentEntity.entitySchemaSlug)?.propertiesSchema,
+							population.parentEntity.properties,
+						),
+					},
+				}
+			: population;
+	if (payload.operation === "batch") {
+		return Schema.decodeSync(JsonValue)({
+			...payload,
+			items: payload.items.map((item) => redactAutomationHistoryPayload(item, manifest, pluginId)),
+		});
+	}
 	const snapshot = (value: Readonly<Record<string, unknown>>) => {
 		let schema: AppSchema | undefined;
 		if (payload.resource === "entity") {
@@ -109,18 +129,8 @@ export const redactAutomationHistoryPayload = (
 	if ("after" in payload) {
 		result["after"] = snapshot(payload.after);
 	}
-	if ("population" in payload && payload.population?.parentEntity) {
-		const parent = payload.population.parentEntity;
-		result["population"] = {
-			...payload.population,
-			parentEntity: {
-				...parent,
-				properties: properties(
-					entitySchema(parent.entitySchemaSlug)?.propertiesSchema,
-					parent.properties,
-				),
-			},
-		};
+	if ("population" in payload && payload.population) {
+		result["population"] = redactPopulation(payload.population);
 	}
 	return Schema.decodeUnknownSync(JsonValue)(result);
 };

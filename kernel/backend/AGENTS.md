@@ -18,6 +18,7 @@
 - Validate schema-backed entity, event, and relationship properties before writes.
 - Services set transaction boundaries; repositories use the active executor from context.
 - Lifecycle planning may invert module dependencies through the generic `LifecyclePlanner` transaction-scoped persistence port. Source writes, immutable triggers, recipients, and pinned runs share the caller's transaction; the port must not execute sandbox code or start workflows. Start execution only after commit.
+- Every change-producing write also plans batch change triggers through `LifecyclePlanner.planBatch`, in the same transaction as its item plans, and dispatches item plans before batch plans. A single-item write emits a batch of one; batch identity and chunk boundaries must stay replay-stable.
 - The backup restore writer is the only kernel production caller allowed to use repository restore methods. The architecture check enforces this historical-write boundary; runtime callers use owning services.
 - Never hold a transaction across sandbox execution, network I/O, workflow boundaries, sleeps, or fan-out.
 - Provider population composes the import workflow. External event creation runs before-stage policy hooks, then plans pinned after-hook runs in the committing transaction.

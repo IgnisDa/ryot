@@ -157,10 +157,7 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 	return yield* makeActivity({
 		name: `write-event-${index}`,
 		error: EventCreateWorkflowError satisfies DurableSchema,
-		success: Schema.Struct({
-			eventId: EventId,
-			dispatch: Schema.Array(LifecycleDispatchPlan),
-		}) satisfies DurableSchema,
+		success: Schema.Struct({ plan: Plan, eventId: EventId }) satisfies DurableSchema,
 		execute: transaction(
 			Effect.gen(function* () {
 				const eventId = EventId.make(
@@ -193,7 +190,7 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 					if (plan.wasCreated) {
 						return yield* new DbError({ message: "Committed event is missing its lifecycle plan" });
 					}
-					return { eventId, dispatch: [toLifecycleDispatchPlan(plan)] };
+					return { plan, eventId };
 				}
 				yield* eventSchemas.lockCatalog();
 				yield* entities.lockEntityReferencesByIds([
@@ -245,8 +242,25 @@ const writeEvent = Effect.fn("writeEventCreateItem")(function* (
 						{ after, resource: "event", category: "change", operation: "create" },
 					),
 				});
-				return { eventId: event.id, dispatch: [toLifecycleDispatchPlan(plan)] };
+				return { plan, eventId: event.id };
 			}),
+		),
+	});
+});
+
+const planEventBatch = Effect.fn("planEventCreateBatch")(function* (
+	payload: EventCreateWorkflowPayload,
+	plans: ReadonlyArray<LifecyclePlan>,
+) {
+	const planner = yield* LifecyclePlanner;
+	return yield* makeActivity({
+		name: "plan-event-batch",
+		error: EventCreateWorkflowError satisfies DurableSchema,
+		success: Schema.Array(LifecycleDispatchPlan) satisfies DurableSchema,
+		execute: transaction(
+			planner
+				.planBatch({ plans, resource: "event", identity: ["events"], command: payload.command })
+				.pipe(Effect.map((batch) => batch.map(toLifecycleDispatchPlan))),
 		),
 	});
 });
@@ -260,6 +274,7 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(function*
 	const outcomes: EventCreateItemOutcome[] = [];
 	const warnings: AutomationWarning[] = [];
 	const subjects = new Map<string, PolicyIdentity[]>();
+	const written: LifecyclePlan[] = [];
 	let count = 0;
 	let failure: { index: number; reason: EventCreateFailureReason } | null = null;
 	for (const [index, item] of payload.payload.entries()) {
@@ -294,12 +309,20 @@ export const runEventCreateWorkflow = Effect.fn("EventCreateWorkflow")(function*
 			outcomes.push({ index, reason: attempt.reason, status: "skipped_by_policy" });
 			continue;
 		}
-		const { eventId, dispatch } = attempt.committed;
+		const { plan, eventId } = attempt.committed;
 		outcomes.push({ index, eventId, status: "written" });
+		written.push(plan);
 		count += 1;
 		warnings.push(
 			...(yield* execution
-				.dispatch(dispatch)
+				.dispatch([toLifecycleDispatchPlan(plan)])
+				.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die))),
+		);
+	}
+	if (written.length > 0) {
+		warnings.push(
+			...(yield* execution
+				.dispatch(yield* planEventBatch(payload, written))
 				.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die))),
 		);
 	}

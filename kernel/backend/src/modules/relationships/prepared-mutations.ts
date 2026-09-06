@@ -170,7 +170,11 @@ export const makePreparedRelationshipMutations = ({
 						kind: { category: "change", resource: "relationship", operation: request.operation },
 					}),
 				);
-				if (change?.category !== "change" || change.resource !== "relationship") {
+				if (
+					change?.category !== "change" ||
+					change.resource !== "relationship" ||
+					change.operation === "batch"
+				) {
 					return null;
 				}
 				const persisted = change.operation === "delete" ? change.before : change.after;
