@@ -31,17 +31,21 @@ const pluginId = "fixture-plugin";
 
 const makePlannerSchema = Effect.gen(function* () {
 	const session = yield* DatabaseSession;
-	const db = yield* session.current;
 	const name = `planner_test_${crypto.randomUUID().replaceAll("-", "")}`;
 	const statements = yield* baselineMigrationStatements();
-	yield* Effect.acquireRelease(db.execute(sql`create schema ${sql.identifier(name)}`), () =>
-		db.execute(sql`drop schema ${sql.identifier(name)} cascade`).pipe(Effect.orDie),
+	yield* Effect.acquireRelease(
+		session.run((db) => db.execute(sql`create schema ${sql.identifier(name)}`)),
+		() =>
+			session
+				.run((db) => db.execute(sql`drop schema ${sql.identifier(name)} cascade`))
+				.pipe(Effect.orDie),
 	);
 	const transaction = <A, E, R>(body: Effect.Effect<A, E, R>) =>
 		session.transaction(
 			Effect.gen(function* () {
-				const tx = yield* session.current;
-				yield* tx.execute(sql`set local search_path to ${sql.identifier(name)}, public`);
+				yield* session.run((db) =>
+					db.execute(sql`set local search_path to ${sql.identifier(name)}, public`),
+				);
 				return yield* body;
 			}),
 		);
@@ -82,38 +86,41 @@ const plannerSchemaLayer = Layer.effect(PlannerSchema, makePlannerSchema).pipe(
 // while `lockCatalog` still takes one real `plugin-config:` key.
 const seedCatalog = (statements: readonly string[]) =>
 	Effect.gen(function* () {
-		const tx = yield* (yield* DatabaseSession).current;
-		yield* applyBaselineMigration(statements, (statement) => tx.execute(sql.raw(statement)));
-		yield* tx
-			.insert(tables.user)
-			.values({ id: "owner", name: "Owner", preferences: {}, email: "owner@example.test" });
-		yield* tx
-			.insert(tables.plugin)
-			.values({ id: pluginId, slug: "fixture", scope: "system", status: "inactive" });
-		yield* tx
-			.insert(tables.pluginRevision)
-			.values({
-				pluginId,
-				version: "1.0.0",
-				id: "fixture-revision",
-				sourceHash: "fixture-source",
-				clientConfigSchema: { fields: {} },
-				manifest: { ...fixtureManifest(), hooks: [], scripts: [], signalSchemas: [] },
-			});
-		yield* tx
-			.update(tables.plugin)
-			.set({ status: "active", activeRevisionId: "fixture-revision" })
-			.where(eq(tables.plugin.id, pluginId));
-		yield* tx
-			.insert(tables.pluginInstallation)
-			.values({
-				pluginId,
-				userId: "owner",
-				health: "ready",
-				isDisabled: false,
-				id: "fixture-installation",
-				activeConfigRevisionId: null,
-			});
+		yield* (yield* DatabaseSession).run((db) =>
+			Effect.gen(function* () {
+				yield* applyBaselineMigration(statements, (statement) => db.execute(sql.raw(statement)));
+				yield* db
+					.insert(tables.user)
+					.values({ id: "owner", name: "Owner", preferences: {}, email: "owner@example.test" });
+				yield* db
+					.insert(tables.plugin)
+					.values({ id: pluginId, slug: "fixture", scope: "system", status: "inactive" });
+				yield* db
+					.insert(tables.pluginRevision)
+					.values({
+						pluginId,
+						version: "1.0.0",
+						id: "fixture-revision",
+						sourceHash: "fixture-source",
+						clientConfigSchema: { fields: {} },
+						manifest: { ...fixtureManifest(), hooks: [], scripts: [], signalSchemas: [] },
+					});
+				yield* db
+					.update(tables.plugin)
+					.set({ status: "active", activeRevisionId: "fixture-revision" })
+					.where(eq(tables.plugin.id, pluginId));
+				yield* db
+					.insert(tables.pluginInstallation)
+					.values({
+						pluginId,
+						userId: "owner",
+						health: "ready",
+						isDisabled: false,
+						id: "fixture-installation",
+						activeConfigRevisionId: null,
+					});
+			}),
+		);
 	});
 
 const withRoot = (id: string, rootExecutionId: string) => {
@@ -148,39 +155,47 @@ describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 				const { statements, transaction } = yield* PlannerSchema;
 				yield* transaction(
 					Effect.gen(function* () {
-						const tx = yield* (yield* DatabaseSession).current;
-						yield* applyBaselineMigration(statements, (statement) =>
-							tx.execute(sql.raw(statement)),
+						yield* (yield* DatabaseSession).run((db) =>
+							Effect.gen(function* () {
+								yield* applyBaselineMigration(statements, (statement) =>
+									db.execute(sql.raw(statement)),
+								);
+								yield* db
+									.insert(tables.user)
+									.values({
+										id: "owner",
+										name: "Owner",
+										preferences: {},
+										email: "owner@example.test",
+									});
+								yield* (yield* DefinitionRepository.make).replaceKernelDefinitions(
+									kernelDefinitionSource(),
+								);
+								yield* db
+									.insert(tables.notificationSubscription)
+									.values({ userId: "owner", signalSchemaSlug: "integration.disabled" });
+								yield* plugins.persistKernelScript({
+									name: "Notify",
+									source: "code",
+									compiledFormat: 1,
+									compiledCode: "code",
+									contentHash: "kernel-current",
+									slug: "automation.notification",
+									metadata: {
+										name: "Notify",
+										capabilities: [],
+										kind: "automation",
+										automationType: "automation",
+										requiredPluginConfigKeys: [],
+										requiredSystemConfigKeys: [],
+										slug: "automation.notification",
+										inputProjection: {
+											entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
+										},
+									},
+								});
+							}),
 						);
-						yield* tx
-							.insert(tables.user)
-							.values({ id: "owner", name: "Owner", preferences: {}, email: "owner@example.test" });
-						yield* (yield* DefinitionRepository.make).replaceKernelDefinitions(
-							kernelDefinitionSource(),
-						);
-						yield* tx
-							.insert(tables.notificationSubscription)
-							.values({ userId: "owner", signalSchemaSlug: "integration.disabled" });
-						yield* plugins.persistKernelScript({
-							name: "Notify",
-							source: "code",
-							compiledFormat: 1,
-							compiledCode: "code",
-							contentHash: "kernel-current",
-							slug: "automation.notification",
-							metadata: {
-								name: "Notify",
-								capabilities: [],
-								kind: "automation",
-								automationType: "automation",
-								requiredPluginConfigKeys: [],
-								requiredSystemConfigKeys: [],
-								slug: "automation.notification",
-								inputProjection: {
-									entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
-								},
-							},
-						});
 					}),
 				);
 				const inputs = ["left", "right"].map((id) => {
@@ -215,9 +230,14 @@ describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 				);
 				yield* transaction(
 					Effect.gen(function* () {
-						const tx = yield* (yield* DatabaseSession).current;
-						expect(yield* tx.select().from(tables.automationRun)).toHaveLength(1);
-						const triggers = yield* tx.select().from(tables.automationTrigger);
+						const { runCount, triggers } = yield* (yield* DatabaseSession).run((db) =>
+							Effect.gen(function* () {
+								const runs = yield* db.select().from(tables.automationRun);
+								const triggerRows = yield* db.select().from(tables.automationTrigger);
+								return { triggers: triggerRows, runCount: runs.length };
+							}),
+						);
+						expect(runCount).toBe(1);
 						expect(triggers).toHaveLength(2);
 						expect(
 							triggers

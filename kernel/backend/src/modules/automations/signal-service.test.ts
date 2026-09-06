@@ -85,64 +85,67 @@ const privateSignalPackage = (slug: string) => {
 };
 
 const setup = Effect.gen(function* () {
-	const db = yield* (yield* DatabaseSession).current;
-	const value = revisionPackage();
-	const installed = yield* installRevisionPackage({
-		...value,
-		manifest: {
-			...value.manifest,
-			signalSchemas: value.manifest.signalSchemas.map((schema) =>
-				Object.assign(schema, {
-					propertiesSchema: {
-						fields: {
-							value: { label: "Value", type: "string" as const, description: "Signal value" },
-						},
-					},
-					audiencePolicy: {
-						kind: "related_users" as const,
-						subjectSide: "source" as const,
+	yield* (yield* DatabaseSession).run((db) =>
+		Effect.gen(function* () {
+			const value = revisionPackage();
+			const installed = yield* installRevisionPackage({
+				...value,
+				manifest: {
+					...value.manifest,
+					signalSchemas: value.manifest.signalSchemas.map((schema) =>
+						Object.assign(schema, {
+							propertiesSchema: {
+								fields: {
+									value: { label: "Value", type: "string" as const, description: "Signal value" },
+								},
+							},
+							audiencePolicy: {
+								kind: "related_users" as const,
+								subjectSide: "source" as const,
+								relationshipSchemaSlug: "fixture-link",
+							},
+						}),
+					),
+				},
+			});
+			yield* (yield* PluginInstallationRepository).create({
+				config: {},
+				sortOrder: 0,
+				health: "ready",
+				userId: recipient,
+				isDisabled: false,
+				pluginId: installed.pluginId,
+			});
+			yield* db
+				.insert(tables.entity)
+				.values({
+					name: "Subject",
+					id: subjectEntityId,
+					entitySchemaSlug: "fixture-entity",
+					entitySchemaPluginId: installed.pluginId,
+				});
+			yield* db
+				.insert(tables.relationship)
+				.values(
+					[owner, recipient].map((userId) => ({
+						userId,
+						sourceEntityId: subjectEntityId,
+						targetEntityId: subjectEntityId,
 						relationshipSchemaSlug: "fixture-link",
-					},
-				}),
-			),
-		},
-	});
-	yield* (yield* PluginInstallationRepository).create({
-		config: {},
-		sortOrder: 0,
-		health: "ready",
-		userId: recipient,
-		isDisabled: false,
-		pluginId: installed.pluginId,
-	});
-	yield* db
-		.insert(tables.entity)
-		.values({
-			name: "Subject",
-			id: subjectEntityId,
-			entitySchemaSlug: "fixture-entity",
-			entitySchemaPluginId: installed.pluginId,
-		});
-	yield* db
-		.insert(tables.relationship)
-		.values(
-			[owner, recipient].map((userId) => ({
-				userId,
-				sourceEntityId: subjectEntityId,
-				targetEntityId: subjectEntityId,
-				relationshipSchemaSlug: "fixture-link",
-				relationshipSchemaPluginId: installed.pluginId,
-			})),
-		);
-	yield* db
-		.insert(tables.notificationSubscription)
-		.values(
-			[owner, recipient].map((userId) => ({
-				userId,
-				signalSchemaSlug: "fixture.signal",
-				signalSchemaPluginId: installed.pluginId,
-			})),
-		);
+						relationshipSchemaPluginId: installed.pluginId,
+					})),
+				);
+			yield* db
+				.insert(tables.notificationSubscription)
+				.values(
+					[owner, recipient].map((userId) => ({
+						userId,
+						signalSchemaSlug: "fixture.signal",
+						signalSchemaPluginId: installed.pluginId,
+					})),
+				);
+		}),
+	);
 });
 
 const dependencies = Layer.mergeAll(
@@ -199,34 +202,39 @@ describe("Signal emission PostgreSQL", () => {
 				Effect.gen(function* () {
 					yield* setup;
 					const service = yield* SignalEmissionService;
-					const db = yield* (yield* DatabaseSession).current;
-					const first = yield* service.emitSignal(input);
-					expect(first.wasCreated).toBe(true);
-					expect(
-						(yield* db.select().from(tables.automationRun))
-							.map((run) => run.executionUserId)
-							.sort((left, right) => (left ?? "").localeCompare(right ?? "")),
-					).toEqual([owner, recipient]);
-					yield* db.delete(tables.relationship);
-					yield* db.update(tables.notificationSubscription).set({ isActive: false });
-					yield* db
-						.update(tables.user)
-						.set({ disabledAt: DateTime.toDate(yield* DateTime.now) })
-						.where(eq(tables.user.id, recipient));
-					expect(yield* service.emitSignal(input)).toEqual({ ...first, wasCreated: false });
-					expect(
-						(yield* db.select().from(tables.automationTriggerRecipient))
-							.map((row) => row.userId)
-							.sort(),
-					).toEqual([owner, recipient]);
-					expect(yield* db.select().from(tables.automationRun)).toHaveLength(2);
-					assertExitFails(
-						yield* service
-							.emitSignal({ ...input, properties: { value: "different" } })
-							.pipe(Effect.exit),
-						new DbError({ message: `Automation trigger identity conflict: ${first.triggerId}` }),
+					yield* (yield* DatabaseSession).run((db) =>
+						Effect.gen(function* () {
+							const first = yield* service.emitSignal(input);
+							expect(first.wasCreated).toBe(true);
+							expect(
+								(yield* db.select().from(tables.automationRun))
+									.map((run) => run.executionUserId)
+									.sort((left, right) => (left ?? "").localeCompare(right ?? "")),
+							).toEqual([owner, recipient]);
+							yield* db.delete(tables.relationship);
+							yield* db.update(tables.notificationSubscription).set({ isActive: false });
+							yield* db
+								.update(tables.user)
+								.set({ disabledAt: DateTime.toDate(yield* DateTime.now) })
+								.where(eq(tables.user.id, recipient));
+							expect(yield* service.emitSignal(input)).toEqual({ ...first, wasCreated: false });
+							expect(
+								(yield* db.select().from(tables.automationTriggerRecipient))
+									.map((row) => row.userId)
+									.sort(),
+							).toEqual([owner, recipient]);
+							expect(yield* db.select().from(tables.automationRun)).toHaveLength(2);
+							assertExitFails(
+								yield* service
+									.emitSignal({ ...input, properties: { value: "different" } })
+									.pipe(Effect.exit),
+								new DbError({
+									message: `Automation trigger identity conflict: ${first.triggerId}`,
+								}),
+							);
+							expect(yield* yield* StartedTriggers).toEqual([first.triggerId, first.triggerId]);
+						}),
 					);
-					expect(yield* yield* StartedTriggers).toEqual([first.triggerId, first.triggerId]);
 				}),
 		);
 	});
@@ -234,13 +242,16 @@ describe("Signal emission PostgreSQL", () => {
 		test.effect("excludes disabled actors and recipients from new plans", () =>
 			Effect.gen(function* () {
 				yield* setup;
-				const db = yield* (yield* DatabaseSession).current;
-				yield* db.update(tables.user).set({ disabledAt: DateTime.toDate(yield* DateTime.now) });
-				const result = yield* (yield* SignalEmissionService).emitSignal(input);
-				expect(result.wasCreated).toBe(true);
-				expect(yield* db.select().from(tables.automationTrigger)).toHaveLength(1);
-				expect(yield* db.select().from(tables.automationTriggerRecipient)).toEqual([]);
-				expect(yield* db.select().from(tables.automationRun)).toEqual([]);
+				yield* (yield* DatabaseSession).run((db) =>
+					Effect.gen(function* () {
+						yield* db.update(tables.user).set({ disabledAt: DateTime.toDate(yield* DateTime.now) });
+						const result = yield* (yield* SignalEmissionService).emitSignal(input);
+						expect(result.wasCreated).toBe(true);
+						expect(yield* db.select().from(tables.automationTrigger)).toHaveLength(1);
+						expect(yield* db.select().from(tables.automationTriggerRecipient)).toEqual([]);
+						expect(yield* db.select().from(tables.automationRun)).toEqual([]);
+					}),
+				);
 			}),
 		);
 	});
@@ -252,58 +263,61 @@ describe("Signal emission PostgreSQL", () => {
 					privateSignalPackage("private-b"),
 					recipient,
 				);
-				const db = yield* (yield* DatabaseSession).current;
-				yield* db
-					.insert(tables.entity)
-					.values({
-						name: "Subject",
-						id: subjectEntityId,
-						entitySchemaSlug: "private-a-entity",
-						entitySchemaPluginId: actorPlugin.pluginId,
-					});
-				yield* db
-					.insert(tables.relationship)
-					.values(
-						[owner, recipient].map((userId) => ({
-							userId,
-							sourceEntityId: subjectEntityId,
-							targetEntityId: subjectEntityId,
-							relationshipSchemaSlug: "shared-link",
-							relationshipSchemaPluginId: actorPlugin.pluginId,
-						})),
-					);
-				yield* db.insert(tables.notificationSubscription).values([
-					{
-						userId: owner,
-						signalSchemaSlug: "shared.signal",
-						signalSchemaPluginId: actorPlugin.pluginId,
-					},
-					{
-						userId: recipient,
-						signalSchemaSlug: "shared.signal",
-						signalSchemaPluginId: recipientPlugin.pluginId,
-					},
-				]);
+				yield* (yield* DatabaseSession).run((db) =>
+					Effect.gen(function* () {
+						yield* db
+							.insert(tables.entity)
+							.values({
+								name: "Subject",
+								id: subjectEntityId,
+								entitySchemaSlug: "private-a-entity",
+								entitySchemaPluginId: actorPlugin.pluginId,
+							});
+						yield* db
+							.insert(tables.relationship)
+							.values(
+								[owner, recipient].map((userId) => ({
+									userId,
+									sourceEntityId: subjectEntityId,
+									targetEntityId: subjectEntityId,
+									relationshipSchemaSlug: "shared-link",
+									relationshipSchemaPluginId: actorPlugin.pluginId,
+								})),
+							);
+						yield* db.insert(tables.notificationSubscription).values([
+							{
+								userId: owner,
+								signalSchemaSlug: "shared.signal",
+								signalSchemaPluginId: actorPlugin.pluginId,
+							},
+							{
+								userId: recipient,
+								signalSchemaSlug: "shared.signal",
+								signalSchemaPluginId: recipientPlugin.pluginId,
+							},
+						]);
 
-				const result = yield* (yield* SignalEmissionService).emitSignal({
-					...input,
-					schemaSlug: "shared.signal",
-					command: command("private-signal"),
-				});
-				expect(result.wasCreated).toBe(true);
-				expect(yield* db.select().from(tables.automationRun)).toMatchObject([
-					{ executionUserId: owner, pluginId: actorPlugin.pluginId },
-				]);
-				expect(
-					(yield* db.select().from(tables.automationTriggerRecipient))
-						.map(({ userId }) => userId)
-						.sort(),
-				).toEqual([owner, recipient]);
-				const [trigger] = yield* db.select().from(tables.automationTrigger);
-				expect(trigger?.payload).toMatchObject({
-					signalSchemaSlug: "shared.signal",
-					signalSchemaPluginId: actorPlugin.pluginId,
-				});
+						const result = yield* (yield* SignalEmissionService).emitSignal({
+							...input,
+							schemaSlug: "shared.signal",
+							command: command("private-signal"),
+						});
+						expect(result.wasCreated).toBe(true);
+						expect(yield* db.select().from(tables.automationRun)).toMatchObject([
+							{ executionUserId: owner, pluginId: actorPlugin.pluginId },
+						]);
+						expect(
+							(yield* db.select().from(tables.automationTriggerRecipient))
+								.map(({ userId }) => userId)
+								.sort(),
+						).toEqual([owner, recipient]);
+						const [trigger] = yield* db.select().from(tables.automationTrigger);
+						expect(trigger?.payload).toMatchObject({
+							signalSchemaSlug: "shared.signal",
+							signalSchemaPluginId: actorPlugin.pluginId,
+						});
+					}),
+				);
 			}),
 		);
 	});
@@ -313,15 +327,18 @@ describe("Signal emission PostgreSQL", () => {
 			() =>
 				Effect.gen(function* () {
 					yield* setup;
-					const db = yield* (yield* DatabaseSession).current;
-					assertExitFails(
-						yield* (yield* SignalEmissionService).emitSignal(input).pipe(Effect.exit),
-						planningFailure,
+					yield* (yield* DatabaseSession).run((db) =>
+						Effect.gen(function* () {
+							assertExitFails(
+								yield* (yield* SignalEmissionService).emitSignal(input).pipe(Effect.exit),
+								planningFailure,
+							);
+							expect(yield* db.select().from(tables.automationTrigger)).toEqual([]);
+							expect(yield* db.select().from(tables.automationTriggerRecipient)).toEqual([]);
+							expect(yield* db.select().from(tables.automationRun)).toEqual([]);
+							expect(yield* yield* StartedTriggers).toEqual([]);
+						}),
 					);
-					expect(yield* db.select().from(tables.automationTrigger)).toEqual([]);
-					expect(yield* db.select().from(tables.automationTriggerRecipient)).toEqual([]);
-					expect(yield* db.select().from(tables.automationRun)).toEqual([]);
-					expect(yield* yield* StartedTriggers).toEqual([]);
 				}),
 		);
 	});

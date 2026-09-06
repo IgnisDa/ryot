@@ -216,20 +216,24 @@ export const relationshipDatabaseLayer = (
 			);
 			const seed = Layer.effectDiscard(
 				Effect.gen(function* () {
-					const db = yield* (yield* DatabaseSession).current;
+					const session = yield* DatabaseSession;
 					yield* (yield* DefinitionRepository.make).replaceKernelDefinitions(source);
-					yield* db
-						.insert(tables.user)
-						.values({
-							id: userId,
-							name: "Owner",
-							preferences: {},
-							email: "relationship@example.test",
-						});
-					yield* db.insert(tables.entity).values([
-						{ name: "Source", properties: {}, id: sourceEntityId, entitySchemaSlug: "fixture" },
-						{ name: "Target", properties: {}, id: targetEntityId, entitySchemaSlug: "fixture" },
-					]);
+					yield* session.run((db) =>
+						Effect.gen(function* () {
+							yield* db
+								.insert(tables.user)
+								.values({
+									id: userId,
+									name: "Owner",
+									preferences: {},
+									email: "relationship@example.test",
+								});
+							yield* db.insert(tables.entity).values([
+								{ name: "Source", properties: {}, id: sourceEntityId, entitySchemaSlug: "fixture" },
+								{ name: "Target", properties: {}, id: targetEntityId, entitySchemaSlug: "fixture" },
+							]);
+						}),
+					);
 				}),
 			);
 			const fixture = Layer.effect(

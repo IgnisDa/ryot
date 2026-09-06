@@ -53,27 +53,31 @@ export const revisionDatabaseLayer = Layer.unwrap(
 		const schemaLayer = Layer.effectDiscard(
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
-				const db = yield* session.current;
 				const statements = yield* baselineMigrationStatements();
-				yield* Effect.acquireRelease(db.execute(sql`create schema ${sql.identifier(name)}`), () =>
-					db.execute(sql`drop schema ${sql.identifier(name)} cascade`).pipe(Effect.orDie),
+				yield* Effect.acquireRelease(
+					session.run((db) => db.execute(sql`create schema ${sql.identifier(name)}`)),
+					() =>
+						session
+							.run((db) => db.execute(sql`drop schema ${sql.identifier(name)} cascade`))
+							.pipe(Effect.orDie),
 				);
 				yield* session.transaction(
-					Effect.gen(function* () {
-						const transaction = yield* session.current;
-						yield* applyBaselineMigration(statements, (statement) =>
-							transaction.execute(sql.raw(statement)),
-						);
-						yield* transaction.insert(tables.user).values([
-							{ id: "owner", name: "Owner", preferences: {}, email: "owner@example.test" },
-							{
-								id: "recipient",
-								preferences: {},
-								name: "Recipient",
-								email: "recipient@example.test",
-							},
-						]);
-					}),
+					session.run((transaction) =>
+						Effect.gen(function* () {
+							yield* applyBaselineMigration(statements, (statement) =>
+								transaction.execute(sql.raw(statement)),
+							);
+							yield* transaction.insert(tables.user).values([
+								{ id: "owner", name: "Owner", preferences: {}, email: "owner@example.test" },
+								{
+									id: "recipient",
+									preferences: {},
+									name: "Recipient",
+									email: "recipient@example.test",
+								},
+							]);
+						}),
+					),
 				);
 			}),
 		);
@@ -220,7 +224,6 @@ export const installRevisionPackage = Effect.fn(function* (
 ) {
 	const plugins = yield* PluginRepository;
 	const installations = yield* PluginInstallationRepository;
-	const db = yield* (yield* DatabaseSession).current;
 	const pluginId = yield* plugins.persist(
 		packageValue,
 		owner
@@ -236,7 +239,9 @@ export const installRevisionPackage = Effect.fn(function* (
 		userId: owner ?? UserId.make("owner"),
 	});
 	assert(installation);
-	const [plugin] = yield* db.select().from(tables.plugin).where(eq(tables.plugin.id, pluginId));
+	const [plugin] = yield* (yield* DatabaseSession).run((db) =>
+		db.select().from(tables.plugin).where(eq(tables.plugin.id, pluginId)),
+	);
 	assert(plugin?.activeRevisionId);
 	if (!owner) {
 		yield* plugins.resolveEnvironmentConfigs();

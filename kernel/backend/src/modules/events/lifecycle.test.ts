@@ -478,14 +478,22 @@ describe("Event lifecycle PostgreSQL", () => {
 					yield* session
 						.transaction(
 							Effect.gen(function* () {
-								const tx = yield* session.current;
 								yield* service.persistPreparedUpdate(update);
 								yield* service.persistPreparedDelete(deletion);
-								const changes = (yield* tx.select().from(tables.automationTrigger)).filter(
-									({ category }) => category === "change",
+								const changes = yield* session.run((tx) =>
+									tx
+										.select()
+										.from(tables.automationTrigger)
+										.pipe(
+											Effect.map((triggers) =>
+												triggers.filter(({ category }) => category === "change"),
+											),
+										),
 								);
 								expect(changes).toHaveLength(2);
-								expect(yield* tx.select().from(tables.automationRun)).toHaveLength(2);
+								expect(
+									yield* session.run((tx) => tx.select().from(tables.automationRun)),
+								).toHaveLength(2);
 								return yield* new DbError({ message: "Rollback prepared events" });
 							}),
 						)

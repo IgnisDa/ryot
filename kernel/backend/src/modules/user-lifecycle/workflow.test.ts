@@ -384,12 +384,16 @@ layer(liveOperationsLayer({ database: singleConnection, overrides: resetIdentity
 		test.effect("keeps a recreated reset user disabled until completion", () => {
 			const bootstrapCompletedAt = new Date("2026-08-24T00:00:02.000Z");
 			return Effect.gen(function* () {
-				const db = yield* (yield* DatabaseSession).current;
-				yield* db.execute(
-					sql`create temporary table "user" (id text primary key, image text, bootstrap_completed_at timestamptz)`,
+				const session = yield* DatabaseSession;
+				yield* session.run((db) =>
+					db.execute(
+						sql`create temporary table "user" (id text primary key, image text, bootstrap_completed_at timestamptz)`,
+					),
 				);
-				yield* db.execute(
-					sql`insert into "user" (id, bootstrap_completed_at) values (${userId}, ${bootstrapCompletedAt})`,
+				yield* session.run((db) =>
+					db.execute(
+						sql`insert into "user" (id, bootstrap_completed_at) values (${userId}, ${bootstrapCompletedAt})`,
+					),
 				);
 				const operations = yield* UserLifecycleWorkflowOperations;
 				expect(yield* operations.recreateResetUser("operation-1")).toEqual({

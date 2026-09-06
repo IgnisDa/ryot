@@ -35,14 +35,15 @@ describe("AutomationTriggerRepository", () => {
 						{ userId: owner, triggerId: trigger.id },
 						{ userId: recipient, triggerId: trigger.id },
 					]);
-					const db = yield* (yield* DatabaseSession).current;
-					yield* db
-						.update(automationTrigger)
-						.set({
-							payload: null,
-							payloadPrunedAt: DateTime.toDate(DateTime.makeUnsafe(trigger.createdAt)),
-						})
-						.where(eq(automationTrigger.id, trigger.id));
+					yield* (yield* DatabaseSession).run((db) =>
+						db
+							.update(automationTrigger)
+							.set({
+								payload: null,
+								payloadPrunedAt: DateTime.toDate(DateTime.makeUnsafe(trigger.createdAt)),
+							})
+							.where(eq(automationTrigger.id, trigger.id)),
+					);
 					expect(yield* repo.findById(trigger.id)).toEqual({
 						...trigger,
 						payload: null,
