@@ -27,10 +27,17 @@ BEGIN
 	SELECT
 		m.id AS parent_entity_id,
 		m.provider_id,
+		m.user_id,
 		season.value,
-		season.value ->> 'id' AS external_id,
+		CASE WHEN m.provider_id IS NOT NULL THEN season.value ->> 'id' END AS external_id,
 		(season.value ->> 'season_number')::int AS season_number,
-		md5('legacy-show-season:' || COALESCE(m.provider_id, '') || ':' || (season.value ->> 'id')) AS entity_id,
+		-- Provider children are shared across parents by provider identity. Custom children have no
+		-- provider identity, so their V1 ids only mean something within their own parent.
+		CASE
+			WHEN m.provider_id IS NOT NULL
+			THEN md5('legacy-show-season:' || m.provider_id || ':' || (season.value ->> 'id'))
+			ELSE md5('legacy-custom-show-season:' || m.id || ':' || (season.value ->> 'id'))
+		END AS entity_id,
 		m.created_at,
 		m.updated_at
 	FROM "metadata" legacy_metadata
@@ -47,12 +54,11 @@ BEGIN
 	  AND (season.value ->> 'season_number') ~ '^[0-9]+$';
 
 	CREATE INDEX ON _legacy_show_seasons (parent_entity_id, entity_id);
-	CREATE INDEX ON _legacy_show_seasons (provider_id, external_id);
 
 	CREATE TEMP TABLE _legacy_show_season_entities ON COMMIT DROP AS
-	SELECT DISTINCT ON (provider_id, external_id) *
+	SELECT DISTINCT ON (entity_id) *
 	FROM _legacy_show_seasons
-	ORDER BY provider_id, external_id, updated_at DESC, parent_entity_id;
+	ORDER BY entity_id, updated_at DESC, parent_entity_id;
 
 	CREATE UNIQUE INDEX ON _legacy_show_season_entities (entity_id);
 
@@ -60,11 +66,16 @@ BEGIN
 	SELECT
 		show_season.parent_entity_id,
 		show_season.provider_id,
+		show_season.user_id,
 		show_season.value AS season_value,
 		episode.value AS episode_value,
-		episode.value ->> 'id' AS external_id,
+		CASE WHEN show_season.provider_id IS NOT NULL THEN episode.value ->> 'id' END AS external_id,
 		show_season.entity_id AS season_entity_id,
-		md5('legacy-show-episode:' || COALESCE(show_season.provider_id, '') || ':' || (episode.value ->> 'id')) AS entity_id,
+		CASE
+			WHEN show_season.provider_id IS NOT NULL
+			THEN md5('legacy-show-episode:' || show_season.provider_id || ':' || (episode.value ->> 'id'))
+			ELSE md5('legacy-custom-show-episode:' || show_season.entity_id || ':' || (episode.value ->> 'id'))
+		END AS entity_id,
 		show_season.created_at,
 		show_season.updated_at
 	FROM _legacy_show_seasons show_season
@@ -79,12 +90,11 @@ BEGIN
 	  AND (episode.value ->> 'episode_number') ~ '^[0-9]+$';
 
 	CREATE INDEX ON _legacy_show_episodes (season_entity_id, entity_id);
-	CREATE INDEX ON _legacy_show_episodes (provider_id, external_id);
 
 	CREATE TEMP TABLE _legacy_show_episode_entities ON COMMIT DROP AS
-	SELECT DISTINCT ON (provider_id, external_id) *
+	SELECT DISTINCT ON (entity_id) *
 	FROM _legacy_show_episodes
-	ORDER BY provider_id, external_id, updated_at DESC, parent_entity_id;
+	ORDER BY entity_id, updated_at DESC, parent_entity_id;
 
 	CREATE UNIQUE INDEX ON _legacy_show_episode_entities (entity_id);
 
@@ -92,9 +102,14 @@ BEGIN
 	SELECT
 		m.id AS parent_entity_id,
 		m.provider_id,
+		m.user_id,
 		episode.value,
-		episode.value ->> 'id' AS external_id,
-		md5('legacy-podcast-episode:' || COALESCE(m.provider_id, '') || ':' || (episode.value ->> 'id')) AS entity_id,
+		CASE WHEN m.provider_id IS NOT NULL THEN episode.value ->> 'id' END AS external_id,
+		CASE
+			WHEN m.provider_id IS NOT NULL
+			THEN md5('legacy-podcast-episode:' || m.provider_id || ':' || (episode.value ->> 'id'))
+			ELSE md5('legacy-custom-podcast-episode:' || m.id || ':' || (episode.value ->> 'id'))
+		END AS entity_id,
 		m.created_at,
 		m.updated_at
 	FROM "metadata" legacy_metadata
@@ -111,12 +126,11 @@ BEGIN
 	  AND (episode.value ->> 'number') ~ '^[0-9]+$';
 
 	CREATE INDEX ON _legacy_podcast_episodes (parent_entity_id, entity_id);
-	CREATE INDEX ON _legacy_podcast_episodes (provider_id, external_id);
 
 	CREATE TEMP TABLE _legacy_podcast_episode_entities ON COMMIT DROP AS
-	SELECT DISTINCT ON (provider_id, external_id) *
+	SELECT DISTINCT ON (entity_id) *
 	FROM _legacy_podcast_episodes
-	ORDER BY provider_id, external_id, updated_at DESC, parent_entity_id;
+	ORDER BY entity_id, updated_at DESC, parent_entity_id;
 
 	CREATE UNIQUE INDEX ON _legacy_podcast_episode_entities (entity_id);
 	ANALYZE _legacy_show_seasons;
@@ -265,7 +279,7 @@ BEGIN
 		),
 		show_seasons.created_at,
 		NULL,
-		NULL,
+		show_seasons.user_id,
 		jsonb_strip_nulls(jsonb_build_object(
 			'description',  show_seasons.value ->> 'overview',
 			'releaseDate',  show_seasons.value ->> 'publish_date',
@@ -314,7 +328,7 @@ BEGIN
 		),
 		show_episodes.created_at,
 		NULL,
-		NULL,
+		show_episodes.user_id,
 		jsonb_strip_nulls(jsonb_build_object(
 			'runtime',       CASE WHEN (show_episodes.episode_value ->> 'runtime') ~ '^[0-9]+$'
 				THEN (show_episodes.episode_value ->> 'runtime')::int END,
@@ -366,7 +380,7 @@ BEGIN
 		),
 		podcast_episodes.created_at,
 		NULL,
-		NULL,
+		podcast_episodes.user_id,
 		jsonb_strip_nulls(jsonb_build_object(
 			'runtime',       CASE WHEN (podcast_episodes.value ->> 'runtime') ~ '^[0-9]+$'
 				THEN (podcast_episodes.value ->> 'runtime')::int END,
@@ -412,10 +426,10 @@ BEGIN
 		${quoteSqlString(input.showToSeasonRelationshipSchema.slug)},
 		${quoteNullableSqlString(input.showToSeasonRelationshipSchema.pluginId)},
 		'{}'::jsonb,
-		NULL,
+		show_seasons.user_id,
 		NOW()
 	FROM (
-		SELECT DISTINCT parent_entity_id, entity_id
+		SELECT DISTINCT parent_entity_id, entity_id, user_id
 		FROM _legacy_show_seasons
 	) show_seasons
 	ON CONFLICT ("user_id", "source_entity_id", "target_entity_id", "relationship_schema_slug", "relationship_schema_plugin_id") DO NOTHING;
@@ -438,10 +452,10 @@ BEGIN
 		${quoteSqlString(input.seasonToEpisodeRelationshipSchema.slug)},
 		${quoteNullableSqlString(input.seasonToEpisodeRelationshipSchema.pluginId)},
 		'{}'::jsonb,
-		NULL,
+		show_episodes.user_id,
 		NOW()
 	FROM (
-		SELECT DISTINCT season_entity_id, entity_id
+		SELECT DISTINCT season_entity_id, entity_id, user_id
 		FROM _legacy_show_episodes
 	) show_episodes
 	ON CONFLICT ("user_id", "source_entity_id", "target_entity_id", "relationship_schema_slug", "relationship_schema_plugin_id") DO NOTHING;
@@ -464,10 +478,10 @@ BEGIN
 		${quoteSqlString(input.podcastToEpisodeRelationshipSchema.slug)},
 		${quoteNullableSqlString(input.podcastToEpisodeRelationshipSchema.pluginId)},
 		'{}'::jsonb,
-		NULL,
+		podcast_episodes.user_id,
 		NOW()
 	FROM (
-		SELECT DISTINCT parent_entity_id, entity_id
+		SELECT DISTINCT parent_entity_id, entity_id, user_id
 		FROM _legacy_podcast_episodes
 	) podcast_episodes
 	ON CONFLICT ("user_id", "source_entity_id", "target_entity_id", "relationship_schema_slug", "relationship_schema_plugin_id") DO NOTHING;
