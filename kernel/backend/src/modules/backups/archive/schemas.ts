@@ -1,4 +1,4 @@
-import { ClientRendererDefinition } from "@ryot-app/contract/modules/client-pages/schemas";
+import { PluginClientArtifactFromBase64 } from "@ryot-app/client-plugin-contract";
 import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import { jsonValueSchema, type JsonValue } from "@ryot-app/contract/modules/sandbox/wire";
@@ -10,6 +10,10 @@ import { Result, Schema } from "effect";
 const nonNegativeInteger = Schema.Finite.pipe(
 	Schema.check(Schema.isInt()),
 	Schema.check(Schema.isGreaterThanOrEqualTo(0)),
+);
+const positiveInteger = Schema.Finite.pipe(
+	Schema.check(Schema.isInt()),
+	Schema.check(Schema.isGreaterThanOrEqualTo(1)),
 );
 const sha256 = Schema.String.pipe(
 	Schema.check(Schema.makeFilter((value) => /^[a-f0-9]{64}$/.test(value))),
@@ -30,7 +34,6 @@ export const isArchiveJsonObject = (value: unknown): value is Record<string, Jso
 export const ARCHIVE_SECTION_PATHS = [
 	"profile.json",
 	"private-plugins.ndjson",
-	"client-renderers.ndjson",
 	"installations.ndjson",
 	"entities.ndjson",
 	"entity-dependencies.ndjson",
@@ -87,6 +90,14 @@ export const ArchiveProfile = strictStruct({
 });
 export type ArchiveProfile = typeof ArchiveProfile.Type;
 
+export const ArchivePluginCompiledScript = strictStruct({
+	entry: Schema.String,
+	source: Schema.String,
+	format: positiveInteger,
+	javascript: Schema.String,
+});
+export type ArchivePluginCompiledScript = typeof ArchivePluginCompiledScript.Type;
+
 export const ArchivePrivatePlugin = strictStruct({
 	key: Schema.String,
 	sourceHash: sha256,
@@ -94,6 +105,8 @@ export const ArchivePrivatePlugin = strictStruct({
 	version: Schema.String,
 	manifest: PluginManifest,
 	files: Schema.Record(Schema.String, CanonicalBase64),
+	compiledScripts: Schema.Array(ArchivePluginCompiledScript),
+	compiledClient: Schema.optional(PluginClientArtifactFromBase64),
 });
 export type ArchivePrivatePlugin = typeof ArchivePrivatePlugin.Type;
 
@@ -110,20 +123,6 @@ export const ArchiveInstallation = strictStruct({
 	lifecycleIntent: Schema.Literals(["ready", "needs-configuration", "disabled"]),
 });
 export type ArchiveInstallation = typeof ArchiveInstallation.Type;
-
-export const ArchiveClientRenderer = strictStruct({
-	id: Schema.String,
-	slug: Schema.String,
-	name: Schema.String,
-	createdAt: isoTimestamp,
-	updatedAt: isoTimestamp,
-	draftRevision: Schema.Int,
-	draftDefinition: ClientRendererDefinition,
-	publishedHash: Schema.NullOr(Schema.String),
-	publishedRevision: Schema.NullOr(Schema.Int),
-	publishedDefinition: Schema.NullOr(ClientRendererDefinition),
-});
-export type ArchiveClientRenderer = typeof ArchiveClientRenderer.Type;
 
 const providerProvenance = Schema.NullOr(
 	strictStruct({ pluginKey: Schema.String, providerSlug: Schema.String }),
@@ -223,7 +222,6 @@ const savedViewFields = {
 	dataSources: Schema.NullOr(RyotQLDocument),
 	settings: Schema.Record(Schema.String, jsonValueSchema),
 	renderer: Schema.Union([
-		strictStruct({ rendererId: Schema.String, kind: Schema.Literal("custom") }),
 		strictStruct({ kind: Schema.Literal("kernel"), name: KernelSavedViewRendererName }),
 		strictStruct({
 			pluginKey: Schema.String,
@@ -283,7 +281,6 @@ export const ARCHIVE_CODECS = {
 	"installations.ndjson": ArchiveInstallation,
 	"relationships.ndjson": ArchiveRelationship,
 	"private-plugins.ndjson": ArchivePrivatePlugin,
-	"client-renderers.ndjson": ArchiveClientRenderer,
 	"entity-dependencies.ndjson": ArchiveEntityDependency,
 	"notification-subscriptions.ndjson": ArchiveNotificationSubscription,
 } as const;
@@ -296,7 +293,6 @@ export type ArchiveRecords = {
 	readonly installations: ReadonlyArray<ArchiveInstallation>;
 	readonly relationships: ReadonlyArray<ArchiveRelationship>;
 	readonly privatePlugins: ReadonlyArray<ArchivePrivatePlugin>;
-	readonly clientRenderers: ReadonlyArray<ArchiveClientRenderer>;
 	readonly entityDependencies: ReadonlyArray<ArchiveEntityDependency>;
 	readonly notificationSubscriptions: ReadonlyArray<ArchiveNotificationSubscription>;
 };

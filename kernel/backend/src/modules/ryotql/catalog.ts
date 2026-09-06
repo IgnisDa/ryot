@@ -318,14 +318,7 @@ const usableHomeSavedView = (
 			AND NOT home_renderer_plugin.is_disabled
 			AND home_renderer_revision.manifest -> 'client' -> 'exports' -> (${view}.renderer ->> 'exportName') ->> 'kind' = 'page'
 	)
-	ELSE EXISTS (
-		SELECT 1 FROM client_renderer home_renderer
-		WHERE home_renderer.id = ${view}.client_renderer_id
-			AND home_renderer.user_id = ${userId}
-			AND home_renderer.published_hash IS NOT NULL
-			AND home_renderer.published_revision IS NOT NULL
-			AND home_renderer.published_definition IS NOT NULL
-	)
+	ELSE false
 END`;
 
 const effectiveHomeSavedViewId: CatalogField = {
@@ -758,26 +751,6 @@ const backupRun: CatalogTable = {
 	},
 };
 
-const clientRenderer: CatalogTable = {
-	primaryKey: ["id"],
-	name: "client_renderer",
-	visibility: {
-		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: false },
-	},
-	fields: {
-		id: physicalField("id", "text", false),
-		slug: physicalField("slug", "text", false),
-		name: physicalField("name", "text", false),
-		createdAt: physicalField("created_at", "date", false),
-		updatedAt: physicalField("updated_at", "date", false),
-		publishedHash: physicalField("published_hash", "text"),
-		draftRevision: physicalField("draft_revision", "number", false),
-		publishedRevision: physicalField("published_revision", "number"),
-		draftDefinition: physicalField("draft_definition", "json", false),
-		publishedDefinition: physicalField("published_definition", "json"),
-	},
-};
-
 const automationTriggerKind = (triggerAlias: string) =>
 	`jsonb_build_object('category', ${triggerAlias}.category, 'operation', ${triggerAlias}.operation, 'resource', ${triggerAlias}.resource_kind)`;
 
@@ -1033,7 +1006,6 @@ const tables: Readonly<Record<string, CatalogTable>> = {
 	signalSchema,
 	sandboxScript,
 	automationRun,
-	clientRenderer,
 	migrationReport,
 	sandboxProvider,
 	importRunFailure,

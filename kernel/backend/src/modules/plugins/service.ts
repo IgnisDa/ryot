@@ -8,11 +8,10 @@ import { Context, Effect, Layer } from "effect";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { kernelDefinitionSource, kernelScripts } from "#modules/definition-registry/kernel-source";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
-import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 
 import { PluginCatalogInvalidator } from "./catalog-events";
 import {
-	compilePluginPackage,
+	normalizePluginPackage,
 	normalizePluginSource,
 	structurePluginFailure,
 	validationDiagnostics,
@@ -52,7 +51,6 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 			const definitions = yield* DefinitionRepository;
 			const systemPlugins = yield* SystemPlugins;
 			const invalidator = yield* PluginCatalogInvalidator;
-			const clientCompiler = yield* ClientPluginCompiler;
 			const kernelSignalSlugs = new Set(
 				kernelDefinitionSource().signalSchemas.map(({ slug }) => slug),
 			);
@@ -103,7 +101,8 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 			const ingestSystemPluginUnlocked = Effect.fn(
 				"PluginIngestionService.ingestSystemPluginUnlocked",
 			)(function* (source: PluginSource) {
-				const { files, manifest, sourceHash } = yield* normalizePluginSource(source);
+				const normalizedSource = yield* normalizePluginSource(source);
+				const { files, manifest, sourceHash } = normalizedSource;
 				yield* validatePluginManifestPolicy(manifest, { scope: "system" });
 				yield* validatePluginSourcePaths(files, manifest);
 				const slug = manifest.metadata.slug;
@@ -142,9 +141,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 					}
 				}
 
-				const normalized = yield* compilePluginPackage({ files, manifest, sourceHash }).pipe(
-					Effect.provideService(ClientPluginCompiler, clientCompiler),
-				);
+				const normalized = yield* normalizePluginPackage(normalizedSource);
 				const stored = yield* inTransaction(
 					Effect.gen(function* () {
 						const previous = yield* repository.findActiveSystemPlugin(slug);

@@ -1,11 +1,11 @@
-import { ClientPluginCompilerFailure } from "@ryot-app/client-plugin-compiler";
 import type { PluginClientArtifact } from "@ryot-app/client-plugin-contract";
 import { Context, Effect, Layer } from "effect";
 
-import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 import { PluginRepository } from "#modules/plugins/repository";
 
-import type { ResolvedClientPageArtifactGraph, ResolvedClientPageGraph } from "./graph";
+import { composeClientPage } from "./composition";
+import type { ResolvedClientPageArtifactGraph } from "./graph";
+import { ImageClientArtifacts } from "./image-artifacts";
 import { ClientPagesRepository } from "./repository";
 
 export class ClientPageBuildService extends Context.Service<ClientPageBuildService>()(
@@ -14,8 +14,7 @@ export class ClientPageBuildService extends Context.Service<ClientPageBuildServi
 		make: Effect.gen(function* () {
 			const repository = yield* ClientPagesRepository;
 			const plugins = yield* PluginRepository;
-			const compiler = yield* ClientPluginCompiler;
-			const inFlight = new Map<string, Promise<PluginClientArtifact>>();
+			const imageArtifacts = yield* ImageClientArtifacts;
 			const find = Effect.fn("ClientPageBuild.find")(function* (
 				graph: ResolvedClientPageArtifactGraph,
 			) {
@@ -26,30 +25,60 @@ export class ClientPageBuildService extends Context.Service<ClientPageBuildServi
 				return build;
 			});
 			const materialize = Effect.fn("ClientPageBuild.materialize")(function* (
-				graph: ResolvedClientPageGraph,
+				graph: ResolvedClientPageArtifactGraph,
 			) {
 				const existing = yield* find(graph);
 				if (existing) {
 					return existing;
 				}
-				const artifact = yield* Effect.tryPromise({
-					catch: (error) =>
-						error instanceof ClientPluginCompilerFailure
-							? error
-							: new ClientPluginCompilerFailure({ diagnostics: [], message: String(error) }),
-					try: () => {
-						const current = inFlight.get(graph.artifactKey);
-						if (current) {
-							return current;
+				const artifact = yield* Effect.gen(function* () {
+					const pluginArtifacts = yield* Effect.forEach(
+						graph.identity.contributors.filter((contributor) => contributor.kind === "plugin"),
+						(contributor) =>
+							Effect.gen(function* () {
+								const clientArtifact = yield* plugins.findClientArtifactForSource({
+									pluginId: contributor.pluginId,
+									sourceHash: contributor.sourceHash,
+								});
+								if (!clientArtifact) {
+									return yield* Effect.die(
+										new Error(
+											`Client plugin artifact is missing for ${contributor.pluginSlug} at source hash ${contributor.sourceHash}`,
+										),
+									);
+								}
+								return [contributor.pluginSlug, clientArtifact] as const;
+							}),
+					);
+
+					const rendererArtifacts: Array<readonly [string, PluginClientArtifact]> = [];
+					for (const contributor of graph.identity.contributors) {
+						if (contributor.kind !== "kernel-renderer") {
+							continue;
 						}
-						const promise = Effect.runPromiseWith(Context.empty())(
-							compiler.compile(graph.compilerInput),
-						);
-						inFlight.set(graph.artifactKey, promise);
-						void promise.finally(() => inFlight.delete(graph.artifactKey)).catch(() => {});
-						return promise;
-					},
-				}).pipe(Effect.withSpan("ClientPageBuild.compile"));
+						const renderer = imageArtifacts.renderers.get(contributor.name);
+						if (!renderer) {
+							return yield* Effect.die(
+								new Error(`Kernel renderer artifact is missing: ${contributor.name}`),
+							);
+						}
+						if (renderer.sourceHash !== contributor.sourceHash) {
+							return yield* Effect.die(
+								new Error(`Kernel renderer artifact source hash mismatch: ${contributor.name}`),
+							);
+						}
+						rendererArtifacts.push([contributor.name, renderer.artifact]);
+					}
+
+					return yield* Effect.sync(() =>
+						composeClientPage({
+							identity: graph.identity,
+							runtime: imageArtifacts.runtime,
+							plugins: Object.fromEntries(pluginArtifacts),
+							renderers: Object.fromEntries(rendererArtifacts),
+						}),
+					);
+				}).pipe(Effect.withSpan("ClientPageBuild.compose"));
 				yield* plugins
 					.persistClientArtifact(artifact)
 					.pipe(Effect.withSpan("ClientPageBuild.persist-artifact"));

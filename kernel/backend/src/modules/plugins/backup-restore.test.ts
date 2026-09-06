@@ -1,4 +1,5 @@
 import { expect, it } from "@effect/vitest";
+import { CLIENT_API_VERSION } from "@ryot-app/client-plugin-contract";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { and, eq } from "drizzle-orm";
 import { Effect, Encoding, Layer } from "effect";
@@ -8,7 +9,6 @@ import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { Database } from "#lib/infrastructure/db/service";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import type { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
-import { ClientPluginCompiler } from "#modules/plugins/client-plugin-compiler";
 
 import { PluginBackupRestore } from "./backup-restore";
 import { PluginIngestionLock } from "./ingestion-lock";
@@ -17,6 +17,7 @@ import { pluginSourceHash } from "./pipeline";
 import { PluginRepository } from "./repository";
 import { PluginRevisionActivation } from "./revision-activation";
 import { withRevisionDatabase } from "./revision.test-support";
+import { fixtureClientArtifact } from "./source.test-support";
 import { fixtureManifest } from "./test-support";
 
 const privateManifest = () => ({
@@ -68,13 +69,11 @@ const makeLayer = (input?: {
 			),
 		),
 	);
-	const clientCompilerLayer = Layer.mock(ClientPluginCompiler)({});
 	return PluginBackupRestore.layer.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				repositoryLayer,
 				ingestionLockLayer,
-				clientCompilerLayer,
 				Layer.mock(DefinitionRepository)({
 					getGlobalSnapshot: Effect.succeed(input?.definitions ?? snapshot.definitions),
 				}),
@@ -87,7 +86,7 @@ it.effect("round-trips an invalid UTF-8 private plugin asset before persistence"
 	const manifest = privateManifest();
 	const sourceFiles = { "client/asset.png": new Uint8Array([0x00, 0xff, 0x80, 0x41]) };
 	const files = { "client/asset.png": Encoding.encodeBase64(sourceFiles["client/asset.png"]) };
-	const sourceHash = pluginSourceHash(manifest, sourceFiles);
+	const sourceHash = pluginSourceHash(manifest, sourceFiles, []);
 	return Effect.gen(function* () {
 		const service = yield* PluginBackupRestore;
 		const prepared = yield* service.prepare([
@@ -95,6 +94,7 @@ it.effect("round-trips an invalid UTF-8 private plugin asset before persistence"
 				files,
 				manifest,
 				sourceHash,
+				compiledScripts: [],
 				slug: manifest.metadata.slug,
 				version: manifest.metadata.version,
 				key: `user:${manifest.metadata.slug}:${sourceHash}`,
@@ -103,6 +103,46 @@ it.effect("round-trips an invalid UTF-8 private plugin asset before persistence"
 		expect(prepared).toHaveLength(1);
 		expect(prepared[0]?.normalized.sourceHash).toBe(sourceHash);
 		expect(prepared[0]?.files).toEqual(sourceFiles);
+	}).pipe(Effect.provide(makeLayer()), Effect.provideService(Database, database));
+});
+
+it.effect("prepares a private backup package with its precompiled client artifact", () => {
+	const base = privateManifest();
+	const manifest = {
+		...base,
+		client: {
+			homeView: null,
+			apiVersion: CLIENT_API_VERSION,
+			exports: {
+				card: {
+					entry: "client/card.tsx",
+					kind: "component" as const,
+					automaticEntityPresentations: false,
+				},
+			},
+		},
+	};
+	const sourceFiles = { "client/card.tsx": new TextEncoder().encode("export default null;") };
+	const encodedFiles = { "client/card.tsx": Encoding.encodeBase64(sourceFiles["client/card.tsx"]) };
+	const compiledClient = fixtureClientArtifact(manifest.metadata.name);
+	const sourceHash = pluginSourceHash(manifest, sourceFiles, [], compiledClient);
+	return Effect.gen(function* () {
+		const service = yield* PluginBackupRestore;
+		const prepared = yield* service.prepare([
+			{
+				manifest,
+				sourceHash,
+				compiledClient,
+				files: encodedFiles,
+				compiledScripts: [],
+				slug: manifest.metadata.slug,
+				version: manifest.metadata.version,
+				key: `user:${manifest.metadata.slug}:${sourceHash}`,
+			},
+		]);
+
+		expect(prepared[0]?.normalized.compiledClient).toEqual(compiledClient);
+		expect(prepared[0]?.normalized.sourceHash).toBe(sourceHash);
 	}).pipe(Effect.provide(makeLayer()), Effect.provideService(Database, database));
 });
 
@@ -115,6 +155,7 @@ it.effect("rejects a private backup package whose source hash is not exact", () 
 				{
 					manifest,
 					files: {},
+					compiledScripts: [],
 					sourceHash: "a".repeat(64),
 					slug: manifest.metadata.slug,
 					version: manifest.metadata.version,
@@ -141,7 +182,7 @@ it.effect("rejects a definition collision before private plugin persistence", ()
 		],
 	};
 	const files = {};
-	const sourceHash = pluginSourceHash(manifest, files);
+	const sourceHash = pluginSourceHash(manifest, files, []);
 	return Effect.gen(function* () {
 		const service = yield* PluginBackupRestore;
 		const error = yield* service
@@ -150,6 +191,7 @@ it.effect("rejects a definition collision before private plugin persistence", ()
 					files,
 					manifest,
 					sourceHash,
+					compiledScripts: [],
 					slug: manifest.metadata.slug,
 					version: manifest.metadata.version,
 					key: `user:${manifest.metadata.slug}:${sourceHash}`,
@@ -187,7 +229,7 @@ it.effect("rejects a definition collision before private plugin persistence", ()
 	);
 });
 
-it.effect("rejects compilation failure before private plugin persistence", () => {
+it.effect("restores precompiled scripts without compiling before persistence", () => {
 	let persists = 0;
 	const entry = "backend/automations/broken.sandbox.ts";
 	const manifest = {
@@ -206,21 +248,24 @@ it.effect("rejects compilation failure before private plugin persistence", () =>
 	};
 	const sourceFiles = { [entry]: new TextEncoder().encode("export default {") };
 	const files = { [entry]: Encoding.encodeBase64(sourceFiles[entry]) };
-	const sourceHash = pluginSourceHash(manifest, sourceFiles);
+	const compiledScripts = [
+		{ entry, format: 1, javascript: "export {};", source: "export default {" },
+	];
+	const sourceHash = pluginSourceHash(manifest, sourceFiles, compiledScripts);
 	return Effect.gen(function* () {
 		const service = yield* PluginBackupRestore;
-		yield* service
-			.prepare([
-				{
-					files,
-					manifest,
-					sourceHash,
-					slug: manifest.metadata.slug,
-					version: manifest.metadata.version,
-					key: `user:${manifest.metadata.slug}:${sourceHash}`,
-				},
-			])
-			.pipe(Effect.flip);
+		const prepared = yield* service.prepare([
+			{
+				files,
+				manifest,
+				sourceHash,
+				compiledScripts,
+				slug: manifest.metadata.slug,
+				version: manifest.metadata.version,
+				key: `user:${manifest.metadata.slug}:${sourceHash}`,
+			},
+		]);
+		expect(prepared[0]?.normalized.scripts[0]?.compiledCode).toBe("export {};");
 		expect(persists).toBe(0);
 	}).pipe(
 		Effect.provide(
@@ -241,7 +286,7 @@ it.effect("rejects persistence when a system slug appears after backup preparati
 	let systemSlugExists = false;
 	const manifest = privateManifest();
 	const files = {};
-	const sourceHash = pluginSourceHash(manifest, files);
+	const sourceHash = pluginSourceHash(manifest, files, []);
 	return Effect.gen(function* () {
 		const service = yield* PluginBackupRestore;
 		const prepared = yield* service.prepare([
@@ -249,6 +294,7 @@ it.effect("rejects persistence when a system slug appears after backup preparati
 				files,
 				manifest,
 				sourceHash,
+				compiledScripts: [],
 				slug: manifest.metadata.slug,
 				version: manifest.metadata.version,
 				key: `user:${manifest.metadata.slug}:${sourceHash}`,
@@ -280,14 +326,11 @@ describe("private package backup restore in PostgreSQL", () => {
 			const base = privateManifest();
 			const manifest = { ...base, metadata: { ...base.metadata, version } };
 			const files = {};
-			return { files, manifest, scripts: [], sourceHash: pluginSourceHash(manifest, files) };
+			return { files, manifest, scripts: [], sourceHash: pluginSourceHash(manifest, files, []) };
 		};
 		const layer = PluginBackupRestore.layer.pipe(
 			Layer.provide(
-				Layer.mergeAll(
-					PluginIngestionLock.layer.pipe(Layer.provide(noRevisionActivation)),
-					Layer.mock(ClientPluginCompiler)({}),
-				),
+				Layer.mergeAll(PluginIngestionLock.layer.pipe(Layer.provide(noRevisionActivation))),
 			),
 		);
 		return withRevisionDatabase(
@@ -314,6 +357,7 @@ describe("private package backup restore in PostgreSQL", () => {
 					{
 						key,
 						files: {},
+						compiledScripts: [],
 						manifest: sourceV2.manifest,
 						sourceHash: sourceV2.sourceHash,
 						slug: sourceV2.manifest.metadata.slug,

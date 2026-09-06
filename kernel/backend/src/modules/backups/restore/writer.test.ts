@@ -1,7 +1,7 @@
 import { assert, describe, expect, it } from "@effect/vitest";
 import { DbError } from "@ryot-app/contract/errors";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { ClientRendererId, EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { ascending, column, document, field, rows, table } from "@ryot-app/ryotql";
 import { count, eq } from "drizzle-orm";
@@ -12,7 +12,6 @@ import { Database } from "#lib/infrastructure/db/service";
 import { makeAppConfigLayer, type MockOverrides } from "#lib/test-utils/effect";
 import { AuthRepository } from "#modules/auth/repository";
 import { AutomationsRepository } from "#modules/automations/repository";
-import { ClientPagesRepository } from "#modules/client-pages/repository";
 import {
 	buildDefinitionSnapshot,
 	type DefinitionSnapshot,
@@ -187,7 +186,6 @@ const provenanceRecords = (
 	integrations: [],
 	installations: [],
 	privatePlugins: [],
-	clientRenderers: [],
 	profile: { image: null, name: "User", preferences: {} },
 	notificationSubscriptions: [
 		{
@@ -427,35 +425,29 @@ it("does not apply archived translations to an existing global entity", () => {
 });
 
 it.effect(
-	"rejects structurally valid restored custom views with incompatible settings or data sources",
+	"rejects structurally valid restored plugin views with incompatible settings or data sources",
 	() =>
 		Effect.gen(function* () {
-			const renderer = {
-				kind: "custom" as const,
-				rendererId: ClientRendererId.make("mapped-renderer"),
-			};
-			const published = {
-				publishedRevision: 1,
-				id: "mapped-renderer",
-				publishedDefinition: {
-					settingsSchema: {
-						unknownKeys: "strict" as const,
-						fields: {
-							label: {
-								label: "Label",
-								description: "Label",
-								type: "string" as const,
-								validation: { required: true },
-							},
+			const renderer = { exportName: "page", pluginId: "plugin-id", kind: "plugin" as const };
+			const page = {
+				settingsSchema: {
+					unknownKeys: "strict" as const,
+					fields: {
+						label: {
+							label: "Label",
+							description: "Label",
+							type: "string" as const,
+							validation: { required: true },
 						},
-					} satisfies AppSchema,
-				},
+					},
+				} satisfies AppSchema,
 			};
 			const settingsError = yield* validateSavedViewDefinition(
 				renderer,
 				{ label: 42 },
 				provenanceQuery,
-				published,
+				null,
+				page,
 			).pipe(Effect.flip);
 			expect(settingsError.reason.code).toBe("settings-incompatible");
 
@@ -464,7 +456,8 @@ it.effect(
 				renderer,
 				{ label: "valid" },
 				document({ invalid: rows(invalidTable, { fields: [] }) }),
-				published,
+				null,
+				page,
 			).pipe(Effect.flip);
 			expect(sourceError.reason).toMatchObject({ code: "settings-incompatible" });
 		}),
@@ -526,7 +519,6 @@ const restoreArchivedEvents = (
 				installations: [],
 				relationships: [],
 				privatePlugins: [],
-				clientRenderers: [],
 				entityDependencies: [],
 				notificationSubscriptions: [],
 				profile: { image: null, name: "User", preferences: {} },
@@ -565,7 +557,6 @@ const restoreArchivedEvents = (
 							listPortablePluginMetadata: () => Effect.succeed([]),
 						}),
 						Layer.mock(AuthRepository, { restorePortableProfile: () => Effect.succeed(true) }),
-						Layer.mock(ClientPagesRepository, {}),
 						Layer.mock(EventsRepository, { restoreEvents }),
 						Layer.mock(EntitiesRepository, {
 							restoreEntity,
@@ -728,7 +719,6 @@ describe("account backup restore in PostgreSQL", () => {
 				EventsRepository.layer,
 				EntitiesRepository.layer,
 				PluginRepository.layer,
-				ClientPagesRepository.layer,
 				SavedViewsRepository.layer,
 				IntegrationsRepository.layer,
 				AutomationsRepository.layer,
@@ -783,7 +773,17 @@ describe("account backup restore in PostgreSQL", () => {
 					const packageValue: NormalizedPlugin = {
 						...basePackage,
 						manifest,
-						sourceHash: pluginSourceHash(manifest, basePackage.files),
+						sourceHash: pluginSourceHash(
+							manifest,
+							basePackage.files,
+							basePackage.scripts.map(({ entry, source, compiledCode, compiledFormat }) => ({
+								entry,
+								source,
+								format: compiledFormat,
+								javascript: compiledCode,
+							})),
+							basePackage.compiledClient,
+						),
 					};
 					const pluginId = yield* plugins.persist(packageValue, {
 						scope: "user",
@@ -802,7 +802,6 @@ describe("account backup restore in PostgreSQL", () => {
 						savedViews: [],
 						integrations: [],
 						privatePlugins: [],
-						clientRenderers: [],
 						entityDependencies: [],
 						profile: { image: null, preferences: {}, name: "Restored" },
 						notificationSubscriptions: [

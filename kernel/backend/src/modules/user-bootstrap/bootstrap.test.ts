@@ -50,7 +50,7 @@ const makeLayer = (options: {
 	db?: object;
 	onDefaultRules?: (userId: UserId) => void;
 	onBuiltinViews?: (userId: UserId) => void;
-	onAssertBuilds?: (userId: UserId) => Effect.Effect<void>;
+	onMaterializeBuilds?: (userId: UserId) => Effect.Effect<void>;
 	onProvisionInstallations?: (userId: UserId) => void;
 	dispatch: (userId: UserId) => Effect.Effect<void, SandboxRunError>;
 }) => {
@@ -76,11 +76,11 @@ const makeLayer = (options: {
 			ensureBuiltinViews: (inputUserId) => Effect.sync(() => options.onBuiltinViews?.(inputUserId)),
 		}),
 		Layer.succeed(ClientSurfaceMaterializer, {
+			assertUserBuilds: () => Effect.void,
 			materializeSystemBaseline: Effect.void,
 			materializeRenderer: () => Effect.void,
 			materializePendingInstallation: () => Effect.void,
-			materializeUser: () => Effect.die("Sign-up must never compile"),
-			assertUserBuilds: (inputUserId) => options.onAssertBuilds?.(inputUserId) ?? Effect.void,
+			materializeUser: (inputUserId) => options.onMaterializeBuilds?.(inputUserId) ?? Effect.void,
 		}),
 	);
 };
@@ -98,7 +98,7 @@ it.effect(
 		return Effect.gen(function* () {
 			yield* performBootstrap(userId);
 
-			expect(order).toEqual(["provision", "dispatch", "views", "assert-builds", "complete"]);
+			expect(order).toEqual(["provision", "dispatch", "views", "materialize-builds", "complete"]);
 			expect(dispatchedUserIds).toEqual([userId]);
 			expect(provisionedUserIds).toEqual([userId]);
 			expect(builtinViewUserIds).toEqual([userId]);
@@ -108,9 +108,9 @@ it.effect(
 			Effect.provide(
 				makeLayer({
 					onDefaultRules: (inputUserId) => defaultRuleUserIds.push(inputUserId),
-					onAssertBuilds: () =>
+					onMaterializeBuilds: () =>
 						Effect.sync(() => {
-							order.push("assert-builds");
+							order.push("materialize-builds");
 						}),
 					onBuiltinViews: (inputUserId) => {
 						order.push("views");
@@ -202,7 +202,7 @@ it.effect("does not complete account setup when a required boot-time build is ab
 			makeLayer({
 				dispatch: () => Effect.void,
 				db: makeBootstrapDb({ onMarkComplete: () => (completed = true) }),
-				onAssertBuilds: () => Effect.die(new Error("Missing baseline build")),
+				onMaterializeBuilds: () => Effect.die(new Error("Missing baseline build")),
 			}),
 		),
 	);

@@ -13,7 +13,6 @@ import {
 	AutomationsRepository,
 	type StoredNotificationSubscription,
 } from "#modules/automations/repository";
-import { ClientPagesRepository } from "#modules/client-pages/repository";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import type { SavedViewDefinition } from "#modules/definition-registry/snapshot";
 import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities/repository";
@@ -55,7 +54,6 @@ export type AccountCleanlinessState = {
 	readonly hasIntegrations: boolean;
 	readonly hasManagedAssets: boolean;
 	readonly hasNotificationChannels: boolean;
-	readonly hasClientRenderers?: boolean;
 	readonly profile: PortableUserProfile | null;
 	readonly savedViews: ReadonlyArray<SavedViewRecord>;
 	readonly defaultPreferences: Record<string, unknown>;
@@ -109,9 +107,6 @@ export const classifyAccountCleanliness = (
 	}
 	if (state.hasManagedAssets) {
 		return "managed-assets";
-	}
-	if (state.hasClientRenderers === true) {
-		return "saved-views";
 	}
 	const savedViews = state.savedViews.map(
 		({
@@ -179,7 +174,6 @@ export class BackupAccountCleanliness extends Context.Service<BackupAccountClean
 	{
 		make: Effect.gen(function* () {
 			const auth = yield* AuthRepository;
-			const clientPages = yield* ClientPagesRepository;
 			const events = yield* EventsRepository;
 			const entities = yield* EntitiesRepository;
 			const uploads = yield* ManagedAssetsService;
@@ -202,7 +196,6 @@ export class BackupAccountCleanliness extends Context.Service<BackupAccountClean
 					const hasEvents = yield* events.hasUserEvents(userId);
 					const hasManagedAssets = (yield* uploads.listManagedAssetsForOwner(userId)).length > 0;
 					const views = yield* savedViews.listForBackup(userId);
-					const hasClientRenderers = (yield* clientPages.listRenderers(userId)).length > 0;
 					const subscriptions = yield* automations.listNotificationSubscriptionsForBackup(userId);
 					const states = yield* installations.listHydratedForUser(userId);
 					const hasIntegrations = yield* integrations.hasAnyForUser(userId);
@@ -214,7 +207,6 @@ export class BackupAccountCleanliness extends Context.Service<BackupAccountClean
 						hasIntegrations,
 						hasManagedAssets,
 						savedViews: views,
-						hasClientRenderers,
 						pluginState: states,
 						entities: ownedEntities,
 						hasNotificationChannels,

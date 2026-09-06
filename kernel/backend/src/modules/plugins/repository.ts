@@ -1,4 +1,8 @@
-import type { PluginClientArtifact } from "@ryot-app/client-plugin-contract";
+import {
+	PluginClientArtifact as PluginClientArtifactSchema,
+	clientArtifactMetadata,
+	type PluginClientArtifact,
+} from "@ryot-app/client-plugin-contract";
 import { DbError } from "@ryot-app/contract/errors";
 import {
 	PluginManifest,
@@ -31,6 +35,7 @@ import { revisionDefinitions } from "#modules/definition-registry/source";
 import { redactPluginConfig } from "./config-redaction";
 import { PluginConfigRevisions } from "./config-revisions";
 import { pluginPointerFields, storedScriptFields } from "./persisted-projections";
+import { normalizePluginSource } from "./pipeline";
 import type {
 	NormalizedPlugin,
 	NormalizedPluginScript,
@@ -696,6 +701,154 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				);
 			},
 		);
+		const listCompiledPackageArtifacts = Effect.fn("PluginRepository.listCompiledPackageArtifacts")(
+			function* (pluginId: string) {
+				const db = yield* Database;
+				const [revision] = yield* mapDatabaseErrors(
+					db
+						.select({
+							id: schema.pluginRevision.id,
+							manifest: schema.pluginRevision.manifest,
+							sourceHash: schema.pluginRevision.sourceHash,
+							clientArtifactHash: schema.pluginRevision.clientArtifactHash,
+						})
+						.from(schema.plugin)
+						.innerJoin(
+							schema.pluginRevision,
+							eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
+						)
+						.where(and(eq(schema.plugin.id, pluginId), eq(schema.plugin.status, "active")))
+						.limit(1),
+				);
+				if (!revision) {
+					return yield* new DbError({ message: `Plugin ${pluginId} has no active revision` });
+				}
+				const manifest = yield* decodeStoredManifest(revision.manifest, pluginId);
+				const files = yield* listRevisionSourceFiles(revision.id);
+				const scriptRows = yield* mapDatabaseErrors(
+					db
+						.select({
+							slug: schema.sandboxScript.slug,
+							source: schema.sandboxScript.source,
+							format: schema.sandboxScript.compiledFormat,
+							javascript: schema.sandboxScript.compiledCode,
+						})
+						.from(schema.sandboxScript)
+						.where(eq(schema.sandboxScript.pluginRevisionId, revision.id)),
+				);
+				const scriptsBySlug = new Map(scriptRows.map((script) => [script.slug, script]));
+				if (
+					scriptsBySlug.size !== scriptRows.length ||
+					scriptRows.length !== manifest.scripts.length
+				) {
+					return yield* new DbError({
+						message: `Plugin ${pluginId} has incomplete retained compiled scripts`,
+					});
+				}
+				const compiledScripts = yield* Effect.forEach(manifest.scripts, (script) => {
+					const retained = scriptsBySlug.get(script.slug);
+					if (!retained) {
+						return Effect.fail(
+							new DbError({
+								message: `Plugin ${pluginId} is missing compiled script ${script.slug}`,
+							}),
+						);
+					}
+					return Effect.succeed({
+						entry: script.entry,
+						source: retained.source,
+						format: retained.format,
+						javascript: retained.javascript,
+					});
+				});
+
+				const normalizeRetainedArtifacts = (compiledClient?: PluginClientArtifact) =>
+					normalizePluginSource({
+						files,
+						manifest,
+						compiledScripts,
+						...(compiledClient ? { compiledClient } : {}),
+					}).pipe(
+						Effect.mapError(
+							(error) =>
+								new DbError({
+									message: `Plugin ${pluginId} has invalid retained artifacts: ${error.issues.join("; ")}`,
+								}),
+						),
+					);
+
+				const compiledClient = revision.clientArtifactHash
+					? yield* loadClientArtifact(revision.clientArtifactHash, manifest.metadata.name)
+					: undefined;
+				if (!manifest.client) {
+					const normalized = yield* normalizeRetainedArtifacts(compiledClient);
+					if (normalized.sourceHash !== revision.sourceHash) {
+						return yield* new DbError({
+							message: `Plugin ${pluginId} retained package hash does not match its artifacts`,
+						});
+					}
+					return { compiledScripts };
+				}
+
+				if (!compiledClient) {
+					return yield* new DbError({
+						message: `Plugin ${pluginId} is missing its retained compiled client artifact`,
+					});
+				}
+				const normalized = yield* normalizeRetainedArtifacts(compiledClient);
+				if (normalized.sourceHash !== revision.sourceHash) {
+					return yield* new DbError({
+						message: `Plugin ${pluginId} retained package hash does not match its artifacts`,
+					});
+				}
+				return { compiledClient, compiledScripts };
+			},
+		);
+		const findRevisionClientArtifact = Effect.fn("PluginRepository.findRevisionClientArtifact")(
+			function* (revisionId: string) {
+				const db = yield* Database;
+				const [revision] = yield* mapDatabaseErrors(
+					db
+						.select({
+							pluginSlug: schema.plugin.slug,
+							manifest: schema.pluginRevision.manifest,
+							clientArtifactHash: schema.pluginRevision.clientArtifactHash,
+						})
+						.from(schema.pluginRevision)
+						.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginRevision.pluginId))
+						.where(eq(schema.pluginRevision.id, revisionId))
+						.limit(1),
+				);
+				if (!revision?.clientArtifactHash) {
+					return null;
+				}
+				const manifest = yield* decodeStoredManifest(revision.manifest, revision.pluginSlug);
+				if (!manifest.client) {
+					return yield* new DbError({
+						message: `Plugin ${revision.pluginSlug} has a client artifact without a client manifest`,
+					});
+				}
+				return yield* loadClientArtifact(revision.clientArtifactHash, manifest.metadata.name);
+			},
+		);
+		const findClientArtifactForSource = Effect.fn("PluginRepository.findClientArtifactForSource")(
+			function* (input: { readonly pluginId: string; readonly sourceHash: string }) {
+				const db = yield* Database;
+				const [revision] = yield* mapDatabaseErrors(
+					db
+						.select({ id: schema.pluginRevision.id })
+						.from(schema.pluginRevision)
+						.where(
+							and(
+								eq(schema.pluginRevision.pluginId, input.pluginId),
+								eq(schema.pluginRevision.sourceHash, input.sourceHash),
+							),
+						)
+						.limit(1),
+				);
+				return revision ? yield* findRevisionClientArtifact(revision.id) : null;
+			},
+		);
 
 		const listAuthorizedSourceFiles = Effect.fn("PluginRepository.listAuthorizedSourceFiles")(
 			function* (input: {
@@ -782,6 +935,49 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				});
 			}
 			return undefined;
+		});
+
+		const loadClientArtifact = Effect.fn("PluginRepository.loadClientArtifact")(function* (
+			hash: string,
+			pluginName: string,
+		) {
+			const db = yield* Database;
+			const [metadata] = yield* mapDatabaseErrors(
+				db
+					.select()
+					.from(schema.pluginClientArtifact)
+					.where(eq(schema.pluginClientArtifact.hash, hash))
+					.limit(1),
+			);
+			if (!metadata) {
+				return yield* new DbError({ message: `Client artifact ${hash} is missing` });
+			}
+			const files = yield* mapDatabaseErrors(
+				db
+					.select()
+					.from(schema.pluginClientArtifactFile)
+					.where(eq(schema.pluginClientArtifactFile.artifactHash, hash)),
+			);
+			const artifact = yield* Schema.decodeUnknownEffect(PluginClientArtifactSchema)({
+				...metadata,
+				files: files.map(({ name, contents, contentType }) => ({
+					name,
+					contentType,
+					contents: new Uint8Array(contents),
+				})),
+			}).pipe(
+				Effect.mapError(() => new DbError({ message: `Client artifact ${hash} is invalid` })),
+			);
+			if (
+				artifact.hash !== hash ||
+				!clientArtifactMatches(artifact, metadata, files) ||
+				clientArtifactMetadata(pluginName, artifact.files).hash !== hash
+			) {
+				return yield* new DbError({
+					message: `Client artifact ${hash} conflicts with immutable stored data`,
+				});
+			}
+			return artifact;
 		});
 
 		const persistKernelScript = Effect.fn("PluginRepository.persistKernelScript")(function* (
@@ -878,6 +1074,23 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					message: "Immutable plugin revision conflicts with stored manifest",
 				});
 			}
+			const clientArtifactHash = plugin.compiledClient?.hash ?? null;
+			if (existingRevision && existingRevision.clientArtifactHash !== clientArtifactHash) {
+				return yield* new DbError({
+					message: "Immutable plugin revision conflicts with stored client artifact",
+				});
+			}
+			if (plugin.compiledClient) {
+				if (
+					clientArtifactMetadata(plugin.manifest.metadata.name, plugin.compiledClient.files)
+						.hash !== plugin.compiledClient.hash
+				) {
+					return yield* new DbError({
+						message: "Plugin client artifact metadata hash does not match its contents",
+					});
+				}
+				yield* persistClientArtifact(plugin.compiledClient);
+			}
 			const [insertedRevision] = existingRevision
 				? []
 				: yield* mapDatabaseErrors(
@@ -885,6 +1098,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 							.insert(schema.pluginRevision)
 							.values({
 								pluginId,
+								clientArtifactHash,
 								manifest: plugin.manifest,
 								sourceHash: plugin.sourceHash,
 								version: plugin.manifest.metadata.version,
@@ -1367,6 +1581,9 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			listAuthorizedSourceFiles,
 			deleteUnreferencedScripts,
 			listPortablePluginMetadata,
+			findRevisionClientArtifact,
+			findClientArtifactForSource,
+			listCompiledPackageArtifacts,
 			setEnvironmentConfigRevision,
 			findTestSupportOperationResult,
 			deleteInactiveUnreferencedPlugins,

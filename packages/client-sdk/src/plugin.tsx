@@ -1,6 +1,7 @@
 import {
 	CLIENT_ARTIFACT_METADATA_ELEMENT_ID,
 	CLIENT_ARTIFACT_ROOT_ELEMENT_ID,
+	CLIENT_BRIDGE_BOOTSTRAP_READY,
 	KERNEL_SHORTCUTS,
 	PluginBridgeInit,
 	PluginClientArtifactMetadata,
@@ -220,6 +221,7 @@ const bootstrapClientApplication = (
 		},
 		{ signal: listener.signal },
 	);
+	window.parent.postMessage({ type: CLIENT_BRIDGE_BOOTSTRAP_READY }, "*");
 	return { dispose };
 };
 

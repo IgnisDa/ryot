@@ -7,11 +7,7 @@ import {
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
 import type { RyotQLResponse, RowItem } from "@ryot-app/contract/modules/ryotql/language";
 import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
-import {
-	ClientRendererId,
-	NotificationSubscriptionId,
-	SignalSchemaSlug,
-} from "@ryot-app/contract/schema/brands";
+import { NotificationSubscriptionId, SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { ascending, column, descending, field, rows, star, table } from "@ryot-app/ryotql";
 import { automationHistoryRunRecipe } from "@ryot-app/ryotql-recipes/automation-history";
 import { entityDefinitionsRecipe } from "@ryot-app/ryotql-recipes/definitions";
@@ -47,7 +43,7 @@ import {
 	definitionSignalSchema,
 } from "#lib/infrastructure/db/schema/tables/definitions";
 import { migrationReport } from "#lib/infrastructure/db/schema/tables/migration-reports";
-import { clientRenderer, savedView } from "#lib/infrastructure/db/schema/tables/views";
+import { savedView } from "#lib/infrastructure/db/schema/tables/views";
 import { Database, DatabaseLive } from "#lib/infrastructure/db/service";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
@@ -323,7 +319,7 @@ const seedCatalog = Effect.gen(function* () {
 			isDisabled: true,
 			id: "owner-disabled",
 			pluginId: "disabled-plugin",
-			homeSavedViewId: "view-custom-draft",
+			homeSavedViewId: "view-plugin-component",
 		},
 		{
 			userId: "other",
@@ -433,32 +429,6 @@ const seedCatalog = Effect.gen(function* () {
 			settingsSchema: { fields: {} },
 		},
 	]);
-	const rendererDefinition = {
-		files: [],
-		entry: "index.tsx",
-		pluginDependencies: [],
-		settingsSchema: { fields: {} },
-		automaticEntityPresentations: false,
-	};
-	yield* db.insert(clientRenderer).values([
-		{
-			name: "Draft",
-			slug: "draft",
-			userId: "owner",
-			id: "renderer-draft",
-			draftDefinition: rendererDefinition,
-		},
-		{
-			userId: "other",
-			slug: "published",
-			name: "Published",
-			publishedRevision: 1,
-			publishedHash: "hash",
-			id: "renderer-published",
-			draftDefinition: rendererDefinition,
-			publishedDefinition: rendererDefinition,
-		},
-	]);
 	yield* db
 		.insert(savedView)
 		.values([
@@ -475,13 +445,11 @@ const seedCatalog = Effect.gen(function* () {
 				{ kind: "plugin", exportName: "page", pluginId: "system-plugin" },
 				{ isBuiltin: true, pluginInstallationId: "owner-private" },
 			),
-			view(
-				"view-custom-draft",
-				"owner",
-				"custom-draft",
-				{ kind: "custom", rendererId: ClientRendererId.make("renderer-draft") },
-				{ clientRendererId: "renderer-draft" },
-			),
+			view("view-plugin-component", "owner", "plugin-component", {
+				kind: "plugin",
+				exportName: "widget",
+				pluginId: "system-plugin",
+			}),
 			view(
 				"view-disabled-home",
 				"owner",
@@ -493,12 +461,8 @@ const seedCatalog = Effect.gen(function* () {
 				"view-other-home",
 				"other",
 				"system-home",
-				{ kind: "custom", rendererId: ClientRendererId.make("renderer-published") },
-				{
-					isBuiltin: true,
-					pluginInstallationId: "other-system",
-					clientRendererId: "renderer-published",
-				},
+				{ kind: "plugin", exportName: "page", pluginId: "system-plugin" },
+				{ isBuiltin: true, pluginInstallationId: "other-system" },
 			),
 		]);
 	yield* db.insert(backupRun).values([
@@ -894,7 +858,7 @@ it.effect("shows users only themselves and classifies auth state for admins", ()
 	),
 );
 
-it.effect("scopes backups and client renderers to their owner without artifact keys", () =>
+it.effect("scopes backups and saved views to their owner without artifact keys", () =>
 	withCatalogDatabase(
 		Effect.gen(function* () {
 			const service = yield* RyotQLService;
@@ -909,12 +873,14 @@ it.effect("scopes backups and client renderers to their owner without artifact k
 			expect(backup).toMatchObject({ id: "backup-owner", artifactProvider: "local" });
 			expect(Object.values(backup ?? {})).not.toContain("secret-key");
 			expect(yield* readRows(other, "backupRun", ["id"])).toEqual([{ id: "backup-other" }]);
-			expect(yield* readRows(owner, "clientRenderer", ["id", "publishedHash"])).toEqual([
-				{ publishedHash: null, id: "renderer-draft" },
+			expect(yield* readRows(owner, "savedView", ["id"])).toEqual([
+				{ id: "view-component" },
+				{ id: "view-disabled-home" },
+				{ id: "view-kernel" },
+				{ id: "view-plugin-component" },
+				{ id: "view-private-home" },
 			]);
-			expect(yield* readRows(other, "clientRenderer", ["id", "publishedHash"])).toEqual([
-				{ publishedHash: "hash", id: "renderer-published" },
-			]);
+			expect(yield* readRows(other, "savedView", ["id"])).toEqual([{ id: "view-other-home" }]);
 		}),
 	),
 );

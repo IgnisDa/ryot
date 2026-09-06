@@ -90,8 +90,6 @@ describe("OpenAPI documentation", () => {
 			"/imports/sources",
 			"/integrations/providers",
 			"/integrations/{integrationId}",
-			"/client-renderers",
-			"/client-renderers/{rendererId}",
 			"/automations/catalog",
 			"/automations/catalog/{signalSchemaSlug}",
 			"/automations/runs",
@@ -127,7 +125,6 @@ describe("OpenAPI documentation", () => {
 		expect(paths["/backups/runs/{id}/download"]?.get).toBeDefined();
 		expect(paths["/backups/runs/{id}"]?.delete).toBeDefined();
 		expect(paths["/integrations/{integrationId}"]?.patch).toBeDefined();
-		expect(paths["/client-renderers/{rendererId}"]?.delete).toBeDefined();
 		expect(paths["/automations/rules"]?.post).toBeDefined();
 		expect(paths["/automations/rules/{ruleId}/activate"]?.post).toBeDefined();
 		expect(paths["/automations/rules/{ruleId}/deactivate"]?.post).toBeDefined();

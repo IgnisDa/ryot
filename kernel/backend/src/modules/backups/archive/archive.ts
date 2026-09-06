@@ -75,7 +75,6 @@ const recordCollections = (records: ArchiveRecords) => ({
 	"installations.ndjson": records.installations,
 	"relationships.ndjson": records.relationships,
 	"private-plugins.ndjson": records.privatePlugins,
-	"client-renderers.ndjson": records.clientRenderers,
 	"entity-dependencies.ndjson": records.entityDependencies,
 	"notification-subscriptions.ndjson": records.notificationSubscriptions,
 });
@@ -114,7 +113,6 @@ const sortArchiveRecords = (records: ArchiveRecords): ArchiveRecords => ({
 	installations: sortedIfNeeded(records.installations, compareId),
 	relationships: sortedIfNeeded(records.relationships, compareId),
 	entityDependencies: sortDependencies(records.entityDependencies),
-	clientRenderers: sortedIfNeeded(records.clientRenderers, compareId),
 	privatePlugins: sortedIfNeeded(records.privatePlugins, (left, right) =>
 		left.key.localeCompare(right.key),
 	),
@@ -183,33 +181,6 @@ const validateRecordKeys = (records: ArchiveRecords) => {
 	requireUniqueIds("installations.ndjson", records.installations);
 	requireUniqueIds("relationships.ndjson", records.relationships);
 	requireUniqueIds("entity-dependencies.ndjson", records.entityDependencies);
-	requireUniqueIds("client-renderers.ndjson", records.clientRenderers);
-	const rendererSlugs = new Set<string>();
-	for (const renderer of records.clientRenderers) {
-		if (rendererSlugs.has(renderer.slug)) {
-			throw archiveError(
-				"duplicate_record_id",
-				`Duplicate client renderer slug '${renderer.slug}'`,
-				"client-renderers.ndjson",
-			);
-		}
-		rendererSlugs.add(renderer.slug);
-		const publishedFields = [
-			renderer.publishedHash,
-			renderer.publishedRevision,
-			renderer.publishedDefinition,
-		];
-		if (
-			!publishedFields.every((value) => value === null) &&
-			!publishedFields.every((value) => value !== null)
-		) {
-			throw archiveError(
-				"invalid_entry",
-				`Client renderer '${renderer.id}' has inconsistent published source state`,
-				"client-renderers.ndjson",
-			);
-		}
-	}
 	const entityIds = new Set(records.entities.map(({ id }) => id));
 	const translationIds = new Set<string>();
 	for (const dependency of records.entityDependencies) {
@@ -241,7 +212,6 @@ const validateRecordKeys = (records: ArchiveRecords) => {
 		}
 	}
 	const viewSlugs = new Set<string>();
-	const rendererIds = new Set(records.clientRenderers.map(({ id }) => id));
 	for (const view of records.savedViews) {
 		if (viewSlugs.has(view.slug)) {
 			throw archiveError(
@@ -251,13 +221,6 @@ const validateRecordKeys = (records: ArchiveRecords) => {
 			);
 		}
 		viewSlugs.add(view.slug);
-		if (view.renderer.kind === "custom" && !rendererIds.has(view.renderer.rendererId)) {
-			throw archiveError(
-				"missing_reference_mapping",
-				`Saved view references unknown client renderer '${view.renderer.rendererId}'`,
-				"saved-views.ndjson",
-			);
-		}
 	}
 	const viewIds = new Set(records.savedViews.map(({ id }) => id));
 	for (const installation of records.installations) {
@@ -362,7 +325,6 @@ const buildManifest = (
 	const sections: ReadonlyArray<ArchiveSection> = [
 		bufferSection("profile.json", [profileChunk(records.profile)], 1, limits.maxMetadataEntryBytes),
 		boundedSection("private-plugins.ndjson", records, records.privatePlugins.length, limits),
-		boundedSection("client-renderers.ndjson", records, records.clientRenderers.length, limits),
 		boundedSection("installations.ndjson", records, records.installations.length, limits),
 		boundedSection("entities.ndjson", records, records.entities.length, limits),
 		boundedSection(
@@ -877,10 +839,6 @@ const validateExtracted = (
 		"private-plugins.ndjson",
 		ARCHIVE_CODECS["private-plugins.ndjson"],
 	);
-	const clientRenderers = readSection(
-		"client-renderers.ndjson",
-		ARCHIVE_CODECS["client-renderers.ndjson"],
-	);
 	const installations = readSection("installations.ndjson", ARCHIVE_CODECS["installations.ndjson"]);
 	const relationships = readSection("relationships.ndjson", ARCHIVE_CODECS["relationships.ndjson"]);
 	const dependencies = readSection(
@@ -899,7 +857,6 @@ const validateExtracted = (
 		installations,
 		relationships,
 		privatePlugins,
-		clientRenderers,
 		notificationSubscriptions,
 		entityDependencies: dependencies,
 	});
@@ -912,7 +869,6 @@ const validateExtracted = (
 			installations,
 			relationships,
 			privatePlugins,
-			clientRenderers,
 			notificationSubscriptions,
 			entityDependencies: dependencies,
 		},
@@ -977,7 +933,6 @@ const validateExtracted = (
 			installations,
 			relationships,
 			privatePlugins,
-			clientRenderers,
 			notificationSubscriptions,
 			entityDependencies: dependencies,
 		},
