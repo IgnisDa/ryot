@@ -8,7 +8,7 @@ Architecture and rationale live in `README.md`.
 - Keep generated contract clients inside `#/api`. Only `AuthenticatedApi` and `AdminApi` run contract programs; other services depend on narrow group ports.
 - Keep authentication, server selection, global history, artifact lifecycle, bridge dispatch, and native authority in the kernel. Expose only semantic, environment-neutral capabilities through `@ryot-app/client-sdk`.
 - Keep native name, identifier, and icon in platform build configurations. `capacitor.config.ts` always uses production identity and has no environment branch.
-- Generate icons through `bun run generate-assets`; edit source art or `scripts/generate-assets.ts`, never generated native asset files.
+- Generate icons through `bun run generate-assets`; edit source art or `tooling/generate-assets.ts`, never generated native asset files.
 - Route native URLs and hardware Back through the router. Treat `/oauth/login`, its signed `oauth_query`, and its independence from `ServerService` as a server contract.
 - Retain at most three client-page iframe runtimes keyed by composition hash. Replace the document and remount its page tree when a different prepared page uses the same composition; keep the bridge and SDK runtime alive.
 - Use the document grant returned by preparation to load a frame. Reprepare on failed-frame retry; check prepared-page freshness on catalog invalidation, not by renewing a grant or checking static artifact files.

@@ -152,7 +152,7 @@ and callback builders are shared with backend provisioning and deep-link filteri
 splash screens, and `assets/dev/logo.png` drives the iOS debug icon. Keep `logo.png` in RGBA format;
 `capacitor-assets` otherwise composites its background incorrectly.
 
-Run `bun run generate-assets` after changing source art. `scripts/generate-assets.ts` owns generation
+Run `bun run generate-assets` after changing source art. `tooling/generate-assets.ts` owns generation
 and platform fixups; never hand-edit emitted `mipmap-*`, `drawable-*`, or `Assets.xcassets` output.
 
 ## Secure Storage
