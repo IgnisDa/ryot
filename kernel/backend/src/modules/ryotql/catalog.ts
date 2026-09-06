@@ -301,6 +301,11 @@ const plugin: CatalogTable = {
 			physicalField("environment_config_revision_id", "text"),
 			"admin",
 		),
+		userSettingsSchema: pluginActiveRevisionField(
+			"revision.manifest -> 'userSettingsSchema'",
+			"json",
+			true,
+		),
 		scope: {
 			kind: "text",
 			nullable: false,
@@ -377,6 +382,7 @@ const pluginInstallation: CatalogTable = {
 		isHidden: physicalField("is_hidden", "boolean", false),
 		sortOrder: physicalField("sort_order", "number", false),
 		config: withAccess(physicalField("client_config", "json", false), "kernel"),
+		userSettings: withAccess(physicalField("user_settings", "json", false), "kernel"),
 		configuredSecrets: withAccess(textArrayField("configured_secret_paths"), "kernel"),
 	},
 };

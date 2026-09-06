@@ -78,6 +78,22 @@ export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (h
 				return yield* service.setHomeView(user.id, params.pluginSlug, payload).pipe(dieOnDbError);
 			}),
 		)
+		.handle("saveUserSettings", ({ params, payload }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* PluginInstallationService;
+				yield* service.saveUserSettings(user.id, params.installationId, payload).pipe(dieOnDbError);
+			}),
+		)
+		.handle("resetUserSettings", ({ params }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* PluginInstallationService;
+				yield* service
+					.saveUserSettings(user.id, params.installationId, {}, true)
+					.pipe(dieOnDbError);
+			}),
+		)
 		.handle("invoke", ({ params, payload }) =>
 			Effect.gen(function* () {
 				const request = yield* HttpServerRequest.HttpServerRequest;
