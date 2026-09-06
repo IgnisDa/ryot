@@ -41,7 +41,7 @@ import {
 
 const decodeInit = Schema.decodeUnknownSync(PluginBridgeInit);
 
-const artifactHash = "artifact-hash";
+const compositionHash = "composition-hash";
 const home: PluginRouteLocation = { path: "/", search: "", kind: "route" };
 const detail: PluginRouteLocation = { search: "", kind: "route", path: "/details/1" };
 const entity: PluginLogicalLocation = {
@@ -153,7 +153,7 @@ const connect = (
 	}> = [];
 
 	const session = openPluginBridge({
-		artifactHash,
+		compositionHash,
 		navigation: nav(),
 		theme: lightTheme,
 		onHeader: () => {},
@@ -249,7 +249,7 @@ const connect = (
 };
 
 const readyFor = (init: PluginBridgeInit): PluginBridgeReady => ({
-	artifactHash,
+	compositionHash,
 	sessionId: init.sessionId,
 	format: CLIENT_ARTIFACT_FORMAT,
 	apiVersion: CLIENT_API_VERSION,
@@ -541,9 +541,9 @@ describe("plugin bridge", () => {
 
 		expect(origins).toEqual(["*"]);
 		expect(init).toEqual({
-			artifactHash,
 			mode: "light",
 			safeAreaTop: 0,
+			compositionHash,
 			safeAreaBottom: 0,
 			documentKey: "page-1",
 			sessionId: init.sessionId,
@@ -558,8 +558,8 @@ describe("plugin bridge", () => {
 	it("cleans up immediately when the initial port transfer fails", async () => {
 		const failures: null[] = [];
 		const session = openPluginBridge({
-			artifactHash,
 			timeoutMs: 10,
+			compositionHash,
 			navigation: nav(),
 			theme: lightTheme,
 			onHeader: () => {},
@@ -676,7 +676,7 @@ describe("plugin bridge", () => {
 		const mismatched = connect();
 		mismatched.pluginPort.postMessage({
 			...readyFor(mismatched.init),
-			artifactHash: "other-artifact",
+			compositionHash: "other-composition",
 		});
 		await waitFor(() => expect(mismatched.failures).toHaveLength(1));
 

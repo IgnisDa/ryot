@@ -59,7 +59,6 @@
       "name": "@ryot-app/server",
       "dependencies": {
         "@effect/platform-bun": "4.0.0-rc.117",
-        "@ryot-app/client-plugin-compiler": "workspace:*",
         "@ryot-app/kernel-backend": "workspace:*",
         "@ryot-app/plugin-kit": "workspace:*",
         "@ryot-app/sandbox-compiler": "workspace:*",
@@ -68,8 +67,12 @@
         "effect": "4.0.0-rc.117",
       },
       "devDependencies": {
+        "@ryot-app/client-plugin-compiler": "workspace:*",
+        "@ryot-app/client-plugin-contract": "workspace:*",
         "@ryot-app/fitness-plugin": "workspace:*",
+        "@ryot-app/kernel-renderers": "workspace:*",
         "@ryot-app/media-plugin": "workspace:*",
+        "@ryot-app/plugin-archive": "workspace:*",
         "bun-types": "1.4.0",
         "dotenv": "17.3.1",
       },
@@ -189,7 +192,6 @@
         "@effect/platform-bun": "4.0.0-rc.117",
         "@effect/sql-pg": "4.0.0-rc.117",
         "@react-email/components": "1.0.7",
-        "@ryot-app/client-plugin-compiler": "workspace:*",
         "@ryot-app/client-plugin-contract": "workspace:*",
         "@ryot-app/config": "workspace:*",
         "@ryot-app/contract": "workspace:*",

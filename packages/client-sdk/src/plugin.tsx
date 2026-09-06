@@ -1,6 +1,6 @@
 import {
-	CLIENT_ARTIFACT_METADATA_ELEMENT_ID,
-	CLIENT_ARTIFACT_ROOT_ELEMENT_ID,
+	CLIENT_COMPOSITION_METADATA_ELEMENT_ID,
+	CLIENT_PAGE_ROOT_ELEMENT_ID,
 	CLIENT_BRIDGE_BOOTSTRAP_READY,
 	KERNEL_SHORTCUTS,
 	PluginBridgeInit,
@@ -34,6 +34,8 @@ import {
 } from "./routing";
 import { createPluginRuntime } from "./runtime";
 import { createBootstrapRyotRuntime, type RyotPluginRuntime } from "./schedule";
+
+export { loadStylesheet } from "./stylesheets";
 
 type ClientPluginDefinition = PluginRouterDefinition;
 
@@ -134,7 +136,7 @@ const bootstrapClientApplication = (
 	};
 	const mount = () => {
 		if (!root && runtime && sdkRuntime) {
-			const rootElement = document.getElementById(CLIENT_ARTIFACT_ROOT_ELEMENT_ID);
+			const rootElement = document.getElementById(CLIENT_PAGE_ROOT_ELEMENT_ID);
 			if (!rootElement) {
 				return;
 			}
@@ -162,13 +164,13 @@ const bootstrapClientApplication = (
 		unmount();
 		void activeSdkRuntime?.dispose();
 	};
-	const metadataElement = document.getElementById(CLIENT_ARTIFACT_METADATA_ELEMENT_ID);
+	const metadataElement = document.getElementById(CLIENT_COMPOSITION_METADATA_ELEMENT_ID);
 	const metadata = decodeArtifactMetadata(metadataElement?.textContent ?? "");
 	if (Result.isFailure(metadata)) {
 		return { dispose };
 	}
 
-	const artifactMetadata = metadata.success;
+	const compositionMetadata = metadata.success;
 	window.addEventListener(
 		"message",
 		(event) => {
@@ -176,11 +178,14 @@ const bootstrapClientApplication = (
 				return;
 			}
 			const decoded = Schema.decodeUnknownResult(PluginBridgeInit)(event.data);
-			if (Result.isFailure(decoded) || decoded.success.artifactHash !== artifactMetadata.hash) {
+			if (
+				Result.isFailure(decoded) ||
+				decoded.success.compositionHash !== compositionMetadata.hash
+			) {
 				return;
 			}
 			const port = event.ports[0];
-			if (!document.getElementById(CLIENT_ARTIFACT_ROOT_ELEMENT_ID) || !port) {
+			if (!document.getElementById(CLIENT_PAGE_ROOT_ELEMENT_ID) || !port) {
 				return;
 			}
 
@@ -197,7 +202,7 @@ const bootstrapClientApplication = (
 			const pluginRuntime = createPluginRuntime(
 				port,
 				init,
-				artifactMetadata,
+				compositionMetadata,
 				document.documentElement,
 				navigationStore,
 				mount,

@@ -20,7 +20,7 @@ type ArtifactSession = { readonly src: string; readonly credential: string };
 
 type BridgeObservation = { readonly serialized: string; readonly bridgeSessionId: string | null };
 
-const artifactSessionPath = /^\/api\/client-pages\/artifacts\/([A-Za-z0-9_-]{43})\/index\.html$/;
+const documentSessionPath = /^\/api\/client-pages\/documents\/([A-Za-z0-9_-]{43})$/;
 
 const observeBridgeMessages = (page: Playwright.Page, observations: BridgeObservation[]) =>
 	Effect.gen(function* () {
@@ -102,7 +102,7 @@ const readArtifactSession = (frame: Playwright.Locator, selectedApiUrl: string) 
 			);
 		}
 		const url = new URL(src);
-		const credential = artifactSessionPath.exec(url.pathname)?.[1];
+		const credential = documentSessionPath.exec(url.pathname)?.[1];
 		if (
 			url.origin !== new URL(selectedApiUrl).origin ||
 			url.username !== "" ||
@@ -114,7 +114,7 @@ const readArtifactSession = (frame: Playwright.Locator, selectedApiUrl: string) 
 		) {
 			return yield* Effect.die(
 				new Error(
-					"Plugin artifact session URL must use the selected server and private index endpoint [credential redacted]",
+					"Plugin artifact session URL must use the selected server and private document endpoint [credential redacted]",
 				),
 			);
 		}
@@ -381,7 +381,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 
 		yield* fixture.getByRole("button", { name: "Crash during render" }).click();
 		yield* expectVisibleText(page.locator("body"), "This plugin stopped working.");
-		const reload = page.getByRole("button", { name: "Reload plugin" });
+		const reload = page.getByRole("button", { name: "Retry" });
 		yield* reload.waitFor({ state: "visible" });
 		yield* reload.click();
 		yield* frame.waitFor({ state: "visible" });
@@ -446,7 +446,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 		yield* frame.waitFor({ state: "visible" });
 		yield* expectVisibleText(fixture.locator("body"), "E2E deterministic Bulbasaur");
 		expect((yield* readArtifactSession(frame, apiUrl)).src).toContain(
-			"/api/client-pages/artifacts/",
+			"/api/client-pages/documents/",
 		);
 
 		yield* page.goto(`${frontendUrl}/e/${showId}`);
@@ -457,7 +457,7 @@ it.live("runs the client plugin lifecycle in a real browser", () =>
 			.getByRole("heading", { level: 1, exact: true, name: "E2E deterministic show" })
 			.waitFor({ state: "visible" });
 		expect((yield* readArtifactSession(mediaFrame, apiUrl)).src).toContain(
-			"/api/client-pages/artifacts/",
+			"/api/client-pages/documents/",
 		);
 	}).pipe(PlaywrightSpawner.withBrowser, Effect.provide(browserLayer)),
 );

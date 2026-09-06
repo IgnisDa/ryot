@@ -14,10 +14,14 @@ import { assert, describe } from "vitest";
 
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { Database } from "#lib/infrastructure/db/service";
+import {
+	clientArtifactMatches,
+	ClientArtifactsRepository,
+} from "#modules/client-artifacts/repository";
 
 import { PluginInstallationRepository } from "./installation-repository";
 import { pluginSourceHash } from "./pipeline";
-import { clientArtifactMatches, PluginRepository } from "./repository";
+import { PluginRepository } from "./repository";
 import {
 	installRevisionPackage,
 	revisionPackage,
@@ -76,6 +80,7 @@ describe("plugin repository revisions", () => {
 			Effect.gen(function* () {
 				const db = yield* Database;
 				const repository = yield* PluginRepository;
+				const artifacts = yield* ClientArtifactsRepository;
 				const base = fixtureManifest();
 				const manifest = {
 					...base,
@@ -126,7 +131,7 @@ describe("plugin repository revisions", () => {
 					slug: manifest.metadata.slug,
 				});
 				yield* db
-					.insert(tables.pluginClientArtifact)
+					.insert(tables.clientArtifact)
 					.values({
 						format: 0,
 						hash: "unrelated-artifact",
@@ -135,7 +140,7 @@ describe("plugin repository revisions", () => {
 						bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 					});
 				yield* db
-					.insert(tables.pluginClientArtifactFile)
+					.insert(tables.clientArtifactFile)
 					.values({
 						name: "ignored.bin",
 						contents: Buffer.from([0]),
@@ -196,12 +201,12 @@ describe("plugin repository revisions", () => {
 				const artifactFile = compiledClient.files[0];
 				assert(artifactFile);
 				yield* db
-					.update(tables.pluginClientArtifactFile)
+					.update(tables.clientArtifactFile)
 					.set({ contents: Buffer.from([...artifactFile.contents, 0]) })
 					.where(
 						and(
-							eq(tables.pluginClientArtifactFile.artifactHash, compiledClient.hash),
-							eq(tables.pluginClientArtifactFile.name, artifactFile.name),
+							eq(tables.clientArtifactFile.artifactHash, compiledClient.hash),
+							eq(tables.clientArtifactFile.name, artifactFile.name),
 						),
 					);
 				expect(
@@ -210,7 +215,7 @@ describe("plugin repository revisions", () => {
 					),
 				).toBe(true);
 				expect(
-					Result.isFailure(yield* Effect.result(repository.persistClientArtifact(compiledClient))),
+					Result.isFailure(yield* Effect.result(artifacts.persistClientArtifact(compiledClient))),
 				).toBe(true);
 			}),
 		),

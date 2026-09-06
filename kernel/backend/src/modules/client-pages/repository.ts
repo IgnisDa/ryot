@@ -1,4 +1,7 @@
-import type { ClientPageArtifactIdentity } from "@ryot-app/contract/modules/client-pages/schemas";
+import type {
+	ClientPageCompositionIdentity,
+	ClientPageCompositionManifest,
+} from "@ryot-app/contract/modules/client-pages/schemas";
 import { SavedViewId, type UserId } from "@ryot-app/contract/schema/brands";
 import { and, eq, getTableColumns } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
@@ -40,80 +43,69 @@ export class ClientPagesRepository extends Context.Service<ClientPagesRepository
 				return rows.map((row) => Object.assign(row, { viewId: SavedViewId.make(row.view.id) }));
 			});
 
-			const findBuild = Effect.fn("ClientPagesRepository.findBuild")(function* (
-				artifactKey: string,
+			const findComposition = Effect.fn("ClientPagesRepository.findComposition")(function* (
+				compositionKey: string,
 			) {
 				const db = yield* Database;
 				const [row] = yield* mapDatabaseErrors(
 					db
-						.select({
-							format: schema.pluginClientArtifact.format,
-							artifactKey: schema.clientPageBuild.artifactKey,
-							artifactHash: schema.clientPageBuild.artifactHash,
-							apiVersion: schema.pluginClientArtifact.apiVersion,
-							bridgeVersion: schema.pluginClientArtifact.bridgeVersion,
-							artifactIdentity: schema.clientPageBuild.artifactIdentity,
-							compilerVersion: schema.pluginClientArtifact.compilerVersion,
-						})
-						.from(schema.clientPageBuild)
-						.innerJoin(
-							schema.pluginClientArtifact,
-							eq(schema.pluginClientArtifact.hash, schema.clientPageBuild.artifactHash),
-						)
-						.where(eq(schema.clientPageBuild.artifactKey, artifactKey))
+						.select()
+						.from(schema.clientPageComposition)
+						.where(eq(schema.clientPageComposition.compositionKey, compositionKey))
 						.limit(1),
 				);
 				return row ?? null;
 			});
 
-			const createBuild = Effect.fn("ClientPagesRepository.createBuild")(function* (input: {
-				readonly artifactKey: string;
-				readonly artifactHash: string;
-				readonly artifactIdentity: ClientPageArtifactIdentity;
-			}) {
-				const db = yield* Database;
-				const [row] = yield* mapDatabaseErrors(
-					db
-						.insert(schema.clientPageBuild)
-						.values(input)
-						.onConflictDoNothing()
-						.returning({ artifactKey: schema.clientPageBuild.artifactKey }),
-				);
-				const existing = row ? null : yield* findBuild(input.artifactKey);
-				if (
-					existing &&
-					(existing.artifactHash !== input.artifactHash ||
-						!Bun.deepEquals(existing.artifactIdentity, input.artifactIdentity))
-				) {
-					return yield* Effect.die(new Error("Conflicting immutable client page build"));
-				}
-				return row?.artifactKey ?? existing?.artifactKey ?? input.artifactKey;
-			});
+			const findCompositionByHash = Effect.fn("ClientPagesRepository.findCompositionByHash")(
+				function* (compositionHash: string) {
+					const db = yield* Database;
+					const [row] = yield* mapDatabaseErrors(
+						db
+							.select()
+							.from(schema.clientPageComposition)
+							.where(eq(schema.clientPageComposition.compositionHash, compositionHash))
+							.limit(1),
+					);
+					return row ?? null;
+				},
+			);
 
-			const findArtifactFile = Effect.fn("ClientPagesRepository.findArtifactFile")(function* (
-				artifactHash: string,
-				fileName: string,
-			) {
-				const db = yield* Database;
-				const [file] = yield* mapDatabaseErrors(
-					db
-						.select({
-							contents: schema.pluginClientArtifactFile.contents,
-							contentType: schema.pluginClientArtifactFile.contentType,
-						})
-						.from(schema.pluginClientArtifactFile)
-						.where(
-							and(
-								eq(schema.pluginClientArtifactFile.artifactHash, artifactHash),
-								eq(schema.pluginClientArtifactFile.name, fileName),
-							),
-						)
-						.limit(1),
-				);
-				return file ? { ...file, contents: new Uint8Array(file.contents) } : null;
-			});
-
-			return { findBuild, createBuild, findArtifactFile, findPreparedTarget, listPreparedTargets };
+			const createComposition = Effect.fn("ClientPagesRepository.createComposition")(
+				function* (input: {
+					readonly compositionKey: string;
+					readonly compositionHash: string;
+					readonly identity: ClientPageCompositionIdentity;
+					readonly manifest: ClientPageCompositionManifest;
+				}) {
+					const db = yield* Database;
+					const [row] = yield* mapDatabaseErrors(
+						db
+							.insert(schema.clientPageComposition)
+							.values(input)
+							.onConflictDoNothing()
+							.returning({ compositionKey: schema.clientPageComposition.compositionKey }),
+					);
+					const existing = row ? null : yield* findComposition(input.compositionKey);
+					if (
+						!row &&
+						(!existing ||
+							existing.compositionHash !== input.compositionHash ||
+							!Bun.deepEquals(existing.identity, input.identity) ||
+							!Bun.deepEquals(existing.manifest, input.manifest))
+					) {
+						return yield* Effect.die(new Error("Conflicting immutable client page composition"));
+					}
+					return row?.compositionKey ?? existing?.compositionKey ?? input.compositionKey;
+				},
+			);
+			return {
+				findComposition,
+				createComposition,
+				findPreparedTarget,
+				listPreparedTargets,
+				findCompositionByHash,
+			};
 		}),
 	},
 ) {

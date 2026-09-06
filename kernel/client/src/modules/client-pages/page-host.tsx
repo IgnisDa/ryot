@@ -67,7 +67,7 @@ export function mergePageSearch(current: string, update: PluginPageSearchUpdate)
 	return next.toString();
 }
 
-export const artifactGrantSrc = (scope: ApiScope, src: string) =>
+export const documentGrantSrc = (scope: ApiScope, src: string) =>
 	new URL(src, `${scope.serverUrl}/`).toString();
 
 const documentOwner = ({ context, identity }: PreparedClientPage) => {
@@ -90,7 +90,7 @@ const documentOwner = ({ context, identity }: PreparedClientPage) => {
 type FrameEntry = {
 	readonly key: string;
 	readonly generation: number;
-	readonly baseOwner: string;
+	readonly compositionHash: string;
 	readonly location: { readonly pathname: string; readonly searchStr: string };
 	readonly document: ClientPageDocument;
 	readonly operationTargets: PreparedClientPage["identity"]["operationTargets"];
@@ -102,7 +102,11 @@ type FramePool = {
 	readonly entries: ReadonlyMap<string, FrameEntry>;
 };
 
-export function retainArtifactRuntime<T>(entries: ReadonlyMap<string, T>, key: string, value: T) {
+export function retainCompositionRuntime<T>(
+	entries: ReadonlyMap<string, T>,
+	key: string,
+	value: T,
+) {
 	const next = new Map(entries);
 	next.delete(key);
 	next.set(key, value);
@@ -213,7 +217,7 @@ export function ClientPageDocumentHost() {
 			}
 			return;
 		}
-		const baseOwner = document.prepared.artifact.hash;
+		const compositionHash = document.prepared.composition.hash;
 		const requested = reloadRequest.current;
 		if (requested !== undefined && requested.previousDocument !== document) {
 			reloadRequest.current = undefined;
@@ -231,10 +235,10 @@ export function ClientPageDocumentHost() {
 						return current;
 					}
 					const existing = [...current.entries.values()].find(
-						(candidate) => candidate.baseOwner === baseOwner,
+						(candidate) => candidate.compositionHash === compositionHash,
 					);
 					const generation = (existing?.generation ?? -1) + 1;
-					const key = `${baseOwner}:${generation}`;
+					const key = `${compositionHash}:${generation}`;
 					const next = new Map(current.entries);
 					next.delete(requested.key);
 					if (existing !== undefined) {
@@ -242,12 +246,12 @@ export function ClientPageDocumentHost() {
 					}
 					return {
 						activeKey: key,
-						entries: retainArtifactRuntime(next, key, {
+						entries: retainCompositionRuntime(next, key, {
 							key,
 							document,
-							baseOwner,
 							generation,
 							navigation,
+							compositionHash,
 							operationTargets: document.prepared.identity.operationTargets,
 							location: { pathname: location.pathname, searchStr: location.searchStr },
 						}),
@@ -263,22 +267,22 @@ export function ClientPageDocumentHost() {
 				active?.navigation.key === navigation.key &&
 				active.location.pathname === location.pathname &&
 				active.location.searchStr === location.searchStr &&
-				(active.baseOwner !== baseOwner ||
+				(active.compositionHash !== compositionHash ||
 					documentOwner(active.document.prepared) !== documentOwner(document.prepared))
 			) {
 				return current;
 			}
 			const existing = [...current.entries.values()].find(
-				(candidate) => candidate.baseOwner === baseOwner,
+				(candidate) => candidate.compositionHash === compositionHash,
 			);
 			const generation = existing?.generation ?? 0;
-			const key = existing?.key ?? `${baseOwner}:${generation}`;
-			const next = retainArtifactRuntime(current.entries, key, {
+			const key = existing?.key ?? `${compositionHash}:${generation}`;
+			const next = retainCompositionRuntime(current.entries, key, {
 				key,
 				document,
-				baseOwner,
 				generation,
 				navigation,
+				compositionHash,
 				operationTargets: document.prepared.identity.operationTargets,
 				location: { pathname: location.pathname, searchStr: location.searchStr },
 			});
@@ -459,8 +463,8 @@ function ClientPageFrame(props: {
 			onNavigateBack={() => router.history.back()}
 			onKernelShortcut={props.chrome.onKernelShortcut}
 			documentKey={documentOwner(props.document.prepared)}
-			artifactHash={props.document.prepared.artifact.hash}
 			freshnessCheckRevision={props.freshnessCheckRevision}
+			compositionHash={props.document.prepared.composition.hash}
 			onScreenState={(state) => props.screen.publish(props.owner, state)}
 			onOverlayState={(count) => props.overlay.publish(props.owner, count)}
 			onHeader={(publication) => props.header.publish(props.owner, publication)}
@@ -478,9 +482,9 @@ function ClientPageFrame(props: {
 					signal,
 				})
 			}
-			artifactGrant={{
-				...props.document.prepared.artifact.grant,
-				src: artifactGrantSrc(props.scope, props.document.prepared.artifact.grant.src),
+			documentGrant={{
+				...props.document.prepared.composition.documentGrant,
+				src: documentGrantSrc(props.scope, props.document.prepared.composition.documentGrant.src),
 			}}
 			onNavigate={(request) =>
 				void navigate({

@@ -315,16 +315,16 @@ export const preparePluginPage = (
 						}
 					: target,
 		},
-		artifact: {
-			hash: "artifact-hash",
+		composition: {
+			hash: "composition-hash",
 			format: CLIENT_ARTIFACT_FORMAT,
 			apiVersion: CLIENT_API_VERSION,
 			compilerVersion: CLIENT_COMPILER_VERSION,
 			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
-			grant: {
+			documentGrant: {
 				grantId: "grant-1",
 				expiresAt: "2030-01-01T00:00:00.000Z",
-				src: "https://ryot.example/artifact-hash/index.html",
+				src: "https://ryot.example/api/client-pages/documents/grant-1",
 			},
 		},
 		identity: {
@@ -334,9 +334,9 @@ export const preparePluginPage = (
 			exportName: "page",
 			kind: "plugin-page",
 			sourceHash: "source-hash",
-			artifactKey: "artifact-key-1",
-			artifactHash: "artifact-hash",
 			installationId: "installation-1",
+			compositionKey: "composition-key-1",
+			compositionHash: "composition-hash",
 			contributors: [
 				{
 					pluginId,
