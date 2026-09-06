@@ -29,7 +29,6 @@ import type {
 	EntityBrowserResultItem,
 	SavedViewResult,
 } from "@ryot-app/ryotql-recipes/saved-views";
-import clsx from "clsx";
 import {
 	useEffect,
 	useEffectEvent,
@@ -177,6 +176,7 @@ export function EntityBrowserController<Meta>({
 	const searchInput = useRef<HTMLInputElement>(null);
 	const searchTrigger = useRef<HTMLButtonElement>(null);
 	const optionsTrigger = useRef<HTMLButtonElement>(null);
+	const filtersTrigger = useRef<HTMLButtonElement>(null);
 	const identity = JSON.stringify([identityKey, searchText, sortChoice]);
 	const [state, setState] = useState<BrowserState<Meta> | undefined>();
 	const stateRef = useRef(state);
@@ -507,17 +507,6 @@ export function EntityBrowserController<Meta>({
 				actions={
 					<div className="flex flex-wrap items-center justify-end gap-2.5">
 						{canSearch && searchField("h-8.5 w-60")}
-						{sortChoices.length > 0 && (
-							<Select
-								className="w-48"
-								value={sortChoice}
-								label="Sort results"
-								checkIcon={<AppIcon size={14} name="check" />}
-								onChange={(value) => setQueryControls({ sort: value })}
-								chevronIcon={<AppIcon size={14} name="chevron-down" />}
-								choices={[{ value: "", label: defaultSortLabel }, ...sortChoices]}
-							/>
-						)}
 						<SegmentedControl
 							value={layout}
 							options={layouts}
@@ -526,12 +515,10 @@ export function EntityBrowserController<Meta>({
 						/>
 						<button
 							type="button"
-							disabled={!hasItems}
-							aria-disabled="true"
-							className={clsx(
-								"flex h-8.5 items-center gap-2 rounded-md border border-border-strong bg-bg px-3",
-								!hasItems && "opacity-50",
-							)}
+							ref={filtersTrigger}
+							onClick={() => setOptionsOpen(true)}
+							aria-label="Filters, 0 active filters"
+							className="flex h-8.5 items-center gap-2 rounded-md border border-border-strong bg-bg px-3"
 						>
 							<AppIcon size={15} name="sliders-horizontal" className="text-text-muted" />
 							<span className="text-[13px] text-text">Filters</span>
@@ -592,26 +579,36 @@ export function EntityBrowserController<Meta>({
 			</PluginScreenFrame>
 			{optionsOpen && (
 				<Modal
-					label="View options"
-					triggerRef={optionsTrigger}
-					closeLabel="Close view options"
 					onClose={() => setOptionsOpen(false)}
-					containerClassName="items-end justify-center"
-					className="w-full rounded-t-xl border-t border-border bg-surface p-5"
+					label={compact ? "View options" : "Filters"}
+					triggerRef={compact ? optionsTrigger : filtersTrigger}
+					closeLabel={compact ? "Close view options" : "Close filters"}
+					containerClassName={
+						compact ? "items-end justify-center" : "items-center justify-center p-4"
+					}
+					className={
+						compact
+							? "w-full rounded-t-xl border-t border-border bg-surface p-5"
+							: "w-full max-w-md rounded-xl border border-border bg-surface p-5"
+					}
 				>
-					<h2 className="font-display text-lg font-semibold text-text">View options</h2>
-					<div className="mt-4 flex items-center justify-between gap-3">
-						<span className="text-[15px] text-text">View as</span>
-						<SegmentedControl
-							value={layout}
-							options={layouts}
-							label={`${viewName} layout`}
-							onChange={(next) => {
-								setLayout(next);
-								setOptionsOpen(false);
-							}}
-						/>
-					</div>
+					<h2 className="font-display text-lg font-semibold text-text">
+						{compact ? "View options" : "Filters"}
+					</h2>
+					{compact && (
+						<div className="mt-4 flex items-center justify-between gap-3">
+							<span className="text-[15px] text-text">View as</span>
+							<SegmentedControl
+								value={layout}
+								options={layouts}
+								label={`${viewName} layout`}
+								onChange={(next) => {
+									setLayout(next);
+									setOptionsOpen(false);
+								}}
+							/>
+						</div>
+					)}
 					{sortChoices.length > 0 && (
 						<div className="mt-4">
 							<Select
