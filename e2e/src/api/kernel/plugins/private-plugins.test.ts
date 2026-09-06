@@ -1,4 +1,5 @@
 import { PluginSlug } from "@ryot-app/contract/schema/brands";
+import { writePluginArchive } from "@ryot-app/plugin-archive";
 import { column, document, eq, field, join, literal, rows, table } from "@ryot-app/ryotql";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
@@ -24,6 +25,7 @@ import {
 	uploadPrivatePluginPackage,
 	uploadTemporaryArchive,
 } from "~/fixtures/kernel";
+import { compilePluginPackage } from "~/fixtures/kernel/compiled-package";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -421,11 +423,11 @@ describe("private plugins", () => {
 	it.live("rejects a corrupt private plugin archive", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const uploadToken = yield* uploadTemporaryArchive(
-				client,
-				new TextEncoder().encode("not a zip archive"),
-				{ fileName: "corrupt-plugin.zip" },
-			);
+			const validPackage = yield* compilePluginPackage(privatePluginPackage());
+			const validArchive = writePluginArchive(validPackage);
+			const uploadToken = yield* uploadTemporaryArchive(client, validArchive.slice(0, -1), {
+				fileName: "corrupt-plugin.zip",
+			});
 
 			const failure = yield* Effect.flip(
 				client.call((c) => c.plugins.install({ payload: { config: {}, uploadToken } })),

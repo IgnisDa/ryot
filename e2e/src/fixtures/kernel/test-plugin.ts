@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 
+import { PluginClientArtifactFromBase64 } from "@ryot-app/client-plugin-contract";
 import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
@@ -10,13 +11,14 @@ import {
 	type SandboxScriptId,
 } from "@ryot-app/contract/schema/brands";
 import type { PluginArchivePackage } from "@ryot-app/plugin-archive";
-import { Effect, Encoding } from "effect";
+import { Effect, Encoding, Schema } from "effect";
 
 import { requirePresent } from "~/support/assertions";
 
 import { adminHeaders } from "./admin";
 import { adminSystemPluginsRecipe, listAdminSystemPlugins } from "./admin-system-plugins";
 import type { Client } from "./auth";
+import { compilePluginPackage, type PluginPackageInput } from "./compiled-package";
 import { getApiClient } from "./contract-client";
 import { listInstalledPlugins } from "./plugins";
 import { pollUntil } from "./polling";
@@ -93,6 +95,29 @@ export const encodeTestSupportPluginFiles = (files: Readonly<Record<string, Uint
 	Object.fromEntries(
 		Object.entries(files).map(([path, contents]) => [path, Encoding.encodeBase64(contents)]),
 	);
+
+export const installTestSupportSystemPlugin = (input: PluginPackageInput & { baseUrl?: string }) =>
+	Effect.gen(function* () {
+		const pluginPackage = yield* compilePluginPackage(input);
+		return yield* getApiClient(input.baseUrl).call(
+			(c) =>
+				c.testSupport.installSystemPlugin({
+					payload: {
+						manifest: pluginPackage.manifest,
+						compiledScripts: pluginPackage.compiledScripts,
+						files: encodeTestSupportPluginFiles(pluginPackage.files),
+						...(pluginPackage.compiledClient === undefined
+							? {}
+							: {
+									compiledClient: Schema.encodeUnknownSync(PluginClientArtifactFromBase64)(
+										pluginPackage.compiledClient,
+									),
+								}),
+					},
+				}),
+			adminHeaders(),
+		);
+	});
 
 export const findTestEntitySchema = (slug: string) => {
 	for (const [pluginSlug, { manifest }] of definitionManifests) {
@@ -211,13 +236,7 @@ export const installTestPlugin = (
 		const files = { [entry]: encoder.encode(input.source) };
 		let operationResult: PluginOperationResult;
 		if (input.scope === "system") {
-			operationResult = yield* getApiClient().call(
-				(c) =>
-					c.testSupport.installSystemPlugin({
-						payload: { manifest, files: encodeTestSupportPluginFiles(files) },
-					}),
-				adminHeaders(),
-			);
+			operationResult = yield* installTestSupportSystemPlugin({ files, manifest });
 		} else {
 			const uploadToken = yield* uploadPrivatePluginPackage(input.client, { files, manifest });
 			operationResult = yield* getApiClient().call(
@@ -313,13 +332,11 @@ export const installTestPluginBundle = (
 		});
 		let operationResult: PluginOperationResult;
 		if (input.scope === "system") {
-			operationResult = yield* getApiClient(input.baseUrl).call(
-				(c) =>
-					c.testSupport.installSystemPlugin({
-						payload: { manifest, files: encodeTestSupportPluginFiles(files) },
-					}),
-				adminHeaders(),
-			);
+			operationResult = yield* installTestSupportSystemPlugin({
+				files,
+				manifest,
+				baseUrl: input.baseUrl,
+			});
 		} else {
 			const uploadToken = yield* uploadPrivatePluginPackage(
 				input.client,
@@ -453,13 +470,7 @@ export const reinstallTestPluginScript = (
 		const manifest = { ...installed.manifest, scripts };
 		let operationResult: PluginOperationResult;
 		if (installed.scope === "system") {
-			operationResult = yield* getApiClient().call(
-				(c) =>
-					c.testSupport.installSystemPlugin({
-						payload: { manifest, files: encodeTestSupportPluginFiles(files) },
-					}),
-				adminHeaders(),
-			);
+			operationResult = yield* installTestSupportSystemPlugin({ files, manifest });
 		} else {
 			const client = requirePresent(installed.client, "User test plugin has no client");
 			const uploadToken = yield* uploadPrivatePluginPackage(client, { files, manifest });

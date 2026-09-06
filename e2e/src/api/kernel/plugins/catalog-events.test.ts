@@ -11,20 +11,19 @@ import {
 	createAuthenticatedClient,
 	createApiKey,
 	encodePluginSourceFiles,
-	encodeTestSupportPluginFiles,
 	executeRyotQLRecipe,
 	fixtureClientPluginPackage,
 	FIXTURE_CLIENT_PLUGIN_SLUG,
 	installPrivatePluginPackage,
+	installTestSupportSystemPlugin,
 	literalSandboxSource,
 	makeSession,
 	openPluginCatalogEventsScoped,
 	settledPrivateInstallation,
 	testPluginManifest,
 	updateFixtureClientPlugin,
-	updateFixtureClientPluginWithCompileFailure,
 } from "~/fixtures/kernel";
-import { assertTaggedError, requirePresent } from "~/support/assertions";
+import { requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it } from "~/support/effect-test";
 import {
 	buildApiEnv,
@@ -124,14 +123,6 @@ describe("plugin catalog events", () => {
 			expect(after.sourceHash).not.toBe(before.sourceHash);
 
 			yield* ownerEvents.drainQueuedEvents();
-			const failure = yield* Effect.flip(
-				updateFixtureClientPluginWithCompileFailure(owner.client, apiUrl()),
-			);
-			assertTaggedError(failure, "PluginRequestError");
-			expect(failure.reason.code).toBe("compilation-failed");
-			yield* ownerEvents.assertNoInvalidation();
-			expect(yield* fixtureCatalogEntry(owner.client)).toEqual(after);
-
 			yield* ownerEvents.close();
 			yield* updateFixtureClientPlugin(owner.client, "B", `${variant}-missed`, apiUrl());
 			const reconnected = yield* openPluginCatalogEventsScoped(owner);
@@ -140,7 +131,7 @@ describe("plugin catalog events", () => {
 
 			const pluginSlug = PluginSlug.make(`e2e-catalog-system-${randomUUID()}`);
 			const scriptSlug = `e2e-catalog-system-script-${randomUUID()}`;
-			const entry = "scripts/catalog-events.sandbox.ts";
+			const entry = "backend/scripts/catalog-events.sandbox.ts";
 			const name = "E2E catalog events system plugin";
 			const manifest = testPluginManifest({
 				pluginSlug,
@@ -157,16 +148,11 @@ describe("plugin catalog events", () => {
 				],
 			});
 			const files = { [entry]: literalSandboxSource({ name, value: true, slug: scriptSlug }) };
-			yield* adminSession().call(
-				(client) =>
-					client.testSupport.installSystemPlugin({
-						payload: {
-							manifest,
-							files: encodeTestSupportPluginFiles(encodePluginSourceFiles(files)),
-						},
-					}),
-				adminHeaders(),
-			);
+			yield* installTestSupportSystemPlugin({
+				manifest,
+				baseUrl: apiUrl(),
+				files: encodePluginSourceFiles(files),
+			});
 			yield* reconnected.drainQueuedEvents();
 			yield* outsiderEvents.drainQueuedEvents();
 			yield* adminSession().call(
