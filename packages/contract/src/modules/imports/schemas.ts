@@ -1,8 +1,17 @@
 import { Schema } from "effect";
 
 import { ImportRunId } from "../../schema/brands";
-import { RunStatus } from "../../schema/run-status";
 import { jsonValueSchema } from "../sandbox/wire";
+
+export const ImportRunStatus = Schema.Literals([
+	"pending",
+	"running",
+	"cancelling",
+	"completed",
+	"failed",
+	"cancelled",
+]);
+export type ImportRunStatus = typeof ImportRunStatus.Type;
 
 export const ImportRequestFailureReason = Schema.Union([
 	Schema.Struct({ source: Schema.String, code: Schema.Literal("source-not-found") }),
@@ -10,7 +19,6 @@ export const ImportRequestFailureReason = Schema.Union([
 	Schema.Struct({ field: Schema.NullOr(Schema.String), code: Schema.Literal("invalid-input") }),
 	Schema.Struct({ field: Schema.String, code: Schema.Literal("upload-unavailable") }),
 	Schema.Struct({ operation: Schema.String, code: Schema.Literal("queue-unavailable") }),
-	Schema.Struct({ runId: ImportRunId, code: Schema.Literal("run-not-found") }),
 	Schema.Struct({
 		allowedExtensions: Schema.Array(Schema.String),
 		code: Schema.Literal("unsupported-file-extension"),
@@ -19,11 +27,6 @@ export const ImportRequestFailureReason = Schema.Union([
 		source: Schema.String,
 		code: Schema.Literal("source-not-configured"),
 		missingConfigKeys: Schema.Array(Schema.String),
-	}),
-	Schema.Struct({
-		status: RunStatus,
-		runId: ImportRunId,
-		code: Schema.Literal("run-not-terminal"),
 	}),
 ]);
 
@@ -36,7 +39,26 @@ export class ImportRequestError extends Schema.TaggedError<ImportRequestError>()
 
 export class ImportNotFoundError extends Schema.TaggedError<ImportNotFoundError>()(
 	"ImportNotFoundError",
-	{ reason: ImportRequestFailureReason },
+	{ reason: Schema.Struct({ runId: ImportRunId, code: Schema.Literal("run-not-found") }) },
+) {}
+
+export const ImportConflictReason = Schema.Union([
+	Schema.Struct({
+		runId: ImportRunId,
+		status: ImportRunStatus,
+		code: Schema.Literal("run-not-cancellable"),
+	}),
+	Schema.Struct({
+		runId: ImportRunId,
+		status: ImportRunStatus,
+		code: Schema.Literal("run-not-terminal"),
+	}),
+]);
+export type ImportConflictReason = typeof ImportConflictReason.Type;
+
+export class ImportConflictError extends Schema.TaggedError<ImportConflictError>()(
+	"ImportConflictError",
+	{ reason: ImportConflictReason },
 ) {}
 
 export const ImportRunFailureReason = Schema.Union([
@@ -69,8 +91,8 @@ const InputSummary = Schema.Record(Schema.String, Schema.Unknown);
 
 export const ListedImportRun = Schema.Struct({
 	id: ImportRunId,
-	status: RunStatus,
 	source: Schema.String,
+	status: ImportRunStatus,
 	progress: Schema.Finite,
 	createdAt: Schema.String,
 	updatedAt: Schema.String,

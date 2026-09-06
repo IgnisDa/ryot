@@ -295,7 +295,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 					});
 				}
 
-				const run = yield* importsService.createRunForIntegration({
+				const run = yield* importsService.createIntegrationRun({
 					integrationLot: "sink",
 					userId: integration.userId,
 					source: integration.provider,
@@ -382,7 +382,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 						continue;
 					}
 
-					const run = yield* importsService.createRunForIntegrationIfIdle({
+					const run = yield* importsService.createIntegrationRunIfIdle({
 						userId: integration.userId,
 						source: integration.provider,
 						integrationId: integration.id,
@@ -427,6 +427,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				prepareYankRuns,
 				disableIfEnabled,
 				delete: deleteIntegration,
+				settleImportDispatchFailure: importsService.settleIntegrationDispatchFailure,
 			};
 		}),
 	},

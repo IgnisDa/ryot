@@ -318,6 +318,7 @@ CREATE TABLE "import_run" (
 	"imported_items" integer DEFAULT 0 NOT NULL,
 	"finished_at" timestamp with time zone,
 	"integration_lot" text,
+	"execution_kind" text NOT NULL,
 	"processed_items" integer DEFAULT 0 NOT NULL,
 	"source" text NOT NULL,
 	"failure_reason" jsonb,
@@ -328,7 +329,9 @@ CREATE TABLE "import_run" (
 	"user_id" text NOT NULL,
 	"id" text PRIMARY KEY,
 	"plugin_installation_id" text,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "import_run_status_check" CHECK ("status" in ('pending', 'running', 'cancelling', 'completed', 'failed', 'cancelled')),
+	CONSTRAINT "import_run_execution_kind_check" CHECK (("execution_kind" = 'source' and "integration_id" is null and "integration_lot" is null) or ("execution_kind" = 'integration' and "integration_id" is not null and "integration_lot" is not null))
 );
 --> statement-breakpoint
 CREATE TABLE "import_run_failure" (
@@ -859,7 +862,7 @@ CREATE INDEX "event_user_session_order_idx" ON "event" ("user_id","session_entit
 CREATE INDEX "import_run_user_id_created_at_idx" ON "import_run" ("user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "import_run_integration_id_created_at_idx" ON "import_run" ("integration_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "import_run_plugin_installation_id_idx" ON "import_run" ("plugin_installation_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "import_run_integration_active_unique" ON "import_run" ("integration_id") WHERE "integration_lot" = 'yank' and "status" in ('pending', 'running');--> statement-breakpoint
+CREATE UNIQUE INDEX "import_run_integration_active_unique" ON "import_run" ("integration_id") WHERE "integration_lot" = 'yank' and "status" in ('pending', 'running', 'cancelling');--> statement-breakpoint
 CREATE INDEX "import_run_failure_run_id_created_at_idx" ON "import_run_failure" ("run_id","created_at");--> statement-breakpoint
 CREATE INDEX "integration_user_id_created_at_idx" ON "integration" ("user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "integration_user_id_provider_idx" ON "integration" ("user_id","provider");--> statement-breakpoint

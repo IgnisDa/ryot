@@ -32,6 +32,11 @@ export const runIntegrationSyncWorkflow = Effect.fn("IntegrationSyncWorkflow")(
 					Effect.catchCause((cause) =>
 						Effect.logError("integration sync run dispatch failed", cause).pipe(
 							Effect.annotateLogs({ runId: run.runId }),
+							Effect.andThen(
+								integrations
+									.settleImportDispatchFailure({ runId: run.runId, userId: run.userId })
+									.pipe(Effect.orDie),
+							),
 						),
 					),
 				);

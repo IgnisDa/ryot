@@ -9,8 +9,7 @@ import type {
 } from "@ryot-app/contract/modules/imports/types";
 import type { IntegrationLot } from "@ryot-app/contract/modules/integrations/types";
 import { ImportRunId, type IntegrationId, type UserId } from "@ryot-app/contract/schema/brands";
-import type { RunStatus } from "@ryot-app/contract/schema/run-status";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { isUniqueConstraintError } from "#lib/infrastructure/db/errors";
@@ -18,6 +17,11 @@ import * as schema from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 
 type ImportRunRow = typeof schema.importRun.$inferSelect;
+
+export type ImportRunExecutionKind = "source" | "integration";
+export type ImportRunSettlement = "settled" | "cancellation-requested" | "preserved";
+export type ImportRunStart = "started" | "cancellation-requested" | "preserved";
+export type ImportRunCancellation = "requested" | "already-requested" | "not-cancellable";
 
 const normalizeRun = (row: ImportRunRow): ListedImportRun => ({
 	source: row.source,
@@ -39,13 +43,14 @@ const normalizeRun = (row: ImportRunRow): ListedImportRun => ({
 export class ImportsRepository extends Context.Service<ImportsRepository>()("ImportsRepository", {
 	make: Effect.gen(function* () {
 		const database = yield* DatabaseSession;
-		const createRun = Effect.fn("ImportsRepository.createRun")(function* (input: {
+		const insertRun = Effect.fn("ImportsRepository.insertRun")(function* (input: {
 			userId: UserId;
 			source: ImportRunSource;
 			pluginInstallationId: string;
-			integrationId?: IntegrationId | null;
 			inputSummary: Record<string, unknown>;
-			integrationLot?: IntegrationLot | null;
+			executionKind: ImportRunExecutionKind;
+			integrationId: IntegrationId | null;
+			integrationLot: IntegrationLot | null;
 		}) {
 			const [row] = yield* database.run((db) =>
 				db
@@ -54,8 +59,9 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 						userId: input.userId,
 						source: input.source,
 						inputSummary: input.inputSummary,
-						integrationId: input.integrationId ?? null,
-						integrationLot: input.integrationLot ?? null,
+						executionKind: input.executionKind,
+						integrationId: input.integrationId,
+						integrationLot: input.integrationLot,
 						pluginInstallationId: input.pluginInstallationId,
 					})
 					.returning(),
@@ -66,20 +72,60 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			return normalizeRun(row);
 		});
 
-		const createRunForIntegrationIfIdle = Effect.fn(
-			"ImportsRepository.createRunForIntegrationIfIdle",
-		)(function* (input: {
+		const createManualRun = Effect.fn("ImportsRepository.createManualRun")(function* (input: {
 			userId: UserId;
 			source: ImportRunSource;
-			integrationId: IntegrationId;
 			pluginInstallationId: string;
 			inputSummary: Record<string, unknown>;
 		}) {
-			return yield* createRun({ ...input, integrationLot: "yank" }).pipe(
-				Effect.catchIf(isUniqueConstraintError("import_run_integration_active_unique"), () =>
-					Effect.succeed(null),
-				),
+			return yield* insertRun({
+				...input,
+				integrationId: null,
+				integrationLot: null,
+				executionKind: "source",
+			});
+		});
+
+		const createIntegrationRun = Effect.fn("ImportsRepository.createIntegrationRun")(
+			function* (input: {
+				userId: UserId;
+				source: ImportRunSource;
+				integrationId: IntegrationId;
+				integrationLot: IntegrationLot;
+				pluginInstallationId: string;
+				inputSummary: Record<string, unknown>;
+			}) {
+				return yield* insertRun({ ...input, executionKind: "integration" });
+			},
+		);
+
+		const createIntegrationRunIfIdle = Effect.fn("ImportsRepository.createIntegrationRunIfIdle")(
+			function* (input: {
+				userId: UserId;
+				source: ImportRunSource;
+				integrationId: IntegrationId;
+				pluginInstallationId: string;
+				inputSummary: Record<string, unknown>;
+			}) {
+				return yield* createIntegrationRun({ ...input, integrationLot: "yank" }).pipe(
+					Effect.catchIf(isUniqueConstraintError("import_run_integration_active_unique"), () =>
+						Effect.succeed(null),
+					),
+				);
+			},
+		);
+
+		const getRunStatus = Effect.fn("ImportsRepository.getRunStatus")(function* (
+			runId: ImportRunId | string,
+		) {
+			const [row] = yield* database.run((db) =>
+				db
+					.select({ status: schema.importRun.status })
+					.from(schema.importRun)
+					.where(eq(schema.importRun.id, runId))
+					.limit(1),
 			);
+			return row?.status ?? null;
 		});
 
 		const getRunById = Effect.fn("ImportsRepository.getRunById")(function* (input: {
@@ -98,6 +144,25 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			return row ? normalizeRun(row) : null;
 		});
 
+		const getRunControlForUser = Effect.fn("ImportsRepository.getRunControlForUser")(
+			function* (input: { userId: UserId; runId: ImportRunId }) {
+				const [row] = yield* database.run((db) =>
+					db
+						.select({
+							id: schema.importRun.id,
+							status: schema.importRun.status,
+							executionKind: schema.importRun.executionKind,
+						})
+						.from(schema.importRun)
+						.where(
+							and(eq(schema.importRun.id, input.runId), eq(schema.importRun.userId, input.userId)),
+						)
+						.limit(1),
+				);
+				return row ? { ...row, id: ImportRunId.make(row.id) } : null;
+			},
+		);
+
 		const listRecentStatusesByIntegrationId = Effect.fn(
 			"ImportsRepository.listRecentStatusesByIntegrationId",
 		)(function* (input: { integrationId: IntegrationId; limit: number }) {
@@ -111,43 +176,58 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			);
 		});
 
-		const updateRun = Effect.fn("ImportsRepository.updateRun")(function* (input: {
-			runId: string;
-			startedAt?: Date;
-			finishedAt?: Date;
+		const updateInputSummary = Effect.fn("ImportsRepository.updateInputSummary")(function* (input: {
+			runId: ImportRunId;
+			inputSummary: Record<string, unknown>;
+		}) {
+			const rows = yield* database.run((db) =>
+				db
+					.update(schema.importRun)
+					.set({ inputSummary: input.inputSummary })
+					.where(and(eq(schema.importRun.id, input.runId), eq(schema.importRun.status, "pending")))
+					.returning({ id: schema.importRun.id }),
+			);
+			return rows.length > 0;
+		});
+
+		const markStarted = Effect.fn("ImportsRepository.markStarted")(function* (input: {
+			runId: ImportRunId;
+			startedAt: Date;
+		}) {
+			const rows = yield* database.run((db) =>
+				db
+					.update(schema.importRun)
+					.set({ status: "running", startedAt: input.startedAt })
+					.where(and(eq(schema.importRun.id, input.runId), eq(schema.importRun.status, "pending")))
+					.returning({ id: schema.importRun.id }),
+			);
+			if (rows.length > 0) {
+				return "started";
+			}
+			const status = yield* getRunStatus(input.runId);
+			return status === "cancelling" || status === "cancelled"
+				? "cancellation-requested"
+				: "preserved";
+		});
+
+		type ProgressUpdate = {
+			runId: ImportRunId;
 			progress?: number;
-			status?: RunStatus;
 			totalItems?: number;
 			failedItems?: number;
 			importedItems?: number;
 			processedItems?: number;
-			inputSummary?: Record<string, unknown>;
-			failureReason?: ImportRunFailureReason;
-		}) {
+		};
+		const progressUpdates = (input: ProgressUpdate) => {
 			const updates: Partial<typeof schema.importRun.$inferInsert> = {};
-			if (input.status !== undefined) {
-				updates.status = input.status;
-			}
 			if (input.progress !== undefined) {
 				updates.progress = input.progress;
-			}
-			if (input.startedAt !== undefined) {
-				updates.startedAt = input.startedAt;
 			}
 			if (input.totalItems !== undefined) {
 				updates.totalItems = input.totalItems;
 			}
-			if (input.finishedAt !== undefined) {
-				updates.finishedAt = input.finishedAt;
-			}
 			if (input.failedItems !== undefined) {
 				updates.failedItems = input.failedItems;
-			}
-			if (input.failureReason !== undefined) {
-				updates.failureReason = input.failureReason;
-			}
-			if (input.inputSummary !== undefined) {
-				updates.inputSummary = input.inputSummary;
 			}
 			if (input.importedItems !== undefined) {
 				updates.importedItems = input.importedItems;
@@ -155,12 +235,114 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 			if (input.processedItems !== undefined) {
 				updates.processedItems = input.processedItems;
 			}
+			return updates;
+		};
+
+		const updateProgress = Effect.fn("ImportsRepository.updateProgress")(function* (
+			input: ProgressUpdate,
+		) {
+			const updates = progressUpdates(input);
 			if (Object.keys(updates).length === 0) {
-				return;
+				return false;
 			}
-			yield* database.run((db) =>
-				db.update(schema.importRun).set(updates).where(eq(schema.importRun.id, input.runId)),
+			const rows = yield* database.run((db) =>
+				db
+					.update(schema.importRun)
+					.set(updates)
+					.where(and(eq(schema.importRun.id, input.runId), eq(schema.importRun.status, "running")))
+					.returning({ id: schema.importRun.id }),
 			);
+			return rows.length > 0;
+		});
+
+		const settle = Effect.fn("ImportsRepository.settle")(function* (input: {
+			finishedAt: Date;
+			runId: ImportRunId;
+			progress?: number;
+			totalItems?: number;
+			failedItems?: number;
+			importedItems?: number;
+			processedItems?: number;
+			status: "completed" | "failed";
+			failureReason?: ImportRunFailureReason;
+			expectedStatuses: ReadonlyArray<"pending" | "running">;
+		}) {
+			const rows = yield* database.run((db) =>
+				db
+					.update(schema.importRun)
+					.set({
+						...progressUpdates(input),
+						status: input.status,
+						finishedAt: input.finishedAt,
+						...(input.failureReason === undefined ? {} : { failureReason: input.failureReason }),
+					})
+					.where(
+						and(
+							eq(schema.importRun.id, input.runId),
+							inArray(schema.importRun.status, [...input.expectedStatuses]),
+						),
+					)
+					.returning({ id: schema.importRun.id }),
+			);
+			if (rows.length > 0) {
+				return "settled";
+			}
+			const status = yield* getRunStatus(input.runId);
+			return status === "cancelling" ? "cancellation-requested" : "preserved";
+		});
+
+		const finishCompleted = (input: ProgressUpdate & { finishedAt: Date }) =>
+			settle({ ...input, status: "completed", expectedStatuses: ["running"] });
+		const finishFailed = (
+			input: ProgressUpdate & { finishedAt: Date; failureReason: ImportRunFailureReason },
+		) => settle({ ...input, status: "failed", expectedStatuses: ["pending", "running"] });
+
+		const requestCancellation = Effect.fn("ImportsRepository.requestCancellation")(
+			function* (input: { userId: UserId; runId: ImportRunId }) {
+				const rows = yield* database.run((db) =>
+					db
+						.update(schema.importRun)
+						.set({ status: "cancelling" })
+						.where(
+							and(
+								eq(schema.importRun.id, input.runId),
+								eq(schema.importRun.userId, input.userId),
+								inArray(schema.importRun.status, ["pending", "running"]),
+							),
+						)
+						.returning({ id: schema.importRun.id }),
+				);
+				if (rows.length > 0) {
+					return "requested";
+				}
+				const run = yield* getRunControlForUser(input);
+				if (!run) {
+					return null;
+				}
+				return run.status === "cancelling" || run.status === "cancelled"
+					? "already-requested"
+					: "not-cancellable";
+			},
+		);
+
+		const finishCancelled = Effect.fn("ImportsRepository.finishCancelled")(function* (input: {
+			runId: ImportRunId;
+			finishedAt: Date;
+		}) {
+			const rows = yield* database.run((db) =>
+				db
+					.update(schema.importRun)
+					.set({ status: "cancelled", failureReason: null, finishedAt: input.finishedAt })
+					.where(
+						and(eq(schema.importRun.id, input.runId), eq(schema.importRun.status, "cancelling")),
+					)
+					.returning({ id: schema.importRun.id }),
+			);
+			if (rows.length > 0) {
+				return "settled" as const;
+			}
+			const status = yield* getRunStatus(input.runId);
+			return status === "cancelled" ? ("settled" as const) : ("preserved" as const);
 		});
 
 		const deleteRunById = Effect.fn("ImportsRepository.deleteRunById")(function* (input: {
@@ -203,12 +385,20 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()("Imp
 		});
 
 		return {
-			updateRun,
-			createRun,
 			getRunById,
+			markStarted,
+			finishFailed,
 			deleteRunById,
 			createFailure,
-			createRunForIntegrationIfIdle,
+			updateProgress,
+			finishCompleted,
+			createManualRun,
+			finishCancelled,
+			updateInputSummary,
+			requestCancellation,
+			createIntegrationRun,
+			getRunControlForUser,
+			createIntegrationRunIfIdle,
 			listRecentStatusesByIntegrationId,
 		};
 	}),

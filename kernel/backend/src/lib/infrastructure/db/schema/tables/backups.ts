@@ -2,8 +2,8 @@ import type {
 	BackupRunArtifactProvider,
 	BackupRunFailure,
 	BackupRunKind,
+	BackupRunStatus,
 } from "@ryot-app/contract/modules/backups/schemas";
-import type { RunStatus } from "@ryot-app/contract/schema/run-status";
 import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
 import {
@@ -29,8 +29,8 @@ export const backupRun = snakeCase.table(
 		kind: text().notNull().$type<BackupRunKind>(),
 		finishedAt: timestamp({ withTimezone: true }),
 		artifactProvider: text().$type<BackupRunArtifactProvider>(),
-		status: text().notNull().$type<RunStatus>().default("pending"),
 		createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
+		status: text().notNull().$type<BackupRunStatus>().default("pending"),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
