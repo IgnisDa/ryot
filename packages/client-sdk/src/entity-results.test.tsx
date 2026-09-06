@@ -209,6 +209,92 @@ const installIntersectionObserver = () => {
 };
 
 describe("EntityResults", () => {
+	it("loads one presentation for 20 entities before running any data query, and retains it across page remounts", async () => {
+		let resolveDefinition:
+			| ((definition: ReturnType<typeof defineEntityPresentation<string>>) => void)
+			| undefined;
+		let definitionLoads = 0;
+		let dataLoads = 0;
+		let mounts = 0;
+		const definition = defineEntityPresentation<string>({
+			component: function Presentation({ data }) {
+				useState(() => {
+					mounts++;
+				});
+				return <p>{data}</p>;
+			},
+			loader: ({ references }) => {
+				dataLoads++;
+				return Promise.resolve(
+					Object.fromEntries(references.map(({ entityId }) => [entityId, entityId])),
+				);
+			},
+		});
+		const registration: EntityPresentationRegistration = {
+			layout: "grid",
+			ownerPluginId: "owner",
+			entitySchemaSlug: "item",
+			load: () => {
+				definitionLoads++;
+				return new Promise((resolve) => {
+					resolveDefinition = resolve;
+				});
+			},
+		};
+		const page = () => (
+			<EntityResults
+				layout="grid"
+				viewContext={null}
+				references={Array.from({ length: 20 }, (_, index) => reference(String(index)))}
+			/>
+		);
+		const { draw, clock, container } = render([registration], page());
+		await flush(clock);
+		expect(definitionLoads).toBe(1);
+		expect(dataLoads).toBe(0);
+		expect(container.querySelectorAll('[role="status"]')).toHaveLength(20);
+		act(() => resolveDefinition?.(definition));
+		await flush(clock);
+		expect({ mounts, dataLoads, definitionLoads }).toEqual({
+			mounts: 20,
+			dataLoads: 1,
+			definitionLoads: 1,
+		});
+		draw(null);
+		draw(page());
+		await flush(clock);
+		expect(definitionLoads).toBe(1);
+		expect(mounts).toBe(40);
+		act(() => roots[0]?.unmount());
+		roots = [];
+		const fresh = render([registration], page());
+		await flush(fresh.clock);
+		expect(definitionLoads).toBe(2);
+	});
+
+	it("uses a stable linked fallback after a definition load failure", async () => {
+		let attempts = 0;
+		const registration: EntityPresentationRegistration = {
+			layout: "list",
+			ownerPluginId: "owner",
+			entitySchemaSlug: "item",
+			load: () => {
+				attempts++;
+				return Promise.reject(new Error("offline"));
+			},
+		};
+		const item = <EntityResults layout="list" viewContext={null} references={[reference("one")]} />;
+		const { draw, clock, container } = render([registration], item);
+		await flush(clock);
+		expect(container.textContent).toContain("This presentation is unavailable.");
+		expect(container.querySelector('a[href="/e/one"]')).not.toBeNull();
+		expect(container.querySelector("button")).toBeNull();
+		draw(null);
+		draw(item);
+		await flush(clock);
+		expect(attempts).toBe(1);
+	});
+
 	it("declares only intersecting entities from the shared screen root and cleans up", async () => {
 		const observers = installIntersectionObserver();
 		const interests: EntityInterest[] = [];
@@ -226,15 +312,18 @@ describe("EntityResults", () => {
 			ownerPluginId: "owner",
 			layout: "grid" as const,
 			entitySchemaSlug: "item",
-			definition: defineEntityPresentation({
-				component: Presentation,
-				loader: ({ references }) => {
-					loads++;
-					return Promise.resolve(
-						Object.fromEntries(references.map(({ entityId }) => [entityId, entityId])),
-					);
-				},
-			}),
+			load: () =>
+				Promise.resolve(
+					defineEntityPresentation({
+						component: Presentation,
+						loader: ({ references }) => {
+							loads++;
+							return Promise.resolve(
+								Object.fromEntries(references.map(({ entityId }) => [entityId, entityId])),
+							);
+						},
+					}),
+				),
 		};
 		const { draw, clock, navigate, container } = render(
 			[registration],
@@ -318,25 +407,25 @@ describe("EntityResults", () => {
 				layout: "grid",
 				ownerPluginId: "other",
 				entitySchemaSlug: "item",
-				definition: presentation("wrong-owner"),
+				load: () => Promise.resolve(presentation("wrong-owner")),
 			},
 			{
 				layout: "grid",
 				ownerPluginId: "owner",
 				entitySchemaSlug: "other",
-				definition: presentation("wrong-schema"),
+				load: () => Promise.resolve(presentation("wrong-schema")),
 			},
 			{
 				layout: "list",
 				ownerPluginId: "owner",
 				entitySchemaSlug: "item",
-				definition: presentation("wrong-layout"),
+				load: () => Promise.resolve(presentation("wrong-layout")),
 			},
 			{
 				layout: "grid",
 				ownerPluginId: "owner",
 				entitySchemaSlug: "item",
-				definition: presentation("exact"),
+				load: () => Promise.resolve(presentation("exact")),
 			},
 		] as const;
 		const { clock, container } = render(
@@ -364,13 +453,16 @@ describe("EntityResults", () => {
 			layout: "grid" as const,
 			entitySchemaSlug: "item",
 			ownerPluginId: `owner-${index}`,
-			definition: defineEntityPresentation<string>({
-				component: ({ data }) => <p>{data}</p>,
-				loader: ({ references }) =>
-					new Promise<Readonly<Record<string, string>>>((resolve) =>
-						requests.push({ resolve, ids: references.map(({ entityId }) => entityId) }),
-					),
-			}),
+			load: () =>
+				Promise.resolve(
+					defineEntityPresentation<string>({
+						component: ({ data }) => <p>{data}</p>,
+						loader: ({ references }) =>
+							new Promise<Readonly<Record<string, string>>>((resolve) =>
+								requests.push({ resolve, ids: references.map(({ entityId }) => entityId) }),
+							),
+					}),
+				),
 		}));
 		const many = Array.from({ length: 201 }, (_, index) =>
 			reference(String(200 - index).padStart(3, "0"), { ownerPluginId: "owner-0" }),
@@ -406,17 +498,20 @@ describe("EntityResults", () => {
 			layout: "grid" as const,
 			entitySchemaSlug: "item",
 			ownerPluginId: `owner-${index}`,
-			definition: defineEntityPresentation<string>({
-				component: ({ data }) => <p>{data}</p>,
-				loader: ({ references }) => {
-					const id = references[0]?.entityId ?? "";
-					calls.push(id);
-					if (index < 4) {
-						throw new Error("synchronous failure");
-					}
-					return Promise.resolve({ [id]: "healthy" });
-				},
-			}),
+			load: () =>
+				Promise.resolve(
+					defineEntityPresentation<string>({
+						component: ({ data }) => <p>{data}</p>,
+						loader: ({ references }) => {
+							const id = references[0]?.entityId ?? "";
+							calls.push(id);
+							if (index < 4) {
+								throw new Error("synchronous failure");
+							}
+							return Promise.resolve({ [id]: "healthy" });
+						},
+					}),
+				),
 		}));
 		const { clock, container } = render(
 			registrations,
@@ -445,18 +540,21 @@ describe("EntityResults", () => {
 			ownerPluginId: "owner",
 			layout: "grid" as const,
 			entitySchemaSlug: "item",
-			definition: defineEntityPresentation<string>({
-				component: ({ data }) => <p>{data}</p>,
-				loader: ({ signal, references }) =>
-					new Promise<Readonly<Record<string, string>>>((resolve) =>
-						requests.push({
-							signal,
-							resolve,
-							id: references[0]?.entityId ?? "",
-							name: references[0]?.name ?? null,
-						}),
-					),
-			}),
+			load: () =>
+				Promise.resolve(
+					defineEntityPresentation<string>({
+						component: ({ data }) => <p>{data}</p>,
+						loader: ({ signal, references }) =>
+							new Promise<Readonly<Record<string, string>>>((resolve) =>
+								requests.push({
+									signal,
+									resolve,
+									id: references[0]?.entityId ?? "",
+									name: references[0]?.name ?? null,
+								}),
+							),
+					}),
+				),
 		};
 		const equivalentConsumers = () => (
 			<>
@@ -520,13 +618,16 @@ describe("EntityResults", () => {
 			ownerPluginId: "owner",
 			layout: "grid" as const,
 			entitySchemaSlug: "item",
-			definition: defineEntityPresentation<string>({
-				component: Presentation,
-				loader: () =>
-					new Promise<Readonly<Record<string, string>>>((resolve, reject) =>
-						requests.push({ reject, resolve }),
-					),
-			}),
+			load: () =>
+				Promise.resolve(
+					defineEntityPresentation<string>({
+						component: Presentation,
+						loader: () =>
+							new Promise<Readonly<Record<string, string>>>((resolve, reject) =>
+								requests.push({ reject, resolve }),
+							),
+					}),
+				),
 		};
 		const { clock, container } = render(
 			[registration],
@@ -578,25 +679,30 @@ describe("EntityResults", () => {
 			ownerPluginId: "owner",
 			layout: "list" as const,
 			entitySchemaSlug: "item",
-			definition: defineEntityPresentation<string>({
-				component: ({ data }) => {
-					if (data === "crash") {
-						renderAttempts++;
-						throw new Error("render failed");
-					}
-					return <p>{data}</p>;
-				},
-				loader: ({ references }) => {
-					if (references[0]?.entityId === "extra") {
-						return Promise.resolve({ unrequested: "extra" });
-					}
-					calls++;
-					if (calls === 1) {
-						return Promise.reject(new Error("offline"));
-					}
-					return Promise.resolve(references[0]?.entityId === "missing" ? {} : { crash: "crash" });
-				},
-			}),
+			load: () =>
+				Promise.resolve(
+					defineEntityPresentation<string>({
+						component: ({ data }) => {
+							if (data === "crash") {
+								renderAttempts++;
+								throw new Error("render failed");
+							}
+							return <p>{data}</p>;
+						},
+						loader: ({ references }) => {
+							if (references[0]?.entityId === "extra") {
+								return Promise.resolve({ unrequested: "extra" });
+							}
+							calls++;
+							if (calls === 1) {
+								return Promise.reject(new Error("offline"));
+							}
+							return Promise.resolve(
+								references[0]?.entityId === "missing" ? {} : { crash: "crash" },
+							);
+						},
+					}),
+				),
 		};
 		const { draw, clock, container } = render(
 			[registration],

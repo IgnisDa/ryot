@@ -2,51 +2,47 @@ import { CurrentUser } from "@ryot-app/contract/auth-middleware";
 import { AppContract } from "@ryot-app/contract/contract";
 import { dieOnDbError } from "@ryot-app/contract/errors";
 import {
-	ClientPageArtifactGrantNotFound,
+	ClientDocumentGrantNotFound,
 	PreparedClientPage,
 } from "@ryot-app/contract/modules/client-pages/schemas";
-import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
 import { Effect, Schema } from "effect";
 import { HttpServerResponse } from "effect/unstable/http";
 import { HttpApiBuilder } from "effect/unstable/httpapi";
 
-import { ClientPageArtifactGrantService } from "./grant-service";
+import { generateClientDocument } from "./document";
+import { ClientDocumentGrantService } from "./grant-service";
+import { ClientPagesRepository } from "./repository";
 import { ClientPagesService } from "./service";
 
-const isCanonicalArtifactFileName = (fileName: string): boolean => {
-	if (canonicalRelativePosixPathIssue(fileName) !== null) {
-		return false;
-	}
-
-	const decoded = fileName.replace(/%([0-9a-f]{2})/gi, (_escape, byte: string) =>
-		String.fromCharCode(Number.parseInt(byte, 16)),
-	);
-	return decoded === fileName || isCanonicalArtifactFileName(decoded);
-};
-
-export const ClientPageArtifactsRoutesLive = HttpApiBuilder.group(
+export const ClientDocumentsRoutesLive = HttpApiBuilder.group(
 	AppContract,
-	"clientPageArtifacts",
+	"clientDocuments",
 	(handlers) =>
-		handlers.handleRaw("file", ({ params }) =>
+		handlers.handleRaw("document", ({ params }) =>
 			Effect.gen(function* () {
-				if (!isCanonicalArtifactFileName(params["*"])) {
-					return yield* new ClientPageArtifactGrantNotFound({
-						reason: { code: "artifact-grant-not-found" },
+				const { userId, compositionHash } = yield* (yield* ClientDocumentGrantService).resolve(
+					params.token,
+				);
+				const composition = yield* (yield* ClientPagesRepository)
+					.findCompositionByHash(compositionHash)
+					.pipe(dieOnDbError);
+				if (!composition) {
+					return yield* new ClientDocumentGrantNotFound({
+						reason: { code: "document-grant-not-found" },
 					});
 				}
-				const grants = yield* ClientPageArtifactGrantService;
-				const file = yield* grants.findFile(params.token, params["*"]).pipe(dieOnDbError);
-				return HttpServerResponse.uint8Array(file.contents, {
-					contentType: file.contentType,
+				const html = yield* generateClientDocument(
+					userId,
+					composition.compositionHash,
+					composition.manifest,
+				).pipe(dieOnDbError);
+				return HttpServerResponse.text(html, {
+					contentType: "text/html; charset=utf-8",
 					headers: {
 						"referrer-policy": "no-referrer",
-						"access-control-allow-origin": "*",
 						"x-content-type-options": "nosniff",
-						"cache-control": "private, max-age=31536000, immutable",
-						...(file.contentType.startsWith("text/html")
-							? { "content-security-policy": "sandbox allow-scripts" }
-							: {}),
+						"cache-control": "private, no-store",
+						"content-security-policy": "sandbox allow-scripts",
 					},
 				});
 			}),

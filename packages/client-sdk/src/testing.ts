@@ -1,8 +1,8 @@
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
-	CLIENT_ARTIFACT_METADATA_ELEMENT_ID,
-	CLIENT_ARTIFACT_ROOT_ELEMENT_ID,
+	CLIENT_COMPOSITION_METADATA_ELEMENT_ID,
+	CLIENT_PAGE_ROOT_ELEMENT_ID,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
 	ClientPageContext,
@@ -215,7 +215,7 @@ export const disposePluginBridges = () => {
 };
 
 /**
- * Boots `component` the way the kernel does: embedded artifact metadata, a `MessagePort` bridge
+ * Boots `component` the way the kernel does: embedded composition metadata, a `MessagePort` bridge
  * handshake, and an optional first location. Everything below the bridge — the route resolver,
  * `PluginRouter`, `usePluginLocation`, `useRyotQuery`, `PluginScreenFrame` — stays real, so tests
  * assert on the messages the page actually puts on the port.
@@ -227,10 +227,10 @@ export const mountPluginPage = (
 		readonly location?: PluginLogicalLocation | undefined;
 	} = {},
 ) => {
-	document.body.innerHTML = `<div id="${CLIENT_ARTIFACT_ROOT_ELEMENT_ID}"></div>`;
+	document.body.innerHTML = `<div id="${CLIENT_PAGE_ROOT_ELEMENT_ID}"></div>`;
 	const metadataElement = document.createElement("script");
 	metadataElement.type = "application/json";
-	metadataElement.id = CLIENT_ARTIFACT_METADATA_ELEMENT_ID;
+	metadataElement.id = CLIENT_COMPOSITION_METADATA_ELEMENT_ID;
 	metadataElement.textContent = JSON.stringify(artifactMetadata);
 	document.head.append(metadataElement);
 
@@ -251,7 +251,7 @@ export const mountPluginPage = (
 				sessionId: "test-session",
 				documentKey: "test-document",
 				format: artifactMetadata.format,
-				artifactHash: artifactMetadata.hash,
+				compositionHash: artifactMetadata.hash,
 				apiVersion: artifactMetadata.apiVersion,
 				bridgeVersion: artifactMetadata.bridgeVersion,
 				compilerVersion: artifactMetadata.compilerVersion,
@@ -294,7 +294,7 @@ export const mountPluginPage = (
 		clientMessages,
 		assetCancels: () => clientMessagesOfType("asset-cancel"),
 		assetRequests: () => clientMessagesOfType("asset-request"),
-		container: document.getElementById(CLIENT_ARTIFACT_ROOT_ELEMENT_ID),
+		container: document.getElementById(CLIENT_PAGE_ROOT_ELEMENT_ID),
 		replyAssets: (requestId: string, outcome: PluginAssetOutcome) =>
 			send({ ...outcome, requestId, type: "asset-result" }),
 		replyQuery: (requestId: string, outcome: PluginRyotQLOutcome) =>

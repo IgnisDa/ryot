@@ -24,7 +24,6 @@
 		"@effect/platform-bun": "4.0.0-rc.117",
 		"@effect/sql-pg": "4.0.0-rc.117",
 		"@react-email/components": "1.0.7",
-		"@ryot-app/client-plugin-compiler": "workspace:*",
 		"@ryot-app/client-plugin-contract": "workspace:*",
 		"@ryot-app/config": "workspace:*",
 		"@ryot-app/contract": "workspace:*",

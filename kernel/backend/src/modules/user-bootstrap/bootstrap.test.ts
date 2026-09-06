@@ -76,11 +76,12 @@ const makeLayer = (options: {
 			ensureBuiltinViews: (inputUserId) => Effect.sync(() => options.onBuiltinViews?.(inputUserId)),
 		}),
 		Layer.succeed(ClientSurfaceMaterializer, {
-			assertUserBuilds: () => Effect.void,
-			materializeSystemBaseline: Effect.void,
 			materializeRenderer: () => Effect.void,
+			assertUserCompositions: () => Effect.void,
+			materializeSystemCompositions: Effect.void,
 			materializePendingInstallation: () => Effect.void,
-			materializeUser: (inputUserId) => options.onMaterializeBuilds?.(inputUserId) ?? Effect.void,
+			materializeUserCompositions: (inputUserId) =>
+				options.onMaterializeBuilds?.(inputUserId) ?? Effect.void,
 		}),
 	);
 };

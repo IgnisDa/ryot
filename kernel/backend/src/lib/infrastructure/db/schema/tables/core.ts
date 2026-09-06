@@ -29,6 +29,7 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
+import { clientArtifact } from "./client-artifacts";
 
 export const pluginConfigEncryptionKey = snakeCase.table(
 	"plugin_config_encryption_key",
@@ -42,27 +43,6 @@ export const pluginConfigEncryptionKey = snakeCase.table(
 		check("plugin_config_encryption_key_singleton_check", sql`${table.singleton} = true`),
 		check("plugin_config_encryption_key_length_check", sql`octet_length(${table.key}) = 32`),
 	],
-);
-
-export const pluginClientArtifact = snakeCase.table("plugin_client_artifact", {
-	format: smallint().notNull(),
-	apiVersion: smallint().notNull(),
-	hash: text().notNull().primaryKey(),
-	bridgeVersion: smallint().notNull(),
-	compilerVersion: smallint().notNull(),
-});
-
-export const pluginClientArtifactFile = snakeCase.table(
-	"plugin_client_artifact_file",
-	{
-		name: text().notNull(),
-		contents: bytea().notNull(),
-		contentType: text().notNull(),
-		artifactHash: text()
-			.notNull()
-			.references(() => pluginClientArtifact.hash),
-	},
-	(table) => [primaryKey({ columns: [table.artifactHash, table.name] })],
 );
 
 export const plugin = snakeCase.table(
@@ -134,7 +114,7 @@ export const pluginRevision = snakeCase.table(
 		unique("plugin_revision_id_plugin_unique").on(table.id, table.pluginId),
 		foreignKey({
 			columns: [table.clientArtifactHash],
-			foreignColumns: [pluginClientArtifact.hash],
+			foreignColumns: [clientArtifact.hash],
 			name: "plugin_revision_client_artifact_hash_fk",
 		}),
 	],

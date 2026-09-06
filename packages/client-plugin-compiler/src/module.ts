@@ -18,18 +18,14 @@ import tailwindcss from "@tailwindcss/vite";
 import { Effect, Layer, Result } from "effect";
 
 import { clientArtifactFile, clientArtifactMetadata } from "./artifact";
-import { compileClientPlugin } from "./compile";
-import {
-	isNeutralPluginModule,
-	isTrustedClientModule,
-	resolveClientPluginCompilerDependencies,
-} from "./dependencies";
+import { validateClientPluginPackage } from "./compile";
+import { isNeutralPluginModule, isTrustedClientModule } from "./dependencies";
 import { clientPluginCompilationFailure, clientPluginCompilerDiagnostic } from "./diagnostics";
 import type { ClientPluginCompilerDiagnostic, ClientPluginCompilerFailure } from "./diagnostics";
 import { compilerStylesheet } from "./generated-source";
 import type { ClientPluginCompilerPackageInput } from "./input";
 import { CLIENT_PLUGIN_COMPILER_LIMITS } from "./limits";
-import { isClientSourcePath, isCompiledTextSource, isSharedSourcePath } from "./planning";
+import { isCompiledTextSource } from "./planning";
 import { clientTypeScriptProject } from "./semantic-check";
 
 const compilerLayer = Layer.merge(BunFileSystem.layer, ViteBuildService.layer);
@@ -38,7 +34,7 @@ const PLUGIN_IMPORT =
 const OUTPUT_FILE =
 	/^(?:module\.(?:js|css)|chunk-[A-Za-z0-9_-]+\.js|asset-[A-Za-z0-9_-]+\.(?:svg|png|jpe?g|gif|webp|avif|ico|woff2|wasm))$/;
 const STATIC_MODULE_IMPORT =
-	/^\s*(?:import\s*(?:[^;\n]*?\s*from\s*)?|export\s+[^;\n]*?\s+from\s*)["']([^"']+)["']/gm;
+	/(?:^|[;}])\s*(?:import\s*(?:[^;\n]*?\s*from\s*)?|export\s+[^;\n]*?\s+from\s*)["']([^"']+)["']/gm;
 const TEXT_DECODER = new TextDecoder("utf-8", { fatal: true });
 
 const normalizeWorkspaceRegions = (javascript: string, workspacePath: string) => {
@@ -132,16 +128,8 @@ export const compileClientPluginModule = (
 	input: ClientPluginCompilerPackageInput,
 ): Effect.Effect<{ readonly artifact: PluginClientArtifact }, ClientPluginCompilerFailure> =>
 	Effect.gen(function* () {
-		// The package compiler owns manifest, semantic, source-policy, and input-limit validation.
-		yield* compileClientPlugin(input);
-
-		const dependencies = yield* resolveClientPluginCompilerDependencies;
-		const sourceEntries = sortBy(
-			Object.entries(input.files).filter(
-				([path]) => isClientSourcePath(path) || isSharedSourcePath(path),
-			),
-			([path]) => path,
-		);
+		const { dependencies, compiledFiles: sourceEntries } =
+			yield* validateClientPluginPackage(input);
 		const reachableSources = sourceEntries
 			.filter(([path]) => isCompiledTextSource(path))
 			.map(([path]) => path);
@@ -185,7 +173,7 @@ export const compileClientPluginModule = (
 				envPrefix: "__RYOT_CLIENT_PLUGIN_NO_ENV__",
 				define: { "import.meta.env": "{}", "process.env.NODE_ENV": JSON.stringify("production") },
 				build: {
-					minify: false,
+					minify: true,
 					target: "es2022",
 					cssCodeSplit: false,
 					assetsInlineLimit: 0,

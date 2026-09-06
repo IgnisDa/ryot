@@ -1,4 +1,7 @@
-import type { ClientPageArtifactIdentity } from "@ryot-app/contract/modules/client-pages/schemas";
+import type {
+	ClientPageCompositionIdentity,
+	ClientPageCompositionManifest,
+} from "@ryot-app/contract/modules/client-pages/schemas";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
@@ -16,15 +19,14 @@ import {
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
-import { pluginClientArtifact, pluginInstallation } from "./core";
+import { pluginInstallation } from "./core";
 
-export const clientPageBuild = snakeCase.table("client_page_build", {
-	artifactKey: text().primaryKey(),
+export const clientPageComposition = snakeCase.table("client_page_composition", {
+	compositionKey: text().primaryKey(),
+	compositionHash: text().notNull().unique(),
+	identity: jsonb().$type<ClientPageCompositionIdentity>().notNull(),
+	manifest: jsonb().$type<ClientPageCompositionManifest>().notNull(),
 	createdAt: timestamp({ withTimezone: true }).defaultNow().notNull(),
-	artifactIdentity: jsonb().$type<ClientPageArtifactIdentity>().notNull(),
-	artifactHash: text()
-		.notNull()
-		.references(() => pluginClientArtifact.hash, { onDelete: "restrict" }),
 });
 
 // TODO: Expose as an RSS feed

@@ -33,7 +33,7 @@ it("builds stable metadata from the plugin name, sorted byte hashes, and metadat
 		apiVersion: CLIENT_API_VERSION,
 		compilerVersion: CLIENT_COMPILER_VERSION,
 		bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
-		hash: "d86a2b1db0b288fdd014f3ccdf631c79d2b723df98151a6840bfadba05021b3c",
+		hash: "fc9b54af3c05f3a6c2e29b6df38a470fb3cfb4bb6f32cc44469bf112c2b906d0",
 	});
 	expect(clientArtifactMetadata("Fixture plugin", [first, second])).toEqual(
 		clientArtifactMetadata("Fixture plugin", [second, first]),
