@@ -257,9 +257,12 @@ const makeLayer = (input?: {
 			});
 			const repository = makeRepository({
 				hasEntityReferences: () => Ref.get(state.hasEntityReferences),
+				resolveEnvironmentConfigs: () => recordEvent("resolve-all-environments"),
 				lockIngestion: () => (input?.contendedLock ? contendedLock : recordEvent("lock")),
 				hasDefinitionReferences: () => Effect.succeed(input?.hasDefinitionReferences ?? false),
 				listActiveSystemPlugins: () => Effect.map(Ref.get(state.installed), (all) => [...all]),
+				resolveEnvironmentConfig: ({ id }) =>
+					recordEvent(`resolve-environment:${id}`).pipe(Effect.as(`${id}-config`)),
 				hasIntegrationReferences: (fence) =>
 					append(state.integrationFences, fence).pipe(
 						Effect.as(input?.hasIntegrationReferences ?? false),
@@ -413,6 +416,25 @@ layer(makeLayer({}))((test) => {
 			expect(yield* fake.published).toHaveLength(1);
 			expect((yield* fake.published)[0]?.channel).toBe(redisKeys.pluginCatalogChannel);
 			expect(yield* fake.activated).toEqual([plugin.id]);
+			expect((yield* fake.events).filter((event) => event.startsWith("resolve-"))).toEqual([
+				`resolve-environment:${plugin.id}`,
+			]);
+		}),
+	);
+});
+
+layer(makeLayer({}))((test) => {
+	test.effect("resolves system plugin environments once after batch synchronization", () =>
+		Effect.gen(function* () {
+			const fake = yield* FakeIngestionDependencies;
+			const ingestion = yield* PluginIngestionService;
+			const source = yield* loadPluginSource(fixturePackageRoot(), fixtureManifest());
+
+			yield* ingestion.synchronizeSystemPlugins([source, source]);
+
+			expect((yield* fake.events).filter((event) => event.startsWith("resolve-"))).toEqual([
+				"resolve-all-environments",
+			]);
 		}),
 	);
 });
