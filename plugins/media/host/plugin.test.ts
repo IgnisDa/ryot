@@ -188,12 +188,6 @@ it("declares the complete media-owned source", () => {
 				automaticEntityPresentations: false,
 				entry: "client/comic-book-card-presentation.ts",
 			},
-			"media-home": {
-				kind: "page",
-				entry: "client/home.tsx",
-				settingsSchema: { fields: {} },
-				automaticEntityPresentations: false,
-			},
 			"video-game-card": {
 				kind: "presentation",
 				automaticEntityPresentations: false,
@@ -233,6 +227,12 @@ it("declares the complete media-owned source", () => {
 				kind: "presentation",
 				automaticEntityPresentations: false,
 				entry: "client/visual-novel-card-presentation.ts",
+			},
+			"media-home": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				entry: "client/home/screen.tsx",
+				automaticEntityPresentations: false,
 			},
 			"show-detail": {
 				kind: "page",

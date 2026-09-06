@@ -10,6 +10,7 @@ import { podcastEpisodicKindConfig, showEpisodicKindConfig } from "./lifecycle-e
 import {
 	episodicByLifecycleStateRecipe,
 	flatByLifecycleStateRecipe,
+	libraryMediaCountRecipe,
 } from "./lifecycle-list-recipes";
 
 const identity = { images: null, populationStatus: "ready", translationStatus: "none" };
@@ -127,5 +128,17 @@ describe("flat lifecycle list recipe", () => {
 		expect(where).toContain('"value":"manga"');
 		expect(where).not.toContain('"value":"show"');
 		expect(where).not.toContain('"value":"podcast"');
+	});
+});
+
+describe("library media count recipe", () => {
+	it("validates the count document and decodes the count", () => {
+		const recipe = libraryMediaCountRecipe();
+		expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess)).toBeNull();
+		expect(
+			Result.getOrThrow(
+				recipe.decode({ data: { library: { type: "aggregate", items: [{ count: 3 }] } } }),
+			),
+		).toBe(3);
 	});
 });
