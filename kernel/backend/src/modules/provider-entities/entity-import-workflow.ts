@@ -13,6 +13,7 @@ import {
 import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
 import { MutationReceipts } from "#modules/mutations/receipts";
+import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 import { ProviderEntityPopulationWorkflow } from "./provider-entity-population-workflow";
@@ -62,21 +63,14 @@ const runImportPhases = Effect.fn("runEntityImportPhases")(function* (
 	const engine = yield* WorkflowEngine;
 	const populationExecutionId = `${executionId}-provider-population`;
 	const receipts = yield* MutationReceipts.make;
-	yield* receipts
-		.registerWorkflow(
-			payload.command.accountGeneration,
-			ProviderEntityPopulationWorkflow._tag,
-			populationExecutionId,
-		)
-		.pipe(
-			Effect.mapError(
-				(error) => new EntityImportError({ stage: "population", message: error.message }),
-			),
-		);
 	const importedEntity = yield* measureImportPhase(
 		"population",
-		engine
-			.execute(ProviderEntityPopulationWorkflow, {
+		dispatchAdmittedWorkflow(
+			receipts,
+			engine,
+			ProviderEntityPopulationWorkflow,
+			payload.command.accountGeneration,
+			{
 				executionId: populationExecutionId,
 				payload: {
 					mode: "ensure",
@@ -87,12 +81,20 @@ const runImportPhases = Effect.fn("runEntityImportPhases")(function* (
 					executionId: populationExecutionId,
 					entitySchemaSlug: payload.entitySchemaSlug,
 				},
-			})
-			.pipe(
-				Effect.mapError(
-					(error) => new EntityImportError({ stage: "population", message: error.message }),
+			},
+			(admission) =>
+				admission.pipe(
+					Effect.mapError(
+						(error) => new EntityImportError({ stage: "population", message: error.message }),
+					),
 				),
-			),
+			(execution) =>
+				execution.pipe(
+					Effect.mapError(
+						(error) => new EntityImportError({ stage: "population", message: error.message }),
+					),
+				),
+		),
 	);
 	const operations = yield* EntityImportWorkflowOperations;
 	yield* measureImportPhase(

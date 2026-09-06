@@ -7,7 +7,10 @@ import { Deferred, Effect, Layer } from "effect";
 
 import { user } from "#lib/infrastructure/db/schema/tables/auth";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
+import { assertExitFails } from "#lib/test-utils/assertions";
 import { isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
+import { TranslationsRepository } from "#modules/entity-translation/repository";
+import { IntegrationsRepository } from "#modules/integrations/repository";
 
 import { AuthRepository } from "./repository";
 
@@ -16,6 +19,77 @@ const testLayer = AuthRepository.layer.pipe(
 );
 
 layer(testLayer)((test) => {
+	test.effect("preference consumers preserve missing users and reject malformed storage", () =>
+		Effect.gen(function* () {
+			const session = yield* DatabaseSession;
+			const repository = yield* AuthRepository;
+			const translations = yield* TranslationsRepository.make;
+			const integrations = yield* IntegrationsRepository.make;
+			const id = UserId.make("read-user");
+			const missing = UserId.make("missing-read-user");
+			expect(yield* repository.getUserPreferences(missing)).toBeNull();
+			expect(yield* translations.findUserLanguage(missing)).toBeNull();
+			expect(yield* integrations.getUserDisableIntegrations({ userId: missing })).toBe(false);
+			yield* session.run((db) =>
+				db.insert(user).values({ id, name: "Reader", email: "read@example.test" }),
+			);
+			yield* repository.patchUserPreferences(id, { language: "fr", disableIntegrations: true });
+			expect(yield* repository.getUserPreferences(id)).toEqual({
+				...defaultUserPreferences,
+				language: "fr",
+				disableIntegrations: true,
+			});
+			expect(yield* translations.findUserLanguage(id)).toBe("fr");
+			expect(yield* integrations.getUserDisableIntegrations({ userId: id })).toBe(true);
+			const exit = yield* Effect.exit(
+				session.transaction(
+					Effect.gen(function* () {
+						yield* session.run((db) =>
+							db.execute(sql`alter table "user" drop constraint user_preferences_check`),
+						);
+						yield* session.run((db) =>
+							db.execute(
+								sql`update "user" set preferences = '{"allowNsfw":"yes"}'::jsonb where id = ${id}`,
+							),
+						);
+						expect(
+							(yield* Effect.flip(repository.getUserPreferences(id)).pipe(Effect.orDie)).message,
+						).toContain("Invalid stored user preferences");
+						expect(
+							(yield* Effect.flip(translations.findUserLanguage(id)).pipe(Effect.orDie)).message,
+						).toContain("Invalid stored user preferences");
+						expect(
+							(yield* Effect.flip(integrations.getUserDisableIntegrations({ userId: id })).pipe(
+								Effect.orDie,
+							)).message,
+						).toContain("Invalid stored user preferences");
+						return yield* new DbError({ message: "roll back malformed preferences" });
+					}),
+				),
+			);
+			assertExitFails(exit, new DbError({ message: "roll back malformed preferences" }));
+		}),
+	);
+
+	test.effect("preference consumers capture a replacement auth repository at construction", () =>
+		Effect.gen(function* () {
+			const repository = yield* AuthRepository;
+			const replacement = AuthRepository.of({
+				...repository,
+				getUserPreferences: () =>
+					Effect.succeed({ ...defaultUserPreferences, language: "de", disableIntegrations: true }),
+			});
+			const translations = yield* TranslationsRepository.make.pipe(
+				Effect.provideService(AuthRepository, replacement),
+			);
+			const integrations = yield* IntegrationsRepository.make.pipe(
+				Effect.provideService(AuthRepository, replacement),
+			);
+			const id = UserId.make("not-in-database");
+			expect(yield* translations.findUserLanguage(id)).toBe("de");
+			expect(yield* integrations.getUserDisableIntegrations({ userId: id })).toBe(true);
+		}),
+	);
 	test.effect("merges concurrent independent patches without lost updates", () =>
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;

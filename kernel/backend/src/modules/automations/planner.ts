@@ -1,6 +1,6 @@
 import { DbError } from "@ryot-app/contract/errors";
 import {
-	AutomationOmittedHook,
+	AutomationHookIdentity,
 	AutomationRun,
 	AutomationTrigger,
 	DEFAULT_AUTOMATION_RETRY_POLICY,
@@ -28,7 +28,11 @@ import { lifecycleBatchTriggers } from "#lib/domain/lifecycle-batch";
 import { AppConfig } from "#lib/infrastructure/config/service";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { MutationReceiptIdentityConflict, MutationReceipts } from "#modules/mutations/receipts";
+import {
+	MutationReceiptIdentityConflict,
+	MutationReceipts,
+	mutationReceiptOwner,
+} from "#modules/mutations/receipts";
 
 import { BatchHookPin } from "./batch-hook-pin";
 import { AutomationPlannerResolver, matchesTarget } from "./planner-resolver";
@@ -52,11 +56,9 @@ const compareIdentity = (a: AutomationRun, b: AutomationRun) =>
 	compareText(a.hookSlug, b.hookSlug) ||
 	compareText(a.executionUserId, b.executionUserId);
 
-const policyIdentity = (policy: Pick<AutomationRun, "pluginId" | "hookSlug">) =>
+const policyIdentity = (policy: AutomationHookIdentity) =>
 	stableStringify([policy.pluginId, policy.hookSlug]);
-const normalizeExclusions = (
-	policies: ReadonlyArray<Pick<AutomationRun, "pluginId" | "hookSlug">>,
-) =>
+const normalizeExclusions = (policies: ReadonlyArray<AutomationHookIdentity>) =>
 	[
 		...new Map(
 			policies.map(({ pluginId, hookSlug }) => [
@@ -144,7 +146,7 @@ export const LifecyclePlannerLive = Layer.effect(
 		const plan = Effect.fn("LifecyclePlanner.plan")(function* (input: {
 			trigger: AutomationTrigger;
 			recipients?: ReadonlyArray<UserId>;
-			excludedOncePerSubjectPolicies?: ReadonlyArray<Pick<AutomationRun, "pluginId" | "hookSlug">>;
+			excludedOncePerSubjectPolicies?: ReadonlyArray<AutomationHookIdentity>;
 			pinnedBatchCandidates?: ReadonlyArray<BatchHookPin>;
 		}): Effect.fn.Return<LifecyclePlanningResult, DbError> {
 			const suppliedTrigger = yield* decodeStoredSchema(
@@ -161,7 +163,7 @@ export const LifecyclePlannerLive = Layer.effect(
 				? normalizeExclusions(
 						yield* decodeStoredSchema(
 							input.excludedOncePerSubjectPolicies ?? [],
-							Schema.Array(AutomationOmittedHook),
+							Schema.Array(AutomationHookIdentity),
 							"Invalid once-per-subject policy exclusions",
 						),
 					)
@@ -367,13 +369,7 @@ export const LifecyclePlannerLive = Layer.effect(
 			};
 		});
 		const batchIdentity = (input: LifecycleBatchInput) =>
-			receipts.batchIdentity({
-				...input,
-				ownerUserId:
-					input.command.causation.initiator.kind === "user"
-						? input.command.causation.initiator.id
-						: null,
-			});
+			receipts.batchIdentity({ ...input, ownerUserId: mutationReceiptOwner(input.command, null) });
 		const prepareBatch = Effect.fn("LifecyclePlanner.prepareBatch")(function* (
 			input: LifecycleBatchInput & { scopes: ReadonlyArray<UserId | null> },
 		) {

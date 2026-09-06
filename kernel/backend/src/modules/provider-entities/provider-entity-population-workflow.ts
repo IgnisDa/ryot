@@ -1,5 +1,8 @@
 import { SandboxRunError, mapDbErrorToSandbox } from "@ryot-app/contract/errors";
-import type { AutomationPopulationContext } from "@ryot-app/contract/modules/automations/lifecycle";
+import type {
+	AutomationPopulationContext,
+	LifecycleCommand,
+} from "@ryot-app/contract/modules/automations/lifecycle";
 import { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import { encodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-interest/messages";
 import { EntityId, type EntitySchemaSlug, type UserId } from "@ryot-app/contract/schema/brands";
@@ -17,7 +20,7 @@ import { Cause, DateTime, Effect, Schedule, Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
 
 import { LifecycleDispatchPlan } from "#lib/domain/lifecycle";
-import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
+import { populationLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { retryOnDeadlock } from "#lib/infrastructure/db/errors";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
@@ -26,16 +29,16 @@ import type { DurableSchema } from "#lib/infrastructure/workflow";
 import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { DefinitionSnapshot } from "#modules/definition-registry/snapshot";
-import { EntityMutationOutcome } from "#modules/entities/mutation-outcomes";
+import { EntitySnapshotResult } from "#modules/entities/mutation-outcomes";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { MutationReceipts } from "#modules/mutations/receipts";
+import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
 
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 import { ChildEntitySetWriteResult, writeChildEntitySet } from "./population";
 import { syncRelatedEntityGroup } from "./relationship-population";
-import type { EntityImportPayload } from "./schemas";
-import { EntityImportScope, entityImportPayloadFields } from "./schemas";
+import { EntityImportScope, entityImportPayloadFields, type EntityImportPayload } from "./schemas";
 
 const REDIS_RETRY_SCHEDULE = Schedule.spaced("30 seconds");
 
@@ -66,12 +69,8 @@ type ChildEntitySetScope = {
 };
 
 const ProviderEntitySaveEnvelope = Schema.Struct({
+	result: EntitySnapshotResult,
 	dispatch: Schema.Array(LifecycleDispatchPlan),
-	result: Schema.Struct({
-		entity: ListedEntity,
-		wasInserted: Schema.Boolean,
-		outcome: EntityMutationOutcome,
-	}),
 });
 
 const RelationshipSyncEnvelope = Schema.Struct({
@@ -167,16 +166,6 @@ const getEntityWriteScope = (payload: EntityImportPayload) =>
 		? ({ scope: "user", userId: payload.entityScope.userId } as const)
 		: ({ scope: "global" } as const);
 
-const commandFor = (
-	command: LifecycleCommand,
-	itemIdentity: ReadonlyArray<string>,
-	population: AutomationPopulationContext,
-): LifecycleCommand => ({
-	...command,
-	population,
-	itemIdentity: stableStringify([command.itemIdentity, ...itemIdentity]),
-});
-
 const providerEntityIdFor = (command: LifecycleCommand, itemIdentity: ReadonlyArray<string>) =>
 	EntityId.make(
 		`ent_${sha256Base64Url(
@@ -238,11 +227,11 @@ const upsertRootEntity = Effect.fn("upsertProviderRootEntity")(function* (
 						providerId: payload.providerId,
 						entitySchemaSlug: payload.entitySchemaSlug,
 						updateExisting: options.mode !== "refresh",
-						lifecycle: commandFor(payload.command, ["root", "upsert"], population),
+						lifecycle: populationLifecycleCommand(payload.command, ["root", "upsert"], population),
 					}),
 				),
 			).pipe(mapDbErrorToSandbox);
-			return { result: work.result, dispatch: work.dispatch };
+			return { dispatch: work.dispatch, result: { entity: work.result.entity } };
 		}),
 	});
 });
@@ -345,11 +334,11 @@ const stampRootPopulatedAt = Effect.fn("stampProviderRootPopulatedAt")(function*
 						externalId: payload.externalId,
 						providerId: payload.providerId,
 						entitySchemaSlug: payload.entitySchemaSlug,
-						lifecycle: commandFor(payload.command, ["root", "stamp"], population),
+						lifecycle: populationLifecycleCommand(payload.command, ["root", "stamp"], population),
 					}),
 				),
 			).pipe(mapDbErrorToSandbox);
-			return { result: work.result, dispatch: work.dispatch };
+			return { dispatch: work.dispatch, result: { entity: work.result.entity } };
 		}),
 	});
 });
@@ -494,17 +483,16 @@ export const ProviderEntityPopulationWorkflow = Workflow.make("ProviderEntityPop
 export const runProviderEntityPopulationWorkflow = Effect.fn("ProviderEntityPopulationWorkflow")(
 	function* (payload: ProviderEntityPopulationPayload, executionId: string) {
 		const receipts = yield* MutationReceipts.make;
-		yield* receipts
-			.registerWorkflow(
-				payload.command.accountGeneration,
-				ProviderEntityPopulationWorkflow._tag,
-				executionId,
-			)
-			.pipe(
-				Effect.mapError(
-					(error) => new SandboxRunError({ kind: "infrastructure", message: error.message }),
-				),
-			);
+		yield* admitWorkflow(
+			receipts,
+			ProviderEntityPopulationWorkflow,
+			payload.command.accountGeneration,
+			executionId,
+		).pipe(
+			Effect.mapError(
+				(error) => new SandboxRunError({ kind: "infrastructure", message: error.message }),
+			),
+		);
 		if (payload.mode === "refresh" && !payload.entitySchemaSlug) {
 			return yield* Effect.die("entitySchemaSlug is required for refresh");
 		}

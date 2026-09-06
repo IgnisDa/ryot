@@ -1,5 +1,9 @@
 # Plugins
 
+## Repository composition
+
+`repository-layer.ts` owns `PluginRepositoryLive`, which provides the repository's client-artifact dependency. Automations planner, retention, and signal Layers use this focused composition without importing the plugins runtime Layer. Reusing the Layer preserves Effect's shared-resource composition.
+
 ## System plugin synchronization
 
 `PluginIngestionService` owns system plugin ingestion and environment configuration

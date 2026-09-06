@@ -1,5 +1,8 @@
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
-import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
+import {
+	LifecycleCommand,
+	type AutomationWarning,
+} from "@ryot-app/contract/modules/automations/lifecycle";
 import { PluginHttpRateLimit } from "@ryot-app/contract/modules/plugins/manifest";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { createEventItemSchema, sandboxHostContracts } from "@ryot-app/sandbox-sdk/core";
@@ -12,7 +15,6 @@ import { Cause, Clock, Duration, Effect, Layer, Schema } from "effect";
 import { DurableClock } from "effect/unstable/workflow";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
-import { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import {
 	runLifecycleWriteStepWith,
@@ -43,6 +45,7 @@ import {
 	EventCreateWorkflowPayload,
 } from "#modules/events/event-create-workflow";
 import { MutationReceipts } from "#modules/mutations/receipts";
+import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import {
 	NotificationDeliveryWorkflow,
 	NotificationDeliveryWorkflowPayload,
@@ -717,29 +720,30 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 					});
 				}
 				if (strategy === "service-workflow") {
-					return receipts
-						.registerWorkflow(
-							principal.subject.type === "system" ? null : principal.subject.accountGeneration,
-							SandboxDurableHostServiceWorkflow._tag,
-							`${executionId}-host-service-${request.index}`,
-						)
-						.pipe(
-							Effect.mapError(
-								(error) => new SandboxRunError({ kind: "infrastructure", message: error.message }),
+					return dispatchAdmittedWorkflow(
+						receipts,
+						engine,
+						SandboxDurableHostServiceWorkflow,
+						principal.subject.type === "system" ? null : principal.subject.accountGeneration,
+						{
+							executionId: `${executionId}-host-service-${request.index}`,
+							payload: {
+								request,
+								startedAt,
+								principal,
+								sandbox: payload,
+								parentExecutionId: executionId,
+							},
+						},
+						(registration) =>
+							registration.pipe(
+								Effect.mapError(
+									(error) =>
+										new SandboxRunError({ kind: "infrastructure", message: error.message }),
+								),
 							),
-							Effect.andThen(
-								engine.execute(SandboxDurableHostServiceWorkflow, {
-									executionId: `${executionId}-host-service-${request.index}`,
-									payload: {
-										request,
-										startedAt,
-										principal,
-										sandbox: payload,
-										parentExecutionId: executionId,
-									},
-								}),
-							),
-						);
+						(execution) => execution,
+					);
 				}
 
 				if (strategy === "event-workflow") {
@@ -767,23 +771,23 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 									}),
 							),
 						);
-						yield* receipts
-							.registerWorkflow(
-								eventPayload.command.accountGeneration,
-								EventCreateWorkflow._tag,
-								EventCreateWorkflow.idempotencyKey(eventPayload),
-							)
-							.pipe(
-								Effect.mapError(
-									(error) =>
-										new SandboxRunError({ kind: "infrastructure", message: error.message }),
-								),
-							);
-						const result = yield* Effect.exit(
-							engine.execute(EventCreateWorkflow, {
+						const result = yield* dispatchAdmittedWorkflow(
+							receipts,
+							engine,
+							EventCreateWorkflow,
+							eventPayload.command.accountGeneration,
+							{
 								payload: eventPayload,
 								executionId: EventCreateWorkflow.idempotencyKey(eventPayload),
-							}),
+							},
+							(registration) =>
+								registration.pipe(
+									Effect.mapError(
+										(error) =>
+											new SandboxRunError({ kind: "infrastructure", message: error.message }),
+									),
+								),
+							Effect.exit,
 						);
 						if (result._tag === "Failure") {
 							if (Cause.hasDies(result.cause) || Cause.hasInterrupts(result.cause)) {

@@ -1,6 +1,7 @@
 import { PgClient } from "@effect/sql-pg";
 import { expect, layer } from "@effect/vitest";
 import { PluginClientArtifactFromBase64 } from "@ryot-app/client-plugin-contract";
+import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -15,7 +16,6 @@ import {
 import { Context, Effect, Encoding, Layer, Ref, Schema } from "effect";
 
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
-import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { RedisService } from "#lib/infrastructure/redis";
 import { databaseLayer, makeRedisService, type MockOverrides } from "#lib/test-utils/effect";

@@ -1,6 +1,6 @@
 import { DbError } from "@ryot-app/contract/errors";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
-import { Cause, Clock, Context, Duration, Effect, Layer, Option } from "effect";
+import { Cause, Clock, Context, Effect, Layer, Option } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { LifecyclePersistenceError } from "#lib/domain/lifecycle";
@@ -16,6 +16,7 @@ import {
 } from "#lib/infrastructure/workflow-deadline";
 import { ActivityBody } from "#lib/infrastructure/workflow-scope";
 import { MutationReceipts } from "#modules/mutations/receipts";
+import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 
 import { automationAttemptIdentity } from "./attempt-repository";
 import { AutomationRunRepository } from "./run-repository";
@@ -68,7 +69,7 @@ export const AutomationExecutionOperationsLive = Layer.effect(
 						payload.runId,
 						payload.attemptNumber,
 					).workflowExecutionId;
-					yield* session
+					const account = yield* session
 						.transaction(
 							Effect.gen(function* () {
 								const run = yield* runs.findById(payload.runId);
@@ -76,14 +77,13 @@ export const AutomationExecutionOperationsLive = Layer.effect(
 									return yield* new DbError({ message: "Automation run is unavailable" });
 								}
 								if (run.executionUserId === null) {
-									return yield* Effect.void;
+									return null;
 								}
-								const account = yield* receipts.currentAccount(run.executionUserId);
+								const currentAccount = yield* receipts.currentAccount(run.executionUserId);
 								if (!(yield* runs.findById(payload.runId))) {
 									return yield* new DbError({ message: "Automation run is unavailable" });
 								}
-								yield* receipts.registerWorkflow(account, AutomationRunWorkflow._tag, executionId);
-								return yield* Effect.void;
+								return currentAccount;
 							}),
 						)
 						.pipe(
@@ -92,12 +92,31 @@ export const AutomationExecutionOperationsLive = Layer.effect(
 								() => new DbError({ message: "Automation admission requires a root transaction" }),
 							),
 						);
-					return yield* engine.execute(AutomationRunWorkflow, {
-						payload,
-						discard: true,
-						executionId: automationAttemptIdentity(payload.runId, payload.attemptNumber)
-							.workflowExecutionId,
-					});
+					return yield* dispatchAdmittedWorkflow(
+						receipts,
+						engine,
+						AutomationRunWorkflow,
+						account,
+						{ payload, executionId, discard: true },
+						(admission) =>
+							session
+								.transaction(
+									Effect.gen(function* () {
+										if (!(yield* runs.findById(payload.runId))) {
+											return yield* new DbError({ message: "Automation run is unavailable" });
+										}
+										return yield* admission;
+									}),
+								)
+								.pipe(
+									Effect.catchTag(
+										"DatabaseSessionStateError",
+										() =>
+											new DbError({ message: "Automation admission requires a root transaction" }),
+									),
+								),
+						(execution) => execution,
+					);
 				}),
 		});
 	}),
@@ -133,30 +152,12 @@ export const LifecycleExecutionLive = Layer.effect(
 			payload: AutomationRunWorkflowPayload,
 		) {
 			const instance = yield* Effect.serviceOption(WorkflowInstance);
-			if (Option.isSome(instance)) {
-				return yield* observeWorkflowDeadline({
-					deadline,
-					poll: operations.poll(payload),
-					completedAt: attemptCompletedAt,
-				}).pipe(
-					Effect.provideService(WorkflowInstance, instance.value),
-					Effect.provideService(WorkflowEngine, engine),
-				);
-			}
-			for (;;) {
-				const result = yield* operations.poll(payload);
-				if (result !== null) {
-					const finishedAt = attemptCompletedAt(result);
-					return finishedAt === null || finishedAt < deadline
-						? { value: result, status: "completed" as const }
-						: { status: "expired" as const };
-				}
-				const remaining = deadline - (yield* Clock.currentTimeMillis);
-				if (remaining <= 0) {
-					return { status: "expired" as const };
-				}
-				yield* Effect.sleep(Duration.millis(Math.min(500, remaining)));
-			}
+			return yield* observeWorkflowDeadline({
+				deadline,
+				poll: operations.poll(payload),
+				completedAt: attemptCompletedAt,
+				pollingIntervalMs: Option.isSome(instance) ? 1_000 : 500,
+			});
 		});
 		const after: LifecycleExecution["Service"]["after"] = ({ runs, triggerId }) =>
 			Effect.gen(function* () {

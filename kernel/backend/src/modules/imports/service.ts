@@ -24,6 +24,7 @@ import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import type { ImportSourceState } from "#lib/infrastructure/redis";
 import { MutationReceipts } from "#modules/mutations/receipts";
+import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import {
 	ImportSourceCatalog,
 	type RegisteredImportSource,
@@ -194,18 +195,19 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 				return yield* failDispatch("source-state", stored.cause);
 			}
 
-			const started = yield* receipts
-				.registerWorkflow(command.accountGeneration, ProcessImportRunWorkflow._tag, runId)
-				.pipe(
-					Effect.andThen(
-						engine.execute(ProcessImportRunWorkflow, {
-							discard: true,
-							executionId: runId,
-							payload: { runId, command, userId: user.id, uploadIntentIds, sourceStateId: runId },
-						}),
-					),
-					Effect.result,
-				);
+			const started = yield* dispatchAdmittedWorkflow(
+				receipts,
+				engine,
+				ProcessImportRunWorkflow,
+				command.accountGeneration,
+				{
+					discard: true,
+					executionId: runId,
+					payload: { runId, command, userId: user.id, uploadIntentIds, sourceStateId: runId },
+				},
+				(admission) => admission,
+				(execution) => execution,
+			).pipe(Effect.result);
 			if (Result.isFailure(started)) {
 				yield* rollback;
 				return yield* failDispatch("workflow", started.failure);

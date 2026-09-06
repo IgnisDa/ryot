@@ -1,5 +1,5 @@
-import { expect, layer } from "@effect/vitest";
-import { Clock, Effect, Layer, Option, Schema } from "effect";
+import { expect, it, layer } from "@effect/vitest";
+import { Clock, Effect, Fiber, Layer, Option, Schema } from "effect";
 import { TestClock } from "effect/testing";
 import { PersistedQueue } from "effect/unstable/persistence";
 import { Workflow, DurableQueue } from "effect/unstable/workflow";
@@ -9,6 +9,41 @@ import { makeWorkflowEngine, workflowEngineTestLayer } from "#lib/test-utils/eff
 
 import { observeWorkflowDeadline, startWorkflowDeadline } from "./workflow-deadline";
 import { implementWorkflow } from "./workflow-scope";
+
+it.effect(
+	"bounds both polling intervals by the absolute cutoff and rejects completion at the cutoff",
+	() =>
+		Effect.gen(function* () {
+			for (const pollingIntervalMs of [500, 1_000]) {
+				const started = yield* Clock.currentTimeMillis;
+				const polls: number[] = [];
+				const observing = yield* observeWorkflowDeadline({
+					pollingIntervalMs,
+					deadline: started + 1_250,
+					completedAt: (value: number) => value,
+					poll: Clock.currentTimeMillis.pipe(
+						Effect.map((now) => {
+							polls.push(now - started);
+							return now >= started + 1_250 ? now : null;
+						}),
+					),
+				}).pipe(Effect.forkChild);
+				yield* TestClock.adjust(1_250);
+				expect(yield* Fiber.join(observing)).toEqual({ status: "expired" });
+				expect(polls).toEqual(
+					pollingIntervalMs === 500 ? [0, 500, 1_000, 1_250] : [0, 1_000, 1_250],
+				);
+				expect(
+					yield* observeWorkflowDeadline({
+						pollingIntervalMs,
+						deadline: started + 1_250,
+						completedAt: (value: number) => value,
+						poll: Effect.succeed(started + 1_249),
+					}),
+				).toEqual({ status: "completed", value: started + 1_249 });
+			}
+		}),
+);
 
 const Child = Workflow.make("DeadlineChild", {
 	success: Schema.String,
@@ -53,6 +88,7 @@ const engineLayer = Layer.mergeAll(
 			const result = yield* observeWorkflowDeadline({
 				deadline,
 				completedAt: () => null,
+				pollingIntervalMs: 1_000,
 				poll: Effect.gen(function* () {
 					const value = Option.getOrUndefined(yield* engine.poll(Child, childId));
 					return value?._tag === "Complete" ? yield* value.exit : null;
@@ -72,6 +108,7 @@ layer(engineLayer)((test) => {
 				const observed = yield* observeWorkflowDeadline({
 					deadline,
 					completedAt: () => null,
+					pollingIntervalMs: 1_000,
 					poll: Effect.sync(() => (++polls === 2 ? "completed" : null)),
 				}).pipe(
 					Effect.provideService(WorkflowInstance, WorkflowInstance.initial(Parent, "poll-replay")),
@@ -122,6 +159,7 @@ const queuedLayer = Layer.mergeAll(
 			const observed = yield* observeWorkflowDeadline({
 				deadline,
 				completedAt: () => null,
+				pollingIntervalMs: 1_000,
 				poll: Effect.gen(function* () {
 					const value = Option.getOrUndefined(yield* engine.poll(QueuedChild, `${id}-queue`));
 					return value?._tag === "Complete" ? yield* value.exit : null;

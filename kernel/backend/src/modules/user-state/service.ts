@@ -1,5 +1,6 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { DbError } from "@ryot-app/contract/errors";
+import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import type {
 	RelationshipBadRequest,
 	RelationshipNotFound,
@@ -17,7 +18,6 @@ import {
 	LifecyclePlanner,
 	type LifecyclePersistenceError,
 } from "#lib/domain/lifecycle";
-import type { LifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { trimToNull } from "#lib/shared/validation";

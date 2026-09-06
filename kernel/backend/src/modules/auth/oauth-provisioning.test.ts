@@ -120,6 +120,7 @@ const fakeAuthRepositoryLayer = Layer.effectContext(
 		return Context.make(
 			AuthRepository,
 			AuthRepository.of({
+				getUserPreferences: () => Effect.die("unused"),
 				getPortableProfile: () => Effect.die("unused"),
 				patchUserPreferences: () => Effect.die("unused"),
 				revokeUserOAuthTokens: () => Effect.die("unused"),

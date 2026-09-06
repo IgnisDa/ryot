@@ -10,9 +10,39 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { describe, expect, it } from "vitest";
 
-import { lifecycleTrigger, rootLifecycleCommand } from "./lifecycle-command";
+import {
+	childLifecycleCommand,
+	populationLifecycleCommand,
+	lifecycleTrigger,
+	rootLifecycleCommand,
+} from "./lifecycle-command";
 
 describe("lifecycle commands", () => {
+	it("keeps nested child identities distinct from provider population path identities", () => {
+		const command = rootLifecycleCommand({
+			accountGeneration: null,
+			source: "provider-refresh",
+			itemIdentity: '["import",2]',
+			occurredAt: "2026-09-15T00:00:00.000Z",
+			initiator: { id: null, kind: "system" },
+			executionId: AutomationExecutionId.make("provider-identity"),
+		});
+		const population = {
+			rootPreviouslyPopulated: false,
+			scopeEntity: {
+				name: "Root",
+				id: EntityId.make("root"),
+				entitySchemaSlug: EntitySchemaSlug.make("item"),
+			},
+		};
+		const child = childLifecycleCommand(command, '["root","upsert"]');
+		const provider = populationLifecycleCommand(command, ["root", "upsert"], population);
+		expect(child.itemIdentity).toBe('["[\\"import\\",2]","[\\"root\\",\\"upsert\\"]"]');
+		expect(provider.itemIdentity).toBe('["[\\"import\\",2]","root","upsert"]');
+		expect(child.causation).toBe(command.causation);
+		expect(provider.causation).toBe(command.causation);
+		expect(provider.population).toBe(population);
+	});
 	it("preserves causal metadata and changes trigger identity by resource or item", () => {
 		const executionId = AutomationExecutionId.make("execution-1");
 		const integrationId = IntegrationId.make("integration-1");

@@ -7,6 +7,7 @@ import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { AppConfig } from "#lib/infrastructure/config/service";
 import { MutationReceipts } from "#modules/mutations/receipts";
+import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { PluginRuntimeResolver } from "#modules/plugins/runtime-resolver";
 import { SandboxScriptWorkflow } from "#modules/sandbox/sandbox-script-workflow";
 
@@ -86,26 +87,24 @@ export class PluginCronService extends Context.Service<PluginCronService>()("Plu
 				return { status: "notFound" as const };
 			}
 			const execution = yield* Effect.exit(
-				receipts
-					.registerWorkflow(
-						resolved.subject.type === "system" ? null : resolved.subject.accountGeneration,
-						SandboxScriptWorkflow._tag,
+				dispatchAdmittedWorkflow(
+					receipts,
+					engine,
+					SandboxScriptWorkflow,
+					resolved.subject.type === "system" ? null : resolved.subject.accountGeneration,
+					{
 						executionId,
-					)
-					.pipe(
-						Effect.andThen(
-							engine.execute(SandboxScriptWorkflow, {
-								executionId,
-								payload: {
-									input: {},
-									executionId,
-									resolutionMode: "exact",
-									subject: resolved.subject,
-									scriptId: resolved.script.id,
-								},
-							}),
-						),
-					),
+						payload: {
+							input: {},
+							executionId,
+							resolutionMode: "exact",
+							subject: resolved.subject,
+							scriptId: resolved.script.id,
+						},
+					},
+					(admission) => admission,
+					(run) => run,
+				),
 			);
 			const result =
 				execution._tag === "Success"

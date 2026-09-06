@@ -5,6 +5,7 @@ import { Context, Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import { MutationReceipts } from "#modules/mutations/receipts";
+import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 
 import { UserBootstrap } from "./bootstrap";
 import { UserBootstrapWorkflow } from "./workflow";
@@ -25,20 +26,25 @@ export class UserBootstrapScheduling extends Context.Service<UserBootstrapSchedu
 				const accountGeneration = yield* receipts
 					.currentAccount(userId)
 					.pipe(Effect.mapError(() => internalError("User bootstrap account is unavailable")));
-				yield* receipts
-					.registerWorkflow(
-						accountGeneration,
-						UserBootstrapWorkflow._tag,
-						userBootstrapWorkflowExecutionId(userId, accountGeneration),
-					)
-					.pipe(Effect.mapError(() => internalError("User bootstrap account is unavailable")));
-				yield* engine
-					.execute(UserBootstrapWorkflow, {
+				yield* dispatchAdmittedWorkflow(
+					receipts,
+					engine,
+					UserBootstrapWorkflow,
+					accountGeneration,
+					{
 						discard: true,
 						payload: { userId, accountGeneration },
 						executionId: userBootstrapWorkflowExecutionId(userId, accountGeneration),
-					})
-					.pipe(Effect.mapError(() => internalError("User bootstrap could not be scheduled")));
+					},
+					(admission) =>
+						admission.pipe(
+							Effect.mapError(() => internalError("User bootstrap account is unavailable")),
+						),
+					(execution) =>
+						execution.pipe(
+							Effect.mapError(() => internalError("User bootstrap could not be scheduled")),
+						),
+				);
 			});
 			const reconcile = Effect.fn("UserBootstrapScheduling.reconcile")(function* (limit: number) {
 				const incomplete = yield* bootstrap.listIncomplete(limit);
