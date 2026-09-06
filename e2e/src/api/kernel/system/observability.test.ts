@@ -90,6 +90,47 @@ function findSpan(predicate: (span: Record<string, unknown>) => boolean) {
 	return null;
 }
 
+function findMetric(name: string) {
+	for (const request of requireOtlpServer().requests) {
+		if (request.path !== "/v1/metrics") {
+			continue;
+		}
+		const body = requireObjectRecord(request.body, "OTLP request body is not an object");
+		for (const resourceMetricValue of requireArray(
+			body["resourceMetrics"],
+			"OTLP resource metrics are not an array",
+		)) {
+			const resourceMetric = requireObjectRecord(
+				resourceMetricValue,
+				"OTLP resource metric is not an object",
+			);
+			const resource = requireObjectRecord(
+				resourceMetric["resource"],
+				"OTLP resource is not an object",
+			);
+			for (const scopeMetricValue of requireArray(
+				resourceMetric["scopeMetrics"],
+				"OTLP scope metrics are not an array",
+			)) {
+				const scopeMetric = requireObjectRecord(
+					scopeMetricValue,
+					"OTLP scope metric is not an object",
+				);
+				for (const metricValue of requireArray(
+					scopeMetric["metrics"],
+					"OTLP metrics are not an array",
+				)) {
+					const metric = requireObjectRecord(metricValue, "OTLP metric is not an object");
+					if (metric["name"] === name) {
+						return { metric, resource };
+					}
+				}
+			}
+		}
+	}
+	return null;
+}
+
 function findRequestSpan() {
 	return findSpan(
 		(span) =>
@@ -216,6 +257,41 @@ describe("API observability", () => {
 				}),
 			);
 			expect(requestLogLine).toContain("http.url=/notifications/channels/test");
+		}),
+	);
+
+	it.live("exports sandbox runtime metrics beside the traces", () =>
+		Effect.gen(function* () {
+			const { resource, metric: backendRss } = yield* pollUntil(
+				"backend resident memory OTLP metric",
+				Effect.sync(() => findMetric("ryot.backend.rss")),
+			);
+			const { metric: activeExecutions } = yield* pollUntil(
+				"sandbox active execution OTLP metric",
+				Effect.sync(() => findMetric("ryot.sandbox.active_executions")),
+			);
+			const { metric: workerRss } = yield* pollUntil(
+				"sandbox worker memory OTLP metric",
+				Effect.sync(() => findMetric("ryot.sandbox.worker_rss")),
+			);
+
+			expect(getStringAttribute(resource["attributes"], "service.name")).toBe("ryot-backend");
+			expect(getStringAttribute(resource["attributes"], "deployment.environment")).toBe("test");
+			for (const metric of [backendRss, activeExecutions, workerRss]) {
+				expect(Object.keys(metric)).toContain("gauge");
+				const gauge = requireObjectRecord(metric["gauge"], "OTLP gauge is not an object");
+				expect(
+					requireArray(gauge["dataPoints"], "OTLP gauge data points are not an array").length,
+				).toBeGreaterThan(0);
+			}
+			expect(backendRss["unit"]).toBe("By");
+			expect(workerRss["unit"]).toBe("By");
+
+			const metricRequest = requirePresent(
+				requireOtlpServer().requests.find((request) => request.path === "/v1/metrics"),
+				"OTLP metric request is missing",
+			);
+			expect(metricRequest.headers["x-ryot-collector-token"]).toBe("collector-secret");
 		}),
 	);
 });
