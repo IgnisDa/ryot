@@ -9,7 +9,7 @@ import {
 	PluginEntityLocation,
 	type PluginRouteLocation,
 	type PluginBridgeInit,
-	type PluginClientArtifactMetadata,
+	type ClientCompositionMetadata,
 } from "@ryot-app/client-plugin-contract";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
@@ -21,8 +21,8 @@ import { RyotClientError, type EntityUpdate } from "./index";
 import { createPluginNavigationStore } from "./navigation/store";
 import { createPluginRuntime } from "./runtime";
 
-const metadata: PluginClientArtifactMetadata = {
-	hash: "artifact-hash",
+const metadata: ClientCompositionMetadata = {
+	hash: "composition-hash",
 	format: CLIENT_ARTIFACT_FORMAT,
 	apiVersion: CLIENT_API_VERSION,
 	compilerVersion: CLIENT_COMPILER_VERSION,
