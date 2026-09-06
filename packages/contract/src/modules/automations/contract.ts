@@ -2,6 +2,7 @@ import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AdminMiddleware, AuthMiddleware } from "../../auth-middleware";
+import { DemoAccessPolicy } from "../../http-annotations";
 import {
 	AutomationRunId,
 	NotificationSubscriptionId,
@@ -49,28 +50,36 @@ export const AutomationsGroup = HttpApiGroup.make("automations")
 				AutomationNotFoundError.pipe(HttpApiSchema.status(404)),
 				AutomationConflictError.pipe(HttpApiSchema.status(409)),
 			],
-		}).annotate(OpenApi.Description, "Installs a notification rule."),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Installs a notification rule."),
 	)
 	.add(
 		HttpApiEndpoint.post("activateRule", "/automations/rules/:ruleId/activate", {
 			success: InstalledNotificationRule,
 			params: { ruleId: NotificationSubscriptionId },
 			error: [AutomationNotFoundError.pipe(HttpApiSchema.status(404))],
-		}).annotate(OpenApi.Description, "Activates an installed notification rule."),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Activates an installed notification rule."),
 	)
 	.add(
 		HttpApiEndpoint.post("deactivateRule", "/automations/rules/:ruleId/deactivate", {
 			success: InstalledNotificationRule,
 			params: { ruleId: NotificationSubscriptionId },
 			error: [AutomationNotFoundError.pipe(HttpApiSchema.status(404))],
-		}).annotate(OpenApi.Description, "Deactivates an installed notification rule."),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Deactivates an installed notification rule."),
 	)
 	.add(
 		HttpApiEndpoint.delete("deleteRule", "/automations/rules/:ruleId", {
 			params: { ruleId: NotificationSubscriptionId },
 			success: Schema.Struct({ id: NotificationSubscriptionId }),
 			error: [AutomationNotFoundError.pipe(HttpApiSchema.status(404))],
-		}).annotate(OpenApi.Description, "Deletes an installed notification rule."),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(OpenApi.Description, "Deletes an installed notification rule."),
 	)
 	.middleware(AuthMiddleware);
 
@@ -111,10 +120,12 @@ export const AutomationHistoryGroup = HttpApiGroup.make("automationHistory")
 			payload: AutomationHistoryRetryBody,
 			success: AutomationHistoryRetryResult.pipe(HttpApiSchema.status(202)),
 			error: [...historyErrors, AutomationHistoryRetryConflict.pipe(HttpApiSchema.status(409))],
-		}).annotate(
-			OpenApi.Description,
-			"Queues the next attempt of an eligible failed run with its exact retained pins.",
-		),
+		})
+			.annotate(DemoAccessPolicy, "protected")
+			.annotate(
+				OpenApi.Description,
+				"Queues the next attempt of an eligible failed run with its exact retained pins.",
+			),
 	)
 	.middleware(AuthMiddleware);
 
