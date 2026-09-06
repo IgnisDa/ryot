@@ -370,6 +370,14 @@ episode in every regular season (`seasonNumber > 0`) to have a latest current-cy
 zero neither satisfies nor blocks coverage. Podcast coverage requires every currently related episode.
 Empty coverage is never complete.
 
+Episodic parent auto-completion reads that state with one parent-rooted RyotQL snapshot query. For
+each required episode, the query selects the first completion after both the parent completion
+boundary and that episode's latest progress. This preserves progress reopening and keeps duplicate
+completions from moving the coverage-closing event without paging through raw event history. The
+latest covering completion across episodes closes coverage, and `consumedOn` is copied only when all
+covering completions agree on one non-empty value. The automation reads the snapshot again after its
+completion claim, so a successful run makes two bounded RyotQL host calls.
+
 `progressPercent` uses half-up rounding to two decimals. Historical completion records
 `completionMode: "custom_timestamps"` when dates are known, otherwise `"unknown"`; immediate
 completion uses `"just_now"`. Direct completion needs no preceding progress event.
