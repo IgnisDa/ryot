@@ -346,6 +346,35 @@ describe("client page routes", () => {
 		await screen.findByRole("dialog", { name: "Add from a provider" });
 	});
 
+	it("opens provider search from a plugin route without changing the page location", async () => {
+		const view = mount({
+			entry: "/fixture?tab=home",
+			loadProviders: () =>
+				Effect.succeed({ items: [], pageInfo: { limit: 100, hasMore: false, nextCursor: null } }),
+		});
+		const bridge = connectFrame(await screen.findByTitle<HTMLIFrameElement>("fixture plugin"));
+		await waitFor(() => expect(bridge.messages).toHaveLength(1));
+		bridge.port.postMessage({
+			initialQuery: "dune",
+			entitySchemaSlug: "book",
+			ownerPluginId: "plugin-1",
+			type: "provider-search-screen",
+		});
+
+		await screen.findByRole("dialog", { name: "Add from a provider" });
+		expect(screen.getByRole<HTMLInputElement>("textbox", { name: "Search providers" }).value).toBe(
+			"dune",
+		);
+		expect(view.router.state.location.searchStr).toBe("?tab=home");
+		expect(view.targets).toHaveLength(1);
+
+		fireEvent.click(screen.getAllByRole("button", { name: "Close" })[0]);
+		await waitFor(() =>
+			expect(screen.queryByRole("dialog", { name: "Add from a provider" })).toBeNull(),
+		);
+		expect(view.router.state.location.searchStr).toBe("?tab=home");
+	});
+
 	it("uses the hydrated parent catalog on plugin navigation", async () => {
 		const view = mount({ entry: "/fixture" });
 		await screen.findByTitle("fixture plugin");

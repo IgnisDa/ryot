@@ -1,5 +1,4 @@
 import type { PluginBridgeProviderSearchScreen } from "@ryot-app/client-plugin-contract";
-import { useRyot } from "@ryot-app/client-sdk/react";
 import { Button } from "@ryot-app/client-ui-sdk";
 import type { PreparedClientPage } from "@ryot-app/contract/modules/client-pages/schemas";
 import {
@@ -92,9 +91,7 @@ function SavedViewPage() {
 	const location = useRouterState({
 		select: (current) => current.resolvedLocation ?? current.location,
 	});
-	const imported = useRef(false);
 	const pushedAdd = useRef(false);
-	const ryot = useRyot();
 	const addAction = entityBrowserSettings(loaded.prepared)?.addAction ?? null;
 	const addOpen = add === true && addAction !== null;
 
@@ -124,16 +121,10 @@ function SavedViewPage() {
 	};
 
 	useEffect(() => {
-		if (addOpen) {
-			return;
+		if (!addOpen) {
+			pushedAdd.current = false;
 		}
-		pushedAdd.current = false;
-		if (!imported.current) {
-			return;
-		}
-		imported.current = false;
-		ryot.mutationCompleted.hint();
-	}, [addOpen, ryot]);
+	}, [addOpen]);
 	useEffect(() => {
 		if (layout === undefined) {
 			return;
@@ -166,9 +157,6 @@ function SavedViewPage() {
 			onClose={closeAdd}
 			ownerPluginId={addAction.ownerPluginId}
 			entitySchemaSlug={addAction.entitySchemaSlug}
-			onImported={() => {
-				imported.current = true;
-			}}
 		/>
 	) : null;
 }
