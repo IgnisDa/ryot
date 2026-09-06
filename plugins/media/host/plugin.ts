@@ -589,8 +589,8 @@ export const mediaPlugin = definePlugin({
 			},
 			"media-home": {
 				kind: "page",
-				entry: "client/home.tsx",
 				settingsSchema: { fields: {} },
+				entry: "client/home/screen.tsx",
 				automaticEntityPresentations: false,
 			},
 			...Object.fromEntries(entityClients.flatMap((client) => Object.entries(client.exports))),
