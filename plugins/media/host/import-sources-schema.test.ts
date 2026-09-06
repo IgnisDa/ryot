@@ -191,6 +191,7 @@ it("keeps every manifest source aligned with a strict plugin-owned guard", () =>
 		imdb: { uploadToken, source: "imdb" },
 		anilist: { uploadToken, source: "anilist" },
 		grouvee: { uploadToken, source: "grouvee" },
+		spotify: { uploadToken, source: "spotify" },
 		watcharr: { uploadToken, source: "watcharr" },
 		hardcover: { uploadToken, source: "hardcover" },
 		goodreads: { uploadToken, source: "goodreads" },

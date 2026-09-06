@@ -38,4 +38,4 @@ to disable the integration and notify you once the connection stops working.
 - Spotify returns at most 50 plays per sync. Plays beyond that between two syncs are lost.
 - Podcasts and other episodes are not supported.
 - Two Spotify integrations for the same Spotify account record every play twice.
-- Importing a Spotify export for days the integration already covers records those plays twice.
+- [Importing a Spotify export](../importing/spotify.md) for days the integration already covers records those plays twice.

@@ -31,6 +31,7 @@ export const MediaCreateImportRunBody = Schema.Union([
 	urlAndKeyInput("plex"),
 	uploadTokenInput("imdb"),
 	uploadTokenInput("grouvee"),
+	uploadTokenInput("spotify"),
 	uploadTokenInput("anilist"),
 	uploadTokenInput("watcharr"),
 	uploadTokenInput("hardcover"),
