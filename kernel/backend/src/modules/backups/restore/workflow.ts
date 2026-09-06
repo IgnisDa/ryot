@@ -294,7 +294,8 @@ export const RestoreBackupWorkflowOperationsLive = Layer.effect(
 							.pipe(
 								Effect.retry({
 									times: 2,
-									while: (error) => error instanceof DbError && error.code === "40001",
+									while: (error) =>
+										error instanceof DbError && (error.code === "40001" || error.code === "40P01"),
 								}),
 							);
 					});
