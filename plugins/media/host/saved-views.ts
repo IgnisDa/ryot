@@ -2,6 +2,7 @@ import { column, field, table } from "@ryot-app/ryotql";
 import { buildSavedViewLayoutProjections } from "@ryot-app/ryotql-recipes/saved-views";
 
 import { slugify } from "../backend/contracts/slug";
+import { mediaPluginSlug } from "../shared/media-schema-slugs";
 import { defaultMediaSavedViewRecipe } from "./query-recipes";
 import { mediaEntitySchemas } from "./schemas/entity";
 import { buildViewExpressions } from "./view-helpers";
@@ -78,7 +79,7 @@ export const mediaSavedViews = () => {
 			name: view.name,
 			slug: view.slug,
 			icon: schema.icon,
-			pluginSlug: "media",
+			pluginSlug: mediaPluginSlug,
 			renderer: { kind: "kernel", name: "entity-browser" } as const,
 			dataSources: defaultMediaSavedViewRecipe({
 				fields,
@@ -96,8 +97,8 @@ export const mediaSavedViews = () => {
 				ownerPluginIdField: "ownerPluginId",
 				entitySchemaSlugField: "entitySchemaSlug",
 				addAction: {
-					ownerPluginId: "media",
 					type: "provider-search",
+					ownerPluginId: mediaPluginSlug,
 					entitySchemaSlug: view.entitySchemaSlug,
 				},
 				tableColumns: [
