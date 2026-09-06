@@ -37,6 +37,7 @@ const CLIENT_DEPENDENCY_REGISTRY = [
 	{ policy: "trusted", specifier: "@ryot-app/client-ui-sdk/sync" },
 	{ policy: "trusted", specifier: "@ryot-app/client-ui-sdk/tint" },
 	{ policy: "trusted", specifier: "@ryot-app/client-ui-sdk/table" },
+	{ policy: "trusted", specifier: "@ryot-app/client-ui-sdk/charts" },
 	{ policy: "trusted", specifier: "@ryot-app/client-ui-sdk/schema-form" },
 	{ policy: "neutral", specifier: "@ryot-app/plugin-kit/effect" },
 	{ policy: "neutral", specifier: "@ryot-app/plugin-kit/ryotql" },
