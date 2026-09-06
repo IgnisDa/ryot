@@ -54,6 +54,7 @@ export type PluginNavigationController = PluginNavigationStore & {
 	readonly completeTransition: (id: number) => void;
 	readonly setViewport: (insets: PluginViewportInsets) => void;
 	readonly setLocation: (location: PluginNavigationLocation) => PluginNavigationSnapshot;
+	readonly replaceDocument: (resolve: ResolvePluginScreen) => void;
 };
 
 const initialSnapshot = (insets: PluginViewportInsets): PluginNavigationSnapshot => ({
@@ -73,6 +74,7 @@ export const createPluginNavigationStore = (
 	const listeners = new Set<() => void>();
 	let nextTransitionId = 0;
 	let snapshot = initialSnapshot(initialInsets);
+	let resolver = resolve;
 
 	const emit = (next: PluginNavigationSnapshot) => {
 		snapshot = next;
@@ -99,6 +101,15 @@ export const createPluginNavigationStore = (
 					safeAreaBottom: snapshot.safeAreaBottom,
 				}),
 			),
+		replaceDocument: (next) => {
+			resolver = next;
+			emit(
+				initialSnapshot({
+					safeAreaTop: snapshot.safeAreaTop,
+					safeAreaBottom: snapshot.safeAreaBottom,
+				}),
+			);
+		},
 		setViewport: (insets) => {
 			if (
 				snapshot.safeAreaTop !== insets.safeAreaTop ||
@@ -109,7 +120,7 @@ export const createPluginNavigationStore = (
 		},
 		setLocation: ({ entry, compact, leading, edgeBack }) => {
 			const previousTop = snapshot.screens.at(-1);
-			const result = reconcileStack(snapshot.screens, entry, resolve);
+			const result = reconcileStack(snapshot.screens, entry, resolver);
 			const transition =
 				compact && result.transition === "pop" && previousTop !== undefined
 					? {

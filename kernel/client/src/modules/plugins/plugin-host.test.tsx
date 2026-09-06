@@ -11,7 +11,7 @@ import { describe, expect, it } from "vitest";
 
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import type { PluginOperationDispatchOutcome } from "#/modules/plugins/operations";
-import { PluginFrame, type RenewPluginArtifactSession } from "#/modules/plugins/plugin-host";
+import { PluginFrame } from "#/modules/plugins/plugin-host";
 import type { ThemeStore } from "#/modules/theme/store";
 
 const theme: ThemeStore = {
@@ -22,8 +22,8 @@ const theme: ThemeStore = {
 	getSnapshot: () => ({ resolvedMode: "light" }),
 };
 const home: PluginLogicalLocation = { path: "/", kind: "route", search: "keep=1" };
-const session = {
-	sessionId: "session-1",
+const grant = {
+	grantId: "grant-1",
 	src: "https://artifacts.example/session-1/index.html",
 	expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
 };
@@ -31,9 +31,8 @@ const session = {
 function mount(
 	options: {
 		readonly onReloadCurrent?: () => void;
-		readonly onRenewArtifactSession?: RenewPluginArtifactSession;
+		readonly onCheckFreshness?: (signal: AbortSignal) => Promise<boolean>;
 		readonly subscribeResume?: (resumed: () => void) => () => void;
-		readonly onCreateArtifactSession?: () => Promise<typeof session>;
 		readonly onInvokeOperation?: (
 			request: PluginOperationRequest,
 		) => Promise<PluginOperationDispatchOutcome>;
@@ -64,6 +63,7 @@ function mount(
 		index: number,
 		freshnessCheckRevision = 0,
 		active = true,
+		pageKey = "page-1",
 	) => ({
 		theme,
 		active,
@@ -72,9 +72,9 @@ function mount(
 		backInterceptors,
 		mutationCompleted,
 		chromeLeading: null,
+		artifactGrant: grant,
+		documentKey: pageKey,
 		freshnessCheckRevision,
-		sourceHash: "graph-hash",
-		installationId: "build-1",
 		onHeader: () => undefined,
 		artifactHash: "artifact-hash",
 		onOpenDrawer: () => undefined,
@@ -82,25 +82,20 @@ function mount(
 		onOverlayState: () => undefined,
 		onKernelShortcut: () => undefined,
 		chromeTriggerRef: { current: null },
-		artifactSessionScopeKey: "server:user",
 		subscribeResume: options.subscribeResume,
 		viewport: { safeAreaTop: 7, safeAreaBottom: 11 },
-		onRevokeArtifactSession: () => Promise.resolve(),
 		onScreenState: (state: unknown) => states.push(state),
 		onPageSearch: (request: unknown) => searches.push(request),
 		onNavigate: (request: unknown) => navigations.push(request),
 		onReloadCurrent: options.onReloadCurrent ?? (() => undefined),
 		onProviderSearch: (request: unknown) => providerSearches.push(request),
+		onCheckFreshness: options.onCheckFreshness ?? (() => Promise.resolve(true)),
 		watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
-		onCreateArtifactSession: options.onCreateArtifactSession ?? (() => Promise.resolve(session)),
 		onQuery: () => Promise.resolve({ outcome: "failure" as const, reason: "transport" as const }),
 		onAssets: () => Promise.resolve({ outcome: "failure" as const, reason: "transport" as const }),
 		onUpload: () => Promise.resolve({ outcome: "failure" as const, reason: "transport" as const }),
 		onCollection: () =>
 			Promise.resolve({ outcome: "failure" as const, reason: "transport" as const }),
-		onRenewArtifactSession:
-			options.onRenewArtifactSession ??
-			(() => Promise.resolve({ outcome: "renewed" as const, expiresAt: session.expiresAt })),
 		navigation: {
 			index,
 			location,
@@ -116,6 +111,19 @@ function mount(
 				Promise.resolve({ value: null, outcome: "success" as const })
 			);
 		},
+		page: {
+			view: null,
+			settings: {},
+			dataSources: null,
+			route: { params: {} },
+			renderer: { name: "fixture", kind: "kernel" as const },
+			target: {
+				search: "",
+				path: pageKey,
+				kind: "plugin-route" as const,
+				pluginSlug: PluginSlug.make("fixture"),
+			},
+		},
 	});
 	const view = render(<PluginFrame {...props(home, 0)} />);
 	return {
@@ -128,6 +136,8 @@ function mount(
 		backInterceptors,
 		refresh: mutationCompleted.hint,
 		setActive: (active: boolean) => view.rerender(<PluginFrame {...props(home, 0, 0, active)} />),
+		replace: (pageKey: string) =>
+			view.rerender(<PluginFrame {...props(home, 0, 0, true, pageKey)} />),
 		move: (location: PluginLogicalLocation, index: number, freshnessCheckRevision = 0) =>
 			view.rerender(<PluginFrame {...props(location, index, freshnessCheckRevision)} />),
 	};
@@ -163,12 +173,19 @@ function connect(frame: HTMLIFrameElement) {
 	if (init === undefined || port === undefined) {
 		throw new Error("Bridge did not connect");
 	}
-	const { mode: _mode, safeAreaTop: _top, safeAreaBottom: _bottom, ...ready } = init;
+	const {
+		mode: _mode,
+		page: _page,
+		safeAreaTop: _top,
+		safeAreaBottom: _bottom,
+		documentKey: _documentKey,
+		...ready
+	} = init;
 	return { init, port, ready, messages };
 }
 
 describe("PluginFrame", () => {
-	it("uses one session and bridge while location and global history change", async () => {
+	it("uses one grant and bridge while location and global history change", async () => {
 		const host = mount();
 		await flush();
 		const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
@@ -188,6 +205,29 @@ describe("PluginFrame", () => {
 			edgeBack: true,
 			location: { kind: "route", path: "/details", search: "keep=1&tab=stats" },
 		});
+	});
+
+	it("replaces a document without reloading the iframe and clears page-owned state", async () => {
+		const host = mount();
+		const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
+		const bridge = connect(frame);
+		bridge.port.postMessage(bridge.ready);
+		await waitFor(() => expect(bridge.messages).toHaveLength(1));
+		bridge.port.postMessage({ count: 1, type: "overlay-state" });
+		bridge.port.postMessage({ shortcuts: ["A"], type: "page-shortcuts" });
+		await waitFor(() => expect(host.backInterceptors.run()).toBe(true));
+		host.replace("page-2");
+		await waitFor(() =>
+			expect(bridge.messages).toContainEqual(
+				expect.objectContaining({
+					type: "document",
+					documentKey: "page-2",
+					page: expect.objectContaining({ target: expect.objectContaining({ path: "page-2" }) }),
+				}),
+			),
+		);
+		expect(screen.getByTitle("Fixture plugin")).toBe(frame);
+		expect(host.backInterceptors.run()).toBe(false);
 	});
 
 	it("forwards explicit route, page-search, operation target, and matching readiness", async () => {
@@ -375,16 +415,16 @@ describe("PluginFrame", () => {
 		await waitFor(() => expect(host.backInterceptors.run()).toBe(false));
 	});
 
-	it("keeps the current frame mounted when freshness renewal reports an update", async () => {
+	it("keeps the current frame mounted when an invalidation reports an update", async () => {
 		let reloads = 0;
-		let renewals = 0;
+		let checks = 0;
 		const host = mount({
 			onReloadCurrent: () => {
 				reloads += 1;
 			},
-			onRenewArtifactSession: () => {
-				renewals += 1;
-				return Promise.resolve({ reason: "stale", outcome: "replace" });
+			onCheckFreshness: () => {
+				checks += 1;
+				return Promise.resolve(false);
 			},
 		});
 		await flush();
@@ -396,84 +436,11 @@ describe("PluginFrame", () => {
 		host.move(home, 0, 1);
 
 		await screen.findByText("An update is available. Reloading will discard unsaved local state.");
-		expect(renewals).toBe(1);
+		expect(checks).toBe(1);
 		expect(screen.getByTitle("Fixture plugin")).toBe(frame);
 		expect(reloads).toBe(0);
 		fireEvent.click(screen.getByRole("button", { name: "Reload updated page" }));
 		expect(reloads).toBe(1);
-	});
-
-	it("renews once when freshness changes during session creation", async () => {
-		let resolveCreation: ((created: typeof session) => void) | undefined;
-		let renewals = 0;
-		const host = mount({
-			onCreateArtifactSession: () =>
-				new Promise((resolve) => {
-					resolveCreation = resolve;
-				}),
-			onRenewArtifactSession: () => {
-				renewals += 1;
-				return Promise.resolve({ outcome: "renewed", expiresAt: session.expiresAt });
-			},
-		});
-
-		host.move(home, 0, 1);
-		expect(renewals).toBe(0);
-		act(() => resolveCreation?.(session));
-		await waitFor(() => expect(renewals).toBe(1));
-	});
-
-	it("coalesces freshness changes during renewal into one subsequent renewal", async () => {
-		let resolveFirst: ((result: { outcome: "renewed"; expiresAt: string }) => void) | undefined;
-		let renewals = 0;
-		const host = mount({
-			onRenewArtifactSession: () => {
-				renewals += 1;
-				if (renewals === 1) {
-					return new Promise((resolve) => {
-						resolveFirst = resolve;
-					});
-				}
-				return Promise.resolve({ outcome: "renewed", expiresAt: session.expiresAt });
-			},
-		});
-		await flush();
-
-		host.move(home, 0, 1);
-		await waitFor(() => expect(renewals).toBe(1));
-		host.move(home, 0, 2);
-		host.move(home, 0, 3);
-		expect(renewals).toBe(1);
-		act(() => resolveFirst?.({ outcome: "renewed", expiresAt: session.expiresAt }));
-		await waitFor(() => expect(renewals).toBe(2));
-	});
-
-	it("replaces the current frame when freshness renewal reports a missing session", async () => {
-		let renewals = 0;
-		const host = mount({
-			onRenewArtifactSession: () => {
-				renewals += 1;
-				return Promise.resolve({ outcome: "replace", reason: "not-found" });
-			},
-		});
-		await flush();
-		const frame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
-		const bridge = connect(frame);
-		bridge.port.postMessage(bridge.ready);
-		await waitFor(() => expect(bridge.messages).toHaveLength(1));
-
-		host.move(home, 0, 1);
-
-		const nextFrame = await waitFor(() => {
-			expect(renewals).toBe(1);
-			const currentFrame = screen.getByTitle<HTMLIFrameElement>("Fixture plugin");
-			expect(currentFrame).not.toBe(frame);
-			return currentFrame;
-		});
-		expect(nextFrame).not.toBe(frame);
-		expect(
-			screen.queryByText("An update is available. Reloading will discard unsaved local state."),
-		).toBeNull();
 	});
 
 	it("keeps the bridge mounted and reports a clear failure when an operation is stale", async () => {

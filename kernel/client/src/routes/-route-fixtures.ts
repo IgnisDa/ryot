@@ -24,7 +24,7 @@ import { OAuthStorage } from "#/modules/auth/oauth-storage";
 import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService, type SettledAuthSession } from "#/modules/auth/service";
 import { OAuthTokenService } from "#/modules/auth/token-service";
-import { ClientPageSessions } from "#/modules/client-pages/sessions";
+import { ClientPageFreshness } from "#/modules/client-pages/freshness";
 import { EntitiesService } from "#/modules/entities/service";
 import { GodModeService } from "#/modules/god-mode/service";
 import { GodModeSessionService, makeGodModeSessionService } from "#/modules/god-mode/session";
@@ -272,19 +272,24 @@ export const makeNotificationChannelsStub = (
 
 export const NotificationChannelRouteStubs = makeNotificationChannelsStub();
 
-export const ProviderAddRouteStubs = Layer.succeed(ProviderAddService, {
-	search: () => Effect.die("not used"),
-	pollImport: () => Effect.die("not used"),
-	startImport: () => Effect.die("not used"),
-	loadProviders: () => Effect.die("not used"),
-	loadEntityLinks: () => Effect.die("not used"),
-	loadSearchOptions: () => Effect.die("not used"),
-});
+export const makeProviderAddStub = (overrides: Partial<ProviderAddService["Service"]> = {}) =>
+	Layer.succeed(ProviderAddService, {
+		search: () => Effect.die("not used"),
+		pollImport: () => Effect.die("not used"),
+		startImport: () => Effect.die("not used"),
+		loadProviders: () => Effect.die("not used"),
+		loadEntityLinks: () => Effect.die("not used"),
+		loadSearchOptions: () => Effect.die("not used"),
+		...overrides,
+	});
+
+export const ProviderAddRouteStubs = makeProviderAddStub();
 
 export const preparePluginPage = (
 	target: Exclude<PreparedClientPage["identity"]["target"], { readonly kind: "saved-view" }>,
 ): PreparedClientPage => {
-	const pluginId = target.kind === "plugin-route" ? target.pluginId : "plugin-1";
+	const pluginId =
+		target.kind === "plugin-route" && target.pluginSlug === "journal" ? "plugin-2" : "plugin-1";
 	const pluginSlug = pluginId === "plugin-2" ? "journal" : "fixture";
 	const operationTargets = [
 		{
@@ -295,13 +300,6 @@ export const preparePluginPage = (
 		},
 	];
 	return {
-		artifact: {
-			hash: "artifact-hash",
-			format: CLIENT_ARTIFACT_FORMAT,
-			apiVersion: CLIENT_API_VERSION,
-			compilerVersion: CLIENT_COMPILER_VERSION,
-			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
-		},
 		context: {
 			view: null,
 			settings: {},
@@ -317,15 +315,26 @@ export const preparePluginPage = (
 						}
 					: target,
 		},
+		artifact: {
+			hash: "artifact-hash",
+			format: CLIENT_ARTIFACT_FORMAT,
+			apiVersion: CLIENT_API_VERSION,
+			compilerVersion: CLIENT_COMPILER_VERSION,
+			bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
+			grant: {
+				grantId: "grant-1",
+				expiresAt: "2030-01-01T00:00:00.000Z",
+				src: "https://ryot.example/artifact-hash/index.html",
+			},
+		},
 		identity: {
 			target,
 			pluginId,
 			operationTargets,
-			buildId: "build-1",
 			exportName: "page",
 			kind: "plugin-page",
-			graphHash: "graph-1",
 			sourceHash: "source-hash",
+			artifactKey: "artifact-key-1",
 			artifactHash: "artifact-hash",
 			installationId: "installation-1",
 			contributors: [
@@ -342,24 +351,15 @@ export const preparePluginPage = (
 };
 
 export const ClientPagesApiRouteStubs = Layer.succeed(ClientPagesApi, {
-	renewSession: () => Effect.die("not used"),
-	revokeSession: () => Effect.die("not used"),
-	createSession: () => Effect.die("not used"),
+	checkFreshness: () => Effect.succeed({ current: true }),
 	prepare: (_scope, request) =>
 		request.payload.target.kind === "saved-view"
 			? Effect.die("not used")
 			: Effect.succeed(preparePluginPage(request.payload.target)),
 });
 
-export const ClientPageSessionsRouteStubs = Layer.succeed(ClientPageSessions, {
-	renew: () => Effect.die("not used"),
-	revoke: () => Effect.die("not used"),
-	create: (_scope, identity) =>
-		Effect.succeed({
-			sessionId: "session-1",
-			expiresAt: new Date(Date.now() + 10 * 60_000).toISOString(),
-			src: `https://ryot.example/session/${identity.artifactHash}/index.html`,
-		}),
+export const ClientPageSessionsRouteStubs = Layer.succeed(ClientPageFreshness, {
+	check: () => Effect.succeed(true),
 });
 
 export type WorkspaceStorageRecorder = {
