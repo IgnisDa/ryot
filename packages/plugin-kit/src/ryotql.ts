@@ -4,6 +4,7 @@
 // the contract runtime into every plugin artifact, which is why the event helpers sit in their own
 // module rather than being pulled from the barrel.
 export * from "@ryot-app/ryotql";
+export { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
 export { IsoDateString } from "@ryot-app/ryotql-recipes/codecs";
 export {
 	eventIsAfter,
