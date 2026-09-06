@@ -15,6 +15,7 @@ Rationale lives in `README.md`.
 - Use only bridged `compact` and safe-area values for plugin layout. Publish titles only from the active screen and current entry.
 - Keep drawer opening and title publication on router navigation, not `RyotClient`; kernel chrome is not a plugin capability.
 - Schedule every delay and clock read through `RyotSchedule`. Never call `setTimeout` or `Date.now()` in SDK source.
+- Construct page bootstraps with an instance-owned runtime factory. The page disposes its own runtime; a test harness owns its clock and must survive page disposal.
 - Take router navigation from `RyotNavigationService`, never a `PluginRouter` prop. Only a plugin artifact's runtime provides it.
 - Layers construct shared values; React context distributes them. Per-screen values (`RouterContext`, `PluginScreenContext`, `ActiveScreenContext`) cannot be Layers, because `PluginRouter` mounts several `Screen`s at once with different locations.
 - Keep every SDK layer synchronously constructible; `RyotProvider` resolves its services with `runtime.runSync` during render.

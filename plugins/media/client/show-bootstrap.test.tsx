@@ -121,15 +121,13 @@ const bootstraps: Bootstrap[] = [];
 const channels: MessageChannel[] = [];
 const clocks: ReturnType<typeof createTestRyotClock>[] = [];
 
-// Retargets the bootstrap runtime factory, so the page `openShow` boots after this call schedules
-// on the returned test clock. Create it before `openShow`.
 const openTestClock = () => {
 	const clock = createTestRyotClock();
 	clocks.push(clock);
 	return clock;
 };
 
-const openShow = () => {
+const openShow = (clock?: ReturnType<typeof createTestRyotClock>) => {
 	document.body.innerHTML = '<div id="app"></div>';
 	const metadataElement = document.createElement("script");
 	metadataElement.id = CLIENT_COMPOSITION_METADATA_ELEMENT_ID;
@@ -137,7 +135,7 @@ const openShow = () => {
 	metadataElement.textContent = JSON.stringify(metadata);
 	document.head.append(metadataElement);
 
-	bootstraps.push(bootstrapClientPage(ShowDetailPage));
+	bootstraps.push((clock?.bootstrap.bootstrapClientPage ?? bootstrapClientPage)(ShowDetailPage));
 	const channel = new MessageChannel();
 	channels.push(channel);
 	const messages: unknown[] = [];
@@ -515,7 +513,7 @@ describe("ShowScreen", () => {
 	it.live("refreshes one minute before expiry and keeps the stale URL after failure", () =>
 		Effect.gen(function* () {
 			const clock = openTestClock();
-			const { channel, messages, container } = openShow();
+			const { channel, messages, container } = openShow(clock);
 			yield* Effect.promise(() =>
 				waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(1)),
 			);
