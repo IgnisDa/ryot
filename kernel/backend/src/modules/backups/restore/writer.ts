@@ -18,6 +18,7 @@ import { RESTORE_EVENT_BATCH_SIZE } from "#modules/events/repository";
 import { validateRestoredProperties } from "#modules/plugins/config-revisions";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
 import { PluginRepository } from "#modules/plugins/repository";
+import { resolvePluginUserSettings } from "#modules/plugins/user-settings";
 import { validateSavedViewDefinition } from "#modules/saved-views/definition-validation";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 
@@ -123,6 +124,18 @@ const validateProperties = (properties: unknown, propertiesSchema: AppSchema, ki
 	parseAppSchemaProperties({ kind, properties, propertiesSchema }).pipe(
 		Effect.mapError((error) => badRequest(error.message)),
 	);
+
+const emptyPluginUserSettingsSchema: AppSchema = { fields: {}, unknownKeys: "strict" };
+
+export const resolveRestoredPluginUserSettings = Effect.fn(function* (
+	userSettings: Record<string, unknown>,
+	settingsSchema: AppSchema | undefined,
+) {
+	return yield* resolvePluginUserSettings(
+		settingsSchema ?? emptyPluginUserSettingsSchema,
+		userSettings,
+	).pipe(Effect.mapError((error) => badRequest(error.message)));
+});
 
 const bootstrapSchemaIdentity = (entitySchemaSlug: string, entitySchemaPluginId: string | null) =>
 	JSON.stringify([entitySchemaSlug, entitySchemaPluginId]);
@@ -392,14 +405,23 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				definitions: DefinitionSnapshot,
 			) {
 				const privatePlugins = yield* plugins.listPrivateForUser(userId);
+				const systemPlugins = yield* plugins.listActiveSystemPlugins();
 				const installedPlugins = new Map(
 					[
-						...(yield* plugins.listPortablePluginMetadata()),
+						...systemPlugins.map((plugin) => ({
+							id: plugin.id,
+							slug: plugin.slug,
+							client: plugin.manifest.client,
+							configSchema: plugin.manifest.configSchema,
+							userSettingsSchema: plugin.manifest.userSettingsSchema,
+							integrationProviders: plugin.manifest.integrationProviders,
+						})),
 						...privatePlugins.map((plugin) => ({
 							id: plugin.id,
 							slug: plugin.slug,
 							client: plugin.manifest.client,
 							configSchema: plugin.manifest.configSchema,
+							userSettingsSchema: plugin.manifest.userSettingsSchema,
 							integrationProviders: plugin.manifest.integrationProviders,
 						})),
 					].map((plugin) => [plugin.id, plugin]),
@@ -423,6 +445,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						installedPlugin.configSchema,
 						assetLocators,
 					);
+					const userSettings = yield* resolveRestoredPluginUserSettings(
+						state.userSettings,
+						installedPlugin.userSettingsSchema,
+					);
 					const isSystemPackage = state.packageKey.startsWith("system:");
 					const redactedConfigNeedsConfiguration = isSystemPackage
 						? false
@@ -441,6 +467,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						userId,
 						config,
 						pluginId,
+						userSettings,
 						isHidden: true,
 						health: "installing",
 						sortOrder: state.sortOrder,

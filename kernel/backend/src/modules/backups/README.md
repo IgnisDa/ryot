@@ -43,6 +43,8 @@ All database writes occur in one transaction: restore is atomic. Local event-fil
 
 Private packages and exact installation identities are restored without lifecycle dispatch. Complete installations retain archived hidden intent; missing redacted required secrets produce `needs-configuration`. Integrations missing required secrets are disabled. Integration and saved-view provenance resolve to the exact installation.
 
+Installation records include per-user plugin preferences as JSON. Plugin manifest settings schemas forbid secret fields, so these preferences are included as non-secret data and validated against the active manifest during restore. The archive format version remains 1.
+
 Client page compositions are derived from restored compiled artifacts and current runtime state. The archive contains custom views and only non-default built-in state overrides (or a selected built-in home), not copies of built-in content. Restore resolves built-ins from current definitions, rejects custom slug conflicts and missing definitions, then resolves installation home views by slug. The archive format version remains 1.
 
 Source files are user-authored and may contain credentials, so they are not redacted. Only manifest configuration and integration settings fields may be redacted. Managed assets use content-addressed locators.
