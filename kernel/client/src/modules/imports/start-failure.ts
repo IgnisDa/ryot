@@ -42,8 +42,6 @@ const presentReason = (reason: ImportRequestFailureReason): ImportStartFailure =
 			detail: "This service is no longer available on your server. Choose another one.",
 		})),
 		Match.when({ code: "queue-unavailable" }, () => fallback),
-		Match.when({ code: "run-not-found" }, () => fallback),
-		Match.when({ code: "run-not-terminal" }, () => fallback),
 		Match.exhaustive,
 	);
 

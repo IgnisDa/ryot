@@ -1,5 +1,8 @@
-import type { BackupRunFailure, BackupRunKind } from "@ryot-app/contract/modules/backups/schemas";
-import type { RunStatus } from "@ryot-app/contract/schema/run-status";
+import type {
+	BackupRunFailure,
+	BackupRunKind,
+	BackupRunStatus,
+} from "@ryot-app/contract/modules/backups/schemas";
 import type { BackupRunItem } from "@ryot-app/ryotql-recipes/backups";
 import { DateTime, Match } from "effect";
 
@@ -21,7 +24,7 @@ const DAY_MS = 24 * HOUR_MS;
 
 const instant = (value: string) => DateTime.toEpochMillis(DateTime.makeUnsafe(value));
 
-export const canDeleteBackupRun = (status: RunStatus) => isTerminalRunStatus(status);
+export const canDeleteBackupRun = (status: BackupRunStatus) => isTerminalRunStatus(status);
 
 export const liveBackupRun = <Run extends Pick<BackupRunItem, "status">>(runs: readonly Run[]) =>
 	runs.find((run) => !isTerminalRunStatus(run.status));

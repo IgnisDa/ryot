@@ -83,7 +83,12 @@ export const makeProviderEntitiesApi = (overrides: Partial<ProviderEntitiesApi["
 	});
 
 export const makeImportsApi = (overrides: Partial<ImportsApi["Service"]> = {}) =>
-	Layer.succeed(ImportsApi, { createRun: unused, deleteRun: unused, ...overrides });
+	Layer.succeed(ImportsApi, {
+		createRun: unused,
+		cancelRun: unused,
+		deleteRun: unused,
+		...overrides,
+	});
 
 export const makeBackupsApi = (overrides: Partial<BackupsApi["Service"]> = {}) =>
 	Layer.succeed(BackupsApi, {

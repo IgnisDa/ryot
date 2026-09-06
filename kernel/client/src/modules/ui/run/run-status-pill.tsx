@@ -1,8 +1,11 @@
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
-import type { RunStatus } from "@ryot-app/contract/schema/run-status";
 import clsx from "clsx";
 
-import { runStatusPill, type RunStatusTone } from "#/modules/ui/run/run-status";
+import {
+	runStatusPill,
+	type PresentedRunStatus,
+	type RunStatusTone,
+} from "#/modules/ui/run/run-status";
 
 const toneClassName: Record<RunStatusTone, string> = {
 	info: "text-info",
@@ -11,7 +14,7 @@ const toneClassName: Record<RunStatusTone, string> = {
 	muted: "text-text-muted",
 };
 
-export function RunStatusPill(props: { readonly status: RunStatus }) {
+export function RunStatusPill(props: { readonly status: PresentedRunStatus }) {
 	const pill = runStatusPill(props.status);
 	return (
 		<span className="flex h-6 items-center gap-1.5 rounded-full border border-border px-2">
@@ -23,7 +26,7 @@ export function RunStatusPill(props: { readonly status: RunStatus }) {
 	);
 }
 
-export function RunStatusGlyph(props: { readonly status: RunStatus }) {
+export function RunStatusGlyph(props: { readonly status: PresentedRunStatus }) {
 	const pill = runStatusPill(props.status);
 	return (
 		<span role="img" className="shrink-0" aria-label={pill.label}>

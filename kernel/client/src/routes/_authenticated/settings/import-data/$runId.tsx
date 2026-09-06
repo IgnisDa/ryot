@@ -1,5 +1,5 @@
 import { useRyotMutation, useRyotQuery } from "@ryot-app/client-sdk/react";
-import { Menu, type MenuItem } from "@ryot-app/client-ui-sdk";
+import { DestructiveConfirmation, Menu, type MenuItem } from "@ryot-app/client-ui-sdk";
 import { AppIcon } from "@ryot-app/client-ui-sdk/icon";
 import type { ImportRunDetail } from "@ryot-app/ryotql-recipes/import-runs";
 import { createFileRoute, notFound, useRouter } from "@tanstack/react-router";
@@ -9,19 +9,21 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ImportRunView, type ImportRunDetailState } from "#/modules/imports/import-run-view";
 import {
 	canDeleteImportRun,
+	canCancelImportRun,
+	importRunCancelConfirmation,
 	importRunDeleteConfirmation,
 	importSourceName,
 } from "#/modules/imports/run-presentation";
 import {
 	IMPORT_FAILURES_PAGE_SIZE,
 	ImportsService,
+	cancelImportRunMutation,
 	deleteImportRunMutation,
 	importRunQuery,
 	importSourcesQuery,
 } from "#/modules/imports/service";
 import { importSourceNames } from "#/modules/imports/source-selection";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
-import { DestructiveConfirmation } from "#/modules/ui/destructive-confirmation";
 import {
 	isTerminalRunStatus,
 	runDurationLabel,
@@ -94,11 +96,12 @@ function ImportRunRoute() {
 	const menuTrigger = useRef<HTMLButtonElement>(null);
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [activeIndex, setActiveIndex] = useState(0);
-	const [isConfirming, setIsConfirming] = useState(false);
+	const [confirmation, setConfirmation] = useState<"cancel" | "delete" | null>(null);
 	const [failureLimit, setFailureLimit] = useState(IMPORT_FAILURES_PAGE_SIZE);
 	const detail = useRyotQuery(importRunQuery, { runId, failureLimit });
 	const sources = useRyotQuery(importSourcesQuery);
 	const deletion = useRyotMutation(deleteImportRunMutation);
+	const cancellation = useRyotMutation(cancelImportRunMutation);
 	const [retainedDetail, setRetainedDetail] = useState<{
 		readonly runId: string;
 		readonly detail: ImportRunDetail;
@@ -125,18 +128,18 @@ function ImportRunRoute() {
 	});
 
 	useEffect(() => {
-		if (!menuOpen && !isConfirming) {
+		if (!menuOpen && confirmation === null) {
 			return undefined;
 		}
 		return backInterceptors.register(() => {
-			if (deletion.isPending) {
+			if (deletion.isPending || cancellation.isPending) {
 				return true;
 			}
 			setMenuOpen(false);
-			setIsConfirming(false);
+			setConfirmation(null);
 			return true;
 		});
-	}, [backInterceptors, deletion.isPending, isConfirming, menuOpen]);
+	}, [backInterceptors, cancellation.isPending, confirmation, deletion.isPending, menuOpen]);
 
 	const confirmDelete = () => {
 		deletion.reset();
@@ -144,7 +147,7 @@ function ImportRunRoute() {
 			deletion.mutateEffect(runId).pipe(
 				Effect.tap(() =>
 					Effect.sync(() => {
-						setIsConfirming(false);
+						setConfirmation(null);
 						if (router.history.canGoBack()) {
 							router.history.back();
 							return;
@@ -161,19 +164,48 @@ function ImportRunRoute() {
 			),
 		);
 	};
+	const confirmCancellation = () => {
+		cancellation.reset();
+		return Effect.runPromise(
+			cancellation.mutateEffect(runId).pipe(
+				Effect.tap(() =>
+					Effect.sync(() => {
+						setConfirmation(null);
+						detail.refetch();
+					}),
+				),
+				Effect.ignoreCause,
+				Effect.asVoid,
+			),
+		);
+	};
 
-	const menuItems: readonly MenuItem[] = [
-		{
-			key: "delete",
-			destructive: true,
-			label: "Delete record",
-			onSelect: () => {
-				setMenuOpen(false);
-				deletion.reset();
-				setIsConfirming(true);
-			},
-		},
-	];
+	const menuItems: readonly MenuItem[] =
+		run !== undefined && canCancelImportRun(run.status)
+			? [
+					{
+						key: "cancel",
+						destructive: true,
+						label: "Cancel import",
+						onSelect: () => {
+							setMenuOpen(false);
+							cancellation.reset();
+							setConfirmation("cancel");
+						},
+					},
+				]
+			: [
+					{
+						key: "delete",
+						destructive: true,
+						label: "Delete record",
+						onSelect: () => {
+							setMenuOpen(false);
+							deletion.reset();
+							setConfirmation("delete");
+						},
+					},
+				];
 	let body: ReactNode;
 	if (state !== undefined) {
 		body = (
@@ -211,7 +243,7 @@ function ImportRunRoute() {
 				)
 			}
 			actions={
-				run !== undefined && canDeleteImportRun(run.status) ? (
+				run !== undefined && (canDeleteImportRun(run.status) || canCancelImportRun(run.status)) ? (
 					<>
 						<button
 							type="button"
@@ -239,7 +271,7 @@ function ImportRunRoute() {
 			}
 		>
 			{body}
-			{isConfirming && run !== undefined && (
+			{confirmation === "delete" && run !== undefined && (
 				<DestructiveConfirmation
 					triggerRef={menuTrigger}
 					pendingLabel="Deleting..."
@@ -250,10 +282,31 @@ function ImportRunRoute() {
 					detail={importRunDeleteConfirmation(run)}
 					onClose={() => {
 						deletion.reset();
-						setIsConfirming(false);
+						setConfirmation(null);
 					}}
 					errorMessage={
 						deletion.status === "error" ? "This record could not be deleted. Try again." : undefined
+					}
+				/>
+			)}
+			{confirmation === "cancel" && run !== undefined && (
+				<DestructiveConfirmation
+					triggerRef={menuTrigger}
+					actionLabel="Cancel import"
+					title="Cancel this import?"
+					pendingLabel="Cancelling..."
+					pending={cancellation.isPending}
+					detail={importRunCancelConfirmation}
+					confirmationPhrase="Cancel this import"
+					onConfirm={() => void confirmCancellation()}
+					onClose={() => {
+						cancellation.reset();
+						setConfirmation(null);
+					}}
+					errorMessage={
+						cancellation.status === "error"
+							? "This import could not be cancelled. Try again."
+							: undefined
 					}
 				/>
 			)}
