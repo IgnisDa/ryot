@@ -51,6 +51,7 @@ export const ScenarioDefinition = Schema.Struct({
 	liveSearch: Schema.NullOr(LiveSearch),
 	schedulerDispatchersDisabled: Schema.Boolean,
 	recoveryCheckpointsMs: Schema.Array(Schema.Int),
+	profileWaveTwo: Schema.optional(Schema.Boolean),
 	workload: Schema.NullOr(BenchmarkWorkloadContext),
 	processClass: Schema.Literals(["fresh-process", "long-lived-process"]),
 });
@@ -89,6 +90,7 @@ const base = {
 	idleDurationMs: 0,
 	sequential: false,
 	submission: "none",
+	profileWaveTwo: true,
 	recoveryCheckpointsMs: [],
 	processClass: "fresh-process",
 	recoveryWindowMs: 5 * MINUTE_MS,
@@ -198,6 +200,25 @@ export const SOAK_SCENARIOS = [
 		submission: "live-details",
 		description: "Ten waves of twenty live YouTube Music details executions in rotating order",
 	}),
+	{
+		...soak({
+			requestCount: 100,
+			sequential: true,
+			submission: "direct",
+			id: "soak-control-extended",
+			workload: workload({ seed: 81 }),
+			description: "Ten waves of one hundred sequential direct executions without host calls",
+		}),
+		/**
+		 * `soak-control` measures 100 operations, so its retention slope has to be extrapolated
+		 * tenfold to test a per-thousand-operation ceiling. This scenario measures that thousand
+		 * directly, over the same wall clock, which also separates growth that tracks operations from
+		 * growth that tracks time. A hundred-execution wave would hold the backend CPU profile for
+		 * about three minutes, adding memory to the process whose retention is being measured, so
+		 * wave two is not profiled here.
+		 */
+		profileWaveTwo: false,
+	},
 ];
 
 export const PROFILE_SCENARIOS: ReadonlyArray<ScenarioDefinition> = [
