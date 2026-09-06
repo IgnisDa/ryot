@@ -19,3 +19,5 @@ const kernelEntityRenderers = new Map<string, KernelClientRenderer>([
 
 export const getKernelEntityRenderer = (entitySchemaSlug: string) =>
 	kernelEntityRenderers.get(entitySchemaSlug);
+
+export const listKernelEntityRenderers = () => [...kernelEntityRenderers.values()];

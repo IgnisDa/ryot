@@ -65,6 +65,22 @@ it.effect("emits a heartbeat after 25 seconds", () =>
 	}).pipe(Effect.provide(PluginCatalogHub.layer)),
 );
 
+it.effect("streams a user invalidation after the initial connection", () =>
+	Effect.gen(function* () {
+		const hub = yield* PluginCatalogHub;
+		const userId = UserId.make("user-1");
+		const messages = yield* Queue.unbounded<string>();
+		const fiber = yield* hub.stream(userId).pipe(
+			Stream.runForEach((message) => Queue.offer(messages, decode(message))),
+			Effect.forkChild,
+		);
+		expect(yield* Queue.take(messages)).toBe("event: connected\ndata:\n\n");
+		yield* hub.broadcast(userId);
+		expect(yield* Queue.take(messages)).toBe("event: catalog-invalidated\ndata:\n\n");
+		yield* Fiber.interrupt(fiber);
+	}).pipe(Effect.provide(PluginCatalogHub.layer)),
+);
+
 it.effect(
 	"publishes encoded user and global invalidations without surfacing Redis failures",
 	() => {
