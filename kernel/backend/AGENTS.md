@@ -4,7 +4,6 @@
 
 - Routes validate request data and call one service handler. Services own business rules and access control; repositories own persistence and row normalization.
 - Define services and repositories as Effect service classes; feature-owned Layers provide implementation dependencies, and boot Layers compose features.
-- Do not add barrel exports. Import from the defining module.
 - Each table has one writing repository for runtime writes. Cross-module writes go through the owning service, except repository access required for one shared transaction and backup-owned historical restore persistence.
 - Importers, jobs, sandbox callbacks, bootstrap code, and HTTP handlers use the same write paths.
 - Modules depend only on more generic modules. Invert upward effects through a generic `DurableQueue` hook, its worker, and layer wiring.
