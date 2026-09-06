@@ -10,6 +10,14 @@ export class PluginsApi extends Context.Service<PluginsApi>()("PluginsApi", {
 		return {
 			invoke: (scope: ApiScope, request: ContractRequest<"plugins", "invoke">) =>
 				api.run(scope, (client) => client.plugins.invoke(request)),
+			saveUserSettings: (
+				scope: ApiScope,
+				request: ContractRequest<"plugins", "saveUserSettings">,
+			) => api.run(scope, (client) => client.plugins.saveUserSettings(request)),
+			resetUserSettings: (
+				scope: ApiScope,
+				request: ContractRequest<"plugins", "resetUserSettings">,
+			) => api.run(scope, (client) => client.plugins.resetUserSettings(request)),
 		};
 	}),
 }) {
