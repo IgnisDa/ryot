@@ -73,9 +73,12 @@ type FlatReviewSubject = { readonly on: "media" };
 
 const REVIEW_SUBJECT: FlatReviewSubject = { on: "media" };
 
-export type MediaFlatSchemaRow = MediaFlatActivityRow<FlatReviewSubject>;
+export type MediaFlatSchemaRow<Extra = unknown> = MediaFlatActivityRow<FlatReviewSubject, Extra>;
 
-export type MediaFlatSchemaActivityView = MediaFlatActivityView<FlatReviewSubject>;
+export type MediaFlatSchemaActivityView<Extra = unknown> = MediaFlatActivityView<
+	FlatReviewSubject,
+	Extra
+>;
 
 type FlatSummary = MediaSummaryValue & {
 	readonly state: MediaLifecycleState;
@@ -95,12 +98,12 @@ type FlatSummaryResult<Summary> = {
 	readonly entitySchemaSlug: string | null;
 };
 
-export type MediaFlatActivityResult = {
+export type MediaFlatActivityResult<Extra = unknown> = {
 	readonly truncated: boolean;
 	readonly completionCount: number;
 	readonly unknownAmountCount: number;
 	readonly consumedAmount: number | null;
-	readonly events: readonly MediaFlatActivityEvent[];
+	readonly events: readonly MediaFlatActivityEvent<Extra>[];
 };
 
 type EntityInput = { readonly entityId: string };
@@ -109,6 +112,7 @@ export type MediaFlatSchemaDescriptor<
 	Summary extends FlatSummary,
 	Overview extends MediaGroupOverview,
 	Presentation extends FlatPresentation,
+	Extra = unknown,
 > = {
 	readonly recipes: {
 		readonly summaryRecipe: (input: {
@@ -126,7 +130,7 @@ export type MediaFlatSchemaDescriptor<
 			readonly entityId: string;
 			readonly eventLimit: number;
 			readonly collectionEventLimit: number;
-		}) => PreparedRecipe<MediaFlatActivityResult>;
+		}) => PreparedRecipe<MediaFlatActivityResult<NoInfer<Extra>>>;
 		readonly presentationRecipe: (
 			entityIds: readonly string[],
 		) => PreparedRecipe<readonly Presentation[]>;
@@ -144,7 +148,7 @@ export type MediaFlatSchemaDescriptor<
 		readonly rowLabels: {
 			readonly review: string;
 			readonly completion: string;
-			readonly progress: (percent: string | undefined) => string;
+			readonly progress: (percent: string | undefined, extra: Extra) => string;
 		};
 		readonly beats: Record<Exclude<MediaFlatActivityBeat, "backlog">, string>;
 	};
@@ -154,7 +158,7 @@ export type MediaFlatSchemaDescriptor<
 	};
 	readonly creditCopy: MediaCreditCopy;
 	readonly overviewLoadingDetail: string;
-	readonly group: { readonly actionLabel: string; readonly title: (name: string) => string };
+	readonly group?: { readonly actionLabel: string; readonly title: (name: string) => string };
 	readonly progressVerb: string;
 	readonly facts: (summary: Summary) => readonly MediaSummaryFact[];
 	readonly presentationFacts: (data: Presentation) => readonly string[];
@@ -191,8 +195,9 @@ export const defineFlatMediaSchema = <
 	Summary extends FlatSummary,
 	Overview extends MediaGroupOverview,
 	Presentation extends FlatPresentation,
+	Extra = unknown,
 >(
-	descriptor: MediaFlatSchemaDescriptor<Summary, Overview, Presentation>,
+	descriptor: MediaFlatSchemaDescriptor<Summary, Overview, Presentation, Extra>,
 ) => {
 	const { nouns, recipes, activityCopy } = descriptor;
 
@@ -237,7 +242,7 @@ export const defineFlatMediaSchema = <
 		},
 	);
 
-	const activityQuery = createRyotQuery<EntityInput, MediaFlatActivityResult>(
+	const activityQuery = createRyotQuery<EntityInput, MediaFlatActivityResult<Extra>>(
 		({ input, client, signal }) =>
 			client.data.query(
 				recipes.activityRecipe({
@@ -263,7 +268,7 @@ export const defineFlatMediaSchema = <
 		select: ({ summary }) => summary,
 	});
 
-	const activityView = (result: MediaFlatActivityResult) =>
+	const activityView = (result: MediaFlatActivityResult<Extra>) =>
 		mediaFlatActivityView({
 			events: result.events,
 			subject: REVIEW_SUBJECT,
@@ -273,8 +278,8 @@ export const defineFlatMediaSchema = <
 		});
 
 	const mapActivity = (
-		result: RyotQueryResult<MediaFlatActivityResult>,
-	): MediaActivityState<MediaFlatSchemaActivityView> => {
+		result: RyotQueryResult<MediaFlatActivityResult<Extra>>,
+	): MediaActivityState<MediaFlatSchemaActivityView<Extra>> => {
 		const state = classifyRyotQueryResult(result);
 		if (state.status !== "ready") {
 			return state;
@@ -283,7 +288,7 @@ export const defineFlatMediaSchema = <
 		return view === undefined ? { status: "empty" } : { view, status: "ready" };
 	};
 
-	const activityRowLabel = (row: MediaFlatSchemaRow): string => {
+	const activityRowLabel = (row: MediaFlatSchemaRow<Extra>): string => {
 		if (row.type === "completion") {
 			return activityCopy.rowLabels.completion;
 		}
@@ -298,12 +303,13 @@ export const defineFlatMediaSchema = <
 		if (row.type === "progress") {
 			return activityCopy.rowLabels.progress(
 				row.percent === undefined ? undefined : decimalLabel(row.percent),
+				row.extra,
 			);
 		}
 		return activityCopy.rowLabels.review;
 	};
 
-	const activityRender: MediaActivityRowRender<MediaFlatSchemaRow> = {
+	const activityRender: MediaActivityRowRender<MediaFlatSchemaRow<Extra>> = {
 		markerTone: MARKER_TONE,
 		rowLabel: activityRowLabel,
 		segmentNoun: activityCopy.segmentNoun,
@@ -326,7 +332,7 @@ export const defineFlatMediaSchema = <
 
 	function ActivityRecord(props: {
 		readonly compact: boolean;
-		readonly view: MediaFlatSchemaActivityView;
+		readonly view: MediaFlatSchemaActivityView<Extra>;
 	}) {
 		const { view } = props;
 		return (
@@ -344,7 +350,7 @@ export const defineFlatMediaSchema = <
 	function Activity(props: {
 		readonly compact: boolean;
 		readonly refresh: () => void;
-		readonly state: MediaActivityState<MediaFlatSchemaActivityView>;
+		readonly state: MediaActivityState<MediaFlatSchemaActivityView<Extra>>;
 	}) {
 		return (
 			<MediaActivity
@@ -377,7 +383,8 @@ export const defineFlatMediaSchema = <
 		divided,
 		overview,
 	}) => {
-		const group = overview.group ?? null;
+		const groupCopy = descriptor.group;
+		const group = groupCopy === undefined ? null : (overview.group ?? null);
 		const unlinked = unlinkedOf(overview);
 		return (
 			<MediaOverviewRelations
@@ -388,13 +395,13 @@ export const defineFlatMediaSchema = <
 				copy={descriptor.creditCopy}
 				onViewAllPeople={() => console.log(`TODO: open all ${nouns.singular} credits`)}
 				trailing={
-					group === null ? null : (
+					group === null || groupCopy === undefined ? null : (
 						<MediaPartOfSection
 							group={group}
 							compact={compact}
 							aspect={descriptor.aspect}
-							title={descriptor.group.title(group.name)}
-							actionLabel={descriptor.group.actionLabel}
+							title={groupCopy.title(group.name)}
+							actionLabel={groupCopy.actionLabel}
 							divided={divided || !mediaRelationsAreEmpty(overview, unlinked)}
 						/>
 					)
