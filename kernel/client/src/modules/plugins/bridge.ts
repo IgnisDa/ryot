@@ -95,7 +95,7 @@ type PendingRequest = {
 type PluginBridgeOptions = {
 	readonly timeoutMs?: number;
 	readonly onReady: () => void;
-	readonly artifactHash: string;
+	readonly compositionHash: string;
 	readonly onFailure: () => void;
 	readonly page?: ClientPageContext;
 	readonly documentKey: string;
@@ -145,7 +145,7 @@ const decodeClientMessage = Schema.decodeUnknownResult(PluginBridgeClientMessage
 const decodeLifecycleClose = Schema.decodeUnknownResult(PluginBridgeLifecycleClose);
 
 const isExpectedReady = (ready: PluginBridgeReady, init: PluginBridgeInit) =>
-	ready.sessionId === init.sessionId && ready.artifactHash === init.artifactHash;
+	ready.sessionId === init.sessionId && ready.compositionHash === init.compositionHash;
 
 export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSession {
 	const init: PluginBridgeInit = {
@@ -153,7 +153,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		apiVersion: CLIENT_API_VERSION,
 		format: CLIENT_ARTIFACT_FORMAT,
 		mode: options.theme.resolvedMode,
-		artifactHash: options.artifactHash,
+		compositionHash: options.compositionHash,
 		compilerVersion: CLIENT_COMPILER_VERSION,
 		safeAreaTop: options.viewport.safeAreaTop,
 		bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,

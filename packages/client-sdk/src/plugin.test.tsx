@@ -1,7 +1,7 @@
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
-	CLIENT_ARTIFACT_METADATA_ELEMENT_ID,
+	CLIENT_COMPOSITION_METADATA_ELEMENT_ID,
 	CLIENT_BRIDGE_PROTOCOL_VERSION,
 	CLIENT_COMPILER_VERSION,
 	type PluginBridgeInit,
@@ -41,7 +41,7 @@ const init: PluginBridgeInit = {
 	documentKey: "page-1",
 	format: metadata.format,
 	sessionId: "session-id",
-	artifactHash: metadata.hash,
+	compositionHash: metadata.hash,
 	apiVersion: metadata.apiVersion,
 	bridgeVersion: metadata.bridgeVersion,
 	compilerVersion: metadata.compilerVersion,
@@ -134,7 +134,7 @@ const CrashingHome = () => {
 const embedMetadata = () => {
 	const element = document.createElement("script");
 	element.type = "application/json";
-	element.id = CLIENT_ARTIFACT_METADATA_ELEMENT_ID;
+	element.id = CLIENT_COMPOSITION_METADATA_ELEMENT_ID;
 	element.textContent = JSON.stringify(metadata);
 	document.head.append(element);
 };
