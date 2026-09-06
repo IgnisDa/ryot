@@ -134,8 +134,8 @@ export const ClientPagePreparationErrorReason = Schema.Union([
 	}),
 	strictStruct({
 		entityId: EntityId,
-		ownerPluginId: Schema.String,
 		entitySchemaSlug: EntitySchemaSlug,
+		ownerPluginId: Schema.NullOr(Schema.String),
 		code: Schema.Literal("entity-detail-page-not-registered"),
 	}),
 ]);
@@ -276,6 +276,14 @@ export const PreparedClientPageIdentity = Schema.Union([
 		installationId: Schema.String,
 		target: PluginClientPageTarget,
 		kind: Schema.Literal("plugin-page"),
+	}),
+	strictStruct({
+		...PreparedClientPageIdentityBase,
+		sourceHash: Schema.String,
+		rendererName: Schema.String,
+		entitySchemaSlug: EntitySchemaSlug,
+		target: PluginClientPageTarget.members[0],
+		kind: Schema.Literal("kernel-entity-page"),
 	}),
 ]);
 

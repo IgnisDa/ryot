@@ -54,3 +54,10 @@ export const kernelResultsTableRenderer = renderer(
 	[],
 	false,
 );
+
+export const kernelCollectionDetailRenderer = renderer(
+	"Collection detail",
+	"client/collection-detail.tsx",
+	[],
+	true,
+);
