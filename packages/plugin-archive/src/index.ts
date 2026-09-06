@@ -10,6 +10,7 @@ import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { isPluginSharedSource } from "@ryot-app/contract/modules/plugins/shared-file-policy";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { decodeExecutableText, encodeExecutableText } from "@ryot-app/ts-utils/executable-text";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
 import { Effect, Schema, Stream } from "effect";
 import { Unzip, UnzipInflate, UnzipPassThrough, Zip, ZipDeflate } from "fflate";
@@ -109,7 +110,6 @@ const PluginClientArtifactArchiveMetadata = strictStruct({
 
 const DETERMINISTIC_MTIME = new Date(1980, 0, 1, 0, 0, 0, 0);
 const decoder = new TextDecoder("utf-8", { fatal: true });
-const compiledScriptDecoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 const encoder = new TextEncoder();
 
 const compareCodeUnits = (left: string, right: string) => {
@@ -189,15 +189,11 @@ const validateCompiledScriptFormat = (format: number) => {
 };
 
 const encodeCompiledScriptText = (text: string) => {
-	const bytes = encoder.encode(text);
 	try {
-		if (compiledScriptDecoder.decode(bytes) !== text) {
-			throw failure("compiled-script-invalid");
-		}
+		return encodeExecutableText(text);
 	} catch {
 		throw failure("compiled-script-invalid");
 	}
-	return bytes;
 };
 
 const validateCompiledScripts = (
@@ -289,7 +285,7 @@ const validateCompiledClientJavascript = (contentType: string, contents: Uint8Ar
 		return;
 	}
 	try {
-		compiledScriptDecoder.decode(contents);
+		decodeExecutableText(contents);
 	} catch {
 		throw failure("compiled-client-invalid");
 	}
@@ -790,7 +786,7 @@ class PluginArchiveReader {
 			let javascript: string;
 			let source: string;
 			try {
-				javascript = compiledScriptDecoder.decode(javascriptBytes);
+				javascript = decodeExecutableText(javascriptBytes);
 				const sourceBytes = sourceFiles[entry];
 				if (sourceBytes === undefined) {
 					throw failure("compiled-script-invalid");

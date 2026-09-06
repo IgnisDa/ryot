@@ -48,6 +48,11 @@ Emitted JavaScript references are inspected with the shared Rolldown parser. Emi
 and declaration URLs are inspected with PostCSS and its value parser; comments and string content
 are not treated as references. The client compiler rejects nonliteral dynamic imports in plugin
 modules. The runtime keeps its generated bootstrap's dynamic imports.
+Both output validators share URL classification and query/fragment stripping. Plugin modules allow
+declared dependencies and external URLs, but local references must name a root output file and must
+not contain `..`. Runtime module imports reject external URLs except `data:` and resolve local paths
+relative to the containing file, allowing nested traversal only within the artifact. Runtime asset
+URLs can remain external; JavaScript imports must target JavaScript, and CSS imports cannot target it.
 
 The shared runtime emits `runtime.css` with the fonts, the full Tailwind theme variables, preflight,
 the SDK theme and palette, and document base rules. Every composition links it from the same public
@@ -67,7 +72,8 @@ CSS imports are resolved into `module.css`; Vite owns asset URLs. Every emitted 
 local reference, file count, per-asset size, and total size is validated. The hash covers every
 output byte and content type plus the plugin name and compiler/protocol identity. Final files are
 sorted by name. Compiler version 1 identifies minified module artifacts.
-Valid emitted JavaScript UTF-8 bytes, including a leading BOM, are retained exactly. Artifact
+The pure executable-text codec in `@ryot-app/ts-utils/executable-text` retains valid UTF-8 bytes,
+including a leading BOM, and rejects strings that would require replacement during encoding. Artifact
 hashing uses those bytes. The artifact identity implementation is owned by
 `@ryot-app/client-plugin-contract`.
 

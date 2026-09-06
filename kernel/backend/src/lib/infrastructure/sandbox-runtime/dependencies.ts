@@ -1,4 +1,5 @@
 import { canonicalFileSetHash, sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { decodeExecutableText, encodeExecutableText } from "@ryot-app/ts-utils/executable-text";
 import { Data, Effect, FileSystem, Order, Schema } from "effect";
 
 import { sandboxRuntimePayloadMetadataSchema, sandboxRuntimePayloadSchema } from "./payload";
@@ -37,7 +38,16 @@ const validatePayload = (payload: unknown) =>
 		}
 		for (const [file, expected] of expectedFiles) {
 			const contents = actualFiles.get(file);
-			const bytes = typeof contents === "string" ? new TextEncoder().encode(contents) : undefined;
+			const bytes =
+				typeof contents === "string"
+					? yield* Effect.try({
+							catch: () => payloadError(`Trusted sandbox runtime payload file is corrupt: ${file}`),
+							try: () =>
+								file.endsWith(".mjs")
+									? encodeExecutableText(contents)
+									: new TextEncoder().encode(contents),
+						})
+					: undefined;
 			if (
 				!bytes ||
 				bytes.byteLength !== expected.byteLength ||
@@ -111,9 +121,22 @@ const runtimeContentHash = (fs: FileSystem.FileSystem, directory: string) =>
 			return yield* payloadError("Sandbox runtime module path is not a directory");
 		}
 		const files = yield* Effect.forEach(runtimeFiles, (file) =>
-			fs
-				.readFileString(`${directory}/${file}`)
-				.pipe(Effect.map((contents) => ({ contents, path: file }))),
+			Effect.gen(function* () {
+				const contents = file.endsWith(".mjs")
+					? yield* fs
+							.readFile(`${directory}/${file}`)
+							.pipe(
+								Effect.flatMap((bytes) =>
+									Effect.try({
+										try: () => decodeExecutableText(bytes),
+										catch: () =>
+											payloadError(`Trusted sandbox runtime payload file is corrupt: ${file}`),
+									}),
+								),
+							)
+					: yield* fs.readFileString(`${directory}/${file}`);
+				return { contents, path: file };
+			}),
 		);
 		return canonicalFileSetHash(files);
 	});
