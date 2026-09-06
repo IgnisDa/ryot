@@ -6,7 +6,7 @@ import dotenv from "dotenv";
 import { Effect, FileSystem, Layer, Path, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
-import { assemble, readShippedSlugs } from "./assembly/assemble";
+import { assemble, readShippedSlugs } from "./tooling/assemble";
 
 dotenv.config();
 
