@@ -206,6 +206,20 @@ describe("settings navigation", () => {
 		}),
 	);
 
+	it.live("groups the sections with server-wide sections last", () =>
+		Effect.gen(function* () {
+			mountView("/settings/preferences");
+			const sidebar = yield* Effect.promise(() => screen.findByTestId("settings-sidebar"));
+			const labels = (group: string) =>
+				within(within(sidebar).getByRole("group", { name: group }))
+					.getAllByRole("link")
+					.map((link) => link.textContent);
+
+			expect(labels("You")).toEqual(["Preferences", "Account"]);
+			expect(labels("Server")).toEqual(["Administration", "About"]);
+		}),
+	);
+
 	it.live("navigates with replace when selecting a section from the desktop sidebar", () =>
 		Effect.gen(function* () {
 			const view = mountView(["/fixture", "/settings/preferences"]);
@@ -444,8 +458,6 @@ describe("account settings", () => {
 			);
 			expect(avatar.hasAttribute("disabled")).toBe(false);
 			expect(screen.getByRole("button", { name: "Sign out" }).hasAttribute("disabled")).toBe(false);
-			expect(screen.getByRole("heading", { name: "Server" })).not.toBeNull();
-			expect(screen.getByRole("link", { name: /God Mode/ })).not.toBeNull();
 		}),
 	);
 
@@ -490,28 +502,7 @@ describe("account settings", () => {
 		}),
 	);
 
-	it.live("opens standalone God Mode from the server administration card", () =>
-		Effect.gen(function* () {
-			const view = mountView("/settings/account");
-			const administration = yield* Effect.promise(() =>
-				screen.findByRole("heading", { name: "Server administration" }),
-			);
-			const section = administration.closest("section");
-			if (section === null) {
-				throw new Error("Server administration heading must be inside a section");
-			}
-			expect(section.textContent).toContain("Requires an admin access token");
-
-			fireEvent.click(within(section).getByRole("link", { name: /God Mode/ }));
-			yield* Effect.promise(() => screen.findByRole("heading", { name: "God Mode" }));
-			expect(view.router.state.location.pathname).toBe("/god-mode/users");
-			expect(screen.queryByTestId("authenticated-shell")).toBeNull();
-			expect(screen.queryByTestId("mobile-drawer")).toBeNull();
-			expect(screen.queryByTitle("fixture plugin")).toBeNull();
-		}),
-	);
-
-	it.live("names the connected server on native and points at sign out to change it", () =>
+	it.live("keeps server-wide sections off the account page", () =>
 		Effect.gen(function* () {
 			mountView(
 				"/settings/account",
@@ -523,25 +514,13 @@ describe("account settings", () => {
 				undefined,
 				makeOAuthRouteStubs({}, {}, { isNative: true }),
 			);
-			yield* Effect.promise(() => screen.findByRole("heading", { name: "Account" }));
+			yield* Effect.promise(() => screen.findByRole("button", { name: "New avatar" }));
 
-			const section = screen.getByRole("heading", { name: "Server" }).closest("section");
-			expect(section?.textContent).toContain("https://ryot.example");
-			expect(section?.textContent).toContain(
-				"Sign out to connect this device to a different server.",
-			);
-		}),
-	);
-
-	it.live("hides the server section on web, where the origin cannot be changed", () =>
-		Effect.gen(function* () {
-			mountView("/settings/account");
-			yield* Effect.promise(() => screen.findByRole("heading", { name: "Account" }));
-
+			expect(screen.queryByRole("heading", { name: "Server administration" })).toBeNull();
 			expect(screen.queryByRole("heading", { name: "Server" })).toBeNull();
+			expect(screen.queryByRole("heading", { name: "Version" })).toBeNull();
 		}),
 	);
-
 	it.live("hides two-factor management from accounts without a password", () =>
 		Effect.gen(function* () {
 			mountView("/settings/account");
@@ -824,6 +803,62 @@ describe("account settings", () => {
 	);
 });
 
+describe("administration settings", () => {
+	it.live("opens standalone God Mode from the server administration card", () =>
+		Effect.gen(function* () {
+			const view = mountView("/settings/administration");
+			const administration = yield* Effect.promise(() =>
+				screen.findByRole("heading", { name: "Server administration" }),
+			);
+			const section = administration.closest("section");
+			if (section === null) {
+				throw new Error("Server administration heading must be inside a section");
+			}
+			expect(section.textContent).toContain("Requires an admin access token");
+
+			fireEvent.click(within(section).getByRole("link", { name: /God Mode/ }));
+			yield* Effect.promise(() => screen.findByRole("heading", { name: "God Mode" }));
+			expect(view.router.state.location.pathname).toBe("/god-mode/users");
+			expect(screen.queryByTestId("authenticated-shell")).toBeNull();
+			expect(screen.queryByTestId("mobile-drawer")).toBeNull();
+			expect(screen.queryByTitle("fixture plugin")).toBeNull();
+		}),
+	);
+});
+
+describe("about settings", () => {
+	it.live("names the connected server on native and points at sign out to change it", () =>
+		Effect.gen(function* () {
+			mountView(
+				"/settings/about",
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				makeOAuthRouteStubs({}, {}, { isNative: true }),
+			);
+			yield* Effect.promise(() => screen.findByRole("heading", { name: "About" }));
+
+			const section = screen.getByRole("heading", { name: "Server" }).closest("section");
+			expect(section?.textContent).toContain("https://ryot.example");
+			expect(section?.textContent).toContain(
+				"To connect this device to a different server, sign out from Account.",
+			);
+		}),
+	);
+
+	it.live("hides the server section on web, where the origin cannot be changed", () =>
+		Effect.gen(function* () {
+			mountView("/settings/about");
+			yield* Effect.promise(() => screen.findByRole("heading", { name: "About" }));
+
+			expect(screen.queryByRole("heading", { name: "Server" })).toBeNull();
+		}),
+	);
+});
+
 const mountPreferences = (
 	userSettingsLayer = makeUserSettingsStub(),
 	authLayer: Layer.Layer<AuthService> = AuthStub,
@@ -862,9 +897,6 @@ describe("preferences settings", () => {
 				screen.getByRole("switch", { name: "Show NSFW content" }).hasAttribute("disabled"),
 			).toBe(true);
 			expect(
-				screen.getByRole("switch", { name: "Disable integrations" }).hasAttribute("disabled"),
-			).toBe(true);
-			expect(
 				screen
 					.getByRole("button", { name: "Metadata language: Provider default" })
 					.hasAttribute("disabled"),
@@ -887,7 +919,7 @@ describe("preferences settings", () => {
 
 			expect(screen.getByRole("radiogroup", { name: "Appearance" })).not.toBeNull();
 			expect(screen.getByRole("switch", { name: "Show NSFW content" })).not.toBeNull();
-			expect(screen.getByRole("switch", { name: "Disable integrations" })).not.toBeNull();
+			expect(screen.queryByRole("switch", { name: "Pause integrations" })).toBeNull();
 			expect(
 				screen.getByRole("button", { name: "Metadata language: Provider default" }),
 			).not.toBeNull();
@@ -971,9 +1003,6 @@ describe("preferences settings", () => {
 				screen.getByRole("switch", { name: "Show NSFW content" }).hasAttribute("disabled"),
 			).toBe(true);
 			expect(
-				screen.getByRole("switch", { name: "Disable integrations" }).hasAttribute("disabled"),
-			).toBe(true);
-			expect(
 				screen
 					.getByRole("button", { name: "Metadata language: Provider default" })
 					.hasAttribute("disabled"),
@@ -1005,12 +1034,12 @@ describe("preferences settings", () => {
 			);
 			yield* Effect.promise(() => screen.findByRole("button", { name: "Save changes" }));
 
-			fireEvent.click(screen.getByRole("switch", { name: "Disable integrations" }));
+			fireEvent.click(screen.getByRole("switch", { name: "Show NSFW content" }));
 			fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
 			yield* Effect.promise(() => screen.findByText("Could not save preferences. Try again."));
 			expect(
-				screen.getByRole("switch", { name: "Disable integrations" }).getAttribute("aria-checked"),
+				screen.getByRole("switch", { name: "Show NSFW content" }).getAttribute("aria-checked"),
 			).toBe("true");
 			expect(screen.getByRole("button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
 				false,

@@ -31,7 +31,9 @@ import { Route as AuthenticatedPluginSlugSplatRouteImport } from './routes/_auth
 import { Route as AuthenticatedEEntityIdRouteImport } from './routes/_authenticated/e/$entityId'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
 import { Route as AuthenticatedSettingsSplatRouteImport } from './routes/_authenticated/settings/$'
+import { Route as AuthenticatedSettingsAboutRouteImport } from './routes/_authenticated/settings/about'
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
+import { Route as AuthenticatedSettingsAdministrationRouteImport } from './routes/_authenticated/settings/administration'
 import { Route as AuthenticatedSettingsBackupsRouteImport } from './routes/_authenticated/settings/backups'
 import { Route as AuthenticatedSettingsNotificationChannelsRouteImport } from './routes/_authenticated/settings/notification-channels'
 import { Route as AuthenticatedSettingsPreferencesRouteImport } from './routes/_authenticated/settings/preferences'
@@ -160,10 +162,22 @@ const AuthenticatedSettingsSplatRoute =
     path: '/$',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedSettingsAboutRoute =
+  AuthenticatedSettingsAboutRouteImport.update({
+    id: '/about',
+    path: '/about',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
 const AuthenticatedSettingsAccountRoute =
   AuthenticatedSettingsAccountRouteImport.update({
     id: '/account',
     path: '/account',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsAdministrationRoute =
+  AuthenticatedSettingsAdministrationRouteImport.update({
+    id: '/administration',
+    path: '/administration',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
 const AuthenticatedSettingsBackupsRoute =
@@ -251,7 +265,9 @@ export interface FileRoutesByFullPath {
   '/$pluginSlug/$': typeof AuthenticatedPluginSlugSplatRoute
   '/e/$entityId': typeof AuthenticatedEEntityIdRoute
   '/settings/$': typeof AuthenticatedSettingsSplatRoute
+  '/settings/about': typeof AuthenticatedSettingsAboutRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
+  '/settings/administration': typeof AuthenticatedSettingsAdministrationRoute
   '/settings/backups': typeof AuthenticatedSettingsBackupsRoute
   '/settings/notification-channels': typeof AuthenticatedSettingsNotificationChannelsRoute
   '/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
@@ -283,7 +299,9 @@ export interface FileRoutesByTo {
   '/$pluginSlug/$': typeof AuthenticatedPluginSlugSplatRoute
   '/e/$entityId': typeof AuthenticatedEEntityIdRoute
   '/settings/$': typeof AuthenticatedSettingsSplatRoute
+  '/settings/about': typeof AuthenticatedSettingsAboutRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
+  '/settings/administration': typeof AuthenticatedSettingsAdministrationRoute
   '/settings/backups': typeof AuthenticatedSettingsBackupsRoute
   '/settings/notification-channels': typeof AuthenticatedSettingsNotificationChannelsRoute
   '/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
@@ -320,7 +338,9 @@ export interface FileRoutesById {
   '/_authenticated/$pluginSlug/$': typeof AuthenticatedPluginSlugSplatRoute
   '/_authenticated/e/$entityId': typeof AuthenticatedEEntityIdRoute
   '/_authenticated/settings/$': typeof AuthenticatedSettingsSplatRoute
+  '/_authenticated/settings/about': typeof AuthenticatedSettingsAboutRoute
   '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
+  '/_authenticated/settings/administration': typeof AuthenticatedSettingsAdministrationRoute
   '/_authenticated/settings/backups': typeof AuthenticatedSettingsBackupsRoute
   '/_authenticated/settings/notification-channels': typeof AuthenticatedSettingsNotificationChannelsRoute
   '/_authenticated/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
@@ -357,7 +377,9 @@ export interface FileRouteTypes {
     | '/$pluginSlug/$'
     | '/e/$entityId'
     | '/settings/$'
+    | '/settings/about'
     | '/settings/account'
+    | '/settings/administration'
     | '/settings/backups'
     | '/settings/notification-channels'
     | '/settings/preferences'
@@ -389,7 +411,9 @@ export interface FileRouteTypes {
     | '/$pluginSlug/$'
     | '/e/$entityId'
     | '/settings/$'
+    | '/settings/about'
     | '/settings/account'
+    | '/settings/administration'
     | '/settings/backups'
     | '/settings/notification-channels'
     | '/settings/preferences'
@@ -425,7 +449,9 @@ export interface FileRouteTypes {
     | '/_authenticated/$pluginSlug/$'
     | '/_authenticated/e/$entityId'
     | '/_authenticated/settings/$'
+    | '/_authenticated/settings/about'
     | '/_authenticated/settings/account'
+    | '/_authenticated/settings/administration'
     | '/_authenticated/settings/backups'
     | '/_authenticated/settings/notification-channels'
     | '/_authenticated/settings/preferences'
@@ -611,11 +637,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsSplatRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/settings/about': {
+      id: '/_authenticated/settings/about'
+      path: '/about'
+      fullPath: '/settings/about'
+      preLoaderRoute: typeof AuthenticatedSettingsAboutRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
     '/_authenticated/settings/account': {
       id: '/_authenticated/settings/account'
       path: '/account'
       fullPath: '/settings/account'
       preLoaderRoute: typeof AuthenticatedSettingsAccountRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/settings/administration': {
+      id: '/_authenticated/settings/administration'
+      path: '/administration'
+      fullPath: '/settings/administration'
+      preLoaderRoute: typeof AuthenticatedSettingsAdministrationRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
     '/_authenticated/settings/backups': {
@@ -716,7 +756,9 @@ const AuthenticatedPluginSlugRouteRouteWithChildren =
 
 interface AuthenticatedSettingsRouteRouteChildren {
   AuthenticatedSettingsSplatRoute: typeof AuthenticatedSettingsSplatRoute
+  AuthenticatedSettingsAboutRoute: typeof AuthenticatedSettingsAboutRoute
   AuthenticatedSettingsAccountRoute: typeof AuthenticatedSettingsAccountRoute
+  AuthenticatedSettingsAdministrationRoute: typeof AuthenticatedSettingsAdministrationRoute
   AuthenticatedSettingsBackupsRoute: typeof AuthenticatedSettingsBackupsRoute
   AuthenticatedSettingsNotificationChannelsRoute: typeof AuthenticatedSettingsNotificationChannelsRoute
   AuthenticatedSettingsPreferencesRoute: typeof AuthenticatedSettingsPreferencesRoute
@@ -732,7 +774,10 @@ interface AuthenticatedSettingsRouteRouteChildren {
 const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteChildren =
   {
     AuthenticatedSettingsSplatRoute: AuthenticatedSettingsSplatRoute,
+    AuthenticatedSettingsAboutRoute: AuthenticatedSettingsAboutRoute,
     AuthenticatedSettingsAccountRoute: AuthenticatedSettingsAccountRoute,
+    AuthenticatedSettingsAdministrationRoute:
+      AuthenticatedSettingsAdministrationRoute,
     AuthenticatedSettingsBackupsRoute: AuthenticatedSettingsBackupsRoute,
     AuthenticatedSettingsNotificationChannelsRoute:
       AuthenticatedSettingsNotificationChannelsRoute,

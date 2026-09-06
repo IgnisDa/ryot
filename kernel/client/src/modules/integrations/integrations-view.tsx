@@ -12,6 +12,7 @@ import {
 	type IntegrationProviderNames,
 } from "#/modules/integrations/presentation";
 import { integrationLotLabel } from "#/modules/integrations/provider-selection";
+import { PreferenceRow } from "#/modules/settings/preferences-form";
 import { LoadErrorState } from "#/modules/ui/load-error-state";
 import { StatusState } from "#/modules/ui/status-state";
 
@@ -32,6 +33,12 @@ export type IntegrationListState =
 			readonly integrations: readonly IntegrationSummary[];
 	  };
 
+export type IntegrationPauseState = {
+	readonly paused: boolean;
+	readonly failed: boolean;
+	readonly isSaving: boolean;
+};
+
 type IntegrationsViewProps = {
 	readonly nowMs: number;
 	readonly isSyncing: boolean;
@@ -45,7 +52,34 @@ type IntegrationsViewProps = {
 	readonly state: IntegrationListState;
 	readonly syncDetail: string | undefined;
 	readonly providerNames: IntegrationProviderNames;
+	readonly pause: IntegrationPauseState | undefined;
+	readonly onPauseChange: (paused: boolean) => void;
 };
+
+function PauseIntegrations(props: {
+	readonly readOnly: boolean;
+	readonly state: IntegrationPauseState;
+	readonly onChange: (paused: boolean) => void;
+}) {
+	return (
+		<div className="flex flex-col gap-2">
+			<div className="rounded-xl border border-border bg-surface">
+				<PreferenceRow
+					onChange={props.onChange}
+					title="Pause integrations"
+					checked={props.state.paused}
+					disabled={props.readOnly || props.state.isSaving}
+					detail="Stop all external integration processing for your account."
+				/>
+			</div>
+			{props.state.failed && (
+				<StatusMessage tone="error" className="text-sm">
+					Could not update integrations. Try again.
+				</StatusMessage>
+			)}
+		</div>
+	);
+}
 
 function IntegrationRow(props: {
 	readonly nowMs: number;
@@ -94,6 +128,13 @@ export function IntegrationsView(props: IntegrationsViewProps) {
 		<div className="flex flex-col gap-6 pb-4">
 			<p className="text-sm leading-6 text-text-muted">{INTRO}</p>
 			{props.readOnly === true && <DemoProtectionMessage />}
+			{props.pause === undefined ? null : (
+				<PauseIntegrations
+					state={props.pause}
+					onChange={props.onPauseChange}
+					readOnly={props.readOnly === true}
+				/>
+			)}
 			{ready === undefined ? null : (
 				<Button
 					type="button"
