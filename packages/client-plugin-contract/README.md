@@ -12,6 +12,11 @@ The iframe reports metadata embedded in the composition document rather than tre
 input as proof. Later document messages replace the page context and remount its page tree without
 closing the bridge. The kernel retains up to three iframe runtimes by composition hash.
 
+`src/artifact.ts` defines artifact schemas, exact-byte file copies, and the single metadata hash
+calculation used by the compiler, ingestion, and server assembly. The hash includes the plugin name,
+versions, and sorted file names, MIME types, and byte hashes. The package entry point exports these
+definitions for callers.
+
 The client artifact format, client API, compiler, and bridge protocol remain version 1.
 There are no compatibility adapters for earlier development builds.
 
