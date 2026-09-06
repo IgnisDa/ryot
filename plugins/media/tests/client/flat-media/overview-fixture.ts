@@ -64,7 +64,7 @@ export type FlatOverviewRows = {
 	readonly companies?: readonly Record<string, unknown>[];
 	readonly members?: readonly Record<string, unknown>[];
 	readonly recommendations?: readonly Record<string, unknown>[];
-	readonly extra?: Record<string, unknown>;
+	readonly unlinkedCreators?: readonly Record<string, unknown>[] | null;
 };
 
 export const flatOverviewRows = (items: readonly Record<string, unknown>[]) =>
@@ -83,11 +83,15 @@ const groupRows = (
 	);
 
 export const flatOverviewData = (input: FlatOverviewRows = {}) => ({
-	...input.extra,
 	people: flatOverviewRows(input.people ?? [flatPersonRow]),
 	companies: flatOverviewRows(input.companies ?? [flatCompanyRow]),
 	recommendations: flatOverviewRows(input.recommendations ?? [flatRecommendationRow]),
 	group: groupRows(input.group ?? [flatGroupRow], input.members ?? [flatGroupMemberRow]),
+	creators: rowsResult([{ unlinkedCreators: input.unlinkedCreators ?? null }], {
+		limit: 1,
+		hasMore: false,
+		nextCursor: null,
+	}),
 });
 
 export const decodeFlatOverview = <Overview>(
