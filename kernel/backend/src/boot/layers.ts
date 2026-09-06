@@ -154,6 +154,7 @@ import { PluginSandboxScriptResolverLive } from "#modules/plugins/sandbox-plugin
 import { ScriptGarbageCollector } from "#modules/plugins/script-garbage-collector";
 import { PluginIngestionService } from "#modules/plugins/service";
 import { SystemPlugins } from "#modules/plugins/system";
+import { ProviderImportAdmission } from "#modules/provider-entities/admission";
 import { EntityImportWorkflowDefinitionsLive } from "#modules/provider-entities/entity-import-workflow";
 import { EntityImportWorkflowOperationsLive } from "#modules/provider-entities/operations-workflow";
 import { EntityPopulationTriggerLive } from "#modules/provider-entities/population-trigger-live";
@@ -666,7 +667,7 @@ const RelationshipsServiceLive = RelationshipsService.layer.pipe(
 const ContentServicesLive = Layer.mergeAll(
 	AuthDependentServicesLive,
 	AutomationHistoryServiceLive,
-	EntityImportService.layer,
+	EntityImportService.layer.pipe(Layer.provide(ProviderImportAdmission.liveLayer)),
 	EventsServiceLive,
 	SavedViewsServiceLive,
 	RyotQLServiceLive,

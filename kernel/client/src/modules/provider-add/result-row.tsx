@@ -59,6 +59,11 @@ function ResultAction(props: {
 				libraryName={props.libraryName}
 			/>
 		)),
+		Match.when({ status: "queued" }, () => (
+			<span role="status" aria-label={`Queued for ${props.libraryName}`}>
+				<AppIcon size={16} name="clock" className="text-text-muted" />
+			</span>
+		)),
 		Match.when({ status: "importing" }, () => (
 			<span role="status" aria-label={`Adding to ${props.libraryName}`}>
 				<AppIcon size={16} name="plus" className="animate-pulse text-text-muted" />
