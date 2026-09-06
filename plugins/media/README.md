@@ -248,6 +248,9 @@ Media operations accept lists and return `results`. Per-item misses are values s
 alignment. `resolve-episodes` instead echoes caller-assigned unique indexes, and its workflow rejects
 missing, duplicate, or unexpected indexes.
 
+Demo sessions may read monitoring status and resolve episodes. Enabling or disabling monitoring is
+protected. Integration-authenticated metadata lookup does not use demo access policy.
+
 `metadata-lookup` accepts only the `ryot_browser_extension` integration. It composes movie and show
 TMDB search with movie first because result position affects matching. IGDB game search options are
 provider-owned dynamic metadata loaded through `search-options` and cached by the backend.

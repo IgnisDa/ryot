@@ -1,6 +1,7 @@
 import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/unstable/httpapi";
 
 import { AuthMiddleware } from "../../auth-middleware";
+import { DemoAccessPolicy } from "../../http-annotations";
 import {
 	CreateEntityBody,
 	EntityBadRequest,
@@ -18,6 +19,8 @@ export const EntitiesGroup = HttpApiGroup.make("entities")
 				EntityBadRequest.pipe(HttpApiSchema.status(400)),
 				EntityNotFound.pipe(HttpApiSchema.status(404)),
 			],
-		}).annotate(OpenApi.Description, "Create an entity."),
+		})
+			.annotate(DemoAccessPolicy, "allowed")
+			.annotate(OpenApi.Description, "Create an entity."),
 	)
 	.middleware(AuthMiddleware);

@@ -4,6 +4,7 @@ import type { NotificationChannelSummary } from "@ryot-app/ryotql-recipes/notifi
 import clsx from "clsx";
 import { useRef, useState } from "react";
 
+import { DemoProtectionMessage } from "#/modules/demo-protection";
 import { notificationChannelName } from "#/modules/notifications/channel-catalog";
 import {
 	notificationChannelDeleteConfirmation,
@@ -45,6 +46,7 @@ type NotificationChannelsViewProps = {
 	readonly deleteFailedId: string | undefined;
 	readonly state: NotificationChannelListState;
 	readonly pendingChannelId: string | undefined;
+	readonly isDemoProtected: boolean;
 	readonly onToggle: (id: string, isDisabled: boolean) => void;
 };
 
@@ -56,6 +58,7 @@ function NotificationChannelRow(props: {
 	readonly deleteFailed: boolean;
 	readonly channel: NotificationChannelSummary;
 	readonly onToggle: (isDisabled: boolean) => void;
+	readonly isDemoProtected: boolean;
 }) {
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const [isConfirming, setIsConfirming] = useState(false);
@@ -76,17 +79,17 @@ function NotificationChannelRow(props: {
 				</span>
 			</span>
 			<Switch
-				disabled={props.isPending}
 				checked={!props.channel.isDisabled}
 				onChange={(checked) => props.onToggle(!checked)}
+				disabled={props.isPending || props.isDemoProtected}
 				label={`${props.channel.isDisabled ? "Enable" : "Pause"} the ${name} channel`}
 			/>
 			<button
 				type="button"
 				ref={triggerRef}
-				disabled={props.isPending}
 				onClick={() => setIsConfirming(true)}
 				aria-label={`Delete the ${name} channel`}
+				disabled={props.isPending || props.isDemoProtected}
 				className="shrink-0 p-1.5 text-text-subtle disabled:opacity-50"
 			>
 				<AppIcon size={16} name="trash-2" />
@@ -124,11 +127,13 @@ export function NotificationChannelsView(props: NotificationChannelsViewProps) {
 	return (
 		<div className="flex flex-col gap-6 pb-4">
 			<p className="text-sm leading-6 text-text-muted">{INTRO}</p>
+			{props.isDemoProtected ? <DemoProtectionMessage /> : null}
 			{ready === undefined ? null : (
 				<Button
 					type="button"
 					variant="primary"
 					onClick={props.onAdd}
+					disabled={props.isDemoProtected}
 					className="flex w-full items-center justify-center gap-2 sm:w-auto sm:self-start sm:px-6"
 				>
 					<AppIcon size={16} name="plus" className="text-accent-ink" />
@@ -146,6 +151,7 @@ export function NotificationChannelsView(props: NotificationChannelsViewProps) {
 							type="button"
 							variant="primary"
 							onClick={props.onAdd}
+							disabled={props.isDemoProtected}
 							className="w-full sm:w-auto sm:px-6"
 						>
 							Add a channel
@@ -162,9 +168,9 @@ export function NotificationChannelsView(props: NotificationChannelsViewProps) {
 							type="button"
 							variant="secondary"
 							onClick={props.onSendTest}
-							disabled={props.isTesting || props.enabledCount === 0}
 							aria-label="Send a test notification to every enabled channel"
 							className="flex min-h-9 items-center gap-1.5 px-3 py-1.5 text-sm"
+							disabled={props.isDemoProtected || props.isTesting || props.enabledCount === 0}
 						>
 							<AppIcon size={14} name="send" className="text-text" />
 							{props.isTesting ? "Sending..." : "Send test notification"}
@@ -182,6 +188,7 @@ export function NotificationChannelsView(props: NotificationChannelsViewProps) {
 								channel={channel}
 								nowMs={props.nowMs}
 								isFirst={index === 0}
+								isDemoProtected={props.isDemoProtected}
 								onDelete={() => props.onDelete(channel.id)}
 								isPending={props.pendingChannelId === channel.id}
 								deleteFailed={props.deleteFailedId === channel.id}

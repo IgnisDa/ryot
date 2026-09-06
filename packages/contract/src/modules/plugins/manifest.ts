@@ -475,12 +475,20 @@ export const PluginOperationAuth = Schema.Literals(["user", "integration"]);
 
 export type PluginOperationAuth = Schema.Schema.Type<typeof PluginOperationAuth>;
 
-export const PluginOperation = strictStruct({
+const PluginOperationFields = {
 	slug: sandboxManifestSlug,
-	auth: PluginOperationAuth,
 	scriptSlug: sandboxManifestSlug,
 	description: sandboxManifestString,
-});
+};
+
+export const PluginOperation = Schema.Union([
+	strictStruct({
+		...PluginOperationFields,
+		auth: Schema.Literal("user"),
+		demoAccess: Schema.Literals(["allowed", "protected"]),
+	}),
+	strictStruct({ ...PluginOperationFields, auth: Schema.Literal("integration") }),
+]);
 
 export type PluginOperation = Schema.Schema.Type<typeof PluginOperation>;
 

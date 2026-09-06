@@ -6,7 +6,6 @@ import { Context, Data, Duration, Effect, Layer, Match, Schedule } from "effect"
 
 import { serverApiUrl } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
-import { RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 
 type CatalogStreamResponse = {
@@ -123,7 +122,6 @@ const openCatalogStream = async (
 
 const makePluginCatalogEventsService = (
 	tokens: OAuthTokenService["Service"],
-	runtimeClient: RuntimeOAuthClientService["Service"],
 	open: CatalogStreamFactory,
 	reconnect: Schedule.Schedule<unknown>,
 ) => ({
@@ -135,37 +133,28 @@ const makePluginCatalogEventsService = (
 			}
 		};
 
-		return runtimeClient.forServer(scope.serverUrl).pipe(
-			Effect.orDie,
-			Effect.flatMap((client) =>
+		return Effect.gen(function* () {
+			const connect = (forceRefresh: boolean) =>
 				Effect.gen(function* () {
-					const connect = (forceRefresh: boolean) =>
-						Effect.gen(function* () {
-							const token = yield* tokens.accessToken(
-								scope.serverUrl,
-								client.clientId,
-								forceRefresh,
-							);
-							if (token === null) {
-								return yield* Effect.never;
-							}
-							const unauthorized = yield* Effect.tryPromise({
-								catch: (cause) => new CatalogStreamClosed({ cause }),
-								try: (signal) => openCatalogStream(open, url, token, signal, onEvent),
-							});
-							if (!unauthorized) {
-								return yield* new CatalogStreamClosed({ cause: "stream ended" });
-							}
-							return unauthorized;
-						});
-
-					if (yield* connect(false)) {
-						yield* connect(true);
+					const token = yield* tokens.accessToken(scope.serverUrl, forceRefresh);
+					if (token === null) {
+						return yield* Effect.never;
 					}
-					return yield* Effect.never;
-				}).pipe(Effect.retry(reconnect), Effect.orDie),
-			),
-		);
+					const unauthorized = yield* Effect.tryPromise({
+						catch: (cause) => new CatalogStreamClosed({ cause }),
+						try: (signal) => openCatalogStream(open, url, token, signal, onEvent),
+					});
+					if (!unauthorized) {
+						return yield* new CatalogStreamClosed({ cause: "stream ended" });
+					}
+					return unauthorized;
+				});
+
+			if (yield* connect(false)) {
+				yield* connect(true);
+			}
+			return yield* Effect.never;
+		}).pipe(Effect.retry(reconnect), Effect.orDie);
 	},
 });
 
@@ -178,7 +167,6 @@ export class PluginCatalogEventsService extends Context.Service<
 		Effect.gen(function* () {
 			return makePluginCatalogEventsService(
 				yield* OAuthTokenService,
-				yield* RuntimeOAuthClientService,
 				(url, request) => fetch(url, { ...request, cache: "no-store", credentials: "omit" }),
 				reconnectSchedule,
 			);
@@ -193,11 +181,6 @@ export const makePluginCatalogEventsLayer = (
 	Layer.effect(
 		PluginCatalogEventsService,
 		Effect.gen(function* () {
-			return makePluginCatalogEventsService(
-				yield* OAuthTokenService,
-				yield* RuntimeOAuthClientService,
-				open,
-				reconnect,
-			);
+			return makePluginCatalogEventsService(yield* OAuthTokenService, open, reconnect);
 		}),
 	);
