@@ -1,0 +1,102 @@
+import { createRyotQuery } from "@ryot-app/client-sdk/react";
+import clsx from "clsx";
+
+import {
+	podcastEpisodesRecipe,
+	type PodcastEpisodesResult,
+	type PodcastSummaryResult,
+} from "../../shared/podcast-recipes";
+import {
+	MediaEpisodePages,
+	type MediaEpisodePageInput,
+	type MediaEpisodePagesCopy,
+	type MediaEpisodeRender,
+} from "../media/episodes";
+import {
+	mediaEpisodeNumberLabel,
+	mediaEpisodePageError,
+	type MediaEpisodePage,
+} from "../media/episodes-state";
+import { mediaCountLabel } from "../media/summary-state";
+
+export const PODCAST_EPISODE_PAGE_LIMIT = 40;
+
+type PodcastSummary = NonNullable<PodcastSummaryResult["summary"]>;
+
+export type PodcastEpisode = PodcastEpisodesResult["items"][number];
+
+export const podcastEpisodeOriginLabel = (episode: { readonly episodeNumber: number }) =>
+	`Ep ${episode.episodeNumber}`;
+
+export const podcastEpisodesQuery = createRyotQuery<
+	MediaEpisodePageInput,
+	MediaEpisodePage<PodcastEpisode>
+>(
+	({ input, client, signal }) =>
+		client.data.query(
+			podcastEpisodesRecipe({
+				containerId: input.containerId,
+				limit: PODCAST_EPISODE_PAGE_LIMIT,
+				...(input.after === null ? {} : { after: input.after }),
+			}),
+			{ signal },
+		),
+	{
+		entityInterest: ({ data, input }) => ({
+			foreground: [input.entityId],
+			visible: data?.items.map(({ id }) => id) ?? [],
+		}),
+	},
+);
+
+const PODCAST_EPISODE_RENDER: MediaEpisodeRender<PodcastEpisode> = {
+	aspect: "square",
+	purpose: "cover",
+	numberLabel: mediaEpisodeNumberLabel,
+	originLabel: podcastEpisodeOriginLabel,
+	stateLabels: { complete: "Played", untracked: undefined, in_progress: "In progress" },
+};
+
+const PODCAST_EPISODE_PAGES_COPY: MediaEpisodePagesCopy = {
+	empty: "No episodes have been recorded for this podcast yet.",
+	error: (state) => mediaEpisodePageError({ state, noun: "episodes" }),
+	loading: { title: "Loading episodes...", detail: "Fetching this podcast's episodes." },
+};
+
+export const podcastEpisodeCountLine = (summary: PodcastSummary | undefined) => {
+	if (summary === undefined) {
+		return undefined;
+	}
+	const total = summary.totalEpisodes ?? summary.storedEpisodes;
+	if (total === 0) {
+		return undefined;
+	}
+	const played = summary.watchedEpisodes === 0 ? undefined : `${summary.watchedEpisodes} played`;
+	return [mediaCountLabel(total, "episode"), played]
+		.filter((part) => part !== undefined)
+		.join(" · ");
+};
+
+export function PodcastEpisodesTab(props: {
+	readonly compact: boolean;
+	readonly entityId: string;
+	readonly summary: PodcastSummary | undefined;
+}) {
+	const counts = podcastEpisodeCountLine(props.summary);
+	return (
+		<div className={clsx("flex flex-col", props.compact ? "gap-5 pt-6" : "gap-6 pt-8")}>
+			{counts === undefined ? null : (
+				<p className="font-ui text-[12px] text-text-subtle">{counts}</p>
+			)}
+			<MediaEpisodePages
+				nextUp="latest"
+				compact={props.compact}
+				entityId={props.entityId}
+				containerId={props.entityId}
+				query={podcastEpisodesQuery}
+				render={PODCAST_EPISODE_RENDER}
+				copy={PODCAST_EPISODE_PAGES_COPY}
+			/>
+		</div>
+	);
+}
