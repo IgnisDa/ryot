@@ -124,10 +124,10 @@ describe("Events bulk POST", () => {
 
 			expect(createResult.count).toBe(2);
 
-			yield* waitForEventCount(apiClient, entityId, 2);
+			yield* waitForEventCount(apiClient, entityId, 3);
 
 			const allEvents = yield* listEventsForEntity(apiClient, entityId, undefined, 100);
-			expect(allEvents).toHaveLength(2);
+			expect(allEvents).toHaveLength(3);
 
 			const progressEvents = yield* listEventsForEntity(apiClient, entityId, undefined, 100, {
 				eventSchemaSlug: "progress",
