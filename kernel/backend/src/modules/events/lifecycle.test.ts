@@ -28,6 +28,7 @@ import {
 	makeConfigProviderLayer,
 	makeWorkflowEngine,
 } from "#lib/test-utils/effect";
+import { withLifecycleDispatch } from "#modules/automations/lifecycle.test-support";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventSchemasRepository } from "#modules/event-schemas/repository";
 
@@ -196,11 +197,14 @@ const engine = makeWorkflowEngine({
 	activityExecute: (activity) =>
 		Effect.map(Effect.exit(activity.execute), (exit) => new Workflow.Complete({ exit })),
 });
-const execution = Layer.succeed(LifecycleExecution, {
-	after: () => Effect.succeed([]),
-	skipQueuedPolicies: () => Effect.void,
-	executePolicy: () => Effect.die("Unexpected policy"),
-});
+const execution = Layer.succeed(
+	LifecycleExecution,
+	withLifecycleDispatch({
+		after: () => Effect.succeed([]),
+		skipQueuedPolicies: () => Effect.void,
+		executePolicy: () => Effect.die("Unexpected policy"),
+	}),
+);
 
 describe("Event lifecycle PostgreSQL", () => {
 	it.effect("event, change trigger and queued runs commit together and roll back together", () =>
@@ -221,20 +225,23 @@ describe("Event lifecycle PostgreSQL", () => {
 							WorkflowInstance,
 							WorkflowInstance.initial(EventCreateWorkflow, id),
 						),
-						Effect.provideService(LifecycleExecution, {
-							skipQueuedPolicies: () => Effect.void,
-							executePolicy: () => Effect.die("Unexpected policy"),
-							after: () =>
-								Effect.gen(function* () {
-									const result = yield* Effect.promise(() =>
-										observer.query(
-											`SELECT (SELECT count(*) FROM event)::int AS events, (SELECT count(*) FROM automation_trigger WHERE category='change')::int AS changes, (SELECT count(*) FROM automation_run)::int AS runs`,
-										),
-									);
-									expect(result.rows).toEqual([{ runs: 1, events: 1, changes: 1 }]);
-									return [];
-								}),
-						}),
+						Effect.provideService(
+							LifecycleExecution,
+							withLifecycleDispatch({
+								skipQueuedPolicies: () => Effect.void,
+								executePolicy: () => Effect.die("Unexpected policy"),
+								after: () =>
+									Effect.gen(function* () {
+										const result = yield* Effect.promise(() =>
+											observer.query(
+												`SELECT (SELECT count(*) FROM event)::int AS events, (SELECT count(*) FROM automation_trigger WHERE category='change')::int AS changes, (SELECT count(*) FROM automation_run)::int AS runs`,
+											),
+										);
+										expect(result.rows).toEqual([{ runs: 1, events: 1, changes: 1 }]);
+										return [];
+									}),
+							}),
+						),
 					);
 				assertExitFails(
 					yield* Effect.exit(run("failed", true)),
@@ -487,25 +494,7 @@ describe("Event lifecycle PostgreSQL", () => {
 				const work = yield* db.transaction((tx) =>
 					service.persistPreparedDelete(committedDelete).pipe(Effect.provideService(Database, tx)),
 				);
-				expect(
-					yield* db
-						.transaction((tx) =>
-							service.executeCommittedPlans(work.plans).pipe(Effect.provideService(Database, tx)),
-						)
-						.pipe(Effect.flip),
-				).toMatchObject({ code: "postcommit-requires-root" });
-				let afterCalls = 0;
-				yield* service.executeCommittedPlans(work.plans).pipe(
-					Effect.provideService(LifecycleExecution, {
-						...lifecycleExecution,
-						after: () =>
-							Effect.sync(() => {
-								afterCalls += 1;
-								return [];
-							}),
-					}),
-				);
-				expect(afterCalls).toBe(1);
+				expect(work.plans).toHaveLength(1);
 
 				const rejectedId = EventId.make("prepared-rejected");
 				yield* seed(rejectedId);

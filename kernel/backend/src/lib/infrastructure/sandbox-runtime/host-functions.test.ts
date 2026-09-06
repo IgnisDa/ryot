@@ -61,6 +61,7 @@ const hostDatabaseLayer = Layer.mergeAll(
 	}),
 	Layer.mock(LifecycleExecution)({
 		after: () => Effect.succeed([]),
+		dispatch: () => Effect.succeed([]),
 		skipQueuedPolicies: () => Effect.void,
 	}),
 );

@@ -1,6 +1,7 @@
 import { Effect, Schema } from "effect";
-import { Activity } from "effect/unstable/workflow";
 import { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
+
+import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 
 import { ProcessIntegrationRunWorkflow } from "./integration-workflow";
 import { IntegrationSyncRun } from "./jobs";
@@ -13,7 +14,7 @@ export const runIntegrationSyncWorkflow = Effect.fn("IntegrationSyncWorkflow")(
 		const engine = yield* WorkflowEngine;
 		const integrations = yield* IntegrationsService;
 
-		const runs = yield* Activity.make({
+		const runs = yield* makeActivity({
 			error: Schema.Never,
 			name: "prepare-integration-sync-runs",
 			success: Schema.Array(IntegrationSyncRun),
@@ -44,6 +45,7 @@ export const runIntegrationSyncWorkflow = Effect.fn("IntegrationSyncWorkflow")(
 		}),
 );
 
-export const IntegrationSyncWorkflowDefinitionsLive = IntegrationSyncWorkflow.toLayer(
+export const IntegrationSyncWorkflowDefinitionsLive = implementWorkflow(
+	IntegrationSyncWorkflow,
 	runIntegrationSyncWorkflow,
 );

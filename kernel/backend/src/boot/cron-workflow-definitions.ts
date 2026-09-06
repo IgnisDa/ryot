@@ -2,6 +2,7 @@ import { DateTime, Effect } from "effect";
 import type { WorkflowEngine } from "effect/unstable/workflow/WorkflowEngine";
 
 import type { Database } from "#lib/infrastructure/db/service";
+import { implementWorkflow } from "#lib/infrastructure/workflow-scope";
 import type { AutomationReconciliation } from "#modules/automations/reconciliation";
 import { automationsFrequentTask } from "#modules/automations/reconciliation";
 import { AutomationRetention } from "#modules/automations/retention";
@@ -65,5 +66,7 @@ const runFrequentCronWorkflow = Effect.fn("FrequentCronWorkflow")(
 		Effect.annotateLogs(effect, { executionId, workflow: "FrequentCronWorkflow" }),
 );
 
-export const FrequentCronWorkflowDefinitionsLive =
-	FrequentCronWorkflow.toLayer(runFrequentCronWorkflow);
+export const FrequentCronWorkflowDefinitionsLive = implementWorkflow(
+	FrequentCronWorkflow,
+	runFrequentCronWorkflow,
+);

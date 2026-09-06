@@ -14,11 +14,11 @@ import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { eq } from "drizzle-orm";
 import { Clock, Context, DateTime, Effect, Layer, Schema } from "effect";
-import { Activity } from "effect/unstable/workflow";
 
 import { pluginRevision } from "#lib/infrastructure/db/schema/tables/core";
 import { Database, mapDatabaseErrors } from "#lib/infrastructure/db/service";
 import { sandboxContextError } from "#lib/infrastructure/sandbox-runtime/limits";
+import { implementWorkflow, makeActivity } from "#lib/infrastructure/workflow-scope";
 import type { SandboxExecutionResult } from "#modules/sandbox/execution-result";
 import { SandboxRepository } from "#modules/sandbox/repository";
 import { SandboxExecutionService } from "#modules/sandbox/service";
@@ -241,7 +241,7 @@ export const runAutomationRunWorkflow = Effect.fn("AutomationRunWorkflow")(funct
 		return yield* new DbError({ message: "Automation attempt workflow identity mismatch" });
 	}
 	const operations = yield* AutomationRunWorkflowOperations;
-	const { stage, attempt } = yield* Activity.make({
+	const { stage, attempt } = yield* makeActivity({
 		error: DbError,
 		name: "claim-automation-attempt",
 		success: ClaimedAutomationAttempt,
@@ -261,7 +261,7 @@ export const runAutomationRunWorkflow = Effect.fn("AutomationRunWorkflow")(funct
 				: null;
 		return completion(attempt, policyOutput);
 	}
-	const prepared = yield* Activity.make({
+	const prepared = yield* makeActivity({
 		success: PreparedAutomationRun,
 		name: "prepare-automation-attempt",
 		execute: operations.prepare(payload),
@@ -328,7 +328,7 @@ export const runAutomationRunWorkflow = Effect.fn("AutomationRunWorkflow")(funct
 				: { failureKind: null, status: "succeeded" }),
 		};
 	}
-	const finalized = yield* Activity.make({
+	const finalized = yield* makeActivity({
 		error: DbError,
 		success: AutomationRunAttempt,
 		name: "finalize-automation-attempt",
@@ -337,5 +337,7 @@ export const runAutomationRunWorkflow = Effect.fn("AutomationRunWorkflow")(funct
 	return completion(finalized, policyOutput);
 });
 
-export const AutomationRunWorkflowDefinitionsLive =
-	AutomationRunWorkflow.toLayer(runAutomationRunWorkflow);
+export const AutomationRunWorkflowDefinitionsLive = implementWorkflow(
+	AutomationRunWorkflow,
+	runAutomationRunWorkflow,
+);
