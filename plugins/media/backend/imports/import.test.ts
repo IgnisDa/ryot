@@ -93,6 +93,41 @@ it.live("passes Netflix profile selection from source payload to its parser acti
 	}),
 );
 
+it.live("passes the AniList timezone from source payload to its parser activity", () =>
+	Effect.gen(function* () {
+		const request = yield* parserRequest({
+			source: "anilist",
+			runId: "run-anilist",
+			sourcePayload: { timezone: " Asia/Kolkata " },
+		});
+		expect(request).toMatchObject({
+			kind: "activity",
+			args: {
+				scriptSlug: "import.anilist",
+				input: { start: 0, limit: 25, timezone: "Asia/Kolkata" },
+			},
+		});
+	}),
+);
+
+it.live("fails the AniList workflow when the timezone is missing", () =>
+	Effect.gen(function* () {
+		const envelope = yield* workflow.run(
+			{
+				source: "anilist",
+				sourcePayload: {},
+				runId: "run-anilist-missing",
+				command: importCommand("run-anilist-missing"),
+			},
+			{ replayJournal: () => Effect.succeed([]) } satisfies WorkflowReplayHost,
+			{ metadata: {}, sandboxScriptId: "media-import" },
+		);
+		assert(envelope.state === "failed");
+		expect(envelope.error).toContain("Import job is missing AniList timezone");
+		expect(envelope.requests).toEqual([]);
+	}),
+);
+
 it.live.each([
 	["user mode", { mode: "user", username: "alice" }, { mode: "user", username: "alice" }],
 	[
