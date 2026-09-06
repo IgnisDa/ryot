@@ -24,12 +24,14 @@ export const TYPED_FAILURE_MESSAGE = "benchmark-typed-failure";
 /** Longer than `SANDBOX_LIMITS.execution.timeoutMs` (30s) so the execution is killed by the host. */
 export const TIMEOUT_FIXTURE_SLEEP_MS = 45_000;
 
+const PAYLOAD_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
 /**
  * Seeded so a scenario replays byte-identically, and spread over a printable alphabet so the
  * measured serialization cost is not hidden by compression of a repeated character.
  */
 export function deterministicPayload(seed: number, byteLength: number) {
-	const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+	const alphabet = PAYLOAD_ALPHABET;
 	let state = (seed ^ 0x9e3779b9) >>> 0;
 	let payload = "";
 	for (let index = 0; index < byteLength; index += 1) {
@@ -40,6 +42,22 @@ export function deterministicPayload(seed: number, byteLength: number) {
 	}
 	return payload;
 }
+
+// The sandbox compiler type-checks generated sources under `noImplicitAny`, and transpiling this
+// module strips annotations, so the embedded copies are annotated sources kept honest by the
+// equivalence tests rather than `Function.prototype.toString()`.
+export const DETERMINISTIC_PAYLOAD_SOURCE = `function deterministicPayload(seed: number, byteLength: number): string {
+  const alphabet = ${JSON.stringify(PAYLOAD_ALPHABET)};
+  let state = (seed ^ 0x9e3779b9) >>> 0;
+  let payload = "";
+  for (let index = 0; index < byteLength; index += 1) {
+    state = (state + 0x6d2b79f5) >>> 0;
+    let mixed = Math.imul(state ^ (state >>> 15), state | 1);
+    mixed ^= mixed + Math.imul(mixed ^ (mixed >>> 7), mixed | 61);
+    payload += alphabet.charAt(((mixed ^ (mixed >>> 14)) >>> 0) % 64);
+  }
+  return payload;
+}`;
 
 /**
  * Import scenarios reach the provider through the public import API, which only carries an external
@@ -85,10 +103,46 @@ export function decodeBenchmarkExternalId(value: string) {
 	};
 }
 
+export const DECODE_EXTERNAL_ID_SOURCE = `type BenchmarkWorkload = {
+  seed: number;
+  nonce: string;
+  payloadBytes: number;
+  perCallDelayMs: number;
+  suggestionCount: number;
+  durableHostCalls: number;
+  relatedEntityCount: number;
+  terminalOutcome: "success" | "typed-failure" | "timeout";
+};
+
+function decodeBenchmarkExternalId(value: string): BenchmarkWorkload | null {
+  const parts = value.split(".");
+  if (parts.length !== 9 || parts[0] !== "bm") {
+    return null;
+  }
+  const numbers = parts.slice(1, 7).map((part: string) => Number.parseInt(part, 10));
+  if (numbers.some((part: number) => !Number.isSafeInteger(part) || part < 0)) {
+    return null;
+  }
+  const outcome = parts[7];
+  if (outcome !== "success" && outcome !== "typed-failure" && outcome !== "timeout") {
+    return null;
+  }
+  return {
+    seed: numbers[0] ?? 0,
+    nonce: parts[8] ?? "",
+    terminalOutcome: outcome,
+    payloadBytes: numbers[4] ?? 0,
+    perCallDelayMs: numbers[5] ?? 0,
+    suggestionCount: numbers[2] ?? 0,
+    durableHostCalls: numbers[3] ?? 0,
+    relatedEntityCount: numbers[1] ?? 0,
+  };
+}`;
+
 const DURABLE_HOST_CALL_LOOP = `
     for (let call = 0; call < workload.durableHostCalls; call += 1) {
       if (workload.perCallDelayMs > 0) {
-        yield* Effect.sleep(workload.perCallDelayMs + " millis");
+        yield* Effect.sleep(Duration.millis(workload.perCallDelayMs));
       }
       const preferences = yield* host.getUserPreferences();
       yield* host.setCachedValue(
@@ -100,7 +154,7 @@ const DURABLE_HOST_CALL_LOOP = `
 
 const TERMINAL_OUTCOME_BRANCHES = `
     if (workload.terminalOutcome === "timeout") {
-      yield* Effect.sleep(${TIMEOUT_FIXTURE_SLEEP_MS} + " millis");
+      yield* Effect.sleep(Duration.millis(${TIMEOUT_FIXTURE_SLEEP_MS}));
     }
     if (workload.terminalOutcome === "typed-failure") {
       return yield* Effect.fail({
@@ -111,7 +165,7 @@ const TERMINAL_OUTCOME_BRANCHES = `
 
 export const benchmarkScriptSource = (input: { readonly slug: string; readonly name: string }) => `
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
+import { Duration, Effect, Schema } from "@ryot-app/sandbox-sdk/effect";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -122,7 +176,7 @@ export const manifest = defineManifest({
   capabilities: ["getUserPreferences", "setCachedValue"],
 });
 
-${deterministicPayload.toString()}
+${DETERMINISTIC_PAYLOAD_SOURCE}
 
 export default defineScript({
   manifest,
@@ -153,7 +207,7 @@ export const benchmarkBookDetailsSource = (input: {
 	readonly relatedEntityRelationshipSlug: string;
 }) => `
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
+import { Duration, Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineProvider } from "@ryot-app/sandbox-sdk/provider";
 
 export const manifest = defineManifest({
@@ -165,9 +219,9 @@ export const manifest = defineManifest({
   capabilities: ["getUserPreferences", "setCachedValue"],
 });
 
-${deterministicPayload.toString()}
+${DETERMINISTIC_PAYLOAD_SOURCE}
 
-${decodeBenchmarkExternalId.toString()}
+${DECODE_EXTERNAL_ID_SOURCE}
 
 export default defineProvider({
   manifest,
@@ -181,32 +235,42 @@ export default defineProvider({
       });
     }${DURABLE_HOST_CALL_LOOP}
 ${TERMINAL_OUTCOME_BRANCHES}
-    const related = Array.from({ length: workload.relatedEntityCount }, (_unused, index) => ({
+    const related = Array.from({ length: workload.relatedEntityCount }, (_unused: unknown, index: number) => ({
       providerSlug: ${JSON.stringify(input.personProviderSlug)},
       name: "Benchmark person " + workload.nonce + "-" + index,
       externalId: "bmp." + workload.nonce + "." + index,
       relationshipProperties: { order: index, roles: ["Benchmark"] },
     }));
-    const suggestions = Array.from({ length: workload.suggestionCount }, (_unused, index) => ({
+    const suggestions = Array.from({ length: workload.suggestionCount }, (_unused: unknown, index: number) => ({
       providerSlug: ${JSON.stringify(input.bookProviderSlug)},
       name: "Benchmark suggestion " + workload.nonce + "-" + index,
       externalId: [
         "bm", workload.seed, 0, 0, 0, 0, 0, "success", workload.nonce + "-s" + index,
       ].join("."),
     }));
-    const groups = [];
+    const groups: Array<{
+      relationshipSchemaSlug: string;
+      direction: "incoming" | "outgoing";
+      synchronization: "authoritative" | "additive";
+      entities: ReadonlyArray<{
+        name: string;
+        externalId: string;
+        providerSlug: string;
+        relationshipProperties?: { order: number; roles: string[] };
+      }>;
+    }> = [];
     if (related.length > 0) {
       groups.push({
-        direction: "incoming",
         entities: related,
+        direction: "incoming",
         synchronization: "additive",
         relationshipSchemaSlug: ${JSON.stringify(input.relatedEntityRelationshipSlug)},
       });
     }
     if (suggestions.length > 0) {
       groups.push({
-        direction: "outgoing",
         entities: suggestions,
+        direction: "outgoing",
         synchronization: "authoritative",
         relationshipSchemaSlug: ${JSON.stringify(input.suggestionRelationshipSlug)},
       });
