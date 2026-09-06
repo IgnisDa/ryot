@@ -22,6 +22,7 @@ import {
 	compilePluginPackage,
 	normalizePluginSource,
 	structurePluginFailure,
+	toPluginScriptDescriptor,
 	validationDiagnostics,
 } from "./pipeline";
 import { PluginRepository } from "./repository";
@@ -229,13 +230,14 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 									ownerId: null,
 									scope: "system",
 								});
-								const { files: _files, ...revision } = normalized;
+								const { scripts, files: _files, ...revision } = normalized;
 								const entry = {
 									...revision,
 									slug,
 									id: pluginId,
 									ownerId: null,
 									scope: "system" as const,
+									scripts: scripts.map(toPluginScriptDescriptor),
 								} satisfies PluginRegistryEntry;
 								const nextInstalled = [
 									...installed.filter((plugin) => plugin.slug !== slug),

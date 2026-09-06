@@ -82,24 +82,36 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 		schemaProvider: { providerId: SandboxProviderId; entitySchemaSlug: EntitySchemaSlug };
 		lockInput: Parameters<typeof providerEntityMutationLockKey>[0];
 	}> = [];
-	for (const relatedEntity of uniqueRelatedEntities.values()) {
+	// One provider resolution per distinct slug, not per related entity: a details payload commonly
+	// carries dozens of cast/crew members from the same provider.
+	const schemaProviderBySlug = new Map<
+		string,
+		(typeof resolvedRelatedEntities)[number]["schemaProvider"] | null
+	>();
+	const resolveSchemaProvider = Effect.fn(function* (providerSlug: string) {
+		const memoized = schemaProviderBySlug.get(providerSlug);
+		if (memoized !== undefined) {
+			return memoized;
+		}
 		const availableProvider =
 			input.scope === "user"
-				? yield* pluginRuntime.findProviderAvailableToUserBySlug(
-						input.userId,
-						relatedEntity.providerSlug,
-					)
+				? yield* pluginRuntime.findProviderAvailableToUserBySlug(input.userId, providerSlug)
 				: null;
 		const persistedSchemaProvider =
 			input.scope === "global"
-				? yield* repository.findEntitySchemaProviderBySlug(relatedEntity.providerSlug)
+				? yield* repository.findEntitySchemaProviderBySlug(providerSlug)
 				: null;
-		const schemaProvider = availableProvider
+		const resolved = availableProvider
 			? ({
 					providerId: availableProvider.id,
 					entitySchemaSlug: EntitySchemaSlug.make(availableProvider.rootEntitySchemaSlug),
 				} as const)
 			: persistedSchemaProvider;
+		schemaProviderBySlug.set(providerSlug, resolved);
+		return resolved;
+	});
+	for (const relatedEntity of uniqueRelatedEntities.values()) {
+		const schemaProvider = yield* resolveSchemaProvider(relatedEntity.providerSlug);
 		if (!schemaProvider) {
 			continue;
 		}

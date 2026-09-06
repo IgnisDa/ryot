@@ -529,7 +529,7 @@ it.effect(
 					}),
 					Layer.mock(PluginInstallationRepository, {
 						listSystemForUser: () => Effect.succeed([configuredSystemInstallation]),
-						listForUser: () =>
+						listHydratedForUser: () =>
 							Effect.succeed([
 								configuredSystemInstallation,
 								defaultSystemInstallation,
@@ -783,7 +783,7 @@ it.effect("reuses one export context across every event page", () => {
 							];
 						}),
 				}),
-				Layer.mock(PluginInstallationRepository, { listForUser: () => Effect.succeed([]) }),
+				Layer.mock(PluginInstallationRepository, { listHydratedForUser: () => Effect.succeed([]) }),
 			),
 		),
 	);

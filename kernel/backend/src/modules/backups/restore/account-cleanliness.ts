@@ -21,7 +21,7 @@ import { IntegrationsRepository } from "#modules/integrations/repository";
 import { NotificationsRepository } from "#modules/notifications/repository";
 import {
 	PluginInstallationRepository,
-	type PluginInstallationState,
+	type PluginInstallationHydratedState,
 } from "#modules/plugins/installation-repository";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
@@ -59,7 +59,7 @@ export type AccountCleanlinessState = {
 	readonly savedViews: ReadonlyArray<SavedViewRecord>;
 	readonly defaultPreferences: Record<string, unknown>;
 	readonly entities: ReadonlyArray<PortableEntityRecord>;
-	readonly pluginState: ReadonlyArray<PluginInstallationState>;
+	readonly pluginState: ReadonlyArray<PluginInstallationHydratedState>;
 	readonly relationships: ReadonlyArray<StructuralRelationship>;
 	readonly expectedSavedViews: ReadonlyArray<SavedViewDefinition>;
 	readonly expectedNotificationSubscriptionSlugs: ReadonlyArray<string>;
@@ -203,7 +203,7 @@ export class BackupAccountCleanliness extends Context.Service<BackupAccountClean
 					const views = yield* savedViews.listForBackup(userId);
 					const hasClientRenderers = (yield* clientPages.listRenderers(userId)).length > 0;
 					const subscriptions = yield* automations.listNotificationSubscriptionsForBackup(userId);
-					const states = yield* installations.listForUser(userId);
+					const states = yield* installations.listHydratedForUser(userId);
 					const hasIntegrations = yield* integrations.hasAnyForUser(userId);
 					const hasNotificationChannels = yield* notifications.hasAnyForUser(userId);
 					const snapshot = definitions.getSnapshot();
