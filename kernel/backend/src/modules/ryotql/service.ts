@@ -33,20 +33,21 @@ export class RyotQLService extends Context.Service<RyotQLService>()("RyotQLServi
 
 			return yield* session
 				.transaction(
-					Effect.gen(function* () {
-						const transaction = yield* session.current;
-						yield* transaction.execute(
-							sql`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY`,
-						);
-						yield* transaction.execute(
-							sql`SELECT set_config('statement_timeout', ${RYOTQL_STATEMENT_TIMEOUT_MS.toString()}, true)`,
-						);
-						const results: Array<readonly [string, RyotQLResult]> = [];
-						for (const [name, query] of Object.entries(normalizedDocument.queries)) {
-							results.push([name, yield* executeNamedQuery(scope, query, name, transaction)]);
-						}
-						return { data: Object.fromEntries(results) };
-					}),
+					session.run((transaction) =>
+						Effect.gen(function* () {
+							yield* transaction.execute(
+								sql`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY`,
+							);
+							yield* transaction.execute(
+								sql`SELECT set_config('statement_timeout', ${RYOTQL_STATEMENT_TIMEOUT_MS.toString()}, true)`,
+							);
+							const results: Array<readonly [string, RyotQLResult]> = [];
+							for (const [name, query] of Object.entries(normalizedDocument.queries)) {
+								results.push([name, yield* executeNamedQuery(scope, query, name, transaction)]);
+							}
+							return { data: Object.fromEntries(results) };
+						}),
+					),
 				)
 				.pipe(
 					Effect.catchTag(

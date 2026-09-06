@@ -39,7 +39,7 @@ import type { RedisService } from "#lib/infrastructure/redis";
 
 type AuthRow = Record<string, unknown>;
 type AuthTable = PgTable;
-type DatabaseExecutor = Effect.Success<DatabaseSession["Service"]["current"]>;
+type DatabaseExecutor = Parameters<Parameters<DatabaseSession["Service"]["run"]>[0]>[0];
 type AuthAdapterFactory = ReturnType<typeof createAdapterFactory>;
 
 const tables: Record<string, AuthTable> = {
@@ -162,47 +162,52 @@ const makeSelection = (
 	);
 };
 
+const run = <A, E, R>(context: Context.Context<R>, effect: Effect.Effect<A, E, R>) =>
+	Effect.runPromiseWith(context)(effect);
+
+const addJoins = (db: DatabaseExecutor, rows: readonly AuthRow[], join: JoinConfig | undefined) =>
+	Effect.forEach(rows, (row) =>
+		Effect.gen(function* () {
+			const result = { ...row };
+			for (const [joinModel, config] of Object.entries(join ?? {})) {
+				const table = getTable(joinModel);
+				const joined = yield* db
+					.select()
+					.from(table)
+					.where(eq(getColumn(table, joinModel, config.on.to), row[config.on.from]))
+					.limit(config.relation === "one-to-one" ? 1 : (config.limit ?? 100));
+				result[joinModel] = config.relation === "one-to-one" ? (joined[0] ?? null) : joined;
+			}
+			return result;
+		}),
+	);
+
 export const effectPostgresAuthAdapter = (args: {
 	readonly session: DatabaseSession["Service"];
 	readonly context: Context.Context<DatabaseSession | RedisService>;
 }) => {
 	const session = args.session;
-	const run = <A, E>(effect: Effect.Effect<A, E>) => Effect.runPromiseWith(args.context)(effect);
 
-	const createCustomAdapter = (db: DatabaseExecutor) => {
-		const addJoins = (rows: readonly AuthRow[], join: JoinConfig | undefined) =>
-			Effect.forEach(rows, (row) =>
-				Effect.gen(function* () {
-					const result = { ...row };
-					for (const [joinModel, config] of Object.entries(join ?? {})) {
-						const table = getTable(joinModel);
-						const joined = yield* db
-							.select()
-							.from(table)
-							.where(eq(getColumn(table, joinModel, config.on.to), row[config.on.from]))
-							.limit(config.relation === "one-to-one" ? 1 : (config.limit ?? 100));
-						result[joinModel] = config.relation === "one-to-one" ? (joined[0] ?? null) : joined;
-					}
-					return result;
-				}),
-			);
+	const createCustomAdapter = (context: Context.Context<DatabaseSession | RedisService>) => {
+		const runOperation = <A, E>(operation: (db: DatabaseExecutor) => Effect.Effect<A, E>) =>
+			run(context, session.run(operation));
 
 		return ({
 			getFieldName,
 		}: Parameters<Parameters<typeof createAdapterFactory>[0]["adapter"]>[0]) => {
 			const adapter: CustomAdapter = {
 				delete: ({ model, where }) =>
-					run(
+					runOperation((db) =>
 						Effect.asVoid(db.delete(getTable(model)).where(makeWhere(model, where, getFieldName))),
 					),
 				create: ({ data, model }) =>
-					run(
+					runOperation((db) =>
 						Effect.map(db.insert(getTable(model)).values(data).returning(), (rows) =>
 							Object.assign(data, rows[0]),
 						),
 					),
 				deleteMany: ({ model, where }) =>
-					run(
+					runOperation((db) =>
 						Effect.map(
 							db
 								.delete(getTable(model))
@@ -212,7 +217,7 @@ export const effectPostgresAuthAdapter = (args: {
 						),
 					),
 				count: ({ model, where }) =>
-					run(
+					runOperation((db) =>
 						Effect.map(
 							db
 								.select({ value: count() })
@@ -222,7 +227,7 @@ export const effectPostgresAuthAdapter = (args: {
 						),
 					),
 				updateMany: ({ model, where, update }) =>
-					run(
+					runOperation((db) =>
 						Effect.map(
 							db
 								.update(getTable(model))
@@ -233,25 +238,25 @@ export const effectPostgresAuthAdapter = (args: {
 						),
 					),
 				consumeOne: ({ model, where }) => {
-					const table = getTable(model);
-					const id = getColumn(table, model, getFieldName({ model, field: "id" }));
-					const target = db
-						.select({ id })
-						.from(table)
-						.where(makeWhere(model, where, getFieldName))
-						.limit(1);
-					const deleted = run(
-						Effect.map(
+					const deleted = runOperation((db) => {
+						const table = getTable(model);
+						const id = getColumn(table, model, getFieldName({ model, field: "id" }));
+						const target = db
+							.select({ id })
+							.from(table)
+							.where(makeWhere(model, where, getFieldName))
+							.limit(1);
+						return Effect.map(
 							db.delete(table).where(inArray(id, target)).returning(),
 							(rows) => rows[0] ?? null,
-						),
-					);
+						);
+					});
 					// Better Auth supplies the result type from its model registry, which is not exposed to custom adapters.
 					// oxlint-disable-next-line typescript/no-unsafe-type-assertion
 					return deleted as Promise<never>;
 				},
 				findOne: ({ join, model, where, select }) => {
-					const found = run(
+					const found = runOperation((db) =>
 						Effect.gen(function* () {
 							const table = getTable(model);
 							const selection = makeSelection(model, select, getFieldName) ?? getColumns(table);
@@ -263,7 +268,7 @@ export const effectPostgresAuthAdapter = (args: {
 							if (!rows[0]) {
 								return null;
 							}
-							return join ? (yield* addJoins(rows, join))[0] : rows[0];
+							return join ? (yield* addJoins(db, rows, join))[0] : rows[0];
 						}),
 					);
 					// Better Auth supplies the result type from its model registry, which is not exposed to custom adapters.
@@ -274,15 +279,15 @@ export const effectPostgresAuthAdapter = (args: {
 					if (!where.length) {
 						return Promise.resolve(null);
 					}
-					const table = getTable(model);
-					const id = getColumn(table, model, getFieldName({ model, field: "id" }));
-					const target = db
-						.select({ id })
-						.from(table)
-						.where(makeWhere(model, where, getFieldName))
-						.limit(1);
-					const updated = run(
-						Effect.map(
+					const updated = runOperation((db) => {
+						const table = getTable(model);
+						const id = getColumn(table, model, getFieldName({ model, field: "id" }));
+						const target = db
+							.select({ id })
+							.from(table)
+							.where(makeWhere(model, where, getFieldName))
+							.limit(1);
+						return Effect.map(
 							db
 								.update(table)
 								// Better Auth guarantees update is a model-shaped object, but leaves its generic unconstrained.
@@ -291,39 +296,14 @@ export const effectPostgresAuthAdapter = (args: {
 								.where(inArray(id, target))
 								.returning(),
 							(rows) => rows[0] ?? null,
-						),
-					);
+						);
+					});
 					// Better Auth supplies the result type from its model registry, which is not exposed to custom adapters.
 					// oxlint-disable-next-line typescript/no-unsafe-type-assertion
 					return updated as Promise<never>;
 				},
-				incrementOne: ({ set, model, where, increment }) => {
-					const table = getTable(model);
-					const id = getColumn(table, model, getFieldName({ model, field: "id" }));
-					const guard = makeWhere(model, where, getFieldName);
-					const target = db.select({ id }).from(table).where(guard).limit(1);
-					const update: Record<string, unknown> = { ...set };
-					for (const [field, delta] of Object.entries(increment)) {
-						const name = getFieldName({ model, field });
-						const column = getColumn(table, model, name);
-						update[name] = sql`${column} + ${delta}`;
-					}
-					const incremented = run(
-						Effect.map(
-							db
-								.update(table)
-								.set(update)
-								.where(and(guard, inArray(id, target)))
-								.returning(),
-							(rows) => rows[0] ?? null,
-						),
-					);
-					// Better Auth supplies the result type from its model registry, which is not exposed to custom adapters.
-					// oxlint-disable-next-line typescript/no-unsafe-type-assertion
-					return incremented as Promise<never>;
-				},
 				findMany: ({ join, model, where, limit, select, sortBy, offset }) => {
-					const found = run(
+					const found = runOperation((db) =>
 						Effect.gen(function* () {
 							const table = getTable(model);
 							const selection = makeSelection(model, select, getFieldName) ?? getColumns(table);
@@ -343,12 +323,37 @@ export const effectPostgresAuthAdapter = (args: {
 								query = query.orderBy(sortBy.direction === "desc" ? desc(column) : asc(column));
 							}
 							const rows = yield* query;
-							return join ? yield* addJoins(rows, join) : rows;
+							return join ? yield* addJoins(db, rows, join) : rows;
 						}),
 					);
 					// Better Auth supplies the result type from its model registry, which is not exposed to custom adapters.
 					// oxlint-disable-next-line typescript/no-unsafe-type-assertion
 					return found as Promise<never>;
+				},
+				incrementOne: ({ set, model, where, increment }) => {
+					const incremented = runOperation((db) => {
+						const table = getTable(model);
+						const id = getColumn(table, model, getFieldName({ model, field: "id" }));
+						const guard = makeWhere(model, where, getFieldName);
+						const target = db.select({ id }).from(table).where(guard).limit(1);
+						const update: Record<string, unknown> = { ...set };
+						for (const [field, delta] of Object.entries(increment)) {
+							const name = getFieldName({ model, field });
+							const column = getColumn(table, model, name);
+							update[name] = sql`${column} + ${delta}`;
+						}
+						return Effect.map(
+							db
+								.update(table)
+								.set(update)
+								.where(and(guard, inArray(id, target)))
+								.returning(),
+							(rows) => rows[0] ?? null,
+						);
+					});
+					// Better Auth supplies the result type from its model registry, which is not exposed to custom adapters.
+					// oxlint-disable-next-line typescript/no-unsafe-type-assertion
+					return incremented as Promise<never>;
 				},
 			};
 			return adapter;
@@ -356,9 +361,12 @@ export const effectPostgresAuthAdapter = (args: {
 	};
 
 	let options: Parameters<ReturnType<typeof createAdapterFactory>>[0];
-	const makeFactory = (db: DatabaseExecutor, transaction: boolean): AuthAdapterFactory =>
+	const makeFactory = (
+		context: Context.Context<DatabaseSession | RedisService>,
+		transaction: boolean,
+	): AuthAdapterFactory =>
 		createAdapterFactory({
-			adapter: createCustomAdapter(db),
+			adapter: createCustomAdapter(context),
 			config: {
 				supportsJSON: true,
 				supportsUUIDs: true,
@@ -368,12 +376,14 @@ export const effectPostgresAuthAdapter = (args: {
 				transaction: transaction
 					? <A>(callback: (adapter: DBTransactionAdapter) => Promise<A>) =>
 							run(
+								context,
 								session.transaction(
 									Effect.gen(function* () {
-										const tx = yield* session.current;
-										return yield* Effect.tryPromise(() =>
-											callback(makeFactory(tx, false)(options)),
-										);
+										const transactionContext = yield* Effect.context<
+											DatabaseSession | RedisService
+										>();
+										const adapter = makeFactory(transactionContext, false)(options);
+										return yield* Effect.tryPromise(() => callback(adapter));
 									}),
 								),
 							)
@@ -381,25 +391,20 @@ export const effectPostgresAuthAdapter = (args: {
 			},
 		});
 
-	const factory = Effect.runSyncWith(args.context)(
-		Effect.map(session.current, (db) => makeFactory(db, true)),
-	);
+	const factory = makeFactory(args.context, true);
 	const database = (authOptions: typeof options) => {
 		options = authOptions;
 		return factory(authOptions);
 	};
-	const transaction = <A, E>(
-		callback: (adapter: DBTransactionAdapter, db: DatabaseExecutor) => Effect.Effect<A, E>,
-	) =>
+	const transaction = <A, E>(callback: (adapter: DBTransactionAdapter) => Effect.Effect<A, E>) =>
 		session.transaction(
 			Effect.gen(function* () {
-				const tx = yield* session.current;
 				const transactionContext = yield* Effect.context<DatabaseSession | RedisService>();
-				const adapter = makeFactory(tx, false)(options);
+				const adapter = makeFactory(transactionContext, false)(options);
 				const exit = yield* Effect.promise(() =>
 					Promise.resolve(
 						runWithAdapter(adapter, () =>
-							Effect.runPromiseExitWith(transactionContext)(callback(adapter, tx)),
+							Effect.runPromiseExitWith(transactionContext)(callback(adapter)),
 						),
 					),
 				);
