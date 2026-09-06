@@ -4,11 +4,12 @@
 
 Implement every remaining opportunity in the updated DRY report. This is a consolidation task against the current implementation, not a repeat of the earlier lifecycle cutover.
 
-**Planning baseline**
+**Verified remote preflight baseline (2026-10-01)**
 
 - Branch: `slop-cleanup`
-- HEAD: `b71ba8a1c8`
-- Worktree was clean during planning.
+- HEAD: `33471355e5cca7b95ac5fb2eba439162aef8d66c` (`chore: [slop cleanup] add followup plan`). This adds only this handoff after the implementation at `b71ba8a1c8`.
+- Worktree was clean before preflight. The completed preflight repairs are listed in section 3; workstreams A–H have not started.
+- Acceptance checkout: `/root/ryot-preflight` on the user-provisioned `root@89.167.108.138`, detached at the same HEAD with the local modified/new files overlaid and SHA-256 verified.
 - Current Drizzle baseline: `kernel/backend/src/drizzle/20260930060306_exotic_xorn/`
 
 The preceding commits already implemented:
@@ -21,7 +22,7 @@ The preceding commits already implemented:
 
 **Do not reimplement those systems.** Consolidate their remaining duplication.
 
-Before editing, record:
+When resuming, record:
 
 ```bash
 git branch --show-current
@@ -68,7 +69,35 @@ No SQL schema change is expected. Internal JSON result-codec changes do not by t
 
 ## 3. Preflight and baseline evidence
 
-Run these **separately from `e2e/`**, with no implementation edits first:
+### Status
+
+**Preflight passes on the provisioned Linux server.** The final post-cleanup operational gate completed all 2,002 items and passed every projection, concurrency, sandbox-execution, and zero-lock-wait/deadlock assertion within its unchanged 900,000 ms deadline. The overlap gate, five affected standard E2E files, repository checks, and full non-E2E command also pass. All selected E2E tests executed; none were skipped.
+
+The earlier macOS/Docker capacity failures are not the acceptance environment for this handoff. No claim is made that the final version passes that local environment. Do not repeat passing gates on unchanged code; rerun affected validation after implementation changes.
+
+### Environment
+
+| Setting                                | Verified remote value                                                                              |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Platform                               | Ubuntu 26.04.1 LTS, Linux x86_64                                                                   |
+| Host / Docker capacity                 | 8 CPUs; host memory 15,977,660 KiB; Docker memory 16,361,123,840 bytes                             |
+| Bun / Vitest / Deno / Node             | 1.4.2 / 4.1.9 / 2.8.1 / 22.22.1                                                                    |
+| Docker server                          | 29.8.2, native Unix socket                                                                         |
+| E2E services                           | PostgreSQL `18-alpine`, Redis `alpine`, RustFS; fresh Testcontainers infrastructure per invocation |
+| Vitest                                 | `maxWorkers=6`, `isolate=false`, ordinary test/hook timeout 180,000 ms                             |
+| Backend                                | `NODE_ENV=test`, `TZ=Etc/GMT`, `SERVER_LOG_LEVEL=all`, notifications enabled                       |
+| API pool / PostgreSQL connection limit | 100 / 400                                                                                          |
+| Sandbox                                | Worker concurrency 5, default on-demand process mode, unchanged process isolation and heap limit   |
+| Operational gate                       | Two concurrent 1,001-item imports; 900,000 ms internal deadline; 930,000 ms test timeout           |
+| Opt-in                                 | `RUN_OPERATIONAL_GATES=1`                                                                          |
+
+Provisioning and detached-run helpers were adapted from the scripts removed by `351b4292a309d12c612fe4f4108547858faacac5`, using their contents from that commit's parent. The checkout contains the actual local worktree, including the Effect patch and new tests. `bun install --frozen-lockfile` succeeded. Local `.env` secrets, Docker socket overrides, dependency directories, and diagnostic caches were not copied. Whole-suite/stress scenarios and old debug patches were not restored.
+
+Provisioning evidence: `/root/ryot-preflight-logs/{metadata.json,provision.log,overlay-checksums.json}`; the final synchronized worktree hashes are in `final-source-checksums.json`. The same directory contains `driver.sh`, which accepts only targeted `operational`, `overlap`, `check`, and non-E2E `unit` scenarios. Its shell exports the Bun path; population gates invoke Vitest directly to avoid cached or skipped opt-in runs.
+
+### Final gate commands and results
+
+These commands ran separately from `/root/ryot-preflight/e2e`:
 
 ```bash
 RUN_OPERATIONAL_GATES=1 bun --bun run vitest run \
@@ -80,23 +109,72 @@ RUN_OPERATIONAL_GATES=1 bun --bun run vitest run \
   src/api/plugins/media/imports/media-population-operational-gate.test.ts
 ```
 
-Confirm the output contains executed, passing tests—not skipped tests or only a successful process exit. Direct invocation avoids treating cached Turbo output as proof that the opt-in test ran.
+| Gate, final production version | Executed / skipped | Test duration | Vitest duration | Result                                                              |
+| ------------------------------ | ------------------ | ------------- | --------------- | ------------------------------------------------------------------- |
+| Operational                    | 1 / 0              | 818.87 s      | 853.63 s        | Passed; all 2,002 results completed and every gate assertion passed |
+| Overlap                        | 1 / 0              | 70.38 s       | 91.22 s         | Passed; 5/20-import overlap cases completed without new deadlocks   |
 
-Record:
+No item count, assertion, gate budget, pool size, worker concurrency, or process mode was changed. An earlier remote run of the pre-cleanup version also passed: operational 821.62 s and overlap 72.41 s. These durations are acceptance observations, not a controlled before/after speedup claim.
 
-- Commit, exact command, executed/skipped counts.
-- Duration and assertion results.
-- Retained API/PostgreSQL log paths.
-- Environment/resource configuration.
+Final retained logs:
 
-If a baseline gate fails:
+| Gate        | Runner log under `/root/ryot-preflight-logs/` | API log                                     | PostgreSQL log                      |
+| ----------- | --------------------------------------------- | ------------------------------------------- | ----------------------------------- |
+| Operational | `20261001T102232Z-operational-175553.log`     | `/tmp/ryot-e2e-api-1790850180517-41111.log` | `/tmp/ryot-e2e-postgres-175576.log` |
+| Overlap     | `20261001T103703Z-overlap-328640.log`         | `/tmp/ryot-e2e-api-1790851037486-34889.log` | `/tmp/ryot-e2e-postgres-328648.log` |
 
-1. Inspect its failure and logs.
-2. Determine whether it is setup/environment failure or application behavior.
-3. Report it and pause before separate performance work.
-4. Do not raise limits or weaken assertions.
+Runner summaries and exit-code files are adjacent to these logs. Matching API `.stdout`, `.stderr`, and rotated `.log.gz` files are retained under `/tmp` on the server.
 
-Also establish the check/non-E2E baseline. Do not run the whole E2E suite.
+### Completed preflight repairs to preserve
+
+1. `modules/test-support/operational-gate-service.ts` reads canonical Redis journal keys instead of scanning the keyspace per execution; it retains projection counts, missing/corrupt entry checks, and high-water validation. Failed workflow results are logged through the existing typed test-support surface.
+2. `e2e/src/support/provisioning.ts` bounds graceful API shutdown to 20 seconds, then kills and reaps only the tracked child. Regressions cover graceful exit, an ignoring child, and preservation of an unrelated child. This changes teardown, not the gate budget.
+3. `modules/sandbox/sandbox-script-workflow.ts` records successfully returned JSON request results in existing durable deferreds. Replay validates index, kind, name, argument identity, pinned target, and the complete current envelope before reuse. Dispatch retains the original `WorkflowInstance`; interruptions remain unsettled, journal order/limits and account admission remain intact. Partial-batch, crash, delayed-visibility, divergence, cancellation, retirement, and SQL-backed recovery tests cover the boundary.
+4. Replay bootstrap uses the existing stdin/stdout control channel and the same authenticated bridge handler, expiry, capabilities, arguments, and shared budgets. Trusted dependency payload builds omit source maps; authored script maps remain enabled. Executable URL leases and process isolation were not changed.
+5. `MutationReceipts.registerWorkflow` checks account admission, then reads recorded ownership before attempting an insert. Fingerprint validation and concurrent-insert handling remain. The test admission fixture keys fingerprints by receipt ID and honors lookups rather than sharing one fingerprint across executions.
+6. Scheduled script GC defers while durable sandbox references exist or the ingestion fence is busy, rechecking references under the fence. Boot/explicit collection, liveness rules, TTLs, and tick cadence remain unchanged. Delayed collection during sustained work is an approved tradeoff.
+7. The pinned Effect runtime has a Bun-native workaround for [Effect-TS/effect#8646](https://github.com/Effect-TS/effect/issues/8646). Ordinary deferred completions cache their result without waking a current run that did not await them; interrupts, awaited names, recovery, child replies, and clocks retain their wake paths. The issue includes a self-contained reproduction against the verified published package. `patches/effect@4.0.0-rc.117.patch`, root `patchedDependencies`, and `bun.lock` retain the same version and a linked removal TODO. Source-map precision is preserved outside the changed guard.
+8. The SQL activation regression uses an explicit test-owned readiness barrier before sibling suspension. Its exact 1-before/2-after activation assertions and existing 5/10-second limits are unchanged. Five consecutive focused SQL runs and the full backend/workspace runs passed.
+
+Independent review approved these changes after correcting lost bootstrap arguments and overly broad source-map degradation. The main-session cleanup removed temporary timing observers, their diagnostic-only test, and per-request/batch debug logs: **182 net lines removed**. Core metrics, returned timing data, security/budget tests, and checkpoint coverage remain.
+
+The required-hook polling/clock experiments, executable-URL cache probes, and other temporary performance trials were not adopted. Do not reintroduce them or redo completed preflight.
+
+### Check and non-E2E evidence
+
+These commands ran from `/root/ryot-preflight`:
+
+```bash
+bun run check
+bun turbo --output-logs=full check
+bun turbo --filter='!@ryot-app/e2e' --output-logs=full test
+git diff --check
+```
+
+| Final command           | Result                                     | Cache / duration                                                                                                      | Runner log under `/root/ryot-preflight-logs/` |
+| ----------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `bun run check`         | Passed; 29 lint-rule tests, 37 Turbo tasks | 26 cached; 52.171 s Turbo duration                                                                                    | `20261001T111916Z-check-430786.log`           |
+| Full-output Turbo check | Passed; 37 tasks, zero warnings/errors     | 37 cached; 0.092 s Turbo duration                                                                                     | `20261001-final-turbo-check.log`              |
+| Full non-E2E command    | Passed; 49 tasks                           | 46 cached; 123.229 s Turbo duration. Backend freshly executed: 243 files, 1,633 tests passed, 95.36 s Vitest duration | `20261001T112016Z-unit-432422.log`            |
+| `git diff --check`      | Passed locally and remotely                | No whitespace errors                                                                                                  | Command output                                |
+
+Do not describe replayed cached package results as fresh executions. The full backend also passed independently before the final workspace run. Local/remote formatter differences in test files were retained and synchronized; production code did not change after the final gates.
+
+### Additional affected E2E
+
+Each file ran separately from `e2e/` with `bun --bun run vitest run '<file>'`. All 17 tests passed, with zero failures or skips. No whole-E2E invocation was used.
+
+| File under `src/api/kernel/`             | Tests passed | Vitest duration | Runner log under `/root/ryot-preflight-logs/` |
+| ---------------------------------------- | ------------ | --------------- | --------------------------------------------- |
+| `sandbox/durable-tracer.test.ts`         | 1            | 36.27 s         | `20261001-final-sandbox-durable-tracer.log`   |
+| `imports/durability.test.ts`             | 1            | 81.70 s         | `20261001-final-imports-durability.log`       |
+| `automations/lifecycle-triggers.test.ts` | 6            | 65.90 s         | `20261001-final-lifecycle-triggers.log`       |
+| `auth/god-mode-reset-user.test.ts`       | 7            | 31.59 s         | `20261001-final-god-mode-reset-user.log`      |
+| `system/process-teardown.test.ts`        | 2            | 40.38 s         | `20261001-final-process-teardown.log`         |
+
+These runner logs contain exact API and PostgreSQL log paths, including the restarted import-durability APIs. Final inspection found no remaining test API processes or containers. The checkout and evidence remain available on the server.
+
+**No capacity prework blocker remains for this remote acceptance environment.** Preserve the implemented repairs and upstream-linked workaround while performing workstreams A–H. Source-operation SQL counts and result-byte measurements for the future DRY changes still need comparable fixtures; whole-run trace totals are not source-write counts. Workstreams A–H remain unimplemented.
 
 ## 4. Implementation workstreams
 

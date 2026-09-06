@@ -66,9 +66,9 @@ import {
 import {
 	BridgeService,
 	formatSandboxStderr,
-	SandboxProcessManager,
 	recordSandboxExecutionFinished,
 	recordSandboxExecutionStarted,
+	SandboxProcessManager,
 } from "./runtime";
 import {
 	isSandboxCapabilityAllowed as isCapabilityAllowed,
@@ -176,6 +176,9 @@ const encodeInlineDurableReply = Schema.encodeSync(
 	),
 );
 const decodeInlineDurableResults = Schema.decodeUnknownOption(Schema.Array(jsonValueSchema));
+const decodeBootstrapRequest = Schema.decodeUnknownOption(
+	Schema.fromJsonString(Schema.Struct({ bootstrap: Schema.String })),
+);
 
 const inlineDeferredLine = `${encodeInlineDurableReply({ defer: true })}\n`;
 
@@ -448,6 +451,27 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 							);
 							const settleStartedAt = yield* Clock.currentTimeMillis;
 							remainingMs -= settleStartedAt - waitStartedAt;
+							const bootstrapRequest = decodeBootstrapRequest(line);
+							if (Option.isSome(bootstrapRequest)) {
+								const bootstrap = yield* bridge
+									.bootstrap(input.executionId, token, bootstrapRequest.value.bootstrap)
+									.pipe(
+										Effect.flatMap((response) => Effect.tryPromise(() => response.text())),
+										Effect.raceFirst(processExit),
+										Effect.timeoutOrElse({
+											duration: Duration.millis(Math.max(0, remainingMs)),
+											orElse: () =>
+												Effect.fail(
+													new TimeoutError({
+														message: withProcessStderr(`Sandbox timed out after ${timeoutMs}ms`),
+													}),
+												),
+										}),
+									);
+								yield* Queue.offer(worker.stdinQueue, encoder.encode(`${bootstrap}\n`));
+								remainingMs -= (yield* Clock.currentTimeMillis) - settleStartedAt;
+								continue;
+							}
 							const batch = inline ? decodeInlineDurableBatch(line) : Option.none();
 							if (!inline || Option.isNone(batch)) {
 								responseLine = line;
@@ -460,7 +484,8 @@ export class SandboxService extends Context.Service<SandboxService>()("SandboxSe
 								batch.value.inline.requests,
 							);
 							yield* Queue.offer(worker.stdinQueue, encoder.encode(reply));
-							yield* session.extend((yield* Clock.currentTimeMillis) - settleStartedAt);
+							const settledMs = (yield* Clock.currentTimeMillis) - settleStartedAt;
+							yield* session.extend(settledMs);
 						}
 
 						const raw = yield* Effect.try({

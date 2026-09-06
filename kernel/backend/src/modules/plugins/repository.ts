@@ -208,6 +208,27 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				),
 			);
 		});
+		const tryLockIngestion = Effect.fn("PluginRepository.tryLockIngestion")(function* () {
+			const [row] = yield* database.run((db) =>
+				db
+					.select({
+						acquired: sql<boolean>`pg_try_advisory_xact_lock(hashtext(${PLUGIN_INGESTION_ADVISORY_LOCK_KEY}))`,
+					})
+					.from(sql`(select 1) as admission`),
+			);
+			return row?.acquired === true;
+		});
+		const hasLiveWorkflowReferences = Effect.fn("PluginRepository.hasLiveWorkflowReferences")(
+			function* () {
+				const [row] = yield* database.run((db) =>
+					db
+						.select({ executionId: schema.sandboxWorkflowReference.executionId })
+						.from(schema.sandboxWorkflowReference)
+						.limit(1),
+				);
+				return row !== undefined;
+			},
+		);
 
 		const lockIngestionShared = Effect.fn("PluginRepository.lockIngestionShared")(function* () {
 			yield* database.run((db) =>
@@ -1384,6 +1405,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			findKernelScript,
 			findBySourceHash,
 			isActiveRevision,
+			tryLockIngestion,
 			listPrivateForUser,
 			lockIngestionShared,
 			persistKernelScript,
@@ -1402,6 +1424,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			hasIntegrationReferences,
 			listAuthorizedSourceFiles,
 			deleteUnreferencedScripts,
+			hasLiveWorkflowReferences,
 			listPortablePluginMetadata,
 			findRevisionClientArtifact,
 			findClientArtifactForSource,

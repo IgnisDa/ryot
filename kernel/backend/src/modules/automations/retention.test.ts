@@ -53,7 +53,7 @@ const run = (input: {
 	startedAt: input.status === "running" ? input.queuedAt : null,
 });
 
-type Collection = { now: Date; limit: number };
+type Collection = NonNullable<Parameters<ScriptGarbageCollector["Service"]["collect"]>[0]>;
 
 class ScriptCollections extends Context.Service<
 	ScriptCollections,
@@ -230,8 +230,8 @@ describe("AutomationRetention", () => {
 								},
 							]);
 							expect(yield* yield* ScriptCollections).toEqual([
-								{ now, limit: 1 },
-								{ now, limit: 1 },
+								{ now, limit: 1, scheduled: true },
+								{ now, limit: 1, scheduled: true },
 							]);
 							expect(
 								(yield* db

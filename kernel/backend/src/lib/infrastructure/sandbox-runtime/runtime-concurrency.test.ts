@@ -22,6 +22,7 @@ import { makeRecordingTracer } from "#lib/test-utils/tracer";
 
 import { SANDBOX_LIMITS } from "./limits";
 import { BridgeService, withSandboxHostCallPermit } from "./runtime";
+import { makeWorkflowReplayJournalHostFunction } from "./workflow-journal";
 
 const addSession = Effect.fnUntraced(function* (
 	bridge: BridgeService["Service"],
@@ -44,8 +45,9 @@ const requestBridge = (
 	bridge: BridgeService["Service"],
 	executionId: string,
 	token = `${executionId}-token`,
+	functionName = "test",
 ) =>
-	fetch(`http://127.0.0.1:${bridge.port}/rpc/${executionId}/test`, {
+	fetch(`http://127.0.0.1:${bridge.port}/rpc/${executionId}/${functionName}`, {
 		method: "POST",
 		body: '{"args":[]}',
 		headers: { authorization: `Bearer ${token}` },
@@ -70,6 +72,87 @@ const tracedBridgeLayer = Layer.unwrap(
 );
 
 describe("sandbox bridge host-call concurrency", () => {
+	layer(BridgeService.layer)((test) => {
+		test.effect(
+			"rejects stdin bootstrap arguments before journal reads and consumes the failed attempt",
+			() =>
+				Effect.gen(function* () {
+					const bridge = yield* BridgeService;
+					let reads = 0;
+					const replayJournal = makeWorkflowReplayJournalHostFunction("bootstrap-parent", {
+						client: {
+							hgetall: (_key: string) => {
+								reads += 1;
+								return Promise.resolve({ "high-water": "0" });
+							},
+						},
+					});
+					yield* bridge.addSession("bootstrap-arguments", {
+						token: "unused",
+						hostCallLimit: 2,
+						apiFunctions: { replayJournal },
+						parentSpan: yield* Effect.currentSpan,
+						expiresAt: (yield* Clock.currentTimeMillis) + 60_000,
+					});
+					const rejected = yield* bridge.bootstrap(
+						"bootstrap-arguments",
+						"unused",
+						'{"args":["unexpected"]}',
+					);
+					expect(yield* Effect.tryPromise(() => rejected.json())).toEqual({
+						result: { success: false, error: "replayJournal does not accept arguments" },
+					});
+					expect(reads).toBe(0);
+					const accepted = yield* bridge.bootstrap("bootstrap-arguments", "unused", '{"args":[]}');
+					expect(yield* Effect.tryPromise(() => accepted.json())).toEqual({
+						result: hostSuccess([]),
+					});
+					expect(reads).toBe(1);
+					const exhausted = yield* Effect.tryPromise(() =>
+						requestBridge(bridge, "bootstrap-arguments", "unused", "replayJournal"),
+					);
+					expect(yield* Effect.tryPromise(() => exhausted.json())).toEqual({
+						result: { success: false, error: "Sandbox execution exceeds 2 host calls" },
+					});
+					expect(reads).toBe(1);
+				}).pipe(Effect.scoped, Effect.withSpan("bootstrap-argument-test")),
+		);
+	});
+
+	layer(BridgeService.layer)((test) => {
+		test.effect("authenticates stdin bootstrap and shares its budget with HTTP calls", () =>
+			Effect.gen(function* () {
+				const bridge = yield* BridgeService;
+				let calls = 0;
+				const host = () =>
+					Effect.sync(() => {
+						calls += 1;
+						return hostSuccess([]);
+					});
+				yield* bridge.addSession("stdin-bootstrap", {
+					hostCallLimit: 1,
+					token: "stdin-token",
+					parentSpan: yield* Effect.currentSpan,
+					apiFunctions: { test: host, replayJournal: host },
+					expiresAt: (yield* Clock.currentTimeMillis) + 60_000,
+				});
+				expect(
+					(yield* bridge.bootstrap("stdin-bootstrap", "wrong-token", '{"args":[]}')).status,
+				).toBe(401);
+				expect(calls).toBe(0);
+				const reply = yield* bridge.bootstrap("stdin-bootstrap", "stdin-token", '{"args":[]}');
+				expect(yield* Effect.tryPromise(() => reply.json())).toEqual({ result: hostSuccess([]) });
+				const exhausted = yield* Effect.tryPromise(() =>
+					requestBridge(bridge, "stdin-bootstrap", "stdin-token"),
+				);
+				expect(yield* Effect.tryPromise(() => exhausted.json())).toEqual({
+					result: { success: false, error: "Sandbox execution exceeds 1 host calls" },
+				});
+				expect(calls).toBe(1);
+			}).pipe(Effect.scoped, Effect.withSpan("stdin-bootstrap-test")),
+		);
+	});
+
 	layer(tracedBridgeLayer)((test) => {
 		test.effect(
 			"preserves HTTP context while correlating host calls with the sandbox execution",

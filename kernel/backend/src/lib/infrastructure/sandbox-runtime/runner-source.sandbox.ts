@@ -449,6 +449,30 @@ const transportHostCall =
 				"Sandbox bridge request exceeds " + payload.limits.bridgeRequestBytes + " UTF-8 bytes",
 			);
 		}
+		if (fnName === "replayJournal") {
+			writeStdoutAllSync(encodeText(jsonStringify({ bootstrap: requestBody }) + "\n"));
+			const line = await readLine();
+			if (encodeText(line).byteLength > payload.limits.durableBridgeResponseBytes) {
+				return hostFailure(
+					"Sandbox bridge response exceeds " +
+						payload.limits.durableBridgeResponseBytes +
+						" UTF-8 bytes",
+				);
+			}
+			let body: unknown;
+			try {
+				body = jsonParse(line);
+			} catch {
+				throw new nativeError("Sandbox bridge returned invalid JSON");
+			}
+			if (!isRecord(body)) {
+				throw new nativeError("Sandbox bridge returned invalid JSON");
+			}
+			if (typeof body.error === "string") {
+				throw new nativeError(body.error);
+			}
+			return body.result;
+		}
 
 		const response = await bridgeFetch(
 			payload.apiBase +

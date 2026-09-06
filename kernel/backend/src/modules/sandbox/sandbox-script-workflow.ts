@@ -9,12 +9,25 @@ import {
 	type WorkflowReplayEnvelope,
 	workflowDurableCallRequestSchema,
 	workflowReplayEnvelopeSchema,
+	workflowReplayJournalEntrySchema,
 	type WorkflowDurableCallRequest,
 	type WorkflowReplayJournalEntry,
 } from "@ryot-app/sandbox-sdk/workflow";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { Cause, Clock, Context, DateTime, Duration, Effect, Layer, Schema } from "effect";
-import { DurableClock, Workflow } from "effect/unstable/workflow";
+import {
+	Cause,
+	Clock,
+	Context,
+	DateTime,
+	Duration,
+	Effect,
+	Exit,
+	Layer,
+	Option,
+	Schema,
+} from "effect";
+import { DurableClock, DurableDeferred, Workflow } from "effect/unstable/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/unstable/workflow/WorkflowEngine";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
@@ -89,6 +102,11 @@ const ObservedWorkflowReplay = Schema.Union([
 	}),
 ]);
 type ObservedWorkflowReplay = Schema.Schema.Type<typeof ObservedWorkflowReplay>;
+
+const SettledWorkflowRequest = Schema.Struct({
+	entry: workflowReplayJournalEntrySchema,
+	targetScriptId: Schema.NullOr(SandboxScriptId),
+});
 
 export const SandboxScriptWorkflow = Workflow.make("SandboxScriptWorkflow", {
 	error: SandboxRunError satisfies DurableSchema,
@@ -298,6 +316,15 @@ const nondeterminismMessage = (
 	return `SandboxWorkflowNondeterminism: journal[${index}] recorded ${entry.request.kind}:${entry.request.name} args#${recordedHash} but the script requested ${request.kind}:${request.name} args#${requestedHash}`;
 };
 
+const sameRequestIdentity = (
+	recorded: WorkflowDurableCallRequest,
+	requested: WorkflowDurableCallRequest,
+) =>
+	recorded.index === requested.index &&
+	recorded.kind === requested.kind &&
+	recorded.name === requested.name &&
+	hashWorkflowCallArgs(recorded.args) === hashWorkflowCallArgs(requested.args);
+
 /**
  * `inline` holds the entries the replay settled after the journal it loaded; the envelope must
  * list their requests at the same positions, so they join the journal only in replay order.
@@ -328,13 +355,9 @@ export const validateWorkflowReplayEnvelope = (
 		}
 		const entry = recorded[index];
 		if (!entry) {
-			break;
+			continue;
 		}
-		if (
-			entry.request.kind !== request.kind ||
-			entry.request.name !== request.name ||
-			hashWorkflowCallArgs(entry.request.args) !== hashWorkflowCallArgs(request.args)
-		) {
+		if (!sameRequestIdentity(entry.request, request)) {
 			return Effect.fail(
 				sandboxFailure("script-failure", nondeterminismMessage(index, entry, request)),
 			);
@@ -388,29 +411,30 @@ export const validateWorkflowReplayEnvelope = (
 	);
 };
 
-const observeWorkflowReplay = (
+const observeWorkflowReplay = Effect.fnUntraced(function* (
 	replayValue: unknown,
 	journal: ReadonlyArray<WorkflowReplayJournalEntry>,
 	inline: ReadonlyArray<WorkflowReplayJournalEntry>,
 	pluginRevision: SandboxExecutionPrincipal["pluginRevision"],
 	step: number,
-) =>
-	makeActivity({
+) {
+	const envelope = yield* Schema.decodeUnknownEffect(workflowReplayEnvelopeSchema)(
+		replayValue,
+	).pipe(
+		Effect.mapError((error) =>
+			sandboxFailure(
+				"script-failure",
+				`Workflow replay envelope is invalid: ${unknownToMessage(error)}`,
+			),
+		),
+	);
+	// The activity pins targets; the current envelope must be checked on every body activation.
+	const validated = yield* validateWorkflowReplayEnvelope(envelope, journal, inline);
+	const observed = yield* makeActivity({
 		error: SandboxRunError,
 		success: ObservedWorkflowReplay,
 		name: `observe-sandbox-workflow-replay-${step}`,
 		execute: Effect.gen(function* () {
-			const envelope = yield* Schema.decodeUnknownEffect(workflowReplayEnvelopeSchema)(
-				replayValue,
-			).pipe(
-				Effect.mapError((error) =>
-					sandboxFailure(
-						"script-failure",
-						`Workflow replay envelope is invalid: ${unknownToMessage(error)}`,
-					),
-				),
-			);
-			const validated = yield* validateWorkflowReplayEnvelope(envelope, journal, inline);
 			if (validated.state !== "pending") {
 				return validated;
 			}
@@ -438,6 +462,27 @@ const observeWorkflowReplay = (
 			return { requests, state: "pending" as const };
 		}).pipe(Effect.mapError(rethrowSandboxFailure("infrastructure"))),
 	});
+	if (validated.state === "pending" && observed.state === "pending") {
+		if (
+			validated.requests.length !== observed.requests.length ||
+			validated.requests.some(({ request }, index) => {
+				const pinned = observed.requests[index];
+				return !pinned || !sameRequestIdentity(pinned.request, request);
+			})
+		) {
+			return yield* sandboxFailure(
+				"script-failure",
+				"SandboxWorkflowNondeterminism: replay requests do not match the pinned observation",
+			);
+		}
+	} else if (stableStringify(validated) !== stableStringify(observed)) {
+		return yield* sandboxFailure(
+			"script-failure",
+			"SandboxWorkflowNondeterminism: replay outcome does not match the pinned observation",
+		);
+	}
+	return observed;
+});
 
 export const performSandboxWorkflowRequest = Effect.fn("performSandboxWorkflowRequest")(function* (
 	request: WorkflowDurableCallRequest,
@@ -607,6 +652,66 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 	});
 
 	const replayKind = sandboxMetricKind(pin.principal.metadata);
+	const originalInstance = yield* WorkflowInstance;
+	const engine = yield* WorkflowEngine;
+	const settleRequest = Effect.fnUntraced(function* (
+		observed: Extract<ObservedWorkflowReplay, { state: "pending" }>["requests"][number],
+	) {
+		const { request, targetScriptId } = observed;
+		const deferred = DurableDeferred.make(`sandbox-request-${request.index}`, {
+			success: SettledWorkflowRequest,
+		});
+		const stored = yield* engine
+			.deferredResult(deferred)
+			.pipe(Effect.provideService(WorkflowInstance, originalInstance));
+		if (Option.isSome(stored)) {
+			const settled = yield* stored.value;
+			if (
+				!sameRequestIdentity(settled.entry.request, request) ||
+				settled.targetScriptId !== (targetScriptId ?? null)
+			) {
+				return yield* sandboxFailure(
+					"script-failure",
+					`SandboxWorkflowNondeterminism: settled request[${request.index}] identity or pinned target changed`,
+				);
+			}
+			return settled.entry.value;
+		}
+		return yield* Effect.uninterruptibleMask((restore) =>
+			Effect.gen(function* () {
+				const value = yield* restore(
+					performSandboxWorkflowRequest(
+						request,
+						targetScriptId,
+						{ ...payload, startedAt: pin.startedAt, scriptId: pin.principal.scriptId },
+						pin.principal,
+						executionId,
+					).pipe(Effect.provideService(WorkflowInstance, originalInstance)),
+				);
+				const jsonValue = yield* Schema.decodeUnknownEffect(jsonValueSchema)(value).pipe(
+					Effect.mapError((error) =>
+						sandboxFailure(
+							"invalid-output",
+							`Sandbox workflow durable result is invalid: ${unknownToMessage(error)}`,
+						),
+					),
+				);
+				// A sibling suspension must not interrupt the completion write after dispatch has returned.
+				yield* engine
+					.deferredDone(deferred, {
+						deferredName: deferred.name,
+						executionId: originalInstance.executionId,
+						workflowName: originalInstance.workflow._tag,
+						exit: Exit.succeed({
+							entry: { request, value: jsonValue },
+							targetScriptId: targetScriptId ?? null,
+						}),
+					})
+					.pipe(Effect.provideService(WorkflowInstance, originalInstance));
+				return jsonValue;
+			}),
+		);
+	});
 
 	const replayWorkflow = Effect.fnUntraced(function* () {
 		const journal: WorkflowReplayJournalEntry[] = [];
@@ -745,14 +850,7 @@ export const runSandboxScriptWorkflowBody = Effect.fn("SandboxScriptWorkflow")(f
 			}
 			const values = yield* Effect.forEach(
 				observed.requests,
-				({ request, targetScriptId }) =>
-					performSandboxWorkflowRequest(
-						request,
-						targetScriptId,
-						{ ...payload, startedAt: pin.startedAt, scriptId: pin.principal.scriptId },
-						pin.principal,
-						executionId,
-					),
+				(observedRequest) => settleRequest(observedRequest),
 				{ concurrency: SANDBOX_LIMITS.bridge.concurrentHostCalls },
 			);
 			for (let index = 0; index < observed.requests.length; index += 1) {

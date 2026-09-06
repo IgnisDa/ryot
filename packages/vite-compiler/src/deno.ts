@@ -25,6 +25,7 @@ export interface DenoEsmAlias {
 
 interface DenoEsmBuildCommonOptions {
 	readonly outputFile: string;
+	readonly sourceMap?: boolean;
 	readonly aliases?: readonly DenoEsmAlias[];
 	readonly workspaceOptions?: CompilerWorkspaceOptions;
 	readonly approvedExternalSpecifiers: ReadonlySet<string>;
@@ -192,6 +193,7 @@ const sourceMapPath = (outputPath: string, sourcePath: string, generatedPath: st
 const denoConfig = (
 	entry: string,
 	outputFile: string,
+	sourceMap: boolean,
 	aliases: readonly DenoEsmAlias[],
 	approvedExternalSpecifiers: ReadonlySet<string>,
 	workspace: {
@@ -209,9 +211,9 @@ const denoConfig = (
 	build: {
 		minify: false,
 		target: "es2022",
-		sourcemap: "inline",
 		cssCodeSplit: false,
 		modulePreload: false,
+		sourcemap: sourceMap ? "inline" : false,
 		lib: { entry, formats: ["es"], fileName: () => outputFile },
 		rolldownOptions: {
 			preserveEntrySignatures: "strict",
@@ -241,6 +243,7 @@ const buildStagedEntry = Effect.fn("buildDenoEsmEntry")(function* (
 		config: denoConfig(
 			entry,
 			options.outputFile,
+			options.sourceMap ?? true,
 			options.aliases ?? [],
 			options.approvedExternalSpecifiers,
 			workspace,
