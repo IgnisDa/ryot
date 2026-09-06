@@ -1044,11 +1044,11 @@ artifactHash
 → compositionHash
 ```
 
-Bump:
+Keep the bridge protocol at version 1 in this greenfield cutover:
 
 ```text
 CLIENT_BRIDGE_PROTOCOL_VERSION
-2 → 3
+1
 ```
 
 There is no protocol negotiation or compatibility handling.
@@ -1170,14 +1170,14 @@ This affects:
 - shipped plugins;
 - kernel renderer module artifacts.
 
-Bump:
+Keep the compiler version at 1 in this greenfield cutover:
 
 ```text
 CLIENT_COMPILER_VERSION
-1 → 2
+1
 ```
 
-Old version-1 compiled archives may be rejected. No compatibility support is required.
+No compatibility support for earlier development builds is required.
 
 Do not change `CLIENT_API_VERSION` merely because emitted bytes changed.
 

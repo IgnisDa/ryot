@@ -28,9 +28,9 @@ import { Schema } from "effect";
 
 export { CLIENT_API_VERSION };
 export const CLIENT_ARTIFACT_FORMAT = 1 as const;
-export const CLIENT_COMPILER_VERSION = 2 as const;
+export const CLIENT_COMPILER_VERSION = 1 as const;
 export const CLIENT_BRIDGE_MAX_PENDING_REQUESTS = 64;
-export const CLIENT_BRIDGE_PROTOCOL_VERSION = 3 as const;
+export const CLIENT_BRIDGE_PROTOCOL_VERSION = 1 as const;
 export const CLIENT_BRIDGE_BOOTSTRAP_READY = "ryot-client-bootstrap-ready" as const;
 
 export const KERNEL_SHORTCUTS = {
