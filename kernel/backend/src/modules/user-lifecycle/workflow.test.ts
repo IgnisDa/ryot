@@ -10,11 +10,7 @@ import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { testDatabaseUrl } from "#lib/test-utils/database";
 import { databaseLayer, makeWorkflowActivityEngine } from "#lib/test-utils/effect";
 import { AuthService } from "#modules/auth/service";
-import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
-import { PluginInstallationService } from "#modules/plugins/installation-service";
 import { ObjectStorageService } from "#modules/uploads/object-storage/service";
-import { UserBootstrap } from "#modules/user-bootstrap/bootstrap";
-import { PluginUserBootstrapDispatcher } from "#modules/user-bootstrap/plugin-dispatch";
 
 import { UserLifecycleRepository } from "./repository";
 import {
@@ -71,8 +67,10 @@ layer(
 			fail: () => record("fail"),
 			complete: () => record("complete"),
 			cleanupObjects: () => record("objects"),
+			finishResetUser: () => Effect.die("unused"),
 			deleteDatabaseUser: () => record("database"),
 			recreateResetUser: () => Effect.die("unused"),
+			bootstrapResetUser: () => Effect.die("unused"),
 			begin: () => record("begin").pipe(Effect.as("delete" as const)),
 		}),
 	),
@@ -97,8 +95,10 @@ layer(
 			return {
 				fail: () => record("fail"),
 				complete: () => record("complete"),
+				finishResetUser: () => Effect.die("unused"),
 				deleteDatabaseUser: () => record("database"),
 				recreateResetUser: () => Effect.die("unused"),
+				bootstrapResetUser: () => Effect.die("unused"),
 				begin: () => Effect.succeed("delete" as const),
 				cleanupObjects: () =>
 					Ref.updateAndGet(cleanupAttempts, (count) => count + 1).pipe(
@@ -129,7 +129,9 @@ layer(
 		Effect.succeed({
 			complete: () => Effect.die("unused"),
 			cleanupObjects: () => Effect.die("unused"),
+			finishResetUser: () => Effect.die("unused"),
 			recreateResetUser: () => Effect.die("unused"),
+			bootstrapResetUser: () => Effect.die("unused"),
 			deleteDatabaseUser: () => Effect.die("unused"),
 			fail: (_operationId, failure) => recordFailure(failure),
 			begin: () => Effect.fail(internalError("database password leaked")),
@@ -155,7 +157,9 @@ layer(
 			cleanupObjects: () => record("objects"),
 			deleteDatabaseUser: () => record("database"),
 			begin: () => Effect.succeed("reset" as const),
-			recreateResetUser: () => record("recreate").pipe(Effect.as(resetResult)),
+			bootstrapResetUser: () => record("bootstrap"),
+			recreateResetUser: () => record("recreate").pipe(Effect.as(userId)),
+			finishResetUser: () => record("finish").pipe(Effect.as(resetResult)),
 			complete: (_operationId, completed) =>
 				record("complete").pipe(
 					Effect.andThen(Effect.sync(() => expect(completed).toEqual(resetResult))),
@@ -170,6 +174,8 @@ layer(
 				"objects",
 				"database",
 				"recreate",
+				"bootstrap",
+				"finish",
 				"complete",
 			]);
 		}),
@@ -181,20 +187,7 @@ const liveOperationsLayer = <R, E>(dependencies: {
 	readonly overrides: Layer.Layer<R, never, DatabaseSession>;
 }) =>
 	UserLifecycleWorkflowOperationsLive.pipe(
-		Layer.provideMerge(
-			Layer.mergeAll(
-				UserBootstrap.layer.pipe(
-					Layer.provide(
-						Layer.mergeAll(
-							Layer.mock(PluginUserBootstrapDispatcher)({}),
-							Layer.mock(PluginInstallationService)({}),
-							Layer.mock(NotificationSubscriptionsService)({}),
-						),
-					),
-				),
-				dependencies.overrides,
-			),
-		),
+		Layer.provideMerge(Layer.mergeAll(Layer.mock(WorkflowEngine)({}), dependencies.overrides)),
 		Layer.provideMerge(dependencies.database),
 	);
 
@@ -388,7 +381,8 @@ layer(liveOperationsLayer({ database: singleConnection, overrides: resetIdentity
 					),
 				);
 				const operations = yield* UserLifecycleWorkflowOperations;
-				expect(yield* operations.recreateResetUser("operation-1")).toEqual({
+				expect(yield* operations.recreateResetUser("operation-1")).toBe(userId);
+				expect(yield* operations.finishResetUser("operation-1")).toEqual({
 					userId,
 					email: "user@example.com",
 					resetUrl: "https://example.com/reset",

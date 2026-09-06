@@ -6,6 +6,7 @@ import { requirePresent } from "~/support/assertions";
 import { webRequest } from "~/support/web-request";
 
 import {
+	continueAfterInitialization,
 	continueOAuthAuthorization,
 	exchangeOAuthCallback,
 	prepareOAuth,
@@ -140,5 +141,8 @@ export const oidcSignIn = (
 			"OIDC callback did not establish a hosted session",
 		);
 		const authorization = yield* mapAuthError(continueOAuthAuthorization(pending, sessionCookie));
-		return yield* mapAuthError(exchangeOAuthCallback(authorization, pending));
+		const continued = yield* mapAuthError(
+			continueAfterInitialization(authorization, pending, sessionCookie),
+		);
+		return yield* mapAuthError(exchangeOAuthCallback(continued, pending));
 	});

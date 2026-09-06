@@ -214,6 +214,24 @@ layer(layerFor([systemInstallation("sample")]))((test) => {
 			expect(executed).toEqual(["bootstrap.only-id"]);
 		});
 	});
+
+	test.effect("reruns bootstrap scripts after a reset with a new durable identity", () => {
+		const executionIds: string[] = [];
+		return Effect.gen(function* () {
+			const dispatcher = yield* makePluginUserBootstrapDispatcher((payload) =>
+				Effect.sync(() => {
+					executionIds.push(payload.executionId);
+					return { error: null };
+				}),
+			);
+			const userId = UserId.make("user-1");
+			yield* dispatcher.dispatchAll(userId);
+			yield* dispatcher.dispatchAll(userId, "reset-operation-1");
+			yield* dispatcher.dispatchAll(userId, "reset-operation-1");
+			expect(executionIds[1]).not.toBe(executionIds[0]);
+			expect(executionIds[2]).toBe(executionIds[1]);
+		});
+	});
 });
 
 layer(layerFor([systemInstallation("example")]))((test) => {
