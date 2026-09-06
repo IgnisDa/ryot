@@ -225,12 +225,6 @@ export const validateSystemConfig = (config: AppConfigValue) =>
 			);
 		}
 
-		if (!Number.isInteger(logging.file.retentionFiles) || logging.file.retentionFiles < 1) {
-			return yield* Effect.fail(
-				configError("SERVER_LOG_RETENTION_FILES must be an integer of at least 1."),
-			);
-		}
-
 		const { clientId, issuerUrl, clientSecret } = config.server.oidc;
 		const oidcSetCount = [
 			isNonEmpty(clientId),

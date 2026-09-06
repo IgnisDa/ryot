@@ -51,7 +51,7 @@ const openRotatingStream = (
 	logFileName: string,
 	options: Pick<
 		AppConfigValue["observability"]["logging"]["file"],
-		"rotationInterval" | "rotationSize" | "retentionFiles"
+		"rotationInterval" | "rotationSize"
 	>,
 ) =>
 	Effect.callback<RotatingFileStream, FileLoggerOpenError>((resume) => {
@@ -64,7 +64,6 @@ const openRotatingStream = (
 				initialRotation: true,
 				intervalBoundary: true,
 				size: options.rotationSize,
-				maxFiles: options.retentionFiles,
 				interval: options.rotationInterval,
 			});
 		} catch (error) {
