@@ -1,0 +1,203 @@
+{
+	"image": "ghcr.io/ignisda/ryot:pr-1832@sha256:099f6d06172f93da0966416059a7d0de1539cff5a1e72a6e7d90dc4969d39ad4",
+	"commit": "5bf2512806",
+	"arms": {
+		"f2": {
+			"settings": {
+				"SANDBOX_WORKER_CONCURRENCY": "2",
+				"SCHEDULER_DISABLE_DISPATCHERS": "true",
+				"SANDBOX_IMPORT_CONCURRENCY": "2"
+			},
+			"scenarios": [
+				{
+					"scenario": "warmup",
+					"failures": 0,
+					"firstCompletionS": 105.3,
+					"lastCompletionS": 105.3,
+					"healthP95Ms": 29,
+					"healthMaxMs": 234,
+					"healthFailures": 0,
+					"searchP95Ms": null,
+					"searchFailures": 0,
+					"peakCgroupMemoryMiB": 1033,
+					"peakBunRssMiB": 813,
+					"peakDenoRssMiB": 246,
+					"peakConcurrentWorkers": 2,
+					"sandboxExecutions": 110,
+					"replaysFailed": 0,
+					"oomEvents": 0,
+					"ryotCpuS": 99,
+					"postgresCpuS": 33
+				},
+				{
+					"scenario": "single",
+					"failures": 0,
+					"firstCompletionS": 102.0,
+					"lastCompletionS": 102.0,
+					"healthP95Ms": 53,
+					"healthMaxMs": 166,
+					"healthFailures": 0,
+					"searchP95Ms": null,
+					"searchFailures": 0,
+					"peakCgroupMemoryMiB": 1032,
+					"peakBunRssMiB": 839,
+					"peakDenoRssMiB": 231,
+					"peakConcurrentWorkers": 2,
+					"sandboxExecutions": 110,
+					"replaysFailed": 0,
+					"oomEvents": 0,
+					"ryotCpuS": 93,
+					"postgresCpuS": 34
+				},
+				{
+					"scenario": "mixed",
+					"failures": 0,
+					"firstCompletionS": 131.1,
+					"lastCompletionS": 1422.7,
+					"healthP95Ms": 91,
+					"healthMaxMs": 955,
+					"healthFailures": 0,
+					"searchP95Ms": 6784,
+					"searchFailures": 0,
+					"peakCgroupMemoryMiB": 1438,
+					"peakBunRssMiB": 1010,
+					"peakDenoRssMiB": 252,
+					"peakConcurrentWorkers": 2,
+					"sandboxExecutions": 2452,
+					"replaysFailed": 0,
+					"oomEvents": 0,
+					"ryotCpuS": 1773,
+					"postgresCpuS": 612
+				},
+				{
+					"scenario": "slow",
+					"failures": 0,
+					"firstCompletionS": 37.1,
+					"lastCompletionS": 352.5,
+					"healthP95Ms": 67,
+					"healthMaxMs": 514,
+					"healthFailures": 0,
+					"searchP95Ms": null,
+					"searchFailures": 0,
+					"peakCgroupMemoryMiB": 1484,
+					"peakBunRssMiB": 1012,
+					"peakDenoRssMiB": 252,
+					"peakConcurrentWorkers": 2,
+					"sandboxExecutions": 564,
+					"replaysFailed": 0,
+					"oomEvents": 0,
+					"ryotCpuS": 406,
+					"postgresCpuS": 150
+				}
+			],
+			"checks": [
+				{ "check": "duplicate", "final": ["completed"], "distinctJobs": 1 },
+				{
+					"check": "cancel",
+					"queuedAfter": "cancelled",
+					"runningAfter": "cancelled",
+					"remainingFinal": ["completed"],
+					"beforeCancel": ["queued", "running", "running"]
+				},
+				{
+					"check": "backlog",
+					"afterFinal": "completed",
+					"neighbourFinal": "completed",
+					"accepted": 50,
+					"rejected": {
+						"reason": { "limit": 50, "retryAfterSeconds": 30, "code": "import-backlog-full" },
+						"status": 429
+					}
+				},
+				{
+					"check": "worker-kill",
+					"final": ["completed", "completed"],
+					"killed": 1,
+					"nextFinal": "completed"
+				},
+				{
+					"check": "restart-submit",
+					"firstObserved": ["running", "running", "queued", "queued", "queued", "queued"],
+					"beforeRestart": ["running", "running", "queued", "queued", "queued", "queued"]
+				},
+				{
+					"check": "restart-await",
+					"final": ["completed", "completed", "completed", "completed", "completed", "completed"],
+					"afterRestart": ["running", "running", "queued", "queued", "queued", "queued"]
+				},
+				{
+					"count": 2,
+					"holdMs": 8000,
+					"healthChecks": 13,
+					"allocateMiB": 750,
+					"healthFailures": 0,
+					"healthMaxMs": 17.035996999999952,
+					"outcomes": [
+						{ "outcome": "completed", "latencyMs": 12749 },
+						{ "outcome": "failed:failed", "latencyMs": 12753 }
+					],
+					"processesSpawned": 3,
+					"backendRestarted": false,
+					"cgroupOomKills": 1
+				},
+				{
+					"scenario": "oom",
+					"memoryLimitBytes": 2147483648,
+					"containerRestarts": 0,
+					"oomKilled": true,
+					"cgroupOomKills": 1
+				}
+			]
+		},
+		"f1": {
+			"settings": {
+				"SANDBOX_IMPORT_CONCURRENCY": "1",
+				"SANDBOX_WORKER_CONCURRENCY": "2",
+				"SCHEDULER_DISABLE_DISPATCHERS": "true"
+			},
+			"scenarios": [
+				{
+					"scenario": "warmup",
+					"failures": 0,
+					"firstCompletionS": 100.4,
+					"lastCompletionS": 100.4,
+					"healthP95Ms": 42,
+					"healthMaxMs": 89,
+					"healthFailures": 0,
+					"searchP95Ms": null,
+					"searchFailures": 0,
+					"peakCgroupMemoryMiB": 1008,
+					"peakBunRssMiB": 816,
+					"peakDenoRssMiB": 231,
+					"peakConcurrentWorkers": 2,
+					"sandboxExecutions": 110,
+					"replaysFailed": 0,
+					"oomEvents": 0,
+					"ryotCpuS": 95,
+					"postgresCpuS": 31
+				},
+				{
+					"scenario": "mixed",
+					"failures": 0,
+					"firstCompletionS": 103.4,
+					"lastCompletionS": 2189.1,
+					"healthP95Ms": 48,
+					"healthMaxMs": 551,
+					"healthFailures": 0,
+					"searchP95Ms": 4431,
+					"searchFailures": 0,
+					"peakCgroupMemoryMiB": 1365,
+					"peakBunRssMiB": 936,
+					"peakDenoRssMiB": 249,
+					"peakConcurrentWorkers": 2,
+					"sandboxExecutions": 2529,
+					"replaysFailed": 0,
+					"oomEvents": 0,
+					"ryotCpuS": 2063,
+					"postgresCpuS": 742
+				}
+			],
+			"checks": []
+		}
+	}
+}

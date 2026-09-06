@@ -63,7 +63,7 @@ set_env() {
 }
 
 wait_healthy() {
-	for _ in $(seq 1 60); do
+	for _ in $(seq 1 180); do
 		if curl --silent --fail --max-time 5 https://ur-testing.ryot.io/api/system/health >/dev/null; then
 			return 0
 		fi
