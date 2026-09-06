@@ -711,12 +711,17 @@ describe("Komga yank", () => {
 	);
 });
 
-const setup = (songs?: ReadonlyArray<{ title: string; videoId: string }>) => {
+const setup = (
+	songs?: ReadonlyArray<{ title: string; videoId: string }>,
+	providerSpecifics: Record<string, string> = { timezone: "UTC", authCookie: "cookie" },
+) => {
 	const claims = new Set<string>();
 	const host = defineSandboxTestHost(youtubeMusicManifest, {
 		httpCall: httpCall({}),
 		log: () => hostSuccess(null),
 		span: () => hostSuccess(null),
+		getCurrentIntegration: () =>
+			hostSuccess(integrationRecord({ lot: "yank", providerSpecifics, provider: "youtube_music" })),
 		claimPersistentValue: (key) => {
 			if (claims.has(key)) {
 				return hostSuccess({ value: true, claimed: false });
@@ -724,20 +729,10 @@ const setup = (songs?: ReadonlyArray<{ title: string; videoId: string }>) => {
 			claims.add(key);
 			return hostSuccess({ claimed: true });
 		},
-		getCurrentIntegration: () =>
-			hostSuccess(
-				integrationRecord({
-					lot: "yank",
-					provider: "youtube_music",
-					providerSpecifics: { timezone: "UTC", authCookie: "cookie" },
-				}),
-			),
 	});
 	const run = (startedAt: string) =>
-		Effect.runPromise(
-			runYoutubeMusicYank({}, host, { ...execution, startedAt }, () =>
-				Effect.succeed(historyClient(songs)),
-			),
+		runYoutubeMusicYank({}, host, { ...execution, startedAt }, () =>
+			Effect.succeed(historyClient(songs)),
 		);
 	return { run, claims };
 };
@@ -753,15 +748,13 @@ describe("YouTube Music yank", () => {
 		expect(ttlSeconds).toBeLessThanOrEqual(86_400);
 	});
 
-	it("falls back to a full-day TTL for an unknown timezone", () => {
-		const { localDate, ttlSeconds, isFinalWindow } = dailyProgressWindow(
-			"Not/AZone",
-			"2026-01-01T00:00:00.000Z",
-		);
-		expect(isFinalWindow).toBe(false);
-		expect(localDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
-		expect(ttlSeconds).toBe(86_400);
-	});
+	it.live("rejects a stored timezone that is not an IANA zone", () =>
+		Effect.gen(function* () {
+			const { run } = setup([], { authCookie: "cookie", timezone: "Not/AZone" });
+			const error = yield* Effect.flip(run("2026-01-01T00:00:00.000Z"));
+			expect(error.message).toContain("timezone must be an IANA time zone");
+		}),
+	);
 
 	it("accounts for a longer local day when daylight saving time ends", () => {
 		const { ttlSeconds } = dailyProgressWindow("America/New_York", "2026-11-01T04:00:00.000Z");
@@ -780,27 +773,17 @@ describe("YouTube Music yank", () => {
 				{ videoId: "v2", title: "Second" },
 				{ videoId: "v1", title: "First duplicate" },
 			]);
-			expect(progressValues(yield* Effect.promise(() => run("2026-01-01T12:00:00.000Z")))).toEqual([
-				35, 35,
-			]);
-			expect(progressValues(yield* Effect.promise(() => run("2026-01-01T12:05:00.000Z")))).toEqual([
-				100, 100,
-			]);
-			expect(progressValues(yield* Effect.promise(() => run("2026-01-01T12:10:00.000Z")))).toEqual(
-				[],
-			);
+			expect(progressValues(yield* run("2026-01-01T12:00:00.000Z"))).toEqual([35, 35]);
+			expect(progressValues(yield* run("2026-01-01T12:05:00.000Z"))).toEqual([100, 100]);
+			expect(progressValues(yield* run("2026-01-01T12:10:00.000Z"))).toEqual([]);
 		}),
 	);
 
 	it.live("completes a song directly when first found in the final ten minutes", () =>
 		Effect.gen(function* () {
 			const { run, claims } = setup();
-			expect(progressValues(yield* Effect.promise(() => run("2026-01-01T23:50:00.000Z")))).toEqual([
-				100,
-			]);
-			expect(progressValues(yield* Effect.promise(() => run("2026-01-01T23:55:00.000Z")))).toEqual(
-				[],
-			);
+			expect(progressValues(yield* run("2026-01-01T23:50:00.000Z"))).toEqual([100]);
+			expect(progressValues(yield* run("2026-01-01T23:55:00.000Z"))).toEqual([]);
 			expect([...claims]).toEqual([expect.stringMatching(/:v1:2026-01-01:completed$/)]);
 		}),
 	);
