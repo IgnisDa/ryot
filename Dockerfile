@@ -49,8 +49,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 ENV FRONTEND_UMAMI_HOST_URL="https://umami.diptesh.me"
 ENV FRONTEND_UMAMI_WEBSITE_ID="5ecd6915-d542-4fda-aa5f-70f09f04e2e0"
 WORKDIR /home/ryot
-RUN mkdir -p /home/ryot/plugins /home/ryot/storage /home/ryot/tmp /home/ryot/work && \
-    chown -R ryot:ryot /home/ryot/plugins /home/ryot/storage /home/ryot/tmp /home/ryot/work
+RUN mkdir -p /home/ryot/logs /home/ryot/plugins /home/ryot/storage /home/ryot/tmp /home/ryot/work && \
+    chown -R ryot:ryot /home/ryot/logs /home/ryot/plugins /home/ryot/storage /home/ryot/tmp /home/ryot/work
 COPY --chown=ryot:ryot kernel/backend/src/drizzle ./src/drizzle
 COPY --from=client-builder --chown=ryot:ryot /app/kernel/client/dist ./client
 COPY --from=backend-builder --chown=ryot:ryot /app/apps/server/dist ./dist

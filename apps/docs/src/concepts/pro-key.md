@@ -25,7 +25,7 @@ Pro and community data are compatible. Update the key and restart the server to 
 
 ## Troubleshooting
 
-1. Set `SERVER_LOG_LEVEL=debug` and inspect verification logs.
+1. Set `SERVER_LOG_LEVEL=debug` and inspect the file or OTLP logs.
 2. Check `SERVER_PRO_KEY` for spaces or unwanted quotes.
 3. Check the subscription on the [Ryot website](https://ryot.io).
 4. Restart the server after renewal to clear the cached result.
