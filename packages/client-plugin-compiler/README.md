@@ -38,8 +38,14 @@ through the composed document's import map. Vite resolves plugin-local imports a
 
 The official `@tailwindcss/vite` plugin processes a compiler-owned stylesheet. Automatic scanning is
 disabled with `source(none)`, and explicit `@source` entries cover plugin TypeScript and
-both client SDK source roots. Fonts, theme, palette, and base rules are ordinary CSS imports. Vite
-owns nested and multiple authored CSS imports, ordering, URL rewriting, deduplication, and assets.
+both client SDK source roots. The Tailwind and SDK themes are imported by reference, so `module.css`
+holds only utilities and authored CSS. Vite owns nested and multiple authored CSS imports, ordering,
+URL rewriting, deduplication, and assets.
+
+The shared runtime emits `runtime.css` with the fonts, the full Tailwind theme variables, preflight,
+the SDK theme and palette, and document base rules. Every composition links it from the same public
+artifact URL. Both stylesheets declare the same cascade layer order, so document link order does not
+change precedence.
 
 ## Artifact Identity
 
