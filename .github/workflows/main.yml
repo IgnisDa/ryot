@@ -106,6 +106,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+          filter: blob:none
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Describe version
