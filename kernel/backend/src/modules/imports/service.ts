@@ -1,4 +1,5 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
+import { dataJsonSource } from "@ryot-app/contract/modules/imports/data-json";
 import {
 	ImportNotFoundError,
 	ImportConflictError,
@@ -29,6 +30,7 @@ import {
 } from "#modules/plugins/import-source-catalog";
 import { UploadIntentsService } from "#modules/uploads/intents/service";
 
+import { DataImportAdmission } from "./data-admission";
 import { ImportRunFailuresService, type ImportRunFailureDetails } from "./failure-service";
 import { ProcessImportRunWorkflow } from "./import-run-workflow";
 import { ImportsRepository } from "./repository";
@@ -47,7 +49,7 @@ import { ImportWorkflowPinning } from "./workflow-pinning";
 export type CreateManualImportRunInput = {
 	userId: UserId;
 	source: ImportRunSource;
-	pluginInstallationId: string;
+	pluginInstallationId: string | null;
 	inputSummary: Record<string, unknown>;
 };
 
@@ -85,6 +87,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 		const importSources = yield* ImportSourceCatalog;
 		const workflowPinning = yield* ImportWorkflowPinning;
 		const failureService = yield* ImportRunFailuresService;
+		const dataAdmission = yield* DataImportAdmission;
 
 		const createManualRun = Effect.fn("ImportsService.createManualRun")(function* (
 			input: CreateManualImportRunInput,
@@ -328,6 +331,9 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			user: CurrentUserValue,
 			body: CreateImportRunBody,
 		) {
+			if (body.source === dataJsonSource) {
+				return yield* dataAdmission.startUpload(user, body);
+			}
 			const resolution = yield* importSources.resolveForUser(user.id, body.source);
 			if (!resolution) {
 				return yield* new ImportRequestError({
@@ -397,7 +403,7 @@ export class ImportsService extends Context.Service<ImportsService>()("ImportsSe
 			userId: UserId;
 			source: ImportRunSource;
 			integrationId: IntegrationId;
-			pluginInstallationId: string;
+			pluginInstallationId: string | null;
 			integrationLot: IntegrationLot;
 			inputSummary: Record<string, unknown>;
 		}) => repository.createIntegrationRun(input);

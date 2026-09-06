@@ -43,6 +43,7 @@ export class ImportNotFoundError extends Schema.TaggedError<ImportNotFoundError>
 ) {}
 
 export const ImportConflictReason = Schema.Union([
+	Schema.Struct({ runId: ImportRunId, code: Schema.Literal("submission-key-conflict") }),
 	Schema.Struct({
 		runId: ImportRunId,
 		status: ImportRunStatus,

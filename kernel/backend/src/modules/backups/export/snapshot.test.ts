@@ -12,6 +12,7 @@ import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { sql } from "drizzle-orm";
 import { Context, Effect, FileSystem, Layer, Ref } from "effect";
 
+import { collectManagedAssetLocators } from "#lib/domain/data-references";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { databaseLayer } from "#lib/test-utils/effect";
@@ -34,7 +35,6 @@ import { ManagedAssetsService } from "#modules/uploads/managed-assets/service";
 
 import {
 	BackupExportSnapshot,
-	collectManagedAssetLocators,
 	definitionForPlugin,
 	requirePluginKey,
 	requireNotificationMetadataSchema,
