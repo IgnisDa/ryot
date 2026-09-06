@@ -12,7 +12,7 @@ const httpSuccess = (body: unknown) =>
 	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 
 describe("media trending cron", () => {
-	it("preserves provider order and rank while atomically reconciling deduplicated self edges", () => {
+	it("ranks each provider from 1 in order while atomically reconciling deduplicated self edges", () => {
 		const entityWrites: Parameters<TrendingHost["upsertGlobalEntities"]>[0][] = [];
 		const entityWriteOptions: Parameters<TrendingHost["upsertGlobalEntities"]>[1][] = [];
 		const relationshipWrites: Parameters<TrendingHost["upsertGlobalRelationships"]>[0][] = [];
@@ -87,7 +87,7 @@ describe("media trending cron", () => {
 								{
 									sourceEntityId: "movie-2",
 									targetEntityId: "movie-2",
-									properties: { rank: 2, fetchedAt },
+									properties: { rank: 1, fetchedAt },
 								},
 							],
 						},
