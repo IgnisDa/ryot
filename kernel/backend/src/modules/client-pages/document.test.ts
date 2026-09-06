@@ -185,8 +185,8 @@ it.effect(
 									hash,
 									format: 1,
 									apiVersion: 1,
-									bridgeVersion: 3,
-									compilerVersion: 2,
+									bridgeVersion: 1,
+									compilerVersion: 1,
 								});
 							},
 						}),
