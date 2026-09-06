@@ -198,12 +198,12 @@ const attemptDirectory = /^attempt-(\d+)$/;
 const executionDirectory = /^execution-(\d+)$/;
 
 /** Attempts sit under one `execution-<n>` level per profiled execution, or directly under the token. */
-const attemptsIn = (directory: string, entries: ReadonlyArray<Dirent>) =>
+const attemptsIn = (directory: string, entries: ReadonlyArray<Dirent>, execution: string | null) =>
 	entries.flatMap((entry) => {
 		const match = entry.isDirectory() ? attemptDirectory.exec(entry.name) : null;
 		return match === null
 			? []
-			: [{ attempt: Number(match[1]), directory: join(directory, entry.name) }];
+			: [{ execution, attempt: Number(match[1]), directory: join(directory, entry.name) }];
 	});
 
 const analyzeProfile = (rawDirectory: string, profileId: string) =>
@@ -226,21 +226,21 @@ const analyzeProfile = (rawDirectory: string, profileId: string) =>
 				readdir(join(directory, execution), { withFileTypes: true }),
 			).pipe(
 				Effect.map((nestedEntries) =>
-					attemptsIn(join(directory, execution), nestedEntries).map((entry) => ({
-						...entry,
-						execution: executions.length > 1 ? execution : null,
-					})),
+					attemptsIn(
+						join(directory, execution),
+						nestedEntries,
+						executions.length > 1 ? execution : null,
+					),
 				),
 			),
 		);
-		const attempts = [
-			...attemptsIn(directory, entries).map((entry) => ({ ...entry, execution: null })),
-			...nested.flat(),
-		].sort((left, right) => left.attempt - right.attempt);
+		const attempts = [...attemptsIn(directory, entries, null), ...nested.flat()].sort(
+			(left, right) => left.attempt - right.attempt,
+		);
 		const topLevel = yield* analyzeDirectory(directory);
 		const perAttempt = yield* Effect.forEach(
 			attempts,
-			({ directory: attemptDirectoryPath, attempt, execution }) =>
+			({ attempt, execution, directory: attemptDirectoryPath }) =>
 				analyzeDirectory(attemptDirectoryPath).pipe(
 					Effect.map((analysis) => ({ attempt, analysis, execution })),
 				),
@@ -254,7 +254,9 @@ const analyzeProfile = (rawDirectory: string, profileId: string) =>
 				: []),
 			...perAttempt.map(({ attempt, analysis, execution }) => {
 				const entry = buildEntry(profileId, meta, attempt, analysis);
-				return execution === null ? entry : { ...entry, notes: [...entry.notes, execution] };
+				return execution === null
+					? entry
+					: Object.assign(entry, { notes: entry.notes.concat(execution) });
 			}),
 			...(attemptStacks.length > 1
 				? [
