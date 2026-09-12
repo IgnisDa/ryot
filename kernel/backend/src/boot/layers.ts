@@ -318,6 +318,7 @@ export const MigrationInfrastructureLive = Layer.mergeAll(
 	Layer.provideMerge(RedisService.layer),
 	Layer.provideMerge(SignedUrlInfrastructureLive),
 	Layer.provideMerge(S3Service.layer),
+	Layer.provideMerge(PluginConfigEncryptionKey.layer),
 	Layer.provideMerge(DatabaseSession.layer),
 	Layer.provideMerge(ConfigLive),
 );
