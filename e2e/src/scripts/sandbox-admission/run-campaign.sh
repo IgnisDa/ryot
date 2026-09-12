@@ -141,12 +141,13 @@ for arm in "$@"; do
 	step="tool upload"
 	remote "mkdir -p /root/ryot-admission-tools && chmod 700 /root/ryot-admission-tools"
 	# shellcheck disable=SC2086
-	scp -q $SSH_OPTIONS "$OUTPUT/.state.json" "$HERE/remote-probe.mjs" "$HERE/run-arm.sh" "$HOST:/root/ryot-admission-tools/"
+	scp -q $SSH_OPTIONS "$OUTPUT/.state.json" "$HERE/remote-probe.mjs" "$HERE/validate-probe.mjs" "$HERE/run-arm.sh" "$HOST:/root/ryot-admission-tools/"
 	step="scenarios"
 	remote "set -e
-		docker exec -u 0 ryot-$SERVICE rm -f /tmp/adm-state.json /tmp/remote-probe.mjs
+		docker exec -u 0 ryot-$SERVICE rm -f /tmp/adm-state.json /tmp/remote-probe.mjs /tmp/validate-probe.mjs /tmp/adm-validate-jobs.json
 		docker exec -i ryot-$SERVICE sh -c 'umask 077 && cat >/tmp/adm-state.json' </root/ryot-admission-tools/.state.json
 		docker exec -i ryot-$SERVICE sh -c 'cat >/tmp/remote-probe.mjs' </root/ryot-admission-tools/remote-probe.mjs
+		docker exec -i ryot-$SERVICE sh -c 'cat >/tmp/validate-probe.mjs' </root/ryot-admission-tools/validate-probe.mjs
 		rm -rf /root/ryot-admission/$label
 		sh /root/ryot-admission-tools/run-arm.sh $label $SCENARIOS"
 	rm -f "$OUTPUT/.state.json"
