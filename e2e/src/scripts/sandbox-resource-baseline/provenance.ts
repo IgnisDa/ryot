@@ -37,6 +37,18 @@ export const provenanceErrors = (
 		if (artifact.outcome !== "skipped" && artifact.cadence.host === null) {
 			errors.push(`${label} has no host health record`);
 		}
+		if (artifact.waves !== null) {
+			const completedWaves = artifact.waves.length;
+			const expectedWaves = artifact.configuration.waves;
+			if (artifact.outcome === "completed" && completedWaves < expectedWaves) {
+				errors.push(
+					`${label} reports outcome "completed" with ${completedWaves} of ${expectedWaves} waves: a truncated series must not read as complete`,
+				);
+			}
+			if (artifact.outcome === "truncated" && artifact.stopReason === null) {
+				errors.push(`${label} reports outcome "truncated" without a machine-readable stopReason`);
+			}
+		}
 	}
 	const distinct = (read: (artifact: ScenarioArtifact) => string | null) =>
 		[...new Set(artifacts.map(read))].sort((left, right) =>
