@@ -523,7 +523,33 @@ it("declares the complete media-owned source", () => {
 		"https://coverartarchive.org",
 	);
 	expect(mediaPlugin.providers).toHaveLength(51);
-	expect(mediaPlugin.integrationProviders).toHaveLength(12);
+	expect(mediaPlugin.integrationProviders).toHaveLength(13);
+	expect(mediaPlugin.oauthProviders).toEqual([
+		{
+			slug: "spotify",
+			name: "Spotify",
+			clientIdConfigKey: "spotifyClientId",
+			scopes: ["user-read-recently-played"],
+			tokenEndpointAuth: "client_secret_basic",
+			clientSecretConfigKey: "spotifyClientSecret",
+			tokenUrl: "https://accounts.spotify.com/api/token",
+			authorizeUrl: "https://accounts.spotify.com/authorize",
+		},
+	]);
+	expect(mediaPlugin.integrationProviders.find(({ slug }) => slug === "spotify")).toMatchObject({
+		lot: "yank",
+		requiresProKey: true,
+		scriptSlug: "integration.spotify",
+		settingsSchema: {
+			fields: {
+				account: {
+					type: "string",
+					validation: { required: true },
+					format: { provider: "spotify", kind: "oauth-connection" },
+				},
+			},
+		},
+	});
 	expect(googleBooksSearchManifest).toMatchObject({
 		searchOptionsSchema: { unknownKeys: "strict" },
 	});
