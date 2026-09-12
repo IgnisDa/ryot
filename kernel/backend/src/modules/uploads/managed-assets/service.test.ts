@@ -221,18 +221,19 @@ it.effect("assigns concurrent staging ownership only to the conditional-create w
 			),
 		),
 	);
+	const input = () => ({
+		sha256,
+		ownerUserId: userId,
+		size: bytes.byteLength,
+		stream: Stream.make(bytes),
+		provider: "local" as const,
+		contentType: "application/octet-stream",
+	});
+
 	const layer = Layer.merge(service, databaseLayer);
 
 	return Effect.gen(function* () {
 		const managedAssets = yield* ManagedAssetsService;
-		const input = () => ({
-			sha256,
-			ownerUserId: userId,
-			size: bytes.byteLength,
-			stream: Stream.make(bytes),
-			provider: "local" as const,
-			contentType: "application/octet-stream",
-		});
 		const staged = yield* Effect.all(
 			[
 				managedAssets.stageContentAddressedPermanentAsset(input()),

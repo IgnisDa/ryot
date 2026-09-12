@@ -159,16 +159,26 @@ it.effect("resolves an API key and its authorization context", () =>
 	}),
 );
 
+const oauth = (clientId: string, userId = "user-1") =>
+	resolveCredential(
+		{ kind: "oauth", token: "token" },
+		() => Promise.resolve({ sub: userId, client_id: clientId }),
+		() => Effect.die("unused").pipe(Effect.runPromise),
+		() => Effect.succeed({ ...userRecord, id: userId }),
+		"user-1",
+	);
+
+const apiKey = (userId: string, demoAccountId: string | null) =>
+	resolveCredential(
+		{ key: "key", kind: "api-key" },
+		() => Effect.die("unused").pipe(Effect.runPromise),
+		() => Promise.resolve({ valid: true, error: null, key: { id: "key-1", referenceId: userId } }),
+		() => Effect.succeed({ ...userRecord, id: userId }),
+		demoAccountId,
+	);
+
 it.effect("classifies credential authority from provenance and demo configuration", () =>
 	Effect.gen(function* () {
-		const oauth = (clientId: string, userId = "user-1") =>
-			resolveCredential(
-				{ kind: "oauth", token: "token" },
-				() => Promise.resolve({ sub: userId, client_id: clientId }),
-				() => Effect.die("unused").pipe(Effect.runPromise),
-				() => Effect.succeed({ ...userRecord, id: userId }),
-				"user-1",
-			);
 		expect((yield* oauth(OAUTH_DEMO_WEB_CLIENT_ID)).authorization.accessClass).toBe("demo");
 		expect((yield* oauth(OAUTH_WEB_CLIENT_ID)).authorization.accessClass).toBe("standard");
 		expect((yield* oauth(OAUTH_NATIVE_CLIENT_ID)).authorization.accessClass).toBe("standard");
@@ -177,15 +187,6 @@ it.effect("classifies credential authority from provenance and demo configuratio
 			"standard",
 		);
 
-		const apiKey = (userId: string, demoAccountId: string | null) =>
-			resolveCredential(
-				{ key: "key", kind: "api-key" },
-				() => Effect.die("unused").pipe(Effect.runPromise),
-				() =>
-					Promise.resolve({ valid: true, error: null, key: { id: "key-1", referenceId: userId } }),
-				() => Effect.succeed({ ...userRecord, id: userId }),
-				demoAccountId,
-			);
 		expect((yield* apiKey("user-1", "user-1")).authorization.accessClass).toBe("demo");
 		expect((yield* apiKey("other-user", "user-1")).authorization.accessClass).toBe("standard");
 		expect((yield* apiKey("user-1", null)).authorization.accessClass).toBe("standard");
@@ -302,43 +303,43 @@ it.effect("rejects authenticated writes while a lifecycle operation is active", 
 	);
 });
 
-it.effect("enforces representative demo endpoint policies with a typed 403", () => {
-	const request = (
-		accessClass: "standard" | "demo",
-		endpoint:
-			| typeof PluginsGroup.endpoints.events
-			| typeof PluginsGroup.endpoints.install
-			| typeof PluginsGroup.endpoints.updatePluginState,
-	) => {
-		let handlerCalled = false;
-		const middleware = makeAuthMiddleware(
-			{
-				apiKeyUser: () => Effect.die("unused"),
-				oauthUser: () =>
-					Effect.succeed({
-						...resolvedOAuth,
-						authorization: { ...resolvedOAuth.authorization, accessClass },
-					}),
-			},
-			{ isActive: () => Effect.succeed(false) },
-		);
-		const effect = middleware
-			.oauth(
-				Effect.sync(() => {
-					handlerCalled = true;
-					return HttpServerResponse.empty();
+const request = (
+	accessClass: "standard" | "demo",
+	endpoint:
+		| typeof PluginsGroup.endpoints.events
+		| typeof PluginsGroup.endpoints.install
+		| typeof PluginsGroup.endpoints.updatePluginState,
+) => {
+	let handlerCalled = false;
+	const middleware = makeAuthMiddleware(
+		{
+			apiKeyUser: () => Effect.die("unused"),
+			oauthUser: () =>
+				Effect.succeed({
+					...resolvedOAuth,
+					authorization: { ...resolvedOAuth.authorization, accessClass },
 				}),
-				{ endpoint, credential: Redacted.make("token") },
-			)
-			.pipe(
-				Effect.provideService(
-					HttpServerRequest.HttpServerRequest,
-					HttpServerRequest.fromWeb(new Request("http://localhost/", { method: "POST" })),
-				),
-			);
-		return { effect, handlerCalled: () => handlerCalled };
-	};
+		},
+		{ isActive: () => Effect.succeed(false) },
+	);
+	const effect = middleware
+		.oauth(
+			Effect.sync(() => {
+				handlerCalled = true;
+				return HttpServerResponse.empty();
+			}),
+			{ endpoint, credential: Redacted.make("token") },
+		)
+		.pipe(
+			Effect.provideService(
+				HttpServerRequest.HttpServerRequest,
+				HttpServerRequest.fromWeb(new Request("http://localhost/", { method: "POST" })),
+			),
+		);
+	return { effect, handlerCalled: () => handlerCalled };
+};
 
+it.effect("enforces representative demo endpoint policies with a typed 403", () => {
 	return Effect.gen(function* () {
 		for (const accessClass of ["demo", "standard"] as const) {
 			const allowed = request(accessClass, PluginsGroup.endpoints.events);
