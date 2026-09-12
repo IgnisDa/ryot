@@ -6,6 +6,8 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Redacted, Ref } from "effect";
+import { Workflow } from "effect/workflow";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { Client } from "pg";
 
 import { LifecyclePlanner } from "#lib/domain/lifecycle";
@@ -13,7 +15,11 @@ import { rootLifecycleCommand } from "#lib/domain/lifecycle-command";
 import { LifecycleExecution } from "#lib/domain/lifecycle-execution";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
-import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/effect";
+import {
+	makeAppConfigLayer,
+	makeConfigProviderLayer,
+	makeWorkflowEngine,
+} from "#lib/test-utils/effect";
 import { IsolatedDatabase, isolatedDatabaseLayer } from "#lib/test-utils/isolated-database";
 import { LifecyclePlannerServiceLive } from "#modules/automations/layer";
 import { withLifecycleDispatch } from "#modules/automations/lifecycle.test-support";
@@ -22,6 +28,9 @@ import { DefinitionRepository } from "#modules/definition-registry/repository";
 import type { DefinitionSource } from "#modules/definition-registry/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
+import { EventSchemasRepository } from "#modules/event-schemas/repository";
+import { EventsRepository } from "#modules/events/repository";
+import { EventsService } from "#modules/events/service";
 import { PluginConfigEncryptionKey } from "#modules/plugins/config-encryption-key";
 import { PluginConfigRevisions } from "#modules/plugins/config-revisions";
 import { PluginInstallationRepository } from "#modules/plugins/installation-repository";
@@ -212,9 +221,23 @@ export const relationshipDatabaseLayer = (
 					),
 				),
 			);
+			const eventsRepository = EventsRepository.layer;
+			const eventSchemasRepository = EventSchemasRepository.layer.pipe(Layer.provide(runtime));
+			const eventEngine = Layer.succeed(
+				WorkflowEngine,
+				makeWorkflowEngine({
+					activityExecute: (activity) =>
+						Effect.map(Effect.exit(activity.execute), (exit) => new Workflow.Complete({ exit })),
+				}),
+			);
+			const eventsService = EventsService.layer.pipe(
+				Layer.provide(
+					Layer.mergeAll(ownerDependencies, eventsRepository, eventSchemasRepository, eventEngine),
+				),
+			);
 			const services = Layer.mergeAll(RelationshipsService.layer, EntitiesService.layer).pipe(
 				Layer.provideMerge(RelationshipMutationPipeline.layer),
-				Layer.provideMerge(ownerDependencies),
+				Layer.provideMerge(Layer.mergeAll(ownerDependencies, eventsRepository, eventsService)),
 				Layer.provideMerge(DatabaseSession.layer),
 				Layer.provideMerge(config),
 			);

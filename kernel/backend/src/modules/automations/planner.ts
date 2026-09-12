@@ -25,6 +25,7 @@ import {
 	toLifecycleDispatchPlan,
 } from "#lib/domain/lifecycle";
 import { lifecycleBatchTriggers } from "#lib/domain/lifecycle-batch";
+import { lifecycleTrigger } from "#lib/domain/lifecycle-command";
 import { AppConfig } from "#lib/infrastructure/config/service";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
@@ -421,8 +422,27 @@ export const LifecyclePlannerLive = Layer.effect(
 					? [{ payload, scopeUserId }]
 					: [],
 			);
+			const changeTriggers = changes.map(({ payload, scopeUserId }, index) => ({
+				scopeUserId,
+				trigger: lifecycleTrigger(input.command, scopeUserId, payload, `batch-evidence:${index}`),
+			}));
+			const maxItems = contents.pins.reduce((globalMaxItems, { hook, executionUserId }) => {
+				if (
+					hook.stage !== "after" ||
+					hook.frequency !== "batch" ||
+					hook.batchMaxItems === undefined
+				) {
+					return globalMaxItems;
+				}
+				const matchesCommittedItem = changeTriggers.some(
+					({ trigger, scopeUserId }) =>
+						scopeUserId === executionUserId &&
+						hook.targets.some((target) => matchesTarget(target, trigger)),
+				);
+				return matchesCommittedItem ? Math.min(globalMaxItems, hook.batchMaxItems) : globalMaxItems;
+			}, contents.maxItems);
 			const planned = yield* Effect.forEach(
-				lifecycleBatchTriggers(input, contents.maxItems, changes),
+				lifecycleBatchTriggers(input, maxItems, changes),
 				(trigger) => plan({ trigger, pinnedBatchCandidates: contents.pins }),
 			);
 			const dispatch = planned.flatMap((item) =>

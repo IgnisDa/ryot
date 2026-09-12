@@ -1,10 +1,11 @@
 import { expect, layer } from "@effect/vitest";
 import {
 	AutomationEntityChangePayload,
+	AutomationEventChangePayload,
 	AutomationTrigger,
 	DEFAULT_AUTOMATION_RETRY_POLICY,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import type { PluginHookTarget, PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	AutomationHookSlug,
 	AutomationTriggerId,
@@ -15,7 +16,7 @@ import { eq } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 import { assert, describe } from "vitest";
 
-import { LifecyclePlanner, lifecycleRunId } from "#lib/domain/lifecycle";
+import { LifecyclePlanner, lifecycleRunId, type LifecycleBatchInput } from "#lib/domain/lifecycle";
 import * as tables from "#lib/infrastructure/db/schema/tables/combined";
 import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { makeAppConfigLayer } from "#lib/test-utils/effect";
@@ -118,6 +119,29 @@ const entityChange = (id: string, entitySchemaSlug = "fixture-entity") => ({
 		updatedAt: "2026-09-15T00:00:00.000Z",
 	},
 });
+const eventChange = (id: string, eventSchemaSlug = "changed") =>
+	Schema.decodeSync(AutomationEventChangePayload)({
+		resource: "event",
+		category: "change",
+		operation: "create",
+		after: {
+			id,
+			properties: {},
+			eventSchemaSlug,
+			sessionEntityId: null,
+			entityId: "event-entity",
+			entitySchemaSlug: "fixture-entity",
+			createdAt: "2026-09-15T00:00:00.000Z",
+			updatedAt: "2026-09-15T00:00:00.000Z",
+			occurredAt: "2026-09-15T00:00:00.000Z",
+		},
+	});
+const eventTarget = (eventSchemaSlug: string): PluginHookTarget => ({
+	eventSchemaSlug,
+	resource: "event",
+	operation: "create",
+	entitySchemaSlug: "fixture-entity",
+});
 const entityBatchTrigger = (id: string, items: ReadonlyArray<ReturnType<typeof entityChange>>) =>
 	Schema.decodeSync(AutomationTrigger)({
 		...triggerFixture(id),
@@ -200,7 +224,11 @@ const hookPackage = (version = "v1") => {
 
 const afterHookPackage = (
 	version: string,
-	addition: { frequency?: "item" | "batch"; executionScope?: "user" | "global" },
+	addition: {
+		frequency?: "item" | "batch";
+		executionScope?: "user" | "global";
+		batchMaxItems?: number;
+	},
 ) => {
 	const value = hookPackage(version);
 	return {
@@ -1311,6 +1339,278 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						rows.filter((row) => row.receiptType === "batch-candidate" || row.evidence !== null),
 					).toEqual([]);
 				}),
+		);
+	});
+	layer(plannerLayer(100, 200).pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
+		test.effect(
+			"applies a pinned hook item cap to 200 matching items without loss or duplication",
+			() =>
+				Effect.gen(function* () {
+					const planner = yield* LifecyclePlanner;
+					const session = yield* DatabaseSession;
+					const receipts = yield* MutationReceipts.make;
+					const ids = Array.from(
+						{ length: 200 },
+						(_, index) => `item-${String(index).padStart(3, "0")}`,
+					);
+					const input: LifecycleBatchInput = {
+						resource: "entity",
+						identity: ["fitness-records", "entity"],
+						command: {
+							itemIdentity: "fitness-records",
+							occurredAt: "2026-09-15T00:00:00.000Z",
+							causation: triggerFixture("fitness-records").causation,
+							accountGeneration: { userId: owner, token: "test-account-generation" },
+						},
+					};
+					yield* installRevisionPackage(
+						afterHookPackage("v1", { batchMaxItems: 50, frequency: "batch" }),
+						owner,
+					);
+					const decision = yield* nested(planner.prepareBatch({ ...input, scopes: [owner] }));
+					expect(decision.hasCandidates).toBe(true);
+					const [candidate] = yield* session.run((db) =>
+						db
+							.select({ result: tables.mutationReceipt.result })
+							.from(tables.mutationReceipt)
+							.where(eq(tables.mutationReceipt.receiptType, "batch-candidate")),
+					);
+					expect(candidate?.result).toMatchObject({ hook: { batchMaxItems: 50 } });
+					yield* installRevisionPackage(
+						afterHookPackage("v2", { frequency: "batch", batchMaxItems: 100 }),
+						owner,
+					);
+					expect(yield* nested(planner.prepareBatch({ ...input, scopes: [owner] }))).toEqual(
+						decision,
+					);
+					yield* nested(
+						Effect.gen(function* () {
+							for (const [batchIndex, id] of ids.entries()) {
+								yield* receipts.insert({
+									batchIndex,
+									dispatch: [],
+									result: { id },
+									batchId: decision.id,
+									evidence: yield* Schema.decodeEffect(AutomationEntityChangePayload)(
+										entityChange(id),
+									),
+									identity: mutationReceiptIdentity({
+										input: { id },
+										ownerUserId: owner,
+										scopeUserId: owner,
+										commandKind: "entity:create",
+										command: {
+											...input.command,
+											itemIdentity: `${input.command.itemIdentity}:${id}`,
+										},
+									}),
+								});
+							}
+						}),
+					);
+
+					const dispatch = yield* nested(planner.planBatch(input));
+					const triggers = yield* session.run((db) =>
+						db.select({ payload: tables.automationTrigger.payload }).from(tables.automationTrigger),
+					);
+					const batches = triggers.flatMap(({ payload }) =>
+						payload?.operation === "batch" && payload.resource === "entity" ? [payload] : [],
+					);
+					expect(
+						batches.map(({ items }) => items.length).sort((left, right) => left - right),
+					).toEqual([50, 50, 50, 50]);
+					const committedIds = batches.flatMap(({ items }) =>
+						items.map((item) => (item.operation === "delete" ? item.before.id : item.after.id)),
+					);
+					expect(committedIds).toHaveLength(200);
+					expect(new Set(committedIds).size).toBe(200);
+					expect([...committedIds].sort()).toEqual(ids);
+					expect(dispatch).toHaveLength(4);
+					expect(dispatch.flatMap(({ runs }) => runs)).toHaveLength(4);
+					expect(yield* nested(planner.planBatch(input))).toEqual(dispatch);
+				}),
+		);
+	});
+	layer(plannerLayer(100, 200).pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
+		test.effect("uses the lowest limit from matching batch hooks", () =>
+			Effect.gen(function* () {
+				const planner = yield* LifecyclePlanner;
+				const session = yield* DatabaseSession;
+				const receipts = yield* MutationReceipts.make;
+				const value = afterHookPackage("v1", { batchMaxItems: 10, frequency: "batch" });
+				const capHook = value.manifest.hooks.find(({ slug }) => slug === "fixture.changed");
+				assert(capHook?.stage === "after");
+				yield* installRevisionPackage(
+					{
+						...value,
+						manifest: {
+							...value.manifest,
+							hooks: [
+								...value.manifest.hooks,
+								{ ...capHook, batchMaxItems: 4, name: "Small batch", slug: "fixture.small-batch" },
+							],
+						},
+					},
+					owner,
+				);
+				const input: LifecycleBatchInput = {
+					resource: "entity",
+					identity: ["mixed-limits", "entity"],
+					command: {
+						itemIdentity: "mixed-limits",
+						occurredAt: "2026-09-15T00:00:00.000Z",
+						causation: triggerFixture("mixed-limits").causation,
+						accountGeneration: { userId: owner, token: "test-account-generation" },
+					},
+				};
+				const ids = Array.from({ length: 11 }, (_, index) => `mixed-${index}`);
+				const decision = yield* nested(planner.prepareBatch({ ...input, scopes: [owner] }));
+				yield* nested(
+					Effect.gen(function* () {
+						for (const [batchIndex, id] of ids.entries()) {
+							yield* receipts.insert({
+								batchIndex,
+								dispatch: [],
+								result: { id },
+								batchId: decision.id,
+								evidence: yield* Schema.decodeEffect(AutomationEntityChangePayload)(
+									entityChange(id),
+								),
+								identity: mutationReceiptIdentity({
+									input: { id },
+									ownerUserId: owner,
+									scopeUserId: owner,
+									commandKind: "entity:create",
+									command: {
+										...input.command,
+										itemIdentity: `${input.command.itemIdentity}:${id}`,
+									},
+								}),
+							});
+						}
+					}),
+				);
+
+				const dispatch = yield* nested(planner.planBatch(input));
+				const triggers = yield* session.run((db) =>
+					db.select({ payload: tables.automationTrigger.payload }).from(tables.automationTrigger),
+				);
+				expect(
+					triggers
+						.flatMap(({ payload }) =>
+							payload?.operation === "batch" ? [payload.items.length] : [],
+						)
+						.sort((left, right) => left - right),
+				).toEqual([3, 4, 4]);
+				expect(dispatch.flatMap(({ runs }) => runs)).toHaveLength(6);
+			}),
+		);
+	});
+	layer(plannerLayer(100, 200).pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
+		test.effect("ignores a pinned cap when its target does not match committed event items", () =>
+			Effect.gen(function* () {
+				const planner = yield* LifecyclePlanner;
+				const session = yield* DatabaseSession;
+				const receipts = yield* MutationReceipts.make;
+				const value = hookPackage("v1");
+				const [entitySchema] = value.manifest.entitySchemas;
+				assert(entitySchema);
+				yield* installRevisionPackage(
+					{
+						...value,
+						manifest: {
+							...value.manifest,
+							entitySchemas: [
+								{
+									...entitySchema,
+									eventSchemas: [
+										...entitySchema.eventSchemas,
+										{ name: "Workout set", slug: "workout-set", propertiesSchema: { fields: {} } },
+									],
+								},
+							],
+							hooks: [
+								...value.manifest.hooks,
+								{
+									stage: "after",
+									frequency: "batch",
+									name: "Media batch",
+									delivery: "required",
+									slug: "fixture.media-batch",
+									scriptSlug: "fixture.automation",
+									targets: [eventTarget("changed")],
+								},
+								{
+									stage: "after",
+									batchMaxItems: 50,
+									frequency: "batch",
+									delivery: "required",
+									name: "Workout records",
+									slug: "fixture.workout-records",
+									scriptSlug: "fixture.automation",
+									targets: [eventTarget("workout-set")],
+								},
+							],
+						},
+					},
+					owner,
+				);
+				const input: LifecycleBatchInput = {
+					resource: "event",
+					identity: ["media-only", "events"],
+					command: {
+						itemIdentity: "media-only",
+						occurredAt: "2026-09-15T00:00:00.000Z",
+						causation: triggerFixture("media-only").causation,
+						accountGeneration: { userId: owner, token: "test-account-generation" },
+					},
+				};
+				const ids = Array.from({ length: 60 }, (_, index) => `media-${index}`);
+				const decision = yield* nested(planner.prepareBatch({ ...input, scopes: [owner] }));
+				const candidates = yield* session.run((db) =>
+					db
+						.select({ result: tables.mutationReceipt.result })
+						.from(tables.mutationReceipt)
+						.where(eq(tables.mutationReceipt.receiptType, "batch-candidate")),
+				);
+				expect(candidates).toHaveLength(2);
+				yield* nested(
+					Effect.gen(function* () {
+						for (const [batchIndex, id] of ids.entries()) {
+							yield* receipts.insert({
+								batchIndex,
+								dispatch: [],
+								result: { id },
+								batchId: decision.id,
+								evidence: yield* Schema.decodeEffect(AutomationEventChangePayload)(eventChange(id)),
+								identity: mutationReceiptIdentity({
+									input: { id },
+									ownerUserId: owner,
+									scopeUserId: owner,
+									commandKind: "event:create",
+									command: {
+										...input.command,
+										itemIdentity: `${input.command.itemIdentity}:${id}`,
+									},
+								}),
+							});
+						}
+					}),
+				);
+
+				const dispatch = yield* nested(planner.planBatch(input));
+				const triggers = yield* session.run((db) =>
+					db.select({ payload: tables.automationTrigger.payload }).from(tables.automationTrigger),
+				);
+				const batches = triggers.flatMap(({ payload }) =>
+					payload?.operation === "batch" && payload.resource === "event" ? [payload] : [],
+				);
+				expect(batches).toHaveLength(1);
+				expect(batches[0]?.items).toHaveLength(60);
+				expect(dispatch.flatMap(({ runs }) => runs).map(({ hookSlug }) => hookSlug)).toEqual([
+					"fixture.media-batch",
+				]);
+			}),
 		);
 	});
 });

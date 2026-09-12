@@ -50,8 +50,7 @@ export const canonicalLifecyclePolicyPatch = (
 	if (
 		previous.resource !== successor.resource ||
 		previous.operation !== successor.operation ||
-		previous.operation === "delete" ||
-		(previous.resource === "event" && previous.operation !== "create")
+		previous.operation === "delete"
 	) {
 		return null;
 	}
@@ -67,11 +66,28 @@ export const canonicalLifecyclePolicyPatch = (
 		};
 	}
 	if (previous.resource === "event" && successor.resource === "event") {
+		if (
+			previous.draft.entityId !== successor.draft.entityId ||
+			previous.draft.eventSchemaSlug !== successor.draft.eventSchemaSlug ||
+			previous.draft.entitySchemaSlug !== successor.draft.entitySchemaSlug ||
+			(previous.operation === "update" &&
+				successor.operation === "update" &&
+				(previous.before.id !== successor.before.id ||
+					previous.before.entityId !== successor.before.entityId ||
+					previous.before.eventSchemaSlug !== successor.before.eventSchemaSlug ||
+					previous.before.entitySchemaSlug !== successor.before.entitySchemaSlug))
+		) {
+			return null;
+		}
 		const sessionEntityId =
 			previous.draft.sessionEntityId === successor.draft.sessionEntityId
 				? undefined
 				: successor.draft.sessionEntityId;
-		if (!properties && sessionEntityId === undefined) {
+		const occurredAt =
+			previous.draft.occurredAt === successor.draft.occurredAt
+				? undefined
+				: successor.draft.occurredAt;
+		if (!properties && sessionEntityId === undefined && occurredAt === undefined) {
 			return null;
 		}
 		return {
@@ -79,6 +95,7 @@ export const canonicalLifecyclePolicyPatch = (
 			draft: {
 				...(properties ? { properties } : {}),
 				...(sessionEntityId === undefined ? {} : { sessionEntityId }),
+				...(occurredAt === undefined ? {} : { occurredAt }),
 			},
 		};
 	}
@@ -109,10 +126,7 @@ export const applyLifecyclePolicyPatch = <Request extends AutomationRequestPaylo
 	if (request.resource !== patch.resource) {
 		return { ok: false, reason: "Policy patch resource does not match the retained request" };
 	}
-	if (
-		request.operation === "delete" ||
-		(request.resource === "event" && request.operation !== "create")
-	) {
+	if (request.operation === "delete") {
 		return { ok: false, reason: "Policy patch is not allowed for this mutation operation" };
 	}
 	const properties = patch.draft.properties
@@ -139,6 +153,7 @@ export const applyLifecyclePolicyPatch = <Request extends AutomationRequestPaylo
 				draft: {
 					...request.draft,
 					properties,
+					...(patch.draft.occurredAt === undefined ? {} : { occurredAt: patch.draft.occurredAt }),
 					...(patch.draft.sessionEntityId === undefined
 						? {}
 						: { sessionEntityId: patch.draft.sessionEntityId }),

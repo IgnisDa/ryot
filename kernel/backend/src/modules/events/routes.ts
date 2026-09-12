@@ -1,8 +1,8 @@
 import { CurrentUser } from "@ryot-app/contract/auth-middleware";
 import { AppContract } from "@ryot-app/contract/contract";
 import { DbError } from "@ryot-app/contract/errors";
-import { EventsInternalError } from "@ryot-app/contract/modules/events/schemas";
-import { AutomationExecutionId } from "@ryot-app/contract/schema/brands";
+import { EventNotFound, EventsInternalError } from "@ryot-app/contract/modules/events/schemas";
+import { AutomationExecutionId, EventId } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { generateId } from "better-auth";
 import { DateTime, Effect } from "effect";
@@ -55,6 +55,56 @@ export const EventsRoutesLive = HttpApiBuilder.group(AppContract, "events", (han
 							),
 						),
 					);
+			}),
+		)
+		.handle("update", ({ params, payload }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* EventsService;
+				const eventId = EventId.make(params.eventId);
+				const command = rootLifecycleCommand({
+					source: "api",
+					itemIdentity: `event:${eventId}:edit`,
+					initiator: { id: user.id, kind: "user" },
+					accountGeneration: user.accountGeneration,
+					executionId: AutomationExecutionId.make(generateId()),
+					occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
+				});
+				return yield* service
+					.edit({ eventId, patch: payload }, user.id, command)
+					.pipe(
+						Effect.catchTag("DbError", (error) =>
+							Effect.logError("event update failed", error).pipe(
+								Effect.andThen(new EventsInternalError({ reason: { code: "unexpected-error" } })),
+							),
+						),
+					);
+			}),
+		)
+		.handle("delete", ({ params }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* EventsService;
+				const eventId = EventId.make(params.eventId);
+				const command = rootLifecycleCommand({
+					source: "api",
+					itemIdentity: `event:${eventId}:delete`,
+					initiator: { id: user.id, kind: "user" },
+					accountGeneration: user.accountGeneration,
+					executionId: AutomationExecutionId.make(generateId()),
+					occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
+				});
+				return yield* service.delete({ eventId, userId: user.id }, command).pipe(
+					Effect.filterOrFail(
+						(result) => result.eventId !== null,
+						() => new EventNotFound({ reason: { eventId, code: "event-not-found" } }),
+					),
+					Effect.catchTag("DbError", (error) =>
+						Effect.logError("event deletion failed", error).pipe(
+							Effect.andThen(new EventsInternalError({ reason: { code: "unexpected-error" } })),
+						),
+					),
+				);
 			}),
 		),
 );

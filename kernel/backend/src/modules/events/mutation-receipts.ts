@@ -3,7 +3,7 @@ import {
 	AutomationHookIdentity,
 	type LifecycleCommand,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { CreateEventItem } from "@ryot-app/contract/modules/events/schemas";
+import type { CreateEventItem, UpdateEventItem } from "@ryot-app/contract/modules/events/schemas";
 import { EventId, type UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "effect";
 
@@ -19,6 +19,9 @@ export const EventCreateReceiptResult = Schema.Struct({
 	processed: Schema.Array(AutomationHookIdentity),
 });
 export const EventMutationReceiptResult = Schema.Struct({ eventId: Schema.NullOr(EventId) });
+export const EventMutationBatchReceiptResult = Schema.Struct({
+	eventIds: Schema.Array(Schema.NullOr(EventId)),
+});
 
 export const projectEventIngestionReceipt = (commandKind: string, result: unknown) =>
 	commandKind === "event:create"
@@ -67,16 +70,48 @@ export const eventCreateReceiptIdentity = (
 export const eventMutationReceiptIdentity = (
 	input: EventIdentityInput,
 	command: LifecycleCommand,
-	move?: UpdateEventEntityReferencesInput,
-) =>
-	mutationReceiptIdentity({
+	mutation:
+		| { readonly operation: "delete" }
+		| { readonly operation: "edit"; readonly submitted: UpdateEventItem }
+		| { readonly operation: "move"; readonly move: UpdateEventEntityReferencesInput },
+) => {
+	let commandKind: string;
+	let receiptInput: unknown;
+	if (mutation.operation === "edit") {
+		commandKind = "event:edit";
+		receiptInput = mutation.submitted;
+	} else if (mutation.operation === "move") {
+		commandKind = "event:update";
+		receiptInput = {
+			eventId: input.eventId,
+			mergeFrom: mutation.move.mergeFrom,
+			mergeInto: mutation.move.mergeInto,
+		};
+	} else {
+		commandKind = "event:delete";
+		receiptInput = { eventId: input.eventId };
+	}
+	return mutationReceiptIdentity({
 		command,
+		commandKind,
+		input: receiptInput,
 		ownerUserId: input.userId,
 		scopeUserId: input.userId,
-		commandKind: move ? "event:update" : "event:delete",
-		input: move
-			? { eventId: input.eventId, mergeFrom: move.mergeFrom, mergeInto: move.mergeInto }
-			: { eventId: input.eventId },
+	});
+};
+
+export const eventMutationBatchReceiptIdentity = (input: {
+	userId: UserId;
+	command: LifecycleCommand;
+	operation: "delete" | "edit";
+	submitted: unknown;
+}) =>
+	mutationReceiptIdentity({
+		command: input.command,
+		input: input.submitted,
+		ownerUserId: input.userId,
+		scopeUserId: input.userId,
+		commandKind: input.operation === "edit" ? "event:edit-batch" : "event:delete-batch",
 	});
 
 export const eventReceiptError = (error: DbError | MutationReceiptIdentityConflict) =>
