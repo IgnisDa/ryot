@@ -48,7 +48,7 @@ export const navigationRecipe = defineRecipe(() => ({
 				slug: selectedField(column(savedView, "slug"), Schema.String),
 				name: selectedField(column(savedView, "name"), Schema.String),
 				icon: selectedField(column(savedView, "icon"), Schema.String),
-				sortOrder: selectedField(column(savedView, "sortOrder"), Schema.Number),
+				sortOrder: selectedField(column(savedView, "sortOrder"), Schema.Finite),
 				isDisabled: selectedField(column(savedView, "isDisabled"), Schema.Boolean),
 				pluginSlug: selectedField(column(savedView, "pluginSlug"), Schema.NullOr(Schema.String)),
 			},
