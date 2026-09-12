@@ -22,11 +22,12 @@ import type { AuthService } from "#/modules/auth/service";
 import type { IntegrationProviderItem } from "#/modules/integrations/service";
 import { IntegrationsService } from "#/modules/integrations/service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
-import { PluginCatalogService } from "#/modules/plugins/catalog";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/events.test-layer";
-import { PluginOperationsService } from "#/modules/plugins/operations";
-import { PluginQueriesService } from "#/modules/plugins/queries";
-import { ClientStorage } from "#/persistence/storage";
+import {
+	makePluginCatalog,
+	makePluginOperations,
+	makePluginQueries,
+} from "#/modules/plugins/services.test-layer";
 import { getRouter } from "#/router";
 import {
 	theme,
@@ -35,7 +36,7 @@ import {
 	ServerStub,
 	makeAuthStub,
 	OAuthRouteStubs,
-	makeStorageStub,
+	makeStorageStubLayer,
 	GodModeRouteStubs,
 	makePublicApiStub,
 	CustomizeRouteStubs,
@@ -263,18 +264,18 @@ const mountView = (
 			ClientPageSessionsRouteStubs,
 			makeUserSettingsStub(),
 			events.layer,
-			Layer.succeed(PluginCatalogService, { load: () => Effect.succeed(catalog) }),
+			makePluginCatalog(catalog),
 			NavigationRouteStubs,
 			CustomizeRouteStubs,
-			Layer.succeed(PluginOperationsService, { invoke: () => Effect.die("not used") }),
-			Layer.succeed(PluginQueriesService, { query: () => Effect.die("not used") }),
+			makePluginOperations(),
+			makePluginQueries(),
 			IntegrationsService.layer,
 			queries,
 			integrationsApi,
 			NotificationChannelRouteStubs,
 		).pipe(
 			Layer.provideMerge(OAuthRouteStubs),
-			Layer.provideMerge(Layer.succeed(ClientStorage, makeStorageStub("fixture"))),
+			Layer.provideMerge(makeStorageStubLayer("fixture")),
 		),
 	);
 	const router = getRouter(

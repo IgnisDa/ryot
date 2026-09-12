@@ -5,7 +5,8 @@ import { decodeServerOrigin } from "#/api/origin";
 import { makeRuntimeOAuthClient, RuntimeOAuthClientService } from "#/modules/auth/runtime-client";
 import { AuthService } from "#/modules/auth/service";
 import { OAuthTokenError, OAuthTokenService } from "#/modules/auth/token-service";
-import { ClientStorage } from "#/persistence/storage";
+import type { ClientStorage } from "#/persistence/storage";
+import { makeClientStorage } from "#/persistence/storage.test-layer";
 
 const origin = decodeServerOrigin("https://example.com");
 const equivalentOrigin = decodeServerOrigin("https://example.com/");
@@ -38,23 +39,7 @@ const makeTokens = (
 });
 
 const makeStorage = (clearServerSelection: Effect.Effect<void> = Effect.void) =>
-	Layer.succeed(ClientStorage, {
-		clearServerSelection,
-		remove: () => Effect.void,
-		setPluginValue: () => Effect.void,
-		setLastWorkspace: () => Effect.void,
-		removePluginValue: () => Effect.void,
-		setSavedViewLayout: () => Effect.void,
-		setServerSelection: () => Effect.void,
-		setThemePreference: () => Effect.void,
-		setRememberedProvider: () => Effect.void,
-		getServerSelection: Effect.succeed(null),
-		getPluginValue: () => Effect.succeed(null),
-		getLastWorkspace: () => Effect.succeed(null),
-		getRememberedProvider: () => Effect.succeed(null),
-		getThemePreference: Effect.succeed("system" as const),
-		getSavedViewLayout: () => Effect.succeed("grid" as const),
-	});
+	makeClientStorage({ clearServerSelection });
 
 const runtimeClient = (isNative = false) =>
 	Layer.succeed(

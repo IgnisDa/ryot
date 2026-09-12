@@ -4,7 +4,7 @@ import { Effect, Layer } from "effect";
 import { decodeServerOrigin } from "#/api/origin";
 import { PublicApi, PublicApiError } from "#/api/public";
 import { ServerService } from "#/modules/server/service";
-import { ClientStorage } from "#/persistence/storage";
+import { makeClientStorage } from "#/persistence/storage.test-layer";
 
 const origin = decodeServerOrigin("https://example.com");
 
@@ -22,21 +22,7 @@ describe("server service", () => {
 						: Effect.void;
 				},
 			}),
-			Layer.succeed(ClientStorage, {
-				remove: () => Effect.void,
-				clearServerSelection: Effect.void,
-				setPluginValue: () => Effect.void,
-				setLastWorkspace: () => Effect.void,
-				removePluginValue: () => Effect.void,
-				setSavedViewLayout: () => Effect.void,
-				setThemePreference: () => Effect.void,
-				setRememberedProvider: () => Effect.void,
-				getServerSelection: Effect.succeed(null),
-				getPluginValue: () => Effect.succeed(null),
-				getLastWorkspace: () => Effect.succeed(null),
-				getRememberedProvider: () => Effect.succeed(null),
-				getThemePreference: Effect.succeed("system" as const),
-				getSavedViewLayout: () => Effect.succeed("grid" as const),
+			makeClientStorage({
 				setServerSelection: (serverOrigin) => Effect.sync(() => saved.push(serverOrigin)),
 			}),
 		);
