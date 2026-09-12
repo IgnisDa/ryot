@@ -132,22 +132,6 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 			const installSystemPlugin = Effect.fn("TestSupportService.installSystemPlugin")(function* (
 				input: TestSupportInstallSystemPluginBodyBase64,
 			) {
-				const files = Object.fromEntries(
-					yield* Effect.forEach(Object.entries(input.files), ([path, contents]) =>
-						Schema.decodeEffect(Schema.Uint8ArrayFromBase64)(contents).pipe(
-							Effect.map((decoded) => [path, decoded] as const),
-							Effect.mapError(
-								() =>
-									new TestSupportBadRequest({
-										reason: {
-											code: "invalid-request",
-											diagnostic: `Plugin file '${path}' must be canonical padded Base64`,
-										},
-									}),
-							),
-						),
-					),
-				);
 				const compiledClient =
 					input.compiledClient === undefined
 						? undefined
@@ -165,7 +149,6 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 								),
 							);
 				const installed = yield* pluginIngestion.installPlugin({
-					files,
 					manifest: input.manifest,
 					compiledScripts: input.compiledScripts,
 					...(compiledClient === undefined ? {} : { compiledClient }),

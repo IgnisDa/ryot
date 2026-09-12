@@ -926,10 +926,8 @@ describe("account backup restore in PostgreSQL", () => {
 						manifest,
 						sourceHash: pluginSourceHash(
 							manifest,
-							basePackage.files,
-							basePackage.scripts.map(({ entry, source, compiledCode, compiledFormat }) => ({
+							basePackage.scripts.map(({ entry, compiledCode, compiledFormat }) => ({
 								entry,
-								source,
 								format: compiledFormat,
 								javascript: compiledCode,
 							})),

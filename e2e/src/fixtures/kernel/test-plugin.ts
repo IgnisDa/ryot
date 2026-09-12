@@ -9,7 +9,7 @@ import {
 	type SandboxScriptId,
 } from "@ryot-app/contract/schema/brands";
 import type { PluginArchivePackage } from "@ryot-app/plugin-archive";
-import { Effect, Encoding, Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 import { requirePresent } from "~/support/assertions";
 
@@ -85,7 +85,7 @@ export type InstalledTestPlugin = {
 	configRevisionId: PluginConfigRevisionId | null;
 	activePluginRevisionId: PluginRevisionId;
 	manifest: TestPluginManifest;
-	files: PluginArchivePackage["files"];
+	files: PluginPackageInput["files"];
 	scriptIds: Record<string, SandboxScriptId>;
 };
 
@@ -100,21 +100,17 @@ export const encodePluginSourceFiles = (files: Readonly<Record<string, string>>)
 		Object.entries(files).map(([path, contents]) => [path, encoder.encode(contents)]),
 	);
 
-export const encodeTestSupportPluginFiles = (files: Readonly<Record<string, Uint8Array>>) =>
-	Object.fromEntries(
-		Object.entries(files).map(([path, contents]) => [path, Encoding.encodeBase64(contents)]),
-	);
-
-export const installTestSupportSystemPlugin = (input: PluginPackageInput & { baseUrl?: string }) =>
+export const installTestSupportSystemPlugin = (
+	input: (PluginPackageInput | PluginArchivePackage) & { baseUrl?: string },
+) =>
 	Effect.gen(function* () {
-		const pluginPackage = yield* compilePluginPackage(input);
+		const pluginPackage = "files" in input ? yield* compilePluginPackage(input) : input;
 		return yield* getApiClient(input.baseUrl).call(
 			(c) =>
 				c.testSupport.installSystemPlugin({
 					payload: {
 						manifest: pluginPackage.manifest,
 						compiledScripts: pluginPackage.compiledScripts,
-						files: encodeTestSupportPluginFiles(pluginPackage.files),
 						...(pluginPackage.compiledClient === undefined
 							? {}
 							: {
