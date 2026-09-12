@@ -88,7 +88,9 @@ it.live("retains the document and bridge across same-composition saved views", (
 			.getByRole("heading", { level: 1, name: "Composition first view" })
 			.waitFor();
 		const iframe = Option.getOrThrow(yield* frame.elementHandle());
-		const src = yield* frame.getAttribute("src");
+		const srcDoc = yield* frame.getAttribute("srcdoc");
+		expect(srcDoc).not.toBeNull();
+		expect(yield* frame.getAttribute("src")).toBeNull();
 		const runtimeUrl = yield* clientImportUrl(frame, "@ryot-app/client-sdk/plugin");
 		expect(runtimeUrl).toMatch(/^\/api\/client-assets\/[a-f0-9]{64}\/public\//);
 		yield* frame
@@ -96,6 +98,7 @@ it.live("retains the document and bridge across same-composition saved views", (
 			.locator("body")
 			.evaluate((body) => body.setAttribute("data-e2e-runtime", "retained"));
 		const before = requests.length;
+		expect(requests).toContain("/api/client-pages/document");
 		// The second saved view is a router navigation, not a full top-level page load.
 		yield* page
 			.getByTestId("desktop-sidebar")
@@ -107,14 +110,14 @@ it.live("retains the document and bridge across same-composition saved views", (
 			.getByRole("heading", { level: 1, name: "Composition second view" })
 			.waitFor();
 		expect(yield* frame.evaluate((current, original) => current === original, iframe)).toBe(true);
-		expect(yield* frame.getAttribute("src")).toBe(src);
+		expect(yield* frame.getAttribute("srcdoc")).toBe(srcDoc);
 		expect(yield* frame.contentFrame().locator("body").getAttribute("data-e2e-runtime")).toBe(
 			"retained",
 		);
 		expect(yield* clientImportUrl(frame, "@ryot-app/client-sdk/plugin")).toBe(runtimeUrl);
-		expect(
-			requests.slice(before).filter((path) => path.startsWith("/api/client-pages/documents/")),
-		).toEqual([]);
+		expect(requests.slice(before).filter((path) => path === "/api/client-pages/document")).toEqual(
+			[],
+		);
 		expect(requests.slice(before).filter((path) => path.startsWith("/api/client-assets/"))).toEqual(
 			[],
 		);
