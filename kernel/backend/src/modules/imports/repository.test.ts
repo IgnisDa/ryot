@@ -100,11 +100,7 @@ layer(
 			expect(runs.filter((run) => run !== null)).toHaveLength(1);
 			expect(runs.filter((run) => run === null)).toHaveLength(1);
 			for (const values of yield* (yield* FakeImportRunInserts).insertedValues) {
-				expect(values).toMatchObject({
-					integrationId,
-					integrationLot: "yank",
-					executionKind: "integration",
-				});
+				expect(values).toMatchObject({ integrationId, integrationLot: "yank" });
 			}
 		}),
 	);
@@ -151,7 +147,7 @@ const makeTransitionLayer = (selectedStatus: ImportRunStatus | null) =>
 					const selectedRows =
 						selectedStatus === null
 							? []
-							: [{ id: row.id, status: selectedStatus, executionKind: "source" as const }];
+							: [{ id: row.id, integrationId: null, status: selectedStatus }];
 					const db = {
 						update: () => ({
 							set: () => ({

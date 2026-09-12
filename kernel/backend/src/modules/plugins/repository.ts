@@ -6,7 +6,6 @@ import { DbError } from "@ryot-app/contract/errors";
 import {
 	PluginManifest,
 	type PluginHttpRateLimit,
-	type PluginProviderOperation,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import { SandboxProviderId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -16,6 +15,7 @@ import {
 	eq,
 	exists,
 	inArray,
+	isNotNull,
 	isNull,
 	not,
 	notExists,
@@ -65,22 +65,6 @@ const retainedScriptExecution = (now: Date) => sql<boolean>`(exists (
 const bytesEqual = (left: Uint8Array, right: Uint8Array) =>
 	left.byteLength === right.byteLength && left.every((byte, index) => byte === right[index]);
 
-const toProviderOperation = (operation: string): PluginProviderOperation | undefined => {
-	if (operation === "searchOptions") {
-		return "search-options";
-	}
-	if (
-		operation === "details" ||
-		operation === "search" ||
-		operation === "search-options" ||
-		operation === "resolve" ||
-		operation === "translate"
-	) {
-		return operation;
-	}
-	return undefined;
-};
-
 type LoadedPluginRevision = PluginRevision & {
 	readonly id: string;
 	readonly version: string;
@@ -92,7 +76,6 @@ type LoadedPluginRevision = PluginRevision & {
 const revisionFields = {
 	id: schema.pluginRevision.id,
 	pluginSlug: schema.plugin.slug,
-	version: schema.pluginRevision.version,
 	manifest: schema.pluginRevision.manifest,
 	pluginId: schema.pluginRevision.pluginId,
 	sourceHash: schema.pluginRevision.sourceHash,
@@ -100,7 +83,7 @@ const revisionFields = {
 
 type RevisionRow = Pick<
 	typeof schema.pluginRevision.$inferSelect,
-	"id" | "manifest" | "pluginId" | "sourceHash" | "version"
+	"id" | "manifest" | "pluginId" | "sourceHash"
 > & { readonly pluginSlug: (typeof schema.plugin.$inferSelect)["slug"] };
 
 export const decodeStoredManifest = (manifest: unknown, pluginSlug: string) =>
@@ -133,11 +116,11 @@ const toLoadedRevision = Effect.fn(function* (
 		manifest,
 		id: row.id,
 		compiledHashes,
-		version: row.version,
 		scripts: descriptors,
 		pluginId: row.pluginId,
 		sourceHash: row.sourceHash,
 		pluginSlug: row.pluginSlug,
+		version: manifest.metadata.version,
 	} satisfies LoadedPluginRevision;
 });
 
@@ -179,19 +162,11 @@ const lookupRevisionForSession = (loadRevisions: ReturnType<typeof loadRevisions
 		return revision;
 	});
 
-const toStoredPlugin = Effect.fn(function* (
-	pointer: PluginPointerRow,
-	revision: LoadedPluginRevision,
-) {
-	let identity: StoredPluginIdentity | null = null;
-	if (pointer.scope === "system" && pointer.ownerId === null) {
-		identity = { ownerId: null, id: pointer.id, scope: "system", slug: pointer.slug };
-	} else if (pointer.scope === "user" && pointer.ownerId !== null) {
-		identity = { scope: "user", id: pointer.id, slug: pointer.slug, ownerId: pointer.ownerId };
-	}
-	if (!identity) {
-		return yield* new DbError({ message: `Plugin ${pointer.slug} has invalid persisted identity` });
-	}
+const toStoredPlugin = (pointer: PluginPointerRow, revision: LoadedPluginRevision) => {
+	const identity: StoredPluginIdentity =
+		pointer.ownerId === null
+			? { ownerId: null, id: pointer.id, scope: "system", slug: pointer.slug }
+			: { scope: "user", id: pointer.id, slug: pointer.slug, ownerId: pointer.ownerId };
 	return {
 		...identity,
 		status: pointer.status,
@@ -199,7 +174,7 @@ const toStoredPlugin = Effect.fn(function* (
 		manifest: revision.manifest,
 		sourceHash: revision.sourceHash,
 	} satisfies StoredPlugin;
-});
+};
 
 export class PluginRepository extends Context.Service<PluginRepository>()("PluginRepository", {
 	make: Effect.gen(function* () {
@@ -233,12 +208,12 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			return yield* Effect.forEach(rows, (row) => {
 				const revision = row.activeRevisionId ? revisionsById.get(row.activeRevisionId) : undefined;
 				return revision
-					? toStoredPlugin(row, revision)
+					? Effect.succeed(toStoredPlugin(row, revision))
 					: new DbError({ message: `Plugin ${row.slug} has no retained active revision` });
 			});
 		});
 
-		const activeSystem = and(eq(schema.plugin.status, "active"), eq(schema.plugin.scope, "system"));
+		const activeSystem = and(eq(schema.plugin.status, "active"), isNull(schema.plugin.ownerId));
 
 		const listActiveSystemPlugins = Effect.fn("PluginRepository.listActiveSystemPlugins")(
 			function* () {
@@ -326,7 +301,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					.where(
 						and(
 							eq(schema.plugin.status, "active"),
-							eq(schema.plugin.scope, "user"),
+							isNotNull(schema.plugin.ownerId),
 							eq(schema.plugin.ownerId, userId),
 						),
 					),
@@ -346,7 +321,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 						and(
 							eq(schema.plugin.id, pluginId),
 							eq(schema.plugin.status, "active"),
-							eq(schema.plugin.scope, "user"),
+							isNotNull(schema.plugin.ownerId),
 							eq(schema.plugin.ownerId, userId),
 						),
 					)
@@ -355,7 +330,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			if (!row?.activeRevisionId) {
 				return null;
 			}
-			return yield* toStoredPlugin(row, yield* lookupRevision(row.activeRevisionId));
+			return toStoredPlugin(row, yield* lookupRevision(row.activeRevisionId));
 		});
 
 		const listPortablePluginMetadata = Effect.fn("PluginRepository.listPortablePluginMetadata")(
@@ -368,7 +343,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 							activeRevisionId: schema.plugin.activeRevisionId,
 						})
 						.from(schema.plugin)
-						.where(and(eq(schema.plugin.status, "active"), eq(schema.plugin.scope, "system")))
+						.where(activeSystem)
 						.orderBy(asc(schema.plugin.slug)),
 				);
 				const revisionsById = new Map(
@@ -514,7 +489,6 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					.where(
 						and(
 							eq(schema.plugin.slug, input.slug),
-							eq(schema.plugin.scope, input.scope),
 							eq(schema.plugin.status, "active"),
 							eq(schema.pluginRevision.sourceHash, input.sourceHash),
 							input.ownerId === null
@@ -527,7 +501,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			if (!row?.activeRevisionId) {
 				return null;
 			}
-			return yield* toStoredPlugin(row, yield* lookupRevision(row.activeRevisionId));
+			return toStoredPlugin(row, yield* lookupRevision(row.activeRevisionId));
 		});
 
 		const findTestSupportOperationResult = Effect.fn(
@@ -546,7 +520,6 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 							"pluginId" in identity
 								? eq(schema.plugin.id, identity.pluginId)
 								: eq(schema.plugin.slug, identity.slug),
-							eq(schema.plugin.scope, identity.scope),
 							eq(schema.plugin.status, "active"),
 							identity.ownerId === null
 								? isNull(schema.plugin.ownerId)
@@ -690,7 +663,6 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					db
 						.select({
 							slug: schema.sandboxScript.slug,
-							source: schema.sandboxScript.source,
 							format: schema.sandboxScript.compiledFormat,
 							javascript: schema.sandboxScript.compiledCode,
 						})
@@ -715,11 +687,23 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 							}),
 						);
 					}
-					return Effect.succeed({
-						entry: script.entry,
-						source: retained.source,
-						format: retained.format,
-						javascript: retained.javascript,
+					const source = files[script.entry];
+					if (!source) {
+						return Effect.fail(
+							new DbError({ message: `Plugin ${pluginId} is missing source file ${script.entry}` }),
+						);
+					}
+					return Effect.try({
+						catch: () =>
+							new DbError({
+								message: `Plugin ${pluginId} has invalid source file ${script.entry}`,
+							}),
+						try: () => ({
+							entry: script.entry,
+							format: retained.format,
+							javascript: retained.javascript,
+							source: new TextDecoder("utf-8", { fatal: true }).decode(source),
+						}),
 					});
 				});
 
@@ -905,25 +889,29 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 		) {
 			const slug = identity.slug;
 			const mutation = { status: "installing" } as const;
-			const conflict =
-				identity.scope === "system"
-					? {
-							set: mutation,
-							target: schema.plugin.slug,
-							targetWhere: sql`${schema.plugin.scope} = 'system'`,
-						}
-					: {
-							set: mutation,
-							targetWhere: sql`${schema.plugin.scope} = 'user'`,
-							target: [schema.plugin.ownerId, schema.plugin.slug],
-						};
-			const [persisted] = yield* database.run((db) =>
+			const [inserted] = yield* database.run((db) =>
 				db
 					.insert(schema.plugin)
-					.values({ ...mutation, slug, scope: identity.scope, ownerId: identity.ownerId })
-					.onConflictDoUpdate(conflict)
+					.values({ ...mutation, slug, ownerId: identity.ownerId })
+					.onConflictDoNothing()
 					.returning({ id: schema.plugin.id }),
 			);
+			const [persisted] = inserted
+				? [inserted]
+				: yield* database.run((db) =>
+						db
+							.update(schema.plugin)
+							.set(mutation)
+							.where(
+								and(
+									eq(schema.plugin.slug, slug),
+									identity.ownerId === null
+										? isNull(schema.plugin.ownerId)
+										: eq(schema.plugin.ownerId, identity.ownerId),
+								),
+							)
+							.returning({ id: schema.plugin.id }),
+					);
 			if (!persisted) {
 				return yield* new DbError({ message: `Plugin ${slug} could not be persisted` });
 			}
@@ -975,7 +963,6 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 								clientArtifactHash,
 								manifest: plugin.manifest,
 								sourceHash: plugin.sourceHash,
-								version: plugin.manifest.metadata.version,
 								clientConfigSchema: redactPluginConfig(plugin.manifest.configSchema, {})
 									.configSchema,
 							})
@@ -988,7 +975,6 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			const pluginRevisionId = revision.id;
 			if (insertedRevision) {
 				yield* definitions.writeRevisionDefinitions({
-					pluginId,
 					pluginRevisionId,
 					definitions: yield* Effect.try({
 						catch: (error) => new DbError({ message: String(error) }),
@@ -1029,12 +1015,6 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 						.onConflictDoNothing(),
 				);
 			}
-			const existingProviders = yield* database.run((db) =>
-				db
-					.select({ id: schema.sandboxProvider.id, slug: schema.sandboxProvider.slug })
-					.from(schema.sandboxProvider)
-					.where(eq(schema.sandboxProvider.pluginId, pluginId)),
-			);
 			const providers =
 				plugin.manifest.providers.length > 0
 					? yield* database.run((db) =>
@@ -1062,42 +1042,8 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 						)
 					: [];
 			const providerIdBySlug = new Map(providers.map((provider) => [provider.slug, provider.id]));
-			const providerIds = new Map([
-				...existingProviders.map((provider) => [provider.slug, provider.id] as const),
-				...providers.map((provider) => [provider.slug, provider.id] as const),
-			]);
-			const declaredOperationsByProvider = new Map(
-				plugin.manifest.providers.map((provider) => [
-					provider.slug,
-					new Set(
-						Object.keys(provider.operations).flatMap((operation) => {
-							const typedOperation = toProviderOperation(operation);
-							return typedOperation ? [typedOperation] : [];
-						}),
-					),
-				]),
-			);
-			yield* Effect.forEach(
-				[...providerIds.entries()],
-				([providerSlug, providerId]) => {
-					const operations = declaredOperationsByProvider.get(providerSlug);
-					return database.run((db) =>
-						db
-							.delete(schema.sandboxProviderOperation)
-							.where(
-								and(
-									eq(schema.sandboxProviderOperation.providerId, providerId),
-									operations && operations.size > 0
-										? notInArray(schema.sandboxProviderOperation.operation, [...operations])
-										: undefined,
-								),
-							),
-					);
-				},
-				{ discard: true },
-			);
 			if (plugin.scripts.length > 0) {
-				const persistedScriptRows = yield* Effect.forEach(
+				yield* Effect.forEach(
 					plugin.scripts,
 					(script) =>
 						Effect.gen(function* () {
@@ -1124,7 +1070,6 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 							if (retained) {
 								if (
 									retained.contentHash !== script.contentHash ||
-									retained.source !== script.source ||
 									retained.compiledCode !== script.compiledCode ||
 									retained.compiledFormat !== script.compiledFormat ||
 									retained.name !== script.name ||
@@ -1135,80 +1080,27 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 										message: "Immutable plugin revision conflicts with retained script",
 									});
 								}
-								return [retained];
+							} else {
+								yield* database.run((db) =>
+									db
+										.insert(schema.sandboxScript)
+										.values({
+											source: null,
+											pluginRevisionId,
+											slug: script.slug,
+											name: script.name,
+											metadata: script.metadata,
+											providerId: providerId ?? null,
+											contentHash: script.contentHash,
+											compiledCode: script.compiledCode,
+											compiledFormat: script.compiledFormat,
+										}),
+								);
 							}
-							return yield* database.run((db) =>
-								db
-									.insert(schema.sandboxScript)
-									.values({
-										pluginRevisionId,
-										slug: script.slug,
-										name: script.name,
-										source: script.source,
-										metadata: script.metadata,
-										providerId: providerId ?? null,
-										contentHash: script.contentHash,
-										compiledCode: script.compiledCode,
-										compiledFormat: script.compiledFormat,
-									})
-									.returning({
-										id: schema.sandboxScript.id,
-										slug: schema.sandboxScript.slug,
-										contentHash: schema.sandboxScript.contentHash,
-									}),
-							);
+							return undefined;
 						}),
-					{ discard: false },
+					{ discard: true },
 				);
-				const scriptIdBySlug = new Map<string, string>(
-					persistedScriptRows
-						.flatMap((rows) => rows)
-						.map((script) => [script.slug, script.id] as const),
-				);
-				for (const provider of plugin.manifest.providers) {
-					const providerId = providerIdBySlug.get(provider.slug);
-					if (!providerId) {
-						return yield* new DbError({
-							message: `Plugin ${slug} is missing provider ${provider.slug}`,
-						});
-					}
-					for (const [operation, scriptSlug] of Object.entries(provider.operations)) {
-						const typedOperation = toProviderOperation(operation);
-						if (!typedOperation) {
-							return yield* new DbError({
-								message: `Plugin ${slug} has an invalid provider operation ${provider.slug}:${operation}`,
-							});
-						}
-						if (!scriptSlug) {
-							return yield* new DbError({
-								message: `Plugin ${slug} has no script for provider operation ${provider.slug}:${operation}`,
-							});
-						}
-						const script = plugin.scripts.find((candidate) => candidate.slug === scriptSlug);
-						const scriptId = scriptIdBySlug.get(scriptSlug);
-						if (!script || !scriptId) {
-							return yield* new DbError({
-								message: `Plugin ${slug} has no persisted script for provider operation ${provider.slug}:${operation}`,
-							});
-						}
-						const optionsSchema =
-							typedOperation === "search" && "searchOptionsSchema" in script.metadata
-								? (script.metadata.searchOptionsSchema ?? null)
-								: null;
-						yield* database.run((db) =>
-							db
-								.insert(schema.sandboxProviderOperation)
-								.values({ scriptId, providerId, optionsSchema, operation: typedOperation })
-								.onConflictDoUpdate({
-									set: { scriptId, optionsSchema, updatedAt: sql`now()` },
-									target: [
-										schema.sandboxProviderOperation.providerId,
-										schema.sandboxProviderOperation.operation,
-									],
-								}),
-						);
-					}
-				}
 			}
 			yield* database.run((db) =>
 				db
@@ -1275,7 +1167,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					.from(schema.plugin)
 					.where(
 						and(
-							eq(schema.plugin.scope, "user"),
+							isNotNull(schema.plugin.ownerId),
 							eq(schema.plugin.status, "inactive"),
 							notExists(
 								db
@@ -1319,7 +1211,15 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 								db
 									.select({ executionId: schema.sandboxWorkflowReference.executionId })
 									.from(schema.sandboxWorkflowReference)
-									.where(eq(schema.sandboxWorkflowReference.pluginId, schema.plugin.id)),
+									.innerJoin(
+										schema.sandboxScript,
+										eq(schema.sandboxWorkflowReference.scriptId, schema.sandboxScript.id),
+									)
+									.innerJoin(
+										schema.pluginRevision,
+										eq(schema.sandboxScript.pluginRevisionId, schema.pluginRevision.id),
+									)
+									.where(eq(schema.pluginRevision.pluginId, schema.plugin.id)),
 							),
 							notExists(
 								db
@@ -1376,18 +1276,13 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 						)
 						.orderBy(asc(schema.sandboxScript.id))
 						.limit(input.limit);
-					return Effect.gen(function* () {
-						yield* db
-							.delete(schema.sandboxProviderOperation)
-							.where(inArray(schema.sandboxProviderOperation.scriptId, candidates));
-						return yield* db
-							.delete(schema.sandboxScript)
-							.where(inArray(schema.sandboxScript.id, candidates))
-							.returning({
-								id: schema.sandboxScript.id,
-								contentHash: schema.sandboxScript.contentHash,
-							});
-					});
+					return db
+						.delete(schema.sandboxScript)
+						.where(inArray(schema.sandboxScript.id, candidates))
+						.returning({
+							id: schema.sandboxScript.id,
+							contentHash: schema.sandboxScript.contentHash,
+						});
 				});
 			},
 		);
@@ -1481,9 +1376,9 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					select c.id from plugin_config_revision c
 					where c.encrypted_payload is not null
 					and not exists (select 1 from plugin_installation i where i.active_config_revision_id = c.id and i.uninstalled_at is null)
-					and c.scope <> 'environment'
+					and c.owner_user_id is not null
 					and not exists (select 1 from automation_run r where r.plugin_config_revision_id = c.id and (r.status in ('queued', 'running') or r.artifacts_expire_at > ${input.now}))
-					and not exists (select 1 from sandbox_workflow_reference w where w.plugin_installation_id = c.plugin_installation_id or w.plugin_id = (select plugin_id from plugin_revision where id = c.plugin_revision_id))
+					and not exists (select 1 from sandbox_workflow_reference w join sandbox_script s on s.id = w.script_id join plugin_revision r on r.id = s.plugin_revision_id where w.plugin_installation_id = c.plugin_installation_id or r.plugin_id = (select plugin_id from plugin_revision where id = c.plugin_revision_id))
 					limit ${input.limit}
 				) update plugin_config_revision set encrypted_payload = null, payload_pruned_at = ${input.now} where id in (select id from candidates)`),
 					);

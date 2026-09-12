@@ -1,11 +1,18 @@
-import { expect, layer } from "@effect/vitest";
+import { assert, expect, layer } from "@effect/vitest";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import { eq } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Ref } from "effect";
 
-import type * as schema from "#lib/infrastructure/db/schema/tables/combined";
+import * as schema from "#lib/infrastructure/db/schema/tables/combined";
+import { DatabaseSession } from "#lib/infrastructure/db/session";
 import { assertExitFails } from "#lib/test-utils/assertions";
 import { fakeDatabaseSession } from "#lib/test-utils/effect";
+import {
+	installRevisionPackage,
+	revisionPackage,
+	revisionDatabaseLayer,
+} from "#modules/plugins/revision.test-support";
 
 import {
 	SandboxWorkflowReferenceRegistrationError,
@@ -29,17 +36,13 @@ class RegistrationDatabase extends Context.Service<
 	}
 >()("test/RegistrationDatabase") {}
 
-class ReleaseDatabase extends Context.Service<
-	ReleaseDatabase,
-	{ readonly releases: Effect.Effect<number> }
->()("test/ReleaseDatabase") {}
-
 const makeRegisterLayer = (options: {
 	active: boolean;
 	inserted?: boolean;
 	installationId?: string | null;
 	pluginScope?: "system" | "user";
 	existing?: typeof schema.sandboxWorkflowReference.$inferSelect;
+	matchingScript?: boolean;
 }) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
@@ -69,6 +72,12 @@ const makeRegisterLayer = (options: {
 							limit: () =>
 								record("existing").pipe(Effect.as(options.existing ? [options.existing] : [])),
 						}),
+						innerJoin: () => ({
+							where: () => ({
+								limit: () =>
+									record("script").pipe(Effect.as(options.matchingScript === false ? [] : [input])),
+							}),
+						}),
 						leftJoin: () => ({
 							where: () => ({
 								limit: () =>
@@ -78,8 +87,8 @@ const makeRegisterLayer = (options: {
 												? [
 														{
 															slug: input.pluginId,
-															scope: options.pluginScope ?? "system",
 															installationId: options.installationId ?? null,
+															ownerId: options.pluginScope === "user" ? "owner" : null,
 														},
 													]
 												: [],
@@ -105,39 +114,6 @@ const makeRegisterLayer = (options: {
 		}),
 	);
 
-const releasingLayer = Layer.unwrap(
-	Effect.gen(function* () {
-		const rows = yield* Ref.make<ReadonlyArray<typeof reference>>([reference]);
-		const releases = yield* Ref.make(0);
-		const db = {
-			delete: () => ({
-				where: () =>
-					Ref.update(releases, (count) => count + 1).pipe(Effect.andThen(Ref.set(rows, []))),
-			}),
-			select: (selection?: unknown) => ({
-				from: () => {
-					if (selection) {
-						return {
-							where: () => ({
-								limit: () => Ref.get(rows).pipe(Effect.map((all) => all.slice(0, 1))),
-							}),
-						};
-					}
-					return Object.assign(Ref.get(rows), { where: () => Ref.get(rows) });
-				},
-			}),
-		};
-		return SandboxWorkflowReferenceRepository.layer.pipe(
-			Layer.provideMerge(
-				Layer.merge(
-					fakeDatabaseSession(db),
-					Layer.succeed(ReleaseDatabase, { releases: Ref.get(releases) }),
-				),
-			),
-		);
-	}),
-);
-
 layer(makeRegisterLayer({ active: true, pluginScope: "user", installationId: "installation" }))(
 	(test) => {
 		test.effect(
@@ -151,12 +127,16 @@ layer(makeRegisterLayer({ active: true, pluginScope: "user", installationId: "in
 						status: "registered",
 					});
 					const events = yield* database.events;
-					expect(events).toHaveLength(3);
+					expect(events).toHaveLength(4);
 					expect(events[0]).toContain("pg_advisory_xact_lock_shared");
 					expect(events[0]).toContain("ryot-plugin-ingestion");
-					expect(events.slice(1)).toEqual(["plugin", "insert"]);
+					expect(events.slice(1)).toEqual(["plugin", "script", "insert"]);
 					expect(yield* database.references).toEqual([
-						{ ...input, pluginInstallationId: "installation" },
+						{
+							scriptId: input.scriptId,
+							executionId: input.executionId,
+							pluginInstallationId: "installation",
+						},
 					]);
 				}),
 		);
@@ -209,6 +189,7 @@ layer(makeRegisterLayer({ active: true, inserted: false, existing: reference }))
 			});
 			expect((yield* (yield* RegistrationDatabase).events).slice(1)).toEqual([
 				"plugin",
+				"script",
 				"insert",
 				"existing",
 			]);
@@ -216,19 +197,68 @@ layer(makeRegisterLayer({ active: true, inserted: false, existing: reference }))
 	);
 });
 
-layer(releasingLayer)((test) => {
-	test.effect("exposes reusable reference liveness queries and idempotent release", () =>
+layer(revisionDatabaseLayer)((test) => {
+	test.effect("validates the referenced script, preserves replay, and releases the pin", () =>
 		Effect.gen(function* () {
+			const installed = yield* installRevisionPackage(revisionPackage("pinned"));
+			const other = yield* installRevisionPackage(revisionPackage("other"));
+			const session = yield* DatabaseSession;
 			const repository = yield* SandboxWorkflowReferenceRepository;
-			expect(yield* repository.hasReferences(input.pluginId)).toBe(true);
-			expect(yield* repository.hasInstallationReferences("installation")).toBe(true);
-			expect(yield* repository.listReferences(input.pluginId)).toEqual([reference]);
-			expect(yield* repository.listReferences()).toEqual([reference]);
-			yield* repository.release(input.executionId);
-			yield* repository.release(input.executionId);
-			expect(yield* repository.hasReferences(input.pluginId)).toBe(false);
-			expect(yield* repository.hasInstallationReferences("installation")).toBe(false);
-			expect(yield* (yield* ReleaseDatabase).releases).toBe(2);
+			const [script] = yield* session.run((db) =>
+				db
+					.select()
+					.from(schema.sandboxScript)
+					.where(eq(schema.sandboxScript.pluginRevisionId, installed.revisionId))
+					.limit(1),
+			);
+			assert(script);
+			const pin = {
+				userId: "owner",
+				pluginId: installed.pluginId,
+				contentHash: script.contentHash,
+				executionId: "pinned-execution",
+				scriptId: SandboxScriptId.make(script.id),
+			};
+			yield* session.transaction(
+				Effect.gen(function* () {
+					yield* repository.lockIngestionShared();
+					assertExitFails(
+						yield* Effect.exit(repository.registerInTransaction({ ...pin, contentHash: "wrong" })),
+						new SandboxWorkflowReferenceRegistrationError({
+							reason: "script-mismatch",
+							message: `Script '${script.id}' does not match plugin '${installed.pluginId}' and its content hash`,
+						}),
+					);
+					assertExitFails(
+						yield* Effect.exit(
+							repository.registerInTransaction({ ...pin, pluginId: other.pluginId }),
+						),
+						new SandboxWorkflowReferenceRegistrationError({
+							reason: "script-mismatch",
+							message: `Script '${script.id}' does not match plugin '${other.pluginId}' and its content hash`,
+						}),
+					);
+					expect(yield* repository.registerInTransaction(pin)).toEqual({ status: "registered" });
+					expect(yield* repository.registerInTransaction(pin)).toEqual({
+						status: "already-registered",
+					});
+				}),
+			);
+			expect(yield* repository.hasReferences(installed.pluginId)).toBe(true);
+			expect(yield* repository.hasInstallationReferences(installed.installation.id)).toBe(true);
+			expect(yield* repository.listReferences(installed.pluginId)).toEqual([
+				{
+					pluginId: pin.pluginId,
+					scriptId: pin.scriptId,
+					executionId: pin.executionId,
+					contentHash: pin.contentHash,
+					pluginInstallationId: installed.installation.id,
+				},
+			]);
+			yield* repository.release(pin.executionId);
+			yield* repository.release(pin.executionId);
+			expect(yield* repository.hasReferences(installed.pluginId)).toBe(false);
+			expect(yield* repository.hasInstallationReferences(installed.installation.id)).toBe(false);
 		}),
 	);
 });

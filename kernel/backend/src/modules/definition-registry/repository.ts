@@ -220,18 +220,16 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 			});
 			const writeRevisionDefinitions = Effect.fn("DefinitionRepository.writeRevisionDefinitions")(
 				function* (input: {
-					readonly pluginId: string;
 					readonly pluginRevisionId: string;
 					readonly definitions: RevisionDefinitions;
 				}) {
-					const { pluginId, definitions, pluginRevisionId } = input;
+					const { definitions, pluginRevisionId } = input;
 					if (definitions.entitySchemas.length > 0) {
 						const entities = yield* session.run((db) =>
 							db
 								.insert(schema.definitionEntitySchema)
 								.values(
 									definitions.entitySchemas.map((definition, position) => ({
-										pluginId,
 										position,
 										pluginRevisionId,
 										icon: definition.icon,
@@ -269,7 +267,6 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 								.insert(schema.definitionRelationshipSchema)
 								.values(
 									definitions.relationshipSchemas.map((definition, position) => ({
-										pluginId,
 										position,
 										pluginRevisionId,
 										name: definition.name,
@@ -287,7 +284,6 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 								.insert(schema.definitionSignalSchema)
 								.values(
 									definitions.signalSchemas.map((definition, position) => ({
-										pluginId,
 										position,
 										pluginRevisionId,
 										name: definition.name,
@@ -306,7 +302,6 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 								.insert(schema.definitionSavedView)
 								.values(
 									definitions.savedViews.map((definition, position) => ({
-										pluginId,
 										position,
 										pluginRevisionId,
 										icon: definition.icon,
@@ -326,7 +321,6 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 								.insert(schema.definitionImportSource)
 								.values(
 									definitions.importSources.map((definition, position) => ({
-										pluginId,
 										position,
 										pluginRevisionId,
 										name: definition.name,
@@ -347,7 +341,6 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 								.insert(schema.definitionIntegrationProvider)
 								.values(
 									definitions.integrationProviders.map((definition, position) => ({
-										pluginId,
 										position,
 										pluginRevisionId,
 										lot: definition.lot,
@@ -374,7 +367,6 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 										.values(
 											source.entitySchemas.map((definition, position) => ({
 												position,
-												pluginId: null,
 												icon: definition.icon,
 												name: definition.name,
 												slug: definition.slug,
@@ -460,7 +452,6 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 								.values(
 									source.relationshipSchemas.map((definition, position) => ({
 										position,
-										pluginId: null,
 										name: definition.name,
 										slug: definition.slug,
 										pluginRevisionId: null,
@@ -495,7 +486,6 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 								.values(
 									source.signalSchemas.map((definition, position) => ({
 										position,
-										pluginId: null,
 										name: definition.name,
 										slug: definition.slug,
 										pluginRevisionId: null,
@@ -532,7 +522,6 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 								.values(
 									source.savedViews.map((definition, position) => ({
 										position,
-										pluginId: null,
 										icon: definition.icon,
 										name: definition.name,
 										slug: definition.slug,
@@ -648,10 +637,10 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 					db
 						.select({
 							...getTableColumns(schema.definitionEntitySchema),
-							pluginSlug: schema.plugin.slug,
+							pluginId: sql<string | null>`null::text`,
+							pluginSlug: sql<string | null>`null::text`,
 						})
 						.from(schema.definitionEntitySchema)
-						.leftJoin(schema.plugin, eq(schema.plugin.id, schema.definitionEntitySchema.pluginId))
 						.where(isNull(schema.definitionEntitySchema.pluginRevisionId))
 						.orderBy(asc(schema.definitionEntitySchema.position)),
 				);
@@ -672,14 +661,20 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 						: [];
 				const relationshipSchemas = yield* session.run((db) =>
 					db
-						.select()
+						.select({
+							...getTableColumns(schema.definitionRelationshipSchema),
+							pluginId: sql<string | null>`null::text`,
+						})
 						.from(schema.definitionRelationshipSchema)
 						.where(isNull(schema.definitionRelationshipSchema.pluginRevisionId))
 						.orderBy(asc(schema.definitionRelationshipSchema.position)),
 				);
 				const signalSchemas = yield* session.run((db) =>
 					db
-						.select()
+						.select({
+							...getTableColumns(schema.definitionSignalSchema),
+							pluginId: sql<string | null>`null::text`,
+						})
 						.from(schema.definitionSignalSchema)
 						.where(isNull(schema.definitionSignalSchema.pluginRevisionId))
 						.orderBy(asc(schema.definitionSignalSchema.position)),
@@ -688,10 +683,10 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 					db
 						.select({
 							...getTableColumns(schema.definitionSavedView),
-							pluginSlug: schema.plugin.slug,
+							pluginId: sql<string | null>`null::text`,
+							pluginSlug: sql<string | null>`null::text`,
 						})
 						.from(schema.definitionSavedView)
-						.leftJoin(schema.plugin, eq(schema.plugin.id, schema.definitionSavedView.pluginId))
 						.where(isNull(schema.definitionSavedView.pluginRevisionId))
 						.orderBy(asc(schema.definitionSavedView.position)),
 				);

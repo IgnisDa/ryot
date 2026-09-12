@@ -27,13 +27,13 @@ const entityTranslationRecipe = defineRecipe((input: { entityId: string; languag
 	map: ({ row }) => Result.succeed(row ?? null),
 	queries: {
 		row: selectedOptionalRow(translation, {
-			orderBy: [ascending(column(translation, "id"))],
+			orderBy: [ascending(column(translation, "language"))],
 			where: and(
 				eq(column(translation, "entityId"), literal(input.entityId)),
 				eq(column(translation, "language"), literal(input.language)),
 			),
 			selection: {
-				id: selectedField(column(translation, "id"), Schema.String),
+				entityId: selectedField(column(translation, "entityId"), Schema.String),
 				language: selectedField(column(translation, "language"), Schema.String),
 				populatedAt: selectedField(column(translation, "populatedAt"), Schema.String),
 				name: selectedField(column(translation, "name"), Schema.NullOr(Schema.String)),

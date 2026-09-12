@@ -1,5 +1,5 @@
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, getTableColumns, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { PLUGIN_INGESTION_ADVISORY_LOCK_KEY } from "#lib/infrastructure/db/advisory-locks";
@@ -10,17 +10,21 @@ type WorkflowReferenceRow = typeof schema.sandboxWorkflowReference.$inferSelect;
 
 type SandboxWorkflowReference = Omit<WorkflowReferenceRow, "scriptId"> & {
 	readonly scriptId: SandboxScriptId;
+	readonly pluginId: string;
+	readonly contentHash: string;
 };
 
 export class SandboxWorkflowReferenceRegistrationError extends Schema.TaggedError<SandboxWorkflowReferenceRegistrationError>()(
 	"SandboxWorkflowReferenceRegistrationError",
-	{ message: Schema.String, reason: Schema.Literals(["plugin-inactive", "execution-conflict"]) },
+	{
+		message: Schema.String,
+		reason: Schema.Literals(["plugin-inactive", "execution-conflict", "script-mismatch"]),
+	},
 ) {}
 
-const toReference = (row: WorkflowReferenceRow): SandboxWorkflowReference => ({
-	...row,
-	scriptId: SandboxScriptId.make(row.scriptId),
-});
+const toReference = (
+	row: WorkflowReferenceRow & { pluginId: string; contentHash: string },
+): SandboxWorkflowReference => ({ ...row, scriptId: SandboxScriptId.make(row.scriptId) });
 
 export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxWorkflowReferenceRepository>()(
 	"SandboxWorkflowReferenceRepository",
@@ -51,7 +55,7 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 					db
 						.select({
 							slug: schema.plugin.slug,
-							scope: schema.plugin.scope,
+							ownerId: schema.plugin.ownerId,
 							installationId: schema.pluginInstallation.id,
 						})
 						.from(schema.plugin)
@@ -76,7 +80,7 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 						message: `Plugin '${input.pluginId}' is not active`,
 					});
 				}
-				if (plugin.scope === "user" && (!input.userId || !plugin.installationId)) {
+				if (plugin.ownerId !== null && (!input.userId || !plugin.installationId)) {
 					return yield* new SandboxWorkflowReferenceRegistrationError({
 						reason: "plugin-inactive",
 						message: `Private plugin '${input.pluginId}' requires an exact user installation`,
@@ -88,11 +92,32 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 						message: `Plugin '${input.pluginId}' has no installation for user '${input.userId}'`,
 					});
 				}
+				const [script] = yield* database.run((db) =>
+					db
+						.select({ id: schema.sandboxScript.id })
+						.from(schema.sandboxScript)
+						.innerJoin(
+							schema.pluginRevision,
+							eq(schema.pluginRevision.id, schema.sandboxScript.pluginRevisionId),
+						)
+						.where(
+							and(
+								eq(schema.sandboxScript.id, input.scriptId),
+								eq(schema.sandboxScript.contentHash, input.contentHash),
+								eq(schema.pluginRevision.pluginId, input.pluginId),
+							),
+						)
+						.limit(1),
+				);
+				if (!script) {
+					return yield* new SandboxWorkflowReferenceRegistrationError({
+						reason: "script-mismatch",
+						message: `Script '${input.scriptId}' does not match plugin '${input.pluginId}' and its content hash`,
+					});
+				}
 				const reference = {
-					pluginId: input.pluginId,
 					scriptId: input.scriptId,
 					executionId: input.executionId,
-					contentHash: input.contentHash,
 					pluginInstallationId: plugin.installationId,
 				};
 				const inserted = yield* database.run((db) =>
@@ -113,9 +138,7 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 						.limit(1),
 				);
 				if (
-					existing?.pluginId === input.pluginId &&
-					existing.scriptId === input.scriptId &&
-					existing.contentHash === input.contentHash &&
+					existing?.scriptId === input.scriptId &&
 					existing.pluginInstallationId === plugin.installationId
 				) {
 					return { status: "already-registered" } as const;
@@ -142,7 +165,15 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 						db
 							.select({ executionId: schema.sandboxWorkflowReference.executionId })
 							.from(schema.sandboxWorkflowReference)
-							.where(eq(schema.sandboxWorkflowReference.pluginId, pluginId))
+							.innerJoin(
+								schema.sandboxScript,
+								eq(schema.sandboxScript.id, schema.sandboxWorkflowReference.scriptId),
+							)
+							.innerJoin(
+								schema.pluginRevision,
+								eq(schema.pluginRevision.id, schema.sandboxScript.pluginRevisionId),
+							)
+							.where(eq(schema.pluginRevision.pluginId, pluginId))
 							.limit(1),
 					);
 					return row !== undefined;
@@ -165,10 +196,22 @@ export class SandboxWorkflowReferenceRepository extends Context.Service<SandboxW
 			const listReferences = Effect.fn("SandboxWorkflowReferenceRepository.listReferences")(
 				function* (pluginId?: string) {
 					const rows = yield* database.run((db) => {
-						const query = db.select().from(schema.sandboxWorkflowReference);
-						return pluginId
-							? query.where(eq(schema.sandboxWorkflowReference.pluginId, pluginId))
-							: query;
+						const query = db
+							.select({
+								...getTableColumns(schema.sandboxWorkflowReference),
+								pluginId: schema.pluginRevision.pluginId,
+								contentHash: schema.sandboxScript.contentHash,
+							})
+							.from(schema.sandboxWorkflowReference)
+							.innerJoin(
+								schema.sandboxScript,
+								eq(schema.sandboxScript.id, schema.sandboxWorkflowReference.scriptId),
+							)
+							.innerJoin(
+								schema.pluginRevision,
+								eq(schema.pluginRevision.id, schema.sandboxScript.pluginRevisionId),
+							);
+						return pluginId ? query.where(eq(schema.pluginRevision.pluginId, pluginId)) : query;
 					});
 					return rows.map(toReference);
 				},

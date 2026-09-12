@@ -419,7 +419,6 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 								...(yield* toArchiveEntity(entity, pluginKeyById)),
 								identity: yield* dependencyIdentity(entity, pluginKeyById),
 								translations: (translationsByEntity.get(entity.id) ?? []).map((translation) => ({
-									id: translation.id,
 									name: translation.name,
 									language: translation.language,
 									createdAt: translation.createdAt.toISOString(),
@@ -849,7 +848,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							);
 						}
 						const entityTranslations = [];
-						for (const translation of dependency.translations) {
+						for (const [index, translation] of dependency.translations.entries()) {
 							entityTranslations.push({
 								...translation,
 								properties:
@@ -858,7 +857,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 										: yield* transformProperties(
 												translation.properties,
 												propertiesSchema,
-												`/entity-dependencies/${dependency.id}/translations/${translation.id}/properties`,
+												`/entity-dependencies/${dependency.id}/translations/${index}/properties`,
 											),
 							});
 						}

@@ -1,6 +1,6 @@
 import { expect, layer } from "@effect/vitest";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { eq } from "drizzle-orm";
+import { eq, isNull } from "drizzle-orm";
 import { Context, Effect, Layer, Ref } from "effect";
 import { assert, describe } from "vitest";
 
@@ -208,7 +208,7 @@ describe("installation revision persistence", () => {
 							db
 								.select()
 								.from(tables.pluginConfigRevision)
-								.where(eq(tables.pluginConfigRevision.scope, "environment")),
+								.where(isNull(tables.pluginConfigRevision.ownerUserId)),
 						);
 					const before = yield* environmentRevisions();
 					yield* persistence.restoreInstallation({

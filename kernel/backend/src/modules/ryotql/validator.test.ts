@@ -169,19 +169,15 @@ it("exposes only approved application-table fields", () => {
 		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
 	});
 	expect(new Set(Object.keys(getCatalogTable("sandboxProviderOperation")?.fields ?? {}))).toEqual(
-		new Set(["id", "providerId", "operation", "optionsSchema", "createdAt", "updatedAt"]),
+		new Set(["providerId", "operation", "optionsSchema"]),
 	);
-	expect(getCatalogTable("sandboxProviderOperation")?.name).toBe("sandbox_provider_operation");
-	expect(getCatalogTable("sandboxProviderOperation")?.primaryKey).toEqual(["id"]);
+	expect(getCatalogTable("sandboxProviderOperation")?.name).toBe("user_sandbox_provider_operation");
+	expect(getCatalogTable("sandboxProviderOperation")?.primaryKey).toEqual([
+		"providerId",
+		"operation",
+	]);
 	expect(getCatalogTable("sandboxProviderOperation")?.visibility).toEqual({
-		user: {
-			parentColumn: "id",
-			type: "parentOwned",
-			pluginReadable: true,
-			column: "provider_id",
-			parentOwnerColumn: "user_id",
-			parentTable: "user_sandbox_provider",
-		},
+		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
 	});
 	expect(new Set(Object.keys(getCatalogTable("savedView")?.fields ?? {}))).toEqual(
 		new Set([

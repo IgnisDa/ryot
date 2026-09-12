@@ -23,7 +23,7 @@ export const automationRunRetryEligibility = (
 			select 1 from ${pluginRevision} r
 			join ${pluginConfigRevision} c on c.id = ${run("plugin_config_revision_id")}
 			join ${pluginConfigEncryptionKey} k on k.id = c.encryption_key_id
-			where r.id = ${run("plugin_revision_id")} and r.plugin_id = ${run("plugin_id")} and c.encrypted_payload is not null and c.plugin_revision_id = ${run("plugin_revision_id")} and (c.scope <> 'installation' or c.owner_user_id is not distinct from ${run("execution_user_id")}) and octet_length(k.key) = 32${lock}
+			where r.id = ${run("plugin_revision_id")} and r.plugin_id = ${run("plugin_id")} and c.encrypted_payload is not null and c.plugin_revision_id = ${run("plugin_revision_id")} and (c.owner_user_id is null or c.owner_user_id is not distinct from ${run("execution_user_id")}) and octet_length(k.key) = 32${lock}
 		) end`;
 	return sql<AutomationRetryEligibility["reason"]>`case
 		when ${run("stage")} = 'before' then 'before-policy'

@@ -15,6 +15,7 @@ import { makeAppConfigLayer, makeConfigProviderLayer } from "#lib/test-utils/eff
 import { ClientArtifactsRepository } from "#modules/client-artifacts/repository";
 import { DefinitionRepository } from "#modules/definition-registry/repository";
 import { SandboxRepository } from "#modules/sandbox/repository";
+import { SandboxWorkflowReferenceRepository } from "#modules/sandbox/workflow-reference-repository";
 
 import { PluginConfigEncryptionKey } from "./config-encryption-key";
 import { PluginConfigRevisions } from "./config-revisions";
@@ -43,6 +44,7 @@ export const revisionDatabaseLayer = Layer.unwrap(
 			PluginConfigRevisions.layer,
 			PluginConfigEncryptionKey.layer,
 			SandboxRepository.layer,
+			SandboxWorkflowReferenceRepository.layer,
 		);
 		const repositoryLayer = PluginRepository.layer.pipe(Layer.provide(dependencies));
 		const services = Layer.mergeAll(
@@ -204,7 +206,9 @@ export const revisionPackage = (
 	return {
 		manifest,
 		sourceHash: `${slug}-${version}`,
-		files: { "backend/main.ts": new TextEncoder().encode(version) },
+		files: Object.fromEntries(
+			manifest.scripts.map(({ entry }) => [entry, new TextEncoder().encode(version)]),
+		),
 		scripts: manifest.scripts.map(({ entry, ...metadata }) => ({
 			entry,
 			metadata,

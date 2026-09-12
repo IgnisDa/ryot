@@ -80,7 +80,6 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 						id: schema.sandboxScript.id,
 						pluginSlug: schema.plugin.slug,
 						slug: schema.sandboxScript.slug,
-						pluginScope: schema.plugin.scope,
 						pluginStatus: schema.plugin.status,
 						pluginOwnerId: schema.plugin.ownerId,
 						metadata: schema.sandboxScript.metadata,
@@ -136,16 +135,15 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 				(!expectedRevision &&
 					(row.pluginStatus !== "active" || row.activeRevisionId !== row.pluginRevisionId)) ||
 				!row.pluginSlug ||
-				!row.pluginScope ||
 				!row.pluginManifest ||
 				!row.pluginRevisionId ||
-				(row.pluginScope === "system") !== (row.pluginOwnerId === null) ||
 				declaration?.kind !== row.metadata.kind ||
 				(row.providerId !== null && row.providerPluginId !== row.pluginId)
 			) {
 				return null;
 			}
 			const { pluginId, pluginRevisionId } = row;
+			const pluginScope = row.pluginOwnerId === null ? "system" : "user";
 			const manifest = row.pluginManifest;
 			const scripts = yield* database.run((db) =>
 				db
@@ -158,7 +156,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 			);
 			let configRevisionId: string | undefined = expectedRevision?.configRevisionId;
 			if (!expectedRevision) {
-				if (row.pluginScope === "system") {
+				if (pluginScope === "system") {
 					configRevisionId = row.environmentConfigRevisionId ?? undefined;
 				} else {
 					const [state] = yield* database.run((db) =>
@@ -197,8 +195,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 			if (
 				!config?.encryptedPayload ||
 				config.pluginRevisionId !== row.pluginRevisionId ||
-				config.ownerUserId !== row.pluginOwnerId ||
-				config.scope !== (row.pluginScope === "system" ? "environment" : "installation")
+				config.ownerUserId !== row.pluginOwnerId
 			) {
 				return null;
 			}
@@ -209,8 +206,8 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 				scriptId: SandboxScriptId.make(row.id),
 				providerId: row.providerId ? SandboxProviderId.make(row.providerId) : null,
 				pluginRevision: {
+					scope: pluginScope,
 					slug: row.pluginSlug,
-					scope: row.pluginScope,
 					id: PluginId.make(row.pluginId),
 					configSchema: manifest.configSchema,
 					revisionId: PluginRevisionId.make(row.pluginRevisionId),
@@ -223,7 +220,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()("San
 						manifest.workflows.map(({ slug, scriptSlug }) => [slug, scriptSlug]),
 					),
 					userBootstrapScriptSlugs:
-						row.pluginScope === "system"
+						pluginScope === "system"
 							? manifest.userBootstrap.map(({ scriptSlug }) => scriptSlug)
 							: [],
 					schemaScope: {

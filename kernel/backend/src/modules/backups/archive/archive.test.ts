@@ -235,6 +235,31 @@ layer(BunFileSystem.layer)((test) => {
 		}).pipe(Effect.scoped),
 	);
 
+	test.effect("round-trips dependency translations by entity and language", () =>
+		Effect.gen(function* () {
+			const dependency = {
+				...entity(),
+				identity: { kind: "unmanaged" as const },
+				translations: [
+					{
+						language: "es",
+						name: "Entidad",
+						createdAt: timestamp,
+						updatedAt: timestamp,
+						populatedAt: timestamp,
+						properties: { description: "Traducida" },
+					},
+				],
+			};
+			const validated = yield* validateArchive(
+				asChunks(
+					yield* archiveBytes(input({ records: { ...records, entityDependencies: [dependency] } })),
+				),
+			);
+			expect(validated.records.entityDependencies).toEqual([dependency]);
+		}).pipe(Effect.scoped),
+	);
+
 	test.effect("excludes automation history and configuration revision sections", () =>
 		Effect.gen(function* () {
 			const files = unzipSync(yield* archiveBytes());
