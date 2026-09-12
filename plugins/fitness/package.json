@@ -27,7 +27,6 @@
 		"@ryot-app/ryotql": "workspace:*",
 		"@ryot-app/ryotql-recipes": "workspace:*",
 		"@ryot-app/sandbox-sdk": "workspace:*",
-		"@ryot-app/ts-utils": "workspace:*",
 		"effect": "4.0.0-rc.117"
 	},
 	"devDependencies": {
