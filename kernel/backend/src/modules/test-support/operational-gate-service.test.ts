@@ -55,7 +55,7 @@ const importRun = {
 
 const availablePlugin = {
 	config: {},
-	isDisabled: false,
+	isHidden: false,
 	ownerUserId: null,
 	compiledHashes: {},
 	scope: "system" as const,

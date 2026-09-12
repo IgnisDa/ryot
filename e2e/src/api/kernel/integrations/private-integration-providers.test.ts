@@ -152,7 +152,7 @@ describe("private integration providers", () => {
 		}),
 	);
 
-	it.live("withdraws a private provider when its installation is disabled", () =>
+	it.live("withdraws a private provider when its installation is hidden", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const plugin = yield* Effect.acquireRelease(
@@ -160,7 +160,7 @@ describe("private integration providers", () => {
 				({ pluginSlug }) => releasePrivatePlugin(client, pluginSlug),
 			);
 
-			yield* updatePluginState(client, plugin.pluginSlug, { isDisabled: true });
+			yield* updatePluginState(client, plugin.pluginSlug, { isHidden: true });
 
 			const providers = yield* listProviders(client);
 			expect(providers.map(({ slug }) => slug)).not.toContain(plugin.providerSlug);
@@ -171,7 +171,7 @@ describe("private integration providers", () => {
 			assertTaggedError(failure, "IntegrationRequestError");
 			expect(failure.reason).toEqual({ code: "provider-not-found", provider: plugin.providerSlug });
 
-			yield* updatePluginState(client, plugin.pluginSlug, { isDisabled: false });
+			yield* updatePluginState(client, plugin.pluginSlug, { isHidden: false });
 			expect((yield* listProviders(client)).map(({ slug }) => slug)).toContain(plugin.providerSlug);
 		}),
 	);

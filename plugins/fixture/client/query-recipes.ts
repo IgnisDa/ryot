@@ -72,7 +72,7 @@ export const fixtureClientPluginCatalogRecipe = defineRecipe(() => ({
 			where: and(
 				eq(column(plugin, "status"), literal("active")),
 				eq(column(installation, "health"), literal("ready")),
-				eq(column(installation, "isDisabled"), literal(false)),
+				eq(column(installation, "isHidden"), literal(false)),
 				isNotNull(column(plugin, "clientApiVersion")),
 			),
 		}),

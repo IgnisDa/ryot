@@ -25,10 +25,10 @@ const selection = {
 	slug: selectedField(column(savedView, "slug"), Schema.String),
 	name: selectedField(column(savedView, "name"), Schema.String),
 	icon: selectedField(column(savedView, "icon"), Schema.String),
+	isHidden: selectedField(column(savedView, "isHidden"), Schema.Boolean),
 	sortOrder: selectedField(column(savedView, "sortOrder"), Schema.Finite),
 	isBuiltin: selectedField(column(savedView, "isBuiltin"), Schema.Boolean),
 	renderer: selectedField(column(savedView, "renderer"), SavedViewRenderer),
-	isDisabled: selectedField(column(savedView, "isDisabled"), Schema.Boolean),
 	pluginSlug: selectedField(column(savedView, "pluginSlug"), Schema.NullOr(PluginSlug)),
 	createdAt: selectedField(column(savedView, "createdAt"), Schema.NullOr(IsoDateString)),
 	updatedAt: selectedField(column(savedView, "updatedAt"), Schema.NullOr(IsoDateString)),
@@ -41,12 +41,12 @@ export const savedViewRecordsRecipe = defineRecipe(
 		readonly after?: string | undefined;
 		readonly limit: number;
 		readonly pluginSlug?: string | undefined;
-		readonly includeDisabled?: boolean | undefined;
+		readonly includeHidden?: boolean | undefined;
 	}) => {
 		const predicates = [
-			...((input.includeDisabled ?? false)
+			...((input.includeHidden ?? false)
 				? []
-				: [eq(column(savedView, "isDisabled"), literal(false))]),
+				: [eq(column(savedView, "isHidden"), literal(false))]),
 			...(input.pluginSlug ? [eq(column(savedView, "pluginSlug"), literal(input.pluginSlug))] : []),
 		];
 		return {

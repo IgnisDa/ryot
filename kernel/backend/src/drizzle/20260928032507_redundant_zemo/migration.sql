@@ -139,8 +139,8 @@ CREATE TABLE "backup_run" (
 	"kind" text NOT NULL,
 	"finished_at" timestamp with time zone,
 	"artifact_provider" text,
-	"status" text DEFAULT 'pending' NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"status" text DEFAULT 'pending' NOT NULL,
 	"user_id" text NOT NULL,
 	"id" text PRIMARY KEY
 );
@@ -318,12 +318,12 @@ CREATE TABLE "import_run" (
 	"imported_items" integer DEFAULT 0 NOT NULL,
 	"finished_at" timestamp with time zone,
 	"integration_lot" text,
-	"execution_kind" text NOT NULL,
 	"processed_items" integer DEFAULT 0 NOT NULL,
 	"source" text NOT NULL,
 	"failure_reason" jsonb,
-	"status" text DEFAULT 'pending' NOT NULL,
+	"execution_kind" text NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"status" text DEFAULT 'pending' NOT NULL,
 	"input_summary" jsonb DEFAULT '{}' NOT NULL,
 	"integration_id" text,
 	"user_id" text NOT NULL,
@@ -610,7 +610,7 @@ CREATE TABLE "plugin_installation" (
 	"health_reason" text,
 	"home_saved_view_slug" text,
 	"sort_order" integer DEFAULT 0 NOT NULL,
-	"is_disabled" boolean DEFAULT false NOT NULL,
+	"is_hidden" boolean DEFAULT false NOT NULL,
 	"uninstalled_at" timestamp with time zone,
 	"configured_secret_paths" text[] DEFAULT '{}'::text[] NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -725,7 +725,7 @@ CREATE TABLE "saved_view" (
 	"revision" integer DEFAULT 1 NOT NULL,
 	"sort_order" integer DEFAULT 0 NOT NULL,
 	"data_sources" jsonb,
-	"is_disabled" boolean DEFAULT false NOT NULL,
+	"is_hidden" boolean DEFAULT false NOT NULL,
 	"renderer" jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"settings" jsonb NOT NULL,
@@ -740,7 +740,7 @@ CREATE TABLE "saved_view_override" (
 	"slug" text,
 	"sort_order" integer NOT NULL,
 	"revision" integer DEFAULT 1 NOT NULL,
-	"is_disabled" boolean DEFAULT false NOT NULL,
+	"is_hidden" boolean DEFAULT false NOT NULL,
 	"user_id" text,
 	CONSTRAINT "saved_view_override_pkey" PRIMARY KEY("user_id","slug")
 );
@@ -1060,7 +1060,7 @@ CREATE VIEW "user_entity_schema" AS (
 			union all
 			select p.user_id, d.id, d.plugin_id, d.plugin_revision_id, p.slug, p.scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties, p.is_definition_effective
 			from (
-	select i.user_id, p.id as plugin_id, i.id as installation_id, p.slug, p.scope, p.owner_user_id, p.active_revision_id, case when p.scope = 'system' then p.environment_config_revision_id else i.active_config_revision_id end as config_revision_id, i.health, i.is_disabled, i.sort_order, i.health <> 'incompatible' as is_listed, not i.is_disabled and (i.health = 'ready' or (p.scope = 'system' and i.health = 'installing')) as is_definition_effective, coalesce(not i.is_disabled and i.health = 'ready' and c.plugin_revision_id = p.active_revision_id and c.encrypted_payload is not null and case when p.scope = 'system' then c.scope = 'environment' else c.scope = 'installation' and c.owner_user_id = i.user_id and c.plugin_installation_id = i.id end, false) as is_executable
+	select i.user_id, p.id as plugin_id, i.id as installation_id, p.slug, p.scope, p.owner_user_id, p.active_revision_id, case when p.scope = 'system' then p.environment_config_revision_id else i.active_config_revision_id end as config_revision_id, i.health, i.is_hidden, i.sort_order, i.health <> 'incompatible' as is_listed, not i.is_hidden and (i.health = 'ready' or (p.scope = 'system' and i.health = 'installing')) as is_definition_effective, coalesce(not i.is_hidden and i.health = 'ready' and c.plugin_revision_id = p.active_revision_id and c.encrypted_payload is not null and case when p.scope = 'system' then c.scope = 'environment' else c.scope = 'installation' and c.owner_user_id = i.user_id and c.plugin_installation_id = i.id end, false) as is_executable
 	from plugin_installation i
 	join plugin p on p.id = i.plugin_id
 	left join plugin_config_revision c on c.id = case when p.scope = 'system' then p.environment_config_revision_id else i.active_config_revision_id end
@@ -1075,7 +1075,7 @@ CREATE VIEW "user_event_schema" AS (
 			join definition_event_schema v on v.entity_schema_id = e.id
 		);--> statement-breakpoint
 CREATE VIEW "user_plugin" AS (
-	select i.user_id, p.id as plugin_id, i.id as installation_id, p.slug, p.scope, p.owner_user_id, p.active_revision_id, case when p.scope = 'system' then p.environment_config_revision_id else i.active_config_revision_id end as config_revision_id, i.health, i.is_disabled, i.sort_order, i.health <> 'incompatible' as is_listed, not i.is_disabled and (i.health = 'ready' or (p.scope = 'system' and i.health = 'installing')) as is_definition_effective, coalesce(not i.is_disabled and i.health = 'ready' and c.plugin_revision_id = p.active_revision_id and c.encrypted_payload is not null and case when p.scope = 'system' then c.scope = 'environment' else c.scope = 'installation' and c.owner_user_id = i.user_id and c.plugin_installation_id = i.id end, false) as is_executable
+	select i.user_id, p.id as plugin_id, i.id as installation_id, p.slug, p.scope, p.owner_user_id, p.active_revision_id, case when p.scope = 'system' then p.environment_config_revision_id else i.active_config_revision_id end as config_revision_id, i.health, i.is_hidden, i.sort_order, i.health <> 'incompatible' as is_listed, not i.is_hidden and (i.health = 'ready' or (p.scope = 'system' and i.health = 'installing')) as is_definition_effective, coalesce(not i.is_hidden and i.health = 'ready' and c.plugin_revision_id = p.active_revision_id and c.encrypted_payload is not null and case when p.scope = 'system' then c.scope = 'environment' else c.scope = 'installation' and c.owner_user_id = i.user_id and c.plugin_installation_id = i.id end, false) as is_executable
 	from plugin_installation i
 	join plugin p on p.id = i.plugin_id
 	left join plugin_config_revision c on c.id = case when p.scope = 'system' then p.environment_config_revision_id else i.active_config_revision_id end
@@ -1128,7 +1128,7 @@ CREATE VIEW "user_saved_view_effective" AS (
 	select s.id, null::text as plugin_id, custom_plugin.slug as plugin_slug,
 		s.user_id, s.slug, s.name, s.icon, s.plugin_installation_id,
 		s.revision, s.sort_order, s.data_sources, false as is_builtin,
-		s.is_disabled, s.renderer, s.created_at, s.settings, s.updated_at
+		s.is_hidden, s.renderer, s.created_at, s.settings, s.updated_at
 	from "saved_view" s
 	left join "plugin_installation" custom_installation on custom_installation.id = s.plugin_installation_id
 	left join "plugin" custom_plugin on custom_plugin.id = custom_installation.plugin_id
@@ -1137,7 +1137,7 @@ CREATE VIEW "user_saved_view_effective" AS (
 		d.user_id, d.slug, d.name, d.icon, p.installation_id as plugin_installation_id,
 		hashtext(d.id || ':' || coalesce(o.revision, 0)::text) as revision,
 		coalesce(o.sort_order, d.sort_order) as sort_order, d.data_sources, true as is_builtin,
-		coalesce(o.is_disabled, false) as is_disabled, d.renderer,
+		coalesce(o.is_hidden, false) as is_hidden, d.renderer,
 		null::timestamptz as created_at, d.settings, null::timestamptz as updated_at
 	from "user_saved_view" d
 	left join "user_plugin" p on p.user_id = d.user_id and p.plugin_id = d.plugin_id

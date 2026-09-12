@@ -76,7 +76,7 @@ describe("revision-backed import sources", () => {
 				const installations = yield* PluginInstallationRepository;
 				const state = yield* installations.updateState({
 					sortOrder: 0,
-					isDisabled: false,
+					isHidden: false,
 					id: installed.installation.id,
 					config: { token: "private-catalog-token" },
 				});

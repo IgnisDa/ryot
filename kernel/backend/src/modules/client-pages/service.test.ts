@@ -21,7 +21,7 @@ const manifest = fixtureManifest();
 const plugin = {
 	id: "plugin-id",
 	slug: "fixture",
-	isDisabled: false,
+	isHidden: false,
 	compiledHashes: {},
 	scope: "user" as const,
 	health: "ready" as const,

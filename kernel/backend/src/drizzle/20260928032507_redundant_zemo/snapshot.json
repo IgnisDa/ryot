@@ -1,7 +1,7 @@
 {
 	"version": "8",
 	"dialect": "postgres",
-	"id": "7b651461-ca0e-4fec-be25-dfe063b235cf",
+	"id": "e54e3cd1-4d11-4be5-97a0-2dac33f16531",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"ddl": [
 		{ "isRlsEnabled": false, "name": "account", "entityType": "tables", "schema": "public" },
@@ -1641,19 +1641,6 @@
 			"table": "backup_run"
 		},
 		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "'pending'",
-			"generated": null,
-			"identity": null,
-			"name": "status",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "backup_run"
-		},
-		{
 			"type": "timestamp with time zone",
 			"typeSchema": null,
 			"notNull": true,
@@ -1662,6 +1649,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "created_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "backup_run"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "'pending'",
+			"generated": null,
+			"identity": null,
+			"name": "status",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "backup_run"
@@ -3240,19 +3240,6 @@
 			"table": "import_run"
 		},
 		{
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"name": "execution_kind",
-			"entityType": "columns",
-			"schema": "public",
-			"table": "import_run"
-		},
-		{
 			"type": "integer",
 			"typeSchema": null,
 			"notNull": true,
@@ -3296,10 +3283,10 @@
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
-			"default": "'pending'",
+			"default": null,
 			"generated": null,
 			"identity": null,
-			"name": "status",
+			"name": "execution_kind",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "import_run"
@@ -3313,6 +3300,19 @@
 			"generated": null,
 			"identity": null,
 			"name": "created_at",
+			"entityType": "columns",
+			"schema": "public",
+			"table": "import_run"
+		},
+		{
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "'pending'",
+			"generated": null,
+			"identity": null,
+			"name": "status",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "import_run"
@@ -6016,7 +6016,7 @@
 			"default": "false",
 			"generated": null,
 			"identity": null,
-			"name": "is_disabled",
+			"name": "is_hidden",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "plugin_installation"
@@ -7030,7 +7030,7 @@
 			"default": "false",
 			"generated": null,
 			"identity": null,
-			"name": "is_disabled",
+			"name": "is_hidden",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "saved_view"
@@ -7173,7 +7173,7 @@
 			"default": "false",
 			"generated": null,
 			"identity": null,
-			"name": "is_disabled",
+			"name": "is_hidden",
 			"entityType": "columns",
 			"schema": "public",
 			"table": "saved_view_override"
@@ -12720,7 +12720,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\t\t\tselect u.id as user_id, d.id, d.plugin_id, d.plugin_revision_id, null::text as plugin_slug, null::text as plugin_scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties, true as is_effective\n\t\t\tfrom definition_entity_schema d\n\t\t\tcross join \"user\" u\n\t\t\twhere d.plugin_revision_id is null\n\t\t\tunion all\n\t\t\tselect p.user_id, d.id, d.plugin_id, d.plugin_revision_id, p.slug, p.scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties, p.is_definition_effective\n\t\t\tfrom (\n\tselect i.user_id, p.id as plugin_id, i.id as installation_id, p.slug, p.scope, p.owner_user_id, p.active_revision_id, case when p.scope = 'system' then p.environment_config_revision_id else i.active_config_revision_id end as config_revision_id, i.health, i.is_disabled, i.sort_order, i.health <> 'incompatible' as is_listed, not i.is_disabled and (i.health = 'ready' or (p.scope = 'system' and i.health = 'installing')) as is_definition_effective, coalesce(not i.is_disabled and i.health = 'ready' and c.plugin_revision_id = p.active_revision_id and c.encrypted_payload is not null and case when p.scope = 'system' then c.scope = 'environment' else c.scope = 'installation' and c.owner_user_id = i.user_id and c.plugin_installation_id = i.id end, false) as is_executable\n\tfrom plugin_installation i\n\tjoin plugin p on p.id = i.plugin_id\n\tleft join plugin_config_revision c on c.id = case when p.scope = 'system' then p.environment_config_revision_id else i.active_config_revision_id end\n\twhere i.uninstalled_at is null and p.status = 'active' and (p.scope = 'system' or p.owner_user_id = i.user_id)\n) p\n\t\t\tjoin definition_entity_schema d on d.plugin_revision_id = p.active_revision_id\n\t\t\twhere p.is_listed and (p.scope = 'system' or not exists (select 1 from \"global_entity_schema\" g where g.slug = d.slug))\n\t\t",
+			"definition": "\n\t\t\tselect u.id as user_id, d.id, d.plugin_id, d.plugin_revision_id, null::text as plugin_slug, null::text as plugin_scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties, true as is_effective\n\t\t\tfrom definition_entity_schema d\n\t\t\tcross join \"user\" u\n\t\t\twhere d.plugin_revision_id is null\n\t\t\tunion all\n\t\t\tselect p.user_id, d.id, d.plugin_id, d.plugin_revision_id, p.slug, p.scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.merge_identity_properties, p.is_definition_effective\n\t\t\tfrom (\n\tselect i.user_id, p.id as plugin_id, i.id as installation_id, p.slug, p.scope, p.owner_user_id, p.active_revision_id, case when p.scope = 'system' then p.environment_config_revision_id else i.active_config_revision_id end as config_revision_id, i.health, i.is_hidden, i.sort_order, i.health <> 'incompatible' as is_listed, not i.is_hidden and (i.health = 'ready' or (p.scope = 'system' and i.health = 'installing')) as is_definition_effective, coalesce(not i.is_hidden and i.health = 'ready' and c.plugin_revision_id = p.active_revision_id and c.encrypted_payload is not null and case when p.scope = 'system' then c.scope = 'environment' else c.scope = 'installation' and c.owner_user_id = i.user_id and c.plugin_installation_id = i.id end, false) as is_executable\n\tfrom plugin_installation i\n\tjoin plugin p on p.id = i.plugin_id\n\tleft join plugin_config_revision c on c.id = case when p.scope = 'system' then p.environment_config_revision_id else i.active_config_revision_id end\n\twhere i.uninstalled_at is null and p.status = 'active' and (p.scope = 'system' or p.owner_user_id = i.user_id)\n) p\n\t\t\tjoin definition_entity_schema d on d.plugin_revision_id = p.active_revision_id\n\t\t\twhere p.is_listed and (p.scope = 'system' or not exists (select 1 from \"global_entity_schema\" g where g.slug = d.slug))\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -12742,7 +12742,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\tselect i.user_id, p.id as plugin_id, i.id as installation_id, p.slug, p.scope, p.owner_user_id, p.active_revision_id, case when p.scope = 'system' then p.environment_config_revision_id else i.active_config_revision_id end as config_revision_id, i.health, i.is_disabled, i.sort_order, i.health <> 'incompatible' as is_listed, not i.is_disabled and (i.health = 'ready' or (p.scope = 'system' and i.health = 'installing')) as is_definition_effective, coalesce(not i.is_disabled and i.health = 'ready' and c.plugin_revision_id = p.active_revision_id and c.encrypted_payload is not null and case when p.scope = 'system' then c.scope = 'environment' else c.scope = 'installation' and c.owner_user_id = i.user_id and c.plugin_installation_id = i.id end, false) as is_executable\n\tfrom plugin_installation i\n\tjoin plugin p on p.id = i.plugin_id\n\tleft join plugin_config_revision c on c.id = case when p.scope = 'system' then p.environment_config_revision_id else i.active_config_revision_id end\n\twhere i.uninstalled_at is null and p.status = 'active' and (p.scope = 'system' or p.owner_user_id = i.user_id)\n",
+			"definition": "\n\tselect i.user_id, p.id as plugin_id, i.id as installation_id, p.slug, p.scope, p.owner_user_id, p.active_revision_id, case when p.scope = 'system' then p.environment_config_revision_id else i.active_config_revision_id end as config_revision_id, i.health, i.is_hidden, i.sort_order, i.health <> 'incompatible' as is_listed, not i.is_hidden and (i.health = 'ready' or (p.scope = 'system' and i.health = 'installing')) as is_definition_effective, coalesce(not i.is_hidden and i.health = 'ready' and c.plugin_revision_id = p.active_revision_id and c.encrypted_payload is not null and case when p.scope = 'system' then c.scope = 'environment' else c.scope = 'installation' and c.owner_user_id = i.user_id and c.plugin_installation_id = i.id end, false) as is_executable\n\tfrom plugin_installation i\n\tjoin plugin p on p.id = i.plugin_id\n\tleft join plugin_config_revision c on c.id = case when p.scope = 'system' then p.environment_config_revision_id else i.active_config_revision_id end\n\twhere i.uninstalled_at is null and p.status = 'active' and (p.scope = 'system' or p.owner_user_id = i.user_id)\n",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -12808,7 +12808,7 @@
 			"schema": "public"
 		},
 		{
-			"definition": "\n\tselect s.id, null::text as plugin_id, custom_plugin.slug as plugin_slug,\n\t\ts.user_id, s.slug, s.name, s.icon, s.plugin_installation_id,\n\t\ts.revision, s.sort_order, s.data_sources, false as is_builtin,\n\t\ts.is_disabled, s.renderer, s.created_at, s.settings, s.updated_at\n\tfrom \"saved_view\" s\n\tleft join \"plugin_installation\" custom_installation on custom_installation.id = s.plugin_installation_id\n\tleft join \"plugin\" custom_plugin on custom_plugin.id = custom_installation.plugin_id\n\tunion all\n\tselect 'builtin:' || d.user_id || ':' || d.slug as id, d.plugin_id, d.plugin_slug,\n\t\td.user_id, d.slug, d.name, d.icon, p.installation_id as plugin_installation_id,\n\t\thashtext(d.id || ':' || coalesce(o.revision, 0)::text) as revision,\n\t\tcoalesce(o.sort_order, d.sort_order) as sort_order, d.data_sources, true as is_builtin,\n\t\tcoalesce(o.is_disabled, false) as is_disabled, d.renderer,\n\t\tnull::timestamptz as created_at, d.settings, null::timestamptz as updated_at\n\tfrom \"user_saved_view\" d\n\tleft join \"user_plugin\" p on p.user_id = d.user_id and p.plugin_id = d.plugin_id\n\tleft join \"saved_view_override\" o on o.user_id = d.user_id and o.slug = d.slug\n\t\tand o.plugin_id is not distinct from d.plugin_id\n",
+			"definition": "\n\tselect s.id, null::text as plugin_id, custom_plugin.slug as plugin_slug,\n\t\ts.user_id, s.slug, s.name, s.icon, s.plugin_installation_id,\n\t\ts.revision, s.sort_order, s.data_sources, false as is_builtin,\n\t\ts.is_hidden, s.renderer, s.created_at, s.settings, s.updated_at\n\tfrom \"saved_view\" s\n\tleft join \"plugin_installation\" custom_installation on custom_installation.id = s.plugin_installation_id\n\tleft join \"plugin\" custom_plugin on custom_plugin.id = custom_installation.plugin_id\n\tunion all\n\tselect 'builtin:' || d.user_id || ':' || d.slug as id, d.plugin_id, d.plugin_slug,\n\t\td.user_id, d.slug, d.name, d.icon, p.installation_id as plugin_installation_id,\n\t\thashtext(d.id || ':' || coalesce(o.revision, 0)::text) as revision,\n\t\tcoalesce(o.sort_order, d.sort_order) as sort_order, d.data_sources, true as is_builtin,\n\t\tcoalesce(o.is_hidden, false) as is_hidden, d.renderer,\n\t\tnull::timestamptz as created_at, d.settings, null::timestamptz as updated_at\n\tfrom \"user_saved_view\" d\n\tleft join \"user_plugin\" p on p.user_id = d.user_id and p.plugin_id = d.plugin_id\n\tleft join \"saved_view_override\" o on o.user_id = d.user_id and o.slug = d.slug\n\t\tand o.plugin_id is not distinct from d.plugin_id\n",
 			"with": null,
 			"withNoData": null,
 			"using": null,

@@ -14,8 +14,8 @@ const view = (overrides: Partial<NavigationView> = {}): NavigationView => ({
 	slug: "view",
 	icon: "list",
 	sortOrder: 0,
+	isHidden: false,
 	pluginSlug: null,
-	isDisabled: false,
 	...overrides,
 });
 
@@ -23,28 +23,28 @@ type NavigationCollection = NavigationData["collections"][number];
 
 const collection = (overrides: Partial<NavigationCollection> = {}): NavigationCollection => ({
 	sortOrder: 0,
+	isHidden: false,
 	icon: "layers-3",
 	pluginSlug: null,
-	isDisabled: false,
 	name: "Collection",
 	slug: "collection",
 	...overrides,
 });
 
 describe("sidebar sections", () => {
-	it("filters disabled rows, sorts items, and scopes workspace and global views", () => {
+	it("filters hidden rows, sorts items, and scopes workspace and global views", () => {
 		const data: NavigationData = {
 			collections: [
 				collection({ sortOrder: 2, slug: "second", name: "Second Collection" }),
 				collection({ sortOrder: 1, name: "First Collection", slug: "first-collection" }),
-				collection({ isDisabled: true, name: "Hidden Collection", slug: "hidden-collection" }),
+				collection({ isHidden: true, name: "Hidden Collection", slug: "hidden-collection" }),
 			],
 			savedViews: [
 				view({ sortOrder: 4, name: "Later", slug: "later", pluginSlug: "media" }),
 				view({ sortOrder: 2, name: "Global", slug: "global" }),
 				view({ name: "First", slug: "first", sortOrder: -1, pluginSlug: "media" }),
 				view({ name: "Other", slug: "other", pluginSlug: "fitness" }),
-				view({ name: "Hidden", slug: "hidden", isDisabled: true, pluginSlug: "media" }),
+				view({ name: "Hidden", slug: "hidden", isHidden: true, pluginSlug: "media" }),
 			],
 		};
 
@@ -80,9 +80,9 @@ describe("sidebar sections", () => {
 				view({ sortOrder: 4, name: "Fourth", slug: "fourth", pluginSlug: "media" }),
 				view({
 					sortOrder: 0,
-					name: "Disabled",
+					name: "Hidden",
+					isHidden: true,
 					slug: "disabled",
-					isDisabled: true,
 					pluginSlug: "media",
 				}),
 				view({ sortOrder: 2, name: "Second", slug: "second", pluginSlug: "media" }),

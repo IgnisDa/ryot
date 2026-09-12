@@ -141,7 +141,7 @@ const ListedSavedViewBase = {
 	name: Schema.String,
 	icon: Schema.String,
 	sortOrder: Schema.Finite,
-	isDisabled: Schema.Boolean,
+	isHidden: Schema.Boolean,
 	pluginSlug: Schema.NullOr(PluginSlug),
 };
 
@@ -183,7 +183,7 @@ export const CreateSavedViewBody = strictStruct({
 export type CreateSavedViewBody = typeof CreateSavedViewBody.Type;
 
 export const UpdateSavedViewBody = strictStruct({
-	isDisabled: Schema.Boolean,
+	isHidden: Schema.Boolean,
 	icon: Schema.optional(Schema.String),
 	name: Schema.optional(Schema.String),
 	renderer: Schema.optional(SavedViewRenderer),

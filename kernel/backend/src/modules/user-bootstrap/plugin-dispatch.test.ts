@@ -69,7 +69,7 @@ const systemInstallation = (pluginSlug: string): PluginInstallationState => ({
 	pluginSlug,
 	sortOrder: 0,
 	health: "ready",
-	isDisabled: false,
+	isHidden: false,
 	healthReason: null,
 	uninstalledAt: null,
 	pluginScope: "system",

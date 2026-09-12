@@ -1002,9 +1002,9 @@ describe("client page routes", () => {
 		}),
 	);
 
-	it.live("prepares entities directly and allows a disabled ready installation", () =>
+	it.live("prepares entities directly and allows a hidden ready installation", () =>
 		Effect.gen(function* () {
-			const entries = [{ ...catalog[0], isDisabled: true }];
+			const entries = [{ ...catalog[0], isHidden: true }];
 			const view = mount({ entries, entry: "/e/entity-1?tab=activity" });
 			const frame = yield* Effect.promise(() =>
 				screen.findByTitle<HTMLIFrameElement>("fixture plugin"),

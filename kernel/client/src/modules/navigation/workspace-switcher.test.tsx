@@ -29,7 +29,7 @@ const workspace = (
 	name: "Media",
 	slug: "media",
 	health: "ready",
-	isDisabled: false,
+	isHidden: false,
 	clientApiVersion: 1,
 	pluginId: "plugin-media",
 	sourceHash: "source-media",
@@ -44,8 +44,8 @@ const view = (name: string, sortOrder: number): NavigationData["savedViews"][num
 	name,
 	sortOrder,
 	icon: "list",
+	isHidden: false,
 	pluginSlug: null,
-	isDisabled: false,
 	slug: name.toLowerCase(),
 });
 
@@ -55,9 +55,9 @@ describe("workspace switcher", () => {
 		const catalog: PluginClientCatalog = [
 			workspace({
 				sortOrder: -1,
+				name: "Hidden",
+				isHidden: true,
 				slug: "disabled",
-				name: "Disabled",
-				isDisabled: true,
 				installationId: "installation-disabled",
 			}),
 			workspace({
@@ -100,7 +100,7 @@ describe("workspace switcher", () => {
 			"Switch to Failed workspace",
 		]);
 		expect(
-			within(menu).queryByRole("menuitemradio", { name: "Switch to Disabled workspace" }),
+			within(menu).queryByRole("menuitemradio", { name: "Switch to Hidden workspace" }),
 		).toBeNull();
 	});
 
@@ -122,7 +122,7 @@ describe("workspace switcher", () => {
 					collections: [],
 					savedViews: [
 						{ ...view("Fourth", 4), pluginSlug: "media" },
-						{ ...view("Disabled", 0), isDisabled: true, pluginSlug: "media" },
+						{ ...view("Hidden", 0), isHidden: true, pluginSlug: "media" },
 						{ ...view("Second", 2), pluginSlug: "media" },
 						{ ...view("First", 1), pluginSlug: "media" },
 						{ ...view("Third", 3), pluginSlug: "media" },

@@ -10,7 +10,7 @@ import { clientPageOperationTargets, resolvePluginPageTarget } from "./prepare";
 
 const plugin = (input: {
 	id: string;
-	isDisabled?: boolean;
+	isHidden?: boolean;
 	client: NonNullable<PluginManifest["client"]>;
 }): AvailablePlugin => {
 	const manifest = fixtureManifest();
@@ -21,8 +21,8 @@ const plugin = (input: {
 		health: "ready",
 		compiledHashes: {},
 		sourceHash: `${input.id}-source`,
+		isHidden: input.isHidden ?? false,
 		ownerUserId: UserId.make("user-1"),
-		isDisabled: input.isDisabled ?? false,
 		pluginRevisionId: `${input.id}-revision`,
 		installationId: `${input.id}-installation`,
 		pluginConfigRevisionId: `${input.id}-config`,
@@ -41,10 +41,10 @@ const page = {
 	automaticEntityPresentations: false,
 };
 
-it.effect("selects a declared dynamic route from a disabled but ready direct installation", () => {
+it.effect("selects a declared dynamic route from a hidden but ready direct installation", () => {
 	const owner = plugin({
 		id: "fixture",
-		isDisabled: true,
+		isHidden: true,
 		client: {
 			apiVersion: 1,
 			homeView: null,
@@ -72,9 +72,9 @@ it.effect("selects a declared dynamic route from a disabled but ready direct ins
 	});
 });
 
-it("records disabled ready installations as operation targets without making them contributors", () => {
+it("records hidden ready installations as operation targets without making them contributors", () => {
 	const target = plugin({
-		isDisabled: true,
+		isHidden: true,
 		id: "operations-only",
 		client: { exports: {}, apiVersion: 1, homeView: null },
 	});

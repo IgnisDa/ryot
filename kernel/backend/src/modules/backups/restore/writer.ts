@@ -92,7 +92,7 @@ const isRequiredSecretPath = (path: string, schema: AppSchema) => {
 };
 
 export const resolveRestoredInstallationLifecycle = (
-	state: Pick<ArchiveInstallation, "configuredSecretPaths" | "disabledIntent" | "lifecycleIntent">,
+	state: Pick<ArchiveInstallation, "configuredSecretPaths" | "hiddenIntent" | "lifecycleIntent">,
 	schema: AppSchema,
 	redactedConfigNeedsConfiguration: boolean,
 ) => {
@@ -101,7 +101,7 @@ export const resolveRestoredInstallationLifecycle = (
 		redactedConfigNeedsConfiguration ||
 		state.configuredSecretPaths.some((path) => isRequiredSecretPath(path, schema));
 	return {
-		isDisabled: missingRequiredSecret ? true : state.disabledIntent,
+		isHidden: missingRequiredSecret ? true : state.hiddenIntent,
 		health: missingRequiredSecret ? ("needs-configuration" as const) : ("ready" as const),
 	};
 };
@@ -405,7 +405,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				const installationActivations: Array<{
 					readonly id: string;
 					readonly updatedAt: Date;
-					readonly isDisabled: boolean;
+					readonly isHidden: boolean;
 					readonly health: "ready" | "needs-configuration";
 				}> = [];
 				const pluginKeyById = new Map([...pluginIdByKey].map(([key, id]) => [id, key]));
@@ -438,7 +438,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						userId,
 						config,
 						pluginId,
-						isDisabled: true,
+						isHidden: true,
 						health: "installing",
 						sortOrder: state.sortOrder,
 						createdAt: parseDate(state.createdAt),
@@ -454,7 +454,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					installationActivations.push({
 						id: restored.id,
 						health: lifecycle.health,
-						isDisabled: lifecycle.isDisabled,
+						isHidden: lifecycle.isHidden,
 						updatedAt: parseDate(state.updatedAt),
 					});
 				}
@@ -782,7 +782,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						const restored = yield* savedViews.setBuiltinState(
 							userId,
 							view.slug,
-							view.isDisabled,
+							view.isHidden,
 							view.sortOrder,
 						);
 						if (!restored) {
@@ -826,8 +826,8 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						pluginInstallationId,
 						id: crypto.randomUUID(),
 						settings: view.settings,
+						isHidden: view.isHidden,
 						sortOrder: view.sortOrder,
-						isDisabled: view.isDisabled,
 						dataSources: view.dataSources,
 						createdAt: parseDate(view.createdAt),
 						updatedAt: parseDate(view.updatedAt),

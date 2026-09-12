@@ -11,17 +11,17 @@ import {
 	type CustomizeDraft,
 } from "#/modules/navigation/customize/customize-state";
 
-const item = (slug: string, pluginSlug: string | null, isDisabled = false) => ({
+const item = (slug: string, pluginSlug: string | null, isHidden = false) => ({
 	slug,
-	isDisabled,
+	isHidden,
 	pluginSlug,
 	icon: "list",
 	name: slug.toUpperCase(),
 });
 
-const workspace = (slug: string, isDisabled = false) => ({
+const workspace = (slug: string, isHidden = false) => ({
 	slug,
-	isDisabled,
+	isHidden,
 	icon: "puzzle",
 	name: `${slug.toUpperCase()} WORKSPACE`,
 });
@@ -85,7 +85,7 @@ describe("CustomizePanel", () => {
 		expect(screen.getByRole("list", { name: "Views" }).textContent).toMatch(/MOVIES.*SHOWS/);
 	});
 
-	it("shows disabled workspaces and reorders them with the keyboard", () => {
+	it("shows hidden workspaces and reorders them with the keyboard", () => {
 		render(<Harness />);
 
 		expect(

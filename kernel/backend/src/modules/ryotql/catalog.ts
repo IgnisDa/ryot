@@ -307,7 +307,7 @@ const kernelSavedViewRendererNames = KernelSavedViewRendererName.literals
 const usableHomeSavedView = (
 	view: string,
 	userId: string,
-) => `NOT ${view}.is_disabled AND CASE ${view}.renderer ->> 'kind'
+) => `NOT ${view}.is_hidden AND CASE ${view}.renderer ->> 'kind'
 	WHEN 'kernel' THEN COALESCE(${view}.renderer ->> 'name' IN (${kernelSavedViewRendererNames}), false)
 	WHEN 'plugin' THEN EXISTS (
 		SELECT 1 FROM user_plugin home_renderer_plugin
@@ -315,7 +315,7 @@ const usableHomeSavedView = (
 		WHERE home_renderer_plugin.user_id = ${userId}
 			AND home_renderer_plugin.plugin_id = ${view}.renderer ->> 'pluginId'
 			AND home_renderer_plugin.health = 'ready'
-			AND NOT home_renderer_plugin.is_disabled
+			AND NOT home_renderer_plugin.is_hidden
 			AND home_renderer_revision.manifest -> 'client' -> 'exports' -> (${view}.renderer ->> 'exportName') ->> 'kind' = 'page'
 	)
 	ELSE false
@@ -364,8 +364,8 @@ const pluginInstallation: CatalogTable = {
 		healthReason: physicalField("health_reason", "text"),
 		createdAt: physicalField("created_at", "date", false),
 		updatedAt: physicalField("updated_at", "date", false),
+		isHidden: physicalField("is_hidden", "boolean", false),
 		sortOrder: physicalField("sort_order", "number", false),
-		isDisabled: physicalField("is_disabled", "boolean", false),
 		config: withAccess(physicalField("client_config", "json", false), "kernel"),
 		configuredSecrets: withAccess(textArrayField("configured_secret_paths"), "kernel"),
 	},
@@ -568,9 +568,9 @@ const savedView: CatalogTable = {
 		renderer: physicalField("renderer", "json", false),
 		settings: physicalField("settings", "json", false),
 		dataSources: physicalField("data_sources", "json"),
+		isHidden: physicalField("is_hidden", "boolean", false),
 		sortOrder: physicalField("sort_order", "number", false),
 		isBuiltin: physicalField("is_builtin", "boolean", false),
-		isDisabled: physicalField("is_disabled", "boolean", false),
 	},
 };
 

@@ -768,7 +768,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 
 	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
 		test.effect(
-			"filters disabled, unready, tombstoned, wrong-scope and mismatched configuration without activating config",
+			"filters hidden, unready, tombstoned, wrong-scope and mismatched configuration without activating config",
 			() =>
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
@@ -785,8 +785,8 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						yield* planner.plan({ trigger: { ...entityTrigger("global"), scopeUserId: null } }),
 					).toMatchObject({ runs: [], policies: [] });
 					for (const [id, state] of [
-						["disabled", { isDisabled: true }],
-						["unready", { isDisabled: false, health: "needs-configuration" as const }],
+						["hidden", { isHidden: true }],
+						["unready", { isHidden: false, health: "needs-configuration" as const }],
 						[
 							"tombstone",
 							{
@@ -847,8 +847,8 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						config: {},
 						sortOrder: 0,
 						health: "ready",
+						isHidden: false,
 						userId: recipient,
-						isDisabled: false,
 						pluginId: installed.pluginId,
 					});
 					yield* session.run((db) =>

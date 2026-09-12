@@ -64,11 +64,11 @@ const concatEncoded = (chunks: Iterable<Uint8Array>) => {
 	return output;
 };
 
-const installationLifecycleIntent = (health: string, isDisabled: boolean) => {
+const installationLifecycleIntent = (health: string, isHidden: boolean) => {
 	if (health !== "ready") {
 		return "needs-configuration" as const;
 	}
-	return isDisabled ? ("disabled" as const) : ("ready" as const);
+	return isHidden ? ("hidden" as const) : ("ready" as const);
 };
 
 export const requireNotificationMetadataSchema = Effect.fn(function* (
@@ -491,15 +491,15 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						}
 						return viewDefinition &&
 							view.sortOrder === viewDefinition.sortOrder &&
-							!view.isDisabled &&
+							!view.isHidden &&
 							!homeSavedViewSlugs.has(view.slug)
 							? []
 							: [
 									{
 										id: view.id,
 										slug: view.slug,
+										isHidden: view.isHidden,
 										sortOrder: view.sortOrder,
-										isDisabled: view.isDisabled,
 										...qualified,
 										isBuiltin: true as const,
 										kind: "builtin-override" as const,
@@ -542,12 +542,12 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 								id: state.id,
 								configuredSecretPaths: [],
 								sortOrder: state.sortOrder,
-								disabledIntent: state.isDisabled,
+								hiddenIntent: state.isHidden,
 								createdAt: state.createdAt.toISOString(),
 								updatedAt: state.updatedAt.toISOString(),
 								homeSavedViewSlug: state.homeSavedViewSlug,
 								packageKey: yield* requirePluginKey(pluginKeyById, state.pluginId),
-								lifecycleIntent: installationLifecycleIntent(state.health, state.isDisabled),
+								lifecycleIntent: installationLifecycleIntent(state.health, state.isHidden),
 								config: plugin?.scope === "system" ? {} : decodeArchiveJsonObject(state.config),
 							};
 						}),

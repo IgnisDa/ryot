@@ -120,7 +120,7 @@ export const findBuiltinSchemaBySlug = (client: Client, slug: string) =>
 		if (schema) {
 			return { schema, builtinPlugin: null };
 		}
-		const plugins = yield* listInstalledPlugins(client, { includeDisabled: true });
+		const plugins = yield* listInstalledPlugins(client, { includeHidden: true });
 
 		for (const builtinPlugin of plugins) {
 			const pluginSchema = schemas.find((candidate) => candidate.pluginSlug === builtinPlugin.slug);
@@ -144,7 +144,7 @@ export const getBuiltinEntitySchemaSlug = (client: Client, slug: string) =>
 
 export const listBuiltinEntitySchemas = (client: Client) =>
 	Effect.gen(function* () {
-		const plugins = yield* listInstalledPlugins(client, { includeDisabled: true });
+		const plugins = yield* listInstalledPlugins(client, { includeHidden: true });
 		const builtinPlugin = plugins[0];
 		assertPresent(builtinPlugin, "Built-in plugin not found");
 		const schemas = yield* listEntitySchemas(client, { pluginSlug: builtinPlugin.slug });
