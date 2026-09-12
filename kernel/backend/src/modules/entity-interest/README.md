@@ -23,11 +23,11 @@ Client frames:
 Server frames:
 
 | `type`           | Fields                                                        |
-| ---------------- | ------------------------------------------------------------- | ------------- |
+| ---------------- | ------------------------------------------------------------- |
 | `ready`          | `sessionId`, `maxEntityIds`, `heartbeatIntervalMs`            |
 | `applied`        | `revision`                                                    |
 | `rejected`       | `revision`, `code: "interest-limit-exceeded"`, `maxEntityIds` |
-| `entity-updated` | `entityId`, `reason: "populated"                              | "translated"` |
+| `entity-updated` | `entityId`, `reason: "populated" \| "translated"`             |
 | `ping`           | `nonce`                                                       |
 
 After `ready`, send a complete `replace` at revision 1. Each later `replace` or `update` increments the current revision by one. Reconnect starts a new session and revision sequence. Keep at most one command unacknowledged and coalesce later changes until `applied`.
