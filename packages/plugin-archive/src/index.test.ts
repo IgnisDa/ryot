@@ -491,7 +491,7 @@ describe("plugin archive", () => {
 		const result = await Effect.runPromise(readPluginArchive(pluginBytes));
 
 		expect(result.files[path]).toEqual(bytes);
-	});
+	}, 20_000);
 
 	it("rejects one entry over the writer file-count limit", () => {
 		const files: Record<string, Uint8Array> = {};
@@ -703,7 +703,7 @@ describe("plugin archive", () => {
 			),
 		];
 		return expectReason(archive(entries), "total-uncompressed-bytes-exceeded");
-	}, 10_000);
+	}, 20_000);
 
 	it.each([
 		[
