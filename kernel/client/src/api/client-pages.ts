@@ -10,12 +10,10 @@ export class ClientPagesApi extends Context.Service<ClientPagesApi>()("ClientPag
 		return {
 			prepare: (scope: ApiScope, request: ContractRequest<"clientPages", "prepare">) =>
 				api.run(scope, (client) => client.clientPages.prepare(request)),
-			renewSession: (scope: ApiScope, request: ContractRequest<"clientPages", "renewSession">) =>
-				api.run(scope, (client) => client.clientPages.renewSession(request)),
-			createSession: (scope: ApiScope, request: ContractRequest<"clientPages", "createSession">) =>
-				api.run(scope, (client) => client.clientPages.createSession(request)),
-			revokeSession: (scope: ApiScope, request: ContractRequest<"clientPages", "revokeSession">) =>
-				api.run(scope, (client) => client.clientPages.revokeSession(request)),
+			checkFreshness: (
+				scope: ApiScope,
+				request: ContractRequest<"clientPages", "checkFreshness">,
+			) => api.run(scope, (client) => client.clientPages.checkFreshness(request)),
 		};
 	}),
 }) {
