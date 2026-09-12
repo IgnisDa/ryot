@@ -464,7 +464,250 @@ describe("video-game.igdb sandbox script", () => {
 							relationshipSchemaSlug: "media-suggestion",
 							entities: [{ externalId: "2", name: "Pick One", providerSlug: "video-game.igdb" }],
 						},
+						{
+							entities: [],
+							direction: "outgoing",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "video-game-to-video-game",
+						},
+						{
+							entities: [],
+							direction: "incoming",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "video-game-to-video-game",
+						},
 					]);
+					return undefined;
+				}),
+			),
+		);
+	});
+
+	it("tags search hits with the game type unless it is a main game", () => {
+		const host = makeHost({
+			httpCall: (_method, url, options) => {
+				if (url.startsWith("https://id.twitch.tv/oauth2/token")) {
+					return tokenResponse();
+				}
+				expect(options?.body).toContain(
+					"fields id, name, cover.image_id, first_release_date, game_type.type;",
+				);
+				return httpSuccess([
+					{ id: 1, name: "Port", game_type: { type: "Port" }, first_release_date: 1293840000 },
+					{ id: 2, name: "Main", first_release_date: 1293840000, game_type: { type: "Main Game" } },
+					{ id: 3, name: "Undated Remake", game_type: { type: "Remake" } },
+					{ id: 4, name: "Undated Main", game_type: { type: "Main Game" } },
+				]);
+			},
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(search, { page: 1, pageSize: 20, query: "game" }, host, execution).pipe(
+				Effect.map((result) => {
+					expect(result.items.map((item) => [item.externalId, item.metadata])).toEqual([
+						["1", [2011, "Port"]],
+						["2", [2011]],
+						["3", ["Remake"]],
+						["4", undefined],
+					]);
+					return undefined;
+				}),
+			),
+		);
+	});
+});
+
+const SKYRIM_ID = 472;
+
+const skyrim = { id: SKYRIM_ID, name: "Skyrim", slug: "skyrim", game_type: { type: "Main Game" } };
+
+const skyrimChildren = [
+	{ id: 2992, name: "Dawnguard", parent_game: SKYRIM_ID, game_type: { type: "DLC" } },
+	{ id: 6069, name: "Dragonborn", parent_game: SKYRIM_ID, game_type: { type: "Expansion" } },
+	{ id: 19221, name: "Beyond Skyrim", parent_game: SKYRIM_ID, game_type: { type: "Mod" } },
+	{ id: 19457, parent_game: SKYRIM_ID, name: "Special Edition", game_type: { type: "Remaster" } },
+	{ id: 37034, name: "Skyrim PS3", parent_game: SKYRIM_ID, game_type: { type: "Port" } },
+	{
+		id: 47445,
+		name: "Legendary Edition",
+		version_parent: SKYRIM_ID,
+		game_type: { type: "Bundle" },
+	},
+	{ id: 99, name: "Skyrim Bundle", parent_game: SKYRIM_ID, game_type: { type: "Bundle" } },
+];
+
+const runDetails = (
+	externalId: string,
+	routes: {
+		readonly game: Record<string, unknown>;
+		readonly pages?: ReadonlyArray<ReadonlyArray<unknown>>;
+	},
+) => {
+	const childBodies: Array<string> = [];
+	const host = makeHost({
+		httpCall: (_method, url, options) => {
+			if (url.startsWith("https://id.twitch.tv/oauth2/token")) {
+				return tokenResponse();
+			}
+			const body = typeof options?.body === "string" ? options.body : "";
+			if (url.endsWith("/games") && body.includes(`where id = ${externalId};`)) {
+				return httpSuccess([routes.game]);
+			}
+			if (url.endsWith("/games")) {
+				childBodies.push(body);
+				return httpSuccess(routes.pages?.[childBodies.length - 1] ?? []);
+			}
+			return httpSuccess([]);
+		},
+	});
+	return runSandboxTestScript(details, { externalId }, host, execution).pipe(
+		Effect.map((result) => ({ result, childBodies })),
+	);
+};
+
+type DetailsResult = Effect.Success<ReturnType<typeof runDetails>>["result"];
+
+const videoGameGroups = (result: DetailsResult, direction: "incoming" | "outgoing") =>
+	(result.relatedEntityGroups ?? []).filter(
+		(group) =>
+			group.relationshipSchemaSlug === "video-game-to-video-game" && group.direction === direction,
+	);
+
+const edges = (group: NonNullable<DetailsResult["relatedEntityGroups"]>[number] | undefined) =>
+	group?.entities.map((entity) => [entity.externalId, entity.relationshipProperties]);
+
+const modPage = (start: number) =>
+	Array.from({ length: 500 }, (_, index) => ({
+		id: start + index,
+		parent_game: SKYRIM_ID,
+		game_type: { type: "Mod" },
+		name: `Mod ${start + index}`,
+	}));
+
+describe("video-game.igdb game relationships", () => {
+	it("derives every child of a parent from one reverse lookup", () =>
+		Effect.runPromise(
+			runDetails("472", { game: skyrim, pages: [skyrimChildren] }).pipe(
+				Effect.map(({ result, childBodies }) => {
+					expect(result.properties).toMatchObject({ gameType: "Main Game" });
+					expect(childBodies).toHaveLength(1);
+					expect(childBodies[0]).toContain("where parent_game = 472 | version_parent = 472;");
+					expect(childBodies[0]).toContain("sort id asc;");
+					const [outgoing] = videoGameGroups(result, "outgoing");
+					expect(outgoing).toMatchObject({ synchronization: "authoritative" });
+					expect(edges(outgoing)).toEqual([
+						["2992", { kind: "DLC" }],
+						["6069", { kind: "Expansion" }],
+						["19221", { kind: "Mod" }],
+						["19457", { kind: "Remaster" }],
+						["37034", { kind: "Port" }],
+						["47445", { kind: "Edition" }],
+					]);
+					expect(videoGameGroups(result, "incoming")).toEqual([
+						{
+							entities: [],
+							direction: "incoming",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "video-game-to-video-game",
+						},
+					]);
+					return undefined;
+				}),
+			),
+		));
+
+	it("links a child to its parent with the kind the parent derives", () =>
+		Effect.runPromise(
+			runDetails("37034", {
+				game: {
+					id: 37034,
+					name: "Skyrim PS3",
+					slug: "skyrim-ps3",
+					game_type: { type: "Port" },
+					parent_game: { id: SKYRIM_ID, name: "Skyrim", game_type: { type: "Main Game" } },
+				},
+			}).pipe(
+				Effect.map(({ result }) => {
+					const [incoming] = videoGameGroups(result, "incoming");
+					expect(incoming).toMatchObject({ synchronization: "authoritative" });
+					expect(edges(incoming)).toEqual([["472", { kind: "Port" }]]);
+					return undefined;
+				}),
+			),
+		));
+
+	it("emits one Edition edge when a child sets both parent fields", () =>
+		Effect.gen(function* () {
+			const both = {
+				id: 5,
+				name: "Deluxe",
+				parent_game: 1,
+				version_parent: 1,
+				game_type: { type: "Port" },
+			};
+			const parentSide = yield* runDetails("1", {
+				pages: [[both]],
+				game: { id: 1, name: "Parent", game_type: { type: "Main Game" } },
+			});
+			expect(edges(videoGameGroups(parentSide.result, "outgoing")[0])).toEqual([
+				["5", { kind: "Edition" }],
+			]);
+			const childSide = yield* runDetails("5", {
+				game: {
+					id: 5,
+					name: "Deluxe",
+					game_type: { type: "Port" },
+					version_parent: { id: 1, name: "Parent" },
+					parent_game: { id: 1, name: "Parent", game_type: { type: "Main Game" } },
+				},
+			});
+			expect(edges(videoGameGroups(childSide.result, "incoming")[0])).toEqual([
+				["1", { kind: "Edition" }],
+			]);
+		}).pipe(Effect.runPromise));
+
+	it("drops parent_game links that involve a bundle", () =>
+		Effect.gen(function* () {
+			const parentSide = yield* runDetails("472", {
+				game: skyrim,
+				pages: [
+					[{ id: 99, parent_game: 472, name: "Bundle Child", game_type: { type: "Bundle" } }],
+				],
+			});
+			expect(videoGameGroups(parentSide.result, "outgoing")[0]).toMatchObject({ entities: [] });
+			const memberOfBundle = yield* runDetails("7", {
+				game: {
+					id: 7,
+					name: "Bundled",
+					game_type: { type: "Main Game" },
+					parent_game: { id: 8, name: "A Bundle", game_type: { type: "Bundle" } },
+				},
+			});
+			expect(videoGameGroups(memberOfBundle.result, "incoming")[0]).toMatchObject({ entities: [] });
+		}).pipe(Effect.runPromise));
+
+	it("pages the reverse lookup and stays authoritative once a page is short", () => {
+		return Effect.runPromise(
+			runDetails("472", { game: skyrim, pages: [modPage(1000), skyrimChildren] }).pipe(
+				Effect.map(({ result, childBodies }) => {
+					expect(childBodies).toHaveLength(2);
+					expect(childBodies[1]).toContain("offset 500;");
+					const [outgoing] = videoGameGroups(result, "outgoing");
+					expect(outgoing).toMatchObject({ synchronization: "authoritative" });
+					expect(outgoing?.entities).toHaveLength(506);
+					return undefined;
+				}),
+			),
+		);
+	});
+
+	it("degrades to additive and stops after four full pages", () => {
+		return Effect.runPromise(
+			runDetails("472", { game: skyrim, pages: [1000, 2000, 3000, 4000, 5000].map(modPage) }).pipe(
+				Effect.map(({ result, childBodies }) => {
+					expect(childBodies).toHaveLength(4);
+					const [outgoing] = videoGameGroups(result, "outgoing");
+					expect(outgoing).toMatchObject({ synchronization: "additive" });
+					expect(outgoing?.entities).toHaveLength(2000);
 					return undefined;
 				}),
 			),

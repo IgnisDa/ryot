@@ -22,6 +22,7 @@
 - Show episode orders are presentation-only; next up, coverage, and lifecycle keep default seasons.
 - Episode lists are cursor-paged top-level row queries, never includes; only a top-level rows query exposes `pageInfo.nextCursor`. Container-level counts come from the container query's aggregates, never from a loaded episode page.
 - A schema selects only fields its own entity schema declares. `watchProviders` belongs to `movie` and `show` alone, so it lives in `mediaWatchProviderSelection` rather than `mediaSummarySelection`.
+- Relationship rails beyond "Part of" come from the flat descriptor's `overviewRails`, a pure function of the decoded overview; the engine adds their items to the overview's visible ids, managed assets, and emptiness check.
 - Overview sections sourced from the summary are descriptor-provided through `overviewTrailing`; `client/media/` owns no schema-specific section. "Where to watch" is `mediaWatchProvidersTrailing`, not a `MediaOverview` prop.
 - A schema declares its hero backdrop purposes rather than assuming `backdrop`. `backdropPurposes` is an ordered list, defaults to `["backdrop"]`, and drives both the hero image and its managed-asset set.
 - One shared card and row presentation covers every media schema except `show`, `anime`, `movie`, `music`, `book`, `manga`, `podcast`, `audiobook`, `comic-book`, `visual-novel`, `video-game`, and the six `*-group` schemas; its loader takes the schema slug from the batch's references. `person` and `company` keep it and add only a detail page.

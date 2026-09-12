@@ -28,6 +28,7 @@ import {
 	type MediaPresentationSubject,
 	type MediaPresentationViewData,
 } from "./entity-presentation";
+import { MediaEntityRailSection } from "./entity-rail";
 import {
 	mediaFlatActivityView,
 	type MediaFlatActivityBeat,
@@ -41,7 +42,7 @@ import {
 	MediaPartOfSection,
 	type MediaGroupOverview,
 } from "./group-section";
-import type { MediaImagePurposes } from "./image";
+import { collectManagedAssetLocators, type MediaImagePurposes } from "./image";
 import {
 	MediaOverviewRelations,
 	type MediaCreditCopy,
@@ -54,6 +55,7 @@ import {
 } from "./overview-state";
 import {
 	mediaFlatLifecycleLabel,
+	mediaPosterAsset,
 	mediaReleaseLabel,
 	mediaSummaryHeaderDetail,
 	mediaSummaryStateMapper,
@@ -85,6 +87,12 @@ type FlatSummary = MediaSummaryValue & {
 	readonly state: MediaLifecycleState;
 	readonly progressPercent: number | null;
 	readonly collections: { readonly items: readonly { readonly id: string }[] };
+};
+
+export type MediaOverviewRail = {
+	readonly key: string;
+	readonly title: string;
+	readonly items: readonly MediaPresentationSubject[];
 };
 
 type FlatPresentation = MediaPresentationSubject & {
@@ -161,6 +169,7 @@ export type MediaFlatSchemaDescriptor<
 	readonly overviewLoadingDetail: string;
 	readonly group?: { readonly actionLabel: string; readonly title: (name: string) => string };
 	readonly facts: (summary: Summary) => readonly MediaSummaryFact[];
+	readonly overviewRails?: (overview: Overview) => readonly MediaOverviewRail[];
 	readonly presentationFacts: (data: Presentation) => readonly string[];
 	readonly overviewTrailing?: (input: {
 		readonly summary: Summary;
@@ -186,9 +195,6 @@ const TABS: readonly MediaTab<"overview" | "activity">[] = [
 const lifecycleLabel = (media: { readonly state: MediaLifecycleState }) =>
 	mediaFlatLifecycleLabel(media.state);
 
-const overviewIsEmpty = (overview: MediaGroupOverview & MediaUnlinkedCreatorsOverview) =>
-	mediaGroupOverviewIsEmpty(overview, mediaUnlinkedCreators(overview));
-
 const summaryProgress = (summary: FlatSummary) =>
 	summary.state === "in_progress" && summary.progressPercent !== null
 		? { percent: summary.progressPercent }
@@ -206,6 +212,18 @@ export const defineFlatMediaSchema = <
 
 	const summaryQuery = createMediaSummaryQuery(recipes.summaryRecipe);
 
+	const railsOf = (overview: Overview) => descriptor.overviewRails?.(overview) ?? [];
+
+	const overviewIsEmpty = (overview: Overview) =>
+		mediaGroupOverviewIsEmpty(overview, mediaUnlinkedCreators(overview)) &&
+		railsOf(overview).every((rail) => rail.items.length === 0);
+
+	const overviewManagedAssets = (overview: Overview) =>
+		collectManagedAssetLocators([
+			...mediaGroupOverviewManagedAssets(overview),
+			...railsOf(overview).flatMap((rail) => rail.items.map((item) => mediaPosterAsset(item))),
+		]);
+
 	const overviewQuery = createMediaEntityQuery(
 		(input) =>
 			recipes.overviewRecipe({
@@ -221,6 +239,7 @@ export const defineFlatMediaSchema = <
 				...data.companies.items,
 				...data.recommendations.items,
 				...(data.group?.members.items ?? []),
+				...railsOf(data).flatMap((rail) => rail.items),
 			].map(({ id }) => id),
 	);
 
@@ -331,6 +350,8 @@ export const defineFlatMediaSchema = <
 		const groupCopy = descriptor.group;
 		const group = groupCopy === undefined ? null : (overview.group ?? null);
 		const unlinked = mediaUnlinkedCreators(overview);
+		const groupDivided = divided || !mediaRelationsAreEmpty(overview, unlinked);
+		const railsDivided = groupDivided || (group?.members.items.length ?? 0) > 0;
 		return (
 			<MediaOverviewRelations
 				compact={compact}
@@ -341,16 +362,30 @@ export const defineFlatMediaSchema = <
 				copy={descriptor.creditCopy}
 				onViewAllPeople={() => console.log(`TODO: open all ${nouns.singular} credits`)}
 				trailing={
-					group === null || groupCopy === undefined ? null : (
-						<MediaPartOfSection
-							group={group}
-							compact={compact}
-							aspect={descriptor.aspect}
-							title={groupCopy.title(group.name)}
-							actionLabel={groupCopy.actionLabel}
-							divided={divided || !mediaRelationsAreEmpty(overview, unlinked)}
-						/>
-					)
+					<>
+						{group === null || groupCopy === undefined ? null : (
+							<MediaPartOfSection
+								group={group}
+								compact={compact}
+								divided={groupDivided}
+								aspect={descriptor.aspect}
+								title={groupCopy.title(group.name)}
+								actionLabel={groupCopy.actionLabel}
+							/>
+						)}
+						{railsOf(overview).map((rail, index, rails) => (
+							<MediaEntityRailSection
+								key={rail.key}
+								compact={compact}
+								items={rail.items}
+								title={rail.title}
+								aspect={() => descriptor.aspect}
+								divided={
+									railsDivided || rails.slice(0, index).some((above) => above.items.length > 0)
+								}
+							/>
+						))}
+					</>
 				}
 			/>
 		);
@@ -414,8 +449,8 @@ export const defineFlatMediaSchema = <
 				overviewQuery={overviewQuery}
 				heroHeight={descriptor.heroHeight}
 				mapSummary={summaryState.mapSummary}
+				overviewAssets={overviewManagedAssets}
 				backdropPurposes={descriptor.backdropPurposes}
-				overviewAssets={mediaGroupOverviewManagedAssets}
 			/>
 		);
 	}
@@ -500,12 +535,12 @@ export const defineFlatMediaSchema = <
 		overviewIsEmpty,
 		activityRowLabel,
 		overviewRelations,
+		overviewManagedAssets,
 		page: mediaDetailPage(Screen),
 		mapSummary: summaryState.mapSummary,
 		summaryError: summaryState.summaryError,
 		rowPresentation: presentations.rowPresentation,
 		cardPresentation: presentations.cardPresentation,
 		summaryUnavailable: summaryState.summaryUnavailable,
-		overviewManagedAssets: mediaGroupOverviewManagedAssets,
 	};
 };
