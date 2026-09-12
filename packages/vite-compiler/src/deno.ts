@@ -5,10 +5,13 @@ import { realpathSync } from "node:fs";
 // oxlint-disable-next-line effecttsgo/node-builtin-import
 import { basename, dirname, isAbsolute, relative, resolve, sep } from "node:path";
 
-import type { Node } from "@oxc-project/types";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { decodeExecutableText } from "@ryot-app/ts-utils/executable-text";
 import type { TypeScriptProjectConfiguration } from "@ryot-app/typescript-compiler";
-import { inspectJavaScriptReferences } from "@ryot-app/typescript-compiler/javascript-references";
+import {
+	inspectJavaScriptReferences,
+	literalString,
+} from "@ryot-app/typescript-compiler/javascript-references";
 import { Effect, Result } from "effect";
 import type { InlineConfig } from "vite";
 
@@ -77,16 +80,6 @@ const forbiddenViteIdentifiers = new Set([
 
 const diagnosticError = (message: string) =>
 	viteCompilerError("invalid-output", message, undefined, [{ message, severity: "error" }]);
-
-const literalString = (node: Node): string | undefined => {
-	if (node.type === "Literal" && typeof node.value === "string") {
-		return node.value;
-	}
-	if (node.type !== "TemplateLiteral" || node.expressions.length > 0) {
-		return undefined;
-	}
-	return node.quasis[0]?.value.cooked ?? undefined;
-};
 
 export const auditDenoEsmOutput = (
 	javascript: string,
@@ -253,8 +246,11 @@ const buildStagedEntry = Effect.fn("buildDenoEsmEntry")(function* (
 	if (result.files.length !== 1 || output?.path !== options.outputFile) {
 		return yield* diagnosticError(`Vite did not emit exactly ${options.outputFile}`);
 	}
-	const javascript = new TextDecoder()
-		.decode(output.bytes)
+	const decoded = yield* Effect.try({
+		try: () => decodeExecutableText(output.bytes),
+		catch: () => diagnosticError("Vite emitted JavaScript that is not valid UTF-8"),
+	});
+	const javascript = decoded
 		.replace(
 			"sourceMappingURL=data:application/json;charset=utf-8;base64,",
 			"sourceMappingURL=data:application/json;base64,",

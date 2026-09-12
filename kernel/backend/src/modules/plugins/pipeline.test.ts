@@ -16,6 +16,25 @@ import { PluginValidationError } from "./validation";
 
 const encoder = new TextEncoder();
 
+it.effect("rejects lossy compiled JavaScript before package identity is accepted", () =>
+	Effect.gen(function* () {
+		const manifest = fixtureManifest();
+		const entry = manifest.scripts[0]?.entry;
+		assert(entry);
+		const source = "export default {};";
+		for (const javascript of ['export default "\ud800";', 'export default "\udfff";']) {
+			const error = yield* normalizePluginSource({
+				manifest,
+				files: { [entry]: encoder.encode(source) },
+				compiledScripts: [{ entry, source, format: 1, javascript }],
+			}).pipe(Effect.flip);
+			expect(error.issues).toEqual([
+				`Plugin compiled script JavaScript is not valid UTF-8: ${entry}`,
+			]);
+		}
+	}),
+);
+
 it("hashes sorted source paths and exact source bytes", () => {
 	const manifest = fixtureManifest();
 	const first = {

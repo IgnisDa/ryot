@@ -4,7 +4,7 @@ import { parseAst } from "rolldown/parseAst";
 const isAstNode = (value: unknown): value is Node =>
 	typeof value === "object" && value !== null && "type" in value && typeof value.type === "string";
 
-const literalString = (node: Node): string | undefined => {
+export const literalString = (node: Node): string | undefined => {
 	if (node.type === "Literal" && typeof node.value === "string") {
 		return node.value;
 	}

@@ -8,6 +8,7 @@ import {
 	isPluginClientArtifactContentType,
 	type PluginClientArtifact,
 } from "@ryot-app/client-plugin-contract";
+import { decodeExecutableText } from "@ryot-app/ts-utils/executable-text";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { inspectJavaScriptReferences } from "@ryot-app/typescript-compiler/javascript-references";
 import type { ViteBuildService } from "@ryot-app/vite-compiler";
@@ -30,13 +31,13 @@ import type { ClientPluginCompilerPackageInput } from "./input";
 import { CLIENT_PLUGIN_COMPILER_LIMITS } from "./limits";
 import { cssOutputReferences } from "./output-references";
 import { isCompiledTextSource } from "./planning";
+import { isExternalReference, referencePath } from "./reference-path";
 import { clientTypeScriptProject } from "./semantic-check";
 
 const PLUGIN_IMPORT =
 	/^@ryot-app\/plugins\/([a-z0-9]+(?:[._-][a-z0-9]+)*)\/[a-z0-9]+(?:[._-][a-z0-9]+)*$/;
 const OUTPUT_FILE =
 	/^(?:module\.(?:js|css)|chunk-[A-Za-z0-9_-]+\.js|asset-[A-Za-z0-9_-]+\.(?:svg|png|jpe?g|gif|webp|avif|ico|woff2|wasm))$/;
-const TEXT_DECODER = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 
 const failure = (entry: string, code: string, message: string) =>
 	clientPluginCompilationFailure([clientPluginCompilerDiagnostic(code, entry, message)]);
@@ -92,16 +93,13 @@ const outputReferenceIssue = (
 	for (const reference of references) {
 		const pluginSlug = PLUGIN_IMPORT.exec(reference)?.[1];
 		if (
-			reference.startsWith("#") ||
-			reference.startsWith("data:") ||
-			/^[a-z][\w+.-]*:/i.test(reference) ||
-			reference.startsWith("//") ||
+			isExternalReference(reference) ||
 			trustedModules.has(reference) ||
 			(pluginSlug !== undefined && pluginDependencies.has(pluginSlug))
 		) {
 			continue;
 		}
-		const target = reference.split(/[?#]/, 1)[0]?.replace(/^\.\//, "") ?? "";
+		const target = referencePath(reference).replace(/^\.\//, "");
 		if (target.startsWith("/") || target.includes("..") || !names.has(target)) {
 			return `Emitted file "${name}" references missing, external, or escaping path "${reference}"`;
 		}
@@ -257,7 +255,7 @@ export const compileClientPluginModule = (
 		for (const file of bundled.files) {
 			if (file.contentType.startsWith("text/")) {
 				const contents = yield* Effect.try({
-					try: () => TEXT_DECODER.decode(file.bytes),
+					try: () => decodeExecutableText(file.bytes),
 					catch: () =>
 						failure(
 							file.path,

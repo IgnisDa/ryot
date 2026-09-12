@@ -7,6 +7,7 @@ import {
 	clientArtifactMetadata,
 	type PluginClientArtifact,
 } from "@ryot-app/client-plugin-contract";
+import { decodeExecutableText } from "@ryot-app/ts-utils/executable-text";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { inspectJavaScriptReferences } from "@ryot-app/typescript-compiler/javascript-references";
 import {
@@ -24,6 +25,7 @@ import {
 import { clientPluginCompilationFailure, clientPluginCompilerDiagnostic } from "./diagnostics";
 import { runtimeStylesheet } from "./generated-source";
 import { cssOutputReferences } from "./output-references";
+import { isExternalReference, referencePath } from "./reference-path";
 import { clientTypeScriptProject } from "./semantic-check";
 
 const CLIENT_RUNTIME_ARTIFACT_NAME = "client-plugin-runtime";
@@ -149,14 +151,8 @@ if (descriptorValue.application === "page") {
 }
 `;
 
-const isExternalReference = (reference: string) =>
-	reference.startsWith("#") ||
-	reference.startsWith("data:") ||
-	reference.startsWith("//") ||
-	/^[a-z][\w+.-]*:/i.test(reference);
-
 const localReferencePath = (from: string, reference: string) => {
-	const target = reference.split(/[?#]/, 1)[0] ?? "";
+	const target = referencePath(reference);
 	if (target.startsWith("/")) {
 		return undefined;
 	}
@@ -172,12 +168,11 @@ const validateOutputReferences = (
 	}[],
 ) => {
 	const filesByName = new Map(files.map((file) => [file.path, file]));
-	const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
 	for (const file of files) {
 		if (!file.contentType.startsWith("text/")) {
 			continue;
 		}
-		const contents = decoder.decode(file.bytes);
+		const contents = decodeExecutableText(file.bytes);
 		const references = file.contentType.startsWith("text/javascript")
 			? (() => {
 					const parsed = inspectJavaScriptReferences(contents);

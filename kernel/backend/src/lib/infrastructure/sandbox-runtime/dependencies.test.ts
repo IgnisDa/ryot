@@ -1,12 +1,88 @@
 import { BunServices } from "@effect/platform-bun";
 import { assert, expect, layer } from "@effect/vitest";
 import { SANDBOX_RUNTIME_REGISTRY } from "@ryot-app/sandbox-sdk/runtime-registry";
+import { canonicalFileSetHash, sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Effect, FileSystem, Order, Schema } from "effect";
 
 import { materializeShippedSandboxRuntime, materializeSandboxRuntimePayload } from "./dependencies";
 import { sandboxRuntimePayload } from "./runtime-payload.generated";
 
+const payloadWithModuleText = (contents: string) => {
+	const module = sandboxRuntimePayload.metadata.files.find(({ path }) => path.endsWith(".mjs"));
+	assert(module);
+	const bytes = new TextEncoder().encode(contents);
+	const metadata = {
+		...sandboxRuntimePayload.metadata,
+		files: sandboxRuntimePayload.metadata.files.map((file) =>
+			file.path === module.path
+				? { ...file, sha256: sha256Hex(bytes), byteLength: bytes.byteLength }
+				: file,
+		),
+	};
+	const files = sandboxRuntimePayload.files.map((file) => {
+		if (file.path === module.path) {
+			return { ...file, contents };
+		}
+		if (file.path === "runtime-metadata.json") {
+			return {
+				...file,
+				contents: `${Schema.encodeSync(Schema.fromJsonString(Schema.Unknown))(metadata)}\n`,
+			};
+		}
+		return file;
+	});
+	return { files, metadata, contentHash: canonicalFileSetHash(files) };
+};
+
 layer(BunServices.layer)((test) => {
+	test.effect(
+		"preserves executable BOM bytes when publishing and reusing runtime dependencies",
+		() =>
+			Effect.gen(function* () {
+				const fs = yield* FileSystem.FileSystem;
+				const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-sandbox-bom-" });
+				const contents = '\ufeffexport default "e\u0301 é \ufffd 😀";\r\n';
+				const payload = payloadWithModuleText(contents);
+				const module = payload.metadata.files.find(({ path }) => path.endsWith(".mjs"));
+				assert(module);
+				const runtime = yield* materializeSandboxRuntimePayload(root, payload);
+				expect(Array.from(yield* fs.readFile(`${runtime.directory}/${module.path}`))).toEqual(
+					Array.from(new TextEncoder().encode(contents)),
+				);
+				expect((yield* materializeSandboxRuntimePayload(root, payload)).directory).toBe(
+					runtime.directory,
+				);
+				const modulePath = `${runtime.directory}/${module.path}`;
+				const bytes = new TextEncoder().encode(contents);
+				const replacement = bytes.indexOf(0xef, 3);
+				expect(replacement).toBeGreaterThan(3);
+				yield* fs.chmod(modulePath, 0o644);
+				yield* fs.writeFile(
+					modulePath,
+					Uint8Array.from([...bytes.slice(0, replacement), 0xff, ...bytes.slice(replacement + 3)]),
+				);
+				const repaired = yield* materializeSandboxRuntimePayload(root, payload);
+				expect(repaired.directory).not.toBe(runtime.directory);
+				expect(Array.from(yield* fs.readFile(`${repaired.directory}/${module.path}`))).toEqual(
+					Array.from(bytes),
+				);
+				yield* fs.chmod(runtime.directory, 0o755);
+				yield* fs.chmod(repaired.directory, 0o755);
+			}),
+	);
+
+	test.effect("rejects lossy runtime payload text despite matching replacement-byte metadata", () =>
+		Effect.gen(function* () {
+			const fs = yield* FileSystem.FileSystem;
+			const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-sandbox-lossy-" });
+			const error = yield* materializeSandboxRuntimePayload(
+				root,
+				payloadWithModuleText("\ud800"),
+			).pipe(Effect.flip);
+			expect(error.message).toContain("payload file is corrupt");
+			expect(yield* fs.readDirectory(root)).toEqual([]);
+		}),
+	);
 	test.effect("builds exact-version dependency modules in a read-only runtime directory", () =>
 		Effect.gen(function* () {
 			const fs = yield* FileSystem.FileSystem;

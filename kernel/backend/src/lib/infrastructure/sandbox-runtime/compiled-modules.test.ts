@@ -32,10 +32,33 @@ const withModuleDirectory = <A, E>(
 	);
 
 layer(BunServices.layer)((test) => {
+	test.effect(
+		"rejects lossy executable text even when its replacement bytes match the supplied hash",
+		() =>
+			withModuleDirectory((fs, moduleDirectory) =>
+				Effect.gen(function* () {
+					const javascript = 'export default "\ud800";';
+					const exit = yield* Effect.exit(
+						materializeSandboxCompiledModule(
+							{ moduleDirectory },
+							hash(new TextEncoder().encode(javascript)),
+							javascript,
+						),
+					);
+					assertExitFails(
+						exit,
+						new SandboxCompiledModuleMaterializationError({
+							message: "Compiled module JavaScript is not valid UTF-8",
+						}),
+					);
+					expect(yield* fs.readDirectory(moduleDirectory)).toEqual([]);
+				}),
+			),
+	);
 	test.effect("materializes exact compiled bytes at a deterministic read-only path", () =>
 		withModuleDirectory((fs, moduleDirectory) =>
 			Effect.gen(function* () {
-				const javascript = 'export default "first";\n';
+				const javascript = '\ufeffexport default "e\u0301 é \ufffd 😀";\r\n';
 				const contentHash = hash(javascript);
 				const modulePath = yield* materializeSandboxCompiledModule(
 					{ moduleDirectory },
@@ -44,7 +67,9 @@ layer(BunServices.layer)((test) => {
 				);
 
 				expect(modulePath).toBe(`${moduleDirectory}/${contentHash}.mjs`);
-				expect(yield* fs.readFileString(modulePath)).toBe(javascript);
+				expect(Array.from(yield* fs.readFile(modulePath))).toEqual(
+					Array.from(new TextEncoder().encode(javascript)),
+				);
 				expect((yield* fs.stat(modulePath)).mode & 0o222).toBe(0);
 				expect(yield* fs.readDirectory(moduleDirectory)).toEqual([`${contentHash}.mjs`]);
 			}),
