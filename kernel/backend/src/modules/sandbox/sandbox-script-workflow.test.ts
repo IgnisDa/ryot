@@ -1,10 +1,12 @@
 import { BunServices } from "@effect/platform-bun";
 import { expect, it, layer } from "@effect/vitest";
 import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
+import { KERNEL_ENTITY_IMPORT_WORKFLOW } from "@ryot-app/contract/modules/plugins/execution";
 import {
 	AutomationRunId,
 	AutomationTriggerId,
 	AutomationExecutionId,
+	ImportRunId,
 	PluginId,
 	PluginRevisionId,
 	PluginConfigRevisionId,
@@ -37,10 +39,7 @@ import { mutationAdmissionTestLayer } from "#lib/test-utils/mutation-admission";
 
 import { SandboxDurableHostDispatcher } from "./durable-host-dispatcher";
 import { executeSandboxExecution, type SandboxExecutionQueuePayload } from "./durable-queues";
-import {
-	KernelWorkflowReferences,
-	KERNEL_ENTITY_IMPORT_WORKFLOW,
-} from "./kernel-workflow-references";
+import { KernelWorkflowReferences } from "./kernel-workflow-references";
 import { SandboxPluginScriptResolver } from "./plugin-script-resolver";
 import { SandboxRepository } from "./repository";
 import {
@@ -339,7 +338,7 @@ const hotSwapRequest = {
 	index: 0,
 	name: "kernel-step",
 	kind: "child" as const,
-	args: { input: { value: 1 }, workflowSlug: "kernel:test" },
+	args: { input: { value: 1 }, workflowSlug: "kernel:event-create" },
 };
 const historicalContent = `
 if [ "$JOURNAL" = "[]" ]; then
@@ -366,7 +365,10 @@ const hotSwapScript = (id: typeof historicalScriptId, compiledCode: string) => (
 		slug: "workflow",
 		capabilities: [],
 		kind: "workflow" as const,
+		oauthConnectionFields: [],
 		requiredPluginConfigKeys: [],
+		optionalPluginConfigKeys: [],
+		executableDependencies: [{ kind: "workflow" as const, slug: hotSwapRequest.args.workflowSlug }],
 	},
 });
 const historicalScript = hotSwapScript(historicalScriptId, historicalContent);
@@ -419,7 +421,7 @@ const hotSwapLayer = recordingLayer(
 						scriptSlug: "workflow",
 						scriptId: historicalScriptId,
 						contentHash: "historical-hash",
-						metadata: { capabilities: [], kind: "workflow" as const },
+						metadata: historicalScript.metadata,
 					}
 				: {
 						pluginRevision,
@@ -427,7 +429,7 @@ const hotSwapLayer = recordingLayer(
 						scriptSlug: "workflow",
 						scriptId: replacementScriptId,
 						contentHash: "replacement-hash",
-						metadata: { capabilities: [], kind: "workflow" as const },
+						metadata: replacementScript.metadata,
 					};
 		return Layer.mergeAll(
 			mutationAdmissionTestLayer,
@@ -1222,7 +1224,14 @@ layer(
 								scriptSlug: "workflow",
 								scriptId: batchedScriptId,
 								contentHash: "workflow-hash",
-								metadata: { kind: "workflow", capabilities: [] },
+								metadata: {
+									kind: "workflow",
+									capabilities: [],
+									executableDependencies: [
+										{ kind: "script", slug: "activity.first" },
+										{ kind: "script", slug: "activity.second" },
+									],
+								},
 							}),
 					}),
 					Layer.mock(SandboxWorkflowReferenceRepository)({
@@ -1331,7 +1340,10 @@ layer(
 		mutationAdmissionTestLayer,
 		parentInstanceLayer,
 		Layer.mock(SandboxArtifactStore)({ retain: () => Effect.void, release: () => Effect.void }),
-		Layer.succeed(KernelWorkflowReferences, { execute: () => Effect.die("unused") }),
+		Layer.succeed(KernelWorkflowReferences, {
+			execute: () => Effect.die("unused"),
+			resolveArtifactGrants: (_input, _subject, grants) => Effect.succeed(grants),
+		}),
 	),
 )((test) => {
 	test.effect("dispatches plugin children as child workflows with an exact script pin", () =>
@@ -1376,37 +1388,48 @@ layer(
 )((test) => {
 	test.effect("dispatches migrated script activity requests as child workflows", () =>
 		Effect.gen(function* () {
+			const importRunId = ImportRunId.make("run-1");
+			const subject = {
+				importRunId,
+				type: "user" as const,
+				userId: UserId.make("user-1"),
+				accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+			};
 			const result = yield* performSandboxWorkflowRequest(
 				{
 					index: 0,
-					name: "parse",
+					name: "collect",
 					kind: "activity",
-					args: { input: {}, scriptSlug: "import.kappa" },
+					args: { input: {}, scriptSlug: "import.collect" },
 				},
 				SandboxScriptId.make("import-script"),
 				{
+					subject,
 					input: {},
-					executionId: "parent",
 					resolutionMode: "exact",
-					subject: { type: "system" },
+					executionId: `${importRunId}-import`,
 					scriptId: SandboxScriptId.make("workflow-script"),
 				},
 				{
+					subject,
 					providerId: null,
 					pluginRevision: null,
 					scriptSlug: "workflow",
-					subject: { type: "system" },
 					contentHash: "workflow-hash",
 					metadata: { kind: "workflow", capabilities: [] },
 					scriptId: SandboxScriptId.make("workflow-script"),
 				},
-				"parent",
+				`${importRunId}-import`,
 			);
 
 			expect(result).toEqual({ child: true });
 			expect((yield* (yield* WorkflowTestCalls).entries("execute-options")).at(-1)).toMatchObject({
-				executionId: "parent-child-parse-0",
-				payload: { resolutionMode: "exact", scriptId: "import-script" },
+				executionId: "run-1-import-child-collect-0",
+				payload: {
+					resolutionMode: "exact",
+					scriptId: "import-script",
+					subject: { type: "user", userId: "user-1", importRunId: "run-1" },
+				},
 			});
 		}),
 	);
@@ -1428,6 +1451,7 @@ layer(
 			Effect.gen(function* () {
 				const calls = yield* WorkflowTestCalls;
 				return Layer.succeed(KernelWorkflowReferences, {
+					resolveArtifactGrants: (_input, _subject, grants) => Effect.succeed(grants),
 					execute: (workflowSlug, input, subject, executionId, parentExecutionId, callerScriptId) =>
 						calls
 							.record("kernel-calls", {

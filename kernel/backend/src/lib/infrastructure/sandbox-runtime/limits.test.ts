@@ -59,6 +59,7 @@ describe("sandbox limits", () => {
 				memoryBytes: 402_653_184,
 				diagnosticBytes: 262_144,
 				javascriptBytes: 1_048_576,
+				executionAnalysisSteps: 100_000,
 			},
 		});
 	});
@@ -122,13 +123,19 @@ describe("sandbox limits", () => {
 		for (let index = 0; index < SANDBOX_LIMITS.hostCalls.total; index += 1) {
 			expect(consumeSandboxHostCall(totalBudget, "getCachedValue")).toBeNull();
 		}
-		expect(consumeSandboxHostCall(totalBudget, "getCachedValue")).toContain("1000 host calls");
+		expect(consumeSandboxHostCall(totalBudget, "getCachedValue")).toMatchObject({
+			message: expect.stringContaining("1000 host calls"),
+			reason: { code: "execution-limit", operation: "getCachedValue" },
+		});
 
 		const httpBudget = { http: 0, total: 0 };
 		for (let index = 0; index < SANDBOX_LIMITS.hostCalls.http; index += 1) {
 			expect(consumeSandboxHostCall(httpBudget, "httpCall")).toBeNull();
 		}
-		expect(consumeSandboxHostCall(httpBudget, "httpCall")).toContain("50 httpCall calls");
+		expect(consumeSandboxHostCall(httpBudget, "httpCall")).toMatchObject({
+			message: expect.stringContaining("50 httpCall calls"),
+			reason: { operation: "httpCall", code: "execution-limit" },
+		});
 	});
 
 	it("applies one universal execution profile", () => {

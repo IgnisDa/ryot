@@ -1,39 +1,29 @@
 import { defineManifest, defineScript } from "@ryot-app/sandbox-sdk/driver";
-import { Effect } from "@ryot-app/sandbox-sdk/effect";
 
-import { nowIso } from "./dates";
-import { batchMediaImportResult } from "./helpers";
+import { collectMediaCsv } from "./collection";
+import { MediaSourceInput, MediaSourceOutput } from "./collection-schemas";
 import { adaptMovaryExports } from "./movary";
-import { MediaImportAdapterBatch, MediaImportParserInput } from "./schemas";
-import { readNamedImportArtifactText } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "script",
 	slug: "import.movary",
-	name: "Parse Movary import",
-	requiredPluginConfigKeys: [],
-	capabilities: ["artifact-read"],
+	name: "Collect Movary export",
 });
-
 export default defineScript({
 	manifest,
-	input: MediaImportParserInput,
-	output: MediaImportAdapterBatch,
+	input: MediaSourceInput,
+	output: MediaSourceOutput,
 	run: (input) =>
-		Effect.all(
-			{
-				historyCsv: readNamedImportArtifactText("historyUploadToken"),
-				ratingsCsv: readNamedImportArtifactText("ratingsUploadToken"),
-				watchlistCsv: readNamedImportArtifactText("watchlistUploadToken"),
-			},
-			{ concurrency: 3 },
-		).pipe(
-			Effect.map((files) =>
-				batchMediaImportResult(
-					adaptMovaryExports({ ...files, importedAt: nowIso() }),
-					input.start,
-					input.limit,
-				),
-			),
+		collectMediaCsv(
+			"movary",
+			input,
+			(text) =>
+				adaptMovaryExports({
+					importedAt: input.importedAt,
+					watchlistCsv: input.fileIndex === 2 ? text : "title,tmdb_id",
+					historyCsv: input.fileIndex === 0 ? text : "title,tmdb_id,watched_at",
+					ratingsCsv: input.fileIndex === 1 ? text : "title,tmdb_id,user_rating",
+				}),
+			["historyUploadToken", "ratingsUploadToken", "watchlistUploadToken"][input.fileIndex],
 		),
 });

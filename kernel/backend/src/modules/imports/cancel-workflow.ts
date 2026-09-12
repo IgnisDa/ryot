@@ -1,3 +1,4 @@
+import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { ImportRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "effect";
 import { Workflow } from "effect/unstable/workflow";
@@ -9,7 +10,11 @@ import { ImportRunExecutionController } from "./execution-controller";
 import { ImportsRepository } from "./repository";
 import { ImportRunError, toWorkflowError } from "./runtime/workflow-errors";
 
-const CancelImportRunPayload = Schema.Struct({ userId: UserId, runId: ImportRunId });
+const CancelImportRunPayload = Schema.Struct({
+	userId: UserId,
+	runId: ImportRunId,
+	accountGeneration: AccountGeneration,
+});
 
 export const CancelImportRunWorkflow = Workflow.make("CancelImportRunWorkflow", {
 	success: Schema.Void satisfies DurableSchema,
@@ -30,11 +35,8 @@ export const runCancelImportRunWorkflow = Effect.fn("CancelImportRunWorkflow")(f
 			Schema.Struct({ executionKind: Schema.Literals(["source", "integration"]) }),
 		),
 		execute: Effect.gen(function* () {
-			const result = yield* repository.requestCancellation(payload);
-			if (result !== "requested" && result !== "already-requested") {
-				return null;
-			}
-			const current = yield* repository.getRunControlForUser(payload);
+			yield* repository.cancelIngestion(payload);
+			const current = yield* repository.getIngestionRun(payload);
 			return current?.status === "cancelling" ? { executionKind: current.executionKind } : null;
 		}).pipe(Effect.mapError(toWorkflowError)),
 	});

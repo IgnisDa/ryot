@@ -1,250 +1,292 @@
 import {
-	genericImportKernelInputSchema,
+	genericImportActivityReference,
+	genericImportSealReference,
 	genericImportWorkflowInputSchema,
 	genericImportWorkflowResultSchema,
 } from "@ryot-app/sandbox-sdk/imports";
-import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/sandbox-sdk/workflow";
-
 import {
-	BATCH_SIZE,
-	MediaImportSegmentInput,
-	MediaImportSegmentOutput,
-	MediaWorkflowError,
-	runMediaImportBatch,
-} from "./batch";
-import type { MediaImportDispatchParserInput } from "./schemas";
-import { MediaIntegrationAdapterResult, TraktImportTarget, TraktImportUrl } from "./schemas";
+	defineManifest,
+	defineWorkflow,
+	defineWorkflowReference,
+	Effect,
+	selectExecutable,
+} from "@ryot-app/sandbox-sdk/workflow";
+
+import type { MediaSourceInput } from "./collection-schemas";
+import {
+	MediaApplicationInput,
+	MediaApplicationOutput,
+	MediaCollectionInput,
+	MediaCollectionOutput,
+} from "./process";
+import type { MediaControlOutput } from "./references";
+import { mediaControl, mediaSources } from "./references";
+import { appendMediaIssues } from "./reports";
+import { mediaSortedRuns } from "./sorted-runs";
+import { classifyTraktExportName } from "./trakt-files";
 
 export const manifest = defineManifest({
 	kind: "workflow",
-	capabilities: [],
 	name: "Media import",
-	requiredPluginConfigKeys: [],
 	slug: "workflow.media-import",
 });
-
-const integrationAdapter = (scriptSlug: string) => ({
-	scriptSlug,
-	input: Schema.Unknown,
-	output: MediaIntegrationAdapterResult,
+const application = defineWorkflowReference({
+	input: MediaApplicationInput,
+	output: MediaApplicationOutput,
+	workflowSlug: "media-import-application",
 });
-
-const segment = {
-	input: MediaImportSegmentInput,
-	output: MediaImportSegmentOutput,
-	workflowSlug: "media-import-segment",
-};
-
-const kernelImport = {
-	input: genericImportKernelInputSchema,
-	output: genericImportWorkflowResultSchema,
-	workflowSlug: "kernel:process-import-chunks",
-};
-
+const collection = defineWorkflowReference({
+	input: MediaCollectionInput,
+	output: MediaCollectionOutput,
+	workflowSlug: "media-import-collection",
+});
 export default defineWorkflow({
 	manifest,
 	input: genericImportWorkflowInputSchema,
 	output: genericImportWorkflowResultSchema,
 	run: (input, replay) =>
 		Effect.gen(function* () {
-			const integrationId = input.sourcePayload?.["integrationId"];
-			const integrationScriptSlug = input.sourcePayload?.["integrationScriptSlug"];
-			const isIntegration =
-				typeof integrationId === "string" && typeof integrationScriptSlug === "string";
-			let parserInput: typeof MediaImportDispatchParserInput.Type = { start: 0, limit: BATCH_SIZE };
-			if (!isIntegration) {
-				if (input.source === "igdb") {
-					const collection = input.sourcePayload?.["collection"];
-					if (typeof collection !== "string" || !collection.trim()) {
-						return yield* Effect.fail(
-							new MediaWorkflowError("Import job is missing IGDB collection"),
-						);
-					}
-					parserInput = { ...parserInput, collection: collection.trim() };
-				}
-				if (input.source === "anilist") {
-					const timezone = input.sourcePayload?.["timezone"];
-					if (typeof timezone !== "string" || !timezone.trim()) {
-						return yield* Effect.fail(
-							new MediaWorkflowError("Import job is missing AniList timezone"),
-						);
-					}
-					parserInput = { ...parserInput, timezone: timezone.trim() };
-				}
-				if (input.source === "netflix") {
-					const profileName = input.sourcePayload?.["profileName"];
-					if (typeof profileName === "string") {
-						parserInput = { ...parserInput, profileName };
-					}
-				}
-				if (input.source === "myanimelist") {
-					const hasAnimeFile = typeof input.sourcePayload?.["animeUploadToken"] === "string";
-					const hasMangaFile = typeof input.sourcePayload?.["mangaUploadToken"] === "string";
-					if (!hasAnimeFile && !hasMangaFile) {
-						return yield* Effect.fail(
-							new MediaWorkflowError("Import job is missing MyAnimeList export files"),
-						);
-					}
-					parserInput = { ...parserInput, hasAnimeFile, hasMangaFile };
-				}
-				if (input.source === "trakt") {
-					const target = input.sourcePayload ?? {};
-					const mode = target["mode"];
-					if (!Schema.is(TraktImportTarget)(target)) {
-						if (
-							mode === "user" &&
-							(!Schema.is(Schema.NonEmptyString)(target["username"]) ||
-								!String(target["username"]).trim())
-						) {
-							return yield* Effect.fail(
-								new MediaWorkflowError("Import job is missing Trakt username"),
-							);
-						}
-						if (mode === "user") {
-							return yield* Effect.fail(
-								new MediaWorkflowError("Import job has invalid Trakt user fields"),
-							);
-						}
-						if (mode === "list") {
-							if (!Schema.is(TraktImportUrl)(target["url"])) {
-								return yield* Effect.fail(
-									new MediaWorkflowError("Import job is missing or invalid Trakt list URL"),
-								);
-							}
-							if (
-								!Schema.is(Schema.NonEmptyString)(target["collection"]) ||
-								!String(target["collection"]).trim()
-							) {
-								return yield* Effect.fail(
-									new MediaWorkflowError("Import job is missing Trakt collection"),
-								);
-							}
-							return yield* Effect.fail(
-								new MediaWorkflowError("Import job has invalid Trakt list fields"),
-							);
-						}
-						if (mode === "export") {
-							return yield* Effect.fail(
-								new MediaWorkflowError("Import job is missing Trakt export ZIP"),
-							);
-						}
-						return yield* Effect.fail(
-							new MediaWorkflowError("Import job is missing or invalid Trakt mode"),
-						);
-					}
-					if (target.mode === "user" && !target.username.trim()) {
-						return yield* Effect.fail(
-							new MediaWorkflowError("Import job is missing Trakt username"),
-						);
-					}
-					if (target.mode === "list" && !target.collection.trim()) {
-						return yield* Effect.fail(
-							new MediaWorkflowError("Import job is missing Trakt collection"),
-						);
-					}
-					parserInput =
-						target.mode === "export"
-							? { ...parserInput, mode: "export", hasExportFile: true }
-							: {
-									...parserInput,
-									...target,
-									...(target.mode === "user"
-										? { username: target.username.trim() }
-										: { url: target.url.trim(), collection: target.collection.trim() }),
-								};
-				}
-				if (["plex", "audiobookshelf", "media_tracker"].includes(input.source)) {
-					const apiKey = input.sourcePayload?.["apiKey"];
-					const apiUrl = input.sourcePayload?.["apiUrl"];
-					if (typeof apiKey !== "string" || !apiKey || typeof apiUrl !== "string" || !apiUrl) {
-						return yield* Effect.fail(
-							new MediaWorkflowError(`Import job is missing ${input.source} credentials`),
-						);
-					}
-					parserInput = {
-						...parserInput,
-						apiKey,
-						apiUrl,
-						...(typeof input.sourcePayload["allowInsecureConnections"] === "boolean"
-							? { allowInsecureConnections: input.sourcePayload["allowInsecureConnections"] }
-							: {}),
-					};
-				}
-				if (input.source === "jellyfin") {
-					const apiUrl = input.sourcePayload?.["apiUrl"];
-					const username = input.sourcePayload?.["username"];
-					if (typeof apiUrl !== "string" || !apiUrl || typeof username !== "string" || !username) {
-						return yield* Effect.fail(
-							new MediaWorkflowError("Import job is missing Jellyfin connection details"),
-						);
-					}
-					parserInput = {
-						...parserInput,
-						apiUrl,
-						username,
-						...(typeof input.sourcePayload["password"] === "string"
-							? { password: input.sourcePayload["password"] }
-							: {}),
-						...(typeof input.sourcePayload["allowInsecureConnections"] === "boolean"
-							? { allowInsecureConnections: input.sourcePayload["allowInsecureConnections"] }
-							: {}),
-					};
-				}
+			const admitted = yield* replay.activity("settings", mediaControl, {
+				action: "settings",
+				artifactHandle: input.sourcePayloadHandle,
+			});
+			const settings = admitted.settings;
+			const attribution = { runId: input.runId, command: input.command };
+			if (input.plan.operation !== "import") {
+				throw new Error("Media import plan does not match its workflow");
 			}
-			let totalItems = 0;
-			let failRun = false;
-			let failureCount = 0;
-			let writeItemCount = 0;
-			const chunkHandles: string[] = [];
-
-			if (typeof integrationScriptSlug === "string" && typeof integrationId === "string") {
-				const result = yield* replay.activity(
-					"integration-adapter",
-					integrationAdapter(integrationScriptSlug),
-					input.sourcePayload?.["integrationContext"] ?? {},
-				);
-				failRun = result.entityGroups.length === 0 && result.failures.length > 0;
-				const chunk = yield* runMediaImportBatch(replay, {
-					integrationId,
-					batchIndex: 0,
-					runId: input.runId,
-					command: input.command,
-					batch: { ...result, totalItems: result.failures.length + result.entityGroups.length },
+			const state = { ordinal: 64 };
+			const runs = mediaSortedRuns(replay, attribution, state);
+			let completed = 0;
+			let serial = 0;
+			let advancedAt = input.command.occurredAt;
+			const activity = (
+				id: string,
+				kind: "reading" | "preparing" | "writing",
+				activityState: "running" | "completed",
+				unit: string,
+				value: number,
+			) =>
+				Effect.gen(function* () {
+					yield* replay.child(`activity:${id}:${serial++}`, genericImportActivityReference, {
+						...attribution,
+						operation: {
+							action: "activity",
+							activity: {
+								id,
+								kind,
+								unit,
+								wait: null,
+								batchId: null,
+								parentId: null,
+								completed: value,
+								exactTotal: null,
+								state: activityState,
+								lastAdvancedAt: advancedAt,
+							},
+						},
+					});
 				});
-				chunkHandles.push(...chunk.chunkHandles);
-				totalItems += chunk.totalItems;
-				failureCount += chunk.failureCount;
-				writeItemCount += chunk.writeItemCount;
+			yield* activity("collection", "reading", "running", "records", 0);
+			const selected = input.plan.selection["source-parser"];
+			const expected =
+				input.source === "trakt" && settings["mode"] === "export" ? "trakt-export" : input.source;
+			if (selected !== expected) {
+				throw new Error("Media import plan does not match its admitted source");
+			}
+			selectExecutable(mediaSources, selected);
+			let sourcePage = 0;
+			const collect = (fileIndex: number, entry?: MediaSourceInput["entry"]) =>
+				Effect.gen(function* () {
+					let offset = 0;
+					let header = "";
+					let carry: string | null = null;
+					let eventOffset = 0;
+					for (;;) {
+						const result: typeof MediaCollectionOutput.Type = yield* replay.child(
+							`collection:${sourcePage}`,
+							collection,
+							{
+								...attribution,
+								carry,
+								offset,
+								header,
+								settings,
+								fileIndex,
+								eventOffset,
+								records: null,
+								source: expected,
+								step: sourcePage,
+								action: "collect",
+								itemIndex: completed,
+								ordinal: state.ordinal,
+								prefix: `source-${fileIndex}`,
+								importedAt: input.command.occurredAt,
+								...(entry ? { entry } : {}),
+							},
+						);
+						completed = result.itemIndex;
+						offset = result.offset;
+						header = result.header;
+						carry = result.carry;
+						state.ordinal = result.ordinal;
+						advancedAt = result.advancedAt;
+						eventOffset = result.eventOffset;
+						yield* activity("collection", "reading", "running", "records", completed);
+						if (result.run) {
+							yield* runs.add(result.run, `source-sort-${sourcePage}`);
+						}
+						sourcePage = result.step;
+						if (result.done) {
+							break;
+						}
+					}
+				});
+			if (input.source === "spotify" || input.source === "netflix" || expected === "trakt-export") {
+				const key = expected === "trakt-export" ? "exportUploadToken" : "uploadToken";
+				let after: number | null = null;
+				let fileIndex = 0;
+				let netflixFiles = 0;
+				for (let directory = 0; ; directory++) {
+					const page: typeof MediaControlOutput.Type = yield* replay.activity(
+						`directory:${directory}`,
+						mediaControl,
+						{ key, after, action: "directory" },
+					);
+					for (const entry of page.entries) {
+						const name = entry.name.split(/[\\/]/).pop() ?? "";
+						let selectedEntry = !!classifyTraktExportName(name);
+						if (input.source === "spotify") {
+							selectedEntry = /^Streaming_History_(Audio|Video)_[^/]*\.json$/.test(name);
+						}
+						if (input.source === "netflix") {
+							selectedEntry = ["MyList.csv", "Ratings.csv", "ViewingActivity.csv"].includes(name);
+						}
+						if (selectedEntry) {
+							yield* collect(fileIndex++, entry);
+							if (input.source === "netflix") {
+								netflixFiles |=
+									1 << ["MyList.csv", "Ratings.csv", "ViewingActivity.csv"].indexOf(name);
+							}
+						}
+					}
+					after = page.next;
+					if (after === null) {
+						break;
+					}
+				}
+				if (!fileIndex) {
+					throw new Error("Import archive contains no recognized source files");
+				}
+				if (input.source === "netflix" && netflixFiles !== 7) {
+					throw new Error("Required Netflix CSV files were not found in the archive");
+				}
+			} else if (input.source === "movary") {
+				for (const fileIndex of [0, 1, 2]) {
+					yield* collect(fileIndex);
+				}
+			} else if (input.source === "myanimelist") {
+				if (
+					typeof settings["animeUploadToken"] !== "string" &&
+					typeof settings["mangaUploadToken"] !== "string"
+				) {
+					throw new Error("Import job is missing MyAnimeList export files");
+				}
+				if (typeof settings["animeUploadToken"] === "string") {
+					yield* collect(0);
+				}
+				if (typeof settings["mangaUploadToken"] === "string") {
+					yield* collect(1);
+				}
 			} else {
-				let start: number | null = 0;
-				for (let segmentIndex = 0; start !== null; segmentIndex += 1) {
-					const output: typeof MediaImportSegmentOutput.Type = yield* replay.child(
-						`segment-${segmentIndex}`,
-						segment,
+				yield* collect(0);
+			}
+			if (["anilist", "media_tracker", "netflix", "spotify", "trakt-export"].includes(expected)) {
+				const raw = yield* runs.finish("raw-final");
+				let header = "";
+				let carry: string | null = null;
+				let normalizedItems = 0;
+				if (raw) {
+					for (let page = 0; page < raw.pages; page++) {
+						let offset = 0;
+						for (let part = 0; ;) {
+							const result: typeof MediaCollectionOutput.Type = yield* replay.child(
+								`normalize:${page}:${part}`,
+								collection,
+								{
+									...attribution,
+									carry,
+									offset,
+									header,
+									settings,
+									step: part,
+									fileIndex: page,
+									source: expected,
+									action: "normalize",
+									ordinal: state.ordinal,
+									itemIndex: normalizedItems,
+									prefix: `normalized-${page}`,
+									records: `${raw.prefix}-${page}`,
+									importedAt: input.command.occurredAt,
+								},
+							);
+							header = result.header;
+							offset = result.offset;
+							carry = result.carry;
+							state.ordinal = result.ordinal;
+							advancedAt = result.advancedAt;
+							normalizedItems = result.itemIndex;
+							if (result.run) {
+								yield* runs.add(result.run, `normalized-sort-${page}-${part}`);
+							}
+							part = result.step;
+							if (result.done) {
+								break;
+							}
+						}
+					}
+				}
+				yield* activity("normalization", "preparing", "completed", "records", normalizedItems);
+			}
+			yield* activity("collection", "reading", "completed", "records", completed);
+			const run = yield* runs.finish("source-final");
+			const issues: Array<(typeof genericImportWorkflowResultSchema.Type)["issues"][number]> = [];
+			if (run) {
+				let page = 0;
+				let offset = 0;
+				let batch = 0;
+				let itemIndex = 0;
+				let dedupKey: string | null = null;
+				for (let segment = 0; ; segment++) {
+					const result: typeof MediaApplicationOutput.Type = yield* replay.child(
+						`application:${segment}`,
+						application,
 						{
-							start,
-							parserInput,
-							runId: input.runId,
-							source: input.source,
-							command: input.command,
+							...attribution,
+							run,
+							page,
+							batch,
+							offset,
+							dedupKey,
+							itemIndex,
+							ordinal: state.ordinal,
+							integrationContext: {},
+							integrationScriptSlug: null,
+							issueLimit: 1000 - issues.length,
 						},
 					);
-					chunkHandles.push(...output.chunkHandles);
-					totalItems += output.totalItems;
-					failureCount += output.failureCount;
-					writeItemCount += output.writeItemCount;
-					start = output.nextStart;
+					({ page, batch, offset, dedupKey, itemIndex } = result);
+					state.ordinal = result.ordinal;
+					appendMediaIssues(issues, result.issues, 1000);
+					if (result.done) {
+						break;
+					}
 				}
 			}
-
-			return yield* replay.child("write-import", kernelImport, {
-				totalItems,
-				chunkHandles,
-				failureCount,
-				writeItemCount,
-				runId: input.runId,
-				command: input.command,
-				...(failRun ? { failRun: true } : {}),
+			const sealed = yield* replay.child("seal", genericImportSealReference, {
+				...attribution,
+				operation: { action: "seal" },
 			});
+			return { issues, summary: sealed.summary };
 		}),
 });

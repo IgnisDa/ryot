@@ -7,8 +7,6 @@ import { buildAlbumDetails } from "./shared";
 
 export const manifest = defineManifest({
 	kind: "provider",
-	capabilities: ["httpCall"],
-	requiredPluginConfigKeys: [],
 	name: "YouTube Music album details",
 	slug: "music-group.youtube-music.details",
 });

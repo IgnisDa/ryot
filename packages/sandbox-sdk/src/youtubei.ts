@@ -1,11 +1,11 @@
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { Innertube } from "youtubei.js/web";
 
-import type { SandboxHost } from "./core";
+import type { ScriptHost } from "./core";
 
 export * from "youtubei.js/web";
 
-export type YoutubeiHost = SandboxHost<readonly ["httpCall"]>;
+export type YoutubeiHost = Pick<ScriptHost, "httpCall">;
 export type YoutubeiClientOptions = {
 	readonly retrievePlayer?: boolean;
 	readonly retrieveInnertubeConfig?: boolean;

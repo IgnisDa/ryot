@@ -43,6 +43,7 @@ const makeImplementations = (
 	listEventSchemas: () => Effect.fail({ message: "unused" }),
 	listIntegrations: () => Effect.fail({ message: "unused" }),
 	sendNotification: () => Effect.fail({ message: "unused" }),
+	getPersistentValue: () => Effect.fail({ message: "unused" }),
 	getUserPreferences: () => Effect.fail({ message: "unused" }),
 	ensureUserEntities: () => Effect.fail({ message: "unused" }),
 	getOAuthAccessToken: () => Effect.fail({ message: "unused" }),
@@ -66,6 +67,28 @@ describe("bindSandboxHostFunctions", () => {
 			expect(Effect.isEffect(result)).toBe(true);
 			expect(result).not.toBeInstanceOf(Promise);
 			expect(yield* result).toEqual({ success: false, error: "unused" });
+		}),
+	);
+
+	it.effect("preserves boundary reason data in the normal host failure result", () =>
+		Effect.gen(function* () {
+			const bound = bindSandboxHostFunctions(
+				makeImplementations({
+					getPluginConfig: () =>
+						Effect.fail({
+							message: "A required plugin config value is not configured",
+							data: { keys: ["apiToken"], code: "missing-required-config" },
+						}),
+				}),
+				input,
+			);
+			const result = yield* bound.getPluginConfig([{ required: ["apiToken"] }]);
+
+			expect(result).toMatchObject({
+				success: false,
+				error: expect.stringContaining("not configured"),
+				data: { keys: ["apiToken"], code: "missing-required-config" },
+			});
 		}),
 	);
 
@@ -412,9 +435,9 @@ describe("bindSandboxHostFunctions", () => {
 				error: "reached",
 			});
 			expect(yield* bound.listIntegrations([null])).toEqual({ success: false, error: "reached" });
-			expect(yield* bound.getPluginConfig([[null]])).toEqual({
+			expect(yield* bound.getPluginConfig([{ required: [null] }])).toEqual({
 				success: false,
-				error: "0.0: Expected string",
+				error: "0.required.0: Expected string",
 			});
 			expect(calls).toEqual([
 				{ value: undefined, fnName: "httpCall" },
@@ -460,7 +483,7 @@ describe("bindSandboxHostFunctions", () => {
 				success: true,
 				data: { claimed: true },
 			});
-			expect(yield* bound.getPluginConfig([["apiToken"]])).toEqual({
+			expect(yield* bound.getPluginConfig([{ required: ["apiToken"] }])).toEqual({
 				success: true,
 				data: { apiToken: "token" },
 			});
@@ -472,7 +495,7 @@ describe("bindSandboxHostFunctions", () => {
 				success: false,
 				error: "2: Expected an integer",
 			});
-			expect(yield* bound.getPluginConfig([["apiToken"], "surplus"])).toEqual({
+			expect(yield* bound.getPluginConfig([{ required: ["apiToken"] }, "surplus"])).toEqual({
 				success: false,
 				error: "getPluginConfig received an invalid number of arguments",
 			});
@@ -481,7 +504,7 @@ describe("bindSandboxHostFunctions", () => {
 					fnName: "claimPersistentValue",
 					value: { key: "lock", ttlSeconds: 60, value: { owner: "user-1" } },
 				},
-				{ value: ["apiToken"], fnName: "getPluginConfig" },
+				{ fnName: "getPluginConfig", value: { required: ["apiToken"] } },
 			]);
 		}),
 	);

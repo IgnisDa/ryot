@@ -48,7 +48,7 @@ import type {
 
 type PluginPointerRow = typeof schema.plugin.$inferSelect;
 
-type PersistedScript = Omit<NormalizedPluginScript, "entry">;
+type PersistedScript = Omit<NormalizedPluginScript, "entry"> & { readonly source: string };
 
 const retainedScriptExecution = (now: Date) => sql<boolean>`(exists (
 	select 1 from ${schema.automationRun} r
@@ -66,9 +66,6 @@ const retainedScriptExecution = (now: Date) => sql<boolean>`(exists (
 	and (receipt.sandbox_script_id = ${schema.sandboxScript.id}
 		or receipt.plugin_revision_id = ${schema.sandboxScript.pluginRevisionId})
 ))`;
-
-const bytesEqual = (left: Uint8Array, right: Uint8Array) =>
-	left.byteLength === right.byteLength && left.every((byte, index) => byte === right[index]);
 
 type LoadedPluginRevision = PluginRevision & {
 	readonly id: string;
@@ -663,42 +660,6 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			return row !== undefined;
 		});
 
-		const listSourceFiles = Effect.fn("PluginRepository.listSourceFiles")(function* (
-			pluginId: string,
-		) {
-			const rows = yield* database.run((db) =>
-				db
-					.select({
-						path: schema.pluginRevisionSourceFile.path,
-						contents: schema.pluginRevisionSourceFile.contents,
-					})
-					.from(schema.pluginRevisionSourceFile)
-					.innerJoin(
-						schema.plugin,
-						eq(schema.plugin.activeRevisionId, schema.pluginRevisionSourceFile.pluginRevisionId),
-					)
-					.where(eq(schema.plugin.id, pluginId))
-					.orderBy(asc(schema.pluginRevisionSourceFile.path)),
-			);
-			return Object.fromEntries(rows.map(({ path, contents }) => [path, new Uint8Array(contents)]));
-		});
-		const listRevisionSourceFiles = Effect.fn("PluginRepository.listRevisionSourceFiles")(
-			function* (revisionId: string) {
-				const rows = yield* database.run((db) =>
-					db
-						.select({
-							path: schema.pluginRevisionSourceFile.path,
-							contents: schema.pluginRevisionSourceFile.contents,
-						})
-						.from(schema.pluginRevisionSourceFile)
-						.where(eq(schema.pluginRevisionSourceFile.pluginRevisionId, revisionId))
-						.orderBy(asc(schema.pluginRevisionSourceFile.path)),
-				);
-				return Object.fromEntries(
-					rows.map(({ path, contents }) => [path, new Uint8Array(contents)]),
-				);
-			},
-		);
 		const listCompiledPackageArtifacts = Effect.fn("PluginRepository.listCompiledPackageArtifacts")(
 			function* (pluginId: string) {
 				const [revision] = yield* database.run((db) =>
@@ -721,7 +682,6 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					return yield* new DbError({ message: `Plugin ${pluginId} has no active revision` });
 				}
 				const manifest = yield* decodeStoredManifest(revision.manifest, pluginId);
-				const files = yield* listRevisionSourceFiles(revision.id);
 				const scriptRows = yield* database.run((db) =>
 					db
 						.select({
@@ -750,29 +710,15 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 							}),
 						);
 					}
-					const source = files[script.entry];
-					if (!source) {
-						return Effect.fail(
-							new DbError({ message: `Plugin ${pluginId} is missing source file ${script.entry}` }),
-						);
-					}
-					return Effect.try({
-						catch: () =>
-							new DbError({
-								message: `Plugin ${pluginId} has invalid source file ${script.entry}`,
-							}),
-						try: () => ({
-							entry: script.entry,
-							format: retained.format,
-							javascript: retained.javascript,
-							source: new TextDecoder("utf-8", { fatal: true }).decode(source),
-						}),
+					return Effect.succeed({
+						entry: script.entry,
+						format: retained.format,
+						javascript: retained.javascript,
 					});
 				});
 
 				const normalizeRetainedArtifacts = (compiledClient?: PluginClientArtifact) =>
 					normalizePluginSource({
-						files,
 						manifest,
 						compiledScripts,
 						...(compiledClient ? { compiledClient } : {}),
@@ -788,26 +734,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 				const compiledClient = revision.clientArtifactHash
 					? yield* artifacts.loadClientArtifact(revision.clientArtifactHash)
 					: undefined;
-				if (
-					compiledClient &&
-					clientArtifactMetadata(manifest.metadata.name, compiledClient.files).hash !==
-						compiledClient.hash
-				) {
-					return yield* new DbError({
-						message: `Plugin ${pluginId} retained client artifact hash does not match its contents`,
-					});
-				}
-				if (!manifest.client) {
-					const normalized = yield* normalizeRetainedArtifacts(compiledClient);
-					if (normalized.sourceHash !== revision.sourceHash) {
-						return yield* new DbError({
-							message: `Plugin ${pluginId} retained package hash does not match its artifacts`,
-						});
-					}
-					return { compiledScripts };
-				}
-
-				if (!compiledClient) {
+				if (manifest.client && !compiledClient) {
 					return yield* new DbError({
 						message: `Plugin ${pluginId} is missing its retained compiled client artifact`,
 					});
@@ -818,7 +745,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 						message: `Plugin ${pluginId} retained package hash does not match its artifacts`,
 					});
 				}
-				return { compiledClient, compiledScripts };
+				return { compiledScripts, ...(compiledClient ? { compiledClient } : {}) };
 			},
 		);
 		const findRevisionClientArtifact = Effect.fn("PluginRepository.findRevisionClientArtifact")(
@@ -868,38 +795,6 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 						.limit(1),
 				);
 				return revision ? yield* findRevisionClientArtifact(revision.id) : null;
-			},
-		);
-
-		const listAuthorizedSourceFiles = Effect.fn("PluginRepository.listAuthorizedSourceFiles")(
-			function* (input: {
-				readonly userId: string;
-				readonly pluginId: string;
-				readonly sourceHash: string;
-				readonly installationId: string;
-			}) {
-				const [authorized] = yield* database.run((db) =>
-					db
-						.select({ id: schema.plugin.id })
-						.from(schema.pluginInstallation)
-						.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginInstallation.pluginId))
-						.innerJoin(
-							schema.pluginRevision,
-							eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
-						)
-						.where(
-							and(
-								eq(schema.plugin.id, input.pluginId),
-								eq(schema.plugin.status, "active"),
-								eq(schema.pluginRevision.sourceHash, input.sourceHash),
-								isNull(schema.pluginInstallation.uninstalledAt),
-								eq(schema.pluginInstallation.userId, input.userId),
-								eq(schema.pluginInstallation.id, input.installationId),
-							),
-						)
-						.limit(1),
-				);
-				return authorized ? yield* listSourceFiles(input.pluginId) : null;
 			},
 		);
 
@@ -1047,39 +942,6 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 						try: () => revisionDefinitions(pluginId, slug, plugin.manifest),
 					}),
 				});
-			}
-			const sourceEntries = Object.entries(plugin.files);
-			const retainedFiles = yield* database.run((db) =>
-				db
-					.select()
-					.from(schema.pluginRevisionSourceFile)
-					.where(eq(schema.pluginRevisionSourceFile.pluginRevisionId, pluginRevisionId)),
-			);
-			if (
-				retainedFiles.length > 0 &&
-				(retainedFiles.length !== sourceEntries.length ||
-					retainedFiles.some((file) => {
-						const contents = plugin.files[file.path];
-						return !contents || !bytesEqual(file.contents, contents);
-					}))
-			) {
-				return yield* new DbError({
-					message: "Immutable plugin revision conflicts with retained source files",
-				});
-			}
-			if (sourceEntries.length > 0) {
-				yield* database.run((db) =>
-					db
-						.insert(schema.pluginRevisionSourceFile)
-						.values(
-							sourceEntries.map(([path, contents]) => ({
-								path,
-								pluginRevisionId,
-								contents: Buffer.from(contents),
-							})),
-						)
-						.onConflictDoNothing(),
-				);
 			}
 			const providers =
 				plugin.manifest.providers.length > 0
@@ -1401,7 +1263,6 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			persist,
 			deactivate,
 			lockIngestion,
-			listSourceFiles,
 			findKernelScript,
 			findBySourceHash,
 			isActiveRevision,
@@ -1418,11 +1279,9 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 			findPrivateByIdForUser,
 			listActiveSystemPlugins,
 			hasDefinitionReferences,
-			listRevisionSourceFiles,
 			resolveEnvironmentConfig,
 			listActiveHttpRateLimits,
 			hasIntegrationReferences,
-			listAuthorizedSourceFiles,
 			deleteUnreferencedScripts,
 			hasLiveWorkflowReferences,
 			listPortablePluginMetadata,
@@ -1463,15 +1322,6 @@ export class PluginRepository extends Context.Service<PluginRepository>()("Plugi
 					and not exists (select 1 from sandbox_workflow_reference w join sandbox_script s on s.id = w.script_id join plugin_revision r on r.id = s.plugin_revision_id where w.plugin_installation_id = c.plugin_installation_id or r.plugin_id = (select plugin_id from plugin_revision where id = c.plugin_revision_id))
 					limit ${input.limit}
 				) update plugin_config_revision set encrypted_payload = null, payload_pruned_at = ${input.now} where id in (select id from candidates)`),
-					);
-					yield* database.run((db) =>
-						db.execute(sql`with candidates as (
-					select distinct f.plugin_revision_id from plugin_revision_source_file f
-					where not exists (select 1 from plugin p where p.active_revision_id = f.plugin_revision_id and p.status = 'active')
-					and not exists (select 1 from automation_run r where r.plugin_revision_id = f.plugin_revision_id and (r.status in ('queued', 'running') or r.artifacts_expire_at > ${input.now}))
-					and not exists (select 1 from sandbox_workflow_reference w join sandbox_script s on s.id = w.script_id where s.plugin_revision_id = f.plugin_revision_id)
-					limit ${input.limit}
-				) delete from plugin_revision_source_file where plugin_revision_id in (select plugin_revision_id from candidates)`),
 					);
 				},
 			),

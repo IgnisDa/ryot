@@ -1,4 +1,4 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
@@ -8,19 +8,19 @@ import details, { manifest as detailsManifest } from "./details.sandbox";
 import search, { manifest as searchManifest } from "./search.sandbox";
 import { manifest } from "./shared";
 
-type VndbHost = SandboxHost<typeof manifest.capabilities>;
+type VndbHost = Pick<ScriptHost, "httpCall">;
 const httpSuccess = (body: unknown) =>
 	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
 const makeHost = (httpCall: VndbHost["httpCall"]) => defineSandboxTestHost(manifest, { httpCall });
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 describe("visual-novel.vndb sandbox script", () => {
-	it("declares one narrowly scoped script per operation", () => {
+	it("declares a script for each operation", () => {
 		expect([
-			[searchManifest.slug, search.operation, searchManifest.capabilities],
-			[detailsManifest.slug, details.operation, detailsManifest.capabilities],
+			[searchManifest.slug, search.operation],
+			[detailsManifest.slug, details.operation],
 		]).toEqual([
-			["visual-novel.vndb.search", "search", ["httpCall"]],
-			["visual-novel.vndb.details", "details", ["httpCall"]],
+			["visual-novel.vndb.search", "search"],
+			["visual-novel.vndb.details", "details"],
 		]);
 	});
 	it("maps VN search hits and drops entries missing an id or title", () => {

@@ -23,7 +23,10 @@ const script = {
 	kind: "automation",
 	automationType: "policy",
 	name: "Validate progress",
+	oauthConnectionFields: [],
+	executableDependencies: [],
 	requiredPluginConfigKeys: [],
+	optionalPluginConfigKeys: [],
 	capabilities: ["executeRyotql"],
 	entry: "backend/policy.sandbox.ts",
 	inputProjection: {
@@ -32,6 +35,24 @@ const script = {
 		relationship: { properties: [] },
 	},
 } as const;
+const registeredScript = (
+	slug: string,
+	capabilities: ReadonlyArray<string> = [],
+	executableDependencies: ReadonlyArray<{
+		readonly kind: "script" | "workflow";
+		readonly slug: string;
+	}> = [],
+) => ({
+	slug,
+	name: slug,
+	capabilities,
+	executableDependencies,
+	kind: "script" as const,
+	oauthConnectionFields: [],
+	requiredPluginConfigKeys: [],
+	optionalPluginConfigKeys: [],
+	entry: `backend/${slug}.sandbox.ts`,
+});
 const afterInputProjection = {
 	event: { properties: [], compareProperties: [] },
 	entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
@@ -375,6 +396,83 @@ describe("lifecycle hook declarations", () => {
 					],
 				}).hooks,
 			).toHaveLength(1);
+		}
+	});
+
+	it("requires idempotency for external effects in any registered child alternative", () => {
+		for (const capability of ["httpCall", "sendNotification"] as const) {
+			const retry = { ...DEFAULT_AUTOMATION_RETRY_POLICY, maxAttempts: 3 };
+			const candidate = {
+				...manifest,
+				workflows: [{ slug: "nested", scriptSlug: "nested-workflow" }],
+				hooks: [{ ...hook, retry, stage: "after", delivery: "required" }],
+				scripts: [
+					{
+						...script,
+						capabilities: [],
+						automationType: "automation",
+						inputProjection: afterInputProjection,
+						executableDependencies: [
+							{
+								kind: "script",
+								slug: "delegate",
+								selection: { id: "path", key: "delegated", stage: "settings" },
+							},
+							{
+								slug: "safe",
+								kind: "script",
+								selection: { id: "path", key: "local", stage: "settings" },
+							},
+						],
+					},
+					registeredScript("delegate", [], [{ slug: "nested", kind: "workflow" }]),
+					registeredScript("safe"),
+					{
+						...registeredScript("nested-workflow", [], [{ kind: "script", slug: "effect" }]),
+						kind: "workflow" as const,
+					},
+					registeredScript("effect", [capability]),
+				],
+			};
+			expect(() => Schema.decodeUnknownSync(PluginManifest)(candidate)).toThrow();
+			const decoded = Schema.decodeUnknownSync(PluginManifest)({
+				...candidate,
+				hooks: [{ ...candidate.hooks[0], retry: { ...retry, externalIdempotency: "run-id" } }],
+			});
+			expect(decoded.scripts.find(({ slug }) => slug === "policy")?.capabilities).toEqual([]);
+		}
+	});
+
+	it("rejects unresolved delegated script and workflow targets", () => {
+		for (const dependency of [
+			{ kind: "script", slug: "missing-script" },
+			{ kind: "workflow", slug: "missing-workflow" },
+		]) {
+			expect(() =>
+				Schema.decodeUnknownSync(PluginManifest)({
+					...manifest,
+					scripts: [
+						{
+							...script,
+							automationType: "automation",
+							executableDependencies: [dependency],
+							inputProjection: afterInputProjection,
+						},
+					],
+					hooks: [
+						{
+							...hook,
+							stage: "after",
+							delivery: "required",
+							retry: {
+								...DEFAULT_AUTOMATION_RETRY_POLICY,
+								maxAttempts: 3,
+								externalIdempotency: "run-id",
+							},
+						},
+					],
+				}),
+			).toThrow();
 		}
 	});
 

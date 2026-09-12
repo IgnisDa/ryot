@@ -105,6 +105,34 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()("Mutat
 		const requireTransaction = session.requireTransaction.pipe(
 			Effect.mapError(() => new DbError({ message: "Mutation receipt requires a transaction" })),
 		);
+		const getCommittedItems = Effect.fn("MutationReceipts.getCommittedItems")(function* (input: {
+			userId: UserId;
+			accountGeneration: AccountGeneration;
+			rootExecutionId: string;
+			itemIdentities: ReadonlyArray<string>;
+		}) {
+			if (input.itemIdentities.length === 0) {
+				return [];
+			}
+			if (input.itemIdentities.length > 1000 || input.accountGeneration.userId !== input.userId) {
+				return yield* new DbError({ message: "Invalid committed ingestion fact query" });
+			}
+			return yield* session.run((db) =>
+				db
+					.select()
+					.from(mutationReceipt)
+					.where(
+						and(
+							eq(mutationReceipt.receiptType, "item"),
+							eq(mutationReceipt.ownerUserId, input.userId),
+							eq(mutationReceipt.rootExecutionId, input.rootExecutionId),
+							eq(mutationReceipt.accountGeneration, input.accountGeneration),
+							inArray(mutationReceipt.itemIdentity, [...input.itemIdentities]),
+							sql`exists (select 1 from ${user} where ${user.id} = ${input.userId} and ${user.accountGeneration} = ${input.accountGeneration.token})`,
+						),
+					),
+			);
+		});
 		const inTransaction = <A, E, R>(
 			work: Effect.Effect<A, E, R>,
 		): Effect.Effect<A, E | DbError, R> =>
@@ -629,6 +657,7 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()("Mutat
 			currentAccount,
 			retireUserPins,
 			registerWorkflow,
+			getCommittedItems,
 			countWrittenEvents,
 			peek: <Result>(identity: MutationReceiptIdentity, result: Schema.Codec<Result, unknown>) =>
 				inTransaction(

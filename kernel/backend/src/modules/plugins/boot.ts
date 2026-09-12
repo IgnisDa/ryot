@@ -1,5 +1,6 @@
 import type { PluginArchiveCompiledScript } from "@ryot-app/plugin-archive";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer } from "effect";
 
 import { DatabaseSession } from "#lib/infrastructure/db/session";
@@ -28,9 +29,9 @@ export class SystemPluginBootstrap extends Context.Service<SystemPluginBootstrap
 			const scriptGarbageCollector = yield* ScriptGarbageCollector;
 			const loadKernelScripts = Effect.fn("SystemPluginBootstrap.loadKernelScripts")(function* () {
 				const declaredScripts: ReadonlyArray<(typeof kernelScripts)[number]> = kernelScripts;
-				const outputs = new Map<string, PluginArchiveCompiledScript>(
+				const outputs = new Map<string, (typeof kernelScriptCompiledOutputs)[number]>(
 					(kernelScriptCompiledOutputs satisfies ReadonlyArray<PluginArchiveCompiledScript>).map(
-						(output: PluginArchiveCompiledScript) => [output.entry, output],
+						(output) => [output.entry, output],
 					),
 				);
 				if (
@@ -48,12 +49,25 @@ export class SystemPluginBootstrap extends Context.Service<SystemPluginBootstrap
 							new Error(`Generated kernel script output is missing ${script.entry}`),
 						);
 					}
-					const { entry: _entry, ...metadata } = script;
+					const { entry: _entry, ...declared } = script;
+					const {
+						capabilities: _capabilities,
+						requiredPluginConfigKeys: _required,
+						optionalPluginConfigKeys: _optional,
+						oauthConnectionFields: _connections,
+						executableDependencies: _dependencies,
+						...authored
+					} = output.manifest;
+					if (stableStringify(declared) !== stableStringify(authored)) {
+						return Effect.die(
+							new Error(`Generated kernel script metadata does not match ${script.entry}`),
+						);
+					}
 					return Effect.succeed({
-						metadata,
 						slug: script.slug,
 						name: script.name,
 						source: output.source,
+						metadata: output.manifest,
 						compiledFormat: output.format,
 						compiledCode: output.javascript,
 						contentHash: digest(output.javascript),

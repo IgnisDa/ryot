@@ -24,17 +24,9 @@ export const manifest = defineManifest({
 	kind: "provider",
 	name: "TMDB Movie",
 	slug: "movie.tmdb",
-	requiredPluginConfigKeys: ["tmdbAccessToken"],
-	capabilities: ["httpCall", "getPluginConfig", "getUserSettings"],
 });
 
-const httpManifest = defineManifest({
-	kind: "provider",
-	name: "TMDB Movie",
-	slug: "movie.tmdb",
-	capabilities: ["httpCall", "getPluginConfig"],
-	requiredPluginConfigKeys: ["tmdbAccessToken"],
-});
+const httpManifest = defineManifest({ kind: "provider", name: "TMDB Movie", slug: "movie.tmdb" });
 
 export const search = defineProvider({
 	manifest,

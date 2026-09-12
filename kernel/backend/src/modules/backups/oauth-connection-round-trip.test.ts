@@ -17,14 +17,19 @@ import { ProKeyService } from "#lib/infrastructure/pro-key";
 import { RedisService } from "#lib/infrastructure/redis";
 import { S3Service } from "#lib/infrastructure/s3";
 import { makeAppConfigLayer, makeRedisService, makeWorkflowEngine } from "#lib/test-utils/effect";
+import { ingestionRetirementTestLayer } from "#lib/test-utils/ingestion-retirement";
+import { integrationCrudIngestionLayer } from "#lib/test-utils/integration-crud";
 import { LifecycleWriteGuard } from "#modules/auth/lifecycle-write-guard";
 import { DataImportAdmission } from "#modules/imports/data-admission";
+import { ImportsRepository } from "#modules/imports/repository";
 import { ImportsService } from "#modules/imports/service";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { IntegrationsService } from "#modules/integrations/service";
+import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
 import { OAuthConnectionsServiceLive } from "#modules/oauth-connections/layer";
 import { OAuthConnectionsService } from "#modules/oauth-connections/service";
 import { PluginBackupRestore } from "#modules/plugins/backup-restore";
+import { IngestionReadinessService } from "#modules/plugins/ingestion-readiness-service";
 import { IntegrationProviderCatalog } from "#modules/plugins/integration-provider-catalog";
 import { PluginBackupRestoreLive } from "#modules/plugins/layer";
 import {
@@ -32,6 +37,7 @@ import {
 	oauthRevisionPackage,
 	revisionDatabaseLayer,
 } from "#modules/plugins/revision.test-support";
+import { ObjectStorageService } from "#modules/uploads/object-storage/service";
 
 import { createArchiveStream, validateArchiveStream } from "./archive/archive";
 import { BackupExportSnapshot } from "./export/snapshot";
@@ -86,6 +92,14 @@ const roundTripLayer = Layer.mergeAll(
 			Layer.mergeAll(
 				IntegrationsRepository.layer,
 				IntegrationProviderCatalog.layer,
+				IngestionReadinessService.layer,
+				ImportsRepository.layer,
+				integrationCrudIngestionLayer.pipe(
+					Layer.provideMerge(ingestionRetirementTestLayer),
+					Layer.provide(ObjectStorageService.layer),
+					Layer.provide(Layer.succeed(AdmittedWorkflowCatalogue, Object.freeze([]))),
+					Layer.provide(Layer.succeed(WorkflowEngine, makeWorkflowEngine())),
+				),
 				OAuthConnectionsServiceLive,
 				Layer.mock(ImportsService)({}),
 				Layer.mock(DataImportAdmission)({}),

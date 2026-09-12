@@ -1,8 +1,10 @@
 import {
-	createTypeScriptProject,
+	withTypeScriptProject,
 	type TypeScriptProjectConfiguration,
 } from "@ryot-app/typescript-compiler";
 import { Data, Effect } from "effect";
+
+import { createSandboxExecutionAnalyzer } from "./compiler-execution";
 
 const virtualRoot = "/__ryot_sandbox__";
 
@@ -43,22 +45,47 @@ export const createTypeScriptSourcesProjectForEntries = (
 	sdkEntries: Readonly<Record<string, string>>,
 	tsserverPath: string,
 ) =>
-	createTypeScriptProject({
-		entries,
-		virtualRoot,
-		tsserverPath,
-		files: sources.files,
-		projectKind: "sandbox",
-		configuration: {
-			...sandboxTypeScriptProject,
-			compilerOptions: {
-				...sandboxTypeScriptProject.compilerOptions,
-				paths: Object.fromEntries(
-					Object.entries(sdkEntries).map(([specifier, entry]) => [specifier, [entry]]),
-				),
+	withTypeScriptProject(
+		{
+			entries,
+			virtualRoot,
+			tsserverPath,
+			files: sources.files,
+			projectKind: "sandbox",
+			configuration: {
+				...sandboxTypeScriptProject,
+				compilerOptions: {
+					...sandboxTypeScriptProject.compilerOptions,
+					paths: Object.fromEntries(
+						Object.entries(sdkEntries).map(([specifier, entry]) => [specifier, [entry]]),
+					),
+				},
 			},
 		},
-	});
+		(project) =>
+			Effect.gen(function* () {
+				const analyzeSandboxExecution = createSandboxExecutionAnalyzer(project);
+				const executionByEntry = Object.fromEntries(
+					yield* Effect.forEach(entries, (entry) =>
+						Effect.gen(function* () {
+							const file = project.entrySourceFiles[entry];
+							if (!file) {
+								return yield* new TypeScriptProjectError({
+									message: `TypeScript did not load ${entry}`,
+								});
+							}
+							return [entry, yield* analyzeSandboxExecution(file)] as const;
+						}),
+					),
+				);
+				return {
+					executionByEntry,
+					diagnostics: project.diagnostics,
+					sourceFiles: project.sourceFiles,
+					entrySourceFiles: project.entrySourceFiles,
+				};
+			}),
+	);
 
 export const createTypeScriptSourcesProject = (
 	sources: SandboxTypeScriptSources,
@@ -66,10 +93,15 @@ export const createTypeScriptSourcesProject = (
 	tsserverPath: string,
 ) =>
 	createTypeScriptSourcesProjectForEntries(sources, [sources.entry], sdkEntries, tsserverPath).pipe(
-		Effect.flatMap(({ diagnostics, sourceFiles, entrySourceFiles }) => {
+		Effect.flatMap(({ diagnostics, sourceFiles, entrySourceFiles, executionByEntry }) => {
 			const sourceFile = entrySourceFiles[sources.entry];
 			return sourceFile
-				? Effect.succeed({ sourceFile, diagnostics, sourceFiles })
+				? Effect.succeed({
+						sourceFile,
+						diagnostics,
+						sourceFiles,
+						execution: executionByEntry[sources.entry],
+					})
 				: Effect.fail(
 						new TypeScriptProjectError({
 							message: "TypeScript did not load the sandbox entry file",

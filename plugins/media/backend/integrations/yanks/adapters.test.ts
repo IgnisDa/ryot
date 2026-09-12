@@ -1,8 +1,9 @@
 import { describe, expect, it } from "@effect/vitest";
 import type { JsonValue } from "@ryot-app/contract/modules/ryotql/language";
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
-import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
+import { defineSandboxTestHost } from "@ryot-app/sandbox-sdk/testing";
+import { TestClock } from "effect/testing";
 
 import {
 	execution,
@@ -11,8 +12,11 @@ import {
 	httpSuccess,
 	integrationRecord,
 } from "../../../tests/backend/automations/automation-test-utils";
+import { mediaFilesystem } from "../../imports/ingestion.test-support";
 import type { MediaIntegrationAdapterResult } from "../../imports/schemas";
 import type { HistoryClient } from "../../lib/vendors/youtube-music";
+import { runIntegrationTestScript, integrationTestResult } from "../artifacts.test-support";
+import { confirmIntegrationSource } from "../source-state";
 import audiobookshelfDefinition, {
 	manifest as audiobookshelfManifest,
 } from "./audiobookshelf.sandbox";
@@ -29,7 +33,10 @@ import {
 
 const failure = Symbol("failure");
 type Route = JsonValue | typeof failure;
-type HttpCall = SandboxHost<typeof plexManifest.capabilities>["httpCall"];
+type HttpCall = Pick<
+	ScriptHost,
+	"getCurrentIntegration" | "httpCall" | "getPluginConfig" | "getCachedValue" | "setCachedValue"
+>["httpCall"];
 type EntityGroup = MediaIntegrationAdapterResult["entityGroups"][number];
 
 const routeKey = (url: string) => {
@@ -102,7 +109,7 @@ const progressValues = (result: MediaIntegrationAdapterResult) =>
 
 const runPlex = (routes: Record<string, Route>, syncOwnership = false) =>
 	Effect.runPromise(
-		runSandboxTestScript(
+		runIntegrationTestScript(
 			plexDefinition,
 			{},
 			defineSandboxTestHost(plexManifest, {
@@ -127,7 +134,7 @@ const podcastItem = (id: string) => ({
 
 const runAudiobookshelf = (routes: Record<string, Route>, syncOwnership = false) =>
 	Effect.runPromise(
-		runSandboxTestScript(
+		runIntegrationTestScript(
 			audiobookshelfDefinition,
 			{},
 			defineSandboxTestHost(audiobookshelfManifest, {
@@ -681,7 +688,7 @@ describe("Komga yank", () => {
 					links: [{ label: "AniList", url: "https://anilist.co/manga/30002" }],
 				},
 			};
-			const result = yield* runSandboxTestScript(
+			const result = yield* runIntegrationTestScript(
 				komgaDefinition,
 				{},
 				defineSandboxTestHost(komgaManifest, {
@@ -720,6 +727,7 @@ const setup = (
 		httpCall: httpCall({}),
 		log: () => hostSuccess(null),
 		span: () => hostSuccess(null),
+		getPersistentValue: (key) => hostSuccess(claims.has(key) ? true : null),
 		getCurrentIntegration: () =>
 			hostSuccess(integrationRecord({ lot: "yank", providerSpecifics, provider: "youtube_music" })),
 		claimPersistentValue: (key) => {
@@ -731,9 +739,40 @@ const setup = (
 		},
 	});
 	const run = (startedAt: string) =>
-		runYoutubeMusicYank({}, host, { ...execution, startedAt }, () =>
-			Effect.succeed(historyClient(songs)),
-		);
+		Effect.gen(function* () {
+			yield* TestClock.setTime(Date.parse(startedAt));
+			const fs = mediaFilesystem({});
+			yield* runYoutubeMusicYank({}, host, { ...execution, startedAt }, () =>
+				Effect.succeed(historyClient(songs)),
+			);
+			const records = yield* fs.records();
+			yield* confirmIntegrationSource(
+				{
+					part: 0,
+					final: true,
+					runId: "run",
+					batchId: startedAt,
+					inputFingerprint: startedAt,
+					confirmed: records.flatMap(
+						({ group }) =>
+							group?.events.flatMap((event) =>
+								event.operationId && event.attribution
+									? [
+											{
+												reason: null,
+												result: "created" as const,
+												operationId: event.operationId,
+												attribution: event.attribution,
+											},
+										]
+									: [],
+							) ?? [],
+					),
+				},
+				host,
+			);
+			return integrationTestResult(records);
+		});
 	return { run, claims };
 };
 
@@ -748,7 +787,7 @@ describe("YouTube Music yank", () => {
 		expect(ttlSeconds).toBeLessThanOrEqual(86_400);
 	});
 
-	it.live("rejects a stored timezone that is not an IANA zone", () =>
+	it.effect("rejects a stored timezone that is not an IANA zone", () =>
 		Effect.gen(function* () {
 			const { run } = setup([], { authCookie: "cookie", timezone: "Not/AZone" });
 			const error = yield* Effect.flip(run("2026-01-01T00:00:00.000Z"));
@@ -766,7 +805,7 @@ describe("YouTube Music yank", () => {
 		expect(dailyProgressWindow("UTC", "2026-01-01T23:50:00.000Z").isFinalWindow).toBe(true);
 	});
 
-	it.live("emits 35 once, emits 100 once, then skips songs already completed that day", () =>
+	it.effect("emits 35 once, emits 100 once, then skips songs already completed that day", () =>
 		Effect.gen(function* () {
 			const { run } = setup([
 				{ videoId: "v1", title: "First" },
@@ -779,12 +818,15 @@ describe("YouTube Music yank", () => {
 		}),
 	);
 
-	it.live("completes a song directly when first found in the final ten minutes", () =>
+	it.effect("completes a song directly when first found in the final ten minutes", () =>
 		Effect.gen(function* () {
 			const { run, claims } = setup();
 			expect(progressValues(yield* run("2026-01-01T23:50:00.000Z"))).toEqual([100]);
 			expect(progressValues(yield* run("2026-01-01T23:55:00.000Z"))).toEqual([]);
-			expect([...claims]).toEqual([expect.stringMatching(/:v1:2026-01-01:completed$/)]);
+			expect([...claims]).toEqual([
+				expect.stringMatching(/:v1:2026-01-01:seen$/),
+				expect.stringMatching(/:v1:2026-01-01:completed$/),
+			]);
 		}),
 	);
 });

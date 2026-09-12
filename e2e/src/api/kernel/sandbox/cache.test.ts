@@ -30,8 +30,6 @@ export const manifest = defineManifest({
   kind: "provider",
   name: ${JSON.stringify(input.name)},
   slug: ${JSON.stringify(input.slug)},
-  capabilities: [${JSON.stringify(input.operation === "details" ? "setCachedValue" : "getCachedValue")}],
-  requiredPluginConfigKeys: [],
 });
 
 export default defineProvider({

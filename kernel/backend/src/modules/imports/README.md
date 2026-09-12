@@ -110,6 +110,19 @@ admission. Before source code runs, the sandbox workflow registration also retai
 plugin configuration revision. Replay and restart do not resolve current plugin code or
 configuration again. Changes after pinning affect later runs, not the retained run.
 
+Manual imports capture `executionSettings.userSettings` at admission after defaults are applied.
+Integration runs also capture `executionSettings.integration` with `providerSpecifics`,
+`minimumProgress`, `maximumProgress`, and `syncOwnership` when execution is released. The existing
+`admitted-source` capture encrypts this state with the `ryot/ingestion/admitted-input` purpose for the
+exact ingestion scope. For a blocked integration delivery, release evaluates readiness and captures
+the same settings used for that readiness and plan. The prepared release is encrypted with
+`PluginConfigEncryptionKey` and bound to the exact ingestion scope; recovery reuses it rather than
+selecting settings again.
+
+These settings are execution inputs, not snapshots of user data or authority. Ordinary data reads and
+writes, cancellation, deletion and revocation checks, and OAuth connection validity and refresh remain
+live during execution.
+
 ## Integration finalization
 
 Cancelling an integration import cancels only that run; it does not disable the integration or stop

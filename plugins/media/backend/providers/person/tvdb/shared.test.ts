@@ -1,11 +1,14 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/sandbox-sdk/testing";
 import { describe, expect, it } from "vitest";
 
 import { details, manifest, search, translate } from "./shared";
 
-type TvdbHost = SandboxHost<typeof manifest.capabilities>;
+type TvdbHost = Pick<
+	ScriptHost,
+	"httpCall" | "getCachedValue" | "setCachedValue" | "getPluginConfig"
+>;
 
 const httpSuccess = (body: unknown) =>
 	Effect.succeed({ status: 200, headers: {}, body: JSON.stringify(body) });
@@ -15,7 +18,7 @@ const makeHost = (httpCall: TvdbHost["httpCall"]) =>
 		httpCall,
 		setCachedValue: () => Effect.succeed(null),
 		getCachedValue: () => Effect.succeed("Bearer test-token"),
-		getPluginConfig: (keys) =>
+		getPluginConfig: ({ required: keys = [] }) =>
 			Effect.succeed(Object.fromEntries(keys.map((key) => [key, "test-api-key"]))),
 	});
 

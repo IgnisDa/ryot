@@ -1,9 +1,9 @@
-import type { SandboxHost } from "@ryot-app/sandbox-sdk/core";
+import type { ScriptHost } from "@ryot-app/sandbox-sdk/core";
 import { DateTime, Effect, Option } from "@ryot-app/sandbox-sdk/effect";
 
 import { decodeJsonResponse } from "../records";
 
-export type AudibleHost = SandboxHost<readonly ["httpCall"]>;
+export type AudibleHost = Pick<ScriptHost, "httpCall">;
 
 export const audibleFetchJson = (
 	host: AudibleHost,

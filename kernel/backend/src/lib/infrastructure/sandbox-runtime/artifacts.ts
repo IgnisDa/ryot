@@ -154,7 +154,10 @@ export class SandboxArtifactStore extends Context.Service<SandboxArtifactStore>(
 				const directory = path.join(ownerDirectory(ownerExecutionId), "inputs");
 				yield* fs.makeDirectory(directory, { recursive: true });
 				const target = path.join(directory, contentHash);
-				yield* materializeBytes(bytes, target);
+				yield* materializeBytes(bytes, target).pipe(
+					Effect.provideService(FileSystem.FileSystem, fs),
+					Effect.provideService(Path.Path, path),
+				);
 				return target;
 			});
 
@@ -192,7 +195,10 @@ export class SandboxArtifactStore extends Context.Service<SandboxArtifactStore>(
 						const bytes = yield* fs.readFile(source);
 						const contentHash = sha256Hex(bytes);
 						const handle = sha256Base64Url(`${ownerExecutionId}\0${contentHash}`);
-						yield* materializeBytes(bytes, path.join(directory, handle));
+						yield* materializeBytes(bytes, path.join(directory, handle)).pipe(
+							Effect.provideService(FileSystem.FileSystem, fs),
+							Effect.provideService(Path.Path, path),
+						);
 						return handle;
 					}),
 				);

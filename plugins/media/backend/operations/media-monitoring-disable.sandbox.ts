@@ -10,10 +10,8 @@ import {
 
 export const manifest = defineManifest({
 	kind: "operation",
-	requiredPluginConfigKeys: [],
 	name: "Disable media monitoring",
 	slug: "operation.media-monitoring-disable",
-	capabilities: ["executeRyotql", "changeUserRelationships"],
 });
 
 export default defineOperation({
