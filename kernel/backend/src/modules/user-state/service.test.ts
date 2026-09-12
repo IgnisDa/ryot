@@ -201,7 +201,7 @@ const makeMergeScope = (overrides: {
 
 it.effect("rejects clearing user state when the entity schema denies it", () => {
 	const layer = makeServiceLayer({
-		pluginRuntime: makePluginRuntimeLayer([], { library: ["clear", "merge"] }),
+		pluginRuntime: makePluginRuntimeLayer([], { "media-library": ["clear", "merge"] }),
 		entitiesRepository: makeEntitiesRepository({
 			getEntityScopeForUser: () =>
 				Effect.succeed({
@@ -211,7 +211,7 @@ it.effect("rejects clearing user state when the entity schema denies it", () => 
 					entitySchemaPluginId: null,
 					propertiesSchema: { fields: {} },
 					entityId: EntityId.make("library-entity"),
-					entitySchemaSlug: EntitySchemaSlug.make("library"),
+					entitySchemaSlug: EntitySchemaSlug.make("media-library"),
 				}),
 		}),
 	});

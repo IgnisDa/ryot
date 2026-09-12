@@ -25,7 +25,7 @@ import {
 } from "~/fixtures/kernel";
 import {
 	createGlobalBookEntityFixture,
-	queryInLibraryRelationship,
+	queryInMediaLibraryRelationship,
 } from "~/fixtures/plugins/media";
 import { assertPresent, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -54,16 +54,16 @@ const insertUserRelationship = (input: {
 		});
 	});
 
-const getLibraryEntityId = (client: Client) =>
+const getMediaLibraryEntityId = (client: Client) =>
 	Effect.gen(function* () {
-		const library = table("entity", "library");
+		const mediaLibrary = table("entity", "mediaLibrary");
 		const result = yield* executeRyotQL(
 			client,
 			document({
-				libraries: rows(library, {
+				libraries: rows(mediaLibrary, {
 					limit: 1,
-					fields: [field("id", column(library, "id"))],
-					where: eq(column(library, "entitySchemaSlug"), literal("library")),
+					fields: [field("id", column(mediaLibrary, "id"))],
+					where: eq(column(mediaLibrary, "entitySchemaSlug"), literal("media-library")),
 				}),
 			}),
 		);
@@ -84,9 +84,9 @@ describe("DELETE /user-state/clear/:id", () => {
 			const reviewEventSchema = requireEventSchemaBySlug(eventSchemas, "review");
 			const { entity: extraTarget } = yield* createGlobalBookEntityFixture(userA.client);
 			const inLibraryRelationship = {
-				schema: "in-library",
-				targetSchema: "library",
 				sourceSchema: schema.slug,
+				schema: "in-media-library",
+				targetSchema: "media-library",
 			};
 			const mediaSuggestionRelationship = {
 				sourceSchema: schema.slug,
@@ -168,12 +168,12 @@ describe("DELETE /user-state/clear/:id", () => {
 				relationshipCount: 1,
 			});
 
-			const userAMembership = yield* queryInLibraryRelationship(
+			const userAMembership = yield* queryInMediaLibraryRelationship(
 				userA.client,
 				entity.id,
 				schema.slug,
 			);
-			const userBMembership = yield* queryInLibraryRelationship(
+			const userBMembership = yield* queryInMediaLibraryRelationship(
 				userB.client,
 				entity.id,
 				schema.slug,
@@ -190,7 +190,7 @@ describe("DELETE /user-state/clear/:id", () => {
 	it.live("rejects clearing the library entity user state", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const libraryEntityId = yield* getLibraryEntityId(client);
+			const libraryEntityId = yield* getMediaLibraryEntityId(client);
 
 			const error = yield* Effect.flip(
 				client.call((c) => c.userState.clearUserState({ params: { entityId: libraryEntityId } })),

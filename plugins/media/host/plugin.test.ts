@@ -484,9 +484,9 @@ it("declares the complete media-owned source", () => {
 			dedicatedRenderers[slug] ?? { listPresentation: "media-row", gridPresentation: "media-card" },
 		);
 	}
-	expect(mediaPlugin.entitySchemas.map(({ slug }) => slug)).toContain("library");
-	expect(mediaPlugin.relationshipSchemas.map(({ slug }) => slug)).toContain("in-library");
-	expect(mediaPlugin.entitySchemas.find(({ slug }) => slug === "library")).toEqual(
+	expect(mediaPlugin.entitySchemas.map(({ slug }) => slug)).toContain("media-library");
+	expect(mediaPlugin.relationshipSchemas.map(({ slug }) => slug)).toContain("in-media-library");
+	expect(mediaPlugin.entitySchemas.find(({ slug }) => slug === "media-library")).toEqual(
 		expect.objectContaining({ userState: { deniedOperations: ["clear", "merge"] } }),
 	);
 	expect(mediaPlugin.configSchema.unknownKeys).toBe("strict");
@@ -670,15 +670,17 @@ it("declares the complete media-owned source", () => {
 });
 
 it("uses one required library hook for eligible creates, provider completion, and library-joining events", () => {
-	const hooks = mediaPlugin.hooks.filter(({ slug }) => slug === "media.ensure-library-membership");
+	const hooks = mediaPlugin.hooks.filter(
+		({ slug }) => slug === "media.ensure-media-library-membership",
+	);
 	expect(hooks).toHaveLength(1);
 	expect(hooks[0]).toEqual({
 		stage: "after",
 		delivery: "required",
 		executionScope: "user",
-		slug: "media.ensure-library-membership",
 		name: "Ensure media library membership",
-		scriptSlug: "automation.ensure-library-membership",
+		slug: "media.ensure-media-library-membership",
+		scriptSlug: "automation.ensure-media-library-membership",
 		targets: [
 			...mediaLibraryMemberEntitySchemaSlugs.flatMap((entitySchemaSlug) => [
 				{ entitySchemaSlug, resource: "entity", operation: "create" },
@@ -686,7 +688,7 @@ it("uses one required library hook for eligible creates, provider completion, an
 			]),
 			...mediaPlugin.entitySchemas.flatMap((schema) =>
 				schema.eventSchemas
-					.filter(({ slug }) => slug !== "add-to-library")
+					.filter(({ slug }) => slug !== "add-to-media-library")
 					.map(({ slug }) => ({
 						resource: "event",
 						operation: "create",
@@ -706,7 +708,7 @@ it("uses one required library hook for eligible creates, provider completion, an
 
 it("records newly-created media library memberships as events", () => {
 	const hooks = mediaPlugin.hooks.filter(
-		({ slug }) => slug === "media.record-library-membership-event",
+		({ slug }) => slug === "media.record-media-library-membership-event",
 	);
 
 	expect(hooks).toEqual([
@@ -714,11 +716,15 @@ it("records newly-created media library memberships as events", () => {
 			stage: "after",
 			delivery: "required",
 			executionScope: "user",
-			slug: "media.record-library-membership-event",
 			name: "Record media library membership event",
-			scriptSlug: "automation.record-library-membership-event",
+			slug: "media.record-media-library-membership-event",
+			scriptSlug: "automation.record-media-library-membership-event",
 			targets: [
-				{ operation: "create", resource: "relationship", relationshipSchemaSlug: "in-library" },
+				{
+					operation: "create",
+					resource: "relationship",
+					relationshipSchemaSlug: "in-media-library",
+				},
 			],
 		},
 	]);

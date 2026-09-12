@@ -219,8 +219,8 @@ export const personalMediaSuggestionsRecipe = defineRecipe(
 				entitySchemaSlug: input.entitySchemaSlug,
 				where: ({ source, target }) =>
 					and(
-						libraryLinkExists(source, "sourceLibrary", "in-library"),
-						not(libraryLinkExists(target, "targetLibrary", "in-library")),
+						libraryLinkExists(source, "sourceMediaLibrary", "in-media-library"),
+						not(libraryLinkExists(target, "targetMediaLibrary", "in-media-library")),
 					),
 			}),
 		},
@@ -381,8 +381,8 @@ export const defaultMediaSavedViewRecipe = (input: {
 	};
 }) => {
 	const entity = table("entity", "entity");
-	const library = table("entity", "library");
-	const membership = table("relationship", "inLibrary");
+	const mediaLibrary = table("entity", "mediaLibrary");
+	const membership = table("relationship", "inMediaLibrary");
 
 	const source = {
 		type: "generated",
@@ -393,13 +393,17 @@ export const defaultMediaSavedViewRecipe = (input: {
 		entitySchemaSlugs: input.schemas,
 		where: exists(membership, {
 			joins: [
-				join("inner", library, eq(column(membership, "targetEntityId"), column(library, "id"))),
+				join(
+					"inner",
+					mediaLibrary,
+					eq(column(membership, "targetEntityId"), column(mediaLibrary, "id")),
+				),
 			],
 			where: and(
 				eq(column(membership, "sourceEntityId"), column(entity, "id")),
-				eq(column(membership, "relationshipSchemaSlug"), literal("in-library")),
-				eq(column(library, "entitySchemaSlug"), literal("library")),
-				eq(column(membership, "targetEntityId"), column(library, "id")),
+				eq(column(membership, "relationshipSchemaSlug"), literal("in-media-library")),
+				eq(column(mediaLibrary, "entitySchemaSlug"), literal("media-library")),
+				eq(column(membership, "targetEntityId"), column(mediaLibrary, "id")),
 			),
 		}),
 	} as const;

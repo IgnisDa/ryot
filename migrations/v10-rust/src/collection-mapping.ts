@@ -158,7 +158,7 @@ BEGIN
 END $$;
 `;
 
-// Marks each Owned-collection member's existing in-library relationship as owned, mirroring the
+// Marks each Owned-collection member's existing in-media-library relationship as owned, mirroring the
 // runtime ownership shape. Runs after user-to-entity so the relationships already exist.
 export const buildOwnedCollectionOwnershipMigrationSql = (
 	inLibraryRelationshipSchema: QualifiedSchema,
@@ -186,7 +186,7 @@ BEGIN
 		AND rel.user_id = coll.user_id;
 
 	GET DIAGNOSTICS rows_updated = ROW_COUNT;
-	${buildReportSql("Owned collection -> in-library ownership", [{ count: "rows_updated", message: "relationship(s) updated" }])}
+	${buildReportSql("Owned collection -> in-media-library ownership", [{ count: "rows_updated", message: "relationship(s) updated" }])}
 END $$;
 `;
 

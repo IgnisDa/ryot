@@ -34,7 +34,7 @@ const activityRow = (event: MediaReviewActivityEvent): MediaReviewActivityRow =>
 	if (event.kind !== "media") {
 		return mediaCollectionRow(event);
 	}
-	if (event.eventSchemaSlug === "add-to-library") {
+	if (event.eventSchemaSlug === "add-to-media-library") {
 		return mediaLibraryRow(event);
 	}
 	return mediaReviewRow(event, REVIEW_SUBJECT);

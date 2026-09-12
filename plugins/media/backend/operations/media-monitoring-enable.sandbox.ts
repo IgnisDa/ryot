@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/sandbox-sdk/driver";
 import { Effect } from "@ryot-app/sandbox-sdk/effect";
 import { defineOperation } from "@ryot-app/sandbox-sdk/operation";
-import { executeRyotqlRecipe, userLibraryRecipe } from "@ryot-app/sandbox-sdk/ryotql";
+import { executeRyotqlRecipe, userMediaLibraryRecipe } from "@ryot-app/sandbox-sdk/ryotql";
 
 import { MediaMonitoringEnableInput, MediaMonitoringOutput } from "../contracts/operations";
 import {
@@ -24,9 +24,9 @@ export default defineOperation({
 	input: MediaMonitoringEnableInput,
 	run: (input, host) =>
 		Effect.gen(function* () {
-			const [targets, library] = yield* Effect.all([
+			const [targets, mediaLibrary] = yield* Effect.all([
 				queryMediaMonitoringTargets(input.entityIds, host.executeRyotql),
-				executeRyotqlRecipe(host.executeRyotql, userLibraryRecipe()),
+				executeRyotqlRecipe(host.executeRyotql, userMediaLibraryRecipe()),
 			]);
 			if (targets.length > 0) {
 				yield* host.changeUserRelationships([
@@ -36,13 +36,13 @@ export default defineOperation({
 							{
 								properties: {},
 								sourceEntityId: entityId,
-								targetEntityId: library.entityId,
-								relationshipSchemaSlug: "in-library",
+								targetEntityId: mediaLibrary.entityId,
+								relationshipSchemaSlug: "in-media-library",
 							},
 							{
 								properties: {},
 								sourceEntityId: entityId,
-								targetEntityId: library.entityId,
+								targetEntityId: mediaLibrary.entityId,
 								relationshipSchemaSlug: "media-monitoring",
 							},
 						]),
