@@ -383,7 +383,13 @@ export const migrateLegacyTables = Effect.gen(function* () {
 			fitnessInstallationId: requireInstallation(resolution, userId, fitnessPluginId),
 		}));
 		yield* withReservedConnection((connection) =>
-			connection.executeRaw(buildLegacySavedViewStateMigrationSql(savedViewInstallations), []),
+			connection.executeRaw(
+				buildLegacySavedViewStateMigrationSql(savedViewInstallations, {
+					mediaPluginId,
+					fitnessPluginId,
+				}),
+				[],
+			),
 		);
 
 		yield* Effect.logInfo("legacy user bootstrap backfill finished").pipe(
